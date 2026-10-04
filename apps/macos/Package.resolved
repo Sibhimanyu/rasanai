@@ -1,6 +1,15 @@
 {
-  "originHash" : "4f71cb0c24c97e9bd36dd1ca8d5dfad7ade2be9f422fc621ebd3a7861ad74873",
+  "originHash" : "0728fe618f5e25015cbf38256783de8bf743f1c11e67af361a784abc856c9d19",
   "pins" : [
+    {
+      "identity" : "heresay-swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Sibhimanyu/heresay-swift",
+      "state" : {
+        "revision" : "c489d7ea3104df1c7795b228570204085cf80105",
+        "version" : "0.2.13"
+      }
+    },
     {
       "identity" : "sparkle",
       "kind" : "remoteSourceControl",

@@ -1,5 +1,6 @@
 import SwiftUI
 import StudioCore
+import Heresay
 
 @main
 struct RasanAIStudioApp: App {
@@ -13,6 +14,7 @@ struct RasanAIStudioApp: App {
             // Screenshot mode never touches the real library, settings or runtime.
             _store = State(initialValue: StudioStore(settings: SnapshotHarness.isolatedSettings(), demo: true))
         } else {
+            Heresay.configure(key: "pk_qieWNOYhIPtsSCFjfOYOLqSW", url: URL(string: "https://heresay-sibhi-42b1.web.app")!)
             _store = State(initialValue: StudioStore())
         }
     }
@@ -24,6 +26,7 @@ struct RasanAIStudioApp: App {
             Group {
                 if snapshotDirectory == nil {
                     StudioView(store: store)
+                        .heresay()
                         .preferredColorScheme(store.settings.colorScheme)
                         .onAppear {
                             delegate.runtime = store.runtime
@@ -73,6 +76,7 @@ struct RasanAIStudioApp: App {
                 Button("Show Welcome…") { store.settings.showWelcome = true }
                 Button("Explore a Sample Film") { store.exploreSample() }
             }
+            if snapshotDirectory == nil { HeresayCommands() }
         }
         Settings {
             StudioSettingsView(settings: store.settings)

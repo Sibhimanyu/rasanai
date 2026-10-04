@@ -1,5 +1,6 @@
 import SwiftUI
 import StudioCore
+import Heresay
 
 /// The window's root: a NavigationStack with Home at the bottom. No sidebars, no inspectors.
 struct StudioView: View {
@@ -34,6 +35,7 @@ struct StudioView: View {
         .frame(minWidth: 820, minHeight: 560)
         .sheet(item: $store.sheet, onDismiss: {
             if store.sheet == nil && store.settings.showWelcome { store.settings.showWelcome = false }
+            introduceFeedback()
         }) { sheet in
             switch sheet {
             case .welcome: WelcomeView(store: store).tint(.rasan)
@@ -42,6 +44,7 @@ struct StudioView: View {
             case .note: NoteSheet(store: store).tint(.rasan)
             }
         }
+        .onAppear { introduceFeedback() }
         .onChange(of: store.settings.showWelcome) {
             if store.settings.showWelcome { store.sheet = .welcome }
             else if store.sheet == .welcome { store.sheet = nil }
@@ -59,6 +62,12 @@ struct StudioView: View {
             if store.runtime.logURL != nil { Button("Show Log") { store.errorMessage = nil; store.sheet = .log } }
             Button("Dismiss", role: .cancel) { store.errorMessage = nil }
         } message: { Text(store.errorMessage ?? "") }
+    }
+
+    private func introduceFeedback() {
+        guard !store.isDemo, store.settings.hasCompletedWelcome,
+              !store.settings.showWelcome, store.sheet == nil else { return }
+        Heresay.introduce()
     }
 }
 
