@@ -5,56 +5,73 @@ import StudioCore
 struct RasanAIStudioApp: App {
     @NSApplicationDelegateAdaptor(StudioAppDelegate.self) private var delegate
     @StateObject private var updater = StudioUpdater.shared
-    @State private var store = StudioStore()
+    @State private var store: StudioStore
+    private let snapshotDirectory = SnapshotHarness.directory
+
+    init() {
+        if SnapshotHarness.directory != nil {
+            // Screenshot mode never touches the real library, settings or runtime.
+            _store = State(initialValue: StudioStore(settings: SnapshotHarness.isolatedSettings(), demo: true))
+        } else {
+            _store = State(initialValue: StudioStore())
+        }
+    }
+
+    private var onFilmPage: Bool { if case .film? = store.path.last { return true } else { return false } }
+
     var body: some Scene {
-        Window("RasanAI Studio", id: "studio") {
-            StudioView(store: store)
-                .preferredColorScheme(store.settings.colorScheme)
-                .frame(minWidth: 820, minHeight: 560)
-                .onAppear {
-                    delegate.runtime = store.runtime
-                    delegate.store = store
-                    delegate.configureNotifications()
-                    store.restoreWorkspace()
+        Window("RasanAI", id: "studio") {
+            Group {
+                if snapshotDirectory == nil {
+                    StudioView(store: store)
+                        .preferredColorScheme(store.settings.colorScheme)
+                        .onAppear {
+                            delegate.runtime = store.runtime
+                            delegate.store = store
+                            delegate.configureNotifications()
+                            store.restoreWorkspace()
+                        }
+                } else {
+                    Color.clear.frame(width: 1, height: 1)
+                        .onAppear { delegate.runSnapshots() }
                 }
+            }
         }
         .defaultSize(width: 1120, height: 740)
-        .windowStyle(.hiddenTitleBar)
+        .windowToolbarStyle(.unified)
         .commands {
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") { updater.check() }.disabled(!updater.canCheck)
             }
             CommandGroup(replacing: .newItem) {
-                Button("New Film…") { store.newFilm() }.keyboardShortcut("n")
-                Button("Open RasanAI Run…") { store.openPanel() }.keyboardShortcut("o")
-                Button("Show Sample Film") { store.loadSample() }.keyboardShortcut("d", modifiers: [.command, .shift])
-            }
-            CommandMenu("Film") {
-                Button(store.isPlaying ? "Pause" : "Play") { store.togglePlayback() }.keyboardShortcut(.space, modifiers: [])
-                Button("Add Note at Playhead…") { store.pause(); store.showNoteSheet = true }
-                    .keyboardShortcut("n", modifiers: [.command, .shift])
-                    .disabled(![.animatic, .final].contains(store.stage) || (!store.isSample && !store.isConnected))
-                Button("Reconnect Console") { store.reconnectConsole() }.keyboardShortcut("r").disabled(store.isSample || store.isReconnecting)
-                Divider()
-                Button("Export Film…") { store.exportVideo() }.keyboardShortcut("e").disabled(store.finalURL == nil)
-            }
-            CommandGroup(after: .newItem) {
+                Button("New Film") { store.newFilm() }.keyboardShortcut("n")
+                Button("Open Run Folder…") { store.openPanel() }.keyboardShortcut("o")
                 Menu("Open Recent") {
                     ForEach(store.recentRuns, id: \.self) { path in
                         Button(URL(fileURLWithPath: path).lastPathComponent) { store.openRun(URL(fileURLWithPath: path)) }
                     }
                     Divider()
-                    Button("Clear Recent Runs") { store.clearRecentRuns() }
+                    Button("Clear Menu") { store.clearRecentRuns() }
                 }.disabled(store.recentRuns.isEmpty)
             }
-            CommandGroup(after: .sidebar) {
-                Button("Toggle Sidebar") { store.toggleSidebar() }.keyboardShortcut("s", modifiers: [.control, .command])
-                Button("Toggle Director Inspector") { store.toggleInspector() }.keyboardShortcut("0", modifiers: [.option, .command])
+            CommandMenu("Film") {
+                if store.runtime.isRunning {
+                    Button("Pause Director") { store.pauseDirector() }
+                } else {
+                    Button("Resume Director") { store.resumeDirector() }.disabled(!onFilmPage || !store.canResume)
+                }
+                Button("Export Video…") { store.exportVideo() }.keyboardShortcut("e").disabled(!onFilmPage || store.finalURL == nil)
+                Button("Show in Finder") {
+                    if let url = store.selectedProjectURL ?? store.runURL { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                }.disabled(!onFilmPage)
+                Button("Show Log") { store.sheet = .log }.disabled(!onFilmPage || store.runtime.logURL == nil)
+                Divider()
+                Button("Reconnect") { store.reconnectConsole() }.keyboardShortcut("r").disabled(!onFilmPage || store.runURL == nil || store.isReconnecting)
             }
             CommandGroup(replacing: .help) {
-                Button("Welcome and Setup…") { store.settings.showWelcome = true }
-                Button("Keyboard Shortcuts…") { store.showShortcuts = true }
-                Link("RasanAI Studio Help", destination: URL(string: "https://github.com/Sibhimanyu/rasanai/tree/master/apps/macos")!)
+                Link("RasanAI Help", destination: guideURL)
+                Button("Show Welcome…") { store.settings.showWelcome = true }
+                Button("Explore a Sample Film") { store.exploreSample() }
             }
         }
         Settings {

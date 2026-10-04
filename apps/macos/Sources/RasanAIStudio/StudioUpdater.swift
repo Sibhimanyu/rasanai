@@ -5,12 +5,19 @@ import SwiftUI
 @MainActor
 final class StudioUpdater: ObservableObject {
     static let shared = StudioUpdater()
+    /// Updates are checked every 5 hours.
+    static let checkInterval: TimeInterval = 18_000
     @Published var canCheck = false
     @Published var automaticChecks = false
     @Published var configurationError: String?
+    @Published var lastChecked: Date?
     private var observation: AnyCancellable?
     private var controller: SPUStandardUpdaterController?
     var isConfigured: Bool { controller != nil && configurationError == nil }
+    var lastCheckedText: String {
+        guard let lastChecked else { return "Never" }
+        return lastChecked.formatted(.relative(presentation: .named))
+    }
     private init() {
         // Source/candidate builds keep checks off; release packaging explicitly opts in.
         guard Bundle.main.object(forInfoDictionaryKey: "RasanAIUpdatesEnabled") as? Bool == true,
@@ -23,28 +30,26 @@ final class StudioUpdater: ObservableObject {
         do { try controller.updater.start() }
         catch { configurationError = error.localizedDescription; return }
         self.controller = controller
-        automaticChecks = controller.updater.automaticallyChecksForUpdates
-        observation = controller.updater.publisher(for: \.canCheckForUpdates).sink { [weak self] value in
-            Task { @MainActor in self?.canCheck = value }
+        let updater = controller.updater
+        // On by default; only an explicit opt-out in Settings turns it off. Sparkle's own stored
+        // value from older builds is false, so we override it here.
+        let optedOut = UserDefaults.standard.bool(forKey: "updatesOptOut")
+        updater.automaticallyChecksForUpdates = !optedOut
+        updater.updateCheckInterval = Self.checkInterval
+        automaticChecks = !optedOut
+        lastChecked = updater.lastUpdateCheckDate
+        observation = updater.publisher(for: \.canCheckForUpdates).sink { [weak self] value in
+            Task { @MainActor in
+                self?.canCheck = value
+                self?.lastChecked = self?.controller?.updater.lastUpdateCheckDate
+            }
         }
+        if !optedOut { updater.checkForUpdatesInBackground() }
     }
     func check() { controller?.updater.checkForUpdates() }
     func setAutomaticChecks(_ value: Bool) {
         controller?.updater.automaticallyChecksForUpdates = value
+        UserDefaults.standard.set(!value, forKey: "updatesOptOut")
         automaticChecks = value
-    }
-}
-
-struct UpdateSettingsView: View {
-    @ObservedObject var updater = StudioUpdater.shared
-    var body: some View {
-        Section("Software updates") {
-            Toggle("Automatically check for updates", isOn: Binding(get: { updater.automaticChecks }, set: { value in updater.setAutomaticChecks(value) }))
-                .disabled(!updater.isConfigured)
-            Button("Check for Updates…") { updater.check() }.disabled(!updater.canCheck)
-            if let error = updater.configurationError { Text(error).font(.caption).foregroundStyle(.secondary) }
-            Text("Updates use Sparkle and signed GitHub release downloads. Project files stay outside the application bundle.")
-                .font(.caption).foregroundStyle(.secondary)
-        }
     }
 }

@@ -8,10 +8,12 @@ public struct FilmDraft: Codable, Sendable {
     public var aspect: String
     public var agent: String
     public var motionLevel: String
-    public init(brief: String = "", duration: Int = 45, aspect: String = "16:9", agent: String = "claude", motionLevel: String = "maximal") {
-        self.brief = brief; self.duration = duration; self.aspect = aspect; self.agent = agent; self.motionLevel = motionLevel
+    /// Name of the brand kit applied to this film, if any.
+    public var brand: String?
+    public init(brief: String = "", duration: Int = 45, aspect: String = "16:9", agent: String = "claude", motionLevel: String = "maximal", brand: String? = nil) {
+        self.brief = brief; self.duration = duration; self.aspect = aspect; self.agent = agent; self.motionLevel = motionLevel; self.brand = brand
     }
-    private enum CodingKeys: String, CodingKey { case brief, duration, aspect, agent, motionLevel }
+    private enum CodingKeys: String, CodingKey { case brief, duration, aspect, agent, motionLevel, brand }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         brief = try c.decode(String.self, forKey: .brief)
@@ -19,6 +21,7 @@ public struct FilmDraft: Codable, Sendable {
         aspect = try c.decode(String.self, forKey: .aspect)
         agent = try c.decode(String.self, forKey: .agent)
         motionLevel = try c.decodeIfPresent(String.self, forKey: .motionLevel) ?? "maximal"
+        brand = try c.decodeIfPresent(String.self, forKey: .brand)
     }
     public func request(sources: [URL]) -> String {
         """

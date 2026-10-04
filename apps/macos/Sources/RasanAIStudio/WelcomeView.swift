@@ -2,71 +2,109 @@ import AppKit
 import SwiftUI
 import StudioCore
 
+/// First-launch setup. One calm screen: it finds your director, then you are in.
 struct WelcomeView: View {
     @Bindable var store: StudioStore
+    @State private var selected: LocalAgent = .claude
+    @State private var copied: LocalAgent?
     private var settings: StudioSettings { store.settings }
-    private var agent: LocalAgent { LocalAgent(rawValue: settings.defaultAgent) ?? .claude }
+    private var agents: [LocalAgent] { [.claude, .codex] }
+    private var anyInstalled: Bool { agents.contains { settings.isInstalled($0) } }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("Welcome to RasanAI Studio").font(.largeTitle.bold())
-            Text("Set up your Mac once, then create films in your own project library.").foregroundStyle(.secondary)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    GroupBox("1 · Your projects") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(settings.projectRoot).font(.caption).textSelection(.enabled)
-                            Text("Every film gets its own folder. Existing projects are never moved when you change the library.").font(.caption).foregroundStyle(.secondary)
-                            Button("Choose Library…") { settings.chooseLibrary() }
-                        }.frame(maxWidth: .infinity, alignment: .leading).padding(8)
-                    }
-                    GroupBox("2 · Your director") {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Picker("Agent", selection: Binding(get: { settings.defaultAgent }, set: { settings.defaultAgent = $0 })) {
-                                ForEach(LocalAgent.allCases) { Text($0.title).tag($0.id) }
-                            }
-                            TextField("Installed CLI executable", text: Binding(get: { settings.path(for: agent) }, set: { settings.setPath($0, for: agent) }))
-                            HStack {
-                                Button("Detect") { settings.setPath(agent.discoveredExecutable() ?? "", for: agent) }.disabled(agent == .custom)
-                                Button("Browse…") { settings.chooseExecutable(for: agent) }
-                                Button("Check Sign-in") { Task { await settings.check(agent) } }.disabled(settings.checking.contains(agent.id))
-                                if settings.checking.contains(agent.id) { ProgressView().controlSize(.small) }
-                            }
-                            Text(settings.statuses[agent.id] ?? (settings.path(for: agent).isEmpty ? "Choose an installed agent. You can also explore the sample without one." : "CLI found. Sign-in has not been checked.")).font(.caption).foregroundStyle(.secondary)
-                            if agent != .custom {
-                                Button("Copy Sign-in Command and Open Terminal") { settings.copyLogin(agent); settings.openTerminal() }
-                                    .disabled(settings.path(for: agent).isEmpty)
-                            }
-                            Text("Paste the copied command in Terminal. The provider handles login; Studio never asks for your password. Nothing runs until you start a director.").font(.caption).foregroundStyle(.secondary)
-                        }.padding(8)
-                    }
-                    GroupBox("3 · Rendering tools") {
-                        VStack(alignment: .leading, spacing: 10) {
-                            tool("Node", found: settings.nodeURL != nil)
-                            tool("FFmpeg", found: settings.executable(named: "ffmpeg") != nil)
-                            tool("HyperFrames CLI", found: settings.executable(named: "hyperframes") != nil)
-                            Text("HyperFrames workflows and browser setup are separate. A missing CLI here may also be available through npx. These are discovery hints, not an end-to-end readiness check.").font(.caption).foregroundStyle(.secondary)
-                            HStack {
-                                Link("FFmpeg setup", destination: URL(string: "https://ffmpeg.org/download.html")!)
-                                Button("Copy HyperFrames Setup") {
-                                    NSPasteboard.general.clearContents()
-                                    NSPasteboard.general.setString("npx hyperframes skills update && npx hyperframes browser ensure", forType: .string)
-                                    settings.openTerminal()
-                                }
-                            }
-                        }.frame(maxWidth: .infinity, alignment: .leading).padding(8)
-                    }
-                }
+        VStack(spacing: 0) {
+            Spacer(minLength: 8)
+            RasanMark().fill(Color.rasanInk).frame(width: 40, height: 48)
+                .padding(.bottom, 18)
+            Text("Welcome to RasanAI")
+                .font(.system(size: 30, weight: .semibold, design: .rounded))
+            Text("Describe a film. RasanAI directs it, start to finish.")
+                .font(.system(size: 14)).foregroundStyle(.secondary).padding(.top, 6)
+
+            VStack(spacing: 0) {
+                row(.claude, optional: false)
+                Divider().padding(.leading, 52)
+                row(.codex, optional: true)
             }
-            HStack {
-                Button("Later") { settings.finishWelcome() }.keyboardShortcut(.cancelAction)
-                Spacer()
-                Button("Explore Sample") { settings.finishWelcome(); store.loadSample() }
-                Button("Create a Film") { settings.finishWelcome(); store.newFilm() }.buttonStyle(.borderedProminent)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color(nsColor: .separatorColor)))
+            .padding(.top, 28)
+
+            Text("RasanAI directs films with your Claude Code or Codex account. Usage counts toward your plan.")
+                .font(.system(size: 12)).foregroundStyle(.secondary)
+                .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 16).padding(.horizontal, 12)
+
+            Spacer(minLength: 16)
+            Button {
+                if settings.isInstalled(selected) { settings.giveConsent(selected); settings.defaultAgent = selected.id }
+                settings.finishWelcome()
+            } label: {
+                Text("Get started").frame(width: 180)
             }
-        }.padding(24).frame(width: 620, height: 660)
+            .buttonStyle(.borderedProminent).controlSize(.large)
+            .keyboardShortcut(.defaultAction)
+            if !anyInstalled {
+                Text("You can look around now and set up a director later.")
+                    .font(.system(size: 11)).foregroundStyle(.tertiary).padding(.top, 8)
+            }
+        }
+        .padding(.horizontal, 36).padding(.vertical, 28)
+        .frame(width: 480, height: 540)
+        .tint(.rasan)
+        .task {
+            for agent in agents where settings.isInstalled(agent) { await settings.check(agent) }
+            selected = settings.isInstalled(settings.agent) ? settings.agent : (agents.first { settings.isInstalled($0) } ?? .claude)
+        }
     }
-    private func tool(_ title: String, found: Bool) -> some View {
-        Label(found ? "\(title) found" : "\(title) not detected", systemImage: found ? "checkmark.circle" : "info.circle")
-            .foregroundStyle(found ? Color.primary : Color.secondary)
+
+    private func signedIn(_ agent: LocalAgent) -> Bool {
+        settings.isInstalled(agent) && settings.statuses[agent.id]?.hasPrefix("CLI reports signed in") == true
+    }
+
+    private func row(_ agent: LocalAgent, optional: Bool) -> some View {
+        let installed = settings.isInstalled(agent)
+        let checking = settings.checking.contains(agent.id)
+        let choosable = installed && agents.filter { settings.isInstalled($0) }.count > 1
+        return HStack(spacing: 12) {
+            Group {
+                if checking { ProgressView().controlSize(.small) }
+                else if installed {
+                    Image(systemName: signedIn(agent) ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                        .foregroundStyle(signedIn(agent) ? Color.green : Color.orange)
+                } else {
+                    Image(systemName: "circle.dashed").foregroundStyle(.tertiary)
+                }
+            }.font(.system(size: 18)).frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(agent == .claude ? "Claude Code" : "Codex").font(.system(size: 13, weight: .medium))
+                Text(subtitle(agent, installed: installed, checking: checking, optional: optional))
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if installed && !checking && !signedIn(agent) {
+                Button("Copy sign-in command") { settings.copyLogin(agent); copied = agent }
+                    .controlSize(.small)
+            } else if !installed {
+                Button(copied == agent ? "Copied" : "Copy install command") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(agent == .claude ? "npm install -g @anthropic-ai/claude-code" : "npm install -g @openai/codex", forType: .string)
+                    copied = agent
+                }.controlSize(.small)
+            } else if choosable {
+                Image(systemName: selected == agent ? "largecircle.fill.circle" : "circle")
+                    .foregroundStyle(selected == agent ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+                    .font(.system(size: 16))
+            }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
+        .contentShape(Rectangle())
+        .onTapGesture { if choosable { withAnimation(.snappy) { selected = agent } } }
+    }
+
+    private func subtitle(_ agent: LocalAgent, installed: Bool, checking: Bool, optional: Bool) -> String {
+        if checking { return "Checking…" }
+        if !installed { return optional ? "Optional · not found" : "Not found" }
+        return signedIn(agent) ? "Found · signed in" : "Found · not signed in yet"
     }
 }

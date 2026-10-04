@@ -30,11 +30,16 @@ final class StudioSettings {
     var hasCompletedWelcome: Bool { didSet { defaults.set(hasCompletedWelcome, forKey: "hasCompletedWelcome") } }
     var reopenLastProject: Bool { didSet { defaults.set(reopenLastProject, forKey: "reopenLastProject") } }
     var notificationsEnabled: Bool { didSet { defaults.set(notificationsEnabled, forKey: "notificationsEnabled") } }
+    /// Per-agent consent, given once (Welcome or the first Start). Keyed by `LocalAgent.id`.
+    var agentConsent: [String: Bool] { didSet { defaults.set(agentConsent, forKey: "agentConsent") } }
+    func hasConsent(_ agent: LocalAgent) -> Bool { agentConsent[agent.id] == true }
+    func giveConsent(_ agent: LocalAgent) { agentConsent[agent.id] = true }
     private let defaults: UserDefaults
     var library: ProjectLibrary { ProjectLibrary(root: URL(fileURLWithPath: projectRoot, isDirectory: true)) }
     var colorScheme: ColorScheme? { appearance == "system" ? nil : (appearance == "light" ? .light : .dark) }
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        agentConsent = defaults.dictionary(forKey: "agentConsent") as? [String: Bool] ?? [:]
         hasCompletedWelcome = defaults.bool(forKey: "hasCompletedWelcome")
         reopenLastProject = defaults.object(forKey: "reopenLastProject") as? Bool ?? true
         notificationsEnabled = defaults.bool(forKey: "notificationsEnabled")
@@ -60,8 +65,8 @@ final class StudioSettings {
     }
     func chooseLibrary() {
         let panel = NSOpenPanel()
-        panel.title = "Choose project library"
-        panel.message = "New projects go here. Existing projects are not moved or deleted."
+        panel.title = "Choose library folder"
+        panel.message = "New films and brands go here. Existing ones are not moved or deleted."
         panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.canCreateDirectories = true
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do { try ProjectLibrary(root: url).prepare(); projectRoot = url.path }
@@ -113,6 +118,16 @@ final class StudioSettings {
         NSWorkspace.shared.openApplication(at: url, configuration: .init())
     }
     func finishWelcome() { hasCompletedWelcome = true; showWelcome = false }
+    /// The agent used by default, falling back to Claude Code.
+    var agent: LocalAgent { LocalAgent(rawValue: defaultAgent) ?? .claude }
+    /// Whether an executable is configured and present for the agent.
+    func isInstalled(_ agent: LocalAgent) -> Bool {
+        let p = path(for: agent)
+        return p.hasPrefix("/") && FileManager.default.isExecutableFile(atPath: p)
+    }
+    var appVersion: String {
+        "\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "local"))"
+    }
     func executable(named name: String) -> String? {
         LocalAgent.searchDirectories.map { $0 + "/" + name }.first { FileManager.default.isExecutableFile(atPath: $0) }
     }
@@ -128,94 +143,119 @@ final class StudioSettings {
 
 struct StudioSettingsView: View {
     @Bindable var settings: StudioSettings
+    @ObservedObject private var updater = StudioUpdater.shared
+    @State private var tab: String
+    init(settings: StudioSettings, initialTab: String = "general") { self.settings = settings; _tab = State(initialValue: initialTab) }
+    @State private var showAdvanced = false
+
     var body: some View {
-        TabView {
-            Form {
-                Section("Project storage") {
-                    LabeledContent("Library") { Text(settings.projectRoot).textSelection(.enabled).lineLimit(3) }
-                    HStack {
-                        Button("Choose Folder…") { settings.chooseLibrary() }
-                        Button("Show in Finder") { NSWorkspace.shared.open(settings.library.root) }
-                    }
-                    Text("Each project has its own assets, audio, compositions, exports, and .rasanai run folders. Changing the library never moves existing projects.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                Section("Appearance") {
-                    Picker("Appearance", selection: $settings.appearance) {
-                        Text("System").tag("system"); Text("Light").tag("light"); Text("Dark").tag("dark")
-                    }
-                }
-                Section("Getting started") {
-                    Toggle("Reopen the last project on launch", isOn: $settings.reopenLastProject)
-                    Button("Show Welcome and Setup…") { settings.showWelcome = true }
-                }
-                Section("Notifications") {
-                    Toggle("Notify when a question or director result needs attention", isOn: Binding(get: { settings.notificationsEnabled }, set: { enabled in Task { await settings.setNotificationsEnabled(enabled) } }))
-                    Text("Optional. Notifications use generic text, not your brief or source content. Permission is requested only when you turn this on.").font(.caption).foregroundStyle(.secondary)
-                }
-            }.formStyle(.grouped).tabItem { Label("General", systemImage: "gearshape") }
-            Form {
-                Section {
-                    Picker("Preferred agent", selection: $settings.defaultAgent) {
-                        ForEach(LocalAgent.allCases) { Text($0.title).tag($0.id) }
-                    }
-                    Text("The app launches your installed agent as its director. The CLI owns sign-in and credentials. Changes apply to the next launch, not an already running director.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                ForEach(LocalAgent.allCases) { agent in
-                    Section(agent.title) {
-                        TextField("Executable", text: Binding(get: { settings.path(for: agent) }, set: { settings.setPath($0, for: agent) }))
-                        if agent != .custom {
-                            TextField("Model (empty = CLI default)", text: agent == .claude ? $settings.claudeModel : $settings.codexModel)
-                        }
-                        HStack {
-                            Button("Browse…") { settings.chooseExecutable(for: agent) }
-                            if agent != .custom {
-                                Button("Detect") { settings.setPath(agent.discoveredExecutable() ?? "", for: agent) }
-                                Button("Copy Sign-in Command") { settings.copyLogin(agent) }.disabled(settings.path(for: agent).isEmpty)
-                            }
-                            Button("Check Status") { Task { await settings.check(agent) } }.disabled(settings.checking.contains(agent.id))
-                            if settings.checking.contains(agent.id) { ProgressView().controlSize(.small) }
-                        }
-                        Text(settings.statuses[agent.id] ?? "Not checked").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-                Text("Paste the sign-in command in Terminal to complete the provider's browser login, then check status. No API keys are stored in app preferences.")
-                    .font(.caption).foregroundStyle(.secondary)
-                Section("Execution permissions") {
-                    Toggle("Allow unrestricted agent tools", isOn: $settings.allowUnrestrictedTools)
-                    Text("Off by default. Codex uses workspace-write; Claude uses acceptEdits. Some browser/render commands may be blocked. Enabling this removes the CLI sandbox/approval protections and can let the agent read or change files outside the project. Only enable it for trusted projects. Agent use may incur provider charges.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }.formStyle(.grouped).tabItem { Label("Agents", systemImage: "person.badge.key") }
-            Form {
-                Section("Engine") {
-                    LabeledContent("RasanAI engine", value: DirectorRuntime.engineURL?.path ?? "Not found")
-                    LabeledContent("Active Node", value: settings.nodeURL?.path ?? "Not found")
-                    TextField("Node executable override (optional)", text: $settings.nodePath)
-                    Text("Node ≥20, FFmpeg, HyperFrames workflows and its browser must be available to the director. The release bundles Node and the RasanAI engine, not provider agents or every external rendering dependency.")
-                        .font(.caption).foregroundStyle(.secondary)
-                    Button("Copy HyperFrames setup command") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString("npx hyperframes skills update && npx hyperframes browser ensure", forType: .string)
-                    }
-                    Link("FFmpeg installation", destination: URL(string: "https://ffmpeg.org/download.html")!)
-                }
-                UpdateSettingsView()
-            }.formStyle(.grouped).tabItem { Label("Runtime", systemImage: "cpu") }
-            Form {
-                Section("Community beta") {
-                    LabeledContent("Version", value: "\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "local"))")
-                    Text("Community distribution uses an ad-hoc Apple signature and Sparkle EdDSA update signatures. It is not Apple-notarized; first installation is subject to Gatekeeper. Local builds without an update public key cannot check for updates.")
-                        .foregroundStyle(.secondary)
-                    Link("Release readiness and source", destination: URL(string: "https://github.com/Sibhimanyu/rasanai/tree/master/apps/macos")!)
-                }
-            }.formStyle(.grouped).tabItem { Label("About", systemImage: "info.circle") }
+        TabView(selection: $tab) {
+            general.tabItem { Label("General", systemImage: "gearshape") }.tag("general")
+            director.tabItem { Label("Director", systemImage: "wand.and.stars") }.tag("director")
         }
-        .frame(width: 660, height: 620)
+        .frame(width: 520, height: tab == "general" ? 470 : 500)
+        .animation(.snappy, value: tab)
         .preferredColorScheme(settings.colorScheme)
+        .tint(.rasan)
         .alert("Settings", isPresented: Binding(get: { settings.error != nil }, set: { if !$0 { settings.error = nil } })) {
             Button("OK") { settings.error = nil }
         } message: { Text(settings.error ?? "") }
     }
+
+    private var general: some View {
+        Form {
+            Section {
+                LabeledContent("Library") {
+                    HStack(spacing: 8) {
+                        Text(abbreviated(settings.projectRoot)).lineLimit(1).truncationMode(.middle)
+                            .foregroundStyle(.secondary).textSelection(.enabled)
+                        Button("Change…") { settings.chooseLibrary() }
+                    }
+                }
+                Picker("Appearance", selection: $settings.appearance) {
+                    Text("System").tag("system"); Text("Light").tag("light"); Text("Dark").tag("dark")
+                }
+                Toggle("Notify me when RasanAI needs me", isOn: Binding(
+                    get: { settings.notificationsEnabled },
+                    set: { enabled in Task { await settings.setNotificationsEnabled(enabled) } }))
+            } footer: {
+                Text("Films and brands live in the library as ordinary folders.")
+            }
+            Section("Updates") {
+                Toggle("Check automatically", isOn: Binding(get: { updater.automaticChecks }, set: { updater.setAutomaticChecks($0) }))
+                    .disabled(!updater.isConfigured)
+                LabeledContent("Last checked") {
+                    HStack(spacing: 8) {
+                        Text(updater.isConfigured ? updater.lastCheckedText : "Not available in this build").foregroundStyle(.secondary)
+                        Button("Check now") { updater.check() }.disabled(!updater.canCheck)
+                    }
+                }
+            }
+            Section {
+                LabeledContent("Version", value: settings.appVersion)
+            }
+        }.formStyle(.grouped)
+    }
+
+    private var director: some View {
+        let agent = settings.agent
+        return Form {
+            Section {
+                Picker("Director", selection: $settings.defaultAgent) {
+                    Text("Claude Code").tag(LocalAgent.claude.id)
+                    Text("Codex").tag(LocalAgent.codex.id)
+                }.pickerStyle(.segmented)
+                if agent != .custom {
+                    LabeledContent("Found at") {
+                        HStack(spacing: 8) {
+                            Text(settings.path(for: agent).isEmpty ? "Not found" : abbreviated(settings.path(for: agent)))
+                                .lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
+                            Button("Choose…") { settings.chooseExecutable(for: agent) }
+                        }
+                    }
+                    TextField("Model", text: agent == .claude ? $settings.claudeModel : $settings.codexModel, prompt: Text("Default"))
+                }
+                statusLine(agent)
+            } footer: {
+                Text("RasanAI directs with your \(agent.title) account. Usage counts toward your plan.")
+            }
+            Section {
+                DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
+                    Toggle("Allow unrestricted tools", isOn: $settings.allowUnrestrictedTools)
+                    if settings.allowUnrestrictedTools {
+                        Text("The director can read and change files outside the film's folder. Only use this on films you trust.")
+                            .font(.caption).foregroundStyle(.red)
+                    }
+                    TextField("Node path", text: $settings.nodePath, prompt: Text(settings.nodeURL?.path ?? "Automatic"))
+                    TextField("Custom executable", text: Binding(get: { settings.customPath }, set: { settings.setPath($0, for: .custom) }), prompt: Text("Optional"))
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .task(id: settings.defaultAgent) { if settings.isInstalled(agent) { await settings.check(agent) } }
+    }
+
+    @ViewBuilder private func statusLine(_ agent: LocalAgent) -> some View {
+        let installed = settings.isInstalled(agent)
+        let status = settings.statuses[agent.id]
+        let signedIn = status?.contains("signed in") == true && status?.hasPrefix("CLI") == true
+        HStack(spacing: 8) {
+            if settings.checking.contains(agent.id) {
+                ProgressView().controlSize(.small)
+                Text("Checking…").foregroundStyle(.secondary)
+            } else {
+                Image(systemName: installed ? (signedIn ? "checkmark.circle.fill" : "exclamationmark.circle.fill") : "xmark.circle.fill")
+                    .foregroundStyle(installed ? (signedIn ? Color.green : Color.orange) : Color.red)
+                Text(!installed ? "\(agent.title) isn't installed" : (signedIn ? "Found and signed in" : "Found, but not signed in"))
+            }
+            Spacer()
+            if installed && !signedIn && !settings.checking.contains(agent.id) {
+                Button("Copy sign-in command") { settings.copyLogin(agent) }
+            }
+            Button { Task { await settings.check(agent) } } label: { Image(systemName: "arrow.clockwise") }
+                .buttonStyle(.borderless).help("Check again").disabled(!installed || settings.checking.contains(agent.id))
+        }
+    }
+
+    private func abbreviated(_ path: String) -> String { (path as NSString).abbreviatingWithTildeInPath }
 }
