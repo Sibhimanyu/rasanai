@@ -13,7 +13,8 @@ trap 'if [[ -d "$staging" ]]; then /bin/rm -r "$staging"; fi' EXIT
 ditto "$app" "$staging/RasanAI Studio.app"
 ln -s /Applications "$staging/Applications"
 cp "$studio_dir/COMMUNITY-INSTALL.md" "$staging/READ ME - Unnotarized.md"
-hdiutil create -volname 'RasanAI Studio' -srcfolder "$staging" -format UDZO -fs APFS "$target" >/dev/null
+# HFS+ avoids APFS image-creation stalls while preserving app symlinks and signatures.
+hdiutil create -volname 'RasanAI Studio' -srcfolder "$staging" -format UDZO -fs HFS+ "$target" >/dev/null
 hdiutil verify "$target" >/dev/null
 (cd "$studio_dir/dist" && shasum -a 256 "$(basename "$target")") > "$target.sha256"
 echo "$target"
