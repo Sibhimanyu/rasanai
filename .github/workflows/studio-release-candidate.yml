@@ -9,16 +9,24 @@ on:
       build:
         description: New monotonically increasing bundle build number
         required: true
+      enable_updates:
+        description: Enable Sparkle for a validated public release (requires signed feed)
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
   candidate:
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Check Apple Silicon and Swift toolchain
+        run: |
+          test "$(uname -m)" = arm64
+          swift --version
       - name: Test native core and managed runtime
         run: |
           swift test --package-path apps/macos
@@ -27,11 +35,18 @@ jobs:
         env:
           STUDIO_VERSION: ${{ inputs.version }}
           STUDIO_BUILD: ${{ inputs.build }}
+          STUDIO_ENABLE_UPDATES: ${{ inputs.enable_updates && '1' || '0' }}
         run: bash apps/macos/scripts/build-community.sh
+      - name: Record bundled release configuration
+        run: |
+          cp "apps/macos/dist/RasanAI Studio.app/Contents/Info.plist" apps/macos/dist/release-info.plist
+          codesign --verify --deep --strict "apps/macos/dist/RasanAI Studio.app"
+          file "apps/macos/dist/RasanAI Studio.app/Contents/MacOS/RasanAIStudio"
       - uses: actions/upload-artifact@v4
         with:
           name: studio-community-candidate
           path: |
             apps/macos/dist/*.dmg
             apps/macos/dist/*.sha256
+            apps/macos/dist/release-info.plist
           if-no-files-found: error
