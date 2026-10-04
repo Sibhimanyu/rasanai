@@ -39,7 +39,7 @@ struct UpdateSettingsView: View {
     @ObservedObject var updater = StudioUpdater.shared
     var body: some View {
         Section("Software updates") {
-            Toggle("Automatically check for updates", isOn: Binding(get: { updater.automaticChecks }, set: updater.setAutomaticChecks))
+            Toggle("Automatically check for updates", isOn: Binding(get: { updater.automaticChecks }, set: { value in updater.setAutomaticChecks(value) }))
                 .disabled(!updater.isConfigured)
             Button("Check for Updates…") { updater.check() }.disabled(!updater.canCheck)
             if let error = updater.configurationError { Text(error).font(.caption).foregroundStyle(.secondary) }

@@ -2,7 +2,7 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## 0.1.0 beta 1 (build 6) — 2026-10-04
+## 0.1.0 beta 1 (build 7) — 2026-10-04
 
 - Create individual projects in Documents/RasanAI, or select another library.
 - Open native Settings with Command-comma; configure Claude Code and OpenAI Codex, storage, appearance, Node and update preferences.
