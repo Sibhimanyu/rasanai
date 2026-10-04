@@ -364,7 +364,7 @@ function serve() {
       return path.resolve(p);
     }
   };
-  const isPrivate = (real) => [F.console, F.address, F.actions, F.consumed].some((p) => realOr(p) === real || path.resolve(p) === real);
+  const isPrivate = (real) => [F.console, F.address, F.actions, F.consumed, path.join(RUN, "director-job.json"), path.join(RUN, "director.log")].some((p) => realOr(p) === real || path.resolve(p) === real);
   const COOKIE = `rasa_${token.slice(0, 6)}`;
   const hasCookie = (req) => (req.headers.cookie || "").split(/;\s*/).includes(`${COOKIE}=${token}`);
   let port = 0;

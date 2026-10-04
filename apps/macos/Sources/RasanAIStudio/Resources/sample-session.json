@@ -1,0 +1,32 @@
+{
+  "title": "Tally launch film",
+  "current": "animatic",
+  "steps": {
+    "brief": {"status": "done", "decision": "A 45-second launch film for Tally, 16:9, with a calm voiceover.", "fields": {"length_s": 45, "kind": "Product launch", "subject": "Tally", "aspect": "16:9", "destination": "Website", "narration": "Voiceover"}},
+    "story": {"status": "done", "decision": "The disappearing receipt", "recommended": "sure", "stories": [
+      {"id": "sure", "angle": "Sure", "title": "The disappearing receipt", "logline": "A year's worth of paper becomes one clear picture.", "why": "Make a familiar tax-season ritual tangible, then turn the pile into relief.", "beats": [{"name": "Hook", "duration_s": 6, "on_screen": "Tax season. Again.", "vo": "Another year. Another pile of receipts.", "visual": "Paper fills the frame."}, {"name": "Turn", "duration_s": 20, "on_screen": "One tap. A clearer picture.", "vo": "Keep the whole year in view.", "visual": "Receipts become an ordered ledger."}, {"name": "Payoff", "duration_s": 19, "on_screen": "Everything. In balance.", "vo": "Every month, already accounted for.", "visual": "The ledger resolves to one calm check."}]},
+      {"id": "bold", "angle": "Bold", "title": "Twelve small victories", "logline": "A year told through the twelve moments you got back.", "why": "Build the promise around time, rather than features."},
+      {"id": "wild", "angle": "Wild", "title": "A receipt's last day", "logline": "The tax-season story, from the paper's point of view.", "why": "A small object narrates a large change."}
+    ]},
+    "look": {"status": "done", "decision": "Paper ledger / mint", "recommended": "sure", "styles": [
+      {"id": "sure", "label": "Sure", "name": "Paper ledger / mint", "blend": "Editorial paper, financial print, one mint accent", "why": "Make the relief feel physical. Strong black type and honest paper textures."},
+      {"id": "bold", "label": "Bold", "name": "The counting house", "blend": "Banknote engraving, monumental serif, forest green", "why": "Give ordinary bookkeeping a sense of permanence."},
+      {"id": "wild", "label": "Wild", "name": "Pocket arithmetic", "blend": "Playful geometry, stamped numbers, warm coral", "why": "Turn the year's numbers into small, surprising characters."}
+    ]},
+    "animatic": {"status": "awaiting", "question": "Review the rhythm before we build.", "scenes": [
+      {"id": 1, "title": "Tax season", "line": "Tax season. Again.", "visual": "A pile of receipts, left until the last minute.", "duration": 6},
+      {"id": 2, "title": "The year", "line": "A whole year, in pieces.", "visual": "Twelve months of receipts spread across the page.", "duration": 7},
+      {"id": 3, "title": "One tap", "line": "One tap.", "visual": "A phone catches the first receipt.", "duration": 6},
+      {"id": 4, "title": "The turn", "line": "A clearer picture.", "visual": "The paper becomes a structured ledger.", "duration": 7},
+      {"id": 5, "title": "Every month", "line": "Everything.\nIn balance.", "visual": "Income and expenses settle into a mint-accented ledger.", "duration": 8},
+      {"id": 6, "title": "In balance", "line": "Every month. Already accounted for.", "visual": "The year's numbers resolve into a rising series.", "duration": 6},
+      {"id": 7, "title": "Tally", "line": "Tally. Filed. Done.", "visual": "A clean end card, with a single check.", "duration": 5}
+    ], "music": {"title": "Warm pulse"}, "voice": {"name": "Ava · calm"}},
+    "render": {"status": "working", "question": "Your finished film will appear here.", "versions": []}
+  },
+  "comments": [
+    {"id": "sample-note-1", "step": "animatic", "scene": 3, "t": 13, "scope": "scene", "text": "Let the phone land before the line.", "state": "open"},
+    {"id": "sample-note-2", "step": "animatic", "scene": 5, "t": 31, "scope": "scene", "text": "Make the ledger number bigger.", "state": "open"}
+  ],
+  "activity": [{"msg": "The rhythm is ready. Review the scene timing and leave a note."}]
+}

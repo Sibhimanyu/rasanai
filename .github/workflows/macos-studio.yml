@@ -1,0 +1,25 @@
+name: Mac studio
+on:
+  push:
+    branches: [master]
+    paths: ["apps/macos/**", "skills/rasanai/scripts/console.mjs", ".github/workflows/macos-studio.yml"]
+  pull_request:
+    paths: ["apps/macos/**", "skills/rasanai/scripts/console.mjs", ".github/workflows/macos-studio.yml"]
+jobs:
+  native-studio:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Native build and tests against the console
+        shell: bash
+        run: |
+          smoke_run="$(mktemp -d "$RUNNER_TEMP/rasanai-console.XXXXXX")"
+          cp apps/macos/Sources/RasanAIStudio/Resources/sample-session.json "$smoke_run/session.json"
+          node skills/rasanai/scripts/console.mjs serve --run "$smoke_run" --root "$PWD" >/dev/null
+          trap 'node skills/rasanai/scripts/console.mjs stop --run "$smoke_run" >/dev/null' EXIT
+          RASANAI_TEST_RUN="$smoke_run" swift test --package-path apps/macos
+          node apps/macos/Tests/runtime-driver.test.mjs
+          bash apps/macos/scripts/build-app.sh

@@ -493,7 +493,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>
 (function () {
-  var TOKEN = new URLSearchParams(location.search).get("t") || "";
+  var TOKEN = new URLSearchParams(location.search).get("t") || window.__RASANAI_NATIVE_TOKEN || "";
   var STEPS = [
     ["brief", "Brief"], ["research", "Research"], ["brand", "Brand"], ["route", "Workflow"], ["footage", "Footage"], ["story", "Story"], ["direction", "Style"], ["films", "Films"], ["concept", "Story"], ["scenes", "Scenes"], ["look", "Look"], ["motion", "Motion"],
     ["styleframes", "Key frames"], ["animatic", "Animatic"], ["reel", "Cut"], ["transitions", "Transitions"], ["voice", "Voice"], ["music", "Music"], ["keyframes", "Key poses"], ["storyboard", "Storyboard"],
