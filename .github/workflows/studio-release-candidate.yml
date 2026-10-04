@@ -17,12 +17,16 @@ permissions:
   contents: read
 jobs:
   candidate:
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Check Apple Silicon and Swift toolchain
+        run: |
+          test "$(uname -m)" = arm64
+          swift --version
       - name: Test native core and managed runtime
         run: |
           swift test --package-path apps/macos
