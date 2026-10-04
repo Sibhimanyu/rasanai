@@ -6,6 +6,19 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.2.0 beta 1</title>
+      <pubDate>Sun, 04 Oct 2026 14:30:11 GMT</pubDate>
+      <sparkle:version>11</sparkle:version>
+      <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <sparkle:releaseNotesLink>https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.2.0-beta.1</sparkle:releaseNotesLink>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.2.0-beta.1/RasanAI-Studio-0.2.0-11-arm64-unnotarized.dmg"
+                 sparkle:edSignature="J2e7I9ntYcgrXasM3ckx6RQKxdORR8sBbi6iky0HxjAggArdEWP5Yj1AGv0n3tpCv8nn/24ojvaop5Xp2w/vBQ=="
+                 length="65182352"
+                 type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.1.1 beta 2</title>
       <pubDate>Sun, 04 Oct 2026 13:59:02 +0000</pubDate>
       <sparkle:version>10</sparkle:version>
