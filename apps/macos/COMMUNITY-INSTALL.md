@@ -6,9 +6,9 @@ Drag RasanAI Studio to Applications before launching. Do not run from the read-o
 
 The app bundles the RasanAI engine and Node. Install and sign in to Claude Code or OpenAI Codex yourself, then configure it in Settings (Command-comma). Rendering still needs FFmpeg, HyperFrames workflows and its browser/media tools. Settings includes setup instructions. Provider use may incur charges. Restricted agent mode is the default; do not enable unrestricted tools for untrusted projects.
 
-Projects live in Documents/RasanAI (or the library you select), not inside the app. New Film (Command-N) guides you through a brief, sources and director selection. Save Draft creates a workspace without calling a provider; Start Film launches your chosen director after confirmation. The full workflow uses the existing console inside WebKit; the native review layout remains available.
+Projects live in Documents/RasanAI (or the library you select), not inside the app. New film (Command-N) is one page for your brief, optional sources and options. Save draft creates a workspace without calling a provider; Start film launches your chosen director after you confirm once. The workflow runs in the existing console inside the Film page.
 
-Build 10 adds the director creative contract and a Motion graphics level. Build 9 fixed a reproduced startup crash in the build 7 download. If the old app crashes before opening, download the new DMG manually and replace the app in Applications. A crashing app cannot run its Sparkle updater. Keep your existing project library; do not delete it when replacing the app.
+Build 11 is a full redesign with Brands and update checks every 5 hours. Build 10 added the director creative contract and a Motion graphics level. Build 9 fixed a reproduced startup crash in the build 7 download. If the old app crashes before opening, download the new DMG manually and replace the app in Applications. A crashing app cannot run its Sparkle updater. Keep your existing project library; do not delete it when replacing the app.
 
 Sparkle verifies update archives using the project's separate EdDSA key when a release contains SUPublicEDKey. This is update authentication, not Apple notarization. Never accept an unsigned or unverifiable update. Builds without the update trust key disable updates.
 

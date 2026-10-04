@@ -2,6 +2,14 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## 0.2.0 beta 1 (build 11) — 2026-10-04
+
+- Redesigned from the ground up: Home with your films, a one-page New film, and a Film page that shows the right thing for its state (brief, live workflow, or finished video). No sidebars; back button and a help button on every screen.
+- Brands: keep colours, fonts and logo as a `DESIGN.md` folder and pick one for any film.
+- One-screen Welcome, two-tab Settings, one-time director consent instead of a toggle per film, and a calmer indigo theme in light and dark.
+- Automatic update checks every 5 hours.
+- `--snapshot <dir>` renders the main screens to PNG for review.
+
 ## 0.1.1 beta 2 (build 10) — 2026-10-04
 
 - The director launch prompt now carries a separate creative contract: engine templates, presets and gates are a floor, not a ceiling, and the director writes compositions by hand when a tool's slots are too narrow.

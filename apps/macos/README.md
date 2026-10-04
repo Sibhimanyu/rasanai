@@ -1,6 +1,6 @@
 # RasanAI Studio for Mac
 
-A SwiftUI Mac studio with a WebKit-backed full engine console and Sparkle 2.10.0. [Download the community beta](https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.1.1-beta.2). Build 10 adds the director creative contract and a Motion graphics level; build 9 fixed the installed build-7 startup crash; manually replace the old app if it cannot open its updater. Requires macOS 14 or newer; building from source also requires Xcode's Swift toolchain. Community packages target Apple Silicon and are ad-hoc signed, not Apple-notarized. Real-agent generation and complete workflow parity remain unverified.
+A SwiftUI Mac studio with a WebKit-backed full engine console and Sparkle 2.10.0. [Download the community beta](https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.2.0-beta.1). Build 11 (0.2.0 beta 1) is a full redesign: a simple drill-down window, one-page New film, brands as `DESIGN.md` folders, and automatic update checks every 5 hours. If an old build cannot open (build 7 crashed at launch), manually replace it with the new DMG. Requires macOS 14 or newer; building from source also requires Xcode's Swift toolchain. Community packages target Apple Silicon and are ad-hoc signed, not Apple-notarized. Real-agent generation and complete workflow parity remain unverified.
 
 ## Build and launch
 
@@ -13,37 +13,28 @@ open "dist/RasanAI Studio.app"
 
 Use `bash scripts/build-app.sh release` for an optimized build. Open `Package.swift` in Xcode to develop the package, or run `swift run RasanAIStudio`. The packaging script assembles a local, ad-hoc signed `.app`; it is not a notarized distribution build.
 
-## First milestone
+## The app
 
-- Native project sidebar, five review stages, Director's desk, and a scene timeline with scrubbing and playback.
-- A clearly labelled 45-second sample animatic with native artwork. It is silent; music and voice labels illustrate a brief and do not claim to be attached audio. Sample notes persist in `~/Library/Application Support/RasanAIStudio/sample-session.json`.
-- Story and Look comparison views, brief editing for connected runs, time-specific notes, director messages, choices, approvals, and version requests using the existing console API.
-- Open a run folder (or its `session.json`) with Command-O. Recent folders are remembered. Published stills, the animatic's music/mixed audio, and finished local videos are loaded from the run's declared workspace. A finished video can be played and copied through the native export panel.
-- Read-only offline review when a console is unavailable. Reconnect after starting the console. Updates poll every two seconds and follow the director when its current step changes.
+RasanAI Studio is one window that drills down: **Home** → **New film**, **Film page** or **Brands**, with a back button and no sidebars. The theme is RasanAI indigo and follows the system appearance. Every screen has a `?` help button, and Help menu items mirror it.
 
-To open a specific run at launch:
+- **Home**: a New film tile (⌘N) and a grid of your films, most recent first, each with a one-line status (Draft, Director working, Waiting for you, Finished). Right-click a film to open, rename, duplicate, show in Finder, archive or move to Trash. Archived films sit behind "Show archived". Brands is a toolbar button; Open Run Folder (⌘O) is in the File menu.
+- **New film**: one page with a title, "What's it about?", an optional drop zone for footage, images and documents, and Length, Shape, Motion graphics (Maximal by default, Balanced, Minimal) and Brand options. Save draft creates a project without calling a provider; Start film (⌘↩) launches your director. You confirm once per director that RasanAI may use your Claude Code or Codex account; there is no per-film consent. Briefs are stored in `rasanai-brief.json`, and chosen files are copied to `assets/sources` without touching the originals.
+- **Film page**: depends on the film's state. A draft shows its brief with Edit and Start film. A running or reviewing film shows the engine console full-bleed, which is the whole workflow (brief, story, look, animatic, final review), with a status pill in the toolbar. A finished film shows a native player with Export…, Show in Finder and Make changes. If no console is running you get Resume and Show log. The ⋯ menu has Pause/Resume director, Show log, Files, Reconnect and Show in Finder; Files adds, reveals or removes managed source copies while the director is idle. Questions from the director appear in the console, with an optional notification and Dock badge.
+- **Brands**: a brand is a plain folder, `<library>/Brands/<name>/`, holding a `DESIGN.md` (colours, typography, motion) plus an optional logo. Create one from a blank template or by importing a `DESIGN.md`; cards show swatches, font and logo. Choosing a brand for a film copies its `DESIGN.md` into the project (an existing different one is kept as `DESIGN.previous.md`) and its logo into `assets/brand/`, which the engine already uses as the film's brand.
+- **Welcome**: a single first-launch screen that checks for Claude Code and Codex, shows how to install a missing one, and records consent when you press Get started. Reopen it from Help → Show Welcome.
+- **Settings** (⌘,) has two tabs. General: library folder (default `~/Documents/RasanAI`), appearance, notifications, and update checks. Director: Claude Code or Codex, executable path, model, sign-in status with a copyable sign-in command, and an Advanced section for unrestricted tools, the Node path and a custom executable.
+- **Sample film**: Help → Explore a Sample Film opens a silent 45-second animatic with native artwork to try the review screens without a provider. It is never shown on Home.
+- **Updates**: Sparkle checks automatically every 5 hours (`SUScheduledCheckInterval` 18000) and once at launch; turn it off in Settings → General. Check for Updates… is in the app menu. Updates apply only to releases built with updates enabled.
+
+Open a run folder at launch with:
 
 ```bash
 open "dist/RasanAI Studio.app" --args --run /absolute/path/to/workspace/.rasanai/run-name
 ```
 
-## Native settings and local projects
+### Snapshot harness
 
-### Usability additions (0.1.1 beta)
-
-The current source adds a first-launch Welcome/Setup guide (also in Help and Settings), and a three-step **New Film** flow: brief, source files, then director consent. The first step sets a **Motion graphics** level (Maximal by default); the director is told that engine defaults are a floor, not a ceiling, and footage projects are briefed to use overlays, framed shots and caption boxes throughout unless you choose less. Save Draft does not launch a provider. Briefs are stored in `rasanai-brief.json`; explicitly selected sources are copied to `assets/sources` without moving or overwriting originals. Custom agent executables remain configurable but cannot start a film without a compatible adapter.
-
-Projects supports search, recent/name/creation sorting, thumbnails, display-name rename, archive/unarchive, duplication as a fresh draft with assets/audio/brief, and confirmed Move to Trash. Display-name rename leaves the folder unchanged. Duplicate drafts exclude run history, credentials, generated compositions and exports. Library modifications are disabled during an active director; imported external runs are not managed or moved.
-
-Drop source files onto a project card, the Assets source area, or the New Film wizard. Assets supports reveal, replacement and confirmed removal of managed copies; previous copies go to Trash. New references added to an existing run must be mentioned in the director's next message. File replacement/removal is disabled while the director may be using them.
-
-The activity banner distinguishes working, awaiting an answer/review, stopped, offline, finished and errors without inventing percentage estimates. Settings → General can enable generic, opt-in macOS notifications for questions and director exit; no brief or source content is included. Error dialogs offer Settings, local-console reconnect, resume and logs when applicable. Reconnect starts only the loopback console, not a provider agent.
-
-Smaller windows (minimum 820 × 560), adaptive/collapsible panels, File → Open Recent, Help → Keyboard Shortcuts, and optional last-project/run reopening are included. Sidebar: Control-Command-S; inspector: Option-Command-0. On compact windows, panel buttons open sheets. Automated local tests and relocated-bundle startup checks pass; broad UI/provider testing remains incomplete.
-
-Settings opens through the standard macOS app menu and **Command-comma**. General contains project storage and System/Light/Dark appearance. Agents discovers Claude Code/OpenAI Codex, configures model and executable, and checks CLI sign-in without collecting credential output. Copy Sign-in Command hands browser login to the provider CLI. Other local executables can be checked, but need an adapter before they can direct a film. Runtime contains Node selection, dependency instructions and Sparkle preferences. Changes apply to the next director launch.
-
-The app creates `~/Documents/RasanAI` on first launch. **Command-N** opens New Film and creates a named project with `assets/`, `audio/`, `compositions/`, `exports/`, `.rasanai/`, and a manifest when you save/start. Existing folders are not merged or overwritten. Settings can select another library without moving existing files. Start Film launches a director after account/tool-use confirmation; Open returns to the project's latest app-managed run, or its draft brief if none exists. Imported runs stay in place. Project enumeration and opening run session data happen off the main thread.
+`open "dist/RasanAI Studio.app" --args --snapshot /absolute/output/dir` renders the main screens offscreen at 1120 × 740, in light and dark, to PNGs (`home`, `home-empty`, `new-film`, `film-draft`, `film-finished`, `brands`, `brand`, `welcome`, `settings-general`, `settings-director`, each with a `-dark` variant), then exits. It uses seeded fake data in a temporary folder, never your library, and needs no Screen Recording permission.
 
 ## Engine boundary
 
@@ -51,7 +42,7 @@ The app reads the existing session schema and the run's `address.json`. It conne
 
 The app can launch or resume your installed director CLI, supervise its process group and display local logs. It uses the bundled engine, the selected project and the exact existing run, without updating the signed bundle. Claude defaults to acceptEdits; Codex defaults to workspace-write. Unrestricted tools require an explicit Settings opt-in and can access files outside the project. Provider charges may apply. Missing dependencies or permissions must be reported, never counted as a successful render. Real-agent film generation has not yet been verified through this app.
 
-Full Workflow embeds the existing engine console with a nonpersistent WebKit store and authenticated loopback requests. Every specialized workflow remains available there, rather than being incorrectly mapped to one of five native screens. Questions also appear as native sheets. External links open in the system browser; files use native chooser/save panels. The optional SwiftUI review layout remains partial: Look posters rather than HTML playback, mixed-audio playback, and a brand-kit placeholder. Use Full Workflow for complete engine controls.
+The Film page embeds the existing engine console with a nonpersistent WebKit store and authenticated loopback requests. Every specialized workflow remains available there, rather than being mapped to native screens. External links open in the system browser; files use native chooser/save panels. The native review views remain only for the sample film.
 
 The app is not App-Sandboxed. Local asset resolution rejects remote URLs, escaping symlinks and private run files. The console also blocks director logs/job files from asset serving. Credentials remain with the provider CLI. [Community installation](COMMUNITY-INSTALL.md) documents the free-account distribution limitations; the [desktop changelog](CHANGELOG.md) tracks Studio releases separately from skill releases.
 
@@ -59,7 +50,7 @@ The app is not App-Sandboxed. Local asset resolution rejects remote URLs, escapi
 
 ```bash
 STUDIO_BUILD=11 bash scripts/build-community.sh
-STUDIO_TAG=studio-v0.1.1-beta.2 bash scripts/generate-feed.sh
+STUDIO_TAG=studio-v0.2.0-beta.1 bash scripts/generate-feed.sh
 ```
 
 Use a new increasing build number each time. The build script downloads a pinned, checksum-verified official Node distribution, bundles engine/Node/Sparkle, verifies bundle integrity, and creates a DMG with an Applications link and installation notice. It refuses to overwrite a DMG. Existing app builds are preserved in `dist/previous-build-*.app`.

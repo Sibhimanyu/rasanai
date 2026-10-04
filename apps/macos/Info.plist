@@ -16,7 +16,8 @@
     <key>SUPublicEDKey</key><string>G7jLvqDCheO+YFMPOwDiE3TqkFEe/eAipR+MZt4lZvY=</string>
     <key>RasanAIUpdatesEnabled</key><false/>
     <key>SUVerifyUpdateBeforeExtraction</key><true/>
-    <key>SUEnableAutomaticChecks</key><false/>
+    <key>SUEnableAutomaticChecks</key><true/>
+    <key>SUScheduledCheckInterval</key><integer>18000</integer>
     <key>SUEnableSystemProfiling</key><false/>
     <key>NSDocumentsFolderUsageDescription</key><string>RasanAI stores each film's sources, compositions, run data, and exports in your project library.</string>
     <key>NSAppTransportSecurity</key>

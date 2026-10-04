@@ -3,94 +3,76 @@ import SwiftUI
 import StudioCore
 import UserNotifications
 
-struct DirectorQuestionSheet: View {
-    @Bindable var store: StudioStore
-    @State private var choice = ""
-    @State private var answer = ""
-    @Environment(\.dismiss) private var dismiss
-    private var question: JSONValue { store.snapshot.raw["ask"] }
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text(question["question"].string ?? "The director needs your answer").font(.title2)
-            if let context = question["context"].string, !context.isEmpty { Text(context).foregroundStyle(.secondary) }
-            if !question["options"].array.isEmpty {
-                Picker("Your choice", selection: $choice) {
-                    Text("Choose an option").tag("")
-                    ForEach(Array(question["options"].array.enumerated()), id: \.offset) { _, option in
-                        Text(option["label"].string ?? "Option").tag(option["id"].string ?? "")
-                    }
-                }
-            }
-            TextField(question["placeholder"].string ?? "Your answer", text: $answer, axis: .vertical).lineLimit(3...8)
-            HStack {
-                Spacer()
-                Button("Later") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Send Answer") {
-                    Task {
-                        await store.send(type: "answer", value: .object(["choice": choice.isEmpty ? .null : .string(choice), "text": .string(answer)]),
-                            step: question["step"].string ?? store.snapshot.currentStep)
-                        if store.snapshot.raw["ask"]["answered"] != .null { dismiss() }
-                    }
-                }.keyboardShortcut(.defaultAction).disabled(!store.isConnected || store.isSending || (choice.isEmpty && answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
-            }
-        }.padding(24).frame(width: 570)
-    }
-}
-
-struct DirectorSheet: View {
-    @Bindable var store: StudioStore
-    @State private var request = ""
-    @State private var confirmed = false
-    @State private var starting = false
-    @Environment(\.dismiss) private var dismiss
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text(store.launchProject == nil ? "Resume Director" : "Start Film").font(.title2)
-            Text(store.launchProject?.path ?? store.workspaceURL?.path ?? "Choose a project").font(.caption).textSelection(.enabled)
-            TextEditor(text: $request).frame(height: 120).border(.secondary.opacity(0.3))
-            Text("Describe the film, sources, or revision. The director uses the existing RasanAI workflow and asks questions in the full console.")
-                .font(.caption).foregroundStyle(.secondary)
-            Toggle("I authorize my selected agent to work on this project and use its provider account", isOn: $confirmed)
-            Text(store.settings.allowUnrestrictedTools ? "Unrestricted tools are enabled: this agent can operate outside the project. Provider charges may apply." : "Provider charges may apply. Permission-restricted tools may block browser/render work; inspect the log if the director stops.")
-                .font(.caption).foregroundStyle(store.settings.allowUnrestrictedTools ? Color.red : Color.secondary)
-            HStack {
-                SettingsLink { Text("Agent settings…") }
-                Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction).disabled(starting)
-                Button("Start Director") {
-                    starting = true
-                    Task {
-                        await store.startDirector(request: request)
-                        starting = false
-                        if store.runtime.isRunning { dismiss() }
-                    }
-                }.keyboardShortcut(.defaultAction).disabled(!confirmed || request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || starting)
-                if starting { ProgressView().controlSize(.small) }
-            }
-        }.padding(24).frame(width: 590)
-            .onAppear {
-                if store.launchProject == nil { request = "Resume this existing run from its saved state. Preserve completed work and continue with the next pending step." }
-            }
-    }
-}
-
 struct DirectorLogSheet: View {
     var runtime: DirectorRuntime
     @State private var text = ""
     @Environment(\.dismiss) private var dismiss
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(runtime.status).font(.headline)
-            Text("Logs can contain your project content. They stay in the project's private run folder.").font(.caption).foregroundStyle(.secondary)
-            ScrollView { Text(text).font(.system(.caption, design: .monospaced)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
-            HStack { Button("Refresh") { text = runtime.logTail() }; Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.cancelAction) }
-        }.padding(24).frame(width: 800, height: 520).onAppear { text = runtime.logTail() }
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Director log").font(.system(size: 22, weight: .semibold))
+                    Text(runtime.status).font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button { text = runtime.logTail() } label: { Label("Refresh", systemImage: "arrow.clockwise") }
+            }
+            ScrollView {
+                Text(text.isEmpty ? "No director output yet." : text)
+                    .font(.system(size: 11, design: .monospaced)).textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(12)
+            }
+            .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5))
+            HStack {
+                Text("Logs can contain your project content and stay in the film's private run folder.")
+                    .font(.system(size: 11)).foregroundStyle(.tertiary)
+                Spacer()
+                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
+            }
+        }.padding(24).frame(width: 760, height: 520).onAppear { text = runtime.logTail() }
+    }
+}
+
+/// A native note on a sample-film moment. Live films take notes in the console.
+struct NoteSheet: View {
+    @Bindable var store: StudioStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+    @State private var scope = "scene"
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Note at \(timecode(store.playhead))").font(.system(size: 20, weight: .semibold))
+                Text(store.selectedScene?.title ?? "Whole film").font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            TextField("What would make this moment better?", text: $text, axis: .vertical).lineLimit(4...6).textFieldStyle(.roundedBorder)
+            Picker("Applies to", selection: $scope) { Text("This scene").tag("scene"); Text("Whole film").tag("film") }.pickerStyle(.segmented)
+            HStack {
+                Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
+                Spacer()
+                Button(store.isSample ? "Save sample note" : "Send note") {
+                    Task {
+                        await store.addNote(text: text, scope: scope)
+                        if store.errorMessage == nil { dismiss() }
+                    }
+                }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.isSending)
+            }
+        }.padding(28).frame(width: 470)
     }
 }
 
 @MainActor final class StudioAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     var runtime: DirectorRuntime?
     weak var store: StudioStore?
+    func runSnapshots() {
+        guard let directory = SnapshotHarness.directory else { return }
+        Task { @MainActor in
+            await SnapshotHarness.run(into: directory)
+            exit(0)
+        }
+    }
     func configureNotifications() {
         if Bundle.main.bundleIdentifier != nil { UNUserNotificationCenter.current().delegate = self }
     }
