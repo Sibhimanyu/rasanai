@@ -8,7 +8,7 @@ The app bundles the RasanAI engine and Node. Install and sign in to Claude Code 
 
 Projects live in Documents/RasanAI (or the library you select), not inside the app. New Film (Command-N) guides you through a brief, sources and director selection. Save Draft creates a workspace without calling a provider; Start Film launches your chosen director after confirmation. The full workflow uses the existing console inside WebKit; the native review layout remains available.
 
-Build 9 fixes a reproduced startup crash in the build 7 download. If the old app crashes before opening, download the new DMG manually and replace the app in Applications. A crashing app cannot run its Sparkle updater. Keep your existing project library; do not delete it when replacing the app.
+Build 10 adds the director creative contract and a Motion graphics level. Build 9 fixed a reproduced startup crash in the build 7 download. If the old app crashes before opening, download the new DMG manually and replace the app in Applications. A crashing app cannot run its Sparkle updater. Keep your existing project library; do not delete it when replacing the app.
 
 Sparkle verifies update archives using the project's separate EdDSA key when a release contains SUPublicEDKey. This is update authentication, not Apple notarization. Never accept an unsigned or unverifiable update. Builds without the update trust key disable updates.
 

@@ -347,7 +347,7 @@ final class StudioStore {
                 settings.defaultAgent = draft.agent
                 launchProject = project
                 let files = try await Task.detached { try ProjectSources.files(in: project) }.value
-                await startDirector(request: draft.request(sources: files))
+                await startDirector(request: draft.request(sources: files), includeDirection: false)
                 if !runtime.isRunning { return nil }
             }
             return project
@@ -545,8 +545,12 @@ final class StudioStore {
         seek(to: playhead)
     }
 
-    func startDirector(request: String) async {
+    func startDirector(request: String, includeDirection: Bool = true) async {
         guard let project = launchProject ?? workspaceURL else { errorMessage = "Choose a project first."; return }
+        var request = request
+        if includeDirection, let draft = FilmDraft.load(in: project) {
+            request += "\n\n" + draft.creativeDirection(sources: (try? ProjectSources.files(in: project)) ?? [])
+        }
         do {
             let resume = launchProject == nil ? runURL : nil
             let run = try await runtime.start(project: project, existingRun: resume, request: request, settings: settings)
