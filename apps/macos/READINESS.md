@@ -1,6 +1,18 @@
 # Native Mac release readiness
 
-Audit date: 2026-10-04. Verdict: **community beta published; stable Pages update-feed deployment pending**. The user accepted the unverified paths below for an explicitly labeled experimental beta, not a production-ready or full-parity release.
+Audit date: 2026-10-04. Verdict: **experimental community beta; installed build-7 startup crash reproduced and fixed for build 9**. The user accepted the unverified paths below for an explicitly labeled experimental beta, not a production-ready or full-parity release.
+
+## Build 9 startup regression
+
+The actual GitHub build-7 DMG crashes after copying its app out of the disk image. The fatal error names `resource_bundle_accessor.swift`: native CLI SwiftPM searches `<app>/RasanAIStudio_RasanAIStudio.bundle` and a CI-only `.build` path, while packaging places the resource in `<app>/Contents/Resources/`. A locally compiled Xcode/Swift Build variant searches that packaged location, masking the public-artifact defect. Strict code-signature checks passed on the crashing bundle, demonstrating why signature verification alone is insufficient.
+
+`StudioResources` resolves both flat CLI and macOS/Xcode resource layouts directly without invoking the fatal generated accessor. Missing or malformed sample resources fall back to a safe UI state and an error. Three resource regression tests pass. All 22 Swift tests pass when the disposable HTTP console is enabled, and supervisor exit/stop tests pass with no provider calls. Relocated optimized app startup passes for both build-system layouts; deliberately removing the sample bundle no longer terminates the app. `scripts/smoke-app.sh` fails on the old downloaded bundle with exit 133 and checks a relocated signed app for 15 seconds.
+
+Local checks run on Apple Silicon macOS 26.6.2; they do not establish macOS 14/15 compatibility, complete UI usability or provider generation. A crashing build 7 cannot invoke Sparkle; replace it manually using the fixed download, leaving the external project library intact. The earlier beta-1 delivery checks below are historical evidence, not a claim that its installed app worked.
+
+[Candidate run 37204171462](https://github.com/Sibhimanyu/rasanai/actions/runs/37204171462) built app source `128fcf297dbdc6ddfbe020458d0fb9a1f522571c` as version 0.1.1/build 9 with updates enabled. Its downloaded DMG passed filesystem/SHA-256 checks and deep strict code-signature verification. The app copied from that exact archive passed the relocated 15-second launch check, unlike build 7. The 64,913,350-byte archive's Sparkle Ed25519 signature verified against its embedded public key; one-byte tampering was rejected. The existing Keychain identity signed it without a new approval prompt. No private key was exported.
+
+## Historical beta-1 delivery audit
 
 [RasanAI Studio 0.1.0 beta 1 (build 7)](https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.1.0-beta.1) is public. Its immutable Apple Silicon DMG is 64,635,011 bytes, SHA-256 `ce8d8ebb5c1035a1c1fed9e8741e58b6e079e1625694460b92dab3de594dc3ef`. [Candidate CI run 37195469183](https://github.com/Sibhimanyu/rasanai/actions/runs/37195469183) built source `f6625427056723fccd5bdb9ade73548c74b216f4`, passed native/supervisor tests, verified the packaged bundle and disk image, and recorded the bundled configuration. Build 7 enables Sparkle with automatic checks off. The local signing key never left Keychain. A fresh anonymous HTTPS download matched the checksum, byte length and Ed25519 signature; the published appcast asset matched the source XML exactly. A one-byte-tampered in-memory archive was rejected. The stable feed is `https://sibhimanyu.github.io/rasanai/studio/appcast.xml`; it will become available when these docs land on master and the Pages workflow succeeds. This is archive-delivery verification, not a separately compiled public installed-version upgrade test.
 

@@ -6,16 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
-      <title>RasanAI Studio 0.1.0 beta 1</title>
-      <pubDate>Sun, 04 Oct 2026 10:47:24 +0000</pubDate>
-      <sparkle:version>7</sparkle:version>
-      <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+      <title>RasanAI Studio 0.1.1 beta 1</title>
+      <pubDate>Sun, 04 Oct 2026 13:07:36 +0000</pubDate>
+      <sparkle:version>9</sparkle:version>
+      <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
       <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-      <sparkle:releaseNotesLink>https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.1.0-beta.1</sparkle:releaseNotesLink>
-      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.1.0-beta.1/RasanAI-Studio-0.1.0-7-arm64-unnotarized.dmg"
-                 sparkle:edSignature="OxojsTFuk1QUvK1n74kQ4aB8He9moq7yZZAGeEDPA5Wl3JVc7pLYcW42GTMBPdKkKZGklTRd5G8dU4ZAmvCJBA=="
-                 length="64635011"
+      <sparkle:releaseNotesLink>https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.1.1-beta.1</sparkle:releaseNotesLink>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.1.1-beta.1/RasanAI-Studio-0.1.1-9-arm64-unnotarized.dmg"
+                 sparkle:edSignature="gnq+pQxiUKTpIKyvp9dOLCNLVXJag02/5dKycq+Da8TCiqSdd5YRWoBl7tAnSr4Ic81ET6zzcv0XReQiNjHOBw=="
+                 length="64913350"
                  type="application/octet-stream" />
     </item>
   </channel>
