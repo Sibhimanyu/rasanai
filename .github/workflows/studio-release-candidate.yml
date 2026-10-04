@@ -1,0 +1,37 @@
+name: Studio community release candidate
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: App version (not a skill release)
+        required: true
+        default: '0.1.0'
+      build:
+        description: New monotonically increasing bundle build number
+        required: true
+permissions:
+  contents: read
+jobs:
+  candidate:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test native core and managed runtime
+        run: |
+          swift test --package-path apps/macos
+          node apps/macos/Tests/runtime-driver.test.mjs
+      - name: Build unnotarized Apple Silicon candidate
+        env:
+          STUDIO_VERSION: ${{ inputs.version }}
+          STUDIO_BUILD: ${{ inputs.build }}
+        run: bash apps/macos/scripts/build-community.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: studio-community-candidate
+          path: |
+            apps/macos/dist/*.dmg
+            apps/macos/dist/*.sha256
+          if-no-files-found: error

@@ -1,0 +1,13 @@
+# RasanAI Studio — community build
+
+This Apple Silicon build requires macOS 14 or newer. It is ad-hoc signed, not Developer ID signed or Apple-notarized. A free Apple ID does not provide Developer ID/notarization. Gatekeeper may block the first launch; this package does not disable Gatekeeper or remove quarantine. Only install it if you trust the source and intentionally approve the app using macOS's supported security interface. Enterprise-managed Macs may prohibit installation.
+
+Drag RasanAI Studio to Applications before launching. Do not run from the read-only disk image: Sparkle cannot replace an app there. Check the SHA256 against the GitHub release's checksum file to detect a corrupted download; a checksum alone is not proof of a trusted publisher.
+
+The app bundles the RasanAI engine and Node. Install and sign in to Claude Code or OpenAI Codex yourself, then configure it in Settings (Command-comma). Rendering still needs FFmpeg, HyperFrames workflows and its browser/media tools. Settings includes setup instructions. Provider use may incur charges. Restricted agent mode is the default; do not enable unrestricted tools for untrusted projects.
+
+Projects live in Documents/RasanAI (or the library you select), not inside the app. New Project Folder (Command-N) creates one workspace per film. Start Film launches your chosen director after confirmation. The full workflow uses the existing console inside WebKit; the native review layout remains available.
+
+Sparkle verifies update archives using the project's separate EdDSA key when a release contains SUPublicEDKey. This is update authentication, not Apple notarization. Never accept an unsigned or unverifiable update. Builds without the update trust key disable updates.
+
+This is a beta until real-agent film generation and an installed-version Sparkle upgrade are verified. Report failures with the run's logs, removing private source material and credentials before sharing.

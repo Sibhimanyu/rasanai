@@ -114,6 +114,10 @@ With the plugin install Claude Code namespaces the skill: invoke it as `/rasanai
 /rasanai export the Swiss grid style as a DESIGN.md
 ```
 
+## Native Mac studio (community beta)
+
+A SwiftUI studio is available as an [Apple Silicon community beta](https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.1.0-beta.1): native Settings (⌘,), a Documents/RasanAI project library (⌘N), local Claude Code/OpenAI Codex configuration, director launch/resume/stop controls, and native review/export. The complete current console is embedded in WebKit for specialized workflows, with native clarification questions and an optional SwiftUI review layout. Requires macOS 14+. The DMG is ad-hoc signed and **not Apple-notarized**; first installation is subject to Gatekeeper approval. Local update and review smoke tests passed, but real-agent generation and complete workflow parity remain unverified. See the [Mac guide](apps/macos/README.md), [community installation notes](apps/macos/COMMUNITY-INSTALL.md), and [readiness audit](apps/macos/READINESS.md).
+
 ## How it works
 
 ```
