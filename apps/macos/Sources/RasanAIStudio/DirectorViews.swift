@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import StudioCore
+import UserNotifications
 
 struct DirectorQuestionSheet: View {
     @Bindable var store: StudioStore
@@ -67,6 +68,9 @@ struct DirectorSheet: View {
                 if starting { ProgressView().controlSize(.small) }
             }
         }.padding(24).frame(width: 590)
+            .onAppear {
+                if store.launchProject == nil { request = "Resume this existing run from its saved state. Preserve completed work and continue with the next pending step." }
+            }
     }
 }
 
@@ -84,8 +88,16 @@ struct DirectorLogSheet: View {
     }
 }
 
-@MainActor final class StudioAppDelegate: NSObject, NSApplicationDelegate {
+@MainActor final class StudioAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     var runtime: DirectorRuntime?
+    weak var store: StudioStore?
+    func configureNotifications() {
+        if Bundle.main.bundleIdentifier != nil { UNUserNotificationCenter.current().delegate = self }
+    }
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        guard let path = response.notification.request.content.userInfo["runPath"] as? String else { return }
+        await MainActor.run { self.store?.openRun(URL(fileURLWithPath: path)) }
+    }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let runtime, runtime.isRunning else { return .terminateNow }
         let alert = NSAlert()

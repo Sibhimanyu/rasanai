@@ -87,6 +87,10 @@ public struct ReviewNote: Identifiable, Sendable, Equatable {
 
 public struct SessionSnapshot: Sendable {
     public let raw: JSONValue
+    /// A safe initial UI state when installation resources cannot be read.
+    public init() {
+        raw = .object(["title": .string("New film"), "current": .string("brief"), "steps": .object([:])])
+    }
     public init(data: Data) throws {
         let raw = try JSONDecoder().decode(JSONValue.self, from: data)
         guard case .object = raw, case .object = raw["steps"] else { throw StudioError.invalidSession }
