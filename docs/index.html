@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>RasanAI: AI video direction for Claude Code. Pick the film, Claude makes it.</title>
-<meta name="description" content="A Claude Code skill for entire videos. You make five calls in a local console: the brief, one of three scripts, one of three looks for it, notes on a timed animatic, the final. A crew of agents (Claude, or ChatGPT through Codex) researches the product, scores the motion and animates every scene in parallel; Claude lists every call with its reason and checks the film for AI-video tells before you see it." />
+<title>RasanAI — pick the film. Make it yours.</title>
+<meta name="description" content="Turn a brief into a directed video. Choose the story, choose the look, review the film. Use the agent skill or download the native Mac community beta." />
 <meta name="theme-color" content="#1B1F5E" />
 <meta name="author" content="Sibhimanyu" />
 <meta name="keywords" content="RasanAI, Rasanai, ரசனை, Rasa Director, Sibhimanyu, Claude Code skill, AI video, AI video generator, motion graphics, HyperFrames, launch video, explainer video" />
 <meta property="og:title" content="RasanAI: pick the film. Claude makes it." />
-<meta property="og:description" content="Five calls: brief, story, look, animatic, final. Five calls: brief, story, look, animatic, final. Three design systems made for your film. A crew of agents for Claude or ChatGPT researches, writes, scores and animates; the film is checked for AI-video tells." />
+<meta property="og:description" content="Your brief. Three stories. Three looks. One film. Explore the workflow, try the motion, and get started with RasanAI." />
 <link rel="canonical" href="https://sibhimanyu.github.io/rasanai/" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="RasanAI" />
@@ -31,8 +31,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anek+Latin:wdth,wght@75..125,300..800&family=Anek+Tamil:wdth,wght@75..125,500..700&family=JetBrains+Mono:wght@400;500&family=Mukta:wght@400;500;600&display=swap" />
 <link rel="stylesheet" href="assets/site.css" />
+<link rel="stylesheet" href="assets/home.css" />
 </head>
-<body>
+<body class="home">
 <a class="skip" href="#main">Skip to content</a>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -46,568 +47,76 @@
 <header class="hero">
   <nav class="nav wrap" aria-label="Primary">
     <a class="brand" href="#main"><img src="assets/logo/rasanai-lockup-reverse.svg" width="214" height="44" alt="RasanAI" /></a>
-    <div class="nav-links">
-      <a class="hide-s" href="#flow">How it runs</a>
-      <a class="hide-s" href="#different">What's different</a>
-      <a class="hide-s" href="#crew">The crew</a>
-      <a class="hide-s" href="#desk">Design desk</a>
-      <a class="hide-s" href="#brand">Your brand</a>
-      <a class="hide-s" href="#reels">Reels</a>
-      <a class="hide-s" href="#mac">Mac app</a>
-      <a href="#install">Install</a>
-      <a class="hide-xs" href="https://github.com/Sibhimanyu/rasanai">GitHub</a>
-      <button class="motion-toggle" type="button" aria-pressed="false" data-motion-toggle>Pause motion</button>
-    </div>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="home-nav" hidden>Menu <span aria-hidden="true">+</span></button><div class="nav-links" id="home-nav"><a href="#gallery">Explore</a><a href="#flow">How it works</a><a class="nav-action" href="#get-started">Get started ↗</a></div>
   </nav>
 
   <div class="wrap hero-head">
-    <h1>Pick the film.<br /><em>Claude makes it.</em></h1>
-    <div class="hero-side">
-      <p><strong>RasanAI</strong> is a Claude Code skill for entire videos: launch films, explainers, PR videos, music videos, reels cut from your own footage, motion graphics. You make five calls and see your film at each one. Behind them, a crew of agents researches your product, writes the scripts, scores every shot and animates every scene in parallel. Claude lists each decision with its reason and checks the film for AI-video tells before you see it.</p>
-      <div class="hero-cta">
-        <a class="btn btn-primary" href="#install">Install the skill <svg aria-hidden="true"><use href="#i-arrow"/></svg></a>
-        <a class="btn btn-ghost" href="https://github.com/Sibhimanyu/rasanai"><svg aria-hidden="true"><use href="#i-gh"/></svg> GitHub</a>
-      </div>
+    <div><p class="eyebrow">An AI director. Your taste.</p><h1>Pick the film.<br /><em>Make it yours.</em></h1></div>
+    <div class="hero-side"><p>Turn a brief into a film with a story, a look, and a rhythm of its own. You make the creative calls. Your agent builds it.</p>
+      <div class="hero-cta"><a class="btn btn-primary" href="#mac">Get the Mac beta <svg aria-hidden="true"><use href="#i-arrow"/></svg></a><a class="text-link" href="#install">Install the skill ↗</a></div><p class="hero-meta">Claude Code · OpenAI Codex · Open source</p>
     </div>
   </div>
 
   <section class="wrap swatches" aria-label="Motion-language swatches">
     <div class="swatch-bar">
-      <label for="try-input">Your opening title</label>
+      <label for="try-input">Try your opening title</label>
       <input id="try-input" type="text" value="RasanAI" maxlength="36" autocomplete="off" spellcheck="false" />
-      <span class="swatch-note">One four-scene film, six motion languages. Swatches to choose by eye; the real film is Claude's.</span>
+      <button class="motion-toggle" type="button" aria-pressed="false" data-motion-toggle>Pause motion</button>
     </div>
     <div class="swatch-grid">
-      <figure class="tile"><div class="md-cell g-rice" data-try data-film data-content="RasanAI" data-personality="swiss-precise" aria-hidden="true"></div><figcaption><b>Precise</b><span class="mono">expo.out · 200–1000 ms · no overshoot</span></figcaption></figure>
-      <figure class="tile"><div class="md-cell g-tur" data-try data-film data-content="RasanAI" data-personality="elastic-playful" aria-hidden="true"></div><figcaption><b>Elastic</b><span class="mono">back.out · overshoot allowed</span></figcaption></figure>
-      <figure class="tile"><div class="md-cell g-ink" data-try data-film data-content="RasanAI" data-personality="cinematic-slow" aria-hidden="true"></div><figcaption><b>Cinematic</b><span class="mono">power2 · 400–2400 ms · long holds</span></figcaption></figure>
-      <figure class="tile"><div class="md-cell g-leaf" data-try data-film data-content="RasanAI" data-personality="liquid-morph" aria-hidden="true"></div><figcaption><b>Liquid</b><span class="mono">power4.inOut · continuous</span></figcaption></figure>
-      <figure class="tile"><div class="md-cell g-silk" data-try data-film data-content="RasanAI" data-personality="kinetic-punch" aria-hidden="true"></div><figcaption><b>Snappy</b><span class="mono">power4.out · 120–800 ms</span></figcaption></figure>
-      <figure class="tile"><div class="md-cell g-amber" data-try data-film data-content="RasanAI" data-personality="brutalist-step" aria-hidden="true"></div><figcaption><b>Choppy / stepped</b><span class="mono">steps(4) · no interpolation</span></figcaption></figure>
-    </div>
+      <figure class="tile"><div class="md-cell g-rice" data-try data-film data-content="RasanAI" data-personality="swiss-precise" aria-hidden="true"></div><figcaption><b>Precise</b><span>Every move, on purpose.</span></figcaption></figure>
+      <figure class="tile"><div class="md-cell g-tur" data-try data-film data-content="RasanAI" data-personality="elastic-playful" aria-hidden="true"></div><figcaption><b>Playful</b><span>A little bounce. A lot of character.</span></figcaption></figure>
+      <figure class="tile"><div class="md-cell g-ink" data-try data-film data-content="RasanAI" data-personality="cinematic-slow" aria-hidden="true"></div><figcaption><b>Cinematic</b><span>Room for the moment to land.</span></figcaption></figure>
+      </div>
+    <p class="demo-label">Live motion studies. Type a title to make them yours.</p>
   </section>
 </header>
 
 <main id="main">
-
-  <!-- the problem -->
-  <section class="section problem">
-    <div class="wrap">
-      <div class="two">
-        <h2>Thirty people make an AI video. They get thirty videos and one film.</h2>
-        <div>
-          <p class="lede">The content differs. The film is the same: the obvious story, a default look, everything fading up on one ease, a 30-second music loop under a 45-second film, a whoosh on every cut, glowing text. Viewers now name these tells on sight.</p>
-          <p>Each one is a default nobody chose. RasanAI replaces every default with a decision, then checks the build against all of them.</p>
-        </div>
-      </div>
-      <ul class="swaps" aria-label="Defaults and the decisions that replace them">
-        <li><s>Hook, problem, "Introducing X", three features, call to action</s><span>One of 66 narrative devices, picked from what is true about your product</span></li>
-        <li><s>A default look</s><span>A named design system, matched to the story</span></li>
-        <li><s>Everything fades up on the same ease</s><span>A motion contract, checked tween by tween</span></li>
-        <li><s>A 30-second loop under a 45-second film</s><span>A track cut on bar lines that ends when the film ends</span></li>
-        <li><s>A whoosh on every cut</s><span>Sound effects only for things you can see happen</span></li>
-        <li><s>Glowing text</s><span>A gate that rejects the look, copy, motion and sound tells</span></li>
-        <li><s>A film about the product, from memory</s><span>Research first: its real screens, words, brand and past launch films, every fact sourced</span></li>
-        <li><s>Scenes that each look fine and never flow</s><span>One motion score for the whole film, every seam designed on both sides</span></li>
-        <li><s>The safe, forgettable default</s><span>A crew pushed to show off, and critics that fail competent-but-safe work</span></li>
-        <li><s>Everything flat, or a three.js demo spinning in a void</s><span>Real 3D where depth earns it, planned like a 3D lead and joined to the 2D frame by frame</span></li>
-        <li><s>A lyric video that is a gradient with subtitles on it</s><span>Every word timed to the voice, every line a pun or a transformation, every cut on a downbeat</span></li>
-        <li><s>A render that looks like a screen recording</s><span>Real motion blur on every scene and one grade across the film, so cuts do not change the texture</span></li>
-      </ul>
-    </div>
-  </section>
-
-  <!-- the five calls -->
-  <section class="section dark" id="flow">
-    <div class="wrap">
-      <p class="eyebrow">How it runs</p>
-      <h2 class="mega">Five calls. You see your film at every one.</h2>
-      <p class="lede narrow">You type <code>/rasanai make a 45s launch film for tally.app</code>. A Director's Console opens in your browser, shows what Claude is doing as it works, and stops you five times. The story and the look are separate calls: the script is judged as words and timing first.</p>
-
-      <ol class="calls">
-        <li class="call">
-          <div class="call-text">
-            <p class="call-n">1</p>
-            <h3>Brief</h3>
-            <p>One sentence you can edit: "A 45-second launch film for Tally, 16:9 for the website, with voiceover, in Tally's own colours and type", and what the research found: the product's real screens, words and brand, each with its source. With your permission, it also reads the product's code on your computer.</p>
-            <p class="call-do"><b>Your call</b>Fix a word and press Start, or press Just make it.</p>
-          </div>
-          <figure class="showcase"><img src="img/console-brief.jpg" width="1440" height="900" loading="lazy" alt="The Brief call in the Director's Console: one editable sentence describing the film, with the site captures Claude will use below it" /></figure>
-        </li>
-        <li class="call">
-          <div class="call-text">
-            <p class="call-n">2</p>
-            <h3>Story</h3>
-            <p>Three scripts, Sure, Bold and Wild, written at the same time by three writers from your product's researched truth, then read by a hostile editor. Each is a title, a logline and every beat: what's on screen, what's said, what we see. No style yet.</p>
-            <p class="call-do"><b>Your call</b>Pick one, or tell Claude what to change in a line.</p>
-          </div>
-          <figure class="showcase"><img src="img/console-story.jpg" width="1440" height="900" loading="lazy" alt="The Story call: three story tabs labelled Sure, Bold and Wild, and the selected story as a script table of timed beats with on-screen lines, voiceover and visuals, the turn highlighted" /></figure>
-        </li>
-        <li class="call">
-          <div class="call-text">
-            <p class="call-n">3</p>
-            <h3>Look</h3>
-            <p>Three design systems built for that story by a design desk, each drawn as a real frame on its own first line and moving when you hover.</p>
-            <p class="call-do"><b>Your call</b>Pick one, ask for new blends near it, or turn the energy up or down.</p>
-          </div>
-          <figure class="showcase"><img src="img/desk-three.jpg" width="1020" height="226" loading="lazy" alt="The Look call: three bespoke design systems drawn on one line, Every receipt, counted: Counting House on ledger paper with a red stamp, Night Audit on a dark reconciliation board, Stamp Duty in yellow and violet" /></figure>
-        </li>
-        <li class="call">
-          <div class="call-text">
-            <p class="call-n">4</p>
-            <h3>Animatic</h3>
-            <p>The whole film, rough: a Motion Director has scored every shot and every seam, and every scene's key frame sits at its real duration, with the real music edit and the voice.</p>
-            <p class="call-do"><b>Your call</b>Play it and click any moment to leave a note. Then one animator per scene builds them all at once while you watch.</p>
-          </div>
-          <figure class="showcase"><img src="img/console-animatic.jpg" width="1440" height="1120" loading="lazy" alt="The Animatic call: the film's key frames on a timeline under a player, the music waveform beneath, and notes pinned to moments" /></figure>
-        </li>
-        <li class="call">
-          <div class="call-text">
-            <p class="call-n">5</p>
-            <h3>Final</h3>
-            <p>The rendered film with scene markers, your notes, every version and what changed between them.</p>
-            <p class="call-do"><b>Your call</b>Note a moment, apply the notes, render and download.</p>
-          </div>
-          <figure class="showcase"><img src="img/console-final.jpg" width="1440" height="900" loading="lazy" alt="The Final call: the rendered film in a player with scene markers on the scrubber, a notes list and a version history" /></figure>
-        </li>
-      </ol>
-
-      <div class="two decide">
-        <div>
-          <h3 class="decide-h">Claude decides the rest.</h3>
-          <p class="lede">The craft is decided the way a senior motion designer would decide it, from a quantified playbook, and every call is listed in the Decisions drawer with its reason. Change any of it by telling Claude (<kbd>⌘K</kbd>) or leaving a note.</p>
-          <ul class="chips" aria-label="What Claude decides">
-            <li>Research</li><li>Story device</li><li>Scenes</li><li>Motion score</li><li>Timing</li><li>Motion language</li><li>Transitions</li><li>Music edit</li><li>Sound effects</li><li>Lighting</li><li>Grade</li><li>HyperFrames workflow</li>
-          </ul>
-          <p class="decide-note">Claude's pick is the most ambitious film that still tells the truth clearly. Every decision names the obvious option it passed over.</p>
-        </div>
-        <div class="file drawer">
-          <div class="file-top"><span>Decisions</span><span class="tag">every call, with its reason</span></div>
-          <dl>
-            <div><dt>Story</dt><dd>The Museum Exhibit. The old way of doing taxes, shown as artifacts. Passed over: problem, then solution.</dd></div>
-            <div><dt>Style</dt><dd>Museum wall text. The story is an exhibition, so the film is a gallery wall.</dd></div>
-            <div><dt>Motion</dt><dd>Luxurious / slow: circ.out, 600 to 2800 ms, holds of 1.8 s or more.</dd></div>
-            <div><dt>Transitions</dt><dd>Hard cuts, and one match cut from the shoebox to the booked month.</dd></div>
-            <div><dt>Scenes</dt><dd>7 scenes in 45 s. The hook lands at 1.6 s; the end card holds 2.4 s.</dd></div>
-            <div><dt>Music</dt><dd>Edited to 45 s on bar lines. The reveal falls on the downbeat of bar 9.</dd></div>
-            <div><dt>Sound</dt><dd>4 effects, each on something you see: the lid, the stamp, the tap, the logo.</dd></div>
-            <div><dt>Light</dt><dd>A spotlight pool on each exhibit. Grade: clean neutral.</dd></div>
-          </dl>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- what makes the films different -->
-  <section class="section" id="different">
-    <div class="wrap">
-      <p class="eyebrow">Under the five calls</p>
-      <h2 class="mega">What makes the films different.</h2>
-      <div class="diffs">
-        <article>
-          <h3>A story picked from what is true</h3>
-          <p>Before any concept, Claude writes a truth sheet from your product: what really changes, for whom, in its own words and numbers. From 66 narrative devices it pitches three films that differ on at least five of seven axes. A rubric rejects the default arc, and any pitch that would work for any product.</p>
-          <p class="eg"><span>Example</span>For a bookkeeping app, The Museum Exhibit: the shoebox of receipts under glass (c. 2019), a placard for every late-night spreadsheet, and an empty plinth where tax season used to be.</p>
-        </article>
-        <article>
-          <h3>Three design systems, made for your film</h3>
-          <p>A design desk researches your subject's own visual world, then blends references from an internal library of 108 design systems and 49 motion styles into three new systems for the story you chose. Each is a complete DESIGN.md with colours by role, real fonts, motion timings and a camera, drawn as a specimen on your film's first line. A gate rejects the generic ones before you see them.</p>
-          <p class="eg"><span>Example</span>For a bookkeeping story: Counting House, ledger paper and banknote green with one red stamp, blended from financial-press charts, banknote engraving and Saul Bass.</p>
-        </article>
-        <article>
-          <h3>Music edited to the picture</h3>
-          <p>Tracks long enough for the film, analysed with nothing but Node and FFmpeg for beats, bars, sections and a real ending, then cut on bar lines so the music never loops. The reveal and the logo land on downbeats. Sound effects only for visible events, on a budget. Mixed to −14 LUFS.</p>
-          <p class="eg"><span>Example</span>A 45-second film gets a track that ends at 45 seconds: one forward jump on a bar line into the real ending, and half a bar of near-silence before the reveal.</p>
-        </article>
-        <article>
-          <h3>An anti-slop gate</h3>
-          <p>Before anything reaches you, <code>slop.mjs</code> checks five kinds of tell. Copy: <code>seamless</code>, <code>unlock</code>, the not-X-it's-Y line, em dashes. Look: neon glow text, purple-blue gradients, particle filler, corner timecodes, Inter everywhere. Motion: idle loops, everything entering the same way. Timing: unreadable text, uniform shots, no end hold. Sound: loops, a whoosh per cut, loudness, dead air.</p>
-          <p class="eg"><span>Example</span><code>generic-copy · error</code> on the headline <code>Unlock seamless bookkeeping</code>. Fix: the real outcome, number or feature, in the product's own words.</p>
-        </article>
-        <article>
-          <h3>Research before the story</h3>
-          <p>A research crew reads the product's site, help center, changelog and brand pages, and collects its real screens with a measured UI kit. For a known brand it measures the brand's past launch films shot by shot. With your permission it also reads the product's code on your computer. Every fact on screen traces to a source; nothing comes from memory.</p>
-          <p class="eg"><span>Example</span>For a ChatGPT film: the composer's real words and radius, the colours from its own stylesheet, and a note that the Plugins menu is gone, so no frame shows it.</p>
-        </article>
-        <article>
-          <h3>One score, every scene in parallel</h3>
-          <p>A Motion Director scores the whole film: the spine, the energy curve, every shot, every seam with exact handoff numbers on both sides, one signature move. Then one animator per scene builds them all at once, looks at its own motion frame by frame, and fresh-eyed critics judge the cuts, the facts and the film.</p>
-          <p class="eg"><span>Example</span>Seam 6 → 7: the source chip pushes through into the report; it leaves scene 6 at x 1210, scale 1.4, moving left at 900 px/s, and scene 7 picks it up exactly there.</p>
-        </article>
-      </div>
-    </div>
-  </section>
-
-  <!-- the meaning -->
-  <section class="section meaning">
-    <div class="wrap two meaning-grid">
-      <div class="word-col"><p class="word" lang="ta">ரசனை</p><p class="gloss"><b>rasanai</b> <span class="mono">/ˈrʌ.sə.nai/ · Tamil ரசனை, from Sanskrit रस <i>rasa</i></span></p></div>
-      <div>
-        <ol class="defs"><li>Taste; the eye (and ear) for what feels right. <i>“Avarukku nalla rasanai”</i>: they have good taste.</li><li>From <i>rasa</i>: in Indian aesthetics, the feeling a work leaves in the person experiencing it. What is tasted, more than what is shown.</li></ol>
-        <p class="pull">A video keeps its rasa in how it looks, moves, cuts and sounds. RasanAI is the rasanai: the taste to choose it, on purpose.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- the design desk -->
-  <section class="section dark" id="desk">
-    <div class="wrap">
-      <p class="eyebrow">The design desk</p>
-      <h2 class="mega">Three looks, made for this film.</h2>
-      <div class="two lead-row">
-        <p class="lede">There is no style menu. When you have chosen a story, a design researcher has already studied its subject: the materials, places and eras it belongs to, and the clichés of its category. Three designers then each build one system for the story by blending two to four references from the desk's internal library, and add the subject's own world, so none of the three is a copy of anything.</p>
-        <p>The library holds 108 design systems (graphic-design movements, studios and brands, regional and period looks, print and 3D materials) and 49 motion and camera styles. It is raw material the designers read, not something you pick from. What they hand you is a DESIGN.md: palette roles, type from Google Fonts or Fontshare, grid, shape, motion timings with GSAP eases, camera language and what to avoid.</p>
-      </div>
-      <div class="shots two-up" style="align-items:center">
-        <figure class="showcase"><img src="img/desk-counting-house.jpg" width="1600" height="900" loading="lazy" alt="The Counting House specimen: Every receipt, counted. in a heavy grotesk on ledger paper, a mono receipt totalling 1,284.60 and a vermilion CHECKED stamp" /><figcaption><b>Counting House, one of three.</b> Drawn on the film's first line, in its own type, paper and one rationed red.</figcaption></figure>
-        <figure class="showcase"><img src="img/desk-three.jpg" width="1020" height="226" loading="lazy" alt="Three systems for the same story: Counting House, Night Audit and Stamp Duty" /><figcaption><b>Three for the same story.</b> Sure, Bold and Wild differ in palette, display face, layout and motion; a gate fails any two that are alike.</figcaption></figure>
-      </div>
-      <ul class="ticks">
-        <li><b>A gate, not a hope.</b> Each system's specimen is rendered and measured: palette off-contract, accent share, ink contrast, a font that does not exist, a generic default (Inter for everything, the purple-blue gradient). The three must differ in at least three of palette, display face, layout and motion language, and may not blend the same references.</li>
-        <li><b>The chosen system is the film's look.</b> It becomes the film's DESIGN.md, its motion contract and its direction. With your own DESIGN.md, the first system is your brand extended for motion, and the other two push around it.</li>
-        <li><b>Honest about its sources.</b> The library was written from fetched sources and then edited: 116 of 157 entries have had the edit pass, colours are mostly proposed from a designer's reading rather than measured (15 entries are measured), and the library says which. Nothing in it is offered as a claim about the original work.</li>
-      </ul>
-    </div>
-  </section>
-
-  <!-- brand -->
-  <section class="section" id="brand">
-    <div class="wrap">
-      <p class="eyebrow">Your brand</p>
-      <h2 class="mega">Bring your DESIGN.md.</h2>
-      <div class="two">
-        <div>
-          <p class="lede">If your project has a brand reference, it becomes the look. All three films are drawn in its colors and type, and the brief sentence says so. Ask for a new look and the styles use their own colors instead.</p>
-          <ul class="ticks">
-            <li>Reads the common shapes: design.md spec frontmatter with <code>oklch()</code> colors and nested typography, impeccable and gstack files, Stitch-style prose, CSS custom properties, token tables with or without <code>#</code>.</li>
-            <li>Gives every color a role (canvas, ink, accent, surface, muted, status) from its name and comment, then contrast. A saturated "text accent" never becomes the ink; status colors never become the accent.</li>
-            <li>Finds the fonts, skips "banned" ones, maps platform fonts the renderer doesn't have (SF Pro → Inter, SF Mono → JetBrains Mono, Calibri → Carlito) and says so.</li>
-            <li>Writes a frame.md HyperFrames accepts, checks it with HyperFrames' own parser, and stages every font file into the project.</li>
-          </ul>
-          <p><a class="link" href="examples/DESIGN.md">See an example DESIGN.md</a></p>
-        </div>
-        <figure class="showcase"><img src="img/brand-board.jpg" width="1600" height="900" loading="lazy" alt="A brand board read from Tally's DESIGN.md: the wordmark, the palette by role (canvas, ink, a mint accent, surface, muted), Bricolage Grotesque and DM Sans, radius 12px" /><figcaption><b>What RasanAI read.</b> Colors by role, the fonts, the radius, and the one rule for the accent.</figcaption></figure>
-      </div>
-    </div>
-  </section>
-
-  <!-- the vocabulary -->
-  <section class="section dark" id="stack">
-    <div class="wrap">
-      <p class="eyebrow">The vocabulary</p>
-      <h2 class="mega">A film is a stack of decisions.</h2>
-      <div class="two lead-row">
-        <p class="lede">Two pieces can both be "2D UI animation" and look nothing alike. RasanAI holds the vocabulary of motion design as data: <b>32 dimensions and 926 terms</b>, each with a definition, what it looks like, how it moves, where it's used, what it's confused with, and the instruction Claude follows.</p>
-        <p>Every decision Claude makes, and every prompt to a builder, is written in these terms. A film vocabulary turns each one (a rack focus, a bleach-bypass grade, a J-cut) into an HTML, CSS and GSAP recipe with numbers. Share a screenshot or a video you like and Claude reads it into the same terms.</p>
-      </div>
-
-      <div class="dims">
-        <div><h3>Format &amp; tone</h3><p>Format (66) · Tone (29)</p><small>product launch film · feature reveal · logo sting · concept explainer · kinetic typography · title sequence · confident · premium · playful</small></div>
-        <div><h3>What's on screen</h3><p>UI treatment (44) · Product demo (28) · UI interaction (51) · Data viz (23) · Photo &amp; video (21) · Illustration (40) · Character (17)</p><small>simplified UI · exploded UI · bento UI · terminal UI · cursor-driven demo · input → output · number counter · flat vector</small></div>
-        <div><h3>Look</h3><p>Visual style (77) · Era (22) · Color (28) · Typography (24) · Composition (34) · Material (31) · Texture (28) · Shape · Stroke · Shadow · Depth · Iconography</p><small>Swiss / International · neo-brutalism · risograph · soft 3D · Y2K · grotesk · duotone · hard offset shadow · film grain</small></div>
-        <div><h3>Light &amp; grade</h3><p>Lighting (22) · Color grade (23)</p><small>key, fill and rim · low-key · window light · neon practicals · volumetric god rays · bleach bypass · teal-orange · Kodachrome · day for night</small></div>
-        <div><h3>Motion</h3><p>Motion language (32) · Motion function (24) · Transitions (44) · Camera (24) · Effects (34) · Production (25)</p><small>precise · springy · cinematic · stop-motion-like · UI morph · match cut · mask reveal · push-in · parallax</small></div>
-        <div><h3>Story &amp; sound</h3><p>Narrative (24) · Pacing (18) · Sound (15)</p><small>statement → evidence → payoff · feature montage · beat-driven · voiceover-synchronized · music-led</small></div>
-      </div>
-
-      <div class="two stack-demo">
-        <div class="file">
-          <div class="file-top"><span>DIRECTION.md</span><span class="tag">compiled from the chosen film</span></div>
-<pre><code><span class="c"># Direction:</span> Swiss / International Typographic Style,
-  simplified-UI product launch film, precise motion
-
-<span class="k">Style formula</span>
-Format / purpose: Product Launch Film
-        ↓
-Emotional / brand tone: Confident + Friendly
-        ↓
-UI treatment: Simplified UI
-        ↓
-Visual style: Swiss / International Typographic Style
-        ↓
-Typography: Grotesk
-        ↓
-Motion language: Precise
-
-<span class="k">### UI treatment: Simplified UI</span>
-<b>Simplified UI.</b> The real interface with non-essential
-detail removed.
-- <span class="k">Do:</span> keep its true layout and hierarchy; remove
-  secondary controls, dense data and placeholder text…
-- <span class="k">Not to be confused with:</span> Abstracted UI keeps only
-  the one control that matters…</code></pre>
-        </div>
-        <div class="formulas">
-          <figure class="formula-card"><figcaption>Energetic neo-brutalist 2D interface animation</figcaption><ol><li>neo-brutalist UI</li><li>heavy stroke · hard offset shadow</li><li>high contrast · color blocking</li><li>snappy motion</li><li>hard cuts · push · fast pacing</li></ol></figure>
-          <figure class="formula-card"><figcaption>Luxury minimal reveal</figcaption><ol><li>high-contrast serif</li><li>dark UI · limited palette</li><li>negative space · single-object hero</li><li>luxurious / slow motion</li><li>dissolve · light wipe</li></ol></figure>
-          <figure class="formula-card"><figcaption>Technical monochrome developer-tool animation</figcaption><ol><li>terminal UI · monospace</li><li>black and white</li><li>technical diagram</li><li>precise · linear motion</li><li>hard cut · wipe</li></ol></figure>
-        </div>
-      </div>
-      <p class="note">The compiled direction goes to every builder: into <code>frame.md</code>, into every scene's work packet with the motion contract, and into every reel card's brief.</p>
-    </div>
-  </section>
-
-  <!-- motion languages -->
-  <section class="section">
-    <div class="wrap">
-      <p class="eyebrow">The motion</p>
-      <h2 class="mega">A motion language, with a contract.</h2>
-      <div class="two lead-row">
-        <p class="lede">"If these graphics were alive, what laws would they follow?" Each of the 32 motion languages is a term with a binding contract: its eases, the durations allowed, the stagger, the minimum hold, and the moves it bans. The chosen style's language becomes <code>motion.md</code>.</p>
-        <p>Every language's swatch passes the same checker the real build must pass, so what you see is what's enforced. One language governs the whole film; scenes differ only in intensity.</p>
-      </div>
-      <div class="langs">
-        <div><b>Precise</b><span class="mono">expo.out / expo.in · 200–1000 ms · stagger 80 · hold 900</span><small>Exact, grid-locked destinations, zero overshoot.</small></div>
-        <div><b>Springy</b><span class="mono">back.out(1.7) / power3.in · 180–1100 ms · stagger 40</span><small>A damped spring: fast attack, one overshoot, quick settle.</small></div>
-        <div><b>Cinematic</b><span class="mono">power2.out / power2.inOut · 400–2400 ms · hold 1400</span><small>Slow push-ins and breathing holds.</small></div>
-        <div><b>Snappy</b><span class="mono">power4.out / power3.in · 120–720 ms · stagger 50</span><small>Steep initial velocity, very short settle.</small></div>
-        <div><b>Luxurious / slow</b><span class="mono">circ.out / circ.in · 600–2800 ms · hold 1800</span><small>Restraint as the signal of value.</small></div>
-        <div><b>Stop-motion-like</b><span class="mono">steps(6) / steps(4) · 12 fps · hold 750</span><small>Held poses on twos, like physical stop-motion.</small></div>
-      </div>
-      <figure class="showcase"><img src="img/swatches.jpg" width="1600" height="900" loading="lazy" alt="The same lines in six motion languages, side by side, in one look" /><figcaption><b>The same lines in six languages.</b> The chosen language's contract then governs every scene Claude builds.</figcaption></figure>
-    </div>
-  </section>
-
-  <!-- the crew -->
-  <section class="section dark" id="crew">
-    <div class="wrap">
-      <p class="eyebrow">Who makes it</p>
-      <h2 class="mega">A crew makes every film.</h2>
-      <div class="two lead-row">
-        <p class="lede">Claude is the director. A crew of agents does the work, each with its own brief and a check its work must pass. The crew never talks to you, and nothing on screen comes from memory.</p>
-        <p>Researchers read the product's site, help center, changelog and brand pages, and measure its past launch films shot by shot. Three writers pitch against each other. A Motion Director scores how the whole film moves. Then one animator per scene builds them all at once, and each looks at its own motion frame by frame before handing it back. Every creative brief ends the same way: show off. Claude's unpushed default is competent and forgettable, and the critics are told to fail it.</p>
-      </div>
-      <div class="shots two-up">
-        <figure class="showcase"><img src="img/styleframe-hook.jpg" width="1600" height="900" loading="lazy" alt="A key frame Claude designed: Tax season. Again. on a Swiss grid, receipts piled on the right" /><figcaption><b>Key frame: the hook.</b> Swiss grid, grotesk, the brand's paper and ink.</figcaption></figure>
-        <figure class="showcase"><img src="img/styleframe-product.jpg" width="1600" height="900" loading="lazy" alt="A key frame: simplified product UI with March books balanced and a single mint accent" /><figcaption><b>Key frame: the product.</b> Simplified UI, one mint accent for the balanced state.</figcaption></figure>
-      </div>
-      <ol class="loop">
-        <li><b>Research</b><span>Product, brand, real screens, past films, and your local code with permission; merged into one truth sheet</span></li>
-        <li><b>Writers' room</b><span>Three writers, one script each, and an editor who reads like a hostile client</span></li>
-        <li><b>Motion score</b><span>Every shot in 2D or real 3D, every seam with exact handoff numbers, 2 to 4 showreel moments</span></li>
-        <li><b>Animators</b><span>One per scene, in parallel, building toward the approved key frame</span></li>
-        <li><b>Critics</b><span>Fresh eyes on frames, motion, facts and film; competent but safe is a fail</span></li>
-      </ol>
-    </div>
-  </section>
-
-  <!-- real 3D -->
-  <section class="section" id="depth">
-    <div class="wrap">
-      <p class="eyebrow">Real 3D</p>
-      <h2 class="mega">Flat, in depth, or both.</h2>
-      <div class="two lead-row">
-        <p class="lede">Every scene in the score is 2D, 3D or a hybrid of both. The Motion Director decides where depth earns its place: the lens in millimetres, camera moves that land, one motivated key light, materials from the look. The seams between flat and deep are planned to the pixel, so a card you were just reading lifts off the page on the cut.</p>
-        <p>3D scenes run on <b>Rasan3D</b>, a three.js runtime clocked by the scene's own timeline. Every frame averages several renders, which gives real motion blur, depth of field and anti-aliasing. Real screenshots keep their exact colours on UI slabs, the official logo and brand type can be extruded, and a 3D gate checks every scene before it ships: same frame for the same time, nothing blank, eased on the motion contract, blurred where it moves, at rest at least once.</p>
-      </div>
-      <div class="shots two-up">
-        <figure class="showcase"><img src="img/3d-seam-flat.jpg" width="1600" height="900" loading="lazy" alt="The last 2D frame: the RasanAI story screen, flat" /><figcaption><b>The last 2D frame.</b> The story screen, flat, exactly where the 3D scene picks it up.</figcaption></figure>
-        <figure class="showcase"><img src="img/3d-layers.jpg" width="1600" height="900" loading="lazy" alt="The same screen in 3D: its layers separated in depth, the picked card lifted toward the lens with a label pinned to it" /><figcaption><b>A second later, in 3D.</b> The page separates into its layers and the camera arcs to the picked card.</figcaption></figure>
-      </div>
-    </div>
-  </section>
-
-  <!-- the open 3D engine -->
-  <section class="section dark" id="engine">
-    <div class="wrap">
-      <p class="eyebrow">The 3D engine, opened</p>
-      <h2 class="mega">Not a menu of looks. An engine.</h2>
-      <div class="two lead-row">
-        <p class="lede">Rasan3D now exposes what the shot needs instead of a list of presets. A <b>render graph</b> takes GLSL passes at the scene or the post stage with depth compositing, render targets and extra views. <b>Deterministic simulation</b> runs on the CPU or the GPU and is still a pure function of time, so it renders the same on every frame and every seek. Real <b>DOM can hang in 3D</b>, focus, f-stop and aperture are keyable, and the lens can shift.</p>
-        <p>All of three.js r181's addons are vendored (274 modules, about 5.6 MB), and a GLSL library ships with it: noise, signed-distance shapes, ray marching, non-photoreal shading (engraving, stipple, hatching), colour and post. The gates now fail only what breaks a render. Taste rules are warnings, and a stated intent silences them; the design system is the only bound on the look.</p>
-      </div>
-      <div class="shots two-up">
-        <figure class="showcase"><img src="img/open3d-engraved.jpg" width="1600" height="900" loading="lazy" alt="A ray-marched field of heads and spheres shaded as an engraving, black line on cream" /><figcaption><b>Ray-marched, engraved.</b> A signed-distance scene shaded as line engraving by the GLSL library.</figcaption></figure>
-        <figure class="showcase"><img src="img/open3d-pillars.jpg" width="1600" height="900" loading="lazy" alt="Hundreds of capsule pillars in warm haze with a sphere in the foreground and the line Nine hundred pillars. One sun." /><figcaption><b>One field, one light.</b> Instanced pillars in haze, with depth of field on the foreground.</figcaption></figure>
-        <figure class="showcase"><img src="img/open3d-stones.jpg" width="1600" height="900" loading="lazy" alt="Thousands of small stones in a ring around a large sphere on a dark floor, with the line Four thousand stones find their own level" /><figcaption><b>A simulation that obeys a rule.</b> Four thousand stones settling, deterministic: the same frame on every seek.</figcaption></figure>
-        <figure class="showcase"><img src="img/open3d-dom.jpg" width="1600" height="900" loading="lazy" alt="A real HTML card reading 4,812 pages with a bar chart, standing in a 3D room with a pinned label" /><figcaption><b>DOM in the room.</b> A real HTML card with live type, lit and shadowed in 3D, with a label pinned to it.</figcaption></figure>
-      </div>
-      <p class="note">Costs are real: 3D frames with depth of field, shadows and many samples take seconds each without a GPU. These renders are single frames from test scenes, not films.</p>
-    </div>
-  </section>
-
-  <!-- models -->
-  <section class="section" id="models">
-    <div class="wrap two">
-      <div>
-        <p class="eyebrow">Claude and ChatGPT</p>
-        <h2>The crew adapts to the model running it.</h2>
-        <p class="lede">The goal is the same for every model: the most ambitious, professional film it can make. What changes is how each crew member is asked. Models fail differently on the same prompt, so <code>crew.mjs brief</code> adapts it to the model that will run the job, and the role, the check and the bar stay identical.</p>
-      </div>
-      <div>
-        <ul class="ticks">
-          <li><b>Claude.</b> Opus gets the explicit show-off ask and craft guardrails; Sonnet gets numbered steps, a worked example and two improvement passes after looking at its renders; Haiku only gathers facts, with a source on every line.</li>
-          <li><b>ChatGPT through Codex.</b> There is no Agent tool there, so members run as parallel <code>codex exec</code> processes from the same prompt files and are accepted by the same checks. The prompt puts outputs and the check command first, says never to ask, and asks for whole files.</li>
-          <li><b>What a real Codex run showed.</b> One scene from gpt-5.6-sol passed the checks but was small, safe and full of placeholders. GPT's scene prompts now carry a worked example of reel-quality, and it must critique its own work against the critics' rubric before handing back. That is a fix to the prompt, not yet a measured result across films.</li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <!-- lyric videos and the finish -->
-  <section class="section" id="songs">
-    <div class="wrap">
-      <p class="eyebrow">Songs and the finish</p>
-      <h2 class="mega">Every word on its note.</h2>
-      <div class="two lead-row">
-        <p class="lede">Give RasanAI a track and its lyrics and it times every word to the voice, then reads the music: tempo, downbeats, sections, kick hits. Three writers each pitch one treatment: a single concept, a palette with one owned accent, a signal that runs through the whole film and a plate for every lyric section, each in its own instrument. A line never becomes a picture of itself. It becomes a pun or a transformation.</p>
-        <p>A gate checks the treatment before you see it: every line used once, no idiom more than twice, one accent hue, cuts on the beat grid, a hook that climbs each time it returns, depth where a long film needs it. Then each plate's animator lights every word on its sung start through <b>RasanMusic</b>, a small runtime that reads the timings as functions of time. Measured on one song against a hand-corrected truth: a median word-start error of 50 to 60 ms, 250 to 280 ms at the 90th percentile.</p>
-      </div>
-      <ul class="ticks">
-        <li><b>The finish.</b> The delivery render gets real motion blur on every scene, 2D included: sub-frames are rendered and averaged over a shutter window, up to 32 samples.</li>
-        <li><b>One grade.</b> Grain, halation, vignette and an optional LUT, the same on every scene. Flat brand colours at the centre of the frame stay within a level.</li>
-        <li><b>The cost, stated.</b> About 3 times a normal render at 8 samples and 10 to 12 times at 32. Drafts skip it.</li>
-        <li><b>Stepped looks stay sharp.</b> A scene made on twos or threes can opt out of the blur, so its steps stay hard while the rest of the film is blurred and graded.</li>
-      </ul>
-    </div>
-  </section>
-
-  <!-- every kind of video -->
-  <section class="section">
-    <div class="wrap">
-      <p class="eyebrow">Every kind of video</p>
-      <h2 class="mega">Whole films, from any source.</h2>
-      <p class="lede narrow">RasanAI hands the approved plan to the HyperFrames workflow that fits, pre-writing what it reads (the brief, the storyboard and script in its exact format, frame.md, the music edit), so it asks nothing and re-decides nothing.</p>
-      <div class="routes">
-        <div><b>Launch film</b><span class="mono">product-launch-video</span><p>From a product URL: capture, story, scenes, voice, music.</p></div>
-        <div><b>Explainer</b><span class="mono">faceless-explainer</span><p>A topic, article or how-to, told with invented visuals.</p></div>
-        <div><b>PR video</b><span class="mono">pr-to-video</span><p>A pull request as a changelog film, code excerpts and all.</p></div>
-        <div><b>Custom piece</b><span class="mono">general-video</span><p>Brand films, montages, anything multi-scene.</p></div>
-        <div><b>Music video</b><span class="mono">music-to-video</span><p>Cut to a track's beat grid; lyric videos with every word timed to the voice.</p></div>
-        <div><b>Footage reel</b><span class="mono">reel</span><p>A folder of your clips, cut together with cards and captions.</p></div>
-        <div><b>Captions &amp; overlays</b><span class="mono">embedded-captions · talking-head-recut</span><p>A talking-head clip, captioned or recut with designed cards.</p></div>
-        <div><b>Motion graphics</b><span class="mono">motion-graphics</span><p>A title, sting, stat hit or lower third.</p></div>
-      </div>
-      <p class="note">Videos only. For a talk, RasanAI makes the video that plays in it; the deck is source material.</p>
-    </div>
-  </section>
-
-  <!-- reels -->
-  <section class="section dark" id="reels">
-    <div class="wrap">
-      <p class="eyebrow">Footage</p>
-      <h2 class="mega">Point it at a folder of clips.</h2>
-      <div class="two lead-row">
-        <p class="lede">RasanAI examines every clip (length, orientation, frame rate, sound, a contact sheet, shot changes, silences and a word-level transcript), then Claude drafts the cut, cutting on word boundaries.</p>
-        <p>A reel adds two calls: Footage, where you untick clips to leave out, and Cut, the reel's animatic, where you edit the list: in and out points, order, cards between clips, overlays, captions from what's said, a music bed that ducks under speech. Claude designs and animates every card and overlay.</p>
-      </div>
-      <div class="shots two-up">
-        <figure class="showcase"><img src="img/console-footage.jpg" width="1440" height="900" loading="lazy" alt="The Footage step: each clip with its contact sheet, length, format and sound" /><figcaption><b>Footage.</b> Every clip, with what's in it and what's said.</figcaption></figure>
-        <figure class="showcase"><img src="img/console-cut.jpg" width="1440" height="900" loading="lazy" alt="The Cut step: clips with in and out points, cards between them, overlays and captions" /><figcaption><b>Cut.</b> The edit as a list you can change, with a draft to watch.</figcaption></figure>
-      </div>
-    </div>
-  </section>
-
-  <!-- the checks -->
-  <section class="section">
-    <div class="wrap two">
-      <div>
-        <p class="eyebrow">The checks</p>
-        <h2>Checked before you see it.</h2>
-        <p class="lede">A film ships only after five gates pass: the story rubric, the anti-slop gate, the motion contract, the 3D gate and the sound check. Then critics who never saw it being made judge it fresh. The motion check walks every tween of every scene in a real browser and compares it with the contract.</p>
-        <ul class="ticks">
-          <li><b>Durations</b> on the language's scale, <b>eases</b> from its set, written explicitly, never the GSAP default.</li>
-          <li><b>Banned moves</b> caught in every form, including the generic fade-up-slide.</li>
-          <li><b>Holds</b> long enough to read; <b>GSAP only</b>, seekable, deterministic.</li>
-          <li><b>3D scenes</b> render the same pixels for the same time, are never blank and fit a render. Taste rules (eased keys, blur on fast moves, coming to rest) are warnings a stated intent can silence.</li>
-          <li><b>Sound</b> at −14 LUFS, no audible loop, effects within budget, no dead air.</li>
-          <li><b>Critics</b> score the frames, the motion, the facts and the film, ambition included, with an exact fix for each problem.</li>
-          <li>Failures go back to the scene's animator, at most twice; anything left is yours to fix or waive at the Final. A check that couldn't run is never reported as a pass.</li>
-        </ul>
-      </div>
-      <div class="file">
-        <div class="file-top"><span>node obey.mjs --project videos/tally-launch</span><span class="tag">real checker output</span></div>
-<pre><code><span class="err">obey: violations</span> — 2 tweens (0 exempt) in 1 file(s); 2 error(s)
-  <span class="err">[ERROR]</span> ease-outside-set compositions/frames/01-shoebox.html
-      h1.headline "Tax season. Again." @0.20s 800ms ease=power4.out
-      ease power4.out is not one of motion.md's eases
-      <span class="c">fix: use ease: "expo.out"</span>
-  <span class="err">[ERROR]</span> banned:fade-up-slide compositions/frames/01-shoebox.html
-      h1.headline "Tax season. Again." @0.20s 800ms ease=power4.out
-      <span class="c">fix: replace with one of motion.md's entrances</span>
-
-<span class="c"># after the repair pass</span>
-<span class="ok">obey: clean</span> — 8 tweens (0 exempt) in 1 file(s); 0 error(s)</code></pre>
-      </div>
-    </div>
-  </section>
-
-  <section class="section" id="mac">
-    <div class="wrap">
-      <h2 class="mega">A native Mac studio.</h2>
-      <p class="lede narrow">Download RasanAI Studio 0.1.1 beta 2 (build 10), a SwiftUI community beta for macOS 14 and newer on Apple Silicon. Directors now get a creative contract and a Motion graphics level (Maximal by default). Includes the installed-app launch fix, first-launch setup, saved film drafts and a searchable project library. Keep using the working skill for production films while the native workflow is validated.</p>
-      <div class="install">
-        <div><h3>Your projects, on your Mac</h3><p>A local <code>Documents/RasanAI</code> library with a separate folder for every project. Search, rename, archive or duplicate drafts; drop source files into managed copies without changing originals. New Film can save a draft without using a provider.</p></div>
-        <div><h3>Mac settings, not a web modal</h3><p>Open Settings with <kbd>⌘,</kbd>. Choose project storage and appearance, configure local Claude Code or OpenAI Codex executables, and check CLI sign-in status. Provider login stays with its own CLI.</p></div>
-        <div><h3>Your director, in the studio</h3><p>Launch or resume your configured Claude Code or OpenAI Codex director. The complete existing workflow runs inside WebKit for footage, cuts, animated specimens and detailed gates; the SwiftUI review layout remains available. Real-agent film generation is still being validated.</p></div>
-      </div>
-      <p class="note">This beta is ad-hoc signed, not Apple-notarized. First installation is subject to Gatekeeper approval; managed Macs may prohibit it. Sparkle verifies updates using a separate EdDSA signature. Node and the engine are bundled; agent CLIs, FFmpeg and HyperFrames workflows/browser tools are not. Local update, storage, questions, playback and export tests passed; real-agent generation and complete route/revision coverage remain unverified.</p>
-      <a class="btn" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.1.1-beta.2/RasanAI-Studio-0.1.1-10-arm64-unnotarized.dmg">Download the Apple Silicon beta <svg aria-hidden="true"><use href="#i-arrow"/></svg></a>
-      <p class="note">Drag the app into Applications before launching. Open Settings → Runtime → Check for Updates for signed Sparkle updates, or opt in to automatic checks there. Automatic checks are off by default; project files stay outside the app.</p>
-      <p class="note">Build 7 crashes after installation because of a resource-path bug. If it cannot open, download this fixed build and replace the app in Applications; your projects stay separate. A crashing app cannot reach Sparkle.</p>
-      <p class="note"><a href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.1.1-beta.2">Release notes, checksum and installation limitations</a> · <a href="studio/appcast.xml">Sparkle update feed</a> · <a href="https://github.com/Sibhimanyu/rasanai/tree/master/apps/macos">Source and build instructions</a></p>
-    </div>
-  </section>
-
-  <!-- install -->
-  <section class="section dark" id="install">
-    <div class="wrap">
-      <h2 class="mega">Install</h2>
-      <p class="lede narrow">Needs Claude Code, Node.js 20 or newer (RasanAI fetches a private copy if you have none), the HyperFrames skills (<code>npx hyperframes skills update</code>), and FFmpeg for music and footage.</p>
-      <div class="install">
-        <div><h3>Claude Code plugin</h3><p>From inside Claude Code.</p>
-          <div class="cmd"><code><span class="p">&gt; </span>/plugin marketplace add Sibhimanyu/rasanai</code><button class="copy" type="button" data-copy="/plugin marketplace add Sibhimanyu/rasanai" aria-label="Copy"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
-          <div class="cmd"><code><span class="p">&gt; </span>/plugin install rasanai@rasanai</code><button class="copy" type="button" data-copy="/plugin install rasanai@rasanai" aria-label="Copy"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div></div>
-        <div><h3>skills CLI</h3><p>From your terminal.</p>
-          <div class="cmd"><code><span class="p">$ </span>npx skills add Sibhimanyu/rasanai --skill rasanai</code><button class="copy" type="button" data-copy="npx skills add Sibhimanyu/rasanai --skill rasanai" aria-label="Copy"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div></div>
-        <div><h3>One-line installer</h3><p>Clones and links the skill.</p>
-          <div class="cmd"><code><span class="p">$ </span>curl -fsSL https://raw.githubusercontent.com/Sibhimanyu/rasanai/master/install.sh | bash</code><button class="copy" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/Sibhimanyu/rasanai/master/install.sh | bash" aria-label="Copy"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div></div>
-      </div>
-      <h3 class="try-h">Then try</h3>
-      <div class="examples">
-        <div class="cmd"><code><span class="p">&gt; </span>/rasanai make a 45s launch film for https://tally.app</code><button class="copy" type="button" data-copy="/rasanai make a 45s launch film for https://tally.app" aria-label="Copy"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
-        <div class="cmd"><code><span class="p">&gt; </span>/rasanai a 60s explainer on how DNS works, vertical, no voiceover. Just make it.</code><button class="copy" type="button" data-copy="/rasanai a 60s explainer on how DNS works, vertical, no voiceover. Just make it." aria-label="Copy"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
-        <div class="cmd"><code><span class="p">&gt; </span>/rasanai cut ~/Footage/lisbon into a 30s reel with a title card and captions</code><button class="copy" type="button" data-copy="/rasanai cut ~/Footage/lisbon into a 30s reel with a title card and captions" aria-label="Copy"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
-        <div class="cmd"><code><span class="p">&gt; </span>/rasanai export the Swiss grid style as a DESIGN.md</code><button class="copy" type="button" data-copy="/rasanai export the Swiss grid style as a DESIGN.md" aria-label="Copy"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
-      </div>
-      <p class="note">RasanAI updates itself when the skill loads. Check the install with <code>node ~/.claude/skills/rasanai/scripts/selftest.mjs</code> (127 checks, no network needed).</p>
-    </div>
-  </section>
-
-  <!-- faq -->
-  <section class="section faq">
-    <div class="wrap two">
-      <h2>Questions</h2>
-      <div>
-        <details><summary>What do I actually decide?<svg aria-hidden="true"><use href="#i-plus"/></svg></summary><div class="a"><p>Five things: the brief (one sentence), which of three scripts to tell, which of three looks to make it in, notes on the animatic, and the final. Everything else is craft, and Claude decides it. If a question would need expertise to answer, RasanAI doesn't ask it.</p></div></details>
-        <details><summary>Can I change what Claude decided?<svg aria-hidden="true"><use href="#i-plus"/></svg></summary><div class="a"><p>Yes. Every call is in the Decisions drawer with its reason and the obvious option it passed over. Tell Claude (<kbd>⌘K</kbd>) or leave a note on a moment in the animatic or the final, and it changes only what the note points at.</p></div></details>
-        <details><summary>Who actually animates the video?<svg aria-hidden="true"><use href="#i-plus"/></svg></summary><div class="a"><p>Claude, or ChatGPT through Codex. The three specimens in the console are for choosing by eye. Claude designs the key frames, the scenes and the reel cards from the chosen film, HyperFrames renders them, and the gates confirm the motion, copy and sound before you see the result.</p></div></details>
-        <details><summary>Do I need to know motion-design terms?<svg aria-hidden="true"><use href="#i-plus"/></svg></summary><div class="a"><p>No. You choose by watching and listening. Claude works in the terms, because they make the result precise: "simplified UI, grotesk, precise motion, UI-morph transitions" builds something very different from "make it modern".</p></div></details>
-        <details><summary>Why do the three films look so different from each other?<svg aria-hidden="true"><use href="#i-plus"/></svg></summary><div class="a"><p>Because they are different films. Each pairs a different story device with a design system built for it, and the three pitches differ on at least five of seven story axes. The three systems must also differ in palette, display face, layout and motion language, or the gate rejects them. Your recent devices rotate out, so ten films never settle into one house style.</p></div></details>
-        <details><summary>Can I use a look outside RasanAI?<svg aria-hidden="true"><use href="#i-plus"/></svg></summary><div class="a"><p>Yes. The system you pick is saved in the project as a complete DESIGN.md (colors by role, type, radii, components, motion and camera), which any agent or design tool can build from.</p></div></details>
-        <details><summary>Can it use my brand?<svg aria-hidden="true"><use href="#i-plus"/></svg></summary><div class="a"><p>Yes. Put your DESIGN.md (or design.md) in the project. RasanAI reads it, gives every color a role, and draws all three films in your colors and type.</p></div></details>
-        <details><summary>Can I skip everything?<svg aria-hidden="true"><use href="#i-plus"/></svg></summary><div class="a"><p>Yes. Say "just make it" and Claude decides every call up to the Final, which always runs so you can review before the render. Only the source (what the video is about) is required.</p></div></details>
-        <details><summary>Does anything leave my machine?<svg aria-hidden="true"><use href="#i-plus"/></svg></summary><div class="a"><p>The console runs on 127.0.0.1 with a per-session token and serves files only from your workspace. Music analysis runs locally with Node and FFmpeg. Site capture, voice samples, music and fonts go through HyperFrames' tools, Google Fonts or Fontshare; nothing else leaves your machine.</p></div></details>
-        <details><summary>What's the license?<svg aria-hidden="true"><use href="#i-plus"/></svg></summary><div class="a"><p>MIT. The vendored GSAP stays under its own GSAP Standard License.</p></div></details>
-      </div>
-    </div>
-  </section>
+<section class="section" id="gallery"><div class="wrap">
+<div class="home-section-head"><div><p class="eyebrow">A look, not a default</p><h2>One brief.<br />A world of possibilities.</h2></div><p>Paper, pixels, or something with depth.<br />A visual direction made for your story.</p></div>
+<div class="visual-grid">
+<figure class="visual-feature"><img src="img/desk-counting-house.jpg" width="1600" height="900" loading="lazy" alt="Counting House design specimen: bold type on ledger paper with a red checked stamp" /><figcaption><b>Print with personality</b><span>Counting House / design specimen</span></figcaption></figure>
+<figure><img src="img/open3d-engraved.jpg" width="1600" height="900" loading="lazy" alt="Three-dimensional forms rendered as a black engraving on cream paper" /><figcaption><b>Depth, drawn differently</b><span>Engraved 3D / test scene</span></figcaption></figure>
+<figure><img src="img/brand-board.jpg" width="1600" height="900" loading="lazy" alt="Tally brand board showing typography, a mint accent and colors by role" /><figcaption><b>Still unmistakably you</b><span>Your brand / reference board</span></figcaption></figure>
+</div>
+<div class="section-bottom"><p>Design specimens and test frames, not finished customer films.</p><a class="link" href="guide.html#library">Explore the style library ↗</a></div>
+</div></section>
+<section class="section workflow-section" id="flow"><div class="wrap">
+<div class="home-section-head"><div><p class="eyebrow">You direct. The agent builds.</p><h2>Five calls.<br />One film.</h2></div><p>Choose the story and the look.<br />Leave notes where they matter.</p></div>
+<div class="flow-controls" aria-label="Preview the workflow"><button id="flow-tab-brief" type="button" data-flow-tab="brief">01 <span>Brief</span></button>
+<button id="flow-tab-story" type="button" data-flow-tab="story">02 <span>Story</span></button>
+<button id="flow-tab-look" type="button" data-flow-tab="look">03 <span>Look</span></button>
+<button id="flow-tab-animatic" type="button" data-flow-tab="animatic">04 <span>Animatic</span></button>
+<button id="flow-tab-final" type="button" data-flow-tab="final">05 <span>Final</span></button></div>
+<figure class="flow-panel" id="flow-panel-brief" data-flow-panel="brief"><img src="img/console-brief.jpg" width="1440" height="900" loading="lazy" alt="Director's Console brief screen with an editable film brief and research sources" /><figcaption><b>Start with one sentence.</b> Tell it what you want to make, and for whom.</figcaption></figure>
+<figure class="flow-panel" id="flow-panel-story" data-flow-panel="story"><img src="img/console-story.jpg" width="1440" height="900" loading="lazy" alt="Three story directions and the selected script's timed beats" /><figcaption><b>Three stories. Your choice.</b> Pick a direction or ask for another take.</figcaption></figure>
+<figure class="flow-panel" id="flow-panel-look" data-flow-panel="look"><img src="img/desk-three.jpg" width="1020" height="226" loading="lazy" alt="Counting House, Night Audit and Stamp Duty: three visual treatments for the same story" /><figcaption><b>Find the film’s visual world.</b> Three looks, designed for the story you picked.</figcaption></figure>
+<figure class="flow-panel" id="flow-panel-animatic" data-flow-panel="animatic"><img src="img/console-animatic.jpg" width="1440" height="1120" loading="lazy" alt="Animatic player with scene frames, music waveform and notes pinned to a timeline" /><figcaption><b>Watch the rhythm before the render.</b> Review the rough film and leave a note at any moment.</figcaption></figure>
+<figure class="flow-panel" id="flow-panel-final" data-flow-panel="final"><img src="img/console-final.jpg" width="1440" height="900" loading="lazy" alt="Final film screen with playback, scene markers, review notes and versions" /><figcaption><b>Review. Refine. Download.</b> Keep your notes and versions with the film.</figcaption></figure>
+<div class="section-bottom"><p>Browser console previews. Native review is also available on Mac.</p><a class="link" href="guide.html#flow">Inside the workflow ↗</a></div>
+</div></section>
+<section class="section get-started" id="get-started"><div class="wrap">
+<div class="home-section-head"><div><p class="eyebrow">Make something</p><h2>Your next film<br />starts here.</h2></div><p>Work in the native Mac studio,<br />or add RasanAI to your agent.</p></div>
+<article class="mac-feature" id="mac">
+<div class="mac-copy"><p class="eyebrow">RasanAI Studio / Mac</p><h3>A desk for your films.</h3><p>Local projects. Native settings. Your director and review notes in one place.</p>
+<a class="btn btn-primary" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.1.1-beta.2/RasanAI-Studio-0.1.1-10-arm64-unnotarized.dmg">Download for Mac <svg aria-hidden="true"><use href="#i-down"/></svg></a>
+<p class="download-meta">0.1.1 beta 2 · build 10<br />Apple Silicon · macOS 14+</p>
+<p class="beta-notice">Community beta. Not Apple-notarized; macOS approval may be required. Provider charges may apply.</p>
+<details class="install-notice"><summary>Before you install</summary><div><p>Drag the app to Applications. Agent CLIs/sign-in, FFmpeg and HyperFrames tools remain external. Real-agent generation is unverified; managed Macs may block this unnotarized build.</p><p>If build 7 crashes, replace it manually with this build. Your separate project library stays intact. Working installs get signed Sparkle updates in Settings → Runtime.</p><a href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.1.1-beta.2">Release notes, checksum and installation guide ↗</a></div></details>
+</div><figure class="mac-visual"><img src="img/studio-native-preview.png" width="1916" height="1312" loading="lazy" alt="Early native Mac sample-review layout with a film preview, scene timeline and director's notes" /><figcaption>Native review / early sample preview</figcaption></figure>
+</article>
+<article class="skill-install" id="install"><div><p class="eyebrow">Prefer your agent?</p><h3>Install the skill.</h3><p>Run this in your terminal, then ask for a film.</p><a class="link" href="guide.html#install">Claude plugin &amp; other install options ↗</a></div>
+<div class="skill-commands">
+<div class="cmd"><code>npx skills add Sibhimanyu/rasanai --skill rasanai</code><button class="copy" type="button" data-copy="npx skills add Sibhimanyu/rasanai --skill rasanai" aria-label="Copy skill installation command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+<p class="command-label">Then, in your agent</p>
+<div class="cmd"><code>/rasanai make a 45s launch film for https://tally.app</code><button class="copy" type="button" data-copy="/rasanai make a 45s launch film for https://tally.app" aria-label="Copy example film prompt"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+<p class="skill-note">Requires a supported agent, HyperFrames and FFmpeg. <a href="guide.html#install">Setup details</a></p><p id="copy-status" role="status" aria-live="polite"></p>
+</div></article>
+</div></section>
+<aside class="home-signoff wrap"><p><span lang="ta">ரசனை</span> means taste.</p><p>The eye—and ear—for what feels right.</p></aside>
 </main>
-
-<footer class="foot">
-  <div class="wrap foot-row">
-    <p class="foot-big"><img src="assets/logo/rasanai-stacked-reverse.svg" width="297" height="196" alt="RasanAI, ரசனை" /></p>
-    <p>RasanAI (ரசனை) by <a href="https://github.com/Sibhimanyu">Sibhimanyu</a>.<br />Built on <a href="https://github.com/heygen-com/hyperframes">HyperFrames</a> and Claude Code.<br />MIT · GSAP under its own license.</p>
-    <ul class="foot-links"><li><a href="#flow">How it runs</a></li><li><a href="#desk">Design desk</a></li><li><a href="#brand">Your brand</a></li><li><a href="#install">Install</a></li><li><a href="https://github.com/Sibhimanyu/rasanai">GitHub</a></li></ul>
-  </div>
-</footer>
-
-<script src="assets/gsap.min.js"></script>
-<script src="assets/engine.js"></script>
-<script src="assets/film.js"></script>
-<script src="assets/presets.js"></script>
-<script src="assets/presets3d.js"></script>
-<script src="assets/personalities.js"></script>
-<script src="assets/site.js"></script>
+<footer class="foot"><div class="wrap home-footer"><a class="brand" href="./"><img src="assets/logo/rasanai-lockup-reverse.svg" width="214" height="44" alt="RasanAI home" /></a><p>By <a href="https://github.com/Sibhimanyu">Sibhimanyu</a> · Open source / MIT</p><div><a href="guide.html">Field guide</a><a href="https://github.com/Sibhimanyu/rasanai">GitHub ↗</a></div></div></footer>
+<script src="assets/gsap.min.js"></script><script src="assets/engine.js"></script><script src="assets/film.js"></script><script src="assets/personalities.js"></script><script src="assets/site.js"></script><script src="assets/home.js"></script>
 </body>
 </html>
