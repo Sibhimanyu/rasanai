@@ -64,8 +64,17 @@
     [].forEach.call(document.querySelectorAll("[data-copy]"), function (btn) {
       btn.addEventListener("click", function () {
         var text = btn.getAttribute("data-copy");
-        var done = function () { btn.classList.add("done"); setTimeout(function () { btn.classList.remove("done"); }, 1400); };
-        if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, done); else done();
+        var status = document.getElementById("copy-status");
+        if (!status) { status = document.createElement("p"); status.id = "copy-status"; status.className = "copy-feedback"; status.setAttribute("role", "status"); document.body.appendChild(status); }
+        var done = function () { status.textContent = "Copied to clipboard."; btn.classList.add("done"); setTimeout(function () { btn.classList.remove("done"); status.textContent = ""; }, 1800); };
+        var failed = function () { status.textContent = "Clipboard unavailable. Select and copy the command manually."; };
+        var fallback = function () {
+          var field = document.createElement("textarea"); field.value = text; field.className = "copy-buffer";
+          field.setAttribute("readonly", ""); document.body.appendChild(field); field.select();
+          var copied = false; try { copied = document.execCommand("copy"); } catch (e) { copied = false; }
+          field.remove(); btn.focus(); if (copied) done(); else failed();
+        };
+        if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
       });
     });
   }
