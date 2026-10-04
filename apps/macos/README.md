@@ -41,7 +41,7 @@ The app can launch or resume your installed director CLI, supervise its process 
 
 Full Workflow embeds the existing engine console with a nonpersistent WebKit store and authenticated loopback requests. Every specialized workflow remains available there, rather than being incorrectly mapped to one of five native screens. Questions also appear as native sheets. External links open in the system browser; files use native chooser/save panels. The optional SwiftUI review layout remains partial: Look posters rather than HTML playback, mixed-audio playback, and a brand-kit placeholder. Use Full Workflow for complete engine controls.
 
-The app is not App-Sandboxed. Local asset resolution rejects remote URLs, escaping symlinks and private run files. The console also blocks director logs/job files from asset serving. Credentials remain with the provider CLI. [Community installation](COMMUNITY-INSTALL.md) documents the free-account distribution limitations.
+The app is not App-Sandboxed. Local asset resolution rejects remote URLs, escaping symlinks and private run files. The console also blocks director logs/job files from asset serving. Credentials remain with the provider CLI. [Community installation](COMMUNITY-INSTALL.md) documents the free-account distribution limitations; the [desktop changelog](CHANGELOG.md) tracks Studio releases separately from skill releases.
 
 ## Community packaging and updates
 
