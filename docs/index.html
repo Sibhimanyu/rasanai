@@ -3,27 +3,27 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>RasanAI — pick the film. Make it yours.</title>
-<meta name="description" content="Turn a brief into a directed video. Choose the story, choose the look, review the film. Use the agent skill or download the native Mac community beta." />
-<meta name="theme-color" content="#1B1F5E" />
+<title>RasanAI Studio for Mac: describe a film, direct it from there</title>
+<meta name="description" content="RasanAI Studio is a free, open-source Mac app that turns a sentence and your footage into a finished film. You make five calls; RasanAI directs the rest. Community beta for Apple Silicon." />
+<meta name="theme-color" content="#F7F6F2" />
 <meta name="author" content="Sibhimanyu" />
-<meta name="keywords" content="RasanAI, Rasanai, ரசனை, Rasa Director, Sibhimanyu, Claude Code skill, AI video, AI video generator, motion graphics, HyperFrames, launch video, explainer video" />
-<meta property="og:title" content="RasanAI: pick the film. Claude makes it." />
-<meta property="og:description" content="Your brief. Three stories. Three looks. One film. Explore the workflow, try the motion, and get started with RasanAI." />
+<meta name="keywords" content="RasanAI, RasanAI Studio, ரசனை, Mac app, AI video, AI video director, motion graphics, HyperFrames, Claude Code, OpenAI Codex, launch video, explainer video, Sibhimanyu" />
 <link rel="canonical" href="https://sibhimanyu.github.io/rasanai/" />
+<meta property="og:title" content="RasanAI Studio for Mac: describe a film, direct it from there" />
+<meta property="og:description" content="A free, open-source Mac app that turns a sentence and your footage into a finished film. Five calls are yours; RasanAI directs the rest. Community beta." />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="RasanAI" />
 <meta property="og:url" content="https://sibhimanyu.github.io/rasanai/" />
 <meta property="og:image" content="https://sibhimanyu.github.io/rasanai/img/social-card.jpg" />
 <meta property="og:image:width" content="1280" />
 <meta property="og:image:height" content="640" />
-<meta property="og:image:alt" content="RasanAI: Pick the film. Claude makes it." />
+<meta property="og:image:alt" content="RasanAI Studio for Mac" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="RasanAI: pick the film. Claude makes it." />
-<meta name="twitter:description" content="A Claude Code skill for AI-made videos: launch films, explainers, reels and motion graphics. Five calls: brief, story, look, animatic, final. Three design systems made for your film, and an open 3D engine." />
+<meta name="twitter:title" content="RasanAI Studio for Mac: describe a film, direct it from there" />
+<meta name="twitter:description" content="Free, open-source Mac app. A sentence and your footage in, a finished film out. Five calls are yours. Community beta for Apple Silicon." />
 <meta name="twitter:image" content="https://sibhimanyu.github.io/rasanai/img/social-card.jpg" />
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"RasanAI","alternateName":["Rasa Director","ரசனை"],"applicationCategory":"MultimediaApplication","operatingSystem":"macOS, Linux, Windows (Claude Code)","description":"A Claude Code skill that directs entire AI-made videos: launch films, explainers, PR videos, music videos, reels cut from your own footage and motion graphics, built with HyperFrames.","url":"https://sibhimanyu.github.io/rasanai/","downloadUrl":"https://github.com/Sibhimanyu/rasanai","codeRepository":"https://github.com/Sibhimanyu/rasanai","license":"https://opensource.org/licenses/MIT","image":"https://sibhimanyu.github.io/rasanai/img/social-card.jpg","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Person","name":"Sibhimanyu","url":"https://github.com/Sibhimanyu"}}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"RasanAI Studio","alternateName":["RasanAI","ரசனை"],"applicationCategory":"MultimediaApplication","operatingSystem":"macOS 14+","softwareVersion":"0.2.0","description":"A Mac app that turns a sentence and your footage into a finished film. You make five creative calls; RasanAI directs the rest with your Claude Code or OpenAI Codex. Community beta for Apple Silicon.","url":"https://sibhimanyu.github.io/rasanai/","downloadUrl":"https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.2.0-beta.1/RasanAI-Studio-0.2.0-11-arm64-unnotarized.dmg","releaseNotes":"https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.2.0-beta.1","codeRepository":"https://github.com/Sibhimanyu/rasanai","license":"https://opensource.org/licenses/MIT","image":"https://sibhimanyu.github.io/rasanai/img/social-card.jpg","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Person","name":"Sibhimanyu","url":"https://github.com/Sibhimanyu"}}
 </script>
 <link rel="icon" href="assets/mark.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="assets/logo/rasanai-mark-180.png" />
@@ -44,79 +44,136 @@
   <symbol id="i-down" viewBox="0 0 16 16"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 
-<header class="hero">
+<header class="top">
   <nav class="nav wrap" aria-label="Primary">
-    <a class="brand" href="#main"><img src="assets/logo/rasanai-lockup-reverse.svg" width="214" height="44" alt="RasanAI" /></a>
-    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="home-nav" hidden>Menu <span aria-hidden="true">+</span></button><div class="nav-links" id="home-nav"><a href="#gallery">Explore</a><a href="#flow">How it works</a><a class="nav-action" href="#get-started">Get started ↗</a></div>
+    <a class="brand" href="./"><img src="assets/logo/rasanai-lockup.svg" width="214" height="44" alt="RasanAI" /></a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="home-nav" hidden>Menu <span aria-hidden="true">+</span></button>
+    <div class="nav-links" id="home-nav"><a href="#features">Features</a><a href="guide.html">Field guide</a><a href="https://github.com/Sibhimanyu/rasanai">GitHub</a><a class="nav-action" href="#download">Download</a></div>
   </nav>
-
-  <div class="wrap hero-head">
-    <div><p class="eyebrow">An AI director. Your taste.</p><h1>Pick the film.<br /><em>Make it yours.</em></h1></div>
-    <div class="hero-side"><p>Turn a brief into a film with a story, a look, and a rhythm of its own. You make the creative calls. Your agent builds it.</p>
-      <div class="hero-cta"><a class="btn btn-primary" href="#mac">Get the Mac beta <svg aria-hidden="true"><use href="#i-arrow"/></svg></a><a class="text-link" href="#install">Install the skill ↗</a></div><p class="hero-meta">Claude Code · OpenAI Codex · Open source</p>
-    </div>
-  </div>
-
-  <section class="wrap swatches" aria-label="Motion-language swatches">
-    <div class="swatch-bar">
-      <label for="try-input">Try your opening title</label>
-      <input id="try-input" type="text" value="RasanAI" maxlength="36" autocomplete="off" spellcheck="false" />
-      <button class="motion-toggle" type="button" aria-pressed="false" data-motion-toggle>Pause motion</button>
-    </div>
-    <div class="swatch-grid">
-      <figure class="tile"><div class="md-cell g-rice" data-try data-film data-content="RasanAI" data-personality="swiss-precise" aria-hidden="true"></div><figcaption><b>Precise</b><span>Every move, on purpose.</span></figcaption></figure>
-      <figure class="tile"><div class="md-cell g-tur" data-try data-film data-content="RasanAI" data-personality="elastic-playful" aria-hidden="true"></div><figcaption><b>Playful</b><span>A little bounce. A lot of character.</span></figcaption></figure>
-      <figure class="tile"><div class="md-cell g-ink" data-try data-film data-content="RasanAI" data-personality="cinematic-slow" aria-hidden="true"></div><figcaption><b>Cinematic</b><span>Room for the moment to land.</span></figcaption></figure>
-      </div>
-    <p class="demo-label">Live motion studies. Type a title to make them yours.</p>
-  </section>
 </header>
 
 <main id="main">
-<section class="section" id="gallery"><div class="wrap">
-<div class="home-section-head"><div><p class="eyebrow">A look, not a default</p><h2>One brief.<br />A world of possibilities.</h2></div><p>Paper, pixels, or something with depth.<br />A visual direction made for your story.</p></div>
-<div class="visual-grid">
-<figure class="visual-feature"><img src="img/desk-counting-house.jpg" width="1600" height="900" loading="lazy" alt="Counting House design specimen: bold type on ledger paper with a red checked stamp" /><figcaption><b>Print with personality</b><span>Counting House / design specimen</span></figcaption></figure>
-<figure><img src="img/open3d-engraved.jpg" width="1600" height="900" loading="lazy" alt="Three-dimensional forms rendered as a black engraving on cream paper" /><figcaption><b>Depth, drawn differently</b><span>Engraved 3D / test scene</span></figcaption></figure>
-<figure><img src="img/brand-board.jpg" width="1600" height="900" loading="lazy" alt="Tally brand board showing typography, a mint accent and colors by role" /><figcaption><b>Still unmistakably you</b><span>Your brand / reference board</span></figcaption></figure>
+<section class="hero" aria-labelledby="hero-title">
+  <div class="wrap hero-copy">
+    <p class="eyebrow">RasanAI Studio for Mac</p>
+    <h1 id="hero-title">Describe a film.<br /><em>Direct it from there.</em></h1>
+    <p class="hero-sub">A sentence and your footage go in. A finished film comes out. In between, RasanAI asks for your taste at five moments that matter.</p>
+    <div class="hero-cta"><a class="btn btn-primary btn-lg" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.2.0-beta.1/RasanAI-Studio-0.2.0-11-arm64-unnotarized.dmg">Download for Mac <svg aria-hidden="true"><use href="#i-down"/></svg></a><a class="text-link" href="#start">See how it works <span aria-hidden="true">&rsaquo;</span></a></div>
+    <p class="hero-meta">0.2.0 beta 1 &middot; Apple Silicon &middot; macOS 14+ &middot; Free and open source</p>
+  </div>
+  <div class="wrap hero-shot"><div class="window" data-parallax><img src="img/studio/home-1x.jpg" srcset="img/studio/home-1x.jpg 1120w, img/studio/home-2x.jpg 2240w" sizes="(min-width:1100px) 1100px, 94vw" width="2240" height="1480" alt="RasanAI Studio home screen: What shall we make today? A New film tile above a grid of your films, with sample projects." decoding="async" /></div>
+  <p class="shot-note">Screens from the app, with sample projects.</p></div>
+</section>
+
+<section class="section" id="start"><div class="wrap split">
+  <div class="split-copy" id="features">
+    <p class="eyebrow">New film</p>
+    <h2>Start with<br />a sentence.</h2>
+    <p class="lede">One page. Say what the film is about, and add whatever you have: footage, images, a brief, a brand guide.</p>
+    <ul class="points">
+      <li><b>Drop in your material.</b> Clips, stills and documents become part of the story, not an afterthought.</li>
+      <li><b>Choose a length and a shape.</b> Landscape, portrait or square, at the running time you need.</li>
+      <li><b>Set how much moves.</b> Motion graphics at Maximal, Balanced or Minimal.</li>
+    </ul>
+  </div>
+  <div class="window"><img src="img/studio/new-film-1x.jpg" srcset="img/studio/new-film-1x.jpg 1120w, img/studio/new-film-2x.jpg 2240w" sizes="(min-width:1100px) 640px, 94vw" width="2240" height="1480" alt="New film screen: a one-line description, dropped files, and choices for length, shape, motion graphics and brand." loading="lazy" decoding="async" /></div>
+</div></section>
+
+<section class="section tint" id="flow"><div class="wrap">
+  <div class="head"><p class="eyebrow">Five calls</p><h2>Make five calls.<br />Skip the rest.</h2><p class="lede">RasanAI decides the craft: scenes, pacing, motion, transitions, music and sound. You decide what makes the film yours, and see it at every step.</p></div>
 </div>
-<div class="section-bottom"><p>Design specimens and test frames, not finished customer films.</p><a class="link" href="guide.html#library">Explore the style library ↗</a></div>
+<div class="calls-wrap"><ol class="cxs" tabindex="0" aria-label="The five calls, scroll sideways">
+<li class="cx"><figure><img src="img/studio/call-brief.jpg" width="1040" height="560" loading="lazy" decoding="async" alt="Brief screen with an editable one-line film brief" /></figure><div><span class="cx-n">Call 01</span><h3>Brief</h3><p><b>Confirm the sentence.</b> One line you can edit, and what RasanAI understood from it.</p></div></li>
+<li class="cx"><figure><img src="img/studio/call-story.jpg" width="1040" height="560" loading="lazy" decoding="async" alt="Three story directions and the timed beats of the selected script" /></figure><div><span class="cx-n">Call 02</span><h3>Story</h3><p><b>Pick one of three.</b> Three scripts, written from your product's truth. Choose, or ask for another take.</p></div></li>
+<li class="cx"><figure><img src="img/studio/call-look.jpg" width="1040" height="560" loading="lazy" decoding="async" alt="Three visual looks for the same film: specimen label, wall text, archival documentary" /></figure><div><span class="cx-n">Call 03</span><h3>Look</h3><p><b>Pick one of three.</b> Three design systems made for that story, each drawn live on its first line.</p></div></li>
+<li class="cx"><figure><img src="img/studio/call-animatic.jpg" width="1040" height="560" loading="lazy" decoding="async" alt="Animatic with scene frames, a music waveform and notes on a timeline" /></figure><div><span class="cx-n">Call 04</span><h3>Animatic</h3><p><b>Watch the rhythm.</b> The whole film, rough, with music. Pin a note to any moment.</p></div></li>
+<li class="cx"><figure><img src="img/studio/call-final.jpg" width="1040" height="560" loading="lazy" decoding="async" alt="Final film review with scene markers, notes and versions" /></figure><div><span class="cx-n">Call 05</span><h3>Final</h3><p><b>Review. Export.</b> The finished film, with your notes and every version kept.</p></div></li>
+</ol></div>
+<div class="wrap calls-foot"><p>The review rooms inside each film.</p><div class="calls-nav"><button type="button" data-calls="-1" aria-label="Previous calls"><svg aria-hidden="true"><use href="#i-arrow"/></svg></button><button type="button" data-calls="1" aria-label="Next calls"><svg aria-hidden="true"><use href="#i-arrow"/></svg></button></div></div>
+</section>
+
+<section class="section" id="brand"><div class="wrap split split-rev">
+  <div class="stack">
+    <div class="window"><img src="img/studio/brand-1x.jpg" srcset="img/studio/brand-1x.jpg 1120w, img/studio/brand-2x.jpg 2240w" sizes="(min-width:1100px) 660px, 94vw" width="2240" height="1480" alt="A brand in RasanAI Studio: Northwind, with five colour swatches, its type, and its DESIGN.md." loading="lazy" decoding="async" /></div>
+  </div>
+  <div class="split-copy">
+    <p class="eyebrow">Brands</p>
+    <h2>Your brand,<br />kept as a file.</h2>
+    <p class="lede">A brand is a folder with a DESIGN.md: colours, type, logo. Pick one, and every film is drawn in it.</p>
+    <p>It is plain text, so you can edit it anywhere, keep it in version control, and hand it to a teammate.</p>
+  </div>
 </div></section>
-<section class="section workflow-section" id="flow"><div class="wrap">
-<div class="home-section-head"><div><p class="eyebrow">You direct. The agent builds.</p><h2>Five calls.<br />One film.</h2></div><p>Choose the story and the look.<br />Leave notes where they matter.</p></div>
-<div class="flow-controls" aria-label="Preview the workflow"><button id="flow-tab-brief" type="button" data-flow-tab="brief">01 <span>Brief</span></button>
-<button id="flow-tab-story" type="button" data-flow-tab="story">02 <span>Story</span></button>
-<button id="flow-tab-look" type="button" data-flow-tab="look">03 <span>Look</span></button>
-<button id="flow-tab-animatic" type="button" data-flow-tab="animatic">04 <span>Animatic</span></button>
-<button id="flow-tab-final" type="button" data-flow-tab="final">05 <span>Final</span></button></div>
-<figure class="flow-panel" id="flow-panel-brief" data-flow-panel="brief"><img src="img/console-brief.jpg" width="1440" height="900" loading="lazy" alt="Director's Console brief screen with an editable film brief and research sources" /><figcaption><b>Start with one sentence.</b> Tell it what you want to make, and for whom.</figcaption></figure>
-<figure class="flow-panel" id="flow-panel-story" data-flow-panel="story"><img src="img/console-story.jpg" width="1440" height="900" loading="lazy" alt="Three story directions and the selected script's timed beats" /><figcaption><b>Three stories. Your choice.</b> Pick a direction or ask for another take.</figcaption></figure>
-<figure class="flow-panel" id="flow-panel-look" data-flow-panel="look"><img src="img/desk-three.jpg" width="1020" height="226" loading="lazy" alt="Counting House, Night Audit and Stamp Duty: three visual treatments for the same story" /><figcaption><b>Find the film’s visual world.</b> Three looks, designed for the story you picked.</figcaption></figure>
-<figure class="flow-panel" id="flow-panel-animatic" data-flow-panel="animatic"><img src="img/console-animatic.jpg" width="1440" height="1120" loading="lazy" alt="Animatic player with scene frames, music waveform and notes pinned to a timeline" /><figcaption><b>Watch the rhythm before the render.</b> Review the rough film and leave a note at any moment.</figcaption></figure>
-<figure class="flow-panel" id="flow-panel-final" data-flow-panel="final"><img src="img/console-final.jpg" width="1440" height="900" loading="lazy" alt="Final film screen with playback, scene markers, review notes and versions" /><figcaption><b>Review. Refine. Download.</b> Keep your notes and versions with the film.</figcaption></figure>
-<div class="section-bottom"><p>Browser console previews. Native review is also available on Mac.</p><a class="link" href="guide.html#flow">Inside the workflow ↗</a></div>
+
+<section class="section dark-band" id="reels"><div class="wrap">
+  <div class="head"><p class="eyebrow">Footage reels</p><h2>Reels from<br />your footage.</h2><p class="lede">Point it at a folder of clips. RasanAI cuts them into a reel and works motion into every part of it.</p></div>
+  <ul class="quad">
+    <li><b>Overlays</b><span>Titles and callouts that sit on the footage, timed to it.</span></li>
+    <li><b>Framed shots</b><span>Clips placed in frames, devices and layouts, not just full screen.</span></li>
+    <li><b>Caption boxes</b><span>Words that arrive with the speech and stay readable.</span></li>
+    <li><b>Motion graphics</b><span>Cards and moves between clips, turned up as far as you like.</span></li>
+  </ul>
 </div></section>
-<section class="section get-started" id="get-started"><div class="wrap">
-<div class="home-section-head"><div><p class="eyebrow">Make something</p><h2>Your next film<br />starts here.</h2></div><p>Work in the native Mac studio,<br />or add RasanAI to your agent.</p></div>
-<article class="mac-feature" id="mac">
-<div class="mac-copy"><p class="eyebrow">RasanAI Studio / Mac</p><h3>A desk for your films.</h3><p>Local projects. Native settings. Your director and review notes in one place.</p>
-<a class="btn btn-primary" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.1.1-beta.2/RasanAI-Studio-0.1.1-10-arm64-unnotarized.dmg">Download for Mac <svg aria-hidden="true"><use href="#i-down"/></svg></a>
-<p class="download-meta">0.1.1 beta 2 · build 10<br />Apple Silicon · macOS 14+</p>
-<p class="beta-notice">Community beta. Not Apple-notarized; macOS approval may be required. Provider charges may apply.</p>
-<details class="install-notice"><summary>Before you install</summary><div><p>Drag the app to Applications. Agent CLIs/sign-in, FFmpeg and HyperFrames tools remain external. Real-agent generation is unverified; managed Macs may block this unnotarized build.</p><p>If build 7 crashes, replace it manually with this build. Your separate project library stays intact. Working installs get signed Sparkle updates in Settings → Runtime.</p><a href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.1.1-beta.2">Release notes, checksum and installation guide ↗</a></div></details>
-</div><figure class="mac-visual"><img src="img/studio-native-preview.png" width="1916" height="1312" loading="lazy" alt="Early native Mac sample-review layout with a film preview, scene timeline and director's notes" /><figcaption>Native review / early sample preview</figcaption></figure>
-</article>
-<article class="skill-install" id="install"><div><p class="eyebrow">Prefer your agent?</p><h3>Install the skill.</h3><p>Run this in your terminal, then ask for a film.</p><a class="link" href="guide.html#install">Claude plugin &amp; other install options ↗</a></div>
-<div class="skill-commands">
-<div class="cmd"><code>npx skills add Sibhimanyu/rasanai --skill rasanai</code><button class="copy" type="button" data-copy="npx skills add Sibhimanyu/rasanai --skill rasanai" aria-label="Copy skill installation command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
-<p class="command-label">Then, in your agent</p>
-<div class="cmd"><code>/rasanai make a 45s launch film for https://tally.app</code><button class="copy" type="button" data-copy="/rasanai make a 45s launch film for https://tally.app" aria-label="Copy example film prompt"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
-<p class="skill-note">Requires a supported agent, HyperFrames and FFmpeg. <a href="guide.html#install">Setup details</a></p><p id="copy-status" role="status" aria-live="polite"></p>
-</div></article>
+
+<section class="section" id="gallery"><div class="wrap">
+  <div class="head"><p class="eyebrow">What it makes</p><h2>Films with a<br />point of view.</h2><p class="lede">Launch films, explainers, product and PR videos, brand films, music videos, reels and motion graphics. Real 3D where it helps.</p></div>
+  <div class="visual-grid">
+    <figure class="visual-feature"><img src="img/desk-counting-house.jpg" width="1600" height="900" loading="lazy" alt="Counting House design specimen: bold type on ledger paper with a red checked stamp" /><figcaption><b>Print with personality</b><span>Counting House / design specimen</span></figcaption></figure>
+    <figure><img src="img/open3d-engraved.jpg" width="1600" height="900" loading="lazy" alt="Three-dimensional forms rendered as a black engraving on cream paper" /><figcaption><b>Depth, drawn differently</b><span>Engraved 3D / test scene</span></figcaption></figure>
+    <figure><img src="img/brand-board.jpg" width="1600" height="900" loading="lazy" alt="Tally brand board showing typography, a mint accent and colors by role" /><figcaption><b>Still unmistakably you</b><span>Your brand / reference board</span></figcaption></figure>
+  </div>
+  <div class="section-bottom"><p>Design specimens and test frames, not finished customer films.</p><a class="link" href="guide.html#library">Explore the style library &rarr;</a></div>
 </div></section>
-<aside class="home-signoff wrap"><p><span lang="ta">ரசனை</span> means taste.</p><p>The eye—and ear—for what feels right.</p></aside>
+
+<section class="section tint finished" id="finished"><div class="wrap center">
+  <p class="eyebrow">Finished</p>
+  <h2>Watch it. Export it.</h2>
+  <p class="lede">Play the film right in the app, then export it. If something is off, say so and RasanAI makes the change.</p>
+  <div class="window"><img src="img/studio/film-finished-1x.jpg" srcset="img/studio/film-finished-1x.jpg 1120w, img/studio/film-finished-2x.jpg 2240w" sizes="(min-width:1100px) 900px, 94vw" width="2240" height="1480" alt="A finished film in RasanAI Studio with a play button and Export, Show in Finder and Make changes buttons." loading="lazy" decoding="async" /></div>
+</div></section>
+
+<section class="section download" id="download"><div class="wrap">
+  <div class="dl-grid">
+    <div>
+      <p class="eyebrow">Download</p>
+      <h2>RasanAI Studio<br />for Mac.</h2>
+      <p class="lede">Free and open source, under the MIT license.</p>
+      <a class="btn btn-light btn-lg" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.2.0-beta.1/RasanAI-Studio-0.2.0-11-arm64-unnotarized.dmg">Download for Mac <svg aria-hidden="true"><use href="#i-down"/></svg></a>
+      <p class="dl-meta">0.2.0 beta 1 &middot; build 11<br />Apple Silicon &middot; macOS 14+</p>
+      <p class="dl-links"><a href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.2.0-beta.1">Release notes</a><a href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.2.0-beta.1/RasanAI-Studio-0.2.0-11-arm64-unnotarized.dmg.sha256">Checksum</a></p>
+    </div>
+    <div class="dl-detail">
+      <h3>What you need</h3>
+      <ul>
+        <li>An Apple Silicon Mac running macOS 14 or newer.</li>
+        <li>Claude Code or OpenAI Codex, installed and signed in. Usage counts toward your own plan.</li>
+        <li>FFmpeg and the HyperFrames tools, which render the film.</li>
+      </ul>
+      <h3>The first time you open it</h3>
+      <p>This beta is ad-hoc signed and not yet notarized by Apple, so macOS will ask you to confirm.</p>
+      <ol>
+        <li>Drag RasanAI Studio into Applications.</li>
+        <li>Right-click the app and choose <b>Open</b>.</li>
+        <li>Or go to System Settings &rarr; Privacy &amp; Security and choose <b>Open Anyway</b>.</li>
+      </ol>
+      <p>After that, signed updates arrive on their own, checked every 5 hours.</p>
+    </div>
+  </div>
+  <p class="honest"><b>A community beta, honestly.</b> The app is new and the real-agent generation flow is still in beta and not fully verified. Expect rough edges, and please <a href="https://github.com/Sibhimanyu/rasanai/issues">tell us about them</a>.</p>
+</div></section>
+
+<section class="section skill" id="install"><div class="wrap skill-grid">
+  <div><p class="eyebrow">Prefer the terminal?</p><h2>RasanAI is also<br />an agent skill.</h2><p>The same director, without the app. Add it to your agent, then ask for a film.</p><a class="link" href="guide.html#install">Install options and setup &rarr;</a></div>
+  <div class="skill-commands">
+    <div class="cmd"><code>npx skills add Sibhimanyu/rasanai --skill rasanai</code><button class="copy" type="button" data-copy="npx skills add Sibhimanyu/rasanai --skill rasanai" aria-label="Copy skill installation command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+    <p class="command-label">Then, in your agent</p>
+    <div class="cmd"><code>/rasanai make a 45s launch film for https://tally.app</code><button class="copy" type="button" data-copy="/rasanai make a 45s launch film for https://tally.app" aria-label="Copy example film prompt"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+    <p id="copy-status" role="status" aria-live="polite"></p>
+  </div>
+</div></section>
+
+<aside class="home-signoff wrap"><p><span lang="ta">ரசனை</span> means taste.</p><p>The eye, and ear, for what feels right.</p></aside>
 </main>
-<footer class="foot"><div class="wrap home-footer"><a class="brand" href="./"><img src="assets/logo/rasanai-lockup-reverse.svg" width="214" height="44" alt="RasanAI home" /></a><p>By <a href="https://github.com/Sibhimanyu">Sibhimanyu</a> · Open source / MIT</p><div><a href="guide.html">Field guide</a><a href="https://github.com/Sibhimanyu/rasanai">GitHub ↗</a></div></div></footer>
-<script src="assets/gsap.min.js"></script><script src="assets/engine.js"></script><script src="assets/film.js"></script><script src="assets/personalities.js"></script><script src="assets/site.js"></script><script src="assets/home.js"></script>
+<footer class="foot"><div class="wrap home-footer"><a class="brand" href="./"><img src="assets/logo/rasanai-lockup-reverse.svg" width="214" height="44" alt="RasanAI home" /></a><p>By <a href="https://github.com/Sibhimanyu">Sibhimanyu</a> &middot; Open source / MIT</p><div><a href="guide.html">Field guide</a><a href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.2.0-beta.1">Release notes</a><a href="https://github.com/Sibhimanyu/rasanai">GitHub &rarr;</a></div></div></footer>
+<script src="assets/site.js"></script><script src="assets/home.js"></script>
 </body>
 </html>
