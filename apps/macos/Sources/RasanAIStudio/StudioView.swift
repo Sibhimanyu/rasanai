@@ -16,18 +16,24 @@ enum StudioPalette {
 
 struct StudioView: View {
     @Bindable var store: StudioStore
+    @Environment(\.openSettings) private var openSettings
     private let clock = Timer.publish(every: 1.0 / 30, on: .main, in: .common).autoconnect()
     @State private var lastTick = Date()
     var body: some View {
+        GeometryReader { geometry in
         VStack(spacing: 0) {
-            header
+            header(width: geometry.size.width)
             Divider().overlay(StudioPalette.divider)
             HStack(spacing: 0) {
-                sidebar.frame(width: 210)
-                Rectangle().fill(StudioPalette.divider).frame(width: 1)
+                if store.sidebarVisible && geometry.size.width >= 950 {
+                    sidebar.frame(width: 210)
+                    Rectangle().fill(StudioPalette.divider).frame(width: 1)
+                }
                 workspace.frame(maxWidth: .infinity, maxHeight: .infinity)
-                Rectangle().fill(StudioPalette.divider).frame(width: 1)
-                if store.isSample || !store.useFullConsole { DirectorDesk(store: store).frame(width: 300) }
+                if store.inspectorVisible && geometry.size.width >= 1280 && (store.isSample || !store.useFullConsole) {
+                    Rectangle().fill(StudioPalette.divider).frame(width: 1)
+                    DirectorDesk(store: store).frame(width: 300)
+                }
             }
             statusBar
         }
@@ -40,42 +46,68 @@ struct StudioView: View {
             store.advance(by: min(now.timeIntervalSince(lastTick), 0.15))
             lastTick = now
         }
-        .sheet(isPresented: $store.showNoteSheet) { NoteSheet(store: store) }
-        .sheet(isPresented: $store.showNewProject) { NewProjectSheet(store: store) }
-        .sheet(isPresented: $store.showDirectorSheet) { DirectorSheet(store: store) }
-        .sheet(isPresented: $store.showDirectorLog) { DirectorLogSheet(runtime: store.runtime) }
-        .sheet(isPresented: $store.showQuestion) { DirectorQuestionSheet(store: store) }
+        .onAppear { store.windowWidth = geometry.size.width }
+        .onChange(of: geometry.size.width) { store.windowWidth = geometry.size.width }
+        }
+        .sheet(item: $store.sheet, onDismiss: {
+            if store.sheet == nil && store.settings.showWelcome { store.settings.showWelcome = false }
+        }) { sheet in
+            switch sheet {
+            case .welcome: WelcomeView(store: store)
+            case .film: NewProjectSheet(store: store)
+            case .director: DirectorSheet(store: store)
+            case .log: DirectorLogSheet(runtime: store.runtime)
+            case .question: DirectorQuestionSheet(store: store)
+            case .note: NoteSheet(store: store)
+            case .sidebar:
+                VStack { sidebar; Button("Done") { store.showSidebarSheet = false }.keyboardShortcut(.cancelAction) }.padding(12).frame(width: 270, height: 520)
+            case .inspector:
+                VStack { DirectorDesk(store: store); Button("Done") { store.showInspectorSheet = false }.keyboardShortcut(.cancelAction) }.frame(width: 360, height: 520)
+            case .shortcuts: KeyboardHelpView()
+            }
+        }
+        .onChange(of: store.settings.showWelcome) {
+            if store.settings.showWelcome { store.sheet = .welcome }
+            else if store.sheet == .welcome { store.sheet = nil }
+        }
         .onChange(of: store.settings.projectRoot) { store.reloadProjects() }
         .alert("RasanAI Studio", isPresented: Binding(get: { store.errorMessage != nil }, set: { if !$0 { store.errorMessage = nil } })) {
-            Button("OK") { store.errorMessage = nil }
+            Button("Open Settings") { store.errorMessage = nil; openSettings() }
+            if !store.isSample && !store.isConnected { Button("Reconnect Console") { store.errorMessage = nil; store.reconnectConsole() } }
+            if store.runURL != nil && !store.runtime.isRunning && !store.runtime.isPreparing {
+                Button("Resume Director…") { store.errorMessage = nil; store.launchProject = nil; store.showDirectorSheet = true }
+            }
+            if store.runtime.logURL != nil { Button("View Log") { store.errorMessage = nil; store.showDirectorLog = true } }
+            Button("Dismiss", role: .cancel) { store.errorMessage = nil }
         } message: { Text(store.errorMessage ?? "") }
     }
 
-    private var header: some View {
+    private func header(width: CGFloat) -> some View {
         HStack(spacing: 14) {
+            Button { store.toggleSidebar() } label: { Image(systemName: "sidebar.left") }.help("Toggle Sidebar (⌃⌘S)")
             RasanMark().fill(StudioPalette.ink).frame(width: 22, height: 26)
-            Text("RasanAI").font(.system(size: 19, weight: .semibold))
-            Rectangle().fill(StudioPalette.divider).frame(width: 1, height: 22).padding(.horizontal, 5)
+            if width > 1100 { Text("RasanAI").font(.system(size: 19, weight: .semibold)) }
             Text(store.snapshot.title).font(.system(size: 15, weight: .semibold)).lineLimit(1)
-            Text("\(Int(store.duration)) sec · \(store.snapshot.aspect)").foregroundStyle(StudioPalette.muted)
+            if width > 1200 { Text("\(Int(store.duration)) sec · \(store.snapshot.aspect)").foregroundStyle(StudioPalette.muted) }
             if store.isSample { SmallTag(text: "SAMPLE") }
             Spacer()
             if !store.isSample {
-                if store.snapshot.raw["ask"] != .null && store.snapshot.raw["ask"]["answered"] == .null {
-                    Button("Answer question…") { store.showQuestion = true }
+                Menu("Film") {
+                    Toggle("Full workflow", isOn: $store.useFullConsole)
+                    Button("Resume director…") { store.launchProject = nil; store.showDirectorSheet = true }.disabled(store.runtime.isRunning || store.runtime.isPreparing)
+                    if store.hasPendingQuestion { Button("Answer question…") { store.showQuestion = true } }
+                    if store.runtime.isRunning { Button("Stop director") { store.runtime.stop() } }
+                    if store.runtime.logURL != nil { Button("View Log") { store.showDirectorLog = true } }
                 }
-                Toggle("Full workflow", isOn: $store.useFullConsole).toggleStyle(.button)
-                    .help("The complete engine console: every route, review step, question, and gate")
-                Button("Resume director…") { store.launchProject = nil; store.showDirectorSheet = true }
-                    .disabled(store.runtime.isRunning || store.runtime.isPreparing)
             }
-            if store.runtime.isRunning { Button("Stop director") { store.runtime.stop() } }
-            if store.runtime.logURL != nil { Button("Log") { store.showDirectorLog = true } }
-            Button { store.openPanel() } label: { Label("Open run", systemImage: "folder.badge.plus") }
+            Button { store.newFilm() } label: { Image(systemName: "plus") }.help("New Film (⌘N)")
+            Button { store.openPanel() } label: { Image(systemName: "folder.badge.plus") }
                 .buttonStyle(.plain).foregroundStyle(StudioPalette.muted).help("Open a RasanAI session (⌘O)")
-            Button { store.exportVideo() } label: { Label("Export", systemImage: "square.and.arrow.up") }
+            Button { store.exportVideo() } label: { Image(systemName: "square.and.arrow.up") }
                 .buttonStyle(.bordered).disabled(store.finalURL == nil)
                 .help(store.finalURL == nil ? "Connect a run with a rendered video to export" : "Export the rendered video")
+            Button { store.toggleInspector() } label: { Image(systemName: "sidebar.right") }.help("Director Inspector (⌥⌘0)")
+            SettingsLink { Image(systemName: "gearshape") }.help("Settings (⌘,)")
         }
         .padding(.leading, 88).padding(.trailing, 20).frame(height: 60)
         .background(StudioPalette.panel)
@@ -128,7 +160,7 @@ struct StudioView: View {
             .foregroundStyle(StudioPalette.muted).padding(.horizontal, 8).padding(.vertical, 9)
     }
     private func navigationRow(_ item: StudioSection) -> some View {
-        Button { store.section = item } label: {
+        Button { store.section = item; store.showSidebarSheet = false } label: {
             HStack(spacing: 12) {
                 Image(systemName: item.symbol).font(.system(size: 16, weight: .light)).frame(width: 20)
                 Text(item.title)
@@ -142,6 +174,7 @@ struct StudioView: View {
 
     private var workspace: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if !store.isSample { ActivityBanner(store: store); Divider() }
             if store.isSample || !store.useFullConsole { workflow.padding(.horizontal, 24).padding(.top, 20) }
             switch store.section {
             case .scenes:
@@ -188,9 +221,9 @@ struct StudioView: View {
             Text(store.statusMessage).lineLimit(1)
             Spacer()
             if !store.isSample && !store.isConnected {
-                Button("Reconnect") { store.connect() }.buttonStyle(.plain).foregroundStyle(StudioPalette.accent)
+                Button("Reconnect") { store.reconnectConsole() }.buttonStyle(.plain).foregroundStyle(StudioPalette.accent)
             }
-            Text("RasanAI Studio · development preview").foregroundStyle(StudioPalette.muted)
+            Text("RasanAI Studio · community beta").foregroundStyle(StudioPalette.muted)
         }.font(.system(size: 11)).padding(.horizontal, 20).frame(height: 30)
             .background(StudioPalette.panel).overlay(alignment: .top) { StudioPalette.divider.frame(height: 1) }
     }
@@ -199,24 +232,99 @@ struct StudioView: View {
 struct NewProjectSheet: View {
     @Bindable var store: StudioStore
     @State private var name = ""
+    @State private var draft = FilmDraft()
+    @State private var sources: [URL] = []
+    @State private var existingSources: [URL] = []
+    @State private var consent = false
     @State private var creating = false
+    @State private var step = 0
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("New Project Folder").font(.title2)
-            TextField("Project name", text: $name)
-            Text("Creates an organized folder in \(store.settings.projectRoot). Choose Start Film in Projects to launch your configured director.")
-                .font(.caption).foregroundStyle(.secondary)
+            Text(store.filmDraftProject == nil ? "New Film" : "Film Brief").font(.title2)
+            Text(["1 · Name and brief", "2 · Reference files", "3 · Director and start"][step]).foregroundStyle(.secondary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if step == 0 {
+                        TextField("Project name", text: $name).disabled(store.filmDraftProject != nil)
+                        Text("What should this film say or show?").font(.headline)
+                        TextEditor(text: $draft.brief).frame(height: 140).border(.secondary.opacity(0.25))
+                        Stepper("\(draft.duration) seconds", value: $draft.duration, in: 5...600, step: 5)
+                        Picker("Aspect ratio", selection: $draft.aspect) {
+                            Text("Landscape · 16:9").tag("16:9"); Text("Portrait · 9:16").tag("9:16"); Text("Square · 1:1").tag("1:1")
+                        }
+                        Text("Saved locally in \(store.settings.projectRoot). You can save a draft without starting an agent.").font(.caption).foregroundStyle(.secondary)
+                    } else if step == 1 {
+                        Text("Add images, video, audio or documents. Originals stay where they are; copies go into your project.").foregroundStyle(.secondary)
+                        Button("Choose Source Files…") { chooseSources() }
+                        Text("Or drop files onto this window.").font(.caption).foregroundStyle(.secondary)
+                        ForEach(sources, id: \.self) { source in
+                            HStack { Text(source.lastPathComponent).lineLimit(1); Spacer(); Button("Remove") { sources.removeAll { $0 == source } } }
+                        }
+                        if store.filmDraftProject != nil {
+                            Text("Existing project sources stay attached. Manage them in Assets.").font(.caption).foregroundStyle(.secondary)
+                            ForEach(existingSources, id: \.self) { Text($0.lastPathComponent).font(.caption) }
+                        }
+                    } else {
+                        Picker("Director", selection: $draft.agent) { ForEach(LocalAgent.allCases) { Text($0.title).tag($0.id) } }
+                        let agent = LocalAgent(rawValue: draft.agent) ?? .claude
+                        Text(store.settings.path(for: agent).isEmpty ? "Agent not configured. Save a draft or configure it in Settings." : store.settings.path(for: agent)).font(.caption).foregroundStyle(.secondary)
+                        SettingsLink { Text("Agent settings…") }
+                        Toggle("I authorize this agent to use its provider account for this film", isOn: $consent)
+                        Text(store.settings.allowUnrestrictedTools ? "Unrestricted tools are enabled. This agent can read or change files outside the project. Provider charges may apply." : "Provider charges may apply. Restricted tools are preserved; browser or rendering commands may need permission.")
+                            .font(.caption).foregroundStyle(store.settings.allowUnrestrictedTools ? Color.red : Color.secondary)
+                        if agent == .custom { Text("Custom director adapters are not available yet. Choose Claude Code or Codex to start, or save this draft.").font(.caption).foregroundStyle(.secondary) }
+                    }
+                }.padding(2)
+            }
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Create Folder") {
-                    creating = true
-                    Task { if await store.createProject(name) { dismiss() }; creating = false }
-                }.keyboardShortcut(.defaultAction).disabled(creating || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction).disabled(creating)
+                if step > 0 { Button("Back") { step -= 1 }.disabled(creating) }
+                if step < 2 {
+                    Button("Continue") { step += 1 }.keyboardShortcut(.defaultAction).disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                } else {
+                    Button("Save Draft") { save(start: false) }.disabled(creating)
+                    Button("Start Film") { save(start: true) }.keyboardShortcut(.defaultAction)
+                        .disabled(creating || !consent || draft.agent == "custom" || draft.brief.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.runtime.isRunning || store.runtime.isPreparing || store.settings.path(for: LocalAgent(rawValue: draft.agent) ?? .claude).isEmpty)
+                }
                 if creating { ProgressView().controlSize(.small) }
             }
-        }.padding(24).frame(width: 470)
+        }.padding(24).frame(width: 590, height: 520)
+            .interactiveDismissDisabled(creating)
+            .onChange(of: draft.agent) { consent = false }
+            .dropDestination(for: URL.self) { urls, _ in
+                guard !creating, urls.allSatisfy(\.isFileURL) else { return false }
+                sources = Array(Set(sources + urls)).sorted { $0.path < $1.path }; return true
+            }
+            .task {
+                draft.agent = store.settings.defaultAgent
+                if let project = store.filmDraftProject {
+                    let library = store.settings.library
+                    let loaded = await Task.detached {
+                        ((try? library.read(project).name) ?? project.lastPathComponent, FilmDraft.load(in: project), (try? ProjectSources.files(in: project)) ?? [])
+                    }.value
+                    guard !Task.isCancelled else { return }
+                    name = loaded.0; draft = loaded.1 ?? draft; existingSources = loaded.2
+                }
+            }
+    }
+    private func chooseSources() {
+        let panel = NSOpenPanel(); panel.allowsMultipleSelection = true; panel.canChooseDirectories = false
+        if panel.runModal() == .OK { sources = Array(Set(sources + panel.urls)).sorted { $0.path < $1.path } }
+    }
+    private func save(start: Bool) {
+        creating = true
+        Task {
+            if await store.saveFilm(name: name, draft: draft, sources: sources, existing: store.filmDraftProject, start: start) != nil { dismiss() }
+            else if store.filmSourcesCopied {
+                sources = [] // retain selection if importing failed
+                if let project = store.filmDraftProject {
+                    existingSources = await Task.detached { (try? ProjectSources.files(in: project)) ?? [] }.value
+                }
+            }
+            creating = false
+        }
     }
 }
 

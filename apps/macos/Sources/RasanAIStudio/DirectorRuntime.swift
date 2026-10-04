@@ -8,6 +8,11 @@ final class DirectorRuntime {
     var isPreparing = false
     var status = "Director stopped"
     var logURL: URL?
+    var lastExitCode: Int32?
+    var stopRequested = false
+    var onExit: ((Int32, Bool) -> Void)?
+    var projectURL: URL? { activeProject }
+    var runURL: URL? { activeRun }
     private var process: Process?
     private var activeRun: URL?
     private var activeProject: URL?
@@ -41,6 +46,7 @@ final class DirectorRuntime {
         let executable = URL(fileURLWithPath: settings.path(for: agent))
         guard FileManager.default.isExecutableFile(atPath: executable.path) else { throw RuntimeError.missingAgent }
         isPreparing = true
+        lastExitCode = nil; stopRequested = false
         defer { isPreparing = false }
         let run = existingRun ?? project.appendingPathComponent(".rasanai/run-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: run, withIntermediateDirectories: true)
@@ -81,7 +87,9 @@ final class DirectorRuntime {
                 guard let self, self.identity == identity else { return }
                 self.isRunning = false
                 self.process = nil
-                self.status = finished.terminationStatus == 0 ? "Director finished · review the published result" : "Director stopped (\(finished.terminationStatus)) · inspect the log, fix prerequisites or permissions, then resume"
+                self.lastExitCode = finished.terminationStatus
+                self.status = self.stopRequested ? "Director stopped · your files are preserved; resume when ready" : (finished.terminationStatus == 0 ? "Director finished · review the published result" : "Director stopped (\(finished.terminationStatus)) · inspect the log, fix prerequisites or permissions, then resume")
+                self.onExit?(finished.terminationStatus, self.stopRequested)
             }
         }
         try process.run()
@@ -92,8 +100,21 @@ final class DirectorRuntime {
         return run
     }
     private var identity = UUID()
+    func reconnect(run: URL, root: URL, settings: StudioSettings) async throws {
+        guard let node = settings.nodeURL else { throw RuntimeError.missingNode }
+        guard let engine = Self.engineURL else { throw RuntimeError.missingEngine }
+        let code = try await Self.execute(node, arguments: [engine.appendingPathComponent("scripts/console.mjs").path,
+            "serve", "--run", run.path, "--root", root.path], directory: root, environment: environment(node: node))
+        guard code == 0 else { throw RuntimeError.consoleFailed }
+    }
+    func clearPresentation() {
+        guard !isRunning, !isPreparing else { return }
+        lastExitCode = nil; stopRequested = false; logURL = nil; activeRun = nil; activeProject = nil
+        status = "Director stopped"
+    }
     func stop() {
         guard let process, process.isRunning else { return }
+        stopRequested = true
         status = "Stopping director and its child processes…"
         process.terminate()
     }

@@ -148,41 +148,10 @@ struct LibraryView: View {
                 Text(store.section.title).font(.system(size: 28, weight: .semibold))
                 switch store.section {
                 case .projects:
-                    Text("Project library · \(store.settings.projectRoot)").foregroundStyle(StudioPalette.muted).textSelection(.enabled)
-                    HStack {
-                        Button("New project folder…") { store.showNewProject = true }.buttonStyle(.borderedProminent)
-                        Button("Open run…") { store.openPanel() }.buttonStyle(.borderedProminent)
-                        Button("Sample film") { store.loadSample() }.buttonStyle(.bordered)
-                        SettingsLink { Image(systemName: "gearshape") }.help("Settings (⌘,)")
-                    }
-                    if store.isLoadingProjects { ProgressView("Loading project library…").controlSize(.small) }
-                    ForEach(store.localProjects, id: \.0.id) { project, folder in
-                        HStack {
-                            Image(systemName: "folder").font(.title2)
-                            VStack(alignment: .leading) {
-                                Text(project.name).fontWeight(.medium)
-                                Text(folder.path).font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Button("Open") { store.openProject(folder) }
-                            Button("Start Film…") { store.launchProject = folder; store.showDirectorSheet = true }
-                                .disabled(store.runtime.isRunning || store.runtime.isPreparing)
-                            Button("Show in Finder") { NSWorkspace.shared.open(folder) }
-                        }.padding(18).background(StudioPalette.panel).clipShape(RoundedRectangle(cornerRadius: 8))
-                    }
-                    ForEach(store.recentRuns, id: \.self) { path in
-                        Button { store.openRun(URL(fileURLWithPath: path)) } label: {
-                            HStack {
-                                Image(systemName: "film.stack").font(.system(size: 24, weight: .light))
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text(URL(fileURLWithPath: path).lastPathComponent).fontWeight(.medium)
-                                    Text(path).font(.system(size: 11)).foregroundStyle(StudioPalette.muted).lineLimit(2)
-                                }
-                                Spacer(); Image(systemName: "arrow.up.right")
-                            }.padding(18).background(StudioPalette.panel).clipShape(RoundedRectangle(cornerRadius: 8))
-                        }.buttonStyle(.plain)
-                    }
+                    ProjectLibraryView(store: store)
                 case .assets:
+                    SourceAssetsView(store: store)
+                    Text("Published film assets").font(.headline)
                     let paths = store.snapshot.scenes.compactMap(\.thumbnail) + [store.snapshot.audioFile, store.snapshot.finalVideo].compactMap { $0 }
                     if paths.isEmpty {
                         ContentUnavailableView("No source assets attached", systemImage: "photo.stack", description: Text(store.isSample ? "The sample uses native illustrations. Live runs show their key frames, audio, and rendered film here." : "Assets appear as the director publishes them to the run."))

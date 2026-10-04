@@ -29,9 +29,21 @@ open "dist/RasanAI Studio.app" --args --run /absolute/path/to/workspace/.rasanai
 
 ## Native settings and local projects
 
+### Usability additions (0.1.1 beta)
+
+The current source adds a first-launch Welcome/Setup guide (also in Help and Settings), and a three-step **New Film** flow: brief, source files, then director consent. Save Draft does not launch a provider. Briefs are stored in `rasanai-brief.json`; explicitly selected sources are copied to `assets/sources` without moving or overwriting originals. Custom agent executables remain configurable but cannot start a film without a compatible adapter.
+
+Projects supports search, recent/name/creation sorting, thumbnails, display-name rename, archive/unarchive, duplication as a fresh draft with assets/audio/brief, and confirmed Move to Trash. Display-name rename leaves the folder unchanged. Duplicate drafts exclude run history, credentials, generated compositions and exports. Library modifications are disabled during an active director; imported external runs are not managed or moved.
+
+Drop source files onto a project card, the Assets source area, or the New Film wizard. Assets supports reveal, replacement and confirmed removal of managed copies; previous copies go to Trash. New references added to an existing run must be mentioned in the director's next message. File replacement/removal is disabled while the director may be using them.
+
+The activity banner distinguishes working, awaiting an answer/review, stopped, offline, finished and errors without inventing percentage estimates. Settings → General can enable generic, opt-in macOS notifications for questions and director exit; no brief or source content is included. Error dialogs offer Settings, local-console reconnect, resume and logs when applicable. Reconnect starts only the loopback console, not a provider agent.
+
+Smaller windows (minimum 820 × 560), adaptive/collapsible panels, File → Open Recent, Help → Keyboard Shortcuts, and optional last-project/run reopening are included. Sidebar: Control-Command-S; inspector: Option-Command-0. On compact windows, panel buttons open sheets. Automated local tests and relocated-bundle startup checks pass; broad UI/provider testing remains incomplete.
+
 Settings opens through the standard macOS app menu and **Command-comma**. General contains project storage and System/Light/Dark appearance. Agents discovers Claude Code/OpenAI Codex, configures model and executable, and checks CLI sign-in without collecting credential output. Copy Sign-in Command hands browser login to the provider CLI. Other local executables can be checked, but need an adapter before they can direct a film. Runtime contains Node selection, dependency instructions and Sparkle preferences. Changes apply to the next director launch.
 
-The app creates `~/Documents/RasanAI` on first launch. **Command-N** creates a named project with `assets/`, `audio/`, `compositions/`, `exports/`, `.rasanai/`, and a manifest. Existing folders are not merged or overwritten. Settings can select another library without moving existing files. Projects → Start Film launches a director after account/tool-use confirmation; Open returns to the project's latest app-managed run. Imported runs stay in place. Project enumeration runs off the main thread so an unavailable storage provider cannot freeze launch.
+The app creates `~/Documents/RasanAI` on first launch. **Command-N** opens New Film and creates a named project with `assets/`, `audio/`, `compositions/`, `exports/`, `.rasanai/`, and a manifest when you save/start. Existing folders are not merged or overwritten. Settings can select another library without moving existing files. Start Film launches a director after account/tool-use confirmation; Open returns to the project's latest app-managed run, or its draft brief if none exists. Imported runs stay in place. Project enumeration and opening run session data happen off the main thread.
 
 ## Engine boundary
 
@@ -64,9 +76,10 @@ Sign the downloaded archive locally with Sparkle's `sign_update --account rasana
 
 ```bash
 swift test
+bash scripts/smoke-app.sh "dist/RasanAI Studio.app"
 ```
 
-Core tests cover scene boundaries, numeric scene IDs, final marker durations, partial sessions, notes, address validation, and local asset containment. The optional HTTP integration test exercises a real disposable console, including comment → apply → approve and the action queue. From the repository root:
+Core tests cover scene boundaries, numeric scene IDs, final marker durations, partial sessions, notes, address validation, and local asset containment. Resource regression tests cover both CLI SwiftPM's flat bundle and Xcode's macOS bundle. The startup script launches a relocated, signed app for 15 seconds with a disposable library and no provider invocation. Test the actual distributed DMG's copied app too: build 7's generated resource accessor worked in a checkout but crashed after installation. Missing sample resources now show an error instead of a fatal trap. The optional HTTP integration test exercises a real disposable console, including comment → apply → approve and the action queue. From the repository root:
 
 ```bash
 smoke_run="$(mktemp -d "$PWD/.context/mac-console.XXXXXX")"

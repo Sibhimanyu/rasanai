@@ -2,6 +2,7 @@ import AppKit
 import Observation
 import StudioCore
 import SwiftUI
+import UserNotifications
 
 @MainActor @Observable
 final class StudioSettings {
@@ -25,11 +26,19 @@ final class StudioSettings {
     var statuses: [String: String] = [:]
     var checking: Set<String> = []
     var error: String?
+    var showWelcome = false
+    var hasCompletedWelcome: Bool { didSet { defaults.set(hasCompletedWelcome, forKey: "hasCompletedWelcome") } }
+    var reopenLastProject: Bool { didSet { defaults.set(reopenLastProject, forKey: "reopenLastProject") } }
+    var notificationsEnabled: Bool { didSet { defaults.set(notificationsEnabled, forKey: "notificationsEnabled") } }
     private let defaults: UserDefaults
     var library: ProjectLibrary { ProjectLibrary(root: URL(fileURLWithPath: projectRoot, isDirectory: true)) }
     var colorScheme: ColorScheme? { appearance == "system" ? nil : (appearance == "light" ? .light : .dark) }
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        hasCompletedWelcome = defaults.bool(forKey: "hasCompletedWelcome")
+        reopenLastProject = defaults.object(forKey: "reopenLastProject") as? Bool ?? true
+        notificationsEnabled = defaults.bool(forKey: "notificationsEnabled")
+        showWelcome = !defaults.bool(forKey: "hasCompletedWelcome")
         projectRoot = defaults.string(forKey: "projectRoot") ?? ProjectLibrary.defaultRoot.path
         appearance = defaults.string(forKey: "appearance") ?? "system"
         defaultAgent = defaults.string(forKey: "defaultAgent") ?? "claude"
@@ -99,6 +108,22 @@ final class StudioSettings {
         let command = ([LocalAgent.shellQuote(path(for: agent))] + agent.loginArguments).joined(separator: " ")
         NSPasteboard.general.clearContents(); NSPasteboard.general.setString(command, forType: .string)
     }
+    func openTerminal() {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: .init())
+    }
+    func finishWelcome() { hasCompletedWelcome = true; showWelcome = false }
+    func executable(named name: String) -> String? {
+        LocalAgent.searchDirectories.map { $0 + "/" + name }.first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+    func setNotificationsEnabled(_ enabled: Bool) async {
+        if !enabled { notificationsEnabled = false; return }
+        guard Bundle.main.bundleIdentifier != nil else { error = "Notifications are available when running the bundled Mac app."; return }
+        do {
+            notificationsEnabled = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+            if !notificationsEnabled { error = "Notifications are disabled in macOS. Enable RasanAI Studio in System Settings → Notifications." }
+        } catch { self.error = error.localizedDescription }
+    }
 }
 
 struct StudioSettingsView: View {
@@ -119,6 +144,14 @@ struct StudioSettingsView: View {
                     Picker("Appearance", selection: $settings.appearance) {
                         Text("System").tag("system"); Text("Light").tag("light"); Text("Dark").tag("dark")
                     }
+                }
+                Section("Getting started") {
+                    Toggle("Reopen the last project on launch", isOn: $settings.reopenLastProject)
+                    Button("Show Welcome and Setup…") { settings.showWelcome = true }
+                }
+                Section("Notifications") {
+                    Toggle("Notify when a question or director result needs attention", isOn: Binding(get: { settings.notificationsEnabled }, set: { enabled in Task { await settings.setNotificationsEnabled(enabled) } }))
+                    Text("Optional. Notifications use generic text, not your brief or source content. Permission is requested only when you turn this on.").font(.caption).foregroundStyle(.secondary)
                 }
             }.formStyle(.grouped).tabItem { Label("General", systemImage: "gearshape") }
             Form {
