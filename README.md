@@ -9,6 +9,8 @@
 
 ![Story: three scripts as timed beats, with what's on screen, what's said and what we see](docs/img/console-story.jpg)
 
+**[Download RasanAI Studio for Mac](https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.2.0-beta.1)** (0.2.0 beta 1, Apple Silicon, macOS 14+). A free community beta; the agent skill below works without it.
+
 **Website:** https://sibhimanyu.github.io/rasanai/
 
 ## Five calls, and you see your film at every one
