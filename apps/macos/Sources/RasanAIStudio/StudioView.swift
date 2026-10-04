@@ -253,6 +253,10 @@ struct NewProjectSheet: View {
                         Picker("Aspect ratio", selection: $draft.aspect) {
                             Text("Landscape · 16:9").tag("16:9"); Text("Portrait · 9:16").tag("9:16"); Text("Square · 1:1").tag("1:1")
                         }
+                        Picker("Motion graphics", selection: $draft.motionLevel) {
+                            Text("Maximal").tag("maximal"); Text("Balanced").tag("balanced"); Text("Minimal").tag("minimal")
+                        }.pickerStyle(.segmented)
+                        Text("Maximal: overlays, framed shots, caption boxes and motion graphics throughout. Choose less only if you want a cleaner cut.").font(.caption).foregroundStyle(.secondary)
                         Text("Saved locally in \(store.settings.projectRoot). You can save a draft without starting an agent.").font(.caption).foregroundStyle(.secondary)
                     } else if step == 1 {
                         Text("Add images, video, audio or documents. Originals stay where they are; copies go into your project.").foregroundStyle(.secondary)

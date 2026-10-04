@@ -1,6 +1,6 @@
 # RasanAI Studio for Mac
 
-A SwiftUI Mac studio with a WebKit-backed full engine console and Sparkle 2.10.0. [Download the community beta](https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.1.1-beta.1). Build 9 fixes the installed build-7 startup crash; manually replace the old app if it cannot open its updater. Requires macOS 14 or newer; building from source also requires Xcode's Swift toolchain. Community packages target Apple Silicon and are ad-hoc signed, not Apple-notarized. Real-agent generation and complete workflow parity remain unverified.
+A SwiftUI Mac studio with a WebKit-backed full engine console and Sparkle 2.10.0. [Download the community beta](https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.1.1-beta.2). Build 10 adds the director creative contract and a Motion graphics level; build 9 fixed the installed build-7 startup crash; manually replace the old app if it cannot open its updater. Requires macOS 14 or newer; building from source also requires Xcode's Swift toolchain. Community packages target Apple Silicon and are ad-hoc signed, not Apple-notarized. Real-agent generation and complete workflow parity remain unverified.
 
 ## Build and launch
 
@@ -31,7 +31,7 @@ open "dist/RasanAI Studio.app" --args --run /absolute/path/to/workspace/.rasanai
 
 ### Usability additions (0.1.1 beta)
 
-The current source adds a first-launch Welcome/Setup guide (also in Help and Settings), and a three-step **New Film** flow: brief, source files, then director consent. Save Draft does not launch a provider. Briefs are stored in `rasanai-brief.json`; explicitly selected sources are copied to `assets/sources` without moving or overwriting originals. Custom agent executables remain configurable but cannot start a film without a compatible adapter.
+The current source adds a first-launch Welcome/Setup guide (also in Help and Settings), and a three-step **New Film** flow: brief, source files, then director consent. The first step sets a **Motion graphics** level (Maximal by default); the director is told that engine defaults are a floor, not a ceiling, and footage projects are briefed to use overlays, framed shots and caption boxes throughout unless you choose less. Save Draft does not launch a provider. Briefs are stored in `rasanai-brief.json`; explicitly selected sources are copied to `assets/sources` without moving or overwriting originals. Custom agent executables remain configurable but cannot start a film without a compatible adapter.
 
 Projects supports search, recent/name/creation sorting, thumbnails, display-name rename, archive/unarchive, duplication as a fresh draft with assets/audio/brief, and confirmed Move to Trash. Display-name rename leaves the folder unchanged. Duplicate drafts exclude run history, credentials, generated compositions and exports. Library modifications are disabled during an active director; imported external runs are not managed or moved.
 
@@ -58,8 +58,8 @@ The app is not App-Sandboxed. Local asset resolution rejects remote URLs, escapi
 ## Community packaging and updates
 
 ```bash
-STUDIO_BUILD=10 bash scripts/build-community.sh
-STUDIO_TAG=studio-v0.1.0-beta.2 bash scripts/generate-feed.sh
+STUDIO_BUILD=11 bash scripts/build-community.sh
+STUDIO_TAG=studio-v0.1.1-beta.2 bash scripts/generate-feed.sh
 ```
 
 Use a new increasing build number each time. The build script downloads a pinned, checksum-verified official Node distribution, bundles engine/Node/Sparkle, verifies bundle integrity, and creates a DMG with an Applications link and installation notice. It refuses to overwrite a DMG. Existing app builds are preserved in `dist/previous-build-*.app`.
