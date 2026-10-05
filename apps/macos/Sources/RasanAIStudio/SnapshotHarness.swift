@@ -52,13 +52,14 @@ enum SnapshotHarness {
                 try posterPNG(hueA: pair[0], hueB: pair[1]).write(to: url)
                 posters[key] = url
             }
+            func ago(_ hours: Double) -> Date { Date().addingTimeInterval(-hours * 3600) }
             let plan: [(String, FilmSummary, String?)] = [
-                ("Spring launch film", FilmSummary(phase: .finished(45), poster: posters["launch"]), "launch"),
-                ("Trip reel", FilmSummary(phase: .yourTurn("pick a story"), poster: posters["trip"]), "trip"),
-                ("Founder story", FilmSummary(phase: .working, poster: posters["founder"]), "founder"),
-                ("Podcast trailer", FilmSummary(phase: .draft, poster: nil), nil),
-                ("Quarterly update", FilmSummary(phase: .needsAttention, poster: posters["update"]), "update"),
-                ("Customer reel", FilmSummary(phase: .finished(30), poster: posters["reel"]), "reel"),
+                ("Spring launch film", FilmSummary(phase: .finished(45), poster: posters["launch"], stage: .final, updatedAt: ago(26), duration: 45, aspect: "16:9"), "launch"),
+                ("Trip reel", FilmSummary(phase: .yourTurn("pick a story"), poster: posters["trip"], stage: .story, updatedAt: ago(0.4), duration: 30, aspect: "16:9"), "trip"),
+                ("Founder story", FilmSummary(phase: .working, poster: posters["founder"], stage: .animatic, updatedAt: ago(0.05), duration: 60, aspect: "16:9"), "founder"),
+                ("Podcast trailer", FilmSummary(phase: .draft, poster: nil, updatedAt: ago(70), duration: 45, aspect: "9:16"), nil),
+                ("Quarterly update", FilmSummary(phase: .needsAttention, poster: posters["update"], stage: .look, updatedAt: ago(5), duration: 45, aspect: "1:1"), "update"),
+                ("Customer reel", FilmSummary(phase: .finished(30), poster: posters["reel"], stage: .final, updatedAt: ago(200), duration: 30, aspect: "9:16"), "reel"),
             ]
             for (name, summary, _) in plan {
                 let folder = try library.create(name: name)
@@ -169,10 +170,15 @@ enum SnapshotHarness {
                     await shot("film-recovery", StudioView(store: failed.store)) { failed.store.path = [.film(film)] }
                 }
 
+                let needs = try makeSeed(films: true)
+                let keep: Set<String> = ["Trip reel", "Spring launch film", "Podcast trailer"]
+                needs.store.localProjects = needs.store.localProjects.filter { keep.contains($0.0.name) }
+                await shot("home-needs-you", StudioView(store: needs.store))
+
                 let progress = try makeSeed(films: false)
                 progress.store.runtime.startedAt = Date().addingTimeInterval(-74)
-                progress.store.snapshot = try SessionSnapshot(data: Data("{\"title\":\"Film progress\",\"current\":\"story\",\"steps\":{\"story\":{\"status\":\"working\"}},\"activity\":[{\"msg\":\"Writing three story directions from your brief.\"}]}".utf8))
-                await shot("film-progress", DirectorProgressView(store: progress.store), titled: false, size: CGSize(width: 900, height: 100))
+                progress.store.snapshot = try SessionSnapshot(data: Data("{\"title\":\"Film progress\",\"current\":\"look\",\"steps\":{\"look\":{\"status\":\"working\"}},\"activity\":[{\"msg\":\"Writing three story directions from your brief.\"}]}".utf8))
+                await shot("film-progress", VStack(spacing: 0) { FilmStageBar(current: progress.store.snapshot.stage); DirectorProgressView(store: progress.store); Spacer(minLength: 0) }.background(Color(nsColor: .windowBackgroundColor)), titled: false, size: CGSize(width: 900, height: 150))
 
                 full.store.newFilmPrefill = "A 45-second launch film for Northwind, our budgeting app. Calm, confident, a little playful."
                 full.store.newFilmPrefillFiles = ["interview-raw.mov", "cover-art.png", "brand-guide.pdf"].map { name in
@@ -188,7 +194,9 @@ enum SnapshotHarness {
                 let done = try makeSeed(films: true)
                 if let film = done.films["Spring launch film"], let poster = done.store.summaries[film]?.poster {
                     try loadFinished(into: done.store, film: film, poster: poster)
+                    done.store.filmNotes[film] = [FilmNote(time: 12, text: "Hold the closing title a beat longer."), FilmNote(time: 40, text: "The music drops too early here.")]
                     await shot("film-finished", StudioView(store: done.store)) { done.store.path = [.film(film)] }
+                    await shot("film-finished-notes", StudioView(store: done.store), size: CGSize(width: 1120, height: 1250)) { done.store.path = [.film(film)] }
                 }
                 let fresh = try makeSeed(films: true)
                 await shot("brands", StudioView(store: fresh.store)) { fresh.store.path = [.brands] }
@@ -198,7 +206,7 @@ enum SnapshotHarness {
                     await shot("brand", StudioView(store: second.store)) { second.store.path = [.brands, .brand(target)] }
                 }
                 let welcome = try makeSeed(films: false)
-                await shot("welcome", WelcomeView(store: welcome.store), titled: false, size: CGSize(width: 480, height: 540))
+                await shot("welcome", WelcomeView(store: welcome.store), titled: false, size: CGSize(width: 480, height: 640))
                 await shot("settings-general", StudioSettingsView(settings: welcome.store.settings), titled: false, size: CGSize(width: 520, height: 470))
                 await shot("settings-director", StudioSettingsView(settings: welcome.store.settings, initialTab: "director"), titled: false, size: CGSize(width: 520, height: 500))
             }

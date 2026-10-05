@@ -14,6 +14,7 @@ struct FilmPage: View {
     private var ready: Bool { store.loadedFilm == url }
     private var phase: FilmPhase { store.phase }
     private var showsFinished: Bool { if case .finished = phase { return !store.showChanges } else { return false } }
+    private var isFinished: Bool { if case .finished = phase { true } else { false } }
     private var showsConsole: Bool { store.consoleAddress != nil && (store.isConnected || store.runtime.isRunning || store.runtime.isPreparing) }
 
     var body: some View {
@@ -35,11 +36,16 @@ struct FilmPage: View {
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .safeAreaInset(edge: .top, spacing: 0) {
-            if ready && !showsFinished && store.runURL != nil {
-                if showsConsole, !store.runtime.stopRequested, let recovery = store.runtime.recovery {
-                    DirectorRecoveryView(store: store, recovery: recovery)
-                } else if store.runtime.isRunning && !store.hasPendingQuestion && store.phase == .working {
-                    DirectorProgressView(store: store)
+            if ready && store.runURL != nil {
+                VStack(spacing: 0) {
+                    FilmStageBar(current: store.snapshot.stage, finished: isFinished)
+                    if !showsFinished {
+                        if showsConsole, !store.runtime.stopRequested, let recovery = store.runtime.recovery {
+                            DirectorRecoveryView(store: store, recovery: recovery)
+                        } else if store.runtime.isRunning && !store.hasPendingQuestion && store.phase == .working {
+                            DirectorProgressView(store: store)
+                        }
+                    }
                 }
             }
         }
@@ -83,7 +89,7 @@ struct FilmPage: View {
     private var helpLines: [String] {
         switch phase {
         case .draft: ["This film has not started yet. Check the brief, then press Start film."]
-        case .finished: ["Your film is ready. Export it, or press Make changes to leave notes and get a new version."]
+        case .finished: ["Your film is ready. Export it, or watch it and add notes where something should change."]
         case .yourTurn: ["RasanAI is waiting for you. Answer in the panel below, and it carries on from there.", "You can leave the app; you will be notified if that is turned on."]
         default: ["RasanAI is directing this film. Each step it needs you for shows up here.", "Pause Director in the ••• menu stops it safely. Your files are kept, and you can resume any time."]
         }
@@ -222,6 +228,8 @@ struct DraftView: View {
     private var agent: LocalAgent { store.settings.agent }
     private var ready: Bool { store.settings.isReady(agent) }
     private var queued: Bool { store.settings.filmQueue.contains { $0.project == url } }
+    /// Waiting films can still be edited; only a running or stuck one is locked.
+    private var editable: Bool { !queued || store.isWaitingInQueue(url) }
     private var shape: String { ["16:9": "Landscape", "9:16": "Portrait", "1:1": "Square"][draft?.aspect ?? "16:9"] ?? "Landscape" }
 
     var body: some View {
@@ -231,7 +239,7 @@ struct DraftView: View {
                     HStack {
                         Text("The brief").font(.system(size: 22, weight: .semibold))
                         Spacer()
-                        Button("Edit") { store.path.append(.newFilm(url)) }.controlSize(.regular).disabled(queued)
+                        Button("Edit") { store.path.append(.newFilm(url)) }.controlSize(.regular).disabled(!editable)
                     }
                     Text((draft?.brief ?? "").isEmpty ? "No description yet. Edit the brief to add one." : draft!.brief)
                         .font(.system(size: 14)).lineSpacing(3).foregroundStyle((draft?.brief ?? "").isEmpty ? .secondary : .primary)
@@ -251,7 +259,8 @@ struct DraftView: View {
                 VStack(spacing: 8) {
                     if queued {
                         Button("View queue") { store.path.append(.queue) }.buttonStyle(.borderedProminent).controlSize(.large)
-                        Text("This film is queued. Remove it from the queue to edit or start it separately.")
+                        Text(editable ? "This film is waiting in the queue. You can still edit the brief; it starts when the director is free."
+                                       : "This film is running from the queue. Open the queue to follow it or take it out.")
                             .font(.system(size: 12)).foregroundStyle(.secondary)
                     } else if ready {
                         Button { start() } label: {
@@ -281,11 +290,13 @@ struct DraftView: View {
     private func start() {
         guard let draft else { return }
         store.ensureConsent(for: agent) {
-            starting = true
-            Task {
-                var d = draft; d.agent = store.settings.defaultAgent
-                _ = await store.saveFilm(name: store.currentFilmTitle, draft: d, sources: [], existing: url, start: true)
-                starting = false
+            store.startWhenReady(project: url, sources: []) {
+                starting = true
+                Task {
+                    var d = draft; d.agent = store.settings.defaultAgent
+                    _ = await store.saveFilm(name: store.currentFilmTitle, draft: d, sources: [], existing: url, start: true)
+                    starting = false
+                }
             }
         }
     }
@@ -297,6 +308,10 @@ struct FinishedView: View {
     @State private var previewVersion: FilmVersion?
     @State private var previewPlayer: AVPlayer?
     @State private var restoreVersion: FilmVersion?
+    @FocusState private var focusedNote: UUID?
+    private var filmKey: URL? { store.loadedFilm ?? store.selectedProjectURL }
+    private var notes: [FilmNote] { filmKey.flatMap { store.filmNotes[$0] } ?? [] }
+    private var activePlayer: AVPlayer? { previewPlayer ?? store.finalPlayer }
     private var poster: URL? { store.asset(store.snapshot.scenes(for: .final).first?.thumbnail ?? store.snapshot.scenes(for: .animatic).first?.thumbnail) }
     var body: some View {
         ScrollView {
@@ -335,20 +350,10 @@ struct FinishedView: View {
                     Button { store.exportVideo() } label: { Label("Export…", systemImage: "square.and.arrow.up") }
                         .buttonStyle(.borderedProminent).controlSize(.large)
                     Button("Show in Finder") { if let url = store.displayedVideo { NSWorkspace.shared.activateFileViewerSelecting([url]) } }.controlSize(.large)
-                    Button("Make changes") { store.showChanges = true }.controlSize(.large)
                 }
                 VStack(alignment: .leading, spacing: 18) {
                     FilmHistoryView(snapshot: store.snapshot, resolver: store.resolver, onPreview: { watch($0) }, onRestore: { restoreVersion = $0 })
-                    Divider()
-                    Text("Request a revision").font(.headline)
-                    TextField("For example: hold the closing title longer and lower the music", text: $store.directorMessage, axis: .vertical)
-                        .lineLimit(2...5).textFieldStyle(.roundedBorder)
-                    HStack {
-                        Text("Your director makes a new version and explains what changed.").font(.caption).foregroundStyle(.secondary)
-                        Spacer()
-                        Button("Send revision") { store.requestFilmRevision(store.directorMessage) }
-                            .buttonStyle(.borderedProminent).disabled(store.directorMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.isSending || store.runtime.isPreparing)
-                    }
+                    changesSection
                 }.frame(maxWidth: 820, alignment: .leading)
             }
             .padding(32).frame(maxWidth: .infinity)
@@ -361,6 +366,93 @@ struct FinishedView: View {
             store.previewFilm = nil; store.previewVideo = nil
         }
     }
+    // MARK: Request changes
+
+    private var trimmedOverall: String { store.directorMessage.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var filledNotes: [FilmNote] { notes.filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.sorted { $0.time < $1.time } }
+    private var canSend: Bool { (!filledNotes.isEmpty || !trimmedOverall.isEmpty) && !store.isSending && !store.runtime.isPreparing }
+
+    private func setNotes(_ value: [FilmNote]) { if let key = filmKey { store.filmNotes[key] = value.isEmpty ? nil : value } }
+    private func noteBinding(_ id: UUID) -> Binding<String> {
+        Binding(get: { notes.first { $0.id == id }?.text ?? "" },
+                set: { text in setNotes(notes.map { var n = $0; if n.id == id { n.text = text }; return n }) })
+    }
+    private func addNote() {
+        let player = activePlayer
+        player?.pause()
+        let seconds = player?.currentTime().seconds ?? 0
+        let note = FilmNote(time: seconds.isFinite ? max(0, seconds) : 0)
+        withAnimation(.snappy) { setNotes(notes + [note]) }
+        focusedNote = note.id
+    }
+    private func send() {
+        var lines = filledNotes.map { "At \(clockText($0.time)): \($0.text.trimmingCharacters(in: .whitespacesAndNewlines))" }
+        if !trimmedOverall.isEmpty { lines.append("Overall: \(trimmedOverall)") }
+        let key = filmKey
+        store.requestFilmRevision(lines.joined(separator: "\n")) { if let key { store.filmNotes[key] = nil } }
+    }
+
+    private var changesSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Request changes").font(.system(size: 17, weight: .semibold))
+                    Text("Watch the film, pause where something should change, and add a note. Your director makes a new version and explains what changed.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 12)
+                TimelineView(.periodic(from: .now, by: 0.5)) { _ in
+                    let seconds = activePlayer?.currentTime().seconds ?? 0
+                    Button { addNote() } label: {
+                        Label("Add note at \(clockText(seconds.isFinite ? seconds : 0))", systemImage: "plus.bubble").monospacedDigit()
+                    }.controlSize(.large)
+                }
+            }
+            if !notes.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(notes) { note in
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Button {
+                                activePlayer?.pause()
+                                activePlayer?.seek(to: CMTime(seconds: note.time, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+                            } label: {
+                                Text(clockText(note.time)).font(.system(size: 12, weight: .semibold, design: .rounded)).monospacedDigit()
+                                    .foregroundStyle(Color.rasan).padding(.horizontal, 9).padding(.vertical, 3)
+                                    .background(Color.rasan.opacity(0.13), in: Capsule())
+                            }.buttonStyle(.plain).help("Jump to this moment")
+                            TextField("What should change here?", text: noteBinding(note.id), axis: .vertical)
+                                .textFieldStyle(.plain).font(.system(size: 13)).lineLimit(1...4)
+                                .focused($focusedNote, equals: note.id)
+                            Button { withAnimation(.snappy) { setNotes(notes.filter { $0.id != note.id }) } } label: {
+                                Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
+                            }.buttonStyle(.plain).help("Remove note").accessibilityLabel("Remove note at \(clockText(note.time))")
+                        }
+                        .padding(.horizontal, 12).padding(.vertical, 9)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        if note.id != notes.last?.id { Divider().padding(.leading, 12) }
+                    }
+                }
+                .background(Color(nsColor: .quaternaryLabelColor).opacity(0.22), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+            TextField("Anything about the film as a whole? For example: lower the music a little.", text: $store.directorMessage, axis: .vertical)
+                .textFieldStyle(.plain).font(.system(size: 13)).lineLimit(2...5)
+                .padding(10)
+                .background(Color(nsColor: .textBackgroundColor).opacity(0.7), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay { RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
+            HStack {
+                Button("Open review console") { store.showChanges = true }.buttonStyle(.link).font(.system(size: 12))
+                Spacer()
+                if !filledNotes.isEmpty {
+                    Text("\(filledNotes.count) \(filledNotes.count == 1 ? "note" : "notes")").font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                Button { send() } label: { Text("Send changes").frame(minWidth: 96) }
+                    .buttonStyle(.borderedProminent).controlSize(.large).disabled(!canSend)
+            }
+        }
+        .padding(20).cardSurface()
+        .animation(.snappy, value: notes.count)
+    }
+
     private func watch(_ version: FilmVersion?) {
         store.finalPlayer?.pause(); previewPlayer?.pause(); playing = false
         previewVersion = version

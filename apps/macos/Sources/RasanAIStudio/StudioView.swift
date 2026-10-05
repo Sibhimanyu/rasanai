@@ -80,12 +80,26 @@ struct StudioView: View {
             Button("Cancel", role: .cancel) { store.pendingConsent = nil }
         } message: { Text("RasanAI will use your \(store.pendingConsent?.agent.title ?? "agent") account to direct this film. Usage counts toward your plan.") }
         .alert("RasanAI", isPresented: Binding(get: { store.errorMessage != nil }, set: { if !$0 { store.errorMessage = nil } })) {
-            Button("Open Settings") { store.errorMessage = nil; openSettings() }
-            if store.runURL != nil && !store.isConnected { Button("Reconnect") { store.errorMessage = nil; store.reconnectConsole() } }
-            if store.canResume { Button("Resume Director") { store.errorMessage = nil; store.resumeDirector() } }
-            if store.runtime.logURL != nil { Button("Show Log") { store.errorMessage = nil; store.sheet = .log } }
+            ForEach(errorActions) { action in
+                Button(action.title) { store.errorMessage = nil; action.run() }
+            }
             Button("Dismiss", role: .cancel) { store.errorMessage = nil }
         } message: { Text(store.errorMessage ?? "") }
+    }
+
+    private struct ErrorAction: Identifiable {
+        let title: String
+        let run: () -> Void
+        var id: String { title }
+    }
+    /// The most relevant two recovery actions for the current error.
+    private var errorActions: [ErrorAction] {
+        var actions: [ErrorAction] = []
+        if errorNeedsSettings(store.errorMessage) { actions.append(ErrorAction(title: "Open Settings") { openSettings() }) }
+        if store.runURL != nil && !store.isConnected { actions.append(ErrorAction(title: "Reconnect") { store.reconnectConsole() }) }
+        if store.canResume { actions.append(ErrorAction(title: "Resume Director") { store.resumeDirector() }) }
+        if store.runtime.logURL != nil { actions.append(ErrorAction(title: "Show Log") { store.sheet = .log }) }
+        return Array(actions.prefix(2))
     }
 
     private func introduceFeedback() {
@@ -93,4 +107,10 @@ struct StudioView: View {
               !store.settings.showWelcome, store.sheet == nil else { return }
         Heresay.introduce()
     }
+}
+
+/// True when the message is about the director, its tools or the library folder, where Settings is the fix.
+func errorNeedsSettings(_ message: String?) -> Bool {
+    guard let text = message?.lowercased() else { return false }
+    return ["director", "executable", "node", "sign in", "signed in", "sign-in", "log in", "login", "library", "project folder", "claude", "codex"].contains { text.contains($0) }
 }

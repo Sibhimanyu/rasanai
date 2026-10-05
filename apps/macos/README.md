@@ -1,6 +1,6 @@
 # RasanAI Studio for Mac
 
-A SwiftUI Mac studio with a WebKit-backed full engine console and Sparkle 2.10.0. [Download the community beta](https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.3.1-beta.1). Build 13 (0.3.1 beta 1) adds guided rendering setup with downloads, logs, cancellation and automatic readiness rechecks. Includes draft recovery, a film queue, source previews, templates, native brand editing, revision/export controls and portable projects from build 12. If an old build cannot open (build 7 crashed at launch), manually replace it with the new DMG. Requires macOS 14 or newer; building from source also requires Xcode's Swift toolchain. Community packages target Apple Silicon and are ad-hoc signed, not Apple-notarized. Real-agent generation and complete workflow parity remain unverified.
+A SwiftUI Mac studio with a WebKit-backed full engine console and Sparkle 2.10.0. [Download the community beta](https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.4.0-beta.1). Build 14 (0.4.0 beta 1) adds a stage bar on every film, a "Needs you" section on Home, automatic readiness checks, "Start when free" queueing, one "Request changes" flow with timed notes, a live Activity log, Share and burned-in captions, a new icon and a branded installer. Includes guided rendering setup, draft recovery, a film queue, source previews, templates, native brand editing, revision/export controls and portable projects from build 12. If an old build cannot open (build 7 crashed at launch), manually replace it with the new DMG. Requires macOS 14 or newer; building from source also requires Xcode's Swift toolchain. Community packages target Apple Silicon and are ad-hoc signed, not Apple-notarized. Real-agent generation and complete workflow parity remain unverified.
 
 ## Build and launch
 
@@ -42,13 +42,23 @@ Finished films show published version history, change descriptions and addressed
 
 **Export…** offers the original render, MP4 up to 1080p, or MP4 up to 720p. Optional SRT/VTT captions are saved alongside the video, with a separate filename if captions already exist. The export sheet shows progress and the completed destination with **Show in Finder**. Original renders are retained when exporting a resized video.
 
-**Queue** on Home (Command-Shift-Q) shows films waiting for the director. In the editor, **Add to queue** saves the project and source copies, then starts it when the director is free. Films run sequentially and still wait for your reviews. The next item starts only after the director exits successfully and the session publishes a finished video with a `done` status. Errors and stopping a film pause the queue. **Pause queue** lets the current film continue; **Stop film** stops it and retains its saved run. Move waiting films earlier/later or remove them; removing an item keeps its project. Queued briefs and sources are held until you remove the item. Queue entries, selected director/model and permission choices are persisted. Sign-in is checked at launch; unrestricted tools also require the current Settings opt-in. After quitting/relaunching, use **Resume queue** explicitly. Keep the app open for automatic advancement.
+**Queue** on Home (Command-Shift-K) shows films waiting for the director. In the editor, **Add to queue** saves the project and source copies, then starts it when the director is free. Films run sequentially and still wait for your reviews. The next item starts only after the director exits successfully and the session publishes a finished video with a `done` status. Errors and stopping a film pause the queue. **Pause queue** lets the current film continue; **Stop film** stops it and retains its saved run. Move waiting films earlier/later or remove them; removing an item keeps its project. Queued briefs and sources are held until you remove the item. Queue entries, selected director/model and permission choices are persisted. Sign-in is checked at launch; unrestricted tools also require the current Settings opt-in. After quitting/relaunching, use **Resume queue** explicitly. Keep the app open for automatic advancement.
 
 Attached files show native thumbnails, file size, media duration and image/video dimensions where readable. Click the thumbnail, filename or eye button to preview. Footage/audio use native playback; images and documents use Quick Look. This is available before saving in the editor and for copied files in **Files…**.
 
 **Templates** on Home stores reusable briefs and film options. Choose **Save as template…** in the editor, then **Use template** for a later film. Rename and delete templates from the library. Applying a template asks before replacing an existing brief/options and keeps the film name and files. Missing brands are reported so you can choose a replacement. Source files and provider sign-in are not part of a template.
 
 **Check readiness…** is available in Home’s More menu, the Film menu, the editor toolbar and the queue. It checks director sign-in, Node.js 22+, bundled tools, FFmpeg/ffprobe, npx, renderer/browser/design resource availability, source readability, writable storage, saved run validity and free space. Missing required tools, unreadable sources/folders, invalid saved state and less than 1 GB of free space block launch. Less than 5 GB is a preparation note; larger films may need substantially more. Renderer/browser/resources that can be installed on demand are preparation notes with copyable setup commands. Checks never install tools or download anything. Availability does not guarantee renderer compatibility or successful generation. Start/resume/queue launches run the local checks again before creating a run or invoking the director.
+
+### 0.4.0 beta 1 usability and installer
+
+Every film shows a stage bar (Brief, Script, Look, Animatic, Final); Home cards show stage dots with length, shape and last-updated. **Needs you** on Home lists films waiting on you or needing attention, and the library sorts by Recent, Name or Status.
+
+Starting a film runs the readiness checks automatically; the sheet appears only when something blocks, with **Recheck and start**. **Start when free** queues a film while the director is busy. Waiting queued films can be edited, and the queue reorders by dragging. Welcome shows rendering tools status with a **Set up…** shortcut.
+
+Finished films have one **Request changes** flow: add timed notes (**Add note at 0:12**) and send them as one revision. The review console remains available. The director log has a readable Activity view with auto-follow and **Copy log**. **Export…** adds **Share…** (AirDrop, Messages, Mail) and can burn SRT/VTT captions into MP4 pictures. Film Queue is now Command-Shift-K (Command-Shift-K is macOS Log Out); Templates is Command-Shift-T.
+
+The app icon is generated by `Packaging/make-icon.py` on Apple's macOS icon grid and used by `build-app.sh`. The disk image is a branded drag-to-install window (background, laid-out icons, first-launch tip) built by `scripts/package-dmg.sh` from `Packaging/`. It uses Finder automation, so a Finder window briefly opens while packaging. The READ ME file is no longer inside the disk image; COMMUNITY-INSTALL.md stays a release asset. Packaging fonts are under SIL OFL 1.1 (`Packaging/fonts/OFL.txt`).
 
 ### Guided rendering setup (0.3.1 beta 1)
 
@@ -91,8 +101,8 @@ The app is not App-Sandboxed. Local asset resolution rejects remote URLs, escapi
 ## Community packaging and updates
 
 ```bash
-STUDIO_VERSION=0.3.1 STUDIO_BUILD=13 bash scripts/build-community.sh
-STUDIO_TAG=studio-v0.3.1-beta.1 bash scripts/generate-feed.sh
+STUDIO_VERSION=0.4.0 STUDIO_BUILD=14 STUDIO_ENABLE_UPDATES=1 bash scripts/build-community.sh
+STUDIO_TAG=studio-v0.4.0-beta.1 bash scripts/generate-feed.sh
 ```
 
 Use a new increasing build number each time. The build script downloads a pinned, checksum-verified official Node distribution, bundles engine/Node/Sparkle, verifies bundle integrity, and creates a DMG with an Applications link and installation notice. It refuses to overwrite a DMG. Existing app builds are preserved in `dist/previous-build-*.app`.

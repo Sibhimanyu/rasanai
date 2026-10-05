@@ -2,6 +2,20 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## 0.4.0 beta 1 (build 14) — 2026-10-05
+
+- See where every film is: a stage bar (Brief, Script, Look, Animatic, Final) on each film, and stage dots with length, shape and last-updated on Home cards. A "Needs you" section lists films waiting on you or needing attention, and the library sorts by Recent, Name or Status.
+- Readiness checks now run automatically when you start a film. The sheet appears only when something blocks, with "Recheck and start". Welcome shows rendering tools status with a Set up… shortcut.
+- "Start when free" queues a film when the director is busy. Edit waiting queued films and drag to reorder the queue.
+- Finished films have one "Request changes" flow with timed notes ("Add note at 0:12"), sent as a single revision. The review console is still available.
+- A live director log with a readable Activity view, auto-follow and Copy log.
+- Export: Share… (AirDrop, Messages, Mail), and burn captions into the picture (SRT/VTT) for MP4 exports.
+- Error alerts show only relevant actions. Film Queue moved from Command-Shift-Q (macOS Log Out) to Command-Shift-K; Templates is Command-Shift-T.
+- New app icon on Apple's macOS icon grid, with more room around the mark.
+- New branded drag-to-install disk image with a background, laid-out icons and a first-launch tip. The READ ME file is no longer inside the disk image; COMMUNITY-INSTALL.md remains a release asset.
+
+Validation: Swift build and tests (25 run, 1 skipped, 0 failures), runtime driver test, snapshot rendering, a real caption burn-in test, and disk image verification and code signature checks. Manual end-to-end feature tests with a real provider and installed-version Sparkle upgrade testing were not done for this beta.
+
 ## 0.3.1 beta 1 (build 13) — 2026-10-05
 
 - Prepare missing FFmpeg/ffprobe, HyperFrames, its render browser and design resources inside the readiness screen. Choose downloads, see live setup activity/logs, cancel safely and recheck readiness automatically after success, cancellation or failure.

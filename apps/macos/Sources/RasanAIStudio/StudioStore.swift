@@ -54,11 +54,29 @@ enum FilmPhase: Equatable, Sendable {
         }
     }
     var isBusy: Bool { self == .working || self == .starting }
+    /// True when the film is stopped until the person does something.
+    var needsYou: Bool {
+        switch self {
+        case .yourTurn, .needsAttention, .paused: true
+        default: false
+        }
+    }
+}
+
+/// A timed note left while watching a finished film.
+struct FilmNote: Identifiable, Equatable {
+    let id = UUID()
+    var time: Double
+    var text = ""
 }
 
 struct FilmSummary: Equatable, Sendable {
     var phase: FilmPhase
     var poster: URL?
+    var stage: ReviewStage?
+    var updatedAt: Date?
+    var duration: Int?
+    var aspect: String?
     static let draft = FilmSummary(phase: .draft, poster: nil)
     static func friendlyStep(_ step: String) -> String {
         switch ReviewStage.consoleStep(step) {
@@ -71,22 +89,32 @@ struct FilmSummary: Equatable, Sendable {
     }
     /// Reads a film's state from disk, for films that are not the one currently open.
     static func load(project: URL) -> FilmSummary {
+        var base = FilmSummary.draft
+        base.updatedAt = (try? project.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        if let draft = FilmDraft.load(in: project) { base.duration = draft.duration; base.aspect = draft.aspect }
         guard let current = try? String(contentsOf: project.appendingPathComponent(".rasanai/current"), encoding: .utf8),
-              current.range(of: "^run-[A-Fa-f0-9-]+$", options: .regularExpression) != nil else { return .draft }
+              current.range(of: "^run-[A-Fa-f0-9-]+$", options: .regularExpression) != nil else { return base }
         let run = project.appendingPathComponent(".rasanai/\(current)")
-        guard let data = try? Data(contentsOf: run.appendingPathComponent("session.json")),
-              let state = try? SessionSnapshot(data: data) else { return FilmSummary(phase: .inProgress, poster: nil) }
+        let sessionFile = run.appendingPathComponent("session.json")
+        base.updatedAt = (try? sessionFile.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? base.updatedAt
+        guard let data = try? Data(contentsOf: sessionFile),
+              let state = try? SessionSnapshot(data: data) else { base.phase = .inProgress; return base }
         let resolver = AssetResolver(run: run, workspace: project)
         var poster: URL?
         if let path = state.scenes(for: .animatic).first?.thumbnail ?? state.scenes(for: .final).first?.thumbnail,
            let url = resolver.resolve(path), let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size < 20_000_000 { poster = url }
         let status = state.step(state.currentStep)["status"].string
-        if state.raw["ask"] != .null, state.raw["ask"]["answered"] == .null { return FilmSummary(phase: .yourTurn("answer a question"), poster: poster) }
+        base.poster = poster; base.stage = state.stage
+        if state.raw["ask"] != .null, state.raw["ask"]["answered"] == .null { base.phase = .yourTurn("answer a question"); return base }
         if state.stage == .final, resolver.resolve(state.finalVideo) != nil, status != "working" {
-            return FilmSummary(phase: .finished(state.duration(for: .final)), poster: poster)
+            let seconds = state.duration(for: .final)
+            base.phase = .finished(seconds)
+            if seconds > 0 { base.duration = Int(seconds.rounded()) }
+            return base
         }
-        if status == "awaiting" { return FilmSummary(phase: .yourTurn(friendlyStep(state.currentStep)), poster: poster) }
-        return FilmSummary(phase: .inProgress, poster: poster)
+        if status == "awaiting" { base.phase = .yourTurn(friendlyStep(state.currentStep)); return base }
+        base.phase = .inProgress
+        return base
     }
 }
 
@@ -211,11 +239,16 @@ final class StudioStore {
     /// Home-card status for a library project: live for the open film, from disk for the rest.
     func summary(for folder: URL) -> FilmSummary {
         if let index = settings.filmQueue.firstIndex(where: { $0.project == folder }), settings.filmQueue[index].state != .running {
-            return FilmSummary(phase: settings.filmQueue[index].state == .attention ? .needsAttention : .queued(index + 1), poster: summaries[folder]?.poster)
+            var queued = summaries[folder] ?? .draft
+            queued.phase = settings.filmQueue[index].state == .attention ? .needsAttention : .queued(index + 1)
+            return queued
         }
         if loadedFilm == folder, !isSample {
-            var live = FilmSummary(phase: phase, poster: summaries[folder]?.poster)
+            var live = summaries[folder] ?? .draft
+            live.phase = phase
+            live.stage = runURL == nil ? nil : snapshot.stage
             if runURL == nil { live.phase = activeDirectorProject == folder && (runtime.isRunning || runtime.isPreparing) ? .working : .draft }
+            if case .finished(let seconds) = live.phase, seconds > 0 { live.duration = Int(seconds.rounded()) }
             return live
         }
         return summaries[folder] ?? .draft
@@ -223,6 +256,8 @@ final class StudioStore {
     var showNoteSheet: Bool { get { sheet == .note } set { present(newValue, .note) } }
     var showDecisions = false
     var directorMessage = ""
+    /// Timed notes drafted on a finished film, kept per film so they survive navigating away.
+    var filmNotes: [URL: [FilmNote]] = [:]
     var recentRuns: [String] = UserDefaults.standard.stringArray(forKey: "recentRuns") ?? []
     var finalPlayer: AVPlayer?
     var audioPlayer: AVPlayer?
@@ -870,15 +905,15 @@ final class StudioStore {
         sheet = .export
     }
 
-    func requestFilmRevision(_ text: String) {
+    func requestFilmRevision(_ text: String, onSent: (() -> Void)? = nil) {
         let request = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !request.isEmpty else { return }
-        performFilmRequest("Revise this existing film: \(request). Preserve the rest of the film and publish a new version with a list of changes.", action: "note", value: .null, note: request)
+        performFilmRequest("Revise this existing film: \(request). Preserve the rest of the film and publish a new version with a list of changes.", action: "note", value: .null, note: request, onSent: onSent)
     }
     func restoreFilmVersion(_ version: FilmVersion) {
         performFilmRequest("Restore version \(version.id) of this existing film using its saved artifacts. Preserve the other versions and publish the restored result through the console.", action: "version", value: .object(["restore": version.number]), note: "")
     }
-    private func performFilmRequest(_ request: String, action: String, value: JSONValue, note: String) {
+    private func performFilmRequest(_ request: String, action: String, value: JSONValue, note: String, onSent: (() -> Void)? = nil) {
         guard !queueStarting, !queueHandlingExit, !isBrowsingAnotherFilm, !isSending, !runtime.isPreparing, !isSavingFilm, runURL != nil else { return }
         if !runtime.isRunning, settings.filmQueue.contains(where: { $0.project == selectedProjectURL }) {
             errorMessage = "Resume this film through the queue, or remove it from the queue before requesting a revision."; return
@@ -889,12 +924,12 @@ final class StudioStore {
                 if runtime.isRunning {
                     guard isConnected else { errorMessage = "Reconnect the review console before sending changes."; return }
                     await send(type: action, value: value, note: note, step: snapshot.actionStep(for: .final))
-                    if errorMessage == nil && action == "note" { directorMessage = "" }
+                    if errorMessage == nil && action == "note" { directorMessage = ""; onSent?() }
                 } else {
                     launchProject = nil
                     await startDirector(request: request)
                     showChanges = true
-                    if runtime.isRunning && action == "note" { directorMessage = "" }
+                    if runtime.isRunning && action == "note" { directorMessage = ""; onSent?() }
                 }
             }
         }

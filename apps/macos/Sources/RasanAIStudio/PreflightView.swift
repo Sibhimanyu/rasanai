@@ -42,6 +42,7 @@ struct PreflightView: View {
     @Environment(\.openSettings) private var openSettings
     @State private var selectedTools: Set<SetupTool> = []
     @State private var developerToolsNotice: String?
+    private var gate: StartGate { StartGate.shared }
     private var missingTools: [SetupTool] { SetupTool.missing(in: store.preflightReport) }
     private var needsGitSetup: Bool { store.preflightReport?.items.contains(where: { $0.id == "git" && $0.level != .ready }) == true }
     var body: some View {
@@ -49,7 +50,7 @@ struct PreflightView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Ready to make a film?").font(.system(size: 23, weight: .semibold))
-                    Text("Check local tools, files and space before starting.").font(.system(size: 12)).foregroundStyle(.secondary)
+                    Text(gate.pending != nil ? "A few things need attention before this film can start." : "Check local tools, files and space before starting.").font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button("Done") { dismiss() }.keyboardShortcut(.cancelAction).disabled(store.toolSetup.isRunning)
@@ -95,10 +96,18 @@ struct PreflightView: View {
                 Button("Director setup…") { store.sheet = .welcome; store.settings.showWelcome = true }.disabled(store.toolSetup.isRunning)
                 Button("Settings…") { openSettings() }.disabled(store.toolSetup.isRunning)
                 Spacer()
-                Button("Recheck") { Task { await store.checkPreflight() } }.disabled(store.isCheckingPreflight || store.toolSetup.isRunning)
+                if gate.pending != nil {
+                    Button("Recheck") { Task { await store.checkPreflight() } }.disabled(store.isCheckingPreflight || store.toolSetup.isRunning)
+                    Button("Recheck and start") { Task { await store.recheckAndStart() } }
+                        .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+                        .disabled(store.isCheckingPreflight || store.toolSetup.isRunning)
+                } else {
+                    Button("Recheck") { Task { await store.checkPreflight() } }.disabled(store.isCheckingPreflight || store.toolSetup.isRunning)
+                }
             }
         }.padding(24).frame(width: 650, height: 600)
             .interactiveDismissDisabled(store.toolSetup.isRunning)
+            .onDisappear { StartGate.shared.pending = nil }
             .onChange(of: missingTools, initial: true) { selectedTools = Set(missingTools.filter { $0 != .skills || !needsGitSetup }) }
             .onChange(of: needsGitSetup) {
                 if needsGitSetup { selectedTools.remove(.skills) }
