@@ -17,7 +17,7 @@ export default async function ({ ok, node, tmp }) {
   // a screen colour, a moving warm subject (140x250 at x 250 +- 30, y 80) and a sine tone; truth box: x .344-.609, y .222-.916
   const clip = (name, screen) => {
     const f = path.join(root, name);
-    const r = ff(["-f", "lavfi", "-i", `color=c=${screen}:s=640x360:r=25:d=6`, "-f", "lavfi", "-i", "color=c=0xd89060:s=140x250:r=25:d=6", "-f", "lavfi", "-i", "sine=frequency=440:duration=6", "-filter_complex", "[0:v][1:v]overlay=x='250+30*sin(t*2)':y=80[v]", "-map", "[v]", "-map", "2:a", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", f]);
+    const r = ff(["-f", "lavfi", "-i", `color=c=${screen}:s=640x360:r=25:d=12`, "-f", "lavfi", "-i", "color=c=0xd89060:s=140x250:r=25:d=12", "-f", "lavfi", "-i", "sine=frequency=440:duration=12", "-filter_complex", "[0:v][1:v]overlay=x='250+30*sin(t*2)':y=80[v]", "-map", "[v]", "-map", "2:a", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", f]);
     return r.status === 0 ? f : null;
   };
 
@@ -105,7 +105,8 @@ export default async function ({ ok, node, tmp }) {
   fault("a slop word", "prompt-slop", (p) => { p.beats[0].plate.prompt += ", a stunning scene"; });
   fault("text asked for in the prompt", "prompt-text", (p) => { p.beats[1].plate.prompt += ", a sign that says open"; });
   fault("four of the same layout in a row", "layout-run", (p) => { p.beats.forEach((b) => (b.layout = "presenter-full")); });
-  fault("a graphic in the presenter's zone", "graphic-in-presenter", (p) => { p.beats[1].graphics[0].zone = "right"; });
+  fault("a graphic where the presenter stands (no free side)", "zone-blocked", (p) => { p.beats[1].graphics[0].zone = "right"; });
+  fault("a graphic in the presenter's zone", "graphic-in-presenter", (p) => { p.beats[0].graphics[0].zone = "center"; });
   fault("an 8 s cutaway", "plate-only-long", (p) => { p.beats.splice(3, 1); p.beats[2].start = 4; p.beats[2].end = 12; p.beats[1].end = 4; p.beats[1].start = 3; p.beats[1].graphics = []; p.beats[0].end = 3; p.beats[1].layout = "presenter-right"; p.beats[0].end = 3; });
   fault("a graphic outside its beat", "graphic-outside", (p) => { p.beats[0].graphics[0].out = 4; });
   fault("a plate with no camera", "camera-missing", (p) => { delete p.beats[0].plate.camera; });
@@ -161,4 +162,67 @@ export default async function ({ ok, node, tmp }) {
   ok("presenter build: a rebuild leaves a graphic the animator wrote alone", fs.readFileSync(gfx[0], "utf8") === "<!-- animator's own -->");
   if (bj3.lint && bj3.lint.ran === false) console.log("      note: hyperframes lint could not run here (no npx or offline); lint part skipped");
   else ok("presenter build: hyperframes lint passes", bj3.lint && bj3.lint.ok === true && !bj3.lint.errors, JSON.stringify(bj3.lint).slice(0, 400));
+
+  // ---- obey: the camera tween class
+  const obeyProj = (name, body) => {
+    const d = path.join(root, name);
+    fs.mkdirSync(d, { recursive: true });
+    node("motion-md.mjs", ["write", "--personality", "editorial-mask", "--out", path.join(d, "motion.md")]);
+    fs.writeFileSync(path.join(d, "index.html"), `<html><head></head><body><div id="root" data-composition-id="root">${body}</div><script>var tl=gsap.timeline({paused:true});tl.fromTo("#cam",{scale:1,x:0},{scale:1.12,x:-40,duration:6,ease:"sine.inOut"},0);window.__timelines={root:tl};</script></body></html>`);
+    const r = node("obey.mjs", ["--project", d, "--json"]);
+    return { status: r.status, rules: (json(r).findings || []).map((f) => f.rule) };
+  };
+  const cam = obeyProj("obey-cam", `<div data-obey="camera"><div id="cam"><img src="x.png"></div></div>`);
+  ok("obey: a 6 s camera tween on a data-obey=camera wrapper passes", cam.status === 0, JSON.stringify(cam));
+  const nocam = obeyProj("obey-nocam", `<div><div id="cam"><img src="x.png"></div></div>`);
+  ok("obey: the same tween without data-obey fails duration-off-scale", nocam.status === 2 && nocam.rules.includes("duration-off-scale"), JSON.stringify(nocam));
+  const txt = obeyProj("obey-text", `<div data-obey="camera"><div id="cam"><h1>Hello</h1></div></div>`);
+  ok("obey: text inside a camera wrapper is camera-on-content", txt.status === 2 && txt.rules.includes("camera-on-content"), JSON.stringify(txt));
+
+  // ---- --duration clamps every beat and the reported duration
+  const bjc = path.join(root, "beats-clamped.json");
+  const lastEnd = W[W.length - 1].end;
+  node("presenter.mjs", ["beats", "--transcript", wf, "--out", bjc, "--duration", String(+(lastEnd - 0.6).toFixed(2))]);
+  const bc = JSON.parse(fs.readFileSync(bjc, "utf8"));
+  ok("presenter beats: --duration clamps the duration and the last beat's end", bc.duration === +(lastEnd - 0.6).toFixed(2) && bc.beats[bc.beats.length - 1].end === bc.duration && bc.beats.every((b) => b.end <= bc.duration), JSON.stringify([bc.duration, bc.beats.map((b) => b.end)]));
+  const bjd = path.join(root, "beats-exact.json");
+  node("presenter.mjs", ["beats", "--transcript", wf, "--out", bjd, "--duration", String(+(lastEnd + 2).toFixed(2))]);
+  ok("presenter beats: --duration longer than the speech is honoured exactly", JSON.parse(fs.readFileSync(bjd, "utf8")).duration === +(lastEnd + 2).toFixed(2));
+
+  // ---- plates: one calm clause, on the side of the longest use; a conflicting reuse is a warning
+  const p2 = good();
+  p2.beats[0].layout = "presenter-left"; // p1 used left (3 s)...
+  p2.beats[0].graphics = [];
+  p2.beats[1].plate = { id: "p1b", kind: "reuse", reuse: "p1", camera: "pan-left" }; // ...and right (3 s, the later, shorter-or-equal use)
+  p2.beats[1].end = 5.5; p2.beats[2].start = 5.5; p2.beats[1].graphics = [];
+  p2.beats[3].plate.prompt += ". Keep the left third calm and uncluttered for a person";
+  p2.beats[3].layout = "presenter-left";
+  fs.writeFileSync(planFile, JSON.stringify(p2, null, 2));
+  const img3 = path.join(root, "images3.json");
+  node("presenter.mjs", ["plates", "--plan", planFile, "--out", img3]);
+  const by3 = Object.fromEntries(JSON.parse(fs.readFileSync(img3, "utf8")).images.map((i) => [i.id, i.prompt]));
+  ok("presenter plates: a prompt that already asks for room gets no second clause", (by3.p4.match(/third/g) || []).length === 1, by3.p4);
+  ok("presenter plates: a plate used on both sides gets one clause (the side of its longest use), never 'left and right'", (by3.p1.match(/third/g) || []).length === 1 && /left third/.test(by3.p1) && !/left and right|right and left/.test(by3.p1), by3.p1);
+  const cs = runCheck(p2);
+  ok("presenter check: a reuse on the plate's busy side warns plate-side-conflict", (cs.j.findings || []).some((f) => f.code === "plate-side-conflict" && f.level === "warning"), JSON.stringify((cs.j.findings || []).map((f) => f.code)));
+
+  // ---- split plate centring (4a) and captions (5)
+  const p3 = good();
+  p3.beats[2] = { ...p3.beats[2], layout: "split", graphics: [{ type: "label", text: "tag", at: 6.5, out: 8.5, zone: "bottom" }] };
+  p3.beats[1].graphics = [];
+  fs.writeFileSync(planFile, JSON.stringify(p3, null, 2));
+  const cc = runCheck(p3, ["--captions"]);
+  ok("presenter check --captions: a bottom graphic warns caption-collision", (cc.j.findings || []).some((f) => f.code === "caption-collision"), JSON.stringify(cc.j.findings));
+  const cap2 = path.join(root, "cap2.json");
+  fs.writeFileSync(cap2, JSON.stringify([{ text: "Most", start: 0.2, end: 0.5 }, { text: "teams", start: 0.5, end: 0.9 }, { text: "wait", start: 3.5, end: 4 }, { text: "too", start: 4, end: 4.4 }, { text: "long.", start: 4.4, end: 5 }, { text: "Ship", start: 6.5, end: 7 }, { text: "small.", start: 7, end: 7.8 }]));
+  const proj2 = path.join(root, "videos", "t2");
+  const b2 = node("presenter.mjs", ["build", "--plan", planFile, "--key", keyJson, "--plates", pdir, "--project-dir", proj2, "--captions", cap2, "--no-lint"], { cwd: root });
+  const h2 = fs.readFileSync(path.join(proj2, "index.html"), "utf8");
+  ok("presenter build: the split plate is centred in its own half (pfit shifts it by a quarter frame)", /tl\.set\("#pfit-\d+", \{ x: 480, y: 0 \}/.test(h2), (b2.stderr || "") + h2.match(/#pfit[^;]*/g));
+  const capHtml = fs.readFileSync(path.join(proj2, "compositions", "captions.html"), "utf8");
+  const caps = [...capHtml.matchAll(/id="cap-(\d+)" style="left:(\d+)px;top:(\d+)px;width:(\d+)px/g)].map((m) => ({ x: +m[2], y: +m[3], w: +m[4] }));
+  const kj = JSON.parse(fs.readFileSync(keyJson, "utf8"));
+  ok("presenter build: in presenter-right the captions sit in the free left column, off the presenter's body", caps.length >= 3 && caps.some((c) => c.w < 1200 && c.x + c.w < 1920 * (0.5 + kj.subject.x / 2)) && caps[0].w > 1500, JSON.stringify(caps));
+  const brief = fs.readFileSync(path.join(proj2, "briefs", "graphics", "b3-1.md"), "utf8");
+  ok("presenter build: with captions on, a bottom graphic is lifted above the caption band", /y 648/.test(brief) && !/y 777/.test(brief), brief.match(/zone .*/)[0]);
 }

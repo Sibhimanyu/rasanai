@@ -196,6 +196,12 @@ class Canvas {
     writePng(file, this.d, this.w, this.h);
   }
 }
+// the colour behind the presenter in a framed panel: the look's darker ground, or a dark neutral
+function panelFill(look) {
+  const lum = (h) => { const [r, g, b] = hexRGB(h); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  if (!look || look.defaulted?.includes("colors")) return "#14120f";
+  return lum(look.bg) <= lum(look.ink) ? look.bg : look.ink;
+}
 const hexRGB = (h, a = 255) => {
   const s = String(h || "#000000").replace("#", "");
   const f = s.length === 3 ? s.split("").map((c) => c + c).join("") : s.slice(0, 6).padEnd(6, "0");
@@ -205,11 +211,13 @@ const hexRGB = (h, a = 255) => {
 // ------------------------------------------------------------------ layout geometry (shared by check, stills and build)
 const isTall = (W, H) => H / W > 1.2;
 // Zones as fractions of the frame; left/right become bands in a tall frame.
-function zoneRect(zone, W, H) {
+const CAP_BAND = { wide: [0.84, 0.11], tall: [0.67, 0.1] }; // y and height (fractions) reserved for captions
+function zoneRect(zone, W, H, caps = false) {
   const Z = isTall(W, H)
     ? { top: [0.06, 0.07, 0.88, 0.2], left: [0.06, 0.07, 0.88, 0.2], center: [0.06, 0.3, 0.88, 0.2], right: [0.06, 0.3, 0.88, 0.2], bottom: [0.06, 0.8, 0.88, 0.14] }
     : { left: [0.04, 0.2, 0.32, 0.6], right: [0.64, 0.2, 0.32, 0.6], top: [0.1, 0.06, 0.8, 0.22], bottom: [0.1, 0.72, 0.8, 0.2], center: [0.2, 0.3, 0.6, 0.4] };
-  const z = Z[zone] || Z.center;
+  const z = [...(Z[zone] || Z.center)];
+  if (caps && !isTall(W, H) && zone === "bottom") { z[1] = 0.6; z[3] = 0.2; } // lifted above the caption band
   return { x: Math.round(z[0] * W), y: Math.round(z[1] * H), w: Math.round(z[2] * W), h: Math.round(z[3] * H) };
 }
 const NOMINAL_SUBJECT = { x: 0.32, y: 0.18, w: 0.36, h: 0.82 }; // head and shoulders with some head room, when no key.json is given
@@ -262,6 +270,44 @@ function occupied(layout, key, W, H, side) {
   const g = geom(layout, key, W, H, side);
   if (g.hidden) return null;
   return layout === "presenter-corner" || layout === "split" ? g.clip : g.box;
+}
+// The rectangle a graphic may use in a zone for a layout. Left and right zones are the free space beside the presenter's real box
+// (the key.json subject box moved by the layout), less a 4% gutter; a side with under 22% of the frame width free is blocked.
+function graphicRect(zone, layout, key, W, H, side, caps = false) {
+  const std = zoneRect(zone, W, H, caps);
+  if ((zone !== "left" && zone !== "right") || isTall(W, H)) return { rect: std, blocked: false, free: null };
+  const occ = occupied(layout, key, W, H, side);
+  if (!occ) return { rect: std, blocked: false, free: 1 };
+  const margin = 0.03 * W, gutter = 0.04 * W;
+  const freeW = zone === "left" ? occ.x : W - (occ.x + occ.w);
+  const free = Math.max(0, freeW) / W;
+  if (free < 0.22) return { rect: std, blocked: true, free };
+  const w = Math.min(std.w, Math.round(freeW - margin - gutter));
+  const x = zone === "left" ? Math.round(margin) : Math.round(W - margin - w);
+  return { rect: { x, y: std.y, w, h: std.h }, blocked: false, free };
+}
+// "left 36% free, right 15% free" beside the presenter in a layout (for fix messages)
+function freeText(layout, key, W, H, side) {
+  const occ = occupied(layout, key, W, H, side);
+  if (!occ) return "the whole frame is free";
+  const l = Math.max(0, Math.round((occ.x / W) * 100)), r = Math.max(0, Math.round(((W - occ.x - occ.w) / W) * 100));
+  return `free beside the presenter: left ${l}% of the frame width, right ${r}% (a graphic needs 22%)`;
+}
+// which side the presenter stands on in a layout (null when none), and which side each image keeps calm
+const presenterSide = (b) => (b.layout === "presenter-left" ? "left" : b.layout === "presenter-right" ? "right" : b.layout === "split" ? (b.side === "right" ? "right" : "left") : null);
+function plateSides(plan, defs) {
+  const use = new Map();
+  for (const b of plan.beats) {
+    const sd = presenterSide(b);
+    if (!sd || !b.plate || !b.plate.id) continue;
+    const d = defs.get(b.plate.id), img = d && d.kind === "reuse" ? d.image : b.plate.id;
+    const u = use.get(img) || { left: 0, right: 0, first: sd };
+    u[sd] += b.end - b.start;
+    use.set(img, u);
+  }
+  const out = new Map();
+  for (const [img, u] of use) out.set(img, u.left > u.right ? "left" : u.right > u.left ? "right" : u.first);
+  return out;
 }
 function overlapFrac(zone, occ) {
   if (!occ) return 0;
@@ -567,7 +613,13 @@ function beats() {
   const W = loadWords(path.resolve(String(args.transcript)), args.clip ? String(args.clip) : null);
   const min = Number(args.min ?? 2.5), max = Number(args.max ?? 9);
   if (!(min > 0 && max > min)) die("PROBLEM: need 0 < --min < --max");
-  const dur = args.duration !== undefined ? Number(args.duration) : r2(W[W.length - 1].end + 0.3);
+  const fixedDur = args.duration !== undefined ? Number(args.duration) : null;
+  if (fixedDur !== null) {
+    // --duration is the clip's length: words past it are timestamp noise, nothing may end after it
+    for (let i = W.length - 1; i > 0 && W[i].start >= fixedDur; i--) W.pop();
+    W.forEach((w) => { w.end = Math.min(w.end, fixedDur); });
+  }
+  const dur = fixedDur !== null ? fixedDur : r2(W[W.length - 1].end + 0.3);
   // 1. sentence ends and pauses
   let segs = [];
   let cur = [0];
@@ -608,7 +660,7 @@ function beats() {
   // 4. tile the timeline: boundaries sit in the middle of the pause between beats, so the plan covers the speech without gaps
   const out = segs.map((s, i) => {
     const start = i === 0 ? 0 : r2((W[segs[i - 1][1]].end + W[s[0]].start) / 2);
-    const end = i === segs.length - 1 ? r2(Math.max(dur, W[s[1]].end)) : r2((W[s[1]].end + W[segs[i + 1][0]].start) / 2);
+    const end = i === segs.length - 1 ? (fixedDur !== null ? r2(fixedDur) : r2(Math.max(dur, W[s[1]].end))) : r2((W[s[1]].end + W[segs[i + 1][0]].start) / 2);
     return { id: `b${i + 1}`, start, end, text: W.slice(s[0], s[1] + 1).map((w) => w.text).join(" "), words: [s[0], s[1]] };
   });
   const result = { duration: out[out.length - 1].end, words: W.length, min, max, beats: out };
@@ -649,7 +701,7 @@ function check() {
   }
   const lastEnd = Number(B[B.length - 1].end);
   if ((beatsJ || keyJ) && lastEnd < duration - 0.3) add("error", B[B.length - 1].id, "coverage-end", `the last beat ends at ${lastEnd}s but the clip runs ${r2(duration)}s`, `extend ${B[B.length - 1].id} to ${r2(duration)}`);
-  if (lastEnd > duration + 0.5 && (beatsJ || keyJ)) add("warning", B[B.length - 1].id, "coverage-long", `the last beat ends at ${lastEnd}s, after the clip (${r2(duration)}s)`, `end ${B[B.length - 1].id} at ${r2(duration)}`);
+  if (lastEnd > duration + 0.05 && (beatsJ || keyJ)) add("warning", B[B.length - 1].id, "coverage-long", `the last beat ends at ${lastEnd}s, after the clip (${r2(duration)}s)`, `end ${B[B.length - 1].id} at ${r2(duration)}`);
   B.forEach((b, i) => {
     const d = b.end - b.start;
     if (d < 1.5) add("error", b.id, "beat-short", `${b.id} is ${r2(d)}s; a beat needs 1.5 to 12 s`, i > 0 ? `merge ${b.id} into ${B[i - 1].id}` : `merge ${b.id} into ${B[1] ? B[1].id : "the next beat"}`);
@@ -747,11 +799,30 @@ function check() {
       if (g.type === "kinetic-title" && words(txt).length > 8) add("error", b.id, "graphic-long", `${tag}: ${words(txt).length} words (titles are 8 words at most)`, "cut the title to its strongest 2 to 5 words");
       else if (words(txt).length > 16) add("warning", b.id, "graphic-long", `${tag}: ${words(txt).length} words is a lot to read in ${r2(out - at)}s`, "cut it down");
       if (ZONES.includes(g.zone) && LAYOUTS.includes(b.layout)) {
-        const f = overlapFrac(zoneRect(g.zone, W, H), occupied(b.layout, keyJ, W, H, b.side));
-        if (f >= 0.4) add("error", b.id, "graphic-in-presenter", `${tag} sits in the ${g.zone} zone, where the presenter stands in ${b.layout}`, `move the ${g.type} to zone ${suggestZone(b.layout, keyJ, W, H, b.side)}`);
-        else if (f >= 0.25) add("warning", b.id, "graphic-near-presenter", `${tag} in the ${g.zone} zone overlaps the presenter by ${Math.round(f * 100)}% in ${b.layout}`, `move the ${g.type} to zone ${suggestZone(b.layout, keyJ, W, H, b.side)}`);
+        const gr = graphicRect(g.zone, b.layout, keyJ, W, H, b.side, !!args.captions);
+        const other = g.zone === "left" ? "right" : "left";
+        if (gr.blocked) { add("error", b.id, "zone-blocked", `${tag}: only ${Math.round(gr.free * 100)}% of the frame is free on the ${g.zone} in ${b.layout} (needs 22%)`, `move the ${g.type} to zone ${other}, or change ${b.id}'s layout to ${g.zone === "left" ? "presenter-right" : "presenter-left"} (${freeText(b.layout, keyJ, W, H, b.side)})`); return; }
+        const f = overlapFrac(gr.rect, occupied(b.layout, keyJ, W, H, b.side));
+        if (f >= 0.4) add("error", b.id, "graphic-in-presenter", `${tag} sits in the ${g.zone} zone, where the presenter stands in ${b.layout}`, `move the ${g.type} to zone ${suggestZone(b.layout, keyJ, W, H, b.side)} (${freeText(b.layout, keyJ, W, H, b.side)}; top and bottom zones are for presenter-left, presenter-right and presenter-corner)`);
+        else if (f >= 0.25) add("warning", b.id, "graphic-near-presenter", `${tag} in the ${g.zone} zone overlaps the presenter by ${Math.round(f * 100)}% in ${b.layout}`, `move the ${g.type} to zone ${suggestZone(b.layout, keyJ, W, H, b.side)} (${freeText(b.layout, keyJ, W, H, b.side)}; top and bottom zones are for presenter-left, presenter-right and presenter-corner)`);
       }
     });
+  });
+  // captions: a bottom graphic sits where the captions run
+  if (args.captions && !isTall(W, H)) {
+    B.forEach((b) => (b.graphics || []).forEach((g, n) => {
+      if (g.zone !== "bottom") return;
+      const z = zoneRect("bottom", W, H), by = CAP_BAND.wide[0] * H;
+      if (z.y + z.h > by) add("warning", b.id, "caption-collision", `${b.id} graphic ${n + 1} (${g.type}) is in the bottom zone, which the captions use`, `build lifts bottom graphics above the caption band (to y ${Math.round(zoneRect("bottom", W, H, true).y)}-${Math.round(zoneRect("bottom", W, H, true).y + zoneRect("bottom", W, H, true).h)} px); keep the text to one line, or use another zone`);
+    }));
+  }
+  // a plate keeps one side calm; a reuse that puts the presenter on its busy side fights the picture
+  const sides = plateSides(plan, defs);
+  B.forEach((b) => {
+    const sd = presenterSide(b);
+    if (!sd || !b.plate || !b.plate.id) return;
+    const d = defs.get(b.plate.id), img = d && d.kind === "reuse" ? d.image : b.plate.id, keep = sides.get(img);
+    if (keep && keep !== sd) add("warning", b.id, "plate-side-conflict", `${b.id} puts the presenter on the ${sd}, but plate ${img} keeps its ${keep} third clear for the person`, `use presenter-${keep} (or split with side ${keep}) here, or give ${b.id} a different plate`);
   });
   return report(findings, plan, duration);
 }
@@ -778,25 +849,15 @@ function plates() {
   const dir = path.resolve(String(args.dir || path.join(path.dirname(planFile), "plates")));
   const defs = resolvePlates(plan);
   const imagery = imagerySection(args.look ? String(args.look) : null);
-  const sides = new Map();
-  for (const b of plan.beats) {
-    if (!b.plate || !b.plate.id) continue;
-    const d = defs.get(b.plate.id);
-    const target = d && d.kind === "reuse" ? d.image : b.plate.id;
-    const s = sides.get(target) || new Set();
-    if (b.layout === "presenter-left") s.add("left");
-    if (b.layout === "presenter-right") s.add("right");
-    if (b.layout === "split") s.add(b.side === "right" ? "right" : "left");
-    sides.set(target, s);
-  }
+  const sides = plateSides(plan, defs);
   const avoid = [...new Set([...String((plan.style && plan.style.avoid) || "").split(/\s*,\s*/).filter(Boolean), "text", "letters", "logos", "watermarks"])].join(", ");
   const images = [];
   for (const d of defs.values()) {
     if (d.kind !== "generated") continue;
     let prompt = String(d.prompt || "").trim().replace(/[.\s]+$/, "");
-    const s = sides.get(d.id);
-    if (s && s.size && !isTall(W, H)) prompt += `. Keep the ${[...s].join(" and ")} ${s.size > 1 ? "thirds" : "third"} calm and uncluttered: a person will stand there`;
-    else if (s && s.size) prompt += ". Keep the lower half calm and uncluttered: a person will stand there";
+    const sd = sides.get(d.id);
+    // one clause, on the side of the plate's longest use; never when the prompt already asks for room
+    if (sd && !/\bthirds?\b|\bcalm\b|\buncluttered\b/i.test(prompt)) prompt += isTall(W, H) ? ". Keep the lower half calm and uncluttered: a person will stand there" : `. Keep the ${sd} third calm and uncluttered: a person will stand there`;
     images.push({ id: d.id, prompt, out: path.join(dir, `${d.id}.png`), aspect: plan.aspect || "16:9" });
   }
   const style = imagery || String((plan.style && plan.style.lock) || "");
@@ -859,7 +920,9 @@ function stills() {
         const sw = Math.ceil(dim.width * c0 * cam.s), sh = Math.ceil(dim.height * c0 * cam.s);
         const x0 = clamp(Math.round((sw - W) / 2 - cam.x * W), 0, Math.max(0, sw - W)), y0 = clamp(Math.round((sh - H) / 2 - cam.y * H), 0, Math.max(0, sh - H));
         const px = frameRGBA(file, 0, W, H, { vf: `scale=${sw}:${sh}:flags=lanczos,crop=${W}:${H}:${x0}:${y0}` });
-        cv.blit(px, W, H, 0, 0, clipR);
+        // a split plate is centred in its own half (its subject is not cut by the frame centre)
+        const sdx = g.plateClip && !isTall(W, H) ? clipR.x + clipR.w / 2 - W / 2 : 0, sdy = g.plateClip && isTall(W, H) ? clipR.y + clipR.h / 2 - H / 2 : 0;
+        cv.blit(px, W, H, sdx, sdy, clipR);
       } else {
         // a designed (or not yet generated) plate: the look's ground with a gradient and its description
         for (let y = 0; y < H; y++) { const sh2 = 0.75 + 0.25 * (1 - y / H); for (let x = clipR.x; x < clipR.x + clipR.w; x++) { const i = (y * W + x) * 4; cv.d[i] = bg[0] * sh2; cv.d[i + 1] = bg[1] * sh2; cv.d[i + 2] = bg[2] * sh2; } }
@@ -873,14 +936,14 @@ function stills() {
       const s = g.s, w = Math.round(g.vid.vw * s), h = Math.round(g.vid.vh * s);
       const X = W / 2 + s * (g.vid.ox - W / 2) + g.tx, Y = H + s * (g.vid.oy - H) + g.ty;
       if (g.deco) {
-        cv.rect(g.deco.x, g.deco.y, g.deco.w, g.deco.h, [0, 0, 0, 90]);
+        cv.rect(g.deco.x, g.deco.y, g.deco.w, g.deco.h, [...hexRGB(panelFill(look)).slice(0, 3), 235]);
       }
       const fr = frameRGBA(webm, clamp(t, 0, Math.max(0, key.duration - 0.1)), w, h, { alpha: true });
       cv.blit(fr, w, h, X, Y, g.clip);
       if (g.deco) cv.stroke(g.deco.x, g.deco.y, g.deco.w, g.deco.h, Math.max(2, K), accent);
     }
     (b.graphics || []).forEach((gr) => {
-      const z = zoneRect(ZONES.includes(gr.zone) ? gr.zone : "center", W, H);
+      const z = graphicRect(ZONES.includes(gr.zone) ? gr.zone : "center", b.layout, key, W, H, b.side).rect;
       cv.rect(z.x, z.y, z.w, z.h, [...accent.slice(0, 3), 46]);
       cv.stroke(z.x, z.y, z.w, z.h, Math.max(2, K - 1), [...accent.slice(0, 3), 255]);
       cv.rect(z.x, z.y, z.w, 9 * K + 6, [...accent.slice(0, 3), 235]);
@@ -890,6 +953,9 @@ function stills() {
     });
     cv.rect(0, 0, W, 11 * K + 8, [0, 0, 0, 150]);
     cv.text(`${b.id}  ${b.layout}  ${sp ? sp.camera : "NO PLATE"}  ${b.start}-${b.end}S`, 10, 6, K, [255, 255, 255, 255], false);
+    const tag = "LAYOUT PREVIEW", tk = Math.max(1, K - 1);
+    cv.rect(W - textWidth(tag, tk) - 16, H - 7 * tk - 14, textWidth(tag, tk) + 12, 7 * tk + 10, [0, 0, 0, 170]);
+    cv.text(tag, W - textWidth(tag, tk) - 10, H - 7 * tk - 9, tk, [255, 255, 255, 230], false);
     const file = path.join(out, `${safeId(b.id)}.png`);
     cv.save(file);
     results.push({ beat: b.id, file, t, layout: b.layout, plate: sp ? sp.plate : null, camera: sp ? sp.camera : null, say: b.say || "", missing_plate_image: missing.length > 0 });
@@ -924,11 +990,25 @@ function groupWords(ws, { maxWords, maxChars }) {
   return groups;
 }
 
+// where a caption group sits: the centred band, or the free column beside the presenter / panel
+function captionRect(b, key, W, H) {
+  const tall = isTall(W, H), band = tall ? CAP_BAND.tall : CAP_BAND.wide;
+  const base = { x: Math.round(0.06 * W), y: Math.round(band[0] * H), w: Math.round(0.88 * W), h: Math.round(band[1] * H), col: false };
+  if (!b || tall) return base;
+  const g = geom(b.layout, key, W, H, b.side), m = 0.03 * W;
+  let x0 = null, x1 = null;
+  if (b.layout === "presenter-left") { x0 = g.box.x + g.box.w + m; x1 = W - m; }
+  else if (b.layout === "presenter-right") { x0 = m; x1 = g.box.x - m; }
+  else if (b.layout === "split" && g.plateClip) { x0 = g.plateClip.x + m; x1 = g.plateClip.x + g.plateClip.w - m; }
+  else if (b.layout === "presenter-corner") { x0 = m; x1 = g.clip.x - m; }
+  if (x0 === null || x1 - x0 < 0.28 * W) return base;
+  return { ...base, x: Math.round(x0), w: Math.round(x1 - x0), col: true };
+}
 function captionsComp({ id, W, H, look, groups, total, fontCss }) {
   const tall = isTall(W, H);
   const rect = tall ? { x: Math.round(0.06 * W), y: Math.round(0.67 * H), w: Math.round(0.88 * W), h: Math.round(0.1 * H) } : { x: Math.round(0.06 * W), y: Math.round(0.83 * H), w: Math.round(0.88 * W), h: Math.round(0.11 * H) };
   const size = Math.round((tall ? 0.068 : 0.036) * W);
-  const html = groups.map((g, i) => `<div class="cap" id="cap-${i}"><p class="line">${g.words.map((w, j) => `<span class="w" id="w-${i}-${j}">${esc(w.text.toUpperCase())}</span>`).join(" ")}</p></div>`).join("\n  ");
+  const html = groups.map((g, i) => `<div class="cap" id="cap-${i}" style="left:${g.rect.x}px;top:${g.rect.y}px;width:${g.rect.w}px;height:${g.rect.h}px;${g.rect.col ? `font-size:${Math.round(size * 0.82)}px;` : ""}"><p class="line">${g.words.map((w, j) => `<span class="w" id="w-${i}-${j}">${esc(w.text.toUpperCase())}</span>`).join(" ")}</p></div>`).join("\n  ");
   const sets = [];
   groups.forEach((g, i) => {
     sets.push(`tl.set("#cap-${i}", { autoAlpha: 1 }, ${r3(g.in)});`, `tl.set("#cap-${i}", { autoAlpha: 0 }, ${r3(g.out)});`);
@@ -996,13 +1076,14 @@ function graphicScaffold({ id, g, rect, W, H, dur, look, fontCss, ease }) {
 <style>
   ${fontCss}
   #${id} { position: absolute; inset: 0; width: ${W}px; height: ${H}px; overflow: hidden; pointer-events: none; ${font} color: ${look.ink}; }
+  #${id} .box > * { max-width: 100%; }
   #${id} .box { position: absolute; left: ${rect.x}px; top: ${rect.y}px; width: ${rect.w}px; height: ${rect.h}px; display: flex; align-items: center; justify-content: ${g.zone === "right" ? "flex-end" : g.zone === "left" ? "flex-start" : "center"}; }
-  #${id} .mask { font-size: ${unit * 7}px; font-weight: 800; line-height: 1.02; letter-spacing: -0.02em; text-align: ${g.zone === "right" ? "right" : g.zone === "left" ? "left" : "center"}; text-shadow: 0 ${unit / 2}px ${unit * 2}px rgba(0,0,0,0.45); color: #fff; }
+  #${id} .mask { font-size: ${Math.round(Math.min(unit * 7, rect.w / Math.max(3, Math.max(...text.join(" ").split(/\s+/).map((x) => x.length)) * 0.62)))}px; font-weight: 800; line-height: 1.02; letter-spacing: -0.02em; text-align: ${g.zone === "right" ? "right" : g.zone === "left" ? "left" : "center"}; text-shadow: 0 ${unit / 2}px ${unit * 2}px rgba(0,0,0,0.45); color: #fff; }
   #${id} .m { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: 0.08em; }
   #${id} .w { display: inline-block; }
   #${id} .pill, #${id} .tag { display: inline-flex; padding: ${unit}px ${unit * 2}px; background: ${look.bg}; color: ${look.ink}; border: ${Math.max(2, unit / 4)}px solid ${look.accent}; border-radius: ${unit * 1.2}px; font-size: ${unit * 3}px; font-weight: 700; }
   #${id} .tag { font-size: ${unit * 2}px; text-transform: uppercase; letter-spacing: 0.08em; }
-  #${id} .num { font-size: ${Math.round(Math.min(unit * 14, rect.w / Math.max(2, String(text[0] || "").length * 0.62), rect.h * 0.55))}px; font-weight: 800; line-height: 0.95; color: ${look.accent}; text-shadow: 0 ${unit / 2}px ${unit * 2}px rgba(0,0,0,0.4); }
+  #${id} .num { font-size: ${Math.round(Math.min(unit * 14, rect.w / Math.max(2, String(text[0] || "").length * 0.78), rect.h * 0.55))}px; font-weight: 800; line-height: 0.95; color: ${look.accent}; text-shadow: 0 ${unit / 2}px ${unit * 2}px rgba(0,0,0,0.4); }
   #${id} .sub { font-size: ${unit * 2.6}px; font-weight: 600; margin-top: ${unit}px; color: #fff; text-shadow: 0 2px ${unit}px rgba(0,0,0,0.6); }
   #${id} .lt { display: flex; gap: ${unit * 1.5}px; align-items: stretch; background: ${look.bg}; padding: ${unit * 1.2}px ${unit * 2}px; border-radius: ${unit}px; }
   #${id} .lt .bar { width: ${unit / 1.5}px; background: ${look.accent}; border-radius: 4px; }
@@ -1093,6 +1174,9 @@ async function build() {
   B.forEach((b, i) => { b.id = safeId(b.id || `b${i + 1}`); });
   const total = r3(Math.max(Number(key.duration) || 0, 0) || Number(B[B.length - 1].end));
   if (Number(B[B.length - 1].end) > total + 0.5) warnings.push(`the last beat ends at ${B[B.length - 1].end}s, after the clip (${total}s)`);
+  // nothing may run past the clip
+  for (let i = B.length - 1; i > 0 && Number(B[i].start) >= total - 0.05; i--) { warnings.push(`beat ${B[i].id} starts at or after the end of the clip (${total}s); dropped`); B.pop(); }
+  B.forEach((b) => { if (Number(b.end) > total) b.end = total; });
   const defs = resolvePlates(plan);
   const spans = plateSpans(plan, defs);
 
@@ -1186,7 +1270,7 @@ async function build() {
     const trName = TR[first.transition_in || "cut"] || "cut";
     if (first.transition_in && !TR[first.transition_in]) simplified.push(`${first.id}: "${first.transition_in}" is built as a cut`);
     if (first.transition_in && ["match-cut", "whip", "shape-mask", "light-leak"].includes(first.transition_in)) simplified.push(`${first.id}: "${first.transition_in}" is built as a simple ${trName}; the scene animators can replace it`);
-    const trDur = trName === "cut" || !prevSpan || prevSpan.end < first.start - 0.05 ? 0 : first.transition_in === "whip" ? 0.25 : 0.6;
+    const trDur = trName === "cut" || !prevSpan || prevSpan.end < first.start - 0.05 ? 0 : snap(first.transition_in === "whip" ? 0.25 : 0.6);
     if (prevSpan && trDur) prevSpan.holdUntil = Math.max(prevSpan.holdUntil || 0, first.start + trDur);
     sp.k = k;
     sp.trName = trName;
@@ -1210,7 +1294,7 @@ async function build() {
       writeFile(path.join(dir, "briefs", "plates", `${safeId(sp.image)}.md`), `# Designed plate ${sp.image}\n\nWrite: \`${rel}\` (a HyperFrames sub-composition: <template>, root id and data-composition-id \`${cid}\`, \`window.__timelines["${cid}"]\`, full frame ${W}x${H}).\n\nWhat it must be: ${sp.prompt || "(no description in the plan)"}\n\nOn screen ${r2(sp.start)}s to ${r2(sp.end)}s (camera: ${sp.camera}, applied by the project's index.html to this plate's wrapper). The presenter is keyed over it: ${sp.beats.map((b) => `${b.id} ${b.layout}`).join(", ")}. Keep the area the presenter stands in calm. No text in the plate; titles are separate graphics. Look: ${path.relative(ws, path.join(dir, "frame.md"))}. The scaffold file is a gradient placeholder.\n`);
       inner = `<div id="${hostId}" class="slot" data-composition-id="${cid}" data-composition-src="${rel}" data-start="${start}" data-duration="${dur}" data-track-index="0" data-width="${W}" data-height="${H}"></div>`;
     }
-    plateEls.push(`<div class="pbox" id="pbox-${k}" style="z-index:${10 + k}"><div class="trw" id="trw-${k}"><div class="cam" id="cam-${k}">${inner}</div></div></div>`);
+    plateEls.push(`<div class="pbox" id="pbox-${k}" style="z-index:${10 + k}"><div class="pfit" id="pfit-${k}"><div class="trw" id="trw-${k}"><div class="cam" id="cam-${k}" data-obey="camera">${inner}</div></div></div></div>`);
     // camera
     const c = CAM[sp.camera] || CAM.static;
     if (sp.camera !== "static") tweens.push(`tl.fromTo("#cam-${k}", { scale: ${r3(c.s0)}, x: ${Math.round(c.x0 * W)}, y: ${Math.round(c.y0 * H)} }, { scale: ${r3(c.s1)}, x: ${Math.round(c.x1 * W)}, y: ${Math.round(c.y1 * H)}, duration: ${gAt(sp.end - sp.start)}, ease: "${camEase}" }, ${start});`);
@@ -1226,6 +1310,8 @@ async function build() {
       for (const b of sp.beats) {
         const pc = geom(b.layout, key, W, H, b.side).plateClip;
         const r = pc || { x: 0, y: 0, w: W, h: H };
+        const sdx = pc && !isTall(W, H) ? Math.round(pc.x + pc.w / 2 - W / 2) : 0, sdy = pc && isTall(W, H) ? Math.round(pc.y + pc.h / 2 - H / 2) : 0;
+        tweens.push(`tl.set("#pfit-${k}", { x: ${sdx}, y: ${sdy} }, ${gAt(b.start)});`);
         tweens.push(`tl.set("#pbox-${k}", { clipPath: "inset(${r.y}px ${W - r.x - r.w}px ${H - r.y - r.h}px ${r.x}px)" }, ${gAt(b.start)});`);
       }
     }
@@ -1285,7 +1371,9 @@ async function build() {
       const at = clamp(Number(g.at), Number(b.start), Number(b.end) - 0.3), out = clamp(Number(g.out), at + 0.3, Number(b.end));
       const dur = r3(out - at);
       const zone = ZONES.includes(g.zone) ? g.zone : "center";
-      const rect = zoneRect(zone, W, H);
+      const gres = graphicRect(zone, b.layout, key, W, H, b.side, !!args.captions);
+      const rect = gres.rect;
+      if (gres.blocked) warnings.push(`${b.id} graphic ${num} sits in a blocked ${zone} zone for ${b.layout}; run presenter.mjs check`);
       const existing = fs.existsSync(file);
       const mine = existing && fs.readFileSync(file, "utf8").includes(SCAFFOLD);
       let scaffolded = false;
@@ -1312,6 +1400,7 @@ ${g.note || g.brief ? `**Note from the visual plan:** ${g.note || g.brief}\n` : 
     groups = groupWords(cw, { maxWords: isTall(W, H) ? 3 : 5, maxChars: isTall(W, H) ? 18 : 34 });
     groups.forEach((g) => (g.out = Math.min(g.out, total)));
     groups = groups.filter((g) => g.out - g.in > 0.1);
+    groups.forEach((g) => { const mid = (g.in + g.out) / 2; g.rect = captionRect(B.find((b) => mid >= b.start && mid < b.end) || B[B.length - 1], key, W, H); });
     if (groups.length) writeFile(path.join(dir, "compositions", "captions.html"), captionsComp({ id: "captions", W, H, look, groups, total, fontCss }));
   }
   if (groups.length) slots.push(`<div id="slot-captions" class="slot" style="z-index:300" data-composition-id="captions" data-composition-src="compositions/captions.html" data-start="0" data-duration="${total}" data-track-index="3" data-track-kind="captions" data-width="${W}" data-height="${H}"></div>`);
@@ -1330,12 +1419,12 @@ ${MARK}
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: ${W}px; height: ${H}px; overflow: hidden; background: ${look.bg}; }
   #root { position: relative; width: ${W}px; height: ${H}px; overflow: hidden; background: ${look.bg}; }
-  #root .pbox, #root .trw, #root .cam, #root #pres-clip, #root #pres-wrap, #root #pres-par, #root .slot { position: absolute; inset: 0; }
+  #root .pbox, #root .pfit, #root .trw, #root .cam, #root #pres-clip, #root #pres-wrap, #root #pres-par, #root .slot { position: absolute; inset: 0; }
   #root .cam img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   #root #presenter { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   #root #pres-clip { z-index: 100; }
   #root .pd { position: absolute; left: 0; top: 0; z-index: 99; transform-origin: 0 0; opacity: 0; pointer-events: none; }
-  #root #pd-fill { width: ${W}px; height: ${H}px; background: rgba(0,0,0,0.28); }
+  #root #pd-fill { width: ${W}px; height: ${H}px; background: ${panelFill(look)}; }
   #root #pd-t, #root #pd-b { width: ${W}px; height: ${bar}px; background: ${look.accent}; }
   #root #pd-l, #root #pd-r { width: ${bar}px; height: ${H}px; background: ${look.accent}; }
 </style>
@@ -1366,8 +1455,9 @@ ${MARK}
   let lint;
   if (args["no-lint"]) lint = { skipped: true, reason: "--no-lint" };
   else {
-    const r = spawnSync("npx", ["--yes", "hyperframes", "lint", dir, "--json"], { encoding: "utf8", timeout: 300000, maxBuffer: 64 * 1024 * 1024 });
-    try {
+    const r = spawnSync("npx", ["--yes", "hyperframes", "lint", dir, "--json"], { encoding: "utf8", timeout: 120000, killSignal: "SIGKILL", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
+    if (r.error && r.error.code === "ETIMEDOUT") { lint = { ok: true, timed_out: true, note: "hyperframes lint did not finish in 120s and was stopped; run `npx hyperframes lint` yourself" }; warnings.push("hyperframes lint timed out (120s)"); }
+    else try {
       const lj = JSON.parse(r.stdout.slice(r.stdout.indexOf("{")));
       const fs2 = lj.findings || lj.issues || [];
       lint = { ok: r.status === 0, errors: lj.errorCount ?? fs2.filter((f) => (f.severity || f.level) === "error").length, warnings: lj.warningCount ?? fs2.filter((f) => (f.severity || f.level) === "warning").length, findings: fs2.filter((f) => (f.severity || f.level) === "error").slice(0, 12) };
@@ -1378,8 +1468,9 @@ ${MARK}
   }
   let obey = null;
   if (motionFile) {
-    const ob = spawnSync(process.execPath, [path.join(HERE, "obey.mjs"), "--project", dir], { encoding: "utf8", timeout: 600000 });
-    obey = { exit: ob.status, summary: (ob.stdout || "").split("\n")[0], status: ob.status === 0 ? "clean" : ob.status === 2 ? "violations" : "could-not-run" };
+    const ob = spawnSync(process.execPath, [path.join(HERE, "obey.mjs"), "--project", dir], { encoding: "utf8", timeout: 180000, killSignal: "SIGKILL" });
+    if (ob.error && ob.error.code === "ETIMEDOUT") obey = { timed_out: true, status: "could-not-run" };
+    else obey = { exit: ob.status, summary: (ob.stdout || "").split("\n")[0], status: ob.status === 0 ? "clean" : ob.status === 2 ? "violations" : "could-not-run" };
   }
   console.log(JSON.stringify({ ok: !lint || lint.ok !== false || lint.skipped === true, project: path.relative(ws, dir) || dir, index: path.relative(ws, idx), duration: total, size: `${W}x${H}`, beats: B.length, plates: spans.map((s) => ({ plate: s.plate, image: s.image, start: s.start, end: s.end, camera: s.camera })), graphics, captions: groups.length, voice: hasAudio, lint, obey, transitions_simplified: simplified, warnings }, null, 2));
 }

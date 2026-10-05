@@ -89,6 +89,8 @@ One file per visual writer (chosen one is copied to `presenter/plan.json`).
 - **Camera.** A camera on every plate, and no one move on more than 60% of them.
 - **Style lock.** 12 to 80 words.
 - **Graphics.** Inside their beat, titles of eight words or fewer, and never in the zone the person occupies for that beat's layout (a `presenter-left` beat with a `left` zone graphic is an error).
+- **Zones are computed from the real person.** `left`/`right` are the free columns beside the presenter's measured box (less a gutter); a side with under 22% of the frame width free is `zone-blocked`. A head-and-shoulders subject fills the frame's height, so `top` is only for `presenter-left`, `presenter-right` and `presenter-corner`; in `presenter-full` use `left`/`right` (the fix names the free widths).
+- **Captions** get a reserved band at the bottom (set in the free column beside the person in left/right/split/corner layouts), and `bottom` graphics are lifted above it when captions are on (`caption-collision` warns). **Plates** keep one side calm, the side of their longest use; `plate-side-conflict` warns when a reuse puts the person on the busy side. `beats --duration` clamps every beat to the clip length.
 - **Without Codex** (`--imagegen off`): each generated plate is a warning that it will be designed instead.
 
 Every finding comes with a concrete fix ("merge b4 into b3", "move the stat to zone right"). Fix exactly what it names; two rewrites at most.

@@ -17,6 +17,7 @@ export const insetMax = (c) => {
 export function classify(t) {
   if (!t.isEl) return "exempt";
   if (t.dur === 0) return "exempt";
+  if (t.camera) return "camera";
   if (t.keys.some((k) => ["innerText", "textContent", "innerHTML", "value"].includes(k))) return "exempt";
   const f = t.from, o = t.to;
   const op0 = num(f.opacity ?? f.autoAlpha), op1 = num(o.opacity ?? o.autoAlpha);
