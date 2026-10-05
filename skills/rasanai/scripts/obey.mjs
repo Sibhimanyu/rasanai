@@ -4,7 +4,7 @@
 // Loads every composition HTML in headless Chrome (the same GSAP the render
 // uses), walks every tween on every registered timeline, samples each tween's
 // real start/end values by seeking the paused timeline, classifies it
-// (enter / exit / move / exempt) and checks it against motion.md: duration
+// (enter / exit / move / camera / exempt) and checks it against motion.md: duration
 // scale, ease set, stagger, holds, and banned-pattern signatures.
 // Signatures and rules: references/motion-md-contract.md.
 //
@@ -129,11 +129,17 @@ const WALKER = `
         }
         var st=v.stagger, each=null;
         if(typeof st==="number") each=st; else if(st&&typeof st==="object"){ if(typeof st.each==="number") each=st.each; else if(typeof st.amount==="number"&&targets.length>1) each=st.amount/(targets.length-1); }
-        out.tweens.push({tl:id,start:+start.toFixed(4),dur:+dur.toFixed(4),repeat:t.repeat?t.repeat():0,ease:easeName(v),keys:keys,from:from,to:to,isEl:isEl,nTargets:targets.length,target:label(el),stagger:each,kfSteps:kfSteps});
+        out.tweens.push({tl:id,start:+start.toFixed(4),dur:+dur.toFixed(4),repeat:t.repeat?t.repeat():0,ease:easeName(v),keys:keys,from:from,to:to,isEl:isEl,nTargets:targets.length,target:label(el),stagger:each,kfSteps:kfSteps,camera:!!(isEl&&el.closest&&el.closest('[data-obey="camera"]'))});
       });
       root.seek(0,false);
     });
   }catch(e){ out.errors.push(String(e&&e.message||e)); }
+  out.cameraContent=[];
+  try{ [].forEach.call(document.querySelectorAll('[data-obey="camera"]'),function(c){
+    var w=document.createTreeWalker(c,NodeFilter.SHOW_TEXT,null),n,hit=null;
+    while((n=w.nextNode())){ var pn=n.parentNode&&n.parentNode.tagName; if(pn==="SCRIPT"||pn==="STYLE") continue; if(n.nodeValue.trim()){ hit=n.nodeValue.trim().slice(0,24); break; } }
+    if(hit) out.cameraContent.push(label(c)+' "'+hit+'"');
+  }); }catch(e){}
   var pre=document.createElement("pre"); pre.id="__obey"; pre.textContent=JSON.stringify(out); document.body.appendChild(pre);
 })();`;
 
@@ -213,6 +219,7 @@ for (const file of files) {
   if (!res.fatal && !res.tweens.length && /\.(to|from|fromTo)\s*\(/.test(text))
     couldNotRun.push(`${rel}: defines GSAP tweens but none were found at runtime (timeline not registered synchronously on window.__timelines, or a script error)`);
 
+  for (const c of res.cameraContent || []) add({ severity: "error", rule: "camera-on-content", file: rel, target: c, message: 'an element marked data-obey="camera" contains text; camera is for frames and plates, not content', fix: 'remove data-obey="camera" from it (text and UI follow the scale), or move the text out of the camera wrapper' });
   const byTarget = {};
   for (const t of res.tweens) {
     report.tweens++;
@@ -223,6 +230,18 @@ for (const file of files) {
     t.cls = cls;
     if (cls === "exempt") {
       report.exempt++;
+      continue;
+    }
+    if (cls === "camera") {
+      const where = { file: rel, timeline: t.tl, target: t.target, at: `${t.start.toFixed(2)}s`, dur_ms: Math.round(t.dur * 1000), ease: t.ease, class: cls };
+      const move = easeSet.move;
+      const pe = parseEase(t.ease === "__custom" ? "custom" : t.ease);
+      const okCam = [move, "sine.inOut", "power1.inOut", "none"].filter(Boolean).some((e) => parseEase(e).family === pe.family && (pe.family === "none" || parseEase(e).dir === pe.dir));
+      if (t.ease === "__custom") add({ severity: "error", rule: "custom-ease", ...where, message: "ease is a function, so it cannot be verified against motion.md", fix: `use ${move || "a named ease"}` });
+      else if (pe.family === "implicit") add({ severity: "error", rule: "implicit-ease", ...where, message: "no explicit ease on a camera move", fix: `set ease: "${move || "sine.inOut"}"` });
+      else if (!okCam) add({ severity: "error", rule: "ease-outside-set", ...where, message: `camera ease ${t.ease} is not motion.md's move ease (${move}) or sine.inOut / power1.inOut / none`, fix: `use ease: "${move || "sine.inOut"}"` });
+      if (t.dur < 1.0) add({ severity: "error", rule: "camera-too-short", ...where, message: `a camera move lasts its shot: ${Math.round(t.dur * 1000)}ms is under 1000ms`, fix: 'a short move is UI motion: drop data-obey="camera" and put it on the duration scale' });
+      for (const b of bannedHits(t, cls, banned)) add({ severity: "error", rule: `banned:${b}`, ...where, message: `matches the banned pattern "${b}"`, fix: "replace it with a plain camera move" });
       continue;
     }
     const where = { file: rel, timeline: t.tl, target: t.target, at: `${t.start.toFixed(2)}s`, dur_ms: Math.round(t.dur * 1000), ease: t.ease, class: cls };

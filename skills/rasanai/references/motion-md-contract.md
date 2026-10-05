@@ -47,6 +47,7 @@ The body's "How it moves" prose is copied into DISPATCH.md. For a custom persona
 | Class | Rule |
 |---|---|
 | exempt | zero duration (`set()`, cuts); non-element targets (counter proxies); tweens of `innerText`, `textContent`, `innerHTML` or `value` |
+| camera | the tween's target is, or sits inside, an element marked `data-obey="camera"` (checked right after exempt, before every enter / exit / move rule) |
 | enter | opacity / autoAlpha ≤ 0.2 → ≥ 0.8 |
 | exit | opacity / autoAlpha ≥ 0.8 → ≤ 0.2 |
 | enter | uniform scale ≤ 0.8 → ≥ 0.95 |
@@ -56,6 +57,8 @@ The body's "How it moves" prose is copied into DISPATCH.md. For a custom persona
 | enter / exit | `clip-path: inset()` largest side ≥ 45% → ≤ 5% / the reverse |
 | enter / exit | blur > 2px → ≤ 0.5px / the reverse |
 | move | anything else (shifts, pushes, pulses, partial scale changes) |
+
+**camera:** a shot-length move of a frame or plate (a push-in, pan or drift on a generated image), marked `data-obey="camera"`; it is not a way to dodge the scale for UI elements. A camera tween is exempt from `duration-off-scale` and the hold rules but must last at least 1.0 s (`camera-too-short`), must name its ease (`implicit-ease` and `custom-ease` still error), and that ease must be in `easing.move`'s family or `sine.inOut`, `power1.inOut` or `none` (a camera may drift linearly; `ease-outside-set` otherwise). Banned signatures still apply, except `linear-entrance`, which cannot apply to a camera. An element marked `data-obey="camera"` that contains text is an error, `camera-on-content`: text and UI follow the scale. Presenter films mark each plate's camera wrapper; the presenter's 0.5 s layout moves are not camera moves and sit on the scale with `easing.move`.
 
 Staggered tweens are judged per element: the stagger spread is subtracted from GSAP's total duration. A repeating tween's duration is one iteration. A tween with a `keyframes: [...]` array is classified on its overall start and end values, and each step's own duration must be on the scale. A staggered tween is labelled by its first target.
 
