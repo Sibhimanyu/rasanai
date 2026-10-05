@@ -1,6 +1,6 @@
 # RasanAI Studio for Mac
 
-A SwiftUI Mac studio with a WebKit-backed full engine console and Sparkle 2.10.0. [Download the community beta](https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.4.0-beta.1). Build 14 (0.4.0 beta 1) adds a stage bar on every film, a "Needs you" section on Home, automatic readiness checks, "Start when free" queueing, one "Request changes" flow with timed notes, a live Activity log, Share and burned-in captions, a new icon and a branded installer. Includes guided rendering setup, draft recovery, a film queue, source previews, templates, native brand editing, revision/export controls and portable projects from build 12. If an old build cannot open (build 7 crashed at launch), manually replace it with the new DMG. Requires macOS 14 or newer; building from source also requires Xcode's Swift toolchain. Community packages target Apple Silicon and are ad-hoc signed, not Apple-notarized. Real-agent generation and complete workflow parity remain unverified.
+A SwiftUI Mac studio with a WebKit-backed full engine console and Sparkle 2.10.0. [Download the community beta](https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.5.0-beta.1). Build 15 (0.5.0 beta 1) turns New film into a single prompt box with a model selector: Opus 5.5 + Sonnet 5.5 by default, or Opus only, Sonnet only or your Settings model. Build 14 (0.4.0 beta 1) added a stage bar on every film, a "Needs you" section on Home, automatic readiness checks, "Start when free" queueing, one "Request changes" flow with timed notes, a live Activity log, Share and burned-in captions, a new icon and a branded installer. Includes guided rendering setup, draft recovery, a film queue, source previews, templates, native brand editing, revision/export controls and portable projects from build 12. If an old build cannot open (build 7 crashed at launch), manually replace it with the new DMG. Requires macOS 14 or newer; building from source also requires Xcode's Swift toolchain. Community packages target Apple Silicon and are ad-hoc signed, not Apple-notarized. Real-agent generation and complete workflow parity remain unverified.
 
 ## Build and launch
 
@@ -102,7 +102,7 @@ The app is not App-Sandboxed. Local asset resolution rejects remote URLs, escapi
 
 ```bash
 STUDIO_VERSION=0.4.0 STUDIO_BUILD=14 STUDIO_ENABLE_UPDATES=1 bash scripts/build-community.sh
-STUDIO_TAG=studio-v0.4.0-beta.1 bash scripts/generate-feed.sh
+STUDIO_TAG=studio-v0.5.0-beta.1 bash scripts/generate-feed.sh
 ```
 
 Use a new increasing build number each time. The build script downloads a pinned, checksum-verified official Node distribution, bundles engine/Node/Sparkle, verifies bundle integrity, and creates a DMG with an Applications link and installation notice. It refuses to overwrite a DMG. Existing app builds are preserved in `dist/previous-build-*.app`.

@@ -2,7 +2,7 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.5.0 beta 1 (build 15) — 2026-10-05
 
 - New film is now a single prompt box: the brief, attached files and every option (length, shape, motion, brand) as chips, with Start film inside the box.
 - Choose which Claude models direct a film. The default, Opus 5.5 + Sonnet 5.5, has Opus direct, write and animate while Sonnet takes research and routine jobs to save usage. Opus only, Sonnet only, or the Settings model are one click away. Saved with each film and applied to queued and resumed runs.
