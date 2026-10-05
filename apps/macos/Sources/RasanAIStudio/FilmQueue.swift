@@ -123,7 +123,7 @@ extension StudioStore {
             let request = savedRun == nil ? entry.draft.request(sources: files)
                 : "Resume this existing run from its saved state. Preserve completed work and continue with the next pending step.\n\n" + entry.draft.creativeDirection(sources: files)
             let run = try await runtime.start(project: entry.project, existingRun: savedRun, request: request, settings: settings,
-                                             agent: agent, model: entry.model, unrestrictedTools: entry.unrestrictedTools && settings.allowUnrestrictedTools)
+                                             agent: agent, model: entry.draft.cliModel(settingsModel: entry.model), unrestrictedTools: entry.unrestrictedTools && settings.allowUnrestrictedTools)
             if let index = settings.filmQueue.firstIndex(where: { $0.id == entry.id }) { settings.filmQueue[index].run = run }
             openRun(run, navigate: false)
             if queuePaused { runtime.stop() }

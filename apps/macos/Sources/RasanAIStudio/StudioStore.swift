@@ -753,12 +753,14 @@ final class StudioStore {
         guard !isTransferringProject, !toolSetup.isRunning, !queueStarting, !queueHandlingExit else { errorMessage = "Wait for tool setup, project transfer or the queue to finish switching films."; return }
         guard let project = launchProject ?? selectedProjectURL ?? workspaceURL else { errorMessage = "Choose a project first."; return }
         var request = request
-        if includeDirection, let draft = FilmDraft.load(in: project) {
+        let draft = FilmDraft.load(in: project)
+        if includeDirection, let draft {
             request += "\n\n" + draft.creativeDirection(sources: (try? ProjectSources.files(in: project)) ?? [])
         }
         do {
             let resume = launchProject == nil ? runURL : nil
-            let run = try await runtime.start(project: project, existingRun: resume, request: request, settings: settings)
+            let run = try await runtime.start(project: project, existingRun: resume, request: request, settings: settings,
+                                              model: draft?.cliModel(settingsModel: settings.model(for: draft?.agent == "codex" ? .codex : .claude)))
             openRun(run)
             showChanges = false
         } catch {
