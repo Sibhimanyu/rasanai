@@ -25,6 +25,16 @@ When the Dispatch context says `lyric_video`, add the song's rules to your lens 
 - **The words are in the image**, not on it: any centred subtitle, outlined or haloed type, or a word under the 96 px safe area fails.
 - **Lines are jokes or transformations**, not literal pictures; name the plate whose line is only its sentence redrawn. Judge the show-off bar too: three reel-worthy plates, one second-watch seam, a closing move that rhymes with the opening.
 
+## A presenter film
+
+When the Dispatch context says `presenter_film` (or the run has `presenter/plan.json`), add these to your lens (`references/presenter.md`, `references/imagery.md`):
+
+- **Plates are judged as images:** each one is **on-idea** (does it argue the beat's `why`, or only illustrate the sentence?), **consistent with the anchor** (same palette, lens family and era across the set), free of **text artefacts** (any letter shape, sign or watermark is a `high` finding with the plate id), and well made (no malformed hands, faces or objects).
+- **The person and the plate agree:** the plate's light direction does not clash with the person's (a key from the left on the plate and from the right on the person reads as cut out); the person is not lost against the plate's detail; there is calm room where a layout puts them.
+- **The person belongs to the world** at least once (points at it, steps into it, is framed by it); a person pasted before unrelated pictures all the way through is a `high` finding.
+- **Cutaways land on a word** and graphics stay off the person, off the plate's subject, and out of the safe area; the keyed edge (halo, green spill) is clean in a strip at a close crop.
+- **Cost honesty:** a flood of plates (more than one per 3.5 s) or the same image used for no reason is a finding.
+
 ## You return
 
 - `crew/critic-<lens>-<round>.json`:

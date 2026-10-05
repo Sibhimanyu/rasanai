@@ -25,6 +25,9 @@
 // 16. the 3D styles of the style library mount real Rasan3D canvases (presets3d.js); the console serves the runtime safely
 // 18. the design desk: library index and search, the design-system gate (a good system passes; generic, near-duplicate and invalid ones fail), choose-system, the crew plan
 // 19. model profiles and adaptive prompts (Claude vs GPT, dispatch per harness), the finish opt-out for stepped scenes
+// 20. image generation and presenter films: the crew's presenter route (visual writers, brief, check), the `## Imagery` requirement,
+//     then scripts/tests/imagegen.mjs (a fake Codex: status, model fallback, normalising, anchor, skip, failure) and
+//     scripts/tests/presenter.mjs (key, beats, check, plates, stills, build), each skipped with a note when absent
 // 17. lyric videos: the treatment gate and the crew's song route, lyrics.mjs (check, audio, align when whisper is there), the RasanMusic runtime in a page, the film finish (grade, blur)
 import fs from "node:fs";
 import os from "node:os";
@@ -1167,6 +1170,61 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
     const r = FF(["-i", src, "-filter_complex", g, "-map", "[out]", out]);
     const distinct = (n) => { const x = spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-i", out, "-vf", `format=gray,select='eq(n,${n})',crop=320:2:0:90`, "-frames:v", "1", "-f", "rawvideo", "-"], { maxBuffer: 1 << 20 }); return new Set(x.stdout).size; };
     ok("finish: inside a sharp window the frame is the centre sub-frame (hard edge), outside it the shutter averages (soft edge); frame count unchanged", r.status === 0 && distinct(45) <= 3 && distinct(15) >= 8, `${r.stderr.slice(0, 200)} sharp ${distinct(45)} blurred ${distinct(15)}`);
+  }
+}
+
+// 20. image generation and presenter films
+{
+  const ws = path.join(TMP, "presenter-ws");
+  const run = path.join(ws, ".rasanai", "r1");
+  fs.mkdirSync(path.join(run, "presenter"), { recursive: true });
+  const C = (a, e = {}) => spawnSync(process.execPath, [path.join(HERE, "crew.mjs"), ...a], { encoding: "utf8", env: { ...env, ...e }, cwd: ws, timeout: 180000 });
+  const J = (r) => { try { return JSON.parse(r.stdout); } catch { return {}; } };
+  const plan = J(C(["plan", "--run", run, "--route", "presenter", "--subject", "Founder talk"]));
+  const mem = (plan.phases || []).flatMap((p) => p.members).map((m) => m.replace(/ \(.*$/, ""));
+  ok("presenter: the crew plans three visual writers, a design system each and no script writer or editor", ["visual-writer:Sure", "visual-writer:Bold", "visual-writer:Wild"].every((m) => mem.includes(m)) && mem.includes("design-system-designer:Bold") && !mem.some((m) => /script-/.test(m)), JSON.stringify(mem));
+  ok("presenter: the plan has a phase for the graphics' animators", (plan.phases || []).some((p) => p.phase === "animate-graphics"), JSON.stringify((plan.phases || []).map((p) => p.phase)));
+  const br = J(C(["brief", "--run", run, "--role", "visual-writer", "--key", "Bold"], { RASANAI_IMAGEGEN: "off" }));
+  const prompt = br.prompt ? fs.readFileSync(path.join(ws, br.prompt), "utf8") : "";
+  ok("presenter: a visual writer's brief writes a prompt with the playbook, the beats, the key facts, its output, the check and the show-off ask", /Role: visual writer/.test(prompt) && /references\/presenter\.md/.test(prompt) && /presenter\/beats\.json/.test(prompt) && /presenter\/key\.json/.test(prompt) && /plan-Bold\.json/.test(prompt) && /presenter\.mjs" check/.test(prompt) && /Show off/.test(prompt) && /imagegen\*\*: off/.test(prompt), prompt.slice(0, 300));
+  ok("presenter: the writer's brief names the dispatch (Agent call)", /Agent\(/.test(br.dispatch || "") || /codex exec/.test(br.dispatch || ""), String(br.dispatch).slice(0, 120));
+  const none = C(["check", "--run", run, "--role", "visual-writer", "--key", "Bold"]);
+  ok("presenter: crew check refuses a missing plan (exit 2, names the file)", none.status === 2 && /plan-Bold\.json is missing/.test(none.stdout), none.stdout.slice(0, 200));
+  fs.writeFileSync(path.join(run, "presenter", "plan-Bold.json"), "{ not json");
+  ok("presenter: crew check refuses a plan that is not JSON", C(["check", "--run", run, "--role", "visual-writer", "--key", "Bold"]).status === 2);
+  fs.writeFileSync(path.join(run, "presenter", "plan-Bold.json"), JSON.stringify({ version: 1, beats: [] }));
+  ok("presenter: crew check refuses a plan with no beats", C(["check", "--run", run, "--role", "visual-writer", "--key", "Bold"]).status === 2);
+  if (fs.existsSync(path.join(HERE, "presenter.mjs"))) {
+    fs.writeFileSync(path.join(run, "presenter", "plan-Bold.json"), JSON.stringify({ version: 1, clip: "talk.mp4", aspect: "16:9", angle: "Bold", title: "T", idea: "I", style: { lock: "x", avoid: "text" }, beats: [{ id: "b1", start: 0, end: 4, say: "Hello there.", layout: "presenter-full", plate: { id: "p1", kind: "generated", prompt: "A stunning breathtaking 8k epic masterpiece", camera: "push-in", why: "w" }, graphics: [], transition_in: "cut" }] }));
+    const bad = C(["check", "--run", run, "--role", "visual-writer", "--key", "Bold"]);
+    ok("presenter: crew check runs presenter.mjs check and refuses a plan with slop words (exit 2)", bad.status === 2 && /presenter\.mjs check says rewrite/.test(bad.stdout), bad.stdout.slice(0, 300));
+  } else console.log("note  presenter: presenter.mjs is not there yet, the plan-content check is skipped");
+
+  // the design system gate wants "## Imagery" on a presenter run (and only there)
+  const dd = path.join(run, "design", "Bold");
+  fs.mkdirSync(dd, { recursive: true });
+  fs.writeFileSync(path.join(dd, "DESIGN.md"), "---\nname: T\ncolors:\n  canvas: \"#101010\"\n---\n## Overview\nx\n");
+  const g = (cwd) => node("design.mjs", ["check-system", "--dir", cwd, "--offline"]);
+  const withP = g(dd);
+  ok("presenter: design.mjs check-system requires ## Imagery on a presenter run", /Imagery/.test(withP.stdout), withP.stdout.slice(0, 200));
+  fs.writeFileSync(path.join(dd, "DESIGN.md"), fs.readFileSync(path.join(dd, "DESIGN.md"), "utf8") + "\n## Imagery\n35mm photograph, warm tungsten key from frame left, clay and ochre in the light, ink in the shadows, soft grain, shallow depth of field, one calm third of the frame left empty for a person, never text, logos or people looking at camera.\n");
+  const withI = g(dd);
+  ok("presenter: a 25+ word ## Imagery section satisfies it", !/Imagery/.test(withI.stdout), withI.stdout.slice(0, 200));
+  const run2 = path.join(ws, ".rasanai", "r2", "design", "Bold");
+  fs.mkdirSync(run2, { recursive: true });
+  fs.writeFileSync(path.join(run2, "DESIGN.md"), "---\nname: T\n---\n## Overview\nx\n");
+  ok("presenter: other routes do not need ## Imagery", !/Imagery/.test(g(run2).stdout));
+
+  // the scripts' own tests, each with the same helpers; absent files are a note, never a failure
+  for (const name of ["imagegen", "presenter"]) {
+    const f = path.join(HERE, "tests", `${name}.mjs`);
+    if (!fs.existsSync(f)) { console.log(`note  ${name}: scripts/tests/${name}.mjs is not there yet, skipped`); continue; }
+    try {
+      const mod = await import(f);
+      await mod.default({ ok, node, tmp: TMP, env });
+    } catch (e) {
+      ok(`${name}: tests ran`, false, String((e && e.stack) || e).split("\n").slice(0, 4).join(" | "));
+    }
   }
 }
 

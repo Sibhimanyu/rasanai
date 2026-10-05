@@ -87,6 +87,7 @@ const ROLES = {
   "research-lead": { desk: "research", tier: "inherit", desc: () => "Merging the research into one truth sheet" },
   "script-writer": { desk: "story", tier: "inherit", desc: (p, k) => `Writing the ${k || ""} script`.replace("  ", " ") },
   "treatment-writer": { desk: "story", tier: "inherit", desc: (p, k) => `Writing the ${k || ""} treatment for the song`.replace("  ", " ") },
+  "visual-writer": { desk: "story", tier: "inherit", desc: (p, k) => `Writing the ${k || ""} visual treatment of the talk`.replace("  ", " ") },
   "script-editor": { desk: "story", tier: "inherit", desc: () => "Editing the three scripts like a hostile reader" },
   "motion-director": { desk: "motion", tier: "inherit", desc: (p, k) => (k === "seams" ? "Checking every cut and building the signature transition" : "Scoring how the whole film moves") },
   "frame-designer": { desk: "art", tier: "inherit", desc: (p, k) => `Designing key frames ${k || ""}`.trim() },
@@ -115,6 +116,9 @@ function planCrew(p) {
   } else if (p.route === "music-to-video") {
     // a song: precedent (the artist's and genre's visual conventions) only when the artist/brand has a public face
     if (p.public && !lean) research.push(d("precedent-researcher", null, { mode: "music" }));
+  } else if (p.route === "presenter") {
+    // the speech is the source; research only when it names a product or company worth getting right
+    if (p.subject && p.public) research.push(d("product-researcher", null, { mode: "topic" }), d("brand-researcher"));
   } else if (p.subject && ["reel", "talking-head-recut", "embedded-captions"].includes(p.route) && p.public) {
     research.push(d("brand-researcher"));
   }
@@ -128,6 +132,8 @@ function planCrew(p) {
   if (p.route === "music-to-video") {
     // lyrics.mjs align + audio come first (music/lyrics.json, music/audio.json); three treatments replace three scripts
     phases.push({ phase: "treatments", when: "after lyrics.mjs align + audio have written music/lyrics.json and music/audio.json (and the precedent, when it ran)", dispatch: ["Sure", "Bold", "Wild"].map((k) => d("treatment-writer", k)), then: "treatment.mjs check on each (crew.mjs check --role treatment-writer), then push story from the three TREATMENT-<label>.md; the chosen one is copied to story/chosen-treatment.json" });
+  } else if (p.route === "presenter") {
+    phases.push({ phase: "visual-writers", when: "after the clip is keyed (presenter.mjs key) and transcribed (reel.mjs scan), beats.json is written (presenter.mjs beats) and the research, when it ran, is accepted", dispatch: ["Sure", "Bold", "Wild"].map((k) => d("visual-writer", k)), then: "presenter.mjs check on each (crew.mjs check --role visual-writer), then push story from the three plans; the chosen one is copied to presenter/plan.json" });
   } else if (STORY_ROUTES.has(p.route) && !lean) {
     phases.push({ phase: "story", when: "after story.mjs pick", dispatch: ["Sure", "Bold", "Wild"].map((k) => d("script-writer", k)), then: "crew.mjs pitches, story.mjs check, then the editor" });
     phases.push({ phase: "story-edit", when: "after the three pitches pass story.mjs check", dispatch: [d("script-editor")], then: "route its notes back to the writers (one round), then push story" });
@@ -137,6 +143,10 @@ function planCrew(p) {
     phases.push({ phase: "design-system", when: "after the treatment is chosen (the Look step is the treatment's style bible, built out by the desk)", dispatch: [d("design-system-designer", "<chosen label>", { mode: "bible" })], then: "design.mjs check-system, then design.mjs choose-system for that label; no Look picker" });
   } else {
     phases.push({ phase: "design-systems", when: p.route === "reel" || ["talking-head-recut", "embedded-captions"].includes(p.route) ? "after the cut (reel) or the brief (footage routes): three card / overlay / caption identities" : "after the story is chosen (story/chosen.json) and design-research is accepted", dispatch: ["Sure", "Bold", "Wild"].map((k) => d("design-system-designer", k)), then: "design.mjs check-systems (each valid and the three distinct), then design.mjs look-payload and push the Look" });
+  }
+  if (p.route === "presenter") {
+    phases.push({ phase: "animate-graphics", when: "after presenter.mjs build wrote the project and briefs/graphics/*.md (the plates are generated and approved)", dispatch: [d("scene-animator", "<beat>-<n>")], then: "one scene-animator per graphic brief (key b3-1 = beat b3, graphic 1) and per designed plate (key plate-p2), in parallel; then obey, slop and a draft render" });
+    phases.push({ phase: "review", when: "after the graphics are in and the draft is rendered", dispatch: [d("critic", "motion-1"), d("critic", "film-1")], then: "route each finding to its graphic's animator or to the plate's prompt (2 rounds at most)" });
   }
   if (SCENE_ROUTES.has(p.route) || p.route === "motion-graphics") {
     phases.push({ phase: "score", when: p.route === "music-to-video" ? "after treatment.mjs scenes wrote scenes.json (plates against the real track; durations are the plate windows)" : "after the look is picked and the music is fitted (scenes.json has final durations)", dispatch: [d("motion-director", "score")], then: "crew.mjs check, then the frame designers" });
@@ -192,6 +202,18 @@ function brief(run) {
 }
 // a lyric video: the music-to-video route, or a run that has word timings
 const LYR = (run, P) => (P && P.route === "music-to-video") || exists(R(run, "music", "lyrics.json"));
+// a presenter film: a keyed talking-head clip put into generated image worlds (references/presenter.md)
+const isPresenter = (run, P) => (P && P.route === "presenter") || ((jsonMaybe(R(run, "crew", "plan.json")) || {}).route === "presenter") || ((jsonMaybe(R(run, "decisions.json")) || {}).route === "presenter") || exists(R(run, "presenter", "plan.json"));
+const PRES_KEY = /^(b\d+-\d+|plate-[A-Za-z0-9_-]+)$/; // a presenter film's graphic (beat-n) or designed plate (plate-<id>)
+const imagegenState = () => {
+  if (process.env.RASANAI_IMAGEGEN === "off") return "off";
+  try {
+    const r = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "imagegen.mjs"), "status"], { encoding: "utf8", timeout: 8000, env: { ...process.env, RASANAI_QUIET: "1" } });
+    return JSON.parse(r.stdout || "{}").state || "unknown";
+  } catch {
+    return "unknown";
+  }
+};
 const chosenTreatment = (run) => jsonMaybe(R(run, "story", "chosen-treatment.json"));
 const scenesOf = (run) => {
   const s = jsonMaybe(R(run, "scenes.json"));
@@ -294,6 +316,17 @@ function contextFor(run, role, key, plan) {
       O(skel); O(R(run, "story", `TREATMENT-${key}.md`));
       break;
     }
+    case "visual-writer": {
+      if (!key) die("visual-writer needs --key Sure|Bold|Wild");
+      const conceit = { sure: "the literal, well-made version: each beat gets an image that illustrates what is said, in one consistent world", bold: "one running world or metaphor that the whole talk happens inside, changing as the argument changes", wild: "a conceit a studio would put on its reel: the talk is staged inside something unexpected, and the person interacts with it" }[String(key).toLowerCase()];
+      const ig = imagegenState();
+      Object.assign(ctx, { label: key, conceit: conceit || "(Sure, Bold or Wild)", brief: B, imagegen: ig, imagegen_note: ig === "ready" ? "plates of kind generated are real images (each costs about 1.5 minutes of a Codex run on the user's ChatGPT plan, so spend them where the picture argues)" : "image generation is not available: write plates as kind generated anyway only if you accept they become designed backdrops; prefer kind designed with a prompt-like description, and say so in why" });
+      const pjson = R(run, "presenter", `plan-${key}.json`);
+      for (const [l, p] of [["transcript (words with times)", R(run, "presenter", "transcript.json")], ["beats (the speech cut at its natural joints)", R(run, "presenter", "beats.json")], ["key facts (where the person stands, the frame, the duration)", R(run, "presenter", "key.json")], ["key check (the keyed edge)", R(run, "presenter", "key-check.png")], ["contact sheet of the clip", R(run, "presenter", "sheet.jpg")], ["briefing", research("BRIEFING.md")], ["truth", R(run, "story", "truth.md")], ["presenter playbook (read all of it)", path.join(SKILL_DIR, "references", "presenter.md")], ["imagery (prompt craft)", path.join(SKILL_DIR, "references", "imagery.md")], ["vocabulary", path.join(SKILL_DIR, "references", "vocabulary.md")]]) I(l, p);
+      ctx.check_cmd = `node "${path.join(SKILL_DIR, "scripts", "presenter.mjs")}" check --plan ${rel(pjson)} --beats ${rel(R(run, "presenter", "beats.json"))} --key ${rel(R(run, "presenter", "key.json"))} --imagegen ${ig === "ready" ? "ready" : "off"}`;
+      O(pjson);
+      break;
+    }
     case "script-editor":
       for (const [l, p] of [["pitches", R(run, "story", "pitches.json")], ["check", R(run, "story", "check.json")], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["precedent", research("precedent.md")], ["rubric", path.join(SKILL_DIR, "references", "script.md")], ["story rules", path.join(SKILL_DIR, "references", "story.md")], ["craft", path.join(SKILL_DIR, "references", "craft.md")]]) I(l, p);
       O(R(run, "story", "edit-notes.json"));
@@ -324,6 +357,14 @@ function contextFor(run, role, key, plan) {
     }
     case "scene-animator": {
       if (!pj) die("scene-animator needs --project <videos/name>");
+      if (PRES_KEY.test(String(key))) {
+        // a presenter film's motion graphic (b3-1) or designed plate (plate-p2): one sub-composition over/behind the keyed person
+        const pl = key.startsWith("plate-"), sub = pl ? "plates" : "graphics", nm = pl ? key.slice(6) : key;
+        Object.assign(ctx, { [pl ? "designed_plate" : "graphic"]: nm, project: rel(pj), space: "2d", presenter_film: true });
+        for (const [l, p] of [[pl ? "plate brief (what it must be, where the person stands)" : "graphic brief (what, when, where, the beat's words, the layout, what the person occupies)", path.join(pj, "briefs", sub, `${nm}.md`)], ["the scaffold to replace", path.join(pj, "compositions", sub, `${nm}.html`)], ["presenter playbook", path.join(SKILL_DIR, "references", "presenter.md")], ["the plan", R(run, "presenter", "plan.json")], ["DISPATCH.md", path.join(pj, "DISPATCH.md")], ["frame.md", path.join(pj, "frame.md")], ["design system (its Motion and camera section binds the motion)", R(run, "look", "DESIGN.md")], ["motion.md", path.join(pj, "motion.md")], ["craft", path.join(SKILL_DIR, "references", "craft.md")], ["vocabulary", path.join(SKILL_DIR, "references", "vocabulary.md")]]) I(l, p);
+        O(`${rel(path.join(pj, "compositions", sub))}/${nm}.html`); O(R(run, "crew", "animators", `${key}.md`)); O(R(run, "crew", "animators", `${key}-overview.png`)); O(R(run, "crew", "animators", `${key}-move.png`));
+        break;
+      }
       const n = Number(key);
       const packets = path.join(pj, ".hyperframes", "frame-packets");
       const packet = exists(packets) ? fs.readdirSync(packets).find((f) => new RegExp(`^0*${n}[-_.]`).test(f) && f.endsWith(".md")) : null;
@@ -393,6 +434,7 @@ const DARES = {
   "scene-animator": "Show off. This scene is going on your reel. Your first version will be the safe one (things fade and slide in, the UI appears, the text types; in 3D, an object turning in a void under a flat light): throw that instinct out and build the shot another motion designer would freeze-frame to work out how you did it, inside motion.md and the anti-slop rules. You are the inventor, not a picker: if the shot needs a technique no preset gives (a raymarched world, an engraved or stippled shading, a simulation, a custom post pass, a portal, a card pinned in 3D), write it yourself in GLSL or raw three.js (references/3d.md); the design system is the only bound on the look. If the gate warns on something you did on purpose, declare it (declare.intent, a rule id and your reason of 12+ characters). If your scene has depth, brag with it: a lens chosen for a reason, light that agrees with itself, a camera move that lands, motion blur on the fast frames, a seam that matches the 2D scene to the pixel. Then look at your strips and ask whether it's reel-worthy. If it's only fine, it isn't done.",
   "frame-designer": "Show off. Each still should be good enough to be the poster for the film. Competent and centred is the default you're here to beat. For scenes the score puts in 3D, draw the key frame in real 3D (Rasan3D, references/3d.md): the lens, the light and the material are the poster. Invent the look the shot needs (a custom shader, an engraved or raymarched surface) rather than picking a preset; the design system is the only bound.",
   "treatment-writer": "Show off. Two other writers are pitching treatments of this song against you, and the user will pick one. Write the one that wins the room, not the one that merely passes treatment.mjs check: a concept the user can say in a sentence, a signal that runs through every plate, lines that become puns and transformations (never pictures of the sentence), three plates a motion designer would cut into their reel, a hook that escalates, and one seam that only pays off on the second watch. If a plate's idea is just the lyric restated, you are not done.",
+  "visual-writer": "Show off. Two other writers are staging this same talk against you, and the user will pick one. Write the one that wins the room, not the one that merely passes presenter.mjs check: one running visual idea the whole talk happens inside, images that argue with the sentence instead of illustrating it, at least one cutaway that lands on a word, and one moment where the person interacts with the world (points at it, steps into it, is framed by it). If a plate is just the sentence drawn as a picture, you are not done.",
   "script-writer": "Show off. Two other writers are pitching against you. Write the script that wins the room, with at least one moment only motion could tell, not the one that merely passes the checks.",
   "design-researcher": "Show off. The generic version of this job returns the category's own look and a list of famous styles. Return the subject's visual world as only someone who went looking would know it: the real materials, places, eras and printed things around this product or topic, the clichés a lazy design pass would reach for (named, so the desk avoids them), and a shortlist of library references chosen because they are surprising and right for THIS subject, not because they are famous. If two of your references would make an obvious blend, replace one.",
   "design-system-designer": "Show off. This is the pitch: the user sees three systems for their story, and yours is drawn live on their own first line. Don't hand in the tasteful default (a neutral ground, one accent, a grotesk, a rounded card): build the system a top studio would present, one a motion designer could animate for a year and never repeat. Blend 2 to 4 references so the result is something no single reference is, put the subject's own visual world in it (its materials, its places, its printed things), choose a display face with a point of view, and write the motion and camera language as precisely as a director's note (durations, holds, eases by name, the camera's lens and moves). The gate rejects a generic or near-duplicate system; the user rejects a forgettable one.",
@@ -747,6 +789,12 @@ async function checkRole(run, role, key) {
       const brandPath = dec.use_brand !== false && dec.brand && exists(path.resolve(String(dec.brand))) ? path.resolve(String(dec.brand)) : null;
       const r = await checkSystemFull(dir, { hook: firstLine(run), libraryIds: libraryIds(), brand: brandPath, label: key, offline: !!process.env.RASANAI_OFFLINE });
       P.push(...r.P); W.push(...r.W);
+      if (isPresenter(run)) {
+        const md = readMaybe(R(run, "design", key, "DESIGN.md"));
+        const im = (md.match(/^##\s+Imagery[^\n]*\n([\s\S]*?)(?=\n##\s|(?![\s\S]))/mi) || [])[1];
+        if (im === undefined) P.push('DESIGN.md has no "## Imagery" section (a presenter film generates images: the art direction every image obeys)');
+        else if (im.trim().split(/\s+/).filter(Boolean).length < 25) P.push('the "## Imagery" section is thin (25 words at least: medium, lens, light, palette mapping, texture, room for the person, what never)');
+      }
       // against the siblings that already exist: three systems that are one system fail the later one
       for (const other of ["Sure", "Bold", "Wild"].filter((l) => l !== key && exists(R(run, "design", l, "DESIGN.md")))) {
         const pr = await checkSystems([dir, R(run, "design", other)], { libraryIds: libraryIds(), offline: true, hook: firstLine(run) });
@@ -820,6 +868,26 @@ async function checkRole(run, role, key) {
       else if (j && Array.isArray(j.warnings)) for (const w of j.warnings.slice(0, 5)) W.push(typeof w === "string" ? w : JSON.stringify(w));
       break;
     }
+    case "visual-writer": {
+      const f = R(run, "presenter", `plan-${key}.json`);
+      const t = jsonMaybe(f);
+      if (t === null) { P.push(`presenter/plan-${key}.json is missing`); break; }
+      if (t === undefined) { P.push(`presenter/plan-${key}.json is not valid JSON`); break; }
+      if (!Array.isArray(t.beats) || !t.beats.length) { P.push("the plan has no beats[]"); break; }
+      for (const k of ["title", "idea"]) if (!String(t[k] || "").trim()) P.push(`the plan needs a ${k} (the user reads it on the Story card)`);
+      const ca = ["check", "--plan", f, "--json"];
+      for (const [flag, file] of [["--beats", R(run, "presenter", "beats.json")], ["--key", R(run, "presenter", "key.json")]]) if (exists(file)) ca.push(flag, file);
+      ca.push("--imagegen", imagegenState() === "ready" ? "ready" : "off");
+      const r = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "presenter.mjs"), ...ca], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" }, timeout: 60000 });
+      let j = null;
+      try { j = JSON.parse(r.stdout); } catch {}
+      if (r.status === 2) {
+        const errs = j && Array.isArray(j.findings) ? j.findings.filter((x) => x.level === "error") : [];
+        P.push(`presenter.mjs check says rewrite${errs.length ? `: ${errs.length} error(s), first: ${errs[0].beat ? errs[0].beat + " " : ""}${errs[0].code}: ${errs[0].message}${errs[0].fix ? " (fix: " + errs[0].fix + ")" : ""}` : " (run it and fix what it names)"}`);
+      } else if (r.status !== 0) P.push(`presenter.mjs check could not read the plan: ${(r.stderr || r.stdout || "").trim().split("\n")[0]}`);
+      else if (j && Array.isArray(j.findings)) for (const w of j.findings.filter((x) => x.level !== "error").slice(0, 5)) W.push(`${w.beat ? w.beat + " " : ""}${w.code}: ${w.message}`);
+      break;
+    }
     case "script-editor": {
       const n = jsonMaybe(R(run, "story", "edit-notes.json"));
       if (!n || !Array.isArray(n.pitches)) { P.push("story/edit-notes.json is missing or has no pitches[]"); break; }
@@ -863,6 +931,30 @@ async function checkRole(run, role, key) {
     }
     case "scene-animator": {
       if (!pj) { P.push("--project <videos/name> required"); break; }
+      if (PRES_KEY.test(String(key))) {
+        const pl = key.startsWith("plate-"), sub = pl ? "plates" : "graphics", nm = pl ? key.slice(6) : key;
+        const gf = path.join(pj, "compositions", sub, `${nm}.html`);
+        if (!exists(gf)) { P.push(`compositions/${sub}/${nm}.html is missing`); break; }
+        const rep = readMaybe(R(run, "crew", "animators", `${key}.md`));
+        if (!rep) P.push(`crew/animators/${key}.md is missing`);
+        else {
+          if (!/^##\s+Events/mi.test(rep)) P.push(`crew/animators/${key}.md needs a "## Events" section`);
+          const so = (rep.split(/^##\s+Showing off/mi)[1] || "").split(/^##\s/m)[0].trim();
+          if (so.length < 40) P.push(`crew/animators/${key}.md needs "## Showing off": what in this graphic would make a reel, and what you did to earn it`);
+        }
+        for (const sfx of ["overview", "move"]) if (!exists(R(run, "crew", "animators", `${key}-${sfx}.png`))) P.push(`no ${sfx} strip (crew/animators/${key}-${sfx}.png): look at your motion`);
+        if (/data-scaffold|rasanai:scaffold/i.test(readMaybe(gf))) P.push(`compositions/${sub}/${nm}.html is still the scaffold: replace it with the designed ${pl ? "plate" : "graphic"}`);
+        const r2 = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "obey.mjs"), "--project", pj, "--json"], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" } });
+        let j2 = null;
+        try { j2 = JSON.parse(r2.stdout); } catch {}
+        if (!j2) W.push("obey.mjs could not run");
+        else {
+          const rf = path.join("compositions", sub, `${nm}.html`);
+          const e2 = (j2.findings || []).filter((x) => x.file === rf && x.severity === "error");
+          if (e2.length) P.push(`obey.mjs: ${e2.length} violations in ${rf} (first: ${e2[0].rule}${e2[0].target ? " on " + e2[0].target : ""})`);
+        }
+        break;
+      }
       const n = Number(key);
       const dir = path.join(pj, "compositions", "frames");
       const file = exists(dir) ? fs.readdirSync(dir).find((f) => new RegExp(`^0*${n}[-_.]`).test(f) && f.endsWith(".html")) : null;

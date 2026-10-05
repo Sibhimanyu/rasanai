@@ -26,11 +26,12 @@ extension StudioStore {
         let status = settings.statuses[agent.id] ?? "Set up your director in Help → Show Welcome."
         let signIn = PreflightItem("account", agent.title, agentReady ? "The CLI reports signed in." : status, agentReady ? .ready : .blocked)
         let savedFiles = hasProject ? await Task.detached { (try? ProjectSources.files(in: project)) ?? [] }.value : []
-        let env = node.map { runtime.environment(node: $0) } ?? ProcessInfo.processInfo.environment
+        let env = node.map { runtime.environment(node: $0, settings: settings) } ?? ProcessInfo.processInfo.environment
         let directories = [node?.deletingLastPathComponent().path].compactMap { $0 } + LocalAgent.searchDirectories
         let currentRun = queued?.run ?? (project == selectedProjectURL ? runURL : nil)
         let report = await FilmPreflight.check(PreflightConfiguration(node: node, engine: DirectorRuntime.engineURL, driver: DirectorRuntime.driverURL,
-            directories: directories, environment: env, project: project, sources: Array(Set(savedFiles + selectedSources)), existingRun: currentRun))
+            directories: directories, environment: env, project: project, sources: Array(Set(savedFiles + selectedSources)), existingRun: currentRun,
+            codex: settings.imageGenerationCodexURL, imageGeneration: settings.generateImagesWithCodex))
         guard preflightGeneration == identity else { return }
         preflightReport = PreflightReport(items: [signIn] + report.items)
     }

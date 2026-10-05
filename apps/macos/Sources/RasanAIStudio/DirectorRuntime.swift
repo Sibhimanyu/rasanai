@@ -34,12 +34,18 @@ final class DirectorRuntime {
         let source = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../Runtime/director-driver.mjs").standardizedFileURL
         return FileManager.default.fileExists(atPath: source.path) ? source : nil
     }
-    func environment(node: URL) -> [String: String] {
+    func environment(node: URL, settings: StudioSettings? = nil) -> [String: String] {
         var env = ProcessInfo.processInfo.environment
         env["PATH"] = ([node.deletingLastPathComponent().path] + LocalAgent.searchDirectories).joined(separator: ":")
         env["RASANAI_NO_UPDATE_CHECK"] = "1"
         env["RASANAI_AUTO_UPDATE"] = "0"
         env.removeValue(forKey: "CLAUDECODE")
+        // Image generation goes through Codex whichever director runs the film.
+        env.removeValue(forKey: "RASANAI_IMAGEGEN")
+        if let settings {
+            if let codex = settings.imageGenerationCodexURL { env["RASANAI_CODEX_BIN"] = codex.path }
+            if !settings.generateImagesWithCodex { env["RASANAI_IMAGEGEN"] = "off" }
+        }
         return env
     }
     func start(project: URL, existingRun: URL? = nil, request: String, settings: StudioSettings, agent selectedAgent: LocalAgent? = nil, model: String? = nil, unrestrictedTools: Bool? = nil) async throws -> URL {
@@ -58,10 +64,11 @@ final class DirectorRuntime {
         guard settings.isReady(agent) else { throw RuntimeError.directorNotReady(settings.statuses[agent.id] ?? "Check sign-in in Settings → Director.") }
         status = "Checking tools, sources and free space…"
         let files = try await Task.detached { try ProjectSources.files(in: project) }.value
-        let environment = environment(node: node)
+        let environment = environment(node: node, settings: settings)
         let report = await FilmPreflight.check(PreflightConfiguration(node: node, engine: engine, driver: driver,
             directories: [node.deletingLastPathComponent().path] + LocalAgent.searchDirectories, environment: environment,
-            project: project, sources: files, existingRun: existingRun))
+            project: project, sources: files, existingRun: existingRun,
+            codex: settings.imageGenerationCodexURL, imageGeneration: settings.generateImagesWithCodex))
         preflightReport = report
         guard report.canStart else { throw RuntimeError.preflightFailed(report.blockers) }
         status = "Preparing the film folder…"
@@ -128,7 +135,7 @@ final class DirectorRuntime {
         guard let node = settings.nodeURL else { throw RuntimeError.missingNode }
         guard let engine = Self.engineURL else { throw RuntimeError.missingEngine }
         let code = try await Self.execute(node, arguments: [engine.appendingPathComponent("scripts/console.mjs").path,
-            "serve", "--run", run.path, "--root", root.path], directory: root, environment: environment(node: node))
+            "serve", "--run", run.path, "--root", root.path], directory: root, environment: environment(node: node, settings: settings))
         guard code == 0 else { throw RuntimeError.consoleFailed }
     }
     func clearPresentation() {

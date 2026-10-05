@@ -3,7 +3,7 @@ name: rasanai
 description: >
   RasanAI: creative direction for entire videos made with Claude and HyperFrames (launch films,
   explainers, PR videos, brand films, music videos, reels cut from a folder of raw footage with
-  motion-graphics cards between clips and overlays/captions on top, captioned talking heads, and short
+  motion-graphics cards between clips and overlays/captions on top, green-screen talking heads put into generated image worlds, captioned talking heads, and short
   motion graphics). The user makes five calls in a local Director's Console: confirm the brief, pick one of
   three scripts (written by a dedicated script pass from the product's truth), pick one of three looks for that
   story (three bespoke design systems a design desk researches and blends for that very film, drawn live on its first line), leave notes on a timed
@@ -69,7 +69,7 @@ SKILL_DIR=$(for d in ~/.claude/skills/rasanai ~/.agents/skills/rasanai .claude/s
 bash "$SKILL_DIR/scripts/setup.sh" --open
 ```
 
-`setup.sh` needs only bash and curl. It finds Node ≥ 20 (the PATH, then nvm, fnm, Volta, asdf, Homebrew; if there is none it downloads a private, checksum-verified copy of Node LTS into `~/.rasanai/node`; nothing system-wide changes), checks for updates, checks HyperFrames, ffmpeg and the browser, makes the run folder, adds `.rasanai/` to `.gitignore` and starts the Director's Console. It prints `SKILL_DIR=`, `RUN=`, `NODE=`, `UPDATE=`, `HYPERFRAMES=`, `BROWSER=`, `CONSOLE=` and ends with `READY` or `FAILED`; every `PROBLEM:` line says what broke and the fix. Tell the user each problem in plain words and fix what you can before going on.
+`setup.sh` needs only bash and curl. It finds Node ≥ 20 (the PATH, then nvm, fnm, Volta, asdf, Homebrew; if there is none it downloads a private, checksum-verified copy of Node LTS into `~/.rasanai/node`; nothing system-wide changes), checks for updates, checks HyperFrames, ffmpeg and the browser, makes the run folder, adds `.rasanai/` to `.gitignore` and starts the Director's Console. It prints `SKILL_DIR=`, `RUN=`, `NODE=`, `UPDATE=`, `HYPERFRAMES=`, `BROWSER=`, `IMAGEGEN=`, `CONSOLE=` and ends with `READY` or `FAILED`; every `PROBLEM:` line says what broke and the fix. Tell the user each problem in plain words and fix what you can before going on. `IMAGEGEN=ready|off|no-codex|signed-out|unknown` says whether pictures can be generated on the user's ChatGPT plan through the Codex CLI (`IMAGEGEN_MODEL=` is the model it will use); it is never a problem, only a capability. Only `ready` generates (`references/imagery.md`); otherwise Claude draws the backdrops, and says so once.
 
 **`PATH_PREFIX=` means Node isn't on the shell's PATH.** Put that prefix, literally, in front of every later command that runs `node` or `npx` (e.g. `PATH="/Users/me/.rasanai/node/bin:$PATH" node …/story.mjs …`), including the HyperFrames workflow's own commands.
 
@@ -123,7 +123,8 @@ node $SKILL_DIR/scripts/memory.mjs recommend --step aspect        # a remembered
   | a GitHub pull request / code change | `pr-to-video` |
   | cut to a music track (lyric video, beat-synced promo) | `music-to-video` |
   | **a folder of raw clips** to cut together, with cards between clips and titles/captions on top | `reel` → **Footage reels** |
-  | one continuous talking-head clip + plain captions | `embedded-captions` |
+  | **a talking-head clip on a green or blue screen**, to be put into generated image worlds with motion graphics | `presenter` → **Presenter films** |
+| one continuous talking-head clip + plain captions | `embedded-captions` |
   | talking-head / interview footage + designed overlay cards | `talking-head-recut` |
   | anything else: brand film, montage, custom multi-scene piece; a video for a talk or keynote | `general-video` |
   | one short unnarrated unit (a title, sting, stat hit, under ~10 s) | `motion-graphics` → **Single units** |
@@ -292,6 +293,19 @@ Brief → **Footage** → Story → Look → **Cut** (the reel's Animatic) → B
 
 A bespoke card (a product animation, a logo sting) can be built through **Single units** and dropped into the cut as `{"type": "card", "src": "videos/<unit>/compositions/index.html", "duration": N}`.
 
+## Presenter films (route `presenter`)
+
+Brief → **Footage** → Story → Look → Animatic → Build → Final. A person talking to camera, shot on a green or blue screen (or any single-subject talking clip to be put "into" other worlds), is keyed out; behind and around them the film cuts between generated image plates made for what they are saying, with camera moves and motion graphics. The voice is the spine and the clip plays whole. Playbook, plan format and checks: `references/presenter.md`; prompts: `references/imagery.md`; scripts: `presenter.mjs`, `imagegen.mjs`.
+
+1. **Footage**: `node $SKILL_DIR/scripts/reel.mjs scan --footage "<clip folder>" --run "$RUN"` (transcript and contact sheet; copy the clip's word transcript from `footage.json` to `$RUN/presenter/transcript.json`), then `node $SKILL_DIR/scripts/presenter.mjs key --clip <clip> --out "$RUN/presenter"` and `presenter.mjs beats --transcript "$RUN/presenter/transcript.json" --out "$RUN/presenter/beats.json"`. **Look at `key-check.png`** (the edge over grey and over magenta) and at the contact sheet; a poor key is a `warnings` line to the user, not something to hide. Push `footage`.
+2. **Story**: three **visual writers** (`crew.mjs plan --route presenter …`, `crew.mjs brief --role visual-writer --key Sure|Bold|Wild`) each write `presenter/plan-<Label>.json`, accepted on `crew.mjs check` (which runs `presenter.mjs check`). Push `story` with each plan as beats: `on_screen` = the graphics' text, `vo` = `say`, `visual` = the layout and the plate prompt in plain words; the title and `idea` are the logline. `choose` copies the plan to `presenter/plan.json`.
+3. **Look**: the design desk as usual; every DESIGN.md also carries an `## Imagery` section (`design.mjs check-system` requires it on this route).
+4. **Animatic**: `presenter.mjs plates --plan presenter/plan.json --look look/DESIGN.md --out "$RUN/presenter/images.json"` writes the batch; run `imagegen.mjs batch --plan … ` **in the background** and post an `activity` line per image, saying the count first ("Making 9 pictures for the film: about 5 minutes"; each image is a Codex run of about 1.5 minutes on the user's ChatGPT plan). Look at `imagegen.mjs sheet` yourself and regenerate weak plates with a sharpened prompt, then `presenter.mjs stills` and push `animatic` with the stills as the scenes and the clip's audio as `music.file`. A note on a plate gets a new prompt and only that plate is regenerated.
+5. **Build**: `presenter.mjs build --plan presenter/plan.json --key presenter/key.json --plates "$RUN/presenter/plates" --project-dir videos/<name> --captions <words.json> --look look/DESIGN.md` writes the project, its graphic scaffolds and `briefs/graphics/`; one scene animator per graphic (`crew.mjs brief --role scene-animator --key b3-1 --project videos/<name>`) and per designed plate (`--key plate-p2`, from `briefs/plates/`); then the gates (`obey.mjs`, `slop.mjs`), a draft render, the critics.
+6. **Final** as above.
+
+**Without Codex** (`IMAGEGEN` not `ready`): the visual writers use `designed` plates (Claude-drawn backdrops in the design system), the console says so once with how to turn images on (`npm install -g @openai/codex`, then `codex login`), and everything else is the same.
+
 ## Single units (route `motion-graphics`)
 
 One short unnarrated unit (title, sting, stat hit, lower third): Brief → Look (three bespoke systems drawn on the headline; Story optional) → Animatic (the key poses, optional keyframe board: `board.mjs`, `references/board-format.md`) → `handoff.mjs --decisions "$RUN/decisions.json"` (`references/handoff.md`) → build through `/motion-graphics` with `DISPATCH.md` appended to every subagent, `obey.mjs` + `slop.mjs` after verify → Final. The crew is small here (`crew.mjs plan --route motion-graphics`): the brand researcher when there's a brand, the Motion Director's score for the one unit (its shots are the key poses), and the motion critic on the built unit.
@@ -336,6 +350,8 @@ Push the current film to the Final (its render, markers from STORYBOARD.md) and 
 | a project's DESIGN.md as the look: shapes read, roles, fonts, frame.md conversion | `references/brand.md` |
 | per-route integration: what RasanAI pre-writes, hook points, scenes.json and video-decisions.json formats | `references/video.md` |
 | footage reels: footage.json, reel.json, cards, overlays, captions, music | `references/reel.md` |
+| presenter films: a keyed talking head in generated image worlds; the visual plan, layouts, the check, cost, no-Codex fallback | `references/presenter.md`, `agents/visual-writer.md`, `scripts/presenter.mjs` |
+| generated images in any route: when, prompt craft, the anchor, review, the slop list | `references/imagery.md`, `scripts/imagegen.mjs` |
 | console payloads per step, action types, security | `references/console.md` |
 | motion.md fields, tween classes, rules, banned patterns, waivers | `references/motion-md-contract.md` |
 | the motion-language terms and their contracts | `taxonomy/dimensions/motion-language.json`, `references/personalities.md` |

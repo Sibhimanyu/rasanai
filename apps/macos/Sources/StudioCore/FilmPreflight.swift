@@ -29,9 +29,13 @@ public struct PreflightConfiguration: Sendable {
     public let project: URL
     public let sources: [URL]
     public let existingRun: URL?
-    public init(node: URL?, engine: URL?, driver: URL?, directories: [String], environment: [String: String], project: URL, sources: [URL], existingRun: URL? = nil) {
+    /// The Codex CLI used for image generation (nil when none was found) and whether Settings allows it.
+    public let codex: URL?
+    public let imageGeneration: Bool
+    public init(node: URL?, engine: URL?, driver: URL?, directories: [String], environment: [String: String], project: URL, sources: [URL], existingRun: URL? = nil, codex: URL? = nil, imageGeneration: Bool = true) {
         self.node = node; self.engine = engine; self.driver = driver; self.directories = directories
         self.environment = environment; self.project = project; self.sources = sources; self.existingRun = existingRun
+        self.codex = codex; self.imageGeneration = imageGeneration
     }
 }
 
@@ -74,6 +78,7 @@ public enum FilmPreflight {
             ? "No render browser was found. HyperFrames may download one on first use; prepare it before working offline."
             : "A local browser executable was found. HyperFrames verifies its compatibility when rendering.", browser == nil ? .warning : .ready,
             command: browser == nil ? "npx --yes hyperframes browser ensure" : nil))
+        rows.append(await imageGenerationRow(config))
         let home = fm.homeDirectoryForCurrentUser
         var roots = [home.appendingPathComponent(".claude/skills"), home.appendingPathComponent(".agents/skills"),
                      config.project.appendingPathComponent(".claude/skills"), config.project.appendingPathComponent(".agents/skills")]
@@ -121,6 +126,21 @@ public enum FilmPreflight {
             rows.append(PreflightItem("disk", "Free space", "\(available) available. Allow at least 1 GB to start; larger source files and renders need more.", level))
         } else { rows.append(PreflightItem("disk", "Free space", "Free space could not be measured. Check the destination drive before rendering.", .warning)) }
         return PreflightReport(items: rows)
+    }
+    /// Never blocks a film: without Codex, presenter films fall back to designed backdrops. Runs `codex login status` only.
+    private static func imageGenerationRow(_ config: PreflightConfiguration) async -> PreflightItem {
+        let title = "Image generation"
+        let install = "npm install -g @openai/codex && codex login"
+        guard config.imageGeneration else {
+            return PreflightItem("imagegen", title, "Image generation is turned off in Settings → Director. Presenter films will use designed backdrops instead of generated images.", .warning)
+        }
+        guard let codex = config.codex, FileManager.default.isExecutableFile(atPath: codex.path) else {
+            return PreflightItem("imagegen", title, "Generated images for presenter films use your ChatGPT plan through Codex, which isn't installed. Without it, films use designed backdrops.", .warning, command: install)
+        }
+        let signedIn = await probe(codex, arguments: ["login", "status"], config: config)
+        return signedIn
+            ? PreflightItem("imagegen", title, "Generated images for presenter films use your ChatGPT plan through Codex.", .ready)
+            : PreflightItem("imagegen", title, "Generated images for presenter films use your ChatGPT plan through Codex. Sign in to Codex to use them; until then films use designed backdrops.", .warning, command: "codex login")
     }
     private static func executable(_ name: String, directories: [String]) -> URL? {
         directories.map { URL(fileURLWithPath: $0).appendingPathComponent(name) }
