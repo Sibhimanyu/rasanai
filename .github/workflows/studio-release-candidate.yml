@@ -13,6 +13,10 @@ on:
         description: Enable Sparkle for a validated public release (requires signed feed)
         type: boolean
         default: false
+      skip_tests:
+        description: Skip tests for an explicitly requested packaging-only candidate
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -28,6 +32,7 @@ jobs:
           test "$(uname -m)" = arm64
           swift --version
       - name: Test native core and managed runtime
+        if: ${{ !inputs.skip_tests }}
         run: |
           swift test --package-path apps/macos
           node apps/macos/Tests/runtime-driver.test.mjs

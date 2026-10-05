@@ -7,7 +7,7 @@ struct FilesSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var trashFile: URL?
     @State private var targeted = false
-    private var locked: Bool { store.isImportingSources || store.runtime.isRunning || store.runtime.isPreparing }
+    private var locked: Bool { store.isImportingSources || store.runtime.isRunning || store.runtime.isPreparing || store.settings.filmQueue.contains { $0.project == store.selectedProjectURL } }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .firstTextBaseline) {
@@ -16,7 +16,7 @@ struct FilesSheet: View {
                     Text("Copies live inside the film. Your originals are never changed.").font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button { chooseFiles() } label: { Label("Add…", systemImage: "plus") }.disabled(store.isImportingSources || store.selectedProjectURL == nil)
+                Button { chooseFiles() } label: { Label("Add…", systemImage: "plus") }.disabled(store.isImportingSources || store.selectedProjectURL == nil || store.settings.filmQueue.contains { $0.project == store.selectedProjectURL })
             }
             if store.projectSources.isEmpty {
                 VStack(spacing: 8) {
@@ -25,12 +25,10 @@ struct FilesSheet: View {
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
-                    VStack(spacing: 0) {
+                    LazyVStack(spacing: 0) {
                         ForEach(store.projectSources, id: \.self) { file in
                             HStack(spacing: 10) {
-                                Image(nsImage: NSWorkspace.shared.icon(forFile: file.path)).resizable().frame(width: 24, height: 24)
-                                Text(file.lastPathComponent).lineLimit(1).truncationMode(.middle)
-                                Spacer()
+                                SourceRow(url: file)
                                 Button { NSWorkspace.shared.activateFileViewerSelecting([file]) } label: { Image(systemName: "magnifyingglass.circle") }
                                     .buttonStyle(.borderless).help("Show in Finder")
                                 Menu {
@@ -44,10 +42,13 @@ struct FilesSheet: View {
                     }
                 }
             }
+            if store.settings.filmQueue.contains(where: { $0.project == store.selectedProjectURL }) {
+                Text("Remove this film from the queue to change its source files.").font(.system(size: 12)).foregroundStyle(.secondary)
+            }
             if store.isImportingSources { ProgressView().controlSize(.small) }
             HStack { Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.defaultAction) }
         }
-        .padding(24).frame(width: 520, height: 420)
+        .padding(24).frame(width: 640, height: 480)
         .overlay { if targeted { RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.rasan, style: StrokeStyle(lineWidth: 2, dash: [6])).padding(6) } }
         .dropDestination(for: URL.self, action: { urls, _ in store.importSources(urls.filter(\.isFileURL)) }, isTargeted: { targeted = $0 })
         .onAppear { store.reloadSources() }

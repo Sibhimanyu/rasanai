@@ -18,7 +18,7 @@ struct HomeView: View {
             VStack(spacing: 34) {
                 greeting
                 newFilmTile
-                if !hasAny && !store.isLoadingProjects { examples }
+                if !hasAny && !store.isLoadingProjects && store.settings.editorDraft(for: nil) == nil { examples }
                 if hasAny { library }
             }
             .padding(.horizontal, 32).padding(.top, 28).padding(.bottom, 40)
@@ -37,8 +37,14 @@ struct HomeView: View {
                     .padding(.horizontal, 8).padding(.vertical, 3)
                     .background(Color(nsColor: .quaternaryLabelColor).opacity(0.5), in: Capsule())
                 }
+                Button { store.path.append(.queue) } label: { Label("Queue" + (store.settings.filmQueue.isEmpty ? "" : " (\(store.settings.filmQueue.count))"), systemImage: "list.number") }
+                Button { store.path.append(.templates) } label: { Label("Templates", systemImage: "doc.on.doc") }
                 Button { store.openBrands() } label: { Label("Brands", systemImage: "swatchpalette").labelStyle(.titleAndIcon) }
                     .help("Your colours, type and logos")
+                Menu {
+                    Button("Check readiness…") { store.showPreflight() }
+                    Button("Import Project…") { store.importProjectPanel() }
+                } label: { Image(systemName: "ellipsis.circle") }
                 HelpButton(title: "Home", lines: [
                     "Start a new film with the big button, or open one of your films below.",
                     "Right-click a film to rename, duplicate, archive or delete it.",
@@ -73,8 +79,8 @@ struct HomeView: View {
                     Image(systemName: "plus").font(.system(size: 22, weight: .medium)).foregroundStyle(Color.rasan)
                 }.frame(width: 56, height: 56)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("New film").font(.system(size: 18, weight: .semibold))
-                    Text("Describe it, add footage if you have some, and RasanAI directs it.")
+                    Text(store.settings.editorDraft(for: nil) == nil ? "New film" : "Continue draft").font(.system(size: 18, weight: .semibold))
+                    Text(store.settings.editorDraft(for: nil) == nil ? "Describe it, add footage if you have some, and RasanAI directs it." : "Your unfinished brief and selected files are saved. Pick up where you left off.")
                         .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
@@ -111,6 +117,8 @@ struct HomeView: View {
                             Button("Open") { open(folder) }
                             Button("Rename…") { renameFolder = folder; renameName = project.name }
                             Button("Duplicate") { store.manageProject(folder, action: "duplicate") }
+                            Button("Check readiness…") { store.showPreflight(project: folder) }
+                            Button("Export Project…") { store.exportProject(folder) }
                             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([folder]) }
                             Button(project.archivedAt == nil ? "Archive" : "Unarchive") { store.manageProject(folder, action: project.archivedAt == nil ? "archive" : "unarchive") }
                             Divider()

@@ -1,5 +1,6 @@
 import SwiftUI
 import StudioCore
+import Heresay
 
 /// The window's root: a NavigationStack with Home at the bottom. No sidebars, no inspectors.
 struct StudioView: View {
@@ -12,7 +13,9 @@ struct StudioView: View {
                 .navigationDestination(for: Route.self) { route in
                     Group { switch route {
                     case .newFilm(let project): NewFilmView(store: store, project: project)
-                    case .film(let url): FilmPage(store: store, url: url)
+                    case .film(let url):
+                        if store.shouldBrowseSeparately(url) { LibraryFilmPage(store: store, url: url) }
+                        else { FilmPage(store: store, url: url) }
                     case .brands:
                         BrandsView(store: store)
                             .toolbar { ToolbarItem(placement: .primaryAction) { HelpButton(title: "Brands", lines: [
@@ -23,30 +26,54 @@ struct StudioView: View {
                         BrandPage(store: store, brand: url)
                             .toolbar { ToolbarItem(placement: .primaryAction) { HelpButton(title: "This brand", lines: [
                                 "These swatches and fonts are read from the brand's DESIGN.md.",
-                                "Choose Edit in TextEdit to change it; the page updates when you come back.",
+                                "Choose Edit brand to change colours, fonts and logo, with a live preview.",
                                 "Deleting a brand moves its folder to the Trash. Existing films keep their copy."]) } }
+                    case .queue: FilmQueueView(store: store)
+                    case .templates: FilmTemplatesView(store: store)
                     case .sample: SamplePage(store: store)
                     } }
-                    .toolbar { ToolbarItem(placement: .navigation) { BackButton(store: store) } }
                 }
         }
         .tint(.rasan)
         .frame(minWidth: 820, minHeight: 560)
         .sheet(item: $store.sheet, onDismiss: {
             if store.sheet == nil && store.settings.showWelcome { store.settings.showWelcome = false }
+            introduceFeedback()
         }) { sheet in
             switch sheet {
             case .welcome: WelcomeView(store: store).tint(.rasan)
             case .log: DirectorLogSheet(runtime: store.runtime).tint(.rasan)
             case .files: FilesSheet(store: store).tint(.rasan)
             case .note: NoteSheet(store: store).tint(.rasan)
+            case .preflight: PreflightView(store: store).tint(.rasan)
+            case .projectTransfer: ProjectTransferView(store: store).tint(.rasan)
+            case .export:
+                if let source = store.exportSource { MovieExportSheet(source: source, captions: store.exportCaptions).tint(.rasan) }
             }
         }
+        .onAppear { introduceFeedback() }
         .onChange(of: store.settings.showWelcome) {
             if store.settings.showWelcome { store.sheet = .welcome }
             else if store.sheet == .welcome { store.sheet = nil }
         }
         .onChange(of: store.settings.projectRoot) { store.reloadProjects() }
+        .onChange(of: store.path) { store.pause() }
+        .onChange(of: store.queueBlockedByFileOperations) {
+            if !store.queueBlockedByFileOperations { Task { await store.startNextQueuedFilm() } }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if (store.runtime.isRunning || store.runtime.isPreparing), let active = store.activeDirectorProject,
+               store.displayedFilmURL != active && store.displayedFilmURL != store.runtime.runURL {
+                HStack(spacing: 10) {
+                    if store.phase.isBusy { ProgressView().controlSize(.small) }
+                    Text("\(store.currentFilmTitle) · \(store.phase.homeLine)").font(.system(size: 12)).lineLimit(1)
+                    Spacer()
+                    Button("Back to running film") { store.showFilm(active) }
+                    Button("Pause") { store.pauseDirector() }.disabled(store.runtime.isPreparing)
+                }.padding(.horizontal, 18).padding(.vertical, 10)
+                    .background(.regularMaterial).overlay(alignment: .top) { Divider() }
+            }
+        }
         .alert("Start with \(store.pendingConsent?.agent.title ?? "your director")?",
                isPresented: Binding(get: { store.pendingConsent != nil }, set: { if !$0 { store.pendingConsent = nil } })) {
             Button("Start") { store.confirmConsent() }
@@ -60,17 +87,10 @@ struct StudioView: View {
             Button("Dismiss", role: .cancel) { store.errorMessage = nil }
         } message: { Text(store.errorMessage ?? "") }
     }
-}
 
-/// macOS has no automatic back button in a NavigationStack, so every pushed page gets the standard chevron.
-struct BackButton: View {
-    @Bindable var store: StudioStore
-    var body: some View {
-        Button {
-            if !store.path.isEmpty { store.path.removeLast() }
-            store.pause()
-        } label: { Image(systemName: "chevron.left") }
-            .help("Back")
-            .keyboardShortcut("[", modifiers: .command)
+    private func introduceFeedback() {
+        guard !store.isDemo, store.settings.hasCompletedWelcome,
+              !store.settings.showWelcome, store.sheet == nil else { return }
+        Heresay.introduce()
     }
 }

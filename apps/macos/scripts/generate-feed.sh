@@ -26,6 +26,6 @@ for staged in "$release_dir"/*.dmg; do
 done
 "$tools/generate_appcast" --account rasanai-studio --maximum-deltas 0 \
     --download-url-prefix "https://github.com/Sibhimanyu/rasanai/releases/download/$tag/" \
-    --link 'https://sibhimanyu.github.io/rasanai/#mac' "$release_dir"
+    --link 'https://sibhimanyu.github.io/rasanai/#download' "$release_dir"
 echo "Release feed: $release_dir/appcast.xml"
 echo 'Generated signed archive metadata. Do not publish the feed until the matching release assets are public and a real upgrade has passed.'

@@ -14,30 +14,41 @@ struct FilmPage: View {
     private var ready: Bool { store.loadedFilm == url }
     private var phase: FilmPhase { store.phase }
     private var showsFinished: Bool { if case .finished = phase { return !store.showChanges } else { return false } }
+    private var showsConsole: Bool { store.consoleAddress != nil && (store.isConnected || store.runtime.isRunning || store.runtime.isPreparing) }
 
     var body: some View {
         Group {
             if !ready {
                 ProgressView().controlSize(.large).frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if store.runURL == nil {
-                if store.runtime.isPreparing || store.runtime.isRunning { StartingView() }
+                if store.runtime.isPreparing || store.runtime.isRunning { StartingView(runtime: store.runtime) }
                 else { DraftView(store: store, url: url, draft: draft) }
             } else if showsFinished {
                 FinishedView(store: store)
             } else if store.consoleAddress != nil && (store.isConnected || store.runtime.isRunning || store.runtime.isPreparing) {
                 ConsoleWorkspace(address: store.consoleAddress!)
             } else if store.runtime.isRunning || store.runtime.isPreparing {
-                StartingView()
+                StartingView(runtime: store.runtime)
             } else {
                 NotRunningView(store: store)
             }
         }
         .background(Color(nsColor: .windowBackgroundColor))
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if ready && !showsFinished && store.runURL != nil {
+                if showsConsole, !store.runtime.stopRequested, let recovery = store.runtime.recovery {
+                    DirectorRecoveryView(store: store, recovery: recovery)
+                } else if store.runtime.isRunning && !store.hasPendingQuestion && store.phase == .working {
+                    DirectorProgressView(store: store)
+                }
+            }
+        }
         .animation(.snappy, value: ready)
         .animation(.snappy, value: showsFinished)
         .navigationTitle(ready ? store.currentFilmTitle : "Film")
         .toolbar { if ready { toolbarItems } }
         .onAppear { store.activateFilm(url) }
+        .task(id: "\(store.settings.agent.id):\(store.settings.path(for: store.settings.agent))") { await store.settings.check(store.settings.agent) }
         .task(id: store.loadedFilm) {
             guard store.loadedFilm == url else { return }
             draft = await Task.detached { [url] in FilmDraft.load(in: url) }.value
@@ -59,6 +70,8 @@ struct FilmPage: View {
                 else if store.canResume { Button("Resume Director") { store.resumeDirector() } }
                 if store.runtime.logURL != nil { Button("Show Log") { store.sheet = .log } }
                 if store.selectedProjectURL != nil { Button("Files…") { store.reloadSources(); store.sheet = .files } }
+                Button("Check readiness…") { store.showPreflight(project: store.selectedProjectURL) }
+                if let project = store.selectedProjectURL { Button("Export Project…") { store.exportProject(project) } }
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([store.selectedProjectURL ?? store.runURL ?? url]) }
                 if store.finalURL != nil { Button("Export Video…") { store.exportVideo() } }
                 if store.runURL != nil { Button("Reconnect") { store.reconnectConsole() }.disabled(store.isReconnecting) }
@@ -101,12 +114,70 @@ struct StatusPill: View {
 // MARK: States
 
 struct StartingView: View {
+    @Bindable var runtime: DirectorRuntime
     var body: some View {
         VStack(spacing: 14) {
             ProgressView().controlSize(.large)
-            Text("Starting RasanAI…").font(.system(size: 15, weight: .medium))
-            Text("Your director is getting set up. This takes a few seconds.").font(.system(size: 12)).foregroundStyle(.secondary)
+            Text(runtime.status).font(.system(size: 15, weight: .medium))
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let elapsed = context.date.timeIntervalSince(runtime.startedAt ?? context.date)
+                Text("\(clockText(max(0, elapsed))) elapsed · Your existing work is kept.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                if elapsed > 20 {
+                    Text("Setup is taking longer than usual. If it fails, RasanAI will explain what to check.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+            }
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct DirectorRecoveryView: View {
+    @Bindable var store: StudioStore
+    let recovery: DirectorRecovery
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(recovery.title).font(.system(size: 13, weight: .semibold))
+                Text(recovery.message).font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            if recovery == .signIn { Button("Sign in…") { store.settings.showWelcome = true } }
+            Button("Show log") { store.sheet = .log }
+            Button("Resume") { store.resumeDirector() }.disabled(!store.canResume)
+        }
+        .padding(14).background(Color.orange.opacity(0.08))
+        .overlay(alignment: .bottom) { Divider() }
+    }
+}
+
+struct DirectorProgressView: View {
+    @Bindable var store: StudioStore
+    @State private var lastActivityAt = Date()
+    private var activity: String { store.snapshot.latestActivity ?? store.snapshot.workingMessage ?? "Your director is working on the film." }
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let elapsed = context.date.timeIntervalSince(store.runtime.startedAt ?? context.date)
+            let quiet = context.date.timeIntervalSince(lastActivityAt) > 120
+            HStack(spacing: 12) {
+                ProgressView().controlSize(.small)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(activity).font(.system(size: 12)).lineLimit(2).textSelection(.enabled)
+                    if quiet {
+                        Text("No new activity for two minutes. Check the log, or pause and resume if needed.")
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 8)
+                Text("\(clockText(max(0, elapsed))) elapsed").font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
+                Button(quiet ? "Show log" : "Details") { store.sheet = .log }
+                Button("Pause") { store.pauseDirector() }
+            }.padding(.horizontal, 16).padding(.vertical, 10)
+        }
+        .background(.regularMaterial).overlay(alignment: .bottom) { Divider() }
+        .onChange(of: store.snapshot.raw["activity"]) { lastActivityAt = Date() }
+        .onChange(of: store.snapshot.workingMessage) { lastActivityAt = Date() }
     }
 }
 
@@ -115,16 +186,25 @@ struct NotRunningView: View {
     var body: some View {
         VStack(spacing: 16) {
             RasanMark().fill(Color.rasanInk.opacity(0.35)).frame(width: 34, height: 42)
-            Text("RasanAI isn't running for this film.").font(.system(size: 20, weight: .semibold))
-            if let code = store.runtime.lastExitCode, code != 0 {
+            Text(store.runtime.recovery?.title ?? "RasanAI isn't running for this film.").font(.system(size: 20, weight: .semibold))
+            if let recovery = store.runtime.recovery {
+                Text(recovery.message).font(.system(size: 13)).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 540)
+            } else if let code = store.runtime.lastExitCode, code != 0 {
                 Text("The last session stopped unexpectedly. The log shows why.").font(.system(size: 13)).foregroundStyle(.secondary)
             } else {
                 Text("Your work is saved. Resume and it carries on where it left off.").font(.system(size: 13)).foregroundStyle(.secondary)
             }
             HStack(spacing: 10) {
-                Button("Resume") { store.resumeDirector() }
-                    .buttonStyle(.borderedProminent).controlSize(.large).disabled(!store.canResume)
-                Button("Reconnect") { store.reconnectConsole() }.controlSize(.large).disabled(store.isReconnecting || store.runURL == nil)
+                if store.runtime.recovery == .signIn {
+                    Button("Sign in…") { store.settings.showWelcome = true }.buttonStyle(.borderedProminent).controlSize(.large)
+                    Button("Resume") { store.resumeDirector() }.controlSize(.large).disabled(!store.canResume)
+                } else {
+                    Button("Resume") { store.resumeDirector() }
+                        .buttonStyle(.borderedProminent).controlSize(.large).disabled(!store.canResume)
+                }
+                if store.runtime.recovery == nil {
+                    Button("Reconnect") { store.reconnectConsole() }.controlSize(.large).disabled(store.isReconnecting || store.runURL == nil)
+                }
                 if store.runtime.logURL != nil, let code = store.runtime.lastExitCode, code != 0 {
                     Button("Show log") { store.sheet = .log }.controlSize(.large)
                 }
@@ -140,7 +220,8 @@ struct DraftView: View {
     @Environment(\.openSettings) private var openSettings
     @State private var starting = false
     private var agent: LocalAgent { store.settings.agent }
-    private var ready: Bool { store.settings.isInstalled(agent) && agent != .custom }
+    private var ready: Bool { store.settings.isReady(agent) }
+    private var queued: Bool { store.settings.filmQueue.contains { $0.project == url } }
     private var shape: String { ["16:9": "Landscape", "9:16": "Portrait", "1:1": "Square"][draft?.aspect ?? "16:9"] ?? "Landscape" }
 
     var body: some View {
@@ -150,7 +231,7 @@ struct DraftView: View {
                     HStack {
                         Text("The brief").font(.system(size: 22, weight: .semibold))
                         Spacer()
-                        Button("Edit") { store.path.append(.newFilm(url)) }.controlSize(.regular)
+                        Button("Edit") { store.path.append(.newFilm(url)) }.controlSize(.regular).disabled(queued)
                     }
                     Text((draft?.brief ?? "").isEmpty ? "No description yet. Edit the brief to add one." : draft!.brief)
                         .font(.system(size: 14)).lineSpacing(3).foregroundStyle((draft?.brief ?? "").isEmpty ? .secondary : .primary)
@@ -168,7 +249,11 @@ struct DraftView: View {
                 }
                 .padding(24).cardSurface()
                 VStack(spacing: 8) {
-                    if ready {
+                    if queued {
+                        Button("View queue") { store.path.append(.queue) }.buttonStyle(.borderedProminent).controlSize(.large)
+                        Text("This film is queued. Remove it from the queue to edit or start it separately.")
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                    } else if ready {
                         Button { start() } label: {
                             HStack(spacing: 8) { if starting { ProgressView().controlSize(.small) }; Text("Start film") }.frame(minWidth: 160)
                         }
@@ -209,17 +294,22 @@ struct DraftView: View {
 struct FinishedView: View {
     @Bindable var store: StudioStore
     @State private var playing = false
+    @State private var previewVersion: FilmVersion?
+    @State private var previewPlayer: AVPlayer?
+    @State private var restoreVersion: FilmVersion?
     private var poster: URL? { store.asset(store.snapshot.scenes(for: .final).first?.thumbnail ?? store.snapshot.scenes(for: .animatic).first?.thumbnail) }
     var body: some View {
         ScrollView {
             VStack(spacing: 22) {
                 ZStack {
                     Color.black
-                    if let player = store.finalPlayer { VideoPlayer(player: player) }
+                    if let player = previewPlayer ?? store.finalPlayer { VideoPlayer(player: player) }
                     if !playing {
-                        if let poster { PosterImage(url: poster, maxPixels: 1600).aspectRatio(contentMode: .fill) }
+                        if previewVersion == nil, let poster { PosterImage(url: poster, maxPixels: 1600).aspectRatio(contentMode: .fill) }
                         Button {
-                            playing = true; store.finalPlayer?.seek(to: .zero); store.finalPlayer?.play()
+                            playing = true
+                            let player = previewPlayer ?? store.finalPlayer
+                            player?.seek(to: .zero); player?.play()
                         } label: {
                             Image(systemName: "play.fill").font(.system(size: 26)).foregroundStyle(.white)
                                 .frame(width: 72, height: 72).background(Circle().fill(.black.opacity(0.28))).background(.ultraThinMaterial, in: Circle())
@@ -234,16 +324,48 @@ struct FinishedView: View {
                 VStack(spacing: 4) {
                     Text(store.currentFilmTitle).font(.system(size: 22, weight: .semibold))
                     Text("\(clockText(store.phaseDuration)) · \(store.snapshot.aspect)").font(.system(size: 12)).foregroundStyle(.secondary)
+                    if let previewVersion {
+                        HStack {
+                            Text("Watching v\(previewVersion.id)").font(.system(size: 12, weight: .medium))
+                            Button("Watch latest") { watch(nil) }
+                        }
+                    }
                 }
                 HStack(spacing: 10) {
                     Button { store.exportVideo() } label: { Label("Export…", systemImage: "square.and.arrow.up") }
                         .buttonStyle(.borderedProminent).controlSize(.large)
-                    Button("Show in Finder") { if let url = store.finalURL { NSWorkspace.shared.activateFileViewerSelecting([url]) } }.controlSize(.large)
+                    Button("Show in Finder") { if let url = store.displayedVideo { NSWorkspace.shared.activateFileViewerSelecting([url]) } }.controlSize(.large)
                     Button("Make changes") { store.showChanges = true }.controlSize(.large)
                 }
+                VStack(alignment: .leading, spacing: 18) {
+                    FilmHistoryView(snapshot: store.snapshot, resolver: store.resolver, onPreview: { watch($0) }, onRestore: { restoreVersion = $0 })
+                    Divider()
+                    Text("Request a revision").font(.headline)
+                    TextField("For example: hold the closing title longer and lower the music", text: $store.directorMessage, axis: .vertical)
+                        .lineLimit(2...5).textFieldStyle(.roundedBorder)
+                    HStack {
+                        Text("Your director makes a new version and explains what changed.").font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Send revision") { store.requestFilmRevision(store.directorMessage) }
+                            .buttonStyle(.borderedProminent).disabled(store.directorMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.isSending || store.runtime.isPreparing)
+                    }
+                }.frame(maxWidth: 820, alignment: .leading)
             }
             .padding(32).frame(maxWidth: .infinity)
         }
+        .confirmationDialog("Restore v\(restoreVersion?.id ?? "")?", isPresented: Binding(get: { restoreVersion != nil }, set: { if !$0 { restoreVersion = nil } }), titleVisibility: .visible) {
+            Button("Ask director to restore") { if let version = restoreVersion { store.restoreFilmVersion(version); restoreVersion = nil } }
+        } message: { Text("Your director will restore this saved version. The other versions are kept.") }
+        .onDisappear {
+            previewPlayer?.pause()
+            store.previewFilm = nil; store.previewVideo = nil
+        }
+    }
+    private func watch(_ version: FilmVersion?) {
+        store.finalPlayer?.pause(); previewPlayer?.pause(); playing = false
+        previewVersion = version
+        previewPlayer = store.asset(version?.video).map(AVPlayer.init(url:))
+        store.previewFilm = store.loadedFilm; store.previewVideo = store.asset(version?.video)
     }
 }
 

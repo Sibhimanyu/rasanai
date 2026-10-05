@@ -1,6 +1,6 @@
 # RasanAI Studio for Mac
 
-A SwiftUI Mac studio with a WebKit-backed full engine console and Sparkle 2.10.0. [Download the community beta](https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.2.0-beta.1). Build 11 (0.2.0 beta 1) is a full redesign: a simple drill-down window, one-page New film, brands as `DESIGN.md` folders, and automatic update checks every 5 hours. If an old build cannot open (build 7 crashed at launch), manually replace it with the new DMG. Requires macOS 14 or newer; building from source also requires Xcode's Swift toolchain. Community packages target Apple Silicon and are ad-hoc signed, not Apple-notarized. Real-agent generation and complete workflow parity remain unverified.
+A SwiftUI Mac studio with a WebKit-backed full engine console and Sparkle 2.10.0. [Download the community beta](https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.3.0-beta.1). Build 12 (0.3.0 beta 1) adds autosaved drafts, a film queue, source previews, reusable templates, native brand editing, version/revision controls, export options, preflight checks and portable projects. If an old build cannot open (build 7 crashed at launch), manually replace it with the new DMG. Requires macOS 14 or newer; building from source also requires Xcode's Swift toolchain. Community packages target Apple Silicon and are ad-hoc signed, not Apple-notarized. Real-agent generation and complete workflow parity remain unverified.
 
 ## Build and launch
 
@@ -22,11 +22,43 @@ RasanAI Studio is one window that drills down: **Home** → **New film**, **Film
 - **Film page**: depends on the film's state. A draft shows its brief with Edit and Start film. A running or reviewing film shows the engine console full-bleed, which is the whole workflow (brief, story, look, animatic, final review), with a status pill in the toolbar. A finished film shows a native player with Export…, Show in Finder and Make changes. If no console is running you get Resume and Show log. The ⋯ menu has Pause/Resume director, Show log, Files, Reconnect and Show in Finder; Files adds, reveals or removes managed source copies while the director is idle. Questions from the director appear in the console, with an optional notification and Dock badge.
 - **Brands**: a brand is a plain folder, `<library>/Brands/<name>/`, holding a `DESIGN.md` (colours, typography, motion) plus an optional logo. Create one from a blank template or by importing a `DESIGN.md`; cards show swatches, font and logo. Choosing a brand for a film copies its `DESIGN.md` into the project (an existing different one is kept as `DESIGN.previous.md`) and its logo into `assets/brand/`, which the engine already uses as the film's brand.
 - **Welcome**: a single first-launch screen that checks for Claude Code and Codex, shows how to install a missing one, and records consent when you press Get started. Reopen it from Help → Show Welcome.
-- **Settings** (⌘,) has two tabs. General: library folder (default `~/Documents/RasanAI`), appearance, notifications, and update checks. Director: Claude Code or Codex, executable path, model, sign-in status with a copyable sign-in command, and an Advanced section for unrestricted tools, the Node path and a custom executable.
+- **Settings** (⌘,) has two tabs. General: library folder (default `~/Documents/RasanAI`), appearance, notifications, and update checks. Director: Claude Code or Codex, executable path, model, sign-in status with guided Terminal setup, and an Advanced section for unrestricted tools, the Node path and a custom executable.
 - **Sample film**: Help → Explore a Sample Film opens a silent 45-second animatic with native artwork to try the review screens without a provider. It is never shown on Home.
 - **Updates**: Sparkle checks automatically every 5 hours (`SUScheduledCheckInterval` 18000) and once at launch; turn it off in Settings → General. Check for Updates… is in the app menu. Updates apply only to releases built with updates enabled.
 
-Open a run folder at launch with:
+### 0.3.0 beta 1 usability improvements
+
+The editor automatically retains the title, brief, options and selected source references when you leave or quit. Home offers **Continue draft**. Source files are copied into the project only on **Save draft**, **Start film** or **Add to queue**; keep the originals available until then. **Discard changes…** clears editor recovery without deleting a saved project or original files. A partially created project is remembered after a failed save or launch so retrying uses the same folder.
+
+Welcome and Director settings offer **Install…** or **Sign in…**, which open setup visibly in Terminal. New CLIs install into `~/.npm-global`, without modifying the signed app bundle or requiring sudo. Right-click a director in Welcome to copy its setup command. Return and press **Recheck** after completing setup. Start becomes available after a successful sign-in check, and the runtime checks again before launch or resume. You can still explore the studio without signing in.
+
+Startup shows the current preparation step and elapsed time. While the director works, a strip above the review console shows its latest activity, elapsed time, log details and Pause. After two minutes without a new activity update, it suggests checking the log; this does not imply a render has failed. Unexpected exits with recognized failure messages show recovery advice and Resume. Unrecognized failures keep the log available instead of guessing a cause.
+
+You can browse and export other films, prepare and save another draft, edit brands and manage inactive projects while a film runs. The active director keeps its own connection and published state. A bar at the bottom returns to the running film or pauses it. Starting a second director and modifying the active project's files remain unavailable until it is paused or finished.
+
+**Edit brand…** opens a native editor with hex colours/color pickers, font names and installed-font selection, logo replacement/removal and a live preview. It preserves other design notes, checks for outside edits, and keeps the previous design as `DESIGN.previous.md`. Films already created from that brand keep their existing copy.
+
+Finished films show published version history, change descriptions and addressed notes. Historical videos can be previewed when their paths are published. Restore requests and written revisions go through the existing director/console workflow; the app does not change live session files itself.
+
+**Export…** offers the original render, MP4 up to 1080p, or MP4 up to 720p. Optional SRT/VTT captions are saved alongside the video, with a separate filename if captions already exist. The export sheet shows progress and the completed destination with **Show in Finder**. Original renders are retained when exporting a resized video.
+
+**Queue** on Home (Command-Shift-Q) shows films waiting for the director. In the editor, **Add to queue** saves the project and source copies, then starts it when the director is free. Films run sequentially and still wait for your reviews. The next item starts only after the director exits successfully and the session publishes a finished video with a `done` status. Errors and stopping a film pause the queue. **Pause queue** lets the current film continue; **Stop film** stops it and retains its saved run. Move waiting films earlier/later or remove them; removing an item keeps its project. Queued briefs and sources are held until you remove the item. Queue entries, selected director/model and permission choices are persisted. Sign-in is checked at launch; unrestricted tools also require the current Settings opt-in. After quitting/relaunching, use **Resume queue** explicitly. Keep the app open for automatic advancement.
+
+Attached files show native thumbnails, file size, media duration and image/video dimensions where readable. Click the thumbnail, filename or eye button to preview. Footage/audio use native playback; images and documents use Quick Look. This is available before saving in the editor and for copied files in **Files…**.
+
+**Templates** on Home stores reusable briefs and film options. Choose **Save as template…** in the editor, then **Use template** for a later film. Rename and delete templates from the library. Applying a template asks before replacing an existing brief/options and keeps the film name and files. Missing brands are reported so you can choose a replacement. Source files and provider sign-in are not part of a template.
+
+**Check readiness…** is available in Home’s More menu, the Film menu, the editor toolbar and the queue. It checks director sign-in, Node.js 20+, bundled tools, FFmpeg/ffprobe, npx, renderer/browser/design resource availability, source readability, writable storage, saved run validity and free space. Missing required tools, unreadable sources/folders, invalid saved state and less than 1 GB of free space block launch. Less than 5 GB is a preparation note; larger films may need substantially more. Renderer/browser/resources that can be installed on demand are preparation notes with copyable setup commands. Checks never install tools or download anything. Availability does not guarantee renderer compatibility or successful generation. Start/resume/queue launches run the local checks again before creating a run or invoking the director.
+
+**Export Project…** is in a Home card’s context menu and the Film menu. Pause the film before packaging its active project. Save a new `.rasanaiproject` Finder package outside the original folder. It includes sources, composition files, exports, frame packets and native run history. Local connection tokens, jobs/logs, action queues, hidden configuration and dependency caches are omitted. External files must be attached into the project first; project-internal links are rejected rather than followed.
+
+Use **File → Import Project…**, Home’s More menu, or open the package from Finder to create a separate film in the current library. Choose a new name; import never merges into an existing film. Local absolute references in JSON and common project/composition text are relocated, source asset bytes are preserved, and the imported project gets a new identity. Imported review actions are cleared so they can be submitted again; provider accounts and running consoles are not transferred. Import does not execute project code or start a director. Review the film, check readiness, then resume with your own account. Project-specific external links, fonts and dependencies may still need setup on the destination Mac.
+
+Transfers show byte progress and support cancellation. Complete content is published by an exclusive rename; failed/cancelled transfers remove only their staging folder, leaving originals and existing destinations intact. Quit cancels and waits for an active transfer before closing.
+
+Navigation uses the native Back chevron once. Command-[ goes back; Command-Shift-H returns Home.
+
+To open a run folder at launch:
 
 ```bash
 open "dist/RasanAI Studio.app" --args --run /absolute/path/to/workspace/.rasanai/run-name
@@ -35,6 +67,8 @@ open "dist/RasanAI Studio.app" --args --run /absolute/path/to/workspace/.rasanai
 ### Snapshot harness
 
 `open "dist/RasanAI Studio.app" --args --snapshot /absolute/output/dir` renders the main screens offscreen at 1120 × 740, in light and dark, to PNGs (`home`, `home-empty`, `new-film`, `film-draft`, `film-finished`, `brands`, `brand`, `welcome`, `settings-general`, `settings-director`, each with a `-dark` variant), then exits. It uses seeded fake data in a temporary folder, never your library, and needs no Screen Recording permission.
+
+Additional snapshots cover `home-recovered-draft`, `editor-recovered-draft`, `film-starting`, `film-progress` and `film-recovery`. Authentication checks use local executable fixtures and never invoke provider CLIs in snapshot mode.
 
 ## Engine boundary
 
@@ -49,8 +83,8 @@ The app is not App-Sandboxed. Local asset resolution rejects remote URLs, escapi
 ## Community packaging and updates
 
 ```bash
-STUDIO_BUILD=11 bash scripts/build-community.sh
-STUDIO_TAG=studio-v0.2.0-beta.1 bash scripts/generate-feed.sh
+STUDIO_VERSION=0.3.0 STUDIO_BUILD=12 bash scripts/build-community.sh
+STUDIO_TAG=studio-v0.3.0-beta.1 bash scripts/generate-feed.sh
 ```
 
 Use a new increasing build number each time. The build script downloads a pinned, checksum-verified official Node distribution, bundles engine/Node/Sparkle, verifies bundle integrity, and creates a DMG with an Applications link and installation notice. It refuses to overwrite a DMG. Existing app builds are preserved in `dist/previous-build-*.app`.

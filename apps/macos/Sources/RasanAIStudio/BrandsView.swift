@@ -267,6 +267,7 @@ struct BrandPage: View {
     @State private var text = ""
     @State private var confirmDelete = false
     @State private var error: String?
+    @State private var showEditor = false
 
     var body: some View {
         Group {
@@ -277,9 +278,13 @@ struct BrandPage: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle(model?.name ?? "Brand")
         .onAppear(perform: reload)
+        .sheet(isPresented: $showEditor) {
+            if let model { BrandEditorSheet(brand: model, design: text) { reload() } }
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
+                    Button("Edit Brand…") { reload(); showEditor = true }
                     Button("Edit in TextEdit") { edit() }
                     Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([brand]) }
                     Divider()
@@ -325,7 +330,7 @@ struct BrandPage: View {
                         }
                     }
                     Spacer()
-                    Button("Edit in TextEdit") { edit() }
+                    Button("Edit brand…") { reload(); showEditor = true }.buttonStyle(.borderedProminent)
                 }
 
                 if !b.colors.isEmpty {

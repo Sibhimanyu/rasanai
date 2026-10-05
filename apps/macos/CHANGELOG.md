@@ -2,6 +2,27 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## 0.3.0 beta 1 (build 12) — 2026-10-05
+
+- Check director sign-in, Node, FFmpeg/ffprobe, renderer/browser availability, source access, folder writes, saved review state and free space. Recheck from Home, film/editor menus and the queue; block launches on required failures before starting a director.
+- Export and import `.rasanaiproject` Finder packages with sources, compositions, rendered films and review history. Relocate local references, assign imported films a new identity, omit connection tokens/jobs/logs/action queues/caches, and publish completed transfers without overwriting existing projects. Show progress, cancellation and Finder/open controls.
+
+- Queue films to run one at a time with reorder, pause, remove and stop controls. Advance only after successful exit and a published finished video; preserve review gates, paused/failed runs and queue entries across relaunch.
+- Preview attached footage, audio, images and documents with native thumbnails, playback, duration, dimensions and file sizes in the editor and Files sheet.
+- Save reusable film templates with brief, brand, length, shape and motion level; use, rename or delete them without copying source files. Confirm before replacing an existing brief.
+
+- Browse and export other films, prepare and save drafts, and manage inactive projects while the director keeps working. A persistent control returns to the running film without replacing its session.
+- Edit brand colours, fonts, name and logo inside the app with a live preview. Preserve existing design notes and save the previous design as `DESIGN.previous.md`.
+- Native final review shows version history, published changes and addressed notes, with historical video previews when available and requests to revise or restore through the director.
+- Export the original render or an MP4 up to 1080p/720p, optionally deliver SRT/VTT captions alongside it, and show the saved destination. Existing caption files are preserved under separate names.
+- Use the native navigation Back button; remove the duplicate custom chevron. Keep Command-[ and add Command-Shift-H for Home.
+- Automatically retain unfinished film briefs, options and selected source references between editor visits and app launches. Home offers Continue draft; saved projects and original files are kept when discarding editor changes.
+- Install or sign in to a director visibly in Terminal, recheck readiness, and verify sign-in again before launching or resuming a film.
+- Show the actual startup step, elapsed time and latest director activity. Offer log and pause controls when progress is quiet, and specific recovery advice for known sign-in, usage-limit, file-permission and missing-tool failures.
+- Add provider-free draft persistence, launch readiness and failed-director recovery tests, plus snapshots for the new states.
+
+Packaging validation: release compilation and bundle/archive integrity checks. Feature tests and installed-app update testing were skipped for this beta at the maintainer’s request; real-provider generation remains unverified.
+
 ## 0.2.0 beta 1 (build 11) — 2026-10-04
 
 - Redesigned from the ground up: Home with your films, a one-page New film, and a Film page that shows the right thing for its state (brief, live workflow, or finished video). No sidebars; back button and a help button on every screen.

@@ -32,6 +32,24 @@ final class StudioSettings {
     var notificationsEnabled: Bool { didSet { defaults.set(notificationsEnabled, forKey: "notificationsEnabled") } }
     /// Per-agent consent, given once (Welcome or the first Start). Keyed by `LocalAgent.id`.
     var agentConsent: [String: Bool] { didSet { defaults.set(agentConsent, forKey: "agentConsent") } }
+    var filmQueue: [QueuedFilm] { didSet { persist(filmQueue, key: "filmQueue") } }
+    var filmTemplates: [FilmTemplate] { didSet { persist(filmTemplates, key: "filmTemplates") } }
+    private func persist<T: Encodable>(_ value: T, key: String) {
+        do { defaults.set(try JSONEncoder().encode(value), forKey: key) }
+        catch { self.error = "Could not save \(key). \(error.localizedDescription)" }
+    }
+    private var editorDrafts: [String: Data] { didSet { defaults.set(editorDrafts, forKey: "editorDrafts") } }
+    private func editorKey(_ project: URL?) -> String { project?.standardizedFileURL.path ?? "new:\(projectRoot)" }
+    func editorDraft(for project: URL?) -> FilmEditorDraft? {
+        guard let data = editorDrafts[editorKey(project)] else { return nil }
+        return try? JSONDecoder().decode(FilmEditorDraft.self, from: data)
+    }
+    func saveEditorDraft(_ draft: FilmEditorDraft, for project: URL?) {
+        if draft.isEmpty { clearEditorDraft(for: project); return }
+        do { editorDrafts[editorKey(project)] = try JSONEncoder().encode(draft) }
+        catch { self.error = "Your draft could not be saved. \(error.localizedDescription)" }
+    }
+    func clearEditorDraft(for project: URL?) { editorDrafts.removeValue(forKey: editorKey(project)) }
     func hasConsent(_ agent: LocalAgent) -> Bool { agentConsent[agent.id] == true }
     func giveConsent(_ agent: LocalAgent) { agentConsent[agent.id] = true }
     private let defaults: UserDefaults
@@ -39,6 +57,9 @@ final class StudioSettings {
     var colorScheme: ColorScheme? { appearance == "system" ? nil : (appearance == "light" ? .light : .dark) }
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        filmQueue = defaults.data(forKey: "filmQueue").flatMap { try? JSONDecoder().decode([QueuedFilm].self, from: $0) } ?? []
+        filmTemplates = defaults.data(forKey: "filmTemplates").flatMap { try? JSONDecoder().decode([FilmTemplate].self, from: $0) } ?? []
+        editorDrafts = defaults.dictionary(forKey: "editorDrafts") as? [String: Data] ?? [:]
         agentConsent = defaults.dictionary(forKey: "agentConsent") as? [String: Bool] ?? [:]
         hasCompletedWelcome = defaults.bool(forKey: "hasCompletedWelcome")
         reopenLastProject = defaults.object(forKey: "reopenLastProject") as? Bool ?? true
@@ -78,6 +99,13 @@ final class StudioSettings {
         if panel.runModal() == .OK, let url = panel.url { setPath(url.path, for: agent) }
     }
     func check(_ agent: LocalAgent) async {
+        if checking.contains(agent.id) {
+            while checking.contains(agent.id) {
+                do { try await Task.sleep(for: .milliseconds(50)) } catch { return }
+            }
+            return
+        }
+        if !isInstalled(agent), let discovered = agent.discoveredExecutable() { setPath(discovered, for: agent) }
         let executable = path(for: agent)
         guard executable.hasPrefix("/"), FileManager.default.isExecutableFile(atPath: executable) else {
             statuses[agent.id] = "Executable not found. Choose an installed CLI."; return
@@ -117,6 +145,44 @@ final class StudioSettings {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else { return }
         NSWorkspace.shared.openApplication(at: url, configuration: .init())
     }
+    func setupCommand(for agent: LocalAgent) -> String {
+        if isInstalled(agent) {
+            return ([LocalAgent.shellQuote(path(for: agent))] + agent.loginArguments).joined(separator: " ")
+        }
+        // npm bundled with Node defaults to the signed app's runtime folder. Always install into
+        // the user's discoverable CLI directory instead, without changing the app or needing sudo.
+        let prefix = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".npm-global").path
+        let package = agent == .claude ? "@anthropic-ai/claude-code" : "@openai/codex"
+        return "npm install --global --prefix \(LocalAgent.shellQuote(prefix)) \(package) && \(agent.rawValue) \(agent.loginArguments.joined(separator: " "))"
+    }
+    /// Setup runs visibly in Terminal, only when the user presses the setup button.
+    func setupInTerminal(_ agent: LocalAgent) {
+        guard agent != .custom,
+              let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else {
+            error = "Terminal could not be opened. Copy the setup command and run it in your terminal."; return
+        }
+        let command = setupCommand(for: agent)
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("rasanai-setup-\(UUID().uuidString).command")
+        let directories = ([nodeURL?.deletingLastPathComponent().path].compactMap { $0 } + LocalAgent.searchDirectories).joined(separator: ":")
+        let script = """
+        #!/bin/bash
+        export PATH=\(LocalAgent.shellQuote(directories))
+        \(command)
+        setup_result=$?
+        /bin/rm -- \(LocalAgent.shellQuote(file.path))
+        echo
+        echo 'Return to RasanAI and press Recheck when setup is complete.'
+        read -r -p 'Press Return to close this window.'
+        exit "$setup_result"
+        """
+        do {
+            try script.write(to: file, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: file.path)
+            NSWorkspace.shared.open([file], withApplicationAt: terminal, configuration: .init()) { [weak self] _, error in
+                if let error { Task { @MainActor in self?.error = "Could not open setup in Terminal. \(error.localizedDescription)" } }
+            }
+        } catch { self.error = error.localizedDescription }
+    }
     func finishWelcome() { hasCompletedWelcome = true; showWelcome = false }
     /// The agent used by default, falling back to Claude Code.
     var agent: LocalAgent { LocalAgent(rawValue: defaultAgent) ?? .claude }
@@ -124,6 +190,9 @@ final class StudioSettings {
     func isInstalled(_ agent: LocalAgent) -> Bool {
         let p = path(for: agent)
         return p.hasPrefix("/") && FileManager.default.isExecutableFile(atPath: p)
+    }
+    func isReady(_ agent: LocalAgent) -> Bool {
+        agent != .custom && isInstalled(agent) && !checking.contains(agent.id) && statuses[agent.id] == "CLI reports signed in"
     }
     var appVersion: String {
         "\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "local"))"
@@ -250,11 +319,13 @@ struct StudioSettingsView: View {
             }
             Spacer()
             if installed && !signedIn && !settings.checking.contains(agent.id) {
-                Button("Copy sign-in command") { settings.copyLogin(agent) }
+                Button("Sign in…") { settings.setupInTerminal(agent) }
             }
             Button { Task { await settings.check(agent) } } label: { Image(systemName: "arrow.clockwise") }
-                .buttonStyle(.borderless).help("Check again").disabled(!installed || settings.checking.contains(agent.id))
+                .buttonStyle(.borderless).help("Check again").disabled(settings.checking.contains(agent.id))
         }
+        if !installed { Button("Install in Terminal…") { settings.setupInTerminal(agent) } }
+        if installed && !signedIn, let status { Text(status).font(.caption).foregroundStyle(.secondary) }
     }
 
     private func abbreviated(_ path: String) -> String { (path as NSString).abbreviatingWithTildeInPath }

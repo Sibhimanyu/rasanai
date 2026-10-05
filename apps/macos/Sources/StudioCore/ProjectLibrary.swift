@@ -19,13 +19,17 @@ public struct ProjectLibrary: Sendable {
     public func prepare() throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     }
-    public func create(name: String) throws -> URL {
+    public static func validatedName(_ name: String) throws -> String {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, name.count <= 100, name != ".", name != "..",
               !name.contains("/"), !name.contains(":"), !name.contains("\\"),
               !name.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else {
             throw LibraryError.invalidName
         }
+        return name
+    }
+    public func create(name: String) throws -> URL {
+        let name = try Self.validatedName(name)
         try prepare()
         let folder = root.appendingPathComponent(name, isDirectory: true)
         // Never merge into an existing project or follow an existing symlink.
