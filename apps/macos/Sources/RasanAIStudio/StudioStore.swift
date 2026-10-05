@@ -101,6 +101,7 @@ final class StudioStore {
     var preflightSources: [URL] = []
     var isCheckingPreflight = false
     var preflightGeneration = UUID()
+    let toolSetup = ToolSetup()
     var projectTransfer: ProjectTransferRequest?
     var isTransferringProject = false
     var transferProgress: ProjectTransferProgress?
@@ -117,7 +118,7 @@ final class StudioStore {
     var queueMessage = "Resume the queue when you’re ready."
     var queueStarting = false
     var queueHandlingExit = false
-    var queueBlockedByFileOperations: Bool { isSavingFilm || isManagingProject || isImportingSources || isSending || isTransferringProject }
+    var queueBlockedByFileOperations: Bool { isSavingFilm || isManagingProject || isImportingSources || isSending || isTransferringProject || toolSetup.isRunning }
     var newFilmPrefill = ""
     var newFilmPrefillFiles: [URL] = []
     let settings: StudioSettings
@@ -714,7 +715,7 @@ final class StudioStore {
     }
 
     func startDirector(request: String, includeDirection: Bool = true) async {
-        guard !isTransferringProject, !queueStarting, !queueHandlingExit else { errorMessage = "Wait for project transfer or the queue to finish switching films."; return }
+        guard !isTransferringProject, !toolSetup.isRunning, !queueStarting, !queueHandlingExit else { errorMessage = "Wait for tool setup, project transfer or the queue to finish switching films."; return }
         guard let project = launchProject ?? selectedProjectURL ?? workspaceURL else { errorMessage = "Choose a project first."; return }
         var request = request
         if includeDirection, let draft = FilmDraft.load(in: project) {
@@ -752,7 +753,7 @@ final class StudioStore {
             Task { await startDirector(request: "Resume this existing run from its saved state. Preserve completed work and continue with the next pending step.") }
         }
     }
-    var canResume: Bool { !isTransferringProject && !queueStarting && !queueHandlingExit && !isSample && runURL != nil && !runtime.isRunning && !runtime.isPreparing && !isSavingFilm && !isManagingProject && !isImportingSources }
+    var canResume: Bool { !toolSetup.isRunning && !isTransferringProject && !queueStarting && !queueHandlingExit && !isSample && runURL != nil && !runtime.isRunning && !runtime.isPreparing && !isSavingFilm && !isManagingProject && !isImportingSources }
 
     func seek(to time: Double) {
         playhead = min(max(0, time), max(0, duration))

@@ -45,11 +45,11 @@ public enum FilmPreflight {
         var rows: [PreflightItem] = []
         let nodeOK: Bool
         if let node = config.node {
-            nodeOK = await probe(node, arguments: ["-e", "process.exit(Number(process.versions.node.split('.')[0]) >= 20 ? 0 : 1)"], config: config)
-            rows.append(PreflightItem("node", "Node.js", nodeOK ? "Node.js 20 or newer is available." : "Select a working Node.js 20+ installation in Settings → Director → Advanced.", nodeOK ? .ready : .blocked))
+            nodeOK = await probe(node, arguments: ["-e", "process.exit(Number(process.versions.node.split('.')[0]) >= 22 ? 0 : 1)"], config: config)
+            rows.append(PreflightItem("node", "Node.js", nodeOK ? "Node.js 22 or newer is available." : "Select a working Node.js 22+ installation, or clear the override to use bundled Node in Settings → Director → Advanced.", nodeOK ? .ready : .blocked))
         } else {
             nodeOK = false
-            rows.append(PreflightItem("node", "Node.js", "Node.js 20+ is missing. Set its path in Settings → Director → Advanced.", .blocked))
+            rows.append(PreflightItem("node", "Node.js", "Node.js 22+ is missing. Set its path in Settings → Director → Advanced.", .blocked))
         }
         let engineOK = config.engine.map { fm.isReadableFile(atPath: $0.appendingPathComponent("scripts/console.mjs").path) } == true
             && config.driver.map { fm.isReadableFile(atPath: $0.path) } == true
@@ -81,6 +81,19 @@ public enum FilmPreflight {
         let creative = roots.contains { fm.isReadableFile(atPath: $0.appendingPathComponent("hyperframes-creative/SKILL.md").path) }
         rows.append(PreflightItem("skills", "Design resources", creative ? "HyperFrames design resources are installed." : "HyperFrames design resources were not found. Some design helpers require them.", creative ? .ready : .warning,
             command: creative ? nil : "npx --yes hyperframes skills update"))
+        if !creative {
+            let git = executable("git", directories: config.directories)
+            let gitOK: Bool
+            if let git {
+                // Apple's git shim can open an installer dialog. A readiness check must not do that.
+                let shimReady: Bool
+                if git.path == "/usr/bin/git" { shimReady = await probe(URL(fileURLWithPath: "/usr/bin/xcode-select"), arguments: ["-p"], config: config) }
+                else { shimReady = true }
+                gitOK = shimReady ? await probe(git, arguments: ["--version"], config: config) : false
+            } else { gitOK = false }
+            rows.append(PreflightItem("git", "Design setup support", gitOK ? "Git is available for installing design resources." : "Install Apple's command line tools to provide Git, then recheck. The renderer and video tools can be installed separately.", gitOK ? .ready : .warning,
+                command: gitOK ? nil : "xcode-select --install"))
+        }
         do {
             let values = try config.project.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
             guard values.isDirectory == true, values.isSymbolicLink != true else { throw ProjectSources.SourceError.unsafeLocation }

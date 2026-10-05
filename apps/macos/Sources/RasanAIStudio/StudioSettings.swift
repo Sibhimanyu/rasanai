@@ -16,8 +16,12 @@ final class StudioSettings {
     var codexModel = UserDefaults.standard.string(forKey: "codexModel") ?? "" { didSet { defaults.set(codexModel, forKey: "codexModel") } }
     var nodePath = UserDefaults.standard.string(forKey: "nodePath") ?? "" { didSet { defaults.set(nodePath, forKey: "nodePath") } }
     var allowUnrestrictedTools = UserDefaults.standard.bool(forKey: "allowUnrestrictedTools") { didSet { defaults.set(allowUnrestrictedTools, forKey: "allowUnrestrictedTools") } }
+    var bundledNodeURL: URL? {
+        guard let url = Bundle.main.resourceURL?.appendingPathComponent("Runtime/node/bin/node"), FileManager.default.isExecutableFile(atPath: url.path) else { return nil }
+        return url
+    }
     var nodeURL: URL? {
-        let bundled = Bundle.main.resourceURL?.appendingPathComponent("Runtime/node/bin/node").path
+        let bundled = bundledNodeURL?.path
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let paths = nodePath.isEmpty ? ([bundled, home + "/.rasanai/node/bin/node"].compactMap { $0 } + LocalAgent.searchDirectories.map { $0 + "/node" }) : [nodePath]
         return paths.first { FileManager.default.isExecutableFile(atPath: $0) }.map { URL(fileURLWithPath: $0) }

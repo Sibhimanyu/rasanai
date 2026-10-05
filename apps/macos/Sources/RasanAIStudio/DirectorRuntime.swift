@@ -174,7 +174,7 @@ final class DirectorRuntime {
             switch self {
             case .busy: "A director is already running. Stop it before starting another project."
             case .missingEngine: "RasanAI's bundled tools are missing. Download a fresh copy of the app. Your films remain in your library."
-            case .missingNode: "Node.js 20 or newer is required. Check the Node path in Settings → Director → Advanced."
+            case .missingNode: "Node.js 22 or newer is required. Check the Node path in Settings → Director → Advanced."
             case .missingAgent: "Your director isn't installed. Open Help → Show Welcome to install and sign in."
             case .consoleFailed: "The local console could not start. Check the Node installation and the selected project permissions."
             case .preflightFailed(let issues): "Resolve these items before starting:\n\(issues)"

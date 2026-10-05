@@ -1,6 +1,6 @@
 # RasanAI Studio for Mac
 
-A SwiftUI Mac studio with a WebKit-backed full engine console and Sparkle 2.10.0. [Download the community beta](https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.3.0-beta.1). Build 12 (0.3.0 beta 1) adds autosaved drafts, a film queue, source previews, reusable templates, native brand editing, version/revision controls, export options, preflight checks and portable projects. If an old build cannot open (build 7 crashed at launch), manually replace it with the new DMG. Requires macOS 14 or newer; building from source also requires Xcode's Swift toolchain. Community packages target Apple Silicon and are ad-hoc signed, not Apple-notarized. Real-agent generation and complete workflow parity remain unverified.
+A SwiftUI Mac studio with a WebKit-backed full engine console and Sparkle 2.10.0. [Download the community beta](https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.3.1-beta.1). Build 13 (0.3.1 beta 1) adds guided rendering setup with downloads, logs, cancellation and automatic readiness rechecks. Includes draft recovery, a film queue, source previews, templates, native brand editing, revision/export controls and portable projects from build 12. If an old build cannot open (build 7 crashed at launch), manually replace it with the new DMG. Requires macOS 14 or newer; building from source also requires Xcode's Swift toolchain. Community packages target Apple Silicon and are ad-hoc signed, not Apple-notarized. Real-agent generation and complete workflow parity remain unverified.
 
 ## Build and launch
 
@@ -48,7 +48,15 @@ Attached files show native thumbnails, file size, media duration and image/video
 
 **Templates** on Home stores reusable briefs and film options. Choose **Save as template…** in the editor, then **Use template** for a later film. Rename and delete templates from the library. Applying a template asks before replacing an existing brief/options and keeps the film name and files. Missing brands are reported so you can choose a replacement. Source files and provider sign-in are not part of a template.
 
-**Check readiness…** is available in Home’s More menu, the Film menu, the editor toolbar and the queue. It checks director sign-in, Node.js 20+, bundled tools, FFmpeg/ffprobe, npx, renderer/browser/design resource availability, source readability, writable storage, saved run validity and free space. Missing required tools, unreadable sources/folders, invalid saved state and less than 1 GB of free space block launch. Less than 5 GB is a preparation note; larger films may need substantially more. Renderer/browser/resources that can be installed on demand are preparation notes with copyable setup commands. Checks never install tools or download anything. Availability does not guarantee renderer compatibility or successful generation. Start/resume/queue launches run the local checks again before creating a run or invoking the director.
+**Check readiness…** is available in Home’s More menu, the Film menu, the editor toolbar and the queue. It checks director sign-in, Node.js 22+, bundled tools, FFmpeg/ffprobe, npx, renderer/browser/design resource availability, source readability, writable storage, saved run validity and free space. Missing required tools, unreadable sources/folders, invalid saved state and less than 1 GB of free space block launch. Less than 5 GB is a preparation note; larger films may need substantially more. Renderer/browser/resources that can be installed on demand are preparation notes with copyable setup commands. Checks never install tools or download anything. Availability does not guarantee renderer compatibility or successful generation. Start/resume/queue launches run the local checks again before creating a run or invoking the director.
+
+### Guided rendering setup (0.3.1 beta 1)
+
+Choose **Help → Prepare Rendering Tools…**, **Prepare rendering tools…** in Welcome, or **Check readiness…**. The readiness screen offers a plan for missing video/media tools, HyperFrames, its render browser and design resources. Select what to download, then press **Install selected tools**. Activity and a local expandable log remain visible. Setup rechecks readiness after success, cancellation or failure; a successful installer exit is not enough to mark tools ready.
+
+FFmpeg/ffprobe and HyperFrames install into `~/Library/Application Support/RasanAI/Tools`, with private setup logs and an npm cache. Downloads use pinned top-level npm packages (`ffmpeg-static` and `@derhuerst/ffprobe-static` 5.3.0; HyperFrames 0.8.127), the official npm registry and the binary packages' upstream release downloads. A staged package install is checked before publishing executable links. Studio's runtime discovers those managed paths automatically. Browser preparation uses HyperFrames' own command/cache; design resource installation uses its global director skill stores. Git is required for resources: if missing, use **Install Apple command line tools…**, finish the macOS installer, then **Recheck**. Other tools can be installed while resources wait for Git.
+
+Setup requires internet access and Node 22+. Published Studio bundles already include Node/npm; **Use bundled Node** clears a broken custom override. Source builds without bundled Node still need a complete local Node installation. Tool setup leaves signed app contents and film folders untouched, pauses queue advancement, and prevents director starts until the final readiness recheck completes. **Cancel setup** stops the installer and its child processes, removes unpublished staging files and keeps completed installations. Quit waits for setup cancellation. Setup does not start a director or resume the queue automatically.
 
 **Export Project…** is in a Home card’s context menu and the Film menu. Pause the film before packaging its active project. Save a new `.rasanaiproject` Finder package outside the original folder. It includes sources, composition files, exports, frame packets and native run history. Local connection tokens, jobs/logs, action queues, hidden configuration and dependency caches are omitted. External files must be attached into the project first; project-internal links are rejected rather than followed.
 
@@ -83,8 +91,8 @@ The app is not App-Sandboxed. Local asset resolution rejects remote URLs, escapi
 ## Community packaging and updates
 
 ```bash
-STUDIO_VERSION=0.3.0 STUDIO_BUILD=12 bash scripts/build-community.sh
-STUDIO_TAG=studio-v0.3.0-beta.1 bash scripts/generate-feed.sh
+STUDIO_VERSION=0.3.1 STUDIO_BUILD=13 bash scripts/build-community.sh
+STUDIO_TAG=studio-v0.3.1-beta.1 bash scripts/generate-feed.sh
 ```
 
 Use a new increasing build number each time. The build script downloads a pinned, checksum-verified official Node distribution, bundles engine/Node/Sparkle, verifies bundle integrity, and creates a DMG with an Applications link and installation notice. It refuses to overwrite a DMG. Existing app builds are preserved in `dist/previous-build-*.app`.

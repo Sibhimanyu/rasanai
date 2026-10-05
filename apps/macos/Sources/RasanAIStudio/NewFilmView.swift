@@ -254,7 +254,7 @@ struct NewFilmView: View {
                     Button("Start film") { start() }
                         .buttonStyle(.borderedProminent).controlSize(.large)
                         .keyboardShortcut(.return, modifiers: .command)
-                        .disabled(working || trimmedBrief.isEmpty || store.runtime.isRunning || store.runtime.isPreparing)
+                        .disabled(working || trimmedBrief.isEmpty || store.toolSetup.isRunning || store.runtime.isRunning || store.runtime.isPreparing)
                 } else if store.settings.checking.contains(agent.id) {
                     ProgressView().controlSize(.small)
                     Text("Checking director…").font(.system(size: 12)).foregroundStyle(.secondary)

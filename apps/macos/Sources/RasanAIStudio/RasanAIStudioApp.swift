@@ -48,7 +48,7 @@ struct RasanAIStudioApp: App {
             }
             CommandGroup(replacing: .newItem) {
                 Button("New Film") { store.newFilm() }.keyboardShortcut("n")
-                Button("Import Project…") { store.importProjectPanel() }
+                Button("Import Project…") { store.importProjectPanel() }.disabled(store.toolSetup.isRunning)
                 Button("Open Run Folder…") { store.openPanel() }.keyboardShortcut("o")
                 Menu("Open Recent") {
                     ForEach(store.recentRuns, id: \.self) { path in
@@ -83,7 +83,8 @@ struct RasanAIStudioApp: App {
             }
             CommandGroup(replacing: .help) {
                 Link("RasanAI Help", destination: guideURL)
-                Button("Show Welcome…") { store.settings.showWelcome = true }
+                Button("Show Welcome…") { store.settings.showWelcome = true }.disabled(store.toolSetup.isRunning)
+                Button("Prepare Rendering Tools…") { store.showPreflight() }
                 Button("Explore a Sample Film") { store.exploreSample() }
             }
             if snapshotDirectory == nil { HeresayCommands() }
