@@ -16,6 +16,14 @@ final class StudioSettings {
     var codexModel = UserDefaults.standard.string(forKey: "codexModel") ?? "" { didSet { defaults.set(codexModel, forKey: "codexModel") } }
     var nodePath = UserDefaults.standard.string(forKey: "nodePath") ?? "" { didSet { defaults.set(nodePath, forKey: "nodePath") } }
     var allowUnrestrictedTools = UserDefaults.standard.bool(forKey: "allowUnrestrictedTools") { didSet { defaults.set(allowUnrestrictedTools, forKey: "allowUnrestrictedTools") } }
+    /// Lets the director make images through the Codex CLI on the user's ChatGPT plan. On unless turned off.
+    var generateImagesWithCodex: Bool { didSet { defaults.set(generateImagesWithCodex, forKey: "generateImagesWithCodex") } }
+    /// The Codex CLI for image generation, whichever director is selected: the configured path, else discovery.
+    var imageGenerationCodexURL: URL? {
+        let configured = codexPath.hasPrefix("/") ? codexPath : ""
+        let path = FileManager.default.isExecutableFile(atPath: configured) ? configured : LocalAgent.codex.discoveredExecutable()
+        return path.flatMap { FileManager.default.isExecutableFile(atPath: $0) ? URL(fileURLWithPath: $0) : nil }
+    }
     var bundledNodeURL: URL? {
         guard let url = Bundle.main.resourceURL?.appendingPathComponent("Runtime/node/bin/node"), FileManager.default.isExecutableFile(atPath: url.path) else { return nil }
         return url
@@ -79,6 +87,7 @@ final class StudioSettings {
         codexModel = defaults.string(forKey: "codexModel") ?? ""
         nodePath = defaults.string(forKey: "nodePath") ?? ""
         allowUnrestrictedTools = defaults.bool(forKey: "allowUnrestrictedTools")
+        generateImagesWithCodex = defaults.object(forKey: "generateImagesWithCodex") as? Bool ?? true
         do { try library.prepare() } catch { self.error = error.localizedDescription }
     }
     func path(for agent: LocalAgent) -> String {
@@ -291,6 +300,11 @@ struct StudioSettingsView: View {
                 statusLine(agent)
             } footer: {
                 Text("RasanAI directs with your \(agent.title) account. Usage counts toward your plan.")
+            }
+            Section {
+                Toggle("Generate images with Codex", isOn: $settings.generateImagesWithCodex)
+            } footer: {
+                Text("Presenter films can use generated images. Each image is a Codex run on your ChatGPT plan, about a minute and a half.")
             }
             Section {
                 DisclosureGroup("Advanced", isExpanded: $showAdvanced) {

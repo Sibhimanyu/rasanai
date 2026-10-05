@@ -8,6 +8,7 @@
 //        -> <dir>/index.html (the board grid), <dir>/looks.json, <dir>/<A..>/frame.md (+ board.png with --stills)
 //   node design.mjs stills --dir <folder> [--aspect 16:9]   -> PNG stills of Claude's style frames (one .html per key frame)
 //   node design.mjs check-system --dir <run>/design/<label> [--brand DESIGN.md] [--offline]   -> the gate for ONE bespoke design system (exit 0 / 2)
+//        (route presenter: also requires a "## Imagery" section of 25+ words in DESIGN.md)
 //   node design.mjs check-systems --run <run> [--brand DESIGN.md] [--offline]                   -> the gate for all three + that they differ
 //   node design.mjs look-payload --run <run> [--recommended sure|bold|wild] [--hook "<first line>"] [--sub "..."] [--out <file>]
 //        -> the console's Look payload {styles:[{id,name,blend,why,style:{recipe,three?}}], recommended, hook}: exactly the three bespoke systems
@@ -23,6 +24,20 @@ import { readDesignMd, toFrameMd, contrast } from "./lib/design-md.mjs";
 import { track } from "./lib/report.mjs";
 import { checkSystemFull, checkSystems, firstLine, lookPayload, chooseSystem, LABELS } from "./lib/system.mjs";
 import { libraryIds } from "./library.mjs";
+
+// A presenter film (route "presenter") has generated images, so its design systems must carry the art direction
+// they obey: a "## Imagery" section of at least 25 words. Any other route: optional. The run is two folders above
+// <run>/design/<label>; its route comes from decisions.json, the crew plan or the presence of presenter/plan.json.
+function imageryProblems(dir, md) {
+  const run = path.resolve(dir, "..", "..");
+  const rd = (f) => { try { return JSON.parse(fs.readFileSync(path.join(run, ...f), "utf8")); } catch { return {}; } };
+  const route = rd(["decisions.json"]).route || rd(["crew", "plan.json"]).route || (fs.existsSync(path.join(run, "presenter", "plan.json")) ? "presenter" : "");
+  if (route !== "presenter") return [];
+  const m = String(md || "").match(/^##\s+Imagery[^\n]*\n([\s\S]*?)(?=\n##\s|(?![\s\S]))/mi);
+  const words = m ? m[1].trim().split(/\s+/).filter(Boolean).length : 0;
+  if (!m) return ['DESIGN.md has no "## Imagery" section (a presenter film generates images; write the art direction every image obeys: medium, lens, light, palette mapping, texture, room for the person, what never)'];
+  return words < 25 ? [`the "## Imagery" section is ${words} words; a presenter film needs at least 25 (medium, lens, light, palette mapping, texture, room for the person, what never)`] : [];
+}
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -201,6 +216,10 @@ if (cmd === "looks") {
 } else if (cmd === "check-system") {
   if (!args.dir) die("--dir <run>/design/<label> required");
   const r = await checkSystemFull(path.resolve(String(args.dir)), { hook: args.hook && args.hook !== true ? String(args.hook) : undefined, libraryIds: libraryIds(), brand: args.brand && args.brand !== true ? String(args.brand) : null, offline: !!args.offline, label: args.label && args.label !== true ? String(args.label) : undefined, mode: args.mode });
+  const dirAbs = path.resolve(String(args.dir));
+  let md = "";
+  try { md = fs.readFileSync(path.join(dirAbs, "DESIGN.md"), "utf8"); } catch {}
+  r.P.push(...imageryProblems(dirAbs, md));
   console.log(JSON.stringify({ ok: !r.P.length, problems: r.P, warnings: r.W, system: r.info }, null, 2));
   process.exit(r.P.length ? 2 : 0);
 } else if (cmd === "check-systems") {

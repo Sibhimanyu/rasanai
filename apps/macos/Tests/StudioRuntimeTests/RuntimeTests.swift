@@ -126,4 +126,32 @@ import StudioCore
         let engine = try XCTUnwrap(DirectorRuntime.engineURL)
         _ = try await DirectorRuntime.execute(node, arguments: [engine.appendingPathComponent("scripts/console.mjs").path, "stop", "--run", run.path], directory: root, environment: runtime.environment(node: node))
     }
+
+    func testDirectorEnvironmentCarriesCodexPathAndImageGenerationSwitchForEveryDirector() throws {
+        let suite = "rasanai-imagegen-test-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { defaults.removePersistentDomain(forName: suite); try? FileManager.default.removeItem(at: root) }
+        let codex = root.appendingPathComponent("codex")
+        try "#!/bin/sh\nexit 0\n".write(to: codex, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: codex.path)
+        defaults.set(root.path, forKey: "projectRoot")
+        defaults.set(codex.path, forKey: "codexPath")
+        defaults.set("/usr/bin/true", forKey: "claudePath")
+        defaults.set("claude", forKey: "defaultAgent")
+        let settings = StudioSettings(defaults: defaults)
+        XCTAssertTrue(settings.generateImagesWithCodex)
+        let runtime = DirectorRuntime()
+        let node = URL(fileURLWithPath: "/usr/bin/true")
+        var env = runtime.environment(node: node, settings: settings)
+        XCTAssertEqual(env["RASANAI_CODEX_BIN"], codex.path)
+        XCTAssertNil(env["RASANAI_IMAGEGEN"])
+        settings.generateImagesWithCodex = false
+        env = runtime.environment(node: node, settings: settings)
+        XCTAssertEqual(env["RASANAI_IMAGEGEN"], "off")
+        XCTAssertFalse(StudioSettings(defaults: defaults).generateImagesWithCodex)
+        settings.defaultAgent = "codex"
+        XCTAssertEqual(runtime.environment(node: node, settings: settings)["RASANAI_IMAGEGEN"], "off")
+    }
 }

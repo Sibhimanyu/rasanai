@@ -1,6 +1,6 @@
 # The crew: RasanAI's agents
 
-A film is too much work, and too many kinds of work, for one context. Researching a product properly takes dozens of page reads. A script is better written by someone with nothing else on their mind. Eight scenes animated well take eight full attentions. A critic who watched the film being made can't see it fresh. So RasanAI runs a **crew**: one Director and thirteen roles, each with a brief (`agents/<role>.md`), inputs and outputs on disk, and a check that decides when its work is accepted.
+A film is too much work, and too many kinds of work, for one context. Researching a product properly takes dozens of page reads. A script is better written by someone with nothing else on their mind. Eight scenes animated well take eight full attentions. A critic who watched the film being made can't see it fresh. So RasanAI runs a **crew**: one Director and sixteen roles, each with a brief (`agents/<role>.md`), inputs and outputs on disk, and a check that decides when its work is accepted.
 
 The roles exist where one of three things is true, and nowhere else:
 
@@ -24,6 +24,7 @@ Everything deterministic stays a script (`story.mjs check`, `sound.mjs fit`, `ob
 | | `design-system-designer`: ONE bespoke design system for the chosen story, blended from 2 to 4 library references (`design/<label>/DESIGN.md`, `recipe.json`, `blend.json`); with a brand, Sure is the brand extended | after the story is chosen (Look) | 3 (Sure, Bold, Wild); a lyric video: 1, from the chosen treatment | session |
 | Writers' room | `script-writer`: one script around one device | Story | 3 (Sure, Bold, Wild) | session |
 | | `treatment-writer`: one treatment of a song (concept, style bible, motifs, a plate per lyric section, every line an idea) | Story, `music-to-video` only | 3 (Sure, Bold, Wild), instead of the script writers | session |
+| | `visual-writer`: one visual treatment of a presenter film's speech (the layout of the person, a plate and camera per beat, graphics, an `idea`) | Story, `presenter` only | 3 (Sure, Bold, Wild), instead of the script writers | session |
 | | `script-editor`: the hostile reader; line edits, verdicts, a recommendation | Story | 1 | session |
 | Motion | `motion-director`: the score (spine, motif, energy, the depth plan, every shot in 2D or 3D, every seam), then the seam pass | Animatic, then Build | 1, twice | session |
 | Art | `frame-designer`: the key frames, from the score, in the look, with the real product | Animatic | 1 per 2 scenes (5 at most) | session |
@@ -39,6 +40,7 @@ Brief ── push brief ──────────────────�
    └─ local-find → (console ask: may I read these folders?) ─┐
    └─ research desk, in parallel, in the background ─────────┴─→ research-lead
 Story ── story.mjs pick → 3 writers in parallel → pitches → story.mjs check → editor → 1 rewrite round → push story
+Story (a presenter film) ── presenter.mjs key + beats, reel.mjs scan → 3 visual writers in parallel → presenter.mjs check each → push story; the pick is presenter/plan.json
 Story (a song) ── lyrics.mjs align + audio → 3 treatment writers in parallel → treatment.mjs check each → push story; the pick is story/chosen-treatment.json
 Look ─── Director art-directs from the briefing (brand verdict, house grammar) → push look
 Look (a song) ─ none: the chosen treatment's style bible is the look (DIRECTION.md); frame.md is the nearest preset
@@ -134,3 +136,7 @@ A strip at 12 to 15 fps across a move shows its ease (the spacing between frames
 ## Lyric videos in the crew
 
 For a song (`music-to-video`) the writers' room is three `treatment-writer`s and there is no script editor. `crew.mjs plan --route music-to-video` plans: the precedent researcher when `--public` (the artist's and genre's visual conventions, to honour or break), three treatment writers, then the Motion Director's score, key frames, one scene animator per plate, the seam pass and the critics. A writer's work is accepted when `crew.mjs check --role treatment-writer --key <label>` passes: that runs `treatment.mjs check` with `music/lyrics.json` and `music/audio.json` and requires `story/TREATMENT-<label>.md`. The treatment writers' dare is the same push as everyone's: win the pitch against two other writers. Downstream, scene animators and critics get the word timings and sync every word with `RasanMusic` (`references/lyrics.md`); the Motion Director scores inside the plates' fixed space, energy and durations, with the hook plates as one escalating set; the critic judges sync from strips across word starts (`agents/*.md`, "A lyric video"). The format and craft are in `references/lyric-video.md`.
+
+## Presenter films in the crew
+
+For a keyed talking-head clip put into generated worlds (`presenter`) the writers' room is three `visual-writer`s and there is no script editor. `crew.mjs plan --route presenter` plans: research only when `--public` and the speech names a product (product and brand researchers), three visual writers once the clip is keyed, transcribed and cut into beats, three design-system designers (their DESIGN.md must carry `## Imagery`), a scene animator per motion graphic (keyed `<beat>-<n>`, for example `b3-1`, working from `briefs/graphics/<key>.md`), and the motion and film critics. A writer's work is accepted when `crew.mjs check --role visual-writer --key <label>` passes: that runs `presenter.mjs check` on `presenter/plan-<label>.json` with `beats.json`, `key.json` and the image-generation state. The brief tells the writer whether generated plates will be real images or designed backdrops. The dare: one running visual idea, images that argue, a cutaway that lands, one moment the person belongs to the world. The playbook is `references/presenter.md`; picture prompts are `references/imagery.md`.

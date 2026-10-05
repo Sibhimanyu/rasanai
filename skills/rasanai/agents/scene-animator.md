@@ -63,6 +63,15 @@ When the Dispatch context says `lyric_video`, your scene is a **plate** of a son
 - **The signal and the motifs** appear as the treatment says; a motif returns changed. On a hook plate your `change` is the escalation: do exactly what it names, no more and no less, so the set of hook plates climbs.
 - Look at your strips across word starts (`crew.mjs strip` with `--at` the first word starts of two or three lines) to see each word land on its time.
 
+## A presenter film's graphic
+
+When the Dispatch context says `presenter_film`, your key is `<beat>-<n>` (for example `b3-1`) and your job is **one motion graphic** over a plate and a keyed person, not a scene. A key `plate-<id>` is a **designed plate** instead: a backdrop drawn in the design system behind the keyed person (`briefs/plates/<id>.md`, `compositions/plates/<id>.html`), calm where the person stands, no text. You get the graphic brief (`briefs/graphics/<key>.md`: what, when, where, the beat's words, the layout, what the person occupies), the scaffold `presenter.mjs build` wrote at `compositions/graphics/<key>.html` (replace it; the build never overwrites an existing file), the plan and `references/presenter.md`.
+
+- **Stay in your zone.** The person occupies part of the frame for this layout; the graphic never covers them, and it never covers the plate's subject. Safe area 96 px.
+- **Land on the word.** The graphic enters on the word it belongs to (`at` in the brief is absolute seconds inside the beat) and leaves on `out`. Its timeline is registered on `window.__timelines` like any sub-composition; every tween has an ease from motion.md.
+- **Draw it in the design system** (DESIGN.md, frame.md), with real DOM text. If the plate is a generated image, check the graphic against it: contrast on its actual pixels (`assets/plates/`), not on an imagined ground.
+- Look at your strips (`crew.mjs strip --file compositions/graphics/<key>.html`) and report `## Events` and `## Showing off` as for a scene.
+
 ## Finishing with blur
 
 If the delivery render goes through `finish.mjs all` (it does for every Final; drafts skip it), the film gets one shutter on every scene: a Rasan3D scene sets `motionBlur: false`, except a whip-speed 3D move (above about 3 000 px/s on screen), which keeps `motionBlur: { shutter: 0.25 }`. In a 2D scene design a true whip with a stretch (`scaleX`) so its leading edge is not a hard rectangle (`references/finish.md`). The Director flips the flag at delivery; build the scene with the blur on so drafts read right.

@@ -25,6 +25,7 @@ struct NewFilmView: View {
     @State private var replacementDraft: FilmDraft?
     @State private var templateMessage: String?
     @State private var queueNote: String?
+    @State private var showModels = false
     @FocusState private var briefFocused: Bool
 
     private static let lengths: [(String, Int)] = [("15 seconds", 15), ("30 seconds", 30), ("45 seconds", 45), ("60 seconds", 60), ("90 seconds", 90), ("2 minutes", 120)]
@@ -62,23 +63,7 @@ struct NewFilmView: View {
                 TextField("Untitled film", text: $name)
                     .textFieldStyle(.plain).font(.system(size: 30, weight: .semibold, design: .rounded))
                     .disabled(project != nil)
-                VStack(alignment: .leading, spacing: 8) {
-                    label("What's it about?")
-                    ZStack(alignment: .topLeading) {
-                        TextEditor(text: $draft.brief)
-                            .focused($briefFocused)
-                            .font(.system(size: 14)).scrollContentBackground(.hidden)
-                            .padding(.horizontal, 8).padding(.vertical, 8).frame(height: 150)
-                        if draft.brief.isEmpty {
-                            Text("A 30-second launch film for my budgeting app. Calm, confident, a little playful. End on the download button.")
-                                .font(.system(size: 14)).foregroundStyle(.tertiary).padding(.horizontal, 13).padding(.vertical, 16).allowsHitTesting(false)
-                        }
-                    }
-                    .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(briefFocused ? Color.rasan.opacity(0.7) : Color(nsColor: .separatorColor), lineWidth: briefFocused ? 1.5 : 0.5))
-                }
-                dropZone
-                options
+                promptBox
             }
             .disabled(working)
             .padding(.horizontal, 32).padding(.top, 24).padding(.bottom, 28)
@@ -92,6 +77,7 @@ struct NewFilmView: View {
                 HelpButton(title: "New film", lines: [
                     "Say what the film is about in your own words. A sentence is enough.",
                     "Add footage, images or documents if you have them. Copies go into the film; originals stay put.",
+                    "Pick the options under the prompt. The sparkle chip chooses which Claude models direct the film; the recommended mix has Opus direct and animate while Sonnet handles research and routine jobs.",
                     "Start film hands it to your director. You will be asked when it needs you."])
             }
         }
@@ -153,27 +139,147 @@ struct NewFilmView: View {
         Text(text).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
     }
 
-    // MARK: Drop zone
+    // MARK: Prompt box
 
-    private var dropZone: some View {
+    /// One classic prompt box: the brief, any attached files, and every option as a chip along the bottom.
+    private var promptBox: some View {
         VStack(alignment: .leading, spacing: 10) {
-            VStack(spacing: 8) {
-                Image(systemName: "square.and.arrow.down").font(.system(size: 20, weight: .light)).foregroundStyle(targeted ? Color.rasan : .secondary)
-                Text("Add footage, images or documents (optional)").font(.system(size: 13)).foregroundStyle(.secondary)
-                Button("Choose…") { choose() }.controlSize(.small)
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $draft.brief)
+                    .focused($briefFocused)
+                    .font(.system(size: 15)).scrollContentBackground(.hidden)
+                    .frame(height: 112)
+                if draft.brief.isEmpty {
+                    Text("A 30-second launch film for my budgeting app. Calm, confident, a little playful. End on the download button.")
+                        .font(.system(size: 15)).foregroundStyle(.tertiary).padding(.leading, 5).padding(.top, 8).allowsHitTesting(false)
+                }
             }
-            .frame(maxWidth: .infinity).padding(.vertical, 18)
-            .background(targeted ? Color.rasan.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(targeted ? Color.rasan : Color(nsColor: .tertiaryLabelColor), style: StrokeStyle(lineWidth: 1.2, dash: [6, 4])))
-            .animation(.snappy(duration: 0.15), value: targeted)
             if !sources.isEmpty || !existingSources.isEmpty {
                 LazyVStack(spacing: 8) {
                     ForEach(existingSources, id: \.self) { chip($0, removable: false) }
                     ForEach(sources, id: \.self) { chip($0, removable: true) }
                 }.transition(.opacity)
             }
-        }.animation(.snappy, value: sources)
+            HStack(alignment: .bottom, spacing: 12) {
+                FlowLayout(spacing: 8) {
+                    Button { choose() } label: {
+                        Image(systemName: "plus").font(.system(size: 13, weight: .medium))
+                            .frame(width: 32, height: 32).background(chipFill, in: Circle())
+                            .overlay(Circle().strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5))
+                    }.buttonStyle(.plain).help("Add footage, images or documents (optional). You can also drop them here.")
+                    lengthChip
+                    shapeChip
+                    motionChip
+                    brandChip
+                    if agent == .claude { modelChip }
+                }
+                runButton
+            }
+        }
+        .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 14)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .strokeBorder(targeted ? Color.rasan : briefFocused ? Color.rasan.opacity(0.7) : Color(nsColor: .separatorColor), lineWidth: targeted || briefFocused ? 1.5 : 0.5))
+        .animation(.snappy(duration: 0.15), value: targeted)
+        .animation(.snappy, value: sources)
+    }
+
+    private var chipFill: Color { Color.primary.opacity(0.07) }
+
+    private func chipLabel(_ icon: String, _ text: String, tint: Bool = false) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon).font(.system(size: 12))
+            Text(text).font(.system(size: 13, weight: .medium))
+            Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).opacity(0.6)
+        }
+        .foregroundStyle(tint ? Color.rasan : Color.primary)
+        .padding(.horizontal, 12).frame(height: 32)
+        .background(tint ? Color.rasan.opacity(0.16) : chipFill, in: Capsule())
+    }
+
+    private var lengthChip: some View {
+        HStack(spacing: 6) {
+            Menu {
+                Picker("Length", selection: Binding(get: { customLength ? -1 : draft.duration }, set: { v in
+                    if v == -1 { customLength = true } else { customLength = false; draft.duration = v } })) {
+                    ForEach(Self.lengths, id: \.1) { Text($0.0).tag($0.1) }
+                    Divider()
+                    Text("Custom…").tag(-1)
+                }.pickerStyle(.inline).labelsHidden()
+            } label: { chipLabel("clock", lengthLabel) }
+                .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help("Length")
+            if customLength {
+                Stepper("", value: $draft.duration, in: 5...600, step: 5).labelsHidden().controlSize(.small)
+            }
+        }
+    }
+
+    private var shapeChip: some View {
+        let names = ["16:9": "Landscape", "9:16": "Portrait", "1:1": "Square"]
+        let icons = ["16:9": "rectangle", "9:16": "rectangle.portrait", "1:1": "square"]
+        return Menu {
+            Picker("Shape", selection: $draft.aspect) {
+                ForEach(["16:9", "9:16", "1:1"], id: \.self) { Label("\(names[$0] ?? $0) · \($0)", systemImage: icons[$0] ?? "rectangle").tag($0) }
+            }.pickerStyle(.inline).labelsHidden()
+        } label: { chipLabel(icons[draft.aspect] ?? "rectangle", names[draft.aspect] ?? draft.aspect) }
+            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help("Shape")
+    }
+
+    private var motionChip: some View {
+        Menu {
+            Picker("Motion graphics", selection: $draft.motionLevel) {
+                Text("Maximal").tag("maximal"); Text("Balanced").tag("balanced"); Text("Minimal").tag("minimal")
+            }.pickerStyle(.inline).labelsHidden()
+        } label: { chipLabel("wand.and.sparkles", "\(draft.motionLevel.capitalized) motion") }
+            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help("How much motion graphics")
+    }
+
+    private var brandChip: some View {
+        Menu {
+            Picker("Brand", selection: Binding(get: { draft.brand ?? "" }, set: { v in
+                if v == "__new" { store.openBrands() } else { draft.brand = v.isEmpty ? nil : v } })) {
+                Text("No brand").tag("")
+                ForEach(brands) { Text($0.name).tag($0.name) }
+            }.pickerStyle(.inline).labelsHidden()
+            Divider()
+            Button("New brand…") { store.openBrands() }
+        } label: { chipLabel("paintpalette", draft.brand ?? "No brand") }
+            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help("Brand")
+    }
+
+    private var modelChip: some View {
+        Button { showModels.toggle() } label: {
+            chipLabel("sparkles", draft.modelPlan.chipTitle, tint: draft.modelPlan == .recommended)
+        }
+        .buttonStyle(.plain).help("Which Claude models direct this film")
+        .popover(isPresented: $showModels, arrowEdge: .bottom) { modelPicker }
+    }
+
+    private var modelPicker: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Models").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary).padding(.horizontal, 10).padding(.top, 4)
+            ForEach(ModelPlan.allCases) { plan in
+                Button { draft.modelPlan = plan; showModels = false } label: {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: draft.modelPlan == plan ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(draft.modelPlan == plan ? Color.rasan : .secondary).padding(.top, 1)
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 6) {
+                                Text(plan.title).font(.system(size: 13, weight: .semibold))
+                                if plan == .recommended {
+                                    Text("Recommended").font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.rasan)
+                                        .padding(.horizontal, 6).padding(.vertical, 2).background(Color.rasan.opacity(0.16), in: Capsule())
+                                }
+                            }
+                            Text(plan.summary).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(10).contentShape(Rectangle())
+                    .background(draft.modelPlan == plan ? Color.rasan.opacity(0.1) : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }.buttonStyle(.plain)
+            }
+        }.padding(8).frame(width: 340)
     }
 
     private func chip(_ url: URL, removable: Bool) -> some View {
@@ -183,51 +289,36 @@ struct NewFilmView: View {
                 Button { sources.removeAll { $0 == url } } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
                     .buttonStyle(.plain).help("Remove")
             }
-        }.padding(10).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+        }.padding(10).background(chipFill, in: RoundedRectangle(cornerRadius: 10))
     }
 
-    // MARK: Options
+    private var runLabel: some View {
+        HStack(spacing: 6) {
+            Text("Start film")
+            Image(systemName: "command").font(.system(size: 11)); Image(systemName: "return").font(.system(size: 11))
+        }
+    }
 
-    private var options: some View {
-        HStack(alignment: .top, spacing: 22) {
-            VStack(alignment: .leading, spacing: 6) {
-                label("Length")
-                Picker("Length", selection: Binding(get: { customLength ? -1 : draft.duration }, set: { v in
-                    if v == -1 { customLength = true } else { customLength = false; draft.duration = v } })) {
-                    ForEach(Self.lengths, id: \.1) { Text($0.0).tag($0.1) }
-                    Divider()
-                    Text("Custom…").tag(-1)
-                }.pickerStyle(.menu).labelsHidden().fixedSize()
-                if customLength {
-                    Stepper("\(draft.duration) s", value: $draft.duration, in: 5...600, step: 5).font(.system(size: 12))
-                }
+    @ViewBuilder private var runButton: some View {
+        if editingQueued {
+            Button { saveQueuedChanges() } label: { Text("Save changes") }
+                .buttonStyle(.borderedProminent).controlSize(.large).keyboardShortcut(.return, modifiers: .command)
+                .disabled(working || trimmedBrief.isEmpty)
+        } else if directorReady {
+            if directorBusy {
+                Button { store.ensureConsent(for: agent) { save(start: false, queue: true) } } label: { Text("Start when free") }
+                    .buttonStyle(.borderedProminent).controlSize(.large).keyboardShortcut(.return, modifiers: .command)
+                    .disabled(working || trimmedBrief.isEmpty)
+            } else {
+                Button { start() } label: { runLabel }
+                    .buttonStyle(.borderedProminent).controlSize(.large).keyboardShortcut(.return, modifiers: .command)
+                    .disabled(working || checkingStart || trimmedBrief.isEmpty || store.toolSetup.isRunning)
             }
-            VStack(alignment: .leading, spacing: 6) {
-                label("Shape")
-                Picker("Shape", selection: $draft.aspect) {
-                    Image(systemName: "rectangle").tag("16:9").help("Landscape")
-                    Image(systemName: "rectangle.portrait").tag("9:16").help("Portrait")
-                    Image(systemName: "square").tag("1:1").help("Square")
-                }.pickerStyle(.segmented).labelsHidden().fixedSize()
-                Text(["16:9": "Landscape", "9:16": "Portrait", "1:1": "Square"][draft.aspect] ?? "").font(.system(size: 11)).foregroundStyle(.tertiary)
-            }
-            VStack(alignment: .leading, spacing: 6) {
-                label("Motion graphics")
-                Picker("Motion graphics", selection: $draft.motionLevel) {
-                    Text("Maximal").tag("maximal"); Text("Balanced").tag("balanced"); Text("Minimal").tag("minimal")
-                }.pickerStyle(.segmented).labelsHidden().fixedSize()
-            }
-            VStack(alignment: .leading, spacing: 6) {
-                label("Brand")
-                Picker("Brand", selection: Binding(get: { draft.brand ?? "" }, set: { v in
-                    if v == "__new" { store.openBrands() } else { draft.brand = v.isEmpty ? nil : v } })) {
-                    Text("None").tag("")
-                    ForEach(brands) { Text($0.name).tag($0.name) }
-                    Divider()
-                    Text("New brand…").tag("__new")
-                }.pickerStyle(.menu).labelsHidden().fixedSize()
-            }
-            Spacer(minLength: 0)
+        } else if store.settings.checking.contains(agent.id) {
+            HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Checking director…").font(.system(size: 12)).foregroundStyle(.secondary) }
+        } else {
+            Button("Set up a director…") { store.settings.showWelcome = true }
+                .buttonStyle(.borderedProminent).controlSize(.large)
         }
     }
 
@@ -249,30 +340,6 @@ struct NewFilmView: View {
                 if working || checkingStart { ProgressView().controlSize(.small) }
                 if let queueNote { Text(queueNote).font(.system(size: 12)).foregroundStyle(.secondary).transition(.opacity) }
                 Button("Save draft") { save(start: false) }.disabled(working || (project == nil && trimmedBrief.isEmpty && name.isEmpty))
-                if editingQueued {
-                    Button("Save changes") { saveQueuedChanges() }
-                        .buttonStyle(.borderedProminent).controlSize(.large)
-                        .keyboardShortcut(.return, modifiers: .command)
-                        .disabled(working || trimmedBrief.isEmpty)
-                } else if directorReady {
-                    if directorBusy {
-                        Button("Start when free") { store.ensureConsent(for: agent) { save(start: false, queue: true) } }
-                            .buttonStyle(.borderedProminent).controlSize(.large)
-                            .keyboardShortcut(.return, modifiers: .command)
-                            .disabled(working || trimmedBrief.isEmpty)
-                    } else {
-                        Button("Start film") { start() }
-                            .buttonStyle(.borderedProminent).controlSize(.large)
-                            .keyboardShortcut(.return, modifiers: .command)
-                            .disabled(working || checkingStart || trimmedBrief.isEmpty || store.toolSetup.isRunning)
-                    }
-                } else if store.settings.checking.contains(agent.id) {
-                    ProgressView().controlSize(.small)
-                    Text("Checking director…").font(.system(size: 12)).foregroundStyle(.secondary)
-                } else {
-                    Button("Set up a director…") { store.settings.showWelcome = true }
-                        .buttonStyle(.borderedProminent).controlSize(.large)
-                }
             }
             HStack(spacing: 4) {
                 Spacer()

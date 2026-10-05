@@ -6,7 +6,7 @@
 #   bash setup.sh --new           the same, but always a fresh run (a new video) rather than resuming an unfinished one
 #   bash setup.sh --node-only     just make sure Node >= 20 is available (used by install.sh)
 #
-# Prints KEY=VALUE lines (SKILL_DIR, RUN, NODE, PATH_PREFIX, UPDATE, UPDATED, HYPERFRAMES, BROWSER, CONSOLE, MODEL, HARNESS)
+# Prints KEY=VALUE lines (SKILL_DIR, RUN, NODE, PATH_PREFIX, UPDATE, UPDATED, HYPERFRAMES, BROWSER, CONSOLE, IMAGEGEN, IMAGEGEN_MODEL, MODEL, HARNESS)
 # (MODEL and HARNESS: the model running this session and where it runs, claude-code | codex | other; pass MODEL as --model to crew.mjs)
 # and PROBLEM: lines with the fix, then READY, or FAILED when a run can't start.
 # Node: the PATH first, then nvm / fnm / Volta / asdf / Homebrew / ~/.rasanai/node; if none is
@@ -169,6 +169,20 @@ if C=$("$NODE" "$SKILL_DIR/scripts/console.mjs" serve --run "$RUN" $OPEN 2>&1); 
   echo "CONSOLE=$(printf '%s' "$C" | sed -n 's/.*"url":"\([^"]*\)".*/\1/p')"
 else
   problem "the Director's Console did not start: $C (retry: node $SKILL_DIR/scripts/console.mjs serve --run $RUN --port 0 --open)"
+fi
+
+# image generation through Codex on the user's ChatGPT plan: IMAGEGEN=ready|off|no-codex|signed-out (+ IMAGEGEN_MODEL=).
+# status never runs an image; it is given about a second, and its absence or failure only means "unknown".
+if [ -f "$SKILL_DIR/scripts/imagegen.mjs" ]; then
+  IG_OUT=$(mktemp 2>/dev/null || echo "/tmp/rasanai-imagegen.$$")
+  "$NODE" "$SKILL_DIR/scripts/imagegen.mjs" status --kv >"$IG_OUT" 2>/dev/null </dev/null &
+  IG_PID=$!
+  for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do kill -0 "$IG_PID" 2>/dev/null || break; sleep 0.1; done
+  if kill -0 "$IG_PID" 2>/dev/null; then kill "$IG_PID" 2>/dev/null; echo "IMAGEGEN=unknown"
+  elif grep -q '^IMAGEGEN=' "$IG_OUT" 2>/dev/null; then sed 's/ IMAGEGEN_/\
+IMAGEGEN_/g' "$IG_OUT" | grep -v '^IMAGEGEN_CODEX=' | head -2
+  else echo "IMAGEGEN=unknown"; fi
+  rm -f "$IG_OUT"
 fi
 
 "$NODE" "$SKILL_DIR/scripts/crew.mjs" model --kv 2>/dev/null || { echo "MODEL=unknown"; echo "HARNESS=other"; }

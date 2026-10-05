@@ -1,5 +1,57 @@
 import Foundation
 
+/// Which Claude models direct a film. Only applies when the director is Claude Code.
+public enum ModelPlan: String, CaseIterable, Codable, Identifiable, Sendable {
+    case recommended, opus, sonnet, settings
+    public var id: String { rawValue }
+    public var title: String {
+        switch self {
+        case .recommended: "Opus 5.5 + Sonnet 5.5"
+        case .opus: "Opus 5.5"
+        case .sonnet: "Sonnet 5.5"
+        case .settings: "Model from Settings"
+        }
+    }
+    /// The short label on the prompt box chip.
+    public var chipTitle: String {
+        switch self {
+        case .recommended: "Opus + Sonnet"
+        case .opus: "Opus 5.5"
+        case .sonnet: "Sonnet 5.5"
+        case .settings: "Settings model"
+        }
+    }
+    public var summary: String {
+        switch self {
+        case .recommended: "Opus directs, writes and animates. Sonnet takes research and routine jobs to save your usage."
+        case .opus: "Opus on every job. The most ambitious result, and the most usage."
+        case .sonnet: "Sonnet on every job. Fast and light on usage; plainer, safer motion."
+        case .settings: "Whatever model is set in Settings → Director (Default if empty)."
+        }
+    }
+    public var model: String? {
+        switch self {
+        case .recommended, .opus: "claude-opus-5-5"
+        case .sonnet: "claude-sonnet-5-5"
+        case .settings: nil
+        }
+    }
+    var direction: String? {
+        switch self {
+        case .recommended: """
+            MODEL PLAN: RECOMMENDED. You are the director on Claude Opus 5.5. Keep every role that decides how the film reads, looks or moves on Opus 5.5: the script and design desks, the Motion Director, the scene animators and the critics. Hand the gathering roles (product, brand and screens researchers, the local scout) and routine mechanical work (reading logs, transcripts, file moves, running lint and render checks) to Sonnet 5.5 subagents to save the user's usage. Never give Sonnet a judgement or creative role.
+            """
+        case .opus: """
+            MODEL PLAN: OPUS EVERYWHERE. The user chose Claude Opus 5.5 for every role. Do not hand any role to a smaller model.
+            """
+        case .sonnet: """
+            MODEL PLAN: SONNET EVERYWHERE. The user chose Claude Sonnet 5.5 for every role to keep usage low. Follow the structured steps in the order written, look at renders before accepting them, and still push for ambitious motion.
+            """
+        case .settings: nil
+        }
+    }
+}
+
 public struct FilmDraft: Codable, Equatable, Sendable {
     public static let motionLevels = ["maximal", "balanced", "minimal"]
     public static let videoExtensions: Set<String> = ["mp4", "mov", "m4v", "webm", "mkv", "avi", "mts"]
@@ -10,10 +62,11 @@ public struct FilmDraft: Codable, Equatable, Sendable {
     public var motionLevel: String
     /// Name of the brand kit applied to this film, if any.
     public var brand: String?
-    public init(brief: String = "", duration: Int = 45, aspect: String = "16:9", agent: String = "claude", motionLevel: String = "maximal", brand: String? = nil) {
-        self.brief = brief; self.duration = duration; self.aspect = aspect; self.agent = agent; self.motionLevel = motionLevel; self.brand = brand
+    public var modelPlan: ModelPlan
+    public init(brief: String = "", duration: Int = 45, aspect: String = "16:9", agent: String = "claude", motionLevel: String = "maximal", brand: String? = nil, modelPlan: ModelPlan = .recommended) {
+        self.brief = brief; self.duration = duration; self.aspect = aspect; self.agent = agent; self.motionLevel = motionLevel; self.brand = brand; self.modelPlan = modelPlan
     }
-    private enum CodingKeys: String, CodingKey { case brief, duration, aspect, agent, motionLevel, brand }
+    private enum CodingKeys: String, CodingKey { case brief, duration, aspect, agent, motionLevel, brand, modelPlan }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         brief = try c.decode(String.self, forKey: .brief)
@@ -22,6 +75,11 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         agent = try c.decode(String.self, forKey: .agent)
         motionLevel = try c.decodeIfPresent(String.self, forKey: .motionLevel) ?? "maximal"
         brand = try c.decodeIfPresent(String.self, forKey: .brand)
+        modelPlan = (try? c.decodeIfPresent(ModelPlan.self, forKey: .modelPlan)) ?? .recommended
+    }
+    /// The `--model` value for the director: the chosen plan under Claude Code, otherwise the Settings model.
+    public func cliModel(settingsModel: String) -> String {
+        agent == "claude" ? (modelPlan.model ?? settingsModel) : settingsModel
     }
     public func request(sources: [URL]) -> String {
         """
@@ -39,8 +97,10 @@ public struct FilmDraft: Codable, Equatable, Sendable {
     public func creativeDirection(sources: [URL]) -> String {
         let level = Self.motionLevels.contains(motionLevel) ? motionLevel : "maximal"
         var text = "MOTION GRAPHICS LEVEL: \(level.uppercased())\n" + Self.levelText[level]!
+        if agent == "claude", let plan = modelPlan.direction { text += "\n\n" + plan }
         if sources.contains(where: { Self.videoExtensions.contains($0.pathExtension.lowercased()) }) {
             text += "\n\nFOOTAGE REEL\n" + Self.footageText[level]!
+            text += "\n\nPRESENTER FILMS\n" + Self.presenterText[level]!
         }
         return text
     }
@@ -75,6 +135,17 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         """,
         "minimal": """
         Cut the footage clean: strong clip selection, tight trims, simple legible captions and a few well-made titles. No framed shots, split screens or decorative overlays, because the user chose a minimal level. Use reel.mjs for scanning, transcripts and staging.
+        """,
+    ]
+    private static let presenterText = [
+        "maximal": """
+        If the footage is a talking head shot on a green or blue screen, or the brief asks to put the speaker into other worlds, use the presenter route (RasanAI's Presenter films): key the speaker out, generate image plates for the right moments of what they say, move the camera on every plate, and add motion graphics (kinetic titles, callouts, stats) throughout. Vary the layouts, land at least one cutaway, and let the speaker interact with the world once. Ask nothing in chat.
+        """,
+        "balanced": """
+        If the footage is a talking head shot on a green or blue screen, or the brief asks to put the speaker into other worlds, use the presenter route (RasanAI's Presenter films): key the speaker out, generate image plates for the key moments, and add motion graphics to most beats. Let a few beats stay on the speaker with a quiet backdrop. Ask nothing in chat.
+        """,
+        "minimal": """
+        If the footage is a talking head shot on a green or blue screen, or the brief asks to put the speaker into other worlds, use the presenter route (RasanAI's Presenter films): key the speaker out, but use fewer image plates, only where they earn it, mostly the full-frame presenter layout and the presenter-only layout, with a few simple titles. Ask nothing in chat.
         """,
     ]
     public static func load(in project: URL) -> FilmDraft? {
