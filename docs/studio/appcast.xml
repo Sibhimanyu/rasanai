@@ -1,10 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
   <channel>
     <title>RasanAI Studio updates</title>
     <link>https://sibhimanyu.github.io/rasanai/#mac</link>
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
+    <item>
+      <title>RasanAI Studio 0.3.0 beta 1</title>
+      <pubDate>Mon, 05 Oct 2026 05:27:41 GMT</pubDate>
+      <sparkle:version>12</sparkle:version>
+      <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <sparkle:releaseNotesLink>https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.3.0-beta.1</sparkle:releaseNotesLink>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.3.0-beta.1/RasanAI-Studio-0.3.0-12-arm64-unnotarized.dmg" sparkle:edSignature="Ebm6U2wGb5ajultidP0LnPYSEcV7ZBdeR0GsJYyWIT9jsmh6TJnTxGqCSz6p3vcwWc3qwLuzjb5fMVMxO0HBDw==" length="66204386" type="application/octet-stream" />
+    </item>
     <item>
       <title>RasanAI Studio 0.2.0 beta 1</title>
       <pubDate>Sun, 04 Oct 2026 14:30:11 GMT</pubDate>
@@ -13,10 +23,7 @@
       <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
       <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
       <sparkle:releaseNotesLink>https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.2.0-beta.1</sparkle:releaseNotesLink>
-      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.2.0-beta.1/RasanAI-Studio-0.2.0-11-arm64-unnotarized.dmg"
-                 sparkle:edSignature="J2e7I9ntYcgrXasM3ckx6RQKxdORR8sBbi6iky0HxjAggArdEWP5Yj1AGv0n3tpCv8nn/24ojvaop5Xp2w/vBQ=="
-                 length="65182352"
-                 type="application/octet-stream" />
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.2.0-beta.1/RasanAI-Studio-0.2.0-11-arm64-unnotarized.dmg" sparkle:edSignature="J2e7I9ntYcgrXasM3ckx6RQKxdORR8sBbi6iky0HxjAggArdEWP5Yj1AGv0n3tpCv8nn/24ojvaop5Xp2w/vBQ==" length="65182352" type="application/octet-stream" />
     </item>
     <item>
       <title>RasanAI Studio 0.1.1 beta 2</title>
@@ -26,10 +33,7 @@
       <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
       <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
       <sparkle:releaseNotesLink>https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.1.1-beta.2</sparkle:releaseNotesLink>
-      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.1.1-beta.2/RasanAI-Studio-0.1.1-10-arm64-unnotarized.dmg"
-                 sparkle:edSignature="ChOIrFDwm4BlTZEaCRCRF9ayKglj2MzzQoV5PZbqzCzHqsjhy1fWuD4G0rzYykq1zBRk77O7iHMHpOjlT3HSCg=="
-                 length="64935825"
-                 type="application/octet-stream" />
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.1.1-beta.2/RasanAI-Studio-0.1.1-10-arm64-unnotarized.dmg" sparkle:edSignature="ChOIrFDwm4BlTZEaCRCRF9ayKglj2MzzQoV5PZbqzCzHqsjhy1fWuD4G0rzYykq1zBRk77O7iHMHpOjlT3HSCg==" length="64935825" type="application/octet-stream" />
     </item>
     <item>
       <title>RasanAI Studio 0.1.1 beta 1</title>
@@ -39,10 +43,7 @@
       <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
       <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
       <sparkle:releaseNotesLink>https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.1.1-beta.1</sparkle:releaseNotesLink>
-      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.1.1-beta.1/RasanAI-Studio-0.1.1-9-arm64-unnotarized.dmg"
-                 sparkle:edSignature="gnq+pQxiUKTpIKyvp9dOLCNLVXJag02/5dKycq+Da8TCiqSdd5YRWoBl7tAnSr4Ic81ET6zzcv0XReQiNjHOBw=="
-                 length="64913350"
-                 type="application/octet-stream" />
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.1.1-beta.1/RasanAI-Studio-0.1.1-9-arm64-unnotarized.dmg" sparkle:edSignature="gnq+pQxiUKTpIKyvp9dOLCNLVXJag02/5dKycq+Da8TCiqSdd5YRWoBl7tAnSr4Ic81ET6zzcv0XReQiNjHOBw==" length="64913350" type="application/octet-stream" />
     </item>
   </channel>
 </rss>
