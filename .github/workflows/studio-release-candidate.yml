@@ -31,6 +31,11 @@ jobs:
         run: |
           test "$(uname -m)" = arm64
           swift --version
+      - name: Install FFmpeg for the runtime tests
+        if: ${{ !inputs.skip_tests }}
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+        run: brew install ffmpeg
       - name: Test native core and managed runtime
         if: ${{ !inputs.skip_tests }}
         run: |
