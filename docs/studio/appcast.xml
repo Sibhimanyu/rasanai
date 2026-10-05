@@ -1,10 +1,20 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
   <channel>
     <title>RasanAI Studio updates</title>
     <link>https://sibhimanyu.github.io/rasanai/#download</link>
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
+    <item>
+      <title>RasanAI Studio 0.3.1 beta 1</title>
+      <pubDate>Mon, 05 Oct 2026 06:30:32 GMT</pubDate>
+      <sparkle:version>13</sparkle:version>
+      <sparkle:shortVersionString>0.3.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <sparkle:releaseNotesLink>https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.3.1-beta.1</sparkle:releaseNotesLink>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.3.1-beta.1/RasanAI-Studio-0.3.1-13-arm64-unnotarized.dmg" sparkle:edSignature="syaYueuDiv6Z0TNjtQIKtF+UQ161+SNaayESyqWk4oc5MF03i2gHhdraeobriGX8YHhtHrwbKox7r9ybukzVCQ==" length="66294509" type="application/octet-stream" />
+    </item>
     <item>
       <title>RasanAI Studio 0.3.0 beta 1</title>
       <pubDate>Mon, 05 Oct 2026 05:27:41 GMT</pubDate>

@@ -43,6 +43,11 @@ struct WelcomeView: View {
                 }
             }.font(.system(size: 12)).padding(.top, 12)
 
+            Button("Prepare rendering tools…") {
+                settings.showWelcome = false
+                store.showPreflight()
+            }.font(.system(size: 12)).padding(.top, 12)
+
             Spacer(minLength: 16)
             Button {
                 if settings.isReady(selected) { settings.giveConsent(selected); settings.defaultAgent = selected.id }
@@ -58,7 +63,7 @@ struct WelcomeView: View {
             }
         }
         .padding(.horizontal, 36).padding(.vertical, 28)
-        .frame(width: 480, height: 540)
+        .frame(width: 480, height: 570)
         .tint(.rasan)
         .alert("Director setup", isPresented: Binding(get: { settings.error != nil }, set: { if !$0 { settings.error = nil } })) {
             Button("OK") { settings.error = nil }

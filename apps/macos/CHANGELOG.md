@@ -2,6 +2,15 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## 0.3.1 beta 1 (build 13) — 2026-10-05
+
+- Prepare missing FFmpeg/ffprobe, HyperFrames, its render browser and design resources inside the readiness screen. Choose downloads, see live setup activity/logs, cancel safely and recheck readiness automatically after success, cancellation or failure.
+- Install rendering tools in a private user-owned Studio folder, keeping the signed app and film folders untouched. Verify executables before publishing their paths, preserve completed installs on cancellation and block director/queue starts while setup runs.
+- Open Apple's command line tools installer when Git is needed for design resources. Offer bundled Node when a custom override is broken; require Node 22+ for the current renderer.
+- Add rendering setup entry points in Welcome and Help; stop setup before quitting and prevent overlapping installers across Studio instances.
+
+Validation: compilation, JavaScript syntax and local bundle signature checks. Manual feature tests, live tool installations and installed-version upgrade testing were skipped for this beta at the maintainer's request. Existing GitHub checks run separately.
+
 ## 0.3.0 beta 1 (build 12) — 2026-10-05
 
 - Check director sign-in, Node, FFmpeg/ffprobe, renderer/browser availability, source access, folder writes, saved review state and free space. Recheck from Home, film/editor menus and the queue; block launches on required failures before starting a director.

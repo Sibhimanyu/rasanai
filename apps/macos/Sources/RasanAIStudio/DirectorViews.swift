@@ -89,19 +89,21 @@ struct NoteSheet: View {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let running = runtime?.isRunning == true
         let transferring = store?.isTransferringProject == true
-        guard running || transferring else { store?.pauseQueue(); return .terminateNow }
+        let installing = store?.toolSetup.isRunning == true
+        guard running || transferring || installing else { store?.pauseQueue(); return .terminateNow }
         let alert = NSAlert()
-        alert.messageText = transferring ? "Cancel the project transfer and quit?" : "Stop the director and quit?"
-        alert.informativeText = transferring
+        alert.messageText = installing ? "Cancel tool setup and quit?" : transferring ? "Cancel the project transfer and quit?" : "Stop the director and quit?"
+        alert.informativeText = installing ? "Setup will stop and completed installations will be kept. Any project transfer and running director will also stop." : transferring
             ? "The incomplete transfer will be removed and your original files kept. Any running director will also stop."
             : "Your project files are preserved. The active agent and its child processes will be stopped. You can resume the run later."
-        alert.addButton(withTitle: running ? "Stop and Quit" : "Cancel Transfer and Quit"); alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: running ? "Stop and Quit" : installing ? "Cancel Setup and Quit" : "Cancel Transfer and Quit"); alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
         store?.pauseQueue()
         store?.transferTask?.cancel()
+        store?.toolSetup.cancel()
         runtime?.stop()
         Task {
-            while runtime?.isRunning == true || store?.isTransferringProject == true { try? await Task.sleep(for: .milliseconds(100)) }
+            while runtime?.isRunning == true || store?.isTransferringProject == true || store?.toolSetup.isRunning == true { try? await Task.sleep(for: .milliseconds(100)) }
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater

@@ -69,7 +69,7 @@ extension StudioStore {
 
     func startNextQueuedFilm() async {
         guard !isDemo, !queuePaused, !queueStarting, !queueHandlingExit, !runtime.isRunning, !runtime.isPreparing, !runtime.isFinishing,
-              !isTransferringProject, !isSavingFilm, !isManagingProject, !isImportingSources, !isSending, let entry = settings.filmQueue.first, entry.state != .running else { return }
+              !toolSetup.isRunning, !isTransferringProject, !isSavingFilm, !isManagingProject, !isImportingSources, !isSending, let entry = settings.filmQueue.first, entry.state != .running else { return }
         guard let agent = LocalAgent(rawValue: entry.draft.agent), agent != .custom, settings.hasConsent(agent) else {
             queuePaused = true; queueMessage = "Resume the queue to confirm use of this director account."; return
         }

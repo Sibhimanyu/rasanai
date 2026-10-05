@@ -130,8 +130,11 @@ public enum LocalAgent: String, CaseIterable, Identifiable, Sendable {
     }
     public static var searchDirectories: [String] {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        return [home + "/.local/bin", home + "/.npm-global/bin", "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
+        return [managedToolsDirectory.appendingPathComponent("bin").path, home + "/.local/bin", home + "/.npm-global/bin", "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
             + (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":").map(String.init)
+    }
+    public static var managedToolsDirectory: URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/RasanAI/Tools", isDirectory: true)
     }
     public func discoveredExecutable() -> String? {
         guard self != .custom else { return nil }
