@@ -6,10 +6,14 @@ import StudioCore
 final class DirectorRuntime {
     var isRunning = false
     var isPreparing = false
+    var isFinishing = false
     var status = "Director stopped"
     var logURL: URL?
     var lastExitCode: Int32?
     var stopRequested = false
+    var startedAt: Date?
+    var recovery: DirectorRecovery?
+    var preflightReport: PreflightReport?
     var onExit: ((Int32, Bool) -> Void)?
     var projectURL: URL? { activeProject }
     var runURL: URL? { activeRun }
@@ -38,16 +42,29 @@ final class DirectorRuntime {
         env.removeValue(forKey: "CLAUDECODE")
         return env
     }
-    func start(project: URL, existingRun: URL? = nil, request: String, settings: StudioSettings) async throws -> URL {
-        guard !isRunning, !isPreparing else { throw RuntimeError.busy }
+    func start(project: URL, existingRun: URL? = nil, request: String, settings: StudioSettings, agent selectedAgent: LocalAgent? = nil, model: String? = nil, unrestrictedTools: Bool? = nil) async throws -> URL {
+        guard !isRunning, !isPreparing, !isFinishing else { throw RuntimeError.busy }
         guard let engine = Self.engineURL, let driver = Self.driverURL else { throw RuntimeError.missingEngine }
         guard let node = settings.nodeURL else { throw RuntimeError.missingNode }
-        let agent = LocalAgent(rawValue: settings.defaultAgent) ?? .claude
+        let agent = selectedAgent ?? LocalAgent(rawValue: settings.defaultAgent) ?? .claude
         let executable = URL(fileURLWithPath: settings.path(for: agent))
         guard FileManager.default.isExecutableFile(atPath: executable.path) else { throw RuntimeError.missingAgent }
         isPreparing = true
+        startedAt = Date(); recovery = nil; preflightReport = nil
+        status = "Checking director sign-in…"
         lastExitCode = nil; stopRequested = false
         defer { isPreparing = false }
+        await settings.check(agent)
+        guard settings.isReady(agent) else { throw RuntimeError.directorNotReady(settings.statuses[agent.id] ?? "Check sign-in in Settings → Director.") }
+        status = "Checking tools, sources and free space…"
+        let files = try await Task.detached { try ProjectSources.files(in: project) }.value
+        let environment = environment(node: node)
+        let report = await FilmPreflight.check(PreflightConfiguration(node: node, engine: engine, driver: driver,
+            directories: [node.deletingLastPathComponent().path] + LocalAgent.searchDirectories, environment: environment,
+            project: project, sources: files, existingRun: existingRun))
+        preflightReport = report
+        guard report.canStart else { throw RuntimeError.preflightFailed(report.blockers) }
+        status = "Preparing the film folder…"
         let run = existingRun ?? project.appendingPathComponent(".rasanai/run-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: run, withIntermediateDirectories: true)
         if existingRun == nil {
@@ -58,13 +75,13 @@ final class DirectorRuntime {
             try JSONEncoder().encode(JSONValue.object(["title": .string(project.lastPathComponent), "current": .string("brief"), "steps": .object([:])]))
                 .write(to: session, options: .atomic)
         }
-        let environment = environment(node: node)
-        guard try await Self.execute(node, arguments: ["-e", "process.exit(Number(process.versions.node.split('.')[0]) >= 20 ? 0 : 1)"], directory: project, environment: environment) == 0 else { throw RuntimeError.missingNode }
+        status = "Opening the review workspace…"
         let code = try await Self.execute(node, arguments: [engine.appendingPathComponent("scripts/console.mjs").path,
             "serve", "--run", run.path, "--root", project.path], directory: project, environment: environment)
         guard code == 0 else { throw RuntimeError.consoleFailed }
+        status = "Starting \(agent.title)…"
         let launch = try DirectorLaunch(agent: agent, executable: executable, engine: engine, project: project, run: run,
-            request: request, model: settings.model(for: agent), allowUnrestrictedTools: settings.allowUnrestrictedTools)
+            request: request, model: model ?? settings.model(for: agent), allowUnrestrictedTools: unrestrictedTools ?? settings.allowUnrestrictedTools)
         let job = JSONValue.object(["executable": .string(executable.path), "arguments": .array(launch.arguments.map(JSONValue.string)), "cwd": .string(project.path)])
         let jobURL = run.appendingPathComponent("director-job.json")
         try JSONEncoder().encode(job).write(to: jobURL, options: .atomic)
@@ -85,10 +102,17 @@ final class DirectorRuntime {
             try? output.close()
             Task { @MainActor in
                 guard let self, self.identity == identity else { return }
+                self.isFinishing = true
+                defer { self.isFinishing = false }
                 self.isRunning = false
                 self.process = nil
                 self.lastExitCode = finished.terminationStatus
                 self.status = self.stopRequested ? "Director stopped · your files are preserved; resume when ready" : (finished.terminationStatus == 0 ? "Director finished · review the published result" : "Director stopped (\(finished.terminationStatus)) · inspect the log, fix prerequisites or permissions, then resume")
+                if !self.stopRequested && finished.terminationStatus != 0 {
+                    let recovery = await Task.detached { DirectorRecovery.classify(log: Self.readLogTail(log)) }.value
+                    guard self.identity == identity else { return }
+                    self.recovery = recovery
+                }
                 self.onExit?(finished.terminationStatus, self.stopRequested)
             }
         }
@@ -108,8 +132,9 @@ final class DirectorRuntime {
         guard code == 0 else { throw RuntimeError.consoleFailed }
     }
     func clearPresentation() {
-        guard !isRunning, !isPreparing else { return }
+        guard !isRunning, !isPreparing, !isFinishing else { return }
         lastExitCode = nil; stopRequested = false; logURL = nil; activeRun = nil; activeProject = nil
+        startedAt = nil; recovery = nil
         status = "Director stopped"
     }
     func stop() {
@@ -119,7 +144,11 @@ final class DirectorRuntime {
         process.terminate()
     }
     func logTail() -> String {
-        guard let logURL, let handle = try? FileHandle(forReadingFrom: logURL) else { return "No director output yet." }
+        guard let logURL else { return "No director output yet." }
+        return Self.readLogTail(logURL)
+    }
+    nonisolated static func readLogTail(_ logURL: URL) -> String {
+        guard let handle = try? FileHandle(forReadingFrom: logURL) else { return "No director output yet." }
         defer { try? handle.close() }
         let size = (try? handle.seekToEnd()) ?? 0
         try? handle.seek(toOffset: size > 65536 ? size - 65536 : 0)
@@ -140,14 +169,16 @@ final class DirectorRuntime {
         }.value
     }
     enum RuntimeError: LocalizedError {
-        case busy, missingEngine, missingNode, missingAgent, consoleFailed
+        case busy, missingEngine, missingNode, missingAgent, consoleFailed, directorNotReady(String), preflightFailed(String)
         var errorDescription: String? {
             switch self {
             case .busy: "A director is already running. Stop it before starting another project."
-            case .missingEngine: "The app bundle is missing its RasanAI engine or supervisor. Rebuild using build-app.sh."
-            case .missingNode: "Node.js 20 or newer is required. Configure Node in Settings → Runtime."
-            case .missingAgent: "Choose an installed, signed-in agent in Settings → Agents."
+            case .missingEngine: "RasanAI's bundled tools are missing. Download a fresh copy of the app. Your films remain in your library."
+            case .missingNode: "Node.js 20 or newer is required. Check the Node path in Settings → Director → Advanced."
+            case .missingAgent: "Your director isn't installed. Open Help → Show Welcome to install and sign in."
             case .consoleFailed: "The local console could not start. Check the Node installation and the selected project permissions."
+            case .preflightFailed(let issues): "Resolve these items before starting:\n\(issues)"
+            case .directorNotReady(let reason): "Your director isn't ready to start. \(reason) Open Help → Show Welcome to sign in and recheck."
             }
         }
     }

@@ -11,13 +11,16 @@ enum Route: Hashable {
     case brands
     case brand(URL)
     case sample
+    case queue
+    case templates
 }
 
 /// Everything the app needs to say about one film, in one place.
 enum FilmPhase: Equatable, Sendable {
-    case draft, starting, working, yourTurn(String), paused, needsAttention, finished(Double), offline, inProgress
+    case draft, queued(Int), starting, working, yourTurn(String), paused, needsAttention, finished(Double), offline, inProgress
     var homeLine: String {
         switch self {
+        case .queued(let position): "Queued · \(position)"
         case .draft: "Draft"
         case .starting, .working: "Director working"
         case .yourTurn(let what): "Waiting for you · \(what)"
@@ -30,6 +33,7 @@ enum FilmPhase: Equatable, Sendable {
     }
     var pill: String {
         switch self {
+        case .queued(let position): "Queued · \(position)"
         case .draft: "Draft"
         case .starting: "Starting…"
         case .working: "Director working…"
@@ -89,13 +93,31 @@ struct FilmSummary: Equatable, Sendable {
 @MainActor @Observable
 final class StudioStore {
     enum Sheet: String, Identifiable {
-        case welcome, log, files, note
+        case welcome, log, files, note, export, preflight, projectTransfer
         var id: String { rawValue }
     }
+    var preflightReport: PreflightReport?
+    var preflightProject: URL?
+    var preflightSources: [URL] = []
+    var isCheckingPreflight = false
+    var preflightGeneration = UUID()
+    var projectTransfer: ProjectTransferRequest?
+    var isTransferringProject = false
+    var transferProgress: ProjectTransferProgress?
+    var transferTask: Task<Void, Never>?
+    var transferOperation = UUID()
+    var transferResult: URL?
+    var transferError: String?
     var sheet: Sheet?
     private func present(_ value: Bool, _ kind: Sheet) { if value { sheet = kind } else if sheet == kind { sheet = nil } }
     /// The navigation stack: Home is the root, everything else is pushed on top of it.
     var path: [Route] = []
+    var templatePrefill: FilmDraft?
+    var queuePaused = true
+    var queueMessage = "Resume the queue when you’re ready."
+    var queueStarting = false
+    var queueHandlingExit = false
+    var queueBlockedByFileOperations: Bool { isSavingFilm || isManagingProject || isImportingSources || isSending || isTransferringProject }
     var newFilmPrefill = ""
     var newFilmPrefillFiles: [URL] = []
     let settings: StudioSettings
@@ -106,6 +128,21 @@ final class StudioStore {
     /// The film (project or external run folder) whose state is currently loaded.
     var loadedFilm: URL?
     var summaries: [URL: FilmSummary] = [:]
+    var browsedFilm: FilmArchive?
+    var exportSource: URL?
+    var exportCaptions: URL?
+    var previewFilm: URL?
+    var previewVideo: URL?
+    var displayedFilmURL: URL? { if case .film(let url)? = path.last { return url }; return nil }
+    var isBrowsingAnotherFilm: Bool { displayedFilmURL != nil && displayedFilmURL != loadedFilm }
+    var displayedVideo: URL? {
+        if previewFilm == displayedFilmURL, let previewVideo { return previewVideo }
+        return isBrowsingAnotherFilm ? (browsedFilm?.project == displayedFilmURL ? browsedFilm?.video : nil) : finalURL
+    }
+    var activeDirectorProject: URL? { runtime.projectURL ?? (runtime.isPreparing ? selectedProjectURL : nil) }
+    func shouldBrowseSeparately(_ url: URL) -> Bool {
+        (runtime.isRunning || runtime.isPreparing || runtime.isFinishing || queueStarting || queueHandlingExit) && url != activeDirectorProject && url != runtime.runURL
+    }
     struct PendingConsent: Identifiable { let id = UUID(); let agent: LocalAgent; let proceed: () -> Void }
     var pendingConsent: PendingConsent?
     var isDemo = false
@@ -166,14 +203,18 @@ final class StudioStore {
     }
     var phaseDuration: Double { loadedVideoDuration > 0 ? loadedVideoDuration : snapshot.duration(for: .final) }
     var currentFilmTitle: String {
+        if let entry = settings.filmQueue.first(where: { $0.project == selectedProjectURL }) { return entry.name }
         if let url = selectedProjectURL, let project = localProjects.first(where: { $0.1 == url }) { return project.0.name }
         return snapshot.title
     }
     /// Home-card status for a library project: live for the open film, from disk for the rest.
     func summary(for folder: URL) -> FilmSummary {
+        if let index = settings.filmQueue.firstIndex(where: { $0.project == folder }), settings.filmQueue[index].state != .running {
+            return FilmSummary(phase: settings.filmQueue[index].state == .attention ? .needsAttention : .queued(index + 1), poster: summaries[folder]?.poster)
+        }
         if loadedFilm == folder, !isSample {
             var live = FilmSummary(phase: phase, poster: summaries[folder]?.poster)
-            if runURL == nil { live.phase = runtime.projectURL == folder && (runtime.isRunning || runtime.isPreparing) ? .working : .draft }
+            if runURL == nil { live.phase = activeDirectorProject == folder && (runtime.isRunning || runtime.isPreparing) ? .working : .draft }
             return live
         }
         return summaries[folder] ?? .draft
@@ -203,10 +244,17 @@ final class StudioStore {
         snapshot = SessionSnapshot()
         isSample = false
         if demo { return }
+        for index in settings.filmQueue.indices where settings.filmQueue[index].state == .running {
+            settings.filmQueue[index].state = .attention
+            settings.filmQueue[index].message = "Interrupted when the app closed. Resume the queue to continue the saved run."
+        }
         reloadProjects()
         if settings.showWelcome { sheet = .welcome }
         runtime.onExit = { [weak self] code, stopped in
-            guard let self, !stopped else { return }
+            guard let self else { return }
+            self.queueHandlingExit = true
+            Task { await self.handleQueueExit(code: code, stopped: stopped) }
+            guard !stopped else { return }
             self.notify(title: code == 0 ? "Director finished" : "Director needs attention", body: "Open RasanAI Studio to review the result or log.", id: "director-\(UUID().uuidString)")
         }
     }
@@ -242,15 +290,21 @@ final class StudioStore {
         if loadedFilm == url { return }
         guard openFilm(url) else { path.removeAll { $0 == .film(url) } ; return }
     }
+    func projectLibrary(for project: URL) -> ProjectLibrary {
+        if let entry = settings.filmQueue.first(where: { $0.project == project }) { return ProjectLibrary(root: entry.libraryRoot) }
+        if runtime.projectURL == project { return ProjectLibrary(root: project.deletingLastPathComponent()) }
+        return settings.library
+    }
+
     @discardableResult func openFilm(_ project: URL) -> Bool {
-        guard !runtime.isRunning, !runtime.isPreparing, !isManagingProject, !isImportingSources, !isSavingFilm else {
+        guard !isTransferringProject, !runtime.isRunning, !runtime.isPreparing, !runtime.isFinishing, !queueStarting, !queueHandlingExit, !isManagingProject, !isImportingSources, !isSavingFilm else {
             errorMessage = "Wait for file operations to finish and stop the director before switching films."; return false
         }
         selectedProjectURL = project
         showChanges = false
         UserDefaults.standard.set(project.path, forKey: "lastOpenedProject")
         UserDefaults.standard.set("project", forKey: "lastWorkspaceKind")
-        let library = settings.library
+        let library = projectLibrary(for: project)
         isManagingProject = true
         Task { try? await Task.detached { try library.update(project, opened: true) }.value; isManagingProject = false; reloadProjects() }
         let identity = UUID(); runOpenGeneration = identity
@@ -279,8 +333,10 @@ final class StudioStore {
         if path.last != .film(target) { path = [.film(target)] }
     }
     func manageProject(_ folder: URL, action: String, name: String? = nil) {
-        guard !runtime.isRunning, !runtime.isPreparing, !isManagingProject, !isImportingSources, !isSavingFilm else {
-            errorMessage = "Stop the director before modifying projects."; return
+        guard !isTransferringProject, !queueStarting, !queueHandlingExit, !isManagingProject, !isImportingSources, !isSavingFilm,
+              !settings.filmQueue.contains(where: { $0.project == folder }),
+              !((runtime.isRunning || runtime.isPreparing) && folder == activeDirectorProject) else {
+            errorMessage = "Remove this film from the queue and wait for file operations to finish before changing it."; return
         }
         isManagingProject = true
         let library = settings.library
@@ -306,7 +362,11 @@ final class StudioStore {
                     if selectedProjectURL == folder { selectedProjectURL = nil; loadedFilm = nil }
                 path.removeAll { $0 == .film(folder) }
                 }
-                if let newFolder { showArchivedProjects = false; filmDraftProject = newFolder; selectedProjectURL = newFolder; reloadSources(); path.append(.newFilm(newFolder)) }
+                if let newFolder {
+                    showArchivedProjects = false; filmDraftProject = newFolder
+                    if !runtime.isRunning && !runtime.isPreparing { selectedProjectURL = newFolder; reloadSources() }
+                    path.append(.newFilm(newFolder))
+                }
                 reloadProjects()
                 statusMessage = action == "trash" ? "Project moved to Trash · restore it using Finder" : "Project library updated"
             } catch { errorMessage = error.localizedDescription }
@@ -315,7 +375,7 @@ final class StudioStore {
 
     func newFilm(prefill: String = "") {
         guard !isSavingFilm else { return }
-        runOpenGeneration = UUID()
+        if !runtime.isRunning && !runtime.isPreparing { runOpenGeneration = UUID() }
         filmDraftProject = nil
         newFilmPrefill = prefill
         if case .newFilm(nil)? = path.last { return }
@@ -352,7 +412,7 @@ final class StudioStore {
     @discardableResult func importSources(_ urls: [URL], replacing old: URL? = nil, into target: URL? = nil) -> Bool {
         guard !urls.isEmpty else { return false }
         guard let project = target ?? selectedProjectURL else { errorMessage = "Create or open a project before importing source files."; return false }
-        guard !isImportingSources, !isManagingProject, !isSavingFilm else { return false }
+        guard !isTransferringProject, !queueStarting, !queueHandlingExit, !isImportingSources, !isManagingProject, !isSavingFilm, !settings.filmQueue.contains(where: { $0.project == project }) else { errorMessage = "Remove this film from the queue before changing its source files."; return false }
         guard old == nil || (!runtime.isRunning && !runtime.isPreparing) else {
             errorMessage = "Stop the director before replacing a file it may be using."; return false
         }
@@ -393,7 +453,7 @@ final class StudioStore {
         return true
     }
     func trashSource(_ file: URL) {
-        guard let project = selectedProjectURL, !isImportingSources, !isManagingProject, !runtime.isRunning, !runtime.isPreparing else { return }
+        guard !isTransferringProject, let project = selectedProjectURL, !settings.filmQueue.contains(where: { $0.project == project }), !isImportingSources, !isManagingProject, !runtime.isRunning, !runtime.isPreparing else { return }
         isImportingSources = true
         Task {
             defer { isImportingSources = false }
@@ -406,8 +466,13 @@ final class StudioStore {
 
     func saveFilm(name: String, draft: FilmDraft, sources: [URL], existing: URL?, brand: Brand? = nil, start: Bool) async -> URL? {
         filmSourcesCopied = false
-        guard !runtime.isRunning, !runtime.isPreparing, !isImportingSources, !isManagingProject, !isSavingFilm else {
-            errorMessage = "Stop the active director before creating or changing another film."; return nil
+        let busy = runtime.isRunning || runtime.isPreparing
+        if settings.filmQueue.contains(where: { $0.project == existing }) {
+            errorMessage = "Remove this film from the queue before editing or starting it separately."; return nil
+        }
+        guard !isTransferringProject, !queueStarting, !queueHandlingExit, !isImportingSources, !isManagingProject, !isSavingFilm,
+              !(busy && (start || existing == activeDirectorProject)) else {
+            errorMessage = "Wait for file operations to finish. Save another draft while the director works; pause it before starting a second film or changing its active project."; return nil
         }
         isSavingFilm = true
         defer { isSavingFilm = false }
@@ -425,11 +490,13 @@ final class StudioStore {
                 try draft.save(in: project)
             }.value
             filmSourcesCopied = true
-            selectedProjectURL = project
-            if runURL == nil || loadedFilm != project { loadedFilm = nil }
+            if !busy {
+                selectedProjectURL = project
+                if runURL == nil || loadedFilm != project { loadedFilm = nil }
+                reloadSources()
+            }
             UserDefaults.standard.set(project.path, forKey: "lastOpenedProject")
             UserDefaults.standard.set("project", forKey: "lastWorkspaceKind")
-            reloadSources()
             reloadProjects()
             statusMessage = "Draft saved · start the film whenever you're ready"
             if start {
@@ -473,9 +540,9 @@ final class StudioStore {
         if panel.runModal() == .OK, let url = panel.url { openRun(url) }
     }
 
-    func openRun(_ url: URL) {
+    func openRun(_ url: URL, navigate: Bool = true) {
         let run = url.lastPathComponent == "session.json" ? url.deletingLastPathComponent() : url
-        guard (!runtime.isRunning && !runtime.isPreparing) || run == runtime.runURL else { errorMessage = "Stop the director before switching films."; return }
+        guard (!runtime.isRunning && !runtime.isPreparing && !runtime.isFinishing && !queueStarting) || run == runtime.runURL else { errorMessage = "Stop the director before switching films."; return }
         let identity = UUID(); runOpenGeneration = identity
         Task {
         do {
@@ -488,11 +555,11 @@ final class StudioStore {
             runURL = run
             workspaceURL = run
             let project = run.deletingLastPathComponent().lastPathComponent == ".rasanai" ? run.deletingLastPathComponent().deletingLastPathComponent() : nil
-            selectedProjectURL = project.flatMap { (try? settings.library.read($0)) != nil ? $0 : nil }
+            selectedProjectURL = project.flatMap { (try? projectLibrary(for: $0).read($0)) != nil ? $0 : nil }
             reloadSources()
             isSample = false
             loadedFilm = selectedProjectURL ?? run
-            showFilm(loadedFilm ?? run)
+            if navigate { showFilm(loadedFilm ?? run) }
             stage = state.stage
             previousCurrentStep = state.currentStep
             playhead = 0
@@ -636,7 +703,18 @@ final class StudioStore {
         seek(to: playhead)
     }
 
+    func prepareQueueContext(project: URL) {
+        runOpenGeneration = UUID()
+        resetConnection()
+        snapshot = SessionSnapshot()
+        runURL = nil; workspaceURL = nil
+        selectedProjectURL = project; loadedFilm = project
+        launchProject = nil; showChanges = false; isSample = false
+        reloadSources()
+    }
+
     func startDirector(request: String, includeDirection: Bool = true) async {
+        guard !isTransferringProject, !queueStarting, !queueHandlingExit else { errorMessage = "Wait for project transfer or the queue to finish switching films."; return }
         guard let project = launchProject ?? selectedProjectURL ?? workspaceURL else { errorMessage = "Choose a project first."; return }
         var request = request
         if includeDirection, let draft = FilmDraft.load(in: project) {
@@ -647,7 +725,12 @@ final class StudioStore {
             let run = try await runtime.start(project: project, existingRun: resume, request: request, settings: settings)
             openRun(run)
             showChanges = false
-        } catch { errorMessage = error.localizedDescription }
+        } catch {
+            if let report = runtime.preflightReport, !report.canStart {
+                preflightReport = report; preflightProject = project; preflightSources = []
+                sheet = .preflight
+            } else { errorMessage = error.localizedDescription }
+        }
     }
 
     /// Asks once per agent, then remembers. `proceed` runs immediately when consent already exists.
@@ -660,15 +743,16 @@ final class StudioStore {
         settings.giveConsent(pending.agent)
         pending.proceed()
     }
-    func pauseDirector() { runtime.stop() }
+    func pauseDirector() { queuePaused = true; queueMessage = "Queue paused with the director."; runtime.stop() }
     func resumeDirector() {
-        guard !runtime.isRunning, !runtime.isPreparing, runURL != nil else { return }
+        if settings.filmQueue.contains(where: { $0.project == selectedProjectURL }) { resumeQueue(); return }
+        guard !runtime.isRunning, !runtime.isPreparing, !isSavingFilm, !isManagingProject, !isImportingSources, runURL != nil else { return }
         ensureConsent(for: settings.agent) { [self] in
             launchProject = nil
             Task { await startDirector(request: "Resume this existing run from its saved state. Preserve completed work and continue with the next pending step.") }
         }
     }
-    var canResume: Bool { !isSample && runURL != nil && !runtime.isRunning && !runtime.isPreparing }
+    var canResume: Bool { !isTransferringProject && !queueStarting && !queueHandlingExit && !isSample && runURL != nil && !runtime.isRunning && !runtime.isPreparing && !isSavingFilm && !isManagingProject && !isImportingSources }
 
     func seek(to time: Double) {
         playhead = min(max(0, time), max(0, duration))
@@ -778,28 +862,39 @@ final class StudioStore {
         } catch { errorMessage = error.localizedDescription }
     }
 
-    func exportVideo() {
-        guard let finalURL else { return }
-        let panel = NSSavePanel()
-        panel.title = "Export finished film"
-        panel.nameFieldStringValue = finalURL.lastPathComponent
-        panel.allowedContentTypes = [UTType(filenameExtension: finalURL.pathExtension) ?? .movie]
-        if panel.runModal() == .OK, let destination = panel.url {
-            if finalURL.standardizedFileURL == destination.standardizedFileURL {
-                statusMessage = "The film is already saved here"
-                return
-            }
-            let staging = destination.deletingLastPathComponent().appendingPathComponent(".rasanai-export-\(UUID().uuidString).\(finalURL.pathExtension)")
-            do {
-                // Copy on disk; a delivery render can be much larger than the app's memory budget.
-                try FileManager.default.copyItem(at: finalURL, to: staging)
-                if FileManager.default.fileExists(atPath: destination.path) {
-                    _ = try FileManager.default.replaceItemAt(destination, withItemAt: staging)
-                } else { try FileManager.default.moveItem(at: staging, to: destination) }
-                statusMessage = "Exported \(destination.lastPathComponent)"
-            } catch {
-                try? FileManager.default.removeItem(at: staging)
-                errorMessage = error.localizedDescription
+    func exportVideo(source: URL? = nil, captions: URL? = nil) {
+        guard let video = source ?? displayedVideo else { return }
+        exportSource = video
+        exportCaptions = captions ?? (isBrowsingAnotherFilm ? browsedFilm?.captions : asset(snapshot.captionFile))
+        sheet = .export
+    }
+
+    func requestFilmRevision(_ text: String) {
+        let request = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !request.isEmpty else { return }
+        performFilmRequest("Revise this existing film: \(request). Preserve the rest of the film and publish a new version with a list of changes.", action: "note", value: .null, note: request)
+    }
+    func restoreFilmVersion(_ version: FilmVersion) {
+        performFilmRequest("Restore version \(version.id) of this existing film using its saved artifacts. Preserve the other versions and publish the restored result through the console.", action: "version", value: .object(["restore": version.number]), note: "")
+    }
+    private func performFilmRequest(_ request: String, action: String, value: JSONValue, note: String) {
+        guard !queueStarting, !queueHandlingExit, !isBrowsingAnotherFilm, !isSending, !runtime.isPreparing, !isSavingFilm, runURL != nil else { return }
+        if !runtime.isRunning, settings.filmQueue.contains(where: { $0.project == selectedProjectURL }) {
+            errorMessage = "Resume this film through the queue, or remove it from the queue before requesting a revision."; return
+        }
+        ensureConsent(for: settings.agent) { [self] in
+            showChanges = true
+            Task {
+                if runtime.isRunning {
+                    guard isConnected else { errorMessage = "Reconnect the review console before sending changes."; return }
+                    await send(type: action, value: value, note: note, step: snapshot.actionStep(for: .final))
+                    if errorMessage == nil && action == "note" { directorMessage = "" }
+                } else {
+                    launchProject = nil
+                    await startDirector(request: request)
+                    showChanges = true
+                    if runtime.isRunning && action == "note" { directorMessage = "" }
+                }
             }
         }
     }

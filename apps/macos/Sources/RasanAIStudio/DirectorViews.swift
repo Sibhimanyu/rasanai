@@ -66,6 +66,7 @@ struct NoteSheet: View {
 @MainActor final class StudioAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     var runtime: DirectorRuntime?
     weak var store: StudioStore?
+    private var pendingPackage: URL?
     func runSnapshots() {
         guard let directory = SnapshotHarness.directory else { return }
         Task { @MainActor in
@@ -73,7 +74,12 @@ struct NoteSheet: View {
             exit(0)
         }
     }
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard let package = urls.first(where: { $0.pathExtension.lowercased() == PortableProject.fileExtension }) else { return }
+        if let store { store.importProjectPackage(package) } else { pendingPackage = package }
+    }
     func configureNotifications() {
+        if let pendingPackage { store?.importProjectPackage(pendingPackage); self.pendingPackage = nil }
         if Bundle.main.bundleIdentifier != nil { UNUserNotificationCenter.current().delegate = self }
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
@@ -81,15 +87,21 @@ struct NoteSheet: View {
         await MainActor.run { self.store?.openRun(URL(fileURLWithPath: path)) }
     }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let runtime, runtime.isRunning else { return .terminateNow }
+        let running = runtime?.isRunning == true
+        let transferring = store?.isTransferringProject == true
+        guard running || transferring else { store?.pauseQueue(); return .terminateNow }
         let alert = NSAlert()
-        alert.messageText = "Stop the director and quit?"
-        alert.informativeText = "Your project files are preserved. The active agent and its child processes will be stopped. You can resume the run later."
-        alert.addButton(withTitle: "Stop and Quit"); alert.addButton(withTitle: "Cancel")
+        alert.messageText = transferring ? "Cancel the project transfer and quit?" : "Stop the director and quit?"
+        alert.informativeText = transferring
+            ? "The incomplete transfer will be removed and your original files kept. Any running director will also stop."
+            : "Your project files are preserved. The active agent and its child processes will be stopped. You can resume the run later."
+        alert.addButton(withTitle: running ? "Stop and Quit" : "Cancel Transfer and Quit"); alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
-        runtime.stop()
+        store?.pauseQueue()
+        store?.transferTask?.cancel()
+        runtime?.stop()
         Task {
-            while runtime.isRunning { try? await Task.sleep(for: .milliseconds(100)) }
+            while runtime?.isRunning == true || store?.isTransferringProject == true { try? await Task.sleep(for: .milliseconds(100)) }
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater

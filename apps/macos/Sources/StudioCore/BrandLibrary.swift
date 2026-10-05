@@ -10,10 +10,12 @@ public struct Brand: Identifiable, Hashable, Sendable {
     public var colors: [String]
     public var fonts: [String]
     public var logo: URL?
+    public var previousNames: [String]
 
-    public init(folder: URL, name: String, designFile: URL, colors: [String], fonts: [String], logo: URL?) {
+    public init(folder: URL, name: String, designFile: URL, colors: [String], fonts: [String], logo: URL?, previousNames: [String] = []) {
         self.folder = folder; self.name = name; self.designFile = designFile
         self.colors = colors; self.fonts = fonts; self.logo = logo
+        self.previousNames = previousNames
     }
 }
 
@@ -42,15 +44,17 @@ public enum BrandLibrary {
         guard fm.fileExists(atPath: folder.path, isDirectory: &isDir), isDir.boolValue else { return nil }
         let design = folder.appendingPathComponent("DESIGN.md")
         var name = folder.lastPathComponent
+        var previousNames: [String] = []
         if let data = try? Data(contentsOf: folder.appendingPathComponent("brand.json")),
            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
            let n = json["name"] as? String, !n.trimmingCharacters(in: .whitespaces).isEmpty {
             name = n
+            previousNames = json["previousNames"] as? [String] ?? []
         }
         let text = (try? String(contentsOf: design, encoding: .utf8)) ?? ""
         let logo = logoURL(in: folder)
         return Brand(folder: folder, name: name, designFile: design,
-                     colors: parseColors(text), fonts: parseFonts(text), logo: logo)
+                     colors: parseColors(text), fonts: parseFonts(text), logo: logo, previousNames: previousNames)
     }
 
     public static func create(name: String, importing design: URL?, logo: URL?, in libraryRoot: URL) throws -> Brand {
@@ -78,9 +82,70 @@ public enum BrandLibrary {
     /// Replaces the brand's logo (`logo.<ext>`).
     public static func setLogo(_ logo: URL, in folder: URL) throws {
         let fm = FileManager.default
-        if let old = logoURL(in: folder) { try? fm.removeItem(at: old) }
         let ext = logo.pathExtension.lowercased()
-        try fm.copyItem(at: logo, to: folder.appendingPathComponent("logo." + (ext.isEmpty ? "png" : ext)))
+        guard logoExtensions.contains(ext) else { throw BrandEditError.invalidLogo }
+        let target = folder.appendingPathComponent("logo." + ext)
+        if logo.standardizedFileURL == target.standardizedFileURL { return }
+        let staged = folder.appendingPathComponent(".logo-\(UUID().uuidString).\(ext)")
+        defer { try? fm.removeItem(at: staged) }
+        try fm.copyItem(at: logo, to: staged)
+        let old = logoURL(in: folder)
+        if fm.fileExists(atPath: target.path) { _ = try fm.replaceItemAt(target, withItemAt: staged) }
+        else { try fm.moveItem(at: staged, to: target) }
+        if let old, old != target { try fm.removeItem(at: old) }
+    }
+
+    public static func update(_ brand: Brand, name: String, colors: [String], fonts: [String], originalText: String, logo: URL?, removeLogo: Bool) throws -> Brand {
+        let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty, clean.count <= 100, !clean.contains("\n"), !clean.contains("\r"),
+              !colors.isEmpty, colors.count <= 6,
+              colors.allSatisfy({ $0.range(of: "^#[0-9a-fA-F]{6}$", options: .regularExpression) != nil }),
+              fonts.allSatisfy({ !$0.isEmpty && $0.count <= 100 && !$0.contains("\n") && !$0.contains("\r") }) else { throw BrandEditError.invalidValues }
+        guard try String(contentsOf: brand.designFile, encoding: .utf8) == originalText else { throw BrandEditError.changedOnDisk }
+        var updated = originalText
+        // Temporary markers allow swapping two colours without replacing the same value twice.
+        let marker = UUID().uuidString
+        for (index, old) in brand.colors.enumerated() where index < colors.count {
+            updated = updated.replacingOccurrences(of: NSRegularExpression.escapedPattern(for: old) + "(?![0-9a-fA-F])", with: "RASAN_COLOR_\(marker)_\(index)", options: [.regularExpression, .caseInsensitive])
+        }
+        for index in colors.indices { updated = updated.replacingOccurrences(of: "RASAN_COLOR_\(marker)_\(index)", with: colors[index].uppercased()) }
+        for (index, old) in brand.fonts.enumerated() where index < fonts.count {
+            updated = updated.replacingOccurrences(of: NSRegularExpression.escapedPattern(for: old), with: "RASAN_FONT_\(marker)_\(index)", options: [.regularExpression, .caseInsensitive])
+        }
+        for index in fonts.indices { updated = updated.replacingOccurrences(of: "RASAN_FONT_\(marker)_\(index)", with: fonts[index]) }
+        if brand.colors.isEmpty {
+            let roles = ["Background", "Foreground", "Primary", "Accent", "Secondary", "Muted"]
+            updated += "\n\n## Colours\n" + colors.enumerated().map { "- \(roles[$0.offset]): \($0.element.uppercased())" }.joined(separator: "\n") + "\n"
+        }
+        if brand.fonts.isEmpty { updated += "\n\n## Typography\n- Display: \(fonts.first ?? "Inter")\n- Body: \(fonts.last ?? "Inter")\n" }
+        else if brand.fonts.count == 1, fonts.count > 1 {
+            let pattern = "(?im)(^[ \\t>*\\-]*Body:[ \\t]*)([^,\\n]+)"
+            if updated.range(of: pattern, options: .regularExpression) != nil {
+                updated = updated.replacingOccurrences(of: pattern, with: "$1" + NSRegularExpression.escapedTemplate(for: fonts[1]), options: .regularExpression)
+            } else { updated += "\n\n## Body typography\n- Body: \(fonts[1])\n" }
+        }
+        // Keep the prior design as a recoverable file, including all imported motion and voice notes.
+        try originalText.write(to: brand.folder.appendingPathComponent("DESIGN.previous.md"), atomically: true, encoding: .utf8)
+        if let logo { try setLogo(logo, in: brand.folder) }
+        if removeLogo, let old = logoURL(in: brand.folder) { try FileManager.default.trashItem(at: old, resultingItemURL: nil) }
+        try updated.write(to: brand.designFile, atomically: true, encoding: .utf8)
+        let metaURL = brand.folder.appendingPathComponent("brand.json")
+        var metadata = (try? JSONSerialization.jsonObject(with: Data(contentsOf: metaURL))) as? [String: Any] ?? [:]
+        metadata["name"] = clean
+        if clean != brand.name { metadata["previousNames"] = Array(Set(brand.previousNames + [brand.name])).sorted() }
+        try JSONSerialization.data(withJSONObject: metadata, options: [.prettyPrinted]).write(to: metaURL, options: .atomic)
+        guard let result = load(brand.folder) else { throw CocoaError(.fileReadUnknown) }
+        return result
+    }
+    public enum BrandEditError: LocalizedError {
+        case invalidValues, invalidLogo, changedOnDisk
+        public var errorDescription: String? {
+            switch self {
+            case .invalidValues: "Enter a name, six-digit hex colours and font names."
+            case .invalidLogo: "Choose a PNG, JPEG, SVG, PDF, WebP or HEIC logo."
+            case .changedOnDisk: "This design changed outside the editor. Close and reopen Edit brand to load the latest version."
+            }
+        }
     }
 
     public static func delete(_ brand: Brand) throws {

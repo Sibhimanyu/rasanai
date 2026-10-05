@@ -23,6 +23,9 @@ enum SnapshotHarness {
         defaults.removePersistentDomain(forName: suite)
         defaults.set(libraryRoot.path, forKey: "projectRoot")
         defaults.set(true, forKey: "hasCompletedWelcome")
+        // Readiness checks use local exit-code fixtures, never the user's provider CLIs.
+        defaults.set("/usr/bin/true", forKey: "claudePath")
+        defaults.set("/usr/bin/false", forKey: "codexPath")
         try? FileManager.default.createDirectory(at: libraryRoot, withIntermediateDirectories: true)
         return StudioSettings(defaults: defaults)
     }
@@ -145,6 +148,32 @@ enum SnapshotHarness {
                 await shot("home", StudioView(store: full.store))
                 await shot("home-empty", StudioView(store: empty.store))
 
+                let recovered = try makeSeed(films: false)
+                recovered.store.settings.saveEditorDraft(FilmEditorDraft(name: "Launch film", film: FilmDraft(brief: "A 30-second launch film for our app.", duration: 30), sources: []), for: nil)
+                await shot("home-recovered-draft", StudioView(store: recovered.store))
+                await shot("editor-recovered-draft", StudioView(store: recovered.store)) { recovered.store.path = [.newFilm(nil)] }
+
+                let starting = try makeSeed(films: false)
+                starting.store.runtime.isPreparing = true
+                starting.store.runtime.startedAt = Date().addingTimeInterval(-4)
+                starting.store.runtime.status = "Opening the review workspace…"
+                await shot("film-starting", StartingView(runtime: starting.store.runtime), title: "Starting film")
+
+                let failed = try makeSeed(films: true)
+                if let film = failed.films["Quarterly update"] {
+                    failed.store.loadedFilm = film; failed.store.selectedProjectURL = film
+                    failed.store.runURL = film.appendingPathComponent(".rasanai/run-fixture")
+                    failed.store.runtime.lastExitCode = 1
+                    failed.store.runtime.recovery = .signIn
+                    failed.store.runtime.logURL = film.appendingPathComponent(".rasanai/director.log")
+                    await shot("film-recovery", StudioView(store: failed.store)) { failed.store.path = [.film(film)] }
+                }
+
+                let progress = try makeSeed(films: false)
+                progress.store.runtime.startedAt = Date().addingTimeInterval(-74)
+                progress.store.snapshot = try SessionSnapshot(data: Data("{\"title\":\"Film progress\",\"current\":\"story\",\"steps\":{\"story\":{\"status\":\"working\"}},\"activity\":[{\"msg\":\"Writing three story directions from your brief.\"}]}".utf8))
+                await shot("film-progress", DirectorProgressView(store: progress.store), titled: false, size: CGSize(width: 900, height: 100))
+
                 full.store.newFilmPrefill = "A 45-second launch film for Northwind, our budgeting app. Calm, confident, a little playful."
                 full.store.newFilmPrefillFiles = ["interview-raw.mov", "cover-art.png", "brand-guide.pdf"].map { name in
                     let url = sandbox.appendingPathComponent(name); try? Data("demo".utf8).write(to: url); return url
@@ -163,7 +192,7 @@ enum SnapshotHarness {
                 }
                 let fresh = try makeSeed(films: true)
                 await shot("brands", StudioView(store: fresh.store)) { fresh.store.path = [.brands] }
-                if let brand = fresh.brands.first {
+                if !fresh.brands.isEmpty {
                     let second = try makeSeed(films: true)
                     let target = second.brands[0].folder
                     await shot("brand", StudioView(store: second.store)) { second.store.path = [.brands, .brand(target)] }

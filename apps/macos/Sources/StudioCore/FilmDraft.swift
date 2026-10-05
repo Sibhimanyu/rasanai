@@ -1,6 +1,6 @@
 import Foundation
 
-public struct FilmDraft: Codable, Sendable {
+public struct FilmDraft: Codable, Equatable, Sendable {
     public static let motionLevels = ["maximal", "balanced", "minimal"]
     public static let videoExtensions: Set<String> = ["mp4", "mov", "m4v", "webm", "mkv", "avi", "mts"]
     public var brief: String
@@ -88,6 +88,22 @@ public struct FilmDraft: Codable, Sendable {
     }
     public func save(in project: URL) throws {
         try JSONEncoder().encode(self).write(to: project.appendingPathComponent("rasanai-brief.json"), options: .atomic)
+    }
+}
+
+/// Recovery state for an editor that has not yet committed its changes to a project.
+/// Selected sources remain references until Save draft or Start copies them into the project.
+public struct FilmEditorDraft: Codable, Equatable, Sendable {
+    public var name: String
+    public var film: FilmDraft
+    public var sources: [URL]
+    /// A partially created project is reused after an import or launch failure.
+    public var project: URL?
+    public init(name: String, film: FilmDraft, sources: [URL], project: URL? = nil) {
+        self.name = name; self.film = film; self.sources = sources; self.project = project
+    }
+    public var isEmpty: Bool {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && film == FilmDraft(agent: film.agent) && sources.isEmpty && project == nil
     }
 }
 
