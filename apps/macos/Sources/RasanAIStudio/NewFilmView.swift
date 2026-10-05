@@ -24,12 +24,16 @@ struct NewFilmView: View {
     @State private var templateName = ""
     @State private var replacementDraft: FilmDraft?
     @State private var templateMessage: String?
+    @State private var queueNote: String?
     @FocusState private var briefFocused: Bool
 
     private static let lengths: [(String, Int)] = [("15 seconds", 15), ("30 seconds", 30), ("45 seconds", 45), ("60 seconds", 60), ("90 seconds", 90), ("2 minutes", 120)]
     private var trimmedBrief: String { draft.brief.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var agent: LocalAgent { store.settings.agent }
     private var directorReady: Bool { store.settings.isReady(agent) }
+    private var directorBusy: Bool { store.runtime.isRunning || store.runtime.isPreparing }
+    private var editingQueued: Bool { project.map { store.isWaitingInQueue($0) } ?? false }
+    private var checkingStart: Bool { StartGate.shared.isChecking }
     private var editorState: FilmEditorDraft { FilmEditorDraft(name: name, film: draft, sources: sources, project: recoveryProject) }
     private var autoName: String {
         let words = trimmedBrief.split(whereSeparator: \.isWhitespace).prefix(5).joined(separator: " ")
@@ -49,7 +53,7 @@ struct NewFilmView: View {
                             Button(template.name) { proposeTemplate(template.draft) }
                         }
                         if store.settings.filmTemplates.isEmpty { Text("Save your first template below") }
-                    }
+                    }.fixedSize()
                     Spacer()
                     Button("Save as template…") { templateName = name.isEmpty ? autoName : name; showSaveTemplate = true }
                         .disabled(trimmedBrief.isEmpty || working)
@@ -84,10 +88,6 @@ struct NewFilmView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) { footer }
         .navigationTitle(project == nil ? "New film" : "Edit film")
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button("Check readiness…") { store.showPreflight(project: project ?? recoveryProject, sources: sources + existingSources) }
-                    .disabled(working)
-            }
             ToolbarItem(placement: .primaryAction) {
                 HelpButton(title: "New film", lines: [
                     "Say what the film is about in your own words. A sentence is enough.",
@@ -246,15 +246,26 @@ struct NewFilmView: View {
                     Button("Discard changes…", role: .destructive) { showDiscard = true }.disabled(working)
                 }
                 Spacer()
-                if working { ProgressView().controlSize(.small) }
+                if working || checkingStart { ProgressView().controlSize(.small) }
+                if let queueNote { Text(queueNote).font(.system(size: 12)).foregroundStyle(.secondary).transition(.opacity) }
                 Button("Save draft") { save(start: false) }.disabled(working || (project == nil && trimmedBrief.isEmpty && name.isEmpty))
-                if directorReady {
-                    Button("Add to queue") { store.ensureConsent(for: agent) { save(start: false, queue: true) } }
-                        .disabled(working || trimmedBrief.isEmpty)
-                    Button("Start film") { start() }
+                if editingQueued {
+                    Button("Save changes") { saveQueuedChanges() }
                         .buttonStyle(.borderedProminent).controlSize(.large)
                         .keyboardShortcut(.return, modifiers: .command)
-                        .disabled(working || trimmedBrief.isEmpty || store.toolSetup.isRunning || store.runtime.isRunning || store.runtime.isPreparing)
+                        .disabled(working || trimmedBrief.isEmpty)
+                } else if directorReady {
+                    if directorBusy {
+                        Button("Start when free") { store.ensureConsent(for: agent) { save(start: false, queue: true) } }
+                            .buttonStyle(.borderedProminent).controlSize(.large)
+                            .keyboardShortcut(.return, modifiers: .command)
+                            .disabled(working || trimmedBrief.isEmpty)
+                    } else {
+                        Button("Start film") { start() }
+                            .buttonStyle(.borderedProminent).controlSize(.large)
+                            .keyboardShortcut(.return, modifiers: .command)
+                            .disabled(working || checkingStart || trimmedBrief.isEmpty || store.toolSetup.isRunning)
+                    }
                 } else if store.settings.checking.contains(agent.id) {
                     ProgressView().controlSize(.small)
                     Text("Checking director…").font(.system(size: 12)).foregroundStyle(.secondary)
@@ -268,8 +279,8 @@ struct NewFilmView: View {
                 Text(directorReady ? "Directed by \(agent.title) on your Mac ·" : "Set up and sign in to your director before starting.")
                 Button("Change") { openSettings() }.buttonStyle(.link)
             }.font(.system(size: 11)).foregroundStyle(.secondary)
-            if store.runtime.isRunning || store.runtime.isPreparing {
-                Text("A film is running. Add this film to the queue to start automatically when it finishes.")
+            if directorBusy && !editingQueued {
+                Text("Starts automatically when the current film finishes.")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
             }
         }
@@ -320,7 +331,30 @@ struct NewFilmView: View {
         if panel.runModal() == .OK { _ = add(panel.urls) }
     }
     private func start() {
-        store.ensureConsent(for: agent) { save(start: true) }
+        store.ensureConsent(for: agent) {
+            store.startWhenReady(project: project ?? recoveryProject ?? store.filmDraftProject, sources: sources + existingSources) { save(start: true) }
+        }
+    }
+    /// Saves edits to a film that is waiting in the queue, then refreshes the queued copy instead of starting.
+    private func saveQueuedChanges() {
+        guard let project else { return }
+        working = true
+        draft.agent = store.settings.defaultAgent
+        let title = name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? autoName : name
+        let brand = brands.first { $0.name == draft.brand } ?? brands.first { $0.previousNames.contains(draft.brand ?? "") }
+        let submittedDraft = draft
+        let submittedSources = sources
+        Task {
+            let saved = await store.saveFilm(name: title, draft: submittedDraft, sources: submittedSources, existing: project, brand: brand, start: false)
+            working = false
+            guard let saved else { persistEditor(); return }
+            store.updateQueuedDraft(project: saved, name: title, draft: submittedDraft)
+            committed = true
+            store.settings.clearEditorDraft(for: project)
+            withAnimation(.snappy) { queueNote = "Queue updated" }
+            try? await Task.sleep(for: .milliseconds(700))
+            store.path = [.queue]
+        }
     }
     private func save(start: Bool, queue: Bool = false) {
         working = true

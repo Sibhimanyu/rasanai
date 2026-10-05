@@ -51,7 +51,7 @@ fi
 # Generate standard macOS icon sizes from the project's existing mark.
 icon_work="$staging/icon-work"
 mkdir -p "$icon_work/AppIcon.iconset"
-icon_source="$studio_dir/../../docs/assets/logo/rasanai-mark-1024.png"
+icon_source="$studio_dir/Packaging/AppIcon-1024.png"
 for size in 16 32 128 256 512; do
     sips -z "$size" "$size" "$icon_source" --out "$icon_work/AppIcon.iconset/icon_${size}x${size}.png" >/dev/null
     retina_size=$((size * 2))

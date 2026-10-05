@@ -6,8 +6,12 @@ import StudioCore
 struct WelcomeView: View {
     @Bindable var store: StudioStore
     @State private var selected: LocalAgent = .claude
+    @State private var checkedTools = false
     private var settings: StudioSettings { store.settings }
     private var agents: [LocalAgent] { [.claude, .codex] }
+    private var missingTools: [SetupTool] { SetupTool.missing(in: store.preflightReport) }
+    private var toolsChecking: Bool { !store.isDemo && (store.isCheckingPreflight || (!checkedTools && store.preflightReport == nil)) }
+    private var toolsReady: Bool { store.isDemo || (store.preflightReport != nil && missingTools.isEmpty && store.preflightReport?.canStart == true) }
     private var anyReady: Bool { agents.contains { settings.isReady($0) } }
 
     var body: some View {
@@ -29,6 +33,10 @@ struct WelcomeView: View {
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color(nsColor: .separatorColor)))
             .padding(.top, 28)
 
+            toolsCard.padding(.top, 12)
+                .animation(.snappy, value: toolsChecking)
+                .animation(.snappy, value: missingTools)
+
             Text("RasanAI directs films with your Claude Code or Codex account. Usage counts toward your plan.")
                 .font(.system(size: 12)).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
@@ -41,11 +49,6 @@ struct WelcomeView: View {
                 } else {
                     Text("Set up either director, then recheck.").foregroundStyle(.secondary)
                 }
-            }.font(.system(size: 12)).padding(.top, 12)
-
-            Button("Prepare rendering tools…") {
-                settings.showWelcome = false
-                store.showPreflight()
             }.font(.system(size: 12)).padding(.top, 12)
 
             Spacer(minLength: 16)
@@ -63,15 +66,58 @@ struct WelcomeView: View {
             }
         }
         .padding(.horizontal, 36).padding(.vertical, 28)
-        .frame(width: 480, height: 570)
+        .frame(width: 480, height: 640)
         .tint(.rasan)
         .alert("Director setup", isPresented: Binding(get: { settings.error != nil }, set: { if !$0 { settings.error = nil } })) {
             Button("OK") { settings.error = nil }
         } message: { Text(settings.error ?? "") }
         .task {
             selected = settings.agent
+            async let tools: Void = checkTools()
             await recheck()
+            await tools
         }
+    }
+
+    /// Runs the readiness check silently so the rendering-tools card can say what is missing.
+    private func checkTools() async {
+        guard !store.isDemo else { checkedTools = true; return }
+        if store.toolSetup.isRunning { checkedTools = true; return }
+        store.preflightProject = nil; store.preflightSources = []
+        await store.checkPreflight()
+        checkedTools = true
+    }
+
+    private var toolsCard: some View {
+        HStack(spacing: 12) {
+            Group {
+                if toolsChecking { ProgressView().controlSize(.small) }
+                else if toolsReady { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.green) }
+                else { Image(systemName: "wrench.and.screwdriver.fill").foregroundStyle(Color.orange) }
+            }.font(.system(size: 18)).frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(toolsReady ? "Rendering tools ready" : "Rendering tools").font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(toolsReady ? Color.green : Color.primary)
+                Text(toolsSubtitle).font(.system(size: 11)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            if !toolsChecking && !toolsReady {
+                Button("Set up…") { settings.showWelcome = false; store.showPreflight() }.controlSize(.small)
+            }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color(nsColor: .separatorColor)))
+        .accessibilityElement(children: .combine)
+    }
+
+    private var toolsSubtitle: String {
+        if toolsChecking { return "Checking this Mac…" }
+        if toolsReady { return "Video, renderer and browser are in place." }
+        if missingTools.isEmpty { return "Some checks need a look before your first film." }
+        let names = missingTools.map(\.title)
+        return (names.count > 2 ? names.prefix(2).joined(separator: ", ") + " and more" : names.joined(separator: " and ")) + " still to set up."
     }
 
     private func recheck() async {

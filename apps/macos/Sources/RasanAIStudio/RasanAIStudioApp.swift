@@ -75,9 +75,8 @@ struct RasanAIStudioApp: App {
                 Button("Reconnect") { store.reconnectConsole() }.keyboardShortcut("r").disabled(!onFilmPage || store.isBrowsingAnotherFilm || store.runURL == nil || store.isReconnecting)
             }
             CommandMenu("Navigate") {
-                Button("Film Queue") { store.path.append(.queue) }.keyboardShortcut("q", modifiers: [.command, .shift])
-                Button("Film Templates") { store.path.append(.templates) }
-
+                Button("Film Queue") { store.path.append(.queue) }.keyboardShortcut("k", modifiers: [.command, .shift])
+                Button("Film Templates") { store.path.append(.templates) }.keyboardShortcut("t", modifiers: [.command, .shift])
                 Button("Back") { if !store.path.isEmpty { store.path.removeLast() } }.keyboardShortcut("[", modifiers: .command).disabled(store.path.isEmpty)
                 Button("Home") { store.goHome() }.keyboardShortcut("h", modifiers: [.command, .shift])
             }
