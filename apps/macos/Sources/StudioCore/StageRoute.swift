@@ -46,6 +46,9 @@ public enum StageRouter {
         let pinned = viewing != nil
         let status = payload["status"].string
         let busy = !pinned && !snapshot.isWaitingOnUser && status != "done" && step != "build" && step != "render" && step != "final"
+        // A decided call stays current until the director pushes the next one; meanwhile show what it is doing
+        // (the decided call is still one click away in the stage bar). Unlike the web console, which keeps it on screen.
+        if !pinned, status == "done", !snapshot.isWaitingOnUser, step != "render", step != "final" { return .working }
         switch step {
         case "brief":
             return pinned || status == "awaiting" ? .brief : .working

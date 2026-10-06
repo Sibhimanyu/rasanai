@@ -14,6 +14,13 @@ final class NativeFlowTests: XCTestCase {
         XCTAssertEqual(StageRouter.route(try snap(#"{"current":"brief","steps":{"brief":{"status":"working","fields":{"subject":"x"}}}}"#)), .working)
         XCTAssertEqual(StageRouter.route(try snap(#"{"current":"story","steps":{}}"#)), .working)
     }
+    func testDecidedCallShowsWorkingUntilTheNextPush() throws {
+        let decided = #"{"current":"look","steps":{"look":{"status":"done","styles":[{"id":"sure"}]}}}"#
+        XCTAssertEqual(StageRouter.route(try snap(decided)), .working)
+        XCTAssertEqual(StageRouter.route(try snap(decided), viewing: "look"), .look)
+        XCTAssertEqual(StageRouter.route(try snap(#"{"current":"render","steps":{"render":{"status":"done","video":"f.mp4"}}}"#)), .final)
+    }
+
     func testBriefRoutes() throws {
         XCTAssertEqual(StageRouter.route(try snap(#"{"current":"brief","steps":{"brief":{"status":"working"}}}"#)), .working)
         XCTAssertEqual(StageRouter.route(try snap(#"{"current":"brief","steps":{"brief":{"status":"awaiting"}}}"#)), .brief)
