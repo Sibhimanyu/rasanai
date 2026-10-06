@@ -180,10 +180,13 @@ enum SnapshotHarness {
                 progress.store.snapshot = try SessionSnapshot(data: Data("{\"title\":\"Film progress\",\"current\":\"look\",\"steps\":{\"look\":{\"status\":\"working\"}},\"activity\":[{\"msg\":\"Writing three story directions from your brief.\"}]}".utf8))
                 await shot("film-progress", VStack(spacing: 0) { FilmStageBar(current: progress.store.snapshot.stage); DirectorProgressView(store: progress.store); Spacer(minLength: 0) }.background(Color(nsColor: .windowBackgroundColor)), titled: false, size: CGSize(width: 900, height: 150))
 
-                full.store.newFilmPrefill = "A 45-second launch film for Northwind, our budgeting app. Calm, confident, a little playful."
-                full.store.newFilmPrefillFiles = ["interview-raw.mov", "cover-art.png", "brand-guide.pdf"].map { name in
+                // RASANAI_SNAPSHOT_FILES: optional folder of real sample files, so the rows show true sizes and thumbnails.
+                let realFiles = ProcessInfo.processInfo.environment["RASANAI_SNAPSHOT_FILES"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+                let newFilmFiles = ["interview-raw.mov", "cover-art.png"].map { name -> URL in
+                    if let real = realFiles?.appendingPathComponent(name), FileManager.default.fileExists(atPath: real.path) { return real }
                     let url = sandbox.appendingPathComponent(name); try? Data("demo".utf8).write(to: url); return url
                 }
+                full.store.settings.saveEditorDraft(FilmEditorDraft(name: "Northwind launch film", film: FilmDraft(brief: "A 45-second launch film for Northwind, our budgeting app. Calm, confident, a little playful.", duration: 45, motionLevel: "balanced", brand: "Northwind"), sources: newFilmFiles), for: nil)
                 await shot("new-film", StudioView(store: full.store)) { full.store.path = [.newFilm(nil)] }
 
                 if let draft = full.films["Podcast trailer"] {

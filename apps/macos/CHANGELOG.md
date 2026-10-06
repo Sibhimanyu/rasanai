@@ -2,6 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- The download is now named `RasanAI-Studio-<version>.dmg` (for example `RasanAI-Studio-0.5.0.dmg`), with its checksum in `RasanAI-Studio-<version>.dmg.sha256`. Older releases keep their old file names.
+
 ## 0.5.0 beta 1 (build 15) — 2026-10-05
 
 - New film is now a single prompt box: the brief, attached files and every option (length, shape, motion, brand) as chips, with Start film inside the box.
