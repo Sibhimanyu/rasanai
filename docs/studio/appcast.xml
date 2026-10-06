@@ -13,7 +13,7 @@
       <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
       <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
       <sparkle:releaseNotesLink>https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.5.0-beta.1</sparkle:releaseNotesLink>
-      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.5.0-beta.1/RasanAI-Studio-0.5.0-15-arm64-unnotarized.dmg" sparkle:edSignature="YlF2gselVzd4wocQfMTcVS2457cFF1F2KpQb5XfQyXPDZZCBpXFUVuXHJFrJYOy8Ztzh5bsWlKGDp8+ZmxiBDw==" length="67450385" type="application/octet-stream" />
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.5.0-beta.1/RasanAI-Studio-0.5.0-15-arm64-unnotarized.dmg" sparkle:edSignature="6A81tiTe/37LGWuAV0qi34K1gIl/EMLYm4zltjy8veRJwWAtrwwolfUEdaph0zwTFw/MZBIY7Sgb9D+ymJFzBQ==" length="59422790" type="application/octet-stream" />
     </item>
     <item>
       <title>RasanAI Studio 0.4.0 beta 1</title>
