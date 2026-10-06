@@ -10,7 +10,7 @@ struct RasanAIStudioApp: App {
     private let snapshotDirectory = SnapshotHarness.directory
 
     init() {
-        if SnapshotHarness.directory != nil {
+        if SnapshotHarness.directory != nil || SnapshotHarness.stagesDirectory != nil {
             // Screenshot mode never touches the real library, settings or runtime.
             _store = State(initialValue: StudioStore(settings: SnapshotHarness.isolatedSettings(), demo: true))
         } else {
@@ -24,7 +24,7 @@ struct RasanAIStudioApp: App {
     var body: some Scene {
         Window("RasanAI", id: "studio") {
             Group {
-                if snapshotDirectory == nil {
+                if snapshotDirectory == nil && SnapshotHarness.stagesDirectory == nil {
                     StudioView(store: store)
                         .heresay()
                         .preferredColorScheme(store.settings.colorScheme)
@@ -33,6 +33,16 @@ struct RasanAIStudioApp: App {
                             delegate.store = store
                             delegate.configureNotifications()
                             store.restoreWorkspace()
+                            #if DEBUG
+                            // QA hook: `--attach-run <dir>` opens the film page on an existing run, with no director.
+                            if let index = CommandLine.arguments.firstIndex(of: "--attach-run"), CommandLine.arguments.count > index + 1 {
+                                NSApp.setActivationPolicy(.regular); NSApp.activate(ignoringOtherApps: true)
+                                store.openRun(URL(fileURLWithPath: CommandLine.arguments[index + 1], isDirectory: true))
+                            }
+                            if let index = CommandLine.arguments.firstIndex(of: "--qa-dir"), CommandLine.arguments.count > index + 1 {
+                                QAHarness.start(store: store, dir: URL(fileURLWithPath: CommandLine.arguments[index + 1], isDirectory: true))
+                            }
+                            #endif
                         }
                 } else {
                     Color.clear.frame(width: 1, height: 1)
@@ -86,7 +96,7 @@ struct RasanAIStudioApp: App {
                 Button("Prepare Rendering Tools…") { store.showPreflight() }
                 Button("Explore a Sample Film") { store.exploreSample() }
             }
-            if snapshotDirectory == nil { HeresayCommands() }
+            if snapshotDirectory == nil && SnapshotHarness.stagesDirectory == nil { HeresayCommands() }
         }
         Settings {
             StudioSettingsView(settings: store.settings)

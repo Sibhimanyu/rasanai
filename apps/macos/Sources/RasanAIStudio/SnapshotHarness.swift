@@ -9,6 +9,15 @@ enum SnapshotHarness {
         guard let index = CommandLine.arguments.firstIndex(of: "--snapshot"), CommandLine.arguments.count > index + 1 else { return nil }
         return URL(fileURLWithPath: CommandLine.arguments[index + 1], isDirectory: true)
     }
+    /// `--snapshot-stages <dir> [--only a,b]`: renders every native stage from fixtures (see SnapshotFixtures.swift).
+    static var stagesDirectory: URL? {
+        guard let index = CommandLine.arguments.firstIndex(of: "--snapshot-stages"), CommandLine.arguments.count > index + 1 else { return nil }
+        return URL(fileURLWithPath: CommandLine.arguments[index + 1], isDirectory: true)
+    }
+    static var onlyStages: Set<String>? {
+        guard let index = CommandLine.arguments.firstIndex(of: "--only"), CommandLine.arguments.count > index + 1 else { return nil }
+        return Set(CommandLine.arguments[index + 1].split(separator: ",").map(String.init))
+    }
     static let sandbox: URL = {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("rasanai-snapshot-\(UUID().uuidString)", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
@@ -124,7 +133,7 @@ enum SnapshotHarness {
         try FileManager.default.copyItem(at: poster, to: run.appendingPathComponent("poster.png"))
         let json = """
         {"title":"Spring launch film","current":"render","steps":{"brief":{"fields":{"aspect":"16:9","length_s":45}},
-        "render":{"status":"awaiting","video":"final.mp4","duration":45,"scenes":[{"id":1,"start":0,"duration":45,"frame":"poster.png"}]}}}
+        "render":{"status":"done","video":"final.mp4","duration":45,"scenes":[{"id":1,"start":0,"duration":45,"frame":"poster.png"}]}}}
         """
         store.snapshot = try SessionSnapshot(data: Data(json.utf8))
         store.runURL = run; store.workspaceURL = run

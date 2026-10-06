@@ -2,9 +2,18 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.6.0 beta 1 (build 16) — 2026-10-06
 
-- The download is now named `RasanAI-Studio-<version>.dmg` (for example `RasanAI-Studio-0.5.0.dmg`), with its checksum in `RasanAI-Studio-<version>.dmg.sha256`. Older releases keep their old file names.
+- **The film flow is fully native.** The embedded web console is gone: every stage of a film is now a SwiftUI screen in the film window. Brief, Script (three scripts as tabs and a script table of timed beats), Look (three looks and Browse all styles), Animatic (key frames on a timeline with the music, and timed notes you pin to moments), Build (scene-by-scene progress) and Final (the render with scene markers, notes and versions) all follow the director live. There is no web view in the app.
+- Native panels for the rest of the engine's steps: brand, footage, reel (footage and cut), scenes, music, voice, motion, transitions, storyboard, keyframes and plan.
+- **The brief you write in New film is carried over.** Studio hands it to the director and the Brief stage opens already filled in, so you are never asked for it again. Your attached files and options come with it.
+- **Decisions inspector** (⌥⌘D): every call Claude made and why, in a native side panel, credited to who made it.
+- **Tell Claude** (⌘K) is a native bar with conversation threads: ask for a change at any stage and follow Claude's replies.
+- **Questions from Claude are native sheets**, with the optional notification and Dock badge. Dismiss one and it stays as a card on the stage.
+- **Just make it**: Claude decides every remaining call (script, look, animatic and the minor steps) and stops only at the Final for your review.
+- **Director monitor.** The film toolbar pill shows the director's live state (Working, Thinking, Waiting for you, Quiet, Possibly looping, Exited) with live tokens and cost, for example "Working · 182k tokens · $1.42 est.". Click it for the Director panel: tokens breakdown, reported versus estimated cost, turns, tool calls, recent events, Pause, Stop and Tell Claude, and a loop warning. Film Queue rows show each film's state, tokens and cost. An optional per-film budget warning lives in Settings, and finished films show "Made with N tokens · $X est.". Codex on a ChatGPT plan shows tokens with "Included in your ChatGPT plan".
+- Studio talks to the director through the run's local, authenticated console API on 127.0.0.1 with live updates. The director stays the only writer of the session, so `console.mjs wait` and the agent workflow are unchanged.
+- The download is now named `RasanAI-Studio-<version>.dmg` (for example `RasanAI-Studio-0.6.0.dmg`), with its checksum in `RasanAI-Studio-<version>.dmg.sha256`. Older releases keep their old file names.
 
 ## 0.5.0 beta 1 (build 15) — 2026-10-05
 

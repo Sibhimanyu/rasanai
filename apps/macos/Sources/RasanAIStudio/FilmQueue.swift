@@ -206,6 +206,7 @@ struct FilmQueueView: View {
         }
         .frame(maxWidth: 940).frame(maxWidth: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
+        .safeAreaInset(edge: .bottom, spacing: 0) { QueueTotalsFooter(monitor: store.monitor) }
         .navigationTitle("Queue")
     }
 
@@ -219,10 +220,10 @@ struct FilmQueueView: View {
                 Spacer()
                 if !queue.isEmpty {
                     Button(store.queuePaused ? "Resume queue" : "Pause queue") { if store.queuePaused { store.resumeQueue() } else { store.pauseQueue() } }
-                        .buttonStyle(.borderedProminent).disabled(store.queueStarting || store.queueHandlingExit)
+                        .disabled(store.queueStarting || store.queueHandlingExit)
                 }
             }
-            Text("Films run one at a time. Drag waiting films to reorder them. Review steps wait for you; failures pause the queue. Keep the app open. After relaunch, resume when ready.")
+            Text("One film at a time. Drag waiting films to reorder. A film that needs you waits; a failure pauses the queue. Keep the app open.")
                 .font(.system(size: 12)).foregroundStyle(.secondary)
         }
     }
@@ -241,24 +242,33 @@ struct FilmQueueView: View {
                         .font(.system(size: 12)).foregroundStyle(entry.state == .attention ? Color.orange : .secondary)
                 }
                 Spacer(minLength: 12)
-                Button("Readiness") { store.showPreflight(project: entry.project) }
-                Button("Open") { store.showFilm(entry.project) }
                 if entry.state == .running {
                     Button("Stop film") { store.cancelQueuedFilm() }.disabled(store.runtime.isPreparing)
-                } else {
-                    if waiting { Button("Edit") { store.path.append(.newFilm(entry.project)) } }
-                    Button { withAnimation(.snappy) { store.moveQueuedFilm(entry.id, by: -1) } } label: { Image(systemName: "arrow.up") }.help("Move earlier")
-                        .accessibilityLabel("Move earlier")
-                        .disabled(!waiting || index == 0 || queue[index - 1].state != .waiting)
-                    Button { withAnimation(.snappy) { store.moveQueuedFilm(entry.id, by: 1) } } label: { Image(systemName: "arrow.down") }.help("Move later")
-                        .accessibilityLabel("Move later")
-                        .disabled(!waiting || index + 1 >= queue.count || queue[index + 1].state != .waiting)
-                    Button("Remove") { withAnimation(.snappy) { store.removeQueuedFilm(entry.id) } }
                 }
+                Button("Open") { store.showFilm(entry.project) }
+                Menu {
+                    if waiting { Button("Edit brief…") { store.path.append(.newFilm(entry.project)) } }
+                    Button("Check readiness…") { store.showPreflight(project: entry.project) }
+                    if waiting {
+                        Divider()
+                        Button("Move earlier") { withAnimation(.snappy) { store.moveQueuedFilm(entry.id, by: -1) } }
+                            .disabled(index == 0 || queue[index - 1].state != .waiting)
+                        Button("Move later") { withAnimation(.snappy) { store.moveQueuedFilm(entry.id, by: 1) } }
+                            .disabled(index + 1 >= queue.count || queue[index + 1].state != .waiting)
+                    }
+                    if entry.state != .running {
+                        Divider()
+                        Button("Remove from queue", role: .destructive) { withAnimation(.snappy) { store.removeQueuedFilm(entry.id) } }
+                    }
+                } label: { Image(systemName: "ellipsis.circle") }
+                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                    .accessibilityLabel("More for \(entry.name)")
             }
             Text("\(entry.draft.duration) seconds · \(entry.draft.aspect) · \(LocalAgent(rawValue: entry.draft.agent)?.title ?? entry.draft.agent)")
                 .font(.system(size: 12)).foregroundStyle(.secondary).padding(.leading, 66)
             if let message = entry.message { Text(message).font(.system(size: 12)).foregroundStyle(.secondary).padding(.leading, 66) }
+            QueueUsageLine(monitor: store.monitor, run: entry.run, live: entry.state == .running).padding(.leading, 66)
+                .task(id: entry.run) { if let run = entry.run { await store.monitor.loadSummary(for: run) } }
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))

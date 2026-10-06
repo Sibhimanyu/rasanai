@@ -15,9 +15,11 @@ struct FilmPage: View {
     private var phase: FilmPhase { store.phase }
     private var showsFinished: Bool { if case .finished = phase { return !store.showChanges } else { return false } }
     private var isFinished: Bool { if case .finished = phase { true } else { false } }
-    private var showsConsole: Bool { store.consoleAddress != nil && (store.isConnected || store.runtime.isRunning || store.runtime.isPreparing) }
+    private var showsConsole: Bool { store.film != nil && (store.isConnected || store.runtime.isRunning || store.runtime.isPreparing) }
 
-    var body: some View {
+    /// The page itself, below the stage bar. The bar is laid out above it (not as a safe-area inset) so the stage's own
+    /// scroll view starts under the bar and its first line never hides behind it.
+    @ViewBuilder private var pageContent: some View {
         Group {
             if !ready {
                 ProgressView().controlSize(.large).frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -25,20 +27,33 @@ struct FilmPage: View {
                 if store.runtime.isPreparing || store.runtime.isRunning { StartingView(runtime: store.runtime) }
                 else { DraftView(store: store, url: url, draft: draft) }
             } else if showsFinished {
-                FinishedView(store: store)
-            } else if store.consoleAddress != nil && (store.isConnected || store.runtime.isRunning || store.runtime.isPreparing) {
-                ConsoleWorkspace(address: store.consoleAddress!)
+                withDecisions { FinishedView(store: store) }
+            } else if let film = store.film, store.isConnected || store.runtime.isRunning || store.runtime.isPreparing {
+                NativeFilmView(model: film, startedAt: store.runtime.startedAt)
             } else if store.runtime.isRunning || store.runtime.isPreparing {
                 StartingView(runtime: store.runtime)
             } else {
-                NotRunningView(store: store)
+                withDecisions { NotRunningView(store: store) }
             }
         }
         .background(Color(nsColor: .windowBackgroundColor))
-        .safeAreaInset(edge: .top, spacing: 0) {
+    }
+
+    /// Pages without the native stage view (finished, console not running) still get the Decisions inspector, with
+    /// the same toolbar buttons (see `toolbarItems`), so a finished film's calls and the conversation stay reachable.
+    @ViewBuilder private func withDecisions<Page: View>(@ViewBuilder _ page: () -> Page) -> some View {
+        if let film = store.film { DecisionsHost(model: film, page: page()) } else { page() }
+    }
+    private var showsNativeFilm: Bool {
+        ready && store.runURL != nil && !showsFinished && store.film != nil && (store.isConnected || store.runtime.isRunning || store.runtime.isPreparing)
+    }
+
+    @ViewBuilder private var topChrome: some View {
             if ready && store.runURL != nil {
                 VStack(spacing: 0) {
-                    FilmStageBar(current: store.snapshot.stage, finished: isFinished)
+                    FilmStageBar(current: store.snapshot.stage, finished: isFinished, viewing: store.film?.viewingStage,
+                                 canSelect: { store.film?.canView($0) ?? false }, onSelect: { store.film?.view($0) })
+                    MonitorBudgetBanner(store: store)
                     if !showsFinished {
                         if showsConsole, !store.runtime.stopRequested, let recovery = store.runtime.recovery {
                             DirectorRecoveryView(store: store, recovery: recovery)
@@ -48,6 +63,12 @@ struct FilmPage: View {
                     }
                 }
             }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            topChrome
+            pageContent
         }
         .animation(.snappy, value: ready)
         .animation(.snappy, value: showsFinished)
@@ -64,12 +85,15 @@ struct FilmPage: View {
 
     @ToolbarContentBuilder private var toolbarItems: some ToolbarContent {
         ToolbarItem(placement: .principal) { StatusPill(store: store) }
+        if let film = store.film, store.runURL != nil, !showsNativeFilm { FilmToolbarItems(model: film) }
         ToolbarItemGroup(placement: .primaryAction) {
             if store.finalURL != nil {
                 if store.showChanges, case .finished = phase {
                     Button { store.showChanges = false } label: { Label("Watch film", systemImage: "play.rectangle") }
                 }
-                Button { store.exportVideo() } label: { Label("Export", systemImage: "square.and.arrow.up") }.help("Export the finished video")
+                if let video = store.finalURL {
+                    ShareLink(item: video) { Label("Share", systemImage: "square.and.arrow.up") }.help("Share the finished film")
+                }
             }
             Menu {
                 if store.runtime.isRunning { Button("Pause Director") { store.pauseDirector() } }
@@ -79,7 +103,6 @@ struct FilmPage: View {
                 Button("Check readiness…") { store.showPreflight(project: store.selectedProjectURL) }
                 if let project = store.selectedProjectURL { Button("Export Project…") { store.exportProject(project) } }
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([store.selectedProjectURL ?? store.runURL ?? url]) }
-                if store.finalURL != nil { Button("Export Video…") { store.exportVideo() } }
                 if store.runURL != nil { Button("Reconnect") { store.reconnectConsole() }.disabled(store.isReconnecting) }
             } label: { Image(systemName: "ellipsis.circle") }
             HelpButton(title: "This film", lines: helpLines)
@@ -100,20 +123,28 @@ struct FilmPage: View {
 
 struct StatusPill: View {
     @Bindable var store: StudioStore
+    @State private var monitorOpen = false
     var body: some View {
         let phase = store.phase
         let offline = phase == .offline && store.runURL != nil
-        Button { if offline { store.reconnectConsole() } } label: {
+        let monitor = store.monitor
+        let live = offline ? nil : monitor.pillText(fallback: phase.pill, for: store.runURL)
+        let state = monitor.health?.state
+        Button { if offline { store.reconnectConsole() } else if live != nil { monitorOpen.toggle() } } label: {
             HStack(spacing: 7) {
-                if phase.isBusy { ProgressView().controlSize(.mini) } else { StatusDot(tone: phase.tone) }
-                Text(offline ? "Offline · Reconnect" : phase.pill).font(.system(size: 12, weight: .medium))
+                if live != nil, let state { if state.isLive { ProgressView().controlSize(.mini) } else { StatusDot(tone: state.tone) } }
+                else if phase.isBusy { ProgressView().controlSize(.mini) } else { StatusDot(tone: phase.tone) }
+                Text(offline ? "Offline · Reconnect" : (live ?? phase.pill)).font(.system(size: 12, weight: .medium)).monospacedDigit()
+                if live != nil { Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundStyle(.secondary) }
             }
             .padding(.horizontal, 12).padding(.vertical, 4)
-            .background(Color(nsColor: .quaternaryLabelColor).opacity(0.45), in: Capsule())
+            .background((state == .possiblyLooping && live != nil ? Color(nsColor: .systemRed).opacity(0.2) : Color(nsColor: .quaternaryLabelColor).opacity(0.45)), in: Capsule())
             .animation(.snappy, value: phase)
         }
-        .buttonStyle(.plain).disabled(!offline || store.isReconnecting)
-        .accessibilityLabel(offline ? "Offline. Reconnect" : phase.pill)
+        .buttonStyle(.plain).disabled(!offline && live == nil || store.isReconnecting)
+        .popover(isPresented: $monitorOpen, arrowEdge: .bottom) { DirectorMonitorPanel(monitor: monitor) { monitorOpen = false } }
+        .help(live != nil ? "Director details: state, tokens, cost and recent activity" : "")
+        .accessibilityLabel(offline ? "Offline. Reconnect" : (live ?? phase.pill))
     }
 }
 
@@ -185,6 +216,12 @@ struct DirectorProgressView: View {
         .onChange(of: store.snapshot.raw["activity"]) { lastActivityAt = Date() }
         .onChange(of: store.snapshot.workingMessage) { lastActivityAt = Date() }
     }
+}
+
+private struct DecisionsHost<Page: View>: View {
+    @Bindable var model: FilmSessionModel
+    let page: Page
+    var body: some View { page.inspector(isPresented: $model.decisionsPresented) { DecisionsInspector(model: model) } }
 }
 
 struct NotRunningView: View {
@@ -339,6 +376,7 @@ struct FinishedView: View {
                 VStack(spacing: 4) {
                     Text(store.currentFilmTitle).font(.system(size: 22, weight: .semibold))
                     Text("\(clockText(store.phaseDuration)) · \(store.snapshot.aspect)").font(.system(size: 12)).foregroundStyle(.secondary)
+                    FinishedUsageLine(store: store)
                     if let previewVersion {
                         HStack {
                             Text("Watching v\(previewVersion.id)").font(.system(size: 12, weight: .medium))
@@ -347,8 +385,10 @@ struct FinishedView: View {
                     }
                 }
                 HStack(spacing: 10) {
-                    Button { store.exportVideo() } label: { Label("Export…", systemImage: "square.and.arrow.up") }
+                    Button { store.exportVideo() } label: { Label("Export…", systemImage: "square.and.arrow.down") }
                         .buttonStyle(.borderedProminent).controlSize(.large)
+                        .keyboardShortcut("e", modifiers: .command)
+                        .help("Save an MP4 you can share (⌘E)")
                     Button("Show in Finder") { if let url = store.displayedVideo { NSWorkspace.shared.activateFileViewerSelecting([url]) } }.controlSize(.large)
                 }
                 VStack(alignment: .leading, spacing: 18) {
@@ -396,8 +436,8 @@ struct FinishedView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Request changes").font(.system(size: 17, weight: .semibold))
-                    Text("Watch the film, pause where something should change, and add a note. Your director makes a new version and explains what changed.")
+                    Text("Make changes").font(.system(size: 17, weight: .semibold))
+                    Text("Pause where something should change and add a note. You get a new version; this one is kept.")
                         .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 12)
@@ -440,12 +480,12 @@ struct FinishedView: View {
                 .background(Color(nsColor: .textBackgroundColor).opacity(0.7), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .overlay { RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
             HStack {
-                Button("Open review console") { store.showChanges = true }.buttonStyle(.link).font(.system(size: 12))
+                Button("Review in studio") { store.showChanges = true }.buttonStyle(.link).font(.system(size: 12))
                 Spacer()
                 if !filledNotes.isEmpty {
                     Text("\(filledNotes.count) \(filledNotes.count == 1 ? "note" : "notes")").font(.system(size: 12)).foregroundStyle(.secondary)
                 }
-                Button { send() } label: { Text("Send changes").frame(minWidth: 96) }
+                Button { send() } label: { Text("Make a new version").frame(minWidth: 96) }
                     .buttonStyle(.borderedProminent).controlSize(.large).disabled(!canSend)
             }
         }
@@ -463,21 +503,16 @@ struct FinishedView: View {
 
 // MARK: Sample
 
-/// The old native review views, kept reachable only from Help so the studio can be explored without an agent account.
+/// A made-up film so the studio can be explored without an agent account. The native stages read a fixed session;
+/// choices are accepted but go nowhere.
 struct SamplePage: View {
     @Bindable var store: StudioStore
-    private let clock = Timer.publish(every: 1.0 / 30, on: .main, in: .common).autoconnect()
-    @State private var lastTick = Date()
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Stage", selection: Binding(get: { store.stage }, set: { store.setStage($0) })) {
-                ForEach(ReviewStage.allCases) { Text($0.title).tag($0) }
-            }.pickerStyle(.segmented).labelsHidden().frame(maxWidth: 460).padding(.vertical, 14)
-            switch store.stage {
-            case .animatic, .final: FilmWorkspace(store: store)
-            case .brief: BriefView(store: store)
-            case .story: ChoiceView(store: store, kind: .story)
-            case .look: ChoiceView(store: store, kind: .look)
+            if let film = store.film {
+                FilmStageBar(current: film.snapshot.stage, viewing: film.viewingStage,
+                             canSelect: { _ in true }, onSelect: { film.view($0) })
+                NativeFilmView(model: film)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -485,7 +520,6 @@ struct SamplePage: View {
         .toolbar { ToolbarItem(placement: .primaryAction) { HelpButton(title: "Sample film", lines: [
             "A made-up film so you can look around without an agent account.",
             "Nothing here is sent anywhere. Go back to start a real film."]) } }
-        .onReceive(clock) { now in store.advance(by: min(now.timeIntervalSince(lastTick), 0.15)); lastTick = now }
         .onDisappear { store.pause() }
     }
 }

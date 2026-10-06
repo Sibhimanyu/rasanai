@@ -196,6 +196,17 @@ struct NoteSheet: View {
     weak var store: StudioStore?
     private var pendingPackage: URL?
     func runSnapshots() {
+        if let monitorShots = DirectorMonitorFixtures.directory {
+            Task { @MainActor in await DirectorMonitorFixtures.run(into: monitorShots); exit(0) }
+            return
+        }
+        if let stages = SnapshotHarness.stagesDirectory {
+            Task { @MainActor in
+                await StageFixtures.run(into: stages, only: SnapshotHarness.onlyStages)
+                exit(0)
+            }
+            return
+        }
         guard let directory = SnapshotHarness.directory else { return }
         Task { @MainActor in
             await SnapshotHarness.run(into: directory)

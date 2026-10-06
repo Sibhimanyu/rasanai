@@ -79,12 +79,13 @@ struct FilmSummary: Equatable, Sendable {
     var aspect: String?
     static let draft = FilmSummary(phase: .draft, poster: nil)
     static func friendlyStep(_ step: String) -> String {
+        if !["brief", "story", "look", "films", "animatic", "render", "final"].contains(step) { return "decide: \(StepCatalog.label(step).lowercased())" }
         switch ReviewStage.consoleStep(step) {
-        case .brief: "confirm the brief"
-        case .story: "pick a story"
-        case .look: "pick a look"
-        case .animatic: "review the animatic"
-        case .final: "review the film"
+        case .brief: return "confirm the brief"
+        case .story: return "pick a story"
+        case .look: return "pick a look"
+        case .animatic: return "review the animatic"
+        case .final: return "review the film"
         }
     }
     /// Reads a film's state from disk, for films that are not the one currently open.
@@ -106,7 +107,7 @@ struct FilmSummary: Equatable, Sendable {
         let status = state.step(state.currentStep)["status"].string
         base.poster = poster; base.stage = state.stage
         if state.raw["ask"] != .null, state.raw["ask"]["answered"] == .null { base.phase = .yourTurn("answer a question"); return base }
-        if state.stage == .final, resolver.resolve(state.finalVideo) != nil, status != "working" {
+        if state.stage == .final, resolver.resolve(state.finalVideo) != nil, status == "done" {
             let seconds = state.duration(for: .final)
             base.phase = .finished(seconds)
             if seconds > 0 { base.duration = Int(seconds.rounded()) }
@@ -151,6 +152,7 @@ final class StudioStore {
     var newFilmPrefillFiles: [URL] = []
     let settings: StudioSettings
     let runtime = DirectorRuntime()
+    let monitor = DirectorMonitor()
     var consoleAddress: ConsoleAddress?
     /// When true, the film page shows the console even for a finished film ("Make changes").
     var showChanges = false
@@ -221,8 +223,9 @@ final class StudioStore {
         guard runURL != nil else { return runtime.isPreparing || runtime.isRunning ? .starting : .draft }
         let status = snapshot.step(snapshot.currentStep)["status"].string
         if hasPendingQuestion { return .yourTurn("answer a question") }
-        if snapshot.stage == .final, finalURL != nil, status != "working", !runtime.isPreparing { return .finished(loadedVideoDuration > 0 ? loadedVideoDuration : snapshot.duration(for: .final)) }
-        if isConnected && status == "awaiting" && !awaitingAgent { return .yourTurn(FilmSummary.friendlyStep(snapshot.currentStep)) }
+        if snapshot.stage == .final, finalURL != nil, status == "done", !runtime.isPreparing { return .finished(loadedVideoDuration > 0 ? loadedVideoDuration : snapshot.duration(for: .final)) }
+        if isConnected && snapshot.isFresh && !runtime.isRunning && !runtime.isPreparing { return .yourTurn("say what the film is about") }
+        if isConnected && status == "awaiting" && !snapshot.hasSent(snapshot.currentStep) { return .yourTurn(FilmSummary.friendlyStep(snapshot.currentStep)) }
         if runtime.isPreparing { return .starting }
         if runtime.isRunning { return .working }
         if runtime.stopRequested { return .paused }
@@ -263,8 +266,8 @@ final class StudioStore {
     var audioPlayer: AVPlayer?
     private var finalMediaURL: URL?
     private var audioMediaURL: URL?
-    private var client: ConsoleClient?
-    private var pollingTask: Task<Void, Never>?
+    /// The live director session for the open film (native stage views read and write through it).
+    var film: FilmSessionModel?
     private var generation = UUID()
     private var previousCurrentStep = ""
     private var loadedVideoDuration = 0.0
@@ -293,6 +296,7 @@ final class StudioStore {
             guard !stopped else { return }
             self.notify(title: code == 0 ? "Director finished" : "Director needs attention", body: "Open RasanAI Studio to review the result or log.", id: "director-\(UUID().uuidString)")
         }
+        monitor.attach(self)
     }
 
     func reloadProjects() {
@@ -611,25 +615,33 @@ final class StudioStore {
 
     func connect() {
         guard let runURL else { return }
-        pollingTask?.cancel()
+        film?.stop()
         do {
             let address = try ConsoleAddress(data: Data(contentsOf: runURL.appendingPathComponent("address.json")))
             consoleAddress = address
             workspaceURL = address.root
-            client = ConsoleClient(address: address)
-            let identity = generation
-            statusMessage = "Connecting to the local director…"
-            pollingTask = Task { [weak self] in
-                while !Task.isCancelled {
-                    guard let self, self.generation == identity else { return }
-                    await self.refresh()
-                    do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            let model = FilmSessionModel(snapshot: snapshot, run: runURL, workspace: address.root, address: address,
+                                         addressProvider: { (try? Data(contentsOf: runURL.appendingPathComponent("address.json"))).flatMap { try? ConsoleAddress(data: $0) } })
+            model.startedAt = runtime.startedAt
+            model.onSnapshot = { [weak self, weak model] next in
+                guard let self, let model, self.film === model else { return }
+                self.ingest(next)
+            }
+            model.onConnection = { [weak self, weak model] connection in
+                guard let self, let model, self.film === model else { return }
+                let connected = connection == .live || connection == .polling
+                if connected != self.isConnected {
+                    self.isConnected = connected
+                    if !connected { self.statusMessage = "Console disconnected · retrying" }
                 }
             }
+            film = model
+            statusMessage = "Connecting to the local director…"
+            model.start()
             configureMedia()
         } catch {
             consoleAddress = nil
-            client = nil
+            film = nil
             isConnected = false
             statusMessage = "Offline run · reconnect after starting its console"
             configureMedia()
@@ -650,37 +662,28 @@ final class StudioStore {
         }
     }
 
-    func refresh() async {
-        // A console may have restarted with a new port/token. Re-read its address before retrying.
-        if let runURL, let data = try? Data(contentsOf: runURL.appendingPathComponent("address.json")),
-           let address = try? ConsoleAddress(data: data),
-           consoleAddress?.port != address.port || consoleAddress?.token != address.token {
-            consoleAddress = address; workspaceURL = address.root; client = ConsoleClient(address: address)
+    func refresh() async { await film?.refresh() }
+
+    /// Every new state from the console, whether it came over the stream or from polling.
+    private func ingest(_ next: SessionSnapshot) {
+        snapshot = next
+        if next.raw["ask"]["answered"] == .null, let id = next.raw["ask"]["id"].string, id != presentedQuestionID {
+            presentedQuestionID = id
+            notify(title: "Your director has a question", body: "Open RasanAI Studio to answer and continue.", id: "question-\(id)")
         }
-        guard let client else { return }
-        let identity = generation
-        do {
-            let next = try await client.state()
-            guard generation == identity else { return }
-            snapshot = next
-            if next.raw["ask"]["answered"] == .null, let id = next.raw["ask"]["id"].string, id != presentedQuestionID {
-                presentedQuestionID = id
-                notify(title: "Your director has a question", body: "Open RasanAI Studio to answer and continue.", id: "question-\(id)")
-            }
-            isConnected = true
-            if previousCurrentStep != next.currentStep {
-                setStage(next.stage)
-                previousCurrentStep = next.currentStep
-            }
-            playhead = min(playhead, duration)
-            if case .yourTurn = phase { NSApp.dockTile.badgeLabel = "1" } else { NSApp.dockTile.badgeLabel = nil }
-            statusMessage = next.workingMessage ?? (awaitingAgent ? "Sent to the director · waiting for an update" : "Connected to the local director")
-            configureMedia()
-        } catch {
-            guard generation == identity else { return }
-            isConnected = false
-            statusMessage = "Console disconnected · retrying"
+        isConnected = true
+        if previousCurrentStep == "build", next.currentStep != "build", ["render", "final"].contains(next.currentStep) {
+            notify(title: "Your film is built", body: "Open RasanAI Studio to review it.", id: "built-\(UUID().uuidString)")
         }
+        if previousCurrentStep != next.currentStep {
+            setStage(next.stage)
+            previousCurrentStep = next.currentStep
+        }
+        playhead = min(playhead, duration)
+        if case .yourTurn = phase { NSApp.dockTile.badgeLabel = "1" } else { NSApp.dockTile.badgeLabel = nil }
+        statusMessage = next.workingMessage ?? (awaitingAgent ? "Sent to the director · waiting for an update" : "Connected to the local director")
+        film?.startedAt = runtime.startedAt
+        configureMedia()
     }
 
     func loadSample(reset: Bool = false) {
@@ -696,6 +699,7 @@ final class StudioStore {
             errorMessage = "Unable to load the sample film. \(error.localizedDescription)"
         }
         isSample = true
+        film = FilmSessionModel(fixture: snapshot)
         loadedFilm = nil
         stage = .animatic
         playhead = 26
@@ -714,9 +718,8 @@ final class StudioStore {
 
     private func resetConnection() {
         generation = UUID()
-        pollingTask?.cancel()
-        pollingTask = nil
-        client = nil
+        film?.stop()
+        film = nil
         consoleAddress = nil
         presentedQuestionID = nil
         NSApp?.dockTile.badgeLabel = nil
@@ -868,17 +871,15 @@ final class StudioStore {
     }
 
     func send(type: String, value: JSONValue = .null, note: String = "", step explicitStep: String? = nil) async {
-        guard let client, isConnected, !isSending else { return }
+        guard let film, isConnected, !isSending else { return }
         let identity = generation
         let step = explicitStep ?? reviewStep
         isSending = true
         defer { if generation == identity { isSending = false } }
-        do {
-            try await client.send(step: step, type: type, value: value, note: note)
+        if await film.send(step: step, type: type, value: value, note: note) {
             guard generation == identity else { return }
             statusMessage = "Sent to the director"
-            await refresh()
-        } catch { if generation == identity { errorMessage = error.localizedDescription } }
+        } else if generation == identity { errorMessage = film.lastError }
     }
 
     func applyNotes() async {

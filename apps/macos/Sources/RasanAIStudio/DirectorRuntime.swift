@@ -78,17 +78,18 @@ final class DirectorRuntime {
             try Data(run.lastPathComponent.utf8).write(to: project.appendingPathComponent(".rasanai/current"), options: .atomic)
         }
         let session = run.appendingPathComponent("session.json")
-        if !FileManager.default.fileExists(atPath: session.path) {
-            try JSONEncoder().encode(JSONValue.object(["title": .string(project.lastPathComponent), "current": .string("brief"), "steps": .object([:])]))
-                .write(to: session, options: .atomic)
-        }
+        // The brief was already written in the New film form: seed it so no console ever asks for it again.
+        // This also covers resumed and queued runs whose session never got past the empty start.
+        let seededBrief = try BriefSeed.seedFile(at: session, title: project.lastPathComponent, draft: FilmDraft.load(in: project))
+        // The launch prompt only promises a brief when the session really carries one.
+        let briefInSession = seededBrief || ((try? SessionSnapshot(data: Data(contentsOf: session)))?.step("brief")["fields"]["subject"].string ?? "").isEmpty == false
         status = "Opening the review workspace…"
         let code = try await Self.execute(node, arguments: [engine.appendingPathComponent("scripts/console.mjs").path,
             "serve", "--run", run.path, "--root", project.path], directory: project, environment: environment)
         guard code == 0 else { throw RuntimeError.consoleFailed }
         status = "Starting \(agent.title)…"
         let launch = try DirectorLaunch(agent: agent, executable: executable, engine: engine, project: project, run: run,
-            request: request, model: model ?? settings.model(for: agent), allowUnrestrictedTools: unrestrictedTools ?? settings.allowUnrestrictedTools)
+            request: request, model: model ?? settings.model(for: agent), allowUnrestrictedTools: unrestrictedTools ?? settings.allowUnrestrictedTools, briefSeeded: briefInSession)
         let job = JSONValue.object(["executable": .string(executable.path), "arguments": .array(launch.arguments.map(JSONValue.string)), "cwd": .string(project.path)])
         let jobURL = run.appendingPathComponent("director-job.json")
         try JSONEncoder().encode(job).write(to: jobURL, options: .atomic)
@@ -152,7 +153,7 @@ final class DirectorRuntime {
     }
     func logTail() -> String {
         guard let logURL else { return "No director output yet." }
-        return Self.readLogTail(logURL)
+        return DirectorLogRenderer.readableTail(file: logURL)
     }
     nonisolated static func readLogTail(_ logURL: URL) -> String {
         guard let handle = try? FileHandle(forReadingFrom: logURL) else { return "No director output yet." }
