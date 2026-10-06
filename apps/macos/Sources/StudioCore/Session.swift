@@ -83,6 +83,13 @@ public struct ReviewNote: Identifiable, Sendable, Equatable {
     public let step: String
     public let scope: String
     public let state: String
+    /// Where on the frame the note was left, as fractions of its width and height.
+    public var x: Double? = nil
+    public var y: Double? = nil
+    /// The quick-note chip that started it ("Slower", "Bigger"…).
+    public var quick: String? = nil
+    /// What Claude changed when it resolved the note.
+    public var resolution: String? = nil
 }
 
 public struct SessionSnapshot: Sendable {
@@ -158,7 +165,8 @@ public struct SessionSnapshot: Sendable {
             guard let id = value["id"].identifier else { return nil }
             return ReviewNote(id: id, text: value["text"].string ?? "", time: value["t"].number ?? 0,
                               scene: value["scene"].identifier, step: value["step"].string ?? "animatic",
-                              scope: value["scope"].string ?? "scene", state: value["state"].string ?? "open")
+                              scope: value["scope"].string ?? "scene", state: value["state"].string ?? "open",
+                              x: value["x"].number, y: value["y"].number, quick: value["quick"].string, resolution: value["resolution"].string)
         }
     }
     public func payload(for stage: ReviewStage) -> JSONValue {
@@ -195,4 +203,11 @@ public enum StudioError: LocalizedError {
 public func timecode(_ seconds: Double) -> String {
     let total = Int(max(0, seconds.isFinite ? seconds : 0))
     return String(format: "%02d:%02d", total / 60, total % 60)
+}
+
+public extension JSONValue {
+    var bool: Bool? { if case .bool(let value) = self { return value }; return nil }
+    /// The strings in an array, ignoring anything else.
+    var strings: [String] { array.compactMap(\.string) }
+    var isNull: Bool { self == .null }
 }

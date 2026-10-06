@@ -16,6 +16,8 @@ final class StudioSettings {
     var codexModel = UserDefaults.standard.string(forKey: "codexModel") ?? "" { didSet { defaults.set(codexModel, forKey: "codexModel") } }
     var nodePath = UserDefaults.standard.string(forKey: "nodePath") ?? "" { didSet { defaults.set(nodePath, forKey: "nodePath") } }
     var allowUnrestrictedTools = UserDefaults.standard.bool(forKey: "allowUnrestrictedTools") { didSet { defaults.set(allowUnrestrictedTools, forKey: "allowUnrestrictedTools") } }
+    /// Warn when one film's director spend passes this many dollars. 0 means off.
+    var budgetPerFilm = UserDefaults.standard.double(forKey: "budgetPerFilm") { didSet { defaults.set(budgetPerFilm, forKey: "budgetPerFilm") } }
     /// Lets the director make images through the Codex CLI on the user's ChatGPT plan. On unless turned off.
     var generateImagesWithCodex: Bool { didSet { defaults.set(generateImagesWithCodex, forKey: "generateImagesWithCodex") } }
     /// The Codex CLI for image generation, whichever director is selected: the configured path, else discovery.
@@ -144,7 +146,7 @@ final class StudioSettings {
                 if process.terminationStatus == 0 {
                     return agent == .custom ? "CLI available · authentication not checked" : "CLI reports signed in"
                 }
-                return "Not signed in, or CLI status check failed. Sign in using the CLI."
+                return "Not signed in yet. Tap Sign in to connect it."
             } catch { return "Unable to start the selected executable." }
         }.value
         guard path(for: agent) == executable else { return }
@@ -305,6 +307,11 @@ struct StudioSettingsView: View {
                 Toggle("Generate images with Codex", isOn: $settings.generateImagesWithCodex)
             } footer: {
                 Text("Presenter films can use generated images. Each image is a Codex run on your ChatGPT plan, about a minute and a half.")
+            }
+            Section {
+                BudgetSetting(settings: settings)
+            } footer: {
+                Text("RasanAI shows the director's tokens and cost for each film. Dollar figures marked est. are calculated from list prices.")
             }
             Section {
                 DisclosureGroup("Advanced", isExpanded: $showAdvanced) {

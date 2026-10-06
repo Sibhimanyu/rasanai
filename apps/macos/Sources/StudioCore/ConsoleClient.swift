@@ -47,6 +47,36 @@ public final class ConsoleClient: Sendable {
         ]))
         _ = try await perform(request)
     }
+    /// The console's live stream (`/api/events`): a full state on connect and on every change, plus a `ping` heartbeat
+    /// every 15 s. The stream ends (throws) when the connection drops; the caller reconnects with backoff.
+    public func events() -> AsyncThrowingStream<ConsoleEvent, Error> {
+        let address = address
+        let session = session
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    var request = address.request(path: "api/events")
+                    request.timeoutInterval = 90
+                    request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                    let (bytes, response) = try await session.bytes(for: request)
+                    guard let http = response as? HTTPURLResponse else { throw StudioError.noConnection }
+                    guard (200..<300).contains(http.statusCode) else { throw StudioError.unavailable(http.statusCode) }
+                    var parser = SSEParser()
+                    for try await line in bytes.lines {
+                        guard let event = parser.feed(line: line) else { continue }
+                        switch event.name {
+                        case "state":
+                            if let snapshot = try? SessionSnapshot(data: Data(event.data.utf8)) { continuation.yield(.state(snapshot)) }
+                        case "ping": continuation.yield(.ping)
+                        default: break
+                        }
+                    }
+                    continuation.finish()
+                } catch { continuation.finish(throwing: error) }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
     private func perform(_ request: URLRequest) async throws -> Data {
         let (data, response) = try await session.data(for: request)
         guard let response = response as? HTTPURLResponse else { throw StudioError.noConnection }
@@ -72,5 +102,41 @@ public struct AssetResolver: Sendable {
                   FileManager.default.fileExists(atPath: resolved.path) else { return nil }
             return resolved
         }.first
+    }
+}
+
+
+public enum ConsoleEvent: Sendable {
+    case state(SessionSnapshot)
+    case ping
+}
+
+public struct SSEEvent: Equatable, Sendable {
+    public let name: String
+    public let data: String
+}
+
+/// Line-based server-sent-events parsing. The console writes each event as `event: x` + one `data:` line. Foundation's
+/// `lines` drops blank lines, so an event is emitted when its `data:` line arrives rather than at the blank separator.
+public struct SSEParser: Sendable {
+    private var name = "message"
+    public init() {}
+    public mutating func feed(line: String) -> SSEEvent? {
+        if line.isEmpty { name = "message"; return nil }
+        if line.hasPrefix(":") { return nil }
+        let field: Substring, value: Substring
+        if let colon = line.firstIndex(of: ":") {
+            field = line[..<colon]
+            var rest = line[line.index(after: colon)...]
+            if rest.hasPrefix(" ") { rest = rest.dropFirst() }
+            value = rest
+        } else { field = Substring(line); value = "" }
+        switch field {
+        case "event": name = String(value); return nil
+        case "data":
+            defer { name = "message" }
+            return SSEEvent(name: name, data: String(value))
+        default: return nil
+        }
     }
 }

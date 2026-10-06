@@ -20,7 +20,7 @@ Local checks run on Apple Silicon macOS 26.6.2; they do not establish macOS 14/1
 
 - SwiftUI Settings, individual Documents projects, agent executable/model selection, CLI sign-in checks, and restricted-by-default agent permissions.
 - App-owned Claude/Codex director launch/resume, a process-group supervisor, stop/quit confirmation, private local logs, and latest-run reopening. Custom CLIs still require an adapter.
-- Full engine console inside nonpersistent WebKit, with loopback-only in-app navigation, authenticated API actions, native file dialogs and native question/consent sheets. This preserves specialized engine controls but is not a full SwiftUI rewrite of them.
+- Native SwiftUI screens for every film stage and engine panel (build 16), driven by the run's loopback-only authenticated console API with live updates, native file dialogs and native question/consent sheets. Builds before 16 embedded the engine console in nonpersistent WebKit.
 - Sparkle 2.10.0, Check for Updates, update preferences, a stable desktop feed URL and public EdDSA trust key. Development candidates keep update checks disabled until the feed and update path are validated.
 - Bundled engine, checksum-verified official Apple Silicon Node, Sparkle framework/helpers and license notices; DMG packaging with Applications link, checksum and a prominent unnotarized-installation notice.
 - Separate candidate-build CI and local Keychain-backed appcast generation. No private keys were exported or added to the repository.

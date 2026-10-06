@@ -25,6 +25,11 @@ private func stageLabel(current: ReviewStage?, finished: Bool) -> String {
 struct FilmStageBar: View {
     let current: ReviewStage?
     var finished = false
+    /// The completed stage being looked at read-only, if any.
+    var viewing: ReviewStage?
+    /// Which stages can be opened, and what to do when one is clicked. Both nil makes the bar a plain indicator.
+    var canSelect: ((ReviewStage) -> Bool)?
+    var onSelect: ((ReviewStage) -> Void)?
     private var stages: [ReviewStage] { ReviewStage.allCases }
     private var currentIndex: Int { finished ? stages.count : (current.flatMap { stages.firstIndex(of: $0) } ?? -1) }
 
@@ -47,8 +52,21 @@ struct FilmStageBar: View {
         .accessibilityLabel(stageLabel(current: current, finished: finished))
     }
 
-    private func step(_ index: Int, _ stage: ReviewStage) -> some View {
+    @ViewBuilder private func step(_ index: Int, _ stage: ReviewStage) -> some View {
+        let selectable = onSelect != nil && (canSelect?(stage) ?? false)
+        if selectable || (onSelect != nil && stage == current && viewing != nil) {
+            Button { onSelect?(stage) } label: { stepLabel(index, stage) }
+                .buttonStyle(.plain)
+                .help(stage == current ? "Back to \(stage.stepTitle)" : "Look back at \(stage.stepTitle)")
+                .accessibilityLabel(stage == current ? "Back to the current step, \(stage.stepTitle)" : "Show \(stage.stepTitle), as decided")
+        } else {
+            stepLabel(index, stage)
+        }
+    }
+
+    private func stepLabel(_ index: Int, _ stage: ReviewStage) -> some View {
         let done = index < currentIndex, active = index == currentIndex
+        let looking = viewing == stage && viewing != current
         return HStack(spacing: 7) {
             ZStack {
                 if active { Circle().fill(Color.rasan.opacity(0.18)).frame(width: 22, height: 22) }
@@ -63,10 +81,13 @@ struct FilmStageBar: View {
             }.frame(width: 22, height: 22)
             Text(stage.stepTitle)
                 .font(.system(size: 12, weight: active ? .semibold : .medium))
-                .foregroundStyle(active ? Color.primary : done ? Color.secondary : Color(nsColor: .tertiaryLabelColor))
+                .foregroundStyle(active || looking ? Color.primary : done ? Color.secondary : Color(nsColor: .tertiaryLabelColor))
                 .lineLimit(1).fixedSize()
         }
         .padding(.trailing, active ? 4 : 0)
+        .padding(.horizontal, looking ? 8 : 0).padding(.vertical, looking ? 3 : 0)
+        .background(looking ? Color.rasan.opacity(0.14) : Color.clear, in: Capsule())
+        .contentShape(Rectangle())
     }
 }
 

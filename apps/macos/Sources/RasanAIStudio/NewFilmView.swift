@@ -329,7 +329,7 @@ struct NewFilmView: View {
             if loaded && !editorState.isEmpty {
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.circle")
-                    Text("Draft saved automatically · files are copied when you save, start or queue")
+                    Text("Draft saved automatically")
                 }.font(.system(size: 11)).foregroundStyle(.secondary)
             }
             HStack(spacing: 10) {
@@ -343,7 +343,7 @@ struct NewFilmView: View {
             }
             HStack(spacing: 4) {
                 Spacer()
-                Text(directorReady ? "Directed by \(agent.title) on your Mac ·" : "Set up and sign in to your director before starting.")
+                Text(directorReady ? "Start film: \(agent.title) reads your brief, then asks you to confirm it ·" : "Set up and sign in to your director before starting.")
                 Button("Change") { openSettings() }.buttonStyle(.link)
             }.font(.system(size: 11)).foregroundStyle(.secondary)
             if directorBusy && !editingQueued {

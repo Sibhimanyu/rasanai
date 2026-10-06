@@ -13,6 +13,10 @@ final class DirectorRuntime {
     var stopRequested = false
     var startedAt: Date?
     var recovery: DirectorRecovery?
+    /// Specifics for the failure (which command was blocked, which step it stopped before).
+    var recoveryDetail = ""
+    /// Set when the exit was claude --print ending the session over its background-task ceiling (safe to resume once automatically).
+    var endedOnBackgroundCeiling = false
     var preflightReport: PreflightReport?
     var onExit: ((Int32, Bool) -> Void)?
     var projectURL: URL? { activeProject }
@@ -40,6 +44,7 @@ final class DirectorRuntime {
         env["RASANAI_NO_UPDATE_CHECK"] = "1"
         env["RASANAI_AUTO_UPDATE"] = "0"
         env.removeValue(forKey: "CLAUDECODE")
+        for (key, value) in DirectorLaunch.environmentOverrides { env[key] = value }
         // Image generation goes through Codex whichever director runs the film.
         env.removeValue(forKey: "RASANAI_IMAGEGEN")
         if let settings {
@@ -56,7 +61,7 @@ final class DirectorRuntime {
         let executable = URL(fileURLWithPath: settings.path(for: agent))
         guard FileManager.default.isExecutableFile(atPath: executable.path) else { throw RuntimeError.missingAgent }
         isPreparing = true
-        startedAt = Date(); recovery = nil; preflightReport = nil
+        startedAt = Date(); recovery = nil; recoveryDetail = ""; endedOnBackgroundCeiling = false; preflightReport = nil
         status = "Checking director sign-in…"
         lastExitCode = nil; stopRequested = false
         defer { isPreparing = false }
@@ -78,17 +83,19 @@ final class DirectorRuntime {
             try Data(run.lastPathComponent.utf8).write(to: project.appendingPathComponent(".rasanai/current"), options: .atomic)
         }
         let session = run.appendingPathComponent("session.json")
-        if !FileManager.default.fileExists(atPath: session.path) {
-            try JSONEncoder().encode(JSONValue.object(["title": .string(project.lastPathComponent), "current": .string("brief"), "steps": .object([:])]))
-                .write(to: session, options: .atomic)
-        }
+        // The brief was already written in the New film form: seed it so no console ever asks for it again.
+        // This also covers resumed and queued runs whose session never got past the empty start.
+        let seededBrief = try BriefSeed.seedFile(at: session, title: project.lastPathComponent, draft: FilmDraft.load(in: project))
+        // The launch prompt only promises a brief when the session really carries one.
+        let briefInSession = seededBrief || ((try? SessionSnapshot(data: Data(contentsOf: session)))?.step("brief")["fields"]["subject"].string ?? "").isEmpty == false
         status = "Opening the review workspace…"
         let code = try await Self.execute(node, arguments: [engine.appendingPathComponent("scripts/console.mjs").path,
             "serve", "--run", run.path, "--root", project.path], directory: project, environment: environment)
         guard code == 0 else { throw RuntimeError.consoleFailed }
         status = "Starting \(agent.title)…"
+        DirectorPermissions.prepareDataFolders(home: FileManager.default.homeDirectoryForCurrentUser, toolsDirectory: LocalAgent.managedToolsDirectory)
         let launch = try DirectorLaunch(agent: agent, executable: executable, engine: engine, project: project, run: run,
-            request: request, model: model ?? settings.model(for: agent), allowUnrestrictedTools: unrestrictedTools ?? settings.allowUnrestrictedTools)
+            request: request, model: model ?? settings.model(for: agent), allowUnrestrictedTools: unrestrictedTools ?? settings.allowUnrestrictedTools, briefSeeded: briefInSession)
         let job = JSONValue.object(["executable": .string(executable.path), "arguments": .array(launch.arguments.map(JSONValue.string)), "cwd": .string(project.path)])
         let jobURL = run.appendingPathComponent("director-job.json")
         try JSONEncoder().encode(job).write(to: jobURL, options: .atomic)
@@ -114,11 +121,20 @@ final class DirectorRuntime {
                 self.isRunning = false
                 self.process = nil
                 self.lastExitCode = finished.terminationStatus
-                self.status = self.stopRequested ? "Director stopped · your files are preserved; resume when ready" : (finished.terminationStatus == 0 ? "Director finished · review the published result" : "Director stopped (\(finished.terminationStatus)) · inspect the log, fix prerequisites or permissions, then resume")
-                if !self.stopRequested && finished.terminationStatus != 0 {
-                    let recovery = await Task.detached { DirectorRecovery.classify(log: Self.readLogTail(log)) }.value
+                let code = finished.terminationStatus
+                self.status = self.stopRequested ? "Director stopped · your files are preserved; resume when ready" : (code == 0 ? "Director finished" : "Director stopped (\(code)) · inspect the log, fix prerequisites or permissions, then resume")
+                if !self.stopRequested {
+                    // Any exit that leaves the film unfinished is a failure, including a quiet exit 0 with nothing pushed.
+                    let outcome = await Task.detached { () -> (recovery: DirectorRecovery, detail: String)? in
+                        let progress = DirectorRecovery.Progress(session: try? SessionSnapshot(data: Data(contentsOf: run.appendingPathComponent("session.json"))))
+                        return DirectorRecovery.classify(exitCode: code, log: Self.readLogTail(log), progress: progress)
+                    }.value
                     guard self.identity == identity else { return }
-                    self.recovery = recovery
+                    if let outcome {
+                        self.recovery = outcome.recovery; self.recoveryDetail = outcome.detail
+                        self.endedOnBackgroundCeiling = DirectorRecovery.hitBackgroundCeiling(log: Self.readLogTail(log))
+                        if code == 0 { self.status = "\(outcome.recovery.title) · open the log, then resume" }
+                    }
                 }
                 self.onExit?(finished.terminationStatus, self.stopRequested)
             }
@@ -141,7 +157,7 @@ final class DirectorRuntime {
     func clearPresentation() {
         guard !isRunning, !isPreparing, !isFinishing else { return }
         lastExitCode = nil; stopRequested = false; logURL = nil; activeRun = nil; activeProject = nil
-        startedAt = nil; recovery = nil
+        startedAt = nil; recovery = nil; recoveryDetail = ""
         status = "Director stopped"
     }
     func stop() {
@@ -152,7 +168,7 @@ final class DirectorRuntime {
     }
     func logTail() -> String {
         guard let logURL else { return "No director output yet." }
-        return Self.readLogTail(logURL)
+        return DirectorLogRenderer.readableTail(file: logURL)
     }
     nonisolated static func readLogTail(_ logURL: URL) -> String {
         guard let handle = try? FileHandle(forReadingFrom: logURL) else { return "No director output yet." }
