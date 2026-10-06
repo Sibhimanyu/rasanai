@@ -9,8 +9,7 @@ key="$("$tools/generate_keys" --account rasanai-studio -p)"
 embedded="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$app/Contents/Info.plist")"
 [[ "$key" = "$embedded" ]] || { echo 'Keychain signing identity does not match the embedded update public key.' >&2; exit 1; }
 version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")"
-build="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist")"
-archive="$studio_dir/dist/RasanAI-Studio-$version-$build-arm64-unnotarized.dmg"
+archive="$studio_dir/dist/RasanAI-Studio-$version.dmg"
 [[ -f "$archive" ]] || { echo 'Package the current app build first.' >&2; exit 1; }
 # Curate one desktop release, never advertise old/unuploaded archives in dist.
 release_dir="$studio_dir/dist/releases/$tag"

@@ -2,12 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { selectRelease, versionLabel, buildFromAsset, stampHtml } from "./stamp-studio-release.mjs";
 
-const rel = (tag, date, extra = {}) => ({
+const rel = (tag, date, extra = {}, base = "RasanAI-Studio-9.9.9-77-arm64-unnotarized.dmg") => ({
   tag_name: tag, published_at: date, draft: false, prerelease: true,
   html_url: `https://github.com/o/r/releases/tag/${tag}`,
   assets: [
-    { name: `RasanAI-Studio-9.9.9-77-arm64-unnotarized.dmg`, browser_download_url: `https://x/${tag}/a.dmg` },
-    { name: `RasanAI-Studio-9.9.9-77-arm64-unnotarized.dmg.sha256`, browser_download_url: `https://x/${tag}/a.dmg.sha256` },
+    { name: base, browser_download_url: `https://x/${tag}/a.dmg` },
+    { name: `${base}.sha256`, browser_download_url: `https://x/${tag}/a.dmg.sha256` },
   ], ...extra,
 });
 
@@ -16,6 +16,8 @@ test("labels and builds", () => {
   assert.equal(versionLabel("studio-v1.0.0"), "1.0.0");
   assert.equal(buildFromAsset("RasanAI-Studio-0.4.0-14-arm64-unnotarized.dmg"), "14");
   assert.equal(buildFromAsset("RasanAI-Studio-1.0.0-120-arm64.dmg"), "120");
+  assert.equal(buildFromAsset("RasanAI-Studio-0.5.0.dmg"), null);
+  assert.equal(buildFromAsset("RasanAI-Studio-0.5.0-beta.1.dmg"), null);
 });
 
 test("picks newest valid studio release", () => {
@@ -46,4 +48,25 @@ test("stamps links, spans and JSON-LD", () => {
   assert.match(html, /<a href="keep">/);
   assert.match(html, /<span data-studio="version">1.0.0<\/span> build <span data-studio="build">77<\/span>/);
   assert.match(html, /"softwareVersion":"1.0.0","downloadUrl":"https:\/\/x\/studio-v1.0.0\/a.dmg"/);
+});
+
+test("new-style asset names have no build and the page drops the build text", () => {
+  const r = selectRelease([rel("studio-v0.5.0", "2026-10-10T00:00:00Z", {}, "RasanAI-Studio-0.5.0.dmg")]);
+  assert.equal(r.build, null);
+  assert.equal(r.semver, "0.5.0");
+  assert.match(r.dmgUrl, /a\.dmg$/);
+  assert.match(r.shaUrl, /a\.dmg\.sha256$/);
+  const src = `<p><span data-studio="version">0.4.0 beta 1</span> &middot; build <span data-studio="build">14</span><br />Apple Silicon</p>`;
+  const { html } = stampHtml(src, r);
+  assert.equal(html, `<p><span data-studio="version">0.5.0</span><br />Apple Silicon</p>`);
+});
+
+test("old-style and new-style releases both match", () => {
+  const picked = selectRelease([
+    rel("studio-v0.4.0-beta.1", "2026-10-05T00:00:00Z", {}, "RasanAI-Studio-0.4.0-14-arm64-unnotarized.dmg"),
+    rel("studio-v0.5.0", "2026-10-06T00:00:00Z", {}, "RasanAI-Studio-0.5.0.dmg"),
+  ]);
+  assert.equal(picked.tag, "studio-v0.5.0");
+  const old = selectRelease([rel("studio-v0.4.0-beta.1", "2026-10-05T00:00:00Z", {}, "RasanAI-Studio-0.4.0-14-arm64-unnotarized.dmg")]);
+  assert.equal(old.build, "14");
 });

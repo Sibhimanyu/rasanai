@@ -13,7 +13,8 @@ export function selectRelease(releases) {
   for (const r of Array.isArray(releases) ? releases : []) {
     if (!r || r.draft || typeof r.tag_name !== "string" || !r.tag_name.startsWith("studio-v")) continue;
     const assets = Array.isArray(r.assets) ? r.assets : [];
-    const dmg = assets.find((a) => /\.dmg$/.test(a.name));
+    // Prefer the simple RasanAI-Studio-<version>.dmg name when a release also carries a legacy-named copy.
+    const dmg = assets.find((a) => /^RasanAI-Studio-[\d.]+\.dmg$/.test(a.name)) || assets.find((a) => /\.dmg$/.test(a.name));
     if (!dmg) continue;
     const sha = assets.find((a) => a.name === `${dmg.name}.sha256`);
     if (!sha) continue;
@@ -40,7 +41,10 @@ export function versionLabel(tag) {
   return tag.replace(/^studio-v/, "").replace(/[-.]beta\.(\d+)$/, " beta $1").replace(/-/g, " ");
 }
 
-/** RasanAI-Studio-0.4.0-14-arm64-unnotarized.dmg -> "14" (null if absent). */
+/**
+ * Old names carry the build: RasanAI-Studio-0.4.0-14-arm64-unnotarized.dmg -> "14".
+ * New names (RasanAI-Studio-0.5.0.dmg) do not -> null.
+ */
 export function buildFromAsset(name) {
   const m = /^.*?-\d+\.\d+\.\d+(?:-[A-Za-z]+\.?\d*)?-(\d+)-/.exec(name) || /-(\d+)-arm64/.exec(name);
   return m ? m[1] : null;
@@ -54,6 +58,14 @@ export function stampHtml(html, rel) {
   let count = 0;
   const hrefFor = { dmg: rel.dmgUrl, sha256: rel.shaUrl, notes: rel.notesUrl };
   const textFor = { version: rel.version, build: rel.build };
+
+  // No build number (new asset names): drop the "build N" text so the page never shows a stale one.
+  if (rel.build == null) {
+    html = html.replace(/\s*(?:&middot;|·)?\s*build\s*<span\b[^>]*\bdata-studio="build"[^>]*>[^<]*<\/span>/g, () => {
+      count++;
+      return "";
+    });
+  }
 
   html = html.replace(/<a\b[^>]*\bdata-studio="(dmg|sha256|notes)"[^>]*>/g, (tag, kind) => {
     const url = hrefFor[kind];
@@ -127,7 +139,7 @@ async function main() {
       total += count;
     }
   }
-  console.log(`Stamped ${rel.tag} (version "${rel.version}", build ${rel.build}) - ${total} replacement(s)`);
+  console.log(`Stamped ${rel.tag} (version "${rel.version}", build ${rel.build ?? "n/a"}) - ${total} replacement(s)`);
   console.log(`  dmg:    ${rel.dmgUrl}\n  sha256: ${rel.shaUrl}\n  notes:  ${rel.notesUrl}`);
 }
 

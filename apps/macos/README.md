@@ -105,7 +105,7 @@ STUDIO_VERSION=0.4.0 STUDIO_BUILD=14 STUDIO_ENABLE_UPDATES=1 bash scripts/build-
 STUDIO_TAG=studio-v0.5.0-beta.1 bash scripts/generate-feed.sh
 ```
 
-Use a new increasing build number each time. The build script downloads a pinned, checksum-verified official Node distribution, bundles engine/Node/Sparkle, verifies bundle integrity, and creates a DMG with an Applications link and installation notice. It refuses to overwrite a DMG. Existing app builds are preserved in `dist/previous-build-*.app`.
+Use a new increasing build number each time. The build script downloads a pinned, checksum-verified official Node distribution, bundles engine/Node/Sparkle, verifies bundle integrity, and creates a DMG with an Applications link and installation notice. The DMG is named `RasanAI-Studio-<version>.dmg` with a matching `.dmg.sha256`, and the script refuses to overwrite one, so bump the version for each release. Existing app builds are preserved in `dist/previous-build-*.app`.
 
 The update public key is in Info.plist. The matching private key is stored under the `rasanai-studio` account in the local login Keychain; it is not exported or committed. Back up that key securely yourself: without Developer ID, losing it can prevent future trusted updates. Generating an appcast requires approving Sparkle's Keychain prompt locally. No paid Apple account is needed for EdDSA signing. The feed generator stages only the current matching DMG in `dist/releases/<tag>/`; older archives in `dist` are never advertised under a new tag. Use a new desktop tag for each release.
 

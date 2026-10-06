@@ -18,15 +18,14 @@ bg_tiff="$studio_dir/Packaging/background.tiff"
 codesign --verify --deep --strict "$app"
 plist="$app/Contents/Info.plist"
 version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")"
-build="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")"
 executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$plist")"
 if [[ -n "${STUDIO_DMG_OUT:-}" ]]; then
     target="$STUDIO_DMG_OUT"
     mkdir -p "$(dirname "$target")"
     rm -f "$target" "$target.sha256"
 else
-    target="$studio_dir/dist/RasanAI-Studio-$version-$build-arm64-unnotarized.dmg"
-    [[ ! -e "$target" ]] || { echo 'Refusing to overwrite an existing release archive; increment the build number.' >&2; exit 1; }
+    target="$studio_dir/dist/RasanAI-Studio-$version.dmg"
+    [[ ! -e "$target" && ! -e "$target.sha256" ]] || { echo "Refusing to overwrite $(basename "$target"): that version is already packaged. Bump the version (and build number), or move the old file out of dist." >&2; exit 1; }
 fi
 
 # Window geometry (points). Icon centres match the artwork in Packaging/background.tiff.
