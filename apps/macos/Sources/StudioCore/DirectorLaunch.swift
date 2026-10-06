@@ -8,11 +8,18 @@ public struct DirectorLaunch: Sendable {
         BRIEF: RasanAI Studio did not collect a brief for this run, and session.json has no steps.brief subject. Read the request below; if it does not say what the video is about, push the brief step with needs_source: true and an empty subject, and wait for the user's submit (its value carries source). If session.json already has later steps, resume them and never re-ask.
         """
 
+    /// Environment the director process needs on top of the app's. `claude --print` ends the session once its main turn
+    /// stops and background tasks (the crew's designers) have run for 600 s, killing them; 0 means wait for them.
+    public static let environmentOverrides = ["CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS": "0"]
+
     public let executable: URL
     public let arguments: [String]
     public let prompt: String
+    /// The scoped permissions this launch grants; nil when the person turned on unrestricted tools.
+    public let permissions: DirectorPermissions?
     public init(agent: LocalAgent, executable: URL, engine: URL, project: URL, run: URL,
-                request: String, model: String = "", allowUnrestrictedTools: Bool = false, briefSeeded: Bool = true) throws {
+                request: String, model: String = "", allowUnrestrictedTools: Bool = false, briefSeeded: Bool = true,
+                home: URL = FileManager.default.homeDirectoryForCurrentUser, toolsDirectory: URL = LocalAgent.managedToolsDirectory) throws {
         guard agent != .custom else { throw LaunchError.unsupportedAgent }
         guard !request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw LaunchError.emptyRequest }
         self.executable = executable
@@ -22,6 +29,7 @@ public struct DirectorLaunch: Sendable {
         The console is already running for this exact RUN. Do not create another run, open a browser, run setup --new, update/install RasanAI, or modify the signed application bundle. Use this engine copy and this run.
         \(briefSeeded ? Self.seededBriefParagraph : Self.missingBriefParagraph)
         First check Node, FFmpeg, HyperFrames and browser prerequisites. If any prerequisite is missing, report it with console.mjs ask and stop instead of claiming readiness. Do not install dependencies or inspect files outside this project unless the user approves it in the console.
+        SHELL HYGIENE (the director runs without a human to approve commands): the shell already starts in the workspace, so never prefix a command with cd; give absolute paths; run one command per Bash call; avoid $(...), backticks and process substitution. Use the Read, Write and Edit tools for files rather than shell redirection.
         All choices, questions, missing assets, status, notes, and errors must go through this run's existing console protocol. Wait for console actions; do not end the director session while a user review is awaiting. For headless agents use blocking console.mjs wait calls and continue after timeout; the app remains responsive. Never claim a render or quality gate passed unless it ran and its output supports that claim.
         Resume this run's actual state rather than restarting completed work. Read the existing session and crew artifacts first. If interrupted, preserve artifacts and report what is pending. Use the existing engine's safe revisions and gates.
         CREATIVE CONTRACT (this is separate from, and sits above, the request below)
@@ -34,13 +42,17 @@ public struct DirectorLaunch: Sendable {
         \(request)
         """
         prompt = common
+        let scoped = DirectorPermissions(engine: engine, home: home, toolsDirectory: toolsDirectory)
+        permissions = allowUnrestrictedTools ? nil : scoped
         var args: [String]
         if agent == .claude {
             args = ["--print", "--output-format", "stream-json", "--verbose", "--permission-mode", "acceptEdits"]
-            if allowUnrestrictedTools { args += ["--dangerously-skip-permissions"] }
+            // Without the opt-in the director gets a scoped allowlist (one --settings value: variadic flags would swallow the prompt).
+            if allowUnrestrictedTools { args += ["--dangerously-skip-permissions"] } else { args += ["--settings", scoped.claudeSettingsJSON] }
         } else {
             args = ["exec", "--skip-git-repo-check", "--json", "--sandbox", allowUnrestrictedTools ? "danger-full-access" : "workspace-write",
                     "-c", "approval_policy=\"never\"", "--cd", project.path]
+            if !allowUnrestrictedTools { args += scoped.codexArguments }
         }
         if !model.isEmpty { args += ["--model", model] }
         args += [common]

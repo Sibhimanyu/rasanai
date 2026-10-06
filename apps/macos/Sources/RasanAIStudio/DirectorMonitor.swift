@@ -124,7 +124,8 @@ final class DirectorMonitor {
         guard run != nil else { health = nil; return }
         let context = HealthContext(now: now, processRunning: running, hasStarted: runtime.startedAt != nil || telemetry.hasData,
                                     exitCode: runtime.lastExitCode, stopRequested: runtime.stopRequested, awaitingUser: running && awaitingUser,
-                                    lastConsoleUpdate: lastConsoleUpdate)
+                                    lastConsoleUpdate: lastConsoleUpdate,
+                                    endedEarlyReason: runtime.recovery.map { [$0.title, runtime.recoveryDetail].filter { !$0.isEmpty }.joined(separator: ". ") })
         health = DirectorHealth.evaluate(telemetry, context: context)
         updateLedger()
         checkBudget(store: store)

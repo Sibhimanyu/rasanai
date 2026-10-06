@@ -33,8 +33,11 @@ public struct HealthContext: Sendable {
     public var awaitingUser: Bool
     /// A fresher console update than the telemetry saw (session activity), if the caller knows one.
     public var lastConsoleUpdate: Date?
+    /// Set when the process ended but the film was left unfinished (permission denials, or a quiet exit 0): shown as a failure.
+    public var endedEarlyReason: String?
     public init(now: Date = Date(), processRunning: Bool, hasStarted: Bool = true, exitCode: Int32? = nil, stopRequested: Bool = false,
-                awaitingUser: Bool = false, lastConsoleUpdate: Date? = nil) {
+                awaitingUser: Bool = false, lastConsoleUpdate: Date? = nil, endedEarlyReason: String? = nil) {
+        self.endedEarlyReason = endedEarlyReason
         self.now = now; self.processRunning = processRunning; self.hasStarted = hasStarted; self.exitCode = exitCode
         self.stopRequested = stopRequested; self.awaitingUser = awaitingUser; self.lastConsoleUpdate = lastConsoleUpdate
     }
@@ -60,6 +63,7 @@ public struct DirectorHealth: Equatable, Sendable {
             if c.hasStarted == false { return make(.starting, "Starting", "The director is getting ready.") }
             if c.stopRequested { return make(.stopped, "Stopped", "You stopped the director. Your files are kept; resume when ready.") }
             if let code = c.exitCode {
+                if let reason = c.endedEarlyReason { return make(.failed, "Failed", reason) }
                 return code == 0 && !t.sessionIsError ? make(.finished, "Finished", "The director has finished its run.")
                     : make(.failed, "Failed", t.events.last(where: { $0.kind == .error })?.text ?? "The director stopped with an error (code \(code)).")
             }

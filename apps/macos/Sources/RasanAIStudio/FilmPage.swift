@@ -178,6 +178,9 @@ struct DirectorRecoveryView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(recovery.title).font(.system(size: 13, weight: .semibold))
                 Text(recovery.message).font(.system(size: 12)).foregroundStyle(.secondary)
+                if !store.runtime.recoveryDetail.isEmpty {
+                    Text(store.runtime.recoveryDetail).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary).lineLimit(4).textSelection(.enabled)
+                }
             }
             Spacer(minLength: 8)
             if recovery == .signIn { Button("Sign in…") { store.settings.showWelcome = true } }
@@ -232,6 +235,10 @@ struct NotRunningView: View {
             Text(store.runtime.recovery?.title ?? "RasanAI isn't running for this film.").font(.system(size: 20, weight: .semibold))
             if let recovery = store.runtime.recovery {
                 Text(recovery.message).font(.system(size: 13)).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 540)
+                if !store.runtime.recoveryDetail.isEmpty {
+                    Text(store.runtime.recoveryDetail).font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.leading).lineLimit(5).textSelection(.enabled).frame(maxWidth: 540, alignment: .leading)
+                }
             } else if let code = store.runtime.lastExitCode, code != 0 {
                 Text("The last session stopped unexpectedly. The log shows why.").font(.system(size: 13)).foregroundStyle(.secondary)
             } else {
@@ -248,7 +255,7 @@ struct NotRunningView: View {
                 if store.runtime.recovery == nil {
                     Button("Reconnect") { store.reconnectConsole() }.controlSize(.large).disabled(store.isReconnecting || store.runURL == nil)
                 }
-                if store.runtime.logURL != nil, let code = store.runtime.lastExitCode, code != 0 {
+                if store.runtime.logURL != nil, store.runtime.recovery != nil || (store.runtime.lastExitCode ?? 0) != 0 {
                     Button("Show log") { store.sheet = .log }.controlSize(.large)
                 }
             }

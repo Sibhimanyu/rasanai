@@ -229,7 +229,7 @@ final class StudioStore {
         if runtime.isPreparing { return .starting }
         if runtime.isRunning { return .working }
         if runtime.stopRequested { return .paused }
-        if let code = runtime.lastExitCode, code != 0 { return .needsAttention }
+        if let code = runtime.lastExitCode, code != 0 || runtime.recovery != nil { return .needsAttention }
         if !isConnected { return .offline }
         return .working
     }
@@ -294,7 +294,15 @@ final class StudioStore {
             self.queueHandlingExit = true
             Task { await self.handleQueueExit(code: code, stopped: stopped) }
             guard !stopped else { return }
-            self.notify(title: code == 0 ? "Director finished" : "Director needs attention", body: "Open RasanAI Studio to review the result or log.", id: "director-\(UUID().uuidString)")
+            // The session timed out on its own background crew, not on a failure: pick the run back up once, quietly.
+            if code == 0, self.runtime.endedOnBackgroundCeiling, self.autoResumedRuns.insert(self.runtime.runURL?.path ?? "").inserted {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(2))
+                    if self.canResume { self.resumeDirector() }
+                }
+                return
+            }
+            self.notify(title: code == 0 && self.runtime.recovery == nil ? "Director finished" : "Director needs attention", body: "Open RasanAI Studio to review the result or log.", id: "director-\(UUID().uuidString)")
         }
         monitor.attach(self)
     }
@@ -785,6 +793,8 @@ final class StudioStore {
         pending.proceed()
     }
     func pauseDirector() { queuePaused = true; queueMessage = "Queue paused with the director."; runtime.stop() }
+    /// Runs already auto-resumed once after the background-task ceiling; a second hit is shown as a failure.
+    private var autoResumedRuns = Set<String>()
     func resumeDirector() {
         if settings.filmQueue.contains(where: { $0.project == selectedProjectURL }) { resumeQueue(); return }
         guard !runtime.isRunning, !runtime.isPreparing, !isSavingFilm, !isManagingProject, !isImportingSources, runURL != nil else { return }
