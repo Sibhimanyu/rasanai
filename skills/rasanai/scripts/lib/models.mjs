@@ -89,7 +89,7 @@ export function detectModel(env = process.env) {
 }
 
 // ---------------------------------------------------------------- who may take a role
-const GATHER = new Set(["product-researcher", "brand-researcher", "screens-researcher", "local-scout"]);
+const GATHER = new Set(["product-researcher", "brand-researcher", "brand-film-analyst", "screens-researcher", "local-scout"]);
 const ORDER = { fast: 0, strong: 1, frontier: 2 };
 const FAST_ALIAS = { claude: "sonnet", gpt: null, other: null };
 export function tierFor(role, profile) {

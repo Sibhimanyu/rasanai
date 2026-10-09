@@ -2,7 +2,10 @@
 // Design directions: many complete looks (visual style + palette by role + type pairing +
 // shape / stroke / shadow / texture), each rendered as a board with the user's own words,
 // each with a frame.md ready for HyperFrames. With a brand reference, looks are brand-locked
-// (its colors and fonts) and vary the art direction around them.
+// (its colors and fonts) and vary the art direction around them. On a branded launch / promo / brand film the
+// looks are the brand film's own grammar (<run>/brand-film/FILM-STYLE.json from brandfilm.mjs card): check-system
+// requires blend.json to cite FILM-STYLE.md (film_style, film_style_takes), no outside library references, canvas /
+// ink / accent on the card's palette, the display face in the card's typefaces, and no 3D / blur / grain when the card is flat.
 //   node design.mjs looks --out <dir> [--decisions <decisions.json>] [--count 6] [--aspect 16:9]
 //        [--headline "..."] [--sub "..."] [--brand DESIGN.md [--mode light|dark]] [--ground light|dark] [--seed s] [--recent style,ids] [--stills]
 //        -> <dir>/index.html (the board grid), <dir>/looks.json, <dir>/<A..>/frame.md (+ board.png with --stills)
@@ -22,7 +25,7 @@ import { parseArgs, die, readJSON, writeFile, esc, normalizeAspect, chromeScreen
 import { generateLooks, lookAsBrand } from "./lib/looks.mjs";
 import { readDesignMd, toFrameMd, contrast } from "./lib/design-md.mjs";
 import { track } from "./lib/report.mjs";
-import { checkSystem, checkSystemFull, checkSystems, firstLine, lookPayload, chooseSystem, LABELS } from "./lib/system.mjs";
+import { checkSystem, checkSystemFull, checkSystems, firstLine, lookPayload, chooseSystem, runFilm, LABELS } from "./lib/system.mjs";
 import { libraryIds } from "./library.mjs";
 
 // The brand lock: when the run's decisions carry a brand (and use_brand is not false), every system must stay inside it
@@ -248,9 +251,11 @@ if (cmd === "looks") {
   const lockBrand = runBrand(path.resolve(String(args.run)));
   if (lockBrand) {
     const off = [];
-    for (const l of LABELS) { const r = checkSystem(path.join(path.resolve(String(args.run)), "design", l), { libraryIds: libraryIds(), brand: lockBrand, label: l }); off.push(...r.P.filter((x) => /brand lock/.test(x))); }
-    if (off.length) die(`brand lock: these looks leave the brand, fix them before the Look is pushed (never recommend an off-brand look): ${off.join(" | ")}`);
+    for (const l of LABELS) { const r = checkSystem(path.join(path.resolve(String(args.run)), "design", l), { libraryIds: libraryIds(), brand: lockBrand, label: l }); off.push(...r.P.filter((x) => /brand lock|film style/.test(x))); }
+    if (off.length) die(`brand lock / film style: these looks leave the brand or its film grammar, fix them before the Look is pushed (never recommend an off-brand look; a branded look cites FILM-STYLE.md and uses its palette and type): ${off.join(" | ")}`);
     pl.brand_locked = path.relative(process.cwd(), lockBrand);
+    const film = runFilm(path.resolve(String(args.run)));
+    if (film && film.card) pl.film_style = path.relative(process.cwd(), film.card.replace(/\.json$/, ".md"));
   }
   if (args.out) writeFile(path.resolve(String(args.out)), JSON.stringify(pl, null, 2) + "\n");
   console.log(JSON.stringify(pl, null, 2));

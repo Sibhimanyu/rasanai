@@ -20,6 +20,7 @@ Everything deterministic stays a script (`story.mjs check`, `sound.mjs fit`, `ob
 | | `precedent-researcher`: the brand's past launch films and the category's best, measured shot by shot | during the Brief (public brands) | 1 | session |
 | | `local-scout`: the product's code on this computer, **with the user's permission** | during the Brief | 1 per approved folder | fast is fine |
 | | `research-lead`: one truth sheet, one claims ledger, one brand, one asset kit, a one-page briefing | after the desk | 1 | session |
+| | `brand-film-analyst`: reads the brand's own film frames and writes `brand-film/FILM-STYLE.md` (the film grammar); branded launch / promo / brand films only | during the Brief, after the Director runs `brandfilm.mjs` | 1 | fast is fine (Sonnet) |
 | Design | `design-researcher`: the subject's own visual world, its category's clichés, 8 to 12 library references that fit (`research/design.md`, `design-refs.json`) | during the Brief, parallel with research | 1 | session |
 | | `design-system-designer`: ONE bespoke design system for the chosen story, blended from 2 to 4 library references (`design/<label>/DESIGN.md`, `recipe.json`, `blend.json`); with a brand, Sure is the brand extended | after the story is chosen (Look) | 3 (Sure, Bold, Wild); a lyric video: 1, from the chosen treatment | session |
 | Writers' room | `script-writer`: one script around one device | Story | 3 (Sure, Bold, Wild) | session |
@@ -42,6 +43,8 @@ Brief ── push brief ──────────────────�
 Story ── story.mjs pick → 3 writers in parallel → pitches → story.mjs check → editor → 1 rewrite round → push story
 Story (a presenter film) ── presenter.mjs key + beats, reel.mjs scan → 3 visual writers in parallel → presenter.mjs check each → push story; the pick is presenter/plan.json
 Story (a song) ── lyrics.mjs align + audio → 3 treatment writers in parallel → treatment.mjs check each → push story; the pick is story/chosen-treatment.json
+Brand film (branded launch / promo / brand films) ── brandfilm.mjs find → fetch → frames → measure → card → brand film analyst fills FILM-STYLE.md → push brand with it (references/brand-film.md); the Look then IS that grammar
+Style gate ── after the key frames and after the first draft: brandfilm.mjs compare --ref grammar.json --ours <frames|draft> (fail: fix before going on); numbers into decisions and a short note to the user
 Look ─── Director art-directs from the briefing (brand verdict, house grammar) → push look
 Look (a song) ─ none: the chosen treatment's style bible is the look (DIRECTION.md); frame.md is the nearest preset
 Animatic ─ scenes (treatment.mjs scenes for a song: one per plate, the real track untouched) + music fit → Motion Director (score) → frame designers in parallel → frames critic → push animatic
@@ -56,7 +59,7 @@ The user is never kept waiting by the crew. Research starts the moment the brief
 ## Dispatching a member
 
 ```bash
-node $SKILL_DIR/scripts/crew.mjs plan --run "$RUN" --route <route> --subject "<name>" [--url <url>] [--public] [--local "<approved dirs>"] [--may-run] [--scenes N] [--length s] [--project videos/<name>] [--lean]
+node $SKILL_DIR/scripts/crew.mjs plan --run "$RUN" --route <route> --subject "<name>" [--url <url>] [--public] [--local "<approved dirs>"] [--may-run] [--scenes N] [--length s] [--project videos/<name>] [--lean] [--brand "<brand>"] [--kind launch|promo|brand] [--pace fast]
 node $SKILL_DIR/scripts/crew.mjs brief --run "$RUN" --role <role> [--key <k>] [--project videos/<name>]    # writes the prompt file, prints the Agent call
 # dispatch: Agent(description: <printed>, prompt: "Read <prompt file> in full, then do the job it describes.", run_in_background: true[, model: "sonnet" for fast roles])
 node $SKILL_DIR/scripts/crew.mjs check --run "$RUN" --role <role> [--key <k>] [--project videos/<name>]    # exit 0 = accepted

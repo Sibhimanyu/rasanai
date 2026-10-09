@@ -23,7 +23,7 @@
       "name": "rasa-director",
       "source": "./",
       "strict": false,
-      "version": "1.8.0",
+      "version": "1.9.0",
       "description": "Rasa Director is now RasanAI. This entry keeps installs from before the rename updating: it moves them to the rasanai plugin.",
       "category": "design"
     }

@@ -43,6 +43,44 @@ export function hsl(hex) {
 const dist = (a, b) => { const x = rgbOf(a), y = rgbOf(b); return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]) / 441.67; };
 export const paletteDistance = (A, B) => 0.4 * dist(A.canvas, B.canvas) + 0.6 * dist(A.accent, B.accent);
 
+
+// ---------------------------------------------------------------- the brand film card (brandfilm.mjs card -> <run>/brand-film/FILM-STYLE.json)
+// A branded launch / promo / brand film is built from the brand's OWN film grammar (references/launch-film.md section 3), not from
+// outside references: palette, type, motif and motion vocabulary come from the card, and the look must cite it.
+const lab3 = (hex) => {
+  const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  const [R, G, B] = rgbOf(hex).map(lin);
+  const f = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  const x = f((0.4124 * R + 0.3576 * G + 0.1805 * B) / 0.95047), y = f(0.2126 * R + 0.7152 * G + 0.0722 * B), z = f((0.0193 * R + 0.1192 * G + 0.9505 * B) / 1.08883);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+};
+export const deltaE = (a, b) => { const p = lab3(a), q = lab3(b); return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]); };
+const LAUNCH_KIND = /launch|promo|brand|product|reveal|announce|feature/i;
+// null when the run is not a branded launch / promo / brand film; else { required, card } (card: the path when it exists)
+export function runFilm(run) {
+  const dec = readJ(path.join(run, "decisions.json")) || {};
+  const brief = readJ(path.join(run, "brief.json")) || {};
+  const route = String(dec.route || (readJ(path.join(run, "crew", "plan.json")) || {}).route || "");
+  if (/music-to-video|presenter|reel|talking-head|embedded-captions|motion-graphics/.test(route)) return null;
+  const kind = [dec.format, dec.kind, dec.film_kind, (brief.fields || brief).kind].filter(Boolean).join(" ");
+  const launch = route === "product-launch-video" || LAUNCH_KIND.test(kind);
+  const cardPath = dec.film_style ? path.resolve(String(dec.film_style)) : path.join(run, "brand-film", "FILM-STYLE.json");
+  const have = exists(cardPath);
+  if (!launch && !have) return null;
+  return { required: launch, card: have ? cardPath : null, expected: cardPath };
+}
+export function readFilmCard(file) {
+  const j = readJ(file);
+  if (!j) return null;
+  let md = "";
+  try { md = fs.readFileSync(path.join(path.dirname(file), "FILM-STYLE.md"), "utf8"); } catch {}
+  const pal = ((j.measured && j.measured.palette) || []).filter((c) => c && /^#[0-9a-f]{6}$/i.test(c.hex || "") && (c.share == null || c.share >= 0.005)).map((c) => c.hex.toLowerCase());
+  const bg = j.measured && j.measured.background && j.measured.background.overall;
+  const colours = new Set([...pal, ...(/^#[0-9a-f]{6}$/i.test(bg || "") ? [bg.toLowerCase()] : []), ...((md.match(/#[0-9a-f]{6}\b/gi) || []).map((h) => h.toLowerCase()))]);
+  const slots = j.slots || {};
+  return { json: j, md, colours: [...colours], slots, type: `${slots.typefaces || ""}`.trim(), motion: `${slots.motionVocabulary || ""} ${slots.notes || ""}`, filled: j.filled === true || !!(slots.typefaces && slots.motif && slots.motionVocabulary) };
+}
+
 // ---------------------------------------------------------------- fonts
 const GENERIC_FONTS = new Set(["inter", "roboto", "arial", "helvetica", "helvetica neue", "system-ui", "open sans", "sans-serif", "-apple-system", "system stack", "segoe ui", "lato"]);
 const SERIFS = new Set(["fraunces", "playfair display", "instrument serif", "cormorant", "cormorant garamond", "eb garamond", "source serif 4", "dm serif display", "dm serif text", "newsreader", "lora", "libre baskerville", "crimson text", "crimson pro", "gloock", "young serif", "bodoni moda", "spectral", "georgia", "times new roman"]);
@@ -180,6 +218,33 @@ export function checkSystem(dir, opts = {}) {
       }
     } catch (e) { W.push(`couldn't read the brand DESIGN.md to compare: ${e.message}`); }
   }
+  // BRAND FILM GRAMMAR: a branded launch / promo / brand film is the brand's own film style (FILM-STYLE card), never a blend of
+  // outside references; palette and type must match the card, the motion must stay inside its vocabulary
+  const FILM = opts.brand ? (opts.film !== undefined ? opts.film : runFilm(path.resolve(dir, "..", ".."))) : null;
+  if (FILM) {
+    const card = FILM.card ? readFilmCard(FILM.card) : null;
+    if (!card) {
+      if (FILM.required) P.push(`${label}: film style: a branded launch film needs the brand's film grammar card (${path.relative(process.cwd(), FILM.expected)}): run brandfilm.mjs find/fetch/frames/measure/card and have the brand film analyst fill FILM-STYLE.md (references/launch-film.md section 3)`);
+    } else {
+      if (!card.filled) P.push(`${label}: film style: FILM-STYLE.json is not filled (typefaces, motif, motion vocabulary, layout...): the brand film analyst fills the slots from the contact sheets first`);
+      const fsCite = String((S.blend && (S.blend.film_style || S.blend.film_style_card)) || "");
+      if (!/FILM-STYLE/.test(fsCite)) P.push(`${label}: film style: blend.json must cite the card: film_style: "<path to FILM-STYLE.md>" (a branded look is the brand film's grammar, not a blend of outside references)`);
+      const takes = Array.isArray(S.blend && S.blend.film_style_takes) ? S.blend.film_style_takes.filter((x) => String(x || "").trim()) : [];
+      if (takes.length < 3) P.push(`${label}: film style: blend.json film_style_takes needs at least 3 entries, what was taken from the card (palette, type, motif, motion vocabulary, layout, end card)`);
+      if (card.colours.length) {
+        const near = (hx, tol) => card.colours.some((c) => deltaE(hx, c) <= tol);
+        for (const [k, tol] of [["canvas", 15], ["ink", 15], ["accent", 28]]) if (R[k] && /^#[0-9a-f]{6}$/i.test(R[k]) && !near(R[k], tol)) P.push(`${label}: film style: ${k} ${R[k]} is not a colour of the brand film's card (nearest ΔE ${Math.round(Math.min(...card.colours.map((c) => deltaE(R[k], c))))}, the card has ${card.colours.slice(0, 8).join(" ")}): use the card's palette exactly`);
+      }
+      if (card.type && info.display && !card.type.toLowerCase().includes(String(info.display).toLowerCase())) P.push(`${label}: film style: the display face ${info.display} is not in the card's typefaces ("${card.type.slice(0, 120)}"): use the brand film's face (for a proprietary one, the card names a loadable "Substitute: <family>")`);
+      const flat = /\b(flat|no 3d|no motion blur|no blur|no grain|never 3d)\b/i.test(card.motion);
+      if (flat) {
+        const moS = motionSection(S.md) || "";
+        if (S.recipe && S.recipe.three) P.push(`${label}: film style: the card says the brand's motion is flat (no 3D, blur or grain); this system leans 3D (recipe.three)`);
+        const bad = moS.match(/(?<!\bno\s)(?<!\bnever\s)(?<!\bwithout\s)(?<!\bno\s)\b(motion blur|film grain|grain|dolly|bloom|depth of field)\b/i);
+        if (bad) P.push(`${label}: film style: the card says the brand's motion is flat, but the Motion and camera section uses "${bad[0]}": stay inside the card's motion vocabulary`);
+      }
+    }
+  }
 
   // blend: the references it was made from
   const bl = S.blend;
@@ -187,7 +252,8 @@ export function checkSystem(dir, opts = {}) {
   if (String(bl.one_line || "").length > 200) W.push("blend.one_line is long: one line the user reads under the specimen");
   const refs = Array.isArray(bl.references) ? bl.references : [];
   const ids = [...new Set(refs.map((r) => r && r.id).filter(Boolean))];
-  if (ids.length < 2) P.push(`blend.json cites ${ids.length} library references (blend at least 2, ideally 2 to 4)`);
+  if (FILM) { if (ids.length) P.push(`${label}: film style: blend.references must be empty on a branded film (it cites ${ids.join(", ")}): outside designers, directors and library references are for unbranded films only; the look is the brand film's own grammar`); }
+  else if (ids.length < 2) P.push(`blend.json cites ${ids.length} library references (blend at least 2, ideally 2 to 4)`);
   if (ids.length > 4) W.push(`blend.json cites ${ids.length} references: past 4 it stops being a blend and becomes a mood board`);
   for (const r of refs) {
     if (!r || !r.id) { P.push("a blend reference has no id"); continue; }

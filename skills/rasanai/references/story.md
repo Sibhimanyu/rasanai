@@ -33,6 +33,10 @@ Specificity comes from here, and this is the step that gets skipped most. Fill e
 
 For launch, promo and product films (`--format launch`, or `--product-first`; `references/product-first.md`), the engine is bounded: `pick` never offers conceit devices (the whole Metaphor family, borrowed containers other than the product's own query log, chat thread and interface, and a handful of others: cosmos zoom, object's POV, unexpected protagonist, letter from the future, mockumentary, product as a character, problem as a villain, mirror, one-shape, sound-first, data letter, story loop), and `check` runs **G7** (the device is not a conceit; no museum/allegory/invented-world words in the title, logline or beats unless a `visual_pun` that resolves to the product within 1 s; the product on screen within 3 s; a `hero_moment`; 2 to 4 `uses`; `last_line` with `end_line_largest: true`; on-screen lines of 6 words or fewer). The devices left (the oner, split-sync, the static camera, countdown, rewind, real time, the misdirect, escalation, the list that breaks, call and response, the manifesto, fake UI takeover, query log and the like) are *structures for pacing and energy*, applied to the real product UI, never a world to put it in. Pass `--allow-conceit` only for a brand film or when the user explicitly asks for a concept.
 
+## Branded launch films: simple, to the point (`references/launch-film.md`, `references/brand-film.md`)
+
+For a named brand's launch, promo or brand film the story follows the structure template of `launch-film.md` section 1 for the film's length: hook with the product or brand in 1 to 3 s, the reveal, 2 to 4 real feature demos, one payoff line, the end card with one CTA. One idea per beat, plain words. The three scripts differ only in emphasis and order, never in concept. Pitch fields: `role` per beat (`hook`, `statement`, `hero`, `demo`, `payoff`, `cta`), `payoff_line`, plus the G7 fields above. G7 fails: no hero beat, not 2 to 4 demo beats, no payoff line, a beat outside the template's timing range, or a beat without the product or brand.
+
 ## 2. Pick three devices
 
 ```bash

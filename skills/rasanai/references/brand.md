@@ -6,6 +6,10 @@ When the workspace already has a brand reference, RasanAI uses it instead of inv
 
 If the brief names a brand (`brand_name` / `use_brand: true`) or the product is a known brand, a brand step ALWAYS runs: a workspace DESIGN.md wins; otherwise the brand researcher builds `research/brand/DESIGN.md` from official sources (type, colours, UI language, logo usage, motion) and the research lead's `crew.mjs check` fails without it. The Director reads it with `brand.mjs read`, pushes it to the console as step `brand`, and sets `brand` in decisions. From then on the brand lock applies: all three looks stay inside the brand's type, colours and UI, and vary composition, motion and density only (`references/design-desk.md`, `references/product-first.md`). `use_brand: false` (the user chose a new look) is the only way out.
 
+### The brand's film style (launch, promo and brand films)
+
+A DESIGN.md gives the brand's tokens; a film needs its **film grammar**, which only the brand's own films show. For a branded launch, promo or brand film, `brandfilm.mjs` (find, fetch, frames, measure, card) and the brand film analyst write `brand-film/FILM-STYLE.md`: canvas and shares, typefaces and type scale, layout, motif, motion vocabulary, photography, cut rate, transitions, end card (`references/brand-film.md`). It sits on top of the DESIGN.md and the looks must match it.
+
 ## What it reads
 
 | Shape | Example |

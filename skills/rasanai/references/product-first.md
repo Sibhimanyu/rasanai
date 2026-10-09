@@ -26,6 +26,10 @@ Product films show the real product. In order of preference:
 
 If capture fails, say so in the console (`activity`), recreate the UI and carry on: do not pivot to metaphor.
 
+## Brand film grammar and the simple story
+
+For a named brand, the look is the brand's own film grammar (`references/brand-film.md`: `brandfilm.mjs` + the brand film analyst), and the story follows the structure templates of `references/launch-film.md`. Both keep the film simple and to the point; the style-match gate (`brandfilm.mjs compare`) runs on the key frames and the first draft.
+
 ## Brand lock
 
 When the brief names a brand (`brand_name` / `use_brand` true) or the product is a known brand, a brand step ALWAYS runs: the brand researcher builds `research/brand/DESIGN.md` from official sources (type, colours, UI language, logo usage, motion), the Director reads it (`brand.mjs read`), pushes it to the console as `brand`, and sets `brand` in decisions. All three looks (Sure, Bold, Wild) then stay inside the brand: its type, colours and UI; they vary composition, motion and density, never the palette or the type system. An off-brand look is never recommended, never even shown (`design.mjs look-payload` refuses it). The gate: `design.mjs check-system` / `check-systems` apply the brand lock to every system when the run has a brand.
