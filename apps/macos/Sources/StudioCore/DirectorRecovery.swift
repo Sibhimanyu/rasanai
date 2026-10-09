@@ -38,7 +38,7 @@ public enum DirectorRecovery: String, Sendable {
             return (.stoppedEarly, "The director's helpers were still running when its session timed out, so it ended early. Resume continues from the saved state.")
         }
         let step = FilmStepName.friendly(progress.currentStep)
-        let detail = progress.pushedAnyStep ? "The director stopped before the \(step) step was finished." : "The director stopped before it pushed anything to the console."
+        let detail = progress.pushedAnyStep ? "The director stopped before the \(step) step was finished." : "The director stopped before it showed you anything."
         return (.stoppedEarly, detail)
     }
 

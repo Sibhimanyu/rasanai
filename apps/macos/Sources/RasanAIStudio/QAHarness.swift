@@ -33,6 +33,9 @@ import StudioCore
                         let accepted = await model.send(step: send["step"] as? String ?? "", type: send["type"] as? String ?? "", value: value, note: send["note"] as? String ?? "")
                         result["sent"] = accepted
                     } else if object["send"] != nil { result["ok"] = false; result["error"] = "no film model" }
+                    if let replay = object["replay"] as? [String: Any] {
+                        ProgressReplay.current?.control(seek: replay["seek"] as? String, speed: replay["speed"] as? Double, paused: replay["paused"] as? Bool)
+                    }
                     if let ui = object["ui"] as? String, let model = store.film {
                         model.decisionsPresented = ui == "decisions"
                         if ui == "tell" { model.beginTell() } else { model.tellPresented = false }

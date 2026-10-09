@@ -18,6 +18,8 @@ final class StudioSettings {
     var allowUnrestrictedTools = UserDefaults.standard.bool(forKey: "allowUnrestrictedTools") { didSet { defaults.set(allowUnrestrictedTools, forKey: "allowUnrestrictedTools") } }
     /// Warn when one film's director spend passes this many dollars. 0 means off.
     var budgetPerFilm = UserDefaults.standard.double(forKey: "budgetPerFilm") { didSet { defaults.set(budgetPerFilm, forKey: "budgetPerFilm") } }
+    /// How fast the director works (research time and build plan), for films that do not choose their own.
+    var pace: FilmPace { didSet { defaults.set(pace.rawValue, forKey: "pace") } }
     /// Lets the director make images through the Codex CLI on the user's ChatGPT plan. On unless turned off.
     var generateImagesWithCodex: Bool { didSet { defaults.set(generateImagesWithCodex, forKey: "generateImagesWithCodex") } }
     /// The Codex CLI for image generation, whichever director is selected: the configured path, else discovery.
@@ -89,6 +91,8 @@ final class StudioSettings {
         codexModel = defaults.string(forKey: "codexModel") ?? ""
         nodePath = defaults.string(forKey: "nodePath") ?? ""
         allowUnrestrictedTools = defaults.bool(forKey: "allowUnrestrictedTools")
+        pace = defaults.string(forKey: "pace").flatMap(FilmPace.init(rawValue:))
+            ?? defaults.string(forKey: "researchDepth").flatMap(FilmPace.init(legacyResearchDepth:)) ?? .defaultForNewFilms
         generateImagesWithCodex = defaults.object(forKey: "generateImagesWithCodex") as? Bool ?? true
         do { try library.prepare() } catch { self.error = error.localizedDescription }
     }
@@ -302,6 +306,13 @@ struct StudioSettingsView: View {
                 statusLine(agent)
             } footer: {
                 Text("RasanAI directs with your \(agent.title) account. Usage counts toward your plan.")
+            }
+            Section {
+                Picker("Pace", selection: $settings.pace) {
+                    ForEach(FilmPace.allCases) { Text($0.title).tag($0) }
+                }.pickerStyle(.segmented)
+            } footer: {
+                Text("How fast the director works. \(settings.pace.summary) Each film can override this under More in New film.")
             }
             Section {
                 Toggle("Generate images with Codex", isOn: $settings.generateImagesWithCodex)

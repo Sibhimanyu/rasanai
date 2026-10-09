@@ -153,7 +153,19 @@ final class StudioStore {
     let settings: StudioSettings
     let runtime = DirectorRuntime()
     let monitor = DirectorMonitor()
-    var consoleAddress: ConsoleAddress?
+    /// Film progress models, one per run, created on first use (see FilmProgress.swift).
+    @ObservationIgnored var progressModels: [URL: FilmProgress] = [:]
+    /// Set by the DEBUG replay: while non-nil nothing may attach to a run folder (no transport, no live read).
+    @ObservationIgnored var replayRun: URL?
+    /// Enters replay mode: cancels any run open in flight and detaches the live film model and progress models.
+    func enterReplay(run: URL) {
+        replayRun = run
+        runOpenGeneration = UUID()
+        film?.stop(); film = nil
+        for model in progressModels.values { model.stop() }
+        progressModels.removeAll()
+    }
+    @ObservationIgnored let researchTimeBoxing = ResearchTimeBoxing()
     /// When true, the film page shows the console even for a finished film ("Make changes").
     var showChanges = false
     /// The film (project or external run folder) whose state is currently loaded.
@@ -192,7 +204,6 @@ final class StudioStore {
     var isManagingProject = false
     var projectSources: [URL] = []
     var isImportingSources = false
-    var isReconnecting = false
     var isSavingFilm = false
     private var didRestoreWorkspace = false
     private var runOpenGeneration = UUID()
@@ -437,7 +448,7 @@ final class StudioStore {
         UserDefaults.standard.removeObject(forKey: "lastOpenedRun")
     }
     func restoreWorkspace() {
-        guard !didRestoreWorkspace, !isDemo else { return }; didRestoreWorkspace = true
+        guard !didRestoreWorkspace, !isDemo, replayRun == nil else { return }; didRestoreWorkspace = true
         if let index = CommandLine.arguments.firstIndex(of: "--run"), CommandLine.arguments.count > index + 1 {
             settings.showWelcome = false
             openRun(URL(fileURLWithPath: CommandLine.arguments[index + 1]))
@@ -589,6 +600,7 @@ final class StudioStore {
     }
 
     func openRun(_ url: URL, navigate: Bool = true) {
+        guard replayRun == nil else { return }
         let run = url.lastPathComponent == "session.json" ? url.deletingLastPathComponent() : url
         guard (!runtime.isRunning && !runtime.isPreparing && !runtime.isFinishing && !queueStarting) || run == runtime.runURL else { errorMessage = "Stop the director before switching films."; return }
         let identity = UUID(); runOpenGeneration = identity
@@ -621,53 +633,35 @@ final class StudioStore {
         }
     }
 
+    /// Attaches to the open run's files (no server): a model that watches its folder and queues the person's actions.
     func connect() {
-        guard let runURL else { return }
+        guard let runURL, replayRun == nil else { return }
         film?.stop()
-        do {
-            let address = try ConsoleAddress(data: Data(contentsOf: runURL.appendingPathComponent("address.json")))
-            consoleAddress = address
-            workspaceURL = address.root
-            let model = FilmSessionModel(snapshot: snapshot, run: runURL, workspace: address.root, address: address,
-                                         addressProvider: { (try? Data(contentsOf: runURL.appendingPathComponent("address.json"))).flatMap { try? ConsoleAddress(data: $0) } })
-            model.startedAt = runtime.startedAt
-            model.onSnapshot = { [weak self, weak model] next in
-                guard let self, let model, self.film === model else { return }
-                self.ingest(next)
-            }
-            model.onConnection = { [weak self, weak model] connection in
-                guard let self, let model, self.film === model else { return }
-                let connected = connection == .live || connection == .polling
-                if connected != self.isConnected {
-                    self.isConnected = connected
-                    if !connected { self.statusMessage = "Console disconnected · retrying" }
-                }
-            }
-            film = model
-            statusMessage = "Connecting to the local director…"
-            model.start()
-            configureMedia()
-        } catch {
-            consoleAddress = nil
-            film = nil
-            isConnected = false
-            statusMessage = "Offline run · reconnect after starting its console"
-            configureMedia()
+        let workspace = RunWorkspace.root(for: runURL)
+        workspaceURL = workspace
+        let model = FilmSessionModel(snapshot: snapshot, run: runURL, workspace: workspace)
+        model.startedAt = runtime.startedAt
+        model.onSnapshot = { [weak self, weak model] next in
+            guard let self, let model, self.film === model else { return }
+            self.ingest(next)
         }
+        model.onConnection = { [weak self, weak model] connection in
+            guard let self, let model, self.film === model else { return }
+            let connected = connection == .live || connection == .polling
+            if connected != self.isConnected {
+                self.isConnected = connected
+                if !connected { self.statusMessage = "This film's folder is not readable" }
+            }
+        }
+        film = model
+        statusMessage = "Opening the film's files…"
+        model.start()
+        configureMedia()
     }
-    func reconnectConsole() {
-        guard let run = runURL, !isReconnecting else { return }
-        isReconnecting = true
-        let root = workspaceURL ?? run
-        let identity = generation
-        Task {
-            defer { isReconnecting = false }
-            do {
-                try await runtime.reconnect(run: run, root: root, settings: settings)
-                guard identity == generation else { return }
-                connect()
-            } catch { if identity == generation { errorMessage = error.localizedDescription } }
-        }
+    /// "Reload film": read the run's folder again from scratch.
+    func reloadFilm() {
+        guard runURL != nil else { return }
+        connect()
     }
 
     func refresh() async { await film?.refresh() }
@@ -681,12 +675,13 @@ final class StudioStore {
         }
         isConnected = true
         if previousCurrentStep == "build", next.currentStep != "build", ["render", "final"].contains(next.currentStep) {
-            notify(title: "Your film is built", body: "Open RasanAI Studio to review it.", id: "built-\(UUID().uuidString)")
+            // "Your film is built" is posted once per film by `ProgressNotifier`, keyed to the progress model's Build phase.
         }
         if previousCurrentStep != next.currentStep {
             setStage(next.stage)
             previousCurrentStep = next.currentStep
         }
+        researchTimeBoxing.observe(store: self)
         playhead = min(playhead, duration)
         if case .yourTurn = phase { NSApp.dockTile.badgeLabel = "1" } else { NSApp.dockTile.badgeLabel = nil }
         statusMessage = next.workingMessage ?? (awaitingAgent ? "Sent to the director · waiting for an update" : "Connected to the local director")
@@ -728,7 +723,6 @@ final class StudioStore {
         generation = UUID()
         film?.stop()
         film = nil
-        consoleAddress = nil
         presentedQuestionID = nil
         NSApp?.dockTile.badgeLabel = nil
         isConnected = false
@@ -924,7 +918,7 @@ final class StudioStore {
         performFilmRequest("Revise this existing film: \(request). Preserve the rest of the film and publish a new version with a list of changes.", action: "note", value: .null, note: request, onSent: onSent)
     }
     func restoreFilmVersion(_ version: FilmVersion) {
-        performFilmRequest("Restore version \(version.id) of this existing film using its saved artifacts. Preserve the other versions and publish the restored result through the console.", action: "version", value: .object(["restore": version.number]), note: "")
+        performFilmRequest("Restore version \(version.id) of this existing film using its saved artifacts. Preserve the other versions and publish the restored result through the film files.", action: "version", value: .object(["restore": version.number]), note: "")
     }
     private func performFilmRequest(_ request: String, action: String, value: JSONValue, note: String, onSent: (() -> Void)? = nil) {
         guard !queueStarting, !queueHandlingExit, !isBrowsingAnotherFilm, !isSending, !runtime.isPreparing, !isSavingFilm, runURL != nil else { return }
@@ -935,7 +929,7 @@ final class StudioStore {
             showChanges = true
             Task {
                 if runtime.isRunning {
-                    guard isConnected else { errorMessage = "Reconnect the review console before sending changes."; return }
+                    guard isConnected else { errorMessage = "This film's folder is not readable. Reopen the film before sending changes."; return }
                     await send(type: action, value: value, note: note, step: snapshot.actionStep(for: .final))
                     if errorMessage == nil && action == "note" { directorMessage = ""; onSent?() }
                 } else {

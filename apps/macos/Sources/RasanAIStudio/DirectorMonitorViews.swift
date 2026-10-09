@@ -79,6 +79,8 @@ extension DirectorMonitor {
 
 struct DirectorMonitorPanel: View {
     var monitor: DirectorMonitor
+    /// The film's phases, for the per-phase cost table. `nil` hides the table.
+    var progress: FilmProgressSnapshot?
     var dismiss: () -> Void = {}
 
     var body: some View {
@@ -100,6 +102,7 @@ struct DirectorMonitorPanel: View {
                     if let limit = monitor.budgetLimit { budgetCard(limit) }
                     usage(t)
                     cost(t)
+                    if let progress { PhaseCostTable(snapshot: progress, now: now) }
                     work(t, now: now)
                     timeline(t, now: now)
                 }
@@ -399,6 +402,58 @@ struct BudgetSetting: View {
                     TextField("", value: $settings.budgetPerFilm, format: .number.precision(.fractionLength(0...2)))
                         .multilineTextAlignment(.trailing).frame(width: 70)
                     Text("per film").foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+}
+
+
+// MARK: Cost by phase
+
+/// "Where the money went": one row per phase that has run, with time, tokens and cost, and a bar scaled to the costliest phase.
+struct PhaseCostTable: View {
+    let snapshot: FilmProgressSnapshot
+    let now: Date
+
+    var body: some View {
+        let rows = snapshot.phases.filter { $0.startedAt != nil && $0.state != .upcoming && $0.state != .skipped }
+        if !rows.isEmpty {
+            let top = max(rows.map { snapshot.isIncludedInPlan ? Double($0.tokens.fresh) : $0.costUSD }.max() ?? 0, 0.000_001)
+            VStack(alignment: .leading, spacing: 8) {
+                StageSectionTitle("Cost by phase")
+                VStack(spacing: 0) {
+                    ForEach(rows) { row in
+                        let weight = snapshot.isIncludedInPlan ? Double(row.tokens.fresh) : row.costUSD
+                        HStack(spacing: 10) {
+                            Image(systemName: row.phase.symbolName).font(.system(size: 11)).foregroundStyle(row.state == .active ? Color.rasan : Color.secondary).frame(width: 16)
+                            Text(row.phase.title).font(.system(size: 12.5, weight: row.state == .active ? .semibold : .regular)).frame(width: 66, alignment: .leading)
+                            GeometryReader { proxy in
+                                Capsule().fill(Color.rasan.opacity(0.55)).frame(width: max(2, proxy.size.width * weight / top))
+                                    .frame(maxHeight: .infinity, alignment: .center).frame(height: 5)
+                                    .frame(maxHeight: .infinity)
+                            }
+                            .frame(height: 14)
+                            Text(FilmProgressFormat.duration(row.workSeconds(now: now))).font(.system(size: 11.5)).foregroundStyle(.secondary).monospacedDigit().frame(width: 52, alignment: .trailing)
+                            Text(row.costText ?? "–").font(.system(size: 12, weight: .medium)).monospacedDigit().frame(width: 74, alignment: .trailing)
+                        }
+                        .padding(.vertical, 5)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("\(row.railText(now: now))")
+                        if row.id != rows.last?.id { Divider() }
+                    }
+                    Divider().padding(.top, 2)
+                    HStack {
+                        Text("Total").font(.system(size: 12.5, weight: .semibold))
+                        Spacer()
+                        Text(snapshot.isIncludedInPlan ? FilmProgressFormat.tokens(snapshot.totalTokens.fresh)
+                             : (snapshot.costIsEstimated ? "est. " : "") + UsageFormat.dollars(snapshot.totalCostUSD))
+                            .font(.system(size: 12.5, weight: .semibold)).monospacedDigit()
+                    }
+                    .padding(.top, 6)
+                }
+                if snapshot.costIsEstimated && !snapshot.isIncludedInPlan {
+                    Text("Phases are split by when the work happened, so a phase's figure is an estimate.").font(.system(size: 11)).foregroundStyle(.tertiary)
                 }
             }
         }

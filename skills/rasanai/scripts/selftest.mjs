@@ -38,6 +38,7 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "rasa-selftest-"));
 const env = { ...process.env, RASANAI_HOME: path.join(TMP, "home"), RASANAI_MODEL: "claude-opus-5-5" };
+delete env.RASANAI_CONSOLE_HEADLESS; // the console cases below start a real server unless they opt in
 const quick = process.argv.includes("--quick");
 let failed = 0;
 const node = (script, args, opts = {}) => spawnSync(process.execPath, [path.join(HERE, script), ...args], { encoding: "utf8", env, cwd: opts.cwd || TMP, timeout: 180000 });
@@ -211,6 +212,82 @@ if (url) {
   } catch {}
   ok("console from an older version is replaced (a new server, same address), not reused", !!again.url && !again.reused && again.pid !== old.pid && again.url === old.url, JSON.stringify(again));
   node("console.mjs", ["stop", "--run", run]);
+}
+
+// 6b. headless console (RasanAI Studio): no server, files only; wait applies an action's effects when it consumes it
+{
+  const hrun = path.join(TMP, "headless-run");
+  const henv = { ...env, RASANAI_CONSOLE_HEADLESS: "1" };
+  const h = (args, o = {}) => spawnSync(process.execPath, [path.join(HERE, "console.mjs"), ...args], { encoding: "utf8", env: henv, cwd: TMP, timeout: 30000, ...o });
+  const J = (f) => JSON.parse(fs.readFileSync(path.join(hrun, f), "utf8"));
+  const append = (a) => fs.appendFileSync(path.join(hrun, "actions.jsonl"), JSON.stringify(a) + "\n");
+  const srv = h(["serve", "--run", hrun, "--root", TMP]);
+  ok("headless: serve is a no-op and starts nothing", srv.status === 0 && JSON.parse(srv.stdout).headless === true && !fs.existsSync(path.join(hrun, "address.json")) && !J("console.json").pid, srv.stdout + srv.stderr);
+  const urlRes = h(["url", "--run", hrun]);
+  ok("headless: url explains there is no page", urlRes.status !== 0 && /headless/.test(urlRes.stderr + urlRes.stdout));
+  h(["push", "--run", hrun, "--step", "story", "--data", '{"stories":[{"id":"shoebox","title":"The shoebox wins"},{"id":"b","title":"B"}],"recommended":"shoebox"}']);
+  h(["activity", "--run", hrun, "--message", "Writing three scripts"]);
+  h(["ask", "--run", hrun, "--question", "Include the logo?", "--options", '[{"id":"y","label":"Yes"},{"id":"n","label":"No"}]']);
+  const st0 = J("session.json");
+  ok("headless: push, activity and ask write session.json with no server, and the run stays headless without the env var", st0.steps.story.status === "awaiting" && st0.ask && st0.activity.some((x) => x.msg === "Writing three scripts") && !fs.existsSync(path.join(hrun, "address.json")) && h(["state", "--run", hrun], { env: env }).status === 0 && J("console.json").headless === true);
+  // a later command without the env var is still headless (console.json remembers it), so it can never start a server
+  const noEnv = spawnSync(process.execPath, [path.join(HERE, "console.mjs"), "push", "--run", hrun, "--step", "look", "--data", "{}"], { encoding: "utf8", env, cwd: TMP });
+  ok("headless: remembered in console.json, push without the env var starts no server", noEnv.status === 0 && !fs.existsSync(path.join(hrun, "address.json")) && !J("console.json").pid, noEnv.stdout + noEnv.stderr);
+  h(["push", "--run", hrun, "--step", "story", "--data", '{"stories":[{"id":"shoebox","title":"The shoebox wins"},{"id":"b","title":"B"}],"recommended":"shoebox"}']);
+  // an action appended by the app (as the server would have) is consumed by wait, with the server's session effects
+  append({ id: "act1", ts: "2026-01-01T00:00:00.000Z", step: "story", type: "choose", value: "shoebox", note: "but shorter", source: "console" });
+  const w = h(["wait", "--run", hrun, "--step", "story", "--timeout", "10"]);
+  let a = {};
+  try { a = JSON.parse(w.stdout); } catch {}
+  const st1 = J("session.json");
+  const feed = st1.activity.map((x) => x.msg);
+  ok("headless: wait returns the exact action", w.status === 0 && a.id === "act1" && a.step === "story" && a.type === "choose" && a.value === "shoebox" && a.note === "but shorter" && a.source === "console", w.stdout);
+  ok("headless: wait applies the effects (sent banner with the option's name, 'You: picked' line, the thread note)", st1.steps.story.sent && st1.steps.story.sent.type === "choose" && st1.steps.story.sent.name === "The shoebox wins" && feed.includes("You: picked the story: The shoebox wins") && st1.steps.story.thread.some((m) => m.who === "you" && m.text === "but shorter") && J("consumed.json").includes("act1"), JSON.stringify({ sent: st1.steps.story.sent, feed: feed.slice(-3) }));
+  // a re-push clears the banner and keeps the thread, as on the server
+  h(["push", "--run", hrun, "--step", "story", "--data", '{"stories":[{"id":"shoebox","title":"The shoebox wins"}]}', "--status", "done"]);
+  ok("headless: re-push clears the sent banner and keeps the thread", !J("session.json").steps.story.sent && J("session.json").steps.story.thread.length === 1);
+  // a note pinned on the animatic, then an answer to the ask, then a decide-rest
+  append({ id: "cmt1", ts: "2026-01-01T00:00:01.000Z", step: "animatic", type: "comment", value: { scene: "s2", t: 65.5, x: 0.4, y: 0.6, scope: "scene", quick: "Slower" }, note: "slow this down", source: "console" });
+  const wc = JSON.parse(h(["wait", "--run", hrun, "--timeout", "10"]).stdout);
+  const st2 = J("session.json");
+  ok("headless: a comment becomes an open note and a feed line", wc.type === "comment" && st2.comments.length === 1 && st2.comments[0].id === "cmt1" && st2.comments[0].state === "open" && st2.comments[0].t === 65.5 && st2.comments[0].quick === "Slower" && st2.activity.at(-1).msg === "You left a note at 1:05: slow this down", JSON.stringify(st2.comments));
+  append({ id: "ans1", ts: "2026-01-01T00:00:02.000Z", step: st0.ask.step, type: "answer", value: { ask: st0.ask.id, choice: "y", text: "" }, note: "", source: "console" });
+  const wa = JSON.parse(h(["wait", "--run", hrun, "--timeout", "10"]).stdout);
+  const st3 = J("session.json");
+  ok("headless: an answer marks the ask answered", wa.type === "answer" && st3.ask.answered && st3.ask.answered.choice === "y" && st3.ask.answered.label === "Yes" && st3.activity.at(-1).msg === "You answered: Yes");
+  append({ id: "dr1", ts: "2026-01-01T00:00:03.000Z", step: "*", type: "decide-rest", value: null, note: "", source: "console" });
+  const wd = JSON.parse(h(["wait", "--run", hrun, "--timeout", "10"]).stdout);
+  ok("headless: decide-rest is recorded on the session", wd.step === "*" && J("session.json").decide_rest.ts === "2026-01-01T00:00:03.000Z");
+  // invalid actions are consumed with a reason, never delivered, and never crash wait
+  fs.appendFileSync(path.join(hrun, "actions.jsonl"), "this is not json\n[1,2]\n");
+  append({ id: "bad1", step: "nonsense", type: "choose" });
+  append({ id: "bad2", step: "story", type: "Not Valid!" });
+  append({ id: "act2", ts: "2026-01-01T00:00:04.000Z", step: "story", type: "approve", value: null, note: "", source: "console" });
+  const wi = h(["wait", "--run", hrun, "--timeout", "10"]);
+  let ai = {};
+  try { ai = JSON.parse(wi.stdout); } catch {}
+  const rej = J("rejected.json");
+  ok("headless: invalid actions are consumed with an error entry and the next valid one is delivered", wi.status === 0 && ai.id === "act2" && rej.length === 4 && rej.every((r) => r.error) && ["bad1", "bad2"].every((id) => J("consumed.json").includes(id) && rej.some((r) => r.id === id)), wi.stdout + JSON.stringify(rej));
+  // a half-written last line is left alone until its newline arrives
+  fs.appendFileSync(path.join(hrun, "actions.jsonl"), '{"id":"part1","step":"story","type":"note","value":null,"note":"hel');
+  const wp = h(["wait", "--run", hrun, "--timeout", "1"]);
+  ok("headless: a partially written line is not consumed or rejected", wp.status === 2 && !J("consumed.json").includes("part1"));
+  fs.appendFileSync(path.join(hrun, "actions.jsonl"), 'lo","source":"console"}\n');
+  const wq = JSON.parse(h(["wait", "--run", hrun, "--timeout", "10"]).stdout);
+  ok("headless: ... and is delivered once complete", wq.id === "part1" && wq.note === "hello");
+  // record (chat) stays consumed; wait times out cleanly
+  const rc = JSON.parse(h(["record", "--run", hrun, "--step", "look", "--type", "choose", "--value", '"bold"']).stdout);
+  ok("headless: record is already consumed", rc.source === "chat" && J("consumed.json").includes(rc.id) && h(["wait", "--run", hrun, "--timeout", "1"]).status === 2);
+  ok("headless: no console server was started in this run", !fs.existsSync(path.join(hrun, "address.json")) && !J("console.json").pid && !fs.existsSync(path.join(hrun, "session.lock")) && !fs.existsSync(path.join(hrun, "actions.lock")));
+  // a run an older Studio started (console server + address.json) is switched to headless on the next command
+  const old = path.join(TMP, "headless-old");
+  const sv2 = node("console.mjs", ["serve", "--run", old, "--root", TMP]);
+  const oldInfo = JSON.parse(fs.readFileSync(path.join(old, "console.json"), "utf8"));
+  spawnSync(process.execPath, [path.join(HERE, "console.mjs"), "activity", "--run", old, "--message", "resumed"], { encoding: "utf8", env: henv, cwd: TMP });
+  await new Promise((r) => setTimeout(r, 400));
+  let serverGone = false;
+  try { process.kill(oldInfo.pid, 0); } catch { serverGone = true; }
+  ok("headless: resuming a run that had a console server stops it and forgets its address", sv2.status === 0 && serverGone && !fs.existsSync(path.join(old, "address.json")) && JSON.parse(fs.readFileSync(path.join(old, "console.json"), "utf8")).headless === true);
 }
 
 // 7

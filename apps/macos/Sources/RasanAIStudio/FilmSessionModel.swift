@@ -2,25 +2,28 @@ import Foundation
 import Observation
 import StudioCore
 
-/// The live director session for the film on screen, read from the console and written back through it.
+/// The live director session for the film on screen, read from the run folder's files and written back to them.
 ///
-/// - State arrives over the console's server-sent events (`/api/events`, heartbeat every 15 s). A silent stream
-///   (40 s), a dropped connection or a restarted console reconnects with backoff, re-reading `address.json`, and
-///   polls `api/state` every second until the stream is back.
-/// - Everything the person does goes through `send(step:type:value:note:)` (the console's authenticated
-///   `POST /api/action`). The app never writes `session.json` or `actions.jsonl` itself.
-/// - Files named in payloads are read from disk through `fileURL(_:)` (`AssetResolver`), never over HTTP.
+/// There is no console server. `console.mjs` (headless) rewrites `session.json` atomically; this model watches the run
+/// folder (`RunTransport.changes()`, debounced, with a slow heartbeat), re-reads the session safely (a missing or
+/// half-written file keeps the last good state) and shows it. Everything the person does goes through
+/// `send(step:type:value:note:)`, which validates the action and appends one JSON line to `actions.jsonl` under the lock
+/// shared with `console.mjs`. Until the director's `wait` consumes it (`consumed.json`) the action is shown as sent:
+/// the "sent" banner, the note, the answered question (`SessionOverlay`). `console.mjs` is the only writer of `session.json`.
+/// - Files named in payloads are read from disk through `fileURL(_:)` (`AssetResolver`).
 ///
 /// One model per film connection. Stage views take `init(model:step:)` and read the accessors below.
 @MainActor @Observable
 final class FilmSessionModel {
+    /// `live` once `session.json` has been read; `offline` when the run folder or its session is gone. (`connecting` and
+    /// `polling` are kept for source compatibility; the file transport has no stream to lose.)
     enum Connection: Equatable { case connecting, live, polling, offline }
 
     // MARK: State
 
     private(set) var snapshot: SessionSnapshot
     private(set) var connection: Connection = .connecting
-    /// True while an action is in flight to the console.
+    /// True while an action is being written to the run's action queue.
     private(set) var isSending = false
     /// Set when the last action failed; cleared by the next successful one or `dismissError()`.
     private(set) var lastError: String?
@@ -46,20 +49,23 @@ final class FilmSessionModel {
     var onConnection: ((Connection) -> Void)?
 
     private var resolver: AssetResolver?
-    private var client: ConsoleClient?
-    private let addressProvider: (@Sendable () -> ConsoleAddress?)?
-    private var streamTask: Task<Void, Never>?
-    private var lastSeen = Date()
-    /// Fixture and sample models never talk to a console.
+    private let transport: RunTransport?
+    private var watchTask: Task<Void, Never>?
+    /// The last `session.json` bytes and queued action ids shown, so an unchanged folder event costs nothing.
+    private var lastData: Data?
+    private var lastQueued: [String] = []
+    /// Ids of the actions this model sent, to report one the director refused.
+    private var sentIDs: Set<String> = []
+    private var reportedRejections: Set<String> = []
+    /// Fixture and sample models never read or write a run folder.
     let isFixture: Bool
     /// Actions a fixture model received, newest last (for tests and the sample).
     private(set) var fixtureLog: [(step: String, type: String, value: JSONValue, note: String)] = []
 
-    init(snapshot: SessionSnapshot, run: URL, workspace: URL, address: ConsoleAddress, addressProvider: (@Sendable () -> ConsoleAddress?)? = nil) {
+    init(snapshot: SessionSnapshot, run: URL, workspace: URL) {
         self.snapshot = snapshot
         self.resolver = AssetResolver(run: run, workspace: workspace)
-        self.client = ConsoleClient(address: address)
-        self.addressProvider = addressProvider
+        self.transport = RunTransport(run: run)
         self.isFixture = false
     }
 
@@ -67,7 +73,7 @@ final class FilmSessionModel {
     init(fixture snapshot: SessionSnapshot, run: URL? = nil, workspace: URL? = nil) {
         self.snapshot = snapshot
         self.resolver = run.map { AssetResolver(run: $0, workspace: workspace ?? $0) }
-        self.addressProvider = nil
+        self.transport = nil
         self.isFixture = true
         self.connection = .live
     }
@@ -75,79 +81,49 @@ final class FilmSessionModel {
     // MARK: Connection
 
     func start() {
-        guard !isFixture, streamTask == nil else { return }
-        streamTask = Task { [weak self] in await self?.run() }
+        guard !isFixture, watchTask == nil, let transport else { return }
+        watchTask = Task { [weak self] in
+            for await _ in transport.changes() {
+                if Task.isCancelled { break }
+                await self?.reload()
+            }
+        }
     }
 
     func stop() {
-        streamTask?.cancel(); streamTask = nil
+        watchTask?.cancel(); watchTask = nil
     }
 
-    /// Fetch the state once, now (after an action, or when the app returns to the foreground).
-    func refresh() async {
-        guard let client else { return }
-        if let next = try? await client.state() { apply(next); setConnection(connection == .live ? .live : .polling) }
+    /// Read the run folder once, now (after an action, or when the app returns to the foreground).
+    func refresh() async { await reload() }
+
+    private struct Reading: Sendable {
+        var session: (data: Data, snapshot: SessionSnapshot)?
+        var queued: [QueuedAction]
+        var rejected: [RejectedAction]
+        var runExists: Bool
     }
 
-    private func run() async {
-        var delay = 1.0
-        while !Task.isCancelled {
-            guard let client else { break }
-            lastSeen = Date()
-            let healthy = await consume(client)
-            if Task.isCancelled { break }
-            if healthy { delay = 1 }
-            // The console may have restarted on a new port or token: look again before retrying.
-            if let address = addressProvider?(), address.port != client.address.port || address.token != client.address.token {
-                self.client = ConsoleClient(address: address)
-                resolver = resolver.map { AssetResolver(run: $0.run, workspace: address.root) }
-            }
-            // Poll every second while waiting out the backoff, so the screen never goes stale.
-            let deadline = Date().addingTimeInterval(delay)
-            while !Task.isCancelled && Date() < deadline {
-                if let current = self.client {
-                    do { apply(try await current.state()); setConnection(.polling) }
-                    catch { setConnection(.offline) }
-                }
-                try? await Task.sleep(for: .seconds(1))
-            }
-            delay = min(delay * 2, 8)
+    private func reload() async {
+        guard let transport else { return }
+        let reading = await Task.detached(priority: .userInitiated) { () -> Reading in
+            Reading(session: transport.readSessionData(), queued: transport.pending(), rejected: transport.rejections(),
+                    runExists: FileManager.default.fileExists(atPath: transport.sessionURL.path))
+        }.value
+        if Task.isCancelled { return }
+        guard let session = reading.session else {
+            // A half-written session keeps the last good state; only a vanished file means the run is gone.
+            if !reading.runExists { setConnection(.offline) }
+            return
         }
-    }
-
-    private final class Flag: @unchecked Sendable { var value = false }
-
-    /// Reads the stream until it ends, errors, or goes quiet for 40 s (heartbeats arrive every 15 s).
-    /// Returns whether anything arrived, so a healthy stream resets the backoff.
-    private func consume(_ client: ConsoleClient) async -> Bool {
-        let received = Flag()
-        await withTaskGroup(of: Void.self) { group in
-            group.addTask { [weak self] in
-                do {
-                    for try await event in client.events() {
-                        received.value = true
-                        await self?.handle(event)
-                    }
-                } catch {}
-            }
-            group.addTask { [weak self] in
-                while !Task.isCancelled {
-                    try? await Task.sleep(for: .seconds(5))
-                    let quiet = await self?.secondsSinceSeen() ?? 99
-                    if quiet > 40 { return }
-                }
-            }
-            await group.next()
-            group.cancelAll()
-        }
-        return received.value
-    }
-
-    private func secondsSinceSeen() -> Double { Date().timeIntervalSince(lastSeen) }
-    private func handle(_ event: ConsoleEvent) {
-        lastSeen = Date()
         setConnection(.live)
-        if case .state(let next) = event { apply(next) }
+        for refused in reading.rejected where sentIDs.contains(refused.id) && reportedRejections.insert(refused.id).inserted {
+            lastError = "The director could not use that answer: \(refused.error)."
+        }
+        let ids = reading.queued.map(\.id)
+        guard session.data != lastData || ids != lastQueued else { return }
+        lastData = session.data; lastQueued = ids
+        apply(SessionOverlay.apply(reading.queued, to: session.snapshot))
     }
 
     private func setConnection(_ next: Connection) {
@@ -157,7 +133,7 @@ final class FilmSessionModel {
     }
 
     private func apply(_ next: SessionSnapshot) {
-        // A slower request (the refresh after a send, a poll) must not overwrite a newer stream state.
+        // An older state (a slow read finishing late) must not overwrite a newer one.
         if let incoming = next.raw["updated"].string, let current = snapshot.raw["updated"].string, incoming < current { return }
         let previous = snapshot.currentStep
         snapshot = next
@@ -171,7 +147,7 @@ final class FilmSessionModel {
 
     // MARK: Actions
 
-    /// Posts an action to the console. Returns true when it was accepted.
+    /// Queues an action for the director (one line appended to `actions.jsonl`). Returns true when it was written.
     @discardableResult
     func send(step: String, type: String, value: JSONValue = .null, note: String = "") async -> Bool {
         guard !isSending else { return false }
@@ -180,14 +156,15 @@ final class FilmSessionModel {
             lastSent = "\(step)|\(type)"; sendCount += 1
             return true
         }
-        guard let client else { lastError = StudioError.noConnection.localizedDescription; return false }
+        guard let transport else { lastError = StudioError.noConnection.localizedDescription; return false }
         isSending = true
         defer { isSending = false }
         do {
-            try await client.send(step: step, type: type, value: value, note: note)
+            let queued = try await Task.detached { try transport.append(step: step, type: type, value: value, note: note) }.value
+            sentIDs.insert(queued.id)
             lastError = nil
             lastSent = "\(step)|\(type)"; sendCount += 1
-            await refresh()
+            await reload()
             return true
         } catch {
             lastError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription

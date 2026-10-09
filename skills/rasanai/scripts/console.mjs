@@ -16,6 +16,10 @@
 //   node console.mjs wait  --run <dir> [--step <id>] [--timeout <sec, default 3000>]   -> prints the next action JSON (exit 2 on timeout)
 //   node console.mjs record --run <dir> --step <id> --type <type> [--value '<json>'] [--note "..."]   (a choice made in chat)
 //   node console.mjs state --run <dir> | url --run <dir> | stop --run <dir>
+//
+// HEADLESS mode (env RASANAI_CONSOLE_HEADLESS=1, remembered in <run>/console.json): no server at all. RasanAI Studio
+// (the native Mac app) reads session.json itself and appends the user's actions to actions.jsonl; every command above
+// except serve/url works the same, and `wait` applies each action's effects to session.json as it consumes it.
 import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
@@ -24,6 +28,7 @@ import os from "node:os";
 import { spawn, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die, SKILL_DIR, STATE_DIR, GSAP_PATH } from "./lib/common.mjs";
+import { acquire, release, withLock } from "./lib/runlock.mjs";
 
 // this copy's version: a console started by an older copy is replaced, not reused
 const VERSION = (() => {
@@ -46,6 +51,10 @@ const F = {
   console: path.join(RUN, "console.json"),
   // the console's address (port + token), kept across restarts so an open tab reconnects by itself; removed only by `stop`
   address: path.join(RUN, "address.json"),
+  // headless runs: locks shared with RasanAI Studio, and the actions `wait` refused (with why)
+  sessionLock: path.join(RUN, "session.lock"),
+  actionsLock: path.join(RUN, "actions.lock"),
+  rejected: path.join(RUN, "rejected.json"),
 };
 export const STEPS = ["brief", "research", "brand", "route", "footage", "story", "direction", "films", "concept", "scenes", "look", "motion", "styleframes", "animatic", "reel", "transitions", "voice", "music", "keyframes", "storyboard", "plan", "build", "render", "final"];
 
@@ -62,6 +71,19 @@ const writeJSON = (p, v) => {
   fs.writeFileSync(tmp, JSON.stringify(v, null, 2));
   fs.renameSync(tmp, p);
 };
+// headless: no console server in this run (RasanAI Studio reads the files). Set by env, then remembered in console.json.
+const HEADLESS = (() => {
+  const c = readJSON(F.console, null);
+  if (c && c.headless === true) return true;
+  if (process.env.RASANAI_CONSOLE_HEADLESS !== "1") return false;
+  // a run an older Studio started has a console server: stop it and forget its address, then mark the run
+  if (c && c.pid) {
+    try { process.kill(c.pid); } catch {}
+  }
+  fs.rmSync(F.address, { force: true });
+  writeJSON(F.console, { headless: true, since: new Date().toISOString(), version: VERSION, skill: SKILL_DIR });
+  return true;
+})();
 const now = () => new Date().toISOString();
 function session() {
   return readJSON(F.session, { title: "RasanAI", current: "brief", steps: {}, updated: now() });
@@ -114,8 +136,101 @@ function readActions() {
 }
 function appendAction(a) {
   const action = { id: crypto.randomBytes(5).toString("hex"), ts: now(), ...a };
-  fs.appendFileSync(F.actions, JSON.stringify(action) + "\n");
+  if (HEADLESS) withLock(F.actionsLock, () => fs.appendFileSync(F.actions, JSON.stringify(action) + "\n"));
+  else fs.appendFileSync(F.actions, JSON.stringify(action) + "\n");
   return action;
+}
+
+// What an action is allowed to be (the server's check on POST, and headless `wait`'s on every line it reads).
+// Returns the normalized action fields, or { error }.
+function validateAction(a) {
+  if (!a || typeof a !== "object" || Array.isArray(a)) return { error: "expected an object" };
+  const step = String(a.step || "");
+  if (![...STEPS, "*"].includes(step) || !/^[a-z-]{2,20}$/.test(String(a.type || ""))) return { error: "unknown step or type" };
+  return { step, type: String(a.type), value: a.value ?? null, note: String(a.note || "").slice(0, 4000) };
+}
+
+// What an action does to the session, besides being queued: the "sent" banner, the "You: ..." feed line, the note and
+// thread entries, an ask's answer. The server runs it on POST; headless `wait` runs it when it consumes the action, so
+// the session ends up the same either way. Mutates `s`; the caller saves it.
+function applyAction(s, action) {
+  const step = action.step;
+  if (step === "*") s.decide_rest = { ts: action.ts };
+  else if (Object.prototype.hasOwnProperty.call(s.steps, step) && !["comment", "knob"].includes(action.type)) s.steps[step].sent = { type: action.type, value: action.value, note: action.note, ts: action.ts };
+  // an answer to an `ask` card: record it on the question and clear it from the page
+  if (action.type === "answer" && s.ask && !s.ask.answered) {
+    const v = action.value || {};
+    const opt = (s.ask.options || []).find((o) => o.id === v.choice);
+    s.ask.answered = { choice: v.choice || null, label: opt ? opt.label : null, text: v.text || "", t: action.ts };
+    activity(s, `You answered: ${opt ? opt.label : ""}${opt && v.text ? " · " : ""}${v.text ? "“" + String(v.text).slice(0, 120) + "”" : ""}`, "you", "Claude is reading your answer…");
+    return;
+  }
+  // a note pinned to a moment of the animatic or the final: kept on the page until Claude resolves it
+  if (action.type === "comment") {
+    const v = action.value || {};
+    s.comments = (s.comments || []).concat({ id: action.id, step, scene: v.scene ?? null, t: typeof v.t === "number" ? v.t : null, x: typeof v.x === "number" ? v.x : null, y: typeof v.y === "number" ? v.y : null, scope: v.scope || "scene", quick: v.quick || null, text: action.note || v.quick || "", state: "open", ts: action.ts }).slice(-200);
+    activity(s, `You left a note${v.t != null ? " at " + Math.floor(v.t / 60) + ":" + String(Math.floor(v.t % 60)).padStart(2, "0") : ""}: ${action.note || v.quick}`, "you", null);
+    return;
+  }
+  const nm = nameOf(s, step, action.value);
+  const verb = { choose: "picked", submit: "sent", approve: "approved", adjust: "adjusted", more: "asked for more of" }[action.type] || action.type;
+  const said = action.type === "decide-rest" ? "Claude decides the rest" : action.type === "decide" ? `Claude decides ${LABELS[step] || step}` : action.type === "note" ? `Note: "${action.note}"` : `${verb} ${LABELS[step] || step}${nm ? ": " + nm : ""}`;
+  if (s.steps[step] && s.steps[step].sent && nm) s.steps[step].sent.name = nm;
+  // anything the user writes becomes part of that step's discussion
+  if (action.note && s.steps[step]) s.steps[step].thread = (s.steps[step].thread || []).concat({ who: "you", text: action.note, t: action.ts }).slice(-50);
+  activity(s, `You: ${said}`, "you", "Claude is reading your answer…");
+}
+
+// headless `wait`: the next action for this wait, after applying (and consuming) what arrived. Runs under the actions
+// lock. Every line is validated like a POST would be; a bad one is consumed with its reason in rejected.json, never thrown on.
+function nextHeadlessAction(step) {
+  let found = null;
+  withLock(F.actionsLock, () => {
+    let text = "";
+    try { text = fs.readFileSync(F.actions, "utf8"); } catch { return; }
+    const lines = text.split("\n");
+    // a last line without its newline may still be being written: leave it for the next tick
+    if (!text.endsWith("\n")) lines.pop();
+    const consumed = readJSON(F.consumed, []);
+    const done = new Set(consumed);
+    const rejected = readJSON(F.rejected, []);
+    let changed = false;
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let raw = null;
+      try { raw = JSON.parse(line); } catch {}
+      const goodId = raw && typeof raw === "object" && typeof raw.id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(raw.id);
+      const rid = goodId ? raw.id : "bad-" + crypto.createHash("sha1").update(line).digest("hex").slice(0, 10);
+      if (done.has(rid)) continue;
+      const v = line.length > 1e6 ? { error: "action too large" } : raw === null ? { error: "not valid JSON" } : validateAction(raw);
+      if (!v.error && !goodId) v.error = "missing or invalid id";
+      if (v.error) {
+        done.add(rid); consumed.push(rid); rejected.push({ id: rid, error: v.error, ts: now() });
+        changed = true;
+        continue;
+      }
+      if (step && v.step !== step && v.step !== "*") continue;
+      const action = { id: rid, ts: typeof raw.ts === "string" ? raw.ts : now(), step: v.step, type: v.type, value: v.value, note: v.note, source: raw.source === "chat" ? "chat" : "console" };
+      try {
+        withLock(F.sessionLock, () => {
+          const s = session();
+          applyAction(s, action);
+          saveSession(s);
+        });
+      } catch (e) {
+        rejected.push({ id: rid, error: `could not apply: ${e && e.message}`, ts: now(), delivered: true });
+      }
+      consumed.push(rid); done.add(rid);
+      changed = true;
+      found = action;
+      break;
+    }
+    if (changed) {
+      writeJSON(F.consumed, consumed);
+      if (rejected.length) writeJSON(F.rejected, rejected.slice(-200));
+    }
+  });
+  return found;
 }
 
 // start the server in the background on a known address (same port and token as before when there was one)
@@ -147,7 +262,14 @@ function ensureServer() {
 }
 
 // ---------------------------------------------------------------------------
-if (["push", "log", "activity", "reply", "ask"].includes(cmd)) ensureServer();
+// headless: never a server; the session is rewritten under the run's lock for the whole command (parallel agents and
+// scripts push at once, and an unlocked read-modify-write would lose one of them)
+if (HEADLESS) {
+  if (["push", "log", "activity", "reply", "ask", "resolve"].includes(cmd)) {
+    acquire(F.sessionLock, 8000);
+    process.on("exit", () => release(F.sessionLock));
+  }
+} else if (["push", "log", "activity", "reply", "ask"].includes(cmd)) ensureServer();
 if (cmd === "push") {
   if (!args.step || !STEPS.includes(args.step)) die(`--step must be one of ${STEPS.join(", ")}`);
   const s = session();
@@ -247,15 +369,32 @@ if (cmd === "push") {
   }
   const a = appendAction({ step: args.step, type: args.type || "choose", value, note: args.note || "", source: "chat" });
   // chat answers count as consumed: the agent already has them
-  const consumed = readJSON(F.consumed, []);
-  consumed.push(a.id);
-  writeJSON(F.consumed, consumed);
+  const markConsumed = () => {
+    const consumed = readJSON(F.consumed, []);
+    consumed.push(a.id);
+    writeJSON(F.consumed, consumed);
+  };
+  if (HEADLESS) withLock(F.actionsLock, markConsumed);
+  else markConsumed();
   console.log(JSON.stringify(a));
 } else if (cmd === "wait") {
   const timeout = Number(args.timeout || 3000) * 1000;
   const start = Date.now();
   let checks = 0;
   const tick = () => {
+    if (HEADLESS) {
+      let next = null;
+      try { next = nextHeadlessAction(args.step); } catch {}
+      if (next) {
+        console.log(JSON.stringify(next));
+        process.exit(0);
+      }
+      if (Date.now() - start > timeout) {
+        console.log(JSON.stringify({ timeout: true, step: args.step || null }));
+        process.exit(2);
+      }
+      return setTimeout(tick, 300);
+    }
     // every ~5s: if the console server died, say so instead of waiting forever
     if (++checks % 12 === 0) {
       const c = readJSON(F.console, null);
@@ -282,10 +421,15 @@ if (cmd === "push") {
 } else if (cmd === "state") {
   console.log(JSON.stringify(session(), null, 2));
 } else if (cmd === "url") {
+  if (HEADLESS) die("this run is headless: there is no console page or URL. RasanAI Studio reads the run's files directly.");
   const c = readJSON(F.console, null);
   if (!c || !alive(c.pid)) die("console is not running for this run (start it with `serve`)");
   console.log(c.url);
 } else if (cmd === "stop") {
+  if (HEADLESS) {
+    console.log(JSON.stringify({ stopped: true, headless: true }));
+    process.exit(0);
+  }
   const c = readJSON(F.console, null);
   if (c && c.pid) {
     try {
@@ -296,7 +440,8 @@ if (cmd === "push") {
   fs.rmSync(F.address, { force: true });
   console.log(JSON.stringify({ stopped: true }));
 } else if (cmd === "serve") {
-  serve();
+  if (HEADLESS) console.log(JSON.stringify({ headless: true }));
+  else serve();
 } else {
   die("usage: console.mjs serve|push|log|wait|record|state|url|stop --run <dir> ...");
 }
@@ -432,37 +577,12 @@ function serve() {
         } catch {
           return send(400, { error: "bad json" });
         }
-        if (!a || typeof a !== "object" || Array.isArray(a)) return send(400, { error: "expected an object" });
-        const step = String(a.step || "");
-        if (![...STEPS, "*"].includes(step) || !/^[a-z-]{2,20}$/.test(String(a.type || ""))) return send(400, { error: "unknown step or type" });
-        const action = appendAction({ step, type: String(a.type), value: a.value ?? null, note: String(a.note || "").slice(0, 4000), source: "console" });
+        const v = validateAction(a);
+        if (v.error) return send(400, { error: v.error });
+        const step = v.step;
+        const action = appendAction({ step, type: v.type, value: v.value, note: v.note, source: "console" });
         const s = session();
-        if (step === "*") s.decide_rest = { ts: action.ts };
-        else if (Object.prototype.hasOwnProperty.call(s.steps, step) && !["comment", "knob"].includes(action.type)) s.steps[step].sent = { type: action.type, value: action.value, note: action.note, ts: action.ts };
-        // an answer to an `ask` card: record it on the question and clear it from the page
-        if (action.type === "answer" && s.ask && !s.ask.answered) {
-          const v = action.value || {};
-          const opt = (s.ask.options || []).find((o) => o.id === v.choice);
-          s.ask.answered = { choice: v.choice || null, label: opt ? opt.label : null, text: v.text || "", t: action.ts };
-          activity(s, `You answered: ${opt ? opt.label : ""}${opt && v.text ? " · " : ""}${v.text ? "“" + String(v.text).slice(0, 120) + "”" : ""}`, "you", "Claude is reading your answer…");
-          saveSession(s);
-          return send(200, { ok: true, action });
-        }
-        // a note pinned to a moment of the animatic or the final: kept on the page until Claude resolves it
-        if (action.type === "comment") {
-          const v = action.value || {};
-          s.comments = (s.comments || []).concat({ id: action.id, step, scene: v.scene ?? null, t: typeof v.t === "number" ? v.t : null, x: typeof v.x === "number" ? v.x : null, y: typeof v.y === "number" ? v.y : null, scope: v.scope || "scene", quick: v.quick || null, text: action.note || v.quick || "", state: "open", ts: action.ts }).slice(-200);
-          activity(s, `You left a note${v.t != null ? " at " + Math.floor(v.t / 60) + ":" + String(Math.floor(v.t % 60)).padStart(2, "0") : ""}: ${action.note || v.quick}`, "you", null);
-          saveSession(s);
-          return send(200, { ok: true, action });
-        }
-        const nm = nameOf(s, step, action.value);
-        const verb = { choose: "picked", submit: "sent", approve: "approved", adjust: "adjusted", more: "asked for more of" }[action.type] || action.type;
-        const said = action.type === "decide-rest" ? "Claude decides the rest" : action.type === "decide" ? `Claude decides ${LABELS[step] || step}` : action.type === "note" ? `Note: "${action.note}"` : `${verb} ${LABELS[step] || step}${nm ? ": " + nm : ""}`;
-        if (s.steps[step] && s.steps[step].sent && nm) s.steps[step].sent.name = nm;
-        // anything the user writes becomes part of that step's discussion
-        if (action.note && s.steps[step]) s.steps[step].thread = (s.steps[step].thread || []).concat({ who: "you", text: action.note, t: action.ts }).slice(-50);
-        activity(s, `You: ${said}`, "you", "Claude is reading your answer…");
+        applyAction(s, action);
         saveSession(s);
         send(200, { ok: true, action });
       });

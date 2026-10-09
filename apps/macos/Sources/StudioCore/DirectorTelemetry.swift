@@ -162,6 +162,11 @@ public struct DirectorTelemetry: Codable, Equatable, Sendable {
         guard let first = line.first(where: { !$0.isWhitespace }), first == "{",
               let data = line.data(using: .utf8),
               let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
+        ingest(object: object, now: now)
+    }
+
+    /// The same, for a line the caller already parsed (so one pass over a big log can feed several readers).
+    public mutating func ingest(object: [String: Any], now: Date = Date()) {
         let time = (object["timestamp"] as? String).flatMap(Self.parseDate) ?? now
         updatedAt = time
         switch object["type"] as? String {
@@ -464,7 +469,7 @@ public struct DirectorTelemetry: Codable, Equatable, Sendable {
         let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]; return f
     }()
     nonisolated(unsafe) private static let isoPlain = ISO8601DateFormatter()
-    static func parseDate(_ text: String) -> Date? { isoFractional.date(from: text) ?? isoPlain.date(from: text) }
+    public static func parseDate(_ text: String) -> Date? { isoFractional.date(from: text) ?? isoPlain.date(from: text) }
 }
 
 // MARK: Tool descriptions
@@ -539,11 +544,11 @@ enum ToolDescription {
         switch verb {
         case "push":
             let step = option("--step").map { StepNames.label($0) } ?? "a step"
-            return Result(summary: "Showed \(step) in the console", kind: .push, exempt: false)
+            return Result(summary: "Showed \(step) for your review", kind: .push, exempt: false)
         case "ask": return Result(summary: "Asked you a question", kind: .ask, exempt: false)
         case "wait": return Result(summary: "Waiting for your next action", kind: .ask, exempt: true)
         case "activity", "log": return Result(summary: "Posted a progress note", kind: .push, exempt: false)
-        default: return Result(summary: "Updated the console", kind: .tool, exempt: false)
+        default: return Result(summary: "Updated the film's status", kind: .tool, exempt: false)
         }
     }
 

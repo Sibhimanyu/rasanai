@@ -27,11 +27,21 @@ struct FilmStageBar: View {
     var finished = false
     /// The completed stage being looked at read-only, if any.
     var viewing: ReviewStage?
+    /// While Claude is working (no call is waiting for the person): how many calls are already decided. Those are ticked, the next call
+    /// shows as upcoming with a quiet "working" ring, and nothing is highlighted as the current step. `nil` follows `current`.
+    var decided: Int?
     /// Which stages can be opened, and what to do when one is clicked. Both nil makes the bar a plain indicator.
     var canSelect: ((ReviewStage) -> Bool)?
     var onSelect: ((ReviewStage) -> Void)?
     private var stages: [ReviewStage] { ReviewStage.allCases }
-    private var currentIndex: Int { finished ? stages.count : (current.flatMap { stages.firstIndex(of: $0) } ?? -1) }
+    private var working: Bool { decided != nil && !finished }
+    private var currentIndex: Int {
+        if finished { return stages.count }
+        if let decided { return decided }
+        return current.flatMap { stages.firstIndex(of: $0) } ?? -1
+    }
+    @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 0) {
@@ -49,7 +59,7 @@ struct FilmStageBar: View {
         .overlay(alignment: .bottom) { Divider() }
         .animation(.snappy, value: currentIndex)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(stageLabel(current: current, finished: finished))
+        .accessibilityLabel(working ? "\(decided ?? 0) of \(stages.count) calls decided, Claude is working on \(stages.indices.contains(decided ?? -1) ? stages[decided ?? 0].stepTitle : "the film")" : stageLabel(current: current, finished: finished))
     }
 
     @ViewBuilder private func step(_ index: Int, _ stage: ReviewStage) -> some View {
@@ -65,11 +75,16 @@ struct FilmStageBar: View {
     }
 
     private func stepLabel(_ index: Int, _ stage: ReviewStage) -> some View {
-        let done = index < currentIndex, active = index == currentIndex
+        let done = index < currentIndex, active = index == currentIndex && !working
+        let next = working && index == currentIndex
         let looking = viewing == stage && viewing != current
         return HStack(spacing: 7) {
             ZStack {
                 if active { Circle().fill(Color.rasan.opacity(0.18)).frame(width: 22, height: 22) }
+                if next {
+                    Circle().strokeBorder(Color.rasan.opacity(pulse ? 0.15 : 0.5), lineWidth: 1.5).frame(width: 21, height: 21)
+                        .onAppear { guard !reduceMotion else { return }; withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true)) { pulse = true } }
+                }
                 Circle().fill(done || active ? Color.rasan : Color.clear).frame(width: 16, height: 16)
                     .overlay { Circle().strokeBorder(done || active ? Color.clear : Color(nsColor: .tertiaryLabelColor), lineWidth: 1) }
                 if done {
@@ -81,7 +96,7 @@ struct FilmStageBar: View {
             }.frame(width: 22, height: 22)
             Text(stage.stepTitle)
                 .font(.system(size: 12, weight: active ? .semibold : .medium))
-                .foregroundStyle(active || looking ? Color.primary : done ? Color.secondary : Color(nsColor: .tertiaryLabelColor))
+                .foregroundStyle(active || looking ? Color.primary : done ? Color.secondary : next ? Color.secondary : Color(nsColor: .tertiaryLabelColor))
                 .lineLimit(1).fixedSize()
         }
         .padding(.trailing, active ? 4 : 0)
@@ -109,5 +124,18 @@ struct FilmStageDots: View {
         .animation(.snappy, value: currentIndex)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(stageLabel(current: current, finished: finished))
+    }
+}
+
+extension SessionSnapshot {
+    /// How many of the five calls are decided, counting from the brief without gaps (a call is decided when its step is done).
+    var decidedCalls: Int {
+        let steps: [[String]] = [["brief"], ["story", "concept"], ["look", "films"], ["animatic"], ["render", "final"]]
+        var count = 0
+        for names in steps {
+            guard names.contains(where: { step($0)["status"].string == "done" }) else { break }
+            count += 1
+        }
+        return count
     }
 }

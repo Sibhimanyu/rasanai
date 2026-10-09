@@ -189,13 +189,11 @@ public struct SessionSnapshot: Sendable {
 }
 
 public enum StudioError: LocalizedError {
-    case invalidSession, invalidAddress, unavailable(Int), noConnection
+    case invalidSession, noConnection
     public var errorDescription: String? {
         switch self {
         case .invalidSession: "Choose a RasanAI run containing a valid session.json with a steps object."
-        case .invalidAddress: "The run's local console address is invalid. Restart its console and open the run again."
-        case .unavailable(let status): "The local console returned HTTP \(status). Restart its console and reconnect."
-        case .noConnection: "This run has no active console. Start the RasanAI workflow, then reconnect."
+        case .noConnection: "This film is not open. Open it from your library, then try again."
         }
     }
 }

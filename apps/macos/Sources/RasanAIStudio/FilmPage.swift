@@ -29,7 +29,10 @@ struct FilmPage: View {
             } else if showsFinished {
                 withDecisions { FinishedView(store: store) }
             } else if let film = store.film, store.isConnected || store.runtime.isRunning || store.runtime.isPreparing {
-                NativeFilmView(model: film, startedAt: store.runtime.startedAt)
+                NativeFilmView(model: film, startedAt: store.runtime.startedAt, progress: store.progress,
+                               onPause: store.runtime.isRunning ? { store.pauseDirector() } : nil,
+                               onShowLog: store.runtime.logURL != nil ? { store.sheet = .log } : nil,
+                               pace: draft?.pace ?? store.settings.pace)
             } else if store.runtime.isRunning || store.runtime.isPreparing {
                 StartingView(runtime: store.runtime)
             } else {
@@ -44,6 +47,15 @@ struct FilmPage: View {
     @ViewBuilder private func withDecisions<Page: View>(@ViewBuilder _ page: () -> Page) -> some View {
         if let film = store.film { DecisionsHost(model: film, page: page()) } else { page() }
     }
+    /// Film progress carries its own pause button and log link, so the thin banner would only repeat it.
+    private var showsFilmProgress: Bool {
+        guard store.progress != nil, let route = store.film?.route else { return false }
+        return route == .working || route == .build
+    }
+    /// Claude is busy with the next call: the stage bar ticks the decided calls and marks the next one as being worked on.
+    private var isWorkingOnNextCall: Bool {
+        !isFinished && (showsFilmProgress || (store.runtime.isRunning && !store.hasPendingQuestion && store.phase == .working))
+    }
     private var showsNativeFilm: Bool {
         ready && store.runURL != nil && !showsFinished && store.film != nil && (store.isConnected || store.runtime.isRunning || store.runtime.isPreparing)
     }
@@ -52,12 +64,13 @@ struct FilmPage: View {
             if ready && store.runURL != nil {
                 VStack(spacing: 0) {
                     FilmStageBar(current: store.snapshot.stage, finished: isFinished, viewing: store.film?.viewingStage,
+                                 decided: isWorkingOnNextCall ? store.snapshot.decidedCalls : nil,
                                  canSelect: { store.film?.canView($0) ?? false }, onSelect: { store.film?.view($0) })
                     MonitorBudgetBanner(store: store)
                     if !showsFinished {
                         if showsConsole, !store.runtime.stopRequested, let recovery = store.runtime.recovery {
                             DirectorRecoveryView(store: store, recovery: recovery)
-                        } else if store.runtime.isRunning && !store.hasPendingQuestion && store.phase == .working {
+                        } else if store.runtime.isRunning && !store.hasPendingQuestion && store.phase == .working && !showsFilmProgress {
                             DirectorProgressView(store: store)
                         }
                     }
@@ -74,7 +87,13 @@ struct FilmPage: View {
         .animation(.snappy, value: showsFinished)
         .navigationTitle(ready ? store.currentFilmTitle : "Film")
         .toolbar { if ready { toolbarItems } }
-        .onAppear { store.activateFilm(url) }
+        .onAppear {
+            store.activateFilm(url)
+            if let progress = store.progress { ProgressNotifier.shared.watch(progress, settings: store.settings) }
+        }
+        .onChange(of: store.runURL) { _, _ in
+            if let progress = store.progress { ProgressNotifier.shared.watch(progress, settings: store.settings) }
+        }
         .task(id: "\(store.settings.agent.id):\(store.settings.path(for: store.settings.agent))") { await store.settings.check(store.settings.agent) }
         .task(id: store.loadedFilm) {
             guard store.loadedFilm == url else { return }
@@ -103,7 +122,7 @@ struct FilmPage: View {
                 Button("Check readiness…") { store.showPreflight(project: store.selectedProjectURL) }
                 if let project = store.selectedProjectURL { Button("Export Project…") { store.exportProject(project) } }
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([store.selectedProjectURL ?? store.runURL ?? url]) }
-                if store.runURL != nil { Button("Reconnect") { store.reconnectConsole() }.disabled(store.isReconnecting) }
+                if store.runURL != nil { Button("Reload film") { store.reloadFilm() } }
             } label: { Image(systemName: "ellipsis.circle") }
             HelpButton(title: "This film", lines: helpLines)
         }
@@ -123,28 +142,36 @@ struct FilmPage: View {
 
 struct StatusPill: View {
     @Bindable var store: StudioStore
+    /// During a DEBUG replay the monitor has no telemetry for the run, so the pill reads the progress model's totals instead.
+    static func replayPill(_ s: FilmProgressSnapshot?) -> String? {
+        guard let s else { return nil }
+        var parts = [s.currentPhase.title, "\(UsageFormat.tokens(s.totalTokens.fresh)) tokens"]
+        if !s.isIncludedInPlan, s.totalCostUSD > 0 { parts.append(UsageFormat.dollars(s.totalCostUSD) + (s.costIsEstimated ? " est." : "")) }
+        return parts.joined(separator: " · ")
+    }
     @State private var monitorOpen = false
     var body: some View {
         let phase = store.phase
         let offline = phase == .offline && store.runURL != nil
         let monitor = store.monitor
-        let live = offline ? nil : monitor.pillText(fallback: phase.pill, for: store.runURL)
+        let replaying = store.progress.map { $0.isReplay } ?? false
+        let live = offline ? nil : (replaying ? Self.replayPill(store.progress?.snapshot) : monitor.pillText(fallback: phase.pill, for: store.runURL))
         let state = monitor.health?.state
-        Button { if offline { store.reconnectConsole() } else if live != nil { monitorOpen.toggle() } } label: {
+        Button { if offline { store.reloadFilm() } else if live != nil { monitorOpen.toggle() } } label: {
             HStack(spacing: 7) {
                 if live != nil, let state { if state.isLive { ProgressView().controlSize(.mini) } else { StatusDot(tone: state.tone) } }
                 else if phase.isBusy { ProgressView().controlSize(.mini) } else { StatusDot(tone: phase.tone) }
-                Text(offline ? "Offline · Reconnect" : (live ?? phase.pill)).font(.system(size: 12, weight: .medium)).monospacedDigit()
+                Text(offline ? "Files unreadable · Reload film" : (live ?? phase.pill)).font(.system(size: 12, weight: .medium)).monospacedDigit()
                 if live != nil { Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundStyle(.secondary) }
             }
             .padding(.horizontal, 12).padding(.vertical, 4)
             .background((state == .possiblyLooping && live != nil ? Color(nsColor: .systemRed).opacity(0.2) : Color(nsColor: .quaternaryLabelColor).opacity(0.45)), in: Capsule())
             .animation(.snappy, value: phase)
         }
-        .buttonStyle(.plain).disabled(!offline && live == nil || store.isReconnecting)
-        .popover(isPresented: $monitorOpen, arrowEdge: .bottom) { DirectorMonitorPanel(monitor: monitor) { monitorOpen = false } }
+        .buttonStyle(.plain).disabled(!offline && live == nil)
+        .popover(isPresented: $monitorOpen, arrowEdge: .bottom) { DirectorMonitorPanel(monitor: monitor, progress: store.progress?.snapshot) { monitorOpen = false } }
         .help(live != nil ? "Director details: state, tokens, cost and recent activity" : "")
-        .accessibilityLabel(offline ? "Offline. Reconnect" : (live ?? phase.pill))
+        .accessibilityLabel(offline ? "Film files unreadable. Reload film" : (live ?? phase.pill))
     }
 }
 
@@ -252,8 +279,8 @@ struct NotRunningView: View {
                     Button("Resume") { store.resumeDirector() }
                         .buttonStyle(.borderedProminent).controlSize(.large).disabled(!store.canResume)
                 }
-                if store.runtime.recovery == nil {
-                    Button("Reconnect") { store.reconnectConsole() }.controlSize(.large).disabled(store.isReconnecting || store.runURL == nil)
+                if store.runtime.recovery == nil, store.runURL != nil, !store.isConnected {
+                    Button("Reload film") { store.reloadFilm() }.controlSize(.large)
                 }
                 if store.runtime.logURL != nil, store.runtime.recovery != nil || (store.runtime.lastExitCode ?? 0) != 0 {
                     Button("Show log") { store.sheet = .log }.controlSize(.large)

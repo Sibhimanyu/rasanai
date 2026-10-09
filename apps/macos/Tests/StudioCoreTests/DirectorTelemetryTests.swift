@@ -71,7 +71,7 @@ private let claudeInit = #"{"type":"system","subtype":"init","session_id":"s1","
         t.ingest(line: claudeInit, now: at(0))
         t.ingest(line: claudeToolLine(id: "a", input: #"{"command":"node scripts/console.mjs push --run /r --step story --file p.json"}"#), now: at(5))
         #expect(t.events.last?.kind == .push)
-        #expect(t.events.last?.text == "Showed the story step in the console")
+        #expect(t.events.last?.text == "Showed the story step for your review")
         #expect(t.lastConsoleCallAt == at(5))
         t.ingest(line: #"{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"a","content":"boom","is_error":true}]}}"#, now: at(6))
         #expect(t.toolErrors == 1)

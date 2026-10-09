@@ -34,7 +34,7 @@ final class DirectorRecoveryTests: XCTestCase {
         let log = #"{"type":"result","subtype":"success","is_error":false,"permission_denials":[]}"#
         let none = try XCTUnwrap(DirectorRecovery.classify(exitCode: 0, log: log, progress: .init(session: try session(step: "brief", status: "working"))))
         XCTAssertEqual(none.recovery, .stoppedEarly)
-        XCTAssertTrue(none.detail.contains("before it pushed anything"))
+        XCTAssertTrue(none.detail.contains("before it showed you anything"))
         XCTAssertTrue(none.recovery.title.hasPrefix("The director stopped before"))
         let mid = try XCTUnwrap(DirectorRecovery.classify(exitCode: 0, log: log, progress: .init(session: try session(step: "story", status: "awaiting", others: ["brief": "done"]))))
         XCTAssertEqual(mid.recovery, .stoppedEarly)

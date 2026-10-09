@@ -43,6 +43,8 @@ final class DirectorRuntime {
         env["PATH"] = ([node.deletingLastPathComponent().path] + LocalAgent.searchDirectories).joined(separator: ":")
         env["RASANAI_NO_UPDATE_CHECK"] = "1"
         env["RASANAI_AUTO_UPDATE"] = "0"
+        // No console server: Studio reads the run's files, and every console.mjs command the director runs is headless.
+        env["RASANAI_CONSOLE_HEADLESS"] = "1"
         env.removeValue(forKey: "CLAUDECODE")
         for (key, value) in DirectorLaunch.environmentOverrides { env[key] = value }
         // Image generation goes through Codex whichever director runs the film.
@@ -88,14 +90,12 @@ final class DirectorRuntime {
         let seededBrief = try BriefSeed.seedFile(at: session, title: project.lastPathComponent, draft: FilmDraft.load(in: project))
         // The launch prompt only promises a brief when the session really carries one.
         let briefInSession = seededBrief || ((try? SessionSnapshot(data: Data(contentsOf: session)))?.step("brief")["fields"]["subject"].string ?? "").isEmpty == false
-        status = "Opening the review workspace…"
-        let code = try await Self.execute(node, arguments: [engine.appendingPathComponent("scripts/console.mjs").path,
-            "serve", "--run", run.path, "--root", project.path], directory: project, environment: environment)
-        guard code == 0 else { throw RuntimeError.consoleFailed }
         status = "Starting \(agent.title)…"
         DirectorPermissions.prepareDataFolders(home: FileManager.default.homeDirectoryForCurrentUser, toolsDirectory: LocalAgent.managedToolsDirectory)
+        let draft = FilmDraft.load(in: project)
         let launch = try DirectorLaunch(agent: agent, executable: executable, engine: engine, project: project, run: run,
-            request: request, model: model ?? settings.model(for: agent), allowUnrestrictedTools: unrestrictedTools ?? settings.allowUnrestrictedTools, briefSeeded: briefInSession)
+            request: request, model: model ?? settings.model(for: agent), allowUnrestrictedTools: unrestrictedTools ?? settings.allowUnrestrictedTools, briefSeeded: briefInSession,
+            pace: draft?.pace ?? settings.pace, modelPlan: draft?.modelPlan ?? .recommended)
         let job = JSONValue.object(["executable": .string(executable.path), "arguments": .array(launch.arguments.map(JSONValue.string)), "cwd": .string(project.path)])
         let jobURL = run.appendingPathComponent("director-job.json")
         try JSONEncoder().encode(job).write(to: jobURL, options: .atomic)
@@ -147,13 +147,6 @@ final class DirectorRuntime {
         return run
     }
     private var identity = UUID()
-    func reconnect(run: URL, root: URL, settings: StudioSettings) async throws {
-        guard let node = settings.nodeURL else { throw RuntimeError.missingNode }
-        guard let engine = Self.engineURL else { throw RuntimeError.missingEngine }
-        let code = try await Self.execute(node, arguments: [engine.appendingPathComponent("scripts/console.mjs").path,
-            "serve", "--run", run.path, "--root", root.path], directory: root, environment: environment(node: node, settings: settings))
-        guard code == 0 else { throw RuntimeError.consoleFailed }
-    }
     func clearPresentation() {
         guard !isRunning, !isPreparing, !isFinishing else { return }
         lastExitCode = nil; stopRequested = false; logURL = nil; activeRun = nil; activeProject = nil
@@ -199,7 +192,7 @@ final class DirectorRuntime {
             case .missingEngine: "RasanAI's bundled tools are missing. Download a fresh copy of the app. Your films remain in your library."
             case .missingNode: "Node.js 22 or newer is required. Check the Node path in Settings → Director → Advanced."
             case .missingAgent: "Your director isn't installed. Open Help → Show Welcome to install and sign in."
-            case .consoleFailed: "The local console could not start. Check the Node installation and the selected project permissions."
+            case .consoleFailed: "A helper command did not finish. Check the Node installation and the selected project permissions."
             case .preflightFailed(let issues): "Resolve these items before starting:\n\(issues)"
             case .directorNotReady(let reason): "Your director isn't ready to start. \(reason) Open Help → Show Welcome to sign in and recheck."
             }

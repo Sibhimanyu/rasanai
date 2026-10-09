@@ -93,18 +93,6 @@ final class NativeFlowTests: XCTestCase {
         XCTAssertFalse(try snap(#"{"steps":{"brief":{"status":"working"}}}"#).isFresh)
     }
 
-    // MARK: SSE
-
-    func testSSEParserEmitsOnDataLine() {
-        var parser = SSEParser()
-        XCTAssertNil(parser.feed(line: "event: state"))
-        XCTAssertEqual(parser.feed(line: #"data: {"a":1}"#), SSEEvent(name: "state", data: #"{"a":1}"#))
-        XCTAssertNil(parser.feed(line: ""))
-        XCTAssertNil(parser.feed(line: "event: ping"))
-        XCTAssertEqual(parser.feed(line: "data: 1"), SSEEvent(name: "ping", data: "1"))
-        XCTAssertNil(parser.feed(line: ": comment"))
-    }
-
     // MARK: Brief seeding
 
     func testBriefSeedFieldsStatusAndActivity() throws {

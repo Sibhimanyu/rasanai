@@ -94,6 +94,11 @@ final class DirectorLaunchTests: XCTestCase {
         XCTAssertTrue(prompt.contains("floor, not a ceiling"))
         XCTAssertTrue(prompt.contains("Do not create another run"))
         XCTAssertTrue(prompt.contains("Wait for console actions"))
+        // Studio reads the run's files: the prompt says commands run headless and never promises a running console.
+        XCTAssertTrue(prompt.contains("reads this exact RUN's files directly"))
+        XCTAssertTrue(prompt.contains("RASANAI_CONSOLE_HEADLESS=1"))
+        XCTAssertTrue(prompt.contains("Never run console.mjs serve or url"))
+        XCTAssertFalse(prompt.contains("console is already running"))
         XCTAssertLessThan(try XCTUnwrap(prompt.range(of: "CREATIVE CONTRACT")).lowerBound, try XCTUnwrap(prompt.range(of: "User request")).lowerBound)
     }
     func testFilmDraftMotionLevelAndFootageSection() throws {

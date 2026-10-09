@@ -77,7 +77,7 @@ public struct DirectorHealth: Equatable, Sendable {
             return make(.possiblyLooping, "Possibly looping", reason, loop: reason)
         }
         if t.consoleWaitInFlight && !c.awaitingUser {
-            return make(.working, "Working", "The director is checking in with the console.")
+            return make(.working, "Working", "The director is waiting for your reply.")
         }
         if let tool = t.toolInFlight, let since = t.toolInFlightSince {
             let running = max(0, c.now.timeIntervalSince(since))
