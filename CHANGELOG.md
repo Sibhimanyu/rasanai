@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.1 (2026-10-09)
+
+- **Faster, brand-only research for branded films.** When the brand-film phase runs (a named brand's launch, promo or brand film, including any public product launch), the plan no longer dispatches the design researcher (outside visual references) or the precedent researcher (other launch films analysed shot by shot). The brand's own film, measured and carded, replaces both. The design systems wait for the brand film card instead. Self-test: all checks pass.
+
 ## 1.9.0 (2026-10-09)
 
 - **Brand films are researched from the brand's own films.** For a branded launch, promo or brand film, a new `brand-film` phase finds the brand's official films (`scripts/brandfilm.mjs find`, via yt-dlp), or uses a video the user attached as the primary reference. It downloads at most 2 (720p), extracts scene-cut frames and contact sheets, and measures the film: mean and background luminance, white and black share, palette with shares, neutral versus chromatic colour, colour moments and cut rate (`frames`, `measure`, `card`). A Sonnet brand film analyst (`agents/brand-film-analyst.md`) reads the sheets and fills `FILM-STYLE.md`: canvas, palette, typefaces and type scale, layout, signature motif, motion vocabulary, photography, cut rate, transitions and end card. About 3 minutes on Fast pace; it falls back to the website when no film exists.

@@ -111,7 +111,8 @@ function planCrew(p) {
   const research = [];
   if (["product-launch-video", "general-video", "motion-graphics"].includes(p.route) && p.mode !== "topic") {
     research.push(d("product-researcher"), d("brand-researcher"), d("screens-researcher"));
-    if (p.public && !lean) research.push(d("precedent-researcher"));
+    // a branded launch film studies the brand's own films in the brand-film phase instead (faster, and it is the look)
+    if (p.public && !lean && !p.brand_film) research.push(d("precedent-researcher"));
   } else if (p.route === "faceless-explainer" || p.mode === "topic") {
     research.push(d("product-researcher", null, { mode: "topic" }));
     if (!lean) research.push(d("precedent-researcher"));
@@ -129,7 +130,9 @@ function planCrew(p) {
   for (const dir of p.local) research.push(d("local-scout", path.basename(dir), { approved_paths: [dir], may_run: !!p.may_run }));
   const bf = !!p.brand_film;
   // the design desk: the subject's visual world is researched during the Brief, in parallel with the research desk
-  phases.push({ phase: "design-research", when: "right after the brief is pushed, in parallel with the research members (it needs only the subject)", dispatch: [d("design-researcher")], then: "design.mjs / crew.mjs check; the design-system designers wait for it and for the chosen story" });
+  // A branded launch / promo / brand film takes its look from the brand's own film (the brand-film phase), so the
+  // outside-reference design researcher would only spend time: skip it there.
+  if (!bf) phases.push({ phase: "design-research", when: "right after the brief is pushed, in parallel with the research members (it needs only the subject)", dispatch: [d("design-researcher")], then: "design.mjs / crew.mjs check; the design-system designers wait for it and for the chosen story" });
   if (research.length) {
     phases.push({ phase: "research", when: "right after the brief is pushed, while the user reads it", dispatch: research, then: "research-lead once every member above is accepted" });
     phases.push({ phase: "research-lead", when: "after the research desk", dispatch: [d("research-lead")], then: "story.mjs pick on the truth sheet" });
@@ -154,7 +157,7 @@ function planCrew(p) {
   if (p.route === "music-to-video") {
     phases.push({ phase: "design-system", when: "after the treatment is chosen (the Look step is the treatment's style bible, built out by the desk)", dispatch: [d("design-system-designer", "<chosen label>", { mode: "bible" })], then: "design.mjs check-system, then design.mjs choose-system for that label; no Look picker" });
   } else {
-    phases.push({ phase: "design-systems", when: p.route === "reel" || ["talking-head-recut", "embedded-captions"].includes(p.route) ? "after the cut (reel) or the brief (footage routes): three card / overlay / caption identities" : "after the story is chosen (story/chosen.json) and design-research is accepted", dispatch: ["Sure", "Bold", "Wild"].map((k) => d("design-system-designer", k)), then: "design.mjs check-systems (each valid and the three distinct" + (bf ? "; a branded look cites FILM-STYLE.md, uses the card's palette and type, and carries no outside references" : "") + "), then design.mjs look-payload and push the Look" });
+    phases.push({ phase: "design-systems", when: p.route === "reel" || ["talking-head-recut", "embedded-captions"].includes(p.route) ? "after the cut (reel) or the brief (footage routes): three card / overlay / caption identities" : (bf ? "after the story is chosen (story/chosen.json) and the brand film card (brand-film/FILM-STYLE.md) is accepted" : "after the story is chosen (story/chosen.json) and design-research is accepted"), dispatch: ["Sure", "Bold", "Wild"].map((k) => d("design-system-designer", k)), then: "design.mjs check-systems (each valid and the three distinct" + (bf ? "; a branded look cites FILM-STYLE.md, uses the card's palette and type, and carries no outside references" : "") + "), then design.mjs look-payload and push the Look" });
   }
   if (p.route === "presenter") {
     phases.push({ phase: "animate-graphics", when: "after presenter.mjs build wrote the project and briefs/graphics/*.md (the plates are generated and approved)", dispatch: [d("scene-animator", "<beat>-<n>")], then: "one scene-animator per graphic brief (key b3-1 = beat b3, graphic 1) and per designed plate (key plate-p2), in parallel; then obey, slop and a draft render" });

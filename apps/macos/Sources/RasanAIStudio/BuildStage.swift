@@ -271,6 +271,7 @@ private struct SceneCell: View {
                     PayloadImage(path: still, contentMode: .fill, maxPixels: 520).transition(.opacity)
                 } else if state == "working" {
                     RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.rasan.opacity(pulse ? 0.30 : 0.10))
+                        .animation(pulse ? .easeInOut(duration: 1.1).repeatForever(autoreverses: true) : .default, value: pulse)
                     ProgressView().controlSize(.small)
                 } else if state == "done" {
                     Image(systemName: "checkmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(.secondary)
@@ -291,12 +292,10 @@ private struct SceneCell: View {
             }
         }
         .onAppear {
-            guard state == "working" else { return }
-            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { pulse = true }
+            pulse = state == "working"
         }
         .onChange(of: state) { _, new in
-            if new == "working" { withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { pulse = true } }
-            else { withAnimation(.default) { pulse = false } }
+            pulse = new == "working"
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Scene \(index), \(scene), \(state == "done" ? "built" : state == "working" ? "building now" : state == "failed" ? "failed" : "waiting"), \(Int(duration.rounded())) seconds")
@@ -374,7 +373,8 @@ private struct PulsingDot: View {
     var body: some View {
         Circle().fill(Color.rasan).frame(width: 7, height: 7)
             .opacity(on ? 0.35 : 1)
-            .onAppear { withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { on = true } }
+            .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: on)
+            .onAppear { on = true }
             .accessibilityHidden(true)
     }
 }
@@ -385,8 +385,9 @@ private struct WaitingStill: View {
         ZStack {
             LinearGradient(colors: [Color.rasan.opacity(phase ? 0.20 : 0.06), Color(nsColor: .underPageBackgroundColor)],
                            startPoint: .topLeading, endPoint: .bottomTrailing)
+                .animation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true), value: phase)
             Image(systemName: "film.stack").font(.system(size: 34, weight: .light)).foregroundStyle(.tertiary)
         }
-        .onAppear { withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) { phase = true } }
+        .onAppear { phase = true }
     }
 }

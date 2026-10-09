@@ -106,7 +106,8 @@ private struct ViewingBanner: View {
     }
 }
 
-/// The router plus the window chrome (Decisions inspector, toolbar items). Used by FilmPage, the sample and fixtures.
+/// The router plus the toolbar items. Used by FilmPage, the sample and fixtures; each wraps it and the stage bar in
+/// `DecisionsHost`, so the inspector runs the full window height instead of starting under the stage bar.
 struct NativeFilmView: View {
     @Bindable var model: FilmSessionModel
     var startedAt: Date?
@@ -118,7 +119,6 @@ struct NativeFilmView: View {
     var onResumeNow: (() -> Void)?
     var body: some View {
         NativeStageView(model: model, startedAt: startedAt, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow)
-            .inspector(isPresented: $model.decisionsPresented) { DecisionsInspector(model: model) }
             .toolbar { FilmToolbarItems(model: model) }
     }
 }

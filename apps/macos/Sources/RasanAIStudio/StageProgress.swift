@@ -83,7 +83,8 @@ struct FilmStageBar: View {
                 if active { Circle().fill(Color.rasan.opacity(0.18)).frame(width: 22, height: 22) }
                 if next {
                     Circle().strokeBorder(Color.rasan.opacity(pulse ? 0.15 : 0.5), lineWidth: 1.5).frame(width: 21, height: 21)
-                        .onAppear { guard !reduceMotion else { return }; withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true)) { pulse = true } }
+                        .animation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true), value: pulse)
+                        .onAppear { guard !reduceMotion else { return }; pulse = true }
                 }
                 Circle().fill(done || active ? Color.rasan : Color.clear).frame(width: 16, height: 16)
                     .overlay { Circle().strokeBorder(done || active ? Color.clear : Color(nsColor: .tertiaryLabelColor), lineWidth: 1) }

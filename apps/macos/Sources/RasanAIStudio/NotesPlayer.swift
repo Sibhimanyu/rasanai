@@ -493,10 +493,11 @@ private struct DraftRing: View {
             Circle().fill(Color.rasan).frame(width: 8, height: 8)
             Circle().strokeBorder(Color.rasan.opacity(0.5), lineWidth: 1.5).frame(width: 26, height: 26)
                 .scaleEffect(pulse ? 1.9 : 1).opacity(pulse ? 0 : 1)
+                .animation(.easeOut(duration: 1.1).repeatForever(autoreverses: false), value: pulse)
         }
         .shadow(color: .black.opacity(0.5), radius: 3)
         .allowsHitTesting(false)
-        .onAppear { withAnimation(.easeOut(duration: 1.1).repeatForever(autoreverses: false)) { pulse = true } }
+        .onAppear { pulse = true }
     }
 }
 

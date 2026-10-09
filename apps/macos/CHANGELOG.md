@@ -2,6 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## 0.6.3 (build 19) — 2026-10-09
+
+- Bundles RasanAI 1.9.1: branded launch films skip the outside-reference and precedent research and use only the brand's own film, so research is shorter and nothing off-brand reaches the looks.
+
 ## 0.6.2 (build 18) — 2026-10-09
 
 - Bundles RasanAI 1.9.0. Launch films for a named brand now study the brand's own films first, or a reference video you attach in New film. Studio shows the brand's measured style in the Brand step, builds every look from that style instead of outside references, keeps launch stories to a simple product-first structure, and checks key frames and drafts against the brand's film before moving on.
