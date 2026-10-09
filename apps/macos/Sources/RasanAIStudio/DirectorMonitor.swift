@@ -162,7 +162,10 @@ final class DirectorMonitor {
                 state.telemetry.ingest(lines: rollout.lines.filter { $0.contains("token_count") || $0.contains("turn_context") }, now: Date())
             }
         }
-        if let data = try? Data(contentsOf: run.appendingPathComponent("session.json")), let snapshot = try? SessionSnapshot(data: data) {
+        if let data = try? Data(contentsOf: run.appendingPathComponent("session.json")), let raw = try? SessionSnapshot(data: data) {
+            // Read it as the screen does: an answer the director hasn't consumed yet already counts, so the panel never says
+            // "Waiting for you" next to "Sent to Claude".
+            let snapshot = SessionOverlay.apply(RunTransport(run: run).pending(), to: raw)
             state.awaitingUser = snapshot.isWaitingOnUser
             state.lastConsoleUpdate = snapshot.activityFeed.first?.date
         }
