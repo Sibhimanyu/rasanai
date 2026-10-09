@@ -121,7 +121,8 @@ import StudioCore
         XCTAssertEqual(RunWorkspace.root(for: run).standardizedFileURL.path, root.standardizedFileURL.path)
         let state = try XCTUnwrap(RunTransport(run: run).readSession())
         XCTAssertEqual(state.title, root.lastPathComponent)
-        for _ in 0..<100 where runtime.isRunning { try await Task.sleep(for: .milliseconds(50)) }
+        // Wait for the exit to be classified too: isRunning drops before the async classification lands.
+        for _ in 0..<200 where runtime.isRunning || runtime.isFinishing || runtime.recovery == nil { try await Task.sleep(for: .milliseconds(50)) }
         XCTAssertFalse(runtime.isRunning)
         // A stub director that exits 0 having pushed nothing is a quiet stop, not a finished film.
         XCTAssertEqual(runtime.recovery, .stoppedEarly, runtime.status)
