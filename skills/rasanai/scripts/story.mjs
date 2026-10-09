@@ -17,7 +17,7 @@
 //           Launch / promo / product films (format launch, or --product-first) are PRODUCT-FIRST: conceit devices
 //           (museums, allegories, invented worlds, extended metaphors, cover versions) are never offered.
 //   node story.mjs check --pitch <pitch.json | pitches.json> [--truth <truth.md|json>] [--footage] [--length <s>] [--narrated] [--product-first | --allow-conceit]
-//        -> the rubric: 6 pass/fail gates (+ G7 product-first for launch / promo / product films) + the weighted 1-5 score (ship at >= 3.8, no dimension < 3).
+//        -> the rubric: 6 pass/fail gates (+ G7 product-first for launch / promo / product films, + G8 the aim: takeaway, feel, action, approach, a title that names the idea) + the weighted 1-5 score (ship at >= 3.8, no dimension < 3).
 //           Exit 0 = ship, 2 = rewrite (reasons in the JSON), 1 = bad input.
 //   node story.mjs validate
 //        -> checks devices.json against its schema (vocabularies, ids, counts)
@@ -40,6 +40,8 @@ const AXES = Object.keys(CAT.axes);
 const out = (o) => console.log(JSON.stringify(o, null, 2));
 const list = (v) => (v == null || v === true ? [] : String(v).split(",").map((s) => s.trim()).filter(Boolean));
 const norm = (s) => String(s || "").toLowerCase();
+const TITLE_STOP = ["just", "the", "a", "an", "can", "to", "of", "and", "you", "your", "with", "for"];
+const nz8 = (x) => String(x || "").toLowerCase().replace(/-/g, " ").replace(/[^a-z0-9' ]/g, "").replace(/\s+/g, " ").trim();
 
 // a device by id, research code ("A5") or name
 function findDevice(key) {
@@ -719,6 +721,30 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     script = { narrated, vo_words: vo, words_per_s: Math.round((vo / lengthS) * 100) / 100, rhythm_cv: Math.round(cv * 100) / 100 };
   }
 
+  // G8: the aim (references/script.md pass 0): what the film achieves, how it gets there, and a title that names the idea
+  {
+    const g8 = [];
+    const wc = (x) => String(x || "").trim().split(/\s+/).filter(Boolean).length;
+    const aim = p.aim && typeof p.aim === "object" ? p.aim : {};
+    if (!String(aim.takeaway || "").trim()) g8.push("aim.takeaway missing: the one thing the viewer remembers, in plain words, as they'd say it to a friend");
+    else if (wc(aim.takeaway) > 16) g8.push(`aim.takeaway is ${wc(aim.takeaway)} words (16 at most): say it the way a viewer would to a friend`);
+    if (!String(aim.feel || "").trim()) g8.push("aim.feel missing: what the viewer should feel");
+    if (!String(aim.action || "").trim()) g8.push("aim.action missing: what the viewer should do next");
+    if (!String(p.approach || "").trim()) g8.push("approach missing: one plain sentence on how this story gets there");
+    else if (wc(p.approach) > 25) g8.push(`approach is ${wc(p.approach)} words (25 at most)`);
+    const title = String(p.title || "").trim();
+    const tw = title.split(/\s+/).filter(Boolean);
+    const lastW = (tw[tw.length - 1] || "").toLowerCase().replace(/[^a-z']/g, "");
+    if (tw.length < 2 || tw.length > 5) g8.push(`title "${title}" is ${tw.length} word${tw.length === 1 ? "" : "s"}: name the story's idea in 2 to 5 words a person would use to refer to it`);
+    if (TITLE_STOP.includes(lastW)) g8.push(`title "${title}" ends on "${lastW}": a title is a name, not a fragment of a line`);
+    if (/[A-Z]/.test(title) && title === title.toUpperCase()) g8.push(`title "${title}" is ALL CAPS`);
+    const nt = nz8(title);
+    const lines = [...beats.map((b) => b.on_screen), p.last_line].map(nz8).filter(Boolean);
+    const frag = nt && lines.find((l) => l === nt || l.startsWith(`${nt} `));
+    if (frag) g8.push(`title "${title}" is the start of an on-screen line ("${frag}"): name the idea instead`);
+    gate("G8", "The aim (what the film achieves, how it gets there, a title that names the idea)", g8);
+  }
+
   // scores: self-assessed, then adjusted by rule
   const self = Object.fromEntries(DIMS.map((k) => [k, Number(scores[k])]));
   const adj = { ...self };
@@ -775,6 +801,9 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
 
 function checkPortfolio(pitches, results) {
   const reasons = [];
+  const warnings = [];
+  const tk = pitches.map((p) => nz8(p.aim && p.aim.takeaway));
+  for (let i = 0; i < tk.length; i++) for (let j = i + 1; j < tk.length; j++) if (tk[i] && tk[i] === tk[j]) warnings.push(`"${pitches[i].title || i + 1}" and "${pitches[j].title || j + 1}" share the same takeaway: each story should aim at something different`);
   const ds = pitches.map((p) => findDevice(Array.isArray(p.device) ? p.device[0] : p.device)).filter(Boolean);
   for (let i = 0; i < ds.length; i++)
     for (let j = i + 1; j < ds.length; j++) {
@@ -794,5 +823,5 @@ function checkPortfolio(pitches, results) {
     const labels = pitches.map((p) => p.label).filter(Boolean);
     if (labels.length && new Set(labels).size !== labels.length) reasons.push(`labels repeat: ${labels.join(", ")}`);
   }
-  return { pass: !reasons.length, reasons };
+  return { pass: !reasons.length, reasons, warnings: warnings.length ? warnings : undefined };
 }

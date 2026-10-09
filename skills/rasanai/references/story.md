@@ -70,7 +70,14 @@ Fuse each device with its `fuse_with` material (or better material from the shee
 {
   "id": "unmerged",
   "label": "Bold",                                  // Sure | Bold | Wild, from pick
-  "title": "Unmerged",
+  "title": "The unread line",                       // the story's idea in 2 to 5 words a person would use; not a fragment of an on-screen line, no function word last, not ALL CAPS
+  "aim": {                                          // required: decided before writing (references/script.md pass 0)
+    "takeaway": "Lintel reads every line, so a 2 am outage never starts at the line nobody read.",   // <= 16 words, as the viewer would say it
+    "feel": "Relieved",
+    "action": "Install Lintel on one repo",
+    "audience": "Engineers who approve pull requests"
+  },
+  "approach": "Starts at the 2 am outage, then rewinds to the one line nobody read.",   // required, one plain sentence, <= 25 words
   "logline": "A 2 am outage rewinds to the one line nobody read.",   // <= 12 words
   "device": "rewind",                               // a device id or code; an array for a combination (first is primary)
   "twist": "",                                      // required when the device is overused: what makes it not the default
@@ -104,7 +111,7 @@ node $SKILL_DIR/scripts/story.mjs check --pitch "$RUN/story/pitches.json" --trut
 
 With `--length` (or voiceover in the beats) it also runs **G6, the script** (`references/script.md`): the length within 10%, a hook beat of 4 s at most, the value by beat 2, on-screen lines of 6 words at most held 0.6 s + 0.4 s per word, voiceover under 2.7 words per second with sentences of 14 words at most and room for music-only moments, no on-screen line that repeats the voice, no stock copy, "not X, it's Y" or exclamation marks, varied beat lengths, and an end beat of 2 s or more with the name on screen.
 
-Exit 0 = ship; 2 = rewrite (reasons in the JSON); 1 = the pitch JSON is malformed. The five gates (fail any and the pitch is rewritten):
+Exit 0 = ship; 2 = rewrite (reasons in the JSON); 1 = the pitch JSON is malformed. The gates (fail any and the pitch is rewritten; **G8, the aim**, also runs on every pitch: `aim.takeaway` (16 words at most), `aim.feel`, `aim.action` and `approach` (25 words at most) present, and a title of 2 to 5 words that does not end on a function word (just, the, a, an, can, to, of, and, you, your, with, for), is not ALL CAPS and is not the start of any beat's `on_screen` line or the `last_line`; two pitches sharing a takeaway is a warning in `portfolio.warnings`):
 
 | Gate | Machine-checked | Self-assessed |
 |---|---|---|

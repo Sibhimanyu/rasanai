@@ -32,7 +32,8 @@ You are the hardest reader the three scripts will meet before the user. You did 
 6. **Buildable and filmable.** Could a motion designer build each `visual` from the real screens in the asset kit? Is any beat asking for footage that doesn't exist?
 7. **Against the category.** Does it fall into a cliché the precedent named? Would it look like the last three launch videos of its kind?
 8. **Product-first (launch, promo and product films, `references/product-first.md`).** Is the real product UI on screen within 3 s? Is there one hero moment showing the key feature for real, and 2 to 4 real uses? Are the lines short and plain? Is the required end line the largest type on a clean card? Is any beat a museum, allegory, invented world, extended metaphor, cover version or a drawn prop standing in for the product? Any of these is a `rewrite` (or `replace` for a conceit device); a script a first-time viewer would have to decode fails.
-9. **Compare the three.** Are they three different films (device, protagonist, visual world, first image, last line)? Which one would you put your name on, and why?
+9. **The aims.** Is each pitch's `aim.takeaway` something a viewer would say to a friend, and are the three aims distinct (not the same takeaway in three costumes)? Does every beat serve its aim? Does the title name the idea, and does `approach` say how the story gets there? A beat that serves no aim gets a note to cut it.
+10. **Compare the three.** Are they three different films (device, protagonist, visual world, first image, last line)? Which one would you put your name on, and why?
 
 Notes are line edits with the exact fix, not adjectives: "beat 2 on_screen: 'Powerful research' is stock; use the real output, 'A 14-page report. 31 sources.' (claims c12, c13)".
 

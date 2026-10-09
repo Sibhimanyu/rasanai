@@ -26,11 +26,24 @@ For the route `product-launch-video` and any launch, promo, product or app film,
 
 **Branded launch, promo or brand film:** write to the structure template in `references/launch-film.md` section 1 (hook with the product or brand in 1 to 3 s, reveal, hero demo, 2 to 4 real feature demos, payoff line, end card) and keep each beat inside its timing range for the film's length; mark each beat's `role` and set `payoff_line`. One idea per beat, plain words, the product or brand in every beat. The brand's own film (`brand-film/FILM-STYLE.md`) gives the opening and the words it uses. The three scripts differ only in emphasis and order, never in concept.
 
+## Pass 0: decide what this film must achieve
+
+Before any device, hook or line, decide the aim. A script with no aim is a pile of nice beats, and the user can't tell three of them apart. Answer four things, in plain words, from the truth sheet and the brief:
+
+- **Who is watching, and where.** The person and the place: a founder scrolling a feed, a customer on the product page, a room at a demo day. It sets the pace and what they already know.
+- **The one thing they must remember.** The takeaway, as the viewer would say it to a friend after: "It builds a whole site from one prompt." Sixteen words at most. If you need "and", pick one.
+- **What they should feel.** One feeling, not a list: relieved, curious, impatient to try it, quietly impressed.
+- **What they should do next.** One action: try it, share it, book a demo, read the post.
+
+Sure, Bold and Wild may aim differently, and the user is choosing between those aims, not between devices. For example Sure: understand it instantly. Bold: want it now. Wild: talk about it. The aim follows from the truth sheet and the brief, never from the device; if the device can't carry the aim, change the device.
+
+Write it down as the pitch's `aim` (`takeaway`, `feel`, `action`, `audience`) and its `approach` (one plain sentence on how this story gets there). Then name the story: a title is 2 to 5 words a person would use to refer to it ("The one-prompt site", "Rewind to the prompt"), never a fragment of an on-screen line, never ending on a function word, never ALL CAPS. Every later pass serves the aim; a beat that doesn't, goes.
+
 ## The eight passes
 
 Write in passes, not in one go. Each pass has one question.
 
-1. **The one sentence.** What does the viewer believe after the film that they didn't before? One sentence, in the viewer's words, no product name. If it needs "and", you have two films; pick one.
+1. **The one sentence.** What does the viewer believe after the film that they didn't before (pass 0's takeaway, sharpened)? One sentence, in the viewer's words, no product name. If it needs "and", you have two films; pick one.
 2. **The spine.** Map the device's grammar onto the length (structures below). Mark the hook, the value beat, the proof, the turn and the end. Durations first, words second.
 3. **The hook.** Write five hooks, keep one (hook types below). It lands in 1.5 to 2 seconds and is either the outcome, the tension the viewer already feels, or the product doing its thing.
 4. **The visuals.** For every beat write the shot: what fills the frame, what moves, what changes. Concrete nouns from the truth sheet (the product's real objects, screens and words), never "dynamic visuals of…".
@@ -141,6 +154,7 @@ The product is on screen at 0 s, the hero moment is the longest shot, three real
 
 ## Self-check before `story.mjs check`
 
+- [ ] The aim is written (takeaway, feel, action, audience, approach), the title names the idea, and every beat serves the aim.
 - [ ] The one sentence is in the viewer's words, and the film proves it.
 - [ ] The hook lands by 2 s and the beat moves on by 4 s.
 - [ ] The value beat is beat 1 or 2 (`"value": true`).

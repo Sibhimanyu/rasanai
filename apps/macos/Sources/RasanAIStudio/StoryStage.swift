@@ -1,7 +1,7 @@
 import StudioCore
 import SwiftUI
 
-/// Call 02, three scripts. A segmented choice of Sure / Bold / Wild, then the chosen script as a timed table.
+/// Call 02, three scripts. Three comparable cards that lead with what each story would achieve, then the chosen script's aim, approach and timed table.
 struct StoryStage: View {
     let model: FilmSessionModel
     let step: String
@@ -10,7 +10,6 @@ struct StoryStage: View {
     @State private var selectedID: String?
     @State private var seeded = false
     @FocusState private var keysFocused: Bool
-    @Namespace private var segmentSpace
 
     private var payload: JSONValue { model.payload(step) }
     private var scripts: [StoryScript] { payload["stories"].array.enumerated().map { StoryScript($1, index: $0) } }
@@ -70,54 +69,15 @@ struct StoryStage: View {
     // MARK: Selector
 
     private func selector(_ all: [StoryScript]) -> some View {
-        HStack(spacing: 4) {
+        HStack(alignment: .top, spacing: 12) {
             ForEach(Array(all.enumerated()), id: \.element.id) { index, script in
-                let on = script.id == current?.id
-                Button {
+                StoryOptionCard(script: script, index: index, count: all.count,
+                                selected: script.id == current?.id, isPick: script.id == recommendedID) {
                     withAnimation(.smooth(duration: 0.28)) { selectedID = script.id }
-                } label: {
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack(spacing: 6) {
-                            Text(script.angle.uppercased())
-                                .font(.system(size: 10.5, weight: .bold)).tracking(0.9)
-                                .foregroundStyle(on ? Color.rasan : Color.secondary)
-                            if script.id == recommendedID {
-                                Image(systemName: "sparkles").font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.rasan)
-                            }
-                            Spacer(minLength: 0)
-                            if all.count > 1 {
-                                Text("\(index + 1)").font(.system(size: 10.5, weight: .medium, design: .rounded)).monospacedDigit()
-                                    .foregroundStyle(.tertiary)
-                                    .padding(.horizontal, 5).padding(.vertical, 1)
-                                    .background(Color(nsColor: .quaternaryLabelColor).opacity(0.5), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-                            }
-                        }
-                        Text(script.title)
-                            .font(.system(size: 14, weight: on ? .semibold : .medium))
-                            .foregroundStyle(on ? .primary : .secondary)
-                            .lineLimit(2).multilineTextAlignment(.leading)
-                            .frame(maxWidth: .infinity, minHeight: 36, alignment: .topLeading)
-                    }
-                    .padding(.horizontal, 14).padding(.vertical, 11)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background {
-                        if on {
-                            RoundedRectangle(cornerRadius: 11, style: .continuous)
-                                .fill(Color(nsColor: .controlBackgroundColor))
-                                .overlay { RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(Color.rasan.opacity(0.45), lineWidth: 1) }
-                                .shadow(color: .black.opacity(0.10), radius: 6, y: 2)
-                                .matchedGeometryEffect(id: "segment", in: segmentSpace)
-                        }
-                    }
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(script.angle) story: \(script.title)\(script.id == recommendedID ? ", Claude's pick" : "")")
-                .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
             }
         }
-        .padding(4)
-        .background(Color(nsColor: .quaternaryLabelColor).opacity(0.28), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .fixedSize(horizontal: false, vertical: true)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Stories")
     }
@@ -141,6 +101,68 @@ struct StoryStage: View {
     }
 }
 
+// MARK: Option card
+
+private struct StoryOptionCard: View {
+    let script: StoryScript
+    let index: Int, count: Int
+    let selected: Bool, isPick: Bool
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 6) {
+                    Text(script.angle.uppercased())
+                        .font(.system(size: 10.5, weight: .bold)).tracking(0.9)
+                        .foregroundStyle(selected ? Color.rasan : Color.secondary)
+                    Text(script.angleMeaning)
+                        .font(.system(size: 11.5)).foregroundStyle(.secondary)
+                    if isPick {
+                        Image(systemName: "sparkles").font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.rasan)
+                    }
+                    Spacer(minLength: 0)
+                    if count > 1 {
+                        Text("\(index + 1)").font(.system(size: 10.5, weight: .medium, design: .rounded)).monospacedDigit()
+                            .foregroundStyle(.tertiary)
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(Color(nsColor: .quaternaryLabelColor).opacity(0.5), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    }
+                }
+                Text(script.headline)
+                    .font(.system(size: 17, weight: .semibold, design: .serif)).lineSpacing(2)
+                    .foregroundStyle(.primary)
+                    .lineLimit(3).multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, minHeight: 66, alignment: .topLeading)
+                VStack(alignment: .leading, spacing: 5) {
+                    if let feel = script.aim?.feel, !feel.isEmpty { quiet("Feel", feel) }
+                    if let next = script.aim?.action, !next.isEmpty { quiet("Then", next) }
+                }
+                .frame(maxWidth: .infinity, minHeight: 40, alignment: .topLeading)
+                Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 0.5)
+                Text(script.title)
+                    .font(.system(size: 12, weight: selected ? .semibold : .medium))
+                    .foregroundStyle(selected ? .primary : .secondary)
+                    .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .cardSurface(hovering: hovering, selected: selected)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .accessibilityLabel("\(script.angle) story, \(script.angleMeaning): \(script.headline)\(isPick ? ", Claude's pick" : "")")
+        .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
+    }
+
+    private func quiet(_ label: String, _ text: String) -> some View {
+        (Text("\(label): ").foregroundStyle(.tertiary) + Text(text).foregroundStyle(.secondary))
+            .font(.system(size: 12)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+    }
+}
+
 // MARK: Detail
 
 private struct StoryDetail: View {
@@ -159,32 +181,71 @@ private struct StoryDetail: View {
                     .font(.system(size: 34, weight: .semibold, design: .serif)).tracking(-0.4)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
-                if !script.logline.isEmpty {
+                if script.aim == nil, !script.logline.isEmpty {
                     Text(script.logline)
                         .font(.system(size: 17)).foregroundStyle(.secondary).lineSpacing(3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            if !script.device.isEmpty || !script.why.isEmpty {
-                HStack(alignment: .top, spacing: 28) {
-                    if !script.device.isEmpty { fact("The device", script.device, symbol: "wand.and.stars") }
-                    if !script.why.isEmpty { fact("Why this one", script.why, symbol: "lightbulb") }
-                }
-            }
+            if let aim = script.aim { achieves(aim) }
+            howItGetsThere
             if !script.beats.isEmpty { StoryTable(script: script) }
             if !script.lastLine.isEmpty { StoryLastLine(text: script.lastLine) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func fact(_ title: String, _ text: String, symbol: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label(title.uppercased(), systemImage: symbol)
-                .font(.system(size: 10.5, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
-            Text(text).font(.system(size: 14)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
+    private func achieves(_ aim: StoryAim) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionLabel("What it achieves", symbol: "scope")
+            Text(aim.takeaway)
+                .font(.system(size: 24, weight: .medium, design: .serif)).lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .top, spacing: 28) {
+                if !aim.feel.isEmpty { fact("Feel", aim.feel) }
+                if !aim.action.isEmpty { fact("Do next", aim.action) }
+                if !aim.audience.isEmpty { fact("For whom", aim.audience) }
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(LinearGradient(colors: [Color.rasan.opacity(0.09), Color.rasan.opacity(0.03)], startPoint: .topLeading, endPoint: .bottomTrailing))
+        }
+        .overlay { RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.rasan.opacity(0.18), lineWidth: 0.5) }
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder private var howItGetsThere: some View {
+        let how = script.approach.isEmpty ? script.why : script.approach
+        if !how.isEmpty || !script.device.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                sectionLabel(script.approach.isEmpty ? "Why this one" : "How it gets there", symbol: "arrow.triangle.turn.up.right.diamond")
+                if !how.isEmpty {
+                    Text(how).font(.system(size: 15)).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+                }
+                if !script.device.isEmpty {
+                    (Text("Device: ").foregroundStyle(.tertiary) + Text(script.device).foregroundStyle(.secondary))
+                        .font(.system(size: 12.5))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private func sectionLabel(_ title: String, symbol: String) -> some View {
+        Label(title.uppercased(), systemImage: symbol)
+            .font(.system(size: 10.5, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
+    }
+
+    private func fact(_ title: String, _ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title.uppercased()).font(.system(size: 10, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
+            Text(text).font(.system(size: 13.5)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
     }
 }
 
@@ -314,10 +375,20 @@ private struct StoryBeat {
     }
 }
 
+private struct StoryAim {
+    var takeaway: String, feel: String, action: String, audience: String
+}
+
 private struct StoryScript: Identifiable {
     let id: String
-    var angle: String, title: String, logline: String, device: String, why: String, lastLine: String
+    var angle: String, title: String, logline: String, device: String, why: String, lastLine: String, approach: String
+    var aim: StoryAim?
     var beats: [StoryBeat]
+    /// What the card's headline says: the takeaway, or for older payloads the logline, then why.
+    var headline: String { aim?.takeaway ?? [logline, why].first { !$0.isEmpty } ?? title }
+    var angleMeaning: String {
+        switch angle.lowercased() { case "sure": "Safe bet"; case "bold": "Bolder"; case "wild": "Wild card"; default: "" }
+    }
     var total: Double { beats.reduce(0) { $0 + $1.duration } }
 
     init(_ json: JSONValue, index: Int) {
@@ -328,6 +399,11 @@ private struct StoryScript: Identifiable {
         device = json["device"].string ?? ""
         why = json["why"].string ?? ""
         lastLine = json["last_line"].string ?? ""
+        approach = json["approach"].string ?? ""
+        let a = json["aim"]
+        if let take = a["takeaway"].string, !take.isEmpty {
+            aim = StoryAim(takeaway: take, feel: a["feel"].string ?? "", action: a["action"].string ?? "", audience: a["audience"].string ?? "")
+        } else { aim = nil }
         var clock = 0.0
         beats = json["beats"].array.map { beat in
             let d = beat["duration_s"].number ?? beat["duration"].number ?? 0
