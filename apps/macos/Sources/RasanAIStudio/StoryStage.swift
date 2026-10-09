@@ -171,7 +171,7 @@ private struct StoryDetail: View {
                     if !script.why.isEmpty { fact("Why this one", script.why, symbol: "lightbulb") }
                 }
             }
-            StoryTable(script: script)
+            if !script.beats.isEmpty { StoryTable(script: script) }
             if !script.lastLine.isEmpty { StoryLastLine(text: script.lastLine) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

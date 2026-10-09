@@ -77,7 +77,7 @@ struct NewFilmView: View {
                 HelpButton(title: "New film", lines: [
                     "Say what the film is about in your own words. A sentence is enough.",
                     "Add footage, images or documents if you have them. Copies go into the film; originals stay put.",
-                    "Pick the options under the prompt. The sparkle chip chooses which Claude models direct the film; the recommended mix has Opus direct and animate while Sonnet handles research and routine jobs.",
+                    "Pick the options under the prompt. The sparkle chip chooses which Claude models direct the film; the recommended mix has Opus direct and Sonnet handle research, routine jobs and, at Fast pace, the key frames and animation.",
                     "Start film hands it to your director. You will be asked when it needs you."])
             }
         }
@@ -105,6 +105,7 @@ struct NewFilmView: View {
         } message: { Text("Your saved project and original files are kept.") }
         .task {
             draft.agent = store.settings.defaultAgent
+            draft.pace = store.settings.pace
             brands = BrandLibrary.list(in: URL(fileURLWithPath: store.settings.projectRoot))
             if let project {
                 let library = store.settings.library
@@ -172,6 +173,7 @@ struct NewFilmView: View {
                     motionChip
                     brandChip
                     if agent == .claude { modelChip }
+                    moreChip
                 }
                 runButton
             }
@@ -232,6 +234,19 @@ struct NewFilmView: View {
             }.pickerStyle(.inline).labelsHidden()
         } label: { chipLabel("wand.and.sparkles", "\(draft.motionLevel.capitalized) motion") }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help("How much motion graphics")
+    }
+
+    /// Less common options live here so the prompt box stays clean; a non-default choice shows as its own label.
+    private var moreChip: some View {
+        Menu {
+            Picker("Pace", selection: $draft.pace) {
+                ForEach(FilmPace.allCases) { Text("\($0.title): \($0.summary)").tag($0) }
+            }.pickerStyle(.inline)
+        } label: {
+            if draft.pace == store.settings.pace { chipLabel("ellipsis", "More") }
+            else { chipLabel("hare", draft.pace.chipTitle, tint: true) }
+        }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help("More options: how fast the director works")
     }
 
     private var brandChip: some View {
@@ -365,7 +380,7 @@ struct NewFilmView: View {
         proposeTemplate(next)
     }
     private func proposeTemplate(_ next: FilmDraft) {
-        if draft != FilmDraft(agent: draft.agent) { replacementDraft = next } else { applyTemplate(next) }
+        if draft != FilmDraft(agent: draft.agent, pace: draft.pace) { replacementDraft = next } else { applyTemplate(next) }
     }
     private func applyTemplate(_ next: FilmDraft) {
         draft = next

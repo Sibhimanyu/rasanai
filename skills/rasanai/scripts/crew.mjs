@@ -92,6 +92,7 @@ const ROLES = {
   "motion-director": { desk: "motion", tier: "inherit", desc: (p, k) => (k === "seams" ? "Checking every cut and building the signature transition" : "Scoring how the whole film moves") },
   "frame-designer": { desk: "art", tier: "inherit", desc: (p, k) => `Designing key frames ${k || ""}`.trim() },
   "scene-animator": { desk: "animation", tier: "inherit", desc: (p, k) => `Animating scene ${k}` },
+  "concept-critic": { desk: "story", tier: "fast", desc: () => "Scoring the chosen script and look against the literal brief, before any expensive work" },
   critic: { desk: "review", tier: "inherit", desc: (p, k) => `Reviewing the ${String(k || "film").split("-")[0]} with fresh eyes` },
 };
 
@@ -148,6 +149,9 @@ function planCrew(p) {
     phases.push({ phase: "animate-graphics", when: "after presenter.mjs build wrote the project and briefs/graphics/*.md (the plates are generated and approved)", dispatch: [d("scene-animator", "<beat>-<n>")], then: "one scene-animator per graphic brief (key b3-1 = beat b3, graphic 1) and per designed plate (key plate-p2), in parallel; then obey, slop and a draft render" });
     phases.push({ phase: "review", when: "after the graphics are in and the draft is rendered", dispatch: [d("critic", "motion-1"), d("critic", "film-1")], then: "route each finding to its graphic's animator or to the plate's prompt (2 rounds at most)" });
   }
+  if (STORY_ROUTES.has(p.route) && !["music-to-video", "reel"].includes(p.route)) {
+    phases.push({ phase: "concept-gate", when: "after the story and the look are chosen, BEFORE motion planning (the expensive work): a quick Sonnet critic scores the chosen script and look against the literal brief", dispatch: [d("concept-critic", "concept-1")], then: "ship: record it in decisions (console push --step concept) and go on; fix: rewrite the script (or the look) from its findings, re-run it once, then go on. Never start the score on a failing concept" });
+  }
   if (SCENE_ROUTES.has(p.route) || p.route === "motion-graphics") {
     phases.push({ phase: "score", when: p.route === "music-to-video" ? "after treatment.mjs scenes wrote scenes.json (plates against the real track; durations are the plate windows)" : "after the look is picked and the music is fitted (scenes.json has final durations)", dispatch: [d("motion-director", "score")], then: "crew.mjs check, then the frame designers" });
     const groups = [];
@@ -198,7 +202,23 @@ function lookFrame(run) {
 function brief(run) {
   const b = jsonMaybe(R(run, "brief.json")) || {};
   const f = b.fields || b;
-  return { length_s: f.length_s, kind: f.kind, aspect: f.aspect, narrated: f.narration !== false, destination: f.destination, subject: f.subject };
+  return { length_s: f.length_s, kind: f.kind, aspect: f.aspect, narrated: f.narration !== false, destination: f.destination, subject: f.subject, brand_name: f.brand_name, use_brand: f.use_brand, text: f.sentence || f.brief || f.text };
+}
+// A launch, promo or product film is PRODUCT-FIRST (references/product-first.md): the product UI from the first
+// seconds, one hero moment, real uses, no conceit. The route product-launch-video is always one.
+const PRODUCT_FIRST_KIND = /launch|promo|product|demo|reveal|feature|ad\b|advert|announce/i;
+function productFirst(run, P) {
+  if (P && P.route === "product-launch-video") return true;
+  const dec = jsonMaybe(R(run, "decisions.json")) || {};
+  if (dec.route === "product-launch-video") return true;
+  const b = brief(run);
+  return PRODUCT_FIRST_KIND.test(String(b.kind || "")) && !LYR(run, P) && !isPresenter(run, P);
+}
+// the brand lock: a named brand (brand_name / use_brand, or a brand DESIGN.md already chosen) means the brand step runs and every look stays inside it
+function brandLocked(run) {
+  const b = brief(run), dec = jsonMaybe(R(run, "decisions.json")) || {};
+  if (b.use_brand === false || dec.use_brand === false) return false;
+  return !!(b.brand_name || b.use_brand === true || dec.use_brand === true || dec.brand || exists(R(run, "research", "brand", "DESIGN.md")));
 }
 // a lyric video: the music-to-video route, or a run that has word timings
 const LYR = (run, P) => (P && P.route === "music-to-video") || exists(R(run, "music", "lyrics.json"));
@@ -232,6 +252,11 @@ function contextFor(run, role, key, plan) {
   const research = (f) => R(run, "research", f);
   const capture = pj ? path.join(pj, "capture") : null;
   const B = brief(run);
+  if (productFirst(run, P)) {
+    ctx.product_first = "yes: a launch, promo or product film. Read references/product-first.md (the rules and the concept gate). The product UI is on screen within 3 s, one hero product moment, 2 to 4 real uses, short plain kinetic lines, the end line the largest type; no museums, allegories, invented worlds, extended metaphors or cover versions; show off through craft (motion, UI choreography, rhythm), never through concept.";
+    I("product-first rules (read all of it)", path.join(SKILL_DIR, "references", "product-first.md"));
+  }
+  if (brandLocked(run)) ctx.brand_lock = "yes: the brief names a brand. The brand's own type, colours, UI language and logo usage (research/brand/DESIGN.md, or the workspace DESIGN.md) are law in every look and every frame; variations are composition, motion and density only.";
   const dsn = (() => {
     try {
       const r = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "brand.mjs"), "detect"], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" } });
@@ -327,6 +352,11 @@ function contextFor(run, role, key, plan) {
       O(pjson);
       break;
     }
+    case "concept-critic":
+      Object.assign(ctx, { brief: B, length_s: B.length_s, round: Number(String(key || "1").split("-").pop()) || 1 });
+      for (const [l, p] of [["the brief (literal words)", R(run, "brief.json")], ["chosen script", R(run, "story", "chosen.json")], ["chosen look (design system)", R(run, "look", "DESIGN.md")], ["decisions", R(run, "decisions.json")], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["screens", research("screens.md")], ["brand", research("brand/DESIGN.md")], ["workspace brand", dsn ? path.resolve(dsn) : null], ["product-first rules", path.join(SKILL_DIR, "references", "product-first.md")]]) I(l, p);
+      O(R(run, "story", "concept-check.json"));
+      break;
     case "script-editor":
       for (const [l, p] of [["pitches", R(run, "story", "pitches.json")], ["check", R(run, "story", "check.json")], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["precedent", research("precedent.md")], ["rubric", path.join(SKILL_DIR, "references", "script.md")], ["story rules", path.join(SKILL_DIR, "references", "story.md")], ["craft", path.join(SKILL_DIR, "references", "craft.md")]]) I(l, p);
       O(R(run, "story", "edit-notes.json"));
@@ -497,7 +527,8 @@ function promptFor(run, role, key, plan) {
     const vocab = readMaybe(path.join(SKILL_DIR, "references", "vocabulary.md"));
     if (vocab) extra += "\n\n(Read `references/vocabulary.md` in full: it is the motion vocabulary your score names techniques from.)";
   }
-  const dare = DARES[role === "motion-director" && key === "seams" ? "seams" : role];
+  let dare = DARES[role === "motion-director" && key === "seams" ? "seams" : role];
+  if (dare && ctx.product_first) dare += " On this product-first film, showing off is craft only (motion, UI choreography, rhythm, the real product moving like nothing else): never a conceit, a metaphor, an invented world or a prop standing in for the product. A show-off idea that leaves the product fails.";
   const base = `${shared}\n\n---\n\n${roleText}\n\n---\n\n${lines.join("\n")}${extra}\n`;
   // the prompt adapts to the model that runs the member (same goal and bar; different wording and scaffolding)
   return { text: adapt({ role, text: base, dare, profile: modelOf(plan) }), ctx, inputs, outputs };
@@ -670,6 +701,14 @@ function checkScore(run) {
   return { P, W };
 }
 
+function dsnPath(run) {
+  try {
+    const r = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "brand.mjs"), "detect"], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" } });
+    const j = JSON.parse(r.stdout || "{}");
+    return j.found ? j.source || j.file || null : null;
+  } catch { return null; }
+}
+
 async function checkRole(run, role, key) {
   const P = [], W = [];
   const research = (f) => R(run, "research", f);
@@ -797,7 +836,7 @@ async function checkRole(run, role, key) {
       }
       // against the siblings that already exist: three systems that are one system fail the later one
       for (const other of ["Sure", "Bold", "Wild"].filter((l) => l !== key && exists(R(run, "design", l, "DESIGN.md")))) {
-        const pr = await checkSystems([dir, R(run, "design", other)], { libraryIds: libraryIds(), offline: true, hook: firstLine(run) });
+        const pr = await checkSystems([dir, R(run, "design", other)], { libraryIds: libraryIds(), offline: true, hook: firstLine(run), brand: brandPath });
         for (const m of pr.P) if (/too alike|exactly the same|same layout recoloured/.test(m)) P.push(m);
       }
       break;
@@ -821,6 +860,7 @@ async function checkRole(run, role, key) {
         if (gone.length) P.push(`${gone.length} assets in assets.json are not on disk (first: ${gone[0].path})`);
         if (!assets.length) W.push("the asset kit is empty");
       }
+      if (brandLocked(run) && !exists(research("brand", "DESIGN.md")) && !(dsnPath(run))) P.push("the brief names a brand (brand_name / use_brand) but there is no brand step: research/brand/DESIGN.md (from the brand researcher) or a workspace DESIGN.md is required; run the brand researcher first");
       const br = readMaybe(research("BRIEFING.md"));
       if (!br) P.push("research/BRIEFING.md is missing");
       else {
@@ -897,6 +937,11 @@ async function checkRole(run, role, key) {
         for (const x of p.notes || []) if (!String(x.fix || "").trim()) P.push(`${p.id || p.label} beat ${x.beat}: a note without a fix`);
       }
       if (!n.recommended) P.push("no recommended pitch");
+      else if (productFirst(run, jsonMaybe(R(run, "crew", "plan.json")) || {})) {
+        if (String(n.first_watch || "").trim().split(/\s+/).length < 8) P.push('a product-first film: the recommendation needs "first_watch": why a first-time viewer gets this film in one watch with no explanation (8 words at least)');
+        const rp = (n.pitches || []).find((x) => x.id === n.recommended);
+        if (rp && rp.verdict !== "ship" && !(n.pitches || []).some((x) => x.verdict === "ship")) W.push("no pitch is at verdict ship: the recommendation is the clearest product story, still to be rewritten");
+      }
       break;
     }
     case "motion-director": {
@@ -993,6 +1038,21 @@ async function checkRole(run, role, key) {
       const errs = (j.findings || []).filter((x) => x.file === relFile && x.severity === "error");
       if (errs.length) P.push(`obey.mjs: ${errs.length} violations in ${file} (first: ${errs[0].rule}${errs[0].target ? " on " + errs[0].target : ""})`);
       if ((j.could_not_run || []).some((x) => String(x).includes(file))) P.push(`obey.mjs could not check ${file} (a script error, or the timeline isn't registered on window.__timelines)`);
+      break;
+    }
+    case "concept-critic": {
+      const f = R(run, "story", "concept-check.json");
+      const c = jsonMaybe(f);
+      if (!c) { P.push(`${rel(f)} is ${c === undefined ? "not valid JSON" : "missing"}`); break; }
+      if (!["pass", "fix"].includes(c.verdict)) P.push('verdict must be "pass" or "fix"');
+      const Q = ["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear"];
+      for (const q of Q) {
+        const a = c.answers && c.answers[q];
+        if (!a || typeof a.ok !== "boolean" || !String(a.evidence || "").trim()) P.push(`answers.${q} needs {ok: true|false, evidence: "<the beat or line it rests on>"}`);
+        else if (!a.ok && c.verdict === "pass") P.push(`answers.${q} is not ok but the verdict is pass`);
+        else if (!a.ok && !String(a.fix || "").trim()) P.push(`answers.${q} fails with no exact fix`);
+      }
+      if (c.verdict === "fix" && !Q.some((q) => c.answers && c.answers[q] && c.answers[q].ok === false)) P.push("a fix verdict needs at least one failed answer");
       break;
     }
     case "critic": {

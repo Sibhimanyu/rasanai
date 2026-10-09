@@ -39,6 +39,11 @@ struct RasanAIStudioApp: App {
                                 NSApp.setActivationPolicy(.regular); NSApp.activate(ignoringOtherApps: true)
                                 store.openRun(URL(fileURLWithPath: CommandLine.arguments[index + 1], isDirectory: true))
                             }
+                            if let index = CommandLine.arguments.firstIndex(of: "--replay-run"), CommandLine.arguments.count > index + 1 {
+                                func option(_ name: String) -> String? { CommandLine.arguments.firstIndex(of: name).flatMap { CommandLine.arguments.indices.contains($0 + 1) ? CommandLine.arguments[$0 + 1] : nil } }
+                                ProgressReplay.launch(store: store, run: URL(fileURLWithPath: CommandLine.arguments[index + 1], isDirectory: true),
+                                                      speed: option("--speed").flatMap(Double.init) ?? 60, from: option("--replay-from"))
+                            }
                             if let index = CommandLine.arguments.firstIndex(of: "--qa-dir"), CommandLine.arguments.count > index + 1 {
                                 QAHarness.start(store: store, dir: URL(fileURLWithPath: CommandLine.arguments[index + 1], isDirectory: true))
                             }
@@ -82,7 +87,7 @@ struct RasanAIStudioApp: App {
                 }.disabled(!onFilmPage)
                 Button("Show Log") { store.sheet = .log }.disabled(!onFilmPage || store.isBrowsingAnotherFilm || store.runtime.logURL == nil)
                 Divider()
-                Button("Reconnect") { store.reconnectConsole() }.keyboardShortcut("r").disabled(!onFilmPage || store.isBrowsingAnotherFilm || store.runURL == nil || store.isReconnecting)
+                Button("Reload Film") { store.reloadFilm() }.keyboardShortcut("r").disabled(!onFilmPage || store.isBrowsingAnotherFilm || store.runURL == nil)
             }
             CommandMenu("Navigate") {
                 Button("Film Queue") { store.path.append(.queue) }.keyboardShortcut("k", modifiers: [.command, .shift])

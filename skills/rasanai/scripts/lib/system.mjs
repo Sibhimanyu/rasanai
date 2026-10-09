@@ -169,13 +169,14 @@ export function checkSystem(dir, opts = {}) {
   const italicSerif = SERIFS.has(d) && (recipe.fonts || {}).italic === true;
   if (!brand && [cream, rust, italicSerif].filter(Boolean).length >= 2) P.push(`this is the "Claude look" (${[cream && "cream canvas", rust && "rust accent", italicSerif && "italic serif display"].filter(Boolean).join(" + ")}): it is everyone's default; unless the brand is that, make a different choice`);
   if (opts.brand) {
-    // Sure IS the brand, extended for motion
+    // BRAND LOCK: when a brand applies, ALL three systems are the brand extended for motion (its palette and type
+    // system); they vary composition, motion and density, never the palette or the type
     try {
       const BR = readDesignMd(path.resolve(opts.brand), { mode: opts.mode });
-      if (label === "Sure" || opts.isBrand) {
-        for (const k of ["canvas", "ink", "accent"]) if (BR.roles[k] && R[k] && BR.roles[k].toLowerCase() !== R[k].toLowerCase()) P.push(`this system must be the brand extended: its ${k} is ${R[k]} but the brand's is ${BR.roles[k]}`);
+      {
+        for (const k of ["canvas", "ink", "accent"]) if (BR.roles[k] && R[k] && BR.roles[k].toLowerCase() !== R[k].toLowerCase()) P.push(`${label}: brand lock: this system must be the brand extended (Sure, Bold and Wild all stay inside the brand's palette and type): its ${k} is ${R[k]} but the brand's is ${BR.roles[k]}`);
         const bf = BR.fonts.display && BR.fonts.display.family;
-        if (bf && info.display.toLowerCase() !== bf.toLowerCase()) P.push(`this system must keep the brand's display face ${bf} (it has ${info.display})`);
+        if (bf && info.display.toLowerCase() !== bf.toLowerCase()) P.push(`${label}: brand lock: this system must keep the brand's display face ${bf} (it has ${info.display})`);
       }
     } catch (e) { W.push(`couldn't read the brand DESIGN.md to compare: ${e.message}`); }
   }
@@ -373,7 +374,10 @@ export async function checkSystems(dirs, opts = {}) {
     const dims = { palette: pd >= 0.2, display: a.display.toLowerCase() !== b.display.toLowerCase(), layout: a.layout !== b.layout, motion: a.motion !== b.motion };
     const differ = Object.values(dims).filter(Boolean).length;
     pairs.push({ a: a.label, b: b.label, palette_distance: Math.round(pd * 100) / 100, differ: Object.entries(dims).filter(([, v]) => v).map(([k]) => k) });
-    if (!dims.display || differ < 3) P.push(`${a.label} and ${b.label} are too alike (they differ in: ${Object.entries(dims).filter(([, v]) => v).map(([k]) => k).join(", ") || "nothing"}; palette distance ${pd.toFixed(2)}): three systems must differ in at least 3 of palette, display face (always), layout, motion language`);
+    if (opts.brand) {
+      // brand lock: palette and type are the brand's in all three, so they must differ in composition AND motion
+      if (!dims.layout || !dims.motion) P.push(`${a.label} and ${b.label} are too alike under the brand lock (they differ in: ${Object.entries(dims).filter(([, v]) => v).map(([k]) => k).join(", ") || "nothing"}): with the brand's palette and type fixed, the three must differ in layout AND motion language (and density)`);
+    } else if (!dims.display || differ < 3) P.push(`${a.label} and ${b.label} are too alike (they differ in: ${Object.entries(dims).filter(([, v]) => v).map(([k]) => k).join(", ") || "nothing"}; palette distance ${pd.toFixed(2)}): three systems must differ in at least 3 of palette, display face (always), layout, motion language`);
   }
   // the three specimens are three compositions, not one layout recoloured
   const pngs = dirs.map((d) => path.join(d, "specimen.png"));

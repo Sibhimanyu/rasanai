@@ -22,6 +22,19 @@ A dark, neutral review room: the film is the brightest thing on screen.
 - The stream sends a heartbeat every 15 s; the page reconnects and reloads the state after 40 s of silence, when the tab becomes visible again, and when the network comes back.
 - `setup.sh` records the run in `.rasanai/current` and, run again, resumes an unfinished run (updated in the last 12 hours, not yet rendered) with its console instead of starting a second one.
 
+## Headless mode (RasanAI Studio)
+
+RasanAI Studio, the native Mac app, does not use the page or the server. It starts the director with `RASANAI_CONSOLE_HEADLESS=1`; the first command records `{"headless": true}` in `<run>/console.json`, so every later command in that run stays headless even without the variable. In a headless run:
+
+- `push`, `ask`, `activity`, `log`, `reply`, `resolve`, `record` and `wait` behave exactly as above, but never start, restart or look for a server. No port, token, `address.json`, event stream or `console_down` (exit 3) exists. `serve` is a no-op that prints `{"headless":true}`; `url` says the run is headless; `stop` does nothing.
+- The app reads `session.json` and appends the user's answers to `actions.jsonl`, one JSON line per action, in the shape of "Actions" below (`{id, ts, step, type, value, note, source: "console"}`, with its own random `id`). Nothing else writes `session.json` but `console.mjs` and the scripts' own feed reports.
+- **`wait` does the server's work.** When it consumes an action it first validates it the way a POST was validated (an object, a known step or `*`, a `type` of 2-20 lowercase letters or dashes, a note of at most 4000 characters, a line under 1 MB, and an `id`), then applies the same effects to `session.json` the server applied on POST: the step's `sent` banner (with the option's name), the `You: …` feed line and the "Claude is reading your answer…" status, the note in the step's thread, a `comment` as an open note in `session.comments`, an `answer` on the `ask`, `decide_rest`. It prints the action and lists its id in `consumed.json`. The session ends up the same as with the page.
+- **A bad line never stops `wait`**: invalid JSON, a wrong shape, an unknown step or type, a missing id or an oversized line is added to `consumed.json` and described in `rejected.json` (`[{id, error, ts}]`), and `wait` carries on. A last line without its newline (still being written) is left alone until it is complete.
+- **File safety**: `session.json`, `consumed.json` and `rejected.json` are written to a temporary file and renamed. `actions.jsonl` appends and reads, and every `consumed.json` update, happen under `actions.lock`; session rewrites happen under `session.lock`. A lock is a file created exclusively that holds `<pid> <unix ms>`; one whose process is gone, or that is older than 10 s, is taken over. The app takes the same `actions.lock` when it appends.
+- Until `wait` consumes an action the app shows it as sent (its own optimistic copy of the banner, note or answer).
+- A run an older Studio started (it has `address.json` and a console server) is switched on its next headless command: the old server is stopped and its address forgotten.
+- Without the variable, and without `console.json` saying headless, nothing changes: the server, the page, the token and the restarts work as described above.
+
 ## Security
 
 - Bound to 127.0.0.1 only; requests whose `Host` isn't `127.0.0.1:<port>` / `localhost:<port>` are refused (blocks DNS rebinding).
@@ -42,7 +55,7 @@ A dark, neutral review room: the film is the brightest thing on screen.
 | `wait --run <dir> [--step <id>] [--timeout <sec>]` | blocks until an unconsumed action arrives (for that step, or `*`), prints it, marks it consumed. Exit 2 on timeout; a stopped server is restarted on the same address; exit 3 (`console_down`) only if that fails. Run it in the background, one at a time. |
 | `resolve --run <dir> --ids a,b [--note "..."] [--all]` | marks notes (`comment` actions) as handled after an Apply; `--note` says what changed (shown to the user); `--all` resolves every open note |
 | `record --run <dir> --step <id> --type <type> [--value '<json>'] [--note "..."]` | logs an answer the user gave in chat (already consumed) so the session history is complete |
-| `state`, `url`, `stop` | print the session, reprint the URL (errors if the server is gone), stop the server |
+| `state`, `url`, `stop` | print the session, reprint the URL (errors if the server is gone, or the run is headless), stop the server |
 
 Paths in payloads are workspace-relative (or absolute). The page serves them at `/fs/rel/<path>` / `/fs/abs/<path>`.
 

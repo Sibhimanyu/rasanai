@@ -13,14 +13,39 @@ on:
     - cron: "17 5 * * *"
 permissions:
   contents: read
-  pages: write
-  id-token: write
-concurrency:
-  group: site
-  cancel-in-progress: true
+# Why release events only re-dispatch instead of deploying:
+# a `release` run has github.ref = refs/tags/<tag>, and actions/deploy-pages records that as the
+# deployment ref. The github-pages environment (rightly) only allows master, so deploying from a
+# release run fails with "Tag ... is not allowed to deploy to github-pages due to environment
+# protection rules". Checking out master would not help: the environment checks the run's ref,
+# not the checked-out one. So a release event just starts a workflow_dispatch run of this same
+# workflow on master (a GITHUB_TOKEN may trigger workflow_dispatch), which deploys with ref
+# refs/heads/master. That run fetches releases from the API, so it sees the new/edited/deleted
+# release. The environment protection stays untouched.
 jobs:
-  deploy:
+  redispatch:
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    concurrency:
+      group: site-redispatch
+      cancel-in-progress: false
+    steps:
+      - name: Run the site deploy on master
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run site.yml --repo "$GITHUB_REPOSITORY" --ref master
+  deploy:
+    if: github.event_name != 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: site
+      cancel-in-progress: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

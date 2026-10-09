@@ -67,34 +67,19 @@ final class SessionTests: XCTestCase {
         XCTAssertEqual(timecode(.infinity), "00:00")
     }
 
-    func testAddressRequiresLoopbackCompatiblePortAndToken() throws {
-        let valid = #"{"port":54321,"token":"0123456789abcdef01234567","root":"/tmp/project"}"#
-        let address = try ConsoleAddress(data: Data(valid.utf8))
-        XCTAssertEqual(address.baseURL.host, "127.0.0.1")
-        let request = address.request(path: "api/action")
-        XCTAssertEqual(request.url?.path, "/api/action")
-        XCTAssertEqual(request.value(forHTTPHeaderField: "Cookie"), "rasa_012345=0123456789abcdef01234567")
-        XCTAssertEqual(request.value(forHTTPHeaderField: "x-rasa-token"), "0123456789abcdef01234567")
-        for invalid in [valid.replacingOccurrences(of: "54321", with: "0"),
-                        valid.replacingOccurrences(of: "54321", with: "70000"),
-                        valid.replacingOccurrences(of: "54321", with: "2.5"),
-                        valid.replacingOccurrences(of: "0123456789abcdef01234567", with: "invalid"),
-                        valid.replacingOccurrences(of: "/tmp/project", with: "relative")] {
-            XCTAssertThrowsError(try ConsoleAddress(data: Data(invalid.utf8)))
-        }
-    }
-
     func testAssetsDoNotEscapeApprovedRootsOrExposeConsoleSecrets() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: folder.appendingPathComponent("run"), withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         try Data("frame".utf8).write(to: folder.appendingPathComponent("frame.png"))
         try Data("secret".utf8).write(to: folder.appendingPathComponent("run/address.json"))
+        try Data("[]".utf8).write(to: folder.appendingPathComponent("run/rejected.json"))
         let resolver = AssetResolver(run: folder.appendingPathComponent("run"), workspace: folder)
         XCTAssertEqual(resolver.resolve("frame.png")?.lastPathComponent, "frame.png")
         XCTAssertNil(resolver.resolve("../../etc/passwd"))
         XCTAssertNil(resolver.resolve("/etc/passwd"))
         XCTAssertNil(resolver.resolve("run/address.json"))
+        XCTAssertNil(resolver.resolve("run/rejected.json"))
         XCTAssertNil(resolver.resolve("https://example.com/frame.png"))
         try FileManager.default.createSymbolicLink(at: folder.appendingPathComponent("escape"), withDestinationURL: URL(fileURLWithPath: "/etc"))
         XCTAssertNil(resolver.resolve("escape/passwd"))

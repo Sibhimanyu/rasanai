@@ -6,17 +6,38 @@ import SwiftUI
 struct NativeStageView: View {
     let model: FilmSessionModel
     var startedAt: Date?
+    /// The film's progress model. When present, "Claude is working", the build and the final render show Film progress.
+    var progress: FilmProgress?
+    var onPause: (() -> Void)?
+    var onShowLog: (() -> Void)?
+    var pace: FilmPace?
+    var autoResume: AutoResumeNotice?
+    var onResumeNow: (() -> Void)?
+
+    /// True when this route is drawn by Film progress (so the stage cross-fade does not flash between working and build).
+    private var showsProgress: Bool {
+        guard let progress else { return false }
+        switch model.route {
+        case .working: return true
+        case .build: return !model.isViewingPast
+        case .final:
+            let render = progress.snapshot.render
+            return !model.isViewingPast && render.kind == .final && [.preparing, .rendering, .finishing].contains(render.state) && model.status("render") != "done"
+        default: return false
+        }
+    }
 
     var body: some View {
         let route = model.route
+        let progressShown = showsProgress
         VStack(spacing: 0) {
             if model.isViewingPast { ViewingBanner(model: model) }
             UpdateNotice(model: model)
             if let ask = model.ask, model.dismissedAsks.contains(ask.id) { AskCard(model: model, ask: ask) }
             ZStack {
-                stage(route).id(route).transition(.opacity)
+                stage(route).id(progressShown ? AnyHashable("film-progress") : AnyHashable(route)).transition(.opacity)
             }
-            .animation(.smooth, value: route)
+            .animation(.smooth, value: progressShown ? StageRoute.working : route)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .environment(model)
@@ -29,6 +50,12 @@ struct NativeStageView: View {
     }
 
     @ViewBuilder private func stage(_ route: StageRoute) -> some View {
+        if showsProgress, let progress {
+            FilmProgressView(model: model, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow)
+        } else { classic(route) }
+    }
+
+    @ViewBuilder private func classic(_ route: StageRoute) -> some View {
         switch route {
         case .working: DirectorWorkingView(model: model, startedAt: startedAt)
         case .brief: BriefStage(model: model, step: "brief")
@@ -83,8 +110,14 @@ private struct ViewingBanner: View {
 struct NativeFilmView: View {
     @Bindable var model: FilmSessionModel
     var startedAt: Date?
+    var progress: FilmProgress?
+    var onPause: (() -> Void)?
+    var onShowLog: (() -> Void)?
+    var pace: FilmPace?
+    var autoResume: AutoResumeNotice?
+    var onResumeNow: (() -> Void)?
     var body: some View {
-        NativeStageView(model: model, startedAt: startedAt)
+        NativeStageView(model: model, startedAt: startedAt, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow)
             .inspector(isPresented: $model.decisionsPresented) { DecisionsInspector(model: model) }
             .toolbar { FilmToolbarItems(model: model) }
     }

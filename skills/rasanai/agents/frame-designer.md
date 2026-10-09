@@ -43,3 +43,7 @@ When a scene's `visual` needs a photograph, illustration, texture or environment
 ## Done when
 
 `node "$SKILL_DIR/scripts/crew.mjs" check --run "$RUN" --role frame-designer --key <first scene>-<last scene>` exits 0: every scene you were given has its HTML, PNG and note.
+
+## Real product fidelity (product-first films)
+
+On a launch, promo or product film (`product_first`), the product is shown, not suggested. Use the captured real screens (`research/screens/`, the asset kit) as the UI. If capture failed or the screens are unusable, recreate the UI faithfully in HTML/CSS (the real layout, labels, type and colours from `research/screens.md` and the brand DESIGN.md), as DOM that can animate. Never draw line-art props, icons or abstract shapes as a stand-in for the product or its UI. With `brand_lock`, the brand's own type, colours and UI language are law.

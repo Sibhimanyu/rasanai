@@ -74,16 +74,27 @@ codesign --verify --deep --strict "$mountpoint/$app_name.app"
 
 mkdir "$mountpoint/.background"
 cp "$bg_tiff" "$mountpoint/.background/background.tiff"
-if [[ -f "$app/Contents/Resources/AppIcon.icns" ]]; then
-    cp "$app/Contents/Resources/AppIcon.icns" "$mountpoint/.VolumeIcon.icns"
-    SetFile -a C "$mountpoint"
-fi
 
 # Finder writes the window layout to .DS_Store. Fail-soft: without Automation permission
 # (or in CI) the DMG still installs, it just opens as a plain window.
 layout_ok=0
+# CI (no Finder / no GUI session): reuse a known-good .DS_Store instead of running Finder.
+#
+# Packaging/dmg-DS_Store is the .DS_Store Finder wrote for this exact layout. It refers to
+# the background by name (".background/background.tiff"), the volume by name ("RasanAI Studio")
+# and the two icons by name and position ("RasanAI Studio.app" at app_x/app_y, "Applications"
+# at dest_x/dest_y), so it applies to any build as long as those names, the window geometry
+# and the background artwork below stay the same.
+#
+# REGENERATE it whenever volname, app_name, win_*/app_*/dest_*/icon_size, or the background
+# picture changes: on a Mac with a GUI session run
+#   STUDIO_DMG_CAPTURE_DS_STORE=1 STUDIO_DMG_OUT=/tmp/layout.dmg bash apps/macos/scripts/package-dmg.sh
+# (without CI set), check the window looks right, and commit the updated Packaging/dmg-DS_Store.
+ds_store_template="$studio_dir/Packaging/dmg-DS_Store"
 if [[ -n "${CI:-}" ]]; then
-    echo "warning: CI is set; skipping Finder window layout (the DMG will open as a plain window)." >&2
+    [[ -f "$ds_store_template" ]] || { echo "Missing $ds_store_template; regenerate it locally (see comment in package-dmg.sh)." >&2; exit 1; }
+    cp "$ds_store_template" "$mountpoint/.DS_Store"
+    layout_ok=1
 else
     # perl alarm: never hang forever on a pending Automation prompt.
     if perl -e 'alarm 120; exec @ARGV' osascript >/dev/null <<OSA
@@ -113,10 +124,22 @@ OSA
     then
         for _ in $(seq 1 40); do [[ -f "$mountpoint/.DS_Store" ]] && break; sleep 0.5; done
         if [[ -f "$mountpoint/.DS_Store" ]]; then layout_ok=1; fi
+        if [[ "$layout_ok" = 1 && -n "${STUDIO_DMG_CAPTURE_DS_STORE:-}" ]]; then
+            cp "$mountpoint/.DS_Store" "$ds_store_template"
+            echo "Captured $ds_store_template" >&2
+        fi
     fi
     if [[ "$layout_ok" != 1 ]]; then
         echo "warning: Finder window layout failed (allow your terminal under System Settings > Privacy & Security > Automation > Finder). The DMG still installs, but opens as a plain window." >&2
     fi
+fi
+
+# Volume icon. This MUST come after the Finder layout step: when Finder lays out the window
+# it deletes .VolumeIcon.icns from the volume root and clears the custom-icon attribute
+# (verified: present and flagged before the osascript run, gone after). Adding it last keeps it.
+if [[ -f "$app/Contents/Resources/AppIcon.icns" ]]; then
+    cp "$app/Contents/Resources/AppIcon.icns" "$mountpoint/.VolumeIcon.icns"
+    SetFile -a C "$mountpoint"
 fi
 
 for f in .background .VolumeIcon.icns .fseventsd .Trashes; do

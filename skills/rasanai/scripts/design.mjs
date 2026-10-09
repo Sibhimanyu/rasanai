@@ -22,8 +22,18 @@ import { parseArgs, die, readJSON, writeFile, esc, normalizeAspect, chromeScreen
 import { generateLooks, lookAsBrand } from "./lib/looks.mjs";
 import { readDesignMd, toFrameMd, contrast } from "./lib/design-md.mjs";
 import { track } from "./lib/report.mjs";
-import { checkSystemFull, checkSystems, firstLine, lookPayload, chooseSystem, LABELS } from "./lib/system.mjs";
+import { checkSystem, checkSystemFull, checkSystems, firstLine, lookPayload, chooseSystem, LABELS } from "./lib/system.mjs";
 import { libraryIds } from "./library.mjs";
+
+// The brand lock: when the run's decisions carry a brand (and use_brand is not false), every system must stay inside it
+function runBrand(run) {
+  try {
+    const d = JSON.parse(fs.readFileSync(path.join(run, "decisions.json"), "utf8"));
+    if (d.use_brand === false || !d.brand) return null;
+    const f = path.resolve(String(d.brand));
+    return fs.existsSync(f) ? f : null;
+  } catch { return null; }
+}
 
 // A presenter film (route "presenter") has generated images, so its design systems must carry the art direction
 // they obey: a "## Imagery" section of at least 25 words. Any other route: optional. The run is two folders above
@@ -215,7 +225,7 @@ if (cmd === "looks") {
   if (problems.length) process.exit(2);
 } else if (cmd === "check-system") {
   if (!args.dir) die("--dir <run>/design/<label> required");
-  const r = await checkSystemFull(path.resolve(String(args.dir)), { hook: args.hook && args.hook !== true ? String(args.hook) : undefined, libraryIds: libraryIds(), brand: args.brand && args.brand !== true ? String(args.brand) : null, offline: !!args.offline, label: args.label && args.label !== true ? String(args.label) : undefined, mode: args.mode });
+  const r = await checkSystemFull(path.resolve(String(args.dir)), { hook: args.hook && args.hook !== true ? String(args.hook) : undefined, libraryIds: libraryIds(), brand: args.brand && args.brand !== true ? String(args.brand) : runBrand(path.resolve(String(args.dir), "..", "..")), offline: !!args.offline, label: args.label && args.label !== true ? String(args.label) : undefined, mode: args.mode });
   const dirAbs = path.resolve(String(args.dir));
   let md = "";
   try { md = fs.readFileSync(path.join(dirAbs, "DESIGN.md"), "utf8"); } catch {}
@@ -227,13 +237,21 @@ if (cmd === "looks") {
   const run = path.resolve(String(args.run));
   const dirs = LABELS.map((l) => path.join(run, "design", l)).filter((d) => fs.existsSync(d));
   if (dirs.length !== 3) die(`the design desk makes exactly three systems (Sure, Bold, Wild); found ${dirs.length} in ${args.run}/design`);
-  const r = await checkSystems(dirs, { hook: args.hook && args.hook !== true ? String(args.hook) : firstLine(run), libraryIds: libraryIds(), brand: args.brand && args.brand !== true ? String(args.brand) : null, offline: !!args.offline });
+  const r = await checkSystems(dirs, { hook: args.hook && args.hook !== true ? String(args.hook) : firstLine(run), libraryIds: libraryIds(), brand: args.brand && args.brand !== true ? String(args.brand) : runBrand(run), offline: !!args.offline });
   console.log(JSON.stringify({ ok: !r.P.length, problems: r.P, warnings: r.W, pairs: r.pairs, systems: r.systems }, null, 2));
   process.exit(r.P.length ? 2 : 0);
 } else if (cmd === "look-payload") {
   if (!args.run) die("--run <run dir> required");
   const pl = lookPayload(path.resolve(String(args.run)), { recommended: args.recommended, hook: args.hook && args.hook !== true ? String(args.hook) : "", sub: args.sub && args.sub !== true ? String(args.sub) : "" });
   if (pl.styles.length !== 3) die(`the Look step shows exactly the three bespoke systems; ${pl.styles.length} are ready in ${args.run}/design`);
+  // the brand lock: never show (or recommend) an off-brand look
+  const lockBrand = runBrand(path.resolve(String(args.run)));
+  if (lockBrand) {
+    const off = [];
+    for (const l of LABELS) { const r = checkSystem(path.join(path.resolve(String(args.run)), "design", l), { libraryIds: libraryIds(), brand: lockBrand, label: l }); off.push(...r.P.filter((x) => /brand lock/.test(x))); }
+    if (off.length) die(`brand lock: these looks leave the brand, fix them before the Look is pushed (never recommend an off-brand look): ${off.join(" | ")}`);
+    pl.brand_locked = path.relative(process.cwd(), lockBrand);
+  }
   if (args.out) writeFile(path.resolve(String(args.out)), JSON.stringify(pl, null, 2) + "\n");
   console.log(JSON.stringify(pl, null, 2));
 } else if (cmd === "choose-system") {

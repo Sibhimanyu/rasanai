@@ -1,0 +1,86 @@
+2	◆  Rendering chatgpt-for-mac → /Users/sibhi-zstch1643/Documents/RasanAI/ChatGPT for Mac launch test 2/videos/chatgpt-for-mac/renders/draft-v1.mp4
+7	◒  Checking browser[1G[J◇  Browser: cache
+9	  Lint: 0 error(s), 1 warning(s) — run with --lint-verbose for full output.
+15	  █░░░░░░░░░░░░░░░░░░░░░░░░  5%  Compiling composition
+27	[INFO] [Render:trace] {"renderJobId":"b7c55ca1-ddbd-4f86-84b6-0c87ab830d74","phase":"browser_probe","status":"checkpoint","elapsedMs":646,"message":"duration resolved","durationSeconds":30,"totalFrames":900,"compositionHash":"0e0cf5ba652e6bd2","beginFrameStalled":false}
+29	  ██░░░░░░░░░░░░░░░░░░░░░░░  10%  Extracting video frames
+35	  █████░░░░░░░░░░░░░░░░░░░░  20%  Processing audio tracks
+38	  ██████░░░░░░░░░░░░░░░░░░░  25%  Starting frame capture
+40	  ██████░░░░░░░░░░░░░░░░░░░  25%  Checking browser GPU
+42	[INFO] [Render:trace] {"renderJobId":"b7c55ca1-ddbd-4f86-84b6-0c87ab830d74","phase":"capture_calibration","status":"checkpoint","elapsedMs":1572,"message":"skipped","requestedWorkers":"auto","totalFrames":900,"htmlInCanvasDetected":false,"lowMemoryMode":false,"deInversionEligible":true,"deParallelRouterEligible":true}
+48	[INFO] [Render:trace] {"renderJobId":"b7c55ca1-ddbd-4f86-84b6-0c87ab830d74","phase":"capture_streaming","status":"start","elapsedMs":1573,"stagePhase":"capturing","workerCount":3,"forceScreenshot":false,"totalFrames":900,"framesCompleted":0,"captureMode":"drawelement","captureOperation":"drawElement"}
+52	  ██████░░░░░░░░░░░░░░░░░░░  25%  Starting browsers (0/3 ready)
+53	[BrowserManager] Browser launched (HeadlessChrome/152.0.7977.30, screenshot, gl=--use-gl=angle --use-angle=metal, headlessShell=true, platform=darwin)
+54	[BrowserManager] Browser launched (HeadlessChrome/152.0.7977.30, screenshot, gl=--use-gl=angle --use-angle=metal, headlessShell=true, platform=darwin)
+55	[BrowserManager] Browser launched (HeadlessChrome/152.0.7977.30, screenshot, gl=--use-gl=angle --use-angle=metal, headlessShell=true, platform=darwin)
+57	  ██████░░░░░░░░░░░░░░░░░░░  25%  Starting browsers (0/3 ready)
+65	  ██████░░░░░░░░░░░░░░░░░░░  25%  Starting browsers (0/3 ready)
+93	  ██████░░░░░░░░░░░░░░░░░░░  25%  Starting browsers (1/3 ready)
+98	  ██████░░░░░░░░░░░░░░░░░░░  25%  Streaming frame 1/900 (3 workers)
+99	  ██████░░░░░░░░░░░░░░░░░░░  26%  Streaming frame 16/900 (3 workers)
+100	  ██████░░░░░░░░░░░░░░░░░░░  27%  Streaming frame 28/900 (3 workers)
+101	  ███████░░░░░░░░░░░░░░░░░░  28%  Streaming frame 45/900 (3 workers)
+102	  ███████░░░░░░░░░░░░░░░░░░  29%  Streaming frame 60/900 (3 workers)
+103	  ███████░░░░░░░░░░░░░░░░░░  30%  Streaming frame 76/900 (3 workers)
+104	  ███████░░░░░░░░░░░░░░░░░░  30%  Streaming frame 88/900 (3 workers)
+105	  ███████░░░░░░░░░░░░░░░░░░  31%  Streaming frame 103/900 (3 workers)
+106	  ████████░░░░░░░░░░░░░░░░░  32%  Streaming frame 119/900 (3 workers)
+107	  ████████░░░░░░░░░░░░░░░░░  33%  Streaming frame 134/900 (3 workers)
+108	  ████████░░░░░░░░░░░░░░░░░  34%  Streaming frame 150/900 (3 workers)
+109	  ████████░░░░░░░░░░░░░░░░░  35%  Streaming frame 165/900 (3 workers)
+110	  █████████░░░░░░░░░░░░░░░░  36%  Streaming frame 180/900 (3 workers)
+111	  █████████░░░░░░░░░░░░░░░░  37%  Streaming frame 195/900 (3 workers)
+112	  █████████░░░░░░░░░░░░░░░░  38%  Streaming frame 210/900 (3 workers)
+113	  █████████░░░░░░░░░░░░░░░░  39%  Streaming frame 225/900 (3 workers)
+114	  ██████████░░░░░░░░░░░░░░░  40%  Streaming frame 241/900 (3 workers)
+115	  ██████████░░░░░░░░░░░░░░░  41%  Streaming frame 257/900 (3 workers)
+116	  ██████████░░░░░░░░░░░░░░░  42%  Streaming frame 272/900 (3 workers)
+117	  ██████████░░░░░░░░░░░░░░░  43%  Streaming frame 288/900 (3 workers)
+118	  ███████████░░░░░░░░░░░░░░  44%  Streaming frame 304/900 (3 workers)
+119	  ███████████░░░░░░░░░░░░░░  44%  Streaming frame 319/900 (3 workers)
+120	  ███████████░░░░░░░░░░░░░░  45%  Streaming frame 334/900 (3 workers)
+121	  ███████████░░░░░░░░░░░░░░  46%  Streaming frame 349/900 (3 workers)
+122	  ███████████░░░░░░░░░░░░░░  47%  Streaming frame 364/900 (3 workers)
+123	  ████████████░░░░░░░░░░░░░  48%  Streaming frame 380/900 (3 workers)
+124	  ████████████░░░░░░░░░░░░░  49%  Streaming frame 395/900 (3 workers)
+125	  ████████████░░░░░░░░░░░░░  50%  Streaming frame 410/900 (3 workers)
+126	  ████████████░░░░░░░░░░░░░  51%  Streaming frame 426/900 (3 workers)
+127	  ████████████░░░░░░░░░░░░░  51%  Streaming frame 430/900 (3 workers)
+128	  █████████████░░░░░░░░░░░░  52%  Streaming frame 446/900 (3 workers)
+129	  █████████████░░░░░░░░░░░░  53%  Streaming frame 461/900 (3 workers)
+130	  █████████████░░░░░░░░░░░░  54%  Streaming frame 476/900 (3 workers)
+131	  █████████████░░░░░░░░░░░░  55%  Streaming frame 491/900 (3 workers)
+132	  ██████████████░░░░░░░░░░░  56%  Streaming frame 503/900 (3 workers)
+133	  ██████████████░░░░░░░░░░░  57%  Streaming frame 519/900 (3 workers)
+134	  ██████████████░░░░░░░░░░░  58%  Streaming frame 534/900 (3 workers)
+135	  ██████████████░░░░░░░░░░░  59%  Streaming frame 551/900 (3 workers)
+136	  ██████████████░░░░░░░░░░░  59%  Streaming frame 557/900 (3 workers)
+137	  ███████████████░░░░░░░░░░  60%  Streaming frame 569/900 (3 workers)
+138	  ███████████████░░░░░░░░░░  61%  Streaming frame 584/900 (3 workers)
+139	  ███████████████░░░░░░░░░░  62%  Streaming frame 599/900 (3 workers)
+140	  ███████████████░░░░░░░░░░  63%  Streaming frame 614/900 (3 workers)
+141	  ███████████████░░░░░░░░░░  63%  Streaming frame 623/900 (3 workers)
+142	  ████████████████░░░░░░░░░  64%  Streaming frame 638/900 (3 workers)
+143	  ████████████████░░░░░░░░░  64%  Streaming frame 644/900 (3 workers)
+144	  ████████████████░░░░░░░░░  65%  Streaming frame 650/900 (3 workers)
+145	  ████████████████░░░░░░░░░  66%  Streaming frame 665/900 (3 workers)
+146	  ████████████████░░░░░░░░░  67%  Streaming frame 680/900 (3 workers)
+147	  ████████████████░░░░░░░░░  67%  Streaming frame 695/900 (3 workers)
+148	  █████████████████░░░░░░░░  68%  Streaming frame 710/900 (3 workers)
+149	  █████████████████░░░░░░░░  69%  Streaming frame 725/900 (3 workers)
+150	  █████████████████░░░░░░░░  70%  Streaming frame 742/900 (3 workers)
+151	  █████████████████░░░░░░░░  71%  Streaming frame 760/900 (3 workers)
+152	  ██████████████████░░░░░░░  73%  Streaming frame 779/900 (3 workers)
+153	  ██████████████████░░░░░░░  74%  Streaming frame 797/900 (3 workers)
+154	  ██████████████████░░░░░░░  75%  Streaming frame 815/900 (3 workers)
+155	  ███████████████████░░░░░░  76%  Streaming frame 835/900 (3 workers)
+156	  ███████████████████░░░░░░  77%  Streaming frame 854/900 (3 workers)
+157	  ███████████████████░░░░░░  78%  Streaming frame 874/900 (3 workers)
+158	  ████████████████████░░░░░  80%  Streaming frame 892/900 (3 workers)
+159	  ████████████████████░░░░░  80%  Streaming frame 900/900 (3 workers)
+160	[INFO] [Render:trace] {"renderJobId":"b7c55ca1-ddbd-4f86-84b6-0c87ab830d74","phase":"capture_streaming","status":"end","elapsedMs":20923,"durationMs":19350,"stagePhase":"capturing","workerCount":3,"forceScreenshot":false,"totalFrames":900,"framesCompleted":900,"captureMode":"drawelement","captureOperation":"encode"}
+161	[INFO] [Render:trace] {"renderJobId":"b7c55ca1-ddbd-4f86-84b6-0c87ab830d74","phase":"assemble","status":"start","elapsedMs":20924,"stagePhase":"capturing","hasAudio":true,"workerCount":3,"forceScreenshot":false,"totalFrames":900,"framesCompleted":900,"captureMode":"drawelement","captureOperation":"encode"}
+162	  ██████████████████████░░░  90%  Assembling final video
+163	[INFO] [Render:trace] {"renderJobId":"b7c55ca1-ddbd-4f86-84b6-0c87ab830d74","phase":"assemble","status":"end","elapsedMs":21495,"durationMs":571,"stagePhase":"capturing","hasAudio":true,"workerCount":3,"forceScreenshot":false,"totalFrames":900,"framesCompleted":900,"captureMode":"drawelement","captureOperation":"encode"}
+165	  █████████████████████████  100%  Render complete
+167	◇  /Users/sibhi-zstch1643/Documents/RasanAI/ChatGPT for Mac launch test 2/videos/chatgpt-for-mac/renders/draft-v1.mp4

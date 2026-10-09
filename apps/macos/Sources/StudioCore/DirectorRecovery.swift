@@ -9,15 +9,20 @@ public enum DirectorRecovery: String, Sendable {
         public var pushedAnyStep: Bool
         public var currentStep: String
         public var finished: Bool
-        public init(pushedAnyStep: Bool = false, currentStep: String = "brief", finished: Bool = false) {
-            self.pushedAnyStep = pushedAnyStep; self.currentStep = currentStep; self.finished = finished
+        /// A question is open or the current step is waiting for the person: the film is not stuck, it is their turn.
+        public var awaitingUser: Bool
+        public init(pushedAnyStep: Bool = false, currentStep: String = "brief", finished: Bool = false, awaitingUser: Bool = false) {
+            self.pushedAnyStep = pushedAnyStep; self.currentStep = currentStep; self.finished = finished; self.awaitingUser = awaitingUser
         }
         public init(session: SessionSnapshot?) {
             guard let session else { self.init(); return }
             let steps = session.raw["steps"].object
             let pushed = steps.values.contains { ($0["status"].string ?? "working") != "working" }
             let done = session.stage == .final && session.final["status"].string == "done"
-            self.init(pushedAnyStep: pushed, currentStep: session.currentStep, finished: done)
+            let payload = session.step(session.currentStep)
+            let waiting = session.ask != nil
+                || (payload["status"].string == "awaiting" && (payload["sent"] == .null || payload["sent"]["type"].string == "note"))
+            self.init(pushedAnyStep: pushed, currentStep: session.currentStep, finished: done, awaitingUser: waiting)
         }
     }
 
@@ -25,6 +30,7 @@ public enum DirectorRecovery: String, Sendable {
     /// (the director must keep waiting on the console, so a quiet exit 0 means it gave up). Returns nil for a real finish.
     public static func classify(exitCode: Int32, log: String, progress: Progress) -> (recovery: Self, detail: String)? {
         if exitCode == 0 && progress.finished { return nil }
+        if let limit = SessionLimit.detect(in: log) { return (.usageLimit, limit.message) }
         let denied = permissionDenials(in: log)
         if !denied.isEmpty {
             let list = denied.prefix(3).map { "• " + $0 }.joined(separator: "\n")
@@ -38,7 +44,7 @@ public enum DirectorRecovery: String, Sendable {
             return (.stoppedEarly, "The director's helpers were still running when its session timed out, so it ended early. Resume continues from the saved state.")
         }
         let step = FilmStepName.friendly(progress.currentStep)
-        let detail = progress.pushedAnyStep ? "The director stopped before the \(step) step was finished." : "The director stopped before it pushed anything to the console."
+        let detail = progress.pushedAnyStep ? "The director stopped before the \(step) step was finished." : "The director stopped before it showed you anything."
         return (.stoppedEarly, detail)
     }
 

@@ -2,6 +2,13 @@ import AppKit
 import Observation
 import StudioCore
 
+struct AutoResumeNotice: Equatable {
+    var text: String
+    var since: Date
+    var resumesAt: Date?
+    var isLimit = false
+}
+
 @MainActor @Observable
 final class DirectorRuntime {
     var isRunning = false
@@ -18,6 +25,12 @@ final class DirectorRuntime {
     /// Set when the exit was claude --print ending the session over its background-task ceiling (safe to resume once automatically).
     var endedOnBackgroundCeiling = false
     var preflightReport: PreflightReport?
+    /// Set when the director stopped mid-film and Studio is about to resume it by itself, or is waiting for a plan limit to reset.
+    var autoResume: AutoResumeNotice?
+    /// What Studio decided to do about the last exit (see `AutoResumePolicy`).
+    var autoResumeDecision: AutoResumePolicy.Decision = .none
+    /// When each run was last resumed automatically, so a second stop soon after is shown as a failure.
+    var lastAutoResume: [String: Date] = [:]
     var onExit: ((Int32, Bool) -> Void)?
     var projectURL: URL? { activeProject }
     var runURL: URL? { activeRun }
@@ -43,6 +56,8 @@ final class DirectorRuntime {
         env["PATH"] = ([node.deletingLastPathComponent().path] + LocalAgent.searchDirectories).joined(separator: ":")
         env["RASANAI_NO_UPDATE_CHECK"] = "1"
         env["RASANAI_AUTO_UPDATE"] = "0"
+        // No console server: Studio reads the run's files, and every console.mjs command the director runs is headless.
+        env["RASANAI_CONSOLE_HEADLESS"] = "1"
         env.removeValue(forKey: "CLAUDECODE")
         for (key, value) in DirectorLaunch.environmentOverrides { env[key] = value }
         // Image generation goes through Codex whichever director runs the film.
@@ -62,6 +77,7 @@ final class DirectorRuntime {
         guard FileManager.default.isExecutableFile(atPath: executable.path) else { throw RuntimeError.missingAgent }
         isPreparing = true
         startedAt = Date(); recovery = nil; recoveryDetail = ""; endedOnBackgroundCeiling = false; preflightReport = nil
+        autoResume = nil; autoResumeDecision = .none
         status = "Checking director sign-in…"
         lastExitCode = nil; stopRequested = false
         defer { isPreparing = false }
@@ -88,14 +104,12 @@ final class DirectorRuntime {
         let seededBrief = try BriefSeed.seedFile(at: session, title: project.lastPathComponent, draft: FilmDraft.load(in: project))
         // The launch prompt only promises a brief when the session really carries one.
         let briefInSession = seededBrief || ((try? SessionSnapshot(data: Data(contentsOf: session)))?.step("brief")["fields"]["subject"].string ?? "").isEmpty == false
-        status = "Opening the review workspace…"
-        let code = try await Self.execute(node, arguments: [engine.appendingPathComponent("scripts/console.mjs").path,
-            "serve", "--run", run.path, "--root", project.path], directory: project, environment: environment)
-        guard code == 0 else { throw RuntimeError.consoleFailed }
         status = "Starting \(agent.title)…"
         DirectorPermissions.prepareDataFolders(home: FileManager.default.homeDirectoryForCurrentUser, toolsDirectory: LocalAgent.managedToolsDirectory)
+        let draft = FilmDraft.load(in: project)
         let launch = try DirectorLaunch(agent: agent, executable: executable, engine: engine, project: project, run: run,
-            request: request, model: model ?? settings.model(for: agent), allowUnrestrictedTools: unrestrictedTools ?? settings.allowUnrestrictedTools, briefSeeded: briefInSession)
+            request: request, model: model ?? settings.model(for: agent), allowUnrestrictedTools: unrestrictedTools ?? settings.allowUnrestrictedTools, briefSeeded: briefInSession,
+            pace: draft?.pace ?? settings.pace, modelPlan: draft?.modelPlan ?? .recommended)
         let job = JSONValue.object(["executable": .string(executable.path), "arguments": .array(launch.arguments.map(JSONValue.string)), "cwd": .string(project.path)])
         let jobURL = run.appendingPathComponent("director-job.json")
         try JSONEncoder().encode(job).write(to: jobURL, options: .atomic)
@@ -125,16 +139,31 @@ final class DirectorRuntime {
                 self.status = self.stopRequested ? "Director stopped · your files are preserved; resume when ready" : (code == 0 ? "Director finished" : "Director stopped (\(code)) · inspect the log, fix prerequisites or permissions, then resume")
                 if !self.stopRequested {
                     // Any exit that leaves the film unfinished is a failure, including a quiet exit 0 with nothing pushed.
-                    let outcome = await Task.detached { () -> (recovery: DirectorRecovery, detail: String)? in
+                    let result = await Task.detached { () -> (outcome: (recovery: DirectorRecovery, detail: String)?, progress: DirectorRecovery.Progress, tail: String) in
                         let progress = DirectorRecovery.Progress(session: try? SessionSnapshot(data: Data(contentsOf: run.appendingPathComponent("session.json"))))
-                        return DirectorRecovery.classify(exitCode: code, log: Self.readLogTail(log), progress: progress)
+                        let tail = Self.readLogTail(log)
+                        return (DirectorRecovery.classify(exitCode: code, log: tail, progress: progress), progress, tail)
                     }.value
                     guard self.identity == identity else { return }
-                    if let outcome {
+                    if let outcome = result.outcome {
                         self.recovery = outcome.recovery; self.recoveryDetail = outcome.detail
-                        self.endedOnBackgroundCeiling = DirectorRecovery.hitBackgroundCeiling(log: Self.readLogTail(log))
+                        self.endedOnBackgroundCeiling = DirectorRecovery.hitBackgroundCeiling(log: result.tail)
                         if code == 0 { self.status = "\(outcome.recovery.title) · open the log, then resume" }
                     }
+                    let decision = AutoResumePolicy.decide(outcome: result.outcome, stopRequested: false, progress: result.progress, log: result.tail,
+                                                           lastAutoResume: self.lastAutoResume[run.path])
+                    self.autoResumeDecision = decision
+                    switch decision {
+                    case .none: break
+                    case .resume(let delay):
+                        self.autoResume = AutoResumeNotice(text: AutoResumePolicy.resumingText, since: Date(), resumesAt: Date().addingTimeInterval(delay))
+                        self.status = AutoResumePolicy.resumingText
+                    case .waitForLimit(let limit):
+                        self.autoResume = AutoResumeNotice(text: limit.message, since: Date(), resumesAt: limit.resetsAt, isLimit: true)
+                        self.status = limit.message
+                    }
+                } else {
+                    self.autoResumeDecision = .none
                 }
                 self.onExit?(finished.terminationStatus, self.stopRequested)
             }
@@ -147,17 +176,10 @@ final class DirectorRuntime {
         return run
     }
     private var identity = UUID()
-    func reconnect(run: URL, root: URL, settings: StudioSettings) async throws {
-        guard let node = settings.nodeURL else { throw RuntimeError.missingNode }
-        guard let engine = Self.engineURL else { throw RuntimeError.missingEngine }
-        let code = try await Self.execute(node, arguments: [engine.appendingPathComponent("scripts/console.mjs").path,
-            "serve", "--run", run.path, "--root", root.path], directory: root, environment: environment(node: node, settings: settings))
-        guard code == 0 else { throw RuntimeError.consoleFailed }
-    }
     func clearPresentation() {
         guard !isRunning, !isPreparing, !isFinishing else { return }
         lastExitCode = nil; stopRequested = false; logURL = nil; activeRun = nil; activeProject = nil
-        startedAt = nil; recovery = nil; recoveryDetail = ""
+        startedAt = nil; recovery = nil; recoveryDetail = ""; autoResume = nil; autoResumeDecision = .none
         status = "Director stopped"
     }
     func stop() {
@@ -199,7 +221,7 @@ final class DirectorRuntime {
             case .missingEngine: "RasanAI's bundled tools are missing. Download a fresh copy of the app. Your films remain in your library."
             case .missingNode: "Node.js 22 or newer is required. Check the Node path in Settings → Director → Advanced."
             case .missingAgent: "Your director isn't installed. Open Help → Show Welcome to install and sign in."
-            case .consoleFailed: "The local console could not start. Check the Node installation and the selected project permissions."
+            case .consoleFailed: "A helper command did not finish. Check the Node installation and the selected project permissions."
             case .preflightFailed(let issues): "Resolve these items before starting:\n\(issues)"
             case .directorNotReady(let reason): "Your director isn't ready to start. \(reason) Open Help → Show Welcome to sign in and recheck."
             }

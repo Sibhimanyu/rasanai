@@ -200,6 +200,10 @@ struct NoteSheet: View {
             Task { @MainActor in await DirectorMonitorFixtures.run(into: monitorShots); exit(0) }
             return
         }
+        if let shots = SnapshotHarness.stagesDirectory, SnapshotHarness.onlyStages == ["progress"] {
+            Task { @MainActor in await ProgressFixtures.run(into: shots); exit(0) }
+            return
+        }
         if let stages = SnapshotHarness.stagesDirectory {
             Task { @MainActor in
                 await StageFixtures.run(into: stages, only: SnapshotHarness.onlyStages)

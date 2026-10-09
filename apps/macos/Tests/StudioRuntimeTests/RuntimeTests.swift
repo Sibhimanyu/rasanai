@@ -103,7 +103,7 @@ import StudioCore
         XCTAssertEqual(reloaded.defaultAgent, "codex")
         XCTAssertFalse(reloaded.allowUnrestrictedTools)
     }
-    func testConsoleBootstrapsAndDirectorExitIsObservedWithoutProviderCalls() async throws {
+    func testRunIsFileOnlyAndDirectorExitIsObservedWithoutProviderCalls() async throws {
         let suite = "rasanai-runtime-test-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -115,13 +115,17 @@ import StudioCore
         guard let node = settings.nodeURL else { throw XCTSkip("Node is required for runtime integration") }
         let runtime = DirectorRuntime()
         let run = try await runtime.start(project: root, request: "Fixture test only", settings: settings)
-        let address = try ConsoleAddress(data: Data(contentsOf: run.appendingPathComponent("address.json")))
-        XCTAssertEqual(address.root.path, root.path)
-        let state = try await ConsoleClient(address: address).state()
+        // No console server: no address file, the director's environment is headless, and the seeded session is readable as is.
+        XCTAssertFalse(FileManager.default.fileExists(atPath: run.appendingPathComponent("address.json").path))
+        XCTAssertEqual(runtime.environment(node: node)["RASANAI_CONSOLE_HEADLESS"], "1")
+        XCTAssertEqual(RunWorkspace.root(for: run).standardizedFileURL.path, root.standardizedFileURL.path)
+        let state = try XCTUnwrap(RunTransport(run: run).readSession())
         XCTAssertEqual(state.title, root.lastPathComponent)
-        for _ in 0..<100 where runtime.isRunning { try await Task.sleep(for: .milliseconds(50)) }
+        // Wait for the exit to be classified too: isRunning drops before the async classification lands.
+        for _ in 0..<200 where runtime.isRunning || runtime.isFinishing || runtime.recovery == nil { try await Task.sleep(for: .milliseconds(50)) }
         XCTAssertFalse(runtime.isRunning)
-        XCTAssertTrue(runtime.status.contains("finished"))
+        // A stub director that exits 0 having pushed nothing is a quiet stop, not a finished film.
+        XCTAssertEqual(runtime.recovery, .stoppedEarly, runtime.status)
         XCTAssertEqual((try FileManager.default.attributesOfItem(atPath: run.appendingPathComponent("director-job.json").path)[.posixPermissions] as? NSNumber)?.intValue, 0o600)
         let engine = try XCTUnwrap(DirectorRuntime.engineURL)
         _ = try await DirectorRuntime.execute(node, arguments: [engine.appendingPathComponent("scripts/console.mjs").path, "stop", "--run", run.path], directory: root, environment: runtime.environment(node: node))

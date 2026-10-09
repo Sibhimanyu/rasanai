@@ -240,10 +240,9 @@ enum SnapshotHarness {
         window.setFrameOrigin(NSPoint(x: 60, y: 60))
         window.alphaValue = 0.01
         window.isReleasedWhenClosed = false
-        window.makeKeyAndOrderFront(nil)
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKey()
+        // Invisible (alpha 0.01) and never activated: the render must not take focus from whoever is using the Mac.
+        window.orderFrontRegardless()
+        NSApp.setActivationPolicy(.accessory)
         if let push { try? await Task.sleep(for: .milliseconds(700)); push() }
         try? await Task.sleep(for: .milliseconds(1400))
         window.contentView?.layoutSubtreeIfNeeded()

@@ -96,7 +96,7 @@ struct StudioView: View {
     private var errorActions: [ErrorAction] {
         var actions: [ErrorAction] = []
         if errorNeedsSettings(store.errorMessage) { actions.append(ErrorAction(title: "Open Settings") { openSettings() }) }
-        if store.runURL != nil && !store.isConnected { actions.append(ErrorAction(title: "Reconnect") { store.reconnectConsole() }) }
+        if store.runURL != nil && !store.isConnected { actions.append(ErrorAction(title: "Reload film") { store.reloadFilm() }) }
         if store.canResume { actions.append(ErrorAction(title: "Resume Director") { store.resumeDirector() }) }
         if store.runtime.logURL != nil { actions.append(ErrorAction(title: "Show Log") { store.sheet = .log }) }
         return Array(actions.prefix(2))

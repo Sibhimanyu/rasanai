@@ -13,7 +13,7 @@ let package = Package(
         .target(name: "StudioCore"),
         .executableTarget(name: "RasanAIStudio", dependencies: ["StudioCore", .product(name: "Sparkle", package: "Sparkle"), .product(name: "Heresay", package: "heresay-swift")], resources: [.process("Resources")],
             linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])]),
-        .testTarget(name: "StudioCoreTests", dependencies: ["StudioCore"]),
+        .testTarget(name: "StudioCoreTests", dependencies: ["StudioCore"], resources: [.copy("Fixtures")]),
         .testTarget(name: "StudioRuntimeTests", dependencies: ["RasanAIStudio", "StudioCore"])
     ]
 )

@@ -20,6 +20,10 @@ A good script is not a description of a video. It is the film in words: every se
 
 The script is written once and travels: the Story card shows it, `scenes.json` is built from it, and the voice records its `vo` lines.
 
+## Launch, promo and product films are product-first
+
+For the route `product-launch-video` and any launch, promo, product or app film, read `references/product-first.md` before the passes below, and let it win wherever it conflicts: the real product UI is on screen within 3 s; one hero product moment shows the key feature for real; 2 to 4 real uses; short plain kinetic lines; the required end line is the largest type in the film on a clean CTA card; no museums, allegories, invented worlds, extended metaphors or cover versions (an instant visual pun that resolves to the product within a second is the only allowed figure). Sure, Bold and Wild differ in structure, pacing and energy, never in leaving the product. Write the pitch's `hero_moment`, `uses`, `last_line` and `end_line_largest`; `story.mjs check` runs gate G7 on them. The worked example below that uses a museum is a *brand-film* conceit: do not copy it for a product film; the product-first example follows it.
+
 ## The eight passes
 
 Write in passes, not in one go. Each pass has one question.
@@ -103,7 +107,7 @@ Never open with: "Introducing…", "Meet…", "What if…?", "Tired of…?", "In
 
 **Default version (rejected):** "Tired of messy receipts? Introducing Tally. Scan receipts instantly. Track expenses effortlessly. Get tax-ready reports. Tally: the future of bookkeeping. Try it free today!" It fails the swap test (works for any expense app), opens on a stock question, lists three features in a row, uses four banned words and ends on an exclamation.
 
-**Written version (Bold: the museum device):**
+**Written version (a conceit film: the museum device. For a brand film only; a launch or product film never does this):**
 
 | s | Beat | On screen | Voiceover | Visual |
 |---|---|---|---|---|
@@ -118,6 +122,21 @@ Never open with: "Introducing…", "Meet…", "What if…?", "Tired of…?", "In
 
 About 45 voiceover words, music-only open and close, value by beat 2, the turn at 62%, every line short enough to read.
 
+**Written version (product-first, Sure: the same product, led by the real UI):**
+
+| s | Beat | On screen | Voiceover | Visual |
+|---|---|---|---|---|
+| 0-3 | Hook (UI on screen) | Snap a receipt. | | The real Tally app, a crumpled receipt on the desk; the camera in the app, the scan frame locks on. |
+| 3-9 | Hero moment | Tally reads it. | "Point at a receipt. Tally reads it." | The real scan: amount, vendor and category fill the row, held long enough to read. |
+| 9-14 | Use 1 | Every receipt. | | A stack of six receipts become six ledger rows, in the real list. |
+| 14-19 | Use 2 | Every month. | | The month view totals itself, the real chart. |
+| 19-25 | Use 3 | Tax time, done. | | One tap exports the real report. |
+| 25-31 | Turn | No shoebox. | "No shoebox. No Sunday." | The camera pulls back from the empty desk. |
+| 31-36 | Payoff | Books that keep up. | | The ledger, in Tally's own colours. |
+| 36-45 | End | Get Tally free | | The CTA card: the line is the largest type, the name and URL small beneath it, held still. |
+
+The product is on screen at 0 s, the hero moment is the longest shot, three real uses, short plain lines, the end line the biggest type. Bold would keep the same beats and cut them to the beat of the music as kinetic type over the UI; Wild would run it as one unbroken take through the product.
+
 ## Self-check before `story.mjs check`
 
 - [ ] The one sentence is in the viewer's words, and the film proves it.
@@ -130,7 +149,8 @@ About 45 voiceover words, music-only open and close, value by beat 2, the turn a
 - [ ] Beat lengths vary; the turn and the reveal are the longest.
 - [ ] The end holds the name and one call to action for 2 to 3 s.
 - [ ] Read aloud at a calm pace, it fits the time with room to spare.
-- [ ] The three scripts would make three different films (device, protagonist, visual world, first image, last line).
+- [ ] The three scripts would make three different films (device, protagonist, visual world, first image, last line). Product-first films: three different *structures, paces and energies* of the same product-led film (the first image of all three is the real product).
+- [ ] Product-first films: UI on screen within 3 s; a hero moment; 2 to 4 real uses; lines of 6 words or fewer; the end line the largest type; nothing is a museum, allegory, invented world or metaphor.
 
 Then run the checker. G1 to G5 judge the story; G6 judges the script (length, hook, value, reading time, voiceover pace and sentence length, repeats, stock copy, rhythm, the end):
 

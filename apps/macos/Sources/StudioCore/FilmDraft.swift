@@ -23,7 +23,7 @@ public enum ModelPlan: String, CaseIterable, Codable, Identifiable, Sendable {
     }
     public var summary: String {
         switch self {
-        case .recommended: "Opus directs, writes and animates. Sonnet takes research and routine jobs to save your usage."
+        case .recommended: "Opus directs, writes and judges. Sonnet takes research and routine jobs, and at Fast pace the key frames and animation too."
         case .opus: "Opus on every job. The most ambitious result, and the most usage."
         case .sonnet: "Sonnet on every job. Fast and light on usage; plainer, safer motion."
         case .settings: "Whatever model is set in Settings → Director (Default if empty)."
@@ -36,11 +36,20 @@ public enum ModelPlan: String, CaseIterable, Codable, Identifiable, Sendable {
         case .settings: nil
         }
     }
-    var direction: String? {
+    func direction(pace: FilmPace) -> String? {
         switch self {
-        case .recommended: """
-            MODEL PLAN: RECOMMENDED. You are the director on Claude Opus 5.5. Keep every role that decides how the film reads, looks or moves on Opus 5.5: the script and design desks, the Motion Director, the scene animators and the critics. Hand the gathering roles (product, brand and screens researchers, the local scout) and routine mechanical work (reading logs, transcripts, file moves, running lint and render checks) to Sonnet 5.5 subagents to save the user's usage. Never give Sonnet a judgement or creative role.
-            """
+        case .recommended:
+            switch pace {
+            case .fast: """
+                MODEL PLAN: RECOMMENDED (FAST PACE). You are the director on Claude Opus 5.5. Keep Opus 5.5 for the roles that decide how the film reads, looks and moves: the script and design desks, the Motion Director's score and the one final fresh-eyes review. Hand everything else to Sonnet 5.5 subagents to keep the film fast and the user's usage low: the gathering roles (product, brand and screens researchers, the local scout), key frames, scene animators, fix agents, gate checks, renders and routine mechanical work. The BUILD PLAN above gives the same split; if any engine crew file says otherwise, this plan and the BUILD PLAN win. Never give Sonnet the script, the design systems or the final review.
+                """
+            case .standard: """
+                MODEL PLAN: RECOMMENDED (STANDARD PACE). You are the director on Claude Opus 5.5. Keep Opus 5.5 for the roles that decide how the film reads, looks and moves: the script and design desks, the Motion Director's score, key frames and the critics. Hand the gathering roles (product, brand and screens researchers, the local scout), scene animators, fix agents, gate checks, renders and routine mechanical work to Sonnet 5.5 subagents. The BUILD PLAN above gives the same split; if any engine crew file says otherwise, this plan and the BUILD PLAN win.
+                """
+            case .thorough: """
+                MODEL PLAN: RECOMMENDED. You are the director on Claude Opus 5.5. Keep every role that decides how the film reads, looks or moves on Opus 5.5: the script and design desks, the Motion Director, the scene animators and the critics. Hand the gathering roles (product, brand and screens researchers, the local scout) and routine mechanical work (reading logs, transcripts, file moves, running lint and render checks) to Sonnet 5.5 subagents to save the user's usage. Never give Sonnet a judgement or creative role.
+                """
+            }
         case .opus: """
             MODEL PLAN: OPUS EVERYWHERE. The user chose Claude Opus 5.5 for every role. Do not hand any role to a smaller model.
             """
@@ -63,10 +72,13 @@ public struct FilmDraft: Codable, Equatable, Sendable {
     /// Name of the brand kit applied to this film, if any.
     public var brand: String?
     public var modelPlan: ModelPlan
-    public init(brief: String = "", duration: Int = 45, aspect: String = "16:9", agent: String = "claude", motionLevel: String = "maximal", brand: String? = nil, modelPlan: ModelPlan = .recommended) {
-        self.brief = brief; self.duration = duration; self.aspect = aspect; self.agent = agent; self.motionLevel = motionLevel; self.brand = brand; self.modelPlan = modelPlan
+    /// How fast the director works (research budget and build plan). New films start Fast; drafts saved before this existed read as Standard.
+    public var pace: FilmPace
+    public init(brief: String = "", duration: Int = 45, aspect: String = "16:9", agent: String = "claude", motionLevel: String = "maximal", brand: String? = nil, modelPlan: ModelPlan = .recommended, pace: FilmPace = .defaultForNewFilms) {
+        self.brief = brief; self.duration = duration; self.aspect = aspect; self.agent = agent; self.motionLevel = motionLevel; self.brand = brand; self.modelPlan = modelPlan; self.pace = pace
     }
-    private enum CodingKeys: String, CodingKey { case brief, duration, aspect, agent, motionLevel, brand, modelPlan }
+    private enum CodingKeys: String, CodingKey { case brief, duration, aspect, agent, motionLevel, brand, modelPlan, pace }
+    private enum LegacyKeys: String, CodingKey { case researchDepth }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         brief = try c.decode(String.self, forKey: .brief)
@@ -76,6 +88,10 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         motionLevel = try c.decodeIfPresent(String.self, forKey: .motionLevel) ?? "maximal"
         brand = try c.decodeIfPresent(String.self, forKey: .brand)
         modelPlan = (try? c.decodeIfPresent(ModelPlan.self, forKey: .modelPlan)) ?? .recommended
+        // The first version of this setting was "researchDepth" (quick, standard, deep).
+        let old = try decoder.container(keyedBy: LegacyKeys.self)
+        pace = (try? c.decodeIfPresent(FilmPace.self, forKey: .pace))
+            ?? (try? old.decodeIfPresent(String.self, forKey: .researchDepth)).flatMap { $0 }.flatMap(FilmPace.init(legacyResearchDepth:)) ?? .legacy
     }
     /// The `--model` value for the director: the chosen plan under Claude Code, otherwise the Settings model.
     public func cliModel(settingsModel: String) -> String {
@@ -97,7 +113,7 @@ public struct FilmDraft: Codable, Equatable, Sendable {
     public func creativeDirection(sources: [URL]) -> String {
         let level = Self.motionLevels.contains(motionLevel) ? motionLevel : "maximal"
         var text = "MOTION GRAPHICS LEVEL: \(level.uppercased())\n" + Self.levelText[level]!
-        if agent == "claude", let plan = modelPlan.direction { text += "\n\n" + plan }
+        if agent == "claude", let plan = modelPlan.direction(pace: pace) { text += "\n\n" + plan }
         if sources.contains(where: { Self.videoExtensions.contains($0.pathExtension.lowercased()) }) {
             text += "\n\nFOOTAGE REEL\n" + Self.footageText[level]!
             text += "\n\nPRESENTER FILMS\n" + Self.presenterText[level]!
@@ -148,6 +164,13 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         If the footage is a talking head shot on a green or blue screen, or the brief asks to put the speaker into other worlds, use the presenter route (RasanAI's Presenter films): key the speaker out, but use fewer image plates, only where they earn it, mostly the full-frame presenter layout and the presenter-only layout, with a few simple titles. Ask nothing in chat.
         """,
     ]
+    /// The pace this film was started with, or nil when the draft is missing or never recorded one (older drafts, imported runs).
+    public static func savedPace(in project: URL) -> FilmPace? {
+        guard let data = try? Data(contentsOf: project.appendingPathComponent("rasanai-brief.json")),
+              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+        if let raw = object["pace"] as? String, let pace = FilmPace(rawValue: raw) { return pace }
+        return (object["researchDepth"] as? String).flatMap(FilmPace.init(legacyResearchDepth:))
+    }
     public static func load(in project: URL) -> FilmDraft? {
         guard let data = try? Data(contentsOf: project.appendingPathComponent("rasanai-brief.json")) else { return nil }
         guard var draft = try? JSONDecoder().decode(Self.self, from: data) else { return nil }
@@ -174,7 +197,7 @@ public struct FilmEditorDraft: Codable, Equatable, Sendable {
         self.name = name; self.film = film; self.sources = sources; self.project = project
     }
     public var isEmpty: Bool {
-        name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && film == FilmDraft(agent: film.agent) && sources.isEmpty && project == nil
+        name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && film == FilmDraft(agent: film.agent, pace: film.pace) && sources.isEmpty && project == nil
     }
 }
 
