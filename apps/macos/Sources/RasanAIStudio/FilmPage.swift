@@ -30,7 +30,7 @@ struct FilmPage: View {
                 if store.runtime.isPreparing || store.runtime.isRunning { StartingView(runtime: store.runtime) }
                 else { DraftView(store: store, url: url, draft: draft) }
             } else if showsFinished {
-                withDecisions { FinishedView(store: store) }
+                FinishedView(store: store)
             } else if let film = store.film, store.isConnected || store.runtime.isRunning || store.runtime.isPreparing {
                 NativeFilmView(model: film, startedAt: store.runtime.startedAt, progress: store.progress,
                                onPause: store.runtime.isRunning ? { store.pauseDirector() } : nil,
@@ -39,17 +39,13 @@ struct FilmPage: View {
             } else if store.runtime.isRunning || store.runtime.isPreparing {
                 StartingView(runtime: store.runtime)
             } else {
-                withDecisions { NotRunningView(store: store) }
+                NotRunningView(store: store)
             }
         }
         .background(Color(nsColor: .windowBackgroundColor))
     }
 
-    /// Pages without the native stage view (finished, console not running) still get the Decisions inspector, with
-    /// the same toolbar buttons (see `toolbarItems`), so a finished film's calls and the conversation stay reachable.
-    @ViewBuilder private func withDecisions<Page: View>(@ViewBuilder _ page: () -> Page) -> some View {
-        if let film = store.film { DecisionsHost(model: film, page: page()) } else { page() }
-    }
+
     /// Film progress carries its own pause button and log link, so the thin banner would only repeat it.
     private var showsFilmProgress: Bool {
         guard store.progress != nil, let route = store.film?.route else { return false }
@@ -83,11 +79,18 @@ struct FilmPage: View {
             }
     }
 
-    var body: some View {
-        VStack(spacing: 0) {
+    /// The Decisions inspector wraps the stage bar too, so it runs the window's full height on every film page
+    /// (native stages, finished, console not running), with the same toolbar buttons (see `toolbarItems`).
+    @ViewBuilder private var chromeAndContent: some View {
+        let page = VStack(spacing: 0) {
             topChrome
             pageContent
         }
+        if let film = store.film { DecisionsHost(model: film, page: page) } else { page }
+    }
+
+    var body: some View {
+        chromeAndContent
         .animation(.snappy, value: ready)
         .animation(.snappy, value: showsFinished)
         .navigationTitle(ready ? store.currentFilmTitle : "Film")
@@ -274,7 +277,7 @@ struct DirectorProgressView: View {
     }
 }
 
-private struct DecisionsHost<Page: View>: View {
+struct DecisionsHost<Page: View>: View {
     @Bindable var model: FilmSessionModel
     let page: Page
     var body: some View { page.inspector(isPresented: $model.decisionsPresented) { DecisionsInspector(model: model) } }
@@ -570,9 +573,11 @@ struct SamplePage: View {
     var body: some View {
         VStack(spacing: 0) {
             if let film = store.film {
-                FilmStageBar(current: film.snapshot.stage, viewing: film.viewingStage,
-                             canSelect: { _ in true }, onSelect: { film.view($0) })
-                NativeFilmView(model: film)
+                DecisionsHost(model: film, page: VStack(spacing: 0) {
+                    FilmStageBar(current: film.snapshot.stage, viewing: film.viewingStage,
+                                 canSelect: { _ in true }, onSelect: { film.view($0) })
+                    NativeFilmView(model: film)
+                })
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

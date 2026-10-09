@@ -208,10 +208,10 @@ enum StageFixtures {
         }
         private var stage: some View {
             NavigationStack {
-                VStack(spacing: 0) {
+                DecisionsHost(model: model, page: VStack(spacing: 0) {
                     FilmStageBar(current: model.snapshot.stage, viewing: model.viewingStage, canSelect: { model.canView($0) }, onSelect: { model.view($0) })
                     NativeFilmView(model: model)
-                }
+                })
                 .navigationTitle("Tally launch film")
             }
             .tint(.rasan)

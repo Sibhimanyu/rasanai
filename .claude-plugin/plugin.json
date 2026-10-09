@@ -1,7 +1,7 @@
 {
   "name": "rasanai",
   "description": "Pick the film, Claude makes it: three complete films (403 named design systems \u00d7 66 story devices), a timed animatic with music edited to picture, and a final you review by clicking on moments. Claude decides the craft, gated against AI-slop tells. Launch films, explainers, PR videos, music videos, footage reels, motion graphics. Built on HyperFrames.",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "author": {
     "name": "Sibhimanyu",
     "url": "https://github.com/Sibhimanyu"

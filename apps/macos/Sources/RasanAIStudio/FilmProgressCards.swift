@@ -465,6 +465,7 @@ struct EmptyFrameTile: View {
         VStack(alignment: .leading, spacing: 6) {
             ZStack {
                 RoundedRectangle(cornerRadius: 9, style: .continuous).fill(active ? Color.rasan.opacity(pulse ? 0.14 : 0.05) : Color.clear)
+                    .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .strokeBorder(active ? Color.rasan.opacity(0.6) : Color(nsColor: .separatorColor), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
                 if active { ProgressView().controlSize(.small) } else { Image(systemName: "photo").foregroundStyle(.quaternary) }
@@ -472,7 +473,7 @@ struct EmptyFrameTile: View {
             .aspectRatio(16.0 / 9.0, contentMode: .fit)
             Text(label).font(.system(size: 11.5)).foregroundStyle(.tertiary).lineLimit(1)
         }
-        .onAppear { if active { withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) { pulse = true } } }
+        .onAppear { if active { pulse = true } }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(label), \(active ? "being drawn" : "waiting")")
     }
@@ -598,6 +599,7 @@ struct SceneTile: View {
                 case .working:
                     if let url = scene.thumbnailURL { PosterImage(url: url, maxPixels: 420).opacity(0.55) }
                     RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.rasan.opacity(pulse ? 0.26 : 0.08))
+                        .animation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true), value: pulse)
                     ProgressView().controlSize(.small)
                 case .todo: EmptyView()
                 }
@@ -618,7 +620,7 @@ struct SceneTile: View {
         }
         .onAppear {
             guard scene.state == .working else { return }
-            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { pulse = true }
+            pulse = true
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Scene \(index), \(scene.title), \(scene.state == .done ? "built" : scene.state == .working ? "building now" : "waiting"), \(Int(scene.duration.rounded())) seconds")
@@ -778,13 +780,14 @@ struct ProgressRing: View {
             } else {
                 Circle().trim(from: 0, to: 0.28).stroke(Color.rasan, style: StrokeStyle(lineWidth: 9, lineCap: .round))
                     .rotationEffect(.degrees(spin ? 270 : -90))
+                    .animation(.linear(duration: 1.6).repeatForever(autoreverses: false), value: spin)
                 Image(systemName: "film").font(.system(size: 24, weight: .light)).foregroundStyle(.secondary)
             }
         }
         .frame(width: 116, height: 116)
         .onAppear {
             guard !reduceMotion, render.fraction == nil else { return }
-            withAnimation(.linear(duration: 1.6).repeatForever(autoreverses: false)) { spin = true }
+            spin = true
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Render progress")
