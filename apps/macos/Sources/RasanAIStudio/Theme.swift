@@ -63,20 +63,27 @@ struct RasanMark: Shape {
 
 // MARK: Surfaces
 
+/// Hover feedback lives in the card's background (border and shadow) only. Moving, scaling or fading the content, or
+/// shadowing it as a whole, re-rasterises its text at fractional positions and snaps it back when the pointer leaves,
+/// which reads as flickering text.
 struct CardSurface: ViewModifier {
     var hovering = false
     var selected = false
     func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
         content
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .background(Color(nsColor: .controlBackgroundColor).opacity(0.6), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(selected || hovering ? Color.rasan.opacity(0.55) : Color(nsColor: .separatorColor), lineWidth: selected ? 1.5 : 0.5)
+            .background {
+                ZStack {
+                    shape.fill(Color(nsColor: .controlBackgroundColor).opacity(0.6))
+                    shape.fill(.regularMaterial)
+                }
+                .shadow(color: .black.opacity(hovering ? 0.12 : 0), radius: 12, y: 5)
+                .animation(.snappy(duration: 0.18), value: hovering)
             }
-            .shadow(color: .black.opacity(hovering ? 0.12 : 0), radius: hovering ? 12 : 0, y: hovering ? 5 : 0)
-            .offset(y: hovering ? -1.5 : 0)
-            .animation(.snappy(duration: 0.18), value: hovering)
+            .overlay {
+                shape.strokeBorder(selected || hovering ? Color.rasan.opacity(0.55) : Color(nsColor: .separatorColor), lineWidth: selected ? 1.5 : 0.5)
+                    .animation(.snappy(duration: 0.18), value: hovering)
+            }
     }
 }
 
@@ -109,6 +116,30 @@ struct PressableStyle: ButtonStyle {
     }
 }
 
+// MARK: Cursor
+
+/// Shows `cursor` while the pointer is over the view. It balances its own push and pop, including when the view goes
+/// away under the pointer (clicking a brief token swaps it for a field) or stops being clickable, so the cursor never
+/// sticks after the pointer leaves.
+struct HoverCursor: ViewModifier {
+    let cursor: NSCursor
+    var enabled = true
+    @State private var pushed = false
+    func body(content: Content) -> some View {
+        content
+            .onHover { inside in update(inside && enabled) }
+            .onChange(of: enabled) { _, on in if !on { update(false) } }
+            .onDisappear { update(false) }
+    }
+    private func update(_ want: Bool) {
+        if want, !pushed { cursor.push(); pushed = true } else if !want, pushed { NSCursor.pop(); pushed = false }
+    }
+}
+
+extension View {
+    func hoverCursor(_ cursor: NSCursor, enabled: Bool = true) -> some View { modifier(HoverCursor(cursor: cursor, enabled: enabled)) }
+}
+
 // MARK: Status
 
 enum StatusTone { case good, warn, bad, quiet }
@@ -126,12 +157,13 @@ struct StatusDot: View {
         }
     }
     var body: some View {
+        // The repeating animation is scoped to the dot's opacity. Started with `withAnimation` in `onAppear`, it would
+        // also repeat whatever else changed in that update (the row's layout and text).
         Circle().fill(color).frame(width: 7, height: 7)
             .opacity(pulsing && pulse ? 0.35 : 1)
-            .onAppear {
-                guard pulsing else { return }
-                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { pulse = true }
-            }
+            .animation(pulsing ? .easeInOut(duration: 0.9).repeatForever(autoreverses: true) : .default, value: pulse)
+            .onAppear { pulse = pulsing }
+            .onChange(of: pulsing) { _, now in pulse = now }
     }
 }
 
@@ -203,7 +235,9 @@ struct FilmThumbnail: View {
     }
 }
 
+/// m:ss, or h:mm:ss from an hour on, so a long-running film reads "73:02:34 elapsed", not "4382:34".
 func clockText(_ seconds: Double) -> String {
     let total = Int(max(0, seconds.isFinite ? seconds : 0).rounded())
+    if total >= 3600 { return "\(total / 3600):" + String(format: "%02d:%02d", total / 60 % 60, total % 60) }
     return "\(total / 60):" + String(format: "%02d", total % 60)
 }

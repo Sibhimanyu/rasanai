@@ -149,7 +149,7 @@ struct BriefStage: View {
                     .background(alignment: .bottom) { Rectangle().fill(Color.rasan.opacity(canAct ? 0.45 : 0)).frame(height: 1.5).offset(y: 1) }
                     .contentShape(Rectangle())
                     .onTapGesture { if canAct { editingSubject = true; subjectFocused = true } }
-                    .onHover { if canAct { if $0 { NSCursor.pointingHand.push() } else { NSCursor.pop() } } }
+                    .hoverCursor(.pointingHand, enabled: canAct)
                     .accessibilityHidden(index != 0)
                     .accessibilityLabel("Subject: \(subject.isEmpty ? "empty" : subject)")
                     .accessibilityAddTraits(.isButton)

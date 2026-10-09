@@ -439,6 +439,7 @@ private struct LookTile: View {
                             .strokeBorder(selected ? Color.rasan : .primary.opacity(0.1), lineWidth: selected ? 2.5 : 0.5)
                     }
                     .shadow(color: .black.opacity(hovering ? 0.28 : 0.12), radius: hovering ? 14 : 5, y: hovering ? 8 : 2)
+                    .animation(.smooth(duration: 0.2), value: hovering)
                 HStack(spacing: 6) {
                     Text("\(index + 1)").font(.system(size: 10, weight: .semibold, design: .rounded)).foregroundStyle(.secondary)
                         .frame(width: 16, height: 16).background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
@@ -448,9 +449,7 @@ private struct LookTile: View {
                     Text(item.label).font(.system(size: 11)).foregroundStyle(.secondary)
                 }
             }
-            .opacity(selected || hovering ? 1 : 0.82)
-            .offset(y: hovering && !selected ? -3 : 0)
-            .animation(.smooth(duration: 0.2), value: hovering)
+            // Hover deepens the media's shadow only: lifting or fading the tile would re-rasterise its label (flicker).
             .animation(.smooth(duration: 0.2), value: selected)
             .contentShape(Rectangle())
         }

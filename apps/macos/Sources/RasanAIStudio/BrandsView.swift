@@ -119,8 +119,8 @@ private struct BrandCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(hover ? Color.accentColor.opacity(0.5) : Color(nsColor: .separatorColor)))
-            .shadow(color: .black.opacity(hover ? 0.12 : 0), radius: 10, y: 4)
-            .offset(y: hover ? -2 : 0)
+            // The shadow is the card's shape only, and nothing moves: shadowing or lifting the text flickers it.
+            .background { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(nsColor: .controlBackgroundColor)).shadow(color: .black.opacity(hover ? 0.12 : 0), radius: 10, y: 4) }
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }

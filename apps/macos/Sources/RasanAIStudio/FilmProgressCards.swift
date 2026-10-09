@@ -446,7 +446,6 @@ struct FrameTile: View {
                 .shadow(color: .black.opacity(hovering ? 0.2 : 0.08), radius: hovering ? 10 : 4, y: hovering ? 5 : 2)
                 Text(thumb.label).font(.system(size: 11.5)).foregroundStyle(.secondary).lineLimit(1)
             }
-            .scaleEffect(hovering ? 1.012 : 1)
             .animation(.snappy(duration: 0.16), value: hovering)
         }
         .buttonStyle(.plain)
