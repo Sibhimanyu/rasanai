@@ -82,7 +82,7 @@ If the delivery render goes through `finish.mjs all` (it does for every Final; d
 
 - Never idle motion (breathing, floating, pulsing, drifting) to fill time. Stillness is a choice.
 - Never the generic fade-up-slide on everything, never bounce outside a playful style, never glow, lens flares, particles or a purple-blue gradient unless the look itself is that.
-- Never invent UI words, numbers or features. Never draw a logo (use the official file). Never author `<audio>` (sound is mounted at the root).
+- Never invent UI words, numbers or features. Never draw, trace, approximate or generate a logo: place the file named in DISPATCH.md (`assets/brand/<file>`, an `<img>`, unchanged, with the brand's clear space and the colour version that suits the background). If DISPATCH.md says no official logo was found, the end card is the brand name in the brand font and no symbol at all. `slop.mjs` fails any element named logo, mark or symbol that is not that file. Never author `<audio>` (sound is mounted at the root).
 - Never touch another scene's file, the storyboard or the score.
 
 ## Done when

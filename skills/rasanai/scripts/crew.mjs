@@ -32,6 +32,7 @@ import { upsertMarked } from "./lib/install.mjs";
 import { track } from "./lib/report.mjs";
 import { detectModel, profileFor, adapt, tierFor, dispatchFor } from "./lib/models.mjs";
 import { libraryIds } from "./library.mjs";
+import { readLogos } from "./lib/logos.mjs";
 import { checkSystemFull, checkSystems, firstLine } from "./lib/system.mjs";
 
 const args = parseArgs();
@@ -200,6 +201,29 @@ function readLedger(run) {
   }).filter(Boolean);
 }
 
+// The brand's logo files travel into the build: research/brand/assets/* is copied (same bytes) to <project>/assets/brand/
+// and named in DISPATCH.md, DIRECTION.md and BRIEF.md so every animator sees the exact path; "none" is said there too.
+function stageLogos(run, pj) {
+  const src = R(run, "research", "brand", "assets");
+  if (!pj || !exists(path.join(src, "logos.json"))) return null;
+  const lg = readLogos(src);
+  const dest = path.join(pj, "assets", "brand");
+  let lines;
+  if (lg.state === "files" && !lg.problems.length) {
+    fs.mkdirSync(dest, { recursive: true });
+    fs.copyFileSync(path.join(src, "logos.json"), path.join(dest, "logos.json"));
+    for (const e of lg.entries) fs.copyFileSync(e.abs, path.join(dest, path.basename(e.file)));
+    lines = lg.entries.map((e) => `- \`${rel(path.join(dest, path.basename(e.file)))}\` (${e.kind}${e.colour_versions ? `; colour versions: ${[].concat(e.colour_versions).join(", ")}` : ""}; from ${e.source_url})`);
+    lines.unshift("The brand's logo is **these files and nothing else**. Place one with an `<img>` (or `<image>`), unchanged; keep the brand's clear space and the right colour version for the background. Never draw, trace, approximate, recolour or generate a logo.");
+  } else if (lg.state === "none" && !lg.problems.length) {
+    lines = [`**No official logo file could be downloaded for this brand** (${lg.why.replace(/\s+/g, " ").trim()}). Set the brand name in the brand font and show **no symbol**: never draw, trace, approximate or generate a logo. Delete anything labelled logo, mark or symbol that is not type.`];
+  } else return null;
+  const mark = "<!-- rasanai:logos -->";
+  const block = `${mark}\n## Logo files\n\n${lines.join("\n")}\n`;
+  for (const f of [path.join(pj, "DISPATCH.md"), path.join(pj, "DIRECTION.md"), path.join(pj, "BRIEF.md")]) if (exists(f)) fs.writeFileSync(f, upsertMarked(fs.readFileSync(f, "utf8"), mark, block));
+  return { state: lg.state, staged: lg.state === "files" ? lg.entries.map((e) => rel(path.join(dest, path.basename(e.file)))) : [], none: lg.state === "none" || undefined };
+}
+
 // ---------------------------------------------------------------- dispatch contexts
 function projectDir(run) {
   if (args.project && args.project !== true) return path.resolve(String(args.project));
@@ -303,7 +327,7 @@ function contextFor(run, role, key, plan) {
     case "brand-researcher":
       Object.assign(ctx, { subject: P.subject, url: P.url || null });
       I("capture", capture); I("workspace_design_md", dsn ? path.resolve(dsn) : null); I("local_notes", research("local.md"));
-      O(research("brand", "DESIGN.md")); O(research("brand", "assets") + "/"); O(research("brand.md"));
+      O(research("brand", "DESIGN.md")); O(research("brand", "assets") + "/"); O(research("brand", "assets", "logos.json")); O(research("brand.md"));
       break;
     case "screens-researcher":
       Object.assign(ctx, { subject: P.subject, url: P.url || null, features: P.features || null });
@@ -449,7 +473,7 @@ function contextFor(run, role, key, plan) {
         ctx.sync = "sync every word of this scene's lines to its sung start with RasanMusic.gsapWords / RasanMusic.wordProgress (references/lyrics.md); never ahead of the voice";
         for (const [l, p] of [["lyrics (word timings)", R(run, "music", "lyrics.json")], ["audio (beats, onsets, envelopes)", R(run, "music", "audio.json")], ["lyrics and the music runtime", path.join(SKILL_DIR, "references", "lyrics.md")], ["lyric-video playbook (karaoke rules)", path.join(SKILL_DIR, "references", "lyric-video.md")], ["chosen treatment (style bible, motifs, this plate)", R(run, "story", "chosen-treatment.json")]]) I(l, p);
       }
-      for (const [l, p] of [["technical role", path.join(packets, "_role.md")], ["frame packet", packet ? path.join(packets, packet) : null], ["DISPATCH.md", path.join(pj, "DISPATCH.md")], ["frame.md", path.join(pj, "frame.md")], ["design system (its Motion and camera section binds the motion)", R(run, "look", "DESIGN.md")], ["motion.md", path.join(pj, "motion.md")], ["key frame", path.join(pj, "assets", "keyframes", `${n}.png`)], ["key frame note", R(run, "frames", `${n}.md`)], ["score", R(run, "motion", "score.json")], ["ui kit", research("screens.md")], ["brand motion", research("brand.md")], ["assets", research("assets.json")]]) I(l, p);
+      for (const [l, p] of [["technical role", path.join(packets, "_role.md")], ["frame packet", packet ? path.join(packets, packet) : null], ["DISPATCH.md", path.join(pj, "DISPATCH.md")], ["frame.md", path.join(pj, "frame.md")], ["design system (its Motion and camera section binds the motion)", R(run, "look", "DESIGN.md")], ["motion.md", path.join(pj, "motion.md")], ["key frame", path.join(pj, "assets", "keyframes", `${n}.png`)], ["key frame note", R(run, "frames", `${n}.md`)], ["score", R(run, "motion", "score.json")], ["ui kit", research("screens.md")], ["brand motion", research("brand.md")], ["logo files (the only logo you may place: the staged copy is in the project at assets/brand/; if logos.json says none, set the name in type, no symbol)", research("brand", "assets")], ["assets", research("assets.json")]]) I(l, p);
       O(`${rel(path.join(pj, "compositions", "frames"))}/${packet ? packet.replace(/\.md$/, ".html") : `${String(n).padStart(2, "0")}-*.html`}`);
       O(R(run, "crew", "animators", `${n}.md`)); O(R(run, "crew", "animators", `${n}-overview.png`)); O(R(run, "crew", "animators", `${n}-move.png`));
       break;
@@ -785,9 +809,11 @@ async function checkRole(run, role, key) {
       const notes = readMaybe(research("brand.md"));
       if (!notes) P.push("research/brand.md (where each token came from) is missing");
       else if ((notes.match(URL_RE) || []).length < 2) P.push("research/brand.md cites fewer than 2 sources");
-      const assets = research("brand/assets");
-      const logo = exists(assets) && fs.readdirSync(assets).some((x) => /\.(svg|png|webp|pdf)$/i.test(x));
-      if (!logo && !/logo[^\n]{0,80}(none|not found|couldn'?t|could not|no official)/i.test(notes)) P.push("no logo file in research/brand/assets/ (or say in brand.md why none could be found)");
+      // the logo is a downloaded file listed in logos.json (or logos.json says none, with why and where it looked); prose is not a logo
+      const lg = readLogos(research("brand/assets"));
+      P.push(...lg.problems);
+      W.push(...lg.warnings);
+      if (lg.state === "none" && !lg.problems.length) W.push("no official logo file: the Director tells the user once, and the end card sets the name in type with no symbol");
       if (!/^##\s+Motion/mi.test(readMaybe(f))) W.push("DESIGN.md has no ## Motion section (the brand's own motion signature)");
       break;
     }
@@ -1401,7 +1427,8 @@ if (cmd === "plan") {
   if (exists(briefF)) fs.writeFileSync(briefF, upsertMarked(fs.readFileSync(briefF, "utf8"), bm, `${bm}\n## Visual design (done)\n\n- **The visual-design step is done.** RasanAI's Motion Director scored the whole film: STORYBOARD.md carries every frame's time-coded shot sequence, blueprint, focal, roles, sfx, handoffs and \`transition_in\`, under one \`## Video direction\`. Do not rewrite them; run \`stage-assets.mjs\` and continue with the frames. MOTION-SCORE.md is the score in words.\n`));
   const dispF = path.join(pj, "DISPATCH.md");
   if (exists(dispF)) fs.writeFileSync(dispF, upsertMarked(fs.readFileSync(dispF, "utf8"), bm, `${bm}\n## The motion score\n\nYour frame block in the packet holds your part of the Motion Director's score (shots, primary movers, camera, handoffs); MOTION-SCORE.md is the whole film. Seams are contracts: start and end continuing elements at the exact handoff numbers.\n`));
-  out({ ok: true, storyboard: rel(sbf), frames: (score.scenes || []).length, parsed: !!parsed, score_md: rel(path.join(pj, "MOTION-SCORE.md")), next: "The workflow's visual-design step is done: stage assets, then frame-packets.mjs, video.mjs inject, and dispatch the scene animators (crew.mjs brief --role scene-animator --key <n>)." });
+  const logos = stageLogos(run, pj);
+  out({ ok: true, storyboard: rel(sbf), frames: (score.scenes || []).length, parsed: !!parsed, logos: logos || undefined, score_md: rel(path.join(pj, "MOTION-SCORE.md")), next: "The workflow's visual-design step is done: stage assets, then frame-packets.mjs, video.mjs inject, and dispatch the scene animators (crew.mjs brief --role scene-animator --key <n>)." });
 } else if (cmd === "strip") {
   const outPng = args.out && args.out !== true ? path.resolve(String(args.out)) : die("--out <sheet.png> required");
   const T = times();
