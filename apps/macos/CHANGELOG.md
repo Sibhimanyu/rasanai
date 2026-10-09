@@ -2,6 +2,11 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## 0.6.5 (build 21) — 2026-10-09
+
+- **Updates download behind security proxies.** The update download now waits up to ten minutes for data instead of 60 seconds. On Macs whose security proxy holds a whole download to scan it before sending anything, a fresh update failed with "The request timed out".
+- **Update notes are native text.** The update window shows the release notes as plain text from the feed instead of loading the GitHub release page in a web view, so Studio shows no web content at all.
+
 ## 0.6.4 (build 20) — 2026-10-09
 
 - **No more flickering text on hover.** Cards, pick cards, look tiles, brand cards and key-frame tiles used to lift, scale or fade their whole content on hover, and shadow it, so text redrew at half-pixel positions and snapped back when the pointer left. Hover now changes only the card's border and shadow behind the content. Pulsing indicators (status dots, building scenes, the stage bar's working ring) animate only their own shape.

@@ -13,6 +13,7 @@ final class StudioUpdater: ObservableObject {
     @Published var lastChecked: Date?
     private var observation: AnyCancellable?
     private var controller: SPUStandardUpdaterController?
+    private let updaterDelegate = UpdaterDelegate()
     var isConfigured: Bool { controller != nil && configurationError == nil }
     var lastCheckedText: String {
         guard let lastChecked else { return "Never" }
@@ -26,7 +27,7 @@ final class StudioUpdater: ObservableObject {
             configurationError = "Updates are disabled in this local build. A release must include its verified update-signing public key."
             return
         }
-        let controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
+        let controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: updaterDelegate, userDriverDelegate: nil)
         do { try controller.updater.start() }
         catch { configurationError = error.localizedDescription; return }
         self.controller = controller
@@ -51,5 +52,14 @@ final class StudioUpdater: ObservableObject {
         controller?.updater.automaticallyChecksForUpdates = value
         UserDefaults.standard.set(!value, forKey: "updatesOptOut")
         automaticChecks = value
+    }
+}
+
+/// Gives the update download ten minutes without data before it gives up, instead of URLSession's 60 seconds.
+/// Security proxies on managed Macs can hold a whole download to scan it before sending the first byte: a fresh
+/// 70 MB disk image took 76 s that way, so Sparkle reported "The request timed out" with nothing received.
+private final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
+    func updater(_ updater: SPUUpdater, willDownloadUpdate item: SUAppcastItem, with request: NSMutableURLRequest) {
+        request.timeoutInterval = 600
     }
 }
