@@ -2,6 +2,14 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## 0.6.4 (build 20) — 2026-10-09
+
+- **No more flickering text on hover.** Cards, pick cards, look tiles, brand cards and key-frame tiles used to lift, scale or fade their whole content on hover, and shadow it, so text redrew at half-pixel positions and snapped back when the pointer left. Hover now changes only the card's border and shadow behind the content. Pulsing indicators (status dots, building scenes, the stage bar's working ring) animate only their own shape.
+- **Scene strip:** in a narrow player (with Decisions open), scene chips no longer overlap; other scenes dim under their labels.
+- **Decisions inspector** runs the full window height instead of starting below the stage bar.
+- **Cursor:** clicking a highlighted part of the brief no longer leaves the hand cursor stuck; the note crosshair resets the same way.
+- **Elapsed time** past an hour reads h:mm:ss (73:10:21), not 4382:34.
+
 ## 0.6.3 (build 19) — 2026-10-09
 
 - Bundles RasanAI 1.9.1: branded launch films skip the outside-reference and precedent research and use only the brand's own film, so research is shorter and nothing off-brand reaches the looks.

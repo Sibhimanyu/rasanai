@@ -376,10 +376,7 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
                     guard canNote, size.width > 0, size.height > 0 else { playback.toggle(); return }
                     beginNote(at: CGPoint(x: min(1, max(0, tap.location.x / size.width)), y: min(1, max(0, tap.location.y / size.height))))
                 })
-                .onHover { inside in
-                    guard canNote else { return }
-                    if inside { NSCursor.crosshair.push() } else { NSCursor.pop() }
-                }
+                .hoverCursor(.crosshair, enabled: canNote)
                 .position(x: box.size.width / 2, y: box.size.height / 2)
                 .accessibilityLabel(canNote ? "Film frame. Activate to leave a note at this moment." : "Film frame")
                 .accessibilityAddTraits(.isButton)
@@ -732,9 +729,11 @@ private struct SceneCell: View {
     var body: some View {
         Button(action: action) {
             ZStack(alignment: .bottomLeading) {
-                if let path = scene.thumbnail { PayloadImage(path: path, contentMode: .fill, maxPixels: 360).frame(height: 52) }
+                if let path = scene.thumbnail { PayloadImage(path: path, contentMode: .fill, maxPixels: 360).frame(width: width, height: 52).clipped() }
                 else { Rectangle().fill(.white.opacity(0.07)) }
                 LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
+                // Other scenes are dimmed under the label, not by fading the whole cell, so the title never flickers.
+                Rectangle().fill(.black.opacity(current || hovering ? 0 : 0.3))
                 if width > 64 {
                     Text("\(number)  \(scene.title)").font(.system(size: 10, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
                         .padding(.horizontal, 6).padding(.bottom, 5)
@@ -748,7 +747,7 @@ private struct SceneCell: View {
                     }
                 }
             }
-            .frame(height: 52)
+            .frame(width: width, height: 52)
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             .overlay { RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(current ? Color.rasan : .white.opacity(hovering ? 0.35 : 0.08), lineWidth: current ? 2 : 1) }
             .overlay(alignment: .topTrailing) {
@@ -757,7 +756,6 @@ private struct SceneCell: View {
                         .overlay { Circle().strokeBorder(.black.opacity(0.6), lineWidth: 1) }.padding(4)
                 }
             }
-            .opacity(current || hovering ? 1 : 0.7)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
