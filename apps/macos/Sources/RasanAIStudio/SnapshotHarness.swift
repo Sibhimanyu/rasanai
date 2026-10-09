@@ -187,7 +187,7 @@ enum SnapshotHarness {
                 let progress = try makeSeed(films: false)
                 progress.store.runtime.startedAt = Date().addingTimeInterval(-74)
                 progress.store.snapshot = try SessionSnapshot(data: Data("{\"title\":\"Film progress\",\"current\":\"look\",\"steps\":{\"look\":{\"status\":\"working\"}},\"activity\":[{\"msg\":\"Writing three story directions from your brief.\"}]}".utf8))
-                await shot("film-progress", VStack(spacing: 0) { FilmStageBar(current: progress.store.snapshot.stage); DirectorProgressView(store: progress.store); Spacer(minLength: 0) }.background(Color(nsColor: .windowBackgroundColor)), titled: false, size: CGSize(width: 900, height: 150))
+                await shot("film-progress", VStack(spacing: 0) { FilmStageBar(current: progress.store.snapshot.stage); TurnLine(state: .working("Writing three story directions from your brief.", since: progress.store.runtime.startedAt), onDetails: {}, onPause: {}); Spacer(minLength: 0) }.background(Color(nsColor: .windowBackgroundColor)), titled: false, size: CGSize(width: 900, height: 150))
 
                 // RASANAI_SNAPSHOT_FILES: optional folder of real sample files, so the rows show true sizes and thumbnails.
                 let realFiles = ProcessInfo.processInfo.environment["RASANAI_SNAPSHOT_FILES"].map { URL(fileURLWithPath: $0, isDirectory: true) }

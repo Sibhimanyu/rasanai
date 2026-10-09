@@ -20,6 +20,8 @@ public struct HealthThresholds: Equatable, Sendable {
     public var burnWindow: TimeInterval = 600
     /// Heavy burn only matters if the director has not pushed to the console for this long.
     public var burnNoPushAfter: TimeInterval = 600
+    /// While waiting on the person, an event this fresh (or a tool or model call in flight) means the director is still working in the background.
+    public var backgroundActiveWithin: TimeInterval = 20
     public init() {}
 }
 
@@ -51,13 +53,15 @@ public struct DirectorHealth: Equatable, Sendable {
     public var detail: String
     public var quietFor: TimeInterval
     public var loopReason: String?
+    /// Set only with `.waitingForYou`: what the director is doing meanwhile (research runs in parallel with the person's call).
+    public var background: String?
     public var isAlarming: Bool { state == .possiblyLooping || state == .failed }
 
     public static func evaluate(_ t: DirectorTelemetry, context c: HealthContext, thresholds th: HealthThresholds = HealthThresholds()) -> DirectorHealth {
         let last = t.lastEventAt ?? t.sessionStartedAt
         let quiet = last.map { max(0, c.now.timeIntervalSince($0)) } ?? 0
-        func make(_ state: DirectorHealthState, _ label: String, _ detail: String, loop: String? = nil) -> DirectorHealth {
-            DirectorHealth(state: state, label: label, detail: detail, quietFor: quiet, loopReason: loop)
+        func make(_ state: DirectorHealthState, _ label: String, _ detail: String, loop: String? = nil, background: String? = nil) -> DirectorHealth {
+            DirectorHealth(state: state, label: label, detail: detail, quietFor: quiet, loopReason: loop, background: background)
         }
         if !c.processRunning {
             if c.hasStarted == false { return make(.starting, "Starting", "The director is getting ready.") }
@@ -71,6 +75,9 @@ public struct DirectorHealth: Equatable, Sendable {
         }
         if !t.hasData { return make(.starting, "Starting", "The director is starting up. This usually takes under a minute.") }
         if c.awaitingUser {
+            if let work = backgroundWork(t, quiet: quiet, now: c.now, thresholds: th) {
+                return make(.waitingForYou, "Waiting for you", "Waiting for your call. Claude keeps working in the background meanwhile.", background: work)
+            }
             return make(.waitingForYou, "Waiting for you", "The director is paused until you answer. It is not using tokens while it waits.")
         }
         if let reason = loopReason(t, context: c, thresholds: th) {
@@ -96,6 +103,17 @@ public struct DirectorHealth: Equatable, Sendable {
             return make(.quiet, "Quiet", "No activity for \(UsageFormat.span(quiet)).\(what)")
         }
         return make(.working, "Working", t.lastToolSummary ?? "The director is working.")
+    }
+
+    /// What the director is doing while it waits for the person, else nil. Its own console `wait` call and the push that
+    /// opened the question are not work.
+    static func backgroundWork(_ t: DirectorTelemetry, quiet: TimeInterval, now: Date, thresholds th: HealthThresholds) -> String? {
+        if t.consoleWaitInFlight { return nil }
+        let what = t.lastToolSummary ?? "Working"
+        if t.toolInFlight != nil, let since = t.toolInFlightSince, now.timeIntervalSince(since) < th.toolQuietAfter { return what }
+        if t.modelCallInFlight, quiet < th.backgroundActiveWithin { return what }
+        if quiet < th.backgroundActiveWithin, let kind = t.events.last?.kind, kind != .push, kind != .ask { return what }
+        return nil
     }
 
     /// The explanation when the run looks stuck, else nil. Console `wait` calls are exempt: repeating them is how it waits for you.

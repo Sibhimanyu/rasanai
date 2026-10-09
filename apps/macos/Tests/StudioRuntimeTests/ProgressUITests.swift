@@ -109,3 +109,11 @@ final class ProgressUITests: XCTestCase {
 private extension ResearchProgress {
     mutating func sourceCount(pages: Int, searches: Int) { pageCount = pages; searchCount = searches }
 }
+
+final class BriefWordingTests: XCTestCase {
+    func testNarrationNoneReadsAsWithoutVoiceover() {
+        for off in ["none", "None", "off", "no", "false", ""] { XCTAssertEqual(BriefStage.narrationText(.string(off)), "without voiceover") }
+        XCTAssertEqual(BriefStage.narrationText(.bool(true)), "with voiceover")
+        XCTAssertEqual(BriefStage.narrationText(.string("calm voice")), "with calm voice")
+    }
+}

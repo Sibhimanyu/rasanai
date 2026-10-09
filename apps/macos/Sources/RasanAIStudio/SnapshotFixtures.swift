@@ -15,7 +15,7 @@ import SwiftUI
 /// Names: see `StageFixtures.names`. In your own previews: `StageFixtures.model("story")` returns a FilmSessionModel over the fixture.
 @MainActor
 enum StageFixtures {
-    static let names = ["working", "brief", "story", "look", "films", "animatic", "build", "final", "final-done", "ask", "ask-sheet", "decisions",
+    static let names = ["working", "paused", "brief", "brief-idle", "story", "look", "films", "animatic", "build", "final", "final-done", "ask", "ask-sheet", "decisions",
                         "panel-brand", "panel-route", "panel-footage", "panel-reel", "panel-concept", "panel-scenes", "panel-styleframes",
                         "panel-motion", "panel-transitions", "panel-voice", "panel-music", "panel-storyboard", "panel-keyframes", "panel-plan",
                         "panel-direction", "panel-unknown"]
@@ -132,12 +132,12 @@ enum StageFixtures {
 
     static func json(_ name: String) -> String {
         switch name {
-        case "working":
+        case "working", "paused":
             return """
             {"title":"Tally launch film","current":"brief","steps":{"brief":{"status":"working","fields":{"subject":"A 45-second launch film for Tally, the receipt app that files itself. Calm, confident, a little playful.","length_s":45,"aspect":"16:9","brand_name":"Northwind","use_brand":true},"captures":[{"image":\(img("cap1")),"caption":"tally.app home"},{"image":\(img("cap2")),"caption":"Pricing"},{"image":\(img("cap3")),"caption":"Receipt capture"}]}},
             "activity":[{"t":"\(t(1))","msg":"Reading your brief","level":"info"},{"t":"\(t(2))","msg":"Capturing tally.app","level":"info"},{"t":"\(t(3))","msg":"Captured 3 pages","level":"ok"}],"working":{"msg":"Reading what Tally actually does…","t":"\(t(4))"}}
             """
-        case "brief":
+        case "brief", "brief-idle":
             return base(current: "brief", steps: """
             "brief":{"status":"awaiting","question":"Here's what we're making","fields":{"length_s":45,"kind":"Product launch","subject":"Tally, the receipt app that files itself","aspect":"16:9","destination":"Website","narration":"Voiceover","brand_name":"Northwind","use_brand":true},"choices":{"length_s":[15,30,45,60,90],"aspect":["16:9","9:16","1:1"],"narration":["Voiceover","On-screen text only","Music only"]},"captures":[{"image":\(img("cap1")),"caption":"tally.app home"},{"image":\(img("cap2")),"caption":"Pricing"},{"image":\(img("cap3")),"caption":"Receipt capture"}],"findings":[{"text":"Tally files receipts the moment you photograph them.","source":"tally.app"},{"text":"Customers say they save about twelve evenings a year.","source":"G2 reviews"},{"text":"Pricing starts free, with no card.","source":"tally.app/pricing"}]}
             """)
@@ -201,6 +201,16 @@ enum StageFixtures {
     struct Host: View {
         let name: String
         let model: FilmSessionModel
+        /// What the live page's turn line would say for this fixture (the real one reads the store, which fixtures don't have).
+        private var turn: TurnState? {
+            switch name {
+            case "working": .working("Capturing tally.app: 3 pages so far", since: Date().addingTimeInterval(-74))
+            case "paused": .paused
+            case "brief": .yourTurn(FilmSummary.friendlyStep("brief"), background: "researching tally.app and its reviews")
+            case "build", "final-done", "ask-sheet": nil
+            default: .yourTurn(FilmSummary.friendlyStep(model.snapshot.currentStep), background: nil)
+            }
+        }
         var body: some View {
             if name == "ask-sheet", let ask = model.ask {
                 AskSheet(model: model, ask: ask).tint(.rasan).background(Color(nsColor: .windowBackgroundColor))
@@ -210,6 +220,7 @@ enum StageFixtures {
             NavigationStack {
                 DecisionsHost(model: model, page: VStack(spacing: 0) {
                     FilmStageBar(current: model.snapshot.stage, viewing: model.viewingStage, canSelect: { model.canView($0) }, onSelect: { model.view($0) })
+                    if let turn { TurnLine(state: turn, onDetails: {}, onPause: name == "working" ? {} : nil, onResume: name == "paused" ? {} : nil) }
                     NativeFilmView(model: model)
                 })
                 .navigationTitle("Tally launch film")

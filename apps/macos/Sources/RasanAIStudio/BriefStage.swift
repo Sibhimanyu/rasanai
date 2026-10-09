@@ -280,7 +280,9 @@ struct BriefStage: View {
     static func narrationText(_ value: JSONValue) -> String {
         if let b = value.bool { return b ? "with voiceover" : "without voiceover" }
         let text = value.string ?? "with voiceover"
-        let lower = text.lowercased()
+        let lower = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        // A bare "none"/"off" would read "with none".
+        if ["none", "off", "no", "false", ""].contains(lower) { return "without voiceover" }
         if lower.hasPrefix("with") || lower.hasPrefix("no ") || lower.hasPrefix("without") { return lower }
         return "with " + lower
     }
@@ -384,7 +386,12 @@ private struct BriefActions: View {
     let justMakeIt: () -> Void
     let startEnabled: Bool
 
+    /// Only the person's turn (or looking back, or just sent) gets a bar; while Claude works there is nothing to do.
     var body: some View {
+        if model.showsActions(for: step) { bar }
+    }
+
+    @ViewBuilder private var bar: some View {
         VStack(spacing: 8) {
             if let error = model.lastError {
                 HStack(spacing: 8) {

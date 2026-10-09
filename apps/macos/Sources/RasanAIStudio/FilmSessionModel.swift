@@ -238,6 +238,11 @@ final class FilmSessionModel {
         return status(step) == "awaiting" || (["render", "final"].contains(step) && status(step) == "done")
     }
 
+    /// The bottom action bar shows only when it is the person's move on this step, while looking back, or just after sending.
+    func showsActions(for step: String) -> Bool {
+        isViewingPast || isSending || canAct(on: step) || (hasSent(step) && status(step) != "done")
+    }
+
     // MARK: Stage bar
 
     /// A stage can be opened read-only once the film is past it (or finished) and it has something to show.

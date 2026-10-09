@@ -31,20 +31,6 @@ enum FilmPhase: Equatable, Sendable {
         case .inProgress: "In progress"
         }
     }
-    var pill: String {
-        switch self {
-        case .queued(let position): "Queued · \(position)"
-        case .draft: "Draft"
-        case .starting: "Starting…"
-        case .working: "Director working…"
-        case .yourTurn(let what): "Your turn: \(what)"
-        case .paused: "Paused"
-        case .needsAttention: "Needs attention"
-        case .finished: "Finished"
-        case .offline: "Offline"
-        case .inProgress: "In progress"
-        }
-    }
     var tone: StatusTone {
         switch self {
         case .working, .starting, .finished: .good
