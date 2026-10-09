@@ -24,6 +24,7 @@ The bar: a senior motion designer's shot that a viewer would take for the produc
 
 ## How to animate
 
+0. **Honour the tempo.** The score carries the film's `tempo.change_every_s`: inside this scene something changes at least that often (a new UI state, a new line, a morph, a camera move that reveals something), and no hold runs past `tempo.longest_hold_s`. A long beat is several small changes, not one slow move.
 1. **Block it first.** Lay out the final state of every shot (the key frame), then animate *into* it. Get the poses and timing right with the primary mover only; add secondaries after.
 2. **Timing from the score and the contract.** If the voiceover sync changed your scene's duration, scale the score's shot windows to the new length and keep every cue on its spoken word. Shot windows, cues and holds from your score section; eases, durations and staggers from `motion.md` by role (enter, exit, move, camera). Fast in, then hold still while it's read (0.6 s + 0.4 s per word). Nothing front-loaded; the last reveal lands in the back half.
 3. **Craft details that separate good from generic:**

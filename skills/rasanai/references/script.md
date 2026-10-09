@@ -37,6 +37,8 @@ Before any device, hook or line, decide the aim. A script with no aim is a pile 
 
 Sure, Bold and Wild may aim differently, and the user is choosing between those aims, not between devices. For example Sure: understand it instantly. Bold: want it now. Wild: talk about it. The aim follows from the truth sheet and the brief, never from the device; if the device can't carry the aim, change the device.
 
+Decide the **tempo** with the aim (`references/launch-film.md`, Tempo): the brand film's measured tempo when the run has one, otherwise the house tempo. Count the ideas (a promise, the hero, each use or proof, the payoff: at least 3 in 15 s, 5 in 30 s with 6 or 7 as the aim, 8 in 60 s, 10 in 90 s), plan something that changes every ~2 s, and list the changes inside any beat over 3 s. Write it as `tempo: { ideas, change_every_s, longest_hold_s, source }`.
+
 Write it down as the pitch's `aim` (`takeaway`, `feel`, `action`, `audience`) and its `approach` (one plain sentence on how this story gets there). Then name the story: a title is 2 to 5 words a person would use to refer to it ("The one-prompt site", "Rewind to the prompt"), never a fragment of an on-screen line, never ending on a function word, never ALL CAPS. Every later pass serves the aim; a beat that doesn't, goes.
 
 ## The eight passes

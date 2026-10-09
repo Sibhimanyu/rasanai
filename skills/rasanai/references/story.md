@@ -78,6 +78,7 @@ Fuse each device with its `fuse_with` material (or better material from the shee
     "audience": "Engineers who approve pull requests"
   },
   "approach": "Starts at the 2 am outage, then rewinds to the one line nobody read.",   // required, one plain sentence, <= 25 words
+  "tempo": { "ideas": 6, "change_every_s": 2.2, "longest_hold_s": 4, "source": "house" },   // launch, promo and feature films (gate G9, references/launch-film.md Tempo); source "brand film" when brandfilm.mjs measured one; beats over 3 s also list "changes": ["what changes inside"]
   "logline": "A 2 am outage rewinds to the one line nobody read.",   // <= 12 words
   "device": "rewind",                               // a device id or code; an array for a combination (first is primary)
   "twist": "",                                      // required when the device is overused: what makes it not the default

@@ -16,8 +16,8 @@
 //           with. Deterministic for a seed (default seed: product name + today's date).
 //           Launch / promo / product films (format launch, or --product-first) are PRODUCT-FIRST: conceit devices
 //           (museums, allegories, invented worlds, extended metaphors, cover versions) are never offered.
-//   node story.mjs check --pitch <pitch.json | pitches.json> [--truth <truth.md|json>] [--footage] [--length <s>] [--narrated] [--product-first | --allow-conceit]
-//        -> the rubric: 6 pass/fail gates (+ G7 product-first for launch / promo / product films, + G8 the aim: takeaway, feel, action, approach, a title that names the idea) + the weighted 1-5 score (ship at >= 3.8, no dimension < 3).
+//   node story.mjs check --pitch <pitch.json | pitches.json> [--truth <truth.md|json>] [--footage] [--length <s>] [--narrated] [--product-first | --allow-conceit] [--brand-film <grammar.json>] [--calm]
+//        -> the rubric: 6 pass/fail gates (+ G7 product-first for launch / promo / product films, + G8 the aim: takeaway, feel, action, approach, a title that names the idea, + G9 tempo for the same films: ideas per length, a change every ~2.5 s, hold limits, the brand's measured tempo with --brand-film) + the weighted 1-5 score (ship at >= 3.8, no dimension < 3).
 //           Exit 0 = ship, 2 = rewrite (reasons in the JSON), 1 = bad input.
 //   node story.mjs validate
 //        -> checks devices.json against its schema (vocabularies, ids, counts)
@@ -40,6 +40,8 @@ const AXES = Object.keys(CAT.axes);
 const out = (o) => console.log(JSON.stringify(o, null, 2));
 const list = (v) => (v == null || v === true ? [] : String(v).split(",").map((s) => s.trim()).filter(Boolean));
 const norm = (s) => String(s || "").toLowerCase();
+const HOUSE_CHANGE_EVERY_S = 2.5; // house tempo: something meaningful changes on screen at least this often
+const r1d = (x) => Math.round(x * 10) / 10;
 const TITLE_STOP = ["just", "the", "a", "an", "can", "to", "of", "and", "you", "your", "with", "for"];
 const nz8 = (x) => String(x || "").toLowerCase().replace(/-/g, " ").replace(/[^a-z0-9' ]/g, "").replace(/\s+/g, " ").trim();
 
@@ -192,12 +194,12 @@ function mentions(text, item) {
 
 // --- launch-film structure (references/launch-film.md section 1): hook, reveal/hero, 2-4 uses, payoff, end card ----
 // One idea per beat, plain words, the product or brand in every beat. Ranges are the template tables widened by about a
-// quarter, per film length bucket (15 / 30 / 60 / 90 s). role: beat.role, else its name, else its place (first = hook, last = cta).
+// quarter, per film length bucket (15 / 30 / 60 / 90 s). Tempo: the templates carry the house idea counts and holds (G9 below). role: beat.role, else its name, else its place (first = hook, last = cta).
 const LF_RANGES = {
-  15: { hook: [1, 3.5], statement: [1.5, 4], hero: [3.5, 7], demo: [2, 5], payoff: [1, 2.5], cta: [2, 4] },
-  30: { hook: [1, 4.5], statement: [2, 6], hero: [4, 9], demo: [2, 5], payoff: [2, 5], cta: [2.5, 5] },
-  60: { hook: [1.5, 5.5], statement: [3, 9], hero: [7, 14], demo: [4, 8.5], payoff: [3.5, 8], cta: [3, 8] },
-  90: { hook: [2, 6.5], statement: [4, 12], hero: [9, 17], demo: [6, 12], payoff: [5, 11], cta: [3, 8] },
+  15: { hook: [1, 2.5], statement: [1.5, 3], hero: [2.5, 4.5], demo: [1.5, 3], payoff: [1, 2.5], cta: [2, 4] },
+  30: { hook: [1, 2.5], statement: [1.5, 4], hero: [3, 5], demo: [2, 4.5], payoff: [2, 4], cta: [2.5, 5] },
+  60: { hook: [1.5, 4], statement: [2, 5], hero: [4, 6], demo: [3, 6.5], payoff: [3, 7], cta: [3, 7] },
+  90: { hook: [2, 5], statement: [2.5, 6], hero: [5, 7.5], demo: [4, 8], payoff: [4, 10], cta: [3, 8] },
 };
 const lfBucket = (len) => (len <= 22 ? 15 : len <= 45 ? 30 : len <= 75 ? 60 : 90);
 function lfRole(b, i, n, hero) {
@@ -467,7 +469,7 @@ if (cmd === "truth") {
   const pitches = Array.isArray(raw) ? raw : Array.isArray(raw.pitches) ? raw.pitches : [raw];
   const truth = loadTruth(args.truth);
   const footage = !!args.footage || !!(truth && truth.assets.some((a) => /footage|video of|founder on camera/i.test(a)));
-  const opts = { length: Number(args.length) || 0, narrated: !!args.narrated, productFirst: isProductFirst(truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null), args) };
+  const opts = { length: Number(args.length) || 0, narrated: !!args.narrated, calm: !!args.calm, brandTempo: loadBrandTempo(args["brand-film"]), productFirst: isProductFirst(truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null), args) };
   const results = pitches.map((p, i) => checkPitch(p, i, truth, footage, opts));
   const portfolio = pitches.length > 1 ? checkPortfolio(pitches, results) : null;
   const ship = results.every((r) => r.verdict === "ship") && (!portfolio || portfolio.pass);
@@ -670,7 +672,8 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     const rng = LF_RANGES[lfBucket(lengthS)];
     if (!roles.includes("hero")) g7.push("structure: no reveal / hero beat (name it \"Hero\" or set role: \"hero\"; references/launch-film.md section 1)");
     const nDemo = roles.filter((r) => r === "demo").length;
-    if (nDemo < 2 || nDemo > 4) g7.push(`structure: ${nDemo} feature-demo beats (2 to 4 required, one real use each; the hook, hero, payoff and end card are not demos)`);
+    const demoCap = ({ 15: 3, 30: 5, 60: 7, 90: 9 })[lfBucket(lengthS)];
+    if (nDemo < 2 || nDemo > demoCap) g7.push(`structure: ${nDemo} feature-demo beats (2 to ${demoCap} for a ${Math.round(lengthS)} s film, one idea each; the hook, hero, payoff and end card are not demos)`);
     if (!String(p.payoff_line || "").trim() && !roles.includes("payoff")) g7.push("structure: payoff line missing (payoff_line, or a beat with role \"payoff\": one plain outcome sentence before the end card)");
     const outOfRange = [];
     beats.forEach((b, i) => { const [lo, hi] = rng[roles[i]] || [0, 99]; const d = Number(b.duration_s); if (d < lo - 0.01 || d > hi + 0.01) outOfRange.push(`${b.name} (${roles[i]}) ${d} s, template ${lo}-${hi} s`); });
@@ -680,6 +683,49 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     const noProd = beats.map((b, i) => ({ b, i })).filter(({ b }) => { const t = `${b.name || ""} ${b.on_screen || ""} ${b.visual || ""} ${b.vo || ""}`; return !(bareBrand.test(t) || names.some((w) => mentions(t, w))); }).map(({ b, i }) => `${i + 1} ${b.name}`);
     if (noProd.length) g7.push(`beat(s) without the product or brand: ${noProd.join(", ")} (every beat shows the real UI, the mark or the brand's canvas; name it in the beat's visual)`);
     gate("G7", "Product-first (UI from the first seconds, hero moment, real uses, no conceit, launch-film structure and timings)", g7, { early_beats: early3.map((b) => b.name), hero_moment: heroTxt || null, uses, roles, template_s: lfBucket(lengthS) });
+
+    // G9: tempo (references/launch-film.md, Tempo): enough ideas, something changes every ~2 s, no long holds
+    {
+      const g9 = [];
+      const bucket = lfBucket(opts.length || lengthS);
+      const minIdeas = ({ 15: 3, 30: 5, 60: 8, 90: 10 })[bucket];
+      const heroMax = ({ 15: 3.5, 30: 4, 60: 5, 90: 6 })[bucket];
+      const brand = opts.brandTempo || null;
+      const houseEvery = HOUSE_CHANGE_EVERY_S, houseHold = 3;
+      const everyMax = brand ? Math.min(houseEvery, brand.changeEveryS) : houseEvery;
+      const holdMax = brand ? Math.min(houseHold, Math.max(1.5, brand.changeEveryS * 1.5)) : houseHold;
+      const heroLimit = brand && brand.longestHoldS >= 2 ? Math.min(heroMax, brand.longestHoldS) : heroMax;
+      const ideaRoles = new Set(["statement", "hero", "demo", "payoff"]);
+      const ideas = beats.filter((b, i) => b.idea === true || ideaRoles.has(roles[i])).length;
+      const t = p.tempo && typeof p.tempo === "object" ? p.tempo : null;
+      if (!t) g9.push("tempo missing: set tempo { ideas, change_every_s, longest_hold_s, source: \"brand film\" | \"house\" } (references/script.md pass 0)");
+      else {
+        if (!(Number(t.change_every_s) > 0)) g9.push("tempo.change_every_s missing: how often something changes on screen, in seconds");
+        else if (Number(t.change_every_s) > everyMax + 0.01) g9.push(`tempo.change_every_s ${t.change_every_s} is slower than the target ${r1d(everyMax)} s (${brand ? "the brand film's measured tempo, capped at the house tempo" : "house tempo"})`);
+        if (brand && !/brand/i.test(String(t.source || ""))) g9.push('tempo.source must be "brand film": a brand film card is measured for this film, write to its tempo');
+        if (!t.source) g9.push('tempo.source missing ("brand film" or "house")');
+      }
+      if (!opts.calm && ideas < minIdeas) g9.push(`${ideas} ideas in a ${Math.round(opts.length || lengthS)} s film: at least ${minIdeas} (a promise, the hero, each use or proof, the payoff each count once; ${bucket === 30 ? "aim 6 or 7" : "more is better"}). A calm film must be asked for in the brief`);
+      const heroI = roles.indexOf("hero");
+      if (heroI >= 0 && Number(beats[heroI].duration_s) > heroLimit + 0.01) g9.push(`the hero beat holds ${beats[heroI].duration_s} s: ${r1d(heroLimit)} s at most in a ${bucket} s film (the longest hold; show its UI states changing in less)`);
+      const needChanges = [], long = [];
+      beats.forEach((b, i) => {
+        const r = roles[i], d = Number(b.duration_s);
+        if (r === "cta" || r === "hero") return;
+        if (d > holdMax + 0.01) {
+          const need = Math.max(1, Math.ceil(d / 2) - 1), have = Array.isArray(b.changes) ? b.changes.filter((c) => String(c || "").trim()).length : 0;
+          if (have < need) needChanges.push(`${i + 1} ${b.name} (${d} s needs ${need} listed change${need > 1 ? "s" : ""} in \"changes\", has ${have})`);
+        }
+        if (r === "statement") {
+          const w = String(b.on_screen || "").trim().split(/\s+/).filter(Boolean).length, read = 0.3 * w + 0.6;
+          if (d > read + 1 && !(Array.isArray(b.changes) && b.changes.length)) long.push(`${i + 1} ${b.name} (${d} s for a ${w}-word line, reading time ${r1d(read)} s)`);
+        }
+      });
+      if (needChanges.length) g9.push(`beats longer than ${r1d(holdMax)} s must list what changes inside them, roughly one change per 2 s: ${needChanges.join("; ")}`);
+      if (long.length) g9.push(`a statement line holds only its reading time (0.3 s per word + 0.6 s): ${long.join("; ")}`);
+      if (t && Number(t.ideas) && Number(t.ideas) !== ideas) warnings.push(`tempo.ideas says ${t.ideas}, the beats carry ${ideas}`);
+      gate("G9", "Tempo (ideas per film, a change every ~2 s, no long holds)", g9, { ideas, min_ideas: minIdeas, change_every_s_max: r1d(everyMax), longest_hold_s: r1d(holdMax), hero_hold_s_max: r1d(heroLimit), source: brand ? "brand film" : "house" });
+    }
   }
 
   // G6 the script itself (references/script.md): runs when the beats carry voiceover or a target length is given
@@ -797,6 +843,14 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     warnings,
     rewrite: ship ? undefined : "Push, in order: a more specific artifact from the truth sheet -> a sharper turn -> a stricter constraint. Two rewrites at most, then replace the device with the next candidate from pick.",
   };
+}
+
+// the brand film's measured tempo (brandfilm.mjs measure: grammar.json .measured.tempo, or a FILM-STYLE.json with .measured)
+function loadBrandTempo(p) {
+  if (!p || p === true) return null;
+  let j; try { j = readJSON(path.resolve(String(p))); } catch (e) { die(`--brand-film is not readable JSON: ${e.message}`); }
+  const t = (j.measured && j.measured.tempo) || j.tempo;
+  return t && Number(t.changeEveryS) > 0 ? { changeEveryS: Number(t.changeEveryS), longestHoldS: Number(t.longestHoldS) || 0 } : null;
 }
 
 function checkPortfolio(pitches, results) {

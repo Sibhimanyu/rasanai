@@ -1492,9 +1492,10 @@
         ]));
       } else if (st.logline) sheet.appendChild(h("p", { class: "qsub", text: st.logline }));
       var how = st.approach || st.why;
-      if (how || st.device) sheet.appendChild(h("div", { class: "how" }, [
+      if (how || st.device || st.tempo) sheet.appendChild(h("div", { class: "how" }, [
         h("div", { class: "st-label", text: st.approach ? "How it gets there" : "Why this one" }),
         how ? h("p", { text: how }) : null,
+        st.tempo && st.tempo.ideas && st.tempo.change_every_s ? h("div", { class: "st-quiet", text: st.tempo.ideas + " ideas · a change every " + (Math.round(st.tempo.change_every_s * 10) / 10) + " s · " + (/brand/i.test(st.tempo.source || "") ? "the brand's own film" : "RasanAI house tempo") }) : null,
         st.device ? h("div", { class: "st-quiet", text: "Device: " + st.device }) : null
       ]));
       var t = 0, total = (st.beats || []).reduce(function (a, b) { return a + (Number(b.duration_s) || 0); }, 0);

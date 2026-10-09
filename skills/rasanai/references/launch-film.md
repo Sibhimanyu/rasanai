@@ -8,48 +8,62 @@ Source quality note: Apple, OpenAI/Studio Dumbar and the Apple HIG are primary. 
 
 Rule for all lengths: the product (real UI or the real mark) is on screen by 3 s. Hook = the product doing its main thing, not a problem montage. (Agency guidance often says "start with the problem"; for a known product with a real UI, show the product answering the problem in the same shot.) Beats are sized by share of runtime so they scale.
 
-### 15 s (social teaser, one feature)
-| t (s) | Beat | On screen |
-|---|---|---|
-| 0.0-2.5 | Hook + product | Real UI already mid-action (prompt typing, shortcut pressed). Brand mark small at the margin. |
-| 2.5-5.5 | Statement | One line, 3-6 words, huge, on the brand canvas. UI may sit behind or beside it. |
-| 5.5-11 | Hero demo | The one feature, start to finish, real UI, one continuous shot or at most 2 cuts. |
-| 11-12.5 | Payoff line | Plain outcome sentence, 3-6 words, type scale: statement size. |
-| 12.5-15 | End card | Mark + product name + one CTA. Held at least 2 s. |
+Tempo comes first (see "Tempo" below): the tables carry the house idea counts and holds. An idea is one new thing the viewer learns; each row below that is not the hook, the end card or a transition is one or more ideas.
 
-### 30 s (launch spot)
+### 15 s (social teaser, one feature), 3 ideas minimum
 | t (s) | Beat | On screen |
 |---|---|---|
-| 0-3 | Hook + product reveal | Product UI or mark full frame. First text appears by 1.5 s. |
-| 3-8 | Statement / promise | One line, 3-7 words. Cut or morph into UI. |
-| 8-14 | Hero demo | Longest shot of the film (5-7 s). The headline feature, uncut. |
-| 14-23 | 2-3 uses | 2.5-3.5 s each, each a different real use, each with a 2-4 word label. |
-| 23-26.5 | Payoff line | The largest line of the film. |
-| 26.5-30 | End card | Mark, name, CTA (availability: "Available today on Mac"), nothing else. |
+| 0.0-2.0 | Hook + product | Real UI already mid-action (prompt typing, shortcut pressed). Brand mark small at the margin. |
+| 2.0-4.0 | Statement | One line, 3-6 words, on the brand canvas, held only its reading time. UI may sit behind or beside it. |
+| 4.0-7.5 | Hero demo | The one feature, real UI, changing every ~2 s inside (new state, new line, a camera move that reveals). 3.5 s at most. |
+| 7.5-11.5 | 2 uses | About 2 s each, a different real use each, a 2-4 word label. |
+| 11.5-13 | Payoff line | Plain outcome sentence, 3-6 words. |
+| 13-15 | End card | Mark + product name + one CTA. Held at least 2 s. |
 
-### 60 s (launch film)
+### 30 s (launch spot), 5 ideas minimum, aim for 6 or 7
 | t (s) | Beat | On screen |
 |---|---|---|
-| 0-4 | Hook + product | Real UI in action, or the brand's opening gesture (the prompt, the mark). |
-| 4-12 | Promise | 2 statement lines, one idea each, product always visible or one cut away. |
-| 12-24 | Hero demo | 8-12 s, real UI, the feature end to end. |
-| 24-48 | 3-4 feature demos | 5-7 s each. One idea per shot. Label (2-4 words) + UI. A rhythm change (calm hold then quick cuts) at least once. |
+| 0-2 | Hook + product reveal | Product UI or mark full frame. First text appears by 1.5 s. |
+| 2-4 | Statement / promise | One line, 3-6 words. Cut or morph into UI. |
+| 4-8 | Hero demo | The headline feature, real UI. The longest hold of the film (4 s), and it changes inside about every 2 s. |
+| 8-24 | 4 or 5 uses | 2.5-3.5 s each (about 3), each a different real use with a 2-4 word label, each changing inside about every 2 s. At most one calm hold (the breath), placed before the payoff; then accelerate into it. |
+| 24-27 | Payoff line | The largest line of the film. |
+| 27-30 | End card | Mark, name, CTA (availability: "Available today on Mac"), nothing else. |
+
+### 60 s (launch film), 8 ideas minimum, aim for 10
+| t (s) | Beat | On screen |
+|---|---|---|
+| 0-3 | Hook + product | Real UI in action, or the brand's opening gesture (the prompt, the mark). |
+| 3-9 | Promise | 2 statement lines, one idea each, product always visible or one cut away. |
+| 9-15 | Hero demo | 5 s at most per hold, real UI, the feature end to end, changing every ~2 s. |
+| 15-48 | 6 or 7 feature demos | 4-5 s each (each changing inside every ~2 s). One idea per demo. Label (2-4 words) + UI. A rhythm change (one calm hold then quick cuts) once. |
 | 48-54 | Payoff | Outcome line + brand motif resolves (dot, mark, logo). |
 | 54-60 | End card | Mark, name, one CTA, URL or platform. |
 
-### 90 s (brand or keynote-style film)
+### 90 s (brand or keynote-style film), 10 ideas minimum
 | t (s) | Beat | On screen |
 |---|---|---|
-| 0-5 | Hook + brand/product | As 60 s. |
-| 5-20 | Promise + principle | 2-3 statements. Brand motif introduced and transformed. |
-| 20-35 | Hero demo | Real UI, 10-15 s, one take where possible. |
-| 35-75 | 3-4 feature demos (up to 5 if the brief lists them) | 8-10 s each, a stat or detail beat inside at most 1. |
-| 75-83 | Payoff + collage or density build | Fast cuts on the beat building to the densest moment, then silence or one hit. |
-| 83-90 | End card | As 60 s, 3 s minimum hold. |
+| 0-4 | Hook + brand/product | As 60 s. |
+| 4-16 | Promise + principle | 2-3 statements. Brand motif introduced and transformed. |
+| 16-24 | Hero demo | Real UI, 6 s at most per hold, one take where possible, changing every ~2 s. |
+| 24-76 | 7 to 9 feature demos | 5-6 s each, a stat or detail beat inside at most 1. |
+| 76-84 | Payoff + collage or density build | Fast cuts on the beat building to the densest moment, then silence or one hit. |
+| 84-90 | End card | As 60 s, 3 s minimum hold. |
 
 Length limits: agency data puts social and teaser films at 15-30 s, explainers at 45-90 s, and the retention cliff near 45-50 s; kinetic-type pieces hold under about 90 s. OpenAI's own brand film runs 110 s as a hero piece, so over 90 s needs an explicit brief. Default to 30 s or 60 s if the brief does not say.
 
 Cut-down rule: plan 15 s and 30 s cuts at storyboard stage by making every feature beat self-contained (Moonb's "plan cutdowns at storyboard" lesson; Duolingo and Samsung cut from independent segments).
+
+## Tempo
+
+Name it tempo, never pace (Studio's Pace setting is research speed). Commercial shots have averaged under 2 s since the early 1990s (MacLachlan and Logan, "Camera Shot Length in TV Commercials and their Memorability and Persuasiveness", Journal of Advertising Research); a launch film that spends 8 s on one idea reads as slow. Numbers marked (house) are this engine's rule.
+
+- **An idea** is one new thing the viewer learns: a feature, a use, a proof, the promise, the payoff. The hook, the end card and pure transitions are not ideas.
+- **Ideas per film (house minimum for launch, promo and feature films):** 15 s: 3, 30 s: 5 (aim 6 or 7), 60 s: 8 (aim 10), 90 s: 10. Only a brief that asks for a calm or slow film goes under.
+- **Change rate (house):** something meaningful changes on screen every 1.5 to 2.5 s on average: a cut, or inside a continuous take a new UI state, a new line, a morph, a camera move that reveals something new. A continuous-take brand still changes every 2 s; tempo is not only cuts.
+- **Longest hold (house):** 4 s for the one hero moment in a 30 s film (3.5 s at 15 s, 5 s at 60 s, 6 s at 90 s), 3 s for anything else; a statement line holds only its reading time (0.3 s per word + 0.6 s). The end card keeps its 2 s minimum.
+- **One breath:** at most one deliberate calm hold per 30 s, placed before the payoff, then accelerate into it.
+- **The film's target:** the brand's measured tempo when a brand film card exists (`brandfilm.mjs measure` writes `tempo`: changes, seconds between changes, longest hold; the analyst adds ideas shown and seconds per idea), otherwise the house tempo. Ideas never fall below the house minimum. The pitch carries it as `tempo: { ideas, change_every_s, longest_hold_s, source: "brand film" | "house" }`; `story.mjs check` gate G9 enforces it (use `--brand-film <grammar.json>` for the brand's numbers), and `brandfilm.mjs compare` holds the draft to 0.7x to 1.4x of the brand's change rate and never slower than a change every 2.5 s.
 
 ## 2. Hard rules (numbers are limits)
 
@@ -62,7 +76,7 @@ Cut-down rule: plan 15 s and 30 s cuts at storyboard stage by making every featu
 7. **The brand's own palette, type and motif only.** Palette from the brand's real films and product (section 3). No colours, display faces or illustration styles from outside references. For a named brand, outside references (famous directors, other brands) are banned from the design.
 8. **No invented metaphors or worlds.** Museums, galleries, parables, dioramas, characters, mockumentaries fail. If the concept needs a sentence of explanation to make sense on a silent first view, it fails. Allowed: a visual pun that resolves to the product within 1 s.
 9. **Restraint in motion.** Vocabulary brands actually use: scale, morph (one shape into another), draw-on (outline into solid), cut on the beat, slide/fade of type, UI choreography (cursor, keystroke, panel in), simple parallax of flat layers. Max 3 distinct motion types per film (house). Ease: one curve family per film. Moves 0.3-0.8 s for UI, 0.5-1.2 s for type; Apple HIG: motion is purposeful, brief, precise, optional. Banned unless the brand film itself uses them: 3D camera moves, motion blur, film grain, glitch, shake, lens flare, bounce overshoot, particle bursts. Typography effects: no outlines, shadows or per-word gimmicks on every line (Apple: such effects weaken authority).
-10. **Cut rate follows the reference film**, not taste. Calm holds (3-8 s) alternate with 3-6 s bursts of cuts at 0.4-1.0 s each on the beat. Never constant fast cutting for the whole film; never a single speed.
+10. **Cut rate follows the reference film**, not taste, and never falls below the house tempo (Tempo, above). One calm hold (up to the longest-hold limit) alternates with bursts of cuts at 0.4-1.0 s each on the beat. Never constant fast cutting for the whole film; never a single speed.
 11. **End card.** Brand mark (and wordmark) is the biggest object; one line or none; one CTA only ("Available today", the URL, or the store badge, not three). Clean brand canvas. Hold at least 2 s (15 s film), 3 s (30-90 s). No competing UI, no credits crawl, no second tagline. Last frame is the mark alone or mark+name; then optional black.
 12. **Sound and music.**
     - Music carries the film: cuts, morphs and type hits land on beats (within 1 frame at 30 fps). Build a beat map first.

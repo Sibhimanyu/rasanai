@@ -641,9 +641,11 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     ok("product-first: pick for a launch film never offers a conceit device (museum, metaphor, cover version, invented world...) across 12 seeds", seen.size >= 6 && ![...seen].some((id) => CONCEIT.has(id)), [...seen].join(","));
     const conc = node("story.mjs", ["pick", "--truth", ptruth, "--seed", "a", "--allow-conceit"]);
     ok("product-first: --allow-conceit lifts the filter (brand films, or when the user asks for a concept)", conc.status === 0 && !/"product_first": true/.test(conc.stdout));
+    // the house 30 s shape (references/launch-film.md, Tempo): hook + product, promise, hero, four uses, payoff, end card = 7 ideas
+    const tempoBeats = (b) => [b("Open", "Lintel, open.", 2.5, "The real Lintel review window opens over the pull request, Apply suggestion in the corner"), b("Promise", "Review, done.", 2, "The Lintel review thread, one line set over it"), b("Hero", "One shortcut.", 4, "The real LGTM flow: the diff, the comment, Apply suggestion in the Lintel window", { value: true }), b("Use 1", "Every diff.", 3, "Six real diffs reviewed down the Lintel review thread"), b("Use 2", "Every thread.", 3, "The Lintel review thread resolves itself", { turn: true }), b("Use 3", "Every repo.", 3, "Lintel across three repos in one list"), b("Use 4", "Every nit.", 3, "Lintel folds the nit: comments away"), b("Payoff", "Review done.", 3, "Lintel shows the merged pull request"), b("End", "Get Lintel", 3.5, "Clean CTA card, the line the largest type")];
     const pf = (extra, drop = []) => {
       const b = (name, on_screen, duration_s, visual, more = {}) => ({ name, on_screen, visual, duration_s, ...more });
-      const o = { title: "Review in place", aim, approach: "Opens on the real review window and shows one shortcut doing the whole job.", logline: "Lintel reviews the pull request where you already are.", device: "oner", beats: [b("Open", "Lintel, open.", 2.5, "The real Lintel review window opens over the pull request, Apply suggestion in the corner"), b("Hero", "One shortcut.", 8, "The real LGTM flow: the diff, the comment, Apply suggestion, held long enough to read", { value: true }), b("Use 1", "Every diff.", 4, "Six real diffs reviewed down the Lintel review thread"), b("Use 2", "Every thread.", 4, "The Lintel review thread resolves itself", { turn: true }), b("End", "Get Lintel", 5, "Clean CTA card, the line the largest type")], payoff_line: "Review done where you work.", first_4s: "the real Lintel window opens", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "the Apply suggestion flow is Lintel's own" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the real UI choreography" }, scores, hero_moment: { beat: 2, what: "the real review flow end to end" }, uses: ["review a diff", "resolve a thread"], last_line: "Get Lintel", end_line_largest: true, ...extra };
+      const o = { title: "Review in place", aim, approach: "Opens on the real review window and shows one shortcut doing the whole job.", logline: "Lintel reviews the pull request where you already are.", device: "oner", beats: tempoBeats(b), tempo: { ideas: 7, change_every_s: 2.2, longest_hold_s: 4, source: "house" }, payoff_line: "Review done where you work.", first_4s: "the real Lintel window opens", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "the Apply suggestion flow is Lintel's own" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the real UI choreography" }, scores, hero_moment: { beat: 3, what: "the real review flow end to end" }, uses: ["review a diff", "resolve a thread"], last_line: "Get Lintel", end_line_largest: true, ...extra };
       for (const k of drop) delete o[k];
       const f = path.join(sd, `pf-${Math.random().toString(36).slice(2)}.json`);
       fs.writeFileSync(f, JSON.stringify(o));
@@ -667,20 +669,52 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     // launch-film structure (references/launch-film.md): hook, hero, 2-4 demos, payoff, end card, timings per film length, the product in every beat
     {
       const b = (name, on_screen, duration_s, visual, more = {}) => ({ name, on_screen, visual, duration_s, ...more });
-      const base = () => [b("Open", "Lintel, open.", 2.5, "The real Lintel review window opens over the pull request"), b("Hero", "One shortcut.", 8, "The real Lintel LGTM flow, Apply suggestion", { value: true }), b("Use 1", "Every diff.", 4, "Six real diffs in the Lintel window"), b("Use 2", "Every thread.", 4, "The Lintel review thread resolves", { turn: true }), b("Payoff", "Review done.", 3, "Lintel shows the merged pull request"), b("End", "Get Lintel", 3.5, "Lintel mark and one CTA on the brand canvas")];
+      const base = () => tempoBeats(b);
       const okp = pf({ beats: base(), payoff_line: "Review done where you work." });
       ok("launch structure: G7 passes the 30 s template (hook, hero, 2 uses, payoff, end card, each in range, the product in every beat)", okp.g7.pass === true, okp.g7.reasons.join(" | "));
-      const slow = base(); slow[1].duration_s = 20;
+      const slow = base(); slow[2].duration_s = 20;
       const t1 = pf({ beats: slow, payoff_line: "Review done." });
       ok("launch structure: G7 fails a beat outside the template's timing range", t1.g7.pass === false && /outside the 30 s launch template/.test(t1.g7.reasons.join(" ")), t1.g7.reasons.join(" | "));
       const nopay = pf({ beats: base().filter((x) => x.name !== "Payoff") }, ["payoff_line"]);
       ok("launch structure: G7 requires a payoff line", nopay.g7.pass === false && /payoff line missing/.test(nopay.g7.reasons.join(" ")), nopay.g7.reasons.join(" | "));
-      const bare = base(); bare[3] = b("Use 2", "Every thread.", 3, "A drifting field of soft shapes", { turn: true });
+      const bare = base(); bare[4] = b("Use 2", "Every thread.", 3, "A drifting field of soft shapes", { turn: true });
       const t3 = pf({ beats: bare, payoff_line: "Review done." });
       ok("launch structure: G7 fails a beat with neither the product nor the brand", t3.g7.pass === false && /without the product or brand/.test(t3.g7.reasons.join(" ")), t3.g7.reasons.join(" | "));
-      const five = base(); five.splice(3, 0, b("Use 3", "Every repo.", 4, "Lintel across repos"), b("Use 4", "Every team.", 4, "Lintel for teams"), b("Use 5", "Every fork.", 4, "Lintel on forks"));
+      const five = base(); five.splice(3, 0, b("Use 5", "Every team.", 3, "Lintel for teams"), b("Use 6", "Every fork.", 3, "Lintel on forks"));
       const t4 = pf({ beats: five, payoff_line: "Review done." });
-      ok("launch structure: G7 fails more than 4 feature demos", t4.g7.pass === false && /feature-demo beats/.test(t4.g7.reasons.join(" ")), t4.g7.reasons.join(" | "));
+      ok("launch structure: G7 fails more feature demos than the length allows (5 in 30 s)", t4.g7.pass === false && /feature-demo beats/.test(t4.g7.reasons.join(" ")), t4.g7.reasons.join(" | "));
+    }
+    // G9, tempo (references/launch-film.md, Tempo): ideas per length, holds, the brand's measured tempo
+    {
+      const g9of = (r) => { let j = { gates: [] }; try { j = JSON.parse(r.stdout); } catch {} return (j.gates || []).find((x) => x.id === "G9") || { pass: null, reasons: [r.stdout.slice(0, 400) + r.stderr.slice(0, 300)] }; };
+      const run9 = (extra, drop = [], args = []) => {
+        const b = (name, on_screen, duration_s, visual, more = {}) => ({ name, on_screen, visual, duration_s, ...more });
+        const o = { title: "Review in place", logline: "Lintel reviews the pull request where you already are.", aim, approach: "Opens on the real review window and shows one shortcut doing the whole job.", device: "oner", beats: tempoBeats(b), tempo: { ideas: 7, change_every_s: 2.2, longest_hold_s: 4, source: "house" }, payoff_line: "Review done where you work.", first_4s: "the real Lintel window opens", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "the Apply suggestion flow is Lintel's own" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the real UI choreography" }, scores, hero_moment: { beat: 3, what: "the real review flow end to end" }, uses: ["review a diff", "resolve a thread"], last_line: "Get Lintel", end_line_largest: true, ...extra };
+        for (const k of drop) delete o[k];
+        const fl = path.join(sd, `t9-${Math.random().toString(36).slice(2)}.json`);
+        fs.writeFileSync(fl, JSON.stringify(o));
+        return g9of(node("story.mjs", ["check", "--pitch", fl, "--truth", ptruth, ...args]));
+      };
+      const bb = (name, on_screen, duration_s, visual, more = {}) => ({ name, on_screen, visual, duration_s, ...more });
+      const fast = run9({});
+      ok("tempo: G9 passes a 30 s launch pitch with 7 ideas, a change every 2.2 s and a 4 s hero", fast.pass === true, fast.reasons.join(" | "));
+      const oldSlow = [bb("Open", "Lintel, open.", 3, "The real Lintel review window opens"), bb("Promise", "Review happens where you already work.", 5, "The Lintel review thread, one line set over it"), bb("Hero", "One shortcut.", 6, "The real LGTM flow in the Lintel window, uncut", { value: true }), bb("Use 1", "Every diff.", 4, "Six real diffs in the Lintel window"), bb("Use 2", "Every thread.", 4, "The Lintel review thread resolves", { turn: true }), bb("End", "Get Lintel", 3.5, "Clean CTA card, the Lintel mark")];
+      const slow = run9({ beats: oldSlow, tempo: { ideas: 5, change_every_s: 5, longest_hold_s: 6, source: "house" } });
+      const why9 = slow.reasons.join(" | ");
+      ok("tempo: G9 fails the old slow 30 s shape (statement 5 s, hero 6 s, 2 uses): too few ideas, a long hero, slow changes, unlisted changes", slow.pass === false && /4 ideas|ideas in a/.test(why9) && /hero beat holds 6/.test(why9) && /tempo\.change_every_s 5/.test(why9) && /must list what changes/.test(why9), why9);
+      ok("tempo: G9 requires a tempo object", run9({}, ["tempo"]).pass === false);
+      const listed = tempoBeats(bb); listed[3] = { ...listed[3], duration_s: 4, changes: ["the diff opens", "the comment lands"] };
+      const unlisted = tempoBeats(bb); unlisted[3] = { ...unlisted[3], duration_s: 4 };
+      ok("tempo: a beat over 3 s passes only when it lists what changes inside it (about one per 2 s)", run9({ beats: listed }).pass === true && run9({ beats: unlisted }).pass === false, run9({ beats: unlisted }).reasons.join(" | "));
+      const calm = run9({ beats: tempoBeats(bb).filter((x) => !/Use (3|4)|Promise/.test(x.name)), tempo: { ideas: 4, change_every_s: 2.2, longest_hold_s: 4, source: "house" } }, [], ["--length", "30"]);
+      ok("tempo: G9 fails a 30 s pitch under 5 ideas unless the brief asks for a calm film (--calm)", calm.pass === false && /ideas in a/.test(calm.reasons.join(" ")) && run9({ beats: tempoBeats(bb).filter((x) => !/Use (3|4)|Promise/.test(x.name)), tempo: { ideas: 4, change_every_s: 2.2, longest_hold_s: 4, source: "house" } }, [], ["--length", "30", "--calm"]).pass === true, calm.reasons.join(" | "));
+      // a brand whose own film changes every 1.5 s tightens the target; the pitch must say it follows the brand film
+      const bg = path.join(sd, "brand-grammar.json");
+      fs.writeFileSync(bg, JSON.stringify({ measured: { tempo: { changes: 15, changeEveryS: 2, longestHoldS: 4 } } }));
+      const tight = run9({}, [], ["--brand-film", bg]);
+      ok("tempo: a brand with a faster measured tempo tightens G9 (a change every 2.2 s is too slow for a brand that changes every 2 s)", tight.pass === false && /2 s/.test(tight.reasons.join(" ")) && /brand film/.test(tight.reasons.join(" ")), tight.reasons.join(" | "));
+      const follow = run9({ tempo: { ideas: 7, change_every_s: 2, longest_hold_s: 4, source: "brand film" } }, [], ["--brand-film", bg]);
+      ok("tempo: a pitch written to the brand's tempo (source: brand film) passes against that brand", follow.pass === true, follow.reasons.join(" | "));
     }
     // the museum script of the real failed film is refused by the gate when run product-first
     const mu = node("story.mjs", ["check", "--pitch", path.join(sd, "script-good.json"), "--length", "45", "--narrated", "--product-first"]);
@@ -822,11 +856,11 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       fs.writeFileSync(path.join(bfd, "FILM-STYLE.md"), "# Film style: OpenAI\n\n## Slots\n- Typefaces:\n- Motif:\n");
       const ea = C(["check", "--run", run, "--role", "brand-film-analyst"]);
       ok("crew: brand-film-analyst check refuses an unfilled card (empty slots, missing checklist items, no source)", ea.status === 2 && /slots\.typefaces/.test(ea.stdout) && /says nothing about/.test(ea.stdout), ea.stdout.slice(0, 300));
-      const full = { ...card, filled: true, slots: { typefaces: "OpenAI Sans, Light to Bold; two size classes (huge statements, tiny labels). Substitute: Inter", motif: "the dot: dot, circle, outline circle, dot grid, dot", layout: "one element at a time, centred, huge whitespace", motionVocabulary: "flat: no 3D, no blur, no grain; scale, morph, draw-on, cut on the beat", photographyStyle: "real bright photography full bleed or framed on white", endCard: "the mark alone, big, on white, held 3 s", notes: "never a dark ground" } };
+      const full = { ...card, filled: true, slots: { typefaces: "OpenAI Sans, Light to Bold; two size classes (huge statements, tiny labels). Substitute: Inter", motif: "the dot: dot, circle, outline circle, dot grid, dot", layout: "one element at a time, centred, huge whitespace", motionVocabulary: "flat: no 3D, no blur, no grain; scale, morph, draw-on, cut on the beat", photographyStyle: "real bright photography full bleed or framed on white", endCard: "the mark alone, big, on white, held 3 s", tempo: "11 ideas in 110 s, about 10 s per idea; a change every 3 s; longest hold 6 s; breathes before the payoff", notes: "never a dark ground" } };
       fs.writeFileSync(path.join(bfd, "FILM-STYLE.json"), JSON.stringify(full));
-      fs.writeFileSync(path.join(bfd, "FILM-STYLE.md"), "# Film style: OpenAI\n\nSources: Refreshed. (110 s, primary)\n\n## Slots\n- Canvas and palette: near-white canvas 77%, black ink, colour under 5% (palette shares)\n- Typefaces and type scale: OpenAI Sans, statement and label sizes. Substitute: Inter\n- Layout and grid: centred, whitespace\n- Motif: the dot\n- Motion vocabulary: scale, morph, draw-on; never 3D, blur or grain\n- Photography and illustration: real photography\n- Cut rate and transitions: calm holds and bursts; hard cuts and morphs\n- End card: the mark alone\n");
+      fs.writeFileSync(path.join(bfd, "FILM-STYLE.md"), "# Film style: OpenAI\n\nSources: Refreshed. (110 s, primary)\n\n## Slots\n- Canvas and palette: near-white canvas 77%, black ink, colour under 5% (palette shares)\n- Typefaces and type scale: OpenAI Sans, statement and label sizes. Substitute: Inter\n- Layout and grid: centred, whitespace\n- Motif: the dot\n- Motion vocabulary: scale, morph, draw-on; never 3D, blur or grain\n- Photography and illustration: real photography\n- Cut rate and transitions: calm holds and bursts; hard cuts and morphs\n- Tempo: 11 ideas, a change every 3 s, longest hold 6 s\n- End card: the mark alone\n");
       const eb = C(["check", "--run", run, "--role", "brand-film-analyst"]);
-      ok("crew: brand-film-analyst check accepts a filled card (all ten checklist items, sources, slots)", eb.status === 0, eb.stdout.slice(0, 400));
+      ok("crew: brand-film-analyst check accepts a filled card (all eleven checklist items, sources, slots)", eb.status === 0, eb.stdout.slice(0, 400));
       const sc = path.join(run, "motion", "score.json");
       fs.mkdirSync(path.dirname(sc), { recursive: true });
       fs.writeFileSync(sc, JSON.stringify({ scenes: [{ n: 1, space: "3d" }] }));

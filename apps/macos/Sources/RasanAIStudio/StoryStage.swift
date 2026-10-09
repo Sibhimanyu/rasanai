@@ -219,11 +219,15 @@ private struct StoryDetail: View {
 
     @ViewBuilder private var howItGetsThere: some View {
         let how = script.approach.isEmpty ? script.why : script.approach
-        if !how.isEmpty || !script.device.isEmpty {
+        if !how.isEmpty || !script.device.isEmpty || script.tempoLine != nil {
             VStack(alignment: .leading, spacing: 8) {
                 sectionLabel(script.approach.isEmpty ? "Why this one" : "How it gets there", symbol: "arrow.triangle.turn.up.right.diamond")
                 if !how.isEmpty {
                     Text(how).font(.system(size: 15)).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+                }
+                if let tempo = script.tempoLine {
+                    Label(tempo, systemImage: "metronome")
+                        .font(.system(size: 12.5)).foregroundStyle(.secondary)
                 }
                 if !script.device.isEmpty {
                     (Text("Device: ").foregroundStyle(.tertiary) + Text(script.device).foregroundStyle(.secondary))
@@ -383,6 +387,7 @@ private struct StoryScript: Identifiable {
     let id: String
     var angle: String, title: String, logline: String, device: String, why: String, lastLine: String, approach: String
     var aim: StoryAim?
+    var tempoLine: String?
     var beats: [StoryBeat]
     /// What the card's headline says: the takeaway, or for older payloads the logline, then why.
     var headline: String { aim?.takeaway ?? [logline, why].first { !$0.isEmpty } ?? title }
@@ -404,6 +409,13 @@ private struct StoryScript: Identifiable {
         if let take = a["takeaway"].string, !take.isEmpty {
             aim = StoryAim(takeaway: take, feel: a["feel"].string ?? "", action: a["action"].string ?? "", audience: a["audience"].string ?? "")
         } else { aim = nil }
+        let t = json["tempo"]
+        if let ideas = t["ideas"].number, let every = t["change_every_s"].number {
+            let source = (t["source"].string ?? "").lowercased().contains("brand") ? "the brand's own film" : "RasanAI house tempo"
+            let n = Int(ideas.rounded()), e = (every * 10).rounded() / 10
+            let gap = e == e.rounded() ? String(Int(e)) : String(e)
+            tempoLine = "\(n) ideas · a change every \(gap) s · \(source)"
+        } else { tempoLine = nil }
         var clock = 0.0
         beats = json["beats"].array.map { beat in
             let d = beat["duration_s"].number ?? beat["duration"].number ?? 0

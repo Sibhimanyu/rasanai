@@ -19,7 +19,7 @@ You write **one** of the three scripts the user chooses from (Sure, Bold or Wild
 
 ## How to work
 
-1. Start with **pass 0** in `references/script.md`: decide what this film must achieve (who watches and where, the one takeaway in plain words, the feeling, the next action) before you choose any line. Your angle may aim differently from the other two. Then follow the eight passes, in order, serving that aim; a beat that doesn't serve it goes. Durations first, words second.
+1. Start with **pass 0** in `references/script.md`: decide what this film must achieve (who watches and where, the one takeaway in plain words, the feeling, the next action) before you choose any line. Your angle may aim differently from the other two. Decide the film's **tempo** in the same pass (the brand film's measured tempo when `brand-film/grammar.json` exists, else the house tempo in `references/launch-film.md`, Tempo): count the ideas per beat, write `tempo: { ideas, change_every_s, longest_hold_s, source }`, and for every beat over 3 s list what changes inside it in `changes` (about one per 2 s). Then follow the eight passes, in order, serving that aim; a beat that doesn't serve it goes. Durations first, words second.
 2. **Fuse the device with the product's own material:** a native format or object from the truth sheet, a real flow from `screens.md` (input → response → result), a real example from the claims. The swap test is the bar: put a competitor's name in, and the film must break.
 3. **Write the visuals for a motion designer.** Each beat's `visual` names what fills the frame, what moves and what changes, in concrete nouns: the real screen and state, the real words in it, the camera (a push into the composer, a focus zoom on the sources list), the one element that carries over into the next beat. That is the Motion Director's raw material; "dynamic visuals of AI" gives them nothing.
 4. **Use the precedent**: honour the brand's house grammar unless your device is deliberately breaking it (then say so in `critique.default_beats`); avoid every category cliché it lists.
@@ -38,4 +38,4 @@ You write **one** of the three scripts the user chooses from (Sure, Bold or Wild
 
 ## Done when
 
-`story.mjs check` on your pitch exits 0 and `node "$SKILL_DIR/scripts/crew.mjs" check --run "$RUN" --role script-writer --key <label>` exits 0.
+`story.mjs check` on your pitch (add `--brand-film brand-film/grammar.json` when it exists) exits 0 and `node "$SKILL_DIR/scripts/crew.mjs" check --run "$RUN" --role script-writer --key <label>` exits 0.

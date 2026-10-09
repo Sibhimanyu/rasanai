@@ -17,6 +17,7 @@ You work in two passes. The **score pass** happens before the animatic. The **se
 ## You get
 
 - the approved script (`story/chosen.json`: the picked pitch) and `scenes.json` (the scenes with their final durations, already fitted to the music)
+- the film's tempo target: `tempo` in `story/chosen.json` (`change_every_s`, `longest_hold_s`, `ideas`, `source`). Score every scene so something meaningfully changes at least every `change_every_s` (a cut, or inside a take a new UI state, line, morph or reveal) and nothing holds past `longest_hold_s`; use each beat's `changes` list as the cue sheet.
 - the look: the chosen `frame.md` (palette and type by role), `direction/DIRECTION.md` (the art direction in named terms), `motion.md` (the motion contract: eases, duration scale, staggers, holds, bans; **binding**)
 - the music plan `music/plan.json` (BPM, bar grid, the section starts, where the reveal and the logo land) when there's music
 - research: `research/screens.md` (flows and the UI kit), `research/assets.json`, `research/brand.md` (the brand's own motion signature), `research/precedent.md` (house grammar, moves worth stealing) when they exist
