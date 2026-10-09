@@ -6,6 +6,17 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.6.5 beta 1</title>
+      <pubDate>Fri, 09 Oct 2026 12:36:28 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **Updates download behind security proxies.** The update download now waits up to ten minutes for data instead of 60 seconds.
+- **Update notes are native text** instead of a web page.]]></description>
+      <sparkle:version>21</sparkle:version>
+      <sparkle:shortVersionString>0.6.5</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.6.5-beta.1/RasanAI-Studio-0.6.5.dmg" sparkle:edSignature="+sSM25j+/zDr2ZkPd2nfDZJjw9D3l+5LPrDWkSFebUfotePWyGBhP8d7ax1rUwrncVf6NBmDHy7rht4ZcgaDDg==" length="70745115" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.6.4 beta 1</title>
       <pubDate>Fri, 09 Oct 2026 12:10:13 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **No more flickering text on hover.** Cards and tiles no longer lift, scale or fade their text on hover.
