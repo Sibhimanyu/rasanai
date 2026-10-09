@@ -233,7 +233,7 @@ struct NewFilmView: View {
                 Text("Maximal").tag("maximal"); Text("Balanced").tag("balanced"); Text("Minimal").tag("minimal")
             }.pickerStyle(.inline).labelsHidden()
         } label: { chipLabel("wand.and.sparkles", "\(draft.motionLevel.capitalized) motion") }
-            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help("How much motion graphics")
+            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help("How ambitious the motion is: how many designed elements and how intricate their movement")
     }
 
     /// Less common options live here so the prompt box stays clean; a non-default choice shows as its own label.

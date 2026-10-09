@@ -122,13 +122,16 @@ public struct FilmDraft: Codable, Equatable, Sendable {
     }
     private static let levelText = [
         "maximal": """
-        The user chose Maximal, so go all out. Every scene carries designed motion graphics: layered kinetic typography, overlays and callouts, caption boxes, framed or windowed shots, animated data, shape and line work, and graphic transitions. Nothing sits as a bare shot or a bare subtitle for long. Build at least one spectacle moment people will replay. This is the full ambition of the house style. Craft over clutter: every element is timed, aligned to a grid, and earns its place.
+        The user chose Maximal, so go all out on motion. Maximal is about ambition, and it has two dials: density (how many designed elements are on screen) and complexity (how intricate each movement is). Turn up whichever makes each scene strongest, often both, and never read Maximal as "more things moving".
+        Complexity is choreography: multi-stage moves (anticipation, action, overshoot, settle), overlapping and follow-through action, staggered and offset timing, secondary motion, elements that hand off or morph into one another, masks and reveals, match cuts, a motivated camera (push, parallax, rack), and type that is built, broken and rebuilt. One word or one product shot with intricate, perfectly timed choreography is as Maximal as a screen full of layers.
+        Density is layered kinetic typography, overlays and callouts, caption boxes, framed or windowed shots, animated data, shape and line work, and graphic transitions. Nothing sits as a bare shot or a bare subtitle for long.
+        Build at least one spectacle moment people will replay. This is the full ambition of the house style. Craft over clutter: every element and every move is timed, aligned to a grid, and earns its place.
         """,
         "balanced": """
-        The user chose Balanced. Put designed graphics on most scenes (titles, callouts, caption plates, a few framed shots) and let the strongest moments breathe with the picture alone. Keep one spectacle moment. Keep the craft at full strength; only the density is dialed down.
+        The user chose Balanced. Put designed graphics on most scenes (titles, callouts, caption plates, a few framed shots) and let the strongest moments breathe with the picture alone. Moves stay fully crafted (eased, staggered, with follow-through), with richer choreography saved for the moments that matter. Keep one spectacle moment. Keep the craft at full strength; only the density and the number of elaborate moves are dialed down.
         """,
         "minimal": """
-        The user chose Minimal. Deliver a clean, confident cut: tight pacing, simple legible captions, and a few well-made titles. Skip decorative overlays, framed shots and heavy effects. This is a deliberate restraint chosen by the user, so execute it with precision and polish.
+        The user chose Minimal. Deliver a clean, confident cut: tight pacing, simple legible captions, and a few well-made titles with simple, precise moves. Skip decorative overlays, framed shots, heavy effects and elaborate choreography. This is a deliberate restraint chosen by the user, so execute it with precision and polish.
         """,
     ]
     private static let footageText = [
@@ -143,6 +146,7 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         - arrows, brackets and annotations that track the subject
         - graphic transitions between clips: wipes, shape masks, type-driven cuts
         Cards are not only between clips. Graphics live on top of and around the footage the whole time, and a clip should rarely play full-bleed with nothing on it.
+        Maximal is also about how the graphics move, not only how many there are: choreograph them (staggered entrances, overshoot and settle, elements that track, hand off or morph, masked reveals), so a single callout can carry the ambition.
         Use reel.mjs for scanning, transcripts and staging when it helps. Where its fixed slots (cards between clips, text in three zones, one caption group) are too narrow for the better idea, extend or replace the composition by hand and keep lint, obey and render checks honest.
         Keep everything legible and timed to the speech and the music. Ambition means precision, not noise.
         """,
