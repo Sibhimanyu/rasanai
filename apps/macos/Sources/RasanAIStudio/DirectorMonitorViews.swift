@@ -64,11 +64,10 @@ extension DirectorEvent.Kind {
 // MARK: Toolbar pill text
 
 extension DirectorMonitor {
-    /// "Working · 182k tokens · $1.42 est." for the film whose run is being watched; nil otherwise.
-    func pillText(fallback: String, for filmRun: URL?) -> String? {
-        guard let filmRun, filmRun == run, hasData, let health else { return nil }
-        let label = health.state == .waitingForYou ? fallback : (isLive || health.state == .failed || health.state == .stopped ? health.label : fallback)
-        var parts = [label, "\(UsageFormat.tokens(telemetry.tokens.fresh)) tokens"]
+    /// "182k tokens · $1.42 est." for the film whose run is being watched; nil otherwise. State words live in `TurnLine`.
+    func pillText(for filmRun: URL?) -> String? {
+        guard let filmRun, filmRun == run, hasData else { return nil }
+        var parts = ["\(UsageFormat.tokens(telemetry.tokens.fresh)) tokens"]
         let cost = telemetry.cost
         if cost.isIncludedInPlan { } else if cost.usd > 0 { parts.append(UsageFormat.cost(cost)) }
         return parts.joined(separator: " · ")

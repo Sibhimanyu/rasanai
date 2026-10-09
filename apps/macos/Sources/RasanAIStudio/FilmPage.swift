@@ -71,8 +71,10 @@ struct FilmPage: View {
                             AutoResumeBanner(store: store, notice: notice)
                         } else if showsConsole, !store.runtime.stopRequested, let recovery = store.runtime.recovery {
                             DirectorRecoveryView(store: store, recovery: recovery)
-                        } else if store.runtime.isRunning && !store.hasPendingQuestion && store.phase == .working && !showsFilmProgress {
-                            DirectorProgressView(store: store)
+                        } else if showsNativeFilm, !showsFilmProgress, let turn = store.turnState {
+                            TurnLine(state: turn, onDetails: store.runtime.logURL != nil ? { store.sheet = .log } : nil,
+                                     onPause: store.runtime.isRunning ? { store.pauseDirector() } : nil,
+                                     onResume: store.canResume ? { store.resumeDirector() } : nil)
                         }
                     }
                 }
@@ -124,6 +126,9 @@ struct FilmPage: View {
                 }
             }
             Menu {
+                if let film = store.film, showsNativeFilm, !film.isDone, !film.isDecideRest, film.route != .working {
+                    Button("Just make it") { Task { await film.justMakeIt() } }.disabled(!film.isConnected || film.isSending)
+                }
                 if store.runtime.isRunning { Button("Pause Director") { store.pauseDirector() } }
                 else if store.canResume { Button("Resume Director") { store.resumeDirector() } }
                 if store.runtime.logURL != nil { Button("Show Log") { store.sheet = .log } }
@@ -149,38 +154,38 @@ struct FilmPage: View {
 
 // MARK: Status pill
 
+/// A quiet usage pill: tokens and cost only. Whose move it is lives in `TurnLine`, so no state words here.
 struct StatusPill: View {
     @Bindable var store: StudioStore
     /// During a DEBUG replay the monitor has no telemetry for the run, so the pill reads the progress model's totals instead.
     static func replayPill(_ s: FilmProgressSnapshot?) -> String? {
         guard let s else { return nil }
-        var parts = [s.currentPhase.title, "\(UsageFormat.tokens(s.totalTokens.fresh)) tokens"]
+        var parts = ["\(UsageFormat.tokens(s.totalTokens.fresh)) tokens"]
         if !s.isIncludedInPlan, s.totalCostUSD > 0 { parts.append(UsageFormat.dollars(s.totalCostUSD) + (s.costIsEstimated ? " est." : "")) }
         return parts.joined(separator: " · ")
     }
     @State private var monitorOpen = false
     var body: some View {
-        let phase = store.phase
-        let offline = phase == .offline && store.runURL != nil
+        let offline = store.phase == .offline && store.runURL != nil
         let monitor = store.monitor
         let replaying = store.progress.map { $0.isReplay } ?? false
-        let live = offline ? nil : (replaying ? Self.replayPill(store.progress?.snapshot) : monitor.pillText(fallback: phase.pill, for: store.runURL))
-        let state = monitor.health?.state
-        Button { if offline { store.reloadFilm() } else if live != nil { monitorOpen.toggle() } } label: {
-            HStack(spacing: 7) {
-                if live != nil, let state { if state.isLive { ProgressView().controlSize(.mini) } else { StatusDot(tone: state.tone) } }
-                else if phase.isBusy { ProgressView().controlSize(.mini) } else { StatusDot(tone: phase.tone) }
-                Text(offline ? "Files unreadable · Reload film" : (live ?? phase.pill)).font(.system(size: 12, weight: .medium)).monospacedDigit()
-                if live != nil { Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundStyle(.secondary) }
+        let live = offline ? nil : (replaying ? Self.replayPill(store.progress?.snapshot) : monitor.pillText(for: store.runURL))
+        let looping = monitor.health?.state == .possiblyLooping && live != nil
+        if offline || live != nil {
+            Button { if offline { store.reloadFilm() } else { monitorOpen.toggle() } } label: {
+                HStack(spacing: 6) {
+                    Text(offline ? "Files unreadable · Reload film" : (live ?? "")).font(.system(size: 11.5)).monospacedDigit()
+                        .foregroundStyle(looping ? Color(nsColor: .systemRed) : .secondary)
+                    if live != nil { Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundStyle(.tertiary) }
+                }
+                .padding(.horizontal, 10).padding(.vertical, 3)
+                .background(looping ? Color(nsColor: .systemRed).opacity(0.2) : Color(nsColor: .quaternaryLabelColor).opacity(0.3), in: Capsule())
             }
-            .padding(.horizontal, 12).padding(.vertical, 4)
-            .background((state == .possiblyLooping && live != nil ? Color(nsColor: .systemRed).opacity(0.2) : Color(nsColor: .quaternaryLabelColor).opacity(0.45)), in: Capsule())
-            .animation(.snappy, value: phase)
+            .buttonStyle(.plain)
+            .popover(isPresented: $monitorOpen, arrowEdge: .bottom) { DirectorMonitorPanel(monitor: monitor, progress: store.progress?.snapshot) { monitorOpen = false } }
+            .help(live != nil ? "Director details: state, tokens, cost and recent activity" : "")
+            .accessibilityLabel(offline ? "Film files unreadable. Reload film" : "Usage: \(live ?? "")")
         }
-        .buttonStyle(.plain).disabled(!offline && live == nil)
-        .popover(isPresented: $monitorOpen, arrowEdge: .bottom) { DirectorMonitorPanel(monitor: monitor, progress: store.progress?.snapshot) { monitorOpen = false } }
-        .help(live != nil ? "Director details: state, tokens, cost and recent activity" : "")
-        .accessibilityLabel(offline ? "Film files unreadable. Reload film" : (live ?? phase.pill))
     }
 }
 
@@ -245,35 +250,6 @@ struct DirectorRecoveryView: View {
         }
         .padding(14).background(Color.orange.opacity(0.08))
         .overlay(alignment: .bottom) { Divider() }
-    }
-}
-
-struct DirectorProgressView: View {
-    @Bindable var store: StudioStore
-    @State private var lastActivityAt = Date()
-    private var activity: String { store.snapshot.latestActivity ?? store.snapshot.workingMessage ?? "Your director is working on the film." }
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let elapsed = context.date.timeIntervalSince(store.runtime.startedAt ?? context.date)
-            let quiet = context.date.timeIntervalSince(lastActivityAt) > 120
-            HStack(spacing: 12) {
-                ProgressView().controlSize(.small)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(activity).font(.system(size: 12)).lineLimit(2).textSelection(.enabled)
-                    if quiet {
-                        Text("No new activity for two minutes. Check the log, or pause and resume if needed.")
-                            .font(.system(size: 11)).foregroundStyle(.secondary)
-                    }
-                }
-                Spacer(minLength: 8)
-                Text("\(clockText(max(0, elapsed))) elapsed").font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
-                Button(quiet ? "Show log" : "Details") { store.sheet = .log }
-                Button("Pause") { store.pauseDirector() }
-            }.padding(.horizontal, 16).padding(.vertical, 10)
-        }
-        .background(.regularMaterial).overlay(alignment: .bottom) { Divider() }
-        .onChange(of: store.snapshot.raw["activity"]) { lastActivityAt = Date() }
-        .onChange(of: store.snapshot.workingMessage) { lastActivityAt = Date() }
     }
 }
 

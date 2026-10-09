@@ -1,15 +1,14 @@
 import StudioCore
 import SwiftUI
 
-/// What Claude is doing right now. This is what shows right after Start film and between calls: the current line,
-/// a calm progress bar, the elapsed time, what the person asked for, and the feed of what has been done. Never an intake box.
+/// What Claude is doing right now. The state and the clock live in the turn line above; this is the detail. This is what shows right after Start film and between calls: the current line,
+/// a calm progress bar, what the person asked for, and the feed of what has been done. Never an intake box.
 struct DirectorWorkingView: View {
     let model: FilmSessionModel
     var startedAt: Date?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var headline: String { model.workingMessage ?? model.activity.first?.message ?? "Getting started…" }
-    private var since: Date? { startedAt ?? model.startedAt ?? model.activity.last?.date }
     private var brief: JSONValue { model.payload("brief") }
     private var captures: [JSONValue] { brief["captures"].array }
 
@@ -24,14 +23,6 @@ struct DirectorWorkingView: View {
                         .accessibilityAddTraits(.isHeader)
                     ProgressView().progressViewStyle(.linear).tint(.rasan).frame(maxWidth: 260)
                         .accessibilityLabel("Claude is working")
-                    Text("Nothing for you to do yet. The next question appears here.")
-                        .font(.system(size: 14)).foregroundStyle(.secondary)
-                    if let since {
-                        TimelineView(.periodic(from: .now, by: 1)) { context in
-                            Text("\(clockText(max(0, context.date.timeIntervalSince(since)))) elapsed")
-                                .font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit()
-                        }
-                    }
                 }
                 if brief["fields"]["subject"].string != nil { briefCard }
                 if !captures.isEmpty { captureStrip }

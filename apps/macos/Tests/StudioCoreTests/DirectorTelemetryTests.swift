@@ -217,6 +217,21 @@ private let claudeInit = #"{"type":"system","subtype":"init","session_id":"s1","
         #expect(h.state == .waitingForYou)
     }
 
+    @Test func waitingWithBackgroundWorkSaysSo() {
+        var t = DirectorTelemetry()
+        t.ingest(line: claudeInit, now: at(0))
+        t.ingest(line: claudeToolLine(id: "a", input: #"{"command":"ls","description":"Research the product"}"#), now: at(1))
+        let busy = DirectorHealth.evaluate(t, context: running(at(8), awaiting: true))
+        #expect(busy.state == .waitingForYou)
+        #expect(busy.background == "Research the product")
+        #expect(busy.detail.contains("keeps working in the background"))
+        t.ingest(line: toolResult, now: at(9))
+        let idle = DirectorHealth.evaluate(t, context: running(at(9 + 300), awaiting: true))
+        #expect(idle.state == .waitingForYou)
+        #expect(idle.background == nil)
+        #expect(idle.detail.contains("not using tokens"))
+    }
+
     @Test func identicalCallsThreeTimesIsPossiblyLooping() {
         var t = DirectorTelemetry()
         t.ingest(line: claudeInit, now: at(0))

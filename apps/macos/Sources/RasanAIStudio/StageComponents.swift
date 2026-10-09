@@ -161,7 +161,12 @@ struct CallActions: View {
     var onPrimary: (_ note: String) -> Void = { _ in }
     @State private var note = ""
 
+    /// Only the person's turn (or looking back, or just sent) gets a bar; while Claude works there is nothing to do.
     var body: some View {
+        if model.showsActions(for: step) { bar }
+    }
+
+    @ViewBuilder private var bar: some View {
         let canAct = model.canAct(on: step)
         VStack(spacing: 8) {
             if let error = model.lastError {

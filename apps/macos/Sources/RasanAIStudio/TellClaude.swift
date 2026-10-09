@@ -72,16 +72,11 @@ struct TellClaudePopover: View {
     }
 }
 
-/// Toolbar items every native film page carries: Tell Claude, Decisions, Just make it.
+/// Toolbar items every native film page carries: Tell Claude and Decisions. "Just make it" lives in each call's action bar and the ••• menu.
 struct FilmToolbarItems: ToolbarContent {
     @Bindable var model: FilmSessionModel
     var body: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
-            if !model.isDone && !model.isDecideRest && model.route != .working {
-                Button { Task { await model.justMakeIt() } } label: { Label("Just make it", systemImage: "wand.and.stars") }
-                    .help("Claude decides every remaining call and stops only at the final")
-                    .disabled(!model.isConnected || model.isSending)
-            }
             Button { model.beginTell() } label: { Label("Tell Claude", systemImage: "bubble.left.and.text.bubble.right") }
                 .keyboardShortcut("k", modifiers: .command)
                 .help("Tell Claude something about this step (⌘K)")
