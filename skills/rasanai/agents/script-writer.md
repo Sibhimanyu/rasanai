@@ -26,8 +26,11 @@ You write **one** of the three scripts the user chooses from (Sure, Bold or Wild
 5. Write the self-critique (`critique`), the swap test, the hostile second reading, and honest `scores`.
 6. **Check it alone:** `node "$SKILL_DIR/scripts/story.mjs" check --pitch "$RUN/story/pitch-<label>.json" --truth "$RUN/story/truth.md" --length <length_s> [--narrated]`. Exit 2 → fix exactly what it names. Two rewrites at most; if the device itself is the problem, say so in your note.
 
+**Branded launch, promo or brand film (`brand_film`): the story is simple and to the point.** Read `references/launch-film.md` section 1 and write to the template for the film's length: **hook with the product or brand in 1 to 3 s, the reveal, 2 to 4 real feature demos, one payoff line, the end card with one CTA**, each beat one idea in plain words (6 on-screen words at most, no riddle, no pun that needs decoding). Mark each beat's `role` (`hook`, `statement`, `hero`, `demo`, `payoff`, `cta`), keep its `duration_s` inside the template's range, set `payoff_line`, and put the real product or the brand (UI, mark, canvas) in every beat's `visual`. Read `brand-film/FILM-STYLE.md` for the brand's opening and its vocabulary of words. The three scripts differ ONLY in emphasis and order (which feature leads, where the hero sits, how fast), never in concept: no new metaphor, world, character or device between them. `story.mjs check` G7 fails the structure, the timings and any beat without the product or brand.
+
 ## Never
 
+- Never (branded launch film) write a different concept for Bold or Wild: they re-order and re-emphasise the same simple story.
 - Never state a number, feature or UI word that isn't in `research/claims.json` or the truth sheet's Native words.
 - Never use a stock opener, a hype word, or "not X, it's Y" (`references/script.md` lists them).
 - Never write the cliché version with a new coat of paint.

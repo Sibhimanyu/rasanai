@@ -5,6 +5,8 @@
 //
 //   node crew.mjs plan --run <run> --route <route> --subject "<name>" [--mode product|topic] [--url <url>] [--public]
 //        [--local "<dir>,<dir>"] [--may-run] [--scenes N] [--length s] [--project videos/<name>] [--lean] [--model <id>]
+//        [--brand "<name>"] [--kind launch|promo|brand] [--brand-film | --no-brand-film] [--pace fast]
+//        (a branded launch / promo / brand film adds the brand-film phase: brandfilm.mjs + the brand film analyst, and the style-match gates)
 //        -> <run>/crew/plan.json: every phase, who's dispatched in it (role, key, model tier, description)
 //   node crew.mjs brief --run <run> --role <role> [--key <k>] [--project <dir>] [--set k=v,...] [--model <id>]
 //   node crew.mjs model [--model <id>] [--kv]   -> the model and harness, its profile, strengths and pitfalls (--kv: MODEL= / HARNESS= lines)
@@ -92,6 +94,7 @@ const ROLES = {
   "motion-director": { desk: "motion", tier: "inherit", desc: (p, k) => (k === "seams" ? "Checking every cut and building the signature transition" : "Scoring how the whole film moves") },
   "frame-designer": { desk: "art", tier: "inherit", desc: (p, k) => `Designing key frames ${k || ""}`.trim() },
   "scene-animator": { desk: "animation", tier: "inherit", desc: (p, k) => `Animating scene ${k}` },
+  "brand-film-analyst": { desk: "research", tier: "fast", desc: (p) => `Reading ${p.subject || p.brand || "the brand"}'s own films and writing down its film style` },
   "concept-critic": { desk: "story", tier: "fast", desc: () => "Scoring the chosen script and look against the literal brief, before any expensive work" },
   critic: { desk: "review", tier: "inherit", desc: (p, k) => `Reviewing the ${String(k || "film").split("-")[0]} with fresh eyes` },
 };
@@ -124,11 +127,19 @@ function planCrew(p) {
     research.push(d("brand-researcher"));
   }
   for (const dir of p.local) research.push(d("local-scout", path.basename(dir), { approved_paths: [dir], may_run: !!p.may_run }));
+  const bf = !!p.brand_film;
   // the design desk: the subject's visual world is researched during the Brief, in parallel with the research desk
   phases.push({ phase: "design-research", when: "right after the brief is pushed, in parallel with the research members (it needs only the subject)", dispatch: [d("design-researcher")], then: "design.mjs / crew.mjs check; the design-system designers wait for it and for the chosen story" });
   if (research.length) {
     phases.push({ phase: "research", when: "right after the brief is pushed, while the user reads it", dispatch: research, then: "research-lead once every member above is accepted" });
     phases.push({ phase: "research-lead", when: "after the research desk", dispatch: [d("research-lead")], then: "story.mjs pick on the truth sheet" });
+  }
+  if (bf) {
+    phases.push({
+      phase: "brand-film", when: "right after the brief is pushed, in parallel with the research desk (a branded launch / promo / brand film: references/launch-film.md section 3). The Director first runs brandfilm.mjs: find (the brand's official films; the user's attached video is the PRIMARY source and skips find), fetch (at most 2 films, 720p), frames, measure, card, all into <run>/brand-film/; no film found: fall back to the brand's website and product screenshots as the frames and say so. At most ~3 minutes on Fast pace",
+      director_steps: ["brandfilm.mjs find --brand <b> --product <p> --out <run>/brand-film/find", "brandfilm.mjs fetch --url <u> | --file <attached> --out <run>/brand-film/<n>   (top 1-2; the attached file first)", "brandfilm.mjs frames --in <video> --out <run>/brand-film/<n>", "brandfilm.mjs measure --in <video> --out <run>/brand-film/grammar.json", "brandfilm.mjs card --dir <run>/brand-film --brand <b>"],
+      dispatch: [d("brand-film-analyst")], then: "crew.mjs check, set decisions.film_style, push the `brand` step with the card (what the brand's film looks like, in the user's words); the design systems and the script wait for it",
+    });
   }
   if (p.route === "music-to-video") {
     // lyrics.mjs align + audio come first (music/lyrics.json, music/audio.json); three treatments replace three scripts
@@ -143,7 +154,7 @@ function planCrew(p) {
   if (p.route === "music-to-video") {
     phases.push({ phase: "design-system", when: "after the treatment is chosen (the Look step is the treatment's style bible, built out by the desk)", dispatch: [d("design-system-designer", "<chosen label>", { mode: "bible" })], then: "design.mjs check-system, then design.mjs choose-system for that label; no Look picker" });
   } else {
-    phases.push({ phase: "design-systems", when: p.route === "reel" || ["talking-head-recut", "embedded-captions"].includes(p.route) ? "after the cut (reel) or the brief (footage routes): three card / overlay / caption identities" : "after the story is chosen (story/chosen.json) and design-research is accepted", dispatch: ["Sure", "Bold", "Wild"].map((k) => d("design-system-designer", k)), then: "design.mjs check-systems (each valid and the three distinct), then design.mjs look-payload and push the Look" });
+    phases.push({ phase: "design-systems", when: p.route === "reel" || ["talking-head-recut", "embedded-captions"].includes(p.route) ? "after the cut (reel) or the brief (footage routes): three card / overlay / caption identities" : "after the story is chosen (story/chosen.json) and design-research is accepted", dispatch: ["Sure", "Bold", "Wild"].map((k) => d("design-system-designer", k)), then: "design.mjs check-systems (each valid and the three distinct" + (bf ? "; a branded look cites FILM-STYLE.md, uses the card's palette and type, and carries no outside references" : "") + "), then design.mjs look-payload and push the Look" });
   }
   if (p.route === "presenter") {
     phases.push({ phase: "animate-graphics", when: "after presenter.mjs build wrote the project and briefs/graphics/*.md (the plates are generated and approved)", dispatch: [d("scene-animator", "<beat>-<n>")], then: "one scene-animator per graphic brief (key b3-1 = beat b3, graphic 1) and per designed plate (key plate-p2), in parallel; then obey, slop and a draft render" });
@@ -159,13 +170,15 @@ function planCrew(p) {
       const per = lean ? N : Math.max(2, Math.ceil(N / 5));
       for (let i = 1; i <= N; i += per) groups.push(`${i}-${Math.min(N, i + per - 1)}`);
     } else groups.push("1-N");
-    phases.push({ phase: "keyframes", when: "after the score is accepted", dispatch: groups.map((g) => d("frame-designer", g)), then: lean ? "push the animatic" : "the frames critic, then push the animatic" });
+    phases.push({ phase: "keyframes", when: "after the score is accepted", dispatch: groups.map((g) => d("frame-designer", g)), then: bf ? "the style-match gate, then " + (lean ? "push the animatic" : "the frames critic, then push the animatic") : lean ? "push the animatic" : "the frames critic, then push the animatic" });
+    if (bf) phases.push({ phase: "style-match-keyframes", when: "after every key frame is rendered, BEFORE the frames critic and before any animation", dispatch: [], gate: "node scripts/brandfilm.mjs compare --ref <run>/brand-film/grammar.json --ours <run>/frames", then: "on FAIL fix the frames (re-dispatch the designers with the failed checks) and re-run before animation or polish continues; record the numbers in decisions (decisions.style_match.keyframes) and push a short note (\"Matches OpenAI's film style: 76% white canvas vs 77%, palette dE 4.1\")" });
     if (!lean) phases.push({ phase: "keyframes-review", when: "after every key frame is rendered", dispatch: [d("critic", "frames-1")], then: "fix the high findings (re-dispatch the designer), then push the animatic" });
     const scenes = N ? Array.from({ length: N }, (_, i) => String(i + 1)) : ["<n>"];
     phases.push({ phase: "animate", when: "after the workflow's frame-packets.mjs and video.mjs inject", dispatch: scenes.map((k) => d("scene-animator", k)), then: "assemble, then the seam pass" });
     phases.push({ phase: "seams", when: "after every scene is accepted and the index is assembled", dispatch: [d("motion-director", "seams")], then: lean ? "the film critic" : "the motion critic" });
     const review = lean ? [d("critic", "film-1")] : [d("critic", "motion-1"), d("critic", "grounding-1")];
     phases.push({ phase: "review", when: "after the seam pass (motion, grounding) and the draft render (film)", dispatch: review, then: "route each finding to its scene's animator (2 rounds at most); film critic on the draft" });
+    if (bf) phases.push({ phase: "style-match-draft", when: "after the first draft render, before the film critic", dispatch: [], gate: "node scripts/brandfilm.mjs compare --ref <run>/brand-film/grammar.json --ours <draft.mp4>", then: "on FAIL fix the failing scenes (colour, canvas, cut rate) and re-render; record the numbers in decisions (decisions.style_match.draft) and push the short note" });
     if (!lean) phases.push({ phase: "review-film", when: "after the draft render", dispatch: [d("critic", "film-1")], then: "fix or waive at the Final" });
   }
   return phases;
@@ -220,6 +233,12 @@ function brandLocked(run) {
   if (b.use_brand === false || dec.use_brand === false) return false;
   return !!(b.brand_name || b.use_brand === true || dec.use_brand === true || dec.brand || exists(R(run, "research", "brand", "DESIGN.md")));
 }
+// a branded launch / promo / brand film: the brand's own film grammar (brandfilm.mjs card, <run>/brand-film/FILM-STYLE.md) is the look
+function brandFilm(run, P) {
+  if (LYR(run, P) || isPresenter(run, P)) return false;
+  const pl = jsonMaybe(R(run, "crew", "plan.json")) || {};
+  return !!((P && P.brand_film) || pl.brand_film || exists(R(run, "brand-film", "FILM-STYLE.json")));
+}
 // a lyric video: the music-to-video route, or a run that has word timings
 const LYR = (run, P) => (P && P.route === "music-to-video") || exists(R(run, "music", "lyrics.json"));
 // a presenter film: a keyed talking-head clip put into generated image worlds (references/presenter.md)
@@ -255,6 +274,12 @@ function contextFor(run, role, key, plan) {
   if (productFirst(run, P)) {
     ctx.product_first = "yes: a launch, promo or product film. Read references/product-first.md (the rules and the concept gate). The product UI is on screen within 3 s, one hero product moment, 2 to 4 real uses, short plain kinetic lines, the end line the largest type; no museums, allegories, invented worlds, extended metaphors or cover versions; show off through craft (motion, UI choreography, rhythm), never through concept.";
     I("product-first rules (read all of it)", path.join(SKILL_DIR, "references", "product-first.md"));
+  }
+  if (role !== "brand-film-analyst" && brandFilm(run, P)) {
+    ctx.brand_film = "yes: a branded launch / promo / brand film. READ <run>/brand-film/FILM-STYLE.md FIRST: the brand's own film grammar (canvas, palette and shares, typefaces and type scale, layout, motif, motion vocabulary, photography, cut rate, transitions, end card) is the look. Sure = the card exactly; Bold and Wild = the same palette, type, motif and motion vocabulary, varying only composition, pacing and emphasis. No outside designers, directors, museum grammar or library references. If the card says flat (no 3D, no blur, no grain) add none of them. The story is simple and to the point: references/launch-film.md section 1 (hook with the product or brand in 1 to 3 s, reveal, 2 to 4 real demos, payoff line, end card; one idea and plain words per beat). The style-match gate (brandfilm.mjs compare) runs on the key frames and on the first draft.";
+    inputs.unshift(["launch-film rules: structure templates with timings, the grammar checklist, red flags (references/launch-film.md)", path.join(SKILL_DIR, "references", "launch-film.md")]);
+    inputs.unshift(["measured grammar (numbers the style-match gate compares against)", R(run, "brand-film", "grammar.json")]);
+    inputs.unshift(["FILM-STYLE.md: the brand film's own style card (READ FIRST; its palette, type, motif and motion vocabulary are law)", R(run, "brand-film", "FILM-STYLE.md")]);
   }
   if (brandLocked(run)) ctx.brand_lock = "yes: the brief names a brand. The brand's own type, colours, UI language and logo usage (research/brand/DESIGN.md, or the workspace DESIGN.md) are law in every look and every frame; variations are composition, motion and density only.";
   const dsn = (() => {
@@ -295,6 +320,16 @@ function contextFor(run, role, key, plan) {
       O(research("local.md")); O(research("local.claims.json")); O(research("local", "assets") + "/");
       break;
     }
+    case "brand-film-analyst": {
+      const bfd = R(run, "brand-film");
+      Object.assign(ctx, { subject: P.subject || P.brand, brand: P.brand || P.subject, url: P.url || null, pace: P.pace || "normal", time_box: P.pace === "fast" ? "about 3 minutes in all; read at most 2 films" : "keep it brisk; at most 2 films", checklist: "canvas, palette and shares, typefaces and the type scale, layout and grid, signature motif, motion vocabulary (and what is never used), photography or illustration, cut rate, transitions, end card (references/launch-film.md sections 3 and 4)" });
+      I("the brand film folder (frames, contact sheets sheet-*.jpg/png, find.json, frames.json)", bfd);
+      I("measured grammar", R(run, "brand-film", "grammar.json")); I("the card to fill (JSON slots + Markdown)", R(run, "brand-film", "FILM-STYLE.md"));
+      I("launch-film rules (section 3 the grammar checklist, section 4 a worked card)", path.join(SKILL_DIR, "references", "launch-film.md"));
+      I("brand notes (text research, if done)", research("brand.md")); I("workspace_design_md", dsn ? path.resolve(dsn) : null); I("capture (the fallback: website and product screenshots)", capture);
+      O(R(run, "brand-film", "FILM-STYLE.md")); O(R(run, "brand-film", "FILM-STYLE.json"));
+      break;
+    }
     case "design-researcher":
       Object.assign(ctx, { subject: P.subject, url: P.url || null, kind: B.kind, mode: P.mode || "product", length_s: B.length_s, route: P.route });
       I("capture", capture); I("workspace_design_md", dsn ? path.resolve(dsn) : null); I("brand notes (if the brand researcher is done)", research("brand.md")); I("product notes (if done)", research("product.md"));
@@ -314,6 +349,11 @@ function contextFor(run, role, key, plan) {
       ctx.library = `node "${path.join(SKILL_DIR, "scripts", "library.mjs")}" search --q "<words>" [--space 3d] | show <id> --full`;
       ctx.gate = `node "${path.join(SKILL_DIR, "scripts", "design.mjs")}" check-system --dir ${rel(R(run, "design", key))}`;
       O(R(run, "design", key, "DESIGN.md")); O(R(run, "design", key, "recipe.json")); O(R(run, "design", key, "blend.json"));
+      if (ctx.brand_film) {
+        const sl = String(key).toLowerCase();
+        ctx.stance = sl === "sure" ? "Sure: the brand film's grammar EXACTLY (FILM-STYLE.md): its canvas, palette, type, motif, layout, motion vocabulary and end card, built out as a complete design system. Nothing from outside the card." : `${key}: the same palette, type, motif and motion vocabulary as the brand film (FILM-STYLE.md), varying only composition, pacing and emphasis (${sl === "bold" ? "bigger scale, tighter cuts, more of the motif per scene" : "the motif carries more of the story, more contrast between calm holds and bursts, a more unexpected arrangement of the SAME elements"}). Never a new colour, face, illustration style or move.`;
+        ctx.library = "NONE: a branded film does not blend library, designer or director references (Paula Scher, Spielberg, Wes Anderson, museum grammar...). blend.json carries references: [], film_style: \"<path to brand-film/FILM-STYLE.md>\" and film_style_takes: [what you took from the card: palette, type, motif, motion, layout, end card]";
+      }
       break;
     }
     case "research-lead":
@@ -806,7 +846,7 @@ async function checkRole(run, role, key) {
       if (rf === undefined) { P.push("research/design-refs.json is not valid JSON"); break; }
       const ids = libraryIds();
       const refs = Array.isArray(rf) ? rf : rf.references || [];
-      if (refs.length < 8) P.push(`design-refs.json shortlists ${refs.length} library references (8 to 12)`);
+      if (refs.length < 8 && !brandFilm(run)) P.push(`design-refs.json shortlists ${refs.length} library references (8 to 12)`);
       if (refs.length > 12) W.push(`design-refs.json shortlists ${refs.length} references (8 to 12: a shortlist, not the shelf)`);
       for (const r of refs) {
         if (!r || !r.id) { P.push("a reference has no id"); continue; }
@@ -945,6 +985,13 @@ async function checkRole(run, role, key) {
       break;
     }
     case "motion-director": {
+      if (key !== "seams" && brandFilm(run)) {
+        const sj = readMaybe(R(run, "motion", "score.json")) || "";
+        const card = jsonMaybe(R(run, "brand-film", "FILM-STYLE.json")) || {};
+        if (!/FILM-STYLE|film_style/i.test(sj)) P.push('score.json must cite the brand film card: set "film_style": "brand-film/FILM-STYLE.md" and keep every scene inside its motion vocabulary');
+        const flat = /\b(flat|no 3d|no motion blur|no blur|no grain)\b/i.test(`${(card.slots || {}).motionVocabulary || ""} ${(card.slots || {}).notes || ""}`);
+        if (flat && /"space"\s*:\s*"(3d|hybrid)"/i.test(sj)) P.push("the card says the brand's motion is flat (no 3D, blur or grain), but the score has 3D / hybrid scenes: keep every scene 2D");
+      }
       if (key === "seams") {
         const md = readMaybe(R(run, "crew", "seams-report.md"));
         if (!md) { P.push("crew/seams-report.md is missing"); break; }
@@ -1040,6 +1087,23 @@ async function checkRole(run, role, key) {
       if ((j.could_not_run || []).some((x) => String(x).includes(file))) P.push(`obey.mjs could not check ${file} (a script error, or the timeline isn't registered on window.__timelines)`);
       break;
     }
+    case "brand-film-analyst": {
+      const dir = R(run, "brand-film");
+      const jf = R(dir, "FILM-STYLE.json"), mf = R(dir, "FILM-STYLE.md");
+      const j = jsonMaybe(jf), md = readMaybe(mf);
+      if (!j) { P.push(`${rel(jf)} is ${j === undefined ? "not valid JSON" : "missing (run brandfilm.mjs card first)"}`); break; }
+      if (!md) { P.push(`${rel(mf)} is missing`); break; }
+      if (j.filled !== true) P.push('FILM-STYLE.json "filled" must be true once every slot is written');
+      const sl = j.slots || {};
+      for (const k of ["typefaces", "motif", "layout", "motionVocabulary", "photographyStyle", "endCard"]) if (String(sl[k] || "").trim().length < 12) P.push(`FILM-STYLE.json slots.${k} is empty or thin: read the contact sheets and write it (or "none: <what the film uses instead>")`);
+      const need = [["canvas", /canvas|background/i], ["palette and shares", /palette/i], ["typefaces", /typeface|type\b/i], ["type scale", /scale|statement|label|size/i], ["layout", /layout|grid/i], ["motif", /motif/i], ["motion vocabulary", /motion/i], ["photography or illustration", /photograph|illustration|imagery/i], ["cut rate", /cut rate|cuts|shot length/i], ["transitions", /transition/i], ["end card", /end card/i]];
+      for (const [n, re] of need) if (!re.test(md)) P.push(`FILM-STYLE.md says nothing about ${n} (the grammar checklist, references/launch-film.md section 3)`);
+      if (/^-\s+[^:\n]+:\s*$/m.test(md.split(/^##\s+Slots/mi)[1] || "")) P.push("FILM-STYLE.md still has an empty slot (a bullet ending in a colon): fill every one");
+      if (!/^(#+\s*)?sources?\b/mi.test(md)) P.push("FILM-STYLE.md names no source: list the film(s) read (url or file), or say it is a website fallback");
+      if (!/\bsubstitute\b/i.test(md)) W.push("if a typeface is proprietary, name a loadable \"Substitute: <family>\" so the design systems can load it");
+      if (!/\b(never|no |not used|absent|banned)\b/i.test(String(sl.motionVocabulary || ""))) W.push("motionVocabulary should also say which moves the brand never uses (3D, blur, grain, bounce...): those are banned for the film");
+      break;
+    }
     case "concept-critic": {
       const f = R(run, "story", "concept-check.json");
       const c = jsonMaybe(f);
@@ -1069,6 +1133,11 @@ async function checkRole(run, role, key) {
         if (!String(x.fix || "").trim()) P.push(`finding ${i + 1}: no exact fix`);
         if (lens !== "grounding" && x.scene == null) W.push(`finding ${i + 1}: no scene`);
       });
+      if (brandFilm(run) && ["frames", "film"].includes(lens)) {
+        const sm = c.style_match;
+        if (!sm || !["pass", "fail"].includes(String(sm.verdict || "").toLowerCase()) || !String(sm.numbers || "").trim()) P.push('a branded film needs style_match: {verdict: "pass|fail", numbers: "<the brandfilm.mjs compare numbers>", note} (run brandfilm.mjs compare first)');
+        else if (String(sm.verdict).toLowerCase() === "fail" && c.verdict === "ship") P.push("ship with a failed style match: fix the frames until brandfilm.mjs compare passes");
+      }
       const low = Object.entries(c.scores || {}).filter(([, v]) => Number(v) < 8);
       if (c.verdict === "ship" && (low.length || fs_.some((x) => x.severity === "high"))) P.push("ship needs every score ≥ 8 and no high finding");
       break;
@@ -1224,15 +1293,18 @@ if (cmd === "plan") {
     url: str(args.url) || null, public: !!args.public, local: str(args.local).split(",").map((s) => s.trim()).filter(Boolean).map((s) => path.resolve(s.replace(/^~(?=\/|$)/, os.homedir()))),
     may_run: !!args["may-run"], scenes: Number(args.scenes) || null, length: Number(args.length) || null, project: args.project && args.project !== true ? rel(String(args.project)) : null, lean: !!args.lean,
     focus: str(args.focus) || null, features: str(args.features) || null,
+    brand: str(args.brand) || null, kind: str(args.kind) || null, pace: str(args.pace) || null,
     model: args.model && args.model !== true ? String(args.model) : null,
   };
   for (const d of p.local) if (!exists(d)) die(`approved folder not found: ${d}`);
   const prev = jsonMaybe(R(run, "crew", "plan.json")) || {};
   // re-planning later (scene count known, the project made) keeps what was planned before
-  for (const k of ["subject", "url", "project", "focus", "features", "model"]) if (!p[k] && prev[k]) p[k] = prev[k];
+  for (const k of ["subject", "url", "project", "focus", "features", "model", "brand", "kind", "pace"]) if (!p[k] && prev[k]) p[k] = prev[k];
   if (!p.model) p.model = detectModel().model;
   if (!p.local.length && prev.local && prev.local.length) { p.local = prev.local; p.may_run = prev.may_run; }
   if (!args.public && prev.public) p.public = true;
+  // a branded launch / promo / brand film gets the brand-film phase (the brand's own films are researched and measured) and the style-match gates
+  p.brand_film = args["no-brand-film"] ? false : !!args["brand-film"] || !!prev.brand_film || (["product-launch-video", "general-video"].includes(p.route) && !!(p.brand || p.public || brandLocked(run)) && (p.route === "product-launch-video" || /launch|promo|brand|reveal/i.test(String(p.kind || brief(run).kind || ""))));
   p.phases = planCrew(p);
   writeFile(R(run, "crew", "plan.json"), JSON.stringify(p, null, 2));
   const count = p.phases.reduce((a, ph) => a + ph.dispatch.length, 0);

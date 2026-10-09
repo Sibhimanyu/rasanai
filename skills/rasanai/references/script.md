@@ -24,6 +24,8 @@ The script is written once and travels: the Story card shows it, `scenes.json` i
 
 For the route `product-launch-video` and any launch, promo, product or app film, read `references/product-first.md` before the passes below, and let it win wherever it conflicts: the real product UI is on screen within 3 s; one hero product moment shows the key feature for real; 2 to 4 real uses; short plain kinetic lines; the required end line is the largest type in the film on a clean CTA card; no museums, allegories, invented worlds, extended metaphors or cover versions (an instant visual pun that resolves to the product within a second is the only allowed figure). Sure, Bold and Wild differ in structure, pacing and energy, never in leaving the product. Write the pitch's `hero_moment`, `uses`, `last_line` and `end_line_largest`; `story.mjs check` runs gate G7 on them. The worked example below that uses a museum is a *brand-film* conceit: do not copy it for a product film; the product-first example follows it.
 
+**Branded launch, promo or brand film:** write to the structure template in `references/launch-film.md` section 1 (hook with the product or brand in 1 to 3 s, reveal, hero demo, 2 to 4 real feature demos, payoff line, end card) and keep each beat inside its timing range for the film's length; mark each beat's `role` and set `payoff_line`. One idea per beat, plain words, the product or brand in every beat. The brand's own film (`brand-film/FILM-STYLE.md`) gives the opening and the words it uses. The three scripts differ only in emphasis and order, never in concept.
+
 ## The eight passes
 
 Write in passes, not in one go. Each pass has one question.

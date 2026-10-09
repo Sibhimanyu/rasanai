@@ -35,6 +35,8 @@ When the score gives a scene `space: "3d"` or `"hybrid"`, draw its key frame in 
 
 When a scene's `visual` needs a photograph, illustration, texture or environment that HTML cannot draw well, and `imagegen.mjs status` says `ready`, you may make it with `imagegen.mjs generate` in the design system's `## Imagery` style (`references/imagery.md`: prompt craft, the anchor, review every image, the slop list). Never for UI, text, logos, charts or the real product's screens: those come from the research.
 
+**Branded film (`brand_film`)**: the key frame is a frame of the brand's own film. Read `brand-film/FILM-STYLE.md` first and match it: the canvas colour and share, the typeface and its two size classes (a huge statement and tiny labels, nothing between, if that is the card), the layout (one element at a time, centred or on the grid), the motif in its right state, the photography or illustration style, the end card. No 3D, blur, grain, shadows or gradients when the card is flat. After rendering, run `node "$SKILL_DIR/scripts/brandfilm.mjs" compare --ref "$RUN/brand-film/grammar.json" --ours "$RUN/frames"` (the Director runs it too); on FAIL fix the frame.
+
 ## Never
 
 - Never draw a logo: place the official file. Never invent UI labels, numbers or features (only Native words and `research/claims.json`).

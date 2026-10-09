@@ -15,7 +15,11 @@ RasanAI does not show a menu of styles and does not pick one from a list. For ev
 
 When the brief names a brand (`brand_name` / `use_brand`) or the product is a known brand, the brand step always runs first (the brand researcher's `research/brand/DESIGN.md`, or the workspace DESIGN.md, in decisions as `brand`). Then **all three systems stay inside the brand**: its palette (canvas, ink, accent), its type system and its UI language and logo usage. Sure, Bold and Wild differ in composition, layout, motion language and density, never in palette or type. The gates enforce it: `design.mjs check-system` fails a system whose canvas, ink, accent or display face is not the brand's (the label does not matter), `check-systems` then requires the three to differ in layout and motion instead of palette and display face, and `look-payload` refuses to push (or recommend) an off-brand look. For a product-first film the system is the product's own world made for motion (`references/product-first.md`), never an invented material or concept.
 
-## The library (raw material, never a menu)
+### A branded launch, promo or brand film: the brand film's grammar, no outside references
+
+When `brand-film/FILM-STYLE.json` exists (or the run is a branded launch film), the look is the brand's own film grammar (`references/brand-film.md`). Sure = the card exactly; Bold and Wild = the same palette, type, motif and motion vocabulary, varying composition, pacing and emphasis. The desk does NOT blend outside designers, directors or library references (Paula Scher, Spielberg, Wes Anderson, museum grammar) for a branded film: those are for unbranded films only, and the design researcher returns no shortlist. `blend.json` carries `references: []`, `film_style: "<path to FILM-STYLE.md>"` and `film_style_takes: [3 or more things taken from the card]`. `design.mjs check-system` / `check-systems` / `look-payload` refuse a look without the citation, with a canvas, ink or accent that is not a colour of the card (dE over 15, accent over 28), a display face not in the card's typefaces, a library reference, or 3D / blur / grain when the card is flat.
+
+## The library (raw material, never a menu; unbranded films only)
 
 `library/systems/**` (movements, studios, vernacular, material: palette logic, type, grid, shape, motion and camera, how to instruct a model to build it, cheap tells, sources) and `library/motion/**` (2D and 3D motion and camera styles: timings, eases, lens, recipes for HyperFrames GSAP and Rasan3D, pitfalls). `scripts/library.mjs index` merges the index fragments and every entry's frontmatter into `library/index.json` (rerunnable); `search --q "<words>" [--space 3d] [--kind <kind>]` ranks entries; `show <id> [--full]` reads one. The 403 style presets in `taxonomy/presets/` stay as extra raw material the designers may cite; they are not shown to the user and not picked from.
 
@@ -51,7 +55,7 @@ The recipe is exactly what `RasaPresets.render()` takes (`scripts/lib/vocab.mjs`
 
 ### `design/<label>/blend.json`
 
-`name`, `one_line` (the blend, in one line the user reads), `why_for_story` (one line, for this story), `references[{id, traits[], why}]` (2 to 4 real library ids), `subject_world[]`, `stack` (taxonomy ids: `visual-style`, `motion-language`, so DIRECTION.md compiles) and `motion_contract` (`language`, `scale_ms` (4 or more), `easing {enter, exit, move}`, `stagger_ms`, `hold_ms`, `banned`): the binding numbers `motion.md` and `obey.mjs` use, which must match the Motion and camera section.
+`name`, `one_line` (the blend, in one line the user reads), `why_for_story` (one line, for this story), `references[{id, traits[], why}]` (2 to 4 real library ids; on a branded launch film `[]`, with `film_style` and `film_style_takes` instead), `subject_world[]`, `stack` (taxonomy ids: `visual-style`, `motion-language`, so DIRECTION.md compiles) and `motion_contract` (`language`, `scale_ms` (4 or more), `easing {enter, exit, move}`, `stagger_ms`, `hold_ms`, `banned`): the binding numbers `motion.md` and `obey.mjs` use, which must match the Motion and camera section.
 
 ## The gate (`design.mjs check-system`, `lib/system.mjs`)
 

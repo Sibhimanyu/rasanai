@@ -2,6 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## 0.6.2 (build 18) — 2026-10-09
+
+- Bundles RasanAI 1.9.0. Launch films for a named brand now study the brand's own films first, or a reference video you attach in New film. Studio shows the brand's measured style in the Brand step, builds every look from that style instead of outside references, keeps launch stories to a simple product-first structure, and checks key frames and drafts against the brand's film before moving on.
+
 ## 0.6.1 (build 17) — 2026-10-09
 
 - **Film progress.** While Claude works, the film page is now a live progress view instead of a log. A header names the phase and step ("Plan · step 4 of 8"), the current action in plain words, a running clock and an estimate. An eight-phase rail (Research, Script, Look, Plan, Animatic, Build, Check, Render) shows each phase's time, cost and state, and each phase has its own card: research sources and findings, three scripts and three looks drawn as they arrive, key frames filling in against the number planned, scenes being built with the newest still, critic findings and fixes, and the draft and final render with a progress bar. A timeline below groups what happened by phase, and you can look back at any finished phase. Per-phase tokens and cost add up to the film's reported total. Optional notifications fire once each when the build finishes, when the final is rendered and when research reaches its time box. The five-call stage bar now ticks the decided calls and shows the next call as upcoming with a quiet working ring rather than a misleading current step.

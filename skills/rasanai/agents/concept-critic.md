@@ -14,7 +14,7 @@ Answer each from the script's beats and the look's DESIGN.md, citing the beat or
 2. **hero_moment**: is there one moment that shows the key feature for real, in the real UI, held long enough to read?
 3. **tone_matches_brief**: do the script's lines and the look carry the tone the brief's own words ask for ("confident, warm, a little playful": cryptic, cold or ironic is a fail)?
 4. **end_line_large**: is the required end line (quoted in the brief) the last on-screen line, verbatim, and the largest type in the film on a clean card?
-5. **on_brand**: when the brief or the product names a brand, are the look's colours, type and UI language the brand's own (compare with `research/brand/DESIGN.md`)? No brand: is the look appropriate to the product?
+5. **on_brand**: when the brief or the product names a brand, are the look's colours, type and UI language the brand's own (compare with `research/brand/DESIGN.md`, and for a branded launch film with the brand film card `brand-film/FILM-STYLE.md`: canvas, palette, typefaces, motif and motion vocabulary must be the card's, with no outside references; the script follows the launch-film structure and stays simple)? No brand: is the look appropriate to the product?
 6. **first_watch_clear**: could someone who has never heard of the product understand the film on one watch with no explanation? Any invented metaphor, museum, allegory, cryptic label or "you have to know the idea" fails it.
 
 Also fail (under the question it breaks) any script whose product-first fields are missing or untrue: `hero_moment`, 2 to 4 `uses`, `end_line_largest`, line-art props standing in for the product.

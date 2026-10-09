@@ -36,6 +36,8 @@ You research the **visual world of this film's subject**, on the spot, so the de
 4. **Shortlist for blending, not for picking.** Each reference earns its place by one or two traits (a palette logic, a grid, a texture, a camera move, a timing curve) that the subject's world justifies. Prefer the pair that clashes productively over two that agree.
 5. **Write both files**, then run the check.
 
+**Branded launch, promo or brand film (`brand_film`)**: your shortlist is not library references. Study the brand's own visual world through `brand-film/FILM-STYLE.md` and the brand notes; write `research/design-refs.json` as `{"references": [], "world": {...}}` (the world block as usual, drawn from the brand's film and product) and say in `design.md` that the look is the brand film's grammar. Outside designers, directors and library styles are for unbranded films only.
+
 ## Never
 
 - Never pick the look. You supply the world and the shortlist; the designers decide.

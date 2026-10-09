@@ -617,7 +617,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     ok("product-first: --allow-conceit lifts the filter (brand films, or when the user asks for a concept)", conc.status === 0 && !/"product_first": true/.test(conc.stdout));
     const pf = (extra, drop = []) => {
       const b = (name, on_screen, duration_s, visual, more = {}) => ({ name, on_screen, visual, duration_s, ...more });
-      const o = { title: "Review in place", logline: "Lintel reviews the pull request where you already are.", device: "oner", beats: [b("Open", "Lintel, open.", 2.5, "The real Lintel review window opens over the pull request, Apply suggestion in the corner"), b("Hero", "One shortcut.", 8, "The real LGTM flow: the diff, the comment, Apply suggestion, held long enough to read", { value: true }), b("Use 1", "Every diff.", 6, "Six real diffs reviewed down the review thread"), b("Use 2", "Every thread.", 5, "The review thread resolves itself", { turn: true }), b("End", "Get Lintel", 5, "Clean CTA card, the line the largest type")], first_4s: "the real Lintel window opens", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "the Apply suggestion flow is Lintel's own" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the real UI choreography" }, scores, hero_moment: { beat: 2, what: "the real review flow end to end" }, uses: ["review a diff", "resolve a thread"], last_line: "Get Lintel", end_line_largest: true, ...extra };
+      const o = { title: "Review in place", logline: "Lintel reviews the pull request where you already are.", device: "oner", beats: [b("Open", "Lintel, open.", 2.5, "The real Lintel review window opens over the pull request, Apply suggestion in the corner"), b("Hero", "One shortcut.", 8, "The real LGTM flow: the diff, the comment, Apply suggestion, held long enough to read", { value: true }), b("Use 1", "Every diff.", 4, "Six real diffs reviewed down the Lintel review thread"), b("Use 2", "Every thread.", 4, "The Lintel review thread resolves itself", { turn: true }), b("End", "Get Lintel", 5, "Clean CTA card, the line the largest type")], payoff_line: "Review done where you work.", first_4s: "the real Lintel window opens", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "the Apply suggestion flow is Lintel's own" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the real UI choreography" }, scores, hero_moment: { beat: 2, what: "the real review flow end to end" }, uses: ["review a diff", "resolve a thread"], last_line: "Get Lintel", end_line_largest: true, ...extra };
       for (const k of drop) delete o[k];
       const f = path.join(sd, `pf-${Math.random().toString(36).slice(2)}.json`);
       fs.writeFileSync(f, JSON.stringify(o));
@@ -638,6 +638,24 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     ok("product-first: G7 requires the end line to be the largest type", small.g7.pass === false && /end_line_largest/.test(small.g7.reasons.join(" ")), small.g7.reasons.join(" | "));
     const pun = pf({ visual_pun: { what: "a lintel above a door becomes the window", resolves_in_s: 0.8 }, title: "Over the door", logline: "A lintel becomes the Lintel window in a second." });
     ok("product-first: an instant visual pun that resolves to the product within 1 s is allowed", pun.g7.pass === true, pun.g7.reasons.join(" | "));
+    // launch-film structure (references/launch-film.md): hook, hero, 2-4 demos, payoff, end card, timings per film length, the product in every beat
+    {
+      const b = (name, on_screen, duration_s, visual, more = {}) => ({ name, on_screen, visual, duration_s, ...more });
+      const base = () => [b("Open", "Lintel, open.", 2.5, "The real Lintel review window opens over the pull request"), b("Hero", "One shortcut.", 8, "The real Lintel LGTM flow, Apply suggestion", { value: true }), b("Use 1", "Every diff.", 4, "Six real diffs in the Lintel window"), b("Use 2", "Every thread.", 4, "The Lintel review thread resolves", { turn: true }), b("Payoff", "Review done.", 3, "Lintel shows the merged pull request"), b("End", "Get Lintel", 3.5, "Lintel mark and one CTA on the brand canvas")];
+      const okp = pf({ beats: base(), payoff_line: "Review done where you work." });
+      ok("launch structure: G7 passes the 30 s template (hook, hero, 2 uses, payoff, end card, each in range, the product in every beat)", okp.g7.pass === true, okp.g7.reasons.join(" | "));
+      const slow = base(); slow[1].duration_s = 20;
+      const t1 = pf({ beats: slow, payoff_line: "Review done." });
+      ok("launch structure: G7 fails a beat outside the template's timing range", t1.g7.pass === false && /outside the 30 s launch template/.test(t1.g7.reasons.join(" ")), t1.g7.reasons.join(" | "));
+      const nopay = pf({ beats: base().filter((x) => x.name !== "Payoff") }, ["payoff_line"]);
+      ok("launch structure: G7 requires a payoff line", nopay.g7.pass === false && /payoff line missing/.test(nopay.g7.reasons.join(" ")), nopay.g7.reasons.join(" | "));
+      const bare = base(); bare[3] = b("Use 2", "Every thread.", 3, "A drifting field of soft shapes", { turn: true });
+      const t3 = pf({ beats: bare, payoff_line: "Review done." });
+      ok("launch structure: G7 fails a beat with neither the product nor the brand", t3.g7.pass === false && /without the product or brand/.test(t3.g7.reasons.join(" ")), t3.g7.reasons.join(" | "));
+      const five = base(); five.splice(3, 0, b("Use 3", "Every repo.", 4, "Lintel across repos"), b("Use 4", "Every team.", 4, "Lintel for teams"), b("Use 5", "Every fork.", 4, "Lintel on forks"));
+      const t4 = pf({ beats: five, payoff_line: "Review done." });
+      ok("launch structure: G7 fails more than 4 feature demos", t4.g7.pass === false && /feature-demo beats/.test(t4.g7.reasons.join(" ")), t4.g7.reasons.join(" | "));
+    }
     // the museum script of the real failed film is refused by the gate when run product-first
     const mu = node("story.mjs", ["check", "--pitch", path.join(sd, "script-good.json"), "--length", "45", "--narrated", "--product-first"]);
     let rmu = { gates: [] };
@@ -654,6 +672,17 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     ok("lint: SKILL.md states the product-first rule, the brand lock, the concept gate and not ending a turn with background work running", ["Launch, promo and product films are product-first", "Brand lock.", "Concept gate before the expensive work", "Never end a turn while your own background work is running", "console.mjs wait"].every((k) => skill.includes(k)) && /brand step ALWAYS runs/.test(skill) && /use_brand/.test(skill));
     const sw = rd("agents/script-writer.md"), se = rd("agents/script-editor.md"), cc = rd("agents/concept-critic.md"), ds = rd("agents/design-system-designer.md");
     ok("lint: the writers', editor's, concept critic's and design desk's prompts carry the product-first and brand-lock rules", /product_first/.test(sw) && /hero_moment/.test(sw) && /clearest product story/.test(se) && /first_watch/.test(se) && ["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear"].every((k) => cc.includes(k)) && /brand_lock/.test(ds) && /composition, layout, motion language and density only/.test(ds));
+    // the brand-faithful launch pipeline is written into the skill, the design desk, the story references and the agents
+    {
+      const bfm = rd("references/brand-film.md"), dd = rd("references/design-desk.md"), st = rd("references/story.md"), sc = rd("references/script.md"), cr = rd("references/crew.md");
+      const an = rd("agents/brand-film-analyst.md"), md = rd("agents/motion-director.md"), cr2 = rd("agents/critic.md"), fr = rd("agents/frame-designer.md");
+      ok("lint: SKILL.md carries the brand-faithful launch pipeline (research with brandfilm.mjs and the analyst, grammar not outside references, simple story, style-match gate on frames and draft, motion obeys the brand)", ["Brand-faithful launch films", "brandfilm.mjs", "brand film analyst", "FILM-STYLE.md", "brandfilm.mjs compare", "after the key frames AND after the first draft render", "Paula Scher", "PRIMARY source", "flat card", "no film found"].every((k) => skill.includes(k)) && /about 3 minutes on Fast pace/.test(skill) && /at most 2 official films/.test(skill), "SKILL.md");
+      ok("lint: references/brand-film.md has the pipeline and the OpenAI worked example (what went wrong, what the card says)", ["find", "fetch", "frames", "measure", "card", "compare", "OpenAI", "Bodoni", "77%", "gallery green", "Paula Scher", "dE 4.1", "primary", "Fast"].every((k) => bfm.includes(k)), "brand-film.md");
+      ok("lint: the design desk reference forbids outside references for a branded film and names the FILM-STYLE citation", /film_style/.test(dd) && /Paula Scher/.test(dd) && /unbranded films only/.test(dd) && /film_style_takes/.test(dd));
+      ok("lint: the story references carry the launch-film structure (hook in 1 to 3 s, reveal, demos, payoff, end card; scripts differ in emphasis and order only)", /launch-film\.md/.test(st) && /launch-film\.md/.test(sc) && /emphasis and order/.test(st) && /emphasis and order/.test(sc) && /payoff_line/.test(st) && /1 to 3 s/.test(sc));
+      ok("lint: the crew reference lists the brand film analyst and the style gate", /brand-film-analyst/.test(cr) && /brandfilm\.mjs compare/.test(cr));
+      ok("lint: the analyst, Motion Director, critic and frame designer prompts carry the brand film rules", /type scale/.test(an) && /Substitute/.test(an) && /contact sheets/.test(an) && /FILM-STYLE\.md` FIRST/.test(md) && /no 3D or hybrid scenes/.test(md) && /style_match/.test(cr2) && /brandfilm\.mjs" compare|brandfilm\.mjs\" compare/.test(cr2 + fr), "agents");
+    }
     const ban = rd("taxonomy/devices.json");
     ok("lint: the catalog still has the conceit devices the product-first filter keeps out (so the filter is doing something)", /"museum-exhibit"/.test(ban) && /"cover-version"/.test(ban));
   }
@@ -743,6 +772,43 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     fs.writeFileSync(cf, JSON.stringify({ verdict: "pass", answers: ans(true), summary: "6 of 6" }));
     const good = C(["check", "--run", run, "--role", "concept-critic", "--key", "concept-1"]);
     ok("crew: concept-critic check refuses a pass with failed answers and accepts a complete pass", bad.status !== 0 && /not ok but the verdict is pass/.test(bad.stdout + bad.stderr) && good.status === 0, (bad.stdout + good.stdout).slice(0, 300));
+    // the brand-faithful launch pipeline: brand film research phase, the analyst role and its check, the style-match gates
+    {
+      const bp = J2(C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "ChatGPT for Mac", "--brand", "OpenAI", "--kind", "launch", "--scenes", "4", "--length", "30", "--pace", "fast"]));
+      const bph = (bp.phases || []).map((p) => p.phase), bm = (bp.phases || []).flatMap((p) => p.members);
+      const planF = JSON.parse(fs.readFileSync(path.join(run, "crew", "plan.json"), "utf8"));
+      const ph = (n) => (planF.phases || []).find((p) => p.phase === n) || {};
+      ok("crew: a branded launch film plans the brand-film phase (brandfilm.mjs steps + the Sonnet brand-film-analyst) before the design systems", bph.includes("brand-film") && bph.indexOf("brand-film") < bph.indexOf("design-systems") && bm.some((m) => m.startsWith("brand-film-analyst") && /fast/.test(m)) && /brandfilm\.mjs frames/.test(JSON.stringify(ph("brand-film").director_steps)) && /3 minutes/.test(ph("brand-film").when), bph.join(","));
+      ok("crew: the style-match gate (brandfilm.mjs compare) is planned after the key frames and after the first draft", bph.includes("style-match-keyframes") && bph.indexOf("style-match-keyframes") > bph.indexOf("keyframes") && bph.indexOf("style-match-keyframes") < bph.indexOf("animate") && bph.includes("style-match-draft") && bph.indexOf("style-match-draft") < bph.indexOf("review-film") && /compare --ref/.test(ph("style-match-keyframes").gate) && /compare --ref/.test(ph("style-match-draft").gate), bph.join(","));
+      const un = J2(C(["plan", "--run", path.join(ws, ".rasanai", "r-unbranded"), "--route", "faceless-explainer", "--subject", "tides", "--scenes", "4"]));
+      ok("crew: an unbranded explainer has no brand-film phase or style-match gate", !(un.phases || []).some((p) => /brand-film|style-match/.test(p.phase)), JSON.stringify((un.phases || []).map((p) => p.phase)));
+      const fb = J2(C(["brief", "--run", run, "--role", "brand-film-analyst"]));
+      const fbt = fb.prompt ? fs.readFileSync(path.join(ws, fb.prompt), "utf8") : "";
+      ok("crew: the brand-film-analyst brief names the card, the contact sheets, the checklist and a faster model", /Role: brand film analyst/.test(fbt) && /FILM-STYLE\.md/.test(fbt) && /contact sheets/.test(fbt) && /type scale/.test(fbt) && /faster model/.test(JSON.stringify(fb)), JSON.stringify(fb).slice(0, 200));
+      const mb = J2(C(["brief", "--run", run, "--role", "motion-director", "--key", "score"]));
+      const mbt = mb.prompt ? fs.readFileSync(path.join(ws, mb.prompt), "utf8") : "";
+      ok("crew: the Motion Director brief lists FILM-STYLE.md first among its inputs and says flat means no 3D, blur or grain", /brand_film/.test(mbt) && mbt.indexOf("FILM-STYLE.md: the brand film") > -1 && mbt.indexOf("FILM-STYLE.md: the brand film") < mbt.indexOf("design system (its Motion") && /no 3D, no blur, no grain/.test(mbt) && /READ \S*FILM-STYLE\.md\S* FIRST|READ FIRST/.test(mbt), mbt.slice(mbt.indexOf("Dispatch"), mbt.indexOf("Dispatch") + 600));
+      const bfd = path.join(run, "brand-film");
+      fs.mkdirSync(bfd, { recursive: true });
+      const card = { version: 1, brand: "OpenAI", source: "Refreshed.", measured: { palette: [{ hex: "#fafafa", share: 0.77 }, { hex: "#0a0a0a", share: 0.04 }], background: { overall: "#fafafa" } }, slots: { typefaces: "", motif: "", layout: "", motionVocabulary: "", photographyStyle: "", endCard: "", notes: "" }, filled: false };
+      fs.writeFileSync(path.join(bfd, "FILM-STYLE.json"), JSON.stringify(card));
+      fs.writeFileSync(path.join(bfd, "FILM-STYLE.md"), "# Film style: OpenAI\n\n## Slots\n- Typefaces:\n- Motif:\n");
+      const ea = C(["check", "--run", run, "--role", "brand-film-analyst"]);
+      ok("crew: brand-film-analyst check refuses an unfilled card (empty slots, missing checklist items, no source)", ea.status === 2 && /slots\.typefaces/.test(ea.stdout) && /says nothing about/.test(ea.stdout), ea.stdout.slice(0, 300));
+      const full = { ...card, filled: true, slots: { typefaces: "OpenAI Sans, Light to Bold; two size classes (huge statements, tiny labels). Substitute: Inter", motif: "the dot: dot, circle, outline circle, dot grid, dot", layout: "one element at a time, centred, huge whitespace", motionVocabulary: "flat: no 3D, no blur, no grain; scale, morph, draw-on, cut on the beat", photographyStyle: "real bright photography full bleed or framed on white", endCard: "the mark alone, big, on white, held 3 s", notes: "never a dark ground" } };
+      fs.writeFileSync(path.join(bfd, "FILM-STYLE.json"), JSON.stringify(full));
+      fs.writeFileSync(path.join(bfd, "FILM-STYLE.md"), "# Film style: OpenAI\n\nSources: Refreshed. (110 s, primary)\n\n## Slots\n- Canvas and palette: near-white canvas 77%, black ink, colour under 5% (palette shares)\n- Typefaces and type scale: OpenAI Sans, statement and label sizes. Substitute: Inter\n- Layout and grid: centred, whitespace\n- Motif: the dot\n- Motion vocabulary: scale, morph, draw-on; never 3D, blur or grain\n- Photography and illustration: real photography\n- Cut rate and transitions: calm holds and bursts; hard cuts and morphs\n- End card: the mark alone\n");
+      const eb = C(["check", "--run", run, "--role", "brand-film-analyst"]);
+      ok("crew: brand-film-analyst check accepts a filled card (all ten checklist items, sources, slots)", eb.status === 0, eb.stdout.slice(0, 400));
+      const sc = path.join(run, "motion", "score.json");
+      fs.mkdirSync(path.dirname(sc), { recursive: true });
+      fs.writeFileSync(sc, JSON.stringify({ scenes: [{ n: 1, space: "3d" }] }));
+      const mdf = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+      ok("crew: motion-director check refuses a score without the film card citation and 3D scenes under a flat card", /FILM-STYLE|film_style/.test(mdf.stdout) && /flat/.test(mdf.stdout), mdf.stdout.slice(0, 400));
+      fs.rmSync(bfd, { recursive: true, force: true });
+      fs.rmSync(sc, { force: true });
+      C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "Tally", "--public", "--scenes", "4", "--length", "20", "--no-brand-film"]);
+    }
   }
 
   const br = J2(C(["brief", "--run", run, "--role", "brand-researcher"]));
@@ -1229,6 +1295,38 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
     fs.writeFileSync(path.join(run, "decisions.json"), JSON.stringify({ subject: "Tally", use_brand: false, brand: brandMd }));
     const freed = D(["check-systems", "--run", run, "--offline"]);
     ok("brand lock: use_brand false lifts it", !/brand lock/.test(freed.stdout), freed.stdout.slice(0, 300));
+    // the brand film grammar: a branded launch look must cite the card, use its palette and type, carry no outside references
+    {
+      const bd = path.join(run, "design", "Bold"), bj = path.join(bd, "blend.json"), saved = fs.readFileSync(bj, "utf8"), bdm = fs.readFileSync(path.join(bd, "DESIGN.md"), "utf8");
+      const cardDir = path.join(run, "brand-film");
+      fs.mkdirSync(cardDir, { recursive: true });
+      fs.writeFileSync(path.join(run, "decisions.json"), JSON.stringify({ subject: "Tally", route: "product-launch-video", brand: brandMd, use_brand: true }));
+      const film = (c) => (D(["check-system", "--dir", bd, "--brand", brandMd, "--offline"]).stdout.match(/[^"]*film style[^"]*/g) || []).join(" | ");
+      const noCard = film();
+      ok("film style: a branded launch look with no FILM-STYLE card is refused", /needs the brand's film grammar card/.test(noCard), noCard.slice(0, 300));
+      const writeCard = (pal, typefaces, motion) => fs.writeFileSync(path.join(cardDir, "FILM-STYLE.json"), JSON.stringify({ version: 1, brand: "Tally", measured: { palette: pal.map((h) => ({ hex: h, share: 0.2 })), background: { overall: pal[0] } }, slots: { typefaces, motif: "a dot", layout: "centred", motionVocabulary: motion, photographyStyle: "none", endCard: "the mark" }, filled: true }));
+      writeCard(["#101418", "#eef2f0", "#f5b700"], "Space Grotesk. Substitute: Space Grotesk", "scale, morph, cut on the beat");
+      const uncited = film();
+      ok("film style: a look that does not cite FILM-STYLE.md, has no film_style_takes and still blends library references is refused", /must cite the card/.test(uncited) && /film_style_takes/.test(uncited) && /blend\.references must be empty/.test(uncited), uncited.slice(0, 500));
+      const bl = JSON.parse(saved);
+      fs.writeFileSync(bj, JSON.stringify({ ...bl, references: [], film_style: "brand-film/FILM-STYLE.md", film_style_takes: ["palette", "type", "motion vocabulary"] }));
+      const cited = film();
+      ok("film style: a look that cites the card, has no outside references and uses the card's palette and type passes the film-style checks", cited === "", cited.slice(0, 400));
+      writeCard(["#ffffff", "#888888", "#cc0000"], "Space Grotesk", "scale");
+      const offp = film();
+      ok("film style: a canvas, ink or accent that is not on the card's palette is refused (dE)", /canvas #101418 is not a colour of the brand film's card/.test(offp), offp.slice(0, 400));
+      writeCard(["#101418", "#eef2f0", "#f5b700"], "OpenAI Sans. Substitute: Inter", "scale");
+      const offt = film();
+      ok("film style: a display face that is not in the card's typefaces is refused", /display face Space Grotesk is not in the card's typefaces/.test(offt), offt.slice(0, 400));
+      fs.writeFileSync(path.join(bd, "DESIGN.md"), bdm.replace(/## Motion and camera\n/, "## Motion and camera\nA slow dolly with motion blur and film grain on every move. "));
+      writeCard(["#101418", "#eef2f0", "#f5b700"], "Space Grotesk", "flat: no 3D, no blur, no grain; scale, morph");
+      const flat = film();
+      ok("film style: a flat card refuses a Motion and camera section that adds a dolly, motion blur or grain", /motion is flat/.test(flat), flat.slice(0, 400));
+      const lpl = D(["look-payload", "--run", run, "--hook", "Tax season. Again.", "--recommended", "bold"]);
+      ok("film style: look-payload refuses to push a branded look that leaves the card's grammar", lpl.status !== 0 && /film style|brand lock/.test(lpl.stdout + lpl.stderr), (lpl.stdout + lpl.stderr).slice(0, 300));
+      fs.writeFileSync(bj, saved); fs.writeFileSync(path.join(bd, "DESIGN.md"), bdm);
+      fs.rmSync(cardDir, { recursive: true, force: true });
+    }
     fs.rmSync(path.join(run, "decisions.json"), { force: true });
   }
   // the Look payload, choose, motion.md, DIRECTION.md
@@ -1382,7 +1480,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   ok("presenter: other routes do not need ## Imagery", !/Imagery/.test(g(run2).stdout));
 
   // the scripts' own tests, each with the same helpers; absent files are a note, never a failure
-  for (const name of ["imagegen", "presenter"]) {
+  for (const name of ["imagegen", "presenter", "brandfilm"]) {
     const f = path.join(HERE, "tests", `${name}.mjs`);
     if (!fs.existsSync(f)) { console.log(`note  ${name}: scripts/tests/${name}.mjs is not there yet, skipped`); continue; }
     try {

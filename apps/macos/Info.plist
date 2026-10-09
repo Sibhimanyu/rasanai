@@ -2,40 +2,83 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key><string>RasanAI Studio</string>
-    <key>CFBundleDisplayName</key><string>RasanAI Studio</string>
-    <key>CFBundleIdentifier</key><string>com.rasanai.studio</string>
-    <key>CFBundleExecutable</key><string>RasanAIStudio</string>
-    <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.6.1</string>
-    <key>CFBundleVersion</key><string>17</string>
-    <key>CFBundleIconFile</key><string>AppIcon</string>
-    <key>LSMinimumSystemVersion</key><string>14.0</string>
-    <key>NSHighResolutionCapable</key><true/>
-    <key>SUFeedURL</key><string>https://sibhimanyu.github.io/rasanai/studio/appcast.xml</string>
-    <key>SUPublicEDKey</key><string>G7jLvqDCheO+YFMPOwDiE3TqkFEe/eAipR+MZt4lZvY=</string>
-    <key>RasanAIUpdatesEnabled</key><false/>
-    <key>SUVerifyUpdateBeforeExtraction</key><true/>
-    <key>SUEnableAutomaticChecks</key><true/>
-    <key>SUScheduledCheckInterval</key><integer>18000</integer>
-    <key>SUEnableSystemProfiling</key><false/>
-    <key>NSDocumentsFolderUsageDescription</key><string>RasanAI stores each film's sources, compositions, run data, and exports in your project library.</string>
-    <key>UTExportedTypeDeclarations</key>
-    <array><dict>
-        <key>UTTypeIdentifier</key><string>com.rasanai.studio.project</string>
-        <key>UTTypeDescription</key><string>RasanAI Film Project</string>
-        <key>UTTypeConformsTo</key><array><string>com.apple.package</string></array>
-        <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>rasanaiproject</string></array></dict>
-    </dict></array>
-    <key>CFBundleDocumentTypes</key>
-    <array><dict>
-        <key>CFBundleTypeName</key><string>RasanAI Film Project</string>
-        <key>CFBundleTypeRole</key><string>Editor</string>
-        <key>LSHandlerRank</key><string>Owner</string>
-        <key>LSItemContentTypes</key><array><string>com.rasanai.studio.project</string></array>
-        <key>LSTypeIsPackage</key><true/>
-    </dict></array>
-    <key>NSAppTransportSecurity</key>
-    <dict><key>NSAllowsLocalNetworking</key><true/></dict>
+	<key>CFBundleDisplayName</key>
+	<string>RasanAI Studio</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>RasanAI Film Project</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.rasanai.studio.project</string>
+			</array>
+			<key>LSTypeIsPackage</key>
+			<true/>
+		</dict>
+	</array>
+	<key>CFBundleExecutable</key>
+	<string>RasanAIStudio</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.rasanai.studio</string>
+	<key>CFBundleName</key>
+	<string>RasanAI Studio</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.6.2</string>
+	<key>CFBundleVersion</key>
+	<string>18</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>RasanAI stores each film's sources, compositions, run data, and exports in your project library.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>RasanAIUpdatesEnabled</key>
+	<false/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUEnableSystemProfiling</key>
+	<false/>
+	<key>SUFeedURL</key>
+	<string>https://sibhimanyu.github.io/rasanai/studio/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>G7jLvqDCheO+YFMPOwDiE3TqkFEe/eAipR+MZt4lZvY=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>18000</integer>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>com.apple.package</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>RasanAI Film Project</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.rasanai.studio.project</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>rasanaiproject</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 </dict>
 </plist>
