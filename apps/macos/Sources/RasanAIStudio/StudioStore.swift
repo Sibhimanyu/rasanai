@@ -360,6 +360,13 @@ final class StudioStore {
     }
 
     @discardableResult func openFilm(_ project: URL) -> Bool {
+        // Opening the film the director is working on is not a switch: attach to its run. Refusing it showed
+        // "stop the director before switching films" on the running film's own page and closed the page.
+        if project.standardizedFileURL == runtime.projectURL?.standardizedFileURL, runtime.isRunning || runtime.isPreparing || runtime.isFinishing {
+            selectedProjectURL = project
+            if let run = runtime.runURL, runURL != run || loadedFilm != project { openRun(run, navigate: false) }
+            return true
+        }
         guard !isTransferringProject, !runtime.isRunning, !runtime.isPreparing, !runtime.isFinishing, !queueStarting, !queueHandlingExit, !isManagingProject, !isImportingSources, !isSavingFilm else {
             errorMessage = "Wait for file operations to finish and stop the director before switching films."; return false
         }

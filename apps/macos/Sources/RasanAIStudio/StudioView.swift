@@ -112,5 +112,7 @@ struct StudioView: View {
 /// True when the message is about the director, its tools or the library folder, where Settings is the fix.
 func errorNeedsSettings(_ message: String?) -> Bool {
     guard let text = message?.lowercased() else { return false }
+    // "Stop the director before switching films" is about the running film, not a setting.
+    if text.contains("switching films") { return false }
     return ["director", "executable", "node", "sign in", "signed in", "sign-in", "log in", "login", "library", "project folder", "claude", "codex"].contains { text.contains($0) }
 }
