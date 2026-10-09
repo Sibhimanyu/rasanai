@@ -201,6 +201,16 @@ final class ConsoleProtocolTests: XCTestCase {
         XCTAssertEqual(transport.pending().map(\.note), ["hello"])
     }
 
+    func testASentAnswerIsNotWaitingOnYouBeforeTheDirectorConsumesIt() throws {
+        // The Director panel read the raw session and said "Waiting for you" next to "Sent to Claude".
+        let base = try SessionSnapshot(data: Data(#"{"title":"T","current":"animatic","steps":{"animatic":{"status":"awaiting"}}}"#.utf8))
+        XCTAssertTrue(base.isWaitingOnUser)
+        let approve = QueuedAction(id: "a", ts: "2026-01-01T00:00:00.000Z", step: "animatic", type: "approve", value: .null, note: "")
+        let shown = SessionOverlay.apply([approve], to: base)
+        XCTAssertFalse(shown.isWaitingOnUser)
+        XCTAssertEqual(shown.workingMessage, SessionOverlay.readingMessage)
+    }
+
     func testSessionOverlayShowsSentActionsUntilConsumedAndIsIdempotent() throws {
         let base = try SessionSnapshot(data: Data(#"{"title":"T","current":"story","steps":{"story":{"status":"awaiting","options":[]}},"ask":{"id":"q","step":"story","question":"?","options":[{"id":"y","label":"Yes"}]}}"#.utf8))
         let choose = QueuedAction(id: "a", ts: "2026-01-01T00:00:00.000Z", step: "story", type: "choose", value: .string("a"), note: "shorter")
