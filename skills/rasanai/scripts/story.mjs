@@ -10,12 +10,14 @@
 //   node story.mjs cliche
 //        -> the default arc's 8 beats, stock openers, overused devices and visual cliches
 //   node story.mjs pick --truth <truth.md|truth.json> [--count 3] [--seed s] [--recent ids] [--exclude ids]
-//        [--like id] [--format launch|explainer|brand|social] [--tone t]
+//        [--like id] [--format launch|explainer|brand|social] [--tone t] [--product-first | --allow-conceit]
 //        -> three devices ("Sure", "Bold", "Wild") that differ on >= 5 of 7 axes, with different family,
 //           protagonist and visual world; each with beats, pitfalls, an example and native material to fuse
 //           with. Deterministic for a seed (default seed: product name + today's date).
-//   node story.mjs check --pitch <pitch.json | pitches.json> [--truth <truth.md|json>] [--footage] [--length <s>] [--narrated]
-//        -> the rubric: 5 pass/fail gates + the weighted 1-5 score (ship at >= 3.8, no dimension < 3).
+//           Launch / promo / product films (format launch, or --product-first) are PRODUCT-FIRST: conceit devices
+//           (museums, allegories, invented worlds, extended metaphors, cover versions) are never offered.
+//   node story.mjs check --pitch <pitch.json | pitches.json> [--truth <truth.md|json>] [--footage] [--length <s>] [--narrated] [--product-first | --allow-conceit]
+//        -> the rubric: 6 pass/fail gates (+ G7 product-first for launch / promo / product films) + the weighted 1-5 score (ship at >= 3.8, no dimension < 3).
 //           Exit 0 = ship, 2 = rewrite (reasons in the JSON), 1 = bad input.
 //   node story.mjs validate
 //        -> checks devices.json against its schema (vocabularies, ids, counts)
@@ -185,6 +187,18 @@ function mentions(text, item) {
   return !!head && new RegExp(`\\b${head}(s|es)?\\b`).test(tx);
 }
 
+
+// --- product-first routes (launch, promo, product videos) ----------------------------
+// Real launch films (Apple, OpenAI, Linear, Raycast, Arc, Notion) are product-led: the real UI is the hero from
+// the first second. Conceit devices (a museum of the old way, an allegory, an invented world, a cover version)
+// are never offered for these routes; an instant visual pun that resolves to the product in a second is a pitch
+// detail (`visual_pun`), not a device.
+const PF_CONTAINER_OK = new Set(["query-log", "chat-thread", "interface-world"]);
+const PF_BANNED_IDS = new Set(["cosmos-zoom", "object-pov", "unexpected-protagonist", "letter-from-future", "mockumentary", "product-as-character", "problem-villain", "inner-monologue", "letter-to-someone", "mirror", "one-shape", "sound-first", "data-letter", "story-loop"]);
+const pfBanned = (d) => d.family === "metaphor" || (d.family === "container" && !PF_CONTAINER_OK.has(d.id)) || PF_BANNED_IDS.has(d.id);
+const CONCEIT_RE = /\b(museums?|galler(?:y|ies)|exhibit(?:s|ion|ions)?|plinths?|under glass|dioramas?|parables?|fables?|allegor\w*|cover version|invented world|a world where|time capsule|archaeolog\w*|courtroom|trial of|funeral|obituary|eulogy|haunted|safari|odyssey|kingdom|ancient ruins?|natural history)\b/i;
+const isProductFirst = (format, args) => !args["allow-conceit"] && (!!args["product-first"] || ["launch", "promo", "product"].includes(format));
+
 // --- device scoring and distance ------------------------------------------------
 const distance = (a, b) => AXES.filter((k) => a.axes[k] !== b.axes[k]).length;
 const hardDiffer = (a, b) => a.axes.family !== b.axes.family && a.axes.protagonist !== b.axes.protagonist && a.axes.visual_world !== b.axes.visual_world;
@@ -335,7 +349,8 @@ if (cmd === "truth") {
   const seed = args.seed && args.seed !== true ? String(args.seed) : `${truth.product.name || "product"}|${new Date().toISOString().slice(0, 10)}`;
   const rand = rng(seed);
   const ctx = { recent: new Set(recentIds), tags, format, tones, like, footage };
-  const scored = DEVICES.filter((d) => !exclude.has(d.id)).map((d) => ({ d, ...weigh(d, ctx) }));
+  const productFirst = isProductFirst(format, args);
+  const scored = DEVICES.filter((d) => !exclude.has(d.id) && !(productFirst && pfBanned(d))).map((d) => ({ d, ...weigh(d, ctx) }));
 
   // candidates: at least one per family, two from the containers and metaphors, then three more from anywhere
   const fams = Object.keys(CAT.families);
@@ -405,6 +420,8 @@ if (cmd === "truth") {
     seed,
     product: truth.product.name || null,
     format, tones, tags,
+    product_first: productFirst || undefined,
+    product_first_rule: productFirst ? "Launch / promo / product film: the product UI is on screen within 3 s, one hero product moment, 2-4 real uses, short plain kinetic lines, the end line the largest type, a clean CTA. No conceit devices; Sure, Bold and Wild differ in structure, pacing and energy, never by leaving the product. See references/product-first.md." : undefined,
     truth_gaps: gaps.length ? gaps : undefined,
     considered: cands.map((c) => ({ id: c.d.id, w: c.w })),
     widened: widened || undefined,
@@ -426,7 +443,7 @@ if (cmd === "truth") {
   const pitches = Array.isArray(raw) ? raw : Array.isArray(raw.pitches) ? raw.pitches : [raw];
   const truth = loadTruth(args.truth);
   const footage = !!args.footage || !!(truth && truth.assets.some((a) => /footage|video of|founder on camera/i.test(a)));
-  const opts = { length: Number(args.length) || 0, narrated: !!args.narrated };
+  const opts = { length: Number(args.length) || 0, narrated: !!args.narrated, productFirst: isProductFirst(truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null), args) };
   const results = pitches.map((p, i) => checkPitch(p, i, truth, footage, opts));
   const portfolio = pitches.length > 1 ? checkPortfolio(pitches, results) : null;
   const ship = results.every((r) => r.verdict === "ship") && (!portfolio || portfolio.pass);
@@ -594,6 +611,37 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
   if (!bld.hardest_shot) warnings.push("build.hardest_shot missing: name the hardest shot and how it's built");
   if (dev.build.score <= 2 && !footage) g5.push(`${dev.name} is buildability ${dev.build.score}/5 in code-built motion`);
   gate("G5", "Buildable in code-built motion graphics", g5, { device_build: `${dev.build.score}/5 (${dev.build.how.join(", ")})` });
+
+  // G7: product-first (launch, promo and product films; references/product-first.md)
+  if (opts.productFirst || p.product_first === true) {
+    const g7 = [];
+    const flagged = deviceIds.map((x, i) => devices[i]).filter((d) => d && pfBanned(d));
+    if (flagged.length) g7.push(`${flagged.map((d) => d.name).join(", ")} is a conceit device (museum, allegory, invented world, extended metaphor, cover version, borrowed container): a product film is led by the product, pick a device that stays on the real UI`);
+    const pun = p.visual_pun && typeof p.visual_pun === "object" ? p.visual_pun : null;
+    const punOk = !!pun && Number(pun.resolves_in_s) <= 1;
+    const conceitText = [p.title, p.logline, p.signature_image, ...(p.visual_motifs || []), ...beats.map((b) => `${b.name || ""} ${b.visual || ""} ${b.on_screen || ""}`)].join(" . ");
+    const cm = conceitText.match(CONCEIT_RE);
+    if (cm && !punOk) g7.push(`conceit word "${cm[0]}" in the title, logline or beats: an invented world or extended metaphor cannot carry a product film (an instant visual pun that resolves to the product within 1 s is allowed: set visual_pun {what, resolves_in_s})`);
+    else if (cm) warnings.push(`conceit word "${cm[0]}" allowed only as the visual pun "${pun.what || ""}"`);
+    // the product on screen within 3 s
+    const prodName = truth?.product?.name || p.product || "";
+    const uiWords = [...(truth ? truth.words : []), ...(p.ui_labels || [])];
+    const early3 = beats.filter((b, i) => starts[i] < 3);
+    const earlyText = early3.map((b) => `${b.on_screen || ""} ${b.visual || ""}`).join(" ");
+    const seen = (prodName && mentions(earlyText, prodName)) || uiWords.some((w) => mentions(earlyText, w)) || /\b(real |the )?(ui|app window|interface|screenshot|screen capture|menu bar|product screen|the app|the window|composer|cursor)\b/i.test(earlyText);
+    if (!seen) g7.push("the product is not on screen within 3 s: beat 1 must show the real product UI (name it in the beat's visual, with its real labels)");
+    const hero = p.hero_moment;
+    const heroTxt = typeof hero === "string" ? hero : hero && (hero.what || hero.feature);
+    if (!String(heroTxt || "").trim()) g7.push("hero_moment missing: {beat, what} the one product moment that shows the key feature for real");
+    else if (hero && typeof hero === "object" && hero.beat != null && !(Number(hero.beat) >= 1 && Number(hero.beat) <= beats.length)) g7.push(`hero_moment.beat ${hero.beat} is not a beat of this script`);
+    const uses = Array.isArray(p.uses) ? p.uses.filter((u) => String(u || "").trim()) : [];
+    if (uses.length < 2 || uses.length > 4) g7.push(`uses: ${uses.length} real use cases (2-4 required: real people doing real things with the real UI)`);
+    if (!String(p.last_line || "").trim()) g7.push("last_line missing: the required end line (the call to action) is the largest type in the film");
+    if (p.end_line_largest !== true) g7.push("end_line_largest is not true: the end line must be the largest type in the film on a clean CTA card");
+    const longLines = beats.filter((b) => String(b.on_screen || "").trim().split(/\s+/).filter(Boolean).length > 6).length;
+    if (longLines) g7.push(`${longLines} beat(s) carry more than 6 on-screen words: product films use short plain kinetic lines`);
+    gate("G7", "Product-first (UI from the first seconds, hero moment, real uses, no conceit)", g7, { early_beats: early3.map((b) => b.name), hero_moment: heroTxt || null, uses });
+  }
 
   // G6 the script itself (references/script.md): runs when the beats carry voiceover or a target length is given
   let script = null;

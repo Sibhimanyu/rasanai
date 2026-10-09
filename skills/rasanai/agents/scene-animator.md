@@ -91,3 +91,7 @@ If the delivery render goes through `finish.mjs all` (it does for every Final; d
 ## Stepped scenes and the film finish
 
 If this scene's look is stepped (animation on twos or threes, `steps(n)` eases, cel or stop-motion, datamosh), set `data-finish-blur="off"` on the scene's frame root: the film finish (`finish.mjs`, `references/finish.md`) averages sub-frames for motion blur, which would turn every step into a dissolve; a scene with the attribute is rendered from the centre sub-frame, sharp. Say so in your note.
+
+## Real product fidelity (product-first films)
+
+On a launch, promo or product film (`product_first`), the product is shown, not suggested. Use the captured real screens (`research/screens/`, the asset kit) as the UI. If capture failed or the screens are unusable, recreate the UI faithfully in HTML/CSS (the real layout, labels, type and colours from `research/screens.md` and the brand DESIGN.md), as DOM that can animate. Never draw line-art props, icons or abstract shapes as a stand-in for the product or its UI. With `brand_lock`, the brand's own type, colours and UI language are law.

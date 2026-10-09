@@ -164,6 +164,13 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         If the footage is a talking head shot on a green or blue screen, or the brief asks to put the speaker into other worlds, use the presenter route (RasanAI's Presenter films): key the speaker out, but use fewer image plates, only where they earn it, mostly the full-frame presenter layout and the presenter-only layout, with a few simple titles. Ask nothing in chat.
         """,
     ]
+    /// The pace this film was started with, or nil when the draft is missing or never recorded one (older drafts, imported runs).
+    public static func savedPace(in project: URL) -> FilmPace? {
+        guard let data = try? Data(contentsOf: project.appendingPathComponent("rasanai-brief.json")),
+              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+        if let raw = object["pace"] as? String, let pace = FilmPace(rawValue: raw) { return pace }
+        return (object["researchDepth"] as? String).flatMap(FilmPace.init(legacyResearchDepth:))
+    }
     public static func load(in project: URL) -> FilmDraft? {
         guard let data = try? Data(contentsOf: project.appendingPathComponent("rasanai-brief.json")) else { return nil }
         guard var draft = try? JSONDecoder().decode(Self.self, from: data) else { return nil }

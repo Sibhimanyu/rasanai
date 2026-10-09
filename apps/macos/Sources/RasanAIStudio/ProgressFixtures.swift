@@ -257,11 +257,12 @@ enum ProgressFixtures {
     struct Host: View {
         let progress: FilmProgress
         let model: FilmSessionModel
+        var notice: AutoResumeNotice?
         var body: some View {
             NavigationStack {
                 VStack(spacing: 0) {
                     FilmStageBar(current: model.snapshot.stage, decided: model.snapshot.decidedCalls, canSelect: { _ in false }, onSelect: { _ in })
-                    FilmProgressView(model: model, progress: progress, onPause: {}, onShowLog: {}, pace: .fast)
+                    FilmProgressView(model: model, progress: progress, onPause: {}, onShowLog: {}, pace: .fast, autoResume: notice, onResumeNow: notice == nil ? nil : {})
                 }
                 .background(Color(nsColor: .windowBackgroundColor))
                 .navigationTitle("ChatGPT for Mac launch test")
@@ -279,10 +280,15 @@ enum ProgressFixtures {
             ("look", snapshot(.look, now: now)), ("plan", snapshot(.plan, now: now)), ("animatic", snapshot(.animatic, now: now)), ("build", snapshot(.build, now: now)),
             ("check", snapshot(.check, now: now)), ("render", snapshot(.render, now: now)), ("render-done", snapshot(.render, now: now, renderDone: true)),
         ]
+        let notices: [String: AutoResumeNotice] = [
+            "resume-notice": AutoResumeNotice(text: AutoResumePolicy.resumingText, since: now.addingTimeInterval(-4), resumesAt: now.addingTimeInterval(6)),
+            "limit-notice": AutoResumeNotice(text: SessionLimit(resetText: "3pm", resetsAt: now.addingTimeInterval(7200)).message, since: now.addingTimeInterval(-30), resumesAt: now.addingTimeInterval(7200), isLimit: true),
+        ]
         let only = ProcessInfo.processInfo.environment["RASAN_PROGRESS_ONLY"].map { Set($0.split(separator: ",").map(String.init)) }
         for dark in [false, true] {
-            for (name, snap) in cases where only == nil || only!.contains(name) {
-                let host = Host(progress: FilmProgress.fixture(snap), model: model(snap.currentPhase))
+            let all = cases + [("resume-notice", snapshot(.build, now: now)), ("limit-notice", snapshot(.plan, now: now))]
+            for (name, snap) in all where only == nil || only!.contains(name) {
+                let host = Host(progress: FilmProgress.fixture(snap), model: model(snap.currentPhase), notice: notices[name])
                 await SnapshotHarness.capture(host, size: size, dark: dark, titled: true, title: "ChatGPT for Mac launch test",
                                               to: directory.appendingPathComponent("progress-\(name)\(dark ? "-dark" : "").png"))
             }

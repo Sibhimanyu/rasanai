@@ -93,7 +93,8 @@ const GATHER = new Set(["product-researcher", "brand-researcher", "screens-resea
 const ORDER = { fast: 0, strong: 1, frontier: 2 };
 const FAST_ALIAS = { claude: "sonnet", gpt: null, other: null };
 export function tierFor(role, profile) {
-  const gather = GATHER.has(role);
+  // the concept critic is a quick, cheap pre-flight read of the script and look against the brief: Sonnet is the right model (never the session's Opus)
+  const gather = GATHER.has(role) || role === "concept-critic";
   const min = gather ? "fast" : "strong";
   // the roles where the film is won or lost: a frontier model when one is running the session
   const prefer = gather ? "fast" : ["motion-director", "scene-animator", "frame-designer", "treatment-writer", "script-writer", "critic"].includes(role) ? "frontier" : "strong";

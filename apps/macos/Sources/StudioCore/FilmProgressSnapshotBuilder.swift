@@ -324,8 +324,11 @@ extension FilmProgressEngine {
             }
         case .plan:
             if let expected = s.keyframesExpected, expected > 0, runningCrew.contains(where: { $0.name.lowercased().contains("key frame") }) {
-                let have = s.keyframes.filter { $0.kind == .keyframe }.count
-                return NowLine(phase: phase, kind: .drawing, text: "Drawing key frame \(min(have + 1, expected)) of \(expected)", detail: crewDetail)
+                // The same slot the Plan card pulses: the first scene slot with no key frame yet.
+                let drawn = s.keyframes.filter { $0.kind == .keyframe }
+                let taken = Set(drawn.compactMap(\.sceneID))
+                let slot = (1...expected).first { !taken.contains(String($0)) } ?? min(drawn.count + 1, expected)
+                return NowLine(phase: phase, kind: .drawing, text: "Drawing key frame \(slot) of \(expected)", detail: crewDetail)
             }
         case .build:
             let total = s.scenes.count

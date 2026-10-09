@@ -10,6 +10,9 @@ struct FilmPage: View {
     let url: URL
     @Environment(\.openSettings) private var openSettings
     @State private var draft: FilmDraft?
+    @State private var savedPace: FilmPace?
+    /// A live film shows the pace it was launched with. A replay or imported run only shows one that was actually saved.
+    private var shownPace: FilmPace? { savedPace ?? (store.progress?.isReplay == true ? nil : store.settings.pace) }
 
     private var ready: Bool { store.loadedFilm == url }
     private var phase: FilmPhase { store.phase }
@@ -32,7 +35,7 @@ struct FilmPage: View {
                 NativeFilmView(model: film, startedAt: store.runtime.startedAt, progress: store.progress,
                                onPause: store.runtime.isRunning ? { store.pauseDirector() } : nil,
                                onShowLog: store.runtime.logURL != nil ? { store.sheet = .log } : nil,
-                               pace: draft?.pace ?? store.settings.pace)
+                               pace: shownPace, autoResume: store.runtime.autoResume, onResumeNow: store.runtime.autoResume != nil ? { store.resumeDirector() } : nil)
             } else if store.runtime.isRunning || store.runtime.isPreparing {
                 StartingView(runtime: store.runtime)
             } else {
@@ -68,7 +71,9 @@ struct FilmPage: View {
                                  canSelect: { store.film?.canView($0) ?? false }, onSelect: { store.film?.view($0) })
                     MonitorBudgetBanner(store: store)
                     if !showsFinished {
-                        if showsConsole, !store.runtime.stopRequested, let recovery = store.runtime.recovery {
+                        if let notice = store.runtime.autoResume, !notice.isLimit, !store.runtime.isRunning {
+                            AutoResumeBanner(store: store, notice: notice)
+                        } else if showsConsole, !store.runtime.stopRequested, let recovery = store.runtime.recovery {
                             DirectorRecoveryView(store: store, recovery: recovery)
                         } else if store.runtime.isRunning && !store.hasPendingQuestion && store.phase == .working && !showsFilmProgress {
                             DirectorProgressView(store: store)
@@ -98,6 +103,7 @@ struct FilmPage: View {
         .task(id: store.loadedFilm) {
             guard store.loadedFilm == url else { return }
             draft = await Task.detached { [url] in FilmDraft.load(in: url) }.value
+            savedPace = await Task.detached { [url] in FilmDraft.savedPace(in: url) }.value
         }
         .onDisappear { store.finalPlayer?.pause() }
     }
@@ -196,6 +202,23 @@ struct StartingView: View {
     }
 }
 
+/// Shown for the ten seconds before Studio resumes a director that stopped mid-film. The film-progress header says the same.
+struct AutoResumeBanner: View {
+    @Bindable var store: StudioStore
+    let notice: AutoResumeNotice
+    var body: some View {
+        HStack(spacing: 10) {
+            ProgressView().controlSize(.small)
+            Text(notice.text).font(.system(size: 12.5, weight: .medium))
+            Spacer(minLength: 8)
+            Button("Resume now") { store.resumeDirector() }.disabled(!store.canResume)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 10).background(Color.orange.opacity(0.08))
+        .overlay(alignment: .bottom) { Divider() }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 struct DirectorRecoveryView: View {
     @Bindable var store: StudioStore
     let recovery: DirectorRecovery
@@ -207,6 +230,9 @@ struct DirectorRecoveryView: View {
                 Text(recovery.message).font(.system(size: 12)).foregroundStyle(.secondary)
                 if !store.runtime.recoveryDetail.isEmpty {
                     Text(store.runtime.recoveryDetail).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary).lineLimit(4).textSelection(.enabled)
+                }
+                if let at = store.runtime.autoResume?.resumesAt, store.runtime.autoResume?.isLimit == true {
+                    Text("Resumes by itself at \(at.formatted(date: .omitted, time: .shortened)) while RasanAI is open, or press Resume.").font(.system(size: 12, weight: .medium))
                 }
             }
             Spacer(minLength: 8)

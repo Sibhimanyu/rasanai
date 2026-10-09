@@ -2,6 +2,10 @@
 
 When the workspace already has a brand reference, RasanAI uses it instead of inventing a look: its colors and fonts are sacred; directions vary the art direction around them. `scripts/brand.mjs` (library: `scripts/lib/design-md.mjs`).
 
+## When a brand step is required
+
+If the brief names a brand (`brand_name` / `use_brand: true`) or the product is a known brand, a brand step ALWAYS runs: a workspace DESIGN.md wins; otherwise the brand researcher builds `research/brand/DESIGN.md` from official sources (type, colours, UI language, logo usage, motion) and the research lead's `crew.mjs check` fails without it. The Director reads it with `brand.mjs read`, pushes it to the console as step `brand`, and sets `brand` in decisions. From then on the brand lock applies: all three looks stay inside the brand's type, colours and UI, and vary composition, motion and density only (`references/design-desk.md`, `references/product-first.md`). `use_brand: false` (the user chose a new look) is the only way out.
+
 ## What it reads
 
 | Shape | Example |

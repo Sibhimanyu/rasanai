@@ -14,12 +14,29 @@ struct FilmProgressView: View {
     var onPause: (() -> Void)?
     var onShowLog: (() -> Void)?
     var pace: FilmPace?
+    /// The director stopped mid-film and Studio will resume it by itself (or when a plan limit resets).
+    var autoResume: AutoResumeNotice?
+    var onResumeNow: (() -> Void)?
 
     /// The phase the person clicked, or `nil` to follow the live one.
     @State private var selected: ProgressPhase?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var snapshot: FilmProgressSnapshot { progress.snapshot }
+    private var snapshot: FilmProgressSnapshot {
+        var s = progress.snapshot
+        // The person already answered (the app has it queued for the director) but session.json still says awaiting:
+        // the header must agree with the status pill and stop asking.
+        if s.isWaitingForYou, !progress.isReplay, !model.isFixture, !model.isWaitingOnUser {
+            s.isWaitingForYou = false
+            s.now = NowLine(phase: s.now.phase, kind: .thinking, text: "Sent to Claude. Picking it up now", detail: nil, since: nil)
+            for i in s.phases.indices where s.phases[i].state == .waitingForYou { s.phases[i].state = .active }
+        }
+        // The automatic resume is a line in the activity timeline too.
+        if let notice = autoResume {
+            s.activity.append(ProgressActivity(id: "auto-resume-\(Int(notice.since.timeIntervalSince1970))", time: notice.since, phase: s.currentPhase, kind: .warning, title: notice.text))
+        }
+        return s
+    }
     private var shown: ProgressPhase { selected ?? snapshot.currentPhase }
 
     var body: some View {
@@ -88,6 +105,7 @@ struct FilmProgressView: View {
             }
             .foregroundStyle(s.isWaitingForYou ? Color.orange : Color.rasan)
             .padding(.bottom, 6)
+            if let notice = autoResume { resumeBanner(notice, now: now) }
             HStack(alignment: .firstTextBaseline, spacing: 28) {
                 Text(s.now.text)
                     .font(.system(size: 28, weight: .semibold)).tracking(-0.3)
@@ -113,6 +131,23 @@ struct FilmProgressView: View {
             .padding(.top, 6)
         }
         .padding(.horizontal, 28).padding(.top, 14).padding(.bottom, 16)
+    }
+
+    private func resumeBanner(_ notice: AutoResumeNotice, now: Date) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: notice.isLimit ? "hourglass" : "arrow.clockwise.circle.fill").font(.system(size: 13, weight: .semibold))
+            Text(notice.text).font(.system(size: 12.5, weight: .medium)).fixedSize(horizontal: false, vertical: true)
+            if let at = notice.resumesAt, at > now, notice.isLimit {
+                Text("Resumes by itself at \(at.formatted(date: .omitted, time: .shortened)) while RasanAI is open.").font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            if let onResumeNow { Button("Resume now", action: onResumeNow).controlSize(.small) }
+        }
+        .foregroundStyle(Color.orange)
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .padding(.bottom, 10)
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder private func estimate(_ s: FilmProgressSnapshot) -> some View {

@@ -573,7 +573,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   const sd = path.join(TMP, "story");
   fs.mkdirSync(sd, { recursive: true });
   const truth = path.join(sd, "truth.json");
-  fs.writeFileSync(truth, JSON.stringify({ product: { name: "Lintel" }, tags: ["ai", "devtool"], format: { format: "launch", length: "36" }, tone: ["deadpan"], transformation: "from PRs that wait to PRs already reviewed", emotional_truth: "the guilty LGTM", enemy: ["the review queue"], objects: ["the diff", "the LGTM comment", "the pager alert", "the review badge", "conflict markers", "the CI checkmark", "the nit: prefix", "the blame gutter"], forms: ["pull request", "review thread", "commit log", "incident postmortem", "changelog"], words: ["Lintel", "LGTM", "Apply suggestion"], proof: ["Reviews a 400-line PR in under 90 seconds (brief)"], competitors: ["Rival"], cliche: ["hook", "montage", "introducing", "f1", "f2", "f3"] }));
+  fs.writeFileSync(truth, JSON.stringify({ product: { name: "Lintel" }, tags: ["ai", "devtool"], format: { format: "brand", length: "36" }, tone: ["deadpan"], transformation: "from PRs that wait to PRs already reviewed", emotional_truth: "the guilty LGTM", enemy: ["the review queue"], objects: ["the diff", "the LGTM comment", "the pager alert", "the review badge", "conflict markers", "the CI checkmark", "the nit: prefix", "the blame gutter"], forms: ["pull request", "review thread", "commit log", "incident postmortem", "changelog"], words: ["Lintel", "LGTM", "Apply suggestion"], proof: ["Reviews a 400-line PR in under 90 seconds (brief)"], competitors: ["Rival"], cliche: ["hook", "montage", "introducing", "f1", "f2", "f3"] }));
   const picks = ["a", "b", "c"].map((s) => node("story.mjs", ["pick", "--truth", truth, "--seed", s]));
   const P = picks.map((r) => { try { return JSON.parse(r.stdout); } catch { return { picks: [], distance: { matrix: [] } }; } });
   const differ = P.every((r) => r.picks.length === 3 && ["family", "protagonist", "visual_world"].every((k) => new Set(r.picks.map((p) => p.axes[k])).size === 3) && r.distance.matrix.flat().every((d) => d === null || d >= 5));
@@ -601,6 +601,62 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   const g6 = (r) => r.gates.find((x) => x.id === "G6") || { pass: null, reasons: [] };
   const why = g6(rsb).reasons.join(" | ");
   ok("story: G6 passes a written script and fails the default one (length, hook beat, repeated lines, stock copy, end hold)", g6(rsg).pass === true && g6(rsb).pass === false && ["for a 45 s film", "hook beat", "repeats the voiceover", "stock launch copy", "end beat"].every((k) => why.includes(k)), g6(rsg).reasons.join(" | ") + " // " + why);
+  // product-first (launch, promo and product films; references/product-first.md): no conceit devices, gate G7
+  {
+    const ptruth = path.join(sd, "truth-launch.json");
+    fs.writeFileSync(ptruth, JSON.stringify({ ...JSON.parse(fs.readFileSync(truth, "utf8")), format: { format: "launch", length: "30" } }));
+    const CONCEIT = new Set(["museum-exhibit", "extended-metaphor", "cover-version", "parable", "miniature-world", "chain-reaction", "game-level", "graphic-system", "material-study", "weather-report", "receipt", "recipe", "obituary", "horoscope", "nature-documentary", "movie-trailer", "infomercial", "silent-film", "product-as-character", "cosmos-zoom"]);
+    const seen = new Set();
+    for (const sd2 of ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"]) {
+      let r = {};
+      try { r = JSON.parse(node("story.mjs", ["pick", "--truth", ptruth, "--seed", sd2]).stdout); } catch {}
+      (r.picks || []).forEach((x) => seen.add(x.id));
+    }
+    ok("product-first: pick for a launch film never offers a conceit device (museum, metaphor, cover version, invented world...) across 12 seeds", seen.size >= 6 && ![...seen].some((id) => CONCEIT.has(id)), [...seen].join(","));
+    const conc = node("story.mjs", ["pick", "--truth", ptruth, "--seed", "a", "--allow-conceit"]);
+    ok("product-first: --allow-conceit lifts the filter (brand films, or when the user asks for a concept)", conc.status === 0 && !/"product_first": true/.test(conc.stdout));
+    const pf = (extra, drop = []) => {
+      const b = (name, on_screen, duration_s, visual, more = {}) => ({ name, on_screen, visual, duration_s, ...more });
+      const o = { title: "Review in place", logline: "Lintel reviews the pull request where you already are.", device: "oner", beats: [b("Open", "Lintel, open.", 2.5, "The real Lintel review window opens over the pull request, Apply suggestion in the corner"), b("Hero", "One shortcut.", 8, "The real LGTM flow: the diff, the comment, Apply suggestion, held long enough to read", { value: true }), b("Use 1", "Every diff.", 6, "Six real diffs reviewed down the review thread"), b("Use 2", "Every thread.", 5, "The review thread resolves itself", { turn: true }), b("End", "Get Lintel", 5, "Clean CTA card, the line the largest type")], first_4s: "the real Lintel window opens", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "the Apply suggestion flow is Lintel's own" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the real UI choreography" }, scores, hero_moment: { beat: 2, what: "the real review flow end to end" }, uses: ["review a diff", "resolve a thread"], last_line: "Get Lintel", end_line_largest: true, ...extra };
+      for (const k of drop) delete o[k];
+      const f = path.join(sd, `pf-${Math.random().toString(36).slice(2)}.json`);
+      fs.writeFileSync(f, JSON.stringify(o));
+      const r = node("story.mjs", ["check", "--pitch", f, "--truth", ptruth]);
+      let j = { gates: [] };
+      try { j = JSON.parse(r.stdout); } catch {}
+      return { status: r.status, g7: j.gates.find((x) => x.id === "G7") || { pass: null, reasons: [] }, out: r.stdout };
+    };
+    const good7 = pf({});
+    ok("product-first: G7 passes a product-led pitch (UI in beat 1, hero moment, uses, end line)", good7.g7.pass === true, good7.g7.reasons.join(" | ") + good7.out.slice(0, 300));
+    const museum = pf({ title: "The Museum of the Detour", device: "museum-exhibit", logline: "A gallery of abandoned tasks under glass." });
+    ok("product-first: G7 fails a conceit device and museum/gallery wording", museum.g7.pass === false && /conceit device/.test(museum.g7.reasons.join(" ")) && /conceit word/.test(museum.g7.reasons.join(" ")), museum.g7.reasons.join(" | "));
+    const late = pf({}, ["hero_moment", "uses"]);
+    ok("product-first: G7 requires a hero moment and 2 to 4 real uses", late.g7.pass === false && /hero_moment/.test(late.g7.reasons.join(" ")) && /uses/.test(late.g7.reasons.join(" ")), late.g7.reasons.join(" | "));
+    const noui = pf({ beats: [{ name: "Open", on_screen: "Time passes.", visual: "A calendar flips through the year", duration_s: 5 }, { name: "Hero", on_screen: "One shortcut.", visual: "The real Lintel window, Apply suggestion", duration_s: 8, value: true }, { name: "Use", on_screen: "Every diff.", visual: "diffs", duration_s: 6 }, { name: "Turn", on_screen: "Done.", visual: "the thread resolves", duration_s: 5, turn: true }, { name: "End", on_screen: "Get Lintel", visual: "CTA", duration_s: 5 }] });
+    ok("product-first: G7 fails when the product is not on screen within 3 s", noui.g7.pass === false && /within 3 s/.test(noui.g7.reasons.join(" ")), noui.g7.reasons.join(" | "));
+    const small = pf({ end_line_largest: false });
+    ok("product-first: G7 requires the end line to be the largest type", small.g7.pass === false && /end_line_largest/.test(small.g7.reasons.join(" ")), small.g7.reasons.join(" | "));
+    const pun = pf({ visual_pun: { what: "a lintel above a door becomes the window", resolves_in_s: 0.8 }, title: "Over the door", logline: "A lintel becomes the Lintel window in a second." });
+    ok("product-first: an instant visual pun that resolves to the product within 1 s is allowed", pun.g7.pass === true, pun.g7.reasons.join(" | "));
+    // the museum script of the real failed film is refused by the gate when run product-first
+    const mu = node("story.mjs", ["check", "--pitch", path.join(sd, "script-good.json"), "--length", "45", "--narrated", "--product-first"]);
+    let rmu = { gates: [] };
+    try { rmu = JSON.parse(mu.stdout); } catch {}
+    ok("product-first: the museum script fails G7 under --product-first", (rmu.gates.find((x) => x.id === "G7") || {}).pass === false, mu.stdout.slice(0, 300));
+  }
+  // lint: the references and prompts carry the product-first, brand-lock, concept-gate and turn-ending rules
+  {
+    const SK = path.join(HERE, "..");
+    const rd = (f) => { try { return fs.readFileSync(path.join(SK, f), "utf8"); } catch { return ""; } };
+    const pfmd = rd("references/product-first.md");
+    ok("lint: references/product-first.md carries the rules (3 s, hero moment, 2-4 uses, end line largest, no conceits, fidelity, brand lock, concept gate)", ["within 3 s", "hero product moment", "2 to 4 real uses", "largest type", "museums", "cover versions", "faithfully recreated", "Brand lock", "concept gate", "clearest product story", "first_watch"].every((k) => pfmd.includes(k)), pfmd ? "missing phrase" : "file missing");
+    const skill = rd("SKILL.md");
+    ok("lint: SKILL.md states the product-first rule, the brand lock, the concept gate and not ending a turn with background work running", ["Launch, promo and product films are product-first", "Brand lock.", "Concept gate before the expensive work", "Never end a turn while your own background work is running", "console.mjs wait"].every((k) => skill.includes(k)) && /brand step ALWAYS runs/.test(skill) && /use_brand/.test(skill));
+    const sw = rd("agents/script-writer.md"), se = rd("agents/script-editor.md"), cc = rd("agents/concept-critic.md"), ds = rd("agents/design-system-designer.md");
+    ok("lint: the writers', editor's, concept critic's and design desk's prompts carry the product-first and brand-lock rules", /product_first/.test(sw) && /hero_moment/.test(sw) && /clearest product story/.test(se) && /first_watch/.test(se) && ["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear"].every((k) => cc.includes(k)) && /brand_lock/.test(ds) && /composition, layout, motion language and density only/.test(ds));
+    const ban = rd("taxonomy/devices.json");
+    ok("lint: the catalog still has the conceit devices the product-first filter keeps out (so the filter is doing something)", /"museum-exhibit"/.test(ban) && /"cover-version"/.test(ban));
+  }
 }
 // 12. anti-slop: a project full of AI-video tells fails with fixes; a clean one passes
 {
@@ -670,6 +726,25 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   const lean = J2(C(["plan", "--run", path.join(ws, ".rasanai", "r1"), "--route", "product-launch-video", "--subject", "Tally", "--scenes", "4", "--lean"]));
   ok("crew: --lean drops the precedent, the writers' room and the extra critics", !(lean.phases || []).flatMap((p) => p.members).some((m) => /precedent|script-|critic:(motion|frames)/.test(m)), JSON.stringify(lean.phases && lean.phases.map((p) => p.members)));
   C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "Tally", "--public", "--scenes", "4", "--length", "20"]);
+  // the concept gate: a Sonnet-tier critic between the look and the motion score, six questions, evidence and exact fixes
+  {
+    const phs = (plan.phases || []).map((p) => p.phase);
+    ok("crew: the plan has a concept-gate phase after the story and before the score", phs.includes("concept-gate") && phs.indexOf("concept-gate") < phs.indexOf("score") && phs.indexOf("concept-gate") > phs.indexOf("design-systems"), phs.join(","));
+    C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "Tally", "--public", "--scenes", "4", "--length", "20"]);
+    const cb = J2(C(["brief", "--run", run, "--role", "concept-critic", "--key", "concept-1"]));
+    const promptFile = cb.prompt_file || cb.file || cb.prompt || "";
+    const ptxt = promptFile && fs.existsSync(path.resolve(ws, promptFile)) ? fs.readFileSync(path.resolve(ws, promptFile), "utf8") : JSON.stringify(cb);
+    ok("crew: the concept critic brief carries product_first, the six questions and a faster model", /product_first/.test(ptxt) && /first_watch_clear/.test(ptxt) && /faster model/.test(JSON.stringify(cb)), JSON.stringify(cb).slice(0, 300));
+    const cf = path.join(run, "story", "concept-check.json");
+    fs.mkdirSync(path.dirname(cf), { recursive: true });
+    const ans = (okv) => Object.fromEntries(["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear"].map((k) => [k, okv ? { ok: true, evidence: "beat 1" } : { ok: false, evidence: "beat 1", fix: "open on the real UI" }]));
+    fs.writeFileSync(cf, JSON.stringify({ verdict: "pass", answers: ans(false), summary: "x" }));
+    const bad = C(["check", "--run", run, "--role", "concept-critic", "--key", "concept-1"]);
+    fs.writeFileSync(cf, JSON.stringify({ verdict: "pass", answers: ans(true), summary: "6 of 6" }));
+    const good = C(["check", "--run", run, "--role", "concept-critic", "--key", "concept-1"]);
+    ok("crew: concept-critic check refuses a pass with failed answers and accepts a complete pass", bad.status !== 0 && /not ok but the verdict is pass/.test(bad.stdout + bad.stderr) && good.status === 0, (bad.stdout + good.stdout).slice(0, 300));
+  }
+
   const br = J2(C(["brief", "--run", run, "--role", "brand-researcher"]));
   const prompt = br.prompt ? fs.readFileSync(path.join(ws, br.prompt), "utf8") : "";
   ok("crew: brief writes a self-contained prompt (crew rules, the role, inputs, outputs, its check)", /never ask the user/i.test(prompt) && /Role: brand researcher/.test(prompt) && /## Dispatch context/.test(prompt) && /research\/brand\/DESIGN\.md/.test(prompt) && /crew\.mjs" check/.test(prompt) && /run_in_background: true/.test(br.dispatch || "") && /Show off/.test(prompt), (br.prompt || "") + prompt.slice(-300));
@@ -1142,6 +1217,20 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   fs.writeFileSync(brandMd, '---\nname: "Tally"\ncolors:\n  canvas: "#ffffff"   # page background\n  ink: "#101010"      # text\n  accent: "#0a7d4b"   # brand accent\ntypography:\n  display:\n    fontFamily: Manrope\n    fontWeight: 700\n  body:\n    fontFamily: Manrope\n    fontWeight: 400\nrounded:\n  md: 8px\n---\n## Overview\nTally is a bookkeeping app.\n');
   const br = D(["check-system", "--dir", good, "--brand", brandMd, "--offline"]);
   ok("design gate: with a brand DESIGN.md, Sure must be the brand (its colours and display face)", br.status === 2 && /must be the brand extended/.test(br.stdout) && /display face Manrope/.test(br.stdout), br.stdout.slice(0, 400));
+  // the brand lock: the brand holds for ALL three (not only Sure), and the Look refuses an off-brand set
+  {
+    const brB = D(["check-system", "--dir", path.join(run, "design", "Bold"), "--brand", brandMd, "--offline"]);
+    ok("brand lock: Bold must stay inside the brand's palette and type too (not only Sure)", brB.status === 2 && /Bold: brand lock/.test(brB.stdout), brB.stdout.slice(0, 400));
+    fs.writeFileSync(path.join(run, "decisions.json"), JSON.stringify({ subject: "Tally", brand: brandMd, use_brand: true }));
+    const lockPl = D(["look-payload", "--run", run, "--hook", "Tax season. Again.", "--recommended", "bold"]);
+    ok("brand lock: look-payload refuses to push (or recommend) an off-brand look", lockPl.status !== 0 && /brand lock/.test(lockPl.stdout + lockPl.stderr), (lockPl.stdout + lockPl.stderr).slice(0, 300));
+    const lockSys = D(["check-systems", "--run", run, "--offline"]);
+    ok("brand lock: check-systems applies the brand from the run's decisions", lockSys.status === 2 && /brand lock/.test(lockSys.stdout), lockSys.stdout.slice(0, 300));
+    fs.writeFileSync(path.join(run, "decisions.json"), JSON.stringify({ subject: "Tally", use_brand: false, brand: brandMd }));
+    const freed = D(["check-systems", "--run", run, "--offline"]);
+    ok("brand lock: use_brand false lifts it", !/brand lock/.test(freed.stdout), freed.stdout.slice(0, 300));
+    fs.rmSync(path.join(run, "decisions.json"), { force: true });
+  }
   // the Look payload, choose, motion.md, DIRECTION.md
   const pl = D(["look-payload", "--run", run, "--hook", "Tax season. Again.", "--recommended", "bold"]);
   const pj = J3(pl);

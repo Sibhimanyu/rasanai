@@ -305,13 +305,17 @@ final class StudioStore {
             self.queueHandlingExit = true
             Task { await self.handleQueueExit(code: code, stopped: stopped) }
             guard !stopped else { return }
-            // The session timed out on its own background crew, not on a failure: pick the run back up once, quietly.
-            if code == 0, self.runtime.endedOnBackgroundCeiling, self.autoResumedRuns.insert(self.runtime.runURL?.path ?? "").inserted {
-                Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(2))
-                    if self.canResume { self.resumeDirector() }
-                }
+            switch self.runtime.autoResumeDecision {
+            case .resume(let delay):
+                // The director stopped mid-film with nothing for the person to do: pick the run back up once, quietly.
+                self.scheduleAutoResume(after: delay)
                 return
+            case .waitForLimit(let limit):
+                // Claude's plan limit resets on its own: resume then, if the app is still open.
+                if let resetsAt = limit.resetsAt { self.scheduleAutoResume(after: max(AutoResumePolicy.delay, resetsAt.timeIntervalSinceNow + 30), isLimit: true) }
+                self.notify(title: "Your Claude plan's limit was reached", body: limit.message, id: "director-\(UUID().uuidString)")
+                return
+            case .none: break
             }
             self.notify(title: code == 0 && self.runtime.recovery == nil ? "Director finished" : "Director needs attention", body: "Open RasanAI Studio to review the result or log.", id: "director-\(UUID().uuidString)")
         }
@@ -786,10 +790,24 @@ final class StudioStore {
         settings.giveConsent(pending.agent)
         pending.proceed()
     }
-    func pauseDirector() { queuePaused = true; queueMessage = "Queue paused with the director."; runtime.stop() }
-    /// Runs already auto-resumed once after the background-task ceiling; a second hit is shown as a failure.
-    private var autoResumedRuns = Set<String>()
+    func pauseDirector() { cancelAutoResume(); queuePaused = true; queueMessage = "Queue paused with the director."; runtime.stop() }
+    @ObservationIgnored private var autoResumeTask: Task<Void, Never>?
+    /// Resumes the run that just stopped, once, unless the person got there first or did something else meanwhile.
+    func scheduleAutoResume(after delay: TimeInterval, isLimit: Bool = false) {
+        autoResumeTask?.cancel()
+        guard let run = runtime.runURL else { return }
+        autoResumeTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard let self, !Task.isCancelled, self.runtime.autoResume != nil, self.runtime.runURL == run,
+                  !self.runtime.stopRequested, self.canResume else { return }
+            if !isLimit { self.runtime.lastAutoResume[run.path] = Date() }
+            self.resumeDirector()
+        }
+    }
+    /// Resume now (the button), or Pause: either way the pending automatic resume is dropped.
+    func cancelAutoResume() { autoResumeTask?.cancel(); autoResumeTask = nil }
     func resumeDirector() {
+        cancelAutoResume()
         if settings.filmQueue.contains(where: { $0.project == selectedProjectURL }) { resumeQueue(); return }
         guard !runtime.isRunning, !runtime.isPreparing, !isSavingFilm, !isManagingProject, !isImportingSources, runURL != nil else { return }
         ensureConsent(for: settings.agent) { [self] in

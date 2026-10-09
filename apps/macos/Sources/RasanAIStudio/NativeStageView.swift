@@ -11,6 +11,8 @@ struct NativeStageView: View {
     var onPause: (() -> Void)?
     var onShowLog: (() -> Void)?
     var pace: FilmPace?
+    var autoResume: AutoResumeNotice?
+    var onResumeNow: (() -> Void)?
 
     /// True when this route is drawn by Film progress (so the stage cross-fade does not flash between working and build).
     private var showsProgress: Bool {
@@ -49,7 +51,7 @@ struct NativeStageView: View {
 
     @ViewBuilder private func stage(_ route: StageRoute) -> some View {
         if showsProgress, let progress {
-            FilmProgressView(model: model, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace)
+            FilmProgressView(model: model, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow)
         } else { classic(route) }
     }
 
@@ -112,8 +114,10 @@ struct NativeFilmView: View {
     var onPause: (() -> Void)?
     var onShowLog: (() -> Void)?
     var pace: FilmPace?
+    var autoResume: AutoResumeNotice?
+    var onResumeNow: (() -> Void)?
     var body: some View {
-        NativeStageView(model: model, startedAt: startedAt, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace)
+        NativeStageView(model: model, startedAt: startedAt, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow)
             .inspector(isPresented: $model.decisionsPresented) { DecisionsInspector(model: model) }
             .toolbar { FilmToolbarItems(model: model) }
     }

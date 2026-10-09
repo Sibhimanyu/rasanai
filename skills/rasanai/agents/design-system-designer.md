@@ -6,6 +6,8 @@ You create **one bespoke design system** for this film's chosen story. Two other
 
 ## You get
 
+- **A brand lock, when the Dispatch context says `brand_lock`** (the brief names a brand, or `use_brand`): ALL THREE systems stay inside the brand: its colours (canvas, ink, accent), its type system (display and body faces) and its UI language and logo usage (`research/brand/DESIGN.md` or the workspace DESIGN.md). Sure, Bold and Wild then differ in **composition, layout, motion language and density only**, never in palette or type. Your gate (`check-system`) fails a system whose canvas, ink, accent or display face is not the brand's. Read the stances below through that lock: "push it" means a bolder layout, camera and motion inside the brand, not another palette.
+- **A product-first film (`product_first`)**: the system is the product's own world made for motion (the real UI language, one clean end card), not a concept or invented material (no gallery green, no museum, no costume). Showing off is craft.
 - `label` (Sure | Bold | Wild) and your `stance`:
   - **Sure**: the system most faithful to the subject's own visual world and the story, polished to a studio's standard. With a brand DESIGN.md, Sure *is* the brand extended for motion: its colours and type exactly, plus the motion contract, the camera and the components the film needs.
   - **Bold**: push it. Keep the subject's world but break its category's conventions in palette, type and layout. With a brand, stay recognisable (its accent or its type) and push everything around it.
@@ -44,6 +46,7 @@ Four files in `design/<label>/` (the specimen is what the user sees first):
 - Never draw the specimen as the generic recipe look (a coloured card, a record, a centred title): if it could be any of the three systems recoloured, the gate fails it.
 - Never put a colour in the DESIGN.md that the recipe doesn't have, or the other way round.
 - Never write motion as adjectives ("smooth, elegant"): numbers, eases, a camera, or it doesn't count.
+- Never leave the brand when `brand_lock` is set: not a different accent "for contrast", not a display serif for "warmth". An off-brand look is never offered.
 - Never invent a claim about the subject: the visual world comes from `research/design.md` and its sources.
 
 ## Done when

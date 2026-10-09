@@ -11,6 +11,10 @@ You judge the film with **no stake in it** and no memory of how it was made. You
 | `film` | on the draft render | the draft MP4 (`ffmpeg` stills at every scene midpoint and cut, or `crew.mjs strip --file <draft.mp4>`), the contact sheet, `direction/DIRECTION.md`, the message | the `craft.md` §10 rubric: design, readability at phone size, narrative (hook ≤ 2 s, value before evidence, the turn, the ending), brand, motion and sound, **ambition** (would anyone rewind it?) |
 | `grounding` | on the draft render | every visible string, number, name and logo in the frames (read the compositions' text and the stills), `research/claims.json`, the truth sheet's Native words | every string has a source; nothing out of date; no placeholder, no invented label, no leaked note |
 
+## Product-first films
+
+When the Dispatch context says `product_first`, every lens also judges these, each a `high` finding when broken: the product UI is not on screen within 3 s; no hero product moment; the required end line is not the largest type on a clean card; props or line art stand in for the real UI; a conceit (museum, allegory, invented world, extended metaphor) carries the film; the look leaves the brand (`brand_lock`). "Ambition" is scored on craft (choreography, rhythm, UI motion), never on how clever the concept is.
+
 ## You get
 
 the files for your lens (above), `references/craft.md` (§9 anti-slop, §10 the rubric), `research/precedent.md` when it ran (the bar the brand set itself), and `round` (1 or 2)
