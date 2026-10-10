@@ -346,6 +346,16 @@ const scenesOf = (run) => {
 };
 
 // inputs: [label, path]; a missing input is listed as missing (the member works without it), never silently dropped
+// the shows (library/showcases): a writer, a move inventor and the motion director read the README and two reference films chosen by film kind
+function showcaseInputs(run, P, B) {
+  const dir = path.join(SKILL_DIR, "library", "showcases");
+  const kind = String(B.kind || "").toLowerCase();
+  const pick = productFirst(run, P) || /launch|promo|product|ad\b/.test(kind) ? ["sovra-fm-launch", "kinso-launch"]
+    : /brand/.test(kind) ? ["openai-refreshed", "google-ask-search-anything"]
+    : /explain|essay|talk|topic/.test(kind) ? ["mexicat-upping-my-pdoom", "pixel-object-manifesto"]
+    : ["sovra-fm-launch", "google-ask-search-anything"];
+  return [["showcases: ten reference films line by line, with the ten principles (read first: every on-screen line needs a motion that means it)", path.join(dir, "README.md")], ...pick.map((id, i) => [`showcase ${i + 1} (a reference film, line by line)`, path.join(dir, `${id}.json`)])];
+}
 function contextFor(run, role, key, plan) {
   const pj = projectDir(run);
   const P = plan || {};
@@ -466,6 +476,7 @@ function contextFor(run, role, key, plan) {
       const dev = Array.isArray(list) ? list.find((x) => String(x.label || x.angle || "").toLowerCase() === String(key).toLowerCase()) : null;
       Object.assign(ctx, { label: key, device: dev || "(see story/picks.json for this label)", brief: B });
       for (const [l, p] of [["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["screens", research("screens.md")], ["precedent", research("precedent.md")], ["picks", R(run, "story", "picks.json")], ["writer's brief", path.join(SKILL_DIR, "references", "script.md")], ["pitch format", path.join(SKILL_DIR, "references", "story.md")]]) I(l, p);
+      for (const [l, p] of showcaseInputs(run, P, B)) I(l, p);
       O(R(run, "story", `pitch-${key}.json`));
       break;
     }
@@ -509,6 +520,7 @@ function contextFor(run, role, key, plan) {
       if (Array.isArray(den) && den.includes(key)) ctx.denial_round = `yes: the juror failed too many of your cards. Read story/moves-verdict.json (pitches.${key}.cards[].fails and evidence), add those failures to your banned list, and write story/moves-${key}.json again`;
       for (const [l, p] of [["the pitch (beats, on_screen, visual, ui_labels)", R(run, "story", `pitch-${key}.json`)], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["screens (UI labels and surfaces)", research("screens.md")], ["briefing", research("BRIEFING.md")], ["precedent", research("precedent.md")], ["brand DESIGN.md (research)", research("brand", "DESIGN.md")], ["workspace DESIGN.md", dsn ? path.resolve(dsn) : null], ["the method (read all of it)", path.join(SKILL_DIR, "references", "moves.md")], ["your pack (exemplars, generators, stimulus, banned)", R(run, "story", `moves-pack-${key}.json`)], ["reference moves from the user's clip (if any)", research("reference-moves.json")]]) I(l, p);
       if (readRunGrammar(run) !== null) I("motion grammar (the film's one grammar: restate carriers and joins in its devices)", R(run, "look", "grammar.json"));
+      for (const [l, p] of showcaseInputs(run, P, B)) I(l, p);
       O(R(run, "story", `moves-${key}.json`));
       break;
     }
@@ -548,6 +560,7 @@ function contextFor(run, role, key, plan) {
         ctx.lyric_video = true;
         for (const [l, p] of [["chosen treatment (spine, motifs, plates: space, energy, idiom)", R(run, "story", "chosen-treatment.json")], ["treatment in words", R(run, "story", "chosen-treatment.md")], ["lyrics (word timings)", R(run, "music", "lyrics.json")], ["audio (downbeats, onsets)", R(run, "music", "audio.json")], ["lyric-video playbook", path.join(SKILL_DIR, "references", "lyric-video.md")], ["lyrics and the music runtime", path.join(SKILL_DIR, "references", "lyrics.md")]]) I(l, p);
       }
+      if (key !== "seams") for (const [l, p] of showcaseInputs(run, P, B)) I(l, p);
       if (key === "seams") {
         if (!pj) die("the seam pass needs --project <videos/name>");
         Object.assign(ctx, { project: rel(pj) });
@@ -977,7 +990,10 @@ function checkScore(run) {
   const need = (cond, msg) => { if (!cond) (must ? P : W).push(`plan: ${msg}`); };
   need(Number(score.duration) > 0, "duration missing (the film's length in seconds)");
   need(String(score.brand || "").trim(), "brand missing (the brand or product name)");
-  if (productFirst(run, plan)) {
+  // a single-feature scenario film carries its feature block; a ladder film (several real uses) carries a refrain instead
+  const chosenPitch = jsonMaybe(R(run, "story", "chosen.json"));
+  const ladderFilm = !!(chosenPitch && pitchShape(chosenPitch) === "ladder");
+  if (productFirst(run, plan) && !ladderFilm) {
     const f = score.feature || {};
     need(["name", "url", "viewer", "task", "before", "after"].every((k) => String(f[k] || "").trim()), "feature { name, url, viewer, task, before, after } missing or incomplete (copy it from the chosen script)");
   }
@@ -1007,6 +1023,17 @@ function checkScore(run) {
     if (productFirst(run, plan)) {
       const pr = S.filter((x) => /proof/i.test(String(x.id || x.role || "")));
       need(!pr.length || pr.some((x) => Array.isArray(x.ui) && x.ui.length >= 2), "the proof beat needs ui[]: the literal cause and effect on screen, at least two steps");
+    }
+  }
+  // the shows: every show row of the chosen script is realised in a shot (the shot's on_screen holds the line, its moves describe the show)
+  {
+    const nz = (x) => String(x || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+    const rows = (chosenPitch && Array.isArray(chosenPitch.beats) ? chosenPitch.beats : []).flatMap((b) => (Array.isArray(b.shows) ? b.shows : [])).filter((r) => r && nz(r.line));
+    if (rows.length && S.length) {
+      const shots = S.flatMap((x) => (Array.isArray(x.shots) ? x.shots : []));
+      const missing = rows.filter((r) => { const l = nz(r.line); return !shots.some((sh) => nz(sh.on_screen).includes(l) && String(sh.moves || "").trim()); });
+      for (const r of missing) W.push(`show-unscored: the line "${String(r.line).trim()}" has a show in the chosen script but no shot carries it (a shot whose on_screen holds the line and whose moves describe the show)`);
+      if (missing.length / rows.length > 0.3) P.push(`show-unscored: ${missing.length} of ${rows.length} show rows are not realised in any shot (30% at most): every line's show is built in a shot`);
     }
   }
   const sigs = sig || (score.signature && score.signature.seam ? 1 : 0);

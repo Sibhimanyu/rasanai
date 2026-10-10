@@ -403,6 +403,8 @@
   .brow .os { font: 600 17px/1.35 var(--display); color: var(--ink); }
   .brow .vo { font-size: 14.5px; line-height: 1.5; color: var(--ink-2); font-style: italic; }
   .brow .vis { font-size: 13.5px; line-height: 1.5; color: var(--ink-3); }
+  .brow .vis .show { display: block; } .brow .vis .show + .show { margin-top: 8px; }
+  .brow .vis .show b { display: block; font-weight: 600; color: var(--ink); }
   .brow.turn { background: rgba(239,178,26,.06); }
   .brow.turn .tc { color: var(--accent); }
   @media (max-width: 760px) { .brow { grid-template-columns: 60px 1fr; } .brow .vo, .brow .vis { grid-column: 2; } .brow.head .vo, .brow.head span:nth-child(4) { display: none; } }
@@ -1546,13 +1548,15 @@
       }
       var t = 0, total = (st.beats || []).reduce(function (a, b) { return a + (Number(b.duration_s) || 0); }, 0);
       var tbl = h("div", { class: "beats-table", role: "table", "aria-label": "Script of " + st.title });
-      tbl.appendChild(h("div", { class: "brow head", role: "row" }, [h("span", { text: "Time" }), h("span", { text: "On screen" }), h("span", { text: "Voiceover" }), h("span", { text: "What we see" })]));
+      tbl.appendChild(h("div", { class: "brow head", role: "row" }, [h("span", { text: "Time" }), h("span", { text: "On screen" }), h("span", { text: "Voiceover" }), h("span", { text: "What the motion does" })]));
       (st.beats || []).forEach(function (b) {
         var row = h("div", { class: "brow" + (b.turn ? " turn" : "") + (b.value ? " value" : ""), role: "row" }, [
           h("span", { class: "tc", text: fmt(t) + (b.turn ? " · turn" : "") }),
           h("span", { class: "os", text: b.on_screen || "—" }),
           h("span", { class: "vo", text: b.vo || "" }),
-          h("span", { class: "vis", text: b.visual || "" })
+          h("span", { class: "vis" }, (b.shows && b.shows.length ? b.shows : []).map(function (x) {
+            return h("span", { class: "show" }, [x.line ? h("b", { text: x.line }) : null, x.show ? h("span", { text: x.show }) : null]);
+          }).concat(b.shows && b.shows.length ? [] : [document.createTextNode(b.visual || "")]))
         ]);
         t += Number(b.duration_s) || 0;
         tbl.appendChild(row);

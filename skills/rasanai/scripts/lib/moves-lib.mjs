@@ -14,6 +14,7 @@
 //                            chain[] has fewer than ceil(film_seconds / 1.5) entries), chain-gap (a gap over 3.0 s in the
 //                            chain, from 0 or to the film's end). Warnings: a detail hero, more than half the cards detail.
 //                            carrier.family is required (carrier-family: missing, unknown, or not the family the pack assigned).
+//                            Warning show-uncarded: a beat whose lines carry show rows (beats[].shows) has no card (card.beat or a seam touching it).
 //                            Ladder films (opts.shape "ladder", see pitchShape): no-join-hero (error) when no hero card's seam "A>B" crosses
 //                            a rung boundary (a beat with role "rung" on either side): the heroes are the joins between rungs.
 //   pitchShape(pitch)        "ladder" | "scenario" | null from pitch.shape, else the beat roles (rung / open = ladder; proof / turn or a feature block = scenario)
@@ -200,6 +201,17 @@ export function validateMoves(obj, opts = {}) {
       if (m) E(`${at}: conceit word "${m[0]}" (a product film is led by the real product: no museums, allegories, invented worlds)`);
     }
   });
+  // the shows: every beat whose lines carry a show row needs at least one card (a card's beat, or a seam that touches the beat)
+  if (N) {
+    const carded = new Set();
+    for (const c of cards) {
+      if (!c) continue;
+      if (c.beat != null) carded.add(Number(c.beat));
+      const sm = str(c.seam).match(/(\d+)\s*(?:>|->|→|to)\s*(\d+)/i);
+      if (sm) { carded.add(Number(sm[1])); carded.add(Number(sm[2])); }
+    }
+    beats.forEach((b, i) => { if (b && arr(b.shows).length && !carded.has(i + 1)) W(`show-uncarded: beat ${i + 1}${b.name ? ` "${b.name}"` : ""} has show rows but no card (write at least one card per beat for the shows that need inventing)`); });
+  }
   // duplicate mechanisms
   const seen = new Map();
   for (const c of cards) {

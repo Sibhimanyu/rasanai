@@ -316,6 +316,16 @@ if (url) {
   fs.writeFileSync(sj, JSON.stringify({ ...S, scenes: S.scenes.map((x, i) => (i === 1 ? { ...x, transition_in: "spin-wildly", duration: 0 } : x)) }));
   const bad2 = node("scenes.mjs", ["--scenes", sj, "--route", "product-launch-video", "--out", path.join(TMP, "plan-bad")]);
   ok("scenes.mjs rejects an unknown transition and a zero duration", bad2.status === 1 && /spin-wildly/.test(bad2.stderr) && /positive/.test(bad2.stderr), bad2.stderr);
+  // the story's own roles (ladder open/rung/ways_in/close, scenario proof/turn, older hero/demo/payoff) map onto the workflow's scene types
+  const roleScenes = ["open", "rung", "ways_in", "close", "proof", "turn", "hero", "demo", "payoff"].map((type, i) => ({ title: `R${i + 1}`, on_screen: `Line ${i + 1}`, voiceover: `Say ${i + 1}.`, duration: 3, type }));
+  fs.writeFileSync(sj, JSON.stringify({ ...S, scenes: roleScenes }));
+  const rm = node("scenes.mjs", ["--scenes", sj, "--route", "product-launch-video", "--out", path.join(TMP, "plan-roles")]);
+  let rtl = {}; try { rtl = JSON.parse(fs.readFileSync(path.join(TMP, "plan-roles", "timeline.json"), "utf8")); } catch {}
+  const rtypes = ((rtl.scenes || rtl.frames || []).map((x) => x.type)).join();
+  ok("scenes.mjs maps story roles onto scene types (open hook, rung feature_showcase, ways_in benefit_highlight, close cta, hero product_intro)", rm.status === 0 && rtypes === "hook,feature_showcase,benefit_highlight,cta,feature_showcase,benefit_highlight,product_intro,feature_showcase,benefit_highlight", rm.stderr + rtypes);
+  fs.writeFileSync(sj, JSON.stringify({ ...S, scenes: S.scenes.map((x, i) => (i === 1 ? { ...x, type: "spin" } : x)) }));
+  const rb = node("scenes.mjs", ["--scenes", sj, "--route", "product-launch-video", "--out", path.join(TMP, "plan-roles-bad")]);
+  ok("scenes.mjs still rejects a type that is neither a scene type nor a story role", rb.status === 1 && /type "spin"/.test(rb.stderr), rb.stderr);
 
   const { contractText, upsertContract } = await import(path.join(HERE, "lib", "contract.mjs"));
   const md = fs.readFileSync(path.join(d, "motion.md"), "utf8");
@@ -589,6 +599,11 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   const scores = { originality: 4, clarity: 4, fit: 5, memorability: 4, feasibility: 5 };
   const aim = { takeaway: "Lintel reads every line so nothing slips through at 2 am.", feel: "Relieved", action: "Install Lintel on one repo", audience: "Engineers who approve pull requests" };
   const good = { title: "The unread line", aim, approach: "Starts at the 2 am outage, then rewinds to the one line nobody read.", logline: "A 2 am outage rewinds to the one line nobody read.", device: "rewind", beats: [beat("The pager alert", "02:14 · checkout-api down", 4), beat("Rewind the postmortem", "deploy ← merge", 7), beat("The LGTM comment un-types", "LGTM · 11:04 pm", 6), beat("The diff, unread", "one hunk", 6), beat("Lintel reads it", "Apply suggestion", 6, { turn: true }), beat("The pager stays dark", "Lintel reads every line.", 7)], first_4s: "A pager alert that plays backwards", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "the LGTM and the comment label are Lintel's own" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the reverse scrub", needs_live_action: false }, scores };
+  // G11: one show row per on-screen line (the show names the line's own word, how the words and the UI touch, and what changes in place)
+  const showRow = (line, extra = {}) => ({ line, show: `The review cursor rides under "${line}" and the words swap in place as the Lintel thread scrolls`, built_from: "product UI", handoff: "the line becomes the next one in place", ...extra });
+  const withShows = (beats) => beats.map((b, i) => (String(b.on_screen || "").trim() ? { ...b, shows: [showRow(b.on_screen, i === beats.length - 1 ? { handoff: "end" } : {})] } : b));
+  good.actor = { what: "the review cursor", does: "rides under every line and opens each next view" };
+  good.beats = withShows(good.beats);
   const bad = { title: "Meet Lintel", logline: "Meet Lintel, the AI reviewer that supercharges your team.", device: "before-after", beats: [beat("Hook", "PRs wait 2 days?", 3), beat("Problem montage", "Code review is broken", 3), beat("Introducing Lintel", "Introducing Lintel", 3), beat("Feature 1", "AI comments", 3), beat("Feature 2", "Suggestions", 3), beat("Feature 3", "Integrations", 3), beat("Social proof", "Trusted by 500 teams", 3), beat("CTA", "Try it free", 3)], first_4s: "a stat", clear_by_s4: true, swap_test: { competitor: "Rival", result: "survives" }, honest_demo: true, scores };
   fs.writeFileSync(path.join(sd, "good.json"), JSON.stringify(good));
   fs.writeFileSync(path.join(sd, "bad.json"), JSON.stringify(bad));
@@ -807,6 +822,40 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       const pk2 = node("story.mjs", ["pick", "--truth", ptruth, "--format", "launch", "--seed", "k", "--feature", "Sites"]);
       let pj2 = {}; try { pj2 = JSON.parse(pk2.stdout); } catch {}
       ok("ladder: pick with --feature (one feature named) keeps the scenario shape", pj2.shape === "scenario" && !(pj2.picks || []).some((x) => x.structure), pk2.stdout.slice(0, 200));
+
+      // G11, every line shows: a motion that MEANS each line, built from the product UI or the actor, words and UI touching
+      {
+        const sh = (b, rows) => b.map((x) => ({ ...x, shows: rows(x) }));
+        const showAll = (b, f = {}) => sh(b, (x) => (String(x.on_screen || "").trim() ? [showRow(x.on_screen, f)] : []));
+        const actor = { what: "the review cursor", does: "rides under every line and opens each next view" };
+        const g11 = (extra = {}, drop = []) => run10l({ actor, beats: showAll(lbeats()), ...extra }, drop);
+        const why11 = (r) => gof(r, "G11").reasons.join(" | ");
+        const g1 = g11();
+        ok("shows: a ladder with an actor and a show row per line (bound to its line, with handoffs) passes G11", gof(g1, "G11").pass === true, why11(g1));
+        const g2 = g11({ beats: lbeats() });
+        ok("shows: G11 fails beats with on-screen words and no shows (no-shows)", gof(g2, "G11").pass === false && /no-shows/.test(why11(g2)), why11(g2));
+        const g3 = g11({}, ["actor"]);
+        ok("shows: G11 fails a launch pitch with no actor (no-actor)", gof(g3, "G11").pass === false && /no-actor/.test(why11(g3)), why11(g3));
+        const g4 = g11({ beats: sh(lbeats(), (x) => [{ ...showRow(x.on_screen), show: "match cut to scene 3" }]) });
+        ok("shows: G11 fails a label-only show", gof(g4, "G11").pass === false && /show-label-only/.test(why11(g4)), why11(g4));
+        const g5 = g11({ beats: sh(lbeats(), (x) => [{ ...showRow(x.on_screen), show: "a cursor glides over" }]) });
+        ok("shows: G11 fails a show under 8 words (show-short)", gof(g5, "G11").pass === false && /show-short/.test(why11(g5)), why11(g5));
+        const g6 = g11({ beats: sh(lbeats(), (x) => [{ ...showRow(x.on_screen), show: "A soft glow drifts across the dark background while smooth particles float around slowly" }]) });
+        ok("shows: G11 fails a show that shares no word with its line (show-unbound: it would fit any line)", gof(g6, "G11").pass === false && /show-unbound/.test(why11(g6)), why11(g6));
+        const g6b = g11({ beats: sh(lbeats(), (x) => [{ ...showRow(x.on_screen), highlight: "glow", show: "A soft glow drifts across the dark background while smooth particles float around slowly" }]) });
+        ok("shows: a show that names the line's highlight word is bound", !/show-unbound/.test(why11(g6b)), why11(g6b));
+        const g7 = g11({ beats: sh(lbeats(), (x) => [showRow(x.on_screen, { built_from: "type" })]) });
+        ok("shows: G11 fails a product film where under 60% of the shows come from the UI or the actor (show-off-product)", gof(g7, "G11").pass === false && /show-off-product/.test(why11(g7)), why11(g7));
+        const g8 = g11({ beats: sh(lbeats(), (x) => [showRow(x.on_screen, { handoff: "" })]) });
+        ok("shows: G11 wants a handoff on every row except the film's last (no-handoff)", gof(g8, "G11").pass === false && /no-handoff/.test(why11(g8)) && (why11(g8).match(/no-handoff/g) || []).length === 5, why11(g8));
+        const g9 = g11({ beats: sh(lbeats(), (x) => [showRow(x.on_screen, { show: `The review cursor sits beside "${x.on_screen}" while the Lintel thread scrolls past quietly` })]) });
+        ok("shows: no touching verb and no in-place change are warnings, not errors", gof(g9, "G11").pass === true && /no-touch/.test(g9.stdout) && /no-swap/.test(g9.stdout), why11(g9));
+        const el = path.join(sd, "t11-explainer.json");
+        fs.writeFileSync(el, JSON.stringify({ title: "Review, four ways", logline: "One verb, four real uses, all in Lintel.", aim, approach: "Review is the refrain; each rung is a different real use in the Lintel window, escalating to done-for-you.", device: "escalation", beats: lbeats(), scores }));
+        const ex = node("story.mjs", ["check", "--pitch", el, "--format", "explainer"]);
+        let exj = {}; try { exj = JSON.parse(ex.stdout); } catch {}
+        ok("shows: off a launch, promo or brand film the show column only warns (no G11 gate)", !(exj.gates || []).some((x) => x.id === "G11") && (exj.warnings || []).some((w) => /no-shows/.test(w)) && (exj.warnings || []).some((w) => /no-actor/.test(w)), ex.stdout.slice(0, 300) + ex.stderr);
+      }
     }
     // the museum script of the real failed film is refused by the gate when run product-first
     const mu = node("story.mjs", ["check", "--pitch", path.join(sd, "script-good.json"), "--length", "45", "--narrated", "--product-first"]);
@@ -1082,6 +1131,33 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   const np = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
   ok("plan: a direct film's score must carry the plan (ground, current, one brandReveal, the feature, start/end that follow the durations, pictures, two carried seams)", np.status === 2 && ["ground missing", "current missing", "brandReveal must name exactly one", "feature {", "start/end", "need line", "carry at least 2"].every((w) => np.stdout.includes(w)), np.stdout.slice(0, 600));
   put(good);
+
+  // a ladder film (the chosen script's shape) carries a refrain, not a feature block; a scenario film still must
+  fs.mkdirSync(path.join(run, "story"), { recursive: true });
+  const chosenP = path.join(run, "story", "chosen.json");
+  const nofeat = JSON.parse(JSON.stringify(good));
+  delete nofeat.feature;
+  put(nofeat);
+  fs.writeFileSync(chosenP, JSON.stringify({ shape: "ladder", beats: [{ role: "open" }, { role: "rung" }, { role: "rung" }, { role: "close" }] }));
+  const ladF = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+  ok("crew: a ladder film's score needs no feature block", ladF.status === 0 && !/feature \{/.test(ladF.stdout), ladF.stdout.slice(0, 400));
+  fs.writeFileSync(chosenP, JSON.stringify({ shape: "scenario", feature: { name: "Receipt scan" }, beats: [{ role: "hook" }, { role: "proof" }, { role: "turn" }, { role: "cta" }] }));
+  const sf = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+  ok("crew: a scenario film's score still needs its feature block", sf.status === 2 && /feature \{ name, url, viewer, task, before, after \}/.test(sf.stdout), sf.stdout.slice(0, 400));
+  // show-unscored: every show row of the chosen script is realised in a shot (warning each; an error past 30%)
+  const rowsOf = (n) => [1, 2, 3, 4].slice(0, n).map((i) => ({ line: `Line ${i}`, show: "x", built_from: "product UI", handoff: "h" }));
+  const shownScore = (lines) => { const o = JSON.parse(JSON.stringify(nofeat)); o.scenes.forEach((x, i) => { x.shots[0].on_screen = lines[i] ? `${lines[i]} appears` : "a"; }); return o; };
+  fs.writeFileSync(chosenP, JSON.stringify({ shape: "ladder", beats: [{ role: "open", shows: rowsOf(1) }, { role: "rung", shows: [rowsOf(2)[1]] }, { role: "rung", shows: [rowsOf(3)[2]] }, { role: "close", shows: [rowsOf(4)[3]] }] }));
+  put(shownScore(["Line 1", "Line 2", "Line 3", "Line 4"]));
+  const so0 = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+  ok("crew: a score that realises every show row has no show-unscored", so0.status === 0 && !/show-unscored/.test(so0.stdout), so0.stdout.slice(0, 400));
+  put(shownScore(["Line 1", "Line 2", "Line 3", null]));
+  const so1 = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+  ok("crew: one of four show rows unscored is a show-unscored warning, not an error", so1.status === 0 && /show-unscored: the line .{1,2}Line 4/.test(so1.stdout), so1.stdout.slice(0, 400));
+  put(shownScore(["Line 1", "Line 2", null, null]));
+  const so2 = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+  ok("crew: more than 30% of show rows unscored is a show-unscored error (exit 2)", so2.status === 2 && /2 of 4 show rows are not realised/.test(so2.stdout), so2.stdout.slice(0, 400));
+  fs.rmSync(chosenP, { force: true });
   const bad = JSON.parse(JSON.stringify(good));
   delete bad.seams[0].in.speed;
   bad.showreel = [];
@@ -1860,6 +1936,17 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   ok("moves: a non-hero card without plain only warns", (() => { const o = clone(good); delete o.cards[3].plain; const r = validateMoves(o, { beats: pitch.beats }); return !r.errors.some((e) => /plain/.test(e)) && r.warnings.some((w) => /m4: no plain line/.test(w)); })());
   const dup = clone(good); dup.cards[5].generator = dup.cards[4].generator; dup.cards[5].origin = dup.cards[4].origin;
   ok("moves: two cards with the same generator and origin warn (not an error)", validateMoves(dup, { beats: pitch.beats }).warnings.some((w) => /same mechanism/.test(w)));
+  // the shows: a beat whose lines carry show rows needs at least one card (card.beat, or a seam touching the beat)
+  {
+    const shown = pitch.beats.map((b) => ({ ...b, shows: [{ line: b.on_screen || "x", show: "s", built_from: "actor", handoff: "h" }] }));
+    const cardBeats = new Set(good.cards.map((c) => Number(c.beat)).filter(Boolean));
+    const lone = clone(good); lone.cards.forEach((c) => { c.beat = 1; delete c.seam; });
+    const uncarded = validateMoves(lone, { beats: shown }).warnings.filter((w) => /show-uncarded/.test(w));
+    ok("moves: show-uncarded warns for each beat with show rows and no card (never an error)", uncarded.length === shown.length - 1 && /beat 2/.test(uncarded[0]) && !validateMoves(lone, { beats: shown }).errors.some((e) => /show-uncarded/.test(e)), JSON.stringify(uncarded) + [...cardBeats]);
+    ok("moves: no show-uncarded when the beats carry no shows", !validateMoves(lone, { beats: pitch.beats }).warnings.some((w) => /show-uncarded/.test(w)));
+    const every = clone(good); every.cards.forEach((c, i) => { c.beat = (i % shown.length) + 1; delete c.seam; });
+    ok("moves: no show-uncarded when every beat has a card", !validateMoves(every, { beats: shown }).warnings.some((w) => /show-uncarded/.test(w)));
+  }
 
   // a ladder film: the heroes are the joins between rungs (no-join-hero); a G6 legible fail is a valid verdict entry
   {
@@ -2010,6 +2097,10 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
     const ib = J(C(["brief", "--run", run, "--role", "move-inventor", "--key", "Bold"]));
     const it = ib.prompt ? fs.readFileSync(path.join(ws, ib.prompt), "utf8") : "";
     ok("moves: the inventor's brief names its pack command, check command, pack and the method, carries product_first and the show-off ask", /moves\.mjs" pack --run \S+ --label Bold --product-first/.test(it) && /moves-pack-Bold\.json/.test(it) && /references\/moves\.md/.test(it) && /product_first/.test(it) && /Do every step of the method/.test(it) && /moves-Bold\.json/.test(it), it.slice(0, 200));
+    // the shows: the writer, the inventor and the motion director read the showcases README and two reference films chosen by film kind
+    const txt = (role, key) => { const b = J(C(["brief", "--run", run, "--role", role, ...(key ? ["--key", key] : [])])); return b.prompt ? fs.readFileSync(path.join(ws, b.prompt), "utf8") : ""; };
+    const showRe = (a, b) => new RegExp(`showcases[\\\\/]README\\.md[\\s\\S]*${a}\\.json[\\s\\S]*${b}\\.json`);
+    ok("shows: a launch run's script-writer, move-inventor and motion-director briefs carry the showcases README, sovra-fm-launch and kinso-launch", [txt("script-writer", "Bold"), it, txt("motion-director", "score")].every((t) => showRe("sovra-fm-launch", "kinso-launch").test(t)), txt("script-writer", "Bold").slice(-500));
     const jb = J(C(["brief", "--run", run, "--role", "move-juror"]));
     const sb = J(C(["brief", "--run", run, "--role", "move-sketcher", "--key", "Bold"]));
     const st = sb.prompt ? fs.readFileSync(path.join(ws, sb.prompt), "utf8") : "";

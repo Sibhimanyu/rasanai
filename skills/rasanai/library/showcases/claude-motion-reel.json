@@ -1,0 +1,36 @@
+{
+  "id": "claude-motion-reel",
+  "title": "Claude motion reel (Every frame is a decision)",
+  "kind": "reel",
+  "duration_s": 15.2,
+  "arc": "Thesis then a rapid proof reel: a red dot draws a line that opens the page, one sentence builds, then the word DECISION is turned into ten different motion styles (type wall, dot grid, shape grid morphs, particle sphere, chrome torus/blob, easing curve, patterned target, glitch, 3D tiles, kaleidoscope, noise) ending on a CLAUDE sign-off.",
+  "world": "Instrument-panel frame: tiny mono HUD text in the corners, near-black or warm-paper grounds alternating, signal red and white with one blue accent in the later shapes, heavy grotesque type, every scene a different material but the HUD never changes.",
+  "actor": "The red dot: first the lone dot with an orbit ring and the line it draws, then the red dot of the dot grid, then the red dot on the easing curve, finally the period after CLAUDE.",
+  "lines": [
+    { "t": 0.0, "line": "(black, HUD)", "show": "Black frame with corner brackets and tiny mono text; a single red ellipse fades in, floats down onto a thin orbit ring at the bottom, and the ring ticks.", "built_from": "object", "handoff": "The dot flattens into a bright red horizontal line that sweeps the width of the frame." },
+    { "t": 1.5, "line": "(red line opens the page)", "show": "The red line expands vertically into a cream paper field: the line is a shutter opening.", "built_from": "object", "handoff": "The new page is empty; the first word types in." },
+    { "t": 2.0, "line": "EVERY", "show": "'EVERY' in heavy black grotesque punches in, then a glitch slices its first letter (a stutter) before the next word.", "built_from": "type", "handoff": "A selection box with handles snaps round the next word as if it were being edited in a design tool." },
+    { "t": 2.5, "line": "FRAME", "show": "'FRAME' appears inside a red transform box with corner handles; the box is the design-tool grammar saying a decision is being made.", "built_from": "type", "handoff": "Letters glitch apart into fragments that drift off." },
+    { "t": 3.25, "line": "is a", "show": "A short red italic serif 'is a' lands after the glitch, a tonal shift from the heavy sans.", "built_from": "type", "handoff": "The italic dissolves and the big word is built letter by letter from sliced blocks." },
+    { "t": 3.5, "line": "DECISION", "show": "'DECISION' assembles from sliced bars (letters offset in y that snap to the baseline), the I and O overshoot; it sits dead-centre in heavy black.", "built_from": "type", "handoff": "Ghost copies of the same word multiply behind it, filling the frame." },
+    { "t": 4.0, "line": "DECISION (type wall)", "show": "The word repeats as a rotated, outlined wall behind the hero word (pale on cream, then red/black stripes), with the hero white in front; the wall spins slowly; then the wall goes dark with glow on the hero letters.", "built_from": "type", "handoff": "The hero word's glow collapses to a row of red dots, the dots become a grid." },
+    { "t": 5.3, "line": "(dot grid)", "show": "A row of 8 red dots expands into a field of white dots; the field breathes with a wave, then dots turn red in sweeps.", "built_from": "object", "handoff": "The dots morph, in place, into squares, then crosses, then triangles, then rotating tilted grids." },
+    { "t": 6.0, "line": "(shape grid morphs)", "show": "Dots become red/white circles, squares, rotated squares, crosses and triangles in sequence on the same lattice with a lens-like bulge; each shape change is a cut-on-beat.", "built_from": "object", "handoff": "The lattice contracts into a ring of points orbiting a core." },
+    { "t": 7.5, "space": "3d", "line": "(particle sphere)", "show": "A particle sphere in a red ring spins up, then spreads into a swirling cloud which settles into a thin ring of stars.", "built_from": "object", "handoff": "The ring gains thickness and becomes a chrome torus." },
+    { "t": 9.5, "space": "3d", "line": "(chrome torus, blob)", "show": "A glossy iridescent torus rotates with an annotated leader line (HUD callout); it deflates into merging blobs, then a single bulbous blob, then a rounded cube, each morph a shape-to-shape blend in one continuous rotation.", "built_from": "object", "handoff": "Cut on a hard beat to a warm-paper page holding a graph." },
+    { "t": 11.25, "line": "(easing curve)", "show": "A cubic-bezier easing graph draws on cream with handles; a red ball slides along the bottom axis with trail ghosts to show what the curve does, then freezes.", "built_from": "object", "handoff": "The ball scales up into the centre of a striped red/blue target." },
+    { "t": 11.75, "line": "(striped target)", "show": "A red-black diagonal stripe field with a blue-white striped ring: the target sits like an op-art logo; it rotates against the stripe field.", "built_from": "object", "handoff": "Cut to a blue screen with chromatic-split text." },
+    { "t": 12.25, "space": "3d", "line": "REEL", "show": "'REEL' in white 3D-feeling chrome type with RGB split and glitch slices on blue.", "built_from": "type", "handoff": "Smash cut to an orange field with an isometric tile block." },
+    { "t": 12.5, "space": "3d", "line": "(iso tiles, kaleidoscope, noise)", "show": "A 3D isometric block of white/blue tiles ripples, then a kaleidoscope of circles and triangles, then pure colour noise; three one-beat hits in 0.75 s.", "built_from": "object", "handoff": "The noise burns out to black and the sign-off types in." },
+    { "t": 13.25, "line": "CLAUDE.", "show": "'CLAUDE' in white glowing heavy sans lands on black, a small mono label 'MOTION DESIGN / SHOWREEL 2026' ticks in below, the red dot appears as a period and sits there; a progress bar runs under it.", "built_from": "type", "handoff": "End hold with the HUD still ticking." }
+  ],
+  "techniques": ["instrument HUD that never changes across scenes", "one word, many materials (DECISION as type wall, dot grid, particles, chrome)", "in-place morph of one lattice through shape sets", "design-tool selection box as meaning", "hard beat cuts between worlds", "red dot as recurring actor", "paper/black ground alternation"],
+  "lessons": [
+    "Pick one word and push it through many materials; the word stays, the form changes, and the reel proves range without new topics.",
+    "Morph shapes in place on a shared lattice (circle to square to cross to triangle) instead of cutting; the continuity is the craft.",
+    "Alternate light and dark grounds to reset the eye, and keep a constant HUD so the cuts still feel like one film.",
+    "Use the tool's own UI (selection handles, easing curve) as the visual for the idea it names.",
+    "Escalate density then cut hard: the three one-beat hits before the sign-off make the quiet end land.",
+    "One persistent red dot that ends as the period gives the loose reel a spine."
+  ]
+}

@@ -62,6 +62,12 @@ Then run the seven SCAMPER verbs once over each atom (Substitute, Combine, Adapt
 
 You return one file, `story/moves-<L>.json` (the schema is in `agents/move-inventor.md`). When it passes `moves.mjs check`, you are done.
 
+## 1b. Every show gets a card, not only the joins
+
+The script now carries a show column (`beats[].shows`, `references/script.md`: for each on-screen line, the motion that means it, built from the real UI or the actor). The heroes stay 2 or 3, the joins a motion designer would cut into a reel. But the Moves pass no longer stops at the joins: **write a card for every show that needs inventing, at least one card per beat.** A show such as "the pill holds while the word swaps songs, feeds, loops and the outline swells into rings" is a move: it has a carrier (the pill), a frame A, a timed move, a frame B and a hand-off. Where the writer's show is already concrete and buildable ("the typed prompt scrolls left as it overflows"), the card can be short and say so; where it is thin, the card is your invention of what the show should really be. Never change the line or the beat; change only what the motion does. A beat with no card is warned (`show-uncarded`). The card of a show is built from the same atoms: the real UI element, the actor, the line's own letters.
+
+The reference breakdowns in `library/showcases/` (README first, then the two films of the pack's kind) are the bar for these cards: words and UI touching, lines changing in place, one actor.
+
 ## 2. The move card and the chain ledger
 
 ### The move card

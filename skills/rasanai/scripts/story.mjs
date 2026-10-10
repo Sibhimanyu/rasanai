@@ -27,6 +27,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseArgs, die, readJSON, writeFile, SKILL_DIR } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
+import { isLabelOnly } from "./lib/moves-lib.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -501,7 +502,7 @@ if (cmd === "truth") {
   const pitches = Array.isArray(raw) ? raw : Array.isArray(raw.pitches) ? raw.pitches : [raw];
   const truth = loadTruth(args.truth);
   const footage = !!args.footage || !!(truth && truth.assets.some((a) => /footage|video of|founder on camera/i.test(a)));
-  const opts = { length: Number(args.length) || 0, narrated: !!args.narrated, calm: !!args.calm, brandTempo: loadBrandTempo(args["brand-film"]), productFirst: isProductFirst(truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null), args) };
+  const opts = { length: Number(args.length) || 0, narrated: !!args.narrated, calm: !!args.calm, brandTempo: loadBrandTempo(args["brand-film"]), productFirst: isProductFirst(truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null), args), showStrict: ["launch", "promo", "brand"].includes(truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null)) };
   const results = pitches.map((p, i) => checkPitch(p, i, truth, footage, opts));
   const portfolio = pitches.length > 1 ? checkPortfolio(pitches, results) : null;
   const ship = results.every((r) => r.verdict === "ship") && (!portfolio || portfolio.pass);
@@ -911,6 +912,63 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     const frag = nt && lines.find((l) => l === nt || l.startsWith(`${nt} `));
     if (frag) g8.push(`title "${title}" is the start of an on-screen line ("${frag}"): name the idea instead`);
     gate("G8", "The aim (what the film achieves, how it gets there, a title that names the idea)", g8);
+  }
+
+
+  // G11: every line shows (references/script.md "The show column"): each on-screen line has a motion that MEANS it, built from the
+  // product's UI or the film's one actor; words and UI share the frame and touch; lines change in place. Errors on launch / promo /
+  // brand films, warnings elsewhere.
+  {
+    const g11 = [];
+    const strict = !!(opts.showStrict || opts.productFirst || p.product_first === true);
+    const SW = new Set("the a an and or of to in on at by for with from is it its this that as be are was you your we our i my me not no so but if then than into onto over up out all any one".split(" "));
+    const stem = (w) => w.replace(/(ing|ed|es|s)$/, "");
+    const toks = (x) => norm(x).replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w && !SW.has(w) && (w.length >= 3 || /\d/.test(w))).map(stem);
+    const wc = (x) => String(x || "").trim().split(/\s+/).filter(Boolean).length;
+    const BUILT = ["product ui", "actor", "type", "object", "photo"];
+    const TOUCH_RE = /\b(through|splits?|strikes?|struck|pushes|pushed|wraps?|rides?|under|across|into|slices?|lights?|lit|crosses|cuts? through|swells?|lands? on|punch(?:es)?)\b/i;
+    const SWAP_RE = /\b(swaps?|swapped|becomes?|turns? into|changes? to|replaced|in place)\b/i;
+    const act = p.actor && typeof p.actor === "object" ? p.actor : null;
+    if (!act || !String(act.what || "").trim() || !String(act.does || "").trim()) (strict ? g11 : warnings).push(`no-actor: pitch.actor { what, does } missing (the one persistent element that carries the film: an orb, the composer, a dot, the cursor, a pill)`);
+    let rows = 0, product = 0, touch = false, swap = false;
+    const lastBeatWithRow = (() => { for (let i = beats.length - 1; i >= 0; i--) if (Array.isArray(beats[i].shows) && beats[i].shows.length) return i; return -1; })();
+    beats.forEach((b, i) => {
+      const nm = `beat ${i + 1} "${b.name || ""}"`;
+      const shows = Array.isArray(b.shows) ? b.shows : [];
+      if (String(b.on_screen || "").trim() && !shows.length) { g11.push(`no-shows: ${nm} has on-screen words and no shows (one row per on-screen line: { line, show, built_from, handoff })`); return; }
+      shows.forEach((r, j) => {
+        const at = `${nm} shows[${j}]`;
+        rows++;
+        if (!r || typeof r !== "object") { g11.push(`show-incomplete: ${at} is not an object`); return; }
+        const line = String(r.line || "").trim(), show = String(r.show || "").trim(), bf = norm(r.built_from).trim();
+        if (!line) g11.push(`show-incomplete: ${at} has no line`);
+        if (!show) g11.push(`show-incomplete: ${at} has no show`);
+        if (!bf) g11.push(`show-incomplete: ${at} has no built_from (${BUILT.join(" | ")})`);
+        else if (!BUILT.includes(bf)) g11.push(`show-incomplete: ${at} built_from "${r.built_from}" is not one of ${BUILT.join(" | ")}`);
+        if (bf === "product ui" || bf === "actor") product++;
+        if (show) {
+          if (isLabelOnly(show)) g11.push(`show-label-only: ${at} "${show}" names a technique and nothing else: say what the element does and how the words and the UI touch`);
+          else if (wc(show) < 8) g11.push(`show-short: ${at} is ${wc(show)} words (8 at least): say the element, the action and how the words and the UI touch`);
+          const hi = String(r.highlight || b.highlight || "").trim();
+          const lt = new Set(toks(line)), st = toks(show);
+          const hit = st.some((w) => lt.has(w)) || (hi && toks(hi).some((w) => st.includes(w)));
+          if (line && !hit) g11.push(`show-unbound: ${at} shares no word with its line "${line}" and does not name the highlight word: a show that fits any line is not this line's show`);
+          if (TOUCH_RE.test(show)) touch = true;
+          if (SWAP_RE.test(show)) swap = true;
+        }
+        const isLast = i === lastBeatWithRow && j === shows.length - 1;
+        if (!String(r.handoff || "").trim() && !isLast) g11.push(`no-handoff: ${at} has no handoff (how it becomes the next line: what carries, what changes in place)`);
+      });
+    });
+    if (rows && (opts.productFirst || p.product_first === true)) {
+      if (product / rows < 0.6) g11.push(`show-off-product: ${product} of ${rows} shows are built from the product UI or the actor (60% at least on a product film): the type and the object may not carry the film`);
+    }
+    if (rows) {
+      if (!touch) warnings.push("no-touch: no show has the words and the UI touching (use verbs like through, splits, strikes, pushes, wraps, rides, under, across, into)");
+      if (!swap) warnings.push("no-swap: no show changes a line in place (swap, becomes, turns into, changes to)");
+    }
+    if (strict) gate("G11", "Every line shows (a motion that means the line, built from the product UI or the film's one actor, words and UI touching)", g11, { rows, product_or_actor: product });
+    else for (const r of g11) warnings.push(r);
   }
 
   // scores: self-assessed, then adjusted by rule
