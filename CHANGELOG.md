@@ -11,6 +11,21 @@
 - **Craft §4:** several seams carried by one carrier read as one idea, not as a different transition per seam.
 - Why: the show-off push was not enough. The plan named techniques ("match-cut", "iris") instead of ideas because motion was first planned after the user had chosen the story, the score asked for labels and never for the object that crosses the cut, nothing overgenerated and selected, and one agent graded its own showreel. The reference was a clip where one circle travels from the "o" of "Your" to a cat's pupil to the next page.
 
+## 1.10.0 (2026-10-10)
+
+- **Films that keep moving.** A short film (45 s or less, or a single-feature launch) is now written by one film builder in one pass, so objects carry across beats and no seam comes to rest. Longer films, or `--deep`, keep parallel animators with a lead builder owning everything that crosses a cut.
+- **A motion gate on every draft** (`scripts/motion-gate.mjs`): visible motion in at least 75% of frames, no freeze of 0.8 s, an end card still for at most 1.5 s, no slow creeping zoom, motion on both sides of every seam, at least two seams carried by an object, one brand reveal. Critics need its report. HyperFrames' own launch film passes it; RasanAI's previous draft did not.
+- **No scheduled holds.** Something meaningful changes every 1.5 to 2.5 s; holds are reading time with secondary motion. Library cards and taxonomy that asked for stillness were rewritten.
+- **One feature, one scenario.** Launch films name a viewer, their task, the before and the after; beats are hook, proof, turn and call to action, each with the real on-screen cause and effect. Feature tours, metaphors and invented screens fail the new story gate G10 and the concept critic.
+- **Stories say what they achieve.** Writers decide the aim first (the takeaway, the feeling, the next action, the audience); titles name the idea (gate G8).
+- **Faster tempo.** House tempo for launch films (at least 5 ideas in 30 s, a change every 1.5 to 2.5 s, short holds), the brand film's measured tempo when there is one, and gate G9.
+- **Reference moments.** `scripts/moments.mjs` searches a credited catalogue of real launch-film moments by role and technique and fetches the picked ones for the run; the builder takes one mechanic from each and builds it fresh. Nothing from a moment ships; creators are credited.
+- **One plan file.** `motion/score.json` carries the film and every beat; the other build documents derive from it, so the builder reads about 19 KB instead of hundreds.
+- **Shorter path for short films:** no key frames, no look desk when a brand applies (the look is the brand's, decided with a reason), lean research. The human calls stay; the Animatic shows the built draft.
+- **Real logo files only.** Research downloads the official logo with its source; the build places that exact file; a check fails drawn or substituted logos. Without an official logo the end card uses the name in type and says so.
+- **Motion levels** cover how intricate the movement is, not only how many elements move.
+- Self-test: all checks pass.
+
 ## 1.9.1 (2026-10-09)
 
 - **Faster, brand-only research for branded films.** When the brand-film phase runs (a named brand's launch, promo or brand film, including any public product launch), the plan no longer dispatches the design researcher (outside visual references) or the precedent researcher (other launch films analysed shot by shot). The brand's own film, measured and carded, replaces both. The design systems wait for the brand film card instead. Self-test: all checks pass.

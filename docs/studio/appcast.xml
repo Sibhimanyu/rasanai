@@ -6,6 +6,20 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.7.0 beta 1</title>
+      <pubDate>Sat, 10 Oct 2026 04:05:17 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **Films that keep moving.** Short films are written by one builder and checked frame by frame before you see them; one feature and one scenario per launch film; a faster tempo; real logo files only.
+- **Get inspired:** a credited gallery of real launch-film moments to start a film from.
+- **One status line** says whose move it is; the toolbar shows only tokens and cost.
+- **The Story step** shows what each story achieves.
+- Fixes: nothing says it is waiting on you after you answer; the running film no longer asks you to stop the director.]]></description>
+      <sparkle:version>22</sparkle:version>
+      <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.7.0-beta.1/RasanAI-Studio-0.7.0.dmg" sparkle:edSignature="by+XpMPao4VhSv8RS+jlld1nbMQAW4W45YJf+pB8L6X2X9+94p/4qq24G6moJ/Z6zosO+ZjUKT0GfsFw5y2TDQ==" length="71177913" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.6.5 beta 1</title>
       <pubDate>Fri, 09 Oct 2026 12:36:28 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **Updates download behind security proxies.** The update download now waits up to ten minutes for data instead of 60 seconds.
