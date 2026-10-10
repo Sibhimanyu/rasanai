@@ -2,6 +2,14 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## 0.7.0 (build 22) — 2026-10-10
+
+- Bundles RasanAI 1.10.0: short films are written by one builder and checked frame by frame before you see them, so they keep moving; one feature and one scenario per launch film; stories that say what they achieve; a faster tempo; real logo files only.
+- **Get inspired.** A credited gallery of real launch-film moments on Home and in New film. Filter by role (hook, proof, turn, call to action) and technique, preview on hover, pick up to four, and start a film that moves like them. The finished film lists its references.
+- **One status line.** Under the stage bar, one line says whose move it is ("Your turn · confirm the brief", with what Claude does meanwhile, or "Claude is working"). The action bar shows only when you can act; the toolbar pill shows only tokens and cost.
+- **The Story step** shows three cards led by what each story achieves, with how it gets there and its tempo.
+- Fixes: after you answer, nothing still says it is waiting on you; opening the running film no longer asks you to stop the director; Brand shows the logo file the film will use; "with none" reads "without voiceover".
+
 ## 0.6.5 (build 21) — 2026-10-09
 
 - **Updates download behind security proxies.** The update download now waits up to ten minutes for data instead of 60 seconds. On Macs whose security proxy holds a whole download to scan it before sending anything, a fresh update failed with "The request timed out".
