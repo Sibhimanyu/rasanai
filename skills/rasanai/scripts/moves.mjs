@@ -4,16 +4,22 @@
 // <run> is the run folder (.rasanai/<id>); the pass lives in <run>/story/.
 //
 //   node moves.mjs pack --run <run> --label Sure|Bold|Wild [--product-first] [--seed N]
-//        -> <run>/story/moves-pack-<label>.json, and prints its path. {label, seed, product_first, exemplars: 3 moves
+//        -> <run>/story/moves-pack-<label>.json, and prints its path. {label, seed, product_first, bar (the house bar,
+//           <library>/bar.json, always first and not counted among the exemplars: {instruction: "the bar, never the content:
+//           never reuse an eye, a pupil, a slit, a thrown carrier, or a circle that becomes an eye", ...the bar's own fields};
+//           the inventor matches its density and scale; omitted only when the library has no bar.json), exemplars: 3 moves
 //           (the user's reference moves from <run>/research/reference-moves.json first, then library moves), generators:
 //           all 20, shuffled, stimulus (one item of stimuli.json; a product-first film gets one choreography.json
 //           constraint instead, with stimulus_kind), banned: banned.json + the last 12 hero moves of earlier films
 //           ($RASANAI_HOME/moves-ledger.json)}. The same run, label and seed always give the same pack.
 //   node moves.mjs check --file <run>/story/moves-<label>.json --pitch <run>/story/pitch-<label>.json [--product-first]
 //        -> {ok, errors, warnings}; exit 0 ok, 2 errors (the move-inventor's gate), 1 could not read. The pitch gives the
-//           beats, ui_labels and product name; moves-pack-<label>.json beside the file adds the exemplar-overlap warning.
+//           beats, ui_labels and product name. Every card needs scale (full-frame|large|detail); with --product-first every
+//           hero needs resolves_to; error ids no-full-frame-hero, chain-sparse (chain[] under ceil(film s / 1.5)), chain-gap
+//           (over 3.0 s between chain entries, or to the ends of the film); moves-pack-<label>.json beside the file adds the exemplar-overlap warning.
 //   node moves.mjs check-verdict --run <run>
 //        -> {ok, errors, warnings} for <run>/story/moves-verdict.json against the three moves-<label>.json; exit 0 / 2 / 1.
+//           Each pitch needs set = {full_frame, evidence} (gate S1); full_frame false must list the label in denial[].
 //   node moves.mjs rough --dir <run>/story/moves/<label>-<id> [--fps 15] [--aspect 16:9]
 //        -> renders <dir>/rough.html (a paused GSAP timeline on window.__move = {tl, duration, bridge?, width?, height?};
 //           1.5 to 4.5 s) in headless Chrome frame by frame (tl.seek) to <dir>/rough.mp4 (H.264, yuv420p, faststart),
@@ -24,7 +30,7 @@
 //        -> {ok, errors, warnings, duration}: rough.html, rough.mp4, strip.png and poster.png exist, the mp4 runs 1.5 to 4.5 s,
 //           and its frames differ (not blank, not still); exit 0 / 2.
 //   node moves.mjs payload --run <run> --stories <run>/story/stories.json
-//        -> prints the stories array with carrier (string, the short plain form) and moves[] (up to 3: {id, title, move (the plain line), says, beat, video, strip, poster})
+//        -> prints the stories array with carrier (string, the short plain form) and moves[] (up to 3: {id, title, move (the plain line), says, scale (when the card has one), beat, video, strip, poster})
 //           added per story, from moves-<label>.json, the verdict's ranking and the roughs (a move with a rough comes first;
 //           media paths are relative to the working directory, like the other console payload media; a missing file's key is omitted).
 //   node moves.mjs choose --run <run> --label <label>
@@ -177,7 +183,9 @@ if (cmd === "pack") {
   const stimulus = stimuli[Math.floor(rnd() * stimuli.length)];
   const recent = readLedger().slice(-12).map((e, i) => ({ id: `earlier-${i + 1}`, cliche: `${e.title || "an earlier hero move"}${e.carrier ? ` (carrier: ${e.carrier})` : ""}: used in an earlier film`, instead: "a different carrier and a different mechanism" }));
   const banned = [...libFile("banned.json"), ...recent];
-  const pack = { label, seed, product_first: pf, exemplars, generators, stimulus, stimulus_kind: pf ? "choreography" : "stimulus", banned };
+  const barRaw = jsonMaybe(path.join(LIB(), "bar.json"));
+  const bar = barRaw && typeof barRaw === "object" && !Array.isArray(barRaw) ? { instruction: "the bar, never the content: never reuse an eye, a pupil, a slit, a thrown carrier, or a circle that becomes an eye", ...barRaw } : null;
+  const pack = { label, seed, product_first: pf, ...(bar ? { bar } : {}), exemplars, generators, stimulus, stimulus_kind: pf ? "choreography" : "stimulus", banned };
   const file = path.join(run, "story", `moves-pack-${label}.json`);
   writeFile(file, JSON.stringify(pack, null, 2) + "\n");
   console.log(cwdRel(file));
@@ -263,7 +271,7 @@ if (cmd === "pack") {
     const plainOf = (c) => oneLine(str(c.plain) || str(c.says) || shorten(str(c.move).replace(/[+-]?\d+(?:\.\d+)?\s*(?:s|ms|px|%|deg|degrees)?(?=\W|$)/gi, " ").replace(/\s+/g, " ").replace(/^\W+/, ""), 18));
     const entries = [...new Set(rankedIds(verdict, label, mv))].map((id) => cards.find((c) => c && c.id === id)).filter(Boolean).map((c) => {
       const beat = c.beat != null ? Number(c.beat) : Number((String(c.seam || "").match(/^\s*(\d+)/) || [])[1]);
-      return { id: c.id, title: str(c.title), move: plainOf(c), says: oneLine(c.says), ...(beat >= 1 ? { beat } : {}), ...media(c.id) };
+      return { id: c.id, title: str(c.title), move: plainOf(c), says: oneLine(c.says), ...(str(c.scale) ? { scale: str(c.scale) } : {}), ...(beat >= 1 ? { beat } : {}), ...media(c.id) };
     });
     // a move with a rough plays; those come first (the order of the ranking is kept inside each group)
     const ordered = [...entries.filter((e) => e.video), ...entries.filter((e) => !e.video)].slice(0, 3);

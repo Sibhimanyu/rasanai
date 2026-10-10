@@ -352,7 +352,9 @@
         "risk": "the scale must stay crisp",
         "simplest": "a CSS circle scaled by GSAP"
       },
-      "duration_s": 2.4
+      "duration_s": 2.4,
+      "scale": "full-frame",
+      "resolves_to": "the real 'Approve' button on the Tally screen"
     },
     {
       "id": "m2",
@@ -376,7 +378,9 @@
         "risk": "the scale must stay crisp",
         "simplest": "a CSS circle scaled by GSAP"
       },
-      "duration_s": 2.4
+      "duration_s": 2.4,
+      "scale": "large",
+      "resolves_to": "the 'Paid' column and the cursor"
     },
     {
       "id": "m3",
@@ -400,7 +404,8 @@
         "risk": "the scale must stay crisp",
         "simplest": "a CSS circle scaled by GSAP"
       },
-      "duration_s": 2
+      "duration_s": 2,
+      "scale": "large"
     },
     {
       "id": "m4",
@@ -424,7 +429,8 @@
         "risk": "the scale must stay crisp",
         "simplest": "a CSS circle scaled by GSAP"
       },
-      "duration_s": 2.5
+      "duration_s": 2.5,
+      "scale": "large"
     },
     {
       "id": "m5",
@@ -447,7 +453,8 @@
         "risk": "the scale must stay crisp",
         "simplest": "a CSS circle scaled by GSAP"
       },
-      "duration_s": 1.6
+      "duration_s": 1.6,
+      "scale": "detail"
     },
     {
       "id": "m6",
@@ -470,7 +477,8 @@
         "risk": "the scale must stay crisp",
         "simplest": "a CSS circle scaled by GSAP"
       },
-      "duration_s": 2
+      "duration_s": 2,
+      "scale": "detail"
     }
   ],
   "ledger": [
@@ -525,5 +533,51 @@
     "stimulus": "a sundial",
     "used": false,
     "how": "none"
-  }
+  },
+  "chain": [
+    {
+      "t": 0.5,
+      "change": "dot sits in the toolbar row"
+    },
+    {
+      "t": 2,
+      "change": "dot grows into the label bar"
+    },
+    {
+      "t": 3.5,
+      "change": "bar splits into the row"
+    },
+    {
+      "t": 5,
+      "change": "row stalls at pending"
+    },
+    {
+      "t": 6.5,
+      "change": "pending stamp drops"
+    },
+    {
+      "t": 8,
+      "change": "dot swells toward Approve"
+    },
+    {
+      "t": 9.5,
+      "change": "dot becomes the Approve cap"
+    },
+    {
+      "t": 11,
+      "change": "cursor drags the row"
+    },
+    {
+      "t": 12.5,
+      "change": "row fills green"
+    },
+    {
+      "t": 14,
+      "change": "badge counts up"
+    },
+    {
+      "t": 15.5,
+      "change": "mark rolls into the dot"
+    }
+  ]
 }

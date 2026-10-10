@@ -8,7 +8,13 @@
 //   TECHNIQUE_TERMS          seam kinds, entrance types, the term names of references/vocabulary.md and the generic
 //                            transition words (cut, wipe, morph, zoom, reveal, fade...)
 //   validateMoves(obj, {beats, productFirst, uiLabels, productName, pack})  -> {errors[], warnings[]}
+//                            Each card needs scale ("full-frame" | "large" | "detail"); on a product-first film every hero
+//                            card needs resolves_to (the real product surface or mark a transformation lands on). Errors by
+//                            id: no-full-frame-hero (no hero is a full-frame type/shape transformation), chain-sparse (the
+//                            chain[] has fewer than ceil(film_seconds / 1.5) entries), chain-gap (a gap over 3.0 s in the
+//                            chain, from 0 or to the film's end). Warnings: a detail hero, more than half the cards detail.
 //   validateVerdict(obj, movesByLabel)                                     -> {errors[], warnings[]}
+//                            Each pitch needs set = {full_frame, evidence} (gate S1); full_frame false must list the label in denial[].
 import fs from "node:fs";
 import path from "node:path";
 import { SKILL_DIR } from "./common.mjs";
@@ -69,6 +75,10 @@ export const CONCEIT_RE = /\b(museums?|galler(?:y|ies)|exhibit(?:s|ion|ions)?|pl
 const arr = (v) => (Array.isArray(v) ? v : []);
 // a digit followed by s / px / % / deg, or an "N to N" timing: the plain line must not carry them
 const PLAIN_TECH_RE = /\d+(?:\.\d+)?\s*(?:s|ms|px|%|deg|degrees)\b|\d+(?:\.\d+)?\s*(?:to|-)\s*\d+(?:\.\d+)?/i;
+const SCALES = ["full-frame", "large", "detail"];
+// generators that move type or shapes (the stage itself): a full-frame hero must come from one of these
+const TYPE_SHAPE_GENERATORS = ["G1", "G2", "G3", "G5", "G6", "G12", "G15", "G17", "G19", "G20"];
+export const MAX_CHAIN_GAP_S = 3.0;
 const CARD_FIELDS = ["frame_a", "move", "frame_b", "bridge", "handoff", "says", "origin"];
 
 const sameIdea = (a, b) => {
@@ -145,6 +155,8 @@ export function validateMoves(obj, opts = {}) {
     if (str(c.bridge) && isLabelOnly(c.bridge)) E(`${at}: the bridge is only a label ("${str(c.bridge)}"): name the one frame where both states are true and the element in it`);
     if (!/^G\d{1,2}$/.test(str(c.generator))) W(`${at}: generator "${str(c.generator)}" is not G1..G20`);
     for (const o of obvious) if (sameIdea(c.title, o) || sameIdea(c.origin, o)) E(`${at}: repeats the banned obvious idea "${o}"`);
+    if (!str(c.scale)) E(`${at}: missing scale (one of ${SCALES.join(", ")})`);
+    else if (!SCALES.includes(str(c.scale))) E(`${at}: scale "${str(c.scale)}" is not one of ${SCALES.join(", ")}`);
     if (c.beat != null && N && !(Number(c.beat) >= 1 && Number(c.beat) <= N)) E(`${at}: beat ${c.beat} is not a beat of this script (1-${N})`);
     if (pf) {
       const t = [c.title, c.origin, c.move, c.frame_a, c.frame_b, c.bridge, c.says].map(str).join(" . ");
@@ -177,12 +189,39 @@ export function validateMoves(obj, opts = {}) {
     if (!(d > 0)) W(`hero ${h}: duration_s missing (the rough is 1.5 to 4.5 s)`);
     else if (d < 1.5 || d > 4.5) W(`hero ${h}: duration_s ${d} is outside the rough's 1.5 to 4.5 s`);
     if (pf) {
-      const o = str(c.origin);
+      const r = str(c.resolves_to);
       const labels = arr(opts.uiLabels).map(str).filter((l) => l.length >= 2);
       const product = str(opts.productName);
-      const hit = labels.some((l) => o.toLowerCase().includes(l.toLowerCase())) || (product && o.toLowerCase().includes(product.toLowerCase())) || /\b(brand|logo|cursor)\b/i.test(o);
-      if (!hit) E(`hero ${h}: on a product film its origin must be a real UI label from the pitch's ui_labels, the product name, or the brand / logo / cursor (origin: "${o.slice(0, 70)}")`);
+      if (!r) E(`hero ${h}: on a product film every hero needs resolves_to (the real product surface or mark the transformation lands on)`);
+      else {
+        const hit = labels.some((l) => r.toLowerCase().includes(l.toLowerCase())) || (product && r.toLowerCase().includes(product.toLowerCase())) || /\b(brand|logo|mark|cursor|caret|composer)\b/i.test(r);
+        if (!hit) E(`hero ${h}: on a product film resolves_to must be a real UI label from the pitch's ui_labels, the product name, or the brand / logo / mark / cursor / caret / composer (resolves_to: "${r.slice(0, 70)}")`);
+      }
     }
+  }
+
+  // scale: a film needs at least one full-frame type/shape hero; detail heroes and detail-heavy sets are warned
+  const heroCards = heroes.map((h) => cards.find((x) => x && x.id === h)).filter(Boolean);
+  if (heroCards.length && !heroCards.some((c) => str(c.scale) === "full-frame" && TYPE_SHAPE_GENERATORS.includes(str(c.generator).toUpperCase()))) E(`no-full-frame-hero: no hero card is scale "full-frame" with a type or shape generator (${TYPE_SHAPE_GENERATORS.join(", ")}): the type or the shape must be the stage, not a detail inside a screenshot`);
+  for (const c of heroCards) if (str(c.scale) === "detail") W(`hero ${c.id}: scale is "detail" (a hero is usually large or full-frame)`);
+  const nDetail = cards.filter((c) => c && str(c.scale) === "detail").length;
+  if (cards.length && nDetail * 2 > cards.length) W(`${nDetail} of ${cards.length} cards are scale "detail" (more than half: the set is mostly small moves inside the UI)`);
+
+  // the chain: every transformation of the carrier, time-coded across the whole film
+  if (filmSeconds > 0) {
+    const chain = arr(obj.chain).filter((e) => e && typeof e === "object");
+    const need = Math.ceil(filmSeconds / 1.5);
+    if (chain.length < need) E(`chain-sparse: chain has ${chain.length} entries for a ${Math.round(filmSeconds * 10) / 10} s film (${need} at least: one transformation about every 1.5 s)`);
+    const ts = chain.map((e) => Number(e.t));
+    if (chain.some((e, i) => !Number.isFinite(ts[i]) || !str(e.change))) E("chain: every entry needs {t (seconds from film start), change}");
+    else if (chain.length) {
+      const sorted = ts.slice().sort((a, b) => a - b);
+      const edges = [0, ...sorted, filmSeconds];
+      for (let i = 1; i < edges.length; i++) {
+        const gap = edges[i] - edges[i - 1];
+        if (gap > MAX_CHAIN_GAP_S + 1e-9) { E(`chain-gap: ${Math.round(gap * 10) / 10} s with no transformation between ${Math.round(edges[i - 1] * 10) / 10} s and ${Math.round(edges[i] * 10) / 10} s (${MAX_CHAIN_GAP_S} s at most)`); break; }
+      }
+    } else E(`chain-gap: no chain at all over a ${Math.round(filmSeconds * 10) / 10} s film (${MAX_CHAIN_GAP_S} s at most between transformations)`);
   }
 
   // the chain ledger: one row per beat
@@ -259,6 +298,12 @@ export function validateVerdict(obj, movesByLabel = {}) {
       if (str(v.hero) !== ranking[0]) E(`${label}: hero must be ranking[0] ("${ranking[0]}"), not "${str(v.hero)}"`);
       if (!str(v.why)) E(`${label}: why is empty (which concrete frame decided it)`);
     } else if (str(v.hero)) E(`${label}: hero "${v.hero}" with an empty ranking`);
+    const set = v.set;
+    if (!set || typeof set !== "object" || typeof set.full_frame !== "boolean") E(`${label}: set is missing ({full_frame: true|false, evidence}: gate S1, is any passing card a full-frame type/shape transformation?)`);
+    else {
+      if (!str(set.evidence)) W(`${label}: set.evidence is empty`);
+      if (set.full_frame === false && !arr(v.denial).map(str).includes(label)) E(`${label}: set.full_frame is false (no passing card is a full-frame type/shape transformation): "${label}" must be in denial[] even if 3 cards pass`);
+    }
     if (passed.size < 3 && !arr(v.denial).map(str).includes(label)) W(`${label}: only ${passed.size} card(s) passed; list "${label}" in denial[] so the Director runs the denial round`);
   }
   const best = obj.best_overall;
