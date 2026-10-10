@@ -372,7 +372,7 @@ function contextFor(run, role, key, plan) {
     if (role !== "film-builder") I("product-first rules (read all of it)", path.join(SKILL_DIR, "references", "product-first.md")); // the builder's BUILD.md carries what it needs
   }
   if (role !== "brand-film-analyst" && brandFilm(run, P)) {
-    ctx.brand_film = "yes: a branded launch / promo / brand film. READ <run>/brand-film/FILM-STYLE.md FIRST: the brand's own film grammar (canvas, palette and shares, typefaces and type scale, layout, motif, motion vocabulary, photography, cut rate, transitions, end card) is the look. Sure = the card exactly; Bold and Wild = the same palette, type, motif and motion vocabulary, varying only composition, pacing and emphasis. No outside designers, directors, museum grammar or library references. If the card says flat (no 3D, no blur, no grain) add none of them. The story is simple and to the point: references/launch-film.md section 1 (hook with the product or brand in 1 to 3 s, reveal, 2 to 4 real demos, payoff line, end card; one idea and plain words per beat). The style-match gate (brandfilm.mjs compare) runs on the key frames and on the first draft.";
+    ctx.brand_film = "yes: a branded launch / promo / brand film. READ <run>/brand-film/FILM-STYLE.md FIRST: the brand's own film grammar (canvas, palette and shares, typefaces and type scale, layout, motif, motion vocabulary, photography, cut rate, transitions, end card) is the look. Sure = the card exactly; Bold and Wild = the same palette, type, motif and motion vocabulary, varying only composition, pacing and emphasis. No outside designers, directors, museum grammar or library references. If the card says flat (no blur, no grain, no glow) add none of them; 3D stays allowed in the flat style (matte or unlit materials in the palette, clean even light, no bloom, glow, grain, chromatic aberration, and no depth of field or motion blur unless the card allows blur: references/3d.md \"Brand-flat 3D\"). The story is simple and to the point: references/launch-film.md section 1 (hook with the product or brand in 1 to 3 s, reveal, 2 to 4 real demos, payoff line, end card; one idea and plain words per beat). The style-match gate (brandfilm.mjs compare) runs on the key frames and on the first draft.";
     if (role !== "film-builder") inputs.unshift(["launch-film rules: structure templates with timings, the grammar checklist, red flags (references/launch-film.md)", path.join(SKILL_DIR, "references", "launch-film.md")]);
     inputs.unshift(["measured grammar (numbers the style-match gate compares against)", R(run, "brand-film", "grammar.json")]);
     inputs.unshift(["FILM-STYLE.md: the brand film's own style card (READ FIRST; its palette, type, motif and motion vocabulary are law)", R(run, "brand-film", "FILM-STYLE.md")]);
@@ -909,6 +909,25 @@ function checkScore(run) {
   const deep = S.filter(is3d);
   const dp = score.depth || {};
   if (!String(dp.plan || "").trim() && !String(dp.none_because || "").trim()) P.push('depth: say where 3D goes in this film and why (depth.plan), or why it stays flat (depth.none_because)');
+  // a flat brand restricts the STYLE of 3D, not its use: flat-set materials, no blur/glow unless the card allows blur
+  if (deep.length && brandFilm(run)) {
+    const card = jsonMaybe(R(run, "brand-film", "FILM-STYLE.json")) || {};
+    const ct = `${(card.slots || {}).motionVocabulary || ""} ${(card.slots || {}).notes || ""}`;
+    if (/\b(flat|no 3d|no motion blur|no blur|no grain|never 3d|3d style)\b/i.test(ct)) {
+      const blurOk = /\b(allows? (motion )?blur|blur (is )?(allowed|ok)|motion blur (is )?(allowed|ok))\b/i.test(ct);
+      for (const s of deep) {
+        const bad = [], m = String(s.materials || ""), c = s.camera3d || {};
+        if (m.trim() && !/\b(basic|toon|flat|matte|unlit|lambert)\b/i.test(m)) bad.push(`materials "${m.slice(0, 60)}" are not from the flat set (basic, toon, flat, matte, unlit, lambert)`);
+        if (/\b(bloom|glow|grain|chromatic|lens flare|chrome|glass|iridescen)/i.test(`${m} ${s.light || ""}`)) bad.push("bloom, glow, grain, chromatic aberration, chrome or glass in the materials or light");
+        if (!blurOk && (c.fstop || c.f_stop || c.motion_blur || c.motionBlur || s.fstop)) bad.push("fstop / motion blur (the card does not allow blur)");
+        if (bad.length) P.push(`scene ${s.n} (${s.space}): flat-3d-style: the brand film is flat, so its 3D takes the flat style: ${bad.join("; ")} (references/3d.md "Brand-flat 3D")`);
+      }
+    }
+  }
+  if (length >= 20 && !deep.length) {
+    const nb = String(dp.none_because || "").trim();
+    if (!(nb.length >= 20 && /["“”'‘’「」«»][^"“”'‘’「」«»]{3,}["“”'‘’「」«»]/.test(nb))) P.push(`no-3d-moment: a ${Math.round(length)} s film needs at least one 3d or hybrid scene (or a 3D shot inside a hybrid scene): give a line real space (references/3d.md), or set depth.none_because (20+ characters, quoting the script line(s) 3D would hurt)`);
+  }
   if (N >= 4 && !deep.length && !String(dp.none_because || "").trim()) T("no-3d", `no 3D or hybrid scene in a ${N}-scene film: give the reveal or the signature seam real space (references/3d.md §1), or say in depth.none_because why this look must stay flat`);
   if (deep.length && !reel.some((m) => is3d(S[Number(m.scene) - 1]))) T("depth-not-in-reel", "the film has 3D but none of its showreel moments is in a 3D or hybrid scene: the depth should be one of the moments people rewind");
   const animated = entr.filter((e) => e !== "cut-in");
@@ -1331,10 +1350,8 @@ async function checkRole(run, role, key) {
     case "motion-director": {
       if (key !== "seams" && brandFilm(run)) {
         const sj = readMaybe(R(run, "motion", "score.json")) || "";
-        const card = jsonMaybe(R(run, "brand-film", "FILM-STYLE.json")) || {};
         if (!/FILM-STYLE|film_style/i.test(sj)) P.push('score.json must cite the brand film card: set "film_style": "brand-film/FILM-STYLE.md" and keep every scene inside its motion vocabulary');
-        const flat = /\b(flat|no 3d|no motion blur|no blur|no grain)\b/i.test(`${(card.slots || {}).motionVocabulary || ""} ${(card.slots || {}).notes || ""}`);
-        if (flat && /"space"\s*:\s*"(3d|hybrid)"/i.test(sj)) P.push("the card says the brand's motion is flat (no 3D, blur or grain), but the score has 3D / hybrid scenes: keep every scene 2D");
+        // a flat card restricts the style of 3D (flat-set materials, no blur or glow: checkScore's flat-3d-style), never its use
       }
       if (key === "seams") {
         const md = readMaybe(R(run, "crew", "seams-report.md"));

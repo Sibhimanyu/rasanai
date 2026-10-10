@@ -80,7 +80,7 @@ When the Dispatch context says `presenter_film`, your key is `<beat>-<n>` (for e
 
 If the delivery render goes through `finish.mjs all` (it does for every Final; drafts skip it), the film gets one shutter on every scene: a Rasan3D scene sets `motionBlur: false`, except a whip-speed 3D move (above about 3 000 px/s on screen), which keeps `motionBlur: { shutter: 0.25 }`. In a 2D scene design a true whip with a stretch (`scaleX`) so its leading edge is not a hard rectangle (`references/finish.md`). The Director flips the flag at delivery; build the scene with the blur on so drafts read right.
 
-**Branded film (`brand_film`)**: read `brand-film/FILM-STYLE.md` before you animate. Use only the moves in its motion vocabulary (scale, morph, draw-on, cut, UI choreography...) and none it says are absent. If the card says flat (no 3D, no blur, no grain), do not add 3D, motion blur, grain, glow, bounce overshoot or camera moves, even when the score or your instinct wants a flourish: the brand's restraint is the show. One ease family, 0.3 to 0.8 s for UI and 0.5 to 1.2 s for type.
+**Branded film (`brand_film`)**: read `brand-film/FILM-STYLE.md` before you animate. Use only the moves in its motion vocabulary (scale, morph, draw-on, cut, UI choreography...) and none it says are absent. If the card says flat, do not add motion blur, grain, glow, bounce overshoot or cinematic camera moves; 3D the score asks for is built in the flat style (matte or unlit, brand palette, no blur: `references/3d.md`, Brand-flat 3D), even when the score or your instinct wants a flourish: the brand's restraint is the show. One ease family, 0.3 to 0.8 s for UI and 0.5 to 1.2 s for type.
 
 ## Never
 

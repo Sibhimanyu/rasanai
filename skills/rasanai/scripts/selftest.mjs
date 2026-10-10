@@ -882,7 +882,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       ok("lint: the design desk reference forbids outside references for a branded film and names the FILM-STYLE citation", /film_style/.test(dd) && /Paula Scher/.test(dd) && /unbranded films only/.test(dd) && /film_style_takes/.test(dd));
       ok("lint: the story references carry the launch-film structure (hook in 1 to 3 s, reveal, demos, payoff, end card; scripts differ in emphasis and order only)", /launch-film\.md/.test(st) && /launch-film\.md/.test(sc) && /emphasis and order/.test(st) && /emphasis and order/.test(sc) && /payoff_line/.test(st) && /1 to 3 s/.test(sc));
       ok("lint: the crew reference lists the brand film analyst and the style gate", /brand-film-analyst/.test(cr) && /brandfilm\.mjs compare/.test(cr));
-      ok("lint: the analyst, Motion Director, critic and frame designer prompts carry the brand film rules", /type scale/.test(an) && /Substitute/.test(an) && /contact sheets/.test(an) && /FILM-STYLE\.md` FIRST/.test(md) && /no 3D or hybrid scenes/.test(md) && /style_match/.test(cr2) && /brandfilm\.mjs" compare|brandfilm\.mjs\" compare/.test(cr2 + fr), "agents");
+      ok("lint: the analyst, Motion Director, critic and frame designer prompts carry the brand film rules", /type scale/.test(an) && /Substitute/.test(an) && /contact sheets/.test(an) && /FILM-STYLE\.md` FIRST/.test(md) && /never means no 3D or hybrid scenes: it means flat-style 3D/.test(md) && /style_match/.test(cr2) && /brandfilm\.mjs" compare|brandfilm\.mjs\" compare/.test(cr2 + fr), "agents");
     }
     const ban = rd("taxonomy/devices.json");
     ok("lint: the catalog still has the conceit devices the product-first filter keeps out (so the filter is doing something)", /"museum-exhibit"/.test(ban) && /"cover-version"/.test(ban));
@@ -1071,7 +1071,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       const mb = J2(C(["brief", "--run", run, "--role", "motion-director", "--key", "score"]));
       const mbt = mb.prompt ? fs.readFileSync(path.join(ws, mb.prompt), "utf8") : "";
       ok("crew: a branded launch film skips the outside-reference design researcher and the precedent researcher (the brand film covers both) and waits for the brand film card instead", !bph.includes("design-research") && !bm.some((m) => m.startsWith("precedent-researcher")) && /FILM-STYLE\.md\) is accepted/.test(ph("design-systems").when), bph.join(","));
-      ok("crew: the Motion Director brief lists FILM-STYLE.md first among its inputs and says flat means no 3D, blur or grain", /brand_film/.test(mbt) && mbt.indexOf("FILM-STYLE.md: the brand film") > -1 && mbt.indexOf("FILM-STYLE.md: the brand film") < mbt.indexOf("design system (its Motion") && /no 3D, no blur, no grain/.test(mbt) && /READ \S*FILM-STYLE\.md\S* FIRST|READ FIRST/.test(mbt), mbt.slice(mbt.indexOf("Dispatch"), mbt.indexOf("Dispatch") + 600));
+      ok("crew: the Motion Director brief lists FILM-STYLE.md first among its inputs and says flat keeps 3D but in the flat style (no blur, grain or glow)", /brand_film/.test(mbt) && mbt.indexOf("FILM-STYLE.md: the brand film") > -1 && mbt.indexOf("FILM-STYLE.md: the brand film") < mbt.indexOf("design system (its Motion") && /flat style/.test(mbt) && /Brand-flat 3D/.test(mbt) && /READ \S*FILM-STYLE\.md\S* FIRST|READ FIRST/.test(mbt), mbt.slice(mbt.indexOf("Dispatch"), mbt.indexOf("Dispatch") + 600));
       const bfd = path.join(run, "brand-film");
       fs.mkdirSync(bfd, { recursive: true });
       const card = { version: 1, brand: "OpenAI", source: "Refreshed.", measured: { palette: [{ hex: "#fafafa", share: 0.77 }, { hex: "#0a0a0a", share: 0.04 }], background: { overall: "#fafafa" } }, slots: { typefaces: "", motif: "", layout: "", motionVocabulary: "", photographyStyle: "", endCard: "", notes: "" }, filled: false };
@@ -1183,6 +1183,47 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   const n3 = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
   ok("crew: a 3D scene needs its lens, camera legs and light, and a 3D film needs a 3D showreel moment", n3.status === 2 && /camera3d\.lens_mm/.test(n3.stdout) && /light is missing/.test(n3.stdout) && /none of its showreel moments is in a 3D/.test(n3.stdout), n3.stdout.slice(0, 500));
   put(good);
+  // 3D is a technique for any show: a flat brand restricts the STYLE of 3D (flat-3d-style); a film of 20 s or more needs a 3D moment (no-3d-moment)
+  {
+    const bfd3 = path.join(run, "brand-film");
+    fs.mkdirSync(bfd3, { recursive: true });
+    fs.writeFileSync(path.join(bfd3, "FILM-STYLE.json"), JSON.stringify({ version: 1, brand: "OpenAI", slots: { motionVocabulary: "flat: no blur, no grain, no glow; 3D style: matte or unlit materials, clean even light" }, filled: true }));
+    const fs3 = JSON.parse(JSON.stringify(good));
+    fs3.film_style = "brand-film/FILM-STYLE.md";
+    const d3 = fs3.scenes.findIndex((x) => x.space === "3d" || x.space === "hybrid");
+    const flatOk = (o) => { o.scenes.forEach((x) => { if (x.space === "3d" || x.space === "hybrid") { x.materials = "MeshBasicMaterial dots in #0a0a0a, matte"; x.light = "clean even ambient, no rim"; if (x.camera3d) { delete x.camera3d.fstop; delete x.camera3d.motionBlur; } } }); };
+    flatOk(fs3);
+    put(fs3);
+    const f3a = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+    ok("crew: a flat-brand score with a basic-material 3D scene passes (a flat card restricts the style of 3D, not its use)", d3 > -1 && !/flat-3d-style|no 3D or hybrid/.test(f3a.stdout), f3a.stdout.slice(0, 400));
+    const f3b = JSON.parse(JSON.stringify(fs3));
+    f3b.scenes[d3].materials = "chrome glass with bloom"; f3b.scenes[d3].camera3d = { ...(f3b.scenes[d3].camera3d || {}), fstop: 2.8 };
+    put(f3b);
+    const f3c = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+    ok("crew: a flat-brand 3D scene with chrome, bloom or an fstop fails flat-3d-style", f3c.status === 2 && /flat-3d-style/.test(f3c.stdout), f3c.stdout.slice(0, 400));
+    fs.rmSync(bfd3, { recursive: true, force: true });
+    // a 25 s film (every duration doubled, in scenes.json and the score)
+    const ssPath = path.join(run, "scenes.json");
+    const had = fs.readFileSync(ssPath, "utf8");
+    fs.writeFileSync(ssPath, JSON.stringify({ message: "m", scenes: [6, 8, 5, 6].map((d, i) => ({ title: `S${i + 1}`, duration: d, visual: "v" })) }));
+    const n24 = JSON.parse(JSON.stringify(good));
+    n24.scenes.forEach((x, i) => { x.space = "2d"; delete x.camera3d; delete x.light; delete x.materials; x.duration *= 2; x.start *= 2; x.end *= 2; x.shots.forEach((h) => { h.t0 *= 2; h.t1 *= 2; }); });
+    n24.showreel = [{ scene: 1, t: 1, what: "a" }, { scene: 2, t: 1, what: "b" }];
+    n24.duration = 25;
+    n24.depth = { plan: "all flat" };
+    put(n24);
+    const m24 = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+    ok("crew: a 25 s film with no 3D or hybrid scene fails no-3d-moment", m24.status === 2 && /no-3d-moment/.test(m24.stdout), m24.stdout.slice(0, 500));
+    n24.depth = { none_because: 'the line "Twelve months of paper." is a flat ledger: depth would hurt it' };
+    put(n24);
+    const m24b = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+    ok("crew: depth.none_because quoting the script line (20+ chars) clears no-3d-moment", !/no-3d-moment/.test(m24b.stdout), m24b.stdout.slice(0, 500));
+    n24.depth = { none_because: "flat is nicer here and so on and so on" };
+    put(n24);
+    ok("crew: a none_because that quotes no script line does not clear no-3d-moment", /no-3d-moment/.test(C(["check", "--run", run, "--role", "motion-director", "--key", "score"]).stdout));
+    fs.writeFileSync(ssPath, had);
+    put(good);
+  }
   // the score into a storyboard written by scenes.mjs (parsed by the workflow's parser when installed), twice: same file
   const proj = path.join(ws, "videos", "tally");
   const sj = path.join(ws, "scenes-in.json");

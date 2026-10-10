@@ -240,7 +240,6 @@ export function checkSystem(dir, opts = {}) {
       const flat = /\b(flat|no 3d|no motion blur|no blur|no grain|never 3d)\b/i.test(card.motion);
       if (flat) {
         const moS = motionSection(S.md) || "";
-        if (S.recipe && S.recipe.three) P.push(`${label}: film style: the card says the brand's motion is flat (no 3D, blur or grain); this system leans 3D (recipe.three)`);
         const bad = moS.match(/(?<!\bno\s)(?<!\bnever\s)(?<!\bwithout\s)(?<!\bno\s)\b(motion blur|film grain|grain|dolly|bloom|depth of field)\b/i);
         if (bad) P.push(`${label}: film style: the card says the brand's motion is flat, but the Motion and camera section uses "${bad[0]}": stay inside the card's motion vocabulary`);
       }
@@ -305,7 +304,7 @@ export function checkSystem(dir, opts = {}) {
       for (const m of v.warnings) W.push(`grammar: ${m}`);
       info.grammar = g && g.id ? String(g.id) : null;
       const card = FILM && FILM.card ? readFilmCard(FILM.card) : null;
-      if (card && /\b(flat|no 3d|no motion blur|no blur|no grain|never 3d)\b/i.test(card.motion) && g && g.flat_ok === false) P.push(`grammar-not-flat: ${label}: the brand film's card says flat (no 3D, blur or grain) but grammar "${g.id}" is flat_ok: false: pick a flat_ok grammar (grammar.mjs pick --flat)`);
+      if (card && /\b(flat|no 3d|no motion blur|no blur|no grain|never 3d)\b/i.test(card.motion) && g && g.flat_ok === false) P.push(`grammar-not-flat: ${label}: the brand film's card says flat (no blur, grain or glow) but grammar "${g.id}" is flat_ok: false: pick a flat_ok grammar (grammar.mjs pick --flat)`);
     }
   }
   return { P, W, info };
