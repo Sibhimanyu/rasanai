@@ -300,7 +300,7 @@ function lookFrame(run) {
 function brief(run) {
   const b = jsonMaybe(R(run, "brief.json")) || {};
   const f = b.fields || b;
-  return { length_s: f.length_s, kind: f.kind, aspect: f.aspect, narrated: f.narration !== false, destination: f.destination, subject: f.subject, brand_name: f.brand_name, use_brand: f.use_brand, text: f.sentence || f.brief || f.text };
+  return { length_s: f.length_s, kind: f.kind, aspect: f.aspect, narrated: !(f.narration === false || /^(none|no|off|false|silent|music only|no voiceover)$/i.test(String(f.narration ?? "").trim())), destination: f.destination, subject: f.subject, brand_name: f.brand_name, use_brand: f.use_brand, text: f.sentence || f.brief || f.text };
 }
 // A launch, promo or product film is PRODUCT-FIRST (references/product-first.md): the product UI from the first
 // seconds, one hero moment, real uses, no conceit. The route product-launch-video is always one.
@@ -1125,7 +1125,7 @@ async function checkRole(run, role, key) {
       }
       break;
     }
-    case "research-lead": { truth = R(run, "story", "truth.md");
+    case "research-lead": { const truth = R(run, "story", "truth.md");
       if (!readMaybe(truth)) { P.push("story/truth.md is missing"); break; }
       if (/<[a-z][^>]{3,}>/i.test(readMaybe(truth).replace(/<!--[\s\S]*?-->/g, ""))) P.push("story/truth.md still has <placeholders>");
       const r = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "story.mjs"), "pick", "--truth", truth, "--count", "3"], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" } });
