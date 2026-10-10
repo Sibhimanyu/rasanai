@@ -987,10 +987,11 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   fs.writeFileSync(path.join(run, "scenes.json"), JSON.stringify({ message: "m", scenes: [3, 4, 2.5, 3].map((d, i) => ({ title: `S${i + 1}`, duration: d, visual: "v" })) }));
   const H = { x: 960, y: 540, scale: 1, opacity: 1, direction: "left", speed: 400 };
   const good = {
+    duration: 12.5, brand: "Tally", feature: { name: "Receipt scan", url: "https://tally.example/scan", viewer: "a freelancer at month end", task: "file a receipt", before: "receipts fade in a drawer", after: "filed the moment it is shot" }, ground: "#ffffff", ink: "#111111", current: "left", brandReveal: "s3",
     spine: "the receipt", motif: { what: "the total", scenes: [1, 2, 4] }, showreel: [{ scene: 2, t: 3.8, what: "the receipt folds into the ledger row" }, { scene: 3, t: 0.4, what: "the push-through reveal" }], rhythm: "fast-SLOW-fast-hold", signature: { seam: "2>3", technique: "push-through", why: "the reveal" },
     video_direction: { palette: "p", motion_grammar: "g", holds: "h", negative: ["no drift"] },
     depth: { plan: "2D film; the reveal (scene 3) lifts the ledger into depth" },
-    scenes: [3, 4, 2.5, 3].map((d, i) => ({ n: i + 1, title: `S${i + 1}`, duration: d, energy: [2, 3, 5, 2][i], layout: ["full-bleed", "split", "centered", "asymmetric 60/40"][i], camera: "T1 lean-in",
+    scenes: [3, 4, 2.5, 3].map((d, i) => ({ n: i + 1, id: `s${i + 1}`, start: [0, 3, 7, 9.5][i], end: [3, 7, 9.5, 12.5][i], line: `Line ${i + 1}`, picture: `the receipt does thing ${i + 1}`, ...(i < 2 ? { exit: "carrier", carrier: "the receipt" } : {}), title: `S${i + 1}`, duration: d, energy: [2, 3, 5, 2][i], layout: ["full-bleed", "split", "centered", "asymmetric 60/40"][i], camera: "T1 lean-in",
       space: i === 2 ? "hybrid" : "2d",
       ...(i === 2 ? { camera3d: { lens_mm: 50, fstop: 2.8, moves: [{ t0: 0, t1: 0.3, move: "locked" }, { t0: 0.3, t1: 1.6, move: "arc 28° right", ease: "power3.inOut" }] }, light: "three-point, key upper-left", materials: "ledger = panel with the real screenshot" } : {}),
       shots: [{ t0: 0, t1: d / 2, on_screen: "a", moves: "rises", primary: "a" }, { t0: d / 2, t1: d, on_screen: "b", moves: "holds", primary: "b" }],
@@ -1003,6 +1004,16 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   put(good);
   const g = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
   ok("crew: a complete score is accepted", g.status === 0, g.stdout.slice(0, 400));
+  const smd = fs.readFileSync(path.join(run, "motion", "score.md"), "utf8");
+  ok("plan: check writes score.md from score.json (feature, world, beats with line, picture and exit)", /generated from motion\/score\.json/.test(smd) && /\*\*Feature:\*\* Receipt scan/.test(smd) && /ground #ffffff/.test(smd) && /### s2 · 3-7 s/.test(smd) && /\*\*Exit:\*\* carrier: the receipt/.test(smd), smd.slice(0, 400));
+  const noplan = JSON.parse(JSON.stringify(good));
+  for (const k of ["ground", "current", "brandReveal", "feature"]) delete noplan[k];
+  noplan.scenes.forEach((x) => { delete x.picture; delete x.exit; delete x.carrier; });
+  noplan.scenes[2].start = 6;
+  put(noplan);
+  const np = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+  ok("plan: a direct film's score must carry the plan (ground, current, one brandReveal, the feature, start/end that follow the durations, pictures, two carried seams)", np.status === 2 && ["ground missing", "current missing", "brandReveal must name exactly one", "feature {", "start/end", "need line", "carry at least 2"].every((w) => np.stdout.includes(w)), np.stdout.slice(0, 600));
+  put(good);
   const bad = JSON.parse(JSON.stringify(good));
   delete bad.seams[0].in.speed;
   bad.showreel = [];
@@ -1034,11 +1045,22 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   fs.writeFileSync(sj, JSON.stringify({ title: "T", message: "m", aspect: "16:9", narration: false, scenes: [3, 4, 2.5, 3].map((d, i) => ({ title: `S${i + 1}`, on_screen: `Line ${i + 1}`, visual: "v", duration: d })) }));
   const sc = node("scenes.mjs", ["--scenes", sj, "--route", "product-launch-video", "--out", proj]);
   fs.writeFileSync(path.join(proj, "BRIEF.md"), "---\nworkflow: product-launch-video\n---\n\n## Customizations\n\n- x\n");
+  fs.writeFileSync(path.join(proj, "DISPATCH.md"), "# RasanAI dispatch addendum (entire video)\n\n## Motion contract\n\n" + "- a duplicated craft rule\n".repeat(200));
+  fs.writeFileSync(path.join(proj, "DIRECTION.md"), "# Direction\n\nhold 2-3 s; cut hard\n");
   const s1 = C(["storyboard", "--run", run, "--project", proj]);
   const t1 = fs.existsSync(path.join(proj, "STORYBOARD.md")) ? fs.readFileSync(path.join(proj, "STORYBOARD.md"), "utf8") : "";
   C(["storyboard", "--run", run, "--project", proj]);
   const t2 = fs.existsSync(path.join(proj, "STORYBOARD.md")) ? fs.readFileSync(path.join(proj, "STORYBOARD.md"), "utf8") : "";
   ok("crew: storyboard writes the score as the visual design (video direction, shots, handoffs, transition_in), idempotent", sc.status === 0 && s1.status === 0 && t1 === t2 && /## Video direction/.test(t1) && /handoff_in: receipt · x 960/.test(t1) && /Scene 2 \(1\.5–3\.0s\)/.test(t1) && (t1.match(/^- transition_in: cut$/gm) || []).length === 4 && /Visual design \(done\)/.test(fs.readFileSync(path.join(proj, "BRIEF.md"), "utf8")), (s1.stderr || s1.stdout).slice(0, 300));
+  {
+    const bm = fs.existsSync(path.join(proj, "BUILD.md")) ? fs.readFileSync(path.join(proj, "BUILD.md"), "utf8") : "";
+    const dp = fs.readFileSync(path.join(proj, "DISPATCH.md"), "utf8"), dr = fs.readFileSync(path.join(proj, "DIRECTION.md"), "utf8");
+    ok("plan: storyboard writes BUILD.md from the plan (one author, beat times, carriers, the one brand reveal, momentum, the gate) and MOTION-SCORE.md is the generated plan", /ONE author/.test(bm) && /s2 3-7 s/.test(bm) && /carriers/.test(bm) && /beat `s3`/.test(bm) && /0\.8 s/.test(bm) && /motion-gate\.mjs/.test(bm) && /generated from motion\/score\.json/.test(fs.readFileSync(path.join(proj, "MOTION-SCORE.md"), "utf8")), bm.slice(0, 300));
+    ok("plan: on a direct film DISPATCH.md is a short pointer to the plan (no duplicated craft rules) and DIRECTION.md says the plan wins", /The plan wins/.test(dp) && !/duplicated craft rule/.test(dp) && Buffer.byteLength(dp) < 3000 && /The plan wins/.test(dr) && /^- picture: the receipt does thing 2$/m.test(t1) && /^- exit: carrier \(carrier: the receipt\)$/m.test(t1), dp.slice(0, 300));
+    // the builder's required reading: the plan, BUILD.md, the packets' role, DISPATCH and frame.md stay small
+    const bb = J2(C(["brief", "--run", run, "--role", "film-builder", "--key", "film", "--project", proj]));
+    ok("plan: the film builder's brief is self-contained and small (about 20 KB, no 40 KB craft references)", bb.ok && bb.bytes < 26000 && !/: `[^`]*references\/(craft|vocabulary|launch-film)\.md`/.test(fs.readFileSync(path.join(ws, bb.prompt), "utf8")), JSON.stringify(bb).slice(0, 300));
+  }
   ok("crew: storyboard carries each scene's space, and a 3D scene's lens, camera legs, light and materials", /^- space: hybrid \(build with Rasan3D/m.test(t1) && /^- camera3d: 50 mm f\/2\.8; 0\.0–0\.3s locked; 0\.3–1\.6s arc 28° right \(power3\.inOut\)/m.test(t1) && /^- light: three-point/m.test(t1) && (t1.match(/^- space: 2d$/gm) || []).length === 3 && /depth \(2D \/ 3D\): 2D film/.test(t1), t1.slice(0, 400));
   // local search finds the project by its git remote and package name; the inventory lists files, never secrets
   const home2 = path.join(TMP, "fakehome");

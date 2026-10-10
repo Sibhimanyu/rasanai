@@ -683,7 +683,7 @@ function checkScore(run) {
   const score = jsonMaybe(R(run, "motion", "score.json"));
   if (score === null) return { P: ["motion/score.json is missing"], W };
   if (score === undefined) return { P: ["motion/score.json is not valid JSON"], W };
-  if (!readMaybe(R(run, "motion", "score.md")).trim()) P.push("motion/score.md is missing (the score in words)");
+  // score.md is generated from score.json (renderScoreMd) on every check: the JSON is the one contract
   const scenes = scenesOf(run);
   const N = scenes.length || (score.scenes || []).length;
   const S = Array.isArray(score.scenes) ? score.scenes : [];
@@ -813,6 +813,45 @@ function checkScore(run) {
     if (["flat-to-depth", "depth-to-flat", "camera-through"].includes(s.kind) && A && B && !is3d(A) && !is3d(B)) P.push(`${id}: ${s.kind} needs a 3D or hybrid scene on at least one side`);
   });
   if (score.signature && score.signature.seam && !seams.some((s) => `${s.from}>${s.to}` === String(score.signature.seam))) P.push(`signature.seam "${score.signature.seam}" is not one of the seams`);
+  // the plan: the film-level fields and each beat's line, picture, moment and take, UI, exit and carrier. Required on a
+  // direct film (one builder reads only this) and on a product-first film; elsewhere missing fields are warnings.
+  const plan = jsonMaybe(R(run, "crew", "plan.json")) || {};
+  const must = !!plan.direct || productFirst(run, plan);
+  const need = (cond, msg) => { if (!cond) (must ? P : W).push(`plan: ${msg}`); };
+  need(Number(score.duration) > 0, "duration missing (the film's length in seconds)");
+  need(String(score.brand || "").trim(), "brand missing (the brand or product name)");
+  if (productFirst(run, plan)) {
+    const f = score.feature || {};
+    need(["name", "url", "viewer", "task", "before", "after"].every((k) => String(f[k] || "").trim()), "feature { name, url, viewer, task, before, after } missing or incomplete (copy it from the chosen script)");
+  }
+  need(/^#[0-9a-f]{3,8}$/i.test(String(score.ground || "")), 'ground missing: the ONE background colour of the whole film (a hex), painted only by the root');
+  need(/^#[0-9a-f]{3,8}$/i.test(String(score.ink || "")), "ink missing (the text colour, a hex)");
+  need(/^(left|right|up|down|in|out)$/i.test(String(score.current || "")), 'current missing: the film\'s one direction ("left" by default; right, up, down, in, out)');
+  const ids = S.map((x) => String(x.id || ""));
+  if (S.length) {
+    need(ids.every(Boolean) && new Set(ids).size === ids.length, "every beat needs a unique id (hook, proof, turn, cta ...)");
+    need(score.brandReveal != null && !Array.isArray(score.brandReveal) && ids.includes(String(score.brandReveal)), "brandReveal must name exactly one beat id (the mark is revealed once)");
+    let t = 0, off = [];
+    S.forEach((x, i) => {
+      const st = Number(x.start), en = Number(x.end), d = Number(x.duration);
+      if (!(Number.isFinite(st) && Number.isFinite(en))) off.push(`${x.id || i + 1}: no start/end`);
+      else if (Math.abs(st - t) > 0.06 || (d > 0 && Math.abs(en - st - d) > 0.06)) off.push(`${x.id || i + 1}: ${st}-${en} s, expected ${r2(t)}-${r2(t + (d || 0))} s`);
+      t += d || (en - st) || 0;
+    });
+    need(!off.length, `beat start/end in film seconds must follow the durations (${off.slice(0, 3).join("; ")})`);
+    if (Number(score.duration) > 0 && t > 0) need(Math.abs(Number(score.duration) - t) <= 0.1, `duration ${score.duration} s but the beats add up to ${r2(t)} s`);
+    const thin = S.filter((x) => x.line == null || !String(x.picture || "").trim()).map((x) => x.id || x.n);
+    need(!thin.length, `beat(s) ${thin.join(", ")} need line (the on-screen line, "" for none) and picture (what the viewer sees happen)`);
+    const untaken = S.filter((x) => x.moment && !String(x.take || "").trim()).map((x) => x.id || x.n);
+    need(!untaken.length, `beat(s) ${untaken.join(", ")} name a moment but no take (one sentence: what moves, on which axis, how long, what never stops)`);
+    const carried = S.slice(0, -1).filter((x) => x.exit === "carrier" && String(x.carrier || "").trim()).length;
+    const needC = Math.min(2, Math.max(0, S.length - 1));
+    need(carried >= needC, `${carried} beat(s) exit on a carrier: carry at least ${needC} seams (exit: "carrier", carrier: "<the object that crosses the cut>")`);
+    if (productFirst(run, plan)) {
+      const pr = S.filter((x) => /proof/i.test(String(x.id || x.role || "")));
+      need(!pr.length || pr.some((x) => Array.isArray(x.ui) && x.ui.length >= 2), "the proof beat needs ui[]: the literal cause and effect on screen, at least two steps");
+    }
+  }
   const sigs = sig || (score.signature && score.signature.seam ? 1 : 0);
   const maxSig = length > 60 ? 2 : 1;
   if (N >= 3 && sigs === 0) W.push("no signature transition named");
@@ -1088,6 +1127,8 @@ async function checkRole(run, role, key) {
         break;
       }
       const s = checkScore(run);
+      const sj = jsonMaybe(R(run, "motion", "score.json"));
+      if (sj) writeFile(R(run, "motion", "score.md"), renderScoreMd(sj));
       P.push(...s.P);
       W.push(...s.W);
       break;
@@ -1274,6 +1315,71 @@ async function checkRole(run, role, key) {
   return { P, W };
 }
 
+// ---------------------------------------------------------------- the plan in words, and the builder's brief
+const r2 = (x) => Math.round(Number(x) * 100) / 100;
+export function renderScoreMd(score) {
+  const S = score.scenes || [], f = score.feature || {};
+  const L = ["<!-- generated from motion/score.json by crew.mjs: edit the JSON, never this file -->", `# The plan: ${score.brand || "the film"}${score.duration ? `, ${score.duration} s` : ""}`, ""];
+  if (f.name) L.push(`**Feature:** ${f.name}${f.url ? ` (${f.url})` : ""}. **Viewer:** ${f.viewer || "?"}. **Task:** ${f.task || "?"}.`, `**Before:** ${f.before || "?"} **After:** ${f.after || "?"}`, "");
+  L.push(`**World:** ground ${score.ground || "?"}, ink ${score.ink || "?"}, current ${score.current || "left"}. **Brand reveal:** ${score.brandReveal || "?"}${score.end_hold_s ? `. **End card still for at most:** ${score.end_hold_s} s` : ""}.`);
+  if (score.spine) L.push(`**Spine:** ${score.spine}`);
+  if (score.motif) L.push(`**Motif:** ${score.motif.what || ""} (beats ${(score.motif.scenes || []).join(", ")})`);
+  if (score.rhythm) L.push(`**Rhythm:** ${score.rhythm}`);
+  if ((score.showreel || []).length) L.push(`**Showreel moments:** ${score.showreel.map((m) => `beat ${m.scene}${m.t != null ? ` at ${m.t} s` : ""}: ${m.what}`).join("; ")}`);
+  L.push("", "## Beats", "");
+  for (const x of S) {
+    L.push(`### ${x.id || x.n} · ${x.start != null ? `${r2(x.start)}-${r2(x.end)} s` : `${x.duration} s`}${x.title ? ` · ${x.title}` : ""}`);
+    if (x.line != null) L.push(`- **Line:** ${x.line === "" ? "(none)" : x.line}`);
+    if (x.picture) L.push(`- **Picture:** ${x.picture}`);
+    if (x.moment || x.take) L.push(`- **Take${x.moment ? ` (from ${x.moment})` : ""}:** ${x.take || ""}`);
+    for (const u of x.ui || []) L.push(`- **UI:** ${u}`);
+    for (const sh of x.shots || []) L.push(`- ${r2(sh.t0)}-${r2(sh.t1)} s: ${sh.on_screen}. ${sh.moves}${sh.primary ? ` (primary: ${sh.primary})` : ""}`);
+    if (x.camera) L.push(`- **Camera:** ${x.camera}${x.space && x.space !== "2d" ? ` · ${x.space}` : ""}`);
+    if (x.exit) L.push(`- **Exit:** ${x.exit}${x.carrier ? `: ${x.carrier}` : ""}`);
+    L.push("");
+  }
+  if ((score.seams || []).length) {
+    L.push("## Seams (both sides moving)", "");
+    for (const sm of score.seams) L.push(`- ${sm.from}>${sm.to}: ${sm.kind}${sm.element ? ` (${sm.element})` : ""}${sm.out ? `, out ${sm.out.direction} at ${sm.out.speed} px/s` : ""}${sm.in ? `, in ${sm.in.direction} at ${sm.in.speed} px/s` : ""}${sm.why ? `: ${sm.why}` : ""}`);
+  }
+  return L.join("\n") + "\n";
+}
+// BUILD.md: the builder's short brief, generated from the plan. With the plan it is all the builder must read (about 20 KB).
+export function renderBuildMd(score, { direct = true, gateCmd = "", carriersCmd = "" } = {}) {
+  const S = score.scenes || [];
+  return [
+    "<!-- generated from motion/score.json by crew.mjs storyboard: edit the plan, never this file -->",
+    `# Build brief: ${score.brand || "the film"}`,
+    "",
+    `The plan is \`motion/score.json\` (in words: MOTION-SCORE.md). It is the one contract: where DIRECTION.md, STORYBOARD.md, frame.md, a style card or a moment's own notes say otherwise about timing, holds, motion or seams, the plan and this brief win.`,
+    "",
+    "## What to build",
+    "",
+    direct ? "- ONE author builds the whole film: every beat and every carrier, in one pass." : "- The lead builder builds the root and the carriers; scene animators build the beats around the carriers' landing rects.",
+    `- ${S.length} beats, back to back, each at the path its frame packet names (\`compositions/frames/NN-*.html\`), times exactly the plan's: ${S.map((x) => `${x.id || x.n} ${r2(x.start)}-${r2(x.end)} s`).join(", ")}.`,
+    `- One ground (${score.ground || "the plan's ground"}), painted only by the root; beats are transparent. Ink ${score.ink || "?"}. The film's direction: ${score.current || "left"}.`,
+    "- Every object that crosses a cut is a carrier: `compositions/carriers/<name>.html`, its root timed in film seconds (`data-start`, `data-duration`) across the beats it joins, mounted on its own track with " + (carriersCmd ? `\`${carriersCmd}\`` : "`video.mjs carriers`") + " after the index is assembled. At least two seams are carried.",
+    `- The brand mark is revealed once, in beat \`${score.brandReveal || "?"}\`, and every logo element is tagged \`data-brand-mark\`. The logo is the downloaded file in \`assets/brand/\`, never drawn.`,
+    "- The product's UI behaves like the product: animate each beat's `ui` list, cause then effect. No invented output screens.",
+    "- Each beat's `take` is one mechanic from a reference moment (`$RUN/references/moments/<id>/`, read-only): build it fresh with this film's content; never copy its code, copy, brand, bookends or frame tables.",
+    "",
+    "## Momentum (measured by the motion gate)",
+    "",
+    "- Something meaningful changes every 1.5 to 2.5 s. A hold is reading time only, and it still carries secondary motion.",
+    "- No still stretch of 0.8 s anywhere outside the end card; the end card lands in sequence, then holds at most " + (score.end_hold_s || 1.5) + " s still.",
+    "- A line never parks: between landing and leaving it keeps moving the way it will leave, and its exit continues that move.",
+    "- Nothing creeps: no whole-frame scale or drift slower than 4% a second. The camera moves to go somewhere, or it is locked.",
+    "- Every seam: the outgoing beat still moving when the cut lands, the incoming beat arriving already moving, same axis, direction and speed. Never settle and then cut.",
+    "- Cursors keep moving on calm arcs while on screen; many similar things move as one ordered rig.",
+    "",
+    "## Check before you hand back",
+    "",
+    gateCmd ? `- \`${gateCmd}\` (the code half: carriers, the one brand reveal, parked lines, creep in the code)` : "- `motion-gate.mjs --project <dir> --plan <run>/motion/score.json`",
+    "- `obey.mjs --project <dir>`; the Director then renders the draft and runs the motion gate on its frames.",
+    "",
+  ].join("\n");
+}
+
 // ---------------------------------------------------------------- storyboard (the score → the workflow's visual design)
 const MARK = "<!-- rasanai:score -->", END = "<!-- /rasanai:score -->";
 const VD = "<!-- rasanai:video-direction -->", VDEND = "<!-- /rasanai:video-direction -->";
@@ -1315,6 +1421,11 @@ function scoreIntoStoryboard(sbText, score) {
       is3d(s) && s.light ? `- light: ${s.light}` : null,
       is3d(s) && s.materials ? `- materials: ${s.materials}` : null,
       `- energy: ${s.energy}/5`,
+      s.line != null && s.line !== "" ? `- line: ${s.line}` : null,
+      s.picture ? `- picture: ${s.picture}` : null,
+      s.moment || s.take ? `- take${s.moment ? ` (moment ${s.moment})` : ""}: ${s.take || ""}` : null,
+      ...(s.ui || []).map((u) => `- ui: ${u}`),
+      s.exit ? `- exit: ${s.exit}${s.carrier ? ` (carrier: ${s.carrier})` : ""}` : null,
       "",
       ...(s.shots || []).map((sh, j) => `Scene ${j + 1} (${Number(sh.t0).toFixed(1)}–${Number(sh.t1).toFixed(1)}s): ${sh.on_screen}. ${sh.moves}${sh.primary ? ` (primary: ${sh.primary})` : ""}${j === 0 ? ` — ${s.layout}` : ""}`),
       s.techniques && s.techniques.length ? `\nTechniques: ${s.techniques.join(", ")}` : null,
@@ -1518,7 +1629,23 @@ if (cmd === "plan") {
     if ((parsed.frames || []).length !== want) die(`after writing the score the workflow parser reads ${(parsed.frames || []).length} frames, expected ${want}`);
   }
   fs.writeFileSync(sbf, text);
-  writeFile(path.join(pj, "MOTION-SCORE.md"), readMaybe(R(run, "motion", "score.md")) || "");
+  const scoreMd = renderScoreMd(score);
+  writeFile(R(run, "motion", "score.md"), scoreMd);
+  writeFile(path.join(pj, "MOTION-SCORE.md"), scoreMd);
+  const planInfo = jsonMaybe(R(run, "crew", "plan.json")) || {};
+  const direct = !!planInfo.direct;
+  writeFile(path.join(pj, "BUILD.md"), renderBuildMd(score, { direct, gateCmd: `node "${path.join(SKILL_DIR, "scripts", "motion-gate.mjs")}" --project ${rel(pj)} --plan ${rel(scoreFile)}`, carriersCmd: `node "${path.join(SKILL_DIR, "scripts", "video.mjs")}" carriers --project-dir ${rel(pj)}` }));
+  // the other project files point at the plan instead of restating it: DIRECTION.md and STORYBOARD.md lose any say over
+  // timing, holds and seams; a direct film's DISPATCH.md drops the craft rules it duplicated (the look's contract stays in frame.md)
+  const pm = "<!-- rasanai:plan-wins -->";
+  const pointer = `${pm}\n> **The plan wins.** \`motion/score.json\` (MOTION-SCORE.md in words) and BUILD.md are the film's one contract. Where this file says otherwise about timing, holds, motion or seams, follow the plan.\n`;
+  for (const f of [path.join(pj, "DIRECTION.md")]) if (exists(f)) fs.writeFileSync(f, upsertMarked(fs.readFileSync(f, "utf8"), pm, pointer));
+  const dispF0 = path.join(pj, "DISPATCH.md");
+  if (direct && exists(dispF0)) {
+    const old = fs.readFileSync(dispF0, "utf8");
+    const keep = (old.match(/<!-- rasanai:logos -->[\s\S]*?(?=\n<!-- |$)/) || [""])[0];
+    fs.writeFileSync(dispF0, `# RasanAI dispatch (a direct film: one builder)\n\n${pointer.replace(pm + "\n", "")}\nRead, in order: BUILD.md (short), \`$RUN/motion/score.json\` (the plan), your frame packets and \`_role.md\` (structure and seek-safety), frame.md (the look and the motion contract). Nothing else is required.\n\n## Check\n\n- \`node "${path.join(SKILL_DIR, "scripts", "motion-gate.mjs")}" --project "${pj}" --plan "${scoreFile}"\`\n- \`node "${path.join(SKILL_DIR, "scripts", "obey.mjs")}" --project "${pj}"\` and \`node "${path.join(SKILL_DIR, "scripts", "slop.mjs")}" --project "${pj}"\`\n${keep ? "\n" + keep : ""}`);
+  }
   // tell the workflow its visual-design step is done, and every frame worker where the whole score lives
   const bm = "<!-- rasanai:score-note -->";
   const briefF = path.join(pj, "BRIEF.md");
@@ -1526,7 +1653,7 @@ if (cmd === "plan") {
   const dispF = path.join(pj, "DISPATCH.md");
   if (exists(dispF)) fs.writeFileSync(dispF, upsertMarked(fs.readFileSync(dispF, "utf8"), bm, `${bm}\n## The motion score\n\nYour frame block in the packet holds your part of the Motion Director's score (shots, primary movers, camera, handoffs); MOTION-SCORE.md is the whole film. Seams are contracts: start and end continuing elements at the exact handoff numbers.\n`));
   const logos = stageLogos(run, pj);
-  out({ ok: true, storyboard: rel(sbf), frames: (score.scenes || []).length, parsed: !!parsed, logos: logos || undefined, score_md: rel(path.join(pj, "MOTION-SCORE.md")), next: "The workflow's visual-design step is done: stage assets, then frame-packets.mjs, video.mjs inject, and dispatch the scene animators (crew.mjs brief --role scene-animator --key <n>)." });
+  out({ ok: true, storyboard: rel(sbf), frames: (score.scenes || []).length, parsed: !!parsed, logos: logos || undefined, score_md: rel(path.join(pj, "MOTION-SCORE.md")), build_md: rel(path.join(pj, "BUILD.md")), dispatch: direct ? "reduced to a pointer to the plan (direct film)" : "kept", next: "The workflow's visual-design step is done: stage assets, then frame-packets.mjs, video.mjs inject, and dispatch the scene animators (crew.mjs brief --role scene-animator --key <n>)." });
 } else if (cmd === "strip") {
   const outPng = args.out && args.out !== true ? path.resolve(String(args.out)) : die("--out <sheet.png> required");
   const T = times();

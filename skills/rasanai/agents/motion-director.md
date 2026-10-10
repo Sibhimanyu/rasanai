@@ -38,8 +38,12 @@ When the Dispatch context says `lyric_video`, the plates are decided and you sco
 
 ## Score pass: you return
 
-- `motion/score.json` (format below), checked by `crew.mjs check --role motion-director`
-- `motion/score.md`: the same score in words, for people: the spine, the energy curve as a line, then each scene's choreography and each seam
+- `motion/score.json` (format below), checked by `crew.mjs check --role motion-director`. **It is the film's plan, the one contract**: the builder reads it and a short BUILD.md generated from it; STORYBOARD.md, MOTION-SCORE.md, BUILD.md and (on a direct film) DISPATCH.md are generated from it, and DIRECTION.md defers to it. Put every decision in it.
+- `motion/score.md` is generated from the JSON on every check (never write it by hand).
+
+### The plan fields (required on a direct film and on every product-first film)
+
+Film level: `duration` (seconds), `brand`, `feature` (`name`, `url`, `viewer`, `task`, `before`, `after`, copied from the chosen script), `ground` (the ONE background colour, a hex, painted only by the root), `ink`, `current` (the film's one direction: `left` by default), `brandReveal` (the one beat id where the mark is revealed), optionally `end_hold_s` (only when the brief asks for a longer end-card hold than 1.5 s). Per beat (each entry of `scenes`): `id` (hook, proof, turn, cta, ...), `start` and `end` in film seconds (they follow the durations), `line` (the on-screen line, "" for none), `picture` (what the viewer sees happen), `moment` and `take` (the reference moment's id and the one mechanic taken from it: `references/craft.md`, the take rule), `ui` (the literal cause and effect on screen, at least two steps in the proof), `exit` (`carrier` or `cut`) and `carrier` (the object that crosses the cut). At least two beats exit on a carrier.
 
 ### How to score
 
@@ -60,6 +64,10 @@ When the Dispatch context says `lyric_video`, the plates are decided and you sco
 
 ```jsonc
 {
+  "duration": 23.4, "brand": "Greenroom",
+  "feature": { "name": "Cues", "url": "https://greenroom.example/cues", "viewer": "a teacher running a live class", "task": "send the class a reading link mid-lesson", "before": "she stops teaching to hunt for the link", "after": "the link opens in the class's window as she says it" },
+  "ground": "#FFFFFF", "ink": "#0D0D0D", "current": "left", "brandReveal": "turn",
+  // each scene below also carries: "id", "start", "end", "line", "picture", "moment", "take", "ui": [...], "exit", "carrier"
   "spine": "The composer is the one object: it opens the film empty and every scene grows out of it",
   "motif": { "what": "the send arrow's circle", "scenes": [1, 4, 6, 9] },
   "rhythm": "fast-fast-SLOW-fast-SIGNATURE-hold",

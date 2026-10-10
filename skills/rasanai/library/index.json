@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-05T09:01:32.634Z",
+ "generated": "2026-10-10T02:28:20.412Z",
  "fragments": [
   "M.json"
  ],
@@ -1409,7 +1409,7 @@
     "kraft": "#b08a5a",
     "pink": "#e8467c"
    },
-   "motion_language": "quiet, exact, with long holds"
+   "motion_language": "quiet, exact, with long reads that keep one slow mover"
   },
   {
    "id": "japanese-sixties-graphic-yokoo-poster",
