@@ -1,0 +1,182 @@
+[
+  {
+    "id": "G1",
+    "name": "Generator 1",
+    "question": "What does the object of generator 1 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G2",
+    "name": "Generator 2",
+    "question": "What does the object of generator 2 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G3",
+    "name": "Generator 3",
+    "question": "What does the object of generator 3 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G4",
+    "name": "Generator 4",
+    "question": "What does the object of generator 4 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G5",
+    "name": "Generator 5",
+    "question": "What does the object of generator 5 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G6",
+    "name": "Generator 6",
+    "question": "What does the object of generator 6 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G7",
+    "name": "Generator 7",
+    "question": "What does the object of generator 7 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G8",
+    "name": "Generator 8",
+    "question": "What does the object of generator 8 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G9",
+    "name": "Generator 9",
+    "question": "What does the object of generator 9 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G10",
+    "name": "Generator 10",
+    "question": "What does the object of generator 10 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G11",
+    "name": "Generator 11",
+    "question": "What does the object of generator 11 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G12",
+    "name": "Generator 12",
+    "question": "What does the object of generator 12 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G13",
+    "name": "Generator 13",
+    "question": "What does the object of generator 13 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G14",
+    "name": "Generator 14",
+    "question": "What does the object of generator 14 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G15",
+    "name": "Generator 15",
+    "question": "What does the object of generator 15 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G16",
+    "name": "Generator 16",
+    "question": "What does the object of generator 16 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G17",
+    "name": "Generator 17",
+    "question": "What does the object of generator 17 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G18",
+    "name": "Generator 18",
+    "question": "What does the object of generator 18 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G19",
+    "name": "Generator 19",
+    "question": "What does the object of generator 19 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G20",
+    "name": "Generator 20",
+    "question": "What does the object of generator 20 look like, and what could it turn into?",
+    "definition": "fixture",
+    "example": "fixture",
+    "fails": "fixture",
+    "route": "svg-morph"
+  }
+]

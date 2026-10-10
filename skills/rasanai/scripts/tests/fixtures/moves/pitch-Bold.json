@@ -1,0 +1,41 @@
+{
+  "id": "fx",
+  "label": "Bold",
+  "title": "The Approved Line",
+  "product": "Tally",
+  "ui_labels": [
+    "New expense",
+    "Approve",
+    "Paid"
+  ],
+  "beats": [
+    {
+      "name": "Hook",
+      "duration_s": 3,
+      "on_screen": "Your expenses",
+      "vo": "",
+      "visual": "the Tally app window with a New expense button and a round status dot"
+    },
+    {
+      "name": "Problem",
+      "duration_s": 4,
+      "on_screen": "Waiting on approval",
+      "vo": "",
+      "visual": "the same list, one row stuck at pending"
+    },
+    {
+      "name": "Turn",
+      "duration_s": 5,
+      "on_screen": "Approve in one tap",
+      "vo": "",
+      "visual": "the Approve button, the cursor, the row turning green"
+    },
+    {
+      "name": "Close",
+      "duration_s": 4,
+      "on_screen": "Paid",
+      "vo": "",
+      "visual": "the Paid badge and the Tally mark"
+    }
+  ]
+}

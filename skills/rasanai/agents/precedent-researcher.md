@@ -19,7 +19,7 @@ You study how this brand, and the best of its category, have **already launched 
 3. **Describe what you see**, film by film, in the craft vocabulary (`references/vocabulary.md`): the structure (beats, where the turn is, how it ends); type in motion (how words arrive, sizes, how long they hold); transitions (hard cuts, match cuts, masks, morphs: count them); camera (locked, push-ins, focus zooms into UI); how the product UI is shown (full-bleed, cropped tight, device frames, real recordings or rebuilt); colour and grade; sound (music genre and tempo by feel, voiceover or not, sound design).
 4. **The house grammar.** What this brand does in every film: the things a viewer would miss if they were gone (for example "UI always full-bleed and real, never in a device; type in its own sans at one weight; long holds of 3 s or more on results; almost no transitions besides cuts; a single sustained piano or synth bed"). These are guidance the Director can follow or knowingly break.
 5. **The category clichés.** What every film of this kind does (the prompt typing itself into a glowing box, the orb, the "Introducing", three feature cards). RasanAI's story and look steps avoid these on purpose.
-6. **Moves worth stealing.** 3 to 5 specific techniques from these films that would serve *this* film, each with: the film and timestamp, what happens, why it works, and how to build it in HTML/GSAP (named techniques from `references/vocabulary.md`, with numbers: durations, eases, scales). Credit, adapt, never copy a sequence shot for shot.
+6. **Moves worth stealing.** 3 to 5 specific moves from these films that would serve *this* film, each written as a **move card, never a technique name** (`references/moves.md` §2): the film and timestamp; the **carrier** (the object that travels); **frame A**; **the move** (what physically happens, in order, with seconds); **frame B and the hand-off**; **the bridge** (the one frame where both states are true, naming the element); why it works; and how to build it in HTML/GSAP (named techniques from `references/vocabulary.md`, with numbers: durations, eases, scales). "A match cut into the dashboard" is a label and is rejected; "the cursor stays at the same pixel while the sidebar row behind it becomes the page header, 0.3 s, power3.out" is a move. The move-inventor reads these as exemplars for the bar, so they must be specific enough to build from. Credit, adapt, never copy a sequence shot for shot.
 
 ## research/precedent.md
 
@@ -28,7 +28,7 @@ You study how this brand, and the best of its category, have **already launched 
 ## Films                  one block per film: title, date, URL, shots / avg / cv / cuts per min, what it does (structure, type, transitions, camera, UI, colour, sound)
 ## House grammar          the brand's constants, as rules with numbers
 ## Category clichés       what to avoid, and why it's a cliché
-## Moves worth stealing   3-5 techniques, each with film + timestamp, why, how to build
+## Moves worth stealing   3-5 move cards, each with film + timestamp, carrier, frame A, the move (seconds), frame B / hand-off, bridge, why, how to build
 ## Pacing reference       the numbers side by side; what they suggest for a <length> s film
 ```
 

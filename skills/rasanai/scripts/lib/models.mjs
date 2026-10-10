@@ -93,11 +93,12 @@ const GATHER = new Set(["product-researcher", "brand-researcher", "brand-film-an
 const ORDER = { fast: 0, strong: 1, frontier: 2 };
 const FAST_ALIAS = { claude: "sonnet", gpt: null, other: null };
 export function tierFor(role, profile) {
-  // the concept critic is a quick, cheap pre-flight read of the script and look against the brief: Sonnet is the right model (never the session's Opus)
-  const gather = GATHER.has(role) || role === "concept-critic";
+  // the concept critic is a quick, cheap pre-flight read of the script and look against the brief: Sonnet is the right model (never the session's Opus);
+  // so are the move juror (binary gates and pairwise picks on fixed cards) and the move sketcher (a grey-box rough of a card already written)
+  const gather = GATHER.has(role) || ["concept-critic", "move-juror", "move-sketcher"].includes(role);
   const min = gather ? "fast" : "strong";
   // the roles where the film is won or lost: a frontier model when one is running the session
-  const prefer = gather ? "fast" : ["motion-director", "scene-animator", "film-builder", "frame-designer", "treatment-writer", "script-writer", "critic"].includes(role) ? "frontier" : "strong";
+  const prefer = gather ? "fast" : ["motion-director", "scene-animator", "film-builder", "move-inventor", "frame-designer", "treatment-writer", "script-writer", "critic"].includes(role) ? "frontier" : "strong";
   const ok = ORDER[profile.tier] >= ORDER[min];
   const useFast = gather && profile.tier !== "fast";
   // a fast tier is a cheaper model of the same family: on Claude a smaller model, on Codex the same model at low effort

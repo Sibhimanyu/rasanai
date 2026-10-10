@@ -8,7 +8,10 @@
 //        [--brand "<name>"] [--kind launch|promo|brand] [--brand-film | --no-brand-film] [--pace fast] [--deep | --direct]
 //        (films of 45 s or less and single-feature launches take the direct path: ONE film builder writes the whole film;
 //         --deep, when the user asks for it or for looks, keeps the long path with parallel scene animators)
-//        (a branded launch / promo / brand film adds the brand-film phase: brandfilm.mjs + the brand film analyst, and the style-match gates)
+//        (a branded launch / promo / brand film adds the brand-film phase: brandfilm.mjs + the brand film analyst, and the style-match gates;
+//        a scripted film, on the direct path too, adds the Moves pass between the story and the editor: the phases moves (a move-inventor per script), moves-jury
+//        (the move-juror) and moves-roughs (a move-sketcher per script), run with scripts/moves.mjs; check holds the score to story/moves.json;
+//        the film builder (direct) or the scene animators (long) get the hero cards and roughs as their motion target)
 //        -> <run>/crew/plan.json: every phase, who's dispatched in it (role, key, model tier, description)
 //   node crew.mjs brief --run <run> --role <role> [--key <k>] [--project <dir>] [--set k=v,...] [--model <id>]
 //   node crew.mjs model [--model <id>] [--kv]   -> the model and harness, its profile, strengths and pitfalls (--kv: MODEL= / HARNESS= lines)
@@ -36,6 +39,7 @@ import { detectModel, profileFor, adapt, tierFor, dispatchFor } from "./lib/mode
 import { libraryIds } from "./library.mjs";
 import { readLogos } from "./lib/logos.mjs";
 import { checkSystemFull, checkSystems, firstLine } from "./lib/system.mjs";
+import { validateMoves, validateVerdict, isLabelOnly, MOVE_LABELS } from "./lib/moves-lib.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -93,6 +97,9 @@ const ROLES = {
   "script-writer": { desk: "story", tier: "inherit", desc: (p, k) => `Writing the ${k || ""} script`.replace("  ", " ") },
   "treatment-writer": { desk: "story", tier: "inherit", desc: (p, k) => `Writing the ${k || ""} treatment for the song`.replace("  ", " ") },
   "visual-writer": { desk: "story", tier: "inherit", desc: (p, k) => `Writing the ${k || ""} visual treatment of the talk`.replace("  ", " ") },
+  "move-inventor": { desk: "story", tier: "inherit", desc: (p, k) => `Inventing the hero moves for the ${k || ""} script`.replace("  ", " ") },
+  "move-juror": { desk: "story", tier: "fast", desc: () => "Judging every move idea blind and ranking the best" },
+  "move-sketcher": { desk: "story", tier: "fast", desc: (p, k) => `Sketching the ${k || ""} script's hero move as a rough`.replace("  ", " ") },
   "script-editor": { desk: "story", tier: "inherit", desc: () => "Editing the three scripts like a hostile reader" },
   "motion-director": { desk: "motion", tier: "inherit", desc: (p, k) => (k === "seams" ? "Checking every cut and building the signature transition" : "Scoring how the whole film moves") },
   "frame-designer": { desk: "art", tier: "inherit", desc: (p, k) => `Designing key frames ${k || ""}`.trim() },
@@ -177,7 +184,13 @@ function planCrew(p) {
     phases.push({ phase: "visual-writers", when: "after the clip is keyed (presenter.mjs key) and transcribed (reel.mjs scan), beats.json is written (presenter.mjs beats) and the research, when it ran, is accepted", dispatch: ["Sure", "Bold", "Wild"].map((k) => d("visual-writer", k)), then: "presenter.mjs check on each (crew.mjs check --role visual-writer), then push story from the three plans; the chosen one is copied to presenter/plan.json" });
   } else if (STORY_ROUTES.has(p.route) && !lean) {
     phases.push({ phase: "story", when: "after story.mjs pick", dispatch: ["Sure", "Bold", "Wild"].map((k) => d("script-writer", k)), then: "crew.mjs pitches, story.mjs check, then the editor" });
-    phases.push({ phase: "story-edit", when: "after the three pitches pass story.mjs check", dispatch: [d("script-editor")], then: "route its notes back to the writers (one round), then push story" });
+    // the Moves pass (references/moves.md): ideas for how the film moves, invented and judged before the user reads the scripts
+    if (!["reel", "music-to-video"].includes(p.route)) {
+      phases.push({ phase: "moves", when: "after the three pitches pass story.mjs check", director_steps: ["moves.mjs pack --run <run> --label <Sure|Bold|Wild> [--product-first]   (once per script, before its inventor is briefed)"], dispatch: ["Sure", "Bold", "Wild"].map((k) => d("move-inventor", k)), then: "moves.mjs check on each (crew.mjs check --role move-inventor), then the move-juror, then a move-sketcher per script (moves.mjs rough + check-rough), then the editor" });
+      phases.push({ phase: "moves-jury", when: "after the three moves files pass moves.mjs check", dispatch: [d("move-juror")], then: "moves.mjs check-verdict; a script with fewer than 3 passing cards gets one denial round (re-dispatch its inventor once with the failures added to its banned list)" });
+      phases.push({ phase: "moves-roughs", when: "after the verdict is accepted", director_steps: ["moves.mjs rough --dir <run>/story/moves/<label>-<hero id> --aspect <the film's aspect>   (after each sketcher writes rough.html)", "moves.mjs check-rough --dir <run>/story/moves/<label>-<hero id>"], dispatch: ["Sure", "Bold", "Wild"].map((k) => d("move-sketcher", k)), then: "moves.mjs payload puts each script's carrier and hero moves on the Story screen; after the pick, moves.mjs choose --label <L> writes story/moves.json and moves.mjs record keeps the heroes for the next film" });
+    }
+    phases.push({ phase: "story-edit", when: STORY_ROUTES.has(p.route) && !["reel", "music-to-video"].includes(p.route) ? "after the moves pass (the three moves files, the verdict and the roughs are accepted)" : "after the three pitches pass story.mjs check", dispatch: [d("script-editor")], then: "route its notes back to the writers (one round), then push story" });
   }
   // three bespoke design systems for the chosen story (a lyric video: one, from the chosen treatment's style bible)
   if (p.route === "music-to-video") {
@@ -221,7 +234,7 @@ function planCrew(p) {
     } else {
       // a longer film keeps parallel animators, but every object that crosses a seam belongs to the lead builder (one object
       // on one tween in the root), and the seam contract hands over a moving state (velocity, direction), never a pose at rest
-      phases.push({ phase: "lead", when: "after the workflow's frame-packets.mjs and video.mjs inject, before the scene animators: the root, the ground and every carrier (an object that crosses a cut) on its own track", dispatch: [d("film-builder", "lead")], then: "the scene animators, who build around the carriers' landing rects" });
+      phases.push({ phase: "lead", when: "after the workflow's frame-packets.mjs and video.mjs inject, before the scene animators: the root, the ground and every carrier (an object that crosses a cut; story/moves.json's `carrier` is the one it builds first) on its own track", dispatch: [d("film-builder", "lead")], then: "the scene animators, who build around the carriers' landing rects" });
       phases.push({ phase: "animate", when: "after the lead builder's carriers are in", dispatch: scenes.map((k) => d("scene-animator", k)), then: "assemble, then the seam pass" });
       phases.push({ phase: "seams", when: "after every scene is accepted and the index is assembled", dispatch: [d("motion-director", "seams")], then: lean ? "the film critic" : "the motion critic" });
       const review = lean ? [d("critic", "film-1")] : [d("critic", "motion-1"), d("critic", "grounding-1")];
@@ -474,6 +487,43 @@ function contextFor(run, role, key, plan) {
       for (const [l, p] of [["the brief (literal words)", R(run, "brief.json")], ["chosen script", R(run, "story", "chosen.json")], ["chosen look (design system)", R(run, "look", "DESIGN.md")], ["decisions", R(run, "decisions.json")], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["screens", research("screens.md")], ["brand", research("brand/DESIGN.md")], ["workspace brand", dsn ? path.resolve(dsn) : null], ["product-first rules", path.join(SKILL_DIR, "references", "product-first.md")]]) I(l, p);
       O(R(run, "story", "concept-check.json"));
       break;
+    case "move-inventor": {
+      if (!key || !MOVE_LABELS.includes(key)) die("move-inventor needs --key Sure|Bold|Wild");
+      const pf = !!ctx.product_first;
+      const mjs = path.join(SKILL_DIR, "scripts", "moves.mjs");
+      ctx.label = key;
+      ctx.aspect = B.aspect;
+      ctx.pack_cmd = `node "${mjs}" pack --run ${rel(run)} --label ${key}${pf ? " --product-first" : ""}`;
+      ctx.pack_note = "the Director runs pack_cmd BEFORE briefing you (the pack is your exemplars, the 20 generators, one stimulus and the banned list); read the pack, never re-roll it";
+      ctx.check_cmd = `node "${mjs}" check --file ${rel(R(run, "story", `moves-${key}.json`))} --pitch ${rel(R(run, "story", `pitch-${key}.json`))}${pf ? " --product-first" : ""}`;
+      const vd = jsonMaybe(R(run, "story", "moves-verdict.json"));
+      const den = vd && vd.pitches && vd.pitches[key] && vd.pitches[key].denial;
+      if (Array.isArray(den) && den.includes(key)) ctx.denial_round = `yes: the juror failed too many of your cards. Read story/moves-verdict.json (pitches.${key}.cards[].fails and evidence), add those failures to your banned list, and write story/moves-${key}.json again`;
+      for (const [l, p] of [["the pitch (beats, on_screen, visual, ui_labels)", R(run, "story", `pitch-${key}.json`)], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["screens (UI labels and surfaces)", research("screens.md")], ["briefing", research("BRIEFING.md")], ["precedent", research("precedent.md")], ["brand DESIGN.md (research)", research("brand", "DESIGN.md")], ["workspace DESIGN.md", dsn ? path.resolve(dsn) : null], ["the method (read all of it)", path.join(SKILL_DIR, "references", "moves.md")], ["your pack (exemplars, generators, stimulus, banned)", R(run, "story", `moves-pack-${key}.json`)], ["reference moves from the user's clip (if any)", research("reference-moves.json")]]) I(l, p);
+      O(R(run, "story", `moves-${key}.json`));
+      break;
+    }
+    case "move-juror": {
+      ctx.aspect = B.aspect;
+      ctx.check_cmd = `node "${path.join(SKILL_DIR, "scripts", "moves.mjs")}" check-verdict --run ${rel(run)}`;
+      for (const l of MOVE_LABELS) I(`${l} moves`, R(run, "story", `moves-${l}.json`));
+      for (const l of MOVE_LABELS) I(`${l} pitch`, R(run, "story", `pitch-${l}.json`));
+      I("the method (gates, product-first and brand-film variants)", path.join(SKILL_DIR, "references", "moves.md"));
+      O(R(run, "story", "moves-verdict.json"));
+      break;
+    }
+    case "move-sketcher": {
+      if (!key || !MOVE_LABELS.includes(key)) die("move-sketcher needs --key Sure|Bold|Wild");
+      const vd = jsonMaybe(R(run, "story", "moves-verdict.json")), mv = jsonMaybe(R(run, "story", `moves-${key}.json`));
+      const hero = (vd && vd.pitches && vd.pitches[key] && vd.pitches[key].hero) || (mv && Array.isArray(mv.heroes) && mv.heroes[0]) || "<hero id>";
+      const dir = R(run, "story", "moves", `${key}-${hero}`);
+      const mjs = path.join(SKILL_DIR, "scripts", "moves.mjs");
+      Object.assign(ctx, { label: key, hero, aspect: B.aspect, render_cmd: `node "${mjs}" rough --dir ${rel(dir)}${B.aspect ? ` --aspect ${B.aspect}` : ""}`, check_cmd: `node "${mjs}" check-rough --dir ${rel(dir)}` });
+      for (const [l, p] of [[`your moves file (the card ${hero} is your brief)`, R(run, "story", `moves-${key}.json`)], ["the verdict", R(run, "story", "moves-verdict.json")], ["the pitch (the real words)", R(run, "story", `pitch-${key}.json`)], ["how roughs are built (read section 8)", path.join(SKILL_DIR, "references", "moves.md")]]) I(l, p);
+      O(rel(path.join(dir, "rough.html")));
+      for (const n of ["rough.mp4", "strip.png", "poster.png"]) O(rel(path.join(dir, n)) + " (written by render_cmd)");
+      break;
+    }
     case "script-editor":
       for (const [l, p] of [["pitches", R(run, "story", "pitches.json")], ["check", R(run, "story", "check.json")], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["precedent", research("precedent.md")], ["rubric", path.join(SKILL_DIR, "references", "script.md")], ["story rules", path.join(SKILL_DIR, "references", "story.md")], ["craft", path.join(SKILL_DIR, "references", "craft.md")]]) I(l, p);
       O(R(run, "story", "edit-notes.json"));
@@ -535,7 +585,7 @@ function contextFor(run, role, key, plan) {
       const S = Array.isArray(score.scenes) ? score.scenes : [];
       Object.assign(ctx, { pass: lead ? "lead (the root and the carriers only; scene animators build the beats around them)" : "film (the whole film: the root, every beat and every carrier, in one pass)", project: rel(pj), length_s: B.length_s, aspect: B.aspect, beats: S.length || undefined });
       if (S.some(is3d)) I("3d playbook (the plan puts a beat in 3D)", path.join(SKILL_DIR, "references", "3d.md"));
-      for (const [l, p] of [["the plan (motion/score.json): THE contract", R(run, "motion", "score.json")], ["the plan in words", R(run, "motion", "score.md")], ["build brief (short: what to build, the momentum rules, the gate)", path.join(pj, "BUILD.md")], ["technical role (the workflow's frame-worker contract)", path.join(pj, ".hyperframes", "frame-packets", "_role.md")], ["frame packets (one per beat: the file each beat goes in)", path.join(pj, ".hyperframes", "frame-packets")], ["DISPATCH.md", path.join(pj, "DISPATCH.md")], ["frame.md (the look: fonts, colours)", path.join(pj, "frame.md")], ["motion.md", path.join(pj, "motion.md")], ["reference moments (read-only: one mechanic per beat, never copied)", R(run, "references", "moments")], ["ui kit", research("screens.md")], ["real screens", research("screens.json")], ["logo files (the only logo you may place: the staged copy is in the project at assets/brand/; if logos.json says none, set the name in type, no symbol)", research("brand", "assets")], ["assets", research("assets.json")]]) I(l, p);
+      for (const [l, p] of [["the plan (motion/score.json): THE contract", R(run, "motion", "score.json")], ["the plan in words", R(run, "motion", "score.md")], ["build brief (short: what to build, the momentum rules, the gate)", path.join(pj, "BUILD.md")], ["technical role (the workflow's frame-worker contract)", path.join(pj, ".hyperframes", "frame-packets", "_role.md")], ["frame packets (one per beat: the file each beat goes in)", path.join(pj, ".hyperframes", "frame-packets")], ["DISPATCH.md", path.join(pj, "DISPATCH.md")], ["frame.md (the look: fonts, colours)", path.join(pj, "frame.md")], ["motion.md", path.join(pj, "motion.md")], ["reference moments (read-only: one mechanic per beat, never copied)", R(run, "references", "moments")], ["the chosen moves (the Moves pass: the carrier you build and the hero cards with their roughs: your motion target; each is a move to beat, the reference moments are mechanics to execute it with)", R(run, "story", "moves.json")], ["the move roughs (grey-box loops of the hero moves)", R(run, "story", "moves")], ["ui kit", research("screens.md")], ["real screens", research("screens.json")], ["logo files (the only logo you may place: the staged copy is in the project at assets/brand/; if logos.json says none, set the name in type, no symbol)", research("brand", "assets")], ["assets", research("assets.json")]]) I(l, p);
       if (LYR(run, P)) { ctx.lyric_video = true; for (const [l, p] of [["lyrics (word timings)", R(run, "music", "lyrics.json")], ["audio (beats, onsets)", R(run, "music", "audio.json")], ["lyrics and the music runtime", path.join(SKILL_DIR, "references", "lyrics.md")]]) I(l, p); }
       ctx.gate = `node "${path.join(SKILL_DIR, "scripts", "motion-gate.mjs")}" --project ${rel(pj)} --plan ${rel(R(run, "motion", "score.json"))}`;
       if (lead) O(`${rel(path.join(pj, "index.html"))} (the root: ground and carrier tracks)`), O(`${rel(path.join(pj, "compositions", "carriers"))}/*.html`);
@@ -598,6 +648,9 @@ const DARES = {
   "frame-designer": "Show off. Each still should be good enough to be the poster for the film. Competent and centred is the default you're here to beat. For scenes the score puts in 3D, draw the key frame in real 3D (Rasan3D, references/3d.md): the lens, the light and the material are the poster. Invent the look the shot needs (a custom shader, an engraved or raymarched surface) rather than picking a preset; the design system is the only bound.",
   "treatment-writer": "Show off. Two other writers are pitching treatments of this song against you, and the user will pick one. Write the one that wins the room, not the one that merely passes treatment.mjs check: a concept the user can say in a sentence, a signal that runs through every plate, lines that become puns and transformations (never pictures of the sentence), three plates a motion designer would cut into their reel, a hook that escalates, and one seam that only pays off on the second watch. If a plate's idea is just the lyric restated, you are not done.",
   "visual-writer": "Show off. Two other writers are staging this same talk against you, and the user will pick one. Write the one that wins the room, not the one that merely passes presenter.mjs check: one running visual idea the whole talk happens inside, images that argue with the sentence instead of illustrating it, at least one cutaway that lands on a word, and one moment where the person interacts with the world (points at it, steps into it, is framed by it). If a plate is just the sentence drawn as a picture, you are not done.",
+  "move-inventor": "Show off. This is the strongest version of the job: you are the designer whose move gets rewound, not the one who labels a transition. Do every step of the method even if you think you do not need to: the three obvious ideas come first and are banned, then 20 candidates, then rewrite them bolder and different and show what you changed. Give the film one carrier that travels through every beat, and a bridge frame at every boundary where both scenes are true at once. A card that names a technique instead of an object crossing the cut is a fail; a card a juror would call competent is a fail.",
+  "move-juror": "Be the client burned by generic work. Judge each card blind, by the binary gates, quoting the card; when two survivors are close choose the riskier one that is still sound. A competent, tidy move that you have seen in ten launch films does not pass.",
+  "move-sketcher": "The rough must make the idea legible in one loop. Timing is the idea: follow the card's move exactly, in its seconds and eases. Grey-box, no styling, one accent for the carrier. If the idea only works with a trick the rough cannot show, build the simplest version that keeps it and say so.",
   "script-writer": "Show off. Two other writers are pitching against you. Write the script that wins the room, with at least one moment only motion could tell, not the one that merely passes the checks.",
   "design-researcher": "Show off. The generic version of this job returns the category's own look and a list of famous styles. Return the subject's visual world as only someone who went looking would know it: the real materials, places, eras and printed things around this product or topic, the clichés a lazy design pass would reach for (named, so the desk avoids them), and a shortlist of library references chosen because they are surprising and right for THIS subject, not because they are famous. If two of your references would make an obvious blend, replace one.",
   "design-system-designer": "Show off. This is the pitch: the user sees three systems for their story, and yours is drawn live on their own first line. Don't hand in the tasteful default (a neutral ground, one accent, a grotesk, a rounded card): build the system a top studio would present, one a motion designer could animate for a year and never repeat. Blend 2 to 4 references so the result is something no single reference is, put the subject's own visual world in it (its materials, its places, its printed things), choose a display face with a point of view, and write the motion and camera language as precisely as a director's note (durations, holds, eases by name, the camera's lens and moves). The gate rejects a generic or near-duplicate system; the user rejects a forgettable one.",
@@ -645,6 +698,33 @@ function promptFor(run, role, key, plan) {
         const S3 = `node "${path.join(SKILL_DIR, "scripts", "stage3d.mjs")}"`;
         extra += `\n\n## Your scene is ${sc.space === "3d" ? "3D" : "hybrid 2D + 3D"}\n\nRead \`references/3d.md\` in full before you write a line: it is the API, the camera and light language, the 2D ↔ 3D seams and the gate. Build it with Rasan3D, from the template, never from a blank file:\n\n\`\`\`bash\n${S3} install --project "${ctx.project}"\n${S3} scaffold --project "${ctx.project}" --frame ${fid} --duration ${sc.duration} --canvas "<frame.md canvas>" --ink "<ink>" --accent "<accent>"\n${S3} stills --file ${ctx.project}/compositions/frames/${fid}.html --at <the peak and each landing> --out ${rel(R(run, "crew", "animators", `${n}-3d`))}\n${S3} check --project "${ctx.project}" --file ${ctx.project}/compositions/frames/${fid}.html\n\`\`\`\n\nThe score's \`camera3d\` (lens and legs), \`light\` and \`materials\` are your brief. Your seams with 2D neighbours are pixel contracts (flat-to-depth / depth-to-flat: \`k.layout\` at the handoff numbers). Strips (\`crew.mjs strip\`) of this file wait for the 3D build and show the real motion blur. Report a \`## 3D\` section: the lens and why, the light and why, what each object is made of, how the seams match, and the frame cost the gate measured.`;
       }
+    }
+  }
+  if (role === "scene-animator" || role === "film-builder") {
+    // the Moves pass: the hero moves the Motion Director placed are the builder's motion target. A scene animator gets the
+    // cards of its own scene; the film builder (direct path: the whole film; long path, key "lead": the carriers) gets every
+    // used card, and builds story/moves.json's carrier as the film's one carrier object.
+    const mvj = jsonMaybe(R(run, "story", "moves.json")), sco = jsonMaybe(R(run, "motion", "score.json"));
+    const n = Number(key);
+    const own = role === "film-builder";
+    if (mvj && sco && Array.isArray(sco.moves) && Array.isArray(mvj.cards)) {
+      const mine = sco.moves.filter((e) => {
+        if (!e || e.status !== "used") return false;
+        if (own) return true;
+        const sm = String(e.seam || "").match(/(\d+)\s*>\s*(\d+)/);
+        return Number(e.scene) === n || (sm && (Number(sm[1]) === n || Number(sm[2]) === n));
+      });
+      const blocks = mine.map((e) => {
+        const card = mvj.cards.find((c) => c && c.id === e.id);
+        if (!card) return "";
+        const d = R(run, "story", "moves", `${mvj.label}-${e.id}`);
+        const files = ["rough.mp4", "strip.png", "rough.html"].filter((f) => exists(path.join(d, f))).map((f) => `\`${rel(path.join(d, f))}\``);
+        return `### Move ${e.id}: ${card.title}${e.scene ? ` (scene ${e.scene})` : ""}${e.seam ? ` (seam ${e.seam})` : ""}\n\n\`\`\`json\n${JSON.stringify(card, null, 2)}\n\`\`\`\n\nThe rough (a grey-box of the timing; look at its strip, play the mp4): ${files.length ? files.join(", ") : "(none rendered)"}`;
+      }).filter(Boolean);
+      const car = mvj.carrier && mvj.carrier.what ? `**${mvj.carrier.what}**` : "set in story/moves.json";
+      if (blocks.length) extra += own
+        ? `\n\n## Your motion target (the Moves pass)\n\nThe film's carrier (story/moves.json \`carrier\`) is ${car}: it is the carrier object you build, one object on one tween through every beat it crosses${key === "lead" ? " (as the lead builder you build it, and every other object that crosses a cut, before the scene animators start)" : ""}. The hero move card(s) below are your motion target: the card and its rough are the target, not a ceiling. Beat the rough, don't copy its grey-box look (the look comes from DESIGN.md and frame.md). Keep each bridge frame (the one frame where both states are true) exact, and the hand-off to the next beat as the card states it. If a card cannot be built as written, build its \`build.simplest\`, say why in your report, and never replace the move with a label.\n\n${blocks.join("\n\n")}`
+        : `\n\n## Your motion target (the Moves pass)\n\nThe film's carrier is ${car}. This scene carries the move card(s) below: the card and its rough are your motion target. Beat it, don't copy its grey-box look: the look comes from DESIGN.md and frame.md. Keep the bridge frame (the one frame where both states are true) exact, and the hand-off to the next beat as the card states it.\n\n${blocks.join("\n\n")}`;
     }
   }
   if (role === "scene-animator" && LYR(run, plan)) {
@@ -833,6 +913,28 @@ function checkScore(run) {
     if (A && B && (is3d(A) !== is3d(B)) && s.kind === "cut") W.push(`${id}: a hard cut between a 2D and a 3D scene; flat-to-depth, depth-to-flat or a shared element would carry the viewer across (references/3d.md §6)`);
     if (["flat-to-depth", "depth-to-flat", "camera-through"].includes(s.kind) && A && B && !is3d(A) && !is3d(B)) P.push(`${id}: ${s.kind} needs a 3D or hybrid scene on at least one side`);
   });
+  // the Moves pass: when a move set was chosen (story/moves.json), the score is held to it
+  const mvf = jsonMaybe(R(run, "story", "moves.json"));
+  if (mvf === undefined) P.push("story/moves.json is not valid JSON");
+  else if (mvf && typeof mvf === "object") {
+    const accounted = Array.isArray(score.moves) ? score.moves : [];
+    const heroes = Array.isArray(mvf.heroes) ? mvf.heroes : [];
+    for (const id of heroes) {
+      const card = (mvf.cards || []).find((c) => c && c.id === id) || {};
+      const e = accounted.find((x) => x && x.id === id);
+      if (!e) { P.push(`moves-unaccounted: hero move ${id}${card.title ? ` ("${card.title}")` : ""} is not in score.moves (every hero is {id, status: "used"|"dropped", scene, seam?, why?}: build it, or drop it with a reason)`); continue; }
+      if (e.status === "dropped") { if (String(e.why || "").trim().length < 12) P.push(`moves-unaccounted: hero move ${id} is dropped without a why (12+ characters)`); }
+      else if (e.status === "used") { if (!(Number(e.scene) >= 1 && (!N || Number(e.scene) <= N))) P.push(`moves-no-scene: hero move ${id} is used but its scene "${e.scene}" is not a scene of the film (1-${N})`); }
+      else P.push(`moves-unaccounted: hero move ${id} has status "${e.status}" (used or dropped)`);
+    }
+    for (const e of accounted) if (e && !heroes.includes(e.id) && !(mvf.cards || []).some((c) => c && c.id === e.id)) W.push(`score.moves names "${e.id}", which is not a card of story/moves.json`);
+    seams.forEach((s) => {
+      if (!(CONTINUITY.has(s.kind) || s.kind === "signature")) return;
+      const bridge = String(s.bridge || "").trim();
+      if (!bridge) W.push(`seam-no-bridge: seam ${s.from}>${s.to} (${s.kind}) has no "bridge" (one sentence: the single frame where both scenes are true, naming the element)`);
+      else if (isLabelOnly(bridge)) P.push(`seam-label-bridge: seam ${s.from}>${s.to} bridge "${bridge}" is only a label: name the element that is in both scenes at once and what it looks like in that frame`);
+    });
+  }
   if (score.signature && score.signature.seam && !seams.some((s) => `${s.from}>${s.to}` === String(score.signature.seam))) P.push(`signature.seam "${score.signature.seam}" is not one of the seams`);
   // the plan: the film-level fields and each beat's line, picture, moment and take, UI, exit and carrier. Required on a
   // direct film (one builder reads only this) and on a product-first film; elsewhere missing fields are warnings.
@@ -1108,6 +1210,45 @@ async function checkRole(run, role, key) {
         P.push(`presenter.mjs check says rewrite${errs.length ? `: ${errs.length} error(s), first: ${errs[0].beat ? errs[0].beat + " " : ""}${errs[0].code}: ${errs[0].message}${errs[0].fix ? " (fix: " + errs[0].fix + ")" : ""}` : " (run it and fix what it names)"}`);
       } else if (r.status !== 0) P.push(`presenter.mjs check could not read the plan: ${(r.stderr || r.stdout || "").trim().split("\n")[0]}`);
       else if (j && Array.isArray(j.findings)) for (const w of j.findings.filter((x) => x.level !== "error").slice(0, 5)) W.push(`${w.beat ? w.beat + " " : ""}${w.code}: ${w.message}`);
+      break;
+    }
+    case "move-inventor": {
+      if (!key || !MOVE_LABELS.includes(key)) { P.push("move-inventor needs --key Sure|Bold|Wild"); break; }
+      const f = R(run, "story", `moves-${key}.json`), m = jsonMaybe(f);
+      if (m === null) { P.push(`story/moves-${key}.json is missing`); break; }
+      if (m === undefined) { P.push(`story/moves-${key}.json is not valid JSON`); break; }
+      const pitch = jsonMaybe(R(run, "story", `pitch-${key}.json`));
+      if (!pitch) { P.push(`story/pitch-${key}.json is ${pitch === undefined ? "not valid JSON" : "missing"}: the moves are checked against its beats`); break; }
+      const pf = productFirst(run, jsonMaybe(R(run, "crew", "plan.json")) || {});
+      const r = validateMoves(m, { beats: pitch.beats, productFirst: pf, uiLabels: pitch.ui_labels, productName: pitch.product || pitch.product_name, pack: jsonMaybe(R(run, "story", `moves-pack-${key}.json`)) || null });
+      P.push(...r.errors); W.push(...r.warnings);
+      break;
+    }
+    case "move-juror": {
+      const f = R(run, "story", "moves-verdict.json"), v = jsonMaybe(f);
+      if (v === null) { P.push("story/moves-verdict.json is missing"); break; }
+      if (v === undefined) { P.push("story/moves-verdict.json is not valid JSON"); break; }
+      const by = {};
+      for (const l of MOVE_LABELS) {
+        const m = jsonMaybe(R(run, "story", `moves-${l}.json`));
+        if (m && typeof m === "object") by[l] = m; else P.push(`story/moves-${l}.json is ${m === undefined ? "not valid JSON" : "missing"}`);
+      }
+      const r = validateVerdict(v, by);
+      P.push(...r.errors); W.push(...r.warnings);
+      break;
+    }
+    case "move-sketcher": {
+      if (!key || !MOVE_LABELS.includes(key)) { P.push("move-sketcher needs --key Sure|Bold|Wild"); break; }
+      const vd = jsonMaybe(R(run, "story", "moves-verdict.json")), mv = jsonMaybe(R(run, "story", `moves-${key}.json`));
+      const hero = (vd && vd.pitches && vd.pitches[key] && vd.pitches[key].hero) || (mv && Array.isArray(mv.heroes) && mv.heroes[0]);
+      if (!hero) { P.push("no hero move for this script: story/moves-verdict.json (or the moves file's heroes) names none"); break; }
+      const dir = R(run, "story", "moves", `${key}-${hero}`);
+      const r = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "moves.mjs"), "check-rough", "--dir", dir], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" } });
+      let j = null;
+      try { j = JSON.parse(r.stdout); } catch {}
+      if (r.status === 2 && j) P.push(...(j.errors || []).map((e) => `${key}-${hero}: ${e}`));
+      else if (r.status !== 0 || !j) P.push(`moves.mjs check-rough could not run: ${(r.stderr || r.stdout || "").trim().split("\n")[0]}`);
+      else W.push(...(j.warnings || []));
       break;
     }
     case "script-editor": {

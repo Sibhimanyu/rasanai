@@ -1,0 +1,12 @@
+[
+  {
+    "id": "match-cut-next",
+    "cliche": "Match cut to the next scene",
+    "instead": "name the object that crosses the cut"
+  },
+  {
+    "id": "logo-particles",
+    "cliche": "Logo assembles from particles",
+    "instead": "the logo is the carrier's last state"
+  }
+]

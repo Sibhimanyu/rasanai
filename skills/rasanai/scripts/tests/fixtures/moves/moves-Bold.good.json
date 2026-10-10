@@ -1,0 +1,529 @@
+{
+  "label": "Bold",
+  "thesis": "This film is about approval arriving by itself; its one image is a status dot that grows into the button that fills it.",
+  "one_image": "an orange dot",
+  "atoms": [
+    {
+      "atom": "the status dot",
+      "kind": "shape",
+      "from": "beat 1 visual"
+    },
+    {
+      "atom": "New expense",
+      "kind": "ui",
+      "from": "beat 1 visual"
+    },
+    {
+      "atom": "Your expenses",
+      "kind": "name",
+      "from": "beat 1 on_screen"
+    },
+    {
+      "atom": "pending",
+      "kind": "noun",
+      "from": "beat 2 visual"
+    },
+    {
+      "atom": "Approve",
+      "kind": "ui",
+      "from": "beat 3 visual"
+    },
+    {
+      "atom": "the cursor",
+      "kind": "ui",
+      "from": "beat 3 visual"
+    },
+    {
+      "atom": "green",
+      "kind": "noun",
+      "from": "beat 3 visual"
+    },
+    {
+      "atom": "Paid",
+      "kind": "ui",
+      "from": "beat 4 on_screen"
+    },
+    {
+      "atom": "the Tally mark",
+      "kind": "brand",
+      "from": "beat 4 visual"
+    },
+    {
+      "atom": "tap",
+      "kind": "verb",
+      "from": "beat 3 on_screen"
+    }
+  ],
+  "mining": [
+    {
+      "atom": "status dot",
+      "looks_like": [
+        "a circle"
+      ],
+      "has_parts": [
+        "a face"
+      ],
+      "does": [
+        "fills"
+      ],
+      "means": [
+        "done"
+      ],
+      "opposite": [
+        "empty"
+      ],
+      "scale": [
+        "button"
+      ]
+    },
+    {
+      "atom": "New expense",
+      "looks_like": [
+        "a circle"
+      ],
+      "has_parts": [
+        "a face"
+      ],
+      "does": [
+        "fills"
+      ],
+      "means": [
+        "done"
+      ],
+      "opposite": [
+        "empty"
+      ],
+      "scale": [
+        "button"
+      ]
+    },
+    {
+      "atom": "Approve",
+      "looks_like": [
+        "a circle"
+      ],
+      "has_parts": [
+        "a face"
+      ],
+      "does": [
+        "fills"
+      ],
+      "means": [
+        "done"
+      ],
+      "opposite": [
+        "empty"
+      ],
+      "scale": [
+        "button"
+      ]
+    },
+    {
+      "atom": "cursor",
+      "looks_like": [
+        "a circle"
+      ],
+      "has_parts": [
+        "a face"
+      ],
+      "does": [
+        "fills"
+      ],
+      "means": [
+        "done"
+      ],
+      "opposite": [
+        "empty"
+      ],
+      "scale": [
+        "button"
+      ]
+    },
+    {
+      "atom": "Paid",
+      "looks_like": [
+        "a circle"
+      ],
+      "has_parts": [
+        "a face"
+      ],
+      "does": [
+        "fills"
+      ],
+      "means": [
+        "done"
+      ],
+      "opposite": [
+        "empty"
+      ],
+      "scale": [
+        "button"
+      ]
+    }
+  ],
+  "bridges": [
+    {
+      "from": 1,
+      "to": 2,
+      "shared": "shape",
+      "what": "the status dot stays at the row's left edge"
+    },
+    {
+      "from": 2,
+      "to": 3,
+      "shared": "part",
+      "what": "the dot becomes the Approve button's cap"
+    },
+    {
+      "from": 3,
+      "to": 4,
+      "shared": "vector",
+      "what": "the cursor's rightward drag carries into the Paid column"
+    }
+  ],
+  "carrier": {
+    "what": "an orange dot",
+    "short": "an orange status dot",
+    "why": "status is a dot in every expense list, so the real UI already contains the carrier",
+    "beats": [
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "obvious": [
+    "Match cut to the next scene",
+    "Logo assembles from particles",
+    "Phone floats and rotates in a void"
+  ],
+  "candidates": [
+    {
+      "title": "Candidate idea 1: dot turns into the button",
+      "origin": "the status dot"
+    },
+    {
+      "title": "Candidate idea 2: label turns into the headline",
+      "origin": "New expense"
+    },
+    {
+      "title": "Candidate idea 3: cursor turns into the column",
+      "origin": "the cursor"
+    },
+    {
+      "title": "Candidate idea 4: badge turns into the counter",
+      "origin": "Paid"
+    },
+    {
+      "title": "Candidate idea 5: row turns into the button",
+      "origin": "Approve"
+    },
+    {
+      "title": "Candidate idea 6: mark turns into the headline",
+      "origin": "the Tally mark"
+    },
+    {
+      "title": "Candidate idea 7: dot turns into the column",
+      "origin": "the status dot"
+    },
+    {
+      "title": "Candidate idea 8: label turns into the counter",
+      "origin": "New expense"
+    },
+    {
+      "title": "Candidate idea 9: cursor turns into the button",
+      "origin": "the cursor"
+    },
+    {
+      "title": "Candidate idea 10: badge turns into the headline",
+      "origin": "Paid"
+    },
+    {
+      "title": "Candidate idea 11: row turns into the column",
+      "origin": "Approve"
+    },
+    {
+      "title": "Candidate idea 12: mark turns into the counter",
+      "origin": "the Tally mark"
+    },
+    {
+      "title": "Candidate idea 13: dot turns into the button",
+      "origin": "the status dot"
+    },
+    {
+      "title": "Candidate idea 14: label turns into the headline",
+      "origin": "New expense"
+    },
+    {
+      "title": "Candidate idea 15: cursor turns into the column",
+      "origin": "the cursor"
+    },
+    {
+      "title": "Candidate idea 16: badge turns into the counter",
+      "origin": "Paid"
+    },
+    {
+      "title": "Candidate idea 17: row turns into the button",
+      "origin": "Approve"
+    },
+    {
+      "title": "Candidate idea 18: mark turns into the headline",
+      "origin": "the Tally mark"
+    },
+    {
+      "title": "Candidate idea 19: dot turns into the column",
+      "origin": "the status dot"
+    },
+    {
+      "title": "Candidate idea 20: label turns into the counter",
+      "origin": "New expense"
+    },
+    {
+      "title": "Candidate idea 21: cursor turns into the button",
+      "origin": "the cursor"
+    },
+    {
+      "title": "Candidate idea 22: badge turns into the headline",
+      "origin": "Paid"
+    }
+  ],
+  "bolder": [
+    {
+      "was": "candidate 1",
+      "now": "candidate 1 at twice the scale and with the cursor in it",
+      "changed": "bigger carrier, the cursor now causes it"
+    },
+    {
+      "was": "candidate 2",
+      "now": "candidate 2 at twice the scale and with the cursor in it",
+      "changed": "bigger carrier, the cursor now causes it"
+    },
+    {
+      "was": "candidate 3",
+      "now": "candidate 3 at twice the scale and with the cursor in it",
+      "changed": "bigger carrier, the cursor now causes it"
+    },
+    {
+      "was": "candidate 4",
+      "now": "candidate 4 at twice the scale and with the cursor in it",
+      "changed": "bigger carrier, the cursor now causes it"
+    },
+    {
+      "was": "candidate 5",
+      "now": "candidate 5 at twice the scale and with the cursor in it",
+      "changed": "bigger carrier, the cursor now causes it"
+    },
+    {
+      "was": "candidate 6",
+      "now": "candidate 6 at twice the scale and with the cursor in it",
+      "changed": "bigger carrier, the cursor now causes it"
+    },
+    {
+      "was": "candidate 7",
+      "now": "candidate 7 at twice the scale and with the cursor in it",
+      "changed": "bigger carrier, the cursor now causes it"
+    },
+    {
+      "was": "candidate 8",
+      "now": "candidate 8 at twice the scale and with the cursor in it",
+      "changed": "bigger carrier, the cursor now causes it"
+    }
+  ],
+  "cards": [
+    {
+      "id": "m1",
+      "title": "The dot swells into Approve",
+      "beat": 2,
+      "seam": "2>3",
+      "generator": "G3",
+      "origin": "the status dot beside the 'Approve' label",
+      "frame_a": "a small grey dot at the row's left edge",
+      "move": "0-0.6 s the dot fills orange; 0.6-1.4 s it grows until it is the Approve button's rounded face; 1.4-2.2 s the label types itself onto the face",
+      "plain": "The status dot fills orange and becomes the Approve button.",
+      "frame_b": "the full-width orange Approve button",
+      "bridge": "at 1.4 s the orange circle is both the status dot and the button's left cap",
+      "handoff": "the orange colour, the left position and the rounded silhouette",
+      "says": "approval is the dot finishing its job",
+      "setup": "none needed: the dot is on screen from the first frame",
+      "precedent": "a status dot filling, but here the dot becomes the button",
+      "build": {
+        "route": "scale-anchor",
+        "layers": "dot, button, row",
+        "risk": "the scale must stay crisp",
+        "simplest": "a CSS circle scaled by GSAP"
+      },
+      "duration_s": 2.4
+    },
+    {
+      "id": "m2",
+      "title": "Cursor drags the row to Paid",
+      "beat": 3,
+      "seam": "3>4",
+      "generator": "G7",
+      "origin": "the cursor on the 'Paid' column",
+      "frame_a": "the cursor over the Approve button",
+      "move": "0-0.5 s the cursor clicks; 0.5-1.6 s it drags the approved row right while the row's green fill follows it; 1.6-2.4 s the row lands in the Paid column and stops",
+      "plain": "The cursor drags the approved row across into the Paid column.",
+      "frame_b": "the row sitting in the Paid column",
+      "bridge": "at 1.6 s the cursor tip is both on the button's edge and on the Paid column's edge",
+      "handoff": "the cursor position and its right-moving vector",
+      "says": "approved money moves",
+      "setup": "none needed: the dot is on screen from the first frame",
+      "precedent": "a status dot filling, but here the dot becomes the button",
+      "build": {
+        "route": "scale-anchor",
+        "layers": "dot, button, row",
+        "risk": "the scale must stay crisp",
+        "simplest": "a CSS circle scaled by GSAP"
+      },
+      "duration_s": 2.4
+    },
+    {
+      "id": "m3",
+      "title": "Row label becomes the headline",
+      "beat": 1,
+      "seam": "1>2",
+      "generator": "G1",
+      "origin": "the 'New expense' label on the first screen",
+      "frame_a": "the small New expense label in the toolbar",
+      "move": "0-0.8 s the label's N letter scales up while the other letters fade; 0.8-1.8 s the N rotates into a tall bar that the headline text slides out of",
+      "plain": "The form becomes the problem it creates",
+      "frame_b": "the headline 'Waiting on approval' beside the bar",
+      "bridge": "at 0.8 s the N is a toolbar letter and a headline bar at once",
+      "handoff": "the bar's position and height",
+      "says": "the form becomes the problem it creates",
+      "setup": "none needed: the dot is on screen from the first frame",
+      "precedent": "a status dot filling, but here the dot becomes the button",
+      "build": {
+        "route": "scale-anchor",
+        "layers": "dot, button, row",
+        "risk": "the scale must stay crisp",
+        "simplest": "a CSS circle scaled by GSAP"
+      },
+      "duration_s": 2
+    },
+    {
+      "id": "m4",
+      "title": "Tally mark rolls into the dot",
+      "beat": 4,
+      "seam": "4>4",
+      "generator": "G5",
+      "origin": "the Tally brand mark in the end card",
+      "frame_a": "the brand mark at the end",
+      "move": "0-0.7 s the mark's round counter detaches and rolls left; 0.7-1.5 s it settles as the status dot of the first beat's list; 1.5-2.5 s the page loops to beat one",
+      "plain": "The end is the beginning, paid",
+      "frame_b": "the opening list with its dot",
+      "bridge": "at 1.5 s the mark's counter is the first beat's dot",
+      "handoff": "the circle's size and colour",
+      "says": "the end is the beginning, paid",
+      "setup": "none needed: the dot is on screen from the first frame",
+      "precedent": "a status dot filling, but here the dot becomes the button",
+      "build": {
+        "route": "scale-anchor",
+        "layers": "dot, button, row",
+        "risk": "the scale must stay crisp",
+        "simplest": "a CSS circle scaled by GSAP"
+      },
+      "duration_s": 2.5
+    },
+    {
+      "id": "m5",
+      "title": "Pending stamp falls out of frame",
+      "beat": 2,
+      "generator": "G9",
+      "origin": "the pending badge on the stuck row",
+      "frame_a": "the pending badge on the row",
+      "move": "0-0.5 s the badge wobbles; 0.5-1.2 s it falls off the bottom of the frame with gravity easing",
+      "plain": "Waiting ends",
+      "frame_b": "an empty row",
+      "bridge": "at 0.5 s the badge hangs half off the row and half in the air",
+      "handoff": "the row's empty slot",
+      "says": "waiting ends",
+      "setup": "none needed: the dot is on screen from the first frame",
+      "precedent": "a status dot filling, but here the dot becomes the button",
+      "build": {
+        "route": "scale-anchor",
+        "layers": "dot, button, row",
+        "risk": "the scale must stay crisp",
+        "simplest": "a CSS circle scaled by GSAP"
+      },
+      "duration_s": 1.6
+    },
+    {
+      "id": "m6",
+      "title": "Paid badge counts up",
+      "beat": 4,
+      "generator": "G11",
+      "origin": "the 'Paid' badge",
+      "frame_a": "an empty badge",
+      "move": "0-1 s the badge draws on its outline; 1-2 s the amount counts from 0 to 480 inside it",
+      "plain": "The money arrived",
+      "frame_b": "the Paid badge showing the amount",
+      "bridge": "at 1 s the outline closes as the counter starts",
+      "handoff": "the badge's centre",
+      "says": "the money arrived",
+      "setup": "none needed: the dot is on screen from the first frame",
+      "precedent": "a status dot filling, but here the dot becomes the button",
+      "build": {
+        "route": "scale-anchor",
+        "layers": "dot, button, row",
+        "risk": "the scale must stay crisp",
+        "simplest": "a CSS circle scaled by GSAP"
+      },
+      "duration_s": 2
+    }
+  ],
+  "ledger": [
+    {
+      "beat": 1,
+      "t0": 0,
+      "t1": 3,
+      "carrier_state": "a small grey dot in the toolbar row",
+      "change": "dot -> label bar",
+      "constant": "left edge position and the bar height",
+      "bridge": "the N bar is a letter and a headline bar",
+      "move": "m3"
+    },
+    {
+      "beat": 2,
+      "t0": 3,
+      "t1": 7,
+      "carrier_state": "the dot fills orange",
+      "change": "dot -> Approve cap",
+      "constant": "orange colour and left position",
+      "bridge": "the orange circle is the dot and the button cap",
+      "move": "m1"
+    },
+    {
+      "beat": 3,
+      "t0": 7,
+      "t1": 12,
+      "carrier_state": "the orange button",
+      "change": "button -> dragged row",
+      "constant": "cursor position and rightward vector",
+      "bridge": "the cursor tip is on the button edge and the column edge",
+      "move": "m2"
+    },
+    {
+      "beat": 4,
+      "t0": 12,
+      "t1": 16,
+      "carrier_state": "the brand mark's counter",
+      "change": "mark -> dot",
+      "constant": "circle size and colour",
+      "bridge": "end",
+      "move": "m4"
+    }
+  ],
+  "heroes": [
+    "m1",
+    "m2"
+  ],
+  "personality": "m5",
+  "rhyme": "the brand mark's counter rolls back into the first beat's dot",
+  "seed": {
+    "stimulus": "a sundial",
+    "used": false,
+    "how": "none"
+  }
+}

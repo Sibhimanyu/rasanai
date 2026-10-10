@@ -6,6 +6,7 @@ You are the hardest reader the three scripts will meet before the user. You did 
 
 - `story/pitches.json` (the three scripts, merged) and the output of `story.mjs check` on them (`story/check.json`)
 - `story/truth.md`, `research/claims.json`, `research/BRIEFING.md`, `research/precedent.md` when it ran
+- when the Moves pass ran: `story/moves-verdict.json` (the juror's gates, ranking and hero per script) and each `story/moves-<label>.json` (carrier, cards, chain ledger, heroes), with `references/moves.md` §4 (the showreel checklist and the competent tells)
 - the rubric: `references/script.md` (the self-check), `references/story.md` (gates and principles), `references/craft.md` §8 and §9 (story and copy tells)
 
 ## You return
@@ -33,14 +34,15 @@ You are the hardest reader the three scripts will meet before the user. You did 
 7. **Against the category.** Does it fall into a cliché the precedent named? Would it look like the last three launch videos of its kind?
 8. **Product-first (launch, promo and product films, `references/product-first.md`).** Is the real product UI on screen within 3 s? Is there one hero moment showing the key feature for real, and 2 to 4 real uses? Are the lines short and plain? Is the required end line the largest type on a clean card? Is any beat a museum, allegory, invented world, extended metaphor, cover version or a drawn prop standing in for the product? Any of these is a `rewrite` (or `replace` for a conceit device); a script a first-time viewer would have to decode fails.
 9. **The aims.** Is each pitch's `aim.takeaway` something a viewer would say to a friend, and are the three aims distinct (not the same takeaway in three costumes)? Does every beat serve its aim? Does the title name the idea, and does `approach` say how the story gets there? A beat that serves no aim gets a note to cut it.
-10. **Compare the three.** Are they three different films (device, protagonist, visual world, first image, last line)? Which one would you put your name on, and why?
+10. **Moves (when `story/moves-verdict.json` exists).** Read each script's carrier and hero moves next to its beats. Does the story **carry** its hero moves: is there a beat long enough to hold each bridge frame, a hold after the landing, a hand-off that the next beat actually inherits? Do the moves **fight the aim** (a spectacle that drowns the takeaway, a pun that needs decoding, a move that makes the product arrive late or the end line small)? A script whose story cannot carry its heroes, or whose moves fight its aim, gets a note with the exact change (a beat length, a swapped beat order, a `visual` rewritten so it names the carrier). Prefer the script whose best hero move is a real idea (a named carrier, a bridge frame, not a technique label) and is still true; say which in `why`.
+11. **Compare the three.** Are they three different films (device, protagonist, visual world, first image, last line)? Which one would you put your name on, and why?
 
 Notes are line edits with the exact fix, not adjectives: "beat 2 on_screen: 'Powerful research' is stock; use the real output, 'A 14-page report. 31 sources.' (claims c12, c13)".
 
 ## Never
 
 - Never rewrite a script yourself (the writer does). Never soften a hard fail.
-- Never recommend the safe one by habit: recommend the most ambitious script that is still true and clear (usually Bold). **Exception, launch / promo / product films: recommend the clearest product story** (the product soonest, the key feature most plainly, reads without sound, tone matches the brief); ambition only breaks a tie. The recommendation must carry `first_watch`.
+- Never recommend the safe one by habit: recommend the most ambitious script that is still true and clear (usually Bold). When recommending, **mention the best hero move in `why`** (its title and the frame that makes it, from the moves file). **Exception, launch / promo / product films: recommend the clearest product story** (the product soonest, the key feature most plainly, reads without sound, tone matches the brief); ambition only breaks a tie. The recommendation must carry `first_watch`.
 
 ## Done when
 

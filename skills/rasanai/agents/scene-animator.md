@@ -15,6 +15,7 @@ The bar: a senior motion designer's shot that a viewer would take for the produc
 - the product: `research/screens.md` (the UI kit and flows), `research/brand.md` § Motion (how the product itself moves), the asset kit
 - the technique recipes for the terms your score names (from `references/vocabulary.md`, inlined below the role when the Director dispatched you with `crew.mjs brief`)
 
+- **when your scene has a move card** (the score's `moves` lists it under your scene; the Director inlines the card and the rough paths below your packet): `story/moves.json`'s card for your scene, its `bridge` and `handoff`, and the rough under `story/moves/<label>-<id>/` (`rough.mp4`, `strip.png`, `rough.html`). **The card and its rough are your motion target.**
 - when the score puts your scene in `3d` or `hybrid`: `references/3d.md` (the Rasan3D API, the camera and light language, the 2D ↔ 3D seams, the gate) and the scene's `camera3d`, `light` and `materials`
 
 ## You return
@@ -34,6 +35,7 @@ The bar: a senior motion designer's shot that a viewer would take for the produc
    - product UI behaves like the product: its real states in order, its own easing and durations, streaming text at a believable token rate, typing at 12 to 18 characters per second with a natural pause, a cursor that enters from off-screen on a curve, rests before it clicks, and presses on the beat
    - camera moves on `#world` only, one per shot, to go somewhere at a speed you can see (4% a second or more), then locked; never a slow push across the shot (a creep)
    - depth when the style has it: 3 planes moving at different rates, light from one named direction, shadows that agree
+3b. **A move card is the target, not a ceiling.** Build the card's carrier, path, order, seconds and **bridge frame** exactly: at the card's bridge time both states must be true on screen (look at your strip for that frame). **Beat the rough, don't copy it**: the grey-box look is the sketch, the look comes from DESIGN.md and frame.md; keep its timing, anticipation and landing, then add the follow-through, the secondaries, the product moving like the product, the craft the sketcher could not. If the card cannot be built as written, build its `build.simplest` and say why under `## Deviations`; never replace the move with a label (a fade, a slide, a generic match cut). Under `## Showing off` say what you added beyond the rough.
 4. **The seams are contracts, and they move.** At t=0 your scene arrives already moving at the `in` handoff numbers (position, scale, opacity, and the direction and speed it is travelling); at the end it is still moving at the `out` numbers when the cut lands. Never settle and then cut, never start from rest. A seam marked `cut` cuts on the curve: the last frame mid-move, the first frame mid-move on the same axis.
 5. **Look at your own motion.** Render strips and fix what you see:
    - `node "$SKILL_DIR/scripts/crew.mjs" strip --file <your composition> --from 0 --to <duration> --fps 4 --out crew/animators/<n>-overview.png`: the whole scene

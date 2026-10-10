@@ -1,0 +1,452 @@
+[
+  {
+    "id": "tiago-eye",
+    "piece": "Tiago intro (the user's reference clip: 'Your' / 'Creative')",
+    "studio": "independent designer (reference film)",
+    "year": 2024,
+    "move": "The 'o' of 'Your' fills orange and grows a pupil; 'Y' and 'u' scatter as the small eye is thrown up with motion blur; a giant almond eye rises and its pupil lands exactly where the small pupil was heading; the round pupil narrows to a cat slit; 'Creative' slides out from behind the slit; the eye-white scales past the frame and becomes the next page. One circle through letter, dot, pupil, eye, page.",
+    "steal": "One carrier. A bridge frame at the pupil landing (both pupils true in one frame). Mask-from-content (the slit is the door). A personality beat (the slit) that costs 0.4 s. The container becomes the next scene.",
+    "generators": [
+      "G1",
+      "G2",
+      "G3",
+      "G4",
+      "G5",
+      "G6",
+      "G7",
+      "G15",
+      "G19",
+      "G20"
+    ],
+    "verified": true
+  },
+  {
+    "id": "vertigo-spiral",
+    "piece": "Vertigo titles",
+    "studio": "Saul Bass with John Whitney",
+    "year": 1958,
+    "move": "Close-ups of a woman's eyes; Lissajous spirals radiate out of the pupil and fill the frame.",
+    "steal": "The eye as the origin of the motif; a mathematical figure as the motion generator.",
+    "generators": [
+      "G2",
+      "G6"
+    ],
+    "verified": true
+  },
+  {
+    "id": "anatomy-murder",
+    "piece": "Anatomy of a Murder titles",
+    "studio": "Saul Bass",
+    "year": 1959,
+    "move": "A jointed cut-out body silhouette is animated piece by piece with kinetic type, the dismembering mirroring the investigation.",
+    "steal": "One symbol, animated as the plot.",
+    "generators": [
+      "G15",
+      "G12"
+    ],
+    "verified": true
+  },
+  {
+    "id": "psycho-drain",
+    "piece": "Psycho shower scene",
+    "studio": "Alfred Hitchcock (title design Saul Bass)",
+    "year": 1960,
+    "move": "The spiralling drain dissolves to an extreme close-up of an eye, the spiral turning into the iris.",
+    "steal": "A spiral-to-eye shape rhyme that carries meaning (life draining).",
+    "generators": [
+      "G2",
+      "G20"
+    ],
+    "verified": true
+  },
+  {
+    "id": "bone-satellite",
+    "piece": "2001 bone to satellite",
+    "studio": "Stanley Kubrick",
+    "year": 1968,
+    "move": "A bone is tossed up and the cut lands mid-rotation on a satellite in the same screen position and on the same trajectory.",
+    "steal": "Cut on mid-action; same position and trajectory; a semantic jump of a million years.",
+    "generators": [
+      "G2",
+      "G4"
+    ],
+    "verified": true
+  },
+  {
+    "id": "lawrence-match",
+    "piece": "Lawrence of Arabia match cut",
+    "studio": "David Lean",
+    "year": 1962,
+    "move": "A blown-out match flame cuts to a desert sunrise on a hard cut, matched by colour and the glow.",
+    "steal": "A small-to-cosmic semantic jump held by colour.",
+    "generators": [
+      "G2",
+      "G3"
+    ],
+    "verified": true
+  },
+  {
+    "id": "strangelove-titles",
+    "piece": "Dr. Strangelove titles",
+    "studio": "Pablo Ferro",
+    "year": 1964,
+    "move": "B-52 refuelling footage under thin, tall hand-lettered credits, one giant 'A' dwarfing the rest, cut to 'Try a Little Tenderness'.",
+    "steal": "Found imagery re-read as metaphor; scale contrast as emphasis; a problem (legibility) becomes the style.",
+    "generators": [
+      "G12",
+      "G20"
+    ],
+    "verified": true
+  },
+  {
+    "id": "thomas-crown",
+    "piece": "The Thomas Crown Affair split screen",
+    "studio": "Pablo Ferro",
+    "year": 1968,
+    "move": "A six-minute polo sequence compressed to about 40 s across many simultaneous frames.",
+    "steal": "Simultaneity as compression.",
+    "generators": [
+      "G14",
+      "G19"
+    ],
+    "verified": true
+  },
+  {
+    "id": "pink-panther",
+    "piece": "The Pink Panther titles",
+    "studio": "DePatie-Freleng, Hawley Pratt",
+    "year": 1964,
+    "move": "The Panther emerges from the flaw in a gem and scampers through the credits as if they were a playground.",
+    "steal": "A character treats the credits as a stage; the personality beat.",
+    "generators": [
+      "G7",
+      "G11"
+    ],
+    "verified": true
+  },
+  {
+    "id": "se7en-titles",
+    "piece": "Se7en titles",
+    "studio": "Kyle Cooper, Angus Wall (Prologue)",
+    "year": 1995,
+    "move": "Scratchboard type with film-transfer jitter, tabletop notebooks, razor blades and hair, assembled by hand 'like the killer did the film opticals himself'.",
+    "steal": "Artefact as author: decide who makes the film and what they would physically do.",
+    "generators": [
+      "G16"
+    ],
+    "verified": true
+  },
+  {
+    "id": "catch-me-stamps",
+    "piece": "Catch Me If You Can titles",
+    "studio": "Kuntzel+Deygas",
+    "year": 2002,
+    "move": "Hand-carved rubber stamp silhouettes and 1960s jet-set flat shapes; colour shifts signal changes of place and time.",
+    "steal": "The protagonist's technique as the animation technique; colour as location.",
+    "generators": [
+      "G16",
+      "G13"
+    ],
+    "verified": true
+  },
+  {
+    "id": "napoleon-objects",
+    "piece": "Napoleon Dynamite titles",
+    "studio": "Aaron Ruell",
+    "year": 2004,
+    "move": "A Trapper Keeper, food and school supplies arranged on bright backgrounds with a handwritten title card per object.",
+    "steal": "Objects as characterisation; cheap, specific and a bit funny.",
+    "generators": [
+      "G10",
+      "G16"
+    ],
+    "verified": true
+  },
+  {
+    "id": "kkbb-pulp",
+    "piece": "Kiss Kiss Bang Bang titles",
+    "studio": "Danny Yount (Prologue)",
+    "year": 2005,
+    "move": "Bass-like graphic gestures in black, rust red and off-white that quote 1960s pulp crime paperbacks.",
+    "steal": "Animate as the artefact genre found inside the script.",
+    "generators": [
+      "G16"
+    ],
+    "verified": true
+  },
+  {
+    "id": "lord-of-war",
+    "piece": "Lord of War titles",
+    "studio": "Imaginary Forces, Yann Blondel",
+    "year": 2005,
+    "move": "A single bullet's point of view through factory, conveyor, crate, ship, rifle magazine and a child.",
+    "steal": "Object-as-protagonist POV; the path is the structure.",
+    "generators": [
+      "G8",
+      "G11",
+      "G14"
+    ],
+    "verified": true
+  },
+  {
+    "id": "stranger-fiction",
+    "piece": "Stranger Than Fiction titles",
+    "studio": "MK12",
+    "year": 2006,
+    "move": "The protagonist's daily routine broken into metrics, diagrams and callouts over real footage.",
+    "steal": "Graphics that visualise a mind's rules; situational type.",
+    "generators": [
+      "G10",
+      "G16"
+    ],
+    "verified": true
+  },
+  {
+    "id": "juno-tree",
+    "piece": "Juno titles",
+    "studio": "Shadowplay (Smith & Lee)",
+    "year": 2007,
+    "move": "Hand-cut Xerox paper-doll animation at 8 to 12 fps; Juno walks behind a tree and the world switches from live action to illustration on the far side.",
+    "steal": "Shoot the seam-hider; a stepped frame rate and a three-colour palette as the style.",
+    "generators": [
+      "G4",
+      "G13"
+    ],
+    "verified": true
+  },
+  {
+    "id": "casino-royale",
+    "piece": "Casino Royale titles",
+    "studio": "Daniel Kleinman",
+    "year": 2006,
+    "move": "Playing-card shapes and silhouettes form the combat sequences.",
+    "steal": "A game-symbol vocabulary as the action grammar. Not frame-verified.",
+    "generators": [
+      "G6",
+      "G16"
+    ],
+    "verified": false
+  },
+  {
+    "id": "dexter-macro",
+    "piece": "Dexter titles",
+    "studio": "Digital Kitchen, Eric Anderson",
+    "year": 2006,
+    "move": "Macro shots of shaving, breakfast and a shoelace read as violence through close framing and cut to counterpoint music; no gore.",
+    "steal": "Reread the mundane through a lens (crime-scene photography).",
+    "generators": [
+      "G12",
+      "G20"
+    ],
+    "verified": true
+  },
+  {
+    "id": "mad-men-fall",
+    "piece": "Mad Men titles",
+    "studio": "Imaginary Forces (Mark Gardner, Steve Fuller)",
+    "year": 2007,
+    "move": "A silhouette enters an office, the office dissolves, the figure falls past advertising billboards on graph-paper towers.",
+    "steal": "Diverge widely, keep one falling idea; advertising as the environment.",
+    "generators": [
+      "G3",
+      "G20"
+    ],
+    "verified": true
+  },
+  {
+    "id": "got-map",
+    "piece": "Game of Thrones titles",
+    "studio": "Elastic (Angus Wall et al.)",
+    "year": 2011,
+    "move": "The world as a clockwork astrolabe map, gears under the terrain, a camera that is the narrator.",
+    "steal": "Ask what physical object the world would be; the camera as narrator.",
+    "generators": [
+      "G8",
+      "G9",
+      "G16"
+    ],
+    "verified": true
+  },
+  {
+    "id": "true-detective",
+    "piece": "True Detective titles",
+    "studio": "Patrick Clair, Antibody/Elastic",
+    "year": 2014,
+    "move": "Double-exposed figures as windows into Louisiana landscapes; footage slowed to 10 to 20 percent so interpolation artefacts become a living photograph.",
+    "steal": "A thesis sentence made literal; a technical constraint turned into the style.",
+    "generators": [
+      "G6",
+      "G20"
+    ],
+    "verified": true
+  },
+  {
+    "id": "panic-room",
+    "piece": "Panic Room titles",
+    "studio": "Picture Mill / ComputerCafe",
+    "year": 2002,
+    "move": "Credits as giant 3D lettering integrated into Manhattan architecture, seen from a flying camera.",
+    "steal": "Type as architecture in the scene.",
+    "generators": [
+      "G3",
+      "G8"
+    ],
+    "verified": true
+  },
+  {
+    "id": "buck-metamorphosis",
+    "piece": "Good Books 'Metamorphosis'",
+    "studio": "Buck",
+    "year": 2012,
+    "move": "A chain of morphs; the book to flowers was the rare 3D morph, the others pencil-tested and finished in 2D.",
+    "steal": "Morph chains with planned in-betweens and a hand-tested rough.",
+    "generators": [
+      "G15"
+    ],
+    "verified": true
+  },
+  {
+    "id": "google-dots",
+    "piece": "Google identity dots",
+    "studio": "Google Creative Lab, Jonathan Jarvis",
+    "year": 2015,
+    "move": "Four dots perform listening, thinking, replying, incomprehension and confirmation on geometric arcs with snappy easing.",
+    "steal": "Give a mark verbs and a failure state; one charming moment.",
+    "generators": [
+      "G7",
+      "G18"
+    ],
+    "verified": true
+  },
+  {
+    "id": "stack-flavien",
+    "piece": "Stack",
+    "studio": "Kimathi Flavien",
+    "year": 2025,
+    "move": "Match cuts between 2D and 3D shapes with a 200 mm lens flattening; a metronome sets the cut rhythm and is deliberately broken.",
+    "steal": "A limited asset set plus rhythm design; planned irregularity.",
+    "generators": [
+      "G2",
+      "G18"
+    ],
+    "verified": true
+  },
+  {
+    "id": "motionographer-flow",
+    "piece": "Motionographer 2025 year-in-film",
+    "studio": "Motionographer",
+    "year": 2025,
+    "move": "More than 50 films reviewed frame by frame and grouped by horizontal, vertical or transitional movement so each film flows into the next.",
+    "steal": "Motion vector as the join.",
+    "generators": [
+      "G14",
+      "G4"
+    ],
+    "verified": true
+  },
+  {
+    "id": "airbnb-belo",
+    "piece": "Airbnb Belo explainer",
+    "studio": "Airbnb",
+    "year": 2014,
+    "move": "Four abstract shapes pulse, orbit and converge into the logo as a metaphor for belonging.",
+    "steal": "Assembly as meaning.",
+    "generators": [
+      "G19",
+      "G15"
+    ],
+    "verified": true
+  },
+  {
+    "id": "mailchimp-dia",
+    "piece": "Mailchimp identity motion",
+    "studio": "DIA",
+    "year": 2018,
+    "move": "A motion kit built from the deconstructed curves of the Freddie logo and the typeface, with a physical, springy swagger.",
+    "steal": "Derive the motion vocabulary from the brand mark's geometry.",
+    "generators": [
+      "G1",
+      "G2"
+    ],
+    "verified": true
+  },
+  {
+    "id": "ui-oner-dive",
+    "piece": "Single-take dive through a real product (launch-film grammar)",
+    "studio": "launch-film grammar, unverified",
+    "year": 2024,
+    "move": "The camera never cuts: it pushes into the active row of the real UI, the row's detail view becomes the full frame, and a back-gesture pulls out into a different list, every hand-off on a UI state change.",
+    "steal": "One continuous camera move through the real screens; each hand-off lands on a state change the product really makes.",
+    "generators": [
+      "G9",
+      "G14"
+    ],
+    "verified": false
+  },
+  {
+    "id": "ui-cursor-drag",
+    "piece": "Cursor drag as the cut (launch-film grammar)",
+    "studio": "launch-film grammar, unverified",
+    "year": 2024,
+    "move": "The cursor grabs a real card, drags it across the window and releases it into another panel; the release is the cut and the next screen opens with the card already in place.",
+    "steal": "The pointer is the protagonist and the edit; the hand-off is a real product gesture.",
+    "generators": [
+      "G4",
+      "G11",
+      "G13"
+    ],
+    "verified": false
+  },
+  {
+    "id": "ui-summon-glyph",
+    "piece": "Window summoned from the menu-bar glyph (launch-film grammar)",
+    "studio": "launch-film grammar, unverified",
+    "year": 2024,
+    "move": "The product's own menu-bar glyph scales up on the shortcut press and the window grows out of it from its exact screen position, so the brand mark is literally where the product comes from.",
+    "steal": "The brand glyph as origin of the UI; scale-anchor on a fixed point.",
+    "generators": [
+      "G3",
+      "G9"
+    ],
+    "verified": false
+  },
+  {
+    "id": "ui-keystroke-cuts",
+    "piece": "Keystroke-cut edit (launch-film grammar)",
+    "studio": "launch-film grammar, unverified",
+    "year": 2024,
+    "move": "Every cut lands on a real keystroke or click sound; the shortcut keys are drawn as pressed keycaps in the corner and the UI state changes on the same frame.",
+    "steal": "Rhythm from the product's own inputs; sound and picture share one cause.",
+    "generators": [
+      "G11",
+      "G18"
+    ],
+    "verified": false
+  },
+  {
+    "id": "ui-state-morph",
+    "piece": "State-to-state morph of one component (launch-film grammar)",
+    "studio": "launch-film grammar, unverified",
+    "year": 2024,
+    "move": "One real component (a button) morphs through its real states: idle, hover, loading ring, success check, then the check is the first element of the results list.",
+    "steal": "A single component evolving through real states as the carrier chain.",
+    "generators": [
+      "G15",
+      "G2"
+    ],
+    "verified": false
+  },
+  {
+    "id": "ui-number-roll",
+    "piece": "Count-up hand-off to the real chart (launch-film grammar)",
+    "studio": "launch-film grammar, unverified",
+    "year": 2024,
+    "move": "The hero number in the real header counts up; its last digit stays while the rest becomes the first bar of the real chart below.",
+    "steal": "A number hands off to a chart on a shared edge; sourced figures only.",
+    "generators": [
+      "G10",
+      "G2"
+    ],
+    "verified": false
+  }
+]

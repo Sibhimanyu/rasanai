@@ -26,6 +26,10 @@ Product films show the real product. In order of preference:
 
 If capture fails, say so in the console (`activity`), recreate the UI and carry on: do not pivot to metaphor.
 
+## Moves in a product-first film
+
+The Moves pass (`references/moves.md`, §6) runs on these films too, with the product-first variant: the subject world is the real product (its UI surfaces, labels, data, cursor, windows, brand mark geometry); **the carrier is a real product surface or the brand glyph**; every hero card's `origin` names a real UI label, the product name, "brand", "logo" or "cursor"; no card uses a conceit word; a glyph pun resolves to the product within 1 s; and the pack's stimulus is a **choreography constraint** ("every cut lands on a UI state change"), never a metaphor. This is where showing off lives on a launch film: a cursor with a motive, one continuous camera move through the real UI, cuts on keystrokes, a component morphing through its real states. It never changes rules 1 to 7: the product is on screen within 3 s, the hero moment stays the longest and cleanest shot, and the end line stays the largest type.
+
 ## Brand film grammar and the simple story
 
 For a named brand, the look is the brand's own film grammar (`references/brand-film.md`: `brandfilm.mjs` + the brand film analyst), and the story follows the structure templates of `references/launch-film.md`. Both keep the film simple and to the point; the style-match gate (`brandfilm.mjs compare`) runs on the key frames and the first draft.

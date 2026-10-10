@@ -1,0 +1,13 @@
+<!doctype html><html><head><meta charset="utf-8"><title>fixture rough</title>
+<script src="gsap.min.js"></script>
+<style>html,body{margin:0}body{width:1280px;height:720px;background:#F1F0EC;position:relative;overflow:hidden;font-family:-apple-system,Helvetica,Arial,sans-serif;color:#1B1F2A}
+#dot{position:absolute;left:120px;top:320px;width:80px;height:80px;border-radius:50%;background:#E8833A}
+#label{position:absolute;left:640px;top:330px;font-size:56px;font-weight:700;opacity:0}</style></head>
+<body><div id="dot"></div><div id="label">Approve</div>
+<script>
+var tl = gsap.timeline({ paused: true });
+tl.to("#dot", { x: 480, scale: 3, duration: 1.4, ease: "power3.inOut" }, 0);
+tl.to("#label", { opacity: 1, duration: 0.5, ease: "power2.out" }, 1.2);
+tl.to("#dot", { x: 1000, scale: 1, duration: 0.8, ease: "power2.in" }, 1.6);
+window.__move = { tl: tl, duration: 2.4, bridge: 1.4 };
+</script></body></html>
