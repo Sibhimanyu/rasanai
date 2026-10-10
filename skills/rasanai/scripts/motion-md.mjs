@@ -55,7 +55,7 @@ ${p.builder_notes || [p.language ? `**Motion language: ${p.name}.** ${p.oneLiner
 
 - Tween durations snap to the scale ${p.tempo.scale_ms.join(" / ")} ms (±15%).
 - Eases: enter \`${p.easing.enter}\`, exit \`${p.easing.exit}\`, move/emphasis \`${p.easing.move}\`. Always write the ease explicitly; the GSAP default (power1.out) counts as a violation.
-- Stagger ≈ ${p.stagger.each_ms} ms (±15%). Hold every element at least ${p.holds.min_ms} ms between its entrance and its exit.
+- Stagger ≈ ${p.stagger.each_ms} ms (±15%). Every element stays at least ${p.holds.min_ms} ms between its entrance and its exit (reading time), and keeps moving in that time: nothing parks, no stretch of 0.8 s goes still.
 - Banned: ${p.banned.map((b) => `\`${b}\``).join(", ")} (signatures in rasanai \`references/motion-md-contract.md\`).
 - GSAP only. Registry blocks you reuse must be re-eased and re-timed to these rules.
 

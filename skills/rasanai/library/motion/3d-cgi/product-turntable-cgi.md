@@ -66,7 +66,7 @@ Rasan3D.stage({
 });
 ```
 
-- Rotation is expressed as turn-hold-turn keys; the gate sees every ease. Declare nothing: the shot rests (hold 2.2 to 3.4 s), so `never-rests` does not fire.
+- Rotation is expressed as turn-hold-turn keys; the gate sees every ease. Declare nothing: each turn lands, and each rest is reading time with the next turn or a light sweep starting within 1.5 s, so `never-rests` does not fire and the motion gate sees no freeze.
 - The softbox and strip never move, so highlights slide as the product turns. If a reflection must stay on a feature, move the softbox in `pose` with the same key array (still a function of `t`).
 - Glass or gel hero: give the stage an opaque `background` (3d.md section 5), glass refracts only what the 3D layer draws.
 - A UI face on the product (screen) is a `k.panel` with `k.image`, unlit, so its colours stay exact; the lit bezel around it carries the reflections.

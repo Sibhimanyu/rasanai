@@ -285,7 +285,7 @@ for (const file of files) {
         if (!ex) continue;
         const hold = (ex.start - (list[i].start + list[i].dur)) * 1000;
         if (hold < minHold * (1 - TOL))
-          add({ severity: "warning", rule: "hold-too-short", file: rel, timeline: list[i].tl, target: list[i].target, at: `${(list[i].start + list[i].dur).toFixed(2)}s`, message: `held ${Math.round(hold)}ms; motion.md wants >= ${minHold}ms`, fix: `move the exit later by ${Math.round(minHold - hold)}ms` });
+          add({ severity: "warning", rule: "hold-too-short", file: rel, timeline: list[i].tl, target: list[i].target, at: `${(list[i].start + list[i].dur).toFixed(2)}s`, message: `on screen ${Math.round(hold)}ms before it leaves; motion.md's reading time is >= ${minHold}ms`, fix: `move the exit later by ${Math.round(minHold - hold)}ms` });
       }
     }
   }

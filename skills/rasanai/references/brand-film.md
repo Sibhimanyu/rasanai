@@ -71,7 +71,7 @@ The causes: the brand research was text-only (it never looked at the brand's fil
 - Type: one sans (OpenAI Sans; Substitute: a loadable neutral sans), Light to Bold, two size classes (huge statements or single letterforms; tiny margin labels).
 - Layout: one element at a time, centred or on a strict grid, huge whitespace.
 - Motif: the dot: dot, circle, outline circle, dot grid, colour dot field, dot; thin grey construction lines resolving into letterforms and the logo.
-- Motion: scale, morph, draw-on, cut on the beat; calm holds alternating with brisk runs; never 3D, blur, grain or dark moody scenes.
+- Motion: scale, morph, draw-on, cut on the beat; calm stretches (one slow mover, never frozen) alternating with brisk runs; never 3D, blur, grain or dark moody scenes.
 - Imagery: real, bright, golden-hour photography (ocean, sky, cliffs), full bleed or framed on white; a fast collage of brand artefacts.
 - Opening: the real prompt typing "What can I help with?" next to the dot. End: the mark alone, then the wordmark, on white.
 

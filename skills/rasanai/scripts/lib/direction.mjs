@@ -139,7 +139,7 @@ ${promptParagraph(entries, { subject })}
 ## How to apply it
 
 1. **Tokens win on values.** Colors, fonts, radii and shadows come from \`frame.md\`${brand ? ` (converted from the project's brand reference, ${brand})` : ""}; this direction says how to use them.
-2. **motion.md wins on timing.** Every duration, ease, stagger and hold follows \`motion.md\`${motionMd ? ` (${motionMd})` : ""}; the motion terms below describe the character those numbers should read as.
+2. **motion.md wins on timing.** Every duration, ease, stagger and hold follows \`motion.md\`${motionMd ? ` (${motionMd})` : ""}; the motion terms below describe the character those numbers should read as. A hold is reading time and still carries secondary motion: the motion gate (no still stretch of 0.8 s, nothing creeping under 4% a second, the end card still for 1.5 s at most) wins over any hold a style or term below asks for.
 3. **This direction wins on everything else:** how the product is represented, illustration, composition, texture, depth, transitions, camera, pacing.
 4. **One decision per term.** Where two terms here could conflict, the one listed first in its dimension leads.
 5. **GSAP plugins.** Where an instruction names SplitText, Flip, MorphSVG, DrawSVG or ScrambleText, load that plugin from the same GSAP version the composition uses (free since 3.13) and register it, or build the effect by hand (split spans, clip-path, stroke-dashoffset); never drop the technique silently.

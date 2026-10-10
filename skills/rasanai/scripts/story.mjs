@@ -762,7 +762,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     });
     if (narrated && vo > 2.5 * lengthS * 0.85) g6.push(`${vo} voiceover words for ${lengthS} s: leave music-only moments (about ${Math.round(2.5 * lengthS * 0.8)} words at most)`);
     const ds = beats.map((b) => Number(b.duration_s)), mean = ds.reduce((a, b) => a + b, 0) / ds.length, cv = Math.sqrt(ds.reduce((a, b) => a + (b - mean) ** 2, 0) / ds.length) / mean;
-    if (ds.length >= 4 && cv < 0.15) g6.push(`every beat runs about ${mean.toFixed(1)} s: vary the rhythm (quick beats, then let the turn and the reveal breathe)`);
+    if (ds.length >= 4 && cv < 0.15) g6.push(`every beat runs about ${mean.toFixed(1)} s: vary the rhythm (quick beats, then give the turn and the reveal the longest shots)`);
     gate("G6", "The script holds up (references/script.md)", g6);
     script = { narrated, vo_words: vo, words_per_s: Math.round((vo / lengthS) * 100) / 100, rhythm_cv: Math.round(cv * 100) / 100 };
   }

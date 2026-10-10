@@ -330,7 +330,7 @@
       "conveys": "Intrigue and anticipation.",
       "vs": "Dramatic resolves tension loudly; mysterious sustains it. Cinematic is a production quality; mysterious is a mood.",
       "search": ["mysterious teaser animation", "moody reveal motion design"],
-      "prompt": "Timing: slow push-ins (1-3% scale per second), reveals of 1.5-3 s, long silences, occasional 1-3 frame glints. Spacing: most of the frame in shadow; subject partially cropped. Type: small, widely tracked, sparse. Color: near-black low-key palette with one cold or warm light source."
+      "prompt": "Timing: deliberate push-ins that land (4-8% scale per second, never a slow creep), reveals of 1.5-3 s, long silences, occasional 1-3 frame glints. Spacing: most of the frame in shadow; subject partially cropped. Type: small, widely tracked, sparse. Color: near-black low-key palette with one cold or warm light source."
     },
     {
       "id": "cinematic",

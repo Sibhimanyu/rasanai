@@ -82,7 +82,7 @@ if (fams.size > 3) add("too-many-typefaces", "warn", [...fams].join(", "), "More
 
 // ---- 3. motion ----
 const idle = (allCode.match(/repeat\s*:\s*-1[^}]*yoyo\s*:\s*true|yoyo\s*:\s*true[^}]*repeat\s*:\s*-1/g) || []).length;
-if (idle) add("idle-breathing", "error", `${idle} infinite yoyo loop(s)`, "Idle breathing/floating loops are 'lazy motion' (and break seek-safety).", "Replace with staged reveals, motivated camera or UI life; every hold should have something meaningful mid-flight or be deliberately still.");
+if (idle) add("idle-breathing", "error", `${idle} infinite yoyo loop(s)`, "Idle breathing/floating loops are 'lazy motion' (and break seek-safety).", "Replace with staged reveals, motivated camera or UI life; a hold is reading time and still carries secondary motion (a line's carry, the next element arriving).");
 const spin = /rotation\s*:\s*360|rotate\(360deg\)/.test(allCode) && /logo/i.test(allCode);
 // entrances: every gsap.from / fromTo classified by what it animates; one kind everywhere is "everything fades up"
 const KEYS = ["opacity", "autoAlpha", "x", "y", "xPercent", "yPercent", "scale", "scaleX", "scaleY", "rotation", "rotationX", "rotationY", "clipPath", "filter", "skewX", "skewY", "width", "height", "drawSVG", "strokeDashoffset"];
@@ -101,7 +101,7 @@ const sceneFile = args.scenes ? path.resolve(String(args.scenes)) : [path.join(d
 if (sceneFile && fs.existsSync(sceneFile)) { try { const j = JSON.parse(fs.readFileSync(sceneFile, "utf8")); scenes = (j.scenes || j).map((s) => ({ title: s.title, d: Number(s.duration_s ?? s.duration) || 0, text: String(s.on_screen || s.line || "") })); } catch {} }
 if (scenes && scenes.length >= 3) {
   const ds = scenes.map((s) => s.d).filter(Boolean), mean = ds.reduce((a, b) => a + b, 0) / ds.length, sd = Math.sqrt(ds.reduce((a, b) => a + (b - mean) ** 2, 0) / ds.length);
-  if (ds.length >= 4 && sd / mean < 0.2) add("uniform-shots", "warn", `every scene ≈ ${mean.toFixed(1)} s (variation ${(sd / mean).toFixed(2)}; aim for ≥ 0.35)`, "Near-identical scene lengths make a slideshow rhythm: \"it's just a PowerPoint\".", "Vary rhythm: group quick beats, let the reveal breathe (see craft.md §2, Timing, pacing and readability).");
+  if (ds.length >= 4 && sd / mean < 0.2) add("uniform-shots", "warn", `every scene ≈ ${mean.toFixed(1)} s (variation ${(sd / mean).toFixed(2)}; aim for ≥ 0.35)`, "Near-identical scene lengths make a slideshow rhythm: \"it's just a PowerPoint\".", "Vary rhythm: group quick beats, give the reveal the longest shot (see craft.md §2, Timing, pacing and readability).");
   scenes.forEach((s, i) => { const w = s.text.split(/\s+/).filter(Boolean).length; const need = w ? 0.6 + 0.4 * w : 0; if (w && s.d && s.d < need) add("unreadable", "error", `scene ${i + 1} "${s.title}"`, `${w} words on screen for ${s.d} s; needs about ${need.toFixed(1)} s to read.`, "Cut the copy or lengthen the scene; never speed it up."); });
   const last = scenes[scenes.length - 1]; if (last.d && last.d < 1.8) add("no-end-hold", "error", `last scene ${last.d} s`, "The ending has no hold: the name and call to action vanish.", "Give the end card 2–3 s: its elements land in sequence, then at most 1.5 s still (motion-gate.mjs measures it).");
   if (scenes[0].d > 4 && !scenes[0].text) add("slow-hook", "warn", `scene 1 is ${scenes[0].d} s with no line`, "Nothing lands in the first 2 s.", "Open on the hook: a claim in ≤4 words or the product doing its thing within 1.5 s.");
@@ -123,10 +123,10 @@ if (whoosh > whooshCap) add("whoosh-per-cut", "error", `${whoosh} whooshes${cuts
 // ---- 6. the rendered video ----
 if (args.video && fs.existsSync(String(args.video))) {
   const v = path.resolve(String(args.video));
-  const fr = spawnSync("ffmpeg", ["-hide_banner", "-i", v, "-vf", "freezedetect=n=0.003:d=1.2", "-map", "0:v:0", "-f", "null", "-"], { encoding: "utf8" });
+  const fr = spawnSync("ffmpeg", ["-hide_banner", "-i", v, "-vf", "freezedetect=n=0.003:d=0.8", "-map", "0:v:0", "-f", "null", "-"], { encoding: "utf8" });
   const starts = [...(fr.stderr || "").matchAll(/freeze_start: ([\d.]+)/g)].map((m) => Number(m[1])), ends = [...(fr.stderr || "").matchAll(/freeze_end: ([\d.]+)/g)].map((m) => Number(m[1]));
   const dur = probe(v);
-  starts.forEach((s, i) => { const e = ends[i] ?? dur; if (e < dur - 3.2 && e - s > 1.2) add("dead-air", "error", `still frame ${s.toFixed(1)}–${e.toFixed(1)} s`, "A near-still stretch over ~1 s mid-film reads as dead air.", "Stage something meaningful in that hold (a reveal, a move, UI life) or shorten it."); });
+  starts.forEach((s, i) => { const e = ends[i] ?? dur; if (e < dur - 3.2 && e - s >= 0.8) add("dead-air", "error", `still frame ${s.toFixed(1)}–${e.toFixed(1)} s`, "A still stretch of 0.8 s or more mid-film reads as dead air (motion-gate.mjs measures the same).", "Stage something meaningful in that stretch (a reveal, a move, UI life, a line's carry) or cut it: holds are reading time and still carry secondary motion."); });
   const ld = spawnSync("ffmpeg", ["-hide_banner", "-i", v, "-af", "ebur128=peak=true", "-f", "null", "-"], { encoding: "utf8" });
   const I = Number(((ld.stderr || "").match(/I:\s+(-?[\d.]+) LUFS/g) || []).pop()?.match(/-?[\d.]+/)?.[0]);
   if (!Number.isNaN(I) && I !== 0 && Math.abs(I + 14) > 1.5) add("loudness", "error", `${I} LUFS`, "Web/social films should sit at about −14 LUFS integrated.", "Normalise the mix (sound.mjs check / render).");

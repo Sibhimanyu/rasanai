@@ -72,7 +72,7 @@ async build(k) {
 pose(t, k) { k.objects.mat.uniforms.uGrow.value = k.at(t, [[0, 0], [7, 18, "power2.out"]]); },   // 18 = path length that covers the whole tree: measure it from nodes
 ```
 
-`aLen` is the arc-length attribute of `Rasan3DLib.tube` (world units along the tube, from the glsl.js header), so the front moves along each branch at the same speed as along the root path. Camera: `pos` an `orbit` of 30 degrees over 9 s on `sine.inOut`, `lens` 70, `fstop 4`; hold 2 s at the end. Declare `never-rests` only if the form keeps growing past the cut.
+`aLen` is the arc-length attribute of `Rasan3DLib.tube` (world units along the tube, from the glsl.js header), so the front moves along each branch at the same speed as along the root path. Camera: `pos` an `orbit` of 30 degrees over 9 s on `sine.inOut`, `lens` 70, `fstop 4`; cut while it still moves (no still hold at the end). Declare `never-rests` only if the form keeps growing past the cut.
 
 ### 3D, reaction-diffusion on a surface
 
@@ -103,7 +103,7 @@ tl.to(paths, { strokeDashoffset: 0, duration: 1.4, ease: "power2.out", stagger: 
 1. Build time under 1 s with the grid-accelerated nearest-node search (the naive double loop above is for clarity, about 1,500 x 4,000 distance tests per iteration).
 2. Determinism: the same seed gives the same node count; log it (a known-good seed is part of the score).
 3. Front speed: measure the path length of the deepest branch and set the last `uGrow` key to that length so growth finishes exactly when the ease ends.
-4. Rest: hold 1-2 s after the last tip lands; the camera keeps a slow `sine.inOut` drift but the structure is final.
+4. Rest: the structure is final when the last tip lands; the camera finishes its move to the next subject and the beat cuts within 1 s (never a slow drift to fill time: under 4% a second is a creep).
 
 ## What makes a cheap imitation
 

@@ -117,7 +117,7 @@ Never open with: "Introducing…", "Meet…", "What if…?", "Tired of…?", "In
 ## The turn and the end
 
 - The turn is a reversal the viewer feels: the pile becomes a ledger, the countdown stops, the museum label names the old way as history. Mark it `"turn": true`; it lands at 60 to 75% of the running time.
-- Stillness before the turn (0.3 to 0.8 s) makes it hit.
+- A drop in motion before the turn (one slow mover for 0.3 to 0.8 s, never a frozen frame) makes it hit.
 - The end beat: the name and one call to action (a URL, "available today"), held still 2 to 3 seconds, with the music's ending under it. The last line is plain and quotable. Never "Thanks for watching", never a wall of social icons.
 
 ## A worked example (45 s, launch, Tally)

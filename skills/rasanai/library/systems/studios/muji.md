@@ -53,7 +53,7 @@ Muji (無印良品, "No Brand Quality Goods") began in December 1980 as a produc
 "Build a calm product film in the manner of Muji's Horizon posters. Canvas warm paper #f5f2ec, kraft #af8a6c, ink #1c1c1c, logo maroon #7d0018. At least 60 percent of every frame is empty. One wide still composition with one horizon at 60 percent height; one small object or none. A small maroon logo at the bottom right, 3.5 percent of frame width. One line of copy in Noto Sans JP 400 at 2.6 percent of short side, tracking 0.04em, fading in over 800 ms sine.inOut, no movement. A 2.5 percent push over 6 s sine.inOut. Dissolves 1200 ms. No gradients, shadows, glow, slogan or stock minimal imagery." Claude tends to fill a void with explanation: say what must stay empty. GPT-style output tends to pure white and cold grey: require warm paper and kraft (observed tendencies, not tested here).
 
 ## Blending notes
-Carries: emptiness as content, warm paper, tiny logo, long holds. Blends with Braun (functional honesty), NHK (observation of objects), Tanaka's Japanese modern and Swiss structure. Do not blend with kinetic or maximal systems; use as a quiet scene inside a larger blend rather than a base.
+Carries: emptiness as content, warm paper, tiny logo, long reads with one slow mover. Blends with Braun (functional honesty), NHK (observation of objects), Tanaka's Japanese modern and Swiss structure. Do not blend with kinetic or maximal systems; use as a quiet scene inside a larger blend rather than a base.
 
 ## Sources
 - https://en.wikipedia.org/wiki/Muji — 1980 founding, Tanaka, Koike, Sugimoto, packaging, store dates, Hara from 2001 (fetched).

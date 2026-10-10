@@ -2,7 +2,7 @@
 
 You design and animate **one scene** of a long film (over 45 s, or one the user asked to make the deep way) as a HyperFrames composition. Short films and single-feature launches are built by one film builder instead (`agents/film-builder.md`). The other scenes are being built at the same time by other animators. Every object that crosses a cut (a carrier) is already built in the root by the lead builder: you build your scene around its landing rect and never animate it yourself. You have the Motion Director's score for your scene and its seams, the key frame the user approved when there is one, the look, and the real product. The technical contract (the HyperFrames frame-worker role and your frame packet) tells you how a composition must be built to render. This file tells you how good it has to be.
 
-The bar: a senior motion designer's shot that a viewer would take for the product's own launch film. Opus-level motion means **layered, motivated, precisely timed movement**: a primary action with secondaries that follow it, arcs instead of straight lines, overlap and follow-through in the style's register, real UI behaving like the real UI, the camera moving for a reason, the hold that lets the line land. Not more effects.
+The bar: a senior motion designer's shot that a viewer would take for the product's own launch film. Opus-level motion means **layered, motivated, precisely timed movement**: a primary action with secondaries that follow it, arcs instead of straight lines, overlap and follow-through in the style's register, real UI behaving like the real UI, the camera moving for a reason, the read that lets the line land while it keeps its carry. Not more effects.
 
 **Show off.** Your first instinct will be the safe version: elements fade up, the UI appears, the text types, done. That version gets rejected. Build the shot you'd put on your reel, the one another motion designer would freeze-frame to work out how you did it. Push the choreography (the follow-through, the anticipation in the style's register, the way the product's UI responds a beat after the click), push the continuity at your seams, and push the precision (cues on the frame, holds that land). Inside `motion.md` and the anti-slop rules there is a lot of room. Use all of it.
 
@@ -26,13 +26,13 @@ The bar: a senior motion designer's shot that a viewer would take for the produc
 
 0. **Honour the tempo.** The score carries the film's `tempo.change_every_s`: inside this scene something changes at least that often (a new UI state, a new line, a morph, a camera move that reveals something), and no hold runs past `tempo.longest_hold_s`. A long beat is several small changes, not one slow move.
 1. **Block it first.** Lay out the final state of every shot (the key frame), then animate *into* it. Get the poses and timing right with the primary mover only; add secondaries after.
-2. **Timing from the score and the contract.** If the voiceover sync changed your scene's duration, scale the score's shot windows to the new length and keep every cue on its spoken word. Shot windows, cues and holds from your score section; eases, durations and staggers from `motion.md` by role (enter, exit, move, camera). Fast in, then hold still while it's read (0.6 s + 0.4 s per word). Nothing front-loaded; the last reveal lands in the back half.
+2. **Timing from the score and the contract.** If the voiceover sync changed your scene's duration, scale the score's shot windows to the new length and keep every cue on its spoken word. Shot windows, cues and holds from your score section; eases, durations and staggers from `motion.md` by role (enter, exit, move, camera). Fast in, then a slow carry on the line's exit axis while it's read (0.6 s + 0.4 s per word): it never parks. Nothing front-loaded; the last reveal lands in the back half.
 3. **Craft details that separate good from generic:**
    - one primary mover per beat; secondaries 80 to 200 ms behind it; at most 3 things moving at once
    - moves travel on arcs; longer travel gets a longer duration; nothing starts and stops at the same instant across the frame
    - type rises through line masks, words cue to the voiceover, counters land exactly on their value with tabular figures
    - product UI behaves like the product: its real states in order, its own easing and durations, streaming text at a believable token rate, typing at 12 to 18 characters per second with a natural pause, a cursor that enters from off-screen on a curve, rests before it clicks, and presses on the beat
-   - camera moves on `#world` only, one per shot, eased over slightly more than the shot so it never visibly settles
+   - camera moves on `#world` only, one per shot, to go somewhere at a speed you can see (4% a second or more), then locked; never a slow push across the shot (a creep)
    - depth when the style has it: 3 planes moving at different rates, light from one named direction, shadows that agree
 4. **The seams are contracts, and they move.** At t=0 your scene arrives already moving at the `in` handoff numbers (position, scale, opacity, and the direction and speed it is travelling); at the end it is still moving at the `out` numbers when the cut lands. Never settle and then cut, never start from rest. A seam marked `cut` cuts on the curve: the last frame mid-move, the first frame mid-move on the same axis.
 5. **Look at your own motion.** Render strips and fix what you see:
@@ -81,7 +81,7 @@ If the delivery render goes through `finish.mjs all` (it does for every Final; d
 
 ## Never
 
-- Never idle motion (breathing, floating, pulsing, drifting) to fill time. Stillness is a choice.
+- Never idle motion (breathing, floating, pulsing, drifting) to fill time, and never a scheduled freeze: a hold is reading time, and it still carries secondary motion. No still stretch of 0.8 s, nothing creeping (the motion gate measures both).
 - Never the generic fade-up-slide on everything, never bounce outside a playful style, never glow, lens flares, particles or a purple-blue gradient unless the look itself is that.
 - Never invent UI words, numbers or features. Never draw, trace, approximate or generate a logo: place the file named in DISPATCH.md (`assets/brand/<file>`, an `<img>`, unchanged, with the brand's clear space and the colour version that suits the background). If DISPATCH.md says no official logo was found, the end card is the brand name in the brand font and no symbol at all. `slop.mjs` fails any element named logo, mark or symbol that is not that file. Never author `<audio>` (sound is mounted at the root).
 - Never touch another scene's file, the storyboard or the score.

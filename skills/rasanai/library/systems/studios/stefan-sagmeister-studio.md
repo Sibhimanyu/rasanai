@@ -42,7 +42,7 @@ Stefan Sagmeister (born 6 August 1962, Bregenz, Austria) founded Sagmeister Inc.
 No source gives motion values: the stepped-build recipe and every number below are RasanAI proposals. The sourced behaviours are the handwriting-as-typography stance, the first-person message, and the physical, ephemeral installations (the banana wall changing as it ripens was found via a search summary, not a fetched page).
 
 2D (HyperFrames, craft.md vocabulary):
-- Title cards hold 1.6 to 2.4 s so they read twice. Hard cut in, no tween, then one deliberate stop-motion build: each letter appears at 8 fps (every 3rd frame at 24 fps) via `gsap.set` at integer frame times; letters are SVG paths of real handwriting, or photographed material letters swapped per frame.
+- Title cards stay 1.6 to 2.4 s so they read twice, still building or carrying while they do. Hard cut in, no tween, then one deliberate stop-motion build: each letter appears at 8 fps (every 3rd frame at 24 fps) via `gsap.set` at integer frame times; letters are SVG paths of real handwriting, or photographed material letters swapped per frame.
 - Cut to the physical thing: a photographed mural or object pushed in 4 percent over 3 s `power1.inOut`. Decay as animation: crossfade between two plates of the same object (fresh then ripe) over 2.4 s `sine.inOut`, which turns time into the motion (the ripening-wall idea).
 - Grade: honest, slightly warm, no filter. Sound: room tone and the sound of the material; a single sustained note under the read.
 3D (Rasan3D, 3d.md sections 3, 5, 18): the sentence as objects in a room.
