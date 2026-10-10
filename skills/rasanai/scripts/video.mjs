@@ -168,7 +168,7 @@ if (cmd === "init") {
     hosts.push(`<div class="clip" data-composition-id="${id}" data-composition-src="compositions/carriers/${f}" data-start="${start}" data-duration="${dur}" data-track-index="${3 + i}"></div>`);
   });
   const M0 = "<!-- rasanai:carriers -->", M1 = "<!-- /rasanai:carriers -->";
-  let t = fs.readFileSync(idx, "utf8").replace(new RegExp(`\\s*${M0}[\\s\\S]*?${M1}`, "g"), "");
+  let t = fs.readFileSync(idx, "utf8").replace(new RegExp(`[ \\t]*${M0}[\\s\\S]*?${M1}\\n?`, "g"), "");
   if (hosts.length) {
     // inside #root, after its last child: find the root's matching close by div depth
     const open = t.search(/<div[^>]*\bid="root"[^>]*>/);

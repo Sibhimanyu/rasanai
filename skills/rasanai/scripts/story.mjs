@@ -742,7 +742,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     if (valueIdx > 1) g6.push(`the value lands in beat ${valueIdx + 1}: state what the viewer gets by beat 2, then prove it`);
     else if (valueIdx < 0) warnings.push("mark the beat that states the value with value: true (it must be beat 1 or 2)");
     const last = beats[beats.length - 1];
-    if (Number(last.duration_s) < 2) g6.push(`the end beat runs ${last.duration_s} s: hold the name and call to action 2-3 s`);
+    if (Number(last.duration_s) < 2) g6.push(`the end beat runs ${last.duration_s} s: the end card needs 2-3 s for the name and call to action to land (and at most 1.5 s still after the last one)`);
     if (!String(last.on_screen || "").trim()) g6.push("the end beat has no on-screen line (the name and one call to action)");
     let vo = 0;
     beats.forEach((b, i) => {

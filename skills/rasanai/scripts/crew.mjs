@@ -529,8 +529,8 @@ function contextFor(run, role, key, plan) {
       const common = [["craft", path.join(SKILL_DIR, "references", "craft.md")], ["3d playbook", path.join(SKILL_DIR, "references", "3d.md")], ["precedent", research("precedent.md")], ["direction", R(run, "direction", "DIRECTION.md")]];
       const byLens = {
         frames: [["key frames", R(run, "frames")], ["scenes", R(run, "scenes.json")], ["score", R(run, "motion", "score.md")], ["screens", research("screens.json")]],
-        motion: [["score", R(run, "motion", "score.json")], ["project", pj], ["motion.md", pj && path.join(pj, "motion.md")]],
-        film: [["project", pj], ["renders", pj && path.join(pj, "renders")], ["snapshots", pj && path.join(pj, "snapshots")], ["decisions", R(run, "video-decisions.json")]],
+        motion: [["the motion gate's report on the draft (motion-gate.mjs --json: freezes, coverage, creep, seams, carriers, parked lines; READ FIRST)", R(run, "crew", "motion-gate.json")], ["score", R(run, "motion", "score.json")], ["project", pj], ["renders (the draft render: judge the moving film, never stills alone)", pj && path.join(pj, "renders")], ["motion.md", pj && path.join(pj, "motion.md")]],
+        film: [["the motion gate's report on the draft (motion-gate.mjs --json; READ FIRST)", R(run, "crew", "motion-gate.json")], ["project", pj], ["renders", pj && path.join(pj, "renders")], ["snapshots", pj && path.join(pj, "snapshots")], ["decisions", R(run, "video-decisions.json")]],
         grounding: [["project", pj], ["claims", research("claims.json")], ["truth", R(run, "story", "truth.md")], ["screens", research("screens.json")]],
       }[lens];
       if (!byLens) die(`unknown critic lens "${lens}" (frames, motion, film, grounding)`);
@@ -1249,6 +1249,12 @@ async function checkRole(run, role, key) {
       else if (["frames", "motion", "film"].includes(lens) && !(Number(c.scores.ambition) >= 1)) P.push('scores need "ambition" (1-10): competent-but-safe is a fail, say so');
       const fs_ = Array.isArray(c.findings) ? c.findings : [];
       if (c.verdict === "fix" && !fs_.length) P.push("a fix verdict needs findings");
+      // the motion and film critics never judge without a render AND the motion gate's report on it
+      if (["motion", "film"].includes(lens)) {
+        const gr = jsonMaybe(R(run, "crew", "motion-gate.json"));
+        if (!gr) P.push(`no motion gate report (crew/motion-gate.json): the ${lens} critic judges a draft render with the gate's numbers, never stills alone. The Director runs motion-gate.mjs --video <draft.mp4> --plan <run>/motion/score.json --project <dir> --json > <run>/crew/motion-gate.json first`);
+        else if (gr.verdict === "fail" && c.verdict === "ship") P.push(`ship while the motion gate fails (${(gr.findings || []).filter((x) => x.severity === "error").length} finding(s)): fix those first`);
+      }
       fs_.forEach((x, i) => {
         if (!String(x.fix || "").trim()) P.push(`finding ${i + 1}: no exact fix`);
         if (lens !== "grounding" && x.scene == null) W.push(`finding ${i + 1}: no scene`);

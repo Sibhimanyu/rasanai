@@ -103,7 +103,7 @@ if (scenes && scenes.length >= 3) {
   const ds = scenes.map((s) => s.d).filter(Boolean), mean = ds.reduce((a, b) => a + b, 0) / ds.length, sd = Math.sqrt(ds.reduce((a, b) => a + (b - mean) ** 2, 0) / ds.length);
   if (ds.length >= 4 && sd / mean < 0.2) add("uniform-shots", "warn", `every scene ≈ ${mean.toFixed(1)} s (variation ${(sd / mean).toFixed(2)}; aim for ≥ 0.35)`, "Near-identical scene lengths make a slideshow rhythm: \"it's just a PowerPoint\".", "Vary rhythm: group quick beats, let the reveal breathe (see craft.md §2, Timing, pacing and readability).");
   scenes.forEach((s, i) => { const w = s.text.split(/\s+/).filter(Boolean).length; const need = w ? 0.6 + 0.4 * w : 0; if (w && s.d && s.d < need) add("unreadable", "error", `scene ${i + 1} "${s.title}"`, `${w} words on screen for ${s.d} s; needs about ${need.toFixed(1)} s to read.`, "Cut the copy or lengthen the scene; never speed it up."); });
-  const last = scenes[scenes.length - 1]; if (last.d && last.d < 1.8) add("no-end-hold", "error", `last scene ${last.d} s`, "The ending has no hold: the name and call to action vanish.", "Hold the final lockup 2–3 s, still, after the motion settles.");
+  const last = scenes[scenes.length - 1]; if (last.d && last.d < 1.8) add("no-end-hold", "error", `last scene ${last.d} s`, "The ending has no hold: the name and call to action vanish.", "Give the end card 2–3 s: its elements land in sequence, then at most 1.5 s still (motion-gate.mjs measures it).");
   if (scenes[0].d > 4 && !scenes[0].text) add("slow-hook", "warn", `scene 1 is ${scenes[0].d} s with no line`, "Nothing lands in the first 2 s.", "Open on the hook: a claim in ≤4 words or the product doing its thing within 1.5 s.");
 }
 
