@@ -1,0 +1,14 @@
+{
+  "id": "fx-house-bar",
+  "piece": "Fixture house bar (a textual breakdown)",
+  "why": "one carrier carries every idea, full frame, a new idea about every 1.2 s",
+  "ledger": [
+    { "t0": 0, "t1": 1.2, "carrier_state": "a circle", "change": "the circle fills", "constant": "centre", "bridge": "the fill", "generator": "G3" }
+  ],
+  "cards": [
+    { "id": "bar1", "title": "The circle becomes the stage", "generator": "G3", "scale": "full-frame" }
+  ],
+  "density": { "ideas": 9, "seconds": 11, "per_s": 0.82 },
+  "scale": "full-frame",
+  "lessons": ["one carrier, never a technique", "the type is the stage"]
+}

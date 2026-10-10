@@ -8,12 +8,34 @@
 //   TECHNIQUE_TERMS          seam kinds, entrance types, the term names of references/vocabulary.md and the generic
 //                            transition words (cut, wipe, morph, zoom, reveal, fade...)
 //   validateMoves(obj, {beats, productFirst, uiLabels, productName, pack})  -> {errors[], warnings[]}
+//                            Each card needs scale ("full-frame" | "large" | "detail"); on a product-first film every hero
+//                            card needs resolves_to (the real product surface or mark a transformation lands on). Errors by
+//                            id: no-full-frame-hero (no hero is a full-frame type/shape transformation), chain-sparse (the
+//                            chain[] has fewer than ceil(film_seconds / 1.5) entries), chain-gap (a gap over 3.0 s in the
+//                            chain, from 0 or to the film's end). Warnings: a detail hero, more than half the cards detail.
+//                            carrier.family is required (carrier-family: missing, unknown, or not the family the pack assigned).
+//   validateSet(movesByLabel)                                              -> {errors[], warnings[]}
+//                            Across the three moves files: carrier-repeat (two share a carrier family), carrier-similar (warning:
+//                            two carriers' short names share a content word).
 //   validateVerdict(obj, movesByLabel)                                     -> {errors[], warnings[]}
+//                            Each pitch needs set = {full_frame, evidence} (gate S1); full_frame false must list the label in denial[].
+//                            pitches.<L>.rounds[] {a, b, first, winner, frame} makes the position-swapped pairwise rounds checkable:
+//                            rounds-missing, rounds-inconsistent, rounds-frame (a split pair needs tiebreak "riskier").
 import fs from "node:fs";
 import path from "node:path";
 import { SKILL_DIR } from "./common.mjs";
 
 export const MOVE_LABELS = ["Sure", "Bold", "Wild"];
+// what the one thing that travels is made of; moves.mjs pack gives each of the three scripts a different one
+export const CARRIER_FAMILIES = [
+  { id: "glyph", description: "a letter, punctuation mark, dot, caret or numeral, as type", examples: ["the full stop at the end of a headline", "the o of a word", "a question mark", "a caret", "the numeral 7"] },
+  { id: "component", description: "a real UI part of the product", examples: ["a button", "an input field", "a card", "a chat bubble", "a toggle", "the cursor"] },
+  { id: "line", description: "a stroke that draws, bends or travels", examples: ["a rule", "a border", "an underline", "a tick", "a path", "a progress bar"] },
+  { id: "object", description: "a real thing from the content, not a UI part", examples: ["the receipt", "a photo", "a document", "the product's hardware"] },
+  { id: "mark", description: "the brand mark's own geometry", examples: ["the logo's counter", "one stroke of the mark", "the mark's silhouette"] },
+  { id: "data", description: "a number, chart, list or table that changes", examples: ["a counter that climbs", "a bar chart", "a list that re-sorts", "a table row"] },
+];
+export const CARRIER_FAMILY_IDS = CARRIER_FAMILIES.map((f) => f.id);
 const SEAM_KINDS = ["cut", "match-cut", "shared-element", "carried-object", "flood", "iris", "mask", "push-through", "mask-line", "flat-to-depth", "depth-to-flat", "camera-through", "signature", "whip", "zoom-through", "smash-cut", "dissolve"];
 const ENTRANCES = ["mask-rise", "scale-from-origin", "draw-on", "clip-reveal", "cut-in", "type-on", "count-up", "morph", "stream", "slide", "push"];
 const GENERIC_TECH = ["transition", "transitions", "cut", "cuts", "wipe", "wipes", "morph", "morphs", "zoom", "zooms", "reveal", "reveals", "fade", "fades", "dissolve", "swipe", "slide", "push", "pan", "tilt", "whip", "iris", "flash", "blur"];
@@ -69,6 +91,10 @@ export const CONCEIT_RE = /\b(museums?|galler(?:y|ies)|exhibit(?:s|ion|ions)?|pl
 const arr = (v) => (Array.isArray(v) ? v : []);
 // a digit followed by s / px / % / deg, or an "N to N" timing: the plain line must not carry them
 const PLAIN_TECH_RE = /\d+(?:\.\d+)?\s*(?:s|ms|px|%|deg|degrees)\b|\d+(?:\.\d+)?\s*(?:to|-)\s*\d+(?:\.\d+)?/i;
+const SCALES = ["full-frame", "large", "detail"];
+// generators that move type or shapes (the stage itself): a full-frame hero must come from one of these
+const TYPE_SHAPE_GENERATORS = ["G1", "G2", "G3", "G5", "G6", "G12", "G15", "G17", "G19", "G20"];
+export const MAX_CHAIN_GAP_S = 3.0;
 const CARD_FIELDS = ["frame_a", "move", "frame_b", "bridge", "handoff", "says", "origin"];
 
 const sameIdea = (a, b) => {
@@ -114,6 +140,11 @@ export function validateMoves(obj, opts = {}) {
     if (!str(car.why)) W("carrier.why is empty (say what the carrier means)");
     if (!str(car.short)) E('carrier.short is missing (the carrier in at most 8 plain words, e.g. "the logo\'s play triangle")');
     else if (str(car.short).split(/\s+/).length > 8) E(`carrier.short is ${str(car.short).split(/\s+/).length} words (8 at most)`);
+    const fam = str(car.family);
+    const assigned = opts.pack && typeof opts.pack === "object" ? str(opts.pack.family) : "";
+    if (!fam) E(`carrier-family: carrier.family is missing (one of ${CARRIER_FAMILY_IDS.join(", ")}${assigned ? `; your pack assigns "${assigned}"` : ""})`);
+    else if (!CARRIER_FAMILY_IDS.includes(fam)) E(`carrier-family: carrier.family "${fam}" is not one of ${CARRIER_FAMILY_IDS.join(", ")}`);
+    else if (assigned && fam !== assigned) E(`carrier-family: carrier.family is "${fam}" but your pack assigned "${assigned}" (the other two scripts got the other families: the carrier must come from yours)`);
   }
 
   const obvious = arr(obj.obvious).map(str).filter(Boolean);
@@ -145,6 +176,8 @@ export function validateMoves(obj, opts = {}) {
     if (str(c.bridge) && isLabelOnly(c.bridge)) E(`${at}: the bridge is only a label ("${str(c.bridge)}"): name the one frame where both states are true and the element in it`);
     if (!/^G\d{1,2}$/.test(str(c.generator))) W(`${at}: generator "${str(c.generator)}" is not G1..G20`);
     for (const o of obvious) if (sameIdea(c.title, o) || sameIdea(c.origin, o)) E(`${at}: repeats the banned obvious idea "${o}"`);
+    if (!str(c.scale)) E(`${at}: missing scale (one of ${SCALES.join(", ")})`);
+    else if (!SCALES.includes(str(c.scale))) E(`${at}: scale "${str(c.scale)}" is not one of ${SCALES.join(", ")}`);
     if (c.beat != null && N && !(Number(c.beat) >= 1 && Number(c.beat) <= N)) E(`${at}: beat ${c.beat} is not a beat of this script (1-${N})`);
     if (pf) {
       const t = [c.title, c.origin, c.move, c.frame_a, c.frame_b, c.bridge, c.says].map(str).join(" . ");
@@ -177,12 +210,39 @@ export function validateMoves(obj, opts = {}) {
     if (!(d > 0)) W(`hero ${h}: duration_s missing (the rough is 1.5 to 4.5 s)`);
     else if (d < 1.5 || d > 4.5) W(`hero ${h}: duration_s ${d} is outside the rough's 1.5 to 4.5 s`);
     if (pf) {
-      const o = str(c.origin);
+      const r = str(c.resolves_to);
       const labels = arr(opts.uiLabels).map(str).filter((l) => l.length >= 2);
       const product = str(opts.productName);
-      const hit = labels.some((l) => o.toLowerCase().includes(l.toLowerCase())) || (product && o.toLowerCase().includes(product.toLowerCase())) || /\b(brand|logo|cursor)\b/i.test(o);
-      if (!hit) E(`hero ${h}: on a product film its origin must be a real UI label from the pitch's ui_labels, the product name, or the brand / logo / cursor (origin: "${o.slice(0, 70)}")`);
+      if (!r) E(`hero ${h}: on a product film every hero needs resolves_to (the real product surface or mark the transformation lands on)`);
+      else {
+        const hit = labels.some((l) => r.toLowerCase().includes(l.toLowerCase())) || (product && r.toLowerCase().includes(product.toLowerCase())) || /\b(brand|logo|mark|cursor|caret|composer)\b/i.test(r);
+        if (!hit) E(`hero ${h}: on a product film resolves_to must be a real UI label from the pitch's ui_labels, the product name, or the brand / logo / mark / cursor / caret / composer (resolves_to: "${r.slice(0, 70)}")`);
+      }
     }
+  }
+
+  // scale: a film needs at least one full-frame type/shape hero; detail heroes and detail-heavy sets are warned
+  const heroCards = heroes.map((h) => cards.find((x) => x && x.id === h)).filter(Boolean);
+  if (heroCards.length && !heroCards.some((c) => str(c.scale) === "full-frame" && TYPE_SHAPE_GENERATORS.includes(str(c.generator).toUpperCase()))) E(`no-full-frame-hero: no hero card is scale "full-frame" with a type or shape generator (${TYPE_SHAPE_GENERATORS.join(", ")}): the type or the shape must be the stage, not a detail inside a screenshot`);
+  for (const c of heroCards) if (str(c.scale) === "detail") W(`hero ${c.id}: scale is "detail" (a hero is usually large or full-frame)`);
+  const nDetail = cards.filter((c) => c && str(c.scale) === "detail").length;
+  if (cards.length && nDetail * 2 > cards.length) W(`${nDetail} of ${cards.length} cards are scale "detail" (more than half: the set is mostly small moves inside the UI)`);
+
+  // the chain: every transformation of the carrier, time-coded across the whole film
+  if (filmSeconds > 0) {
+    const chain = arr(obj.chain).filter((e) => e && typeof e === "object");
+    const need = Math.ceil(filmSeconds / 1.5);
+    if (chain.length < need) E(`chain-sparse: chain has ${chain.length} entries for a ${Math.round(filmSeconds * 10) / 10} s film (${need} at least: one transformation about every 1.5 s)`);
+    const ts = chain.map((e) => Number(e.t));
+    if (chain.some((e, i) => !Number.isFinite(ts[i]) || !str(e.change))) E("chain: every entry needs {t (seconds from film start), change}");
+    else if (chain.length) {
+      const sorted = ts.slice().sort((a, b) => a - b);
+      const edges = [0, ...sorted, filmSeconds];
+      for (let i = 1; i < edges.length; i++) {
+        const gap = edges[i] - edges[i - 1];
+        if (gap > MAX_CHAIN_GAP_S + 1e-9) { E(`chain-gap: ${Math.round(gap * 10) / 10} s with no transformation between ${Math.round(edges[i - 1] * 10) / 10} s and ${Math.round(edges[i] * 10) / 10} s (${MAX_CHAIN_GAP_S} s at most)`); break; }
+      }
+    } else E(`chain-gap: no chain at all over a ${Math.round(filmSeconds * 10) / 10} s film (${MAX_CHAIN_GAP_S} s at most between transformations)`);
   }
 
   // the chain ledger: one row per beat
@@ -215,6 +275,23 @@ export function validateMoves(obj, opts = {}) {
   const puns = bridges.filter((b) => b && /pun/i.test(str(b.shared))).length;
   const budget = Math.max(1, Math.floor(filmSeconds / 10));
   if (puns > budget) W(`puns: ${puns} pun bridges in a ${Math.round(filmSeconds)} s film (${budget} at most: one per 10 s)`);
+  return { errors, warnings };
+}
+
+// ---------------------------------------------------------------- the three moves files together
+const SET_STOP = new Set([...FUNCTION_WORDS, "one", "its", "their", "your", "our", "real", "every", "each", "some", "who", "what", "are", "was", "has", "have", "not", "but", "all", "any", "new", "old"]);
+const shortWords = (t) => norm(t).split(/\s+/).filter((w) => w.length >= 3 && !SET_STOP.has(w));
+export function validateSet(movesByLabel = {}) {
+  const errors = [], warnings = [];
+  const have = MOVE_LABELS.filter((l) => movesByLabel[l] && typeof movesByLabel[l] === "object");
+  const fam = (l) => { const c = movesByLabel[l].carrier; return c && typeof c === "object" ? str(c.family) : ""; };
+  for (let i = 0; i < have.length; i++) for (let j = i + 1; j < have.length; j++) {
+    const a = have[i], b = have[j];
+    if (fam(a) && fam(a) === fam(b)) errors.push(`carrier-repeat: ${a} and ${b} both use the carrier family "${fam(a)}" (each script gets its own family: the three stories must not share a kind of carrier)`);
+    const ca = movesByLabel[a].carrier, cb = movesByLabel[b].carrier;
+    const wa = new Set(shortWords(ca && ca.short)), common = [...new Set(shortWords(cb && cb.short))].filter((w) => wa.has(w));
+    if (common.length) warnings.push(`carrier-similar: ${a}'s carrier ("${str(ca.short)}") and ${b}'s ("${str(cb.short)}") share "${common.join(", ")}": the stories may feel alike`);
+  }
   return { errors, warnings };
 }
 
@@ -259,6 +336,33 @@ export function validateVerdict(obj, movesByLabel = {}) {
       if (str(v.hero) !== ranking[0]) E(`${label}: hero must be ranking[0] ("${ranking[0]}"), not "${str(v.hero)}"`);
       if (!str(v.why)) E(`${label}: why is empty (which concrete frame decided it)`);
     } else if (str(v.hero)) E(`${label}: hero "${v.hero}" with an empty ranking`);
+    // the pairwise rounds: every consecutive pair of the ranking, judged in both presentation orders
+    const rounds = arr(v.rounds).filter((r) => r && typeof r === "object");
+    rounds.forEach((r, i) => {
+      if (str(r.frame).split(/\s+/).filter(Boolean).length < 8) E(`${label}: rounds-frame: round ${i + 1} (${str(r.a)} vs ${str(r.b)}) names no concrete deciding frame (8 words at least)`);
+    });
+    for (let i = 0; i + 1 < ranking.length; i++) {
+      const hi = ranking[i], lo = ranking[i + 1], pair = `${hi} > ${lo}`;
+      const rs = rounds.filter((r) => (str(r.a) === hi && str(r.b) === lo) || (str(r.a) === lo && str(r.b) === hi));
+      const shown = (r) => (str(r.first) === "a" ? str(r.a) : str(r.first) === "b" ? str(r.b) : "");
+      const hiFirst = rs.find((r) => shown(r) === hi), loFirst = rs.find((r) => shown(r) === lo);
+      if (!hiFirst || !loFirst) { E(`${label}: rounds-missing: ${pair} needs two rounds in both presentation orders (${hi} shown first, then ${lo} shown first); found ${rs.length}`); continue; }
+      const two = rs.filter((r) => r === hiFirst || r === loFirst);
+      if (two.some((r) => ![hi, lo].includes(str(r.winner)))) { E(`${label}: rounds-inconsistent: ${pair}: a round's winner is not one of the pair (winner is a card id)`); continue; }
+      const hiWins = two.filter((r) => str(r.winner) === hi).length;
+      if (hiWins === 0) E(`${label}: rounds-inconsistent: ${pair}: ${lo} won both rounds, so it must be ranked above ${hi}`);
+      else if (hiWins === 1) {
+        const second = rs.indexOf(hiFirst) > rs.indexOf(loFirst) ? hiFirst : loFirst;
+        if (str(second.tiebreak) !== "riskier") E(`${label}: rounds-inconsistent: ${pair}: the pair split (each won once), so the second round needs tiebreak "riskier" and the riskier card ranked higher`);
+        else if (str(second.riskier) && str(second.riskier) !== hi) E(`${label}: rounds-inconsistent: ${pair}: the tiebreak names ${str(second.riskier)} as the riskier card, but ${hi} is ranked higher (the riskier card goes first)`);
+      }
+    }
+    const set = v.set;
+    if (!set || typeof set !== "object" || typeof set.full_frame !== "boolean") E(`${label}: set is missing ({full_frame: true|false, evidence}: gate S1, is any passing card a full-frame type/shape transformation?)`);
+    else {
+      if (!str(set.evidence)) W(`${label}: set.evidence is empty`);
+      if (set.full_frame === false && !arr(v.denial).map(str).includes(label)) E(`${label}: set.full_frame is false (no passing card is a full-frame type/shape transformation): "${label}" must be in denial[] even if 3 cards pass`);
+    }
     if (passed.size < 3 && !arr(v.denial).map(str).includes(label)) W(`${label}: only ${passed.size} card(s) passed; list "${label}" in denial[] so the Director runs the denial round`);
   }
   const best = obj.best_overall;

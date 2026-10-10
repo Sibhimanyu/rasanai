@@ -44,17 +44,19 @@ Then run the seven SCAMPER verbs once over each atom (Substitute, Combine, Adapt
 
 **Step 5. Choose one carrier.** The object or shape that appears in the most bridges becomes the protagonist (`carrier: {what, short, why, beats}`; `short` is the carrier in 8 plain words at most, such as "the logo's play triangle": the person choosing the story reads it, and it is an error when missing or longer). It must be in at least half of the beats. Two competing carriers: merge them or demote one to background. At most one secondary carrier for contrast. A film has one carrier for the main chain.
 
+**The carrier comes from your family.** The three scripts of a run are invented in parallel and never see each other, so the pack (`moves.mjs pack`) assigns each label a different carrier family, drawn by code from hash(run basename + seed): `family`, with `family_description` and `family_examples`. Write it as `carrier.family`. The families: `glyph` (a letter, punctuation mark, dot, caret or numeral as type), `component` (a real UI part: button, field, card, bubble, toggle, cursor), `line` (a stroke, rule, border, underline, tick, path, progress bar), `object` (a real thing from the content: the receipt, a photo, a document, the product's hardware), `mark` (the brand mark's geometry), `data` (a number, chart, list or table that changes). The other two scripts got the other families, so a dot is not yours unless your family is `glyph`. When the brand film card or the brand's DESIGN.md names a motif (OpenAI's dot), the pack notes it as `brand_motif`: it may appear as a secondary element in any script, but only the label assigned `glyph` (or `mark`) may make it the carrier. The checks: `carrier-family` (in `moves.mjs check`: `carrier.family` missing, unknown, or not the one the pack assigned), and across the three files `moves.mjs check-set --run R` (also run by `check-verdict`): `carrier-repeat` (error: two files share a family) and `carrier-similar` (warning: two `carrier.short` names share a content word).
+
 **Step 6. Ban the obvious three.** Write the 3 most obvious moves for this film, as titles (`obvious`). They are banned: no card may have the same title or origin, or be a variation of them. These are the ones a generic storyboard would give (a match cut from the phone to the next screen; the logo assembling at the end). Also read `banned` in your pack.
 
 **Step 7. Twenty candidates, from the subject world.** List 20 or more candidates (`candidates: [{title, origin}]`), short titles only. Every one **starts from an atom or a mining row, never from a technique name**. A technique name (match cut, morph, zoom-through, shared element, iris, mask reveal, kinetic type) may appear only as the mechanism, never as the idea. Use the generators in your pack as questions (§3), and the stimulus in your pack as a constraint (§2). No two candidates may share a mechanism or a central object.
 
 **Step 8. Make the 8 you like least bolder.** Go through the list. For each candidate ask: could this appear unchanged in a film about a different subject? If yes, rewrite it until it could not. Then make the 8 you like least bolder and more different, and show what you changed (`bolder: [{was, now, changed}]`, at least 8). The "bolder" step is the one that gets skipped when a model considers its own output bold enough, so the diff is required: a `now` identical to `was` is a skipped step.
 
-**Step 9. Move cards.** Write at least 6 move cards (§2) for the best candidates. Every card names its origin, its frames, its bridge and its hand-off; none may name only a technique. At least two different generators; at most two cards built on the same atom.
+**Step 9. Move cards.** Write at least 6 move cards (§2) for the best candidates. Every card names its origin, its `scale`, its `resolves_to`, its frames, its bridge and its hand-off; none may name only a technique. At least one hero is a **full-frame** type or shape transformation: the letters or the shape fill the frame and are the stage. A film made only of details inside screenshots is the failure the bar exists to beat. At least two different generators; at most two cards built on the same atom.
 
-**Step 10. Chain ledger and the rhyme.** Write one ledger row per beat (§2). "Constant" is the eye-trace anchor: what stays put across the boundary. Close the loop: a carrier state, a motion or a pun from the opening returns in the last 15% of the film, or the carrier becomes the container of the next idea (`rhyme`). Add one personality beat (`personality`), budget one per 8 to 12 s.
+**Step 10. Chain ledger and the rhyme.** Write one ledger row per beat (§2). "Constant" is the eye-trace anchor: what stays put across the boundary. Close the loop: a carrier state, a motion or a pun from the opening returns in the last 15% of the film, or the carrier becomes the container of the next idea (`rhyme`). Then write the `chain`: every transformation of the carrier across the film, time-coded, a new idea about every 1.2 s and never a gap over 3 s. Add one personality beat (`personality`), budget one per 8 to 12 s.
 
-**Step 11. Heroes, then argue.** Pick 2 or 3 hero moves (`heroes`: card ids): the moves a motion designer would cut into their reel. One film-defining move; one signature seam; at most three. Then argue against each in a line: nearest precedent and how this differs (`card.precedent`); where the audience learned the rule (`card.setup`). Spend boldness in one place per scene; everything around a hero stays quiet and disciplined.
+**Step 11. Heroes, then argue.** Pick 2 or 3 hero moves (`heroes`: card ids): the moves a motion designer would cut into their reel. One film-defining move (full-frame); one signature seam; at most three. The hero count limits how many cards you *argue* for, not how many ideas the film has: the chain carries the density. Then argue against each in a line: nearest precedent and how this differs (`card.precedent`); where the audience learned the rule (`card.setup`). Spend boldness in one place per scene; everything around a hero stays quiet and disciplined.
 
 You return one file, `story/moves-<L>.json` (the schema is in `agents/move-inventor.md`). When it passes `moves.mjs check`, you are done.
 
@@ -67,6 +69,8 @@ You return one file, `story/moves-<L>.json` (the schema is in `agents/move-inven
   "id": "m1", "title": "The o becomes the eye",       // 6 words or fewer; never a technique name
   "beat": 2, "seam": "2>3",                           // where it lands (seam optional)
   "generator": "G1",                                  // the question that produced it
+  "scale": "full-frame",                              // "full-frame" | "large" | "detail", required on every card (see Scale below)
+  "resolves_to": "the next page",                     // what real surface the transformation lands on; on a product-first film the real UI label, state or screen, the product name, or the brand, logo, mark, cursor, caret or composer
   "origin": "the 'o' in 'Your' (beat 2 on_screen)",    // the exact atom it is built from
   "frame_a": "the white word 'Your', 'o' the same ink as the rest, centre-left",
   "plain": "The o fills orange and becomes an eye that flies off the page.",   // one plain sentence for the person choosing the story: 120 characters at most, no numbers, timings, coordinates or jargon. Required on a hero (error), warned on the rest
@@ -87,7 +91,9 @@ That card is the reference clip's move, shown for the format only; its objects a
 Field rules, in the order the check reads them:
 
 - **`title`**: names what happens to the carrier, not a technique. "The pupil becomes the doorway", not "Iris reveal".
-- **`origin`**: a quoted atom, a UI label, the product name, a brand glyph or a quoted word of the script. Under product-first (§6) the origin must name a real UI label, the product name, "brand", "logo" or "cursor".
+- **`origin`**: a quoted atom, a UI label, the product name, a brand glyph, a letter or a quoted word of the script. Required on every card. Under product-first (§6) it can be any atom of the script (a letter, a dot, a full stop); what must be real is `resolves_to`.
+- **`scale`**: `"full-frame"`, `"large"` or `"detail"`, required on every card. `full-frame` means the transformation itself occupies most of the frame at its bridge: the type or shape is the stage, not a detail inside a screenshot. `large` is a half-frame object; `detail` is a part of a UI. A hero with `scale: "detail"` warns, and more than half the cards `detail` warns. At least one hero must be `full-frame` and built on a type or shape generator (G1, G2, G3, G5, G6, G12, G15, G17, G19, G20), or the check fails (`no-full-frame-hero`).
+- **`resolves_to`**: where the transformation lands. On a product-first film it is required on every hero card and must name a UI label from the pitch, the product name, or the brand, logo, mark, cursor, caret or composer. On other films write what it becomes (the bar: "the next page").
 - **`move`**: what physically happens, in order, with seconds. At least two timed steps. Verbs of the object ("fills", "is thrown", "narrows"), never "transitions".
 - **`bridge`**: one sentence, the single frame where both states are true, naming the element and where it is. "Match cut" is not a bridge; "the pupil is at (640, 400) in both" is.
 - **`handoff`**: what the next beat inherits: a position, a colour, a vector, a silhouette.
@@ -110,6 +116,17 @@ One row per beat, forming the carrier's biography through the film:
 
 A row that reads `carrier: "scene"` or `bridge: "match-cut"` fails. The last beat's bridge may be "end". `constant` is never empty.
 
+### The chain
+
+The ledger has one row per beat; the **chain** is finer: every transformation of the carrier across the whole film, time-coded in seconds from the film's start, in order.
+
+```jsonc
+"chain": [ { "t": 0.0, "change": "the typed line 'Ask anything.' fills the frame, the full stop is a dot" },
+           { "t": 1.1, "change": "the dot drops and grows into the composer's send button" } ]
+```
+
+Density is enforced: at least `ceil(film_seconds / 1.5)` entries (`chain-sparse`), and no gap over 3.0 s between consecutive entries, from 0 to the first, or from the last to the film's end (`chain-gap`). Film length is the sum of the pitch's beat `duration_s`. The house bar is a new idea about every 1.2 s.
+
 ### Worked example: the Tiago ledger
 
 The reference clip, reverse-engineered (timings estimated). One carrier, a circle, in about eleven seconds; every row has a constant.
@@ -125,6 +142,8 @@ The reference clip, reverse-engineered (timings estimated). One carrier, a circl
 | 7 | 5.6-6.4 | the pupil | the round pupil narrows to a cat slit | pupil centre | none needed: the pupil does not move, only its shape | G7 |
 | 8 | 6.4-8.0 | the slit | "Creative" slides out from behind it | the slit as the door | the word is masked by the slit's edge | G5, G6 |
 | 9 | 8.0-11.0 | the eye-white | scales past the frame and is the next background | white fills the frame | the white is the next scene's ground | G3 |
+
+The reference clip also ships as the house bar, `library/moves/bar.json` (a textual frame-level breakdown, no frames, nothing third-party): `moves.mjs pack` puts it first in every pack as `bar`. Read it before anything else and match its **density** (about 0.8 ideas per second, a chain entry every 1.2 s) and its **scale** (full frame: the type and the shape are the stage). It is for the bar, never for the content.
 
 Read it for its habits. The constant is always something the eye can hold (a baseline, a centre, a vector, a landing point). Beats 7 and 8 are the show-off beats: one pure personality (7), one pure function (8, it reveals the word). The last beat does not end the carrier; it hands it to the next scene as the container. The first four rows are a morph chain with one cause each.
 
@@ -195,6 +214,8 @@ Cheapest builds in HTML and GSAP: G2, G3, G5 and G6 (clip-path or SVG mask), G15
 
 The Director runs `moves.mjs pack --run "$RUN" --label <L>` before dispatching you. It writes `story/moves-pack-<L>.json`, drawn by code so the three inventors get different ammunition:
 
+- **family** (with `family_description`, `family_examples`, `family_rule`): the carrier family assigned to this label, different from the other two labels'. Your carrier comes from it (§1 step 5). **brand_motif** (only when the brand names one): allowed as a secondary element; only `glyph` or `mark` may carry it.
+- **bar** (always first, a separate key, not counted among the exemplars): the house bar, `library/moves/bar.json`, a frame-level textual breakdown of the reference clip with its cards, `scale`, `density` and `lessons`. Read it before anything else; match its density and scale. The bar, never the content: never reuse an eye, a pupil, a slit, a thrown carrier, or a circle that becomes an eye.
 - **exemplars** (2 or 3 moves from `library.json`, or the user's reference moves first). Use them for the bar and for the shape of a move card. **Do not reuse an exemplar's objects, metaphors or mechanism.** The check warns when a card's title shares 3 content words with one.
 - **generators** (all 20, shuffled): questions, not techniques. Use at least three of them.
 - **stimulus**: one distant concrete thing (or, in a product-first film, one choreography constraint). Your moves must incorporate it at moderate conceptual distance from the subject. If it cannot serve the story, say so and justify the closest workable twist in `seed: {stimulus, used, how}`. "Used: false" needs a reason of a full sentence. You do not choose the stimulus; picking your own random object clusters (tree, leaf).
@@ -206,7 +227,7 @@ A film is showreel-level when it has: idea density, an unbroken eye-trace, a car
 
 **Checklist** (numbers are tunable defaults):
 
-1. **Idea density.** An "idea" is a state change a viewer could describe in one clause. At least 0.5 per second under 15 s, 0.25 per second for 30 to 60 s. Count them in the ledger.
+1. **Idea density.** An "idea" is a state change a viewer could describe in one clause. At least 0.5 per second under 15 s, 0.25 per second for 30 to 60 s. Count them in the chain; the bar is 0.8 per second. The check enforces the floor of one chain entry per 1.5 s and no gap over 3 s.
 2. **Eye-trace.** At each boundary the thing the eye is on in the last frame is the thing it is on in the first frame (position, size or vector). The ledger's `constant` is never empty.
 3. **Anticipation and overlap.** Every big move has a wind-up; the next begins before the last finishes. No dead stops unless a deliberate hold (0.3 to 0.5 s after a transformation completes; 0.8 to 1.2 s on the beat that carries copy).
 4. **Rhythm.** Hits land on beats; irregular accents break predictability.
@@ -215,7 +236,8 @@ A film is showreel-level when it has: idea density, an unbroken eye-trace, a car
 7. **Personality.** At least one behaviour that is characterful rather than informative.
 8. **Earn the trick** (§5).
 9. **Legibility.** Every intermediate state is recognisable. Freeze any frame: it is a good poster.
-10. **Restraint.** One signature move per scene at most; everything around it quiet.
+10. **Restraint.** One signature move per scene at most; everything around it quiet. A carrier's chain of transformations is ONE signature and ONE motion type (morph), however many steps it has: restraint is about unrelated ideas, not about the number of transformations of one carrier.
+11. **Scale.** At least one hero is full-frame: the transformation fills most of the frame at its bridge.
 
 **Competent tells** (any one means "rewrite the plan"):
 
@@ -246,20 +268,24 @@ A film is showreel-level when it has: idea density, an unbroken eye-trace, a car
 
 When the Dispatch context says `product_first` (`references/product-first.md` is law), ambition goes into craft and choreography, never concept.
 
-- **Subject world = the real product**: its UI surfaces, labels (`ui_labels`), data, cursor, windows, states, and the brand mark's geometry. Atoms come from `research/screens.md`, the truth sheet's Native words and `brand/assets`.
-- **The carrier is a real product surface or the brand glyph**: a button, a row, a card, a field, the cursor, the logo file's shape. Never an invented object standing in for the product.
-- **Every hero card's `origin` names a real UI label, the product name, or the words "brand", "logo" or "cursor"** (checked). No card may use a conceit word (museum, gallery, exhibit, allegory, diorama, a world, parable, trial, funeral).
-- **Glyph puns resolve within 1 s.** A letter-to-object pun is allowed only if it lands on the product in a second.
+- **Subject world = the real product**: its UI surfaces, labels (`ui_labels`), data, cursor, windows, states, and the brand mark's geometry. Atoms come from `research/screens.md`, the truth sheet's Native words and `brand/assets`, **and the letters, dots and full stops of the script's own lines**.
+- **The resolve rule.** A letter, shape or type transformation is **craft, not a conceit**, when its end state lands on a real product surface (a real UI element, state or screen) or the real brand mark or name within the same move. Banned, as before: invented worlds, museums, allegories, metaphors the film lives inside, props standing in for the product, and any transformation that never resolves to the product. A full-frame graphic built from the product's own shapes (its circles, dot, caret, ticks, glyph) is allowed when it resolves to the real UI within the move.
+  - **Allowed, one example** (a chat product, for illustration): the two dots of the i's in a huge typed line drop and become the real UI's two selection circles; a tick's stroke keeps drawing and becomes the outline of the real composer; the end line's full stop is the thinking dot the film opened on. Full frame, every move ends on a real surface.
+  - **Banned, one example**: a field of invented circles that drift, merge and never become a real UI element; a museum of them; a metaphor world the circles live in.
+- **Card fields.** `resolves_to` is required on every hero card (the real UI label, state or screen, the product name, or the brand, logo, mark, cursor, caret or composer it lands on, checked). `origin` stays required but is any atom of the script (a letter, a dot, a UI label); it no longer has to name a product word. No card may use a conceit word (museum, gallery, exhibit, allegory, diorama, a world, parable, trial, funeral).
+- **The carrier is a real product surface or the brand glyph, or a letter or shape that becomes one** within its chain. Never an invented object standing in for the product.
+- **Scale and density are the bar.** At least one hero is `full-frame` on a type or shape generator; the chain has a new idea about every 1.2 s. The bar (`bar` in the pack) is not a UI walkthrough: the type and shapes are the stage and the real UI is where they land.
+- **Glyph puns that are not transformations resolve within 1 s.** A letter-to-object pun that only winks, without becoming a surface, lands on the product in a second. A transformation runs as long as the move needs and resolves before the move ends.
 - **Seeds are choreography constraints, not metaphors.** The pack's stimulus is one line from `choreography.json` ("every cut lands on a UI state change"). Use it as a rule on how the real UI moves.
-- **Showing off is craft**: one continuous camera move through the real UI, a cursor with motive, cuts on keystrokes, a component that morphs through its real states, a hand-off that lands on a state change the product really makes.
-- Hero move ideas live in G2, G3, G4, G9, G11, G14, G15 and G18; G16 and G7 only if the personality belongs to the cursor.
+- **Showing off is craft**: huge type whose letters become the real UI, one continuous camera move through the real UI, a cursor with motive, cuts on keystrokes, a component that morphs through its real states, a hand-off that lands on a state change the product really makes.
+- Hero move ideas live in G1, G2, G3, G4, G5, G6, G9, G11, G14, G15, G17, G18 and G19; G16 and G7 only if the personality belongs to the cursor.
 - 3D only where it serves the real product (a window in depth, a device); never an abstract world.
-- The end card is the largest type on a clean field. A hero move never makes the end line smaller or later.
+- The product UI is on screen within 3 s, the hero moment stays the longest and cleanest shot, and the end card is the largest type on a clean field. A hero move never makes the end line smaller or later.
 
 **A product-first move card, for the format** (invented for illustration; not for reuse):
 
 ```jsonc
-{ "id": "m2", "title": "The row that is already there", "beat": 3, "seam": "3>4", "generator": "G18",
+{ "id": "m2", "title": "The row that is already there", "beat": 3, "seam": "3>4", "generator": "G18", "scale": "large", "resolves_to": "the real 'Apply suggestion' row",
   "origin": "the 'Apply suggestion' row in the real review thread (ui_labels)",
   "frame_a": "six review rows slide in from the left on the kick of each bar, each 0.4 s, 120 ms apart",
   "move": "0.0 to 2.4 rows 1 to 6 arrive from the left on beats 1 to 6; 2.4 the seventh row, 'Apply suggestion', is already in place, the six slide out right in 0.3 s power3.in; 2.9 the cursor lands on it and rests 0.2 s",
@@ -279,6 +305,7 @@ When the Dispatch context says `brand_film`, read `brand-film/FILM-STYLE.md` fir
 
 - Mechanisms come only from the card's **motion vocabulary** (scale, morph, draw-on, cut on the beat, UI choreography...). Never add one it says is absent. A flat card means no 3D, blur, grain, glow or bounce.
 - Follow the card's cut rate and its end card.
+- **"One element at a time" means one carrier at a time, transformed in a chain, not few ideas.** Brand films are morph chains: OpenAI's "Refreshed." is dot -> rings -> dot grid -> letterforms -> mark. The brand film analyst writes that chain into `FILM-STYLE.md`'s motion vocabulary; derive your carrier and your chain from it, and keep the chain's density (a new idea about every 1.2 s). Calm is the restraint of one carrier and one ease, never an empty frame.
 - **The ambition goes into the carrier and the choreography**: which one thing travels, where it lands on the beat, what stays constant. A scale-through in a scale-only vocabulary is on-brand; a whip pan is not.
 - Max 3 distinct motion types and one ease family (`references/launch-film.md` rule 9).
 - Derive the carrier from the brand's own geometry when it has one (the dot, the mark's counter, the letter) and name that source in `origin`.
@@ -297,3 +324,7 @@ A rough is the idea, legible in one loop, 1.5 to 4.5 s, with no styling. It exis
 - **Check**: `moves.mjs rough --dir <folder>` then `moves.mjs check-rough --dir <folder>`; look at `strip.png` (5 frames with their times) and `poster.png` yourself. If the strip does not read as the card, fix the rough, once or twice, then hand back.
 
 The scene animator **beats** the rough, it does not copy it: the grey-box look is replaced by the film's design system (DESIGN.md, frame.md), and the timing, the bridge and the carrier's path are kept or improved.
+
+## 9. The verdict's pairwise rounds (checkable)
+
+The juror ranks each script's passing cards by pairwise comparison with the order swapped. The rounds are written down, so the check can read them: `pitches.<L>.rounds: [{a, b, first, winner, frame}]`, where `a` and `b` are card ids, `first` is `"a"` or `"b"` (which card was shown first), `winner` is the card id that won and `frame` is the concrete frame that decided it (8 words at least). For every consecutive pair of `ranking` (`ranking[i]`, `ranking[i+1]`) there must be two rounds with that pair, one in each presentation order. Errors: `rounds-missing` (a pair without both orders), `rounds-inconsistent` (the higher-ranked card wins neither round, or a winner is not one of the pair), `rounds-frame` (a frame under 8 words). A split pair (each card wins once) is allowed only when the second round carries `tiebreak: "riskier"` (optionally `riskier: <id>`) and the riskier card is the higher-ranked one. A juror that ranks "mentally" cannot pass: each round is a separate written comparison in its scratch notes, then recorded.

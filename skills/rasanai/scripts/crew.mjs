@@ -39,7 +39,7 @@ import { detectModel, profileFor, adapt, tierFor, dispatchFor } from "./lib/mode
 import { libraryIds } from "./library.mjs";
 import { readLogos } from "./lib/logos.mjs";
 import { checkSystemFull, checkSystems, firstLine } from "./lib/system.mjs";
-import { validateMoves, validateVerdict, isLabelOnly, MOVE_LABELS } from "./lib/moves-lib.mjs";
+import { validateMoves, validateVerdict, validateSet, isLabelOnly, MOVE_LABELS } from "./lib/moves-lib.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -300,7 +300,7 @@ function lookFrame(run) {
 function brief(run) {
   const b = jsonMaybe(R(run, "brief.json")) || {};
   const f = b.fields || b;
-  return { length_s: f.length_s, kind: f.kind, aspect: f.aspect, narrated: f.narration !== false, destination: f.destination, subject: f.subject, brand_name: f.brand_name, use_brand: f.use_brand, text: f.sentence || f.brief || f.text };
+  return { length_s: f.length_s, kind: f.kind, aspect: f.aspect, narrated: !(f.narration === false || /^(none|no|off|false|silent|music only|no voiceover)$/i.test(String(f.narration ?? "").trim())), destination: f.destination, subject: f.subject, brand_name: f.brand_name, use_brand: f.use_brand, text: f.sentence || f.brief || f.text };
 }
 // A launch, promo or product film is PRODUCT-FIRST (references/product-first.md): the product UI from the first
 // seconds, one hero moment, real uses, no conceit. The route product-launch-video is always one.
@@ -648,7 +648,7 @@ const DARES = {
   "frame-designer": "Show off. Each still should be good enough to be the poster for the film. Competent and centred is the default you're here to beat. For scenes the score puts in 3D, draw the key frame in real 3D (Rasan3D, references/3d.md): the lens, the light and the material are the poster. Invent the look the shot needs (a custom shader, an engraved or raymarched surface) rather than picking a preset; the design system is the only bound.",
   "treatment-writer": "Show off. Two other writers are pitching treatments of this song against you, and the user will pick one. Write the one that wins the room, not the one that merely passes treatment.mjs check: a concept the user can say in a sentence, a signal that runs through every plate, lines that become puns and transformations (never pictures of the sentence), three plates a motion designer would cut into their reel, a hook that escalates, and one seam that only pays off on the second watch. If a plate's idea is just the lyric restated, you are not done.",
   "visual-writer": "Show off. Two other writers are staging this same talk against you, and the user will pick one. Write the one that wins the room, not the one that merely passes presenter.mjs check: one running visual idea the whole talk happens inside, images that argue with the sentence instead of illustrating it, at least one cutaway that lands on a word, and one moment where the person interacts with the world (points at it, steps into it, is framed by it). If a plate is just the sentence drawn as a picture, you are not done.",
-  "move-inventor": "Show off. This is the strongest version of the job: you are the designer whose move gets rewound, not the one who labels a transition. Do every step of the method even if you think you do not need to: the three obvious ideas come first and are banned, then 20 candidates, then rewrite them bolder and different and show what you changed. Give the film one carrier that travels through every beat, and a bridge frame at every boundary where both scenes are true at once. A card that names a technique instead of an object crossing the cut is a fail; a card a juror would call competent is a fail.",
+  "move-inventor": "Read the pack's bar before anything and match its density and scale (the bar, never its content). Show off. This is the strongest version of the job: you are the designer whose move gets rewound, not the one who labels a transition. Do every step of the method even if you think you do not need to: the three obvious ideas come first and are banned, then 20 candidates, then rewrite them bolder and different and show what you changed. Give the film one carrier that travels through every beat, and a bridge frame at every boundary where both scenes are true at once. A card that names a technique instead of an object crossing the cut is a fail; a card a juror would call competent is a fail.",
   "move-juror": "Be the client burned by generic work. Judge each card blind, by the binary gates, quoting the card; when two survivors are close choose the riskier one that is still sound. A competent, tidy move that you have seen in ten launch films does not pass.",
   "move-sketcher": "The rough must make the idea legible in one loop. Timing is the idea: follow the card's move exactly, in its seconds and eases. Grey-box, no styling, one accent for the carrier. If the idea only works with a trick the rough cannot show, build the simplest version that keeps it and say so.",
   "script-writer": "Show off. Two other writers are pitching against you. Write the script that wins the room, with at least one moment only motion could tell, not the one that merely passes the checks.",
@@ -741,7 +741,7 @@ function promptFor(run, role, key, plan) {
     if (vocab) extra += "\n\n(Read `references/vocabulary.md` in full: it is the motion vocabulary your score names techniques from.)";
   }
   let dare = DARES[role === "motion-director" && key === "seams" ? "seams" : role];
-  if (dare && ctx.product_first) dare += " On this product-first film, showing off is craft only (motion, UI choreography, rhythm, the real product moving like nothing else): never a conceit, a metaphor, an invented world or a prop standing in for the product. A show-off idea that leaves the product fails.";
+  if (dare && ctx.product_first) dare += " On this product-first film, showing off is craft only (motion, UI choreography, rhythm, the real product moving like nothing else): a letter or shape transformation that lands on the real product (its UI, its mark) is craft and is wanted, full frame and fast; never a conceit, a metaphor, an invented world or a prop standing in for the product. A show-off idea that never resolves to the product fails.";
   const base = `${shared}\n\n---\n\n${roleText}\n\n---\n\n${lines.join("\n")}${extra}\n`;
   // the prompt adapts to the model that runs the member (same goal and bar; different wording and scaffolding)
   return { text: adapt({ role, text: base, dare, profile: modelOf(plan) }), ctx, inputs, outputs };
@@ -1125,7 +1125,7 @@ async function checkRole(run, role, key) {
       }
       break;
     }
-    case "research-lead": { truth = R(run, "story", "truth.md");
+    case "research-lead": { const truth = R(run, "story", "truth.md");
       if (!readMaybe(truth)) { P.push("story/truth.md is missing"); break; }
       if (/<[a-z][^>]{3,}>/i.test(readMaybe(truth).replace(/<!--[\s\S]*?-->/g, ""))) P.push("story/truth.md still has <placeholders>");
       const r = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "story.mjs"), "pick", "--truth", truth, "--count", "3"], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" } });
@@ -1233,8 +1233,8 @@ async function checkRole(run, role, key) {
         const m = jsonMaybe(R(run, "story", `moves-${l}.json`));
         if (m && typeof m === "object") by[l] = m; else P.push(`story/moves-${l}.json is ${m === undefined ? "not valid JSON" : "missing"}`);
       }
-      const r = validateVerdict(v, by);
-      P.push(...r.errors); W.push(...r.warnings);
+      const r = validateVerdict(v, by), st = validateSet(by);
+      P.push(...st.errors, ...r.errors); W.push(...st.warnings, ...r.warnings);
       break;
     }
     case "move-sketcher": {

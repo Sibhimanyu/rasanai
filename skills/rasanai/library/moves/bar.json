@@ -1,0 +1,246 @@
+{
+  "id": "house-bar-tiago",
+  "piece": "A designer's 11 s self-intro (the user's reference)",
+  "why": "The house bar for moves: one circle carried letter, dot, pupil, eye, page, full frame, a new idea about every 1.2 s, a named constant at every boundary, one personality beat (the slit) and a last frame that is the next page. A textual frame-level breakdown only: no frames, no video, no third-party pixels. For the bar, never the content: never reuse an eye, a pupil, a slit, a thrown carrier, or a circle that becomes an eye. Timings are estimates from the clip's own clock (the 2.6 to 5.4 s core is where the ideas are densest).",
+  "ledger": [
+    {
+      "t0": 2.6,
+      "t1": 2.9,
+      "carrier_state": "the letters of 'Tiago' on a plain ground",
+      "change": "the word deletes letter by letter back to 'a', and the 'a' morphs into an 'o' in the same 0.3 s",
+      "constant": "baseline and horizontal centre: the surviving letter does not move while the others leave and its bowl becomes the whole letter",
+      "bridge": "the 'a' and the 'o' share one bowl; for one frame the glyph is both",
+      "generator": "G17, G15"
+    },
+    {
+      "t0": 2.9,
+      "t1": 3.3,
+      "carrier_state": "the 'o' as a letter",
+      "change": "'Y' flies in from the left and 'u' from the right to make 'Your' around it",
+      "constant": "the 'o' is fixed at its position, centre-left, while both letters arrive",
+      "bridge": "the 'o' stays put, so 'Your' is built around the carrier and the carrier is never re-placed",
+      "generator": "G19"
+    },
+    {
+      "t0": 3.3,
+      "t1": 3.5,
+      "carrier_state": "the 'o' as a letter",
+      "change": "the 'o' fills solid orange",
+      "constant": "position, circular silhouette",
+      "bridge": "the filled disc has the exact outline of the letter's outer edge: one frame is both an 'o' and a disc",
+      "generator": "G1"
+    },
+    {
+      "t0": 3.5,
+      "t1": 3.7,
+      "carrier_state": "an orange disc",
+      "change": "a black pupil grows from its centre until the disc reads as an eye",
+      "constant": "position, orange, circular silhouette",
+      "bridge": "the pupil's edge is tangent to the rim for one frame: 'Your' and an eye are one object",
+      "generator": "G1, G20"
+    },
+    {
+      "t0": 3.7,
+      "t1": 3.9,
+      "carrier_state": "a small orange eye in the word 'Your'",
+      "change": "'Y' and 'u' scatter away (pushed out by the throw); the eye is thrown up and to the right with motion blur after a short wind-up down",
+      "constant": "the velocity vector, up and right",
+      "bridge": "the throw's last-frame vector is the giant eye's first-frame vector",
+      "generator": "G19, G4"
+    },
+    {
+      "t0": 3.9,
+      "t1": 4.0,
+      "carrier_state": "the small eye in flight, pupil leading",
+      "change": "a dark panel rises with a white almond eye filling the frame; its pupil lands exactly where the small pupil was heading, the silhouette's head still visible above: one space",
+      "constant": "the landing point of the pupil, and the one space around the silhouette",
+      "bridge": "both pupils are true in one frame, the small pupil touching the giant pupil's rim as the giant eye rises",
+      "generator": "G4, G2, G3"
+    },
+    {
+      "t0": 4.0,
+      "t1": 4.4,
+      "carrier_state": "the giant eye",
+      "change": "the round pupil narrows to a cat slit; the highlight slides across it; a push-in with blur",
+      "constant": "pupil centre: only its shape changes, it does not move",
+      "bridge": "none needed: the pupil stays at one point and only its shape changes (a personality beat that costs about 0.4 s)",
+      "generator": "G7"
+    },
+    {
+      "t0": 4.4,
+      "t1": 5.0,
+      "carrier_state": "the slit and the iris",
+      "change": "the iris drifts; an orange ghost circle echoes the first disc; 'Creative' slides out from behind the slit, masked by the iris",
+      "constant": "the slit as the door; the iris edge as the mask",
+      "bridge": "the word is cut by the iris edge: the opening that was the pupil is the reveal",
+      "generator": "G5, G6"
+    },
+    {
+      "t0": 5.0,
+      "t1": 5.4,
+      "carrier_state": "the eye-white",
+      "change": "the eye-white scales past the frame and becomes the next scene's light background; 'Creative' now sits in dark type on it",
+      "constant": "white fills the frame, 'Creative' stays where it was",
+      "bridge": "the white is the next scene's ground: the last frame of the carrier is the first frame of the page",
+      "generator": "G3"
+    }
+  ],
+  "cards": [
+    {
+      "id": "b1",
+      "title": "The name deletes to one circle",
+      "beat": 1,
+      "generator": "G17",
+      "scale": "full-frame",
+      "resolves_to": "the next page",
+      "origin": "the letters of 'Tiago' set huge in the frame",
+      "frame_a": "the word 'Tiago' in dark type, filling most of the frame width, baseline at y 540",
+      "plain": "The name erases down to one letter, which turns into a round o.",
+      "move": "0.0 to 0.2 the letters delete from the ends inward, last to leave first; 0.2 to 0.3 the surviving 'a' morphs to an 'o' by closing its stem into the bowl; hold the 'o' fixed at centre-left",
+      "frame_b": "a single 'o' at centre-left, baseline unchanged, huge",
+      "bridge": "the frame where the 'a' stem is half closed: the glyph is both 'a' and 'o' on the same bowl at the same position",
+      "handoff": "the 'o' at centre-left, its centre at (400, 540), ink colour, which 'Y' and 'u' arrive around",
+      "says": "the carrier is chosen before the word exists: the name is reduced to the one shape the film will carry",
+      "setup": "none needed: deletion reads in one beat",
+      "precedent": "Ferro-style kinetic type; differs: the deletion's survivor is the carrier of the next ten seconds",
+      "build": {
+        "route": "svg-morph",
+        "layers": "glyph paths for a and o with matching point counts",
+        "risk": "the morph shows blobs in the middle",
+        "simplest": "cross-fade a and o at the held bowl position over 3 frames"
+      },
+      "duration_s": 0.3
+    },
+    {
+      "id": "b2",
+      "title": "The o fills and grows a pupil, thrown",
+      "beat": 2,
+      "generator": "G1",
+      "scale": "large",
+      "resolves_to": "the next page",
+      "origin": "the 'o' of 'Your'",
+      "frame_a": "the word 'Your' with the 'o' as the only fixed letter, 'Y' and 'u' just arrived",
+      "plain": "The o fills orange, grows a pupil and is thrown off the word.",
+      "move": "0.0 to 0.2 the 'o' fills solid orange; 0.2 to 0.4 a black pupil grows from its centre; 0.4 to 0.5 'Y' and 'u' scatter outward, pushed by the eye's wind-up down 0.1 s; 0.5 to 0.6 the eye is thrown up and right with motion blur",
+      "frame_b": "a small orange eye in flight, pupil leading, about 25 percent of the frame width",
+      "bridge": "the frame where the pupil's edge is tangent to the rim: 'Your' and an eye are one object at one position",
+      "handoff": "the pupil's centre at (1180, 300), the vector up and right at about 2 200 px/s, the orange",
+      "says": "the film is about seeing: the designer's point of view is stated by a letter, not by a line",
+      "setup": "the 'o' has already stayed still while 'Your' was built around it, so the viewer is watching it",
+      "precedent": "Vertigo's pupil radiating spirals; differs: a letter becomes the eye and is thrown with a cause",
+      "build": {
+        "route": "svg-morph",
+        "layers": "o as SVG circle, pupil circle, blur copy, Y and u spans",
+        "risk": "the blur copy reads as a double",
+        "simplest": "scale the o, swap to the eye art on the throw frame, keep the pupil anchor"
+      },
+      "duration_s": 1.0
+    },
+    {
+      "id": "b3",
+      "title": "The giant pupil lands, slits, lets a word out",
+      "beat": 3,
+      "generator": "G4",
+      "scale": "full-frame",
+      "resolves_to": "the next page",
+      "origin": "the thrown eye's pupil and the next word 'Creative'",
+      "frame_a": "the small eye in flight, up and right, pupil leading, over the dark panel starting to rise",
+      "plain": "A giant eye rises, its pupil lands where the small one was going, narrows, and a word slides out.",
+      "move": "0.0 to 0.1 a dark panel rises with a white almond eye; the giant pupil lands exactly where the small one was heading; 0.1 to 0.5 the round pupil narrows to a cat slit, the highlight slides, push-in with blur; 0.5 to 1.1 the iris drifts, an orange ghost circle echoes the first disc, and 'Creative' slides out from behind the slit, masked by the iris edge",
+      "frame_b": "the giant eye filling the frame, slit pupil at the landing point, 'Creative' half out of the slit, dark type on white",
+      "bridge": "the frame where the small pupil touches the giant pupil's rim as the panel rises: both eyes are one eye, the silhouette's head still visible above, one space",
+      "handoff": "the slit's centre and the iris edge as the mask; the word 'Creative' at its rest position",
+      "says": "personality (the slit costs about 0.4 s) and function (the slit is the door that reveals the word)",
+      "setup": "the thrown small eye established the pupil's heading; the giant pupil answers it",
+      "precedent": "match on action plus graphic match; differs: the landing point is the constant, the slit is the door",
+      "build": {
+        "route": "svg-morph+clip-mask",
+        "layers": "panel, eye-white path, pupil path with two states, iris mask, word span",
+        "risk": "the landing misses by a few pixels and the one-space illusion breaks",
+        "simplest": "hold the pupil position fixed in both and scale the panel around it"
+      },
+      "duration_s": 1.0
+    },
+    {
+      "id": "b4",
+      "title": "The eye-white becomes the next page",
+      "beat": 4,
+      "generator": "G3",
+      "scale": "full-frame",
+      "resolves_to": "the next page",
+      "origin": "the eye-white of the giant eye",
+      "frame_a": "the giant eye with 'Creative' out of the slit, the white of the eye filling most of the frame",
+      "plain": "The white of the eye grows past the frame and is the next page.",
+      "move": "0.0 to 0.4 the eye-white scales from its rim outward about the pupil, past all four edges; 0.4 the frame is white; the next scene's light background is the same white and 'Creative' is already set in dark type on it",
+      "frame_b": "a full white frame with 'Creative' in dark type, the next page",
+      "bridge": "the frame where the eye-white's rim has just left the last edge: the carrier and the next scene's ground are the same white",
+      "handoff": "the white ground, 'Creative' at its rest position, the carrier handed to the next page as its container",
+      "says": "the eye was never decoration: it was the page",
+      "setup": "the first eye-white fill (the 'o' as a disc) taught that the shape fills",
+      "precedent": "scale-through (2001 bone to satellite family); differs: the ground itself is the carrier",
+      "build": {
+        "route": "scale-anchor",
+        "layers": "eye-white path scaled about the pupil centre",
+        "risk": "the anchor is lost mid-scale",
+        "simplest": "fade the panel to the white ground on the frame the rim leaves the corners"
+      },
+      "duration_s": 0.4
+    }
+  ],
+  "chain": [
+    {
+      "t": 2.6,
+      "change": "'Tiago' deletes letter by letter back to 'a'"
+    },
+    {
+      "t": 2.75,
+      "change": "the 'a' morphs into an 'o' (one bowl)"
+    },
+    {
+      "t": 2.9,
+      "change": "'Y' and 'u' fly in around the fixed 'o' to make 'Your'"
+    },
+    {
+      "t": 3.3,
+      "change": "the 'o' fills solid orange"
+    },
+    {
+      "t": 3.5,
+      "change": "a black pupil grows inside the disc: the o is an eye"
+    },
+    {
+      "t": 3.7,
+      "change": "'Y' and 'u' scatter and the small eye is thrown up and right with motion blur"
+    },
+    {
+      "t": 3.95,
+      "change": "a dark panel rises with a giant almond eye; its pupil lands where the small one was heading"
+    },
+    {
+      "t": 4.0,
+      "change": "the round pupil narrows to a cat slit, highlight slides, push-in with blur"
+    },
+    {
+      "t": 4.4,
+      "change": "the iris drifts, an orange ghost circle echoes, 'Creative' slides out from behind the slit"
+    },
+    {
+      "t": 5.1,
+      "change": "the eye-white scales past the frame and becomes the next page, 'Creative' in dark type on it"
+    }
+  ],
+  "density": {
+    "ideas": 9,
+    "seconds": 11,
+    "per_s": 0.82
+  },
+  "scale": "full-frame",
+  "lessons": [
+    "one carrier, never a technique",
+    "the type is the stage",
+    "a new idea about every 1.2 s",
+    "every boundary has a named constant",
+    "a personality beat (the slit)",
+    "the last frame becomes the next page"
+  ]
+}

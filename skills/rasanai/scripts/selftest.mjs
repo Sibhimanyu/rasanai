@@ -1733,13 +1733,27 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   bad("an empty ledger constant", (o) => { o.ledger[1].constant = ""; }, /ledger row 2: constant is empty/);
   bad("hero ids that are not cards", (o) => { o.heroes = ["m1", "m99"]; }, /"m99" is not a card id/);
   bad("a card that repeats an obvious idea", (o) => { o.cards[4].title = "Match cut to the next scene"; }, /banned obvious idea/);
-  bad("a product-first hero whose origin is not a UI label", (o) => { o.cards[0].origin = "a spinning galaxy of light"; }, /real UI label/, ["--product-first"]);
+  bad("a product-first hero whose resolves_to is not a real surface", (o) => { o.cards[0].resolves_to = "a spinning galaxy of light"; }, /resolves_to must be a real UI label/, ["--product-first"]);
+  bad("a product-first hero with no resolves_to", (o) => { delete o.cards[0].resolves_to; }, /hero m1: on a product film every hero needs resolves_to/, ["--product-first"]);
+  ok("moves: a product-first hero's origin no longer needs a product word (resolves_to carries it)", (() => { const o = clone(good); o.cards[0].origin = "a spinning galaxy of light"; return !validateMoves(o, { beats: pitch.beats, productFirst: true, uiLabels: pitch.ui_labels, productName: pitch.product }).errors.length; })());
+  bad("a card without scale", (o) => { delete o.cards[3].scale; }, /m4: missing scale/);
+  bad("a card with an unknown scale", (o) => { o.cards[3].scale = "huge"; }, /m4: scale "huge"/);
+  bad("no hero that is full-frame (no-full-frame-hero)", (o) => { o.cards[0].scale = "large"; }, /no-full-frame-hero/);
+  bad("a full-frame hero with a non type/shape generator (no-full-frame-hero)", (o) => { o.cards[0].generator = "G9"; }, /no-full-frame-hero/);
+  bad("a sparse chain (chain-sparse)", (o) => { o.chain = o.chain.slice(0, 6); }, /chain-sparse: chain has 6 entries for a 16 s film \(11 at least/);
+  bad("a chain with a gap over 3 s (chain-gap)", (o) => { o.chain[4].t = 5.2; o.chain[5].t = 5.4; }, /chain-gap: \d/);
+  bad("a chain that stops 4 s before the end (chain-gap)", (o) => { o.chain = o.chain.map((e, i) => ({ ...e, t: i + 0.5 })); }, /chain-gap/);
+  bad("no chain at all", (o) => { delete o.chain; }, /chain-sparse/);
+  ok("moves: a hero at scale detail and a mostly-detail set only warn", (() => { const o = clone(good); o.cards[1].scale = "detail"; o.cards[2].scale = "detail"; o.cards[3].scale = "detail"; const r = validateMoves(o, { beats: pitch.beats }); return !r.errors.length && r.warnings.some((w) => /hero m2: scale is "detail"/.test(w)) && r.warnings.some((w) => /more than half/.test(w)); })());
   bad("a product-first card with a conceit word", (o) => { o.cards[4].move = "the badge is hung in a museum case and falls out of its frame"; }, /conceit word "museum"/, ["--product-first"]);
   bad("a hero card without a plain line", (o) => { delete o.cards[0].plain; }, /hero m1: missing plain/);
   bad("a hero plain line over 140 characters", (o) => { o.cards[0].plain = "The dot grows ".repeat(12); }, /hero m1: plain is \d+ characters/);
   bad("a hero plain line with a timing", (o) => { o.cards[0].plain = "At 7.0 to 7.3 the dot turns into the button"; }, /hero m1: plain has a timing/);
   bad("a hero plain line with a pixel size", (o) => { o.cards[1].plain = "The dot grows to 28 px and slides over"; }, /hero m2: plain has a timing/);
   bad("a missing carrier.short", (o) => { delete o.carrier.short; }, /carrier\.short is missing/);
+  bad("a missing carrier.family (carrier-family)", (o) => { delete o.carrier.family; }, /carrier-family: carrier\.family is missing/);
+  bad("an unknown carrier.family (carrier-family)", (o) => { o.carrier.family = "particle"; }, /carrier-family: carrier\.family "particle" is not one of/);
+  ok("moves: a carrier.family that differs from the pack's assigned family is carrier-family; the assigned one passes", validateMoves(good, { beats: pitch.beats, pack: { family: "line" } }).errors.some((e) => /carrier-family: .*"glyph" but your pack assigned "line"/.test(e)) && !validateMoves(good, { beats: pitch.beats, pack: { family: "glyph" } }).errors.length);
   bad("a carrier.short over 8 words", (o) => { o.carrier.short = "the one orange status dot that travels through every single beat"; }, /carrier\.short is 11 words/);
   ok("moves: a non-hero card without plain only warns", (() => { const o = clone(good); delete o.cards[3].plain; const r = validateMoves(o, { beats: pitch.beats }); return !r.errors.some((e) => /plain/.test(e)) && r.warnings.some((w) => /m4: no plain line/.test(w)); })());
   const dup = clone(good); dup.cards[5].generator = dup.cards[4].generator; dup.cards[5].origin = dup.cards[4].origin;
@@ -1751,10 +1765,21 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   const p2 = pk("Bold", ["--seed", "7"]); const t2 = fs.readFileSync(p2.f, "utf8");
   const pa = JSON.parse(t1);
   ok("moves: pack prints its path, is deterministic for run + label + seed, and has 3 exemplars, all 20 generators, a stimulus and the banned list", p1.r.status === 0 && /moves-pack-Bold\.json/.test(p1.r.stdout) && t1 === t2 && pa.exemplars.length === 3 && pa.generators.length === 20 && new Set(pa.generators.map((x) => x.id)).size === 20 && typeof pa.stimulus === "string" && pa.stimulus_kind === "stimulus" && pa.banned.length >= 2, p1.r.stderr + t1.slice(0, 200));
+  ok("moves: the pack carries the house bar first, as its own key (not an exemplar), with the 'the bar, never the content' instruction", pa.bar && pa.bar.id === "fx-house-bar" && /the bar, never the content/.test(pa.bar.instruction) && /never reuse an eye, a pupil, a slit/.test(pa.bar.instruction) && Object.keys(pa)[3] === "bar" && !pa.exemplars.some((x) => x.id === "fx-house-bar") && Array.isArray(pa.bar.ledger), JSON.stringify(Object.keys(pa)));
   const varies = [1, 2, 3, 4, 5, 6].map((n) => { pk("Bold", ["--seed", String(n)]); return fs.readFileSync(p1.f, "utf8"); });
   ok("moves: pack changes with the seed (generator order and exemplars)", new Set(varies).size > 1);
   pk("Wild", ["--seed", "7"]);
   ok("moves: pack differs by label", JSON.stringify(rj(path.join(run, "story", "moves-pack-Wild.json")).generators) !== JSON.stringify(pa.generators));
+  const fams = (seed, runDir = run) => ["Sure", "Bold", "Wild"].map((l) => { const r = M(["pack", "--run", runDir, "--label", l, "--seed", String(seed)]); return r.status === 0 ? rj(path.join(runDir, "story", `moves-pack-${l}.json`)) : {}; });
+  const famIds = ["glyph", "component", "line", "object", "mark", "data"];
+  const f7 = fams(7), f7b = fams(7);
+  ok("moves: pack assigns each of the three labels a DIFFERENT carrier family (a known id, with a description and examples), deterministically", new Set(f7.map((p) => p.family)).size === 3 && f7.every((p) => famIds.includes(p.family) && typeof p.family_description === "string" && p.family_description && Array.isArray(p.family_examples) && p.family_examples.length >= 3) && JSON.stringify(f7.map((p) => p.family)) === JSON.stringify(f7b.map((p) => p.family)), JSON.stringify(f7.map((p) => p.family)));
+  ok("moves: the three families stay distinct across seeds and runs, and the assignment varies", (() => { const seen = new Set(); for (let n = 1; n <= 12; n++) { const fs3 = fams(n).map((p) => p.family); if (new Set(fs3).size !== 3) return false; seen.add(fs3.join()); } const r2 = path.join(ws, ".rasanai", "r2"); fs.mkdirSync(path.join(r2, "story"), { recursive: true }); for (let n = 1; n <= 4; n++) { const fs3 = fams(n, r2).map((p) => p.family); if (new Set(fs3).size !== 3) return false; seen.add(fs3.join()); } return seen.size > 1; })());
+  ok("moves: pack has no brand_motif without a brand film card or DESIGN.md motif", !("brand_motif" in f7[0]));
+  const r3 = path.join(ws, ".rasanai", "r3"); fs.mkdirSync(path.join(r3, "brand-film"), { recursive: true });
+  wj(path.join(r3, "brand-film", "FILM-STYLE.json"), { motif: "a single dot that becomes rings, a grid, letterforms" });
+  const f3 = fams(7, r3);
+  ok("moves: a brand film card's motif is noted as brand_motif in every pack (secondary anywhere, carrier only for glyph or mark)", f3.every((p) => /single dot/.test((p.brand_motif || {}).motif || "") && /only the label whose family is glyph or mark/.test(p.brand_motif.rule)), JSON.stringify(f3[0].brand_motif));
   const pf = pk("Bold", ["--seed", "7", "--product-first"]); const pfj = rj(pf.f);
   ok("moves: a product-first pack carries a choreography constraint instead of a stimulus", pfj.stimulus_kind === "choreography" && rj(path.join(FX, "library", "choreography.json")).includes(pfj.stimulus) && !/unverified/.test(JSON.stringify(pfj.exemplars)), pfj.stimulus);
   wj(path.join(run, "research", "reference-moves.json"), [{ id: "ref1", title: "The user's cat-eye clip", move: "a circle becomes a pupil" }]);
@@ -1764,14 +1789,29 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   ok("moves: pack without a library fails clearly (exit 1)", (() => { const r = M(["pack", "--run", run, "--label", "Bold"], { RASANAI_MOVES_LIBRARY: path.join(TMP, "no-such-library") }); return r.status === 1 && /moves library file not found/.test(r.stderr); })());
 
   // the run: three pitches, three moves files, a verdict
+  const SHORTS = { Sure: "a receipt photo", Bold: "an orange status dot", Wild: "a ruled progress underline" };
+  const packs = Object.fromEntries(["Sure", "Bold", "Wild"].map((l, i) => { M(["pack", "--run", run, "--label", l, "--seed", "7"]); return [l, rj(path.join(run, "story", `moves-pack-${l}.json`))]; }));
+  const mvOf = (l) => { const o = { ...clone(good), label: l }; o.carrier.family = packs[l].family; o.carrier.short = SHORTS[l]; return o; };
   for (const l of ["Sure", "Bold", "Wild"]) {
     wj(path.join(run, "story", `pitch-${l}.json`), { ...pitch, label: l });
-    wj(path.join(run, "story", `moves-${l}.json`), { ...clone(good), label: l });
+    wj(path.join(run, "story", `moves-${l}.json`), mvOf(l));
   }
+  ok("moves: check refuses a moves file whose carrier.family is not the pack's assigned one (carrier-family, beside the pack)", (() => { const o = mvOf("Bold"); o.carrier.family = famIds.find((x) => x !== packs.Bold.family); const f = path.join(run, "story", "moves-Bold.json"); wj(f, o); const r = M(["check", "--file", f, "--pitch", path.join(run, "story", "pitch-Bold.json")]); wj(f, mvOf("Bold")); return r.status === 2 && J(r).errors.some((e) => /carrier-family: .*pack assigned/.test(e)); })());
+  const setOk = M(["check-set", "--run", run]);
+  ok("moves: check-set passes three different carrier families and distinct carriers (no warnings)", setOk.status === 0 && J(setOk).ok && J(setOk).warnings.length === 0, setOk.stdout.slice(0, 300));
+  const setWith = (mut) => { const keep = ["Sure", "Bold", "Wild"].map((l) => mvOf(l)); const m = keep.map((o) => clone(o)); mut(m); m.forEach((o) => wj(path.join(run, "story", `moves-${o.label}.json`), o)); const r = M(["check-set", "--run", run]); keep.forEach((o) => wj(path.join(run, "story", `moves-${o.label}.json`), o)); return r; };
+  const rep = setWith((m) => { m[2].carrier.family = m[0].carrier.family; });
+  ok("moves: check-set errors carrier-repeat when two moves files share a carrier family (exit 2)", rep.status === 2 && J(rep).errors.some((e) => /carrier-repeat: Sure and Wild both use/.test(e)), rep.stdout.slice(0, 300));
+  const sim = setWith((m) => { m[0].carrier.short = "the orange receipt"; });
+  ok("moves: check-set warns carrier-similar (not an error) when two carrier names share a content word", sim.status === 0 && J(sim).warnings.some((w) => /carrier-similar: Sure's .* and Bold's .* share "orange"/.test(w)), sim.stdout.slice(0, 300));
+  ok("moves: a shared stopword alone ('the', 'a', 'an') is not carrier-similar", setOk.status === 0 && !J(setOk).warnings.length);
   const chk = C(["check", "--run", run, "--role", "move-inventor", "--key", "Bold"]);
-  ok("moves: crew check move-inventor accepts the good file and refuses a bad one", chk.status === 0 && (() => { const o = clone(good); o.candidates = []; wj(path.join(run, "story", "moves-Wild.json"), { ...o, label: "Wild" }); const r = C(["check", "--run", run, "--role", "move-inventor", "--key", "Wild"]); wj(path.join(run, "story", "moves-Wild.json"), { ...clone(good), label: "Wild" }); return r.status === 2 && /candidates: 0/.test(r.stdout); })(), chk.stdout.slice(0, 300));
+  ok("moves: crew check move-inventor accepts the good file and refuses a bad one", chk.status === 0 && (() => { const o = clone(good); o.candidates = []; wj(path.join(run, "story", "moves-Wild.json"), { ...o, label: "Wild" }); const r = C(["check", "--run", run, "--role", "move-inventor", "--key", "Wild"]); wj(path.join(run, "story", "moves-Wild.json"), mvOf("Wild")); return r.status === 2 && /candidates: 0/.test(r.stdout); })(), chk.stdout.slice(0, 300));
   const ids = good.cards.map((c) => c.id);
-  const verdict = { pitches: Object.fromEntries(["Sure", "Bold", "Wild"].map((l) => [l, { cards: ids.map((id, i) => (i < 3 ? { id, pass: true, fails: [], evidence: `quoted: ${id}` } : { id, pass: false, fails: ["G2"], evidence: "the move is a label" })), ranking: ["m3", "m1", "m2"], hero: "m3", why: "the N bar is a letter and a headline at once", denial: [] }])), best_overall: { label: "Bold", id: "m3", why: "the bridge frame is concrete" } };
+  const FRAME = "the dot lands exactly on the Approve button cap";
+  const rd2 = (a, b, win, extra = {}) => [{ a, b, first: "a", winner: win[0], frame: FRAME, ...(extra.first || {}) }, { a, b, first: "b", winner: win[1], frame: FRAME, ...(extra.second || {}) }];
+  const ROUNDS = [...rd2("m3", "m1", ["m3", "m3"]), ...rd2("m1", "m2", ["m1", "m1"])];
+  const verdict = { pitches: Object.fromEntries(["Sure", "Bold", "Wild"].map((l) => [l, { cards: ids.map((id, i) => (i < 3 ? { id, pass: true, fails: [], evidence: `quoted: ${id}` } : { id, pass: false, fails: ["G2"], evidence: "the move is a label" })), ranking: ["m3", "m1", "m2"], rounds: ROUNDS, hero: "m3", why: "the N bar is a letter and a headline at once", denial: [], set: { full_frame: true, evidence: "m1: the dot fills the frame as the Approve cap" } }])), best_overall: { label: "Bold", id: "m3", why: "the bridge frame is concrete" } };
   const vf = path.join(run, "story", "moves-verdict.json");
   wj(vf, verdict);
   const cv = M(["check-verdict", "--run", run]);
@@ -1781,7 +1821,22 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   vbad("a hero that is not ranking[0]", (v) => { v.pitches.Wild.hero = "m1"; }, /hero must be ranking\[0\]/);
   vbad("a fail with no gate id", (v) => { v.pitches.Bold.cards[4].fails = []; }, /needs at least one gate id/);
   vbad("a card left unjudged", (v) => { v.pitches.Bold.cards.pop(); }, /card m6 was not judged/);
+  vbad("a pitch with no set gate", (v) => { delete v.pitches.Sure.set; }, /Sure: set is missing/);
+  vbad("set.full_frame false while the label is not in denial", (v) => { v.pitches.Bold.set = { full_frame: false, evidence: "every passing card is a detail inside the UI" }; }, /Bold: set\.full_frame is false.*must be in denial/);
+  ok("moves: set.full_frame false is fine when the label is in denial[]", (() => { const v = clone(verdict); v.pitches.Bold.set = { full_frame: false, evidence: "all small" }; v.pitches.Bold.denial = ["Bold"]; wj(vf, v); const r = M(["check-verdict", "--run", run]); wj(vf, verdict); return r.status === 0 && J(r).ok; })());
   vbad("a missing label", (v) => { delete v.pitches.Wild; }, /Wild: missing/);
+  // the pairwise rounds: every consecutive pair of the ranking, in both presentation orders
+  vbad("no rounds at all (rounds-missing)", (v) => { delete v.pitches.Sure.rounds; }, /Sure: rounds-missing: m3 > m1/);
+  vbad("a pair judged in only one presentation order (rounds-missing)", (v) => { v.pitches.Bold.rounds = v.pitches.Bold.rounds.filter((r, i) => i !== 3); }, /Bold: rounds-missing: m1 > m2 needs two rounds in both presentation orders/);
+  vbad("two rounds that both show the same card first (rounds-missing)", (v) => { v.pitches.Bold.rounds[1].first = "a"; }, /Bold: rounds-missing: m3 > m1/);
+  vbad("the lower-ranked card winning both rounds (rounds-inconsistent)", (v) => { v.pitches.Wild.rounds[2].winner = "m2"; v.pitches.Wild.rounds[3].winner = "m2"; }, /Wild: rounds-inconsistent: m1 > m2: m2 won both rounds/);
+  vbad("a round whose winner is not one of the pair (rounds-inconsistent)", (v) => { v.pitches.Sure.rounds[0].winner = "m9"; }, /Sure: rounds-inconsistent: m3 > m1: a round's winner is not one of the pair/);
+  vbad("a round frame under 8 words (rounds-frame)", (v) => { v.pitches.Bold.rounds[2].frame = "the dot is nicer"; }, /Bold: rounds-frame: round 3 \(m1 vs m2\)/);
+  vbad("a split pair without the riskier tiebreak (rounds-inconsistent)", (v) => { v.pitches.Sure.rounds[1].winner = "m1"; }, /Sure: rounds-inconsistent: m3 > m1: the pair split/);
+  vbad("a split pair whose tiebreak names the lower-ranked card as riskier (rounds-inconsistent)", (v) => { v.pitches.Sure.rounds[1].winner = "m1"; v.pitches.Sure.rounds[1].tiebreak = "riskier"; v.pitches.Sure.rounds[1].riskier = "m1"; }, /Sure: rounds-inconsistent: m3 > m1: the tiebreak names m1/);
+  ok("moves: a split pair is allowed with tiebreak riskier on the second round and the riskier card ranked higher", (() => { const v = clone(verdict); v.pitches.Sure.rounds[1].winner = "m1"; v.pitches.Sure.rounds[1].tiebreak = "riskier"; v.pitches.Sure.rounds[1].riskier = "m3"; wj(vf, v); const r = M(["check-verdict", "--run", run]); wj(vf, verdict); return r.status === 0 && J(r).ok; })());
+  ok("moves: rounds may be recorded in any array order and extra rounds are fine", (() => { const v = clone(verdict); v.pitches.Sure.rounds = [...v.pitches.Sure.rounds].reverse().concat(rd2("m3", "m2", ["m3", "m3"])); wj(vf, v); const r = M(["check-verdict", "--run", run]); wj(vf, verdict); return r.status === 0 && J(r).ok; })());
+  ok("moves: check-verdict also carries carrier-repeat from the set check, and crew check move-juror too", (() => { const o = mvOf("Wild"); o.carrier.family = packs.Sure.family; wj(path.join(run, "story", "moves-Wild.json"), o); const r = M(["check-verdict", "--run", run]); const c = C(["check", "--run", run, "--role", "move-juror"]); wj(path.join(run, "story", "moves-Wild.json"), mvOf("Wild")); return r.status === 2 && J(r).errors.some((e) => /carrier-repeat/.test(e)) && c.status === 2 && /carrier-repeat/.test(c.stdout); })());
 
   // the payload: the carrier and up to 3 moves per story, a move with a rough first, media paths relative to the workspace
   const rd = path.join(run, "story", "moves", "Bold-m1");
@@ -1794,6 +1849,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   const pj = (() => { try { return JSON.parse(pl.stdout); } catch { return []; } })();
   const bold = pj.find((x) => x.id === "b") || {};
   ok("moves: payload adds carrier and moves[] (max 3, a move with a rough first, one-line text, workspace-relative media, beat 1-based)", pl.status === 0 && pj.length === 4 && bold.carrier === "an orange status dot" && bold.moves.length === 3 && bold.moves[0].id === "m1" && bold.moves[0].video === path.join(".rasanai", "r1", "story", "moves", "Bold-m1", "rough.mp4") && bold.moves[0].strip && bold.moves[0].poster && bold.moves[1].id === "m3" && !bold.moves[1].video && bold.moves[0].beat === 2 && bold.moves.every((m) => m.move.length <= 140 && !/\n/.test(m.move) && m.title && m.says) && !pj[3].moves && !pj[3].carrier, pl.stdout.slice(0, 500));
+  ok("moves: payload carries scale per move (m1 full-frame, m3 large)", bold.moves.find((m) => m.id === "m1").scale === "full-frame" && bold.moves.find((m) => m.id === "m3").scale === "large", JSON.stringify(bold.moves.map((m) => [m.id, m.scale])));
   {
     // moves files written before `plain` / `carrier.short`: the payload falls back (says, then a shortened move; the carrier cut at the first comma)
     const old = clone(good); old.label = "Bold"; delete old.carrier.short; old.carrier.what = "the turmeric play triangle from the counter of the logo, carried as cursor, play glyph and playhead";
@@ -1804,7 +1860,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
     const withPlain = clone(good); withPlain.label = "Bold"; withPlain.cards[0].plain = "A plain line for the chooser."; wj(path.join(run, "story", "moves-Bold.json"), withPlain);
     const wp = JSON.parse(M(["payload", "--run", run, "--stories", sf]).stdout).find((x) => x.id === "b");
     ok("moves: payload uses plain over says and move", wp.moves.some((m) => m.move === "A plain line for the chooser."));
-    wj(path.join(run, "story", "moves-Bold.json"), { ...clone(good), label: "Bold" });
+    wj(path.join(run, "story", "moves-Bold.json"), mvOf("Bold"));
   }
   ok("moves: payload keeps the stories untouched otherwise (a story without moves is returned as is)", JSON.stringify(pj[3]) === JSON.stringify(stories[3]));
 
