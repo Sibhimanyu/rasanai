@@ -35,6 +35,10 @@ RasanAI Studio, the native Mac app, does not use the page or the server. It star
 - A run an older Studio started (it has `address.json` and a console server) is switched on its next headless command: the old server is stopped and its address forgotten.
 - Without the variable, and without `console.json` saying headless, nothing changes: the server, the page, the token and the restarts work as described above.
 
+### The brief file (`rasanai-brief.json`)
+
+Studio writes the user's brief to `rasanai-brief.json` in the project folder (`FilmDraft` in `apps/macos/Sources/StudioCore/FilmDraft.swift`): `brief`, `duration`, `aspect`, `agent`, `motionLevel`, `brand`, `modelPlan`, `pace`, and **`moments: [{id, role}]`**, the reference moments the user picked in the gallery (up to 4, one per role: `hook`, `proof`, `turn`, `cta`; optional, empty by default). The request text lists them under REFERENCE MOMENTS. The Director fetches each (`moments.mjs fetch <id> --run "$RUN" --role <role>`), writes them into the plan as each beat's `moment` and `take`, and they win over its own picks. They are motion references for technique only, credited in `$RUN/references/moments/credits.json`.
+
 ## Security
 
 - Bound to 127.0.0.1 only; requests whose `Host` isn't `127.0.0.1:<port>` / `localhost:<port>` are refused (blocks DNS rebinding).
