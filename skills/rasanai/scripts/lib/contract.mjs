@@ -20,7 +20,7 @@ export function contractText(M, { lengthS, W, H, video = false, feel = "" } = {}
     `  - enter \`${M.easing.enter}\`: anything becoming visible, including a rule drawing out from 0, a mask or clip opening, letters growing from a baseline`,
     `  - exit \`${M.easing.exit}\`: anything leaving or collapsing back to 0`,
     `  - move / emphasis \`${M.easing.move}\`: changes to an element that stays visible (shift, push, pulse)`,
-    `- Stagger ${M.stagger.each_ms} ms between units. Hold every element at least ${M.holds.min_ms} ms after it has fully arrived before it leaves.`,
+    `- Stagger ${M.stagger.each_ms} ms between units. Give every element at least ${M.holds.min_ms} ms on screen after it has fully arrived before it leaves (reading time), and keep it moving in that time (its slow carry toward its exit, the camera going somewhere, the next element arriving): nothing parks, and no stretch of 0.8 s goes still.`,
     `- Banned (machine-checked after the build): ${(M.banned || []).join(", ")}.`,
     `- Preferred entrances: ${(M.entrances || []).join(", ")}. Exits: ${(M.exits || []).join(", ")}.`,
     "- GSAP only (no CSS @keyframes, anime.js or WAAPI). Registry blocks you reuse are re-eased and re-timed to these rules.",
@@ -31,7 +31,7 @@ export function contractText(M, { lengthS, W, H, video = false, feel = "" } = {}
     lines.push(
       "- **Precedence.** The frame-worker structural rules still win (caption keep-out, no front-loading, no exits except in the final frame, fromTo, no repeat/yoyo/random). This contract replaces the workflow's default motion doctrine (e.g. motion-language.md's power3 default and its back/elastic ban) wherever they differ.",
       "- **Between frames** the storyboard's `transition_in` carries the handoff; do not animate your own frame's exit unless you are the final frame.",
-      "- **Intensity** (`motion_intensity` in your frame block): high = the shorter scale values and the full stagger; medium = the middle values; low = the longer values, fewer moves, more stillness. Always the same eases."
+      "- **Intensity** (`motion_intensity` in your frame block): high = the shorter scale values and the full stagger; medium = the middle values; low = the longer values and fewer moves, never a freeze (something meaningful still changes every 1.5 to 2.5 s). Always the same eases."
     );
   }
   if (feel) lines.push("", "How it should feel:", "", feel.trim());

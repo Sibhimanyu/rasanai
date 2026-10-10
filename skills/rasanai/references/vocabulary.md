@@ -272,7 +272,7 @@ Other stock shorthand: **Super 8 / 16 mm** = heavy grain 12–18%, gate weave 0.
 | Staging | Presenting one idea unmistakably. | One focal element moves; everything else holds or dims 30–50%. |
 | Timing | The number of frames a move takes, which gives it weight. | Light and small: 0.2–0.35 s; medium: 0.4–0.6 s; heavy or large: 0.6–1.0 s. |
 | Exaggeration | Pushing a pose or move past reality for clarity. | The spectacle beat only: e.g. the final word lands 1.3–1.4× oversized, then settles to true size. |
-| Hold | An element at rest after arriving. | Stillness for at least the reading time; no idle motion. |
+| Hold | An element on screen after arriving, for its reading time. | Reading time only, and it still carries secondary motion (its slow carry toward its exit, the cursor's next arc, the next element arriving); no idle motion, no still stretch of 0.8 s. |
 | Moving hold | A hold that keeps the frame alive through the camera, not the element. | A T1 push of 2–4% on the world; the elements stay still. |
 | Stagger | Offsetting identical motions across items. | `stagger: {each: 0.03–0.12, from: "start" | "center" | "edges"}`; total under 0.5 s; seeded if random. |
 | Cascade / ripple / domino | A stagger that spreads from an origin. | `from: [x, y]` of the cause (the clicked button); each offset < duration. |

@@ -45,7 +45,7 @@ Timings are proposed (the FT publishes charts, not motion specs).
 - 0.3 s: headline (Newsreader 500) mask-rises 0.45 s `expo.out`; standfirst one line fades 0.3 s.
 - 0.8 s: series draw as strokes (`stroke-dashoffset` to 0, 0.8 s `power2.inOut`), bars rise from the baseline (`scaleY` from the bottom, 0.5 s `power2.out`, stagger 0.03 s). One claret highlight, the rest oxford or grey.
 - Long time series: pan right at constant speed (`ease: "none"`, 6 s) with the latest value pinned to the right edge by a label; this is the one place linear is correct.
-- Annotation: one line, serif italic 22 px, hold 2 s. Between charts: a straight cut, or a 0.3 s cross-fade where the salmon field stays and only the marks change.
+- Annotation: one line, serif italic 22 px, reads 2 s while the marks keep settling into place. Between charts: a straight cut, or a 0.3 s cross-fade where the salmon field stays and only the marks change.
 - Camera: locked; grade: none. The film starts and ends on the bare #fff1e5 field (the colour is the signature). Sound: paper-quiet, a soft tick on the highlight.
 3D (Rasan3D, 3d.md sections 5, 6): flat sheets in space, never glossy.
 - Sheets: thin boxes (depth 0.01) or `k.panel({ width: 3.2, height: 2.2, depth: 0.01, radius: 0, texture })` with `k.material("paper", { color: "#fff1e5" })`; stacked 0.15 apart in z. `k.rig("window", { dir: [-0.4, 0.8, 0.5], shadowSoftness: 6 })`, `environment: "soft"`, `k.ground({ shadowOpacity: 0.25 })`.

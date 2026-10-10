@@ -104,7 +104,7 @@
         "negative space animation",
         "single element title card"
       ],
-      "prompt": "Art-direct in extreme minimalism: every frame holds exactly one element (one word, one shape or the product) on a flat single-color field; occupy under 15% of frame area or fill it completely with one oversized word; one typeface, one weight; no borders, shadows, icons, gradients or secondary copy; move one property per shot (scale 1.0 to 1.04 or a single position shift) over 1000-1500 ms with sine.inOut; hold 2-3 s; cut hard between states."
+      "prompt": "Art-direct in extreme minimalism: every frame holds exactly one element (one word, one shape or the product) on a flat single-color field; occupy under 15% of frame area or fill it completely with one oversized word; one typeface, one weight; no borders, shadows, icons, gradients or secondary copy; move one property per shot (a single position shift, or a scale of 1.0 to 1.15) over 800-1200 ms with sine.inOut, keep that element's slow carry while it reads, and cut on the move; a state reads 1.5-2.5 s and is never frozen for 0.8 s."
     },
     {
       "id": "warm-minimal",

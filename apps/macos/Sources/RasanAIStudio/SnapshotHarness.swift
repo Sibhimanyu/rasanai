@@ -47,6 +47,7 @@ enum SnapshotHarness {
         let settings = isolatedSettings(root: sandbox.appendingPathComponent("Library-\(UUID().uuidString.prefix(6))", isDirectory: true))
         let libraryRoot = URL(fileURLWithPath: settings.projectRoot, isDirectory: true)
         let store = StudioStore(settings: settings, demo: true)
+        MomentFixtures.install(in: store.gallery)
         var urls: [String: URL] = [:]
         var brands: [Brand] = []
         if wanted {
@@ -74,7 +75,9 @@ enum SnapshotHarness {
                 let folder = try library.create(name: name)
                 urls[name] = folder
                 store.summaries[folder] = summary
-                try FilmDraft(brief: "A calm, confident film about \(name.lowercased()). Show the product in use, keep the pace unhurried, and end on a clear call to action.", duration: 45, aspect: "16:9", agent: "claude", motionLevel: "maximal", brand: name == "Spring launch film" ? "Northwind" : nil).save(in: folder)
+                var draft = FilmDraft(brief: "A calm, confident film about \(name.lowercased()). Show the product in use, keep the pace unhurried, and end on a clear call to action.", duration: 45, aspect: "16:9", agent: "claude", motionLevel: "maximal", brand: name == "Spring launch film" ? "Northwind" : nil)
+                if name == "Spring launch film" { draft.moments = [FilmMoment(id: "M921", role: "hook"), FilmMoment(id: "M913", role: "proof"), FilmMoment(id: "M920", role: "cta")] }
+                try draft.save(in: folder)
             }
             store.localProjects = try library.projects()
             let summaryByName = Dictionary(uniqueKeysWithValues: plan.map { ($0.0, $0.1) })
@@ -197,6 +200,20 @@ enum SnapshotHarness {
                 }
                 full.store.settings.saveEditorDraft(FilmEditorDraft(name: "Northwind launch film", film: FilmDraft(brief: "A 45-second launch film for Northwind, our budgeting app. Calm, confident, a little playful.", duration: 45, motionLevel: "balanced", brand: "Northwind"), sources: newFilmFiles), for: nil)
                 await shot("new-film", StudioView(store: full.store)) { full.store.path = [.newFilm(nil)] }
+
+                var inspired = FilmDraft(brief: "A 30-second launch film for Northwind, our budgeting app. Calm, confident, a little playful. End on the download button.", duration: 30, brand: "Northwind")
+                inspired.moments = [FilmMoment(id: "M975", role: "hook"), FilmMoment(id: "M916", role: "turn"), FilmMoment(id: "M1014", role: "cta")]
+                let withMoments = try makeSeed(films: true)
+                withMoments.store.settings.saveEditorDraft(FilmEditorDraft(name: "Northwind launch film", film: inspired, sources: []), for: nil)
+                await shot("new-film-moments", StudioView(store: withMoments.store)) { withMoments.store.path = [.newFilm(nil)] }
+
+                let gallery = try makeSeed(films: true)
+                gallery.store.inspirePicks = MomentSelection([FilmMoment(id: "M913", role: "proof"), FilmMoment(id: "M921", role: "hook")])
+                await shot("gallery", StudioView(store: gallery.store)) { gallery.store.path = [.inspire] }
+                await shot("gallery-tall", StudioView(store: gallery.store), size: CGSize(width: 1120, height: 1500)) { gallery.store.path = [.inspire] }
+                let offline = try makeSeed(films: true)
+                offline.store.gallery.moments = []; offline.store.gallery.state = .failed
+                await shot("gallery-offline", StudioView(store: offline.store)) { offline.store.path = [.inspire] }
 
                 if let draft = full.films["Podcast trailer"] {
                     full.store.selectedProjectURL = draft; full.store.loadedFilm = draft; full.store.filmDraftProject = draft

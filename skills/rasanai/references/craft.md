@@ -2,7 +2,7 @@
 
 The user decides **taste**: the brief, the film (its style and its story), notes on the animatic, and the final. Everything else is **craft**, and Claude decides it the way a senior motion designer would: without a question, following this file, and reporting each call in one plain line (see **Reporting decisions**) so any of it can be changed with a note. If a decision would need expertise to answer (which ease, which transition, how long a scene runs), it is not a question.
 
-**Precedence.** The project's brand (DESIGN.md) wins, then the chosen style (its `stack`, `recipe`, `DIRECTION.md` and `motion.md`), then this file. When the style overrides a rule here (a stop-motion style wants stepped cuts; a neon style wants glow), follow the style and say so in the decision's reason. Never override a rule silently.
+**Precedence.** The project's brand (DESIGN.md) wins, then the chosen style (its `stack`, `recipe`, `DIRECTION.md` and `motion.md`), then this file. When the style overrides a rule here (a stop-motion style wants stepped cuts; a neon style wants glow), follow the style and say so in the decision's reason. Never override a rule silently. **One exception: momentum.** The motion gate (`motion-gate.mjs`) wins over every style card, brand film card and direction: a hold a style asks for ("hold 2 s", "long holds", "nothing moves") is reading time, and it still carries secondary motion; no still stretch reaches 0.8 s, nothing creeps, and the end card holds at most 1.5 s still.
 
 **Units.** Numbers assume 30 or 60 fps. Sizes are given as a percentage of the frame's **short side** (1080 px in 1920×1080, 1080×1920 and 1080×1080), so they hold in every aspect. For turning any term here into code (a whip pan, halation, a split tone), use `references/vocabulary.md`.
 
@@ -28,15 +28,15 @@ The user decides **taste**: the brief, the film (its style and its story), notes
 | What | Rule |
 |---|---|
 | Frame 0 | Already designed and postable (it is also the thumbnail). No fade from black, no empty frame, no lone dot. First visible motion within 0.2 s of the film's start and of every scene's start. |
-| Reading time | Every line stays fully in and still for **0.6 s + 0.4 s per word, 1.2 s minimum** (4 words: 2.2 s; 6 words: 3.0 s). The key message holds at least 2 s. A small label meant to be read: at least 0.8 s still. Never ask for more than 3 words per second. Text stays still for at least 8 frames before it moves again. Only one text block enters at a time. If it doesn't fit, cut words; never speed the text up. (`slop.mjs` flags anything under 0.6 s + 0.4 s per word.) |
-| Fast in, then hold | An entrance completes in 0.3–0.6 s, then the element holds still while it is read. Never animate text while it is being read. |
-| No dead air | No near-still stretch over about 1.2 s mid-film (`slop.mjs` dead-air). Something meaningful changes: a new element, a state change, a cursor action, a live data tick, a motivated camera move. Decoration (breathing, floating, drifting particles) does not count and is banned. Deliberate exceptions: the held beat after the key message (up to 1.2 s), the stillness before the climax (0.3–0.8 s) and the end card. |
+| Reading time | Every line stays fully on screen and readable for **0.6 s + 0.4 s per word, 1.2 s minimum** (4 words: 2.2 s; 6 words: 3.0 s). The key message reads for at least 2 s. A small label meant to be read: at least 0.8 s. Never ask for more than 3 words per second. While a line is read it keeps a slow carry on the axis it will leave by (it never parks, and its letters never re-animate). Only one text block enters at a time. If it doesn't fit, cut words; never speed the text up. (`slop.mjs` flags anything under 0.6 s + 0.4 s per word.) |
+| Fast in, then carry | An entrance completes in 0.3–0.6 s, then the element keeps moving the way it will leave (a slow slide toward the film's direction, or a steady recede) while it is read, and its exit continues that move. Never re-animate the letters of a line being read. |
+| No dead air | **Something meaningful changes every 1.5–2.5 s** (the tempo), and no still stretch reaches 0.8 s anywhere outside the end card (`motion-gate.mjs` freeze; `slop.mjs` dead-air). A meaningful change: a new element, a state change, a cursor action, a live data tick, a camera move that goes somewhere. Decoration (breathing, floating, drifting particles) does not count and is banned. Holds are reading time only, and they still carry secondary motion. The end card holds at most 1.5 s still after its last move. |
 | Not too busy | The opposite failure is "pause is lava": plan an **energy curve** with at least one calm stretch (a shot of 3 s or more with one mover) and one peak. At most 3 elements in motion at any instant, background included. |
 | Sequential reveal | Each element appears when the voiceover reaches it or on its beat, one cue per element, nothing before its cue. Spread reveals across the scene so the last lands in its back half. Front-loading (the whole layout on screen in the first 25% of the scene, then it sits) is the PowerPoint failure. |
 | Beat grid | With music, work on the track's analysed bar grid (sound.md); before a track exists, plan at 120 BPM. Structural cuts on downbeats or up to 2 frames early; most cuts on a beat, never every beat (evenly spaced cuts feel off). Change shot or state every 2–4 beats in launch films, every 2–3 in reels; something visibly moves on most beats. |
-| Rhythm | Declare it before building ("fast-fast-SLOW-fast-SIGNATURE-hold"). Never uniform: the coefficient of variation of shot lengths is at least 0.35 (`slop.mjs` warns under 0.2); no 3 consecutive shots within ±10% of each other; the slowest scene is about 3× the fastest; a film over 20 s has at least one shot of 3 s or more and one of 0.6 s or less. The reveal gets the longest hold. |
+| Rhythm | Declare it before building ("fast-fast-SLOW-fast-SIGNATURE-hold"). Never uniform: the coefficient of variation of shot lengths is at least 0.35 (`slop.mjs` warns under 0.2); no 3 consecutive shots within ±10% of each other; the slowest scene is about 3× the fastest; a film over 20 s has at least one shot of 3 s or more and one of 0.6 s or less. The reveal gets the longest shot. |
 | First second | Picture designed and moving at frame 0; audio already at bed level in second 0–1 (never −30 dBFS or quieter). Trim quiet music intros. |
-| End card | Name, product, one call to action (a URL or "available today"), in the style's calmest composition, holding 2–3 s still after its last motion settles (1.5 s minimum in a 15 s reel), with the music's button and an audio tail of 0.5 s or more. Never longer than 3 s; no black or silent tail; no "thanks for watching" or social-icon walls. |
+| End card | Name, product, one call to action (a URL or "available today"), in the style's calmest composition. The beat runs 2–3 s: its elements land in sequence (the mark, then the name, then the action), and after the last one lands it holds **at most 1.5 s still** (`motion-gate.mjs` measures it; a brief that asks for a longer hold sets `end_hold_s` in the plan). The music's button and an audio tail of 0.5 s or more. Never longer than 3 s; no black or silent tail; no "thanks for watching" or social-icon walls. |
 
 **Length by format**
 
@@ -72,9 +72,18 @@ Everything obeys `motion.md` (the style's motion language: eases, duration scale
 
 **Durations.** UI micro-feedback (press, toggle) 0.12–0.2 s; the minimum real move 0.3 s; standard 0.4–0.6 s; big moves and camera 0.5–0.9 s; cinematic 0.8–1.5 s. Longer travel gets a longer duration, capped at 1.2 s outside cinematic styles.
 
+**Reference moments: the take rule.** A reference moment (`scripts/moments.mjs`: a credited slice of a real launch film with its measured spec and code, fetched read-only into `$RUN/references/moments/<id>/`) is a finished piece of someone else's film, with its own opening, background, logo ending and frame-traced motion. Copy it in and you get its film, not yours. From each moment take **one mechanic**, written as one sentence: what moves, on which axis and in which direction, for how long, and what in it never stops moving (that continuous motion is usually why it holds attention). That sentence is the beat's `take` in the plan, and it is all you take. Build it fresh, with this film's content, in this beat's own timeline. Leave behind its copy, its brand and colours, its background, its bookends (logo openers, end plates, hard-cut tails) and its frame tables (read those only for timing: how many frames a move takes and where its speed peaks; a traced track is one move with one ease, never a replay). One storyline on one ground, with moving seams. The user's picked moments win; otherwise the Director picks 2 to 4, one per role, by mechanic fit for the scenario. Moments are used for technique only: no footage, frames, code, copy, brand or audio from one ships in the film, and every moment used is credited in `references/moments/credits.json` and in the Final's notes.
+
 **Overshoot is never the default.** Bouncy motion is the most-named turn-off in user-made video. Allowed only when the style's motion language is elastic, springy, playful or cartoon: `back.out(1.2–1.6)`, 8% past the target at most (3–5% is usual), a single settle (no multi-bounce), one overshoot style per film, on transforms of UI and shapes only. Never on type, logos or numbers (a counter never passes its final value), and never in precise, luxurious, editorial or cinematic styles.
 
-**No idle motion.** No breathing scale, floating, bobbing, pulsing, drifting gradients or infinite yoyo loops (`slop.mjs` idle-breathing; they also break seek-safety). Stillness is allowed; bad motion is not. Aliveness comes from sequential reveal, the product's own life (typing, counting, a cursor, a notification) or one motivated camera move.
+**No idle motion, and no scheduled stillness.** No breathing scale, floating, bobbing, pulsing, drifting gradients or infinite yoyo loops (`slop.mjs` idle-breathing; they also break seek-safety). Nor a planned freeze: a hold is reading time, and it still carries secondary motion. Aliveness comes from sequential reveal, the product's own life (typing, counting, a cursor, a notification), lines that keep their carry, and camera moves that go somewhere.
+
+**Momentum** (`motion-gate.mjs` measures it on the draft):
+- A line never parks and never creeps. Between landing and leaving it keeps moving the way it will leave (it keeps sliding toward the film's direction, or it keeps receding to about 60% of its landed size by the time its exit starts), and its exit continues that same move. Never both on one line.
+- Nothing creeps. A whole-frame scale or drift slower than 4% a second (a 1.0 to 1.08 push over a whole film, a 2–4% lean-in over a shot) makes thin lines and small type shimmer. Move the camera to go somewhere, at a speed you can see, or lock it.
+- A screen the viewer is reading holds its layout while its content acts (typing, rows filling, a cursor moving): that action is its motion.
+- Many similar things (messages, rows, results) move as one ordered rig: a stack, a thread, a feed, a carousel. Never scattered.
+- Two moves on one element overlap through nested wrappers: the second starts when the first is about 60% done.
 
 **Entrances by the object's nature, not one preset.** Type rises through a line mask (`yPercent: 100 → 0` inside `overflow: hidden`); UI that spawns from a click scales from its origin (0.96 → 1 with the fade) at the click point; shapes draw on or grow from a `transform-origin`; images reveal through `clip-path`; hard beats simply cut in. No single entrance type on more than 30% of the film's entrances, and at least 30% of elements are simply **there** on the cut. The generic `y: 30, opacity: 0` fade-up on everything is the web default and the first tell viewers name. Opacity-only is a last resort.
 
@@ -88,7 +97,7 @@ Everything obeys `motion.md` (the style's motion language: eases, duration scale
 
 **Container before content.** Content enters after its container starts moving and leaves before the next morph, so text never overlaps text during a swap.
 
-**Stillness before the climax.** Hold 0.3–0.8 s (with a music strip-down or silence) right before the reveal. The reveal gets the biggest move and the longest hold in the film.
+**Contrast before the climax.** Thin the motion to one slow mover for 0.3–0.8 s (with a music strip-down or silence) right before the reveal; never a frozen frame. The reveal gets the biggest move and the longest shot in the film.
 
 **Exits.** Faster than entrances (60–70% of the duration, `.in` eases). Prefer no exits mid-film: the cut or the transition is the exit. The last element to leave dies exactly at the cut; a gap with nothing moving reads as dead air.
 
@@ -111,7 +120,7 @@ Everything obeys `motion.md` (the style's motion language: eases, duration scale
 - **Click = the beat:** the press lands on a downbeat; the cursor scales to 0.85 and the target shows its pressed state (scale 0.97, darkened) for 0.08–0.12 s; the UI's response starts on the release frame; the click sound sits on the press frame.
 - **The UI answers every action live.** Either the camera follows what the cursor touches (a focus zoom per target, see §6) or the camera stays locked and the UI moves (a panel slides in, a table fills row by row); never both in one scene.
 - **Typing** at 12–18 characters/s with at most 2 natural micro-pauses, one typing sound per burst.
-- **Leaves off-screen or rests still;** it never hovers aimlessly. Land and hold on the primary action or result.
+- **Keeps moving while it is on screen:** calm arcs toward its next target at 60–150 px/s, the next leg starting before this one lands, or it leaves through the frame edge. It never parks and never hovers aimlessly.
 
 **Seek-safety (HyperFrames).** No infinite tweens, no `Math.random` or `requestAnimationFrame`, `fromTo` for entrances, seeded noise sampled on the integer frame index, every tween on the paused timeline.
 
@@ -137,7 +146,9 @@ Everything obeys `motion.md` (the style's motion language: eases, duration scale
 - **Choose the move by meaning:** cut-the-curve (the phrase continues across the seam) for an unfinished thought; zoom-through for a state change or going deeper; inverse zoom (pull back) for arrival, payoff and context; a push along the film's direction for progress; a smash cut or 1–2 frame flash for a hard tonal break.
 - **Never crossfade by default.** Dissolves only for time passing or mood in cinematic, documentary or luxurious styles (0.5–1.0 s), and never between two busy layouts (two superimposed UIs are mud): cut, or clear one layout first. No blur-ins, fades up from black between scenes, generic slide-ins, 3D flips or particle bursts. Fade to black only at the very end or at a hard structural break, 0.5 s or less.
 - **Numbers.** Zoom-through: exit scale 1 → 1.2 on `power3.in` in 0.2 s with opacity on a separate linear tween, hard cut at opacity 0.15, entry 0.75 → 1 on `expo.out` in 0.5 s. Whip pan: 0.15–0.3 s `expo.inOut`, horizontal blur peaking around 40 px, cut at the blur peak. Wipes 0.35–0.5 s `power3.inOut`. Durations otherwise from the motion language: snappy or precise 0.25–0.4 s, smooth 0.4–0.6 s, cinematic or luxurious 0.8–1.2 s.
-- **No pops.** Continuing elements keep the promised position, scale, opacity and direction across every cut (checked in the Quality gates).
+- **Seams move.** At every cut the outgoing beat is still moving when the cut lands and the incoming beat arrives already moving, on the same axis, in the same direction, at the same speed. Never settle and then cut, never start from rest, never hard-cut to a frozen frame (`motion-gate.mjs` fails a seam with either side at rest).
+- **Carry at least two seams** with one object that crosses the cut and becomes part of the next beat (a card grows into the next screen, a word becomes the button label, the mark travels into the end card). The carrier lives in the root, on its own track, as one object on one tween.
+- **No pops.** Continuing elements keep the promised position, scale, opacity, direction and speed across every cut (checked in the Quality gates).
 - Obey `motion.md`'s bans. Set `transition_default` (usually `cut`) and per-scene `transition_in` for the hinges.
 
 ---
@@ -200,7 +211,7 @@ At least 3 clear sizes in the system, display at least 2.5× the body, at least 
 | Tier | What | Numbers | When |
 |---|---|---|---|
 | T0 locked | no world transform | — | text-heavy frames, UI where the UI itself moves |
-| T1 lean-in | slow push | 2–4% over the shot, `power1.inOut`, eased over a window a little longer than the shot so it never settles on screen | image and hero shots; never while small text is being read |
+| T1 push | a push that goes somewhere | 6–15% over 0.8–1.5 s toward the subject, `power2.inOut` or `expo.inOut`, then locked (at least 4% a second: a 2–4% lean-in over a whole shot is a creep, and the motion gate fails it) | image and hero shots, toward the thing that matters; never while small text is being read |
 | T2 focus zoom | screen-studio zoom into a UI region | 1.3–2.5× so the action fills ≥ 60% of the width, 0.6–0.9 s `power3.inOut`, then hold locked | each UI beat; back to 1× before the next target or the cut |
 | T3 crash zoom | impact punch-in | 1.5–2× in 0.15–0.25 s `expo.in`, optional 1–2 frame flash | once per film, on the spectacle beat |
 
@@ -281,11 +292,11 @@ Every tell is a default left in place, uniformity, an effect without a cause, or
 | Tell | Instead |
 |---|---|
 | Everything fades up and slides in on the same ease | Entrances by the object's nature; no entrance type on > 30% of entrances; ≥ 30% of elements present on the cut; eases by role. |
-| Everything moves at once, then everything freezes | One primary mover, secondaries 80–200 ms later; ≤ 3 movers at once; fast in, then hold; the next event within ~1 s. |
+| Everything moves at once, then everything freezes | One primary mover, secondaries 80–200 ms later; ≤ 3 movers at once; fast in, then a slow carry; the next event within 1.5–2.5 s; no still stretch of 0.8 s [motion-gate freeze]. |
 | Bouncy or elastic by default | `power3.out` / `expo.out`; overshoot only in playful styles, ≤ 8%, single settle, never on text. |
-| Idle breathing, floating, pulsing loops [idle-breathing] | Stillness, or a meaningful change. |
-| Camera drifting for nothing; slow Ken Burns on everything | Motivated moves only, one per shot. |
-| Spinning or flipping logos [spinning-logo] | The logo resolves from brand geometry (strokes draw, parts assemble, a product-shaped mask) in 1.5 s or less, then holds. |
+| Idle breathing, floating, pulsing loops [idle-breathing] | A meaningful change, and lines that keep their carry. |
+| Camera drifting for nothing; slow Ken Burns on everything; a slow film-wide push [motion-gate creep] | Moves that go somewhere, at 4% a second or faster, one per shot; otherwise locked. |
+| Spinning or flipping logos [spinning-logo] | The logo resolves from brand geometry (strokes draw, parts assemble, a product-shaped mask) in 1.5 s or less, once (the one brand reveal), then travels into the end card or holds at most 1.5 s. |
 | Camera shake, glitch or RGB split as "impact" | Only on an on-screen impact synced to a hit, ≤ 6 frames, ≤ 2 per 30 s; glitch only when the concept is glitch. |
 | Front-loaded layouts that then sit (the PowerPoint look) | Sequential reveal on cues. |
 | A crossfade between every scene, or a different transition on every seam | The cut, scene-born transitions, one signature; ≥ 50% of changes are continuity or cuts. |
@@ -317,7 +328,7 @@ Every tell is a default left in place, uniformity, an effect without a cause, or
 | A sound for every motion (Mickey-Mousing), machine-gun clicks [sfx-overload] | Causal events only, on the budget, ≥ ⅓ unsounded, ≥ 3 variants. |
 | Looping music, a bed shorter than the film, an audible seam [music-loop] | A longer track or an edit by structure on bar lines. |
 | Silent films, quiet openings (−30 dBFS in the first seconds) [loudness] | Full bed level in second 0–1; −14 LUFS. |
-| Abrupt endings mid-phrase, long generic fades, black or silent tails [no-end-hold] | The track's own ending or a button on a 2–3 s end card with a tail. |
+| Abrupt endings mid-phrase, long generic fades, black or silent tails [no-end-hold] | The track's own ending or a button on a 2–3 s end card (at most 1.5 s of it still) with a tail. |
 | Ukulele, whistles, claps, glockenspiel, "inspirational" piano, keynote minimal house | A music brief naming genre, instrumentation, BPM and a reason. |
 | Music over the voice; a robotic TTS read; a voice that contradicts the picture | VO −12 LU; see-and-say sync; TTS checked by ear, or no voice. |
 
@@ -330,7 +341,7 @@ Every tell is a default left in place, uniformity, an effect without a cause, or
 | The same layout every scene | Layout variety (§5). |
 | Uniform shot lengths [uniform-shots] | Rhythm (§2). |
 | Opening on black [black-open] | A designed, postable frame 0. |
-| End card over 3 s; "thanks for watching"; social-icon walls | 2–3 s, one call to action. |
+| End card over 3 s, or still for more than 1.5 s; "thanks for watching"; social-icon walls | 2–3 s, one call to action, at most 1.5 s still. |
 
 **What reads as made, not generated** (ask for these; the critic checks for them): specificity over category (real UI, real data, numbers with units); one idea and one product-derived motif; a point of view, even humor or a risk; restraint (fewer effects, fewer movers, sounds only where they count); a visible human decision or imperfection left in on purpose; real texture and real sources (real photos, recorded sound); rhythm with dynamics (high and low points, cuts on the phrase); named references instead of adjectives; legibility and calm; honesty.
 
@@ -344,8 +355,8 @@ Run these before the render question, in order. Never report a gate as passed if
 
 1. **Grounding pass.** List every visible string, number, price, name and logo in the built film with its source (the capture, a screenshot, the brief, the truth sheet's native words and proof). Anything without a source is removed or replaced with a sourced one; an open question goes to the console (`console.mjs ask`), never into the film. Also check for leaked labels and placeholders.
 2. **Look at the frames yourself.** Render stills at frame 0; mid-scene (60–70% into each scene); mid-transition (each seam's midpoint); 0.1 s before and 0.2 s after every cut; and the final frame. **Read the PNGs.** Check: the focal point is obvious (squint test); type sizes and safe areas; no text collisions, clipping, widows or typos; contrast; one accent; layout variety across the sheet; no pop across cuts (continuing elements keep position, scale, opacity and direction); nothing from the Anti-slop tables. Without this loop the output is confident garbage.
-3. **Automated checks.** `node scripts/obey.mjs --project videos/<name>` (the motion contract); `node scripts/stage3d.mjs check --project videos/<name>` (every 3D scene: seek-safe, not blank, eased on the contract, blurred where it moves, comes to rest, renderable); `node scripts/slop.mjs --project videos/<name> [--video <render.mp4>]` (these tells, reading time, dead air, black opening, loudness); the sound checks in `references/sound.md` (loudness, true peak, SFX budget, sync, tail). Fix every error; only the user can waive one.
-4. **Clean-context critic.** Dispatch the crew's critic (`agents/critic.md`, lenses `frames`, `motion`, `grounding`, `film`; `crew.mjs brief --role critic --key <lens>-<round>`), a subagent with no conversation history. Give it only the stills and contact sheet, the draft render if there is one, `DIRECTION.md`, the film's one-sentence message and this rubric. It **defaults to reject** and scores 1–10:
+3. **Automated checks.** `node scripts/obey.mjs --project videos/<name>` (the motion contract); `node scripts/stage3d.mjs check --project videos/<name>` (every 3D scene: seek-safe, not blank, eased on the contract, blurred where it moves, comes to rest, renderable); `node scripts/slop.mjs --project videos/<name> [--video <render.mp4>]` (these tells, reading time, dead air, black opening, loudness); `node scripts/motion-gate.mjs --video <draft.mp4> --project videos/<name> --plan <run>/motion/score.json` (the film keeps moving, measured frame by frame: visible motion in at least 75% of frames, no still stretch of 0.8 s outside the end card, at most 1.5 s still at the end, no whole-frame scale or drift slower than 4% a second, motion on both sides of every seam within 0.2 s, at least two seams carried by an object, exactly one brand reveal, no parked lines); the sound checks in `references/sound.md` (loudness, true peak, SFX budget, sync, tail). Fix every error; only the user can waive one.
+4. **Clean-context critic.** Dispatch the crew's critic (`agents/critic.md`, lenses `frames`, `motion`, `grounding`, `film`; `crew.mjs brief --role critic --key <lens>-<round>`), a subagent with no conversation history. Give it only the stills and contact sheet, the draft render, the motion gate's report on it, the plan, the film's one-sentence message and this rubric. The motion and film lenses never judge without the render and the gate's report. It **defaults to reject** and scores 1–10:
    - **Design:** composition, hierarchy, type, color discipline, layout variety.
    - **Readability:** at phone size, reading time, contrast.
    - **Narrative:** hook in 2 s or less, value before evidence, the turn, the device clear by second 4, the ending.

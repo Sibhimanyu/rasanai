@@ -105,13 +105,13 @@
       "aka": ["slow push", "creep in"],
       "family": "translational",
       "what": "A slow, motivated dolly toward the subject to build intensity or focus.",
-      "looks": "The frame gradually tightens on a subject over several seconds; barely noticeable at first.",
-      "motion": "Very slow and continuous (2-8% change over 3-6s), linear or sine.inOut, often under a held moment or voiceover.",
-      "use": "Emphasizing a key statement, product hero holds, emotional beats, keeping static frames alive.",
+      "looks": "The frame tightens on a subject with intent, then locks; you feel it move.",
+      "motion": "A motivated push that lands: 8-20% over 1-2.5 s (at least 4% a second; a slower push is a creep that shimmers thin lines and small type), power2.inOut or expo.inOut, then locked while the subject acts.",
+      "use": "Emphasizing a key statement, moving toward the product's hero action, emotional beats.",
       "conveys": "Growing importance, tension, intimacy, attention.",
       "vs": "A dolly can be any speed and direction; a push-in is slow, forward and emotionally motivated. A zoom-in magnifies without parallax; many 2D pieces use a slow scale that is technically a zoom.",
       "search": ["slow push in motion graphics", "camera push in emphasis", "slow creep zoom animation"],
-      "prompt": "Push in slowly on the subject during holds: scale the world wrapper from 1 to 1.04-1.08 (or translateZ 60-150px in a perspective container) over the full length of the hold (3-6s) with sine.inOut or linear, transform-origin on the subject. For true depth, give foreground layers a 1.3x multiplier on the same tween."
+      "prompt": "Push in on the subject to go somewhere: scale the world wrapper from 1 to 1.1-1.2 (or translateZ 150-300px in a perspective container) over 1-2.5 s with power2.inOut or expo.inOut, transform-origin on the subject, then lock it while the subject acts. Never a slow push across a whole hold or shot (under 4% a second is a creep). For true depth, give foreground layers a 1.3x multiplier on the same tween."
     },
     {
       "id": "pull-out",

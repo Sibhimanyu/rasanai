@@ -31,7 +31,7 @@ Specificity comes from here, and this is the step that gets skipped most. Fill e
 
 ## Product-first routes: no conceits
 
-For launch, promo and product films (`--format launch`, or `--product-first`; `references/product-first.md`), the engine is bounded: `pick` never offers conceit devices (the whole Metaphor family, borrowed containers other than the product's own query log, chat thread and interface, and a handful of others: cosmos zoom, object's POV, unexpected protagonist, letter from the future, mockumentary, product as a character, problem as a villain, mirror, one-shape, sound-first, data letter, story loop), and `check` runs **G7** (the device is not a conceit; no museum/allegory/invented-world words in the title, logline or beats unless a `visual_pun` that resolves to the product within 1 s; the product on screen within 3 s; a `hero_moment`; 2 to 4 `uses`; `last_line` with `end_line_largest: true`; on-screen lines of 6 words or fewer). The devices left (the oner, split-sync, the static camera, countdown, rewind, real time, the misdirect, escalation, the list that breaks, call and response, the manifesto, fake UI takeover, query log and the like) are *structures for pacing and energy*, applied to the real product UI, never a world to put it in. Pass `--allow-conceit` only for a brand film or when the user explicitly asks for a concept.
+For launch, promo and product films (`--format launch`, or `--product-first`; `references/product-first.md`), the engine is bounded: `pick` never offers conceit devices (the whole Metaphor family, borrowed containers other than the product's own query log, chat thread and interface, and a handful of others: cosmos zoom, object's POV, unexpected protagonist, letter from the future, mockumentary, product as a character, problem as a villain, mirror, one-shape, sound-first, data letter, story loop), and `check` runs **G7** (the device is not a conceit; no museum/allegory/invented-world words in the title, logline or beats unless a `visual_pun` that resolves to the product within 1 s; the product on screen within 3 s; a `hero_moment`; 2 to 4 `uses`; `last_line` with `end_line_largest: true`; on-screen lines of 6 words or fewer) and **G10** (one feature, one scenario: the `feature` block with `viewer`, `task`, `before`, `after`; beats with roles hook, proof, turn, cta in that order; a `picture` per beat; the proof's `ui[]` as cause and effect; no invented output screens; `two_way` with what the lines alone and the pictures alone tell; `references/script.md` pass 0). The devices left (the oner, split-sync, the static camera, countdown, rewind, real time, the misdirect, escalation, the list that breaks, call and response, the manifesto, fake UI takeover, query log and the like) are *structures for pacing and energy*, applied to the real product UI, never a world to put it in. Pass `--allow-conceit` only for a brand film or when the user explicitly asks for a concept.
 
 ## Branded launch films: simple, to the point (`references/launch-film.md`, `references/brand-film.md`)
 
@@ -70,7 +70,15 @@ Fuse each device with its `fuse_with` material (or better material from the shee
 {
   "id": "unmerged",
   "label": "Bold",                                  // Sure | Bold | Wild, from pick
-  "title": "Unmerged",
+  "title": "The unread line",                       // the story's idea in 2 to 5 words a person would use; not a fragment of an on-screen line, no function word last, not ALL CAPS
+  "aim": {                                          // required: decided before writing (references/script.md pass 0)
+    "takeaway": "Lintel reads every line, so a 2 am outage never starts at the line nobody read.",   // <= 16 words, as the viewer would say it
+    "feel": "Relieved",
+    "action": "Install Lintel on one repo",
+    "audience": "Engineers who approve pull requests"
+  },
+  "approach": "Starts at the 2 am outage, then rewinds to the one line nobody read.",   // required, one plain sentence, <= 25 words
+  "tempo": { "ideas": 6, "change_every_s": 2.2, "longest_hold_s": 4, "source": "house" },   // launch, promo and feature films (gate G9, references/launch-film.md Tempo); source "brand film" when brandfilm.mjs measured one; beats over 3 s also list "changes": ["what changes inside"]
   "logline": "A 2 am outage rewinds to the one line nobody read.",   // <= 12 words
   "device": "rewind",                               // a device id or code; an array for a combination (first is primary)
   "twist": "",                                      // required when the device is overused: what makes it not the default
@@ -104,7 +112,7 @@ node $SKILL_DIR/scripts/story.mjs check --pitch "$RUN/story/pitches.json" --trut
 
 With `--length` (or voiceover in the beats) it also runs **G6, the script** (`references/script.md`): the length within 10%, a hook beat of 4 s at most, the value by beat 2, on-screen lines of 6 words at most held 0.6 s + 0.4 s per word, voiceover under 2.7 words per second with sentences of 14 words at most and room for music-only moments, no on-screen line that repeats the voice, no stock copy, "not X, it's Y" or exclamation marks, varied beat lengths, and an end beat of 2 s or more with the name on screen.
 
-Exit 0 = ship; 2 = rewrite (reasons in the JSON); 1 = the pitch JSON is malformed. The five gates (fail any and the pitch is rewritten):
+Exit 0 = ship; 2 = rewrite (reasons in the JSON); 1 = the pitch JSON is malformed. The gates (fail any and the pitch is rewritten; **G8, the aim**, also runs on every pitch: `aim.takeaway` (16 words at most), `aim.feel`, `aim.action` and `approach` (25 words at most) present, and a title of 2 to 5 words that does not end on a function word (just, the, a, an, can, to, of, and, you, your, with, for), is not ALL CAPS and is not the start of any beat's `on_screen` line or the `last_line`; two pitches sharing a takeaway is a warning in `portfolio.warnings`):
 
 | Gate | Machine-checked | Self-assessed |
 |---|---|---|

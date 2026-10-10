@@ -105,13 +105,27 @@ function cluster(buckets, thr, keep) {
   return cl.slice(0, keep).map((k) => ({ hex: hex([k.r / k.n, k.g / k.n, k.b / k.n]), share: r3(k.n / tot) }));
 }
 
+// Tempo: how often something meaningfully changes on screen, cuts or not. A change is a sampled frame pair (0.5 s apart)
+// whose mean luma difference clears a threshold well under a cut's, so a continuous take with UI states still registers.
+// Events are debounced to one per second; the hold is the longest stretch without one. (house)
+const HOUSE_CHANGE_EVERY_S = 2.5;
+const TEMPO_CHANGE_THR = 0.8, TEMPO_DEBOUNCE_S = 1;
+function tempoOf(diffs, fps, dur) {
+  const total = dur || (diffs.length + 1) / fps, times = [];
+  diffs.forEach((d, i) => { const t = (i + 1) / fps; if (d > TEMPO_CHANGE_THR && (!times.length || t - times[times.length - 1] >= TEMPO_DEBOUNCE_S)) times.push(t); });
+  const marks = [0, ...times, total];
+  let hold = 0;
+  for (let i = 1; i < marks.length; i++) hold = Math.max(hold, marks[i] - marks[i - 1]);
+  return { threshold: TEMPO_CHANGE_THR, changes: times.length, changeEveryS: times.length ? r1(total / times.length) : null, longestHoldS: r1(hold), changeTimes: times.slice(0, 400).map(r1) };
+}
+
 function measure(input) {
   const { bufs, fps } = sampleFrames(input);
   if (!bufs.length) return null;
   const all = new Map(), bgs = new Map(), chromB = new Map(), neuHist = new Array(8).fill(0);
   let chromPix = 0, neuPix = 0;
   let sumLum = 0, white = 0, black = 0, satSum = 0, satPix = 0, moments = 0, motion = 0, motionN = 0, prev = null;
-  const perFrame = [];
+  const perFrame = [], diffs = [];
   const px = W * H;
   for (let fi = 0; fi < bufs.length; fi++) {
     const b = bufs[fi], fb = new Map();
@@ -136,7 +150,7 @@ function measure(input) {
     const bk = hex(bg), be = bgs.get(bk) || (bgs.set(bk, { n: 0, r: 0, g: 0, b: 0 }), bgs.get(bk)); be.n++; be.r += bg[0]; be.g += bg[1]; be.b += bg[2];
     sumLum += fl / px; white += fw / px; black += fk / px; satSum += fsat / px; satPix += fsp / px;
     if (fsp / px > 0.1) moments++;
-    if (prev) { let d = 0; for (let i = 0; i < px; i++) d += Math.abs(lumArr[i] - prev[i]); motion += d / px; motionN++; }
+    if (prev) { let d = 0; for (let i = 0; i < px; i++) d += Math.abs(lumArr[i] - prev[i]); motion += d / px; motionN++; diffs.push(d / px); }
     prev = lumArr;
     perFrame.push({ i: fi, t: fps ? fi / fps : null, lum: Math.round(fl / px), bg: bk, bgLum: Math.round(luma(...bg)), colorShare: r3(fsp / px) });
   }
@@ -144,6 +158,7 @@ function measure(input) {
   const bgDom = cluster(bgs, 10, 3);
   let cuts = null, dur = null;
   if (fps) { const p = probe(input); dur = p ? p.duration : n / fps; cuts = sceneCuts(input); }
+  const tempo = fps && diffs.length ? tempoOf(diffs, fps, dur) : null;
   const bgLumMean = perFrame.reduce((s, f) => s + f.bgLum, 0) / n;
   const m = {
     frames: n, duration: dur === null ? null : r1(dur),
@@ -158,6 +173,7 @@ function measure(input) {
     background: { overall: bgDom[0]?.hex, dominant: bgDom, perFrameSample: perFrame.filter((_, i) => i % Math.max(1, Math.floor(n / 24)) === 0).map((f) => ({ t: f.t, bg: f.bg })) },
     saturation: { mean: r3(satSum / n), saturatedShare: r3(satPix / n), colourMoments: moments, colourMomentShare: r3(moments / n) },
     motion: { meanFrameDiff: motionN ? r1(motion / motionN) : null },
+    tempo,
     cuts: cuts === null ? null : { count: cuts.length, per10s: r1((cuts.length / dur) * 10), avgShotLength: r1(dur / (cuts.length + 1)), times: cuts.slice(0, 400).map(r1) },
   };
   return m;
@@ -272,7 +288,7 @@ function cardCmd() {
   const fr = fs.existsSync(path.join(dir, "frames.json")) ? JSON.parse(fs.readFileSync(path.join(dir, "frames.json"), "utf8")) : null;
   const brand = opt("brand", "");
   const slots = {
-    typefaces: "", motif: "", layout: "", motionVocabulary: "", photographyStyle: "", endCard: "", notes: "",
+    tempo: "", typefaces: "", motif: "", layout: "", motionVocabulary: "", photographyStyle: "", endCard: "", notes: "",
   };
   const card = { version: 1, brand, source: g.source, measured: m, frames: fr ? { cutCount: fr.cutCount, cutsPer10s: fr.cutsPer10s, avgShotLength: fr.avgShotLength, sheets: fr.sheets.map((s) => s.file) } : null, slots, filled: false };
   fs.writeFileSync(path.join(dir, "FILM-STYLE.json"), JSON.stringify(card, null, 2));
@@ -288,9 +304,11 @@ Source: ${g.source}. Measured from ${m.frames} sampled frames${m.duration ? ` of
 - Palette: ${pal}
 - Saturation mean ${m.saturation.mean}; saturated colour share ${Math.round(m.saturation.saturatedShare * 100)}%; colour moments ${m.saturation.colourMoments} of ${m.frames} frames
 - Motion: mean frame difference ${m.motion.meanFrameDiff ?? "n/a"}
+${m.tempo ? `- Tempo: ${m.tempo.changes} changes, one every ${m.tempo.changeEveryS ?? "n/a"} s, longest hold without a change ${m.tempo.longestHoldS} s` : "- Tempo: n/a (frames input)"}
 ${c ? `- Cuts: ${c.count}, ${c.per10s} per 10 s, average shot ${c.avgShotLength} s` : "- Cuts: n/a (frames input)"}
 
 ## Slots (the director fills these from the frames)
+- Tempo (ideas shown, seconds per idea, change rate, longest hold, where the film breathes):
 - Typefaces (families, weights, sizes, where type sits):
 - Motif (the recurring shape or idea and how it transforms):
 - Layout (grid, centring, whitespace, how many elements at once):
@@ -362,8 +380,18 @@ function compareCmd() {
     const ratio = m.cuts.per10s / ref.cuts.per10s;
     add("cutRateRatio", `${m.cuts.per10s} vs ${ref.cuts.per10s} cuts/10s = ${r1(ratio)}x`, `${T.cutRatio[0]}x to ${T.cutRatio[1]}x`, ratio >= T.cutRatio[0] && ratio <= T.cutRatio[1]);
   } else add("cutRateRatio", "n/a", "", true, "skipped (frames input or no reference cuts)");
+  // tempo (house): our change rate within 0.7x to 1.4x the brand's, and never slower than the house rate (a change every 2.5 s).
+  // When the brand itself is slower than house, the house cap wins and the lower bound is dropped.
+  if (m.tempo && m.tempo.changeEveryS) {
+    const mine = m.tempo.changeEveryS, house = HOUSE_CHANGE_EVERY_S, rt = ref.tempo && ref.tempo.changeEveryS;
+    if (rt) {
+      let lo = rt / 1.4; const hi = Math.min(rt / 0.7, house);
+      if (lo > hi) lo = 0;
+      add("tempoRatio", `a change every ${mine} s vs the brand's ${rt} s = ${r1(rt / mine)}x`, `0.7x to 1.4x of the brand's rate, a change at least every ${house} s`, mine >= lo - 0.01 && mine <= hi + 0.01, "the brand's measured tempo, never slower than house");
+    } else add("tempoRatio", `a change every ${mine} s`, `at least every ${house} s`, mine <= house + 0.01, "no tempo in the reference grammar (re-run measure): held to the house tempo");
+  } else add("tempoRatio", "n/a", "", true, "skipped (frames input or no changes measured)");
   const failed = checks.filter((c) => !c.pass).map((c) => c.name);
-  const res = { ok: true, tolerance: tolName, verdict: failed.length ? "FAIL" : "PASS", failed, checks, ours: { luminance: m.luminance, shares: m.shares, palette: m.palette, cuts: m.cuts && { count: m.cuts.count, per10s: m.cuts.per10s } } };
+  const res = { ok: true, tolerance: tolName, verdict: failed.length ? "FAIL" : "PASS", failed, checks, ours: { luminance: m.luminance, shares: m.shares, palette: m.palette, cuts: m.cuts && { count: m.cuts.count, per10s: m.cuts.per10s }, tempo: m.tempo && { changes: m.tempo.changes, changeEveryS: m.tempo.changeEveryS, longestHoldS: m.tempo.longestHoldS } } };
   out(res, failed.length ? 1 : 0);
 }
 

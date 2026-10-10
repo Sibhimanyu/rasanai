@@ -150,7 +150,7 @@
       "conveys": "Reflection, narrative, gentle movement in stillness.",
       "vs": "Parallax photography has multiple depth layers; Ken Burns moves across one flat image.",
       "search": ["Ken Burns effect", "pan and zoom photo animation"],
-      "prompt": "Animate each still with a slow push or drift: scale 1 to 1.12 and translate 2-4% toward the subject over the whole shot (4-8s) with sine.inOut or ease none, never reversing direction within a shot."
+      "prompt": "Animate each still with a push or pan that goes somewhere: scale 1 to 1.15-1.25 and translate 4-8% toward the subject over 1.5-3 s with power2.inOut, then cut on the move (at least 4% a second: a slower drift is a creep that shimmers fine detail), never reversing direction within a shot."
     },
     {
       "id": "photo-doodle",

@@ -16,8 +16,8 @@
 //           with. Deterministic for a seed (default seed: product name + today's date).
 //           Launch / promo / product films (format launch, or --product-first) are PRODUCT-FIRST: conceit devices
 //           (museums, allegories, invented worlds, extended metaphors, cover versions) are never offered.
-//   node story.mjs check --pitch <pitch.json | pitches.json> [--truth <truth.md|json>] [--footage] [--length <s>] [--narrated] [--product-first | --allow-conceit]
-//        -> the rubric: 6 pass/fail gates (+ G7 product-first for launch / promo / product films) + the weighted 1-5 score (ship at >= 3.8, no dimension < 3).
+//   node story.mjs check --pitch <pitch.json | pitches.json> [--truth <truth.md|json>] [--footage] [--length <s>] [--narrated] [--product-first | --allow-conceit] [--brand-film <grammar.json>] [--calm]
+//        -> the rubric: 6 pass/fail gates (+ G7 product-first for launch / promo / product films, + G8 the aim: takeaway, feel, action, approach, a title that names the idea, + G9 tempo for the same films: ideas per length, a change every ~2.5 s, hold limits, the brand's measured tempo with --brand-film) + the weighted 1-5 score (ship at >= 3.8, no dimension < 3).
 //           Exit 0 = ship, 2 = rewrite (reasons in the JSON), 1 = bad input.
 //   node story.mjs validate
 //        -> checks devices.json against its schema (vocabularies, ids, counts)
@@ -40,6 +40,10 @@ const AXES = Object.keys(CAT.axes);
 const out = (o) => console.log(JSON.stringify(o, null, 2));
 const list = (v) => (v == null || v === true ? [] : String(v).split(",").map((s) => s.trim()).filter(Boolean));
 const norm = (s) => String(s || "").toLowerCase();
+const HOUSE_CHANGE_EVERY_S = 2.5; // house tempo: something meaningful changes on screen at least this often
+const r1d = (x) => Math.round(x * 10) / 10;
+const TITLE_STOP = ["just", "the", "a", "an", "can", "to", "of", "and", "you", "your", "with", "for"];
+const nz8 = (x) => String(x || "").toLowerCase().replace(/-/g, " ").replace(/[^a-z0-9' ]/g, "").replace(/\s+/g, " ").trim();
 
 // a device by id, research code ("A5") or name
 function findDevice(key) {
@@ -190,16 +194,27 @@ function mentions(text, item) {
 
 // --- launch-film structure (references/launch-film.md section 1): hook, reveal/hero, 2-4 uses, payoff, end card ----
 // One idea per beat, plain words, the product or brand in every beat. Ranges are the template tables widened by about a
-// quarter, per film length bucket (15 / 30 / 60 / 90 s). role: beat.role, else its name, else its place (first = hook, last = cta).
+// quarter, per film length bucket (15 / 30 / 60 / 90 s). Tempo: the templates carry the house idea counts and holds (G9 below). role: beat.role, else its name, else its place (first = hook, last = cta).
 const LF_RANGES = {
-  15: { hook: [1, 3.5], statement: [1.5, 4], hero: [3.5, 7], demo: [2, 5], payoff: [1, 2.5], cta: [2, 4] },
-  30: { hook: [1, 4.5], statement: [2, 6], hero: [4, 9], demo: [2, 5], payoff: [2, 5], cta: [2.5, 5] },
-  60: { hook: [1.5, 5.5], statement: [3, 9], hero: [7, 14], demo: [4, 8.5], payoff: [3.5, 8], cta: [3, 8] },
-  90: { hook: [2, 6.5], statement: [4, 12], hero: [9, 17], demo: [6, 12], payoff: [5, 11], cta: [3, 8] },
+  15: { hook: [1, 2.5], statement: [1.5, 3], hero: [2.5, 4.5], demo: [1.5, 3], payoff: [1, 2.5], cta: [2, 4] },
+  30: { hook: [1, 2.5], statement: [1.5, 4], hero: [3, 5], demo: [2, 4.5], payoff: [2, 4], cta: [2.5, 5] },
+  60: { hook: [1.5, 4], statement: [2, 5], hero: [4, 6], demo: [3, 6.5], payoff: [3, 7], cta: [3, 7] },
+  90: { hook: [2, 5], statement: [2.5, 6], hero: [5, 7.5], demo: [4, 8], payoff: [4, 10], cta: [3, 8] },
 };
 const lfBucket = (len) => (len <= 22 ? 15 : len <= 45 ? 30 : len <= 75 ? 60 : 90);
+// One feature, one scenario (G10): hook = the viewer's before, proof = the task done in the real UI (the longest beat),
+// turn = the after and the brand reveal, cta = one action. Its own timing ranges per length bucket.
+const SC_RANGES = {
+  15: { hook: [1, 3.5], proof: [3, 8], turn: [1.5, 4.5], cta: [1.5, 4] },
+  30: { hook: [1.5, 6], proof: [4, 15], turn: [2.5, 6.5], cta: [2, 5.5] },
+  60: { hook: [2, 8], proof: [8, 32], turn: [3, 10], cta: [3, 7] },
+  90: { hook: [2, 10], proof: [12, 50], turn: [4, 14], cta: [3, 8] },
+};
+const uiOf = (b) => (Array.isArray(b.ui) ? b.ui.filter((u) => String(u || "").trim()) : []);
+const isScenario = (p, beats) => !!(p.feature && typeof p.feature === "object") || beats.some((b) => /^(proof|turn)$/i.test(String(b.role || "")));
 function lfRole(b, i, n, hero) {
   const r = String(b.role || "").toLowerCase();
+  if (r === "proof" || r === "turn") return r;
   if (LF_RANGES[15][r]) return r;
   const nm = String(b.name || "").toLowerCase();
   if (i === 0) return "hook";
@@ -465,7 +480,7 @@ if (cmd === "truth") {
   const pitches = Array.isArray(raw) ? raw : Array.isArray(raw.pitches) ? raw.pitches : [raw];
   const truth = loadTruth(args.truth);
   const footage = !!args.footage || !!(truth && truth.assets.some((a) => /footage|video of|founder on camera/i.test(a)));
-  const opts = { length: Number(args.length) || 0, narrated: !!args.narrated, productFirst: isProductFirst(truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null), args) };
+  const opts = { length: Number(args.length) || 0, narrated: !!args.narrated, calm: !!args.calm, brandTempo: loadBrandTempo(args["brand-film"]), productFirst: isProductFirst(truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null), args) };
   const results = pitches.map((p, i) => checkPitch(p, i, truth, footage, opts));
   const portfolio = pitches.length > 1 ? checkPortfolio(pitches, results) : null;
   const ship = results.every((r) => r.verdict === "ship") && (!portfolio || portfolio.pass);
@@ -657,19 +672,24 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     if (!String(heroTxt || "").trim()) g7.push("hero_moment missing: {beat, what} the one product moment that shows the key feature for real");
     else if (hero && typeof hero === "object" && hero.beat != null && !(Number(hero.beat) >= 1 && Number(hero.beat) <= beats.length)) g7.push(`hero_moment.beat ${hero.beat} is not a beat of this script`);
     const uses = Array.isArray(p.uses) ? p.uses.filter((u) => String(u || "").trim()) : [];
-    if (uses.length < 2 || uses.length > 4) g7.push(`uses: ${uses.length} real use cases (2-4 required: real people doing real things with the real UI)`);
+    if (uses.length < 2 || uses.length > 4) g7.push(`uses: ${uses.length} ${p.feature ? "steps of the one task" : "real use cases"} (2-4 required: ${p.feature ? "the real steps of the viewer's one task in the real UI" : "real people doing real things with the real UI"})`);
     if (!String(p.last_line || "").trim()) g7.push("last_line missing: the required end line (the call to action) is the largest type in the film");
     if (p.end_line_largest !== true) g7.push("end_line_largest is not true: the end line must be the largest type in the film on a clean CTA card");
     const longLines = beats.filter((b) => String(b.on_screen || "").trim().split(/\s+/).filter(Boolean).length > 6).length;
     if (longLines) g7.push(`${longLines} beat(s) carry more than 6 on-screen words: product films use short plain kinetic lines`);
     // launch-film structure (references/launch-film.md): hook, reveal/hero, 2-4 uses, payoff line, end card; timings in range; the product or brand in every beat
     const heroObj = hero && typeof hero === "object" ? hero : null;
+    const scenario = isScenario(p, beats);
     const roles = beats.map((b, i) => lfRole(b, i, beats.length, heroObj));
-    const rng = LF_RANGES[lfBucket(lengthS)];
-    if (!roles.includes("hero")) g7.push("structure: no reveal / hero beat (name it \"Hero\" or set role: \"hero\"; references/launch-film.md section 1)");
-    const nDemo = roles.filter((r) => r === "demo").length;
-    if (nDemo < 2 || nDemo > 4) g7.push(`structure: ${nDemo} feature-demo beats (2 to 4 required, one real use each; the hook, hero, payoff and end card are not demos)`);
-    if (!String(p.payoff_line || "").trim() && !roles.includes("payoff")) g7.push("structure: payoff line missing (payoff_line, or a beat with role \"payoff\": one plain outcome sentence before the end card)");
+    const rng = scenario ? { ...LF_RANGES[lfBucket(lengthS)], ...SC_RANGES[lfBucket(lengthS)] } : LF_RANGES[lfBucket(lengthS)];
+    if (!scenario) {
+      // the older launch structure (hook, hero, 2-4 demos, payoff, end card); a one-feature scenario film is held to G10 instead
+      if (!roles.includes("hero")) g7.push("structure: no reveal / hero beat (name it \"Hero\" or set role: \"hero\"; references/launch-film.md section 1)");
+      const nDemo = roles.filter((r) => r === "demo").length;
+      const demoCap = ({ 15: 3, 30: 5, 60: 7, 90: 9 })[lfBucket(lengthS)];
+      if (nDemo < 2 || nDemo > demoCap) g7.push(`structure: ${nDemo} feature-demo beats (2 to ${demoCap} for a ${Math.round(lengthS)} s film, one idea each; the hook, hero, payoff and end card are not demos)`);
+      if (!String(p.payoff_line || "").trim() && !roles.includes("payoff")) g7.push("structure: payoff line missing (payoff_line, or a beat with role \"payoff\": one plain outcome sentence before the end card)");
+    }
     const outOfRange = [];
     beats.forEach((b, i) => { const [lo, hi] = rng[roles[i]] || [0, 99]; const d = Number(b.duration_s); if (d < lo - 0.01 || d > hi + 0.01) outOfRange.push(`${b.name} (${roles[i]}) ${d} s, template ${lo}-${hi} s`); });
     if (outOfRange.length) g7.push(`timings outside the ${lfBucket(lengthS)} s launch template for a ${Math.round(lengthS)} s film: ${outOfRange.join("; ")}`);
@@ -678,6 +698,85 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     const noProd = beats.map((b, i) => ({ b, i })).filter(({ b }) => { const t = `${b.name || ""} ${b.on_screen || ""} ${b.visual || ""} ${b.vo || ""}`; return !(bareBrand.test(t) || names.some((w) => mentions(t, w))); }).map(({ b, i }) => `${i + 1} ${b.name}`);
     if (noProd.length) g7.push(`beat(s) without the product or brand: ${noProd.join(", ")} (every beat shows the real UI, the mark or the brand's canvas; name it in the beat's visual)`);
     gate("G7", "Product-first (UI from the first seconds, hero moment, real uses, no conceit, launch-film structure and timings)", g7, { early_beats: early3.map((b) => b.name), hero_moment: heroTxt || null, uses, roles, template_s: lfBucket(lengthS) });
+
+    // G9: tempo (references/launch-film.md, Tempo): enough ideas, something changes every ~2 s, no long holds
+    {
+      const g9 = [];
+      const bucket = lfBucket(opts.length || lengthS);
+      const minIdeas = ({ 15: 3, 30: 5, 60: 8, 90: 10 })[bucket];
+      const heroMax = ({ 15: 3.5, 30: 4, 60: 5, 90: 6 })[bucket];
+      const brand = opts.brandTempo || null;
+      const houseEvery = HOUSE_CHANGE_EVERY_S, houseHold = 3;
+      const everyMax = brand ? Math.min(houseEvery, brand.changeEveryS) : houseEvery;
+      const holdMax = brand ? Math.min(houseHold, Math.max(1.5, brand.changeEveryS * 1.5)) : houseHold;
+      const heroLimit = brand && brand.longestHoldS >= 2 ? Math.min(heroMax, brand.longestHoldS) : heroMax;
+      const ideaRoles = new Set(["statement", "hero", "demo", "payoff", "proof", "turn"]);
+      // in a one-feature film every UI step of the proof beyond its first is one more thing the viewer learns
+      const ideas = beats.filter((b, i) => b.idea === true || ideaRoles.has(roles[i])).length + beats.reduce((a, b, i) => a + (roles[i] === "proof" ? Math.max(0, uiOf(b).length - 1) : 0), 0);
+      const t = p.tempo && typeof p.tempo === "object" ? p.tempo : null;
+      if (!t) g9.push("tempo missing: set tempo { ideas, change_every_s, longest_hold_s, source: \"brand film\" | \"house\" } (references/script.md pass 0)");
+      else {
+        if (!(Number(t.change_every_s) > 0)) g9.push("tempo.change_every_s missing: how often something changes on screen, in seconds");
+        else if (Number(t.change_every_s) > everyMax + 0.01) g9.push(`tempo.change_every_s ${t.change_every_s} is slower than the target ${r1d(everyMax)} s (${brand ? "the brand film's measured tempo, capped at the house tempo" : "house tempo"})`);
+        if (brand && !/brand/i.test(String(t.source || ""))) g9.push('tempo.source must be "brand film": a brand film card is measured for this film, write to its tempo');
+        if (!t.source) g9.push('tempo.source missing ("brand film" or "house")');
+      }
+      if (!opts.calm && ideas < minIdeas) g9.push(`${ideas} ideas in a ${Math.round(opts.length || lengthS)} s film: at least ${minIdeas} (a promise, the hero, each use or proof, the payoff each count once; ${bucket === 30 ? "aim 6 or 7" : "more is better"}). A calm film must be asked for in the brief`);
+      const heroI = roles.indexOf("hero");
+      if (heroI >= 0 && Number(beats[heroI].duration_s) > heroLimit + 0.01) g9.push(`the hero beat holds ${beats[heroI].duration_s} s: ${r1d(heroLimit)} s at most in a ${bucket} s film (the longest hold; show its UI states changing in less)`);
+      const needChanges = [], long = [];
+      beats.forEach((b, i) => {
+        const r = roles[i], d = Number(b.duration_s);
+        if (r === "cta" || r === "hero") return;
+        if (d > holdMax + 0.01) {
+          const need = Math.max(1, Math.ceil(d / 2) - 1), have = (Array.isArray(b.changes) ? b.changes.filter((c) => String(c || "").trim()).length : 0) + uiOf(b).length;
+          if (have < need) needChanges.push(`${i + 1} ${b.name} (${d} s needs ${need} listed change${need > 1 ? "s" : ""} in \"changes\", has ${have})`);
+        }
+        if (r === "statement") {
+          const w = String(b.on_screen || "").trim().split(/\s+/).filter(Boolean).length, read = 0.3 * w + 0.6;
+          if (d > read + 1 && !(Array.isArray(b.changes) && b.changes.length)) long.push(`${i + 1} ${b.name} (${d} s for a ${w}-word line, reading time ${r1d(read)} s)`);
+        }
+      });
+      if (needChanges.length) g9.push(`beats longer than ${r1d(holdMax)} s must list what changes inside them (in "changes" or "ui"), roughly one change per 2 s: ${needChanges.join("; ")}`);
+      if (long.length) g9.push(`a statement line holds only its reading time (0.3 s per word + 0.6 s): ${long.join("; ")}`);
+      if (t && Number(t.ideas) && Number(t.ideas) !== ideas) warnings.push(`tempo.ideas says ${t.ideas}, the beats carry ${ideas}`);
+      gate("G9", "Tempo (ideas per film, a change every ~2 s, no long holds)", g9, { ideas, min_ideas: minIdeas, change_every_s_max: r1d(everyMax), longest_hold_s: r1d(holdMax), hero_hold_s_max: r1d(heroLimit), source: brand ? "brand film" : "house" });
+    }
+
+    // G10: one feature, one scenario (references/script.md pass 0): the viewer's before, the task done in the real UI,
+    // the after with the brand, one action; every beat's picture and its UI cause and effect; the two-way read
+    {
+      const g10 = [];
+      const f = p.feature && typeof p.feature === "object" ? p.feature : null;
+      if (!f) g10.push("feature missing: { name, url, viewer, task, before, after } for the ONE feature this film is about (the user's named one, else the newest launch, else the core surface)");
+      else {
+        for (const k of ["name", "url", "viewer", "task", "before", "after"]) if (!String(f[k] || "").trim()) g10.push(`feature.${k} missing`);
+        if (/\s(and|&|\+)\s|,|\//i.test(String(f.name || ""))) g10.push(`feature.name "${f.name}" names more than one feature: a launch film is about ONE feature (pick the user's named one, else the newest launch)`);
+        if (/\b(and then|as well as|plus|also)\b|;/i.test(String(f.task || ""))) g10.push(`feature.task "${f.task}" is more than one task: one viewer doing one real task`);
+      }
+      const order = ["hook", "proof", "turn", "cta"];
+      const firstAt = order.map((r) => roles.indexOf(r));
+      if (firstAt.some((x) => x < 0)) g10.push(`roles: the film needs hook, proof, turn and cta beats (has ${[...new Set(roles)].join(", ")}): hook = the viewer's before, proof = the task in the real UI, turn = the after and the brand reveal, cta = one action`);
+      else if (!firstAt.every((x, i) => i === 0 || x > firstAt[i - 1])) g10.push("roles out of order: hook, then proof, then turn, then cta");
+      if (roles.filter((r) => r === "cta").length > 1 || (roles.includes("cta") && roles[roles.length - 1] !== "cta")) g10.push("one cta, last");
+      const noPic = beats.map((b, i) => (!String(b.picture || "").trim() ? `${i + 1} ${b.name}` : null)).filter(Boolean);
+      if (noPic.length) g10.push(`beat(s) without a picture (one sentence: what the viewer sees happen, proving the line): ${noPic.join(", ")}`);
+      const proofs = beats.filter((b, i) => roles[i] === "proof");
+      const steps = proofs.reduce((a, b) => a + uiOf(b).length, 0);
+      if (proofs.length && steps < 2) g10.push(`the proof lists ${steps} UI step(s): list at least 2 in ui[] as cause and effect ("click Open: a new tab opens, the address changes, a toast says Saved")`);
+      const badUi = beats.flatMap((b) => uiOf(b)).filter((u) => !/→|->|:|\bthen\b|\bopens?\b|\bappears?\b|\blands?\b/i.test(u));
+      if (badUi.length) g10.push(`ui entries need a cause and its effect ("click Send → the message lands in the thread, the composer clears"): ${badUi.slice(0, 2).map((u) => `"${u}"`).join(", ")}`);
+      const INVENTED = /\b(placeholder|generic (cards?|boxes|page|screen|output|result)|(grey|gray|purple|lavender|empty) boxes|boxes standing in|mock(ed)?[- ]up (page|output|result|screen)|dummy (ui|screen|page|data)|fake (ui|screen|page|output)|invented (page|screen|output|ui)|lorem)\b/i;
+      const inv = beats.map((b, i) => (INVENTED.test(`${b.visual || ""} ${b.picture || ""} ${uiOf(b).join(" ")}`) ? `${i + 1} ${b.name}` : null)).filter(Boolean);
+      if (inv.length) g10.push(`invented output screen in beat(s) ${inv.join(", ")}: the result is the product's real UI from the research (research/screens), never generic boxes standing in for it`);
+      const tw = p.two_way && typeof p.two_way === "object" ? p.two_way : {};
+      if (!String(tw.lines_alone || "").trim() || !String(tw.pictures_alone || "").trim()) g10.push("two_way missing: { lines_alone, pictures_alone }: read the lines with the pictures hidden, then the pictures with the lines hidden, and write the story each tells; they must be the same story");
+      if (f && roles.includes("turn")) {
+        const t = beats[roles.indexOf("turn")];
+        if (!/brand|logo|mark|wordmark|name/i.test(`${t.visual || ""} ${t.picture || ""} ${t.on_screen || ""}`) && !p.brand_reveal) warnings.push("the turn should carry the brand reveal (the mark lands once, in the turn): say so in its picture");
+      }
+      gate("G10", "One feature, one scenario (the viewer's before, the task in the real UI, the after with the brand, one action)", g10, { feature: f ? f.name || null : null, ui_steps: steps });
+    }
   }
 
   // G6 the script itself (references/script.md): runs when the beats carry voiceover or a target length is given
@@ -694,7 +793,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     if (valueIdx > 1) g6.push(`the value lands in beat ${valueIdx + 1}: state what the viewer gets by beat 2, then prove it`);
     else if (valueIdx < 0) warnings.push("mark the beat that states the value with value: true (it must be beat 1 or 2)");
     const last = beats[beats.length - 1];
-    if (Number(last.duration_s) < 2) g6.push(`the end beat runs ${last.duration_s} s: hold the name and call to action 2-3 s`);
+    if (Number(last.duration_s) < 2) g6.push(`the end beat runs ${last.duration_s} s: the end card needs 2-3 s for the name and call to action to land (and at most 1.5 s still after the last one)`);
     if (!String(last.on_screen || "").trim()) g6.push("the end beat has no on-screen line (the name and one call to action)");
     let vo = 0;
     beats.forEach((b, i) => {
@@ -714,9 +813,33 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     });
     if (narrated && vo > 2.5 * lengthS * 0.85) g6.push(`${vo} voiceover words for ${lengthS} s: leave music-only moments (about ${Math.round(2.5 * lengthS * 0.8)} words at most)`);
     const ds = beats.map((b) => Number(b.duration_s)), mean = ds.reduce((a, b) => a + b, 0) / ds.length, cv = Math.sqrt(ds.reduce((a, b) => a + (b - mean) ** 2, 0) / ds.length) / mean;
-    if (ds.length >= 4 && cv < 0.15) g6.push(`every beat runs about ${mean.toFixed(1)} s: vary the rhythm (quick beats, then let the turn and the reveal breathe)`);
+    if (ds.length >= 4 && cv < 0.15) g6.push(`every beat runs about ${mean.toFixed(1)} s: vary the rhythm (quick beats, then give the turn and the reveal the longest shots)`);
     gate("G6", "The script holds up (references/script.md)", g6);
     script = { narrated, vo_words: vo, words_per_s: Math.round((vo / lengthS) * 100) / 100, rhythm_cv: Math.round(cv * 100) / 100 };
+  }
+
+  // G8: the aim (references/script.md pass 0): what the film achieves, how it gets there, and a title that names the idea
+  {
+    const g8 = [];
+    const wc = (x) => String(x || "").trim().split(/\s+/).filter(Boolean).length;
+    const aim = p.aim && typeof p.aim === "object" ? p.aim : {};
+    if (!String(aim.takeaway || "").trim()) g8.push("aim.takeaway missing: the one thing the viewer remembers, in plain words, as they'd say it to a friend");
+    else if (wc(aim.takeaway) > 16) g8.push(`aim.takeaway is ${wc(aim.takeaway)} words (16 at most): say it the way a viewer would to a friend`);
+    if (!String(aim.feel || "").trim()) g8.push("aim.feel missing: what the viewer should feel");
+    if (!String(aim.action || "").trim()) g8.push("aim.action missing: what the viewer should do next");
+    if (!String(p.approach || "").trim()) g8.push("approach missing: one plain sentence on how this story gets there");
+    else if (wc(p.approach) > 25) g8.push(`approach is ${wc(p.approach)} words (25 at most)`);
+    const title = String(p.title || "").trim();
+    const tw = title.split(/\s+/).filter(Boolean);
+    const lastW = (tw[tw.length - 1] || "").toLowerCase().replace(/[^a-z']/g, "");
+    if (tw.length < 2 || tw.length > 5) g8.push(`title "${title}" is ${tw.length} word${tw.length === 1 ? "" : "s"}: name the story's idea in 2 to 5 words a person would use to refer to it`);
+    if (TITLE_STOP.includes(lastW)) g8.push(`title "${title}" ends on "${lastW}": a title is a name, not a fragment of a line`);
+    if (/[A-Z]/.test(title) && title === title.toUpperCase()) g8.push(`title "${title}" is ALL CAPS`);
+    const nt = nz8(title);
+    const lines = [...beats.map((b) => b.on_screen), p.last_line].map(nz8).filter(Boolean);
+    const frag = nt && lines.find((l) => l === nt || l.startsWith(`${nt} `));
+    if (frag) g8.push(`title "${title}" is the start of an on-screen line ("${frag}"): name the idea instead`);
+    gate("G8", "The aim (what the film achieves, how it gets there, a title that names the idea)", g8);
   }
 
   // scores: self-assessed, then adjusted by rule
@@ -773,8 +896,19 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
   };
 }
 
+// the brand film's measured tempo (brandfilm.mjs measure: grammar.json .measured.tempo, or a FILM-STYLE.json with .measured)
+function loadBrandTempo(p) {
+  if (!p || p === true) return null;
+  let j; try { j = readJSON(path.resolve(String(p))); } catch (e) { die(`--brand-film is not readable JSON: ${e.message}`); }
+  const t = (j.measured && j.measured.tempo) || j.tempo;
+  return t && Number(t.changeEveryS) > 0 ? { changeEveryS: Number(t.changeEveryS), longestHoldS: Number(t.longestHoldS) || 0 } : null;
+}
+
 function checkPortfolio(pitches, results) {
   const reasons = [];
+  const warnings = [];
+  const tk = pitches.map((p) => nz8(p.aim && p.aim.takeaway));
+  for (let i = 0; i < tk.length; i++) for (let j = i + 1; j < tk.length; j++) if (tk[i] && tk[i] === tk[j]) warnings.push(`"${pitches[i].title || i + 1}" and "${pitches[j].title || j + 1}" share the same takeaway: each story should aim at something different`);
   const ds = pitches.map((p) => findDevice(Array.isArray(p.device) ? p.device[0] : p.device)).filter(Boolean);
   for (let i = 0; i < ds.length; i++)
     for (let j = i + 1; j < ds.length; j++) {
@@ -794,5 +928,5 @@ function checkPortfolio(pitches, results) {
     const labels = pitches.map((p) => p.label).filter(Boolean);
     if (labels.length && new Set(labels).size !== labels.length) reasons.push(`labels repeat: ${labels.join(", ")}`);
   }
-  return { pass: !reasons.length, reasons };
+  return { pass: !reasons.length, reasons, warnings: warnings.length ? warnings : undefined };
 }

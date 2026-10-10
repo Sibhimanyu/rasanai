@@ -12,7 +12,7 @@ You run on Sonnet and you are fast. The Director has already pulled the brand's 
 ## What to do
 
 1. **Look.** Read every contact sheet (the PNGs/JPGs, not their names). Step through the film in order. For anything you cannot tell at sheet size (a typeface, a thin line, grain), open single frames from the frames folder.
-2. **Fill the card.** Write each item of the grammar checklist into `FILM-STYLE.md` (keep the measured block as it is) and the same words into the slots of `FILM-STYLE.json` (`typefaces`, `motif`, `layout`, `motionVocabulary`, `photographyStyle`, `endCard`, `notes`), then set `"filled": true`. Cover all ten:
+2. **Fill the card.** Write each item of the grammar checklist into `FILM-STYLE.md` (keep the measured block as it is) and the same words into the slots of `FILM-STYLE.json` (`typefaces`, `motif`, `layout`, `motionVocabulary`, `photographyStyle`, `endCard`, `tempo`, `notes`), then set `"filled": true`. Cover all eleven:
    - **Canvas**: the background colour (hex) and the share of the film it covers (use the measured near-white / near-black shares); inversions and where they occur.
    - **Palette and shares**: black, white, accents; each accent's hex, its share, and how it arrives (a flat small shape, a field, a wash). Colour is usually a moment: say so with the number.
    - **Typefaces and the type scale**: the family and weights; the size classes (a huge statement or single letterform vs tiny labels at the margins; nothing in between?); serif or sans; where type sits. For a proprietary face, add `Substitute: <a loadable Google Fonts or Fontshare family>`.
@@ -20,7 +20,8 @@ You run on Sonnet and you are fast. The Director has already pulled the brand's 
    - **Signature motif**: the recurring shape or gesture and its list of transformations in order (dot, circle, line, cursor, mark).
    - **Motion vocabulary**: every move you see (scale, morph, draw-on, cut on the beat, slide, UI choreography, parallax) AND every move the film never uses (3D camera, motion blur, grain, bounce, glitch). Say "flat: no 3D, no blur, no grain" when that is what you see. This list is binding: the Motion Director and the animators may not add what is absent.
    - **Photography or illustration**: real photos, illustration, UI, type only, collage; grade, subjects, full bleed or framed; or "none".
-   - **Cut rate and rhythm**: the measured cuts per 10 s and average shot, and the pattern (calm holds against bursts).
+   - **Cut rate and rhythm**: the measured cuts per 10 s and average shot, and the pattern (calm stretches against bursts; say what still moves in the calm, since the build may never freeze for 0.8 s).
+   - **Tempo**: from the measured `tempo` (changes, seconds between changes, longest hold without a change) and the contact sheets: the ideas shown (count them from the frames and the on-screen text), seconds per idea, the change rate (a continuous take that changes inside counts), the longest hold, and where the film breathes (the one calm hold, before which beat). Write the same into the `tempo` slot of `FILM-STYLE.json`.
    - **Transitions**: hard cut, morph, match cut, wipe, dissolve.
    - **End card**: what is on it (mark, wordmark, one CTA), how big the mark is, how long it holds, the canvas it sits on.
    Also record the **opening** (what the first image is) and **UI treatment** (full screen, window, fragments).

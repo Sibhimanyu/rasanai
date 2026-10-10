@@ -385,6 +385,7 @@ struct FinishedView: View {
     @State private var previewPlayer: AVPlayer?
     @State private var restoreVersion: FilmVersion?
     @FocusState private var focusedNote: UUID?
+    @State private var references: [FilmMoment] = []
     private var filmKey: URL? { store.loadedFilm ?? store.selectedProjectURL }
     private var notes: [FilmNote] { filmKey.flatMap { store.filmNotes[$0] } ?? [] }
     private var activePlayer: AVPlayer? { previewPlayer ?? store.finalPlayer }
@@ -416,6 +417,7 @@ struct FinishedView: View {
                     Text(store.currentFilmTitle).font(.system(size: 22, weight: .semibold))
                     Text("\(clockText(store.phaseDuration)) · \(store.snapshot.aspect)").font(.system(size: 12)).foregroundStyle(.secondary)
                     FinishedUsageLine(store: store)
+                    MomentReferencesLine(references: references, gallery: store.gallery).padding(.top, 2)
                     if let previewVersion {
                         HStack {
                             Text("Watching v\(previewVersion.id)").font(.system(size: 12, weight: .medium))
@@ -440,6 +442,11 @@ struct FinishedView: View {
         .confirmationDialog("Restore v\(restoreVersion?.id ?? "")?", isPresented: Binding(get: { restoreVersion != nil }, set: { if !$0 { restoreVersion = nil } }), titleVisibility: .visible) {
             Button("Ask director to restore") { if let version = restoreVersion { store.restoreFilmVersion(version); restoreVersion = nil } }
         } message: { Text("Your director will restore this saved version. The other versions are kept.") }
+        .task(id: filmKey) {
+            guard let folder = filmKey else { references = []; return }
+            references = await Task.detached { FilmDraft.load(in: folder)?.moments ?? [] }.value
+            if !references.isEmpty { store.gallery.prime(); await store.gallery.loadIfNeeded() }
+        }
         .onDisappear {
             previewPlayer?.pause()
             store.previewFilm = nil; store.previewVideo = nil

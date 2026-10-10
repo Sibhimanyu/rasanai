@@ -253,7 +253,7 @@
       "conveys": "Evolution and continuity.",
       "vs": "Before -> after shows two endpoints; transformation shows the change in between.",
       "search": ["morphing animation narrative", "continuous transformation motion design"],
-      "prompt": "Tell the story through one subject that morphs through 3-5 states without cuts. Each morph takes 800-1500 ms with smooth easing, and each state holds 1.5-2.5 s long enough to read. The final state should be the brand or product."
+      "prompt": "Tell the story through one subject that morphs through 3-5 states without cuts. Each morph takes 800-1500 ms with smooth easing, and each state reads for 1.5-2.5 s while something in it keeps acting (never frozen for 0.8 s). The final state should be the brand or product."
     },
     {
       "id": "loop",

@@ -39,7 +39,7 @@ When a scene's `visual` needs a photograph, illustration, texture or environment
 
 ## Never
 
-- Never draw a logo: place the official file. Never invent UI labels, numbers or features (only Native words and `research/claims.json`).
+- Never draw, trace, approximate or generate a logo: place the official file from `research/brand/assets/` (listed in `logos.json`), unchanged, with the brand's clear space and the right colour version. If `logos.json` says `none`, the end card is the brand name in the brand font and no symbol. Never invent UI labels, numbers or features (only Native words and `research/claims.json`).
 - Never set type as an image, never use an AI-generated image of the product.
 
 ## Done when

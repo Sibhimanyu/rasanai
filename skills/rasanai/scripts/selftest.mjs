@@ -581,7 +581,8 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   ok("story: pick gives Sure/Bold/Wild that differ (family, protagonist, visual world, >= 5 of 7 axes); same seed, same picks", differ && P[0].picks.map((p) => p.label).join() === "Sure,Bold,Wild" && again.stdout === picks[0].stdout, picks.map((r) => r.stderr).join(" "));
   const beat = (name, on_screen, duration_s, extra = {}) => ({ name, on_screen, visual: `${name}, in the review thread`, duration_s, ...extra });
   const scores = { originality: 4, clarity: 4, fit: 5, memorability: 4, feasibility: 5 };
-  const good = { title: "Unmerged", logline: "A 2 am outage rewinds to the one line nobody read.", device: "rewind", beats: [beat("The pager alert", "02:14 · checkout-api down", 4), beat("Rewind the postmortem", "deploy ← merge", 7), beat("The LGTM comment un-types", "LGTM · 11:04 pm", 6), beat("The diff, unread", "one hunk", 6), beat("Lintel reads it", "Apply suggestion", 6, { turn: true }), beat("The pager stays dark", "Lintel reads every line.", 7)], first_4s: "A pager alert that plays backwards", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "the LGTM and the comment label are Lintel's own" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the reverse scrub", needs_live_action: false }, scores };
+  const aim = { takeaway: "Lintel reads every line so nothing slips through at 2 am.", feel: "Relieved", action: "Install Lintel on one repo", audience: "Engineers who approve pull requests" };
+  const good = { title: "The unread line", aim, approach: "Starts at the 2 am outage, then rewinds to the one line nobody read.", logline: "A 2 am outage rewinds to the one line nobody read.", device: "rewind", beats: [beat("The pager alert", "02:14 · checkout-api down", 4), beat("Rewind the postmortem", "deploy ← merge", 7), beat("The LGTM comment un-types", "LGTM · 11:04 pm", 6), beat("The diff, unread", "one hunk", 6), beat("Lintel reads it", "Apply suggestion", 6, { turn: true }), beat("The pager stays dark", "Lintel reads every line.", 7)], first_4s: "A pager alert that plays backwards", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "the LGTM and the comment label are Lintel's own" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the reverse scrub", needs_live_action: false }, scores };
   const bad = { title: "Meet Lintel", logline: "Meet Lintel, the AI reviewer that supercharges your team.", device: "before-after", beats: [beat("Hook", "PRs wait 2 days?", 3), beat("Problem montage", "Code review is broken", 3), beat("Introducing Lintel", "Introducing Lintel", 3), beat("Feature 1", "AI comments", 3), beat("Feature 2", "Suggestions", 3), beat("Feature 3", "Integrations", 3), beat("Social proof", "Trusted by 500 teams", 3), beat("CTA", "Try it free", 3)], first_4s: "a stat", clear_by_s4: true, swap_test: { competitor: "Rival", result: "survives" }, honest_demo: true, scores };
   fs.writeFileSync(path.join(sd, "good.json"), JSON.stringify(good));
   fs.writeFileSync(path.join(sd, "bad.json"), JSON.stringify(bad));
@@ -592,7 +593,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   ok("story: check ships a distinctive pitch (exit 0)", cg.status === 0, cg.stdout.slice(0, 400) + cg.stderr);
   ok("story: check rejects the cliche arc (default beats in order, swap test survives, ungrounded numbers; exit 2)", cb.status === 2 && ["G1", "G2", "G4"].every((g) => rb.gates.some((x) => x.id === g && !x.pass)), cb.stdout.slice(0, 400) + cb.stderr);
   // G6, the script (references/script.md): a written 45 s script ships; the default launch script fails on its words and timing
-  fs.writeFileSync(path.join(sd, "script-good.json"), JSON.stringify({"id": "shoebox", "label": "Bold", "title": "The last shoebox", "logline": "A museum exhibit of the thing nobody needs anymore.", "device": "museum-exhibit", "beats": [{"name": "Hook", "on_screen": "Exhibit 14: the shoebox", "vo": "", "visual": "Spotlight finds a shoebox of receipts on a plinth; label slides in.", "duration_s": 2.5}, {"name": "Value", "on_screen": "Retired, 2024.", "vo": "This is how people kept their books. Until this year.", "visual": "Label date ticks to 2024.", "duration_s": 4.5, "value": true}, {"name": "One tap", "on_screen": "One tap.", "vo": "Tally reads every receipt the moment you get it.", "visual": "Phone snaps a crumpled receipt; the amount flies into a ledger row.", "duration_s": 6}, {"name": "Balanced", "on_screen": "Every month, balanced.", "vo": "And balances the month on its own.", "visual": "Twelve months fill in, December last.", "duration_s": 7}, {"name": "Escalation", "on_screen": "0 shoeboxes.", "vo": "", "visual": "The shoebox empties as receipts become ledger rows.", "duration_s": 8}, {"name": "Turn", "on_screen": "", "vo": "Some things belong in a museum.", "visual": "Pull back: the empty shoebox under glass, a visitor walks past.", "duration_s": 6, "turn": true}, {"name": "Payoff", "on_screen": "Your books don't fade.", "vo": "Yours don't have to.", "visual": "The ledger, calm.", "duration_s": 6}, {"name": "End", "on_screen": "Tally \u00b7 tally.app", "vo": "", "visual": "Logo and URL held still.", "duration_s": 5}], "first_4s": "a shoebox in a museum", "clear_by_s4": true, "swap_test": {"competitor": "Expensify", "result": "breaks", "why": "the shoebox exhibit is Tally's own story"}, "grounded_claims": [], "props": ["14", "2024", "0"], "honest_demo": true, "signature_image": "shoebox under glass", "last_line": "Your books don't fade.", "build": {"hardest_shot": "receipt to ledger row", "how": "SVG morph"}, "scores": {"originality": 4, "clarity": 4, "fit": 4, "memorability": 4, "feasibility": 4}}));
+  fs.writeFileSync(path.join(sd, "script-good.json"), JSON.stringify({"id": "shoebox", "label": "Bold", "title": "The last shoebox", "aim": {"takeaway": "Tally files every receipt for you, so the shoebox is retired.", "feel": "Quietly relieved", "action": "Try Tally on this month", "audience": "Freelancers"}, "approach": "A museum exhibit for the shoebox that Tally made obsolete.", "logline": "A museum exhibit of the thing nobody needs anymore.", "device": "museum-exhibit", "beats": [{"name": "Hook", "on_screen": "Exhibit 14: the shoebox", "vo": "", "visual": "Spotlight finds a shoebox of receipts on a plinth; label slides in.", "duration_s": 2.5}, {"name": "Value", "on_screen": "Retired, 2024.", "vo": "This is how people kept their books. Until this year.", "visual": "Label date ticks to 2024.", "duration_s": 4.5, "value": true}, {"name": "One tap", "on_screen": "One tap.", "vo": "Tally reads every receipt the moment you get it.", "visual": "Phone snaps a crumpled receipt; the amount flies into a ledger row.", "duration_s": 6}, {"name": "Balanced", "on_screen": "Every month, balanced.", "vo": "And balances the month on its own.", "visual": "Twelve months fill in, December last.", "duration_s": 7}, {"name": "Escalation", "on_screen": "0 shoeboxes.", "vo": "", "visual": "The shoebox empties as receipts become ledger rows.", "duration_s": 8}, {"name": "Turn", "on_screen": "", "vo": "Some things belong in a museum.", "visual": "Pull back: the empty shoebox under glass, a visitor walks past.", "duration_s": 6, "turn": true}, {"name": "Payoff", "on_screen": "Your books don't fade.", "vo": "Yours don't have to.", "visual": "The ledger, calm.", "duration_s": 6}, {"name": "End", "on_screen": "Tally \u00b7 tally.app", "vo": "", "visual": "Logo and URL held still.", "duration_s": 5}], "first_4s": "a shoebox in a museum", "clear_by_s4": true, "swap_test": {"competitor": "Expensify", "result": "breaks", "why": "the shoebox exhibit is Tally's own story"}, "grounded_claims": [], "props": ["14", "2024", "0"], "honest_demo": true, "signature_image": "shoebox under glass", "last_line": "Your books don't fade.", "build": {"hardest_shot": "receipt to ledger row", "how": "SVG morph"}, "scores": {"originality": 4, "clarity": 4, "fit": 4, "memorability": 4, "feasibility": 4}}));
   fs.writeFileSync(path.join(sd, "script-bad.json"), JSON.stringify({"id": "default", "label": "Bold", "title": "Tally", "logline": "A museum exhibit of the thing nobody needs anymore.", "device": "museum-exhibit", "beats": [{"name": "Q", "on_screen": "Tired of messy receipts?", "vo": "Tired of messy receipts? Introducing Tally, the seamless way to track every expense you have.", "visual": "stock", "duration_s": 5}, {"name": "f1", "on_screen": "Scan receipts instantly", "vo": "Scan receipts instantly.", "visual": "x", "duration_s": 5}, {"name": "f2", "on_screen": "Track expenses effortlessly", "vo": "Track expenses effortlessly.", "visual": "x", "duration_s": 5}, {"name": "f3", "on_screen": "Tax-ready reports", "vo": "Get tax ready reports.", "visual": "x", "duration_s": 5}, {"name": "end", "on_screen": "Try Tally free today!", "vo": "Tally. The future of bookkeeping.", "visual": "logo", "duration_s": 1.5}], "first_4s": "a shoebox in a museum", "clear_by_s4": true, "swap_test": {"competitor": "Expensify", "result": "breaks", "why": "the shoebox exhibit is Tally's own story"}, "grounded_claims": [], "props": ["14", "2024", "0"], "honest_demo": true, "signature_image": "shoebox under glass", "last_line": "Your books don't fade.", "build": {"hardest_shot": "receipt to ledger row", "how": "SVG morph"}, "scores": {"originality": 4, "clarity": 4, "fit": 4, "memorability": 4, "feasibility": 4}}));
   const sg = node("story.mjs", ["check", "--pitch", path.join(sd, "script-good.json"), "--length", "45", "--narrated"]);
   const sb = node("story.mjs", ["check", "--pitch", path.join(sd, "script-bad.json"), "--length", "45", "--narrated"]);
@@ -601,6 +602,31 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   const g6 = (r) => r.gates.find((x) => x.id === "G6") || { pass: null, reasons: [] };
   const why = g6(rsb).reasons.join(" | ");
   ok("story: G6 passes a written script and fails the default one (length, hook beat, repeated lines, stock copy, end hold)", g6(rsg).pass === true && g6(rsb).pass === false && ["for a 45 s film", "hook beat", "repeats the voiceover", "stock launch copy", "end beat"].every((k) => why.includes(k)), g6(rsg).reasons.join(" | ") + " // " + why);
+  // G8, the aim (references/script.md pass 0): a title that names the idea and an aim pass; a fragment title or a missing aim fails
+  {
+    const g8 = (extra, drop = []) => {
+      const o = { ...good, ...extra };
+      for (const k of drop) delete o[k];
+      const f = path.join(sd, `g8-${Math.random().toString(36).slice(2)}.json`);
+      fs.writeFileSync(f, JSON.stringify(o));
+      const r = node("story.mjs", ["check", "--pitch", f, "--truth", truth]);
+      let j = { gates: [] };
+      try { j = JSON.parse(r.stdout); } catch {}
+      return j.gates.find((x) => x.id === "G8") || { pass: null, reasons: [] };
+    };
+    const okT = g8({ title: "The one-prompt site" });
+    ok("story: G8 passes a title that names the idea (\"The one-prompt site\") with a full aim and approach", okT.pass === true, okT.reasons.join(" | "));
+    const frag = g8({ title: "You Can Just", beats: good.beats.map((b, i) => (i === 0 ? { ...b, on_screen: "You can just ask." } : b)) });
+    ok("story: G8 fails \"You Can Just\" (ends on a function word, the start of an on-screen line)", frag.pass === false && /ends on "just"/.test(frag.reasons.join(" ")) && /start of an on-screen line/.test(frag.reasons.join(" ")), frag.reasons.join(" | "));
+    ok("story: G8 fails a one-word title and an ALL CAPS title", g8({ title: "Unmerged" }).pass === false && g8({ title: "ONE BOX ONLY" }).pass === false);
+    const noAim = g8({}, ["aim"]);
+    ok("story: G8 fails a pitch with no aim, and one with no approach", noAim.pass === false && /aim\.takeaway missing/.test(noAim.reasons.join(" ")) && g8({}, ["approach"]).pass === false);
+    ok("story: G8 caps the takeaway at 16 words and the approach at 25", g8({ aim: { ...good.aim, takeaway: "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen" } }).pass === false && g8({ approach: "word ".repeat(26).trim() }).pass === false);
+    const twin = node("story.mjs", ["check", "--pitch", (() => { const f = path.join(sd, "g8-twins.json"); fs.writeFileSync(f, JSON.stringify({ pitches: [good, { ...good, title: "Reviewed before merge" }] })); return f; })(), "--truth", truth]);
+    let tj = {};
+    try { tj = JSON.parse(twin.stdout); } catch {}
+    ok("story: two pitches with the same takeaway get a warning, not a failure", ((tj.portfolio || {}).warnings || []).some((w) => /same takeaway/.test(w)), twin.stdout.slice(0, 300));
+  }
   // product-first (launch, promo and product films; references/product-first.md): no conceit devices, gate G7
   {
     const ptruth = path.join(sd, "truth-launch.json");
@@ -615,9 +641,11 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     ok("product-first: pick for a launch film never offers a conceit device (museum, metaphor, cover version, invented world...) across 12 seeds", seen.size >= 6 && ![...seen].some((id) => CONCEIT.has(id)), [...seen].join(","));
     const conc = node("story.mjs", ["pick", "--truth", ptruth, "--seed", "a", "--allow-conceit"]);
     ok("product-first: --allow-conceit lifts the filter (brand films, or when the user asks for a concept)", conc.status === 0 && !/"product_first": true/.test(conc.stdout));
+    // the house 30 s shape (references/launch-film.md, Tempo): hook + product, promise, hero, four uses, payoff, end card = 7 ideas
+    const tempoBeats = (b) => [b("Open", "Lintel, open.", 2.5, "The real Lintel review window opens over the pull request, Apply suggestion in the corner"), b("Promise", "Review, done.", 2, "The Lintel review thread, one line set over it"), b("Hero", "One shortcut.", 4, "The real LGTM flow: the diff, the comment, Apply suggestion in the Lintel window", { value: true }), b("Use 1", "Every diff.", 3, "Six real diffs reviewed down the Lintel review thread"), b("Use 2", "Every thread.", 3, "The Lintel review thread resolves itself", { turn: true }), b("Use 3", "Every repo.", 3, "Lintel across three repos in one list"), b("Use 4", "Every nit.", 3, "Lintel folds the nit: comments away"), b("Payoff", "Review done.", 3, "Lintel shows the merged pull request"), b("End", "Get Lintel", 3.5, "Clean CTA card, the line the largest type")];
     const pf = (extra, drop = []) => {
       const b = (name, on_screen, duration_s, visual, more = {}) => ({ name, on_screen, visual, duration_s, ...more });
-      const o = { title: "Review in place", logline: "Lintel reviews the pull request where you already are.", device: "oner", beats: [b("Open", "Lintel, open.", 2.5, "The real Lintel review window opens over the pull request, Apply suggestion in the corner"), b("Hero", "One shortcut.", 8, "The real LGTM flow: the diff, the comment, Apply suggestion, held long enough to read", { value: true }), b("Use 1", "Every diff.", 4, "Six real diffs reviewed down the Lintel review thread"), b("Use 2", "Every thread.", 4, "The Lintel review thread resolves itself", { turn: true }), b("End", "Get Lintel", 5, "Clean CTA card, the line the largest type")], payoff_line: "Review done where you work.", first_4s: "the real Lintel window opens", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "the Apply suggestion flow is Lintel's own" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the real UI choreography" }, scores, hero_moment: { beat: 2, what: "the real review flow end to end" }, uses: ["review a diff", "resolve a thread"], last_line: "Get Lintel", end_line_largest: true, ...extra };
+      const o = { title: "Review in place", aim, approach: "Opens on the real review window and shows one shortcut doing the whole job.", logline: "Lintel reviews the pull request where you already are.", device: "oner", beats: tempoBeats(b), tempo: { ideas: 7, change_every_s: 2.2, longest_hold_s: 4, source: "house" }, payoff_line: "Review done where you work.", first_4s: "the real Lintel window opens", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "the Apply suggestion flow is Lintel's own" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the real UI choreography" }, scores, hero_moment: { beat: 3, what: "the real review flow end to end" }, uses: ["review a diff", "resolve a thread"], last_line: "Get Lintel", end_line_largest: true, ...extra };
       for (const k of drop) delete o[k];
       const f = path.join(sd, `pf-${Math.random().toString(36).slice(2)}.json`);
       fs.writeFileSync(f, JSON.stringify(o));
@@ -641,20 +669,82 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     // launch-film structure (references/launch-film.md): hook, hero, 2-4 demos, payoff, end card, timings per film length, the product in every beat
     {
       const b = (name, on_screen, duration_s, visual, more = {}) => ({ name, on_screen, visual, duration_s, ...more });
-      const base = () => [b("Open", "Lintel, open.", 2.5, "The real Lintel review window opens over the pull request"), b("Hero", "One shortcut.", 8, "The real Lintel LGTM flow, Apply suggestion", { value: true }), b("Use 1", "Every diff.", 4, "Six real diffs in the Lintel window"), b("Use 2", "Every thread.", 4, "The Lintel review thread resolves", { turn: true }), b("Payoff", "Review done.", 3, "Lintel shows the merged pull request"), b("End", "Get Lintel", 3.5, "Lintel mark and one CTA on the brand canvas")];
+      const base = () => tempoBeats(b);
       const okp = pf({ beats: base(), payoff_line: "Review done where you work." });
       ok("launch structure: G7 passes the 30 s template (hook, hero, 2 uses, payoff, end card, each in range, the product in every beat)", okp.g7.pass === true, okp.g7.reasons.join(" | "));
-      const slow = base(); slow[1].duration_s = 20;
+      const slow = base(); slow[2].duration_s = 20;
       const t1 = pf({ beats: slow, payoff_line: "Review done." });
       ok("launch structure: G7 fails a beat outside the template's timing range", t1.g7.pass === false && /outside the 30 s launch template/.test(t1.g7.reasons.join(" ")), t1.g7.reasons.join(" | "));
       const nopay = pf({ beats: base().filter((x) => x.name !== "Payoff") }, ["payoff_line"]);
       ok("launch structure: G7 requires a payoff line", nopay.g7.pass === false && /payoff line missing/.test(nopay.g7.reasons.join(" ")), nopay.g7.reasons.join(" | "));
-      const bare = base(); bare[3] = b("Use 2", "Every thread.", 3, "A drifting field of soft shapes", { turn: true });
+      const bare = base(); bare[4] = b("Use 2", "Every thread.", 3, "A drifting field of soft shapes", { turn: true });
       const t3 = pf({ beats: bare, payoff_line: "Review done." });
       ok("launch structure: G7 fails a beat with neither the product nor the brand", t3.g7.pass === false && /without the product or brand/.test(t3.g7.reasons.join(" ")), t3.g7.reasons.join(" | "));
-      const five = base(); five.splice(3, 0, b("Use 3", "Every repo.", 4, "Lintel across repos"), b("Use 4", "Every team.", 4, "Lintel for teams"), b("Use 5", "Every fork.", 4, "Lintel on forks"));
+      const five = base(); five.splice(3, 0, b("Use 5", "Every team.", 3, "Lintel for teams"), b("Use 6", "Every fork.", 3, "Lintel on forks"));
       const t4 = pf({ beats: five, payoff_line: "Review done." });
-      ok("launch structure: G7 fails more than 4 feature demos", t4.g7.pass === false && /feature-demo beats/.test(t4.g7.reasons.join(" ")), t4.g7.reasons.join(" | "));
+      ok("launch structure: G7 fails more feature demos than the length allows (5 in 30 s)", t4.g7.pass === false && /feature-demo beats/.test(t4.g7.reasons.join(" ")), t4.g7.reasons.join(" | "));
+    }
+    // G9, tempo (references/launch-film.md, Tempo): ideas per length, holds, the brand's measured tempo
+    {
+      const g9of = (r) => { let j = { gates: [] }; try { j = JSON.parse(r.stdout); } catch {} return (j.gates || []).find((x) => x.id === "G9") || { pass: null, reasons: [r.stdout.slice(0, 400) + r.stderr.slice(0, 300)] }; };
+      const run9 = (extra, drop = [], args = []) => {
+        const b = (name, on_screen, duration_s, visual, more = {}) => ({ name, on_screen, visual, duration_s, ...more });
+        const o = { title: "Review in place", logline: "Lintel reviews the pull request where you already are.", aim, approach: "Opens on the real review window and shows one shortcut doing the whole job.", device: "oner", beats: tempoBeats(b), tempo: { ideas: 7, change_every_s: 2.2, longest_hold_s: 4, source: "house" }, payoff_line: "Review done where you work.", first_4s: "the real Lintel window opens", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "the Apply suggestion flow is Lintel's own" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the real UI choreography" }, scores, hero_moment: { beat: 3, what: "the real review flow end to end" }, uses: ["review a diff", "resolve a thread"], last_line: "Get Lintel", end_line_largest: true, ...extra };
+        for (const k of drop) delete o[k];
+        const fl = path.join(sd, `t9-${Math.random().toString(36).slice(2)}.json`);
+        fs.writeFileSync(fl, JSON.stringify(o));
+        return g9of(node("story.mjs", ["check", "--pitch", fl, "--truth", ptruth, ...args]));
+      };
+      const bb = (name, on_screen, duration_s, visual, more = {}) => ({ name, on_screen, visual, duration_s, ...more });
+      const fast = run9({});
+      ok("tempo: G9 passes a 30 s launch pitch with 7 ideas, a change every 2.2 s and a 4 s hero", fast.pass === true, fast.reasons.join(" | "));
+      const oldSlow = [bb("Open", "Lintel, open.", 3, "The real Lintel review window opens"), bb("Promise", "Review happens where you already work.", 5, "The Lintel review thread, one line set over it"), bb("Hero", "One shortcut.", 6, "The real LGTM flow in the Lintel window, uncut", { value: true }), bb("Use 1", "Every diff.", 4, "Six real diffs in the Lintel window"), bb("Use 2", "Every thread.", 4, "The Lintel review thread resolves", { turn: true }), bb("End", "Get Lintel", 3.5, "Clean CTA card, the Lintel mark")];
+      const slow = run9({ beats: oldSlow, tempo: { ideas: 5, change_every_s: 5, longest_hold_s: 6, source: "house" } });
+      const why9 = slow.reasons.join(" | ");
+      ok("tempo: G9 fails the old slow 30 s shape (statement 5 s, hero 6 s, 2 uses): too few ideas, a long hero, slow changes, unlisted changes", slow.pass === false && /4 ideas|ideas in a/.test(why9) && /hero beat holds 6/.test(why9) && /tempo\.change_every_s 5/.test(why9) && /must list what changes/.test(why9), why9);
+      ok("tempo: G9 requires a tempo object", run9({}, ["tempo"]).pass === false);
+      const listed = tempoBeats(bb); listed[3] = { ...listed[3], duration_s: 4, changes: ["the diff opens", "the comment lands"] };
+      const unlisted = tempoBeats(bb); unlisted[3] = { ...unlisted[3], duration_s: 4 };
+      ok("tempo: a beat over 3 s passes only when it lists what changes inside it (about one per 2 s)", run9({ beats: listed }).pass === true && run9({ beats: unlisted }).pass === false, run9({ beats: unlisted }).reasons.join(" | "));
+      const calm = run9({ beats: tempoBeats(bb).filter((x) => !/Use (3|4)|Promise/.test(x.name)), tempo: { ideas: 4, change_every_s: 2.2, longest_hold_s: 4, source: "house" } }, [], ["--length", "30"]);
+      ok("tempo: G9 fails a 30 s pitch under 5 ideas unless the brief asks for a calm film (--calm)", calm.pass === false && /ideas in a/.test(calm.reasons.join(" ")) && run9({ beats: tempoBeats(bb).filter((x) => !/Use (3|4)|Promise/.test(x.name)), tempo: { ideas: 4, change_every_s: 2.2, longest_hold_s: 4, source: "house" } }, [], ["--length", "30", "--calm"]).pass === true, calm.reasons.join(" | "));
+      // a brand whose own film changes every 1.5 s tightens the target; the pitch must say it follows the brand film
+      const bg = path.join(sd, "brand-grammar.json");
+      fs.writeFileSync(bg, JSON.stringify({ measured: { tempo: { changes: 15, changeEveryS: 2, longestHoldS: 4 } } }));
+      const tight = run9({}, [], ["--brand-film", bg]);
+      ok("tempo: a brand with a faster measured tempo tightens G9 (a change every 2.2 s is too slow for a brand that changes every 2 s)", tight.pass === false && /2 s/.test(tight.reasons.join(" ")) && /brand film/.test(tight.reasons.join(" ")), tight.reasons.join(" | "));
+      const follow = run9({ tempo: { ideas: 7, change_every_s: 2, longest_hold_s: 4, source: "brand film" } }, [], ["--brand-film", bg]);
+      ok("tempo: a pitch written to the brand's tempo (source: brand film) passes against that brand", follow.pass === true, follow.reasons.join(" | "));
+    }
+    // G10, one feature, one scenario: feature {viewer, task, before, after}, hook/proof/turn/cta, pictures, UI cause and effect, the two-way read
+    {
+      const gof = (r, id) => { let j = { gates: [] }; try { j = JSON.parse(r.stdout); } catch {} return (j.gates || []).find((x) => x.id === id) || { pass: null, reasons: [r.stdout.slice(0, 300) + r.stderr.slice(0, 300)] }; };
+      const sb = (name, role, on_screen, duration_s, visual, picture, more = {}) => ({ name, role, on_screen, visual, picture, duration_s, ...more });
+      const scen = () => [
+        sb("Before", "hook", "Reviews pile up elsewhere", 4, "The real Lintel window beside a browser of twelve review tabs, each new tab squeezing the others", "a reviewer drowns in review tabs while the pull request waits", { changes: ["a thirteenth tab squeezes in"] }),
+        sb("Apply it", "proof", "Apply it in place", 12, "The real Lintel review window over the diff: the comment, the suggestion, Apply suggestion", "the reviewer applies a suggestion without leaving the diff", { value: true, ui: ["click Apply suggestion → the diff line changes in place and the comment folds", "press Cmd+Enter → the review posts and a toast says Review sent", "the next comment slides up → its suggestion is highlighted", "click Resolve → the thread collapses into a check"], changes: ["the camera pushes into the suggestion", "the tabs close one by one"] }),
+        sb("After", "turn", "Review, done in Lintel", 5, "The tabs are gone, the Lintel mark lands as the window shrinks into it", "one window, no tabs, and the Lintel mark arrives", { turn: true, changes: ["the window shrinks into the mark", "the name lands"] }),
+        sb("End", "cta", "Get Lintel", 4, "Clean CTA card with the Lintel mark, the line the largest type", "the mark rises into the end card and the download button wipes in"),
+      ];
+      const feature = { name: "Apply suggestion", url: "https://lintel.example/apply", viewer: "a reviewer with twelve open review tabs", task: "apply a suggested change and post the review", before: "reviews live in a separate tool and get lost", after: "review and apply right in the diff" };
+      const run10 = (extra = {}, drop = []) => {
+        const o = { title: "Review in place", logline: "Lintel applies the review where you already are.", aim, approach: "One reviewer applies one suggestion in the real Lintel window, start to finish.", device: "oner", feature, beats: scen(), two_way: { lines_alone: "Reviews pile up; apply in place; done in Lintel; get it", pictures_alone: "tabs pile up, one suggestion is applied in the diff, the tabs vanish into the Lintel mark, the end card" }, tempo: { ideas: 5, change_every_s: 2.2, longest_hold_s: 4, source: "house" }, first_4s: "the real Lintel window beside the review tabs", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "Apply suggestion is Lintel's own" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the UI cause and effect" }, scores, hero_moment: { beat: 2, what: "Apply suggestion end to end" }, uses: ["apply the suggestion", "post the review", "resolve the thread"], last_line: "Get Lintel", end_line_largest: true, ...extra };
+        for (const k of drop) delete o[k];
+        const fl = path.join(sd, `t10-${Math.random().toString(36).slice(2)}.json`);
+        fs.writeFileSync(fl, JSON.stringify(o));
+        return node("story.mjs", ["check", "--pitch", fl, "--truth", ptruth]);
+      };
+      const good = run10();
+      ok("one feature: a hook/proof/turn/cta scenario with the feature block, pictures, UI cause and effect and the two-way read passes G7, G9 and G10", gof(good, "G10").pass === true && gof(good, "G7").pass === true && gof(good, "G9").pass === true, [gof(good, "G7"), gof(good, "G9"), gof(good, "G10")].map((g) => g.reasons.join(" | ")).join(" || "));
+      const two = run10({ feature: { ...feature, name: "Apply suggestion and Team inbox" } });
+      ok("one feature: G10 fails a pitch about two features", gof(two, "G10").pass === false && /more than one feature/.test(gof(two, "G10").reasons.join(" ")));
+      const nofe = run10({}, ["feature", "two_way"]);
+      ok("one feature: G10 requires the feature block and the two-way read", gof(nofe, "G10").pass === false && /feature missing/.test(gof(nofe, "G10").reasons.join(" ")) && /two_way/.test(gof(nofe, "G10").reasons.join(" ")));
+      const fakeOut = scen(); fakeOut[1] = { ...fakeOut[1], visual: "A lavender board of three generic cards builds as the result", ui: ["click Apply"] };
+      const fo = run10({ beats: fakeOut });
+      ok("one feature: G10 fails an invented output screen and a UI step with no effect", gof(fo, "G10").pass === false && /invented output screen/.test(gof(fo, "G10").reasons.join(" ")) && /cause and its effect|at least 2/.test(gof(fo, "G10").reasons.join(" ")), gof(fo, "G10").reasons.join(" | "));
+      const order = scen(); [order[1], order[2]] = [order[2], order[1]];
+      ok("one feature: G10 wants hook, proof, turn, cta in that order", gof(run10({ beats: order }), "G10").pass === false);
     }
     // the museum script of the real failed film is refused by the gate when run product-first
     const mu = node("story.mjs", ["check", "--pitch", path.join(sd, "script-good.json"), "--length", "45", "--narrated", "--product-first"]);
@@ -667,7 +757,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     const SK = path.join(HERE, "..");
     const rd = (f) => { try { return fs.readFileSync(path.join(SK, f), "utf8"); } catch { return ""; } };
     const pfmd = rd("references/product-first.md");
-    ok("lint: references/product-first.md carries the rules (3 s, hero moment, 2-4 uses, end line largest, no conceits, fidelity, brand lock, concept gate)", ["within 3 s", "hero product moment", "2 to 4 real uses", "largest type", "museums", "cover versions", "faithfully recreated", "Brand lock", "concept gate", "clearest product story", "first_watch"].every((k) => pfmd.includes(k)), pfmd ? "missing phrase" : "file missing");
+    ok("lint: references/product-first.md carries the rules (3 s, hero moment, 2-4 uses, end line largest, no conceits, fidelity, brand lock, concept gate)", ["within 3 s", "hero product moment", "One feature, one scenario", "2 to 4 real steps", "largest type", "museums", "cover versions", "faithfully recreated", "Brand lock", "concept gate", "clearest product story", "first_watch"].every((k) => pfmd.includes(k)), pfmd ? "missing phrase" : "file missing");
     const skill = rd("SKILL.md");
     ok("lint: SKILL.md states the product-first rule, the brand lock, the concept gate and not ending a turn with background work running", ["Launch, promo and product films are product-first", "Brand lock.", "Concept gate before the expensive work", "Never end a turn while your own background work is running", "console.mjs wait"].every((k) => skill.includes(k)) && /brand step ALWAYS runs/.test(skill) && /use_brand/.test(skill));
     const sw = rd("agents/script-writer.md"), se = rd("agents/script-editor.md"), cc = rd("agents/concept-critic.md"), ds = rd("agents/design-system-designer.md");
@@ -708,6 +798,76 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   const rules = new Set(jb.findings.map((f) => f.rule));
   ok("anti-slop: generic copy, \"not X, it's Y\", neon glow, AI gradient, corner labels, idle loops, everything fading up, unreadable text, no end hold and a looping bed are caught (exit 2)", rb.status === 2 && ["generic-copy", "not-x-its-y", "neon-glow-text", "ai-gradient", "corner-labels", "idle-breathing", "uniform-entrances", "unreadable", "no-end-hold", "music-loop"].every((r) => rules.has(r)), [...rules].join(", ") + rb.stderr);
   ok("anti-slop: a clean project passes", rg.status === 0, rg.stdout.slice(0, 300));
+}
+// 12b. logos are real files: the brand researcher's check needs a downloaded, valid file listed in logos.json (or a "none" with why);
+//      the slop check fails a drawn lookalike, passes the asset, and passes the name in type when there is no logo
+{
+  const d = path.join(TMP, "logos");
+  const run = path.join(d, "run"), res = path.join(run, "research", "brand"), assets = path.join(res, "assets");
+  fs.mkdirSync(assets, { recursive: true });
+  fs.writeFileSync(path.join(res, "DESIGN.md"), `---\nname: Tally\ncolors:\n  canvas: "#FFFFFF"   # page (source: tally.example/css)\n  ink: "#0D0D0D"      # text\n  accent: "#2F5BFF"   # brand\ntypography:\n  display: { fontFamily: "Bricolage Grotesque", fontWeight: 600 }\n  body: { fontFamily: "Inter", fontWeight: 400 }\n---\n## Logo\nA blossom mark in ink, centred, alone on the canvas.\n## Motion\nUI 150 to 250 ms.\n`);
+  fs.writeFileSync(path.join(run, "research", "brand.md"), "# Tally brand\nColours from https://tally.example/app.css and https://tally.example/brand .\n");
+  const chk = () => node("crew.mjs", ["check", "--run", run, "--role", "brand-researcher"], { cwd: d });
+  let r = chk();
+  ok("logos: a logo described only in prose (no assets, no logos.json) fails the brand researcher's check", r.status === 2 && /logos\.json is missing/.test(r.stdout), r.stdout.slice(0, 300));
+  const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 10 C70 10 90 30 90 50 C90 70 70 90 50 90 C30 90 10 70 10 50 C10 30 30 10 50 10Z"/><path d="M30 50 L70 50"/></svg>`;
+  fs.writeFileSync(path.join(assets, "mark.svg"), SVG);
+  r = chk();
+  ok("logos: a file on disk that logos.json doesn't list still fails", r.status === 2 && /logos\.json is missing/.test(r.stdout));
+  fs.writeFileSync(path.join(assets, "logos.json"), JSON.stringify([{ file: "mark.svg", kind: "mark", source_url: "https://tally.example/logo.svg" }]));
+  r = chk();
+  ok("logos: a valid SVG listed in logos.json with its source passes", r.status === 0, r.stdout.slice(0, 300));
+  fs.writeFileSync(path.join(assets, "mark.svg"), "<svg><g></svg>");
+  r = chk();
+  ok("logos: an SVG that does not parse fails", r.status === 2 && /not a valid SVG/.test(r.stdout), r.stdout.slice(0, 300));
+  const png = (n) => { const b = Buffer.alloc(33); Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(b); b.writeUInt32BE(13, 8); b.write("IHDR", 12); b.writeUInt32BE(n, 16); b.writeUInt32BE(n, 20); return b; };
+  fs.rmSync(path.join(assets, "mark.svg"));
+  fs.writeFileSync(path.join(assets, "mark.png"), png(256));
+  fs.writeFileSync(path.join(assets, "logos.json"), JSON.stringify([{ file: "mark.png", kind: "mark", source_url: "https://tally.example/icon.png" }]));
+  r = chk();
+  ok("logos: a PNG under 512 px fails", r.status === 2 && /512/.test(r.stdout), r.stdout.slice(0, 300));
+  fs.writeFileSync(path.join(assets, "mark.png"), png(600));
+  r = chk();
+  ok("logos: a PNG of 600 px passes", r.status === 0, r.stdout.slice(0, 300));
+  fs.writeFileSync(path.join(assets, "mark.png"), Buffer.from("not a png at all, just text"));
+  ok("logos: a file that is not a PNG fails", chk().status === 2);
+  fs.rmSync(path.join(assets, "mark.png"));
+  fs.writeFileSync(path.join(assets, "logos.json"), JSON.stringify({ none: true, why: "searched the header, favicon and press page: only a raster favicon of 32 px", searched: ["https://tally.example", "https://tally.example/press"] }));
+  r = chk();
+  ok("logos: none with why and the URLs searched passes (with a warning)", r.status === 0 && /no official logo file/.test(r.stdout), r.stdout.slice(0, 300));
+  fs.writeFileSync(path.join(assets, "logos.json"), JSON.stringify({ none: true }));
+  ok("logos: none without why or searched URLs fails", chk().status === 2);
+
+  // the scan: a built composition next to the researched files
+  const mkProj = (name, html, logosJson, files = {}) => {
+    const p = path.join(d, name);
+    fs.mkdirSync(path.join(p, "compositions"), { recursive: true });
+    fs.mkdirSync(path.join(p, "assets", "brand"), { recursive: true });
+    fs.writeFileSync(path.join(p, "compositions", "end.html"), html);
+    fs.writeFileSync(path.join(p, "assets", "brand", "logos.json"), JSON.stringify(logosJson));
+    for (const [f, c] of Object.entries(files)) fs.writeFileSync(path.join(p, "assets", "brand", f), c);
+    return p;
+  };
+  const slop = (p) => { const r = node("slop.mjs", ["--project", p, "--json"]); let j = { findings: [] }; try { j = JSON.parse(r.stdout); } catch {} return { r, logo: j.findings.filter((f) => f.rule === "logo-not-the-file") }; };
+  const listed = [{ file: "mark.svg", kind: "mark", source_url: "https://tally.example/logo.svg" }];
+  const circles = `<div class="end-card"><div class="brand-mark" id="blossom"><div style="width:40px;height:40px;border-radius:50%"></div><div style="width:40px;height:40px;border-radius:50%"></div></div><h1>Tally</h1></div>`;
+  let s = slop(mkProj("logo-drawn", circles, listed, { "mark.svg": SVG }));
+  ok("logos: a six-circle \"logo\" fails the slop check and names the element", s.r.status === 2 && s.logo.some((f) => f.severity === "error" && /brand-mark/.test(f.where)), JSON.stringify(s.logo));
+  s = slop(mkProj("logo-svgdrawn", `<div class="end-card"><svg class="logo" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2"/><circle cx="2" cy="2" r="2"/></svg></div>`, listed, { "mark.svg": SVG }));
+  ok("logos: an inline <svg> logo whose paths are not the asset's fails", s.logo.some((f) => f.severity === "error"), JSON.stringify(s.logo));
+  s = slop(mkProj("logo-glyph", `<div class="end-card"><div class="logo">✿</div><h1>Tally</h1></div>`, listed, { "mark.svg": SVG }));
+  ok("logos: a unicode glyph standing in for the logo fails", s.logo.some((f) => f.severity === "error" && /glyph/.test(f.why)), JSON.stringify(s.logo));
+  s = slop(mkProj("logo-good", `<div class="end-card"><img class="brand-mark" alt="Tally logo" src="../assets/brand/mark.svg"><h1>Tally</h1><div class="dot" style="border-radius:50%"></div></div>`, listed, { "mark.svg": SVG }));
+  ok("logos: the asset <img> passes, and an unlabelled decorative circle is left alone", !s.logo.length, JSON.stringify(s.logo));
+  s = slop(mkProj("logo-inline", `<div class="end-card"><svg class="logo" viewBox="0 0 100 100"><path d="M50 10 C70 10 90 30 90 50 C90 70 70 90 50 90 C30 90 10 70 10 50 C10 30 30 10 50 10Z"/><path d="M30 50 L70 50"/></svg></div>`, listed, { "mark.svg": SVG }));
+  ok("logos: an inline <svg> with the asset's own path data passes", !s.logo.length, JSON.stringify(s.logo));
+  s = slop(mkProj("logo-redrawn-file", `<div class="end-card"><img class="logo" src="../assets/brand/mark2.svg"></div>`, listed, { "mark.svg": SVG, "mark2.svg": SVG.replace("M30 50", "M31 50") }));
+  ok("logos: an <img> of a different file (not the same bytes) fails", s.logo.some((f) => f.severity === "error" && /not the downloaded file/.test(f.why)), JSON.stringify(s.logo));
+  const none = { none: true, why: "searched the header, favicon and press page: nothing official", searched: ["https://tally.example", "https://tally.example/press"] };
+  s = slop(mkProj("logo-none-type", `<div class="end-card"><div class="wordmark" style="font-family:'Bricolage Grotesque'">Tally</div></div>`, none));
+  ok("logos: with none, the name set in type passes", !s.logo.length && s.r.status === 0, JSON.stringify(s.logo));
+  s = slop(mkProj("logo-none-drawn", circles, none));
+  ok("logos: with none, a drawn symbol still fails", s.logo.some((f) => f.severity === "error"), JSON.stringify(s.logo));
 }
 // 13. sound: a 120 BPM track with a real ending is read right, fitted without a loop, rendered to -14 LUFS;
 //     a too-short track says needs_longer; a looped bed is caught; SFX obey causality and the budget
@@ -751,7 +911,13 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   const J2 = (r) => { try { return JSON.parse(r.stdout); } catch { return {}; } };
   const plan = J2(C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "Tally", "--url", "https://tally.example", "--public", "--scenes", "4", "--length", "20"]));
   const roles = (plan.phases || []).flatMap((p) => p.members);
-  ok("crew: a public product gets the full desk (the brand film analyst in place of the precedent researcher), three writers, a score, an animator per scene and the critics", !roles.some((m) => m.startsWith("precedent-researcher")) && ["product-researcher", "brand-researcher", "screens-researcher", "brand-film-analyst", "research-lead", "script-writer:Bold", "script-editor", "motion-director:score", "scene-animator:4", "motion-director:seams", "critic:film-1"].every((r) => roles.some((m) => m.startsWith(r))), JSON.stringify(roles));
+  ok("crew: a 20 s launch takes the direct path: the brand film analyst in place of the precedent researcher, three writers, a score (the plan), ONE film builder and the critics; no scene animators, no seam pass", plan.phases && !roles.some((m) => m.startsWith("precedent-researcher")) && ["product-researcher", "brand-researcher", "brand-film-analyst", "research-lead", "script-writer:Bold", "script-editor", "motion-director:score", "film-builder:film", "critic:film-1"].every((r) => roles.some((m) => m.startsWith(r))) && !roles.some((m) => /^scene-animator|motion-director:seams|film-builder:lead/.test(m)), JSON.stringify(roles));
+  for (const r of ["r-deep", "r-60", "r-45"]) fs.mkdirSync(path.join(ws, ".rasanai", r), { recursive: true });
+  const deep = J2(C(["plan", "--run", path.join(ws, ".rasanai", "r-deep"), "--route", "product-launch-video", "--subject", "Tally", "--public", "--scenes", "4", "--length", "20", "--deep"]));
+  const droles = (deep.phases || []).flatMap((p) => p.members), dph = (deep.phases || []).map((p) => p.phase);
+  ok("crew: --deep keeps the long path: a lead builder for the carriers before an animator per scene, then the seam pass", ["film-builder:lead", "scene-animator:4", "motion-director:seams"].every((r) => droles.some((m) => m.startsWith(r))) && dph.indexOf("lead") >= 0 && dph.indexOf("lead") < dph.indexOf("animate") && dph.indexOf("animate") < dph.indexOf("seams"), JSON.stringify(dph));
+  const long60 = J2(C(["plan", "--run", path.join(ws, ".rasanai", "r-60"), "--route", "product-launch-video", "--subject", "Tally", "--scenes", "8", "--length", "60"]));
+  ok("crew: a 60 s film keeps parallel animators; a 45 s one has one builder", (long60.phases || []).some((p) => p.phase === "animate") && (J2(C(["plan", "--run", path.join(ws, ".rasanai", "r-45"), "--route", "general-video", "--subject", "Tally", "--scenes", "5", "--length", "45"])).phases || []).some((p) => p.phase === "build"), JSON.stringify((long60.phases || []).map((p) => p.phase)));
   const lean = J2(C(["plan", "--run", path.join(ws, ".rasanai", "r1"), "--route", "product-launch-video", "--subject", "Tally", "--scenes", "4", "--lean"]));
   ok("crew: --lean drops the precedent, the writers' room and the extra critics", !(lean.phases || []).flatMap((p) => p.members).some((m) => /precedent|script-|critic:(motion|frames)/.test(m)), JSON.stringify(lean.phases && lean.phases.map((p) => p.members)));
   C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "Tally", "--public", "--scenes", "4", "--length", "20"]);
@@ -766,7 +932,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     ok("crew: the concept critic brief carries product_first, the six questions and a faster model", /product_first/.test(ptxt) && /first_watch_clear/.test(ptxt) && /faster model/.test(JSON.stringify(cb)), JSON.stringify(cb).slice(0, 300));
     const cf = path.join(run, "story", "concept-check.json");
     fs.mkdirSync(path.dirname(cf), { recursive: true });
-    const ans = (okv) => Object.fromEntries(["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear"].map((k) => [k, okv ? { ok: true, evidence: "beat 1" } : { ok: false, evidence: "beat 1", fix: "open on the real UI" }]));
+    const ans = (okv) => Object.fromEntries(["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear", "one_feature_one_scenario"].map((k) => [k, okv ? { ok: true, evidence: "beat 1" } : { ok: false, evidence: "beat 1", fix: "open on the real UI" }]));
     fs.writeFileSync(cf, JSON.stringify({ verdict: "pass", answers: ans(false), summary: "x" }));
     const bad = C(["check", "--run", run, "--role", "concept-critic", "--key", "concept-1"]);
     fs.writeFileSync(cf, JSON.stringify({ verdict: "pass", answers: ans(true), summary: "6 of 6" }));
@@ -774,12 +940,18 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     ok("crew: concept-critic check refuses a pass with failed answers and accepts a complete pass", bad.status !== 0 && /not ok but the verdict is pass/.test(bad.stdout + bad.stderr) && good.status === 0, (bad.stdout + good.stdout).slice(0, 300));
     // the brand-faithful launch pipeline: brand film research phase, the analyst role and its check, the style-match gates
     {
-      const bp = J2(C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "ChatGPT for Mac", "--brand", "OpenAI", "--kind", "launch", "--scenes", "4", "--length", "30", "--pace", "fast"]));
+      const bp = J2(C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "ChatGPT for Mac", "--brand", "OpenAI", "--kind", "launch", "--scenes", "4", "--length", "30", "--pace", "fast", "--deep"]));
+      // the same branded launch on the direct path: product + brand research and the brand film only, no Look desk (the
+      // look is the brand's, decided), the moments, the plan, ONE builder, the animatic from the draft, no key frames
+      fs.mkdirSync(path.join(ws, ".rasanai", "r-bdirect"), { recursive: true });
+      const dp = J2(C(["plan", "--run", path.join(ws, ".rasanai", "r-bdirect"), "--route", "product-launch-video", "--subject", "ChatGPT for Mac", "--brand", "OpenAI", "--kind", "launch", "--scenes", "4", "--length", "30", "--pace", "fast"]));
+      const dph = (dp.phases || []).map((x) => x.phase), dm = (dp.phases || []).flatMap((x) => x.members);
+      ok("short film flow: a 30 s branded launch plans brief research (product + brand + brand film only), the story, the Look decided from the brand, the concept gate, moments, the plan, one builder and an animatic from the draft; no design desk, no key frames, no screens or precedent researcher", ["research", "brand-film", "story", "look-auto", "concept-gate", "moments", "score", "build", "animatic-draft", "style-match-draft"].every((x) => dph.includes(x)) && !dph.some((x) => /^(design-research|design-systems|keyframes|keyframes-review|style-match-keyframes|animate|seams|lead)$/.test(x)) && !dm.some((m) => /screens-researcher|precedent-researcher|frame-designer|scene-animator/.test(m)) && dph.indexOf("moments") < dph.indexOf("score") && dph.indexOf("build") < dph.indexOf("animatic-draft"), dph.join(","));
       const bph = (bp.phases || []).map((p) => p.phase), bm = (bp.phases || []).flatMap((p) => p.members);
       const planF = JSON.parse(fs.readFileSync(path.join(run, "crew", "plan.json"), "utf8"));
       const ph = (n) => (planF.phases || []).find((p) => p.phase === n) || {};
       ok("crew: a branded launch film plans the brand-film phase (brandfilm.mjs steps + the Sonnet brand-film-analyst) before the design systems", bph.includes("brand-film") && bph.indexOf("brand-film") < bph.indexOf("design-systems") && bm.some((m) => m.startsWith("brand-film-analyst") && /fast/.test(m)) && /brandfilm\.mjs frames/.test(JSON.stringify(ph("brand-film").director_steps)) && /3 minutes/.test(ph("brand-film").when), bph.join(","));
-      ok("crew: the style-match gate (brandfilm.mjs compare) is planned after the key frames and after the first draft", bph.includes("style-match-keyframes") && bph.indexOf("style-match-keyframes") > bph.indexOf("keyframes") && bph.indexOf("style-match-keyframes") < bph.indexOf("animate") && bph.includes("style-match-draft") && bph.indexOf("style-match-draft") < bph.indexOf("review-film") && /compare --ref/.test(ph("style-match-keyframes").gate) && /compare --ref/.test(ph("style-match-draft").gate), bph.join(","));
+      ok("crew: the style-match gate (brandfilm.mjs compare) is planned after the key frames and after the first draft", bph.includes("style-match-keyframes") && bph.indexOf("style-match-keyframes") > bph.indexOf("keyframes") && bph.indexOf("style-match-keyframes") < Math.max(bph.indexOf("animate"), bph.indexOf("build")) && bph.includes("style-match-draft") && bph.indexOf("style-match-draft") < bph.indexOf("review-film") && /compare --ref/.test(ph("style-match-keyframes").gate) && /compare --ref/.test(ph("style-match-draft").gate), bph.join(","));
       const un = J2(C(["plan", "--run", path.join(ws, ".rasanai", "r-unbranded"), "--route", "faceless-explainer", "--subject", "tides", "--scenes", "4"]));
       ok("crew: an unbranded explainer has no brand-film phase or style-match gate", !(un.phases || []).some((p) => /brand-film|style-match/.test(p.phase)), JSON.stringify((un.phases || []).map((p) => p.phase)));
       const fb = J2(C(["brief", "--run", run, "--role", "brand-film-analyst"]));
@@ -796,11 +968,11 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       fs.writeFileSync(path.join(bfd, "FILM-STYLE.md"), "# Film style: OpenAI\n\n## Slots\n- Typefaces:\n- Motif:\n");
       const ea = C(["check", "--run", run, "--role", "brand-film-analyst"]);
       ok("crew: brand-film-analyst check refuses an unfilled card (empty slots, missing checklist items, no source)", ea.status === 2 && /slots\.typefaces/.test(ea.stdout) && /says nothing about/.test(ea.stdout), ea.stdout.slice(0, 300));
-      const full = { ...card, filled: true, slots: { typefaces: "OpenAI Sans, Light to Bold; two size classes (huge statements, tiny labels). Substitute: Inter", motif: "the dot: dot, circle, outline circle, dot grid, dot", layout: "one element at a time, centred, huge whitespace", motionVocabulary: "flat: no 3D, no blur, no grain; scale, morph, draw-on, cut on the beat", photographyStyle: "real bright photography full bleed or framed on white", endCard: "the mark alone, big, on white, held 3 s", notes: "never a dark ground" } };
+      const full = { ...card, filled: true, slots: { typefaces: "OpenAI Sans, Light to Bold; two size classes (huge statements, tiny labels). Substitute: Inter", motif: "the dot: dot, circle, outline circle, dot grid, dot", layout: "one element at a time, centred, huge whitespace", motionVocabulary: "flat: no 3D, no blur, no grain; scale, morph, draw-on, cut on the beat", photographyStyle: "real bright photography full bleed or framed on white", endCard: "the mark alone, big, on white, held 3 s", tempo: "11 ideas in 110 s, about 10 s per idea; a change every 3 s; longest hold 6 s; breathes before the payoff", notes: "never a dark ground" } };
       fs.writeFileSync(path.join(bfd, "FILM-STYLE.json"), JSON.stringify(full));
-      fs.writeFileSync(path.join(bfd, "FILM-STYLE.md"), "# Film style: OpenAI\n\nSources: Refreshed. (110 s, primary)\n\n## Slots\n- Canvas and palette: near-white canvas 77%, black ink, colour under 5% (palette shares)\n- Typefaces and type scale: OpenAI Sans, statement and label sizes. Substitute: Inter\n- Layout and grid: centred, whitespace\n- Motif: the dot\n- Motion vocabulary: scale, morph, draw-on; never 3D, blur or grain\n- Photography and illustration: real photography\n- Cut rate and transitions: calm holds and bursts; hard cuts and morphs\n- End card: the mark alone\n");
+      fs.writeFileSync(path.join(bfd, "FILM-STYLE.md"), "# Film style: OpenAI\n\nSources: Refreshed. (110 s, primary)\n\n## Slots\n- Canvas and palette: near-white canvas 77%, black ink, colour under 5% (palette shares)\n- Typefaces and type scale: OpenAI Sans, statement and label sizes. Substitute: Inter\n- Layout and grid: centred, whitespace\n- Motif: the dot\n- Motion vocabulary: scale, morph, draw-on; never 3D, blur or grain\n- Photography and illustration: real photography\n- Cut rate and transitions: calm holds and bursts; hard cuts and morphs\n- Tempo: 11 ideas, a change every 3 s, longest hold 6 s\n- End card: the mark alone\n");
       const eb = C(["check", "--run", run, "--role", "brand-film-analyst"]);
-      ok("crew: brand-film-analyst check accepts a filled card (all ten checklist items, sources, slots)", eb.status === 0, eb.stdout.slice(0, 400));
+      ok("crew: brand-film-analyst check accepts a filled card (all eleven checklist items, sources, slots)", eb.status === 0, eb.stdout.slice(0, 400));
       const sc = path.join(run, "motion", "score.json");
       fs.mkdirSync(path.dirname(sc), { recursive: true });
       fs.writeFileSync(sc, JSON.stringify({ scenes: [{ n: 1, space: "3d" }] }));
@@ -821,10 +993,11 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   fs.writeFileSync(path.join(run, "scenes.json"), JSON.stringify({ message: "m", scenes: [3, 4, 2.5, 3].map((d, i) => ({ title: `S${i + 1}`, duration: d, visual: "v" })) }));
   const H = { x: 960, y: 540, scale: 1, opacity: 1, direction: "left", speed: 400 };
   const good = {
+    duration: 12.5, brand: "Tally", feature: { name: "Receipt scan", url: "https://tally.example/scan", viewer: "a freelancer at month end", task: "file a receipt", before: "receipts fade in a drawer", after: "filed the moment it is shot" }, ground: "#ffffff", ink: "#111111", current: "left", brandReveal: "s3",
     spine: "the receipt", motif: { what: "the total", scenes: [1, 2, 4] }, showreel: [{ scene: 2, t: 3.8, what: "the receipt folds into the ledger row" }, { scene: 3, t: 0.4, what: "the push-through reveal" }], rhythm: "fast-SLOW-fast-hold", signature: { seam: "2>3", technique: "push-through", why: "the reveal" },
     video_direction: { palette: "p", motion_grammar: "g", holds: "h", negative: ["no drift"] },
     depth: { plan: "2D film; the reveal (scene 3) lifts the ledger into depth" },
-    scenes: [3, 4, 2.5, 3].map((d, i) => ({ n: i + 1, title: `S${i + 1}`, duration: d, energy: [2, 3, 5, 2][i], layout: ["full-bleed", "split", "centered", "asymmetric 60/40"][i], camera: "T1 lean-in",
+    scenes: [3, 4, 2.5, 3].map((d, i) => ({ n: i + 1, id: `s${i + 1}`, start: [0, 3, 7, 9.5][i], end: [3, 7, 9.5, 12.5][i], line: `Line ${i + 1}`, picture: `the receipt does thing ${i + 1}`, ...(i < 2 ? { exit: "carrier", carrier: "the receipt" } : {}), title: `S${i + 1}`, duration: d, energy: [2, 3, 5, 2][i], layout: ["full-bleed", "split", "centered", "asymmetric 60/40"][i], camera: "T1 lean-in",
       space: i === 2 ? "hybrid" : "2d",
       ...(i === 2 ? { camera3d: { lens_mm: 50, fstop: 2.8, moves: [{ t0: 0, t1: 0.3, move: "locked" }, { t0: 0.3, t1: 1.6, move: "arc 28° right", ease: "power3.inOut" }] }, light: "three-point, key upper-left", materials: "ledger = panel with the real screenshot" } : {}),
       shots: [{ t0: 0, t1: d / 2, on_screen: "a", moves: "rises", primary: "a" }, { t0: d / 2, t1: d, on_screen: "b", moves: "holds", primary: "b" }],
@@ -837,6 +1010,16 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   put(good);
   const g = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
   ok("crew: a complete score is accepted", g.status === 0, g.stdout.slice(0, 400));
+  const smd = fs.readFileSync(path.join(run, "motion", "score.md"), "utf8");
+  ok("plan: check writes score.md from score.json (feature, world, beats with line, picture and exit)", /generated from motion\/score\.json/.test(smd) && /\*\*Feature:\*\* Receipt scan/.test(smd) && /ground #ffffff/.test(smd) && /### s2 · 3-7 s/.test(smd) && /\*\*Exit:\*\* carrier: the receipt/.test(smd), smd.slice(0, 400));
+  const noplan = JSON.parse(JSON.stringify(good));
+  for (const k of ["ground", "current", "brandReveal", "feature"]) delete noplan[k];
+  noplan.scenes.forEach((x) => { delete x.picture; delete x.exit; delete x.carrier; });
+  noplan.scenes[2].start = 6;
+  put(noplan);
+  const np = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+  ok("plan: a direct film's score must carry the plan (ground, current, one brandReveal, the feature, start/end that follow the durations, pictures, two carried seams)", np.status === 2 && ["ground missing", "current missing", "brandReveal must name exactly one", "feature {", "start/end", "need line", "carry at least 2"].every((w) => np.stdout.includes(w)), np.stdout.slice(0, 600));
+  put(good);
   const bad = JSON.parse(JSON.stringify(good));
   delete bad.seams[0].in.speed;
   bad.showreel = [];
@@ -868,11 +1051,22 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   fs.writeFileSync(sj, JSON.stringify({ title: "T", message: "m", aspect: "16:9", narration: false, scenes: [3, 4, 2.5, 3].map((d, i) => ({ title: `S${i + 1}`, on_screen: `Line ${i + 1}`, visual: "v", duration: d })) }));
   const sc = node("scenes.mjs", ["--scenes", sj, "--route", "product-launch-video", "--out", proj]);
   fs.writeFileSync(path.join(proj, "BRIEF.md"), "---\nworkflow: product-launch-video\n---\n\n## Customizations\n\n- x\n");
+  fs.writeFileSync(path.join(proj, "DISPATCH.md"), "# RasanAI dispatch addendum (entire video)\n\n## Motion contract\n\n" + "- a duplicated craft rule\n".repeat(200));
+  fs.writeFileSync(path.join(proj, "DIRECTION.md"), "# Direction\n\nhold 2-3 s; cut hard\n");
   const s1 = C(["storyboard", "--run", run, "--project", proj]);
   const t1 = fs.existsSync(path.join(proj, "STORYBOARD.md")) ? fs.readFileSync(path.join(proj, "STORYBOARD.md"), "utf8") : "";
   C(["storyboard", "--run", run, "--project", proj]);
   const t2 = fs.existsSync(path.join(proj, "STORYBOARD.md")) ? fs.readFileSync(path.join(proj, "STORYBOARD.md"), "utf8") : "";
   ok("crew: storyboard writes the score as the visual design (video direction, shots, handoffs, transition_in), idempotent", sc.status === 0 && s1.status === 0 && t1 === t2 && /## Video direction/.test(t1) && /handoff_in: receipt · x 960/.test(t1) && /Scene 2 \(1\.5–3\.0s\)/.test(t1) && (t1.match(/^- transition_in: cut$/gm) || []).length === 4 && /Visual design \(done\)/.test(fs.readFileSync(path.join(proj, "BRIEF.md"), "utf8")), (s1.stderr || s1.stdout).slice(0, 300));
+  {
+    const bm = fs.existsSync(path.join(proj, "BUILD.md")) ? fs.readFileSync(path.join(proj, "BUILD.md"), "utf8") : "";
+    const dp = fs.readFileSync(path.join(proj, "DISPATCH.md"), "utf8"), dr = fs.readFileSync(path.join(proj, "DIRECTION.md"), "utf8");
+    ok("plan: storyboard writes BUILD.md from the plan (one author, beat times, carriers, the one brand reveal, momentum, the gate) and MOTION-SCORE.md is the generated plan", /ONE author/.test(bm) && /s2 3-7 s/.test(bm) && /carriers/.test(bm) && /beat `s3`/.test(bm) && /0\.8 s/.test(bm) && /motion-gate\.mjs/.test(bm) && /generated from motion\/score\.json/.test(fs.readFileSync(path.join(proj, "MOTION-SCORE.md"), "utf8")), bm.slice(0, 300));
+    ok("plan: on a direct film DISPATCH.md is a short pointer to the plan (no duplicated craft rules) and DIRECTION.md says the plan wins", /The plan wins/.test(dp) && !/duplicated craft rule/.test(dp) && Buffer.byteLength(dp) < 3000 && /The plan wins/.test(dr) && /^- picture: the receipt does thing 2$/m.test(t1) && /^- exit: carrier \(carrier: the receipt\)$/m.test(t1), dp.slice(0, 300));
+    // the builder's required reading: the plan, BUILD.md, the packets' role, DISPATCH and frame.md stay small
+    const bb = J2(C(["brief", "--run", run, "--role", "film-builder", "--key", "film", "--project", proj]));
+    ok("plan: the film builder's brief is self-contained and small (about 20 KB, no 40 KB craft references)", bb.ok && bb.bytes < 26000 && !/: `[^`]*references\/(craft|vocabulary|launch-film)\.md`/.test(fs.readFileSync(path.join(ws, bb.prompt), "utf8")), JSON.stringify(bb).slice(0, 300));
+  }
   ok("crew: storyboard carries each scene's space, and a 3D scene's lens, camera legs, light and materials", /^- space: hybrid \(build with Rasan3D/m.test(t1) && /^- camera3d: 50 mm f\/2\.8; 0\.0–0\.3s locked; 0\.3–1\.6s arc 28° right \(power3\.inOut\)/m.test(t1) && /^- light: three-point/m.test(t1) && (t1.match(/^- space: 2d$/gm) || []).length === 3 && /depth \(2D \/ 3D\): 2D film/.test(t1), t1.slice(0, 400));
   // local search finds the project by its git remote and package name; the inventory lists files, never secrets
   const home2 = path.join(TMP, "fakehome");
@@ -1481,7 +1675,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   ok("presenter: other routes do not need ## Imagery", !/Imagery/.test(g(run2).stdout));
 
   // the scripts' own tests, each with the same helpers; absent files are a note, never a failure
-  for (const name of ["imagegen", "presenter", "brandfilm"]) {
+  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments"]) {
     const f = path.join(HERE, "tests", `${name}.mjs`);
     if (!fs.existsSync(f)) { console.log(`note  ${name}: scripts/tests/${name}.mjs is not there yet, skipped`); continue; }
     try {

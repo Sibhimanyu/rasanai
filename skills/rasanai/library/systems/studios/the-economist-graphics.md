@@ -45,7 +45,7 @@ Timings are proposed; The Economist's charts are static in print, and no source 
 - 0.6 s: axes and light gridlines fade 0.3 s; y labels on the right.
 - 0.9 s: all series wipe in left to right in grey (`clip-path: inset(0 100% 0 0)` to `inset(0)`) 0.7 s `power2.inOut`.
 - 1.9 s: the story series recolours grey to #e3120b over 0.4 s `power2.inOut` while the others hold (or drop to 40 percent opacity). This recolour is the beat; put the sound accent (one soft tick) on it.
-- Annotation: one line, 6 words at most, fades 0.3 s with a 1 px leader; hold 2 s minimum. Counters tick with `snap` at the data's own precision.
+- Annotation: one line, 6 words at most, fades 0.3 s with a 1 px leader; reads 2 s minimum while its leader finishes drawing. Counters tick with `snap` at the data's own precision.
 - Camera: locked. At most a 4 percent push (`scale` 1 to 1.04, 6 s, `sine.inOut`) on the chart group; one pull-in to a single annotated point (scale 1.6, 0.9 s `power3.inOut`, non-scaling strokes) is the largest allowed move. Grade: none; the off-white ground is the whole look.
 3D (Rasan3D), only if the film mixes in space: keep the chart flat on a facing plane with `k.panel({ width, height, depth: 0.02, radius: 0, texture })` or, better, keep it in DOM and place it with `k.pinDom(el, { at: <panel mesh>, width, height, px, face: "object" })`, `k.rig("top-soft")`, `environment: "soft"`, `lens: [[0, 85]]`, no bloom. The red series can be an `emissive` strip only if kept below bloom threshold. Do not extrude bars with gloss.
 

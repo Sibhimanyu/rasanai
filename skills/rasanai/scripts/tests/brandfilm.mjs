@@ -52,7 +52,8 @@ export default async function ({ ok, node, tmp }) {
   // compare
   const gw = path.join(root, "white", "grammar.json");
   const same = bf(["compare", "--ref", gw, "--ours", white2]);
-  ok("brandfilm: compare passes a white film against a white reference (exit 0)", same.status === 0 && json(same).verdict === "PASS", same.stdout.slice(0, 300));
+  // the look matches; these 3 s shots are slower than the house tempo (a change every 2.5 s), so only the tempo check objects
+  ok("brandfilm: compare passes a white film against a white reference on every look check; only tempo objects to its 3 s shots", json(same).failed?.join() === "tempoRatio", same.stdout.slice(0, 300));
   const diff = bf(["compare", "--ref", gw, "--ours", green]);
   const dj = json(diff);
   ok("brandfilm: compare fails a dark green film against a white reference (exit 1, 3+ checks fail)", diff.status === 1 && dj.verdict === "FAIL" && dj.failed.length >= 3, JSON.stringify(dj.failed));
@@ -60,6 +61,28 @@ export default async function ({ ok, node, tmp }) {
   ok("brandfilm: the white film passes the chroma and neutral checks against itself", json(same).checks.filter((c) => /Chroma|neutral/.test(c.name)).every((c) => c.pass));
   const viaDir = bf(["compare", "--ref", gw, "--ours", path.join(root, "frames")]);
   ok("brandfilm: compare takes a frames dir for ours", viaDir.status === 0, viaDir.stdout.slice(0, 200));
+
+  // tempo: in-shot change rate and the longest hold, and the compare gate on it (house: a change at least every 2.5 s)
+  const paced = (name, every, total) => {
+    const n = Math.round(total / every), f = path.join(root, name);
+    const parts = Array.from({ length: n }, (_, i) => `color=c=white:s=640x360:r=10:d=${every},drawbox=x=${40 + (i % 3) * 190}:y=${60 + (i % 2) * 120}:w=200:h=140:color=${i % 2 ? "black" : "0x404040"}:t=fill[v${i}]`);
+    const graph = parts.join(";") + ";" + parts.map((_, i) => `[v${i}]`).join("") + `concat=n=${n}:v=1:a=0[o]`;
+    return ff(["-filter_complex", graph, "-map", "[o]", "-c:v", "libx264", "-pix_fmt", "yuv420p", f]).status === 0 ? f : null;
+  };
+  const fast = paced("fast.mp4", 1.5, 12), slow = paced("slow.mp4", 4, 12);
+  if (fast && slow) {
+    const mf = json(bf(["measure", "--in", fast, "--out", path.join(root, "fast", "grammar.json")])).measured;
+    const ms = json(bf(["measure", "--in", slow, "--out", path.join(root, "slow", "grammar.json")])).measured;
+    ok("brandfilm: measure reports tempo (a change about every 1.5 s, longest hold under 2.5 s) for a fast film", mf && mf.tempo && mf.tempo.changeEveryS <= 2 && mf.tempo.longestHoldS <= 2.5, JSON.stringify(mf && mf.tempo));
+    ok("brandfilm: measure reports a slow film's tempo (a change every 4 s or so, a hold of about 4 s)", ms && ms.tempo && ms.tempo.changeEveryS >= 3 && ms.tempo.longestHoldS >= 3.5, JSON.stringify(ms && ms.tempo));
+    const gf = path.join(root, "fast", "grammar.json");
+    const okT = bf(["compare", "--ref", gf, "--ours", fast]);
+    ok("brandfilm: compare passes the tempo check against its own brand tempo", (json(okT).checks || []).find((c) => c.name === "tempoRatio")?.pass === true, okT.stdout.slice(0, 300));
+    const slowT = bf(["compare", "--ref", gf, "--ours", slow]);
+    ok("brandfilm: compare fails a slower draft on tempo (a brand that changes every 1.5 s, ours every 4 s)", (json(slowT).checks || []).find((c) => c.name === "tempoRatio")?.pass === false, slowT.stdout.slice(0, 300));
+    const slowRef = bf(["compare", "--ref", path.join(root, "slow", "grammar.json"), "--ours", slow]);
+    ok("brandfilm: compare never lets a draft be slower than the house tempo, even for a slow brand", (json(slowRef).checks || []).find((c) => c.name === "tempoRatio")?.pass === false, slowRef.stdout.slice(0, 300));
+  }
 
   console.log("note  brandfilm: find/fetch need the network and yt-dlp, not exercised here");
 }

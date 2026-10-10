@@ -348,7 +348,7 @@ ${dirInstalled ? `${dirInstalled.section}\n` : ""}${overridesBlock}## Binding mo
   - exit: \`${M.easing.exit}\` for anything leaving or collapsing back to 0
   - move / emphasis: \`${M.easing.move}\` for changes to an element that stays visible (shift, push, pulse)
 - Stagger: ${M.stagger.each_ms} ms between elements.
-- Hold every element at least ${M.holds.min_ms} ms between its entrance and its exit.
+- Every element stays at least ${M.holds.min_ms} ms between its entrance and its exit (reading time), and keeps moving in that time: nothing parks, no stretch of 0.8 s goes still.
 - Banned patterns (machine-checked): ${M.banned.join(", ")}.
 - Preferred entrances: ${(M.entrances || []).join(", ")}. Exits: ${(M.exits || []).join(", ")}. Transitions: ${(M.transitions || []).join(", ")}.
 - GSAP only (no CSS @keyframes, anime.js or WAAPI). Registry blocks: after \`hyperframes add\`, rewrite their tweens to these eases and durations.

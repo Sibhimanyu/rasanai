@@ -8,6 +8,8 @@
 //   node video.mjs write   --project-dir <dir> --decisions <video-decisions.json> [--revise]
 //   node video.mjs inject  --project-dir <dir> [--runtime]  (after the workflow's frame-packets.mjs, before dispatching frame workers)
 //   node video.mjs audio-lock --project-dir <dir> --music <file>   (after audio.mjs fetch-sfx, before assemble-index)
+//   node video.mjs carriers --project-dir <dir>   (after assemble-index: mounts compositions/carriers/*.html, the objects
+//        that cross a cut, as their own tracks in index.html; idempotent)
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -147,8 +149,41 @@ if (cmd === "init") {
   const patched = [patch("audio_meta.json")];
   if (fs.existsSync(path.join(dir, "audio_engine_meta.json"))) patched.push(patch("audio_engine_meta.json"));
   console.log(JSON.stringify({ ok: true, music: rel, duration_s: dur, lufs: Number.isFinite(lufs) ? lufs : null, mastered, patched }, null, 2));
+} else if (cmd === "carriers") {
+  // mount every carrier (an object that crosses a cut: compositions/carriers/<name>.html, root timed by its own
+  // data-start / data-duration in film seconds) as its own track in index.html, so it is one object on one tween
+  // across the beats. Idempotent: the block between the markers is replaced each run.
+  const dir = projectDir();
+  const idx = path.join(dir, "index.html");
+  if (!fs.existsSync(idx)) die("no index.html: run the workflow's assemble-index.mjs first");
+  const cdir = path.join(dir, "compositions", "carriers");
+  const files = fs.existsSync(cdir) ? fs.readdirSync(cdir).filter((f) => f.endsWith(".html")).sort() : [];
+  const hosts = [];
+  files.forEach((f, i) => {
+    const html = fs.readFileSync(path.join(cdir, f), "utf8");
+    const id = (html.match(/data-composition-id="([^"]+)"/) || [])[1] || `carrier-${path.basename(f, ".html")}`;
+    const start = Number((html.match(/data-start="([\d.]+)"/) || [])[1]);
+    const dur = Number((html.match(/data-duration="([\d.]+)"/) || [])[1]);
+    if (!(dur > 0) || !Number.isFinite(start)) die(`${f}: its root needs data-start and data-duration in film seconds (the span of the beats it crosses)`);
+    hosts.push(`<div class="clip" data-composition-id="${id}" data-composition-src="compositions/carriers/${f}" data-start="${start}" data-duration="${dur}" data-track-index="${3 + i}"></div>`);
+  });
+  const M0 = "<!-- rasanai:carriers -->", M1 = "<!-- /rasanai:carriers -->";
+  let t = fs.readFileSync(idx, "utf8").replace(new RegExp(`[ \\t]*${M0}[\\s\\S]*?${M1}\\n?`, "g"), "");
+  if (hosts.length) {
+    // inside #root, after its last child: find the root's matching close by div depth
+    const open = t.search(/<div[^>]*\bid="root"[^>]*>/);
+    if (open < 0) die('index.html has no <div id="root">');
+    const re = /<\/?div\b[^>]*>/g;
+    re.lastIndex = open;
+    let depth = 0, close = -1, m;
+    while ((m = re.exec(t))) { depth += m[0][1] === "/" ? -1 : 1; if (depth === 0) { close = m.index; break; } }
+    if (close < 0) die("could not find where #root closes in index.html");
+    t = t.slice(0, close) + `  ${M0}\n    ${hosts.join("\n    ")}\n  ${M1}\n` + t.slice(close);
+  }
+  fs.writeFileSync(idx, t);
+  console.log(JSON.stringify({ ok: true, carriers: files, tracks: hosts.length ? `3-${2 + hosts.length}` : null }, null, 2));
 } else {
-  die("usage: video.mjs init|capture|write|inject|audio-lock ... (see the header)");
+  die("usage: video.mjs init|capture|write|inject|audio-lock|carriers ... (see the header)");
 }
 
 async function write() {

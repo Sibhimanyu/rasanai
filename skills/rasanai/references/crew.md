@@ -4,7 +4,7 @@ A film is too much work, and too many kinds of work, for one context. Researchin
 
 The roles exist where one of three things is true, and nowhere else:
 
-1. **The work is parallel.** Research tracks, the three scripts, key frames, scenes: independent pieces done at the same time.
+1. **The work is parallel.** Research tracks, the three scripts, key frames, the scenes of a long film: independent pieces done at the same time. Animation is parallel only when the film is long: a short film (45 s or less, or a single-feature launch) is built by ONE film builder, because its beats are not independent (objects carry across the cuts).
 2. **The work needs a whole context.** Reading a product's site, help center and code; writing one script well; animating one scene with its full technique recipes. Done inline, each would crowd out everything the Director needs to remember.
 3. **The work needs independence.** Critics and the script editor have no stake in what they judge and no memory of how it was made.
 
@@ -29,7 +29,8 @@ Everything deterministic stays a script (`story.mjs check`, `sound.mjs fit`, `ob
 | | `script-editor`: the hostile reader; line edits, verdicts, a recommendation | Story | 1 | session |
 | Motion | `motion-director`: the score (spine, motif, energy, the depth plan, every shot in 2D or 3D, every seam), then the seam pass | Animatic, then Build | 1, twice | session |
 | Art | `frame-designer`: the key frames, from the score, in the look, with the real product | Animatic | 1 per 2 scenes (5 at most) | session |
-| Animation | `scene-animator`: one scene (2D, 3D or hybrid), built toward its key frame, its seams exact, its motion seen and fixed | Build | 1 per scene | session |
+| Animation | `film-builder`: the whole film in one pass (root, every beat, every carrier), from the plan; on a long film (key `lead`) the root and the carriers only | Build | 1 | session |
+| | `scene-animator`: one scene of a long film (2D, 3D or hybrid), built around the lead's carriers, its seams moving, its motion seen and fixed | Build (long films only) | 1 per scene | session |
 | Review | `critic`: lenses `frames`, `motion`, `film`, `grounding`; default reject | Animatic, Build, Final | 1 per lens and round | session |
 
 Model column: see `models.md` (the prompt each member gets adapts to the model that runs it; `crew.mjs plan --model <id>`). The design desk is described in `design-desk.md`. "Session" means the Director's own model: creative and judging work is never downgraded. "Fast is fine" means a faster model may run it when the harness lets you choose (in Claude Code: `model: "sonnet"` on the Agent call).
@@ -46,11 +47,18 @@ Story (a song) ── lyrics.mjs align + audio → 3 treatment writers in parall
 Brand film (branded launch / promo / brand films) ── brandfilm.mjs find → fetch → frames → measure → card → brand film analyst fills FILM-STYLE.md → push brand with it (references/brand-film.md); the Look then IS that grammar
 Style gate ── after the key frames and after the first draft: brandfilm.mjs compare --ref grammar.json --ours <frames|draft> (fail: fix before going on); numbers into decisions and a short note to the user
 Look ─── Director art-directs from the briefing (brand verdict, house grammar) → push look
+Look (a direct film with a brand) ─ decided: the brand's own look, pushed done with the reason; the motion comes from the moments
+Moments (direct films) ─ the user's picks, else moments.mjs search by role → moments.mjs fetch → each beat's moment and take in the plan
+Animatic (a direct film) ─ the plan → ONE film builder → draft render → motion gate → push animatic from the draft (no key frames)
 Look (a song) ─ none: the chosen treatment's style bible is the look (DIRECTION.md); frame.md is the nearest preset
 Animatic ─ scenes (treatment.mjs scenes for a song: one per plate, the real track untouched) + music fit → Motion Director (score) → frame designers in parallel → frames critic → push animatic
-Build ── video.mjs write → crew.mjs storyboard (score → STORYBOARD.md) → frame-packets + inject
-         → scene animators in parallel → assemble → Motion Director (seam pass) → motion + grounding critics
-         → fixes routed to each scene's animator (2 rounds at most) → draft render → film critic
+Build ── video.mjs write → crew.mjs storyboard (the plan → STORYBOARD.md, BUILD.md) → frame-packets + inject
+   direct (≤ 45 s, single-feature launch):
+         → ONE film builder (root, every beat, every carrier) → assemble + video.mjs carriers → motion-gate.mjs (code)
+         → draft render → motion-gate.mjs (frames) → motion + grounding critics → fixes back to the builder (2 rounds at most)
+   long (> 45 s, or --deep):
+         → lead builder (root + carriers) → scene animators in parallel → assemble + video.mjs carriers → Motion Director (seam pass)
+         → draft render → motion-gate.mjs → motion + grounding critics → fixes routed to each scene's animator → film critic
 Final ── push render with the critics' scores; findings left over are fix-or-waive
 ```
 
@@ -99,7 +107,8 @@ Earlier videos about the same product are in that list too. They show what was a
 
 | The subject is… | Research desk |
 |---|---|
-| a public product with a web presence and launch history (ChatGPT, Linear, Figma) | product · brand · screens · precedent, plus the scout if local; the full crew |
+| a short film (45 s or less) or a single-feature launch: the direct path | product (with its one feature's real screens) · brand · the brand's own film; the scout if local |
+| a public product with a web presence and launch history (ChatGPT, Linear, Figma), the long path | product · brand · screens · precedent, plus the scout if local; the full crew |
 | a small or new product | product · brand · screens, plus the scout (often the richest source) |
 | a topic (explainer) | product in topic mode (facts, numbers, misconceptions) · precedent (the best explainers) |
 | a pull request | the scout on its repository; product (light) |
@@ -122,7 +131,7 @@ The Director writes `story/picks.json` (the `story.mjs pick` output), `story/che
 
 ## The score, in the build
 
-The Motion Director's `motion/score.json` is checked by `crew.mjs check --role motion-director` (every scene and seam covered, durations kept, handoffs complete on both sides, entrance variety, one peak and one calm stretch, layout variety, one signature, at most one crash zoom). After `video.mjs write`, `crew.mjs storyboard --run "$RUN" --project videos/<name>` writes it into the project's STORYBOARD.md in the workflow's own visual-design format: one `## Video direction`, then per frame its shot sequence, `blueprint`, `focal`, `roles`, `sfx`, `handoff_in` / `handoff_out` and `transition_in` (cut for scene-born seams, the registry type only where the assembler builds it). The workflow's parser must still read every frame. It also marks the visual-design step done in BRIEF.md and points DISPATCH.md at `MOTION-SCORE.md`. The workflow's `frame-packets.mjs` then carries each frame's part of the score into its packet, so the parallel animators meet at the seams.
+The Motion Director's `motion/score.json` is checked by `crew.mjs check --role motion-director` (every scene and seam covered, durations kept, handoffs complete on both sides, entrance variety, one peak and one calm stretch, layout variety, one signature, at most one crash zoom). After `video.mjs write`, `crew.mjs storyboard --run "$RUN" --project videos/<name>` writes it into the project's STORYBOARD.md in the workflow's own visual-design format: one `## Video direction`, then per frame its shot sequence, `blueprint`, `focal`, `roles`, `sfx`, `handoff_in` / `handoff_out` and `transition_in` (cut for scene-born seams, the registry type only where the assembler builds it). The workflow's parser must still read every frame. It also marks the visual-design step done in BRIEF.md and points DISPATCH.md at `MOTION-SCORE.md`. The workflow's `frame-packets.mjs` then carries each frame's part of the score into its packet. The score is **the plan**: the film-level fields (`duration`, `brand`, `feature`, `ground`, `ink`, `current`, `brandReveal`) and per beat `id`, `start`, `end`, `line`, `picture`, `moment`, `take`, `ui`, `exit`, `carrier`. Everything else derives from it: `score.md` and the project's MOTION-SCORE.md are rendered from it, `crew.mjs storyboard` writes BUILD.md (the builder's short brief) and puts each beat's line, picture, take, UI and exit into STORYBOARD.md, marks DIRECTION.md "the plan wins", and on a direct film replaces DISPATCH.md's duplicated craft rules with a pointer. The builder's required reading is the plan, BUILD.md, the packets' role and frame.md: about 20 KB.
 
 ## Seeing motion
 

@@ -49,6 +49,23 @@ extension Binding where Value == JSONRow {
 }
 
 /// A quiet empty state used by the panels.
+/// A small preview of the brand's logo file (SVG or PNG) on a neutral tile, so a white or black logo is still seen.
+private struct LogoThumb: View {
+    let url: URL?
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(nsColor: .quaternaryLabelColor).opacity(0.35))
+            if let url, let image = NSImage(contentsOf: url) {
+                Image(nsImage: image).resizable().aspectRatio(contentMode: .fit).padding(8)
+            } else {
+                Image(systemName: "photo").foregroundStyle(.tertiary)
+            }
+        }
+        .frame(width: 56, height: 56)
+        .accessibilityHidden(true)
+    }
+}
+
 private struct PanelEmpty: View {
     let symbol: String
     let text: String
@@ -130,6 +147,7 @@ struct BrandPanel: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 22) {
             hero
+            if brand["logo"] != .null { logoRow }
             if !roles.isEmpty { swatches }
             if !fonts.isEmpty { typeSpecimens }
             if !modes.isEmpty { modePicker }
@@ -177,6 +195,31 @@ struct BrandPanel: View {
             }
             Spacer(minLength: 0)
         }
+    }
+
+    /// The logo file the film will place, or the plain statement that none was found (the name is then set in type).
+    @ViewBuilder private var logoRow: some View {
+        let logo = brand["logo"]
+        HStack(spacing: 14) {
+            if let file = logo["file"].string {
+                LogoThumb(url: model.fileURL(file))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Logo: \((file as NSString).lastPathComponent)").font(.system(size: 13, weight: .medium))
+                    Text("The official file\(logo["kind"].string.map { " (\($0))" } ?? ""), placed as it is. Never redrawn.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+            } else {
+                Image(systemName: "textformat").font(.system(size: 20)).foregroundStyle(.secondary).frame(width: 56, height: 56)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("No official logo found").font(.system(size: 13, weight: .medium))
+                    Text("The name is set in type on the end card. Add the logo file to the project to change that.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .stageCard()
+        .accessibilityElement(children: .combine)
     }
 
     private var swatches: some View {
