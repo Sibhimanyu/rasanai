@@ -28,6 +28,8 @@
 // 20. image generation and presenter films: the crew's presenter route (visual writers, brief, check), the `## Imagery` requirement,
 //     then scripts/tests/imagegen.mjs (a fake Codex: status, model fallback, normalising, anchor, skip, failure) and
 //     scripts/tests/presenter.mjs (key, beats, check, plates, stills, build), each skipped with a note when absent
+// 21. the Moves pass: isLabelOnly, moves.mjs (pack, check, check-verdict, payload, choose, record, and rough/check-rough when Chrome and ffmpeg are there),
+//     the crew's moves phases and roles, the score accounting against story/moves.json; fixtures in scripts/tests/fixtures/moves/
 // 17. lyric videos: the treatment gate and the crew's song route, lyrics.mjs (check, audio, align when whisper is there), the RasanMusic runtime in a page, the film finish (grade, blur)
 import fs from "node:fs";
 import os from "node:os";
@@ -1684,6 +1686,209 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
     } catch (e) {
       ok(`${name}: tests ran`, false, String((e && e.stack) || e).split("\n").slice(0, 4).join(" | "));
     }
+  }
+}
+
+// 21. the Moves pass: label-only detection, the pack, the inventor's and the juror's gates, the payload, choose / record,
+//     the crew's phases and score accounting, and (with Chrome and ffmpeg) a rough rendered from a fixture page
+{
+  const FX = path.join(HERE, "tests", "fixtures", "moves");
+  const ws = path.join(TMP, "moves-ws");
+  const run = path.join(ws, ".rasanai", "r1");
+  fs.mkdirSync(path.join(run, "story"), { recursive: true });
+  const menv = { ...env, RASANAI_MOVES_LIBRARY: path.join(FX, "library") };
+  const M = (a, e = {}) => spawnSync(process.execPath, [path.join(HERE, "moves.mjs"), ...a], { encoding: "utf8", env: { ...menv, ...e }, cwd: ws, timeout: 180000 });
+  const C = (a) => spawnSync(process.execPath, [path.join(HERE, "crew.mjs"), ...a], { encoding: "utf8", env: menv, cwd: ws, timeout: 180000 });
+  const J = (r) => { try { return JSON.parse(r.stdout); } catch { return {}; } };
+  const rj = (f) => JSON.parse(fs.readFileSync(f, "utf8"));
+  const wj = (f, o) => { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify(o, null, 2)); };
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const { isLabelOnly, validateMoves } = await import(path.join(HERE, "lib", "moves-lib.mjs"));
+
+  // label-only truth table
+  const lab = [["match cut to scene 3", true], ["Iris wipe to the next scene", true], ["a smooth zoom transition into the product", true], ["morph", true], ["the o of Your fills orange and grows a pupil", false], ["the status dot swells until it is the Approve button's cap", false]];
+  ok("moves: isLabelOnly truth table (a technique name alone is a label; an object doing something is not)", lab.every(([t, want]) => isLabelOnly(t) === want), JSON.stringify(lab.map(([t]) => isLabelOnly(t))));
+
+  const good = rj(path.join(FX, "moves-Bold.good.json"));
+  const pitch = rj(path.join(FX, "pitch-Bold.json"));
+  const GOOD = path.join(FX, "moves-Bold.good.json"), PITCH = path.join(FX, "pitch-Bold.json");
+  const g = M(["check", "--file", GOOD, "--pitch", PITCH, "--product-first"]);
+  ok("moves: a good moves file for a 4-beat pitch passes check (exit 0, no errors), also as a product-first film", g.status === 0 && J(g).ok === true && J(g).errors.length === 0, g.stdout.slice(0, 400));
+  const bad = (name, mut, re, extra = []) => {
+    const o = clone(good);
+    mut(o);
+    const f = path.join(TMP, `moves-bad-${name.replace(/\W+/g, "-")}.json`);
+    wj(f, o);
+    const r = M(["check", "--file", f, "--pitch", PITCH, ...extra]);
+    ok(`moves: check refuses ${name} (exit 2)`, r.status === 2 && (J(r).errors || []).some((e) => re.test(e)), r.stdout.slice(0, 300));
+  };
+  const lo = M(["check", "--file", path.join(FX, "moves-Bold.labelonly.json"), "--pitch", PITCH]);
+  ok("moves: the label-only fixture fails with 'only a label' on the move and on the bridge (exit 2)", lo.status === 2 && J(lo).errors.filter((e) => /only a label/.test(e)).length === 2, lo.stdout.slice(0, 300));
+  bad("a card whose move is a label", (o) => { o.cards[2].move = "match-cut to scene 4"; }, /m3: the move is only a label/);
+  bad("a ledger that misses a beat boundary", (o) => { o.ledger.pop(); }, /ledger: 3 rows for 4 beats/);
+  bad("a missing bridge at a boundary", (o) => { o.bridges = o.bridges.filter((b) => b.from !== 2); }, /boundary 2>3 has no bridge/);
+  bad("5 candidates", (o) => { o.candidates = o.candidates.slice(0, 5); }, /candidates: 5/);
+  bad("a missing bolder diff", (o) => { o.bolder.forEach((b) => delete b.changed); }, /bolder: 0 complete rows/);
+  bad("a carrier that covers under half the beats", (o) => { o.carrier.beats = [2]; }, /carrier\.beats covers 1 of 4/);
+  bad("an empty ledger constant", (o) => { o.ledger[1].constant = ""; }, /ledger row 2: constant is empty/);
+  bad("hero ids that are not cards", (o) => { o.heroes = ["m1", "m99"]; }, /"m99" is not a card id/);
+  bad("a card that repeats an obvious idea", (o) => { o.cards[4].title = "Match cut to the next scene"; }, /banned obvious idea/);
+  bad("a product-first hero whose origin is not a UI label", (o) => { o.cards[0].origin = "a spinning galaxy of light"; }, /real UI label/, ["--product-first"]);
+  bad("a product-first card with a conceit word", (o) => { o.cards[4].move = "the badge is hung in a museum case and falls out of its frame"; }, /conceit word "museum"/, ["--product-first"]);
+  const dup = clone(good); dup.cards[5].generator = dup.cards[4].generator; dup.cards[5].origin = dup.cards[4].origin;
+  ok("moves: two cards with the same generator and origin warn (not an error)", validateMoves(dup, { beats: pitch.beats }).warnings.some((w) => /same mechanism/.test(w)));
+
+  // the pack: deterministic, reference moves first, product-first takes a choreography constraint, earlier heroes are banned
+  const pk = (label, extra = [], e = {}) => { const r = M(["pack", "--run", run, "--label", label, ...extra], e); return { r, f: path.join(run, "story", `moves-pack-${label}.json`) }; };
+  const p1 = pk("Bold", ["--seed", "7"]); const t1 = fs.readFileSync(p1.f, "utf8");
+  const p2 = pk("Bold", ["--seed", "7"]); const t2 = fs.readFileSync(p2.f, "utf8");
+  const pa = JSON.parse(t1);
+  ok("moves: pack prints its path, is deterministic for run + label + seed, and has 3 exemplars, all 20 generators, a stimulus and the banned list", p1.r.status === 0 && /moves-pack-Bold\.json/.test(p1.r.stdout) && t1 === t2 && pa.exemplars.length === 3 && pa.generators.length === 20 && new Set(pa.generators.map((x) => x.id)).size === 20 && typeof pa.stimulus === "string" && pa.stimulus_kind === "stimulus" && pa.banned.length >= 2, p1.r.stderr + t1.slice(0, 200));
+  const varies = [1, 2, 3, 4, 5, 6].map((n) => { pk("Bold", ["--seed", String(n)]); return fs.readFileSync(p1.f, "utf8"); });
+  ok("moves: pack changes with the seed (generator order and exemplars)", new Set(varies).size > 1);
+  pk("Wild", ["--seed", "7"]);
+  ok("moves: pack differs by label", JSON.stringify(rj(path.join(run, "story", "moves-pack-Wild.json")).generators) !== JSON.stringify(pa.generators));
+  const pf = pk("Bold", ["--seed", "7", "--product-first"]); const pfj = rj(pf.f);
+  ok("moves: a product-first pack carries a choreography constraint instead of a stimulus", pfj.stimulus_kind === "choreography" && rj(path.join(FX, "library", "choreography.json")).includes(pfj.stimulus) && !/unverified/.test(JSON.stringify(pfj.exemplars)), pfj.stimulus);
+  wj(path.join(run, "research", "reference-moves.json"), [{ id: "ref1", title: "The user's cat-eye clip", move: "a circle becomes a pupil" }]);
+  const pr = rj(pk("Bold", ["--seed", "7"]).f);
+  ok("moves: reference moves from the user's clip come first among the exemplars", pr.exemplars.length === 3 && pr.exemplars[0].id === "ref1" && pr.exemplars[0].source === "reference" && pr.exemplars.slice(1).every((x) => x.source === "library"), JSON.stringify(pr.exemplars.map((x) => x.id)));
+  fs.rmSync(path.join(run, "research", "reference-moves.json"));
+  ok("moves: pack without a library fails clearly (exit 1)", (() => { const r = M(["pack", "--run", run, "--label", "Bold"], { RASANAI_MOVES_LIBRARY: path.join(TMP, "no-such-library") }); return r.status === 1 && /moves library file not found/.test(r.stderr); })());
+
+  // the run: three pitches, three moves files, a verdict
+  for (const l of ["Sure", "Bold", "Wild"]) {
+    wj(path.join(run, "story", `pitch-${l}.json`), { ...pitch, label: l });
+    wj(path.join(run, "story", `moves-${l}.json`), { ...clone(good), label: l });
+  }
+  const chk = C(["check", "--run", run, "--role", "move-inventor", "--key", "Bold"]);
+  ok("moves: crew check move-inventor accepts the good file and refuses a bad one", chk.status === 0 && (() => { const o = clone(good); o.candidates = []; wj(path.join(run, "story", "moves-Wild.json"), { ...o, label: "Wild" }); const r = C(["check", "--run", run, "--role", "move-inventor", "--key", "Wild"]); wj(path.join(run, "story", "moves-Wild.json"), { ...clone(good), label: "Wild" }); return r.status === 2 && /candidates: 0/.test(r.stdout); })(), chk.stdout.slice(0, 300));
+  const ids = good.cards.map((c) => c.id);
+  const verdict = { pitches: Object.fromEntries(["Sure", "Bold", "Wild"].map((l) => [l, { cards: ids.map((id, i) => (i < 3 ? { id, pass: true, fails: [], evidence: `quoted: ${id}` } : { id, pass: false, fails: ["G2"], evidence: "the move is a label" })), ranking: ["m3", "m1", "m2"], hero: "m3", why: "the N bar is a letter and a headline at once", denial: [] }])), best_overall: { label: "Bold", id: "m3", why: "the bridge frame is concrete" } };
+  const vf = path.join(run, "story", "moves-verdict.json");
+  wj(vf, verdict);
+  const cv = M(["check-verdict", "--run", run]);
+  ok("moves: a complete verdict passes check-verdict, also through crew check move-juror", cv.status === 0 && J(cv).ok && C(["check", "--run", run, "--role", "move-juror"]).status === 0, cv.stdout.slice(0, 300));
+  const vbad = (name, mut, re) => { const v = clone(verdict); mut(v); wj(vf, v); const r = M(["check-verdict", "--run", run]); wj(vf, verdict); ok(`moves: check-verdict refuses ${name}`, r.status === 2 && (J(r).errors || []).some((e) => re.test(e)), r.stdout.slice(0, 300)); };
+  vbad("a ranking with a card that failed", (v) => { v.pitches.Sure.ranking = ["m4", "m1"]; }, /did not pass/);
+  vbad("a hero that is not ranking[0]", (v) => { v.pitches.Wild.hero = "m1"; }, /hero must be ranking\[0\]/);
+  vbad("a fail with no gate id", (v) => { v.pitches.Bold.cards[4].fails = []; }, /needs at least one gate id/);
+  vbad("a card left unjudged", (v) => { v.pitches.Bold.cards.pop(); }, /card m6 was not judged/);
+  vbad("a missing label", (v) => { delete v.pitches.Wild; }, /Wild: missing/);
+
+  // the payload: the carrier and up to 3 moves per story, a move with a rough first, media paths relative to the workspace
+  const rd = path.join(run, "story", "moves", "Bold-m1");
+  fs.mkdirSync(rd, { recursive: true });
+  for (const n of ["rough.mp4", "strip.png", "poster.png"]) fs.writeFileSync(path.join(rd, n), "x");
+  const stories = [{ id: "a", angle: "Sure", title: "A" }, { id: "b", angle: "Bold", title: "B" }, { id: "c", angle: "Wild", title: "C" }, { id: "d", angle: "Other", title: "D" }];
+  const sf = path.join(run, "story", "stories.json");
+  wj(sf, { stories });
+  const pl = M(["payload", "--run", run, "--stories", sf]);
+  const pj = (() => { try { return JSON.parse(pl.stdout); } catch { return []; } })();
+  const bold = pj.find((x) => x.id === "b") || {};
+  ok("moves: payload adds carrier and moves[] (max 3, a move with a rough first, one-line text, workspace-relative media, beat 1-based)", pl.status === 0 && pj.length === 4 && bold.carrier === "an orange dot" && bold.moves.length === 3 && bold.moves[0].id === "m1" && bold.moves[0].video === path.join(".rasanai", "r1", "story", "moves", "Bold-m1", "rough.mp4") && bold.moves[0].strip && bold.moves[0].poster && bold.moves[1].id === "m3" && !bold.moves[1].video && bold.moves[0].beat === 2 && bold.moves.every((m) => m.move.length <= 140 && !/\n/.test(m.move) && m.title && m.says) && !pj[3].moves && !pj[3].carrier, pl.stdout.slice(0, 500));
+  ok("moves: payload keeps the stories untouched otherwise (a story without moves is returned as is)", JSON.stringify(pj[3]) === JSON.stringify(stories[3]));
+
+  // choose and record
+  const ch = M(["choose", "--run", run, "--label", "bold"]);
+  const mj = fs.existsSync(path.join(run, "story", "moves.json")) ? rj(path.join(run, "story", "moves.json")) : {};
+  ok("moves: choose writes story/moves.json with the verdict's ranking and heroes", ch.status === 0 && mj.label === "Bold" && JSON.stringify(mj.heroes) === '["m3","m1","m2"]' && JSON.stringify(mj.ranking) === '["m3","m1","m2"]' && mj.cards.length === 6, ch.stdout + ch.stderr);
+  const rc = M(["record", "--run", run]);
+  const led = path.join(TMP, "home", "moves-ledger.json");
+  const lj = fs.existsSync(led) ? rj(led) : [];
+  ok("moves: record appends the chosen heroes {date, run, title, generator, carrier} to the ledger (again: no duplicates)", rc.status === 0 && lj.length === 3 && lj.every((e) => e.date && e.run === "r1" && e.title && e.generator && e.carrier === "an orange dot") && (M(["record", "--run", run]), rj(led).length === 3));
+  const after = rj(pk("Bold", ["--seed", "7"]).f);
+  ok("moves: the next pack bans the earlier heroes (the last 12 of the ledger)", after.banned.length === rj(path.join(FX, "library", "banned.json")).length + 3 && after.banned.some((b) => /The dot swells into Approve/i.test(b.cliche)), JSON.stringify(after.banned.slice(-3)));
+
+  // the crew: plan order, the roles, briefs, the score accounting
+  const plan = J(C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "Tally", "--scenes", "4", "--length", "16"]));
+  const phs = (plan.phases || []).map((x) => x.phase);
+  const iS = phs.indexOf("story"), iM = phs.indexOf("moves"), iJ = phs.indexOf("moves-jury"), iR = phs.indexOf("moves-roughs"), iE = phs.indexOf("story-edit");
+  ok("moves: the plan runs story < moves < moves-jury < moves-roughs < story-edit", iS >= 0 && iS < iM && iM < iJ && iJ < iR && iR < iE, phs.join(","));
+  const mem = (n) => (plan.phases.find((x) => x.phase === n) || { members: [] }).members;
+  ok("moves: three inventors (Opus-tier), one juror and three sketchers (fast) are dispatched", ["Sure", "Bold", "Wild"].every((l) => mem("moves").some((m) => m.startsWith(`move-inventor:${l} (inherit)`)) && mem("moves-roughs").some((m) => m.startsWith(`move-sketcher:${l} (fast)`))) && mem("moves-jury").length === 1 && /^move-juror \(fast\)/.test(mem("moves-jury")[0]), JSON.stringify([mem("moves"), mem("moves-jury"), mem("moves-roughs")]));
+  const noMoves = (route, extra = []) => (J(C(["plan", "--run", (() => { const d = path.join(ws, ".rasanai", `r-${route}${extra.join("")}`); fs.mkdirSync(d, { recursive: true }); return d; })(), "--route", route, "--subject", "x", "--scenes", "4", ...extra])).phases || []).map((x) => x.phase);
+  ok("moves: no Moves pass for lean, reels and lyric videos", !noMoves("faceless-explainer", ["--lean"]).includes("moves") && !noMoves("reel").includes("moves") && !noMoves("music-to-video").includes("moves") && noMoves("faceless-explainer").includes("moves"));
+  {
+    C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "Tally", "--scenes", "4", "--length", "16"]);
+    const ib = J(C(["brief", "--run", run, "--role", "move-inventor", "--key", "Bold"]));
+    const it = ib.prompt ? fs.readFileSync(path.join(ws, ib.prompt), "utf8") : "";
+    ok("moves: the inventor's brief names its pack command, check command, pack and the method, carries product_first and the show-off ask", /moves\.mjs" pack --run \S+ --label Bold --product-first/.test(it) && /moves-pack-Bold\.json/.test(it) && /references\/moves\.md/.test(it) && /product_first/.test(it) && /Do every step of the method/.test(it) && /moves-Bold\.json/.test(it), it.slice(0, 200));
+    const jb = J(C(["brief", "--run", run, "--role", "move-juror"]));
+    const sb = J(C(["brief", "--run", run, "--role", "move-sketcher", "--key", "Bold"]));
+    const st = sb.prompt ? fs.readFileSync(path.join(ws, sb.prompt), "utf8") : "";
+    ok("moves: the juror's brief lists the three moves files and the verdict; the sketcher's names its hero's folder and the render and check commands", /moves-verdict\.json/.test(fs.readFileSync(path.join(ws, jb.prompt), "utf8")) && /Bold-m3/.test(st) && /moves\.mjs" rough --dir/.test(st) && /check-rough/.test(st), st.slice(0, 200));
+  }
+  // the score accounting: moves.json is there (choose wrote it); a score that ignores it, drops without a reason, or bridges with a label fails
+  const sc = path.join(run, "motion", "score.json");
+  const score = (moves, seams) => wj(sc, { spine: "s", moves, scenes: [1, 2, 3, 4].map((n) => ({ n, duration: 4 })), seams });
+  const msgs = () => { const r = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]); return r.stdout; };
+  score([{ id: "m3", status: "used", scene: 1 }], []);
+  const t1x = msgs();
+  ok("moves: a score that leaves a hero out of score.moves fails with moves-unaccounted (m1 and m2 named)", /moves-unaccounted: hero move m1/.test(t1x) && /moves-unaccounted: hero move m2/.test(t1x) && !/hero move m3/.test(t1x), t1x.slice(0, 200));
+  score([{ id: "m3", status: "used", scene: 1 }, { id: "m1", status: "dropped", scene: 2 }, { id: "m2", status: "dropped", scene: 3, why: "the cursor lives in the demo scene only" }], []);
+  const t2x = msgs();
+  ok("moves: a dropped hero needs a why of 12+ characters", /hero move m1 is dropped without a why/.test(t2x) && !/hero move m2 is dropped/.test(t2x), t2x.slice(0, 200));
+  const hand = { x: 0, y: 0, scale: 1, opacity: 1, direction: 0, speed: 0 };
+  const seamsOf = (bridge) => [{ from: 1, to: 2, kind: "match-cut", element: "dot", out: hand, in: hand, why: "w", ...(bridge ? { bridge } : {}) }, { from: 2, to: 3, kind: "cut" }, { from: 3, to: 4, kind: "cut" }];
+  const full = [{ id: "m3", status: "used", scene: 1 }, { id: "m1", status: "used", scene: 2, seam: "2>3" }, { id: "m2", status: "used", scene: 3 }];
+  score(full, seamsOf("iris wipe to the next scene"));
+  ok("moves: a continuity seam whose bridge is a label fails with seam-label-bridge", /seam-label-bridge: seam 1>2/.test(msgs()));
+  score(full, seamsOf(""));
+  const t4 = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+  ok("moves: a continuity seam with no bridge is a warning (seam-no-bridge), not an error", /seam-no-bridge/.test(J(t4).warnings.join("|")) && !/seam-no-bridge|moves-/.test((J(t4).problems || []).join("|")));
+  score(full, seamsOf("at 0.8 s the orange dot is both the toolbar status dot and the headline bar's left end"));
+  const t5 = msgs();
+  ok("moves: a used hero, accounted for, and a concrete bridge raise no moves error", !/moves-|seam-label-bridge/.test(t5), t5.slice(0, 300));
+  fs.renameSync(path.join(run, "story", "moves.json"), path.join(run, "story", "moves.off"));
+  score([], seamsOf("iris wipe to the next scene"));
+  ok("moves: without story/moves.json the score check is unchanged (no moves error, no bridge check)", !/moves-|seam-label-bridge|seam-no-bridge/.test(msgs()));
+  fs.renameSync(path.join(run, "story", "moves.off"), path.join(run, "story", "moves.json"));
+  // the animator's brief: the card and its rough are its motion target
+  if (fs.existsSync(path.join(HERE, "..", "agents", "scene-animator.md"))) {
+    const proj = path.join(ws, "videos", "t");
+    fs.mkdirSync(path.join(proj, ".hyperframes", "frame-packets"), { recursive: true });
+    score(full, seamsOf("at 0.8 s the orange dot is both the toolbar status dot and the headline bar's left end"));
+    const ab = J(C(["brief", "--run", run, "--role", "scene-animator", "--key", "2", "--project", proj]));
+    const at = ab.prompt ? fs.readFileSync(path.join(ws, ab.prompt), "utf8") : "";
+    ok("moves: a scene-animator brief inlines the move card placed in its scene and the rough's paths (its motion target)", /Your motion target/.test(at) && /"id": "m1"/.test(at) && /Bold-m1\/rough\.mp4/.test(at) && !/"id": "m2"/.test(at), at.slice(-300));
+  }
+
+  // a rough rendered for real (headless Chrome and ffmpeg; skipped with a note when either is missing)
+  const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0 && spawnSync("ffprobe", ["-version"]).status === 0;
+  const hasChrome = spawnSync(process.execPath, ["-e", `import(${JSON.stringify(path.join(HERE, "lib", "common.mjs"))}).then((m)=>m.chromePath())`], { env: menv }).status === 0;
+  if (!hasFfmpeg || !hasChrome) console.log(`skip  moves rough render (${!hasFfmpeg ? "no ffmpeg" : "no Chrome"})`);
+  else {
+    const rdir = path.join(run, "story", "moves", "Bold-m3");
+    fs.mkdirSync(rdir, { recursive: true });
+    fs.copyFileSync(path.join(FX, "rough", "rough.html"), path.join(rdir, "rough.html"));
+    const pre = M(["check-rough", "--dir", rdir]);
+    ok("moves: check-rough refuses a folder with only rough.html (the render is missing)", pre.status === 2 && /rough\.mp4 is missing/.test(pre.stdout));
+    const rr = M(["rough", "--dir", rdir]);
+    const rrj = J(rr);
+    ok("moves: rough renders rough.mp4, strip.png and poster.png from a fixture page (1280x720, 2.4 s, 15 fps, H.264 yuv420p)", rr.status === 0 && rrj.ok && ["rough.mp4", "strip.png", "poster.png"].every((n) => fs.existsSync(path.join(rdir, n)) && fs.statSync(path.join(rdir, n)).size > 1000) && rrj.size === "1280x720" && rrj.duration === 2.4, rr.stdout.slice(0, 300) + rr.stderr.slice(0, 300));
+    const probe = spawnSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_name,pix_fmt,width,height", "-of", "csv=p=0", path.join(rdir, "rough.mp4")], { encoding: "utf8" }).stdout.trim();
+    ok("moves: the rough is H.264 in yuv420p", /^h264,1280,720,yuv420p/.test(probe), probe);
+    const cr = M(["check-rough", "--dir", rdir]);
+    ok("moves: check-rough accepts it (right length, frames differ) and the crew's move-sketcher check agrees", cr.status === 0 && J(cr).motion.max > 1 && C(["check", "--run", run, "--role", "move-sketcher", "--key", "Bold"]).status === 0, cr.stdout.slice(0, 300));
+    // the poster is the frame at the bridge (1.4 s): the dot is big there, not at the start
+    const frameGray = (f) => spawnSync("ffmpeg", ["-v", "error", "-i", f, "-vf", "scale=64:36,format=gray", "-f", "rawvideo", "-"], { maxBuffer: 1 << 24 }).stdout;
+    const still = (t) => spawnSync("ffmpeg", ["-v", "error", "-ss", String(t), "-i", path.join(rdir, "rough.mp4"), "-frames:v", "1", "-vf", "scale=64:36,format=gray", "-f", "rawvideo", "-"], { maxBuffer: 1 << 24 }).stdout;
+    const dark = (b) => b.reduce((a, v) => a + (v < 200 ? 1 : 0), 0);
+    ok("moves: the strip shows motion and the poster is the bridge frame (the carrier is large there)", dark(frameGray(path.join(rdir, "poster.png"))) > dark(still(0)) * 3, `${dark(frameGray(path.join(rdir, "poster.png")))} vs ${dark(still(0))}`);
+    // a blank page and a page without the contract
+    const bdir = path.join(run, "story", "moves", "Wild-x");
+    fs.mkdirSync(bdir, { recursive: true });
+    fs.writeFileSync(path.join(bdir, "rough.html"), "<html><body style='background:#fff'><script>window.__move={tl:{seek(){},pause(){},duration(){return 2}},duration:2}</script></body></html>");
+    const br = M(["rough", "--dir", bdir]);
+    const bc = M(["check-rough", "--dir", bdir]);
+    ok("moves: a rough that never moves renders but check-rough calls it blank or still (exit 2)", br.status === 0 && bc.status === 2 && /blank|still/.test(bc.stdout), br.stdout.slice(0, 200) + bc.stdout.slice(0, 200));
+    fs.writeFileSync(path.join(bdir, "rough.html"), "<html><body>no contract</body></html>");
+    const nc = M(["rough", "--dir", bdir]);
+    ok("moves: a page without window.__move is refused with the contract named (exit 2)", nc.status === 2 && /window\.__move/.test(nc.stdout), nc.stdout.slice(0, 200));
+    fs.writeFileSync(path.join(bdir, "rough.html"), "<html><body><script>var tl=gsap.timeline({paused:true});tl.to('body',{x:1,duration:9});window.__move={tl:tl,duration:9}</script></body></html>");
+    const lg = M(["rough", "--dir", bdir]);
+    ok("moves: a rough longer than 4.5 s is refused (exit 2)", lg.status === 2 && /1\.5 to 4\.5 s/.test(lg.stdout), lg.stdout.slice(0, 200));
   }
 }
 

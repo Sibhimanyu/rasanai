@@ -189,6 +189,7 @@ private struct StoryDetail: View {
             }
             if let aim = script.aim { achieves(aim) }
             howItGetsThere
+            if !script.moves.isEmpty { StoryMoves(script: script) }
             if !script.beats.isEmpty { StoryTable(script: script) }
             if !script.lastLine.isEmpty { StoryLastLine(text: script.lastLine) }
         }
@@ -250,6 +251,76 @@ private struct StoryDetail: View {
             Text(text).font(.system(size: 13.5)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: Hero moves
+
+/// The ideas this script would be built on, each playing as a short muted loop. Absent `moves` renders nothing.
+private struct StoryMoves: View {
+    let script: StoryScript
+    @Environment(FilmSessionModel.self) private var model: FilmSessionModel?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Label("HERO MOVES", systemImage: "sparkles")
+                    .font(.system(size: 10.5, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
+                if let carrier = script.carrier {
+                    (Text("Carried by: ").foregroundStyle(.tertiary) + Text(carrier).foregroundStyle(.secondary))
+                        .font(.system(size: 12.5)).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            HStack(alignment: .top, spacing: 14) {
+                ForEach(Array(script.moves.enumerated()), id: \.element.id) { index, move in
+                    tile(move, lead: index == 0)
+                }
+                if script.moves.count < 3 {
+                    ForEach(0..<(3 - script.moves.count), id: \.self) { _ in Color.clear.frame(maxWidth: .infinity) }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Hero moves for \(script.title)")
+    }
+
+    private func tile(_ move: StoryMove, lead: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            frame(move)
+                .aspectRatio(16.0 / 9.0, contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(lead ? Color.rasan.opacity(0.45) : Color(nsColor: .separatorColor), lineWidth: lead ? 1 : 0.5) }
+                .overlay(alignment: .bottomLeading) {
+                    if let at = script.moveTime(move) {
+                        Text("at \(clockText(at))")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded)).monospacedDigit().foregroundStyle(.white)
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(.black.opacity(0.55), in: Capsule())
+                            .padding(10)
+                    }
+                }
+            Text(move.title)
+                .font(.system(size: 15, weight: .semibold, design: .serif)).lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
+            if !move.move.isEmpty {
+                Text(move.move).font(.system(size: 12.5)).foregroundStyle(.secondary).lineSpacing(2).lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(move.title). \(move.move)\(script.moveTime(move).map { ". At \(clockText($0))" } ?? "")")
+    }
+
+    @ViewBuilder private func frame(_ move: StoryMove) -> some View {
+        let video = model?.fileURL(move.video)
+        let still = move.poster ?? move.strip
+        ZStack {
+            Rectangle().fill(Color(nsColor: .quaternaryLabelColor).opacity(0.3))
+            if let still, model?.fileURL(still) != nil { PayloadImage(path: still, contentMode: .fill, maxPixels: 900) }
+            if let video, FileManager.default.fileExists(atPath: video.path) { MoveLoopingVideo(url: video) }
+        }
     }
 }
 
@@ -388,6 +459,8 @@ private struct StoryScript: Identifiable {
     var angle: String, title: String, logline: String, device: String, why: String, lastLine: String, approach: String
     var aim: StoryAim?
     var tempoLine: String?
+    var carrier: String?
+    var moves: [StoryMove]
     var beats: [StoryBeat]
     /// What the card's headline says: the takeaway, or for older payloads the logline, then why.
     var headline: String { aim?.takeaway ?? [logline, why].first { !$0.isEmpty } ?? title }
@@ -395,6 +468,11 @@ private struct StoryScript: Identifiable {
         switch angle.lowercased() { case "sure": "Safe bet"; case "bold": "Bolder"; case "wild": "Wild card"; default: "" }
     }
     var total: Double { beats.reduce(0) { $0 + $1.duration } }
+    /// When the move's beat starts in the film, if the payload names a beat this script has.
+    func moveTime(_ move: StoryMove) -> Double? {
+        guard let beat = move.beat, beat <= beats.count else { return nil }
+        return StoryMove.start(ofBeat: beat, durations: beats.map(\.duration))
+    }
 
     init(_ json: JSONValue, index: Int) {
         id = json["id"].identifier ?? "story-\(index + 1)"
@@ -416,6 +494,8 @@ private struct StoryScript: Identifiable {
             let gap = e == e.rounded() ? String(Int(e)) : String(e)
             tempoLine = "\(n) ideas · a change every \(gap) s · \(source)"
         } else { tempoLine = nil }
+        carrier = StoryMove.carrier(json["carrier"])
+        moves = StoryMove.parse(json["moves"])
         var clock = 0.0
         beats = json["beats"].array.map { beat in
             let d = beat["duration_s"].number ?? beat["duration"].number ?? 0

@@ -1,0 +1,237 @@
+[
+  {
+    "id": "match-cut-next",
+    "cliche": "Match cut to the next scene (a label, with no object named)",
+    "instead": "Name the object that crosses the cut and the frame where both scenes are true: 'the cursor stays at (640, 400) while the sidebar row behind it becomes the page header'."
+  },
+  {
+    "id": "logo-particles",
+    "cliche": "The logo assembles from particles",
+    "instead": "Build the mark from the product's own parts: the UI element that already has the mark's silhouette scales into place and the rest of the screen clears around it."
+  },
+  {
+    "id": "type-on-idea",
+    "cliche": "Text types on letter by letter as the idea",
+    "instead": "Type into the real input field only when the typing is the product's real action; otherwise let the line be cut in on a beat or lifted through a mask."
+  },
+  {
+    "id": "phone-float",
+    "cliche": "The phone floats and rotates in a void",
+    "instead": "Keep the device out. Put the real UI full-bleed, or have the camera pass through the real screen to the next state."
+  },
+  {
+    "id": "glow-sweep",
+    "cliche": "A glow line sweeps across the text or card",
+    "instead": "Light the element through its own state change: the selection highlight the product really draws, moving to the next real item."
+  },
+  {
+    "id": "camera-push-screen",
+    "cliche": "The camera pushes into the screen",
+    "instead": "Push into one named UI element that becomes the next scene's ground (the badge, the row, the send arrow), with a fixed anchor point."
+  },
+  {
+    "id": "zoom-through-generic",
+    "cliche": "Zoom-through between any two scenes",
+    "instead": "Choose the object that scales and what is inside it. A zoom-through needs the thing being entered: the dot of the i, the avatar, the input."
+  },
+  {
+    "id": "fade-through-black",
+    "cliche": "Fade to black between scenes",
+    "instead": "Cut on a strong frame, or carry one element across the cut so there is no black."
+  },
+  {
+    "id": "whip-pan-default",
+    "cliche": "Whip pan as a generic energy transition",
+    "instead": "Whip only along the film's one direction, with the incoming scene's first element already moving at the same speed."
+  },
+  {
+    "id": "light-leak",
+    "cliche": "A light leak or lens flare burn between scenes",
+    "instead": "Let the next scene's own bright element (a window, a highlight, a white card) flood the frame as the hand-off."
+  },
+  {
+    "id": "glitch-cut",
+    "cliche": "A glitch or datamosh cut with no glitch concept",
+    "instead": "Break one specific thing (a row mis-sorts, a number flickers) because the product fixes it, then restore it with the product's own motion."
+  },
+  {
+    "id": "parallax-cards",
+    "cliche": "Cards float in parallax with no cause",
+    "instead": "Move layers only when a camera move or a hand reveals depth; each layer must be a real screen the viewer needs."
+  },
+  {
+    "id": "three-features-slide",
+    "cliche": "Three feature cards slide in one after another",
+    "instead": "Show each feature as one real interaction in the same window, the output of one the input of the next."
+  },
+  {
+    "id": "bokeh-orbs",
+    "cliche": "Glowing orbs, particles or bokeh as atmosphere",
+    "instead": "Use no atmosphere. Put the 2 px real UI edge, a real shadow and the product's own colours where the atmosphere would have been."
+  },
+  {
+    "id": "gradient-mesh-bg",
+    "cliche": "A blue-purple gradient mesh behind everything",
+    "instead": "Use the brand's own ground colour or the design system's neutral; spend the colour on one accent that does a job."
+  },
+  {
+    "id": "stat-count-up-alone",
+    "cliche": "A big stat counts up on a black card, alone",
+    "instead": "Count the number inside the real UI where it lives, then hand off one digit or the unit to the next element."
+  },
+  {
+    "id": "whoosh-everything",
+    "cliche": "Every element enters with a whoosh and a slide-up",
+    "instead": "Make most elements simply there on the cut; give exactly one moving thing a motivated entrance and a sound on its contact frame."
+  },
+  {
+    "id": "fade-up-slide",
+    "cliche": "Fade and slide up on every entrance",
+    "instead": "Pick the entrance by the object's nature: type rises through a line mask, UI scales from the click that spawned it, shapes draw on, hard beats cut in."
+  },
+  {
+    "id": "scale-pop-bounce",
+    "cliche": "Everything scales in with a bounce overshoot",
+    "instead": "Settle with one ease family; overshoot only on the one thing that lands with weight."
+  },
+  {
+    "id": "orbiting-camera",
+    "cliche": "A constant-speed orbit around a floating object",
+    "instead": "Hold the camera still, or move it with a leg that has an anticipation, a peak and a landing, on a reason."
+  },
+  {
+    "id": "torus-knot-demo",
+    "cliche": "A 3D shape spinning in a void as a stand-in for the product",
+    "instead": "Put the real product on a plane in space and move the camera past it; the object in 3D is the real UI."
+  },
+  {
+    "id": "sparkle-ai",
+    "cliche": "The sparkles icon or a glowing brain for AI",
+    "instead": "Show the AI's real output arriving in the real UI: the streamed answer, the changed diff, the filled field."
+  },
+  {
+    "id": "globe-network",
+    "cliche": "A glowing globe with connecting arcs",
+    "instead": "Show the real scale as the real thing: the list that is 4 000 rows long, scrolling at the speed the product scrolls it."
+  },
+  {
+    "id": "isometric-float",
+    "cliche": "Isometric cards or panels floating at an angle",
+    "instead": "Place real screens flat and straight, and move the camera, not the panels."
+  },
+  {
+    "id": "dashboard-tilt",
+    "cliche": "A dashboard floating at a 30 degree tilt over a gradient",
+    "instead": "Show the real dashboard straight on, full-bleed, and animate one real value changing."
+  },
+  {
+    "id": "problem-montage",
+    "cliche": "A problem montage of stressed people and stock icons",
+    "instead": "Show the problem as the real broken state in the real UI (the 4-hour-old thread, the red badge, the queue)."
+  },
+  {
+    "id": "logo-sting-end",
+    "cliche": "The logo spins or rotates in on the end card",
+    "instead": "Hold the real logo file still on a clean card, with the end line the largest type; let the previous shot hand off to it."
+  },
+  {
+    "id": "confetti-cta",
+    "cliche": "Confetti or fireworks on the CTA",
+    "instead": "Let the last state change of the product be the celebration: the checkmark the product really shows."
+  },
+  {
+    "id": "typewriter-hero",
+    "cliche": "A typewriter headline over a blurred background",
+    "instead": "Let the headline be set once, large, and cut in on the beat; blur nothing."
+  },
+  {
+    "id": "ken-burns-still",
+    "cliche": "A slow Ken Burns on a still screenshot",
+    "instead": "Move the real UI: scroll it, click it, stream it. If it must be a still, give it a camera move with a stated anchor."
+  },
+  {
+    "id": "hover-zoom-callout",
+    "cliche": "Zoom on a screenshot with a circle callout",
+    "instead": "Use a focus zoom into the actual region, with the camera easing 150 ms behind the cursor."
+  },
+  {
+    "id": "split-screen-compare",
+    "cliche": "A before/after split screen with a sliding divider",
+    "instead": "Show before and after as one object changing state in place; the change is the transition."
+  },
+  {
+    "id": "countdown-321",
+    "cliche": "A 3-2-1 countdown with no stake",
+    "instead": "Count only a real quantity the product changes (items left, seconds saved) and stop on the real result."
+  },
+  {
+    "id": "testimonial-card",
+    "cliche": "Testimonial quote cards on soft backgrounds",
+    "instead": "Show the person's real words as the real UI element they were in (the reply, the review row) and cut straight to them."
+  },
+  {
+    "id": "handshake-stock",
+    "cliche": "Stock handshakes, high-fives and smiling teams",
+    "instead": "Show the real collaboration in the product: two cursors, a shared selection, a comment resolving."
+  },
+  {
+    "id": "magic-wand",
+    "cliche": "A magic wand, spell or sparkle when the AI does its job",
+    "instead": "Show the cause and the effect with the same cursor, one frame apart; the speed is the magic."
+  },
+  {
+    "id": "rocket-launch",
+    "cliche": "A rocket, a ladder or a mountain for growth or success",
+    "instead": "Show the number moving on the product's real chart, with a sourced figure and a held beat."
+  },
+  {
+    "id": "lightbulb-idea",
+    "cliche": "A lightbulb turning on for an idea",
+    "instead": "Show the idea as the first real keystroke or the first row that appears."
+  },
+  {
+    "id": "particle-text-reveal",
+    "cliche": "Text reveals by dissolving from particles or dust",
+    "instead": "Reveal text through a mask line or by deleting what covers it, in the product's own type."
+  },
+  {
+    "id": "liquid-morph",
+    "cliche": "A liquid blob morph between two unrelated shapes",
+    "instead": "Morph between two shapes that share a silhouette and a meaning, with a held legible mid-state."
+  },
+  {
+    "id": "film-burn",
+    "cliche": "Film burn, scratches or grain overlays as texture",
+    "instead": "Take texture only from the brand's film card. If it is flat, add none."
+  },
+  {
+    "id": "dutch-angle-ui",
+    "cliche": "A tilted dutch-angle UI for energy",
+    "instead": "Keep the UI level; get energy from timing, cuts on the beat and one decisive camera move."
+  },
+  {
+    "id": "shaky-cam",
+    "cliche": "Artificial handheld shake on a UI",
+    "instead": "Move with deliberate, eased legs. If it needs to feel human, make the cursor hesitate."
+  },
+  {
+    "id": "trail-ghosts",
+    "cliche": "Motion-trail ghost copies on every move",
+    "instead": "Use real motion blur on the whip frames only; leave everything else clean."
+  },
+  {
+    "id": "pulse-ring-cta",
+    "cliche": "A pulsing ring around the button the viewer should click",
+    "instead": "Let the cursor arrive and rest on the button; the rest is the emphasis."
+  },
+  {
+    "id": "infinite-scroll-blur",
+    "cliche": "A blurred infinite scroll of feature text",
+    "instead": "Scroll the real list at the product's speed and land on the one row the film is about."
+  },
+  {
+    "id": "abstract-shapes-intro",
+    "cliche": "Abstract shapes floating in at the start for no reason",
+    "instead": "Open on the real UI's first state, or on the one shape the brand mark is made of."
+  }
+]

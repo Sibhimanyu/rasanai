@@ -1,0 +1,182 @@
+[
+  {
+    "id": "G1",
+    "name": "Glyph-as-object",
+    "question": "What does this letter look like, and what is its hole, dot, stem or terminal? Which letter sits in a word that matters?",
+    "definition": "A letterform's counter, dot, stem or terminal becomes a real object that then does something. The letter must be in a word the film cares about, and the object must mean something the word alone does not.",
+    "example": "The counter of the 'e' in a brand name is a keyhole; the cursor drops into it and the door of the next scene swings open around it.",
+    "fails": "the letter is in a throwaway word, every letter becomes a thing, or the pun does not resolve in 1 s",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G2",
+    "name": "Shape rhyme across beats",
+    "question": "What is the plain geometric shape of this beat's key element, and what in the next beat has the same silhouette at the same place?",
+    "definition": "A silhouette persists across a cut or change while its meaning changes. Same shape, same screen position, new idea.",
+    "example": "The round 'on' toggle thumb of a settings switch is the same disc that becomes the record dot, then the timer ring, one disc staying put while the screen around it changes.",
+    "fails": "the rhyme is only silhouette with no semantic jump (a circle to another circle for nothing); the jump must be small to large, part to whole, or tool to result",
+    "route": "scale-anchor"
+  },
+  {
+    "id": "G3",
+    "name": "Scale-through",
+    "question": "If I keep zooming into this element, what is inside it? If I zoom out, what is it a part of? Which fixed point stays put while the world changes size?",
+    "definition": "A small element grows until it fills the frame and becomes the next scene's ground or stage, or the reverse. A named point (the centre of the pupil, the dot of the i) is held at a fixed screen position throughout.",
+    "example": "The notification badge's red dot scales until it floods the frame; the flood is the red of the next screen's alert state.",
+    "fails": "the scale jumps with no held anchor so the viewer loses which part they are in",
+    "route": "scale-anchor"
+  },
+  {
+    "id": "G4",
+    "name": "Object-born transition",
+    "question": "What is moving or changing in the last frame of this beat, and what is the first thing the next beat needs? Can the same object, at the same speed and direction, be both?",
+    "definition": "No cut is designed; an object's momentum or change carries into the next beat. The cut lands at peak velocity and the incoming beat continues the same vector.",
+    "example": "A file icon is flicked off the right edge at 2400 px/s; it enters the next screen from the left at the same speed and lands in the folder the story needs.",
+    "fails": "speed or direction does not match across the cut, or the object has no cause for its motion",
+    "route": "dom-flip"
+  },
+  {
+    "id": "G5",
+    "name": "Negative-space reveal",
+    "question": "Which part of this shape is empty, and what could live in or slide out of that gap?",
+    "definition": "Something emerges from the gap, outline or cut-out of another shape; the empty part is the doorway.",
+    "example": "The gap in a progress ring is a slot; the next headline slides out of it as the ring closes behind it.",
+    "fails": "the revealed element leaks outside the shape, or the opening is too small to read what comes out",
+    "route": "clip-mask"
+  },
+  {
+    "id": "G6",
+    "name": "Mask-from-content",
+    "question": "What shape on screen right now could be a window onto the next thing?",
+    "definition": "A scene element's own shape becomes the window through which the next content is seen.",
+    "example": "The letter 'A' of a feature name is a window: through its counter we see the next screen, then the A scales until its edges leave the frame.",
+    "fails": "the window content is generic stock, so the mask is just a wipe with a fancy edge",
+    "route": "clip-mask"
+  },
+  {
+    "id": "G7",
+    "name": "Behavioural beat",
+    "question": "What would this object do if it were alive, and what does that behaviour say about the product or person?",
+    "definition": "A non-character shape does something a creature does (looks, hesitates, startles, shrugs, settles). It changes the shape from diagram to character in one gesture.",
+    "example": "A cursor that has been dragging confidently stops dead at the edge of the window, tests the boundary twice, then shrugs along it.",
+    "fails": "the personality contradicts the brand's tone, or there is more than one per 8 to 12 s",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G8",
+    "name": "Line-becomes-path",
+    "question": "If this stroke were a track, who or what would ride it, and where would it take the camera?",
+    "definition": "A line drawn in one beat is the route that the camera or an object follows in the next.",
+    "example": "The underline beneath a word is drawn left to right; the camera then rides that line as a rail through the next three screens.",
+    "fails": "the path crosses scenes with no landmarks, so the ride has no sense of where it is going",
+    "route": "path-follow"
+  },
+  {
+    "id": "G9",
+    "name": "UI element becomes stage",
+    "question": "What if this component were a room? Which button, card or window is big enough to hold the next scene?",
+    "definition": "A real UI element expands (container transform) until it is the environment of the next beat. Only works with the real product UI.",
+    "example": "The composer's send button grows until the arrow is a corridor and the answer panel is the room at its end.",
+    "fails": "the product UI is fake, or the expansion hides what the product does",
+    "route": "scale-anchor"
+  },
+  {
+    "id": "G10",
+    "name": "Number-becomes-object",
+    "question": "What is the unit of this number, physically? What does one of it look like, and what does the total weigh?",
+    "definition": "A statistic or count is rendered as the thing it counts, so the quantity is felt rather than read.",
+    "example": "'48 hours saved' is 48 clock-hour dials in a grid; each one is wiped to zero in sequence by the product's own checkmark.",
+    "fails": "the object is not recognisable at small size, or the number is not a sourced claim",
+    "route": "dom-flip"
+  },
+  {
+    "id": "G11",
+    "name": "Cursor, hand or camera as character",
+    "question": "Who is doing the looking or clicking, and what do they want right now?",
+    "definition": "The pointer, a hand or the lens is a protagonist with a motive: it hesitates, hunts, is pulled toward something, overshoots.",
+    "example": "The cursor circles a long list twice (reading), then drops straight to the one row it wanted; the camera follows its decision, not its position.",
+    "fails": "the cursor does a stock click-and-zoom with no motive",
+    "route": "path-follow"
+  },
+  {
+    "id": "G12",
+    "name": "Kinetic semantics",
+    "question": "What physical verb is this word? What axis, speed and weight would it have, and what is the surprising but inevitable version?",
+    "definition": "A word's motion illustrates its meaning in a second layer beyond the literal (cause, personality or pun).",
+    "example": "'Settled' arrives heavy and overshoots down by 8 px, then the whole line settles with it; the line under it is a level whose bubble rests centre.",
+    "fails": "the literal is the only layer (the word fall falls and nothing else)",
+    "route": "split-text"
+  },
+  {
+    "id": "G13",
+    "name": "Container swap",
+    "question": "What frame is this content sitting in, and what other frame could hold the same content while the object keeps going?",
+    "definition": "The same content moves from one container (phone, poster, page, window) to another while one object stays continuous.",
+    "example": "The pull-quote on a printed page is lifted off by the cursor and drops into the product's note field as live text, the paper falling away behind it.",
+    "fails": "the new container needs a sentence of explanation",
+    "route": "dom-flip"
+  },
+  {
+    "id": "G14",
+    "name": "Oner logic",
+    "question": "What leaves the frame at the end of this beat, and what enters at the start of the next in the same direction at the same speed?",
+    "definition": "Everything reads as one continuous shot; every cut is hidden by a matched vector, position or occlusion.",
+    "example": "The camera tracks right past the sidebar item, which exits left as the next screen's first column enters from the right at the same px/s.",
+    "fails": "continuity is the only idea and the content is arbitrary; each hand-off must also advance the story",
+    "route": "path-follow"
+  },
+  {
+    "id": "G15",
+    "name": "Morph chain",
+    "question": "What is the shortest sequence of recognisable intermediates between these two ideas, each held for a beat?",
+    "definition": "A chain A, B, C, D where each stage is a legible object and each stage holds long enough to read.",
+    "example": "A chat bubble tail, a speech caret, a text cursor, a cut line, a slice of the next card: five stages in 2 s, one stroke weight throughout.",
+    "fails": "the intermediates are blobs with no legible mid-state",
+    "route": "svg-morph"
+  },
+  {
+    "id": "G16",
+    "name": "Artefact as author",
+    "question": "What would the person or product in this story physically produce, and what is the film if it were made with that craft?",
+    "definition": "The motion is made with the subject's own craft: stamps, tickets, redlines, spreadsheets, terminals, receipts. The technique comes from the world.",
+    "example": "Each beat is stamped onto the page by a ledger's rubber stamp whose ink bleed is the product's accent colour; the end line is the last stamp.",
+    "fails": "the artefact look is the only idea and the moves are generic; also unavailable under product-first except as the product's own real artefacts",
+    "route": "other"
+  },
+  {
+    "id": "G17",
+    "name": "Delete to create",
+    "question": "What if we get there by taking away? What is the end state when everything unnecessary is removed, and in what order?",
+    "definition": "Remove rather than add; the finished thing is revealed by deletion in a deliberate order.",
+    "example": "A 40-line config is deleted line by line until only the three lines the product needs remain, the cursor deleting with the same rhythm as it typed.",
+    "fails": "the deletion reads as a glitch because it is not clearly intentional or ordered",
+    "route": "split-text"
+  },
+  {
+    "id": "G18",
+    "name": "Rule and break",
+    "question": "What rule does the film teach in its first 3 s, and where does breaking it once hurt or delight?",
+    "definition": "Establish a pattern (every item lands on the 1 of the bar, always from the left) and break it exactly once, at the beat that matters.",
+    "example": "Six rows slide in from the left on the kick; the seventh, the one that matters, is already there, and the rest slide away to make room.",
+    "fails": "the break is arbitrary rather than attached to the meaning",
+    "route": "other"
+  },
+  {
+    "id": "G19",
+    "name": "Scatter and assembly",
+    "question": "What is the physics of this assembly, what pushes the parts out, and what pulls them back?",
+    "definition": "Parts fly in to form a whole, or the whole is scattered to make room, with a visible cause (thrown, hit, pulled, attracted).",
+    "example": "The words of a sentence are pulled into line by the cursor like iron filings and release when it clicks.",
+    "fails": "the scatter is generic energy with no cause",
+    "route": "split-text"
+  },
+  {
+    "id": "G20",
+    "name": "Double image (fusion)",
+    "question": "What if source and target were one object? Which two readings can one shape hold?",
+    "definition": "Two images occupy one shape so the viewer reads both at once; fusion, simile or replacement.",
+    "example": "A calendar's grid of dates is also the keyboard of the next scene; the cursor presses the 14th and the letter N appears.",
+    "fails": "the viewer cannot name both halves within a second",
+    "route": "svg-morph"
+  }
+]

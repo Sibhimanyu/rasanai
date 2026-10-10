@@ -8,6 +8,7 @@ The engine is `scripts/story.mjs` over the catalog `taxonomy/devices.json` (66 d
 2. **Pick** → `story.mjs pick --truth "$RUN/story/truth.md" [--recent <ids>]` → three devices labelled Sure / Bold / Wild.
 3. **Pitch** → write one pitch per device in `$RUN/story/pitches.json`.
 4. **Check** → `story.mjs check --pitch "$RUN/story/pitches.json" --truth "$RUN/story/truth.md"`, then rewrite until it ships.
+4b. **Moves** → for each passing pitch a move-inventor invents its carrier and hero moves (`references/moves.md`, `moves.mjs`); a juror gates and ranks them, a sketcher roughs each script's top move. The story the user sees carries them.
 5. **Show** → the three scripts in the console (SKILL.md "2 · Story": tabs plus a script table, no style yet; the look is chosen in the next call), and take the user's feedback.
 
 The writing itself (structures by length, hooks, voiceover and on-screen lines, the end, a worked example) is `references/script.md`, the writer pass's brief. This file is the concept engine around it.
@@ -103,6 +104,8 @@ Fuse each device with its `fuse_with` material (or better material from the shee
   "scores": { "originality": 4, "clarity": 4, "fit": 5, "memorability": 4, "feasibility": 5 }   // self-assessed, 1-5
 }
 ```
+
+**The moves file lives beside the pitch.** After a pitch passes `story.mjs check`, the Moves pass writes `story/moves-<label>.json` next to `story/pitch-<label>.json` (the carrier, the move cards, the chain ledger, the heroes), `story/moves-verdict.json` (the juror) and a rough per hero in `story/moves/<label>-<id>/`. The script is never edited by it: the pitch's words, beats and durations are fixed, and the moves are built on its `visual` lines, so write those with objects, glyphs and UI surfaces a motion designer can mine and name the one element that carries into the next beat. The chosen script's moves become `story/moves.json`, which binds the Motion Director.
 
 ## 4. Check, then rewrite
 

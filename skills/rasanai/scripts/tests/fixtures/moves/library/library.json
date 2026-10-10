@@ -1,0 +1,62 @@
+[
+  {
+    "id": "fx-eye",
+    "piece": "Fixture eye piece",
+    "studio": "Fixture Studio",
+    "year": 2024,
+    "move": "a circle becomes a pupil and then an eye",
+    "steal": "one carrier",
+    "generators": [
+      "G1"
+    ],
+    "verified": true
+  },
+  {
+    "id": "fx-zip",
+    "piece": "Fixture zipper piece",
+    "studio": "Fixture Studio",
+    "year": 2023,
+    "move": "a zipper opens the next scene",
+    "steal": "the pull is the cut",
+    "generators": [
+      "G2"
+    ],
+    "verified": true
+  },
+  {
+    "id": "fx-dial",
+    "piece": "Fixture dial piece",
+    "studio": "Fixture Studio",
+    "year": 2022,
+    "move": "a dial turns into a clock face",
+    "steal": "scale shift",
+    "generators": [
+      "G3"
+    ],
+    "verified": true
+  },
+  {
+    "id": "fx-card",
+    "piece": "Fixture card piece",
+    "studio": "Fixture Studio",
+    "year": 2021,
+    "move": "a card flips into a screen",
+    "steal": "flip as cut",
+    "generators": [
+      "G4"
+    ],
+    "verified": true
+  },
+  {
+    "id": "fx-guess",
+    "piece": "Fixture unverified piece",
+    "studio": "Fixture Studio",
+    "year": 2020,
+    "move": "unverified",
+    "steal": "none",
+    "generators": [
+      "G5"
+    ],
+    "verified": false
+  }
+]

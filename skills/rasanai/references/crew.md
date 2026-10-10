@@ -1,6 +1,6 @@
 # The crew: RasanAI's agents
 
-A film is too much work, and too many kinds of work, for one context. Researching a product properly takes dozens of page reads. A script is better written by someone with nothing else on their mind. Eight scenes animated well take eight full attentions. A critic who watched the film being made can't see it fresh. So RasanAI runs a **crew**: one Director and sixteen roles, each with a brief (`agents/<role>.md`), inputs and outputs on disk, and a check that decides when its work is accepted.
+A film is too much work, and too many kinds of work, for one context. Researching a product properly takes dozens of page reads. A script is better written by someone with nothing else on their mind. Eight scenes animated well take eight full attentions. A critic who watched the film being made can't see it fresh. So RasanAI runs a **crew**: one Director and nineteen roles, each with a brief (`agents/<role>.md`), inputs and outputs on disk, and a check that decides when its work is accepted.
 
 The roles exist where one of three things is true, and nowhere else:
 
@@ -26,6 +26,9 @@ Everything deterministic stays a script (`story.mjs check`, `sound.mjs fit`, `ob
 | Writers' room | `script-writer`: one script around one device | Story | 3 (Sure, Bold, Wild) | session |
 | | `treatment-writer`: one treatment of a song (concept, style bible, motifs, a plate per lyric section, every line an idea) | Story, `music-to-video` only | 3 (Sure, Bold, Wild), instead of the script writers | session |
 | | `visual-writer`: one visual treatment of a presenter film's speech (the layout of the person, a plate and camera per beat, graphics, an `idea`) | Story, `presenter` only | 3 (Sure, Bold, Wild), instead of the script writers | session |
+| Moves | `move-inventor`: the carrier and the hero moves for one script: thesis, atoms, affordance mining, bridges, 3 obvious ideas banned, 20+ candidates, a "bolder" rewrite with a visible diff, 6+ move cards, a chain ledger (`references/moves.md`) | Story, after the three scripts pass `story.mjs check` | 3 (Sure, Bold, Wild); product-first from the real UI | session (Opus) |
+| | `move-juror`: binary gates G1 to G5 on every card, blind to prose style, then pairwise picks with the order swapped; the riskier sound move wins | Story, after the inventors | 1 | fast is fine (Sonnet) |
+| | `move-sketcher`: a 1.5 to 4.5 s grey-box rough of each script's top hero move, rendered to a looping clip and a 5-frame strip | Story, after the juror | 3 (one per script) | fast is fine (Sonnet) |
 | | `script-editor`: the hostile reader; line edits, verdicts, a recommendation | Story | 1 | session |
 | Motion | `motion-director`: the score (spine, motif, energy, the depth plan, every shot in 2D or 3D, every seam), then the seam pass | Animatic, then Build | 1, twice | session |
 | Art | `frame-designer`: the key frames, from the score, in the look, with the real product | Animatic | 1 per 2 scenes (5 at most) | session |
@@ -41,7 +44,8 @@ Model column: see `models.md` (the prompt each member gets adapts to the model t
 Brief ── push brief ──────────────────────────────────────────────── user reads, confirms
    └─ local-find → (console ask: may I read these folders?) ─┐
    └─ research desk, in parallel, in the background ─────────┴─→ research-lead
-Story ── story.mjs pick → 3 writers in parallel → pitches → story.mjs check → editor → 1 rewrite round → push story
+Story ── story.mjs pick → 3 writers in parallel → pitches → story.mjs check → Moves pass (below) → editor → 1 rewrite round → push story
+Moves ── moves.mjs pack per script → 3 move-inventors in parallel → moves.mjs check each → move-juror (moves-verdict.json) → 3 move-sketchers (moves.mjs rough + check-rough) → moves.mjs payload into the story push; on choose: moves.mjs choose (story/moves.json binds the Motion Director)
 Story (a presenter film) ── presenter.mjs key + beats, reel.mjs scan → 3 visual writers in parallel → presenter.mjs check each → push story; the pick is presenter/plan.json
 Story (a song) ── lyrics.mjs align + audio → 3 treatment writers in parallel → treatment.mjs check each → push story; the pick is story/chosen-treatment.json
 Brand film (branded launch / promo / brand films) ── brandfilm.mjs find → fetch → frames → measure → card → brand film analyst fills FILM-STYLE.md → push brand with it (references/brand-film.md); the Look then IS that grammar
@@ -93,6 +97,18 @@ Claude does its best motion work when it's told to show off; left unpushed it pr
 
 Showing off means craft: choreography timed to the frame, invisible seams, product interactions more real than the real thing, one spectacle beat. It never means more effects; glow, particles and bounce are still slop, and the gates still reject them.
 
+## The Moves pass in the crew
+
+Showing off is not enough: left to itself the crew plans motion in technique names ("match cut", "iris") and builds competent, forgettable films. The Moves pass invents content-born moves instead (`references/moves.md`). It runs inside Story, after the three scripts pass `story.mjs check` and before the editor, on every film route except a song (`music-to-video`) and a footage reel; `--lean` skips it.
+
+1. `moves.mjs pack --run "$RUN" --label <L> [--product-first]` per script (code draws the exemplars, the stimulus and the banned list, so the three inventors get different ammunition).
+2. Three `move-inventor`s in parallel (Opus; `crew.mjs brief --role move-inventor --key <L>`): each writes `story/moves-<L>.json`, accepted on `moves.mjs check`.
+3. The `move-juror` (Sonnet): gates every card and ranks the survivors pairwise into `story/moves-verdict.json` (`moves.mjs check-verdict`). A script with fewer than 3 passing cards gets one denial round: its inventor is re-dispatched once with the failures added to its banned list.
+4. Three `move-sketcher`s (Sonnet): a grey-box rough of each script's top hero move (`moves.mjs rough`, `check-rough`).
+5. `moves.mjs payload` adds `carrier` and `moves[]` to each story so the user sees the moves play on the Story screen. On `choose`, `moves.mjs choose` writes `story/moves.json` and the chosen heroes enter the cross-run ledger (`moves.mjs record`).
+
+Downstream the moves bind: the Motion Director takes the carrier as the spine and every hero as a shot or seam built around its bridge frame (`score.moves` accounts for each; `crew.mjs check` errors when one is missing); the scene animators get the card and the rough as their motion target; the script editor reads the verdict. A user-supplied reference clip becomes the first exemplars (`research.mjs film`, then the Director writes `research/reference-moves.json`).
+
 ## Permission: the user's own computer
 
 The web needs no permission. The user's disk does.
@@ -120,6 +136,7 @@ Earlier videos about the same product are in that list too. They show what was a
 $RUN/research/       product.md · product.claims.json · brand.md · brand/DESIGN.md · brand/assets/ · screens.json · screens.md · screens/
                      precedent.md · films/<slug>/{film.json,sheet.jpg} · local.md · local.claims.json · local/ · claims.json · assets.json · BRIEFING.md
 $RUN/story/          truth.md · picks.json (story.mjs pick's output) · pitch-<Sure|Bold|Wild>.json · pitches.json · check.json · edit-notes.json · chosen.json
+                     moves: moves-pack-<label>.json · moves-<label>.json · moves-verdict.json · moves/<label>-<id>/{rough.html,rough.mp4,strip.png,poster.png} · moves.json (the chosen script's, binds the Motion Director)
                      songs: treatment-<Sure|Bold|Wild>.json · TREATMENT-<label>.md · chosen-treatment.json · chosen-treatment.md
 $RUN/music/          lyrics.json (word timings) · audio.json (beats, downbeats, sections, onsets) · plan.json · LICENSES.json
 $RUN/motion/         score.json · score.md
