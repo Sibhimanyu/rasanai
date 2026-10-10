@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.11.0 (unreleased)
+## 1.11.0 (2026-10-10)
 
 - **The Moves pass.** After the three scripts pass `story.mjs check` and before the editor, a move-inventor per script (Opus) invents the film's moves with the method designers use (`references/moves.md`): thesis and one image, content atoms including glyphs, UI and brand geometry, affordance mining, a bridge for every pair of beats, one carrier, three obvious ideas written down and banned, 20 or more candidates that start from the subject, a "bolder and more different" rewrite with a visible diff, six or more move cards (carrier, frame A, the move with seconds, frame B, the bridge frame, the hand-off, what it says, where the viewer learned the rule) and a chain ledger with a named constant at every boundary. A move-juror (Sonnet) gates each card with five binary tests, blind to prose style, and ranks the survivors pairwise with the order swapped, choosing the riskier sound move. A move-sketcher (Sonnet) builds a 1.5 to 4.5 s grey-box rough of each script's top hero move.
 - **A pack per inventor** (`moves.mjs pack`): 2 or 3 exemplars from a 34-move library (for the bar, never the content), the 20 generators as questions, one stimulus drawn by code from 209 concrete things (a choreography constraint instead on product-first films), and a banned list of 47 clichés each with a positive alternative, plus the hero moves of the last 12 films. Data in `library/moves/`.
