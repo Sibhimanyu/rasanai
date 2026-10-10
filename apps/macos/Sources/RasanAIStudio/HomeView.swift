@@ -62,6 +62,7 @@ struct HomeView: View {
                 greeting
                 newFilmTile
                 if !hasAny && !store.isLoadingProjects && store.settings.editorDraft(for: nil) == nil { examples }
+                GetInspiredHomeSection(store: store)
                 if !needsYou.isEmpty { needsYouSection }
                 if hasAny { library }
             }
@@ -92,7 +93,8 @@ struct HomeView: View {
                 HelpButton(title: "Home", lines: [
                     "Start a new film with the big button, or open one of your films below.",
                     "Right-click a film to rename, duplicate, archive or delete it.",
-                    "Brands keep your colours, type and logo so every film looks like you."])
+                    "Brands keep your colours, type and logo so every film looks like you.",
+                    "Get inspired shows real motion from real launch films. Pick a few and they come with you into a new film."])
             }
         }
         .alert("Rename film", isPresented: Binding(get: { renameFolder != nil }, set: { if !$0 { renameFolder = nil } })) {

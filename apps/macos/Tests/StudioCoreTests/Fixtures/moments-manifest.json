@@ -1,0 +1,298 @@
+[
+ {
+  "id": "M921",
+  "name": "Opening claim and brand credentials",
+  "role": "hook",
+  "proof": "unset",
+  "mechanic": [
+   "text_morph",
+   "stagger",
+   "typewriter"
+  ],
+  "swap_slot": [
+   "logo",
+   "text"
+  ],
+  "position": "opener",
+  "x_url": "https://x.com/fomo/status/2091608389956637054",
+  "author_handle": "@fomo",
+  "x_author_name": "fomo",
+  "x_avatar": "avatars/fomo.jpg",
+  "x_followers": 159843,
+  "x_views": 81241,
+  "x_likes": 586,
+  "duration_s": 4.08,
+  "film_title": "Limit Close In One Drag",
+  "why": "Buys reading attention with zero transition cost \u2014 the viewer parses a headline being assembled word by word and treats each landing as a stated fact, not an effect.",
+  "clip": "M921/clip.mp4",
+  "still": "M921/still.jpg"
+ },
+ {
+  "id": "M925",
+  "name": "Files organize themselves and hand off to the next scene",
+  "role": "hook",
+  "proof": "unset",
+  "mechanic": [
+   "layout_motion",
+   "stagger",
+   "line_drawing"
+  ],
+  "swap_slot": [
+   "footage",
+   "text"
+  ],
+  "position": "opener",
+  "x_url": "https://x.com/thednyx/status/2088144255311081528",
+  "author_handle": "@thednyx",
+  "x_author_name": "dnyxstudios",
+  "x_avatar": "avatars/thednyx.jpg",
+  "x_followers": 2441,
+  "x_views": 9679,
+  "x_likes": 446,
+  "duration_s": 3.53,
+  "film_title": "Health Data, Finally Making Sense",
+  "why": "Buys the belief that scattered personal material is already organized somewhere \u2014 each new row is a promise kept by the folders rearranging, so the viewer accepts a taxonomy without being told one.",
+  "clip": "M925/clip.mp4",
+  "still": "M925/still.jpg"
+ },
+ {
+  "id": "M913",
+  "name": "Agent completes its checklist and reveals the editor",
+  "role": "proof",
+  "proof": "demo",
+  "mechanic": [
+   "ui_transition",
+   "stagger",
+   "camera_push"
+  ],
+  "swap_slot": [
+   "list",
+   "screen_recording",
+   "text"
+  ],
+  "position": "floating",
+  "x_url": "https://x.com/OpusClip/status/2086850403715674284",
+  "author_handle": "@OpusClip",
+  "x_author_name": "OpusClip",
+  "x_avatar": "avatars/OpusClip.jpg",
+  "x_followers": 13241,
+  "x_views": 1080646,
+  "x_likes": 486,
+  "duration_s": 5.5,
+  "film_title": "Typed One Sentence, Got An Edit",
+  "why": "Buys perceived labor: the viewer watches the machine visibly do work in named, checkable steps, which converts an instant result into something earned and trustworthy.",
+  "clip": "M913/clip.mp4",
+  "still": "M913/still.jpg"
+ },
+ {
+  "id": "M914",
+  "name": "Capability statement to a typed request",
+  "role": "proof",
+  "proof": "output",
+  "mechanic": [
+   "text_morph",
+   "stagger",
+   "camera_push"
+  ],
+  "swap_slot": [
+   "screen_recording",
+   "text"
+  ],
+  "position": "floating",
+  "x_url": "https://x.com/OpusClip/status/2086850403715674284",
+  "author_handle": "@OpusClip",
+  "x_author_name": "OpusClip",
+  "x_avatar": "avatars/OpusClip.jpg",
+  "x_followers": 13241,
+  "x_views": 1080646,
+  "x_likes": 486,
+  "duration_s": 4.7,
+  "film_title": "Typed One Sentence, Got An Edit",
+  "why": "Buys the thesis restatement between demo blocks: a graphics-only breath that reframes what was just demonstrated and sets the mechanism for the next block.",
+  "clip": "M914/clip.mp4",
+  "still": "M914/still.jpg"
+ },
+ {
+  "id": "M916",
+  "name": "Turn on the product mode and meet the agent",
+  "role": "turn",
+  "proof": "unset",
+  "mechanic": [
+   "ui_transition",
+   "camera_push",
+   "mask_reveal"
+  ],
+  "swap_slot": [
+   "logo",
+   "screenshot",
+   "text"
+  ],
+  "position": "floating",
+  "x_url": "https://x.com/arcads_ai/status/2084611105528115415",
+  "author_handle": "@arcads_ai",
+  "x_author_name": "arcads AI",
+  "x_avatar": "avatars/arcads_ai.jpg",
+  "x_followers": 12035,
+  "x_views": 650619,
+  "x_likes": 1238,
+  "duration_s": 4.8,
+  "film_title": "AI Marketer Runs Your Ads",
+  "why": "Viewer reads \"this happens inside a real product, and one specific mode is being turned on\" \u2014 the light\u2192dark flip buys the tonal shift from ordinary tool to the AI agent story without a word of copy.",
+  "clip": "M916/clip.mp4",
+  "still": "M916/still.jpg"
+ },
+ {
+  "id": "M926",
+  "name": "A question transforms into the product answer",
+  "role": "turn",
+  "proof": "unset",
+  "mechanic": [
+   "mask_reveal",
+   "layout_motion",
+   "stagger"
+  ],
+  "swap_slot": [
+   "footage",
+   "text"
+  ],
+  "position": "floating",
+  "x_url": "https://x.com/thednyx/status/2088144255311081528",
+  "author_handle": "@thednyx",
+  "x_author_name": "dnyxstudios",
+  "x_avatar": "avatars/thednyx.jpg",
+  "x_followers": 2441,
+  "x_views": 9679,
+  "x_likes": 446,
+  "duration_s": 4.28,
+  "film_title": "Health Data, Finally Making Sense",
+  "why": "Buys the viewer's own self-audit \u2014 the split question with the material piled in the middle makes them answer before the product is named, and the card flipping away spends that answer as the setup for the reveal.",
+  "clip": "M926/clip.mp4",
+  "still": "M926/still.jpg"
+ },
+ {
+  "id": "M920",
+  "name": "Closing offer and agent sign-off",
+  "role": "cta",
+  "proof": "unset",
+  "mechanic": [
+   "typewriter",
+   "text_morph",
+   "stagger"
+  ],
+  "swap_slot": [
+   "logo",
+   "text"
+  ],
+  "position": "closer",
+  "x_url": "https://x.com/arcads_ai/status/2084611105528115415",
+  "author_handle": "@arcads_ai",
+  "x_author_name": "arcads AI",
+  "x_avatar": "avatars/arcads_ai.jpg",
+  "x_followers": 12035,
+  "x_views": 650619,
+  "x_likes": 1238,
+  "duration_s": 5.38,
+  "film_title": "AI Marketer Runs Your Ads",
+  "why": "Viewer takes the offer as a sentence they can finish themselves \u2014 the swap makes the second half feel earned rather than tacked on, and the two italics mark exactly what to remember.",
+  "clip": "M920/clip.mp4",
+  "still": "M920/still.jpg"
+ },
+ {
+  "id": "M929",
+  "name": "Closing claim resolves into a symbol and wordmark",
+  "role": "cta",
+  "proof": "unset",
+  "mechanic": [
+   "mask_reveal",
+   "stagger",
+   "text_morph"
+  ],
+  "swap_slot": [
+   "logo",
+   "text"
+  ],
+  "position": "closer",
+  "x_url": "https://x.com/thednyx/status/2088144255311081528",
+  "author_handle": "@thednyx",
+  "x_author_name": "dnyxstudios",
+  "x_avatar": "avatars/thednyx.jpg",
+  "x_followers": 2441,
+  "x_views": 9679,
+  "x_likes": 446,
+  "duration_s": 5.44,
+  "film_title": "Health Data, Finally Making Sense",
+  "why": "Buys the closing claim twice \u2014 the viewer first reads the ingredient list one word at a time, then watches it collapse and reform into the benefit, so the second line is earned by the first rather than stated.",
+  "clip": "M929/clip.mp4",
+  "still": "M929/still.jpg"
+ },
+ {
+  "id": "M975",
+  "name": "Headline about redefining asset management scrambles into code and collapses into a giant AI",
+  "role": "hook",
+  "mechanic": [
+   "kinetic_type",
+   "glyph_scramble",
+   "hard_cut",
+   "scale_pulse"
+  ],
+  "swap_slot": [],
+  "position": "floating",
+  "why": "Breaking a corporate sentence into binary and resolving it to 'AI' grabs attention and states the premise in five seconds.",
+  "duration_s": 5.6,
+  "film_title": "Best AI SaaS Product Launch Video | BIASafe AI",
+  "clip": "M975/clip.mp4",
+  "still": "M975/still.jpg",
+  "source_url": "https://www.youtube.com/watch?v=GrtumcQkzsk",
+  "author_handle": "@OBiNStudio",
+  "author_name": "ObiN Studio",
+  "added": "2026-10-08"
+ },
+ {
+  "id": "A01",
+  "name": "Founder take",
+  "role": "a-roll",
+  "format_skill": "founder-take",
+  "mechanic": [],
+  "swap_slot": [
+   "video"
+  ],
+  "position": "floating",
+  "why": "Founder hot take: hook title, thesis punches, photo cards, stat",
+  "on_page": "yes",
+  "clip": "A01/clip.mp4",
+  "still": "A01/still.jpg"
+ },
+ {
+  "id": "M900",
+  "name": "Row without a still is skipped",
+  "role": "hook",
+  "clip": "M900/clip.mp4"
+ },
+ {
+  "id": "M901",
+  "name": "Hidden row",
+  "role": "proof",
+  "clip": "M901/clip.mp4",
+  "still": "M901/still.jpg",
+  "on_page": "no (real face)"
+ },
+ {
+  "id": "M902",
+  "name": "Unknown role is skipped",
+  "role": "setup",
+  "clip": "M902/clip.mp4",
+  "still": "M902/still.jpg"
+ },
+ {
+  "id": "M903",
+  "name": "Uncredited row with odd fields",
+  "role": "turn",
+  "clip": "M903/clip.mp4",
+  "still": "M903/still.jpg",
+  "mechanic": "not-a-list",
+  "future_field": {
+   "a": 1
+  },
+  "added": "2026-10-09"
+ }
+]

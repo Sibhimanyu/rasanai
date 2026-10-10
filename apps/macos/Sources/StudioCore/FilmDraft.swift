@@ -61,6 +61,13 @@ public enum ModelPlan: String, CaseIterable, Codable, Identifiable, Sendable {
     }
 }
 
+/// One reference moment picked from the Get inspired gallery: the manifest id and the story role it plays in this film.
+public struct FilmMoment: Codable, Equatable, Hashable, Sendable {
+    public var id: String
+    public var role: String
+    public init(id: String, role: String) { self.id = id; self.role = role }
+}
+
 public struct FilmDraft: Codable, Equatable, Sendable {
     public static let motionLevels = ["maximal", "balanced", "minimal"]
     public static let videoExtensions: Set<String> = ["mp4", "mov", "m4v", "webm", "mkv", "avi", "mts"]
@@ -74,10 +81,12 @@ public struct FilmDraft: Codable, Equatable, Sendable {
     public var modelPlan: ModelPlan
     /// How fast the director works (research budget and build plan). New films start Fast; drafts saved before this existed read as Standard.
     public var pace: FilmPace
+    /// Reference moments picked in Get inspired (at most one per role). Empty for most films.
+    public var moments: [FilmMoment] = []
     public init(brief: String = "", duration: Int = 45, aspect: String = "16:9", agent: String = "claude", motionLevel: String = "maximal", brand: String? = nil, modelPlan: ModelPlan = .recommended, pace: FilmPace = .defaultForNewFilms) {
         self.brief = brief; self.duration = duration; self.aspect = aspect; self.agent = agent; self.motionLevel = motionLevel; self.brand = brand; self.modelPlan = modelPlan; self.pace = pace
     }
-    private enum CodingKeys: String, CodingKey { case brief, duration, aspect, agent, motionLevel, brand, modelPlan, pace }
+    private enum CodingKeys: String, CodingKey { case brief, duration, aspect, agent, motionLevel, brand, modelPlan, pace, moments }
     private enum LegacyKeys: String, CodingKey { case researchDepth }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -87,6 +96,7 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         agent = try c.decode(String.self, forKey: .agent)
         motionLevel = try c.decodeIfPresent(String.self, forKey: .motionLevel) ?? "maximal"
         brand = try c.decodeIfPresent(String.self, forKey: .brand)
+        moments = (try? c.decodeIfPresent([FilmMoment].self, forKey: .moments)) ?? []
         modelPlan = (try? c.decodeIfPresent(ModelPlan.self, forKey: .modelPlan)) ?? .recommended
         // The first version of this setting was "researchDepth" (quick, standard, deep).
         let old = try decoder.container(keyedBy: LegacyKeys.self)
