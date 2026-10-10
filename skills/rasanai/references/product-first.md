@@ -34,6 +34,10 @@ For a named brand, the look is the brand's own film grammar (`references/brand-f
 
 When the brief names a brand (`brand_name` / `use_brand` true) or the product is a known brand, a brand step ALWAYS runs: the brand researcher builds `research/brand/DESIGN.md` from official sources (type, colours, UI language, logo usage, motion), the Director reads it (`brand.mjs read`), pushes it to the console as `brand`, and sets `brand` in decisions. All three looks (Sure, Bold, Wild) then stay inside the brand: its type, colours and UI; they vary composition, motion and density, never the palette or the type system. An off-brand look is never recommended, never even shown (`design.mjs look-payload` refuses it). The gate: `design.mjs check-system` / `check-systems` apply the brand lock to every system when the run has a brand.
 
+### Logos are files
+
+The logo on screen is the file the brand researcher downloaded (`research/brand/assets/logos.json`), copied unchanged into the project and placed as an image, with the brand's clear space and the right colour version. Nothing drawn, traced, approximated or generated stands in for it: no shapes, glyphs or emoji. When no official file could be downloaded (`none: true`), the end card uses the brand name in the brand font and no symbol, and the Director tells the user once. `slop.mjs` (rule `logo-not-the-file`) fails the film otherwise.
+
 ## The recommender
 
 For these routes the recommendation is **the clearest product story**, not the most ambitious. The script editor and the Director must state `first_watch`: why a first-time viewer gets this film in one watch with no explanation (what they see by 3 s, what they understand by 10 s, what they do after). Prefer, in this order: shows the real product soonest; shows the key feature most plainly; reads without sound; tone matches the brief's words. Ambition is a tiebreaker only.

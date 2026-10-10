@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // The anti-slop gate: checks a built film for the tells viewers read as generic AI video, before the render
 // question (next to obey.mjs, which checks the motion contract). Evidence: /references/craft.md "Anti-slop".
-//   node slop.mjs --project videos/<name> [--scenes <scenes.json>] [--video <render.mp4>] [--style <preset id>] [--json]
+//   node slop.mjs --project videos/<name> [--scenes <scenes.json>] [--video <render.mp4>] [--style <preset id>] [--run <run>] [--json]
+// With a brand (the run's research/brand/assets/, found from --run, from "<run>/frames", or from the project's
+// assets/brand/) it also checks every logo on screen is the downloaded file (rule "logo-not-the-file").
 // Reads the project's compositions (HTML/CSS/JS), its scenes/storyboard timing, its audio plan and, when given,
 // the rendered video. Exit 0 = clean or warnings only; 2 = problems to fix (each with a fix); 1 = could not run.
 import fs from "node:fs";
@@ -9,6 +11,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { parseArgs, die } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
+import { readLogos, scanLogos } from "./lib/logos.mjs";
 
 const args = parseArgs();
 track("Checking for generic AI-video tells", "Slop check done");
@@ -42,6 +45,22 @@ for (const { f, t } of visible) {
   if (/!{1,}/.test(t) && t.length < 80) add("hype-punctuation", "warn", `${f}: "${t.slice(0, 70)}"`, "Exclamation marks in on-screen copy read as hype.", "Let the statement land without it.");
 }
 if (visible.length && /^introducing\b/i.test(visible[0].t)) add("introducing-opener", "warn", `${visible[0].f}`, "Opening on \"Introducing…\" is the default launch opener.", "Open on the hook: the outcome, the tension or the product doing its thing.");
+
+// ---- 1b. logos: every logo on screen is the file researched from the brand's own site ----
+{
+  const cands = [args.run && args.run !== true ? path.join(path.resolve(String(args.run)), "research", "brand", "assets") : null, path.basename(dir) === "frames" ? path.join(path.dirname(dir), "research", "brand", "assets") : null, path.join(dir, "assets", "brand")].filter(Boolean);
+  const adir = cands.find((c) => fs.existsSync(path.join(c, "logos.json")));
+  if (adir) {
+    const logos = readLogos(adir);
+    if (logos.problems.length) add("logo-not-the-file", "error", "research/brand/assets/logos.json", logos.problems[0], "Fix the brand assets first (crew.mjs check --role brand-researcher), then re-run.");
+    else {
+      const cssText = Object.entries(src).map(([f, t]) => (f.endsWith(".css") ? t : [...t.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map((x) => x[1]).join("\n"))).join("\n");
+      for (const f of scanLogos({ project: dir, sources: src, logos, cssText })) {
+        add("logo-not-the-file", f.warn ? "warn" : "error", f.where, f.why, logos.none ? "No official logo exists for this brand: show the brand name in the brand font and no symbol. Never draw, trace or approximate a logo." : "Place the downloaded file (copy research/brand/assets/<file> into the project's assets/brand/ unchanged) with an <img>, and delete the drawn lookalike. Keep clear space and the colour version DESIGN.md names.");
+      }
+    }
+  }
+}
 
 // ---- 2. look ----
 const glow = (allCode.match(/text-shadow\s*:[^;"}]*?\b0\s+0\s+(\d+)px[^;"}]*/gi) || []).filter((m) => Number((m.match(/0\s+0\s+(\d+)px/) || [])[1]) >= 8);

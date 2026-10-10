@@ -769,6 +769,76 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   ok("anti-slop: generic copy, \"not X, it's Y\", neon glow, AI gradient, corner labels, idle loops, everything fading up, unreadable text, no end hold and a looping bed are caught (exit 2)", rb.status === 2 && ["generic-copy", "not-x-its-y", "neon-glow-text", "ai-gradient", "corner-labels", "idle-breathing", "uniform-entrances", "unreadable", "no-end-hold", "music-loop"].every((r) => rules.has(r)), [...rules].join(", ") + rb.stderr);
   ok("anti-slop: a clean project passes", rg.status === 0, rg.stdout.slice(0, 300));
 }
+// 12b. logos are real files: the brand researcher's check needs a downloaded, valid file listed in logos.json (or a "none" with why);
+//      the slop check fails a drawn lookalike, passes the asset, and passes the name in type when there is no logo
+{
+  const d = path.join(TMP, "logos");
+  const run = path.join(d, "run"), res = path.join(run, "research", "brand"), assets = path.join(res, "assets");
+  fs.mkdirSync(assets, { recursive: true });
+  fs.writeFileSync(path.join(res, "DESIGN.md"), `---\nname: Tally\ncolors:\n  canvas: "#FFFFFF"   # page (source: tally.example/css)\n  ink: "#0D0D0D"      # text\n  accent: "#2F5BFF"   # brand\ntypography:\n  display: { fontFamily: "Bricolage Grotesque", fontWeight: 600 }\n  body: { fontFamily: "Inter", fontWeight: 400 }\n---\n## Logo\nA blossom mark in ink, centred, alone on the canvas.\n## Motion\nUI 150 to 250 ms.\n`);
+  fs.writeFileSync(path.join(run, "research", "brand.md"), "# Tally brand\nColours from https://tally.example/app.css and https://tally.example/brand .\n");
+  const chk = () => node("crew.mjs", ["check", "--run", run, "--role", "brand-researcher"], { cwd: d });
+  let r = chk();
+  ok("logos: a logo described only in prose (no assets, no logos.json) fails the brand researcher's check", r.status === 2 && /logos\.json is missing/.test(r.stdout), r.stdout.slice(0, 300));
+  const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 10 C70 10 90 30 90 50 C90 70 70 90 50 90 C30 90 10 70 10 50 C10 30 30 10 50 10Z"/><path d="M30 50 L70 50"/></svg>`;
+  fs.writeFileSync(path.join(assets, "mark.svg"), SVG);
+  r = chk();
+  ok("logos: a file on disk that logos.json doesn't list still fails", r.status === 2 && /logos\.json is missing/.test(r.stdout));
+  fs.writeFileSync(path.join(assets, "logos.json"), JSON.stringify([{ file: "mark.svg", kind: "mark", source_url: "https://tally.example/logo.svg" }]));
+  r = chk();
+  ok("logos: a valid SVG listed in logos.json with its source passes", r.status === 0, r.stdout.slice(0, 300));
+  fs.writeFileSync(path.join(assets, "mark.svg"), "<svg><g></svg>");
+  r = chk();
+  ok("logos: an SVG that does not parse fails", r.status === 2 && /not a valid SVG/.test(r.stdout), r.stdout.slice(0, 300));
+  const png = (n) => { const b = Buffer.alloc(33); Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(b); b.writeUInt32BE(13, 8); b.write("IHDR", 12); b.writeUInt32BE(n, 16); b.writeUInt32BE(n, 20); return b; };
+  fs.rmSync(path.join(assets, "mark.svg"));
+  fs.writeFileSync(path.join(assets, "mark.png"), png(256));
+  fs.writeFileSync(path.join(assets, "logos.json"), JSON.stringify([{ file: "mark.png", kind: "mark", source_url: "https://tally.example/icon.png" }]));
+  r = chk();
+  ok("logos: a PNG under 512 px fails", r.status === 2 && /512/.test(r.stdout), r.stdout.slice(0, 300));
+  fs.writeFileSync(path.join(assets, "mark.png"), png(600));
+  r = chk();
+  ok("logos: a PNG of 600 px passes", r.status === 0, r.stdout.slice(0, 300));
+  fs.writeFileSync(path.join(assets, "mark.png"), Buffer.from("not a png at all, just text"));
+  ok("logos: a file that is not a PNG fails", chk().status === 2);
+  fs.rmSync(path.join(assets, "mark.png"));
+  fs.writeFileSync(path.join(assets, "logos.json"), JSON.stringify({ none: true, why: "searched the header, favicon and press page: only a raster favicon of 32 px", searched: ["https://tally.example", "https://tally.example/press"] }));
+  r = chk();
+  ok("logos: none with why and the URLs searched passes (with a warning)", r.status === 0 && /no official logo file/.test(r.stdout), r.stdout.slice(0, 300));
+  fs.writeFileSync(path.join(assets, "logos.json"), JSON.stringify({ none: true }));
+  ok("logos: none without why or searched URLs fails", chk().status === 2);
+
+  // the scan: a built composition next to the researched files
+  const mkProj = (name, html, logosJson, files = {}) => {
+    const p = path.join(d, name);
+    fs.mkdirSync(path.join(p, "compositions"), { recursive: true });
+    fs.mkdirSync(path.join(p, "assets", "brand"), { recursive: true });
+    fs.writeFileSync(path.join(p, "compositions", "end.html"), html);
+    fs.writeFileSync(path.join(p, "assets", "brand", "logos.json"), JSON.stringify(logosJson));
+    for (const [f, c] of Object.entries(files)) fs.writeFileSync(path.join(p, "assets", "brand", f), c);
+    return p;
+  };
+  const slop = (p) => { const r = node("slop.mjs", ["--project", p, "--json"]); let j = { findings: [] }; try { j = JSON.parse(r.stdout); } catch {} return { r, logo: j.findings.filter((f) => f.rule === "logo-not-the-file") }; };
+  const listed = [{ file: "mark.svg", kind: "mark", source_url: "https://tally.example/logo.svg" }];
+  const circles = `<div class="end-card"><div class="brand-mark" id="blossom"><div style="width:40px;height:40px;border-radius:50%"></div><div style="width:40px;height:40px;border-radius:50%"></div></div><h1>Tally</h1></div>`;
+  let s = slop(mkProj("logo-drawn", circles, listed, { "mark.svg": SVG }));
+  ok("logos: a six-circle \"logo\" fails the slop check and names the element", s.r.status === 2 && s.logo.some((f) => f.severity === "error" && /brand-mark/.test(f.where)), JSON.stringify(s.logo));
+  s = slop(mkProj("logo-svgdrawn", `<div class="end-card"><svg class="logo" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2"/><circle cx="2" cy="2" r="2"/></svg></div>`, listed, { "mark.svg": SVG }));
+  ok("logos: an inline <svg> logo whose paths are not the asset's fails", s.logo.some((f) => f.severity === "error"), JSON.stringify(s.logo));
+  s = slop(mkProj("logo-glyph", `<div class="end-card"><div class="logo">✿</div><h1>Tally</h1></div>`, listed, { "mark.svg": SVG }));
+  ok("logos: a unicode glyph standing in for the logo fails", s.logo.some((f) => f.severity === "error" && /glyph/.test(f.why)), JSON.stringify(s.logo));
+  s = slop(mkProj("logo-good", `<div class="end-card"><img class="brand-mark" alt="Tally logo" src="../assets/brand/mark.svg"><h1>Tally</h1><div class="dot" style="border-radius:50%"></div></div>`, listed, { "mark.svg": SVG }));
+  ok("logos: the asset <img> passes, and an unlabelled decorative circle is left alone", !s.logo.length, JSON.stringify(s.logo));
+  s = slop(mkProj("logo-inline", `<div class="end-card"><svg class="logo" viewBox="0 0 100 100"><path d="M50 10 C70 10 90 30 90 50 C90 70 70 90 50 90 C30 90 10 70 10 50 C10 30 30 10 50 10Z"/><path d="M30 50 L70 50"/></svg></div>`, listed, { "mark.svg": SVG }));
+  ok("logos: an inline <svg> with the asset's own path data passes", !s.logo.length, JSON.stringify(s.logo));
+  s = slop(mkProj("logo-redrawn-file", `<div class="end-card"><img class="logo" src="../assets/brand/mark2.svg"></div>`, listed, { "mark.svg": SVG, "mark2.svg": SVG.replace("M30 50", "M31 50") }));
+  ok("logos: an <img> of a different file (not the same bytes) fails", s.logo.some((f) => f.severity === "error" && /not the downloaded file/.test(f.why)), JSON.stringify(s.logo));
+  const none = { none: true, why: "searched the header, favicon and press page: nothing official", searched: ["https://tally.example", "https://tally.example/press"] };
+  s = slop(mkProj("logo-none-type", `<div class="end-card"><div class="wordmark" style="font-family:'Bricolage Grotesque'">Tally</div></div>`, none));
+  ok("logos: with none, the name set in type passes", !s.logo.length && s.r.status === 0, JSON.stringify(s.logo));
+  s = slop(mkProj("logo-none-drawn", circles, none));
+  ok("logos: with none, a drawn symbol still fails", s.logo.some((f) => f.severity === "error"), JSON.stringify(s.logo));
+}
 // 13. sound: a 120 BPM track with a real ending is read right, fitted without a loop, rendered to -14 LUFS;
 //     a too-short track says needs_longer; a looped bed is caught; SFX obey causality and the budget
 {
