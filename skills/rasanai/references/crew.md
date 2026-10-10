@@ -4,7 +4,7 @@ A film is too much work, and too many kinds of work, for one context. Researchin
 
 The roles exist where one of three things is true, and nowhere else:
 
-1. **The work is parallel.** Research tracks, the three scripts, key frames, scenes: independent pieces done at the same time.
+1. **The work is parallel.** Research tracks, the three scripts, key frames, the scenes of a long film: independent pieces done at the same time. Animation is parallel only when the film is long: a short film (45 s or less, or a single-feature launch) is built by ONE film builder, because its beats are not independent (objects carry across the cuts).
 2. **The work needs a whole context.** Reading a product's site, help center and code; writing one script well; animating one scene with its full technique recipes. Done inline, each would crowd out everything the Director needs to remember.
 3. **The work needs independence.** Critics and the script editor have no stake in what they judge and no memory of how it was made.
 
@@ -29,7 +29,8 @@ Everything deterministic stays a script (`story.mjs check`, `sound.mjs fit`, `ob
 | | `script-editor`: the hostile reader; line edits, verdicts, a recommendation | Story | 1 | session |
 | Motion | `motion-director`: the score (spine, motif, energy, the depth plan, every shot in 2D or 3D, every seam), then the seam pass | Animatic, then Build | 1, twice | session |
 | Art | `frame-designer`: the key frames, from the score, in the look, with the real product | Animatic | 1 per 2 scenes (5 at most) | session |
-| Animation | `scene-animator`: one scene (2D, 3D or hybrid), built toward its key frame, its seams exact, its motion seen and fixed | Build | 1 per scene | session |
+| Animation | `film-builder`: the whole film in one pass (root, every beat, every carrier), from the plan; on a long film (key `lead`) the root and the carriers only | Build | 1 | session |
+| | `scene-animator`: one scene of a long film (2D, 3D or hybrid), built around the lead's carriers, its seams moving, its motion seen and fixed | Build (long films only) | 1 per scene | session |
 | Review | `critic`: lenses `frames`, `motion`, `film`, `grounding`; default reject | Animatic, Build, Final | 1 per lens and round | session |
 
 Model column: see `models.md` (the prompt each member gets adapts to the model that runs it; `crew.mjs plan --model <id>`). The design desk is described in `design-desk.md`. "Session" means the Director's own model: creative and judging work is never downgraded. "Fast is fine" means a faster model may run it when the harness lets you choose (in Claude Code: `model: "sonnet"` on the Agent call).
@@ -48,9 +49,13 @@ Style gate ── after the key frames and after the first draft: brandfilm.mjs 
 Look ─── Director art-directs from the briefing (brand verdict, house grammar) → push look
 Look (a song) ─ none: the chosen treatment's style bible is the look (DIRECTION.md); frame.md is the nearest preset
 Animatic ─ scenes (treatment.mjs scenes for a song: one per plate, the real track untouched) + music fit → Motion Director (score) → frame designers in parallel → frames critic → push animatic
-Build ── video.mjs write → crew.mjs storyboard (score → STORYBOARD.md) → frame-packets + inject
-         → scene animators in parallel → assemble → Motion Director (seam pass) → motion + grounding critics
-         → fixes routed to each scene's animator (2 rounds at most) → draft render → film critic
+Build ── video.mjs write → crew.mjs storyboard (the plan → STORYBOARD.md, BUILD.md) → frame-packets + inject
+   direct (≤ 45 s, single-feature launch):
+         → ONE film builder (root, every beat, every carrier) → assemble + video.mjs carriers → motion-gate.mjs (code)
+         → draft render → motion-gate.mjs (frames) → motion + grounding critics → fixes back to the builder (2 rounds at most)
+   long (> 45 s, or --deep):
+         → lead builder (root + carriers) → scene animators in parallel → assemble + video.mjs carriers → Motion Director (seam pass)
+         → draft render → motion-gate.mjs → motion + grounding critics → fixes routed to each scene's animator → film critic
 Final ── push render with the critics' scores; findings left over are fix-or-waive
 ```
 
