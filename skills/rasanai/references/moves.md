@@ -42,7 +42,7 @@ Then run the seven SCAMPER verbs once over each atom (Substitute, Combine, Adapt
 
 **Step 4. Bridge search.** Lay the beats in order. For each adjacent pair look for any shared row from step 3: shared silhouette (`silhouette`), shared part (`part`), shared verb (`verb`), shared pun (`pun`), shared colour (`colour`), shared screen position (`position`), shared motion vector (`vector`), a shared real UI element (`ui`). Write one `bridges` entry per boundary: `{from, to, shared, what}`. Rank by surprise times legibility: a shared silhouette is cheapest, a pun is richest, a shared vector is the most invisible. A boundary with no bridge is a hole; find one or change the story's hand-off.
 
-**Step 5. Choose one carrier.** The object or shape that appears in the most bridges becomes the protagonist (`carrier: {what, why, beats}`). It must be in at least half of the beats. Two competing carriers: merge them or demote one to background. At most one secondary carrier for contrast. A film has one carrier for the main chain.
+**Step 5. Choose one carrier.** The object or shape that appears in the most bridges becomes the protagonist (`carrier: {what, short, why, beats}`; `short` is the carrier in 8 plain words at most, such as "the logo's play triangle": the person choosing the story reads it, and it is an error when missing or longer). It must be in at least half of the beats. Two competing carriers: merge them or demote one to background. At most one secondary carrier for contrast. A film has one carrier for the main chain.
 
 **Step 6. Ban the obvious three.** Write the 3 most obvious moves for this film, as titles (`obvious`). They are banned: no card may have the same title or origin, or be a variation of them. These are the ones a generic storyboard would give (a match cut from the phone to the next screen; the logo assembling at the end). Also read `banned` in your pack.
 
@@ -69,6 +69,7 @@ You return one file, `story/moves-<L>.json` (the schema is in `agents/move-inven
   "generator": "G1",                                  // the question that produced it
   "origin": "the 'o' in 'Your' (beat 2 on_screen)",    // the exact atom it is built from
   "frame_a": "the white word 'Your', 'o' the same ink as the rest, centre-left",
+  "plain": "The o fills orange and becomes an eye that flies off the page.",   // one plain sentence for the person choosing the story: 120 characters at most, no numbers, timings, coordinates or jargon. Required on a hero (error), warned on the rest
   "move": "0.0 to 0.5 the o fills orange, 0.5 to 1.0 a black pupil grows from its centre, 1.0 to 1.4 the eye is thrown up-right with motion blur, anticipation 0.2 s down first",
   "frame_b": "a small orange eye in flight, pupil leading, 25 percent of the frame width",
   "bridge": "the frame where the small pupil's edge touches the giant pupil's rim as the giant eye rises: both eyes are one eye",

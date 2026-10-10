@@ -24,7 +24,7 @@
 //        -> {ok, errors, warnings, duration}: rough.html, rough.mp4, strip.png and poster.png exist, the mp4 runs 1.5 to 4.5 s,
 //           and its frames differ (not blank, not still); exit 0 / 2.
 //   node moves.mjs payload --run <run> --stories <run>/story/stories.json
-//        -> prints the stories array with carrier (string) and moves[] (up to 3: {id, title, move, says, beat, video, strip, poster})
+//        -> prints the stories array with carrier (string, the short plain form) and moves[] (up to 3: {id, title, move (the plain line), says, beat, video, strip, poster})
 //           added per story, from moves-<label>.json, the verdict's ranking and the roughs (a move with a rough comes first;
 //           media paths are relative to the working directory, like the other console payload media; a missing file's key is omitted).
 //   node moves.mjs choose --run <run> --label <label>
@@ -242,6 +242,12 @@ if (cmd === "pack") {
     const t = String(s || "").replace(/\s+/g, " ").trim();
     return t.length > 140 ? t.slice(0, 137).trimEnd() + "..." : t;
   };
+  const carrierShort = (c) => {
+    if (!c || typeof c !== "object") return str(c);
+    if (str(c.short)) return str(c.short);
+    const cut = str(c.what).split(/[,:;(]| from | carried | that /)[0].trim().split(/\s+/).filter(Boolean);
+    return cut.slice(0, 10).join(" ");
+  };
   const result = stories.map((s) => {
     const label = MOVE_LABELS.find((l) => l.toLowerCase() === String((s && (s.angle || s.label)) || "").toLowerCase());
     const mv = label && jsonMaybe(movesFile(run, label));
@@ -253,13 +259,15 @@ if (cmd === "pack") {
       for (const [k, n] of [["video", "rough.mp4"], ["strip", "strip.png"], ["poster", "poster.png"]]) if (exists(path.join(d, n))) o[k] = cwdRel(path.join(d, n));
       return o;
     };
+    const shorten = (t, n) => { const w = String(t || "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean); return w.length > n ? w.slice(0, n).join(" ") + "..." : w.join(" "); };
+    const plainOf = (c) => oneLine(str(c.plain) || str(c.says) || shorten(str(c.move).replace(/[+-]?\d+(?:\.\d+)?\s*(?:s|ms|px|%|deg|degrees)?(?=\W|$)/gi, " ").replace(/\s+/g, " ").replace(/^\W+/, ""), 18));
     const entries = [...new Set(rankedIds(verdict, label, mv))].map((id) => cards.find((c) => c && c.id === id)).filter(Boolean).map((c) => {
       const beat = c.beat != null ? Number(c.beat) : Number((String(c.seam || "").match(/^\s*(\d+)/) || [])[1]);
-      return { id: c.id, title: str(c.title), move: oneLine(c.move), says: oneLine(c.says), ...(beat >= 1 ? { beat } : {}), ...media(c.id) };
+      return { id: c.id, title: str(c.title), move: plainOf(c), says: oneLine(c.says), ...(beat >= 1 ? { beat } : {}), ...media(c.id) };
     });
     // a move with a rough plays; those come first (the order of the ranking is kept inside each group)
     const ordered = [...entries.filter((e) => e.video), ...entries.filter((e) => !e.video)].slice(0, 3);
-    const carrier = mv.carrier && typeof mv.carrier === "object" ? str(mv.carrier.what) : str(mv.carrier);
+    const carrier = carrierShort(mv.carrier);
     return { ...s, ...(carrier ? { carrier } : {}), ...(ordered.length ? { moves: ordered } : {}) };
   });
   console.log(JSON.stringify(result, null, 2));

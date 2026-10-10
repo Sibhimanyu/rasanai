@@ -285,30 +285,63 @@ private struct StoryMoves: View {
         .accessibilityLabel("Hero moves for \(script.title)")
     }
 
-    private func tile(_ move: StoryMove, lead: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            frame(move)
-                .aspectRatio(16.0 / 9.0, contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(lead ? Color.rasan.opacity(0.45) : Color(nsColor: .separatorColor), lineWidth: lead ? 1 : 0.5) }
-                .overlay(alignment: .bottomLeading) {
-                    if let at = script.moveTime(move) {
-                        Text("at \(clockText(at))")
-                            .font(.system(size: 11, weight: .semibold, design: .rounded)).monospacedDigit().foregroundStyle(.white)
-                            .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(.black.opacity(0.55), in: Capsule())
-                            .padding(10)
-                    }
+    private func hasMedia(_ move: StoryMove) -> Bool {
+        [move.video, move.poster, move.strip].contains { model?.fileURL($0) != nil }
+    }
+
+    private func atChip(_ move: StoryMove, overMedia: Bool) -> some View {
+        Group {
+            if let at = script.moveTime(move) {
+                if overMedia {
+                    Text("at \(clockText(at))")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded)).monospacedDigit().foregroundStyle(.white)
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(.black.opacity(0.55), in: Capsule())
+                } else {
+                    Text("at \(clockText(at))")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded)).monospacedDigit().foregroundStyle(.secondary)
+                        .padding(.horizontal, 8).padding(.vertical, 2)
+                        .overlay { Capsule().strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
                 }
-            Text(move.title)
-                .font(.system(size: 15, weight: .semibold, design: .serif)).lineSpacing(2)
-                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// A move with media is a clip tile; one without is a compact text tile (no empty video frame).
+    @ViewBuilder private func tile(_ move: StoryMove, lead: Bool) -> some View {
+        let media = hasMedia(move)
+        VStack(alignment: .leading, spacing: 10) {
+            if media {
+                frame(move)
+                    .aspectRatio(16.0 / 9.0, contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(lead ? Color.rasan.opacity(0.45) : Color(nsColor: .separatorColor), lineWidth: lead ? 1 : 0.5) }
+                    .overlay(alignment: .bottomLeading) { atChip(move, overMedia: true).padding(10) }
+                Text(move.title)
+                    .font(.system(size: 15, weight: .semibold, design: .serif)).lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(move.title)
+                        .font(.system(size: 15, weight: .semibold, design: .serif)).lineSpacing(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    atChip(move, overMedia: false)
+                }
+            }
             if !move.move.isEmpty {
                 Text(move.move).font(.system(size: 12.5)).foregroundStyle(.secondary).lineSpacing(2).lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .padding(media ? 0 : 14)
+        .background {
+            if !media { RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(nsColor: .quaternaryLabelColor).opacity(0.12)) }
+        }
+        .overlay {
+            if !media { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
+        }
         .frame(maxWidth: .infinity, alignment: .topLeading)
+        .layoutPriority(media && lead ? 1 : 0)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(move.title). \(move.move)\(script.moveTime(move).map { ". At \(clockText($0))" } ?? "")")
     }

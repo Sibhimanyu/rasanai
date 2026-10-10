@@ -380,7 +380,11 @@
   .moves { margin-bottom: 22px; }
   .moves .mv-carrier { font-size: 13px; color: var(--ink-2); margin: 4px 0 12px; }
   .moves .mv-carrier span { color: var(--ink-3); }
-  .mv-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .mv-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+  .mv-row.mixed { grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(0, 1fr)); }
+  .mv.text { padding: 14px 16px; border: 1px solid var(--line-2); border-radius: 14px; background: var(--panel); }
+  .mv-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; margin-bottom: 6px; }
+  .mv-at.inline { position: static; display: inline-block; background: transparent; border: 1px solid var(--line-2); color: var(--ink-2); padding: 1px 8px; }
   .mv { margin: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .mv-frame { position: relative; aspect-ratio: 16/9; border-radius: 14px; overflow: hidden; background: var(--panel); border: 1px solid var(--line-2); }
   .mv.lead .mv-frame { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
@@ -1517,20 +1521,26 @@
         sheet.appendChild(h("div", { class: "moves" }, [
           h("div", { class: "st-label", text: "Hero moves" }),
           st.carrier ? h("div", { class: "mv-carrier" }, [h("span", { text: "Carried by: " }), String(st.carrier)]) : null,
-          h("div", { class: "mv-row" }, mvs.map(function (m, i) {
+          h("div", { class: "mv-row" + ((mvs[0].video || mvs[0].poster || mvs[0].strip) && mvs.some(function (m) { return !(m.video || m.poster || m.strip); }) ? " mixed" : "") }, mvs.map(function (m, i) {
             var beat = Number(m.beat), at = beat >= 1 && beat <= starts.length ? starts[beat - 1] : null;
             var still = m.poster || m.strip;
-            var frame = h("div", { class: "mv-frame" });
-            if (m.video) {
-              var v = h("video", { src: fsUrl(m.video), muted: true, loop: true, autoplay: true, playsinline: true, preload: "auto", tabindex: "-1", "aria-hidden": "true" });
-              v.muted = true; v.setAttribute("muted", "");
-              if (still) v.setAttribute("poster", fsUrl(still));
-              frame.appendChild(v);
-              var kick = function () { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); };
-              v.addEventListener("canplay", kick); setTimeout(kick, 0);
-            } else if (still) frame.appendChild(h("img", { src: fsUrl(still), alt: "", loading: "lazy" }));
-            if (at !== null) frame.appendChild(h("span", { class: "mv-at", text: "at " + fmt(at) }));
-            return h("figure", { class: "mv" + (i === 0 ? " lead" : "") }, [frame, h("p", { class: "mv-title", text: m.title || "Move " + (i + 1) }), m.move ? h("p", { class: "mv-line", text: m.move }) : null]);
+            var hasMedia = !!(m.video || still);
+            var chip = at !== null ? h("span", { class: hasMedia ? "mv-at" : "mv-at inline", text: "at " + fmt(at) }) : null;
+            var frame = null;
+            if (hasMedia) {
+              frame = h("div", { class: "mv-frame" });
+              if (m.video) {
+                var v = h("video", { src: fsUrl(m.video), muted: true, loop: true, autoplay: true, playsinline: true, preload: "auto", tabindex: "-1", "aria-hidden": "true" });
+                v.muted = true; v.setAttribute("muted", "");
+                if (still) v.setAttribute("poster", fsUrl(still));
+                frame.appendChild(v);
+                var kick = function () { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); };
+                v.addEventListener("canplay", kick); setTimeout(kick, 0);
+              } else frame.appendChild(h("img", { src: fsUrl(still), alt: "", loading: "lazy" }));
+              if (chip) frame.appendChild(chip);
+            }
+            var titleP = h("p", { class: "mv-title", text: m.title || "Move " + (i + 1) });
+            return h("figure", { class: "mv" + (i === 0 ? " lead" : "") + (hasMedia ? "" : " text") }, [frame, hasMedia ? titleP : h("div", { class: "mv-head" }, [titleP, chip]), m.move ? h("p", { class: "mv-line", text: m.move }) : null]);
           }))
         ]));
       }

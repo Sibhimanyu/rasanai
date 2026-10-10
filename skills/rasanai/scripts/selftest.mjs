@@ -1735,6 +1735,13 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   bad("a card that repeats an obvious idea", (o) => { o.cards[4].title = "Match cut to the next scene"; }, /banned obvious idea/);
   bad("a product-first hero whose origin is not a UI label", (o) => { o.cards[0].origin = "a spinning galaxy of light"; }, /real UI label/, ["--product-first"]);
   bad("a product-first card with a conceit word", (o) => { o.cards[4].move = "the badge is hung in a museum case and falls out of its frame"; }, /conceit word "museum"/, ["--product-first"]);
+  bad("a hero card without a plain line", (o) => { delete o.cards[0].plain; }, /hero m1: missing plain/);
+  bad("a hero plain line over 140 characters", (o) => { o.cards[0].plain = "The dot grows ".repeat(12); }, /hero m1: plain is \d+ characters/);
+  bad("a hero plain line with a timing", (o) => { o.cards[0].plain = "At 7.0 to 7.3 the dot turns into the button"; }, /hero m1: plain has a timing/);
+  bad("a hero plain line with a pixel size", (o) => { o.cards[1].plain = "The dot grows to 28 px and slides over"; }, /hero m2: plain has a timing/);
+  bad("a missing carrier.short", (o) => { delete o.carrier.short; }, /carrier\.short is missing/);
+  bad("a carrier.short over 8 words", (o) => { o.carrier.short = "the one orange status dot that travels through every single beat"; }, /carrier\.short is 11 words/);
+  ok("moves: a non-hero card without plain only warns", (() => { const o = clone(good); delete o.cards[3].plain; const r = validateMoves(o, { beats: pitch.beats }); return !r.errors.some((e) => /plain/.test(e)) && r.warnings.some((w) => /m4: no plain line/.test(w)); })());
   const dup = clone(good); dup.cards[5].generator = dup.cards[4].generator; dup.cards[5].origin = dup.cards[4].origin;
   ok("moves: two cards with the same generator and origin warn (not an error)", validateMoves(dup, { beats: pitch.beats }).warnings.some((w) => /same mechanism/.test(w)));
 
@@ -1786,7 +1793,19 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   const pl = M(["payload", "--run", run, "--stories", sf]);
   const pj = (() => { try { return JSON.parse(pl.stdout); } catch { return []; } })();
   const bold = pj.find((x) => x.id === "b") || {};
-  ok("moves: payload adds carrier and moves[] (max 3, a move with a rough first, one-line text, workspace-relative media, beat 1-based)", pl.status === 0 && pj.length === 4 && bold.carrier === "an orange dot" && bold.moves.length === 3 && bold.moves[0].id === "m1" && bold.moves[0].video === path.join(".rasanai", "r1", "story", "moves", "Bold-m1", "rough.mp4") && bold.moves[0].strip && bold.moves[0].poster && bold.moves[1].id === "m3" && !bold.moves[1].video && bold.moves[0].beat === 2 && bold.moves.every((m) => m.move.length <= 140 && !/\n/.test(m.move) && m.title && m.says) && !pj[3].moves && !pj[3].carrier, pl.stdout.slice(0, 500));
+  ok("moves: payload adds carrier and moves[] (max 3, a move with a rough first, one-line text, workspace-relative media, beat 1-based)", pl.status === 0 && pj.length === 4 && bold.carrier === "an orange status dot" && bold.moves.length === 3 && bold.moves[0].id === "m1" && bold.moves[0].video === path.join(".rasanai", "r1", "story", "moves", "Bold-m1", "rough.mp4") && bold.moves[0].strip && bold.moves[0].poster && bold.moves[1].id === "m3" && !bold.moves[1].video && bold.moves[0].beat === 2 && bold.moves.every((m) => m.move.length <= 140 && !/\n/.test(m.move) && m.title && m.says) && !pj[3].moves && !pj[3].carrier, pl.stdout.slice(0, 500));
+  {
+    // moves files written before `plain` / `carrier.short`: the payload falls back (says, then a shortened move; the carrier cut at the first comma)
+    const old = clone(good); old.label = "Bold"; delete old.carrier.short; old.carrier.what = "the turmeric play triangle from the counter of the logo, carried as cursor, play glyph and playhead";
+    old.cards.forEach((c) => delete c.plain); old.cards[0].says = ""; old.cards[0].move = "7.0 to 7.3 the pointer's tail retracts and it rotates +28 degrees back to an upright play triangle, scaling 16 px to 28 px";
+    wj(path.join(run, "story", "moves-Bold.json"), old);
+    const fb = JSON.parse(M(["payload", "--run", run, "--stories", sf]).stdout).find((x) => x.id === "b");
+    ok("moves: payload falls back without plain / carrier.short (carrier cut at the first comma, move = says, else a shortened move with no timings)", fb.carrier === "the turmeric play triangle" && fb.moves.every((m) => m.move && !/\d+(\.\d+)?\s*(to|s\b|px)/.test(m.move)) && fb.moves.some((m) => m.move === "the form becomes the problem it creates"), JSON.stringify(fb.moves.map((m) => m.move)));
+    const withPlain = clone(good); withPlain.label = "Bold"; withPlain.cards[0].plain = "A plain line for the chooser."; wj(path.join(run, "story", "moves-Bold.json"), withPlain);
+    const wp = JSON.parse(M(["payload", "--run", run, "--stories", sf]).stdout).find((x) => x.id === "b");
+    ok("moves: payload uses plain over says and move", wp.moves.some((m) => m.move === "A plain line for the chooser."));
+    wj(path.join(run, "story", "moves-Bold.json"), { ...clone(good), label: "Bold" });
+  }
   ok("moves: payload keeps the stories untouched otherwise (a story without moves is returned as is)", JSON.stringify(pj[3]) === JSON.stringify(stories[3]));
 
   // choose and record

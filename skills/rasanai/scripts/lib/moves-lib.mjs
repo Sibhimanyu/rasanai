@@ -67,6 +67,8 @@ export const isLabelOnly = (text) => contentWords(text).length < 3;
 export const CONCEIT_RE = /\b(museums?|galler(?:y|ies)|exhibit(?:s|ion|ions)?|plinths?|under glass|dioramas?|parables?|fables?|allegor\w*|cover version|invented world|a world where|time capsule|archaeolog\w*|courtroom|trial of|funeral|obituary|eulogy|haunted|safari|odyssey|kingdom|ancient ruins?|natural history)\b/i;
 
 const arr = (v) => (Array.isArray(v) ? v : []);
+// a digit followed by s / px / % / deg, or an "N to N" timing: the plain line must not carry them
+const PLAIN_TECH_RE = /\d+(?:\.\d+)?\s*(?:s|ms|px|%|deg|degrees)\b|\d+(?:\.\d+)?\s*(?:to|-)\s*\d+(?:\.\d+)?/i;
 const CARD_FIELDS = ["frame_a", "move", "frame_b", "bridge", "handoff", "says", "origin"];
 
 const sameIdea = (a, b) => {
@@ -110,6 +112,8 @@ export function validateMoves(obj, opts = {}) {
     const cb = [...new Set(arr(car.beats).map(Number).filter((n) => n >= 1 && (!N || n <= N)))];
     if (N && cb.length / N < 0.5) E(`carrier.beats covers ${cb.length} of ${N} beats (it must carry at least half the film: it is the spine)`);
     if (!str(car.why)) W("carrier.why is empty (say what the carrier means)");
+    if (!str(car.short)) E('carrier.short is missing (the carrier in at most 8 plain words, e.g. "the logo\'s play triangle")');
+    else if (str(car.short).split(/\s+/).length > 8) E(`carrier.short is ${str(car.short).split(/\s+/).length} words (8 at most)`);
   }
 
   const obvious = arr(obj.obvious).map(str).filter(Boolean);
@@ -123,6 +127,7 @@ export function validateMoves(obj, opts = {}) {
   const cards = arr(obj.cards);
   if (cards.length < 6) E(`cards: ${cards.length} (6 at least)`);
   const ids = new Set();
+  const heroSet = new Set(arr(obj.heroes).map(str));
   cards.forEach((c, i) => {
     const id = c && str(c.id) ? str(c.id) : `#${i + 1}`;
     const at = `card ${id}`;
@@ -135,6 +140,7 @@ export function validateMoves(obj, opts = {}) {
     for (const f of CARD_FIELDS) if (!str(c[f])) E(`${at}: missing ${f}`);
     if (!c.build || typeof c.build !== "object" || !str(c.build.route)) E(`${at}: missing build.route`);
     if (!c.build || !str(c.build.simplest)) E(`${at}: missing build.simplest (the simplest version that keeps the idea)`);
+    if (!str(c.plain) && !heroSet.has(str(c.id))) W(`${at}: no plain line (one plain sentence for the person choosing the story)`);
     if (str(c.move) && isLabelOnly(c.move)) E(`${at}: the move is only a label ("${str(c.move)}"): say what physically happens, to which element, in order`);
     if (str(c.bridge) && isLabelOnly(c.bridge)) E(`${at}: the bridge is only a label ("${str(c.bridge)}"): name the one frame where both states are true and the element in it`);
     if (!/^G\d{1,2}$/.test(str(c.generator))) W(`${at}: generator "${str(c.generator)}" is not G1..G20`);
@@ -163,6 +169,10 @@ export function validateMoves(obj, opts = {}) {
   for (const h of heroes) {
     const c = cards.find((x) => x && x.id === h);
     if (!c) continue;
+    const pl = str(c.plain);
+    if (!pl) E(`hero ${h}: missing plain (one plain sentence for the person choosing the story, 120 characters at most, no numbers or timings)`);
+    else if (pl.length > 140) E(`hero ${h}: plain is ${pl.length} characters (120 at most, 140 is the limit)`);
+    else if (PLAIN_TECH_RE.test(pl)) E(`hero ${h}: plain has a timing, a unit or a coordinate ("${(pl.match(PLAIN_TECH_RE) || [])[0]}"): say it in words, no numbers`);
     const d = Number(c.duration_s);
     if (!(d > 0)) W(`hero ${h}: duration_s missing (the rough is 1.5 to 4.5 s)`);
     else if (d < 1.5 || d > 4.5) W(`hero ${h}: duration_s ${d} is outside the rough's 1.5 to 4.5 s`);

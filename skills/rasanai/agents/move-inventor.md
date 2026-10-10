@@ -33,7 +33,7 @@ The bar is a clip the user showed us: the "o" of "Your" fills orange, grows a pu
   "atoms": [ { "atom": "the 'o' in 'Your'", "kind": "glyph|noun|verb|number|name|ui|brand|shape|sound", "from": "beat 2 on_screen" } ],   // 8 or more
   "mining": [ { "atom": "…", "looks_like": [], "has_parts": [], "does": [], "means": [], "opposite": [], "scale": [] } ],                  // 5 or more atoms, every axis filled
   "bridges": [ { "from": 1, "to": 2, "shared": "silhouette|part|verb|pun|colour|position|vector|ui", "what": "…" } ],                    // one per boundary
-  "carrier": { "what": "…", "why": "…", "beats": [1, 2, 3] },                                                                           // in at least half the beats
+  "carrier": { "what": "…", "short": "the logo's play triangle", "why": "…", "beats": [1, 2, 3] },                                                                           // in at least half the beats
   "obvious": ["title 1", "title 2", "title 3"],                                                                                         // exactly 3, now banned
   "candidates": [ { "title": "…", "origin": "the atom it starts from" } ],                                                               // 20 or more
   "bolder": [ { "was": "…", "now": "…", "changed": "what you changed and why it is bolder" } ],                                         // 8 or more
@@ -46,7 +46,7 @@ The bar is a clip the user showed us: the "o" of "Your" fills orange, grows a pu
 }
 ```
 
-A card has `id, title (6 words or fewer), beat, seam?, generator, origin, frame_a, move, frame_b, bridge, handoff, says, setup, precedent, build {route, layers, risk, simplest}, duration_s`. A card that names only a technique ("match cut to the next scene", "iris reveal") fails: `origin`, `move` and `bridge` must name objects, positions and seconds.
+A card has `id, title (6 words or fewer), beat, seam?, generator, origin, frame_a, move, plain, frame_b, bridge, handoff, says, setup, precedent, build {route, layers, risk, simplest}, duration_s`. A card that names only a technique ("match cut to the next scene", "iris reveal") fails: `origin`, `move` and `bridge` must name objects, positions and seconds. `plain` is the opposite register: one plain sentence for the person choosing the story (120 characters at most, no numbers, coordinates, timings or jargon; e.g. "The cursor turns upright and becomes the play button, then rides the timeline as the playhead."). It is required on the hero cards. `carrier.short` is the carrier in 8 plain words at most ("the logo's play triangle").
 
 ## How to work
 
