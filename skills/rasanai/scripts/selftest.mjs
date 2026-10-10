@@ -30,6 +30,9 @@
 //     scripts/tests/presenter.mjs (key, beats, check, plates, stills, build), each skipped with a note when absent
 // 21. the Moves pass: isLabelOnly, moves.mjs (pack, check, check-verdict, payload, choose, record, and rough/check-rough when Chrome and ffmpeg are there),
 //     the crew's moves phases and roles, the score accounting against story/moves.json; fixtures in scripts/tests/fixtures/moves/
+// 22. motion grammars: grammar.mjs (list, show, check, pick, write, the brand palette merge), the score's grammar rules (grammar-missing, technique-unknown,
+//     technique-repeat, technique-thin, frame-device-missing), the builders' briefs, and the design desk's grammar.json gate (grammar-missing, grammar-invalid,
+//     grammar-not-flat, grammar-repeat); fixtures in scripts/tests/fixtures/grammars/ (RASANAI_GRAMMAR_LIBRARY); no grammar file, no new errors
 // 17. lyric videos: the treatment gate and the crew's song route, lyrics.mjs (check, audio, align when whisper is there), the RasanMusic runtime in a page, the film finish (grade, blur)
 import fs from "node:fs";
 import os from "node:os";
@@ -39,7 +42,8 @@ import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "rasa-selftest-"));
-const env = { ...process.env, RASANAI_HOME: path.join(TMP, "home"), RASANAI_MODEL: "claude-opus-5-5" };
+// no grammar library by default (back-compat: looks and scores ask nothing of a grammar); section 22 and the design desk's grammar block point at fixtures
+const env = { ...process.env, RASANAI_HOME: path.join(TMP, "home"), RASANAI_MODEL: "claude-opus-5-5", RASANAI_GRAMMAR_LIBRARY: path.join(TMP, "no-grammars") };
 delete env.RASANAI_CONSOLE_HEADLESS; // the console cases below start a real server unless they opt in
 const quick = process.argv.includes("--quick");
 let failed = 0;
@@ -1472,7 +1476,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   // the example system
   const EX = path.join(HERE, "..", "references", "design-desk-example", "Sure");
   // a small specimen page of our own (a layout, a palette, a display face), so fixtures can differ in composition
-  const genSpec = ({ canvas, ink, accent, face, layout, text = "Every receipt, counted.", ease = "power4.out", throws = false, tl = true }) => `<!doctype html><html><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=${face.replace(/ /g, "+")}:wght@700&display=swap" rel="stylesheet"><script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script><style>*{margin:0;box-sizing:border-box}html,body{width:1600px;height:900px;overflow:hidden;background:${canvas}}#root{position:relative;width:1600px;height:900px;background:${canvas};color:${ink};font-family:"${face}",sans-serif}h1{position:absolute;font-size:120px;font-weight:700;line-height:1;${layout === "L" ? "left:80px;top:80px;width:600px" : layout === "B" ? "left:80px;bottom:60px;width:1400px" : "right:60px;top:380px;width:560px;text-align:right;font-size:70px"}}.bars i{position:absolute;background:${ink};${layout === "L" ? "right:0;top:0;bottom:0;width:560px" : layout === "B" ? "left:0;right:0;top:0;height:420px" : "left:0;top:0;bottom:0;width:700px"}}.m{position:absolute;background:${accent};width:140px;height:60px;${layout === "L" ? "left:80px;bottom:80px" : layout === "B" ? "right:80px;bottom:80px" : "left:760px;top:120px"}}</style></head><body><div id="root" data-width="1600" data-height="900"><div class="bars"><i></i></div><h1 id="h">${text}</h1><div class="m" id="m"></div></div><script>${throws ? "nope.missing();" : ""}${tl ? `var tl=gsap.timeline({paused:true});tl.from("#h",{opacity:0,duration:.4,ease:"${ease}"}).from("#m",{scaleX:0,duration:.3,ease:"${ease}"});window.__specimen={tl:tl};tl.progress(1);` : ""}</script></body></html>`;
+  const genSpec = ({ canvas, ink, accent, face, layout, text = "Every receipt, counted.", ease = "power4.out", throws = false, tl = true, dur = 0 }) => `<!doctype html><html><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=${face.replace(/ /g, "+")}:wght@700&display=swap" rel="stylesheet"><script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script><style>*{margin:0;box-sizing:border-box}html,body{width:1600px;height:900px;overflow:hidden;background:${canvas}}#root{position:relative;width:1600px;height:900px;background:${canvas};color:${ink};font-family:"${face}",sans-serif}h1{position:absolute;font-size:120px;font-weight:700;line-height:1;${layout === "L" ? "left:80px;top:80px;width:600px" : layout === "B" ? "left:80px;bottom:60px;width:1400px" : "right:60px;top:380px;width:560px;text-align:right;font-size:70px"}}.bars i{position:absolute;background:${ink};${layout === "L" ? "right:0;top:0;bottom:0;width:560px" : layout === "B" ? "left:0;right:0;top:0;height:420px" : "left:0;top:0;bottom:0;width:700px"}}.m{position:absolute;background:${accent};width:140px;height:60px;${layout === "L" ? "left:80px;bottom:80px" : layout === "B" ? "right:80px;bottom:80px" : "left:760px;top:120px"}}</style></head><body><div id="root" data-width="1600" data-height="900"><div class="bars"><i></i></div><h1 id="h">${text}</h1><div class="m" id="m"></div></div><script>${throws ? "nope.missing();" : ""}${tl ? `var tl=gsap.timeline({paused:true});tl.from("#h",{opacity:0,duration:.4,ease:"${ease}"}).from("#m",{scaleX:0,duration:.3,ease:"${ease}"})${dur ? `.to("#m",{opacity:1,duration:${dur},ease:"${ease}"})` : ""};window.__specimen={tl:tl};tl.progress(1);` : ""}</script></body></html>`;
   const copyTo = (dst, edit = {}) => {
     fs.mkdirSync(dst, { recursive: true });
     for (const f of ["DESIGN.md", "recipe.json", "blend.json", "specimen.html"]) {
@@ -1510,6 +1514,8 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   sp("a specimen flooded with the accent", { subs: [["#e9efe6", "#d4392b", "specimen.html"]] }, /accent covers/);
   sp("a specimen whose headline is not the first line", { subs: [["Every receipt,", "Hello there", "specimen.html"]] }, /does not carry the story's first line/, ["--hook", "Every receipt, counted."]);
   sp("a specimen with no timeline", { raw: { "specimen.html": genSpec({ canvas: "#e9efe6", ink: "#10231c", accent: "#d4392b", face: "Bricolage Grotesque", layout: "L", tl: false }) } }, /window\.__specimen/);
+  sp("a specimen timeline longer than 5 s", { raw: { "specimen.html": genSpec({ canvas: "#e9efe6", ink: "#10231c", accent: "#d4392b", face: "Bricolage Grotesque", layout: "L", dur: 5.5 }) } }, /5 s at most/);
+  ok("specimen gate: a 4.5 s moving sketch is accepted (the cap is 5 s)", D(["check-system", "--dir", copyTo(path.join(T, "a 4.5 s specimen"), { raw: { "specimen.html": genSpec({ canvas: "#e9efe6", ink: "#10231c", accent: "#d4392b", face: "Bricolage Grotesque", layout: "L", dur: 3.8 }) } }), "--offline"]).status === 0);
   sp("a specimen easing outside the system's motion section", { raw: { "specimen.html": genSpec({ canvas: "#e9efe6", ink: "#10231c", accent: "#d4392b", face: "Bricolage Grotesque", layout: "L", ease: "bounce.out" }) } }, /doesn't name/);
   const sj = JSON.parse(D(["check-system", "--dir", good, "--offline"]).stdout);
   ok("specimen gate: the example's specimen is rendered to specimen.png and its colour shares are reported (accent rationed, canvas leading)", fs.existsSync(path.join(good, "specimen.png")) && sj.system.specimen && sj.system.specimen.share.canvas > 0.2 && sj.system.specimen.share.accent > 0 && sj.system.specimen.share.accent < 0.08, JSON.stringify(sj.system.specimen));
@@ -1581,6 +1587,46 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
       fs.rmSync(cardDir, { recursive: true, force: true });
     }
     fs.rmSync(path.join(run, "decisions.json"), { force: true });
+  }
+  // the motion grammar gate (fixture library): each look binds ONE grammar as grammar.json; three looks, three grammars
+  {
+    const GFX = path.join(HERE, "tests", "fixtures", "grammars");
+    const GL = { ...offline, RASANAI_GRAMMAR_LIBRARY: GFX };
+    const DG = (a) => D(a, { env: GL });
+    const GM = (a) => spawnSync(process.execPath, [path.join(HERE, "grammar.mjs"), ...a], { encoding: "utf8", env: GL, cwd: ws, timeout: 60000 });
+    const run2 = path.join(ws, ".rasanai", "r2");
+    for (const l of ["Sure", "Bold", "Wild"]) fs.cpSync(path.join(run, "design", l), path.join(run2, "design", l), { recursive: true });
+    const sys = (l) => path.join(run2, "design", l);
+    const nog = DG(["check-system", "--dir", sys("Sure"), "--offline"]);
+    ok("grammar (design): with a grammar library, a look without grammar.json is refused (grammar-missing)", nog.status === 2 && /grammar-missing: design\/Sure\/grammar\.json/.test(nog.stdout), nog.stdout.slice(0, 300));
+    ok("grammar (design): with no grammar library, a look without grammar.json still passes (back-compat)", chk(sys("Sure")).status === 0);
+    const w1 = GM(["write", "--run", run2, "--id", "alpha-grid", "--label", "Sure"]);
+    const okS = DG(["check-system", "--dir", sys("Sure"), "--offline"]);
+    ok("grammar (design): grammar.mjs write --label puts the grammar in design/Sure/ and check-system accepts it (info.grammar)", w1.status === 0 && okS.status === 0 && JSON.parse(okS.stdout).system.grammar === "alpha-grid", okS.stdout.slice(0, 300));
+    const gb = JSON.parse(fs.readFileSync(path.join(GFX, "beta-glow.json"), "utf8"));
+    const bad = { ...gb }; delete bad.flat_ok; bad.techniques = bad.techniques.slice(0, 3);
+    fs.writeFileSync(path.join(sys("Bold"), "grammar.json"), JSON.stringify(bad));
+    const inv = DG(["check-system", "--dir", sys("Bold"), "--offline"]);
+    ok("grammar (design): a grammar that breaks the schema is refused (grammar-invalid names flat_ok and the technique count)", inv.status === 2 && /grammar-invalid: flat_ok/.test(inv.stdout) && /grammar-invalid: techniques has 3/.test(inv.stdout), inv.stdout.slice(0, 400));
+    fs.writeFileSync(path.join(sys("Bold"), "grammar.json"), JSON.stringify(gb));
+    GM(["write", "--run", run2, "--id", "alpha-grid", "--label", "Wild"]);
+    const rep3 = DG(["check-systems", "--run", run2, "--offline"]);
+    ok("grammar (design): two looks on the same grammar are refused by check-systems (grammar-repeat)", rep3.status === 2 && /grammar-repeat: Sure and Wild both use the grammar \\?"alpha-grid/.test(rep3.stdout), rep3.stdout.slice(0, 400));
+    GM(["write", "--run", run2, "--id", "gamma-dots", "--label", "Wild"]);
+    const tri = DG(["check-systems", "--run", run2, "--offline"]);
+    ok("grammar (design): three looks on three different grammars pass check-systems", tri.status === 0 && !/grammar-/.test(tri.stdout), tri.stdout.slice(0, 500));
+    // a flat brand film refuses a grammar that needs glow or 3D
+    fs.mkdirSync(path.join(run2, "brand-film"), { recursive: true });
+    fs.writeFileSync(path.join(run2, "decisions.json"), JSON.stringify({ subject: "Tally", route: "product-launch-video", brand: brandMd, use_brand: true }));
+    fs.writeFileSync(path.join(run2, "brand-film", "FILM-STYLE.json"), JSON.stringify({ version: 1, brand: "Tally", measured: { palette: ["#101418", "#eef2f0", "#f5b700"].map((h) => ({ hex: h, share: 0.2 })), background: { overall: "#101418" } }, slots: { typefaces: "Space Grotesk", motif: "a dot", layout: "centred", motionVocabulary: "flat: no 3D, no blur, no grain; scale, morph", photographyStyle: "none", endCard: "the mark" }, filled: true }));
+    const flatB = DG(["check-system", "--dir", sys("Bold"), "--brand", brandMd, "--offline"]);
+    const flatS = DG(["check-system", "--dir", sys("Sure"), "--brand", brandMd, "--offline"]);
+    ok("grammar (design): a flat brand film refuses a flat_ok:false grammar (grammar-not-flat) and accepts a flat one", /grammar-not-flat: Bold/.test(flatB.stdout) && !/grammar-not-flat/.test(flatS.stdout), flatB.stdout.slice(0, 300));
+    fs.rmSync(path.join(run2, "brand-film"), { recursive: true, force: true }); fs.rmSync(path.join(run2, "decisions.json"), { force: true });
+    const dec2 = path.join(run2, "decisions.json");
+    fs.writeFileSync(dec2, JSON.stringify({ subject: "Tally", picks: {} }));
+    const cs2 = DG(["choose-system", "--run", run2, "--label", "Wild", "--decisions", dec2]);
+    ok("grammar (design): choose-system carries the look's grammar to look/grammar.json (the score is checked against it)", cs2.status === 0 && JSON.parse(fs.readFileSync(path.join(run2, "look", "grammar.json"), "utf8")).id === "gamma-dots", cs2.stdout.slice(0, 200) + cs2.stderr.slice(0, 200));
   }
   // the Look payload, choose, motion.md, DIRECTION.md
   const pl = D(["look-payload", "--run", run, "--hook", "Tax season. Again.", "--recommended", "bold"]);
@@ -2047,6 +2093,117 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
     const lg = M(["rough", "--dir", bdir]);
     ok("moves: a rough longer than 4.5 s is refused (exit 2)", lg.status === 2 && /1\.5 to 4\.5 s/.test(lg.stdout), lg.stdout.slice(0, 200));
   }
+}
+
+// 22. motion grammars: the CLI, the score's grammar rules, the builders' briefs (the design desk's grammar.json gate is in 18)
+{
+  const GFX = path.join(HERE, "tests", "fixtures", "grammars");
+  const genv = { ...env, RASANAI_GRAMMAR_LIBRARY: GFX };
+  const ws = path.join(TMP, "gram-ws");
+  const run = path.join(ws, ".rasanai", "r1");
+  fs.mkdirSync(path.join(run, "story"), { recursive: true });
+  const GM = (a, e = {}) => spawnSync(process.execPath, [path.join(HERE, "grammar.mjs"), ...a], { encoding: "utf8", env: { ...genv, ...e }, cwd: ws, timeout: 60000 });
+  const C = (a, e = {}) => spawnSync(process.execPath, [path.join(HERE, "crew.mjs"), ...a], { encoding: "utf8", env: { ...genv, ...e }, cwd: ws, timeout: 120000 });
+  const J = (r) => { try { return JSON.parse(r.stdout); } catch { return {}; } };
+  const rj = (f) => JSON.parse(fs.readFileSync(f, "utf8"));
+  const wj = (f, o) => { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify(o, null, 2)); };
+  const AG = path.join(GFX, "alpha-grid.json");
+
+  const ls = J(GM(["list"]));
+  ok("grammar: list names the library's grammars with flat_ok, fits and the technique count", ls.grammars && ls.grammars.length === 3 && ls.grammars.every((g) => g.id && typeof g.flat_ok === "boolean" && g.techniques >= 8), JSON.stringify(ls).slice(0, 200));
+  const sh = J(GM(["show", "beta-glow"]));
+  ok("grammar: show prints the whole grammar; an unknown id exits 1", sh.id === "beta-glow" && sh.techniques.length === 8 && sh.flat_ok === false && GM(["show", "nope"]).status === 1);
+  ok("grammar: with no library folder, list is empty and pick says so (exit 1)", J(GM(["list"], { RASANAI_GRAMMAR_LIBRARY: path.join(TMP, "none") })).grammars.length === 0 && GM(["pick", "--run", run], { RASANAI_GRAMMAR_LIBRARY: path.join(TMP, "none") }).status === 1);
+  // the schema
+  const chk = (mut) => { const o = rj(AG); mut(o); const f = path.join(TMP, `gram-${Math.random().toString(36).slice(2)}.json`); wj(f, o); return GM(["check", "--file", f]); };
+  ok("grammar: check passes a good grammar (exit 0)", GM(["check", "--file", AG]).status === 0);
+  const bads = [["no flat_ok", (o) => { delete o.flat_ok; }, /flat_ok/], ["5 techniques", (o) => { o.techniques = o.techniques.slice(0, 5); }, /techniques has 5/], ["a duplicate technique id", (o) => { o.techniques[1].id = o.techniques[0].id; }, /duplicate technique id/], ["a technique with no build route", (o) => { delete o.techniques[2].route; }, /route is missing/], ["no frame_device.moves", (o) => { delete o.frame_device.moves; }, /frame_device\.moves/], ["a non-kebab id", (o) => { o.id = "Alpha Grid"; }, /kebab-case/], ["no palette accent", (o) => { delete o.palette.accent; }, /palette\.accent/], ["no density", (o) => { delete o.density; }, /density\.change_every_s/], ["no do list", (o) => { o.do = []; }, /do needs/]];
+  ok("grammar: check refuses " + bads.map((b) => b[0]).join(", ") + " (exit 2, the field named)", bads.every(([, m, re]) => { const r = chk(m); return r.status === 2 && (J(r).errors || []).some((e) => re.test(e)); }));
+  // pick: story shape, flat, exclude, count, deterministic
+  wj(path.join(run, "decisions.json"), { subject: "Tally", route: "product-launch-video" });
+  const p1 = J(GM(["pick", "--run", run, "--count", "3"]));
+  ok("grammar: pick ranks the grammars that fit a launch ladder first, with a why", p1.picks.length === 3 && p1.picks[0].score >= 1 && p1.picks[2].id === "gamma-dots" && /launch ladder/.test(p1.picks[0].why) && JSON.stringify(J(GM(["pick", "--run", run, "--count", "3"]))) === JSON.stringify(p1), JSON.stringify(p1).slice(0, 300));
+  const p2 = J(GM(["pick", "--run", run, "--flat"]));
+  ok("grammar: pick --flat drops the grammars that need glow or 3D (flat_ok false) and says which", p2.flat === true && p2.picks.every((x) => x.flat_ok) && !p2.picks.some((x) => x.id === "beta-glow") && p2.dropped_not_flat.includes("beta-glow"), JSON.stringify(p2).slice(0, 300));
+  const p3 = J(GM(["pick", "--run", run, "--exclude", "alpha-grid,gamma-dots", "--count", "1"]));
+  ok("grammar: pick --exclude and --count narrow the suggestions", p3.picks.length === 1 && p3.picks[0].id === "beta-glow");
+  wj(path.join(run, "brand-film", "FILM-STYLE.json"), { slots: { motionVocabulary: "flat: no 3D, no blur", typefaces: "x" } });
+  ok("grammar: pick turns --flat on by itself when the run's FILM-STYLE card says flat", J(GM(["pick", "--run", run])).flat === true);
+  fs.rmSync(path.join(run, "brand-film"), { recursive: true, force: true });
+  // write: into look/, with a label, with --out; the brand palette overrides, the devices stay
+  const w = GM(["write", "--run", run, "--id", "alpha-grid"]);
+  const lg = fs.existsSync(path.join(run, "look", "grammar.json")) ? rj(path.join(run, "look", "grammar.json")) : {};
+  ok("grammar: write copies the grammar to look/grammar.json (no internal fields), palette unchanged without a brand", w.status === 0 && lg.id === "alpha-grid" && lg.palette.accent === "#d4392b" && !("_file" in lg) && GM(["check", "--file", path.join(run, "look", "grammar.json")]).status === 0);
+  const w2 = GM(["write", "--run", run, "--id", "beta-glow", "--label", "Bold"]);
+  const w3 = GM(["write", "--run", run, "--id", "beta-glow", "--out", path.join(TMP, "gram-out", "g.json")]);
+  ok("grammar: write --label goes to design/<label>/grammar.json, --out to the path; an unknown id exits 1", w2.status === 0 && fs.existsSync(path.join(run, "design", "Bold", "grammar.json")) && w3.status === 0 && fs.existsSync(path.join(TMP, "gram-out", "g.json")) && GM(["write", "--run", run, "--id", "nope"]).status === 1);
+  const brandMd2 = path.join(TMP, "gram-brand.md");
+  fs.writeFileSync(brandMd2, '---\nname: "Tally"\ncolors:\n  canvas: "#ffffff"\n  ink: "#101010"\n  accent: "#0a7d4b"\ntypography:\n  display:\n    fontFamily: Manrope\n    fontWeight: 700\n  body:\n    fontFamily: Manrope\n    fontWeight: 400\nrounded:\n  md: 8px\n---\n## Overview\nTally.\n');
+  const w4 = J(GM(["write", "--run", run, "--id", "alpha-grid", "--brand", brandMd2, "--out", path.join(TMP, "gram-out", "b.json")]));
+  const bg = rj(path.join(TMP, "gram-out", "b.json"));
+  ok("grammar: write merges a brand DESIGN.md: its canvas, ink and accent replace the palette, the frame device and techniques stay", w4.ok && bg.palette.ground === "#ffffff" && bg.palette.accent === "#0a7d4b" && /overrides/.test(bg.palette.note) && JSON.stringify(bg.techniques) === JSON.stringify(rj(AG).techniques) && JSON.stringify(bg.frame_device) === JSON.stringify(rj(AG).frame_device), JSON.stringify(w4));
+  wj(path.join(run, "decisions.json"), { subject: "Tally", route: "product-launch-video", brand: brandMd2, use_brand: true });
+  GM(["write", "--run", run, "--id", "alpha-grid"]);
+  ok("grammar: write finds the brand in the run's decisions.json", rj(path.join(run, "look", "grammar.json")).palette.accent === "#0a7d4b");
+  fs.rmSync(path.join(run, "decisions.json"), { force: true });
+  GM(["write", "--run", run, "--id", "alpha-grid"]);
+
+  // the score's grammar rules (crew check): grammar-missing, technique-unknown, technique-repeat, technique-thin, frame-device-missing
+  const sc = path.join(run, "motion", "score.json");
+  const fd = "the rules re-divide to frame the product";
+  const beats = (techs, dev = fd) => techs.map((t, i) => ({ n: i + 1, duration: 4, ...(t ? { technique: t } : {}), ...(dev ? { frame_device: dev } : {}) }));
+  const score = (o) => wj(sc, { spine: "s", seams: [], ...o });
+  const out = () => { const r = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]); return { p: (J(r).problems || []).join(" | "), w: (J(r).warnings || []).join(" | ") }; };
+  const six = ["grid-a", "grid-b", "grid-c", "grid-d", "grid-e", "grid-f"];
+  score({ grammar: "alpha-grid", scenes: beats(six) });
+  let r0 = out();
+  ok("grammar (score): a score that names the grammar, a distinct technique and a frame_device per beat raises no grammar error or warning", !/grammar-|technique-|frame-device-/.test(r0.p + r0.w), (r0.p + r0.w).slice(0, 400));
+  score({ scenes: beats(six) });
+  r0 = out();
+  ok("grammar (score): no score.grammar is grammar-missing (error)", /grammar-missing: score\.grammar is not set/.test(r0.p), r0.p.slice(0, 300));
+  score({ grammar: "alpha-grid", scenes: beats(["grid-a", "grid-zz", "grid-c", "", "grid-e", "grid-f"]) });
+  r0 = out();
+  ok("grammar (score): a technique that is not in the grammar, or none, is technique-unknown (scene named)", /technique-unknown: scene 2 technique "grid-zz"/.test(r0.p) && /technique-unknown: scene 4 names no technique/.test(r0.p), r0.p.slice(0, 400));
+  score({ grammar: "alpha-grid", scenes: beats(["grid-a", "grid-b", "grid-b", "grid-d", "grid-e", "grid-f"]) });
+  r0 = out();
+  ok("grammar (score): the same technique on consecutive beats is technique-repeat; repeating after a gap is allowed", /technique-repeat: scenes 2 and 3 both use "grid-b"/.test(r0.p) && !/scenes 3 and 4/.test(r0.p));
+  score({ grammar: "alpha-grid", scenes: beats(["grid-a", "grid-b", "grid-a", "grid-b", "grid-a", "grid-b"]) });
+  r0 = out();
+  ok("grammar (score): fewer than min(beats, 6) distinct techniques is a warning (technique-thin), not an error", /technique-thin: 2 distinct/.test(r0.w) && !/technique-thin/.test(r0.p), r0.w.slice(0, 300));
+  score({ grammar: "alpha-grid", scenes: beats(["grid-a", "grid-b", "grid-c"]) });
+  ok("grammar (score): a 3-beat film needs 3 distinct techniques, not 6", !/technique-thin/.test(out().w));
+  score({ grammar: "alpha-grid", scenes: beats(six).map((s, i) => (i === 2 ? { ...s, frame_device: "" } : s)) });
+  r0 = out();
+  ok("grammar (score): a beat without frame_device is frame-device-missing (error)", /frame-device-missing: scene 3/.test(r0.p), r0.p.slice(0, 300));
+  score({ grammar: "beta-glow", scenes: beats(six) });
+  ok("grammar (score): score.grammar that is not the file's id is a warning", /score\.grammar is "beta-glow" but look\/grammar\.json is "alpha-grid"/.test(out().w));
+  fs.writeFileSync(path.join(run, "look", "grammar.json"), "{ nope");
+  score({ grammar: "alpha-grid", scenes: beats(six) });
+  ok("grammar (score): a look/grammar.json that is not JSON is an error (grammar-invalid)", /grammar-invalid/.test(out().p));
+  fs.rmSync(path.join(run, "look", "grammar.json"));
+  score({ scenes: beats([null, null, null, null, null, null], "") });
+  r0 = out();
+  ok("grammar (score): with no look/grammar.json there are no grammar errors at all (back-compat)", !/grammar-|technique-|frame-device-/.test(r0.p + r0.w), (r0.p + r0.w).slice(0, 300));
+
+  // the builders' briefs: the grammar file is an input; the film builder and the animator get the techniques the score names inlined
+  GM(["write", "--run", run, "--id", "alpha-grid"]);
+  C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "Tally", "--scenes", "4", "--length", "16"]);
+  const proj = path.join(ws, "videos", "t");
+  fs.mkdirSync(path.join(proj, ".hyperframes", "frame-packets"), { recursive: true });
+  score({ grammar: "alpha-grid", scenes: beats(["grid-c", "grid-f", "grid-a", "grid-h"], "rules slide to frame the screen") });
+  const brief = (role, key, extra = [], e = {}) => { const b = J(C(["brief", "--run", run, "--role", role, "--key", key, ...extra], e)); return b.prompt ? fs.readFileSync(path.join(ws, b.prompt), "utf8") : ""; };
+  const fbt = brief("film-builder", "film", ["--project", "videos/t"]);
+  ok("grammar (brief): the film builder gets look/grammar.json as an input and the named techniques (and only those) with their routes inlined", /motion grammar \(the film's ONE grammar/.test(fbt) && /## The film's motion grammar/.test(fbt) && ["grid-c", "grid-f", "grid-a", "grid-h"].every((t) => fbt.includes(`"id": "${t}"`)) && !fbt.includes('"id": "grid-b"') && /GSAP on absolutely positioned divs: grid-c/.test(fbt), fbt.slice(-300));
+  const abt = brief("scene-animator", "2", ["--project", "videos/t"]);
+  ok("grammar (brief): a scene animator gets its beat's technique and frame_device, not the other beats' techniques", /## The film's motion grammar/.test(abt) && abt.includes('"id": "grid-f"') && !abt.includes('"id": "grid-c"') && /rules slide to frame the screen/.test(abt), abt.slice(-300));
+  const mdt = brief("motion-director", "score");
+  ok("grammar (brief): the Motion Director's brief names the grammar rules (score.grammar, technique, frame_device) and its input", /look\/grammar\.json/.test(mdt) && /technique-repeat/.test(mdt) && /frame_device/.test(mdt), mdt.slice(0, 200));
+  const dst = brief("design-system-designer", "Bold");
+  ok("grammar (brief): the design system designer is told to bind ONE grammar per look (design/Bold/grammar.json, three different grammars, the moving specimen)", /design\/Bold\/grammar\.json/.test(dst) && /three different grammars/.test(dst) && /grammar\.mjs/.test(dst) && /window\.__specimen/.test(dst), dst.slice(0, 200));
+  const mit = brief("move-inventor", "Bold");
+  ok("grammar (brief): the move inventor reads the grammar when the run has one", /motion grammar \(the film's one grammar/.test(mit));
+  fs.rmSync(path.join(run, "look", "grammar.json"));
+  ok("grammar (brief): with no grammar file the builders' and the designer's briefs are unchanged (no grammar section, no grammar output)", !/## The film's motion grammar|motion grammar \((?:THE|the) film/i.test(brief("film-builder", "film", ["--project", "videos/t"]) + brief("scene-animator", "2", ["--project", "videos/t"]) + brief("motion-director", "score")) && !/design\/Bold\/grammar\.json/.test(brief("design-system-designer", "Bold", [], { RASANAI_GRAMMAR_LIBRARY: path.join(TMP, "none") })));
 }
 
 fs.rmSync(TMP, { recursive: true, force: true });

@@ -19,6 +19,8 @@ Four rules follow, and the checks enforce them:
 
 You tend to converge toward the safest on-distribution storyboard: the transition names from the standard menu, applied to the most literal reading of the brief. That output is the failure condition. Make deliberate, opinionated choices specific to this subject. Where the brief leaves an axis free, do not spend that freedom on a default.
 
+**A grammar, when one exists.** The motion layer commits to ONE grammar for the whole film (`library/grammars/`, `references/craft.md` "Grammar: one per film, a technique per beat"). At the Story step the look is not chosen yet, so moves are written grammar-agnostic: a carrier, a state change and a bridge, never a technique name. When `look/grammar.json` exists, the inventor reads it and may shape the joins with its frame device. The Motion Director then restates every hero in the grammar (the same carrier, travelling as that grammar's frame device would, executed with the beat's technique).
+
 ## 1. The procedure (11 steps)
 
 Do each step, even if you think you do not need to. Each step writes text the next step reads. Ideation is separate from feasibility: while you diverge (steps 3 to 9) do not filter on build cost, brand tempo or runtime. A separate agent finds the cheapest honest way to build the winner (card `build.simplest`). Coverage and boldness first; the juror filters afterwards.

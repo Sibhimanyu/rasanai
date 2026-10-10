@@ -39,6 +39,7 @@ import { detectModel, profileFor, adapt, tierFor, dispatchFor } from "./lib/mode
 import { libraryIds } from "./library.mjs";
 import { readLogos } from "./lib/logos.mjs";
 import { checkSystemFull, checkSystems, firstLine } from "./lib/system.mjs";
+import { readRunGrammar, hasGrammarLibrary, checkScoreGrammar, techniquesNamed } from "./lib/grammar-lib.mjs";
 import { pitchShape, validateMoves, validateVerdict, validateSet, isLabelOnly, MOVE_LABELS } from "./lib/moves-lib.mjs";
 
 const args = parseArgs();
@@ -439,6 +440,13 @@ function contextFor(run, role, key, plan) {
       ctx.library = `node "${path.join(SKILL_DIR, "scripts", "library.mjs")}" search --q "<words>" [--space 3d] | show <id> --full`;
       ctx.gate = `node "${path.join(SKILL_DIR, "scripts", "design.mjs")}" check-system --dir ${rel(R(run, "design", key))}`;
       O(R(run, "design", key, "DESIGN.md")); O(R(run, "design", key, "recipe.json")); O(R(run, "design", key, "blend.json"));
+      if (hasGrammarLibrary()) {
+        // each look = a design system + ONE motion grammar; the three looks use three different grammars
+        const gm = `node "${path.join(SKILL_DIR, "scripts", "grammar.mjs")}"`;
+        ctx.grammar = `each look binds ONE motion grammar (library/grammars/<id>.json, or a bespoke one in the same schema) as design/${key}/grammar.json; the three looks use three different grammars. Pick with \`${gm} pick --run ${rel(run)} [--flat] [--exclude <the other looks' ids>]\`, then \`${gm} write --run ${rel(run)} --id <id> --label ${key}\` (a brand's palette overrides the grammar's; the devices stay). specimen.html becomes a 4 to 5 s moving sketch of the chosen story's open and first rung in that grammar (the frame device moving, a technique of it), a paused GSAP timeline at window.__specimen.`;
+        I("motion grammars (library: pick one per look)", path.join(SKILL_DIR, "library", "grammars"));
+        O(R(run, "design", key, "grammar.json"));
+      }
       if (ctx.brand_film) {
         const sl = String(key).toLowerCase();
         ctx.stance = sl === "sure" ? "Sure: the brand film's grammar EXACTLY (FILM-STYLE.md): its canvas, palette, type, motif, layout, motion vocabulary and end card, built out as a complete design system. Nothing from outside the card." : `${key}: the same palette, type, motif and motion vocabulary as the brand film (FILM-STYLE.md), varying only composition, pacing and emphasis (${sl === "bold" ? "bigger scale, tighter cuts, more of the motif per scene" : "the motif carries more of the story, more contrast between calm holds and bursts, a more unexpected arrangement of the SAME elements"}). Never a new colour, face, illustration style or move.`;
@@ -500,6 +508,7 @@ function contextFor(run, role, key, plan) {
       const den = vd && vd.pitches && vd.pitches[key] && vd.pitches[key].denial;
       if (Array.isArray(den) && den.includes(key)) ctx.denial_round = `yes: the juror failed too many of your cards. Read story/moves-verdict.json (pitches.${key}.cards[].fails and evidence), add those failures to your banned list, and write story/moves-${key}.json again`;
       for (const [l, p] of [["the pitch (beats, on_screen, visual, ui_labels)", R(run, "story", `pitch-${key}.json`)], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["screens (UI labels and surfaces)", research("screens.md")], ["briefing", research("BRIEFING.md")], ["precedent", research("precedent.md")], ["brand DESIGN.md (research)", research("brand", "DESIGN.md")], ["workspace DESIGN.md", dsn ? path.resolve(dsn) : null], ["the method (read all of it)", path.join(SKILL_DIR, "references", "moves.md")], ["your pack (exemplars, generators, stimulus, banned)", R(run, "story", `moves-pack-${key}.json`)], ["reference moves from the user's clip (if any)", research("reference-moves.json")]]) I(l, p);
+      if (readRunGrammar(run) !== null) I("motion grammar (the film's one grammar: restate carriers and joins in its devices)", R(run, "look", "grammar.json"));
       O(R(run, "story", `moves-${key}.json`));
       break;
     }
@@ -531,6 +540,10 @@ function contextFor(run, role, key, plan) {
     case "motion-director":
       Object.assign(ctx, { pass: key === "seams" ? "seams" : "score", length_s: B.length_s, aspect: B.aspect });
       for (const [l, p] of [["script", R(run, "story", "chosen.json")], ["scenes", R(run, "scenes.json")], ["frame.md", lookFrame(run)], ["design system (its Motion and camera section binds the motion)", R(run, "look", "DESIGN.md")], ["direction", R(run, "direction", "DIRECTION.md")], ["motion.md", R(run, "motion.md")], ["music plan", R(run, "music", "plan.json")], ["screens", research("screens.md")], ["assets", research("assets.json")], ["brand", research("brand.md")], ["precedent", research("precedent.md")], ["reference moments (read-only: dense.md and code/REMIX.md per moment; one mechanic each, written as the beat's take)", R(run, "references", "moments")], ["craft", path.join(SKILL_DIR, "references", "craft.md")], ["vocabulary", path.join(SKILL_DIR, "references", "vocabulary.md")], ["3d playbook", path.join(SKILL_DIR, "references", "3d.md")]]) I(l, p);
+      if (readRunGrammar(run) !== null) {
+        ctx.grammar = "yes: the film's ONE motion grammar is look/grammar.json. Set score.grammar to its id; every beat (scene) names a technique (an id from its techniques, a different one on each consecutive beat, at least min(beats, 6) distinct) and a frame_device (what the grammar's frame device does in that beat). The check refuses grammar-missing, technique-unknown, technique-repeat and frame-device-missing.";
+        I("motion grammar (THE film's one motion language: frame device, type and image behaviour, techniques with build routes)", R(run, "look", "grammar.json"));
+      }
       if (LYR(run, P)) {
         ctx.lyric_video = true;
         for (const [l, p] of [["chosen treatment (spine, motifs, plates: space, energy, idiom)", R(run, "story", "chosen-treatment.json")], ["treatment in words", R(run, "story", "chosen-treatment.md")], ["lyrics (word timings)", R(run, "music", "lyrics.json")], ["audio (downbeats, onsets)", R(run, "music", "audio.json")], ["lyric-video playbook", path.join(SKILL_DIR, "references", "lyric-video.md")], ["lyrics and the music runtime", path.join(SKILL_DIR, "references", "lyrics.md")]]) I(l, p);
@@ -568,6 +581,7 @@ function contextFor(run, role, key, plan) {
       const sc3 = ((jsonMaybe(R(run, "motion", "score.json")) || {}).scenes || []).find((x) => Number(x.n) === n) || {};
       Object.assign(ctx, { scene: n, project: rel(pj), space: sc3.space || "2d" });
       if (is3d(sc3)) I("3d playbook", path.join(SKILL_DIR, "references", "3d.md"));
+      if (readRunGrammar(run) !== null) I("motion grammar (the film's one grammar: your beat's technique and frame_device come from it)", R(run, "look", "grammar.json"));
       if (LYR(run, P)) {
         ctx.lyric_video = true;
         ctx.sync = "sync every word of this scene's lines to its sung start with RasanMusic.gsapWords / RasanMusic.wordProgress (references/lyrics.md); never ahead of the voice";
@@ -585,6 +599,7 @@ function contextFor(run, role, key, plan) {
       const S = Array.isArray(score.scenes) ? score.scenes : [];
       Object.assign(ctx, { pass: lead ? "lead (the root and the carriers only; scene animators build the beats around them)" : "film (the whole film: the root, every beat and every carrier, in one pass)", project: rel(pj), length_s: B.length_s, aspect: B.aspect, beats: S.length || undefined });
       if (S.some(is3d)) I("3d playbook (the plan puts a beat in 3D)", path.join(SKILL_DIR, "references", "3d.md"));
+      if (readRunGrammar(run) !== null) I("motion grammar (the film's ONE grammar: every beat spends the technique the plan names, in the frame device the plan names)", R(run, "look", "grammar.json"));
       for (const [l, p] of [["the plan (motion/score.json): THE contract", R(run, "motion", "score.json")], ["the plan in words", R(run, "motion", "score.md")], ["build brief (short: what to build, the momentum rules, the gate)", path.join(pj, "BUILD.md")], ["technical role (the workflow's frame-worker contract)", path.join(pj, ".hyperframes", "frame-packets", "_role.md")], ["frame packets (one per beat: the file each beat goes in)", path.join(pj, ".hyperframes", "frame-packets")], ["DISPATCH.md", path.join(pj, "DISPATCH.md")], ["frame.md (the look: fonts, colours)", path.join(pj, "frame.md")], ["motion.md", path.join(pj, "motion.md")], ["reference moments (read-only: one mechanic per beat, never copied)", R(run, "references", "moments")], ["the chosen moves (the Moves pass: the carrier you build and the hero cards with their roughs: your motion target; each is a move to beat, the reference moments are mechanics to execute it with)", R(run, "story", "moves.json")], ["the move roughs (grey-box loops of the hero moves)", R(run, "story", "moves")], ["ui kit", research("screens.md")], ["real screens", research("screens.json")], ["logo files (the only logo you may place: the staged copy is in the project at assets/brand/; if logos.json says none, set the name in type, no symbol)", research("brand", "assets")], ["assets", research("assets.json")]]) I(l, p);
       if (LYR(run, P)) { ctx.lyric_video = true; for (const [l, p] of [["lyrics (word timings)", R(run, "music", "lyrics.json")], ["audio (beats, onsets)", R(run, "music", "audio.json")], ["lyrics and the music runtime", path.join(SKILL_DIR, "references", "lyrics.md")]]) I(l, p); }
       ctx.gate = `node "${path.join(SKILL_DIR, "scripts", "motion-gate.mjs")}" --project ${rel(pj)} --plan ${rel(R(run, "motion", "score.json"))}`;
@@ -636,6 +651,17 @@ function vocabularyFor(terms) {
   }
   const principles = (v.match(/## 6\. Animation principles[\s\S]*?(?=\n## 7\.)/) || [""])[0].trim();
   return [rows.length ? `### The techniques your score names\n\n| Term | What it is | Recipe |\n|---|---|---|\n${[...new Set(rows)].join("\n")}` : "", principles ? `### ${principles.replace(/^## /, "")}` : ""].filter(Boolean).join("\n\n");
+}
+
+// the film's grammar, inlined for the builders: its frame device, type and image behaviour, signature, and the techniques
+// (with their build routes) the score's beats name, like the vocabulary recipes. "" when the run has no grammar file.
+function grammarBlock(run, scenes) {
+  const g = readRunGrammar(run);
+  if (!g || typeof g !== "object") return "";
+  const named = techniquesNamed(g, scenes.map((s) => s && s.technique));
+  const beats = scenes.filter((s) => s && (s.technique || s.frame_device)).map((s) => ({ scene: s.n, technique: s.technique, frame_device: s.frame_device }));
+  const core = { id: g.id, name: g.name, frame_device: g.frame_device, type: g.type, image: g.image, transitions: g.transitions, signature: g.signature, density: g.density, palette: g.palette, do: g.do, dont: g.dont };
+  return `\n\n## The film's motion grammar (look/grammar.json): ONE grammar, a different technique per beat\n\n\`\`\`json\n${JSON.stringify(core, null, 2)}\n\`\`\`\n\n${beats.length ? `The score's beats:\n\n\`\`\`json\n${JSON.stringify(beats, null, 2)}\n\`\`\`\n\n` : ""}${named.length ? `### The techniques the score names (build each by its route)\n\n\`\`\`json\n${JSON.stringify(named, null, 2)}\n\`\`\`` : ""}`;
 }
 
 // Claude does its best motion work when it's told to show off. Every creative prompt ends on that ask: the last
@@ -691,6 +717,7 @@ function promptFor(run, role, key, plan) {
       const terms = [...(sc ? sc.techniques || [] : []), ...seams.map((s) => s.kind), ...((sc && sc.entrances) || []).map((e) => e.type), sc && sc.camera ? String(sc.camera).replace(/^T\d\s*/, "") : ""].filter(Boolean);
       const vocab = vocabularyFor(terms);
       if (vocab) extra += `\n\n## Technique recipes (from references/vocabulary.md)\n\n${vocab}`;
+      extra += grammarBlock(run, [sc]);
       if (is3d(sc)) {
         const pj2 = projectDir(run);
         const pk = pj2 && exists(path.join(pj2, ".hyperframes", "frame-packets")) ? fs.readdirSync(path.join(pj2, ".hyperframes", "frame-packets")).find((f) => new RegExp(`^0*${n}[-_.]`).test(f) && f.endsWith(".md")) : null;
@@ -726,6 +753,10 @@ function promptFor(run, role, key, plan) {
         ? `\n\n## Your motion target (the Moves pass)\n\nThe film's carrier (story/moves.json \`carrier\`) is ${car}: it is the carrier object you build, one object on one tween through every beat it crosses${key === "lead" ? " (as the lead builder you build it, and every other object that crosses a cut, before the scene animators start)" : ""}. The hero move card(s) below are your motion target: the card and its rough are the target, not a ceiling. Beat the rough, don't copy its grey-box look (the look comes from DESIGN.md and frame.md). Keep each bridge frame (the one frame where both states are true) exact, and the hand-off to the next beat as the card states it. If a card cannot be built as written, build its \`build.simplest\`, say why in your report, and never replace the move with a label.\n\n${blocks.join("\n\n")}`
         : `\n\n## Your motion target (the Moves pass)\n\nThe film's carrier is ${car}. This scene carries the move card(s) below: the card and its rough are your motion target. Beat it, don't copy its grey-box look: the look comes from DESIGN.md and frame.md. Keep the bridge frame (the one frame where both states are true) exact, and the hand-off to the next beat as the card states it.\n\n${blocks.join("\n\n")}`;
     }
+  }
+  if (role === "film-builder") {
+    const sc0 = jsonMaybe(R(run, "motion", "score.json"));
+    extra += grammarBlock(run, sc0 && Array.isArray(sc0.scenes) ? sc0.scenes : []);
   }
   if (role === "scene-animator" && LYR(run, plan)) {
     const sc = scenesOf(run)[Number(key) - 1];
@@ -935,6 +966,9 @@ function checkScore(run) {
       else if (isLabelOnly(bridge)) P.push(`seam-label-bridge: seam ${s.from}>${s.to} bridge "${bridge}" is only a label: name the element that is in both scenes at once and what it looks like in that frame`);
     });
   }
+  // the grammar: when the run has one (look/grammar.json), the score names it and every beat spends a technique of it
+  const gram = readRunGrammar(run);
+  if (gram !== null) { const gr = checkScoreGrammar(gram, score, S, N); P.push(...gr.P); W.push(...gr.W); }
   if (score.signature && score.signature.seam && !seams.some((s) => `${s.from}>${s.to}` === String(score.signature.seam))) P.push(`signature.seam "${score.signature.seam}" is not one of the seams`);
   // the plan: the film-level fields and each beat's line, picture, moment and take, UI, exit and carrier. Required on a
   // direct film (one builder reads only this) and on a product-first film; elsewhere missing fields are warnings.

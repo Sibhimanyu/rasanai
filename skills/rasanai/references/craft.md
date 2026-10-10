@@ -154,6 +154,19 @@ Everything obeys `motion.md` (the style's motion language: eases, duration scale
 
 ---
 
+### Grammar: one per film, a technique per beat
+
+A film commits to **ONE motion grammar** (`library/grammars/<id>.json`; `node scripts/grammar.mjs list`): a frame device that is always on screen and moves on the beat (rules that re-divide, a viewfinder HUD, a carried dot, a drafting sheet, a glowing panel, a dot lattice), type and image behaviour that stay fixed, and 8 to 12 techniques with build routes. The story stays plain; the grammar is where the film shows off. Rules:
+
+- **One grammar, never two.** The frame device is the same from the first frame to the end card. A second frame device is a different film.
+- **A different technique on each beat.** Every scene names one technique of the grammar and what the frame device does in it. The same technique never runs on consecutive beats, and a film uses at least min(beats, 6) distinct ones: a grammar spent on one trick reads as a template.
+- **The grammar sets density.** Its `density.change_every_s` is the floor for how often something changes; its signature is the film's one signature, spent at the biggest hinge.
+- **Flat films stay flat.** A grammar with `flat_ok: false` (chrome, particles, glow, blur) is not used when FILM-STYLE says no 3D and no blur; the flat grammars (editorial grid, glyph chain, specimen sheet, dot system) are.
+- **Readability stays hard.** The grammar's type behaviour never overrides section 2 and the "Every word fits" rule: whole, inside the safe area, never cropped at rest.
+- **A brand wins on colour and type**; the grammar's devices stay.
+
+---
+
 ## 5. Composition and type
 
 **Build each frame around one thing.** Decide what the viewer notices first; everything else supports it or goes. Squint test: blurred, the number-one element still stands out. Hierarchy through at least 2 of: size (3:1 or more), weight (800 against 400), contrast, position, order of motion.

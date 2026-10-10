@@ -1,0 +1,95 @@
+{
+  "id": "gamma-dots",
+  "name": "Gamma dots",
+  "source": "a fixture grammar for the selftest (Gamma dots); described, no files",
+  "frame_device": {
+    "what": "a fixture frame device for Gamma dots: thin rules and corner marks",
+    "moves": "the device slides and re-divides on the beat for Gamma dots"
+  },
+  "type": {
+    "classes": "condensed caps for the hero word; tiny tracked caps for captions",
+    "behaviour": "hero words set inside the device, never cropped"
+  },
+  "image": {
+    "treatment": "screens live inside the device cells",
+    "behaviour": "slide, crop-reframe and swap with the device"
+  },
+  "transitions": [
+    "device re-divide",
+    "cell swap",
+    "rule wipe"
+  ],
+  "techniques": [
+    {
+      "id": "dot-a",
+      "name": "dot a",
+      "what": "the dot a move, in the fixture grammar Gamma dots",
+      "route": "GSAP on absolutely positioned divs: dot-a timeline with expo.out"
+    },
+    {
+      "id": "dot-b",
+      "name": "dot b",
+      "what": "the dot b move, in the fixture grammar Gamma dots",
+      "route": "GSAP on absolutely positioned divs: dot-b timeline with expo.out"
+    },
+    {
+      "id": "dot-c",
+      "name": "dot c",
+      "what": "the dot c move, in the fixture grammar Gamma dots",
+      "route": "GSAP on absolutely positioned divs: dot-c timeline with expo.out"
+    },
+    {
+      "id": "dot-d",
+      "name": "dot d",
+      "what": "the dot d move, in the fixture grammar Gamma dots",
+      "route": "GSAP on absolutely positioned divs: dot-d timeline with expo.out"
+    },
+    {
+      "id": "dot-e",
+      "name": "dot e",
+      "what": "the dot e move, in the fixture grammar Gamma dots",
+      "route": "GSAP on absolutely positioned divs: dot-e timeline with expo.out"
+    },
+    {
+      "id": "dot-f",
+      "name": "dot f",
+      "what": "the dot f move, in the fixture grammar Gamma dots",
+      "route": "GSAP on absolutely positioned divs: dot-f timeline with expo.out"
+    },
+    {
+      "id": "dot-g",
+      "name": "dot g",
+      "what": "the dot g move, in the fixture grammar Gamma dots",
+      "route": "GSAP on absolutely positioned divs: dot-g timeline with expo.out"
+    },
+    {
+      "id": "dot-h",
+      "name": "dot h",
+      "what": "the dot h move, in the fixture grammar Gamma dots",
+      "route": "GSAP on absolutely positioned divs: dot-h timeline with expo.out"
+    }
+  ],
+  "signature": "the Gamma dots collapses into the end lockup",
+  "density": {
+    "change_every_s": 1
+  },
+  "palette": {
+    "ground": "#ffffff",
+    "ink": "#101010",
+    "accent": "#2a6bff",
+    "note": "a brand palette overrides these; the devices stay"
+  },
+  "do": [
+    "one device per frame",
+    "land every move on the beat"
+  ],
+  "dont": [
+    "never crop the hero word",
+    "never float an image free"
+  ],
+  "fits": [
+    "brand film",
+    "reel"
+  ],
+  "flat_ok": true
+}
