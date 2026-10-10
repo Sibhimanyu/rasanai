@@ -5,13 +5,16 @@
 // With a brand (the run's research/brand/assets/, found from --run, from "<run>/frames", or from the project's
 // assets/brand/) it also checks every logo on screen is the downloaded file (rule "logo-not-the-file").
 // Reads the project's compositions (HTML/CSS/JS), its scenes/storyboard timing, its audio plan and, when given,
-// the rendered video. Exit 0 = clean or warnings only; 2 = problems to fix (each with a fix); 1 = could not run.
+// the rendered video. Also loads the built compositions headlessly and measures every visible text in the real DOM
+// at 10 fps (rule "text-cropped": a line that crosses the frame edge for more than 0.4 s, or sits outside the 6% safe
+// area at rest; lib/textfit.mjs; --no-text-fit skips it). Exit 0 = clean or warnings only; 2 = problems to fix (each with a fix); 1 = could not run.
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { parseArgs, die } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
 import { readLogos, scanLogos } from "./lib/logos.mjs";
+import { textFit } from "./lib/textfit.mjs";
 
 const args = parseArgs();
 track("Checking for generic AI-video tells", "Slop check done");
@@ -119,6 +122,13 @@ if (filmLen && sfxCount / filmLen > 0.6) add("sfx-overload", "error", `${sfxCoun
 const cuts = scenes ? scenes.length - 1 : 0;
 const whooshCap = cuts ? Math.max(1, Math.ceil(cuts / 3)) : 3;
 if (whoosh > whooshCap) add("whoosh-per-cut", "error", `${whoosh} whooshes${cuts ? ` for ${cuts} transitions` : ""}`, "A whoosh on every cut is the most common SFX tell.", "At most one whoosh in three transitions (and one per ~20 s): keep it for the signature transition.");
+
+// ---- 5b. text-fit: every word meant to be read sits inside the frame ----
+if (!args["no-text-fit"]) {
+  const tf = await textFit(dir);
+  for (const f of tf.findings) add("text-cropped", "error", `${f.file}: "${f.text}" ${f.from}-${f.to} s`, f.message, f.fix);
+  if (tf.could_not_run.length) add("text-fit-skipped", "warn", dir, `${tf.could_not_run[0]} (the text-fit check did not run)`, "Install Chrome (npx hyperframes browser ensure, or set RASANAI_CHROME) and re-run: the composition's text was not measured.");
+}
 
 // ---- 6. the rendered video ----
 if (args.video && fs.existsSync(String(args.video))) {

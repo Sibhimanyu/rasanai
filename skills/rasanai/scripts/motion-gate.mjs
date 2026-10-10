@@ -4,7 +4,7 @@
 // fails here with the time and the element or region, so the builder can fix the cause.
 //
 //   node motion-gate.mjs [--video <draft.mp4>] [--project <videos/name>] [--plan <run>/motion/score.json]
-//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--json]
+//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--no-text-fit] [--json]
 //   -> exit 0 pass · 2 findings (listed, each with a time and a fix) · 1 could not run (never "clean")
 //
 // From the frames (--video; sampled every 1/15 s by frame difference, ffmpeg, no window):
@@ -19,12 +19,19 @@
 //   reveal     exactly one brand reveal: the plan's brandReveal beat, and no data-brand-mark in a beat before it
 //   parked     lines and strokes that enter keep moving until they exit (from GSAP calls the gate can resolve to
 //              numbers; anything it can't resolve is listed as skipped, never passed)
+//   text-fit   (--project) every word meant to be read sits inside the frame: the built compositions are loaded headlessly
+//              (no window), the timeline is seeked at 10 fps and the real DOM box of every visible text (opacity > 0.5,
+//              font-size >= 20 px, trimmed by its clipping ancestors) is measured; error `text-cropped` with the time
+//              range and the text when a box crosses the frame edge for more than 0.4 s, or sits outside the 6% safe
+//              area at rest for 0.4 s or more (lib/textfit.mjs; data-text-fit="ignore" opts an element out;
+//              --no-text-fit skips it; a Chrome that cannot start is listed as skipped, never passed)
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
+import { textFit } from "./lib/textfit.mjs";
 
 export const GATE = {
   coverage: 0.75, // share of frames with visible motion
@@ -42,7 +49,7 @@ const PIX_T = 6, MOVE_SHARE = 0.0008; // a frame moves when >= 0.08% of pixels c
 async function main() {
   const args = parseArgs();
   if (!args.json) track("Measuring the film frame by frame: freezes, creep, seams", "Motion gate done");
-  const res = await gate({ video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15 });
+  const res = await gate({ video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"] });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else {
     console.log(`motion gate: ${res.verdict}${res.measured.coverage != null ? ` · ${Math.round(res.measured.coverage * 100)}% of frames move` : ""}`);
@@ -306,7 +313,7 @@ function parkedIn(file, html) {
 }
 
 // ---------------------------------------------------------------- the gate
-export async function gate({ video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15 } = {}) {
+export async function gate({ video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true } = {}) {
   const findings = [], skipped = [], could = [], measured = {};
   const add = (f) => findings.push(f);
   const P = readPlan(plan && path.resolve(plan), scenes && path.resolve(scenes));
@@ -461,6 +468,12 @@ export async function gate({ video = null, project = null, plan = null, scenes =
         checked += r.checked;
       }
       measured.lines_checked = checked;
+      if (doTextFit) {
+        const tf = await textFit(pj);
+        findings.push(...tf.findings);
+        skipped.push(...tf.skipped, ...tf.could_not_run.map((c) => `${c} (not measured, never passed)`));
+        measured.text_fit = { pages: tf.pages, samples: tf.samples, cropped: tf.findings.length };
+      } else skipped.push("text-fit: skipped (--no-text-fit)");
       if (!checked) skipped.push("parked lines: no line or stroke with a resolvable entrance in the compositions (checked from the frames only)");
     }
   }

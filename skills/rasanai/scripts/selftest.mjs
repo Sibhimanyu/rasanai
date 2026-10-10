@@ -748,6 +748,62 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       const order = scen(); [order[1], order[2]] = [order[2], order[1]];
       ok("one feature: G10 wants hook, proof, turn, cta in that order", gof(run10({ beats: order }), "G10").pass === false);
     }
+
+    // G10, the ladder: a refrain verb, rungs of distinct everyday uses that escalate, a real UI cause and effect per rung, a close
+    {
+      const gof = (r, id) => { let j = { gates: [] }; try { j = JSON.parse(r.stdout); } catch {} return (j.gates || []).find((x) => x.id === id) || { pass: null, reasons: [r.stdout.slice(0, 300) + r.stderr.slice(0, 300)] }; };
+      const lb = (name, role, on_screen, duration_s, more = {}) => ({ name, role, on_screen, visual: `The real Lintel window: ${name}`, picture: `the viewer sees ${name} happen in the real Lintel window`, duration_s, ...more });
+      const rungs = () => [
+        { ...lb("Rung 1", "rung", "Review one diff", 6, { use: "a small diff", highlight: "one", level: 1, ui: ["open a diff → the Lintel review window appears over it", "click Apply → the change lands in the diff"] }) },
+        { ...lb("Rung 2", "rung", "Review longer threads", 6, { use: "a long thread", highlight: "longer", level: 2, ui: ["open a thread → the comments stack in the Lintel pane", "click Resolve → the thread folds"] }) },
+        { ...lb("Rung 3", "rung", "Review it for security", 6, { use: "security audit", highlight: "security", level: 3, ui: ["type audit → the Lintel findings appear", "click Fix → the patch lands in the diff"] }) },
+        { ...lb("Rung 4", "rung", "Review and get it done", 6, { use: "release checklist", highlight: "done", level: 4, ui: ["type ship → the Lintel checklist ticks itself off", "click Merge → the pull request closes"] }) },
+      ];
+      const lbeats = () => [lb("Open", "open", "Review with Lintel", 3, { changes: ["the Lintel window opens"] }), ...rungs(), lb("Close", "close", "Review anything", 3)];
+      const refrain = { verb: "Review", pattern: "Review <it> <highlight>" };
+      const run10l = (extra = {}, drop = []) => {
+        const o = { title: "Review, four ways", logline: "One verb, four real uses, all in Lintel.", aim, approach: "Review is the refrain; each rung is a different real use in the Lintel window, escalating to done-for-you.", device: "escalation", shape: "ladder", refrain, beats: lbeats(), tempo: { ideas: 6, change_every_s: 2.2, longest_hold_s: 4, source: "house" }, first_4s: "the real Lintel window opens on a diff", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "Review in Lintel is its own verb" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the UI cause and effect" }, scores, last_line: "Lintel", end_line_largest: true, ...extra };
+        for (const k of drop) delete o[k];
+        const fl = path.join(sd, `t10l-${Math.random().toString(36).slice(2)}.json`);
+        fs.writeFileSync(fl, JSON.stringify(o));
+        return node("story.mjs", ["check", "--pitch", fl, "--truth", ptruth]);
+      };
+      const withB = (fn) => { const b = lbeats(); fn(b); return b; };
+      const why = (r) => gof(r, "G10").reasons.join(" | ");
+      const lg = run10l();
+      ok("ladder: a refrain, 4 distinct rungs with levels, UI cause and effect and a close passes G10 (and G7)", gof(lg, "G10").pass === true && gof(lg, "G7").pass === true, why(lg) + " || " + gof(lg, "G7").reasons.join(" | "));
+      ok("ladder: a launch pitch with no shape and no feature block defaults to the ladder", gof(run10l({}, ["shape"]), "G10").shape === "ladder");
+      const f1 = run10l({}, ["refrain"]);
+      ok("ladder: G10 fails a missing refrain.verb", gof(f1, "G10").pass === false && /refrain\.verb missing/.test(why(f1)), why(f1));
+      const f2 = run10l({ beats: withB((b) => { b[2].on_screen = "Study longer threads"; }) });
+      ok("ladder: G10 fails a rung title without the verb (the ways_in beat may use other verbs)", gof(f2, "G10").pass === false && /without the refrain verb "Review"/.test(why(f2)), why(f2));
+      const wi = withB((b) => { b.splice(5, 0, lb("Ways in", "ways_in", "Type it, say it, snap it", 3, { ui: ["press the mic → the text types itself"] })); });
+      const fw = run10l({ beats: wi, tempo: { ideas: 7, change_every_s: 2.2, longest_hold_s: 4, source: "house" } });
+      ok("ladder: a ways_in beat may use other verbs", gof(fw, "G10").pass === true, why(fw));
+      const f3 = run10l({ beats: withB((b) => { b.splice(3, 2); }) });
+      ok("ladder: G10 fails too few rungs for the length", gof(f3, "G10").pass === false && /rungs: 2 for a/.test(why(f3)), why(f3));
+      const many = withB((b) => { ["flight plan", "garden shed", "tax return", "wedding speech"].forEach((u, i) => b.splice(5 + i, 0, { ...b[2], name: `Extra ${i}`, use: u, level: 5 + i, duration_s: 2 })); });
+      const f4 = run10l({ beats: many });
+      ok("ladder: G10 fails too many rungs for the length (a 38 s film takes 4-6)", gof(f4, "G10").pass === false && /rungs: 8 for a/.test(why(f4)), why(f4));
+      const f5 = run10l({ beats: withB((b) => { b[3].use = "a long diff"; }) });
+      ok("ladder: G10 fails two rungs that share a use noun (a small diff / a long diff)", gof(f5, "G10").pass === false && /share the use noun "diff"/.test(why(f5)), why(f5));
+      const f6 = run10l({ beats: withB((b) => { b[3].level = 1; }) });
+      ok("ladder: G10 fails levels that do not strictly increase", gof(f6, "G10").pass === false && /strictly increasing/.test(why(f6)), why(f6));
+      const f7 = run10l({ beats: withB((b) => { b[2].duration_s = 14; }) });
+      ok("ladder: G10 fails one rung over 35% of the film", gof(f7, "G10").pass === false && /over 35%/.test(why(f7)), why(f7));
+      const f8 = run10l({ beats: withB((b) => { delete b[2].ui; }) });
+      ok("ladder: G10 fails a rung without ui cause and effect", gof(f8, "G10").pass === false && /without ui cause and effect/.test(why(f8)), why(f8));
+      const f9 = run10l({ beats: withB((b) => { b.splice(b.findIndex((x) => x.role === "close"), 1); }) });
+      ok("ladder: G10 fails a film with no close beat", gof(f9, "G10").pass === false && /close beat missing/.test(why(f9)), why(f9));
+      const w1 = run10l({ beats: withB((b) => { b[1].on_screen = "Review one small diff in the Lintel app right now"; b[2].highlight = "nope"; }) });
+      ok("ladder: a title over 6 words and a highlight not in its title are warnings, not G10 errors", /is \d+ words \(6 at most\)/.test(w1.stdout) && /highlight \\?"nope\\?" is not in its title/.test(w1.stdout) && !/title.*6 words|highlight/.test(why(w1)), why(w1));
+      const pk = node("story.mjs", ["pick", "--truth", ptruth, "--format", "launch", "--seed", "k"]);
+      let pj = {}; try { pj = JSON.parse(pk.stdout); } catch {}
+      ok("ladder: pick --format launch offers the ladder as the structure for Sure, Bold and Wild", pj.shape === "ladder" && /refrain verb/.test(pj.shape_rule || "") && (pj.picks || []).length === 3 && pj.picks.every((x) => x.structure === "ladder" && /Sure|Bold|Wild/.test(x.ladder_variant)), pk.stdout.slice(0, 300));
+      const pk2 = node("story.mjs", ["pick", "--truth", ptruth, "--format", "launch", "--seed", "k", "--feature", "Sites"]);
+      let pj2 = {}; try { pj2 = JSON.parse(pk2.stdout); } catch {}
+      ok("ladder: pick with --feature (one feature named) keeps the scenario shape", pj2.shape === "scenario" && !(pj2.picks || []).some((x) => x.structure), pk2.stdout.slice(0, 200));
+    }
     // the museum script of the real failed film is refused by the gate when run product-first
     const mu = node("story.mjs", ["check", "--pitch", path.join(sd, "script-good.json"), "--length", "45", "--narrated", "--product-first"]);
     let rmu = { gates: [] };
@@ -1677,7 +1733,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   ok("presenter: other routes do not need ## Imagery", !/Imagery/.test(g(run2).stdout));
 
   // the scripts' own tests, each with the same helpers; absent files are a note, never a failure
-  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments"]) {
+  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit"]) {
     const f = path.join(HERE, "tests", `${name}.mjs`);
     if (!fs.existsSync(f)) { console.log(`note  ${name}: scripts/tests/${name}.mjs is not there yet, skipped`); continue; }
     try {
@@ -1759,6 +1815,24 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   const dup = clone(good); dup.cards[5].generator = dup.cards[4].generator; dup.cards[5].origin = dup.cards[4].origin;
   ok("moves: two cards with the same generator and origin warn (not an error)", validateMoves(dup, { beats: pitch.beats }).warnings.some((w) => /same mechanism/.test(w)));
 
+  // a ladder film: the heroes are the joins between rungs (no-join-hero); a G6 legible fail is a valid verdict entry
+  {
+    const ladderBeats = pitch.beats.map((b, i) => ({ ...b, role: ["open", "rung", "rung", "close"][i] }));
+    const lad = (o) => validateMoves(o, { beats: ladderBeats, shape: "ladder" });
+    ok("moves: a ladder film whose heroes' seams cross a rung boundary passes (m1 2>3 is rung to rung)", !lad(good).errors.some((e) => /no-join-hero/.test(e)), JSON.stringify(lad(good).errors));
+    const inDemo = clone(good); inDemo.cards[0].seam = "2>2"; inDemo.cards[1].seam = undefined; inDemo.cards[1].beat = 3;
+    ok("moves: a ladder film whose hero seams stay inside a demo or touch no rung is no-join-hero", lad(inDemo).errors.some((e) => /no-join-hero/.test(e)));
+    const openClose = clone(good); openClose.cards[0].seam = "1>4"; openClose.cards[1].seam = "4>4";
+    ok("moves: a seam between the open and the close crosses no rung boundary (no-join-hero)", lad(openClose).errors.some((e) => /no-join-hero/.test(e)));
+    ok("moves: a scenario or untyped film is not held to no-join-hero", !validateMoves(inDemo, { beats: ladderBeats, shape: "scenario" }).errors.some((e) => /no-join-hero/.test(e)) && !validateMoves(inDemo, { beats: pitch.beats }).errors.some((e) => /no-join-hero/.test(e)));
+    const { pitchShape } = await import(path.join(HERE, "lib", "moves-lib.mjs"));
+    ok("moves: pitchShape reads the explicit shape, else the beat roles", pitchShape({ shape: "ladder" }) === "ladder" && pitchShape({ beats: ladderBeats }) === "ladder" && pitchShape({ feature: { name: "x" }, beats: [] }) === "scenario" && pitchShape({ beats: pitch.beats }) === null);
+    const lf = path.join(TMP, "moves-ladder-pitch.json"); wj(lf, { ...pitch, shape: "ladder", beats: ladderBeats });
+    wj(path.join(TMP, "moves-ladder-bad.json"), inDemo);
+    const cr2 = M(["check", "--file", path.join(TMP, "moves-ladder-bad.json"), "--pitch", lf]);
+    ok("moves: moves.mjs check reads the pitch's shape and refuses a ladder with no join hero (exit 2)", cr2.status === 2 && (J(cr2).errors || []).some((e) => /no-join-hero/.test(e)), cr2.stdout.slice(0, 300));
+  }
+
   // the pack: deterministic, reference moves first, product-first takes a choreography constraint, earlier heroes are banned
   const pk = (label, extra = [], e = {}) => { const r = M(["pack", "--run", run, "--label", label, ...extra], e); return { r, f: path.join(run, "story", `moves-pack-${label}.json`) }; };
   const p1 = pk("Bold", ["--seed", "7"]); const t1 = fs.readFileSync(p1.f, "utf8");
@@ -1824,6 +1898,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   vbad("a pitch with no set gate", (v) => { delete v.pitches.Sure.set; }, /Sure: set is missing/);
   vbad("set.full_frame false while the label is not in denial", (v) => { v.pitches.Bold.set = { full_frame: false, evidence: "every passing card is a detail inside the UI" }; }, /Bold: set\.full_frame is false.*must be in denial/);
   ok("moves: set.full_frame false is fine when the label is in denial[]", (() => { const v = clone(verdict); v.pitches.Bold.set = { full_frame: false, evidence: "all small" }; v.pitches.Bold.denial = ["Bold"]; wj(vf, v); const r = M(["check-verdict", "--run", run]); wj(vf, verdict); return r.status === 0 && J(r).ok; })());
+  ok("moves: a card failed on G6 legible (a puzzle, a move that needs explaining) is a valid verdict entry; an unknown gate G7 is not", (() => { const v = clone(verdict); v.pitches.Bold.cards.find((c) => c.id === "m4").fails = ["G6"]; wj(vf, v); const r = M(["check-verdict", "--run", run]); const v2 = clone(verdict); v2.pitches.Bold.cards.find((c) => c.id === "m4").fails = ["G7"]; wj(vf, v2); const r2 = M(["check-verdict", "--run", run]); wj(vf, verdict); return r.status === 0 && J(r).ok && r2.status === 2 && (J(r2).errors || []).some((e) => /G1 to G6/.test(e)); })());
   vbad("a missing label", (v) => { delete v.pitches.Wild; }, /Wild: missing/);
   // the pairwise rounds: every consecutive pair of the ranking, in both presentation orders
   vbad("no rounds at all (rounds-missing)", (v) => { delete v.pitches.Sure.rounds; }, /Sure: rounds-missing: m3 > m1/);

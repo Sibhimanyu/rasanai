@@ -8,6 +8,8 @@ Source quality note: Apple, OpenAI/Studio Dumbar and the Apple HIG are primary. 
 
 Rule for all lengths: the product (real UI or the real mark) is on screen by 3 s. Hook = the product doing its main thing, not a problem montage. (Agency guidance often says "start with the problem"; for a known product with a real UI, show the product answering the problem in the same shot.) Beats are sized by share of runtime so they scale.
 
+**Ladder or scenario.** A launch of a product or brand is a **ladder** by default (`references/story.md`, Story shapes): the tables below are then filled as rungs (one refrain verb, a title card per rung, a different real use each, escalating to done-for-you), see "Ladder templates" after the tables. A single-feature spot (the brief or research names ONE feature) uses the tables as they are: one hero demo and its uses.
+
 Tempo comes first (see "Tempo" below): the tables carry the house idea counts and holds. An idea is one new thing the viewer learns; each row below that is not the hook, the end card or a transition is one or more ideas.
 
 ### 15 s (social teaser, one feature), 3 ideas minimum
@@ -50,6 +52,20 @@ Tempo comes first (see "Tempo" below): the tables carry the house idea counts an
 | 76-84 | Payoff + collage or density build | Fast cuts on the beat building to the densest moment, then silence or one hit. |
 | 84-90 | End card | As 60 s; the beat runs at least 3 s, with at most 1.5 s of it still. |
 
+### Ladder templates (the default for a product or brand launch)
+
+One refrain verb is the spine. `open` = the refrain arrives with the product on screen; each `rung` = a title card (the verb plus one highlighted word, 6 words or fewer) over a real UI demo of a distinct everyday use, levels rising from simple to done-for-you; optional `ways_in` (type, say, snap, film); `close` = "<verb> anything" or the product's own line, then the logo and one CTA. No rung over 35% of the film; the joins between rungs carry the moves (a title word becomes the input, the input becomes the next demo, the last input becomes the logo).
+
+| Length | Rungs | open | each rung | ways_in | close and end card |
+|---|---|---|---|---|---|
+| 15 s | 3 | 0-2.5 s | about 3 s | none | 11.5-15 s |
+| 30 s | 3 to 4 | 0-3 s | 5-6 s | optional 2 s | 24-30 s |
+| 45 s | 4 | 0-4 s | 6-8 s | optional 3 s | 38-45 s |
+| 60 s | 4 to 6 | 0-5 s | 7-9 s | 3-4 s | 52-60 s |
+| 90 s | 6 to 8 | 0-6 s | 8-10 s | 4-6 s | 80-90 s |
+
+Rung counts follow the length: 35 s or less 3 to 4, 36 to 60 s 4 to 6, over 60 s 6 to 8. The tempo rules below still hold inside each rung (something changes about every 2 s).
+
 Length limits: agency data puts social and teaser films at 15-30 s, explainers at 45-90 s, and the retention cliff near 45-50 s; kinetic-type pieces hold under about 90 s. OpenAI's own brand film runs 110 s as a hero piece, so over 90 s needs an explicit brief. Default to 30 s or 60 s if the brief does not say.
 
 Cut-down rule: plan 15 s and 30 s cuts at storyboard stage by making every feature beat self-contained (Moonb's "plan cutdowns at storyboard" lesson; Duolingo and Samsung cut from independent segments).
@@ -71,10 +87,10 @@ Name it tempo, never pace (Studio's Pace setting is research speed). Commercial 
 2. **One idea per shot.** One feature, one sentence, one motion. If a shot needs "and", split it. Max 1 text block and 1 UI focus per frame.
 3. **Plain words.** Say it the way a person would say it aloud. Max 6 words per on-screen line (statements 3-6; labels 1-4). Max 2 lines per card. No riddles, puns that need decoding, cryptic labels, or jargon not in the product's own UI. Apple's recent films use whole sentences as single beats, with no voiceover, one short sentence per beat.
 4. **Reading time:** a line holds on screen at least 0.3 s per word plus 0.6 s (a 5-word line = 2.1 s minimum), longer on phone-size output. A spec that flashes past has failed (GoPro example in Moonb).
-5. **Type scale (house, in frame heights).** Two sizes only for the voice: *Statement* = 10-18% of frame height (cap height ~8-14%) or a single letterform filling the frame; *Label* = 1.8-2.8% of frame height (about 20-30 px at 1080p), at margins (top or bottom centre, corners). Nothing in between except the UI itself. The CTA/end line is Statement size. A CTA smaller than body copy fails.
+5. **Type scale (house, in frame heights).** Two sizes only for the voice: *Statement* = 10-18% of frame height (cap height ~8-14%) as the ceiling, taking the brand film card's own size when there is one, and always reduced until the whole line fits on one row inside the 6% safe area (never a letterform or a line cropped by the frame); *Label* = 1.8-2.8% of frame height (about 20-30 px at 1080p), at margins (top or bottom centre, corners). Nothing in between except the UI itself. The CTA/end line is Statement size. **Every word fits:** at rest every line sits fully inside the 6% safe area, on one line (two at most), never cropped; it may leave the frame only in a push-through of 0.4 s or less (`motion-gate.mjs` `text-fit`). A CTA smaller than body copy fails.
 6. **Real UI.** Captured, or rebuilt as DOM with real layout, labels, type and colours. Never icons, drawn props or abstract shapes standing in for the UI (see `product-first.md`). UI choreography beats screenshots: the cursor, the keystroke, the window arriving, the answer streaming.
 7. **The brand's own palette, type and motif only.** Palette from the brand's real films and product (section 3). No colours, display faces or illustration styles from outside references. For a named brand, outside references (famous directors, other brands) are banned from the design.
-8. **No invented metaphors or worlds.** Museums, galleries, parables, dioramas, characters, mockumentaries fail. If the concept needs a sentence of explanation to make sense on a silent first view, it fails. Allowed: a visual pun that resolves to the product within 1 s, and a letter, shape or type transformation, at any scale up to full frame, whose end state lands on a real product surface or the real mark within the same move (`references/product-first.md`, the resolve rule).
+8. **No invented metaphors or worlds.** Museums, galleries, parables, dioramas, characters, mockumentaries fail. If the concept needs a sentence of explanation to make sense on a silent first view, it fails. Allowed: a visual pun that resolves to the product within 1 s, and a letter, shape or type transformation (the transition may fill the frame, the words stay readable inside the safe area) whose end state lands on a real product surface or the real mark within the same move (`references/product-first.md`, the resolve rule).
 9. **Restraint in motion.** Vocabulary brands actually use: scale, morph (one shape into another), draw-on (outline into solid), cut on the beat, slide/fade of type, UI choreography (cursor, keystroke, panel in), simple parallax of flat layers. Max 3 distinct motion types per film (house); a carrier's chain of transformations (one shape becoming a letter, a dot, a UI element, the next screen) counts as ONE motion type (morph), and the chain's density is the point, not a violation. Ease: one curve family per film. Moves 0.3-0.8 s for UI, 0.5-1.2 s for type; Apple HIG: motion is purposeful, brief, precise, optional. Banned unless the brand film itself uses them: 3D camera moves, motion blur, film grain, glitch, shake, lens flare, bounce overshoot, particle bursts. Typography effects: no outlines, shadows or per-word gimmicks on every line (Apple: such effects weaken authority).
 10. **Cut rate follows the reference film**, not taste, and never falls below the house tempo (Tempo, above). One calm stretch (one slow mover, up to the longest-hold limit, never a freeze) alternates with bursts of cuts at 0.4-1.0 s each on the beat. Never constant fast cutting for the whole film; never a single speed.
 11. **End card.** Brand mark (and wordmark) is the biggest object; one line or none; one CTA only ("Available today", the URL, or the store badge, not three). Clean brand canvas. The end card beat runs at least 2 s (15 s film) or 3 s (30-90 s): the mark lands, the name and the CTA follow, and after the last of them lands it holds at most 1.5 s still (`motion-gate.mjs` fails a longer still tail; a brief that asks for a longer hold sets `end_hold_s` in the plan). No competing UI, no credits crawl, no second tagline. Last frame is the mark alone or mark+name; then optional black. **The mark is the downloaded file** (`research/brand/assets/`, staged at `assets/brand/`), placed unchanged with its clear space and the colour version for the canvas: never drawn, traced, approximated or generated (a flower made of circles is not the OpenAI blossom). If `logos.json` says `none`, the end card is the brand name in the brand font only, no symbol, and the user was told.
@@ -131,7 +147,7 @@ Palette       black type and marks on near-white. Colour < 5% of frame: sky blue
               Arrives as flat solid circles, then a multicolour dot field, then a soft gradient sphere.
               Never as a background wash.
 Type          One family: OpenAI Sans (custom, with Dinamo Typefaces), weights Light to Bold.
-              Two sizes: huge (single letterform fills frame) and tiny labels at margins (top/bottom centre).
+              Two sizes: display (a single letterform or short line, always fully inside the safe area) and tiny labels at margins (top/bottom centre).
               Nothing between. No serif display face.
 Layout        One element at a time, centred or on a strict grid, huge whitespace.
               Principle lists in small type (Simplicity / Space / Imperfection / Vivid).

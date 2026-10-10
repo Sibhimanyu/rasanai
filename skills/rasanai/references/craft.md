@@ -160,7 +160,7 @@ Everything obeys `motion.md` (the style's motion language: eases, duration scale
 
 **Scale.**
 - The primary visual covers at least 40% of the canvas.
-- UI as the subject fills at least 60% of the frame width (zoom in, screen-studio style); when type is the subject, the hero line spans 60–80% of the width.
+- UI as the subject fills at least 60% of the frame width (zoom in, screen-studio style); when type is the subject, it is one line that fits inside the safe area (never cropped by the frame), sized to the brand film card's type scale, or without a card the design system's display size.
 - Negative space has a job: type-led frames keep at least 40% empty. A frame that is mostly an empty flat field with nothing happening is sparse, not minimal: add scale or a second plane (unless the style is deliberately minimal).
 - At most 2 effects per element (a shadow and a mask, never shadow + glow + blur + stroke).
 
@@ -168,7 +168,7 @@ Everything obeys `motion.md` (the style's motion language: eases, duration scale
 
 | Role | Size |
 |---|---|
-| Hero word or number | 12–20% (130–216 px) |
+| Hero word or number | 12–20% (130–216 px), only where the whole word still rests inside the safe area |
 | Display line | ≥ 8% (≥ 86 px) |
 | Readable text, 16:9 | ≥ 3.5% (≥ 38 px) |
 | Readable text, phone-first (9:16, 1:1, 4:5) | ≥ 4% (≥ 44 px) |
@@ -177,7 +177,7 @@ Everything obeys `motion.md` (the style's motion language: eases, duration scale
 At least 3 clear sizes in the system, display at least 2.5× the body, at least 2 weights. No font-size under 24 px without a reason. Borders 2–4 px.
 
 **Safe areas.**
-- 16:9: text at least 5% in from every edge (96 px at the sides, 54 px top and bottom); key text 80 px from the sides and 100 px from top and bottom at 1080.
+- 16:9: every line meant to be read rests fully inside the 6% safe area (115 px at the sides and 65 px top and bottom at 1920×1080), on one line (two at most), never cropped. A line may leave the frame only in a deliberate push-through of 0.4 s or less. Size follows the brand film card's type scale, never "as big as possible". `text-fit` measures it (§10).
 - 9:16: keep the top 12% and the bottom 20% free of message-carrying text (platform UI) and the sides 6%; with burned-in captions, content lives in the top 83%.
 - 1:1 and 4:5: 6% on every side.
 - Design for the format from the start; never plan landscape and crop to portrait.
@@ -285,6 +285,8 @@ Every tell is a default left in place, uniformity, an effect without a cause, or
 | Floating glossy phones, dashboards in a void at 30°, isometric floating cards, 3D icon packs | The real UI full-bleed or cropped tight; a device frame only when the context of use matters. |
 | Three feature cards sliding in, "How it works" icon rows, stepper bars, stats rows, logo walls | One feature as a weapon inside a scene; data as one visual carrying one number. |
 | Over-saturated, over-contrasted "crisp" HDR finish; teal-orange by reflex | A grade from the direction with a reason; natural saturation. |
+| Cropped or overflowing type: letters running off the frame edge, a word wider than the safe area, a line set "as big as possible" [text-cropped] | One line inside the 6% safe area at the brand's type size; the transition fills the frame, the words stay readable; leave the frame only in a push-through of 0.4 s or less. |
+| Hidden-letter puzzles: a missing letter or a dot knocked off so the line stops reading | The line reads normally throughout; the move is something you can say in one plain sentence. |
 | Everything filled edge to edge; ten stacked effects | One focal point; ≥ 40% negative space on type frames; ≤ 2 effects per element. |
 | Inter or system sans everything; one size, one weight [default-type, too-many-typefaces] | The style's pairing; 3 sizes, 2 weights. |
 
@@ -356,7 +358,7 @@ Run these before the render question, in order. Never report a gate as passed if
 
 1. **Grounding pass.** List every visible string, number, price, name and logo in the built film with its source (the capture, a screenshot, the brief, the truth sheet's native words and proof). Anything without a source is removed or replaced with a sourced one; an open question goes to the console (`console.mjs ask`), never into the film. Also check for leaked labels and placeholders.
 2. **Look at the frames yourself.** Render stills at frame 0; mid-scene (60–70% into each scene); mid-transition (each seam's midpoint); 0.1 s before and 0.2 s after every cut; and the final frame. **Read the PNGs.** Check: the focal point is obvious (squint test); type sizes and safe areas; no text collisions, clipping, widows or typos; contrast; one accent; layout variety across the sheet; no pop across cuts (continuing elements keep position, scale, opacity and direction); nothing from the Anti-slop tables. Without this loop the output is confident garbage.
-3. **Automated checks.** `node scripts/obey.mjs --project videos/<name>` (the motion contract); `node scripts/stage3d.mjs check --project videos/<name>` (every 3D scene: seek-safe, not blank, eased on the contract, blurred where it moves, comes to rest, renderable); `node scripts/slop.mjs --project videos/<name> [--video <render.mp4>]` (these tells, reading time, dead air, black opening, loudness); `node scripts/motion-gate.mjs --video <draft.mp4> --project videos/<name> --plan <run>/motion/score.json` (the film keeps moving, measured frame by frame: visible motion in at least 75% of frames, no still stretch of 0.8 s outside the end card, at most 1.5 s still at the end, no whole-frame scale or drift slower than 4% a second, motion on both sides of every seam within 0.2 s, at least two seams carried by an object, exactly one brand reveal, no parked lines); the sound checks in `references/sound.md` (loudness, true peak, SFX budget, sync, tail). Fix every error; only the user can waive one.
+3. **Automated checks.** `node scripts/obey.mjs --project videos/<name>` (the motion contract); `node scripts/stage3d.mjs check --project videos/<name>` (every 3D scene: seek-safe, not blank, eased on the contract, blurred where it moves, comes to rest, renderable); `node scripts/slop.mjs --project videos/<name> [--video <render.mp4>]` (these tells, reading time, dead air, black opening, loudness, and `text-fit`); `node scripts/motion-gate.mjs --video <draft.mp4> --project videos/<name> --plan <run>/motion/score.json` (the film keeps moving, measured frame by frame: visible motion in at least 75% of frames, no still stretch of 0.8 s outside the end card, at most 1.5 s still at the end, no whole-frame scale or drift slower than 4% a second, motion on both sides of every seam within 0.2 s, at least two seams carried by an object, exactly one brand reveal, no parked lines, and `text-fit` from the code half run with `--project`: a visible text element (opacity above 0.5, 20 px or larger) whose box crosses the frame edge, or at rest leaves the 6% safe area, for more than 0.4 s continuously is the error `text-cropped`, with the time range and the first 40 characters; `slop.mjs --project` runs it too); the sound checks in `references/sound.md` (loudness, true peak, SFX budget, sync, tail). Fix every error; only the user can waive one.
 4. **Clean-context critic.** Dispatch the crew's critic (`agents/critic.md`, lenses `frames`, `motion`, `grounding`, `film`; `crew.mjs brief --role critic --key <lens>-<round>`), a subagent with no conversation history. Give it only the stills and contact sheet, the draft render, the motion gate's report on it, the plan, the film's one-sentence message and this rubric. The motion and film lenses never judge without the render and the gate's report. It **defaults to reject** and scores 1–10:
    - **Design:** composition, hierarchy, type, color discipline, layout variety.
    - **Readability:** at phone size, reading time, contrast.

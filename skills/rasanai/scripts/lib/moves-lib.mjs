@@ -14,10 +14,14 @@
 //                            chain[] has fewer than ceil(film_seconds / 1.5) entries), chain-gap (a gap over 3.0 s in the
 //                            chain, from 0 or to the film's end). Warnings: a detail hero, more than half the cards detail.
 //                            carrier.family is required (carrier-family: missing, unknown, or not the family the pack assigned).
+//                            Ladder films (opts.shape "ladder", see pitchShape): no-join-hero (error) when no hero card's seam "A>B" crosses
+//                            a rung boundary (a beat with role "rung" on either side): the heroes are the joins between rungs.
+//   pitchShape(pitch)        "ladder" | "scenario" | null from pitch.shape, else the beat roles (rung / open = ladder; proof / turn or a feature block = scenario)
 //   validateSet(movesByLabel)                                              -> {errors[], warnings[]}
 //                            Across the three moves files: carrier-repeat (two share a carrier family), carrier-similar (warning:
 //                            two carriers' short names share a content word).
 //   validateVerdict(obj, movesByLabel)                                     -> {errors[], warnings[]}
+//                            Fails cite gates G1 to G6 (G6 = legible: the move reads on first watch, no puzzles).
 //                            Each pitch needs set = {full_frame, evidence} (gate S1); full_frame false must list the label in denial[].
 //                            pitches.<L>.rounds[] {a, b, first, winner, frame} makes the position-swapped pairwise rounds checkable:
 //                            rounds-missing, rounds-inconsistent, rounds-frame (a split pair needs tiebreak "riskier").
@@ -102,6 +106,17 @@ const sameIdea = (a, b) => {
   if (!x || !y) return false;
   return x === y || (Math.min(x.length, y.length) >= 8 && (x.includes(y) || y.includes(x)));
 };
+
+// the story shape of a pitch: explicit pitch.shape, else inferred from its beat roles; null when it cannot be told
+export function pitchShape(pitch) {
+  if (!pitch || typeof pitch !== "object") return null;
+  const s = str(pitch.shape).toLowerCase();
+  if (s === "ladder" || s === "scenario") return s;
+  const roles = arr(pitch.beats).map((b) => str(b && b.role).toLowerCase());
+  if (roles.some((r) => r === "rung" || r === "open")) return "ladder";
+  if ((pitch.feature && typeof pitch.feature === "object") || roles.some((r) => r === "proof" || r === "turn")) return "scenario";
+  return null;
+}
 
 // ---------------------------------------------------------------- a moves file
 export function validateMoves(obj, opts = {}) {
@@ -228,6 +243,13 @@ export function validateMoves(obj, opts = {}) {
   const nDetail = cards.filter((c) => c && str(c.scale) === "detail").length;
   if (cards.length && nDetail * 2 > cards.length) W(`${nDetail} of ${cards.length} cards are scale "detail" (more than half: the set is mostly small moves inside the UI)`);
 
+  // a ladder film: the heroes are the joins between rungs (a title word becomes the input, the input the next demo, the last input the logo)
+  if (opts.shape === "ladder" && heroCards.length) {
+    const role = (n) => str(beats[n - 1] && beats[n - 1].role).toLowerCase();
+    const crosses = (c) => { const m = str(c.seam).match(/(\d+)\s*(?:>|->|→|to)\s*(\d+)/i); if (!m) return false; const a = Number(m[1]), b = Number(m[2]); return a !== b && (role(a) === "rung" || role(b) === "rung"); };
+    if (!heroCards.some(crosses)) E(`no-join-hero: no hero card's seam crosses a rung boundary (set seam "A>B" with a rung beat on either side): on a ladder film the heroes are the joins between rungs, never a trick inside a demo`);
+  }
+
   // the chain: every transformation of the carrier, time-coded across the whole film
   if (filmSeconds > 0) {
     const chain = arr(obj.chain).filter((e) => e && typeof e === "object");
@@ -323,7 +345,7 @@ export function validateVerdict(obj, movesByLabel = {}) {
         if (fails.length) E(`${label} ${j.id}: passes but lists fails`);
         if (!str(j.evidence)) W(`${label} ${j.id}: no evidence quoted from the card`);
       } else {
-        if (!fails.length || !fails.every((f) => /^G[1-5]\b/i.test(f))) E(`${label} ${j.id}: a fail needs at least one gate id (G1 to G5) in fails[]`);
+        if (!fails.length || !fails.every((f) => /^G[1-6]\b/i.test(f))) E(`${label} ${j.id}: a fail needs at least one gate id (G1 to G6) in fails[]`);
         if (!str(j.evidence)) E(`${label} ${j.id}: a fail needs evidence (quoted from the card)`);
       }
     });

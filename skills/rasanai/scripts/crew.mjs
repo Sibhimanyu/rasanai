@@ -39,7 +39,7 @@ import { detectModel, profileFor, adapt, tierFor, dispatchFor } from "./lib/mode
 import { libraryIds } from "./library.mjs";
 import { readLogos } from "./lib/logos.mjs";
 import { checkSystemFull, checkSystems, firstLine } from "./lib/system.mjs";
-import { validateMoves, validateVerdict, validateSet, isLabelOnly, MOVE_LABELS } from "./lib/moves-lib.mjs";
+import { pitchShape, validateMoves, validateVerdict, validateSet, isLabelOnly, MOVE_LABELS } from "./lib/moves-lib.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -1220,7 +1220,7 @@ async function checkRole(run, role, key) {
       const pitch = jsonMaybe(R(run, "story", `pitch-${key}.json`));
       if (!pitch) { P.push(`story/pitch-${key}.json is ${pitch === undefined ? "not valid JSON" : "missing"}: the moves are checked against its beats`); break; }
       const pf = productFirst(run, jsonMaybe(R(run, "crew", "plan.json")) || {});
-      const r = validateMoves(m, { beats: pitch.beats, productFirst: pf, uiLabels: pitch.ui_labels, productName: pitch.product || pitch.product_name, pack: jsonMaybe(R(run, "story", `moves-pack-${key}.json`)) || null });
+      const r = validateMoves(m, { beats: pitch.beats, productFirst: pf, shape: pitchShape(pitch), uiLabels: pitch.ui_labels, productName: pitch.product || pitch.product_name, pack: jsonMaybe(R(run, "story", `moves-pack-${key}.json`)) || null });
       P.push(...r.errors); W.push(...r.warnings);
       break;
     }
