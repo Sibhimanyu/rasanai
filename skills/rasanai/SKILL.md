@@ -37,11 +37,24 @@ The user is interrupted **five times**, and each time sees their own film, never
 |---|---|---|---|
 | 1 | **Brief**: one editable sentence ("A 45-second launch film for Tally, 16:9 for the website, with voiceover, in Tally's own colours and type") and what was captured | fix a word, press Start (or **Just make it**) | the route, the brand read, the capture |
 | 2 | **Story**: three scripts (Sure · Bold · Wild), each a title, a logline and the full script as timed beats: what's on screen, what's said, what we see | pick one, or tell Claude what to change in a line; "three more stories" | story devices, the truth sheet, the writing, the script checks |
-| 3 | **Look**: three bespoke design systems made for that story (name, the blend in one line, why it fits), each drawn live on its first line | pick one; "new blends near this one" (the design desk makes more), an energy knob | the blend, motion language and camera, transitions |
-| 4 | **Animatic**: the whole film as timed key frames with the real music bed and the voice, scene strip, scrubber | play it; click any moment to leave a note; swap music or voice; **Looks right, build it** | the script, scenes, pacing, key frames, the music edit, sound design |
+| 3 | **Look**: three bespoke design systems made for that story (name, the blend in one line, why it fits), each drawn live on its first line (a short branded film: decided, the brand's own look) | pick one; "new blends near this one" (the design desk makes more), an energy knob | the blend, motion language and camera, transitions |
+| 4 | **Animatic**: the whole film as timed key frames with the real music bed and the voice, scene strip, scrubber (a short film: the built draft itself) | play it; click any moment to leave a note; swap music or voice; **Looks right, build it** | the script, scenes, pacing, key frames, the music edit, sound design |
 | 5 | **Final**: the rendered film with scene markers, versions and what changed | click a moment to note it, apply notes, **Render the final**, download | the build, every check, the fixes |
 
 Between calls the console shows the work live (Build is part of the Animatic state: scene by scene turning from key frame to finished). Everything Claude decided is listed in the **Decisions** drawer with a one-line reason; the user can change any of it by saying so (⌘K "Tell Claude", or a note).
+
+### Short films: the direct path
+
+Films of **45 s or less and every single-feature launch or promo** take the direct path (`direct: true` in `crew/plan.json`; `crew.mjs plan` decides it from the length and the kind). It is fewer, more direct steps, and the same five calls:
+
+1. **Brief.** Research is the product (with its one feature's real screens) and the brand, plus the brand's own film when it has one. No screens, precedent or design researcher.
+2. **Story.** Three scripts, each one feature shown as one viewer doing one real task (G10).
+3. **Look.** With a brand there is no three-system desk: the look is the brand's own, and the motion comes from the picked moments, so the Look call is decided like any craft call (`look` pushed `--status done` with the reason). Without a brand the desk makes three systems as usual.
+4. Concept gate, reference moments (the user's picks, else 2 to 4 by role), music, then **the plan** (`motion/score.json`) and **ONE film builder** who writes the whole film. No key-frame stills, no parallel animators, no seam pass.
+5. **Animatic** = the built draft: the first draft render (after the motion gate) is pushed as the animatic, its beats' stills as thumbs and its own mix as the sound. Notes go back to the builder.
+6. **Final**, after the critics on the draft.
+
+The long path (key frames, the design desk, parallel scene animators, the seam pass) stays for films over 45 s, and whenever the user asks for it ("deep", "show me looks"): re-plan with `crew.mjs plan ... --deep`.
 
 ## Hard rules
 

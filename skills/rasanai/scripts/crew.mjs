@@ -129,9 +129,14 @@ function planCrew(p) {
   const N = p.scenes || null;
   const research = [];
   if (["product-launch-video", "general-video", "motion-graphics"].includes(p.route) && p.mode !== "topic") {
-    research.push(d("product-researcher"), d("brand-researcher"), d("screens-researcher"));
-    // a branded launch film studies the brand's own films in the brand-film phase instead (faster, and it is the look)
-    if (p.public && !lean && !p.brand_film) research.push(d("precedent-researcher"));
+    // a direct film (45 s or less, a single-feature launch) researches only the product (and its one feature's real
+    // screens) and the brand, plus the brand's own film when it has one: nothing a one-builder film doesn't use
+    if (p.direct) research.push(d("product-researcher", null, { screens: true }), d("brand-researcher"));
+    else {
+      research.push(d("product-researcher"), d("brand-researcher"), d("screens-researcher"));
+      // a branded launch film studies the brand's own films in the brand-film phase instead (faster, and it is the look)
+      if (p.public && !lean && !p.brand_film) research.push(d("precedent-researcher"));
+    }
   } else if (p.route === "faceless-explainer" || p.mode === "topic") {
     research.push(d("product-researcher", null, { mode: "topic" }));
     if (!lean) research.push(d("precedent-researcher"));
@@ -151,7 +156,9 @@ function planCrew(p) {
   // the design desk: the subject's visual world is researched during the Brief, in parallel with the research desk
   // A branded launch / promo / brand film takes its look from the brand's own film (the brand-film phase), so the
   // outside-reference design researcher would only spend time: skip it there.
-  if (!bf) phases.push({ phase: "design-research", when: "right after the brief is pushed, in parallel with the research members (it needs only the subject)", dispatch: [d("design-researcher")], then: "design.mjs / crew.mjs check; the design-system designers wait for it and for the chosen story" });
+  // a direct film with a brand takes the brand's own look (no Look desk), so it needs no design research either
+  const brandLook = !!(p.direct && (p.branded || bf) && DIRECT_ROUTES.has(p.route));
+  if (!bf && !brandLook) phases.push({ phase: "design-research", when: "right after the brief is pushed, in parallel with the research members (it needs only the subject)", dispatch: [d("design-researcher")], then: "design.mjs / crew.mjs check; the design-system designers wait for it and for the chosen story" });
   if (research.length) {
     phases.push({ phase: "research", when: "right after the brief is pushed, while the user reads it", dispatch: research, then: "research-lead once every member above is accepted" });
     phases.push({ phase: "research-lead", when: "after the research desk", dispatch: [d("research-lead")], then: "story.mjs pick on the truth sheet" });
@@ -175,6 +182,8 @@ function planCrew(p) {
   // three bespoke design systems for the chosen story (a lyric video: one, from the chosen treatment's style bible)
   if (p.route === "music-to-video") {
     phases.push({ phase: "design-system", when: "after the treatment is chosen (the Look step is the treatment's style bible, built out by the desk)", dispatch: [d("design-system-designer", "<chosen label>", { mode: "bible" })], then: "design.mjs check-system, then design.mjs choose-system for that label; no Look picker" });
+  } else if (brandLook) {
+    phases.push({ phase: "look-auto", when: "after the story is chosen: a direct film with a brand has no three-system desk", dispatch: [], director_steps: ["the look is the brand's own: research/brand/DESIGN.md (or the workspace DESIGN.md)" + (bf ? " and brand-film/FILM-STYLE.md" : ""), "push look --status done with the reason (\"The brand's own look: <type, colours>; the motion comes from the picked moments\"): the Look call is decided, like any craft call", "motion-md.mjs write from the brand's motion, direction.mjs compile, and video-decisions look = {design_md, mode: \"brand\"}", "the user can still ask for looks (\"show me looks\"): re-plan with --deep"], then: "the concept gate" });
   } else {
     phases.push({ phase: "design-systems", when: p.route === "reel" || ["talking-head-recut", "embedded-captions"].includes(p.route) ? "after the cut (reel) or the brief (footage routes): three card / overlay / caption identities" : (bf ? "after the story is chosen (story/chosen.json) and the brand film card (brand-film/FILM-STYLE.md) is accepted" : "after the story is chosen (story/chosen.json) and design-research is accepted"), dispatch: ["Sure", "Bold", "Wild"].map((k) => d("design-system-designer", k)), then: "design.mjs check-systems (each valid and the three distinct" + (bf ? "; a branded look cites FILM-STYLE.md, uses the card's palette and type, and carries no outside references" : "") + "), then design.mjs look-payload and push the Look" });
   }
@@ -191,20 +200,22 @@ function planCrew(p) {
       director_steps: ["the user's picked moments win: rasanai-brief.json moments [{id, role}] (up to 4)", "otherwise pick 2 to 4, one per role, by mechanic fit for the scenario: node scripts/moments.mjs search --role hook|proof|turn|cta --mechanic <tag> [--query \"<words>\"]", "node scripts/moments.mjs fetch <id> --run <run> --role <role>   (each picked moment: sha256-checked, read-only under <run>/references/moments/<id>/, credited in credits.json)", "write each beat's moment and its one-sentence take into the plan (motion/score.json)", "offline or nothing fits: --no-network uses the cache; with none, the library's own motion styles (library.mjs search --type motion), and say so in decisions"],
       then: "the Motion Director scores with the moments' takes (moment, take per beat); name the picks and their creators in the motion decision",
     });
-    phases.push({ phase: "score", when: p.route === "music-to-video" ? "after treatment.mjs scenes wrote scenes.json (plates against the real track; durations are the plate windows)" : "after the look is picked and the music is fitted (scenes.json has final durations)", dispatch: [d("motion-director", "score")], then: "crew.mjs check, then the frame designers" });
+    phases.push({ phase: "score", when: p.route === "music-to-video" ? "after treatment.mjs scenes wrote scenes.json (plates against the real track; durations are the plate windows)" : "after the look is picked and the music is fitted (scenes.json has final durations)", dispatch: [d("motion-director", "score")], then: p.direct ? "crew.mjs check (the plan), then video.mjs write, crew.mjs storyboard and the film builder: no key frames on a direct film" : "crew.mjs check, then the frame designers" });
     const groups = [];
-    if (N) {
+    if (p.direct) { /* no key-frame stills: the animatic is the built draft (phase animatic-draft below) */ }
+    else if (N) {
       const per = lean ? N : Math.max(2, Math.ceil(N / 5));
       for (let i = 1; i <= N; i += per) groups.push(`${i}-${Math.min(N, i + per - 1)}`);
     } else groups.push("1-N");
-    phases.push({ phase: "keyframes", when: "after the score is accepted", dispatch: groups.map((g) => d("frame-designer", g)), then: bf ? "the style-match gate, then " + (lean ? "push the animatic" : "the frames critic, then push the animatic") : lean ? "push the animatic" : "the frames critic, then push the animatic" });
-    if (bf) phases.push({ phase: "style-match-keyframes", when: "after every key frame is rendered, BEFORE the frames critic and before any animation", dispatch: [], gate: "node scripts/brandfilm.mjs compare --ref <run>/brand-film/grammar.json --ours <run>/frames", then: "on FAIL fix the frames (re-dispatch the designers with the failed checks) and re-run before animation or polish continues; record the numbers in decisions (decisions.style_match.keyframes) and push a short note (\"Matches OpenAI's film style: 76% white canvas vs 77%, palette dE 4.1\")" });
-    if (!lean) phases.push({ phase: "keyframes-review", when: "after every key frame is rendered", dispatch: [d("critic", "frames-1")], then: "fix the high findings (re-dispatch the designer), then push the animatic" });
+    if (!p.direct) phases.push({ phase: "keyframes", when: "after the score is accepted", dispatch: groups.map((g) => d("frame-designer", g)), then: bf ? "the style-match gate, then " + (lean ? "push the animatic" : "the frames critic, then push the animatic") : lean ? "push the animatic" : "the frames critic, then push the animatic" });
+    if (bf && !p.direct) phases.push({ phase: "style-match-keyframes", when: "after every key frame is rendered, BEFORE the frames critic and before any animation", dispatch: [], gate: "node scripts/brandfilm.mjs compare --ref <run>/brand-film/grammar.json --ours <run>/frames", then: "on FAIL fix the frames (re-dispatch the designers with the failed checks) and re-run before animation or polish continues; record the numbers in decisions (decisions.style_match.keyframes) and push a short note (\"Matches OpenAI's film style: 76% white canvas vs 77%, palette dE 4.1\")" });
+    if (!lean && !p.direct) phases.push({ phase: "keyframes-review", when: "after every key frame is rendered", dispatch: [d("critic", "frames-1")], then: "fix the high findings (re-dispatch the designer), then push the animatic" });
     const scenes = N ? Array.from({ length: N }, (_, i) => String(i + 1)) : ["<n>"];
     if (p.direct) {
       // ONE author for a short film (45 s or less, or a single-feature launch): the film builder writes the root and every
       // beat in one pass, so objects carry across beats by construction. No parallel animators, no seam pass.
-      phases.push({ phase: "build", when: "after the workflow's frame-packets.mjs and video.mjs inject (the plan is accepted)", dispatch: [d("film-builder", "film")], then: "motion-gate.mjs on the project, the draft render, motion-gate.mjs on the draft, then the critics" });
+      phases.push({ phase: "build", when: "after the workflow's frame-packets.mjs and video.mjs inject (the plan is accepted)", dispatch: [d("film-builder", "film")], then: "motion-gate.mjs on the project, the draft render, motion-gate.mjs on the draft, then the animatic call on the draft" });
+      phases.push({ phase: "animatic-draft", when: "after the first draft render passes the motion gate: the Animatic call shows the built film, not key frames", dispatch: [], director_steps: ["stills of the draft at each beat's midpoint (crew.mjs strip --file <draft.mp4> --at <midpoints>) as the scenes' thumbs", "push animatic with scenes [{id, title, line, visual, duration, thumb}], audio = the draft's own mix (or music.file = the bed) and video = <draft.mp4>", "notes come back by beat: route them to the film builder, re-render, re-run the gate; approve -> the critics and the Final"], then: "the critics on the approved draft" });
       const review = lean ? [d("critic", "film-1")] : [d("critic", "motion-1"), d("critic", "grounding-1")];
       phases.push({ phase: "review", when: "after the build and the draft render; motion-gate.mjs has run on the draft (a critic never judges without a render and the gate's report)", dispatch: review, then: "route each finding back to the film builder (2 rounds at most); film critic on the draft" });
     } else {
@@ -357,6 +368,11 @@ function contextFor(run, role, key, plan) {
       Object.assign(ctx, { subject: P.subject, url: P.url || null, kind: B.kind, focus: P.focus || null, mode: P.mode === "topic" || str(args.set).includes("mode=topic") ? "topic" : "product" });
       I("capture", capture);
       O(research("product.md")); O(research("product.claims.json"));
+      if (P.direct && ctx.mode !== "topic") {
+        // a direct film has no separate screens researcher: the product researcher also brings the ONE feature's real screens
+        ctx.screens = "this is a direct film (one feature, one builder): there is no separate screens researcher. Find the ONE feature (the user's named one, else the newest launch, else the core surface), capture its own page, and save 4 to 8 real screens of that feature in use into research/screens/ with research/screens.json ([{path, source, what}]) and a short research/screens.md with a ## UI kit section (3 or more measured components) and ## Flows (the task, step by step, as cause and effect)";
+        O(research("screens") + "/"); O(research("screens.json")); O(research("screens.md"));
+      }
       break;
     case "brand-researcher":
       Object.assign(ctx, { subject: P.subject, url: P.url || null });
@@ -1548,6 +1564,7 @@ if (cmd === "plan") {
   // a branded launch / promo / brand film gets the brand-film phase (the brand's own films are researched and measured) and the style-match gates
   p.brand_film = args["no-brand-film"] ? false : !!args["brand-film"] || !!prev.brand_film || (["product-launch-video", "general-video"].includes(p.route) && !!(p.brand || p.public || brandLocked(run)) && (p.route === "product-launch-video" || /launch|promo|brand|reveal/i.test(String(p.kind || brief(run).kind || ""))));
   p.direct = directFilm(p, prev, run);
+  p.branded = !!(p.brand || brandLocked(run));
   p.phases = planCrew(p);
   writeFile(R(run, "crew", "plan.json"), JSON.stringify(p, null, 2));
   const count = p.phases.reduce((a, ph) => a + ph.dispatch.length, 0);

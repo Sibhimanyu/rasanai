@@ -940,7 +940,13 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     ok("crew: concept-critic check refuses a pass with failed answers and accepts a complete pass", bad.status !== 0 && /not ok but the verdict is pass/.test(bad.stdout + bad.stderr) && good.status === 0, (bad.stdout + good.stdout).slice(0, 300));
     // the brand-faithful launch pipeline: brand film research phase, the analyst role and its check, the style-match gates
     {
-      const bp = J2(C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "ChatGPT for Mac", "--brand", "OpenAI", "--kind", "launch", "--scenes", "4", "--length", "30", "--pace", "fast"]));
+      const bp = J2(C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "ChatGPT for Mac", "--brand", "OpenAI", "--kind", "launch", "--scenes", "4", "--length", "30", "--pace", "fast", "--deep"]));
+      // the same branded launch on the direct path: product + brand research and the brand film only, no Look desk (the
+      // look is the brand's, decided), the moments, the plan, ONE builder, the animatic from the draft, no key frames
+      fs.mkdirSync(path.join(ws, ".rasanai", "r-bdirect"), { recursive: true });
+      const dp = J2(C(["plan", "--run", path.join(ws, ".rasanai", "r-bdirect"), "--route", "product-launch-video", "--subject", "ChatGPT for Mac", "--brand", "OpenAI", "--kind", "launch", "--scenes", "4", "--length", "30", "--pace", "fast"]));
+      const dph = (dp.phases || []).map((x) => x.phase), dm = (dp.phases || []).flatMap((x) => x.members);
+      ok("short film flow: a 30 s branded launch plans brief research (product + brand + brand film only), the story, the Look decided from the brand, the concept gate, moments, the plan, one builder and an animatic from the draft; no design desk, no key frames, no screens or precedent researcher", ["research", "brand-film", "story", "look-auto", "concept-gate", "moments", "score", "build", "animatic-draft", "style-match-draft"].every((x) => dph.includes(x)) && !dph.some((x) => /^(design-research|design-systems|keyframes|keyframes-review|style-match-keyframes|animate|seams|lead)$/.test(x)) && !dm.some((m) => /screens-researcher|precedent-researcher|frame-designer|scene-animator/.test(m)) && dph.indexOf("moments") < dph.indexOf("score") && dph.indexOf("build") < dph.indexOf("animatic-draft"), dph.join(","));
       const bph = (bp.phases || []).map((p) => p.phase), bm = (bp.phases || []).flatMap((p) => p.members);
       const planF = JSON.parse(fs.readFileSync(path.join(run, "crew", "plan.json"), "utf8"));
       const ph = (n) => (planF.phases || []).find((p) => p.phase === n) || {};

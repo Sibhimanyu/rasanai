@@ -47,6 +47,9 @@ Story (a song) ── lyrics.mjs align + audio → 3 treatment writers in parall
 Brand film (branded launch / promo / brand films) ── brandfilm.mjs find → fetch → frames → measure → card → brand film analyst fills FILM-STYLE.md → push brand with it (references/brand-film.md); the Look then IS that grammar
 Style gate ── after the key frames and after the first draft: brandfilm.mjs compare --ref grammar.json --ours <frames|draft> (fail: fix before going on); numbers into decisions and a short note to the user
 Look ─── Director art-directs from the briefing (brand verdict, house grammar) → push look
+Look (a direct film with a brand) ─ decided: the brand's own look, pushed done with the reason; the motion comes from the moments
+Moments (direct films) ─ the user's picks, else moments.mjs search by role → moments.mjs fetch → each beat's moment and take in the plan
+Animatic (a direct film) ─ the plan → ONE film builder → draft render → motion gate → push animatic from the draft (no key frames)
 Look (a song) ─ none: the chosen treatment's style bible is the look (DIRECTION.md); frame.md is the nearest preset
 Animatic ─ scenes (treatment.mjs scenes for a song: one per plate, the real track untouched) + music fit → Motion Director (score) → frame designers in parallel → frames critic → push animatic
 Build ── video.mjs write → crew.mjs storyboard (the plan → STORYBOARD.md, BUILD.md) → frame-packets + inject
@@ -104,7 +107,8 @@ Earlier videos about the same product are in that list too. They show what was a
 
 | The subject is… | Research desk |
 |---|---|
-| a public product with a web presence and launch history (ChatGPT, Linear, Figma) | product · brand · screens · precedent, plus the scout if local; the full crew |
+| a short film (45 s or less) or a single-feature launch: the direct path | product (with its one feature's real screens) · brand · the brand's own film; the scout if local |
+| a public product with a web presence and launch history (ChatGPT, Linear, Figma), the long path | product · brand · screens · precedent, plus the scout if local; the full crew |
 | a small or new product | product · brand · screens, plus the scout (often the richest source) |
 | a topic (explainer) | product in topic mode (facts, numbers, misconceptions) · precedent (the best explainers) |
 | a pull request | the scout on its repository; product (light) |
