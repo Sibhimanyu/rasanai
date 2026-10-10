@@ -382,6 +382,10 @@ export async function gate({ video = null, project = null, plan = null, scenes =
         // overlapping spans (both baselines) are one creep
         creeps.sort((x, y) => x.from - y.from);
         for (let k = 1; k < creeps.length; k++) if (creeps[k].from <= creeps[k - 1].to && creeps[k].kind === creeps[k - 1].kind) { creeps[k - 1].to = Math.max(creeps[k - 1].to, creeps[k].to); creeps[k - 1].rate = Math.max(creeps[k - 1].rate, creeps[k].rate); creeps.splice(k--, 1); }
+        // the end card may settle with a slow drift of its type block (HyperFrames' own gate allows it); a slow zoom stays a creep
+        const lastBeat = P.beats && P.beats.length ? P.beats[P.beats.length - 1] : null;
+        const endCardFrom = lastBeat && Number(lastBeat.start) >= 0 ? Number(lastBeat.start) : dur - 3;
+        for (let k = creeps.length - 1; k >= 0; k--) if (creeps[k].kind === "drift" && tOf(creeps[k].from) >= endCardFrom - 0.2) { skipped.push(`creep: a slow drift on the end card from ${tOf(creeps[k].from)} s is allowed`); creeps.splice(k, 1); }
         for (const c of creeps) add({ check: "creep", severity: "error", at: tOf(c.from), region: "whole frame", message: `a whole-frame ${c.kind} of about ${r2(c.rate * 100)}% a second from ${tOf(c.from)} to ${tOf(c.to)} s (slower than ${GATE.creep_per_s * 100}% a second shimmers thin lines and small type)`, fix: "move the camera for real (to go somewhere, at a speed you can see) or lock it; never a slow film-wide push or drift" });
         measured.creep_spans = creeps.length;
         // seams: motion on both sides within the window (the cut step itself and its neighbour do not count)
