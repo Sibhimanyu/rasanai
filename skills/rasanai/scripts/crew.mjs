@@ -1229,7 +1229,7 @@ async function checkRole(run, role, key) {
       const c = jsonMaybe(f);
       if (!c) { P.push(`${rel(f)} is ${c === undefined ? "not valid JSON" : "missing"}`); break; }
       if (!["pass", "fix"].includes(c.verdict)) P.push('verdict must be "pass" or "fix"');
-      const Q = ["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear"];
+      const Q = ["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear", ...(productFirst(run, jsonMaybe(R(run, "crew", "plan.json")) || {}) ? ["one_feature_one_scenario"] : [])];
       for (const q of Q) {
         const a = c.answers && c.answers[q];
         if (!a || typeof a.ok !== "boolean" || !String(a.evidence || "").trim()) P.push(`answers.${q} needs {ok: true|false, evidence: "<the beat or line it rests on>"}`);

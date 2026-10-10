@@ -716,6 +716,36 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       const follow = run9({ tempo: { ideas: 7, change_every_s: 2, longest_hold_s: 4, source: "brand film" } }, [], ["--brand-film", bg]);
       ok("tempo: a pitch written to the brand's tempo (source: brand film) passes against that brand", follow.pass === true, follow.reasons.join(" | "));
     }
+    // G10, one feature, one scenario: feature {viewer, task, before, after}, hook/proof/turn/cta, pictures, UI cause and effect, the two-way read
+    {
+      const gof = (r, id) => { let j = { gates: [] }; try { j = JSON.parse(r.stdout); } catch {} return (j.gates || []).find((x) => x.id === id) || { pass: null, reasons: [r.stdout.slice(0, 300) + r.stderr.slice(0, 300)] }; };
+      const sb = (name, role, on_screen, duration_s, visual, picture, more = {}) => ({ name, role, on_screen, visual, picture, duration_s, ...more });
+      const scen = () => [
+        sb("Before", "hook", "Reviews pile up elsewhere", 4, "The real Lintel window beside a browser of twelve review tabs, each new tab squeezing the others", "a reviewer drowns in review tabs while the pull request waits", { changes: ["a thirteenth tab squeezes in"] }),
+        sb("Apply it", "proof", "Apply it in place", 12, "The real Lintel review window over the diff: the comment, the suggestion, Apply suggestion", "the reviewer applies a suggestion without leaving the diff", { value: true, ui: ["click Apply suggestion → the diff line changes in place and the comment folds", "press Cmd+Enter → the review posts and a toast says Review sent", "the next comment slides up → its suggestion is highlighted", "click Resolve → the thread collapses into a check"], changes: ["the camera pushes into the suggestion", "the tabs close one by one"] }),
+        sb("After", "turn", "Review, done in Lintel", 5, "The tabs are gone, the Lintel mark lands as the window shrinks into it", "one window, no tabs, and the Lintel mark arrives", { turn: true, changes: ["the window shrinks into the mark", "the name lands"] }),
+        sb("End", "cta", "Get Lintel", 4, "Clean CTA card with the Lintel mark, the line the largest type", "the mark rises into the end card and the download button wipes in"),
+      ];
+      const feature = { name: "Apply suggestion", url: "https://lintel.example/apply", viewer: "a reviewer with twelve open review tabs", task: "apply a suggested change and post the review", before: "reviews live in a separate tool and get lost", after: "review and apply right in the diff" };
+      const run10 = (extra = {}, drop = []) => {
+        const o = { title: "Review in place", logline: "Lintel applies the review where you already are.", aim, approach: "One reviewer applies one suggestion in the real Lintel window, start to finish.", device: "oner", feature, beats: scen(), two_way: { lines_alone: "Reviews pile up; apply in place; done in Lintel; get it", pictures_alone: "tabs pile up, one suggestion is applied in the diff, the tabs vanish into the Lintel mark, the end card" }, tempo: { ideas: 5, change_every_s: 2.2, longest_hold_s: 4, source: "house" }, first_4s: "the real Lintel window beside the review tabs", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "Apply suggestion is Lintel's own" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the UI cause and effect" }, scores, hero_moment: { beat: 2, what: "Apply suggestion end to end" }, uses: ["apply the suggestion", "post the review", "resolve the thread"], last_line: "Get Lintel", end_line_largest: true, ...extra };
+        for (const k of drop) delete o[k];
+        const fl = path.join(sd, `t10-${Math.random().toString(36).slice(2)}.json`);
+        fs.writeFileSync(fl, JSON.stringify(o));
+        return node("story.mjs", ["check", "--pitch", fl, "--truth", ptruth]);
+      };
+      const good = run10();
+      ok("one feature: a hook/proof/turn/cta scenario with the feature block, pictures, UI cause and effect and the two-way read passes G7, G9 and G10", gof(good, "G10").pass === true && gof(good, "G7").pass === true && gof(good, "G9").pass === true, [gof(good, "G7"), gof(good, "G9"), gof(good, "G10")].map((g) => g.reasons.join(" | ")).join(" || "));
+      const two = run10({ feature: { ...feature, name: "Apply suggestion and Team inbox" } });
+      ok("one feature: G10 fails a pitch about two features", gof(two, "G10").pass === false && /more than one feature/.test(gof(two, "G10").reasons.join(" ")));
+      const nofe = run10({}, ["feature", "two_way"]);
+      ok("one feature: G10 requires the feature block and the two-way read", gof(nofe, "G10").pass === false && /feature missing/.test(gof(nofe, "G10").reasons.join(" ")) && /two_way/.test(gof(nofe, "G10").reasons.join(" ")));
+      const fakeOut = scen(); fakeOut[1] = { ...fakeOut[1], visual: "A lavender board of three generic cards builds as the result", ui: ["click Apply"] };
+      const fo = run10({ beats: fakeOut });
+      ok("one feature: G10 fails an invented output screen and a UI step with no effect", gof(fo, "G10").pass === false && /invented output screen/.test(gof(fo, "G10").reasons.join(" ")) && /cause and its effect|at least 2/.test(gof(fo, "G10").reasons.join(" ")), gof(fo, "G10").reasons.join(" | "));
+      const order = scen(); [order[1], order[2]] = [order[2], order[1]];
+      ok("one feature: G10 wants hook, proof, turn, cta in that order", gof(run10({ beats: order }), "G10").pass === false);
+    }
     // the museum script of the real failed film is refused by the gate when run product-first
     const mu = node("story.mjs", ["check", "--pitch", path.join(sd, "script-good.json"), "--length", "45", "--narrated", "--product-first"]);
     let rmu = { gates: [] };
@@ -727,7 +757,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     const SK = path.join(HERE, "..");
     const rd = (f) => { try { return fs.readFileSync(path.join(SK, f), "utf8"); } catch { return ""; } };
     const pfmd = rd("references/product-first.md");
-    ok("lint: references/product-first.md carries the rules (3 s, hero moment, 2-4 uses, end line largest, no conceits, fidelity, brand lock, concept gate)", ["within 3 s", "hero product moment", "2 to 4 real uses", "largest type", "museums", "cover versions", "faithfully recreated", "Brand lock", "concept gate", "clearest product story", "first_watch"].every((k) => pfmd.includes(k)), pfmd ? "missing phrase" : "file missing");
+    ok("lint: references/product-first.md carries the rules (3 s, hero moment, 2-4 uses, end line largest, no conceits, fidelity, brand lock, concept gate)", ["within 3 s", "hero product moment", "One feature, one scenario", "2 to 4 real steps", "largest type", "museums", "cover versions", "faithfully recreated", "Brand lock", "concept gate", "clearest product story", "first_watch"].every((k) => pfmd.includes(k)), pfmd ? "missing phrase" : "file missing");
     const skill = rd("SKILL.md");
     ok("lint: SKILL.md states the product-first rule, the brand lock, the concept gate and not ending a turn with background work running", ["Launch, promo and product films are product-first", "Brand lock.", "Concept gate before the expensive work", "Never end a turn while your own background work is running", "console.mjs wait"].every((k) => skill.includes(k)) && /brand step ALWAYS runs/.test(skill) && /use_brand/.test(skill));
     const sw = rd("agents/script-writer.md"), se = rd("agents/script-editor.md"), cc = rd("agents/concept-critic.md"), ds = rd("agents/design-system-designer.md");
@@ -902,7 +932,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     ok("crew: the concept critic brief carries product_first, the six questions and a faster model", /product_first/.test(ptxt) && /first_watch_clear/.test(ptxt) && /faster model/.test(JSON.stringify(cb)), JSON.stringify(cb).slice(0, 300));
     const cf = path.join(run, "story", "concept-check.json");
     fs.mkdirSync(path.dirname(cf), { recursive: true });
-    const ans = (okv) => Object.fromEntries(["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear"].map((k) => [k, okv ? { ok: true, evidence: "beat 1" } : { ok: false, evidence: "beat 1", fix: "open on the real UI" }]));
+    const ans = (okv) => Object.fromEntries(["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear", "one_feature_one_scenario"].map((k) => [k, okv ? { ok: true, evidence: "beat 1" } : { ok: false, evidence: "beat 1", fix: "open on the real UI" }]));
     fs.writeFileSync(cf, JSON.stringify({ verdict: "pass", answers: ans(false), summary: "x" }));
     const bad = C(["check", "--run", run, "--role", "concept-critic", "--key", "concept-1"]);
     fs.writeFileSync(cf, JSON.stringify({ verdict: "pass", answers: ans(true), summary: "6 of 6" }));

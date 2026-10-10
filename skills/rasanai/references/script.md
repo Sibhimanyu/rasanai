@@ -22,7 +22,7 @@ The script is written once and travels: the Story card shows it, `scenes.json` i
 
 ## Launch, promo and product films are product-first
 
-For the route `product-launch-video` and any launch, promo, product or app film, read `references/product-first.md` before the passes below, and let it win wherever it conflicts: the real product UI is on screen within 3 s; one hero product moment shows the key feature for real; 2 to 4 real uses; short plain kinetic lines; the required end line is the largest type in the film on a clean CTA card; no museums, allegories, invented worlds, extended metaphors or cover versions (an instant visual pun that resolves to the product within a second is the only allowed figure). Sure, Bold and Wild differ in structure, pacing and energy, never in leaving the product. Write the pitch's `hero_moment`, `uses`, `last_line` and `end_line_largest`; `story.mjs check` runs gate G7 on them. The worked example below that uses a museum is a *brand-film* conceit: do not copy it for a product film; the product-first example follows it.
+For the route `product-launch-video` and any launch, promo, product or app film, read `references/product-first.md` before the passes below, and let it win wherever it conflicts: the real product UI is on screen within 3 s; one feature, shown as one viewer doing one real task (pass 0, One feature, one scenario); one hero product moment shows it for real; 2 to 4 real steps of that task; short plain kinetic lines; the required end line is the largest type in the film on a clean CTA card; no museums, allegories, invented worlds, extended metaphors or cover versions (an instant visual pun that resolves to the product within a second is the only allowed figure). Sure, Bold and Wild differ in structure, pacing and energy, never in leaving the product. Write the pitch's `feature`, each beat's `role`, `picture` and `ui`, `two_way`, `hero_moment`, `uses`, `last_line` and `end_line_largest`; `story.mjs check` runs gates G7 and G10 on them. The worked example below that uses a museum is a *brand-film* conceit: do not copy it for a product film; the product-first example follows it.
 
 **Branded launch, promo or brand film:** write to the structure template in `references/launch-film.md` section 1 (hook with the product or brand in 1 to 3 s, reveal, hero demo, 2 to 4 real feature demos, payoff line, end card) and keep each beat inside its timing range for the film's length; mark each beat's `role` and set `payoff_line`. One idea per beat, plain words, the product or brand in every beat. The brand's own film (`brand-film/FILM-STYLE.md`) gives the opening and the words it uses. The three scripts differ only in emphasis and order, never in concept.
 
@@ -39,6 +39,28 @@ Sure, Bold and Wild may aim differently, and the user is choosing between those 
 
 Decide the **tempo** with the aim (`references/launch-film.md`, Tempo): the brand film's measured tempo when the run has one, otherwise the house tempo. Count the ideas (a promise, the hero, each use or proof, the payoff: at least 3 in 15 s, 5 in 30 s with 6 or 7 as the aim, 8 in 60 s, 10 in 90 s), plan something that changes every ~2 s, and list the changes inside any beat over 3 s. Write it as `tempo: { ideas, change_every_s, longest_hold_s, source }`.
 
+
+### One feature, one scenario (launch, promo and feature films)
+
+A launch film is about ONE feature, shown as one person doing one real task with it. Before any device, write the `feature` block:
+
+```jsonc
+"feature": { "name": "Cues",                       // ONE feature: the user's named one, else the newest launch (a "New" badge), else the core surface; a version or "what's new" is not a feature: open it and take its headline feature
+  "url": "https://greenroom.example/cues",          // the feature's own page (its words and screens are the film's material; the homepage is only the brand)
+  "viewer": "a teacher running a live class",       // one person
+  "task": "send the class a reading link mid-lesson",  // one real task, start to finish
+  "before": "she stops teaching to hunt for the link", // the viewer's before, in their words
+  "after": "the link opens in the class's window as she says it" }
+```
+
+Then the film is four beats with a `role` each: **hook** = the viewer's `before`; **proof** = the task done in the real UI, start to finish (the longest beat); **turn** = the `after` lands and the brand is revealed with it (once); **cta** = one action named for the feature ("Try Cues on your Mac"). A beat can be split into shots; the order holds. Every beat carries:
+
+- `picture`: one sentence for what the viewer sees happen, proving the line ("the browser fills with search tabs, each new tab squeezing the others").
+- `ui: []` (the proof at least two): the literal cause and effect on screen, the way the real product does it ("click Open → a new tab opens in the reading window, the address changes, a toast says Opened"). No invented output screens: a result is the product's real UI from the research (`research/screens`), never generic boxes standing in for it.
+- `on_screen`: one line, 6 words at most, no trailing period, no orphan "Meet".
+
+Then do the **two-way test** and write it down as `two_way: { lines_alone, pictures_alone }`: read the four lines with the pictures hidden (a stranger must get the pitch), then the four pictures with the lines hidden; each tells the same story. `story.mjs check` gate **G10** holds all of this (one feature, the four roles in order, pictures, UI cause and effect, no invented output, the two-way read); `uses` in a one-feature film are the 2 to 4 real steps of its one task. Sure, Bold and Wild may differ in structure and energy, never in the feature or the scenario.
+
 Write it down as the pitch's `aim` (`takeaway`, `feel`, `action`, `audience`) and its `approach` (one plain sentence on how this story gets there). Then name the story: a title is 2 to 5 words a person would use to refer to it ("The one-prompt site", "Rewind to the prompt"), never a fragment of an on-screen line, never ending on a function word, never ALL CAPS. Every later pass serves the aim; a beat that doesn't, goes.
 
 ## The eight passes
@@ -51,7 +73,7 @@ Write in passes, not in one go. Each pass has one question.
 4. **The visuals.** For every beat write the shot: what fills the frame, what moves, what changes. Concrete nouns from the truth sheet (the product's real objects, screens and words), never "dynamic visuals of…".
 5. **The words.** On-screen lines first (the film must read with the sound off), then voiceover that adds what the screen can't show. Read every line aloud.
 6. **The turn.** At 60 to 75% of the running time something reverses: the old way breaks, the scale flips, the joke pays off, the reveal lands. If nothing turns, it is a list.
-7. **The end.** The name, one call to action, a held frame of 2 to 3 seconds, and a last line that could stand alone as a post.
+7. **The end.** The name, one call to action, an end card of 2 to 3 seconds whose elements land in sequence (at most 1.5 s of it still), and a last line that could stand alone as a post.
 8. **The cut.** Delete 20% of the words. Then check the timing against the rules below and run `story.mjs check`.
 
 ## Structures by length

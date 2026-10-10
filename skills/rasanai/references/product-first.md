@@ -8,7 +8,7 @@ Why: a real test film for a very well-known product (a 30 s Mac-app launch) was 
 
 1. **The product UI is on screen within 3 s.** The real thing (captured, or faithfully recreated), not a title card, a logo sting, a metaphor or a prop.
 2. **One hero product moment**: the key feature shown for real, start to finish, in the real UI (the shortcut pressed, the window appearing over the user's actual work, the answer streaming in). Name it in the pitch (`hero_moment: {beat, what}`). It is the longest, cleanest shot of the film.
-3. **2 to 4 real uses**: real people doing real things with the real UI (`uses: [...]`), each one beat, each recognisably the product.
+3. **One feature, one scenario**: the film is about ONE feature (`feature: {name, url, viewer, task, before, after}`: the user's named one, else the newest launch, else the core surface), shown as one viewer doing one real task: hook = their before, proof = the task done in the real UI, turn = the after and the brand reveal, cta = one action. Its 2 to 4 real steps are the `uses`. Each beat names its `picture` and its `ui[]` cause and effect; no invented output screens; the two-way test (lines alone, pictures alone: the same story). A multi-feature tour fails `story.mjs` G10 and the concept gate.
 4. **Short plain kinetic lines**: 6 words or fewer on screen, plain words a person would say (no riddles, no cryptic labels). Rhythm, cuts on the beat and UI motion carry the energy, not the concept.
 5. **The required end line is the largest type in the film**, on a clean CTA card: the line, the product name or mark, nothing else competing (`last_line`, `end_line_largest: true`).
 6. **The brand's own look is exact** (type, colours, UI language, logo usage): see "Brand lock" below.

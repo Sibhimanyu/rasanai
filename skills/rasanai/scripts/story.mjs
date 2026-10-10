@@ -202,8 +202,19 @@ const LF_RANGES = {
   90: { hook: [2, 5], statement: [2.5, 6], hero: [5, 7.5], demo: [4, 8], payoff: [4, 10], cta: [3, 8] },
 };
 const lfBucket = (len) => (len <= 22 ? 15 : len <= 45 ? 30 : len <= 75 ? 60 : 90);
+// One feature, one scenario (G10): hook = the viewer's before, proof = the task done in the real UI (the longest beat),
+// turn = the after and the brand reveal, cta = one action. Its own timing ranges per length bucket.
+const SC_RANGES = {
+  15: { hook: [1, 3.5], proof: [3, 8], turn: [1.5, 4.5], cta: [1.5, 4] },
+  30: { hook: [1.5, 6], proof: [4, 15], turn: [2.5, 6.5], cta: [2, 5.5] },
+  60: { hook: [2, 8], proof: [8, 32], turn: [3, 10], cta: [3, 7] },
+  90: { hook: [2, 10], proof: [12, 50], turn: [4, 14], cta: [3, 8] },
+};
+const uiOf = (b) => (Array.isArray(b.ui) ? b.ui.filter((u) => String(u || "").trim()) : []);
+const isScenario = (p, beats) => !!(p.feature && typeof p.feature === "object") || beats.some((b) => /^(proof|turn)$/i.test(String(b.role || "")));
 function lfRole(b, i, n, hero) {
   const r = String(b.role || "").toLowerCase();
+  if (r === "proof" || r === "turn") return r;
   if (LF_RANGES[15][r]) return r;
   const nm = String(b.name || "").toLowerCase();
   if (i === 0) return "hook";
@@ -661,20 +672,24 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     if (!String(heroTxt || "").trim()) g7.push("hero_moment missing: {beat, what} the one product moment that shows the key feature for real");
     else if (hero && typeof hero === "object" && hero.beat != null && !(Number(hero.beat) >= 1 && Number(hero.beat) <= beats.length)) g7.push(`hero_moment.beat ${hero.beat} is not a beat of this script`);
     const uses = Array.isArray(p.uses) ? p.uses.filter((u) => String(u || "").trim()) : [];
-    if (uses.length < 2 || uses.length > 4) g7.push(`uses: ${uses.length} real use cases (2-4 required: real people doing real things with the real UI)`);
+    if (uses.length < 2 || uses.length > 4) g7.push(`uses: ${uses.length} ${p.feature ? "steps of the one task" : "real use cases"} (2-4 required: ${p.feature ? "the real steps of the viewer's one task in the real UI" : "real people doing real things with the real UI"})`);
     if (!String(p.last_line || "").trim()) g7.push("last_line missing: the required end line (the call to action) is the largest type in the film");
     if (p.end_line_largest !== true) g7.push("end_line_largest is not true: the end line must be the largest type in the film on a clean CTA card");
     const longLines = beats.filter((b) => String(b.on_screen || "").trim().split(/\s+/).filter(Boolean).length > 6).length;
     if (longLines) g7.push(`${longLines} beat(s) carry more than 6 on-screen words: product films use short plain kinetic lines`);
     // launch-film structure (references/launch-film.md): hook, reveal/hero, 2-4 uses, payoff line, end card; timings in range; the product or brand in every beat
     const heroObj = hero && typeof hero === "object" ? hero : null;
+    const scenario = isScenario(p, beats);
     const roles = beats.map((b, i) => lfRole(b, i, beats.length, heroObj));
-    const rng = LF_RANGES[lfBucket(lengthS)];
-    if (!roles.includes("hero")) g7.push("structure: no reveal / hero beat (name it \"Hero\" or set role: \"hero\"; references/launch-film.md section 1)");
-    const nDemo = roles.filter((r) => r === "demo").length;
-    const demoCap = ({ 15: 3, 30: 5, 60: 7, 90: 9 })[lfBucket(lengthS)];
-    if (nDemo < 2 || nDemo > demoCap) g7.push(`structure: ${nDemo} feature-demo beats (2 to ${demoCap} for a ${Math.round(lengthS)} s film, one idea each; the hook, hero, payoff and end card are not demos)`);
-    if (!String(p.payoff_line || "").trim() && !roles.includes("payoff")) g7.push("structure: payoff line missing (payoff_line, or a beat with role \"payoff\": one plain outcome sentence before the end card)");
+    const rng = scenario ? { ...LF_RANGES[lfBucket(lengthS)], ...SC_RANGES[lfBucket(lengthS)] } : LF_RANGES[lfBucket(lengthS)];
+    if (!scenario) {
+      // the older launch structure (hook, hero, 2-4 demos, payoff, end card); a one-feature scenario film is held to G10 instead
+      if (!roles.includes("hero")) g7.push("structure: no reveal / hero beat (name it \"Hero\" or set role: \"hero\"; references/launch-film.md section 1)");
+      const nDemo = roles.filter((r) => r === "demo").length;
+      const demoCap = ({ 15: 3, 30: 5, 60: 7, 90: 9 })[lfBucket(lengthS)];
+      if (nDemo < 2 || nDemo > demoCap) g7.push(`structure: ${nDemo} feature-demo beats (2 to ${demoCap} for a ${Math.round(lengthS)} s film, one idea each; the hook, hero, payoff and end card are not demos)`);
+      if (!String(p.payoff_line || "").trim() && !roles.includes("payoff")) g7.push("structure: payoff line missing (payoff_line, or a beat with role \"payoff\": one plain outcome sentence before the end card)");
+    }
     const outOfRange = [];
     beats.forEach((b, i) => { const [lo, hi] = rng[roles[i]] || [0, 99]; const d = Number(b.duration_s); if (d < lo - 0.01 || d > hi + 0.01) outOfRange.push(`${b.name} (${roles[i]}) ${d} s, template ${lo}-${hi} s`); });
     if (outOfRange.length) g7.push(`timings outside the ${lfBucket(lengthS)} s launch template for a ${Math.round(lengthS)} s film: ${outOfRange.join("; ")}`);
@@ -695,8 +710,9 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
       const everyMax = brand ? Math.min(houseEvery, brand.changeEveryS) : houseEvery;
       const holdMax = brand ? Math.min(houseHold, Math.max(1.5, brand.changeEveryS * 1.5)) : houseHold;
       const heroLimit = brand && brand.longestHoldS >= 2 ? Math.min(heroMax, brand.longestHoldS) : heroMax;
-      const ideaRoles = new Set(["statement", "hero", "demo", "payoff"]);
-      const ideas = beats.filter((b, i) => b.idea === true || ideaRoles.has(roles[i])).length;
+      const ideaRoles = new Set(["statement", "hero", "demo", "payoff", "proof", "turn"]);
+      // in a one-feature film every UI step of the proof beyond its first is one more thing the viewer learns
+      const ideas = beats.filter((b, i) => b.idea === true || ideaRoles.has(roles[i])).length + beats.reduce((a, b, i) => a + (roles[i] === "proof" ? Math.max(0, uiOf(b).length - 1) : 0), 0);
       const t = p.tempo && typeof p.tempo === "object" ? p.tempo : null;
       if (!t) g9.push("tempo missing: set tempo { ideas, change_every_s, longest_hold_s, source: \"brand film\" | \"house\" } (references/script.md pass 0)");
       else {
@@ -713,7 +729,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
         const r = roles[i], d = Number(b.duration_s);
         if (r === "cta" || r === "hero") return;
         if (d > holdMax + 0.01) {
-          const need = Math.max(1, Math.ceil(d / 2) - 1), have = Array.isArray(b.changes) ? b.changes.filter((c) => String(c || "").trim()).length : 0;
+          const need = Math.max(1, Math.ceil(d / 2) - 1), have = (Array.isArray(b.changes) ? b.changes.filter((c) => String(c || "").trim()).length : 0) + uiOf(b).length;
           if (have < need) needChanges.push(`${i + 1} ${b.name} (${d} s needs ${need} listed change${need > 1 ? "s" : ""} in \"changes\", has ${have})`);
         }
         if (r === "statement") {
@@ -721,10 +737,45 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
           if (d > read + 1 && !(Array.isArray(b.changes) && b.changes.length)) long.push(`${i + 1} ${b.name} (${d} s for a ${w}-word line, reading time ${r1d(read)} s)`);
         }
       });
-      if (needChanges.length) g9.push(`beats longer than ${r1d(holdMax)} s must list what changes inside them, roughly one change per 2 s: ${needChanges.join("; ")}`);
+      if (needChanges.length) g9.push(`beats longer than ${r1d(holdMax)} s must list what changes inside them (in "changes" or "ui"), roughly one change per 2 s: ${needChanges.join("; ")}`);
       if (long.length) g9.push(`a statement line holds only its reading time (0.3 s per word + 0.6 s): ${long.join("; ")}`);
       if (t && Number(t.ideas) && Number(t.ideas) !== ideas) warnings.push(`tempo.ideas says ${t.ideas}, the beats carry ${ideas}`);
       gate("G9", "Tempo (ideas per film, a change every ~2 s, no long holds)", g9, { ideas, min_ideas: minIdeas, change_every_s_max: r1d(everyMax), longest_hold_s: r1d(holdMax), hero_hold_s_max: r1d(heroLimit), source: brand ? "brand film" : "house" });
+    }
+
+    // G10: one feature, one scenario (references/script.md pass 0): the viewer's before, the task done in the real UI,
+    // the after with the brand, one action; every beat's picture and its UI cause and effect; the two-way read
+    {
+      const g10 = [];
+      const f = p.feature && typeof p.feature === "object" ? p.feature : null;
+      if (!f) g10.push("feature missing: { name, url, viewer, task, before, after } for the ONE feature this film is about (the user's named one, else the newest launch, else the core surface)");
+      else {
+        for (const k of ["name", "url", "viewer", "task", "before", "after"]) if (!String(f[k] || "").trim()) g10.push(`feature.${k} missing`);
+        if (/\s(and|&|\+)\s|,|\//i.test(String(f.name || ""))) g10.push(`feature.name "${f.name}" names more than one feature: a launch film is about ONE feature (pick the user's named one, else the newest launch)`);
+        if (/\b(and then|as well as|plus|also)\b|;/i.test(String(f.task || ""))) g10.push(`feature.task "${f.task}" is more than one task: one viewer doing one real task`);
+      }
+      const order = ["hook", "proof", "turn", "cta"];
+      const firstAt = order.map((r) => roles.indexOf(r));
+      if (firstAt.some((x) => x < 0)) g10.push(`roles: the film needs hook, proof, turn and cta beats (has ${[...new Set(roles)].join(", ")}): hook = the viewer's before, proof = the task in the real UI, turn = the after and the brand reveal, cta = one action`);
+      else if (!firstAt.every((x, i) => i === 0 || x > firstAt[i - 1])) g10.push("roles out of order: hook, then proof, then turn, then cta");
+      if (roles.filter((r) => r === "cta").length > 1 || (roles.includes("cta") && roles[roles.length - 1] !== "cta")) g10.push("one cta, last");
+      const noPic = beats.map((b, i) => (!String(b.picture || "").trim() ? `${i + 1} ${b.name}` : null)).filter(Boolean);
+      if (noPic.length) g10.push(`beat(s) without a picture (one sentence: what the viewer sees happen, proving the line): ${noPic.join(", ")}`);
+      const proofs = beats.filter((b, i) => roles[i] === "proof");
+      const steps = proofs.reduce((a, b) => a + uiOf(b).length, 0);
+      if (proofs.length && steps < 2) g10.push(`the proof lists ${steps} UI step(s): list at least 2 in ui[] as cause and effect ("click Open: a new tab opens, the address changes, a toast says Saved")`);
+      const badUi = beats.flatMap((b) => uiOf(b)).filter((u) => !/→|->|:|\bthen\b|\bopens?\b|\bappears?\b|\blands?\b/i.test(u));
+      if (badUi.length) g10.push(`ui entries need a cause and its effect ("click Send → the message lands in the thread, the composer clears"): ${badUi.slice(0, 2).map((u) => `"${u}"`).join(", ")}`);
+      const INVENTED = /\b(placeholder|generic (cards?|boxes|page|screen|output|result)|(grey|gray|purple|lavender|empty) boxes|boxes standing in|mock(ed)?[- ]up (page|output|result|screen)|dummy (ui|screen|page|data)|fake (ui|screen|page|output)|invented (page|screen|output|ui)|lorem)\b/i;
+      const inv = beats.map((b, i) => (INVENTED.test(`${b.visual || ""} ${b.picture || ""} ${uiOf(b).join(" ")}`) ? `${i + 1} ${b.name}` : null)).filter(Boolean);
+      if (inv.length) g10.push(`invented output screen in beat(s) ${inv.join(", ")}: the result is the product's real UI from the research (research/screens), never generic boxes standing in for it`);
+      const tw = p.two_way && typeof p.two_way === "object" ? p.two_way : {};
+      if (!String(tw.lines_alone || "").trim() || !String(tw.pictures_alone || "").trim()) g10.push("two_way missing: { lines_alone, pictures_alone }: read the lines with the pictures hidden, then the pictures with the lines hidden, and write the story each tells; they must be the same story");
+      if (f && roles.includes("turn")) {
+        const t = beats[roles.indexOf("turn")];
+        if (!/brand|logo|mark|wordmark|name/i.test(`${t.visual || ""} ${t.picture || ""} ${t.on_screen || ""}`) && !p.brand_reveal) warnings.push("the turn should carry the brand reveal (the mark lands once, in the turn): say so in its picture");
+      }
+      gate("G10", "One feature, one scenario (the viewer's before, the task in the real UI, the after with the brand, one action)", g10, { feature: f ? f.name || null : null, ui_steps: steps });
     }
   }
 
