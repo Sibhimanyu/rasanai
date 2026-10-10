@@ -1859,6 +1859,13 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   score(full, seamsOf("at 0.8 s the orange dot is both the toolbar status dot and the headline bar's left end"));
   const t5 = msgs();
   ok("moves: a used hero, accounted for, and a concrete bridge raise no moves error", !/moves-|seam-label-bridge/.test(t5), t5.slice(0, 300));
+  // the direct path (45 s or less): the same Moves phases are planned, and the one film builder gets the carrier and the hero cards
+  ok("moves: the direct path (a 16 s film, ONE film builder) plans the moves phases between the story and the editor", !phs.includes("animate") && !phs.includes("lead") && mem("story").length === 3 && mem("moves").length === 3 && mem("moves-roughs").length === 3 && mem("moves-jury").length === 1 && (plan.phases.find((x) => x.phase === "score") || {}).members.some((m) => m.startsWith("motion-director:score")) && mem("build").some((m) => m.startsWith("film-builder:film")), JSON.stringify([plan.direct, phs]));
+  {
+    const fb = J(C(["brief", "--run", run, "--role", "film-builder", "--key", "film", "--project", "videos/tally"]));
+    const ft = fb.prompt ? fs.readFileSync(path.join(ws, fb.prompt), "utf8") : "";
+    ok("moves: the film builder's brief carries story/moves.json, the carrier it builds and every used hero card as its motion target", /story\/moves\.json/.test(ft) && /Your motion target \(the Moves pass\)/.test(ft) && /the carrier you build/.test(ft) && /"id": "m3"/.test(ft) && /"id": "m1"/.test(ft) && /"id": "m2"/.test(ft), ft.slice(0, 300));
+  }
   fs.renameSync(path.join(run, "story", "moves.json"), path.join(run, "story", "moves.off"));
   score([], seamsOf("iris wipe to the next scene"));
   ok("moves: without story/moves.json the score check is unchanged (no moves error, no bridge check)", !/moves-|seam-label-bridge|seam-no-bridge/.test(msgs()));
