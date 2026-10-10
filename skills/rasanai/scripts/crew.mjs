@@ -39,7 +39,7 @@ import { detectModel, profileFor, adapt, tierFor, dispatchFor } from "./lib/mode
 import { libraryIds } from "./library.mjs";
 import { readLogos } from "./lib/logos.mjs";
 import { checkSystemFull, checkSystems, firstLine } from "./lib/system.mjs";
-import { validateMoves, validateVerdict, isLabelOnly, MOVE_LABELS } from "./lib/moves-lib.mjs";
+import { validateMoves, validateVerdict, validateSet, isLabelOnly, MOVE_LABELS } from "./lib/moves-lib.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -1233,8 +1233,8 @@ async function checkRole(run, role, key) {
         const m = jsonMaybe(R(run, "story", `moves-${l}.json`));
         if (m && typeof m === "object") by[l] = m; else P.push(`story/moves-${l}.json is ${m === undefined ? "not valid JSON" : "missing"}`);
       }
-      const r = validateVerdict(v, by);
-      P.push(...r.errors); W.push(...r.warnings);
+      const r = validateVerdict(v, by), st = validateSet(by);
+      P.push(...st.errors, ...r.errors); W.push(...st.warnings, ...r.warnings);
       break;
     }
     case "move-sketcher": {

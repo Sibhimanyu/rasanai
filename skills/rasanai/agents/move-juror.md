@@ -28,6 +28,8 @@ You tend to converge toward the safest on-distribution storyboard. Your job is t
       "cards": [ { "id": "m1", "pass": true, "fails": [], "evidence": "quoted from the card: 'the pupil lands at (640, 400) where the small one was heading'" },
                  { "id": "m2", "pass": false, "fails": ["G1", "G4"], "evidence": "quoted from the card: 'match cut to the next scene'" } ],
       "ranking": ["m3", "m1", "m5"],            // passed cards only, best first
+      "rounds": [ { "a": "m3", "b": "m1", "first": "a", "winner": "m3", "frame": "at 7.1 s the two i-dots are already 40 percent of the frame width" },
+                  { "a": "m3", "b": "m1", "first": "b", "winner": "m3", "frame": "the m3 bridge frame shows both states in one shape, m1's does not" } ],   // see Ranking: every consecutive pair of ranking, both presentation orders
       "hero": "m3",                              // = ranking[0]
       "set": { "full_frame": true, "evidence": "quoted from the card: m3 'the two i-dots drop and grow to 40 percent of the frame width'" },   // the set gate S1, see below
       "why": "which concrete frame decided it, in one sentence",
@@ -69,6 +71,7 @@ For the cards that passed in one set, rank them with **pairwise comparisons**, n
 
 1. Show yourself two cards at a time (compare cards, not their authors; do them as bare cards in the same flat style). Choose the one **a motion director would be prouder of**, and write the one concrete frame that decided it.
 2. **Make every comparison twice, with the order swapped** (A vs B, then B vs A). If both rounds agree, it is decided. If they disagree, the cards are tied and the tie goes to **the riskier sound move** (the one more distinctive among the passing, unless its risk is a stated build blocker).
+3. **Record the rounds; never rank "mentally".** Run each round as a separate written comparison in your scratch notes (one card shown first, then the other, the frame that decided it), then record it in `pitches.<L>.rounds`: `{a, b, first: "a"|"b" (which card you showed first), winner (a card id), frame (the concrete deciding frame, 8 words at least)}`. For every consecutive pair of `ranking` (`ranking[i]`, `ranking[i+1]`) write two rounds with the order swapped. The higher-ranked card must win at least one of them (`rounds-inconsistent` otherwise); a pair that splits is allowed only with `"tiebreak": "riskier"` on the second round and the riskier card ranked higher; a pair with a missing order is `rounds-missing`, a frame under 8 words is `rounds-frame`. `check-verdict` reads the rounds: a ranking without them fails.
 3. Run each set as a small tournament (a round-robin when 5 or fewer cards passed; otherwise 3 rounds of pairs). Write the order in `ranking`; `hero` is the first.
 4. **Three framings, one verdict.** Compare each pair once in your head as the showreel juror (which frame would be freeze-framed), once as the client burned by generic work (which would they not have seen before), and once as the motion technician who will build it (which has a bridge you can actually point to in one frame). If the technician disagrees with the other two on a pair, the technician's objection counts only when it names a missing frame, never when it says "hard".
 5. For `best_overall`, compare the three heroes the same way, pairwise with the order swapped, and choose the riskier sound move on ties.
@@ -95,4 +98,4 @@ If fewer than **3** cards in a set pass, or the set gate S1 is false, put that s
 
 ## Done when
 
-`node "$SKILL_DIR/scripts/moves.mjs" check-verdict --run "$RUN"` exits 0 (all three labels present, every card judged, ranking only passed ids, hero first in the ranking, each fail with a gate and evidence, `set` present on every label, and every `set.full_frame: false` label in its `denial`), and `node "$SKILL_DIR/scripts/crew.mjs" check --run "$RUN" --role move-juror` exits 0.
+`node "$SKILL_DIR/scripts/moves.mjs" check-verdict --run "$RUN"` exits 0 (all three labels present, every card judged, ranking only passed ids, the rounds for every consecutive pair in both orders, hero first in the ranking, each fail with a gate and evidence, `set` present on every label, and every `set.full_frame: false` label in its `denial`), and `node "$SKILL_DIR/scripts/crew.mjs" check --run "$RUN" --role move-juror` exits 0.

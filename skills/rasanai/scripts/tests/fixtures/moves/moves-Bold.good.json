@@ -183,6 +183,7 @@
   ],
   "carrier": {
     "what": "an orange dot",
+    "family": "glyph",
     "short": "an orange status dot",
     "why": "status is a dot in every expense list, so the real UI already contains the carrier",
     "beats": [

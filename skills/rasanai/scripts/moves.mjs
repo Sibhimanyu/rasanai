@@ -12,14 +12,22 @@
 //           all 20, shuffled, stimulus (one item of stimuli.json; a product-first film gets one choreography.json
 //           constraint instead, with stimulus_kind), banned: banned.json + the last 12 hero moves of earlier films
 //           ($RASANAI_HOME/moves-ledger.json)}. The same run, label and seed always give the same pack.
+//           It also carries family (one of glyph|component|line|object|mark|data, a different one for each label of the run,
+//           drawn from hash(run basename + seed): family "<id>", family_description, family_examples, family_rule), and brand_motif when the brand film card or the
+//           brand DESIGN.md names a motif (allowed as a secondary element in any script; only glyph or mark may carry it).
 //   node moves.mjs check --file <run>/story/moves-<label>.json --pitch <run>/story/pitch-<label>.json [--product-first]
 //        -> {ok, errors, warnings}; exit 0 ok, 2 errors (the move-inventor's gate), 1 could not read. The pitch gives the
 //           beats, ui_labels and product name. Every card needs scale (full-frame|large|detail); with --product-first every
 //           hero needs resolves_to; error ids no-full-frame-hero, chain-sparse (chain[] under ceil(film s / 1.5)), chain-gap
 //           (over 3.0 s between chain entries, or to the ends of the film); moves-pack-<label>.json beside the file adds the exemplar-overlap warning.
+//   node moves.mjs check-set --run <run>
+//        -> {ok, errors, warnings} across the three moves files: carrier-repeat (two share a carrier family, error),
+//           carrier-similar (two carriers' short names share a content word, warning). check-verdict runs it too.
 //   node moves.mjs check-verdict --run <run>
 //        -> {ok, errors, warnings} for <run>/story/moves-verdict.json against the three moves-<label>.json; exit 0 / 2 / 1.
 //           Each pitch needs set = {full_frame, evidence} (gate S1); full_frame false must list the label in denial[].
+//           pitches.<L>.rounds[] = {a, b, first: "a"|"b", winner, frame}: each consecutive pair of the ranking in both presentation
+//           orders (rounds-missing, rounds-inconsistent, rounds-frame; a split pair needs tiebreak "riskier").
 //   node moves.mjs rough --dir <run>/story/moves/<label>-<id> [--fps 15] [--aspect 16:9]
 //        -> renders <dir>/rough.html (a paused GSAP timeline on window.__move = {tl, duration, bridge?, width?, height?};
 //           1.5 to 4.5 s) in headless Chrome frame by frame (tl.seek) to <dir>/rough.mp4 (H.264, yuv420p, faststart),
@@ -48,7 +56,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { parseArgs, die, readJSON, writeFile, normalizeAspect, esc, chromeScreenshot, gsapInline, SKILL_DIR, STATE_DIR } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
-import { validateMoves, validateVerdict, MOVE_LABELS } from "./lib/moves-lib.mjs";
+import { validateMoves, validateVerdict, validateSet, MOVE_LABELS, CARRIER_FAMILIES } from "./lib/moves-lib.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -133,6 +141,18 @@ function shuffled(list, rnd) {
   return a;
 }
 
+// the brand's motif, when its film card (<run>/brand-film/FILM-STYLE.json) or its DESIGN.md names one
+function brandMotif(run) {
+  const fs_ = jsonMaybe(path.join(run, "brand-film", "FILM-STYLE.json"));
+  if (fs_ && typeof fs_ === "object" && str(fs_.motif).trim()) return str(fs_.motif).trim();
+  for (const f of [path.join(run, "research", "brand", "DESIGN.md"), path.join(run, "..", "..", "DESIGN.md")]) {
+    if (!exists(f)) continue;
+    const line = fs.readFileSync(f, "utf8").split("\n").find((l) => /motif/i.test(l) && l.replace(/[#*_\-\s|:]/g, "").length > 8);
+    if (line) return line.replace(/^[\s#>*-]+/, "").replace(/\*+/g, "").trim().slice(0, 240);
+  }
+  return "";
+}
+
 // ---------------------------------------------------------------- readers
 const movesFile = (run, label) => path.join(run, "story", `moves-${label}.json`);
 function pitchBeatsOf(pitchFile, label) {
@@ -185,7 +205,11 @@ if (cmd === "pack") {
   const banned = [...libFile("banned.json"), ...recent];
   const barRaw = jsonMaybe(path.join(LIB(), "bar.json"));
   const bar = barRaw && typeof barRaw === "object" && !Array.isArray(barRaw) ? { instruction: "the bar, never the content: never reuse an eye, a pupil, a slit, a thrown carrier, or a circle that becomes an eye", ...barRaw } : null;
-  const pack = { label, seed, product_first: pf, ...(bar ? { bar } : {}), exemplars, generators, stimulus, stimulus_kind: pf ? "choreography" : "stimulus", banned };
+  // the carrier family: the three labels of one run get three different families, from hash(run basename + seed)
+  const order = shuffled(CARRIER_FAMILIES, prng(fnv1a(`${path.basename(run)}|${seed}`)));
+  const family = order[MOVE_LABELS.indexOf(label)];
+  const motif = brandMotif(run);
+  const pack = { label, seed, product_first: pf, ...(bar ? { bar } : {}), family: family.id, family_description: family.description, family_examples: family.examples, family_rule: `your carrier must come from the "${family.id}" family; the other two scripts got the other families, so a dot is not yours unless your family is glyph`, ...(motif ? { brand_motif: { motif, rule: "the brand's own motif may appear as a secondary element in any script, but only the label whose family is glyph or mark may make it the carrier" } } : {}), exemplars, generators, stimulus, stimulus_kind: pf ? "choreography" : "stimulus", banned };
   const file = path.join(run, "story", `moves-pack-${label}.json`);
   writeFile(file, JSON.stringify(pack, null, 2) + "\n");
   console.log(cwdRel(file));
@@ -212,9 +236,20 @@ if (cmd === "pack") {
     if (m && typeof m === "object") by[l] = m;
     else pre.push(`moves-${l}.json is ${m === undefined ? "not valid JSON" : "missing"}`);
   }
-  const r = validateVerdict(v, by);
-  const errors = [...pre, ...r.errors];
-  out({ ok: !errors.length, errors, warnings: r.warnings }, errors.length ? 2 : 0);
+  const r = validateVerdict(v, by), st = validateSet(by);
+  const errors = [...pre, ...st.errors, ...r.errors];
+  out({ ok: !errors.length, errors, warnings: [...st.warnings, ...r.warnings] }, errors.length ? 2 : 0);
+} else if (cmd === "check-set") {
+  const run = runDir();
+  const by = {}, pre = [];
+  for (const l of MOVE_LABELS) {
+    const m = jsonMaybe(movesFile(run, l));
+    if (m && typeof m === "object") by[l] = m;
+    else pre.push(`moves-${l}.json is ${m === undefined ? "not valid JSON" : "missing"}`);
+  }
+  const st = validateSet(by);
+  const errors = [...pre, ...st.errors];
+  out({ ok: !errors.length, errors, warnings: st.warnings }, errors.length ? 2 : 0);
 } else if (cmd === "rough") {
   await rough();
 } else if (cmd === "check-rough") {
@@ -306,7 +341,7 @@ if (cmd === "pack") {
   writeFile(LEDGER, JSON.stringify(ledger, null, 2) + "\n");
   out({ ok: true, ledger: LEDGER, added: added.length, entries: ledger.length });
 } else {
-  die("usage: moves.mjs pack|check|check-verdict|rough|check-rough|payload|choose|record … (see the header)");
+  die("usage: moves.mjs pack|check|check-set|check-verdict|rough|check-rough|payload|choose|record … (see the header)");
 }
 
 // mean absolute difference (0-255, on 64 px wide gray frames) of every frame against the first; flat = every pixel the same

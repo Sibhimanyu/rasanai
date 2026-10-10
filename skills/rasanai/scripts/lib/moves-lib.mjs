@@ -13,13 +13,29 @@
 //                            id: no-full-frame-hero (no hero is a full-frame type/shape transformation), chain-sparse (the
 //                            chain[] has fewer than ceil(film_seconds / 1.5) entries), chain-gap (a gap over 3.0 s in the
 //                            chain, from 0 or to the film's end). Warnings: a detail hero, more than half the cards detail.
+//                            carrier.family is required (carrier-family: missing, unknown, or not the family the pack assigned).
+//   validateSet(movesByLabel)                                              -> {errors[], warnings[]}
+//                            Across the three moves files: carrier-repeat (two share a carrier family), carrier-similar (warning:
+//                            two carriers' short names share a content word).
 //   validateVerdict(obj, movesByLabel)                                     -> {errors[], warnings[]}
 //                            Each pitch needs set = {full_frame, evidence} (gate S1); full_frame false must list the label in denial[].
+//                            pitches.<L>.rounds[] {a, b, first, winner, frame} makes the position-swapped pairwise rounds checkable:
+//                            rounds-missing, rounds-inconsistent, rounds-frame (a split pair needs tiebreak "riskier").
 import fs from "node:fs";
 import path from "node:path";
 import { SKILL_DIR } from "./common.mjs";
 
 export const MOVE_LABELS = ["Sure", "Bold", "Wild"];
+// what the one thing that travels is made of; moves.mjs pack gives each of the three scripts a different one
+export const CARRIER_FAMILIES = [
+  { id: "glyph", description: "a letter, punctuation mark, dot, caret or numeral, as type", examples: ["the full stop at the end of a headline", "the o of a word", "a question mark", "a caret", "the numeral 7"] },
+  { id: "component", description: "a real UI part of the product", examples: ["a button", "an input field", "a card", "a chat bubble", "a toggle", "the cursor"] },
+  { id: "line", description: "a stroke that draws, bends or travels", examples: ["a rule", "a border", "an underline", "a tick", "a path", "a progress bar"] },
+  { id: "object", description: "a real thing from the content, not a UI part", examples: ["the receipt", "a photo", "a document", "the product's hardware"] },
+  { id: "mark", description: "the brand mark's own geometry", examples: ["the logo's counter", "one stroke of the mark", "the mark's silhouette"] },
+  { id: "data", description: "a number, chart, list or table that changes", examples: ["a counter that climbs", "a bar chart", "a list that re-sorts", "a table row"] },
+];
+export const CARRIER_FAMILY_IDS = CARRIER_FAMILIES.map((f) => f.id);
 const SEAM_KINDS = ["cut", "match-cut", "shared-element", "carried-object", "flood", "iris", "mask", "push-through", "mask-line", "flat-to-depth", "depth-to-flat", "camera-through", "signature", "whip", "zoom-through", "smash-cut", "dissolve"];
 const ENTRANCES = ["mask-rise", "scale-from-origin", "draw-on", "clip-reveal", "cut-in", "type-on", "count-up", "morph", "stream", "slide", "push"];
 const GENERIC_TECH = ["transition", "transitions", "cut", "cuts", "wipe", "wipes", "morph", "morphs", "zoom", "zooms", "reveal", "reveals", "fade", "fades", "dissolve", "swipe", "slide", "push", "pan", "tilt", "whip", "iris", "flash", "blur"];
@@ -124,6 +140,11 @@ export function validateMoves(obj, opts = {}) {
     if (!str(car.why)) W("carrier.why is empty (say what the carrier means)");
     if (!str(car.short)) E('carrier.short is missing (the carrier in at most 8 plain words, e.g. "the logo\'s play triangle")');
     else if (str(car.short).split(/\s+/).length > 8) E(`carrier.short is ${str(car.short).split(/\s+/).length} words (8 at most)`);
+    const fam = str(car.family);
+    const assigned = opts.pack && typeof opts.pack === "object" ? str(opts.pack.family) : "";
+    if (!fam) E(`carrier-family: carrier.family is missing (one of ${CARRIER_FAMILY_IDS.join(", ")}${assigned ? `; your pack assigns "${assigned}"` : ""})`);
+    else if (!CARRIER_FAMILY_IDS.includes(fam)) E(`carrier-family: carrier.family "${fam}" is not one of ${CARRIER_FAMILY_IDS.join(", ")}`);
+    else if (assigned && fam !== assigned) E(`carrier-family: carrier.family is "${fam}" but your pack assigned "${assigned}" (the other two scripts got the other families: the carrier must come from yours)`);
   }
 
   const obvious = arr(obj.obvious).map(str).filter(Boolean);
@@ -257,6 +278,23 @@ export function validateMoves(obj, opts = {}) {
   return { errors, warnings };
 }
 
+// ---------------------------------------------------------------- the three moves files together
+const SET_STOP = new Set([...FUNCTION_WORDS, "one", "its", "their", "your", "our", "real", "every", "each", "some", "who", "what", "are", "was", "has", "have", "not", "but", "all", "any", "new", "old"]);
+const shortWords = (t) => norm(t).split(/\s+/).filter((w) => w.length >= 3 && !SET_STOP.has(w));
+export function validateSet(movesByLabel = {}) {
+  const errors = [], warnings = [];
+  const have = MOVE_LABELS.filter((l) => movesByLabel[l] && typeof movesByLabel[l] === "object");
+  const fam = (l) => { const c = movesByLabel[l].carrier; return c && typeof c === "object" ? str(c.family) : ""; };
+  for (let i = 0; i < have.length; i++) for (let j = i + 1; j < have.length; j++) {
+    const a = have[i], b = have[j];
+    if (fam(a) && fam(a) === fam(b)) errors.push(`carrier-repeat: ${a} and ${b} both use the carrier family "${fam(a)}" (each script gets its own family: the three stories must not share a kind of carrier)`);
+    const ca = movesByLabel[a].carrier, cb = movesByLabel[b].carrier;
+    const wa = new Set(shortWords(ca && ca.short)), common = [...new Set(shortWords(cb && cb.short))].filter((w) => wa.has(w));
+    if (common.length) warnings.push(`carrier-similar: ${a}'s carrier ("${str(ca.short)}") and ${b}'s ("${str(cb.short)}") share "${common.join(", ")}": the stories may feel alike`);
+  }
+  return { errors, warnings };
+}
+
 // ---------------------------------------------------------------- the juror's verdict
 // movesByLabel: {Sure: <moves obj>, Bold: ..., Wild: ...}
 export function validateVerdict(obj, movesByLabel = {}) {
@@ -298,6 +336,27 @@ export function validateVerdict(obj, movesByLabel = {}) {
       if (str(v.hero) !== ranking[0]) E(`${label}: hero must be ranking[0] ("${ranking[0]}"), not "${str(v.hero)}"`);
       if (!str(v.why)) E(`${label}: why is empty (which concrete frame decided it)`);
     } else if (str(v.hero)) E(`${label}: hero "${v.hero}" with an empty ranking`);
+    // the pairwise rounds: every consecutive pair of the ranking, judged in both presentation orders
+    const rounds = arr(v.rounds).filter((r) => r && typeof r === "object");
+    rounds.forEach((r, i) => {
+      if (str(r.frame).split(/\s+/).filter(Boolean).length < 8) E(`${label}: rounds-frame: round ${i + 1} (${str(r.a)} vs ${str(r.b)}) names no concrete deciding frame (8 words at least)`);
+    });
+    for (let i = 0; i + 1 < ranking.length; i++) {
+      const hi = ranking[i], lo = ranking[i + 1], pair = `${hi} > ${lo}`;
+      const rs = rounds.filter((r) => (str(r.a) === hi && str(r.b) === lo) || (str(r.a) === lo && str(r.b) === hi));
+      const shown = (r) => (str(r.first) === "a" ? str(r.a) : str(r.first) === "b" ? str(r.b) : "");
+      const hiFirst = rs.find((r) => shown(r) === hi), loFirst = rs.find((r) => shown(r) === lo);
+      if (!hiFirst || !loFirst) { E(`${label}: rounds-missing: ${pair} needs two rounds in both presentation orders (${hi} shown first, then ${lo} shown first); found ${rs.length}`); continue; }
+      const two = rs.filter((r) => r === hiFirst || r === loFirst);
+      if (two.some((r) => ![hi, lo].includes(str(r.winner)))) { E(`${label}: rounds-inconsistent: ${pair}: a round's winner is not one of the pair (winner is a card id)`); continue; }
+      const hiWins = two.filter((r) => str(r.winner) === hi).length;
+      if (hiWins === 0) E(`${label}: rounds-inconsistent: ${pair}: ${lo} won both rounds, so it must be ranked above ${hi}`);
+      else if (hiWins === 1) {
+        const second = rs.indexOf(hiFirst) > rs.indexOf(loFirst) ? hiFirst : loFirst;
+        if (str(second.tiebreak) !== "riskier") E(`${label}: rounds-inconsistent: ${pair}: the pair split (each won once), so the second round needs tiebreak "riskier" and the riskier card ranked higher`);
+        else if (str(second.riskier) && str(second.riskier) !== hi) E(`${label}: rounds-inconsistent: ${pair}: the tiebreak names ${str(second.riskier)} as the riskier card, but ${hi} is ranked higher (the riskier card goes first)`);
+      }
+    }
     const set = v.set;
     if (!set || typeof set !== "object" || typeof set.full_frame !== "boolean") E(`${label}: set is missing ({full_frame: true|false, evidence}: gate S1, is any passing card a full-frame type/shape transformation?)`);
     else {
