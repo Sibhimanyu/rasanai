@@ -13,6 +13,7 @@ enum Route: Hashable {
     case sample
     case queue
     case templates
+    case inspire
 }
 
 /// Everything the app needs to say about one film, in one place.
@@ -136,6 +137,11 @@ final class StudioStore {
     var queueBlockedByFileOperations: Bool { isSavingFilm || isManagingProject || isImportingSources || isSending || isTransferringProject || toolSetup.isRunning }
     var newFilmPrefill = ""
     var newFilmPrefillFiles: [URL] = []
+    /// Moments picked in Get inspired and waiting to be attached to the next New film.
+    var newFilmPrefillMoments: [FilmMoment] = []
+    /// The Get inspired catalog and its filters; the page keeps its picks here so they survive leaving and coming back.
+    var gallery = MomentGallery(autoload: true)
+    var inspirePicks = MomentSelection()
     let settings: StudioSettings
     let runtime = DirectorRuntime()
     let monitor = DirectorMonitor()
@@ -276,6 +282,7 @@ final class StudioStore {
     init(settings: StudioSettings = StudioSettings(), demo: Bool = false) {
         self.settings = settings
         isDemo = demo
+        gallery = MomentGallery(autoload: !demo)
         // A checked-in resource guarantees a usable sample, without downloads or an agent account.
         snapshot = SessionSnapshot()
         isSample = false
@@ -422,13 +429,19 @@ final class StudioStore {
         }
     }
 
-    func newFilm(prefill: String = "") {
+    func newFilm(prefill: String = "", moments: [FilmMoment] = []) {
         guard !isSavingFilm else { return }
+        newFilmPrefillMoments = moments
         if !runtime.isRunning && !runtime.isPreparing { runOpenGeneration = UUID() }
         filmDraftProject = nil
         newFilmPrefill = prefill
         if case .newFilm(nil)? = path.last { return }
         path = [.newFilm(nil)]
+    }
+    /// Opens the Get inspired page, optionally with one moment already picked (from a card on Home).
+    func openGallery(selecting moment: Moment? = nil) {
+        if let moment, !inspirePicks.contains(moment.id) { inspirePicks.toggle(moment) }
+        if path.last != .inspire { path.append(.inspire) }
     }
     func openBrands() { if path.last != .brands { path.append(.brands) } }
     func goHome() { path = [] }

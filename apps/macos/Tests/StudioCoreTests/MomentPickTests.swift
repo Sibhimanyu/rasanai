@@ -14,7 +14,7 @@ final class MomentPickTests: XCTestCase {
     }
 
     func testPickedMomentsRoundTripCapAtFourAndReachTheRequest() throws {
-        let picks = [MomentPick(id: "M964", role: "hook"), MomentPick(id: "M977", role: "proof"), MomentPick(id: "M916", role: "turn"), MomentPick(id: "M984", role: "cta"), MomentPick(id: "M999", role: "proof")]
+        let picks = [FilmMoment(id: "M964", role: "hook"), FilmMoment(id: "M977", role: "proof"), FilmMoment(id: "M916", role: "turn"), FilmMoment(id: "M984", role: "cta"), FilmMoment(id: "M999", role: "proof")]
         let draft = FilmDraft(brief: "Launch Cues", moments: picks)
         XCTAssertEqual(draft.moments.count, 4)
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

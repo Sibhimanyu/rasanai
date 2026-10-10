@@ -26,6 +26,7 @@ struct NewFilmView: View {
     @State private var templateMessage: String?
     @State private var queueNote: String?
     @State private var showModels = false
+    @State private var showGallery = false
     @FocusState private var briefFocused: Bool
 
     private static let lengths: [(String, Int)] = [("15 seconds", 15), ("30 seconds", 30), ("45 seconds", 45), ("60 seconds", 60), ("90 seconds", 90), ("2 minutes", 120)]
@@ -76,6 +77,7 @@ struct NewFilmView: View {
             ToolbarItem(placement: .primaryAction) {
                 HelpButton(title: "New film", lines: [
                     "Say what the film is about in your own words. A sentence is enough.",
+                    "Get inspired adds moments from real launch films, so your film moves like them. Each one is credited to its creator.",
                     "Add footage, images or documents if you have them. Copies go into the film; originals stay put.",
                     "Pick the options under the prompt. The sparkle chip chooses which Claude models direct the film; the recommended mix has Opus direct and Sonnet handle research, routine jobs and, at Fast pace, the key frames and animation.",
                     "Start film hands it to your director. You will be asked when it needs you."])
@@ -91,6 +93,12 @@ struct NewFilmView: View {
         .confirmationDialog("Replace your brief and film options?", isPresented: Binding(get: { replacementDraft != nil }, set: { if !$0 { replacementDraft = nil } }), titleVisibility: .visible) {
             Button("Use template") { if let next = replacementDraft { applyTemplate(next) }; replacementDraft = nil }
         } message: { Text("Your film name and attached files are kept.") }
+        .sheet(isPresented: $showGallery) {
+            GetInspiredSheet(gallery: store.gallery, selection: MomentSelection(draft.moments)) { picks in
+                draft.moments = picks; showGallery = false
+            } onCancel: { showGallery = false }
+            .tint(.rasan)
+        }
         .onChange(of: store.templatePrefill) { consumeTemplatePrefill() }
         .onChange(of: editorState) { persistEditor() }
         .onDisappear { persistEditor() }
@@ -130,6 +138,8 @@ struct NewFilmView: View {
                 customLength = !Self.lengths.contains { $0.1 == draft.duration }
             }
             if let name = draft.brand, let brand = brands.first(where: { $0.name == name }) ?? brands.first(where: { $0.previousNames.contains(name) }) { draft.brand = brand.name }
+            if project == nil, !store.newFilmPrefillMoments.isEmpty { draft.moments = MomentSelection(store.newFilmPrefillMoments).picks; store.newFilmPrefillMoments = [] }
+            if !draft.moments.isEmpty { store.gallery.prime(); Task { await store.gallery.loadIfNeeded() } }
             loaded = true
             consumeTemplatePrefill()
             if project == nil { briefFocused = draft.brief.isEmpty }
@@ -155,6 +165,13 @@ struct NewFilmView: View {
                         .font(.system(size: 15)).foregroundStyle(.tertiary).padding(.leading, 5).padding(.top, 8).allowsHitTesting(false)
                 }
             }
+            if !draft.moments.isEmpty {
+                FlowLayout(spacing: 8) {
+                    ForEach(draft.moments, id: \.id) { pick in
+                        MomentChip(pick: pick, moment: store.gallery.moment(pick.id)) { draft.moments.removeAll { $0.id == pick.id } }
+                    }
+                }.transition(.opacity)
+            }
             if !sources.isEmpty || !existingSources.isEmpty {
                 LazyVStack(spacing: 8) {
                     ForEach(existingSources, id: \.self) { chip($0, removable: false) }
@@ -168,6 +185,7 @@ struct NewFilmView: View {
                             .frame(width: 32, height: 32).background(chipFill, in: Circle())
                             .overlay(Circle().strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5))
                     }.buttonStyle(.plain).help("Add footage, images or documents (optional). You can also drop them here.")
+                    inspireChip
                     lengthChip
                     shapeChip
                     motionChip
@@ -184,6 +202,7 @@ struct NewFilmView: View {
             .strokeBorder(targeted ? Color.rasan : briefFocused ? Color.rasan.opacity(0.7) : Color(nsColor: .separatorColor), lineWidth: targeted || briefFocused ? 1.5 : 0.5))
         .animation(.snappy(duration: 0.15), value: targeted)
         .animation(.snappy, value: sources)
+        .animation(.snappy, value: draft.moments)
     }
 
     private var chipFill: Color { Color.primary.opacity(0.07) }
@@ -197,6 +216,20 @@ struct NewFilmView: View {
         .foregroundStyle(tint ? Color.rasan : Color.primary)
         .padding(.horizontal, 12).frame(height: 32)
         .background(tint ? Color.rasan.opacity(0.16) : chipFill, in: Capsule())
+    }
+
+    private var inspireChip: some View {
+        Button { showGallery = true } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkle.magnifyingglass").font(.system(size: 12))
+                Text("Get inspired").font(.system(size: 13, weight: .medium))
+                if !draft.moments.isEmpty { Text("\(draft.moments.count)").font(.system(size: 11, weight: .semibold)).monospacedDigit().opacity(0.8) }
+            }
+            .foregroundStyle(draft.moments.isEmpty ? Color.primary : Color.rasan)
+            .padding(.horizontal, 12).frame(height: 32)
+            .background(draft.moments.isEmpty ? chipFill : Color.rasan.opacity(0.16), in: Capsule())
+        }
+        .buttonStyle(.plain).help("Pick moments from real launch films to move like (optional)")
     }
 
     private var lengthChip: some View {

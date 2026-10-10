@@ -63,7 +63,7 @@ public enum ModelPlan: String, CaseIterable, Codable, Identifiable, Sendable {
 
 /// A reference moment the user picked for one story role (hook, proof, turn, cta). The director fetches it with
 /// moments.mjs and takes one mechanic from it; nothing from the moment ships in the film.
-public struct MomentPick: Codable, Equatable, Sendable {
+public struct FilmMoment: Codable, Equatable, Hashable, Sendable {
     public var id: String
     public var role: String
     public init(id: String, role: String) { self.id = id; self.role = role }
@@ -85,8 +85,8 @@ public struct FilmDraft: Codable, Equatable, Sendable {
     /// How fast the director works (research budget and build plan). New films start Fast; drafts saved before this existed read as Standard.
     public var pace: FilmPace
     /// Reference moments the user picked in the gallery (`moments: [{id, role}]` in rasanai-brief.json), up to four. Optional; empty by default.
-    public var moments: [MomentPick]
-    public init(brief: String = "", duration: Int = 45, aspect: String = "16:9", agent: String = "claude", motionLevel: String = "maximal", brand: String? = nil, modelPlan: ModelPlan = .recommended, pace: FilmPace = .defaultForNewFilms, moments: [MomentPick] = []) {
+    public var moments: [FilmMoment]
+    public init(brief: String = "", duration: Int = 45, aspect: String = "16:9", agent: String = "claude", motionLevel: String = "maximal", brand: String? = nil, modelPlan: ModelPlan = .recommended, pace: FilmPace = .defaultForNewFilms, moments: [FilmMoment] = []) {
         self.brief = brief; self.duration = duration; self.aspect = aspect; self.agent = agent; self.motionLevel = motionLevel; self.brand = brand; self.modelPlan = modelPlan; self.pace = pace
         self.moments = Array(moments.prefix(Self.maxMoments))
     }
@@ -105,7 +105,7 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         let old = try decoder.container(keyedBy: LegacyKeys.self)
         pace = (try? c.decodeIfPresent(FilmPace.self, forKey: .pace))
             ?? (try? old.decodeIfPresent(String.self, forKey: .researchDepth)).flatMap { $0 }.flatMap(FilmPace.init(legacyResearchDepth:)) ?? .legacy
-        moments = Array(((try? c.decodeIfPresent([MomentPick].self, forKey: .moments)) ?? nil ?? []).prefix(Self.maxMoments))
+        moments = Array(((try? c.decodeIfPresent([FilmMoment].self, forKey: .moments)) ?? nil ?? []).prefix(Self.maxMoments))
     }
     /// The `--model` value for the director: the chosen plan under Claude Code, otherwise the Settings model.
     public func cliModel(settingsModel: String) -> String {

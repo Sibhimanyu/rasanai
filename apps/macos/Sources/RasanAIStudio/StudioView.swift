@@ -30,6 +30,7 @@ struct StudioView: View {
                                 "Deleting a brand moves its folder to the Trash. Existing films keep their copy."]) } }
                     case .queue: FilmQueueView(store: store)
                     case .templates: FilmTemplatesView(store: store)
+                    case .inspire: GetInspiredPage(store: store)
                     case .sample: SamplePage(store: store)
                     } }
                 }
