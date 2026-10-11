@@ -25,7 +25,7 @@ node $SKILL_DIR/scripts/brandfilm.mjs card   --dir "$RUN/brand-film" --brand "<b
 - **Sure** = the card exactly.
 - **Bold / Wild** = the same palette, typefaces, motif and motion vocabulary, varying only composition, pacing and emphasis (scale, density, how much the motif carries, calm-versus-burst rhythm).
 - The design desk does **not** blend outside designers, directors, museum or editorial grammar or library references for a branded film (Paula Scher, Spielberg, Wes Anderson, museum label grammar...). Those are for unbranded films only. `blend.json` carries `references: []`, `film_style` (the path to `FILM-STYLE.md`) and `film_style_takes` (3 or more things taken from the card).
-- `design.mjs check-system`, `check-systems` and `look-payload` enforce it: a branded launch look without a FILM-STYLE citation, with a canvas / ink / accent that is not a colour of the card (CIE76 dE over 15, accent over 28), a display face that is not in the card's typefaces, an outside library reference, or 3D / blur / grain / dolly when the card is flat, is refused and never recommended.
+- `design.mjs check-system`, `check-systems` and `look-payload` enforce it: a branded launch look without a FILM-STYLE citation, with a canvas / ink / accent that is not a colour of the card (CIE76 dE over 15, accent over 28), a display face that is not in the card's typefaces, an outside library reference, or 3D / grain / dolly when the card is flat (blur only when its `Depth blur:` line says no), is refused and never recommended.
 - The recommender picks the clearest, most on-brand look, never the one furthest from the brand.
 
 ## 3. A simple story
@@ -34,7 +34,7 @@ Follow the structure template in `launch-film.md` section 1 for the film's lengt
 
 ## 4. Motion obeys the brand
 
-The card's motion vocabulary is binding: the Motion Director reads `FILM-STYLE.md` first and the animators use only those moves. A flat brand (no blur, no grain, no glow) gets none of them, no matter what the score or an instinct wants. A flat brand restricts the STYLE of 3D, never its use: the card carries a `3D style:` line, and 3D scenes under it use matte or unlit materials (basic, toon, flat, matte, unlit, lambert) in the brand's palette, clean even light, no bloom, glow, grain, chromatic aberration or lens flare, depth of field only when the card allows blur, motion blur on fast moves only when the card allows blur (`references/3d.md` "Brand-flat 3D"). `crew.mjs check --role motion-director` refuses a score without `film_style` and 3D scenes under a flat card that break that style (`flat-3d-style`).
+The card's motion vocabulary is binding: the Motion Director reads `FILM-STYLE.md` first and the animators use only those moves. A flat brand (no grain, no glow) gets none of them, no matter what the score or an instinct wants. **A flat brand is not a white void:** it bans only what its own films never do. Two lines on the card say what it allows. `Mood grounds:` the ground may change on the story's emotional turns (the pain darker, the payoff warm) within the brand's palette or its films' colour fields (OpenAI's "Refreshed." uses colour fields, coloured dot fields and photography, so mood grounds: yes; an "#FCFCFC everywhere" film was a misreading of it). `Depth blur:` blur used as depth (defocused background type or objects, a giant word blurred behind the UI) and motion blur on fast moves are allowed unless the card says the brand's films never blur. The analyst writes both lines from what the films do. A flat brand restricts the STYLE of 3D, never its use: the card carries a `3D style:` line, and 3D scenes under it use matte or unlit materials (basic, toon, flat, matte, unlit, lambert) in the brand's palette, clean even light, no bloom, glow, grain, chromatic aberration or lens flare, depth of field only when the card's `Depth blur:` line allows it, motion blur on fast moves only when it allows it (`references/3d.md` "Brand-flat 3D"). `crew.mjs check --role motion-director` refuses a score without `film_style` and 3D scenes under a flat card that break that style (`flat-3d-style`).
 
 ## 5. The style-match gate
 
@@ -59,7 +59,7 @@ Text only; the frames of OpenAI's film are the user's and are not in the repo.
 | Type | one family, OpenAI Sans, huge or tiny, nothing between | a Bodoni serif display |
 | Imagery | the product's own prompt, real photography, thin construction lines | line-art props (plinths, a mug, a bell jar) |
 | Concept | the dot, morphing; the product's own UI is the first image | an invented museum metaphor; the product at about 19 s |
-| Motion | scale, morph, draw-on, cut on the beat: flat 2D finish, no blur, no grain; 3D only in the flat style (matte, even light) | a 3D dolly with motion blur, bloom and grain |
+| Motion | scale, morph, draw-on, cut on the beat: flat 2D finish, no grain, no glow, blur only as depth if the card allows it; 3D only in the flat style (matte, even light) | a 3D dolly with motion blur, bloom and grain |
 | End | the mark alone, big, on white | a small CTA in body text |
 
 The causes: the brand research was text-only (it never looked at the brand's films), the design desk blended outside references (Paula Scher, Spielberg, Wes Anderson, museum grammar), the recommender chose the Bold look furthest from the brand, the story engine liked an inventive conceit, and nothing compared the built frames to the brand's real frames.
@@ -71,7 +71,8 @@ The causes: the brand research was text-only (it never looked at the brand's fil
 - Type: one sans (OpenAI Sans; Substitute: a loadable neutral sans), Light to Bold, two size classes (huge statements or single letterforms; tiny margin labels).
 - Layout: one element at a time, centred or on a strict grid, huge whitespace.
 - Motif: the dot: dot, circle, outline circle, dot grid, colour dot field, dot; thin grey construction lines resolving into letterforms and the logo.
-- Motion: scale, morph, draw-on, cut on the beat; calm stretches (one slow mover, never frozen) alternating with brisk runs; never blur, grain, glow or dark moody scenes; 3D, when the line is about space or many things at once (a dot sphere), only in the flat style: matte or unlit dots in the palette, even light.
+- Motion: scale, morph, draw-on, cut on the beat; calm stretches (one slow mover, never frozen) alternating with brisk runs; never grain or glow; depth blur only if the analyst sees it in the film; 3D, when the line is about space or many things at once (a dot sphere), only in the flat style: matte or unlit dots in the palette, even light.
+- Mood grounds: yes. The ground changes with the story within the palette (white, a colour field, a photograph, one black frame). Depth blur: unverified in the flat 2D (write what you see).
 - Imagery: real, bright, golden-hour photography (ocean, sky, cliffs), full bleed or framed on white; a fast collage of brand artefacts.
 - Opening: the real prompt typing "What can I help with?" next to the dot. End: the mark alone, then the wordmark, on white.
 

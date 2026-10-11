@@ -780,12 +780,12 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       ];
       const lbeats = () => [lb("Open", "open", "Review with Lintel", 3, { changes: ["the Lintel window opens"] }), ...rungs(), lb("Close", "close", "Review anything", 3)];
       const refrain = { verb: "Review", pattern: "Review <it> <highlight>" };
-      const run10l = (extra = {}, drop = []) => {
+      const run10l = (extra = {}, drop = [], more = []) => {
         const o = { title: "Review, four ways", logline: "One verb, four real uses, all in Lintel.", aim, approach: "Review is the refrain; each rung is a different real use in the Lintel window, escalating to done-for-you.", device: "escalation", shape: "ladder", refrain, beats: lbeats(), tempo: { ideas: 6, change_every_s: 2.2, longest_hold_s: 4, source: "house" }, first_4s: "the real Lintel window opens on a diff", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "Review in Lintel is its own verb" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the UI cause and effect" }, scores, last_line: "Lintel", end_line_largest: true, ...extra };
         for (const k of drop) delete o[k];
         const fl = path.join(sd, `t10l-${Math.random().toString(36).slice(2)}.json`);
         fs.writeFileSync(fl, JSON.stringify(o));
-        return node("story.mjs", ["check", "--pitch", fl, "--truth", ptruth]);
+        return node("story.mjs", ["check", "--pitch", fl, "--truth", ptruth, ...more]);
       };
       const withB = (fn) => { const b = lbeats(); fn(b); return b; };
       const why = (r) => gof(r, "G10").reasons.join(" | ");
@@ -818,7 +818,14 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       ok("ladder: a title over 6 words and a highlight not in its title are warnings, not G10 errors", /is \d+ words \(6 at most\)/.test(w1.stdout) && /highlight \\?"nope\\?" is not in its title/.test(w1.stdout) && !/title.*6 words|highlight/.test(why(w1)), why(w1));
       const pk = node("story.mjs", ["pick", "--truth", ptruth, "--format", "launch", "--seed", "k"]);
       let pj = {}; try { pj = JSON.parse(pk.stdout); } catch {}
-      ok("ladder: pick --format launch offers the ladder as the structure for Sure, Bold and Wild", pj.shape === "ladder" && /refrain verb/.test(pj.shape_rule || "") && (pj.picks || []).length === 3 && pj.picks.every((x) => x.structure === "ladder" && /Sure|Bold|Wild/.test(x.ladder_variant)), pk.stdout.slice(0, 300));
+      // (1.14: a launch film offers both viewer-first shapes: Sure ladder, Bold pas, Wild either; updated from "ladder for all three")
+      ok("ladder: pick --format launch offers both shapes: Sure is a ladder, Bold is a pas, Wild is either (shape mixed, one rule for each)", pj.shape === "mixed" && /refrain verb/.test(pj.shape_rule || "") && /Pas \(viewer first\)/.test(pj.shape_rule || "") && (pj.picks || []).length === 3 && pj.picks[0].structure === "ladder" && /Sure/.test(pj.picks[0].ladder_variant) && pj.picks[1].structure === "pas" && /Bold/.test(pj.picks[1].pas_variant) && ["ladder", "pas"].includes(pj.picks[2].structure), pk.stdout.slice(0, 300));
+      const pkl = node("story.mjs", ["pick", "--truth", ptruth, "--format", "launch", "--seed", "k", "--shape", "ladder"]);
+      let pjl = {}; try { pjl = JSON.parse(pkl.stdout); } catch {}
+      ok("ladder: pick --shape ladder forces the ladder for all three", pjl.shape === "ladder" && (pjl.picks || []).length === 3 && pjl.picks.every((x) => x.structure === "ladder" && /Sure|Bold|Wild/.test(x.ladder_variant)), pkl.stdout.slice(0, 300));
+      const pkp = node("story.mjs", ["pick", "--truth", ptruth, "--format", "launch", "--seed", "k", "--shape", "pas"]);
+      let pjp = {}; try { pjp = JSON.parse(pkp.stdout); } catch {}
+      ok("pas: pick --shape pas forces the viewer-first pas shape for all three, with its rule (hook, agitate, meet, benefits, proof, cta)", pjp.shape === "pas" && (pjp.picks || []).length === 3 && pjp.picks.every((x) => x.structure === "pas" && /Sure|Bold|Wild/.test(x.pas_variant)) && /meet/.test(pjp.shape_rule || "") && /cta/.test(pjp.shape_rule || ""), pkp.stdout.slice(0, 300));
       const pk2 = node("story.mjs", ["pick", "--truth", ptruth, "--format", "launch", "--seed", "k", "--feature", "Sites"]);
       let pj2 = {}; try { pj2 = JSON.parse(pk2.stdout); } catch {}
       ok("ladder: pick with --feature (one feature named) keeps the scenario shape", pj2.shape === "scenario" && !(pj2.picks || []).some((x) => x.structure), pk2.stdout.slice(0, 200));
@@ -855,6 +862,81 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
         const ex = node("story.mjs", ["check", "--pitch", el, "--format", "explainer"]);
         let exj = {}; try { exj = JSON.parse(ex.stdout); } catch {}
         ok("shows: off a launch, promo or brand film the show column only warns (no G11 gate)", !(exj.gates || []).some((x) => x.id === "G11") && (exj.warnings || []).some((w) => /no-shows/.test(w)) && (exj.warnings || []).some((w) => /no-actor/.test(w)), ex.stdout.slice(0, 300) + ex.stderr);
+      }
+
+      // G12, viewer first: the viewer is addressed early, a benefit per use, proof, a concrete cta, one line per 1.5-2.5 s (pas: the reveal after the pain)
+      {
+        const claimsF = path.join(sd, "claims-proof.json"), claimsNo = path.join(sd, "claims-noproof.json");
+        fs.writeFileSync(claimsF, JSON.stringify([{ id: "c1", claim: "2,400 teams review with Lintel", source: "site" }, { id: "c2", claim: "Lintel reviews pull requests", source: "site" }]));
+        fs.writeFileSync(claimsNo, JSON.stringify({ claims: [{ id: "c2", claim: "Lintel reviews pull requests", source: "site" }] }));
+        const row = (line, extra = {}) => ({ line, show: `The review cursor rides under "${line}" and the words swap in place`, built_from: "product UI", handoff: "the line becomes the next one", ...extra });
+        const BEN = ["You close a review before standup", "You never lose a thread at work", "You catch the bug before it ships", "You ship by Friday"];
+        const cta = { line: "Get Lintel", action: "Download", where: "lintel.example/get" };
+        const proof = { line: "2,400 teams review with Lintel", claim: "c1" };
+        const lines = [["Review with Lintel", "Your pull request waits.", "Again?"], ["Review one diff", "You skim, you approve."], ["Review longer threads", "You answer in one place."], ["Review it for security", "You catch it early."], ["Review and get it done", "You merge before lunch."], ["Review anything", "You get your day back."]];
+        const gb = (o = {}) => lbeats().map((b, i) => ({ ...b, ...(b.role === "rung" ? { benefit: BEN[i - 1] } : {}), shows: lines[i].map((l, j) => row(j === 0 ? b.on_screen : l)) }));
+        const g12 = (extra = {}, drop = [], more = ["--claims", claimsF]) => run10l({ beats: gb(), proof, cta, ...extra }, drop, more);
+        const why12 = (r) => gof(r, "G12").reasons.join(" | ");
+        const ok12 = g12();
+        ok("viewer first: a ladder with you early, a benefit per rung, proof, a concrete cta and a line every 1.8 s passes G12", gof(ok12, "G12").pass === true && !/slogan-copy|toy-demos/.test(ok12.stdout), why12(ok12) + ok12.stdout.slice(0, 200));
+        const nv = g12({ beats: gb().map((b) => ({ ...b, shows: b.shows.map((r, j) => (j ? { ...r, line: "Diffs, reviewed." } : r)) })) });
+        ok("viewer first: G12 fails a film that never addresses the viewer in the first 25% (not-viewer-first)", gof(nv, "G12").pass === false && /not-viewer-first/.test(why12(nv)), why12(nv));
+        const nb = g12({ beats: gb().map((b, i) => (i === 2 ? { ...b, benefit: "Faster diffs" } : i === 3 ? { ...b, benefit: undefined } : b)) });
+        ok("viewer first: G12 fails a rung with no benefit, or one not in viewer language (no-benefit)", gof(nb, "G12").pass === false && (why12(nb).match(/no-benefit/g) || []).length === 2, why12(nb));
+        const lb12 = g12({ beats: gb().map((b, i) => (i === 1 ? { ...b, benefit: "You close a review before standup and never open another tab again today" } : b)) });
+        ok("viewer first: a benefit over 12 words is no-benefit", /no-benefit.*words \(12 at most\)/.test(why12(lb12)), why12(lb12));
+        const np = g12({}, ["proof"]);
+        ok("viewer first: G12 fails a film with no proof when research/claims.json holds a number claim (no-proof)", gof(np, "G12").pass === false && /no-proof/.test(why12(np)) && /c1/.test(why12(np)), why12(np));
+        const np2 = g12({}, ["proof"], ["--claims", claimsNo]);
+        ok("viewer first: no proof is only a warning when the claims hold no number, adoption, rating or customer claim", gof(np2, "G12").pass === true && /no-proof: the film has no proof and research\/claims\.json holds no/.test(np2.stdout), why12(np2));
+        const nc = path.join(sd, "ghost-research"); fs.mkdirSync(path.join(nc, "story"), { recursive: true }); fs.mkdirSync(path.join(nc, "research"), { recursive: true });
+        fs.copyFileSync(ptruth, path.join(nc, "story", "truth.json")); fs.writeFileSync(path.join(nc, "research", "claims.json"), JSON.stringify([{ claim: "4.8 stars on the store", source: "store" }]));
+        const fl2 = path.join(sd, "t12-auto.json"); fs.writeFileSync(fl2, JSON.stringify({ title: "Review, four ways", logline: "One verb, four real uses, all in Lintel.", aim, approach: "Review is the refrain.", device: "escalation", shape: "ladder", refrain, beats: gb(), cta, scores, first_4s: "x", clear_by_s4: true }));
+        const au = node("story.mjs", ["check", "--pitch", fl2, "--truth", path.join(nc, "story", "truth.json")]);
+        ok("viewer first: with no --claims, G12 reads <truth dir>/../research/claims.json (a rating claim makes the missing proof an error)", /no-proof/.test(gof(au, "G12").reasons.join(" ")) && gof(au, "G12").pass === false, gof(au, "G12").reasons.join(" | "));
+        const wc1 = g12({ cta: { line: "Get Lintel", action: "Learn more", where: "lintel.example/get" } }), wc2 = g12({ cta: { line: "Get Lintel", action: "Download", where: "soon" } }), wc3 = g12({}, ["cta"]);
+        ok("viewer first: G12 fails a cta with no concrete verb, no place, or no cta at all (weak-cta)", [wc1, wc2, wc3].every((r) => gof(r, "G12").pass === false && /weak-cta/.test(why12(r))), [wc1, wc2, wc3].map(why12).join(" || "));
+        const sp = g12({ beats: lbeats().map((b, i) => (b.role === "rung" ? { ...b, benefit: BEN[i - 1] } : b)) });
+        ok("viewer first: G12 fails a film with one line per 5 s (sparse-lines: 30 s over 6 lines)", gof(sp, "G12").pass === false && /sparse-lines: 30 s over 6/.test(why12(sp)), why12(sp));
+        const sl = g12({ beats: gb().map((b) => ({ ...b, shows: ["Calm reviews", "Quiet threads", "Smaller diffs", "Less noise"].slice(0, b.shows.length).map((l) => row(l)) })) });
+        ok("viewer first: slogan copy (most lines have no verb and no pronoun) is a warning, not an error", /slogan-copy/.test(sl.stdout) && !/slogan-copy/.test(why12(sl)), sl.stdout.slice(0, 100));
+        const toy = g12({ beats: gb().map((b) => (b.benefit ? { ...b, benefit: "You get faster diffs" } : b)) });
+        ok("viewer first: every use a demo with no life situation in any benefit is the warning toy-demos (not an error)", /toy-demos/.test(toy.stdout) && !/toy-demos/.test(why12(toy)) && !/toy-demos/.test(ok12.stdout), toy.stdout.slice(0, 100));
+        // a brand film is not held to G12 (it applies to launch and promo, and to any pas pitch)
+        const bgj = (() => { try { return JSON.parse(cg.stdout); } catch { return {}; } })();
+        ok("viewer first: a brand-format film has no G12 gate", !(bgj.gates || []).some((x) => x.id === "G12"), cg.stdout.slice(0, 100));
+
+        // pas: hook, agitate, meet, 2-4 benefits, proof, cta; the reveal not before 20%
+        const pb = (name, role, on_screen, duration_s, more = {}) => ({ ...lb(name, role, on_screen, duration_s, more), shows: (more.rows || [on_screen]).map((l) => row(l)) });
+        const pasBeats = () => [
+          pb("Pain", "hook", "Your inbox never sleeps.", 4, { rows: ["Your inbox never sleeps.", "Forty threads before breakfast."], changes: ["a new thread lands"] }),
+          pb("Woah", "agitate", "Woah.", 3, { rows: ["Woah.", "You are a really busy person."], changes: ["the stack wobbles"] }),
+          pb("Meet", "meet", "Meet Lintel.", 4, { rows: ["Meet Lintel.", "One window for every review."], picture: "the Lintel mark lands as the window opens", changes: ["the mark lands"] }),
+          pb("Benefit 1", "benefit", "Reviews, done in place.", 4, { rows: ["Reviews, done in place.", "Apply it, then move on."], benefit: BEN[0], ui: ["click Apply → the change lands in the diff"], changes: ["the diff folds"] }),
+          pb("Benefit 2", "benefit", "Threads that stay put.", 4, { rows: ["Threads that stay put.", "Nothing slips by."], benefit: BEN[1], ui: ["open a thread → the comments stack in the Lintel pane"], changes: ["the thread pins"] }),
+          pb("Benefit 3", "benefit", "Bugs, caught early.", 4, { rows: ["Bugs, caught early.", "Before they ship."], benefit: BEN[2], ui: ["type audit → the Lintel findings appear"], changes: ["the findings tick in"] }),
+          pb("Proof", "proof", "2,400 teams review with Lintel.", 4, { rows: ["2,400 teams review with Lintel.", "Join them."], changes: ["the count ticks up"] }),
+          pb("Join", "cta", "Get Lintel.", 4, { rows: ["Get Lintel.", "lintel.example/get"], changes: ["the button wipes in"] }),
+        ];
+        const pasRun = (extra = {}, drop = [], more = ["--claims", claimsF]) => run10l({ title: "Your review day", logline: "Lintel clears your review queue before standup.", shape: "pas", beats: pasBeats(), proof, cta, tempo: { ideas: 8, change_every_s: 2, longest_hold_s: 4, source: "house" }, last_line: "Get Lintel", end_line_largest: true, actor: { what: "the review cursor", does: "rides under every line" }, ...extra }, [...drop, "refrain"], more);
+        const pg = pasRun();
+        ok("pas: hook, agitate, meet at 23%, three benefits with a real UI behaviour each, proof and a concrete cta pass G7, G9, G10 and G12", ["G7", "G9", "G10", "G12"].every((id) => gof(pg, id).pass === true) && gof(pg, "G10").shape === "pas", ["G7", "G9", "G10", "G12"].map((id) => id + ": " + gof(pg, id).reasons.join(" | ")).join(" || "));
+        const pe = pasRun({ beats: pasBeats().map((b, i) => (i === 0 ? { ...b, duration_s: 1.5 } : i === 1 ? { ...b, duration_s: 1 } : b)) });
+        ok("pas: G12 fails a reveal before 20% of the film (reveal-too-early)", gof(pe, "G12").pass === false && /reveal-too-early/.test(gof(pe, "G12").reasons.join(" ")), gof(pe, "G12").reasons.join(" | "));
+        const po = pasRun({ beats: pasBeats().filter((b) => b.role !== "agitate") });
+        ok("pas: the agitate beat is optional", gof(po, "G10").pass === true, gof(po, "G10").reasons.join(" | "));
+        const pn = pasRun({ beats: pasBeats().filter((b) => b.name !== "Meet") });
+        ok("pas: G10 fails a film with no meet beat", gof(pn, "G10").pass === false && /meet: 0 beats/.test(gof(pn, "G10").reasons.join(" ")), gof(pn, "G10").reasons.join(" | "));
+        const pone = pasRun({ beats: pasBeats().filter((b) => b.name !== "Benefit 2" && b.name !== "Benefit 3") });
+        ok("pas: G10 wants two to four benefit beats", gof(pone, "G10").pass === false && /benefit beats: 1/.test(gof(pone, "G10").reasons.join(" ")), gof(pone, "G10").reasons.join(" | "));
+        const pui = pasRun({ beats: pasBeats().map((b) => (b.name === "Benefit 1" ? { ...b, ui: [] } : b)) });
+        ok("pas: G10 fails a benefit beat with no UI cause and effect", gof(pui, "G10").pass === false && /benefit beat\(s\) without a ui cause and effect/.test(gof(pui, "G10").reasons.join(" ")), gof(pui, "G10").reasons.join(" | "));
+        const ppo = pasRun({ beats: [...pasBeats().slice(0, 3), pasBeats()[6], ...pasBeats().slice(3, 6), pasBeats()[7]] });
+        ok("pas: G10 wants the order hook, agitate, meet, benefits, proof, cta", gof(ppo, "G10").pass === false && /order:/.test(gof(ppo, "G10").reasons.join(" ")), gof(ppo, "G10").reasons.join(" | "));
+        const pnv = pasRun({ beats: pasBeats().map((b) => ({ ...b, on_screen: b.on_screen.replace("Your inbox never sleeps.", "Inboxes never sleep."), shows: b.shows.map((r) => ({ ...r, line: r.line.replace("Your inbox never sleeps.", "Inboxes never sleep.").replace("You are a really busy person.", "Busy people everywhere.") })) })), });
+        ok("pas: not-viewer-first when the first 25% never says you", gof(pnv, "G12").pass === false && /not-viewer-first/.test(gof(pnv, "G12").reasons.join(" ")), gof(pnv, "G12").reasons.join(" | "));
+        const pimp = node("story.mjs", ["check", "--pitch", (() => { const fl = path.join(sd, "t12-pas-only.json"); fs.writeFileSync(fl, JSON.stringify({ title: "Your review day", logline: "Lintel clears your review queue before standup.", aim, approach: "Starts with your day.", device: "escalation", shape: "pas", beats: pasBeats(), proof, cta, scores, first_4s: "x", clear_by_s4: true })); return fl; })(), "--claims", claimsF]);
+        ok("pas: a pas pitch is held to G12 even with no launch format or truth sheet", (JSON.parse(pimp.stdout).gates || []).some((x) => x.id === "G12" && x.pass === true), pimp.stdout.slice(0, 200));
       }
     }
     // the museum script of the real failed film is refused by the gate when run product-first
@@ -1004,6 +1086,32 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-stream_loop", "2", "-i", track, "-t", "100", path.join(d, "looped.wav")]);
   const cl = node("sound.mjs", ["check", "--audio", path.join(d, "looped.wav")]);
   ok("sound: check catches a looped bed (exit 2, audible loop)", cl.status === 2 && /audible loop/.test(cl.stdout), `exit ${cl.status}`);
+  // no-sfx (a film of 15 s or more with zero cues), flat-dynamics (LRA under 2 LU), ring-out-ending (music audible > 1 s after the logo)
+  {
+    const nosfx = path.join(d, "sfx-none.json"), somesfx = path.join(d, "sfx-some.json");
+    fs.writeFileSync(nosfx, JSON.stringify({ cues: [] }));
+    fs.writeFileSync(somesfx, JSON.stringify({ cues: [{ t: 5, kind: "click" }, { t: 12, kind: "reveal" }] }));
+    const bed = path.join(d, "bed.wav");
+    const n1 = node("sound.mjs", ["check", "--audio", bed, "--sfx", nosfx]);
+    ok("sound: check fails a 30 s film with zero SFX cues (no-sfx, exit 2)", n1.status === 2 && /"what": "no-sfx"/.test(n1.stdout), n1.stdout.slice(0, 300));
+    const n2 = node("sound.mjs", ["check", "--audio", bed, "--sfx", nosfx, "--silent-by-choice", "a quiet music-only piece"]);
+    ok("sound: --silent-by-choice \"<reason>\" lets a film with no SFX pass and records the reason", n2.status === 0 && /silent_by_choice/.test(n2.stdout) && !/no-sfx/.test(n2.stdout), n2.stdout.slice(0, 300));
+    const n3 = node("sound.mjs", ["check", "--audio", bed, "--sfx", somesfx]);
+    ok("sound: a film with SFX cues passes the no-sfx check", n3.status === 0 && !/no-sfx/.test(n3.stdout), n3.stdout.slice(0, 300));
+    const n4 = node("sound.mjs", ["check", "--audio", bed]);
+    ok("sound: with no --sfx at all, a 15 s+ film gets a no-sfx warning (nothing measured), not an error", n4.status === 0 && /no-sfx: no --sfx given/.test(n4.stdout), n4.stdout.slice(0, 300));
+    const tone = path.join(d, "tone.wav");
+    spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=f=440:d=20", "-af", "volume=0.3", tone]);
+    const fd = node("sound.mjs", ["check", "--audio", tone, "--sfx", somesfx]);
+    ok("sound: a bed that never moves (LRA under 2 LU) warns flat-dynamics", /flat-dynamics: loudness range/.test(fd.stdout), fd.stdout.slice(0, 400));
+    const evEarly = path.join(d, "events-logo-early.json"), evEnd = path.join(d, "events-logo-end.json");
+    fs.writeFileSync(evEarly, JSON.stringify({ events: [{ id: "logo", t: 12, kind: "logo" }] }));
+    fs.writeFileSync(evEnd, JSON.stringify({ events: [{ id: "logo", t: 29.6, kind: "logo" }] }));
+    const r1 = node("sound.mjs", ["check", "--audio", bed, "--sfx", somesfx, "--events", evEarly]);
+    ok("sound: music still audible long after the logo event warns ring-out-ending", /ring-out-ending: the music is still audible/.test(r1.stdout), r1.stdout.slice(0, 400));
+    const r2 = node("sound.mjs", ["check", "--audio", bed, "--sfx", somesfx, "--events", evEnd]);
+    ok("sound: a logo on the last beat is not a ring-out", !/ring-out-ending/.test(r2.stdout), r2.stdout.slice(0, 400));
+  }
   fs.writeFileSync(path.join(d, "scenes.json"), JSON.stringify({ narration: true, scenes: [{ title: "a", duration: 10, voiceover: "x" }, { title: "b", duration: 10, voiceover: "y" }, { title: "c", duration: 10 }] }));
   fs.writeFileSync(path.join(d, "events.json"), JSON.stringify({ events: [{ id: "fade", t: 1, kind: "fade" }, { id: "cut", t: 10, kind: "whoosh" }, { id: "l1", t: 12, kind: "land", group: "g" }, { id: "l2", t: 12.3, kind: "land", group: "g" }, { id: "l3", t: 12.6, kind: "land", group: "g" }, ...[0, 0.2, 0.4, 0.6].map((x, i) => ({ id: `c${i}`, t: 20 + x, kind: "click" }))] }));
   const sx = J(node("sound.mjs", ["sfx-plan", "--scenes", path.join(d, "scenes.json"), "--events", path.join(d, "events.json")]));
@@ -1201,6 +1309,21 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     put(f3b);
     const f3c = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
     ok("crew: a flat-brand 3D scene with chrome, bloom or an fstop fails flat-3d-style", f3c.status === 2 && /flat-3d-style/.test(f3c.stdout), f3c.stdout.slice(0, 400));
+    // the card's `Depth blur:` line: yes / allowed lifts the fstop ban (not bloom, chrome or glass); no / never keeps it
+    {
+      const withCard = (line) => { fs.writeFileSync(path.join(bfd3, "FILM-STYLE.md"), `# FILM-STYLE\n\n- Canvas: flat white\n- ${line}\n`); };
+      const fsty = JSON.parse(JSON.stringify(fs3)); fsty.scenes[d3].camera3d = { ...(fsty.scenes[d3].camera3d || {}), fstop: 2.8 };
+      put(fsty);
+      withCard("Depth blur: yes (defocused giant words behind the UI)");
+      const bl1 = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+      ok("crew: a card line `Depth blur: yes` allows an fstop in a flat brand's 3D scene (flat-3d-style relaxed)", !/flat-3d-style/.test(bl1.stdout), bl1.stdout.slice(0, 400));
+      withCard("Depth blur: no, never blurred");
+      ok("crew: a card line `Depth blur: no` keeps the fstop ban", /flat-3d-style/.test(C(["check", "--run", run, "--role", "motion-director", "--key", "score"]).stdout));
+      withCard("Depth blur: yes");
+      const chr = JSON.parse(JSON.stringify(fsty)); chr.scenes[d3].materials = "chrome glass with bloom"; put(chr);
+      ok("crew: allowing depth blur does not allow bloom, chrome or glass on a flat brand", /flat-3d-style/.test(C(["check", "--run", run, "--role", "motion-director", "--key", "score"]).stdout) && /bloom/.test(C(["check", "--run", run, "--role", "motion-director", "--key", "score"]).stdout));
+      put(fs3);
+    }
     fs.rmSync(bfd3, { recursive: true, force: true });
     // a 25 s film (every duration doubled, in scenes.json and the score)
     const ssPath = path.join(run, "scenes.json");
@@ -1221,6 +1344,40 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     n24.depth = { none_because: "flat is nicer here and so on and so on" };
     put(n24);
     ok("crew: a none_because that quotes no script line does not clear no-3d-moment", /no-3d-moment/.test(C(["check", "--run", run, "--role", "motion-director", "--key", "score"]).stdout));
+    // sound and motion variety: warnings (never errors) for the music arc, unsounded seams, repeated or thin mechanics, flat type, no punctuation cut
+    {
+      const v = JSON.parse(JSON.stringify(n24));
+      v.depth = { none_because: 'the line "Twelve months of paper." is a flat ledger: depth would hurt it' };
+      const chk = (o) => { put(o); return C(["check", "--run", run, "--role", "motion-director", "--key", "score"]); };
+      const w0 = chk(v);
+      ok("crew: a 25 s score with no music_arc, no type_scale and no mechanics warns (music-arc-missing, flat-type, mechanics-thin) and still passes", w0.status === 0 && ["music-arc-missing", "flat-type", "mechanics-thin"].every((k) => w0.stdout.includes(k)), w0.stdout.slice(0, 600));
+      v.music_arc = { intro_until: 5, drop_at: 9, break: [16, 18], payoff_at: 19, button_at: 25 };
+      v.type_scale = { small_px: 28, large_px: 220 };
+      v.scenes.forEach((x, i) => x.shots.forEach((h, j) => { h.mechanic = `mech-${i}-${j}`; }));
+      const w1 = chk(v);
+      ok("crew: a music_arc, a 3x type scale and a different mechanic per line clear music-arc-missing, flat-type, mechanics-thin and mechanic-repeat", w1.status === 0 && !/music-arc-missing|music-arc-order|flat-type|mechanics-thin|mechanic-repeat/.test(w1.stdout), w1.stdout.slice(0, 600));
+      v.music_arc = { intro_until: 5, drop_at: 9, break: null, payoff_at: 8, button_at: 25 };
+      ok("crew: a music_arc out of order (payoff before the drop) warns music-arc-order; break may be null", /music-arc-order/.test(chk(v).stdout) && !/music-arc-missing/.test(chk(v).stdout));
+      v.music_arc = { intro_until: 5, drop_at: 9, payoff_at: 19, button_at: 25 };
+      ok("crew: a music_arc without its break key (null for none) is music-arc-missing", /music-arc-missing/.test(chk(v).stdout));
+      v.music_arc = { intro_until: 5, drop_at: 9, break: null, payoff_at: 19, button_at: 25 };
+      v.type_scale = { small_px: 60, large_px: 120 };
+      ok("crew: large type under 3x the small is the warning flat-type", /flat-type: the largest type is 2x/.test(chk(v).stdout));
+      v.type_scale = { small_px: 28, large_px: 220 };
+      v.scenes.forEach((x) => x.shots.forEach((h) => { h.mechanic = "slide-in"; }));
+      const w2 = chk(v);
+      ok("crew: the same mechanic on 3 lines in a row warns mechanic-repeat (and mechanics-thin)", /mechanic-repeat: \\?"slide-in/.test(w2.stdout) && /mechanics-thin: 1 distinct/.test(w2.stdout) && w2.status === 0, w2.stdout.slice(0, 400));
+      v.scenes.forEach((x, i) => x.shots.forEach((h, j) => { h.mechanic = `mech-${i}-${j}`; }));
+      v.scenes.forEach((x) => { x.events = [{ t: 1, what: "a thing moves" }]; });
+      const w3 = chk(v);
+      ok("crew: seams with motion and no sound event warn seam-unsounded", /seam-unsounded: 2 of 2/.test(w3.stdout), w3.stdout.slice(0, 400));
+      v.seams.forEach((sm) => { if (sm.kind !== "cut") sm.sound = "whoosh"; });
+      ok("crew: a sound on the seam (seam.sound) clears seam-unsounded", !/seam-unsounded/.test(chk(v).stdout));
+      ok("crew: no hard cut on the turn seam into the reveal warns no-punctuation (signature into s3 = brandReveal)", /no-punctuation: the emotional turn \(2>3\)/.test(chk(v).stdout));
+      v.seams[1].kind = "smash-cut"; delete v.seams[1].element;
+      const w4 = chk(v);
+      ok("crew: a smash-cut on the turn seam clears no-punctuation", !/no-punctuation/.test(w4.stdout) && w4.status === 0, w4.stdout.slice(0, 400));
+    }
     fs.writeFileSync(ssPath, had);
     put(good);
   }
