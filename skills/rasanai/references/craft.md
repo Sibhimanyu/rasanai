@@ -124,6 +124,35 @@ Everything obeys `motion.md` (the style's motion language: eases, duration scale
 
 **Seek-safety (HyperFrames).** No infinite tweens, no `Math.random` or `requestAnimationFrame`, `fromTo` for entrances, seeded noise sampled on the integer frame index, every tween on the paused timeline.
 
+### Animation principles: the twelve that matter here, with numbers
+
+A film made of eases and fades is correct and lifeless. The reference films (the Eye intro, the pixel manifesto) move like animation: things have weight, prepare, overshoot and trail. Of the twelve classic principles, these are the ones that pay for themselves on screen, with the numbers to start from (tune by eye on a 24 fps strip, `crew.mjs strip --fps 24`):
+
+| Principle | What it is | Numbers |
+|---|---|---|
+| Anticipation | A small move the wrong way before the real one | 60 to 120 ms, 5 to 12% of the move's distance or scale (an icon dips to 0.92 before it pops to 1.1) |
+| Squash and stretch | The body deforms on contact and speed, volume kept | squash 10 to 25% on the contact axis (scaleX up as scaleY down by the same share), stretch 5 to 15% along a fast move; recover in 0.2 to 0.35 s |
+| Overshoot and settle | Go past the target, come back once | 3 to 8% past, one return, `back.out(1.4)` or a small `elastic.out(1, 0.7)`; never two reversals |
+| Smear frames | A stretched, blurred copy of the object on a fast move | 1 to 3 frames, length 0.5 to 1.5 times the object's size along the motion; only on moves above ~1500 px/s |
+| Follow-through | Loose parts keep going after the body stops | trailing elements settle 80 to 200 ms after the primary, with a 2 to 6 px overshoot |
+| Secondary motion | A second action that supports the first | 80 to 200 ms behind the primary mover; never a competing one (a highlight dot lags the pupil by 0.08 s) |
+| Arcs | Natural paths are curves | arc deviation 8 to 15% of the travel; `followPath` or two axes on different eases |
+| Slow in, slow out | Ease at both ends | `power2.inOut` for moves, never `linear` on a body |
+| Timing | The number of frames sets weight | light and snappy 4 to 8 frames at 24 fps, heavy 12 to 20; a UI tap 0.12 to 0.2 s |
+| Staging | One clear read at a time | one primary mover, at most 3 things moving, the rest still |
+| Exaggeration | Push past the believable | squash and overshoot at the top of the ranges on the hero move, the lower end elsewhere |
+| Stepped timing (on twos) | Hold each drawing for 2 frames | 12 fps (on twos) or 8 fps (on threes) for pixel art and hand-drawn scenes; type and camera stay smooth |
+
+**When to use the character language.** `motion.md`'s `character` motion language (squash and stretch, anticipation, overshoot settles, smear frames on fast moves, follow-through, secondary motion, optional stepped timing; it allows `back.out`, a small `elastic.out`, stepped eases and short holds) is for films whose actors are objects: a ring of icons, a carrier letter, a ball that reads the line, a mascot. Glyph-chain and pixel-collage grammars use it. A UI-led launch film whose actor is the real product stays on the brand's own easing; a squashing card there reads as a toy. Mixing is the usual answer: the object gets character, the type and the UI keep the brand's ease. The shape kit's `squash`, `smear` and `stepped` (`references/shape.md`) are the tools.
+
+### Layer density
+
+A showcase shot is built of many independently timed things: a ground, a vignette, a ring or specimen, the one actor, an ink layer, a pen line, tiny type, a flare. The references run **5 to 10 independently timed layers at the peak of a showcase shot**; a competent template runs 2 to 4, and reads thin beside them. The score records `layers` per shot (a count of independently timed elements: its own start, its own ease) and `crew.mjs checkScore` warns `layers-thin` when the median over shots is under 4 on a showcase-grammar film (specimen-sheet, pixel-collage, glyph-chain, viewfinder-reel, editorial-grid). Layers are not clutter: each has its own motion on the beat and none covers the line being read. The art department's assets (`agents/art-director.md`) are what fill them with something worth moving.
+
+### Key poses before the build, fine review after
+
+A hero move is judged at the frame, not at the second. Before building, render 4 to 6 key poses of each hero move (start, anticipation, smear or bridge, settle, end) with `design.mjs stills` into `boards/<move>.png`, and look at them: if the five stills do not tell the move, the move is not designed yet. After building, review hero moves as **24 fps strips** (`crew.mjs strip --fps 24 --from <t0> --to <t1>`), not 2 fps overviews: the overshoot, the smear and the morph's in-betweens live between 2 fps samples. `crew.mjs check --role film-builder` warns `no-pose-board` and `hero-not-stripped`.
+
 ---
 
 ## 4. Transitions
