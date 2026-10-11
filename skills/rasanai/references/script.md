@@ -73,6 +73,8 @@ Every title is 5 words or fewer, contains the verb, and sits on one line inside 
 
 Kinso's launch (`library/showcases/kinso-launch.json`) is not a feature tour. It is the viewer's day: "Your next deal is in here somewhere" → "Woah" → "You are a really busy person" → "Lets solve this first" → "Meet KINSO" at 27% of the film → "One inbox for every conversation" → three benefits, each with one UI behaviour → "Join 27,300 others on the waitlist" → the logo and the URL. 27 lines in 46 s, one every 1.7 s. A product-centric film of the same length had 7 lines in 30 s. The pas is that shape, written for any product.
 
+**The brand name recurs.** Besides the reveal and the end card, write one mid-film line that carries the name tied to a benefit ("KINSO finds it.", "Plover books it."): the name appears at least twice before the end card's own appearance counts (`brand-once` in `crew.mjs`). **Length:** a launch runs 30 to 45 s when the story needs room (Kinso is 46 s); 35 to 45 s is fine when the pas has a breath at the turn, and 7 ideas crammed into 30 s is the failure.
+
 Beats, with a `role` each, and the pitch's `shape: "pas"`:
 
 - `hook`: the viewer's pain as a picture, in second person ("Your next meeting is stuck in a thread."). The first quarter must address the viewer (`you`, `your`, `you're`, or a first-person viewer line like "I just want a time").
@@ -264,6 +266,7 @@ Never open with: "Introducing…", "Meet…", "What if…?", "Tired of…?", "In
 
 - The turn is a reversal the viewer feels: the pile becomes a ledger, the countdown stops, the museum label names the old way as history. Mark it `"turn": true`; it lands at 60 to 75% of the running time.
 - A drop in motion before the turn (one slow mover for 0.3 to 0.8 s, never a frozen frame) makes it hit.
+- **A breath at the turn.** Leave room for one declared breath (1.0 s or less, a dark or quiet beat, the ground still alive) at the emotional turn: the pain has landed, the reveal has not. Kinso takes it at "You are a really busy person"; a film with no breath is crammed (`references/craft.md`, "Room").
 - The end beat: the name and one call to action (a URL, "available today"), held still 2 to 3 seconds, with the music's ending under it. The last line is plain and quotable. Never "Thanks for watching", never a wall of social icons.
 
 ## A worked example (45 s, launch, Tally)

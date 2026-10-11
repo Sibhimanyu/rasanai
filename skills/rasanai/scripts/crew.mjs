@@ -1064,6 +1064,57 @@ function checkScore(run) {
   const need = (cond, msg) => { if (!cond) (must ? P : W).push(`plan: ${msg}`); };
   need(Number(score.duration) > 0, "duration missing (the film's length in seconds)");
   need(String(score.brand || "").trim(), "brand missing (the brand or product name)");
+  // continuity, a living frame, video UI, type rhythm, signal colour (warnings, SPEC 8)
+  {
+    const txt = (...v) => v.map((x) => (x == null ? "" : typeof x === "string" ? x : JSON.stringify(x))).join(" ").toLowerCase();
+    const brandName = String(score.brand || "").trim().toLowerCase();
+    const launch = brandFilm(run) || productFirst(run, plan);
+    // breaths: each at most 1 s, at most 2
+    if (Array.isArray(score.breaths)) {
+      const bad = score.breaths.filter((b) => !(Array.isArray(b) && b.length === 2 && Number(b[1]) > Number(b[0]) && Number(b[1]) - Number(b[0]) <= 1.0 + 1e-6));
+      if (bad.length || score.breaths.length > 2) W.push(`breaths-invalid: score.breaths is [[t0, t1]], each 1 s at most and two at most (${bad.length ? `${bad.length} invalid` : `${score.breaths.length} declared`}): a breath is a held beat at the emotional turn, not a gap`);
+    }
+    // no-overlap: a seam whose incoming element starts after the outgoing one has fully left
+    const OVERLAP = /overlap|before (?:the |it |that )?\w*\s*(?:leaves|exits|has left|is gone|clears)|while (?:the |it |that )?[\w\s]{0,24}(?:leaves|exits|leaving|exiting)|as (?:the |it |that )?[\w\s]{0,24}(?:leaves|exits|leaving|exiting)|still (?:on screen|moving out|leaving)|already (?:arriving|entering|in)/;
+    const lonely = [];
+    seams.forEach((sm) => {
+      const A = S[Number(sm.from) - 1], B = S[Number(sm.to) - 1];
+      if (!A || !B) return;
+      const o = sm.out && typeof sm.out === "object" ? sm.out : {}, i2 = sm.in && typeof sm.in === "object" ? sm.in : {};
+      const left = Number(sm.out_leaves ?? o.leaves_at ?? o.t1 ?? o.t), arrive = Number(sm.in_arrives ?? i2.arrives_at ?? i2.t0 ?? i2.t);
+      if (sm.overlap_s != null && sm.overlap_s !== "") { if (!(Number(sm.overlap_s) > 0)) lonely.push(`${sm.from}>${sm.to}`); return; }
+      if (Number.isFinite(left) && Number.isFinite(arrive)) { if (arrive > left + 1e-6) lonely.push(`${sm.from}>${sm.to}`); return; }
+      if (CONTINUITY.has(sm.kind) || sm.kind === "signature" || sm.element) return; // an object present on both sides overlaps by nature
+      const lastA = (A.shots || []).slice(-1)[0] || {}, firstB = (B.shots || [])[0] || {};
+      const t = txt(sm.why, sm.bridge, sm.overlap, lastA.moves, firstB.moves, firstB.on_screen);
+      if (!OVERLAP.test(t)) lonely.push(`${sm.from}>${sm.to}`);
+    });
+    if (lonely.length) W.push(`no-overlap: seam${lonely.length > 1 ? "s" : ""} ${lonely.slice(0, 6).join(", ")}: the incoming element starts after the outgoing one has fully left (the frame clears between beats): give each seam out/in timing (seam.out_leaves / seam.in_arrives in seconds around the cut, the incoming one first) or an overlap_s above 0, so the next element arrives before the last leaves`);
+    if (length >= 15 && String(score.ground_motion || "").trim().length < 8) W.push("no-living-ground: score.ground_motion is missing: say how the ground lives all the time (a gradient that drifts, a slow parallax, a noise field, rules that breathe), so a hold is never a dead flat ground");
+    if (launch && length >= 25 && brandName) {
+      const withBrand = S.filter((sc) => txt(sc.line, sc.on_screen, sc.mark, (sc.shots || []).map((sh) => [sh.on_screen, sh.mark])).includes(brandName)).length;
+      if (withBrand < 2) W.push(`brand-once: the brand "${score.brand}" appears in ${withBrand} beat${withBrand === 1 ? "" : "s"} of a ${Math.round(length)} s launch film (2 at least): at the reveal and once mid-film tied to a benefit ("${score.brand} finds it"), and at the end`);
+    }
+    // video UI: beats whose picture shows product UI
+    const uiBeats = S.filter((sc) => (Array.isArray(sc.ui) && sc.ui.length) || /\b(ui|screen|dashboard|interface|inbox|panel|window)\b/i.test(String(sc.picture || "")));
+    const STAGED = /\b(build|builds|built|rows?|highlights?|steps?|stepped|simplif\w*|cards?)\b/i;
+    const unstaged = uiBeats.filter((sc) => !(sc.shots || []).some((sh) => STAGED.test(txt(sh.on_screen, sh.moves, sh.mechanic, sh.primary))));
+    if (unstaged.length) W.push(`ui-unstaged: beat${unstaged.length > 1 ? "s" : ""} ${unstaged.slice(0, 6).map((sc) => sc.id || sc.n).join(", ")} show${unstaged.length > 1 ? "" : "s"} product UI but no shot stages it: simplify the real UI for video and build it in stages (card, frame, rows, highlight; no shot mentions build / rows / highlight / step / simplify / card)`);
+    const CURSOR = /\b(cursor|drag|drags|dragging|click|clicks|clicking)\b/i, ACTS = /\b(highlight\w*|step\w*|appears?|reorder\w*|slides? in|builds?)\b/i;
+    const cursorLed = uiBeats.filter((sc) => { const t = txt((sc.shots || []).map((sh) => [sh.moves, sh.primary, sh.mechanic]), sc.ui); return CURSOR.test(t) && !ACTS.test(t) || (CURSOR.test(t) && (t.match(/cursor|drag|click/g) || []).length > (t.match(/highlight|step|appear|reorder/g) || []).length); });
+    if (uiBeats.length >= 2 && cursorLed.length / uiBeats.length > 0.5) W.push(`cursor-led: ${cursorLed.length} of ${uiBeats.length} UI beats are driven by a cursor drag or click: let the product act (highlights step, rows reorder, cards appear on their own); a cursor only where the user's action is the point`);
+    // type rhythm: lines_type sizes
+    if (Array.isArray(score.lines_type) && score.lines_type.length >= 3) {
+      const nums = score.lines_type.map((x) => Number(typeof x === "object" && x ? x.size_px ?? x.px ?? x.size : x)).filter((n) => Number.isFinite(n) && n > 0);
+      const classes = score.lines_type.map((x) => String(typeof x === "object" && x ? x.size || x.class || "" : x).toLowerCase().trim());
+      let flat = false;
+      if (nums.length === score.lines_type.length) { const mean = nums.reduce((a, b) => a + b, 0) / nums.length; flat = nums.every((n) => Math.abs(n - mean) <= 0.15 * mean); }
+      else flat = new Set(classes).size <= 1;
+      if (flat) W.push("type-rhythm-flat: score.lines_type puts every line within 15% of the same size: alternate small, bigger, giant, small so the key line lands (references/craft.md, Type rhythm)");
+    }
+    const ac = score.accent;
+    if (!(ac && typeof ac === "object" && String(ac.colour || ac.color || "").trim() && String(ac.marks || "").trim())) W.push("no-accent-signal: score.accent { colour, marks } is missing: one accent colour marks the key word or dot every time (a key word may take the ground's gradient)");
+  }
   // a single-feature scenario film carries its feature block; a ladder film (several real uses) carries a refrain instead
   const chosenPitch = jsonMaybe(R(run, "story", "chosen.json"));
   const ladderFilm = !!(chosenPitch && ["ladder", "pas"].includes(pitchShape(chosenPitch)));

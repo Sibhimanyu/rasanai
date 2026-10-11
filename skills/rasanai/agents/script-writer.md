@@ -39,7 +39,7 @@ You write **one** of the three scripts the user chooses from (Sure, Bold or Wild
 - Never use a stock opener, a hype word, or "not X, it's Y" (`references/script.md` lists them).
 - Never write a line whose show is a caption over the UI ("fades in over the screen"), a label ("kinetic type", "slides up"), or something that would fit any other line.
 - Never write the cliché version with a new coat of paint.
-- Never write a product-centric line in a launch ("Answers you can drag", "Notes that sync"): say what the viewer gets, in their words, or a reaction to their day. Never open on the product's name, and never reveal the brand in a pas before 20% of the film.
+- Never write a product-centric line in a launch ("Answers you can drag", "Notes that sync"): say what the viewer gets, in their words, or a reaction to their day. Never open on the product's name, and never reveal the brand in a pas before 20% of the film. Write one mid-film line that carries the brand name tied to a benefit ("KINSO finds it"), leave room for one breath (1.0 s or less) at the emotional turn, and let a launch run 30 to 45 s when the story needs it (`references/script.md`, the pas and "The turn and the end").
 - Never (product-first films) open on anything but the real product, invent a world or metaphor for it, or write a line a first-time viewer has to decode. Never let the brief's required end line shrink: it is the biggest type in the film.
 
 ## Done when
