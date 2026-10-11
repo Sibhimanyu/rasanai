@@ -80,6 +80,8 @@ Pain, meet, benefits, proof, cta (`references/script.md`, the pas). The reveal (
 
 Hook and agitate hold 20 to 25% together (the pain); meet is 8 to 10%; benefits fill 40 to 45%; proof 5 to 8% (a counter that climbs); the CTA and end card the last 12 to 15%. Tempo still holds: something changes about every 2 s inside every beat.
 
+**Launch length: 35 to 45 s is allowed.** Templates for 30 s and 45 s are both valid for a launch; a story with a viewer's day, a breath at the emotional turn and a mid-film brand line ("KINSO finds it") needs 35 to 45 s (Kinso runs 46 s). The breath is the one declared near-empty stretch of 1.0 s or less, placed at the turn (`craft.md`, "Continuity" and "Room"); everything else overlaps, so no frame is empty.
+
 Length limits: agency data puts social and teaser films at 15-30 s, explainers at 45-90 s, and the retention cliff near 45-50 s; kinetic-type pieces hold under about 90 s. OpenAI's own brand film runs 110 s as a hero piece, so over 90 s needs an explicit brief. Default to 30 s or 60 s if the brief does not say.
 
 Cut-down rule: plan 15 s and 30 s cuts at storyboard stage by making every feature beat self-contained (Moonb's "plan cutdowns at storyboard" lesson; Duolingo and Samsung cut from independent segments).

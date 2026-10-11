@@ -67,6 +67,12 @@
       "name": "dot h",
       "what": "the dot h move, in the fixture grammar Gamma dots",
       "route": "GSAP on absolutely positioned divs: dot-h timeline with expo.out"
+    },
+    {
+      "id": "word-choreo",
+      "name": "word choreography",
+      "what": "each word enters from its own offset, scale and blur, then settles into the line, in the fixture grammar Gamma dots",
+      "route": "GSAP on a span per word: per-word from-tweens with back.out and a 6 px lift"
     }
   ],
   "signature": "the Gamma dots collapses into the end lockup",
@@ -91,5 +97,6 @@
     "brand film",
     "reel"
   ],
-  "flat_ok": true
+  "flat_ok": true,
+  "ground_motion": "the Gamma dots ground drifts slowly all the time, so a hold is never a dead flat plane"
 }

@@ -12,6 +12,10 @@
 //   freeze     no still stretch of 0.8 s or more outside the end card; the end card holds at most 1.5 s still after its
 //              last move (--end-hold, or the plan's end_hold_s, when the brief asks for longer)
 //   creep      no whole-frame scale or drift slower than 4% a second (it shimmers thin lines and small type)
+//   empty-frames  at most 10% of frames near-empty (foreground under 2.5% of the frame: see foregroundShare), the end hold (last
+//              1.5 s) and declared breaths (score.breaths: [[t0, t1]], each 1 s at most, two at most) exempt
+//   gap-between-beats  no near-empty stretch over 0.3 s at a seam between two beats (outside breaths): the next element arrives
+//              before the last one leaves
 //   seams      every seam (a beat boundary from the plan) has motion on both sides within 0.2 s
 // From the plan and the code (--plan, --project):
 //   carriers   at least two seams carried by an object present on both sides (measured from index.html's carrier
@@ -40,6 +44,10 @@ export const GATE = {
   creep_per_s: 0.04, // a whole-frame scale or drift slower than this (4%/s) is a creep
   seam_window_s: 0.2, // motion on both sides of every seam within this window
   carried_seams: 2, // seams carried by an object present on both sides
+  empty_share: 0.10, // more than this share of frames near-empty fails (empty-frames)
+  empty_fg: 0.025, // a frame is near-empty when its foreground covers less than this share of the frame
+  gap_s: 0.3, // a near-empty stretch this long at a seam fails (gap-between-beats)
+  breath_max_s: 1.0, breaths_max: 2, // declared breaths: each at most this long, at most this many
   parked_s: 0.8, // a line that sits still this long between entering and leaving is parked
 };
 
@@ -93,6 +101,47 @@ export function readFrames(file, fps = 15) {
   const frames = [];
   for (let i = 0; i < n; i++) frames.push(buf.subarray(i * W * H, (i + 1) * W * H));
   return frames;
+}
+
+// Foreground share of a frame: the fraction of pixels that are NOT the ground. The ground is a quadratic surface in x and y
+// (a flat colour, or a soft gradient) fitted robustly: fit on every 2nd pixel, drop pixels more than FG_T grey levels off it,
+// refit (4 rounds); the pixels left off the surface are foreground (type, dots, cards, shadows). A frame with only a small
+// dot or one small word on a plain ground measures about 0.5% to 2%; a gradient ground with a centred card 8% or more.
+// Calibrated on real films (a white-ground film with a dot at 15 fps: 22% of frames under 3%; a gradient-ground film with
+// centred glass cards: 5%). Frames are the 192x108 gray frames of readFrames.
+const FG_T = 10;
+function solve6(A, b) {
+  const n = b.length;
+  for (let i = 0; i < n; i++) {
+    let p = i;
+    for (let r = i + 1; r < n; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+    [A[i], A[p]] = [A[p], A[i]]; [b[i], b[p]] = [b[p], b[i]];
+    if (Math.abs(A[i][i]) < 1e-12) return null;
+    for (let r = i + 1; r < n; r++) { const f = A[r][i] / A[i][i]; for (let c = i; c < n; c++) A[r][c] -= f * A[i][c]; b[r] -= f * b[i]; }
+  }
+  const x = Array(n).fill(0);
+  for (let i = n - 1; i >= 0; i--) { let s = b[i]; for (let c = i + 1; c < n; c++) s -= A[i][c] * x[c]; x[i] = s / A[i][i]; }
+  return x;
+}
+export function foregroundShare(a) {
+  const basis = (x, y) => { const u = x / W - 0.5, v = y / H - 0.5; return [1, u, v, u * u, u * v, v * v]; };
+  let keep = null;
+  for (let it = 0; it < 4; it++) {
+    const A = Array.from({ length: 6 }, () => Array(6).fill(0)), b = Array(6).fill(0);
+    for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) {
+      const o = y * W + x;
+      if (keep && !keep[o]) continue;
+      const f = basis(x, y);
+      for (let i = 0; i < 6; i++) { b[i] += f[i] * a[o]; for (let j = 0; j < 6; j++) A[i][j] += f[i] * f[j]; }
+    }
+    const c = solve6(A, b);
+    if (!c) return 1;
+    keep = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const f = basis(x, y); let g = 0; for (let i = 0; i < 6; i++) g += c[i] * f[i]; keep[y * W + x] = Math.abs(a[y * W + x] - g) <= FG_T ? 1 : 0; }
+  }
+  let n = 0;
+  for (let i = 0; i < keep.length; i++) if (!keep[i]) n++;
+  return n / keep.length;
 }
 // per step i (frame i-1 -> i, time i/fps): share of pixels that changed visibly, and where
 function diffs(frames) {
@@ -370,6 +419,49 @@ export async function gate({ video = null, project = null, plan = null, scenes =
             const inEnd = endStart != null && a / fps >= endStart;
             add({ check: "freeze", severity: "error", at: tOf(a - 1 >= 0 ? a - 1 : a), region: "whole frame", message: `nothing moves for ${r2(len)} s (${tOf(a - 1 >= 0 ? a - 1 : a)} to ${tOf(b)} s)${inEnd ? ", inside the end card before its last move" : ""}: ${GATE.freeze_s} s at most`, fix: "stage the next event inside that stretch (a UI state, the next line, a cursor leg, the camera going somewhere), or cut it" });
           }
+        }
+        // empty frames: near-empty = foreground under GATE.empty_fg (foregroundShare); the end hold and declared breaths are exempt
+        {
+          const fgs = frames.map(foregroundShare);
+          const empty = fgs.map((v) => v < GATE.empty_fg);
+          const exemptFrom = Math.max(0, frames.length - Math.round(holdMax * fps));
+          const bs = (P.plan && Array.isArray(P.plan.breaths) ? P.plan.breaths : []);
+          const breaths = [];
+          bs.forEach((b, k) => {
+            const ok = Array.isArray(b) && b.length === 2 && Number(b[0]) >= 0 && Number(b[1]) > Number(b[0]);
+            if (!ok) skipped.push(`breaths[${k}] is not [t0, t1]: ignored`);
+            else if (Number(b[1]) - Number(b[0]) > GATE.breath_max_s + 1e-6) skipped.push(`breaths[${k}] [${b[0]}, ${b[1]}] is longer than ${GATE.breath_max_s} s: not exempt`);
+            else if (breaths.length >= GATE.breaths_max) skipped.push(`breaths[${k}]: only ${GATE.breaths_max} breaths are allowed; not exempt`);
+            else breaths.push([Number(b[0]), Number(b[1])]);
+          });
+          const inBreath = (i) => breaths.some(([t0, t1]) => i / fps >= t0 - 1e-6 && i / fps <= t1 + 1e-6);
+          const counts = (i) => i < exemptFrom && !inBreath(i);
+          const idx = frames.map((_, i) => i).filter(counts);
+          const nEmpty = idx.filter((i) => empty[i]).length;
+          const share = idx.length ? nEmpty / idx.length : 0;
+          measured.empty_share = r2(share);
+          const runs = [];
+          let r0 = null;
+          for (let i = 0; i <= frames.length; i++) {
+            const e = i < frames.length && empty[i] && counts(i);
+            if (e && r0 == null) r0 = i;
+            else if (!e && r0 != null) { runs.push([r0, i - 1]); r0 = null; }
+          }
+          if (share > GATE.empty_share) {
+            const top = runs.map(([a, b]) => ({ a, len: (b - a + 1) / fps })).sort((x, y) => y.len - x.len).slice(0, 3).map((x) => `${tOf(x.a)} s (${r2(x.len)} s)`);
+            add({ check: "empty-frames", severity: "error", at: null, region: "whole film", message: `${Math.round(share * 100)}% of frames are near-empty (foreground under ${GATE.empty_fg * 100}% of the frame; ${Math.round(GATE.empty_share * 100)}% at most, the end hold and declared breaths excepted)${top.length ? `; the longest start at ${top.join(", ")}` : ""}`, fix: "overlap the beats: the next element arrives before the last one leaves, and a hold carries a card, a line or a ground that lives; declare a real breath in score.breaths ([[t0, t1]], 1 s at most, two at most) only at the emotional turn" });
+          }
+          // gap between beats: a near-empty run over 0.3 s that touches a seam (within 0.15 s)
+          const gaps = [];
+          for (const [a, b] of runs) {
+            const len = (b - a + 1) / fps;
+            if (len <= GATE.gap_s + 1e-6) continue;
+            const t = seamTimes.find((st) => st >= a / fps - 0.15 && st <= (b + 1) / fps + 0.15);
+            if (t != null) gaps.push({ t, a, len });
+          }
+          for (const g of gaps) add({ check: "gap-between-beats", severity: "error", at: tOf(g.a), region: "seam", message: `the frame is near-empty for ${r2(g.len)} s at the seam at ${r2(g.t)} s (${tOf(g.a)} s on; ${GATE.gap_s} s at most)`, fix: "start the next beat's first element before the last beat's final element leaves (overlap them), or declare the gap a breath in score.breaths" });
+          measured.gaps_between_beats = gaps.length;
+          if (!seamTimes.length) skipped.push("gap-between-beats: no plan (--plan) to say where the beats meet");
         }
         // creep: frame pairs 0.8 s and 2.4 s apart (the longer baseline sees a push as slow as 0.3% a second), every 0.2 s;
         // a creep is three pairs in a row on one baseline with the same move (a settle at the end of an ease is shorter)

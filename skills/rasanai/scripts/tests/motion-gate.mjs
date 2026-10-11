@@ -49,6 +49,28 @@ export default async function ({ ok, node, tmp }) {
   const nothing = node("motion-gate.mjs", ["--json"]);
   ok("motion-gate: with nothing to measure it says could not run (exit 1), never pass", nothing.status === 1 && json(nothing).verdict === "could not run");
 
+  // empty frames and gaps between beats: busy testsrc2 over a white ground, switched off for a stretch (a near-empty frame)
+  {
+    const base = ["-f", "lavfi", "-i", "color=c=white:s=640x360:r=30:d=6", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=30:d=6"];
+    const gone = (off, name) => ff([...base, "-filter_complex", `[0][1]overlay=enable='${off}'`, "-pix_fmt", "yuv420p", f(name)]);
+    // 0.4 s empty across the seam at 2 s (6.7% of the film: no empty-frames, but a gap between beats); 1.2 s empty at 3 s (20%)
+    const made2 = [gone("not(between(t,1.9,2.2))", "gap.mp4"), gone("not(between(t,3,4.2))", "empty.mp4"), gone("not(between(t,2,2.8))", "breath.mp4")];
+    // a small dot on a plain ground the whole film: every frame empty
+    made2.push(ff(["-f", "lavfi", "-i", "color=c=white:s=640x360:r=30:d=6", "-vf", "drawbox=x=300:y=170:w=14:h=14:color=black:t=fill", "-pix_fmt", "yuv420p", f("dot.mp4")]));
+    // a gradient ground with a centred card: not empty
+    made2.push(ff(["-f", "lavfi", "-i", "gradients=s=640x360:r=30:d=6:c0=0xdfe9ff:c1=0xffe3ef:x0=0:y0=0:x1=640:y1=360,format=yuv420p", "-vf", "drawbox=x=170:y=90:w=300:h=180:color=white:t=fill,drawbox=x=190:y=110:w=120:h=14:color=0x333333:t=fill,drawbox=x=190:y=140:w=240:h=14:color=0x888888:t=fill", "-pix_fmt", "yuv420p", f("card.mp4")]));
+    ok("motion-gate: synthesised the empty-frame test films", made2.every((r) => r.status === 0), made2.map((r) => r.stderr).join(" ").slice(0, 300));
+    const gp = f("gap-plan.json"), bp = f("breath-plan.json");
+    const beats3 = [{ id: "a", start: 0, end: 2 }, { id: "b", start: 2, end: 4 }, { id: "c", start: 4, end: 6 }];
+    fs.writeFileSync(gp, JSON.stringify({ scenes: beats3 }));
+    fs.writeFileSync(bp, JSON.stringify({ scenes: beats3, breaths: [[2, 2.8]] }));
+    const run1 = (video, plan2) => { const r = node("motion-gate.mjs", ["--video", f(video), "--plan", plan2, "--json", "--no-text-fit"]); return { r, j: json(r) }; };
+    const gg = run1("gap.mp4", gp), ee = run1("empty.mp4", gp), br = run1("breath.mp4", gp), brp = run1("breath.mp4", bp), dt = run1("dot.mp4", gp), cd = run1("card.mp4", gp);
+    ok("motion-gate: a 0.3+ s near-empty stretch at a seam fails as gap-between-beats with its time (and under the 10% limit)", has(gg.j, "gap-between-beats", 1.9) && !has(gg.j, "empty-frames"), JSON.stringify(gg.j.findings).slice(0, 400));
+    ok("motion-gate: 20% of frames near-empty fails as empty-frames (exit 2) and names the stretch", ee.r.status === 2 && has(ee.j, "empty-frames") && /3 s|3\.0/.test((ee.j.findings.find((x) => x.check === "empty-frames") || {}).message || "") && ee.j.measured.empty_share >= 0.15, JSON.stringify(ee.j.findings).slice(0, 400));
+    ok("motion-gate: a declared breath (score.breaths, 1 s at most) exempts its near-empty frames; undeclared, the same film fails", has(br.j, "empty-frames") && !has(brp.j, "empty-frames") && !has(brp.j, "gap-between-beats"), JSON.stringify([br.j.findings, brp.j.findings]).slice(0, 400));
+    ok("motion-gate: a plain ground with only a small dot is all empty (fails); a gradient ground with a centred card is not empty", has(dt.j, "empty-frames") && dt.j.measured.empty_share >= 0.9 && !has(cd.j, "empty-frames") && cd.j.measured.empty_share <= 0.02, JSON.stringify([dt.j.measured, cd.j.measured]).slice(0, 400));
+  }
   // the code half: carriers measured from index.html, the one brand reveal, parked lines
   const pj = f("proj");
   fs.mkdirSync(path.join(pj, "compositions", "frames"), { recursive: true });

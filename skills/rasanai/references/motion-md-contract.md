@@ -38,6 +38,8 @@ waivers: []
 | `decided_by` | `confirmed` (the user chose) or `auto` ("you decide") |
 | `waivers` | violations the user accepted (see Waivers) |
 
+**Easing is brand-derived.** `easing` and `banned` come from the brand film card's `Easing:` line when one exists: a brand whose films settle softly gets a soft settle (a slight lift or overshoot, `back.out` on UI and words settling into a line) and the `overshoot` ban is removed; a strictly mechanical brand keeps `expo`/`power` and the ban (`craft.md`, "Easing personality"). A "precise" personality is chosen only when the brand's own motion is precise.
+
 The body's "How it moves" prose is copied into DISPATCH.md. For a custom personality it opens with a note that the frontmatter wins wherever the parent's prose disagrees.
 
 ## Tween classes

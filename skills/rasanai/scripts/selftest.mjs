@@ -1401,7 +1401,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     ok("plan: on a direct film DISPATCH.md is a short pointer to the plan (no duplicated craft rules) and DIRECTION.md says the plan wins", /The plan wins/.test(dp) && !/duplicated craft rule/.test(dp) && Buffer.byteLength(dp) < 3000 && /The plan wins/.test(dr) && /^- picture: the receipt does thing 2$/m.test(t1) && /^- exit: carrier \(carrier: the receipt\)$/m.test(t1), dp.slice(0, 300));
     // the builder's required reading: the plan, BUILD.md, the packets' role, DISPATCH and frame.md stay small
     const bb = J2(C(["brief", "--run", run, "--role", "film-builder", "--key", "film", "--project", proj]));
-    ok("plan: the film builder's brief is self-contained and small (about 20 KB, no 40 KB craft references)", bb.ok && bb.bytes < 26000 && !/: `[^`]*references\/(craft|vocabulary|launch-film)\.md`/.test(fs.readFileSync(path.join(ws, bb.prompt), "utf8")), JSON.stringify(bb).slice(0, 300));
+    ok("plan: the film builder's brief is self-contained and small (about 20 KB, no 40 KB craft references)", bb.ok && bb.bytes < 28000 && !/: `[^`]*references\/(craft|vocabulary|launch-film)\.md`/.test(fs.readFileSync(path.join(ws, bb.prompt), "utf8")), JSON.stringify(bb).slice(0, 300));
   }
   ok("crew: storyboard carries each scene's space, and a 3D scene's lens, camera legs, light and materials", /^- space: hybrid \(build with Rasan3D/m.test(t1) && /^- camera3d: 50 mm f\/2\.8; 0\.0–0\.3s locked; 0\.3–1\.6s arc 28° right \(power3\.inOut\)/m.test(t1) && /^- light: three-point/m.test(t1) && (t1.match(/^- space: 2d$/gm) || []).length === 3 && /depth \(2D \/ 3D\): 2D film/.test(t1), t1.slice(0, 400));
   // local search finds the project by its git remote and package name; the inventory lists files, never secrets
@@ -2401,12 +2401,12 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   const ls = J(GM(["list"]));
   ok("grammar: list names the library's grammars with flat_ok, fits and the technique count", ls.grammars && ls.grammars.length === 3 && ls.grammars.every((g) => g.id && typeof g.flat_ok === "boolean" && g.techniques >= 8), JSON.stringify(ls).slice(0, 200));
   const sh = J(GM(["show", "beta-glow"]));
-  ok("grammar: show prints the whole grammar; an unknown id exits 1", sh.id === "beta-glow" && sh.techniques.length === 8 && sh.flat_ok === false && GM(["show", "nope"]).status === 1);
+  ok("grammar: show prints the whole grammar; an unknown id exits 1", sh.id === "beta-glow" && sh.techniques.length === 9 && sh.flat_ok === false && GM(["show", "nope"]).status === 1);
   ok("grammar: with no library folder, list is empty and pick says so (exit 1)", J(GM(["list"], { RASANAI_GRAMMAR_LIBRARY: path.join(TMP, "none") })).grammars.length === 0 && GM(["pick", "--run", run], { RASANAI_GRAMMAR_LIBRARY: path.join(TMP, "none") }).status === 1);
   // the schema
   const chk = (mut) => { const o = rj(AG); mut(o); const f = path.join(TMP, `gram-${Math.random().toString(36).slice(2)}.json`); wj(f, o); return GM(["check", "--file", f]); };
   ok("grammar: check passes a good grammar (exit 0)", GM(["check", "--file", AG]).status === 0);
-  const bads = [["no flat_ok", (o) => { delete o.flat_ok; }, /flat_ok/], ["5 techniques", (o) => { o.techniques = o.techniques.slice(0, 5); }, /techniques has 5/], ["a duplicate technique id", (o) => { o.techniques[1].id = o.techniques[0].id; }, /duplicate technique id/], ["a technique with no build route", (o) => { delete o.techniques[2].route; }, /route is missing/], ["no frame_device.moves", (o) => { delete o.frame_device.moves; }, /frame_device\.moves/], ["a non-kebab id", (o) => { o.id = "Alpha Grid"; }, /kebab-case/], ["no palette accent", (o) => { delete o.palette.accent; }, /palette\.accent/], ["no density", (o) => { delete o.density; }, /density\.change_every_s/], ["no do list", (o) => { o.do = []; }, /do needs/]];
+  const bads = [["no ground_motion", (o) => { delete o.ground_motion; }, /ground_motion/], ["no word-choreo technique", (o) => { o.techniques = o.techniques.filter((t) => t.id !== "word-choreo"); }, /word-choreo/], ["no flat_ok", (o) => { delete o.flat_ok; }, /flat_ok/], ["5 techniques", (o) => { o.techniques = o.techniques.slice(0, 5); }, /techniques has 5/], ["a duplicate technique id", (o) => { o.techniques[1].id = o.techniques[0].id; }, /duplicate technique id/], ["a technique with no build route", (o) => { delete o.techniques[2].route; }, /route is missing/], ["no frame_device.moves", (o) => { delete o.frame_device.moves; }, /frame_device\.moves/], ["a non-kebab id", (o) => { o.id = "Alpha Grid"; }, /kebab-case/], ["no palette accent", (o) => { delete o.palette.accent; }, /palette\.accent/], ["no density", (o) => { delete o.density; }, /density\.change_every_s/], ["no do list", (o) => { o.do = []; }, /do needs/]];
   ok("grammar: check refuses " + bads.map((b) => b[0]).join(", ") + " (exit 2, the field named)", bads.every(([, m, re]) => { const r = chk(m); return r.status === 2 && (J(r).errors || []).some((e) => re.test(e)); }));
   // pick: story shape, flat, exclude, count, deterministic
   wj(path.join(run, "decisions.json"), { subject: "Tally", route: "product-launch-video" });
@@ -2473,6 +2473,40 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   score({ scenes: beats([null, null, null, null, null, null], "") });
   r0 = out();
   ok("grammar (score): with no look/grammar.json there are no grammar errors at all (back-compat)", !/grammar-|technique-|frame-device-/.test(r0.p + r0.w), (r0.p + r0.w).slice(0, 300));
+
+  // SPEC 8: continuity, a living ground, brand recurrence, video UI, type rhythm, signal colour (all warnings)
+  {
+    fs.writeFileSync(path.join(run, "decisions.json"), JSON.stringify({ route: "product-launch-video", subject: "Tally" }));
+    const shotsOf = (moves, on = "the inbox screen") => [{ t0: 0, t1: 5, on_screen: on, moves, primary: "the screen" }];
+    const mk = (i, over = {}) => ({ n: i + 1, id: `s${i + 1}`, duration: 5, picture: "the inbox UI on screen", line: "Mail is slow", shots: shotsOf("the cursor moves to the button and clicks"), ...over });
+    const seamsOf = (n, extra = {}) => Array.from({ length: n - 1 }, (_, i) => ({ from: i + 1, to: i + 2, kind: "cut", why: "the next beat", ...extra }));
+    const bad = (over = {}) => ({ brand: "Tally", scenes: Array.from({ length: 6 }, (_, i) => mk(i)), seams: seamsOf(6), lines_type: [30, 31, 29], ...over });
+    score(bad());
+    let q = out();
+    const names = ["no-overlap", "no-living-ground", "brand-once", "ui-unstaged", "cursor-led", "type-rhythm-flat", "no-accent-signal"];
+    ok("score (SPEC 8): a 30 s launch score with sequential seams, no ground motion, one flat type size, no accent, a cursor-driven unstaged UI and no brand mid-film raises every continuity warning", names.every((n) => new RegExp(`${n}:`).test(q.w)) && !names.some((n) => new RegExp(`${n}:`).test(q.p)), q.w.slice(0, 600));
+    const good = () => ({
+      brand: "Tally", ground_motion: "the gradient ground drifts all the time", accent: { colour: "#d4392b", marks: "the key word and the dot" }, lines_type: [18, 40, 120, 18],
+      scenes: Array.from({ length: 6 }, (_, i) => mk(i, { line: i === 1 || i === 4 ? "Tally finds it" : "Mail is slow", shots: shotsOf("the card builds, rows stage in, then the highlight steps down the rows") })),
+      seams: seamsOf(6, { overlap_s: 0.4 }),
+    });
+    score(good());
+    q = out();
+    ok("score (SPEC 8): overlapping seams, ground_motion, accent, rhythmic type, the brand in two beats and a staged product that acts raise none of them", !names.some((n) => new RegExp(`${n}:`).test(q.w + q.p)), q.w.slice(0, 500));
+    score({ ...good(), seams: seamsOf(6, { out_leaves: 0.3, in_arrives: 0.5 }) });
+    ok("score (SPEC 8): a seam's in_arrives after out_leaves is no-overlap; in_arrives before it is not", /no-overlap: seams? 1>2/.test(out().w));
+    score({ ...good(), seams: seamsOf(6, { out_leaves: 0.3, in_arrives: -0.2 }) });
+    ok("score (SPEC 8): in_arrives before out_leaves is overlap", !/no-overlap/.test(out().w));
+    const short = (o) => ({ ...o, scenes: o.scenes.map((x) => ({ ...x, duration: 2, shots: [{ ...x.shots[0], t1: 2 }] })) });
+    const { ground_motion: _gm, ...noGm } = bad();
+    score(short(bad()));
+    ok("score (SPEC 8): no-living-ground and brand-once apply only to films long enough (a 12 s score raises neither)", !/no-living-ground|brand-once/.test(out().w));
+    score({ ...good(), breaths: [[1, 2.5], [3, 3.5], [4, 4.5]] });
+    ok("score (SPEC 8): more than two breaths, or one over 1 s, is breaths-invalid", /breaths-invalid/.test(out().w));
+    score({ ...good(), breaths: [[1, 1.8]] });
+    ok("score (SPEC 8): one declared breath under 1 s is fine", !/breaths-invalid/.test(out().w));
+    fs.rmSync(path.join(run, "decisions.json"), { force: true });
+  }
 
   // the builders' briefs: the grammar file is an input; the film builder and the animator get the techniques the score names inlined
   GM(["write", "--run", run, "--id", "alpha-grid"]);
