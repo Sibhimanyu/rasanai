@@ -293,6 +293,8 @@ if (url) {
   // a run an older Studio started (console server + address.json) is switched to headless on the next command
   const old = path.join(TMP, "headless-old");
   const sv2 = node("console.mjs", ["serve", "--run", old, "--root", TMP]);
+  // serve detaches: on a slow machine console.json can land a moment after it returns
+  for (let i = 0; i < 50 && !fs.existsSync(path.join(old, "console.json")); i++) await new Promise((r) => setTimeout(r, 100));
   const oldInfo = JSON.parse(fs.readFileSync(path.join(old, "console.json"), "utf8"));
   spawnSync(process.execPath, [path.join(HERE, "console.mjs"), "activity", "--run", old, "--message", "resumed"], { encoding: "utf8", env: henv, cwd: TMP });
   await new Promise((r) => setTimeout(r, 400));
