@@ -34,13 +34,14 @@ Specificity comes from here, and this is the step that gets skipped most. Fill e
 
 For launch, promo and product films (`--format launch`, or `--product-first`; `references/product-first.md`), the engine is bounded: `pick` never offers conceit devices (the whole Metaphor family, borrowed containers other than the product's own query log, chat thread and interface, and a handful of others: cosmos zoom, object's POV, unexpected protagonist, letter from the future, mockumentary, product as a character, problem as a villain, mirror, one-shape, sound-first, data letter, story loop), and `check` runs **G7** (the device is not a conceit; no museum/allegory/invented-world words in the title, logline or beats unless a `visual_pun` that resolves to the product within 1 s; the product on screen within 3 s; a `hero_moment`; 2 to 4 `uses`; `last_line` with `end_line_largest: true`; on-screen lines of 6 words or fewer) and **G10**, which follows the pitch's `shape` (below). A `scenario` pitch is one feature, one scenario: the `feature` block with `viewer`, `task`, `before`, `after`; beats with roles hook, proof, turn, cta in that order; a `picture` per beat; the proof's `ui[]` as cause and effect; no invented output screens; `two_way` with what the lines alone and the pictures alone tell (`references/script.md` pass 0). A `ladder` pitch is checked as a ladder (next section). The devices left (the oner, split-sync, the static camera, countdown, rewind, real time, the misdirect, escalation, the list that breaks, call and response, the manifesto, fake UI takeover, query log and the like) are *structures for pacing and energy*, applied to the real product UI, never a world to put it in. Pass `--allow-conceit` only for a brand film or when the user explicitly asks for a concept.
 
-## Story shapes: ladder and scenario
+## Story shapes: ladder, pas and scenario
 
 Real launch films are not plots. Google's "Ask Search Anything" (87 s) is a **refrain ladder**: one verb ("Ask") is the spine, each rung is a title card with one highlighted word ("Ask **simple** questions", "Ask **longer**", "Ask it to do the **research**", "Ask it to **shop** for you") over a real UI demo of a DIFFERENT everyday use, escalating from simple to done-for-you, then "Ask **anything**" and the logo. A test film that followed one dinner bill for 30 s was rejected: it was a plot, and "that's not how launch videos are made". The creativity lives in the joins between rungs (a title word becomes the search bar, the bar becomes the next demo, the last input becomes the logo), never in the story.
 
-Pitch field `shape: "ladder" | "scenario"`.
+Pitch field `shape: "ladder" | "pas" | "scenario"`.
 
-- **`ladder`** is the default for `product-launch-video` and kind launch, promo or brand, unless the brief or the research names ONE feature to sell.
+- **`ladder`** is a default for `product-launch-video` and kind launch, promo or brand, unless the brief or the research names ONE feature to sell. It is told from the product's refrain.
+- **`pas`** (pain, meet, benefits, proof, cta) is the other launch shape and is told from the VIEWER's day (below). Kinso's launch is one: "Your next deal is in here somewhere", "Woah", "You are a really busy person", the reveal at 27%, "One inbox for every conversation", three benefits each with one UI behaviour, "Join 27,300 others on the waitlist", the logo and URL.
 - **`scenario`** is for a single-feature spot (a 29 s "Sites" film): one viewer, one task, the `feature` block and roles hook, proof, turn, cta, exactly as before.
 
 A ladder pitch carries `refrain: {verb, pattern}` (e.g. `{verb: "Ask", pattern: "Ask <it to> <highlight>"}`) and beats with a `role`:
@@ -52,7 +53,22 @@ A ladder pitch carries `refrain: {verb, pattern}` (e.g. `{verb: "Ask", pattern: 
 
 Rung counts: films of 35 s or less 3 to 4 rungs; 36 to 60 s 4 to 6; over 60 s 6 to 8. G10 on a ladder fails (errors) when the refrain verb is missing, a rung or the open or close title lacks the verb, the rung count is outside the range, two rungs share a `use` content noun, `level` does not strictly rise, one rung takes over 35% of the film, a rung has no `ui` cause and effect, or there is no `close`; it warns on a title over 6 words or a highlight not in its title.
 
-`story.mjs pick --format launch` with a ladder offers the ladder as the structure for all three. Sure, Bold and Wild differ in which uses, their order, the pacing and the refrain's wording (Sure: the product's own verb, straight; Bold: a faster cut ladder with a twist rung; Wild: an unexpected but true refrain), never in turning the film into one plot. The devices that fit (the list that breaks, escalation, call and response, countdown) are the ladder's rhythm.
+`story.mjs pick --format launch` offers both launch shapes across Sure, Bold and Wild (for example Sure a ladder, Bold a pas, Wild either) unless `--shape ladder|pas` forces one; `scenario` stays for single-feature spots. Sure, Bold and Wild differ in which uses, their order, the pacing and the refrain's wording (Sure: the product's own verb, straight; Bold: a faster cut ladder with a twist rung; Wild: an unexpected but true refrain), never in turning the film into one plot. The devices that fit (the list that breaks, escalation, call and response, countdown) are the ladder's rhythm.
+
+### The pas: a launch told about the viewer
+
+A `pas` pitch carries `shape: "pas"` and beats with a `role`:
+
+- `hook`: the viewer's pain as a picture, in second person.
+- `agitate` (optional): the pain lands; a reaction line ("Woah", "Ugh") is welcome.
+- `meet`: the brand reveal, after the pain, never before 20% of the film.
+- `benefit` (2 to 4): each carries `benefit` (what the viewer gains, 12 words at most, in viewer language, so it contains you or your or a viewer verb) and one UI behaviour that proves it in `ui[]`.
+- `proof`: one line carrying a number, adoption, rating or named customers, the pitch's `proof: {line, claim}` with a claim id from `research/claims.json`.
+- `cta`: the pitch's `cta: {line, action, where}`, a verb and a place (a URL, an app, a store).
+
+Rungs of a ladder also carry `benefit`. Sure, Bold and Wild differ in the pain chosen, the order, the pace and where the reaction lands, never in leaving the viewer's day. `references/script.md` has a worked pas for a non-Google product and `references/launch-film.md` section 1 the timing templates by length.
+
+**G12, viewer first** (`story.mjs check`, errors on launch and promo films, every shape): no on-screen line in the first 25% addresses the viewer (`you`, `your`, `you're`, or a first-person viewer line like "I just want a time") is `not-viewer-first`; a pas whose `meet` beat starts before 20% of the film is `reveal-too-early`; a `benefit` or `rung` beat without `benefit` (12 words at most, in viewer language) is `no-benefit`; no `proof` when `research/claims.json` has a number, adoption, rating or named-customer claim is `no-proof` (a warning if there is no such claim, never invent one); a `cta` without a concrete `action` and `where` is `weak-cta`; `film_seconds / on-screen lines` above 3.0 is `sparse-lines`. Warnings: `slogan-copy` (more than 60% of lines have neither a verb nor a pronoun) and `toy-demos` (every use is a demo and no `benefit` mentions a life situation).
 
 ## Branded launch films: simple, to the point (`references/launch-film.md`, `references/brand-film.md`)
 
@@ -144,6 +160,8 @@ Exit 0 = ship; 2 = rewrite (reasons in the JSON); 1 = the pitch JSON is malforme
 | **G3 Clear by second 4** | A beat must start before 4 s, and no logo or title card may take up seconds 0-4 | `first_4s`, `clear_by_s4` |
 | **G4 Honest demo** | Every number on screen must appear in `grounded_claims` or the truth sheet (with its unit), or be declared a story detail in `props`; claims need a source; `ui_labels` must be in Native words | `honest_demo` |
 | **G5 Buildable** | Fails on live action or footage-only devices without footage, or a device rated 2/5 or lower | `build.hardest_shot` |
+
+**G12 viewer first** (launch and promo films, section "The pas" above) runs beside them: the film must speak to the viewer in its first quarter, say what the viewer gets, and prove and close concretely.
 
 Then the **weighted score**: originality 25%, clarity 20%, fit 20%, memorability 20%, feasibility 15%. Claude scores itself honestly; `check` then adjusts: -2 originality for an overused device without a twist, +1 when the form proves the claim, -1 fit per visual cliché, -1 memorability with no marked turn, originality capped at 3 when 3 default beats appear in order, feasibility capped at the device's build score + 1, clarity capped at 2 when G3 fails. **Ship at 3.8 or more with no dimension below 3.** For a set of three it also checks the portfolio: different families, protagonists and visual worlds, at least 5 axes apart, no shared signature image, one pitch at 4+ originality and one at 4+ feasibility.
 

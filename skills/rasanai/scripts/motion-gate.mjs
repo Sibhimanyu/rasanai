@@ -22,7 +22,7 @@
 //   text-fit   (--project) every word meant to be read sits inside the frame: the built compositions are loaded headlessly
 //              (no window), the timeline is seeked at 10 fps and the real DOM box of every visible text (opacity > 0.5,
 //              font-size >= 20 px, trimmed by its clipping ancestors) is measured; error `text-cropped` with the time
-//              range and the text when a box crosses the frame edge for more than 0.4 s, or sits outside the 6% safe
+//              range and the text when a box crosses the frame edge for more than 1.2 s, or sits outside the 6% safe
 //              area at rest for 0.4 s or more (lib/textfit.mjs; data-text-fit="ignore" opts an element out;
 //              --no-text-fit skips it; a Chrome that cannot start is listed as skipped, never passed)
 import fs from "node:fs";

@@ -12,8 +12,8 @@ The one rule behind all of it: **the picture flexes, the music doesn't.** Scene 
 | Analyse | `sound.mjs analyze --track <file>` | BPM, bars, per-bar energy, sections (intro/lift/drop/peak/breakdown/outro), strong sections, start candidates, ending (`ring-out`, `stop`, `decay`, `fade`, `cut`), loudness, `usable` + problems |
 | Fit | `sound.mjs fit --track <file> --scenes <scenes.json\|timeline.json> [--film <s>] [--reveal <s>] [--logo <s>] --out plan.json [--write-scenes scenes.snapped.json]` | The edit plan (below), the film-time bar grid, the reveal and logo moved onto the music, scene starts snapped to bars. `needs_longer: true` when the track can't fill the film without a repeat |
 | Render | `sound.mjs render --plan plan.json --out <project>/assets/music-bed.wav` | The edited bed, -14 LUFS integrated, true peak ≤ -1.5 dBTP. Mount at volume 1.0 unnarrated, about 0.2 under a voiceover |
-| SFX | `sound.mjs sfx-plan --scenes <timeline.json> --plan plan.json --bed <bed.wav> [--events events.json] [--words audio_meta.json] --project <dir>` | Cues for causal events only, inside the budget, placed by each sample's measured sync point; pitch variants rendered into `assets/sfx/rasa/`; `audio_meta_sfx` ready for `audio_meta.json` |
-| Check | `sound.mjs check --video renders/<film>.mp4 --film <s> [--vo <stem>] [--music <stem>] [--sfx index.html\|sfx-plan.json]` | Exit 2 with fixes when loudness, peaks, head/tail, dropouts, loops, the VO gap or SFX density are off |
+| SFX | `sound.mjs sfx-plan --scenes <timeline.json> --plan plan.json --bed <bed.wav> [--events events.json] [--words audio_meta.json] --project <dir>` | Cues for causal events and for the score's seams that move, inside the budget, placed by each sample's measured sync point; pitch variants rendered into `assets/sfx/rasa/`; `audio_meta_sfx` ready for `audio_meta.json`. Runs after the build on EVERY route (narrated or not, direct path included) |
+| Check | `sound.mjs check --video renders/<film>.mp4 --film <s> [--vo <stem>] [--music <stem>] [--sfx index.html\|sfx-plan.json] [--plan plan.json\|--events events.json] [--silent-by-choice "<reason>"]` | Exit 2 with fixes when loudness, peaks, head/tail, dropouts, loops, the VO gap or SFX density are off, and `no-sfx` (a film of 15 s or more with zero SFX cues, unless `--silent-by-choice`). Warnings: `flat-dynamics` (the bed's LRA under 2.0 LU) and `ring-out-ending` (music still audible more than 1.0 s after the last logo or cta event; a button ending is preferred) |
 | Master | `sound.mjs master --video in.mp4 --out out.mp4` | Post-render loudness fix (static gain + true-peak limiter; the picture is copied untouched) |
 | Probe | `sound.mjs probe <sfx files>` | Sync point, lead silence, audible end, harshness (use it on any SFX, e.g. ones HeyGen's catalog returned with `offset_s: 0`) |
 
@@ -22,8 +22,22 @@ The one rule behind all of it: **the picture flexes, the music doesn't.** Scene 
 1. **Music before the storyboard locks.** Otherwise builds land early and reveals late. Run `music.mjs --film <planned length>` at the Music step; the console card shows `mood` (family · BPM · ending · edit shape) and plays `preview`.
 2. **After the pick:** `sound.mjs fit --track <picked file> --scenes <scenes.json> --out $RUN/music/plan.json --write-scenes $RUN/scenes.snapped.json`. Use the snapped scene durations for `scenes.mjs`. Record the plan in the decisions: `"music": {"path": "<file>", "title": "…", "plan": "$RUN/music/plan.json"}`.
 3. **Before `audio-lock`:** `sound.mjs render --plan plan.json --out videos/<name>/assets/music-bed.wav`, then `video.mjs audio-lock --music videos/<name>/assets/music-bed.wav`. The bed already has the film's length and ending, so assemble-index never loop-extends it (it loops any bed shorter than the film).
-4. **After `fetch-sfx`:** replace the frames' SFX cues with `sfx-plan`'s `audio_meta_sfx` (use `--events` with the real settle/contact times from the built composition).
+4. **After the build, on every route** (the direct path too, and after `fetch-sfx` where the workflow has one): run `sound.mjs sfx-plan` with `--events` from the builder's `## Events` (the real settle and contact times, and every transition with its time) and the score's seams, and mount the cues: replace the frames' SFX cues with its `audio_meta_sfx`. A film with no SFX is flat; `sound.mjs check` errors `no-sfx` on a film of 15 s or more.
 5. **After render:** `sound.mjs check --video …`. Problems → fix and re-render (or `master` for loudness alone). Show the result in the render gate.
+
+## The music arc (the music follows the story)
+
+Kinso's music is edited to its story: a soft intro under the pain, a drop after "Meet", a break before the payoff, a riser into it, a hard stop on the logo; its loudness range is 3.0 LU against a flat library loop's 1.6, and every transition has an SFX. The score carries it as `music_arc: { intro_until, drop_at, break: [t0, t1] | null, payoff_at, button_at }` in film seconds (`crew.mjs checkScore` warns `music-arc-missing`):
+
+1. **Intro** (to `intro_until`): soft, under the hook and the agitate, the picture and the viewer's pain carrying it (never a silent start: the first second is at bed level).
+2. **Drop** (`drop_at`): the reveal ("Meet <Name>") lands on it. Pass `sound.mjs fit --reveal <the reveal's start>` so `fit` moves the reveal onto the nearest drop or lift.
+3. **Break** (`break`): half a beat to a bar of stripped bed before the payoff, so the payoff lands at full level.
+4. **Riser into the payoff** (`payoff_at`): a short riser (placed by its measured sync point, see below), then the payoff hit.
+5. **Button** (`button_at`): a hard stop on the logo, a final hit and a tail of 2 s or less. Pass `--logo <the logo's start>`. A ring-out under the end card is the tell (`ring-out-ending`).
+
+**SFX on every transition that moves, within the existing budget:** a whoosh on a transition that moves through space (the signature moves only), a hit or thud when an object lands, a click on a UI tap, a tick on a counter, an impact on the reveal. Every seam in the score that moves carries an event with a sound, or has a reason not to (`seam-unsounded` warns when more than 50% of the non-cut seams have no sounded event). The budget below still caps density: sounded is not everything.
+
+**Better music.** The user's own track comes first (`analyze` and `fit` it to the arc). When the `higgsfield` CLI is available, generate a track to the arc rather than searching a library (`seed_audio`): describe the genre, 2 to 3 instruments, the BPM and the arc with its seconds ("118 BPM, soft pads and a muted pluck for the first 9 s, full drop at 9.2 s, a one-bar break at 20.4 s, a riser, a hard stop at 23.4 s, no vocals"), then run `analyze` and `fit` on the result like any track. This is an option, not a requirement: no new tooling, the library search below remains the default.
 
 ## Choosing music
 
@@ -105,7 +119,7 @@ Pick a tempo so an average scene is 1 or 2 bars: `BPM = 240 × bars_per_scene / 
 |---|---|
 | Integrated loudness | **-14 LUFS ±1** (-16 for calm VO-led explainers) |
 | True peak | **≤ -1.0 dBTP** on the encoded MP4 (limit at -1.5 before AAC) |
-| Loudness range | 4-9 LU (VO films 4-7) |
+| Loudness range | 4-9 LU (VO films 4-7); under 2.0 LU is a flat bed (`flat-dynamics`): a launch with a real arc measures about 3 LU or more |
 | Music under VO | **12 LU under the voice** (9-15), measured over the VO spans, not a fixed duck. A -12 dB duck on a quiet bed left music 17 LU under, which is inaudible |
 | Music without VO | 2-4 LU under where a voice would sit; the drop may reach it |
 | Head | sound by 0.3 s; the first second within 8 dB of the body (unless a premium soft open is intended) |
@@ -119,6 +133,7 @@ Ducking: prefer HyperFrames' Voiceover carve (`data-fx-carve`, 0.35-0.8, against
 
 - A loop of the bed (HyperFrames' assemble-index loops any bed shorter than the film: render the fitted bed so it never has to).
 - A slow intro under the hook; a hard stop mid-bar; a fade that starts mid-phrase; a silent tail.
+- A flat bed with no arc under a film that has a reveal; a film of 15 s or more with no SFX at all; a ring-out under the logo instead of a button.
 - A whoosh on every cut; a sound on every stagger item; the same click at the same level in a row.
 - Harsh, bright UI sounds at the default 0.35; SFX louder than the voice.
 - A riser placed by file length; any SFX placed by the file start.

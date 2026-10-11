@@ -11,10 +11,11 @@
 // effective opacity > 0.5 up the ancestor chain, text colour not transparent), font-size >= 20 px. The box is trimmed
 // by every ancestor that clips (overflow other than visible, clip-path inset), so a line still masked in is not
 // measured beyond its mask. A text fully outside the frame is waiting off screen and is ignored.
-//   frame edge   a box that crosses the frame edge for more than 0.4 s continuously        -> text-cropped
+//   frame edge   a box that crosses the frame edge for more than 1.2 s continuously        -> text-cropped
 //   safe area    a box inside the frame but outside the 6% safe margin, at rest (not moving
 //                more than 1.5 px between samples) for 0.4 s or more                        -> text-cropped
-// A line may leave the frame only in a deliberate push-through of 0.4 s or less. An element (or a parent) marked
+// A line may leave the frame only in a deliberate push-through of 1.2 s or less (an oversize word may sweep across the frame cropped,
+// as long as the same line then rests readable). An element (or a parent) marked
 // data-text-fit="ignore" is skipped (a screenshot of a real UI that is meant to bleed off the frame).
 import fs from "node:fs";
 import path from "node:path";
@@ -22,7 +23,7 @@ import { chromePath } from "./common.mjs";
 import { launch } from "./cdp.mjs";
 import { serve } from "./stage3d.mjs";
 
-export const TEXT_FIT = { fps: 10, safe: 0.06, edge_s: 0.4, rest_s: 0.4, min_font_px: 20, rest_px: 1.5 };
+export const TEXT_FIT = { fps: 10, safe: 0.06, edge_s: 1.2, rest_s: 0.4, min_font_px: 20, rest_px: 1.5 };
 const r2 = (x) => Math.round(x * 100) / 100;
 const readText = (p) => { try { return fs.readFileSync(p, "utf8"); } catch { return ""; } };
 
@@ -119,7 +120,7 @@ const sizeOf = (project) => {
 // samples -> findings. byKey: Map key -> [{t, kind, side, l,t,r,b}] in time order; dt = 1/fps
 export function analyze(byKey, dt, file) {
   const findings = [];
-  const edgeMin = Math.floor(TEXT_FIT.edge_s / dt + 1e-9) + 1; // more than 0.4 s
+  const edgeMin = Math.floor(TEXT_FIT.edge_s / dt + 1e-9) + 1; // more than 1.2 s
   const restMin = Math.ceil(TEXT_FIT.rest_s / dt - 1e-9); // 0.4 s or more
   for (const [, rows] of byKey) {
     const flagged = [];

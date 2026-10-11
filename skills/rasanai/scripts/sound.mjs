@@ -17,9 +17,12 @@
 //       -> SFX cues for causal on-screen events only, inside the density budget, placed by each
 //          sample's measured sync point, plus the audio_meta.json "sfx" entries
 //   node sound.mjs check (--video <mp4> | --audio <file>) [--film <s>] [--vo <stem>] [--music <stem>]
-//        [--sfx <sfx-plan.json|index.html>] [--narrated] [--lufs -14]
-//       -> measured loudness, true peak, head/tail, dropouts, loops, VO gap, SFX density;
-//          exit 2 with fixes when anything is off
+//        [--sfx <sfx-plan.json|index.html>] [--silent-by-choice "<reason>"] [--plan plan.json] [--events events.json]
+//        [--narrated] [--lufs -14]
+//       -> measured loudness, true peak, head/tail, dropouts, loops, VO gap, SFX density; with --sfx, error
+//          no-sfx when a film of 15 s or more has zero SFX cues (unless --silent-by-choice; without --sfx it is a warning);
+//          warnings flat-dynamics (bed LRA under 2.0 LU) and ring-out-ending (the music still audible more than 1.0 s
+//          after the logo / cta event from --plan or --events); exit 2 with fixes when anything is off
 //   node sound.mjs master (--video <mp4> | --audio <file>) --out <file> [--lufs -14]
 //       -> the post-render fix for check's loudness/peak problems: static gain + true-peak limiter
 //          (-1.5 dBTP, -2 for AAC/MP3), picture copied untouched
@@ -336,6 +339,7 @@ function check() {
 
   if (L.lufs == null || Math.abs(L.lufs - target) > 1) P("integrated loudness", `${L.lufs} LUFS`, `${target} LUFS +/-1`, `gain the master by ${r1(target - (L.lufs ?? target))} dB (static gain + a true-peak limiter at -1.5 dBTP; sound.mjs render does this for a bed)`);
   if (L.true_peak == null || L.true_peak > -1) P("true peak", `${L.true_peak} dBTP`, "<= -1.0 dBTP", "limit at -1.5 dBTP (4x oversampled) before AAC encoding, then re-check the encoded file");
+  if (L.lra != null && L.lra < 2.0) warnings.push(`flat-dynamics: loudness range ${L.lra} LU is under 2.0 LU: the bed never moves (a soft intro, a drop on the reveal, a break before the payoff: references/sound.md, the arc; score music_arc)`);
   if (L.lra != null && L.lra > 11) warnings.push(`loudness range ${L.lra} LU is wide for a short film (target 4-9 LU): compress the VO or tame the loudest section`);
   if (first_audible != null && first_audible > 0.3) P("silent head", `${r1(first_audible)} s of silence`, "sound by 0.3 s", "start the bed at frame 0 (a strong phrase, 'already playing'); trim the file's lead silence");
   if (first_second_db < body - 8) P("quiet opening", `first second ${r1(first_second_db)} dB vs body ${r1(body)} dB`, "within 8 dB of the body", "start the music on a strong section, not its intro (sound.mjs fit picks one); premium styles may open soft on purpose: say so");
@@ -377,6 +381,32 @@ function check() {
     Object.assign(measures, { vo_lufs: voL, music_under_vo_lufs: muL, vo_music_gap_lu: r1(gap), vo_spans: spans.length });
     if (gap != null && (gap < 9 || gap > 15)) P("music vs voiceover", `music ${r1(gap)} LU under the VO`, "12 LU under (9-15)", gap < 9 ? `lower the bed under speech by ${r1(12 - gap)} dB (duck lane or the Voiceover carve)` : `raise the bed under speech by ${r1(gap - 12)} dB: it vanishes`);
   }
+  // the ending: the music must stop on the logo / cta (a button), not ring out
+  {
+    let logoT = null;
+    if (args.events) {
+      const E = readJSON(exists(path.resolve(String(args.events)), "events"));
+      const ts = (Array.isArray(E) ? E : E.events || []).filter((e) => /^(logo|cta|end)/i.test(String(e.kind || e.id || "")) && Number.isFinite(Number(e.t))).map((e) => Number(e.t));
+      if (ts.length) logoT = Math.max(...ts);
+    }
+    if (logoT == null && args.plan) {
+      const pl = readJSON(exists(path.resolve(String(args.plan)), "plan"));
+      const m = pl.moments?.logo?.t ?? pl.ending?.film_hit ?? null;
+      if (m != null && Number.isFinite(Number(m))) logoT = Number(m);
+    }
+    if (logoT != null) {
+      let musicLast = last_audible;
+      if (args.music) {
+        const my = decode(exists(path.resolve(String(args.music)), "music stem"));
+        let ml = null;
+        for (let t = 0; t * SR < my.length; t += step) { let z = 0, c = 0; for (let i = Math.floor(t * SR); i < Math.min(my.length, Math.floor((t + step) * SR)); i++) { z += my[i] * my[i]; c++; } if (10 * Math.log10(z / Math.max(1, c) + 1e-12) > -50) ml = t + step; }
+        musicLast = ml;
+      }
+      measures.logo_at = r3(logoT);
+      measures.music_last_audible = musicLast == null ? null : r3(musicLast);
+      if (musicLast != null && musicLast - logoT > 1.0) warnings.push(`ring-out-ending: the music is still audible ${r1(musicLast - logoT)} s after the logo / cta at ${r1(logoT)} s (button endings preferred: a hard stop on the logo, sound.mjs fit --logo with the track's own ending or a button)`);
+    }
+  }
   // SFX density
   if (args.sfx) {
     const cues = sfxTimes(String(args.sfx)).sort((a, b) => a.t - b.t);
@@ -384,11 +414,16 @@ function check() {
     const B = BUDGET[args.format === "reel" ? "reel" : narrated ? "narrated" : "unnarrated"];
     const maxWin = cues.reduce((m, c) => Math.max(m, cues.filter((d) => d.t >= c.t && d.t < c.t + 1).length), 0);
     const whooshes = cues.filter((c) => /whoosh/i.test(c.kind)).length;
+    if (!cues.length && dur >= 15) {
+      if (args["silent-by-choice"] && args["silent-by-choice"] !== true) measures.silent_by_choice = String(args["silent-by-choice"]);
+      else P("no-sfx", `0 SFX cues in a ${r1(dur)} s film`, "cues on transitions, landings, taps, counters and the reveal", "run sound.mjs sfx-plan with the score's events and seams after the build and mount the cues (whoosh on moves through space, hit on landings, click on taps, tick on counters, impact on the reveal); or pass --silent-by-choice \"<reason>\" for a film that is silent on purpose");
+    }
     Object.assign(measures, { sfx_count: cues.length, sfx_per_s: r3(cues.length / dur), sfx_max_in_1s: maxWin, whooshes });
     if (cues.length > Math.floor(dur * B.perSec) + 1) P("SFX density", `${cues.length} SFX in ${r1(dur)} s`, `<= ${Math.floor(dur * B.perSec)}`, "keep only causal events (clicks, lands, the reveal): sound.mjs sfx-plan enforces the budget");
     if (maxWin > B.perWindow) P("SFX pile-up", `${maxWin} sounds within one second`, `<= ${B.perWindow}`, "drop or spread the weakest cues");
     if (whooshes > Math.max(1, Math.ceil(dur / B.whooshEvery))) P("whoosh per cut", `${whooshes} whooshes`, `<= ${Math.max(1, Math.ceil(dur / B.whooshEvery))}`, "whooshes only on signature spatial transitions");
   }
+  else if (dur >= 15 && !(args["silent-by-choice"] && args["silent-by-choice"] !== true)) warnings.push("no-sfx: no --sfx given, so no sound effects were measured (a film of 15 s or more needs cues: sound.mjs sfx-plan after the build, then --sfx <sfx-plan.json|index.html>)");
   const ok = problems.length === 0;
   out({ ok, file, measures, problems, warnings });
   if (!ok) process.exit(2);

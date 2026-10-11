@@ -17,7 +17,7 @@
 //                            Warning show-uncarded: a beat whose lines carry show rows (beats[].shows) has no card (card.beat or a seam touching it).
 //                            Ladder films (opts.shape "ladder", see pitchShape): no-join-hero (error) when no hero card's seam "A>B" crosses
 //                            a rung boundary (a beat with role "rung" on either side): the heroes are the joins between rungs.
-//   pitchShape(pitch)        "ladder" | "scenario" | null from pitch.shape, else the beat roles (rung / open = ladder; proof / turn or a feature block = scenario)
+//   pitchShape(pitch)        "ladder" | "pas" | "scenario" | null from pitch.shape, else the beat roles (rung / open = ladder; meet / benefit = pas; proof / turn or a feature block = scenario)
 //   validateSet(movesByLabel)                                              -> {errors[], warnings[]}
 //                            Across the three moves files: carrier-repeat (two share a carrier family), carrier-similar (warning:
 //                            two carriers' short names share a content word).
@@ -112,8 +112,9 @@ const sameIdea = (a, b) => {
 export function pitchShape(pitch) {
   if (!pitch || typeof pitch !== "object") return null;
   const s = str(pitch.shape).toLowerCase();
-  if (s === "ladder" || s === "scenario") return s;
+  if (s === "ladder" || s === "scenario" || s === "pas") return s;
   const roles = arr(pitch.beats).map((b) => str(b && b.role).toLowerCase());
+  if (roles.some((r) => r === "meet" || r === "benefit" || r === "agitate")) return "pas";
   if (roles.some((r) => r === "rung" || r === "open")) return "ladder";
   if ((pitch.feature && typeof pitch.feature === "object") || roles.some((r) => r === "proof" || r === "turn")) return "scenario";
   return null;

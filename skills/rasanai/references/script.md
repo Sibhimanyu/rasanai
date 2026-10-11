@@ -22,13 +22,13 @@ The script is written once and travels: the Story card shows it, `scenes.json` i
 
 ## Launch, promo and product films are product-first
 
-For the route `product-launch-video` and any launch, promo, product or app film, read `references/product-first.md` before the passes below, and let it win wherever it conflicts: the real product UI is on screen within 3 s; a launch is a **ladder** (pass 0, Two shapes: one refrain verb, rungs of distinct real uses escalating to done-for-you) and a single-feature spot is one viewer doing one real task (pass 0, One feature, one scenario); one hero product moment shows it for real; 2 to 4 real steps of that task (a scenario) or the rungs (a ladder); short plain kinetic lines; the required end line is the largest type in the film on a clean CTA card; no museums, allegories, invented worlds, extended metaphors or cover versions (the only allowed figures: an instant visual pun that resolves to the product within a second, and a letter or shape transformation that lands on the real product within its move, `references/product-first.md`). Sure, Bold and Wild differ in structure, pacing and energy, never in leaving the product. Write the pitch's `shape`, then for a scenario its `feature`, each beat's `role`, `picture` and `ui`, `two_way`, `hero_moment`, `uses`, `last_line` and `end_line_largest`, or for a ladder its `refrain` and each rung's `use`, `highlight`, `level`, `on_screen`, `picture`, `ui`; `story.mjs check` runs gates G7 and G10 on them. The worked example below that uses a museum is a *brand-film* conceit: do not copy it for a product film; the product-first example follows it.
+For the route `product-launch-video` and any launch, promo, product or app film, read `references/product-first.md` before the passes below, and let it win wherever it conflicts: the real product UI is on screen within 3 s; a launch is a **ladder** (pass 0, Two shapes: one refrain verb, rungs of distinct real uses escalating to done-for-you) or a **pas** (the viewer's pain, the reveal, benefits each with one UI behaviour, a proof, a concrete CTA: Kinso's shape) and a single-feature spot is one viewer doing one real task (pass 0, One feature, one scenario); one hero product moment shows it for real; 2 to 4 real steps of that task (a scenario) or the rungs (a ladder); short plain kinetic lines; the required end line is the largest type in the film on a clean CTA card; no museums, allegories, invented worlds, extended metaphors or cover versions (the only allowed figures: an instant visual pun that resolves to the product within a second, and a letter or shape transformation that lands on the real product within its move, `references/product-first.md`). Sure, Bold and Wild differ in structure, pacing and energy, never in leaving the product. Write the pitch's `shape`, then for a scenario its `feature`, each beat's `role`, `picture` and `ui`, `two_way`, `hero_moment`, `uses`, `last_line` and `end_line_largest`, or for a ladder its `refrain` and each rung's `use`, `highlight`, `level`, `on_screen`, `picture`, `ui`, and `benefit`; or for a pas each beat's `role` (`hook`, `agitate`, `meet`, `benefit`, `proof`, `cta`), each benefit's `benefit`, the pitch's `proof: {line, claim}` and `cta: {line, action, where}`; `story.mjs check` runs gates G7, G10 and G12 (viewer first) on them. The worked example below that uses a museum is a *brand-film* conceit: do not copy it for a product film; the product-first example follows it.
 
 **Branded launch, promo or brand film:** write to the structure template in `references/launch-film.md` section 1 (hook with the product or brand in 1 to 3 s, reveal, hero demo, 2 to 4 real feature demos, payoff line, end card) and keep each beat inside its timing range for the film's length; mark each beat's `role` and set `payoff_line`. One idea per beat, plain words, the product or brand in every beat. The brand's own film (`brand-film/FILM-STYLE.md`) gives the opening and the words it uses. The three scripts differ only in emphasis and order, never in concept. On a ladder the order is the rungs' order and the emphasis is which uses and how the refrain is worded.
 
 ## Pass 0: decide what this film must achieve
 
-Before any device, hook or line, decide the aim. A script with no aim is a pile of nice beats, and the user can't tell three of them apart. Answer four things, in plain words, from the truth sheet and the brief:
+Before any device, hook or line, decide the aim. A script with no aim is a pile of nice beats, and the user can't tell three of them apart. **Start from the viewer's day, not the product's feature list.** Write two plain sentences first: what the viewer is doing when this problem bites ("booking a call over email, 14 replies deep"), and the moment they would say "woah, that's me". The film opens on that, in second person, and the product arrives after it hurts. A launch film that never says "you" in its first quarter ("Answers you can drag", "Notes that sync") is about the product, and viewers scroll past it; `story.mjs` gate G12 errors on it. Then answer four things, in plain words, from the truth sheet and the brief:
 
 - **Who is watching, and where.** The person and the place: a founder scrolling a feed, a customer on the product page, a room at a demo day. It sets the pace and what they already know.
 - **The one thing they must remember.** The takeaway, as the viewer would say it to a friend after: "It builds a whole site from one prompt." Sixteen words at most. If you need "and", pick one.
@@ -40,9 +40,9 @@ Sure, Bold and Wild may aim differently, and the user is choosing between those 
 Decide the **tempo** with the aim (`references/launch-film.md`, Tempo): the brand film's measured tempo when the run has one, otherwise the house tempo. Count the ideas (a promise, the hero, each use or proof, the payoff: at least 3 in 15 s, 5 in 30 s with 6 or 7 as the aim, 8 in 60 s, 10 in 90 s), plan something that changes every ~2 s, and list the changes inside any beat over 3 s. Write it as `tempo: { ideas, change_every_s, longest_hold_s, source }`.
 
 
-### Two shapes: the ladder (a launch) and the scenario (a single-feature spot)
+### Two shapes: the ladder (a launch) and the scenario (a single-feature spot), and the pas (a launch about the viewer)
 
-Pick the shape first, in the pitch's `shape`. A launch of a product or brand is a **ladder** unless the brief or the research names ONE feature to sell; a single-feature spot (a 29 s "Sites" film) is a **scenario**. Never tell a general launch as one plot: a film that followed one dinner bill for 30 s was rejected ("that's not how launch videos are made"). Real launch films are refrain ladders: Google's "Ask Search Anything" is "Ask **simple** questions", "Ask **longer**", "Ask it to **guide** you", "Ask it to do the **research**", "Ask it to **shop** for you", "Ask and get it **tailored**", "Ask it to… **done**", then "Ask **anything**" and the logo, each title over a real UI demo of a different use.
+Pick the shape first, in the pitch's `shape`. A launch of a product or brand is a **ladder** or a **pas** unless the brief or the research names ONE feature to sell (`story.mjs pick --format launch` offers both across Sure, Bold and Wild; `--shape` forces one); a single-feature spot (a 29 s "Sites" film) is a **scenario**. A ladder is told from the product's refrain; a pas is told from the viewer's day. Both must pass G12. Never tell a general launch as one plot: a film that followed one dinner bill for 30 s was rejected ("that's not how launch videos are made"). Real launch films are refrain ladders: Google's "Ask Search Anything" is "Ask **simple** questions", "Ask **longer**", "Ask it to **guide** you", "Ask it to do the **research**", "Ask it to **shop** for you", "Ask and get it **tailored**", "Ask it to… **done**", then "Ask **anything**" and the logo, each title over a real UI demo of a different use.
 
 **The ladder.** Write `refrain: {verb, pattern}` and beats with a `role`: `open` (the refrain arrives, the product on screen within 3 s), several `rung`s, an optional `ways_in` (the inputs: type, say, snap, film), and a `close` (`<verb> anything` or the product's own line, then the logo). Each rung carries:
 
@@ -51,6 +51,7 @@ Pick the shape first, in the pitch's `shape`. A launch of a product or brand is 
 - `level`: 1 to N, strictly rising, from simple (one thing, one step) to done-for-you (it does the whole job). Escalate the *help*, not the plot.
 - `on_screen`: the title line, containing the refrain verb, 6 words or fewer.
 - `picture` and `ui[]`: the real UI's cause and effect for that use.
+- `benefit`: what the viewer gains from it, 12 words at most, in viewer language ("you never retype a list"). G12 errors on a rung without one.
 - `duration_s`: no rung over 35% of the film.
 
 Rung counts: 35 s or less, 3 to 4; 36 to 60 s, 4 to 6; over 60 s, 6 to 8. The creativity lives in the joins between rungs (the title word becomes the input, the input becomes the next demo, the last input becomes the logo), never in a plot. G10 holds all of this; the three scripts may differ in which uses, their order, the pace and the refrain's wording, never in being a single story.
@@ -67,6 +68,46 @@ Worked ladder (a 30 s launch of Folio, a notes app; the refrain is "Write"):
 | 27-30 | close | Write **anything**. Folio | | | The title line settles into the logo and the URL. |
 
 Every title is 5 words or fewer, contains the verb, and sits on one line inside the safe area; four rungs climb from a checklist to a sent email; the uses (a trip, a meeting, a week, a recap) share no noun. Say it with the sound off and the film still reads.
+
+### The pas: pain, meet, benefits, proof, CTA (a launch about the viewer)
+
+Kinso's launch (`library/showcases/kinso-launch.json`) is not a feature tour. It is the viewer's day: "Your next deal is in here somewhere" → "Woah" → "You are a really busy person" → "Lets solve this first" → "Meet KINSO" at 27% of the film → "One inbox for every conversation" → three benefits, each with one UI behaviour → "Join 27,300 others on the waitlist" → the logo and the URL. 27 lines in 46 s, one every 1.7 s. A product-centric film of the same length had 7 lines in 30 s. The pas is that shape, written for any product.
+
+Beats, with a `role` each, and the pitch's `shape: "pas"`:
+
+- `hook`: the viewer's pain as a picture, in second person ("Your next meeting is stuck in a thread."). The first quarter must address the viewer (`you`, `your`, `you're`, or a first-person viewer line like "I just want a time").
+- `agitate` (optional, one to three lines): the pain lands. A reaction line is welcome ("Ugh."), and a line about the viewer's day ("You have real work to do."). Often a darker ground.
+- `meet`: the brand reveal, after the pain, not before 20% of the film (`reveal-too-early`). "Meet <Name>." then the one-line promise ("One link for every meeting.") whose window grows out of the caption.
+- `benefit`, two to four: each carries `benefit` (what the viewer gains, 12 words at most, in viewer language) and ONE UI behaviour that proves it (a list triaged by a highlight band, a draft typing itself in the input, a slot that refuses the double-booking). Pair them: a benefit line, then the behaviour, then the next.
+- `proof`: one line with a number, adoption, rating or named customers, from `research/claims.json`, with the claim id (`proof: {line, claim}`). A counter that climbs is the proof's show. No such claim in the ledger: no number (G12 warns instead of erroring), never invent one.
+- `cta`: concrete, `cta: {line, action, where}`: a verb and a place ("Try it free at plover.app"), the logo and URL held at the end.
+
+Pace: one on-screen line every 1.5 to 2.5 s (`film_seconds / lines` at most 3.0 or G12 errors `sparse-lines`). Lines are short, so more lines does not mean more words per line.
+
+Worked pas (a 38 s launch of Plover, a scheduling app; the claim ids and numbers stand in for the truth sheet's, never copy them):
+
+| s | Role | On screen | UI behaviour (what the motion does) |
+|---|---|---|---|
+| 0-2 | hook | Your next meeting | An empty week grid; the words land in Thursday's column, small and centred. |
+| 2-4 | hook | is stuck in a thread. | "Does 3 work?" reply bubbles pile into Thursday's cell until they cover it; "thread" lifts on the pile. |
+| 4-5.2 | agitate | Ugh. | The bubbles collapse into a red "14" badge that squeezes into the word's full stop. |
+| 5.2-7.4 | agitate | You have real work to do. | Hard cut to a dark ground; a small dot bounces along the line and each word lights as it lands. |
+| 7.4-9.2 | agitate | Let's fix that. | A bar sweeps across the dark, the line inside it, and folds into the logo mark. |
+| 9.2-11.2 | meet | Meet Plover. | "Meet" holds beside the mark and becomes "Plover" in the same slot; the ground turns warm. |
+| 11.2-13.4 | meet | One link for every meeting. | The line shrinks to a caption and a week window rises out of it, filling the frame. |
+| 13.4-15.6 | benefit 1 | Send one link, not ten replies. | A link chip drops into a message; the stacked bubbles fold into that one chip. |
+| 15.6-17.8 | benefit 1 | They pick a time that fits. | On the guest's page the free slots light one by one; one is tapped and locks. |
+| 17.8-20 | benefit 2 | It reads your calendar. | Busy blocks grey out across the grid as each connected calendar slides in. |
+| 20-22.2 | benefit 2 | So you never double-book. | A cursor presses a busy cell; it stays dim, the free cell beside it lifts. |
+| 22.2-24.4 | benefit 3 | Your focus time stays yours. | A new request lands on a shaded focus block and slides on to the next free slot. |
+| 24.4-26.6 | benefit 3 | Meetings find the gaps. | Blocks settle into the gaps between focus blocks, one by one. |
+| 26.6-28.4 | proof | 12,400 teams | A counter rolls 3,946, 8,120, 12,400 with tabular digits (`claim: c4`). |
+| 28.4-30.4 | proof | stopped chasing replies. | The words wipe in under the number; the number stays big, the line small. |
+| 30.4-32.4 | cta | Your week, booked. | The grid fills in calm blocks; the full stop is the last block landing. |
+| 32.4-35.4 | cta | Try it free at plover.app | The line settles into the logo, then the URL types in beside the mark. |
+| 35.4-38 | end | Plover | The mark and URL hold; the music stops on the last hit. |
+
+Read it against the rules: it says "your" in the first line; "Ugh." is the reaction; the reveal is at 24% (9.2 of 38 s); the benefits are things the viewer gets ("you never double-book"), each with one UI behaviour; the proof carries a real number from the claim ledger; the CTA names an action and a place; 18 lines in 38 s is one every 2.1 s. The pitch's fields: `benefit` on each benefit beat ("You stop writing back and forth", "You never double-book", "You keep your focus hours"), `proof: {line: "12,400 teams stopped chasing replies.", claim: "c4"}`, `cta: {line: "Try it free at plover.app", action: "Try", where: "plover.app"}`.
 
 ### One feature, one scenario (single-feature spots)
 
@@ -199,7 +240,9 @@ Never open with: "Introducing…", "Meet…", "What if…?", "Tired of…?", "In
 - The film must read with the sound off: the on-screen lines alone tell the story.
 - It complements the voiceover, never repeats it. The voice says the sentence; the screen shows the word, the number or the image that sticks.
 - Sentence case, a full stop for weight, no exclamation marks, no em dashes.
-- **Readability is a hard rule.** At its resting state the line sits fully inside the safe area (6% of the width and height), on one line (two at most), at the brand film card's type scale (`FILM-STYLE.md`) or, without a card, the design system's display size. Never "as big as possible", never a line that touches or crosses the frame edge. It may leave the frame only in a push-through of 0.4 s or less. `text-fit` fails otherwise. A launch title is 6 words or fewer and holds one highlighted word.
+- **Talk to the viewer, in conversation.** Second person ("Your next deal", "You are a really busy person"), a question when it is the viewer's own ("Sent a contract on WhatsApp?"), a reaction when the pain lands ("Woah", "Ugh"), short. Write the line you would say to a friend across a desk. A line with no verb and no pronoun is a slogan ("Notes, reimagined"); across the film G12 warns `slogan-copy` when more than 60% are. Say what the viewer gets ("You never retype a list"), not what the product is ("A notes app").
+- **One line every 1.5 to 2.5 s.** Kinso runs 27 lines in 46 s. More lines is not more words: each stays at 1 to 6, and each has its own motion. `story.mjs check` errors `sparse-lines` above 3.0 s per line.
+- **Readability is a hard rule.** At its resting state the line sits fully inside the safe area (6% of the width and height), on one line (two at most), at the brand film card's type scale (`FILM-STYLE.md`) or, without a card, the design system's display size. Never "as big as possible", never a line that touches or crosses the frame edge. It may leave the frame only in a push-through of 1.2 s or less: an oversize word may sweep across the frame cropped for up to 1.2 s (Kinso's "for every") when the same line then rests fully readable inside the safe area. `text-fit` fails otherwise. A launch title is 6 words or fewer and holds one highlighted word.
 
 **Voiceover**
 
@@ -262,6 +305,7 @@ The product is on screen at 0 s, the hero moment is the longest shot, three real
 - [ ] The aim is written (takeaway, feel, action, audience, approach), the title names the idea, and every beat serves the aim.
 - [ ] Every on-screen line has a `shows` row (what the motion does that means it, built from the real UI or the actor, how it hands off); the pitch names its `actor`; no row is a caption over UI.
 - [ ] The one sentence is in the viewer's words, and the film proves it.
+- [ ] Launch films: the first quarter speaks to the viewer ("you", "your", or an "I" line), the brand arrives after the pain (a pas: not before 20%), every benefit says what the viewer gets and has one UI behaviour, there is a proof with a real number (or none, if the ledger has none), the CTA names an action and a place, and the film has a line every 1.5 to 2.5 s (G12).
 - [ ] The hook lands by 2 s and the beat moves on by 4 s.
 - [ ] The value beat is beat 1 or 2 (`"value": true`).
 - [ ] With the sound off, the on-screen lines tell the story.

@@ -18,6 +18,8 @@
 //        -> <run>/crew/prompts/<role>[-<key>].md, the whole prompt (dispatch it as "Read <file> and do the job")
 //   node crew.mjs check --run <run> --role <role> [--key <k>] [--project <dir>]
 //        -> exit 0 accepted · 2 problems (listed) · 1 could not check
+//        (the score role also warns: music-arc-missing / music-arc-order (score.music_arc), seam-unsounded, mechanic-repeat and mechanics-thin (shots[].mechanic),
+//         flat-type (score.type_scale { small_px, large_px }), no-punctuation (a hard cut on the pain-to-meet or payoff seam); flat-3d-style honours the card's `Depth blur:` line)
 //   node crew.mjs status --run <run>          -> every planned dispatch and where it stands (resume after compaction)
 //   node crew.mjs pitches --run <run>         -> merges story/pitch-*.json into story/pitches.json (Sure, Bold, Wild)
 //   node crew.mjs storyboard --run <run> --project <dir> [--score <score.json>]
@@ -912,9 +914,15 @@ function checkScore(run) {
   // a flat brand restricts the STYLE of 3D, not its use: flat-set materials, no blur/glow unless the card allows blur
   if (deep.length && brandFilm(run)) {
     const card = jsonMaybe(R(run, "brand-film", "FILM-STYLE.json")) || {};
-    const ct = `${(card.slots || {}).motionVocabulary || ""} ${(card.slots || {}).notes || ""}`;
+    let mdText = "";
+    try { mdText = fs.readFileSync(R(run, "brand-film", "FILM-STYLE.md"), "utf8"); } catch {}
+    const ct = `${(card.slots || {}).motionVocabulary || ""} ${(card.slots || {}).notes || ""} ${mdText}`;
+    // a `Depth blur:` line on the card (brand-film-analyst writes it from what the brand's films do) says whether blur used as depth
+    // (defocus, a giant word blurred behind the UI, motion blur on fast moves) is allowed: yes / allowed lifts the fstop ban, no / never keeps it
+    const dbLine = (mdText.match(/^[\s>*_-]*\**Depth blur\**\s*:\s*\**\s*(.*)$/im) || [])[1] || "";
+    const dbAllows = /^(yes|allowed|ok|okay)\b/i.test(dbLine.trim()), dbBans = /^(no|never|none)\b/i.test(dbLine.trim());
     if (/\b(flat|no 3d|no motion blur|no blur|no grain|never 3d|3d style)\b/i.test(ct)) {
-      const blurOk = /\b(allows? (motion )?blur|blur (is )?(allowed|ok)|motion blur (is )?(allowed|ok))\b/i.test(ct);
+      const blurOk = dbAllows || (!dbBans && /\b(allows? (motion )?blur|blur (is )?(allowed|ok)|motion blur (is )?(allowed|ok))\b/i.test(ct));
       for (const s of deep) {
         const bad = [], m = String(s.materials || ""), c = s.camera3d || {};
         if (m.trim() && !/\b(basic|toon|flat|matte|unlit|lambert)\b/i.test(m)) bad.push(`materials "${m.slice(0, 60)}" are not from the flat set (basic, toon, flat, matte, unlit, lambert)`);
@@ -976,6 +984,53 @@ function checkScore(run) {
     if (A && B && (is3d(A) !== is3d(B)) && s.kind === "cut") W.push(`${id}: a hard cut between a 2D and a 3D scene; flat-to-depth, depth-to-flat or a shared element would carry the viewer across (references/3d.md §6)`);
     if (["flat-to-depth", "depth-to-flat", "camera-through"].includes(s.kind) && A && B && !is3d(A) && !is3d(B)) P.push(`${id}: ${s.kind} needs a 3D or hybrid scene on at least one side`);
   });
+  // sound and motion variety (warnings): the music arc, a sound for every moving seam, a different mechanic per line, huge-vs-tiny type, punctuation cuts
+  {
+    const arc = score.music_arc && typeof score.music_arc === "object" ? score.music_arc : null;
+    const num = (x) => x != null && x !== "" && Number.isFinite(Number(x));
+    if (length >= 15) {
+      const miss = arc ? ["intro_until", "drop_at", "payoff_at", "button_at"].filter((k) => !num(arc[k])) : [];
+      const brk = arc ? arc.break : undefined;
+      const brkOk = arc && (brk === null || (Array.isArray(brk) && brk.length === 2 && brk.every(num) && Number(brk[0]) < Number(brk[1])));
+      if (!arc || miss.length || !brkOk) W.push(`music-arc-missing: score.music_arc { intro_until, drop_at, break: [t0, t1] | null, payoff_at, button_at } (seconds) ${!arc ? "is missing" : `is incomplete (${[...miss, ...(brkOk ? [] : ["break"])].join(", ")})`}: the music is edited to the story (a soft intro under the hook, a drop on the reveal, a break before the payoff, a button on the logo; references/sound.md)`);
+      else if (!(Number(arc.intro_until) <= Number(arc.drop_at) && Number(arc.drop_at) < Number(arc.payoff_at) && Number(arc.payoff_at) <= Number(arc.button_at) && Number(arc.button_at) <= length + 0.5)) W.push(`music-arc-order: music_arc must run intro_until <= drop_at < payoff_at <= button_at <= ${r2(length)} s (got ${arc.intro_until}, ${arc.drop_at}, ${arc.payoff_at}, ${arc.button_at})`);
+    }
+    // every seam with motion gets a sound event: seam.sound / seam.sfx, or an event with a sound in the scene on either side of it
+    const sounded = (sm, i) => {
+      if (String(sm.sound || sm.sfx || "").trim()) return true;
+      const hit = (sc, lo, hi) => sc && (sc.events || []).some((ev) => (ev.sound || ev.sfx || ev.kind) && Number(ev.t) >= lo - 1e-6 && Number(ev.t) <= hi + 1e-6);
+      const A = S[i], B = S[i + 1];
+      return hit(A, (Number(A && A.duration) || 0) - 0.5, (Number(A && A.duration) || 0) + 0.05) || hit(B, -0.05, 0.5);
+    };
+    const moving = seams.map((sm, i) => ({ sm, i })).filter(({ sm }) => sm.kind !== "cut");
+    const quiet = moving.filter(({ sm, i }) => !sounded(sm, i));
+    if (moving.length && quiet.length / moving.length > 0.5) W.push(`seam-unsounded: ${quiet.length} of ${moving.length} seams with motion have no sound event (seam.sound, or an event with a sound at the seam: whoosh on a move through space, hit on a landing, impact on the reveal): ${quiet.slice(0, 4).map(({ sm }) => `${sm.from}>${sm.to}`).join(", ")}`);
+    // a different mechanic per line (shots[].mechanic): not the same on 3 lines running, and enough distinct ones in a film of 25 s or more
+    const lineShots = S.flatMap((x) => (Array.isArray(x.shots) ? x.shots : [])).filter((sh) => String(sh.on_screen || "").trim());
+    const mech = lineShots.map((sh) => String(sh.mechanic || "").toLowerCase().replace(/\s+/g, " ").trim());
+    let runLen = 1;
+    for (let i = 1; i < mech.length; i++) {
+      runLen = mech[i] && mech[i] === mech[i - 1] ? runLen + 1 : 1;
+      if (runLen === 3) W.push(`mechanic-repeat: "${mech[i]}" is the mechanic of 3 lines in a row (lines ${i - 1}-${i + 1}): a different entrance / transition mechanic per line, from the look's grammar and the showcases' techniques`);
+    }
+    if (length >= 25 && lineShots.length) {
+      const distinct = new Set(mech.filter(Boolean)).size, want = Math.min(lineShots.length, 12);
+      if (distinct < want) W.push(`mechanics-thin: ${distinct} distinct mechanic(s) over ${lineShots.length} line(s) in a ${Math.round(length)} s film (at least ${want}: set shots[].mechanic and vary it)`);
+    }
+    // huge-vs-tiny type
+    const ts = score.type_scale && typeof score.type_scale === "object" ? score.type_scale : null;
+    if (length >= 15) {
+      if (!ts || !(Number(ts.small_px) > 0) || !(Number(ts.large_px) > 0)) W.push("flat-type: score.type_scale { small_px, large_px } is missing (the smallest and largest type in the film: aim at least 3x between them)");
+      else if (Number(ts.large_px) / Number(ts.small_px) < 3) W.push(`flat-type: the largest type is ${r2(Number(ts.large_px) / Number(ts.small_px))}x the smallest (${ts.large_px} / ${ts.small_px} px): one type size reads as a template; aim at least 3x (a huge word against tiny labels)`);
+    }
+    // punctuation: a hard cut (cut, smash-cut, iris) on an emotional turn (the pain to the meet, the payoff)
+    if (seams.length >= 2) {
+      const TURN = /^(meet|reveal|turn|payoff)\b/i;
+      const turnSeams = seams.filter((sm) => { const B = S[Number(sm.to) - 1] || {}; return sm.turn === true || TURN.test(String(B.id || B.role || "")) || (score.brandReveal != null && String(B.id) === String(score.brandReveal)); });
+      const pool = turnSeams.length ? turnSeams : seams;
+      if (!pool.some((sm) => ["cut", "smash-cut", "iris"].includes(sm.kind))) W.push(`no-punctuation: ${turnSeams.length ? `the emotional turn${turnSeams.length > 1 ? "s" : ""} (${turnSeams.map((sm) => `${sm.from}>${sm.to}`).join(", ")}) ${turnSeams.length > 1 ? "are" : "is"} not a hard cut` : "no seam is a hard cut"}: put a cut, smash-cut or iris on the pain to meet seam and the payoff (a hard stop is the punctuation; flow everywhere else reads as a screensaver)`);
+    }
+  }
   // the Moves pass: when a move set was chosen (story/moves.json), the score is held to it
   const mvf = jsonMaybe(R(run, "story", "moves.json"));
   if (mvf === undefined) P.push("story/moves.json is not valid JSON");
@@ -1011,7 +1066,7 @@ function checkScore(run) {
   need(String(score.brand || "").trim(), "brand missing (the brand or product name)");
   // a single-feature scenario film carries its feature block; a ladder film (several real uses) carries a refrain instead
   const chosenPitch = jsonMaybe(R(run, "story", "chosen.json"));
-  const ladderFilm = !!(chosenPitch && pitchShape(chosenPitch) === "ladder");
+  const ladderFilm = !!(chosenPitch && ["ladder", "pas"].includes(pitchShape(chosenPitch)));
   if (productFirst(run, plan) && !ladderFilm) {
     const f = score.feature || {};
     need(["name", "url", "viewer", "task", "before", "after"].every((k) => String(f[k] || "").trim()), "feature { name, url, viewer, task, before, after } missing or incomplete (copy it from the chosen script)");
