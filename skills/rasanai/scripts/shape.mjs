@@ -132,8 +132,21 @@ async function demo(dir, times) {
       const same = a.every((x, i) => x === second[i].s[id]);
       report.cells.push({ id, changes: distinct > 1, distinct_states: distinct, seek_identical: same, ...(same ? {} : { mismatch_at: times.filter((_, i) => a[i] !== second[i].s[id]) }) });
     }
-    report.page_identical = first.every((f, i) => f.png === second[i].png);
-    report.page_changes = new Set(first.map((f) => f.png)).size === times.length;
+    // whole-page identity: byte-equal screenshots, or (on renderers whose PNG encoding or filter noise
+    // differs by a few values, e.g. GPU-less CI Chrome) visually identical frames, PSNR >= 45 dB by ffmpeg.
+    // The per-cell state signatures above are the exact determinism test; this guards the whole frame.
+    const psnr = (a, b) => {
+      const fa = path.join(dir, ".psnr-a.png"), fb = path.join(dir, ".psnr-b.png");
+      fs.writeFileSync(fa, Buffer.from(a, "base64")); fs.writeFileSync(fb, Buffer.from(b, "base64"));
+      const r = spawnSync("ffmpeg", ["-v", "info", "-i", fa, "-i", fb, "-lavfi", "psnr", "-f", "null", "-"], { encoding: "utf8" });
+      try { fs.unlinkSync(fa); fs.unlinkSync(fb); } catch {}
+      if (r.status !== 0) return null;
+      const m = /average:(inf|[0-9.]+)/.exec(r.stderr || "");
+      return m ? (m[1] === "inf" ? Infinity : Number(m[1])) : null;
+    };
+    const same = (a, b) => { if (a === b) return true; const v = psnr(a, b); return v !== null && v >= 45; };
+    report.page_identical = first.every((f, i) => same(f.png, second[i].png));
+    report.page_changes = first.every((f, i) => i === 0 || !same(first[i - 1].png, f.png));
     report.errors = b.logs.slice(0, 10);
     report.frames = frames.map((f) => path.relative(process.cwd(), f));
     // the strip: every frame in one picture
