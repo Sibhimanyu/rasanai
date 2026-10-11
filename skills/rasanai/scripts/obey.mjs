@@ -177,6 +177,11 @@ function runFile(file) {
 
 // ---------------------------------------------------------------------------
 // 3. classification + rules
+// the `character` language (squash and stretch, anticipation, smear frames, stepped beats) also accepts the eases
+// and the very short tweens those moves are made of: back and small elastic settles, steps(n), anticipation pulls
+const CHARACTER = M.language === "character";
+const CHARACTER_EASES = ["back.out", "back.in", "back.inOut", "elastic.out", "steps(3)", "power2.out", "power2.inOut", "sine.inOut"];
+const CHARACTER_MS = [50, 80, 120]; // 1-3 frame smears, 60-120 ms anticipation
 const scale = (M.tempo && M.tempo.scale_ms) || [];
 const easeSet = M.easing || {};
 const banned = M.banned || [];
@@ -184,7 +189,7 @@ const waivers = M.waivers || [];
 const unknownBans = banned.filter((b) => !SIGNATURES[b]);
 
 function onScale(ms) {
-  return scale.some((s) => Math.abs(ms - s) <= s * TOL);
+  return scale.concat(CHARACTER ? CHARACTER_MS : []).some((s) => Math.abs(ms - s) <= s * TOL);
 }
 function waived(rule, target) {
   return waivers.some((w) => (typeof w === "string" ? w === rule : w.rule === rule && (!w.target || w.target === target)));
@@ -252,9 +257,9 @@ for (const file of files) {
     } else if (pe.family === "implicit") {
       add({ severity: "error", rule: "implicit-ease", ...where, message: "no explicit ease (falls back to GSAP's default power1.out, the generic look)", fix: `set ease: "${easeSet[cls] || easeSet.enter}"` });
     } else {
-      const inSet = Object.values(easeSet).some((e) => parseEase(e).family === pe.family && parseEase(e).dir === pe.dir);
+      const inSet = (CHARACTER ? CHARACTER_EASES : []).some((e) => { const c = parseEase(e); return c.family === pe.family && (c.family === "steps" || c.dir === pe.dir); }) || Object.values(easeSet).some((e) => parseEase(e).family === pe.family && parseEase(e).dir === pe.dir);
       if (!inSet) add({ severity: "error", rule: "ease-outside-set", ...where, message: `ease ${t.ease} is not one of motion.md's eases (${Object.values(easeSet).join(", ")})`, fix: `use ease: "${easeSet[cls]}"` });
-      else if (easeSet[cls] && !(parseEase(easeSet[cls]).family === pe.family && parseEase(easeSet[cls]).dir === pe.dir))
+      else if (!CHARACTER && easeSet[cls] && !(parseEase(easeSet[cls]).family === pe.family && parseEase(easeSet[cls]).dir === pe.dir))
         add({ severity: "warning", rule: "ease-class-mismatch", ...where, message: `${cls} tween uses ${t.ease}; motion.md's ${cls} ease is ${easeSet[cls]}`, fix: `use ease: "${easeSet[cls]}"` });
     }
     // keyframes:[...] steps are each a tween segment; their own durations must be on the scale
