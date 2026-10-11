@@ -56,7 +56,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { parseArgs, die, readJSON, writeFile, normalizeAspect, esc, chromeScreenshot, gsapInline, SKILL_DIR, STATE_DIR } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
-import { validateMoves, validateVerdict, validateSet, MOVE_LABELS, CARRIER_FAMILIES } from "./lib/moves-lib.mjs";
+import { pitchShape, validateMoves, validateVerdict, validateSet, MOVE_LABELS, CARRIER_FAMILIES } from "./lib/moves-lib.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -223,7 +223,7 @@ if (cmd === "pack") {
   const label = str(obj && obj.label) || (path.basename(f).match(/^moves-(.+)\.json$/) || [])[1] || "";
   const pitch = pitchBeatsOf(path.resolve(String(args.pitch)), label);
   const pack = jsonMaybe(path.join(path.dirname(f), `moves-pack-${label}.json`)) || null;
-  const r = validateMoves(obj, { beats: pitch.beats, productFirst: !!args["product-first"], uiLabels: pitch.ui_labels, productName: pitch.product || pitch.product_name, pack });
+  const r = validateMoves(obj, { beats: pitch.beats, productFirst: !!args["product-first"], shape: pitchShape(pitch), uiLabels: pitch.ui_labels, productName: pitch.product || pitch.product_name, pack });
   out({ ok: !r.errors.length, errors: r.errors, warnings: r.warnings }, r.errors.length ? 2 : 0);
 } else if (cmd === "check-verdict") {
   const run = runDir();

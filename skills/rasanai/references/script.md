@@ -22,9 +22,9 @@ The script is written once and travels: the Story card shows it, `scenes.json` i
 
 ## Launch, promo and product films are product-first
 
-For the route `product-launch-video` and any launch, promo, product or app film, read `references/product-first.md` before the passes below, and let it win wherever it conflicts: the real product UI is on screen within 3 s; one feature, shown as one viewer doing one real task (pass 0, One feature, one scenario); one hero product moment shows it for real; 2 to 4 real steps of that task; short plain kinetic lines; the required end line is the largest type in the film on a clean CTA card; no museums, allegories, invented worlds, extended metaphors or cover versions (the only allowed figures: an instant visual pun that resolves to the product within a second, and a letter or shape transformation that lands on the real product within its move, `references/product-first.md`). Sure, Bold and Wild differ in structure, pacing and energy, never in leaving the product. Write the pitch's `feature`, each beat's `role`, `picture` and `ui`, `two_way`, `hero_moment`, `uses`, `last_line` and `end_line_largest`; `story.mjs check` runs gates G7 and G10 on them. The worked example below that uses a museum is a *brand-film* conceit: do not copy it for a product film; the product-first example follows it.
+For the route `product-launch-video` and any launch, promo, product or app film, read `references/product-first.md` before the passes below, and let it win wherever it conflicts: the real product UI is on screen within 3 s; a launch is a **ladder** (pass 0, Two shapes: one refrain verb, rungs of distinct real uses escalating to done-for-you) and a single-feature spot is one viewer doing one real task (pass 0, One feature, one scenario); one hero product moment shows it for real; 2 to 4 real steps of that task (a scenario) or the rungs (a ladder); short plain kinetic lines; the required end line is the largest type in the film on a clean CTA card; no museums, allegories, invented worlds, extended metaphors or cover versions (the only allowed figures: an instant visual pun that resolves to the product within a second, and a letter or shape transformation that lands on the real product within its move, `references/product-first.md`). Sure, Bold and Wild differ in structure, pacing and energy, never in leaving the product. Write the pitch's `shape`, then for a scenario its `feature`, each beat's `role`, `picture` and `ui`, `two_way`, `hero_moment`, `uses`, `last_line` and `end_line_largest`, or for a ladder its `refrain` and each rung's `use`, `highlight`, `level`, `on_screen`, `picture`, `ui`; `story.mjs check` runs gates G7 and G10 on them. The worked example below that uses a museum is a *brand-film* conceit: do not copy it for a product film; the product-first example follows it.
 
-**Branded launch, promo or brand film:** write to the structure template in `references/launch-film.md` section 1 (hook with the product or brand in 1 to 3 s, reveal, hero demo, 2 to 4 real feature demos, payoff line, end card) and keep each beat inside its timing range for the film's length; mark each beat's `role` and set `payoff_line`. One idea per beat, plain words, the product or brand in every beat. The brand's own film (`brand-film/FILM-STYLE.md`) gives the opening and the words it uses. The three scripts differ only in emphasis and order, never in concept.
+**Branded launch, promo or brand film:** write to the structure template in `references/launch-film.md` section 1 (hook with the product or brand in 1 to 3 s, reveal, hero demo, 2 to 4 real feature demos, payoff line, end card) and keep each beat inside its timing range for the film's length; mark each beat's `role` and set `payoff_line`. One idea per beat, plain words, the product or brand in every beat. The brand's own film (`brand-film/FILM-STYLE.md`) gives the opening and the words it uses. The three scripts differ only in emphasis and order, never in concept. On a ladder the order is the rungs' order and the emphasis is which uses and how the refrain is worded.
 
 ## Pass 0: decide what this film must achieve
 
@@ -40,9 +40,37 @@ Sure, Bold and Wild may aim differently, and the user is choosing between those 
 Decide the **tempo** with the aim (`references/launch-film.md`, Tempo): the brand film's measured tempo when the run has one, otherwise the house tempo. Count the ideas (a promise, the hero, each use or proof, the payoff: at least 3 in 15 s, 5 in 30 s with 6 or 7 as the aim, 8 in 60 s, 10 in 90 s), plan something that changes every ~2 s, and list the changes inside any beat over 3 s. Write it as `tempo: { ideas, change_every_s, longest_hold_s, source }`.
 
 
-### One feature, one scenario (launch, promo and feature films)
+### Two shapes: the ladder (a launch) and the scenario (a single-feature spot)
 
-A launch film is about ONE feature, shown as one person doing one real task with it. Before any device, write the `feature` block:
+Pick the shape first, in the pitch's `shape`. A launch of a product or brand is a **ladder** unless the brief or the research names ONE feature to sell; a single-feature spot (a 29 s "Sites" film) is a **scenario**. Never tell a general launch as one plot: a film that followed one dinner bill for 30 s was rejected ("that's not how launch videos are made"). Real launch films are refrain ladders: Google's "Ask Search Anything" is "Ask **simple** questions", "Ask **longer**", "Ask it to **guide** you", "Ask it to do the **research**", "Ask it to **shop** for you", "Ask and get it **tailored**", "Ask it to… **done**", then "Ask **anything**" and the logo, each title over a real UI demo of a different use.
+
+**The ladder.** Write `refrain: {verb, pattern}` and beats with a `role`: `open` (the refrain arrives, the product on screen within 3 s), several `rung`s, an optional `ways_in` (the inputs: type, say, snap, film), and a `close` (`<verb> anything` or the product's own line, then the logo). Each rung carries:
+
+- `use`: a distinct everyday use, 2 to 6 words, real ("plan a week of dinners"). No two rungs share a content noun.
+- `highlight`: the one word the title card emphasises, and it is in the title.
+- `level`: 1 to N, strictly rising, from simple (one thing, one step) to done-for-you (it does the whole job). Escalate the *help*, not the plot.
+- `on_screen`: the title line, containing the refrain verb, 6 words or fewer.
+- `picture` and `ui[]`: the real UI's cause and effect for that use.
+- `duration_s`: no rung over 35% of the film.
+
+Rung counts: 35 s or less, 3 to 4; 36 to 60 s, 4 to 6; over 60 s, 6 to 8. The creativity lives in the joins between rungs (the title word becomes the input, the input becomes the next demo, the last input becomes the logo), never in a plot. G10 holds all of this; the three scripts may differ in which uses, their order, the pace and the refrain's wording, never in being a single story.
+
+Worked ladder (a 30 s launch of Folio, a notes app; the refrain is "Write"):
+
+| s | Role | On screen (highlight) | Use | Level | The real UI |
+|---|---|---|---|---|---|
+| 0-3 | open | Write **anything**. | | | The empty Folio page, cursor blinking; the title becomes the first line of a note. |
+| 3-9 | rung | Write **simple** lists | pack for the trip | 1 | Type "pack for Lisbon": a checklist forms as the list; ticks as items are typed. |
+| 9-15 | rung | Write **longer** | meeting notes | 2 | A long, messy meeting jotting; a summary header and action items appear above it. |
+| 15-21 | rung | Write it to **plan** | plan the week | 3 | "plan my week around the 9:30 standup": blocks land in the week view. |
+| 21-27 | rung | Write it, and it's **done** | send the recap | 4 | "send the recap to the team": the draft email fills, Send, a sent toast. |
+| 27-30 | close | Write **anything**. Folio | | | The title line settles into the logo and the URL. |
+
+Every title is 5 words or fewer, contains the verb, and sits on one line inside the safe area; four rungs climb from a checklist to a sent email; the uses (a trip, a meeting, a week, a recap) share no noun. Say it with the sound off and the film still reads.
+
+### One feature, one scenario (single-feature spots)
+
+A single-feature spot is about ONE feature, shown as one person doing one real task with it. Before any device, write the `feature` block:
 
 ```jsonc
 "feature": { "name": "Cues",                       // ONE feature: the user's named one, else the newest launch (a "New" badge), else the core surface; a version or "what's new" is not a feature: open it and take its headline feature
@@ -59,22 +87,74 @@ Then the film is four beats with a `role` each: **hook** = the viewer's `before`
 - `ui: []` (the proof at least two): the literal cause and effect on screen, the way the real product does it ("click Open → a new tab opens in the reading window, the address changes, a toast says Opened"). No invented output screens: a result is the product's real UI from the research (`research/screens`), never generic boxes standing in for it.
 - `on_screen`: one line, 6 words at most, no trailing period, no orphan "Meet".
 
-Then do the **two-way test** and write it down as `two_way: { lines_alone, pictures_alone }`: read the four lines with the pictures hidden (a stranger must get the pitch), then the four pictures with the lines hidden; each tells the same story. `story.mjs check` gate **G10** holds all of this (one feature, the four roles in order, pictures, UI cause and effect, no invented output, the two-way read); `uses` in a one-feature film are the 2 to 4 real steps of its one task. Sure, Bold and Wild may differ in structure and energy, never in the feature or the scenario.
+Then do the **two-way test** and write it down as `two_way: { lines_alone, pictures_alone }`: read the four lines with the pictures hidden (a stranger must get the pitch), then the four pictures with the lines hidden; each tells the same story. `story.mjs check` gate **G10** holds all of this (one feature, the four roles in order, pictures, UI cause and effect, no invented output, the two-way read); `uses` in a one-feature film are the 2 to 4 real steps of its one task. Sure, Bold and Wild may differ in structure and energy, never in the feature or the scenario. (On a ladder, `story.mjs check` G10 reads the rungs instead: the refrain verb, the rung count, distinct uses, rising levels.)
 
 Write it down as the pitch's `aim` (`takeaway`, `feel`, `action`, `audience`) and its `approach` (one plain sentence on how this story gets there). Then name the story: a title is 2 to 5 words a person would use to refer to it ("The one-prompt site", "Rewind to the prompt"), never a fragment of an on-screen line, never ending on a function word, never ALL CAPS. Every later pass serves the aim; a beat that doesn't, goes.
 
 ## The eight passes
 
-Write in passes, not in one go. Each pass has one question.
+Write in passes, not in one go. Each pass has one question. After pass 4 comes the show column (below): every on-screen line gets a motion that means it.
 
 1. **The one sentence.** What does the viewer believe after the film that they didn't before (pass 0's takeaway, sharpened)? One sentence, in the viewer's words, no product name. If it needs "and", you have two films; pick one.
 2. **The spine.** Map the device's grammar onto the length (structures below). Mark the hook, the value beat, the proof, the turn and the end. Durations first, words second.
 3. **The hook.** Write five hooks, keep one (hook types below). It lands in 1.5 to 2 seconds and is either the outcome, the tension the viewer already feels, or the product doing its thing.
-4. **The visuals.** For every beat write the shot: what fills the frame, what moves, what changes. Concrete nouns from the truth sheet (the product's real objects, screens and words), never "dynamic visuals of…". On-screen lines are the stage, not captions: write short lines whose letters and shapes can become the product (a letter, a dot, a full stop, a word that literally does what it says), set them huge, and name in `visual` which letter or shape carries into the next beat.
+4. **The visuals.** For every beat write the shot: what fills the frame, what moves, what changes. Concrete nouns from the truth sheet (the product's real objects, screens and words), never "dynamic visuals of…". On-screen lines are readable titles, not decoration: write short plain lines, one line, inside the safe area, at the brand's type size, never cropped (the readability rule, below). A move may lend a letter or shape to the next beat, but the line reads normally first: name in `visual` which element carries into the next beat.
 5. **The words.** On-screen lines first (the film must read with the sound off), then voiceover that adds what the screen can't show. Read every line aloud.
 6. **The turn.** At 60 to 75% of the running time something reverses: the old way breaks, the scale flips, the joke pays off, the reveal lands. If nothing turns, it is a list.
 7. **The end.** The name, one call to action, an end card of 2 to 3 seconds whose elements land in sequence (at most 1.5 s of it still), and a last line that could stand alone as a post.
 8. **The cut.** Delete 20% of the words. Then check the timing against the rules below and run `story.mjs check`.
+
+## The show column: a motion that MEANS each line
+
+A line with no motion of its own is a caption, and a film of captions is a slide deck. After pass 4 and before pass 5, add to every beat `shows: [{ line, show, built_from, handoff }]`: **one row per on-screen line** (a title that changes in place is one row per state). The pitch also names its `actor: { what, does }`, the one persistent element (an orb, the composer, a dot, the cursor, a pill) that carries the film. It is required on launch, promo and brand films. The references are in `library/showcases/` (read its README, then the two films for your kind: Sovra and Kinso for a launch); every row below is real.
+
+Each row answers: what does the motion do that the words alone could not?
+
+- `line`: the words, verbatim from `on_screen`.
+- `show`: the motion, concretely: which element, what it does, and **how the words and the UI or object touch**. It must say something only this line means. If the same `show` would fit any other line, it is a label ("fade in", "slides up", "kinetic type") and fails the gate (`show-unbound`).
+- `built_from`: `product UI`, `actor`, `type`, `object` or `photo`. On a product-first film most rows are product UI or the actor.
+- `handoff`: how it becomes the next line: what carries and what changes in place. The film's last row says "end".
+
+**The principles, condensed from the ten references.**
+
+1. **One actor carries the film.** Pick it before the script: Sovra's pill and orb, Kinso's coral orb, OpenAI's dot. Promote it, reuse it, spend it, and end on it.
+2. **The word and the UI touch.** The idea is the collision, never the label beside it. If a line sits above a screen, you have a caption.
+3. **Hold the frame, swap the word in place.** One slot, one changing word ("songs, feeds, loops"; "Type it, Stream it"). The still half makes the swap read. Write the swap as a `handoff`, not as a new row of new furniture.
+4. **A carrier sentence turns a list into a ladder.** The stem repeats, one word varies, each demo proves its word.
+5. **Real UI is the scenery, the line is the caption of the UI state.** Type the real prompt, tick the real progress, press the real button with a cursor.
+6. **The type rides the thing it describes**: a path, a ball, a bar, a stack. The words stay readable on the way.
+7. **Construction before form.** Where it helps, the guide, handle or outline appears before the solid shape.
+8. **The container morphs; nothing cross-dissolves.** A bar becomes the logo, a phone shrinks into the orb. Each handoff says what carries and what changes.
+9. **Spend colour and weight like a budget**: one accent, one coloured word at a time.
+10. **Escalate, then resolve small.** Density builds, the end is one quiet hold that reuses the actor.
+
+**Worked rows (Sovra.fm launch).**
+
+| line | show | built_from | handoff |
+|---|---|---|---|
+| Same songs | A pill outlined in violet appears with the words inside it; a music-note chip attaches and the outline fills with gradient. | type | The pill holds; only its word changes. |
+| Same feeds | The pill holds its shape while "songs" blurs out and "feeds" lands in the same slot; the pill grows slightly. | type | The word swaps again in the same pill. |
+| Same loops | The word swaps to "loops" and the pill's outline swells into three nested rings that fill the frame like a track: trapped inside a loop. | type | The rings leave the frame and a clean line takes the dark. |
+| Afro house, sunset rooftop in Bali, smooth vocals | The placeholder is replaced by the typed prompt; it scrolls left as it overflows and a Create button appears while the box's glow chases the edge with each phrase. | product UI | The camera pushes into Create and the cursor presses it. |
+| Afro house, Starting station generation 4% to 100% | A ring fills while the percentage counts 4, 21, 41 to 100; at 100 the ring turns green with "Station Generated". | product UI | The green ring pops open into the album art. |
+| a DJ talking like it's real | The words type beside the orb, and its eyes squash to dots in sync with "talking". | actor | Three ribbons enter to weave around the orb. |
+
+**Worked rows (Kinso launch).**
+
+| line | show | built_from | handoff |
+|---|---|---|---|
+| somewhere | A notification stack (Gmail, Slack, WhatsApp icons with red counts) rises through the word and splits it into "some" and "where". | product UI | The stack tilts out of the word and lands on the next line. |
+| Woah | The stack lands and its icons collapse into a red dot that becomes the "o", so the stack is the label that reads "Woah". | object | The label shrinks to the centre; hard cut to dark. |
+| You are a really busy person | A small orb bounces along the line and each word lights where it lands; "busy" and "person" go bold on a bar the ball pushes. | actor | The ball hits the line; the line slides out and a bar swipes in. |
+| Meet KINSO | "Meet" holds beside the mark and becomes "KINSO" in the same slot. | type | The wordmark leaves; the mark stays small. |
+| And ranks messages by it | The words stack down the left while the inbox on the right re-orders and a highlighted row jumps to the top: the ranking is visible. | product UI | A phone panel slides over the window. |
+
+**A bad row, and its fix.**
+
+- Bad: line "One inbox for every conversation", show "the line fades in over the app window", `built_from: type`. The words sit on top of the UI and never touch it: a caption over UI. It would fit any line, so the gate reads it as `show-unbound`.
+- Fix: "The line shrinks to a caption above a white panel that rises from the bottom and scales into the inbox window; a teal band steps down its rows, one conversation at a time." `built_from: product UI`. The window grows out of the line, the words and the UI touch, and "every conversation" is the rows that light.
+
+**Checks before you move on.** Read the `show` column alone: does it tell the film? At least one row where words and UI touch (through, splits, strikes, pushes, wraps, rides, under, across, into), and at least one line that changes in place (swap, becomes, turns into, changes to), else `no-touch` and `no-swap` warn. A `show` is 8 words or more and shares a content word with its line. No row is a bare label. The `actor` appears in the first and the last row.
 
 ## Structures by length
 
@@ -119,6 +199,7 @@ Never open with: "Introducing…", "Meet…", "What if…?", "Tired of…?", "In
 - The film must read with the sound off: the on-screen lines alone tell the story.
 - It complements the voiceover, never repeats it. The voice says the sentence; the screen shows the word, the number or the image that sticks.
 - Sentence case, a full stop for weight, no exclamation marks, no em dashes.
+- **Readability is a hard rule.** At its resting state the line sits fully inside the safe area (6% of the width and height), on one line (two at most), at the brand film card's type scale (`FILM-STYLE.md`) or, without a card, the design system's display size. Never "as big as possible", never a line that touches or crosses the frame edge. It may leave the frame only in a push-through of 0.4 s or less. `text-fit` fails otherwise. A launch title is 6 words or fewer and holds one highlighted word.
 
 **Voiceover**
 
@@ -179,6 +260,7 @@ The product is on screen at 0 s, the hero moment is the longest shot, three real
 ## Self-check before `story.mjs check`
 
 - [ ] The aim is written (takeaway, feel, action, audience, approach), the title names the idea, and every beat serves the aim.
+- [ ] Every on-screen line has a `shows` row (what the motion does that means it, built from the real UI or the actor, how it hands off); the pitch names its `actor`; no row is a caption over UI.
 - [ ] The one sentence is in the viewer's words, and the film proves it.
 - [ ] The hook lands by 2 s and the beat moves on by 4 s.
 - [ ] The value beat is beat 1 or 2 (`"value": true`).

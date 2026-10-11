@@ -392,7 +392,7 @@ private struct StoryTable: View {
             head("Time").frame(width: timeWidth, alignment: .leading)
             head("On screen").frame(maxWidth: .infinity, alignment: .leading)
             head("Voiceover").frame(maxWidth: .infinity, alignment: .leading)
-            head("What we see").frame(maxWidth: .infinity, alignment: .leading)
+            head("What the motion does").frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 16).padding(.vertical, 9)
         .background(Color(nsColor: .quaternaryLabelColor).opacity(0.18))
@@ -400,6 +400,25 @@ private struct StoryTable: View {
     }
     private func head(_ text: String) -> some View {
         Text(text.uppercased()).font(.system(size: 10.5, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
+    }
+
+    /// Each show row: the line in bold, what the motion does under it; the beat's visual when it has no shows.
+    @ViewBuilder private func motionColumn(_ beat: StoryBeat) -> some View {
+        Group {
+            if beat.shows.isEmpty {
+                Text(beat.visual).font(.system(size: 13)).foregroundStyle(.secondary).lineSpacing(3)
+            } else {
+                VStack(alignment: .leading, spacing: 9) {
+                    ForEach(beat.shows) { s in
+                        VStack(alignment: .leading, spacing: 2) {
+                            if !s.line.isEmpty { Text(s.line).font(.system(size: 13, weight: .semibold)) }
+                            if !s.show.isEmpty { Text(s.show).font(.system(size: 13)).foregroundStyle(.secondary).lineSpacing(3) }
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
     }
 
     private func row(_ beat: StoryBeat) -> some View {
@@ -420,8 +439,7 @@ private struct StoryTable: View {
                 .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
             Text(beat.vo).font(.system(size: 13.5, design: .serif)).italic().lineSpacing(3)
                 .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
-            Text(beat.visual).font(.system(size: 13)).foregroundStyle(.secondary).lineSpacing(3)
-                .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
+            motionColumn(beat)
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
         .background {
@@ -471,6 +489,7 @@ private struct StoryEmpty: View {
 
 private struct StoryBeat {
     var name: String, onScreen: String, vo: String, visual: String
+    var shows: [StoryShow] = []
     var duration: Double, start: Double
     var turn: Bool
     var spoken: String {
@@ -478,7 +497,8 @@ private struct StoryBeat {
         if turn { parts.append("the turn") }
         if !onScreen.isEmpty { parts.append("on screen: \(onScreen)") }
         if !vo.isEmpty { parts.append("voiceover: \(vo)") }
-        if !visual.isEmpty { parts.append("we see: \(visual)") }
+        if !shows.isEmpty { parts.append("the motion: " + shows.map { [$0.line, $0.show].filter { !$0.isEmpty }.joined(separator: ", ") }.joined(separator: "; ")) }
+        else if !visual.isEmpty { parts.append("we see: \(visual)") }
         return parts.joined(separator: ". ")
     }
 }
@@ -534,7 +554,7 @@ private struct StoryScript: Identifiable {
             let d = beat["duration_s"].number ?? beat["duration"].number ?? 0
             defer { clock += d }
             return StoryBeat(name: beat["name"].string ?? "", onScreen: beat["on_screen"].string ?? "", vo: beat["vo"].string ?? "",
-                             visual: beat["visual"].string ?? "", duration: d, start: clock, turn: beat["turn"].bool ?? false)
+                             visual: beat["visual"].string ?? "", shows: StoryShow.parse(beat["shows"]), duration: d, start: clock, turn: beat["turn"].bool ?? false)
         }
     }
 }

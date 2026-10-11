@@ -34,7 +34,7 @@ Follow the structure template in `launch-film.md` section 1 for the film's lengt
 
 ## 4. Motion obeys the brand
 
-The card's motion vocabulary is binding: the Motion Director reads `FILM-STYLE.md` first and the animators use only those moves. A flat brand (no 3D, no blur, no grain) gets none of them, no matter what the score or an instinct wants. `crew.mjs check --role motion-director` refuses a score without `film_style` and 3D scenes under a flat card.
+The card's motion vocabulary is binding: the Motion Director reads `FILM-STYLE.md` first and the animators use only those moves. A flat brand (no blur, no grain, no glow) gets none of them, no matter what the score or an instinct wants. A flat brand restricts the STYLE of 3D, never its use: the card carries a `3D style:` line, and 3D scenes under it use matte or unlit materials (basic, toon, flat, matte, unlit, lambert) in the brand's palette, clean even light, no bloom, glow, grain, chromatic aberration or lens flare, depth of field only when the card allows blur, motion blur on fast moves only when the card allows blur (`references/3d.md` "Brand-flat 3D"). `crew.mjs check --role motion-director` refuses a score without `film_style` and 3D scenes under a flat card that break that style (`flat-3d-style`).
 
 ## 5. The style-match gate
 
@@ -59,7 +59,7 @@ Text only; the frames of OpenAI's film are the user's and are not in the repo.
 | Type | one family, OpenAI Sans, huge or tiny, nothing between | a Bodoni serif display |
 | Imagery | the product's own prompt, real photography, thin construction lines | line-art props (plinths, a mug, a bell jar) |
 | Concept | the dot, morphing; the product's own UI is the first image | an invented museum metaphor; the product at about 19 s |
-| Motion | scale, morph, draw-on, cut on the beat: flat, no 3D, no blur, no grain | a 3D dolly with motion blur and grain |
+| Motion | scale, morph, draw-on, cut on the beat: flat 2D finish, no blur, no grain; 3D only in the flat style (matte, even light) | a 3D dolly with motion blur, bloom and grain |
 | End | the mark alone, big, on white | a small CTA in body text |
 
 The causes: the brand research was text-only (it never looked at the brand's films), the design desk blended outside references (Paula Scher, Spielberg, Wes Anderson, museum grammar), the recommender chose the Bold look furthest from the brand, the story engine liked an inventive conceit, and nothing compared the built frames to the brand's real frames.
@@ -71,7 +71,7 @@ The causes: the brand research was text-only (it never looked at the brand's fil
 - Type: one sans (OpenAI Sans; Substitute: a loadable neutral sans), Light to Bold, two size classes (huge statements or single letterforms; tiny margin labels).
 - Layout: one element at a time, centred or on a strict grid, huge whitespace.
 - Motif: the dot: dot, circle, outline circle, dot grid, colour dot field, dot; thin grey construction lines resolving into letterforms and the logo.
-- Motion: scale, morph, draw-on, cut on the beat; calm stretches (one slow mover, never frozen) alternating with brisk runs; never 3D, blur, grain or dark moody scenes.
+- Motion: scale, morph, draw-on, cut on the beat; calm stretches (one slow mover, never frozen) alternating with brisk runs; never blur, grain, glow or dark moody scenes; 3D, when the line is about space or many things at once (a dot sphere), only in the flat style: matte or unlit dots in the palette, even light.
 - Imagery: real, bright, golden-hour photography (ocean, sky, cliffs), full bleed or framed on white; a fast collage of brand artefacts.
 - Opening: the real prompt typing "What can I help with?" next to the dot. End: the mark alone, then the wordmark, on white.
 

@@ -44,6 +44,11 @@ const slug = (s) => String(s || "scene").toLowerCase().replace(/[^a-z0-9]+/g, "-
 const narrated = S.narration !== false && scenes.some((sc) => sc.voiceover && String(sc.voiceover).trim());
 const TYPES_PLV = ["hook", "pain_point", "product_intro", "feature_showcase", "benefit_highlight", "social_proof", "branding", "cta"];
 
+// the story's own beat roles map onto the workflow's scene types (a ladder's open/rung/ways_in/close,
+// a scenario's hook/proof/turn/cta, the older hero/demo/payoff), so a scene can carry its role as its type
+const ROLE_TYPE = { open: "hook", rung: "feature_showcase", ways_in: "benefit_highlight", close: "cta", proof: "feature_showcase", turn: "benefit_highlight", hero: "product_intro", demo: "feature_showcase", payoff: "benefit_highlight", statement: "branding", end: "cta" };
+for (const sc of scenes) if (route === "product-launch-video" && sc.type && !TYPES_PLV.includes(sc.type) && ROLE_TYPE[sc.type]) sc.type = ROLE_TYPE[sc.type];
+
 const frames = scenes.map((sc, i) => {
   const n = i + 1;
   const where = `scene ${n}${sc.title ? ` (${sc.title})` : ""}`;

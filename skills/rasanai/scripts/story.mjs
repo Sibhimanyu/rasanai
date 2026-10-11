@@ -10,14 +10,15 @@
 //   node story.mjs cliche
 //        -> the default arc's 8 beats, stock openers, overused devices and visual cliches
 //   node story.mjs pick --truth <truth.md|truth.json> [--count 3] [--seed s] [--recent ids] [--exclude ids]
-//        [--like id] [--format launch|explainer|brand|social] [--tone t] [--product-first | --allow-conceit]
+//        [--like id] [--format launch|explainer|brand|social] [--tone t] [--product-first | --allow-conceit] [--shape ladder|scenario] [--feature <name>]
 //        -> three devices ("Sure", "Bold", "Wild") that differ on >= 5 of 7 axes, with different family,
 //           protagonist and visual world; each with beats, pitfalls, an example and native material to fuse
 //           with. Deterministic for a seed (default seed: product name + today's date).
+//           For launch / promo / brand films the structure is a LADDER (shape ladder: a refrain verb, one rung per distinct everyday use, escalating) unless one feature is named (--feature, or a truth-sheet feature) -> shape scenario; --shape forces either.
 //           Launch / promo / product films (format launch, or --product-first) are PRODUCT-FIRST: conceit devices
 //           (museums, allegories, invented worlds, extended metaphors, cover versions) are never offered.
 //   node story.mjs check --pitch <pitch.json | pitches.json> [--truth <truth.md|json>] [--footage] [--length <s>] [--narrated] [--product-first | --allow-conceit] [--brand-film <grammar.json>] [--calm]
-//        -> the rubric: 6 pass/fail gates (+ G7 product-first for launch / promo / product films, + G8 the aim: takeaway, feel, action, approach, a title that names the idea, + G9 tempo for the same films: ideas per length, a change every ~2.5 s, hold limits, the brand's measured tempo with --brand-film) + the weighted 1-5 score (ship at >= 3.8, no dimension < 3).
+//        -> the rubric: 6 pass/fail gates (+ G7 product-first for launch / promo / product films, + G10 shape-aware: `shape` ladder (refrain verb, 3-8 rungs by length, distinct uses, increasing levels, a real UI cause and effect per rung, a close) or scenario (one feature, one task), + G8 the aim: takeaway, feel, action, approach, a title that names the idea, + G9 tempo for the same films: ideas per length, a change every ~2.5 s, hold limits, the brand's measured tempo with --brand-film) + the weighted 1-5 score (ship at >= 3.8, no dimension < 3).
 //           Exit 0 = ship, 2 = rewrite (reasons in the JSON), 1 = bad input.
 //   node story.mjs validate
 //        -> checks devices.json against its schema (vocabularies, ids, counts)
@@ -26,6 +27,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseArgs, die, readJSON, writeFile, SKILL_DIR } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
+import { isLabelOnly } from "./lib/moves-lib.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -212,9 +214,18 @@ const SC_RANGES = {
 };
 const uiOf = (b) => (Array.isArray(b.ui) ? b.ui.filter((u) => String(u || "").trim()) : []);
 const isScenario = (p, beats) => !!(p.feature && typeof p.feature === "object") || beats.some((b) => /^(proof|turn)$/i.test(String(b.role || "")));
+// Story shape: "ladder" (a refrain verb, one rung per distinct everyday use, escalating) or "scenario" (one feature, one viewer, one task).
+// Explicit p.shape wins; else a feature block or proof/turn beats mean scenario; a refrain or open/rung beats mean ladder; else "legacy" (the older hook/hero/demo/payoff structure, held to the scenario G10).
+const shapeOf = (p, beats) => { const s = norm(p.shape).trim(); return s === "ladder" || s === "scenario" ? s : isScenario(p, beats) ? "scenario" : p.refrain || beats.some((b) => /^(open|rung|ways_in)$/i.test(String(b.role || ""))) ? "ladder" : "legacy"; };
+const LADDER_ROLES = ["open", "rung", "ways_in", "close"];
+// rungs per film length: <= 35 s 3-4, 36-60 s 4-6, > 60 s 6-8
+const rungRange = (len) => (len <= 35 ? [3, 4] : len <= 60 ? [4, 6] : [6, 8]);
+const USE_STOP = new Set(["the", "a", "an", "of", "for", "to", "and", "in", "on", "at", "your", "my", "with", "it", "its", "from", "by", "or", "as", "is", "this", "that", "some", "new", "find", "get", "make", "plan", "book", "buy", "shop", "ask", "do", "see", "show", "build", "write", "check", "compare", "choose", "pick", "use", "look", "up", "out", "me", "you", "go", "try", "start", "finish", "done"]);
+const stem = (w) => w.replace(/(ies)$/, "y").replace(/(es|s)$/, (m, g, off, str) => (str.length > 4 ? "" : m));
+const useNouns = (u) => new Set(nz8(u).split(" ").filter((w) => w.length >= 3 && !USE_STOP.has(w)).map(stem));
 function lfRole(b, i, n, hero) {
   const r = String(b.role || "").toLowerCase();
-  if (r === "proof" || r === "turn") return r;
+  if (r === "proof" || r === "turn" || LADDER_ROLES.includes(r)) return r;
   if (LF_RANGES[15][r]) return r;
   const nm = String(b.name || "").toLowerCase();
   if (i === 0) return "hook";
@@ -387,6 +398,9 @@ if (cmd === "truth") {
   const rand = rng(seed);
   const ctx = { recent: new Set(recentIds), tags, format, tones, like, footage };
   const productFirst = isProductFirst(format, args);
+  // launch / promo / brand films are ladders unless the brief or research names ONE feature to sell (--shape or --feature, or truth.feature)
+  const oneFeature = !!(args.feature && args.feature !== true) || !!(truth.feature && (typeof truth.feature !== "object" || truth.feature.name || Object.keys(truth.feature).length) );
+  const shape = args.shape === "ladder" || args.shape === "scenario" ? args.shape : (productFirst || ["launch", "promo", "brand"].includes(format)) ? (oneFeature ? "scenario" : "ladder") : null;
   const scored = DEVICES.filter((d) => !exclude.has(d.id) && !(productFirst && pfBanned(d))).map((d) => ({ d, ...weigh(d, ctx) }));
 
   // candidates: at least one per family, two from the containers and metaphors, then three more from anywhere
@@ -451,6 +465,12 @@ if (cmd === "truth") {
       weight: x.w, weight_why: x.why,
     };
   });
+  const LADDER_VARIANT = {
+    Sure: "Sure: the product's own verb, straight; the obvious uses in the obvious order, an even pace, one clear escalation.",
+    Bold: "Bold: a faster cut ladder (shorter rungs), a twist rung the viewer does not expect, the uses reordered for surprise.",
+    Wild: "Wild: an unexpected but true refrain (a verb the product really does, said a new way); still real uses, still one ladder.",
+  };
+  if (shape === "ladder") for (const pk of picks) { pk.structure = "ladder"; pk.ladder_variant = LADDER_VARIANT[pk.label]; pk.device_role = "the device is the ladder's rhythm (list that breaks, escalation, call and response, countdown), never a plot"; }
   const matrix = picks.map((a) => picks.map((b) => (a === b ? null : distance(findDevice(a.id), findDevice(b.id)))));
   out({
     ok: true,
@@ -459,6 +479,8 @@ if (cmd === "truth") {
     format, tones, tags,
     product_first: productFirst || undefined,
     product_first_rule: productFirst ? "Launch / promo / product film: the product UI is on screen within 3 s, one hero product moment, 2-4 real uses, short plain kinetic lines, the end line the largest type, a clean CTA. No conceit devices; Sure, Bold and Wild differ in structure, pacing and energy, never by leaving the product. See references/product-first.md." : undefined,
+    shape: shape || undefined,
+    shape_rule: shape === "ladder" ? "Ladder: one refrain verb is the spine; each rung is a title card (one highlighted word) plus a real UI demo of a DIFFERENT everyday use, escalating from simple to done-for-you; creativity lives in the joins between rungs, never in a plot. Rungs: <= 35 s 3-4, 36-60 s 4-6, > 60 s 6-8. Sure, Bold and Wild differ in which uses, their order, pacing and the refrain's wording, all on the same ladder. Pitch fields: shape, refrain {verb, pattern}, beats with role open | rung | ways_in | close; rungs carry use, highlight, level, on_screen, picture, ui[], duration_s. See references/story.md." : shape === "scenario" ? "Scenario: one feature, one viewer, one task (G10 scenario rules)." : undefined,
     truth_gaps: gaps.length ? gaps : undefined,
     considered: cands.map((c) => ({ id: c.d.id, w: c.w })),
     widened: widened || undefined,
@@ -480,7 +502,7 @@ if (cmd === "truth") {
   const pitches = Array.isArray(raw) ? raw : Array.isArray(raw.pitches) ? raw.pitches : [raw];
   const truth = loadTruth(args.truth);
   const footage = !!args.footage || !!(truth && truth.assets.some((a) => /footage|video of|founder on camera/i.test(a)));
-  const opts = { length: Number(args.length) || 0, narrated: !!args.narrated, calm: !!args.calm, brandTempo: loadBrandTempo(args["brand-film"]), productFirst: isProductFirst(truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null), args) };
+  const opts = { length: Number(args.length) || 0, narrated: !!args.narrated, calm: !!args.calm, brandTempo: loadBrandTempo(args["brand-film"]), productFirst: isProductFirst(truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null), args), showStrict: ["launch", "promo", "brand"].includes(truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null)) };
   const results = pitches.map((p, i) => checkPitch(p, i, truth, footage, opts));
   const portfolio = pitches.length > 1 ? checkPortfolio(pitches, results) : null;
   const ship = results.every((r) => r.verdict === "ship") && (!portfolio || portfolio.pass);
@@ -652,6 +674,8 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
   // G7: product-first (launch, promo and product films; references/product-first.md)
   if (opts.productFirst || p.product_first === true) {
     const g7 = [];
+    const shape = shapeOf(p, beats);
+    const isLadder = shape === "ladder";
     const flagged = deviceIds.map((x, i) => devices[i]).filter((d) => d && pfBanned(d));
     if (flagged.length) g7.push(`${flagged.map((d) => d.name).join(", ")} is a conceit device (museum, allegory, invented world, extended metaphor, cover version, borrowed container): a product film is led by the product, pick a device that stays on the real UI`);
     const pun = p.visual_pun && typeof p.visual_pun === "object" ? p.visual_pun : null;
@@ -669,10 +693,11 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     if (!seen) g7.push("the product is not on screen within 3 s: beat 1 must show the real product UI (name it in the beat's visual, with its real labels)");
     const hero = p.hero_moment;
     const heroTxt = typeof hero === "string" ? hero : hero && (hero.what || hero.feature);
-    if (!String(heroTxt || "").trim()) g7.push("hero_moment missing: {beat, what} the one product moment that shows the key feature for real");
+    if (isLadder) { /* a ladder's heroes are its rungs (G10) */ }
+    else if (!String(heroTxt || "").trim()) g7.push("hero_moment missing: {beat, what} the one product moment that shows the key feature for real");
     else if (hero && typeof hero === "object" && hero.beat != null && !(Number(hero.beat) >= 1 && Number(hero.beat) <= beats.length)) g7.push(`hero_moment.beat ${hero.beat} is not a beat of this script`);
-    const uses = Array.isArray(p.uses) ? p.uses.filter((u) => String(u || "").trim()) : [];
-    if (uses.length < 2 || uses.length > 4) g7.push(`uses: ${uses.length} ${p.feature ? "steps of the one task" : "real use cases"} (2-4 required: ${p.feature ? "the real steps of the viewer's one task in the real UI" : "real people doing real things with the real UI"})`);
+    const uses = isLadder ? beats.filter((b) => String(b.role || "").toLowerCase() === "rung").map((b) => b.use).filter((u) => String(u || "").trim()) : Array.isArray(p.uses) ? p.uses.filter((u) => String(u || "").trim()) : [];
+    if (!isLadder && (uses.length < 2 || uses.length > 4)) g7.push(`uses: ${uses.length} ${p.feature ? "steps of the one task" : "real use cases"} (2-4 required: ${p.feature ? "the real steps of the viewer's one task in the real UI" : "real people doing real things with the real UI"})`);
     if (!String(p.last_line || "").trim()) g7.push("last_line missing: the required end line (the call to action) is the largest type in the film");
     if (p.end_line_largest !== true) g7.push("end_line_largest is not true: the end line must be the largest type in the film on a clean CTA card");
     const longLines = beats.filter((b) => String(b.on_screen || "").trim().split(/\s+/).filter(Boolean).length > 6).length;
@@ -682,7 +707,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     const scenario = isScenario(p, beats);
     const roles = beats.map((b, i) => lfRole(b, i, beats.length, heroObj));
     const rng = scenario ? { ...LF_RANGES[lfBucket(lengthS)], ...SC_RANGES[lfBucket(lengthS)] } : LF_RANGES[lfBucket(lengthS)];
-    if (!scenario) {
+    if (!scenario && !isLadder) {
       // the older launch structure (hook, hero, 2-4 demos, payoff, end card); a one-feature scenario film is held to G10 instead
       if (!roles.includes("hero")) g7.push("structure: no reveal / hero beat (name it \"Hero\" or set role: \"hero\"; references/launch-film.md section 1)");
       const nDemo = roles.filter((r) => r === "demo").length;
@@ -710,9 +735,9 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
       const everyMax = brand ? Math.min(houseEvery, brand.changeEveryS) : houseEvery;
       const holdMax = brand ? Math.min(houseHold, Math.max(1.5, brand.changeEveryS * 1.5)) : houseHold;
       const heroLimit = brand && brand.longestHoldS >= 2 ? Math.min(heroMax, brand.longestHoldS) : heroMax;
-      const ideaRoles = new Set(["statement", "hero", "demo", "payoff", "proof", "turn"]);
+      const ideaRoles = new Set(["statement", "hero", "demo", "payoff", "proof", "turn", "open", "rung", "ways_in"]);
       // in a one-feature film every UI step of the proof beyond its first is one more thing the viewer learns
-      const ideas = beats.filter((b, i) => b.idea === true || ideaRoles.has(roles[i])).length + beats.reduce((a, b, i) => a + (roles[i] === "proof" ? Math.max(0, uiOf(b).length - 1) : 0), 0);
+      const ideas = beats.filter((b, i) => b.idea === true || ideaRoles.has(roles[i])).length + beats.reduce((a, b, i) => a + (roles[i] === "proof" || roles[i] === "rung" ? Math.max(0, uiOf(b).length - 1) : 0), 0);
       const t = p.tempo && typeof p.tempo === "object" ? p.tempo : null;
       if (!t) g9.push("tempo missing: set tempo { ideas, change_every_s, longest_hold_s, source: \"brand film\" | \"house\" } (references/script.md pass 0)");
       else {
@@ -745,10 +770,57 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
 
     // G10: one feature, one scenario (references/script.md pass 0): the viewer's before, the task done in the real UI,
     // the after with the brand, one action; every beat's picture and its UI cause and effect; the two-way read
-    {
+    if (isLadder) {
+      const g10 = [], w10 = [];
+      const wc = (x) => String(x || "").trim().split(/\s+/).filter(Boolean).length;
+      const verb = String((p.refrain && p.refrain.verb) || "").trim();
+      if (!verb) g10.push("refrain.verb missing: { verb, pattern } (the one verb every title carries, e.g. { verb: \"Ask\", pattern: \"Ask <it to> <highlight>\" })");
+      const hasVerb = (b) => new RegExp(`\\b${esc(verb.toLowerCase())}`, "i").test(String(b.on_screen || ""));
+      const idx = (r) => beats.map((b, i) => (roles[i] === r ? i : -1)).filter((i) => i >= 0);
+      const rungs = idx("rung").map((i) => ({ b: beats[i], i }));
+      const [lo, hi] = rungRange(lengthS);
+      if (rungs.length < lo || rungs.length > hi) g10.push(`rungs: ${rungs.length} for a ${Math.round(lengthS)} s film (${lo}-${hi} rungs: films up to 35 s 3-4, 36-60 s 4-6, over 60 s 6-8)`);
+      if (!idx("open").length) w10.push("no open beat (role: \"open\": the refrain arrives, the product on screen within 3 s)");
+      if (!idx("close").length) g10.push("close beat missing (role: \"close\": \"<verb> anything\" or the product's own line, then the logo / end line)");
+      if (verb) {
+        const noVerb = beats.map((b, i) => ({ b, i })).filter(({ b, i }) => ["open", "rung", "close"].includes(roles[i]) && !hasVerb(b)).map(({ b, i }) => `${i + 1} ${b.name} ("${b.on_screen || ""}")`);
+        if (noVerb.length) g10.push(`title without the refrain verb "${verb}": ${noVerb.join("; ")} (only the ways_in beat may use other verbs)`);
+      }
+      const nouns = rungs.map(({ b }) => useNouns(b.use));
+      rungs.forEach(({ b, i }) => {
+        const u = String(b.use || "").trim();
+        if (!u) g10.push(`rung ${i + 1} ${b.name}: use missing (a distinct everyday use, 2-6 words)`);
+        else if (wc(u) < 2 || wc(u) > 6) w10.push(`rung ${i + 1} ${b.name}: use "${u}" is ${wc(u)} words (2-6)`);
+      });
+      for (let a = 0; a < rungs.length; a++) for (let c = a + 1; c < rungs.length; c++) {
+        const shared = [...nouns[a]].filter((w) => nouns[c].has(w));
+        if (shared.length) g10.push(`rungs ${rungs[a].i + 1} and ${rungs[c].i + 1} share the use noun "${shared[0]}" ("${rungs[a].b.use}" / "${rungs[c].b.use}"): every rung is a different everyday use`);
+      }
+      const lv = rungs.map(({ b }) => Number(b.level));
+      if (rungs.length && (lv.some((x) => !Number.isFinite(x)) || lv.some((x, i) => i && x <= lv[i - 1]))) g10.push(`rung level must be a number, strictly increasing from simple to done-for-you (got ${lv.map((x) => (Number.isFinite(x) ? x : "?")).join(", ")})`);
+      const big = rungs.filter(({ b }) => Number(b.duration_s) > 0.35 * lengthS).map(({ b, i }) => `${i + 1} ${b.name} (${b.duration_s} s of ${Math.round(lengthS)} s)`);
+      if (big.length) g10.push(`rung over 35% of the film: ${big.join("; ")} (a ladder keeps moving)`);
+      const noUi = rungs.filter(({ b }) => !uiOf(b).some((u) => /→|->|:|\bthen\b|\bopens?\b|\bappears?\b|\blands?\b/i.test(u))).map(({ b, i }) => `${i + 1} ${b.name}`);
+      if (noUi.length) g10.push(`rung(s) without ui cause and effect in ui[] ("type the question → the answer builds line by line"): ${noUi.join(", ")}`);
+      const badUi = beats.flatMap((b) => uiOf(b)).filter((u) => !/→|->|:|\bthen\b|\bopens?\b|\bappears?\b|\blands?\b/i.test(u));
+      if (badUi.length) g10.push(`ui entries need a cause and its effect: ${badUi.slice(0, 2).map((u) => `"${u}"`).join(", ")}`);
+      const noPic = beats.map((b, i) => (!String(b.picture || "").trim() ? `${i + 1} ${b.name}` : null)).filter(Boolean);
+      if (noPic.length) g10.push(`beat(s) without a picture (one sentence: what the viewer sees happen): ${noPic.join(", ")}`);
+      const INV = /\b(placeholder|generic (cards?|boxes|page|screen|output|result)|(grey|gray|purple|lavender|empty) boxes|boxes standing in|dummy (ui|screen|page|data)|fake (ui|screen|page|output)|invented (page|screen|output|ui)|lorem)\b/i;
+      const inv = beats.map((b, i) => (INV.test(`${b.visual || ""} ${b.picture || ""} ${uiOf(b).join(" ")}`) ? `${i + 1} ${b.name}` : null)).filter(Boolean);
+      if (inv.length) g10.push(`invented output screen in beat(s) ${inv.join(", ")}: the result is the product's real UI`);
+      rungs.forEach(({ b, i }) => {
+        if (wc(b.on_screen) > 6) w10.push(`rung ${i + 1} ${b.name}: title "${b.on_screen}" is ${wc(b.on_screen)} words (6 at most)`);
+        const h = String(b.highlight || "").trim();
+        if (!h) w10.push(`rung ${i + 1} ${b.name}: highlight missing (the one word the title card emphasises)`);
+        else if (!new RegExp(`\\b${esc(h.toLowerCase())}`).test(norm(b.on_screen))) w10.push(`rung ${i + 1} ${b.name}: highlight "${h}" is not in its title`);
+      });
+      warnings.push(...w10);
+      gate("G10", "Ladder (a refrain verb, distinct everyday uses that escalate, each a real UI cause and effect, a close)", g10, { shape: "ladder", refrain: verb || null, rungs: rungs.length, rung_range: [lo, hi] });
+    } else {
       const g10 = [];
       const f = p.feature && typeof p.feature === "object" ? p.feature : null;
-      if (!f) g10.push("feature missing: { name, url, viewer, task, before, after } for the ONE feature this film is about (the user's named one, else the newest launch, else the core surface)");
+      if (!f) g10.push("feature missing: { name, url, viewer, task, before, after } for the ONE feature this film is about (the user's named one, else the newest launch, else the core surface); a general product launch is a ladder instead: set shape \"ladder\", a refrain {verb, pattern} and open / rung / close beats");
       else {
         for (const k of ["name", "url", "viewer", "task", "before", "after"]) if (!String(f[k] || "").trim()) g10.push(`feature.${k} missing`);
         if (/\s(and|&|\+)\s|,|\//i.test(String(f.name || ""))) g10.push(`feature.name "${f.name}" names more than one feature: a launch film is about ONE feature (pick the user's named one, else the newest launch)`);
@@ -840,6 +912,63 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     const frag = nt && lines.find((l) => l === nt || l.startsWith(`${nt} `));
     if (frag) g8.push(`title "${title}" is the start of an on-screen line ("${frag}"): name the idea instead`);
     gate("G8", "The aim (what the film achieves, how it gets there, a title that names the idea)", g8);
+  }
+
+
+  // G11: every line shows (references/script.md "The show column"): each on-screen line has a motion that MEANS it, built from the
+  // product's UI or the film's one actor; words and UI share the frame and touch; lines change in place. Errors on launch / promo /
+  // brand films, warnings elsewhere.
+  {
+    const g11 = [];
+    const strict = !!(opts.showStrict || opts.productFirst || p.product_first === true);
+    const SW = new Set("the a an and or of to in on at by for with from is it its this that as be are was you your we our i my me not no so but if then than into onto over up out all any one".split(" "));
+    const stem = (w) => w.replace(/(ing|ed|es|s)$/, "");
+    const toks = (x) => norm(x).replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w && !SW.has(w) && (w.length >= 3 || /\d/.test(w))).map(stem);
+    const wc = (x) => String(x || "").trim().split(/\s+/).filter(Boolean).length;
+    const BUILT = ["product ui", "actor", "type", "object", "photo"];
+    const TOUCH_RE = /\b(through|splits?|strikes?|struck|pushes|pushed|wraps?|rides?|under|across|into|slices?|lights?|lit|crosses|cuts? through|swells?|lands? on|punch(?:es)?)\b/i;
+    const SWAP_RE = /\b(swaps?|swapped|becomes?|turns? into|changes? to|replaced|in place)\b/i;
+    const act = p.actor && typeof p.actor === "object" ? p.actor : null;
+    if (!act || !String(act.what || "").trim() || !String(act.does || "").trim()) (strict ? g11 : warnings).push(`no-actor: pitch.actor { what, does } missing (the one persistent element that carries the film: an orb, the composer, a dot, the cursor, a pill)`);
+    let rows = 0, product = 0, touch = false, swap = false;
+    const lastBeatWithRow = (() => { for (let i = beats.length - 1; i >= 0; i--) if (Array.isArray(beats[i].shows) && beats[i].shows.length) return i; return -1; })();
+    beats.forEach((b, i) => {
+      const nm = `beat ${i + 1} "${b.name || ""}"`;
+      const shows = Array.isArray(b.shows) ? b.shows : [];
+      if (String(b.on_screen || "").trim() && !shows.length) { g11.push(`no-shows: ${nm} has on-screen words and no shows (one row per on-screen line: { line, show, built_from, handoff })`); return; }
+      shows.forEach((r, j) => {
+        const at = `${nm} shows[${j}]`;
+        rows++;
+        if (!r || typeof r !== "object") { g11.push(`show-incomplete: ${at} is not an object`); return; }
+        const line = String(r.line || "").trim(), show = String(r.show || "").trim(), bf = norm(r.built_from).trim();
+        if (!line) g11.push(`show-incomplete: ${at} has no line`);
+        if (!show) g11.push(`show-incomplete: ${at} has no show`);
+        if (!bf) g11.push(`show-incomplete: ${at} has no built_from (${BUILT.join(" | ")})`);
+        else if (!BUILT.includes(bf)) g11.push(`show-incomplete: ${at} built_from "${r.built_from}" is not one of ${BUILT.join(" | ")}`);
+        if (bf === "product ui" || bf === "actor") product++;
+        if (show) {
+          if (isLabelOnly(show)) g11.push(`show-label-only: ${at} "${show}" names a technique and nothing else: say what the element does and how the words and the UI touch`);
+          else if (wc(show) < 8) g11.push(`show-short: ${at} is ${wc(show)} words (8 at least): say the element, the action and how the words and the UI touch`);
+          const hi = String(r.highlight || b.highlight || "").trim();
+          const lt = new Set(toks(line)), st = toks(show);
+          const hit = st.some((w) => lt.has(w)) || (hi && toks(hi).some((w) => st.includes(w)));
+          if (line && !hit) g11.push(`show-unbound: ${at} shares no word with its line "${line}" and does not name the highlight word: a show that fits any line is not this line's show`);
+          if (TOUCH_RE.test(show)) touch = true;
+          if (SWAP_RE.test(show)) swap = true;
+        }
+        const isLast = i === lastBeatWithRow && j === shows.length - 1;
+        if (!String(r.handoff || "").trim() && !isLast) g11.push(`no-handoff: ${at} has no handoff (how it becomes the next line: what carries, what changes in place)`);
+      });
+    });
+    if (rows && (opts.productFirst || p.product_first === true)) {
+      if (product / rows < 0.6) g11.push(`show-off-product: ${product} of ${rows} shows are built from the product UI or the actor (60% at least on a product film): the type and the object may not carry the film`);
+    }
+    if (rows) {
+      if (!touch) warnings.push("no-touch: no show has the words and the UI touching (use verbs like through, splits, strikes, pushes, wraps, rides, under, across, into)");
+      if (!swap) warnings.push("no-swap: no show changes a line in place (swap, becomes, turns into, changes to)");
+    }
+    if (strict) gate("G11", "Every line shows (a motion that means the line, built from the product UI or the film's one actor, words and UI touching)", g11, { rows, product_or_actor: product });
+    else for (const r of g11) warnings.push(r);
   }
 
   // scores: self-assessed, then adjusted by rule

@@ -30,6 +30,9 @@
 //     scripts/tests/presenter.mjs (key, beats, check, plates, stills, build), each skipped with a note when absent
 // 21. the Moves pass: isLabelOnly, moves.mjs (pack, check, check-verdict, payload, choose, record, and rough/check-rough when Chrome and ffmpeg are there),
 //     the crew's moves phases and roles, the score accounting against story/moves.json; fixtures in scripts/tests/fixtures/moves/
+// 22. motion grammars: grammar.mjs (list, show, check, pick, write, the brand palette merge), the score's grammar rules (grammar-missing, technique-unknown,
+//     technique-repeat, technique-thin, frame-device-missing), the builders' briefs, and the design desk's grammar.json gate (grammar-missing, grammar-invalid,
+//     grammar-not-flat, grammar-repeat); fixtures in scripts/tests/fixtures/grammars/ (RASANAI_GRAMMAR_LIBRARY); no grammar file, no new errors
 // 17. lyric videos: the treatment gate and the crew's song route, lyrics.mjs (check, audio, align when whisper is there), the RasanMusic runtime in a page, the film finish (grade, blur)
 import fs from "node:fs";
 import os from "node:os";
@@ -39,7 +42,8 @@ import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "rasa-selftest-"));
-const env = { ...process.env, RASANAI_HOME: path.join(TMP, "home"), RASANAI_MODEL: "claude-opus-5-5" };
+// no grammar library by default (back-compat: looks and scores ask nothing of a grammar); section 22 and the design desk's grammar block point at fixtures
+const env = { ...process.env, RASANAI_HOME: path.join(TMP, "home"), RASANAI_MODEL: "claude-opus-5-5", RASANAI_GRAMMAR_LIBRARY: path.join(TMP, "no-grammars") };
 delete env.RASANAI_CONSOLE_HEADLESS; // the console cases below start a real server unless they opt in
 const quick = process.argv.includes("--quick");
 let failed = 0;
@@ -312,6 +316,16 @@ if (url) {
   fs.writeFileSync(sj, JSON.stringify({ ...S, scenes: S.scenes.map((x, i) => (i === 1 ? { ...x, transition_in: "spin-wildly", duration: 0 } : x)) }));
   const bad2 = node("scenes.mjs", ["--scenes", sj, "--route", "product-launch-video", "--out", path.join(TMP, "plan-bad")]);
   ok("scenes.mjs rejects an unknown transition and a zero duration", bad2.status === 1 && /spin-wildly/.test(bad2.stderr) && /positive/.test(bad2.stderr), bad2.stderr);
+  // the story's own roles (ladder open/rung/ways_in/close, scenario proof/turn, older hero/demo/payoff) map onto the workflow's scene types
+  const roleScenes = ["open", "rung", "ways_in", "close", "proof", "turn", "hero", "demo", "payoff"].map((type, i) => ({ title: `R${i + 1}`, on_screen: `Line ${i + 1}`, voiceover: `Say ${i + 1}.`, duration: 3, type }));
+  fs.writeFileSync(sj, JSON.stringify({ ...S, scenes: roleScenes }));
+  const rm = node("scenes.mjs", ["--scenes", sj, "--route", "product-launch-video", "--out", path.join(TMP, "plan-roles")]);
+  let rtl = {}; try { rtl = JSON.parse(fs.readFileSync(path.join(TMP, "plan-roles", "timeline.json"), "utf8")); } catch {}
+  const rtypes = ((rtl.scenes || rtl.frames || []).map((x) => x.type)).join();
+  ok("scenes.mjs maps story roles onto scene types (open hook, rung feature_showcase, ways_in benefit_highlight, close cta, hero product_intro)", rm.status === 0 && rtypes === "hook,feature_showcase,benefit_highlight,cta,feature_showcase,benefit_highlight,product_intro,feature_showcase,benefit_highlight", rm.stderr + rtypes);
+  fs.writeFileSync(sj, JSON.stringify({ ...S, scenes: S.scenes.map((x, i) => (i === 1 ? { ...x, type: "spin" } : x)) }));
+  const rb = node("scenes.mjs", ["--scenes", sj, "--route", "product-launch-video", "--out", path.join(TMP, "plan-roles-bad")]);
+  ok("scenes.mjs still rejects a type that is neither a scene type nor a story role", rb.status === 1 && /type "spin"/.test(rb.stderr), rb.stderr);
 
   const { contractText, upsertContract } = await import(path.join(HERE, "lib", "contract.mjs"));
   const md = fs.readFileSync(path.join(d, "motion.md"), "utf8");
@@ -585,6 +599,11 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   const scores = { originality: 4, clarity: 4, fit: 5, memorability: 4, feasibility: 5 };
   const aim = { takeaway: "Lintel reads every line so nothing slips through at 2 am.", feel: "Relieved", action: "Install Lintel on one repo", audience: "Engineers who approve pull requests" };
   const good = { title: "The unread line", aim, approach: "Starts at the 2 am outage, then rewinds to the one line nobody read.", logline: "A 2 am outage rewinds to the one line nobody read.", device: "rewind", beats: [beat("The pager alert", "02:14 · checkout-api down", 4), beat("Rewind the postmortem", "deploy ← merge", 7), beat("The LGTM comment un-types", "LGTM · 11:04 pm", 6), beat("The diff, unread", "one hunk", 6), beat("Lintel reads it", "Apply suggestion", 6, { turn: true }), beat("The pager stays dark", "Lintel reads every line.", 7)], first_4s: "A pager alert that plays backwards", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "the LGTM and the comment label are Lintel's own" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the reverse scrub", needs_live_action: false }, scores };
+  // G11: one show row per on-screen line (the show names the line's own word, how the words and the UI touch, and what changes in place)
+  const showRow = (line, extra = {}) => ({ line, show: `The review cursor rides under "${line}" and the words swap in place as the Lintel thread scrolls`, built_from: "product UI", handoff: "the line becomes the next one in place", ...extra });
+  const withShows = (beats) => beats.map((b, i) => (String(b.on_screen || "").trim() ? { ...b, shows: [showRow(b.on_screen, i === beats.length - 1 ? { handoff: "end" } : {})] } : b));
+  good.actor = { what: "the review cursor", does: "rides under every line and opens each next view" };
+  good.beats = withShows(good.beats);
   const bad = { title: "Meet Lintel", logline: "Meet Lintel, the AI reviewer that supercharges your team.", device: "before-after", beats: [beat("Hook", "PRs wait 2 days?", 3), beat("Problem montage", "Code review is broken", 3), beat("Introducing Lintel", "Introducing Lintel", 3), beat("Feature 1", "AI comments", 3), beat("Feature 2", "Suggestions", 3), beat("Feature 3", "Integrations", 3), beat("Social proof", "Trusted by 500 teams", 3), beat("CTA", "Try it free", 3)], first_4s: "a stat", clear_by_s4: true, swap_test: { competitor: "Rival", result: "survives" }, honest_demo: true, scores };
   fs.writeFileSync(path.join(sd, "good.json"), JSON.stringify(good));
   fs.writeFileSync(path.join(sd, "bad.json"), JSON.stringify(bad));
@@ -748,6 +767,96 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       const order = scen(); [order[1], order[2]] = [order[2], order[1]];
       ok("one feature: G10 wants hook, proof, turn, cta in that order", gof(run10({ beats: order }), "G10").pass === false);
     }
+
+    // G10, the ladder: a refrain verb, rungs of distinct everyday uses that escalate, a real UI cause and effect per rung, a close
+    {
+      const gof = (r, id) => { let j = { gates: [] }; try { j = JSON.parse(r.stdout); } catch {} return (j.gates || []).find((x) => x.id === id) || { pass: null, reasons: [r.stdout.slice(0, 300) + r.stderr.slice(0, 300)] }; };
+      const lb = (name, role, on_screen, duration_s, more = {}) => ({ name, role, on_screen, visual: `The real Lintel window: ${name}`, picture: `the viewer sees ${name} happen in the real Lintel window`, duration_s, ...more });
+      const rungs = () => [
+        { ...lb("Rung 1", "rung", "Review one diff", 6, { use: "a small diff", highlight: "one", level: 1, ui: ["open a diff → the Lintel review window appears over it", "click Apply → the change lands in the diff"] }) },
+        { ...lb("Rung 2", "rung", "Review longer threads", 6, { use: "a long thread", highlight: "longer", level: 2, ui: ["open a thread → the comments stack in the Lintel pane", "click Resolve → the thread folds"] }) },
+        { ...lb("Rung 3", "rung", "Review it for security", 6, { use: "security audit", highlight: "security", level: 3, ui: ["type audit → the Lintel findings appear", "click Fix → the patch lands in the diff"] }) },
+        { ...lb("Rung 4", "rung", "Review and get it done", 6, { use: "release checklist", highlight: "done", level: 4, ui: ["type ship → the Lintel checklist ticks itself off", "click Merge → the pull request closes"] }) },
+      ];
+      const lbeats = () => [lb("Open", "open", "Review with Lintel", 3, { changes: ["the Lintel window opens"] }), ...rungs(), lb("Close", "close", "Review anything", 3)];
+      const refrain = { verb: "Review", pattern: "Review <it> <highlight>" };
+      const run10l = (extra = {}, drop = []) => {
+        const o = { title: "Review, four ways", logline: "One verb, four real uses, all in Lintel.", aim, approach: "Review is the refrain; each rung is a different real use in the Lintel window, escalating to done-for-you.", device: "escalation", shape: "ladder", refrain, beats: lbeats(), tempo: { ideas: 6, change_every_s: 2.2, longest_hold_s: 4, source: "house" }, first_4s: "the real Lintel window opens on a diff", clear_by_s4: true, swap_test: { competitor: "Rival", result: "breaks", why: "Review in Lintel is its own verb" }, grounded_claims: [], honest_demo: true, build: { hardest_shot: "the UI cause and effect" }, scores, last_line: "Lintel", end_line_largest: true, ...extra };
+        for (const k of drop) delete o[k];
+        const fl = path.join(sd, `t10l-${Math.random().toString(36).slice(2)}.json`);
+        fs.writeFileSync(fl, JSON.stringify(o));
+        return node("story.mjs", ["check", "--pitch", fl, "--truth", ptruth]);
+      };
+      const withB = (fn) => { const b = lbeats(); fn(b); return b; };
+      const why = (r) => gof(r, "G10").reasons.join(" | ");
+      const lg = run10l();
+      ok("ladder: a refrain, 4 distinct rungs with levels, UI cause and effect and a close passes G10 (and G7)", gof(lg, "G10").pass === true && gof(lg, "G7").pass === true, why(lg) + " || " + gof(lg, "G7").reasons.join(" | "));
+      ok("ladder: a launch pitch with no shape and no feature block defaults to the ladder", gof(run10l({}, ["shape"]), "G10").shape === "ladder");
+      const f1 = run10l({}, ["refrain"]);
+      ok("ladder: G10 fails a missing refrain.verb", gof(f1, "G10").pass === false && /refrain\.verb missing/.test(why(f1)), why(f1));
+      const f2 = run10l({ beats: withB((b) => { b[2].on_screen = "Study longer threads"; }) });
+      ok("ladder: G10 fails a rung title without the verb (the ways_in beat may use other verbs)", gof(f2, "G10").pass === false && /without the refrain verb "Review"/.test(why(f2)), why(f2));
+      const wi = withB((b) => { b.splice(5, 0, lb("Ways in", "ways_in", "Type it, say it, snap it", 3, { ui: ["press the mic → the text types itself"] })); });
+      const fw = run10l({ beats: wi, tempo: { ideas: 7, change_every_s: 2.2, longest_hold_s: 4, source: "house" } });
+      ok("ladder: a ways_in beat may use other verbs", gof(fw, "G10").pass === true, why(fw));
+      const f3 = run10l({ beats: withB((b) => { b.splice(3, 2); }) });
+      ok("ladder: G10 fails too few rungs for the length", gof(f3, "G10").pass === false && /rungs: 2 for a/.test(why(f3)), why(f3));
+      const many = withB((b) => { ["flight plan", "garden shed", "tax return", "wedding speech"].forEach((u, i) => b.splice(5 + i, 0, { ...b[2], name: `Extra ${i}`, use: u, level: 5 + i, duration_s: 2 })); });
+      const f4 = run10l({ beats: many });
+      ok("ladder: G10 fails too many rungs for the length (a 38 s film takes 4-6)", gof(f4, "G10").pass === false && /rungs: 8 for a/.test(why(f4)), why(f4));
+      const f5 = run10l({ beats: withB((b) => { b[3].use = "a long diff"; }) });
+      ok("ladder: G10 fails two rungs that share a use noun (a small diff / a long diff)", gof(f5, "G10").pass === false && /share the use noun "diff"/.test(why(f5)), why(f5));
+      const f6 = run10l({ beats: withB((b) => { b[3].level = 1; }) });
+      ok("ladder: G10 fails levels that do not strictly increase", gof(f6, "G10").pass === false && /strictly increasing/.test(why(f6)), why(f6));
+      const f7 = run10l({ beats: withB((b) => { b[2].duration_s = 14; }) });
+      ok("ladder: G10 fails one rung over 35% of the film", gof(f7, "G10").pass === false && /over 35%/.test(why(f7)), why(f7));
+      const f8 = run10l({ beats: withB((b) => { delete b[2].ui; }) });
+      ok("ladder: G10 fails a rung without ui cause and effect", gof(f8, "G10").pass === false && /without ui cause and effect/.test(why(f8)), why(f8));
+      const f9 = run10l({ beats: withB((b) => { b.splice(b.findIndex((x) => x.role === "close"), 1); }) });
+      ok("ladder: G10 fails a film with no close beat", gof(f9, "G10").pass === false && /close beat missing/.test(why(f9)), why(f9));
+      const w1 = run10l({ beats: withB((b) => { b[1].on_screen = "Review one small diff in the Lintel app right now"; b[2].highlight = "nope"; }) });
+      ok("ladder: a title over 6 words and a highlight not in its title are warnings, not G10 errors", /is \d+ words \(6 at most\)/.test(w1.stdout) && /highlight \\?"nope\\?" is not in its title/.test(w1.stdout) && !/title.*6 words|highlight/.test(why(w1)), why(w1));
+      const pk = node("story.mjs", ["pick", "--truth", ptruth, "--format", "launch", "--seed", "k"]);
+      let pj = {}; try { pj = JSON.parse(pk.stdout); } catch {}
+      ok("ladder: pick --format launch offers the ladder as the structure for Sure, Bold and Wild", pj.shape === "ladder" && /refrain verb/.test(pj.shape_rule || "") && (pj.picks || []).length === 3 && pj.picks.every((x) => x.structure === "ladder" && /Sure|Bold|Wild/.test(x.ladder_variant)), pk.stdout.slice(0, 300));
+      const pk2 = node("story.mjs", ["pick", "--truth", ptruth, "--format", "launch", "--seed", "k", "--feature", "Sites"]);
+      let pj2 = {}; try { pj2 = JSON.parse(pk2.stdout); } catch {}
+      ok("ladder: pick with --feature (one feature named) keeps the scenario shape", pj2.shape === "scenario" && !(pj2.picks || []).some((x) => x.structure), pk2.stdout.slice(0, 200));
+
+      // G11, every line shows: a motion that MEANS each line, built from the product UI or the actor, words and UI touching
+      {
+        const sh = (b, rows) => b.map((x) => ({ ...x, shows: rows(x) }));
+        const showAll = (b, f = {}) => sh(b, (x) => (String(x.on_screen || "").trim() ? [showRow(x.on_screen, f)] : []));
+        const actor = { what: "the review cursor", does: "rides under every line and opens each next view" };
+        const g11 = (extra = {}, drop = []) => run10l({ actor, beats: showAll(lbeats()), ...extra }, drop);
+        const why11 = (r) => gof(r, "G11").reasons.join(" | ");
+        const g1 = g11();
+        ok("shows: a ladder with an actor and a show row per line (bound to its line, with handoffs) passes G11", gof(g1, "G11").pass === true, why11(g1));
+        const g2 = g11({ beats: lbeats() });
+        ok("shows: G11 fails beats with on-screen words and no shows (no-shows)", gof(g2, "G11").pass === false && /no-shows/.test(why11(g2)), why11(g2));
+        const g3 = g11({}, ["actor"]);
+        ok("shows: G11 fails a launch pitch with no actor (no-actor)", gof(g3, "G11").pass === false && /no-actor/.test(why11(g3)), why11(g3));
+        const g4 = g11({ beats: sh(lbeats(), (x) => [{ ...showRow(x.on_screen), show: "match cut to scene 3" }]) });
+        ok("shows: G11 fails a label-only show", gof(g4, "G11").pass === false && /show-label-only/.test(why11(g4)), why11(g4));
+        const g5 = g11({ beats: sh(lbeats(), (x) => [{ ...showRow(x.on_screen), show: "a cursor glides over" }]) });
+        ok("shows: G11 fails a show under 8 words (show-short)", gof(g5, "G11").pass === false && /show-short/.test(why11(g5)), why11(g5));
+        const g6 = g11({ beats: sh(lbeats(), (x) => [{ ...showRow(x.on_screen), show: "A soft glow drifts across the dark background while smooth particles float around slowly" }]) });
+        ok("shows: G11 fails a show that shares no word with its line (show-unbound: it would fit any line)", gof(g6, "G11").pass === false && /show-unbound/.test(why11(g6)), why11(g6));
+        const g6b = g11({ beats: sh(lbeats(), (x) => [{ ...showRow(x.on_screen), highlight: "glow", show: "A soft glow drifts across the dark background while smooth particles float around slowly" }]) });
+        ok("shows: a show that names the line's highlight word is bound", !/show-unbound/.test(why11(g6b)), why11(g6b));
+        const g7 = g11({ beats: sh(lbeats(), (x) => [showRow(x.on_screen, { built_from: "type" })]) });
+        ok("shows: G11 fails a product film where under 60% of the shows come from the UI or the actor (show-off-product)", gof(g7, "G11").pass === false && /show-off-product/.test(why11(g7)), why11(g7));
+        const g8 = g11({ beats: sh(lbeats(), (x) => [showRow(x.on_screen, { handoff: "" })]) });
+        ok("shows: G11 wants a handoff on every row except the film's last (no-handoff)", gof(g8, "G11").pass === false && /no-handoff/.test(why11(g8)) && (why11(g8).match(/no-handoff/g) || []).length === 5, why11(g8));
+        const g9 = g11({ beats: sh(lbeats(), (x) => [showRow(x.on_screen, { show: `The review cursor sits beside "${x.on_screen}" while the Lintel thread scrolls past quietly` })]) });
+        ok("shows: no touching verb and no in-place change are warnings, not errors", gof(g9, "G11").pass === true && /no-touch/.test(g9.stdout) && /no-swap/.test(g9.stdout), why11(g9));
+        const el = path.join(sd, "t11-explainer.json");
+        fs.writeFileSync(el, JSON.stringify({ title: "Review, four ways", logline: "One verb, four real uses, all in Lintel.", aim, approach: "Review is the refrain; each rung is a different real use in the Lintel window, escalating to done-for-you.", device: "escalation", beats: lbeats(), scores }));
+        const ex = node("story.mjs", ["check", "--pitch", el, "--format", "explainer"]);
+        let exj = {}; try { exj = JSON.parse(ex.stdout); } catch {}
+        ok("shows: off a launch, promo or brand film the show column only warns (no G11 gate)", !(exj.gates || []).some((x) => x.id === "G11") && (exj.warnings || []).some((w) => /no-shows/.test(w)) && (exj.warnings || []).some((w) => /no-actor/.test(w)), ex.stdout.slice(0, 300) + ex.stderr);
+      }
+    }
     // the museum script of the real failed film is refused by the gate when run product-first
     const mu = node("story.mjs", ["check", "--pitch", path.join(sd, "script-good.json"), "--length", "45", "--narrated", "--product-first"]);
     let rmu = { gates: [] };
@@ -773,7 +882,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       ok("lint: the design desk reference forbids outside references for a branded film and names the FILM-STYLE citation", /film_style/.test(dd) && /Paula Scher/.test(dd) && /unbranded films only/.test(dd) && /film_style_takes/.test(dd));
       ok("lint: the story references carry the launch-film structure (hook in 1 to 3 s, reveal, demos, payoff, end card; scripts differ in emphasis and order only)", /launch-film\.md/.test(st) && /launch-film\.md/.test(sc) && /emphasis and order/.test(st) && /emphasis and order/.test(sc) && /payoff_line/.test(st) && /1 to 3 s/.test(sc));
       ok("lint: the crew reference lists the brand film analyst and the style gate", /brand-film-analyst/.test(cr) && /brandfilm\.mjs compare/.test(cr));
-      ok("lint: the analyst, Motion Director, critic and frame designer prompts carry the brand film rules", /type scale/.test(an) && /Substitute/.test(an) && /contact sheets/.test(an) && /FILM-STYLE\.md` FIRST/.test(md) && /no 3D or hybrid scenes/.test(md) && /style_match/.test(cr2) && /brandfilm\.mjs" compare|brandfilm\.mjs\" compare/.test(cr2 + fr), "agents");
+      ok("lint: the analyst, Motion Director, critic and frame designer prompts carry the brand film rules", /type scale/.test(an) && /Substitute/.test(an) && /contact sheets/.test(an) && /FILM-STYLE\.md` FIRST/.test(md) && /never means no 3D or hybrid scenes: it means flat-style 3D/.test(md) && /style_match/.test(cr2) && /brandfilm\.mjs" compare|brandfilm\.mjs\" compare/.test(cr2 + fr), "agents");
     }
     const ban = rd("taxonomy/devices.json");
     ok("lint: the catalog still has the conceit devices the product-first filter keeps out (so the filter is doing something)", /"museum-exhibit"/.test(ban) && /"cover-version"/.test(ban));
@@ -962,7 +1071,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       const mb = J2(C(["brief", "--run", run, "--role", "motion-director", "--key", "score"]));
       const mbt = mb.prompt ? fs.readFileSync(path.join(ws, mb.prompt), "utf8") : "";
       ok("crew: a branded launch film skips the outside-reference design researcher and the precedent researcher (the brand film covers both) and waits for the brand film card instead", !bph.includes("design-research") && !bm.some((m) => m.startsWith("precedent-researcher")) && /FILM-STYLE\.md\) is accepted/.test(ph("design-systems").when), bph.join(","));
-      ok("crew: the Motion Director brief lists FILM-STYLE.md first among its inputs and says flat means no 3D, blur or grain", /brand_film/.test(mbt) && mbt.indexOf("FILM-STYLE.md: the brand film") > -1 && mbt.indexOf("FILM-STYLE.md: the brand film") < mbt.indexOf("design system (its Motion") && /no 3D, no blur, no grain/.test(mbt) && /READ \S*FILM-STYLE\.md\S* FIRST|READ FIRST/.test(mbt), mbt.slice(mbt.indexOf("Dispatch"), mbt.indexOf("Dispatch") + 600));
+      ok("crew: the Motion Director brief lists FILM-STYLE.md first among its inputs and says flat keeps 3D but in the flat style (no blur, grain or glow)", /brand_film/.test(mbt) && mbt.indexOf("FILM-STYLE.md: the brand film") > -1 && mbt.indexOf("FILM-STYLE.md: the brand film") < mbt.indexOf("design system (its Motion") && /flat style/.test(mbt) && /Brand-flat 3D/.test(mbt) && /READ \S*FILM-STYLE\.md\S* FIRST|READ FIRST/.test(mbt), mbt.slice(mbt.indexOf("Dispatch"), mbt.indexOf("Dispatch") + 600));
       const bfd = path.join(run, "brand-film");
       fs.mkdirSync(bfd, { recursive: true });
       const card = { version: 1, brand: "OpenAI", source: "Refreshed.", measured: { palette: [{ hex: "#fafafa", share: 0.77 }, { hex: "#0a0a0a", share: 0.04 }], background: { overall: "#fafafa" } }, slots: { typefaces: "", motif: "", layout: "", motionVocabulary: "", photographyStyle: "", endCard: "", notes: "" }, filled: false };
@@ -1022,6 +1131,33 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   const np = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
   ok("plan: a direct film's score must carry the plan (ground, current, one brandReveal, the feature, start/end that follow the durations, pictures, two carried seams)", np.status === 2 && ["ground missing", "current missing", "brandReveal must name exactly one", "feature {", "start/end", "need line", "carry at least 2"].every((w) => np.stdout.includes(w)), np.stdout.slice(0, 600));
   put(good);
+
+  // a ladder film (the chosen script's shape) carries a refrain, not a feature block; a scenario film still must
+  fs.mkdirSync(path.join(run, "story"), { recursive: true });
+  const chosenP = path.join(run, "story", "chosen.json");
+  const nofeat = JSON.parse(JSON.stringify(good));
+  delete nofeat.feature;
+  put(nofeat);
+  fs.writeFileSync(chosenP, JSON.stringify({ shape: "ladder", beats: [{ role: "open" }, { role: "rung" }, { role: "rung" }, { role: "close" }] }));
+  const ladF = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+  ok("crew: a ladder film's score needs no feature block", ladF.status === 0 && !/feature \{/.test(ladF.stdout), ladF.stdout.slice(0, 400));
+  fs.writeFileSync(chosenP, JSON.stringify({ shape: "scenario", feature: { name: "Receipt scan" }, beats: [{ role: "hook" }, { role: "proof" }, { role: "turn" }, { role: "cta" }] }));
+  const sf = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+  ok("crew: a scenario film's score still needs its feature block", sf.status === 2 && /feature \{ name, url, viewer, task, before, after \}/.test(sf.stdout), sf.stdout.slice(0, 400));
+  // show-unscored: every show row of the chosen script is realised in a shot (warning each; an error past 30%)
+  const rowsOf = (n) => [1, 2, 3, 4].slice(0, n).map((i) => ({ line: `Line ${i}`, show: "x", built_from: "product UI", handoff: "h" }));
+  const shownScore = (lines) => { const o = JSON.parse(JSON.stringify(nofeat)); o.scenes.forEach((x, i) => { x.shots[0].on_screen = lines[i] ? `${lines[i]} appears` : "a"; }); return o; };
+  fs.writeFileSync(chosenP, JSON.stringify({ shape: "ladder", beats: [{ role: "open", shows: rowsOf(1) }, { role: "rung", shows: [rowsOf(2)[1]] }, { role: "rung", shows: [rowsOf(3)[2]] }, { role: "close", shows: [rowsOf(4)[3]] }] }));
+  put(shownScore(["Line 1", "Line 2", "Line 3", "Line 4"]));
+  const so0 = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+  ok("crew: a score that realises every show row has no show-unscored", so0.status === 0 && !/show-unscored/.test(so0.stdout), so0.stdout.slice(0, 400));
+  put(shownScore(["Line 1", "Line 2", "Line 3", null]));
+  const so1 = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+  ok("crew: one of four show rows unscored is a show-unscored warning, not an error", so1.status === 0 && /show-unscored: the line .{1,2}Line 4/.test(so1.stdout), so1.stdout.slice(0, 400));
+  put(shownScore(["Line 1", "Line 2", null, null]));
+  const so2 = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+  ok("crew: more than 30% of show rows unscored is a show-unscored error (exit 2)", so2.status === 2 && /2 of 4 show rows are not realised/.test(so2.stdout), so2.stdout.slice(0, 400));
+  fs.rmSync(chosenP, { force: true });
   const bad = JSON.parse(JSON.stringify(good));
   delete bad.seams[0].in.speed;
   bad.showreel = [];
@@ -1047,6 +1183,47 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   const n3 = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
   ok("crew: a 3D scene needs its lens, camera legs and light, and a 3D film needs a 3D showreel moment", n3.status === 2 && /camera3d\.lens_mm/.test(n3.stdout) && /light is missing/.test(n3.stdout) && /none of its showreel moments is in a 3D/.test(n3.stdout), n3.stdout.slice(0, 500));
   put(good);
+  // 3D is a technique for any show: a flat brand restricts the STYLE of 3D (flat-3d-style); a film of 20 s or more needs a 3D moment (no-3d-moment)
+  {
+    const bfd3 = path.join(run, "brand-film");
+    fs.mkdirSync(bfd3, { recursive: true });
+    fs.writeFileSync(path.join(bfd3, "FILM-STYLE.json"), JSON.stringify({ version: 1, brand: "OpenAI", slots: { motionVocabulary: "flat: no blur, no grain, no glow; 3D style: matte or unlit materials, clean even light" }, filled: true }));
+    const fs3 = JSON.parse(JSON.stringify(good));
+    fs3.film_style = "brand-film/FILM-STYLE.md";
+    const d3 = fs3.scenes.findIndex((x) => x.space === "3d" || x.space === "hybrid");
+    const flatOk = (o) => { o.scenes.forEach((x) => { if (x.space === "3d" || x.space === "hybrid") { x.materials = "MeshBasicMaterial dots in #0a0a0a, matte"; x.light = "clean even ambient, no rim"; if (x.camera3d) { delete x.camera3d.fstop; delete x.camera3d.motionBlur; } } }); };
+    flatOk(fs3);
+    put(fs3);
+    const f3a = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+    ok("crew: a flat-brand score with a basic-material 3D scene passes (a flat card restricts the style of 3D, not its use)", d3 > -1 && !/flat-3d-style|no 3D or hybrid/.test(f3a.stdout), f3a.stdout.slice(0, 400));
+    const f3b = JSON.parse(JSON.stringify(fs3));
+    f3b.scenes[d3].materials = "chrome glass with bloom"; f3b.scenes[d3].camera3d = { ...(f3b.scenes[d3].camera3d || {}), fstop: 2.8 };
+    put(f3b);
+    const f3c = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+    ok("crew: a flat-brand 3D scene with chrome, bloom or an fstop fails flat-3d-style", f3c.status === 2 && /flat-3d-style/.test(f3c.stdout), f3c.stdout.slice(0, 400));
+    fs.rmSync(bfd3, { recursive: true, force: true });
+    // a 25 s film (every duration doubled, in scenes.json and the score)
+    const ssPath = path.join(run, "scenes.json");
+    const had = fs.readFileSync(ssPath, "utf8");
+    fs.writeFileSync(ssPath, JSON.stringify({ message: "m", scenes: [6, 8, 5, 6].map((d, i) => ({ title: `S${i + 1}`, duration: d, visual: "v" })) }));
+    const n24 = JSON.parse(JSON.stringify(good));
+    n24.scenes.forEach((x, i) => { x.space = "2d"; delete x.camera3d; delete x.light; delete x.materials; x.duration *= 2; x.start *= 2; x.end *= 2; x.shots.forEach((h) => { h.t0 *= 2; h.t1 *= 2; }); });
+    n24.showreel = [{ scene: 1, t: 1, what: "a" }, { scene: 2, t: 1, what: "b" }];
+    n24.duration = 25;
+    n24.depth = { plan: "all flat" };
+    put(n24);
+    const m24 = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+    ok("crew: a 25 s film with no 3D or hybrid scene fails no-3d-moment", m24.status === 2 && /no-3d-moment/.test(m24.stdout), m24.stdout.slice(0, 500));
+    n24.depth = { none_because: 'the line "Twelve months of paper." is a flat ledger: depth would hurt it' };
+    put(n24);
+    const m24b = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+    ok("crew: depth.none_because quoting the script line (20+ chars) clears no-3d-moment", !/no-3d-moment/.test(m24b.stdout), m24b.stdout.slice(0, 500));
+    n24.depth = { none_because: "flat is nicer here and so on and so on" };
+    put(n24);
+    ok("crew: a none_because that quotes no script line does not clear no-3d-moment", /no-3d-moment/.test(C(["check", "--run", run, "--role", "motion-director", "--key", "score"]).stdout));
+    fs.writeFileSync(ssPath, had);
+    put(good);
+  }
   // the score into a storyboard written by scenes.mjs (parsed by the workflow's parser when installed), twice: same file
   const proj = path.join(ws, "videos", "tally");
   const sj = path.join(ws, "scenes-in.json");
@@ -1416,7 +1593,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   // the example system
   const EX = path.join(HERE, "..", "references", "design-desk-example", "Sure");
   // a small specimen page of our own (a layout, a palette, a display face), so fixtures can differ in composition
-  const genSpec = ({ canvas, ink, accent, face, layout, text = "Every receipt, counted.", ease = "power4.out", throws = false, tl = true }) => `<!doctype html><html><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=${face.replace(/ /g, "+")}:wght@700&display=swap" rel="stylesheet"><script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script><style>*{margin:0;box-sizing:border-box}html,body{width:1600px;height:900px;overflow:hidden;background:${canvas}}#root{position:relative;width:1600px;height:900px;background:${canvas};color:${ink};font-family:"${face}",sans-serif}h1{position:absolute;font-size:120px;font-weight:700;line-height:1;${layout === "L" ? "left:80px;top:80px;width:600px" : layout === "B" ? "left:80px;bottom:60px;width:1400px" : "right:60px;top:380px;width:560px;text-align:right;font-size:70px"}}.bars i{position:absolute;background:${ink};${layout === "L" ? "right:0;top:0;bottom:0;width:560px" : layout === "B" ? "left:0;right:0;top:0;height:420px" : "left:0;top:0;bottom:0;width:700px"}}.m{position:absolute;background:${accent};width:140px;height:60px;${layout === "L" ? "left:80px;bottom:80px" : layout === "B" ? "right:80px;bottom:80px" : "left:760px;top:120px"}}</style></head><body><div id="root" data-width="1600" data-height="900"><div class="bars"><i></i></div><h1 id="h">${text}</h1><div class="m" id="m"></div></div><script>${throws ? "nope.missing();" : ""}${tl ? `var tl=gsap.timeline({paused:true});tl.from("#h",{opacity:0,duration:.4,ease:"${ease}"}).from("#m",{scaleX:0,duration:.3,ease:"${ease}"});window.__specimen={tl:tl};tl.progress(1);` : ""}</script></body></html>`;
+  const genSpec = ({ canvas, ink, accent, face, layout, text = "Every receipt, counted.", ease = "power4.out", throws = false, tl = true, dur = 0 }) => `<!doctype html><html><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=${face.replace(/ /g, "+")}:wght@700&display=swap" rel="stylesheet"><script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script><style>*{margin:0;box-sizing:border-box}html,body{width:1600px;height:900px;overflow:hidden;background:${canvas}}#root{position:relative;width:1600px;height:900px;background:${canvas};color:${ink};font-family:"${face}",sans-serif}h1{position:absolute;font-size:120px;font-weight:700;line-height:1;${layout === "L" ? "left:80px;top:80px;width:600px" : layout === "B" ? "left:80px;bottom:60px;width:1400px" : "right:60px;top:380px;width:560px;text-align:right;font-size:70px"}}.bars i{position:absolute;background:${ink};${layout === "L" ? "right:0;top:0;bottom:0;width:560px" : layout === "B" ? "left:0;right:0;top:0;height:420px" : "left:0;top:0;bottom:0;width:700px"}}.m{position:absolute;background:${accent};width:140px;height:60px;${layout === "L" ? "left:80px;bottom:80px" : layout === "B" ? "right:80px;bottom:80px" : "left:760px;top:120px"}}</style></head><body><div id="root" data-width="1600" data-height="900"><div class="bars"><i></i></div><h1 id="h">${text}</h1><div class="m" id="m"></div></div><script>${throws ? "nope.missing();" : ""}${tl ? `var tl=gsap.timeline({paused:true});tl.from("#h",{opacity:0,duration:.4,ease:"${ease}"}).from("#m",{scaleX:0,duration:.3,ease:"${ease}"})${dur ? `.to("#m",{opacity:1,duration:${dur},ease:"${ease}"})` : ""};window.__specimen={tl:tl};tl.progress(1);` : ""}</script></body></html>`;
   const copyTo = (dst, edit = {}) => {
     fs.mkdirSync(dst, { recursive: true });
     for (const f of ["DESIGN.md", "recipe.json", "blend.json", "specimen.html"]) {
@@ -1454,6 +1631,8 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   sp("a specimen flooded with the accent", { subs: [["#e9efe6", "#d4392b", "specimen.html"]] }, /accent covers/);
   sp("a specimen whose headline is not the first line", { subs: [["Every receipt,", "Hello there", "specimen.html"]] }, /does not carry the story's first line/, ["--hook", "Every receipt, counted."]);
   sp("a specimen with no timeline", { raw: { "specimen.html": genSpec({ canvas: "#e9efe6", ink: "#10231c", accent: "#d4392b", face: "Bricolage Grotesque", layout: "L", tl: false }) } }, /window\.__specimen/);
+  sp("a specimen timeline longer than 5 s", { raw: { "specimen.html": genSpec({ canvas: "#e9efe6", ink: "#10231c", accent: "#d4392b", face: "Bricolage Grotesque", layout: "L", dur: 5.5 }) } }, /5 s at most/);
+  ok("specimen gate: a 4.5 s moving sketch is accepted (the cap is 5 s)", D(["check-system", "--dir", copyTo(path.join(T, "a 4.5 s specimen"), { raw: { "specimen.html": genSpec({ canvas: "#e9efe6", ink: "#10231c", accent: "#d4392b", face: "Bricolage Grotesque", layout: "L", dur: 3.8 }) } }), "--offline"]).status === 0);
   sp("a specimen easing outside the system's motion section", { raw: { "specimen.html": genSpec({ canvas: "#e9efe6", ink: "#10231c", accent: "#d4392b", face: "Bricolage Grotesque", layout: "L", ease: "bounce.out" }) } }, /doesn't name/);
   const sj = JSON.parse(D(["check-system", "--dir", good, "--offline"]).stdout);
   ok("specimen gate: the example's specimen is rendered to specimen.png and its colour shares are reported (accent rationed, canvas leading)", fs.existsSync(path.join(good, "specimen.png")) && sj.system.specimen && sj.system.specimen.share.canvas > 0.2 && sj.system.specimen.share.accent > 0 && sj.system.specimen.share.accent < 0.08, JSON.stringify(sj.system.specimen));
@@ -1525,6 +1704,46 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
       fs.rmSync(cardDir, { recursive: true, force: true });
     }
     fs.rmSync(path.join(run, "decisions.json"), { force: true });
+  }
+  // the motion grammar gate (fixture library): each look binds ONE grammar as grammar.json; three looks, three grammars
+  {
+    const GFX = path.join(HERE, "tests", "fixtures", "grammars");
+    const GL = { ...offline, RASANAI_GRAMMAR_LIBRARY: GFX };
+    const DG = (a) => D(a, { env: GL });
+    const GM = (a) => spawnSync(process.execPath, [path.join(HERE, "grammar.mjs"), ...a], { encoding: "utf8", env: GL, cwd: ws, timeout: 60000 });
+    const run2 = path.join(ws, ".rasanai", "r2");
+    for (const l of ["Sure", "Bold", "Wild"]) fs.cpSync(path.join(run, "design", l), path.join(run2, "design", l), { recursive: true });
+    const sys = (l) => path.join(run2, "design", l);
+    const nog = DG(["check-system", "--dir", sys("Sure"), "--offline"]);
+    ok("grammar (design): with a grammar library, a look without grammar.json is refused (grammar-missing)", nog.status === 2 && /grammar-missing: design\/Sure\/grammar\.json/.test(nog.stdout), nog.stdout.slice(0, 300));
+    ok("grammar (design): with no grammar library, a look without grammar.json still passes (back-compat)", chk(sys("Sure")).status === 0);
+    const w1 = GM(["write", "--run", run2, "--id", "alpha-grid", "--label", "Sure"]);
+    const okS = DG(["check-system", "--dir", sys("Sure"), "--offline"]);
+    ok("grammar (design): grammar.mjs write --label puts the grammar in design/Sure/ and check-system accepts it (info.grammar)", w1.status === 0 && okS.status === 0 && JSON.parse(okS.stdout).system.grammar === "alpha-grid", okS.stdout.slice(0, 300));
+    const gb = JSON.parse(fs.readFileSync(path.join(GFX, "beta-glow.json"), "utf8"));
+    const bad = { ...gb }; delete bad.flat_ok; bad.techniques = bad.techniques.slice(0, 3);
+    fs.writeFileSync(path.join(sys("Bold"), "grammar.json"), JSON.stringify(bad));
+    const inv = DG(["check-system", "--dir", sys("Bold"), "--offline"]);
+    ok("grammar (design): a grammar that breaks the schema is refused (grammar-invalid names flat_ok and the technique count)", inv.status === 2 && /grammar-invalid: flat_ok/.test(inv.stdout) && /grammar-invalid: techniques has 3/.test(inv.stdout), inv.stdout.slice(0, 400));
+    fs.writeFileSync(path.join(sys("Bold"), "grammar.json"), JSON.stringify(gb));
+    GM(["write", "--run", run2, "--id", "alpha-grid", "--label", "Wild"]);
+    const rep3 = DG(["check-systems", "--run", run2, "--offline"]);
+    ok("grammar (design): two looks on the same grammar are refused by check-systems (grammar-repeat)", rep3.status === 2 && /grammar-repeat: Sure and Wild both use the grammar \\?"alpha-grid/.test(rep3.stdout), rep3.stdout.slice(0, 400));
+    GM(["write", "--run", run2, "--id", "gamma-dots", "--label", "Wild"]);
+    const tri = DG(["check-systems", "--run", run2, "--offline"]);
+    ok("grammar (design): three looks on three different grammars pass check-systems", tri.status === 0 && !/grammar-/.test(tri.stdout), tri.stdout.slice(0, 500));
+    // a flat brand film refuses a grammar that needs glow or 3D
+    fs.mkdirSync(path.join(run2, "brand-film"), { recursive: true });
+    fs.writeFileSync(path.join(run2, "decisions.json"), JSON.stringify({ subject: "Tally", route: "product-launch-video", brand: brandMd, use_brand: true }));
+    fs.writeFileSync(path.join(run2, "brand-film", "FILM-STYLE.json"), JSON.stringify({ version: 1, brand: "Tally", measured: { palette: ["#101418", "#eef2f0", "#f5b700"].map((h) => ({ hex: h, share: 0.2 })), background: { overall: "#101418" } }, slots: { typefaces: "Space Grotesk", motif: "a dot", layout: "centred", motionVocabulary: "flat: no 3D, no blur, no grain; scale, morph", photographyStyle: "none", endCard: "the mark" }, filled: true }));
+    const flatB = DG(["check-system", "--dir", sys("Bold"), "--brand", brandMd, "--offline"]);
+    const flatS = DG(["check-system", "--dir", sys("Sure"), "--brand", brandMd, "--offline"]);
+    ok("grammar (design): a flat brand film refuses a flat_ok:false grammar (grammar-not-flat) and accepts a flat one", /grammar-not-flat: Bold/.test(flatB.stdout) && !/grammar-not-flat/.test(flatS.stdout), flatB.stdout.slice(0, 300));
+    fs.rmSync(path.join(run2, "brand-film"), { recursive: true, force: true }); fs.rmSync(path.join(run2, "decisions.json"), { force: true });
+    const dec2 = path.join(run2, "decisions.json");
+    fs.writeFileSync(dec2, JSON.stringify({ subject: "Tally", picks: {} }));
+    const cs2 = DG(["choose-system", "--run", run2, "--label", "Wild", "--decisions", dec2]);
+    ok("grammar (design): choose-system carries the look's grammar to look/grammar.json (the score is checked against it)", cs2.status === 0 && JSON.parse(fs.readFileSync(path.join(run2, "look", "grammar.json"), "utf8")).id === "gamma-dots", cs2.stdout.slice(0, 200) + cs2.stderr.slice(0, 200));
   }
   // the Look payload, choose, motion.md, DIRECTION.md
   const pl = D(["look-payload", "--run", run, "--hook", "Tax season. Again.", "--recommended", "bold"]);
@@ -1677,7 +1896,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   ok("presenter: other routes do not need ## Imagery", !/Imagery/.test(g(run2).stdout));
 
   // the scripts' own tests, each with the same helpers; absent files are a note, never a failure
-  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments"]) {
+  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit"]) {
     const f = path.join(HERE, "tests", `${name}.mjs`);
     if (!fs.existsSync(f)) { console.log(`note  ${name}: scripts/tests/${name}.mjs is not there yet, skipped`); continue; }
     try {
@@ -1758,6 +1977,35 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   ok("moves: a non-hero card without plain only warns", (() => { const o = clone(good); delete o.cards[3].plain; const r = validateMoves(o, { beats: pitch.beats }); return !r.errors.some((e) => /plain/.test(e)) && r.warnings.some((w) => /m4: no plain line/.test(w)); })());
   const dup = clone(good); dup.cards[5].generator = dup.cards[4].generator; dup.cards[5].origin = dup.cards[4].origin;
   ok("moves: two cards with the same generator and origin warn (not an error)", validateMoves(dup, { beats: pitch.beats }).warnings.some((w) => /same mechanism/.test(w)));
+  // the shows: a beat whose lines carry show rows needs at least one card (card.beat, or a seam touching the beat)
+  {
+    const shown = pitch.beats.map((b) => ({ ...b, shows: [{ line: b.on_screen || "x", show: "s", built_from: "actor", handoff: "h" }] }));
+    const cardBeats = new Set(good.cards.map((c) => Number(c.beat)).filter(Boolean));
+    const lone = clone(good); lone.cards.forEach((c) => { c.beat = 1; delete c.seam; });
+    const uncarded = validateMoves(lone, { beats: shown }).warnings.filter((w) => /show-uncarded/.test(w));
+    ok("moves: show-uncarded warns for each beat with show rows and no card (never an error)", uncarded.length === shown.length - 1 && /beat 2/.test(uncarded[0]) && !validateMoves(lone, { beats: shown }).errors.some((e) => /show-uncarded/.test(e)), JSON.stringify(uncarded) + [...cardBeats]);
+    ok("moves: no show-uncarded when the beats carry no shows", !validateMoves(lone, { beats: pitch.beats }).warnings.some((w) => /show-uncarded/.test(w)));
+    const every = clone(good); every.cards.forEach((c, i) => { c.beat = (i % shown.length) + 1; delete c.seam; });
+    ok("moves: no show-uncarded when every beat has a card", !validateMoves(every, { beats: shown }).warnings.some((w) => /show-uncarded/.test(w)));
+  }
+
+  // a ladder film: the heroes are the joins between rungs (no-join-hero); a G6 legible fail is a valid verdict entry
+  {
+    const ladderBeats = pitch.beats.map((b, i) => ({ ...b, role: ["open", "rung", "rung", "close"][i] }));
+    const lad = (o) => validateMoves(o, { beats: ladderBeats, shape: "ladder" });
+    ok("moves: a ladder film whose heroes' seams cross a rung boundary passes (m1 2>3 is rung to rung)", !lad(good).errors.some((e) => /no-join-hero/.test(e)), JSON.stringify(lad(good).errors));
+    const inDemo = clone(good); inDemo.cards[0].seam = "2>2"; inDemo.cards[1].seam = undefined; inDemo.cards[1].beat = 3;
+    ok("moves: a ladder film whose hero seams stay inside a demo or touch no rung is no-join-hero", lad(inDemo).errors.some((e) => /no-join-hero/.test(e)));
+    const openClose = clone(good); openClose.cards[0].seam = "1>4"; openClose.cards[1].seam = "4>4";
+    ok("moves: a seam between the open and the close crosses no rung boundary (no-join-hero)", lad(openClose).errors.some((e) => /no-join-hero/.test(e)));
+    ok("moves: a scenario or untyped film is not held to no-join-hero", !validateMoves(inDemo, { beats: ladderBeats, shape: "scenario" }).errors.some((e) => /no-join-hero/.test(e)) && !validateMoves(inDemo, { beats: pitch.beats }).errors.some((e) => /no-join-hero/.test(e)));
+    const { pitchShape } = await import(path.join(HERE, "lib", "moves-lib.mjs"));
+    ok("moves: pitchShape reads the explicit shape, else the beat roles", pitchShape({ shape: "ladder" }) === "ladder" && pitchShape({ beats: ladderBeats }) === "ladder" && pitchShape({ feature: { name: "x" }, beats: [] }) === "scenario" && pitchShape({ beats: pitch.beats }) === null);
+    const lf = path.join(TMP, "moves-ladder-pitch.json"); wj(lf, { ...pitch, shape: "ladder", beats: ladderBeats });
+    wj(path.join(TMP, "moves-ladder-bad.json"), inDemo);
+    const cr2 = M(["check", "--file", path.join(TMP, "moves-ladder-bad.json"), "--pitch", lf]);
+    ok("moves: moves.mjs check reads the pitch's shape and refuses a ladder with no join hero (exit 2)", cr2.status === 2 && (J(cr2).errors || []).some((e) => /no-join-hero/.test(e)), cr2.stdout.slice(0, 300));
+  }
 
   // the pack: deterministic, reference moves first, product-first takes a choreography constraint, earlier heroes are banned
   const pk = (label, extra = [], e = {}) => { const r = M(["pack", "--run", run, "--label", label, ...extra], e); return { r, f: path.join(run, "story", `moves-pack-${label}.json`) }; };
@@ -1824,6 +2072,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   vbad("a pitch with no set gate", (v) => { delete v.pitches.Sure.set; }, /Sure: set is missing/);
   vbad("set.full_frame false while the label is not in denial", (v) => { v.pitches.Bold.set = { full_frame: false, evidence: "every passing card is a detail inside the UI" }; }, /Bold: set\.full_frame is false.*must be in denial/);
   ok("moves: set.full_frame false is fine when the label is in denial[]", (() => { const v = clone(verdict); v.pitches.Bold.set = { full_frame: false, evidence: "all small" }; v.pitches.Bold.denial = ["Bold"]; wj(vf, v); const r = M(["check-verdict", "--run", run]); wj(vf, verdict); return r.status === 0 && J(r).ok; })());
+  ok("moves: a card failed on G6 legible (a puzzle, a move that needs explaining) is a valid verdict entry; an unknown gate G7 is not", (() => { const v = clone(verdict); v.pitches.Bold.cards.find((c) => c.id === "m4").fails = ["G6"]; wj(vf, v); const r = M(["check-verdict", "--run", run]); const v2 = clone(verdict); v2.pitches.Bold.cards.find((c) => c.id === "m4").fails = ["G7"]; wj(vf, v2); const r2 = M(["check-verdict", "--run", run]); wj(vf, verdict); return r.status === 0 && J(r).ok && r2.status === 2 && (J(r2).errors || []).some((e) => /G1 to G6/.test(e)); })());
   vbad("a missing label", (v) => { delete v.pitches.Wild; }, /Wild: missing/);
   // the pairwise rounds: every consecutive pair of the ranking, in both presentation orders
   vbad("no rounds at all (rounds-missing)", (v) => { delete v.pitches.Sure.rounds; }, /Sure: rounds-missing: m3 > m1/);
@@ -1889,6 +2138,10 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
     const ib = J(C(["brief", "--run", run, "--role", "move-inventor", "--key", "Bold"]));
     const it = ib.prompt ? fs.readFileSync(path.join(ws, ib.prompt), "utf8") : "";
     ok("moves: the inventor's brief names its pack command, check command, pack and the method, carries product_first and the show-off ask", /moves\.mjs" pack --run \S+ --label Bold --product-first/.test(it) && /moves-pack-Bold\.json/.test(it) && /references\/moves\.md/.test(it) && /product_first/.test(it) && /Do every step of the method/.test(it) && /moves-Bold\.json/.test(it), it.slice(0, 200));
+    // the shows: the writer, the inventor and the motion director read the showcases README and two reference films chosen by film kind
+    const txt = (role, key) => { const b = J(C(["brief", "--run", run, "--role", role, ...(key ? ["--key", key] : [])])); return b.prompt ? fs.readFileSync(path.join(ws, b.prompt), "utf8") : ""; };
+    const showRe = (a, b) => new RegExp(`showcases[\\\\/]README\\.md[\\s\\S]*${a}\\.json[\\s\\S]*${b}\\.json`);
+    ok("shows: a launch run's script-writer, move-inventor and motion-director briefs carry the showcases README, sovra-fm-launch and kinso-launch", [txt("script-writer", "Bold"), it, txt("motion-director", "score")].every((t) => showRe("sovra-fm-launch", "kinso-launch").test(t)), txt("script-writer", "Bold").slice(-500));
     const jb = J(C(["brief", "--run", run, "--role", "move-juror"]));
     const sb = J(C(["brief", "--run", run, "--role", "move-sketcher", "--key", "Bold"]));
     const st = sb.prompt ? fs.readFileSync(path.join(ws, sb.prompt), "utf8") : "";
@@ -1972,6 +2225,117 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
     const lg = M(["rough", "--dir", bdir]);
     ok("moves: a rough longer than 4.5 s is refused (exit 2)", lg.status === 2 && /1\.5 to 4\.5 s/.test(lg.stdout), lg.stdout.slice(0, 200));
   }
+}
+
+// 22. motion grammars: the CLI, the score's grammar rules, the builders' briefs (the design desk's grammar.json gate is in 18)
+{
+  const GFX = path.join(HERE, "tests", "fixtures", "grammars");
+  const genv = { ...env, RASANAI_GRAMMAR_LIBRARY: GFX };
+  const ws = path.join(TMP, "gram-ws");
+  const run = path.join(ws, ".rasanai", "r1");
+  fs.mkdirSync(path.join(run, "story"), { recursive: true });
+  const GM = (a, e = {}) => spawnSync(process.execPath, [path.join(HERE, "grammar.mjs"), ...a], { encoding: "utf8", env: { ...genv, ...e }, cwd: ws, timeout: 60000 });
+  const C = (a, e = {}) => spawnSync(process.execPath, [path.join(HERE, "crew.mjs"), ...a], { encoding: "utf8", env: { ...genv, ...e }, cwd: ws, timeout: 120000 });
+  const J = (r) => { try { return JSON.parse(r.stdout); } catch { return {}; } };
+  const rj = (f) => JSON.parse(fs.readFileSync(f, "utf8"));
+  const wj = (f, o) => { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify(o, null, 2)); };
+  const AG = path.join(GFX, "alpha-grid.json");
+
+  const ls = J(GM(["list"]));
+  ok("grammar: list names the library's grammars with flat_ok, fits and the technique count", ls.grammars && ls.grammars.length === 3 && ls.grammars.every((g) => g.id && typeof g.flat_ok === "boolean" && g.techniques >= 8), JSON.stringify(ls).slice(0, 200));
+  const sh = J(GM(["show", "beta-glow"]));
+  ok("grammar: show prints the whole grammar; an unknown id exits 1", sh.id === "beta-glow" && sh.techniques.length === 8 && sh.flat_ok === false && GM(["show", "nope"]).status === 1);
+  ok("grammar: with no library folder, list is empty and pick says so (exit 1)", J(GM(["list"], { RASANAI_GRAMMAR_LIBRARY: path.join(TMP, "none") })).grammars.length === 0 && GM(["pick", "--run", run], { RASANAI_GRAMMAR_LIBRARY: path.join(TMP, "none") }).status === 1);
+  // the schema
+  const chk = (mut) => { const o = rj(AG); mut(o); const f = path.join(TMP, `gram-${Math.random().toString(36).slice(2)}.json`); wj(f, o); return GM(["check", "--file", f]); };
+  ok("grammar: check passes a good grammar (exit 0)", GM(["check", "--file", AG]).status === 0);
+  const bads = [["no flat_ok", (o) => { delete o.flat_ok; }, /flat_ok/], ["5 techniques", (o) => { o.techniques = o.techniques.slice(0, 5); }, /techniques has 5/], ["a duplicate technique id", (o) => { o.techniques[1].id = o.techniques[0].id; }, /duplicate technique id/], ["a technique with no build route", (o) => { delete o.techniques[2].route; }, /route is missing/], ["no frame_device.moves", (o) => { delete o.frame_device.moves; }, /frame_device\.moves/], ["a non-kebab id", (o) => { o.id = "Alpha Grid"; }, /kebab-case/], ["no palette accent", (o) => { delete o.palette.accent; }, /palette\.accent/], ["no density", (o) => { delete o.density; }, /density\.change_every_s/], ["no do list", (o) => { o.do = []; }, /do needs/]];
+  ok("grammar: check refuses " + bads.map((b) => b[0]).join(", ") + " (exit 2, the field named)", bads.every(([, m, re]) => { const r = chk(m); return r.status === 2 && (J(r).errors || []).some((e) => re.test(e)); }));
+  // pick: story shape, flat, exclude, count, deterministic
+  wj(path.join(run, "decisions.json"), { subject: "Tally", route: "product-launch-video" });
+  const p1 = J(GM(["pick", "--run", run, "--count", "3"]));
+  ok("grammar: pick ranks the grammars that fit a launch ladder first, with a why", p1.picks.length === 3 && p1.picks[0].score >= 1 && p1.picks[2].id === "gamma-dots" && /launch ladder/.test(p1.picks[0].why) && JSON.stringify(J(GM(["pick", "--run", run, "--count", "3"]))) === JSON.stringify(p1), JSON.stringify(p1).slice(0, 300));
+  const p2 = J(GM(["pick", "--run", run, "--flat"]));
+  ok("grammar: pick --flat drops the grammars that need glow or 3D (flat_ok false) and says which", p2.flat === true && p2.picks.every((x) => x.flat_ok) && !p2.picks.some((x) => x.id === "beta-glow") && p2.dropped_not_flat.includes("beta-glow"), JSON.stringify(p2).slice(0, 300));
+  const p3 = J(GM(["pick", "--run", run, "--exclude", "alpha-grid,gamma-dots", "--count", "1"]));
+  ok("grammar: pick --exclude and --count narrow the suggestions", p3.picks.length === 1 && p3.picks[0].id === "beta-glow");
+  wj(path.join(run, "brand-film", "FILM-STYLE.json"), { slots: { motionVocabulary: "flat: no 3D, no blur", typefaces: "x" } });
+  ok("grammar: pick turns --flat on by itself when the run's FILM-STYLE card says flat", J(GM(["pick", "--run", run])).flat === true);
+  fs.rmSync(path.join(run, "brand-film"), { recursive: true, force: true });
+  // write: into look/, with a label, with --out; the brand palette overrides, the devices stay
+  const w = GM(["write", "--run", run, "--id", "alpha-grid"]);
+  const lg = fs.existsSync(path.join(run, "look", "grammar.json")) ? rj(path.join(run, "look", "grammar.json")) : {};
+  ok("grammar: write copies the grammar to look/grammar.json (no internal fields), palette unchanged without a brand", w.status === 0 && lg.id === "alpha-grid" && lg.palette.accent === "#d4392b" && !("_file" in lg) && GM(["check", "--file", path.join(run, "look", "grammar.json")]).status === 0);
+  const w2 = GM(["write", "--run", run, "--id", "beta-glow", "--label", "Bold"]);
+  const w3 = GM(["write", "--run", run, "--id", "beta-glow", "--out", path.join(TMP, "gram-out", "g.json")]);
+  ok("grammar: write --label goes to design/<label>/grammar.json, --out to the path; an unknown id exits 1", w2.status === 0 && fs.existsSync(path.join(run, "design", "Bold", "grammar.json")) && w3.status === 0 && fs.existsSync(path.join(TMP, "gram-out", "g.json")) && GM(["write", "--run", run, "--id", "nope"]).status === 1);
+  const brandMd2 = path.join(TMP, "gram-brand.md");
+  fs.writeFileSync(brandMd2, '---\nname: "Tally"\ncolors:\n  canvas: "#ffffff"\n  ink: "#101010"\n  accent: "#0a7d4b"\ntypography:\n  display:\n    fontFamily: Manrope\n    fontWeight: 700\n  body:\n    fontFamily: Manrope\n    fontWeight: 400\nrounded:\n  md: 8px\n---\n## Overview\nTally.\n');
+  const w4 = J(GM(["write", "--run", run, "--id", "alpha-grid", "--brand", brandMd2, "--out", path.join(TMP, "gram-out", "b.json")]));
+  const bg = rj(path.join(TMP, "gram-out", "b.json"));
+  ok("grammar: write merges a brand DESIGN.md: its canvas, ink and accent replace the palette, the frame device and techniques stay", w4.ok && bg.palette.ground === "#ffffff" && bg.palette.accent === "#0a7d4b" && /overrides/.test(bg.palette.note) && JSON.stringify(bg.techniques) === JSON.stringify(rj(AG).techniques) && JSON.stringify(bg.frame_device) === JSON.stringify(rj(AG).frame_device), JSON.stringify(w4));
+  wj(path.join(run, "decisions.json"), { subject: "Tally", route: "product-launch-video", brand: brandMd2, use_brand: true });
+  GM(["write", "--run", run, "--id", "alpha-grid"]);
+  ok("grammar: write finds the brand in the run's decisions.json", rj(path.join(run, "look", "grammar.json")).palette.accent === "#0a7d4b");
+  fs.rmSync(path.join(run, "decisions.json"), { force: true });
+  GM(["write", "--run", run, "--id", "alpha-grid"]);
+
+  // the score's grammar rules (crew check): grammar-missing, technique-unknown, technique-repeat, technique-thin, frame-device-missing
+  const sc = path.join(run, "motion", "score.json");
+  const fd = "the rules re-divide to frame the product";
+  const beats = (techs, dev = fd) => techs.map((t, i) => ({ n: i + 1, duration: 4, ...(t ? { technique: t } : {}), ...(dev ? { frame_device: dev } : {}) }));
+  const score = (o) => wj(sc, { spine: "s", seams: [], ...o });
+  const out = () => { const r = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]); return { p: (J(r).problems || []).join(" | "), w: (J(r).warnings || []).join(" | ") }; };
+  const six = ["grid-a", "grid-b", "grid-c", "grid-d", "grid-e", "grid-f"];
+  score({ grammar: "alpha-grid", scenes: beats(six) });
+  let r0 = out();
+  ok("grammar (score): a score that names the grammar, a distinct technique and a frame_device per beat raises no grammar error or warning", !/grammar-|technique-|frame-device-/.test(r0.p + r0.w), (r0.p + r0.w).slice(0, 400));
+  score({ scenes: beats(six) });
+  r0 = out();
+  ok("grammar (score): no score.grammar is grammar-missing (error)", /grammar-missing: score\.grammar is not set/.test(r0.p), r0.p.slice(0, 300));
+  score({ grammar: "alpha-grid", scenes: beats(["grid-a", "grid-zz", "grid-c", "", "grid-e", "grid-f"]) });
+  r0 = out();
+  ok("grammar (score): a technique that is not in the grammar, or none, is technique-unknown (scene named)", /technique-unknown: scene 2 technique "grid-zz"/.test(r0.p) && /technique-unknown: scene 4 names no technique/.test(r0.p), r0.p.slice(0, 400));
+  score({ grammar: "alpha-grid", scenes: beats(["grid-a", "grid-b", "grid-b", "grid-d", "grid-e", "grid-f"]) });
+  r0 = out();
+  ok("grammar (score): the same technique on consecutive beats is technique-repeat; repeating after a gap is allowed", /technique-repeat: scenes 2 and 3 both use "grid-b"/.test(r0.p) && !/scenes 3 and 4/.test(r0.p));
+  score({ grammar: "alpha-grid", scenes: beats(["grid-a", "grid-b", "grid-a", "grid-b", "grid-a", "grid-b"]) });
+  r0 = out();
+  ok("grammar (score): fewer than min(beats, 6) distinct techniques is a warning (technique-thin), not an error", /technique-thin: 2 distinct/.test(r0.w) && !/technique-thin/.test(r0.p), r0.w.slice(0, 300));
+  score({ grammar: "alpha-grid", scenes: beats(["grid-a", "grid-b", "grid-c"]) });
+  ok("grammar (score): a 3-beat film needs 3 distinct techniques, not 6", !/technique-thin/.test(out().w));
+  score({ grammar: "alpha-grid", scenes: beats(six).map((s, i) => (i === 2 ? { ...s, frame_device: "" } : s)) });
+  r0 = out();
+  ok("grammar (score): a beat without frame_device is frame-device-missing (error)", /frame-device-missing: scene 3/.test(r0.p), r0.p.slice(0, 300));
+  score({ grammar: "beta-glow", scenes: beats(six) });
+  ok("grammar (score): score.grammar that is not the file's id is a warning", /score\.grammar is "beta-glow" but look\/grammar\.json is "alpha-grid"/.test(out().w));
+  fs.writeFileSync(path.join(run, "look", "grammar.json"), "{ nope");
+  score({ grammar: "alpha-grid", scenes: beats(six) });
+  ok("grammar (score): a look/grammar.json that is not JSON is an error (grammar-invalid)", /grammar-invalid/.test(out().p));
+  fs.rmSync(path.join(run, "look", "grammar.json"));
+  score({ scenes: beats([null, null, null, null, null, null], "") });
+  r0 = out();
+  ok("grammar (score): with no look/grammar.json there are no grammar errors at all (back-compat)", !/grammar-|technique-|frame-device-/.test(r0.p + r0.w), (r0.p + r0.w).slice(0, 300));
+
+  // the builders' briefs: the grammar file is an input; the film builder and the animator get the techniques the score names inlined
+  GM(["write", "--run", run, "--id", "alpha-grid"]);
+  C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "Tally", "--scenes", "4", "--length", "16"]);
+  const proj = path.join(ws, "videos", "t");
+  fs.mkdirSync(path.join(proj, ".hyperframes", "frame-packets"), { recursive: true });
+  score({ grammar: "alpha-grid", scenes: beats(["grid-c", "grid-f", "grid-a", "grid-h"], "rules slide to frame the screen") });
+  const brief = (role, key, extra = [], e = {}) => { const b = J(C(["brief", "--run", run, "--role", role, "--key", key, ...extra], e)); return b.prompt ? fs.readFileSync(path.join(ws, b.prompt), "utf8") : ""; };
+  const fbt = brief("film-builder", "film", ["--project", "videos/t"]);
+  ok("grammar (brief): the film builder gets look/grammar.json as an input and the named techniques (and only those) with their routes inlined", /motion grammar \(the film's ONE grammar/.test(fbt) && /## The film's motion grammar/.test(fbt) && ["grid-c", "grid-f", "grid-a", "grid-h"].every((t) => fbt.includes(`"id": "${t}"`)) && !fbt.includes('"id": "grid-b"') && /GSAP on absolutely positioned divs: grid-c/.test(fbt), fbt.slice(-300));
+  const abt = brief("scene-animator", "2", ["--project", "videos/t"]);
+  ok("grammar (brief): a scene animator gets its beat's technique and frame_device, not the other beats' techniques", /## The film's motion grammar/.test(abt) && abt.includes('"id": "grid-f"') && !abt.includes('"id": "grid-c"') && /rules slide to frame the screen/.test(abt), abt.slice(-300));
+  const mdt = brief("motion-director", "score");
+  ok("grammar (brief): the Motion Director's brief names the grammar rules (score.grammar, technique, frame_device) and its input", /look\/grammar\.json/.test(mdt) && /technique-repeat/.test(mdt) && /frame_device/.test(mdt), mdt.slice(0, 200));
+  const dst = brief("design-system-designer", "Bold");
+  ok("grammar (brief): the design system designer is told to bind ONE grammar per look (design/Bold/grammar.json, three different grammars, the moving specimen)", /design\/Bold\/grammar\.json/.test(dst) && /three different grammars/.test(dst) && /grammar\.mjs/.test(dst) && /window\.__specimen/.test(dst), dst.slice(0, 200));
+  const mit = brief("move-inventor", "Bold");
+  ok("grammar (brief): the move inventor reads the grammar when the run has one", /motion grammar \(the film's one grammar/.test(mit));
+  fs.rmSync(path.join(run, "look", "grammar.json"));
+  ok("grammar (brief): with no grammar file the builders' and the designer's briefs are unchanged (no grammar section, no grammar output)", !/## The film's motion grammar|motion grammar \((?:THE|the) film/i.test(brief("film-builder", "film", ["--project", "videos/t"]) + brief("scene-animator", "2", ["--project", "videos/t"]) + brief("motion-director", "score")) && !/design\/Bold\/grammar\.json/.test(brief("design-system-designer", "Bold", [], { RASANAI_GRAMMAR_LIBRARY: path.join(TMP, "none") })));
 }
 
 fs.rmSync(TMP, { recursive: true, force: true });

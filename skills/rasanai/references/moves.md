@@ -19,6 +19,8 @@ Four rules follow, and the checks enforce them:
 
 You tend to converge toward the safest on-distribution storyboard: the transition names from the standard menu, applied to the most literal reading of the brief. That output is the failure condition. Make deliberate, opinionated choices specific to this subject. Where the brief leaves an axis free, do not spend that freedom on a default.
 
+**A grammar, when one exists.** The motion layer commits to ONE grammar for the whole film (`library/grammars/`, `references/craft.md` "Grammar: one per film, a technique per beat"). At the Story step the look is not chosen yet, so moves are written grammar-agnostic: a carrier, a state change and a bridge, never a technique name. When `look/grammar.json` exists, the inventor reads it and may shape the joins with its frame device. The Motion Director then restates every hero in the grammar (the same carrier, travelling as that grammar's frame device would, executed with the beat's technique).
+
 ## 1. The procedure (11 steps)
 
 Do each step, even if you think you do not need to. Each step writes text the next step reads. Ideation is separate from feasibility: while you diverge (steps 3 to 9) do not filter on build cost, brand tempo or runtime. A separate agent finds the cheapest honest way to build the winner (card `build.simplest`). Coverage and boldness first; the juror filters afterwards.
@@ -52,13 +54,19 @@ Then run the seven SCAMPER verbs once over each atom (Substitute, Combine, Adapt
 
 **Step 8. Make the 8 you like least bolder.** Go through the list. For each candidate ask: could this appear unchanged in a film about a different subject? If yes, rewrite it until it could not. Then make the 8 you like least bolder and more different, and show what you changed (`bolder: [{was, now, changed}]`, at least 8). The "bolder" step is the one that gets skipped when a model considers its own output bold enough, so the diff is required: a `now` identical to `was` is a skipped step.
 
-**Step 9. Move cards.** Write at least 6 move cards (§2) for the best candidates. Every card names its origin, its `scale`, its `resolves_to`, its frames, its bridge and its hand-off; none may name only a technique. At least one hero is a **full-frame** type or shape transformation: the letters or the shape fill the frame and are the stage. A film made only of details inside screenshots is the failure the bar exists to beat. At least two different generators; at most two cards built on the same atom.
+**Step 9. Move cards.** Write at least 6 move cards (§2) for the best candidates. Every card names its origin, its `scale`, its `resolves_to`, its frames, its bridge and its hand-off; none may name only a technique. At least one hero is a **full-frame** type or shape transformation: the transition fills the frame and is the stage; the words stay readable and inside the safe area (§6, Legibility). A film made only of details inside screenshots is the failure the bar exists to beat. At least two different generators; at most two cards built on the same atom.
 
 **Step 10. Chain ledger and the rhyme.** Write one ledger row per beat (§2). "Constant" is the eye-trace anchor: what stays put across the boundary. Close the loop: a carrier state, a motion or a pun from the opening returns in the last 15% of the film, or the carrier becomes the container of the next idea (`rhyme`). Then write the `chain`: every transformation of the carrier across the film, time-coded, a new idea about every 1.2 s and never a gap over 3 s. Add one personality beat (`personality`), budget one per 8 to 12 s.
 
 **Step 11. Heroes, then argue.** Pick 2 or 3 hero moves (`heroes`: card ids): the moves a motion designer would cut into their reel. One film-defining move (full-frame); one signature seam; at most three. The hero count limits how many cards you *argue* for, not how many ideas the film has: the chain carries the density. Then argue against each in a line: nearest precedent and how this differs (`card.precedent`); where the audience learned the rule (`card.setup`). Spend boldness in one place per scene; everything around a hero stays quiet and disciplined.
 
 You return one file, `story/moves-<L>.json` (the schema is in `agents/move-inventor.md`). When it passes `moves.mjs check`, you are done.
+
+## 1b. Every show gets a card, not only the joins
+
+The script now carries a show column (`beats[].shows`, `references/script.md`: for each on-screen line, the motion that means it, built from the real UI or the actor). The heroes stay 2 or 3, the joins a motion designer would cut into a reel. But the Moves pass no longer stops at the joins: **write a card for every show that needs inventing, at least one card per beat.** A show such as "the pill holds while the word swaps songs, feeds, loops and the outline swells into rings" is a move: it has a carrier (the pill), a frame A, a timed move, a frame B and a hand-off. Where the writer's show is already concrete and buildable ("the typed prompt scrolls left as it overflows"), the card can be short and say so; where it is thin, the card is your invention of what the show should really be. Never change the line or the beat; change only what the motion does. A beat with no card is warned (`show-uncarded`). The card of a show is built from the same atoms: the real UI element, the actor, the line's own letters.
+
+The reference breakdowns in `library/showcases/` (README first, then the two films of the pack's kind) are the bar for these cards: words and UI touching, lines changing in place, one actor.
 
 ## 2. The move card and the chain ledger
 
@@ -92,7 +100,7 @@ Field rules, in the order the check reads them:
 
 - **`title`**: names what happens to the carrier, not a technique. "The pupil becomes the doorway", not "Iris reveal".
 - **`origin`**: a quoted atom, a UI label, the product name, a brand glyph, a letter or a quoted word of the script. Required on every card. Under product-first (§6) it can be any atom of the script (a letter, a dot, a full stop); what must be real is `resolves_to`.
-- **`scale`**: `"full-frame"`, `"large"` or `"detail"`, required on every card. `full-frame` means the transformation itself occupies most of the frame at its bridge: the type or shape is the stage, not a detail inside a screenshot. `large` is a half-frame object; `detail` is a part of a UI. A hero with `scale: "detail"` warns, and more than half the cards `detail` warns. At least one hero must be `full-frame` and built on a type or shape generator (G1, G2, G3, G5, G6, G12, G15, G17, G19, G20), or the check fails (`no-full-frame-hero`).
+- **`scale`**: `"full-frame"`, `"large"` or `"detail"`, required on every card. `full-frame` means the transformation itself occupies most of the frame at its bridge: the shape or the transition is the stage, not a detail inside a screenshot. The words in it stay readable and fully inside the safe area; they are never what crops. `large` is a half-frame object; `detail` is a part of a UI. A hero with `scale: "detail"` warns, and more than half the cards `detail` warns. At least one hero must be `full-frame` and built on a type or shape generator (G1, G2, G3, G5, G6, G12, G15, G17, G19, G20), or the check fails (`no-full-frame-hero`).
 - **`resolves_to`**: where the transformation lands. On a product-first film it is required on every hero card and must name a UI label from the pitch, the product name, or the brand, logo, mark, cursor, caret or composer. On other films write what it becomes (the bar: "the next page").
 - **`move`**: what physically happens, in order, with seconds. At least two timed steps. Verbs of the object ("fills", "is thrown", "narrows"), never "transitions".
 - **`bridge`**: one sentence, the single frame where both states are true, naming the element and where it is. "Match cut" is not a bridge; "the pupil is at (640, 400) in both" is.
@@ -270,14 +278,14 @@ When the Dispatch context says `product_first` (`references/product-first.md` is
 
 - **Subject world = the real product**: its UI surfaces, labels (`ui_labels`), data, cursor, windows, states, and the brand mark's geometry. Atoms come from `research/screens.md`, the truth sheet's Native words and `brand/assets`, **and the letters, dots and full stops of the script's own lines**.
 - **The resolve rule.** A letter, shape or type transformation is **craft, not a conceit**, when its end state lands on a real product surface (a real UI element, state or screen) or the real brand mark or name within the same move. Banned, as before: invented worlds, museums, allegories, metaphors the film lives inside, props standing in for the product, and any transformation that never resolves to the product. A full-frame graphic built from the product's own shapes (its circles, dot, caret, ticks, glyph) is allowed when it resolves to the real UI within the move.
-  - **Allowed, one example** (a chat product, for illustration): the two dots of the i's in a huge typed line drop and become the real UI's two selection circles; a tick's stroke keeps drawing and becomes the outline of the real composer; the end line's full stop is the thinking dot the film opened on. Full frame, every move ends on a real surface.
+  - **Allowed, one example** (a chat product, for illustration): the two dots of the i's in a readable line (it keeps reading as a normal line throughout) drop, grow past it and become the real UI's two selection circles; a tick's stroke keeps drawing and becomes the outline of the real composer; the end line's full stop is the thinking dot the film opened on. Full frame, every move ends on a real surface.
   - **Banned, one example**: a field of invented circles that drift, merge and never become a real UI element; a museum of them; a metaphor world the circles live in.
 - **Card fields.** `resolves_to` is required on every hero card (the real UI label, state or screen, the product name, or the brand, logo, mark, cursor, caret or composer it lands on, checked). `origin` stays required but is any atom of the script (a letter, a dot, a UI label); it no longer has to name a product word. No card may use a conceit word (museum, gallery, exhibit, allegory, diorama, a world, parable, trial, funeral).
 - **The carrier is a real product surface or the brand glyph, or a letter or shape that becomes one** within its chain. Never an invented object standing in for the product.
 - **Scale and density are the bar.** At least one hero is `full-frame` on a type or shape generator; the chain has a new idea about every 1.2 s. The bar (`bar` in the pack) is not a UI walkthrough: the type and shapes are the stage and the real UI is where they land.
 - **Glyph puns that are not transformations resolve within 1 s.** A letter-to-object pun that only winks, without becoming a surface, lands on the product in a second. A transformation runs as long as the move needs and resolves before the move ends.
 - **Seeds are choreography constraints, not metaphors.** The pack's stimulus is one line from `choreography.json` ("every cut lands on a UI state change"). Use it as a rule on how the real UI moves.
-- **Showing off is craft**: huge type whose letters become the real UI, one continuous camera move through the real UI, a cursor with motive, cuts on keystrokes, a component that morphs through its real states, a hand-off that lands on a state change the product really makes.
+- **Showing off is craft**: a full-frame transition (readable words inside the safe area) that lands on the real UI, one continuous camera move through the real UI, a cursor with motive, cuts on keystrokes, a component that morphs through its real states, a hand-off that lands on a state change the product really makes.
 - Hero move ideas live in G1, G2, G3, G4, G5, G6, G9, G11, G14, G15, G17, G18 and G19; G16 and G7 only if the personality belongs to the cursor.
 - 3D only where it serves the real product (a window in depth, a device); never an abstract world.
 - The product UI is on screen within 3 s, the hero moment stays the longest and cleanest shot, and the end card is the largest type on a clean field. A hero move never makes the end line smaller or later.
@@ -299,11 +307,17 @@ When the Dispatch context says `product_first` (`references/product-first.md` is
   "duration_s": 3.2 }
 ```
 
+### Legibility, the G6 gate, and ladder films
+
+- **The transition is the stage; the words stay readable.** Every line meant to be read rests fully inside the safe area (6% of the width and height), on one line (two at most), at brand scale (the brand film card's type scale, else the design system's display size), never cropped. A line may leave the frame only in a push-through of 0.4 s or less. Never ask for huge or edge-cropping type; `text-fit` in `motion-gate.mjs` and `slop.mjs` fails it (`text-cropped`).
+- **A hero reads on first watch.** A viewer can say what happened in one plain sentence. Hidden-letter puzzles (a letter's dot, a missing letter, a knocked-off tittle) are allowed only when the line still reads normally throughout. The juror's binary gate **G6 legible** fails puzzles and any move that needs explaining.
+- **Moves serve the ladder.** On a `ladder` pitch (`references/story.md`, Story shapes) the heroes are the joins between rungs: a title word becomes the input, the input becomes the next demo, the last input becomes the logo. The carrier travels across rungs; nothing invents plot inside a demo. At least one hero card's `seam` crosses a rung boundary, else the check fails (`no-join-hero`).
+
 ## 7. Brand-film variant
 
 When the Dispatch context says `brand_film`, read `brand-film/FILM-STYLE.md` first.
 
-- Mechanisms come only from the card's **motion vocabulary** (scale, morph, draw-on, cut on the beat, UI choreography...). Never add one it says is absent. A flat card means no 3D, blur, grain, glow or bounce.
+- Mechanisms come only from the card's **motion vocabulary** (scale, morph, draw-on, cut on the beat, UI choreography...). Never add one it says is absent. A flat card means no blur, grain, glow or bounce; 3D stays available in the flat style (matte or unlit, the brand palette: `references/3d.md`, Brand-flat 3D).
 - Follow the card's cut rate and its end card.
 - **"One element at a time" means one carrier at a time, transformed in a chain, not few ideas.** Brand films are morph chains: OpenAI's "Refreshed." is dot -> rings -> dot grid -> letterforms -> mark. The brand film analyst writes that chain into `FILM-STYLE.md`'s motion vocabulary; derive your carrier and your chain from it, and keep the chain's density (a new idea about every 1.2 s). Calm is the restraint of one carrier and one ease, never an empty frame.
 - **The ambition goes into the carrier and the choreography**: which one thing travels, where it lands on the beat, what stays constant. A scale-through in a scale-only vocabulary is on-brand; a whip pan is not.

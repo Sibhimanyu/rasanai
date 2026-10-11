@@ -12,11 +12,14 @@
 //   node design.mjs stills --dir <folder> [--aspect 16:9]   -> PNG stills of Claude's style frames (one .html per key frame)
 //   node design.mjs check-system --dir <run>/design/<label> [--brand DESIGN.md] [--offline]   -> the gate for ONE bespoke design system (exit 0 / 2)
 //        (route presenter: also requires a "## Imagery" section of 25+ words in DESIGN.md)
+//        (a skill with a grammar library (library/grammars/, or RASANAI_GRAMMAR_LIBRARY): also requires design/<label>/grammar.json, the look's ONE
+//         motion grammar, valid in grammar.mjs's schema: errors grammar-missing, grammar-invalid, grammar-not-flat on a flat brand film)
 //   node design.mjs check-systems --run <run> [--brand DESIGN.md] [--offline]                   -> the gate for all three + that they differ
+//        (and that they use three different grammars: grammar-repeat)
 //   node design.mjs look-payload --run <run> [--recommended sure|bold|wild] [--hook "<first line>"] [--sub "..."] [--out <file>]
 //        -> the console's Look payload {styles:[{id,name,blend,why,style:{recipe,three?}}], recommended, hook}: exactly the three bespoke systems
 //   node design.mjs choose-system --run <run> --label Sure|Bold|Wild --decisions <decisions.json> [--mode light|dark] [--preset <id>]
-//        -> (--preset: a lyric video's technical frame.md, the gate wants a preset verbatim)  design/<label>/DESIGN.md becomes the film's look: <run>/look/{DESIGN.md,frame.md}, decisions.look + picks + design_system
+//        -> (--preset: a lyric video's technical frame.md, the gate wants a preset verbatim)  design/<label>/DESIGN.md becomes the film's look: <run>/look/{DESIGN.md,frame.md,grammar.json}, decisions.look + picks + design_system
 //   node design.mjs pick --looks <dir>/looks.json --id B --decisions <decisions.json>
 //        -> merges the look's terms (visual style, typography) into decisions.json and prints its frame.md
 import fs from "node:fs";

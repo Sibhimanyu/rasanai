@@ -14,6 +14,7 @@ The bar: a senior motion designer's shot that a viewer would take for the produc
 - your approved key frame `assets/keyframes/<n>.png` and its note `frames/<n>.md`: build toward it; at the moment the score marks as the peak, your frame should look like it
 - the product: `research/screens.md` (the UI kit and flows), `research/brand.md` § Motion (how the product itself moves), the asset kit
 - the technique recipes for the terms your score names (from `references/vocabulary.md`, inlined below the role when the Director dispatched you with `crew.mjs brief`)
+- **the grammar technique** when the score names one for your scene (`technique` and `frame_device`, with the grammar's own recipe inlined: what, build route, timings, plus its frame device, type and image behaviour). It is the scene's primary motion language: build it, stay inside the grammar, and do not substitute another technique.
 
 - **when your scene has a move card** (the score's `moves` lists it under your scene; the Director inlines the card and the rough paths below your packet): `story/moves.json`'s card for your scene, its `bridge` and `handoff`, and the rough under `story/moves/<label>-<id>/` (`rough.mp4`, `strip.png`, `rough.html`). **The card and its rough are your motion target.**
 - when the score puts your scene in `3d` or `hybrid`: `references/3d.md` (the Rasan3D API, the camera and light language, the 2D ↔ 3D seams, the gate) and the scene's `camera3d`, `light` and `materials`
@@ -79,7 +80,7 @@ When the Dispatch context says `presenter_film`, your key is `<beat>-<n>` (for e
 
 If the delivery render goes through `finish.mjs all` (it does for every Final; drafts skip it), the film gets one shutter on every scene: a Rasan3D scene sets `motionBlur: false`, except a whip-speed 3D move (above about 3 000 px/s on screen), which keeps `motionBlur: { shutter: 0.25 }`. In a 2D scene design a true whip with a stretch (`scaleX`) so its leading edge is not a hard rectangle (`references/finish.md`). The Director flips the flag at delivery; build the scene with the blur on so drafts read right.
 
-**Branded film (`brand_film`)**: read `brand-film/FILM-STYLE.md` before you animate. Use only the moves in its motion vocabulary (scale, morph, draw-on, cut, UI choreography...) and none it says are absent. If the card says flat (no 3D, no blur, no grain), do not add 3D, motion blur, grain, glow, bounce overshoot or camera moves, even when the score or your instinct wants a flourish: the brand's restraint is the show. One ease family, 0.3 to 0.8 s for UI and 0.5 to 1.2 s for type.
+**Branded film (`brand_film`)**: read `brand-film/FILM-STYLE.md` before you animate. Use only the moves in its motion vocabulary (scale, morph, draw-on, cut, UI choreography...) and none it says are absent. If the card says flat, do not add motion blur, grain, glow, bounce overshoot or cinematic camera moves; 3D the score asks for is built in the flat style (matte or unlit, brand palette, no blur: `references/3d.md`, Brand-flat 3D), even when the score or your instinct wants a flourish: the brand's restraint is the show. One ease family, 0.3 to 0.8 s for UI and 0.5 to 1.2 s for type.
 
 ## Never
 

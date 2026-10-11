@@ -22,6 +22,7 @@ import { serve } from "./stage3d.mjs";
 import { launch } from "./cdp.mjs";
 import { decodePng, colourShares, layoutSimilarity } from "./png.mjs";
 import crypto from "node:crypto";
+import { hasGrammarLibrary, validateGrammar } from "./grammar-lib.mjs";
 
 export const LABELS = ["Sure", "Bold", "Wild"];
 const readJ = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) { return e && e.name === "SyntaxError" ? undefined : null; } };
@@ -239,7 +240,6 @@ export function checkSystem(dir, opts = {}) {
       const flat = /\b(flat|no 3d|no motion blur|no blur|no grain|never 3d)\b/i.test(card.motion);
       if (flat) {
         const moS = motionSection(S.md) || "";
-        if (S.recipe && S.recipe.three) P.push(`${label}: film style: the card says the brand's motion is flat (no 3D, blur or grain); this system leans 3D (recipe.three)`);
         const bad = moS.match(/(?<!\bno\s)(?<!\bnever\s)(?<!\bwithout\s)(?<!\bno\s)\b(motion blur|film grain|grain|dolly|bloom|depth of field)\b/i);
         if (bad) P.push(`${label}: film style: the card says the brand's motion is flat, but the Motion and camera section uses "${bad[0]}": stay inside the card's motion vocabulary`);
       }
@@ -291,6 +291,21 @@ export function checkSystem(dir, opts = {}) {
   if (S.recipe.three) {
     const bases = threeBases();
     if (bases.length && !bases.includes(S.recipe.three.base)) P.push(`recipe.three.base "${S.recipe.three.base}" is not a 3D specimen family (${bases.join(", ")})`);
+  }
+  // the motion grammar: each look binds ONE (library or bespoke, same schema) as grammar.json; skills with no grammar library ask nothing
+  const gf = path.join(S.dir, "grammar.json");
+  if (!exists(gf)) { if (hasGrammarLibrary()) P.push(`grammar-missing: design/${label}/grammar.json is missing: each look binds ONE motion grammar (grammar.mjs pick, then grammar.mjs write --label ${label}, or a bespoke one in the same schema)`); }
+  else {
+    const g = readJ(gf);
+    if (g === undefined) P.push("grammar-invalid: grammar.json is not valid JSON");
+    else {
+      const v = validateGrammar(g);
+      for (const m of v.errors) P.push(`grammar-invalid: ${m}`);
+      for (const m of v.warnings) W.push(`grammar: ${m}`);
+      info.grammar = g && g.id ? String(g.id) : null;
+      const card = FILM && FILM.card ? readFilmCard(FILM.card) : null;
+      if (card && /\b(flat|no 3d|no motion blur|no blur|no grain|never 3d)\b/i.test(card.motion) && g && g.flat_ok === false) P.push(`grammar-not-flat: ${label}: the brand film's card says flat (no blur, grain or glow) but grammar "${g.id}" is flat_ok: false: pick a flat_ok grammar (grammar.mjs pick --flat)`);
+    }
   }
   return { P, W, info };
 }
@@ -386,10 +401,10 @@ export async function checkSpecimen(dir, opts = {}) {
   if (B && !new RegExp(String(B.fonts.display && B.fonts.display.family || "").replace(/[^a-z0-9]+/gi, ".?"), "i").test(html)) P.push(`specimen.html does not use the display face ${B.fonts.display.family}`);
 
   // the timeline
-  if (!I.has) P.push("specimen.html must register its motion: window.__specimen = { tl } (a paused GSAP timeline, 2.5 s at most)");
+  if (!I.has) P.push("specimen.html must register its motion: window.__specimen = { tl } (a paused GSAP timeline, 5 s at most)");
   else {
     if (!(I.duration > 0.2)) P.push(`the specimen timeline is ${Number(I.duration).toFixed(2)} s: it must animate something`);
-    if (I.duration > 2.55) P.push(`the specimen timeline is ${I.duration.toFixed(2)} s (2.5 s at most: it plays when the user hovers)`);
+    if (I.duration > 5.05) P.push(`the specimen timeline is ${I.duration.toFixed(2)} s (5 s at most: it plays when the user hovers)`);
     if (!I.paused) W.push("the specimen timeline is not paused at load (it should rest on its final frame until hovered)");
     if (I.implicit) P.push(`${I.implicit} specimen tween(s) name no ease: use the eases of the Motion and camera section`);
     if (I.fn) W.push(`${I.fn} specimen tween(s) ease with a function, which can't be checked against the Motion and camera section`);
@@ -456,6 +471,9 @@ export async function checkSystems(dirs, opts = {}) {
       if (sim > 0.85) P.push(`the ${path.basename(dirs[i])} and ${path.basename(dirs[j])} specimens are the same layout recoloured (layout similarity ${sim.toFixed(2)}; at most 0.85): compose each system's own page`);
     }
   }
+  // three looks, three different motion grammars
+  const gids = dirs.map((d) => { const r = readJ(path.join(d, "grammar.json")); return r && r.id ? String(r.id) : null; });
+  for (let i = 0; i < gids.length; i++) for (let j = i + 1; j < gids.length; j++) if (gids[i] && gids[i] === gids[j]) P.push(`grammar-repeat: ${path.basename(dirs[i])} and ${path.basename(dirs[j])} both use the grammar "${gids[i]}": the three looks use three different grammars`);
   // each system pitches itself: the one line and the why the console shows must be its own
   const pitch = dirs.map((d) => { const b = loadSystem(d).blend || {}; return ["one_line", "why_for_story"].map((k) => String(b[k] || "").trim().toLowerCase()).filter(Boolean); });
   for (let i = 0; i < pitch.length; i++) for (let j = i + 1; j < pitch.length; j++) {
@@ -505,6 +523,9 @@ export function chooseSystem(run, label, decisionsFile, { mode, preset } = {}) {
   fs.copyFileSync(path.join(dir, "DESIGN.md"), path.join(out, "DESIGN.md"));
   const frame = toFrameMd(readDesignMd(path.join(out, "DESIGN.md"), { mode }));
   fs.writeFileSync(path.join(out, "frame.md"), frame);
+  // the look's motion grammar travels with it: the score is checked against look/grammar.json
+  if (exists(path.join(dir, "grammar.json"))) fs.copyFileSync(path.join(dir, "grammar.json"), path.join(out, "grammar.json"));
+  else if (exists(path.join(out, "grammar.json"))) fs.rmSync(path.join(out, "grammar.json"));
   const dp = path.resolve(decisionsFile);
   const D = exists(dp) ? JSON.parse(fs.readFileSync(dp, "utf8")) : { picks: {} };
   D.picks = { ...(D.picks || {}) };

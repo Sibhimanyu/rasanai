@@ -1,0 +1,31 @@
+{
+  "id": "tiago-eye-intro",
+  "title": "Tiago Feitosa eye intro (Hello, I'm Tiago ... Your Creative Producer / Director / Designer / Editor / Partner)",
+  "kind": "intro",
+  "duration_s": 11.2,
+  "arc": "Personal intro as one continuous object handoff: greeting types in, a silhouette says the name, the 'o' of 'Your' falls out of the word and becomes the iris of an eye, the eye reads 'Creative' and closes, one orange dot then rides the end of a rotating role word until it resolves to the studio mark.",
+  "world": "Pale grey-white ground with faint vertical hairlines, near-black ink for type and silhouette, a single warm orange (the iris/dot), thin humanist sans (light + bold weight pair), one black band that opens only for the eye.",
+  "actor": "The orange dot: first a fingerprint-like stamp behind 'Hello', then the 'o' in 'Your', then the iris of a cat-slit eye, then the dot that rides the end of each role word and finally sits in the logo.",
+  "lines": [
+    { "t": 0.0, "line": "(blank, hairline guides)", "show": "Dark frame with faint construction guides and tiny labels flicker in; the grid is drawn first so the first letter lands on a crossing.", "built_from": "type", "handoff": "The guides stay as light verticals under the following frames." },
+    { "t": 0.25, "line": "Hello", "show": "H, He, Hell, Hello are typed in a large bold weight on a light ground; an orange hand-wave glyph appears beside the last letters and waves (the greeting is acted, not just written).", "built_from": "type", "handoff": "The word dissolves into the dark silhouette of a head; the waving hand is replaced by the head profile." },
+    { "t": 1.0, "line": "I'm", "show": "'I'm' is set in white inside the black silhouette of a head in profile at the position of the mouth, as if the head says it; the silhouette then tilts forward and shrinks to the upper centre.", "built_from": "object", "handoff": "The head bows and lowers to the base of the frame, leaving room for a name line above it." },
+    { "t": 2.0, "line": "Tiago Feitosa", "show": "The name appears small, centred above the bowed head, light weight for the first name and bold for the surname; first name stays while the surname dissolves.", "built_from": "type", "handoff": "Letters of the name drop out leaving a gap; 'Your' assembles in the same line." },
+    { "t": 3.0, "line": "Your", "show": "'Your' is typed small; its 'o' lifts out as an orange-ringed black ball, jumps up above the word, then falls back; at 3.8 s the ball drops out of the word entirely, past the bowed head toward the frame bottom.", "built_from": "type", "handoff": "The falling dot is caught by a black band that sweeps across the lower half and becomes the eye: the ball becomes the iris." },
+    { "t": 4.0, "line": "(the eye)", "show": "A black horizontal band opens; inside it a white almond eye draws; the orange iris (the fallen 'o') slides to centre and morphs to a cat slit pupil with radial fibres, a white highlight dot in the corner.", "built_from": "object", "handoff": "Words slide through the iris: the next word scrolls across it." },
+    { "t": 4.8, "line": "Creative", "show": "'Creative' scrolls horizontally through the iris, letters only visible inside the eye so the word is 'seen' by the eye; the orange disc flares behind.", "built_from": "type", "handoff": "The band wipes away, the eye closes as an eyelid curve, and 'Creative' re-sets full size at the frame centre." },
+    { "t": 5.5, "line": "Creative Producer", "show": "'Creative' (light) is set left and 'Producer' (bold) right, with a squiggle underline under 'Creative' and the orange dot sitting at the end of 'Producer'.", "built_from": "type", "handoff": "Only the bold word changes: it swaps in place while the orange dot and 'Creative' stay put." },
+    { "t": 6.3, "line": "Creative Director / Designer / Editor / Partner", "show": "The bold word is replaced in place each ~0.5 s (Director, Designer, Editor, Partner); on each swap the small orange dot at the word's end becomes a film clapper icon, which rides the last letter. The squiggle under 'Creative' redraws each time.", "built_from": "type", "handoff": "The role word fades and the line is replaced by the name card at the bottom." },
+    { "t": 8.0, "line": "Tiago Feitosa", "show": "The name returns small at the lower centre, same light/bold pairing as the opening, closing the loop with the intro line.", "built_from": "type", "handoff": "The screen flips to a dark ground for the studio mark." },
+    { "t": 9.5, "line": "KORRI", "show": "A small white wordmark (last R mirrored) sits centred on a near-black ground; nothing moves, a clean sign-off after the busy middle.", "built_from": "type", "handoff": "End hold." }
+  ],
+  "techniques": ["letter becomes object (the 'o' falls out of 'Your' and is the iris)", "text clipped by an object (word visible only inside the iris)", "in-place bold word swap with fixed light word", "pictogram rides the end of a word", "silhouette speaks the line", "band wipe opening a stage for one object", "guides drawn before type"],
+  "lessons": [
+    "Make one object the carrier of the whole piece: the 'o' in a word can become the iris that sees the next word.",
+    "Swap the changing word in place and keep everything else frozen; the stable half of the sentence makes the swap legible.",
+    "Let a silhouette or character 'say' a line by seating the type where the mouth is.",
+    "Use a weight pair (light + bold) as grammar: constant words light, changing words bold.",
+    "A pictogram that rides the end of the swapping word (clapper) answers what the word means in one beat.",
+    "Open a separate black band only for the hero object, then wipe it away: a stage inside the page."
+  ]
+}

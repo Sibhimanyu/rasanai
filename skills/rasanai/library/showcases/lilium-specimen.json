@@ -1,0 +1,28 @@
+{
+  "id": "lilium-specimen",
+  "title": "Lilium specimen title (LILIUM / IN BLOOM / LIVING GEOMETRY / STUDIES)",
+  "kind": "specimen",
+  "duration_s": 6.8,
+  "arc": "Botanical specimen sheet turned into a title sequence: one lily is catalogued (labels, handles, crops), its parts line up as a row of crops, the crops become letters' neighbours, and each new title word is spelled around a flower that slots into the word as a letter or a window.",
+  "world": "Specimen-sheet UI: pale grey paper or pure black or full-bleed red grounds, red-and-white cut-out lily photography, black/red/white wide extended grotesque type, design-tool chrome (corner handles, dashed construction circles, labels Surface_01, Specimen_01) as decoration.",
+  "actor": "The lily and its crops: a full flower, then macro crops of its parts treated as image layers with selection handles, then a flower that stands in for a letter or counter in the type.",
+  "lines": [
+    { "t": 0.0, "line": "SPECIMEN_01", "show": "A small lily cut-out on pale paper with a red-label tag 'SPECIMEN_01', crossing guide lines and a dashed construction circle with red corner handles; the flower flickers with glitch slices at the head as it lands (a scan).", "built_from": "object", "handoff": "A black rectangle slices across the stem, and the flower is recoloured through it: the cut becomes a blue image window." },
+    { "t": 0.5, "line": "LILIUM", "show": "Wide black 'LILIUM' is set on the paper with its last letters overlapped by the black crop box holding the blue petal macro; the flower stands upright through the title; tiny specimen metadata (TYPE, STATE, SURFACE) in a tiny block at the right.", "built_from": "type", "handoff": "Frame flips to a red card with a pixelated lily, then to a blue petal macro, then to the full red lily on black." },
+    { "t": 1.0, "line": "(Surface_01 - Surface_04)", "show": "On black the full lily bloom fills the frame covered in tiny UI boxes with x marks; four blue petal crops (Surface_01..04) appear over it with white corner handles and labels, as if a designer were sampling surfaces; then the flower desaturates to grey and a blocky red pixel lily steps over it.", "built_from": "photo", "handoff": "The pixel lily floods the frame red; the four crops scatter into a row of five parts." },
+    { "t": 2.0, "line": "Bud  Tepal  Stigma  Stamen  Receptacle", "show": "Five macro crops (bud, tepal, stigma, stamen, receptacle) line up in a row on flat red; each carries a label and handles; thin curved connector lines arc between them like relations; the row compresses and expands once, then a faint sweep slides across.", "built_from": "photo", "handoff": "The crops shift apart and capital letters slide into the gaps between them." },
+    { "t": 3.5, "line": "BLOOM", "show": "'BL' appears between bud and stamen crops, then 'M' off to the right: the word is spelled across the crops, each crop standing in as the missing O letters; then the whole row snaps to 'N BLOOM' as the crops exit.", "built_from": "type", "handoff": "Everything jumps to a pale pink field and the word scales up in red." },
+    { "t": 4.2, "line": "IN BLOOM", "show": "'IN BLOOM' in red extended type on pale paper, the second word much larger than the first (size contrast, no object).", "built_from": "type", "handoff": "Hard cut to black with a bright red lily and big white type set around it." },
+    { "t": 4.5, "line": "LIVING  GEOMETRY", "show": "White heavy caps LIVING (top) and ...METRY (bottom) with a red lily centred between them overlapping the letters; the flower shape then drops into a red pixel snowflake (the flower simplified to grid) and into a crop box whose centre shows a blue macro; the words split apart around the box.", "built_from": "type", "handoff": "The crop box is left in the gap and the next word is spelled around it." },
+    { "t": 6.0, "line": "STUDIES", "show": "'STUDIES' is spelled in white with letters pushed apart and the lily crop box sitting where a letter would be; letters U and S drop below the baseline; a pale line-art lily in a white card replaces the crop as the last frame.", "built_from": "type", "handoff": "Wireframe lily in a white window, the letters T and E wrapping its sides: final lockup." }
+  ],
+  "techniques": ["specimen sheet with design-tool chrome as the ornament", "image as a layer with selection handles", "macro crops as parts list", "flower as a letter or counter inside the word", "words split apart around an object", "scan glitch on arrival", "ground changes per scene (paper, black, red, pink)"],
+  "lessons": [
+    "Treat the subject as a catalogued specimen: labels, handles and crops make a photo feel like an analysed object and give the type something to align to.",
+    "Spell the title around the picture: let a crop or flower take a letter slot so image and word are one lockup.",
+    "Change ground colour on each beat (paper, black, red, pink) while keeping one type family and one accent so a 7-second piece has several scenes yet one voice.",
+    "Show structure through parts (bud, tepal, stamen) in a row with connectors; a list of parts is a story of how the whole is made.",
+    "Make a size contrast carry a word ('IN' small, 'BLOOM' huge) instead of an effect.",
+    "Simplify the subject to pixels on the way between scenes: the flower-to-pixel step is a transition and an idea."
+  ]
+}

@@ -39,7 +39,8 @@ import { detectModel, profileFor, adapt, tierFor, dispatchFor } from "./lib/mode
 import { libraryIds } from "./library.mjs";
 import { readLogos } from "./lib/logos.mjs";
 import { checkSystemFull, checkSystems, firstLine } from "./lib/system.mjs";
-import { validateMoves, validateVerdict, validateSet, isLabelOnly, MOVE_LABELS } from "./lib/moves-lib.mjs";
+import { readRunGrammar, hasGrammarLibrary, checkScoreGrammar, techniquesNamed } from "./lib/grammar-lib.mjs";
+import { pitchShape, validateMoves, validateVerdict, validateSet, isLabelOnly, MOVE_LABELS } from "./lib/moves-lib.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -345,6 +346,16 @@ const scenesOf = (run) => {
 };
 
 // inputs: [label, path]; a missing input is listed as missing (the member works without it), never silently dropped
+// the shows (library/showcases): a writer, a move inventor and the motion director read the README and two reference films chosen by film kind
+function showcaseInputs(run, P, B) {
+  const dir = path.join(SKILL_DIR, "library", "showcases");
+  const kind = String(B.kind || "").toLowerCase();
+  const pick = productFirst(run, P) || /launch|promo|product|ad\b/.test(kind) ? ["sovra-fm-launch", "kinso-launch"]
+    : /brand/.test(kind) ? ["openai-refreshed", "google-ask-search-anything"]
+    : /explain|essay|talk|topic/.test(kind) ? ["mexicat-upping-my-pdoom", "pixel-object-manifesto"]
+    : ["sovra-fm-launch", "google-ask-search-anything"];
+  return [["showcases: ten reference films line by line, with the ten principles (read first: every on-screen line needs a motion that means it)", path.join(dir, "README.md")], ...pick.map((id, i) => [`showcase ${i + 1} (a reference film, line by line)`, path.join(dir, `${id}.json`)])];
+}
 function contextFor(run, role, key, plan) {
   const pj = projectDir(run);
   const P = plan || {};
@@ -361,7 +372,7 @@ function contextFor(run, role, key, plan) {
     if (role !== "film-builder") I("product-first rules (read all of it)", path.join(SKILL_DIR, "references", "product-first.md")); // the builder's BUILD.md carries what it needs
   }
   if (role !== "brand-film-analyst" && brandFilm(run, P)) {
-    ctx.brand_film = "yes: a branded launch / promo / brand film. READ <run>/brand-film/FILM-STYLE.md FIRST: the brand's own film grammar (canvas, palette and shares, typefaces and type scale, layout, motif, motion vocabulary, photography, cut rate, transitions, end card) is the look. Sure = the card exactly; Bold and Wild = the same palette, type, motif and motion vocabulary, varying only composition, pacing and emphasis. No outside designers, directors, museum grammar or library references. If the card says flat (no 3D, no blur, no grain) add none of them. The story is simple and to the point: references/launch-film.md section 1 (hook with the product or brand in 1 to 3 s, reveal, 2 to 4 real demos, payoff line, end card; one idea and plain words per beat). The style-match gate (brandfilm.mjs compare) runs on the key frames and on the first draft.";
+    ctx.brand_film = "yes: a branded launch / promo / brand film. READ <run>/brand-film/FILM-STYLE.md FIRST: the brand's own film grammar (canvas, palette and shares, typefaces and type scale, layout, motif, motion vocabulary, photography, cut rate, transitions, end card) is the look. Sure = the card exactly; Bold and Wild = the same palette, type, motif and motion vocabulary, varying only composition, pacing and emphasis. No outside designers, directors, museum grammar or library references. If the card says flat (no blur, no grain, no glow) add none of them; 3D stays allowed in the flat style (matte or unlit materials in the palette, clean even light, no bloom, glow, grain, chromatic aberration, and no depth of field or motion blur unless the card allows blur: references/3d.md \"Brand-flat 3D\"). The story is simple and to the point: references/launch-film.md section 1 (hook with the product or brand in 1 to 3 s, reveal, 2 to 4 real demos, payoff line, end card; one idea and plain words per beat). The style-match gate (brandfilm.mjs compare) runs on the key frames and on the first draft.";
     if (role !== "film-builder") inputs.unshift(["launch-film rules: structure templates with timings, the grammar checklist, red flags (references/launch-film.md)", path.join(SKILL_DIR, "references", "launch-film.md")]);
     inputs.unshift(["measured grammar (numbers the style-match gate compares against)", R(run, "brand-film", "grammar.json")]);
     inputs.unshift(["FILM-STYLE.md: the brand film's own style card (READ FIRST; its palette, type, motif and motion vocabulary are law)", R(run, "brand-film", "FILM-STYLE.md")]);
@@ -439,6 +450,13 @@ function contextFor(run, role, key, plan) {
       ctx.library = `node "${path.join(SKILL_DIR, "scripts", "library.mjs")}" search --q "<words>" [--space 3d] | show <id> --full`;
       ctx.gate = `node "${path.join(SKILL_DIR, "scripts", "design.mjs")}" check-system --dir ${rel(R(run, "design", key))}`;
       O(R(run, "design", key, "DESIGN.md")); O(R(run, "design", key, "recipe.json")); O(R(run, "design", key, "blend.json"));
+      if (hasGrammarLibrary()) {
+        // each look = a design system + ONE motion grammar; the three looks use three different grammars
+        const gm = `node "${path.join(SKILL_DIR, "scripts", "grammar.mjs")}"`;
+        ctx.grammar = `each look binds ONE motion grammar (library/grammars/<id>.json, or a bespoke one in the same schema) as design/${key}/grammar.json; the three looks use three different grammars. Pick with \`${gm} pick --run ${rel(run)} [--flat] [--exclude <the other looks' ids>]\`, then \`${gm} write --run ${rel(run)} --id <id> --label ${key}\` (a brand's palette overrides the grammar's; the devices stay). specimen.html becomes a 4 to 5 s moving sketch of the chosen story's open and first rung in that grammar (the frame device moving, a technique of it), a paused GSAP timeline at window.__specimen.`;
+        I("motion grammars (library: pick one per look)", path.join(SKILL_DIR, "library", "grammars"));
+        O(R(run, "design", key, "grammar.json"));
+      }
       if (ctx.brand_film) {
         const sl = String(key).toLowerCase();
         ctx.stance = sl === "sure" ? "Sure: the brand film's grammar EXACTLY (FILM-STYLE.md): its canvas, palette, type, motif, layout, motion vocabulary and end card, built out as a complete design system. Nothing from outside the card." : `${key}: the same palette, type, motif and motion vocabulary as the brand film (FILM-STYLE.md), varying only composition, pacing and emphasis (${sl === "bold" ? "bigger scale, tighter cuts, more of the motif per scene" : "the motif carries more of the story, more contrast between calm holds and bursts, a more unexpected arrangement of the SAME elements"}). Never a new colour, face, illustration style or move.`;
@@ -458,6 +476,7 @@ function contextFor(run, role, key, plan) {
       const dev = Array.isArray(list) ? list.find((x) => String(x.label || x.angle || "").toLowerCase() === String(key).toLowerCase()) : null;
       Object.assign(ctx, { label: key, device: dev || "(see story/picks.json for this label)", brief: B });
       for (const [l, p] of [["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["screens", research("screens.md")], ["precedent", research("precedent.md")], ["picks", R(run, "story", "picks.json")], ["writer's brief", path.join(SKILL_DIR, "references", "script.md")], ["pitch format", path.join(SKILL_DIR, "references", "story.md")]]) I(l, p);
+      for (const [l, p] of showcaseInputs(run, P, B)) I(l, p);
       O(R(run, "story", `pitch-${key}.json`));
       break;
     }
@@ -500,6 +519,8 @@ function contextFor(run, role, key, plan) {
       const den = vd && vd.pitches && vd.pitches[key] && vd.pitches[key].denial;
       if (Array.isArray(den) && den.includes(key)) ctx.denial_round = `yes: the juror failed too many of your cards. Read story/moves-verdict.json (pitches.${key}.cards[].fails and evidence), add those failures to your banned list, and write story/moves-${key}.json again`;
       for (const [l, p] of [["the pitch (beats, on_screen, visual, ui_labels)", R(run, "story", `pitch-${key}.json`)], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["screens (UI labels and surfaces)", research("screens.md")], ["briefing", research("BRIEFING.md")], ["precedent", research("precedent.md")], ["brand DESIGN.md (research)", research("brand", "DESIGN.md")], ["workspace DESIGN.md", dsn ? path.resolve(dsn) : null], ["the method (read all of it)", path.join(SKILL_DIR, "references", "moves.md")], ["your pack (exemplars, generators, stimulus, banned)", R(run, "story", `moves-pack-${key}.json`)], ["reference moves from the user's clip (if any)", research("reference-moves.json")]]) I(l, p);
+      if (readRunGrammar(run) !== null) I("motion grammar (the film's one grammar: restate carriers and joins in its devices)", R(run, "look", "grammar.json"));
+      for (const [l, p] of showcaseInputs(run, P, B)) I(l, p);
       O(R(run, "story", `moves-${key}.json`));
       break;
     }
@@ -531,10 +552,15 @@ function contextFor(run, role, key, plan) {
     case "motion-director":
       Object.assign(ctx, { pass: key === "seams" ? "seams" : "score", length_s: B.length_s, aspect: B.aspect });
       for (const [l, p] of [["script", R(run, "story", "chosen.json")], ["scenes", R(run, "scenes.json")], ["frame.md", lookFrame(run)], ["design system (its Motion and camera section binds the motion)", R(run, "look", "DESIGN.md")], ["direction", R(run, "direction", "DIRECTION.md")], ["motion.md", R(run, "motion.md")], ["music plan", R(run, "music", "plan.json")], ["screens", research("screens.md")], ["assets", research("assets.json")], ["brand", research("brand.md")], ["precedent", research("precedent.md")], ["reference moments (read-only: dense.md and code/REMIX.md per moment; one mechanic each, written as the beat's take)", R(run, "references", "moments")], ["craft", path.join(SKILL_DIR, "references", "craft.md")], ["vocabulary", path.join(SKILL_DIR, "references", "vocabulary.md")], ["3d playbook", path.join(SKILL_DIR, "references", "3d.md")]]) I(l, p);
+      if (readRunGrammar(run) !== null) {
+        ctx.grammar = "yes: the film's ONE motion grammar is look/grammar.json. Set score.grammar to its id; every beat (scene) names a technique (an id from its techniques, a different one on each consecutive beat, at least min(beats, 6) distinct) and a frame_device (what the grammar's frame device does in that beat). The check refuses grammar-missing, technique-unknown, technique-repeat and frame-device-missing.";
+        I("motion grammar (THE film's one motion language: frame device, type and image behaviour, techniques with build routes)", R(run, "look", "grammar.json"));
+      }
       if (LYR(run, P)) {
         ctx.lyric_video = true;
         for (const [l, p] of [["chosen treatment (spine, motifs, plates: space, energy, idiom)", R(run, "story", "chosen-treatment.json")], ["treatment in words", R(run, "story", "chosen-treatment.md")], ["lyrics (word timings)", R(run, "music", "lyrics.json")], ["audio (downbeats, onsets)", R(run, "music", "audio.json")], ["lyric-video playbook", path.join(SKILL_DIR, "references", "lyric-video.md")], ["lyrics and the music runtime", path.join(SKILL_DIR, "references", "lyrics.md")]]) I(l, p);
       }
+      if (key !== "seams") for (const [l, p] of showcaseInputs(run, P, B)) I(l, p);
       if (key === "seams") {
         if (!pj) die("the seam pass needs --project <videos/name>");
         Object.assign(ctx, { project: rel(pj) });
@@ -568,6 +594,7 @@ function contextFor(run, role, key, plan) {
       const sc3 = ((jsonMaybe(R(run, "motion", "score.json")) || {}).scenes || []).find((x) => Number(x.n) === n) || {};
       Object.assign(ctx, { scene: n, project: rel(pj), space: sc3.space || "2d" });
       if (is3d(sc3)) I("3d playbook", path.join(SKILL_DIR, "references", "3d.md"));
+      if (readRunGrammar(run) !== null) I("motion grammar (the film's one grammar: your beat's technique and frame_device come from it)", R(run, "look", "grammar.json"));
       if (LYR(run, P)) {
         ctx.lyric_video = true;
         ctx.sync = "sync every word of this scene's lines to its sung start with RasanMusic.gsapWords / RasanMusic.wordProgress (references/lyrics.md); never ahead of the voice";
@@ -585,6 +612,7 @@ function contextFor(run, role, key, plan) {
       const S = Array.isArray(score.scenes) ? score.scenes : [];
       Object.assign(ctx, { pass: lead ? "lead (the root and the carriers only; scene animators build the beats around them)" : "film (the whole film: the root, every beat and every carrier, in one pass)", project: rel(pj), length_s: B.length_s, aspect: B.aspect, beats: S.length || undefined });
       if (S.some(is3d)) I("3d playbook (the plan puts a beat in 3D)", path.join(SKILL_DIR, "references", "3d.md"));
+      if (readRunGrammar(run) !== null) I("motion grammar (the film's ONE grammar: every beat spends the technique the plan names, in the frame device the plan names)", R(run, "look", "grammar.json"));
       for (const [l, p] of [["the plan (motion/score.json): THE contract", R(run, "motion", "score.json")], ["the plan in words", R(run, "motion", "score.md")], ["build brief (short: what to build, the momentum rules, the gate)", path.join(pj, "BUILD.md")], ["technical role (the workflow's frame-worker contract)", path.join(pj, ".hyperframes", "frame-packets", "_role.md")], ["frame packets (one per beat: the file each beat goes in)", path.join(pj, ".hyperframes", "frame-packets")], ["DISPATCH.md", path.join(pj, "DISPATCH.md")], ["frame.md (the look: fonts, colours)", path.join(pj, "frame.md")], ["motion.md", path.join(pj, "motion.md")], ["reference moments (read-only: one mechanic per beat, never copied)", R(run, "references", "moments")], ["the chosen moves (the Moves pass: the carrier you build and the hero cards with their roughs: your motion target; each is a move to beat, the reference moments are mechanics to execute it with)", R(run, "story", "moves.json")], ["the move roughs (grey-box loops of the hero moves)", R(run, "story", "moves")], ["ui kit", research("screens.md")], ["real screens", research("screens.json")], ["logo files (the only logo you may place: the staged copy is in the project at assets/brand/; if logos.json says none, set the name in type, no symbol)", research("brand", "assets")], ["assets", research("assets.json")]]) I(l, p);
       if (LYR(run, P)) { ctx.lyric_video = true; for (const [l, p] of [["lyrics (word timings)", R(run, "music", "lyrics.json")], ["audio (beats, onsets)", R(run, "music", "audio.json")], ["lyrics and the music runtime", path.join(SKILL_DIR, "references", "lyrics.md")]]) I(l, p); }
       ctx.gate = `node "${path.join(SKILL_DIR, "scripts", "motion-gate.mjs")}" --project ${rel(pj)} --plan ${rel(R(run, "motion", "score.json"))}`;
@@ -636,6 +664,17 @@ function vocabularyFor(terms) {
   }
   const principles = (v.match(/## 6\. Animation principles[\s\S]*?(?=\n## 7\.)/) || [""])[0].trim();
   return [rows.length ? `### The techniques your score names\n\n| Term | What it is | Recipe |\n|---|---|---|\n${[...new Set(rows)].join("\n")}` : "", principles ? `### ${principles.replace(/^## /, "")}` : ""].filter(Boolean).join("\n\n");
+}
+
+// the film's grammar, inlined for the builders: its frame device, type and image behaviour, signature, and the techniques
+// (with their build routes) the score's beats name, like the vocabulary recipes. "" when the run has no grammar file.
+function grammarBlock(run, scenes) {
+  const g = readRunGrammar(run);
+  if (!g || typeof g !== "object") return "";
+  const named = techniquesNamed(g, scenes.map((s) => s && s.technique));
+  const beats = scenes.filter((s) => s && (s.technique || s.frame_device)).map((s) => ({ scene: s.n, technique: s.technique, frame_device: s.frame_device }));
+  const core = { id: g.id, name: g.name, frame_device: g.frame_device, type: g.type, image: g.image, transitions: g.transitions, signature: g.signature, density: g.density, palette: g.palette, do: g.do, dont: g.dont };
+  return `\n\n## The film's motion grammar (look/grammar.json): ONE grammar, a different technique per beat\n\n\`\`\`json\n${JSON.stringify(core, null, 2)}\n\`\`\`\n\n${beats.length ? `The score's beats:\n\n\`\`\`json\n${JSON.stringify(beats, null, 2)}\n\`\`\`\n\n` : ""}${named.length ? `### The techniques the score names (build each by its route)\n\n\`\`\`json\n${JSON.stringify(named, null, 2)}\n\`\`\`` : ""}`;
 }
 
 // Claude does its best motion work when it's told to show off. Every creative prompt ends on that ask: the last
@@ -691,6 +730,7 @@ function promptFor(run, role, key, plan) {
       const terms = [...(sc ? sc.techniques || [] : []), ...seams.map((s) => s.kind), ...((sc && sc.entrances) || []).map((e) => e.type), sc && sc.camera ? String(sc.camera).replace(/^T\d\s*/, "") : ""].filter(Boolean);
       const vocab = vocabularyFor(terms);
       if (vocab) extra += `\n\n## Technique recipes (from references/vocabulary.md)\n\n${vocab}`;
+      extra += grammarBlock(run, [sc]);
       if (is3d(sc)) {
         const pj2 = projectDir(run);
         const pk = pj2 && exists(path.join(pj2, ".hyperframes", "frame-packets")) ? fs.readdirSync(path.join(pj2, ".hyperframes", "frame-packets")).find((f) => new RegExp(`^0*${n}[-_.]`).test(f) && f.endsWith(".md")) : null;
@@ -726,6 +766,10 @@ function promptFor(run, role, key, plan) {
         ? `\n\n## Your motion target (the Moves pass)\n\nThe film's carrier (story/moves.json \`carrier\`) is ${car}: it is the carrier object you build, one object on one tween through every beat it crosses${key === "lead" ? " (as the lead builder you build it, and every other object that crosses a cut, before the scene animators start)" : ""}. The hero move card(s) below are your motion target: the card and its rough are the target, not a ceiling. Beat the rough, don't copy its grey-box look (the look comes from DESIGN.md and frame.md). Keep each bridge frame (the one frame where both states are true) exact, and the hand-off to the next beat as the card states it. If a card cannot be built as written, build its \`build.simplest\`, say why in your report, and never replace the move with a label.\n\n${blocks.join("\n\n")}`
         : `\n\n## Your motion target (the Moves pass)\n\nThe film's carrier is ${car}. This scene carries the move card(s) below: the card and its rough are your motion target. Beat it, don't copy its grey-box look: the look comes from DESIGN.md and frame.md. Keep the bridge frame (the one frame where both states are true) exact, and the hand-off to the next beat as the card states it.\n\n${blocks.join("\n\n")}`;
     }
+  }
+  if (role === "film-builder") {
+    const sc0 = jsonMaybe(R(run, "motion", "score.json"));
+    extra += grammarBlock(run, sc0 && Array.isArray(sc0.scenes) ? sc0.scenes : []);
   }
   if (role === "scene-animator" && LYR(run, plan)) {
     const sc = scenesOf(run)[Number(key) - 1];
@@ -865,6 +909,25 @@ function checkScore(run) {
   const deep = S.filter(is3d);
   const dp = score.depth || {};
   if (!String(dp.plan || "").trim() && !String(dp.none_because || "").trim()) P.push('depth: say where 3D goes in this film and why (depth.plan), or why it stays flat (depth.none_because)');
+  // a flat brand restricts the STYLE of 3D, not its use: flat-set materials, no blur/glow unless the card allows blur
+  if (deep.length && brandFilm(run)) {
+    const card = jsonMaybe(R(run, "brand-film", "FILM-STYLE.json")) || {};
+    const ct = `${(card.slots || {}).motionVocabulary || ""} ${(card.slots || {}).notes || ""}`;
+    if (/\b(flat|no 3d|no motion blur|no blur|no grain|never 3d|3d style)\b/i.test(ct)) {
+      const blurOk = /\b(allows? (motion )?blur|blur (is )?(allowed|ok)|motion blur (is )?(allowed|ok))\b/i.test(ct);
+      for (const s of deep) {
+        const bad = [], m = String(s.materials || ""), c = s.camera3d || {};
+        if (m.trim() && !/\b(basic|toon|flat|matte|unlit|lambert)\b/i.test(m)) bad.push(`materials "${m.slice(0, 60)}" are not from the flat set (basic, toon, flat, matte, unlit, lambert)`);
+        if (/\b(bloom|glow|grain|chromatic|lens flare|chrome|glass|iridescen)/i.test(`${m} ${s.light || ""}`)) bad.push("bloom, glow, grain, chromatic aberration, chrome or glass in the materials or light");
+        if (!blurOk && (c.fstop || c.f_stop || c.motion_blur || c.motionBlur || s.fstop)) bad.push("fstop / motion blur (the card does not allow blur)");
+        if (bad.length) P.push(`scene ${s.n} (${s.space}): flat-3d-style: the brand film is flat, so its 3D takes the flat style: ${bad.join("; ")} (references/3d.md "Brand-flat 3D")`);
+      }
+    }
+  }
+  if (length >= 20 && !deep.length) {
+    const nb = String(dp.none_because || "").trim();
+    if (!(nb.length >= 20 && /["“”'‘’「」«»][^"“”'‘’「」«»]{3,}["“”'‘’「」«»]/.test(nb))) P.push(`no-3d-moment: a ${Math.round(length)} s film needs at least one 3d or hybrid scene (or a 3D shot inside a hybrid scene): give a line real space (references/3d.md), or set depth.none_because (20+ characters, quoting the script line(s) 3D would hurt)`);
+  }
   if (N >= 4 && !deep.length && !String(dp.none_because || "").trim()) T("no-3d", `no 3D or hybrid scene in a ${N}-scene film: give the reveal or the signature seam real space (references/3d.md §1), or say in depth.none_because why this look must stay flat`);
   if (deep.length && !reel.some((m) => is3d(S[Number(m.scene) - 1]))) T("depth-not-in-reel", "the film has 3D but none of its showreel moments is in a 3D or hybrid scene: the depth should be one of the moments people rewind");
   const animated = entr.filter((e) => e !== "cut-in");
@@ -935,6 +998,9 @@ function checkScore(run) {
       else if (isLabelOnly(bridge)) P.push(`seam-label-bridge: seam ${s.from}>${s.to} bridge "${bridge}" is only a label: name the element that is in both scenes at once and what it looks like in that frame`);
     });
   }
+  // the grammar: when the run has one (look/grammar.json), the score names it and every beat spends a technique of it
+  const gram = readRunGrammar(run);
+  if (gram !== null) { const gr = checkScoreGrammar(gram, score, S, N); P.push(...gr.P); W.push(...gr.W); }
   if (score.signature && score.signature.seam && !seams.some((s) => `${s.from}>${s.to}` === String(score.signature.seam))) P.push(`signature.seam "${score.signature.seam}" is not one of the seams`);
   // the plan: the film-level fields and each beat's line, picture, moment and take, UI, exit and carrier. Required on a
   // direct film (one builder reads only this) and on a product-first film; elsewhere missing fields are warnings.
@@ -943,7 +1009,10 @@ function checkScore(run) {
   const need = (cond, msg) => { if (!cond) (must ? P : W).push(`plan: ${msg}`); };
   need(Number(score.duration) > 0, "duration missing (the film's length in seconds)");
   need(String(score.brand || "").trim(), "brand missing (the brand or product name)");
-  if (productFirst(run, plan)) {
+  // a single-feature scenario film carries its feature block; a ladder film (several real uses) carries a refrain instead
+  const chosenPitch = jsonMaybe(R(run, "story", "chosen.json"));
+  const ladderFilm = !!(chosenPitch && pitchShape(chosenPitch) === "ladder");
+  if (productFirst(run, plan) && !ladderFilm) {
     const f = score.feature || {};
     need(["name", "url", "viewer", "task", "before", "after"].every((k) => String(f[k] || "").trim()), "feature { name, url, viewer, task, before, after } missing or incomplete (copy it from the chosen script)");
   }
@@ -973,6 +1042,17 @@ function checkScore(run) {
     if (productFirst(run, plan)) {
       const pr = S.filter((x) => /proof/i.test(String(x.id || x.role || "")));
       need(!pr.length || pr.some((x) => Array.isArray(x.ui) && x.ui.length >= 2), "the proof beat needs ui[]: the literal cause and effect on screen, at least two steps");
+    }
+  }
+  // the shows: every show row of the chosen script is realised in a shot (the shot's on_screen holds the line, its moves describe the show)
+  {
+    const nz = (x) => String(x || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+    const rows = (chosenPitch && Array.isArray(chosenPitch.beats) ? chosenPitch.beats : []).flatMap((b) => (Array.isArray(b.shows) ? b.shows : [])).filter((r) => r && nz(r.line));
+    if (rows.length && S.length) {
+      const shots = S.flatMap((x) => (Array.isArray(x.shots) ? x.shots : []));
+      const missing = rows.filter((r) => { const l = nz(r.line); return !shots.some((sh) => nz(sh.on_screen).includes(l) && String(sh.moves || "").trim()); });
+      for (const r of missing) W.push(`show-unscored: the line "${String(r.line).trim()}" has a show in the chosen script but no shot carries it (a shot whose on_screen holds the line and whose moves describe the show)`);
+      if (missing.length / rows.length > 0.3) P.push(`show-unscored: ${missing.length} of ${rows.length} show rows are not realised in any shot (30% at most): every line's show is built in a shot`);
     }
   }
   const sigs = sig || (score.signature && score.signature.seam ? 1 : 0);
@@ -1220,7 +1300,7 @@ async function checkRole(run, role, key) {
       const pitch = jsonMaybe(R(run, "story", `pitch-${key}.json`));
       if (!pitch) { P.push(`story/pitch-${key}.json is ${pitch === undefined ? "not valid JSON" : "missing"}: the moves are checked against its beats`); break; }
       const pf = productFirst(run, jsonMaybe(R(run, "crew", "plan.json")) || {});
-      const r = validateMoves(m, { beats: pitch.beats, productFirst: pf, uiLabels: pitch.ui_labels, productName: pitch.product || pitch.product_name, pack: jsonMaybe(R(run, "story", `moves-pack-${key}.json`)) || null });
+      const r = validateMoves(m, { beats: pitch.beats, productFirst: pf, shape: pitchShape(pitch), uiLabels: pitch.ui_labels, productName: pitch.product || pitch.product_name, pack: jsonMaybe(R(run, "story", `moves-pack-${key}.json`)) || null });
       P.push(...r.errors); W.push(...r.warnings);
       break;
     }
@@ -1270,10 +1350,8 @@ async function checkRole(run, role, key) {
     case "motion-director": {
       if (key !== "seams" && brandFilm(run)) {
         const sj = readMaybe(R(run, "motion", "score.json")) || "";
-        const card = jsonMaybe(R(run, "brand-film", "FILM-STYLE.json")) || {};
         if (!/FILM-STYLE|film_style/i.test(sj)) P.push('score.json must cite the brand film card: set "film_style": "brand-film/FILM-STYLE.md" and keep every scene inside its motion vocabulary');
-        const flat = /\b(flat|no 3d|no motion blur|no blur|no grain)\b/i.test(`${(card.slots || {}).motionVocabulary || ""} ${(card.slots || {}).notes || ""}`);
-        if (flat && /"space"\s*:\s*"(3d|hybrid)"/i.test(sj)) P.push("the card says the brand's motion is flat (no 3D, blur or grain), but the score has 3D / hybrid scenes: keep every scene 2D");
+        // a flat card restricts the style of 3D (flat-set materials, no blur or glow: checkScore's flat-3d-style), never its use
       }
       if (key === "seams") {
         const md = readMaybe(R(run, "crew", "seams-report.md"));
