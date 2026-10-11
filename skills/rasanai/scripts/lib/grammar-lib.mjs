@@ -36,6 +36,7 @@ export function validateGrammar(g) {
     if (!g[k] || typeof g[k] !== "object") { E(`${k} is missing ({ ${subs.join(", ")} })`); continue; }
     for (const s of subs) if (!str(g[k][s], 8)) E(`${k}.${s} is missing or too short (8+ characters)`);
   }
+  if (!str(g.ground_motion, 12)) E("ground_motion is missing (how the ground lives all the time: a gradient drift, slow parallax, a grain-free noise field, breathing rules; 12+ characters)");
   if (!strs(g.transitions, 3)) E("transitions needs at least 3 named transitions (strings)");
   const T = Array.isArray(g.techniques) ? g.techniques : null;
   if (!T) E("techniques is missing (a list of { id, name, what, route })");
@@ -43,6 +44,7 @@ export function validateGrammar(g) {
     if (T.length < 6) E(`techniques has ${T.length} entries; a grammar needs at least 6 (8 to 12 in the library)`);
     else if (T.length < 8) warnings.push(`techniques has ${T.length} entries (8 to 12 is the library's range)`);
     const seen = new Set();
+    if (!T.some((t) => t && t.id === "word-choreo")) E('techniques needs a "word-choreo" technique (each word enters from its own offset, scale and blur, then settles into the line with a lift and a soft overshoot)');
     T.forEach((t, i) => {
       const at = `techniques[${i}]${t && t.id ? ` (${t.id})` : ""}`;
       if (!t || typeof t !== "object") { E(`${at} is not an object`); return; }

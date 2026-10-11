@@ -74,9 +74,9 @@ Everything obeys `motion.md` (the style's motion language: eases, duration scale
 
 **Reference moments: the take rule.** A reference moment (`scripts/moments.mjs`: a credited slice of a real launch film with its measured spec and code, fetched read-only into `$RUN/references/moments/<id>/`) is a finished piece of someone else's film, with its own opening, background, logo ending and frame-traced motion. Copy it in and you get its film, not yours. From each moment take **one mechanic**, written as one sentence: what moves, on which axis and in which direction, for how long, and what in it never stops moving (that continuous motion is usually why it holds attention). That sentence is the beat's `take` in the plan, and it is all you take. Build it fresh, with this film's content, in this beat's own timeline. Leave behind its copy, its brand and colours, its background, its bookends (logo openers, end plates, hard-cut tails) and its frame tables (read those only for timing: how many frames a move takes and where its speed peaks; a traced track is one move with one ease, never a replay). One storyline on one ground, with moving seams. The user's picked moments win; otherwise the Director picks 2 to 4, one per role, by mechanic fit for the scenario. Moments are used for technique only: no footage, frames, code, copy, brand or audio from one ships in the film, and every moment used is credited in `references/moments/credits.json` and in the Final's notes.
 
-**Overshoot is never the default.** Bouncy motion is the most-named turn-off in user-made video. Allowed only when the style's motion language is elastic, springy, playful or cartoon: `back.out(1.2–1.6)`, 8% past the target at most (3–5% is usual), a single settle (no multi-bounce), one overshoot style per film, on transforms of UI and shapes only. Never on type, logos or numbers (a counter never passes its final value), and never in precise, luxurious, editorial or cinematic styles.
+**Overshoot is never the default.** Bouncy motion is the most-named turn-off in user-made video. Allowed only when the style's motion language is elastic, springy, playful or cartoon: `back.out(1.2–1.6)`, 8% past the target at most (3–5% is usual), a single settle (no multi-bounce), one overshoot style per film, on transforms of UI and shapes only. Never on type, logos or numbers (a counter never passes its final value), and never in precise, luxurious, editorial or cinematic styles. Exception, "Easing personality" below: words settling into a line (word choreography) take a soft lift of 4 to 8 px when the brand's own films settle that way.
 
-**No idle motion, and no scheduled stillness.** No breathing scale, floating, bobbing, pulsing, drifting gradients or infinite yoyo loops (`slop.mjs` idle-breathing; they also break seek-safety). Nor a planned freeze: a hold is reading time, and it still carries secondary motion. Aliveness comes from sequential reveal, the product's own life (typing, counting, a cursor, a notification), lines that keep their carry, and camera moves that go somewhere.
+**No idle motion, and no scheduled stillness.** No breathing scale, floating, bobbing, pulsing or infinite yoyo loops on content (`slop.mjs` idle-breathing; they also break seek-safety). The one standing exception is "A living ground" below: the ground (not the content) drifts, as one finite timeline tween across the whole film. Nor a planned freeze: a hold is reading time, and it still carries secondary motion. Aliveness comes from sequential reveal, the product's own life (typing, counting, a cursor, a notification), lines that keep their carry, and camera moves that go somewhere.
 
 **Momentum** (`motion-gate.mjs` measures it on the draft):
 - A line never parks and never creeps. Between landing and leaving it keeps moving the way it will leave (it keeps sliding toward the film's direction, or it keeps receding to about 60% of its landed size by the time its exit starts), and its exit continues that same move. Never both on one line.
@@ -123,6 +123,35 @@ Everything obeys `motion.md` (the style's motion language: eases, duration scale
 - **Keeps moving while it is on screen:** calm arcs toward its next target at 60–150 px/s, the next leg starting before this one lands, or it leaves through the frame edge. It never parks and never hovers aimlessly.
 
 **Seek-safety (HyperFrames).** No infinite tweens, no `Math.random` or `requestAnimationFrame`, `fromTo` for entrances, seeded noise sampled on the integer frame index, every tween on the paused timeline.
+
+### Animation principles: the twelve that matter here, with numbers
+
+A film made of eases and fades is correct and lifeless. The reference films (the Eye intro, the pixel manifesto) move like animation: things have weight, prepare, overshoot and trail. Of the twelve classic principles, these are the ones that pay for themselves on screen, with the numbers to start from (tune by eye on a 24 fps strip, `crew.mjs strip --fps 24`):
+
+| Principle | What it is | Numbers |
+|---|---|---|
+| Anticipation | A small move the wrong way before the real one | 60 to 120 ms, 5 to 12% of the move's distance or scale (an icon dips to 0.92 before it pops to 1.1) |
+| Squash and stretch | The body deforms on contact and speed, volume kept | squash 10 to 25% on the contact axis (scaleX up as scaleY down by the same share), stretch 5 to 15% along a fast move; recover in 0.2 to 0.35 s |
+| Overshoot and settle | Go past the target, come back once | 3 to 8% past, one return, `back.out(1.4)` or a small `elastic.out(1, 0.7)`; never two reversals |
+| Smear frames | A stretched, blurred copy of the object on a fast move | 1 to 3 frames, length 0.5 to 1.5 times the object's size along the motion; only on moves above ~1500 px/s |
+| Follow-through | Loose parts keep going after the body stops | trailing elements settle 80 to 200 ms after the primary, with a 2 to 6 px overshoot |
+| Secondary motion | A second action that supports the first | 80 to 200 ms behind the primary mover; never a competing one (a highlight dot lags the pupil by 0.08 s) |
+| Arcs | Natural paths are curves | arc deviation 8 to 15% of the travel; `followPath` or two axes on different eases |
+| Slow in, slow out | Ease at both ends | `power2.inOut` for moves, never `linear` on a body |
+| Timing | The number of frames sets weight | light and snappy 4 to 8 frames at 24 fps, heavy 12 to 20; a UI tap 0.12 to 0.2 s |
+| Staging | One clear read at a time | one primary mover, at most 3 things moving, the rest still |
+| Exaggeration | Push past the believable | squash and overshoot at the top of the ranges on the hero move, the lower end elsewhere |
+| Stepped timing (on twos) | Hold each drawing for 2 frames | 12 fps (on twos) or 8 fps (on threes) for pixel art and hand-drawn scenes; type and camera stay smooth |
+
+**When to use the character language.** `motion.md`'s `character` motion language (squash and stretch, anticipation, overshoot settles, smear frames on fast moves, follow-through, secondary motion, optional stepped timing; it allows `back.out`, a small `elastic.out`, stepped eases and short holds) is for films whose actors are objects: a ring of icons, a carrier letter, a ball that reads the line, a mascot. Glyph-chain and pixel-collage grammars use it. A UI-led launch film whose actor is the real product stays on the brand's own easing; a squashing card there reads as a toy. Mixing is the usual answer: the object gets character, the type and the UI keep the brand's ease. The shape kit's `squash`, `smear` and `stepped` (`references/shape.md`) are the tools.
+
+### Layer density
+
+A showcase shot is built of many independently timed things: a ground, a vignette, a ring or specimen, the one actor, an ink layer, a pen line, tiny type, a flare. The references run **5 to 10 independently timed layers at the peak of a showcase shot**; a competent template runs 2 to 4, and reads thin beside them. The score records `layers` per shot (a count of independently timed elements: its own start, its own ease) and `crew.mjs checkScore` warns `layers-thin` when the median over shots is under 4 on a showcase-grammar film (specimen-sheet, pixel-collage, glyph-chain, viewfinder-reel, editorial-grid). Layers are not clutter: each has its own motion on the beat and none covers the line being read. The art department's assets (`agents/art-director.md`) are what fill them with something worth moving.
+
+### Key poses before the build, fine review after
+
+A hero move is judged at the frame, not at the second. Before building, render 4 to 6 key poses of each hero move (start, anticipation, smear or bridge, settle, end) with `design.mjs stills` into `boards/<move>.png`, and look at them: if the five stills do not tell the move, the move is not designed yet. After building, review hero moves as **24 fps strips** (`crew.mjs strip --fps 24 --from <t0> --to <t1>`), not 2 fps overviews: the overshoot, the smear and the morph's in-betweens live between 2 fps samples. `crew.mjs check --role film-builder` warns `no-pose-board` and `hero-not-stripped`.
 
 ---
 
@@ -173,6 +202,53 @@ A film commits to **ONE motion grammar** (`library/grammars/<id>.json`; `node sc
 - **Flat films stay flat in finish, not in space.** A grammar with `flat_ok: false` (chrome, particles, glow, blur) is not used when FILM-STYLE is flat (no blur, no glow); the flat grammars (editorial grid, glyph chain, specimen sheet, dot system) are, and their Rasan3D techniques (`flat_ok: true`) use the brand-flat 3D style (`references/3d.md` "Brand-flat 3D"): matte or unlit, palette colours, even light, no bloom.
 - **Readability stays hard.** The grammar's type behaviour never overrides section 2 and the "Every word fits" rule: whole, inside the safe area, never cropped at rest.
 - **A brand wins on colour and type**; the grammar's devices stay.
+
+### Continuity: never an empty frame
+
+Kinso's next element arrives before the previous one leaves; its frame is never empty. Ours ran the beats in sequence and cleared to white between them (21% of film B's frames were near-empty). Rules:
+
+- **Overlap in every seam.** The incoming element starts 0.2 to 0.4 s before the outgoing one has fully left (its first word, its card edge, the next rung's title), so for a moment both are on screen. `crew.mjs checkScore` warns `no-overlap` when the `in` element starts after the `out` element has gone.
+- **No clear-to-ground between beats.** A beat never ends on the bare ground and then starts again; the ground always carries something (the carrier, a settling word, the next card arriving).
+- **Breaths are declared.** The one deliberate near-empty moment is a breath at the emotional turn: `score.breaths: [[t0,t1]]`, each 1.0 s or shorter, two at most. The end hold (last 1.5 s) is exempt. `motion-gate.mjs` fails `empty-frames` (more than 10% of sampled frames near-empty) and `gap-between-beats` (a near-empty stretch over 0.3 s between two beats) outside them.
+
+### A living ground
+
+A held frame must still be alive. The ground drifts all the time, as in Kinso's gradient: a slow tone or gradient-stop drift of a few percent, a travelling edge glow, rules that breathe 1 to 2 px, a dot field that swells in a wave. The score carries `ground_motion` (what moves, how far, how slowly; on films of 15 s or more, `no-living-ground` otherwise) and it comes from the grammar's `ground_motion`. Build it as one finite timeline tween (or a few) spanning the film, `sine.inOut` or `none`, never an infinite loop, so it stays seek-safe and renders the same every time. It moves the ground only, never the content, and never fast enough to read as an effect.
+
+### Video UI: redraw the product for video
+
+Do not paste the dense real UI flat and small. Kinso redraws its UI for video: a simplified soft glass card, large radius, soft shadow, a few rows, one highlighted row. Keep the real structure, labels and colours (the viewer must recognise the product) and drop the noise: the toolbars, the tenth row, the settings chrome. Enlarge the part that acts until it fills a third of the frame or more.
+
+- **Build in stages**: card, then frame (header, tabs), then rows, then the highlight. A UI that arrives whole is a screenshot (`ui-unstaged` warns when no shot of a UI beat mentions build, rows, highlight, step, simplify or card).
+- **The product acts**: highlights step down the rows, rows reorder, cards appear on their own, a count climbs. A cursor appears only when the user's action is the point (a click that sends, a drag that is the feature); a cursor leading most UI beats reads as a screen recording (`cursor-led`).
+
+### Depth
+
+One flat plane reads as a template. Put sharp UI over a blurred giant word, give cards soft shadows and glass translucency, and keep a foreground and a background layer moving at different speeds. Follow the brand card's `Depth blur:` line: when it says the brand never blurs, depth comes from shadow, scale and overlap alone.
+
+### Word choreography
+
+Letter-by-letter type-on every time is a template. Each word arrives from its own place (its own offset, scale and blur) and settles into the line with a 4 to 8 px lift and a soft overshoot; the key word arrives last. Every word is readable at rest and the line is whole before it leaves. Every grammar carries a `word-choreo` technique with its GSAP route; use type-on only where the typing itself is the show (a prompt being written).
+
+### Type rhythm
+
+Line sizes alternate small, bigger, giant, small, so size carries emphasis: the setup small, the turn bigger, the key line giant, the aside small again. The score's `lines_type` gives a size class per line; all lines within 15% of one size is `type-rhythm-flat`. This sits beside `type_scale` (huge against tiny) in "Variety and punctuation".
+
+### Accent as signal
+
+One accent colour marks the key word or the key dot, every time: the same hue on the word the line is about, on the carrier dot, on the highlighted row. The score's `accent: {colour, marks}` names it (`no-accent-signal` otherwise). The key word may instead take the ground's gradient as its fill (Kinso's "here"). Never a second signal colour, never the accent on decoration.
+
+### Easing personality
+
+Take the easing from the brand's own films (`Easing:` on the brand film card), not from a house default: a soft settle with a slight lift or overshoot (3 to 8%, one settle) unless the brand's own motion is strictly mechanical, then keep `expo`/`power` with no overshoot. `motion.md`'s `easing` and its `banned` list record the choice for the whole film; a mechanical "precise" contract on a brand that settles softly makes the film read as a machine.
+
+### Brand recurrence
+
+The name appears three times: at the reveal ("Meet KINSO"), once mid-film tied to a benefit ("KINSO finds it"), and at the end. Mid-film it is part of a line about what it does for the viewer, not a logo bug. `brand-once` warns when a launch film of 25 s or more shows the brand name or mark in fewer than 2 beats.
+
+### Room
+
+A film needs a breath. Put a dark or quiet beat at the emotional turn (the pain just landed, before the reveal): a declared breath (see Continuity) with the ground changing and the music dipping. Launch films may run 35 to 45 s when the story needs it (Kinso runs 46 s); crammed 7 ideas into 30 s with no breath is the failure.
 
 ---
 

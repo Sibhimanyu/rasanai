@@ -123,6 +123,29 @@
       "contract": { "enter": "back.out(2.5)", "exit": "back.in(2)", "move": "elastic.out(1.2,0.4)", "scale_ms": [100, 200, 350, 600, 1000], "stagger_ms": 50, "hold_ms": 500, "banned": ["fade-up-slide", "fade-slide", "linear-entrance", "blur-in", "opacity-only-entrance"] }
     },
     {
+      "id": "character",
+      "term": "Character",
+      "aka": ["animated like a character", "principles-led"],
+      "family": "spring",
+      "what": "Shapes and type that act like characters: anticipation, squash and stretch, overshoot settles, smear frames on fast moves, follow-through and secondary motion, optionally stepped on twos.",
+      "looks": "A shape winds up 60-120ms, stretches 10-25% along a fast move with a 1-3 frame smear, lands with a 3-8% overshoot and a squash, and its parts follow through a beat later; some beats hold on twos or threes.",
+      "motion": "back.out(1.4) landings, small elastic.out(0.8,0.5) settles, steps(n) for stepped beats, short holds; anticipation tweens and squash/smear built with the RasanShape kit.",
+      "use": "Pixel and icon collages, glyph chains, mascot-free brand films, specimen sheets with life in them, playful product reels.",
+      "conveys": "Life, craft and play without the rubber-band excess of elastic.",
+      "vs": "Cartoonish pushes everything hard; character is the principles at film scale (small, exact numbers). Elastic is one curve; character is the whole choreography. Playful keeps shapes rigid; character deforms them.",
+      "search": ["12 principles of animation motion graphics", "squash and stretch smear frames", "stepped animation on twos"],
+      "prompt": "Animate like a character: anticipate 60-120ms (a 4-8% pull the other way, power2.out) before every hero move; travel fast with a 10-25% stretch along the path and a 1-3 frame smear; land with back.out(1.4) (a 3-8% overshoot) and a 10-25% squash that recovers in 120-200ms; let attached parts follow through 40-80ms later on elastic.out(0.8,0.5) at small amplitude. Hold stepped beats on twos or threes with steps(n). Exits back.in(1.4) over 160-250ms. Stagger 40ms. Holds are short (300ms); something always moves. No fade plus slide, no blur-in.",
+      "contract": {
+        "enter": "back.out(1.4)",
+        "exit": "back.in(1.4)",
+        "move": "elastic.out(0.8,0.5)",
+        "scale_ms": [80, 160, 280, 450, 800],
+        "stagger_ms": 40,
+        "hold_ms": 300,
+        "banned": ["fade-up-slide", "fade-slide", "linear-entrance", "blur-in", "opacity-only-entrance"]
+      }
+    },
+    {
       "id": "mechanical",
       "term": "Mechanical",
       "aka": ["machine-driven", "kinetic machine"],

@@ -117,7 +117,11 @@ if (cmd === "init") {
     const { install } = await import("./lib/stage3d.mjs");
     three = install(dir);
   }
-  console.log(JSON.stringify({ ok: true, injected: done, direction: !!dirSection, ...(three ? { three: { runtime: path.relative(process.cwd(), three.dir), script: three.script } } : {}) }, null, 2));
+  // compositions that call RasanShape get the shape kit (assets/rasan-shape/: the runtime + flubber, MIT)
+  let shape = null;
+  const shp = await import("./lib/shape.mjs");
+  if (args.runtime || shp.projectUsesShape(dir) || /RasanShape/.test(sb)) shape = shp.install(dir);
+  console.log(JSON.stringify({ ok: true, injected: done, direction: !!dirSection, ...(shape ? { shape: { runtime: path.relative(process.cwd(), shape.dir), scripts: shape.scripts } } : {}), ...(three ? { three: { runtime: path.relative(process.cwd(), three.dir), script: three.script } } : {}) }, null, 2));
 } else if (cmd === "audio-lock") {
   const dir = projectDir();
   if (!args.music) die("--music <file> required");

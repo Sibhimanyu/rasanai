@@ -9,7 +9,7 @@ import { applyAdjustments } from "./adjust.mjs";
 // swatch choreography per language (engine demo moves); checked by selftest to obey the language's own bans
 export const SWATCH_BASE = {
   smooth: "soft-drift", snappy: "swiss-precise", elastic: "elastic-playful", springy: "elastic-playful", bouncy: "elastic-playful",
-  playful: "elastic-playful", cartoonish: "elastic-playful", mechanical: "retro-terminal", precise: "swiss-precise", robotic: "swiss-precise",
+  playful: "elastic-playful", character: "elastic-playful", cartoonish: "elastic-playful", mechanical: "retro-terminal", precise: "swiss-precise", robotic: "swiss-precise",
   linear: "swiss-precise", "luxurious-slow": "luxe-minimal", cinematic: "cinematic-slow", organic: "soft-drift", fluid: "liquid-morph",
   liquid: "liquid-morph", floating: "soft-drift", weightless: "soft-drift", heavy: "kinetic-punch", "physics-based": "kinetic-punch",
   inertial: "swiss-precise", gestural: "editorial-mask", "handmade-imperfect": "editorial-mask", "stop-motion-like": "brutalist-step",

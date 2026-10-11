@@ -1,6 +1,6 @@
 # The crew: RasanAI's agents
 
-A film is too much work, and too many kinds of work, for one context. Researching a product properly takes dozens of page reads. A script is better written by someone with nothing else on their mind. Eight scenes animated well take eight full attentions. A critic who watched the film being made can't see it fresh. So RasanAI runs a **crew**: one Director and nineteen roles, each with a brief (`agents/<role>.md`), inputs and outputs on disk, and a check that decides when its work is accepted.
+A film is too much work, and too many kinds of work, for one context. Researching a product properly takes dozens of page reads. A script is better written by someone with nothing else on their mind. Eight scenes animated well take eight full attentions. A critic who watched the film being made can't see it fresh. So RasanAI runs a **crew**: one Director and twenty roles, each with a brief (`agents/<role>.md`), inputs and outputs on disk, and a check that decides when its work is accepted.
 
 The roles exist where one of three things is true, and nowhere else:
 
@@ -31,7 +31,8 @@ Everything deterministic stays a script (`story.mjs check`, `sound.mjs fit`, `ob
 | | `move-sketcher`: a 1.5 to 4.5 s grey-box rough of each script's top hero move, rendered to a looping clip and a 5-frame strip | Story, after the juror | 3 (one per script) | fast is fine (Sonnet) |
 | | `script-editor`: the hostile reader; line edits, verdicts, a recommendation | Story | 1 | session |
 | Motion | `motion-director`: the score (spine, motif, energy, the depth plan, every shot in 2D or 3D, every seam), then the seam pass | Animatic, then Build | 1, twice | session |
-| Art | `frame-designer`: the key frames, from the score, in the look, with the real product | Animatic | 1 per 2 scenes (5 at most) | session |
+| Art | `art-director`: the film's picture world: one asset plan and one style, the assets made through `art.mjs` (illustrations, icon sets, cut-out photos, textures, traced paths, handwriting, treatments), a contact sheet, `art/ART.md` | after the Look and the concept gate, before the score (every scene route; skipped under `--lean`) | 1 | session (Opus) |
+| | `frame-designer`: the key frames, from the score, in the look, with the real product | Animatic | 1 per 2 scenes (5 at most) | session |
 | Animation | `film-builder`: the whole film in one pass (root, every beat, every carrier), from the plan; on a long film (key `lead`) the root and the carriers only | Build | 1 | session |
 | | `scene-animator`: one scene of a long film (2D, 3D or hybrid), built around the lead's carriers, its seams moving, its motion seen and fixed | Build (long films only) | 1 per scene | session |
 | Review | `critic`: lenses `frames`, `motion`, `film`, `grounding`; default reject | Animatic, Build, Final | 1 per lens and round | session |
@@ -50,6 +51,7 @@ Story (a presenter film) ── presenter.mjs key + beats, reel.mjs scan → 3 v
 Story (a song) ── lyrics.mjs align + audio → 3 treatment writers in parallel → treatment.mjs check each → push story; the pick is story/chosen-treatment.json
 Brand film (branded launch / promo / brand films) ── brandfilm.mjs find → fetch → frames → measure → card → brand film analyst fills FILM-STYLE.md → push brand with it (references/brand-film.md); the Look then IS that grammar
 Style gate ── after the key frames and after the first draft: brandfilm.mjs compare --ref grammar.json --ours <frames|draft> (fail: fix before going on); numbers into decisions and a short note to the user
+Art ───── after the Look and the concept gate: art-director → art/plan.json, art/assets/, art/assets.json, art/sheet.png, art/ART.md → art.mjs check; the Motion Director, film builder and scene animators read assets.json and ART.md
 Look ─── Director art-directs from the briefing (brand verdict, house grammar) → push look
 Look (a direct film with a brand) ─ decided: the brand's own look, pushed done with the reason; the motion comes from the moments
 Moments (direct films) ─ the user's picks, else moments.mjs search by role → moments.mjs fetch → each beat's moment and take in the plan
@@ -97,6 +99,16 @@ Claude does its best motion work when it's told to show off; left unpushed it pr
 
 Showing off means craft: choreography timed to the frame, invisible seams, product interactions more real than the real thing, one spectacle beat. It never means more effects; glow, particles and bounce are still slop, and the gates still reject them.
 
+## The art department in the crew
+
+Every earlier film had type and product UI and no picture world: the builders drew CSS circles or reached for a stock-looking generated image. The art director is the one role that decides the film's pictures. It runs after the Look is chosen and the concept gate has passed, **before the score**, on every scene route (a song, a footage reel and a single unit included when they have pictures to make); `--lean` skips it.
+
+1. `art.mjs plan --run "$RUN"` derives the asset list from the chosen script's shows (`built_from: object|photo`, and any show naming a drawn thing), the grammar and the look.
+2. The `art-director` (Opus; `crew.mjs brief --role art-director --key art`) edits the plan into one world with one `style` block, makes the assets (`art.mjs make|cutout|treat|trace|hand`), looks at every one on a contact sheet, regenerates the weak, and writes `art/ART.md`. When image generation is unavailable it says so and draws vector and pixel assets itself; only true photographs stay as `todo`.
+3. Accept on `crew.mjs check --role art-director --key art` (runs `art.mjs check`: every asset exists or is a `todo` with a reason, every object or photo show maps to an asset, one anchor for the generated set, sizes at least those used).
+
+Downstream: the Motion Director, the film builder and the scene animators are given `art/assets.json` and `art/ART.md` and build with these files, not with their own drawings; the design-system designers may name the picture world in `## Imagery` on every route, not only presenter films; the shape kit (`references/shape.md`) is how the assets move (paths to morph and draw, cut-outs to scatter and dissolve).
+
 ## The Moves pass in the crew
 
 Showing off is not enough: left to itself the crew plans motion in technique names ("match cut", "iris") and builds competent, forgettable films. The Moves pass invents content-born moves instead (`references/moves.md`). It runs inside Story, after the three scripts pass `story.mjs check` and before the editor, on every film route except a song (`music-to-video`) and a footage reel; `--lean` skips it.
@@ -139,6 +151,8 @@ $RUN/story/          truth.md · picks.json (story.mjs pick's output) · pitch-<
                      moves: moves-pack-<label>.json · moves-<label>.json · moves-verdict.json · moves/<label>-<id>/{rough.html,rough.mp4,strip.png,poster.png} · moves.json (the chosen script's, binds the Motion Director)
                      songs: treatment-<Sure|Bold|Wild>.json · TREATMENT-<label>.md · chosen-treatment.json · chosen-treatment.md
 $RUN/music/          lyrics.json (word timings) · audio.json (beats, downbeats, sections, onsets) · plan.json · LICENSES.json
+$RUN/art/            plan.json · assets/<id>.png|svg · assets.json · sheet.png · ART.md
+$RUN/boards/         <move>.png (key-pose boards of each hero move, before the build)
 $RUN/motion/         score.json · score.md
 $RUN/frames/         <n>.html · <n>.png · <n>.md
 $RUN/crew/           plan.json · ledger.jsonl · prompts/ · scratch/ · animators/<n>.md + strips · seams-report.md · critic-<lens>-<round>.json
@@ -159,6 +173,8 @@ node $SKILL_DIR/scripts/crew.mjs strip --file videos/<name>/compositions/frames/
 node $SKILL_DIR/scripts/crew.mjs strip --project videos/<name> --from 11.6 --to 12.4 --fps 15 --out <sheet.png>                 # across a cut, the real runtime
 node $SKILL_DIR/scripts/crew.mjs strip --file <draft.mp4> --at 0,2,4.5 --out <sheet.png>                                          # a render
 ```
+
+**Key poses first, fine review after.** Before the build, each hero move gets a board of 4 to 6 stills (start, anticipation, smear or bridge, settle, end) rendered with `design.mjs stills` into `$RUN/boards/<move>.png`; after the build, hero moves are reviewed as 24 fps strips (`crew.mjs strip --fps 24 --from <t0> --to <t1>`, the file named with the move id under `crew/`), not 2 fps sheets. `crew.mjs check --role film-builder` warns `no-pose-board` and `hero-not-stripped`.
 
 A strip at 12 to 15 fps across a move shows its ease (the spacing between frames), its overlap, whether it lands, and whether anything pops at a seam. Strips of a 3D scene (`--file` on a composition that uses Rasan3D) wait for the 3D build and show its real motion blur; `stage3d.mjs stills` renders single frames of one.
 

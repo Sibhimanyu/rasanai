@@ -1,0 +1,136 @@
+{
+  "id": "pixel-collage",
+  "name": "Pixel collage",
+  "source": "A short manifesto on an off-white paper ground in which ONE ring of matching 16-bit pixel icons (heart, camera, vinyl, book, cat, plant, coin, cap, gamepad) is the actor: it orbits, is struck by ink smears and handwriting, breaks apart, and its members stand in for words and for the letters of LOVE, alongside a few cut-out photos graded in one hot gradient map. Tiny type, a handwritten signature, ink and pixel dissolves. Described from a frame strip; no files or pixels are carried.",
+  "motion_language": "character",
+  "frame_device": {
+    "what": "A paper ground with a soft vignette and no grain, and ONE cohesive set of about 12 to 16 pixel-art icons drawn by the art department in one style (same grid, same outline, same palette). The icons are the frame device: a ring at the centre that orbits like a clock face, and the stage on which each word is said by one object. Tiny sans type and a handwritten pen line are the only text.",
+    "moves": "The ring orbits slowly; ink strokes and brush smears strike it and knock members out one at a time, each flashing; one icon at a time steps forward as the beat's verb or noun, then hands the stage back to the ring. The pen that writes a line is also the cursor that scatters the objects."
+  },
+  "ground_motion": "The paper drifts a few percent in tone toward a warm tint and back over 8 to 10 s, the vignette breathes with it, and the ring keeps its slow orbit between strikes, so the stage lives while one icon speaks.",
+  "type": {
+    "classes": "One small clean sans (14 to 28 px on a 1080 frame) for the spoken line, sentence case, with a large pixel or heavy word only where one word is the beat; a handwritten single-stroke script (the signature, the question) drawn from Hershey paths.",
+    "behaviour": "Lines are written word by word by a pen that runs ahead of the text (draw-on), or typed with a blinking cursor beside the icon that says them; a word may be swapped in place while the rest holds. Small type is always fully readable at rest, inside the safe area, never cropped."
+  },
+  "image": {
+    "treatment": "Pixel-art icons in one set (generated as one style by the art department, never mixed with vector or photo icons), and cut-out photographs (a head, a hand) run through ONE hot gradient map (orange to red to black) so they read as the same material. Ink smears, brush swirls and scribbles are the only organic marks.",
+    "behaviour": "Icons are stepped objects: they move on twos (12 fps), squash on landing and may smear on a fast move; photos enter as cut-outs, never as rectangles, and dissolve into pixels. Nothing is a stock picture."
+  },
+  "transitions": [
+    "ink smear transition (a brush smear sweeps the frame and the next scene is under it)",
+    "pixel dissolve (the image breaks into its own pixels and the next object assembles from them)",
+    "icon-ring handoff (the next object is the ring member that was just struck)",
+    "colour flare then ground change (cyan or red wash to black, then back to paper)",
+    "scribble out (a dense ball of strokes swallows the letters)"
+  ],
+  "techniques": [
+    {
+      "id": "ink-smear-transition",
+      "name": "Ink smear transition",
+      "what": "A black brush smear sweeps across the frame, turns the page, and the next scene is already there under it.",
+      "route": "RasanShape.ink(tl, wipeEl, {at, duration: 0.5, mode: \"smear\"}) over a full-frame ink layer (an SVG blob path or a cut-out brush PNG from art/assets); the incoming scene sits beneath at opacity 1 and is revealed as the smear clears; outgoing content scales 1 to 1.04 and smears (RasanShape.smear) as it is struck."
+    },
+    {
+      "id": "icon-ring-orbit",
+      "name": "Icon ring orbit",
+      "what": "A circle of matching pixel icons orbits like a clock face, a brush stroke strikes one at a time and it flashes.",
+      "route": "12 to 16 icon <img> elements placed on a circle (radius 28% of the short side) in a rotating wrapper; wrapper rotation 0 to 360 over the scene (ease none) and each icon counter-rotates so it stays upright; a strike is a 0.12 s scale 1 to 1.25 (back.out) with a 0.2 s accent flash behind, then a 3 to 8% overshoot settle; RasanShape.stepped(tl, {fps: 12}) on the ring scene."
+    },
+    {
+      "id": "signature-draw-on",
+      "name": "Signature draw-on",
+      "what": "A handwritten line or signature draws itself, a pen tip running ahead of the stroke.",
+      "route": "art.mjs hand --text \"...\" --out art/assets/sig.svg (Hershey single-stroke paths, one path per stroke); RasanShape.drawOn(tl, svg, {at, duration: 1.2, stagger: 0.04, ease: \"power1.inOut\"}); a small pen-tip circle follows the head with RasanShape.followPath(tl, pen, headPath, {at, duration: 1.2})."
+    },
+    {
+      "id": "gradient-map-cutout",
+      "name": "Gradient-mapped cut-out",
+      "what": "A cut-out photo (a head in profile, a rising hand) in one hot colour ramp, standing in as the speaker.",
+      "route": "art.mjs cutout then art.mjs treat --op gradient-map --colors <dark>,<accent>,<hot>; the PNG slides in from the edge (x 120 to 0, 0.6 s power3.out) with a 12% squash on arrival (RasanShape.squash) and dissolves out as pixels (RasanShape.dissolve mode \"pixel\", cell 8 to 24)."
+    },
+    {
+      "id": "letter-scatter",
+      "name": "Letters scatter and settle",
+      "what": "A word falls apart into its letters, which tumble apart and settle as tiny glyphs, or an icon takes a letter's place and the real letter replaces it.",
+      "route": "RasanShape.split(el, {by: \"chars\"}); RasanShape.scatter(tl, spans, {at, from: \"random-seeded\", seed: 7, settle: 0.6}); for LOVE put a pixel icon in each letter slot in turn (0.3 s each, flipping the ground white, black, red), then swap to the real glyph."
+    },
+    {
+      "id": "stepped-on-twos",
+      "name": "Stepped on twos",
+      "what": "The whole scene moves at 12 fps, like hand-drawn animation, so pixel art reads as animated pixel art.",
+      "route": "RasanShape.stepped(tl, {fps: 12}) on the scene's timeline (8 fps for a held-down beat); every tween keeps a real ease underneath, the quantisation is the style; type and the camera stay smooth by living on a second timeline."
+    },
+    {
+      "id": "object-says-the-word",
+      "name": "An object says the word",
+      "what": "One icon takes the stage as the beat's verb (the camera is \"action\", the book is \"intention\", the vinyl is \"curiosity\") and the word types beside it.",
+      "route": "Icon scale 0 to 1 with back.out(1.7) and 6% overshoot after a 0.1 s anticipation dip (scale 0.92); a starburst or ribbon swoosh behind it draws on (RasanShape.drawOn); the word types with a blinking cursor at 14 cps, then the object exits along the ribbon, which is the next transition."
+    },
+    {
+      "id": "word-swap-in-place",
+      "name": "Word swap in place",
+      "what": "A line holds while one word is replaced where it stands (\"you dont.\" becomes \"you just show it.\"), so the line is the one thing that never leaves.",
+      "route": "Fixed words are a still span; the changing word is its own span in the same slot: out y 0 to -10 and opacity 1 to 0 (0.2 s power2.in), in y 12 to 0 with a 4 px settle (0.4 s back.out(1.4)); the line's width follows with a 0.3 s power3.inOut tween of the span's width so nothing jumps."
+    },
+    {
+      "id": "ink-blob-break",
+      "name": "Ink break",
+      "what": "The ring spins up, brush swirls knock the objects off it and some turn into black ink blobs while others fly out, leaving the stage almost empty.",
+      "route": "Each icon gets a seeded outward vector (RasanShape.scatter from: \"radius\"); on strike it squashes 20% against the swirl direction (RasanShape.squash), smears 2 frames (RasanShape.smear) and either flies out or its pixels become a black blob (RasanShape.dissolve mode \"pixel\" into an ink-coloured fill); the swirl itself is RasanShape.ink mode \"blot\" over 0.6 s."
+    },
+    {
+      "id": "scribble-out",
+      "name": "Scribble out",
+      "what": "A tangle of black strokes and red loops swallows the letters into a dense ball, and the film ends on the scribble.",
+      "route": "A hand-drawn scribble SVG (art.mjs trace --lineart of a drawn scribble, or art.mjs hand with the scribble font) drawn on with RasanShape.drawOn(tl, svg, {at, duration: 1.0, stagger: 0.02, ease: \"none\"}) over the drifted letters; the last stroke lands on the final beat and the frame holds still for 0.6 s."
+    },
+    {
+      "id": "colour-flare-wash",
+      "name": "Colour flare and wash",
+      "what": "A cyan flare swells from one edge, the page washes red, then black, as the register changes from question to answer.",
+      "route": "A full-frame gradient div (radial, accent to transparent) scales 0.2 to 2.4 from the left edge over 0.5 s power2.inOut while the ground tweens paper to the wash colour (0.4 s) and the type colour inverts in sync; this is a palette move, no blur and no glow."
+    },
+    {
+      "id": "word-choreo",
+      "name": "Word choreography",
+      "what": "Each word of a line enters from its own place (its own offset, scale and blur) and settles into the line with a gentle lift, the key word last with a little more overshoot; type-on only where a pen or a cursor is the show.",
+      "route": "RasanShape.split(el, {by: \"words\"}); GSAP from each word's own x/y offset (24 to 80 px, different per word), scale 0.88 to 1.15 and blur 6 to 12 px to rest, 0.55 s, stagger 0.09 s; end with a 4 to 8 px lift settling back (y -6 to 0) on back.out(1.4); every word readable at rest and the line whole before the next line starts; the next line's first word starts 0.2 s before this line's last settles."
+    }
+  ],
+  "signature": "One ring of matching pixel objects speaks the whole film: it orbits, is struck by ink, breaks apart, and its members take the place of the letters of the last word before they scatter and are scribbled out.",
+  "density": {
+    "change_every_s": 0.8,
+    "note": "A new object, a stroke or a swap every 0.8 to 1.5 s; stepped on twos, with the ring orbiting between strikes. Layers per shot at the peak: 5 to 10 (ground, vignette, ring, one icon, ink, pen line, tiny type, flare)."
+  },
+  "palette": {
+    "ground": "off-white paper (#EFEDE6) with a soft vignette",
+    "ink": "near black (#111) for type and brush, with black grounds for spoken words",
+    "accent": "one hot red-orange (#E8421E), with a cyan flare used once",
+    "note": "A brand palette overrides these; the devices stay. The accent is also the gradient-map's hot end."
+  },
+  "do": [
+    "Generate ONE icon set in ONE pixel style and use only it",
+    "Run every photo through the same gradient map",
+    "Let the pen that writes a line also be the cursor that strikes the objects",
+    "Step the pixel scenes on twos and keep type smooth",
+    "Squash, smear and overshoot the objects (character motion language)",
+    "Keep 5 to 10 independently timed layers at the peak of a shot"
+  ],
+  "dont": [
+    "Do not mix pixel icons with vector or photo icons",
+    "Do not use stock photos, ungraded, as rectangles",
+    "Do not add grain, glow or 3D (this grammar is flat paper and pixels)",
+    "Do not crop or hide the small type",
+    "Do not repeat a technique on consecutive beats",
+    "Do not let an ink smear hide the line that is being read"
+  ],
+  "fits": [
+    "brand film",
+    "manifesto",
+    "explainer for an idea or a feeling",
+    "title sequence",
+    "reel intro",
+    "launch ladder (each rung an object says its word)"
+  ],
+  "flat_ok": true
+}

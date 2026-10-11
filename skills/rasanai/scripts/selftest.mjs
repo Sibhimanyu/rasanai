@@ -33,6 +33,11 @@
 // 22. motion grammars: grammar.mjs (list, show, check, pick, write, the brand palette merge), the score's grammar rules (grammar-missing, technique-unknown,
 //     technique-repeat, technique-thin, frame-device-missing), the builders' briefs, and the design desk's grammar.json gate (grammar-missing, grammar-invalid,
 //     grammar-not-flat, grammar-repeat); fixtures in scripts/tests/fixtures/grammars/ (RASANAI_GRAMMAR_LIBRARY); no grammar file, no new errors
+// shape. the shape kit: RasanShape runtime + vendored flubber (licence), shape.mjs install/check, the demo page rendered headless (every function changes over time
+//     and is identical when seeked twice), the `character` motion language accepted by obey
+// art. the art department: art.mjs treat (gradient-map, duotone, halftone, dither, pixelate, xray, grade), cutout (flood-fill on a plain ground, a busy one refused), trace and hand
+//    (vendored imagetracerjs and Hershey) on small fixtures, plan / make (the image-generation-unavailable path) / check, the crew's art phase, brief and check, layers-thin,
+//    no-pose-board and hero-not-stripped
 // 17. lyric videos: the treatment gate and the crew's song route, lyrics.mjs (check, audio, align when whisper is there), the RasanMusic runtime in a page, the film finish (grade, blur)
 import fs from "node:fs";
 import os from "node:os";
@@ -1401,7 +1406,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     ok("plan: on a direct film DISPATCH.md is a short pointer to the plan (no duplicated craft rules) and DIRECTION.md says the plan wins", /The plan wins/.test(dp) && !/duplicated craft rule/.test(dp) && Buffer.byteLength(dp) < 3000 && /The plan wins/.test(dr) && /^- picture: the receipt does thing 2$/m.test(t1) && /^- exit: carrier \(carrier: the receipt\)$/m.test(t1), dp.slice(0, 300));
     // the builder's required reading: the plan, BUILD.md, the packets' role, DISPATCH and frame.md stay small
     const bb = J2(C(["brief", "--run", run, "--role", "film-builder", "--key", "film", "--project", proj]));
-    ok("plan: the film builder's brief is self-contained and small (about 20 KB, no 40 KB craft references)", bb.ok && bb.bytes < 26000 && !/: `[^`]*references\/(craft|vocabulary|launch-film)\.md`/.test(fs.readFileSync(path.join(ws, bb.prompt), "utf8")), JSON.stringify(bb).slice(0, 300));
+    ok("plan: the film builder's brief is self-contained and small (about 20 KB, no 40 KB craft references)", bb.ok && bb.bytes < 28000 && !/: `[^`]*references\/(craft|vocabulary|launch-film)\.md`/.test(fs.readFileSync(path.join(ws, bb.prompt), "utf8")), JSON.stringify(bb).slice(0, 300));
   }
   ok("crew: storyboard carries each scene's space, and a 3D scene's lens, camera legs, light and materials", /^- space: hybrid \(build with Rasan3D/m.test(t1) && /^- camera3d: 50 mm f\/2\.8; 0\.0–0\.3s locked; 0\.3–1\.6s arc 28° right \(power3\.inOut\)/m.test(t1) && /^- light: three-point/m.test(t1) && (t1.match(/^- space: 2d$/gm) || []).length === 3 && /depth \(2D \/ 3D\): 2D film/.test(t1), t1.slice(0, 400));
   // local search finds the project by its git remote and package name; the inventory lists files, never secrets
@@ -2401,12 +2406,12 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   const ls = J(GM(["list"]));
   ok("grammar: list names the library's grammars with flat_ok, fits and the technique count", ls.grammars && ls.grammars.length === 3 && ls.grammars.every((g) => g.id && typeof g.flat_ok === "boolean" && g.techniques >= 8), JSON.stringify(ls).slice(0, 200));
   const sh = J(GM(["show", "beta-glow"]));
-  ok("grammar: show prints the whole grammar; an unknown id exits 1", sh.id === "beta-glow" && sh.techniques.length === 8 && sh.flat_ok === false && GM(["show", "nope"]).status === 1);
+  ok("grammar: show prints the whole grammar; an unknown id exits 1", sh.id === "beta-glow" && sh.techniques.length === 9 && sh.flat_ok === false && GM(["show", "nope"]).status === 1);
   ok("grammar: with no library folder, list is empty and pick says so (exit 1)", J(GM(["list"], { RASANAI_GRAMMAR_LIBRARY: path.join(TMP, "none") })).grammars.length === 0 && GM(["pick", "--run", run], { RASANAI_GRAMMAR_LIBRARY: path.join(TMP, "none") }).status === 1);
   // the schema
   const chk = (mut) => { const o = rj(AG); mut(o); const f = path.join(TMP, `gram-${Math.random().toString(36).slice(2)}.json`); wj(f, o); return GM(["check", "--file", f]); };
   ok("grammar: check passes a good grammar (exit 0)", GM(["check", "--file", AG]).status === 0);
-  const bads = [["no flat_ok", (o) => { delete o.flat_ok; }, /flat_ok/], ["5 techniques", (o) => { o.techniques = o.techniques.slice(0, 5); }, /techniques has 5/], ["a duplicate technique id", (o) => { o.techniques[1].id = o.techniques[0].id; }, /duplicate technique id/], ["a technique with no build route", (o) => { delete o.techniques[2].route; }, /route is missing/], ["no frame_device.moves", (o) => { delete o.frame_device.moves; }, /frame_device\.moves/], ["a non-kebab id", (o) => { o.id = "Alpha Grid"; }, /kebab-case/], ["no palette accent", (o) => { delete o.palette.accent; }, /palette\.accent/], ["no density", (o) => { delete o.density; }, /density\.change_every_s/], ["no do list", (o) => { o.do = []; }, /do needs/]];
+  const bads = [["no ground_motion", (o) => { delete o.ground_motion; }, /ground_motion/], ["no word-choreo technique", (o) => { o.techniques = o.techniques.filter((t) => t.id !== "word-choreo"); }, /word-choreo/], ["no flat_ok", (o) => { delete o.flat_ok; }, /flat_ok/], ["5 techniques", (o) => { o.techniques = o.techniques.slice(0, 5); }, /techniques has 5/], ["a duplicate technique id", (o) => { o.techniques[1].id = o.techniques[0].id; }, /duplicate technique id/], ["a technique with no build route", (o) => { delete o.techniques[2].route; }, /route is missing/], ["no frame_device.moves", (o) => { delete o.frame_device.moves; }, /frame_device\.moves/], ["a non-kebab id", (o) => { o.id = "Alpha Grid"; }, /kebab-case/], ["no palette accent", (o) => { delete o.palette.accent; }, /palette\.accent/], ["no density", (o) => { delete o.density; }, /density\.change_every_s/], ["no do list", (o) => { o.do = []; }, /do needs/]];
   ok("grammar: check refuses " + bads.map((b) => b[0]).join(", ") + " (exit 2, the field named)", bads.every(([, m, re]) => { const r = chk(m); return r.status === 2 && (J(r).errors || []).some((e) => re.test(e)); }));
   // pick: story shape, flat, exclude, count, deterministic
   wj(path.join(run, "decisions.json"), { subject: "Tally", route: "product-launch-video" });
@@ -2474,6 +2479,40 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   r0 = out();
   ok("grammar (score): with no look/grammar.json there are no grammar errors at all (back-compat)", !/grammar-|technique-|frame-device-/.test(r0.p + r0.w), (r0.p + r0.w).slice(0, 300));
 
+  // SPEC 8: continuity, a living ground, brand recurrence, video UI, type rhythm, signal colour (all warnings)
+  {
+    fs.writeFileSync(path.join(run, "decisions.json"), JSON.stringify({ route: "product-launch-video", subject: "Tally" }));
+    const shotsOf = (moves, on = "the inbox screen") => [{ t0: 0, t1: 5, on_screen: on, moves, primary: "the screen" }];
+    const mk = (i, over = {}) => ({ n: i + 1, id: `s${i + 1}`, duration: 5, picture: "the inbox UI on screen", line: "Mail is slow", shots: shotsOf("the cursor moves to the button and clicks"), ...over });
+    const seamsOf = (n, extra = {}) => Array.from({ length: n - 1 }, (_, i) => ({ from: i + 1, to: i + 2, kind: "cut", why: "the next beat", ...extra }));
+    const bad = (over = {}) => ({ brand: "Tally", scenes: Array.from({ length: 6 }, (_, i) => mk(i)), seams: seamsOf(6), lines_type: [30, 31, 29], ...over });
+    score(bad());
+    let q = out();
+    const names = ["no-overlap", "no-living-ground", "brand-once", "ui-unstaged", "cursor-led", "type-rhythm-flat", "no-accent-signal"];
+    ok("score (SPEC 8): a 30 s launch score with sequential seams, no ground motion, one flat type size, no accent, a cursor-driven unstaged UI and no brand mid-film raises every continuity warning", names.every((n) => new RegExp(`${n}:`).test(q.w)) && !names.some((n) => new RegExp(`${n}:`).test(q.p)), q.w.slice(0, 600));
+    const good = () => ({
+      brand: "Tally", ground_motion: "the gradient ground drifts all the time", accent: { colour: "#d4392b", marks: "the key word and the dot" }, lines_type: [18, 40, 120, 18],
+      scenes: Array.from({ length: 6 }, (_, i) => mk(i, { line: i === 1 || i === 4 ? "Tally finds it" : "Mail is slow", shots: shotsOf("the card builds, rows stage in, then the highlight steps down the rows") })),
+      seams: seamsOf(6, { overlap_s: 0.4 }),
+    });
+    score(good());
+    q = out();
+    ok("score (SPEC 8): overlapping seams, ground_motion, accent, rhythmic type, the brand in two beats and a staged product that acts raise none of them", !names.some((n) => new RegExp(`${n}:`).test(q.w + q.p)), q.w.slice(0, 500));
+    score({ ...good(), seams: seamsOf(6, { out_leaves: 0.3, in_arrives: 0.5 }) });
+    ok("score (SPEC 8): a seam's in_arrives after out_leaves is no-overlap; in_arrives before it is not", /no-overlap: seams? 1>2/.test(out().w));
+    score({ ...good(), seams: seamsOf(6, { out_leaves: 0.3, in_arrives: -0.2 }) });
+    ok("score (SPEC 8): in_arrives before out_leaves is overlap", !/no-overlap/.test(out().w));
+    const short = (o) => ({ ...o, scenes: o.scenes.map((x) => ({ ...x, duration: 2, shots: [{ ...x.shots[0], t1: 2 }] })) });
+    const { ground_motion: _gm, ...noGm } = bad();
+    score(short(bad()));
+    ok("score (SPEC 8): no-living-ground and brand-once apply only to films long enough (a 12 s score raises neither)", !/no-living-ground|brand-once/.test(out().w));
+    score({ ...good(), breaths: [[1, 2.5], [3, 3.5], [4, 4.5]] });
+    ok("score (SPEC 8): more than two breaths, or one over 1 s, is breaths-invalid", /breaths-invalid/.test(out().w));
+    score({ ...good(), breaths: [[1, 1.8]] });
+    ok("score (SPEC 8): one declared breath under 1 s is fine", !/breaths-invalid/.test(out().w));
+    fs.rmSync(path.join(run, "decisions.json"), { force: true });
+  }
+
   // the builders' briefs: the grammar file is an input; the film builder and the animator get the techniques the score names inlined
   GM(["write", "--run", run, "--id", "alpha-grid"]);
   C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "Tally", "--scenes", "4", "--length", "16"]);
@@ -2493,6 +2532,222 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   ok("grammar (brief): the move inventor reads the grammar when the run has one", /motion grammar \(the film's one grammar/.test(mit));
   fs.rmSync(path.join(run, "look", "grammar.json"));
   ok("grammar (brief): with no grammar file the builders' and the designer's briefs are unchanged (no grammar section, no grammar output)", !/## The film's motion grammar|motion grammar \((?:THE|the) film/i.test(brief("film-builder", "film", ["--project", "videos/t"]) + brief("scene-animator", "2", ["--project", "videos/t"]) + brief("motion-director", "score")) && !/design\/Bold\/grammar\.json/.test(brief("design-system-designer", "Bold", [], { RASANAI_GRAMMAR_LIBRARY: path.join(TMP, "none") })));
+}
+
+// shape: the RasanShape kit (runtime, flubber licence, install, check, the demo page headless, the character language)
+{
+  const RT = path.join(HERE, "..", "runtime");
+  ok("shape: the runtime and vendored flubber ship with its MIT licence", fs.existsSync(path.join(RT, "rasan-shape.js")) && fs.existsSync(path.join(RT, "vendor", "flubber.min.js")) && /MIT License/.test(fs.readFileSync(path.join(RT, "vendor", "FLUBBER-LICENSE.txt"), "utf8")) && /Noah Veltman/.test(fs.readFileSync(path.join(RT, "vendor", "FLUBBER-LICENSE.txt"), "utf8")));
+  const sp = path.join(TMP, "shape-proj");
+  fs.mkdirSync(path.join(sp, "compositions"), { recursive: true });
+  fs.writeFileSync(path.join(sp, "compositions", "a.html"), `<template><script src="gsap.min.js"></script><script>const tl=gsap.timeline({paused:true});RasanShape.morph(tl,"#p","#q",{at:0});window.__timelines.a=tl</script></template>`);
+  const sc0 = node("shape.mjs", ["check", "--project", sp, "--json"]);
+  ok("shape (check): a composition that calls RasanShape without the runtime fails (runtime-missing, runtime-not-loaded, flubber-missing)", sc0.status === 2 && /runtime-missing/.test(sc0.stdout) && /flubber-missing/.test(sc0.stdout), sc0.stdout.slice(0, 300));
+  const si = node("shape.mjs", ["install", "--project", sp]);
+  ok("shape (install): copies rasan-shape.js, flubber.min.js and the licence into assets/rasan-shape/", si.status === 0 && ["rasan-shape.js", "flubber.min.js", "LICENSE-flubber.txt"].every((f) => fs.existsSync(path.join(sp, "assets", "rasan-shape", f))), si.stderr);
+  fs.writeFileSync(path.join(sp, "compositions", "a.html"), `<template><script src="gsap.min.js"></script><script src="../assets/rasan-shape/flubber.min.js"></script><script src="../assets/rasan-shape/rasan-shape.js"></script><script>const tl=gsap.timeline({paused:true});RasanShape.morph(tl,"#p","#q",{at:0});window.__timelines.a=tl</script></template>`);
+  const sc1 = node("shape.mjs", ["check", "--project", sp]);
+  ok("shape (check): with the runtime installed and loaded after GSAP the composition is clean", sc1.status === 0, sc1.stdout);
+  fs.writeFileSync(path.join(sp, "compositions", "b.js"), `RasanShape.scatter(tl, chars, { seed: Math.random() })`);
+  const sc2 = node("shape.mjs", ["check", "--project", sp]);
+  ok("shape (check): Math.random next to a RasanShape call is an error", sc2.status === 2 && /nondeterministic/.test(sc2.stdout));
+  // the character motion language: written, accepted by obey (back.out, small elastic, steps, short smear tweens), and still catches a fade-up-slide
+  const cd = path.join(TMP, "shape-char");
+  fs.mkdirSync(cd, { recursive: true });
+  node("motion-md.mjs", ["write", "--language", "character", "--out", path.join(cd, "motion.md")]);
+  fs.writeFileSync(path.join(cd, "index.html"), `<html><head>${gsap}</head><body><div id="root" data-composition-id="m"><div id="a">A</div><div id="b">B</div></div><script>const tl=gsap.timeline({paused:true});
+tl.from("#a",{scale:0.4,duration:0.28,ease:"back.out(1.4)"},0);tl.to("#a",{scaleX:1.2,duration:0.08,ease:"power2.out"},0.5);tl.to("#b",{x:200,duration:0.45,ease:"steps(6)"},0.2);tl.to("#b",{rotation:8,duration:0.45,ease:"elastic.out(0.8,0.5)"},0.9);window.__timelines["m"]=tl;tl.seek(0);</script></body></html>`);
+  const co = node("obey.mjs", ["--project", cd]);
+  ok("shape (character): obey accepts back.out, small elastic.out, steps(n) and short anticipation tweens under the character language", co.status === 0 && /0 error\(s\)/.test(co.stdout), co.stdout.slice(0, 300));
+  fs.writeFileSync(path.join(cd, "index.html"), fs.readFileSync(path.join(cd, "index.html"), "utf8").replace('tl.from("#a"', 'tl.from("#b",{y:150,autoAlpha:0,duration:0.28,ease:"back.out(1.4)"},1.4);tl.from("#a"'));
+  const cb = node("obey.mjs", ["--project", cd]);
+  ok("shape (character): the character language still bans fade-up-slide", cb.status === 2 && /banned:fade-up-slide/.test(cb.stdout), cb.stdout.slice(0, 300));
+  // the demo page, headless: every function changes the frame over time and is identical when the same time is seeked twice
+  const dd = path.join(TMP, "shape-demo");
+  const sd = node("shape.mjs", ["demo", "--out", dd]);
+  let dr = null; try { dr = JSON.parse(sd.stdout); } catch {}
+  if (!dr) console.log("skip  shape (demo): could not run (" + (sd.stderr || sd.stdout).slice(0, 200).replace(/\n/g, " ") + ")");
+  else {
+    ok("shape (demo): the page builds with no console errors", !(dr.errors || []).length, (dr.errors || []).join(" | "));
+    for (const c of dr.cells) ok(`shape (demo): ${c.id} changes over time and is identical when seeked to the same time twice`, c.changes && c.seek_identical, JSON.stringify(c));
+    ok("shape (demo): the whole frame is pixel-identical on a second seek and differs across times", dr.page_identical && dr.page_changes);
+    ok("shape (demo): the strip is written", !!dr.strip && fs.existsSync(path.join(dd, "strip.png")), dr.strip_note || "");
+  }
+}
+
+// art. the art department: art.mjs treat / cutout / trace / hand on small fixtures, plan / make (the unavailable path) / check, the crew's art phase, role check and the layer and pose-board warnings
+{
+  const ws = path.join(TMP, "art-ws");
+  const run = path.join(ws, ".rasanai", "r1");
+  const fx = path.join(TMP, "art-fx");
+  fs.mkdirSync(fx, { recursive: true });
+  fs.mkdirSync(path.join(run, "story"), { recursive: true });
+  fs.mkdirSync(path.join(run, "look"), { recursive: true });
+  const AR = (a, e = {}) => spawnSync(process.execPath, [path.join(HERE, "art.mjs"), ...a], { encoding: "utf8", env: { ...env, RASANAI_CUTOUT: "flood", ...e }, cwd: ws, timeout: 120000 });
+  const C = (a, e = {}) => spawnSync(process.execPath, [path.join(HERE, "crew.mjs"), ...a], { encoding: "utf8", env: { ...env, ...e }, cwd: ws, timeout: 120000 });
+  const J = (r) => { try { return JSON.parse(r.stdout); } catch { return {}; } };
+  const wj = (f, o) => { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify(o, null, 2)); };
+  const png = (name, lavfi) => { const f = path.join(fx, name); spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", lavfi, "-frames:v", "1", f]); return f; };
+  const px = (f, x, y) => { const r = spawnSync("ffmpeg", ["-v", "error", "-i", f, "-vf", `crop=1:1:${x}:${y}`, "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", "-"]); return r.stdout.length === 4 ? [...r.stdout] : null; };
+  const size = (f) => { const r = spawnSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0:s=x", f], { encoding: "utf8" }); return r.stdout.trim(); };
+  const block = png("block.png", "color=c=0xeeeeee:s=160x120,drawbox=x=40:y=30:w=70:h=60:color=0xcc3333:t=fill,drawbox=x=60:y=45:w=30:h=30:color=0x222222:t=fill");
+  ok("art: ffmpeg made the fixture picture", fs.existsSync(block) && size(block) === "160x120");
+
+  // vendored files and their licence notes
+  const V = path.join(HERE, "vendor");
+  ok("art: imagetracerjs is vendored with its Unlicense header and the vendor README names both vendored sources", /Unlicense/.test(fs.readFileSync(path.join(V, "imagetracer.js"), "utf8").slice(0, 600)) && /imagetracerjs/.test(fs.readFileSync(path.join(V, "README.md"), "utf8")) && /Hershey/.test(fs.readFileSync(path.join(V, "README.md"), "utf8")));
+  ok("art: the Hershey fonts are vendored (script and simplex) with the attribution notice", ["script", "simplex"].every((f) => { try { const j = JSON.parse(fs.readFileSync(path.join(V, "hershey", `${f}.json`), "utf8")); return j.glyphs["A"] && j.glyphs["a"] && /Hershey/.test(j.license); } catch { return false; } }) && /Bureau of Standards/.test(fs.readFileSync(path.join(V, "hershey", "README.md"), "utf8")));
+
+  // treat
+  const T = (op, extra = []) => { const o = path.join(fx, `t-${op}.png`); const r = AR(["treat", "--in", block, "--out", o, "--op", op, ...extra]); return { r, o }; };
+  const tr = {};
+  for (const op of ["gradient-map", "duotone", "halftone", "dither", "pixelate", "xray", "grade"]) tr[op] = T(op, op === "halftone" || op === "pixelate" ? ["--cell", "8"] : []);
+  ok("art treat: every op writes a picture of the input's size (gradient-map, duotone, halftone, dither, pixelate, xray, grade)", Object.values(tr).every(({ r, o }) => r.status === 0 && size(o) === "160x120"), Object.entries(tr).filter(([, v]) => v.r.status !== 0).map(([k, v]) => k + ": " + v.r.stderr).join("; "));
+  const gm = T("gradient-map", ["--colors", "#000000,#ff0000"]);
+  const gdark = px(gm.o, 75, 60), glight = px(gm.o, 5, 5);
+  ok("art treat: gradient-map maps luma onto the palette ramp (dark centre toward the first colour, light ground toward the last)", gdark && glight && gdark[0] < 60 && gdark[1] === 0 && glight[0] > 200 && glight[1] === 0 && glight[2] === 0, JSON.stringify([gdark, glight]));
+  const dt = T("dither", ["--colors", "#101010,#f0f0f0"]);
+  const dpx = [px(dt.o, 3, 3), px(dt.o, 75, 60), px(dt.o, 50, 40)];
+  ok("art treat: dither paints only the palette's colours", dpx.every((p) => p && ((p[0] === 16 && p[1] === 16) || (p[0] === 240 && p[1] === 240))), JSON.stringify(dpx));
+  const pxl = T("pixelate", ["--cell", "8"]);
+  ok("art treat: pixelate is stepped (every pixel in an 8-pixel cell has one colour) and differs from the input", JSON.stringify(px(pxl.o, 40, 32)) === JSON.stringify(px(pxl.o, 47, 39)) && !fs.readFileSync(pxl.o).equals(fs.readFileSync(block)));
+  const ht = T("halftone", ["--cell", "8", "--colors", "#000000,#ffffff"]);
+  const htv = new Set(); for (let i = 0; i < 16; i++) htv.add(px(ht.o, 40 + i, 33)[0]);
+  ok("art treat: halftone makes dots (the ink-to-paper values vary along a row of the dark block)", htv.size > 2);
+  ok("art treat: xray inverts luma (the dark centre is lighter than the light ground)", px(tr.xray.o, 75, 60)[0] + px(tr.xray.o, 75, 60)[1] > px(tr.xray.o, 5, 5)[0] + px(tr.xray.o, 5, 5)[1]);
+  ok("art treat: an unknown op or a bad colour is refused (exit 1, named)", AR(["treat", "--in", block, "--out", path.join(fx, "x.png"), "--op", "sepia"]).status === 1 && /--op must be one of/.test(AR(["treat", "--in", block, "--out", path.join(fx, "x.png"), "--op", "sepia"]).stderr) && AR(["treat", "--in", block, "--out", path.join(fx, "x.png"), "--op", "duotone", "--colors", "red,blue"]).status === 1);
+
+  // cutout: flood-fill on a plain ground, trimmed; a busy ground is refused, never guessed
+  const cutf = path.join(fx, "cut.png");
+  const cr = AR(["cutout", "--in", block, "--out", cutf]);
+  const cj = J(cr);
+  ok("art cutout: a plain ground is flood-filled away and the picture is trimmed to its content (70x60 of 160x120), alpha at the edges removed", cr.status === 0 && cj.method === "flood-fill" && size(cutf) === "70x60" && px(cutf, 35, 30)[3] === 255, cr.stdout + cr.stderr);
+  const busy = png("busy.png", "testsrc2=size=160x120:rate=1");
+  const br = AR(["cutout", "--in", busy, "--out", path.join(fx, "busy-cut.png")]);
+  ok("art cutout: a busy ground is refused (exit 2) with the reason and what to do", br.status === 2 && /ground is not plain/.test(br.stderr));
+
+  // trace: vendored imagetracerjs -> real <path>s
+  const svgf = path.join(fx, "trace.svg"), linef = path.join(fx, "line.svg");
+  const tj = J(AR(["trace", "--in", block, "--out", svgf, "--colors", "4"]));
+  const svg = fs.existsSync(svgf) ? fs.readFileSync(svgf, "utf8") : "";
+  ok("art trace: a flat picture becomes an SVG with real <path> elements, each with an id and a fill", tj.ok && tj.paths >= 2 && (svg.match(/<path id="t\d+" d="M /g) || []).length === tj.paths && /fill="rgb\(/.test(svg) && /viewBox="0 0 160 120"/.test(svg), svg.slice(0, 200));
+  const lj = J(AR(["trace", "--in", block, "--out", linef, "--lineart"]));
+  const lsvg = fs.existsSync(linef) ? fs.readFileSync(linef, "utf8") : "";
+  ok("art trace: --lineart gives outlines (stroke, fill none) ready for draw-on, with no white paper shapes", lj.ok && lj.paths >= 1 && /fill="none" stroke="#111111"/.test(lsvg) && !/rgb\(255,\s*255,\s*255\)/.test(lsvg), lsvg.slice(0, 200));
+
+  // hand: Hershey single-stroke paths, one per stroke, in writing order
+  const hf = path.join(fx, "hand.svg");
+  const hj = J(AR(["hand", "--text", "Hi", "--font", "simplex", "--out", hf]));
+  const hs = fs.existsSync(hf) ? fs.readFileSync(hf, "utf8") : "";
+  const ids = [...hs.matchAll(/<path id="s(\d+)" data-glyph="(.)" d="(M[^"]+)"/g)];
+  ok("art hand: 'Hi' in Hershey Simplex is 5 strokes (H: 3, i: 2), one <path> each, in order s001.., glyph named", hj.ok && hj.strokes === 5 && ids.length === 5 && ids.map((m) => m[1]).join() === "001,002,003,004,005" && ids.slice(0, 3).every((m) => m[2] === "H") && ids[3][2] === "i", JSON.stringify(hj) + hs.slice(0, 200));
+  ok("art hand: the SVG has a viewBox that holds every stroke, round caps and no fill", /viewBox="-?\d+ -?\d+ \d+ \d+"/.test(hs) && /stroke-linecap="round"/.test(hs) && /fill="none"/.test(hs));
+  const hs2f = path.join(fx, "hand2.svg");
+  const hj2 = J(AR(["hand", "--text", "Sibhi\\nlove", "--out", hs2f, "--size", "80", "--color", "#ff3b1f"]));
+  const hs2 = fs.existsSync(hs2f) ? fs.readFileSync(hs2f, "utf8") : "";
+  ok("art hand: the default script font writes two lines, takes the colour and size, and an unknown character is skipped, not fatal", hj2.ok && hj2.strokes >= 9 && /stroke="#ff3b1f"/.test(hs2) && J(AR(["hand", "--text", "a☃b", "--out", path.join(fx, "h3.svg")])).skipped === 1);
+  ok("art hand: empty text is refused (exit 1)", AR(["hand", "--out", path.join(fx, "h4.svg")]).status === 1);
+
+  // plan / make (the unavailable path) / check
+  fs.writeFileSync(path.join(run, "look", "DESIGN.md"), "---\nname: x\ncolors:\n  ground: \"#f4f1ea\"\n  ink: \"#111111\"\n  hot: \"#ff3b1f\"\n---\n## Overview\nx\n## Imagery\nFlat risograph illustration, two inks on cream paper, soft grain, no gradients, one bold outline weight.\n");
+  const shows = (extra = []) => ({ beats: [
+    { id: "b1", name: "open", on_screen: "A sloppy sketch", shows: [{ line: "A sloppy sketch", show: "A hand-drawn paper airplane is drawn on and flies off", built_from: "object", handoff: "h" }, { line: "Words only", show: "The words type in on the ground", built_from: "type", handoff: "h" }] },
+    { id: "b2", name: "turn", on_screen: "Sign here", shows: [{ line: "Sign here", show: "A handwritten signature draws on, stroke by stroke", built_from: "object", handoff: "h" }, { line: "The lily", show: "A cut-out photo of a lily with a hot gradient map swaps in", built_from: "photo", handoff: "h" }, ...extra] }] });
+  wj(path.join(run, "story", "chosen.json"), shows());
+  const pl = J(AR(["plan", "--run", run]));
+  const pj = JSON.parse(fs.readFileSync(path.join(run, "art", "plan.json"), "utf8"));
+  ok("art plan: the plan lists the shows built from an object or a photo (3 here), skips type-only shows, and has a kind, prompt, treatments and used_by per asset", pl.ok && pj.assets.length === 3 && pj.assets.every((a) => a.id && a.kind && a.prompt && Array.isArray(a.treatments) && a.used_by.length) && !pj.assets.some((a) => /Words only/.test(a.used_by.join())), JSON.stringify(pj.assets.map((a) => [a.id, a.kind])));
+  const kinds = Object.fromEntries(pj.assets.map((a) => [a.used_by[0].split(": ")[1], a.kind]));
+  ok("art plan: a signature is handwriting, a photo is a photo with a cut-out and gradient-map treatment, a drawn object is an illustration", kinds["Sign here"] === "handwriting" && kinds["The lily"] === "photo" && pj.assets.find((a) => a.kind === "photo").treatments.join() === "cutout,gradient-map" && kinds["A sloppy sketch"] === "illustration", JSON.stringify(kinds));
+  ok("art plan: one style block from the look (palette from DESIGN.md, the Imagery words as the rendering style, line weight, lighting)", pj.style.palette.includes("#ff3b1f") && /risograph/.test(pj.style.rendering) && pj.style.line_weight && pj.style.lighting && pj.style.avoid);
+  ok("art plan: an existing plan is kept (the agent's edits survive) unless --force", J(AR(["plan", "--run", run])).kept === true && J(AR(["plan", "--run", run, "--force"])).kept === undefined);
+  const mk = AR(["make", "--run", run], { RASANAI_IMAGEGEN: "off" });
+  const mj = J(mk);
+  const af = path.join(run, "art", "assets.json");
+  const A = fs.existsSync(af) ? JSON.parse(fs.readFileSync(af, "utf8")) : {};
+  ok("art make: with image generation unavailable it says so (stderr), makes the handwriting itself, and writes a todo list with a reason and the prompt for the rest (exit 0, nothing silent)", mk.status === 0 && /image generation is unavailable \(off/.test(mk.stderr) && mj.imagegen === "off" && A.assets.length === 1 && A.assets[0].kind === "handwriting" && fs.existsSync(path.join(run, A.assets[0].path)) && A.todo.length === 2 && A.todo.every((t) => /unavailable/.test(t.reason) && t.prompt), mk.stdout + mk.stderr);
+  let ck = AR(["check", "--run", run]);
+  ok("art check: made assets and explicit todos (with a reason) pass; the todos are warnings; every object/photo show maps to an asset", ck.status === 0 && J(ck).ok && J(ck).todo === 2 && J(ck).warnings.filter((w) => /todo/.test(w)).length === 2, ck.stdout + ck.stderr);
+  const A0 = JSON.parse(JSON.stringify(A));
+  wj(af, { ...A0, todo: A0.todo.slice(1) });
+  ck = AR(["check", "--run", run]);
+  ok("art check: an asset neither made nor a todo fails (exit 1, the asset and the command named)", ck.status === 1 && /not made and not a todo/.test(ck.stderr));
+  wj(af, { ...A0, todo: A0.todo.map((t) => ({ ...t, reason: "" })) });
+  ok("art check: a todo with no reason fails", AR(["check", "--run", run]).status === 1 && /needs a reason/.test(AR(["check", "--run", run]).stderr));
+  wj(af, A0);
+  wj(path.join(run, "story", "chosen.json"), shows([{ line: "The unmapped chair", show: "A chair drawn on", built_from: "object", handoff: "h" }]));
+  ck = AR(["check", "--run", run]);
+  ok("art check: a show built from an object or photo that no asset names is show-unmapped", ck.status === 1 && /show-unmapped: beat 2 "The unmapped chair"/.test(ck.stderr), ck.stderr);
+  wj(path.join(run, "story", "chosen.json"), shows());
+  // style: generated assets must share one anchor; sizes must fit
+  const smallf = path.join(run, "art", "assets", "b1-a-sloppy-sketch.png");
+  fs.mkdirSync(path.dirname(smallf), { recursive: true });
+  spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=0xcccccc:s=120x120", "-frames:v", "1", smallf]);
+  const sk = pj.assets.find((a) => a.kind === "illustration"), pk = pj.assets.find((a) => a.kind === "photo");
+  const ent = (a, anchor, f) => ({ id: a.id, kind: a.kind, path: path.relative(run, f), source: "imagegen", anchor, prompt: a.prompt, used_by: a.used_by });
+  wj(af, { ...A0, anchor: sk.id, todo: A0.todo.filter((t) => t.id !== sk.id), assets: [...A0.assets, ent(sk, sk.id, smallf)] });
+  ck = AR(["check", "--run", run]);
+  ok("art check: an illustration of 120x120 is smaller than the 768 px it needs (a problem), one anchor is fine", ck.status === 1 && /b1-a-sloppy-sketch: 120x120 is smaller than the 768px/.test(ck.stderr) && !/style-split/.test(ck.stderr), ck.stderr);
+  const pf = path.join(run, "art", "assets", "photo.png");
+  spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=0xcccccc:s=900x900", "-frames:v", "1", pf]);
+  const bigk = path.join(run, "art", "assets", "sk-big.png");
+  spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=0xcccccc:s=900x900", "-frames:v", "1", bigk]);
+  wj(af, { ...A0, anchor: sk.id, todo: [], assets: [...A0.assets, ent(sk, sk.id, bigk), ent(pk, "some-other-anchor", pf)] });
+  ck = AR(["check", "--run", run]);
+  ok("art check: generated assets that follow different anchors are style-split (exit 1, the anchors named)", ck.status === 1 && /style-split: generated assets follow 2 different anchors/.test(ck.stderr), ck.stderr);
+  wj(af, { ...A0, anchor: sk.id, todo: [], assets: [...A0.assets, ent(sk, sk.id, bigk), ent(pk, sk.id, pf)] });
+  ck = AR(["check", "--run", run]);
+  ok("art check: one shared anchor and big enough pictures pass", ck.status === 0, ck.stderr);
+  const badplan = JSON.parse(JSON.stringify(pj)); badplan.style.palette = []; badplan.style.lighting = ""; wj(path.join(run, "art", "plan.json"), badplan);
+  ok("art check: an empty style (palette, lighting) is style-missing", /style-missing: plan\.style\.palette/.test(AR(["check", "--run", run]).stderr) && /style-missing: plan\.style\.lighting/.test(AR(["check", "--run", run]).stderr));
+  wj(path.join(run, "art", "plan.json"), pj);
+
+  // the crew: the art phase, the role's brief and check, layers-thin, the pose boards and the 24 fps strips
+  C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "Tally", "--scenes", "4", "--length", "16"]);
+  const phases = (JSON.parse(fs.readFileSync(path.join(run, "crew", "plan.json"), "utf8")).phases || []).map((p) => p.phase);
+  ok("art crew: the plan has an art phase after the concept gate and before the score (all scene routes)", phases.indexOf("art") > phases.indexOf("concept-gate") && phases.indexOf("art") < phases.indexOf("score") && phases.indexOf("art") > -1, phases.join());
+  C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "Tally", "--scenes", "4", "--length", "16", "--lean"]);
+  ok("art crew: --lean skips the art phase", !(JSON.parse(fs.readFileSync(path.join(run, "crew", "plan.json"), "utf8")).phases || []).some((p) => p.phase === "art"));
+  const bj = J(C(["brief", "--run", run, "--role", "art-director", "--key", "art"]));
+  const bt = bj.prompt ? fs.readFileSync(path.join(ws, bj.prompt), "utf8") : "";
+  ok("art crew: the art-director's brief lists the script, the look and the plan as inputs, the check command, and carries the dare (art a studio would sign)", /art\.mjs[^\n]* check --run/.test(bt) && /chosen\.json/.test(bt) && /DESIGN\.md/.test(bt) && /art a studio would sign/i.test(bt) && /no stock-looking images/i.test(bt), bt.slice(0, 300));
+  ok("art crew: the Motion Director's, the film builder's and the animators' briefs get art/assets.json and ART.md once the art folder exists", ["motion-director:score", "film-builder:film", "scene-animator:2"].every((rk) => { const [role, key] = rk.split(":"); const b = J(C(["brief", "--run", run, "--role", role, "--key", key, "--project", "videos/t"])); const t = b.prompt ? fs.readFileSync(path.join(ws, b.prompt), "utf8") : ""; return /art\/assets\.json/.test(t) && /ART\.md/.test(t); }));
+  const chk = (role, extra = []) => { const r = C(["check", "--run", run, "--role", role, ...extra]); return { status: r.status, p: (J(r).problems || []).join(" | "), w: (J(r).warnings || []).join(" | ") }; };
+  fs.rmSync(path.join(run, "art", "ART.md"), { force: true });
+  let cr0 = chk("art-director");
+  ok("art crew: check --role art-director runs art.mjs check (its problems come back, prefixed) and wants ART.md and the contact sheet", /art\/ART\.md is missing/.test(cr0.p) && /art\/sheet\.png is missing/.test(cr0.w), JSON.stringify(cr0));
+  wj(af, A0);
+  fs.writeFileSync(path.join(run, "art", "ART.md"), "# The world\n\nFlat risograph prints on cream paper: two inks, hot orange and black, one bold outline weight, soft paper grain, no gradients and no glow. Every picture is drawn by the same hand, objects as simple silhouettes, photos cut out and graded hot.\n\n## Assets\n\n- b2-sign-here: signature, Hershey script.\n");
+  spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=0xcccccc:s=64x64", "-frames:v", "1", path.join(run, "art", "sheet.png")]);
+  cr0 = chk("art-director");
+  ok("art crew: an art folder that passes art.mjs check, with ART.md and a sheet, is accepted (todos stay warnings)", cr0.status === 0 && /art: asset .* todo/.test(cr0.w), JSON.stringify(cr0));
+  // layers-thin
+  const sc = path.join(run, "motion", "score.json");
+  const shotsOf = (layers) => layers.map((l, i) => ({ t0: i * 2, t1: i * 2 + 2, on_screen: "x", moves: "y", ...(l == null ? {} : { layers: l }) }));
+  const scoreOf = (grammar, layers) => wj(sc, { spine: "s", ...(grammar ? { grammar } : {}), seams: [], scenes: [{ n: 1, duration: 8, shots: shotsOf(layers) }] });
+  scoreOf("specimen-sheet", [2, 3, 2, 3]);
+  let m = chk("motion-director", ["--key", "score"]);
+  ok("art crew: layers-thin warns when the median shot of a showcase-grammar film has under 4 layers (and says how many)", /layers-thin: the median shot has 2\.5 independently timed layer/.test(m.w), m.w.slice(0, 300));
+  scoreOf("specimen-sheet", [6, 8, 5, 9]);
+  m = chk("motion-director", ["--key", "score"]);
+  ok("art crew: 5 to 10 layers is not layers-thin", !/layers-thin/.test(m.w));
+  scoreOf("alpha-grid", [1, 1, 1, 1]);
+  m = chk("motion-director", ["--key", "score"]);
+  ok("art crew: other grammars are not held to a layer count", !/layers-thin/.test(m.w));
+  scoreOf("pixel-collage", [null, null, null, null]);
+  m = chk("motion-director", ["--key", "score"]);
+  ok("art crew: a showcase film whose shots declare no layers is told to (layers-thin: no shot declares layers)", /layers-thin: no shot declares layers/.test(m.w));
+  // pose boards and 24 fps strips for hero moves
+  const pjdir = path.join(ws, "videos", "t");
+  fs.mkdirSync(path.join(pjdir, "compositions", "frames"), { recursive: true });
+  wj(sc, { spine: "s", seams: [], moves: [{ id: "m1", status: "used", scene: 1 }, { id: "m2", status: "used", scene: 1 }, { id: "m3", status: "dropped", scene: 2, why: "not this film at all" }], scenes: [{ n: 1, duration: 4, shots: [] }] });
+  let fb = chk("film-builder", ["--key", "film", "--project", "videos/t"]);
+  ok("art crew: film-builder check warns no-pose-board and hero-not-stripped for each hero move that is used (not the dropped one)", /no-pose-board: hero move m1 has no boards\/m1\.png/.test(fb.w) && /no-pose-board: hero move m2/.test(fb.w) && /hero-not-stripped: no 24 fps strip of hero move m1/.test(fb.w) && !/m3/.test(fb.w), fb.w.slice(0, 400));
+  fs.mkdirSync(path.join(run, "boards"), { recursive: true }); fs.writeFileSync(path.join(run, "boards", "m1.png"), "x");
+  fs.mkdirSync(path.join(run, "crew", "builder"), { recursive: true }); fs.writeFileSync(path.join(run, "crew", "builder", "m1-strip24.png"), "x");
+  fb = chk("film-builder", ["--key", "film", "--project", "videos/t"]);
+  ok("art crew: a boards/<id>.png and a strip file named with the move id clear both warnings for that move", !/no-pose-board: hero move m1/.test(fb.w) && !/hero-not-stripped: no 24 fps strip of hero move m1/.test(fb.w) && /no-pose-board: hero move m2/.test(fb.w), fb.w.slice(0, 400));
+  fs.rmSync(path.join(run, "art"), { recursive: true, force: true });
 }
 
 fs.rmSync(TMP, { recursive: true, force: true });
