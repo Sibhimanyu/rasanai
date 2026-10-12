@@ -14,7 +14,10 @@
 //       -> renders the edited bed (atrim/acrossfade/afade), -14 LUFS, true peak <= -1.5 dBTP
 //   node sound.mjs sfx-plan --scenes scenes.json|timeline.json [--events events.json] [--narrated]
 //        [--format reel] [--bed bed.wav] [--plan plan.json] [--words audio_meta.json] [--project <dir>]
-//       -> SFX cues for causal on-screen events only, inside the density budget, placed by each
+//        [--pack glass|minimal|studio|soft|cinematic|scifi] [--no-library] [--library <dir>]
+//       -> samples come from library/sfx (CC0, index.json) first: one uisfx pack per film for the UI sounds,
+//          atomcut/Kenney for whoosh/riser/impact/stinger; --library <dir> or --no-library use the old
+//          media-use files only. SFX cues for causal on-screen events only, inside the density budget, placed by each
 //          sample's measured sync point, plus the audio_meta.json "sfx" entries
 //   node sound.mjs check (--video <mp4> | --audio <file>) [--film <s>] [--vo <stem>] [--music <stem>]
 //        [--sfx <sfx-plan.json|index.html>] [--silent-by-choice "<reason>"] [--plan plan.json] [--events events.json]
@@ -30,6 +33,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { parseArgs, die, readJSON, writeFile } from "./lib/common.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
 import { track } from "./lib/report.mjs";
@@ -107,6 +111,54 @@ function sfxLibrary() {
   return { dir, files };
 }
 
+// the bundled CC0 library (library/sfx/index.json): measured sync points, no per-run probing.
+// cue kind -> library categories, best first; "ui" kinds use the film's one uisfx pack
+const LIB_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "library", "sfx");
+const LIB_CATS = {
+  click: ["click", "press", "select"], key: ["press", "tick", "click"], type: ["type", "tick"],
+  land: ["drop", "land"], snap: ["snap", "drop"], pop: ["land", "select", "click"],
+  toast: ["notification"], count: ["tick", "notification"], error: ["error"],
+  reveal: ["impact"], logo: ["impact", "stinger"], whoosh: ["whoosh", "swipe"], riser: ["riser"], glitch: ["glitch"],
+};
+const UI_PACKS = ["glass", "minimal", "studio", "soft", "cinematic", "scifi"];
+const FX_PACKS = ["atomcut-impacts-risers", "atomcut-motion-essentials", "kenney-impact-sounds", "kenney-interface-sounds"];
+function rasanLibrary(filmKey) {
+  if (args["no-library"] || args.library) return null;
+  const f = path.join(LIB_DIR, "index.json");
+  if (!fs.existsSync(f)) return null;
+  const idx = readJSON(f);
+  const byId = {};
+  for (const e of idx.files || []) byId[e.id] = { ...e, abs: path.join(LIB_DIR, e.file) };
+  let h = 0;
+  for (const ch of String(filmKey)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const want = args.pack && args.pack !== true ? String(args.pack).replace(/^uisfx-/, "") : null;
+  const uiPack = "uisfx-" + (UI_PACKS.includes(want) ? want : UI_PACKS[h % UI_PACKS.length]);
+  return { byId, uiPack, entries: Object.values(byId) };
+}
+// pick the sample for a cue: the film's UI pack first for UI kinds, then the FX packs; never the
+// file used last for this kind, nor one used in the last 3 cues of any kind
+function pickRasan(RL, kind, cls, history) {
+  const cats = LIB_CATS[kind];
+  if (!RL || !cats) return null;
+  const ui = !["hero", "whoosh", "riser"].includes(cls) && kind !== "glitch";
+  const packOrder = ui ? [RL.uiPack, ...FX_PACKS, ...UI_PACKS.map((p) => "uisfx-" + p).filter((p) => p !== RL.uiPack)] : [...FX_PACKS, RL.uiPack];
+  let stale = null;
+  for (const cat of cats) {
+    for (const pack of packOrder) {
+      const pool = RL.entries.filter((e) => e.category === cat && e.pack === pack).sort((a, b) => (a.id < b.id ? -1 : 1));
+      if (!pool.length) continue;
+      const recent = history.slice(-3);
+      const fresh = pool.filter((e) => !recent.includes(e.id));
+      // the film's one UI pack keeps its sound even when its only file was just used (the pitch variants
+      // keep repeats from sounding identical); other packs never stand in for a category it has
+      if (!fresh.length && ui && pack === RL.uiPack) return pool[history.filter((id) => pool.some((e) => e.id === id)).length % pool.length];
+      if (!fresh.length) { stale ||= pool[history.filter((id) => pool.some((e) => e.id === id)).length % pool.length]; continue; }
+      return fresh[history.filter((id) => pool.some((e) => e.id === id)).length % fresh.length];
+    }
+  }
+  return stale;
+}
+
 // events from the scene text when no events.json: estimates, marked so; real times come from
 // the built composition (the settle/contact frame of each element)
 function inferEvents(scenes, plan) {
@@ -129,6 +181,31 @@ function inferEvents(scenes, plan) {
   return ev;
 }
 
+// "## Events" lines as the film builder and scene animators write them ("- t=3.65 selection lands on the beat (tick)";
+// several "t=" in one line are several events) -> [{t, kind, what, signature}]; the kind is read from the words
+const EVENT_WORDS = [
+  [/\blogo\b|\bmark lands\b|blossom|end card lands/i, "logo"], [/\breveal|\bmeet\b|brand reveal/i, "reveal"],
+  [/whoosh|push-through|flies|flight|zoom through|dives?\b|whip|swoops?/i, "whoosh"], [/riser|builds? to/i, "riser"],
+  [/\bclick|\btaps?\b|\bpress(es)?\b|\btick(ed|s)? (the )?(box|row)|toggle|send\b|cursor (clicks|presses)/i, "click"],
+  [/typ(es|ing)|key run|\bkeys?\b|backspace/i, "type"], [/counter|count(s|ing)? up|digit|rolls? to|\btick\b/i, "count"],
+  [/notification|toast|badge|bubble (appears|lands)/i, "toast"], [/snaps?|locks?\b|aligns?/i, "snap"],
+  [/lands?\b|settles?|drops? in|thud/i, "land"], [/appears?|pops?\b/i, "pop"], [/\bcut\b|seam|transition|match cut/i, "transition"],
+];
+function eventsFromLines(text) {
+  const out = [];
+  for (const line of text.split("\n")) {
+    const parts = line.split(/(?=\bt\s*=\s*\d)/).filter((p) => /^t\s*=\s*\d/.test(p.trim()));
+    for (const p of parts) {
+      const m = p.trim().match(/^t\s*=\s*([\d.]+)\s*s?\s*[:,-]?\s*(.*)$/);
+      if (!m) continue;
+      const what = m[2].replace(/[;,.\s]+$/, "");
+      const hit = EVENT_WORDS.find(([re]) => re.test(what));
+      out.push({ t: Number(m[1]), kind: hit ? hit[1] : "none", what, signature: /signature|hero|showreel|push-through/i.test(what) || undefined });
+    }
+  }
+  return out;
+}
+
 function sfxPlan() {
   const sc = readScenes(need("scenes", "<scenes.json|timeline.json>"));
   const plan = args.plan ? readJSON(exists(path.resolve(String(args.plan)), "plan")) : null;
@@ -138,8 +215,12 @@ function sfxPlan() {
   const film = plan?.film_duration || sc.total;
   let events;
   if (args.events) {
-    const E = readJSON(exists(path.resolve(String(args.events)), "events"));
-    events = (Array.isArray(E) ? E : E.events || []).map((e) => ({ ...e }));
+    const ef = exists(path.resolve(String(args.events)), "events");
+    const raw = fs.readFileSync(ef, "utf8");
+    if (/^\s*[[{]/.test(raw)) {
+      const E = JSON.parse(raw);
+      events = (Array.isArray(E) ? E : E.events || []).map((e) => ({ ...e }));
+    } else events = eventsFromLines(raw); // the builders' "## Events" lines: "t=<film s> <what happens>"
   } else events = inferEvents(sc.scenes, plan);
   events = events.map((e, i) => {
     const kind = KINDS[e.kind] ? e.kind : ALIAS[e.kind] || null;
@@ -221,15 +302,19 @@ function sfxPlan() {
 
   // samples, variation (never the same file + pitch twice in a row within 2 s), sync points
   const lib = sfxLibrary();
+  const RL = rasanLibrary(path.basename(String(args.scenes)) + "|" + Math.round(film * 10) + "|" + sc.scenes.length);
   const probes = {};
-  const probe = (name) => (probes[name] ||= lib.files[name] ? probeSfx(lib.files[name]) : null);
+  const probe = (name) => (probes[name] ||= RL?.byId[name] ? { ...RL.byId[name], warnings: [] } : lib.files[name] ? probeSfx(lib.files[name]) : null);
+  const history = [];
   const lastUse = {};
   const cues = [];
   const project = args.project ? path.resolve(String(args.project)) : null;
   for (const e of placed) {
     const k = KINDS[e.kind];
     const uses = cues.filter((c) => c.kind === e.kind).length;
-    const sample = k.samples[uses % k.samples.length];
+    const rl = pickRasan(RL, e.kind, k.cls, history);
+    const sample = rl ? rl.id : k.samples[uses % k.samples.length];
+    history.push(sample);
     const p = probe(sample);
     let v = VARIANTS[uses % VARIANTS.length];
     const lu = lastUse[sample];
@@ -241,7 +326,7 @@ function sfxPlan() {
     const volume = r3(k.vol * Math.pow(10, (e.gain + (k.cls === "hero" ? 0 : v.gain_db)) / 20));
     const scene = sc.scenes.find((s) => s.n === e.scene) || sc.scenes[0];
     const dur = p ? (p.audible_end - (p.lead_silence > 0.05 ? 0 : 0)) / rate : 1;
-    const cue = { event: e.id, kind: e.kind, class: k.cls, t: r3(e.t), start: r3(start), scene: e.scene, sample, file: lib.files[sample] || null, rate: r3(rate), volume, duration_s: r3(dur), sync_point: p ? r3(sync) : null, estimated: !!e.estimated, notes: e.notes };
+    const cue = { event: e.id, kind: e.kind, class: k.cls, t: r3(e.t), start: r3(start), scene: e.scene, sample, file: rl ? rl.abs : lib.files[sample] || null, source: rl ? "rasan-sfx" : "media-use", pack: rl ? rl.pack : null, rate: r3(rate), volume, duration_s: r3(dur), sync_point: p ? r3(sync) : null, estimated: !!e.estimated, notes: e.notes };
     if (p && p.warnings.some((w) => /harsh|piercing/.test(w))) cue.notes.push("harsh sample: lowpass 9 kHz applied when rendered");
     if (e.t - sync < 0) cue.notes.push("crest would fall before the film starts: trimmed");
     cue._scene_start = scene.start;
@@ -277,10 +362,10 @@ function sfxPlan() {
     cues,
     skipped,
     audio_meta_sfx,
-    library: lib.dir,
+    library: RL ? { dir: LIB_DIR, ui_pack: RL.uiPack } : lib.dir,
     notes: [
       est ? `${est} cue time(s) are estimates from the scene text: pass --events with the real settle/contact times from the built composition before final mix` : null,
-      !lib.dir ? "no SFX library found (media-use not installed): cues have no files; pass --library <dir>" : null,
+      !lib.dir && !RL ? "no SFX library found (library/sfx missing and media-use not installed): cues have no files; pass --library <dir>" : null,
       !project ? "pass --project <dir> to render pitch variants, trimmed and filtered, into assets/sfx/rasa/" : null,
     ].filter(Boolean),
   });

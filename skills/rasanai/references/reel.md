@@ -7,15 +7,16 @@ Needs FFmpeg (ffmpeg + ffprobe), the HyperFrames CLI (`npx hyperframes`), and Ch
 ## scan
 
 ```bash
-node reel.mjs scan --footage <folder> --run <run dir> [--no-transcribe] [--lang en] [--model small.en]
+node reel.mjs scan --footage <folder> --run <run dir> [--no-transcribe] [--lang auto|<iso>] [--model <ggml name or file>]
 ```
 
-Walks the folder (two levels deep; `.mp4 .mov .m4v .webm .mkv .avi .mts`) and writes `<run>/footage/footage.json`:
+Walks the folder (up to four levels deep, for camera cards; `.mp4 .mov .m4v .webm .mkv .avi .mts`) and writes `<run>/footage/footage.json`:
 
 ```json
 {
   "footage_dir": "raw",
-  "model": "small.en",
+  "lang": "auto",
+  "warnings": [],
   "clips": [
     {
       "id": "a001-interview", "name": "A001_interview.mp4", "path": "raw/A001_interview.mp4",
@@ -32,9 +33,9 @@ Walks the folder (two levels deep; `.mp4 .mov .m4v .webm .mkv .avi .mts`) and wr
 ```
 
 - `width`/`height` are as displayed (phone rotation applied).
-- `sheet`: 8 evenly spaced frames (4×2 tiles, 320×180 each); `sheet_times` are their source times.
+- `sheet`: evenly spaced frames, one per ~6 s of the clip (at least 8, at most 48; 4×2 tiles for 8, else 6 columns; 320×180 each); `sheet_times` are their source times and `sheet_grid` the layout.
 - `scenes`: shot changes (source seconds). `silences`: `[start, end]` spans under −35 dB for ≥ 0.6 s.
-- `*.words.json`: `[{text, start, end}]` in source seconds, from `hyperframes transcribe` (default model `small.en`; any other `--lang` uses the multilingual `small`, since `.en` models translate). Clips quieter than −50 dB aren't transcribed. A failed transcription is recorded as `transcript_error`; the clip is still usable.
+- `*.words.json`: `[{text, start, end}]` in source seconds, from whisper-cli (or `hyperframes transcribe` when whisper-cli is missing). **The language is decided per clip, never defaulted** (`lib/lang.mjs`): `--lang`, else the audio stream's tag, else `whisper-cli -dl` with a multilingual model when one is installed, else English **unverified** (`lang_verified: false`, a warning, and a check that the text reads like English), because an English-only model (`small.en`) translates other languages into English without saying so. A language that needs a model that is not installed is not transcribed and not downloaded: the clip gets a `transcript_error` and a warning, and the Director asks the user first (`ggml-small.bin`, about 466 MB). Each clip records `lang`, `lang_verified` and `lang_source`. Clips quieter than −50 dB aren't transcribed. A failed transcription is recorded as `transcript_error`; the clip is still usable.
 
 ## reel.json (input to build)
 

@@ -41,7 +41,6 @@
   "banned": [
     "fade-up-slide",
     "bounce",
-    "overshoot",
     "scale-pop",
     "linear-entrance"
   ],
@@ -55,5 +54,19 @@
     "exit_ms": 1100,
     "hold_ms": 1400
   },
-  "builder_notes": "Elements resolve from blur(16-24px) and scale 1.08 down to 1 while opacity rises, with slightly widened tracking settling in. The camera never stops: a slow scale push (1 -> 1.04) runs under the hold. Exits dissolve back into blur. Nothing snaps."
+  "builder_notes": "Elements resolve from blur(16-24px) and scale 1.08 down to 1 while opacity rises, with slightly widened tracking settling in. The camera never stops: a slow scale push (1 -> 1.04) runs under the hold. Exits dissolve back into blur. Nothing snaps.",
+  "curves": {
+    "launch": "cubic-bezier(0.16,0.6,0.2,1)",
+    "glide": "cubic-bezier(0.2,0,0,1)",
+    "expressive": "cubic-bezier(0.4,0.14,0.3,1)",
+    "exit": "power2.inOut",
+    "settle": "spring(0.8,9)",
+    "snap": "power2.out",
+    "drift": "sine.inOut",
+    "move": "sine.inOut"
+  },
+  "overshoot": {
+    "share": 0.12,
+    "max_pct": 4
+  }
 }

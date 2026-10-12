@@ -848,6 +848,8 @@ struct ReviewNoteComposer: View {
 struct ReviewNotesList: View {
     let notes: [ReviewNote]
     let scenes: [FilmScene]
+    /// Set when the film cannot be watched yet, so the empty list does not tell the person to click a frame that is only a poster.
+    var emptyHint: String? = nil
     var onSeek: (Double) -> Void
     private var open: [ReviewNote] { notes.filter(\.isOpen).sorted { $0.time < $1.time } }
     private var resolved: [ReviewNote] { notes.filter { !$0.isOpen }.sorted { $0.time < $1.time } }
@@ -857,7 +859,7 @@ struct ReviewNotesList: View {
             if open.isEmpty && resolved.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("No notes yet", systemImage: "bubble.left").font(.system(size: 13, weight: .semibold))
-                    Text("Click the frame to leave a note on that exact moment, or press C at the playhead.")
+                    Text(emptyHint ?? "Click the frame to leave a note on that exact moment, or press C at the playhead.")
                         .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(12).frame(maxWidth: .infinity, alignment: .leading)

@@ -1,17 +1,28 @@
 #!/usr/bin/env node
-// The motion gate: does the film keep moving? Measured frame by frame on the DRAFT render (and from the built
-// project's code) before the user sees it. A film that settles, freezes, creeps or cuts between two poses at rest
-// fails here with the time and the element or region, so the builder can fix the cause.
+// The motion gate: does the film keep moving, and does it move like a person animated it? Measured on the DRAFT
+// render (and from the built project's code) before the user sees it. A film that freezes, cuts between two poses at
+// rest, or moves like a machine (every move on one curve, snap-and-die moves, one thing at a time, nothing settling)
+// fails here with the time, the region or the beat, so the builder can fix the cause.
 //
 //   node motion-gate.mjs [--video <draft.mp4>] [--project <videos/name>] [--plan <run>/motion/score.json]
-//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--no-text-fit] [--json]
+//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--no-text-fit] [--no-fluency] [--stillness] [--json]
+//   node motion-gate.mjs fluency --video <film.mp4> [--stillness] [--json]     the fluency measurement alone
 //   -> exit 0 pass · 2 findings (listed, each with a time and a fix) · 1 could not run (never "clean")
 //
+// Fluency (--video; lib/fluency.mjs: block-matching motion on 480 px grey frames, moving regions tracked into moves):
+//   the curve-shape spread (t50 IQR), the median visible move, two or more motions at once, the settle share, the
+//   duration spread, arcs, dead frames, cuts between poses at rest. A weighted score under 0.70 fails. Calibrated on
+//   the reference films against our own (.context/night/done-W7.md). A declared stillness style (--stillness,
+//   score.stillness: true, or motion.md `stillness: true`: an editorial film like OpenAI's "Refreshed.") waives dead
+//   frames, cuts at rest and concurrency, and turns coverage and freezes into warnings; the shape checks stay.
+//   Per beat (with --plan): a beat whose many moves share one curve is named (`one-curve`).
+//
 // From the frames (--video; sampled every 1/15 s by frame difference, ffmpeg, no window):
-//   coverage   visible motion in at least 75% of frames (the end card's allowed hold is exempt)
+//   coverage   visible motion in at least 70% of frames (the end card's allowed hold is exempt)
 //   freeze     no still stretch of 0.8 s or more outside the end card; the end card holds at most 1.5 s still after its
 //              last move (--end-hold, or the plan's end_hold_s, when the brief asks for longer)
-//   creep      no whole-frame scale or drift slower than 4% a second (it shimmers thin lines and small type)
+//   creep      a whole-frame scale or drift slower than 4% a second is a WARNING (it can shimmer thin lines and small
+//              type); a living camera on a world layer is wanted (R5: UI references move the camera a third of the time)
 //   empty-frames  at most 10% of frames near-empty (foreground under 2.5% of the frame: see foregroundShare), the end hold (last
 //              1.5 s) and declared breaths (score.breaths: [[t0, t1]], each 1 s at most, two at most) exempt
 //   gap-between-beats  no near-empty stretch over 0.3 s at a seam between two beats (outside breaths): the next element arrives
@@ -21,8 +32,6 @@
 //   carriers   at least two seams carried by an object present on both sides (measured from index.html's carrier
 //              tracks when the project is given; otherwise what the plan declares)
 //   reveal     exactly one brand reveal: the plan's brandReveal beat, and no data-brand-mark in a beat before it
-//   parked     lines and strokes that enter keep moving until they exit (from GSAP calls the gate can resolve to
-//              numbers; anything it can't resolve is listed as skipped, never passed)
 //   text-fit   (--project) every word meant to be read sits inside the frame: the built compositions are loaded headlessly
 //              (no window), the timeline is seeked at 10 fps and the real DOM box of every visible text (opacity > 0.5,
 //              font-size >= 20 px, trimmed by its clipping ancestors) is measured; error `text-cropped` with the time
@@ -36,9 +45,10 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
 import { textFit } from "./lib/textfit.mjs";
+import { analyse as fluencyOf, scoreFluency } from "./lib/fluency.mjs";
 
 export const GATE = {
-  coverage: 0.75, // share of frames with visible motion
+  coverage: 0.7, // share of frames with visible motion
   freeze_s: 0.8, // a still stretch this long fails
   end_hold_s: 1.5, // the end card's stillness after its last move
   creep_per_s: 0.04, // a whole-frame scale or drift slower than this (4%/s) is a creep
@@ -48,7 +58,6 @@ export const GATE = {
   empty_fg: 0.025, // a frame is near-empty when its foreground covers less than this share of the frame
   gap_s: 0.3, // a near-empty stretch this long at a seam fails (gap-between-beats)
   breath_max_s: 1.0, breaths_max: 2, // declared breaths: each at most this long, at most this many
-  parked_s: 0.8, // a line that sits still this long between entering and leaving is parked
 };
 
 const W = 192, H = 108; // analysis size: area-averaged, so encoding noise falls under the pixel threshold
@@ -57,7 +66,18 @@ const PIX_T = 6, MOVE_SHARE = 0.0008; // a frame moves when >= 0.08% of pixels c
 async function main() {
   const args = parseArgs();
   if (!args.json) track("Measuring the film frame by frame: freezes, creep, seams", "Motion gate done");
-  const res = await gate({ video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"] });
+  if (args._[0] === "fluency") {
+    if (!str(args.video)) { console.error("fluency needs --video <film.mp4>"); process.exit(1); }
+    const m = await fluencyOf(path.resolve(str(args.video)));
+    const g = scoreFluency(m, { stillness: !!args.stillness });
+    if (args.json) console.log(JSON.stringify({ ...m, fluency: g }, null, 2));
+    else {
+      console.log(`fluency: ${g.insufficient ? "not enough moves to judge" : g.pass ? "pass" : "FAIL"} · score ${g.score} (0.70 to pass)${args.stillness ? " · stillness style" : ""}`);
+      for (const c of g.checks) console.log(`  ${c.ok === false ? "FAIL" : c.ok ? "ok  " : "--  "} ${c.key} = ${c.value} (want ${c.want})${c.note ? ` ${c.note}` : ""}${c.message ? `: ${c.message}` : ""}`);
+    }
+    process.exit(g.pass === false ? 2 : 0);
+  }
+  const res = await gate({ video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], stillness: args.stillness ? true : null });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else {
     console.log(`motion gate: ${res.verdict}${res.measured.coverage != null ? ` · ${Math.round(res.measured.coverage * 100)}% of frames move` : ""}`);
@@ -321,52 +341,39 @@ function creepIn(file, html, tweens) {
     const { from, to } = t.scale;
     if (from > 0 && to > 0 && from !== to) {
       const rate = Math.abs(Math.log(to / from)) / t.dur;
-      if (rate < GATE.creep_per_s) out.push({ check: "creep", severity: "error", at: r2(t.start), element: t.ids.map((x) => `#${x}`).join(", "), file: path.basename(file), region: "scale", message: `#${t.ids[0]} scales ${from} to ${to} over ${r2(t.dur)} s (${r2(rate * 100)}% a second, composition seconds ${r2(t.start)} to ${r2(t.end)}): slower than ${GATE.creep_per_s * 100}% a second shimmers thin lines and small type`, fix: "move it for real (a push that goes somewhere, at a speed you can see) or hold it; never a slow film-wide push" });
+      if (rate < GATE.creep_per_s) out.push({ check: "creep", severity: "warning", at: r2(t.start), element: t.ids.map((x) => `#${x}`).join(", "), file: path.basename(file), region: "scale", message: `#${t.ids[0]} scales ${from} to ${to} over ${r2(t.dur)} s (${r2(rate * 100)}% a second, composition seconds ${r2(t.start)} to ${r2(t.end)}): slower than ${GATE.creep_per_s * 100}% a second shimmers thin lines and small type`, fix: "a slow push is fine on a camera layer (RasanMotion.camera on a world wrapper, 1.5-4% over the shot); on a headline or a hairline look at a 24 fps strip for shimmer, and move it for real if it crawls" });
     }
     if (t.ids.some((x) => /^(world|cam|camera|stage|scene|root|film)([-_]|$)/i.test(x))) {
       for (const ax of ["x", "y"]) {
         const { from: a, to: b } = t[ax];
         if (a == null || b == null || a === b) continue;
         const rate = Math.abs(b - a) / Wd / t.dur;
-        if (rate < GATE.creep_per_s) out.push({ check: "creep", severity: "error", at: r2(t.start), element: `#${t.ids[0]}`, file: path.basename(file), region: "camera drift", message: `the camera wrapper #${t.ids[0]} drifts ${Math.abs(b - a)} px on ${ax} over ${r2(t.dur)} s (${r2(rate * 100)}% of the width a second): a creep`, fix: "move the camera to go somewhere, at a speed you can see, or lock it" });
+        if (rate < GATE.creep_per_s) out.push({ check: "creep", severity: "warning", at: r2(t.start), element: `#${t.ids[0]}`, file: path.basename(file), region: "camera drift", message: `the camera wrapper #${t.ids[0]} drifts ${Math.abs(b - a)} px on ${ax} over ${r2(t.dur)} s (${r2(rate * 100)}% of the width a second): a creep`, fix: "a drift of 0.5-1.5% of the frame a second is a living frame (wanted); check a 24 fps strip for shimmer on thin lines and small type" });
       }
     }
   }
   return out;
 }
-function parkedIn(file, html) {
-  const findings = [], skipped = [];
+// the code checks per composition: creep in the code (a warning). "A line never parks" was dropped (R5): it made every
+// line drift mechanically; composed holds with a living layer read as human, constant drift does not.
+function codeChecks(file, html) {
   const { tweens, skipped: sk } = tweensOf(html);
-  for (const s of sk) skipped.push(`${path.basename(file)}: ${s} (position or target not resolvable)`);
-  const { parent, text, strokes } = structureOf(html);
-  const compDur = Number((html.match(/data-duration="([\d.]+)"/) || [])[1]) || Math.max(0, ...tweens.map((t) => t.end));
-  findings.push(...creepIn(file, html, tweens));
-  const lines = Object.keys(parent).filter((id) => strokes.has(id) || (text[id] && text[id].trim().split(/\s+/).length <= 10));
-  let checked = 0;
-  for (const id of lines) {
-    const own = tweens.filter((t) => t.ids.includes(id));
-    const enter = own.find((t) => t.fadeIn);
-    if (!enter) continue; // it never enters (always there, or an unresolved tween): nothing to measure
-    checked++;
-    const E = enter.end;
-    const exit = own.find((t) => t.fadeOut && t.start >= E - 0.01);
-    const X = exit ? exit.start : compDur;
-    const chain = new Set([id, ...(parent[id] || [])]);
-    const mv = tweens.filter((t) => t.moves && t.ids.some((x) => chain.has(x))).map((t) => [Math.max(E, t.start), Math.min(X, t.end)]).filter(([a, b]) => b > a).sort((a, b) => a[0] - b[0]);
-    let at = E, worst = { gap: 0, from: E };
-    for (const [a, b] of mv) { if (a - at > worst.gap) worst = { gap: a - at, from: at }; at = Math.max(at, b); }
-    if (X - at > worst.gap) worst = { gap: X - at, from: at };
-    if (worst.gap >= GATE.parked_s) findings.push({ check: "parked", severity: "error", at: r2(worst.from), element: `#${id}`, file: path.basename(file), region: strokes.has(id) ? "stroke" : `line "${String(text[id] || "").trim().slice(0, 40)}"`, message: `#${id} ${strokes.has(id) ? "(a stroke)" : "(a line)"} sits still for ${r2(worst.gap)} s between entering and leaving (composition seconds ${r2(worst.from)} to ${r2(worst.from + worst.gap)})`, fix: `keep it moving the way it will leave until its exit: a slow carry (x toward the film's direction, or a steady recede) from its landing through its exit, on one tween (references/craft.md, Momentum)` });
-  }
-  return { findings, skipped, checked };
+  return { findings: creepIn(file, html, tweens), skipped: sk.map((s2) => `${path.basename(file)}: ${s2} (position or target not resolvable)`) };
 }
 
 // ---------------------------------------------------------------- the gate
-export async function gate({ video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true } = {}) {
+export async function gate({ video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, stillness = null } = {}) {
   const findings = [], skipped = [], could = [], measured = {};
   const add = (f) => findings.push(f);
   const P = readPlan(plan && path.resolve(plan), scenes && path.resolve(scenes));
   if (P.error) could.push(P.error);
+  // a declared stillness style: the flag, the plan (stillness: true or motion_style: "stillness"), or motion.md
+  if (stillness == null) {
+    const md = project ? readText(path.join(path.resolve(project), "motion.md")) : "";
+    stillness = !!(P.plan && (P.plan.stillness === true || P.plan.motion_style === "stillness")) || /^stillness:\s*true\b/m.test(md);
+  }
+  measured.stillness = stillness;
+  const still = stillness ? "warning" : "error";
   const beats = P.beats || [];
   const holdMax = endHold || P.endHold || GATE.end_hold_s;
   const seamTimes = beats.slice(1).map((b) => b.start);
@@ -411,13 +418,13 @@ export async function gate({ video = null, project = null, plan = null, scenes =
         measured.longest_still_s = r2(Math.max(0, ...stills.map(([a, b]) => (b - a + 1) / fps)));
         if (coverage < GATE.coverage) {
           const top = stills.map(([a, b]) => ({ a, len: (b - a + 1) / fps })).sort((x, y) => y.len - x.len).slice(0, 3).map((x) => `${tOf(x.a)} s (${r2(x.len)} s)`);
-          add({ check: "coverage", severity: "error", at: null, region: "whole film", message: `visible motion in ${Math.round(coverage * 100)}% of frames (${Math.round(GATE.coverage * 100)}% at least)${top.length ? `; the longest still stretches start at ${top.join(", ")}` : ""}`, fix: "something meaningful changes every 1.5 to 2.5 s, and holds carry secondary motion (a line's slow carry, the cursor's next arc, the next element arriving)" });
+          add({ check: "coverage", severity: still, at: null, region: "whole film", message: `visible motion in ${Math.round(coverage * 100)}% of frames (${Math.round(GATE.coverage * 100)}% at least)${top.length ? `; the longest still stretches start at ${top.join(", ")}` : ""}`, fix: "overlap the gestures (the next starts at 55-75% of the last) and keep a living layer through holds (a camera push or drift on the world, ambient on the ground); a composed hold is fine, a dead frame is not" });
         }
         for (const [a, b] of stills) {
           const len = (b - a + 1) / fps;
           if (len >= GATE.freeze_s - 1e-6) {
             const inEnd = endStart != null && a / fps >= endStart;
-            add({ check: "freeze", severity: "error", at: tOf(a - 1 >= 0 ? a - 1 : a), region: "whole frame", message: `nothing moves for ${r2(len)} s (${tOf(a - 1 >= 0 ? a - 1 : a)} to ${tOf(b)} s)${inEnd ? ", inside the end card before its last move" : ""}: ${GATE.freeze_s} s at most`, fix: "stage the next event inside that stretch (a UI state, the next line, a cursor leg, the camera going somewhere), or cut it" });
+            add({ check: "freeze", severity: still, at: tOf(a - 1 >= 0 ? a - 1 : a), region: "whole frame", message: `nothing moves for ${r2(len)} s (${tOf(a - 1 >= 0 ? a - 1 : a)} to ${tOf(b)} s)${inEnd ? ", inside the end card before its last move" : ""}: ${GATE.freeze_s} s at most`, fix: "let the hold breathe instead of dying: a camera push on the world, a secondary that settles late, the next element starting early; or cut it shorter" });
           }
         }
         // empty frames: near-empty = foreground under GATE.empty_fg (foregroundShare); the end hold and declared breaths are exempt
@@ -485,7 +492,7 @@ export async function gate({ video = null, project = null, plan = null, scenes =
         const lastBeat = P.beats && P.beats.length ? P.beats[P.beats.length - 1] : null;
         const endCardFrom = lastBeat && Number(lastBeat.start) >= 0 ? Number(lastBeat.start) : dur - 3;
         for (let k = creeps.length - 1; k >= 0; k--) if (creeps[k].kind === "drift" && tOf(creeps[k].from) >= endCardFrom - 0.2) { skipped.push(`creep: a slow drift on the end card from ${tOf(creeps[k].from)} s is allowed`); creeps.splice(k, 1); }
-        for (const c of creeps) add({ check: "creep", severity: "error", at: tOf(c.from), region: "whole frame", message: `a whole-frame ${c.kind} of about ${r2(c.rate * 100)}% a second from ${tOf(c.from)} to ${tOf(c.to)} s (slower than ${GATE.creep_per_s * 100}% a second shimmers thin lines and small type)`, fix: "move the camera for real (to go somewhere, at a speed you can see) or lock it; never a slow film-wide push or drift" });
+        for (const c of creeps) add({ check: "creep", severity: "warning", at: tOf(c.from), region: "whole frame", message: `a whole-frame ${c.kind} of about ${r2(c.rate * 100)}% a second from ${tOf(c.from)} to ${tOf(c.to)} s (slower than ${GATE.creep_per_s * 100}% a second can shimmer thin lines and small type)`, fix: "a living camera is wanted; check a 24 fps strip of this stretch for shimmer on hairlines and small type, and if it shimmers put the push on a layer without them or move it for real" });
         measured.creep_spans = creeps.length;
         // seams: motion on both sides within the window (the cut step itself and its neighbour do not count)
         const seamRows = [];
@@ -504,6 +511,30 @@ export async function gate({ video = null, project = null, plan = null, scenes =
       }
     }
   } else skipped.push("frames: no --video (coverage, freeze, creep and seams are measured on the draft render)");
+
+  // ---- fluency: does it move like a person animated it?
+  if (video && fluency && fs.existsSync(path.resolve(video))) {
+    try {
+      const m = await fluencyOf(path.resolve(video), { series: true });
+      const g = scoreFluency(m, { stillness });
+      const { _series, ...rest } = m;
+      measured.fluency = { score: g.score, pass: g.pass, ...rest };
+      const fails = g.checks.filter((c) => c.ok === false);
+      if (g.insufficient) skipped.push(`fluency: ${g.note}`);
+      else if (!g.pass) add({ check: "fluency", severity: "error", at: null, region: "whole film", message: `moves like a machine: fluency ${g.score} (0.70 to pass). ${fails.map((c) => `${c.key} ${c.value} (want ${c.want})`).join("; ")}`, fix: fails.map((c) => c.message).join(" | ") });
+      else if (fails.length) add({ check: "fluency", severity: "warning", at: null, region: "whole film", message: `fluency ${g.score} passes, still weak on: ${fails.map((c) => `${c.key} ${c.value} (want ${c.want})`).join("; ")}`, fix: fails.map((c) => c.message).join(" | ") });
+      // per beat: many moves on one curve (a swarm, a metronomic cascade)
+      const rows = [];
+      for (const b of beats) {
+        const mv = (_series.moves || []).filter((x) => x.t0 >= b.start && x.t0 < b.end);
+        const t50 = mv.map((x) => x.t50).filter((x) => x != null).sort((p, q) => p - q);
+        const iqr = t50.length >= 6 ? r2(t50[Math.floor(t50.length * 0.75)] - t50[Math.floor(t50.length * 0.25)]) : null;
+        rows.push({ beat: b.id, moves: mv.length, t50_iqr: iqr });
+        if (t50.length >= 10 && iqr != null && iqr < 0.08) add({ check: "one-curve", severity: "warning", at: r2(b.start), region: `beat ${b.id}`, message: `${t50.length} moves in beat ${b.id} share one curve shape (t50 spread ${iqr})`, fix: "give the group irregular offsets and two or three curves (RasanMotion.cascade), and its hero a settle" });
+      }
+      if (rows.length) measured.fluency_beats = rows;
+    } catch (e) { skipped.push(`fluency: ${e.message} (not measured, never passed)`); }
+  } else if (video && !fluency) skipped.push("fluency: skipped (--no-fluency)");
 
   // ---- the plan and the code
   if (beats.length) {
@@ -552,21 +583,17 @@ export async function gate({ video = null, project = null, plan = null, scenes =
         const d = path.join(pj, sub);
         if (fs.existsSync(d)) for (const f of fs.readdirSync(d)) if (f.endsWith(".html") && !files.includes(path.join(d, f))) files.push(path.join(d, f));
       }
-      let checked = 0;
       for (const f of files) {
-        const r = parkedIn(f, readText(f));
+        const r = codeChecks(f, readText(f));
         findings.push(...r.findings);
         skipped.push(...r.skipped.slice(0, 5));
-        checked += r.checked;
       }
-      measured.lines_checked = checked;
       if (doTextFit) {
         const tf = await textFit(pj);
         findings.push(...tf.findings);
         skipped.push(...tf.skipped, ...tf.could_not_run.map((c) => `${c} (not measured, never passed)`));
         measured.text_fit = { pages: tf.pages, samples: tf.samples, cropped: tf.findings.length };
       } else skipped.push("text-fit: skipped (--no-text-fit)");
-      if (!checked) skipped.push("parked lines: no line or stroke with a resolvable entrance in the compositions (checked from the frames only)");
     }
   }
 

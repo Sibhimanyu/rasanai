@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // The anti-slop gate: checks a built film for the tells viewers read as generic AI video, before the render
 // question (next to obey.mjs, which checks the motion contract). Evidence: /references/craft.md "Anti-slop".
-//   node slop.mjs --project videos/<name> [--scenes <scenes.json>] [--video <render.mp4>] [--style <preset id>] [--run <run>] [--json]
+//   node slop.mjs --project videos/<name> [--scenes <scenes.json>] [--video <render.mp4>] [--style <preset id>] [--run <run>] [--score <score.json>] [--json]
+// Hero effects (glow, blur-in, particles) are budgets, not bans: allowed on the hero up to the score's `budget`
+// (lib/budget.mjs); the same effect on every element is the error.
 // With a brand (the run's research/brand/assets/, found from --run, from "<run>/frames", or from the project's
 // assets/brand/) it also checks every logo on screen is the downloaded file (rule "logo-not-the-file").
 // Reads the project's compositions (HTML/CSS/JS), its scenes/storyboard timing, its audio plan and, when given,
@@ -15,6 +17,7 @@ import { parseArgs, die } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
 import { readLogos, scanLogos } from "./lib/logos.mjs";
 import { textFit } from "./lib/textfit.mjs";
+import { readBudget, budgetFor, budgetLimit } from "./lib/budget.mjs";
 
 const args = parseArgs();
 track("Checking for generic AI-video tells", "Slop check done");
@@ -66,14 +69,10 @@ if (visible.length && /^introducing\b/i.test(visible[0].t)) add("introducing-ope
 }
 
 // ---- 2. look ----
-const glow = (allCode.match(/text-shadow\s*:[^;"}]*?\b0\s+0\s+(\d+)px[^;"}]*/gi) || []).filter((m) => Number((m.match(/0\s+0\s+(\d+)px/) || [])[1]) >= 8);
-if (glow.length > 1 && !/neon|cyber|synthwave|vapor|glow/.test(style)) add("neon-glow-text", "error", `${glow.length} glowing text-shadows`, "Glowing neon text is the most-named AI video tell.", "Remove the glow; get emphasis from size, weight, colour or position. (Keep it only if the chosen style is a neon style, and then once.)");
 const grads = allCode.match(/(?:linear|radial|conic)-gradient\([^)]*\)/gi) || [];
 const hue = (hex) => { const n = parseInt(hex.slice(1).padEnd(6, "0").slice(0, 6), 16), r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b); if (mx === mn) return -1; let h = mx === r ? (g - b) / (mx - mn) : mx === g ? 2 + (b - r) / (mx - mn) : 4 + (r - g) / (mx - mn); h *= 60; return h < 0 ? h + 360 : h; };
 const aiGrad = grads.filter((g) => { const hs = (g.match(/#[0-9a-f]{6}/gi) || []).map(hue).filter((x) => x >= 0); return hs.some((x) => x >= 250 && x <= 300) && hs.some((x) => x >= 190 && x < 250); });
 if (aiGrad.length && !/aurora|holographic|y2k|vapor|synth/.test(style)) add("ai-gradient", "error", `${aiGrad.length} purple-to-blue gradient(s)`, "Purple-blue gradients are the default 'AI' look.", "Use the style's palette: flat fields, one accent, or a gradient within one hue family.");
-const particles = /particle|bokeh|sparkle|starfield|galaxy|floating-?dots/i.test(allCode) || (allCode.match(/border-radius\s*:\s*50%/g) || []).length > 40;
-if (particles && !/space|orbital|point-cloud|star/.test(style)) add("particles", "warn", "particles / bokeh / sparkles", "Ambient particles and bokeh are filler viewers associate with AI video.", "Remove them, or replace with one motivated element from the story.");
 if (/lens-?flare|flare\.png/i.test(allCode)) add("lens-flare", "warn", "lens flare", "Lens flares read as template decoration.", "Remove it.");
 const cornerLabels = visible.filter(({ t }) => /^(\d{1,2}:\d{2}(:\d{2})?|\d{2,3}\s?bpm|rec\s?●?|sys\b|v\d\.\d)/i.test(t)).length;
 if (cornerLabels >= 2 && !/hud|fui|terminal|telemetry|broadcast|vhs/.test(style)) add("corner-labels", "error", `${cornerLabels} timecode/BPM-style labels`, "Corner labels with timecodes and BPM are now a recognised Opus-showreel tell.", "Remove them unless the style is a HUD/broadcast style that means it.");
@@ -108,6 +107,45 @@ if (scenes && scenes.length >= 3) {
   scenes.forEach((s, i) => { const w = s.text.split(/\s+/).filter(Boolean).length; const need = w ? 0.6 + 0.4 * w : 0; if (w && s.d && s.d < need) add("unreadable", "error", `scene ${i + 1} "${s.title}"`, `${w} words on screen for ${s.d} s; needs about ${need.toFixed(1)} s to read.`, "Cut the copy or lengthen the scene; never speed it up."); });
   const last = scenes[scenes.length - 1]; if (last.d && last.d < 1.8) add("no-end-hold", "error", `last scene ${last.d} s`, "The ending has no hold: the name and call to action vanish.", "Give the end card 2–3 s: its elements land in sequence, then at most 1.5 s still (motion-gate.mjs measures it).");
   if (scenes[0].d > 4 && !scenes[0].text) add("slow-hook", "warn", `scene 1 is ${scenes[0].d} s with no line`, "Nothing lands in the first 2 s.", "Open on the hook: a claim in ≤4 words or the product doing its thing within 1.5 s.");
+}
+
+// ---- 4b. finish: default-on, hero effects on a budget, uniform use is the tell ----
+// Glow, blur-in and particles are allowed a few times per film on the hero, with a reason in the score's `budget`
+// (lib/budget.mjs; references/craft.md "Finish and budgets"). The same effect on more elements than the budget allows,
+// or on every line, is the AI tell and stays an error. The finish layer itself (grain, soft shadows, a lit ground) is
+// expected on every film unless the brand film measured none (brandfilm.mjs measure: finish.layerOff).
+{
+  const runDir = args.run && args.run !== true ? path.resolve(String(args.run)) : null;
+  const scoreFile = args.score ? path.resolve(String(args.score)) : null;
+  let budget = [];
+  if (scoreFile) { try { budget = readBudget(JSON.parse(fs.readFileSync(scoreFile, "utf8"))); } catch {} }
+  else if (runDir) budget = readBudget(runDir);
+  const hasScore = !!(scoreFile || (runDir && fs.existsSync(path.join(runDir, "motion", "score.json"))));
+  const lim = budgetLimit(scenes ? scenes.reduce((a, s) => a + s.d, 0) : Number(args.film || 0));
+  // the finish runtimes (rasan-camera, rasan-motion, vendored GSAP) are not the film's own choices
+  const own = Object.entries(src).filter(([f]) => !/(^|\/)(rasan-[a-z0-9-]+|gsap[^/]*|vendor\/[^/]+)\.(m?js|css)$/i.test(f)).map(([, t]) => t).join("\n");
+  const spend = (effect, n, what, why, fix) => {
+    const planned = budgetFor(budget, effect).length;
+    if (n > lim) add(`${effect}-uniform`, "error", `${n} ${what} (budget: ${lim} per film, hero only)`, why, fix);
+    else if (n && !planned) add(`${effect}-unbudgeted`, "warn", `${n} ${what}`, `${effect} is allowed on the hero, at most ${lim} times, with a reason; this film has no budget entry for it${hasScore ? "" : " (no score found: pass --run or --score)"}.`, `Name each use in the score's budget: {"effect": "${effect}", "scene": <n>, "target": "<the hero>", "reason": "<why this moment>"}; or remove it.`);
+  };
+  const neon = /neon|cyber|synthwave|vapor|glow/.test(style);
+  const glowText = (own.match(/text-shadow\s*:[^;"}]*?\b0\s+0\s+(\d+)px[^;"}]*/gi) || []).filter((m) => Number((m.match(/0\s+0\s+(\d+)px/) || [])[1]) >= 8);
+  const glowBox = (own.match(/(?:box-shadow\s*:|drop-shadow\()\s*0(?:px)?\s+0(?:px)?\s+(\d+)px[^;"})]*/gi) || []).filter((m) => Number((m.match(/0(?:px)?\s+0(?:px)?\s+(\d+)px/) || [])[1]) >= 16);
+  if (!neon) spend("glow", glowText.length + glowBox.length, "glowing text-shadows / box glows", "Glow on every element is the most-named AI video tell; once on the hero, with a reason, it is light (Sovra, Google's rim glow).", "Keep glow for the hero moment(s) the budget names; take it off everything else and get emphasis from size, weight, colour or position.");
+  const blurIn = [...own.matchAll(/\.(?:from|fromTo)\(\s*[^,]+,\s*\{([^}]*)\}/g)].filter((m) => /filter\s*:\s*["'`]?blur\(\s*[1-9]/.test(m[1])).length;
+  spend("blur-in", blurIn, "blur-in entrances", "Every word blurring in is the uniform AI entrance; one blur-in on the hero line is a choice (Sovra's words).", "Keep blur-in for the budgeted hero line(s); give the rest entrances by their nature (mask, cut-in, build).");
+  const particleWords = /particle|bokeh|sparkle|starfield|galaxy|floating-?dots/i.test(own), dots = (own.match(/border-radius\s*:\s*50%/g) || []).length > 40;
+  if ((particleWords || dots) && !/space|orbital|point-cloud|star/.test(style) && !budgetFor(budget, "particles").length) add("particles-unbudgeted", "warn", "particles / bokeh / sparkles", "Ambient particles everywhere are filler viewers read as AI video; a dot field or burst that IS the story's carrier, once, is a technique.", `Budget it on the hero moment with a reason ({"effect": "particles", ...}, at most ${lim}), or replace with one motivated element from the story.`);
+  // the default finish layer: grain, a soft shadow and a lit or tinted ground, unless the brand film measured none
+  let layerOff = false;
+  if (runDir) { try { const g = JSON.parse(fs.readFileSync(path.join(runDir, "brand-film", "grammar.json"), "utf8")); layerOff = !!(g.measured && g.measured.finish && g.measured.finish.layerOff); } catch {} }
+  const hasCamera = /RasanCamera|rasan-camera/.test(allCode);
+  const grain = hasCamera || /feTurbulence|grain|noise\.(png|svg|webp)/i.test(own);
+  const softShadow = hasCamera || /box-shadow\s*:[^;"}]*\d+px\s+\d{2,}px/i.test(own) || /drop-shadow\(/i.test(own);
+  const litGround = hasCamera || /radial-gradient\(/i.test(own);
+  const missing = [!grain && "grain", !softShadow && "soft shadows", !litGround && "a lit, tinted ground"].filter(Boolean);
+  if (!layerOff && missing.length >= 2) add("finish-missing", "warn", `no ${missing.join(", no ")}`, "The finish layer is default-on: a tinted living ground, soft multi-layer shadows, a key light, 1-2% grain on a flat brand (2-4% otherwise), a 10-30% vignette. Without it a flat brand reads as a white void.", "Install RasanCamera (camera.mjs install) and use ground(), keyLight(), shadowLadder() and grain(); off only when brandfilm.mjs measured the brand film's finish as zero (finish.layerOff), and then the film wins on type scale and photography.");
 }
 
 // ---- 5. sound ----

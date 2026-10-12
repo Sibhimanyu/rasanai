@@ -97,7 +97,7 @@ const LABELS = { story: "the story", films: "the film", animatic: "the animatic"
 // an option's human name ("The shoebox wins") for an id the user picked ("shoebox")
 function nameOf(s, step, value) {
   const d = s.steps[step] || {};
-  for (const pool of [d.options, d.cells, d.looks, d.stories, d.films, d.styles]) {
+  for (const pool of [d.options, d.cells, d.looks, d.stories, d.films, d.styles, d.frames]) {
     const hit = (pool || []).find((o) => o && (o.id === value || o.preset === value));
     if (hit) return hit.title || hit.label || hit.name || String(value);
   }
@@ -172,12 +172,14 @@ function applyAction(s, action) {
     activity(s, `You left a note${v.t != null ? " at " + Math.floor(v.t / 60) + ":" + String(Math.floor(v.t % 60)).padStart(2, "0") : ""}: ${action.note || v.quick}`, "you", null);
     return;
   }
-  const nm = nameOf(s, step, action.value);
-  const verb = { choose: "picked", submit: "sent", approve: "approved", adjust: "adjusted", more: "asked for more of" }[action.type] || action.type;
+  // a redo of some style frames ({ids, note}): name the frames
+  const nm = action.type === "redo" && action.value && Array.isArray(action.value.ids) ? `frame${action.value.ids.length > 1 ? "s" : ""} ${action.value.ids.join(", ")}` : nameOf(s, step, action.value);
+  const verb = { choose: "picked", submit: "sent", approve: "approved", adjust: "adjusted", more: "asked for more of", redo: "asked to redo" }[action.type] || action.type;
   const said = action.type === "decide-rest" ? "Claude decides the rest" : action.type === "decide" ? `Claude decides ${LABELS[step] || step}` : action.type === "note" ? `Note: "${action.note}"` : `${verb} ${LABELS[step] || step}${nm ? ": " + nm : ""}`;
   if (s.steps[step] && s.steps[step].sent && nm) s.steps[step].sent.name = nm;
   // anything the user writes becomes part of that step's discussion
-  if (action.note && s.steps[step]) s.steps[step].thread = (s.steps[step].thread || []).concat({ who: "you", text: action.note, t: action.ts }).slice(-50);
+  const said2 = action.note || (action.type === "redo" && action.value && action.value.note ? String(action.value.note).slice(0, 4000) : "");
+  if (said2 && s.steps[step]) s.steps[step].thread = (s.steps[step].thread || []).concat({ who: "you", text: said2, t: action.ts }).slice(-50);
   activity(s, `You: ${said}`, "you", "Claude is reading your answer…");
 }
 

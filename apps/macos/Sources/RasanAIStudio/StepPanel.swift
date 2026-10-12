@@ -42,7 +42,7 @@ struct StepPanel: View {
         case "reel": ReelPanel(model: model, step: step)
         case "concept": ConceptPanel(model: model, step: step)
         case "scenes": ScenesPanel(model: model, step: step)
-        case "styleframes": StyleframesPanel(model: model, step: step)
+        case "styleframes": StyleframesStage(model: model, step: step)
         case "motion": MotionPanel(model: model, step: step)
         case "transitions": TransitionsPanel(model: model, step: step)
         case "voice": VoicePanel(model: model, step: step)
@@ -64,6 +64,7 @@ struct StepPanel: View {
         case "reel": "Is this the cut?"
         case "concept": "Which story?"
         case "scenes": "Do the scenes add up?"
+        case "styleframes": "Do these frames look like the film?"
         default: StepCatalog.label(step)
         }
     }
@@ -71,7 +72,7 @@ struct StepPanel: View {
     /// Wide steps (editable tables) get more room.
     static func width(_ step: String) -> CGFloat {
         switch step {
-        case "reel", "scenes": 1120
+        case "reel", "scenes", "styleframes": 1120
         case "footage": 1000
         default: 900
         }

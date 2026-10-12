@@ -21,6 +21,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs, die, readJSON, writeFile, normalizeAspect, readFrontmatterDoc } from "./lib/common.mjs";
 import { resolvePreset, findSkill } from "./lib/hyperframes.mjs";
 import { installLook, installDirection, upsertMarked, DIRECTION_MARK } from "./lib/install.mjs";
+import { fluentRules } from "./lib/contract.mjs";
 
 const args = parseArgs();
 if (!args.decisions) die("--decisions required");
@@ -342,16 +343,9 @@ ${dirInstalled ? `${dirInstalled.section}\n` : ""}${overridesBlock}## Binding mo
 
 - Personality: ${motionLabel}
 - Length: ${lengthS}s, ${W}x${H}. \`shot-plan.json\` uses \`duration_s: ${lengthS}\` and this canvas; the host root mounts the build for exactly this long.
-- Durations: every tween duration is one of ${M.tempo.scale_ms.join(" / ")} ms (±15%). A staggered tween's per-element duration counts, not the spread.
-- Eases (write them explicitly; never rely on the GSAP default):
-  - enter: \`${M.easing.enter}\` for anything becoming visible, including a rule or underline drawing out from 0 (scaleX 0 -> 1), a mask/clip opening, letters growing from a baseline
-  - exit: \`${M.easing.exit}\` for anything leaving or collapsing back to 0
-  - move / emphasis: \`${M.easing.move}\` for changes to an element that stays visible (shift, push, pulse)
-- Stagger: ${M.stagger.each_ms} ms between elements.
-- Every element stays at least ${M.holds.min_ms} ms between its entrance and its exit (reading time), and keeps moving in that time: nothing parks, no stretch of 0.8 s goes still.
-- Banned patterns (machine-checked): ${M.banned.join(", ")}.
+${fluentRules(M)}
 - Preferred entrances: ${(M.entrances || []).join(", ")}. Exits: ${(M.exits || []).join(", ")}. Transitions: ${(M.transitions || []).join(", ")}.
-- GSAP only (no CSS @keyframes, anime.js or WAAPI). Registry blocks: after \`hyperframes add\`, rewrite their tweens to these eases and durations.
+- GSAP only (no CSS @keyframes, anime.js or WAAPI). Registry blocks: after \`hyperframes add\`, re-time their tweens by these rules (their stock eases and durations are the uniform pattern).
 - **Hiding an element until its entrance:** a zero-duration switch on the timeline (\`tl.set(el, { autoAlpha: 0 }, 0)\`, then \`tl.set(el, { autoAlpha: 1 }, t)\` right before its entrance), never on a \`.clip\` element and never at page load; or the combined \`fromTo\` described above.
 ${nonStandardEases.length ? `- **These eases override the builder contract's allowed-ease list:** ${nonStandardEases.map((e) => `\`${e}\``).join(", ")}. They are GSAP-core, seek-safe and deliberate for this personality; do not swap them for power/expo eases.\n` : ""}
 ${route === "motion-graphics" ? `## Output shape (Builder)

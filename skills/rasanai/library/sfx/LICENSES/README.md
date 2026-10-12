@@ -1,0 +1,1 @@
+Licence texts copied from each upstream at download. `uisfx-LICENSE-AUDIO.txt` covers `packages/uisfx/sounds` only (the `.generated` directory is excluded from the grant and is not used). The atomcut `pack.json` copies are in `../atomcut-*/pack.json`.

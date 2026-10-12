@@ -63,7 +63,7 @@ export function validateGrammar(g) {
   if (!strs(g.do, 2)) E("do needs at least 2 entries");
   if (!strs(g.dont, 2)) E("dont needs at least 2 entries");
   if (!strs(g.fits, 1)) E("fits needs at least 1 entry (the story shapes it suits)");
-  if (typeof g.flat_ok !== "boolean") E("flat_ok must be true or false (false when the grammar needs 3D, blur or glow)");
+  if (typeof g.flat_ok !== "boolean") E("flat_ok must be true or false (false when the grammar's look is glow or blur on every element, which a graphic-route brand cannot carry)");
   return { errors, warnings };
 }
 

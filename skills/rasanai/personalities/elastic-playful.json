@@ -53,5 +53,19 @@
     "exit_ms": 300,
     "hold_ms": 600
   },
-  "builder_notes": "Characters or elements scale up from 0 with a small rotation and overshoot (back.out). Emphasis moves squash-and-stretch (scaleX/scaleY opposite) with elastic settle. Exits shrink back with back.in. Keep it tight: short durations, small stagger."
+  "builder_notes": "Characters or elements scale up from 0 with a small rotation and overshoot (back.out). Emphasis moves squash-and-stretch (scaleX/scaleY opposite) with elastic settle. Exits shrink back with back.in. Keep it tight: short durations, small stagger.",
+  "curves": {
+    "launch": "back.out(1.8)",
+    "glide": "cubic-bezier(0.2,0,0,1)",
+    "expressive": "cubic-bezier(0.4,0.14,0.3,1)",
+    "exit": "back.in(1.4)",
+    "settle": "spring(0.45,14)",
+    "snap": "expo.out",
+    "drift": "sine.inOut",
+    "move": "elastic.out(1,0.5)"
+  },
+  "overshoot": {
+    "share": 0.5,
+    "max_pct": 25
+  }
 }

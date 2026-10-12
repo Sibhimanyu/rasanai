@@ -7,8 +7,9 @@
 //   node grammar.mjs list                       -> every grammar {id, name, flat_ok, fits, techniques}
 //   node grammar.mjs show <id>                  -> the whole grammar
 //   node grammar.mjs pick --run <run> [--flat] [--exclude a,b] [--count 3]
-//        -> grammars that fit the story shape and the brand constraints, best first. --flat (brand-flat film, FILM-STYLE says
-//           no 3D / blur / grain; also set when the run's FILM-STYLE.json says so) keeps only flat_ok grammars
+//        -> grammars that fit the story shape and the brand constraints, best first. --flat (a graphic-route brand: the brand film
+//           measured no finish, FILM-STYLE.json measured.finish.layerOff; set by itself from the card) keeps only flat_ok
+//           grammars (flat_ok false = the grammar's look is glow or blur on every element; budgets apply to every grammar)
 //   node grammar.mjs write --run <run> --id <id> [--label Sure|Bold|Wild] [--out <path>] [--brand <DESIGN.md>]
 //        -> copies the grammar into the run: look/grammar.json (or design/<label>/grammar.json, or --out); when a brand
 //           DESIGN.md exists (--brand, or the run's decisions.json brand) its canvas / ink / accent replace the grammar's palette
@@ -33,7 +34,8 @@ function shapeText(run) {
   return [dec.route, plan.route, dec.format, dec.kind, f.kind, f.sentence, f.brief, ch.shape, ch.device, ch.kind, ch.title].filter((x) => typeof x === "string").join(" ").toLowerCase();
 }
 const SHAPES = [["launch ladder", /launch|promo|product|reveal|announce|feature|demo|ad\b/], ["explainer", /explain|how|topic|faceless|tutorial|concept/], ["brand film", /brand|manifesto|identity|company|story/], ["music video", /music|lyric|song/], ["reel", /reel|showreel|sizzle/]];
-const runIsFlat = (run) => { const c = readJ(path.join(run, "brand-film", "FILM-STYLE.json")); return !!c && FLAT_RE.test(`${(c.slots || {}).motionVocabulary || ""} ${(c.slots || {}).notes || ""}`); };
+// graphic route: the brand film measured no finish (brandfilm.mjs measure: measured.finish.layerOff); older cards fall back to their words
+const runIsFlat = (run) => { const c = readJ(path.join(run, "brand-film", "FILM-STYLE.json")); if (!c) return false; const f = c.measured && c.measured.finish; if (f && typeof f.layerOff === "boolean") return f.layerOff; return FLAT_RE.test(`${(c.slots || {}).motionVocabulary || ""} ${(c.slots || {}).notes || ""}`); };
 const tie = (run, id) => parseInt(crypto.createHash("sha1").update(`${run}|${id}`).digest("hex").slice(0, 6), 16);
 
 const args = parseArgs();

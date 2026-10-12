@@ -28,9 +28,9 @@ The user decides **taste**: the brief, the film (its style and its story), notes
 | What | Rule |
 |---|---|
 | Frame 0 | Already designed and postable (it is also the thumbnail). No fade from black, no empty frame, no lone dot. First visible motion within 0.2 s of the film's start and of every scene's start. |
-| Reading time | Every line stays fully on screen and readable for **0.6 s + 0.4 s per word, 1.2 s minimum** (4 words: 2.2 s; 6 words: 3.0 s). The key message reads for at least 2 s. A small label meant to be read: at least 0.8 s. Never ask for more than 3 words per second. While a line is read it keeps a slow carry on the axis it will leave by (it never parks, and its letters never re-animate). Only one text block enters at a time. If it doesn't fit, cut words; never speed the text up. (`slop.mjs` flags anything under 0.6 s + 0.4 s per word.) |
+| Reading time | Every line stays fully on screen and readable for **0.6 s + 0.4 s per word, 1.2 s minimum** (4 words: 2.2 s; 6 words: 3.0 s). The key message reads for at least 2 s. A small label meant to be read: at least 0.8 s. Never ask for more than 3 words per second. While a line is read the frame around it stays alive (the camera layer, a secondary settling late) and its letters never re-animate. Only one text block enters at a time. If it doesn't fit, cut words; never speed the text up. (`slop.mjs` flags anything under 0.6 s + 0.4 s per word.) |
 | Fast in, then carry | An entrance completes in 0.3–0.6 s, then the element keeps moving the way it will leave (a slow slide toward the film's direction, or a steady recede) while it is read, and its exit continues that move. Never re-animate the letters of a line being read. |
-| No dead air | **Something meaningful changes every 1.5–2.5 s** (the tempo), and no still stretch reaches 0.8 s anywhere outside the end card (`motion-gate.mjs` freeze; `slop.mjs` dead-air). A meaningful change: a new element, a state change, a cursor action, a live data tick, a camera move that goes somewhere. Decoration (breathing, floating, drifting particles) does not count and is banned. Holds are reading time only, and they still carry secondary motion. The end card holds at most 1.5 s still after its last move. |
+| No dead air | The story moves on at the score's tempo, and no dead stretch reaches 0.8 s anywhere outside the end card (`motion-gate.mjs` freeze; `slop.mjs` dead-air). A meaningful change: a new element, a state change, a cursor action, a live data tick, a camera move. Holds are composed: reading time with a living layer (the camera's push, the ground, a late settle), never a dead frame and never constant mechanical drift. Idle loops on content (breathing, bobbing, pulsing) are not life. The end card holds at most 1.5 s still after its last move. |
 | Not too busy | The opposite failure is "pause is lava": plan an **energy curve** with at least one calm stretch (a shot of 3 s or more with one mover) and one peak. At most 3 elements in motion at any instant, background included. |
 | Sequential reveal | Each element appears when the voiceover reaches it or on its beat, one cue per element, nothing before its cue. Spread reveals across the scene so the last lands in its back half. Front-loading (the whole layout on screen in the first 25% of the scene, then it sits) is the PowerPoint failure. |
 | Beat grid | With music, work on the track's analysed bar grid (sound.md); before a track exists, plan at 120 BPM. Structural cuts on downbeats or up to 2 frames early; most cuts on a beat, never every beat (evenly spaced cuts feel off). Change shot or state every 2–4 beats in launch films, every 2–3 in reels; something visibly moves on most beats. |
@@ -57,39 +57,45 @@ Anything over 90 s needs a character or world bible. Too long for the idea is a 
 
 ## 3. Motion
 
-Everything obeys `motion.md` (the style's motion language: eases, duration scale, stagger, holds, bans). When it specifies a value, it wins; the rules below govern everything around it.
+Everything obeys `motion.md` (the style's motion language: its signature curves, a curve per role, the duration formula, the settle budget, holds, bans; `references/motion-md-contract.md`). The vocabulary `RasanMotion` (`runtime/rasan-motion.js`, `scripts/motionkit.mjs`) writes these rules for you. R5 (`.context/night/R5-motion-fluency.md`) measured what separates our films from the references: one curve on every move, snap-and-die moves, one thing at a time, nothing settling, durations on a grid, straight paths, dead frames. Every rule below answers one of those.
 
-**Eases by role** (consistent within a role, different across roles; one ease on every tween reads as a preset):
+**A curve per role, never one ease for all.** At least 4 curve families per film, no single curve on more than 40% of moves (`obey.mjs`: dominant-ease, few-curves):
 
-| Role | Default | Notes |
+| Role | Curve | Notes |
 |---|---|---|
-| Enter | `power3.out` or `expo.out` | Arrive fast, land soft: most of the distance in the first third (each frame covers ~12–19% of what remains). |
-| Exit | `power2.in` | About 60–70% of the entrance duration. |
-| Move on screen | `power2.inOut` / `power3.inOut` | Repositioning, resizing, morphs. |
-| Camera | `power1.inOut` to `power2.inOut` | Slow in, slow out. |
-| Impact / slam | `power4.in` or `expo.in` into a hard stop | Impacts accelerate. |
-| Linear | only constant-speed things | Tickers, marquees, progress bars, conveyor belts, an opacity split. |
+| Launch (entrances, hero arrivals) | `cubic-bezier(0.05,0.7,0.1,1)` | A hard launch and a long visible glide (40% of the distance in the first 17% of the time). 0.7–1.1 s for a hero. |
+| Glide (repositions) | `cubic-bezier(0.2,0,0,1)` | A soft start, a long settle. 0.5–0.9 s. |
+| Expressive (big travels) | `cubic-bezier(0.4,0.14,0.3,1)` | Felt mass: a real ease-in before the travel. |
+| Settle (hero landings) | `spring(0.68,12)` | 3–8% past the target and back, about 1 landing in 8; never body text or numbers. |
+| Exit | `cubic-bezier(0.3,0,0.8,0.15)` or the language's exit | About 65% of the matching entrance. |
+| Snap (hits, accents) | `expo.out` | A quarter of moves at most. |
+| Drift (camera, ground, ambient) | `sine.inOut` or linear | 4 s or longer. |
+| Linear | only constant-speed things | Tickers, marquees, progress bars, conveyor belts. |
 
-**Durations.** UI micro-feedback (press, toggle) 0.12–0.2 s; the minimum real move 0.3 s; standard 0.4–0.6 s; big moves and camera 0.5–0.9 s; cinematic 0.8–1.5 s. Longer travel gets a longer duration, capped at 1.2 s outside cinematic styles.
+**Durations from travel and size, not a scale.** `0.28 + 0.55 x sqrt(travel / frame diagonal) + 0.15 x sqrt(area / frame area)` seconds, clamped to 0.35–1.4 s, jittered +-8%, scaled by the language's pace; exits x0.65. A travel over 10% of the frame takes 0.7 s or more; UI micro-feedback (press, toggle) stays 0.12–0.2 s. The references keep the median move *visible* for 0.40–0.48 s and 40–50% of moves visible past 0.5 s; an `expo.out` over 0.45 s is visible for only about 0.25 s. No single duration on more than 40% of moves (`duration-grid`).
 
 **Reference moments: the take rule.** A reference moment (`scripts/moments.mjs`: a credited slice of a real launch film with its measured spec and code, fetched read-only into `$RUN/references/moments/<id>/`) is a finished piece of someone else's film, with its own opening, background, logo ending and frame-traced motion. Copy it in and you get its film, not yours. From each moment take **one mechanic**, written as one sentence: what moves, on which axis and in which direction, for how long, and what in it never stops moving (that continuous motion is usually why it holds attention). That sentence is the beat's `take` in the plan, and it is all you take. Build it fresh, with this film's content, in this beat's own timeline. Leave behind its copy, its brand and colours, its background, its bookends (logo openers, end plates, hard-cut tails) and its frame tables (read those only for timing: how many frames a move takes and where its speed peaks; a traced track is one move with one ease, never a replay). One storyline on one ground, with moving seams. The user's picked moments win; otherwise the Director picks 2 to 4, one per role, by mechanic fit for the scenario. Moments are used for technique only: no footage, frames, code, copy, brand or audio from one ships in the film, and every moment used is credited in `references/moments/credits.json` and in the Final's notes.
 
-**Overshoot is never the default.** Bouncy motion is the most-named turn-off in user-made video. Allowed only when the style's motion language is elastic, springy, playful or cartoon: `back.out(1.2–1.6)`, 8% past the target at most (3–5% is usual), a single settle (no multi-bounce), one overshoot style per film, on transforms of UI and shapes only. Never on type, logos or numbers (a counter never passes its final value), and never in precise, luxurious, editorial or cinematic styles. Exception, "Easing personality" below: words settling into a line (word choreography) take a soft lift of 4 to 8 px when the brand's own films settle that way.
+**Settles are a budget, not a ban.** The references overshoot and return on 8–17% of moves; ours on 1–5%, because the doctrine banned it. A hero landing settles 3–8% past its target with one visible return (`spring(0.68,12)`, or `RasanMotion.land`); `motion.md`'s `overshoot` sets the share and the largest overshoot (precise and editorial: 15% of moves at 8%; soft languages 12% at 4%; elastic, springy, playful and character: half the moves at 25%; rigid languages, mechanical, robotic, stepped: none). Never on type being read, logos or numbers (a counter never passes its final value), never multi-bounce outside the bouncy languages, never on every element (`overshoot-over-budget`). An overshoot bigger than the language allows (a 15% hero bounce in a precise film) is a hero effect: a `score.budget` entry on that target ("Finish and budgets", section 6).
 
-**No idle motion, and no scheduled stillness.** No breathing scale, floating, bobbing, pulsing or infinite yoyo loops on content (`slop.mjs` idle-breathing; they also break seek-safety). The one standing exception is "A living ground" below: the ground (not the content) drifts, as one finite timeline tween across the whole film. Nor a planned freeze: a hold is reading time, and it still carries secondary motion. Aliveness comes from sequential reveal, the product's own life (typing, counting, a cursor, a notification), lines that keep their carry, and camera moves that go somewhere.
+**Overlap, never sequence.** The next gesture starts while the last one settles, at 55–75% of its duration. Every primary move carries at least one secondary: a child trailing 2–4 frames with a little more amplitude, a shadow, a parallax layer at 0.3–0.6x, the camera. Two or more distinct motions in about 45% of active frames (the references: 45–60%; ours: 34%). Two moves on one element overlap through nested wrappers or one keyframed tween.
 
-**Momentum** (`motion-gate.mjs` measures it on the draft):
-- A line never parks and never creeps. Between landing and leaving it keeps moving the way it will leave (it keeps sliding toward the film's direction, or it keeps receding to about 60% of its landed size by the time its exit starts), and its exit continues that same move. Never both on one line.
-- Nothing creeps. A whole-frame scale or drift slower than 4% a second (a 1.0 to 1.08 push over a whole film, a 2–4% lean-in over a shot) makes thin lines and small type shimmer. Move the camera to go somewhere, at a speed you can see, or lock it.
+**Arcs.** A travel over 3% of the frame bends by 4–12% of its length, away from the frame centre (references: 41–75% of travels bend). A cursor moves on arcs, never straight segments.
+
+**A living frame, composed holds.** Each shot has a camera layer on a world wrapper (a 1.5–4% push over the shot or a 0.5–1.5% of the frame per second drift, `sine.inOut`; UI references move the camera about a third of the time) or a quiet ambient on the ground. A hold is composed: the frame keeps breathing while the line is read. A dead frame (nothing moving at all) is the failure, and so is constant mechanical drift ("a line never parks" made every line slide forever; it is gone). No idle loops on content (breathing scale, bobbing, pulsing, infinite yoyo: `slop.mjs` idle-breathing; they also break seek-safety).
+
+**Speed-softening.** An element faster than about 40% of the frame width a second softens with its speed (blur up to 6 px, or a directional trail, RasanCamera `blurTrail`); Kinso and Sovra soften about 35% of fast moves. True motion blur comes from `finish.mjs`.
+
+**Momentum** (`motion-gate.mjs` measures it on the draft, `fluency` included):
 - A screen the viewer is reading holds its layout while its content acts (typing, rows filling, a cursor moving): that action is its motion.
-- Many similar things (messages, rows, results) move as one ordered rig: a stack, a thread, a feed, a carousel. Never scattered.
-- Two moves on one element overlap through nested wrappers: the second starts when the first is about 60% done.
+- Many similar things (messages, rows, results) move as one ordered rig: a stack, a thread, a feed, a carousel, on irregular offsets. Never scattered.
+- A slow whole-frame push is a camera, wanted; check a 24 fps strip for shimmer on hairlines and small type (`creep` is a warning).
 
 **Entrances by the object's nature, not one preset.** Type rises through a line mask (`yPercent: 100 → 0` inside `overflow: hidden`); UI that spawns from a click scales from its origin (0.96 → 1 with the fade) at the click point; shapes draw on or grow from a `transform-origin`; images reveal through `clip-path`; hard beats simply cut in. No single entrance type on more than 30% of the film's entrances, and at least 30% of elements are simply **there** on the cut. The generic `y: 30, opacity: 0` fade-up on everything is the web default and the first tell viewers name. Opacity-only is a last resort.
 
 **Compound properties.** One or two properties per tween that tell the same story (rise with fade, scale with fade). Never rise + rotate + scale + unblur on one element: it smears.
 
-**One primary mover per beat.** Secondary elements follow 80–200 ms later, or stay still.
+**One primary mover per beat**, with its secondaries 2–4 frames behind (a child, a shadow, a layer) and the camera under it; never two primaries launching on the same frame with the same curve.
 
 **One dominant direction for the whole film.** Forward in time or progress travels leftward (new content enters from the right); going deeper zooms in; stepping back zooms out. Never alternate directions without a story reason.
 
@@ -101,12 +107,12 @@ Everything obeys `motion.md` (the style's motion language: eases, duration scale
 
 **Exits.** Faster than entrances (60–70% of the duration, `.in` eases). Prefer no exits mid-film: the cut or the transition is the exit. The last element to leave dies exactly at the cut; a gap with nothing moving reads as dead air.
 
-**Stagger.**
-- Offset 0.03–0.12 s per item (2–4 frames at 30 fps), always shorter than each item's own duration so they overlap.
-- A group's total stagger stays under 0.5 s regardless of count.
-- Order by reading order (top-left first) or outward from the cause (the clicked button, the origin point). The hero leads when it is the subject, or lands last and holds longest when it is the payoff.
+**Stagger: irregular cascades.**
+- Offsets fall on a curve (`gsap.utils.distribute` with an ease, or `amount * (i/n)^1.35`) plus +-1 frame, 2–4 frames apart on average between levels, 1–3 inside a group; durations vary +-10% so the group does not land on one frame. A constant `stagger: 0.08` or four identical tweens at even spacing is the metronome (`even-stagger`, `uniform-cascade`).
+- A group's total spread stays under 0.5 s regardless of count.
+- Order by reading order or outward from the cause; the hero leads when it is the subject, or lands last with a settle when it is the payoff.
 - Never stagger things that already exist. Random order is seeded and precomputed.
-- A visible cascade (5 or more items) is a set piece: once per film. Otherwise reveal the group together or cut.
+- A visible cascade (5 or more items) is a set piece: once per film. Swarms and particles get their own seeded delays (0–0.6 s), durations +-25%, one of three curves and curved paths: a field on one ease and a straight lerp is the purest machine signature R5 found.
 - Word-by-word builds follow the voiceover or the beat, not a fixed stagger.
 
 **Motion blur.** Direction-matched, on fast moves only (a smear frame, or 4–6 averaged subframes if the renderer supports it); never blended across a cut. Blur peaks at 10 px on text and 18–20 px on full-frame surfaces (at 20 px text smears into illegibility).
@@ -120,7 +126,7 @@ Everything obeys `motion.md` (the style's motion language: eases, duration scale
 - **Click = the beat:** the press lands on a downbeat; the cursor scales to 0.85 and the target shows its pressed state (scale 0.97, darkened) for 0.08–0.12 s; the UI's response starts on the release frame; the click sound sits on the press frame.
 - **The UI answers every action live.** Either the camera follows what the cursor touches (a focus zoom per target, see §6) or the camera stays locked and the UI moves (a panel slides in, a table fills row by row); never both in one scene.
 - **Typing** at 12–18 characters/s with at most 2 natural micro-pauses, one typing sound per burst.
-- **Keeps moving while it is on screen:** calm arcs toward its next target at 60–150 px/s, the next leg starting before this one lands, or it leaves through the frame edge. It never parks and never hovers aimlessly.
+- **Has somewhere to go:** calm arcs toward its next target, the next leg starting before this one lands, or it leaves through the frame edge; it rests on a target before it clicks, never hovers aimlessly.
 
 **Seek-safety (HyperFrames).** No infinite tweens, no `Math.random` or `requestAnimationFrame`, `fromTo` for entrances, seeded noise sampled on the integer frame index, every tween on the paused timeline.
 
@@ -134,8 +140,8 @@ A film made of eases and fades is correct and lifeless. The reference films (the
 | Squash and stretch | The body deforms on contact and speed, volume kept | squash 10 to 25% on the contact axis (scaleX up as scaleY down by the same share), stretch 5 to 15% along a fast move; recover in 0.2 to 0.35 s |
 | Overshoot and settle | Go past the target, come back once | 3 to 8% past, one return, `back.out(1.4)` or a small `elastic.out(1, 0.7)`; never two reversals |
 | Smear frames | A stretched, blurred copy of the object on a fast move | 1 to 3 frames, length 0.5 to 1.5 times the object's size along the motion; only on moves above ~1500 px/s |
-| Follow-through | Loose parts keep going after the body stops | trailing elements settle 80 to 200 ms after the primary, with a 2 to 6 px overshoot |
-| Secondary motion | A second action that supports the first | 80 to 200 ms behind the primary mover; never a competing one (a highlight dot lags the pupil by 0.08 s) |
+| Follow-through | Loose parts keep going after the body stops | trailing elements settle 2 to 4 frames (70 to 130 ms) after the primary, with a 2 to 6 px overshoot |
+| Secondary motion | A second action that supports the first | 2 to 4 frames behind the primary mover; never a competing one (a highlight dot lags the pupil by 0.08 s) |
 | Arcs | Natural paths are curves | arc deviation 8 to 15% of the travel; `followPath` or two axes on different eases |
 | Slow in, slow out | Ease at both ends | `power2.inOut` for moves, never `linear` on a body |
 | Timing | The number of frames sets weight | light and snappy 4 to 8 frames at 24 fps, heavy 12 to 20; a UI tap 0.12 to 0.2 s |
@@ -190,7 +196,7 @@ Kinso's launch runs about 20 distinct mechanics in 46 s (type that splits, a bou
 - **A different mechanic per line**, from the grammar's techniques and the showcases' (`library/showcases/`). The same mechanic on 3 consecutive lines is `mechanic-repeat`; fewer distinct mechanics than min(lines, 12) on a film of 25 s or more is `mechanics-thin`.
 - **Huge against tiny type.** The score's `type_scale: { small_px, large_px }` has large/small at 3 or more (`flat-type` otherwise): a hero word at the brand's statement size beside a label at its small size, never one size throughout. Every word still rests readable inside the safe area (an oversize word may sweep across cropped for up to 1.2 s and then rests).
 - **Punctuation cuts on the emotional turns.** At least one seam is a hard `cut` (or an iris or smash-cut) placed on an emotional turn, the pain to the reveal or the payoff (`no-punctuation` otherwise): the cut is the full stop the sentence needed. Mixed with continuity seams, never instead of them.
-- **The ground follows the mood.** On the story's emotional turns the ground may change (the pain darker, the reveal warm, the CTA dark again) inside the brand's palette or its films' colour fields; the pain beat is the one place a flat brand goes dark. Blur used as depth (a giant word defocused behind the UI) is a main depth tool, allowed unless the card's `Depth blur:` says the brand never blurs.
+- **The ground follows the mood.** On the story's emotional turns the ground may change (the pain darker, the reveal warm, the CTA dark again) inside the brand's palette or its films' colour fields; the pain beat is the one place a flat brand goes dark. Blur used as depth (a giant word defocused behind the UI) is a main depth tool on every film; depth is craft, not brand.
 
 ### Grammar: one per film, a technique per beat
 
@@ -199,7 +205,7 @@ A film commits to **ONE motion grammar** (`library/grammars/<id>.json`; `node sc
 - **One grammar, never two.** The frame device is the same from the first frame to the end card. A second frame device is a different film.
 - **A different technique on each beat.** Every scene names one technique of the grammar and what the frame device does in it. The same technique never runs on consecutive beats, and a film uses at least min(beats, 6) distinct ones: a grammar spent on one trick reads as a template.
 - **The grammar sets density.** Its `density.change_every_s` is the floor for how often something changes; its signature is the film's one signature, spent at the biggest hinge.
-- **Flat films stay flat in finish, not in space.** A grammar with `flat_ok: false` (chrome, particles, glow, blur) is not used when FILM-STYLE is flat (no blur, no glow); the flat grammars (editorial grid, glyph chain, specimen sheet, dot system) are, and their Rasan3D techniques (`flat_ok: true`) use the brand-flat 3D style (`references/3d.md` "Brand-flat 3D"): matte or unlit, palette colours, even light, no bloom.
+- **A graphic-finish brand gets a graphic grammar.** A grammar with `flat_ok: false` is one whose look IS glow or blur on every element (glowing panels, a fogged viewfinder): that is uniform use, so it is not given to a brand whose film measured no finish at all (`brandfilm.mjs measure`: `finish.layerOff`). The flat grammars (editorial grid, glyph chain, specimen sheet, dot system) fit there, and their Rasan3D techniques take the brand's palette (`references/3d.md` "Brand-flat 3D"). Every grammar keeps the finish layer and the hero budgets ("Finish and budgets", section 6).
 - **Readability stays hard.** The grammar's type behaviour never overrides section 2 and the "Every word fits" rule: whole, inside the safe area, never cropped at rest.
 - **A brand wins on colour and type**; the grammar's devices stay.
 
@@ -224,7 +230,7 @@ Do not paste the dense real UI flat and small. Kinso redraws its UI for video: a
 
 ### Depth
 
-One flat plane reads as a template. Put sharp UI over a blurred giant word, give cards soft shadows and glass translucency, and keep a foreground and a background layer moving at different speeds. Follow the brand card's `Depth blur:` line: when it says the brand never blurs, depth comes from shadow, scale and overlap alone.
+One flat plane reads as a template. Put sharp UI over a blurred giant word, give cards soft shadows and glass translucency, and keep a foreground and a background layer moving at different speeds. Depth is craft on every film, branded or not: the card's `Depth blur:` line records what the brand's films showed, it never switches depth off ("Finish and budgets", section 6).
 
 ### Word choreography
 
@@ -240,7 +246,7 @@ One accent colour marks the key word or the key dot, every time: the same hue on
 
 ### Easing personality
 
-Take the easing from the brand's own films (`Easing:` on the brand film card), not from a house default: a soft settle with a slight lift or overshoot (3 to 8%, one settle) unless the brand's own motion is strictly mechanical, then keep `expo`/`power` with no overshoot. `motion.md`'s `easing` and its `banned` list record the choice for the whole film; a mechanical "precise" contract on a brand that settles softly makes the film read as a machine.
+Take the signature curves from the brand's own films (`Easing:` on the brand film card), not from a house default: they become `motion.md`'s `easing` and set the overshoot budget (a soft settle of 3 to 8% when the brand settles; a sliver when its motion is strictly mechanical). The brand sets the signature; it never collapses the film to one curve. "Precise" means grid-locked destinations and restrained settles, not one ease and a duration scale: that is the machine pattern R5 measured.
 
 ### Brand recurrence
 
@@ -314,20 +320,47 @@ At least 3 clear sizes in the system, display at least 2.5× the body, at least 
 | T2 focus zoom | screen-studio zoom into a UI region | 1.3–2.5× so the action fills ≥ 60% of the width, 0.6–0.9 s `power3.inOut`, then hold locked | each UI beat; back to 1× before the next target or the cut |
 | T3 crash zoom | impact punch-in | 1.5–2× in 0.15–0.25 s `expo.in`, optional 1–2 frame flash | once per film, on the spectacle beat |
 
-A dolly (per-layer depth factors, parallax) feels spatial; a zoom (uniform scale) feels flat and graphic. Choose by style. When the scene needs real space (an object to turn, layers in depth, a camera that travels, a flat card that becomes an object), build it in real 3D with Rasan3D: a lens in mm, camera legs that land, one motivated key light, true motion blur and depth of field (`references/3d.md`). On a flat brand the 3D is flat-style: matte or unlit, palette colours, even light, no bloom (`references/3d.md` "Brand-flat 3D"). The camera language above still holds there; the tiers become real camera moves. When the style has depth, use 3 planes (background ×0.2, content ×1, foreground ×3–6) and at most one heavily blurred foreground occluder (20–30 px) that actually passes in front of the content.
+A dolly (per-layer depth factors, parallax) feels spatial; a zoom (uniform scale) feels flat and graphic. Choose by style. When the scene needs real space (an object to turn, layers in depth, a camera that travels, a flat card that becomes an object), build it in real 3D with Rasan3D: a lens in mm, camera legs that land, one motivated key light, true motion blur and depth of field (`references/3d.md`). On a flat brand the 3D takes the brand's palette and tone (matte or unlit materials in the palette's hexes, `references/3d.md` "Brand-flat 3D"); depth of field, motion blur and the camera are craft, not brand, and stay available. The camera language above still holds there; the tiers become real camera moves. When the style has depth, use 3 planes (background ×0.2, content ×1, foreground ×3–6) and at most one heavily blurred foreground occluder (20–30 px) that actually passes in front of the content.
 
-**Lighting is a design tool, even in flat graphics.** Every scene has one named, motivated source with a direction and a color ("key from upper-left, warm #ffd9a8; cool rim from behind right"), and every gradient, highlight, rim and shadow agrees with it. Flat-graphic styles have no light model, but their shadows still share one direction. Pick the light from the taxonomy's `lighting` dimension (the style's pick, or Claude's from the style when unpicked) and build it with the recipes in `references/vocabulary.md`: a key is a directional gradient overlay at 8–18% soft-light, a rim a 1–2 px inner highlight on the far edge, a specular sweep one pass of 0.4–0.8 s at a landing. Glow or bloom at most once per film, on one hero element, for 2 s or less, motivated by a source or a "power on" beat; never on body text or UI chrome.
+**Lighting is a design tool, even in flat graphics.** Every scene has one named, motivated source with a direction and a color ("key from upper-left, warm #ffd9a8; cool rim from behind right"), and every gradient, highlight, rim and shadow agrees with it. Flat-graphic styles have no light model, but their shadows still share one direction. Pick the light from the taxonomy's `lighting` dimension (the style's pick, or Claude's from the style when unpicked) and build it with the recipes in `references/vocabulary.md`: a key is a directional gradient overlay at 8–18% soft-light, a rim a 1–2 px inner highlight on the far edge, a specular sweep one pass of 0.4–0.8 s at a landing. Glow or bloom is a budgeted effect ("Finish and budgets" below): on the hero only, 2 to 3 times per film at most, each with a reason in the score's `budget`, motivated by a source or a "power on" beat; never on body text or UI chrome.
 
 **Grade.** One grade for the whole film (the `color-grade` dimension), decomposed into parameters (white balance, black point, roll-off, curve, saturation, split tone, grain, halation) and applied to the world wrapper, or to the photo and footage layers only when it would push the logo, UI or brand accent off-brand. A grade that changes between scenes needs a story reason (a flashback, a before/after).
 
-**Texture, sparingly, with numbers.**
-- Grain: 3–6% (felt) or 8–12% (visible); a static tile attached to the artwork, or a seeded per-frame re-roll. Never a frozen full-frame grain over moving graphics (it reads as a dirty screen).
+**Texture, with numbers.**
+- Grain: 1–2% on a brand-flat film and 2–4% otherwise as the default finish (below); 3–6% (felt) or 8–12% (visible) when the style asks for texture; a static tile attached to the artwork, or a seeded per-frame re-roll. Never a frozen full-frame grain over moving graphics (it reads as a dirty screen).
 - Halation: red-orange, 6–20 px blur, highlights only, 20–40% screen.
 - Bloom: a blurred copy of the bright layer at 30–60% screen, on emissive elements only.
 - Vignette: radial, 20–35% multiply.
 - Chromatic aberration: 1–3 px, at the frame edges, for 2–6 frames on an impact; never over readable text.
 - Light leak: only as a transition in warm or analog styles.
 - One texture layer unifies a long film; never more than two effects stacked at once.
+
+### Finish and budgets
+
+**The finish layer is default-on for every film.** It is what makes a flat brand look expensive, not an off-brand effect (R1 §1.3, §5.3; Google's film is white and still tilts, glows and defocuses):
+
+| Layer | Default | How (RasanCamera, `references/cinematography.md`) |
+|---|---|---|
+| Ground | tinted, never 0-chroma: chroma 1.5 or more and an L* falloff of 4 or more across the empty area; it lives (a finite drift) | `ground(stage, {tint, falloff})` |
+| Light | one key light, visible as a gradient on the ground; a 10–30% vignette | `keyLight(stage, {side, color})` |
+| Shadow | soft multi-layer shadows under every floating object, a contact shadow where it meets the ground | `shadowLadder`, `contactShadow` |
+| Surface | glass rims and an inner highlight on the hero card | `glass`, `rimLight` (brand colours only) |
+| Grain | 1–2% on a brand-flat film, 2–4% otherwise; seeded per frame, never frozen | `grain(stage, {amount})` |
+| Motion blur | on every fast move (over ~1% of the width per frame), in drafts too | `blurTrail`, `finish.mjs --draft` |
+
+**Off only on measured evidence.** The layer turns off only when the brand film's measured finish is zero: `brandfilm.mjs measure` writes `finish` (grain, ground chroma and L* range, vignette, soft-shadow frames, soft content) and sets `finish.layerOff` only when grain, shadow, tint and falloff are all zero on a flat ground ("Route: graphic" on the card). "The brand is flat" is not evidence; a coarse look at a contact sheet cannot see 1–2% grain or a soft shadow. With the layer off the film must win the other way (the OpenAI route): giant type (a line of 20% H or more in at least 10% of frames, one moment of 35% H or more), full-bleed photography or colour content, a strict grid. A flat ground with mid-size type and a screenshot is a white void, not a brand.
+
+**Hero effects are budgets, not bans.** Every reference film uses at least one of these once, on the hero, with intent (Kinso: defocus, a halftone burst, an overshooting landing; Sovra: glow, a light comet, blur-in words). The tell is uniform use: the same effect on every element or every line.
+
+| Effect | Budget per film | Where |
+|---|---|---|
+| glow / bloom, light comet, chromatic split, halftone burst | 2 under 30 s, 3 from 30 s, each | the hero element of the beat that earns it |
+| overshoot landing, scale-pop, blur-in | the same | the hero line or object, never every entrance |
+| particles / a dot burst | the same | only as the story's carrier or one burst on the payoff |
+
+Each use is a `budget` entry in the score: `{"effect": "glow", "scene": 3, "target": "#send", "reason": "the one moment the answer lands"}` (`scripts/lib/budget.mjs`: an entry needs a hero target, never "all", and a reason of 12+ characters). `slop.mjs` errors when the same effect appears on more elements than the budget (`glow-uniform`, `blur-in-uniform`) and warns on an unbudgeted use; the motion contract counts entrances the same way.
+
+**Brand lock restricts palette, type, logo, UI fidelity and tone. Never finish, depth, camera, shot size or colour content.** A brand's identity film ("Refreshed.") is evidence of its palette, type and motif; it is not the launch film's grammar. A launch film also looks at the brand's own product launch films and the category's best launch films, and never reads "the identity film never blurs" as "the launch film can't".
 
 ---
 
@@ -367,7 +400,7 @@ Every tell is a default left in place, uniformity, an effect without a cause, or
 | Corner HUD labels: timecode, BPM, "01 — IDENTITY", crop marks, frame borders, progress bars [corner-labels] | No chrome unless the style is a HUD, broadcast or telemetry style that means it. Put the detail into the content. |
 | Extended heavy grotesk plus an italic-serif "accent word" | The style's own pairing; one emphasis device, once. |
 | Orange / cream / electric blue / black with hard switches | The style's palette; full-bleed switches only in its own colors. |
-| Particle galaxy or torus, 3D cube-grid wave, truchet tiles [particles] | One element from the story that moves for a reason. |
+| Particle galaxy or torus, 3D cube-grid wave, truchet tiles [particles-unbudgeted] | One element from the story that moves for a reason; a dot field or burst only as the carrier or once on the payoff, budgeted. |
 | The three.js demo: a lone object spinning in a void, a constant-speed orbit, flat light with no rim or shadow, a torus knot, rainbow normals, a neon grid floor [stage3d: linear-drift, never-rests, stock-primitive, placeholder-material] | The product or the film's own object, blocked at real scale, one motivated key, a lens chosen for the shot, camera legs that land and hold (`references/3d.md`). |
 | "Name." lockup with a colored period | The brand's own lockup. |
 | Centered text on a soft gradient or blurred-blob background [centered-everything] | Anchor to the grid; a flat field or the style's surface; asymmetric layouts. |
@@ -377,11 +410,11 @@ Every tell is a default left in place, uniformity, an effect without a cause, or
 
 | Tell | Instead |
 |---|---|
-| Neon glow text, "everything glows" [neon-glow-text] | Emphasis from size, weight, color and position. Glow at most once per film, ≤ 2 s, motivated. |
+| Neon glow text, "everything glows" [glow-uniform, glow-unbudgeted] | Emphasis from size, weight, color and position. Glow is a budget: on the hero, 2–3 times per film at most, ≤ 2 s each, motivated, named in the score's `budget` (section 6, "Finish and budgets"). |
 | Purple-blue "AI" gradients (hue 230–290°), gradient text [ai-gradient] | The style's palette; flat fields plus texture; one gradient surface per frame, between two adjacent brand colors. |
 | Glowing orbs and brains, holographic panels, ✨ sparkles, emoji as icons | The product's real output. Icons from one drawn set that matches the brand, or none. |
-| Bokeh, lens flares, floating dust with no source [particles, lens-flare] | Nothing; atmosphere only from a motivated light source (see Lighting). |
-| Glassmorphism on everything | Off by default; if the brand uses it, one glass surface per frame, blur ≤ 12 px, no text over busy blur. |
+| Bokeh, lens flares, floating dust with no source [particles-unbudgeted, lens-flare] | Atmosphere from a motivated light source and the finish layer (tinted ground, key light, grain); defocus as depth on a named plane, not as decoration. |
+| Glassmorphism on everything | One glass surface per frame (the hero card: rim, inner highlight, backdrop blur ≤ 12 px), no text over busy blur. |
 | Cards in cards, pills and badges, left-border accent stripes, default 12–16 px radius | No nested containers; at most 3 rounded boxes visible; the radius comes from the brand; type sits straight on the field. |
 | Floating glossy phones, dashboards in a void at 30°, isometric floating cards, 3D icon packs | The real UI full-bleed or cropped tight; a device frame only when the context of use matters. |
 | Three feature cards sliding in, "How it works" icon rows, stepper bars, stats rows, logo walls | One feature as a weapon inside a scene; data as one visual carrying one number. |
@@ -396,12 +429,14 @@ Every tell is a default left in place, uniformity, an effect without a cause, or
 | Tell | Instead |
 |---|---|
 | Everything fades up and slides in on the same ease | Entrances by the object's nature; no entrance type on > 30% of entrances; ≥ 30% of elements present on the cut; eases by role. |
-| Everything moves at once, then everything freezes | One primary mover, secondaries 80–200 ms later; ≤ 3 movers at once; fast in, then a slow carry; the next event within 1.5–2.5 s; no still stretch of 0.8 s [motion-gate freeze]. |
-| Bouncy or elastic by default | `power3.out` / `expo.out`; overshoot only in playful styles, ≤ 8%, single settle, never on text. |
+| Every move on one curve and one duration [obey dominant-ease, duration-grid; gate fluency] | A curve per role, durations from travel (motion.md, RasanMotion). |
+| Moves snap and die; one thing at a time [gate fluency] | Long visible glides, the next gesture at 55–75% of the last, secondaries 2–4 frames behind, a camera layer. |
+| Everything moves at once, then everything freezes | One primary with trailing secondaries; composed holds with a living layer; no dead stretch of 0.8 s [motion-gate freeze]. |
+| Bouncy or elastic on everything | Settles on the budget: about 1 landing in 8, 3–8%, single return, never on text (bouncy languages excepted). |
 | Idle breathing, floating, pulsing loops [idle-breathing] | A meaningful change, and lines that keep their carry. |
 | Camera drifting for nothing; slow Ken Burns on everything; a slow film-wide push [motion-gate creep] | Moves that go somewhere, at 4% a second or faster, one per shot; otherwise locked. |
 | Spinning or flipping logos [spinning-logo] | The logo resolves from brand geometry (strokes draw, parts assemble, a product-shaped mask) in 1.5 s or less, once (the one brand reveal), then travels into the end card or holds at most 1.5 s. |
-| Camera shake, glitch or RGB split as "impact" | Only on an on-screen impact synced to a hit, ≤ 6 frames, ≤ 2 per 30 s; glitch only when the concept is glitch. |
+| Camera shake, glitch or RGB split as "impact" | Only on an on-screen impact synced to a hit, ≤ 6 frames, ≤ 2 per 30 s (chromatic split is a budgeted effect); glitch only when the concept is glitch. |
 | Front-loaded layouts that then sit (the PowerPoint look) | Sequential reveal on cues. |
 | A crossfade between every scene, or a different transition on every seam | The cut, scene-born transitions, one signature; ≥ 50% of changes are continuity or cuts. |
 | Counters that overshoot, or count up from 0 to a small number | Count to the value on `expo.out` with tabular figures; never past it. |
@@ -459,16 +494,39 @@ Run these before the render question, in order. Never report a gate as passed if
 
 1. **Grounding pass.** List every visible string, number, price, name and logo in the built film with its source (the capture, a screenshot, the brief, the truth sheet's native words and proof). Anything without a source is removed or replaced with a sourced one; an open question goes to the console (`console.mjs ask`), never into the film. Also check for leaked labels and placeholders.
 2. **Look at the frames yourself.** Render stills at frame 0; mid-scene (60–70% into each scene); mid-transition (each seam's midpoint); 0.1 s before and 0.2 s after every cut; and the final frame. **Read the PNGs.** Check: the focal point is obvious (squint test); type sizes and safe areas; no text collisions, clipping, widows or typos; contrast; one accent; layout variety across the sheet; no pop across cuts (continuing elements keep position, scale, opacity and direction); nothing from the Anti-slop tables. Without this loop the output is confident garbage.
-3. **Automated checks.** `node scripts/obey.mjs --project videos/<name>` (the motion contract); `node scripts/stage3d.mjs check --project videos/<name>` (every 3D scene: seek-safe, not blank, eased on the contract, blurred where it moves, comes to rest, renderable); `node scripts/slop.mjs --project videos/<name> [--video <render.mp4>]` (these tells, reading time, dead air, black opening, loudness, and `text-fit`); `node scripts/motion-gate.mjs --video <draft.mp4> --project videos/<name> --plan <run>/motion/score.json` (the film keeps moving, measured frame by frame: visible motion in at least 75% of frames, no still stretch of 0.8 s outside the end card, at most 1.5 s still at the end, no whole-frame scale or drift slower than 4% a second, motion on both sides of every seam within 0.2 s, at least two seams carried by an object, exactly one brand reveal, no parked lines, and `text-fit` from the code half run with `--project`: a visible text element (opacity above 0.5, 20 px or larger) whose box crosses the frame edge, or at rest leaves the 6% safe area, for more than 1.2 s continuously is the error `text-cropped`, with the time range and the first 40 characters; `slop.mjs --project` runs it too); the sound checks in `references/sound.md` (loudness, true peak, SFX budget, sync, tail). Fix every error; only the user can waive one.
+3. **Automated checks.** `node scripts/obey.mjs --project videos/<name>` (the motion contract); `node scripts/stage3d.mjs check --project videos/<name>` (every 3D scene: seek-safe, not blank, eased on the contract, blurred where it moves, comes to rest, renderable); `node scripts/slop.mjs --project videos/<name> [--video <render.mp4>]` (these tells, reading time, dead air, black opening, loudness, and `text-fit`); `node scripts/motion-gate.mjs --video <draft.mp4> --project videos/<name> --plan <run>/motion/score.json` (measured on the draft: visible motion in at least 70% of frames, no still stretch of 0.8 s outside the end card, at most 1.5 s still at the end, motion on both sides of every seam within 0.2 s, at least two seams carried by an object, exactly one brand reveal, **fluency** (the curve-shape spread, the median visible move, concurrency, settles, duration spread, arcs, dead frames, cuts at rest: a weighted score of 0.70 to pass, calibrated on the reference films; a declared stillness style waives the activity checks), a slow whole-frame push as a warning, and `text-fit` from the code half run with `--project`: a visible text element (opacity above 0.5, 20 px or larger) whose box crosses the frame edge, or at rest leaves the 6% safe area, for more than 1.2 s continuously is the error `text-cropped`, with the time range and the first 40 characters; `slop.mjs --project` runs it too); the sound checks in `references/sound.md` (loudness, true peak, SFX budget, sync, tail). Fix every error; only the user can waive one.
 4. **Clean-context critic.** Dispatch the crew's critic (`agents/critic.md`, lenses `frames`, `motion`, `grounding`, `film`; `crew.mjs brief --role critic --key <lens>-<round>`), a subagent with no conversation history. Give it only the stills and contact sheet, the draft render, the motion gate's report on it, the plan, the film's one-sentence message and this rubric. The motion and film lenses never judge without the render and the gate's report. It **defaults to reject** and scores 1–10:
    - **Design:** composition, hierarchy, type, color discipline, layout variety.
    - **Readability:** at phone size, reading time, contrast.
    - **Narrative:** hook in 2 s or less, value before evidence, the turn, the device clear by second 4, the ending.
    - **Brand:** real product, exact colors and fonts, the grounding pass holds.
-   - **Motion and sound:** eases by role, no idle motion, cut sync, SFX causality; in 3D, lens, light and camera legs that land, and 2D ↔ 3D seams that match.
+   - **Motion and sound:** moves like a person animated it (a curve per role, long glides, overlap, settles, arcs, a living frame), no idle loops, cut sync, SFX causality; in 3D, lens, light and camera legs that land, and 2D ↔ 3D seams that match.
 
    It returns the 3–5 worst problems, each with a timestamp or frame number and an exact fix ("the card lands 6 frames early; delay it to frame 44"). Ship when every score is 8 or more. At most 2 fix passes; anything left goes to the render gate as fix-or-waive.
 5. **Report the gates** in the render-gate message: obey, stage3d, slop and sound status, the critic's scores, and any waivers.
+
+### Frame metrics (`scripts/frame-gate.mjs`)
+
+The gate that reads the picture, not the plan. A flat film (one centred widget, 100+ characters, nothing bigger than a heading, a white ground, nothing soft) passes every plan gate and fails here, with the number and the fix.
+
+`node scripts/frame-gate.mjs (--stills <dir> [--html <boards dir>] | --video <film.mp4>) [--project videos/<name>] [--brand-film <grammar.json>] [--json]`. Exit 0 clean (warnings allowed), 2 errors, 1 could not run. Stills are the design boards; a video is sampled at 4 fps; `--project` (a film) or `--html` (boards with an `NN.html` beside each `NN.png`) adds the DOM text metrics, read from the rendered page headlessly, so text baked into a photo or screenshot is not counted (the load is a floor).
+
+| Metric | Pass | Level | Refs measure |
+|---|---|---|---|
+| ground chroma (empty tiles, median) | ≥ 1.5 | error | 1.5 to 5 (Kinso 3.2, Sovra 2.4, v98327 2.2) |
+| ground L* range (p95 − p5 of the empty tiles) | ≥ 4 | error | 4 to 19 |
+| soft content (blurred share of structure) | film p90 ≥ 0.15, or ≥ 0.15 in 15% of shots | error if none, warning if thin | p90 0.18 to 0.45 |
+| colourfulness p90 | ≥ 35 | warning | 45 to 127 (Google 19) |
+| median characters on screen (DOM) | ≤ 40 | warning; error above 70 | 12 to 56 (OCR; Google's UI sheet 97) |
+| p90/p10 of the biggest line, or object-scale p90/p10 | ≥ 5 | error | 6 to 23 (Sovra, v98327: objects carry it) |
+| frames with a line ≥ 20% H | ≥ 10% | warning; error at 0 in 20 s or more | 12 to 37% |
+| any moment ≥ 35% H | at least one | warning | Kinso 39%, OpenAI 88% |
+| average hard-cut shot (films of 8 s or more) | ≤ 5 s, or ≥ 10 composition changes per 10 s | warning | 0.5 to 4 s |
+
+- A **brand film's measured values replace these** (`--brand-film grammar.json`, whose `frameMetrics` block is written by `frame-gate.mjs --video <brand film> --write-brand grammar.json`): the limits become 75% of its numbers, never stricter than the table. A brand film that measures a flat ground (chroma under 0.5 and L* range under 2: OpenAI) waives the ground rules and turns the type-scale rules (text load, scale contrast, giant moment) into errors; one that never blurs (soft p90 under 0.05: OpenAI, Google) waives the soft rule. A neutral lit ground (chroma 0, range 2 or more) waives only the chroma rule.
+- Flat is allowed only when the brand film is flat and the type or the objects then do the work. "Brand is flat" never excuses a screenful of UI.
+- The numbers are the picture's: fix them in the picture. Tint and light the ground, put a blurred plane behind the hero, set one line at 20 to 40% H, cut the copy to one component. Do not game them: a blur on a transition frame or a giant word nobody reads passes the gate and fails the squint test.
+- The frame juror and the critic run it on the boards and on the draft; the findings go into the brief of the next pass. Calibration and the full table: `.context/night/done-W2.md`.
 
 ---
 

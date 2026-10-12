@@ -83,7 +83,7 @@ function pageFor(file, root, baseUrl, W, H, safe) {
 }
 
 // which pages to sample, and when each one is on screen in the film: [{file, start, end}]
-function pagesOf(project) {
+export function pagesOf(project) {
   const idxFile = path.join(project, "index.html");
   const idx = readText(idxFile);
   const pages = [];
@@ -112,7 +112,7 @@ function pagesOf(project) {
   }
   return pages;
 }
-const sizeOf = (project) => {
+export const sizeOf = (project) => {
   const idx = readText(path.join(project, "index.html"));
   return { W: Number((idx.match(/data-width="(\d+)"/) || [])[1]) || 1920, H: Number((idx.match(/data-height="(\d+)"/) || [])[1]) || 1080 };
 };

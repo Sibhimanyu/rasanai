@@ -129,6 +129,10 @@ struct FilmProgressView: View {
                 estimate(s)
             }
             .padding(.top, 6)
+            if !s.isWaitingForYou, let next = NextNeeded.line(model.snapshot, pace: pace) {
+                Label(TurnState.sentenceCaseFirst(next), systemImage: "hand.raised").font(.system(size: 13, weight: .medium)).foregroundStyle(Color.rasan)
+                    .padding(.top, 8).accessibilityLabel("You are needed next: \(next)")
+            }
         }
         .padding(.horizontal, 28).padding(.top, 14).padding(.bottom, 16)
     }

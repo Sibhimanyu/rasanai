@@ -500,7 +500,7 @@ Ground: \`canvas\`. Text: \`ink\` (contrast ${contrast(r.ink || "#000000", r.can
 
 ## Depth & Surface
 
-${B.shadows.length ? B.shadows.map((s) => `- ${s.name}: \`${s.value}\``).join("\n") : "Flat: no shadows unless the brand reference defines them."}
+${B.shadows.length ? B.shadows.map((s) => `- ${s.name}: \`${s.value}\``).join("\n") : "The product UI defines no shadows of its own. The film still gets the finish layer: soft multi-layer shadows under floating objects and a contact shadow at the ground (references/craft.md \"Finish and budgets\"), in the palette's neutral."}
 
 ## Shapes
 

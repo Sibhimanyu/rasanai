@@ -13,6 +13,8 @@ struct NativeStageView: View {
     var pace: FilmPace?
     var autoResume: AutoResumeNotice?
     var onResumeNow: (() -> Void)?
+    /// The director is stopped: the working view says where it stopped and stops moving.
+    var paused = false
 
     /// True when this route is drawn by Film progress (so the stage cross-fade does not flash between working and build).
     private var showsProgress: Bool {
@@ -57,7 +59,7 @@ struct NativeStageView: View {
 
     @ViewBuilder private func classic(_ route: StageRoute) -> some View {
         switch route {
-        case .working: DirectorWorkingView(model: model, startedAt: startedAt)
+        case .working: DirectorWorkingView(model: model, startedAt: startedAt, paused: paused)
         case .brief: BriefStage(model: model, step: "brief")
         case .story: StoryStage(model: model, step: "story")
         case .look: LookStage(model: model, step: model.shownStep == "films" || model.shownStep == "direction" ? model.shownStep : (model.payload("look") != .null ? "look" : "films"))
@@ -117,8 +119,9 @@ struct NativeFilmView: View {
     var pace: FilmPace?
     var autoResume: AutoResumeNotice?
     var onResumeNow: (() -> Void)?
+    var paused = false
     var body: some View {
-        NativeStageView(model: model, startedAt: startedAt, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow)
+        NativeStageView(model: model, startedAt: startedAt, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow, paused: paused)
             .toolbar { FilmToolbarItems(model: model) }
     }
 }

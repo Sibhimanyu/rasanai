@@ -19,18 +19,29 @@ import { ADJUST, applyAdjustments } from "./lib/adjust.mjs";
 import { track } from "./lib/report.mjs";
 import path from "node:path";
 import { loadSystem } from "./lib/system.mjs";
+import { fluentFields } from "./lib/fluent.mjs";
+import { fluentRules } from "./lib/contract.mjs";
 export { applyAdjustments };
 
 function motionMd(p, { mode, reason }) {
+  const fl = fluentFields(p);
   const fields = {
     personality: p.parent ? "custom" : p.id,
     parent: p.parent || null,
     language: p.language || (p.parent && /^lang-/.test(p.parent) ? p.parent.slice(5) : null),
     adjustments: p.adjustments || [],
     tempo: { scale_ms: p.tempo.scale_ms },
+    durations: fl.durations,
     easing: p.easing,
-    stagger: p.stagger,
+    curves: fl.curves,
+    mix: fl.mix,
+    overlap: fl.overlap,
+    stagger: fl.stagger,
+    overshoot: fl.overshoot,
+    arcs: fl.arcs,
+    camera: fl.camera,
     holds: p.holds,
+    stillness: !!p.stillness,
     entrances: p.entrances,
     exits: p.exits,
     transitions: p.transitions,
@@ -51,13 +62,10 @@ ${p.parent ? `
 ` : ""}
 ${p.builder_notes || [p.language ? `**Motion language: ${p.name}.** ${p.oneLiner}` : "", p.prompt || ""].filter(Boolean).join("\n\n")}
 
-## Rules (machine-checked)
+## Rules
 
-- Tween durations snap to the scale ${p.tempo.scale_ms.join(" / ")} ms (±15%).
-- Eases: enter \`${p.easing.enter}\`, exit \`${p.easing.exit}\`, move/emphasis \`${p.easing.move}\`. Always write the ease explicitly; the GSAP default (power1.out) counts as a violation.
-- Stagger ≈ ${p.stagger.each_ms} ms (±15%). Every element stays at least ${p.holds.min_ms} ms between its entrance and its exit (reading time), and keeps moving in that time: nothing parks, no stretch of 0.8 s goes still.
-- Banned: ${p.banned.map((b) => `\`${b}\``).join(", ")} (signatures in rasanai \`references/motion-md-contract.md\`).
-${p.language === "character" ? "- Character language: besides the eases above, `back.out`/`back.in`, small `elastic.out` settles, `steps(n)` for stepped beats and short anticipation/smear tweens (50-120 ms) are allowed. Shape-level moves (morph, draw-on, scatter, ink, dissolve, squash, smear) come from the RasanShape kit (`shape.mjs`), driven by the paused timeline.\n" : ""}- GSAP only. Registry blocks you reuse must be re-eased and re-timed to these rules.
+${fluentRules({ ...fields })}
+${p.language === "character" ? "- Character language: anticipation pulls (50-120 ms), squash and stretch and smear frames are the vocabulary; shape-level moves (morph, draw-on, scatter, ink, dissolve, squash, smear) come from the RasanShape kit (`shape.mjs`), driven by the paused timeline.\n" : ""}- GSAP only. Registry blocks you reuse are re-timed by these rules (their stock eases and durations are the uniform pattern).
 
 ## Guidance (advisory)
 
@@ -81,6 +89,8 @@ function systemPersonality(dir) {
   if (mc.stagger_ms) p.stagger.each_ms = Number(mc.stagger_ms);
   if (mc.hold_ms) { p.holds.min_ms = Number(mc.hold_ms); p.demo.hold_ms = Math.max(p.demo.hold_ms, Number(mc.hold_ms)); }
   if (Array.isArray(mc.banned) && mc.banned.length) p.banned = [...new Set([...p.banned, ...mc.banned])];
+  if (mc.curves && typeof mc.curves === "object") p.curves = { ...(p.curves || {}), ...mc.curves };
+  if (mc.overshoot && typeof mc.overshoot === "object") p.overshoot = mc.overshoot;
   const name = (S.blend.name || path.basename(dir));
   p.id = `system-${path.basename(dir).toLowerCase()}`; p.name = name; p.language = lang;
   p.oneLiner = S.blend.one_line || p.oneLiner;

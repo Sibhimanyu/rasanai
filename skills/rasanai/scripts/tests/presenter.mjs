@@ -175,9 +175,9 @@ export default async function ({ ok, node, tmp }) {
   const cam = obeyProj("obey-cam", `<div data-obey="camera"><div id="cam"><img src="x.png"></div></div>`);
   ok("obey: a 6 s camera tween on a data-obey=camera wrapper passes", cam.status === 0, JSON.stringify(cam));
   const nocam = obeyProj("obey-nocam", `<div><div id="cam"><img src="x.png"></div></div>`);
-  ok("obey: the same tween without data-obey fails duration-off-scale", nocam.status === 2 && nocam.rules.includes("duration-off-scale"), JSON.stringify(nocam));
+  ok("obey: the same tween without data-obey is a plain gesture (no duration grid to fail since the fluent contract)", nocam.status === 0 && !nocam.rules.includes("duration-off-scale"), JSON.stringify(nocam));
   const txt = obeyProj("obey-text", `<div data-obey="camera"><div id="cam"><h1>Hello</h1></div></div>`);
-  ok("obey: text inside a camera wrapper is camera-on-content", txt.status === 2 && txt.rules.includes("camera-on-content"), JSON.stringify(txt));
+  ok("obey: a camera wrapper may hold content (a world with UI and type under a living camera)", txt.status === 0 && !txt.rules.includes("camera-on-content"), JSON.stringify(txt));
 
   // ---- --duration clamps every beat and the reported duration
   const bjc = path.join(root, "beats-clamped.json");

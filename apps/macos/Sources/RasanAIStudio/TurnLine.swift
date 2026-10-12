@@ -5,12 +5,15 @@ import SwiftUI
 enum TurnState: Equatable {
     /// The person's call. `background` is what Claude is doing meanwhile (research runs in parallel with a call), if anything.
     case yourTurn(String, background: String?)
-    case working(String, since: Date?)
+    case working(String, since: Date?, next: String? = nil)
     case paused
     /// Stopped or stuck in a way the person should look at (red).
     case attention(String)
 
     /// "Reading your brief" -> "reading your brief", but "HTML pages" stays as it is.
+    /// "next: pick a look" -> "Next: pick a look".
+    static func sentenceCaseFirst(_ text: String) -> String { text.prefix(1).uppercased() + text.dropFirst() }
+
     static func sentenceCase(_ text: String) -> String {
         let chars = Array(text)
         guard let first = chars.first, first.isUppercase, !(chars.count > 1 && chars[1].isUppercase) else { return text }
@@ -31,7 +34,8 @@ extension StudioStore {
             // "Ready for you: the animatic" is the director's last push, stale once you've answered: never show it as work.
             let activity = snapshot.latestActivity.flatMap { $0.hasPrefix("Ready for you") ? nil : $0 }
             let reading = snapshot.workingMessage == SessionOverlay.readingMessage ? snapshot.workingMessage : nil
-            return .working(reading ?? activity ?? snapshot.workingMessage ?? "Your director is working on the film.", since: runtime.startedAt)
+            return .working(reading ?? activity ?? snapshot.workingMessage ?? "Your director is working on the film.", since: runtime.startedAt,
+                            next: NextNeeded.line(snapshot, pace: settings.pace))
         case .paused: return .paused
         case .needsAttention: return .attention("The last session stopped unexpectedly. The log shows why.")
         default: return nil
@@ -82,13 +86,14 @@ struct TurnLine: View {
                     }
                 }
             }
-        case .working(let activity, let since):
+        case .working(let activity, let since, let next):
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let quiet = context.date.timeIntervalSince(lastActivityAt) > 120
                 HStack(spacing: 10) {
                     ProgressView().controlSize(.small)
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Claude is working · \(activity)").font(.system(size: 12.5, weight: .medium)).lineLimit(2).textSelection(.enabled)
+                        if let next { Text(TurnState.sentenceCaseFirst(next)).font(.system(size: 12)).foregroundStyle(Color.rasan) }
                         if quiet {
                             Text("No new activity for two minutes. Check the log, or pause and resume if needed.")
                                 .font(.system(size: 11)).foregroundStyle(.secondary)

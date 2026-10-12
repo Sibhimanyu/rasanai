@@ -1,0 +1,230 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- RasanCamera demo: four shots of a fictional product ("Murmur", an inbox that keeps only what matters), each one a
+     reference grammar: Kinso (a giant defocused word split by a glass strip), Google (a tabletop slab with a focus band and
+     a brand rim), Sovra (a dark violet key light, a light comet on the prompt, bloom), and a depth stack with haze, orbit,
+     sheen and a zoom-burst exit. One paused timeline; camera.mjs seeks it and screenshots. -->
+<style>
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#000}
+body{font-family:"Inter Display","Inter",-apple-system,"SF Pro Display","Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;color:#17151a}
+.shot{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;visibility:hidden}
+.mono{font-family:"SF Mono",ui-monospace,Menlo,monospace}
+.chrome{position:absolute;font-size:14px;letter-spacing:.14em;text-transform:uppercase;opacity:.42;z-index:20}
+/* A: Kinso */
+#word{width:1920px;height:520px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:440px;letter-spacing:-.045em;line-height:1;color:#211c22}
+#word .gap{display:inline-block;width:250px}
+#strip{width:232px;height:770px;border-radius:52px;background:linear-gradient(180deg,#fff,#fbf8f5);display:flex;flex-direction:column;align-items:center;justify-content:space-evenly}
+.app{position:relative;width:132px;height:132px;border-radius:34px;display:grid;place-items:center;box-shadow:0 1px 0 rgba(255,255,255,.6) inset,0 10px 20px -8px rgba(60,30,20,.35),0 2px 4px rgba(60,30,20,.12)}
+.app svg{width:64px;height:64px}
+.badge{position:absolute;right:-18px;top:-14px;min-width:46px;height:40px;padding:0 10px;border-radius:20px;background:#ff2d2d;color:#fff;font:600 23px/40px "Inter",-apple-system,sans-serif;text-align:center;box-shadow:0 0 0 4px #fff;font-variant-numeric:tabular-nums;box-sizing:border-box}
+#capA{position:absolute;left:120px;bottom:104px;font-size:34px;font-weight:500;letter-spacing:-.01em;color:#2b2428;z-index:20}
+#capA b{color:#e8643a;font-weight:600}
+/* B: Google slab */
+#slab{width:780px;height:1500px;border-radius:64px;background:#fff;overflow:hidden}
+#slab .top{display:flex;align-items:center;gap:18px;padding:56px 56px 0}
+#slab .logo{width:58px;height:58px;border-radius:18px;background:conic-gradient(from 210deg,#ff8a5b,#ffc3a0,#b49cff,#7fc8a9,#ff8a5b)}
+#slab .tabs{display:flex;gap:34px;padding:34px 56px 0;font-size:30px;color:#7b7680;font-weight:500}
+#slab .tabs .on{color:#17151a;border-bottom:4px solid #17151a;padding-bottom:10px}
+#slab h1{margin:62px 56px 40px;font-size:96px;line-height:1;font-weight:600;letter-spacing:-.035em}
+.row{display:flex;align-items:center;gap:26px;padding:26px 56px;border-top:1px solid #efedf1}
+.av{width:84px;height:84px;border-radius:50%;flex:none}
+.row .t{flex:1;min-width:0}
+.row .n{font-size:34px;font-weight:600;letter-spacing:-.01em}
+.row .s{font-size:27px;color:#7b7680;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .tm{font-size:24px;color:#a19ba6}
+.pill{display:inline-block;margin-left:12px;padding:4px 14px;border-radius:99px;background:#ffe6db;color:#d4572f;font-size:22px;font-weight:600;vertical-align:4px}
+.row.hot{background:linear-gradient(90deg,#fff7f2,#fff)}
+.compose{position:absolute;left:44px;right:44px;bottom:48px;height:116px;border-radius:58px;background:#f4f2f6;display:flex;align-items:center;padding:0 40px;font-size:32px;color:#8d8792;gap:20px}
+.compose .go{margin-left:auto;width:78px;height:78px;border-radius:50%;background:#17151a;display:grid;place-items:center}
+#capB{position:absolute;left:120px;top:110px;z-index:20;font-size:30px;font-weight:500;color:#5d5862;letter-spacing:-.005em}
+/* C: Sovra */
+#prompt{width:1180px;height:156px;border-radius:44px;background:linear-gradient(180deg,rgba(28,20,44,.92),rgba(16,11,26,.94));display:flex;align-items:center;padding:0 56px;box-sizing:border-box;color:#f4efff;font-size:52px;font-weight:500;letter-spacing:-.02em;gap:24px}
+#prompt .spark{width:70px;height:70px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#3a2a5c,#140d22);display:grid;place-items:center;box-shadow:0 0 0 1px rgba(255,255,255,.14) inset}
+#prompt em{font-style:normal;color:#b996ff}
+#prompt .caret{display:inline-block;width:4px;height:56px;background:#d9c6ff;margin-left:4px;vertical-align:-8px;border-radius:2px}
+#art{width:380px;height:380px;border-radius:40px;overflow:hidden}
+#art canvas{width:380px;height:380px;display:block}
+#hl{padding:60px 80px;font-size:168px;font-weight:600;letter-spacing:-.045em;color:#fff;line-height:1;white-space:nowrap}
+#capC{position:absolute;left:122px;bottom:96px;z-index:20;font-size:28px;color:#a99bc7;font-weight:500}
+/* D: depth stack */
+.card{width:660px;height:300px;border-radius:44px;background:#fff;display:flex;align-items:center;gap:34px;padding:0 48px;box-sizing:border-box}
+.card .ic{width:118px;height:118px;border-radius:32px;flex:none;display:grid;place-items:center}
+.card .ic svg{width:60px;height:60px}
+.card .k{font-size:26px;color:#8a8490;font-weight:500;letter-spacing:.02em;text-transform:uppercase}
+.card .v{font-size:46px;font-weight:600;letter-spacing:-.02em;margin-top:8px;line-height:1.08}
+#endline{position:absolute;left:118px;top:96px;z-index:20;font-size:168px;font-weight:600;letter-spacing:-.045em;line-height:.95;color:#1b171c}
+#endline span{color:#e8643a}
+</style>
+<script src="/__rasanai/gsap.min.js"></script>
+<script src="assets/rasan-camera/rasan-camera.js"></script>
+</head><body>
+
+<!-- A · Kinso: "noise" with the glass strip standing in for the i -->
+<div class="shot" id="A" data-duration="12.4">
+  <div id="word">no<span class="gap"></span>se</div>
+  <div id="strip">
+    <div class="app" style="background:linear-gradient(160deg,#5fa8ff,#2f6df6)"><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2.6" fill="none" stroke="#fff" stroke-width="1.9"/><path d="M4 7.5l8 6 8-6" fill="none" stroke="#fff" stroke-width="1.9" stroke-linejoin="round"/></svg><div class="badge" id="b1">240</div></div>
+    <div class="app" style="background:linear-gradient(160deg,#5be37d,#1fb554)"><svg viewBox="0 0 24 24"><path d="M12 4.5c4.7 0 8.2 3 8.2 6.9s-3.5 6.9-8.2 6.9c-1 0-1.9-.1-2.8-.4L5 19.5l1.1-3.6C4.7 14.6 3.8 13.1 3.8 11.4 3.8 7.5 7.3 4.5 12 4.5z" fill="#fff"/></svg><div class="badge" id="b2">286</div></div>
+    <div class="app" style="background:#fff"><svg viewBox="0 0 24 24"><text x="12" y="7.6" text-anchor="middle" font-size="5" font-weight="700" fill="#ff3b30" font-family="Inter,Helvetica">FRI</text><text x="12" y="19.5" text-anchor="middle" font-size="12" font-weight="500" fill="#1b1b1f" font-family="Inter,Helvetica">14</text></svg><div class="badge" id="b3">37</div></div>
+    <div class="app" style="background:linear-gradient(160deg,#ffd76a,#ffb21f)"><svg viewBox="0 0 24 24"><path d="M6 5.5h12M6 10h12M6 14.5h8" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg><div class="badge" id="b4">512</div></div>
+  </div>
+  <div class="chrome mono" style="left:120px;top:96px">Murmur &mdash; 01</div>
+  <div class="chrome mono" style="right:120px;top:96px">09:41</div>
+  <div id="capA"><b id="countA">1,075</b> notifications since breakfast.</div>
+</div>
+
+<!-- B · Google: the frameless screen laid on the table, focus band, brand rim -->
+<div class="shot" id="B" data-duration="12.4">
+  <div id="slab">
+    <div class="top"><div class="logo"></div><div style="font-size:38px;font-weight:600;letter-spacing:-.02em">Murmur</div><div style="margin-left:auto;width:64px;height:64px;border-radius:50%;background:linear-gradient(140deg,#c9b8a6,#7f6d62)"></div></div>
+    <div class="tabs"><span class="on">Quiet</span><span>All</span><span>People</span><span>Later</span></div>
+    <h1>Meet quiet mode</h1>
+    <div class="row hot"><div class="av" style="background:linear-gradient(140deg,#ffb08a,#e8643a)"></div><div class="t"><div class="n">Mum <span class="pill">Matters</span></div><div class="s">Dinner on Sunday? Dad's cooking.</div></div><div class="tm">9:12</div></div>
+    <div class="row"><div class="av" style="background:linear-gradient(140deg,#9ad6b4,#3c9a6e)"></div><div class="t"><div class="n">Gate change</div><div class="s">LH 902 now leaves from B44 at 18:40</div></div><div class="tm">8:57</div></div>
+    <div class="row"><div class="av" style="background:linear-gradient(140deg,#c8b6ff,#7b5cff)"></div><div class="t"><div class="n">Priya</div><div class="s">Approved the invoice, thanks!</div></div><div class="tm">8:31</div></div>
+    <div class="row"><div class="av" style="background:linear-gradient(140deg,#ffd76a,#f0a400)"></div><div class="t"><div class="n">Studio rent</div><div class="s">Paid. Receipt attached.</div></div><div class="tm">8:02</div></div>
+    <div class="row"><div class="av" style="background:linear-gradient(140deg,#8fc7ff,#2f6df6)"></div><div class="t"><div class="n">Sam</div><div class="s">Running 10 min late, save me a seat</div></div><div class="tm">7:48</div></div>
+    <div class="row"><div class="av" style="background:linear-gradient(140deg,#ffa3b8,#e2456b)"></div><div class="t"><div class="n">Dentist</div><div class="s">Tuesday 3pm confirmed</div></div><div class="tm">7:30</div></div>
+    <div class="compose"><span>Ask Murmur</span><div class="go"><svg viewBox="0 0 24 24" width="34" height="34"><path d="M12 19V5M6 11l6-6 6 6" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div></div>
+  </div>
+  <div id="capB">Quiet mode keeps six. It holds back 208.</div>
+</div>
+
+<!-- C · Sovra: violet key from above, the prompt with a light comet, bloom on the line -->
+<div class="shot" id="C" data-duration="12.4">
+  <div id="hl">3 that matter.</div>
+  <div id="prompt"><div class="spark"><svg viewBox="0 0 24 24" width="34" height="34"><path d="M12 3c.6 4.8 3.2 7.4 9 9-5.8 1.6-8.4 4.2-9 9-.6-4.8-3.2-7.4-9-9 5.8-1.6 8.4-4.2 9-9z" fill="#fff"/></svg></div><div>Summarise the 214 I <em>missed</em><span class="caret"></span></div></div>
+  <div id="art"><canvas id="artc" width="380" height="380"></canvas></div>
+  <div class="chrome mono" style="left:122px;top:96px;color:#cbb8ff">Murmur &mdash; 03</div>
+  <div id="capC">Read in 40 seconds, not 40 minutes.</div>
+</div>
+
+<!-- D · depth stack: the three that matter, haze by distance, an orbit, a sheen, a burst out -->
+<div class="shot" id="D" data-duration="12.4">
+  <div class="card" id="c1"><div class="ic" style="background:linear-gradient(160deg,#c8b6ff,#7b5cff)"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="k">Priya</div><div class="v">Invoice approved</div></div></div>
+  <div class="card" id="c2"><div class="ic" style="background:linear-gradient(160deg,#9ad6b4,#2f9a66)"><svg viewBox="0 0 24 24"><path d="M3 14l7-2 4-7 2 1-2 6 5-1 2-3h1.5l-1 4.5L22 17l-6 .5-5 3-1.5-.5 2-3.5-6.5 1z" fill="#fff"/></svg></div><div><div class="k">LH 902</div><div class="v">Gate B44, 18:40</div></div></div>
+  <div class="card" id="c3"><div class="ic" style="background:linear-gradient(160deg,#ffb08a,#e8643a)"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z" fill="#fff"/></svg></div><div><div class="k">Mum</div><div class="v">Dinner on Sunday?</div></div></div>
+  <div id="endline">Hear what<br><span>matters.</span></div>
+</div>
+
+<script>
+(function () {
+  var R = RasanCamera, tl = gsap.timeline({ paused: true }), D = 12.4;
+  var SHOTS = [["A", 0, 3.0], ["B", 3.0, 6.2], ["C", 6.2, 9.4], ["D", 9.4, D]];
+  SHOTS.forEach(function (s) { var e = document.getElementById(s[0]); tl.set(e, { visibility: "visible" }, s[1]); if (s[2] < D) tl.set(e, { visibility: "hidden" }, s[2]); });
+  tl.set({}, {}, D);
+  // a seek-safe counter: a proxy whose setter writes the text (same mechanism as the kit)
+  function count(el, from, to, at, dur, ease) {
+    var v = 0, o = {}, n = document.getElementById(el);
+    Object.defineProperty(o, "p", { get: function () { return v; }, set: function (x) { v = x; n.textContent = Math.round(from + (to - from) * x).toLocaleString("en-US"); } });
+    tl.fromTo(o, { p: 0 }, { p: 1, duration: dur, ease: ease || "expo.in", immediateRender: false }, at); o.p = 0;
+  }
+  var cams = {};
+
+  // ---------- A · Kinso: 35 mm, peach-to-sage ground, warm key top-left, the strip is the "i" of "noise"
+  var A = cams.A = R.stage("#A", { lens_mm: 35, tl: tl, duration: D });
+  A.ground({ tint: "#f5efe9", falloff: 12, angle: 125, blobs: ["#ffb08a", "#bcd9c5", "#f8cdb9"], positions: [[0.06, 0.12], [0.94, 0.8], [0.62, 0.02]], drift: 0.03 })
+   .keyLight({ side: "top-left", color: "#fff5ea", intensity: 0.9, vignette: 0.16 });
+  A.place("#word", { x: 960, y: 520, z: -1500, keepSize: true, fray: 0.9 });
+  A.place("#strip", { x: 966, y: 540, z: 0, ry: -9, rz: 0 });
+  A.move("#strip", { y: 540, rz: 0 }, { at: 0.12, duration: 0.95, ease: "expo.out" });
+  A.place("#strip", { y: 1420, rz: 7 });
+  A.glass("#strip", { rim: 20 }).shadowLadder("#strip", { elevation: 3 }).contactShadow("#strip", { mode: "floor", opacity: 0.5, blur: 26, width: 1.1 });
+  A.dof({ focus: "#strip", aperture: 1.25, max: 4, haze: 0.18, fray: 0.9 });
+  A.push(0.07, { at: 0, duration: 3, ease: "power1.out" }).drift({ push: 0, sway: 0.25, float: 3, period: 7 });
+  A.rack("#word", { at: 1.75, duration: 0.55, ease: "power2.inOut" });
+  A.grain({ amount: 0.03 });
+  count("b1", 240, 1482, 0.3, 2.4); count("b2", 286, 977, 0.35, 2.3); count("b3", 37, 214, 0.4, 2.2); count("b4", 512, 2048, 0.3, 2.5); count("countA", 1075, 4721, 0.3, 2.5);
+
+  // ---------- B · Google: 26 mm tabletop slab, rotateX 54 / rotateZ -26, focus band, brand rim, a diagonal slide
+  var B = cams.B = R.stage("#B", { lens_mm: 28, tl: tl, duration: D });
+  B.ground({ tint: "#f4f5f8", falloff: 7, angle: 180, blobs: ["#ffe1d3", "#e3dcff"], positions: [[0.15, 0.9], [0.9, 0.15]], blobAlpha: 0.5 })
+   .keyLight({ side: "top", color: "#ffffff", intensity: 0.95, vignette: 0.1 });
+  B.place("#slab", { x: 1560, y: 1250, z: 0, rx: 50, rz: -25, scale: 1.25, anchor: [0.5, 0.36] });
+  B.move("#slab", { x: 1010, y: 560 }, { at: 3.0, duration: 1.9, ease: "expo.out" });
+  B.rimLight("#slab", { colors: ["#ff8a5b", "#ffc3a0", "#b49cff", "#7fc8a9"], spread: 60, opacity: 0.75, edge: 3, spin: { deg: 70, at: 3, duration: 3.2 } });
+  B.contactShadow("#slab", { offset: 10, blur: 16, opacity: 0.22 }).shadowLadder("#slab", { elevation: 2, opacity: 0.7 });
+  B.dof({ focus: 260, aperture: 1.0, max: 2.4, levels: 4 });
+  B.rack(-60, { at: 4.7, duration: 1.1, ease: "power2.inOut" });
+  B.truck(-90, -50, { at: 3.0, duration: 3.2, ease: "power1.out" });
+  B.grain({ amount: 0.012 });
+
+  // ---------- C · Sovra: near-black violet ground, key from above that blooms on the turn, a comet on the prompt
+  var C = cams.C = R.stage("#C", { lens_mm: 40, tl: tl, duration: D });
+  C.ground({ tint: "#0c0913", falloff: 9, angle: 180, blobs: ["#5b2bd6", "#2a1060", "#7a2fd0"], positions: [[0.12, 0.95], [0.85, 0.1], [0.98, 0.9]], blobAlpha: 0.3 })
+   .keyLight({ side: [0.62, -0.32], color: "#6b3cf0", intensity: 0.55, spread: 1.1, vignette: 0.55 });
+  C.keyTurn({ color: "#b06bff", intensity: 0.8, side: [0.4, -0.25] }, { at: 7.3, duration: 0.9 });
+  C.place("#hl", { x: 860, y: 330, z: -260, ry: -10 });
+  C.place("#prompt", { x: 900, y: 690, z: 0, rx: 6, ry: -14 });
+  C.place("#art", { x: 1560, y: 360, z: 330, ry: -16, rx: 4 });
+  C.move("#hl", { x: 760 }, { at: 6.25, duration: 1.4, ease: "expo.out" });
+  C.place("#hl", { x: 1060 });
+  C.glass("#prompt", { rim: 14, tone: "dark" }).shadowLadder("#prompt", { elevation: 4 });
+  C.shadowLadder("#art", { elevation: 4 });
+  C.lightComet("#prompt", { at: 6.45, duration: 1.8, laps: 1, length: 0.18, color: "#e4d6ff", width: 2.2 });
+  C.bloom("#hl", { amount: 0.2, to: 0.75, at: 7.3, duration: 0.6, radius: 20 });
+  C.chromaticSplit("#hl", { amount: 0, peak: 7, at: 6.25, duration: 0.45 });
+  C.dof({ focus: "#prompt", aperture: 1.0, max: 3 });
+  C.dolly(150, { at: 6.2, duration: 3.2, ease: "power2.out" }).orbit(7, 0, { at: 6.2, duration: 3.2, target: "#prompt" });
+  C.grain({ amount: 0.025 });
+  var ac = document.getElementById("artc").getContext("2d"), rr = R.rng(42);
+  var g = ac.createLinearGradient(0, 0, 380, 380); g.addColorStop(0, "#2b0f63"); g.addColorStop(0.5, "#7b3cff"); g.addColorStop(1, "#ff8a5b"); ac.fillStyle = g; ac.fillRect(0, 0, 380, 380);
+  for (var i = 0; i < 7; i++) { var rg = ac.createRadialGradient(rr() * 380, rr() * 380, 0, rr() * 380, rr() * 380, 90 + rr() * 160); var cc = ["#ffd1f0", "#9b6bff", "#ffb08a", "#4b1fa8"][i % 4]; rg.addColorStop(0, cc); rg.addColorStop(1, "rgba(0,0,0,0)"); ac.globalAlpha = 0.6; ac.fillStyle = rg; ac.fillRect(0, 0, 380, 380); }
+  ac.globalAlpha = 1; ac.fillStyle = "rgba(255,255,255,.9)"; ac.beginPath(); ac.arc(190, 190, 62, 0, 6.2832); ac.fill(); ac.fillStyle = "#1a0b3a"; ac.beginPath(); ac.arc(190, 190, 26, 0, 6.2832); ac.fill();
+  // the cover art becomes a plain image (a photo in a real film): canvases inside banded planes are re-drawn per frame
+  var artc = document.getElementById("artc"), img = new Image(); img.src = artc.toDataURL("image/png"); img.width = img.height = 380; img.style.display = "block"; artc.parentNode.replaceChild(img, artc);
+
+  // ---------- D · depth stack: three cards in z, haze, an orbit around the front card, a sheen, a burst exit
+  var Dc = cams.D = R.stage("#D", { lens_mm: 32, tl: tl, duration: D });
+  Dc.ground({ tint: "#f1ede6", falloff: 10, angle: 150, blobs: ["#ffd2b8", "#cfe1d1"], positions: [[0.85, 0.2], [0.2, 0.95]] })
+    .keyLight({ side: "top-right", color: "#fff3e4", intensity: 0.85, vignette: 0.18 });
+  Dc.place("#c1", { x: 1540, y: 250, z: -1100, ry: -20, rx: 6, rz: 2, scale: 1.2 });
+  Dc.place("#c2", { x: 1330, y: 500, z: -520, ry: -16, rx: 6, rz: -1, scale: 1.2 });
+  Dc.place("#c3", { x: 1180, y: 800, z: 60, ry: -22, rx: 8, rz: 1, scale: 1.35 });
+  ["#c1", "#c2", "#c3"].forEach(function (s) { Dc.shadowLadder(s, { elevation: 3 }).contactShadow(s, { mode: "floor", opacity: 0.4, blur: 30 }); });
+  Dc.dof({ focus: "#c3", aperture: 1.3, max: 3.5, haze: 0.35 });
+  Dc.orbit(-11, 2, { at: 9.4, duration: 3.0, target: "#c3", ease: "power1.inOut" });
+  Dc.sheen("#c3 .ic", { at: 10.5, duration: 0.7, strength: 0.75, blend: "normal", width: 0.5 });
+  C.sheen("#art", { at: 7.9, duration: 0.8, strength: 0.5, blend: "normal", width: 0.3 });
+  Dc.push(0.32, { at: 12.0, duration: 0.4, ease: "power3.in" });
+  Dc.burst({ at: 12.02, duration: 0.38, center: [0.56, 0.72], lines: 44, opacity: 0.32 });
+  Dc.grain({ amount: 0.03 });
+
+  window.__timelines = window.__timelines || {}; window.__timelines.demo = tl;
+  window.__cams = cams; window.__dur = D;
+  window.__seek = function (T) { tl.pause(); tl.seek(T, false); return true; };
+  // per-feature signatures: the DOM state each function controls (camera.mjs checks change-over-time and seek identity)
+  function css(sel, props) { var e = typeof sel === "string" ? document.querySelector(sel) : sel; if (!e) return "missing"; return props.map(function (p) { return e.style[p] || e.getAttribute(p) || ""; }).join("|"); }
+  // a layer's filter with any SVG filter it references resolved to its blur (unreferenced filters keep stale values)
+  function drawn(w) { var f = w.style.filter, m = /url\("?#([^")]+)"?\)/.exec(f); if (!m) return f; var g = document.getElementById(m[1]).querySelector("feGaussianBlur"); return f + "=" + g.getAttribute("stdDeviation"); }
+  function wrapOf(sel) { return document.querySelector(sel).closest(".rc-layer"); }
+  function bandsOf(sel) { return Array.prototype.map.call(wrapOf(sel).querySelectorAll(".rc-band"), function (b) { return b.style.maskImage + b.style.filter; }).join("/"); }
+  window.__features = {
+    "stage+push": { anim: true, f: function () { return css(document.querySelector("#A .rc-world"), ["transform"]) + css(document.querySelector("#A .rc-view"), ["perspective"]); } },
+    "place+move": { anim: true, f: function () { return css(wrapOf("#strip"), ["transform"]); } },
+    "dolly+orbit": { anim: true, f: function () { return css(document.querySelector("#C .rc-world"), ["transform"]); } },
+    "truck": { anim: true, f: function () { return css(document.querySelector("#B .rc-world"), ["transform"]); } },
+    "orbit-stack": { anim: true, f: function () { return css(document.querySelector("#D .rc-world"), ["transform"]); } },
+    "dof+rack": { anim: true, f: function () { return drawn(wrapOf("#word")) + "|" + drawn(wrapOf("#strip")); } },
+    "dof-plane (tilt-shift band)": { anim: true, f: function () { return bandsOf("#slab"); } },
+    "haze": { anim: false, f: function () { return css(wrapOf("#c1"), ["filter"]); } },
+    "contactShadow (floor)": { anim: true, f: function () { return css(document.querySelector("#A .rc-contact"), ["transform", "width", "opacity"]); } },
+    "shadowLadder": { anim: false, f: function () { return css(document.querySelector("#A .rc-ladder"), ["boxShadow"]); } },
+    "glass": { anim: false, f: function () { return css(document.querySelector("#A .rc-glass"), ["background", "backdropFilter"]); } },
+    "rimLight": { anim: true, f: function () { return css(document.querySelector("#B .rc-rim-halo"), ["background", "filter"]); } },
+    "lightComet": { anim: true, f: function () { return Array.prototype.map.call(document.querySelectorAll("#C .rc-over path"), function (p) { return p.getAttribute("stroke-dashoffset") + ":" + p.getAttribute("opacity"); }).join(","); } },
+    "keyLight+keyTurn": { anim: true, f: function () { return css(document.querySelector("#C .rc-key"), ["background"]); } },
+    "ground (living)": { anim: true, f: function () { return Array.prototype.map.call(document.querySelectorAll("#A .rc-blob"), function (b) { return b.style.transform; }).join(","); } },
+    "blurTrail (layer trail)": { anim: true, f: function () { return drawn(wrapOf("#slab")) + "|" + drawn(wrapOf("#strip")); } },
+    "grain": { anim: true, f: function () { return css(document.querySelector("#A .rc-grain"), ["backgroundPosition"]); } },
+    "halation/bloom": { anim: true, f: function () { return css(wrapOf("#hl"), ["filter"]); } },
+    "chromaticSplit": { anim: true, f: function () { return css(wrapOf("#hl"), ["filter"]) + (wrapOf("#hl").style.filter.indexOf("255,40,90") >= 0 ? "ca" : ""); } },
+    "sheen": { anim: true, f: function () { return css(document.querySelector("#D .rc-sheen > div"), ["transform", "opacity"]); } },
+    "burst": { anim: true, f: function () { return Array.prototype.slice.call(document.querySelectorAll("#D .rc-fx line"), 0, 4).map(function (l) { return l.getAttribute("x1") + "," + l.getAttribute("opacity"); }).join(";"); } },
+    "drift": { anim: true, f: function () { return css(document.querySelector("#A .rc-world"), ["transform"]); } },
+  };
+  window.__sig = function (k) { return window.__features[k].f(); };
+  window.__budget = function () { var o = {}; for (var k in cams) o[k] = cams[k].budget(); return o; };
+})();
+</script>
+</body></html>

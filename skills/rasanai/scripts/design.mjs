@@ -5,7 +5,7 @@
 // (its colors and fonts) and vary the art direction around them. On a branded launch / promo / brand film the
 // looks are the brand film's own grammar (<run>/brand-film/FILM-STYLE.json from brandfilm.mjs card): check-system
 // requires blend.json to cite FILM-STYLE.md (film_style, film_style_takes), no outside library references, canvas /
-// ink / accent on the card's palette, the display face in the card's typefaces, and no 3D / blur / grain when the card is flat.
+// ink / accent on the card's palette, the display face in the card's typefaces; finish, depth and camera are never refused (brand lock is palette, type, logo, UI and tone).
 //   node design.mjs looks --out <dir> [--decisions <decisions.json>] [--count 6] [--aspect 16:9]
 //        [--headline "..."] [--sub "..."] [--brand DESIGN.md [--mode light|dark]] [--ground light|dark] [--seed s] [--recent style,ids] [--stills]
 //        -> <dir>/index.html (the board grid), <dir>/looks.json, <dir>/<A..>/frame.md (+ board.png with --stills)
@@ -13,7 +13,7 @@
 //   node design.mjs check-system --dir <run>/design/<label> [--brand DESIGN.md] [--offline]   -> the gate for ONE bespoke design system (exit 0 / 2)
 //        (route presenter: also requires a "## Imagery" section of 25+ words in DESIGN.md)
 //        (a skill with a grammar library (library/grammars/, or RASANAI_GRAMMAR_LIBRARY): also requires design/<label>/grammar.json, the look's ONE
-//         motion grammar, valid in grammar.mjs's schema: errors grammar-missing, grammar-invalid, grammar-not-flat on a flat brand film)
+//         motion grammar, valid in grammar.mjs's schema: errors grammar-missing, grammar-invalid, grammar-not-flat on a graphic-route brand film: measured finish zero)
 //   node design.mjs check-systems --run <run> [--brand DESIGN.md] [--offline]                   -> the gate for all three + that they differ
 //        (and that they use three different grammars: grammar-repeat)
 //   node design.mjs look-payload --run <run> [--recommended sure|bold|wild] [--hook "<first line>"] [--sub "..."] [--out <file>]

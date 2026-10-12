@@ -38,6 +38,10 @@
 // art. the art department: art.mjs treat (gradient-map, duotone, halftone, dither, pixelate, xray, grade), cutout (flood-fill on a plain ground, a busy one refused), trace and hand
 //    (vendored imagetracerjs and Hershey) on small fixtures, plan / make (the image-generation-unavailable path) / check, the crew's art phase, brief and check, layers-thin,
 //    no-pose-board and hero-not-stripped
+// frames. styleframes and design boards (scripts/tests/frames.mjs): the shot-list rules, frames.mjs init/shots-check/refs/sheet/match/payload, the crew's
+//    styleframes phases, prompts and checks, the score bound to the boards, the console's redo action (headless)
+// camera. the RasanCamera kit (scripts/tests/camera.mjs): runtime, camera.mjs install/check (order, timeline, randomness, budgets), video.mjs inject
+//    (kit + GSAP plugins, script tags), finish.mjs --draft; full runs render the demo film (every function, seek identity, byte-identical double render)
 // 17. lyric videos: the treatment gate and the crew's song route, lyrics.mjs (check, audio, align when whisper is there), the RasanMusic runtime in a page, the film finish (grade, blur)
 import fs from "node:fs";
 import os from "node:os";
@@ -91,7 +95,7 @@ try {
 const rules = (rep.findings || []).map((f) => `${f.rule}@${f.target}`);
 ok("autoAlpha fade-up-slide caught", rules.includes("banned:fade-up-slide@#a"), rules.join(", "));
 ok("css-wrapped fade-slide caught", rules.includes("banned:fade-slide@#b"), rules.join(", "));
-ok("custom function ease caught", rules.includes("custom-ease@#c"), rules.join(", "));
+ok("a custom function ease is judged by its shape, not refused (no custom-ease rule)", !rules.some((x) => x.startsWith("custom-ease")), rules.join(", "));
 ok("keyframes-array fade-up-slide caught", rules.includes("banned:fade-up-slide@#k"), rules.join(", "));
 ok("violations exit 2", ob.status === 2, `exit ${ob.status}`);
 const broken = mk("broken", `throw new Error("boom"); const tl=gsap.timeline({paused:true}); tl.to("#a",{x:1,duration:0.7,ease:"expo.out"}); window.__timelines["m"]=tl;`, gsap);
@@ -988,7 +992,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", `sine=frequency=330:duration=${bedSeconds}`, path.join(d, "assets", "music-bed.wav")]);
     return d;
   };
-  const badHtml = `<style>.h{text-shadow:0 0 18px #0ff}.k{text-shadow:0 0 12px #f0f}.bg{background:linear-gradient(135deg,#7c3aed,#2563eb)}</style><div class="bg"><h1 class="h">Introducing Tally — seamless bookkeeping!</h1><span>00:12</span><span>120 BPM</span></div><p>It's not just an app, it's your accountant.</p><script>gsap.to(".x",{y:10,repeat:-1,yoyo:true});${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => `tl.from(".e${i}",{opacity:0,y:40,duration:0.6})`).join(";")}</script>`;
+  const badHtml = `<style>.h{text-shadow:0 0 18px #0ff}.k{text-shadow:0 0 12px #f0f}.m{text-shadow:0 0 14px #0ff}.bg{background:linear-gradient(135deg,#7c3aed,#2563eb)}</style><div class="bg"><h1 class="h">Introducing Tally — seamless bookkeeping!</h1><span>00:12</span><span>120 BPM</span></div><p>It's not just an app, it's your accountant.</p><script>gsap.to(".x",{y:10,repeat:-1,yoyo:true});${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => `tl.from(".e${i}",{opacity:0,y:40,duration:0.6})`).join(";")}</script>`;
   const bad = mk("bad", badHtml, [{ title: "a", duration: 4, on_screen: "Streamline your workflow with our amazing new platform today" }, { title: "b", duration: 4 }, { title: "c", duration: 4 }, { title: "end", duration: 1, on_screen: "Tally" }], 5);
   const good = mk("good", `<style>h1{font-family:"Bricolage Grotesque"}</style><h1>Paper forgets.</h1><p>Tally reads every receipt the moment you get it.</p><script>tl.from(".h",{clipPath:"inset(0 100% 0 0)"});tl.from(".p",{scale:0.9,opacity:0});tl.fromTo(".r",{xPercent:-100},{xPercent:0});tl.from(".n",{y:30,opacity:0});tl.from(".l",{drawSVG:0});tl.from(".c",{x:-60});tl.from(".b",{rotation:-8,scale:0.8});tl.from(".t",{opacity:0})</script>`, [{ title: "Hook", duration: 2.5, on_screen: "Paper forgets." }, { title: "Year", duration: 6, on_screen: "Twelve months of paper." }, { title: "Tap", duration: 4.5, on_screen: "One tap." }, { title: "End", duration: 3, on_screen: "Tally" }], 20);
   const rb = node("slop.mjs", ["--project", bad, "--json"]);
@@ -996,8 +1000,37 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   let jb = { findings: [] };
   try { jb = JSON.parse(rb.stdout); } catch {}
   const rules = new Set(jb.findings.map((f) => f.rule));
-  ok("anti-slop: generic copy, \"not X, it's Y\", neon glow, AI gradient, corner labels, idle loops, everything fading up, unreadable text, no end hold and a looping bed are caught (exit 2)", rb.status === 2 && ["generic-copy", "not-x-its-y", "neon-glow-text", "ai-gradient", "corner-labels", "idle-breathing", "uniform-entrances", "unreadable", "no-end-hold", "music-loop"].every((r) => rules.has(r)), [...rules].join(", ") + rb.stderr);
+  ok("anti-slop: generic copy, \"not X, it's Y\", glow past its budget (uniform glow), AI gradient, corner labels, idle loops, everything fading up, unreadable text, no end hold and a looping bed are caught (exit 2)", rb.status === 2 && ["generic-copy", "not-x-its-y", "glow-uniform", "ai-gradient", "corner-labels", "idle-breathing", "uniform-entrances", "unreadable", "no-end-hold", "music-loop"].every((r) => rules.has(r)), [...rules].join(", ") + rb.stderr);
   ok("anti-slop: a clean project passes", rg.status === 0, rg.stdout.slice(0, 300));
+  // W4: finish default-on, hero effects are budgets (glow, blur-in, particles), uniform use stays an error
+  {
+    const sj = (r) => { try { return JSON.parse(r.stdout).findings || []; } catch { return []; } };
+    const has = (fs_, rule) => fs_.some((f) => f.rule === rule);
+    const scenes4 = [{ title: "Hook", duration: 3, on_screen: "Paper forgets." }, { title: "Tap", duration: 4, on_screen: "One tap." }, { title: "Year", duration: 4, on_screen: "Every receipt." }, { title: "End", duration: 3, on_screen: "Tally" }];
+    const clean = `tl.from(".h",{clipPath:"inset(0 100% 0 0)"});tl.from(".p",{scale:0.9,opacity:0});tl.fromTo(".r",{xPercent:-100},{xPercent:0});tl.from(".l",{drawSVG:0})`;
+    const one = mk("w4-glow-one", `<style>h1{font-family:"Bricolage Grotesque"}.send{box-shadow:0 0 28px #0285ff}</style><h1>Paper forgets.</h1><button class="send">Send</button><script>${clean}</script>`, scenes4, 20);
+    const scoreOk = path.join(one, "score.json");
+    fs.writeFileSync(scoreOk, JSON.stringify({ budget: [{ effect: "glow", scene: 2, target: ".send", reason: "the one moment the answer is sent" }] }));
+    const a = sj(node("slop.mjs", ["--project", one, "--score", scoreOk, "--json", "--no-text-fit"]));
+    ok("slop (W4): one budgeted glow on the hero passes with no glow finding", !a.some((f) => /^glow-/.test(f.rule)), JSON.stringify(a.map((f) => f.rule)));
+    const b = node("slop.mjs", ["--project", one, "--json", "--no-text-fit"]);
+    ok("slop (W4): the same glow with no budget entry is a warning (glow-unbudgeted), never an error", b.status === 0 && has(sj(b), "glow-unbudgeted") && !has(sj(b), "glow-uniform"), b.stdout.slice(0, 300));
+    const many = mk("w4-glow-many", `<style>h1{font-family:"Bricolage Grotesque"}.a{text-shadow:0 0 12px #0ff}.b{text-shadow:0 0 12px #0ff}.c{box-shadow:0 0 30px #0ff}.d{text-shadow:0 0 16px #0ff}</style><h1 class="a">Paper forgets.</h1><p class="b">x</p><div class="c">y</div><p class="d">z</p><script>${clean}</script>`, scenes4, 20);
+    const c = node("slop.mjs", ["--project", many, "--score", scoreOk, "--json", "--no-text-fit"]);
+    ok("slop (W4): glow on four elements in a 14 s film (budget 2) is uniform use: glow-uniform, exit 2, budget or not", c.status === 2 && has(sj(c), "glow-uniform"), c.stdout.slice(0, 300));
+    const blur = mk("w4-blurin", `<style>h1{font-family:"Bricolage Grotesque"}</style><h1>Paper forgets.</h1><script>${clean};${[1, 2, 3].map((i) => `tl.from(".w${i}",{filter:"blur(12px)",opacity:0})`).join(";")}</script>`, scenes4, 20);
+    const d = node("slop.mjs", ["--project", blur, "--json", "--no-text-fit"]);
+    ok("slop (W4): blur-in on three entrances in a 14 s film is uniform (blur-in-uniform)", d.status === 2 && has(sj(d), "blur-in-uniform"), d.stdout.slice(0, 300));
+    const e = sj(node("slop.mjs", ["--project", good, "--json", "--no-text-fit"]));
+    ok("slop (W4): a project with no grain, soft shadow or lit ground gets the finish-missing warning (the finish layer is default-on)", has(e, "finish-missing"), JSON.stringify(e.map((f) => f.rule)));
+    const r4 = path.join(TMP, "w4-run"); fs.mkdirSync(path.join(r4, "brand-film"), { recursive: true });
+    fs.writeFileSync(path.join(r4, "brand-film", "grammar.json"), JSON.stringify({ measured: { finish: { layerOff: true, route: "graphic" } } }));
+    const f = sj(node("slop.mjs", ["--project", good, "--run", r4, "--json", "--no-text-fit"]));
+    ok("slop (W4): no finish-missing when the brand film measured no finish (finish.layerOff: the graphic route)", !has(f, "finish-missing"), JSON.stringify(f.map((x) => x.rule)));
+    const { checkBudget, budgetLimit, effectOf } = await import(path.join(HERE, "lib", "budget.mjs"));
+    const cb = checkBudget([{ effect: "glow", scene: 1, target: "#a", reason: "the answer lands here" }, { effect: "overshoot", scene: 2, target: "all", reason: "" }], 20);
+    ok("budget (W4): lib/budget.mjs limits 2 under 30 s and 3 from 30 s, maps words to effects, and refuses an entry with no reason or an 'all' target", budgetLimit(20) === 2 && budgetLimit(45) === 3 && effectOf("a soft bloom") === "glow" && effectOf("back.out landing") === "overshoot" && cb.P.length === 2 && cb.P.some((m) => /needs a reason/.test(m)) && cb.P.some((m) => /hero only/.test(m)), JSON.stringify(cb));
+  }
 }
 // 12b. logos are real files: the brand researcher's check needs a downloaded, valid file listed in logos.json (or a "none" with why);
 //      the slop check fails a drawn lookalike, passes the asset, and passes the name in type when there is no logo
@@ -1172,12 +1205,12 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       fs.mkdirSync(path.join(ws, ".rasanai", "r-bdirect"), { recursive: true });
       const dp = J2(C(["plan", "--run", path.join(ws, ".rasanai", "r-bdirect"), "--route", "product-launch-video", "--subject", "ChatGPT for Mac", "--brand", "OpenAI", "--kind", "launch", "--scenes", "4", "--length", "30", "--pace", "fast"]));
       const dph = (dp.phases || []).map((x) => x.phase), dm = (dp.phases || []).flatMap((x) => x.members);
-      ok("short film flow: a 30 s branded launch plans brief research (product + brand + brand film only), the story, the Look decided from the brand, the concept gate, moments, the plan, one builder and an animatic from the draft; no design desk, no key frames, no screens or precedent researcher", ["research", "brand-film", "story", "look-auto", "concept-gate", "moments", "score", "build", "animatic-draft", "style-match-draft"].every((x) => dph.includes(x)) && !dph.some((x) => /^(design-research|design-systems|keyframes|keyframes-review|style-match-keyframes|animate|seams|lead)$/.test(x)) && !dm.some((m) => /screens-researcher|precedent-researcher|frame-designer|scene-animator/.test(m)) && dph.indexOf("moments") < dph.indexOf("score") && dph.indexOf("build") < dph.indexOf("animatic-draft"), dph.join(","));
+      ok("short film flow: a 30 s branded launch plans brief research (product + brand + brand film only), the story, the Look decided from the brand, the concept gate, moments, the styleframes (one designer, the juror, the styleframes call), the plan, one builder and an animatic from the draft; no design desk, no key frames after the score, no screens or precedent researcher", ["research", "brand-film", "story", "look-auto", "concept-gate", "styleframes", "style-match-boards", "frames-jury", "styleframes-call", "moments", "score", "build", "animatic-draft", "style-match-draft"].every((x) => dph.includes(x)) && dph.indexOf("styleframes") < dph.indexOf("score") && !dph.some((x) => /^(design-research|design-systems|keyframes|keyframes-review|style-match-keyframes|animate|seams|lead)$/.test(x)) && !dm.some((m) => /screens-researcher|precedent-researcher|^frame-designer|scene-animator/.test(m)) && dph.indexOf("moments") < dph.indexOf("score") && dph.indexOf("build") < dph.indexOf("animatic-draft"), dph.join(","));
       const bph = (bp.phases || []).map((p) => p.phase), bm = (bp.phases || []).flatMap((p) => p.members);
       const planF = JSON.parse(fs.readFileSync(path.join(run, "crew", "plan.json"), "utf8"));
       const ph = (n) => (planF.phases || []).find((p) => p.phase === n) || {};
       ok("crew: a branded launch film plans the brand-film phase (brandfilm.mjs steps + the Sonnet brand-film-analyst) before the design systems", bph.includes("brand-film") && bph.indexOf("brand-film") < bph.indexOf("design-systems") && bm.some((m) => m.startsWith("brand-film-analyst") && /fast/.test(m)) && /brandfilm\.mjs frames/.test(JSON.stringify(ph("brand-film").director_steps)) && /3 minutes/.test(ph("brand-film").when), bph.join(","));
-      ok("crew: the style-match gate (brandfilm.mjs compare) is planned after the key frames and after the first draft", bph.includes("style-match-keyframes") && bph.indexOf("style-match-keyframes") > bph.indexOf("keyframes") && bph.indexOf("style-match-keyframes") < Math.max(bph.indexOf("animate"), bph.indexOf("build")) && bph.includes("style-match-draft") && bph.indexOf("style-match-draft") < bph.indexOf("review-film") && /compare --ref/.test(ph("style-match-keyframes").gate) && /compare --ref/.test(ph("style-match-draft").gate), bph.join(","));
+      ok("crew: the style-match gate (brandfilm.mjs compare) is planned after the boards and after the first draft", bph.includes("style-match-boards") && bph.indexOf("style-match-boards") > bph.indexOf("boards") && bph.indexOf("style-match-boards") < Math.max(bph.indexOf("animate"), bph.indexOf("build")) && bph.includes("style-match-draft") && bph.indexOf("style-match-draft") < bph.indexOf("review-film") && /compare --ref/.test(ph("style-match-boards").gate) && /compare --ref/.test(ph("style-match-draft").gate), bph.join(","));
       const un = J2(C(["plan", "--run", path.join(ws, ".rasanai", "r-unbranded"), "--route", "faceless-explainer", "--subject", "tides", "--scenes", "4"]));
       ok("crew: an unbranded explainer has no brand-film phase or style-match gate", !(un.phases || []).some((p) => /brand-film|style-match/.test(p.phase)), JSON.stringify((un.phases || []).map((p) => p.phase)));
       const fb = J2(C(["brief", "--run", run, "--role", "brand-film-analyst"]));
@@ -1199,6 +1232,11 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       fs.writeFileSync(path.join(bfd, "FILM-STYLE.md"), "# Film style: OpenAI\n\nSources: Refreshed. (110 s, primary)\n\n## Slots\n- Canvas and palette: near-white canvas 77%, black ink, colour under 5% (palette shares)\n- Typefaces and type scale: OpenAI Sans, statement and label sizes. Substitute: Inter\n- Layout and grid: centred, whitespace\n- Motif: the dot\n- Motion vocabulary: scale, morph, draw-on; never 3D, blur or grain\n- Photography and illustration: real photography\n- Cut rate and transitions: calm holds and bursts; hard cuts and morphs\n- Tempo: 11 ideas, a change every 3 s, longest hold 6 s\n- End card: the mark alone\n");
       const eb = C(["check", "--run", run, "--role", "brand-film-analyst"]);
       ok("crew: brand-film-analyst check accepts a filled card (all eleven checklist items, sources, slots)", eb.status === 0, eb.stdout.slice(0, 400));
+      ok("crew (W4): a card that lists bans instead of Seen / Not seen, with no measured Finish line, is told to rewrite them (warnings)", /Not seen \(allowed on a budget\)/.test(eb.stdout) && /no ..?Finish:..? line/.test(eb.stdout), eb.stdout.slice(0, 600));
+      fs.writeFileSync(path.join(bfd, "FILM-STYLE.json"), JSON.stringify({ ...full, slots: { ...full.slots, motionVocabulary: "Seen: scale, morph, draw-on, cut on the beat, soft defocus exits. Not seen (allowed on a budget): glow, overshoot, blur-in" } }));
+      fs.writeFileSync(path.join(bfd, "FILM-STYLE.md"), fs.readFileSync(path.join(bfd, "FILM-STYLE.md"), "utf8").replace("- Motion vocabulary: scale, morph, draw-on; never 3D, blur or grain\n", "- Motion vocabulary: Seen: scale, morph, draw-on. Not seen (allowed on a budget): glow, overshoot\n- Finish: grain 0, ground chroma 0, no soft shadow. Route: graphic\n"));
+      const ec = C(["check", "--run", run, "--role", "brand-film-analyst"]);
+      ok("crew (W4): a Seen / Not seen card with a Finish line passes with none of those warnings", ec.status === 0 && !/allowed on a budget|Finish:..? line|never used/.test(ec.stdout), ec.stdout.slice(0, 600));
       const sc = path.join(run, "motion", "score.json");
       fs.mkdirSync(path.dirname(sc), { recursive: true });
       fs.writeFileSync(sc, JSON.stringify({ scenes: [{ n: 1, space: "3d" }] }));
@@ -1315,20 +1353,24 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     f3b.scenes[d3].materials = "chrome glass with bloom"; f3b.scenes[d3].camera3d = { ...(f3b.scenes[d3].camera3d || {}), fstop: 2.8 };
     put(f3b);
     const f3c = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
-    ok("crew: a flat-brand 3D scene with chrome, bloom or an fstop fails flat-3d-style", f3c.status === 2 && /flat-3d-style/.test(f3c.stdout), f3c.stdout.slice(0, 400));
-    // the card's `Depth blur:` line: yes / allowed lifts the fstop ban (not bloom, chrome or glass); no / never keeps it
+    ok("crew: a flat-brand 3D scene with unbudgeted bloom fails flat-3d-style (a hero effect needs a budget entry)", f3c.status === 2 && /flat-3d-style: bloom/.test(f3c.stdout), f3c.stdout.slice(0, 400));
+    // W4: brand lock is palette and tone, never depth or camera: an fstop passes whatever the `Depth blur:` line says; budgeted bloom passes; chrome is a tone warning
     {
       const withCard = (line) => { fs.writeFileSync(path.join(bfd3, "FILM-STYLE.md"), `# FILM-STYLE\n\n- Canvas: flat white\n- ${line}\n`); };
       const fsty = JSON.parse(JSON.stringify(fs3)); fsty.scenes[d3].camera3d = { ...(fsty.scenes[d3].camera3d || {}), fstop: 2.8 };
       put(fsty);
-      withCard("Depth blur: yes (defocused giant words behind the UI)");
+      withCard("Depth blur: not seen in these films");
       const bl1 = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
-      ok("crew: a card line `Depth blur: yes` allows an fstop in a flat brand's 3D scene (flat-3d-style relaxed)", !/flat-3d-style/.test(bl1.stdout), bl1.stdout.slice(0, 400));
-      withCard("Depth blur: no, never blurred");
-      ok("crew: a card line `Depth blur: no` keeps the fstop ban", /flat-3d-style/.test(C(["check", "--run", run, "--role", "motion-director", "--key", "score"]).stdout));
-      withCard("Depth blur: yes");
-      const chr = JSON.parse(JSON.stringify(fsty)); chr.scenes[d3].materials = "chrome glass with bloom"; put(chr);
-      ok("crew: allowing depth blur does not allow bloom, chrome or glass on a flat brand", /flat-3d-style/.test(C(["check", "--run", run, "--role", "motion-director", "--key", "score"]).stdout) && /bloom/.test(C(["check", "--run", run, "--role", "motion-director", "--key", "score"]).stdout));
+      ok("crew (W4): an fstop in a flat brand's 3D scene passes even when the card's Depth blur line says not seen (depth is craft, not brand)", !/flat-3d-style/.test(bl1.stdout), bl1.stdout.slice(0, 400));
+      const bud = JSON.parse(JSON.stringify(fsty)); bud.scenes[d3].materials = "MeshBasicMaterial dots, matte, a soft bloom on the hero dot"; bud.budget = [{ effect: "glow", scene: bud.scenes[d3].n, target: "#hero-dot", reason: "the one dot that answers the question" }]; put(bud);
+      const bl2 = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+      ok("crew (W4): bloom in a flat brand's 3D scene passes when the score budgets it for that scene (hero, reason)", !/flat-3d-style/.test(bl2.stdout) && !/budget:/.test(bl2.stdout), bl2.stdout.slice(0, 400));
+      bud.budget = [1, 2, 3].map(() => ({ effect: "glow", scene: bud.scenes[d3].n, target: "all", reason: "x" })); put(bud);
+      const bl3 = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+      ok("crew (W4): a budget that targets everything, has no reason or runs past 2-3 per film is refused (budget: ...)", bl3.status === 2 && /budget: glow .*needs a reason/.test(bl3.stdout) && /a budget is for the hero only/.test(bl3.stdout) && /glow is used 3 times; at most 2/.test(bl3.stdout), bl3.stdout.slice(0, 600));
+      const chr = JSON.parse(JSON.stringify(fsty)); chr.scenes[d3].materials = "chrome glass"; put(chr);
+      const bl4 = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
+      ok("crew (W4): chrome or glass on a flat brand is a tone warning, not a refusal", !/flat-3d-style/.test(bl4.stdout.split(/warn/i)[0]) && /flat-3d-style: .*chrome/.test(bl4.stdout), bl4.stdout.slice(0, 600));
       put(fs3);
     }
     fs.rmSync(bfd3, { recursive: true, force: true });
@@ -1861,7 +1903,8 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
       fs.writeFileSync(path.join(bd, "DESIGN.md"), bdm.replace(/## Motion and camera\n/, "## Motion and camera\nA slow dolly with motion blur and film grain on every move. "));
       writeCard(["#101418", "#eef2f0", "#f5b700"], "Space Grotesk", "flat: no 3D, no blur, no grain; scale, morph");
       const flat = film();
-      ok("film style: a flat card refuses a Motion and camera section that adds a dolly, motion blur or grain", /motion is flat/.test(flat), flat.slice(0, 400));
+      ok("film style (W4): a flat card no longer refuses a dolly, motion blur or grain in the Motion and camera section (brand lock is palette, type, logo, UI and tone)", !/motion is flat/.test(flat) && !/film style: .*(dolly|motion blur|grain)/.test(flat), flat.slice(0, 400));
+      writeCard(["#101418", "#eef2f0", "#f5b700"], "OpenAI Sans. Substitute: Inter", "flat: no 3D, no blur, no grain; scale, morph");
       const lpl = D(["look-payload", "--run", run, "--hook", "Tax season. Again.", "--recommended", "bold"]);
       ok("film style: look-payload refuses to push a branded look that leaves the card's grammar", lpl.status !== 0 && /film style|brand lock/.test(lpl.stdout + lpl.stderr), (lpl.stdout + lpl.stderr).slice(0, 300));
       fs.writeFileSync(bj, saved); fs.writeFileSync(path.join(bd, "DESIGN.md"), bdm);
@@ -2060,7 +2103,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   ok("presenter: other routes do not need ## Imagery", !/Imagery/.test(g(run2).stdout));
 
   // the scripts' own tests, each with the same helpers; absent files are a note, never a failure
-  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit"]) {
+  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit", "frame-gate", "frames", "camera"]) {
     const f = path.join(HERE, "tests", `${name}.mjs`);
     if (!fs.existsSync(f)) { console.log(`note  ${name}: scripts/tests/${name}.mjs is not there yet, skipped`); continue; }
     try {
@@ -2750,6 +2793,438 @@ tl.from("#a",{scale:0.4,duration:0.28,ease:"back.out(1.4)"},0);tl.to("#a",{scale
   fb = chk("film-builder", ["--key", "film", "--project", "videos/t"]);
   ok("art crew: a boards/<id>.png and a strip file named with the move id clear both warnings for that move", !/no-pose-board: hero move m1/.test(fb.w) && !/hero-not-stripped: no 24 fps strip of hero move m1/.test(fb.w) && /no-pose-board: hero move m2/.test(fb.w), fb.w.slice(0, 400));
   fs.rmSync(path.join(run, "art"), { recursive: true, force: true });
+}
+
+// sfx. the vendored GSAP plugins and the CC0 SFX library: licences and headers, index integrity, and sfx-plan picking from the library with variety
+{
+  const V = path.join(HERE, "vendor");
+  const plugins = ["SplitText", "ScrambleTextPlugin", "DrawSVGPlugin", "MorphSVGPlugin", "MotionPathPlugin", "CustomEase", "CustomBounce", "CustomWiggle", "InertiaPlugin", "Physics2DPlugin", "EasePack"];
+  const gv = (fs.readFileSync(path.join(V, "gsap.min.js"), "utf8").match(/GSAP (\d+\.\d+\.\d+)/) || [])[1];
+  const bad = plugins.filter((p) => {
+    const f = path.join(V, "gsap-plugins", p + ".min.js");
+    if (!fs.existsSync(f)) return true;
+    const t = fs.readFileSync(f, "utf8");
+    return !t.includes(" " + gv) || !/standard-license/.test(t.slice(0, 600));
+  });
+  ok("sfx: every GSAP plugin is vendored at the core's version with its licence header (" + plugins.length + ", GSAP " + gv + ")", !bad.length && !!gv, bad.join(", "));
+  ok("sfx: gsap-plugins.min.js bundles them and parses", fs.existsSync(path.join(V, "gsap-plugins.min.js")) && spawnSync(process.execPath, ["--check", path.join(V, "gsap-plugins.min.js")]).status === 0);
+  const L = path.join(HERE, "..", "library", "sfx");
+  const idx = JSON.parse(fs.readFileSync(path.join(L, "index.json"), "utf8")).files;
+  const cats = new Set(idx.map((e) => e.category));
+  const need = ["click", "press", "select", "land", "drop", "snap", "whoosh", "riser", "impact", "stinger", "tick", "notification", "swipe", "type"];
+  ok("sfx: the index covers every category and each entry has licence, source and a measured sync point", need.every((c) => cats.has(c)) && idx.every((e) => e.licence === "CC0-1.0" && /^https:/.test(e.source) && Number.isFinite(e.sync_point) && fs.existsSync(path.join(L, e.file)) && !/\.generated/.test(e.source)), need.filter((c) => !cats.has(c)).join(","));
+  const bytes = idx.reduce((n, e) => n + fs.statSync(path.join(L, e.file)).size, 0);
+  ok("sfx: the library stays under 8 MB and has no harsh entry (" + Math.round(bytes / 1024) + " KB, " + idx.length + " files)", bytes < 8e6 && idx.every((e) => e.pct_above_5k <= 35), "");
+  ok("sfx: CREDITS and the licence copies are there", fs.existsSync(path.join(L, "CREDITS.md")) && fs.existsSync(path.join(L, "LICENSES", "uisfx-LICENSE-AUDIO.txt")) && fs.existsSync(path.join(L, "atomcut-motion-essentials", "pack.json")));
+  const d = path.join(TMP, "sfx");
+  fs.mkdirSync(d, { recursive: true });
+  const ev = [{ t: 1, kind: "click", size: "small" }, { t: 3, kind: "click", size: "small" }, { t: 5, kind: "click", size: "small" }, { t: 7, kind: "click", size: "small" }, { t: 9, kind: "snap", size: "medium" }, { t: 11, kind: "toast", size: "small" }, { t: 14, kind: "reveal", size: "large" }, { t: 16, kind: "whoosh", size: "large", signature: true }];
+  fs.writeFileSync(path.join(d, "scenes.json"), JSON.stringify({ narrated: false, scenes: [{ duration: 10, title: "a" }, { duration: 10, title: "b" }] }));
+  fs.writeFileSync(path.join(d, "events.json"), JSON.stringify(ev));
+  const run = (extra) => { try { return JSON.parse(node("sound.mjs", ["sfx-plan", "--scenes", path.join(d, "scenes.json"), "--events", path.join(d, "events.json"), ...extra]).stdout); } catch { return { cues: [] }; } };
+  const p = run(["--pack", "studio"]);
+  const clicks = p.cues.filter((c) => c.kind === "click");
+  ok("sfx: sfx-plan takes its samples from the library, one uisfx pack for the UI sounds (--pack studio)", p.cues.length >= 3 && clicks.length >= 2 && p.cues.every((c) => c.source === "rasan-sfx" && c.file && fs.existsSync(c.file)) && clicks.every((c) => c.pack === "uisfx-studio"), JSON.stringify(p.cues.map((c) => [c.kind, c.sample])));
+  ok("sfx: hits and whooshes come from the FX packs, with a measured sync point", p.cues.some((c) => c.kind === "reveal") && p.cues.filter((c) => c.kind === "reveal" || c.kind === "whoosh").every((c) => /^(atomcut|kenney)/.test(c.pack) && c.sync_point != null), JSON.stringify(p.cues.map((c) => [c.kind, c.pack])));
+  ok("sfx: no file repeats in a row", p.cues.every((c, i) => !i || c.sample !== p.cues[i - 1].sample) && new Set(clicks.map((c) => c.sample)).size === clicks.length, JSON.stringify(clicks.map((c) => c.sample)));
+  const o = run(["--no-library"]);
+  ok("sfx: --no-library keeps the old media-use path (no rasan-sfx sources)", o.cues.every((c) => c.source !== "rasan-sfx"));
+}
+
+// sources. source modes and the footage desk: research.mjs sources classifies (footage, brand kit, code, document, mixed) from names and sizes; lib/lang.mjs never
+// lets an English-only model silently translate; reel scan scales its frames to the clip; story.mjs gates product-first by source and adds GF; footage.mjs ingest, shots,
+// bites and the three checks (log, selects, paper edit); crew.mjs plan --sources, the footage roles' briefs and checks. Fixtures are tiny ffmpeg-made clips.
+{
+  const SRC = path.join(TMP, "sources");
+  const sx = (args, o = {}) => node("research.mjs", args, o);
+  const ff = (a) => spawnSync("ffmpeg", ["-v", "error", "-y", ...a], { encoding: "utf8" });
+  const hasFF = spawnSync("ffmpeg", ["-version"], { encoding: "utf8" }).status === 0;
+  if (!hasFF) ok("sources: ffmpeg is installed (skipping the footage fixtures)", false, "ffmpeg missing");
+  else {
+    const shoot = path.join(SRC, "shoot");
+    fs.mkdirSync(path.join(shoot, "Brand"), { recursive: true });
+    fs.mkdirSync(path.join(shoot, "CARD1", "PRIVATE", "M4ROOT"), { recursive: true });
+    // a 2-shot clip with a tone, a phone-vertical clip, and nested camera-card footage
+    ff(["-f", "lavfi", "-i", "testsrc2=s=320x180:r=15", "-f", "lavfi", "-i", "smptebars=s=320x180:r=15", "-f", "lavfi", "-i", "sine=f=440:d=4", "-filter_complex", "[0:v]trim=duration=2,setpts=PTS-STARTPTS[a];[1:v]trim=duration=2,setpts=PTS-STARTPTS[b];[a][b]concat=n=2:v=1:a=0[v]", "-map", "[v]", "-map", "2:a", "-t", "4", "-pix_fmt", "yuv420p", "-c:a", "aac", path.join(shoot, "A001_interview.mp4")]);
+    ff(["-f", "lavfi", "-i", "testsrc2=s=180x320:r=15:d=3", "-pix_fmt", "yuv420p", path.join(shoot, "B002_phone.mp4")]);
+    ff(["-f", "lavfi", "-i", "color=c=teal:s=320x180:r=15:d=2", "-pix_fmt", "yuv420p", path.join(shoot, "CARD1", "PRIVATE", "M4ROOT", "C0003.mp4")]);
+    fs.writeFileSync(path.join(shoot, "Brand", "Brand Guidelines.pdf"), "%PDF-1.4\n");
+    fs.writeFileSync(path.join(shoot, "Brand", "Brand Sans.otf"), "x");
+    const sj = path.join(SRC, "sources.json");
+    const r1 = sx(["sources", "--paths", shoot, "--out", sj]);
+    let S = {};
+    try { S = JSON.parse(fs.readFileSync(sj, "utf8")); } catch {}
+    const fsrc = (S.sources || []).find((x) => x.kind === "footage") || {};
+    ok("sources: a shoot folder with a Brand subfolder is footage mode, spine footage, case own-brand-film, footage-writers, product-first off", r1.status === 0 && S.mode === "footage" && S.spine === "footage" && S.case === "own-brand-film" && S.story_pass === "footage-writers" && S.product_first === false, r1.stdout.slice(0, 300) + r1.stderr);
+    ok("sources: it counts clips (the nested camera card too), reads the vertical phone clip and the interview from names and ffprobe, and finds the brand kit", fsrc.clips === 3 && fsrc.hints && fsrc.hints.phone_vertical === 1 && (S.sources || []).some((x) => x.kind === "assets" && x.fonts === 1 && x.pdf.length === 1) && /3 clips/.test((S.chips || []).join(" ")), JSON.stringify(S.sources).slice(0, 400));
+    ok("sources: the desks follow the sources (footage logger and selects producer, brand kit builder in place of the web brand researcher)", (S.desks || []).some((d) => d.roles.includes("footage-logger")) && (S.desks || []).some((d) => d.roles.includes("brand-kit-builder")) && !(S.desks || []).some((d) => d.roles.includes("brand-researcher")), JSON.stringify(S.desks));
+    const sjm = path.join(SRC, "sources-mixed.json");
+    sx(["sources", "--paths", shoot, "--url", "https://slowpour.pt", "--out", sjm]);
+    const M = JSON.parse(fs.readFileSync(sjm, "utf8"));
+    ok("sources: footage plus a site is mixed, public, spine still footage", M.mode === "mixed" && M.public === true && M.spine === "footage", JSON.stringify([M.mode, M.public, M.spine]));
+    const code = path.join(SRC, "app");
+    fs.mkdirSync(code, { recursive: true });
+    fs.writeFileSync(path.join(code, "package.json"), "{}");
+    const sjc = path.join(SRC, "sources-code.json");
+    sx(["sources", "--paths", code, "--out", sjc]);
+    const C = JSON.parse(fs.readFileSync(sjc, "utf8"));
+    ok("sources: an approved codebase alone is local mode, spine code, case own-unreleased-product, and product-first applies", C.mode === "local" && C.spine === "code" && C.case === "own-unreleased-product" && C.product_first === true && C.story_pass === "script-writers", JSON.stringify([C.mode, C.spine, C.case, C.product_first]));
+    const pdf = path.join(SRC, "report-2026.pdf");
+    fs.writeFileSync(pdf, "%PDF-1.4\n");
+    const sjd = path.join(SRC, "sources-doc.json");
+    sx(["sources", "--paths", pdf, "--out", sjd]);
+    const Dd = JSON.parse(fs.readFileSync(sjd, "utf8"));
+    ok("sources: a PDF report is document mode and not product-first", Dd.spine === "document" && Dd.case === "data-report" && Dd.product_first === false, JSON.stringify([Dd.spine, Dd.case]));
+    ok("sources: no paths, url or code is refused", sx(["sources", "--out", path.join(SRC, "x.json")]).status !== 0);
+
+    // language: lib/lang.mjs
+    const L = await import(path.join(HERE, "lib", "lang.mjs"));
+    const emptyModels = path.join(SRC, "no-models");
+    fs.mkdirSync(emptyModels, { recursive: true });
+    const enOnly = path.join(SRC, "en-models");
+    fs.mkdirSync(enOnly, { recursive: true });
+    fs.writeFileSync(path.join(enOnly, "ggml-small.en.bin"), "x");
+    const withEnv = (dir, fn) => { const prev = process.env.RASANAI_WHISPER_MODELS; process.env.RASANAI_WHISPER_MODELS = dir; try { return fn(); } finally { if (prev === undefined) delete process.env.RASANAI_WHISPER_MODELS; else process.env.RASANAI_WHISPER_MODELS = prev; } };
+    const d1 = withEnv(enOnly, () => L.decideLanguage({ file: "x", lang: "auto" }));
+    ok("lang: with only an English-only model the language is NOT assumed verified: it says so and warns that such a model translates", d1.lang === "en" && d1.verified === false && /translates other languages/.test(d1.warning || ""), JSON.stringify(d1));
+    const d2 = withEnv(enOnly, () => L.decideLanguage({ file: "x", lang: "es" }));
+    ok("lang: --lang es with no multilingual model is blocked (never silently small.en, never a download)", d2.blocked && /multilingual/.test(d2.blocked) && d2.model === null, JSON.stringify(d2));
+    const d3 = withEnv(enOnly, () => L.decideLanguage({ file: "x", lang: "auto", tag: "tam" }));
+    ok("lang: an audio stream tagged in another language is blocked too when only English models exist", !!d3.blocked && d3.lang === "ta", JSON.stringify(d3));
+    const d4 = withEnv(enOnly, () => L.decideLanguage({ file: "x", lang: "en" }));
+    ok("lang: --lang en uses the English model and is verified", d4.verified === true && d4.model && /small\.en/.test(d4.model.name), JSON.stringify(d4));
+    ok("lang: an English transcript of foreign speech is caught (non-English letters, no English function words); real English passes", L.englishLooks("Bonjour, je m'appelle Léa et j'ai ouvert un café à Lisbonne il y a dix ans, très petit").ok === false && L.englishLooks("Hello my name is Maya and I opened a small cafe in Lisbon about ten years ago").ok === true);
+    const wj = L.wordsFromWhisperJson({ transcription: [{ text: "", offsets: { from: 0, to: 50 }, tokens: [{ text: "[_BEG_]", p: 0.99 }] }, { text: " Hello", offsets: { from: 50, to: 400 }, tokens: [{ text: " Hello", p: 0.9 }] }, { text: " there.", offsets: { from: 400, to: 900 }, tokens: [{ text: " there", p: 0.5 }, { text: ".", p: 0.7 }] }, { text: "[MUSIC]", offsets: { from: 900, to: 1000 }, tokens: [] }] }, 10);
+    ok("lang: whisper's word JSON becomes {text,start,end,conf} words shifted by the window offset, skipping markers", wj.length === 2 && wj[0].text === "Hello" && wj[0].start === 10.05 && wj[1].end === 10.9 && wj[1].conf === 0.6, JSON.stringify(wj));
+
+    // reel scan: frames scale with the clip, and no silent English-only transcription of other languages
+    const raw = path.join(SRC, "raw");
+    fs.mkdirSync(raw, { recursive: true });
+    ff(["-f", "lavfi", "-i", "testsrc2=s=160x90:r=5:d=75", "-f", "lavfi", "-i", "sine=f=300:d=75", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", path.join(raw, "long.mp4")]);
+    ff(["-f", "lavfi", "-i", "testsrc2=s=160x90:r=5:d=2", "-pix_fmt", "yuv420p", path.join(raw, "short.mp4")]);
+    const envM = { ...env, RASANAI_WHISPER_MODELS: emptyModels };
+    const sc = spawnSync(process.execPath, [path.join(HERE, "reel.mjs"), "scan", "--footage", raw, "--run", path.join(SRC, "rrun"), "--lang", "es"], { encoding: "utf8", env: envM, cwd: TMP, timeout: 120000 });
+    let F = { clips: [] };
+    try { F = JSON.parse(fs.readFileSync(path.join(SRC, "rrun", "footage", "footage.json"), "utf8")); } catch {}
+    const lg = F.clips.find((c) => c.id === "long") || {}, sh = F.clips.find((c) => c.id === "short") || {};
+    ok("reel scan: a 75 s clip gets 13 frames (one per ~6 s) and a 2 s clip 8, not 8 for everything", sc.status === 0 && (lg.sheet_times || []).length === 13 && (sh.sheet_times || []).length === 8 && lg.sheet_grid === "6x3", JSON.stringify([(lg.sheet_times || []).length, lg.sheet_grid, (sh.sheet_times || []).length]) + sc.stderr);
+    ok("reel scan: --lang es with no multilingual model does not transcribe (no silent English model), says why, and downloads nothing", /multilingual/.test(lg.transcript_error || "") && !lg.transcript && (F.warnings || []).some((w) => /multilingual/.test(w)), JSON.stringify([lg.transcript_error, F.warnings]));
+    const sc2 = spawnSync(process.execPath, [path.join(HERE, "reel.mjs"), "scan", "--footage", raw, "--run", path.join(SRC, "rrun2")], { encoding: "utf8", env: envM, cwd: TMP, timeout: 120000 });
+    let F2 = { clips: [] };
+    try { F2 = JSON.parse(fs.readFileSync(path.join(SRC, "rrun2", "footage", "footage.json"), "utf8")); } catch {}
+    ok("reel scan: with no whisper model at all it transcribes nothing and tells the Director (never an automatic download)", sc2.status === 0 && F2.clips.every((c) => !c.transcript) && F2.clips.some((c) => /no whisper model/.test(c.transcript_error || "")), JSON.stringify(F2.clips.map((c) => c.transcript_error)));
+
+    // footage.mjs: ingest, shots, bites
+    const run = path.join(SRC, "run");
+    const fx = (args, o = {}) => node("footage.mjs", args, o);
+    const g1 = fx(["ingest", "--footage", shoot, "--run", run]);
+    const ING = JSON.parse(fs.readFileSync(path.join(run, "footage", "ingest.json"), "utf8"));
+    ok("footage ingest: reads every clip (nested camera card too), fingerprints them, rotation-aware sizes, bins", g1.status === 0 && ING.clips.length === 3 && ING.clips.every((c) => c.fingerprint && c.fingerprint.length === 16) && ING.clips.find((c) => c.id === "b002-phone").height === 320 && ING.bins.length >= 2, g1.stdout.slice(0, 300) + g1.stderr);
+    ok("footage ingest: a variable frame rate and log colour are flagged from the probe, not assumed (none here)", ING.clips.every((c) => c.vfr === false) && ING.clips.every((c) => ["rec709", "unknown"].includes(c.color)), JSON.stringify(ING.clips.map((c) => [c.vfr, c.color])));
+    // dual-system audio: a longer separate recording that contains the clip's sound 3 s in
+    const sync = path.join(SRC, "sync");
+    fs.mkdirSync(sync, { recursive: true });
+    const E = "sin(2*PI*220*t)*abs(sin(2*PI*1.3*t)*sin(2*PI*0.71*t+1))"; // an irregular pulsing tone: speech-like loudness changes to correlate on
+    ff(["-f", "lavfi", "-i", "testsrc2=s=160x90:r=10:d=4", "-f", "lavfi", "-i", `aevalsrc=${E}:d=4:s=16000`, "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", path.join(sync, "A001.mp4")]);
+    ff(["-f", "lavfi", "-i", "aevalsrc=sin(2*PI*180*t)*abs(sin(2*PI*0.9*t)*sin(2*PI*2.3*t)):d=3:s=16000", "-f", "lavfi", "-i", `aevalsrc=${E}:d=4:s=16000`, "-filter_complex", "[0][1]concat=n=2:v=0:a=1", "-ar", "16000", path.join(sync, "REC001.wav")]);
+    const g1b = fx(["ingest", "--footage", sync, "--run", path.join(SRC, "run-sync")]);
+    const ING2 = JSON.parse(fs.readFileSync(path.join(SRC, "run-sync", "footage", "ingest.json"), "utf8"));
+    const sy = (ING2.sync || [])[0];
+    ok("footage ingest: a separate recorder's audio is matched to its clip by cross-correlation (offset about 3 s)", g1b.status === 0 && sy && Math.abs(sy.offset_s - 3) < 0.1 && sy.audio === "REC001.wav", JSON.stringify(ING2.sync) + g1b.stderr);
+    const g2 = fx(["shots", "--run", run]);
+    const SH = JSON.parse(fs.readFileSync(path.join(run, "footage", "shots.json"), "utf8"));
+    const inter = SH.clips.find((c) => c.clip === "a001-interview") || { shots: [] };
+    ok("footage shots: finds the cut in the 2-shot clip (scdet), a keyframe and a strip per shot, quality numbers", g2.status === 0 && inter.shots.length === 2 && Math.abs(inter.shots[0].out - 2) < 0.3 && inter.shots.every((s) => s.keyframe && fs.existsSync(path.resolve(TMP, s.keyframe)) && s.quality && s.quality.samples > 0), g2.stdout.slice(0, 300) + g2.stderr);
+    ok("footage shots: a single-take clip is one shot", (SH.clips.find((c) => c.clip === "b002-phone") || { shots: [] }).shots.length === 1);
+    const g3 = fx(["vision", "--run", run]);
+    ok("footage vision: runs on-device through swift when it can, or skips with a reason and exits 0 (optional)", g3.status === 0 && /"ok": true/.test(g3.stdout), g3.stdout.slice(0, 200) + g3.stderr);
+
+    // words + selects + paper edit, built by hand over the real ingest and shots
+    const WR = path.join(run, "footage");
+    const words = [["I", 0.2], ["opened", 0.5], ["a", 0.8], ["small", 1.0], ["cafe", 1.4], ["in", 1.8], ["Lisbon", 2.0], ["and", 2.9], ["we", 3.1], ["still", 3.3], ["pour", 3.6], ["every", 3.9], ["cup", 4.2], ["by", 4.5], ["hand", 4.7]].map(([text, start]) => ({ text, start, end: Math.round((start + 0.25) * 100) / 100, conf: 0.9, speaker: "S1" }));
+    fs.mkdirSync(path.join(WR, "transcripts"), { recursive: true });
+    fs.writeFileSync(path.join(WR, "transcripts", "a001-interview.words.json"), JSON.stringify(words));
+    // the interview clip is 4 s: stretch the fixture's story onto a longer clip by editing ingest, so the bites sit inside it
+    ING.clips.find((c) => c.id === "a001-interview").duration = 30;
+    fs.writeFileSync(path.join(WR, "ingest.json"), JSON.stringify(ING));
+    const bt = fx(["bites", "--run", run]);
+    const BC = JSON.parse(fs.readFileSync(path.join(WR, "bites-candidates.json"), "utf8"));
+    ok("footage bites: sentences come from the word timings with in = first start - 0.08 and out = last end + 0.12", bt.status === 0 && BC.candidates.length >= 1 && Math.abs(BC.candidates[0].in - 0.12) < 0.02, JSON.stringify(BC.candidates[0]));
+    const bite = (id, a, b, text, extra = {}) => ({ id, speaker: "Maya Costa", clip: "a001-interview", in: a, out: b, text, rating: 5, themes: ["origin"], jobs: ["hook"], ...extra });
+    const sel = {
+      bites: [bite("b01", 0.12, 2.37, "I opened a small cafe in Lisbon"), bite("b02", 2.82, 4.97, "and we still pour every cup by hand", { rating: 4, jobs: ["button"] }), bite("b03", 0.5, 2.37, "opened a small cafe in Lisbon", { rating: 3 }), bite("bad", 1.1, 2.37, "small cafe in Lisbon"), bite("wrongtext", 0.12, 2.37, "we sell tractors across the whole of Europe")],
+      moments: [{ id: "m01", shot: "a001-interview-s01", jobs: ["hook"], rating: 5, why: "the colour" }, { id: "m02", shot: "b002-phone-s01", jobs: ["texture"], rating: 4, why: "x" }],
+      themes: [], people: [], gaps: [], story_candidates: [{ shape: "journey", spine: ["b01", "b02", "nope"], why: "x" }],
+    };
+    fs.writeFileSync(path.join(WR, "selects.json"), JSON.stringify(sel));
+    fs.writeFileSync(path.join(WR, "SELECTS.md"), "# Selects\n\n## Looked at\n- strips\n");
+    const cs = fx(["check-selects", "--run", run, "--min-good", "2"]);
+    const csj = JSON.parse(cs.stdout || "{}");
+    const csp = (csj.problems || []).join(" | ");
+    ok("footage check-selects: a bite that cuts inside a word, text that is not in the transcript and a story candidate citing a missing id are all named", cs.status === 2 && /bite bad: in 1\.1 lands inside the word "small"/.test(csp) && /bite wrongtext: its text does not match the transcript/.test(csp) && /cites nope/.test(csp), csp.slice(0, 500));
+    sel.bites = sel.bites.filter((b) => !["bad", "wrongtext"].includes(b.id));
+    sel.story_candidates = [{ shape: "journey", spine: ["b01", "b02"], why: "x" }];
+    fs.writeFileSync(path.join(WR, "selects.json"), JSON.stringify(sel));
+    ok("footage check-selects: clean selects pass", fx(["check-selects", "--run", run, "--min-good", "2"]).status === 0, fx(["check-selects", "--run", run, "--min-good", "2"]).stdout.slice(0, 300));
+    const lowRated = fx(["check-selects", "--run", run, "--min-good", "8"]);
+    ok("footage check-selects: fewer than 8 rated 4+ is refused (a body of material needs a real choice)", lowRated.status === 2 && /rated 4\+/.test(lowRated.stdout), lowRated.stdout.slice(0, 200));
+    // log
+    const logRow = (s, extra = {}) => ({ shot: s.id, clip: "x", in: s.in, out: s.out, size: "CU", move: "static", subject: "a thing", role: ["broll"], usable: [s.in, s.out], quality: "good", ...extra });
+    const allShots = SH.clips.flatMap((c) => c.shots);
+    const bin = ING.clips[0].bin;
+    const binShots = SH.clips.filter((c) => c.bin === bin).flatMap((c) => c.shots);
+    fs.writeFileSync(path.join(WR, `log-${bin}.json`), JSON.stringify([logRow(binShots[0], { size: "HUGE" })]));
+    const cl = fx(["check-log", "--run", run]);
+    ok("footage check-log: unlogged shots, a size outside the enum and a missing gold are reported", cl.status === 2 && /not logged/.test(cl.stdout) && /HUGE/.test(cl.stdout), cl.stdout.slice(0, 400));
+    fs.writeFileSync(path.join(WR, `log-${bin}.json`), JSON.stringify(binShots.map((s) => logRow(s, { gold: s === binShots[0], gold_why: "the colour" }))));
+    const others = SH.clips.filter((c) => c.bin !== bin).flatMap((c) => c.shots);
+    const bins = [...new Set(SH.clips.map((c) => c.bin))];
+    for (const b of bins.filter((x) => x !== bin)) fs.writeFileSync(path.join(WR, `log-${b}.json`), JSON.stringify(SH.clips.filter((c) => c.bin === b).flatMap((c) => c.shots).map((s) => logRow(s))));
+    const cl2 = fx(["check-log", "--run", run]);
+    ok("footage check-log: every shot logged with valid rows passes", cl2.status === 0, cl2.stdout.slice(0, 400));
+    ok("footage merge-log: log-<bin> files merge into log.json", fx(["merge-log", "--run", run]).status === 0 && JSON.parse(fs.readFileSync(path.join(WR, "log.json"), "utf8")).length === allShots.length);
+    // paper edit
+    const paper = (extra = {}) => ({ label: "Sure", title: "One grinder", logline: "A cafe grown one cup at a time", shape: "journey", aim: { takeaway: "t", feel: "f", action: "a", audience: "u" }, length_s: 4.4,
+      spine: [{ bite: "b01", job: "hook" }, { bite: "b02", job: "button" }], broll_map: [], graphics: [], gaps_used: [], frankenbites: [], ...extra });
+    const pf = path.join(run, "story", "paper-Sure.json");
+    fs.mkdirSync(path.dirname(pf), { recursive: true });
+    const cp = (p, len = 4.4) => { fs.writeFileSync(pf, JSON.stringify(p)); return fx(["check-paper", "--run", run, "--paper", pf, "--length", String(len)]); };
+    const good = cp(paper());
+    ok("footage check-paper: a clean two-bite paper edit passes and reports its length and hook", good.status === 0 && JSON.parse(good.stdout).stats.hook === "b01", good.stdout.slice(0, 400));
+    const joined = cp(paper({ spine: [{ bite: "b01", cleanups: ["1.0-1.4"], job: "hook" }, { bite: "b02", job: "button" }] }));
+    const jp = (JSON.parse(joined.stdout).problems || []).join(" | ");
+    ok("footage check-paper: a join with no meaning note and no covering b-roll is refused (the uncovered join, the missing frankenbite note)", joined.status === 2 && /no frankenbites entry with a meaning_note/.test(jp) && /is not covered/.test(jp), jp.slice(0, 400));
+    const covered = cp(paper({ spine: [{ bite: "b01", cleanups: ["1.0-1.4"], job: "hook" }, { bite: "b02", job: "button" }], frankenbites: [{ bite: "b01", joins: 1, meaning_note: "removes a repeated word; meaning unchanged" }], broll_map: [{ over: "b01", at: [0.5, 2.5], shot: "b002-phone-s01", job: "cover", covers_join: "1.0-1.4" }] }), 3.9);
+    ok("footage check-paper: the same join covered by b-roll with a meaning note passes", covered.status === 0, covered.stdout.slice(0, 500));
+    const cardFirst = cp(paper({ spine: [{ card: { text: "Lisbon, 2019", duration: 2.5 }, job: "context" }, { bite: "b01", job: "hook" }, { bite: "b02", job: "button" }] }), 6.9);
+    ok("footage check-paper: opening on a card (no cold open) is refused: the hook is the strongest real moment", cardFirst.status === 2 && /opens on a card/.test(cardFirst.stdout), cardFirst.stdout.slice(0, 300));
+    const weakHook = cp(paper({ spine: [{ bite: "b03", job: "hook" }, { bite: "b02", job: "button" }] }), 4.0);
+    ok("footage check-paper: a hook rated under 4 is refused", weakHook.status === 2 && /the hook b03 is rated 3/.test(weakHook.stdout), weakHook.stdout.slice(0, 300));
+    const wrongLen = cp(paper(), 10);
+    ok("footage check-paper: a spine more than 8% off the target length is refused", wrongLen.status === 2 && /for a 10 s film/.test(wrongLen.stdout), wrongLen.stdout.slice(0, 300));
+    const badIds = cp(paper({ spine: [{ bite: "b01", job: "hook" }, { bite: "ghost", job: "button" }], broll_map: [{ over: "b01", at: [0, 0.5], shot: "no-such-shot", job: "illustrate" }] }));
+    ok("footage check-paper: ids that are not in selects.json or shots.json, and b-roll under 1.2 s, are named", badIds.status === 2 && /ghost/.test(badIds.stdout) && /no-such-shot/.test(badIds.stdout), badIds.stdout.slice(0, 400));
+    const reuse = cp(paper({ broll_map: [0, 1, 2].map((i) => ({ over: "b01", at: [i, i + 1.0], shot: "b002-phone-s01", job: "illustrate" })) }));
+    ok("footage check-paper: b-roll under 1.2 s and a shot used three times are refused", reuse.status === 2 && /1\.2 s at least/.test(reuse.stdout) && /used 3 times/.test(reuse.stdout), reuse.stdout.slice(0, 400));
+    fs.writeFileSync(path.join(WR, "approvals.json"), JSON.stringify({ people: [{ name: "Maya Costa", ok: false }] }));
+    const blocked = cp(paper());
+    ok("footage check-paper: a person unticked in approvals.json cannot appear", blocked.status === 2 && /unticked in approvals\.json/.test(blocked.stdout), blocked.stdout.slice(0, 300));
+    fs.rmSync(path.join(WR, "approvals.json"), { force: true });
+
+    // story.mjs: product-first only by source; GF for footage
+    const fpitch = (extra = {}, first = { bite: "b01" }) => ({ title: "One grinder", logline: "A cafe grown one cup at a time", device: "rewind", aim: { takeaway: "Slow Pour pours every cup by hand.", feel: "Calm", action: "Visit", audience: "Locals" }, approach: "Starts on the pour, then the founder's own words carry it.", scores: { originality: 4, clarity: 4, fit: 5, memorability: 4, feasibility: 5 },
+      beats: [{ name: "The pour", on_screen: "", visual: "the pour", duration_s: 8, ...first }, { name: "Why", on_screen: "", visual: "Maya", duration_s: 10, bite: "b02" }, { name: "Title", on_screen: "Slow Pour", visual: "card", duration_s: 3 }, { name: "Street", on_screen: "", visual: "street", duration_s: 9, moment: "m02" }], ...extra });
+    const stDir = path.join(SRC, "story");
+    fs.mkdirSync(stDir, { recursive: true });
+    const gates = (p, argv) => { const f = path.join(stDir, `p-${Math.random().toString(36).slice(2)}.json`); fs.writeFileSync(f, JSON.stringify(p)); const r = node("story.mjs", ["check", "--pitch", f, ...argv]); let j = { gates: [] }; try { j = JSON.parse(r.stdout); } catch {} return { r, ids: j.gates.map((g) => g.id), g: (id) => j.gates.find((x) => x.id === id), j }; };
+    const noSrc = gates(fpitch(), ["--format", "launch"]);
+    ok("story: with no source mode, a launch format still gets the product-first gates (G7 and G12), as before", noSrc.ids.includes("G7") && noSrc.ids.includes("G12") && !noSrc.ids.includes("GF"), noSrc.ids.join());
+    const fm = gates(fpitch(), ["--format", "launch", "--source-mode", "footage", "--selects", path.join(WR, "selects.json")]);
+    ok("story: a footage spine drops the product-first gates (G7, G9, G10, G11, G12) and runs GF instead", !["G7", "G9", "G10", "G11", "G12"].some((x) => fm.ids.includes(x)) && fm.ids.includes("GF"), fm.ids.join());
+    ok("story: GF passes a film that opens on a rated 4+ bite, is mostly footage, has one card", fm.g("GF") && fm.g("GF").pass === true, JSON.stringify(fm.g("GF")));
+    const fsrcFile = gates(fpitch(), ["--format", "launch", "--sources", sj, "--selects", path.join(WR, "selects.json")]);
+    ok("story: --sources <sources.json> works like --source-mode", fsrcFile.ids.includes("GF") && !fsrcFile.ids.includes("G7"), fsrcFile.ids.join());
+    const cardOpen = gates(fpitch({}, { bite: "", moment: "", kind: "card" }), ["--source-mode", "footage", "--selects", path.join(WR, "selects.json")]);
+    ok("story: GF refuses a film that opens on a card", cardOpen.g("GF") && cardOpen.g("GF").pass === false && /opens on a card/.test(cardOpen.g("GF").reasons.join(" ")), JSON.stringify(cardOpen.g("GF")));
+    const weak = gates(fpitch({}, { bite: "b03" }), ["--source-mode", "footage", "--selects", path.join(WR, "selects.json")]);
+    ok("story: GF refuses a hook rated under 4 in selects.json", weak.g("GF") && /rated 3/.test(weak.g("GF").reasons.join(" ")), JSON.stringify(weak.g("GF")));
+    const cardy = gates(fpitch({ beats: [{ name: "a", bite: "b01", duration_s: 4, visual: "x" }, { name: "c1", on_screen: "One", duration_s: 4, visual: "card" }, { name: "c2", on_screen: "Two", duration_s: 4, visual: "card" }, { name: "c3", on_screen: "Three", duration_s: 4, visual: "card" }] }), ["--source-mode", "footage", "--selects", path.join(WR, "selects.json")]);
+    ok("story: GF refuses a film that is mostly cards (footage share and one card per 12 s)", cardy.g("GF") && cardy.g("GF").pass === false && /card beats|only \d+% of the film is footage/.test(cardy.g("GF").reasons.join(" ")), JSON.stringify(cardy.g("GF")));
+    const forced = gates(fpitch(), ["--format", "launch", "--source-mode", "footage", "--product-first"]);
+    ok("story: an explicit --product-first still forces the product-first gates on a footage spine", forced.ids.includes("G7") && !forced.ids.includes("GF"), forced.ids.join());
+    const codeSpine = gates(fpitch(), ["--format", "launch", "--sources", sjc]);
+    ok("story: a code spine keeps the product-first gates", codeSpine.ids.includes("G7") && !codeSpine.ids.includes("GF"), codeSpine.ids.join());
+
+    // crew: plan --sources, the roles, the order
+    const crun = path.join(SRC, "crew-run");
+    fs.mkdirSync(path.join(crun, "footage"), { recursive: true });
+    fs.copyFileSync(path.join(run, "footage", "ingest.json"), path.join(crun, "footage", "ingest.json"));
+    const pl = node("crew.mjs", ["plan", "--run", crun, "--route", "reel", "--subject", "Slow Pour", "--sources", sj, "--length", "60"], { cwd: TMP });
+    let PJ = { phases: [] };
+    try { PJ = JSON.parse(pl.stdout); } catch {}
+    const ph = (n) => PJ.phases.find((x) => x.phase === n);
+    ok("crew plan --sources: a footage spine adds footage-audit, footage-log (a logger per bin), selects and footage writers instead of script writers and the Moves pass", pl.status === 0 && ph("footage-audit") && ph("footage-log").members.length === bins.length && ph("selects") && ph("story").members.every((m) => /^footage-writer:/.test(m)) && !ph("moves"), pl.stdout.slice(0, 400) + pl.stderr);
+    ok("crew plan --sources: the researchers come from the sources (the brand kit builder, a light product check), not from the route", ph("research").members.some((m) => /^brand-kit-builder/.test(m)) && !ph("research").members.some((m) => /^brand-researcher/.test(m)), JSON.stringify(ph("research")));
+    const ds = PJ.phases.findIndex((x) => x.phase === "design-systems"), st = PJ.phases.findIndex((x) => x.phase === "story"), cut = PJ.phases.findIndex((x) => x.phase === "cut");
+    ok("crew plan: a reel's order is Story, Look (design-systems), Cut, and the Look phase no longer says it comes after the cut", st >= 0 && ds > st && cut > ds && !/after the cut \(reel\)/.test(ph("design-systems").when), PJ.phases.map((x) => x.phase).join());
+    ok("crew plan: a footage spine turns product-first off in the briefs (no product_first line in the dispatch context)", !/\*\*product_first\*\*/.test((() => { node("crew.mjs", ["brief", "--run", crun, "--role", "script-editor"], { cwd: TMP }); try { return fs.readFileSync(path.join(crun, "crew", "prompts", "script-editor.md"), "utf8"); } catch { return ""; } })()));
+    fs.mkdirSync(path.join(SRC, "crew-plain"), { recursive: true });
+    const plain = node("crew.mjs", ["plan", "--run", path.join(SRC, "crew-plain"), "--route", "reel", "--subject", "x"], { cwd: TMP });
+    ok("crew plan: without --sources a reel plans as before (script writers, no footage desk)", (() => { try { const j = JSON.parse(plain.stdout); return j.phases.some((x) => x.phase === "story" && x.members.every((m) => /^script-writer/.test(m))) && !j.phases.some((x) => x.phase === "footage-audit"); } catch { return false; } })(), plain.stdout.slice(0, 200) + plain.stderr);
+    const cb = (role, key) => node("crew.mjs", ["brief", "--run", crun, "--role", role, ...(key ? ["--key", key] : [])], { cwd: TMP });
+    const b1 = cb("footage-logger", bin), b2 = cb("selects-producer"), b3 = cb("footage-writer", "Bold"), b4 = cb("brand-kit-builder");
+    ok("crew brief: the four footage roles write prompts with their inputs and outputs (the logger's bin, the writer's gate)", [b1, b2, b3, b4].every((b) => b.status === 0) && /log-/.test(fs.readFileSync(path.join(crun, "crew", "prompts", `footage-logger-${bin}.md`), "utf8")) && /check-paper/.test(fs.readFileSync(path.join(crun, "crew", "prompts", "footage-writer-Bold.md"), "utf8")) && /KIT\.md/.test(fs.readFileSync(path.join(crun, "crew", "prompts", "brand-kit-builder.md"), "utf8")), [b1, b2, b3, b4].map((b) => b.stderr).join(" "));
+    ok("crew brief: the footage writer and selects producer get a show-off ask", /Show off/.test(fs.readFileSync(path.join(crun, "crew", "prompts", "footage-writer-Bold.md"), "utf8")) && /Show off/.test(fs.readFileSync(path.join(crun, "crew", "prompts", "selects-producer.md"), "utf8")));
+    const chk = (role, key) => node("crew.mjs", ["check", "--run", crun, "--role", role, ...(key ? ["--key", key] : [])], { cwd: TMP });
+    // the crew run reuses the footage folder of `run`
+    fs.cpSync(path.join(run, "footage"), path.join(crun, "footage"), { recursive: true });
+    fs.mkdirSync(path.join(crun, "story"), { recursive: true });
+    const c1 = chk("footage-logger", bin);
+    ok("crew check footage-logger: log rows pass the log check, and LOG-<bin>.md must say what was looked at", c1.status === 2 && /LOG-.*\.md is missing/.test(c1.stdout), c1.stdout.slice(0, 300));
+    fs.writeFileSync(path.join(crun, "footage", `LOG-${bin}.md`), "# Log\n\n## Looked at\n- strips\n");
+    ok("crew check footage-logger: accepted with the log and its Looked at list", chk("footage-logger", bin).status === 0, chk("footage-logger", bin).stdout.slice(0, 300));
+    ok("crew check selects-producer: accepted when selects.json and SELECTS.md pass", (() => { fs.writeFileSync(path.join(crun, "footage", "SELECTS.md"), "# S\n\n## Looked at\n- c\n"); const o = node("crew.mjs", ["check", "--run", crun, "--role", "selects-producer"], { cwd: TMP }); return o.status === 0 || /rated 4\+/.test(o.stdout); })());
+    fs.writeFileSync(path.join(crun, "story", "paper-Sure.json"), JSON.stringify(paper()));
+    const cw = chk("footage-writer", "Sure");
+    ok("crew check footage-writer: runs check-paper and wants PAPER-<L>.md", cw.status === 2 && /PAPER-Sure\.md is missing/.test(cw.stdout) && !/spine/.test(cw.stdout.replace(/spine: \[\]/, "")), cw.stdout.slice(0, 400));
+    // brand kit
+    const bk = path.join(crun, "research", "brand");
+    fs.mkdirSync(path.join(bk, "assets"), { recursive: true });
+    const bkc = chk("brand-kit-builder");
+    ok("crew check brand-kit-builder: a missing DESIGN.md is refused", bkc.status === 2 && /DESIGN\.md is missing/.test(bkc.stdout), bkc.stdout.slice(0, 200));
+    fs.writeFileSync(path.join(bk, "DESIGN.md"), `---\nname: Slow Pour\ncolors:\n  canvas: "#F6EFE4"   # page (source: Brand Guidelines.pdf p.14)\n  ink: "#1E1A16"      # text (source: Brand Guidelines.pdf p.14)\n  accent: "#C2410C"   # source: Brand Guidelines.pdf p.15\ntypography:\n  display: { fontFamily: "Brand Sans", fontWeight: 700 }\n  body: { fontFamily: "Brand Sans", fontWeight: 400 }\n---\n## Overview\nWarm.\n## Logo\nmark.svg\n## Motion\nslow\n`);
+    fs.writeFileSync(path.join(bk, "assets", "mark.svg"), '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>');
+    fs.writeFileSync(path.join(bk, "assets", "logos.json"), JSON.stringify([{ file: "mark.svg", kind: "mark", source: { file: "Brand/Logos.zip/mark.svg", page: null } }]));
+    fs.writeFileSync(path.join(crun, "research", "brand.md"), "# Where it came from\nBrand Guidelines.pdf p.14-15\n");
+    const bkc2 = chk("brand-kit-builder");
+    ok("crew check brand-kit-builder: still wants the staged fonts (or a declared substitute) and KIT.md with the forbidden uses", bkc2.status === 2 && /fonts\/ has no font file/.test(bkc2.stdout) && /KIT\.md is missing/.test(bkc2.stdout) && !/source_url/.test(bkc2.stdout), bkc2.stdout.slice(0, 500));
+    fs.mkdirSync(path.join(bk, "fonts"), { recursive: true });
+    fs.writeFileSync(path.join(bk, "fonts", "BrandSans.otf"), "x");
+    fs.writeFileSync(path.join(bk, "KIT.md"), "# Kit\n\n- Forbidden: never animate the mark's parts; never place it on the accent.\n");
+    const bkc3 = chk("brand-kit-builder");
+    ok("crew check brand-kit-builder: a kit with file-cited colours, a logo sourced to the user's file, staged fonts and KIT.md is accepted (no source_url demanded)", bkc3.status === 0, bkc3.stdout.slice(0, 500));
+  }
+}
+
+// motion (W7): the fluent contract, obey's mix rules and budgets, RasanMotion, the fluency gate (scripts/tests/motion.mjs)
+try { await (await import(path.join(HERE, "tests", "motion.mjs"))).default({ ok, node, tmp: TMP, quick }); }
+catch (e) { ok("motion: tests ran", false, String((e && e.stack) || e).split("\n").slice(0, 4).join(" | ")); }
+
+// music. the source chain, the measured quality gate, the catalog schema, the brief from the arc, credits; all offline (fixtures, a local mock of the AI vendor)
+{
+  const crypto = (await import("node:crypto")).default, http = (await import("node:http")).default, { spawn } = await import("node:child_process");
+  const lib = await import(new URL("./lib/music-lib.mjs", import.meta.url).href);
+  const d = path.join(TMP, "music");
+  fs.mkdirSync(d, { recursive: true });
+  const J = (r) => { try { return JSON.parse(r.stdout); } catch { return {}; } };
+  // catalog: the shipped one validates, holds the 64 seed tracks, and keeps its host policy (Mixkit never mirrored, never auto-fetched)
+  const catFile = path.join(HERE, "..", "library", "music", "catalog.json");
+  const cat = JSON.parse(fs.readFileSync(catFile, "utf8"));
+  const errs = lib.validateCatalog(cat);
+  ok("music: library/music/catalog.json validates (https urls, licences without NC / ND / SA, credit lines, checksums)", errs.length === 0, errs.slice(0, 3).join("; "));
+  const fma = cat.tracks.filter((t) => t.source === "fma"), mk = cat.tracks.filter((t) => t.source === "mixkit");
+  ok("music: the seed list is 27 CC0 / CC BY tracks (self-hostable, checksummed, auto fetch) plus 37 Mixkit (upstream only, fetched on pick, never mirrored)", cat.tracks.length === 64 && fma.length === 27 && mk.length === 37 && fma.every((t) => t.fetch === "auto" && t.mirror_ok && /^[0-9a-f]{64}$/.test(t.sha256) && /^CC/.test(t.licence)) && mk.every((t) => t.fetch === "on-pick" && t.mirror_ok === false && t.host === "upstream" && !t.requires_credit), `${fma.length} ${mk.length}`);
+  ok("music: CC BY tracks carry a credit line with the licence, Ketsa's names Ketsa.uk, CC0 needs none", fma.filter((t) => t.requires_credit).every((t) => /licensed under CC BY/.test(t.credit) && t.credit.includes(t.page)) && fma.filter((t) => t.artist === "Ketsa").every((t) => /Ketsa\.uk/.test(t.credit)) && fma.filter((t) => /CC0/.test(t.licence)).every((t) => !t.requires_credit));
+  const bad = JSON.parse(JSON.stringify(cat));
+  bad.tracks[0].licence = "CC BY-NC 4.0";
+  bad.tracks[1].ending = "wobble";
+  bad.tracks[30].fetch = "auto";
+  bad.tracks[2].url = "http://x/y.mp3";
+  const be = lib.validateCatalog(bad);
+  ok("music: a catalog with an NC licence, a bad ending, an auto-fetched Mixkit track or a non-https url is refused", be.some((e) => /NC/.test(e)) && be.some((e) => /ending/.test(e)) && be.some((e) => /Mixkit/.test(e)) && be.some((e) => /https/.test(e)), be.join("; "));
+
+  // the gate on ffmpeg-made signals: a clean stereo bass-and-body noise passes; each defect trips its own gate
+  const N = (c, s, a) => `anoisesrc=c=${c}:s=${s}:a=${a}:r=44100:d=8`;
+  const wide = `${N("brown", 1, 0.5)}[b];${N("pink", 2, 0.12)}[p];${N("pink", 3, 0.2)}[nl];${N("pink", 4, 0.2)}[nr];[b][p]amix=inputs=2:normalize=0`;
+  const stereo = (core) => `${core}[m];[m]asplit[a][c];[a][c]join=inputs=2:channel_layout=stereo[o]`;
+  const fx = {
+    good: `${wide}[m];[m]asplit[m1][m2];[m1][nl]amix=inputs=2:normalize=0[L];[m2][nr]amix=inputs=2:normalize=0[R];[L][R]join=inputs=2:channel_layout=stereo[o]`,
+    thin: stereo(`${N("pink", 2, 0.3)}[p];[p]highpass=f=400`),
+    dull: stereo(`${N("brown", 1, 0.5)}[b];${N("pink", 2, 0.12)}[p];[b][p]amix=inputs=2:normalize=0,lowpass=f=9000,lowpass=f=9000`),
+    phasey: `${N("brown", 1, 0.5)}[b];${N("pink", 2, 0.12)}[p];[b][p]amix=inputs=2:normalize=0[m];[m]asplit[a][c];[c]volume=-1[c2];[a][c2]join=inputs=2:channel_layout=stereo[o]`,
+    squashed: `${wide},volume=24dB,asoftclip=type=hard:threshold=0.4[m];[m]asplit[m1][m2];[m1][nl]amix=inputs=2:normalize=0[L];[m2][nr]amix=inputs=2:normalize=0[R];[L][R]join=inputs=2:channel_layout=stereo[o]`,
+    harsh: stereo(`${N("pink", 2, 0.3)}[p];[p]highpass=f=2000,lowpass=f=6000[h];${N("brown", 1, 0.08)}[b];[h][b]amix=inputs=2:normalize=0`),
+  };
+  const gates = {};
+  for (const [k, fc] of Object.entries(fx)) {
+    const f = path.join(d, `${k}.wav`);
+    spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-filter_complex", fc, "-map", "[o]", "-t", "8", "-ar", "44100", f]);
+    try { gates[k] = lib.gateTrack(lib.qualityFeatures(f, {})).map((r) => r.gate); } catch (e) { gates[k] = [`error: ${e.message}`]; }
+  }
+  ok("music: the gate passes a clean wide stereo bed (bass, body, air, side-mid about -12 dB)", gates.good && gates.good.length === 0, JSON.stringify(gates.good));
+  ok("music: the gate rejects no low end (sub), a 9 kHz lowpass (air / bandwidth), phasey stereo (phase), clipping (squashed) and a harsh 2-6 kHz mid (presence)", gates.thin?.includes("sub") && gates.dull?.some((g) => g === "air" || g === "bandwidth") && gates.phasey?.includes("phase") && gates.squashed?.includes("squashed") && gates.harsh?.includes("presence"), JSON.stringify(gates));
+  const sc = lib.scoreTrack({ sub: -8, presence: -15, air: -25, hf: -40, side_mid: -11, crest: 13, lra: 3.5 }, { family: "editorial" });
+  const sw = lib.scoreTrack({ sub: -8, presence: -7, air: -25, hf: -40, side_mid: -11, crest: 13, lra: 3.5 }, { family: "editorial" });
+  ok("music: the soft score is 90+ inside the references' band and falls when the mids turn harsh; a title with 'remix' costs 10", sc.score >= 85 && sw.score < sc.score - 10 && lib.scoreTrack({ sub: -8, presence: -15, air: -25, hf: -40, side_mid: -11, crest: 13, lra: 3.5 }, { title: "Foo (Minimal Electro Mix)" }).score < lib.scoreTrack({ sub: -8, presence: -15, air: -25, hf: -40, side_mid: -11, crest: 13, lra: 3.5 }, { title: "Foo" }).score, `${sc.score} ${sw.score}`);
+  const gcli = J(node("music.mjs", ["gate", "--track", path.join(d, "phasey.wav")]));
+  ok("music: music.mjs gate --track prints the measured features, the rejects and pass: false", gcli.pass === false && gcli.rejects?.some((r) => r.gate === "phase") && typeof gcli.quality?.sub === "number", JSON.stringify(gcli).slice(0, 200));
+
+  // the source chain: keys absent, present, and the order
+  const ids = (c) => c.filter((x) => x.on).map((x) => x.id).join(",");
+  const none = lib.sourceChain({}, {});
+  const el = lib.sourceChain({ RASANAI_ELEVENLABS_API_KEY: "k" }, {});
+  const both = lib.sourceChain({ RASANAI_ELEVENLABS_API_KEY: "k", RASANAI_STABILITY_API_KEY: "s", RASANAI_EPIDEMIC_TOKEN: "t" }, { user: true });
+  ok("music: with no keys the chain is the catalog, HeyGen, ccMixter, Openverse (AI drops out silently)", ids(none) === "catalog,heygen,ccmixter,openverse" && none.find((x) => x.id === "ai").on === false, ids(none));
+  ok("music: with an ElevenLabs key the AI source comes before the catalog; the user's track comes before everything", ids(el) === "ai,catalog,heygen,ccmixter,openverse" && ids(both).startsWith("user,ai,epidemic-connect,catalog") && both.find((x) => x.id === "ai").vendors.join() === "elevenlabs,stable-audio", ids(el) + " | " + ids(both));
+  ok("music: Openverse is last with the strictest threshold; Jamendo, Freesound and Higgsfield are not in the chain", none[none.length - 1].id === "openverse" && lib.THRESHOLD.openverse > lib.THRESHOLD.ccmixter && lib.THRESHOLD.ccmixter > lib.THRESHOLD.catalog && !JSON.stringify(none).match(/jamendo|freesound|higgsfield|bensound/i));
+  ok("music: a borrowed key never works: only RASANAI_* variables count (ELEVENLABS_API_KEY alone leaves the AI source off)", lib.sourceChain({ ELEVENLABS_API_KEY: "k", STABILITY_API_KEY: "s" }, {}).find((x) => x.id === "ai").on === false);
+  const cliOff = J(node("music.mjs", ["chain"]));
+  ok("music: music.mjs chain reads the environment of the process (no key: AI off)", Array.isArray(cliOff) && cliOff.find((x) => x.id === "ai")?.on === false);
+
+  // the user's library notes
+  ok("music: Artlist is fine, Epidemic files are blocked (use Epidemic Connect), Musicbed warns, Bensound is blocked, Connect is fine", lib.licenceNote("artlist").status === "ok" && lib.licenceNote("epidemic").status === "block" && /Connect/.test(lib.licenceNote("epidemic").note) && lib.licenceNote("musicbed").status === "warn" && lib.licenceNote("bensound").status === "block" && lib.licenceNote("epidemic-connect").status === "ok");
+  // the brief from the arc
+  const arc = { intro_until: 5, drop_at: 9.2, break: [20.4, 21.8], payoff_at: 22, button_at: 27 };
+  const pr = lib.buildPrompt({ film: 28, bpm: 120, family: { text: "dry minimal electronic, clean kick" }, arc, narrated: true });
+  const tot = pr.sections.reduce((a, s) => a + s.duration_ms, 0);
+  ok("music: the brief names the structure in seconds (intro, build, drop at the reveal, break, payoff, hard ending), bar-exact, no vocals, no fade-out", /DROP/.test(pr.text) && /break/i.test(pr.text) && /hard ending/.test(pr.text) && /No vocals/.test(pr.text) && /space at 1-4 kHz/.test(pr.text) && pr.sections.every((s) => Math.abs((s.t1 - s.t0) / pr.bar_s - Math.round((s.t1 - s.t0) / pr.bar_s)) < 1e-6) && tot >= 28000 && lib.elevenPlan(pr, "x").sections.length === pr.sections.length, JSON.stringify(pr.sections.map((s) => [s.name, s.t0, s.t1])));
+  ok("music: no arc given falls back to a default arc and says so", lib.readArc(null, 30).derived === true && lib.readArc(JSON.stringify(arc), 30).derived === false);
+
+  // credits
+  const cc = lib.creditsText({ title: "Bright Dawns", credit: fma.find((t) => t.title === "Bright Dawns").credit, requires_credit: true });
+  const c0 = lib.creditsText({ title: "WOLF", artist: "HoliznaCC0", license: "CC0 1.0", requires_credit: false });
+  ok("music: a CC BY pick gets a paste-ready description line (title, author, source, licence); CC0 and the user's own track get none", /Bright Dawns/.test(cc.description) && /CC BY 4\.0/.test(cc.description) && c0.description === "" && /No credit required/.test(c0.credits) && lib.creditsText({ origin: "user", title: "x" }).description === "" && lib.creditsText(null).credits === "No music.\n");
+
+  // the whole run offline: a fixture catalog whose files are local (mirror), a wrong checksum, a Mixkit-style on-pick track, the ledger and the credits
+  const expr = "0.5*(lt(t\\,40)*(sin(2*PI*55*t)*exp(-25*mod(t\\,0.5))*if(lt(mod(t\\,2)\\,0.5)\\,1\\,0.55)+0.12*sin(2*PI*196*pow(2\\,mod(5*floor(t/2)\\,17)/12)*t)+0.08*sin(2*PI*294*pow(2\\,mod(5*floor(t/2)\\,17)/12)*t))+gte(t\\,40)*exp(-2.2*(t-40))*(0.9*sin(2*PI*55*t)+0.3*sin(2*PI*220*t)))";
+  const beat = path.join(d, "beat.wav");
+  spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", `aevalsrc='${expr}':s=44100:d=45`, beat]);
+  const sha = (f) => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
+  const tr = (id, extra) => ({ id, title: id, artist: "Fixture Artist", family: ["editorial"], bpm: 120, duration: 45, ending: "ring-out", strong_from: 0, licence: "CC BY 4.0", licence_url: "https://creativecommons.org/licenses/by/4.0/", requires_credit: true, credit: `Music: "${id}" by Fixture Artist (https://example.com/${id}), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)`, page: `https://example.com/${id}`, url: `https://example.invalid/${id}.mp3`, sha256: sha(beat), source: "fma", host: "self", fetch: "auto", mirror_ok: true, mirror: beat, commercial_ok: true, ads_ok: true, checked_on: "2026-10-12", listened: false, ...extra });
+  const fixCat = { version: 1, tracks: [tr("fx-good"), tr("fx-wrongsum", { sha256: "0".repeat(64), artist: "Other Artist" }), tr("fx-mixkit", { source: "mixkit", host: "upstream", fetch: "on-pick", mirror_ok: false, mirror: null, requires_credit: false, credit: null, licence: "Mixkit Stock Music Free License", licence_url: "https://mixkit.co/license/#musicFree", url: "https://assets.mixkit.co/music/1/1.mp3", sha256: null, artist: "Mixkit Artist", family: ["editorial"] })] };
+  const fixFile = path.join(d, "catalog-fixture.json");
+  fs.writeFileSync(fixFile, JSON.stringify(fixCat));
+  ok("music: the fixture catalog itself validates", lib.validateCatalog(fixCat).length === 0, lib.validateCatalog(fixCat).join("; "));
+  const run1 = path.join(d, "run1");
+  const nodeEnv = (script, a, extra = {}) => spawnSync(process.execPath, [path.join(HERE, script), ...a], { encoding: "utf8", env: { ...env, ...extra }, cwd: TMP, timeout: 240000 });
+  const r1 = nodeEnv("music.mjs", ["--run", run1, "--film", "20", "--sources", "catalog", "--format", "launch", "--intents", "dry minimal electronic bass, synth arpeggio, 120 BPM|dry minimal electronic drums, plucked synth, 120 BPM", "--count", "2", "--no-preview"], { RASANAI_MUSIC_CATALOG: fixFile });
+  const m1 = J(r1);
+  const o1 = (m1.options || []).find((o) => o.id === "fx-good");
+  ok("music: the catalog source fetches the listed file, verifies its checksum, analyses and fits it (BPM, ending, fit, quality, licence, credit)", !!o1 && Math.abs(o1.bpm - 120) < 1 && !!o1.fit && typeof o1.score === "number" && o1.requires_credit === true && /CC BY 4\.0/.test(o1.license) && /fx-good/.test(o1.credit || ""), r1.stderr + JSON.stringify(m1).slice(0, 300));
+  ok("music: a file whose checksum does not match is dropped with a note, never shown", !(m1.options || []).some((o) => o.id === "fx-wrongsum") && (m1.notes || []).some((n) => /checksum mismatch/.test(n)) && !fs.existsSync(path.join(run1, "music", "fx-wrongsum.mp3")), JSON.stringify(m1.notes));
+  ok("music: a Mixkit-style (on-pick) track is only suggested, never fetched, until the user picks it", (m1.suggestions || []).some((s) => s.id === "fx-mixkit" && s.needs_pick) && !fs.existsSync(path.join(run1, "music", "fx-mixkit.mp3")) && !(m1.options || []).some((o) => o.id === "fx-mixkit"), JSON.stringify(m1.suggestions));
+  const led = (() => { try { return JSON.parse(fs.readFileSync(path.join(run1, "music", "LICENSES.json"), "utf8")); } catch { return []; } })();
+  const row = led.find((l) => l.id === "fx-good") || {};
+  ok("music: LICENSES.json records origin, licence url, credit, checksum and the check date; CREDITS.txt and description.txt are written", row.origin === "catalog" && /creativecommons/.test(row.licence_url || "") && /fx-good/.test(row.credit || "") && row.sha256 === sha(beat) && /^\d{4}-/.test(row.checked_on || "") && fs.existsSync(path.join(run1, "music", "CREDITS.txt")) && fs.existsSync(path.join(run1, "music", "description.txt")), JSON.stringify(row).slice(0, 200));
+  const cr = J(nodeEnv("music.mjs", ["credits", "--run", run1, "--pick", "fx-good", "--description", path.join(d, "desc.txt")]));
+  nodeEnv("music.mjs", ["credits", "--run", run1, "--pick", "fx-good", "--description", path.join(d, "desc.txt")]);
+  ok("music: credits --pick writes CREDITS.txt, description.txt and appends the credit line to the film's description once", cr.requires_credit === true && /fx-good/.test(fs.readFileSync(path.join(run1, "music", "CREDITS.txt"), "utf8")) && fs.readFileSync(path.join(d, "desc.txt"), "utf8").match(/Music:/g).length === 1);
+
+  // the user's own track first, with library notes; an Epidemic file is refused with the Connect advice
+  const mine = J(nodeEnv("music.mjs", ["--run", path.join(d, "run2"), "--film", "20", "--track", beat, "--library", "artlist", "--declared", "Artlist Pro, licence 123", "--no-preview"], { RASANAI_MUSIC_CATALOG: fixFile }));
+  ok("music: --track puts the user's track first with its licence declaration and the Artlist note, and stops the chain there", mine.options?.[0]?.origin === "user" && /Artlist Pro/.test(mine.options[0].license) && mine.options.length === 1 && /AI services/.test(JSON.stringify(mine.library_note)) && mine.chain?.[0]?.on === true, JSON.stringify(mine).slice(0, 300));
+  const epi = J(nodeEnv("music.mjs", ["--run", path.join(d, "run3"), "--film", "20", "--track", beat, "--library", "epidemic", "--sources", "user", "--no-preview"]));
+  ok("music: an Epidemic Sound file is blocked (their licence forbids third-party AI tools) and the advice names Epidemic Connect", epi.options?.[0]?.blocked === true && epi.options[0].usable === false && /Connect/.test(epi.options[0].problems?.[0] || "") && epi.recommended === null, JSON.stringify(epi).slice(0, 300));
+  ok("music: a folder with stems finds the full mix and lists the stems", (() => { const sd = path.join(d, "stemdir"); fs.mkdirSync(sd, { recursive: true }); fs.copyFileSync(beat, path.join(sd, "Track Full Mix.wav")); fs.copyFileSync(beat, path.join(sd, "Track Drums.wav")); fs.copyFileSync(beat, path.join(sd, "Track Bass.wav")); const t = lib.findUserTrack(sd); return /Full Mix/.test(t.mix) && t.stems.drums?.length === 1 && t.stems.bass?.length === 1; })());
+
+  // AI generation, with the vendor mocked by a local server: the key comes from the user's env, the prompt is written from the arc, the take is retimed and fitted
+  const reqs = [];
+  const srv = http.createServer((req, res) => {
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      reqs.push({ url: req.url, key: req.headers["xi-api-key"], body });
+      res.writeHead(200, { "content-type": "audio/mpeg" });
+      res.end(fs.readFileSync(beat));
+    });
+  });
+  await new Promise((r) => srv.listen(0, "127.0.0.1", r));
+  const base = `http://127.0.0.1:${srv.address().port}`;
+  const arcFile = path.join(d, "arc.json");
+  fs.writeFileSync(arcFile, JSON.stringify({ music_arc: { intro_until: 4, drop_at: 8, break: null, payoff_at: 14, button_at: 18 } }));
+  const aiRun = await new Promise((resolve) => {
+    const p = spawn(process.execPath, [path.join(HERE, "music.mjs"), "--run", path.join(d, "run4"), "--film", "20", "--sources", "ai", "--arc", arcFile, "--intents", "dry minimal electronic bass, synth arpeggio, 119 BPM", "--count", "2", "--no-preview"], { env: { ...env, RASANAI_ELEVENLABS_API_KEY: "user-key-1", RASANAI_ELEVENLABS_API_BASE: base }, cwd: TMP });
+    let out = "";
+    p.stdout.on("data", (c) => (out += c));
+    p.on("close", () => resolve(out));
+  });
+  srv.close();
+  const ai = (() => { try { return JSON.parse(aiRun); } catch { return {}; } })();
+  const aiOpt = (ai.options || [])[0];
+  ok("music: with a user key the AI source generates to the arc: one request per mood with the user's key, a composition plan of bar-exact sections, never the key of anyone else", reqs.length >= 1 && reqs.every((q) => q.key === "user-key-1" && /\/v1\/music/.test(q.url)) && (() => { const b = JSON.parse(reqs[0].body); return Array.isArray(b.composition_plan?.sections) && b.composition_plan.sections.length >= 4 && b.composition_plan.sections.some((s) => s.section_name === "drop"); })(), JSON.stringify(reqs.map((q) => q.url)));
+  ok("music: the generated take is analysed, retimed onto the asked BPM (within 3%), fitted and recorded with its prompt and vendor", aiOpt?.origin === "ai:elevenlabs/music_v1" && !!aiOpt.retimed && Math.abs(aiOpt.bpm - 119) < 1 && !!aiOpt.fit && /DROP/.test(JSON.parse(fs.readFileSync(path.join(d, "run4", "music", "LICENSES.json"), "utf8"))[0]?.generation?.prompt || ""), JSON.stringify(aiOpt || ai).slice(0, 300));
+  const noKey = J(nodeEnv("music.mjs", ["--run", path.join(d, "run5"), "--film", "20", "--sources", "ai,catalog", "--no-preview", "--intents", "dry minimal electronic bass, synth arpeggio, 120 BPM"], { RASANAI_MUSIC_CATALOG: fixFile, RASANAI_ELEVENLABS_API_KEY: "", RASANAI_STABILITY_API_KEY: "" }));
+  ok("music: without a key the AI source says nothing and the catalog answers", noKey.chain?.find((c) => c.id === "ai")?.on === false && (noKey.options || []).some((o) => o.origin === "catalog") && !(noKey.notes || []).some((n) => /AI generation/.test(n)), JSON.stringify(noKey.notes));
 }
 
 fs.rmSync(TMP, { recursive: true, force: true });

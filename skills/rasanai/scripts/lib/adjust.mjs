@@ -21,6 +21,8 @@ export const ADJUST = {
     doc: "softer ease families (expo/power3-4/back -> power2; elastic/circ/bounce -> sine), durations x1.15, stagger x1.3, holds x1.15",
     fn: (p) => {
       for (const k of ["enter", "exit", "move"]) p.easing[k] = remapEase(p.easing[k], SOFTER);
+      if (p.curves) { for (const k of ["snap", "exit", "move"]) if (p.curves[k]) p.curves[k] = remapEase(p.curves[k], SOFTER); if (/^spring/.test(p.curves.settle || "")) p.curves.settle = "spring(0.8,9)"; }
+      if (p.overshoot && p.overshoot.max_pct > 4) p.overshoot = { share: Math.min(p.overshoot.share, 0.12), max_pct: 4 };
       scaleTime(p, 1.15, 1.3, 1.15);
     },
   },
@@ -28,22 +30,27 @@ export const ADJUST = {
     doc: "sharper ease families (power1-2 -> power4, sine -> power3, circ -> expo), durations x0.75, stagger x0.8, holds x0.9",
     fn: (p) => {
       for (const k of ["enter", "exit", "move"]) p.easing[k] = remapEase(p.easing[k], SHARPER);
+      if (p.curves) for (const k of ["snap", "exit", "move"]) if (p.curves[k]) p.curves[k] = remapEase(p.curves[k], SHARPER);
       scaleTime(p, 0.75, 0.8, 0.9);
     },
   },
   bouncier: {
-    doc: "enter becomes back.out(1.7), move back.inOut(1.4); allows overshoot",
+    doc: "enter becomes back.out(1.7), move back.inOut(1.4); a bigger settle budget (30% of moves, 15% overshoot), a springier settle curve",
     fn: (p) => {
       p.easing.enter = "back.out(1.7)";
       p.easing.move = "back.inOut(1.4)";
       p.banned = p.banned.filter((b) => b !== "overshoot");
+      p.overshoot = { share: 0.3, max_pct: 15 };
+      if (p.curves) { p.curves.settle = "spring(0.5,13)"; p.curves.move = p.easing.move; }
     },
   },
   stiffer: {
-    doc: "back/elastic/bounce -> power3; bans overshoot and bounce",
+    doc: "back/elastic/bounce -> power3; bans bounce; settles shrink to a sliver (6% of moves, 3% overshoot)",
     fn: (p) => {
       for (const k of ["enter", "exit", "move"]) p.easing[k] = remapEase(p.easing[k], STIFF);
-      for (const b of ["overshoot", "bounce"]) if (!p.banned.includes(b)) p.banned.push(b);
+      if (!p.banned.includes("bounce")) p.banned.push("bounce");
+      p.overshoot = (p.banned || []).includes("overshoot") ? { share: 0, max_pct: 0 } : { share: 0.06, max_pct: 3 };
+      if (p.curves) { p.curves.settle = p.overshoot.share ? "spring(0.85,10)" : "none"; for (const k of ["snap", "exit", "move"]) if (p.curves[k]) p.curves[k] = remapEase(p.curves[k], STIFF); }
     },
   },
 };

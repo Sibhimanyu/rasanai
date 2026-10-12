@@ -1,5 +1,5 @@
 // motion-gate.mjs on synthetic films: a continuously moving film passes; a 1.2 s freeze, a creeping zoom and a resting
-// seam each fail with their time; the code half finds an unmounted carrier, an early brand mark and a parked line.
+// seam each fail with their time; the code half finds an unmounted carrier, an early brand mark and a slow push (a warning).
 // export default async function ({ ok, node, tmp }).
 import fs from "node:fs";
 import path from "node:path";
@@ -36,7 +36,7 @@ export default async function ({ ok, node, tmp }) {
   const fz = G("freeze.mp4");
   ok("motion-gate: a 1.2 s freeze fails (exit 2) with its time", fz.r.status === 2 && has(fz.j, "freeze", 2) && /1\.\d+ s/.test((fz.j.findings || []).find((x) => x.check === "freeze").message), JSON.stringify(fz.j.findings).slice(0, 400));
   const cr = G("creep.mp4");
-  ok("motion-gate: a creeping zoom fails as a creep, though every frame changes", cr.r.status === 2 && has(cr.j, "creep") && /zoom/.test((cr.j.findings || []).find((x) => x.check === "creep").message) && cr.j.measured.coverage >= 0.9, JSON.stringify(cr.j.findings).slice(0, 400));
+  ok("motion-gate: a creeping zoom is reported as a creep warning (a living camera is wanted; check it for shimmer), though every frame changes", (cr.j.findings || []).some((x) => x.check === "creep" && x.severity === "warning") && !(cr.j.findings || []).some((x) => x.check === "creep" && x.severity === "error") && /zoom/.test((cr.j.findings || []).find((x) => x.check === "creep").message) && cr.j.measured.coverage >= 0.9, JSON.stringify(cr.j.findings).slice(0, 400));
   const fa = G("fast.mp4");
   ok("motion-gate: a real zoom (36% a second) is not a creep", !has(fa.j, "creep"), JSON.stringify(fa.j.findings).slice(0, 300));
   const rs = G("rest.mp4");
@@ -84,7 +84,7 @@ export default async function ({ ok, node, tmp }) {
   // the root carries a film-wide push of 1.0 to 1.08 over 6 s (1.3% a second): the creep the frames alone can miss
   fs.writeFileSync(path.join(pj, "index.html"), `<html><body><div id="root" data-composition-id="main" data-duration="6"><div id="world"><div class="clip" data-composition-src="compositions/frames/01-hook.html" data-start="0" data-duration="2" data-track-index="1"></div><div class="clip" data-composition-src="compositions/frames/02-proof.html" data-start="2" data-duration="2" data-track-index="1"></div><div class="clip" data-composition-src="compositions/frames/03-cta.html" data-start="4" data-duration="2" data-track-index="1"></div></div></div><script>const tl=gsap.timeline({paused:true});tl.fromTo("#world",{scale:1},{scale:1.08,duration:6,ease:"none"},0);window.__timelines["main"]=tl;</script></body></html>`);
   const c1 = json(node("motion-gate.mjs", ["--project", pj, "--plan", plan, "--json"]));
-  ok("motion-gate: the code half finds no mounted carrier, a brand mark before the reveal, a parked line and a slow film-wide push (and leaves the moving line alone)", has(c1, "carriers") && (c1.findings || []).some((x) => x.check === "reveal" && /02-proof/.test(x.element || "")) && (c1.findings || []).some((x) => x.check === "parked" && x.element === "#hk-line") && (c1.findings || []).some((x) => x.check === "creep" && /#world/.test(x.element || "")) && !(c1.findings || []).some((x) => x.element === "#pf-line"), JSON.stringify(c1.findings).slice(0, 500));
+  ok("motion-gate: the code half finds no mounted carrier and a brand mark before the reveal, warns on a slow film-wide push, and no longer fails a line that holds still to be read (\"never parks\" was dropped)", has(c1, "carriers") && (c1.findings || []).some((x) => x.check === "reveal" && /02-proof/.test(x.element || "")) && !(c1.findings || []).some((x) => x.check === "parked") && (c1.findings || []).some((x) => x.check === "creep" && x.severity === "warning" && /#world/.test(x.element || "")) && !(c1.findings || []).some((x) => x.element === "#pf-line"), JSON.stringify(c1.findings).slice(0, 500));
   const mount = node("video.mjs", ["carriers", "--project-dir", pj]);
   const c2 = json(node("motion-gate.mjs", ["--project", pj, "--plan", plan, "--json"]));
   const idx = fs.readFileSync(path.join(pj, "index.html"), "utf8");

@@ -6,7 +6,8 @@
 //   node video.mjs init    --route <route> --project <kebab-name> [--aspect 16:9] [--workspace .] [--project-dir <dir>]
 //   node video.mjs capture --project-dir <dir> (--url <https://...> | --no-capture --title "..." --text-file <brief.txt>)
 //   node video.mjs write   --project-dir <dir> --decisions <video-decisions.json> [--revise]
-//   node video.mjs inject  --project-dir <dir> [--runtime]  (after the workflow's frame-packets.mjs, before dispatching frame workers)
+//   node video.mjs inject  --project-dir <dir> [--runtime]  (after the workflow's frame-packets.mjs, before dispatching frame workers;
+//        installs RasanShape / RasanCamera when referenced and the GSAP plugins bundle; --runtime installs all)
 //   node video.mjs audio-lock --project-dir <dir> --music <file>   (after audio.mjs fetch-sfx, before assemble-index)
 //   node video.mjs carriers --project-dir <dir>   (after assemble-index: mounts compositions/carriers/*.html, the objects
 //        that cross a cut, as their own tracks in index.html; idempotent)
@@ -121,7 +122,17 @@ if (cmd === "init") {
   let shape = null;
   const shp = await import("./lib/shape.mjs");
   if (args.runtime || shp.projectUsesShape(dir) || /RasanShape/.test(sb)) shape = shp.install(dir);
-  console.log(JSON.stringify({ ok: true, injected: done, direction: !!dirSection, ...(shape ? { shape: { runtime: path.relative(process.cwd(), shape.dir), scripts: shape.scripts } } : {}), ...(three ? { three: { runtime: path.relative(process.cwd(), three.dir), script: three.script } } : {}) }, null, 2));
+  // the camera kit (assets/rasan-camera/) when a composition, the storyboard or the styleframes reference RasanCamera,
+  // and the vendored GSAP plugins (assets/vendor/gsap-plugins.min.js, self-registering) on every inject; existing
+  // compositions that use them get the script tags right after their GSAP tag (references/cinematography.md)
+  const cam = await import("./lib/camera.mjs");
+  const camera = args.runtime || cam.projectUsesCamera(dir) || /RasanCamera/.test(sb) ? cam.installCamera(dir) : null;
+  const plugins = cam.installPlugins(dir);
+  // the motion vocabulary (assets/rasan-motion/: RasanMotion verbs with the film's motion.md baked in) when referenced
+  const mk = await import("./lib/motionkit.mjs");
+  const motion = args.runtime || mk.projectUsesMotion(dir) || /RasanMotion/.test(sb) ? mk.install(dir) : null;
+  const tagged = cam.tagCompositions(dir, { camera: !!camera, plugins: !!plugins });
+  console.log(JSON.stringify({ ok: true, injected: done, direction: !!dirSection, ...(shape ? { shape: { runtime: path.relative(process.cwd(), shape.dir), scripts: shape.scripts } } : {}), ...(camera ? { camera: { runtime: path.relative(process.cwd(), camera.dir), script: camera.script } } : {}), ...(plugins ? { gsap_plugins: { file: path.relative(process.cwd(), plugins.file), script: plugins.script, registers: plugins.registers } } : {}), ...(motion ? { motion: { runtime: path.relative(process.cwd(), motion.dir), scripts: motion.scripts } } : {}), ...(tagged.length ? { tagged } : {}), ...(three ? { three: { runtime: path.relative(process.cwd(), three.dir), script: three.script } } : {}) }, null, 2));
 } else if (cmd === "audio-lock") {
   const dir = projectDir();
   if (!args.music) die("--music <file> required");

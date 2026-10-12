@@ -56,5 +56,19 @@
     "exit_ms": 160,
     "hold_ms": 500
   },
-  "builder_notes": "Nothing interpolates smoothly: use steps(N) eases or zero-duration tl.set() cuts on the timeline (never on a .clip element). Words appear on the frame, offset in x on stepped jitters, then snap to place. Mis-registration and inversion (swap ink/background for 2-3 frames) are welcome. Exits are instant cuts."
+  "builder_notes": "Nothing interpolates smoothly: use steps(N) eases or zero-duration tl.set() cuts on the timeline (never on a .clip element). Words appear on the frame, offset in x on stepped jitters, then snap to place. Mis-registration and inversion (swap ink/background for 2-3 frames) are welcome. Exits are instant cuts.",
+  "curves": {
+    "launch": "cubic-bezier(0.05,0.7,0.1,1)",
+    "glide": "cubic-bezier(0.2,0,0,1)",
+    "expressive": "cubic-bezier(0.4,0.14,0.3,1)",
+    "exit": "steps(3)",
+    "settle": "none",
+    "snap": "steps(4)",
+    "drift": "steps(6)",
+    "move": "steps(6)"
+  },
+  "overshoot": {
+    "share": 0,
+    "max_pct": 0
+  }
 }

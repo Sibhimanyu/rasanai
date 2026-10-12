@@ -64,12 +64,18 @@ extension DirectorEvent.Kind {
 // MARK: Toolbar pill text
 
 extension DirectorMonitor {
-    /// "182k tokens · $1.42 est." for the film whose run is being watched; nil otherwise. State words live in `TurnLine`.
-    func pillText(for filmRun: URL?) -> String? {
+    /// Cost is quiet by default: it shows on hover, and on its own once the film nears the budget the person set (80%).
+    static func costVisible(usd: Double, limit: Double, includedInPlan: Bool, hovering: Bool) -> Bool {
+        guard !includedInPlan, usd > 0 else { return false }
+        return hovering || (limit > 0 && usd >= limit * 0.8)
+    }
+
+    /// "182k tokens" for the film whose run is being watched (with " · $1.42 est." when `showCost`); nil otherwise. State words live in `TurnLine`.
+    func pillText(for filmRun: URL?, showCost: Bool = true) -> String? {
         guard let filmRun, filmRun == run, hasData else { return nil }
         var parts = ["\(UsageFormat.tokens(telemetry.tokens.fresh)) tokens"]
         let cost = telemetry.cost
-        if cost.isIncludedInPlan { } else if cost.usd > 0 { parts.append(UsageFormat.cost(cost)) }
+        if showCost, !cost.isIncludedInPlan, cost.usd > 0 { parts.append(UsageFormat.cost(cost)) }
         return parts.joined(separator: " · ")
     }
 }

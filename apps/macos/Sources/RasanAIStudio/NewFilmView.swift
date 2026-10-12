@@ -65,6 +65,7 @@ struct NewFilmView: View {
                     .textFieldStyle(.plain).font(.system(size: 30, weight: .semibold, design: .rounded))
                     .disabled(project != nil)
                 promptBox
+                linkedWells
             }
             .disabled(working)
             .padding(.horizontal, 32).padding(.top, 24).padding(.bottom, 28)
@@ -203,6 +204,14 @@ struct NewFilmView: View {
         .animation(.snappy(duration: 0.15), value: targeted)
         .animation(.snappy, value: sources)
         .animation(.snappy, value: draft.moments)
+    }
+
+    /// Footage folders and a reference video, used where they are. Separate wells: footage is cut, a reference is only studied.
+    private var linkedWells: some View {
+        HStack(alignment: .top, spacing: 14) {
+            LinkedSourceWell(kind: .footage, sources: $draft.linked, disabled: working)
+            LinkedSourceWell(kind: .reference, sources: $draft.linked, disabled: working)
+        }
     }
 
     private var chipFill: Color { Color.primary.opacity(0.07) }
@@ -435,9 +444,12 @@ struct NewFilmView: View {
         store.settings.saveEditorDraft(editorState, for: project)
     }
 
+    /// A drop anywhere on the page: a folder is footage and stays where it is; files are copied into the film as before.
     private func add(_ urls: [URL]) -> Bool {
         guard !working, !urls.isEmpty else { return false }
-        sources = Array(Set(sources + urls)).sorted { $0.path < $1.path }
+        let split = LinkedSource.split(urls)
+        if !split.folders.isEmpty { draft.linked = LinkedSource.merge(draft.linked, adding: split.folders) }
+        if !split.files.isEmpty { sources = Array(Set(sources + split.files)).sorted { $0.path < $1.path } }
         return true
     }
     private func choose() {

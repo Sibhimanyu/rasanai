@@ -54,5 +54,19 @@
     "exit_ms": 200,
     "hold_ms": 450
   },
-  "builder_notes": "Each word arrives oversized (scale 1.8-2.4 -> 1) in 120-200ms, one per beat, with a tiny camera shake on impact. Holds are short. Exits punch forward (scale up, opacity out) fast. Everything lands on a beat grid."
+  "builder_notes": "Each word arrives oversized (scale 1.8-2.4 -> 1) in 120-200ms, one per beat, with a tiny camera shake on impact. Holds are short. Exits punch forward (scale up, opacity out) fast. Everything lands on a beat grid.",
+  "curves": {
+    "launch": "cubic-bezier(0.05,0.7,0.1,1)",
+    "glide": "cubic-bezier(0.2,0,0,1)",
+    "expressive": "cubic-bezier(0.4,0.14,0.3,1)",
+    "exit": "power4.in",
+    "settle": "spring(0.68,12)",
+    "snap": "power4.out",
+    "drift": "sine.inOut",
+    "move": "expo.out"
+  },
+  "overshoot": {
+    "share": 0.15,
+    "max_pct": 8
+  }
 }

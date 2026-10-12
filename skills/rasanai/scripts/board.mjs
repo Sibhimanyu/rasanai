@@ -33,8 +33,12 @@ if (!Array.isArray(K.shots) || !K.shots.length) die("keyframes.json needs shots[
 
 const scale = (M.tempo && M.tempo.scale_ms) || [];
 const easeSet = M.easing || {};
-const inSet = (e) => Object.values(easeSet).some((x) => parseEase(x).family === parseEase(e).family && parseEase(x).dir === parseEase(e).dir);
-const onScale = (ms) => !scale.length || scale.some((s) => Math.abs(ms - s) <= s * 0.15);
+// the fluent contract (references/motion-md-contract.md): any curve in the language's family (its signature eases and
+// its role curves), and a duration inside the language's pace band (durations come from travel, so there is no grid)
+const curveSet = [...Object.values(easeSet), ...Object.values(M.curves || {})].map(String);
+const inSet = (e) => curveSet.includes(String(e)) || curveSet.some((x) => !/[(]/.test(x) && parseEase(x).family === parseEase(e).family && parseEase(x).dir === parseEase(e).dir);
+const band = M.durations ? [M.durations.min_ms * 0.5, M.durations.max_ms * 1.6] : scale.length ? [scale[0] * 0.85, scale[scale.length - 1] * 1.6] : null;
+const onScale = (ms) => !band || (ms >= band[0] && ms <= band[1]);
 
 // Stagger: an element with `split` animates its units one after another, so a
 // segment really ends at t + ms + each*(units-1) for that element. Validation
@@ -106,7 +110,7 @@ K.shots.forEach((shot, si) => {
     const spread = Math.max(0, ...movers.map((id) => spreadMs(byId[id])));
     const seg = { from: i, to: i + 1, ms, spread_ms: spread, ease, kind, note: given.note || "" };
     const where = `${i + 1}->${i + 2}`;
-    if (kind !== "hold" && !onScale(ms)) flag(shot, si, seg, where, `${ms}ms is off the scale ${scale.join("/")} (the segment's duration is the per-element duration)`);
+    if (kind !== "hold" && !onScale(ms)) flag(shot, si, seg, where, `${ms}ms is outside the language's pace band ${band ? band.map(Math.round).join("-") : "?"} ms (the segment's duration is the per-element duration)`);
     else if (kind !== "hold" && !inSet(ease)) flag(shot, si, seg, where, `ease ${ease} is not in motion.md`);
     else if (kind === "hold" && Object.values(next.__cum).some((st) => visOf(st) !== 0) && ms < ((M.holds && M.holds.min_ms) || 0) * 0.85) flag(shot, si, seg, where, `hold ${ms}ms is shorter than motion.md's ${M.holds.min_ms}ms`);
     return seg;

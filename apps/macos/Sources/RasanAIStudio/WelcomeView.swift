@@ -44,9 +44,7 @@ struct WelcomeView: View {
             HStack {
                 Button("Recheck") { Task { await recheck() } }
                     .disabled(!settings.checking.isEmpty)
-                if settings.isReady(selected) {
-                    Label("Ready to make films", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-                } else {
+                if !settings.isReady(selected) {
                     Text("Set up either director, then recheck.").foregroundStyle(.secondary)
                 }
             }.font(.system(size: 12)).padding(.top, 12)
@@ -56,7 +54,9 @@ struct WelcomeView: View {
                 if settings.isReady(selected) { settings.giveConsent(selected); settings.defaultAgent = selected.id }
                 settings.finishWelcome()
             } label: {
-                Text(settings.isReady(selected) ? "Get started" : "Explore the studio").frame(width: 180)
+                Group {
+                    if settings.isReady(selected) { Label("Ready · Get started", systemImage: "checkmark.circle.fill") } else { Text("Explore the studio") }
+                }.frame(width: 180)
             }
             .buttonStyle(.borderedProminent).controlSize(.large)
             .keyboardShortcut(.defaultAction)
@@ -135,19 +135,21 @@ struct WelcomeView: View {
         let installed = settings.isInstalled(agent)
         let checking = settings.checking.contains(agent.id)
         let choosable = installed
+        // A director nobody chose, next to one that is ready, is an option and not a problem: neutral, never a warning.
+        let spare = installed && !signedIn(agent) && agent != selected && anyReady
         return HStack(spacing: 12) {
             Group {
                 if checking { ProgressView().controlSize(.small) }
                 else if installed {
-                    Image(systemName: signedIn(agent) ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                        .foregroundStyle(signedIn(agent) ? Color.green : Color.orange)
+                    Image(systemName: signedIn(agent) ? "checkmark.circle.fill" : spare ? "circle.dashed" : "exclamationmark.circle.fill")
+                        .foregroundStyle(signedIn(agent) ? Color.green : spare ? Color.secondary : Color.orange)
                 } else {
                     Image(systemName: "circle.dashed").foregroundStyle(.tertiary)
                 }
             }.font(.system(size: 18)).frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(agent == .claude ? "Claude Code" : "Codex").font(.system(size: 13, weight: .medium))
-                Text(subtitle(agent, installed: installed, checking: checking, optional: optional))
+                Text(subtitle(agent, installed: installed, checking: checking, optional: optional || spare))
                     .font(.system(size: 11)).foregroundStyle(.secondary)
             }
             Spacer()
@@ -176,6 +178,8 @@ struct WelcomeView: View {
     private func subtitle(_ agent: LocalAgent, installed: Bool, checking: Bool, optional: Bool) -> String {
         if checking { return "Checking…" }
         if !installed { return optional ? "Optional · not found" : "Not found" }
-        return signedIn(agent) ? "Found · signed in" : (settings.statuses[agent.id] ?? "Found · recheck sign-in")
+        if signedIn(agent) { return "Found · signed in" }
+        if optional { return "Optional · not signed in" }
+        return settings.statuses[agent.id] ?? "Found · recheck sign-in"
     }
 }

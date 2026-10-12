@@ -19,11 +19,15 @@ Everything deterministic stays a script (`story.mjs check`, `sound.mjs fit`, `ob
 | | `screens-researcher`: real screens and states, the flows, a measured UI kit | during the Brief | 1 | fast is fine |
 | | `precedent-researcher`: the brand's past launch films and the category's best, measured shot by shot | during the Brief (public brands) | 1 | session |
 | | `local-scout`: the product's code on this computer, **with the user's permission** | during the Brief | 1 per approved folder | fast is fine |
+| | `footage-logger`: one bin of raw footage logged shot by shot (size, move, subject, usable range, quality, gold moments, sensitive text) from the strips and the words | during the Brief, footage spine only | 1 per bin | fast is fine |
+| | `selects-producer`: the bites, the moments, the themes, the people and the gaps in the footage, and the story shapes it can carry (`footage/selects.json`) | after the loggers, footage spine only | 1 | session |
+| | `brand-kit-builder`: the user's own guidelines PDF, fonts, logos and earlier films read into the same DESIGN.md the web researcher writes, plus KIT.md (clear space, forbidden uses) | during the Brief, when the user supplied a brand kit | 1 | fast is fine |
 | | `research-lead`: one truth sheet, one claims ledger, one brand, one asset kit, a one-page briefing | after the desk | 1 | session |
 | | `brand-film-analyst`: reads the brand's own film frames and writes `brand-film/FILM-STYLE.md` (the film grammar); branded launch / promo / brand films only | during the Brief, after the Director runs `brandfilm.mjs` | 1 | fast is fine (Sonnet) |
 | Design | `design-researcher`: the subject's own visual world, its category's clichés, 8 to 12 library references that fit (`research/design.md`, `design-refs.json`) | during the Brief, parallel with research | 1 | session |
 | | `design-system-designer`: ONE bespoke design system for the chosen story, blended from 2 to 4 library references (`design/<label>/DESIGN.md`, `recipe.json`, `blend.json`); with a brand, Sure is the brand extended | after the story is chosen (Look) | 3 (Sure, Bold, Wild); a lyric video: 1, from the chosen treatment | session |
 | Writers' room | `script-writer`: one script around one device | Story | 3 (Sure, Bold, Wild) | session |
+| | `footage-writer`: one paper edit cut from the footage (the radio edit in order, b-roll over it, graphics, the gaps covered; checked by `footage.mjs check-paper`) | Story, footage spine only | 3 (Sure, Bold, Wild), instead of the script writers | session |
 | | `treatment-writer`: one treatment of a song (concept, style bible, motifs, a plate per lyric section, every line an idea) | Story, `music-to-video` only | 3 (Sure, Bold, Wild), instead of the script writers | session |
 | | `visual-writer`: one visual treatment of a presenter film's speech (the layout of the person, a plate and camera per beat, graphics, an `idea`) | Story, `presenter` only | 3 (Sure, Bold, Wild), instead of the script writers | session |
 | Moves | `move-inventor`: the carrier and the hero moves for one script: thesis, atoms, affordance mining, bridges, 3 obvious ideas banned, 20+ candidates, a "bolder" rewrite with a visible diff, 6+ move cards, a chain ledger (`references/moves.md`) | Story, after the three scripts pass `story.mjs check` | 3 (Sure, Bold, Wild); product-first from the real UI | session (Opus) |
@@ -32,7 +36,9 @@ Everything deterministic stays a script (`story.mjs check`, `sound.mjs fit`, `ob
 | | `script-editor`: the hostile reader; line edits, verdicts, a recommendation | Story | 1 | session |
 | Motion | `motion-director`: the score (spine, motif, energy, the depth plan, every shot in 2D or 3D, every seam), then the seam pass | Animatic, then Build | 1, twice | session |
 | Art | `art-director`: the film's picture world: one asset plan and one style, the assets made through `art.mjs` (illustrations, icon sets, cut-out photos, textures, traced paths, handwriting, treatments), a contact sheet, `art/ART.md` | after the Look and the concept gate, before the score (every scene route; skipped under `--lean`) | 1 | session (Opus) |
-| | `frame-designer`: the key frames, from the score, in the look, with the real product | Animatic | 1 per 2 scenes (5 at most) | session |
+| | `styleframe-designer`: the film as pictures before the score: a shot list (`frames/shots.json`), three hero styleframes (open, peak, end) at final fidelity and, on a direct film, a board per beat; on the Look call of three systems, one system's three heroes (`references/styleframes.md`) | after the art department, before the music and the score (every scene route; the Look call: after the three systems) | 1 (direct: everything; long: the shot list and the heroes); 3 on a three-system Look call (keys `heroes-Sure`/`-Bold`/`-Wild`) | session (Opus) |
+| | `frame-designer`: the boards of a long film, one per beat, bound to the hero styleframes (a lyric video: its key frames, after the score) | after the heroes | 1 per 2 beats (5 at most) | session |
+| Review | `frame-juror`: each board next to a reference still of the same kind (`frames.mjs refs`, `sheet`, `gate`); `frames/verdict.json` at-par, close or below with fixes; below goes back to the designer once | after the boards, before the user sees them | 1 per round | session (Opus) |
 | Animation | `film-builder`: the whole film in one pass (root, every beat, every carrier), from the plan; on a long film (key `lead`) the root and the carriers only | Build | 1 | session |
 | | `scene-animator`: one scene of a long film (2D, 3D or hybrid), built around the lead's carriers, its seams moving, its motion seen and fixed | Build (long films only) | 1 per scene | session |
 | Review | `critic`: lenses `frames`, `motion`, `film`, `grounding`; default reject | Animatic, Build, Final | 1 per lens and round | session |
@@ -50,14 +56,16 @@ Moves ── moves.mjs pack per script → 3 move-inventors in parallel → move
 Story (a presenter film) ── presenter.mjs key + beats, reel.mjs scan → 3 visual writers in parallel → presenter.mjs check each → push story; the pick is presenter/plan.json
 Story (a song) ── lyrics.mjs align + audio → 3 treatment writers in parallel → treatment.mjs check each → push story; the pick is story/chosen-treatment.json
 Brand film (branded launch / promo / brand films) ── brandfilm.mjs find → fetch → frames → measure → card → brand film analyst fills FILM-STYLE.md → push brand with it (references/brand-film.md); the Look then IS that grammar
-Style gate ── after the key frames and after the first draft: brandfilm.mjs compare --ref grammar.json --ours <frames|draft> (fail: fix before going on); numbers into decisions and a short note to the user
+Style gate ── after the boards and after the first draft: brandfilm.mjs compare --ref grammar.json --ours <frames|draft> (fail: fix before going on); numbers into decisions and a short note to the user
 Art ───── after the Look and the concept gate: art-director → art/plan.json, art/assets/, art/assets.json, art/sheet.png, art/ART.md → art.mjs check; the Motion Director, film builder and scene animators read assets.json and ART.md
 Look ─── Director art-directs from the briefing (brand verdict, house grammar) → push look
 Look (a direct film with a brand) ─ decided: the brand's own look, pushed done with the reason; the motion comes from the moments
 Moments (direct films) ─ the user's picks, else moments.mjs search by role → moments.mjs fetch → each beat's moment and take in the plan
-Animatic (a direct film) ─ the plan → ONE film builder → draft render → motion gate → push animatic from the draft (no key frames)
+Styleframes (every scene route) ─ frames.mjs init → styleframe-designer (direct: shot list, 3 heroes, every board; long: shot list + 3 heroes → frame-designers for the boards) → brandfilm.mjs compare on the boards (branded) → frame-juror (frames/verdict.json; below → the designer once) → frames.mjs payload → push styleframes (a branded direct film: the Look call; otherwise live)
+Look (three systems on a scene route) ─ 3 styleframe-designers (heroes-<Label>): each system's open, peak and end frames on the story → design.mjs look-payload carries them
+Animatic (a direct film) ─ the plan, scored from the boards → ONE film builder → draft render → motion gate → frames.mjs match (draft vs boards) → push animatic from the draft
 Look (a song) ─ none: the chosen treatment's style bible is the look (DIRECTION.md); frame.md is the nearest preset
-Animatic ─ scenes (treatment.mjs scenes for a song: one per plate, the real track untouched) + music fit → Motion Director (score) → frame designers in parallel → frames critic → push animatic
+Animatic ─ scenes (treatment.mjs scenes for a song: one per plate, the real track untouched) + music fit → Motion Director (score, from the boards) → push animatic with the boards as thumbs (a song: frame designers draw key frames after the score → frames critic)
 Build ── video.mjs write → crew.mjs storyboard (the plan → STORYBOARD.md, BUILD.md) → frame-packets + inject
    direct (≤ 45 s, single-feature launch):
          → ONE film builder (root, every beat, every carrier) → assemble + video.mjs carriers → motion-gate.mjs (code)
@@ -97,7 +105,7 @@ Claude does its best motion work when it's told to show off; left unpushed it pr
 - The critics score **ambition** on frames, motion and film, and a competent-but-safe film fails, including a flat film that missed the scene that needed space, and a 3D shot that looks like the three.js demo.
 - When you send findings back, lead with the push, not just the fix list: "The critic found this competent and safe (ambition 5). Fix these, and show what you can actually do with this scene: <the showreel moment it should land>."
 
-Showing off means craft: choreography timed to the frame, invisible seams, product interactions more real than the real thing, one spectacle beat. It never means more effects; glow, particles and bounce are still slop, and the gates still reject them.
+Showing off means craft: choreography timed to the frame, invisible seams, product interactions more real than the real thing, one spectacle beat. It never means more effects: glow, particles and bounce on everything are still slop and the gates reject them; once on the hero, budgeted with a reason, they are craft (`references/craft.md` "Finish and budgets").
 
 ## The art department in the crew
 
@@ -140,7 +148,8 @@ Earlier videos about the same product are in that list too. They show what was a
 | a small or new product | product · brand · screens, plus the scout (often the richest source) |
 | a topic (explainer) | product in topic mode (facts, numbers, misconceptions) · precedent (the best explainers) |
 | a pull request | the scout on its repository; product (light) |
-| footage, a track, a single unit | none, or only the brand researcher when there's a brand |
+| footage, a track, a single unit | none, or only the brand researcher when there's a brand (with `--sources`, the desks follow the sources, below) |
+| the user's own footage (a source mode: `research.mjs sources` -> `crew.mjs plan --sources`) | the footage desk (the Director runs `footage.mjs`; a logger per bin; the selects producer) · the brand kit builder when a brand folder exists · a light product check on the web when there is a site · the scout for approved code; then the footage writers in place of the script writers (references/sources.md) |
 
 ## Where things live in the run
 
@@ -151,6 +160,8 @@ $RUN/story/          truth.md · picks.json (story.mjs pick's output) · pitch-<
                      moves: moves-pack-<label>.json · moves-<label>.json · moves-verdict.json · moves/<label>-<id>/{rough.html,rough.mp4,strip.png,poster.png} · moves.json (the chosen script's, binds the Motion Director)
                      songs: treatment-<Sure|Bold|Wild>.json · TREATMENT-<label>.md · chosen-treatment.json · chosen-treatment.md
 $RUN/music/          lyrics.json (word timings) · audio.json (beats, downbeats, sections, onsets) · plan.json · LICENSES.json
+$RUN/sources.json     source mode, spine, case (research.mjs sources)
+$RUN/footage/        ingest.json · shots.json · keyframes/ · transcripts/<clip>.words.json · transcript.md · names.json · bites-candidates.json · log-<bin>.json · log.json · selects.json · SELECTS.md · approvals.json
 $RUN/art/            plan.json · assets/<id>.png|svg · assets.json · sheet.png · ART.md
 $RUN/boards/         <move>.png (key-pose boards of each hero move, before the build)
 $RUN/motion/         score.json · score.md

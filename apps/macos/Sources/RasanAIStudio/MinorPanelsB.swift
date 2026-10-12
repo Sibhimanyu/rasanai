@@ -393,65 +393,6 @@ private struct PlayDisc: View {
     }
 }
 
-// MARK: - Styleframes
-
-struct StyleframesPanel: View {
-    let model: FilmSessionModel
-    let step: String
-    init(model: FilmSessionModel, step: String) { self.model = model; self.step = step }
-
-    private struct Item: Identifiable { let id: Int; let path: String; let caption: String }
-
-    private var items: [Item] {
-        let d = model.payload(step)
-        let captions = d["captions"].array
-        return d["images"].array.enumerated().compactMap { i, v in
-            let path = v.string ?? mpbFirst(v, ["path", "src", "file", "image"])
-            guard let path else { return nil }
-            let caption = (i < captions.count ? mpbText(captions[i]) : nil) ?? mpbFirst(v, ["caption", "title"]) ?? "Frame \(i + 1)"
-            return Item(id: i, path: path, caption: caption)
-        }
-    }
-
-    var body: some View {
-        let items = items
-        VStack(alignment: .leading, spacing: 20) {
-            if items.isEmpty {
-                PanelEmpty(symbol: "photo.on.rectangle.angled", title: "Style frames appear here",
-                           detail: "Key frames of your video, designed in the chosen direction, for you to approve before anything moves.")
-            } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 250, maximum: 420), spacing: 18, alignment: .top)], alignment: .leading, spacing: 20) {
-                    ForEach(items) { item in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Frame16x9(radius: 10) { PayloadImage(path: item.path, contentMode: .fill, maxPixels: 1400) }
-                                .overlay(alignment: .topLeading) {
-                                    Text("\(item.id + 1)").font(.system(size: 11, weight: .bold).monospacedDigit())
-                                        .padding(.horizontal, 7).padding(.vertical, 3)
-                                        .background(.ultraThinMaterial, in: Capsule()).padding(8)
-                                }
-                                .shadow(color: .black.opacity(0.14), radius: 10, y: 4)
-                                .contextMenu {
-                                    if let url = model.fileURL(item.path) {
-                                        Button("Open in Preview") { SafeOpen.open(url) }
-                                        Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
-                                    }
-                                }
-                                .onTapGesture(count: 2) { if let url = model.fileURL(item.path) { SafeOpen.open(url) } }
-                            Text(item.caption).font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("Style frame \(item.id + 1): \(item.caption)")
-                    }
-                }
-                PanelActions(model: model, step: step, title: "These are right. Animate them", symbol: "checkmark") {
-                    mpbSend(model, step, "approve", note: $0)
-                }
-            }
-        }
-    }
-}
-
 // MARK: - Motion
 
 struct MotionPanel: View {

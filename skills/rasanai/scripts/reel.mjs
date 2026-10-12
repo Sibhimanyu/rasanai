@@ -5,7 +5,9 @@
 // motion personality, so they pass obey.mjs like every other RasanAI build.
 // Formats: references/reel.md.
 //
-//   node reel.mjs scan  --footage <dir> --run <run dir> [--no-transcribe] [--lang en] [--model small.en]
+//   node reel.mjs scan  --footage <dir> --run <run dir> [--no-transcribe] [--lang auto|<iso>] [--model <ggml name or file>]
+//        (the language is detected per clip with a multilingual whisper model when one is installed; never defaulted to an English-only model,
+//         which translates other languages into English silently. Contact sheets hold one frame per ~6 s, 8 to 48 per clip.)
 //        -> <run>/footage/footage.json (+ contact sheets, posters, word transcripts)
 //   node reel.mjs briefs --reel <reel.json> --project-dir videos/<name>
 //        -> compositions/cards/<id>.brief.md for every card/overlay Claude draws (the default; "by": "swatch" = quick engine draft)
@@ -22,6 +24,7 @@ import { stageFonts } from "./lib/fonts.mjs";
 import { installLook, installDirection, upsertMarked, DIRECTION_MARK } from "./lib/install.mjs";
 import { contractText } from "./lib/contract.mjs";
 import { track } from "./lib/report.mjs";
+import { decideLanguage, installedModels, hasWhisperCli, whisperTranscribe, englishLooks } from "./lib/lang.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const args = parseArgs();
@@ -72,6 +75,7 @@ function probe(file) {
     fps: r3(frac(v.avg_frame_rate) || frac(v.r_frame_rate)),
     codec: v.codec_name,
     has_audio: !!a,
+    audio_lang: (a && a.tags && (a.tags.language || a.tags.LANGUAGE)) || null,
     size_mb: Math.round((Number(j.format.size || 0) / 1048576) * 10) / 10,
   };
 }
@@ -87,7 +91,7 @@ function scan() {
     for (const f of fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
       if (f.name.startsWith(".")) continue;
       const p = path.join(d, f.name);
-      if (f.isDirectory() && depth < 2) walk(p, depth + 1);
+      if (f.isDirectory() && depth < 4) walk(p, depth + 1); // camera cards nest (PRIVATE/M4ROOT/CLIP, DCIM/100GOPRO)
       else if (VIDEO_EXT.test(f.name)) files.push(p);
     }
   })(dir, 0);
@@ -96,8 +100,11 @@ function scan() {
   fs.mkdirSync(out, { recursive: true });
   const ws = process.cwd();
   const rel = (p) => path.relative(ws, p);
-  const lang = String(args.lang || "en");
-  const model = String(args.model || (lang === "en" ? "small.en" : "small"));
+  // the language is decided per clip, never defaulted: an English-only model translates other languages into English
+  // without saying so (lib/lang.mjs). --lang <code> forces it; otherwise detected (multilingual model) or marked unverified.
+  const lang = args.lang && args.lang !== true ? String(args.lang) : "auto";
+  const model = args.model && args.model !== true ? String(args.model) : null;
+  const warnings = [];
   const clips = [];
   const usedIds = new Set();
   for (const f of files) {
@@ -112,12 +119,17 @@ function scan() {
       continue;
     }
     const D = info.duration;
-    // contact sheet: 8 evenly spaced frames, uniform 320x180 tiles
+    // contact sheet: evenly spaced frames, uniform 320x180 tiles. The count scales with the clip: one frame per ~6 s,
+    // at least 8 and at most 48 (a 40-minute interview gets 48 frames, a 3 s shot gets 8)
+    const nFrames = Math.max(8, Math.min(48, Math.ceil(D / 6)));
+    const cols = nFrames <= 8 ? 4 : 6;
+    const rows = Math.ceil(nFrames / cols);
     const sheet = path.join(out, `${id}-sheet.jpg`);
     try {
-      run("ffmpeg", ["-y", "-loglevel", "error", "-i", f, "-vf", `fps=${(8 / Math.max(D, 0.5)).toFixed(5)},scale=320:180:force_original_aspect_ratio=decrease,pad=320:180:(ow-iw)/2:(oh-ih)/2:color=black,tile=4x2`, "-frames:v", "1", "-q:v", "4", sheet]);
+      run("ffmpeg", ["-y", "-loglevel", "error", "-i", f, "-vf", `fps=${(nFrames / Math.max(D, 0.5)).toFixed(6)},scale=320:180:force_original_aspect_ratio=decrease,pad=320:180:(ow-iw)/2:(oh-ih)/2:color=black,tile=${cols}x${rows}`, "-frames:v", "1", "-q:v", "4", sheet]);
       c.sheet = rel(sheet);
-      c.sheet_times = Array.from({ length: 8 }, (_, i) => r3((i * D) / 8));
+      c.sheet_times = Array.from({ length: nFrames }, (_, i) => r3((i * D) / nFrames));
+      c.sheet_grid = `${cols}x${rows}`;
     } catch (e) {
       c.sheet_error = String(e.stderr || e.message).trim().split("\n").pop();
     }
@@ -138,35 +150,65 @@ function scan() {
       c.mean_volume_db = mv ? Number(mv[1]) : null;
     }
     if (info.has_audio && !args["no-transcribe"] && !(c.mean_volume_db !== null && c.mean_volume_db < -50)) {
-      const tdir = path.join(out, `${id}-transcript`);
-      const argv = ["--yes", "hyperframes", "transcribe", f, "-d", tdir, "--json", "--model", model];
-      if (lang !== "en") argv.push("-l", lang);
-      try {
-        run("npx", argv, { timeout: 1800000 });
-        const words = readJSON(path.join(tdir, "transcript.json"));
-        const list = (Array.isArray(words) ? words : words.words || [])
-          .map((w) => ({ text: String(w.text || w.word || "").trim(), start: r3(Number(w.start)), end: r3(Math.min(Number(w.end), D)) }))
-          .filter((w) => w.text && !/^[♪♫]+$/.test(w.text) && w.end > w.start);
-        const wf = path.join(out, `${id}.words.json`);
-        writeFile(wf, JSON.stringify(list, null, 1) + "\n");
-        c.transcript = rel(wf);
-        c.words = list.length;
-        c.text = list.map((w) => w.text).join(" ");
-        c.speech = list.length > 0 ? [list[0].start, list[list.length - 1].end] : null;
-      } catch (e) {
-        c.transcript_error = String(e.stderr || e.stdout || e.message).trim().split("\n").filter(Boolean).pop();
+      const speechAt = c.silences && c.silences.length && c.silences[0][0] < 0.5 ? c.silences[0][1] : 0;
+      const dec = decideLanguage({ file: f, lang, tag: info.audio_lang, duration: D, speechAt });
+      c.lang = dec.lang;
+      c.lang_verified = dec.verified;
+      c.lang_source = dec.source;
+      if (dec.warning && !warnings.includes(dec.warning)) warnings.push(dec.warning);
+      if (dec.blocked) {
+        c.transcript_error = dec.blocked;
+        warnings.push(`${c.name}: not transcribed: ${dec.blocked}`);
+      } else {
+        try {
+          let list;
+          const modelFile = model && fs.existsSync(model) ? model : model ? (installedModels().find((m) => m.name === model.replace(/^ggml-|\.bin$/g, "")) || {}).file : (dec.model || {}).file;
+          if (!(modelFile && hasWhisperCli()) && !args["allow-download"]) throw new Error("no whisper model (or whisper-cli) is installed, so nothing was transcribed and nothing was downloaded: ask the user, then install one (hyperframes models install, about 487 MB) or re-run with --allow-download");
+          if (modelFile && hasWhisperCli()) {
+            const r = whisperTranscribe(f, { model: modelFile, lang: dec.lang });
+            list = r.words.filter((w) => w.end > w.start).map((w) => ({ ...w, end: r3(Math.min(w.end, D)) }));
+            c.model = r.model;
+          } else {
+            // no whisper-cli or no installed model: HyperFrames' own transcriber, with the model and language explicit
+            const m = model || (dec.lang === "en" ? "small.en" : "small");
+            const tdir = path.join(out, `${id}-transcript`);
+            const argv = ["--yes", "hyperframes", "transcribe", f, "-d", tdir, "--json", "--model", m, "-l", dec.lang];
+            run("npx", argv, { timeout: 1800000 });
+            const words = readJSON(path.join(tdir, "transcript.json"));
+            list = (Array.isArray(words) ? words : words.words || [])
+              .map((w) => ({ text: String(w.text || w.word || "").trim(), start: r3(Number(w.start)), end: r3(Math.min(Number(w.end), D)) }))
+              .filter((w) => w.text && !/^[♪♫]+$/.test(w.text) && w.end > w.start);
+            c.model = m;
+          }
+          const wf = path.join(out, `${id}.words.json`);
+          writeFile(wf, JSON.stringify(list, null, 1) + "\n");
+          c.transcript = rel(wf);
+          c.words = list.length;
+          c.text = list.map((w) => w.text).join(" ");
+          c.speech = list.length > 0 ? [list[0].start, list[list.length - 1].end] : null;
+          if (dec.lang === "en" && !dec.verified) {
+            const ck = englishLooks(c.text);
+            if (!ck.ok) {
+              c.transcript_warning = "this transcript does not read like English (" + JSON.stringify(ck) + "): the speech may be another language that an English-only model translated or garbled. Re-scan with --lang <code>.";
+              warnings.push(`${c.name}: ${c.transcript_warning}`);
+            }
+          }
+        } catch (e) {
+          c.transcript_error = String(e.stderr || e.stdout || e.message).trim().split("\n").filter(Boolean).pop();
+        }
       }
     }
     clips.push(c);
   }
-  const result = { footage_dir: rel(dir), scanned_at: new Date().toISOString(), model: args["no-transcribe"] ? null : model, clips };
+  const result = { footage_dir: rel(dir), scanned_at: new Date().toISOString(), lang: args["no-transcribe"] ? null : lang, warnings, clips };
   writeFile(path.join(out, "footage.json"), JSON.stringify(result, null, 2) + "\n");
   // compact summary for the agent (full data is in footage.json)
   console.log(
     JSON.stringify(
       {
         footage: rel(path.join(out, "footage.json")),
-        clips: clips.map((c) => (c.error ? { id: c.id, name: c.name, error: c.error } : { id: c.id, name: c.name, duration: c.duration, size: `${c.width}x${c.height}`, fps: c.fps, audio: c.has_audio, words: c.words ?? null, text: c.text ? c.text.slice(0, 160) : null, scenes: c.scenes.length, sheet: c.sheet, transcript_error: c.transcript_error })),
+        warnings: warnings.length ? warnings : undefined,
+        clips: clips.map((c) => (c.error ? { id: c.id, name: c.name, error: c.error } : { id: c.id, name: c.name, duration: c.duration, size: `${c.width}x${c.height}`, fps: c.fps, audio: c.has_audio, lang: c.lang ?? null, lang_verified: c.lang_verified ?? null, words: c.words ?? null, text: c.text ? c.text.slice(0, 160) : null, scenes: c.scenes.length, sheet: c.sheet, transcript_error: c.transcript_error })),
       },
       null,
       2

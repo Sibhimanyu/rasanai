@@ -43,6 +43,8 @@ export function languagePersonality(id) {
     exits: base.exits,
     transitions: base.transitions,
     banned: c.banned || ["fade-up-slide"],
+    ...(c.curves ? { curves: { ...c.curves } } : {}),
+    ...(c.overshoot ? { overshoot: { ...c.overshoot } } : {}),
     demo: { ...base.demo, enter_ms: S[2], move_ms: S[3], exit_ms: S[1], hold_ms: Math.max(c.hold_ms, base.demo.hold_ms) },
     swatch_base: base.id,
     prompt: o.prompt,

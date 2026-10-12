@@ -5,7 +5,7 @@
 1. **Blur**: real motion blur on every scene. HyperFrames renders at fps x samples (the oversampled render), then ffmpeg averages each frame's sub-frames across a shutter window centred on the frame time. Today only Rasan3D scenes blur (inside the stage); this makes a 2D card whip, a type slide and a 3D orbit all share one 180 degree shutter.
 2. **Grade**: per-frame film grain, halation, vignette, optional bloom and LUT, the same on every scene so cuts do not change the film's texture.
 
-Drafts skip it. Use it for the delivery render, after the gates pass.
+Use the full finish for the delivery render, after the gates pass. Drafts get the cheap draft blur (`--draft`, next section), so hero moves are judged with their smear, never as sharp sliding boxes.
 
 ## Commands
 
@@ -44,6 +44,18 @@ What is NOT shifted: CSS keyframe / WAAPI / Lottie / Anime animations, video and
 Measured on the whip test (card at about 10 000 px/s, 1080p): 32 samples = 4 passes, window 16 sub-frames, 17 taps. The streak is a continuous ramp (R values 16 31 40 51 68 ... 254 ... 62 47 32, no plateaus), centroids 1165.8 / 1738.7 / 1883.1 at frames 38 / 40 / 42 against the sharp frames' 1167.1 / 1740.6 / 1884.0, 90 of 90 frames, audio kept. hfdemo (sub-compositions plus a 3D scene) at 16 samples renders 225 of 225 frames with no judder or doubling.
 
 Cost: render time is K x the single-pass oversampled render, and tmix gets longer. Whip test: 4 passes 45 s + 20 s mix, against 9-11 s + 1.3 s for 8 samples. hfdemo at 16: 47 s render + 10 s mix (single pass 26.5 s + a few s). Multiplier against a normal render: about 3x per pass of 8 samples, so 16 is about 5 to 6x, 32 about 10 to 12x, before the grade. `--samples auto` now picks 4 / 6 / cap / 2 x cap / 4 x cap by the pre-pass p95 (< 0.5, < 2, < 4, < 8, else), but HyperFrames cannot render a frame range, so it is one count for the whole film: a film with one whip pays for 32 samples everywhere. For a mostly calm film with a few whips, prefer `--samples 8` for the film and render the whip scene alone at 32 if it matters.
+
+## Draft blur (`--draft`): motion blur on drafts and review strips
+
+```bash
+node scripts/finish.mjs blur --project <dir> --out draft.mp4 --draft     # 4 samples, one 120 fps pass, draft quality, no grade
+```
+
+R1 (R13): key frames and drafts were always judged without blur, so fast moves looked like sliding boxes until delivery. `--draft` is the cheap version of the same shutter: 4 samples in a single 120 fps pass at 30 fps (shutter 0.5), draft quality (CRF 20, veryfast), no `--samples auto` pre-pass and no grade. `all --draft` is the same as `blur --draft`. `--samples` overrides the count. Cut review strips (`crew.mjs strip`) from this file.
+
+Cost, measured on a 1.5 s 640x360 test: a plain draft render takes 6.9 s, `--draft` 14.9 s (about 2x; most of it is start-up). At 1080p, expect 2 to 3x a draft render.
+
+With 4 samples a whip-speed move would step (3 copies). Projects that use the camera kit (`RasanCamera`, `references/cinematography.md`) fill the steps. Each layer carries a speed trail designed in for stills and plain drafts, and under any finish render the trails are scaled to the gap between sub-frames (`window.RASAN_CAMERA_TRAILS = 2/samples`: 50% at 4 samples, 25% at 8, about 6% at 32). The shutter makes the smear and the trail only bridges the samples. Checked on the test: a card at about 2,200 px/s (1080p scale) shows three separate copies with 4 plain samples, and one continuous streak with the scaled trail. Every pass (pass 0 included) goes through the same small script shim when the project uses the camera.
 
 ## Stepped scenes stay sharp (per-scene blur opt-out)
 

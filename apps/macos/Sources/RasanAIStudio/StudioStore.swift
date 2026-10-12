@@ -41,6 +41,13 @@ enum FilmPhase: Equatable, Sendable {
         }
     }
     var isBusy: Bool { self == .working || self == .starting }
+    /// True when a call or a problem is waiting on the person (counts toward the Dock badge; a pause does not).
+    var callsForYou: Bool {
+        switch self {
+        case .yourTurn, .needsAttention: true
+        default: false
+        }
+    }
     /// True when the film is stopped until the person does something.
     var needsYou: Bool {
         switch self {
@@ -64,16 +71,12 @@ struct FilmSummary: Equatable, Sendable {
     var updatedAt: Date?
     var duration: Int?
     var aspect: String?
+    /// What is waiting, for Home: "3 stories ready · Claude's pick: Twelve small victories".
+    var detail: String? = nil
     static let draft = FilmSummary(phase: .draft, poster: nil)
-    static func friendlyStep(_ step: String) -> String {
-        if !["brief", "story", "look", "films", "animatic", "render", "final"].contains(step) { return "decide: \(StepCatalog.label(step).lowercased())" }
-        switch ReviewStage.consoleStep(step) {
-        case .brief: return "confirm the brief"
-        case .story: return "pick a story"
-        case .look: return "pick a look"
-        case .animatic: return "review the animatic"
-        case .final: return "review the film"
-        }
+    /// What the person is asked to do, in plain verbs (see `CallVocabulary`); the final reads "render the final" until there is a video.
+    static func friendlyStep(_ step: String, in snapshot: SessionSnapshot? = nil) -> String {
+        snapshot.map { CallVocabulary.turnPhrase(step: step, in: $0) } ?? CallVocabulary.turnPhrase(step: step)
     }
     /// Reads a film's state from disk, for films that are not the one currently open.
     static func load(project: URL) -> FilmSummary {
@@ -100,7 +103,7 @@ struct FilmSummary: Equatable, Sendable {
             if seconds > 0 { base.duration = Int(seconds.rounded()) }
             return base
         }
-        if status == "awaiting" { base.phase = .yourTurn(friendlyStep(state.currentStep)); return base }
+        if status == "awaiting" { base.phase = .yourTurn(friendlyStep(state.currentStep, in: state)); base.detail = CallNotices.homeDetail(state); return base }
         base.phase = .inProgress
         return base
     }
@@ -184,6 +187,8 @@ final class StudioStore {
     var showDirectorLog: Bool { get { sheet == .log } set { present(newValue, .log) } }
     var showFiles: Bool { get { sheet == .files } set { present(newValue, .files) } }
     private var presentedQuestionID: String?
+    /// The last snapshot of the open film, to tell a call that just became ready from one that was already waiting.
+    private var noticeBaseline: SessionSnapshot?
     var launchProject: URL?
     var localProjects: [(LocalProject, URL)] = []
     var isLoadingProjects = false
@@ -228,7 +233,7 @@ final class StudioStore {
         if hasPendingQuestion { return .yourTurn("answer a question") }
         if snapshot.stage == .final, finalURL != nil, status == "done", !runtime.isPreparing { return .finished(loadedVideoDuration > 0 ? loadedVideoDuration : snapshot.duration(for: .final)) }
         if isConnected && snapshot.isFresh && !runtime.isRunning && !runtime.isPreparing { return .yourTurn("say what the film is about") }
-        if isConnected && status == "awaiting" && !snapshot.hasSent(snapshot.currentStep) { return .yourTurn(FilmSummary.friendlyStep(snapshot.currentStep)) }
+        if isConnected && status == "awaiting" && !snapshot.hasSent(snapshot.currentStep) { return .yourTurn(FilmSummary.friendlyStep(snapshot.currentStep, in: snapshot)) }
         if runtime.isPreparing { return .starting }
         if runtime.isRunning { return .working }
         if runtime.stopRequested { return .paused }
@@ -252,6 +257,7 @@ final class StudioStore {
         if loadedFilm == folder, !isSample {
             var live = summaries[folder] ?? .draft
             live.phase = phase
+            live.detail = CallNotices.homeDetail(snapshot)
             live.stage = runURL == nil ? nil : snapshot.stage
             if runURL == nil { live.phase = activeDirectorProject == folder && (runtime.isRunning || runtime.isPreparing) ? .working : .draft }
             if case .finished(let seconds) = live.phase, seconds > 0 { live.duration = Int(seconds.rounded()) }
@@ -328,6 +334,7 @@ final class StudioStore {
                 let loaded = await Task.detached { folders.map { ($0, FilmSummary.load(project: $0)) } }.value
                 guard libraryGeneration == identity else { return }
                 summaries = Dictionary(uniqueKeysWithValues: loaded)
+                refreshDockBadge()
             } catch {
                 guard libraryGeneration == identity else { return }
                 isLoadingProjects = false; errorMessage = error.localizedDescription
@@ -679,6 +686,11 @@ final class StudioStore {
     /// Every new state from the console, whether it came over the stream or from polling.
     private func ingest(_ next: SessionSnapshot) {
         snapshot = next
+        // A call that just became ready is news; the film that was already open when the app started is not.
+        if !isSample, let notice = CallNotices.notice(from: noticeBaseline, to: next, film: currentFilmTitle) {
+            notify(title: notice.title, body: notice.body, id: "\(notice.id)-\(runURL?.lastPathComponent ?? "film")")
+        }
+        noticeBaseline = next
         if next.raw["ask"]["answered"] == .null, let id = next.raw["ask"]["id"].string, id != presentedQuestionID {
             presentedQuestionID = id
             notify(title: "Your director has a question", body: "Open RasanAI Studio to answer and continue.", id: "question-\(id)")
@@ -693,7 +705,7 @@ final class StudioStore {
         }
         researchTimeBoxing.observe(store: self)
         playhead = min(playhead, duration)
-        if case .yourTurn = phase { NSApp.dockTile.badgeLabel = "1" } else { NSApp.dockTile.badgeLabel = nil }
+        refreshDockBadge()
         statusMessage = next.workingMessage ?? (awaitingAgent ? "Sent to the director · waiting for an update" : "Connected to the local director")
         film?.startedAt = runtime.startedAt
         configureMedia()
@@ -721,6 +733,16 @@ final class StudioStore {
         selectedProjectURL = nil; reloadSources()
         statusMessage = "Sample film · no agent or audio attached"
     }
+    /// How many films are waiting on a call or need attention: the Dock badge and the Home heading read it.
+    var filmsNeedingYou: Int {
+        guard !isDemo else { return 0 }
+        let urls = Set(localProjects.filter { $0.0.archivedAt == nil }.map(\.1))
+        var count = urls.filter { summary(for: $0).phase.callsForYou }.count
+        if let loaded = loadedFilm, !urls.contains(loaded), !isSample, phase.callsForYou { count += 1 }
+        return count
+    }
+    func refreshDockBadge() { NSApp?.dockTile.badgeLabel = DockBadge.label(waiting: filmsNeedingYou) }
+
     private func notify(title: String, body: String, id: String) {
         guard settings.notificationsEnabled, Bundle.main.bundleIdentifier != nil, !NSApp.isActive else { return }
         let content = UNMutableNotificationContent()
@@ -734,7 +756,8 @@ final class StudioStore {
         film?.stop()
         film = nil
         presentedQuestionID = nil
-        NSApp?.dockTile.badgeLabel = nil
+        noticeBaseline = nil
+        refreshDockBadge()
         isConnected = false
         isSending = false
         isPlaying = false
@@ -770,7 +793,7 @@ final class StudioStore {
         var request = request
         let draft = FilmDraft.load(in: project)
         if includeDirection, let draft {
-            request += "\n\n" + draft.creativeDirection(sources: (try? ProjectSources.files(in: project)) ?? [])
+            request += "\n\n" + draft.creativeDirection(sources: (try? ProjectSources.files(in: project)) ?? []) + draft.linkedText
         }
         do {
             let resume = launchProject == nil ? runURL : nil
