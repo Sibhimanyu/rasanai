@@ -1032,7 +1032,11 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
       }
       if (!opts.calm && ideas < minIdeas) g9.push(`${ideas} ideas in a ${Math.round(opts.length || lengthS)} s film: at least ${minIdeas} (a promise, the hero, each use or proof, the payoff each count once; ${bucket === 30 ? "aim 6 or 7" : "more is better"}). A calm film must be asked for in the brief`);
       const heroI = roles.indexOf("hero");
-      if (heroI >= 0 && Number(beats[heroI].duration_s) > heroLimit + 0.01) g9.push(`the hero beat holds ${beats[heroI].duration_s} s: ${r1d(heroLimit)} s at most in a ${bucket} s film (the longest hold; show its UI states changing in less)`);
+      // a hero-strip film's hero is a whole demo (40-50% of the film): it may run long when something changes inside it
+      // at the film's tempo (its `changes`), since the cap is about a still hold, not about the demo's length
+      const heroDemo = heroI >= 0 && p.shape === "hero-strip" && Array.isArray(beats[heroI].changes) && beats[heroI].changes.length >= Math.ceil(Number(beats[heroI].duration_s) / everyMax) - 1;
+      const heroCapS = heroDemo ? 0.5 * (opts.length || lengthS) : heroLimit;
+      if (heroI >= 0 && Number(beats[heroI].duration_s) > heroCapS + 0.01) g9.push(heroDemo ? `the hero demo runs ${beats[heroI].duration_s} s: half the film at most` :`the hero beat holds ${beats[heroI].duration_s} s: ${r1d(heroLimit)} s at most in a ${bucket} s film (the longest hold; show its UI states changing in less)`);
       const needChanges = [], long = [];
       beats.forEach((b, i) => {
         const r = roles[i], d = Number(b.duration_s);
