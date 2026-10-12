@@ -1,0 +1,211 @@
+{
+ "_source": "run6 (.context/chatgpt-test/.rasanai/run6/story/pitch-Bold.json), trimmed to the fields story.mjs G13 reads; domain added to each use-bearing beat as a writer would after the scope fix",
+ "id": "bold-rewind-ledger",
+ "label": "Bold",
+ "title": "Rewind to the question",
+ "logline": "A dinner bill, three tools, then everything rewinds to one sentence.",
+ "device": "rewind",
+ "shape": "pas",
+ "aim": {
+  "takeaway": "Ask ChatGPT anything and the answer can be a working tool for exactly your situation.",
+  "feel": "Impatient to try it",
+  "action": "Ask ChatGPT for a tool tonight, at chatgpt.com",
+  "audience": "Everyday ChatGPT users and the curious, watching on the web"
+ },
+ "approach": "Starts at your dinner bill, answers with a real clipboard tool, then rewinds every answer back to the one sentence you typed.",
+ "actor": {
+  "what": "The composer's caret dot: the black blinking caret that becomes ChatGPT's green thinking dot and ends as OpenAI's black dot",
+  "does": "Blinks under the receipt, types and un-types the question, turns green while ChatGPT builds, leads every rewind back into the composer, and is the full stop left alone on the last frame."
+ },
+ "hero_moment": {
+  "beat": 4,
+  "what": "The bill-splitter prompt becomes THE DINNER LEDGER clipboard, streamed into the chat, and a tap under WHO HAD IT? splits a dish."
+ },
+ "uses": [
+  "Split the dinner bill with a clipboard tool",
+  "See Roth IRA savings grow on a slider",
+  "Scale a lamb roast to one more friend"
+ ],
+ "proof": {
+  "line": "Over 1.2 billion ask weekly.",
+  "claim": "c4"
+ },
+ "cta": {
+  "line": "Ask ChatGPT.",
+  "action": "Ask",
+  "where": "chatgpt.com"
+ },
+ "last_line": "Ask ChatGPT.",
+ "end_line_largest": true,
+ "clear_by_s4": true,
+ "first_4s": "The ChatGPT composer on white; a crumpled TRATTORIA receipt lands in it and unrolls its dishes under 'Your table of five.'",
+ "honest_demo": true,
+ "scores": {
+  "originality": 4,
+  "clarity": 4,
+  "fit": 5,
+  "memorability": 5,
+  "feasibility": 4
+ },
+ "critique": {
+  "retell": "It's the one where you can't split the bill, ChatGPT makes you a clipboard that does it, and then every answer rewinds into the box you typed in."
+ },
+ "beats": [
+  {
+   "name": "The receipt",
+   "role": "hook",
+   "duration_s": 3.8,
+   "on_screen": "Your table of five. One receipt.",
+   "picture": "A crumpled restaurant receipt lands in the ChatGPT composer; the receipt in the composer unrolls its four dishes.",
+   "visual": "Frame 0: white #fcfcfc, the real ChatGPT composer pill (+ at left, 'Ask ChatGPT' hint text, 'Instant' picker with chevron, mic, round blue voice button) small at the lower third, its caret blinking as a black dot. At 0.3 s the crumpled TRATTORIA receipt photo drops in above the pill and lands as its attachment thumbnail; 'Your table of five.' sets on the receipt's own header line. Then: The receipt unrolls downward out of the composer thumbnail like a till roll, one row per beat: Margherita 14.00, Cacio e Pepe 16.00, Rigatoni Vodka 17.00, Insalata 14.00; 'One receipt.' swaps in on the header. Carries over: the four dish rows.",
+   "turn": false,
+   "value": true,
+   "shows": [
+    {
+     "line": "Your table of five."
+    },
+    {
+     "line": "One receipt."
+    }
+   ]
+  },
+  {
+   "name": "Who had what",
+   "role": "agitate",
+   "duration_s": 3,
+   "on_screen": "Who had what? Ugh.",
+   "picture": "The viewer types the question into ChatGPT, then deletes it; the viewer gives up on the question and deletes it.",
+   "visual": "The four dish rows fan apart across the white, each price split from its dish in grey #a1a2a1, while 'Who had what?' types into the composer field over the 'Ask ChatGPT' hint text, the caret leading. Then: The typed question deletes itself right to left, character by character (the film's first, tiny rewind); the fanned rows drop back into a heap on the receipt thumbnail; 'Ugh.' is what is left in the field. Carries over: the composer field and its caret.",
+   "value": false,
+   "shows": [
+    {
+     "line": "Who had what?"
+    },
+    {
+     "line": "Ugh."
+    }
+   ]
+  },
+  {
+   "name": "Just ask",
+   "role": "meet",
+   "duration_s": 5.2,
+   "on_screen": "So just ask ChatGPT.",
+   "picture": "The brand reveal: the name ChatGPT lands in the real composer's 'Ask ChatGPT' text.",
+   "visual": "The brand reveal: 'Ugh.' becomes 'So just ask ChatGPT.' in the same field, and 'ask ChatGPT' slides into the hint-text slot so the line and the composer's own 'Ask ChatGPT' are the same words; the name ChatGPT lands here, once, in the real box. Then a hard push into the composer until the pill fills the frame width. Then: The real prompt types huge in a typing crop, 'Bill splitter for a party of five based on what we ate, can you make it look like a clipboard', the crop riding the caret and resting on '...make it look like a clipboard'. The black macOS arrow cursor presses the round send button at 11.4 s; the pale green user bubble lands right-aligned with the receipt thumbnail above it, and the caret dot becomes the single green thinking dot. Carries over: the green dot.",
+   "value": false,
+   "shows": [
+    {
+     "line": "So just ask ChatGPT."
+    }
+   ]
+  },
+  {
+   "name": "The Dinner Ledger",
+   "role": "benefit",
+   "duration_s": 2.6,
+   "on_screen": "A tool for your table.",
+   "picture": "ChatGPT answers with a working clipboard bill splitter, streaming in.",
+   "visual": "The hero moment: the green dot breathes once, then the clipboard card streams in under the bubble, top to bottom (c7): the metal clip, THE DINNER LEDGER, 'The Check, Please.', TABLE OF FIVE · ITEMIZED BILL, '01 / Who's at the table?' with GUEST 01 to GUEST 05, '02 / What did you order?' with the four dishes and their WHO HAD IT? rows. Carries over: the WHO HAD IT? row under Rigatoni Vodka.",
+   "benefit": "You get a working tool for your exact table.",
+   "value": false,
+   "shows": [
+    {
+     "line": "A tool for your table."
+    }
+   ],
+   "domain": "social-money"
+  },
+  {
+   "name": "Tap to split",
+   "role": "benefit",
+   "duration_s": 2.2,
+   "on_screen": "Tap. ChatGPT splits it.",
+   "picture": "A tap on who had it splits the dish.",
+   "visual": "The black arrow cursor taps three names under Rigatoni Vodka's WHO HAD IT?: three green ticks land one per beat and the dish's cost divides between the ticked guests, per the card's own rule. Carries over: the clipboard, which the next join rewinds.",
+   "benefit": "You split the bill by tapping who had what.",
+   "value": false,
+   "shows": [
+    {
+     "line": "Tap. ChatGPT splits it."
+    }
+   ],
+   "domain": "social-money"
+  },
+  {
+   "name": "The slider",
+   "role": "benefit",
+   "duration_s": 2.6,
+   "on_screen": "Your savings, on a slider.",
+   "picture": "A money question becomes a calculator the viewer drags.",
+   "visual": "The join is a rewind: the ledger un-streams back into its bubble in 0.4 s, the bubble's words swap in place to 'Show me how does a roth IRA work', and the answer plays forward: the calculator card with 'Projected balance after 30 years', $416,129, the two-colour bar (contributions blue #4f91ca, growth green #3a9b74), and sliders Monthly contribution, Years invested, Annual return (assumed). The cursor drags Monthly contribution; the headline digits roll and the bar's green half grows. Carries over: the bubble.",
+   "benefit": "You see your savings grow while you drag, no maths.",
+   "value": false,
+   "shows": [
+    {
+     "line": "Your savings, on a slider."
+    }
+   ],
+   "domain": "money"
+  },
+  {
+   "name": "The stepper",
+   "role": "benefit",
+   "duration_s": 2.6,
+   "on_screen": "One more friend? Tap plus.",
+   "picture": "A dinner plan whose guest count the viewer changes with one tap.",
+   "visual": "Rewind join: the bubble swaps to 'Give me a plan for a sunday lamb roast, I'm having friends over still figuring out numbers tbh' and the roast plan plays forward: the 'Number of people' stepper reading 5 People, quantities beneath (Bone-in leg of lamb 2.0 kg), 'Copy shopping list'. The cursor taps plus: 5 People becomes 6 People and every quantity recounts at once. Carries over: the stepper's plus, which the rewind will pull back.",
+   "benefit": "You plan for whoever turns up, with one tap.",
+   "value": false,
+   "shows": [
+    {
+     "line": "One more friend? Tap plus."
+    }
+   ],
+   "domain": "food-hosting"
+  },
+  {
+   "name": "Back to the sentence",
+   "role": "payoff",
+   "duration_s": 2.4,
+   "on_screen": "You just asked.",
+   "picture": "Every tool rewinds back into the one empty box it came from.",
+   "visual": "The reel moment, the device in one move: everything rewinds at once, readable because each step is one strong action. 6 People steps back to 5, the roast card un-streams into its bubble, the thread scrolls down past the calculator un-streaming into its bubble, past the ledger un-ticking and un-streaming into the first green bubble, the three pale green bubbles fold into the composer as un-typed text, and the composer is empty again: 'Ask ChatGPT' and the blinking caret. A 0.8 s breath on the caret dot, alone on white. Carries over: the caret dot.",
+   "turn": true,
+   "value": false,
+   "shows": [
+    {
+     "line": "You just asked."
+    }
+   ]
+  },
+  {
+   "name": "Every week",
+   "role": "proof",
+   "duration_s": 2.6,
+   "on_screen": "Over 1.2 billion ask weekly.",
+   "picture": "The composer counts the people who ask each week.",
+   "visual": "In the composer's hint-text slot a tabular counter rolls up, 0.4, 0.8, 1.2 billion, the digits rolling in OpenAI Sans; 'ask weekly' writes on after it. The pill holds still around it, the only motion is the digits and the caret. Carries over: the pill and the caret dot.",
+   "value": false,
+   "shows": [
+    {
+     "line": "Over 1.2 billion ask weekly."
+    }
+   ]
+  },
+  {
+   "name": "Ask",
+   "role": "cta",
+   "duration_s": 3,
+   "on_screen": "Ask ChatGPT.",
+   "picture": "The hint text becomes the end line, then the dot.",
+   "visual": "The counter swaps back to 'Ask ChatGPT' and the words grow out of the pill as it dissolves away by scale, settling as the largest type in the film, semibold, centred on white, the blossom mark small above it, chatgpt.com tiny at the bottom margin. Held 2 s. Last frame: the full stop of 'ChatGPT.' stays as the single black dot alone on white.",
+   "value": false,
+   "shows": [
+    {
+     "line": "Ask ChatGPT."
+    }
+   ]
+  }
+ ]
+}

@@ -1,6 +1,6 @@
 # Story: the playbook
 
-Left alone, every AI launch video tells the same story: hook stat → problem montage → "Introducing X" → three features → CTA. That is a sales deck built outward from the feature list, and it has no turn. RasanAI's stories start from **one idea** instead (a borrowed form, one metaphor, one rule about time or camera, an unexpected protagonist), and the features show up *inside* that idea as evidence.
+Left alone, every AI launch video tells the same story: hook stat → problem montage → "Introducing X" → three features → CTA. That is a sales deck built outward from the feature list, and it has no turn. RasanAI's stories start from **one idea** instead (a borrowed form, one metaphor, one rule about time or camera, an unexpected protagonist), and the features show up *inside* that idea as evidence. (That opener is for brand, explainer and concept films. On a product-first film the idea is the product's own verb or enemy, and the story's scope matches the claim's: see Scope below.)
 
 The engine is `scripts/story.mjs` over the catalog `taxonomy/devices.json` (66 devices in 7 families; schema in `taxonomy/devices-SCHEMA.md`). The loop:
 
@@ -15,17 +15,19 @@ The writing itself (structures by length, hooks, voiceover and on-screen lines, 
 
 ## 1. The truth sheet (before any concept)
 
-Specificity comes from here, and this is the step that gets skipped most. Fill every section from the capture, the brief, the screenshots and the user's words:
+Specificity comes from here, and this is the step that gets skipped most: **specific in detail** (the real label, the exact prompt, the number), **common in situation** (a moment most of the audience has had this month). Fill every section from the capture, the brief, the screenshots and the user's words:
 
-- **Transformation**: from ___ to ___, in the audience's words. ("from PRs that wait two days on one tired senior, to PRs that arrive already reviewed")
-- **Emotional truth**: the feeling *under* the task, not a feature. The small shame, fear, longing or relief. ("the quiet guilt of approving a 900-line diff with 'LGTM' at 11 pm")
+- **Claim scope**: `scope: universal | category | single-task`, `why` (the sentence from the feature's own page that decides it), `clauses` (the promise's own clauses, separated by `;`), `audience: mass | role | persona`, `series: no | yes`. **universal**: the promise is "any / anything / everyday / whatever", or the official examples span 3+ areas of life ("any question becomes a tool"). **category**: one family of jobs ("reviews every pull request"). **single-task**: one job done well ("sends the class a link mid-lesson"). `pick` refuses a launch, promo, product or brand truth sheet without it: a sheet written before the scope rules is regenerated, never reused.
+- **Use moments** (8 to 12 rows for a universal claim, 3+ for a category): `- <area of life>: "<a real use or ask, verbatim>" [claim id] (reach: most | many | some | few; asset or "prompt only")`, ranked **most universal first**, seeded from the brand's own launch film and page. Areas for a universal claim: learn, money, food-hosting, social-money, play, work, health, travel, home, creativity, shopping, other. For a universal claim the other uses are the film, not "1 to 2 fast proof uses".
+- **Transformation**: from ___ to ___, in the audience's words, **at the claim's scope**. Universal or category: the before every viewer shares ("from answers that arrive as paragraphs you then have to act on, to answers you can tap, drag and use"). Single-task: the one task ("from PRs that wait two days on one tired senior, to PRs that arrive already reviewed").
+- **Emotional truth**: the feeling *under* the task, not a feature, **at the claim's scope**: a feeling most of the audience has had ("the small letdown of asking for help and getting paragraphs to read"). A one-moment truth ("the quiet guilt of approving a 900-line diff with 'LGTM' at 11 pm") belongs to a single-task claim only.
 - **Enemy**: a thing, a habit, a phrase or a deadline. Not a competitor.
 - **Native objects (8 or more)**: physical and digital things, sounds and details from the product's world, as specific as you can make them ("merge conflict markers", "the 2 am pager alert"; not "code").
 - **Native formats (5 or more)**: document and media formats that exist in this world (a pull request, a postmortem, a status page, a receipt, a calendar invite). A native format plus a borrowed container is the richest source of concepts.
 - **Native words**: the product's exact UI labels, button text, jargon and error messages, **copied** from the site or screenshots. These are the only UI words a film may show.
 - **Proof**: every claim the film may make, each with its source. Only what is true.
 - **Surprising facts**: at least one non-obvious truth, with a source.
-- **Must-show features** (3 at most), **Assets** (screenshots, logo, footage, product sounds, real data), **Competitors** (for the swap test), **Audience**, **Format / length / aspect**, **Tone**, **Tags** (product-type tags from the catalog's vocabulary).
+- **Must-show features** (3 at most; the hero demo is the longest, cleanest shot, never the plot), **Assets** (screenshots, logo, footage, product sounds, real data), **Competitors** (for the swap test), **Audience**, **Format / length / aspect**, **Tone**, **Tags** (product-type tags from the catalog's vocabulary).
 - **The cliché version**: write the default-arc film in six lines. It is the negative example; the pitches must not be it.
 
 `pick` refuses an empty sheet and lists the gaps of a thin one (`truth_gaps`); fill them rather than pitching around them.
@@ -38,11 +40,11 @@ For launch, promo and product films (`--format launch`, or `--product-first`; `r
 
 Real launch films are not plots. Google's "Ask Search Anything" (87 s) is a **refrain ladder**: one verb ("Ask") is the spine, each rung is a title card with one highlighted word ("Ask **simple** questions", "Ask **longer**", "Ask it to do the **research**", "Ask it to **shop** for you") over a real UI demo of a DIFFERENT everyday use, escalating from simple to done-for-you, then "Ask **anything**" and the logo. A test film that followed one dinner bill for 30 s was rejected: it was a plot, and "that's not how launch videos are made". The creativity lives in the joins between rungs (a title word becomes the search bar, the bar becomes the next demo, the last input becomes the logo), never in the story.
 
-Pitch field `shape: "ladder" | "pas" | "scenario"`.
+Pitch field `shape: "ladder" | "pas" | "scenario"`, or one of the S1 shapes the format picker ranks (`library/formats.json`): `intercut` (3-5 people in different areas of life hit one shared enemy, one turn line, each resolved by the real UI, a collage of more uses: OpenAI's own Intelligent UI film), `montage` (6-12 shots of 1-3 s, a claim line), `hero-strip` (one hero demo up to 45% plus a strip of 4-8 uses), `before-after`, `claim-ladder`, `manifesto`, `life-arc`, `day-in-life`, `what-if`, `countdown`, `testimony`, `roundup`, `strategic`, `data-journey`, `steps`, `abt`, `titles`, `process`, `acts`, `trailer`. Each has its beat roles and timing in `STORY_SHAPES` (`story.mjs`; `pick` hands each label its `shape_rule`), and G10 checks its roles, counts, a picture per beat and a real UI cause and effect per use beat. When the run's `decisions.json` names a format (or `--format-id`), `pick` gives Sure, Bold and Wild the first three of its ranked shapes that the claim's scope allows (a universal claim: breadth shapes only).
 
-- **`ladder`** is a default for `product-launch-video` and kind launch, promo or brand, unless the brief or the research names ONE feature to sell. It is told from the product's refrain.
+- **`ladder`** is a default for `product-launch-video` and kind launch, promo or brand, unless the claim is single-task. A breadth feature is a ladder even when it is the only feature. It is told from the product's refrain.
 - **`pas`** (pain, meet, benefits, proof, cta) is the other launch shape and is told from the VIEWER's day (below). Kinso's launch is one: "Your next deal is in here somewhere", "Woah", "You are a really busy person", the reveal at 27%, "One inbox for every conversation", three benefits each with one UI behaviour, "Join 27,300 others on the waitlist", the logo and URL.
-- **`scenario`** is for a single-feature spot (a 29 s "Sites" film): one viewer, one task, the `feature` block and roles hook, proof, turn, cta, exactly as before.
+- **`scenario`** is for a single-task claim (a 29 s "Sites" film): one viewer, one task, the `feature` block and roles hook, proof, turn, cta, exactly as before. A single persona is allowed only when the feature is persona-specific (`audience: role | persona`), the film is one spot in a declared series (`series: yes`), or the arc is archetypal and passes through 3+ uses.
 
 A ladder pitch carries `refrain: {verb, pattern}` (e.g. `{verb: "Ask", pattern: "Ask <it to> <highlight>"}`) and beats with a `role`:
 
@@ -53,7 +55,7 @@ A ladder pitch carries `refrain: {verb, pattern}` (e.g. `{verb: "Ask", pattern: 
 
 Rung counts: films of 35 s or less 3 to 4 rungs; 36 to 60 s 4 to 6; over 60 s 6 to 8. G10 on a ladder fails (errors) when the refrain verb is missing, a rung or the open or close title lacks the verb, the rung count is outside the range, two rungs share a `use` content noun, `level` does not strictly rise, one rung takes over 35% of the film, a rung has no `ui` cause and effect, or there is no `close`; it warns on a title over 6 words or a highlight not in its title.
 
-`story.mjs pick --format launch` offers both launch shapes across Sure, Bold and Wild (for example Sure a ladder, Bold a pas, Wild either) unless `--shape ladder|pas` forces one; `scenario` stays for single-feature spots. Sure, Bold and Wild differ in which uses, their order, the pacing and the refrain's wording (Sure: the product's own verb, straight; Bold: a faster cut ladder with a twist rung; Wild: an unexpected but true refrain), never in turning the film into one plot. The devices that fit (the list that breaks, escalation, call and response, countdown) are the ladder's rhythm.
+`story.mjs pick` takes the shapes from `SHAPES_BY_TYPE` (video type x claim scope), never from a coin flip: a **universal** claim gets three ladders (Sure: the product's verb straight, the most universal uses first; Bold: shorter rungs, four rungs plus a burst of more asks, a list-break rung; Wild: the reach in camera and joins, one continuous take through the product's input, never a narrower story), each leading with a different subset of the Use moments (`lead_domains`); a **category** claim gets Sure a ladder, Bold a pas, Wild a ladder; a **single-task** claim gets the scenario. `--shape` forces one, `--scope` overrides the sheet. Sure, Bold and Wild differ in which uses, their order, the pacing and the refrain's wording (Sure: the product's own verb, straight; Bold: a faster cut ladder with a twist rung; Wild: an unexpected but true refrain), never in turning the film into one plot. The devices that fit (the list that breaks, escalation, call and response, countdown) are the ladder's rhythm.
 
 ### The pas: a launch told about the viewer
 
@@ -68,7 +70,17 @@ A `pas` pitch carries `shape: "pas"` and beats with a `role`:
 
 Rungs of a ladder also carry `benefit`. Sure, Bold and Wild differ in the pain chosen, the order, the pace and where the reaction lands, never in leaving the viewer's day. `references/script.md` has a worked pas for a non-Google product and `references/launch-film.md` section 1 the timing templates by length.
 
-**G12, viewer first** (`story.mjs check`, errors on launch and promo films, every shape): no on-screen line in the first 25% addresses the viewer (`you`, `your`, `you're`, or a first-person viewer line like "I just want a time") is `not-viewer-first`; a pas whose `meet` beat starts before 20% of the film is `reveal-too-early`; a `benefit` or `rung` beat without `benefit` (12 words at most, in viewer language) is `no-benefit`; no `proof` when `research/claims.json` has a number, adoption, rating or named-customer claim is `no-proof` (a warning if there is no such claim, never invent one); a `cta` without a concrete `action` and `where` is `weak-cta`; `film_seconds / on-screen lines` above 3.0 is `sparse-lines`. Warnings: `slogan-copy` (more than 60% of lines have neither a verb nor a pronoun) and `toy-demos` (every use is a demo and no `benefit` mentions a life situation).
+**G13, scope matches the claim** (`story.mjs check`, errors on launch, promo and product films; it reads `Claim scope` from the truth sheet, and every rung or benefit names its `domain` (area of life), its `reach` (most | many | some | few) and the promise `clause` it shows). Measured: **D**, the distinct areas of life across the uses plus a declared breadth burst (`domains[]` on a close or ways_in beat); **S_max**, the largest runtime share of one scenario (beats grouped by shared content nouns over on_screen, picture, use and the shows lines, every role included, the hook and the cta too; the product's own surfaces never count); **P**, the beats that call one scenario back (the pain set-up, a punchline cta) plus a chain of first-person "I" lines; the **retell** (`critique.retell`). Thresholds:
+
+| claim scope | uses (30 s / 45 s / 60 s) | D (<=22 s / <=40 s / longer) | S_max | P | opening and close |
+|---|---|---|---|---|---|
+| universal | 4 / 5 / 6 | 3 / 4 / 5, no area over half the uses | 35% at most (warns over 25%) | 0 | the category's pain or a montage of 3+ asks; the close generalises ("Ask anything"), never resolves a scenario |
+| category | 3 | 2 / 3 / 4 | 35% at most | 1 at most | any |
+| single-task | n/a | n/a | n/a | n/a | the viewer's before, one action |
+
+Also for a universal claim: the shape is a ladder or a pas (never a scenario), no use is reach "few" (and the first use is "most", a warning), every promise clause is shown by a use, and the retell names the range ("anything you ask comes back as a tool"), never one situation. A single persona is allowed only with `audience: role | persona`, `series: yes` or `persona_arc: true`. In a set of three, two scripts that each spend over 25% on the same scenario fail the portfolio (`collapse`): the later one is re-rolled from the unused Use moments. On a pas, no two benefits share a scenario noun (G10).
+
+**G12, viewer first** (`story.mjs check`, errors on launch and promo films, every shape): no on-screen line in the first 25% addresses the viewer (`you`, `your`, `you're`, or a first-person viewer line like "I just want a time") is `not-viewer-first`; a pas whose `meet` beat starts before 20% of the film is `reveal-too-early`; a `benefit` or `rung` beat without `benefit` (12 words at most, in viewer language) is `no-benefit`; no `proof` when `research/claims.json` has a number, adoption, rating or named-customer claim is `no-proof` (a warning if there is no such claim, never invent one); a `cta` without a concrete `action` and `where` is `weak-cta`; `film_seconds / on-screen lines` above 3.0 is `sparse-lines`. Warnings: `slogan-copy` (more than 60% of lines have neither a verb nor a pronoun), `toy-demos` (every use is a demo and no `benefit` names a moment the viewer knows) and `same-situation` (two benefits name the same situation: each benefit is a different moment of life, never one persona's day twice).
 
 ## Branded launch films: simple, to the point (`references/launch-film.md`, `references/brand-film.md`)
 
@@ -84,7 +96,7 @@ It samples candidates from every family (weighted toward borrowed containers and
 
 - `--seed` makes it deterministic; the default seed is the product name plus today's date. For a fresh set, pass a new seed or `--exclude` the ids already shown.
 - `--format` / `--tone` override the truth sheet. `--like <id>` leans the set toward one device's axes. `--footage` makes live-action devices buildable.
-- **Sure** = the most buildable and immediately clear; **Bold** = the most original that's still on the brief; **Wild** = the reach that might be the best film or might not work. Always show all three.
+- **Sure** = the most buildable and immediately clear; **Bold** = the most original that's still on the brief; **Wild** = the reach that might be the best film or might not work. Always show all three. On a product-first film the reach is in craft (camera, joins, rhythm), never a narrower or more personal story, and the trio need not differ on protagonist.
 - Browse the catalog when you need to: `story.mjs devices [--family metaphor] [--fits devtool] [--q "receipt"]`, `story.mjs devices --id A5`, `story.mjs cliche`.
 
 ## 3. Write the pitches
@@ -172,17 +184,17 @@ Then the **weighted score**: originality 25%, clarity 20%, fit 20%, memorability
 1. **One idea, one sentence.** If the logline needs "and", it's two ideas.
 2. **Borrow a container the viewer already reads.** A search log, an auction, a weather report, a receipt or a manual give instant clarity (the grammar is known) and surprise (the grammar is misused).
 3. **Build from the product's own material:** its UI, data, output, name, sounds, artifacts. Google told a love story with nothing but its search box; Spotify wrote billboards from its own listening data.
-4. **The swap test.** Put a competitor's name in. If the film still works, it fails.
-5. **Specific beats general.** "SQ *BLUEBTL 4.75", not "a purchase". Numbers, names, times, the product's own objects.
+4. **The swap test.** Put a competitor's name in. If the film still works, it fails. Count the breaks on the product's own surfaces (its input, its bubble, its dot), not on one demo's labels: a film that breaks only because of one narrow demo is narrow, not distinctive. The scope swap: put a single-purpose app in (a bill-splitter app); if the film still works, it sells that app, not the feature.
+5. **Specific inside each beat, common in situation.** "SQ *BLUEBTL 4.75", not "a purchase": the exact prompt, the real label, the number. On a universal or category claim, never specific *across* beats: no persona, no situation that recurs. The universality test: would most of the audience recognise themselves in most beats?
 6. **Tension before relief.** Something is at stake; the product resolves it, it doesn't decorate a problem slide.
 7. **The turn at 60-75%:** a reveal, reversal, list-break, POV swap, escalation that collapses, or a line that reframes everything. The cliché arc has none. Every pitch names its turn.
-8. **One feature as a weapon, not three as a list.** If three must show, they live inside the device (three exhibits, three chain links, three levels).
+8. **One feature as a weapon, not three as a list** (brand and concept films, and single-task claims). If three must show, they live inside the device (three exhibits, three chain links, three levels). A breadth feature on a product-first film is the opposite: its range is the weapon, shown as a ladder of different everyday uses.
 9. **The film can be the proof.** When the form demonstrates the claim (precision shown by precise choreography, speed by an uncut real-time take), say so: `form_proves_claim`.
 10. **One rule, held.** One metaphor, one color, no cuts, reverse only. A strict rule is memorable and makes code-built motion look intentional.
 11. **Clear by second 4.** The viewer grasps the *device* (not necessarily the product) in about 4 seconds: "oh, it's a weather report".
 12. **Grounding: never invent claims, numbers or UI labels.** Stylize, compress and abstract, but show only real capabilities, only sourced numbers, only UI words copied from the product. A demo that lies is worse than none (Humane's launch film got facts wrong on camera).
 13. **Check the second reading.** Ask what else the metaphor could say about the brand, and drop it if the answer hurts.
-14. **Craft rescues the standard arc only for loved brands.** Linear or Raycast can run hook → features → CTA because taste is the message. A new product needs a concept. A "craft-forward standard arc" can be the Sure option on request, never the default.
+14. **Craft rescues the standard arc only for loved brands** (not for product-first films, which follow product-first.md). Linear or Raycast can run hook → features → CTA because taste is the message. A new product needs a concept. A "craft-forward standard arc" can be the Sure option on request, never the default.
 
 ## Avoid
 

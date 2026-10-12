@@ -12,6 +12,10 @@ public enum BriefSeed {
             "length_s": .number(Double(draft.duration)),
             "aspect": .string(draft.aspect),
         ]
+        if let format = draft.format {
+            fields["format"] = format.json
+            if let kind = format.kind { fields["kind"] = .string(kind) }
+        }
         if let brand = draft.brand, !brand.isEmpty {
             fields["brand_name"] = .string(brand)
             fields["use_brand"] = .bool(true)

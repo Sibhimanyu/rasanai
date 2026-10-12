@@ -1,0 +1,173 @@
+{
+ "_source": "run6 (.context/chatgpt-test/.rasanai/run6/story/pitch-Sure.json), trimmed to the fields story.mjs G13 reads; domain added to each use-bearing beat as a writer would after the scope fix",
+ "id": "list-breaks",
+ "label": "Sure",
+ "title": "Four asks, four tools",
+ "logline": "Three useful asks, then one for play; every answer is a tool.",
+ "device": "list-breaks",
+ "product_first": true,
+ "shape": "ladder",
+ "refrain": {
+  "verb": "Ask",
+  "pattern": "Ask <it to | how | for> <highlight>"
+ },
+ "aim": {
+  "takeaway": "Now when I ask ChatGPT, the answer is a tool I can actually use.",
+  "feel": "Quietly impressed",
+  "action": "Open ChatGPT and ask for a tool",
+  "audience": "Everyday ChatGPT users on the web who know it as a box that answers in paragraphs"
+ },
+ "approach": "Four everyday asks, each answered by a real working tool, climbing from a calculator to a game; the fourth ask breaks the list with play.",
+ "actor": {
+  "what": "The real Ask ChatGPT composer (the white pill with +, Instant, mic and the round send button) and its caret",
+  "does": "Every title's highlighted word drops into it as the real prompt, it sends every ask, its send press becomes the green thinking dot, and at the end its hint text is the last line before it shrinks to the closing black dot"
+ },
+ "hero_moment": {
+  "beat": 4,
+  "what": "Bill splitter for a party of five: the streamed answer folds into the working clipboard and the cursor ticks WHO HAD IT? until the shares change."
+ },
+ "proof": {
+  "line": "1.2 billion people use it weekly.",
+  "claim": "c4"
+ },
+ "cta": {
+  "line": "Ask ChatGPT.",
+  "action": "Ask",
+  "where": "chatgpt.com, in the Chat tab"
+ },
+ "last_line": "Ask ChatGPT.",
+ "end_line_largest": true,
+ "clear_by_s4": true,
+ "first_4s": "White canvas, the blossom mark small, 'You ask.' types centred and its 'ask' drops into the real Ask ChatGPT composer rising under it; by 2.6 s the first title is already landing its word in the composer.",
+ "honest_demo": true,
+ "scores": {
+  "originality": 3,
+  "clarity": 5,
+  "fit": 5,
+  "memorability": 4,
+  "feasibility": 5
+ },
+ "critique": {
+  "retell": "It's the one where every ask in the ChatGPT box comes back as a tool you can use, and the last one is a game."
+ },
+ "beats": [
+  {
+   "name": "You ask",
+   "role": "open",
+   "duration_s": 2.6,
+   "on_screen": "You ask.",
+   "picture": "The line 'You ask.' types on white and its last word falls into the real composer, becoming the 'Ask' of its hint text.",
+   "visual": "Brand opening exactly: #FCFCFC canvas, the downloaded blossom mark (research/brand/assets/chatgpt-mark-black.svg) small and centred at 0.0 s, lifting to a tiny top-margin position. 'You ask.' types centred in OpenAI Sans semibold with a black caret. The real light composer (rounded white pill, '+' at left, 'Instant' picker with chevron, mic, round send button) rises from the bottom edge as a cropped fragment; the word 'ask' leaves the line, drops and lands capitalised as the 'Ask' of the hint text 'Ask ChatGPT'. Carries: the composer and its caret, centred, the same position for every ask.",
+   "value": true,
+   "shows": [
+    {
+     "line": "You ask."
+    }
+   ]
+  },
+  {
+   "name": "How it works",
+   "role": "rung",
+   "duration_s": 4.8,
+   "on_screen": "Ask how it works.",
+   "picture": "The word 'how' slides into the real prompt, the prompt sends, and a slider calculator with a $416,129 headline builds itself where paragraphs would have been.",
+   "visual": "'Ask how it works.' types centred above the composer, 'how' in accent blue (#0285FF), the only colour. The other words clear; 'how' slides down into its exact slot inside the typed prompt 'Show me how does a roth IRA work' and turns black. Push-in crop: the cursor presses the round send button; the prompt lifts into a pale green bubble at right, the single green dot pulses below it, and the Roth calculator card streams in as a cropped fragment (the embed rebuilt light, OpenAI Sans): the $416,129 headline, 'Projected balance after 30 years', sliders Monthly contribution / Years invested / Annual return (assumed), the two-colour bar (blue contributions, green growth). The black macOS cursor drags Monthly contribution; the headline digits roll and the bar grows. Carries: the composer at the frame bottom, empty again, caret blinking.",
+   "use": "understand a Roth IRA",
+   "benefit": "You try your own retirement numbers instead of reading paragraphs.",
+   "highlight": "how",
+   "level": 1,
+   "shows": [
+    {
+     "line": "Ask how it works."
+    },
+    {
+     "line": "Try your own numbers."
+    }
+   ],
+   "domain": "money"
+  },
+  {
+   "name": "A plan",
+   "role": "rung",
+   "duration_s": 4.8,
+   "on_screen": "Ask it to plan.",
+   "picture": "The word 'plan' slides into the roast prompt, and a planner arrives with a 'Number of people' stepper whose plus button the cursor taps.",
+   "visual": "Same slot, same rhythm: 'Ask it to plan.' types above the composer, 'plan' in accent blue. 'plan' drops into its place in the long prompt, which is already typed and scrolls left inside the field as the word lands. Send, the pale green bubble, the green dot; the roast planner streams in as a cropped card: menu lines, then 'Number of people' with the minus / 5 People / plus stepper, then the shopping list with 'Bone-in leg of lamb 2.0 kg'. Push-in on the stepper: the cursor taps plus and the quantities in the list change in place, row by row. The cursor presses 'Copy shopping list'. Carries: the stepper's plus button, which the cut matches to the receipt's paperclip position in the next ask.",
+   "use": "host a sunday roast",
+   "benefit": "Friends drop in or drop out, and your shopping list keeps up.",
+   "highlight": "plan",
+   "level": 2,
+   "shows": [
+    {
+     "line": "Ask it to plan."
+    },
+    {
+     "line": "More friends? Tap plus."
+    }
+   ],
+   "domain": "food-hosting"
+  },
+  {
+   "name": "Split the bill",
+   "role": "rung",
+   "duration_s": 6.8,
+   "on_screen": "Ask it to split the bill.",
+   "picture": "A receipt photo attaches, the word 'bill' becomes the first word of the prompt, and the answer's streaming words fold into a working clipboard bill splitter that the cursor ticks.",
+   "visual": "The hero ask, the longest and cleanest shot. A crumpled restaurant receipt photo (TRATTORIA, itemised, Subtotal, Tax, Total) drops onto the composer and becomes its attachment thumbnail. 'Ask it to split the bill.' types; 'bill' (blue) drops, capitalises and becomes the first word of 'Bill splitter for a party of five based on what we ate, can you make it look like a clipboard'. Send. The pale green bubble lifts; the single green dot breathes for 0.6 s (the brand's breath before the result). Then the show-off: the answer starts as one line of grey streaming text wiping in left to right, and each phrase, as it streams, lifts out of the line and snaps into a part of a brown clipboard with a metal clip building beneath it: 'THE DINNER LEDGER' into the header, 'The Check, Please.' into the title, 'TABLE OF FIVE · ITEMIZED BILL' into the strap; '01 / Who's at the table?' unfolds five GUEST fields, '02 / What did you order?' lays the dish rows with Price ($) and WHO HAD IT?. The text never becomes a paragraph: every word ends up as a part of the tool. Push-in crop on the Cacio e Pepe row: the cursor ticks two names, green ticks land, and the per-guest shares change. Carries: the clipboard's top edge and its metal clip, which the cut matches to the top of the next console.",
+   "use": "split dinner for five",
+   "benefit": "You settle dinner for five before anyone reaches for a calculator.",
+   "highlight": "bill",
+   "level": 3,
+   "shows": [
+    {
+     "line": "Ask it to split the bill."
+    },
+    {
+     "line": "ChatGPT builds it."
+    },
+    {
+     "line": "Tap who had what."
+    }
+   ],
+   "domain": "social-money"
+  },
+  {
+   "name": "The list breaks",
+   "role": "rung",
+   "duration_s": 4.4,
+   "on_screen": "Ask it to play.",
+   "picture": "After three chores the fourth ask is for fun: 'play' slides into the prompt and a whole playable handheld console streams in, and the cursor presses START GAME.",
+   "visual": "The break. The music drops out for 0.6 s and the frame holds only the empty composer with its caret blinking (one slow mover, never a freeze). Then 'Ask it to play.' types at the same size as the three before; 'play' (blue) flies to the END of the prompt this time, completing 'Create a retro interactive gaming console that I can play'. Send; the beige PIXEL PALACE handheld streams in as a cropped card, tabs SNAKE / BREAKOUT / PONG; the cursor presses START GAME and the snake moves across the console screen. Carries: the snake's head, a small square moving right, which the cut matches into the closing composer's caret.",
+   "use": "play a retro game",
+   "benefit": "Your spare five minutes get a game built just for you.",
+   "highlight": "play",
+   "level": 4,
+   "turn": true,
+   "shows": [
+    {
+     "line": "Ask it to play."
+    },
+    {
+     "line": "Your move."
+    }
+   ],
+   "domain": "play"
+  },
+  {
+   "name": "Ask ChatGPT",
+   "role": "close",
+   "duration_s": 6.6,
+   "on_screen": "Ask ChatGPT.",
+   "picture": "The four prompts stack as green bubbles, the proof line lands on them, then the composer's own hint text grows into the largest line of the film and the caret shrinks to a single black dot.",
+   "visual": "The snake's head becomes the composer's caret, blinking. Above it the four pale green bubbles from the film stack up the right of the thread (the Roth, roast, bill and console prompts), then a fast scroll of OpenAI's own example asks rises behind them (Help me understand the central limit theorem intuitively, GDP explained simply, Monty Hall problem): a burst of cuts on the beat, the brand's density build. It stops; '1.2 billion people use it weekly.' lands centred on the composer line, 1.2 billion in black semibold. Then the composer's chrome (+, Instant, mic, send) draws away and its hint text 'Ask ChatGPT' scales up to the largest type in the film, black on #FCFCFC, the blossom mark small to its left. Held 2.4 s, then the line clears and the caret contracts to a single black dot, centred, the last frame (the brand's ending). One CTA, no URL, no badge.",
+   "shows": [
+    {
+     "line": "1.2 billion people use it weekly."
+    },
+    {
+     "line": "Ask ChatGPT."
+    }
+   ]
+  }
+ ]
+}

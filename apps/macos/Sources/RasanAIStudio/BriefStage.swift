@@ -11,6 +11,9 @@ struct BriefStage: View {
     /// The person's edits; nil until they change something, so Claude's updated push still shows through.
     @State private var draft: [String: JSONValue]?
     @State private var editingSubject = false
+    /// The person's pick in the format picker; nil until they choose, so the director's own `format` shows through.
+    @State private var picked: FormatPick?
+    @State private var changingFormat = false
     @State private var appeared = false
     @FocusState private var subjectFocused: Bool
 
@@ -21,6 +24,15 @@ struct BriefStage: View {
     private var needsSource: Bool { (fields["subject"]?.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     /// The director asked what the video is about, so the answer also goes back as `source`.
     private var sourceWasAsked: Bool { payload["needs_source"].bool == true || (payload["fields"]["subject"].string ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    private var catalog: FormatCatalog? { FormatCatalog.installed }
+    /// The format in force: the person's pick, else what the brief carries (fields, then the director's push).
+    private var format: FormatPick? {
+        picked ?? FormatPick(json: fields["format"] ?? .null) ?? FormatPick(json: payload["format"])
+    }
+    private var formatOption: FormatCatalog.Option? { catalog?.option(format?.option) }
+    /// The format picker replaces the old kind menu, except when the director narrowed the kinds itself and picked no format.
+    private var usesFormatPicker: Bool { catalog != nil && (format != nil || choices["kind"].array.isEmpty) }
+    private var subjectPlaceholder: String { formatOption.flatMap { catalog?.subjectPrompt(for: $0) } ?? "what it's about, a link or a topic" }
     private var canAct: Bool { model.canAct(on: step) && !(model.hasSent(step) && model.status(step) != "done") }
 
     var body: some View {
@@ -31,6 +43,17 @@ struct BriefStage: View {
             VStack(alignment: .leading, spacing: 24) {
                 sentenceCard
                     .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 10)
+                if usesFormatPicker, let catalog {
+                    VStack(alignment: .leading, spacing: 10) {
+                        FormatPickerView(catalog: catalog, pick: format, canAct: canAct,
+                                         onPick: pickFormat, onScope: { scope in
+                            guard var current = format else { return }
+                            current.scope = scope; picked = current
+                        }, changing: $changingFormat)
+                        if let option = formatOption, option.status != .soon { FormatInputsNote(catalog: catalog, option: option) }
+                    }
+                    .opacity(appeared ? 1 : 0)
+                }
                 let findings = payload["findings"].array
                 let captures = payload["captures"].array
                 if !captures.isEmpty {
@@ -53,7 +76,7 @@ struct BriefStage: View {
             BriefActions(model: model, step: step, canAct: canAct,
                          start: { submit(thenDecideRest: false) },
                          justMakeIt: { submit(thenDecideRest: true) },
-                         startEnabled: !needsSource)
+                         startEnabled: !needsSource && formatOption?.status != .soon)
         }
     }
 
@@ -90,9 +113,11 @@ struct BriefStage: View {
              options: options("length_s", defaults: [15, 30, 45, 60, 90].map { .number(Double($0)) }) { "\($0.number.map { String(Int($0)) } ?? $0.identifier ?? "")-second" },
              display: { "\(Int($0.number ?? 45))-second" })
         word(" ")
-        menu("Kind", key: "kind", fallback: .string("launch film"),
-             options: options("kind", defaults: ["launch film", "explainer", "brand film", "feature reveal", "social teaser", "product demo"].map(JSONValue.string)) { $0.string ?? "" },
-             display: { Self.soften($0.string ?? "launch film") })
+        if usesFormatPicker { formatToken } else {
+            menu("Kind", key: "kind", fallback: .string("launch film"),
+                 options: options("kind", defaults: ["launch film", "explainer", "brand film", "feature reveal", "social teaser", "product demo"].map(JSONValue.string)) { $0.string ?? "" },
+                 display: { Self.soften($0.string ?? "launch film") })
+        }
         word(" for ")
         subjectTokens
         word(", ")
@@ -115,6 +140,32 @@ struct BriefStage: View {
         word(".")
     }
 
+    /// The kind noun in the sentence ("launch film"); pressing it opens the format list below.
+    private var formatToken: some View {
+        let text = Self.soften(formatOption?.kind ?? fields["kind"]?.string ?? "film")
+        return Button { changingFormat.toggle() } label: {
+            Text(text).foregroundStyle(Color.rasan).padding(.horizontal, 7).padding(.vertical, 1)
+                .background(Color.rasan.opacity(canAct ? 0.11 : 0), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(alignment: .bottom) { Rectangle().fill(Color.rasan.opacity(canAct ? 0.5 : 0)).frame(height: 1.5).padding(.horizontal, 7) }
+        }
+        .buttonStyle(.plain).fixedSize().disabled(!canAct)
+        .accessibilityLabel("Kind: \(text)").accessibilityHint("Opens the list of formats")
+    }
+
+    /// Picks an option: its noun becomes `kind`, and length and shape move to its defaults unless already changed.
+    private func pickFormat(_ option: FormatCatalog.Option) {
+        guard let catalog else { return }
+        var scratch = FilmDraft(duration: Int(fields["length_s"]?.number ?? 45), aspect: fields["aspect"]?.string ?? "16:9")
+        catalog.pick(option, in: &scratch, previous: formatOption)
+        var next = fields
+        next["kind"] = .string(option.kind)
+        next["length_s"] = .number(Double(scratch.duration))
+        next["aspect"] = .string(scratch.aspect)
+        next["format"] = scratch.format?.json
+        draft = next
+        picked = scratch.format
+    }
+
     /// Plain words, one token each so the sentence wraps like text.
     @ViewBuilder private func word(_ text: String) -> some View {
         let words = text.split(separator: " ", omittingEmptySubsequences: false)
@@ -131,7 +182,7 @@ struct BriefStage: View {
     @ViewBuilder private var subjectTokens: some View {
         let subject = (fields["subject"]?.string ?? "")
         if editingSubject && canAct {
-            TextField("what it's about, a link or a topic", text: Binding(get: { subject }, set: { set("subject", .string($0)) }), axis: .vertical)
+            TextField(subjectPlaceholder, text: Binding(get: { subject }, set: { set("subject", .string($0)) }), axis: .vertical)
                 .textFieldStyle(.plain).focused($subjectFocused)
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .background(Color(nsColor: .textBackgroundColor).opacity(0.8), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -259,6 +310,11 @@ struct BriefStage: View {
         for (key, fallback) in [("length_s", JSONValue.number(45)), ("kind", .string("launch film")), ("aspect", .string("16:9")),
                                 ("destination", .string("the website")), ("narration", .bool(true))] where value[key] == nil || value[key] == .null {
             value[key] = fallback
+        }
+        if let format, let option = formatOption {
+            // The pick goes back as `format`; `kind` stays for directors that read only it.
+            value["format"] = format.json
+            value["kind"] = .string(option.kind)
         }
         if sourceWasAsked { value["source"] = .string(subject) }
         Task {

@@ -29,6 +29,7 @@ import { spawn, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die, SKILL_DIR, STATE_DIR, GSAP_PATH } from "./lib/common.mjs";
 import { acquire, release, withLock } from "./lib/runlock.mjs";
+import { briefFormat } from "./lib/formats.mjs";
 
 // this copy's version: a console started by an older copy is replaced, not reused
 const VERSION = (() => {
@@ -285,6 +286,8 @@ if (cmd === "push") {
   const base = args.merge || onlyDecision ? prev : {};
   const next = { ...base, ...data, status: args.status || data.status || (args.step === "build" ? "working" : "awaiting"), updated: now() };
   delete next.sent;
+  // the brief carries the "What are you making?" picker (library/formats.json) and the pre-selected pick, when the push has none
+  if (args.step === "brief" && next.status === "awaiting") Object.assign(next, briefFormat(next));
   // closing a step the user answered keeps who made the call, so the Decisions drawer credits them, not Claude
   if (next.status === "done" && !data.by && prev.sent && !["decide", "decide-rest", "note"].includes(prev.sent.type)) next.by = "user";
   // the step's discussion survives a re-push (Claude revising the options is the answer to it)

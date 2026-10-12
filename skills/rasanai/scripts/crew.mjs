@@ -1544,6 +1544,8 @@ async function checkRole(run, role, key) {
         try {
           const j = JSON.parse(r.stdout);
           if (j.truth_gaps && j.truth_gaps.length) P.push(`truth sheet gaps: ${j.truth_gaps.join("; ")}`);
+          const brf = readMaybe(research("BRIEFING.md")) || "";
+          if (j.claim_scope === "universal" && /\bone (viewer|person|user)\b|\bone (real )?task\b/i.test(brf)) P.push("the truth sheet says Claim scope: universal but research/BRIEFING.md frames the film as one viewer / one task: a breadth claim is told as the range of its uses (rewrite the angle, never a single scenario)");
         } catch {}
       }
       P.push(...claimsProblems(research("claims.json"), 8, "claims.json"));
@@ -1674,6 +1676,7 @@ async function checkRole(run, role, key) {
         if (String(n.first_watch || "").trim().split(/\s+/).length < 8) P.push('a product-first film: the recommendation needs "first_watch": why a first-time viewer gets this film in one watch with no explanation (8 words at least)');
         const rp = (n.pitches || []).find((x) => x.id === n.recommended);
         if (rp && rp.verdict !== "ship" && !(n.pitches || []).some((x) => x.verdict === "ship")) W.push("no pitch is at verdict ship: the recommendation is the clearest product story, still to be rewritten");
+        editorScopeProblems(run, n, P, W);
       }
       break;
     }
@@ -1930,11 +1933,13 @@ async function checkRole(run, role, key) {
       break;
     }
     case "concept-critic": {
+      { const why = editorGate(run, jsonMaybe(R(run, "crew", "plan.json")) || {}); if (why) P.push(why); }
       const f = R(run, "story", "concept-check.json");
       const c = jsonMaybe(f);
       if (!c) { P.push(`${rel(f)} is ${c === undefined ? "not valid JSON" : "missing"}`); break; }
       if (!["pass", "fix"].includes(c.verdict)) P.push('verdict must be "pass" or "fix"');
-      const Q = ["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear", ...(productFirst(run, jsonMaybe(R(run, "crew", "plan.json")) || {}) ? ["one_feature_one_scenario"] : [])];
+      const Q = ["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear", ...(productFirst(run, jsonMaybe(R(run, "crew", "plan.json")) || {}) ? ["one_feature_one_scenario", "scope_matches_claim"] : [])];
+      { const sm = c.answers && c.answers.scope_matches_claim; if (sm && typeof sm.ok === "boolean" && !/\d/.test(String(sm.evidence || ""))) P.push("answers.scope_matches_claim must carry the numbers (S_max with its beats, D, the 8-word retell), never a judgement without them"); }
       for (const q of Q) {
         const a = c.answers && c.answers[q];
         if (!a || typeof a.ok !== "boolean" || !String(a.evidence || "").trim()) P.push(`answers.${q} needs {ok: true|false, evidence: "<the beat or line it rests on>"}`);
@@ -2288,6 +2293,7 @@ if (cmd === "plan") {
   if (!ROLES[role]) die(`--role must be one of ${Object.keys(ROLES).join(", ")}`);
   const key = args.key && args.key !== true ? String(args.key) : null;
   const plan = jsonMaybe(R(run, "crew", "plan.json")) || {};
+  if (role === "concept-critic") { const why = editorGate(run, plan); if (why) die(why); }
   const { text, ctx, inputs, outputs } = promptFor(run, role, key, plan);
   const f = R(run, "crew", "prompts", `${role}${key ? "-" + key : ""}.md`);
   writeFile(f, text);
@@ -2415,4 +2421,49 @@ if (cmd === "plan") {
   out({ ok: true, sheet: rel(outPng), frames: res.files.length, dir: rel(dir), times: T, look: "Read the sheet image: spacing between frames shows the ease (wide gaps = fast, tight = slowing into a landing)" });
 } else {
   die("usage: crew.mjs plan|brief|check|status|pitches|storyboard|strip … (see the header)");
+}
+
+// The script editor cannot be skipped on a scripted route: the concept critic is never briefed (or accepted) until the editor
+// has passed (S3 niche diagnosis 5d: run6 went straight from the juror to the concept critic with no editor).
+function editorGate(run, plan) {
+  const planned = (plan && Array.isArray(plan.phases) ? plan.phases : []).some((ph) => (ph.dispatch || []).some((x) => x && x.role === "script-editor"));
+  if (!planned) return null;
+  const last = readLedger(run).filter((r) => r.role === "script-editor").pop();
+  if (last && last.event === "ok") return null;
+  return "the script editor has not passed: brief it (crew.mjs brief --role script-editor), let it write story/edit-notes.json, accept it (crew.mjs check --role script-editor), and only then the concept critic. The editor cannot be skipped on a scripted route";
+}
+
+// product-first: the recommender ranks scope match first (G13 pass, then the lowest S_max, then the most areas of life), runs the
+// recognition panel (6 varied audience members) on every pitch, and has a script that collapses onto another's scenario replaced.
+function editorScopeProblems(run, n, P, W) {
+  const ps = n.pitches || [];
+  const seen = new Map();
+  for (const p of ps) {
+    const panel = Array.isArray(p.recognition) ? p.recognition.filter((m) => m && String(m.who || "").trim()) : [];
+    if (panel.length < 6) P.push(`${p.id || p.label}: recognition panel has ${panel.length} members (6 varied audience members: { who, sees_self, wants_to_be, beat }): the niche-drift judge, agents/script-editor.md`);
+    seen.set(p, { sees: panel.filter((m) => m.sees_self === true).length, wants: panel.every((m) => m.wants_to_be !== false) });
+  }
+  const rp = ps.find((x) => x.id === n.recommended);
+  const passing = ps.filter((x) => seen.get(x).sees >= 5 && seen.get(x).wants);
+  if (rp && passing.length && !passing.includes(rp)) P.push(`recommended "${n.recommended}" fails the recognition panel (${seen.get(rp).sees}/6 see themselves) while ${passing.map((x) => x.id).join(", ")} pass: recommend a script most of the audience recognises themselves in`);
+  const pitches = R(run, "story", "pitches.json"), truth = R(run, "story", "truth.md");
+  if (!exists(pitches) || !exists(truth)) return;
+  const r = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "story.mjs"), "check", "--pitch", pitches, "--truth", truth], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" }, maxBuffer: 64 * 1024 * 1024 });
+  let j = null;
+  try { j = JSON.parse(r.stdout); } catch { return; }
+  const res = (j.pitches || [j]).map((x) => ({ id: x.pitch, label: x.label, g: (x.gates || []).find((g) => g.id === "G13") || null })).filter((x) => x.g);
+  if (!res.length) return;
+  const ok13 = res.filter((x) => x.g.pass);
+  const recP = rp || {};
+  const rec = res.find((x) => [n.recommended, recP.label, recP.title].includes(x.id) || (recP.label && x.label === recP.label));
+  if (rec && !rec.g.pass && ok13.length) P.push(`recommended "${n.recommended}" fails G13 (the story's scope does not match the claim: ${(rec.g.reasons || [])[0] || ""}) while ${ok13.map((x) => x.id).join(", ")} pass: scope match ranks first, ambition never overrides it`);
+  else if (rec && ok13.length > 1) {
+    const best = ok13.slice().sort((a, b) => a.g.S_max - b.g.S_max || b.g.D - a.g.D)[0];
+    if (best !== rec) W.push(`scope ranking: "${best.id}" has the lowest S_max (${best.g.S_max}) and ${best.g.D} areas of life; say in "why" why the recommendation beats it`);
+  }
+  for (const c of ((j.portfolio || {}).reasons || []).filter((x) => /^collapse:/.test(x))) {
+    const later = (c.match(/re-roll "([^"]+)"/) || [])[1];
+    const lp = ps.find((p) => [p.id, p.title, p.label].includes(later));
+    if (!lp || lp.verdict === "ship") P.push(`${c} (story.mjs check portfolio): the editor marks that script replace or rewrite`);
+  }
 }

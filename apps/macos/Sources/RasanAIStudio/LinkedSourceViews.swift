@@ -9,6 +9,8 @@ struct LinkedSourceWell: View {
     let kind: LinkedSource.Kind
     @Binding var sources: [LinkedSource]
     var disabled = false
+    /// The picked format's own words for what it wants here (a footage well only); nil keeps the default hint.
+    var prompt: String?
     @State private var targeted = false
     @State private var message: String?
 
@@ -16,7 +18,8 @@ struct LinkedSourceWell: View {
     private var title: String { kind == .footage ? "Footage folder" : "Make it like this" }
     private var symbol: String { kind == .footage ? "folder" : "film.stack" }
     private var hint: String {
-        kind == .footage ? "Drop a folder of clips. It stays where it is, and nothing is copied."
+        if kind == .footage, let prompt, !prompt.isEmpty { return prompt + " It stays where it is, and nothing is copied." }
+        return kind == .footage ? "Drop a folder of clips. It stays where it is, and nothing is copied."
             : "Drop a video to study for pace, type, colour and camera. It is never cut into your film."
     }
     private var buttonTitle: String { kind == .footage ? "Choose folder…" : "Choose video…" }

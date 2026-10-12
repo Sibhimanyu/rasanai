@@ -28,6 +28,9 @@ struct NewFilmView: View {
     @State private var showModels = false
     @State private var showGallery = false
     @FocusState private var briefFocused: Bool
+    /// The previous option, so a pick only moves length and shape the person has not changed.
+    @State private var lastFormatOption: String?
+    @State private var changingFormat = false
 
     private static let lengths: [(String, Int)] = [("15 seconds", 15), ("30 seconds", 30), ("45 seconds", 45), ("60 seconds", 60), ("90 seconds", 90), ("2 minutes", 120)]
     private var trimmedBrief: String { draft.brief.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -64,6 +67,7 @@ struct NewFilmView: View {
                 TextField("Untitled film", text: $name)
                     .textFieldStyle(.plain).font(.system(size: 30, weight: .semibold, design: .rounded))
                     .disabled(project != nil)
+                formatPicker
                 promptBox
                 linkedWells
             }
@@ -151,6 +155,51 @@ struct NewFilmView: View {
         Text(text).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
     }
 
+    // MARK: What are you making?
+
+    private var catalog: FormatCatalog? { FormatCatalog.installed }
+    private var pickedOption: FormatCatalog.Option? { catalog?.option(draft.format?.option) }
+    private var briefPlaceholder: String {
+        if let option = pickedOption, let prompt = catalog?.subjectPrompt(for: option) { return prompt }
+        return "A 30-second launch film for my budgeting app. Calm, confident, a little playful. End on the download button."
+    }
+    /// Words and dropped files that can pre-select a format; changes re-run the match (debounced) while the pick is still automatic.
+    private var matchKey: String {
+        ([draft.brief] + draft.linked.map(\.path) + sources.map(\.path)).joined(separator: "\u{1}") + (loaded ? "|loaded" : "")
+    }
+
+    @ViewBuilder private var formatPicker: some View {
+        if let catalog {
+            VStack(alignment: .leading, spacing: 10) {
+                FormatPickerView(catalog: catalog, pick: draft.format, canAct: !working,
+                                 onPick: { option in choose(option, in: catalog) },
+                                 onScope: { draft.format?.scope = $0 }, changing: $changingFormat)
+                if let option = pickedOption, option.status != .soon { FormatInputsNote(catalog: catalog, option: option) }
+            }
+            .task(id: matchKey) { await autoMatch(catalog) }
+        }
+    }
+
+    private func choose(_ option: FormatCatalog.Option, in catalog: FormatCatalog, why: String? = nil) {
+        catalog.pick(option, in: &draft, previous: catalog.option(lastFormatOption), why: why)
+        lastFormatOption = option.id
+        customLength = !Self.lengths.contains { $0.1 == draft.duration }
+    }
+
+    /// Pre-selects a format from the brief's words and any dropped folder or files, until the person picks one themselves.
+    private func autoMatch(_ catalog: FormatCatalog) async {
+        guard loaded, draft.format == nil || draft.format?.why != nil else { return }
+        let request = draft.brief
+        let paths = draft.linked.map(\.url) + sources + existingSources
+        guard !request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !paths.isEmpty else { return }
+        try? await Task.sleep(for: .milliseconds(400))
+        guard !Task.isCancelled else { return }
+        let found = await Task.detached { catalog.match(request: request, paths: paths) }.value
+        guard !Task.isCancelled, let found, found.option != draft.format?.option, let option = catalog.option(found.option),
+              draft.format == nil || draft.format?.why != nil else { return }
+        choose(option, in: catalog, why: found.why)
+    }
+
     // MARK: Prompt box
 
     /// One classic prompt box: the brief, any attached files, and every option as a chip along the bottom.
@@ -162,7 +211,7 @@ struct NewFilmView: View {
                     .font(.system(size: 15)).scrollContentBackground(.hidden)
                     .frame(height: 112)
                 if draft.brief.isEmpty {
-                    Text("A 30-second launch film for my budgeting app. Calm, confident, a little playful. End on the download button.")
+                    Text(briefPlaceholder)
                         .font(.system(size: 15)).foregroundStyle(.tertiary).padding(.leading, 5).padding(.top, 8).allowsHitTesting(false)
                 }
             }
@@ -209,7 +258,7 @@ struct NewFilmView: View {
     /// Footage folders and a reference video, used where they are. Separate wells: footage is cut, a reference is only studied.
     private var linkedWells: some View {
         HStack(alignment: .top, spacing: 14) {
-            LinkedSourceWell(kind: .footage, sources: $draft.linked, disabled: working)
+            LinkedSourceWell(kind: .footage, sources: $draft.linked, disabled: working, prompt: pickedOption.flatMap { catalog?.folderPrompt(for: $0) })
             LinkedSourceWell(kind: .reference, sources: $draft.linked, disabled: working)
         }
     }
