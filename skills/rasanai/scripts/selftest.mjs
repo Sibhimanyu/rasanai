@@ -44,6 +44,7 @@
 //    (kit + GSAP plugins, script tags), finish.mjs --draft; full runs render the demo film (every function, seek identity, byte-identical double render)
 // 17. lyric videos: the treatment gate and the crew's song route, lyrics.mjs (check, audio, align when whisper is there), the RasanMusic runtime in a page, the film finish (grade, blur)
 // formats. the "What are you making?" picker (scripts/tests/formats.mjs): formats.json check, match, resolve, the brief payload, the console picker, story.mjs format_shapes
+// plates. abstract plates (scripts/tests/plates.mjs): art.mjs recipe, the gradient-map palette lock, the procedural plate, make on an abstract row; full runs render flowGround + plateTransition twice (byte-identical)
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -3161,6 +3162,10 @@ catch (e) { ok("motion: tests ran", false, String((e && e.stack) || e).split("\n
 // formats (W11): the "What are you making?" picker: formats.json check, match, resolve, the brief payload, the console picker, story.mjs's format_shapes (scripts/tests/formats.mjs)
 try { await (await import(path.join(HERE, "tests", "formats.mjs"))).default({ ok, node, tmp: TMP, quick }); }
 catch (e) { ok("formats: tests ran", false, String((e && e.stack) || e).split("\n").slice(0, 4).join(" | ")); }
+
+// plates (W13): abstract plates: the recipe, the palette lock, the procedural plate, make on an abstract row, flowGround + plateTransition determinism (scripts/tests/plates.mjs)
+try { await (await import(path.join(HERE, "tests", "plates.mjs"))).default({ ok, node, tmp: TMP, quick }); }
+catch (e) { ok("plates: tests ran", false, String((e && e.stack) || e).split("\n").slice(0, 4).join(" | ")); }
 
 // music. the source chain, the measured quality gate, the catalog schema, the brief from the arc, credits; all offline (fixtures, a local mock of the AI vendor)
 {

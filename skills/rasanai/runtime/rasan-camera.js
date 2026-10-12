@@ -1,6 +1,7 @@
 /* RasanCamera: product cinematography for HyperFrames compositions (a 3D world rig from a focal length, camera legs,
  * depth of field by distance with rack focus, contact shadows, a shadow ladder, glass, brand-colour rim light, a light
- * comet, a key light, a tinted living ground, speed-driven blur trails, grain, halation, chromatic split, sheen, burst).
+ * comet, a key light, a tinted living ground, speed-driven blur trails, grain, halation, chromatic split, sheen, burst,
+ * abstract plates: RasanCamera.plate draws one, cam.flowGround makes one a living ground, cam.plateTransition zooms through one).
  *
  * One clock: every state (camera, layers, focus, light, ground drift, grain) is a PURE function of the scene's timeline
  * time T. The kit adds linear "clock" tweens to the paused timeline you pass in; their setters read tl.time() and
@@ -21,12 +22,14 @@
  *   cam.push(0.06, { at: 0, duration: 6, ease: "power1.out" });
  *   cam.rack(word, { at: 3.2, duration: 0.5 });
  *   cam.grain({ amount: 0.03 });
+ *   // or a plate as the ground (art.mjs plate / an `abstract` asset): cam.flowGround({ src: "assets/art/plate-ground.png", tint: "#f7f1ea" })
+ *   // and a plate to zoom through across a cut: cam.plateTransition({ at: 4.5, src: "assets/art/plate-through.png", duration: 0.9 })
  *
  * Reference: references/cinematography.md (every recipe as calls, with the numbers and the reference film).
  */
 (function (root) {
   "use strict";
-  var VERSION = "1.0.0";
+  var VERSION = "1.1.0";
   var NS = "http://www.w3.org/2000/svg";
   var PI = Math.PI;
   var uid = 0;
