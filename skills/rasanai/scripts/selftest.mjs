@@ -3213,8 +3213,9 @@ catch (e) { ok("plates: tests ran", false, String((e && e.stack) || e).split("\n
   const sc = lib.scoreTrack({ sub: -8, presence: -15, air: -25, hf: -40, side_mid: -11, crest: 13, lra: 3.5 }, { family: "editorial" });
   const sw = lib.scoreTrack({ sub: -8, presence: -7, air: -25, hf: -40, side_mid: -11, crest: 13, lra: 3.5 }, { family: "editorial" });
   ok("music: the soft score is 90+ inside the references' band and falls when the mids turn harsh; a title with 'remix' costs 10", sc.score >= 85 && sw.score < sc.score - 10 && lib.scoreTrack({ sub: -8, presence: -15, air: -25, hf: -40, side_mid: -11, crest: 13, lra: 3.5 }, { title: "Foo (Minimal Electro Mix)" }).score < lib.scoreTrack({ sub: -8, presence: -15, air: -25, hf: -40, side_mid: -11, crest: 13, lra: 3.5 }, { title: "Foo" }).score, `${sc.score} ${sw.score}`);
-  const gcli = J(node("music.mjs", ["gate", "--track", path.join(d, "phasey.wav")]));
-  ok("music: music.mjs gate --track prints the measured features, the rejects and pass: false", gcli.pass === false && gcli.rejects?.some((r) => r.gate === "phase") && typeof gcli.quality?.sub === "number", JSON.stringify(gcli).slice(0, 200));
+  const gres = node("music.mjs", ["gate", "--track", path.join(d, "phasey.wav")]);
+  const gcli = J(gres);
+  ok("music: music.mjs gate --track prints the measured features, the rejects and pass: false", gcli.pass === false && gcli.rejects?.some((r) => r.gate === "phase") && typeof gcli.quality?.sub === "number", JSON.stringify(gcli).slice(0, 200) + " " + String(gres.stderr || "").slice(0, 300));
 
   // the source chain: keys absent, present, and the order
   const ids = (c) => c.filter((x) => x.on).map((x) => x.id).join(",");

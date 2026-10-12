@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased: picture-first
+## 1.13.0 (2026-10-12): picture-first
 
 Why: measured against ten reference films (Kinso, Sovra.fm, Google's "Ask Search Anything", OpenAI's "Refreshed.", mexicat's p(doom), the pixel manifesto and four Claude-made reels), our ChatGPT test films put 72 to 143 characters on screen (refs 12 to 21), never went giant (a line of 20% of the frame height in 0 to 2% of frames; refs 12 to 53%), were never soft, had a 0-chroma ground and almost no colour, and moved one thing at a time on one curve. The short-film path built the film from a text score with no pictures at all. An experiment with one designer drawing the same script picture-first beat the pipeline on 6 of 8 frames.
 
