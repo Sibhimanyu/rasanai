@@ -119,9 +119,20 @@ Type sizes and splits are composition work, not the camera's. The camera supplie
 | 37 | Cursor at video scale | 12 to 17% H for a hero click, a curved path over 0.5 to 0.8 s, the trail on the travel, press at 0.85 to 0.9 scale for 3 to 4 frames. Place the cursor as a layer at z 80 to 150 so the depth of field softens it when focus is on the UI. | Sovra hand (16.7% H) |
 | 38 | Frame chrome | Mono type at 1.0 to 1.5% H, 30 to 50% opacity, inside the 5% safe margin. Keep it outside the stage (positioned in the root) so it never blurs. | pdoom, v20023 |
 
+## G. Abstract plates
+
+Plates come from `art.mjs plate` (or an `abstract` row in the art plan; `references/imagery.md`): palette-locked abstract renders. The kit makes them move. All of it is a pure function of the timeline time (seek-safe, byte-identical double render), subtle by default.
+
+| # | Recipe | Calls and numbers | Reference |
+|---|---|---|---|
+| 39 | Living plate ground | `cam.flowGround({src: "assets/art/plate-ground.png", tint: "<the plate's ground>", drift: 0.02, breathe: 0.025, flow: 0.03, warp: 0.02, period: 12..16})`: replaces the flat ground. The plate drifts 2% of the frame and breathes +2.5% on seeded sines; a seeded `feTurbulence` field slides under it (3% per period) through a `feDisplacementMap` of 2% of the frame, so its folds ripple in place. `tint` keeps shadows and haze in the ground's hue. Call it before `keyLight`. Without a file: `{palette: [...ramp], ground, variant, calm}` draws the plate live (an in-page gradient map; a rendered file is smoother). Off a stage: `RasanCamera.flowGround(el, {src, tl, duration})`. | Kinso (peach to sage field), Sovra (violet glow) |
+| 40 | Plate behind the UI | A calm plate (`calm 0.5`) as the ground plus `dof({haze: 0.25})`: the UI sharp in front, the plate soft and lower in contrast behind it. Keep text contrast (a light plate under dark type, or glass on the card). | Kinso inbox on the field |
+| 41 | Zoom through a plate | `cam.plateTransition({at: <the cut>, src: "assets/art/plate-through.png", duration: 0.8..1.1, from: 1, to: 2.4, center: [x, y]})`: the plate fades up over 42% of the window while it swells (exponential zoom, constant felt speed), covers the cut, and opens on the next beat over the last 38%. Budgeted (2 per film); off a stage `RasanCamera.plateTransition(tl, {at, src, host})`. A vortex or a horizon plate reads as travel; give the next beat's first leg an `expo.out` in the same direction. | Sovra beat changes |
+| 42 | End-card field | The end card sits on a plate in the brand colours (`horizon` or `fold`, `calm 0.3`), flowGround on, the logo file on top with clear space; nothing else moves. | Kinso, Sovra end cards |
+
 ## Budgets
 
-`chromaticSplit`, `halation`/`bloom`, `lightComet` and `burst` are budgeted extras: hero only, at most 3 of each per film, each with a reason in the score's `budget` entries. `camera.mjs check` warns `over-budget` and `cam.budget()` counts them at runtime. Using the same effect on every element is still the tell. Ground, key light, shadows, glass, depth of field, trails and grain are the default finish, not extras.
+`chromaticSplit`, `halation`/`bloom`, `lightComet`, `burst` and `plateTransition` are budgeted extras: hero only, at most 3 of each per film (plateTransition: 2), each with a reason in the score's `budget` entries. `camera.mjs check` warns `over-budget` and `cam.budget()` counts them at runtime. Using the same effect on every element is still the tell. Ground (a flat tinted ground or a flowGround plate), key light, shadows, glass, depth of field, trails and grain are the default finish, not extras.
 
 ## The demo, and what it proves
 

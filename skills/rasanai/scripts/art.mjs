@@ -452,6 +452,7 @@ async function plateCmd(onlyRecipe = false) {
 const runDir = () => abs(str(args.run) || fail("--run <run dir> required"));
 const ART = (run, ...p) => path.join(run, "art", ...p);
 const DRAWN = /\b(draw(?:n|ing)?|sketch\w*|illustrat\w*|line[- ]?art|outline|silhouette|diagram|x[- ]?ray|engrav\w*|hand[- ]?(?:drawn|written|lettered)|handwrit\w*|signature|icons?|pictogram|logo ?mark|glyph|ink|eye|iris|flower|lily|botanical|specimen)\b/i;
+const PLATE_RE = /\b(abstract (?:plate|field|ground|render)|gradient field|colou?r field|ground plate|flow(?:ing)? ground|zoom through (?:a|the) plate)\b/i;
 const grammarOf = (run) => {
   const g = jsonMaybe(path.join(run, "look", "grammar.json"));
   return g && (g.id || g.grammar) ? String(g.id || g.grammar) : (jsonMaybe(path.join(run, "motion", "score.json")) || {}).grammar || null;
@@ -483,8 +484,9 @@ function plan() {
       const bf = norm(r.built_from), text = `${r.show || ""} ${r.line || ""}`;
       const art = bf === "object" || bf === "photo";
       const drawn = DRAWN.test(String(r.show || ""));
-      if (!art && !drawn) continue;
-      let kind = bf === "photo" ? "photo" : /handwrit|signature|hand[- ]?lettered/i.test(text) ? "handwriting" : /line[- ]?art|x[- ]?ray|outline|engrav/i.test(text) ? "lineart" : /\bicons?\b|pictogram|pixel/i.test(text) || pixel && bf === "object" ? "icon" : /texture|swatch|paper (?:ground|texture)|grain(?:y)? (?:ground|plate|texture)/i.test(text) ? "texture" : "illustration";
+      const plate = PLATE_RE.test(String(r.show || ""));
+      if (!art && !drawn && !plate) continue;
+      let kind = plate ? "abstract" : bf === "photo" ? "photo" : /handwrit|signature|hand[- ]?lettered/i.test(text) ? "handwriting" : /line[- ]?art|x[- ]?ray|outline|engrav/i.test(text) ? "lineart" : /\bicons?\b|pictogram|pixel/i.test(text) || pixel && bf === "object" ? "icon" : /texture|swatch|paper (?:ground|texture)|grain(?:y)? (?:ground|plate|texture)/i.test(text) ? "texture" : "illustration";
       let id = slug(`${beatId}-${r.line || kind}`), n = 2;
       while (seen.has(id)) id = `${slug(`${beatId}-${r.line || kind}`)}-${n++}`;
       seen.add(id);
@@ -496,9 +498,17 @@ function plan() {
       if (/x[- ]?ray/i.test(text)) treatments.push("xray");
       const row = { id, kind, prompt: kind === "handwriting" ? String(r.line || "").trim() : `${String(r.show || r.line).trim().replace(/\s+/g, " ").slice(0, 320)}`, treatments, used_by: [`${beatId}: ${String(r.line || "").trim()}`], from: { beat: bi + 1, built_from: bf || null } };
       if (kind === "handwriting") row.text = row.prompt;
+      if (kind === "abstract") Object.assign(row, { variant: (String(r.show).match(/\b(fold|vortex|horizon|ribbon)\b/i) || [, "fold"])[1].toLowerCase(), aspect: "16:9", treatments: [] });
       assets.push(row);
     }
   });
+  // an atmospheric film (the brand film's measured finish route) gets ground plates as a standard asset: a calm ground and
+  // a plate to zoom through. Never on the graphic route (the brand's films are flat), unless a show asks for a colour field.
+  const route = (() => { try { const m = fs.readFileSync(path.join(run, "brand-film", "FILM-STYLE.md"), "utf8").match(/Route:\s*(atmospheric|graphic)/i); if (m) return m[1].toLowerCase(); } catch { /* none */ } return ((jsonMaybe(path.join(run, "brand-film", "FILM-STYLE.json")) || {}).finish || {}).route || null; })();
+  if (route === "atmospheric" && !assets.some((a) => a.kind === "abstract")) {
+    assets.push({ id: "plate-ground", kind: "abstract", variant: "fold", aspect: "16:9", calm: 0.5, seed: 1, prompt: "the film's living ground (flowGround): a calm abstract plate in the palette", treatments: [], used_by: ["film: the ground under every beat (cam.flowGround)"], from: { route } });
+    assets.push({ id: "plate-through", kind: "abstract", variant: "vortex", aspect: "16:9", seed: 2, prompt: "a plate to zoom through between beats (plateTransition)", treatments: [], used_by: ["film: the transition into the turn (cam.plateTransition)"], from: { route } });
+  }
   const p = { version: 1, grammar, style: styleFrom(run, grammar), assets, note: "the art-director agent fills and edits this: one prompt per picture, one style for all; kinds: " + KINDS.join(" | ") };
   writeJSON(file, p);
   out({ ok: true, plan: file, assets: assets.length, kinds: assets.reduce((m, a) => ((m[a.kind] = (m[a.kind] || 0) + 1), m), {}), style_todo: !!p.style.todo });
@@ -556,6 +566,22 @@ function make() {
     if (exists(outp) && !args.force) { skipped.push(r.id); continue; }
     const res = hand(r.text || r.prompt, outp, { font: r.font || "script", size: Number(r.size) || 120, color: (P.style && P.style.ink) || "#111111" });
     assets.set(r.id, { id: r.id, kind: r.kind, path: path.relative(run, outp), source: "hershey", prompt: r.text || r.prompt, strokes: res.strokes, used_by: r.used_by || [] });
+    made.push(r.id);
+  }
+  // abstract plates: the plate recipe through imagegen when it is ready, else the procedural plate; gradient-mapped onto the
+  // palette ramp either way (art.mjs plate). Never a todo for want of image generation: every film can have plates.
+  for (const r of rows.filter((x) => x.kind === "abstract")) {
+    const outp = path.join(ASSETS, `${r.id}.png`);
+    if (exists(outp) && !args.force) { skipped.push(r.id); continue; }
+    const own = Array.isArray(r.ramp) && r.ramp.length ? r.ramp : null;
+    const pal = own || (Array.isArray(r.palette) && r.palette.length ? r.palette : (P.style && P.style.palette) || []);
+    if (pal.length < 2) { todo.push({ id: r.id, kind: r.kind, reason: "abstract plate: no palette (plan.style.palette, or the row's palette or ramp, needs 2+ colours)", prompt: r.prompt || "" }); continue; }
+    const ground = r.ground || (P.style && P.style.ground) || "";
+    const pa = ["plate", "--out", outp, own ? "--ramp" : "--palette", pal.join(","), "--variant", r.variant || "fold", "--aspect", r.aspect || "16:9", "--seed", String(r.seed || 1), "--engine", ig.state === "ready" ? "auto" : "procedural", ...(ground ? ["--ground", ground] : []), ...(r.calm ? ["--calm", String(r.calm)] : []), ...(r.flip ? ["--flip"] : []), ...(args.force ? ["--force"] : [])];
+    const pr = spawnSync(process.execPath, [path.join(HERE, "art.mjs"), ...pa], { encoding: "utf8", timeout: 1500000, env: { ...process.env } });
+    let pj = {}; try { pj = JSON.parse(pr.stdout); } catch { /* none */ }
+    if (pr.status !== 0 || !exists(outp)) { todo.push({ id: r.id, kind: r.kind, reason: `abstract plate failed: ${String(pr.stderr || "").trim().split("\n").pop() || "no picture written"}`.slice(0, 200), prompt: pj.prompt || r.prompt || "" }); continue; }
+    assets.set(r.id, { id: r.id, kind: r.kind, path: path.relative(run, outp), source: pj.engine === "imagegen" ? "imagegen" : "procedural", variant: pj.variant, ramp: pj.ramp, seed: pj.seed, prompt: pj.prompt, applied: ["gradient-map"], used_by: r.used_by || [], ...dims(outp) });
     made.push(r.id);
   }
   const gen = rows.filter((x) => GENERATED.has(x.kind));
@@ -651,7 +677,7 @@ function check() {
     });
   }
   // one style: every generated asset shares the anchor
-  const gen = (A.assets || []).filter((a) => a.source === "imagegen");
+  const gen = (A.assets || []).filter((a) => a.source === "imagegen" && a.kind !== "abstract"); // plates are their own family, locked by the ramp
   const anchors = new Set(gen.map((a) => a.anchor).filter(Boolean));
   if (anchors.size > 1) problems.push(`style-split: generated assets follow ${anchors.size} different anchors (${[...anchors].join(", ")}): regenerate the odd ones against the anchor ${A.anchor}`);
   const noAnchor = gen.filter((a) => !a.anchor);

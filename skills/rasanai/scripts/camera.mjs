@@ -15,7 +15,7 @@
 //   node camera.mjs check   --project videos/<name> [--json]
 //                                   a composition that calls RasanCamera has the runtime installed and loaded after GSAP,
 //                                   passes its paused timeline to stage(), no Math.random / wall clock, and keeps the
-//                                   budgeted extras (chromaticSplit, halation/bloom, lightComet, burst) within 3 each.
+//                                   budgeted extras (chromaticSplit, halation/bloom, lightComet, burst, plateTransition) within 3 each.
 //                                   Exit 0 = clean, 2 = violations.
 import fs from "node:fs";
 import path from "node:path";
@@ -31,7 +31,7 @@ const cmd = args._[0];
 const out = (o, code = 0) => { console.log(JSON.stringify(o, null, 2)); process.exit(code); };
 const str = (v) => (v && v !== true ? String(v) : "");
 export const BUDGET_MAX = 3;
-const BUDGETED = ["chromaticSplit", "halation", "bloom", "lightComet", "burst"];
+const BUDGETED = ["chromaticSplit", "halation", "bloom", "lightComet", "burst", "plateTransition"];
 
 // ------------------------------------------------------------------ demo
 const TIMES = [0.35, 1.2, 2.6, 3.35, 4.3, 5.7, 6.55, 7.6, 9.0, 9.8, 11.0, 12.12];
