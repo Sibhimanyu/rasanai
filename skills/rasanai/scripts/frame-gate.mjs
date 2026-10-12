@@ -74,6 +74,12 @@ export async function brandMetrics(spec) {
     if (!g) return { error: `${spec} is not valid JSON` };
     const m = g.frameMetrics;
     if (m) return { ...m, flat: m.groundChroma < GATE.flat_chroma && m.groundRange < GATE.flat_range, source: p };
+    // brandfilm.mjs measure's finish block (measured.finish: ground tint and falloff, softness, the route)
+    const fin = g.measured && g.measured.finish;
+    if (fin && fin.groundChroma != null) {
+      const soft = fin.softContent && fin.softContent.p90;
+      return { groundChroma: fin.groundChroma, groundRange: fin.groundRange ?? null, softP90: soft ?? null, colourfulP90: null, charsMedian: null, flat: fin.groundChroma < GATE.flat_chroma && (fin.groundRange ?? 0) < GATE.flat_range, source: p };
+    }
     // an older grammar.json: it knows the neutral share, not the L* range; a film that is 90% neutral has no coloured ground
     const neutral = g.chroma && g.chroma.neutralShare;
     const flat = neutral >= 0.9 && g.luminance && (g.luminance.bgMean >= 235 || g.luminance.bgMean <= 20);
@@ -126,6 +132,7 @@ window.__fgMeasure=function(){
   while((n=walker.nextNode())){
     var txt=String(n.nodeValue||'').replace(/\\s+/g,' ').trim();if(!txt)continue;
     var el=n.parentElement;if(!el||/^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE|TITLE)$/.test(el.tagName)||el.closest('template'))continue;
+    if(el.closest('[aria-hidden="true"],[data-rc-copy]'))continue;
     var cs=getComputedStyle(el),fill=cs.webkitTextFillColor||cs.color;
     if(alpha(fill)<0.05&&!/text/.test(cs.webkitBackgroundClip||cs.backgroundClip||''))continue;
     var ch=chain(el);if(!ch||!(ch.op>=CFG.minOp))continue;
