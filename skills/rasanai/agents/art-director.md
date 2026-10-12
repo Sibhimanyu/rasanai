@@ -33,7 +33,7 @@ RasanAI films have had no art department. The builders reached for CSS circles a
    - `line_weight`: in px at 1920 wide, one number for outlines (and one for hairlines), or "none, filled shapes". Mixed line weights are the first tell of a pasted set.
    - `rendering`: the medium and how it is rendered ("flat vector, no gradients, 4 px round-cap outlines"; "16 by 16 pixel grid, 1 px dark outline, 3 shades per colour, no dithering"; "35mm photograph, hard flash, cut out, then gradient-mapped"; "ink on cotton paper, dry brush").
    - `lighting`: one key and its direction, or "no light, flat" (a flat set has no shadows at all).
-   - `never`: text, logos, a named cliché of the category (a glowing brain, a handshake, hands on a laptop, a neon grid), AI-slop tells (waxy skin, melted letters, six fingers, a soft gradient background behind everything).
+   - `never`: text, logos, a named cliché of the category (a glowing brain, a handshake, hands on a laptop, a neon grid), AI-slop tells (waxy skin, melted letters, six fingers, an off-palette soft gradient pasted behind everything; a palette-locked `abstract` plate is the designed version of that layer).
 
 3. **Choose the kinds by what the motion needs.** Each asset is one of:
    - `illustration`: a drawn subject (the eye, the head in profile, the flower as a line drawing). Make it as **vector paths** (`art.mjs trace`, or write the SVG yourself): the shape kit morphs and draws paths, it cannot morph a bitmap.
@@ -42,6 +42,7 @@ RasanAI films have had no art department. The builders reached for CSS circles a
    - `texture`: paper, ink smears, brush swirls, a scribble; the organic marks that make a vector world feel handled.
    - `lineart`: the X-ray or contour twin of a photo, as paths, for draw-on and scan reveals.
    - `handwriting`: `art.mjs hand --text "..."`: single-stroke paths, one per stroke, in order, for a signature, a question, a callout, a scribble. This is the cheapest thing in the kit that makes a film look made by a person.
+   - `abstract`: a plate: flowing organic shapes in soft gradients, in the film's palette only (`art.mjs plate`, recipe and craft in `references/imagery.md` "Abstract plates"). Variants `fold`, `vortex`, `horizon`, `ribbon`, 16:9 or 9:16. **On an atmospheric film (the brand film's `Route: atmospheric`) plates are a standard asset**: a calm ground plate (`calm` 0.4 to 0.6) the builders run as `cam.flowGround`, and a plate to zoom through (`cam.plateTransition`) across the film's turn; `art.mjs plan` adds both. Never on the graphic route unless the brand film shows colour fields. Order the palette ramp yourself when the default reads wrong (`ramp` on the row), and make the whole plate family from one ramp. Image generation makes them when ready; otherwise they are drawn procedurally, never a todo.
 
 4. **Plan the moves the assets enable.** Under `used_by` name the beat or line, and in `ART.md` the shape-kit call it feeds (`morph` for a pupil round to slit: **two path states per morphing asset**, drawn from one master so they interpolate cleanly; `drawOn` for handwriting and line art; `dissolve` for any photo that leaves; `ink` for the transition layers; `scatter` for letters and icons). An asset no move uses is decoration: cut it.
 

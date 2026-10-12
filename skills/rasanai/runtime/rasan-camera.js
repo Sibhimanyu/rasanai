@@ -1,6 +1,7 @@
 /* RasanCamera: product cinematography for HyperFrames compositions (a 3D world rig from a focal length, camera legs,
  * depth of field by distance with rack focus, contact shadows, a shadow ladder, glass, brand-colour rim light, a light
- * comet, a key light, a tinted living ground, speed-driven blur trails, grain, halation, chromatic split, sheen, burst).
+ * comet, a key light, a tinted living ground, speed-driven blur trails, grain, halation, chromatic split, sheen, burst,
+ * abstract plates: RasanCamera.plate draws one, cam.flowGround makes one a living ground, cam.plateTransition zooms through one).
  *
  * One clock: every state (camera, layers, focus, light, ground drift, grain) is a PURE function of the scene's timeline
  * time T. The kit adds linear "clock" tweens to the paused timeline you pass in; their setters read tl.time() and
@@ -21,12 +22,14 @@
  *   cam.push(0.06, { at: 0, duration: 6, ease: "power1.out" });
  *   cam.rack(word, { at: 3.2, duration: 0.5 });
  *   cam.grain({ amount: 0.03 });
+ *   // or a plate as the ground (art.mjs plate / an `abstract` asset): cam.flowGround({ src: "assets/art/plate-ground.png", tint: "#f7f1ea" })
+ *   // and a plate to zoom through across a cut: cam.plateTransition({ at: 4.5, src: "assets/art/plate-through.png", duration: 0.9 })
  *
  * Reference: references/cinematography.md (every recipe as calls, with the numbers and the reference film).
  */
 (function (root) {
   "use strict";
-  var VERSION = "1.0.0";
+  var VERSION = "1.1.0";
   var NS = "http://www.w3.org/2000/svg";
   var PI = Math.PI;
   var uid = 0;
@@ -785,6 +788,29 @@
         if (dur) life(dur);
         bump(); return cam_api;
       },
+      // a plate as a living ground (art.mjs `abstract`, or drawn live from the palette): it replaces the flat ground, slow drift
+      // and breathing scale, its warp noise sliding under it. tint (or the ramp's ground) still tints shadows and haze.
+      flowGround: function (f) {
+        f = f || {};
+        var P = plateField(groundL, flowPlateOpts(f, W, H));
+        groundL.insertBefore(P.el, groundL.firstChild);
+        var ramp = f.ramp || f.palette, tint = f.tint || f.ground || (ramp ? (P.roles && ramp[Math.round(P.roles.g * (ramp.length - 1))]) : "#f2f1ee");
+        var gr0 = opt(f, "grain", 0.012);
+        if (gr0 > 0) { var gre = div("rc-ground-grain", "position:absolute;inset:0;opacity:" + r3(gr0 * 2.5) + ";background-image:url(" + noiseTile(opt(f, "seed", 11) + 131, 256) + ");"); P.el.parentNode.insertBefore(gre, P.el.nextSibling); }
+        if (keyState) groundL.appendChild(keyState.el);
+        groundState = { tint: tint, dark: f.dark !== undefined ? !!f.dark : luma(tint) < 0.35, blobs: (groundState && groundState.blobs) || [], drift: (groundState && groundState.drift) || 0.035, period: (groundState && groundState.period) || 10 };
+        extras.push(flowDraw(P, f));
+        if (dur) life(dur); else if (f.duration) life(f.duration);
+        bump(); return cam_api;
+      },
+      // zoom through a plate across a cut: at = the cut; the plate covers it at full opacity (budgeted: 2 per film)
+      plateTransition: function (o) {
+        o = o || {}; spend("plateTransition");
+        var P = transitionPlate(fx, W, H, o), du = Math.max(0.2, opt(o, "duration", 0.9));
+        fx.insertBefore(P.el, fx.firstChild);
+        extras.push(transitionDraw(P, o));
+        leg(Math.max(0, opt(o, "at", 0) - du / 2), du + 1 / fps); bump(); return cam_api;
+      },
       // ------------------------------------------------------------ budgeted extras (hero only, 2-3 per film)
       halation: function (el, h) {
         h = h || {}; spend("halation"); var L = needLayer(el, "halation");
@@ -865,6 +891,256 @@
     return cam_api;
   }
 
+  // ------------------------------------------------------------------ abstract plates (art.mjs `abstract`, flowGround, plateTransition)
+  // A plate is a scalar field t in [0, 1] drawn in grey (layered blurred gradients and shapes, warped by a seeded
+  // feTurbulence/feDisplacementMap), then mapped onto the film's ordered palette ramp (a gradient map), so the hues are
+  // only ever the palette's. Seeded and stateless: the same options draw the same pixels.
+  var PLATE_VARIANTS = ["fold", "vortex", "horizon", "ribbon"];
+  function gy(t, a) { var v = Math.round(clamp(t, 0, 1) * 255); return a === undefined ? "rgb(" + v + "," + v + "," + v + ")" : "rgba(" + v + "," + v + "," + v + "," + r3(a) + ")"; }
+  // the roles a variant paints with, as positions on the ramp: the ground, the far and near poles, the light and the crease
+  function plateRoles(ramp, ground, dark) {
+    var n = ramp.length, L = ramp.map(luma), gi = 0, hi = 0, lo = 0, i;
+    for (i = 1; i < n; i++) { if (L[i] > L[hi]) hi = i; if (L[i] < L[lo]) lo = i; }
+    if (ground) { var g0 = rgb(ground), best = 1e9; for (i = 0; i < n; i++) { var c = rgb(ramp[i]), e = Math.pow(c[0] - g0[0], 2) + Math.pow(c[1] - g0[1], 2) + Math.pow(c[2] - g0[2], 2); if (e < best) { best = e; gi = i; } } }
+    else gi = dark ? lo : hi;
+    var s = Math.max(1, n - 1), g = gi / s, far = g <= 0.5 ? 1 : 0;
+    return { g: g, far: far, near: g > 0.2 && g < 0.8 ? 1 - far : g + (far - g) * 0.55, hi: hi / s, lo: lo / s, dark: luma(ramp[gi]) < 0.35 };
+  }
+  function catmull(pts) { // smooth path through points
+    var d = "M" + r2(pts[0][0]) + " " + r2(pts[0][1]);
+    for (var i = 0; i < pts.length - 1; i++) {
+      var p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+      d += "C" + r2(p1[0] + (p2[0] - p0[0]) / 6) + " " + r2(p1[1] + (p2[1] - p0[1]) / 6) + " " + r2(p2[0] - (p3[0] - p1[0]) / 6) + " " + r2(p2[1] - (p3[1] - p1[1]) / 6) + " " + r2(p2[0]) + " " + r2(p2[1]);
+    }
+    return d;
+  }
+  // the grey field's markup: an SVG of W x H (plus pad on every side), in frame pixels
+  // smooth seeded value noise in [-1, 1] (2 octaves): the plate's shapes bend through it (a domain warp of the geometry)
+  function vnoise(seed) {
+    function h(a, b) { return hash1(Math.imul(a, 73856093) ^ Math.imul(b, 19349663), seed) * 2 - 1; }
+    function n1(x, y) {
+      var xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+      return lerp(lerp(h(xi, yi), h(xi + 1, yi), u), lerp(h(xi, yi + 1), h(xi + 1, yi + 1), u), v);
+    }
+    return function (x, y) { return (n1(x, y) * 0.7 + n1(x * 2.03 + 17.1, y * 2.03 + 5.3) * 0.3); };
+  }
+  // the grey field's markup: an SVG of W x H (plus pad on every side), in frame pixels
+  function plateMarkup(o) {
+    var W = o.width, H = o.height, pad = o.pad, R = o.roles, r = rng(opt(o, "seed", 1)), v = o.variant;
+    var D = Math.hypot(W, H) / 2203, M = Math.max(W, H), uid0 = "pf" + (++uid), defs = [], body = [], k = 0;
+    var nx = vnoise(opt(o, "seed", 1) * 7 + 1), ny = vnoise(opt(o, "seed", 1) * 7 + 2), A = opt(o, "bend", 0.06) * M, F = 1.3 / M;
+    function wp(p) { return [p[0] + A * nx(p[0] * F, p[1] * F), p[1] + A * ny(p[0] * F + 9.7, p[1] * F + 3.1)]; }
+    function j(a) { return (r() * 2 - 1) * a; }
+    function X(u) { return r2(u * W); } function Y(q) { return r2(q * H); }
+    function bez(p, n) { var out = [], i2; for (i2 = 0; i2 <= n; i2++) { var t = i2 / n, s = 1 - t; out.push([s * s * s * p[0][0] + 3 * s * s * t * p[1][0] + 3 * s * t * t * p[2][0] + t * t * t * p[3][0], s * s * s * p[0][1] + 3 * s * s * t * p[1][1] + 3 * s * t * t * p[2][1] + t * t * t * p[3][1]]); } return out; }
+    function cr(pts, per) { // sample a Catmull-Rom spline through pts
+      var out = [], i2, s;
+      for (i2 = 0; i2 < pts.length - 1; i2++) {
+        var p0 = pts[Math.max(0, i2 - 1)], p1 = pts[i2], p2 = pts[i2 + 1], p3 = pts[Math.min(pts.length - 1, i2 + 2)];
+        for (s = 0; s < per; s++) { var t = s / per, t2 = t * t, t3 = t2 * t; out.push([0, 1].map(function (c) { return 0.5 * (2 * p1[c] + (-p0[c] + p2[c]) * t + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * t2 + (-p0[c] + 3 * p1[c] - 3 * p2[c] + p3[c]) * t3); })); }
+      }
+      out.push(pts[pts.length - 1]); return out;
+    }
+    function bent(pts) { return catmull(pts.map(wp)); }
+    function blur(s) { var id = uid0 + "b" + (++k); defs.push('<filter id="' + id + '" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="' + r2(s * 2203 * D) + '"/></filter>'); return ' filter="url(#' + id + ')"'; }
+    function stopsOf(stops) { return stops.map(function (s) { return '<stop offset="' + s[0] + '" stop-color="' + gy(s[1]) + '" stop-opacity="' + r3(s[2] === undefined ? 1 : s[2]) + '"/>'; }).join(""); }
+    function radial(cx, cy, rx, ry, stops, extra) {
+      var id = uid0 + "r" + (++k), c = wp([cx * W, cy * H]);
+      defs.push('<radialGradient id="' + id + '" gradientUnits="userSpaceOnUse" cx="' + r2(c[0]) + '" cy="' + r2(c[1]) + '" r="' + r2(rx * W) + '" gradientTransform="translate(' + r2(c[0]) + " " + r2(c[1]) + ") scale(1 " + r3(ry * H / (rx * W)) + ") translate(" + r2(-c[0]) + " " + r2(-c[1]) + ')">' + stopsOf(stops) + "</radialGradient>");
+      body.push('<rect x="' + (-pad) + '" y="' + (-pad) + '" width="' + (W + 2 * pad) + '" height="' + (H + 2 * pad) + '" fill="url(#' + id + ')"' + (extra || "") + "/>");
+    }
+    function linear(x1, y1, x2, y2, stops) {
+      var id = uid0 + "l" + (++k);
+      defs.push('<linearGradient id="' + id + '" gradientUnits="userSpaceOnUse" x1="' + X(x1) + '" y1="' + Y(y1) + '" x2="' + X(x2) + '" y2="' + Y(y2) + '">' + stopsOf(stops) + "</linearGradient>");
+      return "url(#" + id + ")";
+    }
+    function path(d, attrs) { body.push('<path d="' + d + '" ' + attrs + "/>"); }
+    function mix(a, b, t) { return a + (b - a) * t; }
+    // calm (0..1) pulls every role toward the ground: a quieter plate for behind UI and type; flip swaps the two poles
+    var cm = clamp(opt(o, "calm", 0), 0, 1) * 0.7, cq = function (t) { return R.g + (t - R.g) * (1 - cm); };
+    var g = R.g, far = cq(o.flip ? R.near : R.far), near = cq(o.flip ? R.far : R.near), hi = R.dark ? cq(R.hi) : R.hi, lo = R.dark ? R.lo : cq(R.lo), P, i;
+    body.push('<rect x="' + (-pad) + '" y="' + (-pad) + '" width="' + (W + 2 * pad) + '" height="' + (H + 2 * pad) + '" fill="' + gy(g) + '"/>');
+    var portrait = H > W;
+    var crease = R.dark ? lo : far, deep = R.dark ? lo : far;
+    var full = function (fill, extra) { body.push('<rect x="' + (-pad) + '" y="' + (-pad) + '" width="' + (W + 2 * pad) + '" height="' + (H + 2 * pad) + '" fill="' + fill + '"' + (extra || "") + "/>"); };
+    var line = function (d, t, a, w, b) { path(d, 'fill="none" stroke="' + gy(t) + '" stroke-opacity="' + a + '" stroke-width="' + r2(w) + '" stroke-linecap="round"' + blur(b)); };
+    if (v === "fold") {
+      // an S-curve fold: a deep lobe on one side lifting to a lit edge, a field and a deep core on the other, a crease
+      var s0 = portrait ? [[0.2 + j(0.04), -0.2], [0.95 + j(0.04), 0.22], [-0.05 + j(0.04), 0.6], [0.7 + j(0.04), 1.2]] : [[0.26 + j(0.04), -0.25], [0.8 + j(0.05), 0.12], [0.02 + j(0.05), 0.72], [0.56 + j(0.04), 1.25]];
+      var mid = (s0[0][0] + s0[3][0]) / 2;
+      var sp = function (du, amp) { var q = function (k) { return k === 0 || k === 3 ? s0[k][0] + du : s0[k][0] * amp + (1 - amp) * mid + du; }; return bent(bez([0, 1, 2, 3].map(function (k) { return [q(k) * W, s0[k][1] * H]; }), 40)); };
+      var lobe = function (d) { return d + "L" + X(-0.4) + " " + Y(1.25) + "L" + X(-0.4) + " " + Y(-0.25) + "Z"; };
+      full(linear(0.3, 0.5, 1.05, 0.5, [[0, mix(g, far, 0.25)], [1, mix(g, far, 0.75)]]));
+      radial(0.8 + j(0.05), 0.3 + j(0.06), 0.5, 0.7, [[0, far], [0.45, mix(far, g, 0.15), 0.9], [1, mix(far, g, 0.5), 0]]);
+      var hx0 = 0.66 + j(0.04), hy0 = 0.22 + j(0.05);
+      if (R.dark) radial(hx0 + 0.015, hy0 - 0.02, 0.17, 0.34, [[0.55, hi, 0], [0.8, hi, 0.28], [1, hi, 0]]);
+      radial(hx0, hy0, 0.13, 0.27, [[0, deep, 1], [0.45, deep, 0.72], [1, deep, 0]]);
+      radial(1.0 + j(0.04), 1.08, 0.4, 0.45, [[0, near, 0.95], [0.5, mix(near, hi, 0.4), 0.55], [1, g, 0]]);
+      line(sp(0.045, 1), crease, 0.5, 0.09 * W, 0.035);
+      path(lobe(sp(0, 1)), 'fill="' + linear(-0.05, 0.5, 0.55, 0.5, [[0, near], [0.5, mix(near, g, 0.15)], [0.85, mix(near, hi, 0.45)], [1, mix(near, hi, 0.7)]]) + '"' + blur(0.005));
+      path(lobe(sp(-0.17, 0.7)), 'fill="' + gy(near) + '" fill-opacity="0.6"' + blur(0.02));
+      radial(0.1 + j(0.04), 0.82 + j(0.05), 0.3, 0.42, [[0, mix(near, hi, 0.4), 0.7], [1, near, 0]]);
+      line(sp(-0.17, 0.7), hi, 0.3, 0.025 * W, 0.012);
+      for (i = 1; i <= 3; i++) line(sp(-0.028 * i - 0.01, 1 - 0.06 * i), hi, 0.16, 0.004 * W, 0.002);
+      line(sp(-0.008, 1), hi, 0.4, 0.06 * W, 0.03);
+      line(sp(-0.003, 1), hi, 0.92, 0.009 * W, 0.004);
+    } else if (v === "vortex") {
+      // a soft vortex: a field that turns around a deep core, arms of light and colour spiralling in
+      var cx = (portrait ? 0.5 : 0.6) + j(0.05), cy = (portrait ? 0.42 : 0.44) + j(0.05), M = Math.min(W, H), field = R.dark ? far : mix(g, far, 0.6);
+      radial(cx, cy, 0.85, 0.85 * W / H, [[0, mix(field, hi, 0.2)], [0.35, field], [0.75, mix(field, g, 0.5), 0.8], [1, g, 0]]);
+      var arms = 5, rot = r() * 6.283;
+      for (var a = 0; a < arms; a++) {
+        P = [];
+        for (i = 0; i <= 30; i++) {
+          var th = rot + a * 6.283 / arms + i * 0.15, rr = M * (0.08 + 1.0 * Math.pow(i / 30, 1.5));
+          P.push([cx * W + Math.cos(th) * rr * 1.2, cy * H + Math.sin(th) * rr]);
+        }
+        var lite = a % 2 === 0;
+        line(bent(P), lite ? hi : near, lite ? 0.6 : 0.55, M * (lite ? 0.035 : 0.16), lite ? 0.008 : 0.04);
+      }
+      radial(cx, cy, 0.42 * H / W, 0.42, [[0.4, hi, 0], [0.55, hi, 0.35], [0.8, hi, 0]]);
+      radial(cx, cy, 0.24 * H / W, 0.24, [[0, deep, 1], [0.4, deep, 0.9], [0.75, deep, 0.35], [1, deep, 0]]);
+    } else if (v === "horizon") {
+      // a horizon glow: the rim of a vast curved body, light rising off it
+      var hy = (portrait ? 0.6 : 0.64) + j(0.04), hx = 0.5 + j(0.12), Rr = (portrait ? 1.6 : 1.2) * W;
+      full(linear(0.5, -0.1, 0.5, hy, [[0, mix(g, near, 0.35)], [1, g]]));
+      radial(hx, hy, 0.85, 0.42, [[0, far], [0.3, mix(far, g, 0.35), 0.85], [1, g, 0]]);
+      var ccx = hx * W, ccy = hy * H + Rr, arcFill = R.dark ? g : mix(g, near, 0.8), arc = [];
+      for (i = 0; i <= 160; i++) { var an = -Math.PI / 2 + (i / 160 - 0.5) * 2 * Math.asin(Math.min(1, (0.75 * W + pad) / Rr)) * 1.0; arc.push([ccx + Math.cos(an) * Rr, ccy + Math.sin(an) * Rr]); }
+      var arcD = bent(arc), body0 = arcD + "L" + r2(W + pad) + " " + r2(H + pad) + "L" + r2(-pad) + " " + r2(H + pad) + "Z";
+      body.push('<path d="' + body0 + '" fill="' + linear(0.5, hy, 0.5, 1.1, [[0, mix(arcFill, far, 0.35)], [0.25, arcFill], [1, mix(arcFill, R.dark ? lo : near, 0.6)]]) + '"' + blur(0.004) + "/>");
+      body.push('<path d="' + arcD + '" fill="none" stroke="' + gy(hi) + '" stroke-opacity="0.55" stroke-width="' + r2(0.05 * W) + '"' + blur(0.03) + "/>");
+      body.push('<path d="' + arcD + '" fill="none" stroke="' + gy(hi) + '" stroke-opacity="0.95" stroke-width="' + r2(0.006 * W) + '"' + blur(0.0035) + "/>");
+    } else { // ribbon
+      // a ribbon: a broad band crossing the frame with a turn in it, lit on one edge, shaded on the other
+      var y0 = (portrait ? 0.86 : 0.95) + j(0.04), y1 = (portrait ? 0.1 : 0.04) + j(0.04);
+      var rib = function (dy, amp) { return bent(cr([[-0.2 * W, (y0 + dy) * H], [0.2 * W, (0.74 + amp * 0.08 + dy) * H], [0.5 * W, (0.5 + dy) * H], [0.8 * W, (0.28 - amp * 0.08 + dy) * H], [1.2 * W, (y1 + dy) * H]], 10)); };
+      var bw = (portrait ? 0.2 : 0.3) * H;
+      radial(0.5, 0.5, 0.8, 0.8, [[0, mix(g, far, 0.3)], [1, g, 0]]);
+      path(rib(0.26, 0.6), 'fill="none" stroke="' + linear(0, 1, 1, 0, [[0, mix(g, far, 0.4)], [1, far]]) + '" stroke-opacity="0.8" stroke-width="' + r2(bw * 0.7) + '" stroke-linecap="round"' + blur(0.03));
+      line(rib(0.07, 1), crease, 0.4, bw * 1.25, 0.05);
+      path(rib(0, 1), 'fill="none" stroke="' + linear(0, 0.9, 1, 0.1, [[0, near], [0.5, mix(near, hi, 0.3)], [1, near]]) + '" stroke-width="' + r2(bw) + '" stroke-linecap="round"' + blur(0.006));
+      line(rib(-bw * 0.3 / H, 1), hi, 0.35, bw * 0.3, 0.02);
+      line(rib(-bw * 0.38 / H, 1), hi, 0.9, bw * 0.05, 0.004);
+      line(rib(-bw * 0.12 / H, 1), hi, 0.16, bw * 0.03, 0.002);
+      line(rib(bw * 0.4 / H, 1), crease, 0.5, bw * 0.14, 0.012);
+    }
+    return '<svg x="' + (-pad) + '" y="' + (-pad) + '" width="' + (W + 2 * pad) + '" height="' + (H + 2 * pad) + '" viewBox="' + (-pad) + " " + (-pad) + " " + (W + 2 * pad) + " " + (H + 2 * pad) + '" overflow="visible"><defs>' + defs.join("") + "</defs>" + body.join("") + "</svg>";
+  }
+  // the warp: seeded fractal noise displacing the field; dx/dy slide the noise (the living ground), scale bends it.
+  // Filters live inside the plate's own SVG (a CSS filter on a large HTML box rasterises in tiles and shows seams).
+  function warpDef(id, o) {
+    var M = Math.max(o.width, o.height), fq = Math.round(1e6 * opt(o, "frequency", 0.75) / M) / 1e6, p = o.pad;
+    return '<filter id="' + id + '" filterUnits="userSpaceOnUse" x="' + (-p) + '" y="' + (-p) + '" width="' + (o.width + 2 * p) + '" height="' + (o.height + 2 * p) + '" color-interpolation-filters="sRGB">' +
+      '<feTurbulence type="fractalNoise" baseFrequency="' + fq + " " + Math.round(fq * 1.3 * 1e6) / 1e6 + '" numOctaves="2" seed="' + opt(o, "seed", 1) + '" result="n"/>' +
+      '<feOffset in="n" dx="0" dy="0" result="no"/>' +
+      '<feDisplacementMap in="SourceGraphic" in2="no" scale="' + r2(o.scale) + '" xChannelSelector="R" yChannelSelector="G" result="d"/>' +
+      '<feGaussianBlur in="d" stdDeviation="' + r2(opt(o, "soften", 1.4)) + '"/></filter>';
+  }
+  // the gradient map: grey t -> the ramp, per channel, exactly art.mjs treat --op gradient-map's ramp; +-2 grey levels of
+  // seeded per-pixel noise go in first, so an 8-bit field maps without bands
+  function mapDef(id, ramp) {
+    var cs = ramp.map(rgb);
+    return '<filter id="' + id + '" x="0" y="0" width="1" height="1" color-interpolation-filters="sRGB">' +
+      '<feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" seed="7" result="dn"/>' +
+      '<feColorMatrix in="dn" type="matrix" values="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 1" result="dg"/>' +
+      '<feComposite in="SourceGraphic" in2="dg" operator="arithmetic" k1="0" k2="1" k3="0.03" k4="-0.015" result="dt"/>' +
+      '<feComponentTransfer in="dt">' + ["R", "G", "B"].map(function (ch, k) { return '<feFunc' + ch + ' type="table" tableValues="' + cs.map(function (c) { return r3(c[k] / 255); }).join(" ") + '"/>'; }).join("") + "</feComponentTransfer></filter>";
+  }
+  function attrEsc(s) { return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;"); }
+  // build a plate into host (W x H): a grey field (or an image), warped, optionally mapped onto the ramp. One SVG.
+  // Returns the handles flowGround and plateTransition drive (the inner group's transform, the noise offset, the warp scale).
+  function plateField(host, o) {
+    o = o || {};
+    host = one(host);
+    var W = opt(o, "width", host.offsetWidth || 1920), H = opt(o, "height", host.offsetHeight || 1080), M = Math.max(W, H);
+    var scale = opt(o, "warp", 0.02) * M, pad = Math.ceil(scale * 0.6 + M * opt(o, "padExtra", 0.06));
+    var id = "rcp" + (++uid), seed = opt(o, "seed", 1), ramp = o.ramp || o.palette || null, roles = null, content;
+    if (getComputedStyle(host).position === "static") host.style.position = "relative";
+    if (o.src) content = '<image href="' + attrEsc(o.src) + '" x="' + (-pad) + '" y="' + (-pad) + '" width="' + (W + 2 * pad) + '" height="' + (H + 2 * pad) + '" preserveAspectRatio="xMidYMid slice"/>';
+    else {
+      need(ramp && ramp.length >= 2, "plate: pass {src} or a palette ramp of 2+ colours");
+      roles = o.roles || plateRoles(ramp, o.ground, o.dark);
+      content = plateMarkup({ width: W, height: H, pad: pad, roles: roles, seed: seed, variant: PLATE_VARIANTS.indexOf(o.variant) >= 0 ? o.variant : "fold", bend: opt(o, "bend", 0.06), calm: opt(o, "calm", 0), flip: !!o.flip });
+    }
+    var mapOn = !o.src && o.grey !== true;
+    var defs = (scale > 0 ? warpDef(id + "w", { width: W, height: H, pad: pad, seed: seed + 17, scale: scale, frequency: opt(o, "frequency", 0.75), soften: opt(o, "soften", 1.4) }) : "") + (mapOn ? mapDef(id + "m", ramp) : "");
+    var el = div("rc-plate", "position:absolute;left:0;top:0;width:" + W + "px;height:" + H + "px;overflow:hidden;");
+    el.innerHTML = '<svg xmlns="' + NS + '" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + " " + H + '" style="display:block;overflow:hidden"><defs>' + defs + "</defs>" +
+      "<g" + (mapOn ? ' filter="url(#' + id + 'm)"' : "") + "><g" + (scale > 0 ? ' filter="url(#' + id + 'w)"' : "") + '><g class="rc-plate-inner">' + content + "</g></g></g></svg>";
+    host.appendChild(el);
+    var q = function (s) { return el.querySelector(s); };
+    return { el: el, inner: q(".rc-plate-inner"), offset: q("feOffset"), disp: q("feDisplacementMap"), scale: scale, pad: pad, width: W, height: H, roles: roles };
+  }
+
+  // a living plate: drift and breathing scale on the plate, and its warp noise sliding underneath, all pure functions of t.
+  // Subtle by default (drift 2% of the frame, scale +2.5%, the noise slides 3% of the frame per period of 14 s).
+  function flowDraw(P, f) {
+    var W = P.width, H = P.height, M = Math.max(W, H), r = rng(opt(f, "seed", 11) + 5), ph = [r() * 6.283, r() * 6.283, r() * 6.283];
+    var per = Math.max(2, opt(f, "period", 14)), amp = opt(f, "drift", 0.02), br = opt(f, "breathe", 0.025), fl = opt(f, "flow", 0.03);
+    return function (t) {
+      var w = 2 * PI * t / per;
+      var dx = amp * W * Math.sin(w + ph[0]), dy = amp * H * Math.sin(w * 0.77 + ph[1]), sc = 1 + br * (0.5 + 0.5 * Math.sin(w * 0.61 + ph[2]));
+      P.inner.setAttribute("transform", "translate(" + r2(W / 2 + dx) + " " + r2(H / 2 + dy) + ") scale(" + r3(sc) + ") translate(" + r2(-W / 2) + " " + r2(-H / 2) + ")");
+      if (P.offset) { P.offset.setAttribute("dx", String(r2(fl * M * Math.sin(w * 0.5 + ph[1])))); P.offset.setAttribute("dy", String(r2(fl * M * Math.cos(w * 0.43 + ph[0])))); }
+    };
+  }
+  function flowPlateOpts(f, W, H) {
+    var drift = opt(f, "drift", 0.02), fl = opt(f, "flow", 0.03);
+    return { width: W, height: H, src: f.src, ramp: f.ramp || f.palette, ground: f.ground, dark: f.dark, variant: f.variant, seed: opt(f, "seed", 11),
+      warp: opt(f, "warp", 0.02), bend: f.bend, calm: f.calm, flip: f.flip, frequency: f.frequency, padExtra: drift * 1.6 + opt(f, "breathe", 0.025) * 0.6 + fl + 0.02 };
+  }
+  // plateTransition's frame at t: the plate swells from `from` to `to` (an exponential zoom reads as constant speed),
+  // fades in over the first 42%, holds over the cut (`at` is the cut), fades out over the last 38%
+  function transitionDraw(P, o) {
+    var at = opt(o, "at", 0), du = Math.max(0.2, opt(o, "duration", 0.9)), s0 = opt(o, "from", 1.0), s1 = opt(o, "to", 2.4), e = easeFn(opt(o, "ease", "power2.inOut"));
+    var t0 = at - du / 2, M = Math.max(P.width, P.height), peak = opt(o, "opacity", 1);
+    return function (t) {
+      var p = (t - t0) / du;
+      if (p <= 0 || p >= 1) { P.el.style.visibility = "hidden"; P.el.style.opacity = "0"; return; }
+      var q = e(p), sc = s0 * Math.pow(s1 / s0, q);
+      var a = p < 0.42 ? EASES["power2.out"](p / 0.42) : p > 0.62 ? 1 - EASES["power2.in"]((p - 0.62) / 0.38) : 1;
+      P.el.style.visibility = "visible"; P.el.style.opacity = String(r3(a * peak));
+      P.el.style.transform = "scale(" + r3(sc) + ")";
+      if (P.offset) { P.offset.setAttribute("dx", String(r2(q * M * 0.04))); P.offset.setAttribute("dy", String(r2(-q * M * 0.03))); }
+    };
+  }
+  function transitionPlate(host, W, H, o) {
+    var P = plateField(host, { width: W, height: H, src: o.src, ramp: o.ramp || o.palette, ground: o.ground, dark: o.dark, variant: o.variant || "vortex", seed: opt(o, "seed", 23), warp: opt(o, "warp", 0.03), calm: o.calm, flip: o.flip });
+    P.el.style.transformOrigin = r2(opt(o, "center", [0.5, 0.5])[0] * 100) + "% " + r2(opt(o, "center", [0.5, 0.5])[1] * 100) + "%";
+    P.el.style.zIndex = String(opt(o, "zIndex", 40)); P.el.style.pointerEvents = "none"; P.el.style.visibility = "hidden"; P.el.style.opacity = "0";
+    return P;
+  }
+  // RasanCamera.flowGround(stageOrEl, opts): on a stage, cam.flowGround(opts); on a plain element, it needs {tl, duration}
+  function flowGround(target, f) {
+    f = f || {};
+    if (target && typeof target.flowGround === "function") return target.flowGround(f);
+    var host = one(target), tl = f.tl;
+    need(tl && typeof tl.fromTo === "function", "flowGround: pass a stage, or an element with {tl: <paused timeline>, duration}");
+    var dn = host.closest ? host.closest("[data-duration]") : null, du = opt(f, "duration", dn ? parseFloat(dn.getAttribute("data-duration")) : 0);
+    need(du > 0, "flowGround: a duration (or a [data-duration] ancestor) keeps the ground alive");
+    var W = opt(f, "width", host.offsetWidth || 1920), H = opt(f, "height", host.offsetHeight || 1080);
+    var P = plateField(host, flowPlateOpts(f, W, H));
+    host.insertBefore(P.el, host.firstChild); P.el.style.zIndex = "0";
+    var draw = flowDraw(P, f);
+    clockTween(tl, 0, du, function () { draw(tl.time()); });
+    draw(tl.time ? tl.time() : 0);
+    return P;
+  }
+  // RasanCamera.plateTransition(tl, {at, src | palette, duration, host | stage}): zoom through a plate across a cut
+  function plateTransition(tl, o) {
+    o = o || {};
+    if (o.stage && typeof o.stage.plateTransition === "function") return o.stage.plateTransition(o);
+    need(tl && typeof tl.fromTo === "function", "plateTransition: the first argument must be a GSAP timeline");
+    var host = one(o.host || (root.document && document.querySelector("[data-composition-id]")) || document.body);
+    if (getComputedStyle(host).position === "static") host.style.position = "relative";
+    var W = opt(o, "width", host.offsetWidth || 1920), H = opt(o, "height", host.offsetHeight || 1080);
+    var P = transitionPlate(host, W, H, o), draw = transitionDraw(P, o), du = Math.max(0.2, opt(o, "duration", 0.9));
+    clockTween(tl, Math.max(0, opt(o, "at", 0) - du / 2), du + 1 / 30, function () { draw(tl.time()); });
+    draw(tl.time ? tl.time() : 0);
+    return P;
+  }
+
   // ------------------------------------------------------------------ blurTrail for elements outside a stage
   // A speed-driven directional blur for a plain GSAP move. Pass the move (dx/dy px, at, duration, ease) or let it read
   // the element's x/y tweens on the timeline. The blur is a pure function of the timeline time (velocity from the
@@ -909,5 +1185,5 @@
     return el;
   }
 
-  root.RasanCamera = { version: VERSION, stage: stage, blurTrail: blurTrail, perspectiveFor: perspectiveFor, rng: rng, shadowOf: function (g) { return rgba(shadowOf(g), 1); } };
+  root.RasanCamera = { version: VERSION, stage: stage, blurTrail: blurTrail, plate: plateField, plateRoles: plateRoles, flowGround: flowGround, plateTransition: plateTransition, plateVariants: PLATE_VARIANTS, perspectiveFor: perspectiveFor, rng: rng, shadowOf: function (g) { return rgba(shadowOf(g), 1); } };
 })(typeof window !== "undefined" ? window : this);

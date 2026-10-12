@@ -64,6 +64,29 @@ Two regenerations per image at most; then change the idea, not the wording.
 
 A DESIGN.md can carry a `## Imagery` section: the art direction every generated image obeys (medium, lens, light, palette mapping, texture, composition room, what never). It is required in presenter films and optional elsewhere (`agents/design-system-designer.md`). Frame designers and animators who call `imagegen.mjs` read it and obey it.
 
+## Abstract plates
+
+A plate is atmosphere, not a subject: flowing organic shapes, soft gradients, a minimal composition, in the film's own colours and nothing else. It is the layer the reference films have and flat films lack (Kinso's peach to sage field, Sovra's violet glows; R1 §1.3 and recipe C). Uses: a living ground under the whole film (`cam.flowGround`), a depth layer far behind the UI (defocused, hazed), a plate to zoom through between beats (`cam.plateTransition`), and an end-card field.
+
+**When.** On the **atmospheric** finish route (the brand film's measured `Route: atmospheric`, or no brand film and a look that carries a tinted ground), plates are a standard asset: `art.mjs plan` adds a calm ground plate and a plate to zoom through. On the **graphic** route (the brand's films are flat: OpenAI, an editorial reel) never, unless the brand film itself shows colour fields; that route wins on type scale and photography. One plate family per film, like any other set.
+
+**Make one.**
+
+```bash
+node $SKILL_DIR/scripts/art.mjs plate --out art/assets/plate-ground.png --palette "#e8693f,#f2b9a0,#f7f1ea,#7fb0ab" --ground "#f7f1ea" \
+  --variant fold|vortex|horizon|ribbon --aspect 16:9|9:16 [--seed N] [--calm 0..1] [--flip] [--engine auto|procedural|imagegen]
+node $SKILL_DIR/scripts/art.mjs recipe --palette ... --ground ... --variant vortex      # the prompt and the ramp, no image
+```
+
+Or as a plan row: `{id, kind: "abstract", variant, aspect, ground?, palette? | ramp?, calm?, flip?, seed?, used_by}`; `art.mjs make` builds it.
+
+- **The recipe** (imagegen, when `IMAGEGEN=ready`): "Abstract visual, flowing organic shapes, soft gradients, minimal composition", then the composition variant (a flowing S-curve fold, a soft vortex, a horizon glow, a ribbon), the palette **in words** as the gradient's hues on the look's light or dark ground, silky light (a highlight along each fold, soft shadow between), a calm area for type, the frame (16:9 or 9:16), and "no text, no letters, no objects, no logos, no people, no UI, no frames, no watermark".
+- **The lock.** Whatever the engine, the picture then goes through `treat --op gradient-map` onto the **ordered palette ramp**, dithered (1.5 grey levels) and with 1% grain: its lightness runs along the ramp, so an off-palette hue is impossible. The ramp is the palette ordered as one path: a dark ground starts it and the rest climb by lightness (Sovra: black, deep violet, violet, lilac, pale); a light ground sits between the warm and the cool colours (Kinso: coral, peach, cream, sage). Pass `--ramp` to set the order yourself. Colours far apart on the ramp blend through the ones between them (coral to sage passes cream): order it so that is what you want.
+- **No image generation?** The procedural plate: `RasanCamera.plate` draws a grey field headless (layered blurred radial and linear gradients and shapes, bent by seeded noise, warped by an SVG `feTurbulence`/`feDisplacementMap`), then the same ramp maps it. Seeded and deterministic (same options, same bytes), about a second. Every film can have plates.
+- **calm** pulls the plate toward the ground (0.4 to 0.6 for a ground behind UI and type); **flip** swaps which pole sits in the lobe; the **seed** gives another plate in the same family.
+
+**Review.** Look at it full size: smooth, luminous, no banding, no text-like shapes, the calm area really calm. A plate behind UI must hold the UI's contrast (the type still passes).
+
 ## Cost
 
 Each image is a share of the user's ChatGPT/Codex allowance and about 1.5 minutes. State the count in the activity feed before a batch. Reuse an image with a different crop or move before making a second one.

@@ -1,0 +1,25 @@
+{
+ "_source": "The shape of OpenAI's own GPT-6 Intelligent UI film (S1-video-types-stories.md): five people, five areas of life, one shared enemy (the wall of text), one turn line, a collage of more uses. Cut to 30 s.",
+ "id": "words-arent-enough",
+ "label": "Bold",
+ "title": "Words aren't enough",
+ "logline": "Five everyday questions, five answers you can use.",
+ "device": "list-breaks",
+ "product_first": true,
+ "shape": "intercut",
+ "actor": { "what": "the real Ask ChatGPT composer", "does": "every person types into it; every answer grows out of it" },
+ "cta": { "line": "Ask ChatGPT.", "action": "Ask", "where": "chatgpt.com" },
+ "critique": { "retell": "It's the one where every kind of everyday question gets an answer you can use." },
+ "scores": { "originality": 4, "clarity": 5, "fit": 5, "memorability": 4, "feasibility": 4 },
+ "beats": [
+  { "name": "Walls of text", "role": "enemy", "duration_s": 4.6, "on_screen": "You asked. You got paragraphs.", "picture": "Five people at five tables each get the same tall wall of text back in the composer." },
+  { "name": "Words aren't enough", "role": "turn", "duration_s": 2.2, "on_screen": "Sometimes words aren't enough.", "picture": "The walls of text fold away into the composer." },
+  { "name": "Paint", "role": "thread", "domain": "home", "reach": "most", "clause": 0, "duration_s": 3.6, "on_screen": "Pick a colour.", "picture": "Swatches appear on a photo of the hallway; a tap tries each one.", "ui": ["tap a swatch → the hallway changes colour"] },
+  { "name": "Walk", "role": "thread", "domain": "travel", "reach": "many", "clause": 0, "duration_s": 3.6, "on_screen": "Plan a walk.", "picture": "A city guide builds as a map with stops along a route.", "ui": ["drag the route → the stops reorder"] },
+  { "name": "Origami", "role": "thread", "domain": "creativity", "reach": "many", "clause": 1, "duration_s": 3.6, "on_screen": "Learn a fold.", "picture": "A paper crane folds step by step in an interactive diagram.", "ui": ["tap next → the paper folds once more"] },
+  { "name": "Bike", "role": "thread", "domain": "learn", "reach": "many", "clause": 1, "duration_s": 3.6, "on_screen": "Build the bike.", "picture": "A child's bike assembles part by part in a 3D guide.", "ui": ["tap a part → it slides into place"] },
+  { "name": "Garden", "role": "thread", "domain": "home", "reach": "many", "clause": 2, "duration_s": 3.6, "on_screen": "Plan the garden.", "picture": "A backyard plan with beds you can drag and a sun path.", "ui": ["drag a bed → the sun hours update"] },
+  { "name": "And more", "role": "collage", "duration_s": 3.2, "domains": ["money", "play", "health", "food-hosting"], "on_screen": "Ask anything.", "picture": "A collage of fifteen more answers as small working tools." },
+  { "name": "Ask ChatGPT", "role": "cta", "duration_s": 2.0, "on_screen": "Ask ChatGPT.", "picture": "The end line, the largest type in the film, then the mark." }
+ ]
+}

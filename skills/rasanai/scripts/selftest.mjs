@@ -43,6 +43,8 @@
 // camera. the RasanCamera kit (scripts/tests/camera.mjs): runtime, camera.mjs install/check (order, timeline, randomness, budgets), video.mjs inject
 //    (kit + GSAP plugins, script tags), finish.mjs --draft; full runs render the demo film (every function, seek identity, byte-identical double render)
 // 17. lyric videos: the treatment gate and the crew's song route, lyrics.mjs (check, audio, align when whisper is there), the RasanMusic runtime in a page, the film finish (grade, blur)
+// formats. the "What are you making?" picker (scripts/tests/formats.mjs): formats.json check, match, resolve, the brief payload, the console picker, story.mjs format_shapes
+// plates. abstract plates (scripts/tests/plates.mjs): art.mjs recipe, the gradient-map palette lock, the procedural plate, make on an abstract row; full runs render flowGround + plateTransition twice (byte-identical)
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -600,7 +602,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   const sd = path.join(TMP, "story");
   fs.mkdirSync(sd, { recursive: true });
   const truth = path.join(sd, "truth.json");
-  fs.writeFileSync(truth, JSON.stringify({ product: { name: "Lintel" }, tags: ["ai", "devtool"], format: { format: "brand", length: "36" }, tone: ["deadpan"], transformation: "from PRs that wait to PRs already reviewed", emotional_truth: "the guilty LGTM", enemy: ["the review queue"], objects: ["the diff", "the LGTM comment", "the pager alert", "the review badge", "conflict markers", "the CI checkmark", "the nit: prefix", "the blame gutter"], forms: ["pull request", "review thread", "commit log", "incident postmortem", "changelog"], words: ["Lintel", "LGTM", "Apply suggestion"], proof: ["Reviews a 400-line PR in under 90 seconds (brief)"], competitors: ["Rival"], cliche: ["hook", "montage", "introducing", "f1", "f2", "f3"] }));
+  fs.writeFileSync(truth, JSON.stringify({ product: { name: "Lintel" }, tags: ["ai", "devtool"], format: { format: "brand", length: "36" }, claim_scope: { scope: "category", why: "reviews every pull request" }, use_domains: [{ domain: "review", prompt: "review a small diff" }, { domain: "threads", prompt: "resolve a review thread" }, { domain: "repos", prompt: "review across repos" }], tone: ["deadpan"], transformation: "from PRs that wait to PRs already reviewed", emotional_truth: "the guilty LGTM", enemy: ["the review queue"], objects: ["the diff", "the LGTM comment", "the pager alert", "the review badge", "conflict markers", "the CI checkmark", "the nit: prefix", "the blame gutter"], forms: ["pull request", "review thread", "commit log", "incident postmortem", "changelog"], words: ["Lintel", "LGTM", "Apply suggestion"], proof: ["Reviews a 400-line PR in under 90 seconds (brief)"], competitors: ["Rival"], cliche: ["hook", "montage", "introducing", "f1", "f2", "f3"] }));
   const picks = ["a", "b", "c"].map((s) => node("story.mjs", ["pick", "--truth", truth, "--seed", s]));
   const P = picks.map((r) => { try { return JSON.parse(r.stdout); } catch { return { picks: [], distance: { matrix: [] } }; } });
   const differ = P.every((r) => r.picks.length === 3 && ["family", "protagonist", "visual_world"].every((k) => new Set(r.picks.map((p) => p.axes[k])).size === 3) && r.distance.matrix.flat().every((d) => d === null || d >= 5));
@@ -837,9 +839,61 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       const pkp = node("story.mjs", ["pick", "--truth", ptruth, "--format", "launch", "--seed", "k", "--shape", "pas"]);
       let pjp = {}; try { pjp = JSON.parse(pkp.stdout); } catch {}
       ok("pas: pick --shape pas forces the viewer-first pas shape for all three, with its rule (hook, agitate, meet, benefits, proof, cta)", pjp.shape === "pas" && (pjp.picks || []).length === 3 && pjp.picks.every((x) => x.structure === "pas" && /Sure|Bold|Wild/.test(x.pas_variant)) && /meet/.test(pjp.shape_rule || "") && /cta/.test(pjp.shape_rule || ""), pkp.stdout.slice(0, 300));
-      const pk2 = node("story.mjs", ["pick", "--truth", ptruth, "--format", "launch", "--seed", "k", "--feature", "Sites"]);
+      const pk2 = node("story.mjs", ["pick", "--truth", ptruth, "--format", "launch", "--seed", "k", "--feature", "Sites", "--scope", "single-task"]);
       let pj2 = {}; try { pj2 = JSON.parse(pk2.stdout); } catch {}
       ok("ladder: pick with --feature (one feature named) keeps the scenario shape", pj2.shape === "scenario" && !(pj2.picks || []).some((x) => x.structure), pk2.stdout.slice(0, 200));
+      // G13, the story's scope matches the claim (S3 niche diagnosis, run6): a universal claim ("any question becomes a tool") is told as
+      // the range of its uses. Fixtures: run6's three ChatGPT pitches (domains added) and the "Ask anything" ladder, on the corrected truth sheet.
+      {
+        const SD = path.join(HERE, "tests", "fixtures", "story-scope");
+        const st = path.join(SD, "truth.md");
+        const g13 = (name) => { const r = node("story.mjs", ["check", "--pitch", path.join(SD, `pitch-${name}.json`), "--truth", st, "--length", "30"]); let j = {}; try { j = JSON.parse(r.stdout); } catch {} return { g: (j.gates || []).find((x) => x.id === "G13") || { pass: null, reasons: [r.stderr.slice(0, 200)] }, w: j.warnings || [] }; };
+        const wild = g13("Wild"), bold = g13("Bold"), sure = g13("Sure"), ask = g13("ask-anything");
+        const wr = wild.g.reasons.join(" | ");
+        ok("scope: G13 fails run6's Wild (one dinner: areas 3 < 4, one scenario over 35%, an \"I\" chain and callbacks, the opening is one use's set-up, a retell with no range)", wild.g.pass === false && ["areas:", "dominance:", "persona:", "hook-scenario:", "retell:"].every((k) => wr.includes(k)) && wild.g.S_max > 0.45, wr);
+        ok("scope: G13 fails run6's Bold (the receipt opening and its benefits are one scenario over 35%)", bold.g.pass === false && /dominance:/.test(bold.g.reasons.join(" ")) && /hook-scenario:/.test(bold.g.reasons.join(" ")), bold.g.reasons.join(" | "));
+        ok("scope: G13 passes run6's Sure (4 areas, the largest use 23%) with a warning (near the 25% aim, the hero is the longest use)", sure.g.pass === true && sure.g.S_max <= 0.25 && sure.w.some((w) => /dominance:|hero:/.test(w)), sure.g.reasons.join(" | ") + " // " + sure.w.join(" | "));
+        ok("scope: G13 passes the \"Ask anything\" ladder (7 areas, no use over 16%, P = 0, every promise clause shown)", ask.g.pass === true && ask.g.D >= 4 && ask.g.S_max <= 0.2 && ask.g.P === 0 && !ask.w.some((w) => /coverage:|dominance:|reach/.test(w)), ask.g.reasons.join(" | ") + " // " + ask.w.join(" | "));
+        const trio = path.join(sd, "scope-trio.json");
+        fs.writeFileSync(trio, JSON.stringify({ pitches: ["Sure", "Bold", "Wild"].map((l) => JSON.parse(fs.readFileSync(path.join(SD, `pitch-${l}.json`), "utf8"))) }));
+        let tj = {}; try { tj = JSON.parse(node("story.mjs", ["check", "--pitch", trio, "--truth", st, "--length", "30"]).stdout); } catch {}
+        ok("scope: the portfolio fails two scripts that collapse onto one scenario (Bold and Wild are both the dinner bill)", ((tj.portfolio || {}).reasons || []).some((x) => /^collapse:/.test(x) && /The box you type into/.test(x)), JSON.stringify(tj.portfolio || {}).slice(0, 300));
+        let up = {}; try { up = JSON.parse(node("story.mjs", ["pick", "--truth", st, "--seed", "a"]).stdout); } catch {}
+        ok("scope: pick on a universal claim gives three ladders (no coin flip, no user-protagonist device), each leading with different areas of life", up.claim_scope === "universal" && (up.picks || []).length === 3 && up.picks.every((x) => x.shape === "ladder" && x.axes.protagonist !== "user" && (x.lead_domains || []).length) && new Set(up.picks.map((x) => x.lead_domains[0])).size === 3 && /Universal claim/.test(up.scope_rule || ""), JSON.stringify((up.picks || []).map((x) => [x.id, x.shape, x.lead_domains])));
+        const old = path.join(sd, "truth-no-scope.json");
+        fs.writeFileSync(old, JSON.stringify({ ...JSON.parse(fs.readFileSync(ptruth, "utf8")), claim_scope: undefined, use_domains: undefined }));
+        const ref = node("story.mjs", ["pick", "--truth", old, "--format", "launch", "--seed", "k"]);
+        ok("scope: pick refuses a launch truth sheet without a Claim scope (regenerate it)", ref.status !== 0 && /no Claim scope/.test(ref.stderr), ref.stderr.slice(0, 200));
+        const uniFeat = node("story.mjs", ["pick", "--truth", ptruth, "--format", "launch", "--seed", "k", "--feature", "Sites", "--scope", "universal"]);
+        let uf = {}; try { uf = JSON.parse(uniFeat.stdout); } catch {}
+        ok("scope: one named feature with a universal claim is still a ladder (a breadth feature is a ladder even when it is the only feature)", uf.shape === "ladder", uniFeat.stdout.slice(0, 200) + uniFeat.stderr.slice(0, 200));
+        const tmpl = path.join(sd, "truth-template.md");
+        node("story.mjs", ["truth", "--out", tmpl, "--force"]);
+        const tt = fs.existsSync(tmpl) ? fs.readFileSync(tmpl, "utf8") : "";
+        ok("scope: the truth template asks for the Claim scope (scope, clauses, audience) and 8 to 12 ranked Use moments", /## Claim scope/.test(tt) && /clauses:/.test(tt) && /## Use moments/.test(tt) && /most universal first/.test(tt) && !/a receipt, a changelog/.test(tt), tt.slice(0, 200));
+        // the moves carrier must be what every rung shares, never a scenario's noun
+        const ml = await import(path.join(HERE, "lib", "moves-lib.mjs"));
+        const wp = JSON.parse(fs.readFileSync(path.join(SD, "pitch-Wild.json"), "utf8"));
+        const car = (short) => ml.validateMoves({ carrier: { what: short, short, family: "data", beats: [1, 2, 3, 4, 5], why: "x" } }, { beats: wp.beats, productFirst: true, shape: "pas", productName: "ChatGPT" }).errors.filter((e) => /carrier-scenario/.test(e));
+        // the S1 shapes: OpenAI's own Intelligent UI film is an intercut (five people, five areas of life, one enemy, one turn line, a collage)
+        const icr = node("story.mjs", ["check", "--pitch", path.join(SD, "pitch-intercut.json"), "--truth", st, "--length", "30"]);
+        let icj = {}; try { icj = JSON.parse(icr.stdout); } catch {}
+        const icg = (id) => (icj.gates || []).find((x) => x.id === id) || { pass: null, reasons: [] };
+        ok("shapes: an intercut pitch (5 threads in 5 areas, one enemy, one turn, a collage) passes its G10 and G13", icg("G10").pass === true && icg("G10").shape === "intercut" && icg("G13").pass === true && icg("G13").D >= 4, icg("G10").reasons.concat(icg("G13").reasons).join(" | "));
+        const icBad = path.join(sd, "intercut-bad.json");
+        const icp = JSON.parse(fs.readFileSync(path.join(SD, "pitch-intercut.json"), "utf8"));
+        fs.writeFileSync(icBad, JSON.stringify({ ...icp, beats: icp.beats.filter((b) => b.role !== "turn").map((b) => (b.role === "thread" ? { ...b, ui: [] } : b)) }));
+        let ibj = {}; try { ibj = JSON.parse(node("story.mjs", ["check", "--pitch", icBad, "--truth", st, "--length", "30"]).stdout); } catch {}
+        const ibg = (ibj.gates || []).find((x) => x.id === "G10") || { pass: null, reasons: [] };
+        ok("shapes: G10 fails an intercut with no turn line and threads with no real UI cause and effect", ibg.pass === false && /turn: 0/.test(ibg.reasons.join(" ")) && /cause and effect/.test(ibg.reasons.join(" ")), ibg.reasons.join(" | "));
+        let fp = {}; try { fp = JSON.parse(node("story.mjs", ["pick", "--truth", st, "--seed", "a", "--format-id", "feature-reveal"]).stdout); } catch {}
+        ok("shapes: pick follows the format's ranked shapes for the claim's scope (a universal feature launch: ladder, intercut, hero + strip), each with its beats", (fp.picks || []).map((x) => x.shape).join() === "ladder,intercut,hero-strip" && /Intercut parallel uses/.test(fp.shape_rule || "") && fp.picks[1].shape_rule, JSON.stringify((fp.picks || []).map((x) => x.shape)) + (fp.shapes_by || ""));
+        const fc = node("formats.mjs", ["check"]);
+        let fcj = {}; try { fcj = JSON.parse(fc.stdout); } catch {}
+        ok("shapes: formats.mjs check finds every story shape it names in story.mjs (none pending)", Array.isArray(fcj.shapes_pending) && fcj.shapes_pending.length === 0, JSON.stringify(fcj.shapes_pending));
+        ok("scope: moves check refuses a carrier named for one scenario (the receipt's guest count) and accepts the composer's caret", car("the receipt's guest count").length === 1 && car("the composer's blinking caret").length === 0, JSON.stringify([car("the receipt's guest count"), car("the composer's blinking caret")]));
+      }
+
 
       // G11, every line shows: a motion that MEANS each line, built from the product UI or the actor, words and UI touching
       {
@@ -1185,13 +1239,28 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     const phs = (plan.phases || []).map((p) => p.phase);
     ok("crew: the plan has a concept-gate phase after the story and before the score", phs.includes("concept-gate") && phs.indexOf("concept-gate") < phs.indexOf("score") && phs.indexOf("concept-gate") > phs.indexOf("design-systems"), phs.join(","));
     C(["plan", "--run", run, "--route", "product-launch-video", "--subject", "Tally", "--public", "--scenes", "4", "--length", "20"]);
+    // the script editor cannot be skipped: no concept critic until story/edit-notes.json passes (S3 niche diagnosis)
+    const early = C(["brief", "--run", run, "--role", "concept-critic", "--key", "concept-1"]);
+    ok("crew: the concept critic is refused until the script editor has passed (the editor cannot be skipped)", early.status !== 0 && /script editor has not passed/.test(early.stderr + early.stdout), (early.stdout + early.stderr).slice(0, 300));
+    {
+      const panel = (n) => ["a student", "a parent", "a retiree", "a nurse", "a shop owner", "an office worker"].map((who, i) => ({ who, sees_self: i < n, wants_to_be: true, beat: 2 }));
+      const en = path.join(run, "story", "edit-notes.json");
+      fs.mkdirSync(path.dirname(en), { recursive: true });
+      const notes = (recPanel) => ({ pitches: [{ id: "sure", label: "Sure", verdict: "ship", score: 7, strongest: "the range", notes: [], recognition: panel(6) }, { id: "wild", label: "Wild", verdict: "ship", score: 7, strongest: "one dinner", notes: [], recognition: panel(recPanel) }], recommended: "wild", why: "x", first_watch: "the real composer by 1 s, every ask becomes a tool by 10 s, then they try it" });
+      fs.writeFileSync(en, JSON.stringify(notes(2)));
+      const niche = C(["check", "--run", run, "--role", "script-editor"]);
+      ok("crew: the editor may not recommend a script the recognition panel fails (2/6 see themselves) while another passes", niche.status !== 0 && /recognition panel/.test(niche.stdout), niche.stdout.slice(0, 300));
+      fs.writeFileSync(en, JSON.stringify(notes(6)));
+      const fine = C(["check", "--run", run, "--role", "script-editor"]);
+      ok("crew: the editor's notes with a full recognition panel pass, and unlock the concept critic", fine.status === 0, fine.stdout.slice(0, 300));
+    }
     const cb = J2(C(["brief", "--run", run, "--role", "concept-critic", "--key", "concept-1"]));
     const promptFile = cb.prompt_file || cb.file || cb.prompt || "";
     const ptxt = promptFile && fs.existsSync(path.resolve(ws, promptFile)) ? fs.readFileSync(path.resolve(ws, promptFile), "utf8") : JSON.stringify(cb);
     ok("crew: the concept critic brief carries product_first, the six questions and a faster model", /product_first/.test(ptxt) && /first_watch_clear/.test(ptxt) && /faster model/.test(JSON.stringify(cb)), JSON.stringify(cb).slice(0, 300));
     const cf = path.join(run, "story", "concept-check.json");
     fs.mkdirSync(path.dirname(cf), { recursive: true });
-    const ans = (okv) => Object.fromEntries(["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear", "one_feature_one_scenario"].map((k) => [k, okv ? { ok: true, evidence: "beat 1" } : { ok: false, evidence: "beat 1", fix: "open on the real UI" }]));
+    const ans = (okv) => Object.fromEntries(["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear", "one_feature_one_scenario", "scope_matches_claim"].map((k) => [k, okv ? { ok: true, evidence: "beat 1, S_max 0.2, D 4" } : { ok: false, evidence: "beat 1", fix: "open on the real UI" }]));
     fs.writeFileSync(cf, JSON.stringify({ verdict: "pass", answers: ans(false), summary: "x" }));
     const bad = C(["check", "--run", run, "--role", "concept-critic", "--key", "concept-1"]);
     fs.writeFileSync(cf, JSON.stringify({ verdict: "pass", answers: ans(true), summary: "6 of 6" }));
@@ -3090,6 +3159,14 @@ tl.from("#a",{scale:0.4,duration:0.28,ease:"back.out(1.4)"},0);tl.to("#a",{scale
 try { await (await import(path.join(HERE, "tests", "motion.mjs"))).default({ ok, node, tmp: TMP, quick }); }
 catch (e) { ok("motion: tests ran", false, String((e && e.stack) || e).split("\n").slice(0, 4).join(" | ")); }
 
+// formats (W11): the "What are you making?" picker: formats.json check, match, resolve, the brief payload, the console picker, story.mjs's format_shapes (scripts/tests/formats.mjs)
+try { await (await import(path.join(HERE, "tests", "formats.mjs"))).default({ ok, node, tmp: TMP, quick }); }
+catch (e) { ok("formats: tests ran", false, String((e && e.stack) || e).split("\n").slice(0, 4).join(" | ")); }
+
+// plates (W13): abstract plates: the recipe, the palette lock, the procedural plate, make on an abstract row, flowGround + plateTransition determinism (scripts/tests/plates.mjs)
+try { await (await import(path.join(HERE, "tests", "plates.mjs"))).default({ ok, node, tmp: TMP, quick }); }
+catch (e) { ok("plates: tests ran", false, String((e && e.stack) || e).split("\n").slice(0, 4).join(" | ")); }
+
 // music. the source chain, the measured quality gate, the catalog schema, the brief from the arc, credits; all offline (fixtures, a local mock of the AI vendor)
 {
   const crypto = (await import("node:crypto")).default, http = (await import("node:http")).default, { spawn } = await import("node:child_process");
@@ -3136,8 +3213,9 @@ catch (e) { ok("motion: tests ran", false, String((e && e.stack) || e).split("\n
   const sc = lib.scoreTrack({ sub: -8, presence: -15, air: -25, hf: -40, side_mid: -11, crest: 13, lra: 3.5 }, { family: "editorial" });
   const sw = lib.scoreTrack({ sub: -8, presence: -7, air: -25, hf: -40, side_mid: -11, crest: 13, lra: 3.5 }, { family: "editorial" });
   ok("music: the soft score is 90+ inside the references' band and falls when the mids turn harsh; a title with 'remix' costs 10", sc.score >= 85 && sw.score < sc.score - 10 && lib.scoreTrack({ sub: -8, presence: -15, air: -25, hf: -40, side_mid: -11, crest: 13, lra: 3.5 }, { title: "Foo (Minimal Electro Mix)" }).score < lib.scoreTrack({ sub: -8, presence: -15, air: -25, hf: -40, side_mid: -11, crest: 13, lra: 3.5 }, { title: "Foo" }).score, `${sc.score} ${sw.score}`);
-  const gcli = J(node("music.mjs", ["gate", "--track", path.join(d, "phasey.wav")]));
-  ok("music: music.mjs gate --track prints the measured features, the rejects and pass: false", gcli.pass === false && gcli.rejects?.some((r) => r.gate === "phase") && typeof gcli.quality?.sub === "number", JSON.stringify(gcli).slice(0, 200));
+  const gres = node("music.mjs", ["gate", "--track", path.join(d, "phasey.wav")]);
+  const gcli = J(gres);
+  ok("music: music.mjs gate --track prints the measured features, the rejects and pass: false", gcli.pass === false && gcli.rejects?.some((r) => r.gate === "phase") && typeof gcli.quality?.sub === "number", JSON.stringify(gcli).slice(0, 200) + ` status=${gres.status} signal=${gres.signal} error=${gres.error && gres.error.message} stdout=${String(gres.stdout || "").slice(0, 300)} stderr=${String(gres.stderr || "").slice(0, 400)}`);
 
   // the source chain: keys absent, present, and the order
   const ids = (c) => c.filter((x) => x.on).map((x) => x.id).join(",");
