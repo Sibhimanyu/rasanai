@@ -47,7 +47,10 @@ if (mode === "chain") {
 }
 if (mode === "gate") {
   if (!args.track) die("--track <file> required");
-  const A = analyzeTrack(String(args.track), { quick: true });
+  // the quality gate measures the sound itself; the beat analysis only places the window, so a track too short or
+  // too noisy to analyse is still judged
+  let A = null;
+  try { A = analyzeTrack(String(args.track), { quick: true }); } catch {}
   console.log(JSON.stringify({ track: args.track, ...judge(String(args.track), { kind: args.user ? "user" : "catalog", family: args.family, title: path.basename(String(args.track)), A, narrated: !!args.narrated }) }, null, 2));
   process.exit(0);
 }
