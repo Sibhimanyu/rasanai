@@ -149,6 +149,9 @@ function pickRasan(RL, kind, cls, history) {
       if (!pool.length) continue;
       const recent = history.slice(-3);
       const fresh = pool.filter((e) => !recent.includes(e.id));
+      // the film's one UI pack keeps its sound even when its only file was just used (the pitch variants
+      // keep repeats from sounding identical); other packs never stand in for a category it has
+      if (!fresh.length && ui && pack === RL.uiPack) return pool[history.filter((id) => pool.some((e) => e.id === id)).length % pool.length];
       if (!fresh.length) { stale ||= pool[history.filter((id) => pool.some((e) => e.id === id)).length % pool.length]; continue; }
       return fresh[history.filter((id) => pool.some((e) => e.id === id)).length % fresh.length];
     }
@@ -178,6 +181,31 @@ function inferEvents(scenes, plan) {
   return ev;
 }
 
+// "## Events" lines as the film builder and scene animators write them ("- t=3.65 selection lands on the beat (tick)";
+// several "t=" in one line are several events) -> [{t, kind, what, signature}]; the kind is read from the words
+const EVENT_WORDS = [
+  [/\blogo\b|\bmark lands\b|blossom|end card lands/i, "logo"], [/\breveal|\bmeet\b|brand reveal/i, "reveal"],
+  [/whoosh|push-through|flies|flight|zoom through|dives?\b|whip|swoops?/i, "whoosh"], [/riser|builds? to/i, "riser"],
+  [/\bclick|\btaps?\b|\bpress(es)?\b|\btick(ed|s)? (the )?(box|row)|toggle|send\b|cursor (clicks|presses)/i, "click"],
+  [/typ(es|ing)|key run|\bkeys?\b|backspace/i, "type"], [/counter|count(s|ing)? up|digit|rolls? to|\btick\b/i, "count"],
+  [/notification|toast|badge|bubble (appears|lands)/i, "toast"], [/snaps?|locks?\b|aligns?/i, "snap"],
+  [/lands?\b|settles?|drops? in|thud/i, "land"], [/appears?|pops?\b/i, "pop"], [/\bcut\b|seam|transition|match cut/i, "transition"],
+];
+function eventsFromLines(text) {
+  const out = [];
+  for (const line of text.split("\n")) {
+    const parts = line.split(/(?=\bt\s*=\s*\d)/).filter((p) => /^t\s*=\s*\d/.test(p.trim()));
+    for (const p of parts) {
+      const m = p.trim().match(/^t\s*=\s*([\d.]+)\s*s?\s*[:,-]?\s*(.*)$/);
+      if (!m) continue;
+      const what = m[2].replace(/[;,.\s]+$/, "");
+      const hit = EVENT_WORDS.find(([re]) => re.test(what));
+      out.push({ t: Number(m[1]), kind: hit ? hit[1] : "none", what, signature: /signature|hero|showreel|push-through/i.test(what) || undefined });
+    }
+  }
+  return out;
+}
+
 function sfxPlan() {
   const sc = readScenes(need("scenes", "<scenes.json|timeline.json>"));
   const plan = args.plan ? readJSON(exists(path.resolve(String(args.plan)), "plan")) : null;
@@ -187,8 +215,12 @@ function sfxPlan() {
   const film = plan?.film_duration || sc.total;
   let events;
   if (args.events) {
-    const E = readJSON(exists(path.resolve(String(args.events)), "events"));
-    events = (Array.isArray(E) ? E : E.events || []).map((e) => ({ ...e }));
+    const ef = exists(path.resolve(String(args.events)), "events");
+    const raw = fs.readFileSync(ef, "utf8");
+    if (/^\s*[[{]/.test(raw)) {
+      const E = JSON.parse(raw);
+      events = (Array.isArray(E) ? E : E.events || []).map((e) => ({ ...e }));
+    } else events = eventsFromLines(raw); // the builders' "## Events" lines: "t=<film s> <what happens>"
   } else events = inferEvents(sc.scenes, plan);
   events = events.map((e, i) => {
     const kind = KINDS[e.kind] ? e.kind : ALIAS[e.kind] || null;
