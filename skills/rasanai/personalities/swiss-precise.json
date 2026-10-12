@@ -42,7 +42,6 @@
     "fade-up-slide",
     "fade-slide",
     "bounce",
-    "overshoot",
     "blur-in",
     "opacity-only-entrance"
   ],
@@ -56,5 +55,19 @@
     "exit_ms": 300,
     "hold_ms": 900
   },
-  "builder_notes": "Every element enters from behind an overflow-hidden mask (yPercent 100 -> 0, opacity untouched). Align everything to a strict column grid; moves are whole-block shifts to the next grid position. Exits reverse the mask. No blur, no bounce, no fades."
+  "builder_notes": "Every element enters from behind an overflow-hidden mask (yPercent 100 -> 0, opacity untouched). Align everything to a strict column grid; moves are whole-block shifts to the next grid position. Exits reverse the mask. No blur, no bounce, no fades; a rare small settle on a hero landing is allowed.",
+  "curves": {
+    "launch": "cubic-bezier(0.05,0.7,0.1,1)",
+    "glide": "cubic-bezier(0.2,0,0,1)",
+    "expressive": "cubic-bezier(0.4,0.14,0.3,1)",
+    "exit": "expo.in",
+    "settle": "spring(0.68,12)",
+    "snap": "expo.out",
+    "drift": "sine.inOut",
+    "move": "expo.inOut"
+  },
+  "overshoot": {
+    "share": 0.15,
+    "max_pct": 8
+  }
 }

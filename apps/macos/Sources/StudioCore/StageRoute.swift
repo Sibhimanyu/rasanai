@@ -76,7 +76,7 @@ public enum StageRouter {
         switch stage {
         case .brief: candidates = ["brief"]
         case .story: candidates = ["story", "concept"]
-        case .look: candidates = ["look", "films", "direction"]
+        case .look: candidates = ["look", "films", "direction", "styleframes"]
         case .animatic: candidates = ["animatic", "build"]
         case .final: candidates = ["render", "final"]
         }

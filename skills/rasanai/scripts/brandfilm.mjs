@@ -7,7 +7,8 @@
 //   measure  --in <video|frames dir> --out <grammar.json>        luminance, white/black shares, palette, saturation, motion, cut rate
 //   card     --dir <dir> [--brand <name>]                        FILM-STYLE.json + FILM-STYLE.md (measured numbers + slots for the AI to fill)
 //   compare  --ref <grammar.json|FILM-STYLE.json> --ours <video|frames dir> [--tolerance strict|normal]
-//                                                                style-match gate, exit 1 on fail
+//                                                                style-match gate, exit 1 on an error (palette dE, off-brand hue,
+//                                                                cut rate, tempo); canvas share, % white and colour amount warn
 //
 // All output is JSON on stdout. Nothing opens a window. Needs ffmpeg/ffprobe; find/fetch need yt-dlp and network.
 // Colour distance is CIE76 (dE) in Lab, weighted by palette share. Do not put downloaded brand films in the repo.
@@ -119,6 +120,100 @@ function tempoOf(diffs, fps, dur) {
   return { threshold: TEMPO_CHANGE_THR, changes: times.length, changeEveryS: times.length ? r1(total / times.length) : null, longestHoldS: r1(hold), changeTimes: times.slice(0, 400).map(r1) };
 }
 
+// ---------- finish (grain, ground tint and falloff, vignette, soft shadow, softness) ----------
+// Measured, not guessed: a coarse analyst cannot see 1-2% grain, a 2-unit ground tint or a soft shadow, and what it
+// cannot see it used to ban. These numbers decide whether the default finish layer stays on (references/brand-film.md 4).
+// Frames at 480x270, tiles of 30x30 px (16x9). A tile is "empty" (ground) when its 5x5 block means barely change; noise is
+// the residual against the local 3x3 mean inside empty tiles; soft content is R1's measure: of the 24 px tiles with
+// structure (std > 10), the share whose Laplacian variance is under 6% of their variance (blurred structure).
+const FW = 480, FH = 270, TS = 30;
+const FINISH_OFF = { noise: 1.0, groundChroma: 1.0, groundRange: 2.0, vignette: 2.0, shadowFrames: 0.1 };
+function sampleFinishFrames(input) {
+  const sz = FW * FH * 3;
+  if (fs.statSync(input).isDirectory()) {
+    const files = listFrames(input), step = Math.max(1, Math.ceil(files.length / 40)), bufs = [];
+    for (let i = 0; i < files.length; i += step) {
+      const r = run("ffmpeg", ["-v", "error", "-i", files[i], "-vf", `scale=${FW}:${FH}`, "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { buffer: true });
+      if (r.stdout && r.stdout.length === sz) bufs.push(r.stdout);
+    }
+    return bufs;
+  }
+  const p = probe(input), dur = p && p.duration ? p.duration : 40, fps = Math.min(1, 40 / dur);
+  const r = run("ffmpeg", ["-v", "error", "-i", input, "-an", "-vf", `fps=${fps.toFixed(4)},scale=${FW}:${FH}`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { buffer: true });
+  const n = Math.floor((r.stdout?.length || 0) / sz), bufs = [];
+  for (let i = 0; i < n; i++) bufs.push(r.stdout.subarray(i * sz, (i + 1) * sz));
+  return bufs;
+}
+const median = (a) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+const pct = (a, q) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(q * s.length))]; };
+function finishOf(bufs) {
+  const TX = FW / TS, TY = FH / TS, noise = [], gChroma = [], gRange = [], vig = [], soft = [];
+  let shadowFrames = 0, haloFrames = 0, counted = 0;
+  for (const b of bufs) {
+    const g = new Float32Array(FW * FH);
+    for (let i = 0; i < FW * FH; i++) g[i] = luma(b[i * 3], b[i * 3 + 1], b[i * 3 + 2]);
+    const box = new Float32Array(FW * FH);
+    for (let y = 1; y < FH - 1; y++) for (let x = 1; x < FW - 1; x++) { let s = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) s += g[(y + dy) * FW + x + dx]; box[y * FW + x] = s / 9; }
+    const tiles = [];
+    for (let ty = 0; ty < TY; ty++) for (let tx = 0; tx < TX; tx++) {
+      const x0 = tx * TS, y0 = ty * TS, bm = [];
+      for (let by = 0; by < 3; by++) for (let bx = 0; bx < 3; bx++) { let s = 0; for (let yy = 0; yy < 10; yy++) for (let xx = 0; xx < 10; xx++) s += g[(y0 + by * 10 + yy) * FW + x0 + bx * 10 + xx]; bm.push(s / 100); }
+      let adj = 0; for (let by = 0; by < 3; by++) for (let bx = 0; bx < 3; bx++) { const v = bm[by * 3 + bx]; if (bx < 2) adj = Math.max(adj, Math.abs(v - bm[by * 3 + bx + 1])); if (by < 2) adj = Math.max(adj, Math.abs(v - bm[(by + 1) * 3 + bx])); }
+      const range = Math.max(...bm) - Math.min(...bm);
+      let rs = 0, rq = 0, rn = 0, lapO = 0, cr = 0, cg = 0, cb = 0;
+      for (let y = Math.max(2, y0); y < Math.min(FH - 2, y0 + TS); y++) for (let x = Math.max(2, x0); x < Math.min(FW - 2, x0 + TS); x++) {
+        const i = y * FW + x, d = g[i] - box[i]; rs += d; rq += d * d; rn++;
+        lapO += Math.abs(4 * g[i] - g[i - 1] - g[i + 1] - g[i - FW] - g[i + FW]);
+      }
+      for (let y = y0; y < y0 + TS; y++) for (let x = x0; x < x0 + TS; x++) { const i = (y * FW + x) * 3; cr += b[i]; cg += b[i + 1]; cb += b[i + 2]; }
+      const np = TS * TS, L = lab([cr / np, cg / np, cb / np]);
+      tiles.push({ tx, ty, empty: adj < 3 && range < 5, smooth: adj < 5 && range < 24, noise: rn ? Math.sqrt(Math.max(0, rq / rn - (rs / rn) ** 2)) : 0, lap: lapO / (rn || 1), L: L[0], C: Math.hypot(L[1], L[2]) });
+    }
+    // the ground is the most common lightness among the flat tiles (a solid black box is flat too, but it is not the ground)
+    const flat = tiles.filter((t) => t.empty), bins = {};
+    for (const t of flat) bins[Math.round(t.L / 10)] = (bins[Math.round(t.L / 10)] || 0) + 1;
+    const mode = Number((Object.entries(bins).sort((a, b) => b[1] - a[1])[0] || [0])[0]) * 10;
+    const empty = flat.filter((t) => Math.abs(t.L - mode) <= 20), structured = tiles.filter((t) => !t.smooth && t.lap > 6);
+    if (empty.length >= 4) {
+      counted++;
+      noise.push(median(empty.map((t) => t.noise)));
+      gChroma.push(median(empty.map((t) => t.C)));
+      const Ls = empty.map((t) => t.L); gRange.push(pct(Ls, 0.95) - pct(Ls, 0.05));
+      const edge = empty.filter((t) => t.tx === 0 || t.ty === 0 || t.tx === TX - 1 || t.ty === TY - 1), mid = empty.filter((t) => t.tx >= 4 && t.tx < TX - 4 && t.ty >= 2 && t.ty < TY - 2);
+      if (edge.length >= 2 && mid.length >= 2) vig.push(median(mid.map((t) => t.L)) - median(edge.map((t) => t.L)));
+      const gL = median(Ls), near = (t) => structured.some((s) => Math.abs(s.tx - t.tx) <= 1 && Math.abs(s.ty - t.ty) <= 1);
+      const fall = tiles.filter((t) => t.smooth && !t.empty && near(t));
+      if (fall.some((t) => gL - t.L >= 3 && gL - t.L <= 25)) shadowFrames++;
+      if (fall.some((t) => t.L - gL >= 3 && t.L - gL <= 25)) haloFrames++;
+    }
+    { let content = 0, sc = 0; const T = 24;
+      for (let y0 = 0; y0 + T <= FH; y0 += T) for (let x0 = 0; x0 + T <= FW; x0 += T) {
+        let s1 = 0, s2 = 0; for (let y = y0; y < y0 + T; y++) for (let x = x0; x < x0 + T; x++) { const v = g[y * FW + x]; s1 += v; s2 += v * v; }
+        const vr = s2 / (T * T) - (s1 / (T * T)) ** 2; if (vr <= 100) continue; content++;
+        let l1 = 0, l2 = 0, ln = 0; for (let y = Math.max(1, y0); y < Math.min(FH - 1, y0 + T); y++) for (let x = Math.max(1, x0); x < Math.min(FW - 1, x0 + T); x++) { const i = y * FW + x, l = g[i - 1] + g[i + 1] + g[i - FW] + g[i + FW] - 4 * g[i]; l1 += l; l2 += l * l; ln++; }
+        if ((l2 / ln - (l1 / ln) ** 2) / vr < 0.06) sc++;
+      }
+      if (content >= 3) soft.push(sc / content); }
+  }
+  const f = {
+    frames: bufs.length, groundFrames: counted,
+    noise: noise.length ? r1(median(noise)) : null,                       // residual std in 8-bit units: ~2-3 is 1% grain, 5+ is 2-4%
+    groundChroma: gChroma.length ? r1(median(gChroma)) : null,            // C* of the empty area: 0 = neutral ground
+    groundRange: gRange.length ? r1(median(gRange)) : null,               // L* p5..p95 across the empty area: 0 = flat, 4+ = lit/falloff
+    vignette: vig.length ? r1(median(vig)) : null,                        // centre minus edge L* of the ground
+    shadowFrames: counted ? r3(shadowFrames / counted) : null,            // frames with a soft dark falloff next to an object
+    haloFrames: counted ? r3(haloFrames / counted) : null,                // frames with a soft light falloff next to an object (glow, rim)
+    softContent: soft.length ? { median: r3(median(soft)), p90: r3(pct(soft, 0.9)), framesOver15: r3(soft.filter((s) => s >= 0.15).length / soft.length) } : null,
+  };
+  const zero = (v, t) => v === null || v < t;
+  f.layerOff = zero(f.noise, FINISH_OFF.noise) && zero(f.groundChroma, FINISH_OFF.groundChroma) && zero(f.groundRange, FINISH_OFF.groundRange) && zero(f.vignette, FINISH_OFF.vignette) && zero(f.shadowFrames, FINISH_OFF.shadowFrames);
+  f.route = f.layerOff ? "graphic" : "atmospheric";
+  f.note = f.layerOff
+    ? "Measured zero grain, shadow and ground tint on a flat ground: the finish layer may be off, and the film must win on type scale (giant moments), photography and colour content (the OpenAI route). Hero effects stay available on a budget."
+    : "The brand's films carry a finish layer (measured grain, ground tint or falloff, vignette or soft shadow): the default finish stays on.";
+  return f;
+}
+
 function measure(input) {
   const { bufs, fps } = sampleFrames(input);
   if (!bufs.length) return null;
@@ -174,6 +269,7 @@ function measure(input) {
     saturation: { mean: r3(satSum / n), saturatedShare: r3(satPix / n), colourMoments: moments, colourMomentShare: r3(moments / n) },
     motion: { meanFrameDiff: motionN ? r1(motion / motionN) : null },
     tempo,
+    finish: finishOf(sampleFinishFrames(input)),
     cuts: cuts === null ? null : { count: cuts.length, per10s: r1((cuts.length / dur) * 10), avgShotLength: r1(dur / (cuts.length + 1)), times: cuts.slice(0, 400).map(r1) },
   };
   return m;
@@ -280,6 +376,13 @@ function measureCmd() {
   out(res);
 }
 
+// One line for the card's measured block: the finish numbers and what they decide (the default finish layer on or off).
+function finishLine(f) {
+  if (!f) return "- Finish: not measured (re-run measure)";
+  const sc = f.softContent ? `soft content p90 ${f.softContent.p90} (${Math.round(f.softContent.framesOver15 * 100)}% of frames >= 0.15)` : "soft content n/a";
+  return `- Finish: grain ${f.noise ?? "n/a"} (residual std, 8-bit); ground chroma ${f.groundChroma ?? "n/a"}, ground L* range ${f.groundRange ?? "n/a"}; vignette ${f.vignette ?? "n/a"} L*; soft shadow in ${f.shadowFrames === null ? "n/a" : Math.round(f.shadowFrames * 100) + "%"} of frames, soft light falloff in ${f.haloFrames === null ? "n/a" : Math.round(f.haloFrames * 100) + "%"}; ${sc}. Route: ${f.route} (finish layer ${f.layerOff ? "may be off: win on type scale, photography and colour content" : "on"})`;
+}
+
 function cardCmd() {
   const dir = opt("dir"); if (!dir) fail("card needs --dir");
   const gp = path.join(dir, "grammar.json");
@@ -306,13 +409,15 @@ Source: ${g.source}. Measured from ${m.frames} sampled frames${m.duration ? ` of
 - Motion: mean frame difference ${m.motion.meanFrameDiff ?? "n/a"}
 ${m.tempo ? `- Tempo: ${m.tempo.changes} changes, one every ${m.tempo.changeEveryS ?? "n/a"} s, longest hold without a change ${m.tempo.longestHoldS} s` : "- Tempo: n/a (frames input)"}
 ${c ? `- Cuts: ${c.count}, ${c.per10s} per 10 s, average shot ${c.avgShotLength} s` : "- Cuts: n/a (frames input)"}
+${finishLine(m.finish)}
 
 ## Slots (the director fills these from the frames)
 - Tempo (ideas shown, seconds per idea, change rate, longest hold, where the film breathes):
 - Typefaces (families, weights, sizes, where type sits):
 - Motif (the recurring shape or idea and how it transforms):
 - Layout (grid, centring, whitespace, how many elements at once):
-- Motion vocabulary (the moves used, and the moves never used):
+- Motion vocabulary: "Seen: ..." (every move and effect the films use) and "Not seen (allowed on a budget): ..." (effects absent from these films; a budget, not a ban: references/brand-film.md 4):
+- Finish (from the measured line above: grain, ground tint and falloff, vignette, soft shadow, softness; say what the eye confirms):
 - Photography style (or none):
 - Opening (first image):
 - End card:
@@ -336,8 +441,12 @@ function compareCmd() {
   const T = TOL[tolName]; if (!T) fail("--tolerance is strict or normal");
   const ref = JSON.parse(fs.readFileSync(refp, "utf8")).measured;
   const m = measure(ours); if (!m) fail("no frames could be read from --ours");
+  // Brand lock is palette, type, logo, UI and tone. Canvas share, % white, lightness and the amount of colour are
+  // warnings: a launch film may light its ground, turn dark on the pain beat or carry photography the identity film
+  // never showed. Palette distance and off-brand hues stay errors (the typeface is checked by design.mjs check-system).
+  const WARN_ONLY = new Set(["meanLuminance", "backgroundLuminance", "nearWhiteShare", "nearBlackShare", "neutralShare", "neutralLightness", "colourMoments", "chromaticShare", "finish"]);
   const checks = [];
-  const add = (name, value, limit, pass, note = "") => checks.push({ name, value, limit, pass, note });
+  const add = (name, value, limit, pass, note = "") => checks.push({ name, value, limit, pass, note, severity: WARN_ONLY.has(name) ? "warning" : "error" });
   const dl = Math.abs(m.luminance.mean - ref.luminance.mean), db = Math.abs(m.luminance.bgMean - ref.luminance.bgMean);
   add("meanLuminance", `${m.luminance.mean} vs ${ref.luminance.mean}`, `diff <= ${T.meanLum}`, dl <= T.meanLum, `diff ${r1(dl)}`);
   add("backgroundLuminance", `${m.luminance.bgMean} vs ${ref.luminance.bgMean}`, `diff <= ${T.bgLum}`, db <= T.bgLum, `diff ${r1(db)}`);
@@ -366,7 +475,8 @@ function compareCmd() {
       if (d > T.hueDE) { offCh += c.share; offs.push(`${c.hex} ${Math.round(c.share * 100)}% d${d === Infinity ? "inf" : r1(d)}`); }
     }
     const allow = T.chromaAllow + rc.chromaticShare * 1.5; // a brand whose colour is only a moment gets a small allowance
-    add("offBrandChromaShare", `${r3(offCh)} off-hue, ${oc.chromaticShare} chromatic overall (ref ${rc.chromaticShare})`, `off-hue <= ${T.offChroma} and chromatic <= ${r3(allow)}`, offCh <= T.offChroma && oc.chromaticShare <= allow, offs.join("; "));
+    add("offBrandChromaShare", `${r3(offCh)} off-hue`, `off-hue <= ${T.offChroma}`, offCh <= T.offChroma, offs.join("; "));
+    add("chromaticShare", `${oc.chromaticShare} chromatic overall (ref ${rc.chromaticShare})`, `<= ${r3(allow)}`, oc.chromaticShare <= allow, "how much colour, not which: colour content (photos, the product's own colours) is not brand-locked");
     const dn = Math.abs(oc.neutralShare - rc.neutralShare);
     add("neutralShare", `${oc.neutralShare} vs ${rc.neutralShare}`, `diff <= ${T.neutral}`, dn <= T.neutral, "pixels with chroma C* < 10");
     const nz = (h, t) => h.map((v) => (t > 0 ? v / t : 0));
@@ -390,8 +500,10 @@ function compareCmd() {
       add("tempoRatio", `a change every ${mine} s vs the brand's ${rt} s = ${r1(rt / mine)}x`, `0.7x to 1.4x of the brand's rate, a change at least every ${house} s`, mine >= lo - 0.01 && mine <= hi + 0.01, "the brand's measured tempo, never slower than house");
     } else add("tempoRatio", `a change every ${mine} s`, `at least every ${house} s`, mine <= house + 0.01, "no tempo in the reference grammar (re-run measure): held to the house tempo");
   } else add("tempoRatio", "n/a", "", true, "skipped (frames input or no changes measured)");
-  const failed = checks.filter((c) => !c.pass).map((c) => c.name);
-  const res = { ok: true, tolerance: tolName, verdict: failed.length ? "FAIL" : "PASS", failed, checks, ours: { luminance: m.luminance, shares: m.shares, palette: m.palette, cuts: m.cuts && { count: m.cuts.count, per10s: m.cuts.per10s }, tempo: m.tempo && { changes: m.tempo.changes, changeEveryS: m.tempo.changeEveryS, longestHoldS: m.tempo.longestHoldS } } };
+  if (ref.finish && m.finish) add("finish", `ours: ${m.finish.route}, brand film: ${ref.finish.route}`, "the brand's films carry a finish layer, so ours does too", ref.finish.layerOff || !m.finish.layerOff, "measured grain, ground tint and falloff, vignette, soft shadow (references/brand-film.md 4)");
+  const failed = checks.filter((c) => !c.pass && c.severity === "error").map((c) => c.name);
+  const warnings = checks.filter((c) => !c.pass && c.severity === "warning").map((c) => c.name);
+  const res = { ok: true, tolerance: tolName, verdict: failed.length ? "FAIL" : "PASS", failed, warnings, checks, ours: { luminance: m.luminance, shares: m.shares, palette: m.palette, finish: m.finish, cuts: m.cuts && { count: m.cuts.count, per10s: m.cuts.per10s }, tempo: m.tempo && { changes: m.tempo.changes, changeEveryS: m.tempo.changeEveryS, longestHoldS: m.tempo.longestHoldS } } };
   out(res, failed.length ? 1 : 0);
 }
 

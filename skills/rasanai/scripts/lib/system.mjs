@@ -70,6 +70,14 @@ export function runFilm(run) {
   if (!launch && !have) return null;
   return { required: launch, card: have ? cardPath : null, expected: cardPath };
 }
+// A card is on the graphic route (finish layer off, a flat grammar) only when brandfilm.mjs measured the brand film's
+// finish as zero (measured.finish.layerOff). Cards written before the finish was measured fall back to their words.
+export function graphicFinish(card) {
+  const f = card && card.json && card.json.measured && card.json.measured.finish;
+  if (f && typeof f.layerOff === "boolean") return f.layerOff;
+  return /\b(flat|no 3d|no motion blur|no blur|no grain|never 3d)\b/i.test(String((card && card.motion) || ""));
+}
+
 export function readFilmCard(file) {
   const j = readJ(file);
   if (!j) return null;
@@ -237,12 +245,11 @@ export function checkSystem(dir, opts = {}) {
         for (const [k, tol] of [["canvas", 15], ["ink", 15], ["accent", 28]]) if (R[k] && /^#[0-9a-f]{6}$/i.test(R[k]) && !near(R[k], tol)) P.push(`${label}: film style: ${k} ${R[k]} is not a colour of the brand film's card (nearest ΔE ${Math.round(Math.min(...card.colours.map((c) => deltaE(R[k], c))))}, the card has ${card.colours.slice(0, 8).join(" ")}): use the card's palette exactly`);
       }
       if (card.type && info.display && !card.type.toLowerCase().includes(String(info.display).toLowerCase())) P.push(`${label}: film style: the display face ${info.display} is not in the card's typefaces ("${card.type.slice(0, 120)}"): use the brand film's face (for a proprietary one, the card names a loadable "Substitute: <family>")`);
-      const flat = /\b(flat|no 3d|no motion blur|no blur|no grain|never 3d)\b/i.test(card.motion);
-      if (flat) {
-        const moS = motionSection(S.md) || "";
-        const bad = moS.match(/(?<!\bno\s)(?<!\bnever\s)(?<!\bwithout\s)(?<!\bno\s)\b(motion blur|film grain|grain|dolly|bloom|depth of field)\b/i);
-        if (bad) P.push(`${label}: film style: the card says the brand's motion is flat, but the Motion and camera section uses "${bad[0]}": stay inside the card's motion vocabulary`);
-      }
+      // brand lock is palette, type, logo, UI and tone: a flat card never refuses finish, depth or camera (a dolly, motion
+      // blur, grain, depth of field). Hero effects are budgets; the tell is the same effect on everything (lib/budget.mjs).
+      const moS = motionSection(S.md) || "";
+      const uni = moS.match(/\b(glow|bloom|blur[- ]?in|particles?|overshoot|chromatic)\b[^.\n]{0,40}\b(every|all|each)\b|\b(every|all|each)\b[^.\n]{0,40}\b(glow|bloom|blur[- ]?in|particles?|overshoot|chromatic)/i);
+      if (uni) W.push(`${label}: film style: the Motion and camera section puts "${uni[0].slice(0, 60)}" on everything: hero effects are budgets (2 to 3 per film, on the hero, with a reason), uniform use is the AI tell (references/craft.md "Finish and budgets")`);
     }
   }
 
@@ -304,7 +311,7 @@ export function checkSystem(dir, opts = {}) {
       for (const m of v.warnings) W.push(`grammar: ${m}`);
       info.grammar = g && g.id ? String(g.id) : null;
       const card = FILM && FILM.card ? readFilmCard(FILM.card) : null;
-      if (card && /\b(flat|no 3d|no motion blur|no blur|no grain|never 3d)\b/i.test(card.motion) && g && g.flat_ok === false) P.push(`grammar-not-flat: ${label}: the brand film's card says flat (no blur, grain or glow) but grammar "${g.id}" is flat_ok: false: pick a flat_ok grammar (grammar.mjs pick --flat)`);
+      if (card && graphicFinish(card) && g && g.flat_ok === false) P.push(`grammar-not-flat: ${label}: the brand film measured no finish (graphic route: it wins on type scale and photography) but grammar "${g.id}" is flat_ok: false (its look is glow or blur on every element): pick a flat_ok grammar (grammar.mjs pick --flat)`);
     }
   }
   return { P, W, info };
@@ -507,6 +514,8 @@ export function lookPayload(run, { labels = LABELS, recommended, hook, sub, bran
       design_md: path.relative(process.cwd(), path.join(dir, "DESIGN.md")),
       // the system drawn by its own page (a sandboxed iframe in the console, specimen.png as its poster); the recipe is the fallback
       ...(exists(path.join(dir, "specimen.html")) ? { specimen: path.relative(process.cwd(), path.join(dir, "specimen.html")), ...(exists(path.join(dir, "specimen.png")) ? { poster: path.relative(process.cwd(), path.join(dir, "specimen.png")) } : {}) } : {}),
+      // the system shown by its 3 hero styleframes of this story (references/styleframes.md: the styleframe designer, key heroes-<Label>)
+      ...(() => { const fr = ["open", "peak", "end"].map((k) => ({ id: k, image: path.join(dir, "frames", `${k}.png`) })).filter((f) => exists(f.image)).map((f) => ({ id: f.id, image: path.relative(process.cwd(), f.image) })); return fr.length ? { frames: fr } : {}; })(),
     });
   }
   return { styles, recommended: recommended ? String(recommended).toLowerCase() : styles[0] && styles[0].id, hook: hook || "", sub: sub || "", brand: brand || undefined };

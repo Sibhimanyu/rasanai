@@ -42,7 +42,6 @@
     "fade-up-slide",
     "fade-slide",
     "bounce",
-    "overshoot",
     "scale-pop",
     "linear-entrance",
     "blur-in"
@@ -57,5 +56,19 @@
     "exit_ms": 900,
     "hold_ms": 1800
   },
-  "builder_notes": "Reveals open symmetrically from the centre (clip-path inset 0 50% -> 0 0%) with an almost imperceptible scale settle (0.985 -> 1). A single hairline rule draws out from the centre. Holds are long and completely still. Fewer moves than you think."
+  "builder_notes": "Reveals open symmetrically from the centre (clip-path inset 0 50% -> 0 0%) with an almost imperceptible scale settle (0.985 -> 1). A single hairline rule draws out from the centre. Holds are long and completely still. Fewer moves than you think.",
+  "curves": {
+    "launch": "cubic-bezier(0.16,0.6,0.2,1)",
+    "glide": "cubic-bezier(0.2,0,0,1)",
+    "expressive": "cubic-bezier(0.4,0.14,0.3,1)",
+    "exit": "circ.in",
+    "settle": "spring(0.8,9)",
+    "snap": "circ.out",
+    "drift": "sine.inOut",
+    "move": "power1.inOut"
+  },
+  "overshoot": {
+    "share": 0.12,
+    "max_pct": 4
+  }
 }

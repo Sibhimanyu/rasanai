@@ -56,7 +56,7 @@ export default async function ({ ok, node, tmp }) {
   ok("brandfilm: compare passes a white film against a white reference on every look check; only tempo objects to its 3 s shots", json(same).failed?.join() === "tempoRatio", same.stdout.slice(0, 300));
   const diff = bf(["compare", "--ref", gw, "--ours", green]);
   const dj = json(diff);
-  ok("brandfilm: compare fails a dark green film against a white reference (exit 1, 3+ checks fail)", diff.status === 1 && dj.verdict === "FAIL" && dj.failed.length >= 3, JSON.stringify(dj.failed));
+  ok("brandfilm: compare fails a dark green film against a white reference (exit 1, 2+ errors: palette and hue; canvas differences are warnings)", diff.status === 1 && dj.verdict === "FAIL" && dj.failed.length >= 2 && dj.warnings.length >= 2, JSON.stringify(dj.failed));
   ok("brandfilm: compare fails the green film on the hue-aware chroma check and on neutral share too", dj.checks && ["offBrandChromaShare", "neutralShare"].every((n) => dj.checks.find((c) => c.name === n && !c.pass)), JSON.stringify(dj.checks && dj.checks.filter((c) => /Chroma|neutral/.test(c.name))));
   ok("brandfilm: the white film passes the chroma and neutral checks against itself", json(same).checks.filter((c) => /Chroma|neutral/.test(c.name)).every((c) => c.pass));
   const viaDir = bf(["compare", "--ref", gw, "--ours", path.join(root, "frames")]);
@@ -82,6 +82,26 @@ export default async function ({ ok, node, tmp }) {
     ok("brandfilm: compare fails a slower draft on tempo (a brand that changes every 1.5 s, ours every 4 s)", (json(slowT).checks || []).find((c) => c.name === "tempoRatio")?.pass === false, slowT.stdout.slice(0, 300));
     const slowRef = bf(["compare", "--ref", path.join(root, "slow", "grammar.json"), "--ours", slow]);
     ok("brandfilm: compare never lets a draft be slower than the house tempo, even for a slow brand", (json(slowRef).checks || []).find((c) => c.name === "tempoRatio")?.pass === false, slowRef.stdout.slice(0, 300));
+  }
+
+  // W4: finish is measured (not guessed), and brand lock is palette and type, never canvas share or finish
+  {
+    ok("brandfilm (W4): measure reports the finish of a flat white film as zero (route graphic, finish layer may be off)", m && m.finish && m.finish.layerOff === true && m.finish.route === "graphic" && m.finish.groundChroma < 1, JSON.stringify(m && m.finish));
+    const lit = path.join(root, "lit.mp4");
+    const lr = ff(["-f", "lavfi", "-i", "color=c=0xf1e9dc:s=640x360:r=10:d=6", "-vf", "drawbox=x=220:y=120:w=200:h=120:color=0x202020:t=fill,noise=alls=8:allf=t", "-c:v", "libx264", "-pix_fmt", "yuv420p", lit]);
+    if (lr.status === 0) {
+      const ml = json(bf(["measure", "--in", lit, "--out", path.join(root, "lit", "grammar.json")])).measured;
+      ok("brandfilm (W4): a warm, grainy ground measures as a finish layer (route atmospheric, layer on)", ml && ml.finish && ml.finish.layerOff === false && ml.finish.route === "atmospheric" && ml.finish.groundChroma >= 1, JSON.stringify(ml && ml.finish));
+    } else console.log("note  brandfilm (W4): could not synthesise the lit film: " + lr.stderr.slice(0, 200));
+    ok("brandfilm (W4): the card prints the measured finish line and asks for Seen / Not seen (allowed on a budget), not a never-used list", /^- Finish: grain .*Route: graphic/m.test(md) && /Not seen \(allowed on a budget\)/.test(md) && !/moves never used/.test(md), md.slice(0, 900));
+    const grey = film("grey.mp4", "0xd6d6d6", ["0x101010", "0x101010", "0x101010", "0x101010"]);
+    if (grey) {
+      const gj = json(bf(["compare", "--ref", gw, "--ours", grey]));
+      const sev = (n) => (gj.checks || []).find((c) => c.name === n);
+      ok("brandfilm (W4): a different canvas share or % white is a warning, never a failure (palette dE and off-brand hue stay errors)", gj.warnings && gj.warnings.includes("nearWhiteShare") && !gj.failed.includes("nearWhiteShare") && !gj.failed.some((n) => /Luminance|nearWhite|nearBlack|neutral|colourMoments|chromaticShare/.test(n)) && sev("paletteDistance").severity === "error" && sev("offBrandChromaShare").severity === "error", JSON.stringify({ failed: gj.failed, warnings: gj.warnings }));
+    }
+    const dj2 = json(bf(["compare", "--ref", gw, "--ours", green]));
+    ok("brandfilm (W4): the green film still fails on palette (an error), whatever the canvas warnings say", dj2.verdict === "FAIL" && dj2.failed.some((n) => /palette|offPalette|offBrandChroma/.test(n)), JSON.stringify(dj2.failed));
   }
 
   console.log("note  brandfilm: find/fetch need the network and yt-dlp, not exercised here");

@@ -109,7 +109,8 @@ final class DirectorRuntime {
         let draft = FilmDraft.load(in: project)
         let launch = try DirectorLaunch(agent: agent, executable: executable, engine: engine, project: project, run: run,
             request: request, model: model ?? settings.model(for: agent), allowUnrestrictedTools: unrestrictedTools ?? settings.allowUnrestrictedTools, briefSeeded: briefInSession,
-            pace: draft?.pace ?? settings.pace, modelPlan: draft?.modelPlan ?? .recommended)
+            pace: draft?.pace ?? settings.pace, modelPlan: draft?.modelPlan ?? .recommended,
+            readFolders: draft?.readOnlyFolders ?? [], readFiles: draft?.readOnlyFiles ?? [])
         let job = JSONValue.object(["executable": .string(executable.path), "arguments": .array(launch.arguments.map(JSONValue.string)), "cwd": .string(project.path)])
         let jobURL = run.appendingPathComponent("director-job.json")
         try JSONEncoder().encode(job).write(to: jobURL, options: .atomic)

@@ -16,7 +16,7 @@ public enum ProgressPhase: String, CaseIterable, Codable, Sendable, Identifiable
     public var title: String {
         switch self {
         case .research: "Research"
-        case .script: "Script"
+        case .script: "Story"
         case .look: "Look"
         case .plan: "Plan"
         case .animatic: "Animatic"

@@ -2,6 +2,19 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **It calls you when it needs you.** A notification (only while Studio is in the background, and only if notifications are on) fires each time a call becomes ready: the brief, the three stories, the three looks, the style frames, the animatic, or any other step that waits on you, with Claude's pick named. The final keeps its own "ready to watch" notice. The Dock badge counts every film that needs you, not just the open one.
+- **Home puts Needs you first**, above Get inspired, and each row says what is waiting ("3 stories ready · Claude's pick: Twelve small victories").
+- **Next time you are needed.** While Claude works, the status line and the Film progress header say what comes next and about when ("Next: pick a look · in about 8 min"), scaled to the film's pace.
+- **One vocabulary.** The stage bar and the progress rail say "Story" (not "Script"); "decide: key frames" and its kin read as plain verbs ("approve the style frames", "pick the music", "choose the clips").
+- **Truthful paused and final states.** A paused film reads "Paused at: …" with nothing moving. Before there is a preview the final says "Your turn · render the final", its primary button is "Preview first", and the empty notes list says notes open once the preview exists.
+- **Cost is quiet.** The toolbar pill shows tokens; the cost appears on hover, or by itself at 80% of the budget you set.
+- **Welcome:** a director you are not using is neutral ("Optional"), not an orange warning, and "Ready" is the Get started button.
+- **"Try another angle" is now "Try a different story…"**, with a confirmation that says it costs another pass. Removed the dead pre-native `FilmWorkspace` screen.
+- **Folders and reference videos in New film.** Two drop wells under the prompt: **Footage folder** (choose or drop a folder; it is read where it is, never copied, never changed) and **Make it like this** (one reference video, studied and never cut into the film). A folder dropped anywhere on the page becomes a footage folder. Both are saved in the film's brief (`linkedSources`), named in the director's request, and granted read-only to the director (a folder as a readable directory, a video as that one file). Templates do not carry them.
+- **Style frames stage.** The Look call's style frames are now a native grid: heroes large, then every beat, each frame with its reference still beside it when the director sent one, its shot (size, angle, hero), the juror's verdict, a Keep or Redo mark and a comment. The primary button reads from the marks: "Approve all 8 frames", or "Redo 2 frames", which sends `redo {ids, note}` with the comments of the redone frames. Commented frames on an approve send their comments as notes first. The older `images` and `captions` payload still renders. Style frames now sit under the Look call on the stage bar.
+
 ## 0.7.0 (build 22) — 2026-10-10
 
 - Bundles RasanAI 1.10.0: short films are written by one builder and checked frame by frame before you see them, so they keep moving; one feature and one scenario per launch film; stories that say what they achieve; a faster tempo; real logo files only.

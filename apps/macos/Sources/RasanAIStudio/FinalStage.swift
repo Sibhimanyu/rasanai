@@ -1,4 +1,5 @@
 import AppKit
+import AVKit
 import StudioCore
 import SwiftUI
 
@@ -24,6 +25,8 @@ struct FinalStage: View {
         let duration = payload["duration"].number ?? model.snapshot.duration(for: .final)
         let isRender = step == "render"
         let done = payload["status"].string == "done"
+        // Nothing to watch yet: the first call is a quick preview, and notes open once it exists.
+        let notRendered = isRender && !done && videoURL == nil
 
         StageScaffold(model: model, step: step,
                       question: payload["question"].string ?? (isRender && !done ? "Ready to render the final?" : "Here's your film"),
@@ -33,12 +36,12 @@ struct FinalStage: View {
                 VStack(alignment: .leading, spacing: 14) {
                     ReviewPlayerPanel(model: model, step: step, playback: playback, scenes: scenes, notes: allNotes,
                                       aspect: model.snapshot.aspectRatio, canNote: canAct && playback.isReady, pinWindow: 2.5) {
-                        FinalFrame(playback: playback, posterPath: posterPath, hasVideo: videoURL != nil, notRendered: isRender && !done)
+                        FinalFrame(playback: playback, posterPath: posterPath, hasVideo: videoURL != nil, notRendered: notRendered)
                     }
                 }
                 .frame(maxWidth: .infinity)
                 VStack(alignment: .leading, spacing: 18) {
-                    controls(payload, isRender: isRender, done: done, canAct: canAct)
+                    controls(payload, isRender: isRender, done: done, canAct: canAct, firstPass: notRendered)
                     changes(payload)
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
@@ -49,7 +52,7 @@ struct FinalStage: View {
                                     .buttonStyle(.link).font(.system(size: 12))
                             }
                         }
-                        ReviewNotesList(notes: allNotes, scenes: scenes) { playback.seek(to: $0) }
+                        ReviewNotesList(notes: allNotes, scenes: scenes, emptyHint: notRendered ? "Notes open once the preview exists. Watch it, then click the frame to leave one." : nil) { playback.seek(to: $0) }
                         FilmNoteField(model: model, step: step, enabled: canAct)
                     }
                 }
@@ -57,10 +60,11 @@ struct FinalStage: View {
             }
         } actions: {
             ReviewActionBar(model: model, step: step,
-                            title: open.isEmpty ? (isRender ? "Render the final" : "Export MP4") : "Apply \(open.count) note\(open.count == 1 ? "" : "s")",
-                            symbol: open.isEmpty ? (isRender ? "film.fill" : "square.and.arrow.down.fill") : "checkmark.bubble.fill") {
+                            title: open.isEmpty ? (notRendered ? "Preview first" : isRender ? "Render the final" : "Export MP4") : "Apply \(open.count) note\(open.count == 1 ? "" : "s")",
+                            symbol: open.isEmpty ? (notRendered ? "eye" : isRender ? "film.fill" : "square.and.arrow.down.fill") : "checkmark.bubble.fill") {
                 Task {
                     if !open.isEmpty { await model.send(step: step, type: "apply", value: .object(["ids": .array(open.map { .string($0.id) })])) }
+                    else if notRendered { await model.send(step: step, type: "choose", value: .string("preview")) }
                     else if isRender { await model.send(step: step, type: "choose", value: .string("render")) }
                     else { await model.send(step: step, type: "approve") }
                 }
@@ -75,7 +79,7 @@ struct FinalStage: View {
     // MARK: Controls under the player
 
     @ViewBuilder
-    private func controls(_ payload: JSONValue, isRender: Bool, done: Bool, canAct: Bool) -> some View {
+    private func controls(_ payload: JSONValue, isRender: Bool, done: Bool, canAct: Bool, firstPass: Bool) -> some View {
         let versions = payload["versions"].array
         let current = payload["version"].identifier
         FlowLayout(spacing: 8) {
@@ -93,14 +97,14 @@ struct FinalStage: View {
                 }
             }
             if isRender && !done {
-                Button { Task { await model.send(step: step, type: "choose", value: .string("preview")) } } label: {
-                    Label("Preview first", systemImage: "eye").font(.system(size: 12))
+                Button { Task { await model.send(step: step, type: "choose", value: .string(firstPass ? "render" : "preview")) } } label: {
+                    Label(firstPass ? "Render the final now" : "Preview again", systemImage: firstPass ? "film.fill" : "eye").font(.system(size: 12))
                         .padding(.horizontal, 11).padding(.vertical, 6)
                         .background(Color(nsColor: .quaternaryLabelColor).opacity(0.22), in: Capsule())
                         .overlay { Capsule().strokeBorder(Color(nsColor: .separatorColor).opacity(0.6), lineWidth: 0.5) }
                 }
                 .buttonStyle(.plain).disabled(!canAct)
-                .help("Make a quick, lower-quality preview before the full render.")
+                .help(firstPass ? "Skip the preview and render the full-quality final." : "Make another quick, lower-quality preview before the full render.")
             }
             if let studio = payload["studio"].string, let url = URL(string: studio), ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
                 Button { SafeOpen.open(url) } label: {
@@ -162,4 +166,17 @@ private struct FinalFrame: View {
         }
         .animation(.easeOut(duration: 0.2), value: playback.hasStarted)
     }
+}
+
+/// The video surface with no controls of its own: one set of playback controls owns the clock, so pinned notes use the visible frame's time.
+struct NativeFilmPlayer: NSViewRepresentable {
+    let player: AVPlayer
+    func makeNSView(context: Context) -> AVPlayerView {
+        let view = AVPlayerView()
+        view.controlsStyle = .none
+        view.videoGravity = .resizeAspect
+        view.player = player
+        return view
+    }
+    func updateNSView(_ view: AVPlayerView, context: Context) { view.player = player }
 }

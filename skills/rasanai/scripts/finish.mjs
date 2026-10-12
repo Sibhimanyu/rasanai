@@ -10,6 +10,11 @@
 //   node finish.mjs grade --in <mp4> --out <mp4> [--grain 0.03] [--halation 0.2] [--vignette 0.2]
 //                         [--bloom 0] [--lut <cube>] [--seed 1] [--probe x,y,w,h]
 //   node finish.mjs all   --project <dir> --out <mp4> [blur options] [grade options]
+//   --draft (blur or all): the cheap draft blur for drafts and review strips: 4 samples in one 120 fps pass, draft
+//                         quality, no auto pre-pass, no grade (all --draft = blur --draft). Hero moves show their smear
+//                         in the draft and in strips cut from it. Override the count with --samples.
+//   Projects that use RasanCamera render with its speed trails scaled to the gap between sub-frames
+//   (window.RASAN_CAMERA_TRAILS = 2/samples): the shutter makes the smear, the trail only fills the steps between samples.
 //   node finish.mjs patch-test [grade options]     (brand-colour drift of the grade on flat patches)
 import fs from "node:fs";
 import os from "node:os";
@@ -99,13 +104,13 @@ function autoSamples(motion, cap) {
 // are all seeked `delta` seconds later. HyperFrames has no time-offset or frame-range option and snaps its own
 // seek time to the render fps grid, so the shift is applied after the snap, on the timeline instances.
 // Not shifted: CSS keyframes / WAAPI / Lottie / video and audio elements (sub-millisecond for audio).
-function shiftedProject(project, delta, dir) {
+function shiftedProject(project, delta, dir, trails = 0) {
   const out = fs.mkdtempSync(path.join(dir, "shift-"));
   for (const e of fs.readdirSync(project)) {
     if (e === "index.html" || e === "renders" || e === "node_modules" || e === ".git") continue;
     fs.symlinkSync(path.join(project, e), path.join(out, e));
   }
-  const inj = `<script>(function(){var D=${delta};function wrap(tl){if(!tl||tl.__sh||typeof tl.seek!=="function")return tl;tl.__sh=1;["seek","time","totalTime"].forEach(function(m){var o=tl[m];if(typeof o!=="function")return;tl[m]=function(v){if(arguments.length&&typeof v==="number"){var a=Array.prototype.slice.call(arguments);a[0]=v+D;return o.apply(this,a)}return o.apply(this,arguments)}});return tl}window.__timelines=new Proxy({},{set:function(t,k,v){t[k]=wrap(v);return true}});})()</script>`;
+  const inj = `<script>window.RASAN_CAMERA_TRAILS=${trails > 0 ? Math.round(trails * 1000) / 1000 : false};(function(){var D=${delta};function wrap(tl){if(!tl||tl.__sh||typeof tl.seek!=="function")return tl;tl.__sh=1;["seek","time","totalTime"].forEach(function(m){var o=tl[m];if(typeof o!=="function")return;tl[m]=function(v){if(arguments.length&&typeof v==="number"){var a=Array.prototype.slice.call(arguments);a[0]=v+D;return o.apply(this,a)}return o.apply(this,arguments)}});return tl}window.__timelines=new Proxy({},{set:function(t,k,v){t[k]=wrap(v);return true}});})()</script>`;
   let html = fs.readFileSync(path.join(project, "index.html"), "utf8");
   html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => m + inj) : inj + html;
   fs.writeFileSync(path.join(out, "index.html"), html);
@@ -263,10 +268,12 @@ function runGrade({ input, output, g, quality, tmpDir, audioFrom }) {
 
 // ---------------------------------------------------------------- commands
 
+const DRAFT = !!args.draft;
+if (DRAFT && (args.samples === undefined || args.samples === true)) args.samples = "4";
 function resolveBlurSettings() {
   const fps = num(args.fps, 30);
   const shutter = clamp(num(args.shutter, 0.5), 0.05, 1);
-  const quality = args.quality === "draft" ? "draft" : "delivery";
+  const quality = DRAFT || args.quality === "draft" ? "draft" : "delivery";
   const cap = Math.max(1, Math.floor(MAX_RENDER_FPS / fps));
   return { fps, shutter, quality, cap };
 }
@@ -297,19 +304,39 @@ function blurRender(tmpDir) {
   N = Nb * passes;
   const R = fps * Nb;
   const files = [];
+  const cam = usesCamera(project);
   let renderSeconds = 0;
   for (let k = 0; k < passes; k++) {
     const f = path.join(tmpDir, `over${k}.mp4`);
-    const proj = k === 0 ? project : shiftedProject(project, k / (R * passes), tmpDir);
+    // pass 0 goes through the same shim (delta 0) when the project uses RasanCamera, to switch its trails off
+    const proj = k === 0 && !cam ? project : shiftedProject(project, k / (R * passes), tmpDir, cam ? 2 / (Nb * passes) : 0);
     renderSeconds += renderOversampled({ project: proj, composition: args.composition && String(args.composition), fps, N: Nb, quality, workers: args.workers, outFile: f });
     files.push(f);
   }
+  if (cam) notes.push(`RasanCamera trails at ${Math.round(200 / N)}% (they fill the steps between the ${N} samples)`);
+  if (DRAFT) notes.push("draft blur: " + N + " samples, draft quality, no grade");
   const { M, effShutter, chain } = blurChain({ N, shutter, fps });
   // interleave: pass k frame i is sub-frame i*K + k at time (i*K+k) / (R*K)
   const pre = passes === 1 ? "[0:v]" : files.map((_, k) => `[${k}:v]setpts=(N*${passes}+${k})/(${R * passes}*TB)[p${k}]`).join(";") + ";" + files.map((_, k) => `[p${k}]`).join("") + `interleave=nb_inputs=${passes},`;
   const ranges = sharpRangesOf(project, args);
   if (ranges.length) notes.push(`sharp (not blurred): ${ranges.map((r) => `${r[2]} ${r[0]}-${r[1]}s`).join(", ")}`);
     return { over: files[0], files, passes, sharp: ranges, graphIn: graphWithSharp(passes === 1 ? "[0:v]" : pre, chain, { N, fps, ranges }), fps, N, M, effShutter, chain, renderSeconds, preSeconds, motion, notes, quality };
+}
+
+// any .html/.js in the project (shallow: index, compositions, assets) that calls RasanCamera
+function usesCamera(project) {
+  const hit = (d, depth) => {
+    let ents = [];
+    try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch { return false; }
+    for (const e of ents) {
+      if (e.name.startsWith(".") || e.name === "node_modules" || e.name === "renders" || e.name === "rasan-camera") continue;
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) { if (depth < 4 && hit(p, depth + 1)) return true; }
+      else if (/\.(html?|js)$/i.test(e.name) && /\bRasanCamera\b/.test(fs.readFileSync(p, "utf8"))) return true;
+    }
+    return false;
+  };
+  return hit(project, 0);
 }
 
 function report(extra) {
@@ -329,7 +356,7 @@ if (cmd === "blur" || cmd === "all") {
   const expectFrames = Math.round(srcInfo.duration * b.fps);
   const t0 = Date.now();
   let result;
-  if (cmd === "blur") {
+  if (cmd === "blur" || DRAFT) {
     ff([...b.files.flatMap((f) => ["-i", f]), "-filter_complex", `${b.graphIn},fps=${b.fps}[out]`, "-map", "[out]", "-map", "0:a?", ...ENCODE(b.quality), ...TAGS, "-c:a", "copy", out], "blur");
     result = {};
   } else {
@@ -345,7 +372,7 @@ if (cmd === "blur" || cmd === "all") {
   const mixSeconds = (Date.now() - t0) / 1000;
   const o = probe(out);
   report({
-    ok: true, command: cmd, out, fps: b.fps, samples: b.N,
+    ok: true, command: cmd, draft: DRAFT || undefined, out, fps: b.fps, samples: b.N,
     sharp: b.sharp && b.sharp.length ? b.sharp.map((r) => ({ from_s: r[0], to_s: r[1], why: r[2] })) : undefined,
     window: { subframes: b.M, shutter_requested: clamp(num(args.shutter, 0.5), 0.05, 1), shutter_effective: b.effShutter, taps: b.M ? b.M + 1 : 1, note: "centred on each frame time; end taps half weight" },
     frames: { expected: expectFrames, got: o.frames }, audio: o.hasAudio,

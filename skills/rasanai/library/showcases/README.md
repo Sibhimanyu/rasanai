@@ -36,7 +36,7 @@ A row marked `"space": "3d"` is a line the reference shows in real 3D (WebGL-typ
 9. **Spend colour and weight like a budget.** One accent and one word coloured at a time: Google's single coloured word per phrase, red only on grid lines and heavy type until a photo cell opens, orange only on the thing that is "live" in mexicat, light/bold weight pairs for constant/changing words (Tiago). Alternate grounds (paper / black) to reset the eye (Claude reel, Lilium, mexicat).
 10. **Escalate, then resolve small.** Density builds (DECISION wall -> dot grid -> particle sphere -> torus; the OpenAI poster wall; P(DOOM) 0.02 -> infinity -> NaN) and the end is a single quiet hold: CLAUDE with a red period, the G, SOVRA.FM with a verb swap, kinso.ai, OpenAI typed in black, the STILLNESS HORIZON lockup, or a loop back to the first frame (mexicat). The ending reuses the actor.
 
-11. **Space is a technique.** The references go 3D when the line is about space, scale or many things at once: a black hole for "singularity", tilted panels for "research", a rotating sphere of dots for "everything you ask" (OpenAI's own "Refreshed."), a wireframe corridor for "trapped". Even a flat brand film can: the style goes flat (matte or unlit, palette colours, even light), not the use.
+11. **Space is a technique.** The references go 3D when the line is about space, scale or many things at once: a black hole for "singularity", tilted panels for "research", a rotating sphere of dots for "everything you ask" (OpenAI's own "Refreshed."), a wireframe corridor for "trapped". Even a flat brand film can: the 3D takes the brand palette (matte or unlit), and depth and camera stay.
 
 ## How to use
 

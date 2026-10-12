@@ -2,11 +2,11 @@ import StudioCore
 import SwiftUI
 
 extension ReviewStage {
-    /// Plain-language step names for the progress bar ("Story" is shown as "Script").
+    /// Plain-language step names for the progress bar.
     var stepTitle: String {
         switch self {
         case .brief: "Brief"
-        case .story: "Script"
+        case .story: "Story"
         case .look: "Look"
         case .animatic: "Animatic"
         case .final: "Final"

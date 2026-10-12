@@ -317,7 +317,7 @@ When the Dispatch context says `product_first` (`references/product-first.md` is
 
 When the Dispatch context says `brand_film`, read `brand-film/FILM-STYLE.md` first.
 
-- Mechanisms come only from the card's **motion vocabulary** (scale, morph, draw-on, cut on the beat, UI choreography...). Never add one it says is absent. A flat card means no blur, grain, glow or bounce; 3D stays available in the flat style (matte or unlit, the brand palette: `references/3d.md`, Brand-flat 3D).
+- Mechanisms come only from the card's **motion vocabulary** (scale, morph, draw-on, cut on the beat, UI choreography...). Its "Not seen" effects are budgets, not bans: a glow, an overshoot landing or a blur-in may carry a hero beat 2 to 3 times per film with a reason (score `budget`), never every beat. A flat card locks palette, type and tone, not depth or camera; 3D stays available in the brand palette (matte or unlit: `references/3d.md`, Brand-flat 3D).
 - Follow the card's cut rate and its end card.
 - **"One element at a time" means one carrier at a time, transformed in a chain, not few ideas.** Brand films are morph chains: OpenAI's "Refreshed." is dot -> rings -> dot grid -> letterforms -> mark. The brand film analyst writes that chain into `FILM-STYLE.md`'s motion vocabulary; derive your carrier and your chain from it, and keep the chain's density (a new idea about every 1.2 s). Calm is the restraint of one carrier and one ease, never an empty frame.
 - **The ambition goes into the carrier and the choreography**: which one thing travels, where it lands on the beat, what stays constant. A scale-through in a scale-only vocabulary is on-brand; a whip pan is not.

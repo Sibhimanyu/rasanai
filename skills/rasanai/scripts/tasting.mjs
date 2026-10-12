@@ -113,7 +113,7 @@ ${googleFontLink(look.font)}
 </style>
 </head>
 <body>
-  <div id="stage" data-composition-id="tasting" data-start="0" data-duration="__DUR__" data-width="${PAGE_W}" data-height="${PAGE_H}">
+  <div id="stage" data-composition-id="tasting" data-obey-mix="off" data-start="0" data-duration="__DUR__" data-width="${PAGE_W}" data-height="${PAGE_H}">
     ${cellsHtml}
   </div>
   <script>${engine}</script>

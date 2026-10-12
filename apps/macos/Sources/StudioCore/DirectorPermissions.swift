@@ -40,7 +40,10 @@ public struct DirectorPermissions: Sendable, Equatable {
         "eval", "defaults write", "security", "codesign", "xattr", "spctl", "tccutil"
     ]
 
-    public init(engine: URL, home: URL, toolsDirectory: URL, fileExists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }) {
+    /// `readFolders` and `readFiles` are the person's own footage folders and reference videos, linked in place: readable,
+    /// never writable (they are not in `writableDirectories`, and the launch prompt forbids writing to them).
+    public init(engine: URL, home: URL, toolsDirectory: URL, readFolders: [String] = [], readFiles: [String] = [],
+                fileExists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }) {
         // Read access: the engine, the installed skills the engine reads (HyperFrames' workflows), the managed tools and the model caches.
         let readOnly = [
             engine.path,
@@ -53,9 +56,12 @@ public struct DirectorPermissions: Sendable, Equatable {
         let data = Self.dataFolders(home: home, toolsDirectory: toolsDirectory) + ["/tmp"]
         // The engine is always granted, even if the path check cannot see it yet; the rest only when they exist.
         func keep(_ paths: [String]) -> [String] { paths.filter { $0 == engine.path || fileExists($0) } }
-        writableDirectories = keep(data)
-        additionalDirectories = keep(readOnly) + writableDirectories
+        let writable = keep(data)
+        writableDirectories = writable
+        let linked = readFolders.filter { !$0.isEmpty && !writable.contains($0) }
+        additionalDirectories = keep(readOnly) + writable + linked
         allow = Self.tools + Self.commands.map { $0.contains("*") && !$0.hasPrefix("*/") || $0.hasSuffix("@*") ? "Bash(\($0))" : "Bash(\($0) *)" } + Self.bareCommands.map { "Bash(\($0))" }
+            + readFiles.filter { !$0.isEmpty }.map { "Read(\($0))" }
         // Not denied with Edit/Write rules on the engine: Claude Code applies those to every path a shell command names, which
         // would block `cp <engine>/templates …`. The launch prompt already forbids modifying the signed bundle.
         deny = Self.denied.map { $0.contains("*") ? "Bash(\($0))" : "Bash(\($0) *)" } + Self.bareDenied.map { "Bash(\($0))" }

@@ -54,8 +54,8 @@ public enum ReviewStage: String, CaseIterable, Identifiable, Sendable {
     public static func consoleStep(_ step: String) -> Self {
         switch step {
         case "story", "concept": .story
-        case "look", "films", "direction", "motion", "transitions": .look
-        case "animatic", "scenes", "styleframes", "storyboard", "keyframes", "voice", "music", "reel", "plan", "build": .animatic
+        case "look", "films", "direction", "motion", "transitions", "styleframes": .look
+        case "animatic", "scenes", "storyboard", "keyframes", "voice", "music", "reel", "plan", "build": .animatic
         case "render", "final": .final
         default: .brief
         }

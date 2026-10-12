@@ -15,9 +15,10 @@
 //           protagonist and visual world; each with beats, pitfalls, an example and native material to fuse
 //           with. Deterministic for a seed (default seed: product name + today's date).
 //           For launch / promo / brand films the structure is a LADDER (shape ladder: a refrain verb, one rung per distinct everyday use, escalating) unless one feature is named (--feature, or a truth-sheet feature) -> shape scenario; --shape forces one. Launch / promo films offer BOTH viewer-first shapes across the three picks (Sure ladder, Bold pas, Wild either, seeded): pas = pain -> meet -> benefits -> proof -> cta (roles hook, agitate?, meet, benefit x2-4, proof, cta).
+//           Source mode (--sources <sources.json>, --source-mode <spine>, or <truth dir>/../sources.json): a footage or existing-video spine is never product-first and gets no ladder/pas shape (references/sources.md).
 //           Launch / promo / product films (format launch, or --product-first) are PRODUCT-FIRST: conceit devices
 //           (museums, allegories, invented worlds, extended metaphors, cover versions) are never offered.
-//   node story.mjs check --pitch <pitch.json | pitches.json> [--truth <truth.md|json>] [--footage] [--length <s>] [--narrated] [--product-first | --allow-conceit] [--brand-film <grammar.json>] [--calm] [--claims <claims.json>]
+//   node story.mjs check --pitch <pitch.json | pitches.json> [--truth <truth.md|json>] [--footage] [--length <s>] [--narrated] [--product-first | --allow-conceit] [--sources <sources.json> | --source-mode <spine>] [--selects <selects.json>] [--brand-film <grammar.json>] [--calm] [--claims <claims.json>]
 //        -> the rubric: 6 pass/fail gates (+ G7 product-first for launch / promo / product films, + G10 shape-aware: `shape` ladder (refrain verb, 3-8 rungs by length, distinct uses, increasing levels, a real UI cause and effect per rung, a close) or scenario (one feature, one task), + G12 viewer first for launch / promo films (and any `pas` pitch): not-viewer-first, reveal-too-early (pas), no-benefit, no-proof (against research/claims.json: --claims, else <truth dir>/../research/claims.json), weak-cta, sparse-lines (film s / on-screen lines > 3.0); warnings slogan-copy, toy-demos, + G8 the aim: takeaway, feel, action, approach, a title that names the idea, + G9 tempo for the same films: ideas per length, a change every ~2.5 s, hold limits, the brand's measured tempo with --brand-film) + the weighted 1-5 score (ship at >= 3.8, no dimension < 3).
 //           Exit 0 = ship, 2 = rewrite (reasons in the JSON), 1 = bad input.
 //   node story.mjs validate
@@ -28,6 +29,7 @@ import path from "node:path";
 import { parseArgs, die, readJSON, writeFile, SKILL_DIR } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
 import { isLabelOnly } from "./lib/moves-lib.mjs";
+import { readSources, isFootageLed, productFirstApplies } from "./lib/sources.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -248,7 +250,32 @@ const PF_CONTAINER_OK = new Set(["query-log", "chat-thread", "interface-world"])
 const PF_BANNED_IDS = new Set(["cosmos-zoom", "object-pov", "unexpected-protagonist", "letter-from-future", "mockumentary", "product-as-character", "problem-villain", "inner-monologue", "letter-to-someone", "mirror", "one-shape", "sound-first", "data-letter", "story-loop"]);
 const pfBanned = (d) => d.family === "metaphor" || (d.family === "container" && !PF_CONTAINER_OK.has(d.id)) || PF_BANNED_IDS.has(d.id);
 const CONCEIT_RE = /\b(museums?|galler(?:y|ies)|exhibit(?:s|ion|ions)?|plinths?|under glass|dioramas?|parables?|fables?|allegor\w*|cover version|invented world|a world where|time capsule|archaeolog\w*|courtroom|trial of|funeral|obituary|eulogy|haunted|safari|odyssey|kingdom|ancient ruins?|natural history)\b/i;
-const isProductFirst = (format, args) => !args["allow-conceit"] && (!!args["product-first"] || ["launch", "promo", "product"].includes(format));
+// Source mode (references/sources.md): product-first is for a film built from a product's web or code. A film cut from footage (spine footage or
+// existing-video), a song, a document or a brand kit has no "product UI within 3 s" to promise: it gets the footage-first gate (GF) instead.
+// --sources <sources.json> | --source-mode <spine>; else <truth dir>/../sources.json; none -> today's behaviour (the format decides). An explicit --product-first still wins.
+function loadSource(args, truthPath) {
+  if (args["source-mode"] && args["source-mode"] !== true) return { spine: String(args["source-mode"]), case: args.case && args.case !== true ? String(args.case) : null };
+  const cands = [];
+  if (args.sources && args.sources !== true) cands.push(String(args.sources));
+  else if (truthPath && truthPath !== true) cands.push(path.resolve(path.dirname(String(truthPath)), "..", "sources.json"));
+  for (const c of cands) { const j = readSources(c); if (j) return j; if (args.sources && args.sources !== true) die(`--sources is not readable JSON: ${c}`); }
+  return null;
+}
+const isProductFirst = (format, args, src = null) => !args["allow-conceit"] && (!!args["product-first"] || (productFirstApplies(src) !== false && ["launch", "promo", "product"].includes(format)));
+// the footage-first gate's selects: ids -> {rating, gold} from --selects or <truth dir>/../footage/selects.json
+function loadSelects(args, truthPath) {
+  const cands = [];
+  if (args.selects && args.selects !== true) cands.push(String(args.selects));
+  else if (truthPath && truthPath !== true) cands.push(path.resolve(path.dirname(String(truthPath)), "..", "footage", "selects.json"));
+  for (const c of cands) {
+    let j = null;
+    try { j = readJSON(path.resolve(c)); } catch { if (args.selects && args.selects !== true) die(`--selects is not readable JSON: ${c}`); continue; }
+    const m = new Map();
+    for (const b of [...(j.bites || []), ...(j.moments || [])]) if (b && b.id) m.set(String(b.id), { rating: Number(b.rating) || 0, gold: b.gold === true });
+    return m;
+  }
+  return null;
+}
 
 // --- device scoring and distance ------------------------------------------------
 const distance = (a, b) => AXES.filter((k) => a.axes[k] !== b.axes[k]).length;
@@ -396,14 +423,15 @@ if (cmd === "truth") {
   if (args.like && !like) die(`unknown device for --like: "${args.like}"`);
   const recentIds = list(args.recent).map((r) => findDevice(r)?.id).filter(Boolean);
   const exclude = new Set(list(args.exclude).map((r) => findDevice(r)?.id).filter(Boolean));
-  const footage = !!args.footage || truth.assets.some((a) => /footage|video of|founder on camera/i.test(a));
+  const src = loadSource(args, args.truth);
+  const footage = !!args.footage || isFootageLed(src) || truth.assets.some((a) => /footage|video of|founder on camera/i.test(a));
   const seed = args.seed && args.seed !== true ? String(args.seed) : `${truth.product.name || "product"}|${new Date().toISOString().slice(0, 10)}`;
   const rand = rng(seed);
   const ctx = { recent: new Set(recentIds), tags, format, tones, like, footage };
-  const productFirst = isProductFirst(format, args);
+  const productFirst = isProductFirst(format, args, src);
   // launch / promo / brand films are ladders unless the brief or research names ONE feature to sell (--shape or --feature, or truth.feature)
   const oneFeature = !!(args.feature && args.feature !== true) || !!(truth.feature && (typeof truth.feature !== "object" || truth.feature.name || Object.keys(truth.feature).length) );
-  const shape = ["ladder", "pas", "scenario"].includes(args.shape) ? args.shape : (productFirst || ["launch", "promo", "brand"].includes(format)) ? (oneFeature ? "scenario" : "ladder") : null;
+  const shape = ["ladder", "pas", "scenario"].includes(args.shape) ? args.shape : !isFootageLed(src) && (productFirst || ["launch", "promo", "brand"].includes(format)) ? (oneFeature ? "scenario" : "ladder") : null;
   const scored = DEVICES.filter((d) => !exclude.has(d.id) && !(productFirst && pfBanned(d))).map((d) => ({ d, ...weigh(d, ctx) }));
 
   // candidates: at least one per family, two from the containers and metaphors, then three more from anywhere
@@ -497,6 +525,8 @@ if (cmd === "truth") {
     product: truth.product.name || null,
     format, tones, tags,
     product_first: productFirst || undefined,
+    source_spine: src ? src.spine : undefined,
+    footage_led: isFootageLed(src) && !args["product-first"] ? "A footage film: the story is cut from the footage, not written from a product's UI. Product-first gates (G7, G9, G10, G11, G12) do not apply; the footage-first gate GF does (the hook is the strongest real moment, plays at once, no card before the first real footage). The writers are the footage writers (paper edits): references/sources.md." : undefined,
     product_first_rule: productFirst ? "Launch / promo / product film: the product UI is on screen within 3 s, one hero product moment, 2-4 real uses, short plain kinetic lines, the end line the largest type, a clean CTA. No conceit devices; Sure, Bold and Wild differ in structure, pacing and energy, never by leaving the product. See references/product-first.md." : undefined,
     shape: mixed && shapesUsed.length > 1 ? "mixed" : shapesUsed.length === 1 ? shapesUsed[0] : shape || undefined,
     shapes: mixed ? shapesUsed : undefined,
@@ -521,10 +551,13 @@ if (cmd === "truth") {
   try { raw = readJSON(pf); } catch (e) { die(`pitch is not valid JSON: ${e.message}`); }
   const pitches = Array.isArray(raw) ? raw : Array.isArray(raw.pitches) ? raw.pitches : [raw];
   const truth = loadTruth(args.truth);
-  const footage = !!args.footage || !!(truth && truth.assets.some((a) => /footage|video of|founder on camera/i.test(a)));
-  const opts = { length: Number(args.length) || 0, narrated: !!args.narrated, calm: !!args.calm, brandTempo: loadBrandTempo(args["brand-film"]), productFirst: isProductFirst(truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null), args), showStrict: ["launch", "promo", "brand"].includes(truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null)) };
+  const src = loadSource(args, args.truth);
+  const footageLed = isFootageLed(src) && !args["product-first"];
+  const footage = !!args.footage || isFootageLed(src) || !!(truth && truth.assets.some((a) => /footage|video of|founder on camera/i.test(a)));
+  const opts = { length: Number(args.length) || 0, narrated: !!args.narrated, calm: !!args.calm, brandTempo: loadBrandTempo(args["brand-film"]), footageLed, productFirst: isProductFirst(truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null), args, src), showStrict: !footageLed && ["launch", "promo", "brand"].includes(truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null)) };
+  if (footageLed) opts.selects = loadSelects(args, args.truth);
   const fmt = truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null);
-  opts.viewerFirst = ["launch", "promo"].includes(fmt);
+  opts.viewerFirst = !footageLed && productFirstApplies(src) !== false && ["launch", "promo"].includes(fmt);
   opts.claims = loadClaims(args.claims, args.truth);
   const results = pitches.map((p, i) => checkPitch(p, i, truth, footage, opts));
   const portfolio = pitches.length > 1 ? checkPortfolio(pitches, results) : null;
@@ -903,6 +936,37 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     }
   }
 
+  // GF: footage-first (references/sources.md), the footage films' own gate in place of G7/G9/G10/G11/G12: the hook is the strongest real moment and plays at
+  // once, no card before the first real footage (unless a cold open says why), the film is mostly footage, cards are sparing, and every footage beat names its source.
+  // A beat is footage when it names a bite, a moment or a clip (or kind: "footage"). With selects.json, the hook must be a rating 4+ bite or a gold moment.
+  if (opts.footageLed) {
+    const gf = [];
+    const srcOf = (b) => String((b && (b.bite || b.moment || b.clip || b.footage)) || "").trim();
+    const isFoot = (b) => !!srcOf(b) || /^(footage|bite|moment|interview|clip)$/i.test(String((b && (b.kind || b.source)) || ""));
+    const first = beats[0];
+    const cold = p.cold_open && typeof p.cold_open === "object" ? p.cold_open : null;
+    if (!isFoot(first)) {
+      if (!(cold && String(cold.why || "").trim().length >= 12 && Number(cold.duration_s || first.duration_s) <= 2)) gf.push("the film opens on a card, not on footage: the hook is the strongest real moment from the material (a rated 4+ bite or a gold moment) and it plays at once. A cold-open title is allowed only as cold_open { why, duration_s <= 2 }");
+    } else {
+      const id = srcOf(first);
+      if (opts.selects && id) {
+        const sel = opts.selects.get(id);
+        if (!sel) gf.push(`the hook beat names "${id}", which is not in footage/selects.json`);
+        else if (!(sel.rating >= 4 || sel.gold)) gf.push(`the hook beat "${id}" is rated ${sel.rating}: open on a rated 4+ bite or a gold moment (the strongest real thing in the material)`);
+      } else if (!opts.selects) warnings.push("footage-first: no footage/selects.json to check the hook against (--selects): confirm the hook is a rated 4+ bite or a gold moment");
+    }
+    const footS = beats.reduce((a, b) => a + (isFoot(b) ? Number(b.duration_s) || 0 : 0), 0);
+    const share = lengthS ? footS / lengthS : 0;
+    if (share < 0.4) gf.push(`only ${Math.round(share * 100)}% of the film is footage (60% at least in a film cut from footage): cards carry what the footage can't, they don't replace it`);
+    else if (share < 0.6) warnings.push(`footage is ${Math.round(share * 100)}% of the film (60% or more is the target)`);
+    const cards = beats.filter((b) => !isFoot(b)).length;
+    const cardCap = Math.max(1, Math.ceil(lengthS / 12));
+    if (cards > cardCap) gf.push(`${cards} card beats in a ${Math.round(lengthS)} s film (one per 12 s at most, ${cardCap} here): the footage carries the film`);
+    const unnamed = beats.map((b, i) => ({ b, i })).filter(({ b }) => isFoot(b) && !srcOf(b)).map(({ b, i }) => `${i + 1} ${b.name || ""}`);
+    if (unnamed.length) gf.push(`footage beat(s) that name no bite, moment or clip: ${unnamed.join(", ")} (set bite, moment or clip to an id from footage/selects.json)`);
+    gate("GF", "Footage-first (the hook is the strongest real moment, no card before footage, mostly footage, sparing cards, every beat names its source)", gf, { footage_share_pct: Math.round(share * 100), cards, hook: srcOf(first) || null });
+  }
+
   // G6 the script itself (references/script.md): runs when the beats carry voiceover or a target length is given
   let script = null;
   const narrated = opts.narrated || beats.some((b) => String(b.vo || "").trim());
@@ -1025,7 +1089,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
 
   // G12: viewer first (references/script.md pass 0, "the viewer's day first"): launch / promo films and every pas pitch. The film is
   // about the viewer: second person early, the reveal not before 20% (pas), a benefit per benefit/rung beat, proof, a concrete cta, one line per 1.5-2.5 s.
-  if (opts.viewerFirst || shapeOf(p, beats) === "pas") {
+  if (opts.viewerFirst || (shapeOf(p, beats) === "pas" && !opts.footageLed)) {
     const g12 = [];
     const shape12 = shapeOf(p, beats);
     const roles12 = beats.map((b, i) => lfRole(b, i, beats.length, null));

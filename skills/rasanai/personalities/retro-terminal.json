@@ -56,5 +56,19 @@
     "exit_ms": 500,
     "hold_ms": 900
   },
-  "builder_notes": "Characters appear one at a time (zero-duration tl.set of visibility per character at a fixed interval, on the timeline, never on a .clip element) behind a block cursor. The cursor blinks on steps during holds. Exits backspace right to left. Monospace chrome, no smooth tweens on type at all."
+  "builder_notes": "Characters appear one at a time (zero-duration tl.set of visibility per character at a fixed interval, on the timeline, never on a .clip element) behind a block cursor. The cursor blinks on steps during holds. Exits backspace right to left. Monospace chrome, no smooth tweens on type at all.",
+  "curves": {
+    "launch": "cubic-bezier(0.05,0.7,0.1,1)",
+    "glide": "cubic-bezier(0.2,0,0,1)",
+    "expressive": "cubic-bezier(0.4,0.14,0.3,1)",
+    "exit": "steps(4)",
+    "settle": "none",
+    "snap": "none",
+    "drift": "steps(2)",
+    "move": "steps(2)"
+  },
+  "overshoot": {
+    "share": 0,
+    "max_pct": 0
+  }
 }

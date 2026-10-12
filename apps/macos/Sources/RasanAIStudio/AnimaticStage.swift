@@ -8,6 +8,7 @@ struct AnimaticStage: View {
     init(model: FilmSessionModel, step: String) { self.model = model; self.step = step }
 
     @State private var playback = AnimaticPlayback()
+    @State private var confirmStory = false
 
     var body: some View {
         let payload = model.payload(step)
@@ -74,6 +75,9 @@ struct AnimaticStage: View {
             playback.configure(duration: duration, audio: audioURL, offset: offset)
         }
         .onDisappear { playback.shutdown() }
+        .confirmationDialog("Try a different story?", isPresented: $confirmStory, titleVisibility: .visible) {
+            Button("Ask for a different story") { Task { await model.send(step: step, type: "more", value: .object(["what": .string("angle")])) } }
+        } message: { Text("Claude goes back to the story step and writes new ones. The look and animatic are redone from the story you pick, which takes a while and costs another pass.") }
     }
 
     private var emptyState: some View {
@@ -115,15 +119,15 @@ struct AnimaticStage: View {
             }
             if payload["angles"] != .bool(false) {
                 Button {
-                    Task { await model.send(step: step, type: "more", value: .object(["what": .string("angle")])) }
+                    confirmStory = true
                 } label: {
-                    Label("Try another angle", systemImage: "arrow.triangle.2.circlepath").font(.system(size: 12))
+                    Label("Try a different story…", systemImage: "arrow.triangle.2.circlepath").font(.system(size: 12))
                         .padding(.horizontal, 11).padding(.vertical, 6)
                         .background(Color(nsColor: .quaternaryLabelColor).opacity(0.22), in: Capsule())
                         .overlay { Capsule().strokeBorder(Color(nsColor: .separatorColor).opacity(0.6), lineWidth: 0.5) }
                 }
                 .buttonStyle(.plain).disabled(!canAct)
-                .help("Ask Claude for a different way into the same story.")
+                .help("Go back to the story step for new stories. The look and animatic are redone, so it costs another pass.")
             }
         }
     }

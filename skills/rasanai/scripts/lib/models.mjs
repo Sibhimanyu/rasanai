@@ -98,7 +98,7 @@ export function tierFor(role, profile) {
   const gather = GATHER.has(role) || ["concept-critic", "move-juror", "move-sketcher"].includes(role);
   const min = gather ? "fast" : "strong";
   // the roles where the film is won or lost: a frontier model when one is running the session
-  const prefer = gather ? "fast" : ["motion-director", "scene-animator", "film-builder", "move-inventor", "frame-designer", "treatment-writer", "script-writer", "critic"].includes(role) ? "frontier" : "strong";
+  const prefer = gather ? "fast" : ["motion-director", "scene-animator", "film-builder", "move-inventor", "frame-designer", "styleframe-designer", "frame-juror", "treatment-writer", "script-writer", "critic"].includes(role) ? "frontier" : "strong";
   const ok = ORDER[profile.tier] >= ORDER[min];
   const useFast = gather && profile.tier !== "fast";
   // a fast tier is a cheaper model of the same family: on Claude a smaller model, on Codex the same model at low effort

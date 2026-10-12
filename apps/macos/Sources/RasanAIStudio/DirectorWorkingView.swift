@@ -6,9 +6,14 @@ import SwiftUI
 struct DirectorWorkingView: View {
     let model: FilmSessionModel
     var startedAt: Date?
+    /// The director is stopped: say where it stopped, and show nothing that moves.
+    var paused = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var headline: String { model.workingMessage ?? model.activity.first?.message ?? "Getting started…" }
+    private var headline: String {
+        let doing = model.workingMessage ?? model.activity.first?.message ?? "Getting started…"
+        return paused ? "Paused at: \(TurnState.sentenceCase(doing.hasSuffix("…") ? String(doing.dropLast()) : doing))" : doing
+    }
     private var brief: JSONValue { model.payload("brief") }
     private var captures: [JSONValue] { brief["captures"].array }
 
@@ -21,8 +26,12 @@ struct DirectorWorkingView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .contentTransition(.opacity).animation(.smooth, value: headline)
                         .accessibilityAddTraits(.isHeader)
-                    ProgressView().progressViewStyle(.linear).tint(.rasan).frame(maxWidth: 260)
-                        .accessibilityLabel("Claude is working")
+                    if paused {
+                        Label("Nothing is running. Your files are kept.", systemImage: "pause.circle").font(.system(size: 13)).foregroundStyle(.secondary)
+                    } else {
+                        ProgressView().progressViewStyle(.linear).tint(.rasan).frame(maxWidth: 260)
+                            .accessibilityLabel("Claude is working")
+                    }
                 }
                 if brief["fields"]["subject"].string != nil { briefCard }
                 if !captures.isEmpty { captureStrip }
@@ -103,7 +112,8 @@ struct DirectorWorkingView: View {
         case "you": Image(systemName: "person.fill").foregroundStyle(Color.rasan).font(.system(size: 11))
         case "ask": Image(systemName: "questionmark.bubble.fill").foregroundStyle(Color.rasan).font(.system(size: 11))
         default:
-            if current { ProgressView().controlSize(.mini) }
+            if current && paused { Image(systemName: "pause.fill").foregroundStyle(.secondary).font(.system(size: 10)) }
+            else if current { ProgressView().controlSize(.mini) }
             else { Image(systemName: "checkmark").foregroundStyle(item.level == "ok" ? Color(nsColor: .systemGreen) : Color(nsColor: .tertiaryLabelColor)).font(.system(size: 10, weight: .bold)) }
         }
     }

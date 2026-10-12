@@ -64,8 +64,10 @@ export const SIGNATURES = {
     return ["x", "y", "xPercent", "yPercent"].some((k) => num(t.from[k]) !== null && num(t.to[k]) !== null && Math.abs(num(t.from[k]) - num(t.to[k])) > 4);
   },
   "linear-entrance": (t, cls) => cls === "enter" && parseEase(t.ease).family === "none",
-  bounce: (t) => ["bounce", "elastic"].includes(parseEase(t.ease).family),
-  overshoot: (t) => parseEase(t.ease).family === "back",
+  // a floor bounce (bounce.out). Elastic and spring settles are overshoots, judged by the language's overshoot budget
+  bounce: (t) => parseEase(t.ease).family === "bounce",
+  // only where a language bans overshoot outright (rigid languages); elsewhere it is a budget (obey: overshoot-over-budget)
+  overshoot: (t) => ["back", "elastic"].includes(parseEase(t.ease).family) || !!(t.shape && t.shape.overshoot_pct > 0.5),
   "blur-in": (t, cls) => cls === "enter" && blurOf(t.from.filter) > 2,
   "scale-pop": (t, cls) => {
     const uni = (v) => (v.scale !== undefined ? v.scale : v.scaleX !== undefined && v.scaleY !== undefined ? Math.min(num(v.scaleX), num(v.scaleY)) : undefined);

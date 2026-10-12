@@ -9,6 +9,10 @@
 //   node research.mjs local-inventory --dir <approved folder> --out <inventory.json>
 //        -> what's where (READMEs, docs, DESIGN.md, design tokens, UI strings, changelogs, recent commit
 //           subjects, logos, screenshots, fixtures, dev scripts, earlier videos) by path and size, not content
+//   node research.mjs sources [--paths "<p1>,<p2>"] [--url <u>] [--code <dir>] [--kind <what the film is>] [--case <row>] [--public] --out <sources.json>
+//        -> what the film is made FROM (references/sources.md): mode (web | local | footage | assets | document | existing-video | mixed), spine (which source the story is built from:
+//           it decides the story pass and which gates apply), case, public, story_pass, product_first, each source with counts and hints, the chips the brief shows, the desks
+//           crew.mjs plan --sources will staff. Reads names, sizes and ffprobe durations only, never content; only folders the user approved.
 //   node research.mjs film (--url <video page> | --file <video>) --out <dir> [--keep] [--threshold 0.3]
 //        -> <dir>/film.json (every cut, shot lengths, pacing stats, loudness) + <dir>/sheet.jpg (one frame per
 //           shot). A downloaded film is for analysis only and is deleted afterwards unless --keep.
@@ -18,12 +22,13 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { parseArgs, die, writeFile } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
+import { classify, desksFor } from "./lib/sources.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
 track(
-  { "local-find": `Looking for ${args.name || "the product"} on this computer (folder names only)`, "local-inventory": "Listing what's in the folder you approved", film: "Measuring a reference film shot by shot" }[cmd],
-  { "local-find": "Local search done", "local-inventory": "Folder listed", film: "Film measured" }[cmd]
+  { "local-find": `Looking for ${args.name || "the product"} on this computer (folder names only)`, "local-inventory": "Listing what's in the folder you approved", film: "Measuring a reference film shot by shot", sources: "Working out what your film is made from (names and sizes only)" }[cmd],
+  { "local-find": "Local search done", "local-inventory": "Folder listed", film: "Film measured", sources: "Sources listed" }[cmd]
 );
 const out = (o, code = 0) => {
   console.log(JSON.stringify(o, null, 2));
@@ -188,6 +193,19 @@ else if (cmd === "local-inventory") {
   out({ ok: true, out: path.relative(process.cwd(), outFile), counts: Object.fromEntries(Object.entries(K).map(([k, v]) => [k, Array.isArray(v) ? v.length : v])), commits: commits.length, framework, dev_scripts: scripts });
 }
 
+// ---------------------------------------------------------------- sources
+else if (cmd === "sources") {
+  const paths = args.paths && args.paths !== true ? String(args.paths).split(",").map((x) => x.trim()).filter(Boolean) : [];
+  const url = args.url && args.url !== true ? String(args.url) : null;
+  const code = args.code && args.code !== true ? String(args.code).split(",").map((x) => x.trim()).filter(Boolean) : [];
+  if (!paths.length && !url && !code.length) die("sources needs --paths <folders or files>, --url <site> or --code <dir>");
+  const outFile = args.out && args.out !== true ? path.resolve(String(args.out)) : die("--out <sources.json> required");
+  const src = classify(paths, { url, code, kind: args.kind && args.kind !== true ? String(args.kind) : "", case: args.case && args.case !== true ? String(args.case) : "", public: !!args.public });
+  src.desks = desksFor(src);
+  writeFile(outFile, JSON.stringify(src, null, 2));
+  out({ ok: true, out: path.relative(process.cwd(), outFile), mode: src.mode, spine: src.spine, case: src.case, public: src.public, story_pass: src.story_pass, product_first: src.product_first, chips: src.chips, desks: src.desks.map((d) => `${d.desk}: ${d.roles.join(", ")}`), notes: src.notes, next: src.spine === "footage" || src.spine === "existing-video" ? "Footage spine: footage.mjs ingest|shots|transcribe, then crew.mjs plan --sources " + path.relative(process.cwd(), outFile) : "crew.mjs plan --sources " + path.relative(process.cwd(), outFile) });
+}
+
 // ---------------------------------------------------------------- film
 else if (cmd === "film") {
   const outDir = args.out && args.out !== true ? path.resolve(String(args.out)) : die("--out <dir> required");
@@ -275,5 +293,5 @@ else if (cmd === "film") {
   writeFile(path.join(outDir, "film.json"), JSON.stringify(film, null, 2));
   out({ ok: true, film: path.relative(process.cwd(), path.join(outDir, "film.json")), title, ...film.stats, threshold: thr, sheet: film.sheet });
 } else {
-  die("usage: research.mjs local-find|local-inventory|film … (see the header)");
+  die("usage: research.mjs local-find|local-inventory|sources|film … (see the header)");
 }

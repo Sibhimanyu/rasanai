@@ -53,5 +53,19 @@
     "exit_ms": 800,
     "hold_ms": 800
   },
-  "builder_notes": "Characters grow from the baseline (scaleY 0 -> 1, transform-origin bottom) with skew that relaxes to 0, staggered tightly so the line pours. Holds keep a slow sine wave travelling through the letters. Exits drain back into the baseline."
+  "builder_notes": "Characters grow from the baseline (scaleY 0 -> 1, transform-origin bottom) with skew that relaxes to 0, staggered tightly so the line pours. Holds keep a slow sine wave travelling through the letters. Exits drain back into the baseline.",
+  "curves": {
+    "launch": "cubic-bezier(0.16,0.6,0.2,1)",
+    "glide": "cubic-bezier(0.2,0,0,1)",
+    "expressive": "cubic-bezier(0.4,0.14,0.3,1)",
+    "exit": "power4.inOut",
+    "settle": "spring(0.8,9)",
+    "snap": "power4.inOut",
+    "drift": "sine.inOut",
+    "move": "sine.inOut"
+  },
+  "overshoot": {
+    "share": 0.12,
+    "max_pct": 4
+  }
 }

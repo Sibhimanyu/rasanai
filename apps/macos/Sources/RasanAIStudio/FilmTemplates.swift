@@ -16,7 +16,9 @@ extension StudioStore {
     func saveTemplate(name: String, draft: FilmDraft) {
         let title = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return }
-        settings.filmTemplates.append(FilmTemplate(name: title, draft: draft))
+        var saved = draft
+        saved.linked = [] // a template is a style, not a pointer at this film's folders
+        settings.filmTemplates.append(FilmTemplate(name: title, draft: saved))
     }
 }
 

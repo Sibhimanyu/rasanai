@@ -62,8 +62,8 @@ struct HomeView: View {
                 greeting
                 newFilmTile
                 if !hasAny && !store.isLoadingProjects && store.settings.editorDraft(for: nil) == nil { examples }
-                GetInspiredHomeSection(store: store)
                 if !needsYou.isEmpty { needsYouSection }
+                GetInspiredHomeSection(store: store)
                 if hasAny { library }
             }
             .padding(.horizontal, 32).padding(.top, 28).padding(.bottom, 40)
@@ -300,6 +300,9 @@ struct NeedsYouRow: View {
                     HStack(spacing: 6) {
                         StatusDot(tone: summary.phase.tone)
                         Text(reason).font(.system(size: 12.5)).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    if let detail = summary.detail {
+                        Text(detail).font(.system(size: 12, weight: .medium)).foregroundStyle(Color.rasan).lineLimit(1)
                     }
                     HStack(spacing: 8) {
                         if summary.stage != nil { FilmStageDots(current: summary.stage) }

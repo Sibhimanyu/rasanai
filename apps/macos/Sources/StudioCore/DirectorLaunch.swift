@@ -20,6 +20,7 @@ public struct DirectorLaunch: Sendable {
     public init(agent: LocalAgent, executable: URL, engine: URL, project: URL, run: URL,
                 request: String, model: String = "", allowUnrestrictedTools: Bool = false, briefSeeded: Bool = true,
                 pace: FilmPace = .fast, modelPlan: ModelPlan = .recommended,
+                readFolders: [String] = [], readFiles: [String] = [],
                 home: URL = FileManager.default.homeDirectoryForCurrentUser, toolsDirectory: URL = LocalAgent.managedToolsDirectory) throws {
         guard agent != .custom else { throw LaunchError.unsupportedAgent }
         guard !request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw LaunchError.emptyRequest }
@@ -43,7 +44,7 @@ public struct DirectorLaunch: Sendable {
         \(request)
         """
         prompt = common
-        let scoped = DirectorPermissions(engine: engine, home: home, toolsDirectory: toolsDirectory)
+        let scoped = DirectorPermissions(engine: engine, home: home, toolsDirectory: toolsDirectory, readFolders: readFolders, readFiles: readFiles)
         permissions = allowUnrestrictedTools ? nil : scoped
         var args: [String]
         if agent == .claude {

@@ -42,7 +42,6 @@
     "fade-up-slide",
     "fade-slide",
     "bounce",
-    "overshoot",
     "scale-pop",
     "blur-in"
   ],
@@ -56,5 +55,19 @@
     "exit_ms": 450,
     "hold_ms": 1000
   },
-  "builder_notes": "Reveal with clip-path inset wipes (left to right) per line, never fades. Emphasis is a thin accent rule sweeping under the key word (scaleX 0 -> 1 from left). Exits wipe off in the same direction. Generous margins; motion is a page being set."
+  "builder_notes": "Reveal with clip-path inset wipes (left to right) per line, never fades. Emphasis is a thin accent rule sweeping under the key word (scaleX 0 -> 1 from left). Exits wipe off in the same direction. Generous margins; motion is a page being set.",
+  "curves": {
+    "launch": "cubic-bezier(0.05,0.7,0.1,1)",
+    "glide": "cubic-bezier(0.2,0,0,1)",
+    "expressive": "cubic-bezier(0.4,0.14,0.3,1)",
+    "exit": "power2.in",
+    "settle": "spring(0.68,12)",
+    "snap": "expo.out",
+    "drift": "sine.inOut",
+    "move": "expo.inOut"
+  },
+  "overshoot": {
+    "share": 0.15,
+    "max_pct": 8
+  }
 }

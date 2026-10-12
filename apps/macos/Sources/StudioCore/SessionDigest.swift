@@ -7,7 +7,7 @@ public enum StepCatalog {
                                "plan", "build", "render", "final"]
     private static let labels = ["brief": "Brief", "research": "Research", "brand": "Brand", "route": "Workflow", "footage": "Footage",
                                  "story": "Story", "direction": "Style", "films": "Films", "concept": "Story", "scenes": "Scenes",
-                                 "look": "Look", "motion": "Motion", "styleframes": "Key frames", "animatic": "Animatic", "reel": "Cut",
+                                 "look": "Look", "motion": "Motion", "styleframes": "Style frames", "animatic": "Animatic", "reel": "Cut",
                                  "transitions": "Transitions", "voice": "Voice", "music": "Music", "keyframes": "Key poses",
                                  "storyboard": "Storyboard", "plan": "Plan", "build": "Build", "render": "Final", "final": "Final"]
     public static func label(_ step: String) -> String { labels[step] ?? step.capitalized }

@@ -35,7 +35,7 @@ struct FilmPage: View {
                 NativeFilmView(model: film, startedAt: store.runtime.startedAt, progress: store.progress,
                                onPause: store.runtime.isRunning ? { store.pauseDirector() } : nil,
                                onShowLog: store.runtime.logURL != nil ? { store.sheet = .log } : nil,
-                               pace: shownPace, autoResume: store.runtime.autoResume, onResumeNow: store.runtime.autoResume != nil ? { store.resumeDirector() } : nil)
+                               pace: shownPace, autoResume: store.runtime.autoResume, onResumeNow: store.runtime.autoResume != nil ? { store.resumeDirector() } : nil, paused: store.phase == .paused)
             } else if store.runtime.isRunning || store.runtime.isPreparing {
                 StartingView(runtime: store.runtime)
             } else {
@@ -165,11 +165,12 @@ struct StatusPill: View {
         return parts.joined(separator: " · ")
     }
     @State private var monitorOpen = false
+    @State private var hovering = false
     var body: some View {
         let offline = store.phase == .offline && store.runURL != nil
         let monitor = store.monitor
         let replaying = store.progress.map { $0.isReplay } ?? false
-        let live = offline ? nil : (replaying ? Self.replayPill(store.progress?.snapshot) : monitor.pillText(for: store.runURL))
+        let live = offline ? nil : (replaying ? Self.replayPill(store.progress?.snapshot) : monitor.pillText(for: store.runURL, showCost: DirectorMonitor.costVisible(usd: monitor.telemetry.cost.usd, limit: store.settings.budgetPerFilm, includedInPlan: monitor.telemetry.cost.isIncludedInPlan, hovering: hovering || monitorOpen)))
         let looping = monitor.health?.state == .possiblyLooping && live != nil
         if offline || live != nil {
             Button { if offline { store.reloadFilm() } else { monitorOpen.toggle() } } label: {
@@ -182,6 +183,7 @@ struct StatusPill: View {
                 .background(looping ? Color(nsColor: .systemRed).opacity(0.2) : Color(nsColor: .quaternaryLabelColor).opacity(0.3), in: Capsule())
             }
             .buttonStyle(.plain)
+            .onHover { hovering = $0 }
             .popover(isPresented: $monitorOpen, arrowEdge: .bottom) { DirectorMonitorPanel(monitor: monitor, progress: store.progress?.snapshot) { monitorOpen = false } }
             .help(live != nil ? "Director details: state, tokens, cost and recent activity" : "")
             .accessibilityLabel(offline ? "Film files unreadable. Reload film" : "Usage: \(live ?? "")")

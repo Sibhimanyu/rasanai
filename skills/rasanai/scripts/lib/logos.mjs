@@ -64,7 +64,9 @@ export function readLogos(assetsDir) {
     const tag = `logos.json[${i}]`;
     if (!e || typeof e.file !== "string" || !e.file) { out.problems.push(`${tag} has no file`); continue; }
     if (!KINDS.includes(e.kind)) out.problems.push(`${tag} (${e.file}): kind must be one of ${KINDS.join(", ")}`);
-    if (typeof e.source_url !== "string" || !URL1.test(e.source_url)) out.problems.push(`${tag} (${e.file}): source_url must be the http(s) URL the file came from`);
+    // a brand kit the user supplied has no URL: its source is the user's own file ({file, page?}; agents/brand-kit-builder.md)
+    const fileSrc = !!e.source && (typeof e.source === "string" ? e.source.trim().length > 0 : typeof e.source.file === "string" && e.source.file.trim().length > 0);
+    if (!fileSrc && (typeof e.source_url !== "string" || !URL1.test(e.source_url))) out.problems.push(`${tag} (${e.file}): source_url must be the http(s) URL the file came from (or source {file, page} for a file from the user's own brand kit)`);
     const abs = path.resolve(assetsDir, e.file);
     if (!abs.startsWith(path.resolve(assetsDir) + path.sep)) { out.problems.push(`${tag}: ${e.file} is outside research/brand/assets/`); continue; }
     if (!fs.existsSync(abs)) { out.problems.push(`${tag}: ${e.file} is not on disk`); continue; }
