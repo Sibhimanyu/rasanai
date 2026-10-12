@@ -14,16 +14,26 @@
 //        background removal: `npx hyperframes remove-background` (u2net) when it works, else a flood-fill from the edges on a plain
 //        ground (RASANAI_CUTOUT=flood skips the tool); trimmed to its content.
 //   node art.mjs treat --in a.png --out b.png --op gradient-map|duotone|halftone|dither|pixelate|xray|grade [--colors c1,c2,..] [--cell N]
+//        gradient-map also takes [--dither L] (grey levels of seeded noise before the ramp: no banding) [--grain 0.01] [--seed N]
 //   node art.mjs trace --in a.png --out b.svg [--colors N] [--lineart] [--max 900]   vendored imagetracerjs: real <path>s
 //   node art.mjs hand --text "..." --out b.svg [--font script|simplex] [--size 120] [--weight W] [--color #111] [--spacing 0]
 //        single-stroke handwriting from the vendored Hershey fonts: one <path> per glyph stroke, in writing order (ready for draw-on)
 //   node art.mjs check --run R                every asset exists (or is an explicit todo), every show that names an object or photo
 //        maps to an asset, one style (every generated asset shares the anchor), sizes are enough for where they are used
+//   node art.mjs plate --out p.png --palette c1,c2,.. [--ground #hex] [--variant fold|vortex|horizon|ribbon] [--aspect 16:9|9:16]
+//        [--seed N] [--width W] [--engine auto|procedural|imagegen] [--ramp c1,c2,..] [--grain 0.01] [--calm 0..1] [--flip]
+//        an abstract plate (an atmospheric ground, a depth layer behind UI, a plate to zoom through, an end-card field):
+//        imagegen.mjs with the plate recipe when IMAGEGEN=ready (engine auto|imagegen), else the procedural plate (RasanCamera.plate
+//        drawn headless in Chrome: blurred radial/linear fields and shapes bent by seeded noise, warped by feTurbulence/feDisplacementMap).
+//        Either way it is gradient-mapped onto the ordered palette ramp (dithered, plus grain), so no off-palette hue can survive.
+//   node art.mjs recipe --palette c1,c2,.. [--ground #hex] [--variant V] [--aspect A]   the plate prompt and ramp, as JSON (no image)
+//        `abstract` rows in plan.json ({id, kind: "abstract", variant, aspect, palette?|ramp?, ground?, seed?}) are made by `make` the same way.
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
+import os from "node:os";
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { parseArgs } from "./lib/common.mjs";
 
@@ -42,11 +52,11 @@ const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const clamp = (v, a = 0, b = 255) => (v < a ? a : v > b ? b : v);
 
-const KINDS = ["illustration", "icon", "photo", "cutout", "texture", "lineart", "handwriting"];
+const KINDS = ["illustration", "icon", "photo", "cutout", "texture", "lineart", "handwriting", "abstract"];
 const GENERATED = new Set(["illustration", "icon", "photo", "texture", "cutout", "lineart"]);
 const OPS = ["gradient-map", "duotone", "halftone", "dither", "pixelate", "xray", "grade"];
 // the least pixels (shorter side) an asset needs at the size it is shown at (a plan row may say min_px)
-const MIN_PX = { texture: 1280, photo: 768, cutout: 768, illustration: 768, lineart: 768, icon: 192 };
+const MIN_PX = { texture: 1280, photo: 768, cutout: 768, illustration: 768, lineart: 768, icon: 192, abstract: 1080 };
 
 // ------------------------------------------------------------------ pixels: ffmpeg decodes, we paint, our own PNG writer encodes
 function dims(p) {
@@ -101,13 +111,24 @@ const BAYER = (() => { // 8x8 ordered-dither matrix, values in (0,1)
 })();
 
 // ------------------------------------------------------------------ treatments
-function treat(img, op, { colors = [], cell = 0 }) {
+// a stateless per-pixel hash in [0, 1): the seeded dither and grain (same seed, same pixels)
+const hashPx = (i, seed) => { let x = Math.imul(i ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(seed + 1, 0xc2b2ae35); x ^= x >>> 15; x = Math.imul(x, 0x2c1b3c6d); x ^= x >>> 12; x = Math.imul(x, 0x297a2d39); x ^= x >>> 15; return (x >>> 0) / 4294967296; };
+// grain: seeded luminance noise of +-amount (0.01 = 1%), the same on every channel so it never shifts a hue
+function addGrain(img, amount, seed = 1) {
+  const d = img.data, k = amount * 255 * 2;
+  for (let i = 0, p = 0; i < d.length; i += 4, p++) { const n = (hashPx(p, seed + 101) + hashPx(p, seed + 202) - 1) * k; d[i] = clamp(d[i] + n); d[i + 1] = clamp(d[i + 1] + n); d[i + 2] = clamp(d[i + 2] + n); }
+  return img;
+}
+function treat(img, op, { colors = [], cell = 0, dither = 0, grain = 0, seed = 1 }) {
   const { w, h, data: d } = img;
   const o = new Uint8ClampedArray(d.length);
   const put = (i, c, a = d[i + 3]) => { o[i] = c[0]; o[i + 1] = c[1]; o[i + 2] = c[2]; o[i + 3] = a; };
   if (op === "gradient-map") {
     const stops = colors.length ? colors : colorList("", ["#14072e", "#c1272d", "#ff9d00", "#fff3c4"]);
-    for (let i = 0; i < d.length; i += 4) put(i, ramp(stops, lumaAt(d, i)));
+    // dither (in grey levels): triangular noise on the 8-bit luma before the ramp, so a smooth field maps without bands
+    const dk = dither / 255;
+    for (let i = 0, p = 0; i < d.length; i += 4, p++) put(i, ramp(stops, lumaAt(d, i) + (dk ? (hashPx(p, seed) + hashPx(p, seed + 1) - 1) * dk : 0)));
+    if (grain > 0) addGrain({ data: o }, grain, seed);
   } else if (op === "duotone") {
     const stops = colors.length >= 2 ? colors.slice(0, 2) : colorList("", ["#101820", "#f2efe6"]);
     for (let i = 0; i < d.length; i += 4) put(i, ramp(stops, lumaAt(d, i)));
@@ -155,9 +176,9 @@ function treat(img, op, { colors = [], cell = 0 }) {
   } else fail(`unknown --op "${op}": ${OPS.join(" | ")}`);
   return { w, h, data: o };
 }
-function runTreat(inp, outp, op, colors, cell) {
+function runTreat(inp, outp, op, colors, cell, extra = {}) {
   const img = readImage(inp);
-  const res = treat(img, op, { colors: colors.map((c) => (Array.isArray(c) ? c : hex(c))), cell: Number(cell) || 0 });
+  const res = treat(img, op, { colors: colors.map((c) => (Array.isArray(c) ? c : hex(c))), cell: Number(cell) || 0, dither: Number(extra.dither) || 0, grain: Number(extra.grain) || 0, seed: Number(extra.seed) || 1 });
   writePng(outp, res);
   return { width: res.w, height: res.h };
 }
@@ -307,6 +328,124 @@ function hand(text, outp, { font = "script", size = 120, weight = 0, color = "#1
   fs.mkdirSync(path.dirname(outp), { recursive: true });
   fs.writeFileSync(outp, svg);
   return { strokes: paths.length, glyphs: glyphN, skipped, width: vb[2], height: vb[3], font: f.name };
+}
+
+// ------------------------------------------------------------------ abstract plates
+// A plate is atmosphere, not a subject: flowing organic shapes in soft gradients, in the film's own colours only.
+// Both engines end in the same lock: the picture's luma runs along the ordered palette ramp (gradient-map, dithered, grain).
+const PLATE_VARIANTS = ["fold", "vortex", "horizon", "ribbon"];
+const PLATE_SIZES = { "16:9": [1920, 1080], "9:16": [1080, 1920], "1:1": [1440, 1440], "4:5": [1080, 1350] };
+const PLATE_SHAPES = {
+  fold: "One large S-curve fold sweeps through the frame: a deep lobe of colour on one side lifting to a bright lit edge, a quieter field on the other with a soft dark hollow",
+  vortex: "A soft vortex: colour and light turn slowly around a deep, soft-edged core, a few broad arms spiralling in",
+  horizon: "A horizon glow: the curved rim of a vast soft body low in the frame, a thin bright edge of light along it and a haze of colour rising above",
+  ribbon: "One broad ribbon of colour crosses the frame on a diagonal with a single turn in it, lit along one edge and shaded along the other, a fainter ribbon behind it",
+};
+const toHex = (c) => "#" + c.map((v) => Math.round(clamp(v)).toString(16).padStart(2, "0")).join("");
+const lumOf = (c) => (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255;
+function hslOf([r, g, b]) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (!d) return { h: -1, s: 0, l };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h *= 60; if (h < 0) h += 360;
+  return { h, s, l };
+}
+// the ramp: the palette as one ordered path the gradient map runs along. A dark ground starts it (light grows out of the dark);
+// a light ground sits in the middle between the warm and the cool colours (Kinso: coral, peach, cream, sage), or ends it.
+function plateRamp(palette, ground) {
+  const cols = [...new Set(palette.map((s) => toHex(hex(s))))];
+  if (cols.length < 2) fail("a plate needs 2+ palette colours (--palette c1,c2,..)");
+  const g = ground ? toHex(hex(ground)) : cols.slice().sort((a, b) => lumOf(hex(b)) - lumOf(hex(a)))[0];
+  const rest = cols.filter((c) => c !== g), L = (c) => lumOf(hex(c));
+  if (L(g) < 0.35) return [g, ...rest.sort((a, b) => L(a) - L(b))];
+  const warm = rest.filter((c) => { const { h, s } = hslOf(hex(c)); return s > 0.12 && (h < 75 || h >= 300); });
+  const cool = rest.filter((c) => !warm.includes(c));
+  if (warm.length && cool.length) return [...warm.sort((a, b) => L(a) - L(b)), g, ...cool.sort((a, b) => L(b) - L(a))];
+  return [...rest.sort((a, b) => L(a) - L(b)), g];
+}
+function colourWord(c) {
+  const { h, s, l } = hslOf(hex(c));
+  const [r0, , b0] = hex(c), chroma = (Math.max(...hex(c)) - Math.min(...hex(c))) / 255;
+  if (chroma < 0.07 || h < 0) return l > 0.88 ? (r0 > b0 + 4 ? "warm white" : r0 + 4 < b0 ? "cool white" : "white") : l < 0.12 ? "near-black" : l > 0.6 ? "pale grey" : "grey";
+  const names = [[10, "red"], [22, "coral"], [38, "orange"], [52, "amber"], [68, "yellow"], [95, "lime"], [150, "green"], [178, "sage teal"], [200, "cyan"], [228, "blue"], [255, "indigo"], [282, "violet"], [318, "magenta"], [345, "pink"], [361, "red"]];
+  let n = names.find(([lim]) => h < lim)[1];
+  if (n === "coral" && l > 0.72) n = "peach";
+  if (n === "sage teal" && s < 0.35) n = "sage";
+  const tone = l > 0.85 ? "pale " : l > 0.7 ? "soft " : l < 0.12 ? "near-black " : l < 0.3 ? "deep " : "";
+  return `${tone}${s < 0.3 && l >= 0.12 && l <= 0.85 ? "dusty " : ""}${n}`;
+}
+function plateRecipe({ ramp, variant = "fold", aspect = "16:9" }) {
+  const g = ramp[0] && lumOf(hex(ramp[0])) < 0.35 ? ramp[0] : ramp.slice().sort((a, b) => lumOf(hex(b)) - lumOf(hex(a)))[0];
+  const dark = lumOf(hex(g)) < 0.35, words = [...new Set(ramp.map(colourWord))];
+  const portrait = /^9:16|4:5$/.test(aspect);
+  return [
+    "Abstract visual, flowing organic shapes, soft gradients, minimal composition.",
+    `${PLATE_SHAPES[variant] || PLATE_SHAPES.fold}.`,
+    `Only these colours, blended as smooth luminous gradients: ${words.join(", ")}, on a ${colourWord(g)} ground${dark ? ", the light glowing out of the dark" : ", light and airy"}.`,
+    "Silky and softly lit, like folded light-catching fabric or liquid glass seen very close: a gentle highlight along each fold, deep soft shadows between, smooth tonal transitions, a whisper of fine grain.",
+    `${portrait ? "A vertical composition, the flow running top to bottom" : "A wide composition"}, with one calm open area where type can sit.`,
+    "No text, no letters, no numbers, no objects, no logos, no people, no UI, no frames or borders, no watermark, no hard geometric shapes.",
+  ].join(" ");
+}
+// the procedural plate: RasanCamera.plate draws the grey field headless (software GL, deterministic), then the ramp maps it
+async function renderProceduralPlate({ out: outp, ramp, ground, variant, width, height, seed, grain, warp, bend, calm, flip }) {
+  const { launch } = await import("./lib/cdp.mjs");
+  if (!process.env.RASANAI_GL) process.env.RASANAI_GL = "cpu";
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "rasan-plate-"));
+  const rt = path.join(HERE, "..", "runtime", "rasan-camera.js");
+  const o = { width, height, ramp, ground: ground || null, variant, seed, grey: true, ...(warp != null ? { warp } : {}), ...(bend != null ? { bend } : {}), ...(calm ? { calm } : {}), ...(flip ? { flip: true } : {}) };
+  fs.writeFileSync(path.join(tmp, "plate.html"), `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000;overflow:hidden}</style></head><body><div id="h" style="position:relative;width:${width}px;height:${height}px"></div><script src="${pathToFileURL(rt).href}"></script><script>window.__plate = RasanCamera.plate("#h", ${JSON.stringify(o)});</script></body></html>`);
+  const b = await launch({ width, height });
+  let png;
+  try {
+    await b.open(pathToFileURL(path.join(tmp, "plate.html")).href);
+    await b.eval("new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); })", { await: true });
+    const bad = b.logs.filter((l) => /exception|error/i.test(l));
+    if (bad.length) throw new Error(bad.join(" | ").slice(0, 300));
+    png = await b.screenshot();
+  } finally { await b.close(); }
+  const field = path.join(tmp, "field.png");
+  fs.writeFileSync(field, png);
+  const img = readImage(field);
+  const res = treat(img, "gradient-map", { colors: ramp.map(hex), dither: 1.5, grain, seed });
+  writePng(outp, res);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  return { width: res.w, height: res.h };
+}
+async function plateCmd(onlyRecipe = false) {
+  const variant = str(args.variant) || "fold", aspect = str(args.aspect) || "16:9";
+  if (!PLATE_VARIANTS.includes(variant)) fail(`--variant must be one of ${PLATE_VARIANTS.join(", ")}`);
+  const list = (v) => str(v).split(",").map((s) => s.trim()).filter(Boolean);
+  const ground = str(args.ground) ? toHex(hex(str(args.ground))) : null;
+  const ramp = str(args.ramp) ? list(args.ramp).map((c) => toHex(hex(c))) : plateRamp(list(args.palette), ground);
+  if (ramp.length < 2) fail("--palette c1,c2,.. (2+ colours) or --ramp c1,c2,.. required");
+  const prompt = plateRecipe({ ramp, variant, aspect });
+  if (onlyRecipe) { out({ ok: true, variant, aspect, ramp, ground: ground || null, prompt }); return; }
+  const outp = abs(str(args.out) || fail("--out <png> required"));
+  let [width, height] = PLATE_SIZES[aspect] || (/^\d+x\d+$/.test(aspect) ? aspect.split("x").map(Number) : fail(`--aspect must be one of ${Object.keys(PLATE_SIZES).join(", ")} or WxH`));
+  if (Number(args.width) > 0) { const k = Number(args.width) / width; width = Math.round(width * k); height = Math.round(height * k); }
+  const seed = Number(args.seed) || 1, grain = args.grain !== undefined ? Number(args.grain) || 0 : 0.01;
+  const engine = str(args.engine) || "auto";
+  let used = "procedural", note = null;
+  if (engine === "imagegen" || engine === "auto") {
+    const ig = imagegenState();
+    if (ig.state === "ready") {
+      const raw = outp.replace(/\.png$/i, "") + ".gen.png";
+      const r = spawnSync(process.execPath, [path.join(HERE, "imagegen.mjs"), "generate", "--prompt", prompt, "--out", raw, "--aspect", aspect, ...(args.force ? ["--force"] : [])], { encoding: "utf8", timeout: 1200000 });
+      if (r.status === 0 && exists(raw)) {
+        const img = readImage(raw);
+        writePng(outp, treat(img, "gradient-map", { colors: ramp.map(hex), dither: 1.5, grain, seed }));
+        used = "imagegen";
+      } else note = `image generation failed (${String(r.stderr || "").trim().split("\n").pop().slice(0, 140)}); drew the procedural plate`;
+    } else if (engine === "imagegen") fail(`image generation is unavailable (${ig.state}: ${ig.reason}); use --engine procedural`, 3);
+  }
+  let d = { width, height };
+  if (used === "procedural") d = await renderProceduralPlate({ out: outp, ramp, ground, variant, width, height, seed, grain, warp: args.warp !== undefined ? Number(args.warp) : null, bend: args.bend !== undefined ? Number(args.bend) : null, calm: Number(args.calm) || 0, flip: !!args.flip });
+  const side = { engine: used, variant, aspect, ramp, ground, seed, grain, ...(Number(args.calm) ? { calm: Number(args.calm) } : {}), ...(args.flip ? { flip: true } : {}), lock: "gradient-map", prompt, ...d, ...(note ? { note } : {}) };
+  fs.writeFileSync(outp + ".json", JSON.stringify(side, null, 2) + "\n");
+  out({ ok: true, out: outp, ...side });
 }
 
 // ------------------------------------------------------------------ the run: plan, make, check
@@ -533,11 +672,13 @@ else if (cmd === "cutout") {
 } else if (cmd === "treat") {
   const inp = abs(str(args.in) || fail("--in <png> required")), outp = abs(str(args.out) || fail("--out <png> required")), op = str(args.op);
   if (!OPS.includes(op)) fail(`--op must be one of ${OPS.join(", ")}`);
-  out({ ok: true, op, out: outp, ...runTreat(inp, outp, op, str(args.colors) ? str(args.colors).split(",").map((s) => s.trim()).filter(Boolean) : [], args.cell) });
+  out({ ok: true, op, out: outp, ...runTreat(inp, outp, op, str(args.colors) ? str(args.colors).split(",").map((s) => s.trim()).filter(Boolean) : [], args.cell, { dither: args.dither, grain: args.grain, seed: args.seed }) });
 } else if (cmd === "trace") {
   const inp = abs(str(args.in) || fail("--in <png> required")), outp = abs(str(args.out) || fail("--out <svg> required"));
   out({ ok: true, out: outp, ...trace(inp, outp, { colors: Number(args.colors) || 8, lineart: !!args.lineart, max: Number(args.max) || 900 }) });
 } else if (cmd === "hand") {
   const text = str(args.text) || fail('--text "<words>" required'), outp = abs(str(args.out) || fail("--out <svg> required"));
   out({ ok: true, out: outp, ...hand(text, outp, { font: str(args.font) || "script", size: Number(args.size) || 120, weight: Number(args.weight) || 0, color: str(args.color) || "#111111", spacing: Number(args.spacing) || 0 }) });
-} else fail("usage: art.mjs plan|make|cutout|treat|trace|hand|check … (see the header)");
+} else if (cmd === "plate") await plateCmd();
+else if (cmd === "recipe") await plateCmd(true);
+else fail("usage: art.mjs plan|make|cutout|treat|trace|hand|check|plate|recipe … (see the header)");

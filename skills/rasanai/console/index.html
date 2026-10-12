@@ -338,6 +338,34 @@
   .brief-sentence { font: 500 34px/1.4 var(--display); letter-spacing: -.015em; max-width: 900px; margin: 18px 0 30px; color: var(--ink); }
   .brief-sentence .pick { position: static; display: inline; background: none; box-shadow: none; padding: 0; border: 0; border-radius: 0; font: inherit; color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 2px; text-underline-offset: 7px; cursor: pointer; }
   .brief-sentence .pick:hover, .brief-sentence .pick.open { text-decoration-color: var(--accent); }
+  /* "What are you making?": the format picker (library/formats.json via the brief's `formats`) */
+  .fmt { max-width: 980px; margin: 0 0 22px; }
+  .fmt-h { font: 500 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+  .fmt-chip { display: inline-flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 999px; padding: 9px 16px; font: 500 15px/1.2 var(--sans); color: var(--ink); cursor: pointer; }
+  .fmt-chip:hover { border-color: var(--accent); }
+  .fmt-chip .sep { color: var(--ink-3); }
+  .fmt-chip .chg { font-size: 12.5px; color: var(--ink-3); text-decoration: underline; }
+  .fmt-why { font-size: 13px; color: var(--ink-3); margin: 8px 0 0 4px; }
+  .fmt-note { font-size: 14px; color: var(--ink-2); margin: 10px 0 0; max-width: 760px; }
+  .fmt-note button { margin-left: 8px; }
+  .fmt-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+  .fmt-tile { text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 15px; cursor: pointer; color: var(--ink); font: inherit; }
+  .fmt-tile:hover { border-color: var(--line-2); }
+  .fmt-tile.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .fmt-tile b { display: block; font: 600 15px/1.25 var(--sans); margin-bottom: 4px; }
+  .fmt-tile span { display: block; font-size: 13px; line-height: 1.4; color: var(--ink-3); }
+  .fmt-opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; margin: 12px 0 0; padding: 12px; background: var(--panel-2); border-radius: 12px; }
+  .fmt-opt { text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; cursor: pointer; color: var(--ink); font: inherit; }
+  .fmt-opt:hover { border-color: var(--line-2); }
+  .fmt-opt.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .fmt-opt.soon { color: var(--ink-3); background: transparent; border-style: dashed; }
+  .fmt-opt b { font: 600 14px/1.3 var(--sans); }
+  .fmt-opt span { display: block; font-size: 12.5px; line-height: 1.4; color: var(--ink-3); margin-top: 3px; }
+  .fmt-badge, .fmt-opt span.fmt-badge { display: inline-block; margin-top: 0; margin-left: 6px; font: 600 10.5px/1 var(--sans); padding: 3px 7px; border-radius: 99px; background: var(--line); color: var(--ink-2); vertical-align: 1px; }
+  .fmt-scope { margin: 14px 0 0; }
+  .fmt-scope p { margin: 0 0 8px; font-size: 14.5px; color: var(--ink); }
+  .fmt-scope .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .fmt-scope .chip2.on { border-color: var(--accent); color: var(--ink); box-shadow: 0 0 0 1px var(--accent); }
   .menu { position: absolute; z-index: 40; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 12px; padding: 6px; min-width: 180px; box-shadow: 0 18px 40px rgba(0,0,0,.45); }
   .menu button { display: block; width: 100%; text-align: left; background: none; border: 0; color: var(--ink); font: 500 15px/1 var(--sans); padding: 10px 12px; border-radius: 8px; cursor: pointer; }
   .menu button:hover, .menu button.on { background: var(--line); }
@@ -1346,26 +1374,89 @@
   function briefScreen(d) {
     var f = local.brief = local.brief || JSON.parse(JSON.stringify(d.fields || {}));
     var ch = d.choices || {};
+    var touched = local.briefTouched = local.briefTouched || {};
+    // "What are you making?" (formats.mjs list → d.formats; Claude's pre-selection → d.format {tile, option, why})
+    var FT = (d.formats && d.formats.tiles) || [];
+    var fopt = function (id) { for (var i = 0; i < FT.length; i++) for (var j = 0; j < FT[i].options.length; j++) if (FT[i].options[j].id === id) return FT[i].options[j]; return null; };
+    var ftile = function (id) { return FT.filter(function (t) { return t.id === id; })[0] || null; };
+    if (FT.length && !f.format && d.format && fopt(d.format.option)) f.format = { tile: d.format.tile, option: d.format.option };
+    if (f.format && d.format && d.format.scope && !f.format.scope && f.format.option === d.format.option) f.format.scope = d.format.scope;
     var body = h("div");
     body.appendChild(h("p", { class: "qsub", text: d.context || "Here's what I understood. Click any underlined part to change it." }));
+    var picker = FT.length ? h("div", { class: "fmt", id: "fmtPicker" }) : null;
+    if (picker) body.appendChild(picker);
     var needSource = d.needs_source || !String(f.subject || "").trim();
+    var srcQ = null;
     if (needSource) {
-      body.appendChild(h("p", { class: "qsub", style: "margin-top:6px;color:var(--ink)", text: "What's the video about?" }));
+      srcQ = h("p", { class: "qsub", style: "margin-top:6px;color:var(--ink)", text: "What's the video about?" });
+      body.appendChild(srcQ);
       body.appendChild(sourceBox(function () { var b = document.getElementById("primaryBtn"); if (b) b.click(); }));
+    }
+    function pickFormat(t, o) {
+      f.format = { tile: t, option: o.id };
+      f.kind = o.kind;
+      if (o.length_s && !touched.length_s) f.length_s = o.length_s;
+      if (o.aspect && /^\d+:\d+$/.test(o.aspect) && !touched.aspect) f.aspect = o.aspect;
+      local.fmtOpen = false;
+      drawPicker(); draw();
+    }
+    function drawPicker() {
+      if (!picker) return;
+      picker.innerHTML = "";
+      var cur = f.format && fopt(f.format.option), curTile = f.format && ftile(f.format.tile);
+      if (srcQ) srcQ.textContent = cur && cur.input && cur.input.prompt ? cur.input.prompt : "What's the video about?";
+      picker.appendChild(h("p", { class: "fmt-h", text: "What are you making?" }));
+      if (cur && !local.fmtOpen) {
+        picker.appendChild(h("button", { type: "button", class: "fmt-chip", onclick: function () { local.fmtOpen = true; local.fmtTile = f.format.tile; drawPicker(); } }, [
+          h("span", { text: curTile ? curTile.title : "" }), h("span", { class: "sep", text: "›" }), h("b", { text: cur.title }),
+          cur.status === "soon" ? h("span", { class: "fmt-badge", text: "Coming soon" }) : null,
+          h("span", { class: "chg", text: "Change" })
+        ]));
+        if (d.format && d.format.why && d.format.option === cur.id) picker.appendChild(h("p", { class: "fmt-why", text: d.format.why }));
+        if (cur.status === "soon") {
+          var near = cur.nearest;
+          picker.appendChild(h("p", { class: "fmt-note" }, [cur.soon || "This isn't built yet.", near ? h("button", { type: "button", class: "chip2", onclick: function () { var o = fopt(near.id); if (o) pickFormat(near.tile, o); } }, [h("span", { text: "Use " }), h("b", { text: near.title }), h("span", { text: " instead" })]) : null]));
+        } else if (cur.status === "partial" && cur.partial) picker.appendChild(h("p", { class: "fmt-note", text: cur.partial }));
+        if (cur.scope_question) {
+          var sq = cur.scope_question, row = h("div", { class: "row" });
+          (sq.options || []).forEach(function (x) { row.appendChild(h("button", { type: "button", class: "chip2" + (f.format.scope === x.scope ? " on" : ""), title: x.description || "", onclick: function () { f.format.scope = x.scope; drawPicker(); } }, [h("b", { text: x.label })])); });
+          if (sq.unsure) row.appendChild(h("button", { type: "button", class: "chip2" + (!f.format.scope ? " on" : ""), onclick: function () { delete f.format.scope; drawPicker(); }, text: sq.unsure }));
+          var hint = (sq.options || []).filter(function (x) { return x.scope === f.format.scope; })[0];
+          picker.appendChild(h("div", { class: "fmt-scope" }, [h("p", { text: sq.question }), row, hint && hint.description ? h("p", { class: "fmt-why", text: hint.description }) : null]));
+        }
+        return;
+      }
+      var open = local.fmtTile || (f.format && f.format.tile) || null;
+      picker.appendChild(h("div", { class: "fmt-tiles" }, FT.map(function (t) {
+        return h("button", { type: "button", class: "fmt-tile" + (open === t.id ? " on" : ""), "aria-pressed": open === t.id ? "true" : "false", onclick: function () { local.fmtTile = t.id; drawPicker(); } }, [h("b", { text: t.title }), h("span", { text: t.description })]);
+      })));
+      var tile = ftile(open);
+      if (tile) {
+        picker.appendChild(h("div", { class: "fmt-opts" }, tile.options.map(function (o) {
+          var on = f.format && f.format.option === o.id, soon = o.status === "soon";
+          return h("button", { type: "button", class: "fmt-opt" + (on ? " on" : "") + (soon ? " soon" : ""), onclick: function () {
+            if (soon) { toast(o.title + " is coming soon. " + (o.soon || "") + (o.nearest ? " Closest today: " + o.nearest.title + "." : "")); return; }
+            pickFormat(tile.id, o);
+          } }, [h("b", { text: o.title }), soon ? h("span", { class: "fmt-badge", text: "Coming soon" }) : null, h("span", { text: o.description })]);
+        })));
+      }
+      if (cur) picker.appendChild(h("p", { class: "fmt-why" }, [h("button", { type: "button", class: "chip2", onclick: function () { local.fmtOpen = false; drawPicker(); }, text: "Keep " + cur.title })]));
     }
     var sent = h("p", { class: "brief-sentence" });
     function part(key, label, opts, fmt) {
       var b = h("button", { class: "pick", type: "button", text: label });
+      // with the picker on the page, the sentence's noun opens it (unless Claude narrowed the kind with choices.kind)
+      if (key === "kind" && picker && !ch.kind) { b.addEventListener("click", function () { local.fmtOpen = true; local.fmtTile = f.format ? f.format.tile : null; drawPicker(); picker.scrollIntoView({ behavior: "smooth", block: "center" }); }); return b; }
       b.addEventListener("click", function () {
         closeFloating(); b.classList.add("open");
         var m = h("div", { class: "menu", role: "menu" });
         (opts || []).forEach(function (o) {
           var v = typeof o === "object" ? o.value : o, lab = typeof o === "object" ? o.label : (fmt ? fmt(o) : String(o));
-          m.appendChild(h("button", { class: String(f[key]) === String(v) ? "on" : "", onclick: function () { f[key] = v; closeFloating(); draw(); }, text: lab }));
+          m.appendChild(h("button", { class: String(f[key]) === String(v) ? "on" : "", onclick: function () { f[key] = v; touched[key] = true; closeFloating(); draw(); }, text: lab }));
         });
         if (!opts || key === "subject" || key === "length_s") {
           var inp = h("input", { value: f[key] == null ? "" : String(f[key]), placeholder: key === "length_s" ? "seconds" : "type…" });
-          inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { f[key] = key === "length_s" ? Number(inp.value) || f[key] : inp.value; closeFloating(); draw(); } });
+          inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { f[key] = key === "length_s" ? Number(inp.value) || f[key] : inp.value; touched[key] = true; closeFloating(); draw(); } });
           m.appendChild(inp); setTimeout(function () { inp.focus(); }, 0);
         }
         placeFloating(m, b);
@@ -1376,7 +1467,8 @@
       sent.innerHTML = "";
       var add = function (x) { sent.appendChild(typeof x === "string" ? document.createTextNode(x) : x); };
       add("A "); add(part("length_s", (f.length_s || 45) + "-second", ch.length_s || [15, 30, 45, 60, 90], function (v) { return v + " seconds"; }));
-      add(" "); add(part("kind", f.kind || "launch film", ch.kind || ["launch film", "explainer", "brand film", "feature reveal", "social teaser", "product demo"]));
+      // the noun is the picked format's kind (still sent as `kind`); the old six-item menu only when the brief came without a picker
+      add(" "); add(part("kind", f.kind || (FT.length ? "film" : "launch film"), ch.kind ||["launch film", "explainer", "brand film", "feature reveal", "social teaser", "product demo"]));
       add(" for "); add(part("subject", f.subject || "your product", null));
       add(", "); add(part("aspect", f.aspect || "16:9", ch.aspect || [{ value: "16:9", label: "16:9 (widescreen)" }, { value: "9:16", label: "9:16 (vertical)" }, { value: "1:1", label: "1:1 (square)" }, { value: "4:5", label: "4:5 (feed)" }]));
       add(" for "); add(part("destination", f.destination || "the website", ch.destination || ["the website", "X", "LinkedIn", "YouTube", "Instagram Reels", "TikTok", "a keynote"]));
@@ -1385,6 +1477,7 @@
       add(".");
     }
     draw();
+    drawPicker();
     body.appendChild(sent);
     if ((d.findings || []).length) {
       body.appendChild(h("p", { class: "qsub", text: "What I found" }));

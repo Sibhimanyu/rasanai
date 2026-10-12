@@ -1,0 +1,4282 @@
+{
+  "$comment": "RasanAI's \"What are you making?\" picker: the single source of truth for the console, Studio and the Director. Tiles are what the user picks; each option sets the route, the source mode and case (scripts/lib/sources.mjs), the inputs to ask for, the research, the story pass and the allowed story shapes (ranked: Sure, Bold, Wild take the first three), the claim scope and the default length and aspect. status: ready (works today) | partial (works, its own shape or check is still being built: say so) | soon (not built: say so, offer `soon.nearest`, never route it quietly). Copy is shown to users: plain words. Read with scripts/formats.mjs (list, match, resolve, check). Research: .context/night/S2-formats.md (formats) and S1-video-types-stories.md (shapes, scope).",
+  "version": 1,
+  "scopes": {
+    "universal": "Many uses: people use it for all kinds of things",
+    "category": "One area, several jobs",
+    "single-task": "One job, done much better"
+  },
+  "inputs": {
+    "url": {
+      "prompt": "Your product's website or app link",
+      "accepts": [
+        "url"
+      ]
+    },
+    "code": {
+      "prompt": "The folder with your app's code (we only read what you allow)",
+      "accepts": [
+        "folder"
+      ]
+    },
+    "clips": {
+      "prompt": "The folder with your clips. Phone and camera files are fine; subfolders too.",
+      "accepts": [
+        "folder"
+      ]
+    },
+    "one-clip": {
+      "prompt": "The video of you (or them) talking",
+      "accepts": [
+        "file"
+      ]
+    },
+    "green-screen": {
+      "prompt": "Your green- or blue-screen clip",
+      "accepts": [
+        "file"
+      ]
+    },
+    "song": {
+      "prompt": "Your song (MP3, WAV or M4A). Add the lyrics too if you have them.",
+      "accepts": [
+        "file",
+        "text"
+      ]
+    },
+    "script": {
+      "prompt": "What should it say? Paste a script, an article or a few notes.",
+      "accepts": [
+        "text",
+        "file"
+      ]
+    },
+    "document": {
+      "prompt": "The report, PDF or spreadsheet the numbers come from",
+      "accepts": [
+        "file"
+      ]
+    },
+    "brand-kit": {
+      "prompt": "Your logo, fonts or brand guidelines (optional)",
+      "accepts": [
+        "folder",
+        "files"
+      ]
+    },
+    "master": {
+      "prompt": "The video you want new versions of",
+      "accepts": [
+        "file"
+      ]
+    },
+    "screen-recording": {
+      "prompt": "Your screen recordings (with your voice, if you recorded one)",
+      "accepts": [
+        "files"
+      ]
+    },
+    "credits": {
+      "prompt": "Names and roles, in order",
+      "accepts": [
+        "text"
+      ]
+    },
+    "feature": {
+      "prompt": "Which feature? Its name is enough.",
+      "accepts": [
+        "text"
+      ]
+    },
+    "pr": {
+      "prompt": "The pull request link, or paste your release notes",
+      "accepts": [
+        "url",
+        "text"
+      ]
+    },
+    "launch-date": {
+      "prompt": "When does it launch? (optional)",
+      "accepts": [
+        "text"
+      ]
+    },
+    "steps": {
+      "prompt": "The steps, in order, or a doc that has them",
+      "accepts": [
+        "text",
+        "file"
+      ]
+    },
+    "words": {
+      "prompt": "The words to put on screen: a script, a quote or a manifesto",
+      "accepts": [
+        "text",
+        "file"
+      ]
+    },
+    "logo": {
+      "prompt": "Your logo file (SVG or PNG)",
+      "accepts": [
+        "file"
+      ]
+    },
+    "stat": {
+      "prompt": "The number or the quote, and where it comes from",
+      "accepts": [
+        "text"
+      ]
+    },
+    "name-title": {
+      "prompt": "The name and title to show",
+      "accepts": [
+        "text"
+      ]
+    },
+    "places": {
+      "prompt": "The places to show, in order",
+      "accepts": [
+        "text"
+      ]
+    },
+    "post": {
+      "prompt": "The post's link, or a screenshot of it",
+      "accepts": [
+        "url",
+        "file"
+      ]
+    },
+    "work": {
+      "prompt": "The work to show: clips, stills or links",
+      "accepts": [
+        "folder",
+        "files",
+        "url"
+      ]
+    },
+    "brand": {
+      "prompt": "Your brand's name or website",
+      "accepts": [
+        "text",
+        "url"
+      ]
+    },
+    "photos": {
+      "prompt": "Photos to use (optional)",
+      "accepts": [
+        "folder",
+        "files"
+      ]
+    },
+    "interviews": {
+      "prompt": "The folder with the interviews, plus any extra footage",
+      "accepts": [
+        "folder"
+      ]
+    },
+    "offer": {
+      "prompt": "The offer: what it is, the price or code, and until when",
+      "accepts": [
+        "text"
+      ]
+    },
+    "product-footage": {
+      "prompt": "Your product footage, plus the specs to call out",
+      "accepts": [
+        "folder"
+      ]
+    },
+    "takes": {
+      "prompt": "The folder with your performance takes",
+      "accepts": [
+        "folder"
+      ]
+    },
+    "before-after": {
+      "prompt": "The before and the after (two clips or two pictures)",
+      "accepts": [
+        "files"
+      ]
+    },
+    "moments": {
+      "prompt": "The moments to rank, if you have a list (optional)",
+      "accepts": [
+        "text"
+      ]
+    },
+    "languages": {
+      "prompt": "Which languages?",
+      "accepts": [
+        "text"
+      ]
+    },
+    "agenda": {
+      "prompt": "The agenda or sponsor logos (optional)",
+      "accepts": [
+        "text",
+        "files"
+      ]
+    },
+    "show-name": {
+      "prompt": "Your show's name",
+      "accepts": [
+        "text"
+      ]
+    },
+    "platforms": {
+      "prompt": "Where will they play? (Reels, TikTok, YouTube, an ad...)",
+      "accepts": [
+        "text"
+      ]
+    }
+  },
+  "shapes": {
+    "ladder": {
+      "title": "Refrain ladder",
+      "line": "One verb repeats; each step is a different real use, rising from simple to done-for-you."
+    },
+    "pas": {
+      "title": "Problem, then the fix",
+      "line": "The viewer's pain, the product arrives, two to four benefits, proof, a clear call to action."
+    },
+    "scenario": {
+      "title": "One hero demo",
+      "line": "One real task done start to finish: before, the task in the real product, after."
+    },
+    "intercut": {
+      "title": "Parallel uses",
+      "line": "Several people in different parts of life hit the same problem; the product solves each."
+    },
+    "montage": {
+      "title": "Montage of range",
+      "line": "Six to twelve quick shots, each a different output or person, on the beat, then the claim."
+    },
+    "hero-strip": {
+      "title": "Hero plus range strip",
+      "line": "One convincing demo, then a fast strip of four to eight other uses."
+    },
+    "before-after": {
+      "title": "Before and after",
+      "line": "Paired lines or pictures: how it was, how it is now."
+    },
+    "claim-ladder": {
+      "title": "Claim ladder",
+      "line": "Four to six claims, each proved by a demo from a different area of life."
+    },
+    "manifesto": {
+      "title": "Manifesto",
+      "line": "A belief, people living it, the brand as the enabler, a sign-off."
+    },
+    "life-arc": {
+      "title": "Life arc",
+      "line": "One person over months or years, each step a different use, ending on something everyone feels."
+    },
+    "day-in-life": {
+      "title": "Day in the life",
+      "line": "Morning to evening, a different moment at each step."
+    },
+    "what-if": {
+      "title": "What if",
+      "line": "A question, an imagined world, then: it's real now."
+    },
+    "countdown": {
+      "title": "Countdown or teaser",
+      "line": "A motif, partial reveals, the date."
+    },
+    "testimony": {
+      "title": "Testimony",
+      "line": "Who I am, how it was, the turning point, the result with a number, my line."
+    },
+    "roundup": {
+      "title": "Roundup",
+      "line": "A title card per item, the same grammar each time, then a finale."
+    },
+    "strategic": {
+      "title": "Big change",
+      "line": "The world is changing, who wins and loses, the promised land, the proof."
+    },
+    "data-journey": {
+      "title": "Data journey",
+      "line": "A question, the numbers revealed in rising order, what they mean for people."
+    },
+    "steps": {
+      "title": "Steps",
+      "line": "The goal, steps one to N, the result."
+    },
+    "abt": {
+      "title": "And, but, therefore",
+      "line": "How things are, the snag, so here is what changes."
+    },
+    "titles": {
+      "title": "Titles",
+      "line": "Set the mood, one credit per beat, then the title."
+    },
+    "process": {
+      "title": "Process",
+      "line": "How it's made: the raw start, the work, the finished thing."
+    },
+    "acts": {
+      "title": "Acts",
+      "line": "A documentary in acts: the setup, the struggle, the resolution."
+    },
+    "trailer": {
+      "title": "Trailer",
+      "line": "The setup, the stakes, the best moment, the title and the date."
+    }
+  },
+  "tiles": [
+    {
+      "id": "launch",
+      "title": "Launch or promo",
+      "group": "motion",
+      "description": "Show off your product, app or site with its real screens.",
+      "thumbnail": "A real app window glides in on a soft glow; one word of a headline highlights; a button pulses \"Get it\".",
+      "default": "launch-film",
+      "keywords": [
+        "product",
+        "app",
+        "saas",
+        "startup",
+        "website",
+        "my site"
+      ],
+      "options": [
+        "launch-film",
+        "feature-reveal",
+        "product-tour",
+        "whats-new",
+        "launch-teaser",
+        "pitch-video",
+        "app-store-preview"
+      ]
+    },
+    {
+      "id": "explainer",
+      "title": "Explainer",
+      "group": "motion",
+      "description": "Explain an idea, a process or the numbers, with animated visuals.",
+      "thumbnail": "A dot becomes a diagram: three icons connect with lines; a chart bar grows; a label pops.",
+      "default": "explainer",
+      "keywords": [
+        "explain",
+        "teach",
+        "concept",
+        "topic",
+        "article"
+      ],
+      "options": [
+        "explainer",
+        "how-to",
+        "data-story",
+        "sketch-explainer",
+        "isometric",
+        "character-story"
+      ]
+    },
+    {
+      "id": "brand",
+      "title": "Brand film",
+      "group": "motion",
+      "description": "A film about who you are, in your own colours, type and voice.",
+      "thumbnail": "Big type re-divides a grid in brand colours; a cut-out photo slides into a cell; the logo lands.",
+      "default": "brand-film",
+      "keywords": [
+        "brand",
+        "company",
+        "values"
+      ],
+      "options": [
+        "brand-film",
+        "kinetic-type",
+        "collage",
+        "rebrand-reveal",
+        "milestone",
+        "event-opener",
+        "title-sequence",
+        "showreel"
+      ]
+    },
+    {
+      "id": "short",
+      "title": "Short animation",
+      "group": "motion",
+      "description": "One short animated piece, under 15 seconds.",
+      "thumbnail": "A logo sting: a circle squashes, bounces and becomes a mark, with a tiny flash.",
+      "default": "logo-sting",
+      "keywords": [
+        "short animation",
+        "motion graphic",
+        "motion graphics",
+        "animation",
+        "intro",
+        "outro",
+        "gif"
+      ],
+      "options": [
+        "logo-sting",
+        "stat-card",
+        "name-bar",
+        "animated-map",
+        "animated-post",
+        "brand-loop",
+        "graphics-package"
+      ]
+    },
+    {
+      "id": "music",
+      "title": "Music video",
+      "group": "motion",
+      "description": "A video for your song: the lyrics, the beat or the performance.",
+      "thumbnail": "Lyric words appear on beat hits over a shifting colour plate; a waveform ticks along the bottom.",
+      "default": "lyric-video",
+      "keywords": [
+        "song",
+        "track",
+        "music video",
+        "single",
+        "album",
+        "my music"
+      ],
+      "options": [
+        "lyric-video",
+        "visualiser",
+        "performance-mv"
+      ]
+    },
+    {
+      "id": "reel",
+      "title": "Reel from my clips",
+      "group": "footage",
+      "description": "Turn a folder of clips into a reel cut to music, with titles and captions.",
+      "thumbnail": "Phone clips snap into a vertical frame on beats; a bold caption word pops; a card \"Lisbon, day 3\" wipes in.",
+      "default": "social-reel",
+      "keywords": [
+        "clips",
+        "footage",
+        "reel",
+        "videos i shot",
+        "raw footage"
+      ],
+      "options": [
+        "social-reel",
+        "trip-reel",
+        "montage-sizzle",
+        "event-recap",
+        "behind-the-scenes",
+        "highlight-reel",
+        "before-after"
+      ]
+    },
+    {
+      "id": "talking",
+      "title": "Someone talking",
+      "group": "footage",
+      "description": "Make a talking video clear and watchable: captions, cuts and graphics.",
+      "thumbnail": "A talking head; a name bar slides in; captions word by word; a key-point card appears beside them.",
+      "default": "talking-graphics",
+      "keywords": [
+        "talking",
+        "speaker",
+        "on camera",
+        "to camera",
+        "speech",
+        "talk"
+      ],
+      "options": [
+        "captions-only",
+        "talking-graphics",
+        "founder-interview",
+        "presenter",
+        "vlog",
+        "podcast-clips"
+      ]
+    },
+    {
+      "id": "people",
+      "title": "Customer or team story",
+      "group": "footage",
+      "description": "Real people in their own words: customers, staff, the community.",
+      "thumbnail": "An interview in warm light; a lower third \"Maya, founder\"; the proof number \"3x\" lands as a card.",
+      "default": "customer-story",
+      "keywords": [
+        "people",
+        "customers",
+        "staff",
+        "employees",
+        "interviews"
+      ],
+      "options": [
+        "customer-story",
+        "team-hiring",
+        "community-story",
+        "documentary-short"
+      ]
+    },
+    {
+      "id": "ad",
+      "title": "Social ad",
+      "group": "footage",
+      "description": "A scroll-stopping vertical ad: a hook, one benefit, proof, the offer.",
+      "thumbnail": "A phone frame: a creator's face, a bold hook caption, a product close-up, a \"Use code SPRING\" sticker.",
+      "default": "offer-ad",
+      "keywords": [
+        "ad",
+        "ads",
+        "advert",
+        "advertisement",
+        "campaign",
+        "paid social"
+      ],
+      "options": [
+        "ugc-ad",
+        "product-broll-ad",
+        "offer-ad",
+        "ad-variants"
+      ]
+    },
+    {
+      "id": "screen",
+      "title": "Screen recording",
+      "group": "footage",
+      "description": "Polish a screen recording: cut the waiting, zoom on clicks, smooth the cursor.",
+      "thumbnail": "A desktop recording zooms to a click with a ripple, pans to the next field, zooms back out.",
+      "default": "screen-demo",
+      "keywords": [
+        "screen recording",
+        "screen recordings",
+        "screencast",
+        "screen capture",
+        "loom",
+        "recording of my screen"
+      ],
+      "options": [
+        "screen-demo",
+        "screen-tutorial",
+        "screen-chapters",
+        "screen-pr"
+      ]
+    },
+    {
+      "id": "recut",
+      "title": "Re-cut a video I have",
+      "group": "footage",
+      "description": "Shorter, taller or translated versions of a video you've already made.",
+      "thumbnail": "One wide frame splits into 9:16, 1:1 and 16:9 versions; a \"15s\" badge flips to \"6s\".",
+      "default": "shorter-versions",
+      "keywords": [
+        "video i have",
+        "existing video",
+        "my video",
+        "re-cut",
+        "recut",
+        "new versions",
+        "versions of"
+      ],
+      "options": [
+        "shorter-versions",
+        "other-sizes",
+        "another-language",
+        "trailer-from-it",
+        "recut-captions"
+      ]
+    },
+    {
+      "id": "other",
+      "title": "Something else",
+      "group": "motion",
+      "description": "Describe it in your own words.",
+      "thumbnail": "A blinking cursor in a text box.",
+      "default": "something-else",
+      "keywords": [],
+      "options": [
+        "something-else"
+      ]
+    }
+  ],
+  "options": [
+    {
+      "id": "launch-film",
+      "tile": "launch",
+      "title": "Launch film",
+      "kind": "launch film",
+      "description": "Introduce your product with its real screens, big lines and a clear call to action.",
+      "status": "ready",
+      "route": "product-launch-video",
+      "source_mode": "web",
+      "source_modes": [
+        "web",
+        "local"
+      ],
+      "case": "public-launch",
+      "inputs": [
+        {
+          "id": "url",
+          "required": true
+        },
+        {
+          "id": "brand-kit",
+          "required": false
+        },
+        {
+          "id": "feature",
+          "required": false,
+          "prompt": "A feature to feature (optional)"
+        }
+      ],
+      "research": {
+        "mode": "product",
+        "desks": [
+          "product-researcher",
+          "screens-researcher",
+          "brand-researcher",
+          "brand-film"
+        ],
+        "note": "the product, its real screens and the brand, plus the brand's own launch films"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "launch",
+        "note": "Sure ladder, Bold pas, Wild a claim ladder or manifesto then proof"
+      },
+      "story_shapes": [
+        "ladder",
+        "pas",
+        "claim-ladder",
+        "manifesto",
+        "intercut",
+        "montage",
+        "hero-strip",
+        "before-after"
+      ],
+      "forbidden_shapes": [
+        "testimony",
+        "roundup",
+        "data-journey",
+        "steps"
+      ],
+      "scope_default": "universal",
+      "length_s": 45,
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16",
+        "1:1"
+      ],
+      "keywords": [
+        "launch film",
+        "launch video",
+        "launch",
+        "promo",
+        "promo video",
+        "product video",
+        "announce",
+        "announcement",
+        "introduce",
+        "introducing",
+        "promote"
+      ]
+    },
+    {
+      "id": "feature-reveal",
+      "tile": "launch",
+      "title": "Feature launch",
+      "kind": "feature launch",
+      "description": "Announce a new feature and show what people can do with it.",
+      "status": "ready",
+      "route": "product-launch-video",
+      "source_mode": "web",
+      "source_modes": [
+        "web",
+        "local"
+      ],
+      "case": "public-launch",
+      "inputs": [
+        {
+          "id": "url",
+          "required": true
+        },
+        {
+          "id": "feature",
+          "required": true,
+          "prompt": "Which feature? Its name is enough."
+        }
+      ],
+      "research": {
+        "mode": "product-feature",
+        "desks": [
+          "product-researcher",
+          "screens-researcher",
+          "brand-researcher",
+          "brand-film"
+        ],
+        "note": "the feature's own page and launch film first: its promise sets the scope"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "launch",
+        "note": "the shapes follow the scope: many uses is never one scenario"
+      },
+      "story_shapes": [
+        "hero-strip",
+        "ladder",
+        "intercut",
+        "claim-ladder"
+      ],
+      "story_shapes_by_scope": {
+        "universal": {
+          "shapes": [
+            "ladder",
+            "intercut",
+            "hero-strip",
+            "montage",
+            "claim-ladder"
+          ],
+          "forbidden": [
+            "scenario"
+          ]
+        },
+        "category": {
+          "shapes": [
+            "hero-strip",
+            "ladder",
+            "intercut",
+            "claim-ladder"
+          ],
+          "forbidden": []
+        },
+        "single-task": {
+          "shapes": [
+            "scenario",
+            "pas",
+            "before-after",
+            "ladder",
+            "hero-strip"
+          ],
+          "forbidden": [
+            "intercut",
+            "manifesto"
+          ]
+        }
+      },
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "scope_question": {
+        "question": "Is this feature for many kinds of uses, or one job?",
+        "options": [
+          {
+            "scope": "universal",
+            "label": "Many uses",
+            "description": "People use it for all kinds of things (\"ask anything\")."
+          },
+          {
+            "scope": "category",
+            "label": "One area, several jobs",
+            "description": "One main job plus more, or one family of jobs (\"reviews every pull request\")."
+          },
+          {
+            "scope": "single-task",
+            "label": "One job, done much better",
+            "description": "One task it makes easy (\"triage feedback automatically\")."
+          }
+        ],
+        "unsure": "Not sure: I'll read the feature's own page and decide"
+      },
+      "length_s": 30,
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16"
+      ],
+      "keywords": [
+        "feature launch",
+        "feature reveal",
+        "new feature",
+        "feature video",
+        "feature drop",
+        "feature announcement"
+      ]
+    },
+    {
+      "id": "product-tour",
+      "tile": "launch",
+      "title": "Product tour",
+      "kind": "product tour",
+      "description": "Walk through your product's main screens, step by step.",
+      "status": "ready",
+      "route": "product-launch-video",
+      "source_mode": "web",
+      "source_modes": [
+        "web",
+        "local"
+      ],
+      "case": "public-launch",
+      "inputs": [
+        {
+          "id": "url",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "product-screens",
+        "desks": [
+          "product-researcher",
+          "screens-researcher",
+          "brand-researcher"
+        ],
+        "note": "the product with its real screens (the long path)"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "launch",
+        "note": "show it as it is: a ladder of real screens"
+      },
+      "story_shapes": [
+        "hero-strip",
+        "scenario",
+        "intercut",
+        "steps"
+      ],
+      "forbidden_shapes": [
+        "manifesto",
+        "life-arc"
+      ],
+      "scope_default": "category",
+      "length_s": 60,
+      "aspect": "16:9",
+      "keywords": [
+        "product tour",
+        "site tour",
+        "tour",
+        "product demo",
+        "demo video",
+        "walkthrough",
+        "walk through",
+        "showcase",
+        "show my site"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "whats-new",
+      "tile": "launch",
+      "title": "What's new (PR or changelog)",
+      "kind": "what's new video",
+      "description": "Turn a pull request or release notes into a short \"here's what changed\" video.",
+      "status": "ready",
+      "route": "pr-to-video",
+      "source_mode": "local",
+      "source_modes": [
+        "local",
+        "web"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "pr",
+          "required": true
+        },
+        {
+          "id": "code",
+          "required": false,
+          "prompt": "The repository folder (optional)"
+        }
+      ],
+      "research": {
+        "mode": "release-notes",
+        "desks": [
+          "local-scout"
+        ],
+        "note": "the change itself: the diff, the release notes"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": null,
+        "note": "one item per change"
+      },
+      "story_shapes": [
+        "roundup",
+        "montage",
+        "countdown"
+      ],
+      "forbidden_shapes": [
+        "scenario",
+        "life-arc"
+      ],
+      "scope_default": "category",
+      "length_s": 40,
+      "aspect": "16:9",
+      "keywords": [
+        "pull request",
+        "pr video",
+        "changelog",
+        "release notes",
+        "what's new",
+        "whats new",
+        "what changed",
+        "release video",
+        "update roundup",
+        "product update"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "launch-teaser",
+      "tile": "launch",
+      "title": "Teaser",
+      "kind": "teaser",
+      "description": "Tease what's coming: one glimpse, the feeling, the date.",
+      "status": "partial",
+      "partial": "Its own teaser shape (withhold, one glimpse, the date) is still being built; today it's told as a very short launch film.",
+      "route": "product-launch-video",
+      "source_mode": "web",
+      "source_modes": [
+        "web",
+        "local"
+      ],
+      "case": "public-launch",
+      "inputs": [
+        {
+          "id": "url",
+          "required": true
+        },
+        {
+          "id": "launch-date",
+          "required": false
+        }
+      ],
+      "research": {
+        "mode": "product",
+        "desks": [
+          "product-researcher",
+          "brand-researcher"
+        ],
+        "note": "the product and the brand"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "launch",
+        "note": "withhold most, reveal a little, land the date"
+      },
+      "story_shapes": [
+        "countdown",
+        "montage",
+        "what-if"
+      ],
+      "forbidden_shapes": [
+        "roundup",
+        "steps",
+        "testimony"
+      ],
+      "scope_default": "universal",
+      "length_s": 12,
+      "aspect": "9:16",
+      "aspects": [
+        "9:16",
+        "1:1",
+        "16:9"
+      ],
+      "keywords": [
+        "teaser",
+        "coming soon",
+        "sneak peek",
+        "tease",
+        "save the date"
+      ]
+    },
+    {
+      "id": "pitch-video",
+      "tile": "launch",
+      "title": "Pitch or crowdfunding",
+      "kind": "pitch video",
+      "description": "Convince investors or backers that this is big, real and yours to build.",
+      "status": "partial",
+      "partial": "The big-change shape is still being built; today it's written as a launch film with your numbers.",
+      "route": "general-video",
+      "source_mode": "web",
+      "source_modes": [
+        "web",
+        "document",
+        "local"
+      ],
+      "case": "public-launch",
+      "inputs": [
+        {
+          "id": "script",
+          "required": true,
+          "prompt": "Your pitch: a deck, a script or a few notes"
+        },
+        {
+          "id": "url",
+          "required": false,
+          "prompt": "Your product's link (optional)"
+        }
+      ],
+      "research": {
+        "mode": "product",
+        "desks": [
+          "product-researcher",
+          "brand-researcher"
+        ],
+        "note": "the product and the numbers in your deck"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "launch",
+        "note": "the big change, the stakes, the promised land, the proof"
+      },
+      "story_shapes": [
+        "strategic",
+        "hero-strip",
+        "before-after",
+        "data-journey"
+      ],
+      "forbidden_shapes": [
+        "roundup",
+        "steps"
+      ],
+      "scope_default": "category",
+      "length_s": 120,
+      "aspect": "16:9",
+      "keywords": [
+        "pitch",
+        "investor",
+        "investors",
+        "crowdfunding",
+        "kickstarter",
+        "fundraise",
+        "fundraising",
+        "pitch video"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "app-store-preview",
+      "tile": "launch",
+      "title": "App Store preview",
+      "kind": "App Store preview",
+      "description": "A 15 to 30 second recording of your app for the App Store page.",
+      "status": "soon",
+      "soon": {
+        "missing": "Apple's capture-only rules (real recordings, no device frame, 15 to 30 s) aren't built yet.",
+        "nearest": "product-tour"
+      },
+      "route": null,
+      "source_mode": "local",
+      "source_modes": [
+        "local"
+      ],
+      "case": "app-store-preview",
+      "inputs": [
+        {
+          "id": "screen-recording",
+          "required": true,
+          "prompt": "Recordings of your app on a device"
+        }
+      ],
+      "research": {
+        "mode": "capture",
+        "desks": [
+          "local-scout"
+        ],
+        "note": "the app itself and Apple's preview rules"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": null,
+        "note": "three or four features, real recordings only"
+      },
+      "story_shapes": [
+        "ladder",
+        "claim-ladder",
+        "hero-strip"
+      ],
+      "forbidden_shapes": [
+        "manifesto",
+        "testimony"
+      ],
+      "scope_default": "category",
+      "length_s": 25,
+      "aspect": "device",
+      "keywords": [
+        "app store preview",
+        "app preview",
+        "app store video",
+        "play store video"
+      ],
+      "aspects": [
+        "device"
+      ]
+    },
+    {
+      "id": "explainer",
+      "tile": "explainer",
+      "title": "Explainer",
+      "kind": "explainer",
+      "description": "Explain an idea with animated shapes, icons and diagrams.",
+      "status": "ready",
+      "route": "faceless-explainer",
+      "source_mode": "document",
+      "source_modes": [
+        "document",
+        "web"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "script",
+          "required": true,
+          "prompt": "What should it explain? A topic, an article or a few notes."
+        },
+        {
+          "id": "brand-kit",
+          "required": false
+        }
+      ],
+      "research": {
+        "mode": "topic",
+        "desks": [
+          "product-researcher:document",
+          "design-researcher"
+        ],
+        "note": "the topic or the document, with sources"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "explainer",
+        "note": "hook question, why it matters, how it works in three steps, so what"
+      },
+      "story_shapes": [
+        "pas",
+        "abt",
+        "what-if",
+        "hero-strip",
+        "scenario",
+        "before-after",
+        "strategic",
+        "steps"
+      ],
+      "forbidden_shapes": [
+        "montage",
+        "manifesto",
+        "roundup"
+      ],
+      "scope_default": null,
+      "length_s": 60,
+      "aspect": "16:9",
+      "keywords": [
+        "explainer",
+        "explainer video",
+        "explain",
+        "how it works",
+        "what is",
+        "why it matters"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "how-to",
+      "tile": "explainer",
+      "title": "How-to",
+      "kind": "how-to",
+      "description": "Teach a task in clear numbered steps.",
+      "status": "partial",
+      "partial": "Its own numbered-steps shape is still being built; today it's told as an explainer.",
+      "route": "faceless-explainer",
+      "source_mode": "document",
+      "source_modes": [
+        "document",
+        "web"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "steps",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "document",
+        "desks": [
+          "product-researcher:document"
+        ],
+        "note": "the steps, checked"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "explainer",
+        "note": "one action per beat"
+      },
+      "story_shapes": [
+        "steps",
+        "scenario"
+      ],
+      "forbidden_shapes": [
+        "manifesto",
+        "montage",
+        "pas"
+      ],
+      "scope_default": null,
+      "length_s": 60,
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16"
+      ],
+      "keywords": [
+        "how-to",
+        "how to",
+        "tutorial",
+        "step by step",
+        "step-by-step",
+        "instructions",
+        "guide"
+      ]
+    },
+    {
+      "id": "data-story",
+      "tile": "explainer",
+      "title": "Data story",
+      "kind": "data story",
+      "description": "Make the numbers from a report or spreadsheet move and land.",
+      "status": "partial",
+      "partial": "The data shape and a chart check (bars from zero, labelled units) are still being built.",
+      "route": "faceless-explainer",
+      "source_mode": "document",
+      "source_modes": [
+        "document"
+      ],
+      "case": "data-report",
+      "inputs": [
+        {
+          "id": "document",
+          "required": true
+        },
+        {
+          "id": "brand-kit",
+          "required": false
+        }
+      ],
+      "research": {
+        "mode": "document",
+        "desks": [
+          "product-researcher:document"
+        ],
+        "note": "every number traced to its page or cell"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "explainer",
+        "note": "the question, the surprising number, the comparison, the so-what"
+      },
+      "story_shapes": [
+        "data-journey",
+        "roundup",
+        "montage"
+      ],
+      "forbidden_shapes": [
+        "scenario",
+        "pas",
+        "steps"
+      ],
+      "scope_default": null,
+      "length_s": 60,
+      "aspect": "16:9",
+      "keywords": [
+        "data story",
+        "data video",
+        "the numbers",
+        "report video",
+        "annual report",
+        "year in review",
+        "statistics",
+        "charts",
+        "spreadsheet",
+        "survey results"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "sketch-explainer",
+      "tile": "explainer",
+      "title": "Sketch explainer",
+      "kind": "sketch explainer",
+      "description": "A hand draws your explanation as you talk.",
+      "status": "partial",
+      "partial": "The drawn-by-hand finish is approximated with line art; there's no hand on screen yet.",
+      "route": "faceless-explainer",
+      "source_mode": "document",
+      "source_modes": [
+        "document"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "script",
+          "required": true,
+          "prompt": "Your script or talk"
+        }
+      ],
+      "research": {
+        "mode": "document",
+        "desks": [
+          "product-researcher:document"
+        ],
+        "note": "the script, checked"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "explainer",
+        "note": "an explainer drawn as line art"
+      },
+      "story_shapes": [
+        "pas",
+        "abt",
+        "what-if",
+        "steps"
+      ],
+      "forbidden_shapes": [
+        "montage"
+      ],
+      "scope_default": null,
+      "length_s": 90,
+      "aspect": "16:9",
+      "keywords": [
+        "whiteboard",
+        "sketch explainer",
+        "hand-drawn explainer",
+        "doodle",
+        "drawn explainer",
+        "scribe"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "isometric",
+      "tile": "explainer",
+      "title": "Isometric world",
+      "kind": "isometric explainer",
+      "description": "A tiny 3D toy world that shows how your system works.",
+      "status": "partial",
+      "partial": "Works through the explainer route; a dedicated isometric look kit isn't built yet.",
+      "route": "faceless-explainer",
+      "source_mode": "document",
+      "source_modes": [
+        "document",
+        "web"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "script",
+          "required": true,
+          "prompt": "What should it show? A topic, a link or a few notes."
+        },
+        {
+          "id": "url",
+          "required": false,
+          "prompt": "A link about it (optional)"
+        }
+      ],
+      "research": {
+        "mode": "topic",
+        "desks": [
+          "product-researcher:document",
+          "design-researcher"
+        ],
+        "note": "how the system really works"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "explainer",
+        "note": "an explainer told in a small built world"
+      },
+      "story_shapes": [
+        "pas",
+        "abt",
+        "hero-strip",
+        "steps"
+      ],
+      "forbidden_shapes": [
+        "manifesto"
+      ],
+      "scope_default": null,
+      "length_s": 60,
+      "aspect": "16:9",
+      "keywords": [
+        "isometric",
+        "tiny world",
+        "toy world",
+        "3d world",
+        "miniature"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "character-story",
+      "tile": "explainer",
+      "title": "Character story",
+      "kind": "character story",
+      "description": "Drawn characters act out your story.",
+      "status": "soon",
+      "soon": {
+        "missing": "Drawn characters that move and talk (rigs, mouth shapes) aren't built yet.",
+        "nearest": "explainer"
+      },
+      "route": null,
+      "source_mode": "document",
+      "source_modes": [
+        "document"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "script",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "topic",
+        "desks": [
+          "product-researcher:document"
+        ],
+        "note": ""
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "explainer",
+        "note": null
+      },
+      "story_shapes": [
+        "scenario",
+        "life-arc",
+        "pas"
+      ],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 60,
+      "aspect": "16:9",
+      "keywords": [
+        "character",
+        "characters",
+        "cartoon",
+        "mascot",
+        "animated characters",
+        "2d animation"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "brand-film",
+      "tile": "brand",
+      "title": "Brand film or manifesto",
+      "kind": "brand film",
+      "description": "A short film about what your brand believes, in your colours and type.",
+      "status": "ready",
+      "route": "general-video",
+      "source_mode": "assets",
+      "source_modes": [
+        "assets",
+        "web"
+      ],
+      "case": "own-brand-film",
+      "inputs": [
+        {
+          "id": "brand",
+          "required": true
+        },
+        {
+          "id": "brand-kit",
+          "required": false
+        },
+        {
+          "id": "script",
+          "required": false,
+          "prompt": "What you believe, in a few lines (optional)"
+        }
+      ],
+      "research": {
+        "mode": "brand",
+        "desks": [
+          "brand-researcher",
+          "brand-film",
+          "brand-kit-builder"
+        ],
+        "note": "the brand, its own films and its kit"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "brand",
+        "note": "a belief, people living it, the brand as the enabler"
+      },
+      "story_shapes": [
+        "manifesto",
+        "montage",
+        "life-arc",
+        "intercut",
+        "testimony"
+      ],
+      "forbidden_shapes": [
+        "pas",
+        "steps",
+        "roundup",
+        "scenario"
+      ],
+      "scope_default": "universal",
+      "length_s": 45,
+      "aspect": "16:9",
+      "keywords": [
+        "brand film",
+        "brand video",
+        "manifesto",
+        "about us",
+        "who we are",
+        "our story",
+        "brand story",
+        "mission",
+        "anthem"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "kinetic-type",
+      "tile": "brand",
+      "title": "Kinetic type",
+      "kind": "kinetic type film",
+      "description": "Your words are the picture: type that moves on the beat.",
+      "status": "ready",
+      "route": "general-video",
+      "source_mode": "text",
+      "source_modes": [
+        "text"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "words",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "words",
+        "desks": [],
+        "note": "only your words and your brand"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "brand",
+        "note": "one line per beat"
+      },
+      "story_shapes": [
+        "manifesto",
+        "claim-ladder",
+        "countdown"
+      ],
+      "forbidden_shapes": [
+        "scenario",
+        "testimony"
+      ],
+      "scope_default": null,
+      "length_s": 30,
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16",
+        "1:1",
+        "4:5"
+      ],
+      "keywords": [
+        "kinetic type",
+        "kinetic typography",
+        "typography video",
+        "moving type",
+        "moving text",
+        "text animation",
+        "words on screen"
+      ]
+    },
+    {
+      "id": "collage",
+      "tile": "brand",
+      "title": "Collage",
+      "kind": "collage film",
+      "description": "Cut-out photos, paper and scribbles, layered like a moving zine.",
+      "status": "ready",
+      "route": "general-video",
+      "source_mode": "assets",
+      "source_modes": [
+        "assets",
+        "text"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "script",
+          "required": true,
+          "prompt": "What's it about? A topic or a few lines."
+        },
+        {
+          "id": "photos",
+          "required": false
+        }
+      ],
+      "research": {
+        "mode": "brand",
+        "desks": [
+          "design-researcher"
+        ],
+        "note": "the subject's visual world"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "brand",
+        "note": "the art department leads"
+      },
+      "story_shapes": [
+        "manifesto",
+        "montage",
+        "life-arc"
+      ],
+      "forbidden_shapes": [
+        "steps",
+        "pas"
+      ],
+      "scope_default": null,
+      "length_s": 30,
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16",
+        "1:1",
+        "4:5"
+      ],
+      "keywords": [
+        "collage",
+        "zine",
+        "cut-out",
+        "cutout",
+        "scrapbook",
+        "paper cutout",
+        "mixed media"
+      ]
+    },
+    {
+      "id": "rebrand-reveal",
+      "tile": "brand",
+      "title": "Rebrand reveal",
+      "kind": "rebrand reveal",
+      "description": "Show your new look: the old, the turn, the new brand in use.",
+      "status": "ready",
+      "route": "general-video",
+      "source_mode": "assets",
+      "source_modes": [
+        "assets",
+        "web"
+      ],
+      "case": "rebrand-reveal",
+      "inputs": [
+        {
+          "id": "brand-kit",
+          "required": true,
+          "prompt": "Your new brand kit: logo, colours, fonts"
+        },
+        {
+          "id": "url",
+          "required": false,
+          "prompt": "Your current website, for the old look (optional)"
+        }
+      ],
+      "research": {
+        "mode": "brand",
+        "desks": [
+          "brand-kit-builder",
+          "brand-researcher"
+        ],
+        "note": "the new kit, and the old brand from the web"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "brand",
+        "note": "before, the turn, after"
+      },
+      "story_shapes": [
+        "before-after",
+        "manifesto",
+        "countdown"
+      ],
+      "forbidden_shapes": [
+        "steps",
+        "pas"
+      ],
+      "scope_default": "universal",
+      "length_s": 40,
+      "aspect": "16:9",
+      "keywords": [
+        "rebrand",
+        "new logo",
+        "new brand",
+        "brand refresh",
+        "new identity",
+        "new look"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "milestone",
+      "tile": "brand",
+      "title": "News or milestone",
+      "kind": "milestone film",
+      "description": "A piece of news or a milestone, and why it matters.",
+      "status": "ready",
+      "route": "general-video",
+      "source_mode": "web",
+      "source_modes": [
+        "web",
+        "document",
+        "assets"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "script",
+          "required": true,
+          "prompt": "The news, in a few lines or a press release"
+        },
+        {
+          "id": "brand-kit",
+          "required": false
+        }
+      ],
+      "research": {
+        "mode": "product",
+        "desks": [
+          "product-researcher",
+          "brand-researcher"
+        ],
+        "note": "the news and the facts behind it"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "brand",
+        "note": "the milestone, the people, why it matters"
+      },
+      "story_shapes": [
+        "montage",
+        "manifesto",
+        "claim-ladder",
+        "testimony",
+        "data-journey"
+      ],
+      "forbidden_shapes": [
+        "steps",
+        "scenario"
+      ],
+      "scope_default": "universal",
+      "length_s": 60,
+      "aspect": "16:9",
+      "keywords": [
+        "milestone",
+        "press video",
+        "pr video",
+        "anniversary",
+        "funding announcement",
+        "we raised",
+        "news"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "event-opener",
+      "tile": "brand",
+      "title": "Event opener",
+      "kind": "event opener",
+      "description": "Open a keynote or event with energy and the theme.",
+      "status": "partial",
+      "partial": "Works as a brand film; mixing in event footage is still being built.",
+      "route": "general-video",
+      "source_mode": "assets",
+      "source_modes": [
+        "assets",
+        "web",
+        "footage"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "script",
+          "required": true,
+          "prompt": "The event, its theme and what's on"
+        },
+        {
+          "id": "brand-kit",
+          "required": false
+        }
+      ],
+      "research": {
+        "mode": "brand",
+        "desks": [
+          "brand-researcher"
+        ],
+        "note": "the event and its brand"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "brand",
+        "note": "the theme, building to the stage"
+      },
+      "story_shapes": [
+        "montage",
+        "roundup",
+        "manifesto",
+        "strategic"
+      ],
+      "forbidden_shapes": [
+        "steps",
+        "pas"
+      ],
+      "scope_default": "universal",
+      "length_s": 90,
+      "aspect": "16:9",
+      "keywords": [
+        "event opener",
+        "keynote opener",
+        "opening video",
+        "conference opener",
+        "walk-on",
+        "keynote video",
+        "keynote"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "title-sequence",
+      "tile": "brand",
+      "title": "Title sequence",
+      "kind": "title sequence",
+      "description": "Opening credits that set the mood for a film, show or event.",
+      "status": "partial",
+      "partial": "Its own titles shape is still being built; today it's built as a brand film.",
+      "route": "general-video",
+      "source_mode": "text",
+      "source_modes": [
+        "text"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "script",
+          "required": true,
+          "prompt": "The title, and the mood in a few words"
+        },
+        {
+          "id": "credits",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "words",
+        "desks": [],
+        "note": "only your title and credits"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": null,
+        "note": "the mood, one credit per beat, the title"
+      },
+      "story_shapes": [
+        "titles",
+        "montage"
+      ],
+      "forbidden_shapes": [
+        "pas",
+        "steps"
+      ],
+      "scope_default": null,
+      "length_s": 60,
+      "aspect": "16:9",
+      "keywords": [
+        "title sequence",
+        "opening credits",
+        "intro titles",
+        "main titles",
+        "opening titles",
+        "credits sequence"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "showreel",
+      "tile": "brand",
+      "title": "Showreel",
+      "kind": "showreel",
+      "description": "A fast tour of your best work, beat by beat.",
+      "status": "ready",
+      "route": "general-video",
+      "source_mode": "assets",
+      "source_modes": [
+        "assets",
+        "footage"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "work",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "assets",
+        "desks": [],
+        "note": "your work"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "brand",
+        "note": "sections of your best work"
+      },
+      "story_shapes": [
+        "montage",
+        "roundup"
+      ],
+      "forbidden_shapes": [
+        "pas",
+        "scenario",
+        "steps"
+      ],
+      "scope_default": null,
+      "length_s": 60,
+      "aspect": "16:9",
+      "keywords": [
+        "showreel",
+        "show reel",
+        "portfolio",
+        "demo reel",
+        "reel of my work",
+        "my work"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "logo-sting",
+      "tile": "short",
+      "title": "Logo sting",
+      "kind": "logo sting",
+      "description": "Your logo arrives with a short, memorable move and sound.",
+      "status": "ready",
+      "route": "motion-graphics",
+      "source_mode": "assets",
+      "source_modes": [
+        "assets"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "logo",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "brand",
+        "desks": [
+          "brand-researcher"
+        ],
+        "note": "the brand"
+      },
+      "story": {
+        "pass": "none",
+        "format": null,
+        "note": "a single unit: no story call, the look and the key poses"
+      },
+      "story_shapes": [],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 4,
+      "aspect": "16:9",
+      "keywords": [
+        "logo sting",
+        "logo animation",
+        "logo reveal",
+        "animate my logo",
+        "logo intro",
+        "sting",
+        "ident",
+        "bumper"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "stat-card",
+      "tile": "short",
+      "title": "Stat or quote card",
+      "kind": "stat card",
+      "description": "One number or one quote, animated to land.",
+      "status": "ready",
+      "route": "motion-graphics",
+      "source_mode": "text",
+      "source_modes": [
+        "text"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "stat",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "claims",
+        "desks": [],
+        "note": "the number's source, checked"
+      },
+      "story": {
+        "pass": "none",
+        "format": null,
+        "note": "a single unit: no story call, the look and the key poses"
+      },
+      "story_shapes": [],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 8,
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16",
+        "1:1"
+      ],
+      "keywords": [
+        "stat",
+        "statistic",
+        "quote card",
+        "count up",
+        "counter",
+        "number animation",
+        "big number"
+      ]
+    },
+    {
+      "id": "name-bar",
+      "tile": "short",
+      "title": "Name bar",
+      "kind": "name bar",
+      "description": "A name and title that slides in over footage.",
+      "status": "ready",
+      "note": "Transparent export is still coming; it renders on a plain ground today.",
+      "route": "motion-graphics",
+      "source_mode": "text",
+      "source_modes": [
+        "text",
+        "assets"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "name-title",
+          "required": true
+        },
+        {
+          "id": "brand-kit",
+          "required": false
+        }
+      ],
+      "research": {
+        "mode": "brand",
+        "desks": [
+          "brand-researcher"
+        ],
+        "note": "the brand"
+      },
+      "story": {
+        "pass": "none",
+        "format": null,
+        "note": "a single unit: no story call, the look and the key poses"
+      },
+      "story_shapes": [],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 4,
+      "aspect": "16:9",
+      "keywords": [
+        "lower third",
+        "lower-third",
+        "name bar",
+        "name tag",
+        "nameplate",
+        "name title"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "animated-map",
+      "tile": "short",
+      "title": "Animated map",
+      "kind": "animated map",
+      "description": "Places light up, routes draw, the camera flies in.",
+      "status": "partial",
+      "partial": "Works as one short piece; maps inside longer films are still being built.",
+      "route": "motion-graphics",
+      "source_mode": "text",
+      "source_modes": [
+        "text"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "places",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "none",
+        "desks": [],
+        "note": ""
+      },
+      "story": {
+        "pass": "none",
+        "format": null,
+        "note": "a single unit: no story call, the look and the key poses"
+      },
+      "story_shapes": [],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 10,
+      "aspect": "16:9",
+      "keywords": [
+        "map",
+        "animated map",
+        "route map",
+        "journey map",
+        "flight path",
+        "locations"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "animated-post",
+      "tile": "short",
+      "title": "Animated post or headline",
+      "kind": "animated post",
+      "description": "A real post, review or headline animates in as proof.",
+      "status": "ready",
+      "route": "motion-graphics",
+      "source_mode": "web",
+      "source_modes": [
+        "web"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "post",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "capture",
+        "desks": [],
+        "note": "the real post, captured"
+      },
+      "story": {
+        "pass": "none",
+        "format": null,
+        "note": "a single unit: no story call, the look and the key poses"
+      },
+      "story_shapes": [],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 6,
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16",
+        "1:1"
+      ],
+      "keywords": [
+        "tweet",
+        "animated tweet",
+        "animated post",
+        "headline",
+        "news headline",
+        "article animation"
+      ]
+    },
+    {
+      "id": "brand-loop",
+      "tile": "short",
+      "title": "Brand loop",
+      "kind": "brand loop",
+      "description": "A seamless, wordless loop for a website hero or event screen.",
+      "status": "partial",
+      "partial": "Loops are built; a check that the seam is invisible is still coming.",
+      "route": "motion-graphics",
+      "source_mode": "assets",
+      "source_modes": [
+        "assets"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "brand-kit",
+          "required": true,
+          "prompt": "Your logo and colours"
+        }
+      ],
+      "research": {
+        "mode": "brand",
+        "desks": [
+          "brand-researcher"
+        ],
+        "note": "the brand"
+      },
+      "story": {
+        "pass": "none",
+        "format": null,
+        "note": "a single unit: no story call, the look and the key poses"
+      },
+      "story_shapes": [],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 10,
+      "aspect": "16:9",
+      "keywords": [
+        "loop",
+        "looping",
+        "background loop",
+        "hero loop",
+        "website background",
+        "event screen",
+        "seamless loop",
+        "screensaver"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "graphics-package",
+      "tile": "short",
+      "title": "Graphics package",
+      "kind": "graphics package",
+      "description": "A matching set of intros, name bars, bumpers and end screens for your show.",
+      "status": "soon",
+      "soon": {
+        "missing": "A matching set made from one look isn't built yet; each piece can be made one at a time.",
+        "nearest": "logo-sting"
+      },
+      "route": null,
+      "source_mode": "assets",
+      "source_modes": [
+        "assets"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "brand-kit",
+          "required": true,
+          "prompt": "Your logo, fonts and colours"
+        },
+        {
+          "id": "show-name",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "brand",
+        "desks": [
+          "brand-researcher"
+        ],
+        "note": "the brand"
+      },
+      "story": {
+        "pass": "none",
+        "format": null,
+        "note": "a single unit: no story call, the look and the key poses"
+      },
+      "story_shapes": [],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": null,
+      "length_note": "a set",
+      "aspect": "16:9",
+      "keywords": [
+        "graphics package",
+        "broadcast package",
+        "show package",
+        "template set",
+        "intro and outro",
+        "end screen",
+        "bumpers"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "lyric-video",
+      "tile": "music",
+      "title": "Lyric video",
+      "kind": "lyric video",
+      "description": "Your song's words appear as they're sung, each line its own picture.",
+      "status": "ready",
+      "route": "music-to-video",
+      "source_mode": "audio",
+      "source_modes": [
+        "audio"
+      ],
+      "case": "music-video",
+      "inputs": [
+        {
+          "id": "song",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "audio",
+        "desks": [],
+        "note": "the song: words, beats and sections"
+      },
+      "story": {
+        "pass": "treatment-writers",
+        "format": null,
+        "note": "three treatments of the song; the song is the structure"
+      },
+      "story_shapes": [],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": null,
+      "length_note": "the song",
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16"
+      ],
+      "keywords": [
+        "lyric video",
+        "lyrics video",
+        "lyric",
+        "lyrics",
+        "words of my song",
+        "sing along",
+        "music video"
+      ]
+    },
+    {
+      "id": "visualiser",
+      "tile": "music",
+      "title": "Visualiser",
+      "kind": "visualiser",
+      "description": "Motion that moves with your song's beat, no lyrics needed.",
+      "status": "partial",
+      "partial": "Built as a lyric video without words; a treatment made for instrumentals is still coming.",
+      "route": "music-to-video",
+      "source_mode": "audio",
+      "source_modes": [
+        "audio"
+      ],
+      "case": "music-video",
+      "inputs": [
+        {
+          "id": "song",
+          "required": true,
+          "prompt": "Your song (MP3, WAV or M4A)"
+        }
+      ],
+      "research": {
+        "mode": "audio",
+        "desks": [],
+        "note": "the song's beats and sections"
+      },
+      "story": {
+        "pass": "treatment-writers",
+        "format": null,
+        "note": "a treatment with no lyrics"
+      },
+      "story_shapes": [
+        "montage"
+      ],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": null,
+      "length_note": "the song",
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16",
+        "1:1"
+      ],
+      "keywords": [
+        "visualiser",
+        "visualizer",
+        "audio visualizer",
+        "beat video",
+        "music visual",
+        "spotify canvas",
+        "instrumental"
+      ]
+    },
+    {
+      "id": "performance-mv",
+      "tile": "music",
+      "title": "Performance music video",
+      "kind": "music video",
+      "description": "Performance and story shots cut to your song.",
+      "status": "partial",
+      "partial": "Lining up several takes to the song isn't automatic yet.",
+      "route": "reel",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage",
+        "audio"
+      ],
+      "case": "music-video",
+      "inputs": [
+        {
+          "id": "takes",
+          "required": true
+        },
+        {
+          "id": "song",
+          "required": true,
+          "prompt": "Your song (MP3, WAV or M4A)"
+        }
+      ],
+      "research": {
+        "mode": "footage",
+        "desks": [
+          "footage-logger",
+          "selects-producer"
+        ],
+        "note": "the takes, logged against the song"
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "paper edits cut to the song"
+      },
+      "story_shapes": [
+        "montage",
+        "life-arc"
+      ],
+      "forbidden_shapes": [
+        "pas",
+        "steps"
+      ],
+      "scope_default": null,
+      "length_s": null,
+      "length_note": "the song",
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16"
+      ],
+      "keywords": [
+        "performance video",
+        "band video",
+        "my performance",
+        "performance music video",
+        "takes"
+      ]
+    },
+    {
+      "id": "social-reel",
+      "tile": "reel",
+      "title": "Social reel",
+      "kind": "social reel",
+      "description": "A vertical, hook-first edit of your clips for Reels, TikTok or Shorts.",
+      "status": "ready",
+      "route": "reel",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "footage-edit",
+      "inputs": [
+        {
+          "id": "clips",
+          "required": true
+        },
+        {
+          "id": "song",
+          "required": false,
+          "prompt": "A song for it (optional)"
+        }
+      ],
+      "research": {
+        "mode": "footage",
+        "desks": [
+          "footage-logger",
+          "selects-producer"
+        ],
+        "note": "your clips: logged, transcribed, the best moments found"
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "hook first"
+      },
+      "story_shapes": [
+        "montage",
+        "day-in-life",
+        "scenario"
+      ],
+      "forbidden_shapes": [
+        "strategic",
+        "data-journey"
+      ],
+      "scope_default": null,
+      "length_s": 30,
+      "aspect": "9:16",
+      "aspects": [
+        "9:16",
+        "1:1",
+        "4:5"
+      ],
+      "keywords": [
+        "reel",
+        "instagram reel",
+        "tiktok",
+        "shorts",
+        "youtube shorts",
+        "vertical video",
+        "social reel",
+        "cut my clips",
+        "edit my clips",
+        "my clips",
+        "my footage"
+      ]
+    },
+    {
+      "id": "trip-reel",
+      "tile": "reel",
+      "title": "Trip or day reel",
+      "kind": "trip reel",
+      "description": "Your trip or day, cut to music with places and times.",
+      "status": "ready",
+      "route": "reel",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "footage-edit",
+      "inputs": [
+        {
+          "id": "clips",
+          "required": true
+        },
+        {
+          "id": "song",
+          "required": false,
+          "prompt": "A song for it (optional)"
+        }
+      ],
+      "research": {
+        "mode": "footage",
+        "desks": [
+          "footage-logger",
+          "selects-producer"
+        ],
+        "note": "your clips: logged, transcribed, the best moments found"
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "three paper edits from what was shot"
+      },
+      "story_shapes": [
+        "day-in-life",
+        "montage",
+        "life-arc"
+      ],
+      "forbidden_shapes": [
+        "pas",
+        "strategic"
+      ],
+      "scope_default": null,
+      "length_s": 45,
+      "aspect": "9:16",
+      "aspects": [
+        "9:16",
+        "16:9"
+      ],
+      "keywords": [
+        "trip",
+        "travel",
+        "vacation",
+        "holiday",
+        "day in my life",
+        "weekend",
+        "journey"
+      ]
+    },
+    {
+      "id": "montage-sizzle",
+      "tile": "reel",
+      "title": "Montage or sizzle",
+      "kind": "sizzle reel",
+      "description": "Your best moments cut fast to one song, to excite and sell.",
+      "status": "partial",
+      "partial": "Cutting on the beat is still being built; it's cut as a reel to the music today.",
+      "route": "reel",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "footage-edit",
+      "inputs": [
+        {
+          "id": "clips",
+          "required": true
+        },
+        {
+          "id": "song",
+          "required": true,
+          "prompt": "The song to cut it to"
+        }
+      ],
+      "research": {
+        "mode": "footage",
+        "desks": [
+          "footage-logger",
+          "selects-producer"
+        ],
+        "note": "your clips: logged, transcribed, the best moments found"
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "three paper edits from what was shot"
+      },
+      "story_shapes": [
+        "montage",
+        "roundup"
+      ],
+      "forbidden_shapes": [
+        "scenario",
+        "steps"
+      ],
+      "scope_default": null,
+      "length_s": 60,
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16"
+      ],
+      "keywords": [
+        "montage",
+        "sizzle",
+        "sizzle reel",
+        "hype video",
+        "hype reel",
+        "cut to music",
+        "cut to the beat"
+      ]
+    },
+    {
+      "id": "event-recap",
+      "tile": "reel",
+      "title": "Event recap",
+      "kind": "event recap",
+      "description": "The day in a minute: the arrival, the energy, the talks, the people.",
+      "status": "partial",
+      "partial": "The recap shape works; versions for vertical and wide at once are still coming.",
+      "route": "reel",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "event-recap",
+      "inputs": [
+        {
+          "id": "clips",
+          "required": true
+        },
+        {
+          "id": "agenda",
+          "required": false
+        }
+      ],
+      "research": {
+        "mode": "footage",
+        "desks": [
+          "footage-logger",
+          "selects-producer",
+          "product-researcher:document"
+        ],
+        "note": "your clips plus the programme"
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "three paper edits from what was shot"
+      },
+      "story_shapes": [
+        "montage",
+        "roundup",
+        "manifesto"
+      ],
+      "forbidden_shapes": [
+        "pas",
+        "steps"
+      ],
+      "scope_default": null,
+      "length_s": 75,
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16"
+      ],
+      "keywords": [
+        "event recap",
+        "recap",
+        "conference",
+        "meetup",
+        "summit",
+        "event video",
+        "offsite",
+        "launch party",
+        "hackathon",
+        "festival"
+      ]
+    },
+    {
+      "id": "behind-the-scenes",
+      "tile": "reel",
+      "title": "Behind the scenes",
+      "kind": "behind-the-scenes reel",
+      "description": "How it's made, the team and the process, kept real.",
+      "status": "partial",
+      "partial": "Its own process shape is still being built; today it's cut as a reel.",
+      "route": "reel",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "footage-edit",
+      "inputs": [
+        {
+          "id": "clips",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "footage",
+        "desks": [
+          "footage-logger",
+          "selects-producer"
+        ],
+        "note": "your clips: logged, transcribed, the best moments found"
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "three paper edits from what was shot"
+      },
+      "story_shapes": [
+        "process",
+        "day-in-life",
+        "steps"
+      ],
+      "forbidden_shapes": [
+        "pas",
+        "manifesto"
+      ],
+      "scope_default": null,
+      "length_s": 45,
+      "aspect": "9:16",
+      "keywords": [
+        "behind the scenes",
+        "bts",
+        "making of",
+        "how it's made",
+        "how we made"
+      ],
+      "aspects": [
+        "9:16"
+      ]
+    },
+    {
+      "id": "highlight-reel",
+      "tile": "reel",
+      "title": "Highlight reel",
+      "kind": "highlight reel",
+      "description": "The best plays or moments, back to back.",
+      "status": "partial",
+      "partial": "A ranked \"top 5\" shape is still being built; today it's cut as a reel.",
+      "route": "reel",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "footage-edit",
+      "inputs": [
+        {
+          "id": "clips",
+          "required": true
+        },
+        {
+          "id": "moments",
+          "required": false
+        }
+      ],
+      "research": {
+        "mode": "footage",
+        "desks": [
+          "footage-logger",
+          "selects-producer"
+        ],
+        "note": "your clips: logged, transcribed, the best moments found"
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "three paper edits from what was shot"
+      },
+      "story_shapes": [
+        "countdown",
+        "roundup",
+        "montage"
+      ],
+      "forbidden_shapes": [
+        "pas",
+        "scenario"
+      ],
+      "scope_default": null,
+      "length_s": 60,
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16"
+      ],
+      "keywords": [
+        "highlights",
+        "highlight reel",
+        "best moments",
+        "top 5",
+        "top five",
+        "best plays",
+        "game highlights"
+      ]
+    },
+    {
+      "id": "before-after",
+      "tile": "reel",
+      "title": "Before and after",
+      "kind": "before-and-after",
+      "description": "Two states, split or wiped, so the change lands.",
+      "status": "soon",
+      "soon": {
+        "missing": "A split or wipe between two states isn't built into the cut yet.",
+        "nearest": "social-reel"
+      },
+      "route": null,
+      "source_mode": "footage",
+      "source_modes": [
+        "footage",
+        "assets"
+      ],
+      "case": "footage-edit",
+      "inputs": [
+        {
+          "id": "before-after",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "none",
+        "desks": [],
+        "note": ""
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "three paper edits from what was shot"
+      },
+      "story_shapes": [
+        "before-after"
+      ],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 15,
+      "aspect": "9:16",
+      "keywords": [
+        "before and after",
+        "before/after",
+        "before after",
+        "transformation",
+        "makeover"
+      ],
+      "aspects": [
+        "9:16"
+      ]
+    },
+    {
+      "id": "captions-only",
+      "tile": "talking",
+      "title": "Captions only",
+      "kind": "captioned clip",
+      "description": "Your clip as it is, with clear captions.",
+      "status": "ready",
+      "route": "embedded-captions",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "one-clip",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "transcript",
+        "desks": [],
+        "note": "the words, transcribed and checked"
+      },
+      "story": {
+        "pass": "none",
+        "format": null,
+        "note": "the clip is the story"
+      },
+      "story_shapes": [],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": null,
+      "length_note": "as the clip",
+      "aspect": "as-source",
+      "keywords": [
+        "captions",
+        "subtitles",
+        "caption my video",
+        "add captions",
+        "add subtitles",
+        "captioned"
+      ],
+      "aspects": [
+        "as-source"
+      ]
+    },
+    {
+      "id": "talking-graphics",
+      "tile": "talking",
+      "title": "Talking video with graphics",
+      "kind": "talking video",
+      "description": "One person talking, with designed cards for the key points.",
+      "status": "ready",
+      "route": "talking-head-recut",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "one-clip",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "transcript",
+        "desks": [],
+        "note": "the words, transcribed; the key points found"
+      },
+      "story": {
+        "pass": "none",
+        "format": null,
+        "note": "the speaker's order; key points become cards"
+      },
+      "story_shapes": [],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": null,
+      "length_note": "as the clip",
+      "aspect": "as-source",
+      "keywords": [
+        "talking head",
+        "talking-head",
+        "talking video",
+        "video of me talking",
+        "key points",
+        "me talking",
+        "explain on camera"
+      ],
+      "aspects": [
+        "as-source"
+      ]
+    },
+    {
+      "id": "founder-interview",
+      "tile": "talking",
+      "title": "Founder or interview edit",
+      "kind": "founder film",
+      "description": "A long interview tightened into a clear story, with shots of the work over it.",
+      "status": "ready",
+      "route": "reel",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "founder-talking-head",
+      "inputs": [
+        {
+          "id": "interviews",
+          "required": true,
+          "prompt": "The interview takes, plus any b-roll or photos"
+        }
+      ],
+      "research": {
+        "mode": "footage",
+        "desks": [
+          "footage-logger",
+          "selects-producer",
+          "product-researcher:topic"
+        ],
+        "note": "the takes, plus a light fact check on the web"
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "a hook bite, the origin, the turn, the vision, a button"
+      },
+      "story_shapes": [
+        "testimony",
+        "strategic",
+        "manifesto"
+      ],
+      "forbidden_shapes": [
+        "steps",
+        "roundup"
+      ],
+      "scope_default": null,
+      "length_s": 90,
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16"
+      ],
+      "keywords": [
+        "founder",
+        "founder video",
+        "founder story",
+        "interview",
+        "ceo",
+        "ceo message",
+        "vision"
+      ]
+    },
+    {
+      "id": "presenter",
+      "tile": "talking",
+      "title": "Presenter in pictures",
+      "kind": "presenter film",
+      "description": "You on a green screen, placed into pictures made for what you say.",
+      "status": "ready",
+      "route": "presenter",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "green-screen",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "transcript",
+        "desks": [],
+        "note": "the words, and the key from the green screen"
+      },
+      "story": {
+        "pass": "visual-writers",
+        "format": null,
+        "note": "three ways to picture what you say"
+      },
+      "story_shapes": [],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": null,
+      "length_note": "as the clip",
+      "aspect": "16:9",
+      "keywords": [
+        "green screen",
+        "greenscreen",
+        "blue screen",
+        "chroma",
+        "chroma key",
+        "presenter",
+        "put me in"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "vlog",
+      "tile": "talking",
+      "title": "Vlog",
+      "kind": "vlog",
+      "description": "You talking to camera with the day's moments in between, tight cuts.",
+      "status": "partial",
+      "partial": "Tight jump cuts and long edits are still being built; short vlogs work today.",
+      "route": "reel",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "footage-edit",
+      "inputs": [
+        {
+          "id": "clips",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "footage",
+        "desks": [
+          "footage-logger",
+          "selects-producer"
+        ],
+        "note": "your clips: logged, transcribed, the best moments found"
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "three paper edits from what was shot"
+      },
+      "story_shapes": [
+        "day-in-life",
+        "steps"
+      ],
+      "forbidden_shapes": [
+        "pas",
+        "manifesto"
+      ],
+      "scope_default": null,
+      "length_s": 300,
+      "aspect": "16:9",
+      "keywords": [
+        "vlog",
+        "youtube video",
+        "daily vlog"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "podcast-clips",
+      "tile": "talking",
+      "title": "Podcast clips",
+      "kind": "podcast clips",
+      "description": "The best moments from your episode, vertical, captioned, speaker in frame.",
+      "status": "soon",
+      "soon": {
+        "missing": "Finding the best clips and keeping the speaker in frame isn't built yet.",
+        "nearest": "talking-graphics"
+      },
+      "route": null,
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "podcast-clips",
+      "inputs": [
+        {
+          "id": "one-clip",
+          "required": true,
+          "prompt": "Your episode (video or audio)"
+        }
+      ],
+      "research": {
+        "mode": "footage",
+        "desks": [
+          "footage-logger",
+          "selects-producer"
+        ],
+        "note": "your clips: logged, transcribed, the best moments found"
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "three paper edits from what was shot"
+      },
+      "story_shapes": [
+        "scenario"
+      ],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 45,
+      "aspect": "9:16",
+      "keywords": [
+        "podcast",
+        "podcast clips",
+        "episode clips",
+        "clips from my podcast",
+        "webinar clips",
+        "audiogram"
+      ],
+      "aspects": [
+        "9:16"
+      ]
+    },
+    {
+      "id": "customer-story",
+      "tile": "people",
+      "title": "Customer story",
+      "kind": "customer story",
+      "description": "A customer, in their own words: the problem, the choice, the result.",
+      "status": "ready",
+      "route": "reel",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "customer-testimonial",
+      "inputs": [
+        {
+          "id": "interviews",
+          "required": true,
+          "prompt": "The customer interview, plus any b-roll or their logo"
+        },
+        {
+          "id": "brand-kit",
+          "required": false
+        }
+      ],
+      "research": {
+        "mode": "footage",
+        "desks": [
+          "footage-logger",
+          "selects-producer",
+          "product-researcher:topic"
+        ],
+        "note": "the interview, plus the customer's public facts"
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "testimonial: before, the turning point, the result with a number"
+      },
+      "story_shapes": [
+        "testimony",
+        "before-after",
+        "day-in-life"
+      ],
+      "forbidden_shapes": [
+        "manifesto",
+        "ladder",
+        "montage"
+      ],
+      "scope_default": null,
+      "length_s": 60,
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16"
+      ],
+      "keywords": [
+        "customer story",
+        "testimonial",
+        "case study",
+        "customer video",
+        "client story",
+        "user story",
+        "customer interview",
+        "success story"
+      ]
+    },
+    {
+      "id": "team-hiring",
+      "tile": "people",
+      "title": "Team and hiring",
+      "kind": "hiring film",
+      "description": "Real people on why they work here.",
+      "status": "ready",
+      "route": "reel",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "recruiting-culture",
+      "inputs": [
+        {
+          "id": "interviews",
+          "required": true,
+          "prompt": "The staff interviews, and any footage of the team"
+        },
+        {
+          "id": "url",
+          "required": false,
+          "prompt": "Your careers page (optional)"
+        }
+      ],
+      "research": {
+        "mode": "footage",
+        "desks": [
+          "footage-logger",
+          "selects-producer",
+          "product-researcher:topic"
+        ],
+        "note": "the interviews plus your careers page"
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "three paper edits from what was shot"
+      },
+      "story_shapes": [
+        "testimony",
+        "intercut",
+        "manifesto",
+        "ladder",
+        "day-in-life"
+      ],
+      "forbidden_shapes": [
+        "pas",
+        "scenario"
+      ],
+      "scope_default": null,
+      "length_s": 75,
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16"
+      ],
+      "keywords": [
+        "hiring",
+        "recruiting",
+        "recruitment",
+        "careers",
+        "culture video",
+        "team video",
+        "employer brand",
+        "join us",
+        "we're hiring",
+        "life at"
+      ]
+    },
+    {
+      "id": "community-story",
+      "tile": "people",
+      "title": "Community story",
+      "kind": "community story",
+      "description": "Your members, volunteers or neighbours, and what you do together.",
+      "status": "partial",
+      "partial": "Cut with the customer-story shape today; its own shape is still coming.",
+      "route": "reel",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "footage-edit",
+      "inputs": [
+        {
+          "id": "interviews",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "footage",
+        "desks": [
+          "footage-logger",
+          "selects-producer"
+        ],
+        "note": "your clips: logged, transcribed, the best moments found"
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "three paper edits from what was shot"
+      },
+      "story_shapes": [
+        "testimony",
+        "intercut",
+        "montage"
+      ],
+      "forbidden_shapes": [
+        "pas",
+        "steps"
+      ],
+      "scope_default": null,
+      "length_s": 60,
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16"
+      ],
+      "keywords": [
+        "community",
+        "volunteers",
+        "members",
+        "nonprofit",
+        "non-profit",
+        "charity",
+        "fundraiser",
+        "donors"
+      ]
+    },
+    {
+      "id": "documentary-short",
+      "tile": "people",
+      "title": "Documentary short",
+      "kind": "documentary short",
+      "description": "A true story told through people, places and interviews.",
+      "status": "partial",
+      "partial": "Long films in acts are still being built; shorter ones work today.",
+      "route": "reel",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "footage-edit",
+      "inputs": [
+        {
+          "id": "interviews",
+          "required": true,
+          "prompt": "The interviews and footage"
+        }
+      ],
+      "research": {
+        "mode": "footage",
+        "desks": [
+          "footage-logger",
+          "selects-producer",
+          "product-researcher:topic"
+        ],
+        "note": "the footage, plus a fact check"
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "three paper edits from what was shot"
+      },
+      "story_shapes": [
+        "acts",
+        "testimony",
+        "life-arc"
+      ],
+      "forbidden_shapes": [
+        "pas",
+        "ladder"
+      ],
+      "scope_default": null,
+      "length_s": 300,
+      "aspect": "16:9",
+      "keywords": [
+        "documentary",
+        "mini documentary",
+        "short documentary",
+        "mini doc",
+        "true story"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "ugc-ad",
+      "tile": "ad",
+      "title": "UGC-style ad",
+      "kind": "UGC ad",
+      "description": "A creator-style phone ad: a hook, one benefit, proof, the offer.",
+      "status": "partial",
+      "partial": "One version today; several hooks and the plain native look are still coming.",
+      "route": "reel",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "ugc-ad",
+      "inputs": [
+        {
+          "id": "clips",
+          "required": true,
+          "prompt": "The creator's clips"
+        },
+        {
+          "id": "offer",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "footage",
+        "desks": [
+          "footage-logger",
+          "selects-producer"
+        ],
+        "note": "the clips, plus the offer's claims checked"
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "three paper edits from what was shot"
+      },
+      "story_shapes": [
+        "testimony",
+        "pas",
+        "before-after"
+      ],
+      "forbidden_shapes": [
+        "manifesto",
+        "strategic",
+        "roundup"
+      ],
+      "scope_default": null,
+      "length_s": 20,
+      "aspect": "9:16",
+      "keywords": [
+        "ugc",
+        "ugc ad",
+        "creator ad",
+        "influencer",
+        "tiktok ad",
+        "creator video"
+      ],
+      "aspects": [
+        "9:16"
+      ]
+    },
+    {
+      "id": "product-broll-ad",
+      "tile": "ad",
+      "title": "Product b-roll ad",
+      "kind": "product ad",
+      "description": "Close-ups of your product with its specs animated beside it.",
+      "status": "partial",
+      "partial": "Callouts that follow the product on screen are still being built.",
+      "route": "reel",
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "product-broll",
+      "inputs": [
+        {
+          "id": "product-footage",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "footage",
+        "desks": [
+          "footage-logger",
+          "selects-producer"
+        ],
+        "note": "your clips: logged, transcribed, the best moments found"
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "three paper edits from what was shot"
+      },
+      "story_shapes": [
+        "pas",
+        "before-after",
+        "montage"
+      ],
+      "forbidden_shapes": [
+        "manifesto",
+        "strategic"
+      ],
+      "scope_default": null,
+      "length_s": 20,
+      "aspect": "9:16",
+      "aspects": [
+        "9:16",
+        "4:5",
+        "1:1"
+      ],
+      "keywords": [
+        "product b-roll",
+        "b-roll",
+        "packshot",
+        "product shots",
+        "product footage"
+      ]
+    },
+    {
+      "id": "offer-ad",
+      "tile": "ad",
+      "title": "Offer or sale ad",
+      "kind": "offer ad",
+      "description": "Your offer, said fast and clearly: what it is, the price, until when.",
+      "status": "partial",
+      "partial": "One version today; several hooks to test are still coming.",
+      "route": "general-video",
+      "source_mode": "assets",
+      "source_modes": [
+        "assets",
+        "web",
+        "footage"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "offer",
+          "required": true
+        },
+        {
+          "id": "brand-kit",
+          "required": false
+        },
+        {
+          "id": "photos",
+          "required": false,
+          "prompt": "Product photos (optional)"
+        }
+      ],
+      "research": {
+        "mode": "product",
+        "desks": [
+          "brand-researcher"
+        ],
+        "note": "the offer's claims, checked"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "social",
+        "note": "hook, one benefit, proof, the offer"
+      },
+      "story_shapes": [
+        "pas",
+        "before-after",
+        "scenario"
+      ],
+      "forbidden_shapes": [
+        "manifesto",
+        "strategic",
+        "roundup"
+      ],
+      "scope_default": null,
+      "length_s": 15,
+      "aspect": "9:16",
+      "aspects": [
+        "9:16",
+        "4:5",
+        "1:1"
+      ],
+      "keywords": [
+        "sale",
+        "discount",
+        "promo code",
+        "offer",
+        "black friday",
+        "limited time",
+        "social ad",
+        "instagram ad",
+        "facebook ad",
+        "meta ad"
+      ]
+    },
+    {
+      "id": "ad-variants",
+      "tile": "ad",
+      "title": "Ad variants",
+      "kind": "ad variants",
+      "description": "Several hooks for one ad, so you can test which works.",
+      "status": "soon",
+      "soon": {
+        "missing": "Several hooks rendered from one cut isn't built yet; one version can be made today.",
+        "nearest": "ugc-ad"
+      },
+      "route": null,
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "ugc-ad",
+      "inputs": [
+        {
+          "id": "clips",
+          "required": true,
+          "prompt": "The ad's clips"
+        },
+        {
+          "id": "offer",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "footage",
+        "desks": [
+          "footage-logger",
+          "selects-producer"
+        ],
+        "note": "your clips: logged, transcribed, the best moments found"
+      },
+      "story": {
+        "pass": "footage-writers",
+        "format": null,
+        "note": "three paper edits from what was shot"
+      },
+      "story_shapes": [
+        "pas",
+        "before-after",
+        "testimony"
+      ],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 20,
+      "aspect": "9:16",
+      "keywords": [
+        "variants",
+        "ad variants",
+        "a/b test",
+        "several hooks",
+        "hook test",
+        "versions of my ad"
+      ],
+      "aspects": [
+        "9:16"
+      ]
+    },
+    {
+      "id": "screen-demo",
+      "tile": "screen",
+      "title": "Product demo",
+      "kind": "screen demo",
+      "description": "Your screen recording, cut tight, with zooms on every click.",
+      "status": "soon",
+      "soon": {
+        "missing": "Polishing a screen recording (cut the waiting, zoom on clicks, smooth the cursor) isn't built yet.",
+        "nearest": "product-tour"
+      },
+      "route": null,
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "screen-recording-demo",
+      "inputs": [
+        {
+          "id": "screen-recording",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "capture",
+        "desks": [],
+        "note": "the recording: clicks, text on screen, the words"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": null,
+        "note": null
+      },
+      "story_shapes": [
+        "hero-strip",
+        "scenario",
+        "steps"
+      ],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 60,
+      "aspect": "16:9",
+      "keywords": [
+        "screen demo",
+        "demo recording",
+        "recorded demo"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "screen-tutorial",
+      "tile": "screen",
+      "title": "Tutorial",
+      "kind": "screen tutorial",
+      "description": "Teach it on screen, one step at a time.",
+      "status": "soon",
+      "soon": {
+        "missing": "Polishing a screen recording isn't built yet.",
+        "nearest": "how-to"
+      },
+      "route": null,
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "screen-recording-demo",
+      "inputs": [
+        {
+          "id": "screen-recording",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "capture",
+        "desks": [],
+        "note": "the recording: clicks, text on screen, the words"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": null,
+        "note": null
+      },
+      "story_shapes": [
+        "steps",
+        "scenario"
+      ],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 120,
+      "aspect": "16:9",
+      "keywords": [
+        "screen tutorial",
+        "software tutorial",
+        "recorded tutorial"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "screen-chapters",
+      "tile": "screen",
+      "title": "Walkthrough with chapters",
+      "kind": "walkthrough",
+      "description": "A longer walkthrough split into chapters people can jump between.",
+      "status": "soon",
+      "soon": {
+        "missing": "Polishing a screen recording and chapter cards aren't built yet.",
+        "nearest": "how-to"
+      },
+      "route": null,
+      "source_mode": "footage",
+      "source_modes": [
+        "footage"
+      ],
+      "case": "screen-recording-demo",
+      "inputs": [
+        {
+          "id": "screen-recording",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "capture",
+        "desks": [],
+        "note": "the recording: clicks, text on screen, the words"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": null,
+        "note": null
+      },
+      "story_shapes": [
+        "steps",
+        "roundup"
+      ],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 300,
+      "aspect": "16:9",
+      "keywords": [
+        "chapters",
+        "long walkthrough",
+        "onboarding video",
+        "training video"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "screen-pr",
+      "tile": "screen",
+      "title": "Bug or PR walkthrough",
+      "kind": "PR walkthrough",
+      "description": "Walk your team through a bug or a change on screen.",
+      "status": "soon",
+      "soon": {
+        "missing": "Polishing a screen recording isn't built yet; a PR can be made into a video today.",
+        "nearest": "whats-new"
+      },
+      "route": null,
+      "source_mode": "footage",
+      "source_modes": [
+        "footage",
+        "local"
+      ],
+      "case": "screen-recording-demo",
+      "inputs": [
+        {
+          "id": "screen-recording",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "capture",
+        "desks": [],
+        "note": "the recording: clicks, text on screen, the words"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": null,
+        "note": null
+      },
+      "story_shapes": [
+        "steps",
+        "scenario"
+      ],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 90,
+      "aspect": "16:9",
+      "keywords": [
+        "bug walkthrough",
+        "bug report video",
+        "walk through the pr",
+        "code walkthrough"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "shorter-versions",
+      "tile": "recut",
+      "title": "Shorter versions",
+      "kind": "cutdowns",
+      "description": "Cut a video you already have into 6, 15 and 30 second versions.",
+      "status": "soon",
+      "soon": {
+        "missing": "Planning fresh short edits from a finished video isn't built yet.",
+        "nearest": "social-reel"
+      },
+      "route": null,
+      "source_mode": "existing-video",
+      "source_modes": [
+        "existing-video"
+      ],
+      "case": "social-cutdown",
+      "inputs": [
+        {
+          "id": "master",
+          "required": true
+        },
+        {
+          "id": "platforms",
+          "required": false
+        }
+      ],
+      "research": {
+        "mode": "existing-video",
+        "desks": [],
+        "note": "the video you already have"
+      },
+      "story": {
+        "pass": "cutdown-planner",
+        "format": null,
+        "note": null
+      },
+      "story_shapes": [
+        "scenario",
+        "pas",
+        "before-after"
+      ],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 15,
+      "length_note": "6, 15 and 30 s",
+      "aspect": "9:16",
+      "keywords": [
+        "cutdown",
+        "cutdowns",
+        "cut down",
+        "shorter version",
+        "shorter versions",
+        "15 second version",
+        "6 second version",
+        "bumper ad",
+        "social series"
+      ],
+      "aspects": [
+        "9:16"
+      ]
+    },
+    {
+      "id": "other-sizes",
+      "tile": "recut",
+      "title": "Other sizes",
+      "kind": "resized versions",
+      "description": "The same video reframed for vertical, square and wide.",
+      "status": "soon",
+      "soon": {
+        "missing": "Reframing for each size (keeping faces and text in frame) isn't built yet.",
+        "nearest": null
+      },
+      "route": null,
+      "source_mode": "existing-video",
+      "source_modes": [
+        "existing-video"
+      ],
+      "case": "social-cutdown",
+      "inputs": [
+        {
+          "id": "master",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "existing-video",
+        "desks": [],
+        "note": "the video you already have"
+      },
+      "story": {
+        "pass": "none",
+        "format": null,
+        "note": "the story stays the same"
+      },
+      "story_shapes": [],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": null,
+      "length_note": "as the video",
+      "aspect": "9:16",
+      "aspects": [
+        "9:16",
+        "1:1",
+        "4:5",
+        "16:9"
+      ],
+      "keywords": [
+        "reframe",
+        "resize",
+        "vertical version",
+        "other sizes",
+        "square version",
+        "9:16 version",
+        "make it vertical"
+      ]
+    },
+    {
+      "id": "another-language",
+      "tile": "recut",
+      "title": "Another language",
+      "kind": "translated version",
+      "description": "The same video with translated captions, text and voice.",
+      "status": "soon",
+      "soon": {
+        "missing": "Translating a finished video's captions, text and voice isn't built yet.",
+        "nearest": null
+      },
+      "route": null,
+      "source_mode": "existing-video",
+      "source_modes": [
+        "existing-video"
+      ],
+      "case": "localisation",
+      "inputs": [
+        {
+          "id": "master",
+          "required": true
+        },
+        {
+          "id": "script",
+          "required": false,
+          "prompt": "The script, if you have it"
+        },
+        {
+          "id": "languages",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "existing-video",
+        "desks": [],
+        "note": "the video you already have"
+      },
+      "story": {
+        "pass": "none",
+        "format": null,
+        "note": "translated, not rewritten"
+      },
+      "story_shapes": [],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": null,
+      "length_note": "as the video",
+      "aspect": "as-source",
+      "keywords": [
+        "translate",
+        "translation",
+        "another language",
+        "localise",
+        "localize",
+        "localisation",
+        "localization",
+        "dub",
+        "dubbing"
+      ],
+      "aspects": [
+        "as-source"
+      ]
+    },
+    {
+      "id": "trailer-from-it",
+      "tile": "recut",
+      "title": "Trailer or teaser from it",
+      "kind": "trailer",
+      "description": "Tease something longer: the setup, the stakes, the best moment, the date.",
+      "status": "soon",
+      "soon": {
+        "missing": "Cutting a trailer from a long film isn't built yet.",
+        "nearest": "launch-teaser"
+      },
+      "route": null,
+      "source_mode": "existing-video",
+      "source_modes": [
+        "existing-video"
+      ],
+      "case": "social-cutdown",
+      "inputs": [
+        {
+          "id": "master",
+          "required": true
+        }
+      ],
+      "research": {
+        "mode": "existing-video",
+        "desks": [],
+        "note": "the video you already have"
+      },
+      "story": {
+        "pass": "cutdown-planner",
+        "format": null,
+        "note": null
+      },
+      "story_shapes": [
+        "trailer",
+        "countdown",
+        "montage"
+      ],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 60,
+      "aspect": "16:9",
+      "keywords": [
+        "trailer",
+        "trailer for my film",
+        "film trailer"
+      ],
+      "aspects": [
+        "16:9"
+      ]
+    },
+    {
+      "id": "recut-captions",
+      "tile": "recut",
+      "title": "Add captions",
+      "kind": "captioned video",
+      "description": "Your video as it is, with clear captions.",
+      "status": "ready",
+      "route": "embedded-captions",
+      "source_mode": "existing-video",
+      "source_modes": [
+        "existing-video",
+        "footage"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "master",
+          "required": true,
+          "prompt": "The video to caption"
+        }
+      ],
+      "research": {
+        "mode": "transcript",
+        "desks": [],
+        "note": "the words, transcribed and checked"
+      },
+      "story": {
+        "pass": "none",
+        "format": null,
+        "note": "the video is the story"
+      },
+      "story_shapes": [],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": null,
+      "length_note": "as the video",
+      "aspect": "as-source",
+      "keywords": [],
+      "aspects": [
+        "as-source"
+      ]
+    },
+    {
+      "id": "something-else",
+      "tile": "other",
+      "title": "Something else",
+      "kind": "film",
+      "description": "Describe it in your own words.",
+      "status": "ready",
+      "route": "general-video",
+      "source_mode": null,
+      "source_modes": [],
+      "case": null,
+      "inputs": [
+        {
+          "id": "script",
+          "required": true,
+          "prompt": "Describe it in your own words"
+        }
+      ],
+      "research": {
+        "mode": "as-needed",
+        "desks": [],
+        "note": "whatever the request needs"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": null,
+        "note": "the Director picks the shapes from the request"
+      },
+      "story_shapes": [],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 45,
+      "aspect": "16:9",
+      "keywords": [],
+      "aspects": [
+        "16:9"
+      ]
+    }
+  ]
+}

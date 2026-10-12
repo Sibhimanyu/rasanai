@@ -1,0 +1,201 @@
+{
+ "_source": "run6 (.context/chatgpt-test/.rasanai/run6/story/pitch-Wild.json), trimmed to the fields story.mjs G13 reads; domain added to each use-bearing beat as a writer would after the scope fix",
+ "id": "typed-then-deleted",
+ "label": "Wild",
+ "title": "The box you type into",
+ "logline": "Your dinner worries, typed and deleted, until ChatGPT builds the tool.",
+ "device": "query-log",
+ "product_first": true,
+ "shape": "pas",
+ "aim": {
+  "takeaway": "Ask ChatGPT and the answer is a working tool for your exact problem.",
+  "feel": "Recognised, then relieved: that's me at the table, and now it's sorted",
+  "action": "Open ChatGPT and ask it for a tool instead of an explanation",
+  "audience": "Everyday ChatGPT users and the curious on the web, the people who type small worries into a box"
+ },
+ "approach": "The whole film is one person's typing in ChatGPT's box: worries typed and deleted, then one ask that answers with tools.",
+ "actor": {
+  "what": "ChatGPT's real light-theme composer: the white pill with '+' at left, the 'Ask ChatGPT' hint text, the 'Instant' picker with its chevron, the mic and the round send button, and the black caret blinking inside it (research/screens.md UI kit; c31).",
+  "does": "Opens the film zoomed huge with its caret blinking; is the one slot every line is typed, swapped and deleted in; gives back its own hint text 'Ask ChatGPT' as the brand reveal; sends each ask up as a pale green bubble and sits under each tool as it streams in; pulls back for the proof; and draws off around the end line, whose full stop becomes the film's last black dot."
+ },
+ "hero_moment": {
+  "beat": 4,
+  "what": "The bill-splitter prompt is sent and the clipboard 'The Check, Please.' streams in above the composer; you tap names under WHO HAD IT? and the split recomputes."
+ },
+ "uses": [
+  "split a dinner bill",
+  "a game for bored kids",
+  "see a retirement plan grow"
+ ],
+ "proof": {
+  "line": "1.2 billion people every week.",
+  "claim": "c4"
+ },
+ "cta": {
+  "line": "Try it in ChatGPT today.",
+  "action": "Try",
+  "where": "the ChatGPT app and chatgpt.com, in the Chat tab"
+ },
+ "last_line": "Try it in ChatGPT today.",
+ "end_line_largest": true,
+ "clear_by_s4": true,
+ "first_4s": "ChatGPT's real composer fills the frame with a receipt attached; you type 'split this five ways', delete it, and type 'I only had salad'.",
+ "honest_demo": true,
+ "scores": {
+  "originality": 5,
+  "clarity": 4,
+  "fit": 5,
+  "memorability": 5,
+  "feasibility": 4
+ },
+ "critique": {
+  "retell": "It's the one where you type your dinner worries into ChatGPT and delete them, until you just ask it for a tool."
+ },
+ "beats": [
+  {
+   "name": "Split this",
+   "role": "hook",
+   "duration_s": 2.2,
+   "on_screen": "split this five ways",
+   "picture": "ChatGPT's composer fills the frame with a crumpled TRATTORIA receipt photo attached, and you type 'split this five ways'.",
+   "visual": "0.0 s: white #fcfcfc, ChatGPT's real composer zoomed huge so the pill runs past both frame edges (the Sites spot's typing crop), the grey hint text 'Ask ChatGPT' and a blinking black caret. 0.2 s: a photo of a crumpled TRATTORIA receipt (itemised, Subtotal, Tax, Total) is already attached as a thumbnail chip in the pill's top-left. 0.3 s: the hint text clears and 'split this five ways' types in black at statement size (about 6% of frame height), lowercase, the way people type, one key per 80 ms, 'five' landing on the beat. Carries over: the caret at the end of the line, in the same slot.",
+   "value": true,
+   "shows": [
+    {
+     "line": "split this five ways"
+    }
+   ]
+  },
+  {
+   "name": "The worries",
+   "role": "agitate",
+   "duration_s": 5,
+   "on_screen": "I only had salad",
+   "picture": "Your worries type and delete in the same box: 'I only had salad', then 'am I being cheap', then a defeated 'Ugh.'",
+   "visual": "Locked off on the same composer, nothing else in frame: the query log is the drama. 2.2 s: 'I only had salad' types in the slot the last line left. 4.2 s: the caret backspaces 'only had salad' but keeps the 'I'; 'am' types in front of it and 'being cheap' after it, so the 'I' never leaves the box: 'am I being cheap'. The receipt chip in the corner sits still: the bill has not moved. 6.0 s: one held backspace wipes the whole line in a single sweep (the giving-up gesture); 'Ugh.' types, waits, and deletes. 6.6 s: the breath, 0.6 s of an empty composer and only the caret blinking (the one calm stretch of the film). Carries over: the empty pill and its caret.",
+   "shows": [
+    {
+     "line": "I only had salad"
+    },
+    {
+     "line": "am I being cheap"
+    },
+    {
+     "line": "Ugh."
+    }
+   ]
+  },
+  {
+   "name": "Ask ChatGPT",
+   "role": "meet",
+   "duration_s": 2.6,
+   "on_screen": "Ask ChatGPT for a tool.",
+   "picture": "The empty composer gives back its own hint text 'Ask ChatGPT', which darkens and finishes the sentence 'for a tool.', then the real bill-splitter prompt is typed and sent.",
+   "visual": "7.2 s: the composer's real grey hint text 'Ask ChatGPT' fades back into the empty pill (what the box does when it is empty). 7.5 s: the grey letters darken to black, word by word, and ' for a tool.' types after them in the same weight: the brand is revealed by its own UI. 8.6 s: the line slides left out of the slot as the real prompt types fast behind it, scrolling as it overflows: 'Bill splitter for a party of five based on what we ate, can you make it look like a clipboard'; the black macOS cursor clicks the round send button. Carries over: the word 'five' in the sent prompt, and the send button press.",
+   "shows": [
+    {
+     "line": "Ask ChatGPT for a tool."
+    }
+   ]
+  },
+  {
+   "name": "The check, built",
+   "role": "benefit",
+   "duration_s": 4,
+   "on_screen": "Tap who had what.",
+   "picture": "The prompt flies up as a pale green bubble, the green dot thinks, and the clipboard 'The Check, Please.' builds itself above the box; you tap who had what and the split changes.",
+   "visual": "THE HERO MOMENT, the first time the frame changes scale. 9.8 s: the composer drops to its real place at the bottom of the frame (the camera holds; the UI moves), the pale green bubble rises right-aligned with the receipt thumbnail above it, the single green thinking dot pulses once. 10.2 s: the clipboard card streams in progressively from the top down, as the real compiler builds it (c7): the metal clip, 'THE DINNER LEDGER', 'The Check, Please.', 'TABLE OF FIVE · ITEMIZED BILL' (the word 'five' lifts out of the green prompt bubble and drops into this header as it streams), '01 / Who's at the table?' with GUEST 01 to GUEST 05, '02 / What did you order?' with Margherita 14.00, Cacio e Pepe 16.00, Rigatoni Vodka 17.00, Insalata 14.00. 11.6 s: 'Tap who had what.' sits in the composer below the card; the black cursor ticks names under 'WHO HAD IT?': the Insalata row gets one green tick, the Margherita row three. 12.8 s: the split recomputes as each tick lands. Carries over: the green tick on the Insalata row.",
+   "benefit": "You settle the bill in a few taps, no maths out loud",
+   "shows": [
+    {
+     "line": "Tap who had what."
+    }
+   ],
+   "domain": "social-money"
+  },
+  {
+   "name": "ChatGPT does the maths",
+   "role": "benefit",
+   "duration_s": 2.2,
+   "on_screen": "ChatGPT does the maths.",
+   "picture": "With the ticks in, the clipboard's split recomputes per guest while the composer reads 'ChatGPT does the maths.'",
+   "visual": "Same frame, the clipboard above, the composer below. 13.8 s: the composer line swaps in place ('Tap who had what.' backspaces, 'ChatGPT does the maths.' types). 14.4 s: in the card each guest's share recomputes with tabular digits rolling, as the real tool divides each dish 'equally among selected guests' (c35); the Insalata cost lands on one guest only. Carries over: the composer, which empties as the clipboard scrolls up out of the top of the frame.",
+   "benefit": "Nobody does sums at the table: you just pass the phone",
+   "shows": [
+    {
+     "line": "ChatGPT does the maths."
+    }
+   ],
+   "domain": "social-money"
+  },
+  {
+   "name": "The kids are bored",
+   "role": "benefit",
+   "duration_s": 3.8,
+   "on_screen": "the kids are bored",
+   "picture": "You type 'the kids are bored', rewrite it as a real ask, and a playable handheld called PIXEL PALACE builds above the box; START GAME and Snake is running.",
+   "visual": "Same composer, same slot, the clipboard gone up the thread. 16.0 s: 'the kids are bored' types in lowercase. 17.0 s: it backspaces and the real ask types fast and scrolls: 'Create a retro interactive gaming console that I can play' (c12); send; the green bubble rises, the green dot pulses. 17.6 s: the line swaps in place to 'Hand them a game.' as the PIXEL PALACE handheld (beige, its own generated look) streams in above the composer with its SNAKE / BREAKOUT / PONG tabs. 18.8 s: the black cursor clicks START GAME and the snake starts moving across the handheld's screen. Carries over: the cursor, which drops back to the composer.",
+   "benefit": "The kids get a game, and you get a quiet table",
+   "shows": [
+    {
+     "line": "the kids are bored"
+    },
+    {
+     "line": "Hand them a game."
+    }
+   ],
+   "domain": "play"
+  },
+  {
+   "name": "Can I retire",
+   "role": "benefit",
+   "duration_s": 4,
+   "on_screen": "can I retire",
+   "picture": "The scariest question you type at night gets a calculator: you drag the years slider and the green growth bar overtakes the money you put in.",
+   "visual": "THE TURN (60%): the worry that used to stay in the box gets an answer you can move. 19.8 s: 'can I retire' types, then backspaces into the real ask 'Show me how does a roth IRA work' (c11) and is sent; the Roth IRA calculator (c11) streams in above the composer: the headline $416,129, the two-colour bar (blue 'Your contributions', green 'Investment growth') and three sliders, 'Monthly contribution', 'Years invested', 'Annual return (assumed)'. 21.6 s: the line swaps to 'Drag it. Watch it grow.' as the cursor grabs the white thumb of 'Years invested' and drags it right: the headline counts up and the green bar grows until it is longer than the blue one (growth passes what you paid in). 23.4 s: the cursor lets go. Carries over: the composer, which starts to pull back.",
+   "benefit": "You see your own future change as you move it",
+   "turn": true,
+   "shows": [
+    {
+     "line": "can I retire"
+    },
+    {
+     "line": "Drag it. Watch it grow."
+    }
+   ],
+   "domain": "money"
+  },
+  {
+   "name": "Every week",
+   "role": "proof",
+   "duration_s": 3.2,
+   "on_screen": "1.2 billion people",
+   "picture": "The camera finally pulls back from the composer; the number in it rolls to 1.2 billion people, every week.",
+   "visual": "The film's only camera move. 23.8 s: the camera pulls back from the composer (flat scale, no 3D) until the pill is small and centred on white, the three tools you made scrolling past above it like a week of chat history (clipboard, handheld game, calculator, flicking up). In the composer slot a counter rolls with tabular digits to '1.2 billion people' (c4). 25.6 s: the line swaps to 'every week.' and the history stops on an empty white thread above the box. Carries over: the small composer, centred, empty.",
+   "shows": [
+    {
+     "line": "1.2 billion people"
+    },
+    {
+     "line": "every week."
+    }
+   ]
+  },
+  {
+   "name": "Dessert's on me",
+   "role": "cta",
+   "duration_s": 4.8,
+   "on_screen": "dessert's on me",
+   "picture": "You type one last thing, 'dessert's on me', then the box draws off and the end line lands, its full stop the last black dot.",
+   "visual": "27.0 s: in the small centred composer, 'dessert's on me' types in black lowercase (the answer to 'am I being cheap', 20 s later), not sent, the caret blinking after it. 28.8 s: the pill's outline draws off around the words (the composer leaves, the line stays), the line backspaces and 'Try it in ChatGPT today.' types in its place and grows to the largest type of the film (about 9% of frame height, OpenAI Sans semibold, black, centred inside the safe area); the blossom mark (the downloaded file) lands small and centred above it. 30.6 s: the mark and line hold; 31.2 s: the line and mark clear and the full stop is left alone as a single black dot, the brand's last frame. Carries over: end.",
+   "shows": [
+    {
+     "line": "dessert's on me"
+    },
+    {
+     "line": "Try it in ChatGPT today."
+    }
+   ]
+  }
+ ]
+}

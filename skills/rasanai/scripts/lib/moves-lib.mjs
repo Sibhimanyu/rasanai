@@ -120,6 +120,28 @@ export function pitchShape(pitch) {
   return null;
 }
 
+// scenario nouns of a product film: content nouns that appear in the beats but in fewer than half of the use beats (rung / benefit),
+// minus the product's own surfaces. What every rung shares (the composer, the caret, the dot) is never one.
+const SURFACE_WORDS = new Set();
+const SURFACE_WORDS_RAW = "composer caret cursor dot dots bubble bubbles prompt prompts input field box pill window button hint placeholder stream answer answers chat thread mark logo wordmark brand name title titles line lines word words type text letter letters glyph glyphs shape stroke screen frame card cards tool tools real every each blinking blink green black white blue pale light single full stop period this that these those film films from into onto about over under with what when then than their there which while each your yours send sent fold come back take taken make made get turn become lead pull hold keep finally first last next same whole still only also just show shown showing end ending start open close itself them they tap click drag press type typed sends streams ends again working";
+const SW_STEM = (w) => w.replace(/(ies)$/, "y").replace(/(es|s)$/, (m, g, off, x) => (x.length > 4 ? "" : m));
+SURFACE_WORDS_RAW.split(" ").forEach((w) => SURFACE_WORDS.add(SW_STEM(w)));
+const nounsOf = (t) => norm(t).replace(/[^a-z' ]/g, " ").replace(/'s\b/g, "").replace(/'/g, "").split(/\s+/).filter((w) => w.length >= 4).map(SW_STEM).filter((w) => !SURFACE_WORDS.has(w));
+export function scenarioNouns(beats, productName = "") {
+  const prod = new Set(nounsOf(productName));
+  const text = (b) => [b.on_screen, b.picture, b.visual, b.use, b.benefit, ...arr(b.shows).map((r) => r && r.line)].filter(Boolean).join(" ");
+  const toks = arr(beats).map((b) => new Set(nounsOf(text(b || {}))));
+  const uses = arr(beats).map((b, i) => (["rung", "benefit"].includes(str(b && b.role).toLowerCase()) ? i : -1)).filter((i) => i >= 0);
+  const out = new Set();
+  const all = new Set(toks.flatMap((t) => [...t]));
+  for (const w of all) {
+    if (prod.has(w)) continue;
+    const inUses = uses.filter((i) => toks[i].has(w)).length;
+    if (uses.length >= 2 && inUses < uses.length / 2) out.add(w);
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------- a moves file
 export function validateMoves(obj, opts = {}) {
   const errors = [], warnings = [];
@@ -162,6 +184,17 @@ export function validateMoves(obj, opts = {}) {
     if (!fam) E(`carrier-family: carrier.family is missing (one of ${CARRIER_FAMILY_IDS.join(", ")}${assigned ? `; your pack assigns "${assigned}"` : ""})`);
     else if (!CARRIER_FAMILY_IDS.includes(fam)) E(`carrier-family: carrier.family "${fam}" is not one of ${CARRIER_FAMILY_IDS.join(", ")}`);
     else if (assigned && fam !== assigned) E(`carrier-family: carrier.family is "${fam}" but your pack assigned "${assigned}" (the other two scripts got the other families: the carrier must come from yours)`);
+    // a product film's carrier is something every rung shares (the input, the caret, the dot, the product's own object), never one
+    // scenario's noun ("the table's count, five" welded a 3-use film into one dinner): S3 niche diagnosis, 5c
+    if (pf && (opts.shape === "ladder" || opts.shape === "pas")) {
+      const sc = scenarioNouns(beats, opts.productName);
+      const hit = (t) => [...new Set(nounsOf(t).filter((w) => sc.has(w)))];
+      const inShort = hit(car.short), inWhat = hit(car.what).filter((w) => !inShort.includes(w));
+      if (inShort.length) E(`carrier-scenario: the carrier "${str(car.short)}" names "${inShort.join('", "')}", a noun of one scenario (in fewer than half the uses): the carrier must be something every rung shares (the product's input, its caret or cursor, its dot, its own object), never a scenario's prop or count`);
+      else if (inWhat.length) W(`carrier-scenario: carrier.what leans on "${inWhat.slice(0, 3).join('", "')}" from one scenario: keep the carrier on what every rung shares`);
+      const th = hit(obj.thesis);
+      if (th.length) W(`thesis-scenario: the thesis names "${th.slice(0, 3).join('", "')}" from one scenario: state the claim ("any ask comes back as a tool"), not a situation`);
+    }
   }
 
   const obvious = arr(obj.obvious).map(str).filter(Boolean);

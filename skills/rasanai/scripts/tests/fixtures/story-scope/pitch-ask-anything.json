@@ -1,0 +1,206 @@
+{
+ "_source": "The 'Ask anything' ladder of .context/night/S3-niche-diagnosis.md section 4: the right story for a universal claim (4 rungs in 4 domains plus an 'anything' burst, no persona, no recurring situation).",
+ "id": "ask-anything",
+ "label": "Sure",
+ "title": "Ask anything",
+ "logline": "Every ask in the ChatGPT box comes back as a tool.",
+ "device": "list-breaks",
+ "product_first": true,
+ "shape": "ladder",
+ "refrain": {
+  "verb": "Ask",
+  "pattern": "Ask <it to> <highlight>"
+ },
+ "aim": {
+  "takeaway": "Whatever you ask ChatGPT, the answer is a tool you can use.",
+  "feel": "Curious to try it",
+  "action": "Ask ChatGPT something",
+  "audience": "Everyday ChatGPT users"
+ },
+ "approach": "A refrain ladder of real asks across learning, money, hosting and splitting, then a burst of anything.",
+ "actor": {
+  "what": "the real Ask ChatGPT composer and its caret",
+  "does": "every highlighted word drops into it as the prompt; each tool collapses back into it for the next ask"
+ },
+ "proof": {
+  "line": "1.2 billion people ask weekly.",
+  "claim": "c4"
+ },
+ "cta": {
+  "line": "Ask ChatGPT.",
+  "action": "Ask",
+  "where": "chatgpt.com"
+ },
+ "last_line": "Ask ChatGPT.",
+ "end_line_largest": true,
+ "critique": {
+  "retell": "It's the one where anything you ask ChatGPT comes back as a tool you can use."
+ },
+ "scores": {
+  "originality": 4,
+  "clarity": 5,
+  "fit": 5,
+  "memorability": 4,
+  "feasibility": 5
+ },
+ "beats": [
+  {
+   "name": "You ask",
+   "role": "open",
+   "duration_s": 2.4,
+   "on_screen": "You ask.",
+   "picture": "The real composer zoomed huge, caret blinking; 'ask' drops into the hint text so it reads 'Ask ChatGPT'.",
+   "shows": [
+    {
+     "line": "You ask."
+    }
+   ]
+  },
+  {
+   "name": "Understand",
+   "role": "rung",
+   "duration_s": 4.6,
+   "use": "understand a statistics idea",
+   "domain": "learn",
+   "highlight": "understand",
+   "level": 1,
+   "benefit": "You see the idea move instead of reading about it.",
+   "on_screen": "Ask to understand.",
+   "picture": "'understand' drops into 'Help me understand the central limit theorem intuitively', send, an interactive explainer streams in and the cursor drags its control so the distribution reshapes.",
+   "ui": [
+    "send → the explainer streams in",
+    "drag the control → the distribution reshapes"
+   ],
+   "shows": [
+    {
+     "line": "Ask to understand."
+    },
+    {
+     "line": "See it, don't read it."
+    }
+   ],
+   "clause": 1,
+   "reach": "most"
+  },
+  {
+   "name": "What if",
+   "role": "rung",
+   "duration_s": 4.6,
+   "use": "try retirement savings numbers",
+   "domain": "money",
+   "highlight": "what if",
+   "level": 2,
+   "benefit": "You try your own numbers and watch them grow.",
+   "on_screen": "Ask what if.",
+   "picture": "'Show me how does a roth IRA work' sends, the calculator streams, the cursor drags Years invested and $416,129 rolls as the bar grows.",
+   "ui": [
+    "drag Years invested → $416,129 rolls, the bar grows"
+   ],
+   "shows": [
+    {
+     "line": "Ask what if."
+    },
+    {
+     "line": "Try your own numbers."
+    }
+   ],
+   "clause": 2,
+   "reach": "many"
+  },
+  {
+   "name": "Plan",
+   "role": "rung",
+   "duration_s": 4.4,
+   "use": "plan a sunday roast",
+   "domain": "food-hosting",
+   "highlight": "plan",
+   "level": 3,
+   "benefit": "You plan for whoever turns up, with one tap.",
+   "on_screen": "Ask it to plan.",
+   "picture": "The roast prompt sends and a planner with the Number of people stepper arrives; the cursor taps plus and the quantities change.",
+   "ui": [
+    "tap plus → the quantities change"
+   ],
+   "shows": [
+    {
+     "line": "Ask it to plan."
+    },
+    {
+     "line": "One more friend? Tap plus."
+    }
+   ],
+   "clause": 0,
+   "reach": "many"
+  },
+  {
+   "name": "Build",
+   "role": "rung",
+   "duration_s": 4.6,
+   "use": "split a restaurant check",
+   "domain": "social-money",
+   "highlight": "build",
+   "level": 4,
+   "benefit": "You get the exact tool you asked for, styled your way.",
+   "on_screen": "Ask it to build one.",
+   "picture": "A receipt photo and 'Bill splitter, make it look like a clipboard' send; The Check, Please. builds as it streams and a tap on WHO HAD IT? recomputes the split.",
+   "ui": [
+    "tap WHO HAD IT? → the split recomputes"
+   ],
+   "shows": [
+    {
+     "line": "Ask it to build one."
+    },
+    {
+     "line": "Tap who had what."
+    }
+   ],
+   "clause": 2,
+   "reach": "many"
+  },
+  {
+   "name": "Anything",
+   "role": "close",
+   "duration_s": 4.4,
+   "domains": [
+    "learn",
+    "creativity",
+    "home",
+    "play"
+   ],
+   "on_screen": "Ask anything.",
+   "picture": "The composer stays put while real prompts flick through it: GDP explained simply, Monty Hall problem, drone photography, a 7-speed bike; the last builds PIXEL PALACE and START GAME runs.",
+   "ui": [
+    "press START GAME → the snake moves"
+   ],
+   "shows": [
+    {
+     "line": "Ask anything."
+    }
+   ]
+  },
+  {
+   "name": "Every week",
+   "role": "proof",
+   "duration_s": 2.2,
+   "on_screen": "1.2 billion people ask weekly.",
+   "picture": "The composer pulls back; the count rolls in tabular digits.",
+   "shows": [
+    {
+     "line": "1.2 billion people ask weekly."
+    }
+   ]
+  },
+  {
+   "name": "Ask ChatGPT",
+   "role": "cta",
+   "duration_s": 2.8,
+   "on_screen": "Ask ChatGPT.",
+   "picture": "The largest type in the film, the blossom mark, then the single black dot.",
+   "shows": [
+    {
+     "line": "Ask ChatGPT."
+    }
+   ]
+  }
+ ]
+}
