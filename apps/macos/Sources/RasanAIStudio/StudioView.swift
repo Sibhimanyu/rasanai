@@ -11,32 +11,43 @@ struct StudioView: View {
         content.environment(\.momentStore, store)
     }
 
+    @AppStorage("studio.sidebarCollapsed") private var sidebarCollapsed = false
+    /// A film (or the sample, or the film editor) brings its own bottom bar, so the studio's status bar steps aside there.
+    private var showsStatusBar: Bool {
+        switch store.path.last { case .film?, .sample?, .newFilm?: false; default: true }
+    }
+
     private var content: some View {
+        HStack(spacing: 0) {
+            AppSidebar(store: store, collapsed: $sidebarCollapsed)
+            VStack(spacing: 0) {
+                stack
+                if showsStatusBar { AppStatusBar(store: store) }
+            }
+            .background(Color(nsColor: .windowBackgroundColor))
+        }
+        .ignoresSafeArea(.container, edges: .top)
+    }
+
+    private var stack: some View {
         NavigationStack(path: $store.path) {
             HomeView(store: store)
+                .toolbar(.hidden, for: .windowToolbar)
                 .navigationDestination(for: Route.self) { route in
                     Group { switch route {
                     case .newFilm(let project): NewFilmView(store: store, project: project)
                     case .film(let url):
                         if store.shouldBrowseSeparately(url) { LibraryFilmPage(store: store, url: url) }
                         else { FilmPage(store: store, url: url) }
-                    case .brands:
-                        BrandsView(store: store)
-                            .toolbar { ToolbarItem(placement: .primaryAction) { HelpButton(title: "Brands", lines: [
-                                "A brand keeps your colours, type and logo in one folder.",
-                                "Pick a brand when you start a film and RasanAI designs in your look.",
-                                "Each brand is a plain DESIGN.md file you can edit anywhere."]) } }
-                    case .brand(let url):
-                        BrandPage(store: store, brand: url)
-                            .toolbar { ToolbarItem(placement: .primaryAction) { HelpButton(title: "This brand", lines: [
-                                "These swatches and fonts are read from the brand's DESIGN.md.",
-                                "Choose Edit brand to change colours, fonts and logo, with a live preview.",
-                                "Deleting a brand moves its folder to the Trash. Existing films keep their copy."]) } }
+                    case .brands: BrandsView(store: store)
+                    case .brand(let url): BrandPage(store: store, brand: url)
                     case .queue: FilmQueueView(store: store)
                     case .templates: FilmTemplatesView(store: store)
                     case .inspire: GetInspiredPage(store: store)
                     case .sample: SamplePage(store: store)
+                    case .library(let mode): HomeView(store: store, mode: mode)
                     } }
+                    .toolbar(.hidden, for: .windowToolbar)
                 }
         }
         .tint(.rasan)

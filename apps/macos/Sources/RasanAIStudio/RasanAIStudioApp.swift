@@ -55,8 +55,9 @@ struct RasanAIStudioApp: App {
                 }
             }
         }
-        .defaultSize(width: 1120, height: 740)
-        .windowToolbarStyle(.unified)
+        .defaultSize(width: 1240, height: 800)
+        // The sidebar runs the window's full height with the traffic lights over it; pages draw their own headers.
+        .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") { updater.check() }.disabled(!updater.canCheck)

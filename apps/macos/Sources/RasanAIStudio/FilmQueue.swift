@@ -208,6 +208,7 @@ struct FilmQueueView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .safeAreaInset(edge: .bottom, spacing: 0) { QueueTotalsFooter(monitor: store.monitor) }
         .navigationTitle("Queue")
+        .pageHeader("Queue")
     }
 
     private var header: some View {

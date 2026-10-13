@@ -14,6 +14,7 @@ enum Route: Hashable {
     case queue
     case templates
     case inspire
+    case library(LibraryMode)
 }
 
 /// Everything the app needs to say about one film, in one place.

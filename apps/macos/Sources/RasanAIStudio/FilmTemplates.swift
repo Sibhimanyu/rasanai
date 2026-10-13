@@ -54,6 +54,7 @@ struct FilmTemplatesView: View {
                 }
             }.padding(32).frame(maxWidth: 850).frame(maxWidth: .infinity)
         }.navigationTitle("Templates")
+            .pageHeader("Templates")
             .alert("Rename template", isPresented: Binding(get: { renameID != nil }, set: { if !$0 { renameID = nil } })) {
                 TextField("Template name", text: $name)
                 Button("Cancel", role: .cancel) { renameID = nil }

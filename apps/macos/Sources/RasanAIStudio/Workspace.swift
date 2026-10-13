@@ -17,6 +17,9 @@ enum Workspace {
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x1F2025) : .rasanHex(0xF4F4F6)
     })
     static let hairline = Color.primary.opacity(0.08)
+    static let sidebar = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x131418) : .rasanHex(0xF3F3F6)
+    })
     /// Timestamps on notes: warm, so a note's time reads at a glance against the cool chrome.
     static let amber = Color(nsColor: NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0xF2B33D) : .rasanHex(0xB7791F)

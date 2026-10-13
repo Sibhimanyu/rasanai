@@ -57,6 +57,7 @@ struct LibraryFilmPage: View {
             else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
         }
         .navigationTitle(archive?.title ?? "Film")
+        .pageHeader(archive?.title ?? "Film", onBack: { store.goHome() })
         .background(Color(nsColor: .windowBackgroundColor))
         .task(id: url) {
             let library = store.projectLibrary(for: url)

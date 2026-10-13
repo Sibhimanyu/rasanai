@@ -51,11 +51,12 @@ struct BrandsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle("Brands")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button { showNew = true } label: { Label("New Brand", systemImage: "plus") }
-                    .help("New brand")
-            }
+        .pageHeader("Brands") {
+            HelpButton(title: "Brands", lines: [
+                "A brand keeps your colours, type and logo in one folder.",
+                "Pick a brand when you start a film and RasanAI designs in your look.",
+                "Each brand is a plain DESIGN.md file you can edit anywhere."]).buttonStyle(.borderless)
+            Button { showNew = true } label: { Label("New brand", systemImage: "plus") }.buttonStyle(.bordered).controlSize(.large)
         }
         .sheet(isPresented: $showNew) {
             NewBrandSheet(root: root) { brand in
@@ -281,16 +282,19 @@ struct BrandPage: View {
         .sheet(isPresented: $showEditor) {
             if let model { BrandEditorSheet(brand: model, design: text) { reload() } }
         }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    Button("Edit Brand…") { reload(); showEditor = true }
-                    Button("Edit in TextEdit") { edit() }
-                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([brand]) }
-                    Divider()
-                    Button("Delete Brand…", role: .destructive) { confirmDelete = true }
-                } label: { Image(systemName: "ellipsis.circle") }
-            }
+        .pageHeader(model?.name ?? "Brand", onBack: { store.path = [.brands] }) {
+            HelpButton(title: "This brand", lines: [
+                "These swatches and fonts are read from the brand's DESIGN.md.",
+                "Choose Edit brand to change colours, fonts and logo, with a live preview.",
+                "Deleting a brand moves its folder to the Trash. Existing films keep their copy."]).buttonStyle(.borderless)
+            Menu {
+                Button("Edit Brand…") { reload(); showEditor = true }
+                Button("Edit in TextEdit") { edit() }
+                Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([brand]) }
+                Divider()
+                Button("Delete Brand…", role: .destructive) { confirmDelete = true }
+            } label: { Image(systemName: "ellipsis.circle").font(.system(size: 15)) }
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
         }
         .confirmationDialog("Move \(model?.name ?? "this brand") to the Trash?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Move to Trash", role: .destructive) {
