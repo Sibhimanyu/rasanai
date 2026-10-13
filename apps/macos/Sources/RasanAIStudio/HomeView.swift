@@ -310,10 +310,14 @@ struct NeedsYouRow: View {
                     }
                 }
                 Spacer(minLength: 12)
-                Text(verb)
-                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(nsColor: .windowBackgroundColor))
-                    .padding(.horizontal, 16).padding(.vertical, 6)
-                    .background(Color.rasan.opacity(hovering ? 1 : 0.92), in: Capsule())
+                // Quiet on purpose: the whole row is the button, and New film above stays the loudest thing on Home.
+                HStack(spacing: 4) {
+                    Text(verb)
+                    Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold))
+                }
+                .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.rasan)
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .background(Color.rasan.opacity(hovering ? 0.16 : 0.08), in: Capsule())
             }
             .padding(10).padding(.trailing, 6)
         }
