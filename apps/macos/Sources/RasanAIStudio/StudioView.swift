@@ -13,6 +13,10 @@ struct StudioView: View {
     }
 
     @AppStorage("studio.sidebarHidden") private var sidebarHidden = false
+    /// The split view's own state, so its toggle (and ⌃⌘S) runs the system's slide. Binding it straight to the stored setting
+    /// dropped the animation's transaction and made the sidebar snap; the setting is only written back afterwards.
+    @State private var columns: NavigationSplitViewVisibility = .all
+    @State private var restored = false
     /// A film (or the sample, or the film editor) brings its own bottom bar, so the studio's status bar steps aside there.
     private var showsStatusBar: Bool {
         switch store.path.last { case .film?, .sample?, .newFilm?: false; default: true }
@@ -21,8 +25,7 @@ struct StudioView: View {
     /// The native split view: on macOS Tahoe the system draws the floating glass sidebar with the window buttons inside it,
     /// its toggle, and the toggle's move into the toolbar when the sidebar hides, with the system's own animation.
     private var content: some View {
-        NavigationSplitView(columnVisibility: Binding(get: { sidebarHidden ? .detailOnly : .all },
-                                                      set: { sidebarHidden = $0 == .detailOnly })) {
+        NavigationSplitView(columnVisibility: $columns) {
             AppSidebar(store: store)
         } detail: {
             VStack(spacing: 0) {
@@ -31,6 +34,13 @@ struct StudioView: View {
             }
             .background(Color.appBackground)
         }
+        .onAppear {
+            guard !restored else { return }
+            restored = true
+            var quiet = Transaction(); quiet.disablesAnimations = true
+            withTransaction(quiet) { columns = sidebarHidden ? .detailOnly : .all }
+        }
+        .onChange(of: columns) { _, visibility in sidebarHidden = visibility == .detailOnly }
     }
 
     private var stack: some View {
