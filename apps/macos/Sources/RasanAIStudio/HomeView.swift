@@ -96,7 +96,8 @@ struct HomeView: View {
             Menu {
                 Button("Check readiness…") { store.showPreflight() }
                 Button("Import Project…") { store.importProjectPanel() }
-            } label: { Label("More", systemImage: "ellipsis.circle") }.help("More")
+            } label: { Label("More", systemImage: "ellipsis") }
+                .menuIndicator(.hidden).help("More")
             NewFilmHeaderButton { store.newFilm() }
         }
         .alert("Rename film", isPresented: Binding(get: { renameFolder != nil }, set: { if !$0 { renameFolder = nil } })) {

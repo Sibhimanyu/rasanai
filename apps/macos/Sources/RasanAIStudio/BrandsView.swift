@@ -293,7 +293,8 @@ struct BrandPage: View {
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([brand]) }
                 Divider()
                 Button("Delete Brand…", role: .destructive) { confirmDelete = true }
-            } label: { Label("More", systemImage: "ellipsis.circle") }
+            } label: { Label("More", systemImage: "ellipsis") }
+                .menuIndicator(.hidden)
         }
         .confirmationDialog("Move \(model?.name ?? "this brand") to the Trash?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Move to Trash", role: .destructive) {

@@ -34,6 +34,9 @@ struct StudioView: View {
             }
             .background(Color.appBackground)
         }
+        // No toolbar band: the glass items float over the page's own colour, in a window and in full screen alike, and
+        // content blurs softly under them as it scrolls (the system's scroll-edge effect).
+        .modifier(NoToolbarBand())
         .onAppear {
             guard !restored else { return }
             restored = true
@@ -167,5 +170,12 @@ private struct LaunchFocus: ViewModifier {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             withAnimation(reduceMotion ? .easeOut(duration: 0.18) : .easeOut(duration: 0.6)) { focused = true }
         }
+    }
+}
+
+private struct NoToolbarBand: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 15, *) { content.toolbarBackgroundVisibility(.hidden, for: .windowToolbar) }
+        else { content.toolbarBackground(.hidden, for: .windowToolbar) }
     }
 }
