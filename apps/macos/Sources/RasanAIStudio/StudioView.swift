@@ -8,11 +8,12 @@ struct StudioView: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        content.environment(\.momentStore, store)
+        content.environment(\.momentStore, store).environment(\.sidebarToggleSpace, toggleSpace)
     }
 
     @AppStorage("studio.sidebarCollapsed") private var sidebarCollapsed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var toggleSpace
     /// A film (or the sample, or the film editor) brings its own bottom bar, so the studio's status bar steps aside there.
     private var showsStatusBar: Bool {
         switch store.path.last { case .film?, .sample?, .newFilm?: false; default: true }

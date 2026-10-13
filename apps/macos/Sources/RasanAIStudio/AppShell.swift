@@ -34,6 +34,9 @@ struct AppSidebar: View {
     private var needsYouCount: Int { store.visibleProjects.filter { store.summary(for: $0.1).phase.needsYou }.count }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.sidebarToggleSpace) private var space
+    @Namespace private var fallbackSpace
+    private var toggleSpace: Namespace.ID { space ?? fallbackSpace }
     /// Icons keep one position at every width: centred in the folded rail, and the same spot when open, so only the
     /// width, the labels and the toggle move.
     private static let iconInset: CGFloat = 21
@@ -43,9 +46,8 @@ struct AppSidebar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            // The window's buttons sit on the first 44 pt (see TrafficLightsInset). Folded, the toggle needs a row of its
-            // own under them, so the list slides down to make room.
-            Color.clear.frame(height: collapsed ? 82 : 44)
+            // The window's buttons sit on the first 44 pt (see TrafficLightsInset); the toggle shares the row while open.
+            Color.clear.frame(height: 44)
             brand.padding(.bottom, 14)
             item(.home, "Home", "house")
             item(.all, "All films", "film.stack")
@@ -61,11 +63,12 @@ struct AppSidebar: View {
         .padding(.horizontal, 8).padding(.bottom, 12)
         .frame(width: collapsed ? Self.railWidth : Self.fullWidth, alignment: .leading)
         .frame(maxHeight: .infinity, alignment: .top)
-        // One toggle that glides between the window buttons' row (open) and the row under them (folded).
-        .overlay(alignment: .topLeading) {
-            sidebarToggle
-                .offset(x: collapsed ? (Self.railWidth - 30) / 2 : Self.fullWidth - 8 - 30 - 4,
-                        y: collapsed ? 44 + 2 : (44 - 30) / 2)
+        // Open, the toggle sits at the end of the window buttons' row. Folded, it leaves the sidebar for the page's top bar
+        // (NavCluster), as in macOS Tahoe; the shared geometry id lets it glide between the two.
+        .overlay(alignment: .topTrailing) {
+            if !collapsed {
+                sidebarToggle.matchedGeometryEffect(id: "sidebar-toggle", in: toggleSpace).padding(.trailing, 12).padding(.top, 7)
+            }
         }
         .clipped()
         // A floating sheet of glass inset from the window's edges, the traffic lights inside it, as in macOS Tahoe.
@@ -267,10 +270,17 @@ struct GlassIconButton: View {
 /// Top left of every page, as in Safari: the sidebar toggle, then back and forward in one glass capsule.
 struct NavCluster: View {
     @Environment(\.momentStore) private var store
+    @Environment(\.sidebarToggleSpace) private var space
+    @Namespace private var fallbackSpace
+    private var toggleSpace: Namespace.ID { space ?? fallbackSpace }
     @AppStorage("studio.sidebarCollapsed") private var collapsed = false
 
     var body: some View {
         HStack(spacing: 10) {
+            if collapsed {
+                GlassIconButton(symbol: "sidebar.left", help: "Show the sidebar (⌃⌘S)") { collapsed = false }
+                    .matchedGeometryEffect(id: "sidebar-toggle", in: toggleSpace)
+            }
             HStack(spacing: 0) {
                 arrow("chevron.left", "Back", enabled: store?.canGoBack ?? false) { store?.goBack() }
                     .keyboardShortcut("[", modifiers: .command)
@@ -341,5 +351,14 @@ struct TrafficLightsInset: NSViewRepresentable {
                 button.setFrameOrigin(NSPoint(x: leading + CGFloat(index) * 20, y: (height - button.frame.height) / 2))
             }
         }
+    }
+}
+
+/// The namespace the sidebar toggle glides in, between the sidebar and the page's top bar.
+private struct SidebarToggleSpaceKey: EnvironmentKey { static var defaultValue: Namespace.ID? { nil } }
+extension EnvironmentValues {
+    var sidebarToggleSpace: Namespace.ID? {
+        get { self[SidebarToggleSpaceKey.self] }
+        set { self[SidebarToggleSpaceKey.self] = newValue }
     }
 }
