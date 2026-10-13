@@ -516,33 +516,30 @@ struct NewFilmView: View {
     // MARK: Footer
 
     private var footer: some View {
-        VStack(spacing: 8) {
-            if loaded && !editorState.isEmpty {
-                HStack(spacing: 4) {
-                    Image(systemName: "checkmark.circle")
-                    Text("Draft saved automatically")
-                }.font(.system(size: 11)).foregroundStyle(.secondary)
-            }
+        VStack(spacing: 6) {
             HStack(spacing: 10) {
                 if loaded && !editorState.isEmpty {
                     Button("Discard changes…", role: .destructive) { showDiscard = true }.buttonStyle(StudioSecondaryButtonStyle()).disabled(working)
                 }
+                HStack(spacing: 4) {
+                    if loaded && !editorState.isEmpty {
+                        Image(systemName: "checkmark.circle")
+                        Text("Saved automatically ·")
+                    }
+                    Text(directorReady ? "Directed by \(agent.title) ·" : "Set up a director before starting ·")
+                    Button("Change") { openSettings() }.buttonStyle(.link)
+                }.font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
                 Spacer()
                 if working || checkingStart { ProgressView().controlSize(.small) }
                 if let queueNote { Text(queueNote).font(.system(size: 12)).foregroundStyle(.secondary).transition(.opacity) }
                 Button("Save draft") { save(start: false) }.buttonStyle(StudioSecondaryButtonStyle()).disabled(working || (project == nil && trimmedBrief.isEmpty && name.isEmpty))
             }
-            HStack(spacing: 4) {
-                Spacer()
-                Text(directorReady ? "Start film: \(agent.title) reads your brief, then asks you to confirm it ·" : "Set up and sign in to your director before starting.")
-                Button("Change") { openSettings() }.buttonStyle(.link)
-            }.font(.system(size: 11)).foregroundStyle(.secondary)
             if directorBusy && !editingQueued {
                 Text("Starts automatically when the current film finishes.")
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                    .font(.system(size: 11)).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
-        .padding(.horizontal, 32).padding(.vertical, 14)
+        .padding(.horizontal, 32).padding(.vertical, 12)
         .frame(maxWidth: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
         .overlay(alignment: .top) { Divider() }
