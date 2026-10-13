@@ -124,6 +124,30 @@ for (const count of ["3", "6"]) {
   ok(`pick --count ${count}: 2+ tail candidates, auto never the remembered pick`, r.tail_count >= 2 && r.auto && r.auto.pick !== "retro-terminal", p.stdout.slice(0, 200));
 }
 
+// 5b taste ledger: record, digest, cap, clear
+{
+  const th = path.join(TMP, "taste-home");
+  const tenv = { ...env, RASANAI_HOME: th };
+  const mem = (a) => spawnSync(process.execPath, [path.join(HERE, "memory.mjs"), ...a], { encoding: "utf8", env: tenv, cwd: TMP });
+  ok("taste: empty ledger says so", /No taste notes/.test(mem(["taste"]).stdout));
+  const r1 = mem(["edit", "--film", "f1", "--stage", "animatic", "--note", "Slower", "--scene", "s2", "--t", "4.5"]);
+  mem(["edit", "--film", "f2", "--stage", "final", "--note", "slower!"]);
+  mem(["verdict", "--film", "f2", "--stage", "final", "--note", "Too busy in the middle"]);
+  ok("taste: record writes a row with film, stage, note, ts, scene and time", (() => { const r = JSON.parse(r1.stdout); return r.kind === "edit" && r.film === "f1" && r.stage === "animatic" && r.note === "Slower" && r.scene === "s2" && r.t === 4.5 && !!r.ts; })(), r1.stdout + r1.stderr);
+  ok("taste: a bad stage is refused", mem(["edit", "--film", "f", "--stage", "x", "--note", "n"]).status !== 0);
+  const dg = mem(["taste"]).stdout;
+  ok("taste: digest leads with the repeated theme, then the latest", /Recurring:\n- x2 \(2 films\) slower!?/i.test(dg) && /Too busy in the middle/.test(dg) && dg.indexOf("Recurring") < dg.indexOf("Latest"), dg);
+  for (let i = 0; i < 560; i++) fs.appendFileSync(path.join(th, "taste.jsonl"), JSON.stringify({ ts: "2026-01-01T00:00:00Z", kind: "edit", film: "bulk" + (i % 7), stage: "final", note: "note number " + i + " " + "word ".repeat(40) }) + "\n");
+  mem(["edit", "--film", "f3", "--stage", "final", "--note", "trigger trim"]);
+  const rows = fs.readFileSync(path.join(th, "taste.jsonl"), "utf8").split("\n").filter(Boolean).length;
+  const big = mem(["taste"]).stdout;
+  ok("taste: the ledger keeps at most 500 rows and the digest stays under 1800 characters", rows === 500 && big.length <= 1800 && /trigger trim/.test(big), `rows ${rows}, digest ${big.length}`);
+  const one = JSON.parse(mem(["taste-clear", "--film", "f3"]).stdout);
+  ok("taste: clear --film removes only that film", one.cleared === 1 && one.left === 499, JSON.stringify(one));
+  mem(["taste-clear"]);
+  ok("taste: clear forgets everything", !fs.existsSync(path.join(th, "taste.jsonl")) && /No taste notes/.test(mem(["taste"]).stdout));
+}
+
 // 6
 const run = path.join(TMP, "console-run");
 const sv = node("console.mjs", ["serve", "--run", run, "--root", TMP]);

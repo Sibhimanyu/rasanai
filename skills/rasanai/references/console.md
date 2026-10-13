@@ -139,6 +139,8 @@ Other steps (Claude usually pushes these `--status done` with only a `decision`;
 | `swap` | animatic | `{chip: "music"\|"voice", id}` |
 | `more` | animatic | `{what: "angle"}`: another story angle |
 | `comment` | animatic, render, final | `{scene, t, x, y, scope: "scene"\|"film", quick}`; the text is in `note`. Stored as an open note (`session.comments`); not an answer, the step stays open |
+
+Taste ledger: a `comment` or `note` on the animatic or the final (and words sent with `approve` on the final) is also appended, when it is consumed, to the user's local `$RASANAI_HOME/taste.jsonl` through `console.mjs` (`memory.mjs taste` prints the digest, `memory.mjs taste-clear` forgets it). The page, RasanAI Studio and chat `record` all take this one path, so the app sends nothing extra.
 | `apply` | animatic, render, final | `{ids: [note ids]}`: make these notes, then `resolve` them |
 | `approve` | animatic, storyboard, styleframes, keyframes, plan | null |
 | `comment` | styleframes | `{scene: <frame id>, t: null, x: null, y: null, scope: "scene"}`; the text is in `note`. An open note on that frame (`session.comments`), resolved with `resolve` after the redo |
