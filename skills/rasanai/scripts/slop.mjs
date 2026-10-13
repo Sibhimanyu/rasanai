@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The anti-slop gate: checks a built film for the tells viewers read as generic AI video, before the render
 // question (next to obey.mjs, which checks the motion contract). Evidence: /references/craft.md "Anti-slop".
-//   node slop.mjs --project videos/<name> [--scenes <scenes.json>] [--video <render.mp4>] [--style <preset id>] [--run <run>] [--score <score.json>] [--json]
+//   node slop.mjs --project videos/<name> [--scenes <scenes.json>] [--video <render.mp4>] [--style <preset id>] [--run <run>] [--score <score.json>] [--no-text-fit] [--no-chrome] [--chrome-allow <rule ids>] [--json]
 // Hero effects (glow, blur-in, particles) are budgets, not bans: allowed on the hero up to the score's `budget`
 // (lib/budget.mjs); the same effect on every element is the error.
 // With a brand (the run's research/brand/assets/, found from --run, from "<run>/frames", or from the project's
@@ -9,7 +9,9 @@
 // Reads the project's compositions (HTML/CSS/JS), its scenes/storyboard timing, its audio plan and, when given,
 // the rendered video. Also loads the built compositions headlessly and measures every visible text in the real DOM
 // at 10 fps (rule "text-cropped": a line that crosses the frame edge for more than 0.4 s, or sits outside the 6% safe
-// area at rest; lib/textfit.mjs; --no-text-fit skips it). Exit 0 = clean or warnings only; 2 = problems to fix (each with a fix); 1 = could not run.
+// area at rest; lib/textfit.mjs; --no-text-fit skips it). The same headless pass reads the page chrome (rules kicker-over-headline,
+// deck-layout, typed-headline, vibe-*, chapter-counter, progress-hairline, tracked-caps-label, corner-brackets,
+// header-footer-bar, corner-micro-label, pinned-element: lib/chrome-lint.mjs; --no-chrome skips it). Exit 0 = clean or warnings only; 2 = problems to fix (each with a fix); 1 = could not run.
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -17,6 +19,7 @@ import { parseArgs, die } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
 import { readLogos, scanLogos } from "./lib/logos.mjs";
 import { textFit } from "./lib/textfit.mjs";
+import { chromeLint } from "./lib/chrome-lint.mjs";
 import { readBudget, budgetFor, budgetLimit } from "./lib/budget.mjs";
 
 const args = parseArgs();
@@ -166,6 +169,23 @@ if (!args["no-text-fit"]) {
   const tf = await textFit(dir);
   for (const f of tf.findings) add("text-cropped", "error", `${f.file}: "${f.text}" ${f.from}-${f.to} s`, f.message, f.fix);
   if (tf.could_not_run.length) add("text-fit-skipped", "warn", dir, `${tf.could_not_run[0]} (the text-fit check did not run)`, "Install Chrome (npx hyperframes browser ensure, or set RASANAI_CHROME) and re-run: the composition's text was not measured.");
+}
+
+// ---- 5c. page chrome: the HUD / slide-deck / vibe-coded-UI tells, measured in the real DOM ----
+// Adapted from motionmaxxing (Apache-2.0, Tejas Makwana), scripts/lint.mjs.
+// lib/chrome-lint.mjs seeks every composition like text-fit and reads the held text blocks and shapes. Rules (ids in the
+// findings): kicker-over-headline, deck-layout, typed-headline, vibe-ui-card, vibe-greeting, vibe-ui-tell, chapter-counter,
+// progress-hairline, tracked-caps-label, corner-brackets, header-footer-bar, corner-micro-label, pinned-element. A brand
+// film's own device is honoured: grammar.json's measured.chrome lists rule ids that brand's films use (found from --run).
+// --no-chrome skips it; --chrome-allow <ids> lists rule ids to allow. Exempt: text inside a UI surface or data-ui, the
+// vibe rules inside data-ui="captured", anything inside data-chrome="allow", and wordmark/logo elements.
+if (!args["no-chrome"]) {
+  let allow = String(args["chrome-allow"] && args["chrome-allow"] !== true ? args["chrome-allow"] : "").split(",").map((s) => s.trim()).filter(Boolean);
+  const gRun = args.run && args.run !== true ? path.resolve(String(args.run)) : path.basename(dir) === "frames" ? path.dirname(dir) : null;
+  if (gRun) { try { const g = JSON.parse(fs.readFileSync(path.join(gRun, "brand-film", "grammar.json"), "utf8")); if (g.measured && Array.isArray(g.measured.chrome)) allow = allow.concat(g.measured.chrome.map(String)); } catch {} }
+  const cl = await chromeLint(dir, { allow });
+  for (const f of cl.findings) add(f.rule, f.severity, f.where, f.why, f.fix);
+  if (cl.could_not_run.length) add("chrome-lint-skipped", "warn", dir, `${cl.could_not_run[0]} (the page-chrome check did not run)`, "Install Chrome (npx hyperframes browser ensure, or set RASANAI_CHROME) and re-run: the page chrome was not measured.");
 }
 
 // ---- 6. the rendered video ----

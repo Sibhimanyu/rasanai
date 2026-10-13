@@ -25,6 +25,8 @@
 //                                     measures exactly that; then the type-scale rules below are errors)
 //   soft-content    film soft-share p90 >= 0.15, or a blurred plane (soft share >= 0.15) in >= 15% of shots; skipped
 //                                     when the brand film never blurs (R1 asked 40% of shots: no reference reaches it)
+//   flat-swatch-grounds  more than 3 distinct flat grounds (9 sampled points under 6% luma range, Lab distance >= 8 apart) in a
+//                   film of 4+ shots: warning; 6 or more: error; waived when the brand film's ground is flat
 //   colourfulness   p90 >= 35 (warning)
 //   text-load       median characters on screen <= 40 (warning), > 70 (error)
 //   scale-contrast  p90/p10 of the biggest line >= 5, or object-scale p90/p10 >= 5
@@ -38,7 +40,7 @@ import { parseArgs, chromePath } from "./lib/common.mjs";
 import { launch } from "./lib/cdp.mjs";
 import { serve } from "./lib/stage3d.mjs";
 import { pagesOf, sizeOf } from "./lib/textfit.mjs";
-import { decodeStill, decodeVideo, frameMetrics, cutsAndCompositions, ffmpegOk, percentile as pct, median } from "./lib/pixels.mjs";
+import { decodeStill, decodeVideo, frameMetrics, cutsAndCompositions, ffmpegOk, rgbToLab, percentile as pct, median } from "./lib/pixels.mjs";
 
 export const GATE = {
   ground_chroma: 1.5, ground_range: 4, // R10
@@ -52,6 +54,7 @@ export const GATE = {
   ink: 0.82, // rendered line box -> glyph ink box (what OCR measures)
   min_line_pct: 0.8, // lines under 0.8% of the frame height are not readable (OCR floor in R1)
   min_opacity: 0.35, min_object_pct: 4, // an object counts as a hero candidate from 4% of the frame height
+  swatch_grounds: 3, swatch_error: 6, swatch_de: 8, // flat swatch grounds: more than 3 distinct flat grounds (Lab distance >= 8) in a film of 4+ shots is a deck (warning), 6 or more an error; waived when the brand film's ground is flat
   unreadable_blur: 4, // text under a blur of this many px is not read (it counts for scale, not for load)
 };
 
@@ -310,6 +313,7 @@ export async function measureFrames(opts = {}) {
 
   // film metrics
   const film = { frames: feats.length };
+  let shotFrames = [];
   const flagsOf = (f, t) => {
     const fl = [];
     if (f.groundChroma != null && f.groundChroma < GATE.ground_chroma && f.groundRange != null && f.groundRange < GATE.ground_range) fl.push("flat-ground");
@@ -334,7 +338,25 @@ export async function measureFrames(opts = {}) {
     const inShot = (t, s) => t >= s[0] - 1e-6 && t < s[1] - 1e-6;
     film._shots = cc.shots.map((s) => Math.max(...feats.filter((f) => inShot(f.t, s)).map((f) => f.soft))).filter(Number.isFinite);
     film.shots = film._shots.length;
-  } else film._shots = feats.map((f) => f.soft); // a still is its own shot
+    shotFrames = cc.shots.map((s) => feats.filter((f) => inShot(f.t, s)));
+  } else { film._shots = feats.map((f) => f.soft); shotFrames = feats.map((f) => [f]); } // a still is its own shot
+  // flat swatch grounds (slop N4): a shot is a swatch when most of its frames are flat on 9 points; the film counts the
+  // distinct swatch colours (Lab distance of 8 or more apart)
+  {
+    const grounds = [];
+    let flatShots = 0;
+    for (const fr of shotFrames) {
+      const flat = fr.filter((f) => f.swatch && f.swatch.flat);
+      if (!fr.length || flat.length < 0.6 * fr.length) continue;
+      flatShots++;
+      const m = [0, 1, 2].map((k) => median(flat.map((f) => f.swatch.rgb[k])));
+      const lab = rgbToLab(m[0], m[1], m[2]);
+      if (!grounds.some((g) => Math.hypot(g[0] - lab[0], g[1] - lab[1], g[2] - lab[2]) < GATE.swatch_de)) grounds.push(lab);
+    }
+    film.flatShots = flatShots;
+    film.swatchGrounds = grounds.length;
+    film.swatchShots = shotFrames.length;
+  }
   film.softShotsShare = r2(film._shots.filter((v) => v >= GATE.soft_share).length / Math.max(1, film._shots.length));
   if (text) {
     const rows = text.filter(Boolean), big = rows.map((r) => r.bigPct), withText = big.filter((v) => v > 0);
@@ -381,6 +403,14 @@ export async function measureFrames(opts = {}) {
     add("warning", "flat-ground-unproven", `flat ground (chroma ${film.groundChroma}, L* range ${film.groundRange}) is allowed by the brand film, but without DOM text the type-scale rules that must carry it were not measured`, `run again with --project <videos/name> (a film) or --html <boards dir> (stills)`);
   }
 
+  // flat swatch grounds: a colour per scene is a deck. Adapted from motionmaxxing (Apache-2.0, Tejas Makwana), references/slop.md N4.
+  // A warning above 3 distinct flat grounds (the lead: a colour change can be a deliberate flood), an error from 6 (every scene
+  // its own plateau). Waived when the brand film measures a flat ground itself, as the ground rules above are.
+  if (film.swatchShots >= 4) {
+    if (L.flat) res.skipped.push(`flat swatch grounds: waived, the brand film's ground is flat (${film.swatchGrounds} distinct flat grounds measured)`);
+    else if (film.swatchGrounds > GATE.swatch_grounds) add(film.swatchGrounds >= GATE.swatch_error ? "error" : "warning", "flat-swatch-grounds", `${film.swatchGrounds} distinct flat grounds in ${film.swatchShots} shots (${film.flatShots} shots are a plain colour on 9 sampled points; more than ${GATE.swatch_grounds} reads as a deck of colour plateaus)`, `give the scenes a surface from the capture (a plate, product screen, material or lit ground) instead of a flat colour per scene; keep a flat colour only for a flood or dive under 1 s, or measure the brand film (--brand-film) if its own films are flat; references/craft.md Frame metrics`, { value: film.swatchGrounds, limit: GATE.swatch_grounds });
+  }
+
   // soft content (R9)
   if (L.neverBlurs) res.skipped.push("soft content: the brand film never blurs");
   else if (film.softP90 >= L.softP90 || film.softShotsShare >= GATE.soft_shots) { /* depth: a blurred plane in enough of the film */ }
@@ -417,7 +447,7 @@ function printable(res) {
   const f = res.film, out = [];
   out.push(`frame gate: ${res.verdict}${res.kind === "video" ? ` · ${f.durS} s, ${f.frames} frames sampled` : ` · ${f.frames} stills`}`);
   const row = (k, v, u = "") => v == null ? "" : `${k} ${v}${u}`;
-  out.push("  pixels  " + [row("ground chroma", f.groundChroma), row("ground L* range", f.groundRange), row("empty", Math.round(f.emptyShare * 100), "%"), row("soft p90", f.softP90), row("soft shots", Math.round(f.softShotsShare * 100), "%"), row("colourful p90", f.colourfulP90), row("sat", f.satMedian, "%")].filter(Boolean).join(" · "));
+  out.push("  pixels  " + [row("ground chroma", f.groundChroma), row("ground L* range", f.groundRange), row("empty", Math.round(f.emptyShare * 100), "%"), row("soft p90", f.softP90), row("soft shots", Math.round(f.softShotsShare * 100), "%"), row("colourful p90", f.colourfulP90), row("sat", f.satMedian, "%"), row("flat grounds", f.swatchGrounds)].filter(Boolean).join(" · "));
   if (res.kind === "video") out.push("  cuts    " + [row("hard cuts", f.hardCuts), row("ASL", f.aslS, " s"), row("compositions/10 s", f.compositionsPer10s)].filter(Boolean).join(" · "));
   if (f.charsMedian != null) out.push("  text    " + [row("chars", f.charsMedian), row("lines", f.linesMedian), row("biggest p90", f.biggestP90, "% H"), row("p90/p10", f.biggestRatio), row("max", f.biggestMax, "% H"), row("frames >= 20% H", Math.round(f.share20 * 100), "%"), row("object p90/p10", f.objectRatio)].filter(Boolean).join(" · "));
   if (res.limits.notes.length) for (const n of res.limits.notes) out.push(`  note    ${n}`);

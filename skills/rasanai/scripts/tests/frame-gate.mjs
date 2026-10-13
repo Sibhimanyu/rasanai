@@ -91,5 +91,18 @@ export default async function ({ ok, tmp }) {
   ok("frame-gate: DOM text: a crowded board (12 lines, 500+ characters, no big line) fails text-load and giant-moment, and the frame is flagged crowded", has(rC, "text-load", "error") && has(rC, "giant-moment") && rC.frames[0].flags.includes("crowded"), JSON.stringify(rC.findings.map((f) => f.check)) + JSON.stringify(rC.frames[0]));
   const rCB = await mod.measureFrames({ stills: crowd, html: crowd, brandFilm: gram });
   ok("frame-gate: with a flat brand film the same crowded board still fails (type carries the film), and the giant-moment finding is an error", has(rCB, "text-load", "error") && has(rCB, "giant-moment", "error") && !has(rCB, "ground-chroma"), JSON.stringify(rCB.findings.map((f) => f.severity + ":" + f.check)));
+// flat swatch grounds: a film (stills, each its own shot) whose scenes are plain colour plateaus
+  const sw = path.join(dir, "swatch");
+  fs.mkdirSync(sw, { recursive: true });
+  const colours = ["0xd94a38", "0x2f6fdb", "0x2fb36d", "0xf0c030", "0x8a4fd6", "0x20b8c8"];
+  const swatches = colours.map((c, i) => make(`swatch/${i}.png`, `color=c=${c}:s=640x360`, ["-vf", "drawbox=x=200:y=100:w=240:h=160:color=white:t=fill", "-frames:v", "1"]));
+  const dirOf = (n, files) => { const d = path.join(dir, `swatch-${n}`); fs.mkdirSync(d, { recursive: true }); files.forEach((f, i) => fs.copyFileSync(f, path.join(d, `${String(i).padStart(2, "0")}.png`))); return d; };
+  const w3 = dirOf("3", swatches.slice(0, 3)), w4 = dirOf("4", swatches.slice(0, 4)), w6 = dirOf("6", swatches), wl = dirOf("lit", [lit, lit, lit, lit]);
+  const r3s = await mod.measureFrames({ stills: w3 }), r4s = await mod.measureFrames({ stills: w4 }), r6s = await mod.measureFrames({ stills: w6 }), rls = await mod.measureFrames({ stills: wl });
+  ok("frame-gate: swatch grounds: a flat colour behind a centred object still measures flat (the 2 points the object covers are dropped); 4 distinct plain grounds in 4 shots is a warning, 6 an error", r4s.film.swatchGrounds === 4 && has(r4s, "flat-swatch-grounds", "warning") && r6s.film.swatchGrounds === 6 && has(r6s, "flat-swatch-grounds", "error"), JSON.stringify([r4s.film.swatchGrounds, r6s.film.swatchGrounds, r4s.findings.map((f) => f.check)]));
+  ok("frame-gate: swatch grounds: 3 plain grounds (the allowed count, under 4 shots) and four lit gradient shots are not flagged", !has(r3s, "flat-swatch-grounds") && !has(rls, "flat-swatch-grounds") && rls.film.swatchGrounds === 0, JSON.stringify([r3s.film.swatchGrounds, rls.film.swatchGrounds]));
+  const rsb = await mod.measureFrames({ stills: w6, brandFilm: gram });
+  ok("frame-gate: swatch grounds: a brand film that measures a flat ground waives the rule (listed as skipped, never an error)", !has(rsb, "flat-swatch-grounds") && rsb.skipped.some((s) => /flat swatch grounds: waived/.test(s)), JSON.stringify(rsb.skipped));
+
   ok("frame-gate: no leftover temp pages in the boards directory", fs.readdirSync(bd).every((f) => !f.startsWith(".rasanai-framegate")), fs.readdirSync(bd).join(","));
 }

@@ -78,6 +78,26 @@ export const SIGNATURES = {
 };
 
 
+// Page-chrome rules (slop.mjs, via lib/chrome-lint.mjs): the HUD / slide-deck / vibe-coded-UI tells. These are not tween
+// signatures; they are read from the real DOM, seeked headless, so the detection lives in chrome-lint.mjs and only the rule
+// ids and their default severity live here, next to the other banned patterns. Table: references/motion-md-contract.md
+// "Page-chrome rules". A finding may be downgraded below the default (noted per rule).
+export const CHROME_RULES = {
+  "kicker-over-headline": "error",
+  "deck-layout": "error", // a warning when there is no media on the right (a sub-line or 2+ lines only)
+  "typed-headline": "error", // a warning for a caret alone
+  "vibe-ui-card": "error",
+  "vibe-greeting": "error",
+  "vibe-ui-tell": "warn",
+  "chapter-counter": "error",
+  "progress-hairline": "error",
+  "tracked-caps-label": "error", // a warning for a single label
+  "corner-brackets": "error",
+  "header-footer-bar": "error",
+  "corner-micro-label": "warn",
+  "pinned-element": "error",
+};
+
 // banned names this tween matches (fade-up-slide is the specific case of fade-slide; report it once)
 export function bannedHits(t, cls, banned) {
   return banned.filter((b) => {

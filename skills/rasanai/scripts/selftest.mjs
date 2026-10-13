@@ -43,6 +43,7 @@
 // camera. the RasanCamera kit (scripts/tests/camera.mjs): runtime, camera.mjs install/check (order, timeline, randomness, budgets), video.mjs inject
 //    (kit + GSAP plugins, script tags), finish.mjs --draft; full runs render the demo film (every function, seek identity, byte-identical double render)
 // 17. lyric videos: the treatment gate and the crew's song route, lyrics.mjs (check, audio, align when whisper is there), the RasanMusic runtime in a page, the film finish (grade, blur)
+// chrome-lint. the page-chrome lint (scripts/tests/chrome-lint.mjs): every rule of lib/chrome-lint.mjs on planted films with its negatives (UI surface, data-ui="captured", data-chrome="allow", a brand film's measured.chrome), through slop.mjs
 // formats. the "What are you making?" picker (scripts/tests/formats.mjs): formats.json check, match, resolve, the brief payload, the console picker, story.mjs format_shapes
 // plates. abstract plates (scripts/tests/plates.mjs): art.mjs recipe, the gradient-map palette lock, the procedural plate, make on an abstract row; full runs render flowGround + plateTransition twice (byte-identical)
 import fs from "node:fs";
@@ -2185,7 +2186,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   ok("presenter: other routes do not need ## Imagery", !/Imagery/.test(g(run2).stdout));
 
   // the scripts' own tests, each with the same helpers; absent files are a note, never a failure
-  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit", "frame-gate", "frames", "camera"]) {
+  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit", "chrome-lint", "frame-gate", "frames", "camera"]) {
     const f = path.join(HERE, "tests", `${name}.mjs`);
     if (!fs.existsSync(f)) { console.log(`note  ${name}: scripts/tests/${name}.mjs is not there yet, skipped`); continue; }
     try {
