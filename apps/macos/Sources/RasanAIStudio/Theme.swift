@@ -19,6 +19,11 @@ extension Color {
     })
     /// The RasanAI blue as a solid fill (primary buttons, the current step, selection): the brand value in both appearances.
     static let rasanFill = Color(nsColor: .rasanHex(0x2A31A8))
+    /// The window's background: macOS Tahoe's neutral charcoal in dark mode (#1E1E1E, as in Apple's own sidebar apps),
+    /// the system window colour in light mode.
+    static let appBackground = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x1E1E1E) : .windowBackgroundColor
+    })
     /// Turmeric, the brand's warm accent: note times, a waiting badge.
     static let turmeric = Color(nsColor: .rasanHex(0xEFB21A))
     /// The logo's ink. Light-mode headers only.
@@ -37,7 +42,7 @@ extension Color {
 
 /// Kept so the sample-film views and older files keep compiling; every value maps onto the calm palette.
 enum StudioPalette {
-    static let background = Color(nsColor: .windowBackgroundColor)
+    static let background = Color.appBackground
     static let panel = Color(nsColor: .controlBackgroundColor)
     static let raised = Color(nsColor: .underPageBackgroundColor)
     static let ink = Color.primary

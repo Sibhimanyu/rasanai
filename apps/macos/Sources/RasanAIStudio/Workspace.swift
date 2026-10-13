@@ -8,17 +8,17 @@ import SwiftUI
 /// Light mode keeps the same structure on a grey canvas with white panels.
 enum Workspace {
     static let canvas = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x0E0F12) : .rasanHex(0xE9E9EC)
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x1E1E1E) : .rasanHex(0xE9E9EC)
     })
     static let panel = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x17181C) : .rasanHex(0xFFFFFF)
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x262626) : .rasanHex(0xFFFFFF)
     })
     static let raised = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x1F2025) : .rasanHex(0xF4F4F6)
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x2E2E2E) : .rasanHex(0xF4F4F6)
     })
     static let hairline = Color.primary.opacity(0.08)
     static let sidebar = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x131418) : .rasanHex(0xF3F3F6)
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x1E1E1E) : .rasanHex(0xF3F3F6)
     })
     static let radius: CGFloat = 12
     static let gap: CGFloat = 12

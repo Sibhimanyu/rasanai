@@ -35,7 +35,13 @@ struct AppSidebar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Color.clear.frame(height: 36)   // the window's traffic lights sit here
+            // The window's buttons sit on this row (see TrafficLightsInset); the sidebar toggle shares it while the sidebar is open.
+            HStack {
+                Spacer()
+                if !collapsed { sidebarToggle }
+            }
+            .frame(height: 44)
+            if collapsed { sidebarToggle.frame(maxWidth: .infinity).padding(.bottom, 6) }
             brand.padding(.bottom, 14)
             item(.home, "Home", "house")
             item(.all, "All films", "film.stack")
@@ -49,11 +55,22 @@ struct AppSidebar: View {
             row(nil, "Settings", "gearshape") { openSettings() }
         }
         .padding(.horizontal, 8).padding(.bottom, 12)
-        .frame(width: collapsed ? 72 : 232)
+        .frame(width: collapsed ? 80 : 232)
         .frame(maxHeight: .infinity, alignment: .top)
         // A floating sheet of glass inset from the window's edges, the traffic lights inside it, as in macOS Tahoe.
         .liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: false)
         .padding(.leading, 8).padding(.vertical, 8)
+        .background { TrafficLightsInset(rowCentre: 30, leading: 24) }
+    }
+
+    /// Folds the sidebar to icons, or opens it again: on the window buttons' row while open, under them while folded.
+    private var sidebarToggle: some View {
+        Button { withAnimation(.snappy(duration: 0.24)) { collapsed.toggle() } } label: {
+            Image(systemName: "sidebar.left").font(.system(size: 15, weight: .medium)).frame(width: 30, height: 30).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).foregroundStyle(.secondary)
+        .help(collapsed ? "Show the full sidebar (⌃⌘S)" : "Collapse the sidebar to icons (⌃⌘S)")
+        .accessibilityLabel(collapsed ? "Expand sidebar" : "Collapse sidebar")
     }
 
     private var brand: some View {
@@ -88,10 +105,10 @@ struct AppSidebar: View {
                     }
                 }
             }
-            .foregroundStyle(on ? Color.rasan : quiet ? Color.secondary : Color.primary)
+            .foregroundStyle(quiet && !on ? Color.secondary : Color.primary)
             .padding(.horizontal, collapsed ? 0 : 10).frame(height: 36)
             .frame(maxWidth: .infinity, alignment: collapsed ? .center : .leading)
-            .background(on ? Color.rasan.opacity(0.13) : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(on ? Color.primary.opacity(0.13) : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -233,10 +250,6 @@ struct NavCluster: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            GlassIconButton(symbol: "sidebar.left", help: collapsed ? "Show the full sidebar (⌃⌘S)" : "Collapse the sidebar to icons (⌃⌘S)") {
-                withAnimation(.snappy(duration: 0.24)) { collapsed.toggle() }
-            }
-            .keyboardShortcut("s", modifiers: [.control, .command])
             HStack(spacing: 0) {
                 arrow("chevron.left", "Back", enabled: store?.canGoBack ?? false) { store?.goBack() }
                     .keyboardShortcut("[", modifiers: .command)
@@ -245,6 +258,10 @@ struct NavCluster: View {
                     .keyboardShortcut("]", modifiers: .command)
             }
             .liquidGlass(in: Capsule())
+        }
+        .background {
+            Button("Toggle sidebar") { withAnimation(.snappy(duration: 0.24)) { collapsed.toggle() } }
+                .keyboardShortcut("s", modifiers: [.control, .command]).opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
         }
     }
 
@@ -256,5 +273,52 @@ struct NavCluster: View {
         .foregroundStyle(enabled ? Color.primary : Color.secondary.opacity(0.5))
         .disabled(!enabled)
         .help(title).accessibilityLabel(title)
+    }
+}
+
+// MARK: Window controls
+
+/// Moves the window's close, minimise and zoom buttons into the floating sidebar's top row, inset from its rounded corner
+/// the way macOS Tahoe's own sidebar apps place them. AppKit puts them back on every layout, so this re-applies on
+/// resize, full screen and key changes.
+struct TrafficLightsInset: NSViewRepresentable {
+    /// The centre of the buttons' row from the window's top edge, and the first button's left edge.
+    var rowCentre: CGFloat = 30
+    var leading: CGFloat = 24
+
+    func makeNSView(context: Context) -> NSView { Anchor(rowCentre: rowCentre, leading: leading) }
+    func updateNSView(_ view: NSView, context: Context) { (view as? Anchor)?.apply() }
+
+    final class Anchor: NSView {
+        let rowCentre: CGFloat
+        let leading: CGFloat
+        nonisolated(unsafe) private var observers: [NSObjectProtocol] = []
+        init(rowCentre: CGFloat, leading: CGFloat) { self.rowCentre = rowCentre; self.leading = leading; super.init(frame: .zero) }
+        required init?(coder: NSCoder) { fatalError() }
+        deinit { observers.forEach(NotificationCenter.default.removeObserver) }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            observers.forEach(NotificationCenter.default.removeObserver); observers = []
+            guard let window else { return }
+            for name in [NSWindow.didResizeNotification, NSWindow.didEndLiveResizeNotification, NSWindow.didExitFullScreenNotification,
+                         NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification, NSWindow.didChangeScreenNotification] {
+                observers.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.apply() }
+                })
+            }
+            DispatchQueue.main.async { [weak self] in self?.apply() }
+        }
+
+        func apply() {
+            guard let window, !window.styleMask.contains(.fullScreen),
+                  let close = window.standardWindowButton(.closeButton), let container = close.superview?.superview else { return }
+            let height = rowCentre * 2
+            container.frame = NSRect(x: 0, y: window.frame.height - height, width: window.frame.width, height: height)
+            for (index, type) in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton].enumerated() {
+                guard let button = window.standardWindowButton(type) else { continue }
+                button.setFrameOrigin(NSPoint(x: leading + CGFloat(index) * 20, y: (height - button.frame.height) / 2))
+            }
+        }
     }
 }

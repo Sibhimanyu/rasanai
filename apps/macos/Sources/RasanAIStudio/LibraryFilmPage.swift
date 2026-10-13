@@ -58,7 +58,7 @@ struct LibraryFilmPage: View {
         }
         .navigationTitle(archive?.title ?? "Film")
         .pageHeader(archive?.title ?? "Film", onBack: { store.goHome() })
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color.appBackground)
         .task(id: url) {
             let library = store.projectLibrary(for: url)
             do {

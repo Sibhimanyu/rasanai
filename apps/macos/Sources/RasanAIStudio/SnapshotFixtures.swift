@@ -213,7 +213,7 @@ enum StageFixtures {
         }
         var body: some View {
             if name == "ask-sheet", let ask = model.ask {
-                AskSheet(model: model, ask: ask).tint(.rasan).background(Color(nsColor: .windowBackgroundColor))
+                AskSheet(model: model, ask: ask).tint(.rasan).background(Color.appBackground)
             } else { stage }
         }
         private var stage: some View {

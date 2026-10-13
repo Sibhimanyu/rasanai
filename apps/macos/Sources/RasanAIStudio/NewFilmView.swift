@@ -207,7 +207,7 @@ struct NewFilmView: View {
             .padding(.horizontal, 32).padding(.top, 24).padding(.bottom, 28)
             .frame(maxWidth: 1080).frame(maxWidth: .infinity)
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color.appBackground)
         .safeAreaInset(edge: .bottom, spacing: 0) { footer }
         .navigationTitle(project == nil ? "New film" : "Edit film")
         .pageHeader(project == nil ? "New film" : "Edit film", onBack: { if !store.path.isEmpty { store.path.removeLast() } }) {
@@ -554,7 +554,7 @@ struct NewFilmView: View {
         }
         .padding(.horizontal, 32).padding(.vertical, 12)
         .frame(maxWidth: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color.appBackground)
         .overlay(alignment: .top) { Divider() }
     }
 

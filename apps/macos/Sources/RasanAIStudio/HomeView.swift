@@ -89,7 +89,7 @@ struct HomeView: View {
             .frame(maxWidth: 1240, alignment: .leading).frame(maxWidth: .infinity)
         }
         .scrollIndicators(.automatic)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color.appBackground)
         .navigationTitle(mode?.title ?? "Home")
         .pageHeader(mode?.title ?? "Home") {
             HeaderSearchField(text: $store.projectSearch)

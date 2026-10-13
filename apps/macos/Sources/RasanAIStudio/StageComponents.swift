@@ -253,7 +253,7 @@ struct AudioPreviewButton: View {
             Image(systemName: playing ? "pause.fill" : "play.fill").font(.system(size: 12, weight: .semibold))
                 .frame(width: 30, height: 30)
                 .background(playing ? Color.rasan : Color(nsColor: .quaternaryLabelColor).opacity(0.5), in: Circle())
-                .foregroundStyle(playing ? Color(nsColor: .windowBackgroundColor) : Color.primary)
+                .foregroundStyle(playing ? Color.appBackground : Color.primary)
         }
         .buttonStyle(.plain).disabled(url == nil)
         .help(url == nil ? "No audio file for this option" : (playing ? "Pause \(title)" : "Play \(title)"))

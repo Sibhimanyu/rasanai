@@ -279,7 +279,7 @@ struct GetInspiredView: View {
             }
             tray
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color.appBackground)
         .task { await gallery.loadIfNeeded() }
         .onDisappear { gallery.stopPlaying(); gallery.closeViewer() }
         .momentViewer(gallery: gallery, selection: $selection)
@@ -419,7 +419,7 @@ struct GetInspiredView: View {
         }
         .padding(.horizontal, 24).padding(.vertical, 12)
         .frame(maxWidth: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color.appBackground)
         .overlay(alignment: .top) { Divider() }
         .animation(.snappy(duration: 0.2), value: selection)
     }

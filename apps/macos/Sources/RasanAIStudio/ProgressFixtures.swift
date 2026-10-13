@@ -264,7 +264,7 @@ enum ProgressFixtures {
                     FilmStageBar(current: model.snapshot.stage, decided: model.snapshot.decidedCalls, canSelect: { _ in false }, onSelect: { _ in })
                     FilmProgressView(model: model, progress: progress, onPause: {}, onShowLog: {}, pace: .fast, autoResume: notice, onResumeNow: notice == nil ? nil : {})
                 }
-                .background(Color(nsColor: .windowBackgroundColor))
+                .background(Color.appBackground)
                 .navigationTitle("ChatGPT for Mac launch test")
             }
             .tint(.rasan)
@@ -296,7 +296,7 @@ enum ProgressFixtures {
             let monitor = DirectorMonitor()
             let (t, health) = DirectorMonitorFixtures.telemetry(.working)
             monitor.present(run: URL(fileURLWithPath: "/tmp/fixture-run"), telemetry: t, health: health, live: true, budget: nil)
-            let panel = DirectorMonitorPanel(monitor: monitor, progress: snapshot(.check, now: now)).background(Color(nsColor: .windowBackgroundColor)).tint(.rasan)
+            let panel = DirectorMonitorPanel(monitor: monitor, progress: snapshot(.check, now: now)).background(Color.appBackground).tint(.rasan)
             await SnapshotHarness.capture(panel, size: CGSize(width: 408, height: 980), dark: dark, titled: false, to: directory.appendingPathComponent("progress-director-panel\(dark ? "-dark" : "").png"))
         }
     }

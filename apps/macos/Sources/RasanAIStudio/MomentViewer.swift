@@ -130,7 +130,7 @@ struct MomentViewer: View {
         // The card is as tall as the video and its controls (or the details, if they need more), never the window:
         // the details column fills that height so its footer sits level with the controls.
         .fixedSize(horizontal: false, vertical: true)
-        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Color.appBackground, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .shadow(color: .black.opacity(0.4), radius: 30, y: 10)
         .padding(28)

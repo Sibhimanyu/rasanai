@@ -89,10 +89,10 @@ struct FilmStageBar: View {
                 Circle().fill(done || active ? Color.rasan : Color.clear).frame(width: dot, height: dot)
                     .overlay { Circle().strokeBorder(done || active ? Color.clear : Color(nsColor: .tertiaryLabelColor), lineWidth: 1) }
                 if done {
-                    Image(systemName: "checkmark").font(.system(size: 8, weight: .heavy)).foregroundStyle(Color(nsColor: .windowBackgroundColor))
+                    Image(systemName: "checkmark").font(.system(size: 8, weight: .heavy)).foregroundStyle(Color.appBackground)
                 } else {
                     Text("\(index + 1)").font(.system(size: 9, weight: .bold, design: .rounded))
-                        .foregroundStyle(active ? Color(nsColor: .windowBackgroundColor) : Color(nsColor: .tertiaryLabelColor))
+                        .foregroundStyle(active ? Color.appBackground : Color(nsColor: .tertiaryLabelColor))
                 }
             }.frame(width: box, height: box)
             Text(stage.stepTitle)

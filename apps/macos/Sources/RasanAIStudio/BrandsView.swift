@@ -49,7 +49,7 @@ struct BrandsView: View {
             if brands.isEmpty { empty } else { grid }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color.appBackground)
         .navigationTitle("Brands")
         .pageHeader("Brands") {
             HelpButton(title: "Brands", lines: [
@@ -276,7 +276,7 @@ struct BrandPage: View {
             else { Text("This brand is no longer in your library.").foregroundStyle(.secondary) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color.appBackground)
         .navigationTitle(model?.name ?? "Brand")
         .onAppear(perform: reload)
         .sheet(isPresented: $showEditor) {

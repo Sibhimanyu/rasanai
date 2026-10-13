@@ -73,7 +73,7 @@ enum DirectorMonitorFixtures {
         for dark in [false, true] {
             let suffix = dark ? "-dark" : ""
             func panel(_ name: String, _ scenario: Scenario, budget: Double? = nil, height: CGFloat = 920) async {
-                let view = DirectorMonitorPanel(monitor: monitor(scenario, budget: budget)).background(Color(nsColor: .windowBackgroundColor)).tint(.rasan)
+                let view = DirectorMonitorPanel(monitor: monitor(scenario, budget: budget)).background(Color.appBackground).tint(.rasan)
                 await SnapshotHarness.capture(view, size: CGSize(width: 408, height: height), dark: dark, titled: false, to: directory.appendingPathComponent("monitor-\(name)\(suffix).png"))
             }
             await panel("working", .working)
@@ -97,7 +97,7 @@ enum DirectorMonitorFixtures {
                         Divider()
                         MonitorBudgetBanner(store: seed.store)
                         Spacer()
-                    }.background(Color(nsColor: .windowBackgroundColor))
+                    }.background(Color.appBackground)
                     await SnapshotHarness.capture(bar, size: CGSize(width: 760, height: 130), dark: dark, titled: false,
                                                   to: directory.appendingPathComponent("monitor-pill\(suffix).png"))
                     seed.store.runtime.isRunning = false
