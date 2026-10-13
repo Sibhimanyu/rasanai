@@ -41,6 +41,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync, execFileSync } from "node:child_process";
 import { parseArgs, die, readJSON, writeFile, chromeScreenshot, esc, GSAP_PATH, SKILL_DIR } from "./lib/common.mjs";
+import { lessonsBlock } from "./lessons.mjs";
 import { readBudget, checkBudget } from "./lib/budget.mjs";
 import { readDesignMd } from "./lib/design-md.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
@@ -972,6 +973,7 @@ function promptFor(run, role, key, plan) {
     const vocab = readMaybe(path.join(SKILL_DIR, "references", "vocabulary.md"));
     if (vocab) extra += "\n\n(Read `references/vocabulary.md` in full: it is the motion vocabulary your score names techniques from.)";
   }
+  { const lb = lessonsBlock(role).trim(); if (lb) extra += `\n\n${lb}`; } // standing notes from the user's past films (lessons.mjs); only the roles it lists get any
   let dare = DARES[role === "motion-director" && key === "seams" ? "seams" : role];
   if (dare && ctx.product_first) dare += " On this product-first film, showing off is craft only (motion, UI choreography, rhythm, the real product moving like nothing else): a letter or shape transformation that lands on the real product (its UI, its mark) is craft and is wanted, full frame and fast; never a conceit, a metaphor, an invented world or a prop standing in for the product. A show-off idea that never resolves to the product fails.";
   const base = `${shared}\n\n---\n\n${roleText}\n\n---\n\n${lines.join("\n")}${extra}\n`;

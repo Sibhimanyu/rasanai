@@ -122,7 +122,7 @@ A local page (`console.mjs`, 127.0.0.1 only, token + session cookie). Payload fi
 
 **Other questions** (not one of the five calls): `node $SKILL_DIR/scripts/console.mjs ask --run "$RUN" --question "…" --context "…" --options '[{"id":"a","label":"…","detail":"…"},…]' --recommended <id>`, then `wait`; the answer is `{type: "answer", value: {choice, text}}`. Never re-open an earlier step to ask it.
 
-**Notes** on the Animatic and Final arrive one by one as `comment` actions (`{scene, t, x, y, scope, quick}` + the text) and collect on the page; don't act on each. When the user presses Apply you get `apply {ids}`: make all of them in one pass, touching only what they point at, then `console.mjs resolve --run "$RUN" --ids <ids> --note "<what changed>"` and re-push the step with `changes`. `decide-rest` (step `*`, "Just make it") → decide every remaining call yourself and stop only at the Final.
+**Notes** on the Animatic and Final arrive one by one as `comment` actions (`{scene, t, x, y, scope, quick}` + the text) and collect on the page; don't act on each. When the user presses Apply you get `apply {ids}`: make all of them in one pass, touching only what they point at, then `console.mjs resolve --run "$RUN" --ids <ids> --note "<what changed>"` and re-push the step with `changes`. Any note that names a mistake any film could repeat (not a content edit for this film: "make the logo bigger here" is not one, "your type is always too small to read on a phone" is) is also recorded once the notes are applied: `node $SKILL_DIR/scripts/lessons.mjs add --rule "<one line, imperative, general>" --quote "<the note, verbatim>" --kind error|taste --area story|look|type|motion|pace|sound|brand --run "$RUN"` (`error` for a mistake, `taste` for a preference). The crew's later briefs carry these rules. `decide-rest` (step `*`, "Just make it") → decide every remaining call yourself and stop only at the Final.
 
 ## 1 · Brief
 
@@ -363,7 +363,7 @@ It writes `BRIEF.md` (the workflow asks nothing), `frame.md` (the look + the mot
 
 Push `render` with `video` (the draft), `poster`, `scenes: [{id, title, start, thumb}]` (markers), `version`, `versions: [{v, when}]`, and after a revision `changes` (plain lines). Unwaived gate findings go in `context`, and so does the motion-reference credit line when the film used reference moments (`node $SKILL_DIR/scripts/moments.mjs credits --run "$RUN"` prints it: who made each moment, its source, and that it was used for technique only).
 
-- `comment` → collect; `apply {ids}` → revise only those scenes (frames, timing, sound), re-verify, re-render, `resolve`, re-push with `version + 1` and `changes`. `version {restore: v}` → re-push that version's render.
+- `comment` → collect; `apply {ids}` → revise only those scenes (frames, timing, sound), re-verify, re-render, `resolve`, re-push with `version + 1` and `changes`. Record the general lessons in the notes with `lessons.mjs add` (see Notes, above). `version {restore: v}` → re-push that version's render.
 - `choose "preview"` → the workflow's preview (studio URL in `studio`). `choose "render"` → the **delivery render goes through the finish** (`references/finish.md`): every scene gets the same real motion blur, 2D included, and the film one grade:
 
   ```bash
@@ -410,9 +410,11 @@ Every film's look is a complete design system: the chosen `design/<label>/DESIGN
 
 `$RASANAI_HOME/history.jsonl` (default `~/.rasanai/`), via `scripts/memory.mjs`, one row per pick with `mode`. Confirmed picks only pre-fill (the aspect, a brand). **Every** pick feeds rotation: `story.mjs pick --recent` keeps story devices from repeating, and the design desk is told the recent systems' names and references (`memory.mjs recent --step style`) so it blends away from them: making ten films never converges on a house style.
 
+`$RASANAI_HOME/lessons.jsonl`, via `scripts/lessons.mjs`, is the other store: rules the user taught in their notes ("the type is always too small"), each with the user's own words, a `kind` (`error` or `taste`), an `area` and how often it came up. `history.jsonl` says what was picked, for rotation; `lessons.jsonl` says what to do and avoid, for every next film. `crew.mjs brief` appends a "Standing notes from the user's past films" block, for the areas that role works in, to the script, motion, design and art roles and to the critic and frame juror, who treat a broken note as a `high` finding. `lessons.mjs list` shows them and `lessons.mjs drop --id <id>` removes one the user no longer wants.
+
 ## Revise an existing video
 
-Push the current film to the Final (its render, markers from STORYBOARD.md) and take notes there. Notes that change the story or the style reopen the Story or the Look or Animatic in a new `$RUN` (scenes.json can be rebuilt from STORYBOARD.md), then `video.mjs write --project-dir videos/<name> --decisions … --revise` (it moves the built frames, audio and renders into `.superseded/<stamp>/` and rewrites the plan). A different aspect needs a new project. Single units revise with `handoff.mjs --revise --reopen <steps>`.
+Push the current film to the Final (its render, markers from STORYBOARD.md) and take notes there. After applying notes, record the ones that name a mistake any film could repeat with `lessons.mjs add` (see Notes, above). Notes that change the story or the style reopen the Story or the Look or Animatic in a new `$RUN` (scenes.json can be rebuilt from STORYBOARD.md), then `video.mjs write --project-dir videos/<name> --decisions … --revise` (it moves the built frames, audio and renders into `.superseded/<stamp>/` and rewrites the plan). A different aspect needs a new project. Single units revise with `handoff.mjs --revise --reopen <steps>`.
 
 ## Failure handling
 
