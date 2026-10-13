@@ -197,7 +197,7 @@ struct MomentViewer: View {
         let picked = selection.wrappedValue.contains(moment.id)
         let full = selection.wrappedValue.isFull
         Button {
-            withAnimation(.snappy(duration: 0.2)) { selection.wrappedValue.toggle(moment) }
+            withAnimation(.snappy(duration: 0.2)) { _ = selection.wrappedValue.toggle(moment) }
         } label: {
             Text(picked ? "Remove from Moves I like" : full ? "Moves I like is full (4)" : "Add to Moves I like").frame(maxWidth: .infinity)
         }

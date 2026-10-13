@@ -398,7 +398,7 @@ struct GetInspiredView: View {
     }
 
     private func toggle(_ moment: Moment) {
-        withAnimation(.snappy(duration: 0.2)) { selection.toggle(moment) }
+        withAnimation(.snappy(duration: 0.2)) { _ = selection.toggle(moment) }
     }
 
     // MARK: Tray
