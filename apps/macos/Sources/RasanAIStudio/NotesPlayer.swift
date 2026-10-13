@@ -824,7 +824,7 @@ struct ReviewNoteComposer: View {
                 Button { save() } label: {
                     HStack(spacing: 6) { if saving { ProgressView().controlSize(.small) }; Text("Add note") }
                 }
-                .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction).disabled(!canSave)
+                .buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction).disabled(!canSave)
             }
         }
         .padding(16).frame(width: 320)

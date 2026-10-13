@@ -41,7 +41,7 @@ struct FilmTemplatesView: View {
                         HStack {
                             Text(template.name).font(.headline)
                             Spacer()
-                            Button("Use template") { store.useTemplate(template) }.buttonStyle(.borderedProminent)
+                            Button("Use template") { store.useTemplate(template) }.buttonStyle(.rasanPrimary)
                             Menu {
                                 Button("Rename…") { renameID = template.id; name = template.name }
                                 Button("Delete…", role: .destructive) { deleteID = template.id }

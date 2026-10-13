@@ -76,7 +76,7 @@ struct BrandEditorSheet: View {
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction).disabled(saving)
                 Spacer()
                 if saving { ProgressView().controlSize(.small) }
-                Button("Save brand") { save() }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction).disabled(!valid || saving)
+                Button("Save brand") { save() }.buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction).disabled(!valid || saving)
             }
         }.padding(26).frame(width: 700, height: 630).interactiveDismissDisabled(saving)
     }

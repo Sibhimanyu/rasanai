@@ -409,7 +409,7 @@ struct GetInspiredView: View {
             ForEach(0..<FilmDraft.maxMoments, id: \.self) { index in slot(index) }
             VStack(spacing: 4) {
                 Button(action: onPrimary) { Text(primaryTitle).padding(.horizontal, 6) }
-                    .buttonStyle(.borderedProminent).controlSize(.large).disabled(selection.isEmpty)
+                    .buttonStyle(.rasanPrimary).controlSize(.large).disabled(selection.isEmpty)
                     .keyboardShortcut(.return, modifiers: .command)
                 if !selection.isEmpty {
                     Button("Clear") { withAnimation(.snappy) { selection.clear() } }.buttonStyle(.link).font(.system(size: 11))

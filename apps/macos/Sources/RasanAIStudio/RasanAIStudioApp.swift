@@ -105,7 +105,7 @@ struct RasanAIStudioApp: App {
             if snapshotDirectory == nil && SnapshotHarness.stagesDirectory == nil { HeresayCommands() }
         }
         Settings {
-            StudioSettingsView(settings: store.settings)
+            StudioSettingsView(settings: store.settings).buttonStyle(.rasanSecondary).tint(.rasan)
         }
     }
 }

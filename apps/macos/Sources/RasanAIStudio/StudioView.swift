@@ -27,6 +27,8 @@ struct StudioView: View {
             .background(Color(nsColor: .windowBackgroundColor))
         }
         .ignoresSafeArea(.container, edges: .top)
+        // Every button without a style of its own is the flat secondary, never the system's bevelled push button.
+        .buttonStyle(.rasanSecondary)
     }
 
     private var stack: some View {

@@ -124,7 +124,7 @@ struct LookStage: View {
                     showMix = false
                     Task { await model.send(step: step, type: "mix", value: .object(["look": .string(mixLook), "story": .string(mixStory)])) }
                 }
-                .buttonStyle(.borderedProminent).disabled(mixLook == mixStory)
+                .buttonStyle(.rasanPrimary).disabled(mixLook == mixStory)
             }
         }
         .padding(18).frame(width: 320)

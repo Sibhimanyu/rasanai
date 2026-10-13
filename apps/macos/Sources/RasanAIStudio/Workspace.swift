@@ -20,10 +20,6 @@ enum Workspace {
     static let sidebar = Color(nsColor: NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x131418) : .rasanHex(0xF3F3F6)
     })
-    /// Timestamps on notes: warm, so a note's time reads at a glance against the cool chrome.
-    static let amber = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0xF2B33D) : .rasanHex(0xB7791F)
-    })
     static let radius: CGFloat = 12
     static let gap: CGFloat = 12
 }
@@ -147,7 +143,7 @@ struct FilmStepper: View {
         let looking = viewing == stage && viewing != current
         return HStack(spacing: 8) {
             ZStack {
-                if active { Circle().fill(Color.rasan) }
+                if active { Circle().fill(Color.rasanFill) }
                 else { Circle().strokeBorder(next ? Color.rasan.opacity(0.7) : done ? Color.secondary.opacity(0.55) : Workspace.hairline.opacity(2.2), lineWidth: 1.2) }
                 if done { Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary) }
                 else { Text("\(index + 1)").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(active ? Color.white : Color.secondary) }
@@ -206,7 +202,7 @@ private struct FilmstripCell: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 6) {
                 ZStack {
-                    Circle().fill(current ? Color.rasan : Workspace.raised)
+                    Circle().fill(current ? Color.rasanFill : Workspace.raised)
                         .overlay { Circle().strokeBorder(current ? .clear : Workspace.hairline, lineWidth: 1) }
                     Text("\(number)").font(.system(size: 11, weight: .bold)).foregroundStyle(current ? Color.white : Color.primary)
                 }
@@ -225,7 +221,7 @@ private struct FilmstripCell: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .overlay { RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(current ? Color.rasan : Color.primary.opacity(hovering ? 0.3 : 0.06), lineWidth: current ? 2 : 1) }
                 .overlay(alignment: .topTrailing) {
-                    if hasNote { Circle().fill(Workspace.amber).frame(width: 9, height: 9).overlay { Circle().strokeBorder(.black.opacity(0.5), lineWidth: 1) }.padding(5) }
+                    if hasNote { Circle().fill(Color.turmeric).frame(width: 9, height: 9).overlay { Circle().strokeBorder(.black.opacity(0.5), lineWidth: 1) }.padding(5) }
                 }
                 Text(reviewTime(scene.start)).font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary)
             }

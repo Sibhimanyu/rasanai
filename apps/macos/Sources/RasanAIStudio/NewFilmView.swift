@@ -506,23 +506,23 @@ struct NewFilmView: View {
     @ViewBuilder private var runButton: some View {
         if editingQueued {
             Button { saveQueuedChanges() } label: { Text("Save changes") }
-                .buttonStyle(.borderedProminent).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
+                .buttonStyle(.rasanPrimary).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
                 .disabled(working || trimmedBrief.isEmpty)
         } else if directorReady {
             if directorBusy {
                 Button { store.ensureConsent(for: agent) { save(start: false, queue: true) } } label: { Text("Start when free") }
-                    .buttonStyle(.borderedProminent).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
+                    .buttonStyle(.rasanPrimary).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
                     .disabled(working || trimmedBrief.isEmpty)
             } else {
                 Button { start() } label: { runLabel }
-                    .buttonStyle(.borderedProminent).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
+                    .buttonStyle(.rasanPrimary).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
                     .disabled(working || checkingStart || trimmedBrief.isEmpty || store.toolSetup.isRunning)
             }
         } else if store.settings.checking.contains(agent.id) {
             HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Checking director…").font(.system(size: 12)).foregroundStyle(.secondary) }
         } else {
             Button("Set up a director…") { store.settings.showWelcome = true }
-                .buttonStyle(.borderedProminent).controlSize(.regular)
+                .buttonStyle(.rasanPrimary).controlSize(.regular)
         }
     }
 

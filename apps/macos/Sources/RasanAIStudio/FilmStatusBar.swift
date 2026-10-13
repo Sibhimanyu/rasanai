@@ -44,7 +44,7 @@ struct FilmStatusBar<Usage: View>: View {
             HStack(spacing: 8) {
                 Image(systemName: "clock.arrow.circlepath").foregroundStyle(.secondary)
                 Text("Looking back at \(StepCatalog.label(model.shownStep))").font(.system(size: 12.5, weight: .medium)).lineLimit(1)
-                Button("Back to now") { model.returnToLive() }.buttonStyle(.bordered).controlSize(.small)
+                Button("Back to now") { model.returnToLive() }.buttonStyle(.rasanSecondary).controlSize(.small)
             }
         } else if sent {
             HStack(spacing: 8) {
@@ -114,7 +114,7 @@ struct FilmStatusBar<Usage: View>: View {
             }
             if let title = actions.secondaryTitle {
                 Button(title) { actions.onSecondary(note) }
-                    .buttonStyle(.bordered).controlSize(.large)
+                    .buttonStyle(.rasanSecondary).controlSize(.large)
                     .disabled(!canAct || !actions.secondaryEnabled)
                     .help(actions.secondaryHelp ?? "")
             }
@@ -129,7 +129,7 @@ struct FilmStatusBar<Usage: View>: View {
                     .padding(.horizontal, 6).frame(minWidth: 120, minHeight: 30)
                 }
                 // No Return shortcut: Return while typing a note must never approve a call by accident.
-                .buttonStyle(.borderedProminent).controlSize(.large)
+                .buttonStyle(.rasanPrimary).controlSize(.large)
                 .disabled(!canAct || !actions.primaryEnabled)
             }
         }

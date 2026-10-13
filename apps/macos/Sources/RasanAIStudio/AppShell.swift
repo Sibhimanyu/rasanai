@@ -165,9 +165,9 @@ struct NewFilmHeaderButton: View {
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            Label("New film", systemImage: "plus").font(.system(size: 14, weight: .semibold)).padding(.horizontal, 4).frame(minHeight: 26)
+            Label("New film", systemImage: "plus")
         }
-        .buttonStyle(.borderedProminent).controlSize(.large)
+        .buttonStyle(.rasanPrimary).controlSize(.large)
         .keyboardShortcut("n", modifiers: .command)
     }
 }

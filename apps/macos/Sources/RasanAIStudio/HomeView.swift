@@ -150,17 +150,18 @@ struct HomeView: View {
                     Button("All films") { store.path = [.library(.all)] }.buttonStyle(.link).font(.system(size: 12.5))
                 }
                 Spacer()
-                Picker("Layout", selection: $layoutRaw) {
-                    Label("Grid", systemImage: "square.grid.2x2").tag("grid")
-                    Label("List", systemImage: "list.bullet").tag("list")
-                }
-                .pickerStyle(.segmented).labelsHidden().fixedSize()
+                FlatSegmented(selection: $layoutRaw, options: [("grid", "Grid", "square.grid.2x2"), ("list", "List", "list.bullet")])
                 Menu {
                     Picker("Sort by", selection: $sortRaw) {
                         ForEach(HomeSort.allCases) { Label($0.title, systemImage: $0.symbol).tag($0.rawValue) }
                     }.pickerStyle(.inline)
-                } label: { Text(sort.title) }
-                .fixedSize().help("Sort films")
+                } label: {
+                    HStack(spacing: 8) { Text(sort.title); Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)) }
+                        .font(.system(size: 12.5, weight: .medium)).padding(.horizontal, 12).frame(height: 34)
+                        .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.14), lineWidth: 1) }
+                        .contentShape(Rectangle())
+                }
+                .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help("Sort films")
             }
             if items.isEmpty {
                 Text(store.projectSearch.isEmpty ? "Nothing here yet." : "No films match your search.")
@@ -296,8 +297,8 @@ struct FeaturedFilmCard: View {
                 if !reason.isEmpty { Text(reason).font(.system(size: 14.5)).fixedSize(horizontal: false, vertical: true).padding(.top, 4) }
             }
             Spacer(minLength: 12)
-            Button(action: action) { Text(verb).font(.system(size: 15, weight: .semibold)).padding(.horizontal, 18).frame(minHeight: 30) }
-                .buttonStyle(.bordered).tint(.rasan).controlSize(.large)
+            Button(action: action) { Text(verb).padding(.horizontal, 10) }
+                .buttonStyle(.rasanPrimary).controlSize(.large)
         }
         .padding(16)
         .workspacePanel()

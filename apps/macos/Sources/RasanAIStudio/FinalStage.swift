@@ -134,7 +134,7 @@ struct FinalStage: View {
             Button { showChanges.toggle() } label: {
                 Label("What changed" + (payload["version"].identifier.map { " in v\($0)" } ?? ""), systemImage: "sparkle").font(.system(size: 12))
             }
-            .buttonStyle(.bordered).controlSize(.small)
+            .buttonStyle(.rasanSecondary).controlSize(.small)
             .popover(isPresented: $showChanges, arrowEdge: .top) {
                 VStack(alignment: .leading, spacing: 9) {
                     ForEach(items.indices, id: \.self) { index in

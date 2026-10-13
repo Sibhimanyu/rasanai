@@ -223,7 +223,7 @@ struct MomentViewer: View {
         } label: {
             Text(picked ? "Remove from Moves I like" : full ? "Moves I like is full (4)" : "Add to Moves I like").frame(maxWidth: .infinity)
         }
-        .buttonStyle(.borderedProminent).controlSize(.large).tint(picked ? .gray : Color.rasan).disabled(!picked && full)
+        .buttonStyle(.rasanPrimary).controlSize(.large).tint(picked ? .gray : Color.rasan).disabled(!picked && full)
     }
 
     private func close() { withAnimation(.easeOut(duration: 0.15)) { gallery.closeViewer() } }

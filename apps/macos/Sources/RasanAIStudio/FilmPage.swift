@@ -321,11 +321,11 @@ struct NotRunningView: View {
             }
             HStack(spacing: 10) {
                 if store.runtime.recovery == .signIn {
-                    Button("Sign in…") { store.settings.showWelcome = true }.buttonStyle(.borderedProminent).controlSize(.large)
+                    Button("Sign in…") { store.settings.showWelcome = true }.buttonStyle(.rasanPrimary).controlSize(.large)
                     Button("Resume") { store.resumeDirector() }.controlSize(.large).disabled(!store.canResume)
                 } else {
                     Button("Resume") { store.resumeDirector() }
-                        .buttonStyle(.borderedProminent).controlSize(.large).disabled(!store.canResume)
+                        .buttonStyle(.rasanPrimary).controlSize(.large).disabled(!store.canResume)
                 }
                 if store.runtime.recovery == nil, store.runURL != nil, !store.isConnected {
                     Button("Reload film") { store.reloadFilm() }.controlSize(.large)
@@ -377,7 +377,7 @@ struct DraftView: View {
                 .padding(24).cardSurface()
                 VStack(spacing: 8) {
                     if queued {
-                        Button("View queue") { store.path.append(.queue) }.buttonStyle(.borderedProminent).controlSize(.large)
+                        Button("View queue") { store.path.append(.queue) }.buttonStyle(.rasanPrimary).controlSize(.large)
                         Text(editable ? "This film is waiting in the queue. You can still edit the brief; it starts when the director is free."
                                        : "This film is running from the queue. Open the queue to follow it or take it out.")
                             .font(.system(size: 12)).foregroundStyle(.secondary)
@@ -385,7 +385,7 @@ struct DraftView: View {
                         Button { start() } label: {
                             HStack(spacing: 8) { if starting { ProgressView().controlSize(.small) }; Text("Start film") }.frame(minWidth: 160)
                         }
-                        .buttonStyle(.borderedProminent).controlSize(.extraLarge)
+                        .buttonStyle(.rasanPrimary).controlSize(.extraLarge)
                         .keyboardShortcut(.return, modifiers: .command)
                         .disabled(starting || (draft?.brief ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.runtime.isRunning || store.runtime.isPreparing)
                         HStack(spacing: 4) {
@@ -393,7 +393,7 @@ struct DraftView: View {
                             Button("Change") { openSettings() }.buttonStyle(.link)
                         }.font(.system(size: 11)).foregroundStyle(.secondary)
                     } else {
-                        Button("Set up a director…") { store.settings.showWelcome = true }.buttonStyle(.borderedProminent).controlSize(.extraLarge)
+                        Button("Set up a director…") { store.settings.showWelcome = true }.buttonStyle(.rasanPrimary).controlSize(.extraLarge)
                     }
                 }
             }
@@ -470,7 +470,7 @@ struct FinishedView: View {
                 }
                 HStack(spacing: 10) {
                     Button { store.exportVideo() } label: { Label("Export…", systemImage: "square.and.arrow.down") }
-                        .buttonStyle(.borderedProminent).controlSize(.large)
+                        .buttonStyle(.rasanPrimary).controlSize(.large)
                         .keyboardShortcut("e", modifiers: .command)
                         .help("Save an MP4 you can share (⌘E)")
                     Button("Show in Finder") { if let url = store.displayedVideo { NSWorkspace.shared.activateFileViewerSelecting([url]) } }.controlSize(.large)
@@ -575,7 +575,7 @@ struct FinishedView: View {
                     Text("\(filledNotes.count) \(filledNotes.count == 1 ? "note" : "notes")").font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 Button { send() } label: { Text("Make a new version").frame(minWidth: 96) }
-                    .buttonStyle(.borderedProminent).controlSize(.large).disabled(!canSend)
+                    .buttonStyle(.rasanPrimary).controlSize(.large).disabled(!canSend)
             }
         }
         .padding(20).cardSurface()

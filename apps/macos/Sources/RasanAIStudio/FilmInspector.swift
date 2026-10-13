@@ -111,7 +111,7 @@ struct NotesInspector: View {
                 Text("About \(StepCatalog.label(step))").font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
                 Spacer()
                 Button("Send") { send() }
-                    .buttonStyle(.bordered).controlSize(.small)
+                    .buttonStyle(.rasanSecondary).controlSize(.small)
                     .keyboardShortcut(.return, modifiers: .command)
                     .help("Send this note to Claude (⌘↩)")
                     .disabled(trimmed.isEmpty || model.isSending)
@@ -242,7 +242,7 @@ private struct InspectorNoteCard: View {
                 }
                 .frame(width: 96, height: 60).clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(reviewTime(note.time)).font(.system(size: 12.5, weight: .semibold)).monospacedDigit().foregroundStyle(Workspace.amber)
+                    Text(reviewTime(note.time)).font(.system(size: 12.5, weight: .semibold)).monospacedDigit().foregroundStyle(Color.turmeric)
                     Text(note.text).font(.system(size: 13)).foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true)
                         .strikethrough(!note.isOpen, color: .secondary)
                     if !note.isOpen, let resolution = note.resolution, !resolution.isEmpty {
@@ -253,7 +253,7 @@ private struct InspectorNoteCard: View {
             }
             .padding(10)
             .background(hovering ? Workspace.raised : Color.clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay { RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(current ? Workspace.amber.opacity(0.8) : Workspace.hairline, lineWidth: current ? 1.5 : 1) }
+            .overlay { RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(current ? Color.turmeric.opacity(0.8) : Workspace.hairline, lineWidth: current ? 1.5 : 1) }
             .opacity(note.isOpen ? 1 : 0.6)
             .contentShape(Rectangle())
         }

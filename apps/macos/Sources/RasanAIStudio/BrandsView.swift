@@ -56,7 +56,7 @@ struct BrandsView: View {
                 "A brand keeps your colours, type and logo in one folder.",
                 "Pick a brand when you start a film and RasanAI designs in your look.",
                 "Each brand is a plain DESIGN.md file you can edit anywhere."]).buttonStyle(.borderless)
-            Button { showNew = true } label: { Label("New brand", systemImage: "plus") }.buttonStyle(.bordered).controlSize(.large)
+            Button { showNew = true } label: { Label("New brand", systemImage: "plus") }.buttonStyle(.rasanSecondary).controlSize(.large)
         }
         .sheet(isPresented: $showNew) {
             NewBrandSheet(root: root) { brand in
@@ -75,7 +75,7 @@ struct BrandsView: View {
             Text("Brands keep your colours, type and logo so every film looks like you.")
                 .font(.system(size: 15)).multilineTextAlignment(.center).frame(maxWidth: 340)
             Button("New brand") { showNew = true }
-                .buttonStyle(.borderedProminent).controlSize(.large).padding(.top, 4)
+                .buttonStyle(.rasanPrimary).controlSize(.large).padding(.top, 4)
         }.padding(32)
     }
 
@@ -209,7 +209,7 @@ struct NewBrandSheet: View {
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Create") { create() }.buttonStyle(.borderedProminent)
+                Button("Create") { create() }.buttonStyle(.rasanPrimary)
                     .keyboardShortcut(.defaultAction)
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
@@ -334,7 +334,7 @@ struct BrandPage: View {
                         }
                     }
                     Spacer()
-                    Button("Edit brand…") { reload(); showEditor = true }.buttonStyle(.borderedProminent)
+                    Button("Edit brand…") { reload(); showEditor = true }.buttonStyle(.rasanPrimary)
                 }
 
                 if !b.colors.isEmpty {
