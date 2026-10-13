@@ -24,7 +24,7 @@ struct AnimaticStage: View {
         StageScaffold(model: model, step: step,
                       question: payload["question"].string ?? "Here's the whole film, rough",
                       context: payload["context"].string,
-                      maxWidth: 1180) {
+                      maxWidth: 1240) {
             HStack(alignment: .top, spacing: 24) {
                 VStack(alignment: .leading, spacing: 14) {
                     if scenes.isEmpty {
@@ -62,7 +62,8 @@ struct AnimaticStage: View {
         } actions: {
             ReviewActionBar(model: model, step: step,
                             title: open.isEmpty ? "Looks right, build it" : "Apply \(open.count) note\(open.count == 1 ? "" : "s")",
-                            symbol: open.isEmpty ? "hammer.fill" : "checkmark.bubble.fill") {
+                            symbol: open.isEmpty ? "hammer.fill" : "checkmark.bubble.fill",
+                            signature: open.map(\.id).joined(separator: ",")) {
                 Task {
                     if open.isEmpty { await model.send(step: step, type: "approve") }
                     else { await model.send(step: step, type: "apply", value: .object(["ids": .array(open.map { .string($0.id) })])) }

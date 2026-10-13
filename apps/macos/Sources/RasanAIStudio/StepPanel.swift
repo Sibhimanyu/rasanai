@@ -2,12 +2,11 @@ import StudioCore
 import SwiftUI
 
 /// Every minor step. This view is the common frame (the question, context, Claude's recommendation, the decision line,
-/// the conversation, and a bottom bar with a note box, "Send note", "You decide this step" and the step's primary action)
-/// around a per-step body:
+/// and the step's actions, which the film page's status bar shows) around a per-step body:
 ///   brand, research, route, footage, reel, concept, scenes  -> MinorPanelsA.swift
 ///   styleframes, motion, transitions, voice, music, storyboard, keyframes, plan, direction, anything else -> MinorPanelsB.swift
 ///
-/// A body may register its primary action (the pinned prominent button, which gets Return) with `.stepPrimary(...)`;
+/// A body may register its primary action (the status bar's prominent button, which gets Return) with `.stepPrimary(...)`;
 /// bodies that lay out their own buttons inline can ignore it.
 struct StepPanel: View {
     let model: FilmSessionModel
@@ -69,11 +68,10 @@ struct StepPanel: View {
         }
     }
 
-    /// Wide steps (editable tables) get more room.
+    /// Reading-text steps stay narrow; the rest (tables, pickers, grids) use the workspace.
     static func width(_ step: String) -> CGFloat {
         switch step {
-        case "reel", "scenes", "styleframes": 1120
-        case "footage": 1000
+        case "reel", "scenes", "styleframes", "footage": 1240
         default: 900
         }
     }
@@ -92,7 +90,7 @@ struct StepPanel: View {
 
 // MARK: - Primary action slot
 
-/// Where a panel body registers its primary action for the pinned bar.
+/// Where a panel body registers its primary action for the status bar.
 @MainActor @Observable
 final class StepActionSlot {
     var title: String?
@@ -122,7 +120,7 @@ private struct StepPrimaryModifier: ViewModifier {
 }
 
 extension View {
-    /// Registers this panel's primary action in the frame's bottom bar. `perform` receives the note typed there.
+    /// Registers this panel's primary action in the status bar. `perform` receives the note typed in the inspector composer.
     func stepPrimary(_ title: String, symbol: String? = nil, enabled: Bool = true, perform: @escaping (String) -> Void) -> some View {
         modifier(StepPrimaryModifier(title: title, symbol: symbol, enabled: enabled, perform: perform))
     }
@@ -130,87 +128,17 @@ extension View {
 
 // MARK: - Bottom bar
 
-/// The note box ("Send note"), "You decide this step", and the panel's primary action.
+/// "Let Claude decide" and the panel's primary action, published to the film page's status bar (it draws nothing itself).
 struct StepActionBar: View {
     let model: FilmSessionModel
     let step: String
     let slot: StepActionSlot
-    @State private var note = ""
 
-    /// Only the person's turn (or looking back, or just sent) gets a bar; while Claude works there is nothing to do.
     var body: some View {
-        if model.showsActions(for: step) { bar }
-    }
-
-    @ViewBuilder private var bar: some View {
-        let canAct = model.canAct(on: step)
-        VStack(spacing: 8) {
-            if let error = model.lastError {
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                    Text(error).font(.system(size: 12)).lineLimit(2)
-                    Spacer()
-                    Button("Dismiss") { model.dismissError() }.buttonStyle(.link).font(.system(size: 12))
-                }
-            }
-            HStack(spacing: 10) {
-                if model.isViewingPast {
-                    Label("Looking back. This step is decided.", systemImage: "clock.arrow.circlepath")
-                        .font(.system(size: 12)).foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Back to now") { model.returnToLive() }.controlSize(.large)
-                } else if model.hasSent(step) && model.status(step) != "done" {
-                    ProgressView().controlSize(.small)
-                    Text("Sent to Claude. Waiting for the next update.").font(.system(size: 12)).foregroundStyle(.secondary)
-                    Spacer()
-                } else {
-                    HStack(spacing: 6) {
-                        TextField("Add a note for Claude", text: $note, axis: .vertical)
-                            .textFieldStyle(.plain).font(.system(size: 13)).lineLimit(1...3)
-                            .disabled(!canAct)
-                            .onSubmit { sendNote() }
-                            .accessibilityLabel("Note for Claude")
-                        if !trimmed.isEmpty {
-                            Button("Send note") { sendNote() }
-                                .buttonStyle(.borderless).font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Color.rasan).disabled(!canAct || model.isSending)
-                                .transition(.opacity)
-                        }
-                    }
-                    .padding(.horizontal, 10).padding(.vertical, 7)
-                    .background(Color(nsColor: .textBackgroundColor).opacity(0.7), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
-                    .animation(.smooth(duration: 0.15), value: trimmed.isEmpty)
-                    Button("Let Claude decide") { Task { await model.decide(step: step, note: trimmed) } }
-                        .controlSize(.large).disabled(!canAct)
-                        .help("Let Claude make this call. It will say what it chose and why.")
-                    if let title = slot.title {
-                        Button {
-                            slot.perform(trimmed)
-                        } label: {
-                            HStack(spacing: 6) {
-                                if model.isSending { ProgressView().controlSize(.small) }
-                                else if let symbol = slot.symbol { Image(systemName: symbol) }
-                                Text(title)
-                            }.frame(minWidth: 110)
-                        }
-                        .buttonStyle(.borderedProminent).controlSize(.large)
-                        .keyboardShortcut(.defaultAction)
-                        .disabled(!canAct || !slot.enabled)
-                    }
-                }
-            }
-        }
-        .padding(.horizontal, 24).padding(.vertical, 12)
-        .background(.bar)
-        .overlay(alignment: .top) { Divider() }
-        .onChange(of: model.sendCount) { _, _ in note = "" }
-    }
-
-    private var trimmed: String { note.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private func sendNote() {
-        let text = trimmed
-        guard !text.isEmpty else { return }
-        Task { if await model.send(step: step, type: "note", note: text) { note = "" } }
+        FilmActionsPublisher(actions: model.showsActions(for: step) ? FilmActions(
+            step: step, primaryTitle: slot.title, primarySymbol: slot.symbol, primaryEnabled: slot.enabled,
+            secondaryTitle: "Let Claude decide", secondaryHelp: "Let Claude make this call. It will say what it chose and why.",
+            onPrimary: slot.perform,
+            onSecondary: { note in Task { await model.decide(step: step, note: note) } }) : nil)
     }
 }

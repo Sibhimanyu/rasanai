@@ -31,7 +31,7 @@ struct FinalStage: View {
         StageScaffold(model: model, step: step,
                       question: payload["question"].string ?? (isRender && !done ? "Ready to render the final?" : "Here's your film"),
                       context: payload["context"].string ?? (isRender && !done ? "Rendering takes a few minutes. Preview first for a quick, lower-quality look." : nil),
-                      maxWidth: 1180) {
+                      maxWidth: 1240) {
             HStack(alignment: .top, spacing: 24) {
                 VStack(alignment: .leading, spacing: 14) {
                     ReviewPlayerPanel(model: model, step: step, playback: playback, scenes: scenes, notes: allNotes,
@@ -61,7 +61,8 @@ struct FinalStage: View {
         } actions: {
             ReviewActionBar(model: model, step: step,
                             title: open.isEmpty ? (notRendered ? "Preview first" : isRender ? "Render the final" : "Export MP4") : "Apply \(open.count) note\(open.count == 1 ? "" : "s")",
-                            symbol: open.isEmpty ? (notRendered ? "eye" : isRender ? "film.fill" : "square.and.arrow.down.fill") : "checkmark.bubble.fill") {
+                            symbol: open.isEmpty ? (notRendered ? "eye" : isRender ? "film.fill" : "square.and.arrow.down.fill") : "checkmark.bubble.fill",
+                            signature: open.map(\.id).joined(separator: ",")) {
                 Task {
                     if !open.isEmpty { await model.send(step: step, type: "apply", value: .object(["ids": .array(open.map { .string($0.id) })])) }
                     else if notRendered { await model.send(step: step, type: "choose", value: .string("preview")) }

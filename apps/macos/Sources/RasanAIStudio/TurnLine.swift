@@ -21,6 +21,26 @@ enum TurnState: Equatable {
     }
 }
 
+extension TurnState {
+    /// The one line that says whose move it is. The status bar and `TurnLine` both read it, so the wording lives here.
+    var headline: String {
+        switch self {
+        case .yourTurn(let what, _): "Your turn · \(what)"
+        case .working(let activity, _, _): "Claude is working · \(activity)"
+        case .paused: "Paused · your files are kept. Resume when you're ready."
+        case .attention(let text): text
+        }
+    }
+    /// What goes with the headline: what Claude does meanwhile (your turn), or the next call (working).
+    var secondary: String? {
+        switch self {
+        case .yourTurn(_, let background): background.map { "Claude is \(TurnState.sentenceCase($0)) meanwhile. You don't need to wait." }
+        case .working(_, _, let next): next.map(TurnState.sentenceCaseFirst)
+        default: nil
+        }
+    }
+}
+
 extension StudioStore {
     /// The one status statement for the open film, or nil when something else already says it (a recovery banner, Film progress)
     /// or there is nothing to say (drafts, finished films).
@@ -72,28 +92,28 @@ struct TurnLine: View {
 
     @ViewBuilder private var content: some View {
         switch state {
-        case .yourTurn(let what, let background):
+        case .yourTurn:
             Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 4) {
                 GridRow {
                     Image(systemName: "hand.raised.fill").foregroundStyle(Color.rasan).frame(width: 16)
-                    Text("Your turn · \(what)").font(.system(size: 12.5, weight: .semibold))
+                    Text(state.headline).font(.system(size: 12.5, weight: .semibold))
                 }
-                if let background {
+                if state.secondary != nil {
                     GridRow {
                         ProgressView().controlSize(.mini).frame(width: 16)
-                        Text("Claude is \(TurnState.sentenceCase(background)) meanwhile. You don't need to wait.")
+                        Text(state.secondary ?? "")
                             .font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
                     }
                 }
             }
-        case .working(let activity, let since, let next):
+        case .working(_, let since, _):
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let quiet = context.date.timeIntervalSince(lastActivityAt) > 120
                 HStack(spacing: 10) {
                     ProgressView().controlSize(.small)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Claude is working · \(activity)").font(.system(size: 12.5, weight: .medium)).lineLimit(2).textSelection(.enabled)
-                        if let next { Text(TurnState.sentenceCaseFirst(next)).font(.system(size: 12)).foregroundStyle(Color.rasan) }
+                        Text(state.headline).font(.system(size: 12.5, weight: .medium)).lineLimit(2).textSelection(.enabled)
+                        if let next = state.secondary { Text(next).font(.system(size: 12)).foregroundStyle(Color.rasan) }
                         if quiet {
                             Text("No new activity for two minutes. Check the log, or pause and resume if needed.")
                                 .font(.system(size: 11)).foregroundStyle(.secondary)
@@ -108,7 +128,7 @@ struct TurnLine: View {
         case .paused:
             HStack(spacing: 10) {
                 Image(systemName: "pause.circle.fill").foregroundStyle(.secondary).frame(width: 16)
-                Text("Paused · your files are kept. Resume when you're ready.").font(.system(size: 12.5, weight: .medium))
+                Text(state.headline).font(.system(size: 12.5, weight: .medium))
                 Spacer(minLength: 8)
                 if let onResume { Button("Resume", action: onResume) }
             }

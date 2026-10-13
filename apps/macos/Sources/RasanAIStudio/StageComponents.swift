@@ -11,14 +11,16 @@ import SwiftUI
 // find files. Use these instead of rebuilding the same chrome:
 //
 //   StageScaffold(model:step:question:context:recommended:maxWidth:content:actions:)
-//       The whole page: a scroll view with the StageHeader, your content, the "Decided:" line for finished steps,
-//       the step's conversation thread, and your actions pinned at the bottom in a material bar.
+//       The whole page: a scroll view with the StageHeader, your content and the "Decided:" line for finished steps.
+//       The step's conversation lives in the inspector (Notes). `actions` draws nothing: it holds a view that publishes
+//       the step's buttons (CallActions, StepActionBar, ...) to the one status bar at the bottom of the film page.
 //   StageHeader(question:context:recommended:)
 //       The large question, a context line, and a "Claude recommends X" badge when `recommended` is set.
 //   CallActions(model:step:primaryTitle:primarySymbol:primaryEnabled:onPrimary:)
-//       Bottom bar: note field, "You decide this step" (`decide`), and the primary button. `onPrimary(note)` should
-//       call `model.send(...)`; the bar disables itself when the person can't act (read-only, sending, already sent)
-//       and shows "Sent to Claude" while the director picks it up. Pass `primaryTitle: nil` for decide-only.
+//       Publishes "Let Claude decide" and the primary button to the status bar. `onPrimary(note)` should call
+//       `model.send(...)` with the note from the inspector composer; the bar disables itself when the person can't act
+//       (read-only, sending, already sent) and says "Sent to Claude" while the director picks it up. Pass
+//       `primaryTitle: nil` for decide-only.
 //   RecommendedBadge(text:)            Claude's pick, as a small capsule. Put it on the recommended option.
 //   PayloadImage(path:contentMode:maxPixels:)   A local file named in the payload (workspace-relative or absolute).
 //   AudioPreviewButton(id:path:title:) A play/pause round button; one preview plays at a time.
@@ -26,7 +28,6 @@ import SwiftUI
 //   DecidedLine(decision:by:)          Green "Decided:" line.
 //   StageCard / .stageCard(selected:)  The card surface for options (selected = accent outline).
 //   StageSectionTitle(_:)              Small caps section label.
-//   StepThreadView(model:step:)        The conversation on a step (StageScaffold already includes it).
 //   ClockLabel(seconds:)               "0:12" in monospaced digits.
 //   JSONValue helpers (StudioCore): .string, .number, .bool, .strings, .array, .object, .identifier, ["key"].
 
@@ -38,7 +39,7 @@ struct StageScaffold<Content: View, Actions: View>: View {
     let question: String
     var context: String?
     var recommended: String?
-    var maxWidth: CGFloat = 900
+    var maxWidth: CGFloat = 1240
     @ViewBuilder var content: Content
     @ViewBuilder var actions: Actions
 
@@ -50,9 +51,8 @@ struct StageScaffold<Content: View, Actions: View>: View {
                 if let decision = model.payload(step)["decision"].string, model.status(step) == "done" {
                     DecidedLine(decision: decision, by: model.snapshot.decisions.first { $0.step == step }?.byUser)
                 }
-                StepThreadView(model: model, step: step)
             }
-            .padding(.horizontal, 32).padding(.top, 28).padding(.bottom, 32)
+            .padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 28)
             .frame(maxWidth: maxWidth, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
@@ -64,7 +64,7 @@ struct StageScaffold<Content: View, Actions: View>: View {
 
 extension StageScaffold where Actions == EmptyView {
     init(model: FilmSessionModel, step: String, question: String, context: String? = nil, recommended: String? = nil,
-         maxWidth: CGFloat = 900, @ViewBuilder content: () -> Content) {
+         maxWidth: CGFloat = 1240, @ViewBuilder content: () -> Content) {
         self.init(model: model, step: step, question: question, context: context, recommended: recommended, maxWidth: maxWidth,
                   content: content, actions: { EmptyView() })
     }
@@ -76,17 +76,17 @@ struct StageHeader: View {
     /// The title of Claude's recommended option, shown as "Claude recommends X".
     var recommended: String?
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(question)
-                .font(.system(size: 28, weight: .semibold)).tracking(-0.3)
+                .font(.system(size: 20, weight: .semibold)).tracking(-0.2)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
             if let context, !context.isEmpty {
-                Text(context).font(.system(size: 14)).foregroundStyle(.secondary).lineSpacing(2)
+                Text(context).font(.system(size: 13)).foregroundStyle(.secondary).lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let recommended, !recommended.isEmpty {
-                RecommendedBadge(text: "Claude recommends \(recommended)")
+                RecommendedBadge(text: "Claude recommends \(recommended)").padding(.top, 4)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -150,7 +150,8 @@ extension View {
 
 // MARK: Actions
 
-/// The bottom bar of a call: a note, "You decide this step", and the primary button.
+/// The actions of a call: "Let Claude decide" and the primary button. Draws nothing itself; it publishes them to the film
+/// page's status bar, which also owns the sending and looking-back states. The note comes from the inspector composer.
 struct CallActions: View {
     let model: FilmSessionModel
     let step: String
@@ -159,72 +160,15 @@ struct CallActions: View {
     var primaryEnabled = true
     var allowDecide = true
     var onPrimary: (_ note: String) -> Void = { _ in }
-    @State private var note = ""
 
-    /// Only the person's turn (or looking back, or just sent) gets a bar; while Claude works there is nothing to do.
+    /// Only the person's turn (or looking back, or just sent) publishes; while Claude works there is nothing to do.
     var body: some View {
-        if model.showsActions(for: step) { bar }
+        FilmActionsPublisher(actions: model.showsActions(for: step) ? FilmActions(
+            step: step, primaryTitle: primaryTitle, primarySymbol: primarySymbol, primaryEnabled: primaryEnabled,
+            secondaryTitle: allowDecide ? "Let Claude decide" : nil, secondaryHelp: "Let Claude make this call. It will say what it chose and why.",
+            onPrimary: onPrimary,
+            onSecondary: { note in Task { await model.decide(step: step, note: note) } }) : nil)
     }
-
-    @ViewBuilder private var bar: some View {
-        let canAct = model.canAct(on: step)
-        VStack(spacing: 8) {
-            if let error = model.lastError {
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                    Text(error).font(.system(size: 12)).lineLimit(2)
-                    Spacer()
-                    Button("Dismiss") { model.dismissError() }.buttonStyle(.link).font(.system(size: 12))
-                }
-            }
-            HStack(spacing: 10) {
-                if model.isViewingPast {
-                    Label("Looking back. This step is decided.", systemImage: "clock.arrow.circlepath")
-                        .font(.system(size: 12)).foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Back to now") { model.returnToLive() }.controlSize(.large)
-                } else if model.hasSent(step) && model.status(step) != "done" {
-                    ProgressView().controlSize(.small)
-                    Text("Sent to Claude. Waiting for the next update.").font(.system(size: 12)).foregroundStyle(.secondary)
-                    Spacer()
-                } else {
-                    TextField("Add a note for Claude (optional)", text: $note, axis: .vertical)
-                        .textFieldStyle(.plain).font(.system(size: 13)).lineLimit(1...3)
-                        .padding(.horizontal, 10).padding(.vertical, 7)
-                        .background(Color(nsColor: .textBackgroundColor).opacity(0.7), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
-                        .disabled(!canAct)
-                        .onSubmit { if !trimmed.isEmpty { Task { await model.tell(trimmed, step: step) } } }
-                        .accessibilityLabel("Note for Claude")
-                    if allowDecide {
-                        Button("Let Claude decide") { Task { await model.decide(step: step, note: trimmed) } }
-                            .controlSize(.large).disabled(!canAct)
-                            .help("Let Claude make this call. It will say what it chose and why.")
-                    }
-                    if let primaryTitle {
-                        Button {
-                            // The note stays in the box until the console accepts the send (see onChange below).
-                            onPrimary(trimmed)
-                        } label: {
-                            HStack(spacing: 6) {
-                                if model.isSending { ProgressView().controlSize(.small) }
-                                else if let primarySymbol { Image(systemName: primarySymbol) }
-                                Text(primaryTitle)
-                            }.frame(minWidth: 110)
-                        }
-                        .buttonStyle(.borderedProminent).controlSize(.large)
-                        .keyboardShortcut(.defaultAction)
-                        .disabled(!canAct || !primaryEnabled)
-                    }
-                }
-            }
-        }
-        .padding(.horizontal, 24).padding(.vertical, 12)
-        .background(.bar)
-        .overlay(alignment: .top) { Divider() }
-        .onChange(of: model.sendCount) { _, _ in note = "" }
-    }
-    private var trimmed: String { note.trimmingCharacters(in: .whitespacesAndNewlines) }
 }
 
 // MARK: Images
