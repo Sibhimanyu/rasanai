@@ -124,8 +124,12 @@ struct MomentViewer: View {
                 controls
             }
             .frame(minWidth: 520)
+            Divider()
             details(moment).frame(width: 300)
         }
+        // The card is as tall as the video and its controls (or the details, if they need more), never the window:
+        // the details column fills that height so its footer sits level with the controls.
+        .fixedSize(horizontal: false, vertical: true)
         .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .shadow(color: .black.opacity(0.4), radius: 30, y: 10)
@@ -181,8 +185,11 @@ struct MomentViewer: View {
                     }
                 }
             }
-            if !moment.why.isEmpty { Text(moment.why).font(.system(size: 12.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
-            Spacer(minLength: 0)
+            if !moment.why.isEmpty {
+                Text(moment.why).font(.system(size: 12.5)).foregroundStyle(.secondary).lineSpacing(2).lineLimit(7)
+                    .fixedSize(horizontal: false, vertical: true).help(moment.why)
+            }
+            Spacer(minLength: 12)
             VStack(alignment: .leading, spacing: 6) {
                 if moment.duration > 0 { Label(String(format: "%.1f seconds", moment.duration), systemImage: "clock").font(.system(size: 11.5)).foregroundStyle(.secondary) }
                 if let creator = moment.creator {
