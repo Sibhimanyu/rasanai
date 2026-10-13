@@ -71,6 +71,8 @@ struct HomeView: View {
         }
         .scrollIndicators(.automatic)
         .background(Color(nsColor: .windowBackgroundColor))
+        // Over the whole page, so the dim fills the window and the card stays put while the page scrolls under it.
+        .momentViewer(gallery: store.gallery, selection: $store.inspirePicks)
         .navigationTitle("RasanAI")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {

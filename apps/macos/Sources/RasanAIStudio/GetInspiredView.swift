@@ -526,6 +526,6 @@ struct GetInspiredHomeSection: View {
         }
         .task { await gallery.loadIfNeeded() }
         .onDisappear { gallery.stopPlaying(); gallery.closeViewer() }
-        .momentViewer(gallery: gallery, selection: $store.inspirePicks)
+        // The viewer itself is laid over the whole Home page (HomeView), not over this section.
     }
 }
