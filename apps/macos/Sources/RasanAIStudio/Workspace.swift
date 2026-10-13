@@ -46,53 +46,6 @@ struct StageDrawsPanelsKey: PreferenceKey {
     static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
 }
 
-// MARK: Header
-
-/// The film page's header row: back, the film's name and facts, the five calls, and the inspector button. It replaces the
-/// window toolbar on film pages, so there is one header and nothing above the panels repeats it.
-struct FilmHeader<Trailing: View>: View {
-    let title: String
-    let facts: String
-    var stepper: FilmStepper?
-    var decisionsOn: Bool
-    var onBack: () -> Void
-    var onDecisions: (() -> Void)?
-    @ViewBuilder var trailing: Trailing
-
-    var body: some View {
-        HStack(spacing: 16) {
-            NavCluster()
-            Text(title).font(.system(size: 22, weight: .semibold)).tracking(-0.3).lineLimit(1).truncationMode(.tail)
-                .layoutPriority(1)
-            if !facts.isEmpty {
-                separator
-                Text(facts).font(.system(size: 13)).foregroundStyle(.secondary).monospacedDigit().lineLimit(1).fixedSize()
-            }
-            if let stepper {
-                separator
-                stepper
-            }
-            Spacer(minLength: 12)
-            if let onDecisions {
-                separator
-                Button(action: onDecisions) {
-                    Label("Decisions", systemImage: "list.bullet").font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(decisionsOn ? Color.rasan : Color.primary)
-                        .padding(.horizontal, 14).frame(height: 36)
-                        .contentShape(Capsule())
-                }
-                .liquidGlass(in: Capsule())
-                .buttonStyle(.plain).help("Every decision on this film (⌥⌘D)")
-                .keyboardShortcut("d", modifiers: [.command, .option])
-            }
-            trailing
-        }
-        .frame(height: 44)
-    }
-
-    private var separator: some View { Rectangle().fill(Workspace.hairline).frame(width: 1, height: 22) }
-}
-
 // MARK: Stepper
 
 /// The five calls, as in an editor's header: done calls are ticked outlines, the current one is a filled number, the rest are

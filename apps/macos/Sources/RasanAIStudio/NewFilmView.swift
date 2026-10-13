@@ -216,7 +216,7 @@ struct NewFilmView: View {
                     "Get inspired adds moments from real launch films, so your film moves like them. Each one is credited to its creator.",
                     "Add footage, images or documents if you have them. Copies go into the film; originals stay put.",
                     "Pick the options under the prompt. The sparkle chip chooses which Claude models direct the film; the recommended mix has Opus direct and Sonnet handle research, routine jobs and, at Fast pace, the key frames and animation.",
-                    "Start film hands it to your director. You will be asked when it needs you."]).buttonStyle(.borderless)
+                    "Start film hands it to your director. You will be asked when it needs you."])
         }
     }
 

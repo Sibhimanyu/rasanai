@@ -8,41 +8,35 @@ struct StudioView: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        content.environment(\.momentStore, store).environment(\.sidebarToggleSpace, toggleSpace)
+        content.environment(\.momentStore, store)
     }
 
-    @AppStorage("studio.sidebarCollapsed") private var sidebarCollapsed = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Namespace private var toggleSpace
+    @AppStorage("studio.sidebarHidden") private var sidebarHidden = false
     /// A film (or the sample, or the film editor) brings its own bottom bar, so the studio's status bar steps aside there.
     private var showsStatusBar: Bool {
         switch store.path.last { case .film?, .sample?, .newFilm?: false; default: true }
     }
 
+    /// The native split view: on macOS Tahoe the system draws the floating glass sidebar with the window buttons inside it,
+    /// its toggle, and the toggle's move into the toolbar when the sidebar hides, with the system's own animation.
     private var content: some View {
-        HStack(spacing: 0) {
-            AppSidebar(store: store, collapsed: $sidebarCollapsed)
+        NavigationSplitView(columnVisibility: Binding(get: { sidebarHidden ? .detailOnly : .all },
+                                                      set: { sidebarHidden = $0 == .detailOnly })) {
+            AppSidebar(store: store)
+        } detail: {
             VStack(spacing: 0) {
                 stack
                 if showsStatusBar { AppStatusBar(store: store) }
             }
+            .background(Color.appBackground)
         }
-        // One background for the whole window, under the floating sidebar too: the glass sits on the page's own colour,
-        // never on the desktop showing through.
-        .background(Color.appBackground.ignoresSafeArea())
-        // The page reflows with the same spring as the sidebar, so the two move as one.
-        .animation(AppSidebar.motion(reduce: reduceMotion), value: sidebarCollapsed)
-        .ignoresSafeArea(.container, edges: .top)
-        // Every button without a style of its own is the flat secondary, never the system's bevelled push button.
-        .buttonStyle(.rasanSecondary)
     }
 
     private var stack: some View {
         NavigationStack(path: $store.path) {
             HomeView(store: store)
-                .toolbar(.hidden, for: .windowToolbar)
                 .navigationDestination(for: Route.self) { route in
-                    Group { switch route {
+                    switch route {
                     case .newFilm(let project): NewFilmView(store: store, project: project)
                     case .film(let url):
                         if store.shouldBrowseSeparately(url) { LibraryFilmPage(store: store, url: url) }
@@ -54,8 +48,7 @@ struct StudioView: View {
                     case .inspire: GetInspiredPage(store: store)
                     case .sample: SamplePage(store: store)
                     case .library(let mode): HomeView(store: store, mode: mode)
-                    } }
-                    .toolbar(.hidden, for: .windowToolbar)
+                    }
                 }
         }
         .tint(.rasan)
@@ -65,14 +58,14 @@ struct StudioView: View {
             introduceFeedback()
         }) { sheet in
             switch sheet {
-            case .welcome: WelcomeView(store: store).tint(.rasan)
-            case .log: DirectorLogSheet(runtime: store.runtime).tint(.rasan)
-            case .files: FilesSheet(store: store).tint(.rasan)
-            case .note: NoteSheet(store: store).tint(.rasan)
-            case .preflight: PreflightView(store: store).tint(.rasan)
-            case .projectTransfer: ProjectTransferView(store: store).tint(.rasan)
+            case .welcome: WelcomeView(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
+            case .log: DirectorLogSheet(runtime: store.runtime).tint(.rasan).buttonStyle(.rasanSecondary)
+            case .files: FilesSheet(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
+            case .note: NoteSheet(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
+            case .preflight: PreflightView(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
+            case .projectTransfer: ProjectTransferView(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
             case .export:
-                if let source = store.exportSource { MovieExportSheet(source: source, captions: store.exportCaptions).tint(.rasan) }
+                if let source = store.exportSource { MovieExportSheet(source: source, captions: store.exportCaptions).tint(.rasan).buttonStyle(.rasanSecondary) }
             }
         }
         .onAppear { introduceFeedback() }

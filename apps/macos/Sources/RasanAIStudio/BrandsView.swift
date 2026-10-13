@@ -55,8 +55,8 @@ struct BrandsView: View {
             HelpButton(title: "Brands", lines: [
                 "A brand keeps your colours, type and logo in one folder.",
                 "Pick a brand when you start a film and RasanAI designs in your look.",
-                "Each brand is a plain DESIGN.md file you can edit anywhere."]).buttonStyle(.borderless)
-            Button { showNew = true } label: { Label("New brand", systemImage: "plus") }.buttonStyle(.rasanSecondary).controlSize(.large)
+                "Each brand is a plain DESIGN.md file you can edit anywhere."])
+            Button { showNew = true } label: { Label("New brand", systemImage: "plus") }.help("New brand")
         }
         .sheet(isPresented: $showNew) {
             NewBrandSheet(root: root) { brand in
@@ -286,15 +286,14 @@ struct BrandPage: View {
             HelpButton(title: "This brand", lines: [
                 "These swatches and fonts are read from the brand's DESIGN.md.",
                 "Choose Edit brand to change colours, fonts and logo, with a live preview.",
-                "Deleting a brand moves its folder to the Trash. Existing films keep their copy."]).buttonStyle(.borderless)
+                "Deleting a brand moves its folder to the Trash. Existing films keep their copy."])
             Menu {
                 Button("Edit Brand…") { reload(); showEditor = true }
                 Button("Edit in TextEdit") { edit() }
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([brand]) }
                 Divider()
                 Button("Delete Brand…", role: .destructive) { confirmDelete = true }
-            } label: { Image(systemName: "ellipsis").font(.system(size: 15, weight: .medium)).frame(width: 36, height: 36).contentShape(Circle()) }
-            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().liquidGlass(in: Circle())
+            } label: { Label("More", systemImage: "ellipsis.circle") }
         }
         .confirmationDialog("Move \(model?.name ?? "this brand") to the Trash?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Move to Trash", role: .destructive) {

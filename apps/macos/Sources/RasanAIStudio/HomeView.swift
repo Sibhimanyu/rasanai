@@ -91,13 +91,12 @@ struct HomeView: View {
         .scrollIndicators(.automatic)
         .background(Color.appBackground)
         .navigationTitle(mode?.title ?? "Home")
+        .searchable(text: $store.projectSearch, placement: .toolbar, prompt: "Search films")
         .pageHeader(mode?.title ?? "Home") {
-            HeaderSearchField(text: $store.projectSearch)
             Menu {
                 Button("Check readiness…") { store.showPreflight() }
                 Button("Import Project…") { store.importProjectPanel() }
-            } label: { Image(systemName: "ellipsis").font(.system(size: 15, weight: .medium)).frame(width: 36, height: 36).contentShape(Circle()) }
-            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().liquidGlass(in: Circle()).help("More")
+            } label: { Label("More", systemImage: "ellipsis.circle") }.help("More")
             NewFilmHeaderButton { store.newFilm() }
         }
         .alert("Rename film", isPresented: Binding(get: { renameFolder != nil }, set: { if !$0 { renameFolder = nil } })) {

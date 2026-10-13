@@ -471,7 +471,7 @@ struct GetInspiredPage: View {
                 HelpButton(title: "Get inspired", lines: [
                     "Browse short moves from real launch films. Point at one to preview it.",
                     "Click a card to watch it big, with sound. The plus button adds it to Moves I like, up to four, with no fixed roles.",
-                    "Make a film with these opens New film with your picks attached. Each card credits its creator."]).buttonStyle(.borderless)
+                    "Make a film with these opens New film with your picks attached. Each card credits its creator."])
         }
     }
 }

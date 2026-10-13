@@ -10,16 +10,15 @@ enum LibraryMode: String, Hashable {
 
 // MARK: Sidebar
 
-/// The app's sidebar: the places in the studio, with Queue and Settings at the foot. It folds to a rail of icons
-/// (⌃⌘S, or the button at the bottom) and remembers which way the person left it.
+/// The places in the studio, as a native source list in the split view's sidebar. On macOS Tahoe the system draws it as the
+/// floating glass sidebar, places the window buttons inside it and moves its toggle into the toolbar when it hides.
+enum StudioPlace: Hashable { case home, all, needsReview, brands, templates, inspire, queue }
+
 struct AppSidebar: View {
     @Bindable var store: StudioStore
-    @Binding var collapsed: Bool
     @Environment(\.openSettings) private var openSettings
 
-    private enum Place: Hashable { case home, all, needsReview, brands, templates, inspire, queue }
-
-    private var current: Place? {
+    private var current: StudioPlace? {
         switch store.path.last {
         case nil: .home
         case .library(.all)?: .all
@@ -33,175 +32,96 @@ struct AppSidebar: View {
     }
     private var needsYouCount: Int { store.visibleProjects.filter { store.summary(for: $0.1).phase.needsYou }.count }
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.sidebarToggleSpace) private var space
-    @Namespace private var fallbackSpace
-    private var toggleSpace: Namespace.ID { space ?? fallbackSpace }
-    /// Icons keep one position at every width: centred in the folded rail, and the same spot when open, so only the
-    /// width, the labels and the toggle move.
-    private static let iconInset: CGFloat = 21
-    private static let railWidth: CGFloat = 80, fullWidth: CGFloat = 232
-    /// A critically damped spring, as Apple's sidebars: no overshoot, settles in about a third of a second.
-    static func motion(reduce: Bool) -> Animation { reduce ? .easeOut(duration: 0.12) : .spring(response: 0.34, dampingFraction: 1) }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            // The window's buttons sit on the first 44 pt (see TrafficLightsInset); the toggle shares the row while open.
-            Color.clear.frame(height: 44)
-            brand.padding(.bottom, 14)
-            item(.home, "Home", "house")
-            item(.all, "All films", "film.stack")
-            item(.needsReview, "Needs review", "clock", badge: needsYouCount)
-            item(.brands, "Brands", "tag")
-            item(.templates, "Templates", "square.grid.2x2")
-            item(.inspire, "Inspiration", "sparkles")
-            Spacer(minLength: 12)
-            Divider().padding(.horizontal, 12).padding(.bottom, 8)
-            item(.queue, "Queue", "list.bullet.rectangle", badge: store.settings.filmQueue.count)
-            row(nil, "Settings", "gearshape") { openSettings() }
-        }
-        .padding(.horizontal, 8).padding(.bottom, 12)
-        .frame(width: collapsed ? Self.railWidth : Self.fullWidth, alignment: .leading)
-        .frame(maxHeight: .infinity, alignment: .top)
-        // Open, the toggle sits at the end of the window buttons' row. Folded, it leaves the sidebar for the page's top bar
-        // (NavCluster), as in macOS Tahoe; the shared geometry id lets it glide between the two.
-        .overlay(alignment: .topTrailing) {
-            if !collapsed {
-                sidebarToggle.matchedGeometryEffect(id: "sidebar-toggle", in: toggleSpace).padding(.trailing, 12).padding(.top, 7)
-            }
-        }
-        .clipped()
-        // A floating sheet of glass inset from the window's edges, the traffic lights inside it, as in macOS Tahoe.
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: false)
-        .padding(.leading, 8).padding(.vertical, 8)
-        .background { TrafficLightsInset(rowCentre: 30, leading: 24) }
-        .animation(Self.motion(reduce: reduceMotion), value: collapsed)
-    }
-
-    /// Folds the sidebar to icons, or opens it again.
-    private var sidebarToggle: some View {
-        Button { collapsed.toggle() } label: {
-            Image(systemName: "sidebar.left").font(.system(size: 15, weight: .medium)).frame(width: 30, height: 30).contentShape(Rectangle())
-        }
-        .buttonStyle(.plain).foregroundStyle(.secondary)
-        .help(collapsed ? "Show the full sidebar (⌃⌘S)" : "Collapse the sidebar to icons (⌃⌘S)")
-        .accessibilityLabel(collapsed ? "Expand sidebar" : "Collapse sidebar")
-    }
-
-    /// A label beside an icon: it fades and slides a little toward the icon as the sidebar folds, and the sidebar's edge
-    /// clips it, so nothing pops.
-    private func fading<V: View>(_ view: V) -> some View {
-        view.opacity(collapsed ? 0 : 1).offset(x: collapsed ? -8 : 0).allowsHitTesting(!collapsed).accessibilityHidden(collapsed)
-    }
-
-    private var brand: some View {
-        HStack(spacing: 12) {
-            RasanMark().fill(Color.rasan).frame(width: 20, height: 25).frame(width: 22)
-            fading(Text("RasanAI Studio").font(.system(size: 16, weight: .semibold)).lineLimit(1).fixedSize())
-        }
-        .padding(.leading, Self.iconInset)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine).accessibilityLabel("RasanAI Studio")
-    }
-
-    private func item(_ place: Place, _ title: String, _ symbol: String, badge: Int = 0) -> some View {
-        row(place, title, symbol, badge: badge) { go(place) }
-    }
-
-    private func row(_ place: Place?, _ title: String, _ symbol: String, badge: Int = 0, quiet: Bool = false, action: @escaping () -> Void) -> some View {
-        let on = place != nil && place == current
-        return Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: symbol).font(.system(size: 15, weight: on ? .semibold : .regular)).frame(width: 22)
-                    .overlay(alignment: .topTrailing) {
-                        if badge > 0 { Circle().fill(Color.rasan).frame(width: 7, height: 7).offset(x: 4, y: -2).opacity(collapsed ? 1 : 0) }
-                    }
-                fading(Text(title).font(.system(size: 13.5, weight: on ? .semibold : .regular)).lineLimit(1).fixedSize())
-                Spacer(minLength: 4)
-                if badge > 0 {
-                    fading(Text("\(badge)").font(.system(size: 11.5, weight: .semibold)).monospacedDigit()
-                        .foregroundStyle(Color.rasan).padding(.horizontal, 7).frame(minWidth: 22, minHeight: 20)
-                        .background(Color.rasan.opacity(0.14), in: Capsule()))
+        List(selection: Binding(get: { current }, set: { if let place = $0 { go(place) } })) {
+            Section {
+                Label("Home", systemImage: "house").tag(StudioPlace.home)
+                Label("All films", systemImage: "film.stack").tag(StudioPlace.all)
+                Label("Needs review", systemImage: "clock").badge(needsYouCount).tag(StudioPlace.needsReview)
+                Label("Brands", systemImage: "tag").tag(StudioPlace.brands)
+                Label("Templates", systemImage: "square.grid.2x2").tag(StudioPlace.templates)
+                Label("Inspiration", systemImage: "sparkles").tag(StudioPlace.inspire)
+            } header: {
+                HStack(spacing: 8) {
+                    RasanMark().fill(Color.rasan).frame(width: 14, height: 17)
+                    Text("RasanAI Studio")
                 }
             }
-            .foregroundStyle(quiet && !on ? Color.secondary : Color.primary)
-            .padding(.leading, Self.iconInset).padding(.trailing, 10).frame(height: 36)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(on ? Color.primary.opacity(0.13) : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .help(collapsed ? title : "")
-        .accessibilityLabel(badge > 0 ? "\(title), \(badge)" : title)
-        .accessibilityAddTraits(on ? .isSelected : [])
-    }
-
-    private func go(_ place: Place) {
-        switch place {
-        case .home: store.path = []
-        case .all: store.path = [.library(.all)]
-        case .needsReview: store.path = [.library(.needsReview)]
-        case .brands: store.path = [.brands]
-        case .templates: store.path = [.templates]
-        case .inspire: store.path = [.inspire]
-        case .queue: store.path = [.queue]
-        }
-    }
-}
-
-// MARK: Page header
-
-/// The header row every page draws in place of a window toolbar: the page's name on the left, its tools on the right.
-struct PageHeader<Trailing: View>: View {
-    let title: String
-    var showsBack = false
-    var onBack: () -> Void = {}
-    @ViewBuilder var trailing: Trailing
-
-    var body: some View {
-        HStack(spacing: 12) {
-            NavCluster()
-            Text(title).font(.system(size: 15, weight: .semibold)).lineLimit(1).padding(.leading, 4)
-            Spacer(minLength: 12)
-            trailing
-        }
-        .padding(.leading, 12).padding(.trailing, 20).frame(height: 56)
-    }
-}
-
-/// The search field in a page header.
-struct HeaderSearchField: View {
-    @Binding var text: String
-    var prompt = "Search films"
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField(prompt, text: $text).textFieldStyle(.plain)
-            if !text.isEmpty {
-                Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }.buttonStyle(.plain).accessibilityLabel("Clear search")
+            Section {
+                Label("Queue", systemImage: "list.bullet.rectangle").badge(store.settings.filmQueue.count).tag(StudioPlace.queue)
             }
         }
-        .font(.system(size: 14))
-        .padding(.horizontal, 14).frame(width: 300, height: 36)
-        .liquidGlass(in: Capsule())
+        .listStyle(.sidebar)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Button { openSettings() } label: { Label("Settings", systemImage: "gearshape").frame(maxWidth: .infinity, alignment: .leading) }
+                .buttonStyle(.plain).foregroundStyle(.secondary)
+                .padding(.horizontal, 18).padding(.vertical, 12)
+        }
+        .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 300)
+    }
+
+    private func go(_ place: StudioPlace) {
+        let target: [Route] = switch place {
+        case .home: []
+        case .all: [.library(.all)]
+        case .needsReview: [.library(.needsReview)]
+        case .brands: [.brands]
+        case .templates: [.templates]
+        case .inspire: [.inspire]
+        case .queue: [.queue]
+        }
+        if store.path != target { store.path = target }
     }
 }
 
-/// "+ New film", the studio's one loud button, in page headers.
+// MARK: Toolbar
+
+/// Back and forward through where the person has been, as a browser does. In the toolbar's navigation slot, so Tahoe groups
+/// them into one glass capsule.
+struct HistoryToolbar: ToolbarContent {
+    let store: StudioStore?
+    var body: some ToolbarContent {
+        ToolbarItemGroup(placement: .navigation) {
+            Button { store?.goBack() } label: { Label("Back", systemImage: "chevron.left") }
+                .disabled(!(store?.canGoBack ?? false)).keyboardShortcut("[", modifiers: .command).help("Back")
+            Button { store?.goForward() } label: { Label("Forward", systemImage: "chevron.right") }
+                .disabled(!(store?.canGoForward ?? false)).keyboardShortcut("]", modifiers: .command).help("Forward")
+        }
+    }
+}
+
+private struct PageToolbar<Trailing: View>: ViewModifier {
+    let title: String
+    @ViewBuilder var trailing: Trailing
+    @Environment(\.momentStore) private var store
+    func body(content: Content) -> some View {
+        content
+            .buttonStyle(.rasanSecondary)   // inside the page only: toolbar items keep the system's glass
+            .navigationTitle(title)
+            .navigationBarBackButtonHidden(true)
+            .toolbar {
+                HistoryToolbar(store: store)
+                ToolbarItemGroup(placement: .primaryAction) { trailing }
+            }
+    }
+}
+
+extension View {
+    /// The page's title and tools in the window toolbar (back and forward lead it).
+    func pageHeader<Trailing: View>(_ title: String, onBack: (() -> Void)? = nil, @ViewBuilder trailing: () -> Trailing) -> some View {
+        modifier(PageToolbar(title: title, trailing: trailing))
+    }
+    func pageHeader(_ title: String, onBack: (() -> Void)? = nil) -> some View { pageHeader(title, onBack: onBack) { EmptyView() } }
+}
+
+/// "+ New film", the studio's one prominent toolbar button: tinted glass on Tahoe.
 struct NewFilmHeaderButton: View {
     let action: () -> Void
     var body: some View {
-        let label = Label("New film", systemImage: "plus").font(.system(size: 14, weight: .semibold))
-        Group {
-            // A toolbar's prominent button on Tahoe: blue glass, capsule, the same height as the glass tools beside it.
-            if #available(macOS 26, *) {
-                Button(action: action) { label.padding(.horizontal, 6).frame(height: 28) }
-                    .buttonStyle(.glassProminent).tint(Color.rasanFill).controlSize(.large)
-            } else {
-                Button(action: action) { label }.buttonStyle(.rasanPrimary).controlSize(.large)
-            }
-        }
-        .keyboardShortcut("n", modifiers: .command)
+        Button(action: action) { Label("New film", systemImage: "plus").labelStyle(.titleAndIcon) }
+            .buttonStyle(.borderedProminent).tint(Color.rasanFill)
+            .keyboardShortcut("n", modifiers: .command)
+            .help("Start a new film (⌘N)")
     }
 }
 
@@ -232,19 +152,6 @@ struct AppStatusBar: View {
 }
 
 extension View {
-    /// Puts the page header above the page (pages draw their own header; the window has no toolbar).
-    func pageHeader<Trailing: View>(_ title: String, onBack: (() -> Void)? = nil, @ViewBuilder trailing: () -> Trailing) -> some View {
-        VStack(spacing: 0) {
-            PageHeader(title: title, showsBack: onBack != nil, onBack: onBack ?? {}, trailing: trailing)
-            self.frame(maxHeight: .infinity)
-        }
-    }
-    func pageHeader(_ title: String, onBack: (() -> Void)? = nil) -> some View { pageHeader(title, onBack: onBack) { EmptyView() } }
-}
-
-// MARK: Glass
-
-extension View {
     /// Liquid Glass on macOS 26 and later; a frosted material before it.
     @ViewBuilder func liquidGlass(in shape: some Shape, interactive: Bool = true) -> some View {
         if #available(macOS 26, *) { self.glassEffect(interactive ? .regular.interactive() : .regular, in: shape) }
@@ -252,113 +159,3 @@ extension View {
     }
 }
 
-/// A round glass button for header tools (sidebar, more, help).
-struct GlassIconButton: View {
-    let symbol: String
-    let help: String
-    var action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 15, weight: .medium)).frame(width: 36, height: 36).contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .liquidGlass(in: Circle())
-        .help(help).accessibilityLabel(help)
-    }
-}
-
-/// Top left of every page, as in Safari: the sidebar toggle, then back and forward in one glass capsule.
-struct NavCluster: View {
-    @Environment(\.momentStore) private var store
-    @Environment(\.sidebarToggleSpace) private var space
-    @Namespace private var fallbackSpace
-    private var toggleSpace: Namespace.ID { space ?? fallbackSpace }
-    @AppStorage("studio.sidebarCollapsed") private var collapsed = false
-
-    var body: some View {
-        HStack(spacing: 10) {
-            if collapsed {
-                GlassIconButton(symbol: "sidebar.left", help: "Show the sidebar (⌃⌘S)") { collapsed = false }
-                    .matchedGeometryEffect(id: "sidebar-toggle", in: toggleSpace)
-            }
-            HStack(spacing: 0) {
-                arrow("chevron.left", "Back", enabled: store?.canGoBack ?? false) { store?.goBack() }
-                    .keyboardShortcut("[", modifiers: .command)
-                Rectangle().fill(Color.primary.opacity(0.14)).frame(width: 1, height: 18)
-                arrow("chevron.right", "Forward", enabled: store?.canGoForward ?? false) { store?.goForward() }
-                    .keyboardShortcut("]", modifiers: .command)
-            }
-            .liquidGlass(in: Capsule())
-        }
-        .background {
-            Button("Toggle sidebar") { collapsed.toggle() }
-                .keyboardShortcut("s", modifiers: [.control, .command]).opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
-        }
-    }
-
-    private func arrow(_ symbol: String, _ title: String, enabled: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 15, weight: .medium)).frame(width: 40, height: 36).contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(enabled ? Color.primary : Color.secondary.opacity(0.5))
-        .disabled(!enabled)
-        .help(title).accessibilityLabel(title)
-    }
-}
-
-// MARK: Window controls
-
-/// Moves the window's close, minimise and zoom buttons into the floating sidebar's top row, inset from its rounded corner
-/// the way macOS Tahoe's own sidebar apps place them. AppKit puts them back on every layout, so this re-applies on
-/// resize, full screen and key changes.
-struct TrafficLightsInset: NSViewRepresentable {
-    /// The centre of the buttons' row from the window's top edge, and the first button's left edge.
-    var rowCentre: CGFloat = 30
-    var leading: CGFloat = 24
-
-    func makeNSView(context: Context) -> NSView { Anchor(rowCentre: rowCentre, leading: leading) }
-    func updateNSView(_ view: NSView, context: Context) { (view as? Anchor)?.apply() }
-
-    final class Anchor: NSView {
-        let rowCentre: CGFloat
-        let leading: CGFloat
-        nonisolated(unsafe) private var observers: [NSObjectProtocol] = []
-        init(rowCentre: CGFloat, leading: CGFloat) { self.rowCentre = rowCentre; self.leading = leading; super.init(frame: .zero) }
-        required init?(coder: NSCoder) { fatalError() }
-        deinit { observers.forEach(NotificationCenter.default.removeObserver) }
-
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            observers.forEach(NotificationCenter.default.removeObserver); observers = []
-            guard let window else { return }
-            for name in [NSWindow.didResizeNotification, NSWindow.didEndLiveResizeNotification, NSWindow.didExitFullScreenNotification,
-                         NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification, NSWindow.didChangeScreenNotification] {
-                observers.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.apply() }
-                })
-            }
-            DispatchQueue.main.async { [weak self] in self?.apply() }
-        }
-
-        func apply() {
-            guard let window, !window.styleMask.contains(.fullScreen),
-                  let close = window.standardWindowButton(.closeButton), let container = close.superview?.superview else { return }
-            let height = rowCentre * 2
-            container.frame = NSRect(x: 0, y: window.frame.height - height, width: window.frame.width, height: height)
-            for (index, type) in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton].enumerated() {
-                guard let button = window.standardWindowButton(type) else { continue }
-                button.setFrameOrigin(NSPoint(x: leading + CGFloat(index) * 20, y: (height - button.frame.height) / 2))
-            }
-        }
-    }
-}
-
-/// The namespace the sidebar toggle glides in, between the sidebar and the page's top bar.
-private struct SidebarToggleSpaceKey: EnvironmentKey { static var defaultValue: Namespace.ID? { nil } }
-extension EnvironmentValues {
-    var sidebarToggleSpace: Namespace.ID? {
-        get { self[SidebarToggleSpaceKey.self] }
-        set { self[SidebarToggleSpaceKey.self] = newValue }
-    }
-}

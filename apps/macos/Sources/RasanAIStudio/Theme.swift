@@ -196,24 +196,35 @@ extension ButtonStyle where Self == RasanSecondaryButtonStyle { static var rasan
 /// Kept for call sites that predate the flat styles.
 typealias StudioSecondaryButtonStyle = RasanSecondaryButtonStyle
 
-/// A flat two-to-four-way switch (Grid | List), drawn instead of the system segmented control.
+/// A flat two-to-four-way switch (Grid | List), drawn instead of the system segmented control. The selection is one pill
+/// that slides to the option you pick on a soft spring, the labels cross-fading as it passes; Reduce Motion just swaps it.
 struct FlatSegmented<Value: Hashable>: View {
     @Binding var selection: Value
     let options: [(Value, String, String?)]
+    @Namespace private var pill
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         HStack(spacing: 2) {
             ForEach(options.indices, id: \.self) { index in
                 let (value, title, symbol) = options[index]
                 let on = value == selection
-                Button { selection = value } label: {
+                Button {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.86)) { selection = value }
+                } label: {
                     HStack(spacing: 6) {
                         if let symbol { Image(systemName: symbol) }
                         Text(title)
                     }
-                    .font(.system(size: 12.5, weight: on ? .semibold : .medium))
+                    .font(.system(size: 12.5, weight: .semibold))
                     .foregroundStyle(on ? Color.white : Color.secondary)
                     .padding(.horizontal, 12).frame(height: 28)
-                    .background(on ? Color.rasanFill : .clear, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .background {
+                        if on {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.rasanFill)
+                                .matchedGeometryEffect(id: "selection", in: pill)
+                        }
+                    }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -286,10 +297,7 @@ struct HelpButton: View {
     let lines: [String]
     @State private var shown = false
     var body: some View {
-        Button { shown.toggle() } label: {
-            Image(systemName: "questionmark").font(.system(size: 14, weight: .medium)).frame(width: 36, height: 36).contentShape(Circle())
-        }
-            .buttonStyle(.plain).liquidGlass(in: Circle())
+        Button { shown.toggle() } label: { Label("Help", systemImage: "questionmark.circle") }
             .help("Help for this screen")
             .popover(isPresented: $shown, arrowEdge: .bottom) {
                 VStack(alignment: .leading, spacing: 10) {
