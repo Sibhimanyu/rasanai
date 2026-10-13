@@ -2,6 +2,11 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## 0.8.1 (build 24) — 2026-10-13
+
+- **Move viewer sound fixed.** The expanded viewer could be on screen twice at once, each with its own player, so a clip played twice a few frames apart (an echo) and pausing stopped only one copy. The app now has one player for every viewer: one sound, and pause always stops it.
+- **Silent clips say so.** 76 of the 125 reference clips were published without a sound track; the viewer now shows "No sound in this clip" instead of a mute button that does nothing.
+
 ## 0.8.0 (build 23) — 2026-10-13
 
 - Bundles RasanAI 1.14.0: reference moves are picked by taste with no fixed roles, placed by Claude on the chosen story's beats, and shown on the style frames with Swap.

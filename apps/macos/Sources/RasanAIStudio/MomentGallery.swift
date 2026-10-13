@@ -89,13 +89,17 @@ final class MomentGallery {
     /// The move open in the large viewer, if any. Neighbours follow the grid as filtered.
     var viewingID: String?
     var viewing: Moment? { viewingID.flatMap(moment) }
-    func openViewer(_ id: String) { stopPlaying(); viewingID = id }
-    func closeViewer() { viewingID = nil }
+    /// ONE player for the whole app: every viewer on screen shows this same player, so a clip can never play twice
+    /// (two players a few frames apart sound like an echo, and pausing one leaves the other playing).
+    @ObservationIgnored let viewerPlayer = MomentViewerPlayer()
+    func openViewer(_ id: String) { stopPlaying(); viewingID = id; viewerPlayer.load(viewing?.clipURL) }
+    func closeViewer() { viewerPlayer.stop(); viewingID = nil }
     func step(_ delta: Int) {
         let list = filtered
         guard !list.isEmpty else { return }
         let index = list.firstIndex { $0.id == viewingID } ?? (delta > 0 ? -1 : 0)
         viewingID = list[((index + delta) % list.count + list.count) % list.count].id
+        viewerPlayer.load(viewing?.clipURL)
     }
 
     // MARK: Hover playback
