@@ -9,6 +9,7 @@ struct StudioView: View {
 
     var body: some View {
         content.environment(\.momentStore, store)
+            .modifier(LaunchFocus(ready: !store.isLoadingProjects))
     }
 
     @AppStorage("studio.sidebarHidden") private var sidebarHidden = false
@@ -132,4 +133,29 @@ func errorNeedsSettings(_ message: String?) -> Bool {
     // "Stop the director before switching films" is about the running film, not a setting.
     if text.contains("switching films") { return false }
     return ["director", "executable", "node", "sign in", "signed in", "sign-in", "log in", "login", "library", "project folder", "claude", "codex"].contains { text.contains($0) }
+}
+
+/// The launch: the window opens frosted, its content a soft blur, and comes into focus once the library has loaded (or
+/// after half a second, whichever is first), the way ChatGPT's window does. Reduce Motion gets a short fade instead.
+private struct LaunchFocus: ViewModifier {
+    let ready: Bool
+    @State private var focused = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .blur(radius: focused || reduceMotion ? 0 : 26)
+            .brightness(focused ? 0 : -0.04)
+            .opacity(focused || !reduceMotion ? 1 : 0)
+            .allowsHitTesting(focused)
+            .onAppear { if ready { reveal(after: 0.18) } else { reveal(after: 0.5) } }
+            .onChange(of: ready) { if ready { reveal(after: 0.05) } }
+    }
+
+    private func reveal(after delay: Double) {
+        guard !focused else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            withAnimation(reduceMotion ? .easeOut(duration: 0.18) : .easeOut(duration: 0.6)) { focused = true }
+        }
+    }
 }
