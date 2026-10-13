@@ -150,8 +150,8 @@ struct FilmPage: View {
                     if let project = store.selectedProjectURL { Button("Export Project…") { store.exportProject(project) } }
                     Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([store.selectedProjectURL ?? store.runURL ?? url]) }
                     if store.runURL != nil { Button("Reload film") { store.reloadFilm() } }
-                } label: { Image(systemName: "ellipsis.circle").font(.system(size: 15)) }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("More")
+                } label: { Image(systemName: "ellipsis").font(.system(size: 15, weight: .medium)).frame(width: 36, height: 36).contentShape(Circle()) }
+                .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().liquidGlass(in: Circle()).help("More")
                 HelpButton(title: "This film", lines: helpLines)
             }
             .buttonStyle(.borderless)

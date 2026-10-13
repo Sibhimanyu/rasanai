@@ -35,7 +35,7 @@ struct AppSidebar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Color.clear.frame(height: 30)   // the window's traffic lights sit here
+            Color.clear.frame(height: 36)   // the window's traffic lights sit here
             brand.padding(.bottom, 14)
             item(.home, "Home", "house")
             item(.all, "All films", "film.stack")
@@ -47,16 +47,13 @@ struct AppSidebar: View {
             Divider().padding(.horizontal, collapsed ? 10 : 14).padding(.bottom, 8)
             item(.queue, "Queue", "list.bullet.rectangle", badge: store.settings.filmQueue.count)
             row(nil, "Settings", "gearshape") { openSettings() }
-            row(nil, collapsed ? "Expand sidebar" : "Collapse sidebar", collapsed ? "sidebar.right" : "sidebar.left", quiet: true) {
-                withAnimation(.snappy(duration: 0.22)) { collapsed.toggle() }
-            }
-            .keyboardShortcut("s", modifiers: [.control, .command])
         }
-        .padding(.horizontal, 10).padding(.bottom, 14)
-        .frame(width: collapsed ? 76 : 236)
+        .padding(.horizontal, 8).padding(.bottom, 12)
+        .frame(width: collapsed ? 72 : 232)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(Workspace.sidebar)
-        .overlay(alignment: .trailing) { Rectangle().fill(Workspace.hairline).frame(width: 1) }
+        // A floating sheet of glass inset from the window's edges, the traffic lights inside it, as in macOS Tahoe.
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: false)
+        .padding(.leading, 8).padding(.vertical, 8)
     }
 
     private var brand: some View {
@@ -127,17 +124,12 @@ struct PageHeader<Trailing: View>: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            if showsBack {
-                Button(action: onBack) { Image(systemName: "chevron.left").font(.system(size: 14, weight: .medium)).frame(width: 26, height: 26).contentShape(Rectangle()) }
-                    .buttonStyle(.plain).help("Back").accessibilityLabel("Back")
-                    .keyboardShortcut("[", modifiers: .command)
-            }
-            Text(title).font(.system(size: 15, weight: .semibold)).lineLimit(1)
+            NavCluster()
+            Text(title).font(.system(size: 15, weight: .semibold)).lineLimit(1).padding(.leading, 4)
             Spacer(minLength: 12)
             trailing
         }
-        .padding(.horizontal, 24).frame(height: 56)
-        .overlay(alignment: .bottom) { Rectangle().fill(Workspace.hairline).frame(height: 1) }
+        .padding(.leading, 12).padding(.trailing, 20).frame(height: 56)
     }
 }
 
@@ -207,4 +199,62 @@ extension View {
         }
     }
     func pageHeader(_ title: String, onBack: (() -> Void)? = nil) -> some View { pageHeader(title, onBack: onBack) { EmptyView() } }
+}
+
+// MARK: Glass
+
+extension View {
+    /// Liquid Glass on macOS 26 and later; a frosted material before it.
+    @ViewBuilder func liquidGlass(in shape: some Shape, interactive: Bool = true) -> some View {
+        if #available(macOS 26, *) { self.glassEffect(interactive ? .regular.interactive() : .regular, in: shape) }
+        else { self.background(.regularMaterial, in: shape).overlay { shape.stroke(Color.primary.opacity(0.10), lineWidth: 1) } }
+    }
+}
+
+/// A round glass button for header tools (sidebar, more, help).
+struct GlassIconButton: View {
+    let symbol: String
+    let help: String
+    var action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.system(size: 15, weight: .medium)).frame(width: 36, height: 36).contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .liquidGlass(in: Circle())
+        .help(help).accessibilityLabel(help)
+    }
+}
+
+/// Top left of every page, as in Safari: the sidebar toggle, then back and forward in one glass capsule.
+struct NavCluster: View {
+    @Environment(\.momentStore) private var store
+    @AppStorage("studio.sidebarCollapsed") private var collapsed = false
+
+    var body: some View {
+        HStack(spacing: 10) {
+            GlassIconButton(symbol: "sidebar.left", help: collapsed ? "Show the full sidebar (⌃⌘S)" : "Collapse the sidebar to icons (⌃⌘S)") {
+                withAnimation(.snappy(duration: 0.24)) { collapsed.toggle() }
+            }
+            .keyboardShortcut("s", modifiers: [.control, .command])
+            HStack(spacing: 0) {
+                arrow("chevron.left", "Back", enabled: store?.canGoBack ?? false) { store?.goBack() }
+                    .keyboardShortcut("[", modifiers: .command)
+                Rectangle().fill(Color.primary.opacity(0.14)).frame(width: 1, height: 18)
+                arrow("chevron.right", "Forward", enabled: store?.canGoForward ?? false) { store?.goForward() }
+                    .keyboardShortcut("]", modifiers: .command)
+            }
+            .liquidGlass(in: Capsule())
+        }
+    }
+
+    private func arrow(_ symbol: String, _ title: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.system(size: 15, weight: .medium)).frame(width: 40, height: 36).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(enabled ? Color.primary : Color.secondary.opacity(0.5))
+        .disabled(!enabled)
+        .help(title).accessibilityLabel(title)
+    }
 }

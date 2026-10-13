@@ -61,9 +61,7 @@ struct FilmHeader<Trailing: View>: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            Button(action: onBack) { Image(systemName: "arrow.left").font(.system(size: 15, weight: .medium)).frame(width: 28, height: 28).contentShape(Rectangle()) }
-                .buttonStyle(.plain).help("Back to your films").accessibilityLabel("Back")
-                .keyboardShortcut("[", modifiers: .command)
+            NavCluster()
             Text(title).font(.system(size: 22, weight: .semibold)).tracking(-0.3).lineLimit(1).truncationMode(.tail)
                 .layoutPriority(1)
             if !facts.isEmpty {
@@ -79,11 +77,11 @@ struct FilmHeader<Trailing: View>: View {
                 separator
                 Button(action: onDecisions) {
                     Label("Decisions", systemImage: "list.bullet").font(.system(size: 13, weight: .medium))
-                        .padding(.horizontal, 12).frame(height: 32)
-                        .background(decisionsOn ? Color.rasan.opacity(0.14) : Workspace.raised, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Workspace.hairline, lineWidth: 1) }
-                        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .foregroundStyle(decisionsOn ? Color.rasan : Color.primary)
+                        .padding(.horizontal, 14).frame(height: 36)
+                        .contentShape(Capsule())
                 }
+                .liquidGlass(in: Capsule())
                 .buttonStyle(.plain).help("Every decision on this film (⌥⌘D)")
                 .keyboardShortcut("d", modifiers: [.command, .option])
             }

@@ -96,8 +96,8 @@ struct HomeView: View {
             Menu {
                 Button("Check readiness…") { store.showPreflight() }
                 Button("Import Project…") { store.importProjectPanel() }
-            } label: { Image(systemName: "ellipsis.circle").font(.system(size: 15)) }
-            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("More")
+            } label: { Image(systemName: "ellipsis").font(.system(size: 15, weight: .medium)).frame(width: 36, height: 36).contentShape(Circle()) }
+            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().liquidGlass(in: Circle()).help("More")
             NewFilmHeaderButton { store.newFilm() }
         }
         .alert("Rename film", isPresented: Binding(get: { renameFolder != nil }, set: { if !$0 { renameFolder = nil } })) {

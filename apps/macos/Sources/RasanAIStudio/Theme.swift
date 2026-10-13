@@ -281,7 +281,10 @@ struct HelpButton: View {
     let lines: [String]
     @State private var shown = false
     var body: some View {
-        Button { shown.toggle() } label: { Image(systemName: "questionmark.circle") }
+        Button { shown.toggle() } label: {
+            Image(systemName: "questionmark").font(.system(size: 14, weight: .medium)).frame(width: 36, height: 36).contentShape(Circle())
+        }
+            .buttonStyle(.plain).liquidGlass(in: Circle())
             .help("Help for this screen")
             .popover(isPresented: $shown, arrowEdge: .bottom) {
                 VStack(alignment: .leading, spacing: 10) {
