@@ -61,16 +61,41 @@ public enum ModelPlan: String, CaseIterable, Codable, Identifiable, Sendable {
     }
 }
 
-/// A reference moment the user picked for one story role (hook, proof, turn, cta). The director fetches it with
-/// moments.mjs and takes one mechanic from it; nothing from the moment ships in the film.
+/// Where in the film a picked move should land. `anywhere` (the default) leaves it to the director.
+public enum MomentPlace: String, CaseIterable, Identifiable, Codable, Sendable {
+    case opening, between, peak, ending, anywhere
+    public var id: String { rawValue }
+    public var title: String {
+        switch self { case .opening: "Opening"; case .between: "Between moments"; case .peak: "Big moment"; case .ending: "Ending"; case .anywhere: "Anywhere" }
+    }
+    /// Reads a brief's `place`, or maps an old `role`: hook to opening, cta to ending, everything else to anywhere.
+    public init(place: String?, legacyRole: String? = nil) {
+        if let place, let known = MomentPlace(rawValue: place.lowercased()) { self = known; return }
+        switch legacyRole?.lowercased() { case "hook": self = .opening; case "cta": self = .ending; default: self = .anywhere }
+    }
+}
+
+/// A move the user likes (`moments: [{id, place?}]` in rasanai-brief.json). The director fetches it with moments.mjs and
+/// takes one mechanic from it; nothing from the moment ships in the film. Old briefs carried a `role` instead of a `place`.
 public struct FilmMoment: Codable, Equatable, Hashable, Sendable {
     public var id: String
-    public var role: String
-    public init(id: String, role: String) { self.id = id; self.role = role }
+    public var place: MomentPlace
+    public init(id: String, place: MomentPlace = .anywhere) { self.id = id; self.place = place }
+    private enum CodingKeys: String, CodingKey { case id, place, role }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        place = MomentPlace(place: try? c.decodeIfPresent(String.self, forKey: .place), legacyRole: try? c.decodeIfPresent(String.self, forKey: .role))
+    }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(place, forKey: .place)
+    }
 }
 
 public struct FilmDraft: Codable, Equatable, Sendable {
-    /// At most this many picked moments travel in a brief (one per role).
+    /// At most this many picked moments travel in a brief .
     public static let maxMoments = 4
     public static let motionLevels = ["maximal", "balanced", "minimal"]
     public static let videoExtensions: Set<String> = ["mp4", "mov", "m4v", "webm", "mkv", "avi", "mts"]
@@ -84,7 +109,7 @@ public struct FilmDraft: Codable, Equatable, Sendable {
     public var modelPlan: ModelPlan
     /// How fast the director works (research budget and build plan). New films start Fast; drafts saved before this existed read as Standard.
     public var pace: FilmPace
-    /// Reference moments the user picked in the gallery (`moments: [{id, role}]` in rasanai-brief.json), up to four. Optional; empty by default.
+    /// Reference moments the user picked in the gallery (`moments: [{id, place}]` in rasanai-brief.json), up to four. Optional; empty by default.
     public var moments: [FilmMoment]
     /// Footage folders and reference videos used where they are (`linkedSources` in rasanai-brief.json). Never copied into the project.
     public var linked: [LinkedSource]
@@ -163,8 +188,8 @@ public struct FilmDraft: Codable, Equatable, Sendable {
     /// The picked reference moments, as the director reads them in the request (empty when none were picked).
     public var momentsText: String {
         guard !moments.isEmpty else { return "" }
-        let lines = moments.map { "- \($0.id) as the \($0.role)" }.joined(separator: "\n")
-        return "\n\nREFERENCE MOMENTS (picked by the user; they win over the director's own picks)\n\(lines)\nFetch each with moments.mjs fetch <id> --run \"$RUN\" --role <role> and take ONE mechanic from each, built fresh with this film's content. Technique only: nothing from a moment ships in the film, and each is credited."
+        let lines = moments.map { $0.place == .anywhere ? "- \($0.id) (anywhere it fits)" : "- \($0.id) for the \($0.place.title.lowercased())" }.joined(separator: "\n")
+        return "\n\nREFERENCE MOMENTS (picked by the user; they win over the director's own picks)\n\(lines)\nFetch each with moments.mjs fetch <id> --run \"$RUN\" --place <opening|between|peak|ending|anywhere> and take ONE mechanic from each, built fresh with this film's content. Technique only: nothing from a moment ships in the film, and each is credited."
     }
     /// Motion level plus, for video sources, the footage-reel brief. Reused by resumed and revised runs.
     public func creativeDirection(sources: [URL]) -> String {

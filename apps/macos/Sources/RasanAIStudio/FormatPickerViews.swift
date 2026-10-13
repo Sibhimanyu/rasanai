@@ -18,6 +18,8 @@ struct FormatPickerView: View {
 
     /// Open means the grid shows even with a pick (the person pressed Change). With no pick it is always shown.
     @Binding var changing: Bool
+    /// False when the format chip lives in the prompt box toolbar instead.
+    var showsChip = true
     @State private var openTile: String?
 
     private var option: FormatCatalog.Option? { catalog.option(pick?.option) }
@@ -25,7 +27,7 @@ struct FormatPickerView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            if let option { chip(option) }
+            if showsChip, let option { chip(option) }
             if let option, option.scopeQuestion != nil, option.status != .soon { scopeQuestion(option) }
             if showGrid { grid }
         }

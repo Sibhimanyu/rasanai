@@ -14,6 +14,9 @@ struct StyleframesStage: View {
     init(model: FilmSessionModel, step: String) { self.model = model; self.step = step }
 
     @State private var review = StyleframeReview()
+    @Environment(\.momentStore) private var store
+    /// The frame whose move is being swapped from the gallery picker.
+    @State private var swapping: String?
 
     private var data: StyleframesPayload { StyleframesPayload(model.payload(step)) }
     private var aspect: CGFloat { CGFloat(model.snapshot.aspectRatio) }
@@ -52,6 +55,7 @@ struct StyleframesStage: View {
                         }
                     }
                 }
+                if !data.unplaced.isEmpty { unplacedList(data.unplaced) }
                 // Registers the pinned primary button: it reads from what is marked.
                 Color.clear.frame(maxWidth: .infinity, minHeight: 1, maxHeight: 1)
                     .stepPrimary(review.primaryTitle(frames: frames.count), symbol: review.redo.isEmpty ? "checkmark" : "arrow.triangle.2.circlepath", enabled: canAct) { note in
@@ -59,6 +63,17 @@ struct StyleframesStage: View {
                     }
             }
         }
+        .sheet(isPresented: Binding(get: { store?.gallery.viewingID != nil }, set: { if !$0 { store?.gallery.closeViewer() } })) {
+            if let store {
+                MomentViewer(gallery: store.gallery, selection: Binding(get: { store.inspirePicks }, set: { store.inspirePicks = $0 })).frame(minWidth: 980, minHeight: 560)
+            }
+        }
+        .sheet(isPresented: Binding(get: { swapping != nil }, set: { if !$0 { swapping = nil } })) {
+            if let store, let frameID = swapping {
+                MomentPickerSheet(gallery: store.gallery, mine: store.inspirePicks.picks, onPick: { moment in swap(frame: frameID, to: moment.id); swapping = nil }, onCancel: { swapping = nil })
+            }
+        }
+        .task { if let store { store.gallery.prime(); await store.gallery.loadIfNeeded() } }
         .onChange(of: frames.map(\.id)) { _, ids in
             // A redo came back with new frames: forget marks and comments for frames that are gone.
             review.redo = review.redo.intersection(ids)
@@ -134,6 +149,7 @@ struct StyleframesStage: View {
             if let why = frame.ref?.why, !why.isEmpty {
                 Text(why).font(.system(size: 11.5)).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
             }
+            momentRow(frame)
             HStack(spacing: 8) {
                 Button { toggleRedo(frame.id) } label: {
                     Label(marked ? "Redo" : "Keep", systemImage: marked ? "arrow.triangle.2.circlepath" : "checkmark")
@@ -157,6 +173,74 @@ struct StyleframesStage: View {
         .cardSurface(selected: marked)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Style frame \(number): \(frame.title)")
+    }
+
+    // MARK: Moves on the boards
+
+    /// The move placed on this frame (still, name, why; opens the viewer) with Swap, or just Swap when none is placed.
+    @ViewBuilder private func momentRow(_ frame: Styleframe) -> some View {
+        if frame.moment != nil || store != nil {
+            HStack(alignment: .top, spacing: 10) {
+                if let moment = frame.moment {
+                    let known = store?.gallery.moment(moment.id)
+                    Button { if known != nil { store?.gallery.openViewer(moment.id) } } label: {
+                        HStack(alignment: .top, spacing: 8) {
+                            Group {
+                                if let known { MomentStill(url: known.stillURL, maxPixels: 200) }
+                                else if let still = moment.still { PayloadImage(path: still, contentMode: .fill, maxPixels: 200) }
+                                else { Color.primary.opacity(0.06) }
+                            }
+                            .frame(width: 64, height: 36).clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(moment.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                                if let why = moment.why, !why.isEmpty { Text(why).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(2).multilineTextAlignment(.leading) }
+                                if let credit = moment.credit, !credit.isEmpty { Text(credit).font(.system(size: 10.5)).foregroundStyle(.tertiary).lineLimit(1) }
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain).help(known != nil ? "Watch this move, with sound" : moment.why ?? moment.name)
+                    .accessibilityLabel("Move on this frame: \(moment.name)")
+                } else {
+                    Text("No move on this frame").font(.system(size: 11.5)).foregroundStyle(.tertiary)
+                }
+                Spacer(minLength: 0)
+                if store != nil { swapMenu(frame) }
+            }
+        }
+    }
+
+    private func swapMenu(_ frame: Styleframe) -> some View {
+        Menu {
+            if let store {
+                let mine = store.inspirePicks.picks.compactMap { store.gallery.moment($0.id) }.filter { $0.id != frame.moment?.id }
+                if !mine.isEmpty {
+                    Section("Moves I like") { ForEach(mine) { moment in Button(moment.name) { swap(frame: frame.id, to: moment.id) } } }
+                }
+                Button("Choose from the gallery…") { swapping = frame.id }
+                if frame.moment != nil { Divider(); Button("None") { swap(frame: frame.id, to: nil) } }
+            }
+        } label: { Label("Swap", systemImage: "arrow.left.arrow.right").font(.system(size: 11.5, weight: .medium)) }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().disabled(!canAct)
+        .foregroundStyle(Color.rasan).help("Put a different move on this frame, or none")
+    }
+
+    private func unplacedList(_ items: [UnplacedMoment]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            StageSectionTitle("Unplaced")
+            Text("These moves did not fit any frame. Swap one onto a frame above if you want it used.").font(.system(size: 12)).foregroundStyle(.secondary)
+            ForEach(items) { item in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(item.name).font(.system(size: 12, weight: .semibold))
+                    if let why = item.why, !why.isEmpty { Text(why).font(.system(size: 11.5)).foregroundStyle(.secondary) }
+                }
+            }
+        }
+        .padding(12).frame(maxWidth: .infinity, alignment: .leading).cardSurface()
+        .accessibilityElement(children: .combine)
+    }
+
+    private func swap(frame: String, to id: String?) {
+        Task { await model.send(step: step, type: "swap-moment", value: StyleframeReview.swapValue(frame: frame, moment: id)) }
     }
 
     private func image(_ path: String, ratio: CGFloat, radius: CGFloat, maxPixels: CGFloat) -> some View {

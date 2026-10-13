@@ -86,4 +86,25 @@ final class StyleframesTests: XCTestCase {
         // The action type and a note under 4000 characters are all `console.mjs wait` checks; a redo carries both.
         XCTAssertNotNil("redo".range(of: "^[a-z-]{2,20}$", options: .regularExpression))
     }
+
+    func testPlacedMomentAndUnplacedListDecode() throws {
+        let data = StyleframesPayload(try payload(#"""
+        {"frames":[{"id":"1","image":"a.png","moment":{"id":"M913","name":"Checklist","still":"moments/M913.jpg","credit":"By OpusClip","why":"Opens the editor"}},
+                   {"id":"2","image":"b.png","moment":{"name":"no id"}},{"id":"3","image":"c.png"}],
+         "unplaced_moments":[{"id":"M921","name":"Opening claim","why":"No title beat"},{"name":"missing id"}]}
+        """#))
+        XCTAssertEqual(data.frames[0].moment, StyleframeMoment(id: "M913", name: "Checklist", still: "moments/M913.jpg", credit: "By OpusClip", why: "Opens the editor"))
+        XCTAssertNil(data.frames[1].moment)
+        XCTAssertNil(data.frames[2].moment)
+        XCTAssertEqual(data.unplaced, [UnplacedMoment(id: "M921", name: "Opening claim", why: "No title beat")])
+        XCTAssertTrue(StyleframesPayload(try payload(#"{"frames":[{"id":"1","image":"a.png"}]}"#)).unplaced.isEmpty)
+    }
+
+    func testSwapActionValue() {
+        let value = StyleframeReview.swapValue(frame: "4", moment: "M916")
+        XCTAssertEqual(value["frame"].string, "4")
+        XCTAssertEqual(value["id"].string, "M916")
+        let none = StyleframeReview.swapValue(frame: "4", moment: nil)
+        XCTAssertEqual(none["id"], .null)
+    }
 }

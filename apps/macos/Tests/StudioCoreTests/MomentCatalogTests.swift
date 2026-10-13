@@ -96,27 +96,20 @@ final class MomentCatalogTests: XCTestCase {
         XCTAssertEqual(MomentImageCache.fileName(for: URL(string: "https://h.example/v3/M964/still.jpg")!), "M964-still.jpg")
     }
 
-    func testSelectionKeepsOneMomentPerRoleInStoryOrder() throws {
+    func testSelectionKeepsPicksInTheOrderAdded() throws {
         let moments = MomentCatalog.parse(try fixture())
         func moment(_ id: String) -> Moment { moments.first { $0.id == id }! }
         var selection = MomentSelection()
-        selection.toggle(moment("M920"))   // cta
-        selection.toggle(moment("M921"))   // hook
-        selection.toggle(moment("M913"))   // proof
-        XCTAssertEqual(selection.picks.map(\.role), ["hook", "proof", "cta"])
-        selection.toggle(moment("M925"))   // second hook replaces the first
-        XCTAssertEqual(selection.picks.filter { $0.role == "hook" }.map(\.id), ["M925"])
-        selection.toggle(moment("M925"))   // toggling a pick removes it
-        XCTAssertNil(selection.pick(for: .hook))
-        selection.toggle(moment("M916"))
-        selection.toggle(moment("M921"))
-        XCTAssertEqual(selection.count, 4)
-        XCTAssertEqual(MomentSelection([FilmMoment(id: "x", role: "nonsense")]).count, 0)
+        selection.toggle(moment("M920")); selection.toggle(moment("M921")); selection.toggle(moment("M913"))
+        XCTAssertEqual(selection.picks.map(\.id), ["M920", "M921", "M913"])
+        selection.toggle(moment("M921"))   // toggling a pick removes it
+        XCTAssertFalse(selection.contains("M921"))
+        XCTAssertEqual(moment("M921").role, .hook, "the role survives only as a hint")
     }
 
     func testDraftCarriesMomentsAndOlderDraftsStillLoad() throws {
         var draft = FilmDraft(brief: "A launch film", duration: 30)
-        draft.moments = [FilmMoment(id: "M921", role: "hook"), FilmMoment(id: "M920", role: "cta")]
+        draft.moments = [FilmMoment(id: "M921", place: .opening), FilmMoment(id: "M920", place: .ending)]
         let folder = temporaryFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
         try draft.save(in: folder)
