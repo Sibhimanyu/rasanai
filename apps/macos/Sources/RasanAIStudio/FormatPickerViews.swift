@@ -111,7 +111,7 @@ struct FormatPickerView: View {
     private var grid: some View {
         VStack(alignment: .leading, spacing: 12) {
             if option == nil { Text("What are you making?").font(.system(size: 15, weight: .semibold)).accessibilityAddTraits(.isHeader) }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 200, maximum: 300), spacing: 10, alignment: .top)], alignment: .leading, spacing: 10) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 230), spacing: 10, alignment: .top)], alignment: .leading, spacing: 10) {
                 ForEach(catalog.tiles) { tile in tileButton(tile) }
             }
             if let id = openTile, let tile = catalog.tile(id) { options(of: tile) }
@@ -121,15 +121,18 @@ struct FormatPickerView: View {
     private func tileButton(_ tile: FormatCatalog.Tile) -> some View {
         let selected = openTile == tile.id || (openTile == nil && pick?.tile == tile.id)
         return Button { openTile = openTile == tile.id ? nil : tile.id } label: {
-            VStack(alignment: .leading, spacing: 5) {
-                Image(systemName: Self.symbol(tile.id)).font(.system(size: 16, weight: .medium)).foregroundStyle(Color.rasan)
-                Text(tile.title).font(.system(size: 13.5, weight: .semibold)).foregroundStyle(.primary)
-                Text(tile.description).font(.system(size: 11.5)).foregroundStyle(.secondary).lineLimit(3).multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
+            // Compact and the same size: icon beside the words, so twelve tiles take three rows and the prompt stays in view.
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: Self.symbol(tile.id)).font(.system(size: 15, weight: .medium)).foregroundStyle(Color.rasan)
+                    .frame(width: 20, height: 18)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(tile.title).font(.system(size: 13, weight: .semibold)).foregroundStyle(.primary).lineLimit(1)
+                    Text(tile.description).font(.system(size: 11.5)).foregroundStyle(.secondary).lineLimit(3).multilineTextAlignment(.leading)
+                }
                 Spacer(minLength: 0)
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
+            .padding(.horizontal, 12).padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: 84, maxHeight: 84, alignment: .topLeading)
             .background(selected ? Color.rasan.opacity(0.12) : Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(selected ? Color.rasan : Color(nsColor: .separatorColor), lineWidth: selected ? 1.5 : 0.5) }
             .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))

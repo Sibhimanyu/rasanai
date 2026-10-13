@@ -78,7 +78,7 @@ struct NewFilmView: View {
             }
             .disabled(working)
             .padding(.horizontal, 32).padding(.top, 24).padding(.bottom, 28)
-            .frame(maxWidth: 704).frame(maxWidth: .infinity)
+            .frame(maxWidth: 1080).frame(maxWidth: .infinity)
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .safeAreaInset(edge: .bottom, spacing: 0) { footer }
