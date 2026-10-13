@@ -103,7 +103,7 @@ struct DirectorLogSheet: View {
                     .overlay(alignment: .bottom) {
                         if !following {
                             Button { following = true; scroll(proxy, animated: true) } label: { Label("Jump to latest", systemImage: "arrow.down") }
-                                .buttonStyle(.borderedProminent).controlSize(.small).clipShape(Capsule()).padding(.bottom, 12)
+                                .buttonStyle(.rasanPrimary).controlSize(.small).clipShape(Capsule()).padding(.bottom, 12)
                                 .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
                     }
@@ -184,7 +184,7 @@ struct NoteSheet: View {
                         await store.addNote(text: text, scope: scope)
                         if store.errorMessage == nil { dismiss() }
                     }
-                }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+                }.buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction)
                     .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.isSending)
             }
         }.padding(28).frame(width: 470)

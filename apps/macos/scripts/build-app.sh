@@ -17,6 +17,11 @@ trap 'if [[ -d "$staging" ]]; then /bin/rm -r "$staging"; fi' EXIT
 bundle="$staging/RasanAI Studio.app"
 mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources" "$bundle/Contents/Frameworks"
 cp "$binary_dir/RasanAIStudio" "$bundle/Contents/MacOS/RasanAIStudio"
+# SwiftPM records the deployment target (14.0) as the SDK the binary was built with, and macOS then runs it in
+# compatibility mode with the pre-Tahoe look: no Liquid Glass, no floating sidebar. Record the SDK it was really
+# built with, keeping macOS 14 as the minimum.
+sdk_version="$(xcrun --show-sdk-version)"
+xcrun vtool -set-build-version macos 14.0 "$sdk_version" -replace -output "$bundle/Contents/MacOS/RasanAIStudio" "$bundle/Contents/MacOS/RasanAIStudio"
 cp "$studio_dir/Info.plist" "$bundle/Contents/Info.plist"
 ditto "$binary_dir/RasanAIStudio_RasanAIStudio.bundle" "$bundle/Contents/Resources/RasanAIStudio_RasanAIStudio.bundle"
 sparkle="$studio_dir/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"

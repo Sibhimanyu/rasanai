@@ -2,6 +2,12 @@ import Foundation
 import Observation
 import StudioCore
 
+/// The two tabs of the film page's right inspector.
+enum InspectorTab: String, CaseIterable, Identifiable {
+    case notes = "Notes", decisions = "Decisions"
+    var id: String { rawValue }
+}
+
 /// The live director session for the film on screen, read from the run folder's files and written back to them.
 ///
 /// There is no console server. `console.mjs` (headless) rewrites `session.json` atomically; this model watches the run
@@ -37,10 +43,18 @@ final class FilmSessionModel {
     var startedAt: Date?
 
     // Shared UI state, so any view (a decision row, a stage, a menu) can open the same popover or inspector.
+    /// A request to focus the inspector's note composer (set by `beginTell`, cleared by the composer once it has focused).
     var tellPresented = false
     var tellStep: String?
+    /// The unsent note in the inspector composer. The status bar's actions send it along with the call.
     var tellText = ""
+    /// The right inspector (Notes and Decisions) is open.
     var decisionsPresented = false
+    var inspectorTab: InspectorTab = .notes
+    /// A note card in the inspector asks the player on the stage to jump to its moment (the stage watches `seekTick`).
+    private(set) var seekTime: Double = 0
+    private(set) var seekTick = 0
+    func requestSeek(_ time: Double) { seekTime = time; seekTick += 1 }
     /// Ask ids whose sheet the person dismissed; the inline card stays until it is answered.
     var dismissedAsks: Set<String> = []
 
@@ -188,10 +202,12 @@ final class FilmSessionModel {
         guard !text.isEmpty else { return false }
         return await send(step: step ?? shownStep, type: "note", note: text)
     }
-    /// Opens Tell Claude on a step, optionally with text already in the box.
+    /// Opens the inspector on Notes for a step and focuses the composer, optionally with text already in it.
     func beginTell(step: String? = nil, prefill: String = "") {
         tellStep = step ?? shownStep
         if !prefill.isEmpty || tellText.isEmpty { tellText = prefill }
+        inspectorTab = .notes
+        decisionsPresented = true
         tellPresented = true
     }
 

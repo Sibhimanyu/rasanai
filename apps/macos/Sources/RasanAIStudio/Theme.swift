@@ -12,10 +12,20 @@ extension NSColor {
 }
 
 extension Color {
-    /// RasanAI indigo, brightened in light mode so it works as a tint, and lifted in dark mode.
+    /// The RasanAI blue (#2A31A8, the site's accent) for text, icons and system tints. On dark surfaces it lifts to a lighter
+    /// step of the same hue so small text stays readable; fills use `rasanFill`, which never changes.
     static let rasan = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x9AA0FF) : .rasanHex(0x2A31A8)
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x7C83F5) : .rasanHex(0x2A31A8)
     })
+    /// The RasanAI blue as a solid fill (primary buttons, the current step, selection): the brand value in both appearances.
+    static let rasanFill = Color(nsColor: .rasanHex(0x2A31A8))
+    /// The window's background: macOS Tahoe's neutral charcoal in dark mode (#1E1E1E, as in Apple's own sidebar apps),
+    /// the system window colour in light mode.
+    static let appBackground = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x1E1E1E) : .windowBackgroundColor
+    })
+    /// Turmeric, the brand's warm accent: note times, a waiting badge.
+    static let turmeric = Color(nsColor: .rasanHex(0xEFB21A))
     /// The logo's ink. Light-mode headers only.
     static let rasanDeep = Color(nsColor: .rasanHex(0x1B1F5E))
     /// The mark itself: deep ink in light mode, white in dark mode.
@@ -32,7 +42,7 @@ extension Color {
 
 /// Kept so the sample-film views and older files keep compiling; every value maps onto the calm palette.
 enum StudioPalette {
-    static let background = Color(nsColor: .windowBackgroundColor)
+    static let background = Color.appBackground
     static let panel = Color(nsColor: .controlBackgroundColor)
     static let raised = Color(nsColor: .underPageBackgroundColor)
     static let ink = Color.primary
@@ -116,21 +126,113 @@ struct PressableStyle: ButtonStyle {
     }
 }
 
-/// A secondary button (or `Menu` with `.menuStyle(.button)`) that stays visible in light and dark. The system
-/// bordered style is a white pill with a hairline edge, which disappears on a near-white window in light mode, and
-/// its disabled text goes pale. This one draws an adaptive tint fill plus an outline from `.primary`, and keeps
-/// disabled text at `.secondary` so it still reads.
-struct StudioSecondaryButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
+// MARK: Buttons
 
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13))
-            .foregroundStyle(!isEnabled ? Color.secondary : configuration.role == .destructive ? Color.red : Color.primary)
-            .padding(.horizontal, 10).padding(.vertical, 4)
-            .background(Color.primary.opacity(configuration.isPressed ? 0.14 : 0.06), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.primary.opacity(isEnabled ? 0.22 : 0.14), lineWidth: 1))
-            .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+/// Flat buttons drawn by the app: no gradient, no bevel, no inner shadow (the system bordered styles carry all three).
+/// Sizes follow `controlSize`: small 26 pt, regular 32 pt, large 38 pt.
+private func buttonMetrics(_ size: ControlSize) -> (height: CGFloat, font: CGFloat, padding: CGFloat) {
+    switch size {
+    case .mini, .small: (26, 12, 10)
+    case .large, .extraLarge: (38, 14, 16)
+    default: (32, 13, 13)
+    }
+}
+
+/// The one loud button on a screen: solid RasanAI blue, white label.
+struct RasanPrimaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.controlSize) private var controlSize
+    func makeBody(configuration: Configuration) -> some View { FlatButton(configuration: configuration, enabled: isEnabled, size: controlSize) }
+    private struct FlatButton: View {
+        let configuration: Configuration
+        let enabled: Bool
+        let size: ControlSize
+        @State private var hovering = false
+        var body: some View {
+            let m = buttonMetrics(size)
+            configuration.label
+                .font(.system(size: m.font, weight: .semibold))
+                .foregroundStyle(.white.opacity(enabled ? 1 : 0.7))
+                .padding(.horizontal, m.padding).frame(minHeight: m.height)
+                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.rasanFill)
+                    .brightness(configuration.isPressed ? -0.06 : hovering && enabled ? 0.06 : 0))
+                .opacity(enabled ? 1 : 0.45)
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .onHover { hovering = $0 }
+                .animation(.easeOut(duration: 0.12), value: hovering)
+        }
+    }
+}
+
+/// Everything else: a quiet outlined button that fills slightly on hover. Destructive roles read red.
+struct RasanSecondaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.controlSize) private var controlSize
+    func makeBody(configuration: Configuration) -> some View { FlatButton(configuration: configuration, enabled: isEnabled, size: controlSize) }
+    private struct FlatButton: View {
+        let configuration: Configuration
+        let enabled: Bool
+        let size: ControlSize
+        @State private var hovering = false
+        var body: some View {
+            let m = buttonMetrics(size)
+            let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+            configuration.label
+                .font(.system(size: m.font, weight: .medium))
+                .foregroundStyle(!enabled ? Color.secondary : configuration.role == .destructive ? Color(nsColor: .systemRed) : Color.primary)
+                .padding(.horizontal, m.padding).frame(minHeight: m.height)
+                .background(shape.fill(Color.primary.opacity(configuration.isPressed ? 0.10 : hovering && enabled ? 0.06 : 0.0)))
+                .overlay { shape.strokeBorder(Color.primary.opacity(enabled ? 0.16 : 0.08), lineWidth: 1) }
+                .contentShape(shape)
+                .onHover { hovering = $0 }
+                .animation(.easeOut(duration: 0.12), value: hovering)
+        }
+    }
+}
+
+extension ButtonStyle where Self == RasanPrimaryButtonStyle { static var rasanPrimary: RasanPrimaryButtonStyle { .init() } }
+extension ButtonStyle where Self == RasanSecondaryButtonStyle { static var rasanSecondary: RasanSecondaryButtonStyle { .init() } }
+
+/// Kept for call sites that predate the flat styles.
+typealias StudioSecondaryButtonStyle = RasanSecondaryButtonStyle
+
+/// A flat two-to-four-way switch (Grid | List), drawn instead of the system segmented control. The selection is one pill
+/// that slides to the option you pick on a soft spring, the labels cross-fading as it passes; Reduce Motion just swaps it.
+struct FlatSegmented<Value: Hashable>: View {
+    @Binding var selection: Value
+    let options: [(Value, String, String?)]
+    @Namespace private var pill
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(options.indices, id: \.self) { index in
+                let (value, title, symbol) = options[index]
+                let on = value == selection
+                Button {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.86)) { selection = value }
+                } label: {
+                    HStack(spacing: 6) {
+                        if let symbol { Image(systemName: symbol) }
+                        Text(title)
+                    }
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(on ? Color.white : Color.secondary)
+                    .padding(.horizontal, 12).frame(height: 28)
+                    .background {
+                        if on {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.rasanFill)
+                                .matchedGeometryEffect(id: "selection", in: pill)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+        }
+        .padding(3)
+        .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.14), lineWidth: 1) }
     }
 }
 
@@ -195,7 +297,7 @@ struct HelpButton: View {
     let lines: [String]
     @State private var shown = false
     var body: some View {
-        Button { shown.toggle() } label: { Image(systemName: "questionmark.circle") }
+        Button { shown.toggle() } label: { Label("Help", systemImage: "questionmark.circle") }
             .help("Help for this screen")
             .popover(isPresented: $shown, arrowEdge: .bottom) {
                 VStack(alignment: .leading, spacing: 10) {

@@ -14,6 +14,7 @@ enum Route: Hashable {
     case queue
     case templates
     case inspire
+    case library(LibraryMode)
 }
 
 /// Everything the app needs to say about one film, in one place.
@@ -133,9 +134,27 @@ final class StudioStore {
     /// The navigation stack: Home is the root, everything else is pushed on top of it.
     var path: [Route] = [] {
         didSet {
+            if !steppingHistory && oldValue != path {
+                backHistory.append(oldValue); if backHistory.count > 60 { backHistory.removeFirst() }
+                forwardHistory.removeAll()
+            }
             guard !isDemo else { return }
             if case .film? = path.last { UserDefaults.standard.set(true, forKey: "reopenFilmOnLaunch") } else { UserDefaults.standard.set(false, forKey: "reopenFilmOnLaunch") }
         }
+    }
+    /// Back and forward, like a browser: every place the person went, so the header's ‹ › can step through them.
+    private(set) var backHistory: [[Route]] = []
+    private(set) var forwardHistory: [[Route]] = []
+    private var steppingHistory = false
+    var canGoBack: Bool { !backHistory.isEmpty }
+    var canGoForward: Bool { !forwardHistory.isEmpty }
+    func goBack() {
+        guard let previous = backHistory.popLast() else { return }
+        forwardHistory.append(path); steppingHistory = true; path = previous; steppingHistory = false
+    }
+    func goForward() {
+        guard let next = forwardHistory.popLast() else { return }
+        backHistory.append(path); steppingHistory = true; path = next; steppingHistory = false
     }
     /// Whether the last session ended on a film page; read once at init, before any navigation can rewrite it.
     private let reopenFilmAtLaunch = UserDefaults.standard.bool(forKey: "reopenFilmOnLaunch")

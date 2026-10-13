@@ -49,13 +49,14 @@ struct BrandsView: View {
             if brands.isEmpty { empty } else { grid }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color.appBackground)
         .navigationTitle("Brands")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button { showNew = true } label: { Label("New Brand", systemImage: "plus") }
-                    .help("New brand")
-            }
+        .pageHeader("Brands") {
+            HelpButton(title: "Brands", lines: [
+                "A brand keeps your colours, type and logo in one folder.",
+                "Pick a brand when you start a film and RasanAI designs in your look.",
+                "Each brand is a plain DESIGN.md file you can edit anywhere."])
+            Button { showNew = true } label: { Label("New brand", systemImage: "plus") }.help("New brand")
         }
         .sheet(isPresented: $showNew) {
             NewBrandSheet(root: root) { brand in
@@ -74,7 +75,7 @@ struct BrandsView: View {
             Text("Brands keep your colours, type and logo so every film looks like you.")
                 .font(.system(size: 15)).multilineTextAlignment(.center).frame(maxWidth: 340)
             Button("New brand") { showNew = true }
-                .buttonStyle(.borderedProminent).controlSize(.large).padding(.top, 4)
+                .buttonStyle(.rasanPrimary).controlSize(.large).padding(.top, 4)
         }.padding(32)
     }
 
@@ -208,7 +209,7 @@ struct NewBrandSheet: View {
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Create") { create() }.buttonStyle(.borderedProminent)
+                Button("Create") { create() }.buttonStyle(.rasanPrimary)
                     .keyboardShortcut(.defaultAction)
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
@@ -275,22 +276,25 @@ struct BrandPage: View {
             else { Text("This brand is no longer in your library.").foregroundStyle(.secondary) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color.appBackground)
         .navigationTitle(model?.name ?? "Brand")
         .onAppear(perform: reload)
         .sheet(isPresented: $showEditor) {
             if let model { BrandEditorSheet(brand: model, design: text) { reload() } }
         }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    Button("Edit Brand…") { reload(); showEditor = true }
-                    Button("Edit in TextEdit") { edit() }
-                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([brand]) }
-                    Divider()
-                    Button("Delete Brand…", role: .destructive) { confirmDelete = true }
-                } label: { Image(systemName: "ellipsis.circle") }
-            }
+        .pageHeader(model?.name ?? "Brand", onBack: { store.path = [.brands] }) {
+            HelpButton(title: "This brand", lines: [
+                "These swatches and fonts are read from the brand's DESIGN.md.",
+                "Choose Edit brand to change colours, fonts and logo, with a live preview.",
+                "Deleting a brand moves its folder to the Trash. Existing films keep their copy."])
+            Menu {
+                Button("Edit Brand…") { reload(); showEditor = true }
+                Button("Edit in TextEdit") { edit() }
+                Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([brand]) }
+                Divider()
+                Button("Delete Brand…", role: .destructive) { confirmDelete = true }
+            } label: { Label("More", systemImage: "ellipsis") }
+                .menuIndicator(.hidden).tint(.primary)   // a toolbar tool, white like its neighbours, not the brand tint
         }
         .confirmationDialog("Move \(model?.name ?? "this brand") to the Trash?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Move to Trash", role: .destructive) {
@@ -330,7 +334,7 @@ struct BrandPage: View {
                         }
                     }
                     Spacer()
-                    Button("Edit brand…") { reload(); showEditor = true }.buttonStyle(.borderedProminent)
+                    Button("Edit brand…") { reload(); showEditor = true }.buttonStyle(.rasanPrimary)
                 }
 
                 if !b.colors.isEmpty {

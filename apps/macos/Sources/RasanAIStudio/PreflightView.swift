@@ -100,7 +100,7 @@ struct PreflightView: View {
                 if gate.pending != nil {
                     Button("Recheck") { Task { await store.checkPreflight() } }.disabled(store.isCheckingPreflight || store.toolSetup.isRunning)
                     Button("Recheck and start") { Task { await store.recheckAndStart() } }
-                        .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+                        .buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction)
                         .disabled(store.isCheckingPreflight || store.toolSetup.isRunning)
                 } else {
                     Button("Recheck") { Task { await store.checkPreflight() } }.disabled(store.isCheckingPreflight || store.toolSetup.isRunning)
@@ -146,7 +146,7 @@ struct PreflightView: View {
                 .font(.system(size: 11)).foregroundStyle(.secondary)
             HStack {
                 Button("Install selected tools") { store.installTools(missingTools.filter { selectedTools.contains($0) }) }
-                    .buttonStyle(.borderedProminent).disabled(selectedTools.isEmpty || !store.canInstallTools)
+                    .buttonStyle(.rasanPrimary).disabled(selectedTools.isEmpty || !store.canInstallTools)
             }
         }.padding(14).background(Color.rasan.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
     }

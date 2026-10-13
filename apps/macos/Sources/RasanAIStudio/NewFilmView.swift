@@ -7,6 +7,8 @@ import UniformTypeIdentifiers
 struct NewFilmView: View {
     @Bindable var store: StudioStore
     let project: URL?
+    /// Home shows only the prompt box (no title, format grid, wells or footer).
+    var embedded = false
     @Environment(\.openSettings) private var openSettings
     @State private var name = ""
     @State private var draft = FilmDraft()
@@ -52,46 +54,12 @@ struct NewFilmView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 26) {
-                HStack {
-                    Menu {
-                        ForEach(store.settings.filmTemplates) { template in
-                            Button(template.name) { proposeTemplate(template.draft) }
-                        }
-                        if store.settings.filmTemplates.isEmpty { Text("Save your first template below") }
-                    } label: {
-                        HStack(spacing: 5) { Text("Use template"); Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)) }
-                    }.menuStyle(.button).menuIndicator(.hidden).buttonStyle(StudioSecondaryButtonStyle()).fixedSize()
-                    Spacer()
-                    Button("Save as template…") { templateName = name.isEmpty ? autoName : name; showSaveTemplate = true }
-                        .buttonStyle(StudioSecondaryButtonStyle())
-                        .disabled(trimmedBrief.isEmpty || working)
-                }
-                if let templateMessage { Text(templateMessage).font(.system(size: 12)).foregroundStyle(.secondary) }
-                TextField("Untitled film", text: $name)
-                    .textFieldStyle(.plain).font(.system(size: 30, weight: .semibold, design: .rounded))
-                    .disabled(project != nil)
-                formatPicker
+        Group {
+            if embedded {
+                // On Home: just the prompt box. Start film works exactly as on the New film page; the same unsaved draft
+                // is shared with it, so "More options" opens the full editor where this left off.
                 promptBox
-                linkedWells
-            }
-            .disabled(working)
-            .padding(.horizontal, 32).padding(.top, 24).padding(.bottom, 28)
-            .frame(maxWidth: 704).frame(maxWidth: .infinity)
-        }
-        .background(Color(nsColor: .windowBackgroundColor))
-        .safeAreaInset(edge: .bottom, spacing: 0) { footer }
-        .navigationTitle(project == nil ? "New film" : "Edit film")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                HelpButton(title: "New film", lines: [
-                    "Say what the film is about in your own words. A sentence is enough.",
-                    "Get inspired adds moments from real launch films, so your film moves like them. Each one is credited to its creator.",
-                    "Add footage, images or documents if you have them. Copies go into the film; originals stay put.",
-                    "Pick the options under the prompt. The sparkle chip chooses which Claude models direct the film; the recommended mix has Opus direct and Sonnet handle research, routine jobs and, at Fast pace, the key frames and animation.",
-                    "Start film hands it to your director. You will be asked when it needs you."])
-            }
+            } else { fullPage }
         }
         .dropDestination(for: URL.self, action: { urls, _ in add(urls.filter(\.isFileURL)) }, isTargeted: { targeted = $0 })
         .alert("Save as template", isPresented: $showSaveTemplate) {
@@ -122,6 +90,9 @@ struct NewFilmView: View {
             }
         } message: { Text("Your saved project and original files are kept.") }
         .task {
+            // Home's box stays alive under pushed pages: start each visit from the shared draft, never from what it held
+            // before the full editor started or discarded that draft.
+            if embedded { name = ""; draft = FilmDraft(); sources = []; recoveryProject = nil }
             draft.agent = store.settings.defaultAgent
             draft.pace = store.settings.pace
             brands = BrandLibrary.list(in: URL(fileURLWithPath: store.settings.projectRoot))
@@ -206,6 +177,48 @@ struct NewFilmView: View {
     }
 
     // MARK: Prompt box
+
+    private var fullPage: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 26) {
+                HStack {
+                    Menu {
+                        ForEach(store.settings.filmTemplates) { template in
+                            Button(template.name) { proposeTemplate(template.draft) }
+                        }
+                        if store.settings.filmTemplates.isEmpty { Text("Save your first template below") }
+                    } label: {
+                        HStack(spacing: 5) { Text("Use template"); Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)) }
+                    }.menuStyle(.button).menuIndicator(.hidden).buttonStyle(StudioSecondaryButtonStyle()).fixedSize()
+                    Spacer()
+                    Button("Save as template…") { templateName = name.isEmpty ? autoName : name; showSaveTemplate = true }
+                        .buttonStyle(StudioSecondaryButtonStyle())
+                        .disabled(trimmedBrief.isEmpty || working)
+                }
+                if let templateMessage { Text(templateMessage).font(.system(size: 12)).foregroundStyle(.secondary) }
+                TextField("Untitled film", text: $name)
+                    .textFieldStyle(.plain).font(.system(size: 30, weight: .semibold, design: .rounded))
+                    .disabled(project != nil)
+                formatPicker
+                promptBox
+                linkedWells
+            }
+            .disabled(working)
+            .padding(.horizontal, 32).padding(.top, 24).padding(.bottom, 28)
+            .frame(maxWidth: 1080).frame(maxWidth: .infinity)
+        }
+        .background(Color.appBackground)
+        .safeAreaInset(edge: .bottom, spacing: 0) { footer }
+        .navigationTitle(project == nil ? "New film" : "Edit film")
+        .pageHeader(project == nil ? "New film" : "Edit film", onBack: { if !store.path.isEmpty { store.path.removeLast() } }) {
+                HelpButton(title: "New film", lines: [
+                    "Say what the film is about in your own words. A sentence is enough.",
+                    "Get inspired adds moments from real launch films, so your film moves like them. Each one is credited to its creator.",
+                    "Add footage, images or documents if you have them. Copies go into the film; originals stay put.",
+                    "Pick the options under the prompt. The sparkle chip chooses which Claude models direct the film; the recommended mix has Opus direct and Sonnet handle research, routine jobs and, at Fast pace, the key frames and animation.",
+                    "Start film hands it to your director. You will be asked when it needs you."])
+        }
+    }
 
     /// One classic prompt box: the brief, the moves I like as thumbnails, any attached files, and one toolbar row pinned to the
     /// bottom: attach and format on the left, settings chips in the middle (folding into the overflow when narrow), Start film on the right.
@@ -332,6 +345,18 @@ struct NewFilmView: View {
         }
         .buttonStyle(.plain).help("What are you making? Opens the format list")
         .accessibilityLabel("Format: \(formatLabel)")
+        // Home has no format grid on the page, so the chip opens it here.
+        .popover(isPresented: Binding(get: { embedded && changingFormat }, set: { changingFormat = $0 }), arrowEdge: .bottom) {
+            if let catalog {
+                ScrollView {
+                    FormatPickerView(catalog: catalog, pick: draft.format, canAct: !working,
+                                     onPick: { option in choose(option, in: catalog) },
+                                     onScope: { draft.format?.scope = $0 }, changing: $changingFormat, showsChip: false)
+                        .padding(16)
+                }
+                .frame(width: 740).frame(maxHeight: 560)
+            }
+        }
     }
 
     /// Everything that does not fit on the row, plus the quieter options: the model choice and Get inspired.
@@ -493,23 +518,23 @@ struct NewFilmView: View {
     @ViewBuilder private var runButton: some View {
         if editingQueued {
             Button { saveQueuedChanges() } label: { Text("Save changes") }
-                .buttonStyle(.borderedProminent).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
+                .buttonStyle(.rasanPrimary).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
                 .disabled(working || trimmedBrief.isEmpty)
         } else if directorReady {
             if directorBusy {
                 Button { store.ensureConsent(for: agent) { save(start: false, queue: true) } } label: { Text("Start when free") }
-                    .buttonStyle(.borderedProminent).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
+                    .buttonStyle(.rasanPrimary).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
                     .disabled(working || trimmedBrief.isEmpty)
             } else {
                 Button { start() } label: { runLabel }
-                    .buttonStyle(.borderedProminent).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
+                    .buttonStyle(.rasanPrimary).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
                     .disabled(working || checkingStart || trimmedBrief.isEmpty || store.toolSetup.isRunning)
             }
         } else if store.settings.checking.contains(agent.id) {
             HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Checking director…").font(.system(size: 12)).foregroundStyle(.secondary) }
         } else {
             Button("Set up a director…") { store.settings.showWelcome = true }
-                .buttonStyle(.borderedProminent).controlSize(.regular)
+                .buttonStyle(.rasanPrimary).controlSize(.regular)
         }
     }
 
@@ -541,7 +566,7 @@ struct NewFilmView: View {
         }
         .padding(.horizontal, 32).padding(.vertical, 12)
         .frame(maxWidth: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color.appBackground)
         .overlay(alignment: .top) { Divider() }
     }
 

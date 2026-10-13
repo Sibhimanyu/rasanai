@@ -2,7 +2,7 @@ import StudioCore
 import SwiftUI
 
 /// Every decided step: Claude's craft calls with their reasons and the person's picks, each changeable by telling
-/// Claude. Shown as the window's inspector (toolbar toggle or ⌥⌘D). Also the running conversation and the details log.
+/// Claude. The inspector's Decisions tab (toolbar toggle or ⌥⌘D), with the details log. The conversation is the Notes tab.
 struct DecisionsInspector: View {
     let model: FilmSessionModel
 
@@ -16,15 +16,6 @@ struct DecisionsInspector: View {
                         .listRowSeparator(.hidden)
                 }
                 ForEach(decisions) { row in DecisionRowView(model: model, row: row) }
-            }
-            let conversation = Array(model.conversation.suffix(12))
-            if !conversation.isEmpty {
-                Section("Conversation") {
-                    ForEach(conversation) { message in
-                        (Text(message.fromUser ? "You: " : "Claude: ").fontWeight(.semibold) + Text(message.text))
-                            .font(.system(size: 12)).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
-                    }
-                }
             }
             let details = Array(model.activity.prefix(40))
             if !details.isEmpty {
@@ -41,7 +32,6 @@ struct DecisionsInspector: View {
             }
         }
         .listStyle(.sidebar)
-        .inspectorColumnWidth(min: 270, ideal: 320, max: 440)
         .accessibilityLabel("Decisions")
     }
 }

@@ -41,7 +41,7 @@ struct FilmTemplatesView: View {
                         HStack {
                             Text(template.name).font(.headline)
                             Spacer()
-                            Button("Use template") { store.useTemplate(template) }.buttonStyle(.borderedProminent)
+                            Button("Use template") { store.useTemplate(template) }.buttonStyle(.rasanPrimary)
                             Menu {
                                 Button("Rename…") { renameID = template.id; name = template.name }
                                 Button("Delete…", role: .destructive) { deleteID = template.id }
@@ -54,6 +54,7 @@ struct FilmTemplatesView: View {
                 }
             }.padding(32).frame(maxWidth: 850).frame(maxWidth: .infinity)
         }.navigationTitle("Templates")
+            .pageHeader("Templates")
             .alert("Rename template", isPresented: Binding(get: { renameID != nil }, set: { if !$0 { renameID = nil } })) {
                 TextField("Template name", text: $name)
                 Button("Cancel", role: .cancel) { renameID = nil }

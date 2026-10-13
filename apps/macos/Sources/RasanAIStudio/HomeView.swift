@@ -17,12 +17,16 @@ func aspectName(_ aspect: String?) -> String? {
 
 struct HomeView: View {
     @Bindable var store: StudioStore
+    /// nil is Home itself; a library mode lists every film, or the ones waiting on the person.
+    var mode: LibraryMode? = nil
     @AppStorage("homeSort") private var sortRaw = HomeSort.recent.rawValue
+    @AppStorage("homeLayout") private var layoutRaw = "grid"
     @State private var renameFolder: URL?
     @State private var renameName = ""
     @State private var trashFolder: URL?
 
     private var sort: HomeSort { HomeSort(rawValue: sortRaw) ?? .recent }
+    private var asList: Bool { layoutRaw == "list" }
     private func stamp(_ item: (LocalProject, URL)) -> Date { store.summary(for: item.1).updatedAt ?? item.0.lastOpenedAt ?? item.0.createdAt }
     private func rank(_ phase: FilmPhase) -> Int {
         switch phase {
@@ -49,56 +53,52 @@ struct HomeView: View {
     private var needsYou: [(LocalProject, URL)] {
         store.showArchivedProjects ? [] : films.filter { store.summary(for: $0.1).phase.needsYou }
     }
-    private var gridFilms: [(LocalProject, URL)] {
-        store.showArchivedProjects ? films : films.filter { !store.summary(for: $0.1).phase.needsYou }
+    /// The film Home leads with: the first one waiting on the person, else the latest one still in the works.
+    private var featured: (LocalProject, URL)? {
+        needsYou.first ?? films.sorted { stamp($0) > stamp($1) }.first { !store.summary(for: $0.1).isFinished }
     }
-    private var hasAny: Bool { !store.localProjects.isEmpty }
     private var hasArchived: Bool { store.localProjects.contains { $0.0.archivedAt != nil } }
-    private let columns = [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 18, alignment: .top)]
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 34) {
-                greeting
-                newFilmTile
-                if !hasAny && !store.isLoadingProjects && store.settings.editorDraft(for: nil) == nil { examples }
-                if !needsYou.isEmpty { needsYouSection }
-                GetInspiredHomeSection(store: store)
-                if hasAny { library }
+            VStack(alignment: .leading, spacing: 32) {
+                switch mode {
+                case nil:
+                    composer
+                    if let featured { featuredSection(featured) }
+                    if !films.isEmpty { filmsSection(title: "Recent films", items: Array(films.filter { $0.1 != featured?.1 }.prefix(6)), showAll: films.count > 7) }
+                case .all?:
+                    filmsSection(title: store.showArchivedProjects ? "Archived films" : "All films", items: films, showAll: false)
+                    if hasArchived || store.showArchivedProjects {
+                        Button(store.showArchivedProjects ? "Back to your films" : "Show archived") { store.showArchivedProjects.toggle() }
+                            .buttonStyle(.link).font(.system(size: 12))
+                    }
+                case .needsReview?:
+                    if needsYou.isEmpty {
+                        ContentUnavailableView("Nothing needs you", systemImage: "checkmark.circle",
+                                               description: Text("When a film is waiting for one of your calls, it shows up here."))
+                            .frame(maxWidth: .infinity, minHeight: 320)
+                    }
+                    ForEach(needsYou, id: \.0.id) { project, folder in
+                        FeaturedFilmCard(name: project.name, summary: store.summary(for: folder)) { open(folder) }
+                            .contextMenu { menu(project, folder) }
+                    }
+                }
             }
             .padding(.horizontal, 32).padding(.top, 28).padding(.bottom, 40)
-            .frame(maxWidth: 980).frame(maxWidth: .infinity)
+            .frame(maxWidth: 1240, alignment: .leading).frame(maxWidth: .infinity)
         }
         .scrollIndicators(.automatic)
-        .background(Color(nsColor: .windowBackgroundColor))
-        .navigationTitle("RasanAI")
-        .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                if store.localProjects.count >= 6 {
-                    HStack(spacing: 5) {
-                        Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                        TextField("Search", text: $store.projectSearch).textFieldStyle(.plain).frame(width: 130)
-                    }
-                    .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(Color(nsColor: .quaternaryLabelColor).opacity(0.5), in: Capsule())
-                }
-                Button { store.path.append(.queue) } label: { Label("Queue" + (store.settings.filmQueue.isEmpty ? "" : " (\(store.settings.filmQueue.count))"), systemImage: "list.number") }
-                    .help(store.settings.filmQueue.isEmpty ? "Film queue" : "Film queue (\(store.settings.filmQueue.count))")
-                Button { store.path.append(.templates) } label: { Label("Templates", systemImage: "doc.on.doc") }
-                    .help("Film templates")
-                Button { store.openBrands() } label: { Label("Brands", systemImage: "swatchpalette") }
-                    .help("Your colours, type and logos")
-                Menu {
-                    Button("Check readiness…") { store.showPreflight() }
-                    Button("Import Project…") { store.importProjectPanel() }
-                } label: { Image(systemName: "ellipsis.circle") }
-                .menuIndicator(.hidden).help("More")
-                HelpButton(title: "Home", lines: [
-                    "Start a new film with the big button, or open one of your films below.",
-                    "Right-click a film to rename, duplicate, archive or delete it.",
-                    "Brands keep your colours, type and logo so every film looks like you.",
-                    "Get inspired shows real motion from real launch films. Pick a few and they come with you into a new film."])
-            }
+        .background(Color.appBackground)
+        .navigationTitle(mode?.title ?? "Home")
+        .searchable(text: $store.projectSearch, placement: .toolbar, prompt: "Search films")
+        .pageHeader(mode?.title ?? "Home") {
+            Menu {
+                Button("Check readiness…") { store.showPreflight() }
+                Button("Import Project…") { store.importProjectPanel() }
+            } label: { Label("More", systemImage: "ellipsis") }
+                .menuIndicator(.hidden).tint(.primary)   // a toolbar tool, white like its neighbours, not the brand tint.help("More")
+            NewFilmHeaderButton { store.newFilm() }
         }
         .alert("Rename film", isPresented: Binding(get: { renameFolder != nil }, set: { if !$0 { renameFolder = nil } })) {
             TextField("Film name", text: $renameName)
@@ -110,46 +110,82 @@ struct HomeView: View {
         } message: { Text("You can put it back from the Trash in Finder.") }
     }
 
-    private var greeting: some View {
-        VStack(spacing: 14) {
-            RasanMark().fill(Color.rasanInk).frame(width: 30, height: 37)
-            Text("What shall we make today?")
-                .font(.system(size: 34, weight: .semibold, design: .rounded)).multilineTextAlignment(.center)
-            Text(hasAny ? "Pick up a film, or start a new one." : "Tell RasanAI what you have in mind. It handles the rest.")
-                .font(.system(size: 14)).foregroundStyle(.secondary)
-        }.frame(maxWidth: .infinity)
+    // MARK: Sections
+
+    /// The prompt box, right on Home: describe it and start. The full editor (format grid, footage wells, templates) is one
+    /// click away under it and keeps whatever was typed here.
+    private var composer: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("What shall we make?").font(.system(size: 30, weight: .bold)).tracking(-0.5)
+            NewFilmView(store: store, project: nil, embedded: true)
+            HStack(spacing: 14) {
+                Button { store.newFilm() } label: { Label("More options", systemImage: "slider.horizontal.3") }
+                    .buttonStyle(.link).font(.system(size: 12.5))
+                    .help("Open the full editor: what you are making, footage folders, a reference video, templates")
+                Button { store.path = [.inspire] } label: { Label("Get inspired", systemImage: "sparkles") }
+                    .buttonStyle(.link).font(.system(size: 12.5))
+                Spacer()
+            }
+        }
     }
 
-    private var newFilmTile: some View {
-        HoverCard { store.newFilm() } content: { hovering in
-            HStack(spacing: 18) {
-                ZStack {
-                    Circle().fill(Color.rasan.opacity(hovering ? 0.22 : 0.14))
-                    Image(systemName: "plus").font(.system(size: 22, weight: .medium)).foregroundStyle(Color.rasan)
-                }.frame(width: 56, height: 56)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.settings.editorDraft(for: nil) == nil ? "New film" : "Continue draft").font(.system(size: 18, weight: .semibold))
-                    Text(store.settings.editorDraft(for: nil) == nil ? "Describe it, add footage if you have some, and RasanAI directs it." : "Your unfinished brief and selected files are saved. Pick up where you left off.")
-                        .font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+    private func featuredSection(_ item: (LocalProject, URL)) -> some View {
+        let waiting = needsYou.count
+        return VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Pick up where you left off.").font(.system(size: 24, weight: .bold)).tracking(-0.4)
+                Text(waiting == 0 ? "Your latest film is still in the works." : waiting == 1 ? "One film is waiting for your review." : "\(waiting) films are waiting for you.")
+                    .font(.system(size: 15)).foregroundStyle(.secondary)
+            }
+            FeaturedFilmCard(name: item.0.name, summary: store.summary(for: item.1)) { open(item.1) }
+                .contextMenu { menu(item.0, item.1) }
+        }
+    }
+
+    private func filmsSection(title: String, items: [(LocalProject, URL)], showAll: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Text(title).font(.system(size: 20, weight: .bold)).tracking(-0.3)
+                if showAll {
+                    Button("All films") { store.path = [.library(.all)] }.buttonStyle(.link).font(.system(size: 12.5))
                 }
-                Spacer(minLength: 0)
-                Image(systemName: "arrow.right").foregroundStyle(Color.rasan).opacity(hovering ? 1 : 0.5)
+                Spacer()
+                FlatSegmented(selection: $layoutRaw, options: [("grid", "Grid", "square.grid.2x2"), ("list", "List", "list.bullet")])
+                Menu {
+                    Picker("Sort by", selection: $sortRaw) {
+                        ForEach(HomeSort.allCases) { Label($0.title, systemImage: $0.symbol).tag($0.rawValue) }
+                    }.pickerStyle(.inline)
+                } label: {
+                    HStack(spacing: 8) { Text(sort.title); Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)) }
+                        .font(.system(size: 12.5, weight: .medium)).padding(.horizontal, 12).frame(height: 34)
+                        .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.14), lineWidth: 1) }
+                        .contentShape(Rectangle())
+                }
+                .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help("Sort films")
             }
-            .padding(.horizontal, 24).padding(.vertical, 22).frame(maxWidth: 640, alignment: .leading)
-        }
-        .frame(maxWidth: 640)
-        .keyboardShortcut("n", modifiers: .command)
-    }
-
-    private var examples: some View {
-        HStack(spacing: 10) {
-            ForEach(["A 30-second launch film for my app", "A reel from my trip footage"], id: \.self) { text in
-                Button { store.newFilm(prefill: text) } label: {
-                    Text(text).font(.system(size: 12)).padding(.horizontal, 12).padding(.vertical, 7)
-                        .background(Color(nsColor: .quaternaryLabelColor).opacity(0.45), in: Capsule())
-                }.buttonStyle(.plain)
+            if items.isEmpty {
+                Text(store.projectSearch.isEmpty ? "Nothing here yet." : "No films match your search.")
+                    .font(.system(size: 13)).foregroundStyle(.secondary).padding(.vertical, 20)
+            } else if asList {
+                VStack(spacing: 0) {
+                    ForEach(Array(items.enumerated()), id: \.element.0.id) { index, item in
+                        if index > 0 { Divider() }
+                        FilmListRow(name: item.0.name, summary: store.summary(for: item.1)) { open(item.1) } menu: { menu(item.0, item.1) }
+                            .contextMenu { menu(item.0, item.1) }
+                    }
+                }
+                .workspacePanel()
+            } else {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 440), spacing: 16, alignment: .top)], spacing: 16) {
+                    ForEach(items, id: \.0.id) { project, folder in
+                        FilmTile(name: project.name, summary: store.summary(for: folder)) { open(folder) } menu: { menu(project, folder) }
+                            .contextMenu { menu(project, folder) }
+                            .dropDestination(for: URL.self) { urls, _ in store.importSources(urls.filter(\.isFileURL), into: folder) }
+                    }
+                }
             }
         }
+        .animation(.snappy, value: items.map(\.0.id))
     }
 
     private func menu(_ project: LocalProject, _ folder: URL) -> some View {
@@ -166,64 +202,174 @@ struct HomeView: View {
         }
     }
 
-    private var needsYouSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Text("Needs you").font(.system(size: 22, weight: .semibold))
-                Text("\(needsYou.count)").font(.system(size: 12, weight: .semibold, design: .rounded)).monospacedDigit()
-                    .foregroundStyle(Color(nsColor: .systemOrange)).padding(.horizontal, 8).padding(.vertical, 2)
-                    .background(Color(nsColor: .systemOrange).opacity(0.16), in: Capsule())
-                Spacer()
-            }
-            VStack(spacing: 10) {
-                ForEach(needsYou, id: \.0.id) { project, folder in
-                    NeedsYouRow(name: project.name, summary: store.summary(for: folder)) { open(folder) }
-                        .contextMenu { menu(project, folder) }
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                }
-            }
-        }
-        .animation(.snappy, value: needsYou.map(\.0.id))
-    }
-
-    private var library: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                if !(gridFilms.isEmpty && !needsYou.isEmpty) {
-                    Text(store.showArchivedProjects ? "Archived films" : needsYou.isEmpty ? "Your films" : "Other films").font(.system(size: 22, weight: .semibold))
-                }
-                Spacer()
-                Menu {
-                    Picker("Sort by", selection: $sortRaw) {
-                        ForEach(HomeSort.allCases) { Label($0.title, systemImage: $0.symbol).tag($0.rawValue) }
-                    }.pickerStyle(.inline)
-                } label: {
-                    Label(sort.title, systemImage: "arrow.up.arrow.down").font(.system(size: 12)).labelStyle(.titleAndIcon)
-                }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                .help("Sort films")
-            }
-            if films.isEmpty {
-                Text(store.projectSearch.isEmpty ? "Nothing here yet." : "No films match your search.")
-                    .font(.system(size: 13)).foregroundStyle(.secondary).padding(.vertical, 20)
-            }
-            LazyVGrid(columns: columns, spacing: 18) {
-                ForEach(gridFilms, id: \.0.id) { project, folder in
-                    FilmCard(name: project.name, summary: store.summary(for: folder)) { open(folder) }
-                        .contextMenu { menu(project, folder) }
-                        .dropDestination(for: URL.self) { urls, _ in store.importSources(urls.filter(\.isFileURL), into: folder) }
-                }
-            }
-            if hasArchived || store.showArchivedProjects {
-                Button(store.showArchivedProjects ? "Back to your films" : "Show archived") { store.showArchivedProjects.toggle() }
-                    .buttonStyle(.link).font(.system(size: 12)).padding(.top, 6)
-            }
-        }
-        .animation(.snappy, value: gridFilms.map(\.0.id))
-    }
-
     private func open(_ folder: URL) {
         store.path = [.film(folder)]
+    }
+}
+
+// MARK: Film cards
+
+/// A film's state as a tinted capsule: "Needs review", "Finished", "Draft"…
+struct FilmStatusBadge: View {
+    let phase: FilmPhase
+    private var look: (String, String, Color) {
+        switch phase {
+        case .yourTurn: ("Needs review", "clock", Color(nsColor: .systemOrange))
+        case .needsAttention: ("Needs attention", "exclamationmark.triangle", Color(nsColor: .systemRed))
+        case .paused: ("Paused", "pause.circle", .secondary)
+        case .finished: ("Finished", "checkmark.circle", Color(nsColor: .systemGreen))
+        case .draft: ("Draft", "doc.text", Color(nsColor: .systemBlue))
+        case .working, .starting: ("Director working", "sparkles", Color.rasan)
+        case .queued(let n): ("Queued · \(n)", "list.number", .secondary)
+        case .inProgress, .offline: ("In progress", "circle.dashed", .secondary)
+        }
+    }
+    var body: some View {
+        let (title, symbol, color) = look
+        Label(title, systemImage: symbol).font(.system(size: 12.5, weight: .medium)).foregroundStyle(color)
+            .padding(.horizontal, 10).padding(.vertical, 4)
+            .background(color.opacity(0.13), in: Capsule())
+            .fixedSize()
+    }
+}
+
+/// "45s · 16:9", and "Updated 12 min ago" on its own.
+private func filmFacts(_ summary: FilmSummary) -> String {
+    [summary.duration.flatMap { $0 > 0 ? "\($0)s" : nil }, summary.aspect].compactMap { $0 }.joined(separator: " · ")
+}
+private func updatedLine(_ summary: FilmSummary) -> String? {
+    guard let date = summary.updatedAt else { return nil }
+    let formatter = RelativeDateTimeFormatter(); formatter.unitsStyle = .full
+    return abs(date.timeIntervalSinceNow) < 45 ? "Updated just now" : "Updated " + formatter.localizedString(for: date, relativeTo: Date())
+}
+
+/// A poster with its running time in the corner.
+private struct PosterWithTime: View {
+    let name: String
+    let summary: FilmSummary
+    var body: some View {
+        FilmThumbnail(name: name, poster: summary.poster)
+            .overlay(alignment: .bottomTrailing) {
+                if let duration = summary.duration, duration > 0 {
+                    Text(clockText(Double(duration))).font(.system(size: 12, weight: .semibold)).monospacedDigit().foregroundStyle(.white)
+                        .padding(.horizontal, 7).padding(.vertical, 3).background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                        .padding(8)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+/// Home's lead card: a big poster, the film's state and why it is waiting, and one clear way in.
+struct FeaturedFilmCard: View {
+    let name: String
+    let summary: FilmSummary
+    let action: () -> Void
+    private var reason: String {
+        switch summary.phase {
+        case .yourTurn(let what): "Waiting for you to \(what)."
+        case .paused: "Paused. Your work is saved; resume whenever you like."
+        case .needsAttention: "Something needs a look. Open it to see why."
+        case .draft: "A draft. Check the brief, then start it."
+        case .working, .starting: "The director is working on it."
+        default: summary.detail ?? ""
+        }
+    }
+    private var verb: String {
+        switch summary.phase {
+        case .yourTurn: "Review film"
+        case .paused: "Resume"
+        case .draft: "Open draft"
+        default: "Open film"
+        }
+    }
+    var body: some View {
+        HStack(alignment: .center, spacing: 28) {
+            PosterWithTime(name: name, summary: summary).frame(width: 380)
+            VStack(alignment: .leading, spacing: 10) {
+                Text(name).font(.system(size: 24, weight: .bold)).tracking(-0.3).lineLimit(2)
+                FilmStatusBadge(phase: summary.phase)
+                HStack(spacing: 8) {
+                    if !filmFacts(summary).isEmpty { Text(filmFacts(summary)) }
+                    if let updated = updatedLine(summary) { Text("·"); Text(updated) }
+                }
+                .font(.system(size: 13.5)).foregroundStyle(.secondary).monospacedDigit()
+                if !reason.isEmpty { Text(reason).font(.system(size: 14.5)).fixedSize(horizontal: false, vertical: true).padding(.top, 4) }
+            }
+            Spacer(minLength: 12)
+            Button(action: action) { Text(verb).padding(.horizontal, 10) }
+                .buttonStyle(.rasanPrimary).controlSize(.large)
+        }
+        .padding(16)
+        .workspacePanel()
+        .contentShape(Rectangle())
+        .onTapGesture(perform: action)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(name), \(reason)")
+    }
+}
+
+/// A film in the grid: poster on the left, its name, state, facts and a ••• menu on the right.
+struct FilmTile<Menu: View>: View {
+    let name: String
+    let summary: FilmSummary
+    let action: () -> Void
+    @ViewBuilder var menu: () -> Menu
+    @State private var hovering = false
+    var body: some View {
+        HStack(alignment: .top, spacing: 18) {
+            PosterWithTime(name: name, summary: summary).frame(width: 220)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top) {
+                    Text(name).font(.system(size: 16, weight: .semibold)).lineLimit(2)
+                    Spacer(minLength: 6)
+                    SwiftUI.Menu { menu() } label: { Image(systemName: "ellipsis").font(.system(size: 14, weight: .semibold)).frame(width: 24, height: 20) }
+                        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("More")
+                }
+                FilmStatusBadge(phase: summary.phase)
+                if !filmFacts(summary).isEmpty { Text(filmFacts(summary)).font(.system(size: 13)).foregroundStyle(.secondary).monospacedDigit() }
+                if let updated = updatedLine(summary) { Text(updated).font(.system(size: 13)).foregroundStyle(.secondary) }
+            }
+        }
+        .padding(12)
+        .background(hovering ? Workspace.raised : Workspace.panel, in: RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous).strokeBorder(hovering ? Color.rasan.opacity(0.45) : Workspace.hairline, lineWidth: 1) }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: action)
+        .onHover { hovering = $0 }
+        .animation(.snappy(duration: 0.15), value: hovering)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(name)
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// A film in the list: a small poster, name, state, facts, and when it last changed.
+struct FilmListRow<Menu: View>: View {
+    let name: String
+    let summary: FilmSummary
+    let action: () -> Void
+    @ViewBuilder var menu: () -> Menu
+    @State private var hovering = false
+    var body: some View {
+        HStack(spacing: 14) {
+            PosterWithTime(name: name, summary: summary).frame(width: 112)
+            Text(name).font(.system(size: 14, weight: .semibold)).lineLimit(1).frame(minWidth: 160, alignment: .leading)
+            FilmStatusBadge(phase: summary.phase)
+            Spacer(minLength: 8)
+            Text(filmFacts(summary)).font(.system(size: 12.5)).foregroundStyle(.secondary).monospacedDigit()
+            Text(updatedLine(summary) ?? "").font(.system(size: 12.5)).foregroundStyle(.secondary).frame(width: 170, alignment: .trailing)
+            SwiftUI.Menu { menu() } label: { Image(systemName: "ellipsis").frame(width: 24, height: 20) }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(hovering ? Workspace.raised : .clear)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: action)
+        .onHover { hovering = $0 }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(name)
+        .accessibilityAddTraits(.isButton)
     }
 }
 

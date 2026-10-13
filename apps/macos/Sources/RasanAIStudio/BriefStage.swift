@@ -433,7 +433,7 @@ private struct BriefSourceChip: View {
     }
 }
 
-/// The bottom bar of the brief: Start and "Just make it".
+/// The brief's actions, published to the status bar: "Just make it" and "Looks right". Draws nothing itself.
 private struct BriefActions: View {
     let model: FilmSessionModel
     let step: String
@@ -442,53 +442,12 @@ private struct BriefActions: View {
     let justMakeIt: () -> Void
     let startEnabled: Bool
 
-    /// Only the person's turn (or looking back, or just sent) gets a bar; while Claude works there is nothing to do.
     var body: some View {
-        if model.showsActions(for: step) { bar }
-    }
-
-    @ViewBuilder private var bar: some View {
-        VStack(spacing: 8) {
-            if let error = model.lastError {
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                    Text(error).font(.system(size: 12)).lineLimit(2)
-                    Spacer()
-                    Button("Dismiss") { model.dismissError() }.buttonStyle(.link).font(.system(size: 12))
-                }
-            }
-            HStack(spacing: 10) {
-                if model.isViewingPast {
-                    Label("Looking back. This step is decided.", systemImage: "clock.arrow.circlepath")
-                        .font(.system(size: 12)).foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Back to now") { model.returnToLive() }.controlSize(.large)
-                } else if model.hasSent(step) && model.status(step) != "done" {
-                    ProgressView().controlSize(.small)
-                    Text("Sent to Claude. Waiting for the next update.").font(.system(size: 12)).foregroundStyle(.secondary)
-                    Spacer()
-                } else {
-                    Spacer()
-                    Button("Just make it", action: justMakeIt)
-                        .controlSize(.large).disabled(!canAct || !startEnabled)
-                        .help("Confirm the brief and let Claude make every remaining call. You'll see the final.")
-                    Button {
-                        start()
-                    } label: {
-                        HStack(spacing: 6) {
-                            if model.isSending { ProgressView().controlSize(.small) } else { Image(systemName: "checkmark") }
-                            Text("Looks right")
-                        }.frame(minWidth: 110)
-                    }
-                    .buttonStyle(.borderedProminent).controlSize(.large)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!canAct || !startEnabled)
-                }
-            }
-        }
-        .padding(.horizontal, 24).padding(.vertical, 12)
-        .background(.bar)
-        .overlay(alignment: .top) { Divider() }
+        FilmActionsPublisher(actions: model.showsActions(for: step) ? FilmActions(
+            step: step, primaryTitle: "Looks right", primarySymbol: "checkmark", primaryEnabled: startEnabled,
+            secondaryTitle: "Just make it", secondaryHelp: "Confirm the brief and let Claude make every remaining call. You'll see the final.",
+            secondaryEnabled: startEnabled, onPrimary: { note in model.noteThen(step: step, note, start) },
+            onSecondary: { note in model.noteThen(step: step, note, justMakeIt) }) : nil)
     }
 }
 

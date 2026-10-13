@@ -55,9 +55,10 @@ struct RasanAIStudioApp: App {
                 }
             }
         }
-        .defaultSize(width: 1120, height: 740)
+        .defaultSize(width: 1240, height: 800)
         .windowToolbarStyle(.unified)
         .commands {
+            SidebarCommands()
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") { updater.check() }.disabled(!updater.canCheck)
             }
@@ -104,7 +105,7 @@ struct RasanAIStudioApp: App {
             if snapshotDirectory == nil && SnapshotHarness.stagesDirectory == nil { HeresayCommands() }
         }
         Settings {
-            StudioSettingsView(settings: store.settings)
+            StudioSettingsView(settings: store.settings).buttonStyle(.rasanSecondary).tint(.rasan)
         }
     }
 }

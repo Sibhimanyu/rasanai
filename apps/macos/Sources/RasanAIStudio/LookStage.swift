@@ -32,7 +32,7 @@ struct LookStage: View {
         StageScaffold(model: model, step: step,
                       question: payload["question"].string ?? (isFilms ? "Which film do you want?" : "Which look fits this story?"),
                       context: payload["context"].string ?? payload["sub"].string,
-                      maxWidth: 1000) {
+                      maxWidth: 1240) {
             if let current {
                 VStack(alignment: .leading, spacing: 20) {
                     HStack(alignment: .top, spacing: 26) {
@@ -124,7 +124,7 @@ struct LookStage: View {
                     showMix = false
                     Task { await model.send(step: step, type: "mix", value: .object(["look": .string(mixLook), "story": .string(mixStory)])) }
                 }
-                .buttonStyle(.borderedProminent).disabled(mixLook == mixStory)
+                .buttonStyle(.rasanPrimary).disabled(mixLook == mixStory)
             }
         }
         .padding(18).frame(width: 320)

@@ -9,34 +9,60 @@ struct StudioView: View {
 
     var body: some View {
         content.environment(\.momentStore, store)
+            .modifier(LaunchFocus(ready: !store.isLoadingProjects))
     }
 
+    @AppStorage("studio.sidebarHidden") private var sidebarHidden = false
+    /// The split view's own state, so its toggle (and ⌃⌘S) runs the system's slide. Binding it straight to the stored setting
+    /// dropped the animation's transaction and made the sidebar snap; the setting is only written back afterwards.
+    @State private var columns: NavigationSplitViewVisibility = .all
+    @State private var restored = false
+    /// A film (or the sample, or the film editor) brings its own bottom bar, so the studio's status bar steps aside there.
+    private var showsStatusBar: Bool {
+        switch store.path.last { case .film?, .sample?, .newFilm?: false; default: true }
+    }
+
+    /// The native split view: on macOS Tahoe the system draws the floating glass sidebar with the window buttons inside it,
+    /// its toggle, and the toggle's move into the toolbar when the sidebar hides, with the system's own animation.
     private var content: some View {
+        NavigationSplitView(columnVisibility: $columns) {
+            AppSidebar(store: store)
+        } detail: {
+            VStack(spacing: 0) {
+                stack
+                if showsStatusBar { AppStatusBar(store: store) }
+            }
+            .background(Color.appBackground)
+        }
+        // No toolbar band: the glass items float over the page's own colour, in a window and in full screen alike, and
+        // content blurs softly under them as it scrolls (the system's scroll-edge effect).
+        .modifier(NoToolbarBand())
+        .onAppear {
+            guard !restored else { return }
+            restored = true
+            var quiet = Transaction(); quiet.disablesAnimations = true
+            withTransaction(quiet) { columns = sidebarHidden ? .detailOnly : .all }
+        }
+        .onChange(of: columns) { _, visibility in sidebarHidden = visibility == .detailOnly }
+    }
+
+    private var stack: some View {
         NavigationStack(path: $store.path) {
             HomeView(store: store)
                 .navigationDestination(for: Route.self) { route in
-                    Group { switch route {
+                    switch route {
                     case .newFilm(let project): NewFilmView(store: store, project: project)
                     case .film(let url):
                         if store.shouldBrowseSeparately(url) { LibraryFilmPage(store: store, url: url) }
                         else { FilmPage(store: store, url: url) }
-                    case .brands:
-                        BrandsView(store: store)
-                            .toolbar { ToolbarItem(placement: .primaryAction) { HelpButton(title: "Brands", lines: [
-                                "A brand keeps your colours, type and logo in one folder.",
-                                "Pick a brand when you start a film and RasanAI designs in your look.",
-                                "Each brand is a plain DESIGN.md file you can edit anywhere."]) } }
-                    case .brand(let url):
-                        BrandPage(store: store, brand: url)
-                            .toolbar { ToolbarItem(placement: .primaryAction) { HelpButton(title: "This brand", lines: [
-                                "These swatches and fonts are read from the brand's DESIGN.md.",
-                                "Choose Edit brand to change colours, fonts and logo, with a live preview.",
-                                "Deleting a brand moves its folder to the Trash. Existing films keep their copy."]) } }
+                    case .brands: BrandsView(store: store)
+                    case .brand(let url): BrandPage(store: store, brand: url)
                     case .queue: FilmQueueView(store: store)
                     case .templates: FilmTemplatesView(store: store)
                     case .inspire: GetInspiredPage(store: store)
                     case .sample: SamplePage(store: store)
-                    } }
+                    case .library(let mode): HomeView(store: store, mode: mode)
+                    }
                 }
         }
         .tint(.rasan)
@@ -46,14 +72,14 @@ struct StudioView: View {
             introduceFeedback()
         }) { sheet in
             switch sheet {
-            case .welcome: WelcomeView(store: store).tint(.rasan)
-            case .log: DirectorLogSheet(runtime: store.runtime).tint(.rasan)
-            case .files: FilesSheet(store: store).tint(.rasan)
-            case .note: NoteSheet(store: store).tint(.rasan)
-            case .preflight: PreflightView(store: store).tint(.rasan)
-            case .projectTransfer: ProjectTransferView(store: store).tint(.rasan)
+            case .welcome: WelcomeView(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
+            case .log: DirectorLogSheet(runtime: store.runtime).tint(.rasan).buttonStyle(.rasanSecondary)
+            case .files: FilesSheet(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
+            case .note: NoteSheet(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
+            case .preflight: PreflightView(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
+            case .projectTransfer: ProjectTransferView(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
             case .export:
-                if let source = store.exportSource { MovieExportSheet(source: source, captions: store.exportCaptions).tint(.rasan) }
+                if let source = store.exportSource { MovieExportSheet(source: source, captions: store.exportCaptions).tint(.rasan).buttonStyle(.rasanSecondary) }
             }
         }
         .onAppear { introduceFeedback() }
@@ -120,4 +146,36 @@ func errorNeedsSettings(_ message: String?) -> Bool {
     // "Stop the director before switching films" is about the running film, not a setting.
     if text.contains("switching films") { return false }
     return ["director", "executable", "node", "sign in", "signed in", "sign-in", "log in", "login", "library", "project folder", "claude", "codex"].contains { text.contains($0) }
+}
+
+/// The launch: the window opens frosted, its content a soft blur, and comes into focus once the library has loaded (or
+/// after half a second, whichever is first), the way ChatGPT's window does. Reduce Motion gets a short fade instead.
+private struct LaunchFocus: ViewModifier {
+    let ready: Bool
+    @State private var focused = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .blur(radius: focused || reduceMotion ? 0 : 26)
+            .brightness(focused ? 0 : -0.04)
+            .opacity(focused || !reduceMotion ? 1 : 0)
+            .allowsHitTesting(focused)
+            .onAppear { if ready { reveal(after: 0.18) } else { reveal(after: 0.5) } }
+            .onChange(of: ready) { if ready { reveal(after: 0.05) } }
+    }
+
+    private func reveal(after delay: Double) {
+        guard !focused else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            withAnimation(reduceMotion ? .easeOut(duration: 0.18) : .easeOut(duration: 0.6)) { focused = true }
+        }
+    }
+}
+
+private struct NoToolbarBand: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 15, *) { content.toolbarBackgroundVisibility(.hidden, for: .windowToolbar) }
+        else { content.toolbarBackground(.hidden, for: .windowToolbar) }
+    }
 }

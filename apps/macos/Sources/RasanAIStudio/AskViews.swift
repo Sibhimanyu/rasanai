@@ -57,7 +57,7 @@ struct AskSheet: View {
                 } label: {
                     HStack(spacing: 6) { if model.isSending { ProgressView().controlSize(.small) }; Text("Send") }.frame(minWidth: 80)
                 }
-                .buttonStyle(.borderedProminent).controlSize(.large).keyboardShortcut(.defaultAction).disabled(!canSend)
+                .buttonStyle(.rasanPrimary).controlSize(.large).keyboardShortcut(.defaultAction).disabled(!canSend)
             }
         }
         .padding(26).frame(width: 520)
@@ -102,7 +102,7 @@ struct AskCard: View {
                 Text(ask.question).font(.system(size: 13, weight: .medium)).lineLimit(2)
             }
             Spacer(minLength: 8)
-            Button("Answer…") { model.dismissedAsks.remove(ask.id) }.buttonStyle(.borderedProminent)
+            Button("Answer…") { model.dismissedAsks.remove(ask.id) }.buttonStyle(.rasanPrimary)
         }
         .padding(.horizontal, 20).padding(.vertical, 10)
         .background(Color.rasan.opacity(0.10))

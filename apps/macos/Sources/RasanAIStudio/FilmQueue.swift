@@ -205,9 +205,10 @@ struct FilmQueueView: View {
             }
         }
         .frame(maxWidth: 940).frame(maxWidth: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color.appBackground)
         .safeAreaInset(edge: .bottom, spacing: 0) { QueueTotalsFooter(monitor: store.monitor) }
         .navigationTitle("Queue")
+        .pageHeader("Queue")
     }
 
     private var header: some View {

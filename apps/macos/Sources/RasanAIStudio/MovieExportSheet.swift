@@ -163,10 +163,10 @@ struct MovieExportSheet: View {
                 Spacer()
                 if let destination = model.completed {
                     ShareLink(item: destination) { Label("Share…", systemImage: "square.and.arrow.up") }
-                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([destination]) }.buttonStyle(.borderedProminent)
+                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([destination]) }.buttonStyle(.rasanPrimary)
                 } else {
                     if !model.isExporting { ShareLink(item: model.source) { Label("Share…", systemImage: "square.and.arrow.up") }.help("Share the original render without exporting") }
-                    Button("Choose destination…") { model.chooseDestination() }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+                    Button("Choose destination…") { model.chooseDestination() }.buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction)
                         .disabled(model.isExporting || ((model.includeCaptions || model.burnCaptions) && model.captions == nil))
                 }
             }

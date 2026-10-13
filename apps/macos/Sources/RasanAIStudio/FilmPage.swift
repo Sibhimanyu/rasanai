@@ -42,7 +42,6 @@ struct FilmPage: View {
                 NotRunningView(store: store)
             }
         }
-        .background(Color(nsColor: .windowBackgroundColor))
     }
 
 
@@ -59,44 +58,128 @@ struct FilmPage: View {
         ready && store.runURL != nil && !showsFinished && store.film != nil && (store.isConnected || store.runtime.isRunning || store.runtime.isPreparing)
     }
 
+    /// Real alerts only. They are rare, so they may sit above the stage; the status line is the status bar's.
+    private var showsAutoResume: Bool {
+        guard !showsFinished, let notice = store.runtime.autoResume else { return false }
+        return !notice.isLimit && !store.runtime.isRunning
+    }
+    private var showsRecovery: Bool { !showsFinished && !showsAutoResume && showsConsole && !store.runtime.stopRequested && store.runtime.recovery != nil }
+
     @ViewBuilder private var topChrome: some View {
-            if ready && store.runURL != nil {
-                VStack(spacing: 0) {
-                    FilmStageBar(current: store.snapshot.stage, finished: isFinished, viewing: store.film?.viewingStage,
-                                 decided: isWorkingOnNextCall ? store.snapshot.decidedCalls : nil,
-                                 canSelect: { store.film?.canView($0) ?? false }, onSelect: { store.film?.view($0) })
-                    MonitorBudgetBanner(store: store)
-                    if !showsFinished {
-                        if let notice = store.runtime.autoResume, !notice.isLimit, !store.runtime.isRunning {
-                            AutoResumeBanner(store: store, notice: notice)
-                        } else if showsConsole, !store.runtime.stopRequested, let recovery = store.runtime.recovery {
-                            DirectorRecoveryView(store: store, recovery: recovery)
-                        } else if showsNativeFilm, !showsFilmProgress, let turn = store.turnState {
-                            TurnLine(state: turn, onDetails: store.runtime.logURL != nil ? { store.sheet = .log } : nil,
-                                     onPause: store.runtime.isRunning ? { store.pauseDirector() } : nil,
-                                     onResume: store.canResume ? { store.resumeDirector() } : nil)
-                        }
+        if ready && store.runURL != nil {
+            VStack(spacing: 0) {
+                MonitorBudgetBanner(store: store)
+                if !showsFinished {
+                    if let notice = store.runtime.autoResume, showsAutoResume {
+                        AutoResumeBanner(store: store, notice: notice)
+                    } else if showsRecovery, let recovery = store.runtime.recovery {
+                        DirectorRecoveryView(store: store, recovery: recovery)
                     }
                 }
             }
+        }
     }
 
-    /// The Decisions inspector wraps the stage bar too, so it runs the window's full height on every film page
-    /// (native stages, finished, console not running), with the same toolbar buttons (see `toolbarItems`).
+    /// Whose move it is, for the status bar. Nil when a banner above or Film progress already says it.
+    private var statusTurn: TurnState? {
+        guard showsNativeFilm, !showsAutoResume, !showsRecovery, !showsFilmProgress else { return nil }
+        return store.turnState
+    }
+
+    /// The workspace: the header row, then the stage panel beside the inspector panel, then the action bar panel, all on
+    /// one dark canvas. Nothing above the panels repeats the status; the bar at the bottom carries it.
     @ViewBuilder private var chromeAndContent: some View {
-        let page = VStack(spacing: 0) {
-            topChrome
-            pageContent
+        VStack(spacing: Workspace.gap) {
+            if let film = store.film {
+                FilmStatusBarHost(model: film, visible: showsNativeFilm || (ready && store.runURL != nil && showsFinished), turn: statusTurn,
+                                  onDetails: store.runtime.logURL != nil ? { store.sheet = .log } : nil,
+                                  onPause: store.runtime.isRunning ? { store.pauseDirector() } : nil,
+                                  onResume: store.canResume ? { store.resumeDirector() } : nil,
+                                  usage: { StatusPill(store: store) }) {
+                    VStack(spacing: Workspace.gap) {
+                        topChrome
+                        DecisionsHost(model: film, page: StagePanelHost { pageContent })
+                    }
+                }
+            } else {
+                VStack(spacing: Workspace.gap) { topChrome; StagePanelHost { pageContent } }
+            }
         }
-        if let film = store.film { DecisionsHost(model: film, page: page) } else { page }
+        .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 16)
+        .background(Workspace.canvas)
+    }
+
+    /// The film's toolbar: back and forward, the five calls in the centre, then Decisions and the film's tools.
+    @ToolbarContentBuilder private var filmToolbar: some ToolbarContent {
+        HistoryToolbar(store: store)
+        if ready && store.runURL != nil {
+            ToolbarItem(placement: .principal) {
+                FilmStepper(current: store.snapshot.stage, finished: isFinished, viewing: store.film?.viewingStage,
+                            decided: isWorkingOnNextCall ? store.snapshot.decidedCalls : nil,
+                            canSelect: { store.film?.canView($0) ?? false }, onSelect: { store.film?.view($0) })
+            }
+        }
+        ToolbarItemGroup(placement: .primaryAction) {
+            if let film = store.film {
+                Button {
+                    if film.decisionsPresented && film.inspectorTab == .decisions { film.decisionsPresented = false }
+                    else { film.inspectorTab = .decisions; film.decisionsPresented = true }
+                } label: { Label("Decisions", systemImage: "list.bullet") }
+                    .labelStyle(.titleAndIcon)
+                    .keyboardShortcut("d", modifiers: [.command, .option])
+                    .help("Every decision on this film (⌥⌘D)")
+            }
+            headerTools
+        }
+    }
+
+    @ViewBuilder private var headerTools: some View {
+        if ready {
+            Group {
+                if store.finalURL != nil {
+                    if store.showChanges, case .finished = phase {
+                        Button { store.showChanges = false } label: { Label("Watch film", systemImage: "play.rectangle") }
+                    }
+                    if let video = store.finalURL {
+                        ShareLink(item: video) { Label("Share", systemImage: "square.and.arrow.up") }.help("Share the finished film")
+                    }
+                }
+                Menu {
+                    if let film = store.film, showsNativeFilm, !film.isDone, !film.isDecideRest, film.route != .working {
+                        Button("Just make it") { Task { await film.justMakeIt() } }.disabled(!film.isConnected || film.isSending)
+                    }
+                    if store.runtime.isRunning { Button("Pause Director") { store.pauseDirector() } }
+                    else if store.canResume { Button("Resume Director") { store.resumeDirector() } }
+                    if store.runtime.logURL != nil { Button("Show Log") { store.sheet = .log } }
+                    if store.selectedProjectURL != nil { Button("Files…") { store.reloadSources(); store.sheet = .files } }
+                    Button("Check readiness…") { store.showPreflight(project: store.selectedProjectURL) }
+                    if let project = store.selectedProjectURL { Button("Export Project…") { store.exportProject(project) } }
+                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([store.selectedProjectURL ?? store.runURL ?? url]) }
+                    if store.runURL != nil { Button("Reload film") { store.reloadFilm() } }
+                } label: { Label("More", systemImage: "ellipsis") }
+                .menuIndicator(.hidden).tint(.primary)   // a toolbar tool, white like its neighbours, not the brand tint.help("More")
+                HelpButton(title: "This film", lines: helpLines)
+            }
+        }
+    }
+
+    /// "45 s · 16:9": what the film is, under its title in the window header.
+    private var filmFacts: String {
+        var parts: [String] = []
+        if let seconds = draft?.duration, seconds > 0 { parts.append("\(seconds)s") }
+        if let aspect = draft?.aspect ?? (store.runURL != nil ? store.snapshot.aspect : nil), !aspect.isEmpty { parts.append(aspect) }
+        return parts.joined(separator: " · ")
     }
 
     var body: some View {
         chromeAndContent
+        .buttonStyle(.rasanSecondary)   // inside the page only: toolbar items keep the system's glass
         .animation(.snappy, value: ready)
         .animation(.snappy, value: showsFinished)
         .navigationTitle(ready ? store.currentFilmTitle : "Film")
-        .toolbar { if ready { toolbarItems } }
+        .navigationSubtitle(ready ? filmFacts : "")
+        .navigationBarBackButtonHidden(true)
+        .toolbar { filmToolbar }
         .onAppear {
             store.activateFilm(url)
             if let progress = store.progress { ProgressNotifier.shared.watch(progress, settings: store.settings) }
@@ -113,40 +196,11 @@ struct FilmPage: View {
         .onDisappear { store.finalPlayer?.pause() }
     }
 
-    @ToolbarContentBuilder private var toolbarItems: some ToolbarContent {
-        ToolbarItem(placement: .principal) { StatusPill(store: store) }
-        if let film = store.film, store.runURL != nil, !showsNativeFilm { FilmToolbarItems(model: film) }
-        ToolbarItemGroup(placement: .primaryAction) {
-            if store.finalURL != nil {
-                if store.showChanges, case .finished = phase {
-                    Button { store.showChanges = false } label: { Label("Watch film", systemImage: "play.rectangle") }
-                }
-                if let video = store.finalURL {
-                    ShareLink(item: video) { Label("Share", systemImage: "square.and.arrow.up") }.help("Share the finished film")
-                }
-            }
-            Menu {
-                if let film = store.film, showsNativeFilm, !film.isDone, !film.isDecideRest, film.route != .working {
-                    Button("Just make it") { Task { await film.justMakeIt() } }.disabled(!film.isConnected || film.isSending)
-                }
-                if store.runtime.isRunning { Button("Pause Director") { store.pauseDirector() } }
-                else if store.canResume { Button("Resume Director") { store.resumeDirector() } }
-                if store.runtime.logURL != nil { Button("Show Log") { store.sheet = .log } }
-                if store.selectedProjectURL != nil { Button("Files…") { store.reloadSources(); store.sheet = .files } }
-                Button("Check readiness…") { store.showPreflight(project: store.selectedProjectURL) }
-                if let project = store.selectedProjectURL { Button("Export Project…") { store.exportProject(project) } }
-                Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([store.selectedProjectURL ?? store.runURL ?? url]) }
-                if store.runURL != nil { Button("Reload film") { store.reloadFilm() } }
-            } label: { Image(systemName: "ellipsis.circle") }
-            HelpButton(title: "This film", lines: helpLines)
-        }
-    }
-
     private var helpLines: [String] {
         switch phase {
         case .draft: ["This film has not started yet. Check the brief, then press Start film."]
         case .finished: ["Your film is ready. Export it, or watch it and add notes where something should change."]
-        case .yourTurn: ["RasanAI is waiting for you. Answer in the panel below, and it carries on from there.", "You can leave the app; you will be notified if that is turned on."]
+        case .yourTurn: ["RasanAI is waiting for you. Answer on the page, then press the button at the bottom right, and it carries on from there.", "You can leave the app; you will be notified if that is turned on."]
         default: ["RasanAI is directing this film. Each step it needs you for shows up here.", "Pause Director in the ••• menu stops it safely. Your files are kept, and you can resume any time."]
         }
     }
@@ -154,7 +208,7 @@ struct FilmPage: View {
 
 // MARK: Status pill
 
-/// A quiet usage pill: tokens and cost only. Whose move it is lives in `TurnLine`, so no state words here.
+/// Quiet usage text for the status bar: tokens and cost only. Whose move it is lives in the bar's status line, so no state words here.
 struct StatusPill: View {
     @Bindable var store: StudioStore
     /// During a DEBUG replay the monitor has no telemetry for the run, so the pill reads the progress model's totals instead.
@@ -179,12 +233,12 @@ struct StatusPill: View {
                         .foregroundStyle(looping ? Color(nsColor: .systemRed) : .secondary)
                     if live != nil { Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundStyle(.tertiary) }
                 }
-                .padding(.horizontal, 10).padding(.vertical, 3)
-                .background(looping ? Color(nsColor: .systemRed).opacity(0.2) : Color(nsColor: .quaternaryLabelColor).opacity(0.3), in: Capsule())
+                .padding(.horizontal, looping ? 10 : 0).padding(.vertical, 3)
+                .background(looping ? Color(nsColor: .systemRed).opacity(0.2) : Color.clear, in: Capsule())
             }
             .buttonStyle(.plain)
             .onHover { hovering = $0 }
-            .popover(isPresented: $monitorOpen, arrowEdge: .bottom) { DirectorMonitorPanel(monitor: monitor, progress: store.progress?.snapshot) { monitorOpen = false } }
+            .popover(isPresented: $monitorOpen, arrowEdge: .top) { DirectorMonitorPanel(monitor: monitor, progress: store.progress?.snapshot) { monitorOpen = false } }
             .help(live != nil ? "Director details: state, tokens, cost and recent activity" : "")
             .accessibilityLabel(offline ? "Film files unreadable. Reload film" : "Usage: \(live ?? "")")
         }
@@ -255,12 +309,6 @@ struct DirectorRecoveryView: View {
     }
 }
 
-struct DecisionsHost<Page: View>: View {
-    @Bindable var model: FilmSessionModel
-    let page: Page
-    var body: some View { page.inspector(isPresented: $model.decisionsPresented) { DecisionsInspector(model: model) } }
-}
-
 struct NotRunningView: View {
     @Bindable var store: StudioStore
     var body: some View {
@@ -280,11 +328,11 @@ struct NotRunningView: View {
             }
             HStack(spacing: 10) {
                 if store.runtime.recovery == .signIn {
-                    Button("Sign in…") { store.settings.showWelcome = true }.buttonStyle(.borderedProminent).controlSize(.large)
+                    Button("Sign in…") { store.settings.showWelcome = true }.buttonStyle(.rasanPrimary).controlSize(.large)
                     Button("Resume") { store.resumeDirector() }.controlSize(.large).disabled(!store.canResume)
                 } else {
                     Button("Resume") { store.resumeDirector() }
-                        .buttonStyle(.borderedProminent).controlSize(.large).disabled(!store.canResume)
+                        .buttonStyle(.rasanPrimary).controlSize(.large).disabled(!store.canResume)
                 }
                 if store.runtime.recovery == nil, store.runURL != nil, !store.isConnected {
                     Button("Reload film") { store.reloadFilm() }.controlSize(.large)
@@ -336,7 +384,7 @@ struct DraftView: View {
                 .padding(24).cardSurface()
                 VStack(spacing: 8) {
                     if queued {
-                        Button("View queue") { store.path.append(.queue) }.buttonStyle(.borderedProminent).controlSize(.large)
+                        Button("View queue") { store.path.append(.queue) }.buttonStyle(.rasanPrimary).controlSize(.large)
                         Text(editable ? "This film is waiting in the queue. You can still edit the brief; it starts when the director is free."
                                        : "This film is running from the queue. Open the queue to follow it or take it out.")
                             .font(.system(size: 12)).foregroundStyle(.secondary)
@@ -344,7 +392,7 @@ struct DraftView: View {
                         Button { start() } label: {
                             HStack(spacing: 8) { if starting { ProgressView().controlSize(.small) }; Text("Start film") }.frame(minWidth: 160)
                         }
-                        .buttonStyle(.borderedProminent).controlSize(.extraLarge)
+                        .buttonStyle(.rasanPrimary).controlSize(.extraLarge)
                         .keyboardShortcut(.return, modifiers: .command)
                         .disabled(starting || (draft?.brief ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.runtime.isRunning || store.runtime.isPreparing)
                         HStack(spacing: 4) {
@@ -352,7 +400,7 @@ struct DraftView: View {
                             Button("Change") { openSettings() }.buttonStyle(.link)
                         }.font(.system(size: 11)).foregroundStyle(.secondary)
                     } else {
-                        Button("Set up a director…") { store.settings.showWelcome = true }.buttonStyle(.borderedProminent).controlSize(.extraLarge)
+                        Button("Set up a director…") { store.settings.showWelcome = true }.buttonStyle(.rasanPrimary).controlSize(.extraLarge)
                     }
                 }
             }
@@ -429,7 +477,7 @@ struct FinishedView: View {
                 }
                 HStack(spacing: 10) {
                     Button { store.exportVideo() } label: { Label("Export…", systemImage: "square.and.arrow.down") }
-                        .buttonStyle(.borderedProminent).controlSize(.large)
+                        .buttonStyle(.rasanPrimary).controlSize(.large)
                         .keyboardShortcut("e", modifiers: .command)
                         .help("Save an MP4 you can share (⌘E)")
                     Button("Show in Finder") { if let url = store.displayedVideo { NSWorkspace.shared.activateFileViewerSelecting([url]) } }.controlSize(.large)
@@ -534,7 +582,7 @@ struct FinishedView: View {
                     Text("\(filledNotes.count) \(filledNotes.count == 1 ? "note" : "notes")").font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 Button { send() } label: { Text("Make a new version").frame(minWidth: 96) }
-                    .buttonStyle(.borderedProminent).controlSize(.large).disabled(!canSend)
+                    .buttonStyle(.rasanPrimary).controlSize(.large).disabled(!canSend)
             }
         }
         .padding(20).cardSurface()
@@ -556,20 +604,36 @@ struct FinishedView: View {
 struct SamplePage: View {
     @Bindable var store: StudioStore
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: Workspace.gap) {
             if let film = store.film {
-                DecisionsHost(model: film, page: VStack(spacing: 0) {
-                    FilmStageBar(current: film.snapshot.stage, viewing: film.viewingStage,
-                                 canSelect: { _ in true }, onSelect: { film.view($0) })
-                    NativeFilmView(model: film)
-                })
+                FilmStatusBarHost(model: film, turn: Self.turn(film), usage: { EmptyView() }) {
+                    DecisionsHost(model: film, page: StagePanelHost { NativeFilmView(model: film) })
+                }
             }
         }
+        .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Workspace.canvas)
+        .buttonStyle(.rasanSecondary)
         .navigationTitle("Sample film")
-        .toolbar { ToolbarItem(placement: .primaryAction) { HelpButton(title: "Sample film", lines: [
-            "A made-up film so you can look around without an agent account.",
-            "Nothing here is sent anywhere. Go back to start a real film."]) } }
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            HistoryToolbar(store: store)
+            if let film = store.film {
+                ToolbarItem(placement: .principal) {
+                    FilmStepper(current: film.snapshot.stage, viewing: film.viewingStage, canSelect: { _ in true }, onSelect: { film.view($0) })
+                }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                HelpButton(title: "Sample film", lines: [
+                    "A made-up film so you can look around without an agent account.",
+                    "Nothing here is sent anywhere. Go back to start a real film."])
+            }
+        }
         .onDisappear { store.pause() }
+    }
+    /// The sample has no director, so its status line is whose call the fixed session is waiting on.
+    private static func turn(_ film: FilmSessionModel) -> TurnState? {
+        film.isWaitingOnUser ? .yourTurn(FilmSummary.friendlyStep(film.snapshot.currentStep, in: film.snapshot), background: nil) : nil
     }
 }

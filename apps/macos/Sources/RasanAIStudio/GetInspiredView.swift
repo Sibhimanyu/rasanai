@@ -279,7 +279,7 @@ struct GetInspiredView: View {
             }
             tray
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color.appBackground)
         .task { await gallery.loadIfNeeded() }
         .onDisappear { gallery.stopPlaying(); gallery.closeViewer() }
         .momentViewer(gallery: gallery, selection: $selection)
@@ -409,7 +409,7 @@ struct GetInspiredView: View {
             ForEach(0..<FilmDraft.maxMoments, id: \.self) { index in slot(index) }
             VStack(spacing: 4) {
                 Button(action: onPrimary) { Text(primaryTitle).padding(.horizontal, 6) }
-                    .buttonStyle(.borderedProminent).controlSize(.large).disabled(selection.isEmpty)
+                    .buttonStyle(.rasanPrimary).controlSize(.large).disabled(selection.isEmpty)
                     .keyboardShortcut(.return, modifiers: .command)
                 if !selection.isEmpty {
                     Button("Clear") { withAnimation(.snappy) { selection.clear() } }.buttonStyle(.link).font(.system(size: 11))
@@ -419,7 +419,7 @@ struct GetInspiredView: View {
         }
         .padding(.horizontal, 24).padding(.vertical, 12)
         .frame(maxWidth: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color.appBackground)
         .overlay(alignment: .top) { Divider() }
         .animation(.snappy(duration: 0.2), value: selection)
     }
@@ -466,14 +466,12 @@ struct GetInspiredPage: View {
             store.inspirePicks.clear()
             store.newFilm(moments: picks)
         }
-        .navigationTitle("Get inspired")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+        .navigationTitle("Inspiration")
+        .pageHeader("Inspiration") {
                 HelpButton(title: "Get inspired", lines: [
                     "Browse short moves from real launch films. Point at one to preview it.",
                     "Click a card to watch it big, with sound. The plus button adds it to Moves I like, up to four, with no fixed roles.",
                     "Make a film with these opens New film with your picks attached. Each card credits its creator."])
-            }
         }
     }
 }
@@ -526,6 +524,6 @@ struct GetInspiredHomeSection: View {
         }
         .task { await gallery.loadIfNeeded() }
         .onDisappear { gallery.stopPlaying(); gallery.closeViewer() }
-        .momentViewer(gallery: gallery, selection: $store.inspirePicks)
+        // The viewer itself is laid over the whole Home page (HomeView), not over this section.
     }
 }

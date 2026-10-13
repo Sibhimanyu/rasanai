@@ -824,7 +824,7 @@ struct ReviewNoteComposer: View {
                 Button { save() } label: {
                     HStack(spacing: 6) { if saving { ProgressView().controlSize(.small) }; Text("Add note") }
                 }
-                .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction).disabled(!canSave)
+                .buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction).disabled(!canSave)
             }
         }
         .padding(16).frame(width: 320)
@@ -891,7 +891,7 @@ private struct NoteRow: View {
             ZStack {
                 Circle().fill(number != nil ? Color.rasan : Color(nsColor: .tertiaryLabelColor)).frame(width: 22, height: 22)
                 if let number { Text("\(number)").font(.system(size: 11, weight: .bold, design: .rounded)).foregroundStyle(Color.black.opacity(0.85)) }
-                else { Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(Color(nsColor: .windowBackgroundColor)) }
+                else { Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.appBackground) }
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text(note.text).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)

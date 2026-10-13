@@ -124,7 +124,7 @@ struct ProjectTransferView: View {
                     Button("Cancel transfer", role: .destructive) { store.transferTask?.cancel() }
                 } else if store.transferResult == nil {
                     Button(request?.isImport == true ? "Import film" : "Save package…") { begin() }
-                        .buttonStyle(.borderedProminent).disabled(loading || summary == nil || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .buttonStyle(.rasanPrimary).disabled(loading || summary == nil || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }.padding(24).frame(width: 620, height: 440).interactiveDismissDisabled(store.isTransferringProject)

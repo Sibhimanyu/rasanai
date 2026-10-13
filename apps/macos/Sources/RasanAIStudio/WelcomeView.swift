@@ -58,7 +58,7 @@ struct WelcomeView: View {
                     if settings.isReady(selected) { Label("Ready · Get started", systemImage: "checkmark.circle.fill") } else { Text("Explore the studio") }
                 }.frame(width: 180)
             }
-            .buttonStyle(.borderedProminent).controlSize(.large)
+            .buttonStyle(.rasanPrimary).controlSize(.large)
             .keyboardShortcut(.defaultAction)
             if !anyReady {
                 Text("You can look around now and set up a director later.")

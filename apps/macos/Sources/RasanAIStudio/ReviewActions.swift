@@ -25,60 +25,22 @@ private struct ReviewFrameFitting: ViewModifier {
     }
 }
 
-/// The bottom bar of a review call (Animatic, Final): one primary button at the bottom right, the same place as the first
-/// half's CallActions. Notes live on the frame and in the list, not here.
+/// The primary action of a review call (Animatic, Final), published to the status bar at the bottom right, the same place as
+/// the first half's CallActions. Notes live on the frame and in the list. Draws nothing itself.
 struct ReviewActionBar: View {
     let model: FilmSessionModel
     let step: String
     let title: String
     let symbol: String
     var hint: String?
+    /// What the closure captures (the open note ids), so the bar re-publishes when it changes without the title changing.
+    var signature = ""
     var onPrimary: () -> Void
 
-    /// Only the person's turn (or looking back, or just sent) gets a bar; while Claude works there is nothing to do.
     var body: some View {
-        if model.showsActions(for: step) { bar }
-    }
-
-    @ViewBuilder private var bar: some View {
-        let canAct = model.canAct(on: step)
-        VStack(spacing: 8) {
-            if let error = model.lastError {
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                    Text(error).font(.system(size: 12)).lineLimit(2)
-                    Spacer()
-                    Button("Dismiss") { model.dismissError() }.buttonStyle(.link).font(.system(size: 12))
-                }
-            }
-            HStack(spacing: 10) {
-                if model.isViewingPast {
-                    Label("Looking back. This step is decided.", systemImage: "clock.arrow.circlepath")
-                        .font(.system(size: 12)).foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Back to now") { model.returnToLive() }.controlSize(.large)
-                } else if model.hasSent(step) && model.status(step) != "done" {
-                    ProgressView().controlSize(.small)
-                    Text("Sent to Claude. Waiting for the next update.").font(.system(size: 12)).foregroundStyle(.secondary)
-                    Spacer()
-                } else {
-                    if let hint { Text(hint).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1) }
-                    Spacer()
-                    Button(action: onPrimary) {
-                        HStack(spacing: 6) {
-                            if model.isSending { ProgressView().controlSize(.small) } else { Image(systemName: symbol) }
-                            Text(title)
-                        }.frame(minWidth: 110)
-                    }
-                    .buttonStyle(.borderedProminent).controlSize(.large)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!canAct)
-                }
-            }
-        }
-        .padding(.horizontal, 24).padding(.vertical, 12)
-        .background(.bar)
-        .overlay(alignment: .top) { Divider() }
+        FilmActionsPublisher(actions: model.showsActions(for: step) ? FilmActions(
+            step: step, primaryTitle: title, primarySymbol: symbol, signature: signature,
+            onPrimary: { note in model.noteThen(step: step, note, onPrimary) }) : nil)
     }
 }
 

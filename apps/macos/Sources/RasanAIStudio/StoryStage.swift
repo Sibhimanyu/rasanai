@@ -29,7 +29,7 @@ struct StoryStage: View {
         StageScaffold(model: model, step: step,
                       question: payload["question"].string ?? "Which story should we tell?",
                       context: payload["context"].string,
-                      maxWidth: 1000) {
+                      maxWidth: 1240) {
             VStack(alignment: .leading, spacing: 26) {
                 if all.isEmpty {
                     StoryEmpty()

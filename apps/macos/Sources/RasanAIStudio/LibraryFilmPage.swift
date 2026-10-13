@@ -25,7 +25,7 @@ struct LibraryFilmPage: View {
                                 Text(previewVersion.map { "Watching v\($0)" } ?? "Latest film").font(.headline)
                                 if previewVersion != nil { Button("Watch latest") { watch(archive.video, version: nil) } }
                                 Spacer()
-                                Button("Export…") { store.exportVideo(source: previewURL ?? archive.video, captions: archive.captions) }.buttonStyle(.borderedProminent)
+                                Button("Export…") { store.exportVideo(source: previewURL ?? archive.video, captions: archive.captions) }.buttonStyle(.rasanPrimary)
                             }
                             FilmHistoryView(snapshot: session, resolver: archive.resolver, onPreview: { version in watch(archive.resolver?.resolve(version.video), version: version.id) })
                             Text("You can review and export this film while the director works. Return here when it finishes to request a revision.")
@@ -38,10 +38,10 @@ struct LibraryFilmPage: View {
                                 Text("\(draft.duration) seconds · \(draft.aspect) · \(draft.motionLevel.capitalized) motion").font(.system(size: 12)).foregroundStyle(.secondary)
                             }
                             if store.settings.filmQueue.contains(where: { $0.project == url }) {
-                                Button("View queue") { store.path.append(.queue) }.buttonStyle(.borderedProminent)
+                                Button("View queue") { store.path.append(.queue) }.buttonStyle(.rasanPrimary)
                                 Text("Remove this film from the queue to edit its brief or files.").font(.system(size: 12)).foregroundStyle(.secondary)
                             } else {
-                                Button("Edit draft") { store.path.append(.newFilm(url)) }.buttonStyle(.borderedProminent)
+                                Button("Edit draft") { store.path.append(.newFilm(url)) }.buttonStyle(.rasanPrimary)
                             }
                             Text("Save this draft or add it to the queue from its editor.")
                                 .font(.system(size: 12)).foregroundStyle(.secondary)
@@ -57,7 +57,8 @@ struct LibraryFilmPage: View {
             else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
         }
         .navigationTitle(archive?.title ?? "Film")
-        .background(Color(nsColor: .windowBackgroundColor))
+        .pageHeader(archive?.title ?? "Film", onBack: { store.goHome() })
+        .background(Color.appBackground)
         .task(id: url) {
             let library = store.projectLibrary(for: url)
             do {
