@@ -293,6 +293,8 @@ if (url) {
   const wc = JSON.parse(h(["wait", "--run", hrun, "--timeout", "10"]).stdout);
   const st2 = J("session.json");
   ok("headless: a comment becomes an open note and a feed line", wc.type === "comment" && st2.comments.length === 1 && st2.comments[0].id === "cmt1" && st2.comments[0].state === "open" && st2.comments[0].t === 65.5 && st2.comments[0].quick === "Slower" && st2.activity.at(-1).msg === "You left a note at 1:05: slow this down", JSON.stringify(st2.comments));
+  const tl = (() => { try { return fs.readFileSync(path.join(TMP, "home", "taste.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)); } catch { return []; } })();
+  ok("taste: a note consumed by headless wait (the Studio path) lands in the ledger as an edit on the animatic", tl.length === 1 && tl[0].kind === "edit" && tl[0].stage === "animatic" && tl[0].note === "slow this down" && tl[0].scene === "s2" && tl[0].t === 65.5, JSON.stringify(tl));
   append({ id: "ans1", ts: "2026-01-01T00:00:02.000Z", step: st0.ask.step, type: "answer", value: { ask: st0.ask.id, choice: "y", text: "" }, note: "", source: "console" });
   const wa = JSON.parse(h(["wait", "--run", hrun, "--timeout", "10"]).stdout);
   const st3 = J("session.json");
