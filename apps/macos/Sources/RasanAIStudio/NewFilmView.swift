@@ -55,14 +55,17 @@ struct NewFilmView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 HStack {
-                    Menu("Use template") {
+                    Menu {
                         ForEach(store.settings.filmTemplates) { template in
                             Button(template.name) { proposeTemplate(template.draft) }
                         }
                         if store.settings.filmTemplates.isEmpty { Text("Save your first template below") }
-                    }.fixedSize()
+                    } label: {
+                        HStack(spacing: 5) { Text("Use template"); Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)) }
+                    }.menuStyle(.button).menuIndicator(.hidden).buttonStyle(StudioSecondaryButtonStyle()).fixedSize()
                     Spacer()
                     Button("Save as template…") { templateName = name.isEmpty ? autoName : name; showSaveTemplate = true }
+                        .buttonStyle(StudioSecondaryButtonStyle())
                         .disabled(trimmedBrief.isEmpty || working)
                 }
                 if let templateMessage { Text(templateMessage).font(.system(size: 12)).foregroundStyle(.secondary) }
@@ -522,12 +525,12 @@ struct NewFilmView: View {
             }
             HStack(spacing: 10) {
                 if loaded && !editorState.isEmpty {
-                    Button("Discard changes…", role: .destructive) { showDiscard = true }.disabled(working)
+                    Button("Discard changes…", role: .destructive) { showDiscard = true }.buttonStyle(StudioSecondaryButtonStyle()).disabled(working)
                 }
                 Spacer()
                 if working || checkingStart { ProgressView().controlSize(.small) }
                 if let queueNote { Text(queueNote).font(.system(size: 12)).foregroundStyle(.secondary).transition(.opacity) }
-                Button("Save draft") { save(start: false) }.disabled(working || (project == nil && trimmedBrief.isEmpty && name.isEmpty))
+                Button("Save draft") { save(start: false) }.buttonStyle(StudioSecondaryButtonStyle()).disabled(working || (project == nil && trimmedBrief.isEmpty && name.isEmpty))
             }
             HStack(spacing: 4) {
                 Spacer()

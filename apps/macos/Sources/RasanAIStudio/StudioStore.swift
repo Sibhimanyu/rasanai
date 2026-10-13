@@ -131,7 +131,14 @@ final class StudioStore {
     var sheet: Sheet?
     private func present(_ value: Bool, _ kind: Sheet) { if value { sheet = kind } else if sheet == kind { sheet = nil } }
     /// The navigation stack: Home is the root, everything else is pushed on top of it.
-    var path: [Route] = []
+    var path: [Route] = [] {
+        didSet {
+            guard !isDemo else { return }
+            if case .film? = path.last { UserDefaults.standard.set(true, forKey: "reopenFilmOnLaunch") } else { UserDefaults.standard.set(false, forKey: "reopenFilmOnLaunch") }
+        }
+    }
+    /// Whether the last session ended on a film page; read once at init, before any navigation can rewrite it.
+    private let reopenFilmAtLaunch = UserDefaults.standard.bool(forKey: "reopenFilmOnLaunch")
     var templatePrefill: FilmDraft?
     var queuePaused = true
     var queueMessage = "Resume the queue when you’re ready."
@@ -469,7 +476,7 @@ final class StudioStore {
         if let index = CommandLine.arguments.firstIndex(of: "--run"), CommandLine.arguments.count > index + 1 {
             settings.showWelcome = false
             openRun(URL(fileURLWithPath: CommandLine.arguments[index + 1]))
-        } else if settings.hasCompletedWelcome && settings.reopenLastProject {
+        } else if settings.hasCompletedWelcome && settings.reopenLastProject && reopenFilmAtLaunch {
             if UserDefaults.standard.string(forKey: "lastWorkspaceKind") == "project",
                let path = UserDefaults.standard.string(forKey: "lastOpenedProject") { openFilm(URL(fileURLWithPath: path)) }
             else if let path = UserDefaults.standard.string(forKey: "lastOpenedRun") { openRun(URL(fileURLWithPath: path)) }
@@ -570,9 +577,9 @@ final class StudioStore {
                 selectedProjectURL = project
                 if runURL == nil || loadedFilm != project { loadedFilm = nil }
                 reloadSources()
+                UserDefaults.standard.set(project.path, forKey: "lastOpenedProject")
+                UserDefaults.standard.set("project", forKey: "lastWorkspaceKind")
             }
-            UserDefaults.standard.set(project.path, forKey: "lastOpenedProject")
-            UserDefaults.standard.set("project", forKey: "lastWorkspaceKind")
             reloadProjects()
             statusMessage = "Draft saved · start the film whenever you're ready"
             if start {

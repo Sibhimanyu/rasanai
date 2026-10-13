@@ -116,6 +116,24 @@ struct PressableStyle: ButtonStyle {
     }
 }
 
+/// A secondary button (or `Menu` with `.menuStyle(.button)`) that stays visible in light and dark. The system
+/// bordered style is a white pill with a hairline edge, which disappears on a near-white window in light mode, and
+/// its disabled text goes pale. This one draws an adaptive tint fill plus an outline from `.primary`, and keeps
+/// disabled text at `.secondary` so it still reads.
+struct StudioSecondaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13))
+            .foregroundStyle(!isEnabled ? Color.secondary : configuration.role == .destructive ? Color.red : Color.primary)
+            .padding(.horizontal, 10).padding(.vertical, 4)
+            .background(Color.primary.opacity(configuration.isPressed ? 0.14 : 0.06), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.primary.opacity(isEnabled ? 0.22 : 0.14), lineWidth: 1))
+            .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+    }
+}
+
 // MARK: Cursor
 
 /// Shows `cursor` while the pointer is over the view. It balances its own push and pop, including when the view goes

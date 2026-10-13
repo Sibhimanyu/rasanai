@@ -186,7 +186,7 @@ struct FormatPickerView: View {
 
     static func symbol(_ tile: String) -> String {
         switch tile {
-        case "launch": "rocket"; case "explainer": "lightbulb"; case "brand": "seal"; case "short": "sparkles"
+        case "launch": "paperplane"; case "explainer": "lightbulb"; case "brand": "seal"; case "short": "sparkles"
         case "music": "music.note"; case "reel": "film.stack"; case "talking": "person.wave.2"; case "people": "person.2"
         case "ad": "megaphone"; case "screen": "macwindow"; case "recut": "scissors"; default: "ellipsis.circle"
         }
