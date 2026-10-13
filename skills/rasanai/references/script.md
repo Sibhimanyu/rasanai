@@ -150,7 +150,7 @@ Write in passes, not in one go. Each pass has one question. After pass 4 comes t
 4. **The visuals.** For every beat write the shot: what fills the frame, what moves, what changes. Concrete nouns from the truth sheet (the product's real objects, screens and words), never "dynamic visuals of…". On-screen lines are readable titles, not decoration: write short plain lines, one line, inside the safe area, at the brand's type size, never cropped (the readability rule, below). A move may lend a letter or shape to the next beat, but the line reads normally first: name in `visual` which element carries into the next beat.
 5. **The words.** On-screen lines first (the film must read with the sound off), then voiceover that adds what the screen can't show. Read every line aloud.
 6. **The turn.** At 60 to 75% of the running time something reverses: the old way breaks, the scale flips, the joke pays off, the reveal lands. If nothing turns, it is a list.
-7. **The end.** The name, one call to action, an end card of 2 to 3 seconds whose elements land in sequence (at most 1.5 s of it still), and a last line that could stand alone as a post.
+7. **The end.** The name, one call to action, an end card of 2 to 3 seconds whose elements land in sequence (at most 1.4 s of it still), and a last line that could stand alone as a post.
 8. **The cut.** Delete 20% of the words. Then check the timing against the rules below and run `story.mjs check`.
 
 ## The show column: a motion that MEANS each line

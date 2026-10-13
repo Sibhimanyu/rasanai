@@ -5,7 +5,7 @@
 // fails here with the time, the region or the beat, so the builder can fix the cause.
 //
 //   node motion-gate.mjs [--video <draft.mp4>] [--project <videos/name>] [--plan <run>/motion/score.json]
-//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--no-text-fit] [--no-fluency] [--stillness] [--json]
+//        [--scenes <run>/scenes.json] [--end-hold 1.4] [--fps 15] [--no-text-fit] [--no-fluency] [--stillness] [--json]
 //   node motion-gate.mjs fluency --video <film.mp4> [--stillness] [--json]     the fluency measurement alone
 //   -> exit 0 pass · 2 findings (listed, each with a time and a fix) · 1 could not run (never "clean")
 //
@@ -19,15 +19,17 @@
 //
 // From the frames (--video; sampled every 1/15 s by frame difference, ffmpeg, no window):
 //   coverage   visible motion in at least 70% of frames (the end card's allowed hold is exempt)
-//   freeze     no still stretch of 0.8 s or more outside the end card; the end card holds at most 1.5 s still after its
+//   freeze     no still stretch of 0.8 s or more outside the end card; the end card holds at most 1.4 s still after its
 //              last move (--end-hold, or the plan's end_hold_s, when the brief asks for longer)
 //   creep      a whole-frame scale or drift slower than 4% a second is a WARNING (it can shimmer thin lines and small
 //              type); a living camera on a world layer is wanted (R5: UI references move the camera a third of the time)
 //   empty-frames  at most 10% of frames near-empty (foreground under 2.5% of the frame: see foregroundShare), the end hold (last
-//              1.5 s) and declared breaths (score.breaths: [[t0, t1]], each 1 s at most, two at most) exempt
+//              1.4 s) and declared breaths (score.breaths: [[t0, t1]], each 1 s at most, two at most) exempt
 //   gap-between-beats  no near-empty stretch over 0.3 s at a seam between two beats (outside breaths): the next element arrives
 //              before the last one leaves
 //   seams      every seam (a beat boundary from the plan) has motion on both sides within 0.2 s
+//   duration-mismatch  (with --plan or --scenes) the render's length is within 0.25 s or 2% (whichever is larger) of the planned
+//              duration (the plan's `duration`, or where its last beat ends)
 // From the plan and the code (--plan, --project):
 //   carriers   at least two seams carried by an object present on both sides (measured from index.html's carrier
 //              tracks when the project is given; otherwise what the plan declares)
@@ -50,7 +52,7 @@ import { analyse as fluencyOf, scoreFluency } from "./lib/fluency.mjs";
 export const GATE = {
   coverage: 0.7, // share of frames with visible motion
   freeze_s: 0.8, // a still stretch this long fails
-  end_hold_s: 1.5, // the end card's stillness after its last move
+  end_hold_s: 1.4, // the end card's stillness after its last move
   creep_per_s: 0.04, // a whole-frame scale or drift slower than this (4%/s) is a creep
   seam_window_s: 0.2, // motion on both sides of every seam within this window
   carried_seams: 2, // seams carried by an object present on both sides
@@ -391,6 +393,13 @@ export async function gate({ video = null, project = null, plan = null, scenes =
       if (frames && frames.length < 3) { could.push(`${path.basename(file)} has ${frames.length} frames`); frames = null; }
       if (frames) {
         const dur = probeDuration(file) || frames.length / fps;
+        // the render is as long as the plan says (the plan's duration, or its beats' end when it gives none)
+        if (P.duration) {
+          const tol = Math.max(0.25, 0.02 * P.duration);
+          measured.planned_duration_s = r2(P.duration);
+          measured.render_duration_s = r2(dur);
+          if (Math.abs(dur - P.duration) > tol) add({ check: "duration-mismatch", severity: "error", at: null, region: "whole film", message: `the render runs ${r2(dur)} s but the plan says ${r2(P.duration)} s (${r2(tol)} s tolerance)`, fix: dur > P.duration ? "trim the tail or the over-long beat, or correct the plan's duration if the film was meant to run longer" : "a beat or the end card is short or the timeline ends early; extend it to the planned length, or correct the plan's duration" });
+        }
         const D = diffs(frames);
         const moving = D.map((d, i) => i > 0 && d.share >= MOVE_SHARE);
         const tOf = (i) => r2(i / fps);

@@ -69,10 +69,46 @@
     snap: "expo.out",
     drift: "sine.inOut",
   };
-  // a curve name -> an ease function tagged with its name (cubic-bezier(), spring(), steps(n), any GSAP ease)
+  // ------------------------------------------------------------------ measured eases
+  // Twelve closed-form curves fitted to real finished motion (f(0)=0, f(1)=1, pure functions of t, so seek-safe).
+  // Adapted from motionmaxxing (Apache-2.0, Tejas Makwana), runtime/motion.js. Modified.
+  function powerOut(p) { return function (t) { return 1 - Math.pow(1 - t, p); }; }
+  function powerIn(p) { return function (t) { return Math.pow(t, p); }; }
+  function expoOut(k) { var d = 1 - Math.exp(-k); return function (t) { return (1 - Math.exp(-k * t)) / d; }; }
+  function snapRamp(w, tau) { var n = w * (1 - Math.exp(-1 / tau)) + (1 - w); return function (t) { return (w * (1 - Math.exp(-t / tau)) + (1 - w) * t) / n; }; }
+  function snapOver(A, ta, td) { var f = function (t) { return (1 + A * Math.exp(-t / td)) * (1 - Math.exp(-t / ta)); }, n = f(1); return function (t) { return f(t) / n; }; }
+  function dampedOsc(c, om) { var f = function (t) { return 1 - Math.exp(-c * t) * (Math.cos(om * t) + (c / om) * Math.sin(om * t)); }, n = f(1); return function (t) { return f(t) / n; }; }
+  function smoothP(p) { return function (t) { var a = Math.pow(t, p), b = Math.pow(1 - t, p); return a / (a + b); }; }
+  function guard(f) { return function (t) { return t <= 0 ? 0 : t >= 1 ? 1 : f(t); }; }
+  var MEASURED = {
+    cruise: guard(function (t) { return t; }),   // linear: fades, drifts, counters
+    glide: guard(powerOut(1.7)),                 // gentle ease-out for medium moves
+    softInOut: guard(smoothP(1.42)),             // symmetric S for opacity, blur, ground ramps
+    softLand: guard(expoOut(3.41)),              // firm decelerate: the workhorse for text and panels
+    gentleIn: guard(powerIn(2.07)),              // mild acceleration: exits, fade-out starts
+    snapSettle: guard(snapRamp(0.942, 0.118)),   // hero entry: over half the travel in the first tenth
+    whip: guard(powerOut(2.52)),                 // hard decelerating big move
+    accelExit: guard(powerIn(2.6)),              // the leaving curve
+    crashOut: guard(powerIn(3.97)),              // hard acceleration into a cut
+    popOver: guard(dampedOsc(2.67, 4.36)),       // slow late overshoot (peak ~1.08 at t~.72)
+    crashIn: guard(snapOver(2.0, 0.19, 0.218)),  // hits and passes its mark at once (peak ~1.18 at t~.27)
+    bounceHard: guard(dampedOsc(1.34, 5.07)),    // big overshoot (~1.48): use sparingly
+  };
+  // typical frames at 30 fps for each measured ease (a starting duration, not a rule)
+  var MEASURED_FRAMES = { cruise: 9, glide: 10, softInOut: 9, softLand: 12, gentleIn: 9, snapSettle: 11, whip: 7, accelExit: 13, crashOut: 17, popOver: 15, crashIn: 10, bounceHard: 22 };
+  // "glide" is also a role curve (kept as it was), so the measured glide answers to "measured.glide" / "measuredGlide"
+  function measuredName(s) {
+    var m = /^measured[.:]?(\w+)$/i.exec(s), n = m && m[1];
+    if (n) for (var k in MEASURED) if (k.toLowerCase() === n.toLowerCase()) return k;
+    return CURVES[s] ? null : MEASURED.hasOwnProperty(s) ? s : null;
+  }
+
+  // a curve name -> an ease function tagged with its name (role curve, measured ease, cubic-bezier(), spring(), steps(n), any GSAP ease)
   function ease(name) {
     var s = String(name || "glide").trim(), m, f;
     if (CURVES[s] && CURVES[s] !== s) return tag(ease(CURVES[s]), s);
+    var mn = measuredName(s);
+    if (mn) return tag(MEASURED[mn], s);
     if ((m = s.match(/^cubic-bezier\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)$/))) f = bez(+m[1], +m[2], +m[3], +m[4]);
     else if ((m = s.match(/^spring\(\s*([\d.]+)\s*(?:,\s*([\d.]+))?\s*\)$/))) f = spring(+m[1], +(m[2] || 12));
     else if (/^(none|linear)$/.test(s)) f = function (x) { return x; };
@@ -340,5 +376,5 @@
     return { travel: travel, land: land, follow: follow, enter: enter, exit: exit, cascade: cascade, camera: camera, ambient: ambient, next: next, audit: audit, dur: durFor, ease: function (role) { return ease(curves[role] || role); }, curves: curves, W: W, H: H, fps: fps };
   }
 
-  return { version: VERSION, kit: kit, ease: ease, curves: CURVES, contract: contract, spring: spring, bezier: bez };
+  return { version: VERSION, kit: kit, ease: ease, curves: CURVES, measured: MEASURED, measuredFrames: MEASURED_FRAMES, contract: contract, spring: spring, bezier: bez };
 });

@@ -2097,7 +2097,7 @@ export function renderBuildMd(score, { direct = true, gateCmd = "", carriersCmd 
     "",
     "- The boards (`$RUN/frames/<NN>.png`, `frames/shots.json`) are the picture: at each beat's peak the frame matches its board.",
     "- Move like a person animated it: a curve per role (launch, glide, settle, exit, drift; none on more than 40% of moves), durations from travel and size (0.7 to 1.2 s past 10% of the frame), the next gesture at 55 to 75% of the last, secondaries 2 to 4 frames behind, travels on arcs, about 1 landing in 8 settling. `RasanMotion` (`motionkit.mjs install`) writes all of it; `motion.md` has the numbers.",
-    "- A living frame: a camera push or drift per shot, composed holds. No dead stretch of 0.8 s outside the end card; the end card lands in sequence, then holds at most " + (score.end_hold_s || 1.5) + " s still.",
+    "- A living frame: a camera push or drift per shot, composed holds. No dead stretch of 0.8 s outside the end card; the end card lands in sequence, then holds at most " + (score.end_hold_s || 1.4) + " s still.",
     "- Every seam: the outgoing beat still moving when the cut lands, the incoming beat arriving already moving, same axis, direction and roughly speed. Never settle and then cut.",
     "- Cursors travel on arcs and rest before they click; many similar things move as one ordered rig, on irregular offsets.",
     ...(score.stillness === true || score.motion_style === "stillness" ? ["- The plan declares a stillness style: long composed holds are the style; the shape of each move is still checked."] : []),
