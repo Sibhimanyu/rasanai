@@ -6,6 +6,17 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.8.1 beta 1</title>
+      <pubDate>Tue, 13 Oct 2026 06:40:00 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **Move viewer sound fixed.** The expanded viewer could play a clip twice a few frames apart (an echo) and pause stopped only one copy. There is now one player: one sound, and pause always stops it.
+- **Silent clips say so.** The viewer shows "No sound in this clip" instead of a mute button that does nothing.]]></description>
+      <sparkle:version>24</sparkle:version>
+      <sparkle:shortVersionString>0.8.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.8.1-beta.1/RasanAI-Studio-0.8.1.dmg" sparkle:edSignature="ExmKxH9zf7fptRTDipZT4nNdXH8A9uAZszvt6U7iOD/k810CFZg4HEDG15UwFyAp3hcnHKWNZKSWr5oUZRpDDw==" length="74272169" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.8.0 beta 1</title>
       <pubDate>Tue, 13 Oct 2026 04:42:23 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **Moves I like.** The Hook / Proof / Turn / Call to action slots are gone: pick up to four moves by taste, each with an optional place, and Claude puts them on the story's beats.
