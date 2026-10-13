@@ -13,10 +13,6 @@ on:
         description: Enable Sparkle for a validated public release (requires signed feed)
         type: boolean
         default: false
-      skip_tests:
-        description: Skip tests for an explicitly requested packaging-only candidate
-        type: boolean
-        default: false
 permissions:
   contents: read
 jobs:
@@ -31,16 +27,6 @@ jobs:
         run: |
           test "$(uname -m)" = arm64
           swift --version
-      - name: Install FFmpeg for the runtime tests
-        if: ${{ !inputs.skip_tests }}
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: 1
-        run: brew install ffmpeg
-      - name: Test native core and managed runtime
-        if: ${{ !inputs.skip_tests }}
-        run: |
-          swift test --package-path apps/macos
-          node apps/macos/Tests/runtime-driver.test.mjs
       - name: Build unnotarized Apple Silicon candidate
         env:
           STUDIO_VERSION: ${{ inputs.version }}

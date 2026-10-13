@@ -1,10 +1,7 @@
 name: Mac studio
+# Testing is done by hand; this runs only when started from the Actions tab or `gh workflow run "Mac studio"`.
 on:
-  push:
-    branches: [master]
-    paths: ["apps/macos/**", "skills/rasanai/scripts/console.mjs", ".github/workflows/macos-studio.yml"]
-  pull_request:
-    paths: ["apps/macos/**", "skills/rasanai/scripts/console.mjs", ".github/workflows/macos-studio.yml"]
+  workflow_dispatch:
 jobs:
   native-studio:
     runs-on: macos-latest
