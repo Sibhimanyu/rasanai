@@ -201,7 +201,7 @@ enum StageFixtures {
     struct Host: View {
         let name: String
         let model: FilmSessionModel
-        /// What the live page's turn line would say for this fixture (the real one reads the store, which fixtures don't have).
+        /// What the live page's status bar would say for this fixture (the real one reads the store, which fixtures don't have).
         private var turn: TurnState? {
             switch name {
             case "working": .working("Capturing tally.app: 3 pages so far", since: Date().addingTimeInterval(-74))
@@ -218,11 +218,13 @@ enum StageFixtures {
         }
         private var stage: some View {
             NavigationStack {
-                DecisionsHost(model: model, page: VStack(spacing: 0) {
-                    FilmStageBar(current: model.snapshot.stage, viewing: model.viewingStage, canSelect: { model.canView($0) }, onSelect: { model.view($0) })
-                    if let turn { TurnLine(state: turn, onDetails: {}, onPause: name == "working" ? {} : nil, onResume: name == "paused" ? {} : nil) }
-                    NativeFilmView(model: model)
-                })
+                DecisionsHost(model: model, page: FilmStatusBarHost(model: model, turn: turn, onDetails: {}, onPause: name == "working" ? {} : nil,
+                                                                  onResume: name == "paused" ? {} : nil, usage: { EmptyView() }) {
+                    VStack(spacing: 0) {
+                        FilmStageBar(current: model.snapshot.stage, viewing: model.viewingStage, canSelect: { model.canView($0) }, onSelect: { model.view($0) })
+                        NativeFilmView(model: model)
+                    }
+                }, remembersState: false)
                 .navigationTitle("Tally launch film")
             }
             .tint(.rasan)

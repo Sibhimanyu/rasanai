@@ -59,36 +59,57 @@ struct FilmPage: View {
         ready && store.runURL != nil && !showsFinished && store.film != nil && (store.isConnected || store.runtime.isRunning || store.runtime.isPreparing)
     }
 
+    /// Real alerts only. They are rare, so they may sit above the stage; the status line is the status bar's.
+    private var showsAutoResume: Bool {
+        guard !showsFinished, let notice = store.runtime.autoResume else { return false }
+        return !notice.isLimit && !store.runtime.isRunning
+    }
+    private var showsRecovery: Bool { !showsFinished && !showsAutoResume && showsConsole && !store.runtime.stopRequested && store.runtime.recovery != nil }
+
     @ViewBuilder private var topChrome: some View {
-            if ready && store.runURL != nil {
-                VStack(spacing: 0) {
-                    FilmStageBar(current: store.snapshot.stage, finished: isFinished, viewing: store.film?.viewingStage,
-                                 decided: isWorkingOnNextCall ? store.snapshot.decidedCalls : nil,
-                                 canSelect: { store.film?.canView($0) ?? false }, onSelect: { store.film?.view($0) })
-                    MonitorBudgetBanner(store: store)
-                    if !showsFinished {
-                        if let notice = store.runtime.autoResume, !notice.isLimit, !store.runtime.isRunning {
-                            AutoResumeBanner(store: store, notice: notice)
-                        } else if showsConsole, !store.runtime.stopRequested, let recovery = store.runtime.recovery {
-                            DirectorRecoveryView(store: store, recovery: recovery)
-                        } else if showsNativeFilm, !showsFilmProgress, let turn = store.turnState {
-                            TurnLine(state: turn, onDetails: store.runtime.logURL != nil ? { store.sheet = .log } : nil,
-                                     onPause: store.runtime.isRunning ? { store.pauseDirector() } : nil,
-                                     onResume: store.canResume ? { store.resumeDirector() } : nil)
-                        }
+        if ready && store.runURL != nil {
+            VStack(spacing: 0) {
+                MonitorBudgetBanner(store: store)
+                if !showsFinished {
+                    if let notice = store.runtime.autoResume, showsAutoResume {
+                        AutoResumeBanner(store: store, notice: notice)
+                    } else if showsRecovery, let recovery = store.runtime.recovery {
+                        DirectorRecoveryView(store: store, recovery: recovery)
                     }
                 }
             }
+        }
     }
 
-    /// The Decisions inspector wraps the stage bar too, so it runs the window's full height on every film page
-    /// (native stages, finished, console not running), with the same toolbar buttons (see `toolbarItems`).
+    /// Whose move it is, for the status bar. Nil when a banner above or Film progress already says it.
+    private var statusTurn: TurnState? {
+        guard showsNativeFilm, !showsAutoResume, !showsRecovery, !showsFilmProgress else { return nil }
+        return store.turnState
+    }
+
+    /// One header (the window toolbar), then the page, then the one status bar. The inspector wraps all of it, so it runs
+    /// the window's full height on every film page (native stages, finished, console not running).
     @ViewBuilder private var chromeAndContent: some View {
-        let page = VStack(spacing: 0) {
-            topChrome
-            pageContent
+        if let film = store.film {
+            let page = FilmStatusBarHost(model: film, visible: showsNativeFilm || (ready && store.runURL != nil && showsFinished), turn: statusTurn,
+                                         onDetails: store.runtime.logURL != nil ? { store.sheet = .log } : nil,
+                                         onPause: store.runtime.isRunning ? { store.pauseDirector() } : nil,
+                                         onResume: store.canResume ? { store.resumeDirector() } : nil,
+                                         usage: { StatusPill(store: store) }) {
+                VStack(spacing: 0) { topChrome; pageContent }
+            }
+            DecisionsHost(model: film, page: page)
+        } else {
+            VStack(spacing: 0) { topChrome; pageContent }
         }
-        if let film = store.film { DecisionsHost(model: film, page: page) } else { page }
+    }
+
+    /// "45 s · 16:9": what the film is, under its title in the window header.
+    private var filmFacts: String {
+        var parts: [String] = []
+        if let seconds = draft?.duration, seconds > 0 { parts.append("\(seconds) s") }
+        if let aspect = draft?.aspect ?? (store.runURL != nil ? store.snapshot.aspect : nil), !aspect.isEmpty { parts.append(aspect) }
+        return parts.joined(separator: " · ")
     }
 
     var body: some View {
@@ -96,6 +117,7 @@ struct FilmPage: View {
         .animation(.snappy, value: ready)
         .animation(.snappy, value: showsFinished)
         .navigationTitle(ready ? store.currentFilmTitle : "Film")
+        .navigationSubtitle(ready ? filmFacts : "")
         .toolbar { if ready { toolbarItems } }
         .onAppear {
             store.activateFilm(url)
@@ -114,7 +136,14 @@ struct FilmPage: View {
     }
 
     @ToolbarContentBuilder private var toolbarItems: some ToolbarContent {
-        ToolbarItem(placement: .principal) { StatusPill(store: store) }
+        // The stage stepper is the header's centre. Clicking a past stage opens it read-only.
+        if store.runURL != nil {
+            ToolbarItem(placement: .principal) {
+                FilmStageBar(current: store.snapshot.stage, finished: isFinished, viewing: store.film?.viewingStage,
+                             decided: isWorkingOnNextCall ? store.snapshot.decidedCalls : nil,
+                             canSelect: { store.film?.canView($0) ?? false }, onSelect: { store.film?.view($0) }, compact: true)
+            }
+        }
         if let film = store.film, store.runURL != nil, !showsNativeFilm { FilmToolbarItems(model: film) }
         ToolbarItemGroup(placement: .primaryAction) {
             if store.finalURL != nil {
@@ -146,7 +175,7 @@ struct FilmPage: View {
         switch phase {
         case .draft: ["This film has not started yet. Check the brief, then press Start film."]
         case .finished: ["Your film is ready. Export it, or watch it and add notes where something should change."]
-        case .yourTurn: ["RasanAI is waiting for you. Answer in the panel below, and it carries on from there.", "You can leave the app; you will be notified if that is turned on."]
+        case .yourTurn: ["RasanAI is waiting for you. Answer on the page, then press the button at the bottom right, and it carries on from there.", "You can leave the app; you will be notified if that is turned on."]
         default: ["RasanAI is directing this film. Each step it needs you for shows up here.", "Pause Director in the ••• menu stops it safely. Your files are kept, and you can resume any time."]
         }
     }
@@ -154,7 +183,7 @@ struct FilmPage: View {
 
 // MARK: Status pill
 
-/// A quiet usage pill: tokens and cost only. Whose move it is lives in `TurnLine`, so no state words here.
+/// Quiet usage text for the status bar: tokens and cost only. Whose move it is lives in the bar's status line, so no state words here.
 struct StatusPill: View {
     @Bindable var store: StudioStore
     /// During a DEBUG replay the monitor has no telemetry for the run, so the pill reads the progress model's totals instead.
@@ -179,12 +208,12 @@ struct StatusPill: View {
                         .foregroundStyle(looping ? Color(nsColor: .systemRed) : .secondary)
                     if live != nil { Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundStyle(.tertiary) }
                 }
-                .padding(.horizontal, 10).padding(.vertical, 3)
-                .background(looping ? Color(nsColor: .systemRed).opacity(0.2) : Color(nsColor: .quaternaryLabelColor).opacity(0.3), in: Capsule())
+                .padding(.horizontal, looping ? 10 : 0).padding(.vertical, 3)
+                .background(looping ? Color(nsColor: .systemRed).opacity(0.2) : Color.clear, in: Capsule())
             }
             .buttonStyle(.plain)
             .onHover { hovering = $0 }
-            .popover(isPresented: $monitorOpen, arrowEdge: .bottom) { DirectorMonitorPanel(monitor: monitor, progress: store.progress?.snapshot) { monitorOpen = false } }
+            .popover(isPresented: $monitorOpen, arrowEdge: .top) { DirectorMonitorPanel(monitor: monitor, progress: store.progress?.snapshot) { monitorOpen = false } }
             .help(live != nil ? "Director details: state, tokens, cost and recent activity" : "")
             .accessibilityLabel(offline ? "Film files unreadable. Reload film" : "Usage: \(live ?? "")")
         }
@@ -253,12 +282,6 @@ struct DirectorRecoveryView: View {
         .padding(14).background(Color.orange.opacity(0.08))
         .overlay(alignment: .bottom) { Divider() }
     }
-}
-
-struct DecisionsHost<Page: View>: View {
-    @Bindable var model: FilmSessionModel
-    let page: Page
-    var body: some View { page.inspector(isPresented: $model.decisionsPresented) { DecisionsInspector(model: model) } }
 }
 
 struct NotRunningView: View {
@@ -558,18 +581,27 @@ struct SamplePage: View {
     var body: some View {
         VStack(spacing: 0) {
             if let film = store.film {
-                DecisionsHost(model: film, page: VStack(spacing: 0) {
-                    FilmStageBar(current: film.snapshot.stage, viewing: film.viewingStage,
-                                 canSelect: { _ in true }, onSelect: { film.view($0) })
+                DecisionsHost(model: film, page: FilmStatusBarHost(model: film, turn: Self.turn(film), usage: { EmptyView() }) {
                     NativeFilmView(model: film)
                 })
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle("Sample film")
-        .toolbar { ToolbarItem(placement: .primaryAction) { HelpButton(title: "Sample film", lines: [
+        .toolbar {
+            if let film = store.film {
+                ToolbarItem(placement: .principal) {
+                    FilmStageBar(current: film.snapshot.stage, viewing: film.viewingStage, canSelect: { _ in true }, onSelect: { film.view($0) }, compact: true)
+                }
+            }
+            ToolbarItem(placement: .primaryAction) { HelpButton(title: "Sample film", lines: [
             "A made-up film so you can look around without an agent account.",
-            "Nothing here is sent anywhere. Go back to start a real film."]) } }
+            "Nothing here is sent anywhere. Go back to start a real film."]) }
+        }
         .onDisappear { store.pause() }
+    }
+    /// The sample has no director, so its status line is whose call the fixed session is waiting on.
+    private static func turn(_ film: FilmSessionModel) -> TurnState? {
+        film.isWaitingOnUser ? .yourTurn(FilmSummary.friendlyStep(film.snapshot.currentStep, in: film.snapshot), background: nil) : nil
     }
 }

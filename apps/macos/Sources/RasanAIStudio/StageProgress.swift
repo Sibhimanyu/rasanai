@@ -33,6 +33,8 @@ struct FilmStageBar: View {
     /// Which stages can be opened, and what to do when one is clicked. Both nil makes the bar a plain indicator.
     var canSelect: ((ReviewStage) -> Bool)?
     var onSelect: ((ReviewStage) -> Void)?
+    /// The toolbar's stepper: smaller marks, short connectors, no strip behind it.
+    var compact = false
     private var stages: [ReviewStage] { ReviewStage.allCases }
     private var working: Bool { decided != nil && !finished }
     private var currentIndex: Int {
@@ -49,14 +51,11 @@ struct FilmStageBar: View {
                 step(index, stage)
                 if index < stages.count - 1 {
                     Capsule().fill(index < currentIndex ? Color.rasan.opacity(0.7) : Color(nsColor: .separatorColor))
-                        .frame(height: 1.5).frame(minWidth: 12, maxWidth: .infinity).padding(.horizontal, 8)
+                        .frame(height: 1.5).frame(minWidth: compact ? 16 : 12, maxWidth: compact ? 24 : .infinity).padding(.horizontal, compact ? 6 : 8)
                 }
             }
         }
-        .frame(maxWidth: 620)
-        .padding(.horizontal, 24).frame(maxWidth: .infinity).frame(height: 36)
-        .background(.bar)
-        .overlay(alignment: .bottom) { Divider() }
+        .modifier(StripChrome(compact: compact))
         .animation(.snappy, value: currentIndex)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(working ? "\(decided ?? 0) of \(stages.count) calls decided, Claude is working on \(stages.indices.contains(decided ?? -1) ? stages[decided ?? 0].stepTitle : "the film")" : stageLabel(current: current, finished: finished))
@@ -78,15 +77,16 @@ struct FilmStageBar: View {
         let done = index < currentIndex, active = index == currentIndex && !working
         let next = working && index == currentIndex
         let looking = viewing == stage && viewing != current
-        return HStack(spacing: 7) {
+        let box: CGFloat = compact ? 20 : 22, dot: CGFloat = compact ? 14 : 16
+        return HStack(spacing: compact ? 5 : 7) {
             ZStack {
-                if active { Circle().fill(Color.rasan.opacity(0.18)).frame(width: 22, height: 22) }
+                if active { Circle().fill(Color.rasan.opacity(0.18)).frame(width: box, height: box) }
                 if next {
-                    Circle().strokeBorder(Color.rasan.opacity(pulse ? 0.15 : 0.5), lineWidth: 1.5).frame(width: 21, height: 21)
+                    Circle().strokeBorder(Color.rasan.opacity(pulse ? 0.15 : 0.5), lineWidth: 1.5).frame(width: box - 1, height: box - 1)
                         .animation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true), value: pulse)
                         .onAppear { guard !reduceMotion else { return }; pulse = true }
                 }
-                Circle().fill(done || active ? Color.rasan : Color.clear).frame(width: 16, height: 16)
+                Circle().fill(done || active ? Color.rasan : Color.clear).frame(width: dot, height: dot)
                     .overlay { Circle().strokeBorder(done || active ? Color.clear : Color(nsColor: .tertiaryLabelColor), lineWidth: 1) }
                 if done {
                     Image(systemName: "checkmark").font(.system(size: 8, weight: .heavy)).foregroundStyle(Color(nsColor: .windowBackgroundColor))
@@ -94,7 +94,7 @@ struct FilmStageBar: View {
                     Text("\(index + 1)").font(.system(size: 9, weight: .bold, design: .rounded))
                         .foregroundStyle(active ? Color(nsColor: .windowBackgroundColor) : Color(nsColor: .tertiaryLabelColor))
                 }
-            }.frame(width: 22, height: 22)
+            }.frame(width: box, height: box)
             Text(stage.stepTitle)
                 .font(.system(size: 12, weight: active ? .semibold : .medium))
                 .foregroundStyle(active || looking ? Color.primary : done ? Color.secondary : next ? Color.secondary : Color(nsColor: .tertiaryLabelColor))
@@ -104,6 +104,21 @@ struct FilmStageBar: View {
         .padding(.horizontal, looking ? 8 : 0).padding(.vertical, looking ? 3 : 0)
         .background(looking ? Color.rasan.opacity(0.14) : Color.clear, in: Capsule())
         .contentShape(Rectangle())
+    }
+}
+
+/// The strip around the full-width stage bar; the compact (toolbar) stepper draws none.
+private struct StripChrome: ViewModifier {
+    let compact: Bool
+    func body(content: Content) -> some View {
+        if compact { content.fixedSize() }
+        else {
+            content
+                .frame(maxWidth: 620)
+                .padding(.horizontal, 24).frame(maxWidth: .infinity).frame(height: 36)
+                .background(.bar)
+                .overlay(alignment: .bottom) { Divider() }
+        }
     }
 }
 

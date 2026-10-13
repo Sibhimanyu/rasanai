@@ -2,7 +2,8 @@ import StudioCore
 import SwiftUI
 
 /// The router: mirrors `screenFor` in the web console through `StageRouter.route` and cross-fades between stages.
-/// It also carries the shared chrome that sits on every stage: the read-only banner, the open question, errors.
+/// It also carries the shared chrome that sits on every stage: the update notice and the open question. Looking back,
+/// sending and errors are the status bar's (FilmStatusBar).
 struct NativeStageView: View {
     let model: FilmSessionModel
     var startedAt: Date?
@@ -33,7 +34,6 @@ struct NativeStageView: View {
         let route = model.route
         let progressShown = showsProgress
         VStack(spacing: 0) {
-            if model.isViewingPast { ViewingBanner(model: model) }
             UpdateNotice(model: model)
             if let ask = model.ask, model.dismissedAsks.contains(ask.id) { AskCard(model: model, ask: ask) }
             ZStack {
@@ -95,21 +95,8 @@ private struct UpdateNotice: View {
     }
 }
 
-private struct ViewingBanner: View {
-    let model: FilmSessionModel
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "clock.arrow.circlepath").foregroundStyle(.secondary)
-            Text("Looking back at \(StepCatalog.label(model.shownStep)). Nothing here can change.").font(.system(size: 12))
-            Spacer()
-            Button("Back to now") { model.returnToLive() }
-        }
-        .padding(.horizontal, 20).padding(.vertical, 8).background(.bar).overlay(alignment: .bottom) { Divider() }
-    }
-}
-
-/// The router plus the toolbar items. Used by FilmPage, the sample and fixtures; each wraps it and the stage bar in
-/// `DecisionsHost`, so the inspector runs the full window height instead of starting under the stage bar.
+/// The router plus the toolbar items. Used by FilmPage, the sample and fixtures; each wraps it and the status bar in
+/// `DecisionsHost`, so the inspector runs the full window height.
 struct NativeFilmView: View {
     @Bindable var model: FilmSessionModel
     var startedAt: Date?
