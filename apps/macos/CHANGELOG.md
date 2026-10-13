@@ -2,6 +2,16 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## 0.9.0 (build 26) — 2026-10-13
+
+- **Liquid Glass, built for real.** Studio is now built against the current macOS SDK, so macOS Tahoe draws its glass chrome itself instead of an imitation.
+- **A native sidebar app.** The window is a system split view with the glass sidebar. It folds and opens with the system's animation, and when it is folded the toggle moves into the top bar beside the window buttons.
+- **A proper toolbar.** Back and forward, a glass capsule search and a blue New film button sit in the top bar. The ••• menus are plain white like the other tools, and there is no toolbar band in full screen.
+- **A calmer opening.** The window opens frosted and comes into focus as the library loads.
+- **The film page is an editor workspace.** One header row, panels on a dark canvas, a filmstrip, and your notes in a right inspector. Every stage publishes its actions to one status bar at the bottom, and its main button has no Return shortcut, so typing a note can never approve a call.
+- **New film uses the whole window.** The form takes the full width, and the format tiles are compact, four across. On Home, the format chip opens the format list in a popover.
+- **The move viewer fits.** It is as tall as its video, and on Home it covers the window rather than just the Get inspired section.
+
 ## 0.8.2 (build 25) — 2026-10-13
 
 - **A calmer, more professional finish.** New film is the one loud action on Home; the Needs you rows use a quiet tinted Review or Open. The Home toolbar is icon-only throughout, with tooltips. Story and Look name Claude's pick once, on the option itself. Welcome keeps the green on the check mark, not the heading, and the Settings note sits left-aligned like System Settings.
