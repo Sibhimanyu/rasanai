@@ -8,6 +8,10 @@ struct StudioView: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
+        content.environment(\.momentStore, store)
+    }
+
+    private var content: some View {
         NavigationStack(path: $store.path) {
             HomeView(store: store)
                 .navigationDestination(for: Route.self) { route in

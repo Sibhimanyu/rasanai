@@ -34,8 +34,11 @@ Run `node "$SKILL_DIR/scripts/frames.mjs" init --run "$RUN"` first: it writes th
                "angle": { "ry": -9, "rx": 5 }, "focus": { "sharp": "the line", "soft": "receipt thumb, the + below (14 px)" },
                "light": { "key": "upper-left", "color": "#ffffff" }, "ground": { "tint": "#efefed", "falloff": "6 L* to lower right" },
                "type": [ { "text": "am I being cheap", "pct": 19 } ], "crop": "composer's left and bottom edges leave frame",
-               "device": "the composer, 12x", "anchor": "composer", "transforms": false } ] }
+               "device": "the composer, 12x", "anchor": "composer", "transforms": false,
+               "moment": { "id": "M901", "why": "its click-to-zoom builds this first ask" } } ] }
 ```
+
+`moment` (optional) proposes one of the user's picked moves (`$RUN/references/moments/credits.json`) for this beat, by mechanic fit to the beat, respecting its `place` (opening, between, peak, ending, anywhere); a pick may sit on at most one shot and a pick that fits none stays unplaced (the console lists it). The user can swap it; the Motion Director keeps or changes it with a reason.
 
 `kind` is title, ui-demo, object, type, photo, wide or end (the juror matches references by it). `type` lists every readable string with its height in % of the frame (UI labels included; soft or cropped text gets `"readable": false`). `hero_pct` is the hero's height in % H.
 

@@ -76,7 +76,7 @@ enum SnapshotHarness {
                 urls[name] = folder
                 store.summaries[folder] = summary
                 var draft = FilmDraft(brief: "A calm, confident film about \(name.lowercased()). Show the product in use, keep the pace unhurried, and end on a clear call to action.", duration: 45, aspect: "16:9", agent: "claude", motionLevel: "maximal", brand: name == "Spring launch film" ? "Northwind" : nil)
-                if name == "Spring launch film" { draft.moments = [FilmMoment(id: "M921", role: "hook"), FilmMoment(id: "M913", role: "proof"), FilmMoment(id: "M920", role: "cta")] }
+                if name == "Spring launch film" { draft.moments = [FilmMoment(id: "M921", place: .opening), FilmMoment(id: "M913"), FilmMoment(id: "M920", place: .ending)] }
                 try draft.save(in: folder)
             }
             store.localProjects = try library.projects()
@@ -202,13 +202,13 @@ enum SnapshotHarness {
                 await shot("new-film", StudioView(store: full.store)) { full.store.path = [.newFilm(nil)] }
 
                 var inspired = FilmDraft(brief: "A 30-second launch film for Northwind, our budgeting app. Calm, confident, a little playful. End on the download button.", duration: 30, brand: "Northwind")
-                inspired.moments = [FilmMoment(id: "M975", role: "hook"), FilmMoment(id: "M916", role: "turn"), FilmMoment(id: "M1014", role: "cta")]
+                inspired.moments = [FilmMoment(id: "M975", place: .opening), FilmMoment(id: "M916"), FilmMoment(id: "M1014", place: .ending)]
                 let withMoments = try makeSeed(films: true)
                 withMoments.store.settings.saveEditorDraft(FilmEditorDraft(name: "Northwind launch film", film: inspired, sources: []), for: nil)
                 await shot("new-film-moments", StudioView(store: withMoments.store)) { withMoments.store.path = [.newFilm(nil)] }
 
                 let gallery = try makeSeed(films: true)
-                gallery.store.inspirePicks = MomentSelection([FilmMoment(id: "M913", role: "proof"), FilmMoment(id: "M921", role: "hook")])
+                gallery.store.inspirePicks = MomentSelection([FilmMoment(id: "M913"), FilmMoment(id: "M921", place: .opening)])
                 await shot("gallery", StudioView(store: gallery.store)) { gallery.store.path = [.inspire] }
                 await shot("gallery-tall", StudioView(store: gallery.store), size: CGSize(width: 1120, height: 1500)) { gallery.store.path = [.inspire] }
                 let offline = try makeSeed(films: true)

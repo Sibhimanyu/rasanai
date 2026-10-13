@@ -311,6 +311,9 @@ export function buildPayload(run, { rel = (p) => p } = {}) {
   const v = readJ(path.join(dir, "verdict.json")) || {};
   const VF = Array.isArray(v.frames) ? v.frames : [];
   const heroes = Array.isArray(doc.film.heroes) ? doc.film.heroes.map(String) : [];
+  // the picked moves (credits.json, written by moments.mjs fetch) and where the designer proposed to place them
+  const picks = (readJ(path.join(run, "references", "moments", "credits.json")) || {}).moments || [];
+  const pick = (mid) => { const c = picks.find((x) => x && x.id === mid); return c ? { id: c.id, name: c.name || c.id, still: c.still || null, credit: c.handle || c.name || null, place: c.place || "anywhere" } : null; };
   const frames = doc.shots.map((s, i) => {
     const id = String(s.id || frameId(i)), png = path.join(dir, `${id}.png`);
     const jv = VF.find((f) => f && String(f.id) === id) || {};
@@ -323,6 +326,7 @@ export function buildPayload(run, { rel = (p) => p } = {}) {
       id, beat: s.beat || null, title: s.line || s.beat || `Frame ${id}`, image: exists(png) ? rel(png) : null, ref,
       shot: { size: String(s.size || "").toUpperCase() || null, angle, hero: s.hero || null, focus, light },
       caption: s.caption || [String(s.size || "").toUpperCase(), s.hero].filter(Boolean).join(" · "),
+      moment: s.moment && s.moment.id && pick(String(s.moment.id)) ? { ...pick(String(s.moment.id)), why: s.moment.why || null } : null,
       verdict: VERDICTS.includes(jv.verdict) ? jv.verdict : null,
       fixes: Array.isArray(jv.fixes) && jv.fixes.length ? jv.fixes : undefined,
     };
@@ -332,7 +336,8 @@ export function buildPayload(run, { rel = (p) => p } = {}) {
   return {
     question: "Do these frames look like your film?",
     context: `${frames.length} frames, one per beat; the three big ones are the hero frames (open, peak, end). Each sits next to a reference still of the same kind. Comment on any frame, ask for a redo, or approve and Claude animates between them.`,
-    frames, heroes, sheet, recommended: below.length ? "redo" : "approve",
+    frames, heroes, sheet, unplaced_moments: picks.filter((c) => c && !frames.some((f) => f.moment && f.moment.id === c.id)).map((c) => pick(c.id)),
+    recommended: below.length ? "redo" : "approve",
     ...(below.length ? { redo_suggested: below } : {}),
     // older pages read these
     images: frames.filter((f) => f.image).map((f) => f.image), captions: frames.filter((f) => f.image).map((f) => `${f.id} · ${f.title}`),

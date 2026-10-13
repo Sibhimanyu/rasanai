@@ -290,8 +290,8 @@ function planCrew(p) {
   if (SCENE_ROUTES.has(p.route) || p.route === "motion-graphics") {
     if (DIRECT_ROUTES.has(p.route)) phases.push({
       phase: "moments", when: "after the concept gate, before the score: the reference motion for each beat (references/craft.md, The take rule)", dispatch: [],
-      director_steps: ["the user's picked moments win: rasanai-brief.json moments [{id, role}] (up to 4)", "otherwise pick 2 to 4, one per role, by mechanic fit for the scenario: node scripts/moments.mjs search --role hook|proof|turn|cta --mechanic <tag> [--query \"<words>\"]", "node scripts/moments.mjs fetch <id> --run <run> --role <role>   (each picked moment: sha256-checked, read-only under <run>/references/moments/<id>/, credited in credits.json)", "write each beat's moment and its one-sentence take into the plan (motion/score.json)", "offline or nothing fits: --no-network uses the cache; with none, the library's own motion styles (library.mjs search --type motion), and say so in decisions"],
-      then: "the Motion Director scores with the moments' takes (moment, take per beat); name the picks and their creators in the motion decision",
+      director_steps: ["the user's picked moves win: rasanai-brief.json moments [{id, place?}] (up to 4; place is opening|between|peak|ending|anywhere, a legacy role maps to it)", "otherwise, once the story is chosen, pick 2 to 4 by mechanic fit to its beats (not one per role): node scripts/moments.mjs search --mechanic <tag> [--place <place>] [--query \"<words>\"]", "node scripts/moments.mjs fetch <id> --run <run> [--place <place>]   (each picked moment: sha256-checked, read-only under <run>/references/moments/<id>/, credited in credits.json)", "place each moment on the beat whose mechanic fits best (respecting its place): each beat's moment and one-sentence take, and moments_placed [{id, beat, take, why}] in motion/score.json (a move that fits no beat goes in moments_dropped with a reason)", "offline or nothing fits: --no-network uses the cache; with none, the library's own motion styles (library.mjs search --type motion), and say so in decisions"],
+      then: "the Motion Director scores with the moments' takes (moment, take per beat); name each placement and its creator in the motion decision (\"Your 'Cursor clicks' move opens beat 1: its click-to-zoom builds the first ask\")",
     });
     phases.push({ phase: "score", when: p.route === "music-to-video" ? "after treatment.mjs scenes wrote scenes.json (plates against the real track; durations are the plate windows)" : "after the boards are approved and the music is fitted (scenes.json has final durations): the score animates between the boards", dispatch: [d("motion-director", "score")], then: p.direct ? "crew.mjs check (the plan, each beat bound to its board), then video.mjs write, crew.mjs storyboard and the film builder" : "crew.mjs check (each beat bound to its board), then video.mjs write, crew.mjs storyboard, the lead builder and the scene animators" });
     // a lyric video keeps its key frames after the score (its plates are fixed by the treatment; scene routes drew boards before the score)
@@ -1039,6 +1039,14 @@ function checkScore(run) {
       if (pl.space && sc.space && pl.space !== sc.space) W.push(`scene ${i + 1} (plate ${pl.id}): the treatment says space "${pl.space}" and the score says "${sc.space}" (the plate's space is fixed)`);
       if (pl.energy != null && sc.energy != null && Math.abs(Number(pl.energy) - Number(sc.energy)) > 1) W.push(`scene ${i + 1} (plate ${pl.id}): the treatment's energy is ${pl.energy} and the score says ${sc.energy} (the plate's energy is fixed; score inside it)`);
     });
+  }
+  // picked moves are placed on beats (moments_placed: [{id, beat, take, why}]) or dropped with a reason (moments_dropped: [{id, why}])
+  {
+    const cr = jsonMaybe(R(run, "references", "moments", "credits.json"));
+    const picked = cr && Array.isArray(cr.moments) ? cr.moments.map((c) => c && c.id).filter(Boolean) : [];
+    const used = new Set([...(Array.isArray(score.moments_placed) ? score.moments_placed : []).map((m) => m && m.id), ...S.map((x) => x && x.moment)].filter(Boolean).map(String));
+    const dropped = new Map((Array.isArray(score.moments_dropped) ? score.moments_dropped : []).map((m) => [String(m && m.id), String((m && (m.why || m.reason)) || "").trim()]));
+    for (const id of picked) if (!used.has(id) && !dropped.get(id)) W.push(`moment-unplaced: the picked moment ${id} is on no beat (score.moments_placed [{id, beat, take, why}], or score.moments_dropped [{id, why}] with the reason)`);
   }
   if (!String(score.spine || "").trim()) P.push("no spine: name the one device that threads the film");
   const reel = Array.isArray(score.showreel) ? score.showreel.filter((m) => m && String(m.what || "").trim() && Number(m.scene) >= 1) : [];

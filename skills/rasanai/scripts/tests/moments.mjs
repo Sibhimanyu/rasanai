@@ -44,6 +44,14 @@ export default async function ({ ok, tmp, env }) {
   let writable = true;
   try { fs.writeFileSync(path.join(dir, "dense.md"), "x"); } catch { writable = false; }
   ok("moments: fetch verifies the sha256, extracts the bundle read-only into the run and records the credit", f.ok && f.sha256 === sha && fs.existsSync(path.join(dir, "code", "REMIX.md")) && !writable && cr.moments[0].id === "M900" && cr.moments[0].handle === "@maker" && /technique only/.test(cr.note), JSON.stringify(f).slice(0, 300));
+  ok("moments: the credit records the place (a legacy role maps: hook to opening)", cr.moments[0].place === "opening", JSON.stringify(cr.moments[0]));
+  const lib = await import(path.join(HERE, "lib", "moments-lib.mjs"));
+  const pm = lib.normalizePicks([{ id: "a", role: "cta" }, { id: "b", role: "proof" }, { id: "c", place: "peak", role: "hook" }, { id: "a" }, { id: "d" }]);
+  ok("moments: legacy roles map (cta to ending, proof to anywhere), place wins, no place is anywhere, ids are unique", pm.length === 4 && pm[0].place === "ending" && pm[1].place === "anywhere" && pm[2].place === "peak" && pm[3].place === "anywhere", JSON.stringify(pm));
+  const sp = J(M(["search", "--place", "ending"]));
+  ok("moments: --place filters by the roles that tend to sit there (hook/proof manifest tags are hints), anywhere filters nothing", sp.ok && sp.count === 0 && J(M(["search", "--place", "opening"])).rows.map((r) => r.id).join() === "M900" && J(M(["search", "--place", "anywhere"])).count === 2 && M(["search", "--place", "nowhere"]).status !== 0);
+  const fp = J(M(["fetch", "M900", "--run", run, "--place", "peak"]));
+  ok("moments: fetch --place records place in credits.json", fp.ok && JSON.parse(fs.readFileSync(path.join(run, "references", "moments", "credits.json"), "utf8")).moments[0].place === "peak", JSON.stringify(fp).slice(0, 200));
   const bad = M(["fetch", "M901", "--run", run]);
   ok("moments: a bundle that is missing or whose sha256 does not match is refused (exit 2) with the fallback", bad.status === 2 && /fallback/.test(bad.stdout), bad.stdout.slice(0, 200));
   const c = J(M(["credits", "--run", run]));

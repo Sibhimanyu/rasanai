@@ -1032,6 +1032,7 @@
           h("figcaption", null, [
             h("div", { class: "row" }, [h("b", { text: f.id + " · " + (f.title || "") }), h("span", { style: "flex:1" }), f.verdict ? h("span", { class: "tag v-" + f.verdict, text: { "at-par": "At par", close: "Close", below: "Below" }[f.verdict] || f.verdict }) : null]),
             h("div", { class: "context", text: [f.shot && f.shot.size, f.shot && f.shot.hero, f.shot && f.shot.angle, f.ref && f.ref.why].filter(Boolean).join(" · ") }),
+            f.moment ? h("div", { class: "context" }, [h("b", { text: "Move: " + f.moment.name }), h("span", { text: (f.moment.why ? " · " + f.moment.why : "") + (f.moment.credit ? " · " + f.moment.credit : "") + " " }), h("button", { class: "btn small", text: "Swap", onclick: function () { var ids = (d.unplaced_moments || []).map(function (u) { return u.id; }); var to = ids.length ? ids[0] : null; send("styleframes", "swap-moment", { frame: f.id, id: to }); } })]) : null,
             mine.length ? h("div", { class: "sf-notes" }, mine.map(function (c) { return h("div", { class: "note", text: "You: " + c.text }); })) : null
           ]),
           h("div", { class: "row sf-act" }, [ta, h("button", { class: "btn small", text: "Note", onclick: function () { var t = ta.value.trim(); if (!t) return; send("styleframes", "comment", { scene: f.id, t: null, x: null, y: null, scope: "scene" }, t); ta.value = ""; } }), h("label", { class: "chk" }, [box, h("span", { text: "Redo" })])])
@@ -1040,7 +1041,9 @@
       var hs = frames.filter(function (f) { return heroes.indexOf(f.id) > -1; });
       var redo = Object.keys(local.sfRedo).filter(function (k) { return local.sfRedo[k]; });
       var why = h("input", { type: "text", class: "sf-why", placeholder: "What should change in the frames you ticked?", "aria-label": "Redo note" });
+      var unp = d.unplaced_moments || [];
       return [
+        unp.length ? h("div", { class: "context", text: "Unplaced moves: " + unp.map(function (u) { return u.name; }).join(", ") + " (Swap one onto a frame, or the Director places it later)" }) : null,
         hs.length ? h("div", { class: "grid frames heroes" }, hs.map(function (f) { return card(f, true); })) : null,
         h("div", { class: "grid frames" }, frames.filter(function (f) { return heroes.indexOf(f.id) < 0; }).map(function (f) { return card(f, false); })),
         d.status === "done" ? null : h("div", { class: "toolbar" }, [

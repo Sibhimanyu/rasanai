@@ -1,6 +1,6 @@
 import Foundation
 
-/// The story role a reference moment plays in a film, in telling order.
+/// The manifest's story-role tag. Moves have no fixed roles any more: it survives only as a search hint and for reading old briefs.
 public enum MomentRole: String, CaseIterable, Identifiable, Codable, Sendable {
     case hook, proof, turn, cta
     public var id: String { rawValue }
@@ -28,7 +28,7 @@ public struct MomentCreator: Equatable, Hashable, Sendable {
 public struct Moment: Identifiable, Equatable, Hashable, Sendable {
     public var id: String
     public var name: String
-    public var role: MomentRole
+    public var role: MomentRole?
     public var mechanic: [String]
     public var swapSlot: [String]
     public var why: String
@@ -41,14 +41,20 @@ public struct Moment: Identifiable, Equatable, Hashable, Sendable {
     public var isNew: Bool
     public var featured: Bool
 
-    public init(id: String, name: String, role: MomentRole, mechanic: [String] = [], swapSlot: [String] = [], why: String = "", duration: Double = 0,
+    public init(id: String, name: String, role: MomentRole? = nil, mechanic: [String] = [], swapSlot: [String] = [], why: String = "", duration: Double = 0,
                 clipURL: URL, stillURL: URL, creator: MomentCreator? = nil, added: String? = nil, isNew: Bool = false, featured: Bool = false) {
         self.id = id; self.name = name; self.role = role; self.mechanic = mechanic; self.swapSlot = swapSlot; self.why = why; self.duration = duration
         self.clipURL = clipURL; self.stillURL = stillURL; self.creator = creator; self.added = added; self.isNew = isNew; self.featured = featured
     }
     /// "By OpusClip", or nil when nobody is credited.
     public var creditLine: String? { creator.map { "By \($0.displayName)" } }
-    public var asFilmMoment: FilmMoment { FilmMoment(id: id, role: role.rawValue) }
+    public func asFilmMoment(place: MomentPlace = .anywhere) -> FilmMoment { FilmMoment(id: id, place: place) }
+    /// The technique groups this move belongs to, in a stable order.
+    public var techniques: [Technique] { Technique.groups(for: mechanic) }
+    /// Everything a search box should match: name, why, tags, technique names, creator and the role hint.
+    public var searchText: String {
+        ([name, why, creator?.displayName ?? "", creator?.handle ?? "", role?.title ?? ""] + mechanic.map(Moment.mechanicTitle) + techniques.map(\.title)).joined(separator: " ").lowercased()
+    }
     /// "Mask reveal" for `mask_reveal`.
     public static func mechanicTitle(_ tag: String) -> String {
         let words = tag.replacingOccurrences(of: "_", with: " ").trimmingCharacters(in: .whitespaces)
@@ -57,7 +63,39 @@ public struct Moment: Identifiable, Equatable, Hashable, Sendable {
     }
 }
 
-/// Up to four picks, at most one per role. Picking a second moment for a role replaces the first.
+/// Plain-named technique groups over the manifest's `mechanic` tags, for the gallery's filters.
+public enum Technique: String, CaseIterable, Identifiable, Sendable {
+    case kineticType, uiAndCursor, revealsAndMasks, transitions, numbers, cameraAnd3D, collageAndPhoto, layoutAndMotion, lineAndShape, other
+    public var id: String { rawValue }
+    public var title: String {
+        switch self {
+        case .kineticType: "Kinetic type"; case .uiAndCursor: "UI and cursor"; case .revealsAndMasks: "Reveals and masks"
+        case .transitions: "Transitions"; case .numbers: "Numbers and counters"; case .cameraAnd3D: "Camera and 3D"
+        case .collageAndPhoto: "Collage and photo"; case .layoutAndMotion: "Layout and motion"; case .lineAndShape: "Line and shape"; case .other: "More"
+        }
+    }
+    /// The first matching group for a tag; unknown tags land in More.
+    public static func group(for tag: String) -> Technique {
+        let t = tag.lowercased()
+        func has(_ words: [String]) -> Bool { words.contains { t.contains($0) } }
+        if has(["counter", "number", "stat", "odometer", "ticker", "count"]) { return .numbers }
+        if has(["cursor", "click", "ui_", "ui-", "interface", "screen", "app_", "dashboard", "chat"]) || t == "ui" { return .uiAndCursor }
+        if has(["mask", "reveal", "wipe", "clip_path", "unveil"]) { return .revealsAndMasks }
+        if has(["transition", "hard_cut", "cut", "whip", "morph_cut", "match", "dissolve", "zoom_through"]) { return .transitions }
+        if has(["camera", "3d", "orbit", "dolly", "parallax", "depth", "perspective", "push", "pan"]) { return .cameraAnd3D }
+        if has(["collage", "photo", "image", "cutout", "scrapbook", "sticker", "polaroid", "footage", "video"]) { return .collageAndPhoto }
+        if has(["type", "text", "glyph", "scramble", "typewriter", "headline", "word", "letter", "caption", "font"]) { return .kineticType }
+        if has(["line", "draw", "stroke", "path", "shape", "icon", "svg", "logo"]) { return .lineAndShape }
+        if has(["layout", "stagger", "grid", "card", "deal", "stack", "motion"]) { return .layoutAndMotion }
+        return .other
+    }
+    public static func groups(for tags: [String]) -> [Technique] {
+        let found = Set(tags.map(group(for:)))
+        return allCases.filter { found.contains($0) }
+    }
+}
+
+/// Up to four moves the user likes, in the order they were added, each with an optional place.
 public struct MomentSelection: Equatable, Sendable {
     public private(set) var picks: [FilmMoment]
     public init(_ moments: [FilmMoment] = []) {
@@ -66,19 +104,23 @@ public struct MomentSelection: Equatable, Sendable {
     }
     public var count: Int { picks.count }
     public var isEmpty: Bool { picks.isEmpty }
+    public var isFull: Bool { picks.count >= FilmDraft.maxMoments }
     public func contains(_ id: String) -> Bool { picks.contains { $0.id == id } }
-    public func pick(for role: MomentRole) -> FilmMoment? { picks.first { $0.role == role.rawValue } }
-    /// Adds the moment (replacing the role's earlier pick), or removes it when it is already picked.
-    public mutating func toggle(_ moment: Moment) {
-        if contains(moment.id) { remove(moment.id) } else { _ = set(moment.asFilmMoment) }
+    public func pick(_ id: String) -> FilmMoment? { picks.first { $0.id == id } }
+    /// Adds the moment, or removes it when it is already picked. Returns false when a fifth was refused.
+    @discardableResult public mutating func toggle(_ moment: Moment) -> Bool {
+        if contains(moment.id) { remove(moment.id); return true }
+        return set(moment.asFilmMoment())
     }
+    /// Adds (or updates) a pick; refuses a new one beyond four.
     @discardableResult public mutating func set(_ moment: FilmMoment) -> Bool {
-        guard let role = MomentRole(rawValue: moment.role) else { return false }
-        picks.removeAll { $0.role == role.rawValue || $0.id == moment.id }
+        if let index = picks.firstIndex(where: { $0.id == moment.id }) { picks[index] = moment; return true }
+        guard !isFull else { return false }
         picks.append(moment)
-        let order = MomentRole.allCases.map(\.rawValue)
-        picks.sort { (order.firstIndex(of: $0.role) ?? 9) < (order.firstIndex(of: $1.role) ?? 9) }
         return true
+    }
+    public mutating func setPlace(_ place: MomentPlace, for id: String) {
+        if let index = picks.firstIndex(where: { $0.id == id }) { picks[index].place = place }
     }
     public mutating func remove(_ id: String) { picks.removeAll { $0.id == id } }
     public mutating func clear() { picks = [] }
@@ -97,7 +139,7 @@ public enum MomentCatalog {
         return base.appendingPathComponent(Bundle.main.bundleIdentifier ?? "ai.rasan.studio", isDirectory: true).appendingPathComponent("moments", isDirectory: true)
     }
 
-    /// Reads the manifest tolerantly: unknown fields are ignored; rows with no clip or still, with no usable role, or hidden
+    /// Reads the manifest tolerantly: unknown fields are ignored; rows with no clip or still, or hidden
     /// by `on_page: "no…"` are skipped. Returns the moments newest first (featured rows lead).
     public static func parse(_ data: Data, baseURL: URL = manifestURL) -> [Moment] {
         guard let root = try? JSONSerialization.jsonObject(with: data) else { return [] }
@@ -109,10 +151,12 @@ public enum MomentCatalog {
         var seen = Set<String>()
         for case let row as [String: Any] in rows {
             guard let id = (row["id"] as? String)?.trimmingCharacters(in: .whitespaces), !id.isEmpty, !seen.contains(id),
-                  let role = (row["role"] as? String).flatMap({ MomentRole(rawValue: $0.lowercased()) }),
                   let clip = (row["clip"] as? String).flatMap({ resolve($0, base: baseURL) }),
                   let still = (row["still"] as? String).flatMap({ resolve($0, base: baseURL) }) else { continue }
             if let onPage = (row["on_page"] as? String)?.lowercased(), onPage.hasPrefix("no") { continue }
+            let roleText = (row["role"] as? String)?.lowercased()
+            let role = roleText.flatMap { MomentRole(rawValue: $0) }
+            if roleText != nil, role == nil { continue }   // a-roll and other non-moment rows
             let name = (row["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard !name.isEmpty else { continue }
             seen.insert(id)

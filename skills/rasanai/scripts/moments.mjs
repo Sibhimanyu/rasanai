@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // Reference moments: real motion from real launch films, as measured specs and code, used for TECHNIQUE only.
-// A moment is a short slice of someone else's film with a role (hook, proof, turn, cta), mechanic tags and a credit.
+// A moment is a short slice of someone else's film with mechanic tags, a credit and a role tag (hook, proof, turn, cta: a search HINT only;
+// where a picked moment goes is a place: opening | between | peak | ending | anywhere, decided against the chosen story).
 // The public manifest is fetched at run time and cached; bundles are downloaded only for the user's own film, verified
 // by sha256 and kept read-only in the run. Nothing is vendored into the skill and nothing from a moment ships in a film.
 //
-//   node moments.mjs list   [--role hook|proof|turn|cta] [--mechanic <tag>[,<tag>]] [--query "<words>"] [--limit 20] [--no-network]
+//   node moments.mjs list   [--role hook|proof|turn|cta] [--place opening|between|peak|ending|anywhere] [--mechanic <tag>[,<tag>]] [--query "<words>"] [--limit 20] [--no-network]
 //   node moments.mjs search (same flags as list)
 //        -> rows: id, role, name, mechanic[], swapSlot[], why, duration, clip, still, credit {handle, name, url}
-//   node moments.mjs fetch <id> --run <run> [--role <role>] [--no-network]
+//   node moments.mjs fetch <id> --run <run> [--place <place>] [--role <legacy role>] [--no-network]
 //        -> downloads the bundle, checks its sha256, extracts it read-only under <run>/references/moments/<id>/ and records
 //           the credit in <run>/references/moments/credits.json (every moment used, with its creator and source URL)
 //   node moments.mjs credits --run <run>      -> the credits, and the line the Final's notes carry
@@ -20,6 +21,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { parseArgs, die, STATE_DIR } from "./lib/common.mjs";
+import { PLACES, PLACE_TO_ROLES, placeOf } from "./lib/moments-lib.mjs";
 
 export const MANIFEST_URL = "https://static.heygen.ai/hyperframes-oss/desktop/moments/v3/manifest.json";
 export const BUNDLES_URL = "https://static.heygen.ai/hyperframes-oss/desktop/moments/bundles/";
@@ -77,10 +79,12 @@ export function rowOut(r, base) {
     credit: { handle: r.author_handle || null, name: r.x_author_name || r.author_name || null, url: r.x_url || r.source_url || null, film: r.film_title || null },
   };
 }
-export function filterRows(rows, { role, mechanic, query } = {}) {
+export function filterRows(rows, { role, place, mechanic, query } = {}) {
+  // --place is an alias: it searches the manifest roles that tend to sit there (a hint; "anywhere" filters nothing)
+  const roles = place ? PLACE_TO_ROLES[place] || [] : [];
   const mech = String(mechanic || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
   const words = String(query || "").toLowerCase().split(/\s+/).filter((w) => w.length > 1);
-  return rows.filter((r) => (!role || r.role === role) && mech.every((m) => (r.mechanic || []).map((x) => String(x).toLowerCase()).includes(m)))
+  return rows.filter((r) => (!role || r.role === role) && (!roles.length || roles.includes(r.role)) && mech.every((m) => (r.mechanic || []).map((x) => String(x).toLowerCase()).includes(m)))
     .map((r) => ({ r, s: words.length ? words.filter((w) => `${r.name} ${r.why} ${(r.mechanic || []).join(" ")} ${r.film_title || ""}`.toLowerCase().includes(w)).length : 1 }))
     .filter((x) => x.s > 0).sort((a, b) => b.s - a.s).map((x) => x.r);
 }
@@ -98,7 +102,7 @@ async function bundleBytes(row, noNetwork) {
 }
 
 // download, verify, extract read-only, credit
-export async function fetchMoment(id, run, { role = null, noNetwork = false } = {}) {
+export async function fetchMoment(id, run, { role = null, place = null, noNetwork = false } = {}) {
   const m = await manifest({ noNetwork });
   const row = m.rows.find((r) => r.id === id);
   if (!row) throw new Error(m.rows.length ? `no moment ${id} in the manifest (${m.source})` : `no moment ${id}: ${m.note}`);
@@ -126,11 +130,11 @@ export async function fetchMoment(id, run, { role = null, noNetwork = false } = 
     if (fs.existsSync(dest)) { spawnSync("chmod", ["-R", "u+w", dest]); fs.rmSync(dest, { recursive: true, force: true }); }
     fs.mkdirSync(root, { recursive: true });
     fs.cpSync(xd, dest, { recursive: true });
-    fs.writeFileSync(path.join(dest, ".moment.json"), JSON.stringify({ id, sha256: got, role: role || row.role, credit: rowOut(row, m.base).credit, use: USE_NOTE }, null, 2));
+    fs.writeFileSync(path.join(dest, ".moment.json"), JSON.stringify({ id, sha256: got, role: role || row.role, place: placeOf({ place, role }), credit: rowOut(row, m.base).credit, use: USE_NOTE }, null, 2));
     spawnSync("chmod", ["-R", "a-w", dest]); // read-only: a motion reference, never edited, never copied in wholesale
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
   const credits = readCredits(run);
-  const entry = { id, role: role || row.role || null, name: row.name || "", mechanic: row.mechanic || [], ...rowOut(row, m.base).credit, source_url: rowOut(row, m.base).credit.url, clip: abs(m.base, row.clip), sha256: got, fetched: new Date().toISOString() };
+  const entry = { id, place: placeOf({ place, role }), role: role || row.role || null, still: abs(m.base, row.still), name: row.name || "", mechanic: row.mechanic || [], ...rowOut(row, m.base).credit, source_url: rowOut(row, m.base).credit.url, clip: abs(m.base, row.clip), sha256: got, fetched: new Date().toISOString() };
   credits.moments = [...credits.moments.filter((c) => c.id !== id), entry];
   credits.note = USE_NOTE;
   fs.writeFileSync(path.join(root, "credits.json"), JSON.stringify(credits, null, 2));
@@ -150,8 +154,10 @@ export function creditLine(credits) {
 if (cmd === "list" || cmd === "search") {
   const m = await manifest({ noNetwork: offline() });
   const role = args.role && args.role !== true ? String(args.role) : null;
+  const place = args.place && args.place !== true ? String(args.place).toLowerCase() : null;
+  if (place && !PLACES.includes(place)) die(`--place must be one of ${PLACES.join(", ")}`);
   if (role && !ROLES.includes(role)) die(`--role must be one of ${ROLES.join(", ")}`);
-  const rows = filterRows(m.rows, { role, mechanic: args.mechanic !== true ? args.mechanic : null, query: args.query !== true ? args.query || args.q : null }).slice(0, Number(args.limit) || 20).map((r) => rowOut(r, m.base));
+  const rows = filterRows(m.rows, { role, place, mechanic: args.mechanic !== true ? args.mechanic : null, query: args.query !== true ? args.query || args.q : null }).slice(0, Number(args.limit) || 20).map((r) => rowOut(r, m.base));
   out({ ok: true, source: m.source, count: rows.length, total: m.rows.length, note: m.note || undefined, fallback: m.rows.length ? undefined : FALLBACK, use: USE_NOTE, rows });
 } else if (cmd === "fetch") {
   const id = args._[1] ? String(args._[1]) : die("usage: moments.mjs fetch <id> --run <run>");
@@ -159,7 +165,7 @@ if (cmd === "list" || cmd === "search") {
   const run = path.resolve(String(args.run));
   if (!fs.existsSync(run)) die(`run dir not found: ${run}`);
   try {
-    const r = await fetchMoment(id, run, { role: args.role && args.role !== true ? String(args.role) : null, noNetwork: offline() });
+    const r = await fetchMoment(id, run, { role: args.role && args.role !== true ? String(args.role) : null, place: args.place && args.place !== true ? String(args.place).toLowerCase() : null, noNetwork: offline() });
     out({ ok: true, ...r, dir: path.relative(process.cwd(), r.dir), use: USE_NOTE, take_rule: "Take ONE mechanic as one sentence (what moves, on which axis, how long, what never stops) and build it fresh with this film's content; leave its copy, brand, bookends and frame tables behind (references/craft.md, The take rule)." });
   } catch (e) { out({ ok: false, id, error: e.message, fallback: FALLBACK }, 2); }
 } else if (cmd === "credits") {

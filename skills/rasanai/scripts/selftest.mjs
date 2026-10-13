@@ -1388,6 +1388,19 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   put(bad);
   const b = C(["check", "--run", run, "--role", "motion-director", "--key", "score"]);
   ok("crew: the score check catches a half-stated handoff, a changed duration, a flat energy curve and no showreel moments", b.status === 2 && /in: missing speed/.test(b.stdout) && /scenes\.json says 4s/.test(b.stdout) && /no peak/.test(b.stdout) && /showreel names 0/.test(b.stdout), b.stdout.slice(0, 500));
+  // moments are placed, not slotted: a picked moment no beat uses warns moment-unplaced; placed or dropped with a reason is quiet
+  fs.mkdirSync(path.join(run, "references", "moments"), { recursive: true });
+  fs.writeFileSync(path.join(run, "references", "moments", "credits.json"), JSON.stringify({ moments: [{ id: "M900", place: "opening" }] }));
+  const mu = JSON.parse(JSON.stringify(good));
+  put(mu);
+  ok("crew: a picked moment on no beat warns moment-unplaced", /moment-unplaced: the picked moment M900/.test(C(["check", "--run", run, "--role", "motion-director", "--key", "score"]).stdout));
+  mu.moments_placed = [{ id: "M900", beat: 1, take: "a click zooms into the field", why: "builds the first ask" }];
+  put(mu);
+  ok("crew: a placed moment is not warned", !/moment-unplaced/.test(C(["check", "--run", run, "--role", "motion-director", "--key", "score"]).stdout));
+  delete mu.moments_placed; mu.moments_dropped = [{ id: "M900", why: "no beat has a click" }];
+  put(mu);
+  ok("crew: a dropped moment with a reason is not warned", !/moment-unplaced/.test(C(["check", "--run", run, "--role", "motion-director", "--key", "score"]).stdout));
+  fs.rmSync(path.join(run, "references"), { recursive: true, force: true });
   // space: a 4-scene film with no depth (and no reason) is refused; a 3D scene without its camera, light and materials too
   const flat = JSON.parse(JSON.stringify(good));
   flat.scenes.forEach((x) => { x.space = "2d"; delete x.camera3d; delete x.light; delete x.materials; });

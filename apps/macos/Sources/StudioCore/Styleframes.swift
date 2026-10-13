@@ -27,6 +27,22 @@ public enum StyleframeVerdict: String, Sendable {
     }
 }
 
+/// The move placed on a frame (`moment` in the payload): which one, its still, credit and why it sits here.
+public struct StyleframeMoment: Equatable, Sendable {
+    public let id: String
+    public let name: String
+    public let still: String?
+    public let credit: String?
+    public let why: String?
+}
+
+/// A picked move the director could not place on any frame (`unplaced_moments`).
+public struct UnplacedMoment: Identifiable, Equatable, Sendable {
+    public let id: String
+    public let name: String
+    public let why: String?
+}
+
 public struct Styleframe: Identifiable, Equatable, Sendable {
     public let id: String
     public let beat: String?
@@ -38,6 +54,8 @@ public struct Styleframe: Identifiable, Equatable, Sendable {
     public let verdict: StyleframeVerdict?
     /// "working" while the designer is redrawing this frame; everything else reads as ready.
     public let state: String?
+    /// The move placed on this frame, when the director placed one.
+    public let moment: StyleframeMoment?
     public var isWorking: Bool { state == "working" }
 }
 
@@ -47,13 +65,16 @@ public struct StyleframesPayload: Equatable, Sendable {
     public let heroes: [String]
     public let sheet: String?
     public let recommended: String?
+    /// Picked moves no frame carries (`unplaced_moments`).
+    public let unplaced: [UnplacedMoment]
     /// True when the director sent the older `images` / `captions` form.
     public let isLegacy: Bool
 
     public var hasReferences: Bool { frames.contains { $0.ref != nil } }
     public var belowCount: Int { frames.filter { $0.verdict == .below }.count }
 
-    public init(frames: [Styleframe], heroes: [String] = [], sheet: String? = nil, recommended: String? = nil, isLegacy: Bool = false) {
+    public init(frames: [Styleframe], heroes: [String] = [], sheet: String? = nil, recommended: String? = nil, unplaced: [UnplacedMoment] = [], isLegacy: Bool = false) {
+        self.unplaced = unplaced
         self.frames = frames; self.heroes = heroes; self.sheet = sheet; self.recommended = recommended; self.isLegacy = isLegacy
     }
 
@@ -61,16 +82,20 @@ public struct StyleframesPayload: Equatable, Sendable {
         let heroes = payload["heroes"].array.compactMap(\.identifier)
         let sheet = payload["sheet"].string
         let recommended = payload["recommended"].identifier
+        let unplaced: [UnplacedMoment] = payload["unplaced_moments"].array.compactMap { value in
+            guard let id = value["id"].identifier else { return nil }
+            return UnplacedMoment(id: id, name: Self.first(value, ["name", "title"]) ?? id, why: Self.first(value, ["why"]))
+        }
         if !payload["frames"].array.isEmpty {
             let frames = payload["frames"].array.enumerated().compactMap { index, value in Self.frame(value, index: index) }
-            self.init(frames: frames, heroes: heroes, sheet: sheet, recommended: recommended)
+            self.init(frames: frames, heroes: heroes, sheet: sheet, recommended: recommended, unplaced: unplaced)
         } else {
             let captions = payload["captions"].array
             let frames: [Styleframe] = payload["images"].array.enumerated().compactMap { index, value in
                 guard let image = value.string ?? Self.first(value, ["path", "src", "file", "image"]) else { return nil }
                 let caption = index < captions.count ? Self.text(captions[index]) : nil
                 let title = caption ?? Self.first(value, ["caption", "title"]) ?? "Frame \(index + 1)"
-                return Styleframe(id: String(index + 1), beat: nil, title: title, image: image, ref: nil, shot: nil, caption: caption, verdict: nil, state: nil)
+                return Styleframe(id: String(index + 1), beat: nil, title: title, image: image, ref: nil, shot: nil, caption: caption, verdict: nil, state: nil, moment: nil)
             }
             self.init(frames: frames, heroes: heroes, sheet: sheet, recommended: recommended, isLegacy: true)
         }
@@ -90,7 +115,12 @@ public struct StyleframesPayload: Equatable, Sendable {
                                   focus: first(shotValue, ["focus"]), light: first(shotValue, ["light"]))
         return Styleframe(id: id, beat: beat, title: title, image: image, ref: ref, shot: shot.isEmpty ? nil : shot,
                           caption: first(value, ["caption"]), verdict: value["verdict"].string.flatMap(StyleframeVerdict.init(rawValue:)),
-                          state: first(value, ["state"]))
+                          state: first(value, ["state"]), moment: moment(value["moment"]))
+    }
+
+    private static func moment(_ value: JSONValue) -> StyleframeMoment? {
+        guard case .object = value, let id = value["id"].identifier else { return nil }
+        return StyleframeMoment(id: id, name: first(value, ["name", "title"]) ?? id, still: first(value, ["still", "image"]), credit: first(value, ["credit"]), why: first(value, ["why"]))
     }
 
     private static func first(_ value: JSONValue, _ keys: [String]) -> String? {
@@ -128,6 +158,11 @@ public struct StyleframeReview: Equatable, Sendable {
             if let text = comments[frame.id]?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty { lines.append("\(frame.title): \(text)") }
         }
         return lines.joined(separator: "\n")
+    }
+
+    /// The `swap-moment` action value: `{frame, id}`, where a nil id means no move on that frame.
+    public static func swapValue(frame: String, moment id: String?) -> JSONValue {
+        .object(["frame": .string(frame), "id": id.map(JSONValue.string) ?? .null])
     }
 
     /// The `comment` action value for one frame, in the existing shape: the frame id is the scene, the text goes in `note`.
