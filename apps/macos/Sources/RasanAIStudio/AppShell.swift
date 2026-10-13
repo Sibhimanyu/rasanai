@@ -33,15 +33,19 @@ struct AppSidebar: View {
     }
     private var needsYouCount: Int { store.visibleProjects.filter { store.summary(for: $0.1).phase.needsYou }.count }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Icons keep one position at every width: centred in the folded rail, and the same spot when open, so only the
+    /// width, the labels and the toggle move.
+    private static let iconInset: CGFloat = 21
+    private static let railWidth: CGFloat = 80, fullWidth: CGFloat = 232
+    /// A critically damped spring, as Apple's sidebars: no overshoot, settles in about a third of a second.
+    static func motion(reduce: Bool) -> Animation { reduce ? .easeOut(duration: 0.12) : .spring(response: 0.34, dampingFraction: 1) }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            // The window's buttons sit on this row (see TrafficLightsInset); the sidebar toggle shares it while the sidebar is open.
-            HStack {
-                Spacer()
-                if !collapsed { sidebarToggle }
-            }
-            .frame(height: 44)
-            if collapsed { sidebarToggle.frame(maxWidth: .infinity).padding(.bottom, 6) }
+            // The window's buttons sit on the first 44 pt (see TrafficLightsInset). Folded, the toggle needs a row of its
+            // own under them, so the list slides down to make room.
+            Color.clear.frame(height: collapsed ? 82 : 44)
             brand.padding(.bottom, 14)
             item(.home, "Home", "house")
             item(.all, "All films", "film.stack")
@@ -50,22 +54,30 @@ struct AppSidebar: View {
             item(.templates, "Templates", "square.grid.2x2")
             item(.inspire, "Inspiration", "sparkles")
             Spacer(minLength: 12)
-            Divider().padding(.horizontal, collapsed ? 10 : 14).padding(.bottom, 8)
+            Divider().padding(.horizontal, 12).padding(.bottom, 8)
             item(.queue, "Queue", "list.bullet.rectangle", badge: store.settings.filmQueue.count)
             row(nil, "Settings", "gearshape") { openSettings() }
         }
         .padding(.horizontal, 8).padding(.bottom, 12)
-        .frame(width: collapsed ? 80 : 232)
+        .frame(width: collapsed ? Self.railWidth : Self.fullWidth, alignment: .leading)
         .frame(maxHeight: .infinity, alignment: .top)
+        // One toggle that glides between the window buttons' row (open) and the row under them (folded).
+        .overlay(alignment: .topLeading) {
+            sidebarToggle
+                .offset(x: collapsed ? (Self.railWidth - 30) / 2 : Self.fullWidth - 8 - 30 - 4,
+                        y: collapsed ? 44 + 2 : (44 - 30) / 2)
+        }
+        .clipped()
         // A floating sheet of glass inset from the window's edges, the traffic lights inside it, as in macOS Tahoe.
         .liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: false)
         .padding(.leading, 8).padding(.vertical, 8)
         .background { TrafficLightsInset(rowCentre: 30, leading: 24) }
+        .animation(Self.motion(reduce: reduceMotion), value: collapsed)
     }
 
-    /// Folds the sidebar to icons, or opens it again: on the window buttons' row while open, under them while folded.
+    /// Folds the sidebar to icons, or opens it again.
     private var sidebarToggle: some View {
-        Button { withAnimation(.snappy(duration: 0.24)) { collapsed.toggle() } } label: {
+        Button { collapsed.toggle() } label: {
             Image(systemName: "sidebar.left").font(.system(size: 15, weight: .medium)).frame(width: 30, height: 30).contentShape(Rectangle())
         }
         .buttonStyle(.plain).foregroundStyle(.secondary)
@@ -73,13 +85,19 @@ struct AppSidebar: View {
         .accessibilityLabel(collapsed ? "Expand sidebar" : "Collapse sidebar")
     }
 
+    /// A label beside an icon: it fades and slides a little toward the icon as the sidebar folds, and the sidebar's edge
+    /// clips it, so nothing pops.
+    private func fading<V: View>(_ view: V) -> some View {
+        view.opacity(collapsed ? 0 : 1).offset(x: collapsed ? -8 : 0).allowsHitTesting(!collapsed).accessibilityHidden(collapsed)
+    }
+
     private var brand: some View {
-        HStack(spacing: 10) {
-            RasanMark().fill(Color.rasan).frame(width: 20, height: 25)
-            if !collapsed { Text("RasanAI Studio").font(.system(size: 16, weight: .semibold)).lineLimit(1).fixedSize() }
+        HStack(spacing: 12) {
+            RasanMark().fill(Color.rasan).frame(width: 20, height: 25).frame(width: 22)
+            fading(Text("RasanAI Studio").font(.system(size: 16, weight: .semibold)).lineLimit(1).fixedSize())
         }
-        .padding(.horizontal, collapsed ? 0 : 10)
-        .frame(maxWidth: .infinity, alignment: collapsed ? .center : .leading)
+        .padding(.leading, Self.iconInset)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine).accessibilityLabel("RasanAI Studio")
     }
 
@@ -93,21 +111,19 @@ struct AppSidebar: View {
             HStack(spacing: 12) {
                 Image(systemName: symbol).font(.system(size: 15, weight: on ? .semibold : .regular)).frame(width: 22)
                     .overlay(alignment: .topTrailing) {
-                        if collapsed && badge > 0 { Circle().fill(Color.rasan).frame(width: 7, height: 7).offset(x: 4, y: -2) }
+                        if badge > 0 { Circle().fill(Color.rasan).frame(width: 7, height: 7).offset(x: 4, y: -2).opacity(collapsed ? 1 : 0) }
                     }
-                if !collapsed {
-                    Text(title).font(.system(size: 13.5, weight: on ? .semibold : .regular)).lineLimit(1).fixedSize()
-                    Spacer(minLength: 4)
-                    if badge > 0 {
-                        Text("\(badge)").font(.system(size: 11.5, weight: .semibold)).monospacedDigit()
-                            .foregroundStyle(Color.rasan).padding(.horizontal, 7).frame(minWidth: 22, minHeight: 20)
-                            .background(Color.rasan.opacity(0.14), in: Capsule())
-                    }
+                fading(Text(title).font(.system(size: 13.5, weight: on ? .semibold : .regular)).lineLimit(1).fixedSize())
+                Spacer(minLength: 4)
+                if badge > 0 {
+                    fading(Text("\(badge)").font(.system(size: 11.5, weight: .semibold)).monospacedDigit()
+                        .foregroundStyle(Color.rasan).padding(.horizontal, 7).frame(minWidth: 22, minHeight: 20)
+                        .background(Color.rasan.opacity(0.14), in: Capsule()))
                 }
             }
             .foregroundStyle(quiet && !on ? Color.secondary : Color.primary)
-            .padding(.horizontal, collapsed ? 0 : 10).frame(height: 36)
-            .frame(maxWidth: .infinity, alignment: collapsed ? .center : .leading)
+            .padding(.leading, Self.iconInset).padding(.trailing, 10).frame(height: 36)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .background(on ? Color.primary.opacity(0.13) : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
@@ -265,7 +281,7 @@ struct NavCluster: View {
             .liquidGlass(in: Capsule())
         }
         .background {
-            Button("Toggle sidebar") { withAnimation(.snappy(duration: 0.24)) { collapsed.toggle() } }
+            Button("Toggle sidebar") { collapsed.toggle() }
                 .keyboardShortcut("s", modifiers: [.control, .command]).opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
         }
     }

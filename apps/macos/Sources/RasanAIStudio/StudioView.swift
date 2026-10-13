@@ -12,6 +12,7 @@ struct StudioView: View {
     }
 
     @AppStorage("studio.sidebarCollapsed") private var sidebarCollapsed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// A film (or the sample, or the film editor) brings its own bottom bar, so the studio's status bar steps aside there.
     private var showsStatusBar: Bool {
         switch store.path.last { case .film?, .sample?, .newFilm?: false; default: true }
@@ -28,6 +29,8 @@ struct StudioView: View {
         // One background for the whole window, under the floating sidebar too: the glass sits on the page's own colour,
         // never on the desktop showing through.
         .background(Color.appBackground.ignoresSafeArea())
+        // The page reflows with the same spring as the sidebar, so the two move as one.
+        .animation(AppSidebar.motion(reduce: reduceMotion), value: sidebarCollapsed)
         .ignoresSafeArea(.container, edges: .top)
         // Every button without a style of its own is the flat secondary, never the system's bevelled push button.
         .buttonStyle(.rasanSecondary)
