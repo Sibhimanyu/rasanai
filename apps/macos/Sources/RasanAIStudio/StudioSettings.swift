@@ -268,6 +268,7 @@ struct StudioSettingsView: View {
                     set: { enabled in Task { await settings.setNotificationsEnabled(enabled) } }))
             } footer: {
                 Text("Films and brands live in the library as ordinary folders.")
+                    .font(.callout).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
             }
             Section("Updates") {
                 Toggle("Check automatically", isOn: Binding(get: { updater.automaticChecks }, set: { updater.setAutomaticChecks($0) }))
