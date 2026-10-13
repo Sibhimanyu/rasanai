@@ -6,6 +6,19 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.8.2 beta 1</title>
+      <pubDate>Tue, 13 Oct 2026 08:51:24 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **A calmer, more professional finish.** New film is the one loud action on Home, the Home toolbar is icon-only with tooltips, and Story and Look name Claude's pick once, on the option.
+- **New film footer is one row,** with one secondary button style for Use template, Save as template, Save draft and Discard.
+- **Footage folder copy fixed.** The footage well now says "Drop a folder of clips" instead of the brand-kit prompt.
+- **Reopening at launch** returns to the last film only if you quit on a film page; otherwise Studio opens on Home.]]></description>
+      <sparkle:version>25</sparkle:version>
+      <sparkle:shortVersionString>0.8.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.8.2-beta.1/RasanAI-Studio-0.8.2.dmg" sparkle:edSignature="I1YJpPK1a4Ja7oiaBaH5wtwp69a/LuCgjCcOPmD0tcNNXimKrvlP1zWVh2k0aVwgZXwJk6USVwjZEpnj9eXhCw==" length="74280068" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.8.1 beta 1</title>
       <pubDate>Tue, 13 Oct 2026 06:40:00 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **Move viewer sound fixed.** The expanded viewer could play a clip twice a few frames apart (an echo) and pause stopped only one copy. There is now one player: one sound, and pause always stops it.
