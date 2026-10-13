@@ -6,6 +6,21 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.8.0 beta 1</title>
+      <pubDate>Tue, 13 Oct 2026 04:42:23 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **Moves I like.** The Hook / Proof / Turn / Call to action slots are gone: pick up to four moves by taste, each with an optional place, and Claude puts them on the story's beats.
+- **Expanded moves with sound.** Click a move to watch it large with its audio, with technique filters.
+- **Moves on the style frames**, with Swap.
+- **A format picker** ("What are you making?"), notifications when a call is ready, Needs you first on Home, and folder sources.
+- **A cleaner composer** with a bottom toolbar.
+- Bundles RasanAI 1.14.0.]]></description>
+      <sparkle:version>23</sparkle:version>
+      <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.8.0-beta.1/RasanAI-Studio-0.8.0.dmg" sparkle:edSignature="EYIFRU4Jes0IGc/cxroqvCut0bQ+Bvc98OCUeoP7lSS/PW1XrQ8wnImDaEKUVXKyLwbwakxsehJY0eWoQ1JbAQ==" length="74263295" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.7.0 beta 1</title>
       <pubDate>Sat, 10 Oct 2026 04:05:17 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **Films that keep moving.** Short films are written by one builder and checked frame by frame before you see them; one feature and one scenario per launch film; a faster tempo; real logo files only.
