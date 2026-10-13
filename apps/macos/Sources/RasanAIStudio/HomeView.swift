@@ -83,13 +83,16 @@ struct HomeView: View {
                     .background(Color(nsColor: .quaternaryLabelColor).opacity(0.5), in: Capsule())
                 }
                 Button { store.path.append(.queue) } label: { Label("Queue" + (store.settings.filmQueue.isEmpty ? "" : " (\(store.settings.filmQueue.count))"), systemImage: "list.number") }
+                    .help(store.settings.filmQueue.isEmpty ? "Film queue" : "Film queue (\(store.settings.filmQueue.count))")
                 Button { store.path.append(.templates) } label: { Label("Templates", systemImage: "doc.on.doc") }
-                Button { store.openBrands() } label: { Label("Brands", systemImage: "swatchpalette").labelStyle(.titleAndIcon) }
+                    .help("Film templates")
+                Button { store.openBrands() } label: { Label("Brands", systemImage: "swatchpalette") }
                     .help("Your colours, type and logos")
                 Menu {
                     Button("Check readiness…") { store.showPreflight() }
                     Button("Import Project…") { store.importProjectPanel() }
                 } label: { Image(systemName: "ellipsis.circle") }
+                .menuIndicator(.hidden).help("More")
                 HelpButton(title: "Home", lines: [
                     "Start a new film with the big button, or open one of your films below.",
                     "Right-click a film to rename, duplicate, archive or delete it.",
@@ -310,10 +313,14 @@ struct NeedsYouRow: View {
                     }
                 }
                 Spacer(minLength: 12)
-                Text(verb)
-                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(nsColor: .windowBackgroundColor))
-                    .padding(.horizontal, 16).padding(.vertical, 6)
-                    .background(Color.rasan.opacity(hovering ? 1 : 0.92), in: Capsule())
+                // Quiet on purpose: the whole row is the button, and New film above stays the loudest thing on Home.
+                HStack(spacing: 4) {
+                    Text(verb)
+                    Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold))
+                }
+                .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.rasan)
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .background(Color.rasan.opacity(hovering ? 0.16 : 0.08), in: Capsule())
             }
             .padding(10).padding(.trailing, 6)
         }

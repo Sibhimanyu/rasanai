@@ -32,7 +32,6 @@ struct LookStage: View {
         StageScaffold(model: model, step: step,
                       question: payload["question"].string ?? (isFilms ? "Which film do you want?" : "Which look fits this story?"),
                       context: payload["context"].string ?? payload["sub"].string,
-                      recommended: items.first { $0.id == recommendedID }?.name,
                       maxWidth: 1000) {
             if let current {
                 VStack(alignment: .leading, spacing: 20) {

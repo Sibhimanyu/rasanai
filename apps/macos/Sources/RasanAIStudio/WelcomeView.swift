@@ -97,7 +97,6 @@ struct WelcomeView: View {
             }.font(.system(size: 18)).frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(toolsReady ? "Rendering tools ready" : "Rendering tools").font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(toolsReady ? Color.green : Color.primary)
                 Text(toolsSubtitle).font(.system(size: 11)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

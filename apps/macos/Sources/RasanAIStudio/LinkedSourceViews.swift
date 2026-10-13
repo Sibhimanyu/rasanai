@@ -18,7 +18,10 @@ struct LinkedSourceWell: View {
     private var title: String { kind == .footage ? "Footage folder" : "Make it like this" }
     private var symbol: String { kind == .footage ? "folder" : "film.stack" }
     private var hint: String {
-        if kind == .footage, let prompt, !prompt.isEmpty { return prompt + " It stays where it is, and nothing is copied." }
+        if kind == .footage, let prompt, !prompt.isEmpty {
+            let sentence = prompt.last.map { ".?!".contains($0) } == true ? prompt : prompt + "."
+            return sentence + " It stays where it is, and nothing is copied."
+        }
         return kind == .footage ? "Drop a folder of clips. It stays where it is, and nothing is copied."
             : "Drop a video to study for pace, type, colour and camera. It is never cut into your film."
     }
