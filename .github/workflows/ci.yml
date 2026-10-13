@@ -1,8 +1,7 @@
 name: selftest
+# Testing is done by hand; this runs only when started from the Actions tab or `gh workflow run selftest`.
 on:
-  push:
-    branches: [master]
-  pull_request:
+  workflow_dispatch:
 jobs:
   selftest:
     runs-on: ubuntu-latest
