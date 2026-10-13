@@ -2,6 +2,13 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## 0.8.2 (build 25) — 2026-10-13
+
+- **A calmer, more professional finish.** New film is the one loud action on Home; the Needs you rows use a quiet tinted Review or Open. The Home toolbar is icon-only throughout, with tooltips. Story and Look name Claude's pick once, on the option itself. Welcome keeps the green on the check mark, not the heading, and the Settings note sits left-aligned like System Settings.
+- **New film footer is one row:** Discard, "Saved automatically · Directed by Claude Code · Change", and Save draft. Use template, Save as template, Save draft and Discard share one secondary button style that stays visible in light mode.
+- **Footage folder copy fixed.** For a launch film the footage well showed the brand-kit prompt ("Your logo, fonts or brand guidelines (optional) It stays where it is…"); it now says "Drop a folder of clips". Brand kits and code folders never speak for the footage well.
+- **Reopening at launch** returns to the last film only if you quit while on a film page; otherwise Studio opens on Home.
+
 ## 0.8.1 (build 24) — 2026-10-13
 
 - **Move viewer sound fixed.** The expanded viewer could be on screen twice at once, each with its own player, so a clip played twice a few frames apart (an echo) and pausing stopped only one copy. The app now has one player for every viewer: one sound, and pause always stops it.
