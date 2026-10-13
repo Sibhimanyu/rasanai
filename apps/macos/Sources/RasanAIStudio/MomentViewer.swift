@@ -9,6 +9,9 @@ import SwiftUI
 final class MomentViewerPlayer {
     private(set) var isPlaying = false
     private(set) var ready = false
+    /// Whether the clip has a sound track at all (many reference clips are silent files); nil until known.
+    private(set) var hasAudio: Bool?
+    private(set) var loadedURL: URL?
     var time: Double = 0
     private(set) var duration: Double = 0
     var muted = false { didSet { player.isMuted = muted } }
@@ -33,9 +36,15 @@ final class MomentViewerPlayer {
     func load(_ url: URL?) {
         if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
         endObserver = nil; statusObserver = nil
-        ready = false; time = 0; duration = 0
+        player.pause()
+        ready = false; time = 0; duration = 0; hasAudio = nil; loadedURL = url
         guard let url else { player.replaceCurrentItem(with: nil); isPlaying = false; return }
         let item = AVPlayerItem(url: url)
+        Task { @MainActor [weak self] in
+            let tracks = try? await item.asset.loadTracks(withMediaType: .audio)
+            guard let self, self.loadedURL == url else { return }
+            self.hasAudio = !(tracks ?? []).isEmpty
+        }
         player.replaceCurrentItem(with: item)
         statusObserver = item.observe(\.status, options: [.new]) { [weak self] item, _ in
             Task { @MainActor in
@@ -65,7 +74,7 @@ final class MomentViewerPlayer {
         player.seek(to: CMTime(seconds: seconds, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
     }
     func stop() {
-        player.pause(); player.replaceCurrentItem(with: nil); isPlaying = false
+        player.pause(); player.replaceCurrentItem(with: nil); isPlaying = false; loadedURL = nil; hasAudio = nil
         if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
         endObserver = nil; statusObserver = nil
     }
@@ -88,7 +97,8 @@ struct MomentViewer: View {
     @Bindable var gallery: MomentGallery
     /// Nil hides the add button (when opened from a place that does not edit the user's moves).
     var selection: Binding<MomentSelection>?
-    @State private var player = MomentViewerPlayer()
+    /// The gallery's one shared player (never a player per view: see MomentGallery.viewerPlayer).
+    private var player: MomentViewerPlayer { gallery.viewerPlayer }
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -97,8 +107,8 @@ struct MomentViewer: View {
             if let moment = gallery.viewing { card(moment) }
         }
         .transition(.opacity)
-        .onChange(of: gallery.viewingID, initial: true) { _, _ in player.load(gallery.viewing?.clipURL) }
-        .onDisappear { player.stop() }
+        // a viewer opened without openViewer (an older call site) still gets its clip, once
+        .onAppear { if gallery.viewing != nil, player.loadedURL != gallery.viewing?.clipURL { player.load(gallery.viewing?.clipURL) } }
     }
 
     private func card(_ moment: Moment) -> some View {
@@ -140,9 +150,14 @@ struct MomentViewer: View {
                    in: 0...max(player.duration, 0.1), onEditingChanged: { editing in if !editing { player.scrub(to: player.time, editing: false) } })
                 .controlSize(.small).accessibilityLabel("Scrub")
             Text(String(format: "%.1f / %.1f s", player.time, player.duration)).font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary)
-            Button { player.muted.toggle() } label: { Image(systemName: player.muted ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 18) }
-                .buttonStyle(.plain).help(player.muted ? "Sound off. Click to turn it on" : "Sound on. Click to mute")
-                .accessibilityLabel(player.muted ? "Unmute" : "Mute")
+            if player.hasAudio == false {
+                Label("No sound in this clip", systemImage: "speaker.slash").font(.system(size: 11)).foregroundStyle(.secondary)
+                    .help("This reference clip was published without a sound track")
+            } else {
+                Button { player.muted.toggle() } label: { Image(systemName: player.muted ? "speaker.slash.fill" : "speaker.wave.2.fill").frame(width: 18) }
+                    .buttonStyle(.plain).help(player.muted ? "Sound off. Click to turn it on" : "Sound on. Click to mute")
+                    .accessibilityLabel(player.muted ? "Unmute" : "Mute")
+            }
             Button { player.loops.toggle() } label: { Image(systemName: "repeat").foregroundStyle(player.loops ? Color.rasan : Color.secondary).frame(width: 18) }
                 .buttonStyle(.plain).help(player.loops ? "Loop is on" : "Loop is off")
                 .accessibilityLabel(player.loops ? "Loop on" : "Loop off")
