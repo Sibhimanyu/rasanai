@@ -37,7 +37,11 @@
 //              font-size >= 20 px, trimmed by its clipping ancestors) is measured; error `text-cropped` with the time
 //              range and the text when a box crosses the frame edge for more than 1.2 s, or sits outside the 6% safe
 //              area at rest for 0.4 s or more (lib/textfit.mjs; data-text-fit="ignore" opts an element out;
-//              --no-text-fit skips it; a Chrome that cannot start is listed as skipped, never passed)
+//              --no-text-fit skips it; a Chrome that cannot start is listed as skipped, never passed). The same samples read
+//              line blocks (SplitText spans = one line): error `text-too-brief` when a statement-size block (font >= 3.5%
+//              of the frame height, 3+ words) is readable for less than 0.6 s + 0.3 s per word (data-read="skim" opts out),
+//              and error `text-overlap` when two readable blocks sit on top of each other for 0.3 s or more
+//              (data-overlap="ok" opts out)
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -592,7 +596,7 @@ export async function gate({ video = null, project = null, plan = null, scenes =
         const tf = await textFit(pj);
         findings.push(...tf.findings);
         skipped.push(...tf.skipped, ...tf.could_not_run.map((c) => `${c} (not measured, never passed)`));
-        measured.text_fit = { pages: tf.pages, samples: tf.samples, cropped: tf.findings.length };
+        measured.text_fit = { pages: tf.pages, samples: tf.samples, cropped: tf.findings.filter((f) => f.check === "text-cropped").length, too_brief: tf.findings.filter((f) => f.check === "text-too-brief").length, overlap: tf.findings.filter((f) => f.check === "text-overlap").length };
       } else skipped.push("text-fit: skipped (--no-text-fit)");
     }
   }

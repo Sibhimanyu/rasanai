@@ -1,7 +1,9 @@
 // text-fit on a tiny fixture project: a composition with a line that overflows the frame, a line that sits outside the
 // safe area at rest, a fitting line, a deliberate 0.2 s push-through (the allowance is 1.2 s), an off-screen line waiting to enter and a line
 // masked by an overflow:hidden parent. motion-gate.mjs --project and slop.mjs --project report `text-cropped` for the
-// first two (with the time range and the text) and nothing else. Skipped with a note when no Chrome is available.
+// first two (with the time range and the text) and nothing else. Also reading: a 7-word line visible 0.5 s is `text-too-brief`
+// (held 3 s, or SplitText-style word spans staggered in and held, passes; data-read="skim" opts out); two lines on top of each
+// other for 1 s are `text-overlap` (a 0.2 s crossfade passes; data-overlap="ok" opts out). Skipped with a note when no Chrome is available.
 // export default async function ({ ok, node, tmp }).
 import fs from "node:fs";
 import path from "node:path";
@@ -65,4 +67,27 @@ ${body}
   ok("text-fit: slop.mjs reports the same overflow as rule text-cropped (exit 2)", s2.status === 2 && (sj.findings || []).some((f) => f.rule === "text-cropped" && /Overflowing headline/.test(f.where)), s2.stdout.slice(0, 300));
   const s1 = json(node("slop.mjs", ["--project", clean, "--json"]));
   ok("text-fit: slop.mjs does not flag the fitting project", !(s1.findings || []).some((f) => f.rule === "text-cropped"), JSON.stringify(s1.findings || []).slice(0, 300));
+  // reading time (text-too-brief) and overlap (text-overlap)
+  const line = (id, txt, extra = "", top = 400) => `<h2 id="${id}" ${extra} style="position:absolute;left:160px;width:1600px;text-align:center;top:${top}px;font:600 64px/1 Arial;margin:0;opacity:0">${txt}</h2>`;
+  const seven = "Seven words that need a while here";
+  const gate = (root) => (json(node("motion-gate.mjs", ["--project", root, "--json"])).findings || []);
+  const brief = (fs_) => fs_.filter((f) => f.check === "text-too-brief");
+  const flash = mk("flash", line("a", seven), 'tl.set("#a",{opacity:1},1).set("#a",{opacity:0},1.5);');
+  const held = mk("held", line("a", seven), 'tl.set("#a",{opacity:1},0);');
+  const words = "Every word lands one by one".split(" ").map((w, i) => `<span class="w" style="display:inline-block;opacity:0">${w}</span>${i < 5 ? " " : ""}`).join("");
+  const split = mk("split", line("a", words), 'tl.set("#a",{opacity:1},0).to(".w",{opacity:1,duration:0.1,stagger:0.1},0.2);');
+  const skim = mk("skim", line("a", seven, 'data-read="skim"'), 'tl.set("#a",{opacity:1},1).set("#a",{opacity:0},1.5);');
+  const bf = brief(gate(flash)), bh = brief(gate(held)), bs = brief(gate(split)), bk = brief(gate(skim));
+  ok("text-fit: a 7-word line readable for 0.5 s is text-too-brief with the words, the range and the time it needs", bf.length === 1 && bf[0].severity === "error" && /readable for 0\.5 s \(1[–-]1\.5 s\); 7 words need 2\.7 s/.test(bf[0].message), JSON.stringify(bf).slice(0, 400));
+  ok("text-fit: the same line held 3 s passes", !bh.length, JSON.stringify(bh).slice(0, 300));
+  ok("text-fit: SplitText-style word spans staggered in and held are one line and pass", !bs.length, JSON.stringify(bs).slice(0, 300));
+  ok('text-fit: data-read="skim" opts a brief line out', !bk.length, JSON.stringify(bk).slice(0, 300));
+  const two = (extra) => mk("ovl" + (extra ? "-ok" : ""), line("a", "First line", extra) + line("b", "Second line", extra ? 'data-overlap="ok"' : "", 420), 'tl.set("#a",{opacity:1},0.5).set("#b",{opacity:1},0.5).set("#a",{opacity:0},1.5).set("#b",{opacity:0},1.5);');
+  const ov = gate(two("")).filter((f) => f.check === "text-overlap");
+  ok("text-fit: two lines on top of each other for 1 s are text-overlap (error, both texts, the range)", ov.length === 1 && ov[0].severity === "error" && /First line.*Second line/.test(ov[0].message), JSON.stringify(ov).slice(0, 400));
+  const xf = mk("xfade", line("a", "First line") + line("b", "Second line", "", 420), 'tl.set("#a",{opacity:1},0).set("#b",{opacity:1},0.95).set("#a",{opacity:0},1.15);');
+  ok("text-fit: a 0.2 s crossfade passes", !gate(xf).some((f) => f.check === "text-overlap"), JSON.stringify(gate(xf)).slice(0, 300));
+  ok('text-fit: data-overlap="ok" opts out of text-overlap', !gate(two("ok")).some((f) => f.check === "text-overlap"));
+  const so = json(node("slop.mjs", ["--project", flash, "--json"]));
+  ok("text-fit: slop.mjs reports text-too-brief under its own rule", (so.findings || []).some((f) => f.rule === "text-too-brief"), JSON.stringify(so.findings || []).slice(0, 300));
 }
