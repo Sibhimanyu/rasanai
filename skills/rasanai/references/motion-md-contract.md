@@ -42,7 +42,7 @@ waivers: []
 | `tempo.scale_ms` | the language's **pace**: reference lengths short to long. Not a grid; swatches and engines read it, and it scales `durations` |
 | `durations` | the distance formula: `base + travel x sqrt(travel / frame diagonal) + area x sqrt(area / frame area)`, clamped to `min`..`max` ms, jittered ±`jitter`, exits x`exit_k`. `pace` = the middle `scale_ms` value / 500 ms |
 | `easing` | the language's signature curves (enter, exit, move). They stay in the family as `snap`, `exit` and `move` |
-| `curves` | a curve per role: `launch`, `glide`, `expressive`, `exit`, `settle`, `snap`, `drift`, `move`. GSAP names, `cubic-bezier(x1,y1,x2,y2)` or `spring(damping, omega)`; `RasanMotion.ease(name)` turns any of them into an ease function (no CustomEase needed) |
+| `curves` | a curve per role: `launch`, `glide`, `expressive`, `exit`, `settle`, `snap`, `drift`, `move`. GSAP names, `cubic-bezier(x1,y1,x2,y2)` or `spring(damping, omega)`; `RasanMotion.ease(name)` turns any of them into an ease function (no CustomEase needed); the twelve measured eases (`softLand`, `snapSettle`, `accelExit`, `measured.glide` ... : `references/craft.md`, "Frame budgets") are valid curve names too |
 | `mix` | what obey enforces once a film has `min_gestures` gestures: at least `min_families` curve families, no curve on more than `max_share` of gestures, no duration (to the frame) on more than `max_duration_share` |
 | `overlap` | the next gesture starts at 55–75% of the last; secondaries trail by 2–4 frames |
 | `stagger` | the average spacing, the largest total spread, the distribution curve and ±1 frame of jitter. Never a constant step |
@@ -95,6 +95,9 @@ Enter, exit and move tweens are the film's **gestures**. A staggered tween is on
 | `snap-and-die` | warning | over a quarter of the travels longer than 10% of the frame take under 0.5 s |
 | `camera-too-short` | error | a camera tween under 1.0 s |
 | `hold-too-short` | warning | per element: from the end of its entrance to the start of its next exit < `holds.min_ms` x 0.85 |
+| `entrance-too-long` | warning | an entrance (a fade, scale, mask, wipe or blur-in) over 1.2 s, or over the language's own `durations.max_ms` when that is longer (a slow language keeps its pace) |
+| `entrance-too-short` | warning | an entrance under 3 frames at 30 fps |
+| `scale-from-zero` | warning | an entrance that scales a whole element from 0.05x or less to full size (right only when the growth is the content; waive it there; skipped when the language's own `entrances` are pops or scales, such as `char-pop`) |
 | `opaque-motion` | warning | a file whose motion lives in a `render(t)` function driven by one clock tween: obey cannot see it, the fluency gate on the draft judges it |
 | `banned:<name>` | error | the tween matches a banned signature (below) |
 | `non-gsap` | error | CSS `@keyframes`, anime.js, or WAAPI `animate([...])` in a composition file |
@@ -149,7 +152,7 @@ The pixel half of the same tell list is the frame gate's `flat-swatch-grounds` (
 
 ## The draft: fluency
 
-`motion-gate.mjs --video <draft.mp4>` measures the rendered film (`lib/fluency.mjs`: block-matching motion on 480 px grey frames, moving regions tracked into moves) and fails a film whose weighted fluency score is under 0.70: curve-shape spread (t50 IQR ≥ 0.18, weight 3), two or more motions at once (≥ 55% of active frames, 2), median visible move (≥ 0.32 s, 2), settle share (≥ 6.5%, 2), duration spread (entropy ≥ 0.8), arcs (≥ 35% of travels), dead frames (≤ 30%), cuts between poses at rest (≤ 12%). Under 15 tracked moves it says so instead of judging. `stillness` waives dead frames, cuts at rest and concurrency. `node motion-gate.mjs fluency --video <film>` prints the measurement alone. The calibration table is in `.context/night/done-W7.md`.
+`motion-gate.mjs --video <draft.mp4>` measures the rendered film (`lib/fluency.mjs`: block-matching motion on 480 px grey frames, moving regions tracked into moves) and fails a film whose weighted fluency score is under 0.70: curve-shape spread (t50 IQR ≥ 0.18, weight 3), two or more motions at once (≥ 55% of active frames, 2), median visible move (≥ 0.32 s, 2), settle share (≥ 6.5%, 2), duration spread (entropy ≥ 0.8), arcs (≥ 35% of travels), dead frames (≤ 30%), cuts between poses at rest (≤ 12%). Under 15 tracked moves it says so instead of judging. With a plan (`--plan` or `--scenes`) it also fails `duration-mismatch` when the render length is more than 0.25 s or 2% (whichever is larger) off the planned duration. The end card may hold at most 1.4 s still after its last move (`end_hold_s` in the plan, or `--end-hold`, lifts it). `stillness` waives dead frames, cuts at rest and concurrency. `node motion-gate.mjs fluency --video <film>` prints the measurement alone. The calibration table is in `.context/night/done-W7.md`.
 
 ## Adjectives (`motion-md.mjs write --adjust a,b`)
 
