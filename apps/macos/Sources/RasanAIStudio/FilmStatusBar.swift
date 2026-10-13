@@ -127,8 +127,8 @@ struct FilmStatusBar<Usage: View>: View {
                         Text(title)
                     }.frame(minWidth: 96)
                 }
+                // No Return shortcut: Return while typing a note must never approve a call by accident.
                 .buttonStyle(.borderedProminent).controlSize(.large)
-                .keyboardShortcut(.defaultAction)
                 .disabled(!canAct || !actions.primaryEnabled)
             }
         }
