@@ -26,11 +26,9 @@ struct StoryStage: View {
 
     var body: some View {
         let all = scripts
-        let recTitle = all.first { $0.id == recommendedID }?.title
         StageScaffold(model: model, step: step,
                       question: payload["question"].string ?? "Which story should we tell?",
                       context: payload["context"].string,
-                      recommended: recTitle,
                       maxWidth: 1000) {
             VStack(alignment: .leading, spacing: 26) {
                 if all.isEmpty {
