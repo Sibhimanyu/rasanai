@@ -131,8 +131,11 @@ if (cmd === "init") {
   // the motion vocabulary (assets/rasan-motion/: RasanMotion verbs with the film's motion.md baked in) when referenced
   const mk = await import("./lib/motionkit.mjs");
   const motion = args.runtime || mk.projectUsesMotion(dir) || /RasanMotion/.test(sb) ? mk.install(dir) : null;
+  // the native-UI rebuild kit (assets/rasan-ui/) when a composition or the storyboard names RasanUI (references/ui-rebuild.md)
+  const uk = await import("./lib/uikit.mjs");
+  const ui = args.runtime || uk.projectUsesUI(dir) || /RasanUI/.test(sb) ? uk.installUI(dir) : null;
   const tagged = cam.tagCompositions(dir, { camera: !!camera, plugins: !!plugins });
-  console.log(JSON.stringify({ ok: true, injected: done, direction: !!dirSection, ...(shape ? { shape: { runtime: path.relative(process.cwd(), shape.dir), scripts: shape.scripts } } : {}), ...(camera ? { camera: { runtime: path.relative(process.cwd(), camera.dir), script: camera.script } } : {}), ...(plugins ? { gsap_plugins: { file: path.relative(process.cwd(), plugins.file), script: plugins.script, registers: plugins.registers } } : {}), ...(motion ? { motion: { runtime: path.relative(process.cwd(), motion.dir), scripts: motion.scripts } } : {}), ...(tagged.length ? { tagged } : {}), ...(three ? { three: { runtime: path.relative(process.cwd(), three.dir), script: three.script } } : {}) }, null, 2));
+  console.log(JSON.stringify({ ok: true, injected: done, direction: !!dirSection, ...(shape ? { shape: { runtime: path.relative(process.cwd(), shape.dir), scripts: shape.scripts } } : {}), ...(camera ? { camera: { runtime: path.relative(process.cwd(), camera.dir), script: camera.script } } : {}), ...(plugins ? { gsap_plugins: { file: path.relative(process.cwd(), plugins.file), script: plugins.script, registers: plugins.registers } } : {}), ...(motion ? { motion: { runtime: path.relative(process.cwd(), motion.dir), scripts: motion.scripts } } : {}), ...(ui ? { ui: { runtime: path.relative(process.cwd(), ui.dir), script: ui.script } } : {}), ...(tagged.length ? { tagged } : {}), ...(three ? { three: { runtime: path.relative(process.cwd(), three.dir), script: three.script } } : {}) }, null, 2));
 } else if (cmd === "audio-lock") {
   const dir = projectDir();
   if (!args.music) die("--music <file> required");

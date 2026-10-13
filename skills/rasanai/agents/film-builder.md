@@ -41,6 +41,8 @@ Raw GSAP is fine where the kit has no verb (UI state changes, counters, morphs w
 
 **RasanShape** (`references/shape.md`) for morph, draw-on, ink, dissolve, squash, smear; **Rasan3D** (`references/3d.md`, start from `stage3d.mjs scaffold`) where the plan puts a beat in `3d` or `hybrid`.
 
+**RasanUI** (`runtime/rasan-ui.js`, `references/ui-rebuild.md`; `uikit.mjs install --project <project>`, load after GSAP as `../../assets/rasan-ui/rasan-ui.js`) for any beat whose proof is a piece of the product: the captured screen rebuilt from the film's brand tokens (`U.mount({ captured: true, source })` writes `data-ui="captured"`), a cursor on its own top layer with press physics (2 f down to 0.71-0.90, 3 f up, the target 0-1 f later, never a ripple ring), typing only inside `U.input`, text at 0.04 H or more and the hero at 0.55 W or more or cropped (`U.check` warns). No greeting headers, no label . value dot cards, no placeholder copy: the kit throws on them. Call `U.finish()` last.
+
 ## Recipes (the numbers)
 
 - **A beat:** the camera layer starts first (a 1.5 to 4% push or a 0.5 to 1.5%/s drift); the hero launches hard and glides long; secondaries trail it by 2 to 4 frames; the next gesture starts at 55 to 75% of the last; the hero lands with a settle when it is a landing. Two or three things move at once at the peak.
