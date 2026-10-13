@@ -106,8 +106,12 @@ public struct FormatCatalog: Decodable, Equatable, Sendable {
         let slots = inputSlots(for: option)
         return (slots.first { $0.required && $0.takesText } ?? slots.first { $0.takesText })?.prompt
     }
-    /// The prompt shown in the footage well when the option wants a folder of clips.
-    public func folderPrompt(for option: Option) -> String? { inputSlots(for: option).first { $0.takesFolder }?.prompt }
+    /// The prompt shown in the footage well when the option wants a folder of clips. Folders that are not footage (a
+    /// brand kit, the app's code) have their own place and never speak for the footage well.
+    public func folderPrompt(for option: Option) -> String? {
+        inputSlots(for: option).first { $0.takesFolder && !Self.nonFootageFolders.contains($0.id) }?.prompt
+    }
+    static let nonFootageFolders: Set<String> = ["brand-kit", "code"]
 
     /// The "many uses or one job?" question, only for options that ask one (feature launch).
     public func scopeQuestion(for option: Option) -> ScopeQuestion? { option.scopeQuestion }

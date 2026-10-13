@@ -130,6 +130,8 @@ final class FormatPickerTests: XCTestCase {
         XCTAssertEqual(catalog.inputSlots(for: feature).map(\.id), ["url", "feature"])
         let reel = try XCTUnwrap(catalog.option("social-reel"))
         XCTAssertTrue(catalog.folderPrompt(for: reel)?.contains("folder with your clips") == true)
+        // A brand kit is a folder, but not footage: it must not speak for the footage well.
+        XCTAssertNil(catalog.folderPrompt(for: try XCTUnwrap(catalog.option("launch-film"))))
         let song = try XCTUnwrap(catalog.option("lyric-video"))
         XCTAssertTrue(catalog.inputSlots(for: song).contains { $0.id == "song" && $0.accepts.contains("file") })
     }
