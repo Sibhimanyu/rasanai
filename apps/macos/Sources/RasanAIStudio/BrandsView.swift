@@ -294,7 +294,7 @@ struct BrandPage: View {
                 Divider()
                 Button("Delete Brand…", role: .destructive) { confirmDelete = true }
             } label: { Label("More", systemImage: "ellipsis") }
-                .menuIndicator(.hidden)
+                .menuIndicator(.hidden).tint(.primary)   // a toolbar tool, white like its neighbours, not the brand tint
         }
         .confirmationDialog("Move \(model?.name ?? "this brand") to the Trash?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Move to Trash", role: .destructive) {

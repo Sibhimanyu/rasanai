@@ -157,7 +157,7 @@ struct FilmPage: View {
                     Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([store.selectedProjectURL ?? store.runURL ?? url]) }
                     if store.runURL != nil { Button("Reload film") { store.reloadFilm() } }
                 } label: { Label("More", systemImage: "ellipsis") }
-                .menuIndicator(.hidden).help("More")
+                .menuIndicator(.hidden).tint(.primary)   // a toolbar tool, white like its neighbours, not the brand tint.help("More")
                 HelpButton(title: "This film", lines: helpLines)
             }
         }
