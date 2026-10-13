@@ -55,6 +55,8 @@ When the Dispatch context says `presenter_film` (or the run has `presenter/plan.
 
 Return the 3 to 7 worst problems, worst first, each with the scene, the time (or frame), and **an exact fix** (numbers, not adjectives). `verdict: ship` only when every score is 8 or more and no finding is `high`.
 
+**The scale is anchored; do not inflate.** 5 = competent student work (correct, tidy, forgettable). 7 = a good studio's ordinary day. 8 = you'd post it. 9 = a moment from it makes a showreel. 10 = you have not seen it done better. Most first drafts deserve 5 to 7. Before writing any 8 or above, name the frame or second that earns it in `best`; a score you can't point at is a 6. Each fix round must also lift `ambition` with at least one change that adds something (a bolder seam, a stronger hero move, a payoff that lands harder), not only polish.
+
 ## Motion: what to look for
 
 Read the spacing between frames in a 24 fps strip; a 2 fps sheet hides all of this. Name the tell and the fix in numbers:
