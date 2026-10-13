@@ -162,10 +162,9 @@ struct HeaderSearchField: View {
                 Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }.buttonStyle(.plain).accessibilityLabel("Clear search")
             }
         }
-        .font(.system(size: 13))
-        .padding(.horizontal, 12).frame(width: 260, height: 34)
-        .background(Workspace.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Workspace.hairline, lineWidth: 1) }
+        .font(.system(size: 14))
+        .padding(.horizontal, 14).frame(width: 300, height: 36)
+        .liquidGlass(in: Capsule())
     }
 }
 
@@ -173,10 +172,16 @@ struct HeaderSearchField: View {
 struct NewFilmHeaderButton: View {
     let action: () -> Void
     var body: some View {
-        Button(action: action) {
-            Label("New film", systemImage: "plus")
+        let label = Label("New film", systemImage: "plus").font(.system(size: 14, weight: .semibold))
+        Group {
+            // A toolbar's prominent button on Tahoe: blue glass, capsule, the same height as the glass tools beside it.
+            if #available(macOS 26, *) {
+                Button(action: action) { label.padding(.horizontal, 6).frame(height: 28) }
+                    .buttonStyle(.glassProminent).tint(Color.rasanFill).controlSize(.large)
+            } else {
+                Button(action: action) { label }.buttonStyle(.rasanPrimary).controlSize(.large)
+            }
         }
-        .buttonStyle(.rasanPrimary).controlSize(.large)
         .keyboardShortcut("n", modifiers: .command)
     }
 }
