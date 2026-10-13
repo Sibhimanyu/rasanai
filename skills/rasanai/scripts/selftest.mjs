@@ -3318,6 +3318,17 @@ catch (e) { ok("plates: tests ran", false, String((e && e.stack) || e).split("\n
   ok("music: without a key the AI source says nothing and the catalog answers", noKey.chain?.find((c) => c.id === "ai")?.on === false && (noKey.options || []).some((o) => o.origin === "catalog") && !(noKey.notes || []).some((n) => /AI generation/.test(n)), JSON.stringify(noKey.notes));
 }
 
+// precedent lookup (adapted from motionmaxxing): offline, ranked, provenance-labelled, a bad beat is refused
+{
+  const pj = node("moments.mjs", ["precedent", "--beat", "hook", "--content", "type", "--q", "word bleed", "--limit", "4", "--json"]);
+  let pr = {}; try { pr = JSON.parse(pj.stdout); } catch {}
+  const sc = (pr.results || []).map((r) => r.score);
+  ok("precedent: a known beat returns ranked results, each labelled model-decoded and unverified, offline with no manifest or cache", pj.status === 0 && pr.total >= 700 && pr.results?.length === 4 && sc.every((v, i) => !i || sc[i - 1] >= v) && pr.results.every((r) => r.beat === "hook" && /model-decoded precedent \(motionmaxxing\), unverified: a hint, not a rule/.test(r.provenance)), pj.stdout.slice(0, 300) + pj.stderr);
+  const pt = node("moments.mjs", ["precedent", "--beat", "proof", "--content", "ui"]);
+  ok("precedent: the text form prints compact hints with the label; a bad --beat or no filter exits non-zero", pt.status === 0 && /unverified: a hint, not a rule/.test(pt.stdout) && node("moments.mjs", ["precedent", "--beat", "nope"]).status !== 0 && node("moments.mjs", ["precedent"]).status !== 0, pt.stdout.slice(0, 200));
+  ok("precedent: the third-party licence, notice and data ship in the skill", ["LICENSE", "NOTICE", "README.md", "moments.jsonl"].every((f) => fs.existsSync(path.join(HERE, "..", "third_party", "motionmaxxing", f))) && /Apache License/.test(fs.readFileSync(path.join(HERE, "..", "third_party", "motionmaxxing", "LICENSE"), "utf8")));
+}
+
 fs.rmSync(TMP, { recursive: true, force: true });
 console.log(failed ? `\n${failed} check(s) failed` : "\nall checks passed");
 process.exit(failed ? 1 : 0);

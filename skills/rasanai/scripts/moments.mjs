@@ -12,6 +12,9 @@
 //        -> downloads the bundle, checks its sha256, extracts it read-only under <run>/references/moments/<id>/ and records
 //           the credit in <run>/references/moments/credits.json (every moment used, with its creator and source URL)
 //   node moments.mjs credits --run <run>      -> the credits, and the line the Final's notes carry
+//   node moments.mjs precedent [--beat hook|turn|proof|cta (or problem, claim, demo, feature, lockup...)] [--content ui|type|logo|number|3d|abstract|photo] [--q "<words>"] [--limit 6] [--json]
+//        -> offline: ranked designer rules and study notes from third_party/motionmaxxing/moments.jsonl (Apache-2.0, adapted from motionmaxxing),
+//           each labelled "model-decoded precedent (motionmaxxing), unverified: a hint, not a rule"; never touches the network or the manifest
 // Offline (--no-network, or the network fails): the cached manifest; with no cache, an empty list and the fallback: the
 // library's own motion styles (library.mjs search --type motion).
 // Env (tests, mirrors): RASANAI_MOMENTS_MANIFEST (a URL or a file), RASANAI_MOMENTS_BUNDLES (a URL or a folder).
@@ -21,6 +24,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { parseArgs, die, STATE_DIR } from "./lib/common.mjs";
+import { precedent, formatHints } from "./lib/precedent.mjs";
 import { PLACES, PLACE_TO_ROLES, placeOf } from "./lib/moments-lib.mjs";
 
 export const MANIFEST_URL = "https://static.heygen.ai/hyperframes-oss/desktop/moments/v3/manifest.json";
@@ -168,10 +172,16 @@ if (cmd === "list" || cmd === "search") {
     const r = await fetchMoment(id, run, { role: args.role && args.role !== true ? String(args.role) : null, place: args.place && args.place !== true ? String(args.place).toLowerCase() : null, noNetwork: offline() });
     out({ ok: true, ...r, dir: path.relative(process.cwd(), r.dir), use: USE_NOTE, take_rule: "Take ONE mechanic as one sentence (what moves, on which axis, how long, what never stops) and build it fresh with this film's content; leave its copy, brand, bookends and frame tables behind (references/craft.md, The take rule)." });
   } catch (e) { out({ ok: false, id, error: e.message, fallback: FALLBACK }, 2); }
+} else if (cmd === "precedent") {
+  const v = (k) => (args[k] && args[k] !== true ? String(args[k]) : null);
+  try {
+    const p = precedent({ beat: v("beat"), content: v("content"), q: v("q") || v("query"), limit: Number(args.limit) || 6 });
+    if (args.json) out(p); else console.log(formatHints(p));
+  } catch (e) { die(e.message); }
 } else if (cmd === "credits") {
   if (!args.run || args.run === true) die("--run <run dir> required");
   const c = readCredits(path.resolve(String(args.run)));
   out({ ok: true, ...c, final_note: creditLine(c) });
 } else {
-  die("usage: moments.mjs list|search|fetch|credits (see the header)");
+  die("usage: moments.mjs list|search|fetch|precedent|credits (see the header)");
 }

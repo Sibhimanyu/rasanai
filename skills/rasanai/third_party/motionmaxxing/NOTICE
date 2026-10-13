@@ -1,0 +1,18 @@
+motionmaxxing: looksmaxxing for motion graphics
+Made by Tejas Makwana (x.com/makwanatejas170) · github.com/Tejashmakwana/motionmaxxing
+
+RasanAI uses material from motionmaxxing under the Apache License, Version 2.0
+(see LICENSE in this folder).
+
+The files in this folder (LICENSE, moments.jsonl, this NOTICE, README.md) and
+the code adapted from motionmaxxing elsewhere in RasanAI (marked in its
+comments "Adapted from motionmaxxing") are licensed under the Apache License,
+Version 2.0. They were modified by RasanAI: the precedent lookup is a Node port
+of the original's Python script, and its output is labelled and wired into
+RasanAI's own crew and scripts.
+
+The rest of RasanAI stays under its own licence (MIT, see the root LICENSE).
+
+Not copied and not covered here: motionmaxxing's bundled GSAP, three.js,
+opentype.js and Inter font (each under its own licence), and its docs, media
+and studies images (which show third-party brands).
