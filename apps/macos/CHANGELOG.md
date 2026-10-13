@@ -2,8 +2,9 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.8.0 (build 23) — 2026-10-13
 
+- Bundles RasanAI 1.14.0: reference moves are picked by taste with no fixed roles, placed by Claude on the chosen story's beats, and shown on the style frames with Swap.
 - **Moves I like, no fixed roles.** The Hook / Proof / Turn / Call to action slots are gone. The Get inspired tray is "Moves I like": up to four slots, each with an optional place (Opening, Between moments, Big moment, Ending, Anywhere, the default) from a small menu. Briefs carry `moments: [{id, place?}]`; old briefs with a `role` still load (hook becomes Opening, cta becomes Ending, the rest Anywhere). The role stays only as a search hint.
 - **Technique filters.** The gallery tabs are now All, New and plain technique groups built from each move's tags (Kinetic type, UI and cursor, Reveals and masks, Transitions, Numbers and counters, Camera and 3D, Collage and photo, Layout and motion, Line and shape, More). Role badges are off the cards.
 - **Expanded viewer with sound.** Click a card to watch the move large, with its audio on (cards stay muted). Play and pause, scrub, mute, loop, left and right for the previous or next move, Space, Esc. It shows the name, techniques, why, creator with a link to the original post, length, and Add to or Remove from Moves I like.

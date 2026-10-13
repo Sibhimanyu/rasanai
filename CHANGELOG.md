@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.14.0 (2026-10-13): moves you like
+
+- **Reference moments are role-free.** The Hook / Proof / Turn / Call to action slots are gone. A user picks moves by taste (up to four), each with an optional `place` (opening, between, peak, ending, anywhere; default anywhere), before the story exists. Old briefs with a `role` still load (hook becomes opening, cta becomes ending, the rest anywhere); the manifest's role tags stay as search hints.
+- **Claude places them on the chosen story's beats.** Once the story is chosen, the Motion Director puts each pick on the beat whose mechanic fits best, respecting `place`, and records `moments_placed: [{id, beat, take, why}]` in score.json. `moments.mjs search --place` and `fetch --place` carry the hint through.
+- **Shown on the boards, with Swap.** At the styleframes stage each frame shows the move placed on it, and the user can swap it for one of their moves, any gallery move, or none (`swap-moment`).
+- **`moment-unplaced`.** `crew.mjs check` warns when a picked move is carried by no beat, unless `moments_dropped` gives a reason.
+
 ## 1.13.0 (2026-10-12): picture-first
 
 Why: measured against ten reference films (Kinso, Sovra.fm, Google's "Ask Search Anything", OpenAI's "Refreshed.", mexicat's p(doom), the pixel manifesto and four Claude-made reels), our ChatGPT test films put 72 to 143 characters on screen (refs 12 to 21), never went giant (a line of 20% of the frame height in 0 to 2% of frames; refs 12 to 53%), were never soft, had a 0-chroma ground and almost no colour, and moved one thing at a time on one curve. The short-film path built the film from a text score with no pictures at all. An experiment with one designer drawing the same script picture-first beat the pipeline on 6 of 8 frames.
