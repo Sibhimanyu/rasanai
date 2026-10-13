@@ -371,7 +371,7 @@ Push `render` with `video` (the draft), `poster`, `scenes: [{id, title, start, t
   ```
 
   Run it after the gates pass; drafts and previews skip it (leave Rasan3D's default blur on in a draft). **Finishing with blur means the 3D scenes must not blur twice:** before the delivery render set `motionBlur: false` in every `Rasan3D.stage({...})` except a whip-speed 3D move (above ~3 000 px/s on screen), which keeps `motionBlur: { shutter: 0.25 }` with `--shutter 0.25` (`references/3d.md`, `references/finish.md`); `stage3d.mjs check` then warns `fast-without-blur` on any fast 3D move: expected, because the finish blurs it. Then `sound.mjs check` on the result.
-- Deliver: push `render` with the final `video` and `--status done` (the page offers the download), `activity --done`, and in chat the path plus one line: the film, the style, the motion language, all gates clean (or which were waived).
+- Deliver: push `render` with the final `video` and `--status done` (the page offers the download), `activity --done`, and in chat the path plus a short delivery note: the film, the style, the motion language, and the numbers the gates actually printed on this render (end hold, cut rate, loudness, the motion gate's freeze and fluency lines), which checks ran by script and which were judged by eye, what was waived, and what you would still improve (`references/craft.md` §10, step 5). A gate pass is a floor, not a verdict: do not call your own film clean or good.
 
 ## Footage reels (route `reel`)
 

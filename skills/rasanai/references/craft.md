@@ -20,6 +20,7 @@ The user decides **taste**: the brief, the film (its style and its story), notes
 6. **A spine and a motif.** Name before building the one device that threads the film: a persistent shape, a cursor, a hero prop, a rising number, a last frame that equals the first. Take one visual motif from the product itself (a gesture, a shape, an interaction) and reuse it at least 3 times. Viewers should remember the product, not "the aesthetic".
 7. **One spectacle beat, restraint everywhere else.** Name the single moment that gets the biggest move, the signature transition and the hero sound. Emphasis is contrast: uniform energy reads as flat.
 8. **Choices come from the brief, the brand and a named reference, never from avoiding a list.** The post-purple default (cream background, rust accent, italic serif with a highlighted word, tracked-caps eyebrows, ticker bars) is already called "the Claude look". A banned list only moves the default. Derive every visual choice from the chosen style and the product's own material, and rotate away from your recent picks.
+9. **Every beat buys something, and few beats are the point.** Each beat carries one line, "this beat buys ___": what the viewer gains (a belief, a fact, a feeling, a reason to keep watching), written as a change in the viewer, never an effect ("buys visual interest" is no purchase). Delete the beat; if the viewer loses nothing, cut it or merge it into its neighbour; if the line needs "and", split the beat. Then give each beat an importance of 1, 2 or 3: **at most about 25% of beats are importance 3**, and those get the scale, the camera move, the sound and the hardest work; importance 1 is small and quick. Animating every beat as if it mattered is the tell, because then nothing arrives. (Ideas adapted from motionmaxxing, Apache-2.0.)
 
 ---
 
@@ -478,6 +479,7 @@ Every tell is a default left in place, uniformity, an effect without a cause, or
 | Particle galaxy or torus, 3D cube-grid wave, truchet tiles [particles-unbudgeted] | One element from the story that moves for a reason; a dot field or burst only as the carrier or once on the payoff, budgeted. |
 | The three.js demo: a lone object spinning in a void, a constant-speed orbit, flat light with no rim or shadow, a torus knot, rainbow normals, a neon grid floor [stage3d: linear-drift, never-rests, stock-primitive, placeholder-material] | The product or the film's own object, blocked at real scale, one motivated key, a lens chosen for the shot, camera legs that land and hold (`references/3d.md`). |
 | "Name." lockup with a colored period | The brand's own lockup. |
+| The second-order defaults, what we reach for once the first list is banned: a giant cropped word, a marquee band, texture inside the letters, a colour flood or circle wipe between beats, a dot that becomes the logo, a lockup built from the motif | Each is fine once, with a cause this brand can state in a sentence (see "Works when" below). Together, or in every film, they make every brand look like one designer's reel: pick at most one, and take it from this brand's own material. |
 | Centered text on a soft gradient or blurred-blob background [centered-everything] | Anchor to the grid; a flat field or the style's surface; asymmetric layouts. |
 | The post-purple "Claude look": cream ground, rust accent, italic serif with a highlighted word, tracked eyebrows, ticker bars | Not a fallback palette. Italic or highlighted emphasis once per film at most; no ticker unless the idea is literally a feed. |
 
@@ -557,6 +559,22 @@ Every tell is a default left in place, uniformity, an effect without a cause, or
 | Opening on black [black-open] | A designed, postable frame 0. |
 | End card over 3 s, or still for more than 1.4 s; "thanks for watching"; social-icon walls | 2–3 s, one call to action, at most 1.4 s still. |
 
+**Works when: the condition that makes a usual tell legitimate.** The tables above are defaults, not laws; a critic bans a tell only after checking its row here. A tell with its condition met is a decision; without it, a default.
+
+| Usually a tell | Works when |
+|---|---|
+| Typewriter text with a caret | The product is something you type into and the typing happens inside its own input, or the caret becomes something (a divider, the logo's letter). Never a film headline, never the reveal style of every line. |
+| A dissolve or crossfade | The dissolve is the meaning (privacy, forgetting, time passing), or the brand voice is calm and reassuring, or one object fades (a last phrase). Never the join between every scene. |
+| A calm, still ending | A quiet brand, after sustained motion, with the mark already arrived (about 22 of 51 human-made films end calmly); still at most 1.5 s. |
+| A giant cropped word, or a giant first word | The idea wants that word huge, it arrives once with a cause (a camera pan, a surface), and scale is not spent again. |
+| A dot that becomes the logo; a lockup built from the motif; a transformation chain | The brand's own mark really is that shape and every link is true; otherwise the logo arrives by cause. |
+| A hard colour flip | The change is the story beat and one element carries across the cut. |
+| A count-up number | The number is the real offer, tied to the control that sets it; a proof number appears whole. |
+| A held frame | A designed breath of 0.6 to 1.5 s with a stated reason, just before a payoff, with one living thing on it. |
+| Page chrome: labels, counters, timecodes, headers, footers, kickers | **Never.** No condition. |
+
+(Ideas adapted from motionmaxxing, Apache-2.0.)
+
 **What reads as made, not generated** (ask for these; the critic checks for them): specificity over category (real UI, real data, numbers with units); one idea and one product-derived motif; a point of view, even humor or a risk; restraint (fewer effects, fewer movers, sounds only where they count); a visible human decision or imperfection left in on purpose; real texture and real sources (real photos, recorded sound); rhythm with dynamics (high and low points, cuts on the phrase); named references instead of adjectives; legibility and calm; honesty.
 
 **Don't overcorrect.** Keep the clarity conventions (reading order, legible UI, a call to action at the end); deviate on voice, motif, palette, sound and structure. A film that avoids every item above but looks like the last three RasanAI films is its own house style: rotate.
@@ -578,7 +596,7 @@ Run these before the render question, in order. Never report a gate as passed if
    - **Motion and sound:** moves like a person animated it (a curve per role, long glides, overlap, settles, arcs, a living frame), no idle loops, cut sync, SFX causality; in 3D, lens, light and camera legs that land, and 2D ↔ 3D seams that match.
 
    It returns the 3–5 worst problems, each with a timestamp or frame number and an exact fix ("the card lands 6 frames early; delay it to frame 44"). Ship when every score is 8 or more. At most 2 fix passes; anything left goes to the render gate as fix-or-waive.
-5. **Report the gates** in the render-gate message: obey, stage3d, slop and sound status, the critic's scores, and any waivers.
+5. **Report the gates** in the render-gate message: obey, stage3d, slop and sound status, the critic's scores, and any waivers. **Quote the numbers, not the verdict**: the actual figures each gate printed on this render (cut rate, end hold, dead-air, loudness in LUFS, the motion gate's freeze and fluency lines, frame-gate values), which gates ran by script and which were judged by eye (the critic names them), and what you would still improve. A gate pass is a floor, not a verdict on taste: never write "clean" or "good" for your own film, and never report a gate that did not run.
 
 ### Frame metrics (`scripts/frame-gate.mjs`)
 

@@ -14,6 +14,8 @@ The question for every frame is one sentence: **would this sit in that reel with
 
 For each board: `node "$SKILL_DIR/scripts/frames.mjs" sheet --ours "$RUN/frames/<id>.png" --refs <one to three reference stills of its kind> --out "$RUN/frames/sheets/<id>.png" --title "<id> · <beat>"`, then look at the sheet. Also one sheet of the whole set (`--ours "$RUN/frames" --out "$RUN/frames/sheet.png"`) to judge variety: do neighbours change size, angle and ground, or does the film look like one frame eight times?
 
+**Describe first.** Before judging a board, write one plain sentence of what is in it ("a tilted report slab with a flat composer in front, on a dusk-blue ground") and keep it in the verdict as `sees`; a frame you cannot describe in a sentence, you did not look at. In `summary`, say which items you judged by eye and which `frames.mjs gate` measured.
+
 Judge by what is on screen, in this order:
 
 1. **Hero and scale.** One hero, 25% H or more, rebuilt UI at 3 to 6x with 1 to 2 lines. Or a screenshot shrunk into a frame?
@@ -31,7 +33,7 @@ If `frames.mjs gate` is installed, run `node "$SKILL_DIR/scripts/frames.mjs" gat
 { "round": 1,
   "summary": "5 of 8 at par; the two UI demos are screenshots, the end card is a tie with Kinso's",
   "frames": [
-    { "id": "04", "beat": "tap who had what", "kind": "ui-demo", "verdict": "close",
+    { "id": "04", "beat": "tap who had what", "kind": "ui-demo", "sees": "a tilted list slab with a flat composer in front on a dusk-blue ground", "verdict": "close",
       "ref": { "image": "frames/refs/video-reference-ask-01.jpg", "source": "Google, Ask Search Anything 0:43", "why": "a tilted UI slab with a flat composer in front: the same kind of frame" },
       "fixes": [ "lower the tilt from rotateX 38 to 22: the header shears and reads italic",
                  "move the focus band 90 px down so the ticked row, not the header, is sharp" ] } ],
