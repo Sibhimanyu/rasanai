@@ -6,6 +6,20 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.9.0 beta 1</title>
+      <pubDate>Tue, 13 Oct 2026 16:25:05 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **Liquid Glass, built for real.** Studio is built against the current macOS SDK, so macOS Tahoe draws its glass chrome itself.
+- **A native sidebar app.** A system split view with the glass sidebar, which folds and opens with the system animation; folded, the toggle moves into the top bar.
+- **A proper toolbar.** Back and forward, a glass capsule search, a blue New film button and plain white ••• menus, with no toolbar band in full screen.
+- **The film page is an editor workspace,** with notes in a right inspector and one status bar for each stage's actions; its main button has no Return shortcut.
+- **New film uses the whole window,** with compact four-across format tiles, and the move viewer fits its video.]]></description>
+      <sparkle:version>26</sparkle:version>
+      <sparkle:shortVersionString>0.9.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.9.0-beta.1/RasanAI-Studio-0.9.0.dmg" sparkle:edSignature="P7J5Ces4M52dQaRVlyPHiZVj/7Qcahds/cvICRIRKTAKxfNxJPoC6NMlqok1iNt5Fvzg7UeIm2lZH7OEIVqwAw==" length="74499006" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.8.2 beta 1</title>
       <pubDate>Tue, 13 Oct 2026 08:51:24 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **A calmer, more professional finish.** New film is the one loud action on Home, the Home toolbar is icon-only with tooltips, and Story and Look name Claude's pick once, on the option.
