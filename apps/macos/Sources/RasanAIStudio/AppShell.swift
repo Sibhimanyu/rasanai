@@ -34,6 +34,15 @@ struct AppSidebar: View {
 
     var body: some View {
         List(selection: Binding(get: { current }, set: { if let place = $0 { go(place) } })) {
+            // The brand as the list's first line: the mark and the name at full weight, not a small grey section header.
+            HStack(spacing: 10) {
+                RasanMark().fill(Color.rasanInk).frame(width: 18, height: 22)
+                Text("RasanAI Studio").font(.system(size: 15, weight: .semibold)).foregroundStyle(.primary)
+            }
+            .padding(.leading, 2).padding(.top, 2).padding(.bottom, 8)
+            .listRowBackground(Color.clear)
+            .selectionDisabled()
+            .accessibilityElement(children: .combine).accessibilityAddTraits(.isHeader)
             Section {
                 Label("Home", systemImage: "house").tag(StudioPlace.home)
                 Label("All films", systemImage: "film.stack").tag(StudioPlace.all)
@@ -41,17 +50,13 @@ struct AppSidebar: View {
                 Label("Brands", systemImage: "tag").tag(StudioPlace.brands)
                 Label("Templates", systemImage: "square.grid.2x2").tag(StudioPlace.templates)
                 Label("Inspiration", systemImage: "sparkles").tag(StudioPlace.inspire)
-            } header: {
-                HStack(spacing: 8) {
-                    RasanMark().fill(Color.rasan).frame(width: 14, height: 17)
-                    Text("RasanAI Studio")
-                }
             }
             Section {
                 Label("Queue", systemImage: "list.bullet.rectangle").badge(store.settings.filmQueue.count).tag(StudioPlace.queue)
             }
         }
         .listStyle(.sidebar)
+        .tint(Color.rasan)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Button { openSettings() } label: { Label("Settings", systemImage: "gearshape").frame(maxWidth: .infinity, alignment: .leading) }
                 .buttonStyle(.plain).foregroundStyle(.secondary)
