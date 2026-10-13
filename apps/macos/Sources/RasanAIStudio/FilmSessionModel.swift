@@ -51,6 +51,10 @@ final class FilmSessionModel {
     /// The right inspector (Notes and Decisions) is open.
     var decisionsPresented = false
     var inspectorTab: InspectorTab = .notes
+    /// A note card in the inspector asks the player on the stage to jump to its moment (the stage watches `seekTick`).
+    private(set) var seekTime: Double = 0
+    private(set) var seekTick = 0
+    func requestSeek(_ time: Double) { seekTime = time; seekTick += 1 }
     /// Ask ids whose sheet the person dismissed; the inline card stays until it is answered.
     var dismissedAsks: Set<String> = []
 

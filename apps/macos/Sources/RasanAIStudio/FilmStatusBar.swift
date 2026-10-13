@@ -25,10 +25,9 @@ struct FilmStatusBar<Usage: View>: View {
             usage.fixedSize()
             if let actions, !model.isViewingPast, !sent, model.showsActions(for: actions.step) { buttons(actions) }
         }
-        .padding(.horizontal, 16)
-        .frame(maxWidth: .infinity, minHeight: 52)
-        .background(.bar)
-        .overlay(alignment: .top) { Divider() }
+        .padding(.horizontal, 18)
+        .frame(maxWidth: .infinity, minHeight: 64)
+        .workspacePanel()
         .onChange(of: turn) { lastActivityAt = Date() }
     }
 
@@ -121,11 +120,13 @@ struct FilmStatusBar<Usage: View>: View {
             }
             if let title = actions.primaryTitle {
                 Button { actions.onPrimary(note) } label: {
-                    HStack(spacing: 6) {
-                        if model.isSending { ProgressView().controlSize(.small) }
-                        else if let symbol = actions.primarySymbol { Image(systemName: symbol) }
+                    HStack(spacing: 8) {
                         Text(title)
-                    }.frame(minWidth: 96)
+                        if model.isSending { ProgressView().controlSize(.small) }
+                        else { Image(systemName: "arrow.right") }
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .padding(.horizontal, 6).frame(minWidth: 120, minHeight: 30)
                 }
                 // No Return shortcut: Return while typing a note must never approve a call by accident.
                 .buttonStyle(.borderedProminent).controlSize(.large)
@@ -149,7 +150,7 @@ struct FilmStatusBarHost<Content: View, Usage: View>: View {
     @State private var actions: FilmActions?
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: Workspace.gap) {
             content.onPreferenceChange(FilmActionsKey.self) { actions = $0 }
             if visible {
                 FilmStatusBar(model: model, turn: turn, actions: actions, onDetails: onDetails, onPause: onPause, onResume: onResume) { usage }

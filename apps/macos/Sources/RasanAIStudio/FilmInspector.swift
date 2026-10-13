@@ -1,23 +1,49 @@
 import StudioCore
 import SwiftUI
 
-/// The film page's right inspector, full window height: a segmented switch at the top, then the step's notes or every decision.
+/// The film page's right inspector panel: underlined tabs (Notes with its open count, Decisions), "Tell director" on the
+/// right, then the step's notes or every decision.
 struct FilmInspector: View {
     @Bindable var model: FilmSessionModel
+    private var openNotes: Int { model.snapshot.notes.filter { $0.step == model.shownStep && $0.isOpen }.count }
+
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Inspector", selection: $model.inspectorTab) {
-                ForEach(InspectorTab.allCases) { Text($0.rawValue).tag($0) }
+            HStack(spacing: 22) {
+                tab(.notes, title: openNotes > 0 ? "Notes (\(openNotes))" : "Notes")
+                tab(.decisions, title: "Decisions")
+                Spacer(minLength: 8)
+                Button { model.beginTell() } label: {
+                    Label("Tell director", systemImage: "plus").font(.system(size: 12.5, weight: .medium))
+                        .padding(.horizontal, 10).frame(height: 28)
+                        .overlay { RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.primary.opacity(0.16), lineWidth: 1) }
+                        .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                }
+                .buttonStyle(.plain).help("Write to Claude about this step (⌘K)")
             }
-            .pickerStyle(.segmented).labelsHidden()
-            .padding(.horizontal, 12).padding(.vertical, 10)
-            Divider()
+            .padding(.horizontal, 16).frame(height: 52)
+            .overlay(alignment: .bottom) { Rectangle().fill(Workspace.hairline).frame(height: 1) }
             switch model.inspectorTab {
             case .notes: NotesInspector(model: model)
             case .decisions: DecisionsInspector(model: model)
             }
         }
-        .inspectorColumnWidth(min: 280, ideal: 330, max: 440)
+        .frame(width: 340)
+        .frame(maxHeight: .infinity)
+        .workspacePanel()
+    }
+
+    private func tab(_ which: InspectorTab, title: String) -> some View {
+        let on = model.inspectorTab == which
+        return Button { model.inspectorTab = which } label: {
+            Text(title).font(.system(size: 14, weight: on ? .semibold : .regular))
+                .foregroundStyle(on ? Color.primary : Color.secondary)
+                .frame(maxHeight: .infinity)
+                .overlay(alignment: .bottom) { Rectangle().fill(on ? Color.rasan : .clear).frame(height: 2) }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 }
 
@@ -48,6 +74,7 @@ struct NotesInspector: View {
         return ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
+                    InspectorReviewNotes(model: model, step: step)
                     StageSectionTitle(StepCatalog.label(step))
                     if messages.isEmpty && !replying {
                         Text("Notes you leave on this step, and Claude's replies, appear here. Claude reads a note before it moves on.")
@@ -116,8 +143,8 @@ struct ThreadBubble: View {
     }
 }
 
-/// Wraps a film page so the inspector runs the window's full height beside it. Opens by default when the window is wide
-/// (over 1100 pt) and then remembers the person's last choice. ⌘K opens it on Notes with the composer focused.
+/// Lays the inspector panel beside the stage panel. Opens by default when the window is wide (over 1100 pt) and then
+/// remembers the person's last choice. ⌘K opens it on Notes with the composer focused.
 struct DecisionsHost<Page: View>: View {
     @Bindable var model: FilmSessionModel
     let page: Page
@@ -129,22 +156,110 @@ struct DecisionsHost<Page: View>: View {
     @State private var applied: Bool?
 
     var body: some View {
-        page
-            .inspector(isPresented: $model.decisionsPresented) { FilmInspector(model: model) }
-            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
-                guard remembersState, !configured else { return }
-                configured = true
-                let open = stored == 0 ? width > 1100 : stored == 1
-                if open != model.decisionsPresented { applied = open; model.decisionsPresented = open }
+        HStack(spacing: Workspace.gap) {
+            page.frame(maxWidth: .infinity, maxHeight: .infinity)
+            if model.decisionsPresented {
+                FilmInspector(model: model).transition(.move(edge: .trailing).combined(with: .opacity))
             }
-            .onChange(of: model.decisionsPresented) { _, open in
-                guard remembersState, configured else { return }
-                if applied == open { applied = nil; return }
-                stored = open ? 1 : 2
+        }
+        .animation(.snappy(duration: 0.22), value: model.decisionsPresented)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
+            guard remembersState, !configured else { return }
+            configured = true
+            let open = stored == 0 ? width > 1000 : stored == 1
+            if open != model.decisionsPresented { applied = open; model.decisionsPresented = open }
+        }
+        .onChange(of: model.decisionsPresented) { _, open in
+            guard remembersState, configured else { return }
+            if applied == open { applied = nil; return }
+            stored = open ? 1 : 2
+        }
+        .background {
+            Button("Tell Claude") { model.beginTell() }.keyboardShortcut("k", modifiers: .command)
+                .opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
+        }
+    }
+}
+
+/// The stage panel. A stage that lays out its own panels (the animatic's player and filmstrip) says so through
+/// `StageDrawsPanelsKey` and is drawn straight on the canvas instead.
+struct StagePanelHost<Content: View>: View {
+    @ViewBuilder var content: Content
+    @State private var ownPanels = false
+    var body: some View {
+        content
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onPreferenceChange(StageDrawsPanelsKey.self) { ownPanels = $0 }
+            .modifier(OptionalPanel(on: !ownPanels))
+    }
+}
+
+private struct OptionalPanel: ViewModifier {
+    let on: Bool
+    func body(content: Content) -> some View {
+        if on { content.workspacePanel() } else { content }
+    }
+}
+
+/// The review notes on the step (the animatic's or the final's), as cards: the frame at that moment, the time in amber,
+/// the note. A click jumps the player there; the note on the scene being played is outlined.
+private struct InspectorReviewNotes: View {
+    let model: FilmSessionModel
+    let step: String
+    private var stage: ReviewStage? { step == "animatic" ? .animatic : ["final", "render"].contains(step) ? .final : nil }
+
+    var body: some View {
+        let notes = model.snapshot.notes.filter { $0.step == step }.sorted { ($0.isOpen ? 0 : 1, $0.time) < ($1.isOpen ? 0 : 1, $1.time) }
+        if let stage, !notes.isEmpty {
+            let scenes = model.snapshot.scenes(for: stage)
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(notes) { note in
+                    let index = FilmTiming.sceneIndex(of: note, in: scenes)
+                    InspectorNoteCard(note: note, thumbnail: index.flatMap { scenes[$0].thumbnail }, current: model.seekTick > 0 && abs(model.seekTime - note.time) < 0.05) {
+                        model.requestSeek(note.time)
+                    }
+                }
             }
-            .background {
-                Button("Tell Claude") { model.beginTell() }.keyboardShortcut("k", modifiers: .command)
-                    .opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
+            .padding(.bottom, 6)
+        }
+    }
+}
+
+private struct InspectorNoteCard: View {
+    let note: ReviewNote
+    let thumbnail: String?
+    let current: Bool
+    let seek: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: seek) {
+            HStack(alignment: .top, spacing: 12) {
+                ZStack {
+                    Workspace.raised
+                    if let thumbnail { PayloadImage(path: thumbnail, contentMode: .fill, maxPixels: 300) }
+                    else { Image(systemName: note.scope == "film" ? "film" : "photo").foregroundStyle(.tertiary) }
+                }
+                .frame(width: 96, height: 60).clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(reviewTime(note.time)).font(.system(size: 12.5, weight: .semibold)).monospacedDigit().foregroundStyle(Workspace.amber)
+                    Text(note.text).font(.system(size: 13)).foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true)
+                        .strikethrough(!note.isOpen, color: .secondary)
+                    if !note.isOpen, let resolution = note.resolution, !resolution.isEmpty {
+                        Label(resolution, systemImage: "checkmark").font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer(minLength: 0)
             }
+            .padding(10)
+            .background(hovering ? Workspace.raised : Color.clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay { RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(current ? Workspace.amber.opacity(0.8) : Workspace.hairline, lineWidth: current ? 1.5 : 1) }
+            .opacity(note.isOpen ? 1 : 0.6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .accessibilityLabel("\(note.isOpen ? "Note" : "Resolved note") at \(reviewTime(note.time)): \(note.text)")
+        .accessibilityHint("Jumps the player to this moment")
     }
 }

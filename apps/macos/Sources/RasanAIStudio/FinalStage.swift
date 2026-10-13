@@ -11,6 +11,8 @@ struct FinalStage: View {
     init(model: FilmSessionModel, step: String) { self.model = model; self.step = step }
 
     @State private var playback = VideoPlayback()
+    @State private var stageHeight: CGFloat = 640
+    @State private var showChanges = false
 
     var body: some View {
         let payload = model.payload(step)
@@ -28,37 +30,31 @@ struct FinalStage: View {
         // Nothing to watch yet: the first call is a quick preview, and notes open once it exists.
         let notRendered = isRender && !done && videoURL == nil
 
-        StageScaffold(model: model, step: step,
-                      question: payload["question"].string ?? (isRender && !done ? "Ready to render the final?" : "Here's your film"),
-                      context: payload["context"].string ?? (isRender && !done ? "Rendering takes a few minutes. Preview first for a quick, lower-quality look." : nil),
-                      maxWidth: 1240) {
-            HStack(alignment: .top, spacing: 24) {
-                VStack(alignment: .leading, spacing: 14) {
-                    ReviewPlayerPanel(model: model, step: step, playback: playback, scenes: scenes, notes: allNotes,
-                                      aspect: model.snapshot.aspectRatio, canNote: canAct && playback.isReady, pinWindow: 2.5) {
-                        FinalFrame(playback: playback, posterPath: posterPath, hasVideo: videoURL != nil, notRendered: notRendered)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                VStack(alignment: .leading, spacing: 18) {
-                    controls(payload, isRender: isRender, done: done, canAct: canAct, firstPass: notRendered)
-                    changes(payload)
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            StageSectionTitle(open.isEmpty ? "Notes" : "Notes · \(open.count) open")
-                            Spacer()
-                            if !open.isEmpty && canAct && isRender {
-                                Button("Render without these notes") { Task { await model.send(step: step, type: "choose", value: .string("render")) } }
-                                    .buttonStyle(.link).font(.system(size: 12))
-                            }
-                        }
-                        ReviewNotesList(notes: allNotes, scenes: scenes, emptyHint: notRendered ? "Notes open once the preview exists. Watch it, then click the frame to leave one." : nil) { playback.seek(to: $0) }
-                        FilmNoteField(model: model, step: step, enabled: canAct)
-                    }
-                }
-                .frame(width: 290)
+        // The same editor layout as the animatic: the player fills the space, the scenes run as a filmstrip under it,
+        // notes live in the inspector, and the call's action sits in the bar at the bottom.
+        VStack(spacing: Workspace.gap) {
+            ReviewPlayerPanel(model: model, step: step, playback: playback, scenes: scenes, notes: allNotes,
+                              aspect: model.snapshot.aspectRatio, canNote: canAct && playback.isReady, pinWindow: 2.5, showStrip: false) {
+                FinalFrame(playback: playback, posterPath: posterPath, hasVideo: videoURL != nil, notRendered: notRendered)
             }
-        } actions: {
+            .environment(\.reviewFrameHeight, max(200, stageHeight - 96 - (scenes.isEmpty ? 56 : 168) - Workspace.gap))
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 10) {
+                    Text(scenes.isEmpty ? (isRender && !done ? "Ready to render" : "Your film") : "Scenes").font(.system(size: 13, weight: .semibold))
+                    if !scenes.isEmpty { Text("\(scenes.count)").font(.system(size: 12)).foregroundStyle(.secondary) }
+                    Spacer(minLength: 8)
+                    if !open.isEmpty && canAct && isRender {
+                        Button("Render without these notes") { Task { await model.send(step: step, type: "choose", value: .string("render")) } }
+                            .buttonStyle(.link).font(.system(size: 12))
+                    }
+                    changes(payload)
+                    controls(payload, isRender: isRender, done: done, canAct: canAct, firstPass: notRendered)
+                }
+                .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, scenes.isEmpty ? 10 : 0)
+                if !scenes.isEmpty { SceneFilmstrip(playback: playback, scenes: scenes, open: open) }
+            }
+            .frame(height: scenes.isEmpty ? 56 : 168, alignment: .top)
+            .workspacePanel()
             ReviewActionBar(model: model, step: step,
                             title: open.isEmpty ? (notRendered ? "Preview first" : isRender ? "Render the final" : "Export MP4") : "Apply \(open.count) note\(open.count == 1 ? "" : "s")",
                             symbol: open.isEmpty ? (notRendered ? "eye" : isRender ? "film.fill" : "square.and.arrow.down.fill") : "checkmark.bubble.fill",
@@ -71,7 +67,10 @@ struct FinalStage: View {
                 }
             }
         }
-        .reviewFrameFitting()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { stageHeight = $0 }
+        .preference(key: StageDrawsPanelsKey.self, value: true)
+        .onChange(of: model.seekTick) { playback.seek(to: model.seekTime) }
         .environment(model)
         .task(id: "\(videoURL?.path ?? "")") { playback.load(url: videoURL, fallbackDuration: duration) }
         .onDisappear { playback.shutdown() }
@@ -83,7 +82,7 @@ struct FinalStage: View {
     private func controls(_ payload: JSONValue, isRender: Bool, done: Bool, canAct: Bool, firstPass: Bool) -> some View {
         let versions = payload["versions"].array
         let current = payload["version"].identifier
-        FlowLayout(spacing: 8) {
+        HStack(spacing: 8) {
             if versions.count > 1 {
                 ReviewChip(symbol: "clock.arrow.circlepath", title: "Version", value: current.map { "v\($0)" } ?? "Latest", enabled: canAct) {
                     ForEach(versions.reversed().indices, id: \.self) { index in
@@ -127,21 +126,26 @@ struct FinalStage: View {
         return number + " · " + when
     }
 
+    /// "What changed in v3" as a quiet button in the filmstrip header; the list opens in a popover.
     @ViewBuilder
     private func changes(_ payload: JSONValue) -> some View {
         let items = payload["changes"].array.compactMap(\.string)
         if !items.isEmpty {
-            VStack(alignment: .leading, spacing: 9) {
-                StageSectionTitle("What changed" + (payload["version"].identifier.map { " in v\($0)" } ?? ""))
-                ForEach(items.indices, id: \.self) { index in
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Image(systemName: "sparkle").font(.system(size: 10)).foregroundStyle(Color.rasan)
-                        Text(items[index]).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
+            Button { showChanges.toggle() } label: {
+                Label("What changed" + (payload["version"].identifier.map { " in v\($0)" } ?? ""), systemImage: "sparkle").font(.system(size: 12))
+            }
+            .buttonStyle(.bordered).controlSize(.small)
+            .popover(isPresented: $showChanges, arrowEdge: .top) {
+                VStack(alignment: .leading, spacing: 9) {
+                    ForEach(items.indices, id: \.self) { index in
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Image(systemName: "sparkle").font(.system(size: 10)).foregroundStyle(Color.rasan)
+                            Text(items[index]).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                 }
+                .padding(16).frame(width: 340, alignment: .leading)
             }
-            .stageCard(padding: 14)
-            .accessibilityElement(children: .combine)
         }
     }
 }

@@ -9,6 +9,7 @@ struct AnimaticStage: View {
 
     @State private var playback = AnimaticPlayback()
     @State private var confirmStory = false
+    @State private var stageHeight: CGFloat = 640
 
     var body: some View {
         let payload = model.payload(step)
@@ -21,47 +22,38 @@ struct AnimaticStage: View {
         let duration = model.snapshot.duration(for: .animatic)
         let offset = payload["music"]["offset"].number ?? 0
 
-        StageScaffold(model: model, step: step,
-                      question: payload["question"].string ?? "Here's the whole film, rough",
-                      context: payload["context"].string,
-                      maxWidth: 1240) {
-            HStack(alignment: .top, spacing: 24) {
-                VStack(alignment: .leading, spacing: 14) {
-                    if scenes.isEmpty {
-                        emptyState
-                    } else {
-                        ReviewPlayerPanel(model: model, step: step, playback: playback, scenes: scenes, notes: allNotes,
-                                          aspect: model.snapshot.aspectRatio, canNote: canAct, pinWindow: nil,
-                                          caption: { index in index.flatMap { scenes.indices.contains($0) ? scenes[$0].line : nil } }) {
-                            AnimaticFrame(playback: playback, scenes: scenes)
-                        }
-                    }
+        // An editor's layout: the player fills the space, the scenes run as a filmstrip under it, notes live in the
+        // inspector beside it, and the call's action sits in the bar at the bottom.
+        VStack(spacing: Workspace.gap) {
+            if scenes.isEmpty {
+                emptyState.workspacePanel()
+            } else {
+                ReviewPlayerPanel(model: model, step: step, playback: playback, scenes: scenes, notes: allNotes,
+                                  aspect: model.snapshot.aspectRatio, canNote: canAct, pinWindow: nil, showStrip: false,
+                                  caption: { index in index.flatMap { scenes.indices.contains($0) ? scenes[$0].line : nil } }) {
+                    AnimaticFrame(playback: playback, scenes: scenes)
                 }
-                .frame(maxWidth: .infinity)
-                VStack(alignment: .leading, spacing: 14) {
-                    NowShowing(playback: playback, scenes: scenes)
-                    chips(payload, canAct: canAct)
-                    HStack {
-                        StageSectionTitle(open.isEmpty ? "Notes" : "Notes · \(open.count) open")
-                        Spacer()
+                .environment(\.reviewFrameHeight, max(200, stageHeight - 96 - 168 - Workspace.gap))
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 10) {
+                        Text("Scenes").font(.system(size: 13, weight: .semibold))
+                        Text("\(scenes.count)").font(.system(size: 12)).foregroundStyle(.secondary)
+                        Spacer(minLength: 8)
                         if !open.isEmpty && canAct {
                             Button("Build without these notes") { Task { await model.send(step: step, type: "approve") } }
                                 .buttonStyle(.link).font(.system(size: 12))
                                 .help("Skip these notes and build the film as it is.")
                         }
+                        chips(payload, canAct: canAct)
                     }
-                    ReviewNotesList(notes: allNotes, scenes: scenes) { playback.seek(to: $0) }
-                    FilmNoteField(model: model, step: step, enabled: canAct)
-                    if !open.isEmpty && canAct {
-                        Label("Claude revises the animatic and shows it again. Nothing is built until you say it looks right.", systemImage: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    }
+                    .padding(.horizontal, 14).padding(.top, 10)
+                    SceneFilmstrip(playback: playback, scenes: scenes, open: open)
                 }
-                .frame(width: 290)
+                .frame(height: 168)
+                .workspacePanel()
             }
-        } actions: {
             ReviewActionBar(model: model, step: step,
-                            title: open.isEmpty ? "Looks right, build it" : "Apply \(open.count) note\(open.count == 1 ? "" : "s")",
+                            title: open.isEmpty ? "Approve & build" : "Apply \(open.count) note\(open.count == 1 ? "" : "s")",
                             symbol: open.isEmpty ? "hammer.fill" : "checkmark.bubble.fill",
                             signature: open.map(\.id).joined(separator: ",")) {
                 Task {
@@ -70,7 +62,10 @@ struct AnimaticStage: View {
                 }
             }
         }
-        .reviewFrameFitting()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { stageHeight = $0 }
+        .preference(key: StageDrawsPanelsKey.self, value: true)
+        .onChange(of: model.seekTick) { playback.seek(to: model.seekTime) }
         .environment(model)
         .task(id: "\(audioURL?.path ?? "")|\(duration)|\(offset)") {
             playback.configure(duration: duration, audio: audioURL, offset: offset)
@@ -95,7 +90,7 @@ struct AnimaticStage: View {
         let voice = payload["voice"]
         let musicAlternatives = music["alternatives"].array
         let voiceAlternatives = voice["alternatives"].array
-        FlowLayout(spacing: 8) {
+        HStack(spacing: 8) {
             if music != .null {
                 ReviewChip(symbol: "music.note", title: "Music", value: music["title"].string ?? "Chosen", enabled: canAct && !musicAlternatives.isEmpty) {
                     ForEach(musicAlternatives.indices, id: \.self) { index in

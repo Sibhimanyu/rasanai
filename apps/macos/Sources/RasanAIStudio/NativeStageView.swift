@@ -109,6 +109,5 @@ struct NativeFilmView: View {
     var paused = false
     var body: some View {
         NativeStageView(model: model, startedAt: startedAt, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow, paused: paused)
-            .toolbar { FilmToolbarItems(model: model) }
     }
 }
