@@ -345,6 +345,18 @@ struct NewFilmView: View {
         }
         .buttonStyle(.plain).help("What are you making? Opens the format list")
         .accessibilityLabel("Format: \(formatLabel)")
+        // Home has no format grid on the page, so the chip opens it here.
+        .popover(isPresented: Binding(get: { embedded && changingFormat }, set: { changingFormat = $0 }), arrowEdge: .bottom) {
+            if let catalog {
+                ScrollView {
+                    FormatPickerView(catalog: catalog, pick: draft.format, canAct: !working,
+                                     onPick: { option in choose(option, in: catalog) },
+                                     onScope: { draft.format?.scope = $0 }, changing: $changingFormat, showsChip: false)
+                        .padding(16)
+                }
+                .frame(width: 740).frame(maxHeight: 560)
+            }
+        }
     }
 
     /// Everything that does not fit on the row, plus the quieter options: the model choice and Get inspired.
