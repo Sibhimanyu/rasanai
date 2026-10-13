@@ -24,8 +24,10 @@ struct StudioView: View {
                 stack
                 if showsStatusBar { AppStatusBar(store: store) }
             }
-            .background(Color(nsColor: .windowBackgroundColor))
         }
+        // One background for the whole window, under the floating sidebar too: the glass sits on the page's own colour,
+        // never on the desktop showing through.
+        .background(Color(nsColor: .windowBackgroundColor).ignoresSafeArea())
         .ignoresSafeArea(.container, edges: .top)
         // Every button without a style of its own is the flat secondary, never the system's bevelled push button.
         .buttonStyle(.rasanSecondary)
