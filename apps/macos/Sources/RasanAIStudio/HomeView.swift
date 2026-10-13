@@ -83,13 +83,16 @@ struct HomeView: View {
                     .background(Color(nsColor: .quaternaryLabelColor).opacity(0.5), in: Capsule())
                 }
                 Button { store.path.append(.queue) } label: { Label("Queue" + (store.settings.filmQueue.isEmpty ? "" : " (\(store.settings.filmQueue.count))"), systemImage: "list.number") }
+                    .help(store.settings.filmQueue.isEmpty ? "Film queue" : "Film queue (\(store.settings.filmQueue.count))")
                 Button { store.path.append(.templates) } label: { Label("Templates", systemImage: "doc.on.doc") }
-                Button { store.openBrands() } label: { Label("Brands", systemImage: "swatchpalette").labelStyle(.titleAndIcon) }
+                    .help("Film templates")
+                Button { store.openBrands() } label: { Label("Brands", systemImage: "swatchpalette") }
                     .help("Your colours, type and logos")
                 Menu {
                     Button("Check readiness…") { store.showPreflight() }
                     Button("Import Project…") { store.importProjectPanel() }
                 } label: { Image(systemName: "ellipsis.circle") }
+                .menuIndicator(.hidden).help("More")
                 HelpButton(title: "Home", lines: [
                     "Start a new film with the big button, or open one of your films below.",
                     "Right-click a film to rename, duplicate, archive or delete it.",
