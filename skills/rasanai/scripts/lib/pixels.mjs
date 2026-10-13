@@ -12,6 +12,7 @@
 //                yb = (R + G) / 2 - B.
 //   sat          mean HSV saturation, percent.
 //   hist         16 x 8 x 8 HSV histogram, compared by Bhattacharyya distance (hard cuts: > 0.35).
+//   swatch       9 points (3 x 3 grid), the 2 farthest from the median luma dropped: flat when the other 7 span under 6% luma; its rgb is the ground colour.
 //   thumb/edge   a 60 x 33 luma thumbnail and a 30 x 16 edge-density map, for the composition-change count.
 import { spawn, spawnSync } from "node:child_process";
 
@@ -159,7 +160,22 @@ export function frameMetrics(img) {
     if (gx * gx + gy * gy > 120 * 120) { const bx = Math.floor(x / 16), by = Math.floor(y / 16); if (bx < ew && by < eh) edge[by * ew + bx] += 1 / 256; }
   }
 
+  // swatch: 9 points (a 3 x 3 grid at 17 / 50 / 83%), each the mean of a 7 px patch; the 2 points farthest from the median luma
+  // are dropped (a headline or an object sits on some of them), and the frame is a flat swatch when the other 7 span less than
+  // 6% of the luma range. rgb is their mean: the ground's colour.
+  // Adapted from motionmaxxing (Apache-2.0, Tejas Makwana), references/slop.md N4 ("9 points, under 6% luma range = flat").
+  const pts = [];
+  for (const fy of [0.17, 0.5, 0.83]) for (const fx of [0.17, 0.5, 0.83]) {
+    const cx = Math.round(fx * (w - 1)), cy = Math.round(fy * (h - 1));
+    let sr = 0, sg = 0, sb = 0, c = 0;
+    for (let yy = Math.max(0, cy - 3); yy <= Math.min(h - 1, cy + 3); yy++) for (let xx = Math.max(0, cx - 3); xx <= Math.min(w - 1, cx + 3); xx++) { const i = (yy * w + xx) * 3; sr += rgb[i]; sg += rgb[i + 1]; sb += rgb[i + 2]; c++; }
+    pts.push({ r: sr / c, g: sg / c, b: sb / c, y: 0.299 * sr / c + 0.587 * sg / c + 0.114 * sb / c });
+  }
+  const medY = median(pts.map((p) => p.y)), keep = pts.slice().sort((a, b2) => Math.abs(a.y - medY) - Math.abs(b2.y - medY)).slice(0, 7);
+  const ys = keep.map((p) => p.y), swatch = { flat: (Math.max(...ys) - Math.min(...ys)) / 255 < 0.06, range: (Math.max(...ys) - Math.min(...ys)) / 255, rgb: [keep.reduce((s, p) => s + p.r, 0) / 7, keep.reduce((s, p) => s + p.g, 0) / 7, keep.reduce((s, p) => s + p.b, 0) / 7] };
+
   return {
+    swatch,
     groundRange: groundOk ? pct(tm, 95) - pct(tm, 5) : null, groundChroma: groundOk ? median(tc) : null, emptyShare: tm.length / tiles,
     soft: content ? soft / content : 0, structure: content / (Math.floor((h - 1) / S) * Math.floor((w - 1) / S) || 1),
     colourful, sat: 100 * satSum / n, meanL: sumL / n, hist, thumb, edge,
