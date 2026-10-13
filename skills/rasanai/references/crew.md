@@ -60,7 +60,7 @@ Style gate ── after the boards and after the first draft: brandfilm.mjs comp
 Art ───── after the Look and the concept gate: art-director → art/plan.json, art/assets/, art/assets.json, art/sheet.png, art/ART.md → art.mjs check; the Motion Director, film builder and scene animators read assets.json and ART.md
 Look ─── Director art-directs from the briefing (brand verdict, house grammar) → push look
 Look (a direct film with a brand) ─ decided: the brand's own look, pushed done with the reason; the motion comes from the moments
-Moments (direct films) ─ the user's picks, else moments.mjs search by role → moments.mjs fetch → each beat's moment and take in the plan
+Moments (direct films) ─ the user's picks (place hints, no role slots), else moments.mjs search --mechanic by fit to the story's beats → moments.mjs fetch → each pick placed on a beat (moments_placed, each beat's moment and take) in the plan
 Styleframes (every scene route) ─ frames.mjs init → styleframe-designer (direct: shot list, 3 heroes, every board; long: shot list + 3 heroes → frame-designers for the boards) → brandfilm.mjs compare on the boards (branded) → frame-juror (frames/verdict.json; below → the designer once) → frames.mjs payload → push styleframes (a branded direct film: the Look call; otherwise live)
 Look (three systems on a scene route) ─ 3 styleframe-designers (heroes-<Label>): each system's open, peak and end frames on the story → design.mjs look-payload carries them
 Animatic (a direct film) ─ the plan, scored from the boards → ONE film builder → draft render → motion gate → frames.mjs match (draft vs boards) → push animatic from the draft
