@@ -6,27 +6,20 @@ public enum ModelPlan: String, CaseIterable, Codable, Identifiable, Sendable {
     public var id: String { rawValue }
     public var title: String {
         switch self {
-        case .recommended: "Opus 5.5 + Sonnet 5.5"
-        case .opus: "Opus 5.5"
-        case .sonnet: "Sonnet 5.5"
-        case .settings: "Model from Settings"
+        case .recommended: "Balanced"
+        case .opus: "Opus only"
+        case .sonnet: "Sonnet only"
+        case .settings: "Same as Settings"
         }
     }
     /// The short label on the prompt box chip.
-    public var chipTitle: String {
-        switch self {
-        case .recommended: "Opus + Sonnet"
-        case .opus: "Opus 5.5"
-        case .sonnet: "Sonnet 5.5"
-        case .settings: "Settings model"
-        }
-    }
+    public var chipTitle: String { title }
     public var summary: String {
         switch self {
-        case .recommended: "Opus directs, writes and judges. Sonnet takes research and routine jobs, and at Fast pace the key frames and animation too."
-        case .opus: "Opus on every job. The most ambitious result, and the most usage."
-        case .sonnet: "Sonnet on every job. Fast and light on usage; plainer, safer motion."
-        case .settings: "Whatever model is set in Settings → Director (Default if empty)."
+        case .recommended: "Opus makes the creative calls. Sonnet does the research and routine work, so the film uses less of your plan."
+        case .opus: "Opus does everything. The most ambitious result; uses the most of your plan."
+        case .sonnet: "Sonnet does everything. Faster and lighter on your plan; simpler motion."
+        case .settings: "Uses the model chosen in Settings → Director."
         }
     }
     public var model: String? {

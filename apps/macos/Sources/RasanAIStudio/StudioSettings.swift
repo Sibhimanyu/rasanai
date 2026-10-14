@@ -302,7 +302,12 @@ struct StudioSettingsView: View {
                             Button("Choose…") { settings.chooseExecutable(for: agent) }
                         }
                     }
-                    TextField("Model", text: agent == .claude ? $settings.claudeModel : $settings.codexModel, prompt: Text("Default"))
+                    if agent == .claude {
+                        // New films use the plan chosen on New film; a typed model here would silently lose to it.
+                        LabeledContent("Models") { Text("Chosen for each film in New film").foregroundStyle(.secondary) }
+                    } else {
+                        TextField("Model", text: $settings.codexModel, prompt: Text("Default"))
+                    }
                 }
                 statusLine(agent)
             } footer: {
@@ -313,7 +318,7 @@ struct StudioSettingsView: View {
                     ForEach(FilmPace.allCases) { Text($0.title).tag($0) }
                 }.pickerStyle(.segmented)
             } footer: {
-                Text("How fast the director works. \(settings.pace.summary) Each film can override this under More in New film.")
+                Text("How fast the director works. \(settings.pace.summary) You can change it for one film on the Pace button in New film.")
             }
             Section {
                 Toggle("Generate images with Codex", isOn: $settings.generateImagesWithCodex)
@@ -332,6 +337,7 @@ struct StudioSettingsView: View {
                         Text("The director can read and change files outside the film's folder. Only use this on films you trust.")
                             .font(.caption).foregroundStyle(.red)
                     }
+                    TextField("Claude model for “Same as Settings”", text: $settings.claudeModel, prompt: Text("Default"))
                     TextField("Node path", text: $settings.nodePath, prompt: Text(settings.nodeURL?.path ?? "Automatic"))
                     TextField("Custom executable", text: Binding(get: { settings.customPath }, set: { settings.setPath($0, for: .custom) }), prompt: Text("Optional"))
                 }
@@ -339,6 +345,11 @@ struct StudioSettingsView: View {
         }
         .formStyle(.grouped)
         .task(id: settings.defaultAgent) { if settings.isInstalled(agent) { await settings.check(agent) } }
+        // Back from Terminal after signing in: look again without a button press.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            guard settings.isInstalled(agent), !settings.checking.contains(agent.id) else { return }
+            Task { await settings.check(agent) }
+        }
     }
 
     @ViewBuilder private func statusLine(_ agent: LocalAgent) -> some View {
