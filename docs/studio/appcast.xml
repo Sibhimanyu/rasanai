@@ -6,6 +6,20 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.11.0 beta 1</title>
+      <pubDate>Wed, 14 Oct 2026 16:05:00 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **Liquid Glass chrome.** The inspector, action bar and step capsule use the sidebar's own Liquid Glass; the stage no longer lights it.
+- **Pause freezes the film in place.** Nothing runs and no tokens are used; Resume carries on mid-step with nothing redone.
+- **The Mac stays awake while a film is made,** a setting on by default.
+- **Carries on after sleep,** and an automatic resume that came due while asleep runs on wake.
+- **The brief box grows to 12 lines, then scrolls,** instead of spilling over the page.]]></description>
+      <sparkle:version>28</sparkle:version>
+      <sparkle:shortVersionString>0.11.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.11.0-beta.1/RasanAI-Studio-0.11.0.dmg" sparkle:edSignature="1JYrbo/YtxiveecUb6tq+KHELIZgj3xosh8vyVbCwmPu8/vslU8fi0l5qZHE2iabykqRCIFCPQuCDRgCU19zBQ==" length="74947934" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.10.0 beta 1</title>
       <pubDate>Wed, 14 Oct 2026 10:30:00 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **Glass that takes its light from the stage.** The inspector and action bar glow with the frame's edge colour, live while the film plays; the glass is solid and untinted.
