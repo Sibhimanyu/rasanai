@@ -2,6 +2,14 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## 0.11.0 (build 28) — 2026-10-14
+
+- **Liquid Glass chrome.** The inspector, the film action bar and the five-call step capsule use the sidebar's own Liquid Glass, with its rounder corners. The stage no longer lights the glass, which replaces the stage-lit glass of 0.10.0.
+- **Pause freezes the film in place.** Nothing runs and no tokens are used. Resume carries on in the middle of the step, with nothing redone. Answering a question while paused carries it on, and quitting while paused stops the film cleanly.
+- **The Mac stays awake while a film is being made.** This is a setting, on by default. The screen can still sleep, and the Mac may sleep while the film is only waiting on you.
+- **Carries on after sleep.** Time spent asleep no longer reads as "Quiet", and an automatic resume that came due during sleep runs when the Mac wakes.
+- **A brief box that scrolls.** On Home and New film it grows to 12 lines, or 30% of the screen, and then scrolls instead of spilling over the page.
+
 ## 0.10.0 (build 27) — 2026-10-14
 
 - **Glass that takes its light from the stage.** The inspector and the action bar glow with the edge colour and brightness of the frame beside them, live while the film plays. The glass is solid and has no tint of its own, so the desktop stays out of the text.
