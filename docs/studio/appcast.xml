@@ -7,7 +7,7 @@
     <language>en</language>
     <item>
       <title>RasanAI Studio 0.11.0 beta 1</title>
-      <pubDate>Wed, 14 Oct 2026 16:05:00 GMT</pubDate>
+      <pubDate>Wed, 14 Oct 2026 16:02:00 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **Liquid Glass chrome.** The inspector, action bar and step capsule use the sidebar's own Liquid Glass; the stage no longer lights it.
 - **Pause freezes the film in place.** Nothing runs and no tokens are used; Resume carries on mid-step with nothing redone.
 - **The Mac stays awake while a film is made,** a setting on by default.
