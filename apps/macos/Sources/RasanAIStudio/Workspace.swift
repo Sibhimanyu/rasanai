@@ -75,6 +75,9 @@ struct FilmStepper: View {
                 }
             }
         }
+        // Framed by the toolbar's capsule: the first circle sits in the round left end, so it needs no inset; the last
+        // word is text and needs about half the capsule's height before the right end, or it runs into the curve.
+        .padding(.leading, 2).padding(.trailing, 12)
         .fixedSize()
         .animation(.snappy, value: currentIndex)
         .accessibilityElement(children: .contain)
