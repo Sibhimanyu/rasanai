@@ -42,7 +42,6 @@ struct PreflightView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openSettings) private var openSettings
     @State private var selectedTools: Set<SetupTool> = []
-    @State private var developerToolsNotice: String?
     private var gate: StartGate { StartGate.shared }
     private var missingTools: [SetupTool] { SetupTool.missing(in: store.preflightReport) }
     private var needsGitSetup: Bool { store.preflightReport?.items.contains(where: { $0.id == "git" && $0.level != .ready }) == true }
@@ -139,17 +138,7 @@ struct PreflightView: View {
                 }.toggleStyle(.checkbox).disabled(tool == .skills && needsGitSetup)
             }
             if needsGitSetup {
-                Text("Design resources need Git first. Install Apple's command line tools, finish the macOS installer, then Recheck.")
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
-                Button("Install Apple command line tools…") {
-                    Task {
-                        do {
-                            let code = try await DirectorRuntime.execute(URL(fileURLWithPath: "/usr/bin/xcode-select"), arguments: ["--install"], directory: FileManager.default.homeDirectoryForCurrentUser, environment: ProcessInfo.processInfo.environment)
-                            developerToolsNotice = code == 0 ? "Finish the macOS installer, then press Recheck." : "macOS could not start the installer. Check System Settings → General → Software Update, then Recheck."
-                        } catch { developerToolsNotice = error.localizedDescription }
-                    }
-                }.disabled(!store.canInstallTools)
-                if let developerToolsNotice { Text(developerToolsNotice).font(.system(size: 11)).foregroundStyle(.secondary) }
+                DeveloperToolsSetup(store: store)
             }
             Text("An internet connection is needed. Tools stay in your user account; design resources are shared with your directors. If needed, setup also installs HyperFrames for the browser and resources.")
                 .font(.system(size: 11)).foregroundStyle(.secondary)
