@@ -190,6 +190,9 @@ private struct LaunchFocus: ViewModifier {
     @State private var named = false
     @State private var held = false
     @State private var leaving = false
+    /// `ready` as state. The hold timer's closure keeps the `ready` of the moment it was scheduled, so a library that
+    /// finished loading during the hold read as still loading and the splash never left; state is always current.
+    @State private var loaded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
@@ -205,8 +208,8 @@ private struct LaunchFocus: ViewModifier {
                         .allowsHitTesting(false)
                 }
             }
-            .onAppear(perform: play)
-            .onChange(of: ready) { if ready { revealIfDone() } }
+            .onAppear { loaded = ready; play() }
+            .onChange(of: ready) { loaded = ready; revealIfDone() }
     }
 
     private var splash: some View {
@@ -221,7 +224,7 @@ private struct LaunchFocus: ViewModifier {
                 Text("Films with taste, directed by \(agent)").font(.system(size: 13)).foregroundStyle(.secondary)
             }
             .opacity(named ? 1 : 0).offset(y: named ? 0 : 8)
-            ProgressView().controlSize(.small).opacity(held && !ready ? 1 : 0)
+            ProgressView().controlSize(.small).opacity(held && !loaded ? 1 : 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine).accessibilityLabel("RasanAI Studio")
@@ -238,10 +241,12 @@ private struct LaunchFocus: ViewModifier {
         }
         // Reduce Motion holds the mark for 0.8 s, not 1.8; input waits only for the hold and the library loading.
         DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0.8 : 1.8)) { held = true; revealIfDone() }
+        // Never more than 6 s: a library that is slow to load keeps loading behind the window, not behind the splash.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { loaded = true; revealIfDone() }
     }
 
     private func revealIfDone() {
-        guard held, ready, !focused else { return }
+        guard held, loaded, !focused else { return }
         withAnimation(.easeIn(duration: reduceMotion ? 0.2 : 0.4)) { leaving = true }
         withAnimation(.easeOut(duration: reduceMotion ? 0.2 : 0.7).delay(0.1)) { focused = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { leaving = false }
