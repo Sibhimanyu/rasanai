@@ -5,7 +5,9 @@
 //
 // usage:
 //   node lessons.mjs add --rule "<one line, imperative, general>" --quote "<the note, verbatim>" --kind error|taste
-//        --area story|look|type|motion|pace|sound|brand [--run <run>]   (same rule again: bumps seen and last)
+//        --area story|look|type|motion|pace|sound|brand [--run <run>] [--gate <key>=<number>]
+//        (same rule again: bumps seen and last. --gate makes the rule a measured check: the gate's threshold tightens to
+//         that number on every next film; keys and ranges: lib/gate-lessons.mjs, e.g. --gate text.statement_min_h=0.05)
 //   node lessons.mjs list [--json]
 //   node lessons.mjs drop --id <id>
 //   node lessons.mjs brief --role <crew role> [--n 12]   -> the "Standing notes" markdown block for that role (nothing when empty)
@@ -14,6 +16,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die, STATE_DIR } from "./lib/common.mjs";
+import { parseGate } from "./lib/gate-lessons.mjs";
 
 export const KINDS = ["error", "taste"];
 export const AREAS = ["story", "look", "type", "motion", "pace", "sound", "brand"];
@@ -60,15 +63,17 @@ function writeLessons(rows) {
 
 const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
-export function addLesson({ rule, quote, kind, area, run }) {
+export function addLesson({ rule, quote, kind, area, run, gate }) {
   rule = String(rule || "").trim();
   if (!rule) throw new Error("--rule required");
   if (!KINDS.includes(kind)) throw new Error(`--kind must be ${KINDS.join(" or ")}`);
   if (!AREAS.includes(area)) throw new Error(`--area must be one of ${AREAS.join(", ")}`);
+  const g = gate == null || gate === false ? null : parseGate(gate === true ? "" : gate); // throws on a bad key, value or range
   const rows = readLessons();
   const now = new Date().toISOString();
   const hit = rows.find((r) => norm(r.rule) === norm(rule));
   if (hit) {
+    if (g) hit.gate = g;
     hit.seen = (hit.seen || 1) + 1;
     hit.last = now;
     writeLessons(rows);
@@ -84,6 +89,7 @@ export function addLesson({ rule, quote, kind, area, run }) {
     first: now,
     last: now,
     seen: 1,
+    ...(g ? { gate: g } : {}),
   };
   rows.push(row);
   writeLessons(rows);
@@ -107,7 +113,7 @@ export function lessonsBlock(role, n = 12) {
     .sort((a, b) => (b.seen || 1) - (a.seen || 1) || String(b.last).localeCompare(String(a.last)))
     .slice(0, Math.max(1, Number(n) || 12));
   if (!rows.length) return "";
-  const lines = rows.map((r) => `- **${r.area}, ${r.kind === "error" ? "a mistake" : "a taste"}${r.seen > 1 ? `, noted ${r.seen} times` : ""}:** ${r.rule}${r.quote ? ` (the user said: "${r.quote}")` : ""}`);
+  const lines = rows.map((r) => `- **${r.area}, ${r.kind === "error" ? "a mistake" : "a taste"}${r.seen > 1 ? `, noted ${r.seen} times` : ""}:** ${r.rule}${r.gate ? ` (now measured: ${r.gate.key} = ${r.gate.value})` : ""}${r.quote ? ` (the user said: "${r.quote}")` : ""}`);
   return `## Standing notes from the user's past films\n\nThe user taught these on earlier films. They apply to this one: do not make them say it again. A mistake is a rule; a taste is a lean (follow it unless the story needs otherwise, and say so).\n\n${lines.join("\n")}\n`;
 }
 
@@ -124,7 +130,7 @@ function main() {
     const rows = readLessons();
     if (args.json) console.log(JSON.stringify(rows, null, 2));
     else if (!rows.length) console.log("no lessons yet");
-    else for (const r of rows) console.log(`${r.id}  ${r.area}/${r.kind}  x${r.seen}  ${r.rule}`);
+    else for (const r of rows) console.log(`${r.id}  ${r.area}/${r.kind}  x${r.seen}  ${r.rule}${r.gate ? `  [gate ${r.gate.key} = ${r.gate.value}]` : ""}`);
   } else if (cmd === "drop") {
     if (!args.id || args.id === true) die("--id required");
     if (!dropLesson(String(args.id))) die(`no lesson ${args.id}`);

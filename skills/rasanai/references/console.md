@@ -119,6 +119,10 @@ Other steps (Claude usually pushes these `--status done` with only a `decision`;
 | `keyframes` | `board` (board.html), `issues` (single units' key poses) |
 | `plan` | `shape`, `stated`, `agent` |
 
+## Notes are answered before a revision goes out
+
+After `apply`, edit, then `console.mjs resolve --run <run> --ids <ids> --note "<what changed>"`, then push the revision. `console.mjs push` of the `animatic` or `render` step with a higher `version` than the step already has is refused (exit 2, naming the notes) while any applied note is not resolved with a `--note`; `resolve` without `--note` does not count. The first push of a step, a push without a higher `version`, and every other step are never refused. `--force "<reason>"` (4+ characters) overrides: the reason is logged in `session.forced` and in the activity feed. A note the user pointed at a mistake any film could repeat also becomes a lesson, and with `--gate <key>=<number>` a measured check (`lessons.mjs`, keys in `scripts/lib/gate-lessons.mjs`).
+
 ## Actions (what `wait` returns)
 
 `{"id", "ts", "step", "type", "value", "note", "source": "console"|"chat"}`
@@ -139,7 +143,7 @@ Other steps (Claude usually pushes these `--status done` with only a `decision`;
 | `swap` | animatic | `{chip: "music"\|"voice", id}` |
 | `more` | animatic | `{what: "angle"}`: another story angle |
 | `comment` | animatic, render, final | `{scene, t, x, y, scope: "scene"\|"film", quick}`; the text is in `note`. Stored as an open note (`session.comments`); not an answer, the step stays open |
-| `apply` | animatic, render, final | `{ids: [note ids]}`: make these notes, then `resolve` them |
+| `apply` | animatic, render, final | `{ids: [note ids]}`: make these notes, then `resolve` them. The ids are recorded in `session.applied` when `wait` (or the server) consumes the action |
 | `approve` | animatic, storyboard, styleframes, keyframes, plan | null |
 | `comment` | styleframes | `{scene: <frame id>, t: null, x: null, y: null, scope: "scene"}`; the text is in `note`. An open note on that frame (`session.comments`), resolved with `resolve` after the redo |
 | `swap-moment` | styleframes | `{frame: <frame id>, id: <moment id> \| null}`: put that picked move on that frame (it leaves any other frame), or `null` to clear the frame's move; the designer updates `shots[].moment` and re-pushes |
