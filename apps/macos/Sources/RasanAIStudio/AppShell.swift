@@ -12,7 +12,7 @@ enum LibraryMode: String, Hashable {
 
 /// The places in the studio, as a native source list in the split view's sidebar. On macOS Tahoe the system draws it as the
 /// floating glass sidebar, places the window buttons inside it and moves its toggle into the toolbar when it hides.
-enum StudioPlace: Hashable { case home, all, needsReview, brands, templates, inspire, queue }
+enum StudioPlace: Hashable { case home, all, needsReview, brands, templates, inspire, queue, film(URL) }
 
 struct AppSidebar: View {
     @Bindable var store: StudioStore
@@ -27,10 +27,16 @@ struct AppSidebar: View {
         case .templates?: .templates
         case .inspire?: .inspire
         case .queue?: .queue
+        case .film(let folder)?: .film(folder)
         default: nil
         }
     }
     private var needsYouCount: Int { store.visibleProjects.filter { store.summary(for: $0.1).phase.needsYou }.count }
+    /// The latest films, newest first, so the sidebar is also the quickest way back into one.
+    private var recentFilms: [(LocalProject, URL)] {
+        func stamp(_ item: (LocalProject, URL)) -> Date { store.summary(for: item.1).updatedAt ?? item.0.lastOpenedAt ?? item.0.createdAt }
+        return Array(store.visibleProjects.sorted { stamp($0) > stamp($1) }.prefix(8))
+    }
 
     var body: some View {
         List(selection: Binding(get: { current }, set: { if let place = $0 { go(place) } })) {
@@ -52,6 +58,13 @@ struct AppSidebar: View {
                 Label("Templates", systemImage: "square.grid.2x2").tag(StudioPlace.templates)
                 Label("Inspiration", systemImage: "sparkles").tag(StudioPlace.inspire)
             }
+            if !recentFilms.isEmpty {
+                Section("Recent films") {
+                    ForEach(recentFilms, id: \.0.id) { project, folder in
+                        SidebarFilmRow(name: project.name, phase: store.summary(for: folder).phase).tag(StudioPlace.film(folder))
+                    }
+                }
+            }
         }
         .listStyle(.sidebar)
         .tint(Color.rasan)
@@ -72,8 +85,32 @@ struct AppSidebar: View {
         case .templates: [.templates]
         case .inspire: [.inspire]
         case .queue: [.queue]
+        case .film(let folder): [.film(folder)]
         }
         if store.path != target { store.path = target }
+    }
+}
+
+/// A film in the sidebar: its name, with a small mark for its state where it says something (waiting on you, working,
+/// finished); drafts and quiet films show a plain film icon.
+private struct SidebarFilmRow: View {
+    let name: String
+    let phase: FilmPhase
+    private var mark: (String, Color) {
+        switch phase {
+        case .yourTurn: ("clock.fill", Color(nsColor: .systemOrange))
+        case .needsAttention: ("exclamationmark.triangle.fill", Color(nsColor: .systemRed))
+        case .working, .starting: ("sparkles", Color.rasan)
+        case .finished: ("checkmark.circle.fill", Color(nsColor: .systemGreen))
+        case .queued: ("list.number", .secondary)
+        case .paused: ("pause.circle", .secondary)
+        case .draft, .inProgress, .offline: ("film", .secondary)
+        }
+    }
+    var body: some View {
+        let (symbol, color) = mark
+        Label { Text(name).lineLimit(1).truncationMode(.tail) } icon: { Image(systemName: symbol).foregroundStyle(color) }
+            .help(name)
     }
 }
 
