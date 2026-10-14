@@ -169,6 +169,7 @@ struct FinalStage: View {
 
 /// The player surface: the video once it can play, the poster until the first play, a quiet note when there is no file yet.
 private struct FinalFrame: View {
+    @Environment(FilmSessionModel.self) private var model: FilmSessionModel?
     let playback: VideoPlayback
     let posterPath: String?
     let hasVideo: Bool
@@ -176,9 +177,9 @@ private struct FinalFrame: View {
     var body: some View {
         ZStack {
             Color.black
-            if hasVideo { NativeFilmPlayer(player: playback.player) }
+            if hasVideo { NativeFilmPlayer(player: playback.player).lightsGlass(video: playback) }
             if !hasVideo || !playback.hasStarted {
-                if posterPath != nil { PayloadImage(path: posterPath, contentMode: .fit, maxPixels: 1800).transition(.opacity) }
+                if posterPath != nil { PayloadImage(path: posterPath, contentMode: .fit, maxPixels: 1800).transition(.opacity).lightsGlass(still: model?.fileURL(posterPath)) }
                 if !hasVideo {
                     Label(notRendered ? "Poster. Not rendered yet" : "The render isn't finished yet", systemImage: notRendered ? "photo" : "hourglass").font(.system(size: 12, weight: .medium)).foregroundStyle(.white)
                         .padding(.horizontal, 12).padding(.vertical, 7).background(.black.opacity(0.65), in: Capsule())

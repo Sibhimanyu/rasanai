@@ -31,7 +31,7 @@ struct FilmInspector: View {
         }
         .frame(width: 340)
         .frame(maxHeight: .infinity)
-        .glassPanel()   // one glass surface under the header, Notes and Decisions alike
+        .glassPanel(lightFrom: .leading)   // one glass surface, lit by the stage beside it
     }
 
     private func tab(_ which: InspectorTab, title: String) -> some View {

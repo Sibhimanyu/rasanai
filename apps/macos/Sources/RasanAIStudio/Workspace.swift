@@ -42,10 +42,11 @@ struct WorkspacePanel: ViewModifier {
 /// indigo, lit from the top, gives every panel the same colour on any desktop while it stays translucent.
 struct GlassPanel: ViewModifier {
     var radius: CGFloat = Workspace.radius
+    var lightFrom: Edge?
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         content
-            .background { GlassSurface() }
+            .background { GlassSurface(lightFrom: lightFrom) }
             .clipShape(shape)
             .overlay {
                 shape.strokeBorder(LinearGradient(colors: [Color.white.opacity(0.16), Color.white.opacity(0.05)], startPoint: .top, endPoint: .bottom), lineWidth: 1)
@@ -58,7 +59,14 @@ struct GlassPanel: ViewModifier {
 /// corner, a fainter one rising from the bottom, and a sheen of light at the top. It reads the same in a window and in
 /// full screen, on any desktop picture.
 struct GlassSurface: View {
+    /// The side facing the stage. The stage's picture lights the glass from there (`StageLight`): a white frame
+    /// brightens it, a blue one tints it, a dark one leaves the glass as it is.
+    var lightFrom: Edge?
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.stageLight) private var stageLight
+    private var glow: StageLight.Glow? {
+        switch lightFrom { case .leading?: stageLight?.right; case .top?: stageLight?.bottom; default: nil }
+    }
     var body: some View {
         let dark = scheme == .dark
         GeometryReader { box in
@@ -73,8 +81,17 @@ struct GlassSurface: View {
                                center: UnitPoint(x: 0.85, y: 0.08), startRadius: 0, endRadius: reach * 0.75)
                 RadialGradient(colors: [Color.rasanFill.opacity(dark ? 0.18 : 0.06), .clear],
                                center: UnitPoint(x: 0.1, y: 1.0), startRadius: 0, endRadius: reach * 0.6)
+                if let glow, let lightFrom {
+                    // Strongest at the edge nearest the stage, falling off across the panel, scaled by the frame's brightness.
+                    let strength = dark ? 0.10 + 0.45 * glow.brightness : 0.06 + 0.25 * glow.brightness
+                    LinearGradient(stops: [.init(color: glow.color.opacity(strength), location: 0),
+                                           .init(color: glow.color.opacity(strength * 0.35), location: 0.35),
+                                           .init(color: .clear, location: 0.8)],
+                                   startPoint: lightFrom == .top ? .top : .leading, endPoint: lightFrom == .top ? .bottom : .trailing)
+                }
                 LinearGradient(colors: [Color.white.opacity(dark ? 0.06 : 0.25), .clear], startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.35))
             }
+            .animation(.easeInOut(duration: 0.6), value: glow)
         }
     }
 }
@@ -93,7 +110,7 @@ struct WindowMaterial: NSViewRepresentable {
 }
 
 extension View {
-    func glassPanel(radius: CGFloat = Workspace.radius) -> some View { modifier(GlassPanel(radius: radius)) }
+    func glassPanel(radius: CGFloat = Workspace.radius, lightFrom: Edge? = nil) -> some View { modifier(GlassPanel(radius: radius, lightFrom: lightFrom)) }
     func workspacePanel(padding: CGFloat = 0) -> some View { modifier(WorkspacePanel(padding: padding)) }
 }
 

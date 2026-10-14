@@ -38,7 +38,7 @@ struct FilmStatusBar<Usage: View>: View {
         }
         .padding(.horizontal, .filmInset).padding(.vertical, model.lastError == nil ? 0 : 8)
         .frame(maxWidth: .infinity, minHeight: 64)
-        .glassPanel()   // chrome, like the inspector beside it: the same glass
+        .glassPanel(lightFrom: .top)   // chrome, like the inspector; lit by the stage above it
         .onChange(of: turn) { lastActivityAt = Date() }
     }
 
@@ -188,5 +188,6 @@ struct FilmStatusBarHost<Content: View, Usage: View>: View {
         }
         // A note goes out with whatever was accepted (the note itself, or the call it rode along with).
         .onChange(of: model.sendCount) { model.tellText = "" }
+        .environment(\.stageLight, model.stageLight)   // the stage lights the inspector and this bar
     }
 }
