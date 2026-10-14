@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased: the film is judged against itself
+
+- **Blind A/B on every fix round.** `crew.mjs ab` puts the previous and the new render side by side as X and Y for an `ab-juror` who is never told which is newer; a round that loses is reverted (FILM-E got safer through its fix rounds). The critic now treats a fix that buys a green gate by shrinking big type or calming the ending as a `high` finding.
+- **Claude learns after every film.** A `retrospective` role reads the gates, the critics, the A/B verdicts and the user's notes and proposes at most two craft rules, stored with `lessons.mjs add --source self`: listed below the user's lessons, never a gate, droppable.
+- **The ending echoes the opening.** `motion-gate.mjs` compares the opening and ending key frames (palette, foreground and edge layout) and warns `no-echo` or `echo-identical`; the score names its `echo`.
+- **The camera moves.** Each beat's camera is measured from the whole-frame motion (locked, push-in, pull-out, pan, tilt, rotate, drift, whip); `camera-monotone` warns under the references' floor, and the score names each beat's camera and one `signature_shot`.
+
 ## 1.15.0 (2026-10-14): craft borrowed from other motion skills, measured
 
 Why: a survey of fourteen motion and video skills (mortiflix, animate, motionmaxxing, onetake, lemo-opuscar, mg-styles-15, ClaudeAnimationBase, OpenMontage, Null Motion, gbro and others) against RasanAI. Most of their ideas were already here; these five were not.
