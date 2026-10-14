@@ -56,8 +56,8 @@ struct NewFilmView: View {
     var body: some View {
         Group {
             if embedded {
-                // On Home: just the prompt box. Start film works exactly as on the New film page; the same unsaved draft
-                // is shared with it, so "More options" opens the full editor where this left off.
+                // On Home: just the prompt box. Its Continue names the film and opens the New film page with everything
+                // filled in (the same unsaved draft is shared with it), so nothing starts until the person has seen it all.
                 promptBox
             } else { fullPage }
         }
@@ -210,7 +210,7 @@ struct NewFilmView: View {
         .background(Color.appBackground)
         .safeAreaInset(edge: .bottom, spacing: 0) { footer }
         .navigationTitle(project == nil ? "New film" : "Edit film")
-        .pageHeader(project == nil ? "New film" : "Edit film", onBack: { if !store.path.isEmpty { store.path.removeLast() } }) {
+        .pageHeader(project == nil ? "New film" : "Edit film") {
                 HelpButton(title: "New film", lines: [
                     "Say what the film is about in your own words. A sentence is enough.",
                     "Get inspired adds moments from real launch films, so your film moves like them. Each one is credited to its creator.",
@@ -226,7 +226,8 @@ struct NewFilmView: View {
         VStack(alignment: .leading, spacing: 12) {
             ComposerTextView(text: $draft.brief, placeholder: briefPlaceholder, minLines: 3, maxLines: 12, focused: $briefFocused, focusRequest: focusRequest)
                 .frame(maxWidth: .infinity)
-            if !draft.moments.isEmpty { momentThumbs.transition(.opacity) }
+            // On the New film page the moves live in the Make it like this well; Home has no wells, so they show here.
+            if embedded, !draft.moments.isEmpty { momentThumbs.transition(.opacity) }
             if !sources.isEmpty || !existingSources.isEmpty {
                 LazyVStack(spacing: 8) {
                     ForEach(existingSources, id: \.self) { chip($0, removable: false) }
@@ -281,7 +282,7 @@ struct NewFilmView: View {
 
     private var lengthShort: String { ComposerLayout.shortLength(draft.duration) }
     private var brandShort: String { draft.brand ?? "Brand" }
-    private var motionShort: String { draft.motionLevel.capitalized }
+    private var motionShort: String { MotionLevel.title(draft.motionLevel) }
     private var formatLabel: String {
         if let option = pickedOption { return option.title }
         return "What are you making?"
@@ -366,13 +367,16 @@ struct NewFilmView: View {
                 switch chip {
                 case .length: Menu("Length: \(lengthShort)") { lengthMenuContent }
                 case .aspect: Menu("Shape: \(draft.aspect)") { shapeMenuContent }
-                case .motion: Menu("Motion: \(motionShort)") { motionMenuContent }
+                case .motion: Menu(motionShort) { motionMenuContent }
                 case .brand: Menu("Brand: \(draft.brand ?? "none")") { brandMenuContent }
                 }
             }
             if !folded.isEmpty { Divider() }
-            Button { showGallery = true } label: {
-                Label(draft.moments.isEmpty ? "Get inspired…" : "Get inspired (\(draft.moments.count) picked)…", systemImage: "sparkle.magnifyingglass")
+            // Home keeps Get inspired here; the New film page has it in plain sight, in the Make it like this well.
+            if embedded {
+                Button { showGallery = true } label: {
+                    Label(draft.moments.isEmpty ? "Get inspired…" : "Get inspired (\(draft.moments.count) picked)…", systemImage: "sparkle.magnifyingglass")
+                }
             }
             if agent == .claude { Button { showModels = true } label: { Label("Models: \(draft.modelPlan.chipTitle)…", systemImage: "sparkles") } }
             Menu("Pace: \(draft.pace.chipTitle)") {
@@ -395,7 +399,8 @@ struct NewFilmView: View {
     private var linkedWells: some View {
         HStack(alignment: .top, spacing: 14) {
             LinkedSourceWell(kind: .footage, sources: $draft.linked, disabled: working, prompt: pickedOption.flatMap { catalog?.folderPrompt(for: $0) })
-            LinkedSourceWell(kind: .reference, sources: $draft.linked, disabled: working)
+            LinkedSourceWell(kind: .reference, sources: $draft.linked, disabled: working,
+                             moves: AnyView(momentThumbs), movesCount: draft.moments.count, onPickMoves: { showGallery = true })
         }
     }
 
@@ -445,15 +450,17 @@ struct NewFilmView: View {
     }
 
     @ViewBuilder private var motionMenuContent: some View {
-        Picker("Motion graphics", selection: $draft.motionLevel) {
-            Text("Maximal").tag("maximal"); Text("Balanced").tag("balanced"); Text("Minimal").tag("minimal")
-        }.pickerStyle(.inline).labelsHidden()
+        Section("How much motion design") {
+            Picker("Motion design", selection: $draft.motionLevel) {
+                ForEach(MotionLevel.all, id: \.id) { level in Text("\(level.title) · \(level.summary)").tag(level.id) }
+            }.pickerStyle(.inline).labelsHidden()
+        }
     }
     private var motionChip: some View {
         Menu { motionMenuContent } label: { chipLabel("wand.and.sparkles", motionShort) }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-            .help("Motion: how ambitious it is, how many designed elements and how intricate their movement")
-            .accessibilityLabel("Motion: \(motionShort)")
+            .help("How much motion design: \(MotionLevel.summary(draft.motionLevel))")
+            .accessibilityLabel("Motion design: \(motionShort)")
     }
 
     @ViewBuilder private var brandMenuContent: some View {
@@ -516,7 +523,18 @@ struct NewFilmView: View {
     }
 
     @ViewBuilder private var runButton: some View {
-        if editingQueued {
+        if embedded {
+            Button { continueToEditor() } label: {
+                HStack(spacing: 6) {
+                    if working { ProgressView().controlSize(.mini) }
+                    Text("Continue")
+                    Image(systemName: "command").font(.system(size: 11)); Image(systemName: "return").font(.system(size: 11))
+                }
+            }
+            .buttonStyle(.rasanPrimary).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
+            .disabled(working || trimmedBrief.isEmpty)
+            .help("Name the film and open New film with everything filled in")
+        } else if editingQueued {
             Button { saveQueuedChanges() } label: { Text("Save changes") }
                 .buttonStyle(.rasanPrimary).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
                 .disabled(working || trimmedBrief.isEmpty)
@@ -613,6 +631,16 @@ struct NewFilmView: View {
         panel.title = "Add footage, images or documents"
         if panel.runModal() == .OK { _ = add(panel.urls) }
     }
+    /// Home's Continue: a working title from the brief (unless one is typed), then the full New film page on this draft.
+    private func continueToEditor() {
+        working = true
+        Task {
+            if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { name = await FilmTitle.suggest(for: trimmedBrief) }
+            working = false
+            persistEditor()
+            store.path = [.newFilm(nil)]
+        }
+    }
     private func start() {
         store.ensureConsent(for: agent) {
             store.startWhenReady(project: project ?? recoveryProject ?? store.filmDraftProject, sources: sources + existingSources) { save(start: true) }
@@ -691,4 +719,16 @@ struct FlowLayout: Layout {
         }
         return (CGSize(width: maxX, height: y + rowHeight), origins)
     }
+}
+
+/// The film's motion level in words people use. The brief keeps "maximal", "balanced" or "minimal"; the director reads
+/// those (`FilmDraft`), and the app only ever shows these titles.
+enum MotionLevel {
+    static let all: [(id: String, title: String, summary: String)] = [
+        ("maximal", "Full motion", "graphics on every scene and intricate, layered moves"),
+        ("balanced", "Some motion", "graphics on most scenes, with room to breathe"),
+        ("minimal", "Clean cut", "simple titles and captions, little decoration"),
+    ]
+    static func title(_ id: String) -> String { all.first { $0.id == id }?.title ?? id.capitalized }
+    static func summary(_ id: String) -> String { all.first { $0.id == id }?.summary ?? "" }
 }

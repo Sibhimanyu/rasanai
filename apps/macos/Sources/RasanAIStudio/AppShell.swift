@@ -123,13 +123,15 @@ struct HistoryToolbar: ToolbarContent {
     var body: some ToolbarContent {
         ToolbarItemGroup(placement: .navigation) {
             Button { store?.goBack() } label: { Label("Back", systemImage: "chevron.left") }
-                .disabled(!(store?.canGoBack ?? false)).keyboardShortcut("[", modifiers: .command).help("Back")
+                .disabled(!(store?.canGoBack ?? false)).help("Back (⌘[)")
             Button { store?.goForward() } label: { Label("Forward", systemImage: "chevron.right") }
-                .disabled(!(store?.canGoForward ?? false)).keyboardShortcut("]", modifiers: .command).help("Forward")
+                .disabled(!(store?.canGoForward ?? false)).help("Forward (⌘])")
         }
     }
 }
 
+/// The page's tools in the window toolbar. No title on the sidebar's own places (the sidebar already says where you are);
+/// a page one level down (a brand, New film) shows a breadcrumb back to where it came from instead.
 private struct PageToolbar<Trailing: View>: ViewModifier {
     let title: String
     @ViewBuilder var trailing: Trailing
@@ -137,21 +139,114 @@ private struct PageToolbar<Trailing: View>: ViewModifier {
     func body(content: Content) -> some View {
         content
             .buttonStyle(.rasanSecondary)   // inside the page only: toolbar items keep the system's glass
-            .navigationTitle(title)
+            .navigationTitle(title)         // still names the window: the Window menu, Mission Control
             .navigationBarBackButtonHidden(true)
+            .modifier(HiddenToolbarTitle())
             .toolbar {
                 HistoryToolbar(store: store)
+                if let store, let crumb = store.crumb {
+                    ToolbarItem(placement: .navigation) { Breadcrumb(parent: crumb.title, title: title) { store.path = crumb.path } }
+                }
                 ToolbarItemGroup(placement: .primaryAction) { trailing }
             }
     }
 }
 
+private struct HiddenToolbarTitle: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 15, *) { content.toolbar(removing: .title) } else { content }
+    }
+}
+
+/// "Brands › Acme": the parent is a link back, the page itself is plain text.
+private struct Breadcrumb: View {
+    let parent: String
+    let title: String
+    let action: () -> Void
+    var body: some View {
+        HStack(spacing: 6) {
+            Button(parent, action: action).buttonStyle(.plain).foregroundStyle(.secondary).help("Back to \(parent)")
+            Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(.tertiary)
+            Text(title).fontWeight(.semibold).lineLimit(1)
+        }
+        .font(.system(size: 13)).padding(.horizontal, 8)
+        .accessibilityElement(children: .contain).accessibilityLabel("\(parent), \(title)")
+    }
+}
+
+extension StudioStore {
+    /// Where a breadcrumb leads back to, and what it is called. Nil on the sidebar's own places.
+    var crumb: (title: String, path: [Route])? {
+        guard let last = path.last else { return nil }
+        if path.count == 1 {
+            switch last {
+            case .brand: return ("Brands", [.brands])
+            case .newFilm, .film, .sample: return ("Home", [])
+            default: return nil
+            }
+        }
+        let parent = Array(path.dropLast())
+        return (crumbTitle(parent.last), parent)
+    }
+
+    func crumbTitle(_ route: Route?) -> String {
+        switch route {
+        case nil: "Home"
+        case .library(let mode)?: mode.title
+        case .brands?: "Brands"
+        case .brand(let url)?: url.lastPathComponent
+        case .queue?: "Queue"
+        case .templates?: "Templates"
+        case .inspire?: "Inspiration"
+        case .sample?: "Sample film"
+        case .newFilm?: "New film"
+        case .film(let url)?: localProjects.first { $0.1 == url }?.0.name ?? "Film"
+        }
+    }
+}
+
 extension View {
-    /// The page's title and tools in the window toolbar (back and forward lead it).
-    func pageHeader<Trailing: View>(_ title: String, onBack: (() -> Void)? = nil, @ViewBuilder trailing: () -> Trailing) -> some View {
+    /// The page's tools in the window toolbar (back and forward lead it), and a breadcrumb when the page is a level down.
+    func pageHeader<Trailing: View>(_ title: String, @ViewBuilder trailing: () -> Trailing) -> some View {
         modifier(PageToolbar(title: title, trailing: trailing))
     }
-    func pageHeader(_ title: String, onBack: (() -> Void)? = nil) -> some View { pageHeader(title, onBack: onBack) { EmptyView() } }
+    func pageHeader(_ title: String) -> some View { pageHeader(title) { EmptyView() } }
+    /// A library page's content column, as on Home: the same margins, at most 1240 wide, held to the left edge so titles
+    /// line up from page to page.
+    func pageColumn() -> some View {
+        padding(.horizontal, 32).padding(.top, 28).padding(.bottom, 40)
+            .frame(maxWidth: 1240, alignment: .leading).frame(maxWidth: .infinity)
+    }
+}
+
+/// The native search field as an ordinary toolbar item, so it can sit before the page's primary button. `.searchable`
+/// always takes the trailing end of the toolbar, after everything else.
+struct ToolbarSearchField: NSViewRepresentable {
+    /// Posted by Navigate › Find Films (⌘F) to put the cursor in the field.
+    static let focusRequest = Notification.Name("RasanAIStudio.focusSearch")
+    @Binding var text: String
+    let prompt: String
+    func makeNSView(context: Context) -> NSSearchField {
+        let field = NSSearchField()
+        field.placeholderString = prompt
+        field.sendsSearchStringImmediately = true
+        field.delegate = context.coordinator
+        context.coordinator.observer = NotificationCenter.default.addObserver(forName: Self.focusRequest, object: nil, queue: .main) { [weak field] _ in
+            field?.window?.makeFirstResponder(field)
+        }
+        return field
+    }
+    func updateNSView(_ field: NSSearchField, context: Context) { if field.stringValue != text { field.stringValue = text } }
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+    final class Coordinator: NSObject, NSSearchFieldDelegate {
+        var text: Binding<String>
+        var observer: NSObjectProtocol?
+        init(text: Binding<String>) { self.text = text }
+        deinit { if let observer { NotificationCenter.default.removeObserver(observer) } }
+        func controlTextDidChange(_ note: Notification) {
+            if let field = note.object as? NSSearchField { text.wrappedValue = field.stringValue }
+        }
+    }
 }
 
 /// "+ New film", the studio's one prominent toolbar button: tinted glass on Tahoe.
@@ -167,27 +262,76 @@ struct NewFilmHeaderButton: View {
 
 // MARK: Status bar
 
-/// The studio's status bar under every page but a film's (a film page has its own action bar): whether the director can
-/// take a film, which director and pace, and the queue.
+/// The studio's status bar under every page but a film's (a film page has its own action bar). Each part answers a
+/// question and goes somewhere: what the director is doing right now (and the call it is heading for), how many films are
+/// waiting on you, the queue, and what this session has used. Counts that are zero are left out.
 struct AppStatusBar: View {
     @Bindable var store: StudioStore
+    @Environment(\.openSettings) private var openSettings
     private var agent: LocalAgent { store.settings.agent }
+    private var needsYou: Int { store.visibleProjects.filter { store.summary(for: $0.1).phase.needsYou }.count }
 
     var body: some View {
-        let ready = store.settings.isReady(agent)
-        let busy = store.runtime.isRunning || store.runtime.isPreparing
-        let queued = store.settings.filmQueue.count
-        HStack(spacing: 12) {
-            Circle().fill(busy ? Color.rasan : ready ? Color(nsColor: .systemGreen) : Color(nsColor: .systemOrange)).frame(width: 9, height: 9)
-            Text(busy ? "Director working" : ready ? "Director available" : "Director not set up").font(.system(size: 13, weight: .medium))
-            Rectangle().fill(Workspace.hairline).frame(width: 1, height: 14)
-            Text("\(agent.title) · \(store.settings.pace.title) pace").font(.system(size: 12.5)).foregroundStyle(.secondary)
-            Spacer()
-            Button(queued == 0 ? "No films queued" : queued == 1 ? "1 film queued" : "\(queued) films queued") { store.path = [.queue] }
-                .buttonStyle(.plain).font(.system(size: 12.5)).foregroundStyle(.secondary)
+        let queued = store.settings.filmQueue.filter { $0.state != .running }.count
+        HStack(spacing: 14) {
+            director
+            Spacer(minLength: 12)
+            if needsYou > 0 {
+                Button { store.path = [.library(.needsReview)] } label: {
+                    Label(needsYou == 1 ? "1 film needs you" : "\(needsYou) films need you", systemImage: "clock.fill")
+                }
+                .foregroundStyle(Color(nsColor: .systemOrange)).help("Open Needs review")
+            }
+            if queued > 0 {
+                Button { store.path = [.queue] } label: { Label("\(queued) queued", systemImage: "list.number") }
+                    .foregroundStyle(.secondary).help("Open the queue")
+            }
+            if let totals = store.monitor.sessionTotals {
+                Text("\(UsageFormat.tokens(totals.tokens)) tokens" + (totals.plan ? "" : " · \(UsageFormat.dollars(totals.usd))\(totals.estimated ? " est." : "")"))
+                    .foregroundStyle(.tertiary).monospacedDigit()
+                    .help("Used this session, across \(totals.films) film\(totals.films == 1 ? "" : "s")")
+            }
         }
+        .buttonStyle(.plain).font(.system(size: 12.5)).lineLimit(1)
         .padding(.horizontal, 24).frame(height: 40)
         .overlay(alignment: .top) { Rectangle().fill(Workspace.hairline).frame(height: 1) }
+    }
+
+    /// Working: the film, what it is doing and the next call, and a click goes to it. Idle: ready, with the director and
+    /// pace a new film will use. Not set up: the way to set it up.
+    @ViewBuilder private var director: some View {
+        if (store.runtime.isRunning || store.runtime.isPreparing), let active = store.activeDirectorProject {
+            HStack(spacing: 10) {
+                Button { store.showFilm(active) } label: {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.mini)
+                        Text(store.currentFilmTitle).font(.system(size: 13, weight: .medium))
+                        if case .working(let activity, _, let next)? = store.turnState {
+                            Text(TurnState.sentenceCaseFirst(activity)).foregroundStyle(.secondary).truncationMode(.tail)
+                            if let next { Text(TurnState.sentenceCaseFirst(next)).foregroundStyle(.tertiary) }
+                        } else {
+                            Text(store.phase.homeLine).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .help("Open the film the director is working on")
+                Button { store.pauseDirector() } label: { Image(systemName: "pause.fill") }
+                    .foregroundStyle(.secondary).disabled(store.runtime.isPreparing).help("Pause the director")
+            }
+        } else if store.settings.isReady(agent) {
+            HStack(spacing: 8) {
+                Circle().fill(Color(nsColor: .systemGreen)).frame(width: 8, height: 8)
+                Text("Ready for a film").font(.system(size: 13, weight: .medium))
+                Button { openSettings() } label: { Text("\(agent.title) · \(store.settings.pace.title) pace").foregroundStyle(.secondary) }
+                    .help("Change the director or pace in Settings")
+            }
+        } else {
+            HStack(spacing: 8) {
+                Circle().fill(Color(nsColor: .systemOrange)).frame(width: 8, height: 8)
+                Text("No director set up").font(.system(size: 13, weight: .medium))
+                Button("Set up…") { store.settings.showWelcome = true }.foregroundStyle(Color.rasan)
+            }
+        }
     }
 }
 

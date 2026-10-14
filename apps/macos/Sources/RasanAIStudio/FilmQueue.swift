@@ -204,7 +204,7 @@ struct FilmQueueView: View {
                 .disabled(store.queueStarting)
             }
         }
-        .frame(maxWidth: 940).frame(maxWidth: .infinity)
+        .frame(maxWidth: 1240, alignment: .leading).frame(maxWidth: .infinity)
         .background(Color.appBackground)
         .safeAreaInset(edge: .bottom, spacing: 0) { QueueTotalsFooter(monitor: store.monitor) }
         .navigationTitle("Queue")

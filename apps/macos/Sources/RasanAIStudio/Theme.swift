@@ -198,41 +198,53 @@ typealias StudioSecondaryButtonStyle = RasanSecondaryButtonStyle
 
 /// A flat two-to-four-way switch (Grid | List), drawn instead of the system segmented control. The selection is one pill
 /// that slides to the option you pick on a soft spring, the labels cross-fading as it passes; Reduce Motion just swaps it.
+/// A two- or three-way switch for how something is shown. The selected segment is a raised neutral, as in Finder's view
+/// switch: the brand blue belongs to the page's one primary action, and a switch is never that.
 struct FlatSegmented<Value: Hashable>: View {
     @Binding var selection: Value
     let options: [(Value, String, String?)]
+    /// Symbols only, with the titles as tooltips and accessibility labels.
+    var iconOnly = false
     @Namespace private var pill
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The pill's own copy of the selection. A binding into @AppStorage updates without the tap's animation, so the
+    /// pill would jump; this one always moves with the spring.
+    @State private var shown: Value?
+    private var spring: Animation? { reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.86) }
 
     var body: some View {
         HStack(spacing: 2) {
             ForEach(options.indices, id: \.self) { index in
                 let (value, title, symbol) = options[index]
-                let on = value == selection
+                let on = value == (shown ?? selection)
                 Button {
-                    withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.86)) { selection = value }
+                    withAnimation(spring) { shown = value; selection = value }
                 } label: {
                     HStack(spacing: 6) {
                         if let symbol { Image(systemName: symbol) }
-                        Text(title)
+                        if !iconOnly || symbol == nil { Text(title) }
                     }
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(on ? Color.white : Color.secondary)
-                    .padding(.horizontal, 12).frame(height: 28)
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(on ? Color.primary : Color.secondary)
+                    .padding(.horizontal, iconOnly ? 9 : 12).frame(height: 26)
                     .background {
                         if on {
-                            RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.rasanFill)
+                            RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.primary.opacity(0.12))
+                                .overlay { RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.5) }
                                 .matchedGeometryEffect(id: "selection", in: pill)
                         }
                     }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .help(title)
+                .accessibilityLabel(title)
                 .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
         .padding(3)
-        .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.14), lineWidth: 1) }
+        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .onChange(of: selection) { _, value in if value != shown { withAnimation(spring) { shown = value } } }
     }
 }
 

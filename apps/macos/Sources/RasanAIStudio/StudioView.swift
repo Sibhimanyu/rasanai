@@ -46,25 +46,42 @@ struct StudioView: View {
         .onChange(of: columns) { _, visibility in sidebarHidden = visibility == .detailOnly }
     }
 
-    private var stack: some View {
-        NavigationStack(path: $store.path) {
-            HomeView(store: store)
-                .navigationDestination(for: Route.self) { route in
-                    switch route {
-                    case .newFilm(let project): NewFilmView(store: store, project: project)
-                    case .film(let url):
-                        if store.shouldBrowseSeparately(url) { LibraryFilmPage(store: store, url: url) }
-                        else { FilmPage(store: store, url: url) }
-                    case .brands: BrandsView(store: store)
-                    case .brand(let url): BrandPage(store: store, brand: url)
-                    case .queue: FilmQueueView(store: store)
-                    case .templates: FilmTemplatesView(store: store)
-                    case .inspire: GetInspiredPage(store: store)
-                    case .sample: SamplePage(store: store)
-                    case .library(let mode): HomeView(store: store, mode: mode)
-                    }
-                }
+    @ViewBuilder private func page(_ route: Route) -> some View {
+        switch route {
+        case .newFilm(let project): NewFilmView(store: store, project: project)
+        case .film(let url):
+            if store.shouldBrowseSeparately(url) { LibraryFilmPage(store: store, url: url) }
+            else { FilmPage(store: store, url: url) }
+        case .brands: BrandsView(store: store)
+        case .brand(let url): BrandPage(store: store, brand: url)
+        case .queue: FilmQueueView(store: store)
+        case .templates: FilmTemplatesView(store: store)
+        case .inspire: GetInspiredPage(store: store)
+        case .sample: SamplePage(store: store)
+        case .library(let mode): HomeView(store: store, mode: mode)
         }
+    }
+
+    /// The page the stack stands on: the first route of the path (Home when it is empty). The stack itself only holds what
+    /// is pushed on top of it, so a new place from the sidebar replaces the root instead of popping the stack to Home and
+    /// pushing again; done as a pop, the stack wrote [] back into the path mid-transition and the page landed on Home.
+    private var stack: some View {
+        let root = store.path.first
+        let pushed = Binding<[Route]>(
+            get: { Array(store.path.dropFirst()) },
+            // A stack that is going away (its root already replaced) still writes its path back; ignore it.
+            set: { rest in
+                guard store.path.first == root else { return }
+                let path = (root.map { [$0] } ?? []) + rest
+                if store.path != path { store.path = path }
+            })
+        return NavigationStack(path: pushed) {
+            Group {
+                if let root { page(root) } else { HomeView(store: store) }
+            }
+            .navigationDestination(for: Route.self) { page($0) }
+        }
+        .id(root)
         .tint(.rasan)
         .frame(minWidth: 820, minHeight: 560)
         .sheet(item: $store.sheet, onDismiss: {
@@ -93,7 +110,8 @@ struct StudioView: View {
             if !store.queueBlockedByFileOperations { Task { await store.startNextQueuedFilm() } }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if (store.runtime.isRunning || store.runtime.isPreparing), let active = store.activeDirectorProject,
+            // Library pages say this in the status bar; this strip is for a film page showing another film.
+            if !showsStatusBar, (store.runtime.isRunning || store.runtime.isPreparing), let active = store.activeDirectorProject,
                store.displayedFilmURL != active && store.displayedFilmURL != store.runtime.runURL {
                 HStack(spacing: 10) {
                     if store.phase.isBusy { ProgressView().controlSize(.small) }
@@ -148,28 +166,71 @@ func errorNeedsSettings(_ message: String?) -> Bool {
     return ["director", "executable", "node", "sign in", "signed in", "sign-in", "log in", "login", "library", "project folder", "claude", "codex"].contains { text.contains($0) }
 }
 
-/// The launch: the window opens frosted, its content a soft blur, and comes into focus once the library has loaded (or
-/// after half a second, whichever is first), the way ChatGPT's window does. Reduce Motion gets a short fade instead.
+/// The launch: the window opens on a splash, the RasanAI mark drawing itself over the frosted library, then the name.
+/// It holds long enough to be seen (about 1.8 s, longer if the library is still loading), then the mark lifts away
+/// and the library comes into focus under it. Reduce Motion fades the mark in and out instead of drawing it.
 private struct LaunchFocus: ViewModifier {
     let ready: Bool
     @State private var focused = false
+    @State private var drawn: CGFloat = 0
+    @State private var filled = false
+    @State private var named = false
+    @State private var held = false
+    @State private var leaving = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
-            .blur(radius: focused || reduceMotion ? 0 : 26)
-            .brightness(focused ? 0 : -0.04)
-            .opacity(focused || !reduceMotion ? 1 : 0)
+            .blur(radius: focused ? 0 : 30)
+            .brightness(focused ? 0 : -0.12)
             .allowsHitTesting(focused)
-            .onAppear { if ready { reveal(after: 0.18) } else { reveal(after: 0.5) } }
-            .onChange(of: ready) { if ready { reveal(after: 0.05) } }
+            .overlay {
+                if !focused || leaving {
+                    splash
+                        .scaleEffect(leaving && !reduceMotion ? 1.06 : 1)
+                        .opacity(leaving ? 0 : 1)
+                        .allowsHitTesting(false)
+                }
+            }
+            .onAppear(perform: play)
+            .onChange(of: ready) { if ready { revealIfDone() } }
     }
 
-    private func reveal(after delay: Double) {
-        guard !focused else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            withAnimation(reduceMotion ? .easeOut(duration: 0.18) : .easeOut(duration: 0.6)) { focused = true }
+    private var splash: some View {
+        VStack(spacing: 22) {
+            ZStack {
+                RasanMark().trim(from: 0, to: drawn).stroke(Color.rasanInk, style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
+                RasanMark().fill(Color.rasanInk).opacity(filled ? 1 : 0)
+            }
+            .frame(width: 66, height: 81)
+            VStack(spacing: 6) {
+                Text("RasanAI Studio").font(.system(size: 26, weight: .semibold)).tracking(-0.4)
+                Text("Films with taste, directed by Claude").font(.system(size: 13)).foregroundStyle(.secondary)
+            }
+            .opacity(named ? 1 : 0).offset(y: named ? 0 : 8)
+            ProgressView().controlSize(.small).opacity(held && !ready ? 1 : 0)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine).accessibilityLabel("RasanAI Studio")
+    }
+
+    private func play() {
+        if reduceMotion {
+            drawn = 1
+            withAnimation(.easeOut(duration: 0.3)) { filled = true; named = true }
+        } else {
+            withAnimation(.easeInOut(duration: 0.9)) { drawn = 1 }
+            withAnimation(.easeOut(duration: 0.45).delay(0.6)) { filled = true }
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.85).delay(0.7)) { named = true }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { held = true; revealIfDone() }
+    }
+
+    private func revealIfDone() {
+        guard held, ready, !focused else { return }
+        withAnimation(.easeIn(duration: reduceMotion ? 0.2 : 0.4)) { leaving = true }
+        withAnimation(.easeOut(duration: reduceMotion ? 0.2 : 0.7).delay(0.1)) { focused = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { leaving = false }
     }
 }
 

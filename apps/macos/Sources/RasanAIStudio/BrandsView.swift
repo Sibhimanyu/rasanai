@@ -282,7 +282,7 @@ struct BrandPage: View {
         .sheet(isPresented: $showEditor) {
             if let model { BrandEditorSheet(brand: model, design: text) { reload() } }
         }
-        .pageHeader(model?.name ?? "Brand", onBack: { store.path = [.brands] }) {
+        .pageHeader(model?.name ?? "Brand") {
             HelpButton(title: "This brand", lines: [
                 "These swatches and fonts are read from the brand's DESIGN.md.",
                 "Choose Edit brand to change colours, fonts and logo, with a live preview.",
