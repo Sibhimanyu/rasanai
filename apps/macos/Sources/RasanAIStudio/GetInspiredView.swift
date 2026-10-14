@@ -122,8 +122,8 @@ struct MomentCard: View {
                         Image(systemName: selected ? "checkmark.circle.fill" : "plus.circle.fill").font(.system(size: 22)).symbolRenderingMode(.palette)
                             .foregroundStyle(selected ? Color.black : Color.white, selected ? Color.white : Color.black.opacity(0.45)).padding(8)
                     }
-                    .buttonStyle(.plain).help(selected ? "Remove from Moves I like" : "Add to Moves I like")
-                    .accessibilityLabel(selected ? "Remove \(moment.name) from Moves I like" : "Add \(moment.name) to Moves I like")
+                    .buttonStyle(.plain).help(selected ? "Remove from your moves" : "Add to your moves")
+                    .accessibilityLabel(selected ? "Remove \(moment.name) from your moves" : "Add \(moment.name) to your moves")
                 }
             }
             .overlay(alignment: .bottomTrailing) {
@@ -291,8 +291,8 @@ struct GetInspiredView: View {
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 6) {
-                if let pageTitle { PageTitle(text: pageTitle) } else { Text("Get inspired").font(.system(size: 20, weight: .bold)) }
-                Text("Real motion from real launch films. Click one to watch it big, with sound. Add up to four to Moves I like, and RasanAI reuses how each one moves with your own content.")
+                if let pageTitle { PageTitle(text: pageTitle) } else { Text("Inspiration").font(.system(size: 20, weight: .bold)) }
+                Text("Real motion from real launch films. Click one to watch it big, with sound. Add up to four to your moves, and RasanAI reuses how each one moves with your own content.")
                     .font(.system(size: 13.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 16)
@@ -410,7 +410,7 @@ struct GetInspiredView: View {
 
     private var tray: some View {
         HStack(spacing: 10) {
-            Text("Moves I like").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary).fixedSize()
+            Text("Your moves").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary).fixedSize()
             ForEach(0..<FilmDraft.maxMoments, id: \.self) { index in slot(index) }
             VStack(spacing: 4) {
                 Button(action: onPrimary) { Text(primaryTitle).padding(.horizontal, 6) }
@@ -457,7 +457,7 @@ struct GetInspiredView: View {
             }
             .foregroundStyle(.tertiary).frame(maxWidth: .infinity, minHeight: 46)
             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
-            .accessibilityLabel("Empty slot in Moves I like")
+            .accessibilityLabel("Empty slot in your moves")
         }
     }
 }
