@@ -33,6 +33,7 @@ import os from "node:os";
 import { spawn, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die, SKILL_DIR, STATE_DIR, GSAP_PATH } from "./lib/common.mjs";
+import { recordTaste } from "./memory.mjs";
 import { acquire, release, withLock } from "./lib/runlock.mjs";
 import { briefFormat } from "./lib/formats.mjs";
 import { noteDowngrade, readDowngrades } from "./lib/downgrade.mjs";
@@ -166,11 +167,25 @@ function validateAction(a) {
   return { step, type: String(a.type), value: a.value ?? null, note: String(a.note || "").slice(0, 4000) };
 }
 
+// The user's notes on the animatic and the final also go to their local taste ledger (memory.mjs taste): a note pinned
+// to a moment or typed in the step's box is an edit; words sent with an approval of the final are a verdict. The
+// server, headless `wait` and chat `record` all end here, so RasanAI Studio's notes land in the same ledger.
+function tasteFrom(action) {
+  const stage = action.step === "animatic" ? "animatic" : ["render", "final"].includes(action.step) ? "final" : null;
+  if (!stage) return;
+  const v = action.value && typeof action.value === "object" ? action.value : {};
+  const text = action.note || v.quick || "";
+  const kind = action.type === "comment" || action.type === "note" ? "edit" : action.type === "approve" && stage === "final" ? "verdict" : null;
+  if (!kind || !text) return;
+  recordTaste({ kind, film: path.basename(RUN), stage, note: text, scene: v.scene, t: typeof v.t === "number" ? v.t : undefined, ts: action.ts });
+}
+
 // What an action does to the session, besides being queued: the "sent" banner, the "You: ..." feed line, the note and
 // thread entries, an ask's answer. The server runs it on POST; headless `wait` runs it when it consumes the action, so
 // the session ends up the same either way. Mutates `s`; the caller saves it.
 function applyAction(s, action) {
   const step = action.step;
+  tasteFrom(action);
   if (step === "*") s.decide_rest = { ts: action.ts };
   else if (Object.prototype.hasOwnProperty.call(s.steps, step) && !["comment", "knob"].includes(action.type)) s.steps[step].sent = { type: action.type, value: action.value, note: action.note, ts: action.ts };
   // an answer to an `ask` card: record it on the question and clear it from the page
@@ -429,6 +444,7 @@ if (cmd === "push") {
     }
   }
   const a = appendAction({ step: args.step, type: args.type || "choose", value, note: args.note || "", source: "chat" });
+  tasteFrom(a);
   // chat answers count as consumed: the agent already has them
   const markConsumed = () => {
     const consumed = readJSON(F.consumed, []);

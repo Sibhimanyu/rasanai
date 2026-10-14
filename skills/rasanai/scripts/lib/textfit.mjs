@@ -138,13 +138,14 @@ window.__tfBlocks=function(){
 window.__tfRun=function(times){return times.map(function(T){window.__tfSeek(T);return {T:T,hits:window.__tfMeasure(),blocks:window.__tfBlocks()};});};
 })();</script>`;
 
-export function pageFor(file, root, baseUrl, W, H, safe) {
+// extraJs: another <script> block a second check (lib/chrome-lint.mjs) adds; it may call window.__tfSeek(T)
+export function pageFor(file, root, baseUrl, W, H, safe, extraJs = "") {
   let html = readText(file).replace(/<template[^>]*>/gi, "").replace(/<\/template>/gi, "");
   html = html.replace(/<script[^>]+src=["'][^"']*gsap(?:\.min)?\.js["'][^>]*><\/script>/gi, `<script src="/__rasanai/gsap.min.js"></script>`);
   const gsapTag = /gsap(\.min)?\.js/.test(html) ? "" : `<script src="/__rasanai/gsap.min.js"></script>`;
   const head = `<base href="${baseUrl}/">${gsapTag}<script>window.__tfErr=[];window.addEventListener('error',function(e){var t=e.target;if(t&&t.tagName==='SCRIPT'){var u=t.getAttribute('src')||'';if(u&&!/^https?:/i.test(u))window.__tfErr.push('could not load the script '+u);}else if(e.message)window.__tfErr.push(e.message+(e.filename?' ('+String(e.filename).split('/').pop()+':'+e.lineno+')':''));},true);window.addEventListener('unhandledrejection',function(e){window.__tfErr.push(String(e.reason&&e.reason.message||e.reason));});window.__timelines=window.__timelines||{};window.__tfCfg=${JSON.stringify({ W, H, safe, minFont: TEXT_FIT.min_font_px, maskMax: TEXT_FIT.mask_max })};</script><style>html,body{margin:0;padding:0;background:#000;overflow:hidden;width:${W}px;height:${H}px}</style>`;
   html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => m + head) : head + html;
-  html = /<\/body>/i.test(html) ? html.replace(/<\/body>/i, PAGE_JS + "</body>") : html + PAGE_JS;
+  html = /<\/body>/i.test(html) ? html.replace(/<\/body>/i, PAGE_JS + extraJs + "</body>") : html + PAGE_JS + extraJs;
   const tmp = path.join(root, `.rasanai-textfit-${process.pid}-${Math.random().toString(36).slice(2, 8)}.html`);
   fs.writeFileSync(tmp, html);
   return tmp;

@@ -20,14 +20,14 @@
 //
 // From the frames (--video; sampled every 1/15 s by frame difference, ffmpeg, no window):
 //   coverage   visible motion in at least 70% of frames (the end card's allowed hold is exempt)
-//   freeze     no still stretch of 0.8 s or more outside the end card; the end card holds at most 1.5 s still after its
+//   freeze     no still stretch of 0.8 s or more outside the end card; the end card holds at most 1.4 s still after its
 //              last move (--end-hold, or the plan's end_hold_s, when the brief asks for longer)
 //   end-hold-short  (warning) the film holds under 0.3 s still after its last move: the ending flashes by. An error once a lesson sets
 //              motion.end_hold_min_s (a floor: a LARGER value is stricter; motion.end_hold_s is the ceiling above, a smaller one is stricter)
 //   creep      a whole-frame scale or drift slower than 4% a second is a WARNING (it can shimmer thin lines and small
 //              type); a living camera on a world layer is wanted (R5: UI references move the camera a third of the time)
 //   empty-frames  at most 10% of frames near-empty (foreground under 2.5% of the frame: see foregroundShare), the end hold (last
-//              1.5 s) and declared breaths (score.breaths: [[t0, t1]], each 1 s at most, two at most) exempt
+//              1.4 s) and declared breaths (score.breaths: [[t0, t1]], each 1 s at most, two at most) exempt
 //   gap-between-beats  no near-empty stretch over 0.3 s at a seam between two beats (outside breaths): the next element arrives
 //              before the last one leaves
 //   seams      every seam (a beat boundary from the plan) has motion on both sides within 0.2 s
@@ -49,6 +49,8 @@
 //              pull-out, pan-truck, tilt, rotate, handheld-drift, whip) is reported; the render needs 1 moving kind from 15 s, 2 from
 //              40 s, 3 from 90 s (where the references sit: most great 2D films barely move the camera), never in a stillness style;
 //              with --plan, the score names a camera per beat, min(4, beats) different moves and one signature_shot (lemo's rule)
+//   duration-mismatch  (with --plan or --scenes) the render's length is within 0.25 s or 2% (whichever is larger) of the planned
+//              duration (the plan's `duration`, or where its last beat ends)
 // Lessons (lib/gate-lessons.mjs): motion.end_hold_s, motion.end_hold_min_s, motion.freeze_s, motion.carry_share and film.ending_share_max read
 // through gateValue, so a mistake the user pointed out once can tighten them; the report lists each lesson in force.
 // From the plan and the code (--plan, --project):
@@ -438,6 +440,13 @@ export async function gate({ video = null, project = null, plan = null, scenes =
       if (frames && frames.length < 3) { could.push(`${path.basename(file)} has ${frames.length} frames`); frames = null; }
       if (frames) {
         const dur = probeDuration(file) || frames.length / fps;
+        // the render is as long as the plan says (the plan's duration, or its beats' end when it gives none)
+        if (P.duration) {
+          const tol = Math.max(0.25, 0.02 * P.duration);
+          measured.planned_duration_s = r2(P.duration);
+          measured.render_duration_s = r2(dur);
+          if (Math.abs(dur - P.duration) > tol) add({ check: "duration-mismatch", severity: "error", at: null, region: "whole film", message: `the render runs ${r2(dur)} s but the plan says ${r2(P.duration)} s (${r2(tol)} s tolerance)`, fix: dur > P.duration ? "trim the tail or the over-long beat, or correct the plan's duration if the film was meant to run longer" : "a beat or the end card is short or the timeline ends early; extend it to the planned length, or correct the plan's duration" });
+        }
         const D = diffs(frames);
         const moving = D.map((d, i) => i > 0 && d.share >= MOVE_SHARE);
         const tOf = (i) => r2(i / fps);

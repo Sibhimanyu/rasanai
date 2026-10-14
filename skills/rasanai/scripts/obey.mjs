@@ -200,6 +200,9 @@ const unknownBans = banned.filter((b) => !SIGNATURES[b]);
 const MIX = { min_gestures: 12, min_families: 4, max_share: 0.4, max_duration_share: 0.4, ...(M.mix || {}) };
 const BUDGET = M.overshoot || (banned.includes("overshoot") ? { share: 0, max_pct: 0 } : { share: 0.15, max_pct: 8 });
 const FPS = 30;
+// frame-budget warning bands for entrances (craft.md). The long band follows the language: a slow language's own durations.max_ms lifts it
+const growsByDesign = (M.entrances || []).some((e) => /pop|scale|grow/i.test(String(e)));
+const ENTER_MAX_S = Math.max(1.2, ((M.durations && Number(M.durations.max_ms)) || 0) / 1000), ENTER_MIN_F = 3;
 // effect budgets (W4, lib/budget.mjs): a banned hero effect passes on the target the score names, up to the film's limit
 let SCORE = null;
 try { SCORE = args.score && args.score !== true ? JSON.parse(fs.readFileSync(path.resolve(String(args.score)), "utf8")) : args.run && args.run !== true ? JSON.parse(fs.readFileSync(path.join(path.resolve(String(args.run)), "motion", "score.json"), "utf8")) : null; } catch { SCORE = null; }
@@ -279,6 +282,15 @@ for (const file of files) {
     }
     for (const b of bannedHits(t, cls, banned)) if (onBudget(b, t)) budgeted.push({ effect: effectOf(b), target: t.target, file: rel, at: where.at }); else add({ severity: "error", rule: `banned:${b}`, ...where, message: `matches the banned pattern "${b}"${effectOf(b) && budgetUsed[effectOf(b)] > LIMIT ? ` (${budgetUsed[effectOf(b)]} uses: over the film's budget of ${LIMIT}, the uniform tell)` : ""}`, fix: `a hero effect needs a score.budget entry {effect, scene, target, reason} (at most ${LIMIT} per film); otherwise use one of motion.md's entrances (${(M.entrances || []).join(", ")}) or RasanMotion.enter (mask, wipe, scale, focus, fly)` });
     if (t.shape && t.shape.overshoot_pct > 0 && BUDGET.share > 0 && t.shape.overshoot_pct > BUDGET.max_pct * 1.5) add({ severity: "warning", rule: "overshoot-too-big", ...where, message: `overshoots ${t.shape.overshoot_pct}% of its travel; motion.md's settle budget is ${BUDGET.max_pct}% at most`, fix: `a gentler settle (spring(0.68,12) is about 5%), or RasanMotion.land` });
+    // frame-budget bands (references/craft.md, "Frame budgets"): defaults measured on short SaaS-style clips, so warnings only
+    if (cls === "enter") {
+      if (t.dur > ENTER_MAX_S) add({ severity: "warning", rule: "entrance-too-long", ...where, message: `an entrance runs ${t.dur.toFixed(2)} s (${Math.round(t.dur * FPS)} f); measured entrances are 11-12 f and rarely pass ${ENTER_MAX_S} s`, fix: "shorten it to 0.3-0.8 s on a decelerating curve; a long entrance reads as a slow web page, not a landing" });
+      else if (t.dur * FPS < ENTER_MIN_F - 0.01) add({ severity: "warning", rule: "entrance-too-short", ...where, message: `an entrance lasts ${Math.round(t.dur * FPS)} f (${t.dur.toFixed(2)} s); under ${ENTER_MIN_F} f it reads as a cut, not a move`, fix: "give it 6-12 f, or make it a deliberate hard cut" });
+      // a language whose own entrances are pops or scales (char-pop, scale ...) grows things on purpose: that is its signature, not a default
+      const uniS = (v) => (v.scale !== undefined ? v.scale : v.scaleX !== undefined && v.scaleY !== undefined ? Math.min(num(v.scaleX), num(v.scaleY)) : undefined);
+      const s0 = num(uniS(t.from)), s1 = num(uniS(t.to));
+      if (s0 !== null && s1 !== null && s0 <= 0.05 && s1 >= 0.95 && !growsByDesign) add({ severity: "warning", rule: "scale-from-zero", ...where, message: "grows from zero scale: nothing in measured work is born from nothing (identity objects arrive oversize and scale down)", fix: "enter from 0.9-1.1x with a short opacity ramp, or from 1.4-3.5x and scale down; growing from zero is right only when the growth is the content (a chart bar, a tile cascade)" });
+    }
     gestures.push({ ...t, rel, where });
     (byTarget[`${t.tl}|${t.target}`] = byTarget[`${t.tl}|${t.target}`] || []).push(t);
   }

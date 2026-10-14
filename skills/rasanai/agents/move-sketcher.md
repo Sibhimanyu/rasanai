@@ -58,6 +58,7 @@ A skeleton to start from (replace the contents of `#stage`; this is the shell on
 ## How to work
 
 1. Read the hero card and its ledger row and the rows either side. Say in one line what the carrier is, what it does in order, and what is constant across the bridge (this is your acceptance test).
+1b. If the card's staging is unclear, `node "$SKILL_DIR/scripts/moments.mjs" precedent --beat <beat> --content <type> --q "<the carrier>"` gives offline hints; hints only, never a reason to change the card's idea.
 2. Copy GSAP beside the rough (`cp "$SKILL_DIR/scripts/vendor/gsap.min.js" "$RUN/story/moves/<label>-<id>/gsap.min.js"`) and write `rough.html` from the card: frame A, each timed step, the bridge frame, frame B and the hand-off.
 3. **Render and check**: `node "$SKILL_DIR/scripts/moves.mjs" rough --dir "$RUN/story/moves/<label>-<id>" [--aspect <w:h>]`, then `node "$SKILL_DIR/scripts/moves.mjs" check-rough --dir "$RUN/story/moves/<label>-<id>"`. Fix what each names.
 4. **Look at `strip.png` and `poster.png`** (open the images). Answer: does the strip show frame A, the move, the bridge frame (is `poster.png` the frame where both states are true?) and the hand-off? Is the carrier the only orange? Does the timing read as the card says? If it does not read as the card, fix the rough (twice at most), render and look again.
