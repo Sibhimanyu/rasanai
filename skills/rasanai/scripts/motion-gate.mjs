@@ -5,7 +5,7 @@
 // fails here with the time, the region or the beat, so the builder can fix the cause.
 //
 //   node motion-gate.mjs [--video <draft.mp4>] [--project <videos/name>] [--plan <run>/motion/score.json]
-//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--no-text-fit] [--no-fluency] [--stillness] [--json]
+//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--no-text-fit] [--no-fluency] [--no-carry] [--stillness] [--json]
 //   node motion-gate.mjs fluency --video <film.mp4> [--stillness] [--json]     the fluency measurement alone
 //   -> exit 0 pass · 2 findings (listed, each with a time and a fix) · 1 could not run (never "clean")
 //
@@ -28,6 +28,16 @@
 //   gap-between-beats  no near-empty stretch over 0.3 s at a seam between two beats (outside breaths): the next element arrives
 //              before the last one leaves
 //   seams      every seam (a beat boundary from the plan) has motion on both sides within 0.2 s
+//   carry      something on screen survives every seam, measured from the pixels (lib/carry.mjs; onetake: "never replace a
+//              beat, carry it"): at each seam (the plan's beat boundaries, else the hard cuts found in the frames) the
+//              frames 0.1 s and 0.3 s either side are compared and the best pair wins; the score is the share of the
+//              foreground structure before the seam that reappears after it, allowing a shift (15% of the width) and a
+//              scale change (0.7 to 1.4), corrected for chance. A seam under 0.25 is not carried; fewer than half the
+//              seams carried is a WARNING listing each uncarried seam with its time and score (an error only when a
+//              user lesson sets motion.carry_share, and never in a stillness style). Calibrated against our carry-chain films and the references (craft.md)
+//   long-ending  (warning, --plan) the last beat is more than 25% of the film (film.ending_share_max; motionmaxxing G3)
+// Lessons (lib/gate-lessons.mjs): motion.end_hold_s, motion.freeze_s, motion.carry_share and film.ending_share_max read
+// through gateValue, so a mistake the user pointed out once can tighten them; the report lists each lesson in force.
 // From the plan and the code (--plan, --project):
 //   carriers   at least two seams carried by an object present on both sides (measured from index.html's carrier
 //              tracks when the project is given; otherwise what the plan declares)
@@ -50,6 +60,8 @@ import { parseArgs } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
 import { textFit } from "./lib/textfit.mjs";
 import { analyse as fluencyOf, scoreFluency } from "./lib/fluency.mjs";
+import { measureCarry } from "./lib/carry.mjs";
+import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
 
 export const GATE = {
   coverage: 0.7, // share of frames with visible motion
@@ -57,7 +69,10 @@ export const GATE = {
   end_hold_s: 1.5, // the end card's stillness after its last move
   creep_per_s: 0.04, // a whole-frame scale or drift slower than this (4%/s) is a creep
   seam_window_s: 0.2, // motion on both sides of every seam within this window
-  carried_seams: 2, // seams carried by an object present on both sides
+  carried_seams: 2, // seams carried by an object present on both sides (read from the code and the plan)
+  carry_seam: 0.25, // a seam is carried when this share of the foreground before it reappears after it (lib/carry.mjs)
+  carry_share: 0.5, // at least this share of the seams carried, measured from the pixels (a lesson can raise it: motion.carry_share)
+  ending_share_max: 0.25, // the last beat is at most this share of the film (long-ending; a lesson can lower it)
   empty_share: 0.10, // more than this share of frames near-empty fails (empty-frames)
   empty_fg: 0.025, // a frame is near-empty when its foreground covers less than this share of the frame
   gap_s: 0.3, // a near-empty stretch this long at a seam fails (gap-between-beats)
@@ -81,11 +96,12 @@ async function main() {
     }
     process.exit(g.pass === false ? 2 : 0);
   }
-  const res = await gate({ video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], stillness: args.stillness ? true : null });
+  const res = await gate({ video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], stillness: args.stillness ? true : null });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else {
     console.log(`motion gate: ${res.verdict}${res.measured.coverage != null ? ` · ${Math.round(res.measured.coverage * 100)}% of frames move` : ""}`);
     for (const f of res.findings) console.log(`  ${f.severity === "error" ? "FAIL" : "warn"} ${f.check}${f.at != null ? ` at ${f.at} s` : ""}${f.region ? ` (${f.region})` : ""}: ${f.message}${f.fix ? `\n       fix: ${f.fix}` : ""}`);
+    for (const n of res.notes) console.log(`  note tightened by ${n}`);
     for (const s of res.skipped) console.log(`  skip ${s}`);
     for (const c of res.could_not_run) console.log(`  could not run: ${c}`);
   }
@@ -366,7 +382,7 @@ function codeChecks(file, html) {
 }
 
 // ---------------------------------------------------------------- the gate
-export async function gate({ video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, stillness = null } = {}) {
+export async function gate({ video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, stillness = null } = {}) {
   const findings = [], skipped = [], could = [], measured = {};
   const add = (f) => findings.push(f);
   const P = readPlan(plan && path.resolve(plan), scenes && path.resolve(scenes));
@@ -379,10 +395,13 @@ export async function gate({ video = null, project = null, plan = null, scenes =
   measured.stillness = stillness;
   const still = stillness ? "warning" : "error";
   const beats = P.beats || [];
-  const holdMax = endHold || P.endHold || GATE.end_hold_s;
+  const holdMax = gateValue("motion.end_hold_s", endHold || P.endHold || GATE.end_hold_s);
+  const freezeS = gateValue("motion.freeze_s", GATE.freeze_s);
+  const carryShare = gateValue("motion.carry_share", GATE.carry_share), endingMax = gateValue("film.ending_share_max", GATE.ending_share_max);
+  const notes = gateNotes(["motion.end_hold_s", "motion.freeze_s", "motion.carry_share", "film.ending_share_max"]);
   const seamTimes = beats.slice(1).map((b) => b.start);
   const endStart = beats.length >= 2 ? beats[beats.length - 1].start : null;
-  measured.thresholds = { ...GATE, end_hold_s: holdMax };
+  measured.thresholds = { ...GATE, end_hold_s: holdMax, freeze_s: freezeS, carry_share: carryShare, ending_share_max: endingMax };
   if (!video && !project) could.push("nothing to measure: give --video <draft.mp4> (the frame checks) and/or --project <dir> (the code checks)");
 
   // ---- frames
@@ -426,9 +445,9 @@ export async function gate({ video = null, project = null, plan = null, scenes =
         }
         for (const [a, b] of stills) {
           const len = (b - a + 1) / fps;
-          if (len >= GATE.freeze_s - 1e-6) {
+          if (len >= freezeS - 1e-6) {
             const inEnd = endStart != null && a / fps >= endStart;
-            add({ check: "freeze", severity: still, at: tOf(a - 1 >= 0 ? a - 1 : a), region: "whole frame", message: `nothing moves for ${r2(len)} s (${tOf(a - 1 >= 0 ? a - 1 : a)} to ${tOf(b)} s)${inEnd ? ", inside the end card before its last move" : ""}: ${GATE.freeze_s} s at most`, fix: "let the hold breathe instead of dying: a camera push on the world, a secondary that settles late, the next element starting early; or cut it shorter" });
+            add({ check: "freeze", severity: still, at: tOf(a - 1 >= 0 ? a - 1 : a), region: "whole frame", message: `nothing moves for ${r2(len)} s (${tOf(a - 1 >= 0 ? a - 1 : a)} to ${tOf(b)} s)${inEnd ? ", inside the end card before its last move" : ""}: ${freezeS} s at most`, fix: "let the hold breathe instead of dying: a camera push on the world, a secondary that settles late, the next element starting early; or cut it shorter" });
           }
         }
         // empty frames: near-empty = foreground under GATE.empty_fg (foregroundShare); the end hold and declared breaths are exempt
@@ -540,6 +559,32 @@ export async function gate({ video = null, project = null, plan = null, scenes =
     } catch (e) { skipped.push(`fluency: ${e.message} (not measured, never passed)`); }
   } else if (video && !fluency) skipped.push("fluency: skipped (--no-fluency)");
 
+  // ---- carry: does something on screen survive every seam? (lib/carry.mjs, measured from the pixels)
+  if (video && carry && fs.existsSync(path.resolve(video))) {
+    try {
+      const c = await measureCarry(path.resolve(video), { seams: seamTimes });
+      const rows = c.seams.map((x) => ({ t: x.t, score: x.score, carried: (x.score ?? 0) >= GATE.carry_seam }));
+      const total = rows.length, got = rows.filter((x) => x.carried).length, share = total ? got / total : null;
+      measured.carry = { source: seamTimes.length ? "plan" : "hard cuts", seams: rows, carried_share: share == null ? null : r2(share), need: carryShare };
+      if (!total) skipped.push(`carry: ${seamTimes.length ? "no seam fell inside the render" : "no plan and no hard cut found in the frames"} (nothing to compare)`);
+      else if (share < carryShare) {
+        const bad = rows.filter((x) => !x.carried);
+        // a warning by default: the reference films hard-cut between scenes and the score sits near its line on some seams; an error once the user's lesson asks for carry (motion.carry_share)
+        add({ check: "carry", severity: still === "error" && gateNotes(["motion.carry_share"]).length ? "error" : "warning", at: bad[0].t, region: "seams", message: `${got} of ${total} seams carried (${Math.round(share * 100)}%, ${Math.round(carryShare * 100)}% at least); uncarried: ${bad.map((x) => `${x.t} s (${x.score == null ? "nothing on screen before it" : x.score.toFixed(2)})`).join(", ")}; a seam needs ${GATE.carry_seam}`, fix: "never replace a beat, carry it: take an object (a card, a line, the mark, a shape) across the cut and let it become part of the next beat, grown or moved, or make the cut a match cut on a shape" });
+      }
+    } catch (e) { skipped.push(`carry: ${e.message} (not measured, never passed)`); }
+  } else if (video && !carry) skipped.push("carry: skipped (--no-carry)");
+
+  // ---- the ending: the last beat is not a quarter of the film
+  if (beats.length >= 2) {
+    const total = measured.duration_s || P.duration, last = beats[beats.length - 1];
+    if (total > 0 && last.start < total) {
+      const share = (total - last.start) / total;
+      measured.ending_share = r2(share);
+      if (share > endingMax + 1e-6) add({ check: "long-ending", severity: "warning", at: r2(last.start), region: `beat ${last.id}`, message: `the last beat (${last.id}) runs ${r2(total - last.start)} s, ${Math.round(share * 100)}% of the ${r2(total)} s film (${Math.round(endingMax * 100)}% at most)`, fix: "the end card is 2 to 3 s: land the call to action and stop; give the story's weight to the beats before it" });
+    }
+  }
+
   // ---- the plan and the code
   if (beats.length) {
     // carriers
@@ -603,7 +648,7 @@ export async function gate({ video = null, project = null, plan = null, scenes =
 
   const errors = findings.filter((f) => f.severity === "error");
   const ok = !errors.length && !could.length;
-  return { ok, verdict: errors.length ? "fail" : could.length ? "could not run" : "pass", measured, findings, skipped, could_not_run: could };
+  return { ok, verdict: errors.length ? "fail" : could.length ? "could not run" : "pass", measured, findings, notes, skipped, could_not_run: could };
 }
 
 if (process.argv[1] && fs.realpathSync(path.resolve(process.argv[1])) === fs.realpathSync(fileURLToPath(import.meta.url))) await main();
