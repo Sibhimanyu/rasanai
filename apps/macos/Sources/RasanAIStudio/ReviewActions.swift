@@ -25,6 +25,14 @@ private struct ReviewFrameFitting: ViewModifier {
     }
 }
 
+/// Review notes the person chose not to apply this time. Only the ids Apply sends change: nothing goes to the director when a
+/// note is skipped, and a skipped note stays on the animatic. Held by the film page so the inspector and the stage share it.
+@MainActor @Observable
+final class NoteSkips {
+    var ids: Set<String> = []
+    func toggle(_ id: String) { if ids.contains(id) { ids.remove(id) } else { ids.insert(id) } }
+}
+
 /// The primary action of a review call (Animatic, Final), published to the status bar at the bottom right, the same place as
 /// the first half's CallActions. Notes live on the frame and in the list. Draws nothing itself.
 struct ReviewActionBar: View {
@@ -44,38 +52,3 @@ struct ReviewActionBar: View {
     }
 }
 
-/// A single field under the notes list for a note about the whole film (no frame needed).
-struct FilmNoteField: View {
-    let model: FilmSessionModel
-    let step: String
-    let enabled: Bool
-    @State private var text = ""
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "film").foregroundStyle(.secondary).font(.system(size: 12))
-            TextField("Add a note about the whole film", text: $text)
-                .textFieldStyle(.plain).font(.system(size: 13))
-                .onSubmit(save)
-                .disabled(!enabled)
-            if !trimmed.isEmpty {
-                Button("Add", action: save).buttonStyle(.borderless).font(.system(size: 12, weight: .semibold))
-            }
-        }
-        .padding(.horizontal, 10).padding(.vertical, 8)
-        .background(Color(nsColor: .quaternaryLabelColor).opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(nsColor: .separatorColor).opacity(0.6), lineWidth: 0.5) }
-        .opacity(enabled ? 1 : 0.5)
-        .accessibilityElement(children: .contain)
-    }
-
-    private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private func save() {
-        let note = trimmed
-        guard !note.isEmpty, enabled else { return }
-        Task {
-            let value: [String: JSONValue] = ["t": .number(0), "scope": .string("film"), "quick": .null]
-            if await model.send(step: step, type: "comment", value: .object(value), note: note) { text = "" }
-        }
-    }
-}

@@ -9,13 +9,18 @@ struct AnimaticStage: View {
 
     @State private var playback = AnimaticPlayback()
     @State private var confirmStory = false
+    @State private var confirmBuild = false
     @State private var stageHeight: CGFloat = 640
+    @Environment(NoteSkips.self) private var skips: NoteSkips?
+    @Environment(\.agentName) private var agent
 
     var body: some View {
         let payload = model.payload(step)
         let scenes = model.snapshot.scenes(for: .animatic)
         let allNotes = model.snapshot.notes.filter { $0.step == step }
         let open = allNotes.filter(\.isOpen)
+        // Notes the person skipped stay on the animatic; Apply just doesn't send them.
+        let applying = open.filter { skips?.ids.contains($0.id) != true }
         let canAct = model.canAct(on: step)
         let audioPath = payload["audio"].string ?? payload["music"]["file"].string
         let audioURL = model.fileURL(audioPath)
@@ -40,25 +45,27 @@ struct AnimaticStage: View {
                         Text("\(scenes.count)").font(.system(size: 12)).foregroundStyle(.secondary)
                         Spacer(minLength: 8)
                         if !open.isEmpty && canAct {
-                            Button("Build without these notes") { Task { await model.send(step: step, type: "approve") } }
+                            Button("Build without these notes…") { confirmBuild = true }
                                 .buttonStyle(.link).font(.system(size: 12))
                                 .help("Skip these notes and build the film as it is.")
                         }
                         chips(payload, canAct: canAct)
                     }
-                    .padding(.horizontal, 14).padding(.top, 10)
+                    .padding(.horizontal, .filmInset).padding(.top, 10)
                     SceneFilmstrip(playback: playback, scenes: scenes, open: open)
                 }
                 .frame(height: 168)
                 .workspacePanel()
             }
             ReviewActionBar(model: model, step: step,
-                            title: open.isEmpty ? "Approve & build" : "Apply \(open.count) note\(open.count == 1 ? "" : "s")",
-                            symbol: open.isEmpty ? "hammer.fill" : "checkmark.bubble.fill",
-                            signature: open.map(\.id).joined(separator: ",")) {
+                            title: applying.isEmpty ? "Approve & build"
+                                : applying.count < open.count ? "Apply \(applying.count) of \(open.count) notes"
+                                : "Apply \(open.count) note\(open.count == 1 ? "" : "s")",
+                            symbol: applying.isEmpty ? "hammer.fill" : "checkmark.bubble.fill",
+                            signature: applying.map(\.id).joined(separator: ",")) {
                 Task {
-                    if open.isEmpty { await model.send(step: step, type: "approve") }
-                    else { await model.send(step: step, type: "apply", value: .object(["ids": .array(open.map { .string($0.id) })])) }
+                    if applying.isEmpty { await model.send(step: step, type: "approve") }
+                    else { await model.send(step: step, type: "apply", value: .object(["ids": .array(applying.map { .string($0.id) })])) }
                 }
             }
         }
@@ -73,12 +80,15 @@ struct AnimaticStage: View {
         .onDisappear { playback.shutdown() }
         .confirmationDialog("Try a different story?", isPresented: $confirmStory, titleVisibility: .visible) {
             Button("Ask for a different story") { Task { await model.send(step: step, type: "more", value: .object(["what": .string("angle")])) } }
-        } message: { Text("Claude goes back to the story step and writes new ones. The look and animatic are redone from the story you pick, which takes a while and costs another pass.") }
+        } message: { Text("\(agent) goes back to the story step and writes new ones. The look and animatic are redone from the story you pick, which takes a while and costs another pass.") }
+        .confirmationDialog("Build without your \(open.count) note\(open.count == 1 ? "" : "s")?", isPresented: $confirmBuild, titleVisibility: .visible) {
+            Button("Build Without Notes") { Task { await model.send(step: step, type: "approve") } }
+        } message: { Text("Your notes stay on the animatic but are not applied.") }
     }
 
     private var emptyState: some View {
         ContentUnavailableView("The animatic isn't ready yet", systemImage: "film",
-                               description: Text("Key frames appear here as Claude publishes them."))
+                               description: Text("Key frames appear here as \(agent) publishes them."))
             .frame(maxWidth: .infinity, minHeight: 300)
             .background(ReviewTheme.room, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .environment(\.colorScheme, .dark)
@@ -150,33 +160,5 @@ private struct AnimaticFrame: View {
             }
         }
         .animation(.easeInOut(duration: 0.18), value: scene.id)
-    }
-}
-
-/// What is on screen right now: the scene, its line and what we see.
-private struct NowShowing: View {
-    let playback: AnimaticPlayback
-    let scenes: [FilmScene]
-    var body: some View {
-        if let index = FilmTiming.sceneIndex(at: playback.time, in: scenes) {
-            let scene = scenes[index]
-            VStack(alignment: .leading, spacing: 7) {
-                HStack {
-                    StageSectionTitle("Scene \(index + 1) of \(scenes.count)")
-                    Spacer()
-                    Text("\(reviewTime(scene.start)) – \(reviewTime(scene.end))").font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
-                }
-                Text(scene.title).font(.system(size: 15, weight: .semibold))
-                if !scene.line.isEmpty {
-                    Text("“\(scene.line)”").font(.system(size: 13)).foregroundStyle(.primary.opacity(0.85)).fixedSize(horizontal: false, vertical: true)
-                }
-                if !scene.visual.isEmpty {
-                    Label(scene.visual, systemImage: "eye").font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .stageCard(padding: 14)
-            .animation(.smooth(duration: 0.2), value: index)
-            .accessibilityElement(children: .combine)
-        }
     }
 }
