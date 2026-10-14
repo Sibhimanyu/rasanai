@@ -24,5 +24,25 @@ try {
   await new Promise(resolve => child.once('exit', resolve));
   await delay(100);
   assert.throws(() => process.kill(pid, 0), 'stop terminates the child');
-  console.log('Supervisor exit/stop tests passed');
+  // Freeze: ticks stop on SIGUSR1, resume on SIGUSR2, and SIGTERM while frozen still exits promptly.
+  const ticker = spawn(process.execPath, [driver.pathname, job(['-e', 'setInterval(()=>console.log("tick"),100)'])], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let ticks = 0;
+  ticker.stdout.on('data', data => { ticks += String(data).split('tick').length - 1; });
+  await delay(600);
+  assert.ok(ticks > 0, 'ticks arrive before freezing');
+  ticker.kill('SIGUSR1');
+  await delay(300);
+  const frozenAt = ticks;
+  await delay(700);
+  assert.equal(ticks, frozenAt, 'no ticks while frozen');
+  ticker.kill('SIGUSR2');
+  await delay(700);
+  assert.ok(ticks > frozenAt, 'ticks resume after SIGUSR2');
+  ticker.kill('SIGUSR1');
+  await delay(300);
+  const started = Date.now();
+  ticker.kill('SIGTERM');
+  await new Promise(resolve => ticker.once('exit', resolve));
+  assert.ok(Date.now() - started < 3000, 'SIGTERM while frozen exits promptly');
+  console.log('Supervisor exit/stop/freeze tests passed');
 } finally { fs.rmSync(root, { recursive: true, force: true }); }
