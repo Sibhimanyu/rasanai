@@ -33,6 +33,7 @@ struct DecisionsInspector: View {
             }
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)   // the inspector's glass shows through, the same as under Notes
         .accessibilityLabel("Decisions")
     }
 }

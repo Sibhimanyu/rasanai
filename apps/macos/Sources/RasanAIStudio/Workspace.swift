@@ -36,7 +36,36 @@ struct WorkspacePanel: ViewModifier {
     }
 }
 
+/// A panel of frosted glass: the window's sidebar material, blurred from what is behind the window, as macOS draws its
+/// own sidebars. Its edge is lit from above (brighter at the top, fading down), so it reads as a sheet of glass laid on
+/// the canvas rather than a box drawn on it. Used for the inspector, so Notes and Decisions share one surface.
+struct GlassPanel: ViewModifier {
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous)
+        content
+            .background { WindowMaterial(material: .sidebar).overlay(Color.primary.opacity(0.015)) }
+            .clipShape(shape)
+            .overlay {
+                shape.strokeBorder(LinearGradient(colors: [Color.white.opacity(0.16), Color.white.opacity(0.05)], startPoint: .top, endPoint: .bottom), lineWidth: 1)
+            }
+    }
+}
+
+/// An AppKit material behind SwiftUI content. Follows the window's active state, as system sidebars do.
+struct WindowMaterial: NSViewRepresentable {
+    var material: NSVisualEffectView.Material
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = .behindWindow
+        view.state = .followsWindowActiveState
+        return view
+    }
+    func updateNSView(_ view: NSVisualEffectView, context: Context) { view.material = material }
+}
+
 extension View {
+    func glassPanel() -> some View { modifier(GlassPanel()) }
     func workspacePanel(padding: CGFloat = 0) -> some View { modifier(WorkspacePanel(padding: padding)) }
 }
 

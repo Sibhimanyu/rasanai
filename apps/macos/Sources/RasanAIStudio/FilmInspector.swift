@@ -31,7 +31,7 @@ struct FilmInspector: View {
         }
         .frame(width: 340)
         .frame(maxHeight: .infinity)
-        .workspacePanel()
+        .glassPanel()   // one glass surface under the header, Notes and Decisions alike
     }
 
     private func tab(_ which: InspectorTab, title: String) -> some View {
