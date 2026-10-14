@@ -54,10 +54,8 @@ struct GlassPanel: ViewModifier {
     }
 }
 
-/// The glass itself, without a shape. The material alone goes flat where there is nothing behind the window to blur
-/// (full screen, a plain desktop), so the depth is built in: an indigo wash, a soft brand-blue glow falling from the top
-/// corner, a fainter one rising from the bottom, and a sheen of light at the top. It reads the same in a window and in
-/// full screen, on any desktop picture.
+/// The glass itself, without a shape: a solid panel (nothing shows through it, neither the desktop nor a tint of ours),
+/// a sheen of light along the top, and the light of the stage beside it. Its only colour is what the workspace shows.
 struct GlassSurface: View {
     /// The side facing the stage. The stage's picture lights the glass from there (`StageLight`): a white frame
     /// brightens it, a blue one tints it, a dark one leaves the glass as it is.
@@ -69,30 +67,19 @@ struct GlassSurface: View {
     }
     var body: some View {
         let dark = scheme == .dark
-        GeometryReader { box in
-            let reach = max(box.size.width, box.size.height)
-            ZStack {
-                WindowMaterial(material: .sidebar)
-                // A mostly solid base: the glass stays faintly translucent but no longer lets the desktop into the text.
-                Workspace.panel.opacity(dark ? 0.62 : 0.55)
-                LinearGradient(colors: [Color.rasanDeep.opacity(dark ? 0.40 : 0.08), Color.rasanDeep.opacity(dark ? 0.26 : 0.04)],
-                               startPoint: .top, endPoint: .bottom)
-                RadialGradient(colors: [Color.rasanFill.opacity(dark ? 0.38 : 0.12), .clear],
-                               center: UnitPoint(x: 0.85, y: 0.08), startRadius: 0, endRadius: reach * 0.75)
-                RadialGradient(colors: [Color.rasanFill.opacity(dark ? 0.18 : 0.06), .clear],
-                               center: UnitPoint(x: 0.1, y: 1.0), startRadius: 0, endRadius: reach * 0.6)
-                if let glow, let lightFrom {
-                    // Strongest at the edge nearest the stage, falling off across the panel, scaled by the frame's brightness.
-                    let strength = dark ? 0.10 + 0.45 * glow.brightness : 0.06 + 0.25 * glow.brightness
-                    LinearGradient(stops: [.init(color: glow.color.opacity(strength), location: 0),
-                                           .init(color: glow.color.opacity(strength * 0.35), location: 0.35),
-                                           .init(color: .clear, location: 0.8)],
-                                   startPoint: lightFrom == .top ? .top : .leading, endPoint: lightFrom == .top ? .bottom : .trailing)
-                }
-                LinearGradient(colors: [Color.white.opacity(dark ? 0.06 : 0.25), .clear], startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.35))
+        ZStack {
+            Workspace.panel
+            if let glow, let lightFrom {
+                // Strongest at the edge nearest the stage, falling off across the panel, scaled by the frame's brightness.
+                let strength = dark ? 0.08 + 0.40 * glow.brightness : 0.05 + 0.22 * glow.brightness
+                LinearGradient(stops: [.init(color: glow.color.opacity(strength), location: 0),
+                                       .init(color: glow.color.opacity(strength * 0.35), location: 0.35),
+                                       .init(color: .clear, location: 0.8)],
+                               startPoint: lightFrom == .top ? .top : .leading, endPoint: lightFrom == .top ? .bottom : .trailing)
             }
-            .animation(.easeInOut(duration: 0.6), value: glow)
+            LinearGradient(colors: [Color.white.opacity(dark ? 0.05 : 0.20), .clear], startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.35))
         }
+        .animation(.easeInOut(duration: 0.6), value: glow)
     }
 }
 
