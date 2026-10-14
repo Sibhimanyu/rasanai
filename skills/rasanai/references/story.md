@@ -179,6 +179,10 @@ Then the **weighted score**: originality 25%, clarity 20%, fit 20%, memorability
 
 **To rewrite**, push in this order: a more specific artifact from the truth sheet → a sharper turn → a stricter constraint. Two rewrites at most; then replace the device with another from `pick` (`--exclude` the failed one) that keeps the set's distances.
 
+## Different from your recent films
+
+Picking a device and a shape (above) is the first half; the Motion Director's score then names the film's six aspects (structure, opening, signature, camera, music, ending, vocabulary in `agents/motion-director.md`) and must differ from each of the last 3 films in at least 4. A story that forces the same structure and ending as the last film (a series, or an explicit ask) is the one case for a `shape_waiver`; otherwise change the shape the script rests on, not only its words.
+
 ## Principles
 
 1. **One idea, one sentence.** If the logline needs "and", it's two ideas.

@@ -24,6 +24,9 @@
 //                   readable run is shorter than 0.6 s + 0.3 s per word (story.mjs's reading time) less one sample
 //   text-overlap    two different readable blocks (neither inside the other) whose line boxes intersect by 15% of
 //                   the smaller one's area or more for 0.3 s continuously (a crossfade shorter than that passes)
+//   text-too-small  OFF unless a lesson sets text.statement_min_h (lessons.mjs add … --gate text.statement_min_h=0.05): a readable
+//                   block of 3+ words (not skim) whose font-size is under that share of the frame height, readable for 0.4 s or more
+// text.read_per_word_s (default 0.3) is read through gateValue too: a lesson can only make the reading time longer.
 // data-read="skim" (on the element or a parent; captions, in a composition or element named caption*, are skim by default
 // because they track the narration) opts a block out of text-too-brief (UI text that only has to register);
 // data-overlap="ok" opts it out of text-overlap; data-text-fit="ignore" opts out of everything.
@@ -32,6 +35,7 @@ import path from "node:path";
 import { chromePath } from "./common.mjs";
 import { launch } from "./cdp.mjs";
 import { serve } from "./stage3d.mjs";
+import { gateValue, gateNotes } from "./gate-lessons.mjs";
 
 export const TEXT_FIT = { fps: 10, safe: 0.06, edge_s: 1.2, rest_s: 0.4, min_font_px: 20, rest_px: 1.5,
   statement: 0.035, read_base_s: 0.6, read_per_word_s: 0.3, brief_min_words: 3, overlap_frac: 0.15, overlap_s: 0.3, read_slack: 0.85 };
@@ -204,7 +208,9 @@ export function analyze(byKey, dt, file) {
 
 // block rows -> findings. byBlock: Map id -> [{t, w, v, f, t:text, s, o, a, r:[[l,t,r,b]]}] in time order
 export function analyzeBlocks(byBlock, dt, file, H) {
-  const findings = [], T = TEXT_FIT, base = path.basename(file);
+  const findings = [], T = { ...TEXT_FIT, read_per_word_s: gateValue("text.read_per_word_s", TEXT_FIT.read_per_word_s) }, base = path.basename(file);
+  const minH = gateValue("text.statement_min_h", null), lesson = gateNotes(["text.read_per_word_s", "text.statement_min_h"]);
+  const tail = lesson.length ? ` [measured by ${lesson.join("; ")}]` : "";
   const maxW = new Map(), per = new Map(); // id -> most words seen; time -> readable rows
   for (const [id, rows] of byBlock) maxW.set(id, Math.max(...rows.map((r) => r.w)));
   const runs = (ts) => { // consecutive sample times -> [[from, to(exclusive)]]
@@ -215,6 +221,14 @@ export function analyzeBlocks(byBlock, dt, file, H) {
   for (const [id, rows] of byBlock) {
     const w = maxW.get(id), ok = rows.filter((r) => r.v * 2 >= w), text = rows.reduce((a, b) => (b.v > a.v ? b : a)).x;
     for (const r of ok) { const k = Math.round(r.t * 1000); if (!per.has(k)) per.set(k, []); per.get(k).push({ id, ...r }); }
+    if (minH != null && ok.length && w >= T.brief_min_words && rows[0].f < minH * H && !rows.some((r) => r.s)) {
+      const run = runs(ok.map((r) => r.t)).reduce((a, b) => (b[1] - b[0] > a[1] - a[0] ? b : a), [0, 0]);
+      if (run[1] - run[0] >= T.rest_s - 1e-9) findings.push({
+        check: "text-too-small", severity: "error", at: r2(run[0]), from: r2(run[0]), to: r2(run[1]), text: text.slice(0, 40), file: base, region: "text",
+        message: `"${text.slice(0, 40)}" is set at ${Math.round(rows[0].f)} px, ${r2(rows[0].f / H * 100)}% of the frame height; a readable line of ${w} words must be at least ${r2(minH * 100)}% (${Math.round(minH * H)} px), ${r2(run[0])}–${r2(run[1])} s${tail}`,
+        fix: 'set it larger (or shorter so it can be), or mark it data-read="skim" if it is texture; the user taught this rule on an earlier film (lessons.mjs)',
+      });
+    }
     if (!ok.length || w < T.brief_min_words || rows[0].f < T.statement * H || rows.some((r) => r.s)) continue;
     const need = T.read_base_s + T.read_per_word_s * w;
     const best = runs(ok.map((r) => r.t)).reduce((a, b) => (b[1] - b[0] > a[1] - a[0] ? b : a), [0, 0]);
@@ -222,7 +236,7 @@ export function analyzeBlocks(byBlock, dt, file, H) {
     const shown = best[1] - best[0];
     findings.push({
       check: "text-too-brief", severity: "error", at: r2(best[0]), from: r2(best[0]), to: r2(best[1]), text: text.slice(0, 40), file: base, region: "text",
-      message: `"${text.slice(0, 40)}" is readable for ${r2(shown)} s (${r2(best[0])}–${r2(best[1])} s); ${w} words need ${r2(need)} s`,
+      message: `"${text.slice(0, 40)}" is readable for ${r2(shown)} s (${r2(best[0])}–${r2(best[1])} s); ${w} words need ${r2(need)} s${T.read_per_word_s > TEXT_FIT.read_per_word_s ? tail : ""}`,
       fix: 'hold it longer, cut words, or mark it data-read="skim" if it is texture; never speed it up (references/craft.md section 10)',
     });
   }
