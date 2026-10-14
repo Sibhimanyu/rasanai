@@ -11,16 +11,25 @@ struct LinkedSourceWell: View {
     var disabled = false
     /// The picked format's own words for what it wants here (a footage well only); nil keeps the default hint.
     var prompt: String?
+    /// The reference well also holds the moves picked from Inspiration: their thumbnails, and the button that opens the
+    /// gallery. Nil leaves the well to its sources alone.
+    var moves: AnyView?
+    var movesCount = 0
+    var onPickMoves: (() -> Void)?
     @State private var targeted = false
     @State private var message: String?
 
     private var mine: [LinkedSource] { sources.filter { $0.kind == kind } }
+    private var empty: Bool { mine.isEmpty && movesCount == 0 }
     private var title: String { kind == .footage ? "Footage folder" : "Make it like this" }
     private var symbol: String { kind == .footage ? "folder" : "film.stack" }
     private var hint: String {
         if kind == .footage, let prompt, !prompt.isEmpty {
             let sentence = prompt.last.map { ".?!".contains($0) } == true ? prompt : prompt + "."
             return sentence + " It stays where it is, and nothing is copied."
+        }
+        if kind == .reference, onPickMoves != nil {
+            return "Drop a video to study for pace, type, colour and camera, or pick moves from Inspiration. Neither is cut into your film."
         }
         return kind == .footage ? "Drop a folder of clips. It stays where it is, and nothing is copied."
             : "Drop a video to study for pace, type, colour and camera. It is never cut into your film."
@@ -30,11 +39,11 @@ struct LinkedSourceWell: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Image(systemName: symbol).font(.system(size: 14, weight: .medium)).foregroundStyle(mine.isEmpty ? Color.secondary : Color.rasan)
+                Image(systemName: symbol).font(.system(size: 14, weight: .medium)).foregroundStyle(empty ? Color.secondary : Color.rasan)
                 Text(title).font(.system(size: 13, weight: .semibold))
                 Spacer(minLength: 0)
             }
-            if mine.isEmpty {
+            if empty {
                 Text(hint).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             } else {
                 ForEach(mine) { source in
@@ -42,15 +51,23 @@ struct LinkedSourceWell: View {
                 }
             }
             if let message { Text(message).font(.system(size: 11.5)).foregroundStyle(Color(nsColor: .systemOrange)).fixedSize(horizontal: false, vertical: true) }
-            Button(mine.isEmpty ? buttonTitle : (kind == .footage ? "Add another folder…" : "Choose another video…")) { choose() }
-                .controlSize(.small).disabled(disabled)
+            if movesCount > 0, let moves { moves }
+            HStack(spacing: 8) {
+                Button(mine.isEmpty ? buttonTitle : (kind == .footage ? "Add another folder…" : "Choose another video…")) { choose() }
+                if let onPickMoves {
+                    Button { onPickMoves() } label: {
+                        Label(movesCount == 0 ? "Pick moves from Inspiration…" : "Change moves…", systemImage: "sparkles")
+                    }
+                }
+            }
+            .controlSize(.small).disabled(disabled)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(targeted ? Color.rasan.opacity(0.10) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(targeted ? Color.rasan : Color(nsColor: .separatorColor), style: StrokeStyle(lineWidth: targeted ? 1.5 : 0.8, dash: mine.isEmpty ? [5, 4] : []))
+                .strokeBorder(targeted ? Color.rasan : Color(nsColor: .separatorColor), style: StrokeStyle(lineWidth: targeted ? 1.5 : 0.8, dash: empty ? [5, 4] : []))
         }
         .animation(.snappy(duration: 0.15), value: targeted)
         .animation(.snappy, value: mine)

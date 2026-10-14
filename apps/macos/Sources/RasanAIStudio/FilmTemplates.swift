@@ -35,6 +35,7 @@ struct FilmTemplatesView: View {
                     .font(.system(size: 13)).foregroundStyle(.secondary)
                 if store.settings.filmTemplates.isEmpty {
                     ContentUnavailableView("No templates yet", systemImage: "doc.on.doc", description: Text("Write a reusable brief in New film, then choose Save as template."))
+                        .frame(maxWidth: .infinity, minHeight: 320)
                 }
                 ForEach(store.settings.filmTemplates) { template in
                     VStack(alignment: .leading, spacing: 10) {
@@ -48,11 +49,11 @@ struct FilmTemplatesView: View {
                             } label: { Image(systemName: "ellipsis") }.menuStyle(.borderlessButton).frame(width: 24)
                         }
                         Text(template.draft.brief).lineLimit(3).font(.system(size: 13)).foregroundStyle(.secondary)
-                        Text("\(template.draft.duration) seconds · \(template.draft.aspect) · \(template.draft.motionLevel.capitalized)\(template.draft.brand.map { " · " + $0 } ?? "")")
+                        Text("\(template.draft.duration) seconds · \(template.draft.aspect) · \(MotionLevel.title(template.draft.motionLevel))\(template.draft.brand.map { " · " + $0 } ?? "")")
                             .font(.system(size: 11)).foregroundStyle(.secondary)
                     }.padding(18).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
                 }
-            }.padding(32).frame(maxWidth: 850).frame(maxWidth: .infinity)
+            }.pageColumn()
         }.navigationTitle("Templates")
             .pageHeader("Templates")
             .alert("Rename template", isPresented: Binding(get: { renameID != nil }, set: { if !$0 { renameID = nil } })) {

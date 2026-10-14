@@ -91,10 +91,20 @@ struct RasanAIStudioApp: App {
                 Button("Reload Film") { store.reloadFilm() }.keyboardShortcut("r").disabled(!onFilmPage || store.isBrowsingAnotherFilm || store.runURL == nil)
             }
             CommandMenu("Navigate") {
-                Button("Film Queue") { store.path.append(.queue) }.keyboardShortcut("k", modifiers: [.command, .shift])
-                Button("Film Templates") { store.path.append(.templates) }.keyboardShortcut("t", modifiers: [.command, .shift])
-                Button("Back") { if !store.path.isEmpty { store.path.removeLast() } }.keyboardShortcut("[", modifiers: .command).disabled(store.path.isEmpty)
+                Button("Find Films") {
+                    // Search lives on Home and the film lists; from anywhere else, go Home first.
+                    switch store.path.last { case nil, .library?: break; default: store.goHome() }
+                    DispatchQueue.main.async { NotificationCenter.default.post(name: ToolbarSearchField.focusRequest, object: nil) }
+                }.keyboardShortcut("f", modifiers: .command)
+                Divider()
+                // Places from the sidebar replace the page, as clicking them in the sidebar does.
+                Button("Film Queue") { store.path = [.queue] }.keyboardShortcut("k", modifiers: [.command, .shift])
+                Button("Film Templates") { store.path = [.templates] }.keyboardShortcut("t", modifiers: [.command, .shift])
                 Button("Home") { store.goHome() }.keyboardShortcut("h", modifiers: [.command, .shift])
+                Divider()
+                // The same history as the toolbar's ‹ ›.
+                Button("Back") { store.goBack() }.keyboardShortcut("[", modifiers: .command).disabled(!store.canGoBack)
+                Button("Forward") { store.goForward() }.keyboardShortcut("]", modifiers: .command).disabled(!store.canGoForward)
             }
             CommandGroup(replacing: .help) {
                 Link("RasanAI Help", destination: guideURL)

@@ -35,7 +35,7 @@ struct LibraryFilmPage: View {
                             let draft = store.settings.editorDraft(for: url)?.film ?? archive.draft
                             Text(draft?.brief.isEmpty == false ? draft!.brief : "Add a description to prepare this film.").textSelection(.enabled)
                             if let draft {
-                                Text("\(draft.duration) seconds · \(draft.aspect) · \(draft.motionLevel.capitalized) motion").font(.system(size: 12)).foregroundStyle(.secondary)
+                                Text("\(draft.duration) seconds · \(draft.aspect) · \(MotionLevel.title(draft.motionLevel))").font(.system(size: 12)).foregroundStyle(.secondary)
                             }
                             if store.settings.filmQueue.contains(where: { $0.project == url }) {
                                 Button("View queue") { store.path.append(.queue) }.buttonStyle(.rasanPrimary)
@@ -57,7 +57,7 @@ struct LibraryFilmPage: View {
             else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
         }
         .navigationTitle(archive?.title ?? "Film")
-        .pageHeader(archive?.title ?? "Film", onBack: { store.goHome() })
+        .pageHeader(archive?.title ?? "Film")
         .background(Color.appBackground)
         .task(id: url) {
             let library = store.projectLibrary(for: url)

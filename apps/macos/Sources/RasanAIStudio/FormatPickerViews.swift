@@ -108,15 +108,25 @@ struct FormatPickerView: View {
 
     // MARK: Grid
 
+    /// Opening a tile scrolls whatever scroll view holds the picker (the New film page, the popover, the Brief call) to its
+    /// options, which open under the whole grid and would otherwise be out of sight.
     private var grid: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if option == nil { Text("What are you making?").font(.system(size: 15, weight: .semibold)).accessibilityAddTraits(.isHeader) }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 230), spacing: 10, alignment: .top)], alignment: .leading, spacing: 10) {
-                ForEach(catalog.tiles) { tile in tileButton(tile) }
+        ScrollViewReader { proxy in
+            VStack(alignment: .leading, spacing: 12) {
+                if option == nil { Text("What are you making?").font(.system(size: 15, weight: .semibold)).accessibilityAddTraits(.isHeader) }
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 230), spacing: 10, alignment: .top)], alignment: .leading, spacing: 10) {
+                    ForEach(catalog.tiles) { tile in tileButton(tile) }
+                }
+                if let id = openTile, let tile = catalog.tile(id) { options(of: tile).id(FormatPickerView.optionsAnchor) }
             }
-            if let id = openTile, let tile = catalog.tile(id) { options(of: tile) }
+            .onChange(of: openTile) { _, id in
+                guard id != nil else { return }
+                // After the options are laid out, or there is nothing to scroll to yet.
+                DispatchQueue.main.async { withAnimation(.snappy(duration: 0.35)) { proxy.scrollTo(FormatPickerView.optionsAnchor, anchor: .top) } }
+            }
         }
     }
+    private static let optionsAnchor = "format-options"
 
     private func tileButton(_ tile: FormatCatalog.Tile) -> some View {
         let selected = openTile == tile.id || (openTile == nil && pick?.tile == tile.id)
