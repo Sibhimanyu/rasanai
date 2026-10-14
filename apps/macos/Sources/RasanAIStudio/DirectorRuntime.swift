@@ -18,6 +18,9 @@ final class DirectorRuntime {
     var logURL: URL?
     var lastExitCode: Int32?
     var stopRequested = false
+    /// The director's whole process group is frozen in place (SIGSTOP via the driver): nothing runs and no tokens are used until it thaws.
+    private(set) var isFrozen = false
+    private(set) var frozenAt: Date?
     var startedAt: Date?
     var recovery: DirectorRecovery?
     /// Specifics for the failure (which command was blocked, which step it stopped before).
@@ -134,6 +137,7 @@ final class DirectorRuntime {
                 self.isFinishing = true
                 defer { self.isFinishing = false }
                 self.isRunning = false
+                self.isFrozen = false; self.frozenAt = nil
                 self.process = nil
                 self.lastExitCode = finished.terminationStatus
                 let code = finished.terminationStatus
@@ -173,10 +177,26 @@ final class DirectorRuntime {
         self.process = process
         activeRun = run; activeProject = project; logURL = log
         isRunning = true
-        status = "Director running · \(agent.title)"
+        runningStatus = "Director running · \(agent.title)"
+        status = runningStatus
         return run
     }
     private var identity = UUID()
+    private var runningStatus = "Director running"
+    /// Freezes the director and everything it started, exactly where it is. Resume with `thaw()`.
+    func freeze() {
+        guard isRunning, !isFrozen, let process, process.isRunning else { return }
+        kill(process.processIdentifier, SIGUSR1)
+        isFrozen = true; frozenAt = Date()
+        status = "Paused · nothing runs until you resume"
+    }
+    /// Continues a frozen director mid-step.
+    func thaw() {
+        guard isRunning, isFrozen, let process, process.isRunning else { return }
+        kill(process.processIdentifier, SIGUSR2)
+        isFrozen = false; frozenAt = nil
+        status = runningStatus
+    }
     func clearPresentation() {
         guard !isRunning, !isPreparing, !isFinishing else { return }
         lastExitCode = nil; stopRequested = false; logURL = nil; activeRun = nil; activeProject = nil
@@ -186,6 +206,7 @@ final class DirectorRuntime {
     func stop() {
         guard let process, process.isRunning else { return }
         stopRequested = true
+        isFrozen = false; frozenAt = nil // The driver continues a frozen group itself so it can handle the stop.
         status = "Stopping director and its child processes…"
         process.terminate()
     }

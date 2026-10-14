@@ -6,6 +6,7 @@ public enum KeepAwakePolicy {
     /// in the background (that wait could last all night, so the Mac may sleep).
     public static func shouldHold(enabled: Bool, processRunning: Bool, health: DirectorHealth?) -> Bool {
         guard enabled, processRunning else { return false }
+        if health?.state == .paused { return false }
         if let health, health.state == .waitingForYou, health.background == nil { return false }
         return true
     }
