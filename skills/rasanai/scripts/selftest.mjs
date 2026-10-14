@@ -43,6 +43,7 @@
 // camera. the RasanCamera kit (scripts/tests/camera.mjs): runtime, camera.mjs install/check (order, timeline, randomness, budgets), video.mjs inject
 //    (kit + GSAP plugins, script tags), finish.mjs --draft; full runs render the demo film (every function, seek identity, byte-identical double render)
 // 17. lyric videos: the treatment gate and the crew's song route, lyrics.mjs (check, audio, align when whisper is there), the RasanMusic runtime in a page, the film finish (grade, blur)
+// chrome-lint. the page-chrome lint (scripts/tests/chrome-lint.mjs): every rule of lib/chrome-lint.mjs on planted films with its negatives (UI surface, data-ui="captured", data-chrome="allow", a brand film's measured.chrome), through slop.mjs
 // formats. the "What are you making?" picker (scripts/tests/formats.mjs): formats.json check, match, resolve, the brief payload, the console picker, story.mjs format_shapes
 // plates. abstract plates (scripts/tests/plates.mjs): art.mjs recipe, the gradient-map palette lock, the procedural plate, make on an abstract row; full runs render flowGround + plateTransition twice (byte-identical)
 import fs from "node:fs";
@@ -121,6 +122,30 @@ for (const count of ["3", "6"]) {
     r = JSON.parse(p.stdout);
   } catch {}
   ok(`pick --count ${count}: 2+ tail candidates, auto never the remembered pick`, r.tail_count >= 2 && r.auto && r.auto.pick !== "retro-terminal", p.stdout.slice(0, 200));
+}
+
+// 5b taste ledger: record, digest, cap, clear
+{
+  const th = path.join(TMP, "taste-home");
+  const tenv = { ...env, RASANAI_HOME: th };
+  const mem = (a) => spawnSync(process.execPath, [path.join(HERE, "memory.mjs"), ...a], { encoding: "utf8", env: tenv, cwd: TMP });
+  ok("taste: empty ledger says so", /No taste notes/.test(mem(["taste"]).stdout));
+  const r1 = mem(["edit", "--film", "f1", "--stage", "animatic", "--note", "Slower", "--scene", "s2", "--t", "4.5"]);
+  mem(["edit", "--film", "f2", "--stage", "final", "--note", "slower!"]);
+  mem(["verdict", "--film", "f2", "--stage", "final", "--note", "Too busy in the middle"]);
+  ok("taste: record writes a row with film, stage, note, ts, scene and time", (() => { const r = JSON.parse(r1.stdout); return r.kind === "edit" && r.film === "f1" && r.stage === "animatic" && r.note === "Slower" && r.scene === "s2" && r.t === 4.5 && !!r.ts; })(), r1.stdout + r1.stderr);
+  ok("taste: a bad stage is refused", mem(["edit", "--film", "f", "--stage", "x", "--note", "n"]).status !== 0);
+  const dg = mem(["taste"]).stdout;
+  ok("taste: digest leads with the repeated theme, then the latest", /Recurring:\n- x2 \(2 films\) slower!?/i.test(dg) && /Too busy in the middle/.test(dg) && dg.indexOf("Recurring") < dg.indexOf("Latest"), dg);
+  for (let i = 0; i < 560; i++) fs.appendFileSync(path.join(th, "taste.jsonl"), JSON.stringify({ ts: "2026-01-01T00:00:00Z", kind: "edit", film: "bulk" + (i % 7), stage: "final", note: "note number " + i + " " + "word ".repeat(40) }) + "\n");
+  mem(["edit", "--film", "f3", "--stage", "final", "--note", "trigger trim"]);
+  const rows = fs.readFileSync(path.join(th, "taste.jsonl"), "utf8").split("\n").filter(Boolean).length;
+  const big = mem(["taste"]).stdout;
+  ok("taste: the ledger keeps at most 500 rows and the digest stays under 1800 characters", rows === 500 && big.length <= 1800 && /trigger trim/.test(big), `rows ${rows}, digest ${big.length}`);
+  const one = JSON.parse(mem(["taste-clear", "--film", "f3"]).stdout);
+  ok("taste: clear --film removes only that film", one.cleared === 1 && one.left === 499, JSON.stringify(one));
+  mem(["taste-clear"]);
+  ok("taste: clear forgets everything", !fs.existsSync(path.join(th, "taste.jsonl")) && /No taste notes/.test(mem(["taste"]).stdout));
 }
 
 // 6
@@ -268,6 +293,8 @@ if (url) {
   const wc = JSON.parse(h(["wait", "--run", hrun, "--timeout", "10"]).stdout);
   const st2 = J("session.json");
   ok("headless: a comment becomes an open note and a feed line", wc.type === "comment" && st2.comments.length === 1 && st2.comments[0].id === "cmt1" && st2.comments[0].state === "open" && st2.comments[0].t === 65.5 && st2.comments[0].quick === "Slower" && st2.activity.at(-1).msg === "You left a note at 1:05: slow this down", JSON.stringify(st2.comments));
+  const tl = (() => { try { return fs.readFileSync(path.join(TMP, "home", "taste.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)); } catch { return []; } })();
+  ok("taste: a note consumed by headless wait (the Studio path) lands in the ledger as an edit on the animatic", tl.length === 1 && tl[0].kind === "edit" && tl[0].stage === "animatic" && tl[0].note === "slow this down" && tl[0].scene === "s2" && tl[0].t === 65.5, JSON.stringify(tl));
   append({ id: "ans1", ts: "2026-01-01T00:00:02.000Z", step: st0.ask.step, type: "answer", value: { ask: st0.ask.id, choice: "y", text: "" }, note: "", source: "console" });
   const wa = JSON.parse(h(["wait", "--run", hrun, "--timeout", "10"]).stdout);
   const st3 = J("session.json");
@@ -2185,7 +2212,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   ok("presenter: other routes do not need ## Imagery", !/Imagery/.test(g(run2).stdout));
 
   // the scripts' own tests, each with the same helpers; absent files are a note, never a failure
-  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit", "frame-gate", "frames", "camera", "lessons", "sound-payoff", "carry", "notes", "variety", "rhythm", "sound-shape", "decisions", "sound-fixes", "gate-fixes", "plumbing", "boldness", "ab-learn", "echo-camera"]) {
+  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit", "chrome-lint", "frame-gate", "frames", "camera", "lessons", "sound-payoff", "carry", "notes", "variety", "rhythm", "sound-shape", "decisions", "sound-fixes", "gate-fixes", "plumbing", "boldness", "ab-learn", "echo-camera", "ui"]) {
     const f = path.join(HERE, "tests", `${name}.mjs`);
     if (!fs.existsSync(f)) { console.log(`note  ${name}: scripts/tests/${name}.mjs is not there yet, skipped`); continue; }
     try {
@@ -3316,6 +3343,17 @@ catch (e) { ok("plates: tests ran", false, String((e && e.stack) || e).split("\n
   ok("music: the generated take is analysed, retimed onto the asked BPM (within 3%), fitted and recorded with its prompt and vendor", aiOpt?.origin === "ai:elevenlabs/music_v1" && !!aiOpt.retimed && Math.abs(aiOpt.bpm - 119) < 1 && !!aiOpt.fit && /DROP/.test(JSON.parse(fs.readFileSync(path.join(d, "run4", "music", "LICENSES.json"), "utf8"))[0]?.generation?.prompt || ""), JSON.stringify(aiOpt || ai).slice(0, 300));
   const noKey = J(nodeEnv("music.mjs", ["--run", path.join(d, "run5"), "--film", "20", "--sources", "ai,catalog", "--no-preview", "--intents", "dry minimal electronic bass, synth arpeggio, 120 BPM"], { RASANAI_MUSIC_CATALOG: fixFile, RASANAI_ELEVENLABS_API_KEY: "", RASANAI_STABILITY_API_KEY: "" }));
   ok("music: without a key the AI source says nothing and the catalog answers", noKey.chain?.find((c) => c.id === "ai")?.on === false && (noKey.options || []).some((o) => o.origin === "catalog") && !(noKey.notes || []).some((n) => /AI generation/.test(n)), JSON.stringify(noKey.notes));
+}
+
+// precedent lookup (adapted from motionmaxxing): offline, ranked, provenance-labelled, a bad beat is refused
+{
+  const pj = node("moments.mjs", ["precedent", "--beat", "hook", "--content", "type", "--q", "word bleed", "--limit", "4", "--json"]);
+  let pr = {}; try { pr = JSON.parse(pj.stdout); } catch {}
+  const sc = (pr.results || []).map((r) => r.score);
+  ok("precedent: a known beat returns ranked results, each labelled model-decoded and unverified, offline with no manifest or cache", pj.status === 0 && pr.total >= 700 && pr.results?.length === 4 && sc.every((v, i) => !i || sc[i - 1] >= v) && pr.results.every((r) => r.beat === "hook" && /model-decoded precedent \(motionmaxxing\), unverified: a hint, not a rule/.test(r.provenance)), pj.stdout.slice(0, 300) + pj.stderr);
+  const pt = node("moments.mjs", ["precedent", "--beat", "proof", "--content", "ui"]);
+  ok("precedent: the text form prints compact hints with the label; a bad --beat or no filter exits non-zero", pt.status === 0 && /unverified: a hint, not a rule/.test(pt.stdout) && node("moments.mjs", ["precedent", "--beat", "nope"]).status !== 0 && node("moments.mjs", ["precedent"]).status !== 0, pt.stdout.slice(0, 200));
+  ok("precedent: the third-party licence, notice and data ship in the skill", ["LICENSE", "NOTICE", "README.md", "moments.jsonl"].every((f) => fs.existsSync(path.join(HERE, "..", "third_party", "motionmaxxing", f))) && /Apache License/.test(fs.readFileSync(path.join(HERE, "..", "third_party", "motionmaxxing", "LICENSE"), "utf8")));
 }
 
 fs.rmSync(TMP, { recursive: true, force: true });

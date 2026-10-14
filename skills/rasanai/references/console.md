@@ -167,3 +167,5 @@ After `apply`, edit, then `console.mjs resolve --run <run> --ids <ids> --note "<
 | `note` | any | null; the text is in `note`. It's also added to that step's discussion thread; answer with `reply`. |
 
 A `note` can come with any action type too (e.g. `choose` + "but a bit slower").
+
+Taste ledger: a `comment` or `note` on the animatic or the final (and words sent with `approve` on the final) is also appended, when it is consumed, to the user's local `$RASANAI_HOME/taste.jsonl` through `console.mjs` (`memory.mjs taste` prints the digest, `memory.mjs taste-clear` forgets it). The page, RasanAI Studio and chat `record` all take this one path, so the app sends nothing extra.

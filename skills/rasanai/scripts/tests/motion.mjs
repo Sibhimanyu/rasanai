@@ -68,6 +68,23 @@ export default async function ({ ok, node, tmp }) {
   const pop4 = proj("pop4", { js: popJs([0, 1, 2, 3]), args: ["--score", score] }, "", "smooth");
   ok("motion (obey): the same budgeted effect on more elements than the film's limit is the uniform tell again (error)", pop4.rules.filter((x) => x === "banned:scale-pop").length >= 2, JSON.stringify(pop4.rules));
 
+  // ---- frame budgets: obey warns (never errors) on entrance lengths and growth from zero
+  const bud = proj("budgets", { js: `tl.fromTo("#r0",{autoAlpha:0},{autoAlpha:1,duration:1.6,ease:"expo.out"},0.2);tl.fromTo("#r1",{autoAlpha:0},{autoAlpha:1,duration:0.05,ease:"expo.out"},0.8);tl.fromTo("#r2",{scale:0},{scale:1,duration:0.5,ease:"expo.out"},1.2);` }, ' data-obey-mix="off"');
+  ok("motion (obey): an entrance over 1.2 s, one under 3 f and a scale from zero are warnings (entrance-too-long, entrance-too-short, scale-from-zero), not errors", ["entrance-too-long", "entrance-too-short", "scale-from-zero"].every((x) => bud.warns.includes(x)) && !bud.rules.includes("entrance-too-long") && !bud.rules.includes("scale-from-zero"), JSON.stringify([bud.warns, bud.rules]));
+  const ok1 = proj("budgets-ok", { js: `tl.fromTo("#r0",{autoAlpha:0,y:30},{autoAlpha:1,y:0,duration:0.4,ease:"expo.out"},0.2);` }, ' data-obey-mix="off"');
+  ok("motion (obey): a 0.4 s entrance raises none of the frame-budget warnings", !ok1.warns.some((x) => /^entrance-too|^scale-from-zero/.test(x)), JSON.stringify(ok1.warns));
+
+  // ---- the measured eases: 12 closed-form functions, f(0)=0, f(1)=1, deterministic, found by name
+  {
+    const { createRequire } = await import("node:module");
+    const RM = createRequire(import.meta.url)(path.join(HERE, "..", "runtime", "rasan-motion.js"));
+    const names = ["cruise", "glide", "softInOut", "softLand", "gentleIn", "snapSettle", "whip", "accelExit", "crashOut", "popOver", "crashIn", "bounceHard"];
+    const fine = names.every((n) => { const f = RM.measured[n]; return typeof f === "function" && f(0) === 0 && f(1) === 1 && f(0.37) === f(0.37) && Number.isFinite(f(0.37)); });
+    ok("motion (runtime): the twelve measured eases exist, start at 0, end at 1 and are pure functions of progress", fine && Object.keys(RM.measured).length === 12, Object.keys(RM.measured).join(","));
+    ok("motion (runtime): measured eases are found by name, the glide role curve is unchanged, and the measured glide is measured.glide", RM.ease("softLand").rasanCurve === "softLand" && RM.ease("softLand")(0.1) === RM.measured.softLand(0.1) && RM.ease("measured.glide")(0.5) === RM.measured.glide(0.5) && RM.ease("measuredGlide")(0.5) === RM.measured.glide(0.5) && RM.ease("glide")(0.5) !== RM.measured.glide(0.5) && RM.curves.glide === "cubic-bezier(0.2,0,0,1)");
+    ok("motion (runtime): the measured shapes match the published table (softLand 30% at 10%, accelExit 47% at 75%, popOver peaks near 1.08)", Math.abs(RM.measured.softLand(0.1) - 0.30) < 0.01 && Math.abs(RM.measured.accelExit(0.75) - 0.47) < 0.01 && Math.abs(Math.max(...Array.from({ length: 200 }, (_, i) => RM.measured.popOver(i / 200))) - 1.08) < 0.02);
+  }
+
   // ---- the runtime: check and the headless demo
   const kp = path.join(T, "kitproj");
   fs.mkdirSync(path.join(kp, "compositions"), { recursive: true });

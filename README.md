@@ -203,4 +203,6 @@ Details: [SKILL.md](skills/rasanai/SKILL.md) · [crew](skills/rasanai/references
 
 MIT. `skills/rasanai/scripts/vendor/gsap.min.js` is GSAP 3.14.2 under the [GSAP Standard License](https://gsap.com/standard-license).
 
+**Third-party.** The precedent library (`skills/rasanai/third_party/motionmaxxing/`, and the code adapted from it) comes from [motionmaxxing](https://github.com/Tejashmakwana/motionmaxxing) by Tejas Makwana, licensed Apache-2.0 and modified by RasanAI; its LICENSE and NOTICE are kept in that folder.
+
 RasanAI (ரசனை) is made by [Sibhimanyu](https://github.com/Sibhimanyu). Built on [HyperFrames](https://hyperframes.heygen.com) and [Claude Code](https://claude.com/claude-code).
