@@ -28,6 +28,7 @@
 //   colourfulness   p90 >= 35 (warning)
 //   text-load       median characters on screen <= 40 (warning), > 70 (error)
 //   scale-contrast  p90/p10 of the biggest line >= 5, or object-scale p90/p10 >= 5
+//   competing-heroes  the two largest elements are each >= 6% of the frame area and within 1.3x in over 15% of frames (warning)
 //   giant-moment    >= 10% of frames with a line >= 20% H (warning below, error at 0 in a film of 20 s or more);
 //                   at least one moment >= 35% H (warning)
 //   cut-rhythm      average hard-cut shot <= 5 s on a launch film of 8 s or more (warning)
@@ -35,6 +36,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs, chromePath } from "./lib/common.mjs";
+import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
 import { launch } from "./lib/cdp.mjs";
 import { serve } from "./lib/stage3d.mjs";
 import { pagesOf, sizeOf } from "./lib/textfit.mjs";
@@ -52,6 +54,7 @@ export const GATE = {
   ink: 0.82, // rendered line box -> glyph ink box (what OCR measures)
   min_line_pct: 0.8, // lines under 0.8% of the frame height are not readable (OCR floor in R1)
   min_opacity: 0.35, min_object_pct: 4, // an object counts as a hero candidate from 4% of the frame height
+  hero_min_pct: 6, hero_ratio: 1.3, hero_share: 0.15, // competing-heroes: the two largest elements each >= 6% of the frame area and within 1.3x, in over 15% of the frames (11 built films: imago-launch 16% with a real headline-vs-card pair, every other film 7% or less)
   unreadable_blur: 4, // text under a blur of this many px is not read (it counts for scale, not for load)
 };
 
@@ -128,7 +131,7 @@ function clip(r,clips){var v={left:r.left,right:r.right,top:r.top,bottom:r.botto
   clips.forEach(function(c){v.left=Math.max(v.left,c.left);v.right=Math.min(v.right,c.right);v.top=Math.max(v.top,c.top);v.bottom=Math.min(v.bottom,c.bottom);});
   v.left=Math.max(v.left,0);v.top=Math.max(v.top,0);v.right=Math.min(v.right,CFG.W);v.bottom=Math.min(v.bottom,CFG.H);return v;}
 window.__fgMeasure=function(){
-  var W=CFG.W,H=CFG.H,minPx=H*CFG.minPct/100,chars=0,lines=0,big=0,bigText='',walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT),n;
+  var W=CFG.W,H=CFG.H,minPx=H*CFG.minPct/100,chars=0,lines=0,big=0,bigText='',els=[],walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT),n;
   while((n=walker.nextNode())){
     var txt=String(n.nodeValue||'').replace(/\\s+/g,' ').trim();if(!txt)continue;
     var el=n.parentElement;if(!el||/^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE|TITLE)$/.test(el.tagName)||el.closest('template'))continue;
@@ -136,18 +139,30 @@ window.__fgMeasure=function(){
     var cs=getComputedStyle(el),fill=cs.webkitTextFillColor||cs.color;
     if(alpha(fill)<0.05&&!/text/.test(cs.webkitBackgroundClip||cs.backgroundClip||''))continue;
     var ch=chain(el);if(!ch||!(ch.op>=CFG.minOp))continue;
-    var rg=document.createRange();rg.selectNodeContents(n);var rects=rg.getClientRects(),seen={},total=0,ok=0;
+    var rg=document.createRange();rg.selectNodeContents(n);var rects=rg.getClientRects(),seen={},total=0,ok=0,nb=null;
     for(var i=0;i<rects.length;i++){var r=rects[i];if(!(r.width>1&&r.height>1))continue;var key=Math.round(r.left)+','+Math.round(r.top)+','+Math.round(r.width);if(seen[key])continue;seen[key]=1;total++;
       var v=clip(r,ch.clips),vw=v.right-v.left,vh=v.bottom-v.top;if(!(vw>1&&vh>1))continue;
       if(vw*vh<0.5*r.width*r.height)continue;
       var ink=r.height*CFG.ink;if(ink<minPx)continue;if(ink>big){big=ink;bigText=txt.slice(0,40);}
-      if(ch.blur>=CFG.blurPx)continue;ok++;lines++;}
-    if(total&&ok)chars+=txt.replace(/\\s/g,'').length*ok/total;}
+      if(ch.blur>=CFG.blurPx)continue;ok++;lines++;
+      nb=nb?{l:Math.min(nb.l,v.left),t:Math.min(nb.t,v.top),r:Math.max(nb.r,v.right),b:Math.max(nb.b,v.bottom),s:Math.max(nb.s,ink)}:{l:v.left,t:v.top,r:v.right,b:v.bottom,s:ink};}
+    if(total&&ok)chars+=txt.replace(/\\s/g,'').length*ok/total;
+    if(nb){var q=el,bk=el;while(q&&q!==document.body){var dd=getComputedStyle(q).display;if(dd!=='inline'&&dd!=='contents'){bk=q;break;}q=q.parentElement;}
+      var ex=null;for(var e2=0;e2<els.length;e2++)if(els[e2].k===bk)ex=els[e2];
+      if(ex){ex.l=Math.min(ex.l,nb.l);ex.t=Math.min(ex.t,nb.t);ex.r=Math.max(ex.r,nb.r);ex.b=Math.max(ex.b,nb.b);ex.s=Math.max(ex.s,nb.s);}else{nb.k=bk;nb.text=1;els.push(nb);}}}
   var obj=0,objs=document.querySelectorAll('img,canvas,video,svg,picture');
   for(var j=0;j<objs.length;j++){var o=objs[j];if(o.closest('template')||(o.tagName!=='svg'&&o.parentElement&&o.parentElement.closest('svg')))continue;if(o.tagName==='svg'&&o.parentElement&&o.parentElement.closest('svg'))continue;
     var c2=chain(o);if(!c2||!(c2.op>=CFG.minOp))continue;var b=o.getBoundingClientRect();if(!(b.width>1&&b.height>1))continue;var vv=clip(b,c2.clips),w2=vv.right-vv.left,h2=vv.bottom-vv.top;if(!(w2>1&&h2>1))continue;
-    if(w2>=0.9*W&&h2>=0.9*H)continue;if(h2>obj)obj=h2;}
-  return {chars:Math.round(chars),lines:lines,bigPct:100*big/H,bigText:bigText,objPct:100*obj/H};};
+    if(w2>=0.9*W&&h2>=0.9*H)continue;if(h2>obj)obj=h2;els.push({l:vv.left,t:vv.top,r:vv.right,b:vv.bottom,s:0});}
+  return {chars:Math.round(chars),lines:lines,bigPct:100*big/H,bigText:bigText,objPct:100*obj/H,heroes:window.__fgHeroes(els,W,H)};};
+// the two largest elements by area (% of the frame): stacked text blocks of one size are one headline; an element inside a larger one is part of it
+window.__fgHeroes=function(els,W,H){var a=els.map(function(e){return {l:e.l,t:e.t,r:e.r,b:e.b,s:e.s,text:!!e.text};}),m=true,i,j;
+  while(m){m=false;for(i=0;i<a.length&&!m;i++)for(j=i+1;j<a.length&&!m;j++){var x=a[i],y=a[j];if(!x.text||!y.text||!x.s||!y.s)continue;
+    var rs=Math.max(x.s,y.s)/Math.min(x.s,y.s),ov=Math.min(x.r,y.r)-Math.max(x.l,y.l),gap=Math.max(x.t,y.t)-Math.min(x.b,y.b);
+    if(rs<1.15&&ov>0&&gap<0.8*Math.max(x.s,y.s)){x.l=Math.min(x.l,y.l);x.t=Math.min(x.t,y.t);x.r=Math.max(x.r,y.r);x.b=Math.max(x.b,y.b);a.splice(j,1);m=true;}}}
+  var ar=function(e){return Math.max(0,e.r-e.l)*Math.max(0,e.b-e.t);};
+  a=a.filter(function(e){var ea=ar(e);return !a.some(function(o){if(o===e||ar(o)<=ea)return false;var iw=Math.min(e.r,o.r)-Math.max(e.l,o.l),ih=Math.min(e.b,o.b)-Math.max(e.t,o.t);return iw>0&&ih>0&&iw*ih>=0.7*ea;});});
+  return a.map(function(e){return 100*ar(e)/(W*H);}).sort(function(p,q){return q-p;}).slice(0,2);};
 window.__fgRun=function(times){return times.map(function(T){if(T!==null)window.__fgSeek(T);var m=window.__fgMeasure();m.T=T;return m;});};
 })();</script>`;
 
@@ -181,7 +196,7 @@ export async function domTextProject(project, times) {
   const noChrome = haveChrome();
   if (noChrome) { out.could_not_run.push(`DOM metrics: ${noChrome}`); return out; }
   const { W, H } = sizeOf(root);
-  const rows = times.map(() => ({ chars: 0, lines: 0, bigPct: 0, objPct: 0, bigText: "" }));
+  const rows = times.map(() => ({ chars: 0, lines: 0, bigPct: 0, objPct: 0, bigText: "", heroes: [] }));
   let b, srv; const tmps = [];
   try {
     srv = await serve(root);
@@ -200,6 +215,7 @@ export async function domTextProject(project, times) {
           res.forEach((m, j) => {
             const row = rows[part[j]];
             row.chars += m.chars; row.lines += m.lines; row.objPct = Math.max(row.objPct, m.objPct);
+            row.heroes = row.heroes.concat(m.heroes || []).sort((a, b) => b - a).slice(0, 2);
             if (m.bigPct > row.bigPct) { row.bigPct = m.bigPct; row.bigText = m.bigText; }
           });
         }
@@ -236,7 +252,7 @@ export async function domTextBoards(files, size = { width: 1920, height: 1080 })
         await b.open(`${srv.url}/${path.basename(tmp)}`, { waitMs: 30000 });
         await b.eval("document.fonts && document.fonts.ready ? document.fonts.ready.then(function(){return true;}) : true", { await: true });
         const m = (await b.eval("window.__fgRun([null])"))[0];
-        out.rows[i] = { chars: m.chars, lines: m.lines, bigPct: m.bigPct, objPct: m.objPct, bigText: m.bigText };
+        out.rows[i] = { chars: m.chars, lines: m.lines, bigPct: m.bigPct, objPct: m.objPct, bigText: m.bigText, heroes: m.heroes || [] };
       } catch (e) { out.could_not_run.push(`DOM metrics: ${path.basename(f)}: ${e.message}`); }
     }
   } catch (e) { out.could_not_run.push(`DOM metrics: ${e.message}`); }
@@ -346,6 +362,7 @@ export async function measureFrames(opts = {}) {
     film.biggestP10 = r1(pct(withText, 10));
     film.biggestRatio = withText.length ? r1(pct(withText, 90) / Math.max(0.5, pct(withText, 10))) : null;
     film.biggestMax = r1(Math.max(0, ...big));
+    film.competingShare = r2(rows.filter((r) => (r.heroes || []).length >= 2 && r.heroes[1] >= GATE.hero_min_pct && r.heroes[0] / r.heroes[1] <= GATE.hero_ratio).length / rows.length);
     film.share10 = r2(big.filter((v) => v >= 10).length / rows.length);
     film.share20 = r2(big.filter((v) => v >= GATE.giant_h).length / rows.length);
     film.peak35 = big.some((v) => v >= GATE.peak_h);
@@ -361,6 +378,7 @@ export async function measureFrames(opts = {}) {
   if (brand && brand.error) res.skipped.push(brand.error);
   res.brand = brand && !brand.error ? brand : null;
   const L = limitsFor(brand);
+  { const lt = gateValue("frame.text_load_max", null); if (lt != null) { L.charsError = Math.min(L.charsError, lt); L.charsWarn = Math.min(L.charsWarn, lt); L.notes.push(...gateNotes(["frame.text_load_max"])); } }
   res.limits = { groundChroma: r2(L.groundChroma), groundRange: r1(L.groundRange), softP90: r3(L.softP90), colourfulP90: r1(L.colourfulP90), charsWarn: r1(L.charsWarn), charsError: r1(L.charsError), flat: L.flat, neverBlurs: L.neverBlurs, notes: L.notes };
 
   // findings
@@ -399,6 +417,7 @@ export async function measureFrames(opts = {}) {
     const dense = !!opts.density;
     if (film.charsMedian > L.charsError && !dense) add("error", "text-load", `median ${film.charsMedian} characters on screen (error above ${r1(L.charsError)}; the references carry 12 to 60): the picture is a screenful of UI and copy, not a hero`, `one component, 3 to 6x scale, 1 to 2 lines of real labels, at most ~30 characters outside one declared density shot; crop the rest (R4)`, { value: film.charsMedian, limit: r1(L.charsError) });
     else if (film.charsMedian > L.charsWarn && !dense) add(typeSev, "text-load", `median ${film.charsMedian} characters on screen (needs <= ${r1(L.charsWarn)})`, `cut to the one line and the one component that carry the beat (R4)`, { value: film.charsMedian, limit: r1(L.charsWarn) });
+    if (film.competingShare > GATE.hero_share) add("warning", "competing-heroes", `in ${Math.round(film.competingShare * 100)}% of frames the two largest elements are both large (each >= ${GATE.hero_min_pct}% of the frame area) and within ${GATE.hero_ratio}x of each other (needs <= ${Math.round(GATE.hero_share * 100)}%): there is no single hero`, `make one element the hero (2x the area of the next, or the next small): fade, shrink or move the rival off the frame, or let it enter after the hero has landed; ${seeCraft}`, { value: film.competingShare, limit: GATE.hero_share });
     const objOk = film.objectRatio != null && film.objectRatio >= GATE.scale_ratio;
     if (film.biggestRatio != null && film.biggestRatio < GATE.scale_ratio && !objOk) add(typeSev, "scale-contrast", `the biggest line varies only ${film.biggestRatio}x across the film (p90 ${film.biggestP90}% / p10 ${film.biggestP10}% of the frame height; needs >= ${GATE.scale_ratio}x), and the objects do not carry it (${film.objectRatio == null ? "none measured" : film.objectRatio + "x"})`, `give one moment a giant word or object (20 to 40% H) and one a tiny label: scale contrast is the cheapest look there is (R5)`, { value: film.biggestRatio, limit: GATE.scale_ratio });
     if (film.share20 < GATE.giant_share) add(film.share20 === 0 && (L.flat || (res.kind === "video" && dur >= 20)) ? "error" : "warning", "giant-moment", `${Math.round(film.share20 * 100)}% of frames carry a line of ${GATE.giant_h}% H or more (needs >= ${Math.round(GATE.giant_share * 100)}%); the biggest line is ${film.biggestMax}% H`, `set the hero line or word at 20 to 40% of the frame height in at least one beat in ten, cropped or touching the UI (R5, R19)`, { value: film.share20, limit: GATE.giant_share });
@@ -419,7 +438,7 @@ function printable(res) {
   const row = (k, v, u = "") => v == null ? "" : `${k} ${v}${u}`;
   out.push("  pixels  " + [row("ground chroma", f.groundChroma), row("ground L* range", f.groundRange), row("empty", Math.round(f.emptyShare * 100), "%"), row("soft p90", f.softP90), row("soft shots", Math.round(f.softShotsShare * 100), "%"), row("colourful p90", f.colourfulP90), row("sat", f.satMedian, "%")].filter(Boolean).join(" · "));
   if (res.kind === "video") out.push("  cuts    " + [row("hard cuts", f.hardCuts), row("ASL", f.aslS, " s"), row("compositions/10 s", f.compositionsPer10s)].filter(Boolean).join(" · "));
-  if (f.charsMedian != null) out.push("  text    " + [row("chars", f.charsMedian), row("lines", f.linesMedian), row("biggest p90", f.biggestP90, "% H"), row("p90/p10", f.biggestRatio), row("max", f.biggestMax, "% H"), row("frames >= 20% H", Math.round(f.share20 * 100), "%"), row("object p90/p10", f.objectRatio)].filter(Boolean).join(" · "));
+  if (f.charsMedian != null) out.push("  text    " + [row("competing heroes", f.competingShare == null ? null : Math.round(f.competingShare * 100), "% of frames"), row("chars", f.charsMedian), row("lines", f.linesMedian), row("biggest p90", f.biggestP90, "% H"), row("p90/p10", f.biggestRatio), row("max", f.biggestMax, "% H"), row("frames >= 20% H", Math.round(f.share20 * 100), "%"), row("object p90/p10", f.objectRatio)].filter(Boolean).join(" · "));
   if (res.limits.notes.length) for (const n of res.limits.notes) out.push(`  note    ${n}`);
   for (const x of res.findings) out.push(`  ${x.severity === "error" ? "FAIL" : "warn"} ${x.check}: ${x.message}\n       fix: ${x.fix}`);
   for (const s of res.skipped) out.push(`  skip ${s}`);
