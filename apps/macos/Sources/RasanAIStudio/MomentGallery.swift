@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 import StudioCore
@@ -105,8 +106,10 @@ final class MomentGallery {
     // MARK: Hover playback
 
     /// A short pause before playing, so sweeping the pointer across the grid does not start a clip on every card.
+    /// With Reduce Motion on, the still stays; a click still opens the viewer.
     func hoverBegan(_ id: String) {
         hoverTask?.cancel()
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
         hoverTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(260))
             guard !Task.isCancelled else { return }
