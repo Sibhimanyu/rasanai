@@ -83,15 +83,14 @@ struct CardSurface: ViewModifier {
         let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
         content
             .background {
-                ZStack {
-                    shape.fill(Color(nsColor: .controlBackgroundColor).opacity(0.6))
-                    shape.fill(.regularMaterial)
-                }
+                // The same surface as every other library card; hover raises it, selection is drawn by the outline.
+                shape.fill(hovering && !selected ? Workspace.raised : Workspace.panel)
                 .shadow(color: .black.opacity(hovering ? 0.12 : 0), radius: 12, y: 5)
                 .animation(.snappy(duration: 0.18), value: hovering)
             }
             .overlay {
-                shape.strokeBorder(selected || hovering ? Color.rasan.opacity(0.55) : Color(nsColor: .separatorColor), lineWidth: selected ? 1.5 : 0.5)
+                // Hover is a neutral raise with a faint edge, selection a firm neutral outline: brand blue is for the one primary action.
+                shape.strokeBorder(selected ? Color.primary.opacity(0.85) : hovering ? Color.primary.opacity(0.22) : Workspace.hairline, lineWidth: selected ? 2 : 1)
                     .animation(.snappy(duration: 0.18), value: hovering)
             }
     }
@@ -280,6 +279,7 @@ struct StatusDot: View {
     let tone: StatusTone
     var pulsing = false
     @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var color: Color {
         switch tone {
         case .good: Color(nsColor: .systemGreen)
@@ -293,7 +293,7 @@ struct StatusDot: View {
         // also repeat whatever else changed in that update (the row's layout and text).
         Circle().fill(color).frame(width: 7, height: 7)
             .opacity(pulsing && pulse ? 0.35 : 1)
-            .animation(pulsing ? .easeInOut(duration: 0.9).repeatForever(autoreverses: true) : .default, value: pulse)
+            .animation(pulsing && !reduceMotion ? .easeInOut(duration: 0.9).repeatForever(autoreverses: true) : .default, value: pulse)
             .onAppear { pulse = pulsing }
             .onChange(of: pulsing) { _, now in pulse = now }
     }

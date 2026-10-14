@@ -180,52 +180,43 @@ extension StudioStore {
 struct FilmQueueView: View {
     @Bindable var store: StudioStore
     private var queue: [QueuedFilm] { store.settings.filmQueue }
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(spacing: 0) {
-            header.padding(.horizontal, 32).padding(.top, 28).padding(.bottom, 14)
+        VStack(alignment: .leading, spacing: 14) {
+            PageTitle(text: "Queue")
             if queue.isEmpty {
                 ContentUnavailableView("No films queued", systemImage: "list.number",
                                        description: Text("Choose Start when free or Add to queue in a new film’s editor."))
-                    .frame(maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
+                if !store.queueMessage.isEmpty { Text(store.queueMessage).font(.system(size: 13)).foregroundStyle(.secondary) }
                 List {
                     ForEach(Array(queue.enumerated()), id: \.element.id) { index, entry in
                         row(index, entry)
                             .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: 5, leading: 32, bottom: 5, trailing: 32))
+                            .listRowInsets(EdgeInsets(top: 5, leading: 0, bottom: 5, trailing: 0))
                             .listRowBackground(Color.clear)
                             .moveDisabled(entry.state != .waiting)
                     }
                     .onMove { store.moveWaitingFilms(from: $0, to: $1) }
                 }
                 .listStyle(.plain).scrollContentBackground(.hidden)
-                .animation(.snappy, value: queue.map(\.id))
+                .animation(reduceMotion ? nil : .snappy, value: queue.map(\.id))
                 .disabled(store.queueStarting)
             }
         }
-        .frame(maxWidth: 1240, alignment: .leading).frame(maxWidth: .infinity)
+        .pageColumn()
+        .frame(maxHeight: .infinity, alignment: .top)
         .background(Color.appBackground)
-        .safeAreaInset(edge: .bottom, spacing: 0) { QueueTotalsFooter(monitor: store.monitor) }
         .navigationTitle("Queue")
-        .pageHeader("Queue")
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Film queue").font(.system(size: 28, weight: .semibold))
-                    Text(store.queueMessage).font(.system(size: 13)).foregroundStyle(.secondary)
+        .pageHeader("Queue") {
+            if !queue.isEmpty {
+                Button { if store.queuePaused { store.resumeQueue() } else { store.pauseQueue() } } label: {
+                    Label(store.queuePaused ? "Resume Queue" : "Pause Queue", systemImage: store.queuePaused ? "play.fill" : "pause.fill")
                 }
-                Spacer()
-                if !queue.isEmpty {
-                    Button(store.queuePaused ? "Resume queue" : "Pause queue") { if store.queuePaused { store.resumeQueue() } else { store.pauseQueue() } }
-                        .disabled(store.queueStarting || store.queueHandlingExit)
-                }
+                .disabled(store.queueStarting || store.queueHandlingExit)
             }
-            Text("One film at a time. Drag waiting films to reorder. A film that needs you waits; a failure pauses the queue. Keep the app open.")
-                .font(.system(size: 12)).foregroundStyle(.secondary)
         }
     }
 
@@ -234,7 +225,7 @@ struct FilmQueueView: View {
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
                 Image(systemName: waiting ? "line.3.horizontal" : "circle.fill")
-                    .font(.system(size: waiting ? 12 : 6, weight: .medium)).foregroundStyle(waiting ? Color(nsColor: .tertiaryLabelColor) : (entry.state == .attention ? Color.orange : Color.rasan))
+                    .font(.system(size: waiting ? 12 : 6, weight: .medium)).foregroundStyle(waiting ? Color(nsColor: .tertiaryLabelColor) : (entry.state == .attention ? Color.orange : Color(nsColor: .systemPurple)))
                     .frame(width: 16).help(waiting ? "Drag to reorder" : "")
                 Text("\(index + 1)").font(.system(size: 17, weight: .medium, design: .rounded)).foregroundStyle(.secondary).frame(width: 22)
                 VStack(alignment: .leading, spacing: 3) {
@@ -248,31 +239,29 @@ struct FilmQueueView: View {
                 }
                 Button("Open") { store.showFilm(entry.project) }
                 Menu {
-                    if waiting { Button("Edit brief…") { store.path.append(.newFilm(entry.project)) } }
-                    Button("Check readiness…") { store.showPreflight(project: entry.project) }
+                    if waiting { Button("Edit Brief…") { store.path.append(.newFilm(entry.project)) } }
+                    Button("Check Readiness…") { store.showPreflight(project: entry.project) }
                     if waiting {
                         Divider()
-                        Button("Move earlier") { withAnimation(.snappy) { store.moveQueuedFilm(entry.id, by: -1) } }
+                        Button("Move Earlier") { withAnimation(reduceMotion ? nil : .snappy) { store.moveQueuedFilm(entry.id, by: -1) } }
                             .disabled(index == 0 || queue[index - 1].state != .waiting)
-                        Button("Move later") { withAnimation(.snappy) { store.moveQueuedFilm(entry.id, by: 1) } }
+                        Button("Move Later") { withAnimation(reduceMotion ? nil : .snappy) { store.moveQueuedFilm(entry.id, by: 1) } }
                             .disabled(index + 1 >= queue.count || queue[index + 1].state != .waiting)
                     }
                     if entry.state != .running {
                         Divider()
-                        Button("Remove from queue", role: .destructive) { withAnimation(.snappy) { store.removeQueuedFilm(entry.id) } }
+                        Button("Remove from Queue", role: .destructive) { withAnimation(reduceMotion ? nil : .snappy) { store.removeQueuedFilm(entry.id) } }
                     }
                 } label: { Image(systemName: "ellipsis.circle") }
                     .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                     .accessibilityLabel("More for \(entry.name)")
             }
-            Text("\(entry.draft.duration) seconds · \(entry.draft.aspect) · \(LocalAgent(rawValue: entry.draft.agent)?.title ?? entry.draft.agent)")
+            Text("\(filmFacts(duration: entry.draft.duration, aspect: entry.draft.aspect)) · \(LocalAgent(rawValue: entry.draft.agent)?.title ?? entry.draft.agent)")
                 .font(.system(size: 12)).foregroundStyle(.secondary).padding(.leading, 66)
             if let message = entry.message { Text(message).font(.system(size: 12)).foregroundStyle(.secondary).padding(.leading, 66) }
             QueueUsageLine(monitor: store.monitor, run: entry.run, live: entry.state == .running).padding(.leading, 66)
                 .task(id: entry.run) { if let run = entry.run { await store.monitor.loadSummary(for: run) } }
         }
-        .padding(.horizontal, 16).padding(.vertical, 14)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color(nsColor: .separatorColor).opacity(0.6), lineWidth: 0.5))
+        .workspacePanel(padding: 14)
     }
 }

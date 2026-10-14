@@ -9,7 +9,7 @@ struct StudioView: View {
 
     var body: some View {
         content.environment(\.momentStore, store)
-            .modifier(LaunchFocus(ready: !store.isLoadingProjects))
+            .modifier(LaunchFocus(ready: !store.isLoadingProjects, agent: store.settings.agent.title))
     }
 
     @AppStorage("studio.sidebarHidden") private var sidebarHidden = false
@@ -30,7 +30,7 @@ struct StudioView: View {
         } detail: {
             VStack(spacing: 0) {
                 stack
-                if showsStatusBar { AppStatusBar(store: store) }
+                if showsStatusBar { AppStatusBar(store: store, sidebarHidden: columns == .detailOnly) }
             }
             .background(Color.appBackground)
         }
@@ -105,7 +105,11 @@ struct StudioView: View {
             else if store.sheet == .welcome { store.sheet = nil }
         }
         .onChange(of: store.settings.projectRoot) { store.reloadProjects() }
-        .onChange(of: store.path) { store.pause() }
+        .onChange(of: store.path) { old, new in
+            store.pause()
+            // A search or the archive view belongs to the page it was set on; a new place starts clean.
+            if old.first != new.first { store.projectSearch = ""; store.showArchivedProjects = false }
+        }
         .onChange(of: store.queueBlockedByFileOperations) {
             if !store.queueBlockedByFileOperations { Task { await store.startNextQueuedFilm() } }
         }
@@ -128,12 +132,19 @@ struct StudioView: View {
             Button("Start") { store.confirmConsent() }
             Button("Cancel", role: .cancel) { store.pendingConsent = nil }
         } message: { Text("RasanAI will use your \(store.pendingConsent?.agent.title ?? "agent") account to direct this film. Usage counts toward your plan.") }
-        .alert("RasanAI", isPresented: Binding(get: { store.errorMessage != nil }, set: { if !$0 { store.errorMessage = nil } })) {
+        // The bold title states the problem (the message's first sentence); the rest says what to do.
+        .alert(errorText.title, isPresented: Binding(get: { store.errorMessage != nil }, set: { if !$0 { store.errorMessage = nil } })) {
             ForEach(errorActions) { action in
                 Button(action.title) { store.errorMessage = nil; action.run() }
             }
             Button("Dismiss", role: .cancel) { store.errorMessage = nil }
-        } message: { Text(store.errorMessage ?? "") }
+        } message: { if !errorText.detail.isEmpty { Text(errorText.detail) } }
+    }
+
+    private var errorText: (title: String, detail: String) {
+        let message = (store.errorMessage ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let end = message.range(of: ". ") ?? message.range(of: ".\n") else { return (message.hasSuffix(".") ? String(message.dropLast()) : message, "") }
+        return (String(message[..<end.lowerBound]), String(message[end.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     private struct ErrorAction: Identifiable {
@@ -171,6 +182,8 @@ func errorNeedsSettings(_ message: String?) -> Bool {
 /// and the library comes into focus under it. Reduce Motion fades the mark in and out instead of drawing it.
 private struct LaunchFocus: ViewModifier {
     let ready: Bool
+    /// The director's own name ("Claude", "Codex"), as Settings has it.
+    let agent: String
     @State private var focused = false
     @State private var drawn: CGFloat = 0
     @State private var filled = false
@@ -205,7 +218,7 @@ private struct LaunchFocus: ViewModifier {
             .frame(width: 66, height: 81)
             VStack(spacing: 6) {
                 Text("RasanAI Studio").font(.system(size: 26, weight: .semibold)).tracking(-0.4)
-                Text("Films with taste, directed by Claude").font(.system(size: 13)).foregroundStyle(.secondary)
+                Text("Films with taste, directed by \(agent)").font(.system(size: 13)).foregroundStyle(.secondary)
             }
             .opacity(named ? 1 : 0).offset(y: named ? 0 : 8)
             ProgressView().controlSize(.small).opacity(held && !ready ? 1 : 0)
@@ -223,7 +236,8 @@ private struct LaunchFocus: ViewModifier {
             withAnimation(.easeOut(duration: 0.45).delay(0.6)) { filled = true }
             withAnimation(.spring(response: 0.5, dampingFraction: 0.85).delay(0.7)) { named = true }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { held = true; revealIfDone() }
+        // Reduce Motion holds the mark for 0.8 s, not 1.8; input waits only for the hold and the library loading.
+        DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0.8 : 1.8)) { held = true; revealIfDone() }
     }
 
     private func revealIfDone() {
