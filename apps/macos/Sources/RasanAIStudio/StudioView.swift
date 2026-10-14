@@ -123,7 +123,8 @@ struct StudioView: View {
                     Text("\(store.currentFilmTitle) · \(store.phase.homeLine)").font(.system(size: 12)).lineLimit(1)
                     Spacer()
                     Button("Back to running film") { store.showFilm(active) }
-                    Button("Pause") { store.pauseDirector() }.disabled(store.runtime.isPreparing)
+                    if store.runtime.isFrozen { Button("Resume") { store.resumeDirector() } }
+                    else { Button("Pause") { store.pauseDirector() }.disabled(store.runtime.isPreparing) }
                 }.padding(.horizontal, 18).padding(.vertical, 10)
                     .background(.regularMaterial).overlay(alignment: .top) { Divider() }
             }

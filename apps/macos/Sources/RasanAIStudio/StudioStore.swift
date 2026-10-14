@@ -280,6 +280,7 @@ final class StudioStore {
         if isConnected && snapshot.isFresh && !runtime.isRunning && !runtime.isPreparing { return .yourTurn("say what the film is about") }
         if isConnected && status == "awaiting" && !snapshot.hasSent(snapshot.currentStep) { return .yourTurn(FilmSummary.friendlyStep(snapshot.currentStep, in: snapshot)) }
         if runtime.isPreparing { return .starting }
+        if runtime.isFrozen { return .paused }
         if runtime.isRunning { return .working }
         if runtime.stopRequested { return .paused }
         if let code = runtime.lastExitCode, code != 0 || runtime.recovery != nil { return .needsAttention }
@@ -874,7 +875,25 @@ final class StudioStore {
         settings.giveConsent(pending.agent)
         pending.proceed()
     }
-    func pauseDirector() { cancelAutoResume(); queuePaused = true; queueMessage = "Queue paused with the director."; runtime.stop() }
+    /// Freezes the director in place: nothing is stopped or redone, and Resume carries on mid-step.
+    func pauseDirector() {
+        cancelAutoResume()
+        guard runtime.isRunning, !runtime.isFrozen else { return }
+        if queuePausedBeforeFreeze == nil { queuePausedBeforeFreeze = queuePaused }
+        queuePaused = true; queueMessage = "Queue paused with the director."
+        sendCountAtFreeze = film?.sendCount
+        runtime.freeze()
+    }
+    /// The film's send count when it was frozen: anything the person sends while paused (an answer, a note) needs the director awake to read it.
+    @ObservationIgnored private var sendCountAtFreeze: Int?
+    /// Called by the monitor's tick: the person sent something while the director was frozen, so carry on.
+    func thawIfSentWhileFrozen() {
+        guard runtime.isFrozen, let before = sendCountAtFreeze, let now = film?.sendCount, now > before else { return }
+        resumeDirector()
+    }
+    /// Whether the queue was already paused when the director was frozen, so Resume restores it and not more.
+    @ObservationIgnored private var queuePausedBeforeFreeze: Bool?
+    var canPause: Bool { runtime.isRunning && !runtime.isFrozen }
     @ObservationIgnored private var autoResumeTask: Task<Void, Never>?
     /// Resumes the run that just stopped, once, unless the person got there first or did something else meanwhile.
     func scheduleAutoResume(after delay: TimeInterval, isLimit: Bool = false) {
@@ -883,14 +902,14 @@ final class StudioStore {
         autoResumeTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(delay))
             guard let self, !Task.isCancelled, self.runtime.autoResume != nil, self.runtime.runURL == run,
-                  !self.runtime.stopRequested, self.canResume else { return }
+                  !self.runtime.stopRequested, !self.runtime.isFrozen, self.canResume else { return }
             if !isLimit { self.runtime.lastAutoResume[run.path] = Date() }
             self.resumeDirector()
         }
     }
     /// After the Mac wakes, checks a pending automatic resume against the wall clock: due now means resume shortly, else wait only the time left.
     func handleWake() {
-        guard let notice = runtime.autoResume, let due = notice.resumesAt, !runtime.isRunning, !runtime.stopRequested, canResume else { return }
+        guard let notice = runtime.autoResume, let due = notice.resumesAt, !runtime.isRunning, !runtime.isFrozen, !runtime.stopRequested, canResume else { return }
         let left = due.timeIntervalSinceNow + (notice.isLimit ? 30 : 0)
         scheduleAutoResume(after: max(AutoResumePolicy.delay, left), isLimit: notice.isLimit)
     }
@@ -898,6 +917,14 @@ final class StudioStore {
     func cancelAutoResume() { autoResumeTask?.cancel(); autoResumeTask = nil }
     func resumeDirector() {
         cancelAutoResume()
+        if runtime.isFrozen {
+            runtime.thaw()
+            if let before = queuePausedBeforeFreeze { queuePaused = before; if !before { queueMessage = "Directing the current film." } }
+            queuePausedBeforeFreeze = nil; sendCountAtFreeze = nil
+            monitor.noteResumed()
+            return
+        }
+        queuePausedBeforeFreeze = nil
         if settings.filmQueue.contains(where: { $0.project == selectedProjectURL }) { resumeQueue(); return }
         guard !runtime.isRunning, !runtime.isPreparing, !isSavingFilm, !isManagingProject, !isImportingSources, runURL != nil else { return }
         ensureConsent(for: settings.agent) { [self] in
@@ -905,7 +932,7 @@ final class StudioStore {
             Task { await startDirector(request: "Resume this existing run from its saved state. Preserve completed work and continue with the next pending step.") }
         }
     }
-    var canResume: Bool { !toolSetup.isRunning && !isTransferringProject && !queueStarting && !queueHandlingExit && !isSample && runURL != nil && !runtime.isRunning && !runtime.isPreparing && !isSavingFilm && !isManagingProject && !isImportingSources }
+    var canResume: Bool { !toolSetup.isRunning && !isTransferringProject && !queueStarting && !queueHandlingExit && !isSample && runURL != nil && (!runtime.isRunning || runtime.isFrozen) && !runtime.isPreparing && !isSavingFilm && !isManagingProject && !isImportingSources }
 
     func seek(to time: Double) {
         playhead = min(max(0, time), max(0, duration))

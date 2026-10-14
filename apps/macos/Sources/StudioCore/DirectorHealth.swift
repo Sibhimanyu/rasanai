@@ -1,7 +1,7 @@
 import Foundation
 
 public enum DirectorHealthState: String, Codable, Sendable {
-    case starting, working, thinking, waitingForYou, quiet, possiblyLooping, finished, failed, stopped
+    case starting, working, thinking, waitingForYou, quiet, possiblyLooping, finished, failed, stopped, paused
 }
 
 public struct HealthThresholds: Equatable, Sendable {
@@ -39,8 +39,11 @@ public struct HealthContext: Sendable {
     public var endedEarlyReason: String?
     /// When the Mac last woke from sleep. Time asleep is not silence: every "how long since" measure starts no earlier than this.
     public var lastWake: Date?
+    /// The director is frozen in place: it is alive but nothing runs and no tokens are used.
+    public var paused: Bool
     public init(now: Date = Date(), processRunning: Bool, hasStarted: Bool = true, exitCode: Int32? = nil, stopRequested: Bool = false,
-                awaitingUser: Bool = false, lastConsoleUpdate: Date? = nil, endedEarlyReason: String? = nil, lastWake: Date? = nil) {
+                awaitingUser: Bool = false, lastConsoleUpdate: Date? = nil, endedEarlyReason: String? = nil, lastWake: Date? = nil, paused: Bool = false) {
+        self.paused = paused
         self.lastWake = lastWake
         self.endedEarlyReason = endedEarlyReason
         self.now = now; self.processRunning = processRunning; self.hasStarted = hasStarted; self.exitCode = exitCode
@@ -81,6 +84,7 @@ public struct DirectorHealth: Equatable, Sendable {
             }
             return make(.stopped, "Not running", "The director is not running.")
         }
+        if c.paused { return make(.paused, "Paused", "Paused. Nothing runs and no tokens are used until you resume.") }
         if !t.hasData { return make(.starting, "Starting", "The director is starting up. This usually takes under a minute.") }
         if c.awaitingUser {
             if let work = backgroundWork(t, quiet: quiet, now: c.now, wake: c.lastWake, thresholds: th) {

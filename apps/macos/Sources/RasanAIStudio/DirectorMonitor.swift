@@ -47,6 +47,7 @@ final class DirectorMonitor {
     private var wakeObservers: [NSObjectProtocol] = []
 
     var hasData: Bool { telemetry.hasData }
+    var canPause: Bool { store?.canPause ?? false }
     var agentTitle: String { telemetry.agent == "codex" ? "OpenAI Codex" : "Claude Code" }
     var isPlanBilled: Bool { telemetry.billing == .includedInPlan }
 
@@ -133,9 +134,10 @@ final class DirectorMonitor {
                                     exitCode: runtime.lastExitCode, stopRequested: runtime.stopRequested, awaitingUser: running && awaitingUser,
                                     lastConsoleUpdate: lastConsoleUpdate,
                                     endedEarlyReason: runtime.recovery.map { [$0.title, runtime.recoveryDetail].filter { !$0.isEmpty }.joined(separator: ". ") },
-                                    lastWake: lastWake)
+                                    lastWake: lastWake, paused: runtime.isFrozen)
         health = DirectorHealth.evaluate(telemetry, context: context)
         updateKeepAwake(running: running, store: store)
+        store.thawIfSentWhileFrozen()
         updateLedger()
         checkBudget(store: store)
         checkLoop(store: store)
@@ -153,6 +155,9 @@ final class DirectorMonitor {
     }
 
     /// Time asleep is not silence: remember the wake so health measures from it, then let the store re-check any pending automatic resume.
+    /// A frozen director was just thawed: the time it sat frozen is not silence, so health measures from now.
+    func noteResumed() { lastWake = Date() }
+
     private func macDidWake() {
         lastWake = Date()
         store?.handleWake()

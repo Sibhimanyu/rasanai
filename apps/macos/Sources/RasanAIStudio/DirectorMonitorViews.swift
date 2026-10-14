@@ -8,7 +8,7 @@ extension DirectorHealthState {
     var tint: Color {
         switch self {
         case .working, .thinking, .finished: Color(nsColor: .systemGreen)
-        case .starting, .stopped: Color(nsColor: .tertiaryLabelColor)
+        case .starting, .stopped, .paused: Color(nsColor: .tertiaryLabelColor)
         case .waitingForYou, .quiet: Color(nsColor: .systemOrange)
         case .possiblyLooping, .failed: Color(nsColor: .systemRed)
         }
@@ -18,7 +18,7 @@ extension DirectorHealthState {
         case .working, .thinking, .finished: .good
         case .waitingForYou, .quiet: .warn
         case .possiblyLooping, .failed: .bad
-        case .starting, .stopped: .quiet
+        case .starting, .stopped, .paused: .quiet
         }
     }
     var symbol: String {
@@ -30,7 +30,7 @@ extension DirectorHealthState {
         case .possiblyLooping: "exclamationmark.arrow.triangle.2.circlepath"
         case .finished: "checkmark.circle.fill"
         case .failed: "xmark.octagon.fill"
-        case .stopped: "pause.circle.fill"
+        case .stopped, .paused: "pause.circle.fill"
         case .starting: "hourglass"
         }
     }
@@ -284,9 +284,9 @@ struct DirectorMonitorPanel: View {
         HStack {
             Button { monitor.actions.showLog(); dismiss() } label: { Label("Show log", systemImage: "text.alignleft") }
             Spacer()
-            if monitor.isLive {
+            if monitor.isLive, monitor.canPause {
                 Button { monitor.actions.pause(); dismiss() } label: { Label("Pause", systemImage: "pause.fill") }
-                    .help("Pause (⌘.). Your files are kept and you can resume.")
+                    .help("Pause freezes it in place. Resume carries on exactly where it was.")
             }
         }
         .controlSize(.regular).padding(.horizontal, 16).padding(.vertical, 10)
@@ -308,7 +308,7 @@ struct MonitorBudgetBanner: View {
                         .font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Pause") { store.pauseDirector() }.disabled(!store.runtime.isRunning)
+                Button("Pause") { store.pauseDirector() }.disabled(!store.canPause)
                 Button("Keep going") { monitor.dismissBudgetWarning() }
             }
             .padding(.horizontal, 16).padding(.vertical, 10)

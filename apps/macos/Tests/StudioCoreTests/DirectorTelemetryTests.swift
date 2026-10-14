@@ -367,4 +367,20 @@ private let claudeInit = #"{"type":"system","subtype":"init","session_id":"s1","
         #expect(DirectorHealth.evaluate(t, context: HealthContext(now: now, processRunning: true)).state == .quiet)
         #expect(DirectorHealth.evaluate(t, context: HealthContext(now: now, processRunning: true, lastWake: now.addingTimeInterval(-10))).state == .working)
     }
+
+    @Test func pausedDirectorIsFrozenNotQuiet() {
+        var t = DirectorTelemetry()
+        t.ingest(line: claudeInit, now: at(0))
+        t.ingest(line: claudeToolLine(id: "a", input: #"{"command":"ls","description":"List files"}"#), now: at(1))
+        t.ingest(line: toolResult, now: at(2))
+        let now = at(2 + 30 * 60)
+        let paused = DirectorHealth.evaluate(t, context: HealthContext(now: now, processRunning: true, paused: true))
+        #expect(paused.state == .paused)
+        #expect(paused.label == "Paused")
+        #expect(!paused.isAlarming)
+        #expect(!KeepAwakePolicy.shouldHold(enabled: true, processRunning: true, health: paused))
+        // A resume after a 30 minute pause counts as a wake, so the frozen time is not silence.
+        let resumed = DirectorHealth.evaluate(t, context: HealthContext(now: now, processRunning: true, lastWake: now))
+        #expect(resumed.state != .quiet)
+    }
 }
