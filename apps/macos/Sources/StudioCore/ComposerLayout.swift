@@ -2,11 +2,12 @@ import Foundation
 
 /// The settings chips of the New film prompt box, in the order they are kept on the toolbar.
 public enum ComposerChip: String, CaseIterable, Sendable {
-    case length, aspect, motion, brand
+    case length, pace, aspect, motion, brand
 }
 
 /// Pure layout decisions for the prompt box toolbar: which settings chips stay on the row and which fold into the overflow menu.
-/// Chips are dropped from the end (brand first, length last), never wrapped.
+/// Chips are dropped from the end (brand first, length last), never wrapped. Pace follows length: how long a film takes
+/// is worth keeping on the row.
 public enum ComposerLayout {
     public static let gap: Double = 8
     public static let chipHeight: Double = 28

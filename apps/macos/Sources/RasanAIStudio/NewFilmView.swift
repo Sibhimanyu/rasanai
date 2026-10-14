@@ -32,9 +32,16 @@ struct NewFilmView: View {
     @State private var briefFocused = false
     @State private var focusRequest = 0
     @State private var toolbarWidth: Double = 640
+    /// The run button's measured width: its label changes ("Set up a director…", "Add to queue"), so the row reserves what it needs.
+    @State private var runWidth: Double = 150
     /// The previous option, so a pick only moves length and shape the person has not changed.
     @State private var lastFormatOption: String?
     @State private var changingFormat = false
+    /// Bumped by the format chip on the full page, where the grid is always there: it scrolls to it.
+    @State private var formatScroll = 0
+    /// What an automatic format pick replaced, so "Undo" puts length and shape back; and the format the person undid.
+    @State private var beforeAutoPick: (duration: Int, aspect: String, option: String?)?
+    @State private var declinedOption: String?
 
     private static let lengths: [(String, Int)] = [("15 seconds", 15), ("30 seconds", 30), ("45 seconds", 45), ("60 seconds", 60), ("90 seconds", 90), ("2 minutes", 120)]
     private var trimmedBrief: String { draft.brief.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -44,9 +51,10 @@ struct NewFilmView: View {
     private var editingQueued: Bool { project.map { store.isWaitingInQueue($0) } ?? false }
     private var checkingStart: Bool { StartGate.shared.isChecking }
     private var editorState: FilmEditorDraft { FilmEditorDraft(name: name, film: draft, sources: sources, project: recoveryProject) }
+    /// Nothing is saved yet: discarding wipes the brief and options instead of going back to a saved film.
+    private var isNewFilm: Bool { project == nil && recoveryProject == nil }
     private var autoName: String {
-        let words = trimmedBrief.split(whereSeparator: \.isWhitespace).prefix(5).joined(separator: " ")
-        return words.isEmpty ? "Untitled film" : String(words.prefix(60))
+        trimmedBrief.isEmpty ? "Untitled film" : String(FilmTitle.fromBrief(trimmedBrief).prefix(60))
     }
     private var lengthLabel: String {
         if !customLength, let match = Self.lengths.first(where: { $0.1 == draft.duration }) { return match.0 }
@@ -67,7 +75,7 @@ struct NewFilmView: View {
             Button("Cancel", role: .cancel) { }
             Button("Save") { store.saveTemplate(name: templateName, draft: draft); templateMessage = "Template saved. Use it for your next film." }
                 .disabled(templateName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        } message: { Text("Saves the brief, brand, length, shape and motion level. Source files stay with this film.") }
+        } message: { Text("Saves everything on this page except the film name and its files.") }
         .confirmationDialog("Replace your brief and film options?", isPresented: Binding(get: { replacementDraft != nil }, set: { if !$0 { replacementDraft = nil } }), titleVisibility: .visible) {
             Button("Use template") { if let next = replacementDraft { applyTemplate(next) }; replacementDraft = nil }
         } message: { Text("Your film name and attached files are kept.") }
@@ -82,13 +90,16 @@ struct NewFilmView: View {
         .onDisappear { persistEditor() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in persistEditor() }
         .task(id: "\(agent.id):\(store.settings.path(for: agent))") { await store.settings.check(agent) }
-        .confirmationDialog("Discard unsaved changes?", isPresented: $showDiscard, titleVisibility: .visible) {
+        .confirmationDialog(isNewFilm ? "Discard this new film?" : "Discard unsaved changes?", isPresented: $showDiscard, titleVisibility: .visible) {
             Button("Discard", role: .destructive) {
                 committed = true
                 store.settings.clearEditorDraft(for: project)
                 if let project { store.showFilm(project) } else { store.goHome() }
             }
-        } message: { Text("Your saved project and original files are kept.") }
+        } message: {
+            Text(isNewFilm ? "Your brief and options are cleared. Files you added stay where they are on your Mac."
+                 : "The film goes back to its last saved version. Your original files are kept.")
+        }
         .task {
             // Home's box stays alive under pushed pages: start each visit from the shared draft, never from what it held
             // before the full editor started or discarded that draft.
@@ -137,41 +148,81 @@ struct NewFilmView: View {
     private var pickedOption: FormatCatalog.Option? { catalog?.option(draft.format?.option) }
     private var briefPlaceholder: String {
         if let option = pickedOption, let prompt = catalog?.subjectPrompt(for: option) { return prompt }
-        return "A 30-second launch film for my budgeting app. Calm, confident, a little playful. End on the download button."
+        return "A launch film for my budgeting app. Calm, confident, a little playful. End on the download button."
     }
     /// Words and dropped files that can pre-select a format; changes re-run the match (debounced) while the pick is still automatic.
     private var matchKey: String {
         ([draft.brief] + draft.linked.map(\.path) + sources.map(\.path)).joined(separator: "\u{1}") + (loaded ? "|loaded" : "")
     }
 
+    /// The tile grid, always on the full page (just under the prompt); the format chip scrolls to it.
     @ViewBuilder private var formatPicker: some View {
         if let catalog {
-            VStack(alignment: .leading, spacing: 10) {
-                FormatPickerView(catalog: catalog, pick: draft.format, canAct: !working,
-                                 onPick: { option in choose(option, in: catalog) },
-                                 onScope: { draft.format?.scope = $0 }, changing: $changingFormat, showsChip: false)
-                if let option = pickedOption, option.status != .soon { FormatInputsNote(catalog: catalog, option: option) }
+            FormatPickerView(catalog: catalog, pick: draft.format, canAct: !working,
+                             onPick: { option in choose(option, in: catalog) },
+                             onScope: { draft.format?.scope = $0 }, changing: $changingFormat, showsChip: false, alwaysGrid: true)
+                .id("formatGrid")
+        }
+    }
+
+    /// Under the prompt box: what the picked format asks for, and, when the system picked it, why (with a way back).
+    @ViewBuilder private var formatNotes: some View {
+        if let catalog, let option = pickedOption {
+            VStack(alignment: .leading, spacing: 6) {
+                if let why = draft.format?.why, !why.isEmpty {
+                    HStack(spacing: 4) {
+                        Text("Picked \(option.title): \(why.hasSuffix(".") ? why : why + ".")")
+                        Button("Undo") { undoAutoPick() }.buttonStyle(.link)
+                    }.font(.system(size: 11.5)).foregroundStyle(.secondary)
+                }
+                if option.status == .soon {
+                    Text("This format is coming soon. Choose another below.").font(.system(size: 12)).foregroundStyle(Color(nsColor: .systemOrange))
+                } else { FormatInputsNote(catalog: catalog, option: option) }
             }
-            .task(id: matchKey) { await autoMatch(catalog) }
+            .padding(.horizontal, 4)
         }
     }
 
     private func choose(_ option: FormatCatalog.Option, in catalog: FormatCatalog, why: String? = nil) {
+        // Only a pick the system made can be undone, and it remembers what it replaced.
+        beforeAutoPick = why == nil ? nil : (draft.duration, draft.aspect, lastFormatOption)
         catalog.pick(option, in: &draft, previous: catalog.option(lastFormatOption), why: why)
         lastFormatOption = option.id
         customLength = !Self.lengths.contains { $0.1 == draft.duration }
     }
 
+    private func undoAutoPick() {
+        declinedOption = draft.format?.option
+        draft.format = nil
+        if let before = beforeAutoPick { draft.duration = before.duration; draft.aspect = before.aspect; lastFormatOption = before.option }
+        beforeAutoPick = nil
+        customLength = !Self.lengths.contains { $0.1 == draft.duration }
+    }
+
+    /// Reads a length the person wrote ("a 30-second film", "2 minutes") unless Length was already chosen, so the brief and the
+    /// chip never disagree.
+    private func readLength() {
+        guard loaded, project == nil, draft.duration == FilmDraft().duration, !customLength else { return }
+        let pattern = #"\b(\d+)\s*[- ]?\s*(seconds?|secs?|minutes?|mins?)\b|\b(\d+)s\b"#
+        guard let match = draft.brief.range(of: pattern, options: [.regularExpression, .caseInsensitive]) else { return }
+        let text = draft.brief[match].lowercased()
+        guard let value = Int(text.prefix { $0.isNumber }) else { return }
+        let seconds = text.contains("min") ? value * 60 : value
+        guard (5...600).contains(seconds), seconds != draft.duration else { return }
+        draft.duration = seconds
+        customLength = !Self.lengths.contains { $0.1 == seconds }
+    }
+
     /// Pre-selects a format from the brief's words and any dropped folder or files, until the person picks one themselves.
+    /// Only a confident match that can be made today is applied; a guess is worse than no pick.
     private func autoMatch(_ catalog: FormatCatalog) async {
         guard loaded, draft.format == nil || draft.format?.why != nil else { return }
         let request = draft.brief
         let paths = draft.linked.map(\.url) + sources + existingSources
         guard !request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !paths.isEmpty else { return }
-        try? await Task.sleep(for: .milliseconds(400))
-        guard !Task.isCancelled else { return }
         let found = await Task.detached { catalog.match(request: request, paths: paths) }.value
-        guard !Task.isCancelled, let found, found.option != draft.format?.option, let option = catalog.option(found.option),
+        guard !Task.isCancelled, let found, found.confident, found.option != draft.format?.option, found.option != declinedOption,
+              let option = catalog.option(found.option), option.status != .soon,
               draft.format == nil || draft.format?.why != nil else { return }
         choose(option, in: catalog, why: found.why)
     }
@@ -179,6 +230,7 @@ struct NewFilmView: View {
     // MARK: Prompt box
 
     private var fullPage: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 HStack {
@@ -186,7 +238,7 @@ struct NewFilmView: View {
                         ForEach(store.settings.filmTemplates) { template in
                             Button(template.name) { proposeTemplate(template.draft) }
                         }
-                        if store.settings.filmTemplates.isEmpty { Text("Save your first template below") }
+                        if store.settings.filmTemplates.isEmpty { Text("No templates yet. Use Save as template… to make one.") }
                     } label: {
                         HStack(spacing: 5) { Text("Use template"); Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)) }
                     }.menuStyle(.button).menuIndicator(.hidden).buttonStyle(StudioSecondaryButtonStyle()).fixedSize()
@@ -196,16 +248,32 @@ struct NewFilmView: View {
                         .disabled(trimmedBrief.isEmpty || working)
                 }
                 if let templateMessage { Text(templateMessage).font(.system(size: 12)).foregroundStyle(.secondary) }
-                TextField("Untitled film", text: $name)
+                TextField(name.isEmpty && !trimmedBrief.isEmpty ? FilmTitle.fromBrief(trimmedBrief) : "Name your film", text: $name)
                     .textFieldStyle(.plain).font(.system(size: 30, weight: .semibold, design: .rounded))
                     .disabled(project != nil)
-                formatPicker
+                    .help(project == nil ? "Rename your film" : "Rename this film from the Library")
                 promptBox
+                formatNotes
+                formatPicker
                 linkedWells
             }
             .disabled(working)
+            .task(id: matchKey) {
+                try? await Task.sleep(for: .milliseconds(400))
+                guard !Task.isCancelled else { return }
+                readLength()
+                if let catalog { await autoMatch(catalog) }
+            }
+            .task(id: templateMessage) {
+                guard templateMessage != nil else { return }
+                try? await Task.sleep(for: .seconds(4))
+                guard !Task.isCancelled else { return }
+                withAnimation { templateMessage = nil }
+            }
             .padding(.horizontal, 32).padding(.top, 24).padding(.bottom, 28)
             .frame(maxWidth: 1080).frame(maxWidth: .infinity)
+        }
+        .onChange(of: formatScroll) { withAnimation(.snappy) { proxy.scrollTo("formatGrid", anchor: .top) } }
         }
         .background(Color.appBackground)
         .safeAreaInset(edge: .bottom, spacing: 0) { footer }
@@ -213,10 +281,10 @@ struct NewFilmView: View {
         .pageHeader(project == nil ? "New film" : "Edit film") {
                 HelpButton(title: "New film", lines: [
                     "Say what the film is about in your own words. A sentence is enough.",
-                    "Get inspired adds moments from real launch films, so your film moves like them. Each one is credited to its creator.",
-                    "Add footage, images or documents if you have them. Copies go into the film; originals stay put.",
-                    "Pick the options under the prompt. The sparkle chip chooses which Claude models direct the film; the recommended mix has Opus direct and Sonnet handle research, routine jobs and, at Fast pace, the key frames and animation.",
-                    "Start film hands it to your director. You will be asked when it needs you."])
+                    "The buttons along the bottom of the box set the length, pace, shape, motion and brand. RasanAI picks sensible ones if you don't.",
+                    "Add footage, images or documents with +, or drop them on the page. Copies go into the film; originals stay put.",
+                    "Inspiration adds moves from real launch films, so your film moves like them. Each one credits its creator.",
+                    "Start film hands it to your director. You'll be asked when it needs you."])
         }
     }
 
@@ -245,10 +313,10 @@ struct NewFilmView: View {
         .animation(.snappy, value: draft.moments)
     }
 
-    /// "Moves I like" as a small row of thumbnails. Each opens a menu: where it should land, or remove.
+    /// The picked moves as a small row of thumbnails. Each opens a menu: where it should land, or remove.
     private var momentThumbs: some View {
         HStack(spacing: ComposerLayout.gap) {
-            Text("Moves I like").font(.system(size: 11.5, weight: .medium)).foregroundStyle(.secondary)
+            Text("Moves").font(.system(size: 11.5, weight: .medium)).foregroundStyle(.secondary)
             ForEach(draft.moments, id: \.id) { pick in
                 let moment = store.gallery.moment(pick.id)
                 Menu {
@@ -288,24 +356,29 @@ struct NewFilmView: View {
         return "What are you making?"
     }
 
+    private var modelsChipShown: Bool { !embedded && agent == .claude }
+
     private func chipWidth(_ chip: ComposerChip) -> Double {
         switch chip {
         case .length: ComposerLayout.estimatedWidth(label: lengthShort)
-        case .aspect: ComposerLayout.estimatedWidth(label: draft.aspect)
+        case .pace: ComposerLayout.estimatedWidth(label: draft.pace.chipTitle)
+        case .aspect: ComposerLayout.estimatedWidth(label: Self.aspectNames[draft.aspect] ?? draft.aspect)
         case .motion: ComposerLayout.estimatedWidth(label: motionShort)
         case .brand: ComposerLayout.estimatedWidth(label: brandShort)
         }
     }
 
     private var toolbarSplit: (inline: [ComposerChip], overflow: [ComposerChip]) {
-        // Left group (+ and the format chip), the overflow button and Start film take what they need first.
-        let fixed = 28 + 8 + min(ComposerLayout.estimatedWidth(label: formatLabel), 230) + 8 + 28 + 8 + 150
+        // Left group (+, the format chip and Models), the overflow button and the run button take what they need first.
+        let models = modelsChipShown ? ComposerLayout.estimatedWidth(label: draft.modelPlan.chipTitle) + 8 : 0
+        let fixed = 28 + 8 + min(ComposerLayout.estimatedWidth(label: formatLabel), 230) + 8 + models + 28 + 8 + runWidth
         let widths = Dictionary(uniqueKeysWithValues: ComposerChip.allCases.map { ($0, chipWidth($0)) })
         return ComposerLayout.split(available: toolbarWidth, fixed: fixed, widths: widths)
     }
 
     private var toolbar: some View {
-        let split = toolbarSplit
+        // Home asks for words only: its settings live on the next page, which Continue always opens.
+        let split = embedded ? (inline: [ComposerChip](), overflow: [ComposerChip]()) : toolbarSplit
         return HStack(spacing: ComposerLayout.gap) {
             Button { choose() } label: {
                 Image(systemName: "plus").font(.system(size: 13, weight: .medium))
@@ -314,10 +387,12 @@ struct NewFilmView: View {
             }.buttonStyle(.plain).help("Add footage, images or documents (optional). You can also drop them here.")
                 .accessibilityLabel("Attach files")
             formatChip
+            if modelsChipShown { modelsChip }
             ForEach(split.inline, id: \.self) { settingsChip($0) }
-            overflowMenu(split.overflow)
+            if !split.overflow.isEmpty { overflowMenu(split.overflow) }
             Spacer(minLength: 8)
             runButton.controlSize(.regular)
+                .background(GeometryReader { proxy in Color.clear.onChange(of: proxy.size.width, initial: true) { _, width in runWidth = width } })
         }
         .frame(height: 32)
         .background(GeometryReader { proxy in Color.clear.onChange(of: proxy.size.width, initial: true) { _, width in toolbarWidth = width } })
@@ -326,6 +401,7 @@ struct NewFilmView: View {
     @ViewBuilder private func settingsChip(_ chip: ComposerChip) -> some View {
         switch chip {
         case .length: lengthChip
+        case .pace: paceChip
         case .aspect: shapeChip
         case .motion: motionChip
         case .brand: brandChip
@@ -333,18 +409,19 @@ struct NewFilmView: View {
     }
 
     private var formatChip: some View {
-        Button { changingFormat.toggle() } label: {
+        Button { if embedded { changingFormat.toggle() } else { formatScroll += 1 } } label: {
             HStack(spacing: 6) {
                 Image(systemName: pickedOption.map { FormatPickerView.symbol($0.tile) } ?? "square.grid.2x2").font(.system(size: 12))
                 Text(formatLabel).font(.system(size: 13, weight: .medium)).lineLimit(1)
                 Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).opacity(0.6)
             }
-            .foregroundStyle(pickedOption == nil ? Color.primary : Color.rasan)
+            .foregroundStyle(Color.primary)
             .padding(.horizontal, 10).frame(height: ComposerLayout.chipHeight)
-            .background(pickedOption == nil ? chipFill : Color.rasan.opacity(0.16), in: Capsule())
+            .background(pickedOption == nil ? chipFill : Color.primary.opacity(0.12), in: Capsule())
+            .overlay { if pickedOption != nil { Capsule().strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) } }
             .frame(maxWidth: 230)
         }
-        .buttonStyle(.plain).help("What are you making? Opens the format list")
+        .buttonStyle(.plain).help("Optional. RasanAI picks a format from your words. Click to choose one yourself.")
         .accessibilityLabel("Format: \(formatLabel)")
         // Home has no format grid on the page, so the chip opens it here.
         .popover(isPresented: Binding(get: { embedded && changingFormat }, set: { changingFormat = $0 }), arrowEdge: .bottom) {
@@ -360,39 +437,33 @@ struct NewFilmView: View {
         }
     }
 
-    /// Everything that does not fit on the row, plus the quieter options: the model choice and Get inspired.
+    /// Which Claude models make the film: a use-of-plan choice, so it sits on the row rather than behind •••.
+    private var modelsChip: some View {
+        Button { showModels = true } label: { chipLabel("sparkles", draft.modelPlan.chipTitle) }
+            .buttonStyle(.plain).help("Which Claude models make this film: \(draft.modelPlan.summary)")
+            .accessibilityLabel("Models: \(draft.modelPlan.chipTitle)")
+            .popover(isPresented: $showModels, arrowEdge: .bottom) { modelPicker }
+    }
+
+    /// The chips that do not fit on the row.
     private func overflowMenu(_ folded: [ComposerChip]) -> some View {
         Menu {
             ForEach(folded, id: \.self) { chip in
                 switch chip {
                 case .length: Menu("Length: \(lengthShort)") { lengthMenuContent }
-                case .aspect: Menu("Shape: \(draft.aspect)") { shapeMenuContent }
+                case .pace: Menu("Pace: \(draft.pace.chipTitle)") { paceMenuContent }
+                case .aspect: Menu("Shape: \(Self.aspectNames[draft.aspect] ?? draft.aspect)") { shapeMenuContent }
                 case .motion: Menu(motionShort) { motionMenuContent }
                 case .brand: Menu("Brand: \(draft.brand ?? "none")") { brandMenuContent }
                 }
             }
-            if !folded.isEmpty { Divider() }
-            // Home keeps Get inspired here; the New film page has it in plain sight, in the Make it like this well.
-            if embedded {
-                Button { showGallery = true } label: {
-                    Label(draft.moments.isEmpty ? "Get inspired…" : "Get inspired (\(draft.moments.count) picked)…", systemImage: "sparkle.magnifyingglass")
-                }
-            }
-            if agent == .claude { Button { showModels = true } label: { Label("Models: \(draft.modelPlan.chipTitle)…", systemImage: "sparkles") } }
-            Menu("Pace: \(draft.pace.chipTitle)") {
-                Picker("Pace", selection: $draft.pace) {
-                    ForEach(FilmPace.allCases) { Text("\($0.title): \($0.summary)").tag($0) }
-                }.pickerStyle(.inline).labelsHidden()
-            }
         } label: {
             Image(systemName: "ellipsis").font(.system(size: 13, weight: .medium)).frame(width: 28, height: 28)
-                .foregroundStyle(draft.pace == store.settings.pace && draft.modelPlan == .recommended ? Color.primary : Color.rasan)
                 .background(chipFill, in: Circle())
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-        .help("More: Get inspired, models, pace and any settings that do not fit")
+        .help("More settings that do not fit on the row")
         .accessibilityLabel("More options")
-        .popover(isPresented: $showModels, arrowEdge: .bottom) { modelPicker }
     }
 
     /// Footage folders and a reference video, used where they are. Separate wells: footage is cut, a reference is only studied.
@@ -431,9 +502,22 @@ struct NewFilmView: View {
                 .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help("Length: \(lengthLabel)")
                 .accessibilityLabel("Length: \(lengthLabel)")
             if customLength {
-                Stepper("", value: $draft.duration, in: 5...600, step: 5).labelsHidden().controlSize(.small)
+                Stepper(value: $draft.duration, in: 5...600, step: 5) { Text("\(draft.duration) s").monospacedDigit().font(.system(size: 12)) }
+                    .controlSize(.small).accessibilityLabel("Custom length in seconds")
             }
         }
+    }
+
+    @ViewBuilder private var paceMenuContent: some View {
+        Picker("Pace", selection: $draft.pace) {
+            ForEach(FilmPace.allCases) { Text("\($0.title): \($0.summary)").tag($0) }
+        }.pickerStyle(.inline).labelsHidden()
+    }
+    private var paceChip: some View {
+        Menu { paceMenuContent } label: { chipLabel("gauge.with.dots.needle.33percent", draft.pace.chipTitle) }
+            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+            .help("Pace: \(draft.pace.summary)")
+            .accessibilityLabel("Pace: \(draft.pace.title)")
     }
 
     private static let aspectNames = ["16:9": "Landscape", "9:16": "Portrait", "1:1": "Square"]
@@ -444,7 +528,7 @@ struct NewFilmView: View {
         }.pickerStyle(.inline).labelsHidden()
     }
     private var shapeChip: some View {
-        Menu { shapeMenuContent } label: { chipLabel(Self.aspectIcons[draft.aspect] ?? "rectangle", draft.aspect) }
+        Menu { shapeMenuContent } label: { chipLabel(Self.aspectIcons[draft.aspect] ?? "rectangle", Self.aspectNames[draft.aspect] ?? draft.aspect) }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help("Shape: \(Self.aspectNames[draft.aspect] ?? draft.aspect)")
             .accessibilityLabel("Shape: \(Self.aspectNames[draft.aspect] ?? draft.aspect)")
     }
@@ -480,18 +564,18 @@ struct NewFilmView: View {
 
     private var modelPicker: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Models").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary).padding(.horizontal, 10).padding(.top, 4)
+            Text("Which Claude models make this film").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary).padding(.horizontal, 10).padding(.top, 4)
             ForEach(ModelPlan.allCases) { plan in
                 Button { draft.modelPlan = plan; showModels = false } label: {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: draft.modelPlan == plan ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(draft.modelPlan == plan ? Color.rasan : .secondary).padding(.top, 1)
+                            .foregroundStyle(draft.modelPlan == plan ? Color.primary : .secondary).padding(.top, 1)
                         VStack(alignment: .leading, spacing: 3) {
                             HStack(spacing: 6) {
                                 Text(plan.title).font(.system(size: 13, weight: .semibold))
                                 if plan == .recommended {
-                                    Text("Recommended").font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.rasan)
-                                        .padding(.horizontal, 6).padding(.vertical, 2).background(Color.rasan.opacity(0.16), in: Capsule())
+                                    Text("Recommended").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                                        .padding(.horizontal, 6).padding(.vertical, 2).background(Color.primary.opacity(0.08), in: Capsule())
                                 }
                             }
                             Text(plan.summary).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
@@ -499,7 +583,7 @@ struct NewFilmView: View {
                         Spacer(minLength: 0)
                     }
                     .padding(10).contentShape(Rectangle())
-                    .background(draft.modelPlan == plan ? Color.rasan.opacity(0.1) : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(draft.modelPlan == plan ? Color.primary.opacity(0.1) : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }.buttonStyle(.plain)
             }
         }.padding(8).frame(width: 340)
@@ -515,11 +599,13 @@ struct NewFilmView: View {
         }.padding(10).background(chipFill, in: RoundedRectangle(cornerRadius: 10))
     }
 
-    private var runLabel: some View {
-        HStack(spacing: 6) {
-            Text("Start film")
-            Image(systemName: "command").font(.system(size: 11)); Image(systemName: "return").font(.system(size: 11))
-        }
+    /// Why the run button is grey, in its tooltip; the shortcut goes here too, not in the label.
+    private func runHelp(_ action: String) -> String {
+        if trimmedBrief.isEmpty { return "Describe your film first" }
+        if store.toolSetup.isRunning { return "Waiting for tool setup to finish" }
+        if checkingStart { return "Checking this Mac…" }
+        if pickedOption?.status == .soon { return "This format is coming soon. Choose another in the format list." }
+        return "\(action) (⌘↩)"
     }
 
     @ViewBuilder private var runButton: some View {
@@ -528,25 +614,27 @@ struct NewFilmView: View {
                 HStack(spacing: 6) {
                     if working { ProgressView().controlSize(.mini) }
                     Text("Continue")
-                    Image(systemName: "command").font(.system(size: 11)); Image(systemName: "return").font(.system(size: 11))
                 }
             }
             .buttonStyle(.rasanPrimary).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
             .disabled(working || trimmedBrief.isEmpty)
-            .help("Name the film and open New film with everything filled in")
+            .help(trimmedBrief.isEmpty ? "Describe your film first" : "Next: check the options and start (⌘↩)")
         } else if editingQueued {
             Button { saveQueuedChanges() } label: { Text("Save changes") }
                 .buttonStyle(.rasanPrimary).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
                 .disabled(working || trimmedBrief.isEmpty)
+                .help(trimmedBrief.isEmpty ? "Describe your film first" : "Save changes (⌘↩)")
         } else if directorReady {
             if directorBusy {
-                Button { store.ensureConsent(for: agent) { save(start: false, queue: true) } } label: { Text("Start when free") }
+                Button { store.ensureConsent(for: agent) { save(start: false, queue: true) } } label: { Text("Add to queue") }
                     .buttonStyle(.rasanPrimary).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
-                    .disabled(working || trimmedBrief.isEmpty)
+                    .disabled(working || trimmedBrief.isEmpty || pickedOption?.status == .soon)
+                    .help(trimmedBrief.isEmpty ? "Describe your film first" : "Starts automatically when the current film finishes (⌘↩)")
             } else {
-                Button { start() } label: { runLabel }
+                Button { start() } label: { Text("Start film") }
                     .buttonStyle(.rasanPrimary).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
-                    .disabled(working || checkingStart || trimmedBrief.isEmpty || store.toolSetup.isRunning)
+                    .disabled(working || checkingStart || trimmedBrief.isEmpty || store.toolSetup.isRunning || pickedOption?.status == .soon)
+                    .help(runHelp("Start film"))
             }
         } else if store.settings.checking.contains(agent.id) {
             HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Checking director…").font(.system(size: 12)).foregroundStyle(.secondary) }
@@ -562,24 +650,22 @@ struct NewFilmView: View {
         VStack(spacing: 6) {
             HStack(spacing: 10) {
                 if loaded && !editorState.isEmpty {
-                    Button("Discard changes…", role: .destructive) { showDiscard = true }.buttonStyle(StudioSecondaryButtonStyle()).disabled(working)
+                    Button(isNewFilm ? "Discard film…" : "Discard changes…", role: .destructive) { showDiscard = true }.buttonStyle(StudioSecondaryButtonStyle()).disabled(working)
                 }
                 HStack(spacing: 4) {
                     if loaded && !editorState.isEmpty {
                         Image(systemName: "checkmark.circle")
-                        Text("Saved automatically ·")
+                        Text("Kept if you leave ·")
                     }
-                    Text(directorReady ? "Directed by \(agent.title) ·" : "Set up a director before starting ·")
-                    Button("Change") { openSettings() }.buttonStyle(.link)
+                    Text(directorReady ? "Directed by \(agent.title) ·" : "No director set up yet ·")
+                    Button(directorReady ? "Change" : "Set up…") { if directorReady { openSettings() } else { store.settings.showWelcome = true } }
+                        .buttonStyle(.link)
                 }.font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
                 Spacer()
                 if working || checkingStart { ProgressView().controlSize(.small) }
                 if let queueNote { Text(queueNote).font(.system(size: 12)).foregroundStyle(.secondary).transition(.opacity) }
-                Button("Save draft") { save(start: false) }.buttonStyle(StudioSecondaryButtonStyle()).disabled(working || (project == nil && trimmedBrief.isEmpty && name.isEmpty))
-            }
-            if directorBusy && !editingQueued {
-                Text("Starts automatically when the current film finishes.")
-                    .font(.system(size: 11)).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .trailing)
+                Button("Save to Library") { save(start: false) }.buttonStyle(StudioSecondaryButtonStyle()).disabled(working || (project == nil && trimmedBrief.isEmpty && name.isEmpty))
+                    .help("Adds this film to your Library without starting it")
             }
         }
         .padding(.horizontal, 32).padding(.vertical, 12)
@@ -651,11 +737,12 @@ struct NewFilmView: View {
         guard let project else { return }
         working = true
         draft.agent = store.settings.defaultAgent
-        let title = name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? autoName : name
+        let typedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let brand = brands.first { $0.name == draft.brand } ?? brands.first { $0.previousNames.contains(draft.brand ?? "") }
         let submittedDraft = draft
         let submittedSources = sources
         Task {
+            let title = typedName.isEmpty ? await FilmTitle.suggest(for: trimmedBrief) : name
             let saved = await store.saveFilm(name: title, draft: submittedDraft, sources: submittedSources, existing: project, brand: brand, start: false)
             working = false
             guard let saved else { persistEditor(); return }
@@ -670,11 +757,12 @@ struct NewFilmView: View {
     private func save(start: Bool, queue: Bool = false) {
         working = true
         draft.agent = store.settings.defaultAgent
-        let title = name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? autoName : name
+        let typedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let brand = brands.first { $0.name == draft.brand } ?? brands.first { $0.previousNames.contains(draft.brand ?? "") }
         let submittedDraft = draft
         let submittedSources = sources
         Task {
+            let title = typedName.isEmpty ? await FilmTitle.suggest(for: trimmedBrief) : name
             let saved = await store.saveFilm(name: title, draft: submittedDraft, sources: submittedSources, existing: project ?? store.filmDraftProject, brand: brand, start: start)
             working = false
             if let saved {

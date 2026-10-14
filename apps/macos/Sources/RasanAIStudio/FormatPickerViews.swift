@@ -20,10 +20,12 @@ struct FormatPickerView: View {
     @Binding var changing: Bool
     /// False when the format chip lives in the prompt box toolbar instead.
     var showsChip = true
+    /// The New film page keeps the grid on show, under the prompt, with or without a pick.
+    var alwaysGrid = false
     @State private var openTile: String?
 
     private var option: FormatCatalog.Option? { catalog.option(pick?.option) }
-    private var showGrid: Bool { option == nil || changing }
+    private var showGrid: Bool { alwaysGrid || option == nil || changing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -98,9 +100,10 @@ struct FormatPickerView: View {
                 Image(systemName: selected ? "largecircle.fill.circle" : "circle").font(.system(size: 11))
                 Text(title).font(.system(size: 12.5, weight: .medium))
             }
-            .foregroundStyle(selected ? Color.rasan : Color.primary)
+            .foregroundStyle(Color.primary)
             .padding(.horizontal, 12).frame(height: 30)
-            .background(selected ? Color.rasan.opacity(0.16) : Color.primary.opacity(0.07), in: Capsule())
+            .background(selected ? Color.primary.opacity(0.14) : Color.primary.opacity(0.06), in: Capsule())
+            .overlay { if selected { Capsule().strokeBorder(Color.primary.opacity(0.3), lineWidth: 0.8) } }
         }
         .buttonStyle(.plain).help(help ?? "")
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -113,7 +116,12 @@ struct FormatPickerView: View {
     private var grid: some View {
         ScrollViewReader { proxy in
             VStack(alignment: .leading, spacing: 12) {
-                if option == nil { Text("What are you making?").font(.system(size: 15, weight: .semibold)).accessibilityAddTraits(.isHeader) }
+                if option == nil || alwaysGrid {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("What are you making?").font(.system(size: 15, weight: .semibold)).accessibilityAddTraits(.isHeader)
+                        if alwaysGrid { Text("Optional. RasanAI picks one from your words.").font(.system(size: 12)).foregroundStyle(.secondary) }
+                    }
+                }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 230), spacing: 10, alignment: .top)], alignment: .leading, spacing: 10) {
                     ForEach(catalog.tiles) { tile in tileButton(tile) }
                 }
@@ -143,12 +151,13 @@ struct FormatPickerView: View {
             }
             .padding(.horizontal, 12).padding(.vertical, 10)
             .frame(maxWidth: .infinity, minHeight: 84, maxHeight: 84, alignment: .topLeading)
-            .background(selected ? Color.rasan.opacity(0.12) : Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(selected ? Color.rasan : Color(nsColor: .separatorColor), lineWidth: selected ? 1.5 : 0.5) }
+            // Selected is a raised neutral with a hairline, never brand blue (that is for the one primary action).
+            .background(selected ? Color.primary.opacity(0.12) : Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(selected ? Color.primary.opacity(0.35) : Color(nsColor: .separatorColor), lineWidth: selected ? 1 : 0.5) }
             .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain).disabled(!canAct)
-        .help(tile.thumbnail)
+        .help("Includes: " + catalog.options(in: tile).prefix(4).map(\.title).joined(separator: ", "))
         .accessibilityLabel("\(tile.title). \(tile.description)")
         .accessibilityHint("Shows its options")
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -172,29 +181,35 @@ struct FormatPickerView: View {
         let soon = option.status == .soon
         let selected = pick?.option == option.id
         return HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Image(systemName: selected ? "checkmark.circle.fill" : "circle").font(.system(size: 13)).foregroundStyle(selected ? Color.rasan : Color.secondary.opacity(0.6))
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 8) {
-                    Text(option.title).font(.system(size: 13.5, weight: .medium)).foregroundStyle(soon ? .secondary : .primary)
-                    if soon { ComingSoonBadge() }
+            // The row is a button (focusable, Space to pick); the "Use …" shortcut of a coming-soon row sits beside it.
+            Button { onPick(option) } label: {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Image(systemName: selected ? "checkmark.circle.fill" : "circle").font(.system(size: 13)).foregroundStyle(selected ? Color.primary : Color.secondary.opacity(0.6))
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 8) {
+                            Text(option.title).font(.system(size: 13.5, weight: .medium)).foregroundStyle(soon ? .secondary : .primary)
+                            if soon { ComingSoonBadge() }
+                        }
+                        Text(option.description).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.leading)
+                        if soon, let near = catalog.nearest(of: option) {
+                            Text("Closest today: \(near.title)").font(.system(size: 11.5)).foregroundStyle(.tertiary)
+                        }
+                    }
+                    Spacer(minLength: 8)
                 }
-                Text(option.description).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                if soon, let near = catalog.nearest(of: option) {
-                    Text("Closest today: \(near.title)").font(.system(size: 11.5)).foregroundStyle(.tertiary)
-                }
+                .contentShape(Rectangle())
             }
-            Spacer(minLength: 8)
+            .buttonStyle(.plain).disabled(!canAct || soon)
+            .hoverCursor(.pointingHand, enabled: canAct && !soon)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(selected ? .isSelected : [])
+            .accessibilityLabel("\(option.title)\(soon ? ", coming soon" : ""). \(option.description)")
             if soon, canAct, let near = catalog.nearest(of: option) {
                 Button("Use \(near.title)") { onPick(near) }.controlSize(.small)
             }
         }
         .padding(.vertical, 10)
-        .contentShape(Rectangle())
-        .onTapGesture { if canAct && !soon { onPick(option) } }
-        .hoverCursor(.pointingHand, enabled: canAct && !soon)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(soon ? [] : .isButton)
-        .accessibilityLabel("\(option.title)\(soon ? ", coming soon" : ""). \(option.description)")
     }
 
     static func symbol(_ tile: String) -> String {
