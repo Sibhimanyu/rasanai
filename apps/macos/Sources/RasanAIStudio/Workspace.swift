@@ -53,16 +53,26 @@ struct GlassPanel: ViewModifier {
     }
 }
 
-/// The glass itself, without a shape: material, the even indigo wash and the light from above.
+/// The glass itself, without a shape. The material alone goes flat where there is nothing behind the window to blur
+/// (full screen, a plain desktop), so the depth is built in: an indigo wash, a soft brand-blue glow falling from the top
+/// corner, a fainter one rising from the bottom, and a sheen of light at the top. It reads the same in a window and in
+/// full screen, on any desktop picture.
 struct GlassSurface: View {
     @Environment(\.colorScheme) private var scheme
     var body: some View {
-        ZStack {
-            WindowMaterial(material: .sidebar)
-            // Strong enough to even out any wallpaper, light enough to stay glass. Lighter in light mode.
-            LinearGradient(colors: [Color.rasanDeep.opacity(scheme == .dark ? 0.42 : 0.10), Color.rasanDeep.opacity(scheme == .dark ? 0.30 : 0.06)],
-                           startPoint: .top, endPoint: .bottom)
-            LinearGradient(colors: [Color.white.opacity(scheme == .dark ? 0.05 : 0.25), .clear], startPoint: .top, endPoint: .center)
+        let dark = scheme == .dark
+        GeometryReader { box in
+            let reach = max(box.size.width, box.size.height)
+            ZStack {
+                WindowMaterial(material: .sidebar)
+                LinearGradient(colors: [Color.rasanDeep.opacity(dark ? 0.40 : 0.08), Color.rasanDeep.opacity(dark ? 0.26 : 0.04)],
+                               startPoint: .top, endPoint: .bottom)
+                RadialGradient(colors: [Color.rasanFill.opacity(dark ? 0.38 : 0.12), .clear],
+                               center: UnitPoint(x: 0.85, y: 0.08), startRadius: 0, endRadius: reach * 0.75)
+                RadialGradient(colors: [Color.rasanFill.opacity(dark ? 0.18 : 0.06), .clear],
+                               center: UnitPoint(x: 0.1, y: 1.0), startRadius: 0, endRadius: reach * 0.6)
+                LinearGradient(colors: [Color.white.opacity(dark ? 0.06 : 0.25), .clear], startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.35))
+            }
         }
     }
 }
