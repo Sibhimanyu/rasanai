@@ -25,6 +25,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die, writeFile } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
+import { noteDowngrade } from "./lib/downgrade.mjs";
 import { decideLanguage, whisperTranscribe, hasWhisperCli, englishLooks, installedModels } from "./lib/lang.mjs";
 import { r3, jsonMaybe, FD, checkLog, mergeLogs, checkSelects, checkPaper } from "./lib/footage-lib.mjs";
 
@@ -293,18 +294,19 @@ function shots() {
 
 // ---------------------------------------------------------------- vision (optional)
 const SENSITIVE = [[/[\w.+-]+@[\w-]+\.[\w.-]+/, "email"], [/\b(sk|pk|api|key|token|secret)[-_ ]?[a-z0-9]{16,}\b/i, "key-or-token"], [/\b\+?\d[\d\s().-]{8,}\d\b/, "phone-or-number"], [/\b(password|passwd|pwd)\b\s*[:=]/i, "password"]];
+const visionSkip = (why) => { noteDowngrade({ run, what: "Apple Vision (faces, saliency, labels, on-screen text)", instead: "the footage log without them", why: String(why).slice(0, 200) }); out({ ok: true, skipped: true, why }); };
 function vision() {
   need();
   const sj = jsonMaybe(FD(run, "shots.json")) || die("run footage.mjs shots first");
   const swift = "/usr/bin/swift";
-  if (process.platform !== "darwin" || !fs.existsSync(swift)) out({ ok: true, skipped: true, why: "Apple Vision needs macOS and /usr/bin/swift; the log works without face boxes, saliency, labels and on-screen text" });
+  if (process.platform !== "darwin" || !fs.existsSync(swift)) visionSkip("Apple Vision needs macOS and /usr/bin/swift; the log works without face boxes, saliency, labels and on-screen text");
   const keyframes = sj.clips.flatMap((c) => c.shots.flatMap((s) => s.keyframes.map((k) => ({ s, k }))));
   const abs = keyframes.map(({ k }) => path.resolve(ws, k.file));
   const results = new Map();
   for (let i = 0; i < abs.length; i += 40) {
     const r = sh(swift, [path.join(HERE, "vision", "vision.swift"), ...abs.slice(i, i + 40)], { timeout: 300000 });
-    if (r.status !== 0) { out({ ok: true, skipped: true, why: `swift could not run Vision (${String(r.stderr).trim().split("\n").pop()}); continuing without it` }); }
-    try { for (const o of JSON.parse(r.stdout)) results.set(o.path, o); } catch { out({ ok: true, skipped: true, why: "Vision returned nothing readable; continuing without it" }); }
+    if (r.status !== 0) { visionSkip(`swift could not run Vision (${String(r.stderr).trim().split("\n").pop()}); continuing without it`); }
+    try { for (const o of JSON.parse(r.stdout)) results.set(o.path, o); } catch { visionSkip("Vision returned nothing readable; continuing without it"); }
   }
   let faces = 0, sens = 0;
   for (const c of sj.clips) for (const s of c.shots) {

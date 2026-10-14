@@ -7,6 +7,8 @@
 //
 //   node console.mjs serve --run <run dir> [--root <workspace>] [--port 0] [--open]   (detaches; prints the URL)
 //   node console.mjs push  --run <dir> --step <id> (--data '<json>' | --file f.json) [--status awaiting|working|done|skipped] [--current]
+//        a decision that replaces a different earlier one on a done step needs --because "<why the old call lost>" (else exit 2); the old call is kept in decisions_history
+//   node console.mjs downgrade --run <dir> --what "<what the plan asked>" --instead "<what is used>" --why "<reason>" [--impact "<what the film loses>"]   (a fallback, told to the user in the drawer)
 //   node console.mjs activity --run <dir> --message "Reading your DESIGN.md" [--level info|ok|warn]   (what Claude is doing now)
 //   node console.mjs ask   --run <dir> --question "..." [--context "..."] [--options '[{"id","label","detail"}]'] [--recommended <id>] [--placeholder "..."]
 //        (any question outside the steps: missing material, a thin capture, an ambiguity; shown on the page, answered there)
@@ -31,6 +33,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs, die, SKILL_DIR, STATE_DIR, GSAP_PATH } from "./lib/common.mjs";
 import { acquire, release, withLock } from "./lib/runlock.mjs";
 import { briefFormat } from "./lib/formats.mjs";
+import { noteDowngrade, readDowngrades } from "./lib/downgrade.mjs";
 
 // this copy's version: a console started by an older copy is replaced, not reused
 const VERSION = (() => {
@@ -109,6 +112,15 @@ function activity(s, msg, level = "info", working = null) {
   s.activity = (s.activity || []).concat({ t: now(), msg: String(msg).slice(0, 300), level }).slice(-200);
   // working: what the status line says Claude is doing (null = Claude is waiting on the user)
   s.working = working ? { msg: String(working).slice(0, 300), t: now() } : null;
+}
+// fallbacks the scripts noted (lib/downgrade.mjs -> <run>/downgrades.jsonl): each is merged once into session.downgrades and told in the feed
+function mergeDowngrades(s) {
+  const have = new Set((s.downgrades || []).map((d) => `${d.t}|${d.what}|${d.instead}`));
+  for (const d of readDowngrades(RUN)) {
+    if (have.has(`${d.t}|${d.what}|${d.instead}`)) continue;
+    s.downgrades = (s.downgrades || []).concat(d).slice(-100);
+    activity(s, `Working without ${d.what}: using ${d.instead}${d.why ? " because " + d.why : ""}`, "warn", s.working && s.working.msg);
+  }
 }
 function parseData() {
   if (args.file) return readJSON(path.resolve(String(args.file)), null) ?? die(`cannot read JSON from ${args.file}`);
@@ -274,11 +286,11 @@ function ensureServer() {
 // headless: never a server; the session is rewritten under the run's lock for the whole command (parallel agents and
 // scripts push at once, and an unlocked read-modify-write would lose one of them)
 if (HEADLESS) {
-  if (["push", "log", "activity", "reply", "ask", "resolve"].includes(cmd)) {
+  if (["push", "log", "activity", "reply", "ask", "resolve", "downgrade"].includes(cmd)) {
     acquire(F.sessionLock, 8000);
     process.on("exit", () => release(F.sessionLock));
   }
-} else if (["push", "log", "activity", "reply", "ask"].includes(cmd)) ensureServer();
+} else if (["push", "log", "activity", "reply", "ask", "downgrade"].includes(cmd)) ensureServer();
 if (cmd === "push") {
   if (!args.step || !STEPS.includes(args.step)) die(`--step must be one of ${STEPS.join(", ")}`);
   const s = session();
@@ -298,6 +310,15 @@ if (cmd === "push") {
     }
     s.applied = (s.applied || []).filter((id) => !(s.comments || []).some((c) => c.id === id && c.step === args.step));
   }
+  // the decision log is append-only: a changed decision keeps the old call, and says why it lost
+  const because = String(args.because !== undefined && args.because !== true ? args.because : data.because || "").trim();
+  delete data.because;
+  // only a call already closed (done) is a swap: a provisional decision on a working step may change freely
+  const swapped = typeof data.decision === "string" && prev.decision && prev.status === "done" && String(data.decision).trim() !== String(prev.decision).trim();
+  if (swapped && because.length < 8) {
+    console.error(`refused: ${args.step} already has a decision ("${String(prev.decision).slice(0, 100)}"). A different one replaces it only with the reason the old call lost: add --because "<why, 8+ characters>" (the old call is kept in the history).`);
+    process.exit(2);
+  }
   if (args.title) s.title = String(args.title);
   // a push REPLACES the step's payload (stale options, issues or a "you sent" banner must
   // not survive a re-push); --merge keeps the previous fields for small incremental updates
@@ -306,6 +327,10 @@ if (cmd === "push") {
   const base = args.merge || onlyDecision ? prev : {};
   const next = { ...base, ...data, status: args.status || data.status || (args.step === "build" ? "working" : "awaiting"), updated: now() };
   delete next.sent;
+  // history survives every re-push of the step
+  const hist = (prev.decisions_history || []).slice();
+  if (swapped) hist.push({ decision: prev.decision, at: prev.updated || now(), replaced_by: String(data.decision), because });
+  if (hist.length) next.decisions_history = hist;
   // the brief carries the "What are you making?" picker (library/formats.json) and the pre-selected pick, when the push has none
   if (args.step === "brief" && next.status === "awaiting") Object.assign(next, briefFormat(next));
   // closing a step the user answered keeps who made the call, so the Decisions drawer credits them, not Claude
@@ -322,6 +347,7 @@ if (cmd === "push") {
   if (next.status === "awaiting") activity(s, `Ready for you: ${label}`, "ask");
   else if (next.status === "working") activity(s, data.question || `Working on ${label}`, "info", data.question || `Working on ${label}…`);
   else if (next.status === "done") activity(s, next.decision ? `Decided ${label}: ${next.decision}` : `Done: ${label}`, "ok", s.working && s.working.msg);
+  mergeDowngrades(s);
   saveSession(s);
   console.log(JSON.stringify({ ok: true, step: args.step, status: s.steps[args.step].status }));
 } else if (cmd === "log") {
@@ -375,6 +401,14 @@ if (cmd === "push") {
   activity(s, `Claude answered about ${LABELS[args.step] || args.step}`, "ok", null);
   saveSession(s);
   console.log(JSON.stringify({ ok: true }));
+} else if (cmd === "downgrade") {
+  // a fallback the director made by hand: always told to the user, never silent
+  if (!args.what || !args.instead || !args.why) die('--what "<what the plan asked>", --instead "<what is used>" and --why "<reason>" are required');
+  noteDowngrade({ run: RUN, what: String(args.what), instead: String(args.instead), why: String(args.why), impact: args.impact ? String(args.impact) : undefined });
+  const s = session();
+  mergeDowngrades(s);
+  saveSession(s);
+  console.log(JSON.stringify({ ok: true, downgrades: (s.downgrades || []).length }));
 } else if (cmd === "activity") {
   // what Claude is doing right now, between questions ("Capturing tally.app", "Drawing style frame 2 of 3")
   if (!args.message) die("--message is required");

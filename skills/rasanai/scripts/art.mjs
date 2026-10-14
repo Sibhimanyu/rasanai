@@ -36,6 +36,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { parseArgs } from "./lib/common.mjs";
+import { noteDowngrade } from "./lib/downgrade.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const args = parseArgs();
@@ -438,8 +439,9 @@ async function plateCmd(onlyRecipe = false) {
         const img = readImage(raw);
         writePng(outp, treat(img, "gradient-map", { colors: ramp.map(hex), dither: 1.5, grain, seed }));
         used = "imagegen";
-      } else note = `image generation failed (${String(r.stderr || "").trim().split("\n").pop().slice(0, 140)}); drew the procedural plate`;
-    } else if (engine === "imagegen") fail(`image generation is unavailable (${ig.state}: ${ig.reason}); use --engine procedural`, 3);
+      } else { note = `image generation failed (${String(r.stderr || "").trim().split("\n").pop().slice(0, 140)}); drew the procedural plate`; noteDowngrade({ run: args.run, what: "image generation", instead: "a procedural plate", why: note.slice(0, 160), impact: "the plate is abstract, not a generated picture" }); }
+    } else if (engine === "auto") noteDowngrade({ run: args.run, what: "image generation", instead: "a procedural plate", why: `${ig.state}: ${ig.reason}`, impact: "the plate is abstract, not a generated picture" });
+    else if (engine === "imagegen") fail(`image generation is unavailable (${ig.state}: ${ig.reason}); use --engine procedural`, 3);
   }
   let d = { width, height };
   if (used === "procedural") d = await renderProceduralPlate({ out: outp, ramp, ground, variant, width, height, seed, grain, warp: args.warp !== undefined ? Number(args.warp) : null, bend: args.bend !== undefined ? Number(args.bend) : null, calm: Number(args.calm) || 0, flip: !!args.flip });
@@ -570,6 +572,7 @@ function make() {
   }
   // abstract plates: the plate recipe through imagegen when it is ready, else the procedural plate; gradient-mapped onto the
   // palette ramp either way (art.mjs plate). Never a todo for want of image generation: every film can have plates.
+  if (ig.state !== "ready" && rows.some((x) => x.kind === "abstract")) noteDowngrade({ run, what: "image generation", instead: "procedural plates", why: `${ig.state}: ${ig.reason}`, impact: "abstract plates are drawn, not generated" });
   for (const r of rows.filter((x) => x.kind === "abstract")) {
     const outp = path.join(ASSETS, `${r.id}.png`);
     if (exists(outp) && !args.force) { skipped.push(r.id); continue; }
@@ -589,6 +592,7 @@ function make() {
   let anchor = (P.style && P.style.anchor) || prev.anchor || (P.assets.find((r) => GENERATED.has(r.kind)) || {}).id || null;
   if (needing.length && ig.state !== "ready") {
     err(`NOTE: image generation is unavailable (${ig.state}: ${ig.reason}); ${needing.length} asset(s) are written to the todo list, not generated`);
+    noteDowngrade({ run, what: "image generation", instead: "a todo list of hand-made assets", why: `${ig.state}: ${ig.reason}`, impact: `${needing.length} picture(s) are not generated` });
     for (const r of needing) todo.push({ id: r.id, kind: r.kind, reason: `image generation unavailable (${ig.state}): ${ig.reason}`.slice(0, 200), prompt: r.prompt });
   } else if (needing.length) {
     const style = stylePrompt(P.style || {});

@@ -62,6 +62,7 @@ import { textFit } from "./lib/textfit.mjs";
 import { analyse as fluencyOf, scoreFluency } from "./lib/fluency.mjs";
 import { measureCarry } from "./lib/carry.mjs";
 import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
+import { noteDowngrade } from "./lib/downgrade.mjs";
 
 export const GATE = {
   coverage: 0.7, // share of frames with visible motion
@@ -97,6 +98,7 @@ async function main() {
     process.exit(g.pass === false ? 2 : 0);
   }
   const res = await gate({ video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], stillness: args.stillness ? true : null });
+  for (const c of res.could_not_run) noteDowngrade({ run: args.run, what: "the motion gate", instead: "no motion check", why: String(c).slice(0, 200), impact: "this film's motion was not measured" });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else {
     console.log(`motion gate: ${res.verdict}${res.measured.coverage != null ? ` · ${Math.round(res.measured.coverage * 100)}% of frames move` : ""}`);

@@ -516,6 +516,8 @@
   .dd-row { display: grid; grid-template-columns: 150px 1fr auto; gap: 14px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 14px; }
   .dd-row:first-of-type { border-top: 0; }
   .dd-row .k { color: var(--ink-3); }
+  .dd-old { grid-column: 2 / 4; color: var(--ink-3); font-size: 12.5px; }
+  .dd-old s { opacity: .75; }
   .dd-row .by { color: var(--ink-3); font-size: 12.5px; }
   .dd h4 { margin: 18px 0 8px; font: 600 13px/1 var(--sans); color: var(--ink-2); }
   .logline { font: 12.5px/1.6 var(--mono); color: var(--ink-3); }
@@ -1893,8 +1895,15 @@
     if (!rows.length) p.appendChild(h("p", { class: "qsub", text: "Every choice, yours and mine, collects here. Change any of them by telling me." }));
     rows.forEach(function (s) {
       var d = S.steps[s[0]], you = d.sent && d.sent.type !== "decide" || d.by === "user";
-      p.appendChild(h("div", { class: "dd-row" }, [h("span", { class: "k", text: s[1] }), h("span", null, [d.decision, h("span", { class: "by", text: you ? "  · you" : "  · Claude" })]), h("button", { class: "link", onclick: function () { var inp = document.getElementById("tell"); inp.value = "Change the " + s[1].toLowerCase() + ": "; inp.focus(); }, text: "change" })]));
+      var kids = [h("span", { class: "k", text: s[1] }), h("span", null, [d.decision, h("span", { class: "by", text: you ? "  · you" : "  · Claude" })]), h("button", { class: "link", onclick: function () { var inp = document.getElementById("tell"); inp.value = "Change the " + s[1].toLowerCase() + ": "; inp.focus(); }, text: "change" })];
+      (d.decisions_history || []).slice().reverse().forEach(function (o) { kids.push(h("div", { class: "dd-old" }, [h("s", { text: o.decision }), " · " + (o.because || "")])); });
+      p.appendChild(h("div", { class: "dd-row" }, kids));
     });
+    var dg = S.downgrades || [];
+    if (dg.length) {
+      p.appendChild(h("h4", { text: "Working without" }));
+      dg.forEach(function (g) { p.appendChild(h("div", { class: "dd-row" }, [h("span", { class: "k", text: g.what }), h("span", null, ["Using " + g.instead + (g.why ? " because " + g.why : "") + (g.impact ? ". " + g.impact : "")]), h("span")])); });
+    }
     var th = []; STEPS.forEach(function (s) { ((S.steps[s[0]] || {}).thread || []).forEach(function (m) { th.push(m); }); }); th.sort(function (a, b) { return a.t < b.t ? -1 : 1; });
     if (th.length) { p.appendChild(h("h4", { text: "Conversation" })); th.slice(-12).forEach(function (m) { p.appendChild(h("div", { class: "logline" }, [h("b", { text: m.who === "you" ? "You: " : "Claude: " }), m.text])); }); }
     p.appendChild(h("h4", { text: "Details" }));

@@ -28,7 +28,10 @@
 //          after the logo / cta event from --plan or --events), flat-payoff (the payoff, found from --payoff, a reveal event or
 //          plan reveal, else the logo, is under 2 dB louder than the 1.5 s before it and has no 6 dB break in the 2 s before)
 //          and loudest-not-payoff (the loudest second sits elsewhere, 3 dB above the payoff; numbers in measures.payoff;
-//          no payoff time = skipped with a note); exit 2 with fixes when anything is off
+//          no payoff time = skipped with a note), no-breath (fewer than 2 designed breaks, 1 under 20 s: a 0.25 s+ stretch 10 dB
+//          under the median level, outside the head and tail) and, narrated (--narrated, --vo or --words), no-split-edits (fewer than 2 J-cuts or L-cuts in 4+
+//          cuts; cuts from --scenes / --plan / --events, phrases from --words or the --vo stem); numbers in measures.shape;
+//          exit 2 with fixes when anything is off
 //   node sound.mjs master (--video <mp4> | --audio <file>) --out <file> [--lufs -14]
 //       -> the post-render fix for check's loudness/peak problems: static gain + true-peak limiter
 //          (-1.5 dBTP, -2 for AAC/MP3), picture copied untouched
@@ -43,7 +46,7 @@ import { track } from "./lib/report.mjs";
 import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
 import {
   analyzeTrack, publicAnalysis, summarize, fitTrack, renderPlan, masterFile, probeSfx, loudness, loudnessOver,
-  decode, findRepeats, onsetProfile, hasAudioStream, probeDuration, requireTools, r1, r3, SR,
+  decode, findRepeats, onsetProfile, momentaryDb, designedBreaks, speechPhrases, phrasesFromWords, splitEdits, hasAudioStream, probeDuration, requireTools, r1, r3, SR,
 } from "./lib/audio.mjs";
 
 const args = parseArgs();
@@ -534,6 +537,40 @@ function check() {
       if (lift < liftNeed && breakDb < 6) warnings.push(`flat-payoff: the payoff at ${r1(payoffT)} s is ${r1(lift)} dB against the 1.5 s before it (needs +${liftNeed} dB${liftNotes.length ? ", " + liftNotes.join("; ") : ""}) and the 2 s before it have no break (deepest ${r1(breakDb)} dB under the film's median, needs 6 dB): pull the bed out (a stop or a filter dip) 0.3-0.8 s before the reveal and land the reveal on a hit; the payoff should be the loudest moment (references/sound.md)`);
       if (loudAbove > 3 && (bestAt + 1.0 < payoffT - 0.5 || bestAt > payoffT + 2)) warnings.push(`loudest-not-payoff: the loudest second of the film is at ${r1(bestAt)} s, ${r1(loudAbove)} dB above the payoff at ${r1(payoffT)} s: the busiest moment is not the loudest; the payoff is (references/sound.md)`);
     }
+  }
+  // the film's shape (lemo-opuscar: "at least two real silences; at least two J-cuts or L-cuts"): warnings only, numbers in measures.shape
+  {
+    const shape = {};
+    const my = args.music ? decode(exists(path.resolve(String(args.music)), "music stem")) : y;
+    const B = designedBreaks(momentaryDb(my, 0.1), 0.1);
+    const needB = dur >= 20 ? 2 : 1;
+    shape.breaks = { on: args.music ? "music stem" : "mix", median_db: B.median, found: B.breaks, need: needB };
+    if (dur >= 6 && B.breaks.length < needB) warnings.push(`no-breath: ${B.breaks.length} designed break${B.breaks.length === 1 ? "" : "s"} in the ${args.music ? "music" : "mix"} of a ${r1(dur)} s film (needs ${needB}: a 0.25 s or longer stretch 10 dB under the median level, not in the first 0.5 s or the tail): the bed never lets go; stop it or dip it before the reveal and before a turn in the story so the next hit has room (references/sound.md, the arc)`);
+    // split edits: narrated films (--narrated, --vo, or word timings given), cut times from --scenes, else the plan's scenes, else transition events; the VO's phrases from word timings or the stem
+    if (args.narrated || args.vo || (args.words && args.words !== true)) {
+      const sc = args.scenes ? readScenes(String(args.scenes)).scenes : null;
+      let starts = sc ? sc.map((s) => s.start) : null;
+      if (!starts && args.plan) { const pl = readJSON(exists(path.resolve(String(args.plan)), "plan")); if (Array.isArray(pl.scenes) && pl.scenes.length) starts = pl.scenes.map((s) => Number(s.start ?? s.start_s)).filter(Number.isFinite); }
+      let cuts = starts ? starts.slice(1) : null;
+      if (!cuts && args.events) { const E = readJSON(exists(path.resolve(String(args.events)), "events")); cuts = (Array.isArray(E) ? E : E.events || []).filter((e) => /^(transition|cut|seam)/i.test(String(e.kind || e.id || "")) && Number.isFinite(Number(e.t))).map((e) => Number(e.t)); }
+      cuts = (cuts || []).filter((c) => c > 0.5 && c < dur - 0.5).sort((a, b) => a - b);
+      let phrases = null, from = null;
+      if (args.words && sc) {
+        const M = readJSON(exists(path.resolve(String(args.words)), "audio meta"));
+        const ws = [];
+        for (const v of M.voices || []) { const st = sc.find((x) => x.n === Number(v.frame))?.start; if (st == null) continue; for (const w of v.words || []) ws.push({ start: st + Number(w.start), end: w.end != null ? st + Number(w.end) : undefined }); }
+        if (ws.length) { phrases = phrasesFromWords(ws); from = "word timings"; }
+      }
+      if (!phrases && args.vo) { phrases = speechPhrases(decode(exists(path.resolve(String(args.vo)), "vo stem"))); from = "vo stem"; }
+      if (!phrases) shape.split_edits = { skipped: "no VO stem or word timings: pass --vo <stem> (or --words <audio_meta.json> with --scenes) (the split-edit check did not run)" };
+      else if (cuts.length < 4) shape.split_edits = { skipped: `${cuts.length} cut${cuts.length === 1 ? "" : "s"} found (needs 4: pass --scenes, --plan with scenes, or --events with transitions) (the split-edit check did not run)`, phrases: phrases.length };
+      else {
+        const E = splitEdits(cuts, phrases);
+        shape.split_edits = { from, cuts: cuts.length, phrases: phrases.length, j_cuts: E.j.map(r1), l_cuts: E.l.map(r1), count: E.count, need: 2 };
+        if (E.count < 2) warnings.push(`no-split-edits: ${E.count} J-cut or L-cut in ${cuts.length} cuts (needs 2: a phrase starting 0.15-1.5 s before a cut and running past it, or ending 0.15-1.5 s after it): every cut lands with the voice, so the film steps instead of flows${E.fits.length ? `; a split edit would fit at ${E.fits.slice(0, 5).map((c) => r1(c) + " s").join(", ")}` : ""} (move the next line's start before the cut, or let the last line run over it; references/sound.md)`);
+      }
+    }
+    measures.shape = shape;
   }
   // SFX density
   if (args.sfx) {

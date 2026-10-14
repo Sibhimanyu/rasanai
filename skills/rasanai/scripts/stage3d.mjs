@@ -19,6 +19,7 @@ import path from "node:path";
 import { parseArgs, die, readFrontmatterDoc, SKILL_DIR } from "./lib/common.mjs";
 import { STAGE, install, projectRootOf, stills, checkFile, collect, uses3d } from "./lib/stage3d.mjs";
 import { track } from "./lib/report.mjs";
+import { noteDowngrade } from "./lib/downgrade.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -87,6 +88,7 @@ if (cmd === "install") {
     }
   }
   report.could_not_run = couldNot;
+  for (const c of couldNot) noteDowngrade({ run: args.run, what: "the 3D check", instead: "no 3D check", why: String(c).slice(0, 200), impact: "the 3D scenes were not verified" });
   report.status = couldNot.length ? "could-not-run" : report.errors ? "violations" : "clean";
   if (args.json) console.log(JSON.stringify({ ...report, findings }, null, 2));
   else {

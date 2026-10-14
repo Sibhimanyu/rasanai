@@ -1348,3 +1348,76 @@ export function onsetProfile(file) {
     },
   };
 }
+
+// ---------------------------------------------------------------- film shape: designed breaks and split edits
+// (onetake / lemo-opuscar: "at least two real silences; at least two J-cuts or L-cuts"; sound.mjs check, references/sound.md)
+
+// momentary level in dB over W-second windows (the payoff check's 100 ms windows)
+export function momentaryDb(y, W = 0.1, sr = SR) {
+  const n = Math.floor(y.length / sr / W), out = [];
+  for (let i = 0; i < n; i++) {
+    let z = 0; const a = Math.floor(i * W * sr), b = Math.floor((i + 1) * W * sr);
+    for (let k = a; k < b; k++) z += y[k] * y[k];
+    out.push(10 * Math.log10(z / Math.max(1, b - a) + 1e-12));
+  }
+  return out;
+}
+
+// designed breaks: stretches of at least minS seconds at least dropDb under the median momentary level, not in the first
+// headS seconds, not in the last tailS seconds and not after the last sound. A stretch is counted in whole windows, so
+// minS is rounded down to the windows that must be wholly inside it (0.25 s -> 2 windows of 100 ms).
+export function designedBreaks(mom, W, { dropDb = 10, minS = 0.25, headS = 0.5, tailS = 1.0 } = {}) {
+  const live = mom.filter((v) => v > -80).sort((a, b) => a - b);
+  const median = live.length ? live[Math.floor(live.length / 2)] : -120;
+  const need = Math.max(1, Math.floor(minS / W + 1e-9)), dur = mom.length * W;
+  let lastLive = -1; mom.forEach((v, i) => { if (v > median - dropDb) lastLive = i; });
+  const breaks = [];
+  let i = 0;
+  while (i < mom.length) {
+    if (mom[i] >= median - dropDb) { i++; continue; }
+    let j = i; while (j < mom.length && mom[j] < median - dropDb) j++;
+    const from = i * W, to = j * W;
+    if (j - i >= need && from >= headS - 1e-9 && to <= dur - tailS + 1e-9 && j <= lastLive) breaks.push({ from: Math.round(from * 100) / 100, to: Math.round(to * 100) / 100, depth_db: Math.round((median - Math.min(...mom.slice(i, j))) * 10) / 10 });
+    i = j;
+  }
+  return { median: Math.round(median * 10) / 10, breaks };
+}
+
+// speech phrases [start, end] from a VO stem: windows well above the stem's own noise count as speech; a pause of gapS or more
+// starts a new phrase. Relative to the loud end of the stem so a quiet or a hot stem both work.
+export function speechPhrases(y, { sr = SR, step = 0.05, gapS = 0.25, minS = 0.15 } = {}) {
+  const lv = momentaryDb(y, step, sr);
+  const s = [...lv].sort((a, b) => a - b), ref = s.length ? s[Math.floor(s.length * 0.9)] : -120, thr = Math.max(-55, ref - 25);
+  const spans = [];
+  let s0 = null, last = -9;
+  for (let i = 0; i < lv.length; i++) {
+    if (lv[i] <= thr) continue;
+    const t = i * step;
+    if (s0 == null) s0 = t; else if (t - last > gapS) { spans.push([s0, last + step]); s0 = t; }
+    last = t;
+  }
+  if (s0 != null) spans.push([s0, last + step]);
+  return spans.filter((p) => p[1] - p[0] >= minS);
+}
+
+// phrases from word timings [{start, end}] in film seconds, merged across pauses shorter than gapS
+export function phrasesFromWords(words, gapS = 0.25) {
+  const ws = words.filter((w) => Number.isFinite(w.start)).map((w) => [w.start, Number.isFinite(w.end) ? w.end : w.start + 0.2]).sort((a, b) => a[0] - b[0]);
+  const out = [];
+  for (const w of ws) { const l = out[out.length - 1]; if (l && w[0] - l[1] <= gapS) l[1] = Math.max(l[1], w[1]); else out.push([...w]); }
+  return out;
+}
+
+// J-cuts (a phrase starts minS..maxS before a cut and runs past it) and L-cuts (a phrase that began before a cut ends
+// minS..maxS after it), by cut. `fits` are the cuts with a phrase boundary within maxS that no split edit uses yet.
+export function splitEdits(cuts, phrases, { minS = 0.15, maxS = 1.5 } = {}) {
+  const j = [], l = [], fits = [];
+  for (const c of cuts) {
+    const hasJ = phrases.some(([s, e]) => c - s >= minS && c - s <= maxS && e > c + 0.05);
+    const hasL = phrases.some(([s, e]) => s < c - 0.05 && e - c >= minS && e - c <= maxS);
+    if (hasJ) j.push(c);
+    if (hasL) l.push(c);
+    if (!hasJ && !hasL && phrases.some(([s, e]) => (s > c && s - c <= maxS) || (e < c && c - e <= maxS))) fits.push(c);
+  }
+  return { j, l, count: new Set([...j, ...l]).size, fits };
+}

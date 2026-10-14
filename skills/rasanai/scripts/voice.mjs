@@ -14,6 +14,7 @@ import { execFileSync } from "node:child_process";
 import { parseArgs, die } from "./lib/common.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
 import { track } from "./lib/report.mjs";
+import { noteDowngrade } from "./lib/downgrade.mjs";
 
 const args = parseArgs();
 track("Recording your first line in a few voices", "Voice samples ready");
@@ -23,6 +24,7 @@ const count = Math.max(2, Math.min(4, Number(args.count || 3)));
 const mediaUse = findSkill("media-use");
 const tts = mediaUse && path.join(mediaUse, "audio", "scripts", "heygen-tts.mjs");
 const out = (result) => {
+  if (result.unavailable) noteDowngrade({ run: args.run, what: "voice samples", instead: "the workflow's default voice", why: String(result.unavailable).slice(0, 200) });
   console.log(JSON.stringify(result, null, 2));
   process.exit(0);
 };

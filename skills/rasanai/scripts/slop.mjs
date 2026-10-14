@@ -11,7 +11,9 @@
 // at 10 fps (rule "text-cropped": a line that crosses the frame edge for more than 0.4 s, or sits outside the 6% safe
 // area at rest; lib/textfit.mjs; --no-text-fit skips it). The same pass reads line blocks: "text-too-brief" (a statement-size
 // line of 3+ words readable for less than 0.6 s + 0.3 s per word; data-read="skim" opts out) and "text-overlap" (two readable
-// lines on top of each other for 0.3 s or more; data-overlap="ok" opts out). Exit 0 = clean or warnings only; 2 = problems to fix (each with a fix); 1 = could not run.
+// lines on top of each other for 0.3 s or more; data-overlap="ok" opts out). Cut rhythm: "uniform-shots" (scene-length variation under
+// 0.2) and "narrow-rhythm" (5+ shots, longest under 4x the shortest, end card and flashes under 0.4 s left out), the second also
+// measured on the render's hard cuts (lib/carry.mjs) when --video is given; both are warnings. Exit 0 = clean or warnings only; 2 = problems to fix (each with a fix); 1 = could not run.
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -20,6 +22,7 @@ import { track } from "./lib/report.mjs";
 import { readLogos, scanLogos } from "./lib/logos.mjs";
 import { textFit } from "./lib/textfit.mjs";
 import { readBudget, budgetFor, budgetLimit } from "./lib/budget.mjs";
+import { decodeGrey, findCuts } from "./lib/carry.mjs";
 
 const args = parseArgs();
 track("Checking for generic AI-video tells", "Slop check done");
@@ -100,12 +103,23 @@ if (entrances.length >= 8) {
 if (spin) add("spinning-logo", "warn", "a 360° logo rotation", "Spinning logos are a template tell.", "Land the logo with the film's motion language: a mask, a snap into the grid, a match cut.");
 
 // ---- 4. timing ----
+// cut rhythm (onetake: "never cut on a metronome; shot lengths should vary by 4x or more"): longest over shortest shot, the end card
+// (last) and flashes under 0.4 s left out; 5+ shots to judge. Used on the scenes here and on the render's hard cuts below.
+const RHYTHM = { min_shots: 5, ratio: 4, flash_s: 0.4 };
+const rhythm = (lens) => {
+  const ds = lens.slice(0, -1).filter((d) => d >= RHYTHM.flash_s);
+  if (lens.length < RHYTHM.min_shots || ds.length < 2) return null;
+  const lo = Math.min(...ds), hi = Math.max(...ds);
+  return { ratio: hi / lo, hi, lo, n: ds.length };
+};
+const narrow = (r, what) => r && r.ratio < RHYTHM.ratio ? add("narrow-rhythm", "warn", `${what}: longest ${r.hi.toFixed(1)} s over shortest ${r.lo.toFixed(1)} s is ${r.ratio.toFixed(1)}x across ${r.n} shots (aim for ≥ ${RHYTHM.ratio}x)`, "Shot lengths within a narrow band cut on a metronome even when they are not identical.", "Group quick beats and give the reveal the longest shot (craft.md §2, Timing, pacing and readability).") : null;
 let scenes = null;
 const sceneFile = args.scenes ? path.resolve(String(args.scenes)) : [path.join(dir, "scenes.json"), path.join(dir, "timeline.json")].find((p) => fs.existsSync(p));
 if (sceneFile && fs.existsSync(sceneFile)) { try { const j = JSON.parse(fs.readFileSync(sceneFile, "utf8")); scenes = (j.scenes || j).map((s) => ({ title: s.title, d: Number(s.duration_s ?? s.duration) || 0, text: String(s.on_screen || s.line || "") })); } catch {} }
 if (scenes && scenes.length >= 3) {
   const ds = scenes.map((s) => s.d).filter(Boolean), mean = ds.reduce((a, b) => a + b, 0) / ds.length, sd = Math.sqrt(ds.reduce((a, b) => a + (b - mean) ** 2, 0) / ds.length);
   if (ds.length >= 4 && sd / mean < 0.2) add("uniform-shots", "warn", `every scene ≈ ${mean.toFixed(1)} s (variation ${(sd / mean).toFixed(2)}; aim for ≥ 0.35)`, "Near-identical scene lengths make a slideshow rhythm: \"it's just a PowerPoint\".", "Vary rhythm: group quick beats, give the reveal the longest shot (see craft.md §2, Timing, pacing and readability).");
+  narrow(rhythm(scenes.map((s) => s.d)), "scenes");
   scenes.forEach((s, i) => { const w = s.text.split(/\s+/).filter(Boolean).length; const need = w ? 0.6 + 0.4 * w : 0; if (w && s.d && s.d < need) add("unreadable", "error", `scene ${i + 1} "${s.title}"`, `${w} words on screen for ${s.d} s; needs about ${need.toFixed(1)} s to read.`, "Cut the copy or lengthen the scene; never speed it up."); });
   const last = scenes[scenes.length - 1]; if (last.d && last.d < 1.8) add("no-end-hold", "error", `last scene ${last.d} s`, "The ending has no hold: the name and call to action vanish.", "Give the end card 2–3 s: its elements land in sequence, then at most 1.5 s still (motion-gate.mjs measures it).");
   if (scenes[0].d > 4 && !scenes[0].text) add("slow-hook", "warn", `scene 1 is ${scenes[0].d} s with no line`, "Nothing lands in the first 2 s.", "Open on the hook: a claim in ≤4 words or the product doing its thing within 1.5 s.");
@@ -177,6 +191,12 @@ if (args.video && fs.existsSync(String(args.video))) {
   const starts = [...(fr.stderr || "").matchAll(/freeze_start: ([\d.]+)/g)].map((m) => Number(m[1])), ends = [...(fr.stderr || "").matchAll(/freeze_end: ([\d.]+)/g)].map((m) => Number(m[1]));
   const dur = probe(v);
   starts.forEach((s, i) => { const e = ends[i] ?? dur; if (e < dur - 3.2 && e - s >= 0.8) add("dead-air", "error", `still frame ${s.toFixed(1)}–${e.toFixed(1)} s`, "A still stretch of 0.8 s or more mid-film reads as dead air (motion-gate.mjs measures the same).", "Stage something meaningful in that stretch (a reveal, a move, UI life, a line's carry) or cut it: holds are reading time and still carry secondary motion."); });
+  // the render's own rhythm: shot lengths between hard cuts (lib/carry.mjs findCuts)
+  try {
+    const cuts = findCuts(decodeGrey(v));
+    const bounds = [0, ...cuts, dur];
+    narrow(rhythm(bounds.slice(1).map((t, i) => t - bounds[i])), "render");
+  } catch {}
   const ld = spawnSync("ffmpeg", ["-hide_banner", "-i", v, "-af", "ebur128=peak=true", "-f", "null", "-"], { encoding: "utf8" });
   const I = Number(((ld.stderr || "").match(/I:\s+(-?[\d.]+) LUFS/g) || []).pop()?.match(/-?[\d.]+/)?.[0]);
   if (!Number.isNaN(I) && I !== 0 && Math.abs(I + 14) > 1.5) add("loudness", "error", `${I} LUFS`, "Web/social films should sit at about −14 LUFS integrated.", "Normalise the mix (sound.mjs check / render).");

@@ -22,6 +22,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { parseArgs, die } from "./lib/common.mjs";
 import { sharpRanges as sharpRangesOf, graphWithSharp } from "./lib/sharp.mjs";
+import { noteDowngrade } from "./lib/downgrade.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -294,7 +295,7 @@ function blurRender(tmpDir) {
     if (r.status === 0 && fs.existsSync(pre)) {
       motion = measureMotion(pre);
       N = autoSamples(motion, cap);
-    } else { N = cap; notes.push("auto: draft pre-pass failed, using the cap"); }
+    } else { N = cap; notes.push("auto: draft pre-pass failed, using the cap"); noteDowngrade({ run: args.run, what: "the measured motion-blur sample count", instead: `the cap (${cap} samples)`, why: "the draft pre-pass failed", impact: "the blur is more expensive than it needs to be, not weaker" }); }
   } else N = Math.round(num(args.samples, 8));
   // N sub-frames per frame = base (<= 240 fps render) x K phase-shifted passes
   const base = cap, K = Math.max(1, Math.ceil(N / base));

@@ -33,6 +33,7 @@ import { decodePng } from "./lib/png.mjs";
 import { stageFonts } from "./lib/fonts.mjs";
 import { installLook } from "./lib/install.mjs";
 import { track } from "./lib/report.mjs";
+import { noteDowngrade } from "./lib/downgrade.mjs";
 
 void gsapInline;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -1209,6 +1210,7 @@ async function build() {
       warnings.push(...r.notes.filter((n) => !/^frame\.md converted/.test(n)));
     } catch (e) {
       warnings.push(`could not read ${path.basename(lookFile)} as a design system (${String(e.message).split("\n")[0]}); using the default look`);
+      noteDowngrade({ run: args.run, what: "the film's own look", instead: "the default look", why: `${path.basename(lookFile)} could not be read as a design system` });
     }
   }
   const look = readLookSafe(fs.existsSync(path.join(dir, "frame.md")) ? path.join(dir, "frame.md") : null);
@@ -1250,6 +1252,7 @@ async function build() {
       hasAudio = true;
     } catch (e) {
       warnings.push(`could not extract the voice: ${e.message}`);
+      noteDowngrade({ run: args.run, what: "the speaker's recorded voice", instead: "a silent track", why: "ffmpeg could not extract the audio", impact: "the film has no voice from the clip" });
     }
   }
   const usedImages = new Map();

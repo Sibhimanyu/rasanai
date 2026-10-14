@@ -34,7 +34,7 @@ The user decides **taste**: the brief, the film (its style and its story), notes
 | Not too busy | The opposite failure is "pause is lava": plan an **energy curve** with at least one calm stretch (a shot of 3 s or more with one mover) and one peak. At most 3 elements in motion at any instant, background included. |
 | Sequential reveal | Each element appears when the voiceover reaches it or on its beat, one cue per element, nothing before its cue. Spread reveals across the scene so the last lands in its back half. Front-loading (the whole layout on screen in the first 25% of the scene, then it sits) is the PowerPoint failure. |
 | Beat grid | With music, work on the track's analysed bar grid (sound.md); before a track exists, plan at 120 BPM. Structural cuts on downbeats or up to 2 frames early; most cuts on a beat, never every beat (evenly spaced cuts feel off). Change shot or state every 2–4 beats in launch films, every 2–3 in reels; something visibly moves on most beats. |
-| Rhythm | Declare it before building ("fast-fast-SLOW-fast-SIGNATURE-hold"). Never uniform: the coefficient of variation of shot lengths is at least 0.35 (`slop.mjs` warns under 0.2); no 3 consecutive shots within ±10% of each other; the slowest scene is about 3× the fastest; a film over 20 s has at least one shot of 3 s or more and one of 0.6 s or less. The reveal gets the longest shot. |
+| Rhythm | Declare it before building ("fast-fast-SLOW-fast-SIGNATURE-hold"). Never uniform: the coefficient of variation of shot lengths is at least 0.35 (`slop.mjs` warns `uniform-shots` under 0.2); and the longest shot is at least 4x the shortest (`narrow-rhythm`, 5+ shots, the end card and flashes under 0.4 s left out; also measured on the render's hard cuts), never a metronome even when the lengths differ; no 3 consecutive shots within ±10% of each other; the slowest scene is about 3× the fastest; a film over 20 s has at least one shot of 3 s or more and one of 0.6 s or less. The reveal gets the longest shot. |
 | First second | Picture designed and moving at frame 0; audio already at bed level in second 0–1 (never −30 dBFS or quieter). Trim quiet music intros. |
 | End card | Name, product, one call to action (a URL or "available today"), in the style's calmest composition. The beat runs 2–3 s: its elements land in sequence (the mark, then the name, then the action), and after the last one lands it holds **at most 1.5 s still** (`motion-gate.mjs` measures it; a brief that asks for a longer hold sets `end_hold_s` in the plan). The music's button and an audio tail of 0.5 s or more. Never longer than 3 s; no black or silent tail; no "thanks for watching" or social-icon walls. |
 
@@ -479,7 +479,7 @@ Every tell is a default left in place, uniformity, an effect without a cause, or
 | Logo cold open; a company description as the opener [slow-hook] | The hook in 1.5 s; the logo opens only if the brand itself is the news. |
 | The cliché 10-scene arc | `references/story.md`; one idea, a turn, a named deviation. |
 | The same layout every scene | Layout variety (§5). |
-| Uniform shot lengths [uniform-shots] | Rhythm (§2). |
+| Uniform shot lengths [uniform-shots], or a narrow band of them [narrow-rhythm] | Rhythm (§2): group quick beats, give the reveal the longest shot. |
 | Opening on black [black-open] | A designed, postable frame 0. |
 | End card over 3 s, or still for more than 1.5 s; "thanks for watching"; social-icon walls | 2–3 s, one call to action, at most 1.5 s still. |
 

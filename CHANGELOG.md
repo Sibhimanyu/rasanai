@@ -16,6 +16,10 @@ Why: a survey of fourteen motion and video skills (mortiflix, animate, motionmax
 - **Different from your last three films.** The score names its `shape` (structure, opening, signature, camera, music, ending); `memory.mjs record-film` keeps it at delivery; `crew.mjs check` fails a score that differs from any of the last three films in fewer than 4 of the 6 (`shape_waiver` for a series). The Motion Director is told the last three shapes.
 - **One hero per frame.** `frame-gate.mjs` warns `competing-heroes` when the two largest elements are both big and about equal in over 15% of frames.
 
+- **Shots vary, the mix breathes, narration splits the cuts.** `slop.mjs` warns `narrow-rhythm` (5+ shots whose longest and shortest are under 4x apart, on the plan and the render); `sound.mjs check` warns `no-breath` (fewer than two designed breaks in the music, one under 20 s) and `no-split-edits` (a narrated film with fewer than two J- or L-cuts across 4+ cuts).
+- **Decisions keep their history.** Replacing a done step's decision needs `--because "<why the old call lost>"`; the drawer shows the older calls struck through with their reasons.
+- **A fallback is never silent.** Every fallback a script takes (procedural plates without image generation, the default voice, no curated track, a gate that could not run, blur capped) is logged to `<run>/downgrades.jsonl` and listed in the drawer under "Working without"; `console.mjs downgrade` logs one by hand.
+
 ## 1.14.0 (2026-10-13): moves you like
 
 - **Reference moments are role-free.** The Hook / Proof / Turn / Call to action slots are gone. A user picks moves by taste (up to four), each with an optional `place` (opening, between, peak, ending, anywhere; default anywhere), before the story exists. Old briefs with a `role` still load (hook becomes opening, cta becomes ending, the rest anywhere); the manifest's role tags stay as search hints.

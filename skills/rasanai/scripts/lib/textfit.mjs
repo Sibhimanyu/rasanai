@@ -36,6 +36,7 @@ import { chromePath } from "./common.mjs";
 import { launch } from "./cdp.mjs";
 import { serve } from "./stage3d.mjs";
 import { gateValue, gateNotes } from "./gate-lessons.mjs";
+import { noteDowngrade } from "./downgrade.mjs";
 
 export const TEXT_FIT = { fps: 10, safe: 0.06, edge_s: 1.2, rest_s: 0.4, min_font_px: 20, rest_px: 1.5,
   statement: 0.035, read_base_s: 0.6, read_per_word_s: 0.3, brief_min_words: 3, overlap_frac: 0.15, overlap_s: 0.3, read_slack: 0.85 };
@@ -283,7 +284,7 @@ export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.saf
   const dt = 1 / fps;
   // chromePath() exits the process when no Chrome exists; a gate must report that, not die
   { const realExit = process.exit; process.exit = () => { throw new Error("no Chrome found (npx hyperframes browser ensure, or set RASANAI_CHROME)"); };
-    try { chromePath(); } catch (e) { res.could_not_run.push(`text-fit: ${e.message}`); return res; } finally { process.exit = realExit; } }
+    try { chromePath(); } catch (e) { res.could_not_run.push(`text-fit: ${e.message}`); noteDowngrade({ what: "the text-fit check", instead: "no text measurement", why: String(e.message).slice(0, 200), impact: "overflowing or clipped text is not caught" }); return res; } finally { process.exit = realExit; } }
   let b, srv;
   const tmps = [];
   try {
