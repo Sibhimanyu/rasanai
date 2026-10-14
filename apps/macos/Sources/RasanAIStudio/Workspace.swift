@@ -94,17 +94,17 @@ struct FilmStepper: View {
         let looking = viewing == stage && viewing != current
         return HStack(spacing: 8) {
             ZStack {
-                if active { Circle().fill(Color.rasanFill) }
-                else { Circle().strokeBorder(next ? Color.rasan.opacity(0.7) : done ? Color.secondary.opacity(0.55) : Workspace.hairline.opacity(2.2), lineWidth: 1.2) }
+                if active { Circle().fill(Color.primary) }
+                else { Circle().strokeBorder(next ? Color.primary.opacity(0.5) : done ? Color.secondary.opacity(0.55) : Workspace.hairline.opacity(2.2), lineWidth: 1.2) }
                 if done { Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary) }
-                else { Text("\(index + 1)").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(active ? Color.white : Color.secondary) }
+                else { Text("\(index + 1)").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(active ? Color(nsColor: .windowBackgroundColor) : Color.secondary) }
             }
             .frame(width: 26, height: 26)
             Text(stage.stepTitle).font(.system(size: 13, weight: active ? .semibold : .regular))
                 .foregroundStyle(active || looking ? Color.primary : Color.secondary).fixedSize()
         }
         .padding(.horizontal, looking ? 8 : 0).padding(.vertical, looking ? 3 : 0)
-        .background(looking ? Color.rasan.opacity(0.14) : .clear, in: Capsule())
+        .background(looking ? Color.primary.opacity(0.10) : .clear, in: Capsule())
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(stage.stepTitle)\(done ? ", done" : active ? ", current" : "")")
@@ -114,7 +114,7 @@ struct FilmStepper: View {
 // MARK: Filmstrip
 
 /// The scenes as an editor's filmstrip: equal frames, a numbered pin above each, its start time below. The scene on the
-/// playhead is outlined in the tint with a filled pin; a scene with an open note carries an amber dot.
+/// playhead is outlined in the neutral highlight with a filled pin; a scene with an open note carries an amber dot.
 struct SceneFilmstrip<P: FilmPlayback>: View {
     let playback: P
     let scenes: [FilmScene]
@@ -153,9 +153,9 @@ private struct FilmstripCell: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 6) {
                 ZStack {
-                    Circle().fill(current ? Color.rasanFill : Workspace.raised)
+                    Circle().fill(current ? Color.primary : Workspace.raised)
                         .overlay { Circle().strokeBorder(current ? .clear : Workspace.hairline, lineWidth: 1) }
-                    Text("\(number)").font(.system(size: 11, weight: .bold)).foregroundStyle(current ? Color.white : Color.primary)
+                    Text("\(number)").font(.system(size: 11, weight: .bold)).foregroundStyle(current ? Color(nsColor: .windowBackgroundColor) : Color.primary)
                 }
                 .frame(width: current ? 26 : 22, height: current ? 26 : 22)
                 .frame(width: size.width, height: 26)
@@ -165,12 +165,12 @@ private struct FilmstripCell: View {
                         ZStack { Workspace.raised; Image(systemName: "photo").foregroundStyle(.tertiary) }
                     }
                     if current {
-                        GeometryReader { box in Rectangle().fill(Color.rasan).frame(width: box.size.width * progress, height: 3).frame(maxHeight: .infinity, alignment: .bottom) }
+                        GeometryReader { box in Rectangle().fill(Color.white.opacity(0.85)).frame(width: box.size.width * progress, height: 3).frame(maxHeight: .infinity, alignment: .bottom) }
                     }
                 }
                 .frame(width: size.width, height: size.height)
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .overlay { RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(current ? Color.rasan : Color.primary.opacity(hovering ? 0.3 : 0.06), lineWidth: current ? 2 : 1) }
+                .overlay { RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(current ? Color.primary : Color.primary.opacity(hovering ? 0.3 : 0.06), lineWidth: current ? 2 : 1) }
                 .overlay(alignment: .topTrailing) {
                     if hasNote { Circle().fill(Color.turmeric).frame(width: 9, height: 9).overlay { Circle().strokeBorder(.black.opacity(0.5), lineWidth: 1) }.padding(5) }
                 }

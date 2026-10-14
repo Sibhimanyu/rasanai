@@ -31,29 +31,21 @@ struct AppSidebar: View {
         default: nil
         }
     }
-    private var needsYouCount: Int { store.visibleProjects.filter { store.summary(for: $0.1).phase.needsYou }.count }
+    // Counts and recents read every film that is not archived: a search or the archive view on a library page is that page's.
+    private var needsYouCount: Int { store.activeProjects.filter { store.summary(for: $0.1).phase.needsYou }.count }
     /// The latest films, newest first, so the sidebar is also the quickest way back into one.
     private var recentFilms: [(LocalProject, URL)] {
         func stamp(_ item: (LocalProject, URL)) -> Date { store.summary(for: item.1).updatedAt ?? item.0.lastOpenedAt ?? item.0.createdAt }
-        return Array(store.visibleProjects.sorted { stamp($0) > stamp($1) }.prefix(8))
+        return Array(store.activeProjects.sorted { stamp($0) > stamp($1) }.prefix(8))
     }
 
     var body: some View {
         List(selection: Binding(get: { current }, set: { if let place = $0 { go(place) } })) {
-            // The brand as the list's first line: the mark and the name at full weight, not a small grey section header.
-            HStack(spacing: 10) {
-                RasanMark().fill(Color.rasanInk).frame(width: 18, height: 22)
-                Text("RasanAI Studio").font(.system(size: 15, weight: .semibold)).foregroundStyle(.primary)
-            }
-            .padding(.leading, 2).padding(.top, 2).padding(.bottom, 8)
-            .listRowBackground(Color.clear)
-            .selectionDisabled()
-            .accessibilityElement(children: .combine).accessibilityAddTraits(.isHeader)
             Section {
                 Label("Home", systemImage: "house").tag(StudioPlace.home)
                 Label("All films", systemImage: "film.stack").tag(StudioPlace.all)
                 Label("Needs review", systemImage: "clock").badge(needsYouCount).tag(StudioPlace.needsReview)
-                Label("Queue", systemImage: "list.bullet.rectangle").badge(store.settings.filmQueue.count).tag(StudioPlace.queue)
+                Label("Queue", systemImage: "list.bullet.rectangle").badge(store.queuedCount).tag(StudioPlace.queue)
                 Label("Brands", systemImage: "tag").tag(StudioPlace.brands)
                 Label("Templates", systemImage: "square.grid.2x2").tag(StudioPlace.templates)
                 Label("Inspiration", systemImage: "sparkles").tag(StudioPlace.inspire)
@@ -100,7 +92,7 @@ private struct SidebarFilmRow: View {
         switch phase {
         case .yourTurn: ("clock.fill", Color(nsColor: .systemOrange))
         case .needsAttention: ("exclamationmark.triangle.fill", Color(nsColor: .systemRed))
-        case .working, .starting: ("sparkles", Color.rasan)
+        case .working, .starting: ("sparkles", Color(nsColor: .systemPurple))
         case .finished: ("checkmark.circle.fill", Color(nsColor: .systemGreen))
         case .queued: ("list.number", .secondary)
         case .paused: ("pause.circle", .secondary)
@@ -144,9 +136,7 @@ private struct PageToolbar<Trailing: View>: ViewModifier {
             .modifier(HiddenToolbarTitle())
             .toolbar {
                 HistoryToolbar(store: store)
-                if let store, let crumb = store.crumb {
-                    ToolbarItem(placement: .navigation) { Breadcrumb(parent: crumb.title, title: title) { store.path = crumb.path } }
-                }
+                if let store, let crumb = store.crumb { BreadcrumbToolbar(parent: crumb.title, title: title) { store.path = crumb.path } }
                 ToolbarItemGroup(placement: .primaryAction) { trailing }
             }
     }
@@ -154,7 +144,23 @@ private struct PageToolbar<Trailing: View>: ViewModifier {
 
 private struct HiddenToolbarTitle: ViewModifier {
     func body(content: Content) -> some View {
-        if #available(macOS 15, *) { content.toolbar(removing: .title) } else { content }
+        if #available(macOS 15, *) { content.toolbar(removing: .title) }
+        else { content.toolbar { ToolbarItem(placement: .principal) { EmptyView() } } }   // macOS 14: an empty title slot
+    }
+}
+
+/// The breadcrumb as a toolbar item with no glass capsule of its own: it is a line of text and a link, not a button.
+private struct BreadcrumbToolbar: ToolbarContent {
+    let parent: String
+    let title: String
+    let action: () -> Void
+    var body: some ToolbarContent {
+        if #available(macOS 26, *) {
+            ToolbarItem(placement: .navigation) { Breadcrumb(parent: parent, title: title, action: action) }
+                .sharedBackgroundVisibility(.hidden)
+        } else {
+            ToolbarItem(placement: .navigation) { Breadcrumb(parent: parent, title: title, action: action) }
+        }
     }
 }
 
@@ -163,9 +169,11 @@ private struct Breadcrumb: View {
     let parent: String
     let title: String
     let action: () -> Void
+    @State private var hovering = false
     var body: some View {
         HStack(spacing: 6) {
-            Button(parent, action: action).buttonStyle(.plain).foregroundStyle(.secondary).help("Back to \(parent)")
+            Button(parent, action: action).buttonStyle(.plain).foregroundStyle(hovering ? .primary : .secondary)
+                .onHover { hovering = $0 }.hoverCursor(.pointingHand).help("Back to \(parent)")
             Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(.tertiary)
             Text(title).fontWeight(.semibold).lineLimit(1)
         }
@@ -219,6 +227,19 @@ extension View {
     }
 }
 
+/// The first line of a library page, named as its sidebar row is. Home keeps its composer question at the same size.
+struct PageTitle: View {
+    let text: String
+    var body: some View {
+        Text(text).font(.system(size: 26, weight: .bold)).tracking(-0.4).accessibilityAddTraits(.isHeader)
+    }
+}
+
+extension StudioStore {
+    /// Films waiting their turn in the queue; the sidebar badge and the status bar both say this number.
+    var queuedCount: Int { settings.filmQueue.filter { $0.state != .running }.count }
+}
+
 /// The native search field as an ordinary toolbar item, so it can sit before the page's primary button. `.searchable`
 /// always takes the trailing end of the toolbar, after everything else.
 struct ToolbarSearchField: NSViewRepresentable {
@@ -255,8 +276,7 @@ struct NewFilmHeaderButton: View {
     var body: some View {
         Button(action: action) { Label("New film", systemImage: "plus").labelStyle(.titleAndIcon) }
             .buttonStyle(.borderedProminent).tint(Color.rasanFill)
-            .keyboardShortcut("n", modifiers: .command)
-            .help("Start a new film (⌘N)")
+            .help("Start a new film (⌘N)")   // ⌘N itself is File › New Film's
     }
 }
 
@@ -264,25 +284,31 @@ struct NewFilmHeaderButton: View {
 
 /// The studio's status bar under every page but a film's (a film page has its own action bar). Each part answers a
 /// question and goes somewhere: what the director is doing right now (and the call it is heading for), how many films are
-/// waiting on you, the queue, and what this session has used. Counts that are zero are left out.
+/// waiting on you, the queue, and what this session has used. The sidebar badges already carry the two counts, so the
+/// bar repeats them only while the sidebar is hidden; counts that are zero are left out.
 struct AppStatusBar: View {
     @Bindable var store: StudioStore
+    /// True while the sidebar is hidden, when its badges are not on screen.
+    var sidebarHidden = false
     @Environment(\.openSettings) private var openSettings
     private var agent: LocalAgent { store.settings.agent }
-    private var needsYou: Int { store.visibleProjects.filter { store.summary(for: $0.1).phase.needsYou }.count }
+    private var needsYou: Int { store.activeProjects.filter { store.summary(for: $0.1).phase.needsYou }.count }
 
     var body: some View {
-        let queued = store.settings.filmQueue.filter { $0.state != .running }.count
+        let queued = store.queuedCount
         HStack(spacing: 14) {
             director
+            if let notice = store.notice {
+                Text(notice).foregroundStyle(.secondary).transition(.opacity)
+            }
             Spacer(minLength: 12)
-            if needsYou > 0 {
+            if sidebarHidden, needsYou > 0 {
                 Button { store.path = [.library(.needsReview)] } label: {
                     Label(needsYou == 1 ? "1 film needs you" : "\(needsYou) films need you", systemImage: "clock.fill")
                 }
                 .foregroundStyle(Color(nsColor: .systemOrange)).help("Open Needs review")
             }
-            if queued > 0 {
+            if sidebarHidden, queued > 0 {
                 Button { store.path = [.queue] } label: { Label("\(queued) queued", systemImage: "list.number") }
                     .foregroundStyle(.secondary).help("Open the queue")
             }
@@ -292,8 +318,9 @@ struct AppStatusBar: View {
                     .help("Used this session, across \(totals.films) film\(totals.films == 1 ? "" : "s")")
             }
         }
-        .buttonStyle(.plain).font(.system(size: 12.5)).lineLimit(1)
-        .padding(.horizontal, 24).frame(height: 40)
+        .buttonStyle(.accessoryBarAction).font(.system(size: 11.5)).lineLimit(1)
+        .animation(.default, value: store.notice)
+        .padding(.horizontal, 24).frame(height: 28)
         .overlay(alignment: .top) { Rectangle().fill(Workspace.hairline).frame(height: 1) }
     }
 
@@ -305,7 +332,7 @@ struct AppStatusBar: View {
                 Button { store.showFilm(active) } label: {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.mini)
-                        Text(store.currentFilmTitle).font(.system(size: 13, weight: .medium))
+                        Text(store.currentFilmTitle).font(.system(size: 12, weight: .medium))
                         if case .working(let activity, _, let next)? = store.turnState {
                             Text(TurnState.sentenceCaseFirst(activity)).foregroundStyle(.secondary).truncationMode(.tail)
                             if let next { Text(TurnState.sentenceCaseFirst(next)).foregroundStyle(.tertiary) }
@@ -321,15 +348,15 @@ struct AppStatusBar: View {
         } else if store.settings.isReady(agent) {
             HStack(spacing: 8) {
                 Circle().fill(Color(nsColor: .systemGreen)).frame(width: 8, height: 8)
-                Text("Ready for a film").font(.system(size: 13, weight: .medium))
+                Text("Ready for a film").font(.system(size: 12, weight: .medium))
                 Button { openSettings() } label: { Text("\(agent.title) · \(store.settings.pace.title) pace").foregroundStyle(.secondary) }
                     .help("Change the director or pace in Settings")
             }
         } else {
             HStack(spacing: 8) {
                 Circle().fill(Color(nsColor: .systemOrange)).frame(width: 8, height: 8)
-                Text("No director set up").font(.system(size: 13, weight: .medium))
-                Button("Set up…") { store.settings.showWelcome = true }.foregroundStyle(Color.rasan)
+                Text("No director set up").font(.system(size: 12, weight: .medium))
+                Button("Set up…") { store.settings.showWelcome = true }
             }
         }
     }
