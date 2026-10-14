@@ -1,13 +1,13 @@
 {
-  "originHash" : "0728fe618f5e25015cbf38256783de8bf743f1c11e67af361a784abc856c9d19",
+  "originHash" : "950c9f66a9e9d14d32352a6c0c1421c559c6a9de8afd6b244e5b16db05e68cde",
   "pins" : [
     {
       "identity" : "heresay-swift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Sibhimanyu/heresay-swift",
       "state" : {
-        "revision" : "c489d7ea3104df1c7795b228570204085cf80105",
-        "version" : "0.2.13"
+        "revision" : "0bafac83f7385032b3e76bd6e4a22c1fcc1cc6a1",
+        "version" : "0.2.20"
       }
     },
     {
