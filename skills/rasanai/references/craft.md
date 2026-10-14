@@ -253,6 +253,28 @@ Take the signature curves from the brand's own films (`Easing:` on the brand fil
 
 The name appears three times: at the reveal ("Meet KINSO"), once mid-film tied to a benefit ("KINSO finds it"), and at the end. Mid-film it is part of a line about what it does for the viewer, not a logo bug. `brand-once` warns when a launch film of 25 s or more shows the brand name or mark in fewer than 2 beats.
 
+### Echo: the end is the start, changed
+
+The ending answers the opening: the same object, frame device or shape comes back, transformed by the story (the empty composer returns holding the answer, the opening's dot returns as the logo's full stop, the grid returns with the word in it). Not a loop: the same frame unchanged says nothing happened. The Motion Director writes `echo: {opening, ending, change}` in the score. `motion-gate.mjs` (`lib/echo.mjs`) compares the opening's key frame (the first settled composition in 3 s) with the end card and with the stillest frame of the 5 s before it, on palette (40%), where the foreground sits (30%) and where the edges sit (30%). Under 0.55 warns `no-echo`; the same frame to a few levels warns `echo-identical`; a score with no `echo` warns `no-echo` (plan). Calibrated 2026-10-14, by eye on the key frames:
+
+| Film | Echo | Eye |
+|---|---|---|
+| Google "Ask" | 0.99 | rhymes: a word centred on grey, the G centred on white |
+| OpenAI "Refreshed." | 0.99 | rhymes: the dot becomes the mark |
+| Video-14746 | 0.87 | rhymes: dark ground, small centred type at both ends |
+| Video-9721 | 0.82 | rhymes: the red grid returns with new words |
+| Kinso | 0.79 | rhymes: the gradient ground, centred type then the mark |
+| FILM-D | 0.79 | rhymes: the composer returns, "dessert's on me" |
+| Video-20023 | 0.68 | rhymes: black, the orange dot returns as CLAUDE's full stop |
+| mexicat p(doom) | 0.66 | rhymes: the orange spark on black returns |
+| FILM-E | 0.62 | rhymes, weaker: the composer returns, the end card is set left |
+| Greenroom | 0.59 | rhymes: centred type on white at both ends |
+| FILM-C | 0.53 | partly: the composer returns small, the end card is plain type |
+| Sovra | 0.50 | palette only: the player card against a centred logo |
+| Video-98327 | 0.40 | partly: the line of type returns scattered |
+| Video-29220 | 0.34 | motif only: the lily returns, the ground inverts |
+| rasanai-test2 | 0.26 | no: green "Detour." against a white end card |
+
 ### Room
 
 A film needs a breath. Put a dark or quiet beat at the emotional turn (the pain just landed, before the reveal): a declared breath (see Continuity) with the ground changing and the music dipping. Launch films may run 35 to 45 s when the story needs it (Kinso runs 46 s); crammed 7 ideas into 30 s with no breath is the failure.
@@ -320,6 +342,22 @@ At least 3 clear sizes in the system, display at least 2.5× the body, at least 
 | T1 push | a push that goes somewhere | 6–15% over 0.8–1.5 s toward the subject, `power2.inOut` or `expo.inOut`, then locked (at least 4% a second: a 2–4% lean-in over a whole shot is a creep, and the motion gate fails it) | image and hero shots, toward the thing that matters; never while small text is being read |
 | T2 focus zoom | screen-studio zoom into a UI region | 1.3–2.5× so the action fills ≥ 60% of the width, 0.6–0.9 s `power3.inOut`, then hold locked | each UI beat; back to 1× before the next target or the cut |
 | T3 crash zoom | impact punch-in | 1.5–2× in 0.15–0.25 s `expo.in`, optional 1–2 frame flash | once per film, on the spectacle beat |
+
+**Camera variety.** Name each beat's camera (locked, push-in, pull-out, pan-truck, tilt, rotate, handheld-drift, whip) and one signature shot; across the score use 4 different moves (a locked shot counts as one; lemo). The render is measured too (`lib/camera-moves.mjs`: a whole-frame affine fit on the textured blocks, counted only when it covers the frame or one big plane; a line that recentres while it types is not a pan): `camera-monotone` warns when the film shows fewer moving kinds than the references do at its length (1 from 15 s, 2 from 40 s, 3 from 90 s; a stillness style is exempt), and the gate lists each beat's measured camera next to the declared one. Most great 2D films barely move the camera; the warning floor sits where they sit. A cut-in (a scale jump across a cut) is a cut, not a camera move, and a heavy depth-of-field blur hides a move from the measure. Calibrated 2026-10-14, by eye on strips:
+
+| Film | Moving kinds measured | Eye |
+|---|---|---|
+| Video-14746 (11 s), Video-29220 (7 s), Video-98327 (20 s), OpenAI (110 s, stillness) | 0 | locked: the type and objects move, the camera does not |
+| Video-9721 (21 s) | 1 handheld-drift | locked grid; the inset footage drifts |
+| Video-20023 (15 s) | 2 push-in, whip | locked HUD; a glitch whip, the end card settles in |
+| Kinso (46 s) | 2 push-in, tilt | mostly locked; the tilt is the icon strip rising (a layer: a known false read) |
+| Sovra (52 s) | 3 pull-out, pan-truck, tilt | the queue scrolls (tilt), the player pans and pulls out |
+| mexicat (157 s) | 4 push-in, pull-out, pan-truck, tilt | pushes into the drawings, trucks across the diagrams |
+| Google (87 s) | 4 push-in, pull-out, pan-truck, tilt | UI scrolls, zooms and slides through the whole film |
+| FILM-D (29 s), FILM-E (30 s) | 1 push-in (the end card) | near-locked UI, cut-ins on cuts, a slow push on the end card |
+| Greenroom (23 s) | 0 | locked: type and UI cards move on a still white page |
+
+At this floor Video-98327 and Greenroom warn (OpenAI too unless its stillness is declared); the score's 4-move rule is the ambition, the render's floor the alarm.
 
 A dolly (per-layer depth factors, parallax) feels spatial; a zoom (uniform scale) feels flat and graphic. Choose by style. When the scene needs real space (an object to turn, layers in depth, a camera that travels, a flat card that becomes an object), build it in real 3D with Rasan3D: a lens in mm, camera legs that land, one motivated key light, true motion blur and depth of field (`references/3d.md`). On a flat brand the 3D takes the brand's palette and tone (matte or unlit materials in the palette's hexes, `references/3d.md` "Brand-flat 3D"); depth of field, motion blur and the camera are craft, not brand, and stay available. The camera language above still holds there; the tiers become real camera moves. When the style has depth, use 3 planes (background ×0.2, content ×1, foreground ×3–6) and at most one heavily blurred foreground occluder (20–30 px) that actually passes in front of the content.
 

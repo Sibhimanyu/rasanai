@@ -5,7 +5,8 @@
 // fails here with the time, the region or the beat, so the builder can fix the cause.
 //
 //   node motion-gate.mjs [--video <draft.mp4>] [--project <videos/name>] [--plan <run>/motion/score.json]
-//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--no-text-fit] [--no-fluency] [--no-carry] [--stillness] [--json]
+//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--no-text-fit] [--no-fluency] [--no-carry] [--no-echo] [--no-camera]
+//        [--stillness] [--json]
 //   node motion-gate.mjs fluency --video <film.mp4> [--stillness] [--json]     the fluency measurement alone
 //   -> exit 0 pass · 2 findings (listed, each with a time and a fix) · 1 could not run (never "clean")
 //
@@ -39,6 +40,15 @@
 //              seams carried is a WARNING listing each uncarried seam with its time and score (an error only when a
 //              user lesson sets motion.carry_share, and never in a stillness style). Calibrated against our carry-chain films and the references (craft.md)
 //   long-ending  (warning, --plan) the last beat is more than 25% of the film (film.ending_share_max; motionmaxxing G3)
+//   no-echo    (warning) the ending does not echo the opening ("the end is the start, changed"; lib/echo.mjs): the opening's key frame
+//              (the first settled composition in 3 s) against the end card and the last still frame before it, palette + where the
+//              foreground sits + where the edges sit; under 0.55 does not rhyme (the references that rhyme by eye: 0.59 to 0.99; the
+//              ones that do not: 0.26 to 0.53). With --plan, also when the score has no echo {opening, ending, change}
+//   echo-identical  (warning) the end is the start unchanged (the same frame to a few levels): change it
+//   camera-monotone  (warning) the camera does one thing (lib/camera-moves.mjs): each beat's measured camera (locked, push-in,
+//              pull-out, pan-truck, tilt, rotate, handheld-drift, whip) is reported; the render needs 1 moving kind from 15 s, 2 from
+//              40 s, 3 from 90 s (where the references sit: most great 2D films barely move the camera), never in a stillness style;
+//              with --plan, the score names a camera per beat, min(4, beats) different moves and one signature_shot (lemo's rule)
 // Lessons (lib/gate-lessons.mjs): motion.end_hold_s, motion.end_hold_min_s, motion.freeze_s, motion.carry_share and film.ending_share_max read
 // through gateValue, so a mistake the user pointed out once can tighten them; the report lists each lesson in force.
 // From the plan and the code (--plan, --project):
@@ -70,6 +80,8 @@ import { analyse as fluencyOf, scoreFluency } from "./lib/fluency.mjs";
 import { measureCarry } from "./lib/carry.mjs";
 import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
+import { measureEcho, ECHO } from "./lib/echo.mjs";
+import { measureCamera, cameraKind, cameraFloor } from "./lib/camera-moves.mjs";
 
 export const GATE = {
   coverage: 0.7, // share of frames with visible motion
@@ -93,7 +105,7 @@ const PIX_T = 6, MOVE_SHARE = 0.0008; // a frame moves when >= 0.08% of pixels c
 
 async function main() {
   const args = parseArgs();
-  if (!args.json) track("Measuring the film frame by frame: freezes, creep, seams", "Motion gate done");
+  if (!args.json) track("Measuring the film frame by frame: freezes, creep, seams, echo, camera", "Motion gate done");
   if (args._[0] === "fluency") {
     if (!str(args.video)) { console.error("fluency needs --video <film.mp4>"); process.exit(1); }
     const m = await fluencyOf(path.resolve(str(args.video)));
@@ -105,7 +117,7 @@ async function main() {
     }
     process.exit(g.pass === false ? 2 : 0);
   }
-  const res = await gate({ video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], stillness: args.stillness ? true : null });
+  const res = await gate({ video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], stillness: args.stillness ? true : null });
   for (const c of res.could_not_run) noteDowngrade({ run: args.run, what: "the motion gate", instead: "no motion check", why: String(c).slice(0, 200), impact: "this film's motion was not measured" });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else {
@@ -133,7 +145,8 @@ export function readPlan(planPath, scenesPath) {
     const start = Number.isFinite(Number(b.start)) && b.start !== "" && b.start != null ? Number(b.start) : t;
     const end = Number.isFinite(Number(b.end)) && b.end != null ? Number(b.end) : start + (Number(b.duration) || Number(b.duration_s) || 0);
     t = end;
-    return { i, n: b.n || i + 1, id: String(b.id || b.n || i + 1), start, end, exit: b.exit || null, carrier: b.carrier || null, line: b.line || b.on_screen || null };
+    const cam3 = b.camera3d && Array.isArray(b.camera3d.moves) ? b.camera3d.moves.map((m) => m && m.move).filter(Boolean) : [];
+    return { i, n: b.n || i + 1, id: String(b.id || b.n || i + 1), start, end, exit: b.exit || null, carrier: b.carrier || null, line: b.line || b.on_screen || null, camera: b.camera || null, camera3d: cam3, signature_shot: !!b.signature_shot };
   });
   const seams = (plan && Array.isArray(plan.seams) ? plan.seams : []);
   return { plan, beats, seams, brandReveal: plan ? plan.brandReveal : undefined, endHold: plan && Number(plan.end_hold_s) > 0 ? Number(plan.end_hold_s) : null, duration: plan && Number(plan.duration) > 0 ? Number(plan.duration) : t || null };
@@ -392,7 +405,7 @@ function codeChecks(file, html) {
 }
 
 // ---------------------------------------------------------------- the gate
-export async function gate({ video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, stillness = null } = {}) {
+export async function gate({ video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, stillness = null } = {}) {
   const findings = [], skipped = [], could = [], measured = {};
   const add = (f) => findings.push(f);
   const P = readPlan(plan && path.resolve(plan), scenes && path.resolve(scenes));
@@ -587,6 +600,47 @@ export async function gate({ video = null, project = null, plan = null, scenes =
       }
     } catch (e) { skipped.push(`carry: ${e.message} (not measured, never passed)`); }
   } else if (video && !carry) skipped.push("carry: skipped (--no-carry)");
+
+  // ---- echo: the end is the start, changed (lib/echo.mjs)
+  if (beats.length && P.plan) {
+    const e = P.plan.echo, miss = ["opening", "ending", "change"].filter((k) => !(e && typeof e[k] === "string" && e[k].trim().length >= 3));
+    if (miss.length) add({ check: "no-echo", severity: "warning", at: null, region: "plan", message: `the score has no echo${e ? ` ${miss.join(", ")}` : ""}: name how the ending answers the opening (score.echo {opening, ending, change})`, fix: 'add "echo": { "opening": "the empty composer, caret blinking", "ending": "the same composer, now holding the answer", "change": "empty to full" }: the end is the start, changed (the same object, frame or shape, transformed by the story)' });
+  }
+  if (video && echo && fs.existsSync(path.resolve(video))) {
+    try {
+      const e = measureEcho(path.resolve(video));
+      if (e.echo == null) skipped.push(`echo: ${e.note}`);
+      else {
+        measured.echo = { score: e.echo, palette: e.palette, mass: e.mass, edges: e.edges, opening_t: e.opening.t, ending_t: e.ending.t, ending: e.ending.which, need: ECHO.rhyme };
+        if (e.identical) add({ check: "echo-identical", severity: "warning", at: e.ending.t, region: "ending", message: `the ending (${e.ending.which} at ${e.ending.t} s) is the opening frame (${e.opening.t} s) unchanged: an echo is the start, changed`, fix: "keep the opening's object, frame or shape and let the story change it: filled instead of empty, grown, re-coloured, the mark in place of the question" });
+        else if (e.echo < ECHO.rhyme) add({ check: "no-echo", severity: "warning", at: e.ending.t, region: "ending", message: `the ending does not echo the opening: ${e.echo} (palette ${e.palette}, layout ${e.mass}, edges ${e.edges}; ${ECHO.rhyme} to rhyme) between ${e.opening.t} s and the ${e.ending.which} at ${e.ending.t} s`, fix: "bring the opening back, changed: the same ground, the same object or frame device in the same place, now transformed (the empty composer returns full, the dot returns as the full stop of the logo, the grid returns with the answer in it)" });
+      }
+    } catch (err) { skipped.push(`echo: ${err.message} (not measured, never passed)`); }
+  } else if (video && !echo) skipped.push("echo: skipped (--no-echo)");
+
+  // ---- camera variety (lib/camera-moves.mjs): what the camera does per beat, and how many kinds
+  if (beats.length && P.plan) {
+    const named = beats.map((b) => ({ id: b.id, kinds: [b.camera, ...b.camera3d].map(cameraKind).filter(Boolean) }));
+    const kinds = new Set(named.flatMap((b) => b.kinds));
+    const unnamed = named.filter((b) => !b.kinds.length).map((b) => b.id);
+    const need = Math.min(4, beats.length);
+    const sig = P.plan.signature_shot || beats.some((b) => b.signature_shot);
+    const why = [];
+    if (unnamed.length) why.push(`no camera on beat${unnamed.length > 1 ? "s" : ""} ${unnamed.join(", ")}`);
+    if (kinds.size < need) why.push(`${kinds.size} different camera move${kinds.size === 1 ? "" : "s"} (${[...kinds].join(", ") || "none"}; ${need} at least)`);
+    if (!sig) why.push("no signature_shot");
+    measured.camera_plan = { kinds: [...kinds], beats: named };
+    if (why.length) add({ check: "camera-monotone", severity: "warning", at: null, region: "plan", message: `the score's camera: ${why.join("; ")}`, fix: 'name each beat\'s camera ("camera": locked, push-in, pull-out, pan-truck, tilt, rotate, handheld-drift or whip), use 4 different moves across the film (a locked shot counts as one), and name one "signature_shot": { "beat", "move", "why" } (references/cinematography.md "Camera variety")' });
+  }
+  if (video && camera && fs.existsSync(path.resolve(video))) {
+    try {
+      const c = await measureCamera(path.resolve(video), { beats: beats.length ? beats : null });
+      const floor = cameraFloor(c.duration_s);
+      measured.camera = { kinds: c.kinds, moving_kinds: c.moving_kinds, need: floor, beats: c.beats.map((b) => ({ id: b.id, start: b.start, end: b.end, camera: b.camera, declared: (beats.find((x) => x.id === b.id) || {}).camera || null })), moves: c.moves.slice(0, 40), signature: c.signature };
+      if (stillness) skipped.push(`camera-monotone: a stillness style (${c.moving_kinds} moving kind${c.moving_kinds === 1 ? "" : "s"} measured)`);
+      else if (c.moving_kinds < floor) add({ check: "camera-monotone", severity: "warning", at: null, region: "whole film", message: `the camera ${c.moving_kinds ? `moves one way only (${c.kinds.filter((k) => k !== "locked").join(", ")})` : "never moves"} over ${c.duration_s} s: ${floor} moving kind${floor === 1 ? "" : "s"} at least (measured per beat: ${c.beats.map((b) => `${b.id} ${b.camera}`).join(", ")})`, fix: "give the film a camera: a push-in toward what matters, a pull-out that reveals, a truck or tilt that follows, and one signature shot (a whip, a crash zoom, an orbit) at the biggest hinge; locked shots stay where the UI itself moves" });
+    } catch (err) { skipped.push(`camera: ${err.message} (not measured, never passed)`); }
+  } else if (video && !camera) skipped.push("camera: skipped (--no-camera)");
 
   // ---- the ending: the last beat is not a quarter of the film
   if (beats.length >= 2) {
