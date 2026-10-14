@@ -41,6 +41,15 @@ struct AppSidebar: View {
 
     var body: some View {
         List(selection: Binding(get: { current }, set: { if let place = $0 { go(place) } })) {
+            // The brand as the list's first line: the mark and the name at full weight, not a small grey section header.
+            HStack(spacing: 10) {
+                RasanMark().fill(Color.rasanInk).frame(width: 18, height: 22)
+                Text("RasanAI Studio").font(.system(size: 15, weight: .semibold)).foregroundStyle(.primary)
+            }
+            .padding(.leading, 2).padding(.top, 2).padding(.bottom, 8)
+            .listRowBackground(Color.clear)
+            .selectionDisabled()
+            .accessibilityElement(children: .combine).accessibilityAddTraits(.isHeader)
             Section {
                 Label("Home", systemImage: "house").tag(StudioPlace.home)
                 Label("All films", systemImage: "film.stack").tag(StudioPlace.all)
