@@ -1,9 +1,9 @@
 import StudioCore
 import SwiftUI
 
-/// The one bar at the bottom of the film page. Left: the single status line (whose turn it is, "Sent to Claude", looking back,
-/// an error). Right: usage, then the step's actions ("Let Claude decide", the primary), which the stage publishes through
-/// `FilmActionsKey`. Nothing else on the page repeats the status.
+/// The one bar at the bottom of the film page. Left: the single status line (whose turn it is, "Sent to <agent>", looking back,
+/// an error row above it). Right: usage, then the step's actions ("Let <agent> decide", the primary), which the stage publishes through
+/// `FilmActionsKey`; when the film is paused or stuck, the right side is Resume instead. Nothing else on the page repeats the status.
 struct FilmStatusBar<Usage: View>: View {
     let model: FilmSessionModel
     var turn: TurnState?
@@ -12,20 +12,31 @@ struct FilmStatusBar<Usage: View>: View {
     var onPause: (() -> Void)?
     var onResume: (() -> Void)?
     @ViewBuilder var usage: Usage
+    @Environment(\.agentName) private var agent
     @State private var lastActivityAt = Date()
 
     private var step: String { model.shownStep }
     private var sent: Bool { model.hasSent(step) && model.status(step) != "done" }
     private var hasNote: Bool { !model.tellText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    /// Paused or stuck: no call is waiting, so the bar's right side offers the way on.
+    private var needsResume: Bool {
+        guard actions == nil, onResume != nil, let turn else { return false }
+        switch turn { case .paused, .attention: return true; default: return false }
+    }
 
     var body: some View {
-        HStack(spacing: 12) {
-            status
-            Spacer(minLength: 8)
-            usage.fixedSize()
-            if let actions, !model.isViewingPast, !sent, model.showsActions(for: actions.step) { buttons(actions) }
+        VStack(alignment: .leading, spacing: 6) {
+            // An error sits above the status instead of replacing it, so whose turn it is (and Pause) stay visible.
+            if let error = model.lastError { errorRow(error) }
+            HStack(spacing: 12) {
+                status
+                Spacer(minLength: 8)
+                usage.fixedSize()
+                if let actions, !model.isViewingPast, !sent, model.showsActions(for: actions.step) { buttons(actions) }
+                else if needsResume { resumeSlot }
+            }
         }
-        .padding(.horizontal, 18)
+        .padding(.horizontal, .filmInset).padding(.vertical, model.lastError == nil ? 0 : 8)
         .frame(maxWidth: .infinity, minHeight: 64)
         .workspacePanel()
         .onChange(of: turn) { lastActivityAt = Date() }
@@ -33,23 +44,28 @@ struct FilmStatusBar<Usage: View>: View {
 
     // MARK: Status
 
+    private func errorRow(_ error: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            Text("Couldn't send: \(error)").font(.system(size: 12)).lineLimit(2).help(error)
+            Button("Dismiss") { model.dismissError() }.buttonStyle(.borderless).controlSize(.small)
+        }
+    }
+
     @ViewBuilder private var status: some View {
-        if let error = model.lastError {
-            HStack(spacing: 8) {
-                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                Text(error).font(.system(size: 12)).lineLimit(2).help(error)
-                Button("Dismiss") { model.dismissError() }.buttonStyle(.borderless).controlSize(.small)
-            }
-        } else if model.isViewingPast {
+        if model.isViewingPast {
             HStack(spacing: 8) {
                 Image(systemName: "clock.arrow.circlepath").foregroundStyle(.secondary)
-                Text("Looking back at \(StepCatalog.label(model.shownStep))").font(.system(size: 12.5, weight: .medium)).lineLimit(1)
+                Text("Looking back at \(StepCatalog.label(model.shownStep))").font(.system(size: 12, weight: .medium)).lineLimit(1)
                 Button("Back to now") { model.returnToLive() }.buttonStyle(.rasanSecondary).controlSize(.small)
+                Button("Change this…") { model.beginTell(step: model.shownStep, prefill: "Change the \(StepCatalog.label(model.shownStep).lowercased()): ") }
+                    .buttonStyle(.rasanSecondary).controlSize(.small)
+                    .help("Write to \(agent) about this step")
             }
         } else if sent {
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
-                Text("Sent to Claude. Waiting for the next update.").font(.system(size: 12.5)).foregroundStyle(.secondary).lineLimit(1)
+                Text("Sent to \(agent). Waiting for the next update.").font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
             }
         } else if let turn {
             turnStatus(turn)
@@ -57,13 +73,15 @@ struct FilmStatusBar<Usage: View>: View {
     }
 
     @ViewBuilder private func turnStatus(_ turn: TurnState) -> some View {
-        let full = [turn.headline, turn.secondary].compactMap { $0 }.joined(separator: ". ")
+        let headline = turn.headline(agent: agent)
+        let secondary = turn.secondary(agent: agent)
+        let full = [headline, secondary].compactMap { $0 }.joined(separator: ". ")
         switch turn {
         case .yourTurn:
             HStack(spacing: 8) {
-                Circle().fill(Color.rasan).frame(width: 8, height: 8)
-                Text(turn.headline).font(.system(size: 12.5, weight: .semibold)).lineLimit(1)
-                if let secondary = turn.secondary {
+                Circle().fill(Color(nsColor: .systemOrange)).frame(width: 8, height: 8)
+                Text(headline).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                if let secondary {
                     Text(secondary).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1).layoutPriority(-1)
                 }
             }.help(full)
@@ -72,10 +90,10 @@ struct FilmStatusBar<Usage: View>: View {
                 let quiet = context.date.timeIntervalSince(lastActivityAt) > 120
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text(turn.headline).font(.system(size: 12.5, weight: .medium)).lineLimit(1)
+                    Text(headline).font(.system(size: 12, weight: .medium)).lineLimit(1)
                     if quiet {
                         Text("No new activity for two minutes").font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1).layoutPriority(-1)
-                    } else if let secondary = turn.secondary {
+                    } else if let secondary {
                         Text(secondary).font(.system(size: 12)).foregroundStyle(Color.rasan).lineLimit(1).layoutPriority(-1)
                     }
                     if let since {
@@ -83,25 +101,34 @@ struct FilmStatusBar<Usage: View>: View {
                     }
                     if let onDetails { Button(quiet ? "Show log" : "Details", action: onDetails).buttonStyle(.borderless).controlSize(.small) }
                     if let onPause { Button("Pause", action: onPause).buttonStyle(.borderless).controlSize(.small) }
-                }.help(full)
+                }.help(quiet ? "No new activity for two minutes. Check the log, or pause and resume if needed." : full)
             }
         case .paused:
             HStack(spacing: 8) {
                 Image(systemName: "pause.circle.fill").foregroundStyle(.secondary)
-                Text(turn.headline).font(.system(size: 12.5, weight: .medium)).lineLimit(1)
-                if let onResume { Button("Resume", action: onResume).buttonStyle(.borderless).controlSize(.small) }
+                Text(headline).font(.system(size: 12, weight: .medium)).lineLimit(1)
             }
         case .attention:
             HStack(spacing: 8) {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color(nsColor: .systemRed))
-                Text(turn.headline).font(.system(size: 12.5, weight: .medium)).lineLimit(1).help(turn.headline)
-                if let onDetails { Button("Show log", action: onDetails).buttonStyle(.borderless).controlSize(.small) }
-                if let onResume { Button("Resume", action: onResume).buttonStyle(.borderless).controlSize(.small) }
+                Text(headline).font(.system(size: 12, weight: .medium)).lineLimit(1).help(headline)
             }
         }
     }
 
     // MARK: Actions
+
+    /// Paused or stuck: Resume is the bar's primary, where every other state puts its own.
+    @ViewBuilder private var resumeSlot: some View {
+        HStack(spacing: 10) {
+            Divider().frame(height: 22)
+            if case .attention = turn, let onDetails { Button("Show log", action: onDetails).buttonStyle(.rasanSecondary).controlSize(.large) }
+            Button { onResume?() } label: { Label("Resume", systemImage: "play.fill").font(.system(size: 14, weight: .semibold)).padding(.horizontal, 6).frame(minHeight: 30) }
+                .buttonStyle(.rasanPrimary).controlSize(.large)
+                .keyboardShortcut(.return, modifiers: [.command, .shift])
+                .help("Resume (⇧⌘↩)")
+        }
+    }
 
     @ViewBuilder private func buttons(_ actions: FilmActions) -> some View {
         let canAct = model.canAct(on: actions.step)
@@ -109,8 +136,8 @@ struct FilmStatusBar<Usage: View>: View {
         HStack(spacing: 10) {
             Divider().frame(height: 22)
             if hasNote {
-                Label("With your note", systemImage: "text.bubble").font(.system(size: 11)).foregroundStyle(.secondary).labelStyle(.titleAndIcon)
-                    .help("The note in the inspector goes to Claude with this.")
+                Label("Your message goes too", systemImage: "text.bubble").font(.system(size: 11)).foregroundStyle(.secondary).labelStyle(.titleAndIcon)
+                    .help("The message in the inspector is sent with this.")
             }
             if let title = actions.secondaryTitle {
                 Button(title) { actions.onSecondary(note) }
@@ -128,13 +155,16 @@ struct FilmStatusBar<Usage: View>: View {
                     .font(.system(size: 14, weight: .semibold))
                     .padding(.horizontal, 6).frame(minWidth: 120, minHeight: 30)
                 }
-                // No Return shortcut: Return while typing a note must never approve a call by accident.
+                // ⇧⌘↩, not plain Return: Return while typing a message must never approve a call by accident.
                 .buttonStyle(.rasanPrimary).controlSize(.large)
+                .keyboardShortcut(.return, modifiers: [.command, .shift])
+                .help("\(title) (⇧⌘↩)")
                 .disabled(!canAct || !actions.primaryEnabled)
             }
         }
     }
 }
+
 
 /// Lays the film page's content above the one status bar and collects the actions the stage publishes for it.
 struct FilmStatusBarHost<Content: View, Usage: View>: View {

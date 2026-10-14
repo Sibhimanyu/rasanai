@@ -90,7 +90,7 @@ private struct UpdateNotice: View {
                 Button { dismissed = true } label: { Image(systemName: "xmark") }.buttonStyle(.plain).foregroundStyle(.secondary)
                     .accessibilityLabel("Dismiss update notice")
             }
-            .padding(.horizontal, 20).padding(.vertical, 6).background(.bar).overlay(alignment: .bottom) { Divider() }
+            .padding(.horizontal, .filmInset).padding(.vertical, 6).background(.bar).overlay(alignment: .bottom) { Divider() }
         }
     }
 }

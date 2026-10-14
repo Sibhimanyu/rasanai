@@ -4,6 +4,7 @@ import SwiftUI
 /// Claude's question when it isn't one of the five calls (`console.mjs ask`): options with its pick preselected, plus
 /// a free-text answer. Sends `answer {ask, choice, text}` on the question's step.
 struct AskSheet: View {
+    @Environment(\.agentName) private var agent
     let model: FilmSessionModel
     let ask: DirectorAsk
     @State private var choice: String?
@@ -22,7 +23,7 @@ struct AskSheet: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 10) {
                 Image(systemName: "questionmark.bubble.fill").font(.system(size: 22)).foregroundStyle(Color.rasan)
-                Text("Claude needs your call").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+                Text("\(agent) needs your call").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
             }
             VStack(alignment: .leading, spacing: 6) {
                 Text(ask.question).font(.system(size: 20, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
@@ -72,7 +73,7 @@ struct AskSheet: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
                         Text(option.label).font(.system(size: 13, weight: .medium))
-                        if ask.recommended == option.id { RecommendedBadge(text: "Claude's pick") }
+                        if ask.recommended == option.id { RecommendedBadge() }
                     }
                     if !option.detail.isEmpty {
                         Text(option.detail).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
@@ -84,7 +85,7 @@ struct AskSheet: View {
             .cardSurface(selected: selected)
         }
         .buttonStyle(PressableStyle())
-        .accessibilityLabel(option.label + (ask.recommended == option.id ? ", Claude's pick" : ""))
+        .accessibilityLabel(option.label + (ask.recommended == option.id ? ", \(agent)'s pick" : ""))
         .accessibilityValue(option.detail)
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
     }
@@ -92,13 +93,14 @@ struct AskSheet: View {
 
 /// The inline reminder above the stage when a question is open but its sheet was put away.
 struct AskCard: View {
+    @Environment(\.agentName) private var agent
     let model: FilmSessionModel
     let ask: DirectorAsk
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "questionmark.bubble.fill").foregroundStyle(Color.rasan)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Claude needs your call").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                Text("\(agent) needs your call").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
                 Text(ask.question).font(.system(size: 13, weight: .medium)).lineLimit(2)
             }
             Spacer(minLength: 8)
@@ -108,6 +110,6 @@ struct AskCard: View {
         .background(Color.rasan.opacity(0.10))
         .overlay(alignment: .bottom) { Divider() }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Claude has a question: \(ask.question)")
+        .accessibilityLabel("\(agent) has a question: \(ask.question)")
     }
 }

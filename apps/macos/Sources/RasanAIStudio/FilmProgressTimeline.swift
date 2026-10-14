@@ -3,6 +3,7 @@ import SwiftUI
 
 /// What has happened, grouped by phase, newest phase first. Icons and plain sentences; the raw lines sit behind "Details".
 struct ProgressTimeline: View {
+    @Environment(\.agentName) private var agent
     let snapshot: FilmProgressSnapshot
     let now: Date
     let shown: ProgressPhase
@@ -27,7 +28,7 @@ struct ProgressTimeline: View {
                 Text("\(snapshot.activity.count) event\(snapshot.activity.count == 1 ? "" : "s")").font(.system(size: 11)).foregroundStyle(.tertiary)
             }
             if groups.isEmpty {
-                Text("Nothing yet. Each step Claude takes shows up here.").font(.system(size: 13)).foregroundStyle(.secondary)
+                Text("Nothing yet. Each step \(agent) takes shows up here.").font(.system(size: 13)).foregroundStyle(.secondary)
             } else {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(groups, id: \.phase) { group in
@@ -79,7 +80,7 @@ struct ProgressTimeline: View {
                 .overlay { RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
                 .padding(.top, 10)
                 if let onShowLog {
-                    Button("Open the full director log", action: onShowLog).buttonStyle(.link).font(.system(size: 12)).padding(.top, 8)
+                    Button("Open the full activity log", action: onShowLog).buttonStyle(.link).font(.system(size: 12)).padding(.top, 8)
                 }
             }
         }
@@ -112,7 +113,7 @@ private struct TimelineGroup: View {
                     Text("\(items.count)").font(.system(size: 11)).foregroundStyle(.tertiary).monospacedDigit()
                     Spacer()
                     if summary.startedAt != nil {
-                        Text(FilmProgressFormat.duration(summary.workSeconds(now: now))).font(.system(size: 11.5)).foregroundStyle(.secondary).monospacedDigit()
+                        Text(FilmProgressFormat.duration(summary.workSeconds(now: now))).font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
                     }
                 }
                 .padding(.vertical, 8).padding(.horizontal, 4)
@@ -178,7 +179,7 @@ private struct RawLine: View {
             Text(item.kind.rawValue.uppercased()).fontWeight(.semibold).foregroundStyle(item.kind == .warning ? Color.orange : Color.secondary).frame(width: 66, alignment: .leading)
             Text([item.title, item.detail].compactMap { $0 }.joined(separator: "  ")).textSelection(.enabled)
         }
-        .font(.system(size: 11.5, design: .monospaced))
+        .font(.system(size: 11, design: .monospaced))
         .accessibilityElement(children: .combine)
     }
 }

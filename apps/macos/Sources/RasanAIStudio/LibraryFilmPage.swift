@@ -28,7 +28,7 @@ struct LibraryFilmPage: View {
                                 Button("Export…") { store.exportVideo(source: previewURL ?? archive.video, captions: archive.captions) }.buttonStyle(.rasanPrimary)
                             }
                             FilmHistoryView(snapshot: session, resolver: archive.resolver, onPreview: { version in watch(archive.resolver?.resolve(version.video), version: version.id) })
-                            Text("You can review and export this film while the director works. Return here when it finishes to request a revision.")
+                            Text("You can review and export this film while \(store.settings.agent.shortName) is working. Return here when it finishes to request a revision.")
                                 .font(.system(size: 12)).foregroundStyle(.secondary)
                         } else {
                             Text("The brief").font(.system(size: 22, weight: .semibold))

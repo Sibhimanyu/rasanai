@@ -65,7 +65,7 @@ struct DirectorLogSheet: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Director log").font(.system(size: 22, weight: .semibold))
+                    Text("Activity log").font(.system(size: 22, weight: .semibold))
                     HStack(spacing: 6) {
                         if runtime.isRunning { Circle().fill(Color.rasan).frame(width: 7, height: 7) }
                         Text(runtime.status).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
@@ -103,7 +103,7 @@ struct DirectorLogSheet: View {
                     .overlay(alignment: .bottom) {
                         if !following {
                             Button { following = true; scroll(proxy, animated: true) } label: { Label("Jump to latest", systemImage: "arrow.down") }
-                                .buttonStyle(.rasanPrimary).controlSize(.small).clipShape(Capsule()).padding(.bottom, 12)
+                                .buttonStyle(.rasanSecondary).controlSize(.small).clipShape(Capsule()).padding(.bottom, 12)
                                 .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
                     }
@@ -116,7 +116,7 @@ struct DirectorLogSheet: View {
                 Text("Logs can contain your project content and stay in the film's private run folder.")
                     .font(.system(size: 11)).foregroundStyle(.tertiary)
                 Spacer()
-                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
+                Button("Done") { dismiss() }.buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction)
             }
         }.padding(24).frame(width: 760, height: 520)
             .task {
@@ -140,7 +140,7 @@ struct DirectorLogSheet: View {
                 ForEach(entries) { entry in
                     HStack(alignment: .firstTextBaseline, spacing: 10) {
                         Image(systemName: icon(entry.tone)).font(.system(size: 10, weight: .semibold)).foregroundStyle(tint(entry.tone)).frame(width: 14)
-                        Text(entry.text).font(.system(size: 12.5)).foregroundStyle(entry.tone == .info ? Color.primary.opacity(0.85) : tint(entry.tone))
+                        Text(entry.text).font(.system(size: 12)).foregroundStyle(entry.tone == .info ? Color.primary.opacity(0.85) : tint(entry.tone))
                             .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                     }.padding(.vertical, 4).padding(.horizontal, 14)
                 }
