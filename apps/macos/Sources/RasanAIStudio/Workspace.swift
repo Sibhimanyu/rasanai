@@ -65,6 +65,8 @@ struct GlassSurface: View {
             let reach = max(box.size.width, box.size.height)
             ZStack {
                 WindowMaterial(material: .sidebar)
+                // A mostly solid base: the glass stays faintly translucent but no longer lets the desktop into the text.
+                Workspace.panel.opacity(dark ? 0.62 : 0.55)
                 LinearGradient(colors: [Color.rasanDeep.opacity(dark ? 0.40 : 0.08), Color.rasanDeep.opacity(dark ? 0.26 : 0.04)],
                                startPoint: .top, endPoint: .bottom)
                 RadialGradient(colors: [Color.rasanFill.opacity(dark ? 0.38 : 0.12), .clear],
