@@ -881,7 +881,15 @@ final class StudioStore {
         guard runtime.isRunning, !runtime.isFrozen else { return }
         if queuePausedBeforeFreeze == nil { queuePausedBeforeFreeze = queuePaused }
         queuePaused = true; queueMessage = "Queue paused with the director."
+        sendCountAtFreeze = film?.sendCount
         runtime.freeze()
+    }
+    /// The film's send count when it was frozen: anything the person sends while paused (an answer, a note) needs the director awake to read it.
+    @ObservationIgnored private var sendCountAtFreeze: Int?
+    /// Called by the monitor's tick: the person sent something while the director was frozen, so carry on.
+    func thawIfSentWhileFrozen() {
+        guard runtime.isFrozen, let before = sendCountAtFreeze, let now = film?.sendCount, now > before else { return }
+        resumeDirector()
     }
     /// Whether the queue was already paused when the director was frozen, so Resume restores it and not more.
     @ObservationIgnored private var queuePausedBeforeFreeze: Bool?
@@ -912,7 +920,7 @@ final class StudioStore {
         if runtime.isFrozen {
             runtime.thaw()
             if let before = queuePausedBeforeFreeze { queuePaused = before; if !before { queueMessage = "Directing the current film." } }
-            queuePausedBeforeFreeze = nil
+            queuePausedBeforeFreeze = nil; sendCountAtFreeze = nil
             monitor.noteResumed()
             return
         }

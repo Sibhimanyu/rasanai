@@ -137,6 +137,7 @@ final class DirectorMonitor {
                                     lastWake: lastWake, paused: runtime.isFrozen)
         health = DirectorHealth.evaluate(telemetry, context: context)
         updateKeepAwake(running: running, store: store)
+        store.thawIfSentWhileFrozen()
         updateLedger()
         checkBudget(store: store)
         checkLoop(store: store)

@@ -1,12 +1,17 @@
 // App-owned supervisor. Arguments are JSON, never a shell command; stop targets only this child process group.
 import fs from 'node:fs';
 import { spawn } from 'node:child_process';
-const job = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-if (!job.executable?.startsWith('/') || !Array.isArray(job.arguments) || !job.cwd?.startsWith('/')) throw new Error('Invalid director job');
-const child = spawn(job.executable, job.arguments, { cwd: job.cwd, env: process.env, detached: true, stdio: ['ignore', 'inherit', 'inherit'] });
 let stopping = false;
 let frozen = false;
 let forced;
+let child;
+// Pause freezes the whole director group in place; resume continues it. The driver itself is never stopped. Installed before
+// the spawn: Node's default for SIGUSR1/2 would end the driver if a pause arrived first.
+process.on('SIGUSR1', () => { if (stopping || !child) return; try { process.kill(-child.pid, 'SIGSTOP'); frozen = true; } catch {} });
+process.on('SIGUSR2', () => { if (!child) return; try { process.kill(-child.pid, 'SIGCONT'); } catch {} frozen = false; });
+const job = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+if (!job.executable?.startsWith('/') || !Array.isArray(job.arguments) || !job.cwd?.startsWith('/')) throw new Error('Invalid director job');
+child = spawn(job.executable, job.arguments, { cwd: job.cwd, env: process.env, detached: true, stdio: ['ignore', 'inherit', 'inherit'] });
 function stop() {
   if (stopping) return;
   stopping = true;
@@ -19,9 +24,6 @@ function stop() {
 }
 process.on('SIGTERM', stop);
 process.on('SIGINT', stop);
-// Pause freezes the whole director group in place; resume continues it. The driver itself is never stopped.
-process.on('SIGUSR1', () => { if (stopping) return; try { process.kill(-child.pid, 'SIGSTOP'); frozen = true; } catch {} });
-process.on('SIGUSR2', () => { try { process.kill(-child.pid, 'SIGCONT'); } catch {} frozen = false; });
 // If the app dies while the director is frozen nobody could ever continue it, so stop it for real.
 const parent = process.ppid;
 setInterval(() => { if (frozen && (process.ppid !== parent || process.ppid === 1)) stop(); }, 5000).unref();
