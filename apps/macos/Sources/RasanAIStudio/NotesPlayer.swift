@@ -332,7 +332,8 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
         .focusable()
         .focused($focused)
         .focusEffectDisabled()
-        .onAppear { focused = true }
+        // Take the keys only when nothing is being typed: a step that arrives while the person writes in the inspector must not steal them.
+        .onAppear { if !(NSApp.keyWindow?.firstResponder is NSTextView) { focused = true } }
         .onKeyPress(.space) { playback.toggle(); return .handled }
         .onKeyPress(.leftArrow) { jump(forward: false) }
         .onKeyPress(.rightArrow) { jump(forward: true) }
@@ -373,12 +374,14 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
                 .contentShape(Rectangle())
                 .gesture(SpatialTapGesture().onEnded { tap in
                     focused = true
+                    // A click on the picture plays or pauses, as in every player; a note needs a second click (or C).
+                    if playback.isPlaying { playback.pause(); return }
                     guard canNote, size.width > 0, size.height > 0 else { playback.toggle(); return }
                     beginNote(at: CGPoint(x: min(1, max(0, tap.location.x / size.width)), y: min(1, max(0, tap.location.y / size.height))))
                 })
                 .hoverCursor(.crosshair, enabled: canNote)
                 .position(x: box.size.width / 2, y: box.size.height / 2)
-                .accessibilityLabel(canNote ? "Film frame. Activate to leave a note at this moment." : "Film frame")
+                .accessibilityLabel(canNote ? "Film frame. Click to pause; click again to leave a note here." : "Film frame")
                 .accessibilityAddTraits(.isButton)
             }
             .padding(14)
@@ -437,7 +440,7 @@ private struct PinsLayer<P: FilmPlayback>: View {
         GeometryReader { box in
             ForEach(Array(notes.enumerated()), id: \.element.id) { index, note in
                 if let x = note.x, let y = note.y, visible(note, t: t, current: current) {
-                    PinView(number: index + 1, text: note.text)
+                    PinView(number: index + 1, noteID: note.id, text: note.text)
                         .position(x: x * box.size.width, y: y * box.size.height)
                         .transition(.scale(scale: 0.6).combined(with: .opacity))
                 }
@@ -455,9 +458,12 @@ private struct PinsLayer<P: FilmPlayback>: View {
 
 private struct PinView: View {
     let number: Int
+    let noteID: String
     let text: String
+    @Environment(NoteSkips.self) private var skips: NoteSkips?
     @State private var hovering = false
     var body: some View {
+        let skipped = skips?.ids.contains(noteID) == true
         ZStack {
             Circle().fill(Color.rasan).frame(width: 24, height: 24)
             Circle().strokeBorder(.white, lineWidth: 2).frame(width: 24, height: 24)
@@ -474,11 +480,15 @@ private struct PinView: View {
                     .offset(y: 30).allowsHitTesting(false)
             }
         }
+        .opacity(skipped ? 0.45 : 1)
         .zIndex(hovering ? 2 : 0)
         .onHover { hovering = $0 }
+        .contextMenu {
+            if let skips { Button(skipped ? "Include Note" : "Skip Note") { skips.toggle(noteID) } }
+        }
         .animation(.snappy(duration: 0.15), value: hovering)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Note \(number): \(text)")
+        .accessibilityLabel("Note \(number): \(text)" + (skipped ? ", skipped" : ""))
     }
 }
 
@@ -565,7 +575,7 @@ struct ReviewScrubber<P: FilmPlayback>: View {
             let trackHeight: CGFloat = active ? 8 : 5
             ZStack(alignment: .leading) {
                 Capsule().fill(.white.opacity(0.16)).frame(height: trackHeight)
-                Capsule().fill(Color.rasan).frame(width: max(x, 0), height: trackHeight)
+                Capsule().fill(Color.white.opacity(0.85)).frame(width: max(x, 0), height: trackHeight)
                 ForEach(Array(scenes.enumerated()), id: \.element.id) { index, scene in
                     if index > 0 {
                         Rectangle().fill(ReviewTheme.roomRaised).frame(width: 2, height: trackHeight)
@@ -663,8 +673,8 @@ struct ReviewTransport<P: FilmPlayback>: View {
             Button(action: onNote) {
                 Label("Note", systemImage: "plus.bubble.fill").font(.system(size: 12, weight: .semibold))
                     .padding(.horizontal, 10).frame(height: 28)
-                    .background(Color.rasan.opacity(canNote ? 0.9 : 0.25), in: Capsule())
-                    .foregroundStyle(Color.black.opacity(0.88))
+                    .background(Color.white.opacity(canNote ? 0.16 : 0.06), in: Capsule())
+                    .foregroundStyle(.white)
             }
             .disabled(!canNote)
             .help("Leave a note at the playhead (C)").accessibilityLabel("Add a note at the playhead")
@@ -742,14 +752,14 @@ private struct SceneCell: View {
                 }
                 if current {
                     GeometryReader { box in
-                        Rectangle().fill(Color.rasan).frame(width: box.size.width * progress, height: 3)
+                        Rectangle().fill(Color.white.opacity(0.85)).frame(width: box.size.width * progress, height: 3)
                             .frame(maxHeight: .infinity, alignment: .bottom)
                     }
                 }
             }
             .frame(width: width, height: 52)
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .overlay { RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(current ? Color.rasan : .white.opacity(hovering ? 0.35 : 0.08), lineWidth: current ? 2 : 1) }
+            .overlay { RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(current ? Color.white : .white.opacity(hovering ? 0.35 : 0.08), lineWidth: current ? 2 : 1) }
             .overlay(alignment: .topTrailing) {
                 if hasNote {
                     Circle().fill(Color(red: 1, green: 0.78, blue: 0.28)).frame(width: 8, height: 8)
@@ -840,86 +850,6 @@ struct ReviewNoteComposer: View {
             saving = false
             if !ok { failed = true }
         }
-    }
-}
-
-// MARK: Notes list
-
-struct ReviewNotesList: View {
-    let notes: [ReviewNote]
-    let scenes: [FilmScene]
-    /// Set when the film cannot be watched yet, so the empty list does not tell the person to click a frame that is only a poster.
-    var emptyHint: String? = nil
-    var onSeek: (Double) -> Void
-    private var open: [ReviewNote] { notes.filter(\.isOpen).sorted { $0.time < $1.time } }
-    private var resolved: [ReviewNote] { notes.filter { !$0.isOpen }.sorted { $0.time < $1.time } }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if open.isEmpty && resolved.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Label("No notes yet", systemImage: "bubble.left").font(.system(size: 13, weight: .semibold))
-                    Text(emptyHint ?? "Click the frame to leave a note on that exact moment, or press C at the playhead.")
-                        .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(nsColor: .quaternaryLabelColor).opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-            ForEach(Array(open.enumerated()), id: \.element.id) { index, note in
-                NoteRow(note: note, number: index + 1, sceneTitle: sceneTitle(note)) { onSeek(note.time) }
-            }
-            ForEach(resolved) { note in
-                NoteRow(note: note, number: nil, sceneTitle: sceneTitle(note)) { onSeek(note.time) }
-            }
-        }
-    }
-
-    private func sceneTitle(_ note: ReviewNote) -> String? {
-        FilmTiming.sceneIndex(of: note, in: scenes).map { scenes[$0].title }
-    }
-}
-
-private struct NoteRow: View {
-    let note: ReviewNote
-    let number: Int?
-    let sceneTitle: String?
-    let seek: () -> Void
-    @State private var hovering = false
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            ZStack {
-                Circle().fill(number != nil ? Color.rasan : Color(nsColor: .tertiaryLabelColor)).frame(width: 22, height: 22)
-                if let number { Text("\(number)").font(.system(size: 11, weight: .bold, design: .rounded)).foregroundStyle(Color.black.opacity(0.85)) }
-                else { Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.appBackground) }
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(note.text).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
-                    .strikethrough(number == nil, color: .secondary)
-                HStack(spacing: 6) {
-                    Text(reviewTime(note.time)).monospacedDigit()
-                    if let sceneTitle { Text("· \(sceneTitle)").lineLimit(1) }
-                    if note.scope == "film" { Label("Whole film", systemImage: "film").labelStyle(.titleOnly).padding(.horizontal, 6).padding(.vertical, 1).background(.quaternary, in: Capsule()) }
-                    if let quick = note.quick, !quick.isEmpty, quick != note.text { Text(quick).padding(.horizontal, 6).padding(.vertical, 1).background(Color.rasan.opacity(0.16), in: Capsule()) }
-                }
-                .font(.system(size: 11)).foregroundStyle(.secondary)
-                if number == nil, let resolution = note.resolution, !resolution.isEmpty {
-                    Label(resolution, systemImage: "sparkles").font(.system(size: 11)).foregroundStyle(Color(nsColor: .systemGreen))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(10)
-        .background(Color(nsColor: .quaternaryLabelColor).opacity(hovering && number != nil ? 0.22 : 0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .opacity(number == nil ? 0.62 : 1)
-        .contentShape(Rectangle())
-        .onTapGesture(perform: seek)
-        .onHover { hovering = $0 }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(number == nil ? "Resolved note" : "Note \(number ?? 0)") at \(reviewTime(note.time)): \(note.text)")
-        .accessibilityHint("Jumps the player to this moment")
-        .accessibilityAddTraits(.isButton)
     }
 }
 
