@@ -47,12 +47,10 @@ struct AppSidebar: View {
                 Label("Home", systemImage: "house").tag(StudioPlace.home)
                 Label("All films", systemImage: "film.stack").tag(StudioPlace.all)
                 Label("Needs review", systemImage: "clock").badge(needsYouCount).tag(StudioPlace.needsReview)
+                Label("Queue", systemImage: "list.bullet.rectangle").badge(store.settings.filmQueue.count).tag(StudioPlace.queue)
                 Label("Brands", systemImage: "tag").tag(StudioPlace.brands)
                 Label("Templates", systemImage: "square.grid.2x2").tag(StudioPlace.templates)
                 Label("Inspiration", systemImage: "sparkles").tag(StudioPlace.inspire)
-            }
-            Section {
-                Label("Queue", systemImage: "list.bullet.rectangle").badge(store.settings.filmQueue.count).tag(StudioPlace.queue)
             }
         }
         .listStyle(.sidebar)
