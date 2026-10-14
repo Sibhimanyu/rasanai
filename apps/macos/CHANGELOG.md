@@ -1,6 +1,7 @@
 # RasanAI Studio for Mac
 
 Desktop releases are separate from RasanAI skill releases.
+
 ## 0.10.0 (build 27) — 2026-10-14
 
 - **Glass that takes its light from the stage.** The inspector and the action bar glow with the edge colour and brightness of the frame beside them, live while the film plays. The glass is solid and has no tint of its own, so the desktop stays out of the text.
