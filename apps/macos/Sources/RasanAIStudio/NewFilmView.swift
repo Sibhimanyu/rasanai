@@ -11,6 +11,9 @@ struct NewFilmView: View {
     var embedded = false
     @Environment(\.openSettings) private var openSettings
     @State private var name = ""
+    /// The title made from the brief and the brief it was made from. While the name still equals it, the title follows the
+    /// brief: cleared with it, and made again when the brief changes. A name the person types is never touched.
+    @State private var suggested: (title: String, brief: String)?
     @State private var draft = FilmDraft()
     @State private var sources: [URL] = []
     @State private var existingSources: [URL] = []
@@ -90,6 +93,7 @@ struct NewFilmView: View {
         .onDisappear { persistEditor() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in persistEditor() }
         .task(id: "\(agent.id):\(store.settings.path(for: agent))") { await store.settings.check(agent) }
+        .task(id: trimmedBrief) { await retitle() }
         .confirmationDialog(isNewFilm ? "Discard this new film?" : "Discard unsaved changes?", isPresented: $showDiscard, titleVisibility: .visible) {
             Button("Discard", role: .destructive) {
                 committed = true
@@ -129,6 +133,7 @@ struct NewFilmView: View {
                 }
                 customLength = !Self.lengths.contains { $0.1 == draft.duration }
             }
+            if !embedded, let made = store.suggestedFilmTitle, made.title == name { suggested = made }
             if let name = draft.brand, let brand = brands.first(where: { $0.name == name }) ?? brands.first(where: { $0.previousNames.contains(name) }) { draft.brand = brand.name }
             if project == nil, !store.newFilmPrefillMoments.isEmpty { draft.moments = MomentSelection(store.newFilmPrefillMoments).picks; store.newFilmPrefillMoments = [] }
             if !draft.moments.isEmpty { store.gallery.prime(); Task { await store.gallery.loadIfNeeded() } }
@@ -717,11 +722,28 @@ struct NewFilmView: View {
         panel.title = "Add footage, images or documents"
         if panel.runModal() == .OK { _ = add(panel.urls) }
     }
+    /// Keeps a suggested title in step with the brief: empty brief, no title; a rewritten brief, a new title once typing
+    /// pauses. Stops for good as soon as the name is the person's own.
+    private func retitle() async {
+        guard let made = suggested, name == made.title, trimmedBrief != made.brief else { return }
+        if trimmedBrief.isEmpty { name = ""; suggested = nil; store.suggestedFilmTitle = nil; return }
+        try? await Task.sleep(for: .seconds(1.2))
+        let brief = trimmedBrief
+        let fresh = await FilmTitle.suggest(for: brief)
+        guard !Task.isCancelled, name == made.title else { return }
+        name = fresh
+        suggested = (fresh, brief)
+        store.suggestedFilmTitle = (fresh, brief)
+    }
     /// Home's Continue: a working title from the brief (unless one is typed), then the full New film page on this draft.
     private func continueToEditor() {
         working = true
         Task {
-            if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { name = await FilmTitle.suggest(for: trimmedBrief) }
+            if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                let brief = trimmedBrief
+                name = await FilmTitle.suggest(for: brief)
+                store.suggestedFilmTitle = (name, brief)
+            }
             working = false
             persistEditor()
             store.path = [.newFilm(nil)]

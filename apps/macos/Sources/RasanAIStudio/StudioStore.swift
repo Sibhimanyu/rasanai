@@ -165,6 +165,9 @@ final class StudioStore {
     var queueHandlingExit = false
     var queueBlockedByFileOperations: Bool { isSavingFilm || isManagingProject || isImportingSources || isSending || isTransferringProject || toolSetup.isRunning }
     var newFilmPrefill = ""
+    /// The title Home's Continue made up from the brief, so New film knows the name is a suggestion it may redo, not
+    /// something the person typed.
+    var suggestedFilmTitle: (title: String, brief: String)?
     var newFilmPrefillFiles: [URL] = []
     /// Moments picked in Get inspired and waiting to be attached to the next New film.
     var newFilmPrefillMoments: [FilmMoment] = []
