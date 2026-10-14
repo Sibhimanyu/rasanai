@@ -191,13 +191,16 @@ private struct LaunchFocus: ViewModifier {
     /// finished loading during the hold read as still loading and the splash never left; state is always current.
     @State private var loaded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// One clock for the page coming into focus and the frost leaving the toolbar, so every part of the window clears together.
+    private var focusDuration: Double { reduceMotion ? 0.2 : 0.7 }
+    private let focusDelay = 0.1
 
     func body(content: Content) -> some View {
         content
             .blur(radius: focused ? 0 : 30)
             .brightness(focused ? 0 : -0.12)
             .allowsHitTesting(focused)
-            .background(WindowSplashCover(active: !focused, fade: reduceMotion ? 0.2 : 0.45) {
+            .background(WindowSplashCover(active: !focused, fade: focusDuration, delay: focusDelay) {
                 SplashMark(agent: agent, waiting: held && !loaded)
             })
             .onAppear { loaded = ready; hold() }
@@ -213,7 +216,7 @@ private struct LaunchFocus: ViewModifier {
 
     private func revealIfDone() {
         guard held, loaded, !focused else { return }
-        withAnimation(.easeOut(duration: reduceMotion ? 0.2 : 0.7).delay(0.1)) { focused = true }
+        withAnimation(.easeOut(duration: focusDuration).delay(focusDelay)) { focused = true }
     }
 }
 
@@ -261,6 +264,7 @@ private struct SplashMark: View {
 private struct WindowSplashCover<Splash: View>: NSViewRepresentable {
     let active: Bool
     let fade: Double
+    let delay: Double
     @ViewBuilder var splash: () -> Splash
 
     func makeNSView(context: Context) -> NSView { NSView() }
@@ -275,7 +279,7 @@ private struct WindowSplashCover<Splash: View>: NSViewRepresentable {
                 Task { @MainActor in cover.install(over: anchor.window) }
             }
         } else {
-            cover.remove(fade: fade)
+            cover.remove(fade: fade, after: delay)
         }
     }
 
@@ -302,15 +306,19 @@ private struct WindowSplashCover<Splash: View>: NSViewRepresentable {
             self.frost = frost; self.host = host
         }
 
-        func remove(fade: Double) {
+        /// Fades on the same curve as SwiftUI's `.easeOut` (0, 0, 0.58, 1), after the same delay, so the frost leaves the
+        /// toolbar exactly as the page comes into focus.
+        func remove(fade: Double, after delay: Double) {
             guard !gone else { return }
             gone = true
             guard let frost else { return }
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = fade
-                context.timingFunction = CAMediaTimingFunction(name: .easeIn)
-                frost.animator().alphaValue = 0
-            }, completionHandler: { frost.removeFromSuperview() })
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                NSAnimationContext.runAnimationGroup({ context in
+                    context.duration = fade
+                    context.timingFunction = CAMediaTimingFunction(controlPoints: 0, 0, 0.58, 1)
+                    frost.animator().alphaValue = 0
+                }, completionHandler: { frost.removeFromSuperview() })
+            }
         }
     }
 }
