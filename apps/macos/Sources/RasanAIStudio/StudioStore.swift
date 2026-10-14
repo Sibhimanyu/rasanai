@@ -160,11 +160,14 @@ final class StudioStore {
     private let reopenFilmAtLaunch = UserDefaults.standard.bool(forKey: "reopenFilmOnLaunch")
     var templatePrefill: FilmDraft?
     var queuePaused = true
-    var queueMessage = "Resume the queue when you’re ready."
+    var queueMessage = ""
     var queueStarting = false
     var queueHandlingExit = false
     var queueBlockedByFileOperations: Bool { isSavingFilm || isManagingProject || isImportingSources || isSending || isTransferringProject || toolSetup.isRunning }
     var newFilmPrefill = ""
+    /// The title Home's Continue made up from the brief, so New film knows the name is a suggestion it may redo, not
+    /// something the person typed.
+    var suggestedFilmTitle: (title: String, brief: String)?
     var newFilmPrefillFiles: [URL] = []
     /// Moments picked in Get inspired and waiting to be attached to the next New film.
     var newFilmPrefillMoments: [FilmMoment] = []
@@ -231,12 +234,28 @@ final class StudioStore {
     private var didRestoreWorkspace = false
     private var runOpenGeneration = UUID()
     private var sourcesGeneration = UUID()
+    /// The films that are not archived. The sidebar, its badge and the status bar count these, so a search or the archive
+    /// view on a library page never changes them.
+    var activeProjects: [(LocalProject, URL)] { localProjects.filter { $0.0.archivedAt == nil } }
+    /// What a library page lists: the search and the archive view apply to the page that set them, nowhere else.
     var visibleProjects: [(LocalProject, URL)] {
         localProjects.filter { project, _ in
             (showArchivedProjects ? project.archivedAt != nil : project.archivedAt == nil)
                 && (projectSearch.isEmpty || project.name.localizedCaseInsensitiveContains(projectSearch))
         }.sorted {
             return ($0.0.lastOpenedAt ?? $0.0.createdAt) > ($1.0.lastOpenedAt ?? $1.0.createdAt)
+        }
+    }
+    /// A short line about what a library action just did ("Archived Founder story"), shown in the status bar for a few
+    /// seconds; reversible actions say so.
+    var notice: String?
+    private var noticeGeneration = UUID()
+    func announce(_ text: String) {
+        notice = text
+        let generation = UUID(); noticeGeneration = generation
+        Task {
+            try? await Task.sleep(for: .seconds(4))
+            if noticeGeneration == generation { notice = nil }
         }
     }
     var snapshot: SessionSnapshot
@@ -436,6 +455,7 @@ final class StudioStore {
         }
         isManagingProject = true
         let library = settings.library
+        let film = name ?? localProjects.first { $0.1 == folder }?.0.name ?? "the film"
         Task {
             defer { isManagingProject = false }
             do {
@@ -465,6 +485,14 @@ final class StudioStore {
                 }
                 reloadProjects()
                 statusMessage = action == "trash" ? "Project moved to Trash · restore it using Finder" : "Project library updated"
+                let done: String = switch action {
+                case "rename": "Renamed to \(film)"
+                case "duplicate": "Duplicated \(film)"
+                case "archive": "Archived \(film) · Edit › Undo brings it back"
+                case "unarchive": "Moved \(film) back to your films"
+                default: "Moved \(film) to the Trash · restore it from Finder"
+                }
+                announce(done)
             } catch { errorMessage = error.localizedDescription }
         }
     }
@@ -550,6 +578,7 @@ final class StudioStore {
                 if selectedProjectURL == project { reloadSources() }
                 statusMessage = count == 0 ? "These files are already attached" : "Imported \(count) source file(s) into \(project.lastPathComponent) · originals unchanged"
                 if old != nil && count > 0 { statusMessage += " · existing filename preserved; previous copy moved to Trash" }
+                announce(count == 0 ? "Those files are already attached" : "Added \(count) file\(count == 1 ? "" : "s") to \(project.lastPathComponent) · originals unchanged")
             } catch { errorMessage = error.localizedDescription }
         }
         return true

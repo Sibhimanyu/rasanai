@@ -11,6 +11,10 @@ struct FilmPage: View {
     @Environment(\.openSettings) private var openSettings
     @State private var draft: FilmDraft?
     @State private var savedPace: FilmPace?
+    @State private var confirmJustMakeIt = false
+    /// Review notes skipped for the next Apply; shared by the stage and the inspector.
+    @State private var skips = NoteSkips()
+    private var agent: String { store.settings.agent.shortName }
     /// A live film shows the pace it was launched with. A replay or imported run only shows one that was actually saved.
     private var shownPace: FilmPace? { savedPace ?? (store.progress?.isReplay == true ? nil : store.settings.pace) }
 
@@ -82,8 +86,11 @@ struct FilmPage: View {
 
     /// Whose move it is, for the status bar. Nil when a banner above or Film progress already says it.
     private var statusTurn: TurnState? {
-        guard showsNativeFilm, !showsAutoResume, !showsRecovery, !showsFilmProgress else { return nil }
-        return store.turnState
+        guard showsNativeFilm, !showsAutoResume, !showsRecovery else { return nil }
+        let turn = store.turnState
+        // Film progress already says it is working, but a paused or stuck film still needs the bar's Resume.
+        guard showsFilmProgress else { return turn }
+        switch turn { case .paused, .attention: return turn; default: return nil }
     }
 
     /// The workspace: the header row, then the stage panel beside the inspector panel, then the action bar panel, all on
@@ -91,7 +98,7 @@ struct FilmPage: View {
     @ViewBuilder private var chromeAndContent: some View {
         VStack(spacing: Workspace.gap) {
             if let film = store.film {
-                FilmStatusBarHost(model: film, visible: showsNativeFilm || (ready && store.runURL != nil && showsFinished), turn: statusTurn,
+                FilmStatusBarHost(model: film, visible: showsNativeFilm, turn: statusTurn,
                                   onDetails: store.runtime.logURL != nil ? { store.sheet = .log } : nil,
                                   onPause: store.runtime.isRunning ? { store.pauseDirector() } : nil,
                                   onResume: store.canResume ? { store.resumeDirector() } : nil,
@@ -105,11 +112,16 @@ struct FilmPage: View {
                 VStack(spacing: Workspace.gap) { topChrome; StagePanelHost { pageContent } }
             }
         }
-        .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 16)
+        .padding(.horizontal, .filmInset).padding(.top, 12).padding(.bottom, 16)
         .background(Workspace.canvas)
+        .environment(\.agentName, agent)
+        .environment(skips)
+        .confirmationDialog("Let \(agent) make every remaining call?", isPresented: $confirmJustMakeIt, titleVisibility: .visible) {
+            Button("Make the Rest") { if let film = store.film { Task { await film.justMakeIt() } } }
+        } message: { Text("You'll see the final film. You can still change any decision from the inspector.") }
     }
 
-    /// The film's toolbar: back and forward, the five calls in the centre, then Decisions and the film's tools.
+    /// The film's toolbar: back and forward, the five calls in the centre, then the inspector toggle and the film's tools.
     @ToolbarContentBuilder private var filmToolbar: some ToolbarContent {
         HistoryToolbar(store: store)
         if ready && store.runURL != nil {
@@ -121,13 +133,9 @@ struct FilmPage: View {
         }
         ToolbarItemGroup(placement: .primaryAction) {
             if let film = store.film {
-                Button {
-                    if film.decisionsPresented && film.inspectorTab == .decisions { film.decisionsPresented = false }
-                    else { film.inspectorTab = .decisions; film.decisionsPresented = true }
-                } label: { Label("Decisions", systemImage: "list.bullet") }
-                    .labelStyle(.titleAndIcon)
-                    .keyboardShortcut("d", modifiers: [.command, .option])
-                    .help("Every decision on this film (⌥⌘D)")
+                Button { film.decisionsPresented.toggle() } label: { Label("Inspector", systemImage: "sidebar.trailing") }
+                    .keyboardShortcut("i", modifiers: [.command, .option])
+                    .help("Show or hide notes and decisions (⌥⌘I)")
             }
             headerTools
         }
@@ -146,18 +154,18 @@ struct FilmPage: View {
                 }
                 Menu {
                     if let film = store.film, showsNativeFilm, !film.isDone, !film.isDecideRest, film.route != .working {
-                        Button("Just make it") { Task { await film.justMakeIt() } }.disabled(!film.isConnected || film.isSending)
+                        Button("Let \(agent) Make the Rest…") { confirmJustMakeIt = true }.disabled(!film.isConnected || film.isSending)
                     }
-                    if store.runtime.isRunning { Button("Pause Director") { store.pauseDirector() } }
-                    else if store.canResume { Button("Resume Director") { store.resumeDirector() } }
+                    if store.runtime.isRunning { Button("Pause") { store.pauseDirector() }.keyboardShortcut(".", modifiers: .command) }
+                    else if store.canResume { Button("Resume") { store.resumeDirector() } }
                     if store.runtime.logURL != nil { Button("Show Log") { store.sheet = .log } }
-                    if store.selectedProjectURL != nil { Button("Files…") { store.reloadSources(); store.sheet = .files } }
-                    Button("Check readiness…") { store.showPreflight(project: store.selectedProjectURL) }
+                    if store.selectedProjectURL != nil { Button("Source Files…") { store.reloadSources(); store.sheet = .files } }
+                    Button("Check Readiness…") { store.showPreflight(project: store.selectedProjectURL) }
                     if let project = store.selectedProjectURL { Button("Export Project…") { store.exportProject(project) } }
                     Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([store.selectedProjectURL ?? store.runURL ?? url]) }
-                    if store.runURL != nil { Button("Reload film") { store.reloadFilm() } }
+                    if store.runURL != nil { Button("Reload Film") { store.reloadFilm() } }
                 } label: { Label("More", systemImage: "ellipsis") }
-                .menuIndicator(.hidden).tint(.primary)   // a toolbar tool, white like its neighbours, not the brand tint.help("More")
+                .menuIndicator(.hidden).tint(.primary).help("More")   // a toolbar tool, white like its neighbours, not the brand tint
                 HelpButton(title: "This film", lines: helpLines)
             }
         }
@@ -201,7 +209,7 @@ struct FilmPage: View {
         case .draft: ["This film has not started yet. Check the brief, then press Start film."]
         case .finished: ["Your film is ready. Export it, or watch it and add notes where something should change."]
         case .yourTurn: ["RasanAI is waiting for you. Answer on the page, then press the button at the bottom right, and it carries on from there.", "You can leave the app; you will be notified if that is turned on."]
-        default: ["RasanAI is directing this film. Each step it needs you for shows up here.", "Pause Director in the ••• menu stops it safely. Your files are kept, and you can resume any time."]
+        default: ["\(agent) is making this film. Each step it needs you for shows up here.", "Pause in the ••• menu stops it safely. Your files are kept, and you can resume any time."]
         }
     }
 }
@@ -229,7 +237,7 @@ struct StatusPill: View {
         if offline || live != nil {
             Button { if offline { store.reloadFilm() } else { monitorOpen.toggle() } } label: {
                 HStack(spacing: 6) {
-                    Text(offline ? "Files unreadable · Reload film" : (live ?? "")).font(.system(size: 11.5)).monospacedDigit()
+                    Text(offline ? "Files unreadable · Reload film" : (live ?? "")).font(.system(size: 11)).monospacedDigit()
                         .foregroundStyle(looping ? Color(nsColor: .systemRed) : .secondary)
                     if live != nil { Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundStyle(.tertiary) }
                 }
@@ -273,11 +281,11 @@ struct AutoResumeBanner: View {
     var body: some View {
         HStack(spacing: 10) {
             ProgressView().controlSize(.small)
-            Text(notice.text).font(.system(size: 12.5, weight: .medium))
+            Text(notice.text).font(.system(size: 12, weight: .medium))
             Spacer(minLength: 8)
             Button("Resume now") { store.resumeDirector() }.disabled(!store.canResume)
         }
-        .padding(.horizontal, 16).padding(.vertical, 10).background(Color.orange.opacity(0.08))
+        .padding(.horizontal, .filmInset).padding(.vertical, 10).background(Color.orange.opacity(0.08))
         .overlay(alignment: .bottom) { Divider() }
         .accessibilityElement(children: .combine)
     }
@@ -300,11 +308,15 @@ struct DirectorRecoveryView: View {
                 }
             }
             Spacer(minLength: 8)
-            if recovery == .signIn { Button("Sign in…") { store.settings.showWelcome = true } }
             Button("Show log") { store.sheet = .log }
-            Button("Resume") { store.resumeDirector() }.disabled(!store.canResume)
+            if recovery == .signIn {
+                Button("Sign in…") { store.settings.showWelcome = true }.buttonStyle(.rasanPrimary)
+                Button("Resume") { store.resumeDirector() }.disabled(!store.canResume)
+            } else {
+                Button("Resume") { store.resumeDirector() }.buttonStyle(.rasanPrimary).disabled(!store.canResume)
+            }
         }
-        .padding(14).background(Color.orange.opacity(0.08))
+        .padding(.filmInset).background(Color.orange.opacity(0.08))
         .overlay(alignment: .bottom) { Divider() }
     }
 }
@@ -435,6 +447,7 @@ struct FinishedView: View {
     @State private var previewPlayer: AVPlayer?
     @State private var restoreVersion: FilmVersion?
     @FocusState private var focusedNote: UUID?
+    @Environment(\.undoManager) private var undo
     @State private var references: [FilmMoment] = []
     private var filmKey: URL? { store.loadedFilm ?? store.selectedProjectURL }
     private var notes: [FilmNote] { filmKey.flatMap { store.filmNotes[$0] } ?? [] }
@@ -476,8 +489,9 @@ struct FinishedView: View {
                     }
                 }
                 HStack(spacing: 10) {
+                    // One primary at a time: Export until there are notes to send, then the new version.
                     Button { store.exportVideo() } label: { Label("Export…", systemImage: "square.and.arrow.down") }
-                        .buttonStyle(.rasanPrimary).controlSize(.large)
+                        .rasanButton(primary: !canSend).controlSize(.large)
                         .keyboardShortcut("e", modifiers: .command)
                         .help("Save an MP4 you can share (⌘E)")
                     Button("Show in Finder") { if let url = store.displayedVideo { NSWorkspace.shared.activateFileViewerSelecting([url]) } }.controlSize(.large)
@@ -490,8 +504,8 @@ struct FinishedView: View {
             .padding(32).frame(maxWidth: .infinity)
         }
         .confirmationDialog("Restore v\(restoreVersion?.id ?? "")?", isPresented: Binding(get: { restoreVersion != nil }, set: { if !$0 { restoreVersion = nil } }), titleVisibility: .visible) {
-            Button("Ask director to restore") { if let version = restoreVersion { store.restoreFilmVersion(version); restoreVersion = nil } }
-        } message: { Text("Your director will restore this saved version. The other versions are kept.") }
+            Button("Restore v\(restoreVersion?.id ?? "")") { if let version = restoreVersion { store.restoreFilmVersion(version); restoreVersion = nil } }
+        } message: { Text("\(store.settings.agent.shortName) restores this version. The other versions are kept.") }
         .task(id: filmKey) {
             guard let folder = filmKey else { references = []; return }
             references = await Task.detached { FilmDraft.load(in: folder)?.moments ?? [] }.value
@@ -512,6 +526,14 @@ struct FinishedView: View {
     private func noteBinding(_ id: UUID) -> Binding<String> {
         Binding(get: { notes.first { $0.id == id }?.text ?? "" },
                 set: { text in setNotes(notes.map { var n = $0; if n.id == id { n.text = text }; return n }) })
+    }
+    /// Removing a note can be undone with ⌘Z: a typed note is easy to lose by one stray click.
+    private func removeNote(_ id: UUID) {
+        let before = notes
+        withAnimation(.snappy) { setNotes(before.filter { $0.id != id }) }
+        let restore: () -> Void = { withAnimation(.snappy) { setNotes(before) } }
+        undo?.registerUndo(withTarget: store) { _ in MainActor.assumeIsolated { restore() } }
+        undo?.setActionName("Remove Note")
     }
     private func addNote() {
         let player = activePlayer
@@ -559,7 +581,7 @@ struct FinishedView: View {
                             TextField("What should change here?", text: noteBinding(note.id), axis: .vertical)
                                 .textFieldStyle(.plain).font(.system(size: 13)).lineLimit(1...4)
                                 .focused($focusedNote, equals: note.id)
-                            Button { withAnimation(.snappy) { setNotes(notes.filter { $0.id != note.id }) } } label: {
+                            Button { removeNote(note.id) } label: {
                                 Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
                             }.buttonStyle(.plain).help("Remove note").accessibilityLabel("Remove note at \(clockText(note.time))")
                         }
@@ -576,13 +598,13 @@ struct FinishedView: View {
                 .background(Color(nsColor: .textBackgroundColor).opacity(0.7), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .overlay { RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
             HStack {
-                Button("Review in studio") { store.showChanges = true }.buttonStyle(.link).font(.system(size: 12))
+                Button("Review scene by scene") { store.showChanges = true }.buttonStyle(.link).font(.system(size: 12))
                 Spacer()
                 if !filledNotes.isEmpty {
                     Text("\(filledNotes.count) \(filledNotes.count == 1 ? "note" : "notes")").font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 Button { send() } label: { Text("Make a new version").frame(minWidth: 96) }
-                    .buttonStyle(.rasanPrimary).controlSize(.large).disabled(!canSend)
+                    .rasanButton(primary: canSend).controlSize(.large).disabled(!canSend)
             }
         }
         .padding(20).cardSurface()
@@ -611,7 +633,7 @@ struct SamplePage: View {
                 }
             }
         }
-        .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 16)
+        .padding(.horizontal, .filmInset).padding(.top, 12).padding(.bottom, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Workspace.canvas)
         .buttonStyle(.rasanSecondary)

@@ -51,7 +51,7 @@ struct PhaseDetailCard: View {
         case .research: ResearchCard(model: model, snapshot: snapshot, now: now)
         case .script: CrewCard(snapshot: snapshot, phase: .script, empty: "Three writers draft scripts side by side, then an editor reads them like a hostile reader.", images: [])
         case .look:
-            CrewCard(snapshot: snapshot, phase: .look, empty: "Three designers each draw a look for the story you picked.",
+            CrewCard(snapshot: snapshot, phase: .look, empty: "Three looks are drawn for the story you picked.",
                      images: snapshot.keyframes.filter { $0.kind == .specimen })
         case .plan: PlanCard(snapshot: snapshot, now: now)
         case .animatic: AnimaticCard(snapshot: snapshot, summary: summary)
@@ -72,7 +72,7 @@ struct StateBadge: View {
         case .skipped: ("Skipped", Color.secondary)
         case .upcoming: ("Not started", Color.secondary)
         }
-        Text(text).font(.system(size: 10.5, weight: .semibold)).foregroundStyle(tint)
+        Text(text).font(.system(size: 10, weight: .semibold)).foregroundStyle(tint)
             .padding(.horizontal, 8).padding(.vertical, 3)
             .background(tint.opacity(0.13), in: Capsule())
     }
@@ -113,6 +113,7 @@ struct ThinBar: View {
 // MARK: - Research
 
 struct ResearchCard: View {
+    @Environment(\.agentName) private var agent
     let model: FilmSessionModel
     let snapshot: FilmProgressSnapshot
     let now: Date
@@ -137,7 +138,7 @@ struct ResearchCard: View {
             let crew = snapshot.crew(in: .research, running: true)
             if !crew.isEmpty { CrewRows(members: crew, now: now) }
             if research.sources.isEmpty {
-                Placeholder(symbol: "magnifyingglass", text: isActive ? "Nothing read yet. Sources appear here as Claude opens them." : "No web pages were read for this film.")
+                Placeholder(symbol: "magnifyingglass", text: isActive ? "Nothing read yet. Sources appear here as \(agent) opens them." : "No web pages were read for this film.")
             } else {
                 sourceList
             }
@@ -165,7 +166,7 @@ struct ResearchCard: View {
 
     private func meter(_ label: String, fraction: Double, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(label).font(.system(size: 12.5, weight: .semibold)).monospacedDigit()
+            Text(label).font(.system(size: 12, weight: .semibold)).monospacedDigit()
             ThinBar(fraction: fraction, tint: tint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -220,13 +221,13 @@ struct ResearchCard: View {
     @ViewBuilder private var footer: some View {
         if research.findingsCount > 0 {
             Label("\(research.findingsCount) finding\(research.findingsCount == 1 ? "" : "s") written into your brief", systemImage: "checkmark.circle.fill")
-                .font(.system(size: 12.5)).foregroundStyle(Color(nsColor: .systemGreen))
+                .font(.system(size: 12)).foregroundStyle(Color(nsColor: .systemGreen))
         }
     }
 
     @ViewBuilder private func wrapUp(step: String) -> some View {
         if wrapSent {
-            Label("Sent. Claude will wrap up.", systemImage: "paperplane.fill").font(.system(size: 12.5)).foregroundStyle(.secondary).fixedSize()
+            Label("Sent. \(agent) will wrap up.", systemImage: "paperplane.fill").font(.system(size: 12)).foregroundStyle(.secondary).fixedSize()
         } else {
             VStack(alignment: .trailing, spacing: 3) {
                 Button {
@@ -236,8 +237,8 @@ struct ResearchCard: View {
                     }
                 } label: { Label("Wrap up research", systemImage: "checkmark.circle") }
                     .controlSize(.regular)
-                    .help("Tells Claude to stop reading and go with what it has.")
-                    .accessibilityHint("Tells Claude to stop researching and move on to the brief")
+                    .help("Tells \(agent) to stop reading and go with what it has.")
+                    .accessibilityHint("Tells \(agent) to stop researching and move on to the brief")
                 if wrapFailed { Text("Couldn't send. Try again.").font(.system(size: 11)).foregroundStyle(.orange) }
             }
             .fixedSize()
@@ -285,7 +286,7 @@ struct HostGlyph: View {
                 Image(systemName: "magnifyingglass").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
             } else {
                 Text(String(host.first.map { String($0) }?.uppercased() ?? "?"))
-                    .font(.system(size: 11.5, weight: .bold, design: .rounded)).foregroundStyle(.white)
+                    .font(.system(size: 11, weight: .bold, design: .rounded)).foregroundStyle(.white)
             }
         }
         .frame(width: 24, height: 24)
@@ -330,12 +331,12 @@ struct CrewRows: View {
         let running = members.filter { $0.state == .running }
         let finished = members.filter { $0.state != .running }
         VStack(alignment: .leading, spacing: 4) {
-            StageSectionTitle(running.isEmpty ? "The crew" : "At work now")
+            StageSectionTitle(running.isEmpty ? "Who worked on it" : "At work now")
                 .padding(.bottom, 4)
             ForEach(running) { CrewRow(member: $0, now: now) }
             ForEach(finished.prefix(running.isEmpty ? 8 : 3)) { CrewRow(member: $0, now: now) }
             if finished.count > (running.isEmpty ? 8 : 3) {
-                Text("and \(finished.count - (running.isEmpty ? 8 : 3)) more finished").font(.system(size: 11.5)).foregroundStyle(.tertiary).padding(.leading, 32)
+                Text("and \(finished.count - (running.isEmpty ? 8 : 3)) more finished").font(.system(size: 11)).foregroundStyle(.tertiary).padding(.leading, 32)
             }
         }
     }
@@ -444,7 +445,7 @@ struct FrameTile: View {
                 .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                 .overlay { RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(isNewest ? Color.rasan.opacity(0.8) : Color(nsColor: .separatorColor), lineWidth: isNewest ? 1.5 : 0.5) }
                 .shadow(color: .black.opacity(hovering ? 0.2 : 0.08), radius: hovering ? 10 : 4, y: hovering ? 5 : 2)
-                Text(thumb.label).font(.system(size: 11.5)).foregroundStyle(.secondary).lineLimit(1)
+                Text(thumb.label).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
             }
             .animation(.snappy(duration: 0.16), value: hovering)
         }
@@ -470,7 +471,7 @@ struct EmptyFrameTile: View {
                 if active { ProgressView().controlSize(.small) } else { Image(systemName: "photo").foregroundStyle(.quaternary) }
             }
             .aspectRatio(16.0 / 9.0, contentMode: .fit)
-            Text(label).font(.system(size: 11.5)).foregroundStyle(.tertiary).lineLimit(1)
+            Text(label).font(.system(size: 11)).foregroundStyle(.tertiary).lineLimit(1)
         }
         .onAppear { if active { pulse = true } }
         .accessibilityElement(children: .ignore)
@@ -555,7 +556,7 @@ struct BuildCard: View {
                     PosterImage(url: still, maxPixels: 1100).id(still).transition(.opacity)
                     HStack(spacing: 6) {
                         if working != nil { Circle().fill(Color.rasan).frame(width: 6, height: 6) }
-                        Text("Newest still").font(.system(size: 10.5, weight: .semibold)).tracking(0.3)
+                        Text("Newest still").font(.system(size: 10, weight: .semibold)).tracking(0.3)
                     }
                     .padding(.horizontal, 9).padding(.vertical, 5).background(.ultraThinMaterial, in: Capsule()).padding(10)
                 }
@@ -575,7 +576,7 @@ struct BuildCard: View {
     private var stages: some View {
         FlowLayout(spacing: 8) {
             ForEach(Array(snapshot.buildStages.enumerated()), id: \.offset) { _, stage in
-                Text(stage).font(.system(size: 11.5)).padding(.horizontal, 10).padding(.vertical, 4)
+                Text(stage).font(.system(size: 11)).padding(.horizontal, 10).padding(.vertical, 4)
                     .background(Color(nsColor: .quaternaryLabelColor).opacity(0.22), in: Capsule())
             }
         }
@@ -714,10 +715,10 @@ struct RenderCard: View {
                         if let eta = r.etaSeconds, r.state == .rendering {
                             Text("\(FilmProgressFormat.about(eta)) left").font(.system(size: 13)).foregroundStyle(Color.rasan).fontWeight(.medium)
                         } else if !r.isMeasured, r.state != .done {
-                            Text("Progress isn't reported for this render. Elapsed time is exact.").font(.system(size: 12.5)).foregroundStyle(.secondary)
+                            Text("Progress isn't reported for this render. Elapsed time is exact.").font(.system(size: 12)).foregroundStyle(.secondary)
                         }
                         if let stage = r.stage, !stage.isEmpty, r.state != .done {
-                            Text(stage).font(.system(size: 11.5, design: .monospaced)).foregroundStyle(.secondary).lineLimit(2)
+                            Text(stage).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary).lineLimit(2)
                         }
                         Text("\(FilmProgressFormat.duration(r.elapsed(now: now))) \(r.state == .done ? "to render" : "elapsed")")
                             .font(.system(size: 12)).foregroundStyle(.tertiary).monospacedDigit()

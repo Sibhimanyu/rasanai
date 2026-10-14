@@ -23,7 +23,7 @@ extension StudioStore {
         let agent = queued.flatMap { LocalAgent(rawValue: $0.draft.agent) } ?? settings.agent
         await settings.check(agent)
         let agentReady = settings.isReady(agent)
-        let status = settings.statuses[agent.id] ?? "Set up your director in Help → Show Welcome."
+        let status = settings.statuses[agent.id] ?? "Not set up yet. Choose Director setup below."
         let signIn = PreflightItem("account", agent.title, agentReady ? "The CLI reports signed in." : status, agentReady ? .ready : .blocked)
         let savedFiles = hasProject ? await Task.detached { (try? ProjectSources.files(in: project)) ?? [] }.value : []
         let env = node.map { runtime.environment(node: $0, settings: settings) } ?? ProcessInfo.processInfo.environment
@@ -42,7 +42,6 @@ struct PreflightView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openSettings) private var openSettings
     @State private var selectedTools: Set<SetupTool> = []
-    @State private var developerToolsNotice: String?
     private var gate: StartGate { StartGate.shared }
     private var missingTools: [SetupTool] { SetupTool.missing(in: store.preflightReport) }
     private var needsGitSetup: Bool { store.preflightReport?.items.contains(where: { $0.id == "git" && $0.level != .ready }) == true }
@@ -50,15 +49,16 @@ struct PreflightView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Ready to make a film?").font(.system(size: 23, weight: .semibold))
-                    Text(gate.pending != nil ? "A few things need attention before this film can start." : "Check local tools, files and space before starting.").font(.system(size: 12)).foregroundStyle(.secondary)
+                    Text(gate.pending != nil ? "Your film can’t start yet" : "Readiness check").font(.system(size: 23, weight: .semibold))
+                    Text(gate.pending != nil ? "Fix the items below, then choose Recheck and start." : "Check local tools, files and space before starting.").font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Done") { dismiss() }.keyboardShortcut(.cancelAction).disabled(store.toolSetup.isRunning)
+                // Closing while a start waits drops it, so the button says so.
+                Button(gate.pending != nil ? "Cancel start" : "Done") { dismiss() }.keyboardShortcut(.cancelAction).disabled(store.toolSetup.isRunning)
             }
             if store.isCheckingPreflight { HStack { ProgressView().controlSize(.small); Text("Checking this Mac…").font(.system(size: 13)) } }
             if let report = store.preflightReport {
-                Text(store.toolSetup.isRunning ? "Tool setup is in progress. Readiness will be checked again when it finishes." : report.canStart ? "Required checks passed. Review any preparation notes below." : "Resolve the items marked in red, then recheck.")
+                Text(store.toolSetup.isRunning ? "Tool setup is in progress. Readiness will be checked again when it finishes." : report.canStart ? "Required checks passed. Review any preparation notes below." : "Fix the items marked ✕, then recheck.")
                     .font(.system(size: 13, weight: .medium))
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
@@ -99,9 +99,17 @@ struct PreflightView: View {
                 Spacer()
                 if gate.pending != nil {
                     Button("Recheck") { Task { await store.checkPreflight() } }.disabled(store.isCheckingPreflight || store.toolSetup.isRunning)
-                    Button("Recheck and start") { Task { await store.recheckAndStart() } }
-                        .buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction)
-                        .disabled(store.isCheckingPreflight || store.toolSetup.isRunning)
+                    // While tools are missing, "Install selected tools" is the one filled button.
+                    let installFirst = !missingTools.isEmpty && !store.toolSetup.isRunning
+                    if installFirst {
+                        Button("Recheck and start") { Task { await store.recheckAndStart() } }
+                            .buttonStyle(StudioSecondaryButtonStyle()).keyboardShortcut(.defaultAction)
+                            .disabled(store.isCheckingPreflight || store.toolSetup.isRunning)
+                    } else {
+                        Button("Recheck and start") { Task { await store.recheckAndStart() } }
+                            .buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction)
+                            .disabled(store.isCheckingPreflight || store.toolSetup.isRunning)
+                    }
                 } else {
                     Button("Recheck") { Task { await store.checkPreflight() } }.disabled(store.isCheckingPreflight || store.toolSetup.isRunning)
                 }
@@ -130,17 +138,7 @@ struct PreflightView: View {
                 }.toggleStyle(.checkbox).disabled(tool == .skills && needsGitSetup)
             }
             if needsGitSetup {
-                Text("Design resources need Git first. Install Apple's command line tools, finish the macOS installer, then Recheck.")
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
-                Button("Install Apple command line tools…") {
-                    Task {
-                        do {
-                            let code = try await DirectorRuntime.execute(URL(fileURLWithPath: "/usr/bin/xcode-select"), arguments: ["--install"], directory: FileManager.default.homeDirectoryForCurrentUser, environment: ProcessInfo.processInfo.environment)
-                            developerToolsNotice = code == 0 ? "Finish the macOS installer, then press Recheck." : "macOS could not start the installer. Check System Settings → General → Software Update, then Recheck."
-                        } catch { developerToolsNotice = error.localizedDescription }
-                    }
-                }.disabled(!store.canInstallTools)
-                if let developerToolsNotice { Text(developerToolsNotice).font(.system(size: 11)).foregroundStyle(.secondary) }
+                DeveloperToolsSetup(store: store)
             }
             Text("An internet connection is needed. Tools stay in your user account; design resources are shared with your directors. If needed, setup also installs HyperFrames for the browser and resources.")
                 .font(.system(size: 11)).foregroundStyle(.secondary)

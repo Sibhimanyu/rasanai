@@ -20,8 +20,8 @@ struct BuildStage: View {
     }
 
     private static let stageOrder: [(id: String, label: String, symbol: String)] = [
-        ("handoff", "Handoff", "paperplane"), ("plan", "Plan", "list.bullet.rectangle"), ("design", "Design", "paintpalette"),
-        ("build", "Build", "hammer"), ("verify", "Verify", "checkmark.seal"), ("obey", "Obey", "scope"), ("render-gate", "Render gate", "film"),
+        ("handoff", "Brief", "paperplane"), ("plan", "Plan", "list.bullet.rectangle"), ("design", "Design", "paintpalette"),
+        ("build", "Build", "hammer"), ("verify", "Check", "checkmark.seal"), ("obey", "Match the brief", "scope"), ("render-gate", "Final check", "film"),
     ]
 
     private var payload: JSONValue { model.payload("build") }
@@ -95,7 +95,7 @@ struct BuildStage: View {
         let list = scenes
         let aspect = model.snapshot.aspectRatio
         StageScaffold(model: model, step: step, question: headline,
-                      context: isDone ? nil : "Nothing needed from you. You can leave this window; if notifications are on, Studio tells you when it's ready to review.",
+                      context: isDone ? nil : "Nothing needed from you. You can leave this window; if notifications are on, RasanAI tells you when it's ready to review.",
                       maxWidth: 960) {
             VStack(alignment: .leading, spacing: 20) {
                 progressBlock
@@ -343,7 +343,7 @@ private struct LogLine: View {
             Text(tag(level)).fontWeight(.semibold).foregroundStyle(color(level)).frame(width: 34, alignment: .leading)
             Text(entry["msg"].string ?? "").foregroundStyle(level == "info" ? Color.primary : color(level)).textSelection(.enabled)
         }
-        .font(.system(size: 11.5, design: .monospaced))
+        .font(.system(size: 11, design: .monospaced))
         .accessibilityElement(children: .combine)
     }
     private func tag(_ level: String) -> String {

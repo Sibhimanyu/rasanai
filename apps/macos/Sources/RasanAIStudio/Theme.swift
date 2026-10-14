@@ -83,15 +83,14 @@ struct CardSurface: ViewModifier {
         let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
         content
             .background {
-                ZStack {
-                    shape.fill(Color(nsColor: .controlBackgroundColor).opacity(0.6))
-                    shape.fill(.regularMaterial)
-                }
+                // The same surface as every other library card; hover raises it, selection is drawn by the outline.
+                shape.fill(hovering && !selected ? Workspace.raised : Workspace.panel)
                 .shadow(color: .black.opacity(hovering ? 0.12 : 0), radius: 12, y: 5)
                 .animation(.snappy(duration: 0.18), value: hovering)
             }
             .overlay {
-                shape.strokeBorder(selected || hovering ? Color.rasan.opacity(0.55) : Color(nsColor: .separatorColor), lineWidth: selected ? 1.5 : 0.5)
+                // Hover is a neutral raise with a faint edge, selection a firm neutral outline: brand blue is for the one primary action.
+                shape.strokeBorder(selected ? Color.primary.opacity(0.85) : hovering ? Color.primary.opacity(0.22) : Workspace.hairline, lineWidth: selected ? 2 : 1)
                     .animation(.snappy(duration: 0.18), value: hovering)
             }
     }
@@ -198,41 +197,53 @@ typealias StudioSecondaryButtonStyle = RasanSecondaryButtonStyle
 
 /// A flat two-to-four-way switch (Grid | List), drawn instead of the system segmented control. The selection is one pill
 /// that slides to the option you pick on a soft spring, the labels cross-fading as it passes; Reduce Motion just swaps it.
+/// A two- or three-way switch for how something is shown. The selected segment is a raised neutral, as in Finder's view
+/// switch: the brand blue belongs to the page's one primary action, and a switch is never that.
 struct FlatSegmented<Value: Hashable>: View {
     @Binding var selection: Value
     let options: [(Value, String, String?)]
+    /// Symbols only, with the titles as tooltips and accessibility labels.
+    var iconOnly = false
     @Namespace private var pill
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The pill's own copy of the selection. A binding into @AppStorage updates without the tap's animation, so the
+    /// pill would jump; this one always moves with the spring.
+    @State private var shown: Value?
+    private var spring: Animation? { reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.86) }
 
     var body: some View {
         HStack(spacing: 2) {
             ForEach(options.indices, id: \.self) { index in
                 let (value, title, symbol) = options[index]
-                let on = value == selection
+                let on = value == (shown ?? selection)
                 Button {
-                    withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.86)) { selection = value }
+                    withAnimation(spring) { shown = value; selection = value }
                 } label: {
                     HStack(spacing: 6) {
                         if let symbol { Image(systemName: symbol) }
-                        Text(title)
+                        if !iconOnly || symbol == nil { Text(title) }
                     }
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(on ? Color.white : Color.secondary)
-                    .padding(.horizontal, 12).frame(height: 28)
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(on ? Color.primary : Color.secondary)
+                    .padding(.horizontal, iconOnly ? 9 : 12).frame(height: 26)
                     .background {
                         if on {
-                            RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.rasanFill)
+                            RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.primary.opacity(0.12))
+                                .overlay { RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.5) }
                                 .matchedGeometryEffect(id: "selection", in: pill)
                         }
                     }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .help(title)
+                .accessibilityLabel(title)
                 .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
         .padding(3)
-        .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.14), lineWidth: 1) }
+        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .onChange(of: selection) { _, value in if value != shown { withAnimation(spring) { shown = value } } }
     }
 }
 
@@ -268,6 +279,7 @@ struct StatusDot: View {
     let tone: StatusTone
     var pulsing = false
     @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var color: Color {
         switch tone {
         case .good: Color(nsColor: .systemGreen)
@@ -281,7 +293,7 @@ struct StatusDot: View {
         // also repeat whatever else changed in that update (the row's layout and text).
         Circle().fill(color).frame(width: 7, height: 7)
             .opacity(pulsing && pulse ? 0.35 : 1)
-            .animation(pulsing ? .easeInOut(duration: 0.9).repeatForever(autoreverses: true) : .default, value: pulse)
+            .animation(pulsing && !reduceMotion ? .easeInOut(duration: 0.9).repeatForever(autoreverses: true) : .default, value: pulse)
             .onAppear { pulse = pulsing }
             .onChange(of: pulsing) { _, now in pulse = now }
     }
@@ -299,7 +311,9 @@ struct HelpButton: View {
     var body: some View {
         Button { shown.toggle() } label: { Label("Help", systemImage: "questionmark.circle") }
             .help("Help for this screen")
-            .popover(isPresented: $shown, arrowEdge: .bottom) {
+            // Help is the last tool in the toolbar, close to the window's right edge. Pointed at the button's centre, the popover
+            // is slid left to fit and its arrow lands in the rounded corner; pointed at the button's leading edge, it clears it.
+            .popover(isPresented: $shown, attachmentAnchor: .point(.bottomLeading), arrowEdge: .bottom) {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(title).font(.system(size: 13, weight: .semibold))
                     ForEach(lines, id: \.self) { line in

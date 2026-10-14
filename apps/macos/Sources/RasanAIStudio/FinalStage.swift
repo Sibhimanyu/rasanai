@@ -13,12 +13,18 @@ struct FinalStage: View {
     @State private var playback = VideoPlayback()
     @State private var stageHeight: CGFloat = 640
     @State private var showChanges = false
+    @State private var confirmRender = false
+    /// The version the person picked in the menu, until they confirm bringing it back.
+    @State private var restore: JSONValue?
+    @Environment(NoteSkips.self) private var skips: NoteSkips?
+    @Environment(\.agentName) private var agent
 
     var body: some View {
         let payload = model.payload(step)
         let scenes = model.snapshot.scenes(for: .final)
         let allNotes = model.snapshot.notes.filter { $0.step == step }
         let open = allNotes.filter(\.isOpen)
+        let applying = open.filter { skips?.ids.contains($0.id) != true }
         let canAct = model.canAct(on: step)
         let videos = payload["videos"].array.compactMap(\.string)
         let videoPath = videos.last ?? payload["video"].string
@@ -44,23 +50,25 @@ struct FinalStage: View {
                     if !scenes.isEmpty { Text("\(scenes.count)").font(.system(size: 12)).foregroundStyle(.secondary) }
                     Spacer(minLength: 8)
                     if !open.isEmpty && canAct && isRender {
-                        Button("Render without these notes") { Task { await model.send(step: step, type: "choose", value: .string("render")) } }
+                        Button("Render without these notes…") { confirmRender = true }
                             .buttonStyle(.link).font(.system(size: 12))
                     }
                     changes(payload)
                     controls(payload, isRender: isRender, done: done, canAct: canAct, firstPass: notRendered)
                 }
-                .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, scenes.isEmpty ? 10 : 0)
+                .padding(.horizontal, .filmInset).padding(.top, 10).padding(.bottom, scenes.isEmpty ? 10 : 0)
                 if !scenes.isEmpty { SceneFilmstrip(playback: playback, scenes: scenes, open: open) }
             }
             .frame(height: scenes.isEmpty ? 56 : 168, alignment: .top)
             .workspacePanel()
             ReviewActionBar(model: model, step: step,
-                            title: open.isEmpty ? (notRendered ? "Preview first" : isRender ? "Render the final" : "Export MP4") : "Apply \(open.count) note\(open.count == 1 ? "" : "s")",
-                            symbol: open.isEmpty ? (notRendered ? "eye" : isRender ? "film.fill" : "square.and.arrow.down.fill") : "checkmark.bubble.fill",
-                            signature: open.map(\.id).joined(separator: ",")) {
+                            title: applying.isEmpty ? (notRendered ? "Preview first" : isRender ? "Render the final" : "Export MP4")
+                                : applying.count < open.count ? "Apply \(applying.count) of \(open.count) notes"
+                                : "Apply \(open.count) note\(open.count == 1 ? "" : "s")",
+                            symbol: applying.isEmpty ? (notRendered ? "eye" : isRender ? "film.fill" : "square.and.arrow.down.fill") : "checkmark.bubble.fill",
+                            signature: applying.map(\.id).joined(separator: ",")) {
                 Task {
-                    if !open.isEmpty { await model.send(step: step, type: "apply", value: .object(["ids": .array(open.map { .string($0.id) })])) }
+                    if !applying.isEmpty { await model.send(step: step, type: "apply", value: .object(["ids": .array(applying.map { .string($0.id) })])) }
                     else if notRendered { await model.send(step: step, type: "choose", value: .string("preview")) }
                     else if isRender { await model.send(step: step, type: "choose", value: .string("render")) }
                     else { await model.send(step: step, type: "approve") }
@@ -74,6 +82,15 @@ struct FinalStage: View {
         .environment(model)
         .task(id: "\(videoURL?.path ?? "")") { playback.load(url: videoURL, fallbackDuration: duration) }
         .onDisappear { playback.shutdown() }
+        .confirmationDialog("Render without your \(open.count) note\(open.count == 1 ? "" : "s")?", isPresented: $confirmRender, titleVisibility: .visible) {
+            Button("Render Without Notes") { Task { await model.send(step: step, type: "choose", value: .string("render")) } }
+        } message: { Text("Your notes stay on the film but are not applied.") }
+        .confirmationDialog("Restore v\(restore?.identifier ?? "")?", isPresented: Binding(get: { restore != nil }, set: { if !$0 { restore = nil } }), titleVisibility: .visible) {
+            Button("Restore v\(restore?.identifier ?? "")") {
+                if let version = restore { Task { await model.send(step: step, type: "version", value: .object(["restore": version])) } }
+                restore = nil
+            }
+        } message: { Text("\(agent) brings this version back. The other versions are kept.") }
     }
 
     // MARK: Controls under the player
@@ -89,7 +106,7 @@ struct FinalStage: View {
                         let item = versions.reversed()[index]
                         let id = item["v"].identifier ?? ""
                         Button {
-                            if id != current { Task { await model.send(step: step, type: "version", value: .object(["restore": item["v"]])) } }
+                            if id != current { restore = item["v"] }
                         } label: {
                             if id == current { Label(versionTitle(item), systemImage: "checkmark") } else { Text(versionTitle(item)) }
                         }
@@ -152,6 +169,7 @@ struct FinalStage: View {
 
 /// The player surface: the video once it can play, the poster until the first play, a quiet note when there is no file yet.
 private struct FinalFrame: View {
+    @Environment(FilmSessionModel.self) private var model: FilmSessionModel?
     let playback: VideoPlayback
     let posterPath: String?
     let hasVideo: Bool
@@ -159,9 +177,9 @@ private struct FinalFrame: View {
     var body: some View {
         ZStack {
             Color.black
-            if hasVideo { NativeFilmPlayer(player: playback.player) }
+            if hasVideo { NativeFilmPlayer(player: playback.player).lightsGlass(video: playback) }
             if !hasVideo || !playback.hasStarted {
-                if posterPath != nil { PayloadImage(path: posterPath, contentMode: .fit, maxPixels: 1800).transition(.opacity) }
+                if posterPath != nil { PayloadImage(path: posterPath, contentMode: .fit, maxPixels: 1800).transition(.opacity).lightsGlass(still: model?.fileURL(posterPath)) }
                 if !hasVideo {
                     Label(notRendered ? "Poster. Not rendered yet" : "The render isn't finished yet", systemImage: notRendered ? "photo" : "hourglass").font(.system(size: 12, weight: .medium)).foregroundStyle(.white)
                         .padding(.horizontal, 12).padding(.vertical, 7).background(.black.opacity(0.65), in: Capsule())

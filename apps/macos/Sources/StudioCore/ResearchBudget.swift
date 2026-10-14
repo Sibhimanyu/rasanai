@@ -15,12 +15,13 @@ public enum FilmPace: String, CaseIterable, Codable, Identifiable, Sendable {
     public var title: String {
         switch self { case .fast: "Fast"; case .standard: "Standard"; case .thorough: "Thorough" }
     }
-    public var chipTitle: String { "\(title) pace" }
+    /// The chip's icon and tooltip say it is the pace, so the label is just the word.
+    public var chipTitle: String { title }
     public var summary: String {
         switch self {
-        case .fast: "About 2 minutes of research, every scene built at once, Sonnet on the busywork and one review round. The fastest film."
-        case .standard: "About 5 minutes of research, every scene built at once, up to two review rounds and two draft renders."
-        case .thorough: "The engine's full process: deep research, its whole crew and every review round. Slowest, most thorough."
+        case .fast: "About 2 minutes of research and one round of fixes. The quickest film."
+        case .standard: "About 5 minutes of research and up to two rounds of fixes."
+        case .thorough: "No time limit on research, and every round of checks. The slowest, most careful film."
         }
     }
     /// Minutes of research the director is asked to stay within. nil means no limit.

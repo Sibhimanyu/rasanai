@@ -120,10 +120,10 @@ struct MomentCard: View {
                 if selected || hovering {
                     Button(action: onToggle) {
                         Image(systemName: selected ? "checkmark.circle.fill" : "plus.circle.fill").font(.system(size: 22)).symbolRenderingMode(.palette)
-                            .foregroundStyle(.white, selected ? Color.rasan : .black.opacity(0.45)).padding(8)
+                            .foregroundStyle(selected ? Color.black : Color.white, selected ? Color.white : Color.black.opacity(0.45)).padding(8)
                     }
-                    .buttonStyle(.plain).help(selected ? "Remove from Moves I like" : "Add to Moves I like")
-                    .accessibilityLabel(selected ? "Remove \(moment.name) from Moves I like" : "Add \(moment.name) to Moves I like")
+                    .buttonStyle(.plain).help(selected ? "Remove from your moves" : "Add to your moves")
+                    .accessibilityLabel(selected ? "Remove \(moment.name) from your moves" : "Add \(moment.name) to your moves")
                 }
             }
             .overlay(alignment: .bottomTrailing) {
@@ -133,9 +133,9 @@ struct MomentCard: View {
     }
 
     private func pill(_ text: String, tint: Bool = false) -> some View {
-        Text(text).font(.system(size: 10.5, weight: .semibold)).foregroundStyle(tint ? Color.white : Color.white.opacity(0.95))
+        Text(text).font(.system(size: 10.5, weight: .semibold)).foregroundStyle(tint ? Color.black : Color.white.opacity(0.95))
             .padding(.horizontal, 7).padding(.vertical, 3)
-            .background { Capsule().fill(tint ? Color.rasan.opacity(0.9) : Color.black.opacity(0.5)) }
+            .background { Capsule().fill(tint ? Color.white.opacity(0.92) : Color.black.opacity(0.5)) }
     }
 
     @ViewBuilder private var credit: some View {
@@ -166,8 +166,8 @@ private struct MomentAvatar: View {
     let creator: MomentCreator
     var body: some View {
         ZStack {
-            Circle().fill(Color.rasan.opacity(0.16))
-            Text(String(creator.displayName.prefix(1)).uppercased()).font(.system(size: 8.5, weight: .semibold)).foregroundStyle(Color.rasan)
+            Circle().fill(Color.primary.opacity(0.12))
+            Text(String(creator.displayName.prefix(1)).uppercased()).font(.system(size: 8.5, weight: .semibold)).foregroundStyle(.secondary)
             if let avatar = creator.avatar { MomentStill(url: avatar, maxPixels: 64).clipShape(Circle()) }
         }
         .frame(width: 16, height: 16)
@@ -186,7 +186,7 @@ struct MomentChip: View {
         HStack(spacing: 8) {
             if let moment { MomentStill(url: moment.stillURL, maxPixels: 120).frame(width: 32, height: 18).clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous)) }
             if let onPlace { PlaceMenu(place: pick.place, onChange: onPlace) }
-            else if pick.place != .anywhere { Text(pick.place.title).fontWeight(.semibold).foregroundStyle(Color.rasan).fixedSize() }
+            else if pick.place != .anywhere { Text(pick.place.title).fontWeight(.semibold).fixedSize() }
             Text(moment?.name ?? pick.id).lineLimit(1).truncationMode(.tail)
             if let credit = moment?.creditLine { Text("· \(credit)").foregroundStyle(.secondary).lineLimit(1).layoutPriority(1) }
             if let onRemove {
@@ -218,7 +218,7 @@ struct PlaceMenu: View {
                 Text(place.title).fontWeight(.semibold)
                 Image(systemName: "chevron.down").font(.system(size: 7, weight: .bold)).opacity(0.7)
             }
-            .foregroundStyle(place == .anywhere ? Color.secondary : Color.rasan)
+            .foregroundStyle(place == .anywhere ? Color.secondary : Color.primary)
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help("Where in the film should this move land? Anywhere lets the director decide.")
         .accessibilityLabel("Place: \(place.title)")
@@ -257,10 +257,14 @@ struct MomentReferencesLine: View {
 struct GetInspiredView: View {
     @Bindable var gallery: MomentGallery
     @Binding var selection: MomentSelection
+    /// Set on the full page (the sidebar's name for it); nil in the New film sheet, which brings its own title and Cancel.
+    var pageTitle: String?
     var primaryTitle = "Make a film with these"
     let onPrimary: () -> Void
     /// Set when shown in a sheet: adds a Cancel button.
     var onCancel: (() -> Void)?
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let columns = [GridItem(.adaptive(minimum: 230, maximum: 320), spacing: 16, alignment: .top)]
 
@@ -274,8 +278,7 @@ struct GetInspiredView: View {
                     Text("Clips belong to their creators, and each card links to the original post. RasanAI borrows how a moment moves, never its words, brand or footage, and lists these credits with your finished film.")
                         .font(.system(size: 11)).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true).padding(.top, 6)
                 }
-                .padding(.horizontal, 32).padding(.top, 26).padding(.bottom, 24)
-                .frame(maxWidth: 1100).frame(maxWidth: .infinity)
+                .modifier(InspireColumn(onPage: pageTitle != nil))
             }
             tray
         }
@@ -288,8 +291,8 @@ struct GetInspiredView: View {
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Get inspired").font(.system(size: 30, weight: .semibold, design: .rounded))
-                Text("Real motion from real launch films. Click one to watch it big, with sound. Add up to four to Moves I like, and RasanAI reuses how each one moves with your own content.")
+                if let pageTitle { PageTitle(text: pageTitle) } else { Text("Inspiration").font(.system(size: 20, weight: .bold)) }
+                Text("Real motion from real launch films. Click one to watch it big, with sound. Add up to four to your moves, and RasanAI reuses how each one moves with your own content.")
                     .font(.system(size: 13.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 16)
@@ -321,9 +324,10 @@ struct GetInspiredView: View {
                 Text(title).font(.system(size: 12.5, weight: .medium))
                 Text("\(count)").font(.system(size: 11)).monospacedDigit().opacity(0.6)
             }
-            .foregroundStyle(active ? Color.rasan : Color.primary)
+            .foregroundStyle(Color.primary)
             .padding(.horizontal, 12).frame(height: 28)
-            .background(active ? Color.rasan.opacity(0.16) : chipFill, in: Capsule())
+            .background(active ? Color.primary.opacity(0.16) : chipFill, in: Capsule())
+            .overlay { if active { Capsule().strokeBorder(Color.primary.opacity(0.25), lineWidth: 1) } }
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(active ? .isSelected : [])
@@ -331,7 +335,7 @@ struct GetInspiredView: View {
 
     private var mechanicMenu: some View {
         Menu {
-            Button("Any technique") { gallery.mechanic = nil }
+            Button("Any move") { gallery.mechanic = nil }
             Divider()
             ForEach(gallery.mechanics, id: \.self) { tag in
                 Button { gallery.mechanic = gallery.mechanic == tag ? nil : tag } label: {
@@ -341,14 +345,15 @@ struct GetInspiredView: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "slider.horizontal.3").font(.system(size: 11))
-                Text(gallery.mechanic.map(Moment.mechanicTitle) ?? "Technique").font(.system(size: 12.5, weight: .medium))
+                Text(gallery.mechanic.map(Moment.mechanicTitle) ?? "Move").font(.system(size: 12.5, weight: .medium))
                 Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).opacity(0.6)
             }
-            .foregroundStyle(gallery.mechanic != nil ? Color.rasan : Color.primary)
+            .foregroundStyle(Color.primary)
             .padding(.horizontal, 12).frame(height: 28)
-            .background(gallery.mechanic != nil ? Color.rasan.opacity(0.16) : chipFill, in: Capsule())
+            .background(gallery.mechanic != nil ? Color.primary.opacity(0.16) : chipFill, in: Capsule())
+            .overlay { if gallery.mechanic != nil { Capsule().strokeBorder(Color.primary.opacity(0.25), lineWidth: 1) } }
         }
-        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help("Filter by technique, like mask reveal or kinetic type")
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help("Filter by how it moves, like mask reveal or kinetic type")
     }
 
     // MARK: Content
@@ -398,21 +403,21 @@ struct GetInspiredView: View {
     }
 
     private func toggle(_ moment: Moment) {
-        withAnimation(.snappy(duration: 0.2)) { _ = selection.toggle(moment) }
+        withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { _ = selection.toggle(moment) }
     }
 
     // MARK: Tray
 
     private var tray: some View {
         HStack(spacing: 10) {
-            Text("Moves I like").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary).fixedSize()
+            Text("Your moves").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary).fixedSize()
             ForEach(0..<FilmDraft.maxMoments, id: \.self) { index in slot(index) }
             VStack(spacing: 4) {
                 Button(action: onPrimary) { Text(primaryTitle).padding(.horizontal, 6) }
                     .buttonStyle(.rasanPrimary).controlSize(.large).disabled(selection.isEmpty)
                     .keyboardShortcut(.return, modifiers: .command)
                 if !selection.isEmpty {
-                    Button("Clear") { withAnimation(.snappy) { selection.clear() } }.buttonStyle(.link).font(.system(size: 11))
+                    Button("Clear") { withAnimation(reduceMotion ? nil : .snappy) { selection.clear() } }.buttonStyle(.link).font(.system(size: 11))
                 }
             }
             .padding(.leading, 6)
@@ -421,7 +426,7 @@ struct GetInspiredView: View {
         .frame(maxWidth: .infinity)
         .background(Color.appBackground)
         .overlay(alignment: .top) { Divider() }
-        .animation(.snappy(duration: 0.2), value: selection)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: selection)
     }
 
     @ViewBuilder private func slot(_ index: Int) -> some View {
@@ -434,17 +439,17 @@ struct GetInspiredView: View {
                         .onTapGesture { gallery.openViewer(moment.id) }
                 }
                 VStack(alignment: .leading, spacing: 1) {
-                    PlaceMenu(place: pick.place) { place in withAnimation(.snappy(duration: 0.2)) { selection.setPlace(place, for: pick.id) } }.font(.system(size: 10.5))
+                    PlaceMenu(place: pick.place) { place in withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { selection.setPlace(place, for: pick.id) } }.font(.system(size: 10.5))
                     Text(moment?.name ?? pick.id).font(.system(size: 11.5, weight: .medium)).lineLimit(1)
                     if let credit = moment?.creditLine { Text(credit).font(.system(size: 10.5)).foregroundStyle(.secondary).lineLimit(1) }
                 }
                 Spacer(minLength: 0)
-                Button { withAnimation(.snappy(duration: 0.2)) { selection.remove(pick.id) } } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                Button { withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { selection.remove(pick.id) } } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
                     .buttonStyle(.plain).help("Remove")
             }
             .padding(8).frame(maxWidth: .infinity)
-            .background(Color.rasan.opacity(0.09), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.rasan.opacity(0.35), lineWidth: 0.5))
+            .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.25), lineWidth: 1))
         } else {
             HStack(spacing: 6) {
                 Image(systemName: "plus").font(.system(size: 10, weight: .semibold))
@@ -452,8 +457,17 @@ struct GetInspiredView: View {
             }
             .foregroundStyle(.tertiary).frame(maxWidth: .infinity, minHeight: 46)
             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
-            .accessibilityLabel("Empty slot in Moves I like")
+            .accessibilityLabel("Empty slot in your moves")
         }
+    }
+}
+
+/// The page keeps the library's column; the sheet keeps its own margins.
+private struct InspireColumn: ViewModifier {
+    let onPage: Bool
+    func body(content: Content) -> some View {
+        if onPage { content.pageColumn() }
+        else { content.padding(.horizontal, 32).padding(.top, 26).padding(.bottom, 24).frame(maxWidth: 1100).frame(maxWidth: .infinity) }
     }
 }
 
@@ -461,18 +475,13 @@ struct GetInspiredView: View {
 struct GetInspiredPage: View {
     @Bindable var store: StudioStore
     var body: some View {
-        GetInspiredView(gallery: store.gallery, selection: $store.inspirePicks) {
+        GetInspiredView(gallery: store.gallery, selection: $store.inspirePicks, pageTitle: "Inspiration") {
             let picks = store.inspirePicks.picks
             store.inspirePicks.clear()
             store.newFilm(moments: picks)
         }
         .navigationTitle("Inspiration")
-        .pageHeader("Inspiration") {
-                HelpButton(title: "Get inspired", lines: [
-                    "Browse short moves from real launch films. Point at one to preview it.",
-                    "Click a card to watch it big, with sound. The plus button adds it to Moves I like, up to four, with no fixed roles.",
-                    "Make a film with these opens New film with your picks attached. Each card credits its creator."])
-        }
+        .pageHeader("Inspiration")
     }
 }
 
@@ -485,45 +494,5 @@ struct GetInspiredSheet: View {
     var body: some View {
         GetInspiredView(gallery: gallery, selection: $selection, primaryTitle: selection.isEmpty ? "Use these" : "Use these \(selection.count)", onPrimary: { onUse(selection.picks) }, onCancel: onCancel)
             .frame(minWidth: 860, idealWidth: 960, minHeight: 600, idealHeight: 700)
-    }
-}
-
-/// Home's quiet preview: a few varied moves, and a way into the whole gallery.
-struct GetInspiredHomeSection: View {
-    @Bindable var store: StudioStore
-    private var gallery: MomentGallery { store.gallery }
-    private let columns = [GridItem(.adaptive(minimum: 200, maximum: 300), spacing: 16, alignment: .top)]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Get inspired").font(.system(size: 22, weight: .semibold))
-                    Text("Real motion from real launch films. Pick a few and start a film that moves like them.").font(.system(size: 12.5)).foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button { store.openGallery() } label: { Label("Browse all", systemImage: "arrow.right").labelStyle(.titleAndIcon) }
-                    .buttonStyle(.link).font(.system(size: 12.5))
-            }
-            if gallery.spotlight.isEmpty {
-                if gallery.state == .failed {
-                    HStack(spacing: 8) {
-                        Text("The gallery can't be reached right now.").font(.system(size: 12.5)).foregroundStyle(.secondary)
-                        Button("Try again") { Task { await gallery.reload() } }.buttonStyle(.link).font(.system(size: 12.5))
-                    }.padding(.vertical, 6)
-                } else {
-                    HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Loading the gallery…").font(.system(size: 12.5)).foregroundStyle(.secondary) }.padding(.vertical, 6)
-                }
-            } else {
-                LazyVGrid(columns: columns, spacing: 16) {
-                    ForEach(gallery.spotlight) { moment in
-                        MomentCard(moment: moment, selected: store.inspirePicks.contains(moment.id), gallery: gallery, onToggle: { store.openGallery(selecting: moment) }, onOpen: { gallery.openViewer(moment.id) })
-                    }
-                }
-            }
-        }
-        .task { await gallery.loadIfNeeded() }
-        .onDisappear { gallery.stopPlaying(); gallery.closeViewer() }
-        // The viewer itself is laid over the whole Home page (HomeView), not over this section.
     }
 }

@@ -12,6 +12,7 @@ struct WelcomeView: View {
     private var missingTools: [SetupTool] { SetupTool.missing(in: store.preflightReport) }
     private var toolsChecking: Bool { !store.isDemo && (store.isCheckingPreflight || (!checkedTools && store.preflightReport == nil)) }
     private var toolsReady: Bool { store.isDemo || (store.preflightReport != nil && missingTools.isEmpty && store.preflightReport?.canStart == true) }
+    private var needsGitSetup: Bool { store.preflightReport?.items.contains { $0.id == "git" && $0.level != .ready } == true }
     private var anyReady: Bool { agents.contains { settings.isReady($0) } }
 
     var body: some View {
@@ -24,18 +25,20 @@ struct WelcomeView: View {
             Text("Describe a film. RasanAI directs it, start to finish.")
                 .font(.system(size: 14)).foregroundStyle(.secondary).padding(.top, 6)
 
+            Text("You need one of these.").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 24)
             VStack(spacing: 0) {
                 row(.claude, optional: false)
                 Divider().padding(.leading, 52)
-                row(.codex, optional: true)
+                row(.codex, optional: false)
             }
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color(nsColor: .separatorColor)))
-            .padding(.top, 28)
+            .padding(.top, 8)
 
             toolsCard.padding(.top, 12)
                 .animation(.snappy, value: toolsChecking)
                 .animation(.snappy, value: missingTools)
+            if needsGitSetup { DeveloperToolsSetup(store: store).padding(.top, 8) }
 
             Text("RasanAI directs films with your Claude Code or Codex account. Usage counts toward your plan.")
                 .font(.system(size: 12)).foregroundStyle(.secondary)
@@ -45,7 +48,7 @@ struct WelcomeView: View {
                 Button("Recheck") { Task { await recheck() } }
                     .disabled(!settings.checking.isEmpty)
                 if !settings.isReady(selected) {
-                    Text("Set up either director, then recheck.").foregroundStyle(.secondary)
+                    Text("Sign in, then come back here. RasanAI checks again on its own.").foregroundStyle(.secondary)
                 }
             }.font(.system(size: 12)).padding(.top, 12)
 
@@ -55,7 +58,7 @@ struct WelcomeView: View {
                 settings.finishWelcome()
             } label: {
                 Group {
-                    if settings.isReady(selected) { Label("Ready · Get started", systemImage: "checkmark.circle.fill") } else { Text("Explore the studio") }
+                    if settings.isReady(selected) { Label("Get started", systemImage: "checkmark.circle.fill") } else { Text("Explore the studio") }
                 }.frame(width: 180)
             }
             .buttonStyle(.rasanPrimary).controlSize(.large)
@@ -71,6 +74,11 @@ struct WelcomeView: View {
         .alert("Director setup", isPresented: Binding(get: { settings.error != nil }, set: { if !$0 { settings.error = nil } })) {
             Button("OK") { settings.error = nil }
         } message: { Text(settings.error ?? "") }
+        // Coming back from Terminal after signing in: look again without a button press.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            guard settings.checking.isEmpty else { return }
+            Task { await recheck() }
+        }
         .task {
             selected = settings.agent
             async let tools: Void = checkTools()
@@ -136,37 +144,47 @@ struct WelcomeView: View {
         let choosable = installed
         // A director nobody chose, next to one that is ready, is an option and not a problem: neutral, never a warning.
         let spare = installed && !signedIn(agent) && agent != selected && anyReady
-        return HStack(spacing: 12) {
-            Group {
-                if checking { ProgressView().controlSize(.small) }
-                else if installed {
-                    Image(systemName: signedIn(agent) ? "checkmark.circle.fill" : spare ? "circle.dashed" : "exclamationmark.circle.fill")
-                        .foregroundStyle(signedIn(agent) ? Color.green : spare ? Color.secondary : Color.orange)
-                } else {
-                    Image(systemName: "circle.dashed").foregroundStyle(.tertiary)
+        let needsAction = !checking && (!installed || !signedIn(agent))
+        return HStack(spacing: 0) {
+            // The row is a button, so the keyboard can choose a director; Sign in and Install stay separate buttons beside it.
+            Button { withAnimation(.snappy) { selected = agent } } label: {
+                HStack(spacing: 12) {
+                    Group {
+                        if checking || settings.installing == agent { ProgressView().controlSize(.small) }
+                        else if installed {
+                            Image(systemName: signedIn(agent) ? "checkmark.circle.fill" : spare ? "circle.dashed" : "exclamationmark.circle.fill")
+                                .foregroundStyle(signedIn(agent) ? Color.green : spare ? Color.secondary : Color.orange)
+                        } else {
+                            Image(systemName: "circle.dashed").foregroundStyle(.tertiary)
+                        }
+                    }.font(.system(size: 18)).frame(width: 24)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(agent == .claude ? "Claude Code" : "Codex").font(.system(size: 13, weight: .medium))
+                        Text(subtitle(agent, installed: installed, checking: checking, optional: optional || spare))
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if choosable && !needsAction && !checking {
+                        Image(systemName: selected == agent ? "largecircle.fill.circle" : "circle")
+                            .foregroundStyle(selected == agent ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+                            .font(.system(size: 16))
+                    }
                 }
-            }.font(.system(size: 18)).frame(width: 24)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(agent == .claude ? "Claude Code" : "Codex").font(.system(size: 13, weight: .medium))
-                Text(subtitle(agent, installed: installed, checking: checking, optional: optional || spare))
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                .padding(.leading, 14).padding(.vertical, 12).padding(.trailing, needsAction ? 8 : 14)
+                .contentShape(Rectangle())
             }
-            Spacer()
-            if installed && !checking && !signedIn(agent) {
-                Button("Sign in…") { settings.setupInTerminal(agent) }
-                    .controlSize(.small)
-            } else if !installed {
-                Button("Install…") { settings.setupInTerminal(agent) }.controlSize(.small)
-            } else if choosable {
-                Image(systemName: selected == agent ? "largecircle.fill.circle" : "circle")
-                    .foregroundStyle(selected == agent ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
-                    .font(.system(size: 16))
+            .buttonStyle(.plain).disabled(!choosable)
+            .accessibilityAddTraits(selected == agent && choosable ? .isSelected : [])
+            if needsAction && settings.installing != agent {
+                // Installing happens here, with progress; only signing in (browser and code) opens Terminal.
+                Button(installed ? "Sign in…" : "Install") {
+                    if installed { settings.setupInTerminal(agent) } else { Task { await settings.install(agent) } }
+                }
+                .controlSize(.small).padding(.trailing, 14).disabled(!installed && settings.installing != nil)
             }
         }
-        .padding(.horizontal, 14).padding(.vertical, 12)
-        .contentShape(Rectangle())
-        .onTapGesture { if choosable { withAnimation(.snappy) { selected = agent } } }
         .contextMenu {
+            if !installed { Button("Install in Terminal Instead…") { settings.setupInTerminal(agent) } }
             Button("Copy setup command") {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(settings.setupCommand(for: agent), forType: .string)
@@ -175,10 +193,13 @@ struct WelcomeView: View {
     }
 
     private func subtitle(_ agent: LocalAgent, installed: Bool, checking: Bool, optional: Bool) -> String {
+        if settings.installing == agent { return "Installing… this takes a minute" }
         if checking { return "Checking…" }
-        if !installed { return optional ? "Optional · not found" : "Not found" }
+        if !installed, let error = settings.installErrors[agent.id] { return error }
+        if !installed { return "Not installed" }
         if signedIn(agent) { return "Found · signed in" }
-        if optional { return "Optional · not signed in" }
-        return settings.statuses[agent.id] ?? "Found · recheck sign-in"
+        // A failed check says why ("timed out"); the plain signed-out case reads the same everywhere.
+        if let status = settings.statuses[agent.id], !status.hasPrefix("Not signed in") { return status }
+        return "Installed · not signed in"
     }
 }

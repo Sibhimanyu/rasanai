@@ -186,22 +186,22 @@ struct MomentViewer: View {
                 }
             }
             if !moment.why.isEmpty {
-                Text(moment.why).font(.system(size: 12.5)).foregroundStyle(.secondary).lineSpacing(2).lineLimit(7)
+                Text(moment.why).font(.system(size: 12)).foregroundStyle(.secondary).lineSpacing(2).lineLimit(7)
                     .fixedSize(horizontal: false, vertical: true).help(moment.why)
             }
             Spacer(minLength: 12)
             VStack(alignment: .leading, spacing: 6) {
-                if moment.duration > 0 { Label(String(format: "%.1f seconds", moment.duration), systemImage: "clock").font(.system(size: 11.5)).foregroundStyle(.secondary) }
+                if moment.duration > 0 { Label(String(format: "%.1f seconds", moment.duration), systemImage: "clock").font(.system(size: 11)).foregroundStyle(.secondary) }
                 if let creator = moment.creator {
                     if let url = creator.url {
                         Button { SafeOpen.open(url) } label: {
-                            Label("By \(creator.displayName), original post", systemImage: "arrow.up.right.square").font(.system(size: 11.5))
+                            Label("By \(creator.displayName), original post", systemImage: "arrow.up.right.square").font(.system(size: 11))
                         }.buttonStyle(.link).help("Open the original post")
                     } else {
-                        Label("By \(creator.displayName)", systemImage: "person").font(.system(size: 11.5)).foregroundStyle(.secondary)
+                        Label("By \(creator.displayName)", systemImage: "person").font(.system(size: 11)).foregroundStyle(.secondary)
                     }
                 }
-                Text("Clips belong to their creators. RasanAI borrows how it moves, never the words, brand or footage.").font(.system(size: 10.5)).foregroundStyle(.tertiary)
+                Text("Clips belong to their creators. RasanAI borrows how it moves, never the words, brand or footage.").font(.system(size: 10)).foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let selection { addButton(moment, selection) }
@@ -209,7 +209,7 @@ struct MomentViewer: View {
                 Button { gallery.step(-1) } label: { Image(systemName: "chevron.left") }.help("Previous (left arrow)").accessibilityLabel("Previous move")
                 Button { gallery.step(1) } label: { Image(systemName: "chevron.right") }.help("Next (right arrow)").accessibilityLabel("Next move")
                 Spacer()
-                Text("Space plays · Esc closes").font(.system(size: 10.5)).foregroundStyle(.tertiary)
+                Text("Space plays · Esc closes").font(.system(size: 10)).foregroundStyle(.tertiary)
             }
         }
         .padding(16).frame(maxHeight: .infinity, alignment: .topLeading)
@@ -221,9 +221,10 @@ struct MomentViewer: View {
         Button {
             withAnimation(.snappy(duration: 0.2)) { _ = selection.wrappedValue.toggle(moment) }
         } label: {
-            Text(picked ? "Remove from Moves I like" : full ? "Moves I like is full (4)" : "Add to Moves I like").frame(maxWidth: .infinity)
+            Text(picked ? "Remove from your moves" : full ? "Your moves are full (4)" : "Add to your moves").frame(maxWidth: .infinity)
         }
-        .buttonStyle(.rasanPrimary).controlSize(.large).tint(picked ? .gray : Color.rasan).disabled(!picked && full)
+        // The fill is brand blue only for the action that adds; taking it back is quiet (`.tint` never reached the custom style).
+        .rasanButton(primary: !picked).controlSize(.large).disabled(!picked && full)
     }
 
     private func close() { withAnimation(.easeOut(duration: 0.15)) { gallery.closeViewer() } }
@@ -277,11 +278,11 @@ struct MomentPickerSheet: View {
                     HStack(spacing: 10) {
                         MomentStill(url: moment.stillURL, maxPixels: 160).frame(width: 64, height: 36).clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(moment.name).font(.system(size: 12.5, weight: .medium)).lineLimit(1)
+                            Text(moment.name).font(.system(size: 12, weight: .medium)).lineLimit(1)
                             Text(moment.techniques.map(\.title).joined(separator: " · ")).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
                         }
                         Spacer()
-                        if mine.contains(where: { $0.id == moment.id }) { Text("Moves I like").font(.system(size: 10.5, weight: .semibold)).foregroundStyle(Color.rasan) }
+                        if mine.contains(where: { $0.id == moment.id }) { Text("In your moves").font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.rasan) }
                     }.contentShape(Rectangle())
                 }.buttonStyle(.plain)
             }

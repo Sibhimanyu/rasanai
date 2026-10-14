@@ -341,11 +341,11 @@ struct ResearchPanel: View {
                 if findings.isEmpty {
                     PanelEmpty(symbol: "text.magnifyingglass",
                                text: payload["decision"].string == nil
-                               ? "The crew's reading appears here: what it found on the web and, with your permission, in your project."
-                               : "That is everything the crew reported for this step. The line above says what it read and what it found.")
+                               ? "The reading appears here: what was found on the web and, with your permission, in your project."
+                               : "That is everything found for this step. The line above says what it read and what it found.")
                 } else {
                     VStack(alignment: .leading, spacing: 10) {
-                        StageSectionTitle("What the crew found")
+                        StageSectionTitle("What was found")
                         VStack(spacing: 0) {
                             ForEach(Array(findings.enumerated()), id: \.offset) { index, finding in
                                 HStack(alignment: .top, spacing: 12) {
@@ -499,7 +499,7 @@ struct FootagePanel: View {
                     Text(clip["name"].string ?? id).font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.middle)
                 }
                 .toggleStyle(.checkbox).disabled(error != nil || !model.canAct(on: step))
-                Text(facts(clip)).font(.system(size: 11.5)).foregroundStyle(error == nil ? Color.secondary : Color.red).monospacedDigit()
+                Text(facts(clip)).font(.system(size: 11)).foregroundStyle(error == nil ? Color.secondary : Color.red).monospacedDigit()
                 if !transcript.isEmpty {
                     DisclosureGroup {
                         Text(transcript).font(.system(size: 12)).foregroundStyle(.secondary).textSelection(.enabled)

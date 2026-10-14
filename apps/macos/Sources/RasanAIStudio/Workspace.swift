@@ -36,7 +36,68 @@ struct WorkspacePanel: ViewModifier {
     }
 }
 
+/// A panel of frosted glass for the studio's chrome (the film inspector, action bar, status bar). The window's sidebar
+/// material blurs what is behind the window, as macOS sidebars do; on its own that takes its colour from the desktop
+/// picture, so a wallpaper that is blue on one side tinted the panel on one side only. An even wash of the RasanAI
+/// indigo, lit from the top, gives every panel the same colour on any desktop while it stays translucent.
+struct GlassPanel: ViewModifier {
+    var radius: CGFloat = Workspace.radius
+    var lightFrom: Edge?
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        content
+            .background { GlassSurface(lightFrom: lightFrom) }
+            .clipShape(shape)
+            .overlay {
+                shape.strokeBorder(LinearGradient(colors: [Color.white.opacity(0.16), Color.white.opacity(0.05)], startPoint: .top, endPoint: .bottom), lineWidth: 1)
+            }
+    }
+}
+
+/// The glass itself, without a shape: a solid panel (nothing shows through it, neither the desktop nor a tint of ours),
+/// a sheen of light along the top, and the light of the stage beside it. Its only colour is what the workspace shows.
+struct GlassSurface: View {
+    /// The side facing the stage. The stage's picture lights the glass from there (`StageLight`): a white frame
+    /// brightens it, a blue one tints it, a dark one leaves the glass as it is.
+    var lightFrom: Edge?
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.stageLight) private var stageLight
+    private var glow: StageLight.Glow? {
+        switch lightFrom { case .leading?: stageLight?.right; case .top?: stageLight?.bottom; default: nil }
+    }
+    var body: some View {
+        let dark = scheme == .dark
+        ZStack {
+            Workspace.panel
+            if let glow, let lightFrom {
+                // Strongest at the edge nearest the stage, falling off across the panel, scaled by the frame's brightness.
+                let strength = dark ? 0.08 + 0.40 * glow.brightness : 0.05 + 0.22 * glow.brightness
+                LinearGradient(stops: [.init(color: glow.color.opacity(strength), location: 0),
+                                       .init(color: glow.color.opacity(strength * 0.35), location: 0.35),
+                                       .init(color: .clear, location: 0.8)],
+                               startPoint: lightFrom == .top ? .top : .leading, endPoint: lightFrom == .top ? .bottom : .trailing)
+            }
+            LinearGradient(colors: [Color.white.opacity(dark ? 0.05 : 0.20), .clear], startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.35))
+        }
+        .animation(.easeInOut(duration: 0.6), value: glow)
+    }
+}
+
+/// An AppKit material behind SwiftUI content. Follows the window's active state, as system sidebars do.
+struct WindowMaterial: NSViewRepresentable {
+    var material: NSVisualEffectView.Material
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = .behindWindow
+        view.state = .followsWindowActiveState
+        return view
+    }
+    func updateNSView(_ view: NSVisualEffectView, context: Context) { view.material = material }
+}
+
 extension View {
+    func glassPanel(radius: CGFloat = Workspace.radius, lightFrom: Edge? = nil) -> some View { modifier(GlassPanel(radius: radius, lightFrom: lightFrom)) }
     func workspacePanel(padding: CGFloat = 0) -> some View { modifier(WorkspacePanel(padding: padding)) }
 }
 
@@ -75,6 +136,9 @@ struct FilmStepper: View {
                 }
             }
         }
+        // Framed by the toolbar's capsule: the first circle sits in the round left end, so it needs no inset; the last
+        // word is text and needs about half the capsule's height before the right end, or it runs into the curve.
+        .padding(.leading, 2).padding(.trailing, 12)
         .fixedSize()
         .animation(.snappy, value: currentIndex)
         .accessibilityElement(children: .contain)
@@ -94,17 +158,17 @@ struct FilmStepper: View {
         let looking = viewing == stage && viewing != current
         return HStack(spacing: 8) {
             ZStack {
-                if active { Circle().fill(Color.rasanFill) }
-                else { Circle().strokeBorder(next ? Color.rasan.opacity(0.7) : done ? Color.secondary.opacity(0.55) : Workspace.hairline.opacity(2.2), lineWidth: 1.2) }
+                if active { Circle().fill(Color.primary) }
+                else { Circle().strokeBorder(next ? Color.primary.opacity(0.5) : done ? Color.secondary.opacity(0.55) : Workspace.hairline.opacity(2.2), lineWidth: 1.2) }
                 if done { Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary) }
-                else { Text("\(index + 1)").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(active ? Color.white : Color.secondary) }
+                else { Text("\(index + 1)").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(active ? Color(nsColor: .windowBackgroundColor) : Color.secondary) }
             }
             .frame(width: 26, height: 26)
             Text(stage.stepTitle).font(.system(size: 13, weight: active ? .semibold : .regular))
                 .foregroundStyle(active || looking ? Color.primary : Color.secondary).fixedSize()
         }
         .padding(.horizontal, looking ? 8 : 0).padding(.vertical, looking ? 3 : 0)
-        .background(looking ? Color.rasan.opacity(0.14) : .clear, in: Capsule())
+        .background(looking ? Color.primary.opacity(0.10) : .clear, in: Capsule())
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(stage.stepTitle)\(done ? ", done" : active ? ", current" : "")")
@@ -114,7 +178,7 @@ struct FilmStepper: View {
 // MARK: Filmstrip
 
 /// The scenes as an editor's filmstrip: equal frames, a numbered pin above each, its start time below. The scene on the
-/// playhead is outlined in the tint with a filled pin; a scene with an open note carries an amber dot.
+/// playhead is outlined in the neutral highlight with a filled pin; a scene with an open note carries an amber dot.
 struct SceneFilmstrip<P: FilmPlayback>: View {
     let playback: P
     let scenes: [FilmScene]
@@ -153,9 +217,9 @@ private struct FilmstripCell: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 6) {
                 ZStack {
-                    Circle().fill(current ? Color.rasanFill : Workspace.raised)
+                    Circle().fill(current ? Color.primary : Workspace.raised)
                         .overlay { Circle().strokeBorder(current ? .clear : Workspace.hairline, lineWidth: 1) }
-                    Text("\(number)").font(.system(size: 11, weight: .bold)).foregroundStyle(current ? Color.white : Color.primary)
+                    Text("\(number)").font(.system(size: 11, weight: .bold)).foregroundStyle(current ? Color(nsColor: .windowBackgroundColor) : Color.primary)
                 }
                 .frame(width: current ? 26 : 22, height: current ? 26 : 22)
                 .frame(width: size.width, height: 26)
@@ -165,12 +229,12 @@ private struct FilmstripCell: View {
                         ZStack { Workspace.raised; Image(systemName: "photo").foregroundStyle(.tertiary) }
                     }
                     if current {
-                        GeometryReader { box in Rectangle().fill(Color.rasan).frame(width: box.size.width * progress, height: 3).frame(maxHeight: .infinity, alignment: .bottom) }
+                        GeometryReader { box in Rectangle().fill(Color.white.opacity(0.85)).frame(width: box.size.width * progress, height: 3).frame(maxHeight: .infinity, alignment: .bottom) }
                     }
                 }
                 .frame(width: size.width, height: size.height)
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .overlay { RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(current ? Color.rasan : Color.primary.opacity(hovering ? 0.3 : 0.06), lineWidth: current ? 2 : 1) }
+                .overlay { RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(current ? Color.primary : Color.primary.opacity(hovering ? 0.3 : 0.06), lineWidth: current ? 2 : 1) }
                 .overlay(alignment: .topTrailing) {
                     if hasNote { Circle().fill(Color.turmeric).frame(width: 9, height: 9).overlay { Circle().strokeBorder(.black.opacity(0.5), lineWidth: 1) }.padding(5) }
                 }

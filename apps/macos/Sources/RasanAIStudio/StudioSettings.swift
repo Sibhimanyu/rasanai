@@ -174,6 +174,59 @@ final class StudioSettings {
         let package = agent == .claude ? "@anthropic-ai/claude-code" : "@openai/codex"
         return "npm install --global --prefix \(LocalAgent.shellQuote(prefix)) \(package) && \(agent.rawValue) \(agent.loginArguments.joined(separator: " "))"
     }
+    /// The agent Studio is installing right now, if any, and why the last install of each one failed.
+    var installing: LocalAgent?
+    var installErrors: [String: String] = [:]
+
+    /// Installs an agent's CLI from inside Studio with the bundled Node's npm, into ~/.npm-global (no sudo, nothing in
+    /// the app bundle), then checks it. Signing in still needs a browser and a code, so that one step opens in Terminal.
+    /// Without a usable npm it falls back to the whole setup in Terminal.
+    func install(_ agent: LocalAgent) async {
+        guard agent != .custom, installing == nil else { return }
+        let fm = FileManager.default
+        guard let node = nodeURL else { setupInTerminal(agent); return }
+        let npm = node.deletingLastPathComponent().appendingPathComponent("npm").resolvingSymlinksInPath()
+        guard fm.fileExists(atPath: npm.path) else { setupInTerminal(agent); return }
+        installing = agent
+        installErrors[agent.id] = nil
+        defer { installing = nil }
+        let prefix = fm.homeDirectoryForCurrentUser.appendingPathComponent(".npm-global")
+        let logs = LocalAgent.managedToolsDirectory.appendingPathComponent("logs")
+        try? fm.createDirectory(at: logs, withIntermediateDirectories: true)
+        let log = logs.appendingPathComponent("install-\(agent.rawValue).log")
+        var environment = ProcessInfo.processInfo.environment
+        environment["PATH"] = ([node.deletingLastPathComponent().path] + LocalAgent.searchDirectories).joined(separator: ":")
+        environment["npm_config_update_notifier"] = "false"
+        let package = agent == .claude ? "@anthropic-ai/claude-code" : "@openai/codex"
+        let code = await Self.runLogged(node, [npm.path, "install", "--global", "--prefix", prefix.path, package, "--no-audit", "--no-fund", "--progress=false"],
+                                        environment: environment, log: log)
+        await check(agent)
+        guard code == 0, isInstalled(agent) else {
+            let tail = (try? String(contentsOf: log, encoding: .utf8))?.split(whereSeparator: \.isNewline).last { $0.contains("ERR") || $0.contains("error") }
+            let offline = tail?.contains("ENOTFOUND") == true || tail?.contains("ETIMEDOUT") == true || tail?.contains("EAI_AGAIN") == true
+            installErrors[agent.id] = offline ? "Couldn't reach the internet to download \(agent.title). Check your connection and try again."
+                : "Couldn't install \(agent.title)\(tail.map { ": " + $0.trimmingCharacters(in: .whitespaces) } ?? "."). Try again, or install in Terminal."
+            return
+        }
+        if !isReady(agent) { setupInTerminal(agent) }
+    }
+
+    /// Runs a command to the end with its output in a log file. -1 when it could not start.
+    nonisolated private static func runLogged(_ executable: URL, _ arguments: [String], environment: [String: String], log: URL) async -> Int32 {
+        await Task.detached {
+            FileManager.default.createFile(atPath: log.path, contents: nil, attributes: [.posixPermissions: 0o600])
+            guard let output = try? FileHandle(forWritingTo: log) else { return -1 }
+            defer { try? output.close() }
+            let process = Process()
+            process.executableURL = executable; process.arguments = arguments; process.environment = environment
+            process.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
+            process.standardInput = FileHandle.nullDevice; process.standardOutput = output; process.standardError = output
+            guard (try? process.run()) != nil else { return -1 }
+            process.waitUntilExit()
+            return process.terminationStatus
+        }.value
+    }
+
     /// Setup runs visibly in Terminal, only when the user presses the setup button.
     func setupInTerminal(_ agent: LocalAgent) {
         guard agent != .custom,
@@ -302,7 +355,12 @@ struct StudioSettingsView: View {
                             Button("Choose…") { settings.chooseExecutable(for: agent) }
                         }
                     }
-                    TextField("Model", text: agent == .claude ? $settings.claudeModel : $settings.codexModel, prompt: Text("Default"))
+                    if agent == .claude {
+                        // New films use the plan chosen on New film; a typed model here would silently lose to it.
+                        LabeledContent("Models") { Text("Chosen for each film in New film").foregroundStyle(.secondary) }
+                    } else {
+                        TextField("Model", text: $settings.codexModel, prompt: Text("Default"))
+                    }
                 }
                 statusLine(agent)
             } footer: {
@@ -313,7 +371,7 @@ struct StudioSettingsView: View {
                     ForEach(FilmPace.allCases) { Text($0.title).tag($0) }
                 }.pickerStyle(.segmented)
             } footer: {
-                Text("How fast the director works. \(settings.pace.summary) Each film can override this under More in New film.")
+                Text("How fast the director works. \(settings.pace.summary) You can change it for one film on the Pace button in New film.")
             }
             Section {
                 Toggle("Generate images with Codex", isOn: $settings.generateImagesWithCodex)
@@ -332,6 +390,7 @@ struct StudioSettingsView: View {
                         Text("The director can read and change files outside the film's folder. Only use this on films you trust.")
                             .font(.caption).foregroundStyle(.red)
                     }
+                    TextField("Claude model for “Same as Settings”", text: $settings.claudeModel, prompt: Text("Default"))
                     TextField("Node path", text: $settings.nodePath, prompt: Text(settings.nodeURL?.path ?? "Automatic"))
                     TextField("Custom executable", text: Binding(get: { settings.customPath }, set: { settings.setPath($0, for: .custom) }), prompt: Text("Optional"))
                 }
@@ -339,6 +398,11 @@ struct StudioSettingsView: View {
         }
         .formStyle(.grouped)
         .task(id: settings.defaultAgent) { if settings.isInstalled(agent) { await settings.check(agent) } }
+        // Back from Terminal after signing in: look again without a button press.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            guard settings.isInstalled(agent), !settings.checking.contains(agent.id) else { return }
+            Task { await settings.check(agent) }
+        }
     }
 
     @ViewBuilder private func statusLine(_ agent: LocalAgent) -> some View {
@@ -358,10 +422,17 @@ struct StudioSettingsView: View {
             if installed && !signedIn && !settings.checking.contains(agent.id) {
                 Button("Sign in…") { settings.setupInTerminal(agent) }
             }
+            if settings.installing == agent { ProgressView().controlSize(.small); Text("Installing…").foregroundStyle(.secondary) }
             Button { Task { await settings.check(agent) } } label: { Image(systemName: "arrow.clockwise") }
                 .buttonStyle(.borderless).help("Check again").disabled(settings.checking.contains(agent.id))
         }
-        if !installed { Button("Install in Terminal…") { settings.setupInTerminal(agent) } }
+        if !installed {
+            HStack {
+                Button("Install \(agent.title)") { Task { await settings.install(agent) } }.disabled(settings.installing != nil)
+                Button("Install in Terminal…") { settings.setupInTerminal(agent) }.buttonStyle(.link)
+            }
+            if let error = settings.installErrors[agent.id] { Text(error).font(.caption).foregroundStyle(.orange) }
+        }
         if installed && !signedIn, let status { Text(status).font(.caption).foregroundStyle(.secondary) }
     }
 

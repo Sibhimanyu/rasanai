@@ -2,6 +2,18 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## 0.10.0 (build 27) — 2026-10-14
+
+- **Glass that takes its light from the stage.** The inspector and the action bar glow with the edge colour and brightness of the frame beside them, live while the film plays. The glass is solid and has no tint of its own, so the desktop stays out of the text.
+- **The inspector is one sheet of glass.** Header, Notes and Decisions share one frosted surface, lit from above.
+- **Install Claude Code or Codex inside Studio.** Progress shows in the window, and Terminal opens only for sign-in. The Git notice is also on Welcome and rechecks by itself when Apple's tools arrive.
+- **A sidebar that shows where you are.** Icons say what each place holds, Queue sits in the one group after Needs review, and recent films are listed with a mark for their state. Navigation never bounces you Home.
+- **Suggested titles follow the brief.** The title is cleared with the brief and made again when it changes, and never replaces a name you typed.
+- **A steadier opening.** The splash frosts the whole window, leaves after its hold even if the library loaded during it, and never stays past 6 seconds.
+- **The film page says what is running.** It names the running agent, Resume is the main button when paused, and review notes can be skipped before Apply. Building, rendering or restoring without them asks first.
+- **Plainer words and smaller fixes.** New film puts the prompt first and says why Start is grey. Pace, Models and the story, look and build steps use plain words. Clicking a film card opens it again, and the help popover and step bar sit properly.
+
+
 ## 0.9.0 (build 26) — 2026-10-13
 
 - **Liquid Glass, built for real.** Studio is now built against the current macOS SDK, so macOS Tahoe draws its glass chrome itself instead of an imitation.

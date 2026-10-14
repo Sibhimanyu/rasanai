@@ -39,23 +39,23 @@ private struct SwatchStrip: View {
 
 struct BrandsView: View {
     @Bindable var store: StudioStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var brands: [Brand] = []
     @State private var showNew = false
     private var root: URL { URL(fileURLWithPath: store.settings.projectRoot, isDirectory: true) }
     private let columns = [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 18)]
 
     var body: some View {
-        Group {
-            if brands.isEmpty { empty } else { grid }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                PageTitle(text: "Brands")
+                if brands.isEmpty { empty } else { grid }
+            }
+            .pageColumn()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.appBackground)
         .navigationTitle("Brands")
         .pageHeader("Brands") {
-            HelpButton(title: "Brands", lines: [
-                "A brand keeps your colours, type and logo in one folder.",
-                "Pick a brand when you start a film and RasanAI designs in your look.",
-                "Each brand is a plain DESIGN.md file you can edit anywhere."])
             Button { showNew = true } label: { Label("New brand", systemImage: "plus") }.help("New brand")
         }
         .sheet(isPresented: $showNew) {
@@ -67,7 +67,7 @@ struct BrandsView: View {
         .onAppear(perform: reload)
     }
 
-    private func reload() { withAnimation(.snappy) { brands = BrandLibrary.list(in: root) } }
+    private func reload() { withAnimation(reduceMotion ? nil : .snappy) { brands = BrandLibrary.list(in: root) } }
 
     private var empty: some View {
         VStack(spacing: 14) {
@@ -76,20 +76,14 @@ struct BrandsView: View {
                 .font(.system(size: 15)).multilineTextAlignment(.center).frame(maxWidth: 340)
             Button("New brand") { showNew = true }
                 .buttonStyle(.rasanPrimary).controlSize(.large).padding(.top, 4)
-        }.padding(32)
+        }.frame(maxWidth: .infinity, minHeight: 320)
     }
 
     private var grid: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Brands").font(.system(size: 22, weight: .semibold))
-                LazyVGrid(columns: columns, spacing: 18) {
-                    ForEach(brands) { brand in
-                        BrandCard(brand: brand) { store.path.append(.brand(brand.folder)) }
-                    }
-                    NewBrandCard { showNew = true }
-                }
-            }.padding(28)
+        LazyVGrid(columns: columns, spacing: 18) {
+            ForEach(brands) { brand in
+                BrandCard(brand: brand) { store.path.append(.brand(brand.folder)) }
+            }
         }
     }
 }
@@ -97,6 +91,7 @@ struct BrandsView: View {
 private struct BrandCard: View {
     let brand: Brand
     let open: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hover = false
     var body: some View {
         Button(action: open) {
@@ -116,43 +111,16 @@ private struct BrandCard: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading).padding(14)
             }
-            .background(Color(nsColor: .controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(hover ? Color.accentColor.opacity(0.5) : Color(nsColor: .separatorColor)))
-            // The shadow is the card's shape only, and nothing moves: shadowing or lifting the text flickers it.
-            .background { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(nsColor: .controlBackgroundColor)).shadow(color: .black.opacity(hover ? 0.12 : 0), radius: 10, y: 4) }
+            .workspacePanel()
+            // Hover is a neutral edge, not the accent; nothing moves, since lifting or shadowing the text flickers it.
+            .overlay { RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous).strokeBorder(Color.primary.opacity(0.22), lineWidth: 1).opacity(hover ? 1 : 0) }
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
-        .animation(.snappy(duration: 0.18), value: hover)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.18), value: hover)
         .contextMenu {
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([brand.folder]) }
         }
-    }
-}
-
-private struct NewBrandCard: View {
-    let action: () -> Void
-    @State private var hover = false
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                Image(systemName: "plus").font(.system(size: 18, weight: .medium))
-                    .frame(width: 40, height: 40)
-                    .background(Color.accentColor.opacity(0.12), in: Circle())
-                    .foregroundStyle(.tint)
-                Text("New brand").font(.system(size: 13, weight: .medium))
-            }
-            .frame(maxWidth: .infinity, minHeight: 144)
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(hover ? Color.accentColor.opacity(0.6) : Color(nsColor: .separatorColor),
-                              style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { hover = $0 }
-        .animation(.snappy(duration: 0.18), value: hover)
     }
 }
 
@@ -161,6 +129,7 @@ private struct NewBrandCard: View {
 struct NewBrandSheet: View {
     let root: URL
     var onCreate: (Brand) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var designURL: URL?
@@ -216,19 +185,18 @@ struct NewBrandSheet: View {
         }
         .padding(24).frame(width: 440)
         .onAppear { focused = true }
-        .animation(.snappy, value: designURL)
+        .animation(reduceMotion ? nil : .snappy, value: designURL)
     }
 
     private func choice(_ title: String, _ symbol: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(title, systemImage: symbol).lineLimit(1).font(.system(size: 12, weight: .medium))
                 .frame(maxWidth: .infinity).padding(.vertical, 10)
-                .background(selected ? Color.accentColor.opacity(0.14) : Color(nsColor: .controlBackgroundColor),
+                .background(selected ? Color.primary.opacity(0.12) : Color(nsColor: .controlBackgroundColor),
                             in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(selected ? Color.accentColor : Color(nsColor: .separatorColor)))
-                .foregroundStyle(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
-        }.buttonStyle(.plain)
+                    .strokeBorder(selected ? Color.primary.opacity(0.5) : Color(nsColor: .separatorColor)))
+        }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func suggested(_ url: URL) -> String {
@@ -282,26 +250,22 @@ struct BrandPage: View {
         .sheet(isPresented: $showEditor) {
             if let model { BrandEditorSheet(brand: model, design: text) { reload() } }
         }
-        .pageHeader(model?.name ?? "Brand", onBack: { store.path = [.brands] }) {
-            HelpButton(title: "This brand", lines: [
-                "These swatches and fonts are read from the brand's DESIGN.md.",
-                "Choose Edit brand to change colours, fonts and logo, with a live preview.",
-                "Deleting a brand moves its folder to the Trash. Existing films keep their copy."])
+        .pageHeader(model?.name ?? "Brand") {
+            Button { reload(); showEditor = true } label: { Label("Edit Brand…", systemImage: "pencil") }.help("Edit colours, fonts and logo")
             Menu {
-                Button("Edit Brand…") { reload(); showEditor = true }
                 Button("Edit in TextEdit") { edit() }
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([brand]) }
                 Divider()
                 Button("Delete Brand…", role: .destructive) { confirmDelete = true }
             } label: { Label("More", systemImage: "ellipsis") }
-                .menuIndicator(.hidden).tint(.primary)   // a toolbar tool, white like its neighbours, not the brand tint
+                .menuIndicator(.hidden).help("More").tint(.primary)   // a toolbar tool, white like its neighbours, not the brand tint
         }
         .confirmationDialog("Move \(model?.name ?? "this brand") to the Trash?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Move to Trash", role: .destructive) {
                 if let model { do { try BrandLibrary.delete(model); store.path.removeLast() } catch { self.error = error.localizedDescription } }
             }
         } message: { Text("Films that already use it keep their own copy.") }
-        .alert("Brand", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
+        .alert("Couldn’t move the brand to the Trash", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
             Button("OK") { error = nil }
         } message: { Text(error ?? "") }
     }
@@ -327,14 +291,10 @@ struct BrandPage: View {
                             .padding(8).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color(nsColor: .separatorColor)))
                     }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(b.name).font(.system(size: 22, weight: .semibold))
-                        if !b.fonts.isEmpty {
-                            Text(b.fonts.joined(separator: " · ")).font(.system(size: 13)).foregroundStyle(.secondary)
-                        }
+                    if !b.fonts.isEmpty {
+                        Text(b.fonts.joined(separator: " · ")).font(.system(size: 13)).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button("Edit brand…") { reload(); showEditor = true }.buttonStyle(.rasanPrimary)
                 }
 
                 if !b.colors.isEmpty {
@@ -346,28 +306,29 @@ struct BrandPage: View {
                                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color(nsColor: .separatorColor)))
                                 Text(hex).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
                             }
+                            .contentShape(Rectangle())
                             .onTapGesture {
                                 NSPasteboard.general.clearContents(); NSPasteboard.general.setString(hex, forType: .string)
+                                store.announce("Copied \(hex)")
                             }
                             .help("Click to copy \(hex)")
+                            .accessibilityElement(children: .combine).accessibilityLabel("Colour \(hex)").accessibilityHint("Copies the colour")
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityAction(.default) {
+                                NSPasteboard.general.clearContents(); NSPasteboard.general.setString(hex, forType: .string)
+                                store.announce("Copied \(hex)")
+                            }
                         }
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text("DESIGN.md").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
-                        Spacer()
-                        Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([b.designFile]) }
-                            .buttonStyle(.link).font(.system(size: 11))
-                    }
+                    Text("DESIGN.md").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
                     MarkdownText(text: text)
-                        .padding(18).frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color(nsColor: .separatorColor)))
+                        .frame(maxWidth: .infinity, alignment: .leading).workspacePanel(padding: 18)
                 }
             }
-            .padding(28).frame(maxWidth: 760).frame(maxWidth: .infinity)
+            .pageColumn()
         }
     }
 }
@@ -392,7 +353,7 @@ private struct MarkdownText: View {
                 .padding(.top, level <= 2 ? 8 : 2)
         } else if line.hasPrefix("- ") || line.hasPrefix("* ") {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("•").foregroundStyle(.secondary)
+                Text("â¢").foregroundStyle(.secondary)
                 Text(inline(line.dropFirst(2))).font(.system(size: 13))
             }
         } else if line.hasPrefix("```") || line.hasPrefix("---") { EmptyView() }

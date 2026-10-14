@@ -41,7 +41,7 @@ struct StyleframesStage: View {
                 let rest = frames.filter { !data.heroes.contains($0.id) }
                 if !heroes.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
-                        StageSectionTitle("The heroes")
+                        StageSectionTitle("Key frames")
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 460, maximum: 800), spacing: 20, alignment: .top)], alignment: .leading, spacing: 22) {
                             ForEach(heroes) { tile($0, number: number(of: $0, in: frames), large: true) }
                         }
@@ -49,7 +49,7 @@ struct StyleframesStage: View {
                 }
                 if !rest.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
-                        if !heroes.isEmpty { StageSectionTitle("Every beat") }
+                        if !heroes.isEmpty { StageSectionTitle("Other frames") }
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 340, maximum: 560), spacing: 20, alignment: .top)], alignment: .leading, spacing: 22) {
                             ForEach(rest) { tile($0, number: number(of: $0, in: frames), large: false) }
                         }
@@ -89,7 +89,7 @@ struct StyleframesStage: View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(review.counter(frames: data.frames.count)).font(.system(size: 13, weight: .semibold))
             if data.belowCount > 0 {
-                Label("\(data.belowCount) below the reference", systemImage: "exclamationmark.circle")
+                Label("\(data.belowCount) not as good as their reference", systemImage: "exclamationmark.circle")
                     .font(.system(size: 12)).foregroundStyle(Color(nsColor: .systemOrange))
             }
             if data.hasReferences {
@@ -127,7 +127,7 @@ struct StyleframesStage: View {
                     VStack(alignment: .leading, spacing: 4) {
                         image(ref.image, ratio: aspect, radius: 7, maxPixels: 700)
                         Text("Reference").font(.system(size: 10, weight: .semibold)).tracking(0.4).foregroundStyle(.secondary).textCase(.uppercase)
-                        if let source = ref.source { Text(source).font(.system(size: 10.5)).foregroundStyle(.tertiary).lineLimit(2) }
+                        if let source = ref.source { Text(source).font(.system(size: 10)).foregroundStyle(.tertiary).lineLimit(2) }
                     }
                     .frame(width: large ? 170 : 112)
                     .help(ref.why ?? "The reference still this frame is judged against.")
@@ -136,7 +136,7 @@ struct StyleframesStage: View {
                 }
             }
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(frame.title).font(.system(size: 13.5, weight: .semibold)).lineLimit(2)
+                Text(frame.title).font(.system(size: 13, weight: .semibold)).lineLimit(2)
                 if let verdict = frame.verdict { verdictBadge(verdict) }
                 Spacer(minLength: 0)
             }
@@ -147,22 +147,16 @@ struct StyleframesStage: View {
                 Text(caption).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             if let why = frame.ref?.why, !why.isEmpty {
-                Text(why).font(.system(size: 11.5)).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
+                Text(why).font(.system(size: 11)).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
             }
             momentRow(frame)
             HStack(spacing: 8) {
-                Button { toggleRedo(frame.id) } label: {
-                    Label(marked ? "Redo" : "Keep", systemImage: marked ? "arrow.triangle.2.circlepath" : "checkmark")
-                        .font(.system(size: 12, weight: .medium))
-                        .padding(.horizontal, 10).padding(.vertical, 5)
-                        .background(marked ? Color.rasan.opacity(0.18) : Color(nsColor: .quaternaryLabelColor).opacity(0.22), in: Capsule())
-                        .foregroundStyle(marked ? Color.rasan : Color.primary)
-                }
-                .buttonStyle(.plain).disabled(!canAct)
-                .help(marked ? "This frame will be redrawn. Click to keep it." : "Click to mark this frame for a redo.")
-                .accessibilityLabel(marked ? "Marked for redo. Keep instead" : "Kept. Mark for redo")
+                // A checkbox states a per-frame mark; the old Keep/Redo button showed the state but its click did the opposite.
+                Toggle("Redo this frame", isOn: Binding(get: { marked }, set: { _ in toggleRedo(frame.id) }))
+                    .toggleStyle(.checkbox).font(.system(size: 12, weight: .medium)).disabled(!canAct)
+                    .help(marked ? "This frame will be redrawn. Untick to keep it." : "Tick to have this frame redrawn.")
                 TextField("Comment", text: Binding(get: { review.comments[frame.id] ?? "" }, set: { review.comments[frame.id] = $0 }))
-                    .textFieldStyle(.plain).font(.system(size: 12.5)).disabled(!canAct)
+                    .textFieldStyle(.plain).font(.system(size: 12)).disabled(!canAct)
                     .padding(.horizontal, 9).padding(.vertical, 5)
                     .background(Color(nsColor: .textBackgroundColor).opacity(0.7), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                     .overlay { RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
@@ -194,14 +188,14 @@ struct StyleframesStage: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(moment.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
                                 if let why = moment.why, !why.isEmpty { Text(why).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(2).multilineTextAlignment(.leading) }
-                                if let credit = moment.credit, !credit.isEmpty { Text(credit).font(.system(size: 10.5)).foregroundStyle(.tertiary).lineLimit(1) }
+                                if let credit = moment.credit, !credit.isEmpty { Text(credit).font(.system(size: 10)).foregroundStyle(.tertiary).lineLimit(1) }
                             }
                         }
                     }
                     .buttonStyle(.plain).help(known != nil ? "Watch this move, with sound" : moment.why ?? moment.name)
                     .accessibilityLabel("Move on this frame: \(moment.name)")
                 } else {
-                    Text("No move on this frame").font(.system(size: 11.5)).foregroundStyle(.tertiary)
+                    Text("No move on this frame").font(.system(size: 11)).foregroundStyle(.tertiary)
                 }
                 Spacer(minLength: 0)
                 if store != nil { swapMenu(frame) }
@@ -214,24 +208,24 @@ struct StyleframesStage: View {
             if let store {
                 let mine = store.inspirePicks.picks.compactMap { store.gallery.moment($0.id) }.filter { $0.id != frame.moment?.id }
                 if !mine.isEmpty {
-                    Section("Moves I like") { ForEach(mine) { moment in Button(moment.name) { swap(frame: frame.id, to: moment.id) } } }
+                    Section("Your moves") { ForEach(mine) { moment in Button(moment.name) { swap(frame: frame.id, to: moment.id) } } }
                 }
                 Button("Choose from the gallery…") { swapping = frame.id }
                 if frame.moment != nil { Divider(); Button("None") { swap(frame: frame.id, to: nil) } }
             }
-        } label: { Label("Swap", systemImage: "arrow.left.arrow.right").font(.system(size: 11.5, weight: .medium)) }
+        } label: { Label("Swap", systemImage: "arrow.left.arrow.right").font(.system(size: 11, weight: .medium)) }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().disabled(!canAct)
-        .foregroundStyle(Color.rasan).help("Put a different move on this frame, or none")
+        .foregroundStyle(.secondary).help("Put a different move on this frame, or none")
     }
 
     private func unplacedList(_ items: [UnplacedMoment]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            StageSectionTitle("Unplaced")
+            StageSectionTitle("Not used yet")
             Text("These moves did not fit any frame. Swap one onto a frame above if you want it used.").font(.system(size: 12)).foregroundStyle(.secondary)
             ForEach(items) { item in
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(item.name).font(.system(size: 12, weight: .semibold))
-                    if let why = item.why, !why.isEmpty { Text(why).font(.system(size: 11.5)).foregroundStyle(.secondary) }
+                    if let why = item.why, !why.isEmpty { Text(why).font(.system(size: 11)).foregroundStyle(.secondary) }
                 }
             }
         }
@@ -265,7 +259,7 @@ struct StyleframesStage: View {
         case .close: Color(nsColor: .systemOrange)
         case .below: Color(nsColor: .systemRed)
         }
-        return Text(verdict.title).font(.system(size: 10.5, weight: .semibold)).foregroundStyle(tint)
+        return Text(verdict.title).font(.system(size: 10, weight: .semibold)).foregroundStyle(tint)
             .padding(.horizontal, 7).padding(.vertical, 2).background(tint.opacity(0.14), in: Capsule())
             .accessibilityLabel("Against the reference: \(verdict.title)")
     }

@@ -84,6 +84,7 @@ extension DirectorMonitor {
 
 struct DirectorMonitorPanel: View {
     var monitor: DirectorMonitor
+    @Environment(\.agentName) private var agent
     /// The film's phases, for the per-phase cost table. `nil` hides the table.
     var progress: FilmProgressSnapshot?
     var dismiss: () -> Void = {}
@@ -129,7 +130,7 @@ struct DirectorMonitorPanel: View {
                 Spacer()
                 Text("\(UsageFormat.span(monitor.telemetry.elapsed(now: now))) elapsed").font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit()
             }
-            Text(detailText(health, now: now)).font(.system(size: 12.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text(detailText(health, now: now)).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
     }
@@ -149,12 +150,12 @@ struct DirectorMonitorPanel: View {
         VStack(alignment: .leading, spacing: 10) {
             Label("This may be stuck in a loop", systemImage: "exclamationmark.triangle.fill")
                 .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(nsColor: .systemRed))
-            Text(health.loopReason ?? health.detail).font(.system(size: 12.5)).fixedSize(horizontal: false, vertical: true)
+            Text(health.loopReason ?? health.detail).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
             Text("If it is, it is spending tokens without making progress. Stopping keeps your files; you can resume later.")
-                .font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             HStack {
-                Button("Stop director", role: .destructive) { monitor.actions.pause(); dismiss() }
-                Button("Tell Claude…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
+                Button("Pause") { monitor.actions.pause(); dismiss() }
+                Button("Message \(agent)…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
                 Spacer()
             }.controlSize(.regular)
         }
@@ -167,9 +168,9 @@ struct DirectorMonitorPanel: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Over your \(UsageFormat.dollars(limit)) budget", systemImage: "dollarsign.circle.fill")
                 .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(nsColor: .systemOrange))
-            Text("This film has used about \(UsageFormat.dollars(monitor.telemetry.cost.usd)) so far.").font(.system(size: 12.5))
+            Text("This film has used about \(UsageFormat.dollars(monitor.telemetry.cost.usd)) so far.").font(.system(size: 12))
             HStack {
-                Button("Pause director") { monitor.actions.pause(); dismiss() }
+                Button("Pause") { monitor.actions.pause(); dismiss() }
                 Button("Keep going") { monitor.dismissBudgetWarning() }
                 Spacer()
             }
@@ -284,8 +285,8 @@ struct DirectorMonitorPanel: View {
             Button { monitor.actions.showLog(); dismiss() } label: { Label("Show log", systemImage: "text.alignleft") }
             Spacer()
             if monitor.isLive {
-                Button { monitor.actions.pause(); dismiss() } label: { Label("Pause director", systemImage: "pause.fill") }
-                    .help("Stops the director safely. Your files are kept and you can resume.")
+                Button { monitor.actions.pause(); dismiss() } label: { Label("Pause", systemImage: "pause.fill") }
+                    .help("Pause (⌘.). Your files are kept and you can resume.")
             }
         }
         .controlSize(.regular).padding(.horizontal, 16).padding(.vertical, 10)
@@ -307,7 +308,7 @@ struct MonitorBudgetBanner: View {
                         .font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Pause director") { store.pauseDirector() }.disabled(!store.runtime.isRunning)
+                Button("Pause") { store.pauseDirector() }.disabled(!store.runtime.isRunning)
                 Button("Keep going") { monitor.dismissBudgetWarning() }
             }
             .padding(.horizontal, 16).padding(.vertical, 10)
@@ -351,26 +352,6 @@ struct QueueUsageLine: View {
                     Spacer(minLength: 0)
                 }
             }
-        }
-    }
-}
-
-struct QueueTotalsFooter: View {
-    var monitor: DirectorMonitor
-    var body: some View {
-        if let totals = monitor.sessionTotals {
-            HStack(spacing: 6) {
-                Image(systemName: "sum").font(.system(size: 11)).foregroundStyle(.secondary)
-                Text("This session")
-                    .font(.system(size: 12, weight: .semibold))
-                Text("\(totals.films) film\(totals.films == 1 ? "" : "s") · \(UsageFormat.tokens(totals.tokens)) tokens"
-                     + (totals.plan ? "" : " · \(UsageFormat.dollars(totals.usd))\(totals.estimated ? " est." : "")"))
-                    .font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit()
-                Spacer()
-            }
-            .padding(.horizontal, 32).padding(.vertical, 12)
-            .background(.bar)
-            .overlay(alignment: .top) { Divider() }
         }
     }
 }
@@ -432,14 +413,14 @@ struct PhaseCostTable: View {
                         let weight = snapshot.isIncludedInPlan ? Double(row.tokens.fresh) : row.costUSD
                         HStack(spacing: 10) {
                             Image(systemName: row.phase.symbolName).font(.system(size: 11)).foregroundStyle(row.state == .active ? Color.rasan : Color.secondary).frame(width: 16)
-                            Text(row.phase.title).font(.system(size: 12.5, weight: row.state == .active ? .semibold : .regular)).frame(width: 66, alignment: .leading)
+                            Text(row.phase.title).font(.system(size: 12, weight: row.state == .active ? .semibold : .regular)).frame(width: 66, alignment: .leading)
                             GeometryReader { proxy in
                                 Capsule().fill(Color.rasan.opacity(0.55)).frame(width: max(2, proxy.size.width * weight / top))
                                     .frame(maxHeight: .infinity, alignment: .center).frame(height: 5)
                                     .frame(maxHeight: .infinity)
                             }
                             .frame(height: 14)
-                            Text(FilmProgressFormat.duration(row.workSeconds(now: now))).font(.system(size: 11.5)).foregroundStyle(.secondary).monospacedDigit().frame(width: 52, alignment: .trailing)
+                            Text(FilmProgressFormat.duration(row.workSeconds(now: now))).font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit().frame(width: 52, alignment: .trailing)
                             Text(row.costText ?? "–").font(.system(size: 12, weight: .medium)).monospacedDigit().frame(width: 74, alignment: .trailing)
                         }
                         .padding(.vertical, 5)
@@ -449,11 +430,11 @@ struct PhaseCostTable: View {
                     }
                     Divider().padding(.top, 2)
                     HStack {
-                        Text("Total").font(.system(size: 12.5, weight: .semibold))
+                        Text("Total").font(.system(size: 12, weight: .semibold))
                         Spacer()
                         Text(snapshot.isIncludedInPlan ? FilmProgressFormat.tokens(snapshot.totalTokens.fresh)
                              : (snapshot.costIsEstimated ? "est. " : "") + UsageFormat.dollars(snapshot.totalCostUSD))
-                            .font(.system(size: 12.5, weight: .semibold)).monospacedDigit()
+                            .font(.system(size: 12, weight: .semibold)).monospacedDigit()
                     }
                     .padding(.top, 6)
                 }

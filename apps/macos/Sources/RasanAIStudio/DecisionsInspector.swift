@@ -2,16 +2,17 @@ import StudioCore
 import SwiftUI
 
 /// Every decided step: Claude's craft calls with their reasons and the person's picks, each changeable by telling
-/// Claude. The inspector's Decisions tab (toolbar toggle or ⌥⌘D), with the details log. The conversation is the Notes tab.
+/// Claude. The inspector's Decisions tab (toolbar toggle or ⌥⌘I), with the details log. The conversation is the Notes tab.
 struct DecisionsInspector: View {
     let model: FilmSessionModel
+    @Environment(\.agentName) private var agent
 
     var body: some View {
         let decisions = model.decisions
         List {
-            Section("Decisions") {
+            Section("Made so far") {
                 if decisions.isEmpty {
-                    Text("Every choice, yours and Claude's, collects here. Change any of them by telling Claude.")
+                    Text("Every choice, yours and \(agent)'s, collects here. Change any of them by messaging \(agent).")
                         .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                         .listRowSeparator(.hidden)
                 }
@@ -32,12 +33,14 @@ struct DecisionsInspector: View {
             }
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)   // the inspector's glass shows through, the same as under Notes
         .accessibilityLabel("Decisions")
     }
 }
 
 private struct DecisionRowView: View {
     let model: FilmSessionModel
+    @Environment(\.agentName) private var agent
     let row: DecisionRow
     @State private var hovering = false
     var body: some View {
@@ -45,13 +48,13 @@ private struct DecisionRowView: View {
             HStack(spacing: 6) {
                 Text(row.label.uppercased()).font(.system(size: 10, weight: .semibold)).tracking(0.5).foregroundStyle(.secondary)
                 Spacer()
-                Text(row.byUser ? "You" : "Claude")
+                Text(row.byUser ? "You" : agent)
                     .font(.system(size: 10, weight: .semibold))
                     .padding(.horizontal, 7).padding(.vertical, 2)
                     .background((row.byUser ? Color.rasan : Color.secondary).opacity(0.15), in: Capsule())
                     .foregroundStyle(row.byUser ? Color.rasan : Color.secondary)
             }
-            Text(row.decision).font(.system(size: 12.5)).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+            Text(row.decision).font(.system(size: 12)).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
             Button("Change…") { model.beginTell(step: row.step, prefill: "Change the \(row.label.lowercased()): ") }
                 .buttonStyle(.link).font(.system(size: 11)).opacity(hovering ? 1 : 0.75)
                 .accessibilityLabel("Change \(row.label)")

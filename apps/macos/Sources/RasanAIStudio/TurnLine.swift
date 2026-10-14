@@ -23,18 +23,18 @@ enum TurnState: Equatable {
 
 extension TurnState {
     /// The one line that says whose move it is. The status bar and `TurnLine` both read it, so the wording lives here.
-    var headline: String {
+    func headline(agent: String = "Claude") -> String {
         switch self {
         case .yourTurn(let what, _): "Your turn · \(what)"
-        case .working(let activity, _, _): "Claude is working · \(activity)"
+        case .working(let activity, _, _): "\(agent) is working · \(activity)"
         case .paused: "Paused · your files are kept. Resume when you're ready."
         case .attention(let text): text
         }
     }
     /// What goes with the headline: what Claude does meanwhile (your turn), or the next call (working).
-    var secondary: String? {
+    func secondary(agent: String = "Claude") -> String? {
         switch self {
-        case .yourTurn(_, let background): background.map { "Claude is \(TurnState.sentenceCase($0)) meanwhile. You don't need to wait." }
+        case .yourTurn(_, let background): background.map { "\(agent) is \(TurnState.sentenceCase($0)) meanwhile. You don't need to wait." }
         case .working(_, _, let next): next.map(TurnState.sentenceCaseFirst)
         default: nil
         }
@@ -54,7 +54,7 @@ extension StudioStore {
             // "Ready for you: the animatic" is the director's last push, stale once you've answered: never show it as work.
             let activity = snapshot.latestActivity.flatMap { $0.hasPrefix("Ready for you") ? nil : $0 }
             let reading = snapshot.workingMessage == SessionOverlay.readingMessage ? snapshot.workingMessage : nil
-            return .working(reading ?? activity ?? snapshot.workingMessage ?? "Your director is working on the film.", since: runtime.startedAt,
+            return .working(reading ?? activity ?? snapshot.workingMessage ?? "\(settings.agent.shortName) is working on your film.", since: runtime.startedAt,
                             next: NextNeeded.line(snapshot, pace: settings.pace))
         case .paused: return .paused
         case .needsAttention: return .attention("The last session stopped unexpectedly. The log shows why.")
@@ -67,6 +67,7 @@ extension StudioStore {
 /// your turn, what it does meanwhile), paused, or needs attention. The usage pill and the action bar never repeat it.
 struct TurnLine: View {
     let state: TurnState
+    @Environment(\.agentName) private var agent
     var onDetails: (() -> Void)?
     var onPause: (() -> Void)?
     var onResume: (() -> Void)?
@@ -84,7 +85,7 @@ struct TurnLine: View {
 
     private var tint: Color {
         switch state {
-        case .yourTurn: Color.rasan.opacity(0.10)
+        case .yourTurn: Color(nsColor: .systemOrange).opacity(0.10)
         case .attention: Color(nsColor: .systemRed).opacity(0.10)
         default: .clear
         }
@@ -95,13 +96,13 @@ struct TurnLine: View {
         case .yourTurn:
             Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 4) {
                 GridRow {
-                    Image(systemName: "hand.raised.fill").foregroundStyle(Color.rasan).frame(width: 16)
-                    Text(state.headline).font(.system(size: 12.5, weight: .semibold))
+                    Image(systemName: "hand.raised.fill").foregroundStyle(Color(nsColor: .systemOrange)).frame(width: 16)
+                    Text(state.headline(agent: agent)).font(.system(size: 12, weight: .semibold))
                 }
-                if state.secondary != nil {
+                if state.secondary(agent: agent) != nil {
                     GridRow {
                         ProgressView().controlSize(.mini).frame(width: 16)
-                        Text(state.secondary ?? "")
+                        Text(state.secondary(agent: agent) ?? "")
                             .font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
                     }
                 }
@@ -112,8 +113,8 @@ struct TurnLine: View {
                 HStack(spacing: 10) {
                     ProgressView().controlSize(.small)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(state.headline).font(.system(size: 12.5, weight: .medium)).lineLimit(2).textSelection(.enabled)
-                        if let next = state.secondary { Text(next).font(.system(size: 12)).foregroundStyle(Color.rasan) }
+                        Text(state.headline(agent: agent)).font(.system(size: 12, weight: .medium)).lineLimit(2).textSelection(.enabled)
+                        if let next = state.secondary(agent: agent) { Text(next).font(.system(size: 12)).foregroundStyle(Color.rasan) }
                         if quiet {
                             Text("No new activity for two minutes. Check the log, or pause and resume if needed.")
                                 .font(.system(size: 11)).foregroundStyle(.secondary)
@@ -128,14 +129,14 @@ struct TurnLine: View {
         case .paused:
             HStack(spacing: 10) {
                 Image(systemName: "pause.circle.fill").foregroundStyle(.secondary).frame(width: 16)
-                Text(state.headline).font(.system(size: 12.5, weight: .medium))
+                Text(state.headline(agent: agent)).font(.system(size: 12, weight: .medium))
                 Spacer(minLength: 8)
                 if let onResume { Button("Resume", action: onResume) }
             }
         case .attention(let text):
             HStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color(nsColor: .systemRed)).frame(width: 16)
-                Text(text).font(.system(size: 12.5, weight: .medium)).lineLimit(2)
+                Text(text).font(.system(size: 12, weight: .medium)).lineLimit(2)
                 Spacer(minLength: 8)
                 if let onDetails { Button("Show log", action: onDetails) }
                 if let onResume { Button("Resume", action: onResume) }

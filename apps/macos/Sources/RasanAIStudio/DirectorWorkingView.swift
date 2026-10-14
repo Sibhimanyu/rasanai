@@ -9,6 +9,7 @@ struct DirectorWorkingView: View {
     /// The director is stopped: say where it stopped, and show nothing that moves.
     var paused = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.agentName) private var agent
 
     private var headline: String {
         let doing = model.workingMessage ?? model.activity.first?.message ?? "Getting started…"
@@ -27,10 +28,10 @@ struct DirectorWorkingView: View {
                         .contentTransition(.opacity).animation(.smooth, value: headline)
                         .accessibilityAddTraits(.isHeader)
                     if paused {
-                        Label("Nothing is running. Your files are kept.", systemImage: "pause.circle").font(.system(size: 13)).foregroundStyle(.secondary)
+                        Label("Paused. Your files are kept. Press Resume to carry on.", systemImage: "pause.circle").font(.system(size: 13)).foregroundStyle(.secondary)
                     } else {
                         ProgressView().progressViewStyle(.linear).tint(.rasan).frame(maxWidth: 260)
-                            .accessibilityLabel("Claude is working")
+                            .accessibilityLabel("\(agent) is working")
                     }
                 }
                 if brief["fields"]["subject"].string != nil { briefCard }
