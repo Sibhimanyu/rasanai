@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import StudioCore
 import Heresay
@@ -177,19 +178,15 @@ func errorNeedsSettings(_ message: String?) -> Bool {
     return ["director", "executable", "node", "sign in", "signed in", "sign-in", "log in", "login", "library", "project folder", "claude", "codex"].contains { text.contains($0) }
 }
 
-/// The launch: the window opens on a splash, the RasanAI mark drawing itself over the frosted library, then the name.
-/// It holds long enough to be seen (about 1.8 s, longer if the library is still loading), then the mark lifts away
-/// and the library comes into focus under it. Reduce Motion fades the mark in and out instead of drawing it.
+/// The launch: the window opens on a splash, the RasanAI mark drawing itself over the frosted window, then the name.
+/// It holds long enough to be seen (about 1.8 s, longer if the library is still loading, never past 6 s), then the
+/// mark lifts away and the library comes into focus. Reduce Motion fades the mark in and out instead of drawing it.
 private struct LaunchFocus: ViewModifier {
     let ready: Bool
     /// The director's own name ("Claude", "Codex"), as Settings has it.
     let agent: String
     @State private var focused = false
-    @State private var drawn: CGFloat = 0
-    @State private var filled = false
-    @State private var named = false
     @State private var held = false
-    @State private var leaving = false
     /// `ready` as state. The hold timer's closure keeps the `ready` of the moment it was scheduled, so a library that
     /// finished loading during the hold read as still loading and the splash never left; state is always current.
     @State private var loaded = false
@@ -200,19 +197,36 @@ private struct LaunchFocus: ViewModifier {
             .blur(radius: focused ? 0 : 30)
             .brightness(focused ? 0 : -0.12)
             .allowsHitTesting(focused)
-            .overlay {
-                if !focused || leaving {
-                    splash
-                        .scaleEffect(leaving && !reduceMotion ? 1.06 : 1)
-                        .opacity(leaving ? 0 : 1)
-                        .allowsHitTesting(false)
-                }
-            }
-            .onAppear { loaded = ready; play() }
+            .background(WindowSplashCover(active: !focused, fade: reduceMotion ? 0.2 : 0.45) {
+                SplashMark(agent: agent, waiting: held && !loaded)
+            })
+            .onAppear { loaded = ready; hold() }
             .onChange(of: ready) { loaded = ready; revealIfDone() }
     }
 
-    private var splash: some View {
+    private func hold() {
+        // Reduce Motion holds the mark for 0.8 s, not 1.8; input waits only for the hold and the library loading.
+        DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0.8 : 1.8)) { held = true; revealIfDone() }
+        // Never more than 6 s: a library that is slow to load keeps loading behind the window, not behind the splash.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { loaded = true; revealIfDone() }
+    }
+
+    private func revealIfDone() {
+        guard held, loaded, !focused else { return }
+        withAnimation(.easeOut(duration: reduceMotion ? 0.2 : 0.7).delay(0.1)) { focused = true }
+    }
+}
+
+/// The mark drawing itself, then filling, then the name rising under it.
+private struct SplashMark: View {
+    let agent: String
+    let waiting: Bool
+    @State private var drawn: CGFloat = 0
+    @State private var filled = false
+    @State private var named = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
         VStack(spacing: 22) {
             ZStack {
                 RasanMark().trim(from: 0, to: drawn).stroke(Color.rasanInk, style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
@@ -224,32 +238,80 @@ private struct LaunchFocus: ViewModifier {
                 Text("Films with taste, directed by \(agent)").font(.system(size: 13)).foregroundStyle(.secondary)
             }
             .opacity(named ? 1 : 0).offset(y: named ? 0 : 8)
-            ProgressView().controlSize(.small).opacity(held && !loaded ? 1 : 0)
+            ProgressView().controlSize(.small).opacity(waiting ? 1 : 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine).accessibilityLabel("RasanAI Studio")
-    }
-
-    private func play() {
-        if reduceMotion {
-            drawn = 1
-            withAnimation(.easeOut(duration: 0.3)) { filled = true; named = true }
-        } else {
-            withAnimation(.easeInOut(duration: 0.9)) { drawn = 1 }
-            withAnimation(.easeOut(duration: 0.45).delay(0.6)) { filled = true }
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.85).delay(0.7)) { named = true }
+        .onAppear {
+            if reduceMotion {
+                drawn = 1
+                withAnimation(.easeOut(duration: 0.3)) { filled = true; named = true }
+            } else {
+                withAnimation(.easeInOut(duration: 0.9)) { drawn = 1 }
+                withAnimation(.easeOut(duration: 0.45).delay(0.6)) { filled = true }
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.85).delay(0.7)) { named = true }
+            }
         }
-        // Reduce Motion holds the mark for 0.8 s, not 1.8; input waits only for the hold and the library loading.
-        DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0.8 : 1.8)) { held = true; revealIfDone() }
-        // Never more than 6 s: a library that is slow to load keeps loading behind the window, not behind the splash.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { loaded = true; revealIfDone() }
+    }
+}
+
+/// Frosts the whole window, title bar and toolbar included, and shows the splash on it. A SwiftUI overlay stops at the
+/// content view, under the toolbar's glass, so the toolbar would stay sharp over a blurred page; this layer sits on the
+/// window's frame view, above everything, and fades away when the splash ends.
+private struct WindowSplashCover<Splash: View>: NSViewRepresentable {
+    let active: Bool
+    let fade: Double
+    @ViewBuilder var splash: () -> Splash
+
+    func makeNSView(context: Context) -> NSView { NSView() }
+
+    func updateNSView(_ anchor: NSView, context: Context) {
+        let cover = context.coordinator
+        if active {
+            if let host = cover.host { host.rootView = AnyView(splash()) }
+            else {
+                // The window is attached after the first update; install on the next turn of the main loop.
+                cover.pending = AnyView(splash())
+                Task { @MainActor in cover.install(over: anchor.window) }
+            }
+        } else {
+            cover.remove(fade: fade)
+        }
     }
 
-    private func revealIfDone() {
-        guard held, loaded, !focused else { return }
-        withAnimation(.easeIn(duration: reduceMotion ? 0.2 : 0.4)) { leaving = true }
-        withAnimation(.easeOut(duration: reduceMotion ? 0.2 : 0.7).delay(0.1)) { focused = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { leaving = false }
+    func makeCoordinator() -> Cover { Cover() }
+
+    @MainActor final class Cover {
+        var pending: AnyView?
+        var frost: NSVisualEffectView?
+        var host: NSHostingView<AnyView>?
+        private var gone = false
+
+        func install(over window: NSWindow?) {
+            guard !gone, frost == nil, let splash = pending, let frame = window?.contentView?.superview else { return }
+            let frost = NSVisualEffectView(frame: frame.bounds)
+            frost.material = .underWindowBackground
+            frost.blendingMode = .withinWindow
+            frost.state = .active
+            frost.autoresizingMask = [.width, .height]
+            let host = NSHostingView(rootView: splash)
+            host.frame = frost.bounds
+            host.autoresizingMask = [.width, .height]
+            frost.addSubview(host)
+            frame.addSubview(frost, positioned: .above, relativeTo: nil)
+            self.frost = frost; self.host = host
+        }
+
+        func remove(fade: Double) {
+            guard !gone else { return }
+            gone = true
+            guard let frost else { return }
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = fade
+                context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                frost.animator().alphaValue = 0
+            }, completionHandler: { frost.removeFromSuperview() })
+        }
     }
 }
 
