@@ -233,12 +233,14 @@ private struct OpensOnActivate: ViewModifier {
     let action: () -> Void
     @FocusState private var focused: Bool
     func body(content: Content) -> some View {
+        // Focus goes on first and the click on top of it. A plain `.focusable()` outside the tap gesture takes the mouse
+        // down for itself on macOS, so a click focused the card and never opened it; `.activate` focus is a button's kind.
         content
-            .contentShape(Rectangle())
-            .onTapGesture(perform: action)
-            .focusable().focused($focused).focusEffectDisabled()
+            .focusable(interactions: .activate).focused($focused).focusEffectDisabled()
             .onKeyPress(.return) { action(); return .handled }
             .onKeyPress(.space) { action(); return .handled }
+            .contentShape(Rectangle())
+            .onTapGesture(perform: action)
             .overlay {
                 RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous)
                     .strokeBorder(Color.accentColor, lineWidth: 2).opacity(focused ? 1 : 0).allowsHitTesting(false)
