@@ -42,6 +42,9 @@ final class DirectorMonitor {
     private var awaitingUser = false
     private var lastConsoleUpdate: Date?
     private var task: Task<Void, Never>?
+    private var activity: NSObjectProtocol?
+    private var lastWake: Date?
+    private var wakeObservers: [NSObjectProtocol] = []
 
     var hasData: Bool { telemetry.hasData }
     var agentTitle: String { telemetry.agent == "codex" ? "OpenAI Codex" : "Claude Code" }
@@ -53,6 +56,10 @@ final class DirectorMonitor {
         actions = Actions(pause: { [weak store] in store?.pauseDirector() },
                           showLog: { [weak store] in store?.sheet = .log },
                           tell: { [weak store] in store?.film?.beginTell() })
+        let center = NSWorkspace.shared.notificationCenter
+        wakeObservers = [center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.macDidWake() }
+        }]
         task = Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
@@ -125,12 +132,30 @@ final class DirectorMonitor {
         let context = HealthContext(now: now, processRunning: running, hasStarted: runtime.startedAt != nil || telemetry.hasData,
                                     exitCode: runtime.lastExitCode, stopRequested: runtime.stopRequested, awaitingUser: running && awaitingUser,
                                     lastConsoleUpdate: lastConsoleUpdate,
-                                    endedEarlyReason: runtime.recovery.map { [$0.title, runtime.recoveryDetail].filter { !$0.isEmpty }.joined(separator: ". ") })
+                                    endedEarlyReason: runtime.recovery.map { [$0.title, runtime.recoveryDetail].filter { !$0.isEmpty }.joined(separator: ". ") },
+                                    lastWake: lastWake)
         health = DirectorHealth.evaluate(telemetry, context: context)
+        updateKeepAwake(running: running, store: store)
         updateLedger()
         checkBudget(store: store)
         checkLoop(store: store)
         if dirty, now.timeIntervalSince(lastSave) > 8 || !running { save() }
+    }
+
+    /// Holds one power assertion while the director is really working, so the Mac does not idle-sleep under it; the screen may still sleep.
+    private func updateKeepAwake(running: Bool, store: StudioStore) {
+        let hold = KeepAwakePolicy.shouldHold(enabled: store.settings.keepAwakeWhileMaking, processRunning: running, health: health)
+        if hold, activity == nil {
+            activity = ProcessInfo.processInfo.beginActivity(options: [.idleSystemSleepDisabled, .suddenTerminationDisabled], reason: "RasanAI is making a film")
+        } else if !hold, let token = activity {
+            ProcessInfo.processInfo.endActivity(token); activity = nil
+        }
+    }
+
+    /// Time asleep is not silence: remember the wake so health measures from it, then let the store re-check any pending automatic resume.
+    private func macDidWake() {
+        lastWake = Date()
+        store?.handleWake()
     }
 
     private func advance(run: URL, log: URL?, final: Bool) async {

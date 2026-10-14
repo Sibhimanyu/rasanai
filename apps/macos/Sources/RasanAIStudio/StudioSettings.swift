@@ -20,6 +20,8 @@ final class StudioSettings {
     var budgetPerFilm = UserDefaults.standard.double(forKey: "budgetPerFilm") { didSet { defaults.set(budgetPerFilm, forKey: "budgetPerFilm") } }
     /// How fast the director works (research time and build plan), for films that do not choose their own.
     var pace: FilmPace { didSet { defaults.set(pace.rawValue, forKey: "pace") } }
+    /// Keeps the Mac from idle sleep while the director is working. On unless turned off.
+    var keepAwakeWhileMaking: Bool { didSet { defaults.set(keepAwakeWhileMaking, forKey: "keepAwakeWhileMaking") } }
     /// Lets the director make images through the Codex CLI on the user's ChatGPT plan. On unless turned off.
     var generateImagesWithCodex: Bool { didSet { defaults.set(generateImagesWithCodex, forKey: "generateImagesWithCodex") } }
     /// The Codex CLI for image generation, whichever director is selected: the configured path, else discovery.
@@ -94,6 +96,7 @@ final class StudioSettings {
         pace = defaults.string(forKey: "pace").flatMap(FilmPace.init(rawValue:))
             ?? defaults.string(forKey: "researchDepth").flatMap(FilmPace.init(legacyResearchDepth:)) ?? .defaultForNewFilms
         generateImagesWithCodex = defaults.object(forKey: "generateImagesWithCodex") as? Bool ?? true
+        keepAwakeWhileMaking = defaults.object(forKey: "keepAwakeWhileMaking") as? Bool ?? true
         do { try library.prepare() } catch { self.error = error.localizedDescription }
     }
     func path(for agent: LocalAgent) -> String {
@@ -377,6 +380,11 @@ struct StudioSettingsView: View {
                 Toggle("Generate images with Codex", isOn: $settings.generateImagesWithCodex)
             } footer: {
                 Text("Presenter films can use generated images. Each image is a Codex run on your ChatGPT plan, about a minute and a half.")
+            }
+            Section {
+                Toggle("Keep the Mac awake while a film is being made", isOn: $settings.keepAwakeWhileMaking)
+            } footer: {
+                Text("The screen can still sleep. Closing the lid on battery still sleeps the Mac; RasanAI picks the film back up when it wakes.")
             }
             Section {
                 BudgetSetting(settings: settings)
