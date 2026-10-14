@@ -34,13 +34,15 @@
 //        -> writes the Motion Director's score into the project's STORYBOARD.md as the workflow's visual design
 //           (## Video direction, per frame: shot sequence, blueprint, focal, roles, sfx, handoffs, transition_in)
 //   node crew.mjs strip (--file <composition.html | video.mp4> | --project <dir>) (--at t1,t2 | --from a --to b --fps n)
-//        --out <sheet.png> [--cols 6]
-//        -> a labelled contact strip of the motion at those times (+ the frames in <sheet>/), to look at
+//        --out <sheet.png> [--cols 6] [--phone]
+//        -> a labelled contact strip of the motion at those times (+ the frames in <sheet>/), to look at;
+//           --phone draws each frame 360 px wide (the film on a phone held upright: can every line be read?)
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync, execFileSync } from "node:child_process";
 import { parseArgs, die, readJSON, writeFile, chromeScreenshot, esc, GSAP_PATH, SKILL_DIR } from "./lib/common.mjs";
+import { lessonsBlock } from "./lessons.mjs";
 import { readBudget, checkBudget } from "./lib/budget.mjs";
 import { readDesignMd } from "./lib/design-md.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
@@ -972,6 +974,7 @@ function promptFor(run, role, key, plan) {
     const vocab = readMaybe(path.join(SKILL_DIR, "references", "vocabulary.md"));
     if (vocab) extra += "\n\n(Read `references/vocabulary.md` in full: it is the motion vocabulary your score names techniques from.)";
   }
+  { const lb = lessonsBlock(role).trim(); if (lb) extra += `\n\n${lb}`; } // standing notes from the user's past films (lessons.mjs); only the roles it lists get any
   let dare = DARES[role === "motion-director" && key === "seams" ? "seams" : role];
   if (dare && ctx.product_first) dare += " On this product-first film, showing off is craft only (motion, UI choreography, rhythm, the real product moving like nothing else): a letter or shape transformation that lands on the real product (its UI, its mark) is craft and is wanted, full frame and fast; never a conceit, a metaphor, an invented world or a prop standing in for the product. A show-off idea that never resolves to the product fails.";
   const base = `${shared}\n\n---\n\n${roleText}\n\n---\n\n${lines.join("\n")}${extra}\n`;
@@ -2242,8 +2245,8 @@ function projectAt(dir0, T, dir) {
   const hf = jsonMaybe(path.join(dir0, "hyperframes.json")) || {};
   return { files, W: hf.width || 1920, H: hf.height || 1080 };
 }
-function sheet(files, W, H, outPng, cols) {
-  const tw = 420, th = Math.round((tw * H) / W);
+function sheet(files, W, H, outPng, cols, tw = 420) {
+  const th = Math.round((tw * H) / W);
   const c = Math.min(cols, files.length);
   const rows = Math.ceil(files.length / c);
   const html = `<!doctype html><html><head><style>html,body{margin:0;background:#141414;font:500 14px/1 -apple-system,Helvetica,Arial,sans-serif;color:#ddd}.g{display:grid;grid-template-columns:repeat(${c},${tw}px);gap:8px;padding:8px}figure{margin:0}img{width:${tw}px;height:${th}px;object-fit:contain;background:#000;display:block}figcaption{padding:5px 2px 0}</style></head><body><div class="g">${files.map((f) => `<figure><img src="file://${f.png}"><figcaption>${esc(`${f.label || ""}t = ${Number(f.t).toFixed(2)} s`)}</figcaption></figure>`).join("")}</div></body></html>`;
@@ -2424,9 +2427,10 @@ if (cmd === "plan") {
       res = { files: r.files, W: r.W, H: r.H };
     } else res = renderCompositionAt(f, T, dir);
   } else die("--file <composition.html | video> or --project <dir>");
-  sheet(res.files, res.W, res.H, outPng, Number(args.cols) || 6);
+  // --phone: every frame at 360 px wide, the size the film plays at on a phone held upright (animate's phone check)
+  sheet(res.files, res.W, res.H, outPng, Number(args.cols) || (args.phone ? 3 : 6), args.phone ? 360 : 420); // 3 across keeps the sheet small enough to be read unscaled
   if (!exists(outPng)) die("the sheet did not render");
-  out({ ok: true, sheet: rel(outPng), frames: res.files.length, dir: rel(dir), times: T, look: "Read the sheet image: spacing between frames shows the ease (wide gaps = fast, tight = slowing into a landing)" });
+  out({ ok: true, sheet: rel(outPng), frames: res.files.length, dir: rel(dir), times: T, look: args.phone ? "Read the sheet at 100%: this is the film at phone size. Every line meant to be read must read here; one that doesn't is a readability finding" : "Read the sheet image: spacing between frames shows the ease (wide gaps = fast, tight = slowing into a landing)" });
 } else {
   die("usage: crew.mjs plan|brief|check|status|pitches|storyboard|strip … (see the header)");
 }

@@ -9,7 +9,9 @@
 // Reads the project's compositions (HTML/CSS/JS), its scenes/storyboard timing, its audio plan and, when given,
 // the rendered video. Also loads the built compositions headlessly and measures every visible text in the real DOM
 // at 10 fps (rule "text-cropped": a line that crosses the frame edge for more than 0.4 s, or sits outside the 6% safe
-// area at rest; lib/textfit.mjs; --no-text-fit skips it). Exit 0 = clean or warnings only; 2 = problems to fix (each with a fix); 1 = could not run.
+// area at rest; lib/textfit.mjs; --no-text-fit skips it). The same pass reads line blocks: "text-too-brief" (a statement-size
+// line of 3+ words readable for less than 0.6 s + 0.3 s per word; data-read="skim" opts out) and "text-overlap" (two readable
+// lines on top of each other for 0.3 s or more; data-overlap="ok" opts out). Exit 0 = clean or warnings only; 2 = problems to fix (each with a fix); 1 = could not run.
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -164,7 +166,7 @@ if (whoosh > whooshCap) add("whoosh-per-cut", "error", `${whoosh} whooshes${cuts
 // ---- 5b. text-fit: every word meant to be read sits inside the frame ----
 if (!args["no-text-fit"]) {
   const tf = await textFit(dir);
-  for (const f of tf.findings) add("text-cropped", "error", `${f.file}: "${f.text}" ${f.from}-${f.to} s`, f.message, f.fix);
+  for (const f of tf.findings) add(f.check, "error", `${f.file}: "${f.text}" ${f.from}-${f.to} s`, f.message, f.fix);
   if (tf.could_not_run.length) add("text-fit-skipped", "warn", dir, `${tf.could_not_run[0]} (the text-fit check did not run)`, "Install Chrome (npx hyperframes browser ensure, or set RASANAI_CHROME) and re-run: the composition's text was not measured.");
 }
 

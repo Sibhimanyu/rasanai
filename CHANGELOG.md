@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased: craft borrowed from other motion skills
+
+Why: a survey of fourteen motion and video skills (mortiflix, animate, motionmaxxing, onetake, lemo-opuscar, mg-styles-15, ClaudeAnimationBase, OpenMontage, Null Motion, gbro and others) against RasanAI. Most of their ideas were already here; these five were not.
+
+- **Lessons carry between films.** A note on the Animatic or the Final that names a mistake any film could repeat ("the type is always too small to read on a phone") is recorded with `lessons.mjs add` in `$RASANAI_HOME/lessons.jsonl`, with the user's words, `error` or `taste`, and an area. `crew.mjs brief` gives the story, motion, design and art roles, the critic and the frame juror a "Standing notes from the user's past films" block for their areas; the critic treats a broken note as a `high` finding.
+- **Text the viewer can read.** Two new text-fit checks on the built film's real DOM, reported by `motion-gate.mjs` and `slop.mjs`: `text-too-brief` (a statement line of 3+ words, at 3.5% of the frame height or more, readable for less than 0.6 s + 0.3 s a word, with 15% slack) and `text-overlap` (two readable lines on top of each other for 0.3 s or more). `data-read="skim"` and `data-overlap="ok"` opt out; captions count as skim.
+- **The payoff lands.** `sound.mjs check` warns `flat-payoff` (no lift onto the reveal and no break before it) and `loudest-not-payoff` (the loudest second of the film is somewhere else), measured around `--payoff`, the reveal event or the plan's reveal.
+- **A phone sheet.** `crew.mjs strip --phone` draws every frame 360 px wide, three across; the film critic reads it unscaled and fails any line it can't read.
+- **An anchored critic scale.** 5 = competent student work, 7 = a good studio's ordinary day, 9 = a showreel moment; most first drafts deserve 5 to 7; an 8 or above names the frame that earns it, and each fix round lifts ambition, not only polish.
+
 ## 1.14.0 (2026-10-13): moves you like
 
 - **Reference moments are role-free.** The Hook / Proof / Turn / Call to action slots are gone. A user picks moves by taste (up to four), each with an optional `place` (opening, between, peak, ending, anywhere; default anywhere), before the story exists. Old briefs with a `role` still load (hook becomes opening, cta becomes ending, the rest anywhere); the manifest's role tags stay as search hints.
