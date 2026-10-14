@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The anti-slop gate: checks a built film for the tells viewers read as generic AI video, before the render
 // question (next to obey.mjs, which checks the motion contract). Evidence: /references/craft.md "Anti-slop".
-//   node slop.mjs --project videos/<name> [--scenes <scenes.json>] [--video <render.mp4>] [--style <preset id>] [--run <run>] [--score <score.json>] [--json]
+//   node slop.mjs --project videos/<name> [--scenes <scenes.json>] [--video <render.mp4>] [--style <preset id>] [--format reel] [--run <run>] [--score <score.json>] [--json]
 // Hero effects (glow, blur-in, particles) are budgets, not bans: allowed on the hero up to the score's `budget`
 // (lib/budget.mjs); the same effect on every element is the error.
 // With a brand (the run's research/brand/assets/, found from --run, from "<run>/frames", or from the project's
@@ -12,7 +12,7 @@
 // area at rest; lib/textfit.mjs; --no-text-fit skips it). The same pass reads line blocks: "text-too-brief" (a statement-size
 // line of 3+ words readable for less than 0.6 s + 0.3 s per word; data-read="skim" opts out) and "text-overlap" (two readable
 // lines on top of each other for 0.3 s or more; data-overlap="ok" opts out). Cut rhythm: "uniform-shots" (scene-length variation under
-// 0.2) and "narrow-rhythm" (5+ shots, longest under 4x the shortest, end card and flashes under 0.4 s left out), the second also
+// 0.2) and "narrow-rhythm" (5+ shots, longest under 4x the shortest, end card, flashes under 0.4 s and shots whose length is set by reading time left out), the second also
 // measured on the render's hard cuts (lib/carry.mjs) when --video is given; both are warnings. Exit 0 = clean or warnings only; 2 = problems to fix (each with a fix); 1 = could not run.
 import fs from "node:fs";
 import path from "node:path";
@@ -23,6 +23,7 @@ import { readLogos, scanLogos } from "./lib/logos.mjs";
 import { textFit } from "./lib/textfit.mjs";
 import { readBudget, budgetFor, budgetLimit } from "./lib/budget.mjs";
 import { decodeGrey, findCuts } from "./lib/carry.mjs";
+import { sfxMode, sfxLimit, sfxOver } from "./lib/audio.mjs";
 
 const args = parseArgs();
 track("Checking for generic AI-video tells", "Slop check done");
@@ -105,9 +106,12 @@ if (spin) add("spinning-logo", "warn", "a 360° logo rotation", "Spinning logos 
 // ---- 4. timing ----
 // cut rhythm (onetake: "never cut on a metronome; shot lengths should vary by 4x or more"): longest over shortest shot, the end card
 // (last) and flashes under 0.4 s left out; 5+ shots to judge. Used on the scenes here and on the render's hard cuts below.
-const RHYTHM = { min_shots: 5, ratio: 4, flash_s: 0.4 };
-const rhythm = (lens) => {
-  const ds = lens.slice(0, -1).filter((d) => d >= RHYTHM.flash_s);
+// A shot whose length is set by reading time (within 15% of 0.6 s + 0.3 s per word of its line) is not a free choice, so a
+// line-per-beat film is judged on its free shots only (`reads` = each shot's reading time, 0 for none).
+const RHYTHM = { min_shots: 5, ratio: 4, flash_s: 0.4, read_slack: 0.15 };
+const readTime = (text) => { const w = String(text || "").split(/\s+/).filter(Boolean).length; return w ? 0.6 + 0.3 * w : 0; };
+const rhythm = (lens, reads = []) => {
+  const ds = lens.slice(0, -1).filter((d, i) => d >= RHYTHM.flash_s && !(reads[i] && d <= reads[i] * (1 + RHYTHM.read_slack)));
   if (lens.length < RHYTHM.min_shots || ds.length < 2) return null;
   const lo = Math.min(...ds), hi = Math.max(...ds);
   return { ratio: hi / lo, hi, lo, n: ds.length };
@@ -119,7 +123,7 @@ if (sceneFile && fs.existsSync(sceneFile)) { try { const j = JSON.parse(fs.readF
 if (scenes && scenes.length >= 3) {
   const ds = scenes.map((s) => s.d).filter(Boolean), mean = ds.reduce((a, b) => a + b, 0) / ds.length, sd = Math.sqrt(ds.reduce((a, b) => a + (b - mean) ** 2, 0) / ds.length);
   if (ds.length >= 4 && sd / mean < 0.2) add("uniform-shots", "warn", `every scene ≈ ${mean.toFixed(1)} s (variation ${(sd / mean).toFixed(2)}; aim for ≥ 0.35)`, "Near-identical scene lengths make a slideshow rhythm: \"it's just a PowerPoint\".", "Vary rhythm: group quick beats, give the reveal the longest shot (see craft.md §2, Timing, pacing and readability).");
-  narrow(rhythm(scenes.map((s) => s.d)), "scenes");
+  narrow(rhythm(scenes.map((s) => s.d), scenes.map((s) => readTime(s.text))), "scenes");
   scenes.forEach((s, i) => { const w = s.text.split(/\s+/).filter(Boolean).length; const need = w ? 0.6 + 0.4 * w : 0; if (w && s.d && s.d < need) add("unreadable", "error", `scene ${i + 1} "${s.title}"`, `${w} words on screen for ${s.d} s; needs about ${need.toFixed(1)} s to read.`, "Cut the copy or lengthen the scene; never speed it up."); });
   const last = scenes[scenes.length - 1]; if (last.d && last.d < 1.8) add("no-end-hold", "error", `last scene ${last.d} s`, "The ending has no hold: the name and call to action vanish.", "Give the end card 2–3 s: its elements land in sequence, then at most 1.5 s still (motion-gate.mjs measures it).");
   if (scenes[0].d > 4 && !scenes[0].text) add("slow-hook", "warn", `scene 1 is ${scenes[0].d} s with no line`, "Nothing lands in the first 2 s.", "Open on the hook: a claim in ≤4 words or the product doing its thing within 1.5 s.");
@@ -170,9 +174,17 @@ const assets = path.join(dir, "assets");
 const bed = fs.existsSync(assets) ? fs.readdirSync(assets).find((f) => /^music-bed\.|bgm|music/i.test(f) && /\.(wav|mp3|m4a|ogg)$/i.test(f)) : null;
 const probe = (f) => { const r = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", f], { encoding: "utf8" }); return Number(r.stdout.trim()) || 0; };
 if (bed && filmLen) { const bl = probe(path.join(assets, bed)); if (bl && bl + 0.5 < filmLen) add("music-loop", "error", `${bed} is ${bl.toFixed(1)} s for a ${filmLen.toFixed(1)} s film`, "A bed shorter than the film loops audibly.", "Pick a longer track or edit by structure: node scripts/sound.mjs fit --track <file> --film <s>."); }
-const sfxCount = (allCode.match(/\.(wav|mp3|ogg)["']/gi) || []).filter((m) => !/music|bgm|bed|voice|vo[-_]/i.test(m)).length;
+// an SFX is an audio source that is not the music bed or a voice: the whole src string is tested (path and name), not the
+// extension. <audio> tags when the film has them (one per cue), else every quoted audio path.
+const audioRefs = (() => {
+  const tags = [...allCode.matchAll(/<audio\b[^>]*>/gi)].map((m) => (m[0].match(/\bsrc\s*=\s*["']([^"']+)["']/i) || [])[1] || "");
+  return tags.length ? tags : [...allCode.matchAll(/["']([^"'\s]+\.(?:wav|mp3|ogg|m4a|aac|flac))["']/gi)].map((m) => m[1]);
+})();
+const sfxCount = audioRefs.filter((r) => !/music|bgm|\bbed\b|[-_/]bed[-_.]|voice|(^|[-_/])vo[-_.]|narrat/i.test(r)).length;
+const narratedFilm = audioRefs.some((r) => /voice|(^|[-_/])vo[-_.]|narrat/i.test(r));
 const whoosh = (allCode.match(/whoosh|swoosh|swish/gi) || []).length;
-if (filmLen && sfxCount / filmLen > 0.6) add("sfx-overload", "error", `${sfxCount} SFX in ${filmLen.toFixed(0)} s`, "Too many sound effects: every beat has a sound, so none matter.", "Only visible, causal events get a sound: at most one every ~2 s (see sound.md); skip where the music already hits.");
+const sfxMd = sfxMode({ format: args.format, narrated: narratedFilm });
+if (filmLen && sfxOver(sfxCount, sfxMd, filmLen)) add("sfx-overload", "error", `${sfxCount} SFX in ${filmLen.toFixed(0)} s`, `Too many sound effects: every beat has a sound, so none matter (the budget, shared with sound.mjs: ${sfxLimit(sfxMd, filmLen)} in ${filmLen.toFixed(0)} s for a ${sfxMd} film).`, "Only visible, causal events get a sound (sound.md); skip where the music already hits.");
 const cuts = scenes ? scenes.length - 1 : 0;
 const whooshCap = cuts ? Math.max(1, Math.ceil(cuts / 3)) : 3;
 if (whoosh > whooshCap) add("whoosh-per-cut", "error", `${whoosh} whooshes${cuts ? ` for ${cuts} transitions` : ""}`, "A whoosh on every cut is the most common SFX tell.", "At most one whoosh in three transitions (and one per ~20 s): keep it for the signature transition.");

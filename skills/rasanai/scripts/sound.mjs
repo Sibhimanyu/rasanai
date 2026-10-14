@@ -17,18 +17,22 @@
 //        [--pack glass|minimal|studio|soft|cinematic|scifi] [--no-library] [--library <dir>]
 //       -> samples come from library/sfx (CC0, index.json) first: one uisfx pack per film for the UI sounds,
 //          atomcut/Kenney for whoosh/riser/impact/stinger; --library <dir> or --no-library use the old
-//          media-use files only. SFX cues for causal on-screen events only, inside the density budget, placed by each
+//          media-use files only. SFX cues for causal on-screen events only, inside the density budget (lib/audio.mjs SFX_BUDGET,
+//          shared with slop.mjs; ranked across the whole film before it is spent, a typing burst = one cue per line, a declared
+//          signature move's whoosh kept where the music hits), placed by each
 //          sample's measured sync point, plus the audio_meta.json "sfx" entries
 //   node sound.mjs check (--video <mp4> | --audio <file>) [--film <s>] [--vo <stem>] [--music <stem>]
 //        [--sfx <sfx-plan.json|index.html>] [--silent-by-choice "<reason>"] [--plan plan.json] [--events events.json]
-//        [--narrated] [--lufs -14] [--payoff <s>]
+//        [--narrated] [--lufs -14] [--payoff <s>] [--score score.json]
 //       -> measured loudness, true peak, head/tail, dropouts, loops, VO gap, SFX density; with --sfx, error
 //          no-sfx when a film of 15 s or more has zero SFX cues (unless --silent-by-choice; without --sfx it is a warning);
 //          warnings flat-dynamics (bed LRA under 2.0 LU) and ring-out-ending (the music still audible more than 1.0 s
 //          after the logo / cta event from --plan or --events), flat-payoff (the payoff, found from --payoff, a reveal event or
 //          plan reveal, else the logo, is under 2 dB louder than the 1.5 s before it and has no 6 dB break in the 2 s before)
 //          and loudest-not-payoff (the loudest second sits elsewhere, 3 dB above the payoff; numbers in measures.payoff;
-//          no payoff time = skipped with a note), no-breath (fewer than 2 designed breaks, 1 under 20 s: a 0.25 s+ stretch 10 dB
+//          no payoff time = skipped with a note). The score's music_arc.payoff_at (--score, or the plan's) is the payoff when
+//          nothing earlier names one, and is measured as measures.payoff.arc (warnings tagged "arc payoff") when it differs
+//          from the one checked: the reveal and the director's payoff are both reported, no-breath (fewer than 2 designed breaks, 1 under 20 s: a 0.25 s+ stretch 10 dB
 //          under the median level, outside the head and tail) and, narrated (--narrated, --vo or --words), no-split-edits (fewer than 2 J-cuts or L-cuts in 4+
 //          cuts; cuts from --scenes / --plan / --events, phrases from --words or the --vo stem); numbers in measures.shape;
 //          exit 2 with fixes when anything is off
@@ -46,7 +50,7 @@ import { track } from "./lib/report.mjs";
 import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
 import {
   analyzeTrack, publicAnalysis, summarize, fitTrack, renderPlan, masterFile, probeSfx, loudness, loudnessOver,
-  decode, findRepeats, onsetProfile, momentaryDb, designedBreaks, speechPhrases, phrasesFromWords, splitEdits, hasAudioStream, probeDuration, requireTools, r1, r3, SR,
+  decode, findRepeats, onsetProfile, SFX_BUDGET, sfxMode, sfxLimit, sfxOver, momentaryDb, designedBreaks, speechPhrases, phrasesFromWords, splitEdits, hasAudioStream, probeDuration, requireTools, r1, r3, SR,
 } from "./lib/audio.mjs";
 
 const args = parseArgs();
@@ -102,11 +106,8 @@ const KINDS = {
 };
 const ALIAS = { tap: "click", press: "click", toggle: "click", select: "click", typing: "type", settle: "land", thud: "land", lock: "snap", align: "snap", appear: "pop", badge: "toast", notification: "toast", ping: "toast", success: "count", confirm: "count", hit: "reveal", impact: "reveal", transition: "whoosh", swipe: "whoosh" };
 const SIZE = { small: 1, medium: 2, large: 3 };
-const BUDGET = {
-  narrated: { perSec: 1 / 2, perWindow: 3, share: 1 / 3, heroEvery: 15, heroMax: 3, whooshEvery: 20 },
-  unnarrated: { perSec: 1 / 1.2, perWindow: 3, share: 1 / 2, heroEvery: 10, heroMax: 6, whooshEvery: 10 },
-  reel: { perSec: 1, perWindow: 4, share: 1 / 2, heroEvery: 8, heroMax: 6, whooshEvery: 8 },
-};
+const BUDGET = SFX_BUDGET; // one budget with slop.mjs (lib/audio.mjs)
+const TYPE_GAP = 0.8, SPREAD = 3, SPREAD_PENALTY = 1.5; // sfx-plan: typing-burst gap, spread window (s), score lost per same-class neighbour
 const VARIANTS = [{ rate: 1, gain_db: 0 }, { rate: 1.035, gain_db: -1.5 }, { rate: 0.965, gain_db: -0.8 }];
 
 function sfxLibrary() {
@@ -217,7 +218,7 @@ function sfxPlan() {
   const sc = readScenes(need("scenes", "<scenes.json|timeline.json>"));
   const plan = args.plan ? readJSON(exists(path.resolve(String(args.plan)), "plan")) : null;
   const narrated = args.narrated ? true : args["no-narration"] ? false : sc.narrated;
-  const mode = args.format === "reel" ? "reel" : narrated ? "narrated" : "unnarrated";
+  const mode = sfxMode({ format: args.format, narrated });
   const B = BUDGET[mode];
   const film = plan?.film_duration || sc.total;
   let events;
@@ -260,15 +261,29 @@ function sfxPlan() {
     }
   }
 
-  const maxCount = Math.max(1, Math.floor(film * B.perSec));
+  const maxCount = sfxLimit(mode, film);
   // the share cap is over ALL visual events: only an events file lists those (inferred events are
   // already the sound-worthy ones)
   const maxShare = args.events ? Math.max(1, Math.ceil(events.length * B.share)) : Infinity;
   const rank = (e) => (KINDS[e.kind].weight * (SIZE[e.size] || (KINDS[e.kind].cls === "hero" ? 3 : 1))) + (e.priority || 0);
-  const order = [...cand].sort((a, b) => rank(b) - rank(a) || a.t - b.t);
+  // a typing burst is one cue per line: key events less than TYPE_GAP s apart collapse to the first (kept: the loudest-ranked)
+  const typed = cand.filter((e) => e.kind === "type").sort((a, b) => a.t - b.t);
+  for (let i = 0, run = []; i <= typed.length; i++) {
+    if (i < typed.length && (!run.length || typed[i].t - run[run.length - 1].t < TYPE_GAP)) { run.push(typed[i]); continue; }
+    const keep = run.reduce((m, e) => (rank(e) > rank(m) ? e : m), run[0] || null);
+    for (const e of run) if (e !== keep) { skipped.push({ event: e.id, t: e.t, kind: e.kind, why: "inside a typing burst: one cue per line" }); e._drop = true; }
+    run = i < typed.length ? [typed[i]] : [];
+  }
+  cand = cand.filter((e) => !e._drop);
+  // rank before spending, across the whole film: the best remaining candidate goes first, discounted for every cue of its
+  // own class already placed within SPREAD s, so the budget spreads over the film instead of filling its first seconds
   const placed = [];
   const tonalScenes = new Set();
-  for (const e of order) {
+  const left = [...cand];
+  const dyn = (e) => rank(e) - SPREAD_PENALTY * placed.filter((p) => KINDS[p.kind].cls === KINDS[e.kind].cls && Math.abs(p.t - e.t) < SPREAD).length;
+  while (left.length) {
+    left.sort((a, b) => dyn(b) - dyn(a) || a.t - b.t);
+    const e = left.shift();
     const k = KINDS[e.kind];
     const why = (() => {
       if (placed.length >= maxCount) return `budget: ${mode} films get at most ${maxCount} SFX in ${r1(film)} s`;
@@ -290,7 +305,8 @@ function sfxPlan() {
     const notes = [];
     if (bed) {
       const h = bed.strongAt(e.t);
-      if (h.strong && (k.cls === "hero" || k.cls === "whoosh" || k.cls === "tonal")) { skipped.push({ event: e.id, t: e.t, kind: e.kind, why: "the music already hits this moment" }); continue; }
+      const signed = k.cls === "whoosh" && e.signature; // a declared signature move keeps its whoosh where the music hits
+      if (h.strong && !signed && (k.cls === "hero" || k.cls === "whoosh" || k.cls === "tonal")) { skipped.push({ event: e.id, t: e.t, kind: e.kind, why: "the music already hits this moment" }); continue; }
       if (h.strong) { gain -= 3; notes.push("music hits here: 3 dB lower"); }
     }
     let t = e.t;
@@ -506,13 +522,17 @@ function check() {
     const evs = args.events ? (() => { const E = readJSON(exists(path.resolve(String(args.events)), "events")); return (Array.isArray(E) ? E : E.events || []); })() : [];
     const evT = (re) => evs.filter((e) => re.test(String(e.kind || e.id || "")) && Number.isFinite(Number(e.t))).map((e) => Number(e.t));
     const pl = args.plan ? readJSON(exists(path.resolve(String(args.plan)), "plan")) : null;
+    // the score's music_arc.payoff_at (--score <score.json>, else the plan's own music_arc / score.music_arc)
+    const scoreJ = args.score && args.score !== true ? readJSON(exists(path.resolve(String(args.score)), "score")) : null;
+    const arcRaw = scoreJ?.music_arc?.payoff_at ?? pl?.music_arc?.payoff_at ?? pl?.score?.music_arc?.payoff_at;
+    const arcT = arcRaw != null && Number.isFinite(Number(arcRaw)) ? Number(arcRaw) : null;
     if (payoffT == null) { const ts = evT(/^(reveal|payoff|brand)/i); if (ts.length) { payoffT = Math.max(...ts); src = "events"; } }
     if (payoffT == null && pl?.moments?.reveal?.t != null && Number.isFinite(Number(pl.moments.reveal.t))) { payoffT = Number(pl.moments.reveal.t); src = "plan reveal"; }
     if (payoffT == null) { const ts = evT(/^(logo|cta)/i); if (ts.length) { payoffT = Math.min(...ts); src = "events logo"; } }
     if (payoffT == null && pl?.moments?.logo?.t != null && Number.isFinite(Number(pl.moments.logo.t))) { payoffT = Number(pl.moments.logo.t); src = "plan logo"; }
-    if (payoffT == null) measures.payoff = { skipped: "no payoff time: pass --payoff <s>, or --plan / --events with a reveal or logo moment (the payoff check did not run)" };
-    else if (payoffT < 1.5 || payoffT + 1.0 > dur + 0.05) measures.payoff = { skipped: `payoff at ${r1(payoffT)} s has no 1.5 s before it or no 1.0 s after it in a ${r1(dur)} s film (the payoff check did not run)` };
-    else {
+    // payoff at time T (src = where it came from): the numbers, and the warnings (tagged when it is the score's arc payoff)
+    const measurePayoff = (T, src, tag = "") => {
+      if (T < 1.5 || T + 1.0 > dur + 0.05) return { skipped: `payoff at ${r1(T)} s has no 1.5 s before it or no 1.0 s after it in a ${r1(dur)} s film (the payoff check did not run)` };
       const my = args.music ? decode(exists(path.resolve(String(args.music)), "music stem")) : y;
       const W = 0.1, nW = Math.floor(my.length / SR / W);
       const en = [];
@@ -522,20 +542,28 @@ function check() {
       const mom = en.map(toDb);
       const live = mom.filter((v) => v > -80).sort((a, b) => a - b);
       const median = live.length ? live[Math.floor(live.length / 2)] : -120;
-      const after = meanDb(payoffT, payoffT + 1.0), before = meanDb(payoffT - 1.5, payoffT);
+      const after = meanDb(T, T + 1.0), before = meanDb(T - 1.5, T);
       const lift = after - before;
-      const i0 = Math.max(0, Math.round((payoffT - 2.0) / W)), i1 = Math.round(payoffT / W);
+      const i0 = Math.max(0, Math.round((T - 2.0) / W)), i1 = Math.round(T / W);
       let deepest = 1e9;
       for (let i = i0; i < i1; i++) deepest = Math.min(deepest, mom[i]);
       const breakDb = median - deepest;
       let best = -1e9, bestAt = 0;
       for (let i = 0; i + 10 <= nW; i++) { const v = meanDb(i * W, i * W + 1.0); if (v > best) { best = v; bestAt = i * W; } }
       const loudAbove = best - after;
-      measures.payoff = { at: r3(payoffT), from: src, on: args.music ? "music stem" : "mix", payoff_db: r1(after), before_db: r1(before), lift_db: r1(lift), median_db: r1(median), deepest_break_db: r1(deepest), break_below_median_db: r1(breakDb), loudest_1s_at: r1(bestAt), loudest_1s_db: r1(best), loudest_above_payoff_db: r1(loudAbove) };
+      const m = { at: r3(T), from: src, on: args.music ? "music stem" : "mix", payoff_db: r1(after), before_db: r1(before), lift_db: r1(lift), median_db: r1(median), deepest_break_db: r1(deepest), break_below_median_db: r1(breakDb), loudest_1s_at: r1(bestAt), loudest_1s_db: r1(best), loudest_above_payoff_db: r1(loudAbove) };
       const liftNeed = gateValue("sound.payoff_lift_db", 2), liftNotes = gateNotes(["sound.payoff_lift_db"]);
-      if (liftNotes.length) measures.payoff.lesson = liftNotes;
-      if (lift < liftNeed && breakDb < 6) warnings.push(`flat-payoff: the payoff at ${r1(payoffT)} s is ${r1(lift)} dB against the 1.5 s before it (needs +${liftNeed} dB${liftNotes.length ? ", " + liftNotes.join("; ") : ""}) and the 2 s before it have no break (deepest ${r1(breakDb)} dB under the film's median, needs 6 dB): pull the bed out (a stop or a filter dip) 0.3-0.8 s before the reveal and land the reveal on a hit; the payoff should be the loudest moment (references/sound.md)`);
-      if (loudAbove > 3 && (bestAt + 1.0 < payoffT - 0.5 || bestAt > payoffT + 2)) warnings.push(`loudest-not-payoff: the loudest second of the film is at ${r1(bestAt)} s, ${r1(loudAbove)} dB above the payoff at ${r1(payoffT)} s: the busiest moment is not the loudest; the payoff is (references/sound.md)`);
+      if (liftNotes.length) m.lesson = liftNotes;
+      if (lift < liftNeed && breakDb < 6) warnings.push(`${tag}flat-payoff: the payoff at ${r1(T)} s is ${r1(lift)} dB against the 1.5 s before it (needs +${liftNeed} dB${liftNotes.length ? ", " + liftNotes.join("; ") : ""}) and the 2 s before it have no break (deepest ${r1(breakDb)} dB under the film's median, needs 6 dB): pull the bed out (a stop or a filter dip) 0.3-0.8 s before the reveal and land the reveal on a hit; the payoff should be the loudest moment (references/sound.md)`);
+      if (loudAbove > 3 && (bestAt + 1.0 < T - 0.5 || bestAt > T + 2)) warnings.push(`${tag}loudest-not-payoff: the loudest second of the film is at ${r1(bestAt)} s, ${r1(loudAbove)} dB above the payoff at ${r1(T)} s: the busiest moment is not the loudest; the payoff is (references/sound.md)`);
+      return m;
+    };
+    if (payoffT == null && arcT != null) { payoffT = arcT; src = "score music_arc.payoff_at"; }
+    if (payoffT == null) measures.payoff = { skipped: "no payoff time: pass --payoff <s>, or --plan / --events / --score with a reveal, logo or music_arc.payoff_at (the payoff check did not run)" };
+    else {
+      measures.payoff = measurePayoff(payoffT, src);
+      // the director's own payoff (score music_arc.payoff_at) is measured too when it differs from the one checked: both are reported
+      if (arcT != null && Math.abs(arcT - payoffT) > 0.25) measures.payoff.arc = measurePayoff(arcT, "score music_arc.payoff_at", `arc payoff (${r1(arcT)} s, the score's music_arc.payoff_at; the reveal is the one checked first): `);
     }
   }
   // the film's shape (lemo-opuscar: "at least two real silences; at least two J-cuts or L-cuts"): warnings only, numbers in measures.shape
@@ -576,7 +604,7 @@ function check() {
   if (args.sfx) {
     const cues = sfxTimes(String(args.sfx)).sort((a, b) => a.t - b.t);
     const narrated = !!args.narrated || !!args.vo;
-    const B = BUDGET[args.format === "reel" ? "reel" : narrated ? "narrated" : "unnarrated"];
+    const mode = sfxMode({ format: args.format, narrated }), B = BUDGET[mode];
     const maxWin = cues.reduce((m, c) => Math.max(m, cues.filter((d) => d.t >= c.t && d.t < c.t + 1).length), 0);
     const whooshes = cues.filter((c) => /whoosh/i.test(c.kind)).length;
     if (!cues.length && dur >= 15) {
@@ -584,7 +612,7 @@ function check() {
       else P("no-sfx", `0 SFX cues in a ${r1(dur)} s film`, "cues on transitions, landings, taps, counters and the reveal", "run sound.mjs sfx-plan with the score's events and seams after the build and mount the cues (whoosh on moves through space, hit on landings, click on taps, tick on counters, impact on the reveal); or pass --silent-by-choice \"<reason>\" for a film that is silent on purpose");
     }
     Object.assign(measures, { sfx_count: cues.length, sfx_per_s: r3(cues.length / dur), sfx_max_in_1s: maxWin, whooshes });
-    if (cues.length > Math.floor(dur * B.perSec) + 1) P("SFX density", `${cues.length} SFX in ${r1(dur)} s`, `<= ${Math.floor(dur * B.perSec)}`, "keep only causal events (clicks, lands, the reveal): sound.mjs sfx-plan enforces the budget");
+    if (sfxOver(cues.length, mode, dur)) P("SFX density", `${cues.length} SFX in ${r1(dur)} s`, `<= ${sfxLimit(mode, dur)}`, "keep only causal events (clicks, lands, the reveal): sound.mjs sfx-plan enforces the budget");
     if (maxWin > B.perWindow) P("SFX pile-up", `${maxWin} sounds within one second`, `<= ${B.perWindow}`, "drop or spread the weakest cues");
     if (whooshes > Math.max(1, Math.ceil(dur / B.whooshEvery))) P("whoosh per cut", `${whooshes} whooshes`, `<= ${Math.max(1, Math.ceil(dur / B.whooshEvery))}`, "whooshes only on signature spatial transitions");
   }

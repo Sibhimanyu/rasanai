@@ -1333,6 +1333,18 @@ export function findRepeats(y, { sr = SR, minRun = 6, thr = 0.99 } = {}) {
   return kept.map((r) => ({ from: r1(r.from), to: r1(r.to), repeats_at: r1(r.at), lag_s: r1(r.lag), seconds: r1(r.seconds) }));
 }
 
+// the SFX budget, one table read by sound.mjs (sfx-plan and check) and slop.mjs (sfx-overload): sounds per second, per
+// one-second window, the share of visual events that may get a sound, hero and whoosh spacing
+export const SFX_BUDGET = {
+  narrated: { perSec: 1 / 2, perWindow: 3, share: 1 / 3, heroEvery: 15, heroMax: 3, whooshEvery: 20 },
+  unnarrated: { perSec: 1 / 1.2, perWindow: 3, share: 1 / 2, heroEvery: 10, heroMax: 6, whooshEvery: 10 },
+  reel: { perSec: 1, perWindow: 4, share: 1 / 2, heroEvery: 8, heroMax: 6, whooshEvery: 8 },
+};
+export const sfxMode = ({ format, narrated } = {}) => (format === "reel" ? "reel" : narrated ? "narrated" : "unnarrated");
+// the most SFX a film of `dur` seconds should carry; sfx-plan places up to it, the checks allow one more (rounding)
+export const sfxLimit = (mode, dur) => Math.max(1, Math.floor(dur * SFX_BUDGET[mode].perSec));
+export const sfxOver = (count, mode, dur) => count > sfxLimit(mode, dur) + 1;
+
 // onset strength envelope at film time (for "the music already hits here")
 export function onsetProfile(file) {
   const y = decode(file);
