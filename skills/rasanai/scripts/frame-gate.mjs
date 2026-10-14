@@ -41,6 +41,7 @@ import { launch } from "./lib/cdp.mjs";
 import { serve } from "./lib/stage3d.mjs";
 import { pagesOf, sizeOf } from "./lib/textfit.mjs";
 import { decodeStill, decodeVideo, frameMetrics, cutsAndCompositions, ffmpegOk, percentile as pct, median } from "./lib/pixels.mjs";
+import { noteDowngrade } from "./lib/downgrade.mjs";
 
 export const GATE = {
   ground_chroma: 1.5, ground_range: 4, // R10
@@ -460,10 +461,11 @@ async function main() {
     fs.mkdirSync(path.dirname(p), { recursive: true });
     fs.writeFileSync(p, JSON.stringify(g, null, 2));
   }
+  for (const c of res.could_not_run) noteDowngrade({ run: args.run, what: "the frame gate", instead: "no frame check", why: String(c).slice(0, 200), impact: "this film's frames were not measured" });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else if (res.film) console.log(printable(res));
   else for (const c of res.could_not_run) console.error(`frame gate could not run: ${c}`);
   process.exit(res.findings.some((f) => f.severity === "error") ? 2 : res.could_not_run.length && !res.film ? 1 : res.could_not_run.length ? 1 : 0);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) main().catch((e) => { console.error(`frame gate could not run: ${e.message}`); process.exit(1); });
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) main().catch((e) => { noteDowngrade({ what: "the frame gate", instead: "no frame check", why: String(e.message).slice(0, 200), impact: "this film's frames were not measured" }); console.error(`frame gate could not run: ${e.message}`); process.exit(1); });

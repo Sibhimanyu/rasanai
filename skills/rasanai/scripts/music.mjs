@@ -33,6 +33,7 @@ import { pathToFileURL } from "node:url";
 import { parseArgs, die } from "./lib/common.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
 import { track } from "./lib/report.mjs";
+import { noteDowngrade } from "./lib/downgrade.mjs";
 import { analyzeTrack, summarize, fitTrack, renderPlan, toolsAvailable } from "./lib/audio.mjs";
 import { KEYS, PRIOR, sourceChain, licenceNote, findUserTrack, judge, readArc, buildPrompt, elevenPlan, loadCatalog, validateCatalog, pickFromCatalog, creditsText } from "./lib/music-lib.mjs";
 
@@ -575,4 +576,5 @@ if (libraryNote) result.library_note = libraryNote;
 if (!film) notes.push("pass --film <seconds> so each track is fitted to the film and gets a preview of the edit");
 if (!shown.length) result.unavailable = `No music could be fetched (${notes.join("; ") || "no source answered"}). Check the network, or give your own track (--track <file>) or pick "No music". Signed in to HeyGen (\`npx hyperframes auth status\`) adds its catalog.`;
 else if (!best) result.unavailable_note = `None of the tracks passes the quality gate and fits a ${film} s film cleanly: ask for more (other moods), make one to the cut (an ElevenLabs or Stable Audio key in ${KEYS.elevenlabs} / ${KEYS.stable}), or bring your own track.`;
+if (result.unavailable || result.unavailable_note) noteDowngrade({ run: args.run, what: "a curated music track", instead: "no track until one is chosen or supplied", why: String(result.unavailable || result.unavailable_note).slice(0, 200) });
 console.log(JSON.stringify(result, null, 2));
