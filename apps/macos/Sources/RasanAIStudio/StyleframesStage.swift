@@ -208,7 +208,7 @@ struct StyleframesStage: View {
             if let store {
                 let mine = store.inspirePicks.picks.compactMap { store.gallery.moment($0.id) }.filter { $0.id != frame.moment?.id }
                 if !mine.isEmpty {
-                    Section("Moves I like") { ForEach(mine) { moment in Button(moment.name) { swap(frame: frame.id, to: moment.id) } } }
+                    Section("Your moves") { ForEach(mine) { moment in Button(moment.name) { swap(frame: frame.id, to: moment.id) } } }
                 }
                 Button("Choose from the gallery…") { swapping = frame.id }
                 if frame.moment != nil { Divider(); Button("None") { swap(frame: frame.id, to: nil) } }

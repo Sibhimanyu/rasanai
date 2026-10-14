@@ -356,26 +356,6 @@ struct QueueUsageLine: View {
     }
 }
 
-struct QueueTotalsFooter: View {
-    var monitor: DirectorMonitor
-    var body: some View {
-        if let totals = monitor.sessionTotals {
-            HStack(spacing: 6) {
-                Image(systemName: "sum").font(.system(size: 11)).foregroundStyle(.secondary)
-                Text("This session")
-                    .font(.system(size: 12, weight: .semibold))
-                Text("\(totals.films) film\(totals.films == 1 ? "" : "s") · \(UsageFormat.tokens(totals.tokens)) tokens"
-                     + (totals.plan ? "" : " · \(UsageFormat.dollars(totals.usd))\(totals.estimated ? " est." : "")"))
-                    .font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit()
-                Spacer()
-            }
-            .padding(.horizontal, 32).padding(.vertical, 12)
-            .background(.bar)
-            .overlay(alignment: .top) { Divider() }
-        }
-    }
-}
-
 // MARK: Finished film
 
 struct FinishedUsageLine: View {

@@ -221,7 +221,7 @@ struct MomentViewer: View {
         Button {
             withAnimation(.snappy(duration: 0.2)) { _ = selection.wrappedValue.toggle(moment) }
         } label: {
-            Text(picked ? "Remove from Moves I like" : full ? "Moves I like is full (4)" : "Add to Moves I like").frame(maxWidth: .infinity)
+            Text(picked ? "Remove from your moves" : full ? "Your moves are full (4)" : "Add to your moves").frame(maxWidth: .infinity)
         }
         // The fill is brand blue only for the action that adds; taking it back is quiet (`.tint` never reached the custom style).
         .rasanButton(primary: !picked).controlSize(.large).disabled(!picked && full)
@@ -282,7 +282,7 @@ struct MomentPickerSheet: View {
                             Text(moment.techniques.map(\.title).joined(separator: " · ")).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
                         }
                         Spacer()
-                        if mine.contains(where: { $0.id == moment.id }) { Text("Moves I like").font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.rasan) }
+                        if mine.contains(where: { $0.id == moment.id }) { Text("In your moves").font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.rasan) }
                     }.contentShape(Rectangle())
                 }.buttonStyle(.plain)
             }

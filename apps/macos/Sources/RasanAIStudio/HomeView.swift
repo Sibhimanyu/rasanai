@@ -133,7 +133,7 @@ struct HomeView: View {
                 Button { store.newFilm() } label: { Label("More options", systemImage: "slider.horizontal.3") }
                     .buttonStyle(.link).font(.system(size: 12.5))
                     .help("Open the full editor: what you are making, footage folders, a reference video, templates")
-                Button { store.path = [.inspire] } label: { Label("Get inspired", systemImage: "sparkles") }
+                Button { store.path = [.inspire] } label: { Label("Inspiration", systemImage: "sparkles") }
                     .buttonStyle(.link).font(.system(size: 12.5))
                 Spacer()
             }
