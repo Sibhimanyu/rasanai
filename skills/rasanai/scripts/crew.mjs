@@ -28,6 +28,12 @@
 //         flat-type (score.type_scale { small_px, large_px }), no-punctuation (a hard cut on the pain-to-meet or payoff seam); flat-3d-style honours the card's `Depth blur:` line)
 //        layers-thin (a showcase-grammar film whose median shots[].layers is under 4); the film-builder role warns no-pose-board / hero-not-stripped (hero moves in score.moves);
 //        the art-director role runs art.mjs check (the assets, one style, the shows mapped to assets) and wants art/ART.md)
+//   node crew.mjs ab --run <run> --a <previous.mp4> --b <new.mp4> [--plan <score.json>] [--seed <s>] [--n <k>]
+//        -> the blind A/B: shuffles the two renders into X / Y (seeded; the order is recorded in crew/ab-<k>.json and is NOT in the juror's
+//           brief), draws crew/ab-<k>/strips/ (rows.png: X left, Y right, the same seconds, the endings last; phone-X.png, phone-Y.png) and writes
+//           the brief for the ab-juror (crew/prompts/ab-juror-<k>.md). crew.mjs check --role ab-juror [--key <k>] reads the verdict, maps it back and
+//           prints "result": "keep" (the new version won) or "revert" (it lost: go back to the previous version's state; keep only fixes that do not lose).
+//           The retrospective role (after delivery) proposes at most 2 craft rules; check prints the lessons.mjs add --source self lines to record
 //   node crew.mjs status --run <run>          -> every planned dispatch and where it stands (resume after compaction)
 //   node crew.mjs pitches --run <run>         -> merges story/pitch-*.json into story/pitches.json (Sure, Bold, Wild)
 //   node crew.mjs storyboard --run <run> --project <dir> [--score <score.json>]
@@ -40,9 +46,11 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import crypto from "node:crypto";
 import { spawnSync, execFileSync } from "node:child_process";
 import { parseArgs, die, readJSON, writeFile, chromeScreenshot, esc, GSAP_PATH, SKILL_DIR } from "./lib/common.mjs";
 import { lessonsBlock } from "./lessons.mjs";
+import { readLessons, AREAS as LESSON_AREAS, KINDS as LESSON_KINDS } from "./lessons.mjs";
 import { recentFilms } from "./memory.mjs";
 import { shapeProblems, tooClose, shapeLine, SHAPE_VOCAB, ASPECTS, MIN_DIFFER, RECENT } from "./lib/film-shape.mjs";
 import { readBudget, checkBudget } from "./lib/budget.mjs";
@@ -124,6 +132,8 @@ const ROLES = {
   "art-director": { desk: "art", tier: "inherit", desc: () => "Making the film's pictures: one consistent world of illustrations, icons, cut-outs, line art and handwriting" },
   "frame-designer": { desk: "art", tier: "inherit", desc: (p, k) => `Designing the boards ${k || ""}, bound to the hero styleframes`.replace("  ", " ") },
   "styleframe-designer": { desk: "art", tier: "inherit", desc: (p, k) => (String(k || "").startsWith("heroes-") ? `Drawing the ${String(k).slice(7)} look's three hero styleframes on this story` : k === "heroes" ? "Designing the shot list and the three hero styleframes" : "Designing the film as pictures: a shot list, three hero styleframes and a board per beat") },
+  "ab-juror": { desk: "review", tier: "inherit", desc: (p, k) => `Judging two films blind (X or Y) and picking the one to show${k ? ` (A/B ${k})` : ""}` },
+  retrospective: { desk: "review", tier: "inherit", desc: () => "Reading how the film was made and keeping at most two craft rules for the next one" },
   "frame-juror": { desk: "review", tier: "inherit", desc: () => "Judging every styleframe next to reference stills of the same kind" },
   "scene-animator": { desk: "animation", tier: "inherit", desc: (p, k) => `Animating scene ${k}` },
   "film-builder": { desk: "animation", tier: "inherit", desc: (p, k) => (k === "lead" ? "Building the root and every object that crosses a cut" : "Building the whole film in one pass, root and every beat") },
@@ -329,6 +339,9 @@ function planCrew(p) {
     phases.push({ phase: "animate-graphics", when: "after reel.mjs briefs wrote compositions/cards/*.brief.md", dispatch: [d("scene-animator", "<card>")], then: "one scene-animator per card or overlay brief, in parallel; then reel.mjs build --render --quality draft (lint + obey)" });
     phases.push({ phase: "review", when: "after the draft render", dispatch: lean ? [d("critic", "film-1")] : [d("critic", "motion-1"), d("critic", "film-1")], then: "route each finding back (2 rounds at most); check by eye that every cut lands on a word boundary, every join is covered, every name is spelled as in footage/names.json" });
   }
+  // every fix round after the first draft is accepted only after a blind A/B against the round before it; after delivery the film teaches the next
+  phases.push({ phase: "ab-review", when: "every fix round after the first draft, before the round is accepted", dispatch: [], director_steps: ["crew.mjs ab --run <run> --a <the previous render> --b <this round's render> --plan motion/score.json", "crew.mjs brief --role ab-juror --key <k> (dispatch it; it sees X and Y, never which is newer)", "crew.mjs check --role ab-juror --key <k> prints keep or revert; revert = back to the previous version's project state (git, or the .superseded copy), keep only fixes that do not lose, and log the lost round with --because"], then: "a lost round is reverted, never accepted" });
+  phases.push({ phase: "retrospective", when: "at delivery, after the Final", dispatch: [d("retrospective")], then: "crew.mjs check --role retrospective prints the lessons.mjs add --source self lines (at most 2); run them" });
   return phases;
 }
 
@@ -796,6 +809,24 @@ function contextFor(run, role, key, plan) {
       O(R(run, "story", `paper-${key}.json`)); O(R(run, "story", `PAPER-${key}.md`));
       break;
     }
+    case "ab-juror": {
+      // the blind A/B (crew.mjs ab): only the X / Y strips go in; the order (which is the new version) stays in crew/ab-<k>.json, out of the brief
+      const k = key || String(abLatest(run) || "");
+      const rec = jsonMaybe(R(run, "crew", `ab-${k}.json`));
+      if (!rec) die(`no crew/ab-${k}.json: run crew.mjs ab first`);
+      ctx.key = k;
+      ctx.films = "two, called X and Y; their order is not known to you or to anyone who briefed you";
+      for (const [l, p] of [["rows of moments, X on the left and Y on the right, the same seconds (the endings last); read at 100%", rec.strips.rows[0]], ...rec.strips.rows.slice(1).map((r, i) => [`more rows (${i + 2})`, r]), ["X on a phone (every second at 360 px)", rec.strips.phone_X], ["Y on a phone (every second at 360 px)", rec.strips.phone_Y]]) I(l, path.resolve(WS, p));
+      if (rec.plan) I("the score (what each beat means to say; never an excuse for what the frames do not show)", path.resolve(WS, rec.plan));
+      O(R(run, "crew", `ab-${k}-verdict.json`));
+      break;
+    }
+    case "retrospective": {
+      ctx.lessons_cmd = `node "${path.join(SKILL_DIR, "scripts", "lessons.mjs")}" list --json`;
+      for (const [l, p] of [["the crew ledger (briefs, accepted and refused checks)", R(run, "crew", "ledger.jsonl")], ["the motion gate's report on the last draft", R(run, "crew", "motion-gate.json")], ["the critics' rounds (crew/critic-<lens>-<round>.json)", R(run, "crew")], ["every blind A/B and its verdict (crew/ab-<k>.json, ab-<k>-verdict.json)", R(run, "crew")], ["the Director's decisions and the reasons the old calls lost", R(run, "decisions.json")], ["the console session: the user's notes and what was applied", R(run, "session.json")], ["the frame gate's report", R(run, "frames", "gate.json")]]) I(l, p);
+      O(R(run, "crew", "retrospective.json"));
+      break;
+    }
     case "brand-kit-builder": {
       const kit = ((P.sources && P.sources.sources) || []).filter((x) => x.kind === "assets").map((x) => x.path);
       const entry = ((P.phases || []).flatMap((ph) => ph.dispatch).find((x) => x.role === "brand-kit-builder") || {}).kit_paths || [];
@@ -874,6 +905,8 @@ const DARES = {
   "film-builder": "Show off. You hold the whole film in one mind, which no team of parallel animators can: use it. The boards are approved; make them move the way a senior motion designer would. Your first version will be the machine one: every move on the same curve and the same 0.45 s, one thing at a time, nothing settling, straight lines. Throw that out. Give each move its role's curve and a duration from its travel, let the next gesture start before the last one lands, trail secondaries a few frames behind, bend the paths, land the hero with a settle, keep the camera alive, carry objects across the cuts and make the product's UI answer each action like the real product. Build every hero move as a 4-6 pose board first, then look at it in a 24 fps strip next to its board and fix the frame that does not read. Land the plan's showreel moments to the frame. If a motion designer would not rewind it, it isn't done.",
   "frame-designer": "Show off. Your boards sit between the hero styleframes, and the user sees them side by side with reference stills: a board that looks like a screenshot next to a Kinso frame is the failure. Copy the heroes' light, ground, device and type ladder exactly; change the shot size from your neighbours; isolate one hero at 3 to 6x with real labels; put a camera on it (a lens, a yaw under 35 degrees, a contact shadow), real depth of field and a giant-against-tiny type moment where the beat allows. Each board should be good enough to be the film's poster. For beats the score or the shot list puts in 3D, draw them in real 3D (Rasan3D, references/3d.md).",
   "styleframe-designer": "Show off. x1 already beat the pipeline on 6 of 8 frames with one rule set: a different shot size every frame (macro, object, giant type, wide); real depth of field (a sharp copy and a blurred copy of the same plane, layers blurred by distance) so the blur says where to look; ONE hero per frame, the product rebuilt as DOM at 3 to 6x with real labels; a camera angle (one lens, a yaw of 15 to 35 degrees on two axes at most) with a contact shadow on the ground; words and UI touching at very different sizes (a 210 px line inside a 14 px-labelled component); a lit, tinted ground a few percent darker than the UI. That is the floor, not the bar. Then the poster test on every frame: squint for one brightest and one darkest region, 3 to 4 hues, one focal mass; would it hang next to the reference still you picked for it? Beat x1 where it fell short: light with colour (a rim in the product's own functional colours on the hero moment), a real material (glass, thickness, a specular edge), a type-UI collision only motion can finish. Name your three rewind frames, draw two compositions for each hero and keep the stronger, and revise every frame that would look weaker next to its reference.",
+  "ab-juror": "Be the motion designer who has two films in front of you and one slot on the reel. Pick the one you would rewind, by quoted seconds, and take the riskier film that is still sound over the tidier one. You are never told which came first: a guess about that is not a reason.",
+  retrospective: "Be a coach with two minutes: keep only a rule that repeated or cost a round, in one imperative line another film could use. Zero rules is a good answer; a wise-sounding rule the files do not support is not.",
   "frame-juror": "Be the creative director who has just watched Kinso, Sovra and Google's launch films and is shown these boards next to them. A board that is clean, centred and correct but would look weaker in that reel is below, and you say exactly what would lift it (size, crop, focus, light, type scale, with numbers). Find the weakest frame first. Never pass a frame because it follows the shot list.",
   "treatment-writer": "Show off. Two other writers are pitching treatments of this song against you, and the user will pick one. Write the one that wins the room, not the one that merely passes treatment.mjs check: a concept the user can say in a sentence, a signal that runs through every plate, lines that become puns and transformations (never pictures of the sentence), three plates a motion designer would cut into their reel, a hook that escalates, and one seam that only pays off on the second watch. If a plate's idea is just the lyric restated, you are not done.",
   "visual-writer": "Show off. Two other writers are staging this same talk against you, and the user will pick one. Write the one that wins the room, not the one that merely passes presenter.mjs check: one running visual idea the whole talk happens inside, images that argue with the sentence instead of illustrating it, at least one cutaway that lands on a word, and one moment where the person interacts with the world (points at it, steps into it, is framed by it). If a plate is just the sentence drawn as a picture, you are not done.",
@@ -1434,6 +1467,12 @@ function dsnPath(run) {
   } catch { return null; }
 }
 
+let CHECK_EXTRA = null; // extra fields a role's check hands the Director (the A/B's keep/revert, the retrospective's record lines)
+function abLatest(run) {
+  const d = R(run, "crew");
+  const ns = exists(d) ? fs.readdirSync(d).map((x) => (x.match(/^ab-(\d+)\.json$/) || [])[1]).filter(Boolean).map(Number) : [];
+  return ns.length ? Math.max(...ns) : 0;
+}
 async function checkRole(run, role, key) {
   const P = [], W = [];
   const research = (f) => R(run, "research", f);
@@ -2064,6 +2103,52 @@ async function checkRole(run, role, key) {
       if (!readMaybe(research("brand.md"))) P.push("research/brand.md (where every token came from) is missing");
       break;
     }
+    case "ab-juror": {
+      const k = key || String(abLatest(run) || "");
+      const rf = R(run, "crew", `ab-${k}.json`), vf = R(run, "crew", `ab-${k}-verdict.json`);
+      const rec = jsonMaybe(rf), v = jsonMaybe(vf);
+      if (!rec) { P.push(`crew/ab-${k}.json is missing (crew.mjs ab writes it)`); break; }
+      if (v === null) { P.push(`crew/ab-${k}-verdict.json is missing`); break; }
+      if (v === undefined || typeof v !== "object") { P.push(`crew/ab-${k}-verdict.json is not valid JSON`); break; }
+      if (v.pick !== "X" && v.pick !== "Y") P.push('"pick" must be "X" or "Y" (no tie: take the one you would show)');
+      const rs = Array.isArray(v.reasons) ? v.reasons.filter((x) => String(x || "").trim().length > 15) : [];
+      if (rs.length < 2) P.push(`"reasons" needs 2 to 6 lines, each naming a second and a film (found ${rs.length})`);
+      if (rs.length > 6) W.push("more than 6 reasons: keep the ones that decided it");
+      const dims = ["boldness", "readability", "ending", "rhythm"];
+      for (const x of ["X", "Y"]) for (const dm of dims) { const n = Number(v.scores && v.scores[x] && v.scores[x][dm]); if (!(n >= 1 && n <= 10)) P.push(`scores.${x}.${dm} must be 1 to 10`); }
+      if (!String(v.loses_on || "").trim()) W.push('"loses_on" is empty: say what the film not picked does better (a fix can borrow it)');
+      // the juror was never told the order: a reason that guesses it is a breach, and the verdict is asked again
+      const leak = JSON.stringify([v.reasons, v.loses_on]).match(/\b(newer|newest|older|oldest|revised|revision|draft|version|improved|regress(?:ed|ion)?|reworked|fix round|after the fix)\b/i);
+      if (leak) P.push(`a reason says "${leak[0]}": you were not told which film came first, so judge the two finished films only; rewrite the reasons without it`);
+      if (!P.length) {
+        const winnerRole = rec.order[v.pick]; // "new" | "prev"
+        const result = winnerRole === "new" ? "keep" : "revert";
+        rec.verdict = { pick: v.pick, winner: winnerRole, result, at: new Date().toISOString(), scores: v.scores, loses_on: v.loses_on || null };
+        fs.writeFileSync(rf, JSON.stringify(rec, null, 2));
+        CHECK_EXTRA = { result, winner: winnerRole, picked: v.pick, next: result === "keep" ? "the new version won the blind A/B: accept the round" : "the new version LOST the blind A/B: go back to the previous version's project state (git checkout of the project, or its .superseded copy), keep only fixes that do not lose (re-apply each on the old state and A/B again if in doubt), and log it: console.mjs push ... --because \"round N lost the blind A/B: <loses_on>\"", loses_on: v.loses_on || null };
+      }
+      break;
+    }
+    case "retrospective": {
+      const f = R(run, "crew", "retrospective.json"), v = jsonMaybe(f);
+      if (v === null) { P.push("crew/retrospective.json is missing"); break; }
+      if (v === undefined || typeof v !== "object" || !Array.isArray(v.lessons)) { P.push("crew/retrospective.json is not valid JSON with a lessons array"); break; }
+      if (v.lessons.length > 2) P.push(`${v.lessons.length} lessons: at most 2`);
+      if (!v.lessons.length && !String(v.none_because || "").trim()) P.push('no lessons and no "none_because": say what you read and why nothing was worth carrying');
+      const known = new Set(readLessons().map((r) => String(r.rule).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()));
+      const cmds = [];
+      v.lessons.forEach((l, i) => {
+        const w = `lessons[${i}]`, rule = String((l && l.rule) || "").trim();
+        if (!rule || /\n/.test(rule) || rule.length > 200) P.push(`${w}.rule must be one line of at most 200 characters`);
+        if (!LESSON_AREAS.includes(l && l.area)) P.push(`${w}.area must be one of ${LESSON_AREAS.join(", ")}`);
+        if (!LESSON_KINDS.includes(l && l.kind)) P.push(`${w}.kind must be ${LESSON_KINDS.join(" or ")}`);
+        if (!String((l && l.quote) || "").trim()) P.push(`${w}.quote is empty: the finding, verdict reason or note that earned the rule, verbatim`);
+        if (known.has(rule.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim())) P.push(`${w} is already in lessons.mjs list`);
+        if (rule && LESSON_AREAS.includes(l.area) && LESSON_KINDS.includes(l.kind)) cmds.push(`node "${path.join(SKILL_DIR, "scripts", "lessons.mjs")}" add --source self --rule ${JSON.stringify(rule)} --quote ${JSON.stringify(String(l.quote || ""))} --kind ${l.kind} --area ${l.area} --run "${rel(run)}"`);
+      });
+      if (!P.length) CHECK_EXTRA = { record: cmds, next: cmds.length ? "run each record line (they are Claude's own notes: ranked below the user's, never a gate)" : "nothing to record" };
+      break;
+    }
     default:
       die(`unknown role "${role}"`);
   }
@@ -2350,8 +2435,8 @@ if (cmd === "plan") {
   if (!ROLES[role]) die(`--role must be one of ${Object.keys(ROLES).join(", ")}`);
   const key = args.key && args.key !== true ? String(args.key) : null;
   const { P, W } = await checkRole(run, role, key);
-  ledger(run, { event: P.length ? "fail" : "ok", role, key, problems: P.length ? P.slice(0, 20) : undefined });
-  out({ ok: !P.length, role, key, problems: P, warnings: W }, P.length ? 2 : 0);
+  ledger(run, { event: P.length ? "fail" : "ok", role, key, problems: P.length ? P.slice(0, 20) : undefined, ...(CHECK_EXTRA && CHECK_EXTRA.result ? { result: CHECK_EXTRA.result } : {}) });
+  out({ ok: !P.length, role, key, problems: P, warnings: W, ...(CHECK_EXTRA || {}) }, P.length ? 2 : 0);
 } else if (cmd === "status") {
   const run = runDir();
   const plan = jsonMaybe(R(run, "crew", "plan.json"));
@@ -2427,6 +2512,75 @@ if (cmd === "plan") {
   if (exists(dispF)) fs.writeFileSync(dispF, upsertMarked(fs.readFileSync(dispF, "utf8"), bm, `${bm}\n## The motion score\n\nYour frame block in the packet holds your part of the Motion Director's score (shots, primary movers, camera, handoffs); MOTION-SCORE.md is the whole film. Seams are contracts: start and end continuing elements at the exact handoff numbers.\n`));
   const logos = stageLogos(run, pj);
   out({ ok: true, storyboard: rel(sbf), frames: (score.scenes || []).length, parsed: !!parsed, logos: logos || undefined, score_md: rel(path.join(pj, "MOTION-SCORE.md")), build_md: rel(path.join(pj, "BUILD.md")), dispatch: direct ? "reduced to a pointer to the plan (direct film)" : "kept", next: "The workflow's visual-design step is done: stage assets, then frame-packets.mjs, video.mjs inject, and " + (direct ? "dispatch the ONE film builder (crew.mjs brief --role film-builder --key film)." : "dispatch the lead builder, then the scene animators (crew.mjs brief --role scene-animator --key <n>).") });
+} else if (cmd === "ab") {
+  const run = runDir();
+  const need = (k) => (args[k] && args[k] !== true ? path.resolve(String(args[k])) : die(`--${k} <video> required (--a the previous version's render, --b the new one)`));
+  const fa = need("a"), fb = need("b");
+  for (const f of [fa, fb]) if (!exists(f)) die(`not found: ${f}`);
+  const n = Number(args.n) || abLatest(run) + 1;
+  const seed = args.seed && args.seed !== true ? String(args.seed) : crypto.randomBytes(6).toString("hex");
+  // seeded shuffle: the first bit of sha1(seed) decides which render is called X
+  const flip = (crypto.createHash("sha1").update(seed).digest()[0] & 1) === 1;
+  const order = flip ? { X: "new", Y: "prev" } : { X: "prev", Y: "new" };
+  const file = { prev: fa, new: fb };
+  const dur = (f) => Number(spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", f], { encoding: "utf8" }).stdout.trim()) || die(`ffprobe could not read the length of ${path.basename(f)}`);
+  const D = { X: dur(file[order.X]), Y: dur(file[order.Y]) };
+  const common = Math.min(D.X, D.Y);
+  const plan = args.plan && args.plan !== true ? path.resolve(String(args.plan)) : null;
+  const sc = plan ? jsonMaybe(plan) : null;
+  const beats = sc && Array.isArray(sc.scenes || sc.beats) ? (sc.scenes || sc.beats) : [];
+  // the same seconds in both: each beat's peak (60% in) when a plan is given, else even spacing; then each film's own last 2.5 s, 1.2 s and 0.15 s
+  let T = [];
+  { let t = 0;
+    for (const b of beats) { const st = Number.isFinite(Number(b.start)) && b.start != null && b.start !== "" ? Number(b.start) : t; const en = Number.isFinite(Number(b.end)) && b.end != null ? Number(b.end) : st + (Number(b.duration) || Number(b.duration_s) || 0); t = en; if (en > st) T.push(Math.round((st + 0.6 * (en - st)) * 100) / 100); } }
+  if (T.length < 4) T = Array.from({ length: 12 }, (_, i) => Math.round((0.4 + (i * (common - 0.8)) / 11) * 100) / 100);
+  if (T.length > 14) T = Array.from({ length: 14 }, (_, i) => T[Math.round((i * (T.length - 1)) / 13)]);
+  T = [...new Set(T)].filter((t) => t > 0 && t < common - 0.3);
+  const END = [2.5, 1.2, 0.15];
+  const base = R(run, "crew", `ab-${n}`), sdir = path.join(base, "strips");
+  fs.rmSync(base, { recursive: true, force: true });
+  fs.mkdirSync(sdir, { recursive: true });
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "rasanai-ab-"));
+  try {
+    const pair = {};
+    for (const x of ["X", "Y"]) {
+      const times = [...T, ...END.map((e) => Math.round(Math.max(0, D[x] - e) * 100) / 100)];
+      const dir = path.join(tmp, x); fs.mkdirSync(dir);
+      pair[x] = videoAt(file[order[x]], times, dir);
+    }
+    const rowsPng = [];
+    const per = 6, nrows = T.length + END.length;
+    for (let r0 = 0, page = 1; r0 < nrows; r0 += per, page++) {
+      const files = [];
+      for (let r = r0; r < Math.min(nrows, r0 + per); r++) for (const x of ["X", "Y"]) files.push({ ...pair[x].files[r], label: `${x} · ${r >= T.length ? "end " : ""}` });
+      const png = path.join(sdir, page === 1 ? "rows.png" : `rows-${page}.png`);
+      sheet(files, pair.X.W, pair.X.H, png, 2, 560);
+      rowsPng.push(png);
+    }
+    const phone = {};
+    for (const x of ["X", "Y"]) {
+      const step = Math.max(1, Math.ceil(D[x] / 36));
+      const times = []; for (let t = 0; t < D[x] - 0.05; t += step) times.push(t);
+      const dir = path.join(tmp, `phone-${x}`); fs.mkdirSync(dir);
+      const res = videoAt(file[order[x]], times, dir);
+      phone[x] = path.join(sdir, `phone-${x}.png`);
+      sheet(res.files.map((fl) => ({ ...fl, label: `${x} · ` })), res.W, res.H, phone[x], 3, 360);
+    }
+    for (const p of [...rowsPng, phone.X, phone.Y]) if (!exists(p)) die("a strip did not render: " + p);
+    const rec = { n, seed, order, files: { X: rel(file[order.X]), Y: rel(file[order.Y]) }, a: rel(fa), b: rel(fb), plan: plan ? rel(plan) : null, times: T, strips: { rows: rowsPng.map(rel), phone_X: rel(phone.X), phone_Y: rel(phone.Y) }, created: new Date().toISOString(), verdict: null, note: "order: which of X / Y is the new version (b). Never show this file to the juror." };
+    writeFile(path.join(R(run, "crew"), `ab-${n}.json`), JSON.stringify(rec, null, 2));
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+  const plan0 = jsonMaybe(R(run, "crew", "plan.json")) || {};
+  const { text, ctx, outputs } = promptFor(run, "ab-juror", String(n), plan0);
+  const pf = R(run, "crew", "prompts", `ab-juror-${n}.md`);
+  writeFile(pf, text);
+  fs.mkdirSync(path.resolve(WS, ctx.scratch), { recursive: true });
+  ledger(run, { event: "brief", role: "ab-juror", key: String(n) });
+  const prof = modelOf(plan0);
+  out({ ok: true, n, record: rel(path.join(R(run, "crew"), `ab-${n}.json`)), prompt: rel(pf), strips: rel(sdir), outputs,
+    note: "The order (which of X / Y is the new version) is in the record, not in the brief. Dispatch the juror with the prompt; do not tell it anything about the two films.",
+    dispatch: dispatchFor(prof, { desc: ROLES["ab-juror"].desc(plan0, String(n)), file: rel(pf), role: "ab-juror" }),
+    then: `node crew.mjs check --run ${rel(run)} --role ab-juror --key ${n}   (prints keep or revert)` });
 } else if (cmd === "strip") {
   const outPng = args.out && args.out !== true ? path.resolve(String(args.out)) : die("--out <sheet.png> required");
   const T = times();
@@ -2454,7 +2608,7 @@ if (cmd === "plan") {
   if (!exists(outPng)) die("the sheet did not render");
   out({ ok: true, sheet: rel(outPng), frames: res.files.length, dir: rel(dir), times: T, look: args.phone ? "Read the sheet at 100%: this is the film at phone size. Every line meant to be read must read here; one that doesn't is a readability finding" : "Read the sheet image: spacing between frames shows the ease (wide gaps = fast, tight = slowing into a landing)" });
 } else {
-  die("usage: crew.mjs plan|brief|check|status|pitches|storyboard|strip … (see the header)");
+  die("usage: crew.mjs plan|brief|check|ab|status|pitches|storyboard|strip … (see the header)");
 }
 
 // The script editor cannot be skipped on a scripted route: the concept critic is never briefed (or accepted) until the editor
