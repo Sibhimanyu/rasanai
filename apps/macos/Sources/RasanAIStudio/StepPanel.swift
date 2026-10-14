@@ -6,7 +6,7 @@ import SwiftUI
 ///   brand, research, route, footage, reel, concept, scenes  -> MinorPanelsA.swift
 ///   styleframes, motion, transitions, voice, music, storyboard, keyframes, plan, direction, anything else -> MinorPanelsB.swift
 ///
-/// A body may register its primary action (the status bar's prominent button, which gets Return) with `.stepPrimary(...)`;
+/// A body may register its primary action (the status bar's prominent button, which gets ⇧⌘↩) with `.stepPrimary(...)`;
 /// bodies that lay out their own buttons inline can ignore it.
 struct StepPanel: View {
     let model: FilmSessionModel
@@ -57,7 +57,7 @@ struct StepPanel: View {
     static func defaultQuestion(_ step: String) -> String {
         switch step {
         case "brand": "Use your brand for this film?"
-        case "research": "What the crew found"
+        case "research": "What was found"
         case "route": "Which workflow builds this?"
         case "footage": "Which clips go in?"
         case "reel": "Is this the cut?"
@@ -133,11 +133,12 @@ struct StepActionBar: View {
     let model: FilmSessionModel
     let step: String
     let slot: StepActionSlot
+    @Environment(\.agentName) private var agent
 
     var body: some View {
         FilmActionsPublisher(actions: model.showsActions(for: step) ? FilmActions(
             step: step, primaryTitle: slot.title, primarySymbol: slot.symbol, primaryEnabled: slot.enabled,
-            secondaryTitle: "Let Claude decide", secondaryHelp: "Let Claude make this call. It will say what it chose and why.",
+            secondaryTitle: "Let \(agent) decide", secondaryHelp: "Let \(agent) make this call. It will say what it chose and why.",
             onPrimary: slot.perform,
             onSecondary: { note in Task { await model.decide(step: step, note: note) } }) : nil)
     }

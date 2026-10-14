@@ -31,6 +31,32 @@ import SwiftUI
 //   ClockLabel(seconds:)               "0:12" in monospaced digits.
 //   JSONValue helpers (StudioCore): .string, .number, .bool, .strings, .array, .object, .identifier, ["key"].
 
+// MARK: Agent name and shared metrics
+
+extension LocalAgent {
+    /// What the person calls the agent in the interface ("Claude", not "Claude Code"); `title` is the settings name.
+    var shortName: String {
+        switch self { case .claude: "Claude"; case .codex: "Codex"; case .custom: "Your agent" }
+    }
+}
+
+extension EnvironmentValues {
+    /// The running agent's name for UI copy. The film page sets it from the agent setting; fixtures keep "Claude".
+    @Entry var agentName = "Claude"
+}
+
+extension CGFloat {
+    /// The one horizontal inset the film page's status text, stage heading and filmstrip header share.
+    static let filmInset: CGFloat = 16
+}
+
+extension View {
+    /// The one primary of a view gets the brand fill; the same control is the neutral secondary when something else is primary.
+    @ViewBuilder func rasanButton(primary: Bool) -> some View {
+        if primary { buttonStyle(.rasanPrimary) } else { buttonStyle(.rasanSecondary) }
+    }
+}
+
 // MARK: Page
 
 struct StageScaffold<Content: View, Actions: View>: View {
@@ -52,7 +78,7 @@ struct StageScaffold<Content: View, Actions: View>: View {
                     DecidedLine(decision: decision, by: model.snapshot.decisions.first { $0.step == step }?.byUser)
                 }
             }
-            .padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 28)
+            .padding(.horizontal, .filmInset).padding(.top, 20).padding(.bottom, 28)
             .frame(maxWidth: maxWidth, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
@@ -75,6 +101,7 @@ struct StageHeader: View {
     var context: String?
     /// The title of Claude's recommended option, shown as "Claude recommends X".
     var recommended: String?
+    @Environment(\.agentName) private var agent
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(question)
@@ -86,7 +113,7 @@ struct StageHeader: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let recommended, !recommended.isEmpty {
-                RecommendedBadge(text: "Claude recommends \(recommended)").padding(.top, 4)
+                RecommendedBadge(text: "\(agent) recommends \(recommended)").padding(.top, 4)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -94,8 +121,11 @@ struct StageHeader: View {
 }
 
 struct RecommendedBadge: View {
-    var text = "Claude's pick"
+    /// Nil reads "<agent>'s pick".
+    var text: String?
+    @Environment(\.agentName) private var agent
     var body: some View {
+        let text = text ?? "\(agent)'s pick"
         Label(text, systemImage: "sparkles")
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(Color.rasan)
@@ -106,6 +136,7 @@ struct RecommendedBadge: View {
 }
 
 struct DecidedLine: View {
+    @Environment(\.agentName) private var agent
     let decision: String
     var by: Bool?
     var body: some View {
@@ -113,7 +144,7 @@ struct DecidedLine: View {
             Image(systemName: "checkmark.circle.fill").foregroundStyle(Color(nsColor: .systemGreen))
             (Text("Decided: ").fontWeight(.semibold) + Text(decision))
                 .font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
-            if let by { Text(by ? "· you" : "· Claude").font(.system(size: 12)).foregroundStyle(.secondary) }
+            if let by { Text(by ? "· you" : "· \(agent)").font(.system(size: 12)).foregroundStyle(.secondary) }
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(nsColor: .systemGreen).opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -160,12 +191,13 @@ struct CallActions: View {
     var primaryEnabled = true
     var allowDecide = true
     var onPrimary: (_ note: String) -> Void = { _ in }
+    @Environment(\.agentName) private var agent
 
     /// Only the person's turn (or looking back, or just sent) publishes; while Claude works there is nothing to do.
     var body: some View {
         FilmActionsPublisher(actions: model.showsActions(for: step) ? FilmActions(
             step: step, primaryTitle: primaryTitle, primarySymbol: primarySymbol, primaryEnabled: primaryEnabled,
-            secondaryTitle: allowDecide ? "Let Claude decide" : nil, secondaryHelp: "Let Claude make this call. It will say what it chose and why.",
+            secondaryTitle: allowDecide ? "Let \(agent) decide" : nil, secondaryHelp: "Let \(agent) make this call. It will say what it chose and why.",
             onPrimary: onPrimary,
             onSecondary: { note in Task { await model.decide(step: step, note: note) } }) : nil)
     }
@@ -273,32 +305,6 @@ struct OpenInBrowserButton: View {
         if let url = model?.fileURL(path) {
             Button { SafeOpen.open(url) } label: { Label(title, systemImage: "safari") }
                 .buttonStyle(.link).font(.system(size: 12))
-        }
-    }
-}
-
-// MARK: Stub body
-
-/// What the phase 1 stub screens show until their real body lands: the question, what the payload holds, and "You decide".
-struct StageStubBody: View {
-    let model: FilmSessionModel
-    let step: String
-    let name: String
-    var body: some View {
-        let payload = model.payload(step)
-        StageScaffold(model: model, step: step,
-                      question: payload["question"].string ?? StepCatalog.label(step),
-                      context: payload["context"].string,
-                      recommended: payload["recommended"].identifier) {
-            StageCard {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("\(name) screen in progress", systemImage: "hammer").font(.system(size: 13, weight: .semibold))
-                    Text("This step's payload has: " + payload.object.keys.sorted().joined(separator: ", "))
-                        .font(.system(size: 12)).foregroundStyle(.secondary).textSelection(.enabled)
-                }
-            }
-        } actions: {
-            CallActions(model: model, step: step)
         }
     }
 }

@@ -21,6 +21,7 @@ struct FilmProgressView: View {
     /// The phase the person clicked, or `nil` to follow the live one.
     @State private var selected: ProgressPhase?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.agentName) private var agent
 
     private var snapshot: FilmProgressSnapshot {
         var s = progress.snapshot
@@ -28,7 +29,7 @@ struct FilmProgressView: View {
         // the header must agree with the status pill and stop asking.
         if s.isWaitingForYou, !progress.isReplay, !model.isFixture, !model.isWaitingOnUser {
             s.isWaitingForYou = false
-            s.now = NowLine(phase: s.now.phase, kind: .thinking, text: "Sent to Claude. Picking it up now", detail: nil, since: nil)
+            s.now = NowLine(phase: s.now.phase, kind: .thinking, text: "Sent to \(agent). Picking it up now", detail: nil, since: nil)
             for i in s.phases.indices where s.phases[i].state == .waitingForYou { s.phases[i].state = .active }
         }
         // The automatic resume is a line in the activity timeline too.
@@ -76,7 +77,7 @@ struct FilmProgressView: View {
     private var lookingBack: some View {
         HStack(spacing: 10) {
             Image(systemName: "clock.arrow.circlepath").foregroundStyle(.secondary)
-            Text("Looking back at \(shown.title). The film is on \(snapshot.currentPhase.title).").font(.system(size: 12.5))
+            Text("Looking back at \(shown.title). The film is on \(snapshot.currentPhase.title).").font(.system(size: 12))
             Spacer()
             Button("Back to now") { selected = nil }.controlSize(.small)
         }
@@ -95,13 +96,13 @@ struct FilmProgressView: View {
                 Text("\(s.now.phase.title) · step \(s.now.phase.index + 1) of \(ProgressPhase.allCases.count)".uppercased())
                     .font(.system(size: 11, weight: .semibold)).tracking(0.6)
                 if let pace {
-                    Text("\(pace.title) pace").font(.system(size: 10.5, weight: .medium)).foregroundStyle(.secondary)
+                    Text("\(pace.title) pace").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
                         .padding(.horizontal, 7).padding(.vertical, 2).background(Color(nsColor: .quaternaryLabelColor).opacity(0.3), in: Capsule())
                         .help("How much research and checking this film was set up for. Change it in Settings or New film.")
                 }
                 Spacer()
-                if let onShowLog { Button("Log", action: onShowLog).controlSize(.small).help("Open the director's full log") }
-                if let onPause { Button("Pause", action: onPause).controlSize(.small).help("Stops the director safely. Your work is kept, and you can resume.") }
+                if let onShowLog { Button("Log", action: onShowLog).controlSize(.small).help("Open the full activity log") }
+                if let onPause { Button("Pause", action: onPause).controlSize(.small).help("Pause (⌘.). Your work is kept, and you can resume.") }
             }
             .foregroundStyle(s.isWaitingForYou ? Color.orange : Color.rasan)
             .padding(.bottom, 6)
@@ -140,7 +141,7 @@ struct FilmProgressView: View {
     private func resumeBanner(_ notice: AutoResumeNotice, now: Date) -> some View {
         HStack(spacing: 8) {
             Image(systemName: notice.isLimit ? "hourglass" : "arrow.clockwise.circle.fill").font(.system(size: 13, weight: .semibold))
-            Text(notice.text).font(.system(size: 12.5, weight: .medium)).fixedSize(horizontal: false, vertical: true)
+            Text(notice.text).font(.system(size: 12, weight: .medium)).fixedSize(horizontal: false, vertical: true)
             if let at = notice.resumesAt, at > now, notice.isLimit {
                 Text("Resumes by itself at \(at.formatted(date: .omitted, time: .shortened)) while RasanAI is open.").font(.system(size: 12)).foregroundStyle(.secondary)
             }
@@ -156,11 +157,11 @@ struct FilmProgressView: View {
 
     @ViewBuilder private func estimate(_ s: FilmProgressSnapshot) -> some View {
         if s.isWaitingForYou {
-            Label("Waiting for you", systemImage: "person.fill.questionmark").font(.system(size: 12.5, weight: .semibold)).foregroundStyle(.orange)
+            Label("Waiting for you", systemImage: "person.fill.questionmark").font(.system(size: 12, weight: .semibold)).foregroundStyle(.orange)
         } else if let remaining = s.remaining {
             HStack(spacing: 5) {
-                Text(Self.estimateText(remaining)).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Color.rasan)
-                Text(remaining.basis == .measured ? "· from progress so far" : "· based on typical films").font(.system(size: 11.5)).foregroundStyle(.tertiary)
+                Text(Self.estimateText(remaining)).font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.rasan)
+                Text(remaining.basis == .measured ? "· from progress so far" : "· based on typical films").font(.system(size: 11)).foregroundStyle(.tertiary)
             }
             .help(remaining.basis == .measured ? "Worked out from what has been built or rendered so far." : "A typical figure for these stages. It firms up once there is progress to measure.")
             .accessibilityElement(children: .combine)
@@ -224,7 +225,7 @@ struct PhaseRail: View {
 
     private var totals: some View {
         HStack {
-            Text("So far").font(.system(size: 11.5)).foregroundStyle(.secondary)
+            Text("So far").font(.system(size: 11)).foregroundStyle(.secondary)
             Spacer()
             Text(snapshot.isIncludedInPlan ? FilmProgressFormat.tokens(snapshot.totalTokens.fresh)
                  : (snapshot.costIsEstimated ? "est. " : "") + UsageFormat.dollars(snapshot.totalCostUSD))
@@ -261,9 +262,9 @@ private struct PhaseRailRow: View {
                 .frame(width: 26)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.phase.title)
-                        .font(.system(size: 13.5, weight: item.state == .active || item.state == .waitingForYou ? .semibold : .medium))
+                        .font(.system(size: 13, weight: item.state == .active || item.state == .waitingForYou ? .semibold : .medium))
                         .foregroundStyle(item.state == .upcoming || item.state == .skipped ? .secondary : .primary)
-                    Text(subtitle).font(.system(size: 11.5)).foregroundStyle(subtitleColor).monospacedDigit().lineLimit(1)
+                    Text(subtitle).font(.system(size: 11)).foregroundStyle(subtitleColor).monospacedDigit().lineLimit(1)
                 }
                 .padding(.top, 3)
                 Spacer(minLength: 0)
