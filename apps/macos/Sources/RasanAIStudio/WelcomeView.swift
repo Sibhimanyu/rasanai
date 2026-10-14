@@ -12,6 +12,7 @@ struct WelcomeView: View {
     private var missingTools: [SetupTool] { SetupTool.missing(in: store.preflightReport) }
     private var toolsChecking: Bool { !store.isDemo && (store.isCheckingPreflight || (!checkedTools && store.preflightReport == nil)) }
     private var toolsReady: Bool { store.isDemo || (store.preflightReport != nil && missingTools.isEmpty && store.preflightReport?.canStart == true) }
+    private var needsGitSetup: Bool { store.preflightReport?.items.contains { $0.id == "git" && $0.level != .ready } == true }
     private var anyReady: Bool { agents.contains { settings.isReady($0) } }
 
     var body: some View {
@@ -37,6 +38,7 @@ struct WelcomeView: View {
             toolsCard.padding(.top, 12)
                 .animation(.snappy, value: toolsChecking)
                 .animation(.snappy, value: missingTools)
+            if needsGitSetup { DeveloperToolsSetup(store: store).padding(.top, 8) }
 
             Text("RasanAI directs films with your Claude Code or Codex account. Usage counts toward your plan.")
                 .font(.system(size: 12)).foregroundStyle(.secondary)
@@ -148,7 +150,7 @@ struct WelcomeView: View {
             Button { withAnimation(.snappy) { selected = agent } } label: {
                 HStack(spacing: 12) {
                     Group {
-                        if checking { ProgressView().controlSize(.small) }
+                        if checking || settings.installing == agent { ProgressView().controlSize(.small) }
                         else if installed {
                             Image(systemName: signedIn(agent) ? "checkmark.circle.fill" : spare ? "circle.dashed" : "exclamationmark.circle.fill")
                                 .foregroundStyle(signedIn(agent) ? Color.green : spare ? Color.secondary : Color.orange)
@@ -173,12 +175,16 @@ struct WelcomeView: View {
             }
             .buttonStyle(.plain).disabled(!choosable)
             .accessibilityAddTraits(selected == agent && choosable ? .isSelected : [])
-            if needsAction {
-                Button(installed ? "Sign in…" : "Install…") { settings.setupInTerminal(agent) }
-                    .controlSize(.small).padding(.trailing, 14)
+            if needsAction && settings.installing != agent {
+                // Installing happens here, with progress; only signing in (browser and code) opens Terminal.
+                Button(installed ? "Sign in…" : "Install") {
+                    if installed { settings.setupInTerminal(agent) } else { Task { await settings.install(agent) } }
+                }
+                .controlSize(.small).padding(.trailing, 14).disabled(!installed && settings.installing != nil)
             }
         }
         .contextMenu {
+            if !installed { Button("Install in Terminal Instead…") { settings.setupInTerminal(agent) } }
             Button("Copy setup command") {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(settings.setupCommand(for: agent), forType: .string)
@@ -187,7 +193,9 @@ struct WelcomeView: View {
     }
 
     private func subtitle(_ agent: LocalAgent, installed: Bool, checking: Bool, optional: Bool) -> String {
+        if settings.installing == agent { return "Installing… this takes a minute" }
         if checking { return "Checking…" }
+        if !installed, let error = settings.installErrors[agent.id] { return error }
         if !installed { return "Not installed" }
         if signedIn(agent) { return "Found · signed in" }
         // A failed check says why ("timed out"); the plain signed-out case reads the same everywhere.

@@ -176,3 +176,48 @@ struct ToolSetupProgress: View {
         }.padding(12).background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 10))
     }
 }
+
+/// Design resources need Git, and on a Mac without developer tools Git comes with Apple's command line tools. This starts
+/// Apple's installer, then watches for the tools to arrive (the installer runs on its own for several minutes) and
+/// rechecks readiness by itself, so nobody has to remember to press Recheck.
+struct DeveloperToolsSetup: View {
+    let store: StudioStore
+    @State private var note: String?
+    @State private var waiting = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Design resources need Git, which comes with Apple's free command line tools.")
+                .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 8) {
+                Button("Install Command Line Tools…") { Task { await install() } }
+                    .controlSize(.small).disabled(waiting || !store.canInstallTools)
+                if waiting { ProgressView().controlSize(.small) }
+            }
+            if let note { Text(note).font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
+        }
+    }
+
+    private func install() async {
+        let home = FileManager.default.homeDirectoryForCurrentUser, environment = ProcessInfo.processInfo.environment
+        let selector = URL(fileURLWithPath: "/usr/bin/xcode-select")
+        guard let code = try? await DirectorRuntime.execute(selector, arguments: ["--install"], directory: home, environment: environment), code == 0 else {
+            note = "macOS couldn't start the installer. Open System Settings › General › Software Update, then come back."
+            return
+        }
+        waiting = true
+        note = "Finish Apple's installer. Studio carries on by itself when it's done."
+        // Up to 30 minutes: the download and install are Apple's, and can be slow.
+        for _ in 0..<360 {
+            try? await Task.sleep(for: .seconds(5))
+            if (try? await DirectorRuntime.execute(selector, arguments: ["-p"], directory: home, environment: environment)) == 0 {
+                await store.checkPreflight()
+                note = "Command line tools installed."
+                waiting = false
+                return
+            }
+        }
+        waiting = false
+        note = "Still waiting for the installer. Recheck when it's finished."
+    }
+}
