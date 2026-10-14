@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased: craft borrowed from other motion skills
+## 1.15.0 (2026-10-14): craft borrowed from other motion skills, measured
 
 Why: a survey of fourteen motion and video skills (mortiflix, animate, motionmaxxing, onetake, lemo-opuscar, mg-styles-15, ClaudeAnimationBase, OpenMontage, Null Motion, gbro and others) against RasanAI. Most of their ideas were already here; these five were not.
 
