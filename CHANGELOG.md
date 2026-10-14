@@ -10,6 +10,12 @@ Why: a survey of fourteen motion and video skills (mortiflix, animate, motionmax
 - **A phone sheet.** `crew.mjs strip --phone` draws every frame 360 px wide, three across; the film critic reads it unscaled and fails any line it can't read.
 - **An anchored critic scale.** 5 = competent student work, 7 = a good studio's ordinary day, 9 = a showreel moment; most first drafts deserve 5 to 7; an 8 or above names the frame that earns it, and each fix round lifts ambition, not only polish.
 
+- **A mistake you name becomes a check.** `lessons.mjs add … --gate <key>=<n>` (`scripts/lib/gate-lessons.mjs`): the gate itself measures it from then on, and a lesson can only tighten a gate. Keys: reading time, a minimum type size (`text-too-small`, off until taught), end hold, freeze, carry share, ending share, text load, payoff lift.
+- **Notes are answered.** `console.mjs push` refuses a revision of the animatic or the render while a note you applied has no `resolve --note`; `--force "<reason>"` overrides and is logged.
+- **Carry at every seam, from the pixels.** `motion-gate.mjs` (`lib/carry.mjs`) scores, at every seam, how much of the foreground before the cut reappears after it (moved or scaled); fewer than half carried is the warning `carry`, listing each uncarried seam (an error once taught as a lesson). The reference films hard-cut between scenes, so it guides rather than blocks. `long-ending` warns when the last beat is over a quarter of the film.
+- **Different from your last three films.** The score names its `shape` (structure, opening, signature, camera, music, ending); `memory.mjs record-film` keeps it at delivery; `crew.mjs check` fails a score that differs from any of the last three films in fewer than 4 of the 6 (`shape_waiver` for a series). The Motion Director is told the last three shapes.
+- **One hero per frame.** `frame-gate.mjs` warns `competing-heroes` when the two largest elements are both big and about equal in over 15% of frames.
+
 ## 1.14.0 (2026-10-13): moves you like
 
 - **Reference moments are role-free.** The Hook / Proof / Turn / Call to action slots are gone. A user picks moves by taste (up to four), each with an optional `place` (opening, between, peak, ending, anywhere; default anywhere), before the story exists. Old briefs with a `role` still load (hook becomes opening, cta becomes ending, the rest anywhere); the manifest's role tags stay as search hints.
