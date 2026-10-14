@@ -1,3 +1,4 @@
+import AppKit
 import StudioCore
 import SwiftUI
 
@@ -10,6 +11,7 @@ struct StoryStage: View {
     @State private var selectedID: String?
     @State private var seeded = false
     @FocusState private var keysFocused: Bool
+    @Environment(\.agentName) private var agent
 
     private var payload: JSONValue { model.payload(step) }
     private var scripts: [StoryScript] { payload["stories"].array.enumerated().map { StoryScript($1, index: $0) } }
@@ -52,7 +54,8 @@ struct StoryStage: View {
                 selectedID = all[n - 1].id
                 return .handled
             }
-            .onAppear { keysFocused = true }
+            // Keys only when nothing is being typed: a step arriving while the person writes must not steal them.
+            .onAppear { if !(NSApp.keyWindow?.firstResponder is NSTextView) { keysFocused = true } }
         } actions: {
             CallActions(model: model, step: step,
                         primaryTitle: all.isEmpty ? nil : "Use this story",
@@ -93,7 +96,7 @@ struct StoryStage: View {
             }
             .controlSize(.regular)
             .disabled(!canAct)
-            .help("Ask Claude for three new scripts near the one you're looking at.")
+            .help("Ask \(agent) for three new scripts near the one you're looking at.")
             Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 0.5)
         }
     }
@@ -113,16 +116,16 @@ private struct StoryOptionCard: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 6) {
                     Text(script.angle.uppercased())
-                        .font(.system(size: 10.5, weight: .bold)).tracking(0.9)
-                        .foregroundStyle(selected ? Color.rasan : Color.secondary)
+                        .font(.system(size: 10, weight: .bold)).tracking(0.9)
+                        .foregroundStyle(selected ? Color.primary : Color.secondary)
                     Text(script.angleMeaning)
-                        .font(.system(size: 11.5)).foregroundStyle(.secondary)
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
                     if isPick {
                         Image(systemName: "sparkles").font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.rasan)
                     }
                     Spacer(minLength: 0)
                     if count > 1 {
-                        Text("\(index + 1)").font(.system(size: 10.5, weight: .medium, design: .rounded)).monospacedDigit()
+                        Text("\(index + 1)").font(.system(size: 10, weight: .medium, design: .rounded)).monospacedDigit()
                             .foregroundStyle(.tertiary)
                             .padding(.horizontal, 5).padding(.vertical, 1)
                             .background(Color(nsColor: .quaternaryLabelColor).opacity(0.5), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
@@ -151,6 +154,7 @@ private struct StoryOptionCard: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
+        .help("Press \(index + 1) to show this one")
         .accessibilityLabel("\(script.angle) story, \(script.angleMeaning): \(script.headline)\(isPick ? ", Claude's pick" : "")")
         .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
     }
@@ -173,7 +177,7 @@ private struct StoryDetail: View {
                 HStack(spacing: 10) {
                     Text(script.angle.uppercased())
                         .font(.system(size: 11, weight: .bold)).tracking(1.2).foregroundStyle(Color.rasan)
-                    if isRecommended { RecommendedBadge(text: "Claude's pick") }
+                    if isRecommended { RecommendedBadge() }
                 }
                 Text(script.title)
                     .font(.system(size: 34, weight: .semibold, design: .serif)).tracking(-0.4)
@@ -226,11 +230,11 @@ private struct StoryDetail: View {
                 }
                 if let tempo = script.tempoLine {
                     Label(tempo, systemImage: "metronome")
-                        .font(.system(size: 12.5)).foregroundStyle(.secondary)
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 if !script.device.isEmpty {
-                    (Text("Device: ").foregroundStyle(.tertiary) + Text(script.device).foregroundStyle(.secondary))
-                        .font(.system(size: 12.5))
+                    (Text("Idea: ").foregroundStyle(.tertiary) + Text(script.device).foregroundStyle(.secondary))
+                        .font(.system(size: 12))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -240,13 +244,13 @@ private struct StoryDetail: View {
 
     private func sectionLabel(_ title: String, symbol: String) -> some View {
         Label(title.uppercased(), systemImage: symbol)
-            .font(.system(size: 10.5, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
+            .font(.system(size: 10, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
     }
 
     private func fact(_ title: String, _ text: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title.uppercased()).font(.system(size: 10, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
-            Text(text).font(.system(size: 13.5)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
+            Text(text).font(.system(size: 13)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -262,11 +266,11 @@ private struct StoryMoves: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Label("HERO MOVES", systemImage: "sparkles")
-                    .font(.system(size: 10.5, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
+                Label("KEY MOMENTS", systemImage: "sparkles")
+                    .font(.system(size: 10, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
                 if let carrier = script.carrier {
-                    (Text("Carried by: ").foregroundStyle(.tertiary) + Text(carrier).foregroundStyle(.secondary))
-                        .font(.system(size: 12.5)).fixedSize(horizontal: false, vertical: true)
+                    (Text("Held together by: ").foregroundStyle(.tertiary) + Text(carrier).foregroundStyle(.secondary))
+                        .font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
                 }
             }
             HStack(alignment: .top, spacing: 14) {
@@ -327,7 +331,7 @@ private struct StoryMoves: View {
                 }
             }
             if !move.move.isEmpty {
-                Text(move.move).font(.system(size: 12.5)).foregroundStyle(.secondary).lineSpacing(2).lineLimit(3)
+                Text(move.move).font(.system(size: 12)).foregroundStyle(.secondary).lineSpacing(2).lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -397,7 +401,7 @@ private struct StoryTable: View {
         .accessibilityHidden(true)
     }
     private func head(_ text: String) -> some View {
-        Text(text.uppercased()).font(.system(size: 10.5, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
+        Text(text.uppercased()).font(.system(size: 10, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
     }
 
     /// Each show row: the line in bold, what the motion does under it; the beat's visual when it has no shows.
@@ -424,18 +428,18 @@ private struct StoryTable: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(clockText(beat.start)).font(.system(size: 14, weight: .semibold, design: .rounded)).monospacedDigit()
                 if !beat.name.isEmpty {
-                    Text(beat.turn ? "THE TURN" : beat.name.uppercased())
+                    Text(beat.turn ? "TURNING POINT" : beat.name.uppercased())
                         .font(.system(size: 9.5, weight: .bold)).tracking(0.6)
                         .foregroundStyle(beat.turn ? Color.rasan : Color.secondary)
                 }
                 if beat.duration > 0 {
-                    Text("\(Int(beat.duration.rounded())) s").font(.system(size: 10.5)).foregroundStyle(.tertiary).monospacedDigit()
+                    Text("\(Int(beat.duration.rounded())) s").font(.system(size: 10)).foregroundStyle(.tertiary).monospacedDigit()
                 }
             }
             .frame(width: timeWidth, alignment: .leading)
             Text(beat.onScreen).font(.system(size: 15, weight: .semibold)).lineSpacing(2)
                 .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
-            Text(beat.vo).font(.system(size: 13.5, design: .serif)).italic().lineSpacing(3)
+            Text(beat.vo).font(.system(size: 13, design: .serif)).italic().lineSpacing(3)
                 .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
             motionColumn(beat)
         }
@@ -457,7 +461,7 @@ private struct StoryLastLine: View {
     let text: String
     var body: some View {
         VStack(spacing: 10) {
-            Text("THE LAST LINE").font(.system(size: 10.5, weight: .semibold)).tracking(1.4).foregroundStyle(.secondary)
+            Text("THE LAST LINE").font(.system(size: 10, weight: .semibold)).tracking(1.4).foregroundStyle(.secondary)
             Text(text)
                 .font(.system(size: 26, weight: .medium, design: .serif)).italic()
                 .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
@@ -475,9 +479,10 @@ private struct StoryLastLine: View {
 }
 
 private struct StoryEmpty: View {
+    @Environment(\.agentName) private var agent
     var body: some View {
         StageCard {
-            Label("No scripts yet. Claude is still writing them.", systemImage: "text.alignleft")
+            Label("No scripts yet. \(agent) is still writing them.", systemImage: "text.alignleft")
                 .font(.system(size: 13)).foregroundStyle(.secondary)
         }
     }
@@ -540,7 +545,7 @@ private struct StoryScript: Identifiable {
         } else { aim = nil }
         let t = json["tempo"]
         if let ideas = t["ideas"].number, let every = t["change_every_s"].number {
-            let source = (t["source"].string ?? "").lowercased().contains("brand") ? "the brand's own film" : "RasanAI house tempo"
+            let source = (t["source"].string ?? "").lowercased().contains("brand") ? "the brand's own film" : "RasanAI's default pace"
             let n = Int(ideas.rounded()), e = (every * 10).rounded() / 10
             let gap = e == e.rounded() ? String(Int(e)) : String(e)
             tempoLine = "\(n) ideas · a change every \(gap) s · \(source)"

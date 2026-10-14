@@ -12,7 +12,7 @@ struct LookStage: View {
     init(model: FilmSessionModel, step: String) { self.model = model; self.step = step }
 
     @State private var selection: String?
-    @State private var energy = "as is"
+    @Environment(\.agentName) private var agent
     @State private var showMix = false
     @State private var mixLook = ""
     @State private var mixStory = ""
@@ -57,9 +57,10 @@ struct LookStage: View {
                     selection = items[n - 1].id
                     return .handled
                 }
-                .onAppear { keysFocused = true }
+                // Keys only when nothing is being typed: a step arriving while the person writes must not steal them.
+                .onAppear { if !(NSApp.keyWindow?.firstResponder is NSTextView) { keysFocused = true } }
             } else {
-                Text("Claude is still drawing the looks.").foregroundStyle(.secondary)
+                Text("\(agent) is still drawing the looks.").foregroundStyle(.secondary)
             }
         } actions: {
             CallActions(model: model, step: step, primaryTitle: isFilms ? "Use this film" : "Use this look",
@@ -75,22 +76,23 @@ struct LookStage: View {
 
     // MARK: Controls
 
+    /// The same `knob` message the old Energy control sent; "as is" is gone because it is not a change.
+    private func sendEnergy(_ value: String, for current: LookItem) {
+        Task { await model.send(step: step, type: "knob", value: .object(["name": .string("energy"), "value": .string(value), "film": .string(current.id)])) }
+    }
+
     private func controls(_ current: LookItem) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Energy").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
-                Picker("Energy", selection: $energy) {
-                    Text("Calmer").tag("calmer"); Text("As is").tag("as is"); Text("Punchier").tag("punchier")
-                }
-                .pickerStyle(.segmented).labelsHidden()
-                .disabled(!canAct)
-                .help("Shift this look's motion language. The designers redraw it.")
-                .accessibilityLabel("Energy")
-                .onChange(of: energy) { _, value in
-                    Task { await model.send(step: step, type: "knob",
-                                            value: .object(["name": .string("energy"), "value": .string(value), "film": .string(current.id)])) }
-                }
+            // Actions, not a segmented control: each choice starts a redraw, so none of them shows as a state that is "on".
+            Menu {
+                Button("Redraw with More Energy") { sendEnergy("punchier", for: current) }
+                Button("Redraw with Less Energy") { sendEnergy("calmer", for: current) }
+            } label: {
+                Label("Redraw with more or less energy", systemImage: "dial.medium")
             }
+            .menuStyle(.button).fixedSize()
+            .disabled(!canAct)
+            .help("\(agent) redraws this look's motion language. It takes a few minutes.")
             if isFilms && items.count > 1 {
                 Button { mixLook = current.id; mixStory = items.first { $0.id != current.id }?.id ?? current.id; showMix = true } label: {
                     Label("Mix two", systemImage: "arrow.triangle.merge")
@@ -103,10 +105,10 @@ struct LookStage: View {
                 Task { await model.send(step: step, type: "more",
                                         value: .object(["near": .string(current.id), "exclude": .array(ids.map { .string($0) })])) }
             } label: {
-                Label(isFilms ? "More like this" : "New blends near this one", systemImage: "sparkles")
+                Label("More like this", systemImage: "sparkles")
             }
             .disabled(!canAct)
-            .help("Ask the design desk for new blends close to \(current.name).")
+            .help("Ask \(agent) for new looks close to \(current.name).")
         }
         .controlSize(.regular)
     }
@@ -363,12 +365,12 @@ private struct LookCaption: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Text(item.label.uppercased()).font(.system(size: 11, weight: .bold)).tracking(1.2).foregroundStyle(.secondary)
-                if isRecommended { RecommendedBadge(text: "Claude's pick") }
+                if isRecommended { RecommendedBadge() }
             }
             Text(item.name).font(.system(size: 26, weight: .semibold)).tracking(-0.4).fixedSize(horizontal: false, vertical: true)
             if !item.blend.isEmpty { Text(item.blend).font(.system(size: 14, weight: .medium)).foregroundStyle(.primary.opacity(0.85)) }
             if !item.why.isEmpty { Text(item.why).font(.system(size: 14)).foregroundStyle(.secondary).lineSpacing(2).fixedSize(horizontal: false, vertical: true) }
-            if item.specimen != nil { OpenInBrowserButton(path: item.specimen, title: "Open specimen").padding(.top, 2) }
+            if item.specimen != nil { OpenInBrowserButton(path: item.specimen, title: "Open type and colour sheet").padding(.top, 2) }
             if let music = item.music { Label(music, systemImage: "music.note").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 2) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -435,7 +437,7 @@ private struct LookTile: View {
                     .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .strokeBorder(selected ? Color.rasan : .primary.opacity(0.1), lineWidth: selected ? 2.5 : 0.5)
+                            .strokeBorder(selected ? Color.primary.opacity(0.85) : .primary.opacity(0.1), lineWidth: selected ? 2.5 : 0.5)
                     }
                     .shadow(color: .black.opacity(hovering ? 0.28 : 0.12), radius: hovering ? 14 : 5, y: hovering ? 8 : 2)
                     .animation(.smooth(duration: 0.2), value: hovering)
@@ -456,6 +458,7 @@ private struct LookTile: View {
         .onHover { hovering = $0 }
         .frame(maxWidth: .infinity)
         .accessibilityLabel("\(item.label), \(item.name)\(recommended ? ", Claude's pick" : "")")
+        .help("Press \(index + 1) to show this one")
         .accessibilityHint("Shows this look large. Shortcut \(index + 1).")
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
     }
