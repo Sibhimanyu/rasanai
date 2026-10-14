@@ -110,7 +110,7 @@ struct BriefStage: View {
     @ViewBuilder private var sentenceTokens: some View {
         word("A ")
         menu("Length", key: "length_s", fallback: .number(45),
-             options: options("length_s", defaults: [15, 30, 45, 60, 90].map { .number(Double($0)) }) { "\($0.number.map { String(Int($0)) } ?? $0.identifier ?? "")-second" },
+             options: options("length_s", defaults: [15, 30, 45, 60, 90, 120].map { .number(Double($0)) }) { "\($0.number.map { String(Int($0)) } ?? $0.identifier ?? "")-second" },
              display: { "\(Int($0.number ?? 45))-second" })
         word(" ")
         if usesFormatPicker { formatToken } else {
@@ -121,9 +121,9 @@ struct BriefStage: View {
         word(" for ")
         subjectTokens
         word(", ")
-        menu("Aspect ratio", key: "aspect", fallback: .string("16:9"),
-             options: options("aspect", defaults: ["16:9", "9:16", "1:1", "4:5"].map(JSONValue.string)) { Self.aspectLabel($0.string ?? "") },
-             display: { $0.string ?? "16:9" })
+        menu("Shape", key: "aspect", fallback: .string("16:9"),
+             options: options("aspect", defaults: ["16:9", "9:16", "1:1"].map(JSONValue.string)) { Self.aspectLabel($0.string ?? "") },
+             display: { Self.aspectLabel($0.string ?? "16:9") })
         word(" for ")
         menu("Destination", key: "destination", fallback: .string("the website"),
              options: options("destination", defaults: ["the website", "X", "LinkedIn", "YouTube", "Instagram Reels", "TikTok", "a keynote"].map(JSONValue.string)) { $0.string ?? "" },
@@ -194,17 +194,18 @@ struct BriefStage: View {
         } else {
             let pieces = subject.isEmpty ? ["your", "product"] : subject.split(separator: " ").map(String.init)
             ForEach(Array(pieces.enumerated()), id: \.offset) { index, piece in
-                Text(piece + (index < pieces.count - 1 ? " " : ""))
-                    .foregroundStyle(subject.isEmpty ? Color.secondary : Color.rasan)
-                    .padding(.vertical, 2)
-                    .background(alignment: .bottom) { Rectangle().fill(Color.rasan.opacity(canAct ? 0.45 : 0)).frame(height: 1.5).offset(y: 1) }
-                    .contentShape(Rectangle())
-                    .onTapGesture { if canAct { editingSubject = true; subjectFocused = true } }
-                    .hoverCursor(.pointingHand, enabled: canAct)
-                    .accessibilityHidden(index != 0)
-                    .accessibilityLabel("Subject: \(subject.isEmpty ? "empty" : subject)")
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityAction { if canAct { editingSubject = true; subjectFocused = true } }
+                // A button, so the subject can be reached and opened from the keyboard; only the first word takes focus.
+                Button { editingSubject = true; subjectFocused = true } label: {
+                    Text(piece + (index < pieces.count - 1 ? " " : ""))
+                        .foregroundStyle(subject.isEmpty ? Color.secondary : Color.rasan)
+                        .padding(.vertical, 2)
+                        .background(alignment: .bottom) { Rectangle().fill(Color.rasan.opacity(canAct ? 0.45 : 0)).frame(height: 1.5).offset(y: 1) }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).disabled(!canAct).focusable(index == 0)
+                .hoverCursor(.pointingHand, enabled: canAct)
+                .accessibilityHidden(index != 0)
+                .accessibilityLabel("Subject: \(subject.isEmpty ? "empty" : subject)")
             }
         }
     }
@@ -331,7 +332,7 @@ struct BriefStage: View {
         return first.lowercased() + text.dropFirst()
     }
     static func aspectLabel(_ value: String) -> String {
-        switch value { case "16:9": "16:9 (widescreen)"; case "9:16": "9:16 (vertical)"; case "1:1": "1:1 (square)"; case "4:5": "4:5 (feed)"; default: value }
+        switch value { case "16:9": "landscape (16:9)"; case "9:16": "portrait (9:16)"; case "1:1": "square (1:1)"; case "4:5": "4:5 (feed)"; default: value }
     }
     static func narrationText(_ value: JSONValue) -> String {
         if let b = value.bool { return b ? "with voiceover" : "without voiceover" }
@@ -445,7 +446,7 @@ private struct BriefActions: View {
     var body: some View {
         FilmActionsPublisher(actions: model.showsActions(for: step) ? FilmActions(
             step: step, primaryTitle: "Looks right", primarySymbol: "checkmark", primaryEnabled: startEnabled,
-            secondaryTitle: "Just make it", secondaryHelp: "Confirm the brief and let Claude make every remaining call. You'll see the final.",
+            secondaryTitle: "Decide the rest for me", secondaryHelp: "Confirm the brief and let the director pick the script, the look and the music. You'll see only the finished film.",
             secondaryEnabled: startEnabled, onPrimary: { note in model.noteThen(step: step, note, start) },
             onSecondary: { note in model.noteThen(step: step, note, justMakeIt) }) : nil)
     }
