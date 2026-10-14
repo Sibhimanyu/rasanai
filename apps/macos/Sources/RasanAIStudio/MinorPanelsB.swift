@@ -471,10 +471,10 @@ struct MotionPanel: View {
                                     VStack(alignment: .leading, spacing: 3) {
                                         HStack(spacing: 8) {
                                             Text(cell.name).font(.system(size: 15, weight: .semibold))
-                                            if recommended { RecommendedBadge(text: "Claude's pick") }
+                                            if recommended { RecommendedBadge() }
                                         }
                                         if !cell.line.isEmpty {
-                                            Text(cell.line).font(.system(size: 12.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                                            Text(cell.line).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                                         }
                                     }
                                 }
@@ -492,7 +492,7 @@ struct MotionPanel: View {
                                     let on = adjectives.contains(a.id)
                                     Toggle(isOn: Binding(get: { on }, set: { v in
                                         if v { adjectives.append(a.id) } else { adjectives.removeAll { $0 == a.id } }
-                                    })) { Text(a.id).font(.system(size: 12.5, weight: .medium)) }
+                                    })) { Text(a.id).font(.system(size: 12, weight: .medium)) }
                                         .toggleStyle(.button).controlSize(.regular)
                                         .tint(Color.rasan)
                                         .help(a.doc ?? a.id)
@@ -649,7 +649,7 @@ struct TransitionsPanel: View {
                                     if let media = cell.media { PreviewMedia(model: model, path: media) } else { TransitionGlyph(id: cell.id) }
                                 }
                                 .overlay(alignment: .topLeading) {
-                                    Text(cell.letter).font(.system(size: 10.5, weight: .bold))
+                                    Text(cell.letter).font(.system(size: 10, weight: .bold))
                                         .frame(width: 20, height: 20).background(.ultraThinMaterial, in: Circle()).padding(6)
                                 }
                                 .overlay(alignment: .topTrailing) {
@@ -661,7 +661,7 @@ struct TransitionsPanel: View {
                                 }
                                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                                     RadioMark(on: on)
-                                    Text(cell.label).font(.system(size: 13.5, weight: .semibold)).lineLimit(2)
+                                    Text(cell.label).font(.system(size: 13, weight: .semibold)).lineLimit(2)
                                 }
                                 HStack(spacing: 6) {
                                     if let energy = cell.energy { Tag(text: energy) }
@@ -728,11 +728,11 @@ struct VoicePanel: View {
                                 VStack(alignment: .leading, spacing: 3) {
                                     HStack(spacing: 8) {
                                         Text(option.title).font(.system(size: 15, weight: .semibold))
-                                        if recommended { RecommendedBadge(text: "Claude's pick") }
+                                        if recommended { RecommendedBadge() }
                                         if url == nil { Tag(text: "No sample", tint: .orange) }
                                     }
                                     Text([option.mood, option.source].compactMap { $0 }.joined(separator: " · "))
-                                        .font(.system(size: 12.5)).foregroundStyle(.secondary)
+                                        .font(.system(size: 12)).foregroundStyle(.secondary)
                                     if let note = option.note { Text(note).font(.system(size: 12)).foregroundStyle(.secondary) }
                                 }
                                 Spacer(minLength: 12)
@@ -806,10 +806,10 @@ struct MusicPanel: View {
                                     VStack(alignment: .leading, spacing: 4) {
                                         HStack(spacing: 8) {
                                             Text(track.title).font(.system(size: 16, weight: .semibold))
-                                            if recommended { RecommendedBadge(text: "Claude's pick") }
+                                            if recommended { RecommendedBadge() }
                                         }
                                         Text([track.mood, track.summary].compactMap { $0 }.joined(separator: " · "))
-                                            .font(.system(size: 12.5)).foregroundStyle(.secondary)
+                                            .font(.system(size: 12)).foregroundStyle(.secondary)
                                     }
                                     Spacer(minLength: 10)
                                     VStack(alignment: .trailing, spacing: 5) {
@@ -825,15 +825,15 @@ struct MusicPanel: View {
                                 }
                                 if track.fit != nil || track.ending != nil {
                                     VStack(alignment: .leading, spacing: 3) {
-                                        if let fit = track.fit { Label(fit, systemImage: "scope").font(.system(size: 12.5)) }
-                                        if let ending = track.ending { Label(ending, systemImage: "flag.checkered").font(.system(size: 12.5)).foregroundStyle(.secondary) }
+                                        if let fit = track.fit { Label(fit, systemImage: "scope").font(.system(size: 12)) }
+                                        if let ending = track.ending { Label(ending, systemImage: "flag.checkered").font(.system(size: 12)).foregroundStyle(.secondary) }
                                     }
                                 }
                                 HStack(spacing: 6) {
                                     if let license = track.license, !license.isEmpty { Tag(text: license) }
-                                    if let source = track.source, !source.isEmpty { Text(source).font(.system(size: 11.5)).foregroundStyle(.tertiary) }
+                                    if let source = track.source, !source.isEmpty { Text(source).font(.system(size: 11)).foregroundStyle(.tertiary) }
                                     if let credit = track.attribution, !credit.isEmpty {
-                                        Text("Credit: \(credit)").font(.system(size: 11.5)).foregroundStyle(.secondary)
+                                        Text("Credit: \(credit)").font(.system(size: 11)).foregroundStyle(.secondary)
                                     }
                                 }
                             }
@@ -899,7 +899,7 @@ struct StoryboardPanel: View {
                             ForEach(rows) { r in
                                 let h = mpbHue(r.title)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(r.n).font(.system(size: 10.5, weight: .bold).monospacedDigit())
+                                    Text(r.n).font(.system(size: 10, weight: .bold).monospacedDigit())
                                     Text(r.title).font(.system(size: 11)).lineLimit(1)
                                 }
                                 .foregroundStyle(.white)
@@ -920,7 +920,7 @@ struct StoryboardPanel: View {
                         HStack(alignment: .firstTextBaseline, spacing: 12) {
                             Text(r.n).font(.system(size: 12, weight: .semibold).monospacedDigit()).foregroundStyle(.tertiary).frame(width: 22, alignment: .trailing)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(r.title).font(.system(size: 13.5, weight: .medium))
+                                Text(r.title).font(.system(size: 13, weight: .medium))
                                 if let line = r.line, !line.isEmpty { Text(line).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2) }
                             }
                             Spacer(minLength: 10)
@@ -1087,7 +1087,7 @@ private struct PlanColumn: View {
                 ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                     HStack(alignment: .firstTextBaseline, spacing: 9) {
                         Circle().fill(tint.opacity(0.7)).frame(width: 5, height: 5).offset(y: -2)
-                        Text(item).font(.system(size: 13.5)).fixedSize(horizontal: false, vertical: true)
+                        Text(item).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -1148,9 +1148,9 @@ struct DirectionPanel: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     HStack(spacing: 8) {
                                         Text(item.title).font(.system(size: 15, weight: .semibold))
-                                        if recommended { RecommendedBadge(text: "Claude's pick") }
+                                        if recommended { RecommendedBadge() }
                                     }
-                                    if let why = item.why { Text(why).font(.system(size: 12.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
+                                    if let why = item.why { Text(why).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
                                     if !item.terms.isEmpty {
                                         FlowLayout(spacing: 5) { ForEach(item.terms, id: \.self) { Tag(text: $0) } }
                                     }
@@ -1218,7 +1218,7 @@ struct GenericPanel: View {
                 VStack(spacing: 0) {
                     ForEach(Array(facts.enumerated()), id: \.offset) { i, f in
                         HStack(alignment: .firstTextBaseline, spacing: 14) {
-                            Text(f.0).font(.system(size: 12.5, weight: .medium)).foregroundStyle(.secondary).frame(width: 140, alignment: .leading)
+                            Text(f.0).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary).frame(width: 140, alignment: .leading)
                             Text(f.1).font(.system(size: 13)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 0)
                         }
@@ -1252,9 +1252,9 @@ struct GenericPanel: View {
                                 VStack(alignment: .leading, spacing: 3) {
                                     HStack(spacing: 8) {
                                         Text(option.label).font(.system(size: 14.5, weight: .semibold))
-                                        if recommended { RecommendedBadge(text: "Claude's pick") }
+                                        if recommended { RecommendedBadge() }
                                     }
-                                    if let why = option.why { Text(why).font(.system(size: 12.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
+                                    if let why = option.why { Text(why).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
                                 }
                             }
                         }
