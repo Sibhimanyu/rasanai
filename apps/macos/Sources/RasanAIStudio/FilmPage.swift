@@ -125,10 +125,12 @@ struct FilmPage: View {
     @ToolbarContentBuilder private var filmToolbar: some ToolbarContent {
         HistoryToolbar(store: store)
         if ready && store.runURL != nil {
-            ToolbarItem(placement: .principal) {
-                FilmStepper(current: store.snapshot.stage, finished: isFinished, viewing: store.film?.viewingStage,
-                            decided: isWorkingOnNextCall ? store.snapshot.decidedCalls : nil,
-                            canSelect: { store.film?.canView($0) ?? false }, onSelect: { store.film?.view($0) })
+            // The five calls in the sidebar's glass, in place of the toolbar's shared capsule.
+            if #available(macOS 26, *) {
+                ToolbarItem(placement: .principal) { stepper.padding(5).glassPanel(in: Capsule()) }
+                    .sharedBackgroundVisibility(.hidden)
+            } else {
+                ToolbarItem(placement: .principal) { stepper }
             }
         }
         ToolbarItemGroup(placement: .primaryAction) {
@@ -139,6 +141,12 @@ struct FilmPage: View {
             }
             headerTools
         }
+    }
+
+    private var stepper: some View {
+        FilmStepper(current: store.snapshot.stage, finished: isFinished, viewing: store.film?.viewingStage,
+                    decided: isWorkingOnNextCall ? store.snapshot.decidedCalls : nil,
+                    canSelect: { store.film?.canView($0) ?? false }, onSelect: { store.film?.view($0) })
     }
 
     @ViewBuilder private var headerTools: some View {

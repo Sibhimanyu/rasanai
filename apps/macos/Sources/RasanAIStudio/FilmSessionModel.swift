@@ -28,8 +28,6 @@ final class FilmSessionModel {
     // MARK: State
 
     private(set) var snapshot: SessionSnapshot
-    /// What the stage's picture is showing, as light for the glass around it (`StageLight`).
-    @ObservationIgnored let stageLight = StageLight()
     private(set) var connection: Connection = .connecting
     /// True while an action is being written to the run's action queue.
     private(set) var isSending = false

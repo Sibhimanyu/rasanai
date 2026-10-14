@@ -181,21 +181,12 @@ final class VideoPlayback: FilmPlayback {
     @ObservationIgnored private var endObserver: NSObjectProtocol?
     @ObservationIgnored private var seeking = false
     @ObservationIgnored private var pending: Double?
-    /// A tap on the decoded frames, so the stage can light the glass around it (`StageLight`).
-    @ObservationIgnored private let lightOutput = AVPlayerItemVideoOutput(pixelBufferAttributes: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
 
     init() {
         observer = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 30), queue: .main) { [weak self] value in
             let seconds = value.seconds
             MainActor.assumeIsolated { self?.tick(seconds) }
         }
-    }
-
-    /// The frame on screen now, small enough to sample; nil until one has been decoded.
-    func lightFrame() -> CIImage? {
-        let now = lightOutput.itemTime(forHostTime: CACurrentMediaTime())
-        guard let buffer = lightOutput.copyPixelBuffer(forItemTime: now, itemTimeForDisplay: nil) else { return nil }
-        return CIImage(cvPixelBuffer: buffer)
     }
 
     func load(url next: URL?, fallbackDuration: Double) {
@@ -207,8 +198,6 @@ final class VideoPlayback: FilmPlayback {
         if let endObserver { NotificationCenter.default.removeObserver(endObserver); self.endObserver = nil }
         guard let next else { player.replaceCurrentItem(with: nil); return }
         let item = AVPlayerItem(url: next)
-        player.currentItem?.remove(lightOutput)
-        item.add(lightOutput)
         player.replaceCurrentItem(with: item)
         endObserver = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.finished() }

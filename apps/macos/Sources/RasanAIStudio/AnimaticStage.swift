@@ -143,7 +143,6 @@ struct AnimaticStage: View {
 private struct AnimaticFrame: View {
     let playback: AnimaticPlayback
     let scenes: [FilmScene]
-    @Environment(FilmSessionModel.self) private var model: FilmSessionModel?
     var body: some View {
         let index = FilmTiming.sceneIndex(at: playback.time, in: scenes) ?? 0
         let scene = scenes[index]
@@ -161,6 +160,5 @@ private struct AnimaticFrame: View {
             }
         }
         .animation(.easeInOut(duration: 0.18), value: scene.id)
-        .lightsGlass(still: model?.fileURL(scene.thumbnail))
     }
 }
