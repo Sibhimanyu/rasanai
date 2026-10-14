@@ -7,7 +7,8 @@
 //   node lessons.mjs add --rule "<one line, imperative, general>" --quote "<the note, verbatim>" --kind error|taste
 //        --area story|look|type|motion|pace|sound|brand [--run <run>] [--gate <key>=<number>]
 //        (same rule again: bumps seen and last. --gate makes the rule a measured check: the gate's threshold tightens to
-//         that number on every next film; keys and ranges: lib/gate-lessons.mjs, e.g. --gate text.statement_min_h=0.05)
+//         that number on every next film; keys, ranges and which way each tightens (a floor: larger is stricter; a ceiling: smaller is
+//         stricter): lib/gate-lessons.mjs, e.g. --gate text.statement_min_h=0.05, or motion.end_hold_min_s=1.0 for "the ending flashes by")
 //   node lessons.mjs list [--json]
 //   node lessons.mjs drop --id <id>
 //   node lessons.mjs brief --role <crew role> [--n 12]   -> the "Standing notes" markdown block for that role (nothing when empty)
@@ -16,7 +17,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die, STATE_DIR } from "./lib/common.mjs";
-import { parseGate } from "./lib/gate-lessons.mjs";
+import { parseGate, wayOf } from "./lib/gate-lessons.mjs";
 
 export const KINDS = ["error", "taste"];
 export const AREAS = ["story", "look", "type", "motion", "pace", "sound", "brand"];
@@ -113,7 +114,7 @@ export function lessonsBlock(role, n = 12) {
     .sort((a, b) => (b.seen || 1) - (a.seen || 1) || String(b.last).localeCompare(String(a.last)))
     .slice(0, Math.max(1, Number(n) || 12));
   if (!rows.length) return "";
-  const lines = rows.map((r) => `- **${r.area}, ${r.kind === "error" ? "a mistake" : "a taste"}${r.seen > 1 ? `, noted ${r.seen} times` : ""}:** ${r.rule}${r.gate ? ` (now measured: ${r.gate.key} = ${r.gate.value})` : ""}${r.quote ? ` (the user said: "${r.quote}")` : ""}`);
+  const lines = rows.map((r) => `- **${r.area}, ${r.kind === "error" ? "a mistake" : "a taste"}${r.seen > 1 ? `, noted ${r.seen} times` : ""}:** ${r.rule}${r.gate ? ` (now measured: ${r.gate.key} = ${r.gate.value}) (${wayOf(r.gate.key)})` : ""}${r.quote ? ` (the user said: "${r.quote}")` : ""}`);
   return `## Standing notes from the user's past films\n\nThe user taught these on earlier films. They apply to this one: do not make them say it again. A mistake is a rule; a taste is a lean (follow it unless the story needs otherwise, and say so).\n\n${lines.join("\n")}\n`;
 }
 
@@ -130,7 +131,7 @@ function main() {
     const rows = readLessons();
     if (args.json) console.log(JSON.stringify(rows, null, 2));
     else if (!rows.length) console.log("no lessons yet");
-    else for (const r of rows) console.log(`${r.id}  ${r.area}/${r.kind}  x${r.seen}  ${r.rule}${r.gate ? `  [gate ${r.gate.key} = ${r.gate.value}]` : ""}`);
+    else for (const r of rows) console.log(`${r.id}  ${r.area}/${r.kind}  x${r.seen}  ${r.rule}${r.gate ? `  [gate ${r.gate.key} = ${r.gate.value}, ${wayOf(r.gate.key)}]` : ""}`);
   } else if (cmd === "drop") {
     if (!args.id || args.id === true) die("--id required");
     if (!dropLesson(String(args.id))) die(`no lesson ${args.id}`);

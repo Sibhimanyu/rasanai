@@ -523,11 +523,24 @@ The gate that reads the picture, not the plan. A flat film (one centred widget, 
 | frames with a line ≥ 20% H | ≥ 10% | warning; error at 0 in 20 s or more | 12 to 37% |
 | any moment ≥ 35% H | at least one | warning | Kinso 39%, OpenAI 88% |
 | average hard-cut shot (films of 8 s or more) | ≤ 5 s, or ≥ 10 composition changes per 10 s | warning | 0.5 to 4 s |
+| big moments (`boldness`, films of 15 s or more) | ≥ 25% of frames | error; warning in a declared stillness or editorial style | 29 to 89% (Google 17%; FILM-D 54%, FILM-E 18%) |
 
 - A **brand film's measured values replace these** (`--brand-film grammar.json`, whose `frameMetrics` block is written by `frame-gate.mjs --video <brand film> --write-brand grammar.json`): the limits become 75% of its numbers, never stricter than the table. A brand film that measures a flat ground (chroma under 0.5 and L* range under 2: OpenAI) waives the ground rules and turns the type-scale rules (text load, scale contrast, giant moment) into errors; one that never blurs (soft p90 under 0.05: OpenAI, Google) waives the soft rule. A neutral lit ground (chroma 0, range 2 or more) waives only the chroma rule.
 - Flat is allowed only when the brand film is flat and the type or the objects then do the work. "Brand is flat" never excuses a screenful of UI.
 - The numbers are the picture's: fix them in the picture. Tint and light the ground, put a blurred plane behind the hero, set one line at 20 to 40% H, cut the copy to one component. Do not game them: a blur on a transition frame or a giant word nobody reads passes the gate and fails the squint test.
 - The frame juror and the critic run it on the boards and on the draft; the findings go into the brief of the next pass. Calibration and the full table: `.context/night/done-W2.md`.
+- Without `--project` (or `--html` for boards) the DOM checks (text load, competing heroes, scale contrast, giant moment, peak moment) do not run, and the result lists them under `skipped`: pass `--project` on every draft.
+
+#### Boldness
+
+FILM-E passed every gate and was safer than FILM-D: the same composer at one scale on one grey ground, where FILM-D had "I only" filling the frame, a blue ground beat, giant numerals and a dot field. A motion designer sees that at a glance; `boldness` measures it. Each sampled frame (4 fps) is a **big moment** when it holds one of:
+
+- a **giant glyph**: a letter, numeral, ring or icon 15% H or taller, drawn with a stroke (1.2% H or more, at most 0.4 of its height, filling at most 60% of its box): giant type, cropped or not. A photo or a panel is not a glyph (solid), a hairline UI box is not either;
+- a **frame-filling object**: one mass, off the ground, covering 40% of the frame (the product pushed in);
+- a **colour field**: the frame's own ground covers 40% of it and is dE 20 or more from the film's main ground (a cut to the brand blue, a dark beat in a white film);
+- with `--project`, a DOM line of 20% H or more.
+
+The film needs big moments in **25% of its frames**. The references: Kinso 89%, v9721 47%, v98327 76%, v20023 48%, p(doom) 67%, OpenAI "Refreshed." 36%, Sovra 29% (the floor); Google "Ask" 17% fails (a calm UI-sheet film carried by product photography: the honest exception). Ours: FILM-D 54% passes; FILM-E 18%, FILM-C 10%, the ask grid 11%, Greenroom 0% fail. The finding also gives the number of **grounds** (colours that hold 3% of the film; FILM-E 1, FILM-D 3; the references 1 to 3, so it informs and never fails alone) and the **longest stretch without a big moment**, which is where the missing one belongs. A talking head on footage passes trivially (the person is a big mass): the check is for motion graphics. Fix in the picture: one beat in four big, a word at 20 to 40% H, a push-in to 40% of the frame, a cut to a second ground; not a giant word nobody reads.
 
 ---
 

@@ -4,9 +4,13 @@
 //   find     --brand "<name>" [--product "<p>"] --out <dir>      candidate official videos (yt-dlp search, no download)
 //   fetch    --url <url> | --file <path> --out <dir> [--max-height 720] [--max-duration 180]
 //   frames   --in <video> --out <dir>                            cut-detected + 1 fps frames (<=60 JPGs, 640 px) and 6x6 contact sheets
-//   measure  --in <video|frames dir> --out <grammar.json>        luminance, white/black shares, palette, saturation, motion, cut rate
+//   measure  --in <video|frames dir> --out <grammar.json> [--film <name>] [--structure one-take|montage|...]
+//                                                                luminance, white/black shares, palette, saturation, motion, cut rate;
+//                                                                --film adds the film to grammar.json's `films` (the first one measured is also `measured`)
 //   card     --dir <dir> [--brand <name>]                        FILM-STYLE.json + FILM-STYLE.md (measured numbers + slots for the AI to fill)
-//   compare  --ref <grammar.json|FILM-STYLE.json> --ours <video|frames dir> [--tolerance strict|normal]
+//   compare  --ref <grammar.json|FILM-STYLE.json> --ours <video|frames dir> [--tolerance strict|normal] [--film <name>] [--structure <type>]
+//                                                                --film: measure against that film in grammar.json (the one the script follows);
+//                                                                --structure one-take (no film of that type): cut rate warns, tempo has no floor
 //                                                                style-match gate, exit 1 on an error (palette dE, off-brand hue,
 //                                                                cut rate, tempo); canvas share, % white and colour amount warn
 //
@@ -27,13 +31,16 @@ Usage
   node brandfilm.mjs find     --brand "OpenAI" [--product "ChatGPT"] --out <dir>
   node brandfilm.mjs fetch    --url <url> | --file <path> --out <dir> [--max-height 720] [--max-duration 180]
   node brandfilm.mjs frames   --in <video> --out <dir>
-  node brandfilm.mjs measure  --in <video|frames dir> --out <dir>/grammar.json
+  node brandfilm.mjs measure  --in <video|frames dir> --out <dir>/grammar.json [--film "refreshed" --structure montage]
   node brandfilm.mjs card     --dir <dir> [--brand "OpenAI"]
-  node brandfilm.mjs compare  --ref <dir>/grammar.json --ours <video|frames dir> [--tolerance strict|normal]
+  node brandfilm.mjs compare  --ref <dir>/grammar.json --ours <video|frames dir> [--tolerance strict|normal] [--film "sites-spot"] [--structure one-take]
 
 Flow: find -> pick the official film -> fetch -> frames (read the contact sheets) -> measure -> card
 (fill the slots in FILM-STYLE.json/.md from the sheets), then compare our cut against grammar.json.
 compare exits 1 when the style does not match. Output is JSON on stdout.
+One grammar.json can hold several brand films (measure --film <name> --structure <type> for each). compare measures against
+the film the script follows (--film), else the one whose structure matches --structure, else the first; a one-take spot
+is never failed on cut rate by a 110 s montage (--structure one-take with no film of that type: cut rate warns).
 `;
 
 const args = process.argv.slice(2);
@@ -371,7 +378,18 @@ function measureCmd() {
   if (!inp || !fs.existsSync(inp)) fail("measure needs --in <video|frames dir>");
   const m = measure(inp);
   if (!m) fail("no frames could be read");
-  const res = { version: 1, source: path.basename(inp), kind: fs.statSync(inp).isDirectory() ? "frames" : "video", measured: m };
+  let res = { version: 1, source: path.basename(inp), kind: fs.statSync(inp).isDirectory() ? "frames" : "video", measured: m };
+  const film = opt("film"), structure = opt("structure");
+  if (film || structure) {
+    // per-film numbers: grammar.json keeps every film measured into it; `measured` stays the first (what the card and the look read)
+    let prev = null; try { prev = file && JSON.parse(fs.readFileSync(file, "utf8")); } catch {}
+    const name = film || path.basename(inp, path.extname(inp));
+    const entry = { source: res.source, kind: res.kind, ...(structure ? { structure } : {}), measured: m };
+    const films = { ...((prev && prev.films) || {}) };
+    if (prev && prev.measured && !Object.keys(films).length) films["first"] = { source: prev.source, kind: prev.kind, measured: prev.measured };
+    films[name] = entry;
+    res = prev && prev.measured ? { ...prev, films } : { ...res, films };
+  }
   if (file) { mkdir(path.dirname(path.resolve(file))); fs.writeFileSync(file, JSON.stringify(res, null, 2)); }
   out(res);
 }
@@ -439,12 +457,25 @@ function compareCmd() {
   const refp = opt("ref"), ours = opt("ours"), tolName = opt("tolerance", "normal");
   if (!refp || !ours || !fs.existsSync(refp) || !fs.existsSync(ours)) fail("compare needs --ref <grammar.json> and --ours <video|frames dir>");
   const T = TOL[tolName]; if (!T) fail("--tolerance is strict or normal");
-  const ref = JSON.parse(fs.readFileSync(refp, "utf8")).measured;
+  const gram = JSON.parse(fs.readFileSync(refp, "utf8")), filmOpt = opt("film"), structure = opt("structure");
+  let ref = gram.measured, refFilm = null;
+  const films = gram.films || {};
+  if (filmOpt) {
+    const k = Object.keys(films).find((n) => n === filmOpt) || Object.keys(films).find((n) => n.toLowerCase().includes(String(filmOpt).toLowerCase()));
+    if (!k) fail(`--film "${filmOpt}" is not in ${refp} (films: ${Object.keys(films).join(", ") || "none, measure with --film"})`);
+    ref = films[k].measured; refFilm = k;
+  } else if (structure) {
+    const k = Object.keys(films).find((n) => films[n].structure === structure);
+    if (k) { ref = films[k].measured; refFilm = k; }
+  }
+  if (!ref) fail(`${refp} has no measured block`);
+  // a one-take spot against a montage reference has no honest cut rate: warn, and drop the tempo floor (the house cap stays)
+  const oneTakeVsOther = structure === "one-take" && !(refFilm && films[refFilm].structure === "one-take") && !(!refFilm && gram.structure === "one-take");
   const m = measure(ours); if (!m) fail("no frames could be read from --ours");
   // Brand lock is palette, type, logo, UI and tone. Canvas share, % white, lightness and the amount of colour are
   // warnings: a launch film may light its ground, turn dark on the pain beat or carry photography the identity film
   // never showed. Palette distance and off-brand hues stay errors (the typeface is checked by design.mjs check-system).
-  const WARN_ONLY = new Set(["meanLuminance", "backgroundLuminance", "nearWhiteShare", "nearBlackShare", "neutralShare", "neutralLightness", "colourMoments", "chromaticShare", "finish"]);
+  const WARN_ONLY = new Set(["meanLuminance", "backgroundLuminance", "nearWhiteShare", "nearBlackShare", "neutralShare", "neutralLightness", "colourMoments", "chromaticShare", "finish", ...(oneTakeVsOther ? ["cutRateRatio"] : [])]);
   const checks = [];
   const add = (name, value, limit, pass, note = "") => checks.push({ name, value, limit, pass, note, severity: WARN_ONLY.has(name) ? "warning" : "error" });
   const dl = Math.abs(m.luminance.mean - ref.luminance.mean), db = Math.abs(m.luminance.bgMean - ref.luminance.bgMean);
@@ -496,14 +527,14 @@ function compareCmd() {
     const mine = m.tempo.changeEveryS, house = HOUSE_CHANGE_EVERY_S, rt = ref.tempo && ref.tempo.changeEveryS;
     if (rt) {
       let lo = rt / 1.4; const hi = Math.min(rt / 0.7, house);
-      if (lo > hi) lo = 0;
+      if (lo > hi || oneTakeVsOther) lo = 0;
       add("tempoRatio", `a change every ${mine} s vs the brand's ${rt} s = ${r1(rt / mine)}x`, `0.7x to 1.4x of the brand's rate, a change at least every ${house} s`, mine >= lo - 0.01 && mine <= hi + 0.01, "the brand's measured tempo, never slower than house");
     } else add("tempoRatio", `a change every ${mine} s`, `at least every ${house} s`, mine <= house + 0.01, "no tempo in the reference grammar (re-run measure): held to the house tempo");
   } else add("tempoRatio", "n/a", "", true, "skipped (frames input or no changes measured)");
   if (ref.finish && m.finish) add("finish", `ours: ${m.finish.route}, brand film: ${ref.finish.route}`, "the brand's films carry a finish layer, so ours does too", ref.finish.layerOff || !m.finish.layerOff, "measured grain, ground tint and falloff, vignette, soft shadow (references/brand-film.md 4)");
   const failed = checks.filter((c) => !c.pass && c.severity === "error").map((c) => c.name);
   const warnings = checks.filter((c) => !c.pass && c.severity === "warning").map((c) => c.name);
-  const res = { ok: true, tolerance: tolName, verdict: failed.length ? "FAIL" : "PASS", failed, warnings, checks, ours: { luminance: m.luminance, shares: m.shares, palette: m.palette, finish: m.finish, cuts: m.cuts && { count: m.cuts.count, per10s: m.cuts.per10s }, tempo: m.tempo && { changes: m.tempo.changes, changeEveryS: m.tempo.changeEveryS, longestHoldS: m.tempo.longestHoldS } } };
+  const res = { ok: true, tolerance: tolName, ...(refFilm ? { film: refFilm } : {}), ...(oneTakeVsOther ? { note: "structure one-take against a reference that is not one-take: cut rate is a warning, tempo has no floor" } : {}), verdict: failed.length ? "FAIL" : "PASS", failed, warnings, checks, ours: { luminance: m.luminance, shares: m.shares, palette: m.palette, finish: m.finish, cuts: m.cuts && { count: m.cuts.count, per10s: m.cuts.per10s }, tempo: m.tempo && { changes: m.tempo.changes, changeEveryS: m.tempo.changeEveryS, longestHoldS: m.tempo.longestHoldS } } };
   out(res, failed.length ? 1 : 0);
 }
 

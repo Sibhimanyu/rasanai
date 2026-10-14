@@ -21,6 +21,8 @@
 //   coverage   visible motion in at least 70% of frames (the end card's allowed hold is exempt)
 //   freeze     no still stretch of 0.8 s or more outside the end card; the end card holds at most 1.5 s still after its
 //              last move (--end-hold, or the plan's end_hold_s, when the brief asks for longer)
+//   end-hold-short  (warning) the film holds under 0.3 s still after its last move: the ending flashes by. An error once a lesson sets
+//              motion.end_hold_min_s (a floor: a LARGER value is stricter; motion.end_hold_s is the ceiling above, a smaller one is stricter)
 //   creep      a whole-frame scale or drift slower than 4% a second is a WARNING (it can shimmer thin lines and small
 //              type); a living camera on a world layer is wanted (R5: UI references move the camera a third of the time)
 //   empty-frames  at most 10% of frames near-empty (foreground under 2.5% of the frame: see foregroundShare), the end hold (last
@@ -32,11 +34,12 @@
 //              beat, carry it"): at each seam (the plan's beat boundaries, else the hard cuts found in the frames) the
 //              frames 0.1 s and 0.3 s either side are compared and the best pair wins; the score is the share of the
 //              foreground structure before the seam that reappears after it, allowing a shift (15% of the width) and a
-//              scale change (0.7 to 1.4), corrected for chance. A seam under 0.25 is not carried; fewer than half the
+//              scale change (0.7 to 1.4), corrected for chance; a cut-in on the same object (much bigger or smaller, 0.2 to 5) is credited by
+//              a verified second pass (edge match over chance plus the grey picture correlating: lib/carry.mjs). A seam under 0.25 is not carried; fewer than half the
 //              seams carried is a WARNING listing each uncarried seam with its time and score (an error only when a
 //              user lesson sets motion.carry_share, and never in a stillness style). Calibrated against our carry-chain films and the references (craft.md)
 //   long-ending  (warning, --plan) the last beat is more than 25% of the film (film.ending_share_max; motionmaxxing G3)
-// Lessons (lib/gate-lessons.mjs): motion.end_hold_s, motion.freeze_s, motion.carry_share and film.ending_share_max read
+// Lessons (lib/gate-lessons.mjs): motion.end_hold_s, motion.end_hold_min_s, motion.freeze_s, motion.carry_share and film.ending_share_max read
 // through gateValue, so a mistake the user pointed out once can tighten them; the report lists each lesson in force.
 // From the plan and the code (--plan, --project):
 //   carriers   at least two seams carried by an object present on both sides (measured from index.html's carrier
@@ -51,7 +54,11 @@
 //              line blocks (SplitText spans = one line): error `text-too-brief` when a statement-size block (font >= 3.5%
 //              of the frame height, 3+ words) is readable for less than 0.6 s + 0.3 s per word (data-read="skim" opts out),
 //              and error `text-overlap` when two readable blocks sit on top of each other for 0.3 s or more
-//              (data-overlap="ok" opts out)
+//              (data-overlap="ok" opts out). `text-cropped` also fires when a mask or inset cuts letters off a readable line (region "mask"), and
+//              text-too-brief is judged per text state (a typed, deleted and swapped slot: each string on its own); see lib/textfit.mjs
+//   script-error  (--project) the same page loads error when a composition's script throws while it loads or when its timeline is seeked, a
+//              local script does not load, or the composition never registers window.__timelines[<its id>]: a render-blocking error that
+//              every other gate misses (obey, slop and lint pass a page whose timeline never registers)
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -67,7 +74,8 @@ import { noteDowngrade } from "./lib/downgrade.mjs";
 export const GATE = {
   coverage: 0.7, // share of frames with visible motion
   freeze_s: 0.8, // a still stretch this long fails
-  end_hold_s: 1.5, // the end card's stillness after its last move
+  end_hold_s: 1.5, // the end card's stillness after its last move (a ceiling; a lesson can lower it: motion.end_hold_s)
+  end_hold_min_s: 0.3, // ... and its floor: the film holds at least this long still after its last move, else the ending flashes by (a warning; an error once a lesson sets motion.end_hold_min_s, which can raise it)
   creep_per_s: 0.04, // a whole-frame scale or drift slower than this (4%/s) is a creep
   seam_window_s: 0.2, // motion on both sides of every seam within this window
   carried_seams: 2, // seams carried by an object present on both sides (read from the code and the plan)
@@ -398,12 +406,13 @@ export async function gate({ video = null, project = null, plan = null, scenes =
   const still = stillness ? "warning" : "error";
   const beats = P.beats || [];
   const holdMax = gateValue("motion.end_hold_s", endHold || P.endHold || GATE.end_hold_s);
+  const holdMin = gateValue("motion.end_hold_min_s", GATE.end_hold_min_s), holdMinTaught = gateNotes(["motion.end_hold_min_s"]).length > 0;
   const freezeS = gateValue("motion.freeze_s", GATE.freeze_s);
   const carryShare = gateValue("motion.carry_share", GATE.carry_share), endingMax = gateValue("film.ending_share_max", GATE.ending_share_max);
-  const notes = gateNotes(["motion.end_hold_s", "motion.freeze_s", "motion.carry_share", "film.ending_share_max"]);
+  const notes = gateNotes(["motion.end_hold_s", "motion.end_hold_min_s", "motion.freeze_s", "motion.carry_share", "film.ending_share_max"]);
   const seamTimes = beats.slice(1).map((b) => b.start);
   const endStart = beats.length >= 2 ? beats[beats.length - 1].start : null;
-  measured.thresholds = { ...GATE, end_hold_s: holdMax, freeze_s: freezeS, carry_share: carryShare, ending_share_max: endingMax };
+  measured.thresholds = { ...GATE, end_hold_s: holdMax, end_hold_min_s: holdMin, freeze_s: freezeS, carry_share: carryShare, ending_share_max: endingMax };
   if (!video && !project) could.push("nothing to measure: give --video <draft.mp4> (the frame checks) and/or --project <dir> (the code checks)");
 
   // ---- frames
@@ -425,6 +434,8 @@ export async function gate({ video = null, project = null, plan = null, scenes =
         const tailS = tail / fps;
         const lastMove = (D.length - 1 - tail) / fps;
         if (tailS > holdMax + 1 / fps) add({ check: "end-hold", severity: "error", at: r2(lastMove), region: "whole frame", message: `the end card holds ${r2(tailS)} s still after its last move (${holdMax} s at most)`, fix: `land the end card's last element later (the CTA wipes in, the mark settles), or end the film ${r2(tailS - holdMax)} s sooner` });
+        // the floor: a film that stops on its last move (or holds under the minimum) flashes its ending by; a warning, an error once the user taught it
+        if (tailS < holdMin - 1 / fps - 1e-9) add({ check: "end-hold-short", severity: holdMinTaught && still === "error" ? "error" : "warning", at: r2(lastMove), region: "whole frame", message: `the film holds ${r2(tailS)} s still after its last move (${holdMin} s at least): the ending flashes by`, fix: `let the last move settle and hold the end card for ${holdMin} s or more: land the call to action earlier, or end the film ${r2(holdMin - tailS)} s later` });
         const exempt = Math.min(tail, Math.round(holdMax * fps));
         const counted = moving.slice(1, D.length - exempt);
         const coverage = counted.length ? counted.filter(Boolean).length / counted.length : 0;
@@ -642,8 +653,9 @@ export async function gate({ video = null, project = null, plan = null, scenes =
       if (doTextFit) {
         const tf = await textFit(pj);
         findings.push(...tf.findings);
+        for (const e of tf.script_errors || []) findings.push({ check: "script-error", severity: "error", at: null, region: e.file, file: e.file, message: `${e.file}: ${e.message}`, fix: "the render will not play this composition: fix the script error (a selector that is not valid, a typo, a missing asset) so the timeline registers; run the page in a browser console to read the full stack" });
         skipped.push(...tf.skipped, ...tf.could_not_run.map((c) => `${c} (not measured, never passed)`));
-        measured.text_fit = { pages: tf.pages, samples: tf.samples, cropped: tf.findings.filter((f) => f.check === "text-cropped").length, too_brief: tf.findings.filter((f) => f.check === "text-too-brief").length, overlap: tf.findings.filter((f) => f.check === "text-overlap").length };
+        measured.text_fit = { pages: tf.pages, samples: tf.samples, script_errors: (tf.script_errors || []).length, cropped: tf.findings.filter((f) => f.check === "text-cropped").length, too_brief: tf.findings.filter((f) => f.check === "text-too-brief").length, overlap: tf.findings.filter((f) => f.check === "text-overlap").length };
       } else skipped.push("text-fit: skipped (--no-text-fit)");
     }
   }

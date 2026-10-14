@@ -6,6 +6,7 @@
 //   node video.mjs init    --route <route> --project <kebab-name> [--aspect 16:9] [--workspace .] [--project-dir <dir>]
 //   node video.mjs capture --project-dir <dir> (--url <https://...> | --no-capture --title "..." --text-file <brief.txt>)
 //   node video.mjs write   --project-dir <dir> --decisions <video-decisions.json> [--revise]
+//        (a font that cannot be staged falls back to Inter, and every such fallback is logged to downgrades.jsonl and printed in `downgrades`)
 //   node video.mjs inject  --project-dir <dir> [--runtime]  (after the workflow's frame-packets.mjs, before dispatching frame workers;
 //        installs RasanShape / RasanCamera when referenced and the GSAP plugins bundle; --runtime installs all)
 //   node video.mjs audio-lock --project-dir <dir> --music <file>   (after audio.mjs fetch-sfx, before assemble-index)
@@ -21,6 +22,7 @@ import { contractText, upsertContract, motionLabel } from "./lib/contract.mjs";
 import { installLook, installDirection, directionSection, upsertMarked, DIRECTION_MARK } from "./lib/install.mjs";
 import { readDesignMd, toTokensJson } from "./lib/design-md.mjs";
 import { track } from "./lib/report.mjs";
+import { noteDowngrade } from "./lib/downgrade.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const args = parseArgs();
@@ -33,6 +35,9 @@ const STORY_ROUTES = ["product-launch-video", "faceless-explainer", "pr-to-video
 const ALL_ROUTES = [...STORY_ROUTES, "music-to-video", "talking-head-recut", "embedded-captions"];
 const RESOLUTION = { "1920x1080": "landscape", "1080x1920": "portrait", "1080x1080": "square" };
 const q = (s) => JSON.stringify(String(s));
+// a fallback is never silent: one row in the run's downgrades.jsonl (the drawer's "Working without") and a line in this command's output
+const downgrades = [];
+const downgrade = (row, run) => { const r = noteDowngrade({ ...row, run }); downgrades.push(r ? `${row.what}: ${row.instead}` : `${row.what}: ${row.instead} (not logged: no run found, pass console.mjs downgrade)`); };
 const run = (bin, argv, opts = {}) => execFileSync(bin, argv, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...opts });
 const projectDir = () => {
   if (!args["project-dir"]) die("--project-dir <videos/name> is required");
@@ -151,6 +156,7 @@ if (cmd === "init") {
     const r = spawnSync("ffmpeg", ["-hide_banner", "-i", path.join(dir, rel), "-af", "ebur128", "-f", "null", "-"], { encoding: "utf8" });
     lufs = Number(((r.stderr || "").match(/I:\s+(-?[\d.]+) LUFS/g) || []).pop()?.match(/-?[\d.]+/)?.[0]);
   } catch {}
+  if (args.mastered == null && !Number.isFinite(lufs)) downgrade({ what: "the music bed's loudness is measured", instead: "treated as a raw track (bed volume 0.9, or 0.12 under a voice)", why: "ffmpeg ebur128 gave no reading for the track", impact: "a mastered bed may sit too quiet: pass --mastered true if sound.mjs render made it" });
   const mastered = args.mastered != null ? args.mastered !== "false" : Number.isFinite(lufs) && lufs > -16.5 && lufs < -11.5;
   const patch = (file) => {
     const p = path.join(dir, file);
@@ -163,6 +169,7 @@ if (cmd === "init") {
   };
   const patched = [patch("audio_meta.json")];
   if (fs.existsSync(path.join(dir, "audio_engine_meta.json"))) patched.push(patch("audio_engine_meta.json"));
+  if (downgrades.length) console.error("downgrade: " + downgrades.join("; "));
   console.log(JSON.stringify({ ok: true, music: rel, duration_s: dur, lufs: Number.isFinite(lufs) ? lufs : null, mastered, patched }, null, 2));
 } else if (cmd === "carriers") {
   // mount every carrier (an object that crosses a cut: compositions/carriers/<name>.html, root timed by its own
@@ -266,6 +273,15 @@ async function write() {
   const workflowDir = findSkill(route);
   let stepTwo = "";
   const lookNotes = [];
+  const runDir = fs.existsSync(path.join(base, "session.json")) ? base : undefined;
+  // a family that could not be staged became Inter (installLook renamed it in frame.md): say so, and log it
+  const fontDowngrades = (r) => {
+    for (const [asked, used] of Object.entries((r && r.fonts) || {})) {
+      if (asked === used) continue;
+      downgrade({ what: `the brand font ${asked}`, instead: used, why: "it could not be staged (no local file, not on Google Fonts or Fontshare, or offline)", impact: `the film is set in ${used}, not the brand's type; supply the font file in assets/fonts/ and run write again` }, runDir);
+      lookNotes.push(`DOWNGRADE: font "${asked}" is not available, so frame.md and the film use ${used}`);
+    }
+  };
   if (!footage) {
     if (preset && designMd && route !== "music-to-video") {
       // the brand reference remixed onto a preset's layout: build-frame reads capture/extracted/tokens.json
@@ -288,11 +304,13 @@ async function write() {
       const r = await installLook(dir, { designMd, mode: D.look.mode });
       wrote.push("frame.md", "capture/extracted/tokens.json");
       lookNotes.push(...r.notes);
+      fontDowngrades(r);
       stepTwo = `The design system is the project's own brand reference (${path.basename(designMd)}), converted to frame.md with its fonts staged in assets/fonts/ (see frame.md "Font loading"). Do not replace it with a preset and do not run build-frame.mjs.`;
     } else if (frameSrc) {
       const r = await installLook(dir, { frame: frameSrc });
       wrote.push("frame.md");
       lookNotes.push(...r.notes);
+      fontDowngrades(r);
       stepTwo = `The design system is decided (${D.look.name || "the chosen design direction"}), written to frame.md with its fonts staged in assets/fonts/ (see frame.md "Font loading"). Do not replace it with a preset and do not run build-frame.mjs.`;
     }
     if (M && fs.existsSync(path.join(dir, "frame.md"))) {
@@ -397,7 +415,9 @@ async function write() {
       try {
         run("node", [prefs, "record", "--hyperframes", dir, "--key", key, "--value", String(value), ...extra]);
         prefsRecorded.push(`${key}=${value}`);
-      } catch {}
+      } catch (e) {
+        downgrade({ what: `the confirmed ${key} is remembered for next time`, instead: "not recorded", why: String((e && e.stderr) || (e && e.message) || "prefs.mjs failed").trim().split("\n")[0].slice(0, 160) }, runDir);
+      }
     };
     if (D.destination && C.destination) rec("destination", D.destination);
     if (C.aspect) rec("aspect", aspect);
@@ -406,5 +426,5 @@ async function write() {
     if (D.voice && D.voice.id && C.voice) rec("voice", D.voice.id);
   }
 
-  console.log(JSON.stringify({ ok: true, route, project_dir: dir, length_s: lengthS, wrote, moved_aside: moved, prefsRecorded, look_notes: lookNotes, direction: dirInstalled ? dirInstalled.direction.style_name : null, next: `Read ~/.claude/skills/${route}/SKILL.md and run it on ${path.relative(process.cwd(), dir) || "."}: BRIEF.md exists, so it asks nothing and adopts the plan. Follow BRIEF.md's Customizations at the named hook points.` }, null, 2));
+  console.log(JSON.stringify({ ok: true, route, project_dir: dir, length_s: lengthS, wrote, moved_aside: moved, prefsRecorded, look_notes: lookNotes, downgrades, direction: dirInstalled ? dirInstalled.direction.style_name : null, next: `Read ~/.claude/skills/${route}/SKILL.md and run it on ${path.relative(process.cwd(), dir) || "."}: BRIEF.md exists, so it asks nothing and adopts the plan. Follow BRIEF.md's Customizations at the named hook points.` }, null, 2));
 }

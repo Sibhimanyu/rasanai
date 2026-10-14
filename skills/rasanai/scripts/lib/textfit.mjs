@@ -10,10 +10,15 @@
 // REAL DOM boxes are measured: every non-empty text node, via a Range, whose element is visible (display, visibility,
 // effective opacity > 0.5 up the ancestor chain, text colour not transparent), font-size >= 20 px. The box is trimmed
 // by every ancestor that clips (overflow other than visible, clip-path inset), so a line still masked in is not
-// measured beyond its mask. A text fully outside the frame is waiting off screen and is ignored.
+// measured beyond its mask. A clip as big as the frame (a film's #root is overflow:hidden) is the frame itself: the text's own box is
+// measured against the edge, so a line running off the frame is found even inside it. A text fully outside the frame is waiting off screen and is ignored.
 //   frame edge   a box that crosses the frame edge for more than 1.2 s continuously        -> text-cropped
 //   safe area    a box inside the frame but outside the 6% safe margin, at rest (not moving
 //                more than 1.5 px between samples) for 0.4 s or more                        -> text-cropped
+//   mask clip    a readable line of 3+ words (half its words showing) in which a mask or inset about one line tall hides 12% to 60% of a word's box
+//                (letters cut off: "Trv", "todav") for 0.3 s or longer, and is not leaving (a line dropping out through its
+//                mask is a deliberate exit; a panel or scroll area bigger than three lines is not a mask)     -> text-cropped, region "mask"
+//                (an error at rest; a warning while the line is still rising in, the hidden share falling)
 // A line may leave the frame only in a deliberate push-through of 1.2 s or less (an oversize word may sweep across the frame cropped,
 // as long as the same line then rests readable). An element (or a parent) marked
 // data-text-fit="ignore" is skipped (a screenshot of a real UI that is meant to bleed off the frame).
@@ -21,12 +26,17 @@
 // word/char spans are one line). A block is readable at a sample when at least half of its words (the most it ever has,
 // so a typewriter grows) are visible by the rules above and inside the frame.
 //   text-too-brief  a statement-size block (font >= 3.5% of the frame height) of 3+ words whose longest continuous
-//                   readable run is shorter than 0.6 s + 0.3 s per word (story.mjs's reading time) less one sample
+//                   readable run is shorter than 0.6 s + 0.3 s per word (story.mjs's reading time) less one sample. Judged per text
+//                   STATE: a slot whose string changes (typed, deleted, swapped) is split into chains of strings that grow from one
+//                   another (typing); each chain's longest string must be readable for its own reading time, so a typed-and-swapped
+//                   line can fail. A shrinking string (deleting) is in flux and not counted.
 //   text-overlap    two different readable blocks (neither inside the other) whose line boxes intersect by 15% of
 //                   the smaller one's area or more for 0.3 s continuously (a crossfade shorter than that passes)
 //   text-too-small  OFF unless a lesson sets text.statement_min_h (lessons.mjs add … --gate text.statement_min_h=0.05): a readable
 //                   block of 3+ words (not skim) whose font-size is under that share of the frame height, readable for 0.4 s or more
 // text.read_per_word_s (default 0.3) is read through gateValue too: a lesson can only make the reading time longer.
+// The same page loads also report SCRIPT ERRORS (result.script_errors[], read by motion-gate as the error `script-error`): an uncaught error or an unloadable local script
+// while the page loads, a timeline that throws when seeked, a composition whose script never registered window.__timelines[<its id>].
 // data-read="skim" (on the element or a parent; captions, in a composition or element named caption*, are skim by default
 // because they track the narration) opts a block out of text-too-brief (UI text that only has to register);
 // data-overlap="ok" opts it out of text-overlap; data-text-fit="ignore" opts out of everything.
@@ -39,7 +49,7 @@ import { gateValue, gateNotes } from "./gate-lessons.mjs";
 import { noteDowngrade } from "./downgrade.mjs";
 
 export const TEXT_FIT = { fps: 10, safe: 0.06, edge_s: 1.2, rest_s: 0.4, min_font_px: 20, rest_px: 1.5,
-  statement: 0.035, read_base_s: 0.6, read_per_word_s: 0.3, brief_min_words: 3, overlap_frac: 0.15, overlap_s: 0.3, read_slack: 0.85 };
+  statement: 0.035, read_base_s: 0.6, read_per_word_s: 0.3, brief_min_words: 3, overlap_frac: 0.15, overlap_s: 0.3, read_slack: 0.85, mask_hid: 0.12, mask_max: 0.6, mask_s: 0.3 };
 const r2 = (x) => Math.round(x * 100) / 100;
 const readText = (p) => { try { return fs.readFileSync(p, "utf8"); } catch { return ""; } };
 
@@ -48,7 +58,7 @@ const PAGE_JS = `<script>(function(){
 var CFG=window.__tfCfg;
 window.__tfSeek=function(T){var L=window.__timelines||{};
   if(window.__specimen&&window.__specimen.tl){try{window.__specimen.tl.pause();window.__specimen.tl.seek(T,false);}catch(e){}}
-  Object.keys(L).forEach(function(k){try{L[k].pause();L[k].seek(T,false);}catch(e){}});
+  Object.keys(L).forEach(function(k){try{L[k].pause();L[k].seek(T,false);}catch(e){window.__tfErr.push('the timeline "'+k+'" threw when seeked to '+T+' s: '+(e&&e.message||e));}});
   document.querySelectorAll('[data-start][data-duration]').forEach(function(el){if(el.hasAttribute('data-composition-id'))return;var s=parseFloat(el.getAttribute('data-start')),d=parseFloat(el.getAttribute('data-duration'));if(isFinite(s)&&isFinite(d))el.style.visibility=(T>=s&&T<s+d)?'':'hidden';});};
 function alpha(c){var m=String(c||'').match(/rgba?\\(([^)]+)\\)/);if(!m)return 1;var p=m[1].split(/[ ,\\/]+/).filter(Boolean);return p.length>=4?parseFloat(p[3]):1;}
 function inset(cs,box){var m=String(cs.clipPath||'').match(/^inset\\(([^)]*)\\)/);if(!m)return null;
@@ -59,7 +69,7 @@ function inset(cs,box){var m=String(cs.clipPath||'').match(/^inset\\(([^)]*)\\)/
 function chain(el){var op=1,clips=[],a=el;
   while(a&&a.nodeType===1){var s=getComputedStyle(a);if(s.display==='none'||s.visibility==='hidden'&&a===el)return null;op*=parseFloat(s.opacity);
     if(a!==document.documentElement&&a!==document.body){var bx=a.getBoundingClientRect();
-      if(s.overflowX!=='visible'||s.overflowY!=='visible'||s.contain==='paint')clips.push({left:bx.left,right:bx.right,top:bx.top,bottom:bx.bottom});
+      if(s.overflowX!=='visible'||s.overflowY!=='visible'||s.contain==='paint')clips.push({left:bx.left,right:bx.right,top:bx.top,bottom:bx.bottom,fr:bx.left<=CFG.W*0.01&&bx.top<=CFG.H*0.01&&bx.right>=CFG.W*0.99&&bx.bottom>=CFG.H*0.99});
       var ci=inset(s,bx);if(ci)clips.push(ci);}
     a=a.parentElement;}
   return {op:op,clips:clips};}
@@ -75,8 +85,9 @@ window.__tfMeasure=function(){
     if(alpha(fill)<0.05&&!/text/.test(cs.webkitBackgroundClip||cs.backgroundClip||''))continue;
     var ch=chain(el);if(!ch||!(ch.op>0.5))continue;var clips=ch.clips;
     var rg=document.createRange();rg.selectNodeContents(n);var r=rg.getBoundingClientRect();if(!(r.width>0&&r.height>0))continue;
+    // a clip as big as the frame is the frame (a film's #root is overflow:hidden): the text's own box is measured against the edge; any other clip (a mask, an inset) trims it
     var v={left:r.left,right:r.right,top:r.top,bottom:r.bottom};
-    clips.forEach(function(c){v.left=Math.max(v.left,c.left);v.right=Math.min(v.right,c.right);v.top=Math.max(v.top,c.top);v.bottom=Math.min(v.bottom,c.bottom);});
+    clips.forEach(function(c){if(c.fr)return;v.left=Math.max(v.left,c.left);v.right=Math.min(v.right,c.right);v.top=Math.max(v.top,c.top);v.bottom=Math.min(v.bottom,c.bottom);});
     if(!(v.right-v.left>1&&v.bottom-v.top>1))continue;
     if(v.right<=0||v.left>=W||v.bottom<=0||v.top>=H)continue;
     var e=1,kind=null,side=null;
@@ -94,10 +105,16 @@ window.__tfBlocks=function(){
     var raw=String(n.nodeValue||''),el=n.parentElement;if(!raw||!el||/^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE|TITLE)$/.test(el.tagName))continue;
     if(el.closest('[data-text-fit="ignore"]'))continue;
     var cs=getComputedStyle(el);if(cs.display==='none')continue;
-    var be=blockOf(el),g=map.get(be);if(!g){g={el:be,segs:[],rects:[]};map.set(be,g);G.push(g);}
+    var be=blockOf(el),g=map.get(be);if(!g){g={el:be,segs:[],rects:[],mh:0,mx:0};map.set(be,g);G.push(g);}
     var vis=false,ch=/\\S/.test(raw)?chain(el):null,fill=cs.webkitTextFillColor||cs.color;
     if(ch&&ch.op>0.5&&cs.visibility!=='hidden'&&!(alpha(fill)<0.05&&!/text/.test(cs.webkitBackgroundClip||cs.backgroundClip||''))){
       var rg=document.createRange();rg.selectNodeContents(n);var rs=rg.getClientRects();
+      // glyphs hidden by a mask or an inset (a mask or inset about one line tall; a bigger clip is a panel or a scroll area, not a line mask): the share of the text's own box a clip removes (a word under 60% visible is waiting or gone, not cut off)
+      var fb=rg.getBoundingClientRect(),m2={left:fb.left,right:fb.right,top:fb.top,bottom:fb.bottom},fa=(fb.right-fb.left)*(fb.bottom-fb.top);
+      var fh=3*parseFloat(cs.fontSize);
+      ch.clips.forEach(function(c){if(c.fr||c.bottom-c.top>fh)return;m2.left=Math.max(m2.left,c.left);m2.right=Math.min(m2.right,c.right);m2.top=Math.max(m2.top,c.top);m2.bottom=Math.min(m2.bottom,c.bottom);});
+      var va=Math.max(0,m2.right-m2.left)*Math.max(0,m2.bottom-m2.top);
+      if(fa>0&&va>0&&fb.right>0&&fb.left<W&&fb.bottom>0&&fb.top<H){var hd=1-va/fa;g.mx=Math.max(g.mx,hd);if(hd<=CFG.maskMax)g.mh=Math.max(g.mh,hd);}
       for(var i=0;i<rs.length;i++){var v={left:rs[i].left,right:rs[i].right,top:rs[i].top,bottom:rs[i].bottom};
         ch.clips.forEach(function(c){v.left=Math.max(v.left,c.left);v.right=Math.min(v.right,c.right);v.top=Math.max(v.top,c.top);v.bottom=Math.min(v.bottom,c.bottom);});
         if(v.right-v.left>1&&v.bottom-v.top>1&&v.right>0&&v.left<W&&v.bottom>0&&v.top<H){vis=true;g.rects.push(v);}}}
@@ -113,7 +130,7 @@ window.__tfBlocks=function(){
         if(ov>0.5*Math.min(L.bottom-L.top,r.bottom-r.top)){L.left=Math.min(L.left,r.left);L.right=Math.max(L.right,r.right);L.top=Math.min(L.top,r.top);L.bottom=Math.max(L.bottom,r.bottom);return;}}
       lines.push({left:r.left,right:r.right,top:r.top,bottom:r.bottom});});
     var id=BID.get(g.el);if(!id){id=++BN;BID.set(g.el,id);}
-    out.push({i:id,w:words,v:vw,f:f,t:str.replace(/\\s+/g,' ').trim().slice(0,80),s:g.el.closest('[data-read="skim"],[data-composition-id*="caption" i],[class*="caption" i],[id*="caption" i]')?1:0,o:g.el.closest('[data-overlap="ok"]')?1:0,
+    out.push({i:id,w:words,v:vw,f:f,m:Math.round(g.mh*100)/100,mx:Math.round(g.mx*100)/100,t:str.replace(/\\s+/g,' ').trim().slice(0,80),s:g.el.closest('[data-read="skim"],[data-composition-id*="caption" i],[class*="caption" i],[id*="caption" i]')?1:0,o:g.el.closest('[data-overlap="ok"]')?1:0,
       r:lines.map(function(r){var p=0.15*(r.bottom-r.top);return [Math.round(r.left),Math.round(r.top+p),Math.round(r.right),Math.round(r.bottom-p)];}),el:g.el});}); // ink, not the line box: stacked lines at line-height 1 do not overlap
   out.forEach(function(x){x.a=out.filter(function(y){return y!==x&&y.el.contains(x.el);}).map(function(y){return y.i;});});
   out.forEach(function(x){delete x.el;});
@@ -121,11 +138,11 @@ window.__tfBlocks=function(){
 window.__tfRun=function(times){return times.map(function(T){window.__tfSeek(T);return {T:T,hits:window.__tfMeasure(),blocks:window.__tfBlocks()};});};
 })();</script>`;
 
-function pageFor(file, root, baseUrl, W, H, safe) {
+export function pageFor(file, root, baseUrl, W, H, safe) {
   let html = readText(file).replace(/<template[^>]*>/gi, "").replace(/<\/template>/gi, "");
   html = html.replace(/<script[^>]+src=["'][^"']*gsap(?:\.min)?\.js["'][^>]*><\/script>/gi, `<script src="/__rasanai/gsap.min.js"></script>`);
   const gsapTag = /gsap(\.min)?\.js/.test(html) ? "" : `<script src="/__rasanai/gsap.min.js"></script>`;
-  const head = `<base href="${baseUrl}/">${gsapTag}<script>window.__timelines=window.__timelines||{};window.__tfCfg=${JSON.stringify({ W, H, safe, minFont: TEXT_FIT.min_font_px })};</script><style>html,body{margin:0;padding:0;background:#000;overflow:hidden;width:${W}px;height:${H}px}</style>`;
+  const head = `<base href="${baseUrl}/">${gsapTag}<script>window.__tfErr=[];window.addEventListener('error',function(e){var t=e.target;if(t&&t.tagName==='SCRIPT'){var u=t.getAttribute('src')||'';if(u&&!/^https?:/i.test(u))window.__tfErr.push('could not load the script '+u);}else if(e.message)window.__tfErr.push(e.message+(e.filename?' ('+String(e.filename).split('/').pop()+':'+e.lineno+')':''));},true);window.addEventListener('unhandledrejection',function(e){window.__tfErr.push(String(e.reason&&e.reason.message||e.reason));});window.__timelines=window.__timelines||{};window.__tfCfg=${JSON.stringify({ W, H, safe, minFont: TEXT_FIT.min_font_px, maskMax: TEXT_FIT.mask_max })};</script><style>html,body{margin:0;padding:0;background:#000;overflow:hidden;width:${W}px;height:${H}px}</style>`;
   html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => m + head) : head + html;
   html = /<\/body>/i.test(html) ? html.replace(/<\/body>/i, PAGE_JS + "</body>") : html + PAGE_JS;
   const tmp = path.join(root, `.rasanai-textfit-${process.pid}-${Math.random().toString(36).slice(2, 8)}.html`);
@@ -230,16 +247,47 @@ export function analyzeBlocks(byBlock, dt, file, H) {
         fix: 'set it larger (or shorter so it can be), or mark it data-read="skim" if it is texture; the user taught this rule on an earlier film (lessons.mjs)',
       });
     }
-    if (!ok.length || w < T.brief_min_words || rows[0].f < T.statement * H || rows.some((r) => r.s)) continue;
-    const need = T.read_base_s + T.read_per_word_s * w;
-    const best = runs(ok.map((r) => r.t)).reduce((a, b) => (b[1] - b[0] > a[1] - a[0] ? b : a), [0, 0]);
-    if (best[1] - best[0] >= need * T.read_slack - dt - 1e-9) continue; // 15% slack: a line a few frames short reads; one held half its time does not
-    const shown = best[1] - best[0];
-    findings.push({
-      check: "text-too-brief", severity: "error", at: r2(best[0]), from: r2(best[0]), to: r2(best[1]), text: text.slice(0, 40), file: base, region: "text",
-      message: `"${text.slice(0, 40)}" is readable for ${r2(shown)} s (${r2(best[0])}–${r2(best[1])} s); ${w} words need ${r2(need)} s${T.read_per_word_s > TEXT_FIT.read_per_word_s ? tail : ""}`,
-      fix: 'hold it longer, cut words, or mark it data-read="skim" if it is texture; never speed it up (references/craft.md section 10)',
+    // glyphs hidden by a mask or an inset while the line is readable (not a frame edge: that is the check above): a clip that takes 12% or more of a
+    // word's box, for 0.3 s or longer. A word that rises through its line mask is hidden for a moment; a line whose words are still rising, or a composer
+    // inset that cuts the first letters off for seconds, is not.
+    const hid = w >= T.brief_min_words ? ok.filter((r) => r.m >= T.mask_hid) : []; // a line of 3+ words (a number rolling in a mask, a label, a single word is not a line)
+    if (hid.length) for (const run of runs(hid.map((r) => r.t))) {
+      if (run[1] - run[0] < T.mask_s - 1e-9) continue;
+      const inRun = hid.filter((r) => r.t >= run[0] - 1e-9 && r.t < run[1]), first = inRun[0], last = inRun[inRun.length - 1];
+      const after = rows.find((r) => r.t >= run[1] - 1e-9);
+      // leaving: the hidden share keeps growing past the run (a line dropping out through its mask is a deliberate exit, not cut-off letters); entering or at rest, it falls or holds
+      if (after ? after.mx > last.m + 0.05 : last.m > first.m + 0.1) continue;
+      const worst = hid.filter((r) => r.t >= run[0] - 1e-9 && r.t < run[1]).reduce((a, b) => (b.m > a.m ? b : a));
+      // entering (the hidden share falls through the run) is a slow rise: a warning; cut-off letters at rest are the error
+      const rising = first.m > last.m + 0.05;
+      findings.push({
+        check: "text-cropped", severity: rising ? "warning" : "error", at: r2(run[0]), from: r2(run[0]), to: r2(run[1]), text: text.slice(0, 40), file: base, region: "mask",
+        message: `"${text.slice(0, 40)}" is readable while a mask or inset cuts off ${Math.round(worst.m * 100)}% of a word's box, from ${r2(run[0])} to ${r2(run[1])} s (${r2(run[1] - run[0])} s; ${T.mask_s} s at most)`,
+        fix: "widen the mask or inset (padding for the descenders and the overshoot, not the line box), or let the line finish rising before the next words show; a reveal through a mask is fine, a readable line with cut-off letters is not (references/craft.md section 10)",
+      });
+    }
+    if (!ok.length || rows[0].f < T.statement * H || rows.some((r) => r.s)) continue;
+    // text-too-brief per text STATE: a slot whose string changes (typed, deleted, swapped) is judged per chain of strings, each one growing from the last
+    // (typing); the longest string of a chain must be readable for its own reading time. A shrinking string (deleting) is in flux and not counted.
+    const chains = [];
+    rows.forEach((r, i) => {
+      const prev = rows[i - 1];
+      if (!prev || r.x === prev.x || r.x.startsWith(prev.x) || prev.x.startsWith(r.x)) { if (prev && prev.x.length > r.x.length) r = { ...r, shrink: true }; chains.length ? chains[chains.length - 1].push(r) : chains.push([r]); }
+      else chains.push([r]);
     });
+    for (const ch of chains) {
+      const wc = Math.max(...ch.map((r) => r.w)), okc = ch.filter((r) => !r.shrink && r.v * 2 >= wc);
+      if (!okc.length || wc < T.brief_min_words) continue;
+      const need = T.read_base_s + T.read_per_word_s * wc;
+      const best = runs(okc.map((r) => r.t)).reduce((a, b) => (b[1] - b[0] > a[1] - a[0] ? b : a), [0, 0]);
+      if (best[1] - best[0] >= need * T.read_slack - dt - 1e-9) continue; // 15% slack: a line a few frames short reads; one held half its time does not
+      const shown = best[1] - best[0], tx = okc.reduce((a, b) => (b.v > a.v ? b : a)).x;
+      findings.push({
+        check: "text-too-brief", severity: "error", at: r2(best[0]), from: r2(best[0]), to: r2(best[1]), text: tx.slice(0, 40), file: base, region: "text",
+        message: `"${tx.slice(0, 40)}" is readable for ${r2(shown)} s (${r2(best[0])}–${r2(best[1])} s); ${wc} words need ${r2(need)} s${T.read_per_word_s > TEXT_FIT.read_per_word_s ? tail : ""}${chains.length > 1 ? " (one of " + chains.length + " strings in this text slot, each judged on its own)" : ""}`,
+        fix: 'hold it longer, cut words, or mark it data-read="skim" if it is texture; never speed it up (references/craft.md section 10)',
+      });
+    }
   }
   // overlap: pairs of readable blocks whose line boxes intersect, continuously
   const area = (rs) => rs.reduce((a, r) => a + (r[2] - r[0]) * (r[3] - r[1]), 0);
@@ -275,8 +323,25 @@ export function analyzeBlocks(byBlock, dt, file, H) {
   return findings;
 }
 
+// a script that stops the render: an uncaught error or a script that did not load while the page loaded, a timeline that throws when seeked, or a
+// composition whose own script never registered its timeline (window.__timelines[<composition id>]), so the renderer has nothing to seek
+async function scriptErrors(b, file, root) {
+  const out = [], rel = path.relative(root, file), html = readText(file);
+  const errs = await b.eval("window.__tfErr||[]");
+  for (const m of [...new Set(errs)].slice(0, 5)) out.push({ file: rel, message: String(m).slice(0, 240) });
+  const ids = [...html.matchAll(/data-composition-id="([^"]+)"/g)].map((m) => m[1]);
+  if (/__timelines|gsap\.timeline/.test(html) && ids.length) {
+    const keys = await b.eval("Object.keys(window.__timelines||{})");
+    // index.html hosts the others (its own timeline is optional); a composition file names its own id first
+    const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const want = path.basename(file) === "index.html" ? ids.filter((i) => new RegExp("__timelines\\[[\"']" + esc(i) + "[\"']\\]").test(html)) : [ids[0]];
+    for (const id of want) if (!keys.includes(id)) out.push({ file: rel, message: `its script never registered a timeline for "${id}" (window.__timelines["${id}"] is missing; the script stopped before it, or the id differs)` });
+  }
+  return out;
+}
+
 export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.safe } = {}) {
-  const res = { findings: [], pages: 0, samples: 0, skipped: [], could_not_run: [] };
+  const res = { findings: [], pages: 0, samples: 0, skipped: [], could_not_run: [], script_errors: [] };
   const root = path.resolve(project);
   const pages = pagesOf(root);
   if (!pages.length) { res.skipped.push("text-fit: no compositions with a duration to sample (index.html, compositions/)"); return res; }
@@ -311,6 +376,7 @@ export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.saf
             byBlock.get(i).push({ ...h, x, t: pg.start + row.T });
           }
         }
+        res.script_errors.push(...(await scriptErrors(b, pg.file, root)));
         res.samples += times.length;
         res.pages++;
         res.findings.push(...analyze(byKey, dt, pg.file), ...analyzeBlocks(byBlock, dt, pg.file, H));

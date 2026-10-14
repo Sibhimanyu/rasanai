@@ -50,6 +50,8 @@ node $SKILL_DIR/scripts/brandfilm.mjs compare --ref "$RUN/brand-film/grammar.jso
 node $SKILL_DIR/scripts/brandfilm.mjs compare --ref "$RUN/brand-film/grammar.json" --ours <draft.mp4>          # first draft
 ```
 
+**Which film is the reference.** `grammar.json` holds one film's numbers in `measured` and any others under `films` (`brandfilm.mjs measure --in <film> --out grammar.json --film <name> --structure one-take|montage|…` adds one). Cut rate and tempo are per film, so compare against the film the script follows: `--film <name>` (or `--structure <type>`, which picks the film of that structure). A one-take product spot measured against a 110 s montage fails on cut rate by construction; with `--structure one-take` and no one-take film to follow, cut rate is a warning and tempo has no floor (the house cap stays). Palette, hue and the rest are unchanged, so a real brand mismatch still fails.
+
 Exit 1 is a fail, on palette distance, an off-brand hue, cut rate or tempo: fix the frames (or the failing scenes) before animation or polish continues, then re-run. Canvas share, % white, lightness, the amount of colour and the finish are **warnings** (`warnings` in the JSON): a launch film may light its ground, go dark on the pain beat or carry photography the identity film never showed; report them, do not chase them. The typeface is checked by `design.mjs check-system`. Record the numbers in `decisions.style_match` and push a short note the user sees ("Matches OpenAI's film style: 76% white canvas vs 77%, palette dE 4.1"). The frames and film critics repeat it and report `style_match` in their JSON; neither may ship on a fail.
 
 ## 6. Worked example: OpenAI and the ChatGPT for Mac launch film

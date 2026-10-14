@@ -57,6 +57,8 @@ Return the 3 to 7 worst problems, worst first, each with the scene, the time (or
 
 **The scale is anchored; do not inflate.** 5 = competent student work (correct, tidy, forgettable). 7 = a good studio's ordinary day. 8 = you'd post it. 9 = a moment from it makes a showreel. 10 = you have not seen it done better. Most first drafts deserve 5 to 7. Before writing any 8 or above, name the frame or second that earns it in `best`; a score you can't point at is a 6. Each fix round must also lift `ambition` with at least one change that adds something (a bolder seam, a stronger hero move, a payoff that lands harder), not only polish.
 
+**Boldness is measured.** The `motion` and `film` lenses run `node "$SKILL_DIR/scripts/frame-gate.mjs" --video <draft.mp4> --project <dir> --plan "$RUN/motion/score.json" --json` and read `film.boldness`: the share of frames with a big moment (a giant glyph 15% H or more, an object filling 40% of the frame, a colour field; needs 25%, references 29 to 89%), `grounds`, and `gap` (the longest stretch without one). A failed `boldness` is a `high` finding; so is a pass under 35% with one ground. Name the beat inside `gap` that should have been the big one and what fills the frame (the word at 20 to 40% H, the object pushed in to 40%, a cut to a full-frame brand field), and never score `ambition` above 6 while it fails. A safe film (one scale, one ground) is the FILM-E failure: every gate green, nothing anyone rewinds.
+
 ## Motion: what to look for
 
 Read the spacing between frames in a 24 fps strip; a 2 fps sheet hides all of this. Name the tell and the fix in numbers:
