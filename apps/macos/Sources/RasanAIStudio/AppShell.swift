@@ -243,7 +243,7 @@ extension StudioStore {
 /// The native search field as an ordinary toolbar item, so it can sit before the page's primary button. `.searchable`
 /// always takes the trailing end of the toolbar, after everything else.
 struct ToolbarSearchField: NSViewRepresentable {
-    /// Posted by Navigate › Find Films (⌘F) to put the cursor in the field.
+    /// Posted by Edit › Find Films (⌘F) to put the cursor in the field.
     static let focusRequest = Notification.Name("RasanAIStudio.focusSearch")
     @Binding var text: String
     let prompt: String

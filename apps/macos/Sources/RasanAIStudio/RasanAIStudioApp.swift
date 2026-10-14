@@ -19,7 +19,15 @@ struct RasanAIStudioApp: App {
         }
     }
 
+    @AppStorage("homeLayout") private var layoutRaw = "grid"
+    @AppStorage("homeSort") private var sortRaw = HomeSort.recent.rawValue
+
     private var onFilmPage: Bool { if case .film? = store.path.last { return true } else { return false } }
+
+    /// A recent film by its name in the library, not the run folder's.
+    private func recentTitle(_ path: String) -> String {
+        store.localProjects.first { path.hasPrefix($0.1.path + "/") }?.0.name ?? URL(fileURLWithPath: path).lastPathComponent
+    }
 
     var body: some Scene {
         Window("RasanAI", id: "studio") {
@@ -65,10 +73,10 @@ struct RasanAIStudioApp: App {
             CommandGroup(replacing: .newItem) {
                 Button("New Film") { store.newFilm() }.keyboardShortcut("n")
                 Button("Import Project…") { store.importProjectPanel() }.disabled(store.toolSetup.isRunning)
-                Button("Open Run Folder…") { store.openPanel() }.keyboardShortcut("o")
+                Button("Open Film…") { store.openPanel() }.keyboardShortcut("o")
                 Menu("Open Recent") {
                     ForEach(store.recentRuns, id: \.self) { path in
-                        Button(URL(fileURLWithPath: path).lastPathComponent) { store.openRun(URL(fileURLWithPath: path)) }
+                        Button(recentTitle(path)) { store.openRun(URL(fileURLWithPath: path)) }
                     }
                     Divider()
                     Button("Clear Menu") { store.clearRecentRuns() }
@@ -90,17 +98,31 @@ struct RasanAIStudioApp: App {
                 Divider()
                 Button("Reload Film") { store.reloadFilm() }.keyboardShortcut("r").disabled(!onFilmPage || store.isBrowsingAnotherFilm || store.runURL == nil)
             }
-            CommandMenu("Navigate") {
+            CommandGroup(after: .textEditing) {
                 Button("Find Films") {
                     // Search lives on Home and the film lists; from anywhere else, go Home first.
                     switch store.path.last { case nil, .library?: break; default: store.goHome() }
                     DispatchQueue.main.async { NotificationCenter.default.post(name: ToolbarSearchField.focusRequest, object: nil) }
                 }.keyboardShortcut("f", modifiers: .command)
+            }
+            CommandGroup(before: .sidebar) {
+                Picker("View", selection: $layoutRaw) {
+                    Text("as Grid").tag("grid")
+                    Text("as List").tag("list")
+                }
+                Picker("Sort By", selection: $sortRaw) { ForEach(HomeSort.allCases) { Text($0.title).tag($0.rawValue) } }
+                Toggle("Show Archived Films", isOn: $store.showArchivedProjects).disabled(store.path.last != .library(.all))
                 Divider()
-                // Places from the sidebar replace the page, as clicking them in the sidebar does.
-                Button("Film Queue") { store.path = [.queue] }.keyboardShortcut("k", modifiers: [.command, .shift])
-                Button("Film Templates") { store.path = [.templates] }.keyboardShortcut("t", modifiers: [.command, .shift])
-                Button("Home") { store.goHome() }.keyboardShortcut("h", modifiers: [.command, .shift])
+            }
+            CommandMenu("Go") {
+                // The sidebar's places, in its order and by its names; they replace the page, as clicking them does.
+                Button("Home") { store.goHome() }.keyboardShortcut("1")
+                Button("All films") { store.path = [.library(.all)] }.keyboardShortcut("2")
+                Button("Needs review") { store.path = [.library(.needsReview)] }.keyboardShortcut("3")
+                Button("Queue") { store.path = [.queue] }.keyboardShortcut("4")
+                Button("Brands") { store.path = [.brands] }.keyboardShortcut("5")
+                Button("Templates") { store.path = [.templates] }.keyboardShortcut("6")
+                Button("Inspiration") { store.path = [.inspire] }.keyboardShortcut("7")
                 Divider()
                 // The same history as the toolbar's ‹ ›.
                 Button("Back") { store.goBack() }.keyboardShortcut("[", modifiers: .command).disabled(!store.canGoBack)
@@ -109,7 +131,6 @@ struct RasanAIStudioApp: App {
             CommandGroup(replacing: .help) {
                 Link("RasanAI Help", destination: guideURL)
                 Button("Show Welcome…") { store.settings.showWelcome = true }.disabled(store.toolSetup.isRunning)
-                Button("Prepare Rendering Tools…") { store.showPreflight() }
                 Button("Explore a Sample Film") { store.exploreSample() }
             }
             if snapshotDirectory == nil && SnapshotHarness.stagesDirectory == nil { HeresayCommands() }
