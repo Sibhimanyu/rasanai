@@ -36,18 +36,34 @@ struct WorkspacePanel: ViewModifier {
     }
 }
 
-/// A panel of frosted glass: the window's sidebar material, blurred from what is behind the window, as macOS draws its
-/// own sidebars. Its edge is lit from above (brighter at the top, fading down), so it reads as a sheet of glass laid on
-/// the canvas rather than a box drawn on it. Used for the inspector, so Notes and Decisions share one surface.
+/// A panel of frosted glass for the studio's chrome (the film inspector, action bar, status bar). The window's sidebar
+/// material blurs what is behind the window, as macOS sidebars do; on its own that takes its colour from the desktop
+/// picture, so a wallpaper that is blue on one side tinted the panel on one side only. An even wash of the RasanAI
+/// indigo, lit from the top, gives every panel the same colour on any desktop while it stays translucent.
 struct GlassPanel: ViewModifier {
+    var radius: CGFloat = Workspace.radius
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         content
-            .background { WindowMaterial(material: .sidebar).overlay(Color.primary.opacity(0.015)) }
+            .background { GlassSurface() }
             .clipShape(shape)
             .overlay {
                 shape.strokeBorder(LinearGradient(colors: [Color.white.opacity(0.16), Color.white.opacity(0.05)], startPoint: .top, endPoint: .bottom), lineWidth: 1)
             }
+    }
+}
+
+/// The glass itself, without a shape: material, the even indigo wash and the light from above.
+struct GlassSurface: View {
+    @Environment(\.colorScheme) private var scheme
+    var body: some View {
+        ZStack {
+            WindowMaterial(material: .sidebar)
+            // Strong enough to even out any wallpaper, light enough to stay glass. Lighter in light mode.
+            LinearGradient(colors: [Color.rasanDeep.opacity(scheme == .dark ? 0.42 : 0.10), Color.rasanDeep.opacity(scheme == .dark ? 0.30 : 0.06)],
+                           startPoint: .top, endPoint: .bottom)
+            LinearGradient(colors: [Color.white.opacity(scheme == .dark ? 0.05 : 0.25), .clear], startPoint: .top, endPoint: .center)
+        }
     }
 }
 
@@ -65,7 +81,7 @@ struct WindowMaterial: NSViewRepresentable {
 }
 
 extension View {
-    func glassPanel() -> some View { modifier(GlassPanel()) }
+    func glassPanel(radius: CGFloat = Workspace.radius) -> some View { modifier(GlassPanel(radius: radius)) }
     func workspacePanel(padding: CGFloat = 0) -> some View { modifier(WorkspacePanel(padding: padding)) }
 }
 

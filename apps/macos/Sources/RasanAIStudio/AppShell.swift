@@ -341,7 +341,8 @@ struct AppStatusBar: View {
         .buttonStyle(.accessoryBarAction).font(.system(size: 11.5)).lineLimit(1)
         .animation(.default, value: store.notice)
         .padding(.horizontal, 24).frame(height: 28)
-        .overlay(alignment: .top) { Rectangle().fill(Workspace.hairline).frame(height: 1) }
+        .background { GlassSurface() }   // the studio's chrome glass, as on the film page
+        .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.10)).frame(height: 1) }
     }
 
     /// Working: the film, what it is doing and the next call, and a click goes to it. Idle: ready, with the director and

@@ -38,7 +38,7 @@ struct FilmStatusBar<Usage: View>: View {
         }
         .padding(.horizontal, .filmInset).padding(.vertical, model.lastError == nil ? 0 : 8)
         .frame(maxWidth: .infinity, minHeight: 64)
-        .workspacePanel()
+        .glassPanel()   // chrome, like the inspector beside it: the same glass
         .onChange(of: turn) { lastActivityAt = Date() }
     }
 
