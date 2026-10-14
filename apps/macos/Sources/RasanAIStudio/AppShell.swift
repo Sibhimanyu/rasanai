@@ -12,7 +12,18 @@ enum LibraryMode: String, Hashable {
 
 /// The places in the studio, as a native source list in the split view's sidebar. On macOS Tahoe the system draws it as the
 /// floating glass sidebar, places the window buttons inside it and moves its toggle into the toolbar when it hides.
-enum StudioPlace: Hashable { case home, all, needsReview, brands, templates, inspire, queue, film(URL) }
+enum StudioPlace: Hashable {
+    case home, all, needsReview, brands, templates, inspire, queue, film(URL)
+
+    /// One symbol per place, shared by the sidebar, the Go menu and the status bar so a place always looks the same.
+    static let homeSymbol = "house"
+    static let allSymbol = "play.rectangle.on.rectangle"                     // a library of videos, as in the TV app
+    static let needsReviewSymbol = "eye"                                     // something waiting for you to look at
+    static let queueSymbol = "text.line.first.and.arrowtriangle.forward"     // Music's Up Next: what plays next
+    static let brandsSymbol = "paintpalette"                                 // colours, type and a logo
+    static let templatesSymbol = "doc.on.doc"                                // start from a copy
+    static let inspireSymbol = "rectangle.stack.badge.play"                  // a collection of clips to watch
+}
 
 struct AppSidebar: View {
     @Bindable var store: StudioStore
@@ -51,13 +62,13 @@ struct AppSidebar: View {
             .selectionDisabled()
             .accessibilityElement(children: .combine).accessibilityAddTraits(.isHeader)
             Section {
-                Label("Home", systemImage: "house").tag(StudioPlace.home)
-                Label("All films", systemImage: "film.stack").tag(StudioPlace.all)
-                Label("Needs review", systemImage: "clock").badge(needsYouCount).tag(StudioPlace.needsReview)
-                Label("Queue", systemImage: "list.bullet.rectangle").badge(store.queuedCount).tag(StudioPlace.queue)
-                Label("Brands", systemImage: "tag").tag(StudioPlace.brands)
-                Label("Templates", systemImage: "square.grid.2x2").tag(StudioPlace.templates)
-                Label("Inspiration", systemImage: "sparkles").tag(StudioPlace.inspire)
+                Label("Home", systemImage: StudioPlace.homeSymbol).tag(StudioPlace.home)
+                Label("All films", systemImage: StudioPlace.allSymbol).tag(StudioPlace.all)
+                Label("Needs review", systemImage: StudioPlace.needsReviewSymbol).badge(needsYouCount).tag(StudioPlace.needsReview)
+                Label("Queue", systemImage: StudioPlace.queueSymbol).badge(store.queuedCount).tag(StudioPlace.queue)
+                Label("Brands", systemImage: StudioPlace.brandsSymbol).tag(StudioPlace.brands)
+                Label("Templates", systemImage: StudioPlace.templatesSymbol).tag(StudioPlace.templates)
+                Label("Inspiration", systemImage: StudioPlace.inspireSymbol).tag(StudioPlace.inspire)
             }
             if !recentFilms.isEmpty {
                 Section("Recent films") {
@@ -99,7 +110,7 @@ private struct SidebarFilmRow: View {
     let phase: FilmPhase
     private var mark: (String, Color) {
         switch phase {
-        case .yourTurn: ("clock.fill", Color(nsColor: .systemOrange))
+        case .yourTurn: ("eye.fill", Color(nsColor: .systemOrange))
         case .needsAttention: ("exclamationmark.triangle.fill", Color(nsColor: .systemRed))
         case .working, .starting: ("sparkles", Color(nsColor: .systemPurple))
         case .finished: ("checkmark.circle.fill", Color(nsColor: .systemGreen))
@@ -313,12 +324,12 @@ struct AppStatusBar: View {
             Spacer(minLength: 12)
             if sidebarHidden, needsYou > 0 {
                 Button { store.path = [.library(.needsReview)] } label: {
-                    Label(needsYou == 1 ? "1 film needs you" : "\(needsYou) films need you", systemImage: "clock.fill")
+                    Label(needsYou == 1 ? "1 film needs you" : "\(needsYou) films need you", systemImage: "eye.fill")
                 }
                 .foregroundStyle(Color(nsColor: .systemOrange)).help("Open Needs review")
             }
             if sidebarHidden, queued > 0 {
-                Button { store.path = [.queue] } label: { Label("\(queued) queued", systemImage: "list.number") }
+                Button { store.path = [.queue] } label: { Label("\(queued) queued", systemImage: StudioPlace.queueSymbol) }
                     .foregroundStyle(.secondary).help("Open the queue")
             }
             if let totals = store.monitor.sessionTotals {

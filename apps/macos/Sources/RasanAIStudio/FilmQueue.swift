@@ -186,7 +186,7 @@ struct FilmQueueView: View {
         VStack(alignment: .leading, spacing: 14) {
             PageTitle(text: "Queue")
             if queue.isEmpty {
-                ContentUnavailableView("No films queued", systemImage: "list.number",
+                ContentUnavailableView("No films queued", systemImage: StudioPlace.queueSymbol,
                                        description: Text("Choose Start when free or Add to queue in a new film’s editor."))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {

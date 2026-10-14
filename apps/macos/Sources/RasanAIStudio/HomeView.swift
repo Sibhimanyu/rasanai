@@ -198,7 +198,7 @@ struct HomeView: View {
     @ViewBuilder private var emptyState: some View {
         if !store.projectSearch.isEmpty { ContentUnavailableView.search(text: store.projectSearch) }
         else if archived { ContentUnavailableView("No archived films", systemImage: "archivebox", description: Text("Films you archive wait here.")) }
-        else { ContentUnavailableView("No films yet", systemImage: "film.stack", description: Text("Films you start with New film appear here.")) }
+        else { ContentUnavailableView("No films yet", systemImage: StudioPlace.allSymbol, description: Text("Films you start with New film appear here.")) }
     }
 
     private func menu(_ project: LocalProject, _ folder: URL) -> some View {
@@ -255,7 +255,7 @@ struct FilmStatusBadge: View {
     let phase: FilmPhase
     private var look: (String, String, Color) {
         switch phase {
-        case .yourTurn: ("Needs review", "clock", Color(nsColor: .systemOrange))
+        case .yourTurn: ("Needs review", StudioPlace.needsReviewSymbol, Color(nsColor: .systemOrange))
         case .needsAttention: ("Needs attention", "exclamationmark.triangle", Color(nsColor: .systemRed))
         case .paused: ("Paused", "pause.circle", .secondary)
         case .finished: ("Finished", "checkmark.circle", Color(nsColor: .systemGreen))
