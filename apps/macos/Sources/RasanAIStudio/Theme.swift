@@ -311,7 +311,9 @@ struct HelpButton: View {
     var body: some View {
         Button { shown.toggle() } label: { Label("Help", systemImage: "questionmark.circle") }
             .help("Help for this screen")
-            .popover(isPresented: $shown, arrowEdge: .bottom) {
+            // Help is the last tool in the toolbar, close to the window's right edge. Pointed at the button's centre, the popover
+            // is slid left to fit and its arrow lands in the rounded corner; pointed at the button's leading edge, it clears it.
+            .popover(isPresented: $shown, attachmentAnchor: .point(.bottomLeading), arrowEdge: .bottom) {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(title).font(.system(size: 13, weight: .semibold))
                     ForEach(lines, id: \.self) { line in
