@@ -38,4 +38,24 @@ export default async function ({ ok, tmp }) {
   const d = run("drop", "--id", a.id);
   ok("lessons: drop removes the row; an unknown id fails", d.status === 0 && json(run("list", "--json")).length === 2 && run("drop", "--id", "nope").status !== 0);
   ok("lessons: it never touched the real ~/.rasanai store", fs.existsSync(path.join(home, "lessons.jsonl")));
+
+  // --gate: a lesson that is also a measured check
+  const g = run("add", "--rule", "Every line of 3+ words at least 5% of the frame height", "--quote", "tiny", "--kind", "error", "--area", "type", "--gate", "text.statement_min_h=0.05");
+  const gj = json(g);
+  ok("lessons: --gate stores {key, value} on the row, and list and brief show it", g.status === 0 && gj.gate && gj.gate.key === "text.statement_min_h" && gj.gate.value === 0.05 && /gate text\.statement_min_h = 0\.05/.test(run("list").stdout) && /\(now measured: text\.statement_min_h = 0\.05\)/.test(run("brief", "--role", "critic").stdout), g.stdout + g.stderr);
+  const bad = (spec) => run("add", "--rule", "bad gate " + spec, "--kind", "error", "--area", "type", "--gate", spec);
+  ok("lessons: a bad --gate (unknown key, out of range, not a number, no value) is refused and stores nothing", ["nope.key=1", "text.statement_min_h=0.9", "text.statement_min_h=big", "text.statement_min_h"].every((s) => bad(s).status !== 0) && !json(run("list", "--json")).some((r) => /bad gate/.test(r.rule)));
+
+  // a lesson raising text.statement_min_h makes a fixture fail text-too-small; RASANAI_NO_LESSON_GATES=1 turns it off
+  {
+    const root = path.join(tmp, "small-fixture");
+    fs.mkdirSync(path.join(root, "compositions", "frames"), { recursive: true });
+    fs.writeFileSync(path.join(root, "index.html"), '<!doctype html><html><head></head><body><div id="root" data-composition-id="main" data-width="1920" data-height="1080" data-start="0" data-duration="3"><div data-composition-src="compositions/frames/f1.html" data-composition-id="f1" data-start="0" data-duration="3" data-track-index="1"></div></div></body></html>');
+    fs.writeFileSync(path.join(root, "compositions", "frames", "f1.html"), '<template id="f1"><div data-composition-id="f1" data-width="1920" data-height="1080" data-duration="3" style="position:relative;width:1920px;height:1080px"><h2 style="position:absolute;left:160px;width:1600px;text-align:center;top:480px;font:600 40px/1 Arial;margin:0">A small line of text</h2><script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script><script>var tl=gsap.timeline({paused:true});window.__timelines=window.__timelines||{};window.__timelines["f1"]=tl;</script></div></template>');
+    const gate = (env2) => { const r = spawnSync(process.execPath, [path.join(path.dirname(SCRIPT), "motion-gate.mjs"), "--project", root, "--json"], { encoding: "utf8", env: { ...process.env, RASANAI_HOME: home, ...env2 }, timeout: 180000 }); try { return JSON.parse(r.stdout).findings || []; } catch { return []; } };
+    const small = (fs_) => fs_.filter((f) => f.check === "text-too-small");
+    const on = small(gate({}));
+    ok("lessons: a lesson raising text.statement_min_h makes a 40 px line fail text-too-small (error, names the lesson)", on.length === 1 && on[0].severity === "error" && /text\.statement_min_h = 0\.05/.test(on[0].message), JSON.stringify(on).slice(0, 400));
+    ok("lessons: RASANAI_NO_LESSON_GATES=1 turns it off", !small(gate({ RASANAI_NO_LESSON_GATES: "1" })).length);
+  }
 }

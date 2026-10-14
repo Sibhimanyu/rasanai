@@ -40,6 +40,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs, die, readJSON, writeFile } from "./lib/common.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
 import { track } from "./lib/report.mjs";
+import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
 import {
   analyzeTrack, publicAnalysis, summarize, fitTrack, renderPlan, masterFile, probeSfx, loudness, loudnessOver,
   decode, findRepeats, onsetProfile, hasAudioStream, probeDuration, requireTools, r1, r3, SR,
@@ -528,7 +529,9 @@ function check() {
       for (let i = 0; i + 10 <= nW; i++) { const v = meanDb(i * W, i * W + 1.0); if (v > best) { best = v; bestAt = i * W; } }
       const loudAbove = best - after;
       measures.payoff = { at: r3(payoffT), from: src, on: args.music ? "music stem" : "mix", payoff_db: r1(after), before_db: r1(before), lift_db: r1(lift), median_db: r1(median), deepest_break_db: r1(deepest), break_below_median_db: r1(breakDb), loudest_1s_at: r1(bestAt), loudest_1s_db: r1(best), loudest_above_payoff_db: r1(loudAbove) };
-      if (lift < 2 && breakDb < 6) warnings.push(`flat-payoff: the payoff at ${r1(payoffT)} s is ${r1(lift)} dB against the 1.5 s before it (needs +2 dB) and the 2 s before it have no break (deepest ${r1(breakDb)} dB under the film's median, needs 6 dB): pull the bed out (a stop or a filter dip) 0.3-0.8 s before the reveal and land the reveal on a hit; the payoff should be the loudest moment (references/sound.md)`);
+      const liftNeed = gateValue("sound.payoff_lift_db", 2), liftNotes = gateNotes(["sound.payoff_lift_db"]);
+      if (liftNotes.length) measures.payoff.lesson = liftNotes;
+      if (lift < liftNeed && breakDb < 6) warnings.push(`flat-payoff: the payoff at ${r1(payoffT)} s is ${r1(lift)} dB against the 1.5 s before it (needs +${liftNeed} dB${liftNotes.length ? ", " + liftNotes.join("; ") : ""}) and the 2 s before it have no break (deepest ${r1(breakDb)} dB under the film's median, needs 6 dB): pull the bed out (a stop or a filter dip) 0.3-0.8 s before the reveal and land the reveal on a hit; the payoff should be the loudest moment (references/sound.md)`);
       if (loudAbove > 3 && (bestAt + 1.0 < payoffT - 0.5 || bestAt > payoffT + 2)) warnings.push(`loudest-not-payoff: the loudest second of the film is at ${r1(bestAt)} s, ${r1(loudAbove)} dB above the payoff at ${r1(payoffT)} s: the busiest moment is not the loudest; the payoff is (references/sound.md)`);
     }
   }

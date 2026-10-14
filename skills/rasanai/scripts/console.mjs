@@ -11,6 +11,7 @@
 //   node console.mjs ask   --run <dir> --question "..." [--context "..."] [--options '[{"id","label","detail"}]'] [--recommended <id>] [--placeholder "..."]
 //        (any question outside the steps: missing material, a thin capture, an ambiguity; shown on the page, answered there)
 //   node console.mjs resolve --run <dir> --ids a,b [--note "what changed"]   (notes left on the animatic/final are done)
+//        a push of animatic/render with a higher version is refused (exit 2) while an applied note has no --note; --force "<reason>" overrides
 //   node console.mjs reply --run <dir> --step <id> --message "..."   (Claude answers the user in that step's discussion)
 //   node console.mjs log   --run <dir> --message "..." [--level info|ok|warn|error] [--stage <id>] [--stage-status working|done|failed]
 //   node console.mjs wait  --run <dir> [--step <id>] [--timeout <sec, default 3000>]   -> prints the next action JSON (exit 2 on timeout)
@@ -166,6 +167,11 @@ function applyAction(s, action) {
     activity(s, `You answered: ${opt ? opt.label : ""}${opt && v.text ? " · " : ""}${v.text ? "“" + String(v.text).slice(0, 120) + "”" : ""}`, "you", "Claude is reading your answer…");
     return;
   }
+  // the user pressed Apply: remember which notes, so a revision can't go out with one unanswered
+  if (action.type === "apply") {
+    const ids = action.value && Array.isArray(action.value.ids) ? action.value.ids.map(String) : (s.comments || []).filter((c) => c.step === step && c.state !== "resolved").map((c) => c.id);
+    s.applied = [...new Set([...(s.applied || []), ...ids])].slice(-200);
+  }
   // a note pinned to a moment of the animatic or the final: kept on the page until Claude resolves it
   if (action.type === "comment") {
     const v = action.value || {};
@@ -278,6 +284,20 @@ if (cmd === "push") {
   const s = session();
   const prev = s.steps[args.step] || {};
   const data = parseData();
+  // a revision (higher version) after Apply must answer every applied note: resolve --ids … --note "what changed" first
+  if (["animatic", "render"].includes(args.step) && Number(data.version) > Number(prev.version || 0)) {
+    const open = (s.comments || []).filter((c) => (s.applied || []).includes(c.id) && !(c.state === "resolved" && c.resolution));
+    if (open.length && !args.force) {
+      console.error(`refused: ${open.length} applied note${open.length > 1 ? "s" : ""} not answered (${open.map((c) => c.id).join(", ")}). Run: console.mjs resolve --run <run> --ids ${open.map((c) => c.id).join(",")} --note "<what changed>", then push again (or --force "<reason>").`);
+      process.exit(2);
+    }
+    if (open.length) {
+      if (args.force === true || String(args.force).trim().length < 4) die('--force wants a reason: --force "<why these notes stay unanswered>"');
+      s.forced = (s.forced || []).concat({ t: now(), step: args.step, ids: open.map((c) => c.id), reason: String(args.force) }).slice(-50);
+      activity(s, `Revision pushed with ${open.length} note${open.length > 1 ? "s" : ""} unanswered: ${args.force}`, "warn", null);
+    }
+    s.applied = (s.applied || []).filter((id) => !(s.comments || []).some((c) => c.id === id && c.step === args.step));
+  }
   if (args.title) s.title = String(args.title);
   // a push REPLACES the step's payload (stale options, issues or a "you sent" banner must
   // not survive a re-push); --merge keeps the previous fields for small incremental updates
