@@ -23,8 +23,9 @@ final class PlaceholderTextView: NSTextView {
     override func didChangeText() { super.didChangeText(); needsDisplay = true }
 }
 
-/// The brief's text area: grows with its content (at least `minLines` lines, at most `maxLines`), one font and one line height
-/// for the text and the hint. Reports focus so the box can draw its ring.
+/// The brief's text area: grows with its content (at least `minLines` lines, at most `maxLines`, and never more than 30% of
+/// the screen), then scrolls inside itself. One font and one line height for the text and the hint. Reports focus so the
+/// box can draw its ring.
 struct ComposerTextView: NSViewRepresentable {
     @Binding var text: String
     var placeholder: String
@@ -36,10 +37,20 @@ struct ComposerTextView: NSViewRepresentable {
     var fontSize: CGFloat = 15
 
     static let inset = NSSize(width: 0, height: 2)
+    /// The box never takes more than this share of the screen's height, so the toolbar and the page stay in view.
+    static let screenShare: CGFloat = 0.3
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
-    func makeNSView(context: Context) -> PlaceholderTextView {
+    func makeNSView(context: Context) -> NSScrollView {
+        let scroll = NSScrollView()
+        scroll.drawsBackground = false
+        scroll.borderType = .noBorder
+        scroll.hasVerticalScroller = true; scroll.hasHorizontalScroller = false
+        scroll.autohidesScrollers = true
+        scroll.scrollerStyle = .overlay
+        scroll.contentView.drawsBackground = false
+
         let view = PlaceholderTextView()
         view.delegate = context.coordinator
         let coordinator = context.coordinator
@@ -50,17 +61,22 @@ struct ComposerTextView: NSViewRepresentable {
         view.textContainerInset = Self.inset
         view.textContainer?.lineFragmentPadding = 0
         view.textContainer?.widthTracksTextView = true
+        view.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
+        view.minSize = .zero
+        view.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         view.isVerticallyResizable = true; view.isHorizontallyResizable = false
         view.autoresizingMask = [.width]
         view.isAutomaticQuoteSubstitutionEnabled = false
         view.setAccessibilityLabel("Describe your film")
         view.placeholder = placeholder
         view.string = text
-        return view
+        scroll.documentView = view
+        return scroll
     }
 
-    func updateNSView(_ view: PlaceholderTextView, context: Context) {
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
         context.coordinator.parent = self
+        guard let view = scroll.documentView as? PlaceholderTextView else { return }
         if view.string != text, !view.hasMarkedText() { view.string = text }
         view.placeholder = placeholder
         if context.coordinator.lastFocusRequest != focusRequest {
@@ -69,17 +85,26 @@ struct ComposerTextView: NSViewRepresentable {
         }
     }
 
-    func sizeThatFits(_ proposal: ProposedViewSize, nsView view: PlaceholderTextView, context: Context) -> CGSize? {
+    /// Measures the text at the proposed width on its own layout, so sizing never disturbs the live view, then clamps it
+    /// between `minLines` and the cap. Past the cap the scroll view takes over.
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView scroll: NSScrollView, context: Context) -> CGSize? {
         let width = proposal.width ?? 600
-        let font = view.font ?? .systemFont(ofSize: fontSize)
+        let font = NSFont.systemFont(ofSize: fontSize)
         let line = ceil(NSLayoutManager().defaultLineHeight(for: font))
-        guard let container = view.textContainer, let layout = view.layoutManager else { return CGSize(width: width, height: line * CGFloat(minLines)) }
-        container.containerSize = NSSize(width: width, height: .greatestFiniteMagnitude)
+        let storage = NSTextStorage(string: text, attributes: [.font: font])
+        let layout = NSLayoutManager()
+        let container = NSTextContainer(size: NSSize(width: max(width, 1), height: .greatestFiniteMagnitude))
+        container.lineFragmentPadding = 0
+        layout.addTextContainer(container)
+        storage.addLayoutManager(layout)
         layout.ensureLayout(for: container)
-        let used = layout.usedRect(for: container).height
-        let content = max(used, view.string.isEmpty ? 0 : used)
-        let lines = min(max(content, line * CGFloat(minLines)), line * CGFloat(maxLines))
-        return CGSize(width: width, height: lines + Self.inset.height * 2)
+        var content = layout.usedRect(for: container).height
+        if text.hasSuffix("\n") { content += line }   // a trailing newline puts the caret on a line of its own
+        var cap = line * CGFloat(maxLines)
+        // The screen, not the window: a window that fits its content would shrink the cap every pass.
+        if let screen = scroll.window?.screen ?? NSScreen.main { cap = min(cap, max(line * CGFloat(minLines), screen.visibleFrame.height * Self.screenShare)) }
+        let height = min(max(content, line * CGFloat(minLines)), cap)
+        return CGSize(width: width, height: height + Self.inset.height * 2)
     }
 
     final class Coordinator: NSObject, NSTextViewDelegate {
@@ -89,7 +114,6 @@ struct ComposerTextView: NSViewRepresentable {
         func textDidChange(_ notification: Notification) {
             guard let view = notification.object as? NSTextView else { return }
             parent.text = view.string
-            view.invalidateIntrinsicContentSize()
         }
     }
 }

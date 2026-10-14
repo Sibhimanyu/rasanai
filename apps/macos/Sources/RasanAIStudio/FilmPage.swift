@@ -37,7 +37,7 @@ struct FilmPage: View {
                 FinishedView(store: store)
             } else if let film = store.film, store.isConnected || store.runtime.isRunning || store.runtime.isPreparing {
                 NativeFilmView(model: film, startedAt: store.runtime.startedAt, progress: store.progress,
-                               onPause: store.runtime.isRunning ? { store.pauseDirector() } : nil,
+                               onPause: store.canPause ? { store.pauseDirector() } : nil,
                                onShowLog: store.runtime.logURL != nil ? { store.sheet = .log } : nil,
                                pace: shownPace, autoResume: store.runtime.autoResume, onResumeNow: store.runtime.autoResume != nil ? { store.resumeDirector() } : nil, paused: store.phase == .paused)
             } else if store.runtime.isRunning || store.runtime.isPreparing {
@@ -100,7 +100,7 @@ struct FilmPage: View {
             if let film = store.film {
                 FilmStatusBarHost(model: film, visible: showsNativeFilm, turn: statusTurn,
                                   onDetails: store.runtime.logURL != nil ? { store.sheet = .log } : nil,
-                                  onPause: store.runtime.isRunning ? { store.pauseDirector() } : nil,
+                                  onPause: store.canPause ? { store.pauseDirector() } : nil,
                                   onResume: store.canResume ? { store.resumeDirector() } : nil,
                                   usage: { StatusPill(store: store) }) {
                     VStack(spacing: Workspace.gap) {
@@ -125,10 +125,12 @@ struct FilmPage: View {
     @ToolbarContentBuilder private var filmToolbar: some ToolbarContent {
         HistoryToolbar(store: store)
         if ready && store.runURL != nil {
-            ToolbarItem(placement: .principal) {
-                FilmStepper(current: store.snapshot.stage, finished: isFinished, viewing: store.film?.viewingStage,
-                            decided: isWorkingOnNextCall ? store.snapshot.decidedCalls : nil,
-                            canSelect: { store.film?.canView($0) ?? false }, onSelect: { store.film?.view($0) })
+            // The five calls in the sidebar's glass, in place of the toolbar's shared capsule.
+            if #available(macOS 26, *) {
+                ToolbarItem(placement: .principal) { stepper.padding(5).glassPanel(in: Capsule()) }
+                    .sharedBackgroundVisibility(.hidden)
+            } else {
+                ToolbarItem(placement: .principal) { stepper }
             }
         }
         ToolbarItemGroup(placement: .primaryAction) {
@@ -139,6 +141,12 @@ struct FilmPage: View {
             }
             headerTools
         }
+    }
+
+    private var stepper: some View {
+        FilmStepper(current: store.snapshot.stage, finished: isFinished, viewing: store.film?.viewingStage,
+                    decided: isWorkingOnNextCall ? store.snapshot.decidedCalls : nil,
+                    canSelect: { store.film?.canView($0) ?? false }, onSelect: { store.film?.view($0) })
     }
 
     @ViewBuilder private var headerTools: some View {
@@ -156,7 +164,7 @@ struct FilmPage: View {
                     if let film = store.film, showsNativeFilm, !film.isDone, !film.isDecideRest, film.route != .working {
                         Button("Let \(agent) Make the Rest…") { confirmJustMakeIt = true }.disabled(!film.isConnected || film.isSending)
                     }
-                    if store.runtime.isRunning { Button("Pause") { store.pauseDirector() }.keyboardShortcut(".", modifiers: .command) }
+                    if store.canPause { Button("Pause") { store.pauseDirector() }.keyboardShortcut(".", modifiers: .command) }
                     else if store.canResume { Button("Resume") { store.resumeDirector() } }
                     if store.runtime.logURL != nil { Button("Show Log") { store.sheet = .log } }
                     if store.selectedProjectURL != nil { Button("Source Files…") { store.reloadSources(); store.sheet = .files } }
@@ -209,7 +217,7 @@ struct FilmPage: View {
         case .draft: ["This film has not started yet. Check the brief, then press Start film."]
         case .finished: ["Your film is ready. Export it, or watch it and add notes where something should change."]
         case .yourTurn: ["RasanAI is waiting for you. Answer on the page, then press the button at the bottom right, and it carries on from there.", "You can leave the app; you will be notified if that is turned on."]
-        default: ["\(agent) is making this film. Each step it needs you for shows up here.", "Pause in the ••• menu stops it safely. Your files are kept, and you can resume any time."]
+        default: ["\(agent) is making this film. Each step it needs you for shows up here.", "Pause in the ••• menu freezes it in place. Resume carries on exactly where it was."]
         }
     }
 }

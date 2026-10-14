@@ -83,7 +83,7 @@ struct RasanAIStudioApp: App {
                 }.disabled(store.recentRuns.isEmpty)
             }
             CommandMenu("Film") {
-                if store.runtime.isRunning {
+                if store.canPause {
                     Button("Pause Director") { store.pauseDirector() }
                 } else {
                     Button("Resume Director") { store.resumeDirector() }.disabled(!onFilmPage || store.isBrowsingAnotherFilm || !store.canResume)
