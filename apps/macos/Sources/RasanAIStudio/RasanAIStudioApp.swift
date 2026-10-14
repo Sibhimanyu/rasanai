@@ -116,13 +116,14 @@ struct RasanAIStudioApp: App {
             }
             CommandMenu("Go") {
                 // The sidebar's places, in its order and by its names; they replace the page, as clicking them does.
-                Button("Home") { store.goHome() }.keyboardShortcut("1")
-                Button("All films") { store.path = [.library(.all)] }.keyboardShortcut("2")
-                Button("Needs review") { store.path = [.library(.needsReview)] }.keyboardShortcut("3")
-                Button("Queue") { store.path = [.queue] }.keyboardShortcut("4")
-                Button("Brands") { store.path = [.brands] }.keyboardShortcut("5")
-                Button("Templates") { store.path = [.templates] }.keyboardShortcut("6")
-                Button("Inspiration") { store.path = [.inspire] }.keyboardShortcut("7")
+                // Tahoe shows menu icons; each place wears its sidebar symbol.
+                Button("Home", systemImage: StudioPlace.homeSymbol) { store.goHome() }.keyboardShortcut("1")
+                Button("All films", systemImage: StudioPlace.allSymbol) { store.path = [.library(.all)] }.keyboardShortcut("2")
+                Button("Needs review", systemImage: StudioPlace.needsReviewSymbol) { store.path = [.library(.needsReview)] }.keyboardShortcut("3")
+                Button("Queue", systemImage: StudioPlace.queueSymbol) { store.path = [.queue] }.keyboardShortcut("4")
+                Button("Brands", systemImage: StudioPlace.brandsSymbol) { store.path = [.brands] }.keyboardShortcut("5")
+                Button("Templates", systemImage: StudioPlace.templatesSymbol) { store.path = [.templates] }.keyboardShortcut("6")
+                Button("Inspiration", systemImage: StudioPlace.inspireSymbol) { store.path = [.inspire] }.keyboardShortcut("7")
                 Divider()
                 // The same history as the toolbar's ‹ ›.
                 Button("Back") { store.goBack() }.keyboardShortcut("[", modifiers: .command).disabled(!store.canGoBack)
