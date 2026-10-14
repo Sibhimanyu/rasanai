@@ -329,3 +329,42 @@ private let claudeInit = #"{"type":"system","subtype":"init","session_id":"s1","
         #expect(codex.contains("→ echo hi"))
     }
 }
+
+@Suite struct KeepAwakeAndWake {
+    private func health(_ state: DirectorHealthState, background: String? = nil) -> DirectorHealth {
+        DirectorHealth(state: state, label: "", detail: "", quietFor: 0, loopReason: nil, background: background)
+    }
+
+    @Test func keepAwakePolicy() {
+        #expect(!KeepAwakePolicy.shouldHold(enabled: false, processRunning: true, health: health(.working)))
+        #expect(!KeepAwakePolicy.shouldHold(enabled: true, processRunning: false, health: health(.working)))
+        #expect(KeepAwakePolicy.shouldHold(enabled: true, processRunning: true, health: health(.working)))
+        #expect(KeepAwakePolicy.shouldHold(enabled: true, processRunning: true, health: nil))
+        #expect(!KeepAwakePolicy.shouldHold(enabled: true, processRunning: true, health: health(.waitingForYou)))
+        #expect(KeepAwakePolicy.shouldHold(enabled: true, processRunning: true, health: health(.waitingForYou, background: "Research")))
+        #expect(KeepAwakePolicy.shouldHold(enabled: true, processRunning: true, health: health(.quiet)))
+        #expect(KeepAwakePolicy.shouldHold(enabled: true, processRunning: true, health: health(.possiblyLooping)))
+    }
+
+    @Test func sleepIsNotSilence() {
+        var t = DirectorTelemetry()
+        t.ingest(line: claudeInit, now: at(0))
+        t.ingest(line: claudeToolLine(id: "a", input: #"{"command":"ls","description":"List files"}"#), now: at(1))
+        t.ingest(line: toolResult, now: at(2))
+        let now = at(2 + 40 * 60)
+        let asleep = DirectorHealth.evaluate(t, context: HealthContext(now: now, processRunning: true))
+        #expect(asleep.state == .quiet)
+        let woke = DirectorHealth.evaluate(t, context: HealthContext(now: now, processRunning: true, lastWake: now.addingTimeInterval(-5)))
+        #expect(woke.state != .quiet)
+        #expect(abs(woke.quietFor - 5) < 0.001)
+    }
+
+    @Test func toolInFlightAcrossSleepStaysWorking() {
+        var t = DirectorTelemetry()
+        t.ingest(line: claudeInit, now: at(0))
+        t.ingest(line: claudeToolLine(id: "a", input: #"{"command":"hyperframes render","description":"Render the film"}"#), now: at(1))
+        let now = at(50 * 60)
+        #expect(DirectorHealth.evaluate(t, context: HealthContext(now: now, processRunning: true)).state == .quiet)
+        #expect(DirectorHealth.evaluate(t, context: HealthContext(now: now, processRunning: true, lastWake: now.addingTimeInterval(-10))).state == .working)
+    }
+}

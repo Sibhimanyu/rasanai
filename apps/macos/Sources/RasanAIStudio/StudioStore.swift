@@ -888,6 +888,12 @@ final class StudioStore {
             self.resumeDirector()
         }
     }
+    /// After the Mac wakes, checks a pending automatic resume against the wall clock: due now means resume shortly, else wait only the time left.
+    func handleWake() {
+        guard let notice = runtime.autoResume, let due = notice.resumesAt, !runtime.isRunning, !runtime.stopRequested, canResume else { return }
+        let left = due.timeIntervalSinceNow + (notice.isLimit ? 30 : 0)
+        scheduleAutoResume(after: max(AutoResumePolicy.delay, left), isLimit: notice.isLimit)
+    }
     /// Resume now (the button), or Pause: either way the pending automatic resume is dropped.
     func cancelAutoResume() { autoResumeTask?.cancel(); autoResumeTask = nil }
     func resumeDirector() {
