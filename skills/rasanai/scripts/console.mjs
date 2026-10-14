@@ -18,6 +18,8 @@
 //   node console.mjs log   --run <dir> --message "..." [--level info|ok|warn|error] [--stage <id>] [--stage-status working|done|failed]
 //   node console.mjs wait  --run <dir> [--step <id>] [--timeout <sec, default 3000>]   -> prints the next action JSON (exit 2 on timeout)
 //   node console.mjs record --run <dir> --step <id> --type <type> [--value '<json>'] [--note "..."]   (a choice made in chat)
+//        --type comment (a note given in chat: --note "<text>", --value '{"t":12.4,"scope":"scene"}') and --type apply (--value '{"ids":[...]}',
+//        or all the step's open notes) also enter session.comments / session.applied, so the revision refusal covers notes given in chat
 //   node console.mjs state --run <dir> | url --run <dir> | stop --run <dir>
 //
 // HEADLESS mode (env RASANAI_CONSOLE_HEADLESS=1, remembered in <run>/console.json): no server at all. RasanAI Studio
@@ -435,6 +437,15 @@ if (cmd === "push") {
   };
   if (HEADLESS) withLock(F.actionsLock, markConsumed);
   else markConsumed();
+  // a note or an Apply given in chat enters the notes rule like one clicked on the page (the page's own would be applied by the server or by `wait`)
+  if (["comment", "apply"].includes(a.type)) {
+    if (a.type === "comment" && !a.note && !(value && value.quick)) die("record --type comment needs --note \"<the note>\"");
+    withLock(F.sessionLock, () => {
+      const s = session();
+      applyAction(s, a);
+      saveSession(s);
+    });
+  }
   console.log(JSON.stringify(a));
 } else if (cmd === "wait") {
   const timeout = Number(args.timeout || 3000) * 1000;
