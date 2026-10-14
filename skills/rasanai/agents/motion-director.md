@@ -161,6 +161,23 @@ Film level: `duration` (seconds), `brand`, `feature` (`name`, `url`, `viewer`, `
 5. **2D ↔ 3D seams** (`flat-to-depth`, `depth-to-flat`, `camera-through`): render both sides with `crew.mjs strip --project … --fps 15` across the cut and compare the last frame before and the first after: same position, size, colour (to a level) and type. A mismatch is a pop: fix it on the 3D side (`k.layout` at the handoff numbers), and re-run `stage3d.mjs check` on that file.
 6. Re-run `node "$SKILL_DIR/scripts/obey.mjs" --project videos/<name>` (and `stage3d.mjs check` when the film has 3D) after your edits; both must still exit 0.
 
+### The film's shape (different from your last films)
+
+`score.shape` names the film in six slugs, so the studio's films don't all come out the same. Your brief lists the shapes of the last 3 films: differ from each in at least 4 of the 6 aspects (`crew.mjs check` refuses `same-shape`, naming the film and what is shared). A series, or the user asking for the same, is `"shape_waiver": "<why, 12+ characters>"` (a warning). Pick the slugs from the film the story needs first, then move away from the recent ones; the shape is recorded when the film is delivered (`memory.mjs record-film`).
+
+```jsonc
+"shape": { "structure": "ladder", "opening": "product-first", "signature": "carried-object", "camera": "slow-push", "music": "pulse-driven", "ending": "logo-lockup" }
+```
+
+- structure: ladder, problem-solution, intercut, single-scenario, tour, countdown, montage, one-take, before-after, manifesto
+- opening: product-first, cold-word, question, big-number, cursor-typing, in-medias-res, logo-first, silence-then-hit, object-reveal, grid-build
+- signature: carried-object, match-cut-chain, type-morph, mask-wipe, ui-choreography, depth-fly-through, zoom-through, shared-element, grid-shuffle, whip-pan
+- camera: locked-off, slow-push, orbit-3d, handheld-drift, flat-pans, whip-cuts, zoom-through, multi-plane-parallax
+- music: pulse-driven, ambient-pad, cinematic-swell, minimal-click, beat-cut, sound-design-only, vocal-led, piano-led
+- ending: logo-lockup, one-line-hold, loop-back, cta-card, product-resting, blackout, punchline, pull-back
+
+(`scripts/lib/film-shape.mjs` holds the lists.) One hero per frame: the frame gate warns when the two largest elements are both big and about the same size in over 30% of frames; make one the hero and let the other be small or arrive after.
+
 ## Never
 
 - Never change the script's words, the scene order or the durations (those were approved); timing inside a scene is yours.

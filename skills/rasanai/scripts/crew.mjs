@@ -43,6 +43,8 @@ import path from "node:path";
 import { spawnSync, execFileSync } from "node:child_process";
 import { parseArgs, die, readJSON, writeFile, chromeScreenshot, esc, GSAP_PATH, SKILL_DIR } from "./lib/common.mjs";
 import { lessonsBlock } from "./lessons.mjs";
+import { recentFilms } from "./memory.mjs";
+import { shapeProblems, tooClose, shapeLine, SHAPE_VOCAB, ASPECTS, MIN_DIFFER, RECENT } from "./lib/film-shape.mjs";
 import { readBudget, checkBudget } from "./lib/budget.mjs";
 import { readDesignMd } from "./lib/design-md.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
@@ -974,6 +976,10 @@ function promptFor(run, role, key, plan) {
     const vocab = readMaybe(path.join(SKILL_DIR, "references", "vocabulary.md"));
     if (vocab) extra += "\n\n(Read `references/vocabulary.md` in full: it is the motion vocabulary your score names techniques from.)";
   }
+  if (role === "motion-director" && key !== "seams") {
+    const rf = recentFilms(RECENT);
+    extra += `\n\n## Your film's shape (score.shape)\n\nName it in motion/score.json: ${ASPECTS.map((k) => `${k} (${SHAPE_VOCAB[k].join("|")})`).join("; ")}. It must differ from each of the last ${RECENT} films in at least ${MIN_DIFFER} of the 6 aspects (crew.mjs check refuses \`same-shape\`; a series or an explicit ask for the same is a \`shape_waiver\` with a reason).\n${rf.length ? rf.map((f) => `- ${f.title}${f.date ? ` (${f.date})` : ""}: ${shapeLine(f.shape)}`).join("\n") : "- (no film recorded yet: nothing to move away from)"}`;
+  }
   { const lb = lessonsBlock(role).trim(); if (lb) extra += `\n\n${lb}`; } // standing notes from the user's past films (lessons.mjs); only the roles it lists get any
   let dare = DARES[role === "motion-director" && key === "seams" ? "seams" : role];
   if (dare && ctx.product_first) dare += " On this product-first film, showing off is craft only (motion, UI choreography, rhythm, the real product moving like nothing else): a letter or shape transformation that lands on the real product (its UI, its mark) is craft and is wanted, full frame and fast; never a conceit, a metaphor, an invented world or a prop standing in for the product. A show-off idea that never resolves to the product fails.";
@@ -1052,6 +1058,22 @@ function checkScore(run) {
     for (const id of picked) if (!used.has(id) && !dropped.get(id)) W.push(`moment-unplaced: the picked moment ${id} is on no beat (score.moments_placed [{id, beat, take, why}], or score.moments_dropped [{id, why}] with the reason)`);
   }
   if (!String(score.spine || "").trim()) P.push("no spine: name the one device that threads the film");
+  // the film's shape: six slugs; it must differ from each of the last 3 recorded films in 4 of 6 aspects (lib/film-shape.mjs)
+  {
+    const rf = recentFilms(RECENT);
+    if (score.shape == null) (rf.length ? P : W).push(`no shape: set score.shape {${ASPECTS.map((k) => `${k}: ${SHAPE_VOCAB[k].slice(0, 3).join("|")}|...`).join(", ")}} (agents/motion-director.md lists each vocabulary)${rf.length ? "" : " (a warning only while no film is recorded; the first film still needs it to be recorded)"}`);
+    else {
+      const bad = shapeProblems(score.shape);
+      if (bad.length) P.push(...bad);
+      else {
+        const waiver = typeof score.shape_waiver === "string" && score.shape_waiver.trim().length >= MIN_INTENT ? score.shape_waiver.trim() : null;
+        for (const c of tooClose(score.shape, rf)) {
+          const msg = `same-shape: too close to "${c.title}"${c.date ? ` (${c.date})` : ""}: it differs in ${c.differ} of 6 aspects (needs ${MIN_DIFFER}); shared: ${c.shared.map((k) => `${k} ${score.shape[k]}`).join(", ")}. Change ${MIN_DIFFER - c.differ} more (a series, or the user asked for the same: score.shape_waiver = "<reason, 12+ characters>")`;
+          if (waiver) W.push(`${msg} [waived: ${waiver}]`); else P.push(msg);
+        }
+      }
+    }
+  }
   const reel = Array.isArray(score.showreel) ? score.showreel.filter((m) => m && String(m.what || "").trim() && Number(m.scene) >= 1) : [];
   if (reel.length < Math.min(2, N || 2)) P.push(`showreel names ${reel.length} moments: name 2 to 4 a motion designer would cut into their reel (if you can't, the score isn't ambitious enough yet)`);
   if (!score.video_direction || ["palette", "motion_grammar", "holds", "negative"].some((k) => !score.video_direction[k])) P.push("video_direction needs palette, motion_grammar, holds and negative");
