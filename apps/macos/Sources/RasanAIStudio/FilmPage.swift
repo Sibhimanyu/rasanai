@@ -496,6 +496,7 @@ struct FinishedView: View {
                         .help("Save an MP4 you can share (⌘E)")
                     Button("Show in Finder") { if let url = store.displayedVideo { NSWorkspace.shared.activateFileViewerSelecting([url]) } }.controlSize(.large)
                 }
+                SeriesLookButton(store: store, project: filmKey)
                 VStack(alignment: .leading, spacing: 18) {
                     FilmHistoryView(snapshot: store.snapshot, resolver: store.resolver, onPreview: { watch($0) }, onRestore: { restoreVersion = $0 })
                     changesSection

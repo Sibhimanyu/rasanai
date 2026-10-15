@@ -13,7 +13,7 @@ enum LibraryMode: String, Hashable {
 /// The places in the studio, as a native source list in the split view's sidebar. On macOS Tahoe the system draws it as the
 /// floating glass sidebar, places the window buttons inside it and moves its toggle into the toolbar when it hides.
 enum StudioPlace: Hashable {
-    case home, all, needsReview, brands, templates, inspire, queue, film(URL)
+    case home, all, needsReview, brands, series, inspire, queue, film(URL)
 
     /// One symbol per place, shared by the sidebar, the Go menu and the status bar so a place always looks the same.
     static let homeSymbol = "house"
@@ -21,7 +21,7 @@ enum StudioPlace: Hashable {
     static let needsReviewSymbol = "eye"                                     // something waiting for you to look at
     static let queueSymbol = "text.line.first.and.arrowtriangle.forward"     // Music's Up Next: what plays next
     static let brandsSymbol = "paintpalette"                                 // colours, type and a logo
-    static let templatesSymbol = "doc.on.doc"                                // start from a copy
+    static let seriesSymbol = "rectangle.stack"                              // a show: setup and memory for every episode
     static let inspireSymbol = "rectangle.stack.badge.play"                  // a collection of clips to watch
 }
 
@@ -35,7 +35,7 @@ struct AppSidebar: View {
         case .library(.all)?: .all
         case .library(.needsReview)?: .needsReview
         case .brands?, .brand?: .brands
-        case .templates?: .templates
+        case .series?, .seriesPage?: .series
         case .inspire?: .inspire
         case .queue?: .queue
         case .film(let folder)?: .film(folder)
@@ -67,7 +67,7 @@ struct AppSidebar: View {
                 Label("Needs review", systemImage: StudioPlace.needsReviewSymbol).badge(needsYouCount).tag(StudioPlace.needsReview)
                 Label("Queue", systemImage: StudioPlace.queueSymbol).badge(store.queuedCount).tag(StudioPlace.queue)
                 Label("Brands", systemImage: StudioPlace.brandsSymbol).tag(StudioPlace.brands)
-                Label("Templates", systemImage: StudioPlace.templatesSymbol).tag(StudioPlace.templates)
+                Label("Series", systemImage: StudioPlace.seriesSymbol).tag(StudioPlace.series)
                 Label("Inspiration", systemImage: StudioPlace.inspireSymbol).tag(StudioPlace.inspire)
             }
             if !recentFilms.isEmpty {
@@ -94,7 +94,7 @@ struct AppSidebar: View {
         case .all: [.library(.all)]
         case .needsReview: [.library(.needsReview)]
         case .brands: [.brands]
-        case .templates: [.templates]
+        case .series: [.series]
         case .inspire: [.inspire]
         case .queue: [.queue]
         case .film(let folder): [.film(folder)]
@@ -209,6 +209,7 @@ extension StudioStore {
         if path.count == 1 {
             switch last {
             case .brand: return ("Brands", [.brands])
+            case .seriesPage: return ("Series", [.series])
             case .newFilm, .film, .sample: return ("Home", [])
             default: return nil
             }
@@ -224,7 +225,8 @@ extension StudioStore {
         case .brands?: "Brands"
         case .brand(let url)?: url.lastPathComponent
         case .queue?: "Queue"
-        case .templates?: "Templates"
+        case .series?: "Series"
+        case .seriesPage(let url)?: SeriesLibrary.load(url)?.name ?? url.lastPathComponent
         case .inspire?: "Inspiration"
         case .sample?: "Sample film"
         case .newFilm?: "New film"
