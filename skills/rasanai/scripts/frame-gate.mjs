@@ -6,7 +6,7 @@
 //   node frame-gate.mjs (--stills <dir of PNG|JPG | a.png,b.png> [--html <dir of the same-named .html boards>]
 //                       | --video <film.mp4> [--fps 4]) [--project <videos/name>]
 //        [--brand-film <grammar.json | brand film .mp4 | frames dir>] [--write-brand <grammar.json>]
-//        [--kind launch|brand|explainer] [--density] [--plan <run>/motion/score.json] [--stillness] [--json]
+//        [--kind launch|brand|explainer] [--density] [--plan <run>/motion/score.json] [--stillness] [--footage] [--json]
 //   -> per-frame and film metrics, findings (each with the number, the threshold and a fix);
 //      exit 0 clean (warnings allowed) · 2 errors · 1 could not run (never "clean")
 //
@@ -20,6 +20,8 @@
 // film, frames with a line of 20% H or more, any 35% H moment, and the biggest object (img, canvas, video, svg).
 // Without --project / --html none of the DOM checks run (text-load, competing-heroes, scale-contrast, giant-moment,
 // no-peak-moment): the result says so in `skipped` and on screen, never silently.
+// Footage-led films (the plan's route is reel / talking-head-recut / embedded-captions, or the plan, brief or --footage says footage_led / footage: true) are exempt from
+// boldness: a talking head or a clip reel is never "bold" in this sense and live action would read as always bold (footageLed below; a skipped note says so).
 // Boldness (a video of 15 s or more; lib/pixels.mjs boldFrame): a frame is a big moment when it holds a giant glyph
 // (a letter, numeral or icon drawn 15% H or taller), an ink mass filling 40% of the frame, or a colour field (the
 // frame's own ground, covering 40% of it, is dE 20 or more from the film's main ground); with --project, also a DOM
@@ -504,7 +506,9 @@ export async function measureFrames(opts = {}) {
 
   // boldness: enough big moments (a giant glyph, a frame-filling mass, a colour field) for a film of 15 s or more
   const bd = film.boldness;
-  if (res.kind !== "video") res.skipped.push("boldness: measured on a film (--video), not on stills");
+  const fl = footageLed(opts);
+  if (fl) res.skipped.push(`boldness: a footage-led film (${fl}): live action is not measured for big moments`);
+  else if (res.kind !== "video") res.skipped.push("boldness: measured on a film (--video), not on stills");
   else if (dur < GATE.bold_min_dur) res.skipped.push(`boldness: the film is ${r1(dur)} s (measured from ${GATE.bold_min_dur} s)`);
   else if (bd.placed) {
     // judged by placement: the big moments sit on the peak and the importance-3 beats; the film-wide share is not a quota
@@ -557,6 +561,20 @@ function printable(res) {
   return out.join("\n");
 }
 
+// a footage-led film: --footage, the plan's route (reel, talking-head-recut, embedded-captions) or its footage / footage_led flag, the run's brief.json route -> a reason string, else null
+export const FOOTAGE_ROUTES = ["reel", "talking-head-recut", "embedded-captions", "footage"];
+export function footageLed(opts = {}) {
+  if (opts.footage) return "--footage";
+  const plan = opts.plan ? readJ(path.resolve(opts.plan)) : null;
+  const flagged = (o) => o && (o.footage_led === true || o.footage === true || (o.footage && typeof o.footage === "object" && !Array.isArray(o.footage) && Object.keys(o.footage).length > 0));
+  if (flagged(plan)) return "the plan's footage flag";
+  if (plan && FOOTAGE_ROUTES.includes(String(plan.route || ""))) return `the plan's route ${plan.route}`;
+  const run = opts.plan ? path.dirname(path.dirname(path.resolve(opts.plan))) : null, brief = run ? readJ(path.join(run, "brief.json")) : null;
+  if (flagged(brief)) return "the brief's footage flag";
+  if (brief && FOOTAGE_ROUTES.includes(String(brief.route || ""))) return `the brief's route ${brief.route}`;
+  return null;
+}
+
 async function main() {
   const args = parseArgs();
   const str = (v) => (v == null || v === true ? null : String(v));
@@ -564,7 +582,7 @@ async function main() {
     process.stderr.write("usage: node frame-gate.mjs (--stills <dir|a.png,b.png> [--html <boards dir>] | --video <film.mp4>) [--project <dir>] [--brand-film <grammar.json|film.mp4>] [--write-brand <grammar.json>] [--kind launch] [--density] [--plan <score.json>] [--stillness] [--json]\n");
     process.exit(1);
   }
-  const res = await measureFrames({ stills: str(args.stills), video: str(args.video), html: args.html, project: str(args.project), brandFilm: str(args["brand-film"]), fps: Number(args.fps) || 4, kind: str(args.kind), density: !!args.density, plan: str(args.plan), stillness: args.stillness ? true : null });
+  const res = await measureFrames({ stills: str(args.stills), video: str(args.video), html: args.html, project: str(args.project), brandFilm: str(args["brand-film"]), fps: Number(args.fps) || 4, kind: str(args.kind), density: !!args.density, plan: str(args.plan), stillness: args.stillness ? true : null, footage: !!args.footage });
   if (args["write-brand"] && res.film) {
     const p = path.resolve(String(args["write-brand"])), g = readJ(p) || {};
     g.frameMetrics = { groundChroma: res.film.groundChroma, groundRange: res.film.groundRange, softP90: res.film.softP90, colourfulP90: res.film.colourfulP90, charsMedian: res.film.charsMedian ?? null, measuredFrom: str(args.video) || str(args.stills) };

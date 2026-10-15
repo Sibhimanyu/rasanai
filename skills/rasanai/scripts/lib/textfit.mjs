@@ -44,6 +44,16 @@
 //   glyph-missing   a LOADED web font lacks characters the page sets in it (they fall back to another face: tofu risk)
 //   media-upscaled  an image or video shown at more than 1.5x its natural size at some sampled time (data-upscale="ok" opts out)
 //   rtl-direction   Arabic / Hebrew script in a direction: ltr block
+//   subject-lost   (data-hero, an element id the score names as a beat's hero: opts.heroIds) the hero was inside the safe area (90% of its box or more)
+//                   and then sits under 90% inside it for 0.3 s or more while it is on screen (the camera, or the hero's own move, took the subject out of
+//                   shot); a hero never inside for 0.5 s of visibility; a hero larger than the safe area itself (a deliberate bleed), data-hero="bleed", and a
+//                   final run that ends fully outside the frame (an exit) are not flagged. onetake's "the camera never loses the subject".
+// Also collected in the same loads, for the checks other scripts make (textStates, hookOf, below): result.texts (each readable text STATE: the string, from, to,
+// caption / skim / data-ui flags; a state needs 0.25 s) and result.hook ({text, visual}: the first readable line, the first big picture / data-ui / brand mark, in film seconds).
+// Pure helpers over those states, used by motion-gate.mjs, voice.mjs and slop.mjs (all WARNINGS, uncalibrated):
+//   seeAndSay(cues, events, texts, words)  narration cue with no on-screen event within 1.0 s; a text whose spoken word is more than 1.0 s from it
+//   captionDupes(texts)                    a caption that says what another on-screen line says in the same window
+//   unknownNumbers(texts, known)           a number on screen that is in no claims ledger / brief
 // CJK lines count in reading-equivalent words (CJK chars / 4.5 + other chars / 15 per second against 0.3 s a word; lib/reading.mjs) so text-too-brief judges them.
 // data-read="skim" (on the element or a parent; captions, in a composition or element named caption*, are skim by default
 // because they track the narration) opts a block out of text-too-brief (UI text that only has to register);
@@ -144,7 +154,7 @@ window.__tfBlocks=function(){
         if(ov>0.5*Math.min(L.bottom-L.top,r.bottom-r.top)){L.left=Math.min(L.left,r.left);L.right=Math.max(L.right,r.right);L.top=Math.min(L.top,r.top);L.bottom=Math.max(L.bottom,r.bottom);return;}}
       lines.push({left:r.left,right:r.right,top:r.top,bottom:r.bottom});});
     var id=BID.get(g.el);if(!id){id=++BN;BID.set(g.el,id);}BE[id]=g.el;
-    out.push({i:id,w:words,v:vw,f:f,m:Math.round(g.mh*100)/100,mx:Math.round(g.mx*100)/100,t:str.replace(/\\s+/g,' ').trim().slice(0,80),s:g.el.closest('[data-read="skim"],[data-composition-id*="caption" i],[class*="caption" i],[id*="caption" i]')?1:0,o:g.el.closest('[data-overlap="ok"]')?1:0,rtl:(RTLS.test(str)&&getComputedStyle(g.el).direction==='ltr')?1:0,
+    out.push({i:id,w:words,v:vw,f:f,m:Math.round(g.mh*100)/100,mx:Math.round(g.mx*100)/100,t:str.replace(/\\s+/g,' ').trim().slice(0,80),s:g.el.closest('[data-read="skim"],[data-composition-id*="caption" i],[class*="caption" i],[id*="caption" i]')?1:0,c:g.el.closest('[data-composition-id*="caption" i],[class*="caption" i],[id*="caption" i]')?1:0,u:g.el.closest('[data-ui],[data-mock]')?1:0,o:g.el.closest('[data-overlap="ok"]')?1:0,rtl:(RTLS.test(str)&&getComputedStyle(g.el).direction==='ltr')?1:0,
       r:lines.map(function(r){var p=0.15*(r.bottom-r.top);return [Math.round(r.left),Math.round(r.top+p),Math.round(r.right),Math.round(r.bottom-p)];}),el:g.el});}); // ink, not the line box: stacked lines at line-height 1 do not overlap
   out.forEach(function(x){x.a=out.filter(function(y){return y!==x&&y.el.contains(x.el);}).map(function(y){return y.i;});});
   out.forEach(function(x){delete x.el;});
@@ -197,7 +207,19 @@ window.__tfSweep=function(T){window.__tfSeek(T);var media=[],miss={};
       if(v===undefined){GC.font=fb+', serif';var a1=GC.measureText(ch2).width;GC.font=fb+', monospace';var a2=GC.measureText(ch2).width;v=GLY[k]=Math.abs(a1-a2)>0.01;}
       if(v){(miss[fam]=miss[fam]||{})[ch2]=1;}}}
   return {T:T,media:media,miss:Object.keys(miss).map(function(f){return {f:f,c:Object.keys(miss[f])};})};};
-window.__tfRun=function(times){return times.map(function(T){window.__tfSeek(T);return {T:T,hits:window.__tfMeasure(),blocks:window.__tfBlocks()};});};
+// heroes: [data-hero] and the ids the score names (CFG.heroIds): the untrimmed box of each that is on screen (display, opacity over 0.3)
+window.__tfHero=function(){var els=[].slice.call(document.querySelectorAll('[data-hero]'));
+  (CFG.heroIds||[]).forEach(function(id){var e=document.getElementById(id);if(e&&els.indexOf(e)<0)els.push(e);});
+  var out=[];els.forEach(function(el,i){if(el.closest('[data-text-fit="ignore"]'))return;var ch=chain(el);if(!ch||!(ch.op>0.3))return;
+    var r=el.getBoundingClientRect();if(!(r.width>2&&r.height>2))return;
+    out.push({i:i,n:el.id||el.getAttribute('data-hero')||(el.tagName.toLowerCase()+'#'+i),b:el.getAttribute('data-hero')==='bleed'?1:0,l:r.left,t:r.top,r:r.right,bt:r.bottom});});
+  return out;};
+// the first meaning that is not a line of text: a picture, a video, a UI surface or a brand mark of 4% of the frame or more, visible (img, video, [data-ui], [data-brand-mark])
+window.__tfVisual=function(){var q='img,video,[data-ui],[data-brand-mark]',n=document.querySelectorAll(q);
+  for(var i=0;i<n.length;i++){var el=n[i];if(el.closest('[data-text-fit="ignore"]'))continue;var ch=chain(el);if(!ch||!(ch.op>0.5))continue;var r=el.getBoundingClientRect();
+    var w=Math.min(r.right,CFG.W)-Math.max(r.left,0),h=Math.min(r.bottom,CFG.H)-Math.max(r.top,0);if(w>0&&h>0&&w*h>=0.04*CFG.W*CFG.H)return 1;}
+  return 0;};
+window.__tfRun=function(times){return times.map(function(T){window.__tfSeek(T);return {T:T,hits:window.__tfMeasure(),blocks:window.__tfBlocks(),hero:window.__tfHero(),vis:T<3?window.__tfVisual():0};});};
 })();</script>`;
 
 // extraJs: another <script> block a second check (lib/chrome-lint.mjs) adds; it may call window.__tfSeek(T)
@@ -408,6 +430,164 @@ async function scriptErrors(b, file, root) {
   return out;
 }
 
+// ---- hero tracking, text states and the pure checks built on them (all WARNINGS, uncalibrated) ----
+export const SUBJECT = { inside: 0.9, lost_s: 0.3, never_s: 0.5 };
+// byHero: Map i -> [{t, n, b, l, t:.., r, bt}] (film seconds) -> warnings. share = the part of the box inside the safe rectangle
+export function analyzeHero(byHero, dt, file, W, H, safe) {
+  const out = [], sx = W * safe, sy = H * safe, R = { l: sx, t: sy, r: W - sx, b: H - sy }, base = path.basename(file);
+  for (const [, rows0] of byHero) {
+    const rows = rows0.map((h) => {
+      const w = h.r - h.l, ht = h.bt - h.t, ix = Math.max(0, Math.min(h.r, R.r) - Math.max(h.l, R.l)), iy = Math.max(0, Math.min(h.bt, R.b) - Math.max(h.t, R.t));
+      return { t: h.T, n: h.n, bleed: h.b, w, h: ht, share: w * ht > 0 ? (ix * iy) / (w * ht) : 0 };
+    }).sort((a, b) => a.t - b.t);
+    if (!rows.length || rows[0].bleed) continue;
+    const med = (k) => rows.map((r) => r[k]).sort((a, b) => a - b)[rows.length >> 1];
+    if (med("w") > (R.r - R.l) * 1.02 || med("h") > (R.b - R.t) * 1.02) continue; // bigger than the safe area itself: a deliberate bleed
+    const name = rows[0].n, ok = (r) => r.share >= SUBJECT.inside - 1e-9, first = rows.findIndex(ok);
+    const need = Math.ceil(SUBJECT.lost_s / dt - 1e-9);
+    const warn = (from, to, msg) => out.push({ check: "subject-lost", severity: "warning", at: r2(from), from: r2(from), to: r2(to), text: name, file: base, region: "hero",
+      message: msg, fix: "the beat's hero stays in shot while the camera moves: re-aim the camera on it (centre the move on the hero, or move the hero with it), shorten the move, or mark a deliberate crop data-hero=\"bleed\"; the score's hero for this beat is what the viewer must notice" });
+    if (first < 0) {
+      const seen = rows.length * dt;
+      if (seen >= SUBJECT.never_s) warn(rows[0].t, rows[rows.length - 1].t + dt, `the hero "${name}" is never inside the ${Math.round(safe * 100)}% safe area (best ${Math.round(Math.max(...rows.map((r) => r.share)) * 100)}% of it inside) in its ${r2(seen)} s on screen`);
+      continue;
+    }
+    // runs under the line after it was first inside
+    let i = first;
+    while (i < rows.length) {
+      if (ok(rows[i])) { i++; continue; }
+      let j = i; while (j < rows.length && !ok(rows[j]) && rows[j].t - rows[j - 1].t <= dt * 1.5) j++;
+      const run = rows.slice(i, j), last = run[run.length - 1], endsOut = j >= rows.length && last.share < 0.05;
+      if (run.length >= need && !endsOut) warn(run[0].t, last.t + dt, `the hero "${name}" leaves the safe area (${Math.round(Math.min(...run.map((r) => r.share)) * 100)}% of it inside at worst) from ${r2(run[0].t)} to ${r2(last.t + dt)} s while it is on screen`);
+      i = Math.max(j, i + 1);
+    }
+  }
+  return out;
+}
+
+// text states: block rows -> [{text, from, to, caption, skim, ui, file}] (each distinct string of a block readable for 0.25 s or more; film seconds)
+export function textStates(byBlock, dt, file) {
+  const out = [], base = path.basename(file);
+  for (const [, rows] of byBlock) {
+    const w = Math.max(...rows.map((r) => r.w)), ok = rows.filter((r) => r.v * 2 >= w).sort((a, b) => a.t - b.t);
+    let cur = null;
+    const close = () => { if (cur && cur.to - cur.from >= 0.25 - 1e-9) out.push(cur); cur = null; };
+    for (const r of ok) {
+      if (cur && cur.text === r.x && r.t - cur.last <= dt * 1.5) { cur.to = r.t + dt; cur.last = r.t; continue; }
+      close();
+      cur = { text: r.x, from: r2(r.t), to: r2(r.t + dt), last: r.t, caption: !!r.c, skim: !!r.s, ui: !!r.u, file: base };
+    }
+    close();
+  }
+  for (const o of out) delete o.last;
+  return out.sort((a, b) => a.from - b.from);
+}
+
+const STOP = new Set("the a an and or but of to in on at for with from by is are was were be been it its this that these those you your we our they their as not no so if then than into out up down over just more most can will do does did have has had".split(" "));
+const toks = (t) => String(t).toLowerCase().replace(/(\d),(\d)/g, "$1$2").replace(/[^\p{L}\p{N}' ]/gu, " ").split(/\s+/).map((w) => w.replace(/^'+|'+$/g, "")).filter(Boolean);
+const content = (t) => toks(t).filter((w) => w.length >= 4 && !STOP.has(w));
+
+// narration cues from word times [{text, start, end}] (film seconds): a cue ends at a sentence end or a pause of 0.6 s
+export function cuesOf(words) {
+  const ws = words.filter((w) => Number.isFinite(w.start)).sort((a, b) => a.start - b.start), out = [];
+  let cur = null;
+  for (const w of ws) {
+    if (cur && (w.start - cur.end > 0.6 || /[.!?]["')\]]*$/.test(cur.last))) { out.push(cur); cur = null; }
+    if (!cur) cur = { t: w.start, end: w.end ?? w.start, text: "", last: "" };
+    cur.text += (cur.text ? " " : "") + w.text; cur.end = w.end ?? w.start; cur.last = String(w.text);
+  }
+  if (cur) out.push(cur);
+  return out.map(({ last, ...c }) => c).filter((c) => toks(c.text).length >= 2);
+}
+
+// see-and-say: every narration cue has an on-screen event within win seconds (a score event, a beat start, a text appearing; captions never count: they follow the voice),
+// and a line of text that names a word the voice says has it spoken within win seconds of the text appearing (or while it is up)
+export function seeAndSay(cues, events, texts, words, { win = 1.0 } = {}) {
+  const out = [], seen = [...events.map((e) => ({ t: e.t, what: e.what || "event" })), ...texts.filter((x) => !x.caption).map((x) => ({ t: x.from, what: `"${x.text.slice(0, 30)}" appears` }))];
+  for (const c of cues) {
+    let best = null; for (const e of seen) { const d = Math.abs(e.t - c.t); if (!best || d < best.d) best = { d, e }; }
+    if (!best || best.d > win + 1e-9) out.push({ check: "see-and-say", severity: "warning", at: r2(c.t), text: c.text.slice(0, 60), region: "narration",
+      message: `the narration "${c.text.slice(0, 60)}" at ${r2(c.t)} s has no on-screen event within ${win} s${best ? ` (nearest: ${best.e.what} ${r2(best.d)} s away)` : " (no events or text to match against)"}`,
+      fix: "show what the voice says as it says it: a text, an object landing or a UI change within a second of the line starting; or move the line to where something happens" });
+  }
+  const spoken = new Map();
+  for (const w of words) for (const k of content(w.text)) { if (!spoken.has(k)) spoken.set(k, []); spoken.get(k).push({ s: w.start, e: w.end ?? w.start }); }
+  let n = 0;
+  for (const x of texts) {
+    if (x.caption || x.ui) continue;
+    const ks = [...new Set(content(x.text))].filter((k) => spoken.has(k));
+    if (!ks.length) continue;
+    const near = ks.some((k) => spoken.get(k).some((o) => Math.abs(o.s - x.from) <= win + 1e-9 || (o.s >= x.from - 1e-9 && o.s <= x.to + 1e-9)));
+    if (!near && n++ < 8) out.push({ check: "text-off-word", severity: "warning", at: x.from, text: x.text.slice(0, 60), file: x.file, region: "text",
+      message: `"${x.text.slice(0, 60)}" appears at ${x.from} s but the voice says ${ks.slice(0, 3).map((k) => `"${k}"`).join(", ")} elsewhere (nearest ${r2(Math.min(...ks.flatMap((k) => spoken.get(k).map((o) => Math.abs(o.s - x.from)))))} s away)`,
+      fix: "land the text on the word it names (within a second; 0-2 frames before the word for a name or a number), or reword it so it does not echo a word said elsewhere" });
+  }
+  return out;
+}
+
+// captions that duplicate other on-screen text: a caption state and a non-caption line (3+ words) that overlap in time for 0.3 s or more, 70% of the line's words in the caption
+export function captionDupes(texts, { share = 0.7, overlap_s = 0.3, min_words = 3 } = {}) {
+  const out = [], caps = texts.filter((x) => x.caption), rest = texts.filter((x) => !x.caption && !x.ui);
+  for (const c of caps) {
+    const cw = new Set(toks(c.text));
+    for (const x of rest) {
+      const xw = toks(x.text);
+      if (xw.length < min_words || Math.min(c.to, x.to) - Math.max(c.from, x.from) < overlap_s - 1e-9) continue;
+      const hit = xw.filter((w) => cw.has(w)).length / xw.length;
+      if (hit >= share) out.push({ check: "caption-duplicates-text", severity: "warning", at: Math.max(c.from, x.from), text: x.text.slice(0, 60), file: x.file, region: "captions",
+        message: `the caption "${c.text.slice(0, 50)}" and the line "${x.text.slice(0, 50)}" say the same words at ${r2(Math.max(c.from, x.from))}-${r2(Math.min(c.to, x.to))} s (${Math.round(hit * 100)}% of the line)`,
+        fix: "say it once: drop the caption for that stretch (the on-screen line is the caption), or change the line so it adds something the voice does not say" });
+    }
+  }
+  return out;
+}
+
+// numbers shown on screen: "47%", "$1,200", "2.5k", "3x", "12" -> [{raw, value}] (value in units: 2.5k = 2500, 47% = 47). Time-of-day, versions and years are not numbers; plain integers 10 and under are not (steps, counts)
+export function numbersIn(text) {
+  const t = String(text).replace(/\b\d{1,2}:\d{2}(:\d{2})?\b/g, " ").replace(/\bv\d+(\.\d+)*\b/gi, " ");
+  const out = [];
+  for (const m of t.matchAll(/(?<![\w.])([$€£₹]?)(\d[\d,]*(?:\.\d+)?)\s?(%|[kKmMbB](?![a-z])|x|×)?/g)) {
+    const raw = m[0].trim(), n = Number(m[2].replace(/,/g, ""));
+    if (!Number.isFinite(n)) continue;
+    const mul = { k: 1e3, m: 1e6, b: 1e9 }[String(m[3] || "").toLowerCase()] || 1;
+    const plain = !m[1] && !m[3] && Number.isInteger(n);
+    if (plain && (n <= 10 || (n >= 1900 && n <= 2100))) continue;
+    out.push({ raw, value: n * mul, pct: m[3] === "%" });
+  }
+  return out;
+}
+// the set of values in a ledger text (every number in it, unfiltered: a claim "5-30 minutes" holds 5 and 30)
+export function knownNumbers(blob) {
+  const set = new Set();
+  for (const m of String(blob).replace(/(\d),(\d{3})/g, "$1$2").matchAll(/(\d+(?:\.\d+)?)\s?([kKmMbB](?![a-z]))?/g)) {
+    const n = Number(m[1]); if (!Number.isFinite(n)) continue;
+    const mul = { k: 1e3, m: 1e6, b: 1e9 }[String(m[2] || "").toLowerCase()] || 1;
+    set.add(r2(n * mul)); set.add(r2(n));
+  }
+  return set;
+}
+export function unknownNumbers(texts, known) {
+  const out = [], done = new Set();
+  for (const x of texts) {
+    if (x.ui) continue; // mock data in a rebuilt UI is plausible by rule (craft.md: never invented claims, but mock rows are fine)
+    for (const n of numbersIn(x.text)) {
+      const k = r2(n.value) + "|" + x.text;
+      if (known.has(r2(n.value)) || done.has(k)) continue;
+      done.add(k);
+      out.push({ check: "number-not-in-ledger", severity: "warning", at: x.from, text: n.raw, file: x.file, region: "text",
+        message: `"${n.raw}" on screen at ${x.from} s ("${x.text.slice(0, 50)}") is in no claim of the research ledger or the brief`,
+        fix: "a number on screen comes from the product or the research (research/claims.json), never invented: use the claim's real figure, add the claim with its source, or mark it a story detail in the brief / the pitch's props" });
+    }
+  }
+  return out;
+}
+
+// the hook: first readable line and first big picture, film seconds (null when none in the first 3 s sampled)
+export function hookOf(texts, visualTimes) {
+  const t = texts.length ? Math.min(...texts.map((x) => x.from)) : null, v = visualTimes.length ? Math.min(...visualTimes) : null;
+  return { text: t, visual: v, meaning: t == null ? v : v == null ? t : Math.min(t, v) };
+}
+
 // ---- extra measurements (all WARNINGS, uncalibrated; they land in result.warnings, never in findings) ----
 const CONTRAST = { body: 4.5, large: 3, max_times: 30, max_pixels: 6000, upscale: 1.5, sweep: 8 };
 const lin8 = (() => { const t = new Float64Array(256); for (let i = 0; i < 256; i++) { const c = i / 255; t[i] = c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; } return t; })();
@@ -489,8 +669,8 @@ function sweepFindings(acc) {
   return out;
 }
 
-export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.safe } = {}) {
-  const res = { findings: [], warnings: [], pages: 0, samples: 0, skipped: [], could_not_run: [], script_errors: [] }; // warnings: the uncalibrated extras (contrast, assets, glyphs, upscaled media, rtl): same shape as findings, never errors
+export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.safe, heroIds = [] } = {}) {
+  const res = { findings: [], warnings: [], texts: [], hook: { text: null, visual: null, meaning: null }, pages: 0, samples: 0, skipped: [], could_not_run: [], script_errors: [] }; // warnings: the uncalibrated extras (contrast, assets, glyphs, upscaled media, rtl): same shape as findings, never errors
   const acc = { bad: new Map(), media: new Map(), glyphs: new Map() };
   const root = path.resolve(project);
   const pages = pagesOf(root);
@@ -501,7 +681,7 @@ export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.saf
   { const realExit = process.exit; process.exit = () => { throw new Error("no Chrome found (npx hyperframes browser ensure, or set RASANAI_CHROME)"); };
     try { chromePath(); } catch (e) { res.could_not_run.push(`text-fit: ${e.message}`); noteDowngrade({ what: "the text-fit check", instead: "no text measurement", why: String(e.message).slice(0, 200), impact: "overflowing or clipped text is not caught" }); return res; } finally { process.exit = realExit; } }
   let b, srv;
-  const tmps = [];
+  const tmps = [], visualTimes = [];
   try {
     srv = await serve(root);
     b = await launch({ width: W, height: H, timeoutMs: 120000 });
@@ -511,7 +691,8 @@ export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.saf
       try {
         await b.open(`${srv.url}/${path.basename(tmp)}`, { waitMs: 30000 });
         await b.eval("document.fonts && document.fonts.ready ? document.fonts.ready.then(function(){return true;}) : true", { await: true });
-        const times = [];
+        await b.eval(`window.__tfCfg.heroIds=${JSON.stringify((heroIds || []).map(String))}`);
+        const times = [], byHero = new Map();
         for (let i = 0; pg.start + i * dt < pg.end - 1e-6; i++) times.push(Math.round(i * dt * 1000) / 1000); // seconds into this composition
         const byKey = new Map(), byBlock = new Map();
         for (let i = 0; i < times.length; i += 150) {
@@ -520,6 +701,10 @@ export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.saf
             const k = h.k;
             if (!byKey.has(k)) byKey.set(k, []);
             byKey.get(k).push({ ...h, t: pg.start + row.T });
+          }
+          for (const row of rows) {
+            if (row.vis) visualTimes.push(pg.start + row.T);
+            for (const h of row.hero || []) { if (!byHero.has(h.i)) byHero.set(h.i, []); byHero.get(h.i).push({ ...h, T: pg.start + row.T }); }
           }
           for (const row of rows) for (const { i, t: x, ...h } of row.blocks) {
             if (!byBlock.has(i)) byBlock.set(i, []);
@@ -530,6 +715,8 @@ export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.saf
         res.samples += times.length;
         res.pages++;
         res.findings.push(...analyze(byKey, dt, pg.file), ...analyzeBlocks(byBlock, dt, pg.file, H, res.warnings));
+        res.warnings.push(...analyzeHero(byHero, dt, pg.file, W, H, safe));
+        res.texts.push(...textStates(byBlock, dt, pg.file));
         try { await sweepPass(b, pg, acc, root); await contrastPass(b, pg, byBlock, res.warnings, W, H, path.basename(pg.file)); } catch (e) { res.skipped.push(`text-fit extras (contrast, assets, glyphs): ${path.relative(root, pg.file)}: ${String(e.message).slice(0, 120)}`); }
       } catch (e) {
         res.could_not_run.push(`text-fit: ${path.relative(root, pg.file)}: ${e.message}`);
@@ -543,5 +730,8 @@ export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.saf
     for (const t of tmps) fs.rmSync(t, { force: true });
   }
   res.warnings.push(...sweepFindings(acc));
+  { const seen = new Set(); res.texts = res.texts.filter((x) => { const k = x.text + "|" + x.from; if (seen.has(k)) return false; seen.add(k); return true; }); }
+  res.texts.sort((a, c) => a.from - c.from);
+  res.hook = hookOf(res.texts, visualTimes);
   return res;
 }

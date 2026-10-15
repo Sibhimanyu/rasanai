@@ -5,6 +5,9 @@
 // none) that reappears after, allowing a shift (up to 15% of the width) and a scale change (0.7 to 1.4): a carried object that
 // moves or grows counts, and so does a match cut on a shape. The share is corrected for chance (how dense the after-frame's
 // edges are), so a busy frame cannot score by luck; 0 = nothing survived, 1 = all of it did. Grey frames from ffmpeg, no window.
+// A STRETCH (a pill that changes shape: x and y scale differently) is a third pass, also only under far_skip: the near-scale search
+// with separate x and y scales (0.5 to 2, never equal), scored like the near pass (over the plateau of the other transforms) and credited
+// when it reaches stretch_min. An object shrinking BELOW 0.2 is found by the far scales going down to 0.1 (and up to 10 the other way round).
 // A CUT-IN on the same object (the same shape much bigger or smaller than 0.7 to 1.4, as craft.md promises) is credited by a second
 // pass, run only when the near-scale score is under far_skip: scales 0.2 to 5, the before-frame's centroid placed anywhere, A's points
 // found in B and B's found in A. It counts only when it is verified three ways: the edge match is well over chance (a lower bound,
@@ -24,7 +27,9 @@ export const CARRY = {
   min_edges: 40, // fewer edge pixels in the before-frame than this: nothing on screen to carry
   radius: 0.15, // shift search, share of the width
   scales: [0.7, 0.8, 0.9, 1, 1.12, 1.25, 1.4],
-  far_scales: [0.2, 0.23, 0.27, 0.31, 0.36, 0.42, 0.48, 0.55, 0.63, 1.6, 1.85, 2.1, 2.45, 2.8, 3.25, 3.75, 4.3, 5], // a cut-in on the same object: much bigger or smaller (the second pass)
+  far_scales: [0.1, 0.12, 0.14, 0.17, 0.2, 0.23, 0.27, 0.31, 0.36, 0.42, 0.48, 0.55, 0.63, 1.6, 1.85, 2.1, 2.45, 2.8, 3.25, 3.75, 4.3, 5, 6, 7.5, 10], // a cut-in on the same object: much bigger or smaller (the second pass)
+  stretch: [0.5, 0.62, 0.75, 0.87, 1, 1.15, 1.35, 1.6, 2], // x and y scales of a shape that stretches (never both equal: that is the near pass)
+  stretch_min: 0.2, // a stretch counts when its score over the plateau is at least this
   far_pts: 300, // edge pixels sampled from the before-frame in that pass
   far_skip: 0.4, // a near-scale score this high needs no second pass
   far_min_share: 0.12, // at least this share of the before-frame's points must land inside the frame, each on its own pixel
@@ -122,6 +127,36 @@ function atG(P, f, g, s, dx, dy) { // pixels count once (a shrunk frame piles it
   if (!(m >= CARRY.far_min_share * P.length / 2 && m >= CARRY.far_min_pts && m > exp)) return 0;
   // the best of tens of thousands of transforms: a few points can hit by luck, so the score is a lower bound (neighbouring edge pixels are not independent: 4x the variance)
   return (hit - exp - CARRY.far_z * Math.sqrt(4 * exp * (1 - exp / m))) / (m - exp);
+}
+
+// A shape that changes its proportions: the near search with separate x and y scales. Same coarse-then-refine, same plateau.
+function atXY(P, f, sx, sy, dx, dy) {
+  let hit = 0, exp = 0;
+  for (let i = 0; i < P.length; i += 2) {
+    const x = Math.round((P[i] - CW / 2) * sx + CW / 2 + dx), y = Math.round((P[i + 1] - CH / 2) * sy + CH / 2 + dy);
+    if (x >= 0 && x < CW && y >= 0 && y < CH) { hit += f.mask[y * CW + x]; exp += f.ld[y * CW + x]; }
+  }
+  const m = P.length / 2;
+  return (hit - exp) / (m - exp);
+}
+function stretchScore(P, coarse, exact) {
+  const rx = Math.round(CARRY.radius * CW), ry = Math.round(CARRY.radius * CH), step = 3, all = [], top = [];
+  for (const sx of CARRY.stretch) for (const sy of CARRY.stretch) {
+    if (sx === sy) continue;
+    for (let dy = -ry; dy <= ry; dy += step) for (let dx = -rx; dx <= rx; dx += step) {
+      const sc = atXY(P, coarse, sx, sy, dx, dy); all.push({ sc, sx, sy, dx, dy });
+      if (top.length < CARRY.refine || sc > top[top.length - 1].sc) { top.push({ sc, sx, sy, dx, dy }); top.sort((p, q) => q.sc - p.sc); top.length = Math.min(top.length, CARRY.refine); }
+    }
+  }
+  let best = { score: 0 }, at0 = top[0];
+  for (const c of top) for (let ey = -2; ey <= 2; ey++) for (let ex = -2; ex <= 2; ex++) {
+    const sc = atXY(P, exact, c.sx, c.sy, c.dx + ex, c.dy + ey);
+    if (sc > best.score) { best = { score: sc, sx: c.sx, sy: c.sy, dx: c.dx + ex, dy: c.dy + ey }; at0 = c; }
+  }
+  if (!at0 || !best.sx) return null;
+  const far = all.filter((x) => Math.abs(x.dx - at0.dx) > 6 || Math.abs(x.dy - at0.dy) > 6 || Math.abs(Math.log(x.sx / at0.sx)) > 0.15 || Math.abs(Math.log(x.sy / at0.sy)) > 0.15).map((x) => x.sc).sort((p, q) => p - q);
+  const plateau = far.length ? Math.max(0, far[Math.floor(far.length * 0.99)]) : 0;
+  return { score: Math.max(0, best.score - plateau), fit: best.score, scale: Math.round(Math.sqrt(best.sx * best.sy) * 100) / 100, sx: best.sx, sy: best.sy, dx: best.dx, dy: best.dy };
 }
 
 // A cut-in on the same object: the same shape much bigger or smaller (beyond 0.7 to 1.4; a hard cut from a wide shot of a composer to
@@ -224,8 +259,13 @@ export function carryScore(ea, eb, ga = null, gb = null) {
     // and a verified match is scored by that agreement too (the edges of a cut-in are a small share of a wide shot's foreground): max(edge share, 0.6 x NCC)
     farR = [f1, f2].filter((f) => f && f.ncc != null && f.ncc >= CARRY.far_ncc && f.score >= CARRY.far_edge).map((f) => ({ ...f, score: Math.max(f.score, 0.6 * f.ncc) })).sort((p, q) => q.score - p.score)[0] || null;
   }
-  const pick = farR && farR.score > near.score ? farR : near;
-  return { ncc: pick.ncc == null ? undefined : Math.round(pick.ncc * 100) / 100, score: Math.round(pick.score * 1000) / 1000, fit: Math.round(pick.fit * 1000) / 1000, scale: pick.scale, dx: pick.dx, dy: pick.dy, edges: n };
+  // a shape that stretches (non-uniform scale) is not found by the uniform search: a pass only while nothing is credited yet
+  let st = null;
+  if (near.score < CARRY.far_skip && !(farR && farR.score >= CARRY.far_skip)) { const r = stretchScore(P, coarse, exact); if (r && r.score >= CARRY.stretch_min) st = r; }
+  let pick = farR && farR.score > near.score ? farR : near;
+  if (st && st.score > pick.score) pick = st;
+  return {
+    ...(pick.sx ? { sx: pick.sx, sy: pick.sy } : {}), ncc: pick.ncc == null ? undefined : Math.round(pick.ncc * 100) / 100, score: Math.round(pick.score * 1000) / 1000, fit: Math.round(pick.fit * 1000) / 1000, scale: pick.scale, dx: pick.dx, dy: pick.dy, edges: n };
 }
 
 export async function measureCarry(file, { seams = null, frames = null } = {}) {

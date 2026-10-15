@@ -14,6 +14,10 @@
 // lines on top of each other for 0.3 s or more; data-overlap="ok" opts out). Cut rhythm: "uniform-shots" (scene-length variation under
 // 0.2) and "narrow-rhythm" (5+ shots, longest under 4x the shortest, end card, flashes under 0.4 s and shots whose length is set by reading time left out), the second also
 // measured on the render's hard cuts (lib/carry.mjs) when --video is given; both are warnings.
+// Hook (warnings, uncalibrated; lib/textfit.mjs + the render): "slow-hook" when the first readable line or the first big picture / UI / brand mark (the DOM, sampled to 3 s) is later than 2 s, or the
+// render's first motion (--video: frame change in the first 2.5 s) is later than 0.5 s; "black-open" when the render opens on black for 0.2 s or more. "number-not-in-ledger": a number shown on screen (not in a data-ui
+// mock; plain integers 10 and under, years and times left out) that is in none of the run's research claims (research/claims.json, *.claims.json), truth sheet, chosen script, intent or brief.json (found from --run or --score).
+// "subject-lost": a data-hero / the score's hero element id leaves the safe area while the camera moves (lib/textfit.mjs).
 // The same headless pass reads the page chrome (rules kicker-over-headline, deck-layout, typed-headline, vibe-*, chapter-counter, progress-hairline, tracked-caps-label, corner-brackets, header-footer-bar, corner-micro-label, pinned-element: lib/chrome-lint.mjs; --no-chrome skips it). Exit 0 = clean or warnings only; 2 = problems to fix (each with a fix); 1 = could not run. Exit 0 = clean or warnings only; 2 = problems to fix (each with a fix); 1 = could not run.
 import fs from "node:fs";
 import path from "node:path";
@@ -21,7 +25,7 @@ import { spawnSync } from "node:child_process";
 import { parseArgs, die } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
 import { readLogos, scanLogos } from "./lib/logos.mjs";
-import { textFit } from "./lib/textfit.mjs";
+import { textFit, unknownNumbers, knownNumbers } from "./lib/textfit.mjs";
 import { chromeLint } from "./lib/chrome-lint.mjs";
 import { readTime, wordCount } from "./lib/reading.mjs";
 import { readBudget, budgetFor, budgetLimit } from "./lib/budget.mjs";
@@ -107,6 +111,10 @@ if (entrances.length >= 8) {
   const share = n / entrances.length;
   if (share > 0.5) add("uniform-entrances", /^opacity\+(y|yPercent)$/.test(top) ? "error" : "warn", `${n} of ${entrances.length} entrances are ${top}`, "When every element arrives the same way (usually fading up), the film reads as a template.", "No entrance kind on more than ~30% of entrances: mix masks and wipes, scale from an anchor, a cut-in, a shared-element move, type that builds, and elements that are simply there (craft.md, Motion).");
 }
+{
+  const fadeOnly = entrances.filter((k) => k === "opacity").length;
+  if (entrances.length >= 8 && fadeOnly / entrances.length > 0.2) add("fade-heavy", "warn", `${fadeOnly} of ${entrances.length} entrances are a pure fade`, "In measured work almost nothing arrives by opacity alone (3,392 entries moved or scaled, 584 faded): a fade is a 6 f helper for a move.", "Arrive by transform (a slide, a scale from oversize, a mask) and keep opacity as the 4-12 f helper.");
+}
 if (spin) add("spinning-logo", "warn", "a 360° logo rotation", "Spinning logos are a template tell.", "Land the logo with the film's motion language: a mask, a snap into the grid, a match cut.");
 
 // ---- 4. timing ----
@@ -132,7 +140,7 @@ if (scenes && scenes.length >= 3) {
   narrow(rhythm(scenes.map((s) => s.d), scenes.map((s) => readTime(s.text))), "scenes");
   scenes.forEach((s, i) => { const w = wordCount(s.text); const need = readTime(w); if (w && s.d && s.d < need) add("unreadable", "error", `scene ${i + 1} "${s.title}"`, `${w} words on screen for ${s.d} s; needs about ${need.toFixed(1)} s to read.`, "Cut the copy or lengthen the scene; never speed it up."); });
   const last = scenes[scenes.length - 1]; if (last.d && last.d < 1.8) add("no-end-hold", "error", `last scene ${last.d} s`, "The ending has no hold: the name and call to action vanish.", "Give the end card 2–3 s: its elements land in sequence, then at most 1.5 s still (motion-gate.mjs measures it).");
-  if (scenes[0].d > 4 && !scenes[0].text) add("slow-hook", "warn", `scene 1 is ${scenes[0].d} s with no line`, "Nothing lands in the first 2 s.", "Open on the hook: a claim in ≤4 words or the product doing its thing within 1.5 s.");
+  if (scenes[0].d > 4 && !scenes[0].text) add("slow-hook", "warn", `scene 1 is ${scenes[0].d} s with no line`, "Nothing lands in the first 2 s (first motion by 0.5 s, first meaning by 2 s).", "Open on the hook: first motion by 0.5 s, then a claim in ≤4 words or the product doing its thing by 2 s.");
 }
 
 // ---- 4b. finish: default-on, hero effects on a budget, uniform use is the tell ----
@@ -196,11 +204,32 @@ const whooshCap = cuts ? Math.max(1, Math.ceil(cuts / 3)) : 3;
 if (whoosh > whooshCap) add("whoosh-per-cut", "error", `${whoosh} whooshes${cuts ? ` for ${cuts} transitions` : ""}`, "A whoosh on every cut is the most common SFX tell.", "At most one whoosh in three transitions (and one per ~20 s): keep it for the signature transition.");
 
 // ---- 5b. text-fit: every word meant to be read sits inside the frame ----
+let tfRes = null;
 if (!args["no-text-fit"]) {
-  const tf = await textFit(dir);
+  // the beats' hero element ids (the score's hero, when it is an element id) for subject-lost
+  let heroIds = [];
+  try { const sc = JSON.parse(fs.readFileSync(args.score ? path.resolve(String(args.score)) : path.join(args.run && args.run !== true ? path.resolve(String(args.run)) : dir, "motion", "score.json"), "utf8")); heroIds = (sc.scenes || sc.beats || []).map((b) => [b.hero_id, b.heroId, b.hero_el, b.hero_element, typeof b.hero === "string" && /^[A-Za-z][\w-]*$/.test(b.hero.trim()) ? b.hero.trim() : null].find((x) => typeof x === "string" && x.trim())).filter(Boolean); } catch {}
+  const tf = await textFit(dir, { heroIds });
+  tfRes = tf;
   for (const f of tf.findings) add(f.check, "error", `${f.file}: "${f.text}" ${f.from}-${f.to} s`, f.message, f.fix);
   for (const f of tf.warnings || []) add(f.check, "warn", `${f.file}: "${f.text}"${f.at != null ? ` ${f.at} s` : ""}`, f.message, f.fix);
   if (tf.could_not_run.length) add("text-fit-skipped", "warn", dir, `${tf.could_not_run[0]} (the text-fit check did not run)`, "Install Chrome (npx hyperframes browser ensure, or set RASANAI_CHROME) and re-run: the composition's text was not measured.");
+}
+
+// ---- 5b2. the hook and real numbers (from the text-fit samples; warnings) ----
+if (tfRes && !tfRes.could_not_run.length) {
+  const h = tfRes.hook || {};
+  if (!findings.some((f) => f.rule === "slow-hook") && tfRes.pages) {
+    if (h.meaning == null) add("slow-hook", "warn", "no readable line or product picture in the first 3 s", "First meaning by 2 s: nothing readable (a line, the product, a UI) shows in the opening.", "Open on the hook: a claim in 4 words or fewer, or the product doing its thing, by 2 s.");
+    else if (h.meaning > 2 + 1e-9) add("slow-hook", "warn", `first meaning at ${h.meaning.toFixed(1)} s (line ${h.text == null ? "none" : h.text.toFixed(1) + " s"}, picture ${h.visual == null ? "none" : h.visual.toFixed(1) + " s"})`, "The first readable line or product picture arrives after 2 s: the viewer has already decided.", "Land the hook line or the product by 2 s (first motion by 0.5 s).");
+  }
+  // real numbers: every number on screen is in the run's ledger or the brief
+  const runDirN = args.run && args.run !== true ? path.resolve(String(args.run)) : args.score ? path.dirname(path.dirname(path.resolve(String(args.score)))) : path.basename(dir) === "frames" ? path.dirname(dir) : null;
+  if (runDirN && fs.existsSync(runDirN)) {
+    const rd = path.join(runDirN, "research"), parts = [];
+    for (const f of [path.join(rd, "claims.json"), ...(fs.existsSync(rd) ? fs.readdirSync(rd).filter((x) => /\.claims\.json$/.test(x)).map((x) => path.join(rd, x)) : []), path.join(runDirN, "story", "truth.md"), path.join(runDirN, "story", "chosen.json"), path.join(runDirN, "story", "intent.json"), path.join(runDirN, "brief.json")]) { try { parts.push(fs.readFileSync(f, "utf8")); } catch {} }
+    if (parts.length) for (const f of unknownNumbers(tfRes.texts || [], knownNumbers(parts.join("\n"))).slice(0, 12)) add(f.check, "warn", `${f.file}: "${f.text}" ${f.at} s`, f.message, f.fix);
+  }
 }
 
 // ---- 5c. page chrome: the HUD / slide-deck / vibe-coded-UI tells, measured in the real DOM ----
@@ -248,8 +277,19 @@ if (args.video && fs.existsSync(String(args.video))) {
   const ld = spawnSync("ffmpeg", ["-hide_banner", "-i", v, "-af", "ebur128=peak=true", "-f", "null", "-"], { encoding: "utf8" });
   const I = Number(((ld.stderr || "").match(/I:\s+(-?[\d.]+) LUFS/g) || []).pop()?.match(/-?[\d.]+/)?.[0]);
   if (!Number.isNaN(I) && I !== 0 && Math.abs(I + 14) > 1.5) add("loudness", "error", `${I} LUFS`, "Web/social films should sit at about −14 LUFS integrated.", "Normalise the mix (sound.mjs check / render).");
-  const bl = spawnSync("ffmpeg", ["-hide_banner", "-i", v, "-vf", "blackdetect=d=0.4:pix_th=0.08", "-an", "-f", "null", "-"], { encoding: "utf8" });
-  if (/black_start:0(\.0+)?\b/.test(bl.stderr || "")) add("black-open", "warn", "black frames at the start", "The film opens on black; the first frame is also the thumbnail.", "Open on the first designed frame (and make frame 0 postable).");
+  const bl = spawnSync("ffmpeg", ["-hide_banner", "-i", v, "-vf", "blackdetect=d=0.2:pix_th=0.08", "-an", "-f", "null", "-"], { encoding: "utf8" });
+  if (/black_start:0(\.0+)?\b/.test(bl.stderr || "")) { const e = Number((String(bl.stderr).match(/black_start:0(?:\.0+)?\s+black_end:([\d.]+)/) || [])[1]); add("black-open", "warn", `black frames at the start${Number.isFinite(e) ? ` for ${e.toFixed(2)} s` : ""}`, "The film opens on black (0.2 s or more); the first frame is also the thumbnail, and the first motion belongs by 0.5 s.", "Open on the first designed frame (and make frame 0 postable); a fade-in from black is a choice only when something moves inside it."); }
+  // first motion by 0.5 s: frame change against the first frame, 15 fps, 96x54 grey, the first 2.5 s (the motion gate's threshold: 0.08% of pixels past 6 levels)
+  try {
+    const FW = 96, FH = 54, fps = 15, g = spawnSync("ffmpeg", ["-v", "error", "-t", "2.5", "-i", v, "-an", "-vf", `fps=${fps},scale=${FW}:${FH}:flags=area,format=gray`, "-f", "rawvideo", "-pix_fmt", "gray", "-"], { maxBuffer: 1 << 28 });
+    const n = Math.floor((g.stdout || []).length / (FW * FH));
+    if (g.status === 0 && n >= 4) {
+      let first = null;
+      for (let i = 1; i < n && first == null; i++) { let c = 0; for (let p = 0; p < FW * FH; p++) if (Math.abs(g.stdout[i * FW * FH + p] - g.stdout[(i - 1) * FW * FH + p]) > 6) c++; if (c / (FW * FH) >= 0.0008) first = i / fps; }
+      if (first == null) add("slow-hook", "warn", "no motion in the first 2.5 s of the render", "First motion by 0.5 s: the opening is a still frame.", "Start something moving in the first half second (a push, a line arriving, the UI waking up).");
+      else if (first > 0.5 + 1e-9) add("slow-hook", "warn", `first motion at ${first.toFixed(2)} s`, "The first motion arrives after 0.5 s: the opening reads as a still.", "Start something moving by 0.5 s (a push, a line arriving, the UI waking up).");
+    }
+  } catch {}
 }
 
 const errors = findings.filter((f) => f.severity === "error").length;
