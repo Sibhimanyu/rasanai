@@ -16,3 +16,7 @@ Look and placement are `data-` attributes on the web tag (guide `customize-web`)
 them only when asked or clearly needed, never with CSS or by covering Heresay's views.
 Fix flow: `npx heresay briefs`, `claim <id>`, `brief <id>`, fix and test, `fixed <id> "<note for the reporter>"`.
 <!-- heresay:end -->
+
+## Releasing
+
+Releases MUST go through `scripts/release.mjs` (see RELEASING.md): `node scripts/release.mjs skill|studio <x.y.z>`. Never tag, publish, or edit the appcast by hand.
