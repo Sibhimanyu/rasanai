@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Learn from an edit you like.** `learn.mjs infer|set|prompt` reads an example edit (cuts, captions, text on screen, speaker layout, creator marks, end card; `lib/marks.mjs` finds badges and watermarks) into `taste.json`, and a short headless job decides the picture style from its contact sheet. The Studio pre-fills its setup questions from it.
+- **Taste questions.** `library/questions.json` holds the choices that decide a film (pictures, speaker, text, captions, marks, ending); `formats.json` options list the ones they ask.
+- **The owner's answers are obeyed.** The presenter route reads `preferences` (`--prefs <rasanai-brief.json>`): `pictures` (literal: real sourced `real` plates, never a fake of a real object; the Story call varies inside the chosen style), `speaker` (fixed: one layout, `presenter-stack` in 9:16), `text` (none / key words), `captions` (off / plain / styled), `marks` (new `presenter.mjs marks`; `mark-covered`), `ending` (the card after the clip, or a closing card the builder animates). Other routes obey them from SKILL.md; `reel.mjs build --prefs` sets captions.
+- **Series.** `series.mjs` (show, add-rule, set-pref, brief); a series film skips the Look call (its `DESIGN.md` is the look), writes one story within the series rules, and a general note can be saved back to the series.
+
 ## 1.18.0 (2026-10-15): springs that keep their velocity, zoom in log space, pops and loop seams caught
 
 - **Craft from awesome-opus5-5-videos (idea only, our code; register in `third_party/SOURCES.md`).** A read of 703 prompts behind viral Opus-coded videos; we took only what RasanAI lacked.

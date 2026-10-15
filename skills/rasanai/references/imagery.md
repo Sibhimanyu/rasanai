@@ -45,6 +45,8 @@ Then the shared line. Put the system's `## Imagery` section (or the plan's `styl
 
 **The slop list.** These words add nothing and flatten the result; none of them goes in a prompt (`presenter.mjs check` rejects them): stunning, breathtaking, 8k, 4k, hyper-realistic, ultra-detailed, masterpiece, trending on artstation, octane render, unreal engine, award-winning, epic. Replace each with the thing it was hoping for: the lens, the light, the material.
 
+**Plain and literal pictures** (the owner's answer `pictures=literal`, `library/questions.json`). Show the named thing itself, framed plainly; no world, no metaphor, no second meaning. When the thing is real (a book, a product, a place, a person's work), the picture is the real one: find the real image first (a web search for the cover or product shot, or the owner's own files) and use it as a `real` plate (`references/presenter.md`: `source`, `file`), never a generated lookalike of a real object, which gets the title, the cover or the face wrong. If it cannot be found, set the plate's `todo` and the Director asks the owner for the file. Generated plates are for things with no single real image (bread and wine on a table, a morning street) and are shot as a plain photograph.
+
 **Images that argue.** A picture of the sentence is wallpaper. Ask what the sentence implies or costs, and show that.
 
 ## Review every image before it is used

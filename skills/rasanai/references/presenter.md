@@ -2,7 +2,7 @@
 
 Read this when the footage is one person talking to camera, shot on a green or blue screen (or any single-subject talking clip the user wants put "into" other worlds). Route: `presenter`. The person is keyed out; behind and around them the film cuts between **generated image plates** made for what they are saying at that moment, moving with designed camera moves, plus motion graphics (titles, callouts, stats, lists, labels) and optional captions. The voice is the spine. In this version the clip plays whole: the cut never changes what they said, and nothing is trimmed.
 
-This is the playbook for the visual writers (`agents/visual-writer.md`) and the Director. The scripts are `presenter.mjs` (key, beats, check, plates, stills, build) and `imagegen.mjs` (the Codex image tool). Prompt craft for the plates is in `references/imagery.md`.
+This is the playbook for the visual writers (`agents/visual-writer.md`) and the Director. The scripts are `presenter.mjs` (key, marks, beats, check, plates, stills, build) and `imagegen.mjs` (the Codex image tool). Prompt craft for the plates is in `references/imagery.md`.
 
 ## The five calls, for a presenter film
 
@@ -13,6 +13,28 @@ This is the playbook for the visual writers (`agents/visual-writer.md`) and the 
 | 3 Look | three design systems that also carry an `## Imagery` section: the art direction every generated image obeys |
 | 4 Animatic | one composite still per beat (plate, keyed person in their layout, graphic boxes) with the real speech audio |
 | 5 Final | the rendered film |
+
+## The owner's answers
+
+A film from Studio carries the owner's taste answers (`rasanai-brief.json` `preferences`; the PREFERENCES block in the request; questions and choices in `library/questions.json`). They are choices, never hints. Pass the brief file as `--prefs <rasanai-brief.json>` to `check`, `plates` and `build` (the crew's check command already does). "You decide" is a missing key: today's behaviour.
+
+| Answer | What the writers do | What `presenter.mjs` enforces |
+|---|---|---|
+| `pictures=literal` | show the named thing itself; for a real referent (a book, a product, a place, a person's work) get the real image first and use a `real` plate; never generate a fake version of a real object | `real` plates need a `source` (`real-source`), or a `todo` (`real-todo` warning) |
+| `pictures=world` / `concept` | one running world (today's Bold) / pictures that add a second meaning (today's Wild) | nothing more |
+| any `pictures` | the three writers write three variations inside that style instead of Sure / Bold / Wild | none |
+| `speaker=fixed` | one layout for the whole film: 9:16 `presenter-stack` (the speaker large at the bottom, the plate above), 16:9 `presenter-full` | `speaker-fixed` on any other layout; the layout-rhythm and plate-only rules are off |
+| `speaker=moving` | today's layouts, never a cutaway | `plate-only-banned` |
+| `speaker=cutaways` | today | today |
+| `text=none` | no graphics at all | `text-none` on every graphic; build builds none |
+| `text=key` | a name, a title or a number now and then | `text-key-count` (more than 1 per 15 s, at least 1 allowed) and `text-key-long` (over 4 words) |
+| `captions=off` | no captions | no caption band is reserved (no `caption-collision`); build adds none |
+| `captions=plain` / `styled` | captions as asked | band reserved; build's caption style is reel.mjs's `clean` / `bold` |
+| `marks=keep` | never cover the badge, logo or watermark in the footage | `mark-covered` for a graphic zone, the caption band, a plate-only, corner or split layout (the clip hidden or shrunk) or a layout that moves the speaker onto it; build lays each mark over the film at its own place, cut from the original clip (the screen colour around it stays transparent) |
+| `ending=card` | nothing: the card is added after the last word | `ending-file` / `ending-file-missing`; the check reports `film_duration` = the clip + the card (an image 3 s, a video its own length); build mounts it with a clean cut |
+| `ending=make` | nothing: the film builder animates a closing card in the look | `film_duration` = the clip + 3 s; build writes `compositions/plates/ending.html` (a scaffold) and `briefs/plates/ending.md`; animate it like a designed plate (key `plate-ending`) |
+
+**Marks.** `presenter.mjs key` measures them (and `presenter.mjs marks --clip <clip> --out <dir>` re-measures into `key.json`): `marks: [{x, y, w, h, presence}]`, fractions of the clip's frame, the speaker's own box left out. A mark is a static thing with crisp edges (a badge, a logo, a watermark); a badge printed on the green screen itself is not found, because the key colour's edges are not marks.
 
 ## What makes a presenter film good
 
@@ -33,6 +55,8 @@ This is the playbook for the visual writers (`agents/visual-writer.md`) and the 
 - **Wild**: a conceit a studio would put on its reel. The talk is staged inside something unexpected (a museum of the idea, a board game, a weather report) and the person has a part in it. Still legible; the words still come first.
 
 Recommend the most ambitious one that still lets the words be heard.
+
+**When `pictures` is answered** the ladder is replaced: the owner has chosen the style, so the three writers write three *variations inside it*, differing in what is chosen and how it is framed and never in style. Literal: the straightest set, a closer eye (details and close crops of the same things), a wider eye (the places the things live). World: three different running worlds. Concept: three different second meanings. The labels stay as the card names. In a series there is one writer.
 
 ## Where the plates come from
 
@@ -70,7 +94,8 @@ One file per visual writer (chosen one is copied to `presenter/plan.json`).
 }
 ```
 
-- `layout`: `presenter-full` (the person as shot, plate behind), `presenter-left`, `presenter-right` (scaled about 0.8, subject centred at x about 0.27 or 0.73), `presenter-corner` (about 0.38, lower right, picture-in-picture with a designed frame), `presenter-only` (no plate: the design system's canvas behind), `plate-only` (cutaway), `split` (the person in a framed panel, the plate in the other half). Geometry comes from `key.json`'s measured subject box, so the person lands where intended wherever they stood. In 9:16, left and right become top and bottom stacking where needed (the person in the lower 60%, the plate full bleed).
+- `layout`: `presenter-stack` (9:16 only: the person at about 0.72 scale, centred at the bottom, the plate above; in 16:9 it is `presenter-full`), `presenter-full` (the person as shot, plate behind), `presenter-left`, `presenter-right` (scaled about 0.8, subject centred at x about 0.27 or 0.73), `presenter-corner` (about 0.38, lower right, picture-in-picture with a designed frame), `presenter-only` (no plate: the design system's canvas behind), `plate-only` (cutaway), `split` (the person in a framed panel, the plate in the other half). Geometry comes from `key.json`'s measured subject box, so the person lands where intended wherever they stood. In 9:16, left and right become top and bottom stacking where needed (the person in the lower 60%, the plate full bleed).
+- `plate.kind`: `generated`, `designed`, `reuse` or `real`. A `real` plate is a sourced picture of the actual thing (a book cover, a product, a place): `{id, kind: "real", source: "<URL or path it came from>", file?: "<image file>", camera, why}`. Its picture is `file` (relative to the plan or the plates folder) or `<plates dir>/<id>.jpg|png|webp`; no `prompt`; never generated. If it could not be found: `todo: "find the cover of ..."` instead of `source` (a warning; build mounts a placeholder until the file is there).
 - `plate.camera`: `push-in`, `pull-out`, `pan-left`, `pan-right`, `tilt-up`, `tilt-down`, `drift`, `parallax` (a slow push with a slight counter-move of the person's layer), `static`. Not one move everywhere.
 - `graphics[].type`: `kinetic-title`, `callout`, `stat`, `lower-third`, `list`, `quote`, `diagram`, `label`. `at` and `out` are absolute seconds inside the beat; `zone` is `left`, `right`, `top`, `bottom` or `center`.
 - `transition_in`: the taxonomy's terms (`cut`, `match-cut`, `wipe`, `push`, `whip`, `blur-dissolve`, `iris`, `shape-mask`, `light-leak`). The first beat's is `cut`.
@@ -83,14 +108,15 @@ One file per visual writer (chosen one is copied to `presenter/plan.json`).
 
 - **The speech is covered.** The first beat starts within 0.2 s of the start; no gap over 0.15 s between beats; the last beat reaches within 0.3 s of the end of the clip.
 - **Beat length.** Every beat is 1.5 to 12 seconds.
-- **Plates.** At least one generated or designed plate. No more generated plates than the film's length in seconds divided by 3.5 (rounded up). Each plate is held 2.5 s or more in total. A `reuse` points at a real plate.
-- **Layout rhythm.** No layout more than three beats in a row. At 30 seconds or more, three or more different layouts. `plate-only` takes no more than 35% of the runtime and no single cutaway runs over 6 s.
+- **Plates.** At least one generated, designed or real plate. No more generated plates than the film's length in seconds divided by 3.5 (rounded up). Each plate is held 2.5 s or more in total. A `reuse` points at a real plate.
+- **Layout rhythm** (off when the speaker is fixed). No layout more than three beats in a row. At 30 seconds or more, three or more different layouts. `plate-only` takes no more than 35% of the runtime and no single cutaway runs over 6 s.
 - **Prompts.** At least 12 words; each unique; no request for text, letters, words, signage, logos or watermarks (a model draws those badly); none of the slop words (stunning, breathtaking, 8k, 4k, hyper-realistic, ultra-detailed, masterpiece, trending on artstation, octane render, unreal engine, award-winning, epic).
 - **Camera.** A camera on every plate, and no one move on more than 60% of them.
 - **Style lock.** 12 to 80 words.
 - **Graphics.** Inside their beat, titles of eight words or fewer, and never in the zone the person occupies for that beat's layout (a `presenter-left` beat with a `left` zone graphic is an error).
 - **Zones are computed from the real person.** `left`/`right` are the free columns beside the presenter's measured box (less a gutter); a side with under 22% of the frame width free is `zone-blocked`. A head-and-shoulders subject fills the frame's height, so `top` is only for `presenter-left`, `presenter-right` and `presenter-corner`; in `presenter-full` use `left`/`right` (the fix names the free widths).
 - **Captions** get a reserved band at the bottom (set in the free column beside the person in left/right/split/corner layouts), and `bottom` graphics are lifted above it when captions are on (`caption-collision` warns). **Plates** keep one side calm, the side of their longest use; `plate-side-conflict` warns when a reuse puts the person on the busy side. `beats --duration` clamps every beat to the clip length.
+- **The owner's answers** (`--prefs`): the codes in "The owner's answers" above.
 - **Without Codex** (`--imagegen off`): each generated plate is a warning that it will be designed instead.
 
 Every finding comes with a concrete fix ("merge b4 into b3", "move the stat to zone right"). Fix exactly what it names; two rewrites at most.
