@@ -12,6 +12,12 @@
 //          music, and scene starts snapped to bars. needs_longer: true when the track is too short.
 //   node sound.mjs render --plan plan.json --out bed.wav [--lufs -14]
 //       -> renders the edited bed (atrim/acrossfade/afade), -14 LUFS, true peak <= -1.5 dBTP
+//   node sound.mjs render --plan plan.json --out bed.wav --loop [--loop-xfade 0.35]      (idea from awesome-opus5-5-videos; our code)
+//   node sound.mjs loop-bed --plan plan.json --in bed.wav --out loop.wav [--loop-xfade 0.35]
+//       -> a declared loop (--loop, or plan.loop: true): the bed is cut at the last bar line L that leaves room for the crossfade,
+//          and the music that follows L (L to L + x, x = 0.25 to 0.5 s, default 0.35) is mixed under the head with an equal-power
+//          (quarter-sine) fade, so the tail runs into the head in the same bar phase and the audio seam is clean. The loop is L long:
+//          set the film's loop length to loop_s. Reported as {loop: {loop_s, cut_at_bar, xfade_s, ...}}
 //   node sound.mjs sfx-plan --scenes scenes.json|timeline.json [--events events.json] [--narrated]
 //        [--format reel] [--bed bed.wav] [--plan plan.json] [--words audio_meta.json] [--project <dir>]
 //        [--pack glass|minimal|studio|soft|cinematic|scifi] [--no-library] [--library <dir>]
@@ -833,6 +839,27 @@ function check() {
 
 // ============================================================== lock
 
+// A bed that loops (a declared loop): cut on a bar line L, with the music after L (L .. L + x) faded out under the head
+// (0 .. x) faded in, both quarter-sine so the power stays level. Both pieces are in the same bar phase, so the beat does not slip at the seam.
+function loopBed(plan, input, output, xf) {
+  const dur = probeDuration(input);
+  const x = Math.min(0.5, Math.max(0.25, Number.isFinite(xf) ? xf : 0.35));
+  const bars = ((plan.grid && plan.grid.downbeats) || []).map(Number).filter(Number.isFinite);
+  const bs = Number(plan.bar_s) > 0 ? Number(plan.bar_s) : null;
+  let L = null, how = "bar grid";
+  const minL = Math.max(2 * (bs || 2), Math.min(6, dur * 0.5));
+  for (const d of bars) if (d + x <= dur + 1e-6 && d >= minL && (L == null || d > L)) L = d;
+  if (L == null && bs) { how = "bar length from the start (no film-time grid in the plan)"; L = Math.floor((dur - x) / bs) * bs; if (L < minL) L = null; }
+  if (L == null) return { ok: false, note: "no bar line leaves room for the crossfade: render without --loop, or fit a longer track" };
+  const f3 = (v) => v.toFixed(3);
+  const g = `[0:a]asplit=3[a][b][c];[a]atrim=0:${f3(x)},asetpts=PTS-STARTPTS,afade=t=in:d=${f3(x)}:curve=qsin[h];[b]atrim=${f3(L)}:${f3(L + x)},asetpts=PTS-STARTPTS,afade=t=out:d=${f3(x)}:curve=qsin[t];[h][t]amix=inputs=2:normalize=0:duration=longest[m];[c]atrim=${f3(x)}:${f3(L)},asetpts=PTS-STARTPTS[body];[m][body]concat=n=2:v=0:a=1[out]`;
+  const tmp = path.join(os.tmpdir(), `rasa-loop-${process.pid}-${Date.now()}.wav`);
+  execFileSync("ffmpeg", ["-y", "-v", "error", "-i", input, "-filter_complex", g, "-map", "[out]", "-ar", "48000", "-c:a", "pcm_s24le", tmp]);
+  fs.mkdirSync(path.dirname(path.resolve(output)), { recursive: true });
+  fs.copyFileSync(tmp, output); fs.rmSync(tmp, { force: true });
+  return { ok: true, out: path.resolve(output), loop_s: r3(probeDuration(output)), cut_at_bar: r3(L), cut_from: how, xfade_s: x, curve: "quarter-sine (equal power)", bed_s: r3(dur), dropped_tail_s: r3(dur - L - x), note: "the loop is loop_s long: make the film's loop length match so picture and sound wrap together" };
+}
+
 // sound.mjs lock (--video <mp4> | --audio <file>) [--run <dir>] [--out <lock.json>]: hash the approved mix so later fix rounds can prove they left it alone
 function lock() {
   const src = exists(path.resolve(String(args.video || args.audio || need("audio", "<file> (or --video <mp4>)"))), "input");
@@ -890,11 +917,17 @@ if (cmd === "analyze") {
   const o = renderPlan(plan, String(need("out", "<bed.wav>")), { lufs: args.lufs != null ? Number(args.lufs) : -14 });
   o.shape = plan.shape;
   o.film_duration = plan.film_duration;
+  if (args.loop || plan.loop === true) o.loop = loopBed(plan, path.resolve(String(args.out)), path.resolve(String(args.out)), args["loop-xfade"] != null ? Number(args["loop-xfade"]) : NaN);
   // the bed sits at -14 LUFS: unnarrated it plays at 1.0; under a ~-16 LUFS VO it should sit
   // ~12 LU lower (-28 LUFS): volume 0.2. check --vo/--music measures the real gap.
   o.volume = { unnarrated: 1.0, under_voiceover: 0.2 };
   if (plan.button_sfx) o.button_sfx = plan.button_sfx;
   out(o);
+} else if (cmd === "loop-bed") {
+  track("Making the music bed loop", "Bed loops");
+  const plan = readJSON(exists(path.resolve(need("plan", "<plan.json>")), "plan"));
+  const src = exists(path.resolve(need("in", "<bed.wav>")), "bed");
+  out(loopBed(plan, src, path.resolve(need("out", "<loop.wav>")), args["loop-xfade"] != null ? Number(args["loop-xfade"]) : NaN));
 } else if (cmd === "master") {
   track("Mastering the sound to -14 LUFS", "Sound mastered");
   const src = exists(path.resolve(String(args.video || args.audio || need("audio", "<file> (or --video <mp4>)"))), "input");
@@ -913,5 +946,5 @@ if (cmd === "analyze") {
   track("Measuring the mix: loudness, peaks, loops, SFX density", "Audio checked");
   check();
 } else {
-  die("usage: sound.mjs analyze|fit|render|sfx-plan|check|lock|master|probe ... (see the header)");
+  die("usage: sound.mjs analyze|fit|render|loop-bed|sfx-plan|check|lock|master|probe ... (see the header)");
 }

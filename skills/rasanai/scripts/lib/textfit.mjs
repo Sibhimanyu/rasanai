@@ -40,6 +40,10 @@
 // WARNINGS ONLY, in result.warnings (same shape as findings; uncalibrated, never errors), measured in the same page loads:
 //   low-contrast    a readable block whose text colour against the backdrop the browser really draws behind it (text made transparent, one screenshot,
 //                   median WCAG contrast over the pixels under its line boxes) is under 4.5:1 (body) or 3:1 (large: 24 px, or 18.66 px bold). data-contrast="ok" opts out.
+//   text-moves-before-read  (idea from awesome-opus5-5-videos; our code) a block of 3+ words, fully visible and settled (its box still for a sample), that then travels
+//                   more than 2% of the frame height, or changes size by more than 5%, while its reading time (lib/reading.mjs readTime) has not yet passed and it is
+//                   still readable. Entrance motion is the reveal itself and is not judged (the clock starts once every word is visible and the box has stopped);
+//                   a camera push over a line being read trips it too, which is the point. data-read="skim" opts out. Uncalibrated.
 //   asset-missing / asset-empty / font-failed   a file the page asked for came back 404 or empty, an image or video did not decode, a font file did not load
 //   glyph-missing   a LOADED web font lacks characters the page sets in it (they fall back to another face: tofu risk)
 //   media-upscaled  an image or video shown at more than 1.5x its natural size at some sampled time (data-upscale="ok" opts out)
@@ -355,6 +359,26 @@ export function analyzeBlocks(byBlock, dt, file, H, warn = []) {
         message: `"${text.slice(0, 40)}" is readable while a mask or inset cuts off ${Math.round(worst.m * 100)}% of a word's box, from ${r2(run[0])} to ${r2(run[1])} s (${r2(run[1] - run[0])} s; ${T.mask_s} s at most)`,
         fix: "widen the mask or inset (padding for the descenders and the overshoot, not the line box), or let the line finish rising before the next words show; a reveal through a mask is fine, a readable line with cut-off letters is not (references/craft.md section 10)",
       });
+    }
+    // text-moves-before-read (warning): once the line is whole and its box has stopped, it holds still for its reading time before any travel, scale or camera push
+    if (w >= T.brief_min_words && !rows.some((r) => r.s) && rows.every((r) => r.x === rows[0].x && r.r && r.r.length)) {
+      const box = (r) => r.r.reduce((a, q) => [Math.min(a[0], q[0]), Math.min(a[1], q[1]), Math.max(a[2], q[2]), Math.max(a[3], q[3])], [1e9, 1e9, -1e9, -1e9]);
+      const mid = (b) => [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
+      const shift = (a, b) => { const p = mid(a), q = mid(b); return Math.hypot(p[0] - q[0], p[1] - q[1]) / H; };
+      const grow = (a, b) => Math.max(Math.abs((b[2] - b[0]) / Math.max(1, a[2] - a[0]) - 1), Math.abs((b[3] - b[1]) / Math.max(1, a[3] - a[1]) - 1));
+      let i = rows.findIndex((r) => r.v >= w);
+      while (i > -1 && i + 1 < rows.length && shift(box(rows[i]), box(rows[i + 1])) > 0.003) i++; // still settling in: the reveal, not travel
+      if (i > -1 && i + 1 < rows.length) {
+        const b0 = box(rows[i]), end = rows[i].t + readTime(w, { base: T.read_base_s, perWord: T.read_per_word_s });
+        for (let j = i + 1; j < rows.length && rows[j].t < end - 1e-9 && rows[j].t - rows[j - 1].t < dt * 1.5 && rows[j].v * 2 >= w; j++) {
+          const b1 = box(rows[j]);
+          if (shift(b0, b1) <= 0.02 && grow(b0, b1) <= 0.05) continue;
+          warn.push({ check: "text-moves-before-read", severity: "warning", at: r2(rows[j].t), from: r2(rows[i].t), to: r2(end), text: rows[i].x.slice(0, 40), file: base, region: "text",
+            message: `"${rows[i].x.slice(0, 40)}" is whole and still from ${r2(rows[i].t)} s, then moves or scales at ${r2(rows[j].t)} s, before its ${r2(end - rows[i].t)} s reading time is up (${w} words)`,
+            fix: "hold the line still for its reading time before any decorative travel; keep camera pushes and scale off the text being read (references/craft.md, kinetic type)" });
+          break;
+        }
+      }
     }
     if (!ok.length || rows[0].f < T.statement * H || rows.some((r) => r.s)) continue;
     // text-too-brief per text STATE: a slot whose string changes (typed, deleted, swapped) is judged per chain of strings, each one growing from the last

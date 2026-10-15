@@ -25,6 +25,13 @@
  *   // or a plate as the ground (art.mjs plate / an `abstract` asset): cam.flowGround({ src: "assets/art/plate-ground.png", tint: "#f7f1ea" })
  *   // and a plate to zoom through across a cut: cam.plateTransition({ at: 4.5, src: "assets/art/plate-through.png", duration: 0.9 })
  *
+ * AO additions (idea from awesome-opus5-5-videos; our code):
+ *   cam.keys([[t, zoom, x, y], ...], { ease })  magnification keys; x, y = the world point (px from the frame centre) that sits
+ *     at the centre of the frame. Zoom is interpolated in LOG space (exp(lerp(ln z0, ln z1, e))), so a 1x-to-4x push covers
+ *     the same felt distance in each half; x and y use the same eased e. cam.zoom(mm) is log too. Opt out with
+ *     { linearZoom: true } (per call, or on the stage options). Dev warning, once: a key past 4x toward a point more than 15% of
+ *     the frame off centre says "zoom-into-point: open it as an iris instead".
+ *
  * Reference: references/cinematography.md (every recipe as calls, with the numbers and the reference film).
  */
 (function (root) {
@@ -33,6 +40,7 @@
   var NS = "http://www.w3.org/2000/svg";
   var PI = Math.PI;
   var uid = 0;
+  var warnedZoomPoint = false; // the zoom-into-point dev warning prints once per page
 
   // ------------------------------------------------------------------ helpers
   function need(c, m) { if (!c) throw new Error("RasanCamera: " + m); }
@@ -123,14 +131,16 @@
   // Abs: a base value and absolute targets; each segment eases from the value at its start to its target.
   // Add: a base value plus relative legs; concurrent legs add up (camera moves).
   function Abs(base) { this.base = base; this.seg = []; }
-  Abs.prototype.to = function (v, at, dur, ease) { this.seg.push({ at: at, dur: Math.max(1e-4, dur), to: v, ease: easeFn(ease) }); this.seg.sort(function (a, b) { return a.at - b.at; }); };
+  Abs.prototype.to = function (v, at, dur, ease, lin) { this.seg.push({ at: at, dur: Math.max(1e-4, dur), to: v, ease: easeFn(ease), lin: !!lin }); this.seg.sort(function (a, b) { return a.at - b.at; }); };
   Abs.prototype.at = function (t, resolve) {
     var v = resolve ? resolve(this.base, t) : this.base;
     for (var i = 0; i < this.seg.length; i++) {
       var s = this.seg[i];
       if (t <= s.at) break;
       var p = clamp((t - s.at) / s.dur, 0, 1), to = resolve ? resolve(s.to, t) : s.to;
-      v = v + (to - v) * s.ease(p);
+      var e = s.ease(p);
+      if (this.log && !s.lin && v > 0 && to > 0) v = Math.exp(Math.log(v) + (Math.log(to) - Math.log(v)) * e); // a scale: lerp the logarithm (AO.2a)
+      else v = v + (to - v) * e;
     }
     return v;
   };
@@ -211,6 +221,8 @@
       lens: new Abs(lens0), mag: new Abs(1), persp: new Abs(lens0),
       target: [0, 0, 0], drifts: [],
     };
+    cam.mag.log = true; // magnification is a scale: eased in log space unless linearZoom
+    var linearZoomAll = !!opt(o, "linearZoom", false);
     var dof = { on: false, focus: new Abs(0), aperture: new Abs(1.5), max: 5, haze: 0, levels: 3, fray: 0 };
     var layers = [], extras = [], budget = {}, version = 0, lastT = 0, lastKey = "", lifeTween = null;
     var dur = opt(o, "duration", null);
@@ -595,7 +607,31 @@
       // zoom: change the focal length; magnifies about the frame centre and flattens/deepens the perspective
       zoom: function (mm, m) {
         m = m || {}; var at = opt(m, "at", 0), du = opt(m, "duration", 1.2), e = opt(m, "ease", "power2.inOut");
-        cam.mag.to(mm / lens0, at, du, e); cam.persp.to(mm, at, du, e); leg(at, du); bump(); return cam_api;
+        cam.mag.to(mm / lens0, at, du, e, m.linearZoom !== undefined ? m.linearZoom : linearZoomAll); cam.persp.to(mm, at, du, e); leg(at, du); bump(); return cam_api;
+      },
+      // keys: [[t, zoom, x, y], ...] a magnification path. zoom is the scale about the frame centre; x, y (default 0) the world point,
+      // in px from the frame centre, that the centre of the frame looks at. Each leg runs between neighbouring keys on one eased e:
+      // zoom = exp(lerp(ln z0, ln z1, e)) (lerp when linearZoom), x and y = lerp(.., e). The first key is the state before it.
+      keys: function (ks, m) {
+        m = m || {}; need(ks && ks.length, "keys: give [[t, zoom, x, y], ...]");
+        var lin = m.linearZoom !== undefined ? m.linearZoom : linearZoomAll, e = opt(m, "ease", "power2.inOut");
+        var k = ks.map(function (a) { return { t: +a[0], z: a[1] == null ? 1 : +a[1], x: +a[2] || 0, y: +a[3] || 0 }; }).sort(function (a, b) { return a.t - b.t; });
+        need(k.every(function (a) { return a.z > 0; }), "keys: zoom must be above 0");
+        cam.mag.base = k[0].z; cam.x.base = k[0].x; cam.y.base = k[0].y;
+        for (var i = 1; i < k.length; i++) {
+          var a = k[i - 1], b = k[i], du = Math.max(1e-4, b.t - a.t);
+          cam.mag.to(b.z, a.t, du, e, lin);
+          if (b.x !== a.x) cam.x.by(b.x - a.x, a.t, du, e);
+          if (b.y !== a.y) cam.y.by(b.y - a.y, a.t, du, e);
+          leg(a.t, du);
+        }
+        k.forEach(function (a) {
+          if (a.z > 4 && (Math.abs(a.x) > 0.15 * W || Math.abs(a.y) > 0.15 * H) && !warnedZoomPoint) {
+            warnedZoomPoint = true;
+            if (typeof console !== "undefined") console.warn("RasanCamera: zoom-into-point: open it as an iris instead (key at t=" + a.t + ", " + a.z + "x toward a point " + Math.round(Math.max(Math.abs(a.x) / W, Math.abs(a.y) / H) * 100) + "% of the frame off centre)");
+          }
+        });
+        bump(); return cam_api;
       },
       // dollyZoom: the vertigo shot - the z=0 plane stays the same size while the perspective changes behind it
       dollyZoom: function (mm, m) {

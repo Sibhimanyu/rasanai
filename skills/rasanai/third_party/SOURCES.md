@@ -33,6 +33,7 @@ Modes (the column "mode" and every "HOW MUCH" line use these words):
 | [ferndesk/no-slop-motion](#no-slop-motion) | MIT | idea only | story chain, acts, crescendo, villain and felt numbers | taken as ideas |
 | [Jamailar/high-retention-video-script](#high-retention-video-script) | none declared | idea only | stimulus clock, HKRR (read, not built in) | read; nothing built (unverified) |
 | [FilmAgent, MovieAgent, ViMax and other agent papers](#filmagent-movieagent-vimax) | MIT / none / MIT | idea only | critique loops, structure critic | taken as ideas |
+| [yihui-dev/awesome-opus5-5-videos](#awesome-opus5-5-videos) | MIT (the list); each prompt belongs to its creator | idea only | spring superposition, two-edge indicators, log-space zoom, iris by area, one-frame pop scan, loop seam, reading hold, frame-time counters, one-prompt export | taken (AO.1–AO.7, AO.9); precedent rows planned (B11) |
 | [Craft sources](#craft-sources) (Murch, Hitchcock, Kuleshov, Pixar, Eisenstein, ...) | not code | idea only, cited | direction procedure, Rule of Six, importance = size | taken |
 
 ## Licence reminder (full matrix in INTAKE.md)
@@ -241,6 +242,18 @@ MIT / Apache-2.0: we may copy or adapt with credit (LICENSE copy plus NOTICE in 
 - TOOK (idea only): critique, correct, verify rounds and a judge between two options (the structure critic that may cut, `agents/structure-critic.md`; the A/B juror; `crew.mjs ab`); "every shot has a narrative purpose" (importance and `buys` in `references/intent.md`); "reuse an existing camera position" (one grammar per film).
 - DECLINED: generated-footage consistency machinery (first and last frame plus motion triples) as a feature: not relevant to motion graphics.
 - PLANNED: P5 group2 21 first and last frame plates only if a generative-video route is built.
+
+## awesome-opus5-5-videos
+
+- URL: https://github.com/yihui-dev/awesome-opus5-5-videos  (commit read: 92aee2f, 2026-10-15)
+- Licence: MIT, yihui-dev, for the list. The prompts inside are other people's posts (each entry links its creator), so the MIT grant does not reach their text. Lets us: ideas only for the prompts; the list's metadata (slug, category, tags, links) could be used with credit.
+- Credit location: none (ideas only). Code comments say "idea from awesome-opus5-5-videos; our code".
+- What it is: 703 prompts behind viral videos where Claude Opus 5.5 wrote the animation as code (369 motion, 117 3D, 116 explainers, 101 interactive; 207 partial). The ~45 long prompts share one structure: inputs with defaults, direction with a banned list, a beat-numbered storyboard, numbered build rules, gotchas, and "show the beat map and stills before rendering".
+- TOOK (idea only, our words and code): spring superposition, a value with many targets as a sum of closed-form step responses, and two-edge indicators (`RasanMotion.springTrack`, `RasanMotion.edges`); counters read the frame's own time under subframe blur (`RasanMotion.frameTime`, `window.__rasanFrameTime` in `finish.mjs`); zoom interpolated in log space and the zoom-into-an-off-centre-point warning (`RasanCamera` keys, `camera.mjs zoom-into-point`, `zoom-in-out`); iris and flood eased by area, flood switches to a full-frame rect (`rasan-shape.js`); the one-frame pop scan (`motion-gate pop`); the loop seam in picture, motion and sound (`motion-gate loop-seam`, `finish.mjs`, `sound.mjs`); a reading hold before decorative travel, blur never on read text, separate exit and enter timing in morphing containers (`references/craft.md`, text check); coded-film gotchas in `agents/film-builder.md` and `agents/scene-animator.md`; every brief input shows its default (`console/index.html`); a plan exported as one paste-able prompt (`handoff.mjs --prompt`). HOW MUCH: idea only, every line.
+- Already ours before this read (not re-taken): seek(t) as a pure function of time, closed-form springs, subframe motion blur, last frame equals first, one morphing shape, shared-element handoffs, floods and irises, the beat grid, stills before render, SFX by measured peak, -14 LUFS, banned lists, grain and halation, word timestamps.
+- DECLINED: the prompts' brand-specific content (named products, characters, songs); the house format as a replacement for the four-call flow (it is offered as an export only).
+- PLANNED: B11 (precedent rows from the list's metadata).
+- Unverified: the per-file mapping is from the build spec (`.context/ao-spec.md`); builders' exact names are in the CHANGELOG.
 
 ## Craft sources
 

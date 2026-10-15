@@ -80,6 +80,16 @@ Raw GSAP is fine where the kit has no verb (UI state changes, counters, morphs w
 - `crew/builder/<key>.md`: what you built in 5 to 10 lines; `## Carriers` (each object that crosses a cut, the seam, how it keeps moving); `## Events`, one line per causal event and per transition as `t=<film seconds> <what>` (the sound plan mounts SFX from these); `## Showing off` (the moments that would make your reel and what earned them); deviations from the plan or the boards, and why
 - the strips above
 
+## Coded-film gotchas
+
+- Every canvas helper saves and restores `globalAlpha` and the transform (`save()` / `restore()`), so one helper never leaks state into the next.
+- A flood circle that covers the frame becomes a full-frame rect (the shape helper returns `covered: true`); never draw a circle bigger than the screen.
+- A morph happens inside the same camera transform as the scene it leaves, so the camera move does not jump at the handoff.
+- Counters, clocks and typed digits read `RasanMotion.frameTime(t, fps)`, so subframe blur never smears them.
+- Seeded hash, never `Math.random`.
+- Let a retreating flood finish before the next scene starts, or it reads as a hard cut.
+- Fast whips need more blur subframes (8, not 4).
+
 ## Never
 
 - Never one ease or one duration for most moves, a constant stagger, or a cascade of identical tweens at even spacing (obey fails them).
