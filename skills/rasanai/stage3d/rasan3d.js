@@ -241,6 +241,9 @@
       return new T.ShaderMaterial(Object.assign({ vertexShader: V, fragmentShader: frag, uniforms: uniforms, depthTest: false, depthWrite: false, toneMapped: false }, extra || {}));
     }
     var weigh = mat("uniform sampler2D tSrc; uniform float weight; varying vec2 vUv; void main(){ gl_FragColor = texture2D(tSrc, vUv) * weight; }", { tSrc: { value: null }, weight: { value: 1 } }, { blending: T.CustomBlending, blendEquation: T.AddEquation, blendSrc: T.OneFactor, blendDst: T.OneFactor, blendSrcAlpha: T.OneFactor, blendDstAlpha: T.OneFactor, transparent: true });
+    // the sample's colour times its ambient occlusion (GTAO, opt-in: Stage option `ao`), added into the accumulation
+    var weighAO = mat("uniform sampler2D tSrc; uniform sampler2D tAO; uniform float weight; uniform float strength; varying vec2 vUv; void main(){ vec4 c = texture2D(tSrc, vUv);" +
+      " float ao = texture2D(tAO, vUv).r; gl_FragColor = vec4(c.rgb * mix(1.0, ao, strength), c.a) * weight; }", { tSrc: { value: null }, tAO: { value: null }, weight: { value: 1 }, strength: { value: 1 } }, { blending: T.CustomBlending, blendEquation: T.AddEquation, blendSrc: T.OneFactor, blendDst: T.OneFactor, blendSrcAlpha: T.OneFactor, blendDstAlpha: T.OneFactor, transparent: true });
     var copy = mat("uniform sampler2D tSrc; varying vec2 vUv; void main(){ gl_FragColor = texture2D(tSrc, vUv); }", { tSrc: { value: null } });
     // depth texture (0..1) -> view-space distance along the camera axis (1e6 where nothing was drawn)
     var lin = mat("uniform sampler2D tDepth; uniform float near; uniform float far; varying vec2 vUv; void main(){ float d = texture2D(tDepth, vUv).r;" +
@@ -286,7 +289,7 @@
       bloom: { value: 0 }, bloomRadius: { value: 0.5 }, halation: { value: 0 }, grain: { value: 0 }, vignette: { value: 0 }, ca: { value: 0 },
       seed: { value: 0 }, res: { value: new T.Vector2(1, 1) }, saturation: { value: 1 }, lift: { value: new T.Vector3(0, 0, 0) }, gain: { value: new T.Vector3(1, 1, 1) },
     });
-    return { cam: cam, scene: scene, quad: quad, weigh: weigh, copy: copy, lin: lin, bright: bright, blur: blur, fin: fin };
+    return { cam: cam, scene: scene, quad: quad, weigh: weigh, weighAO: weighAO, copy: copy, lin: lin, bright: bright, blur: blur, fin: fin };
   }
   function pass(S, material, target, clear) {
     var r = S.renderer;
@@ -715,6 +718,8 @@
         glsl: api.glsl, tube: api.tube, instanceField: api.instanceField,
         objects: null,
       });
+      // ambient occlusion (opt-in): the vendored GTAOPass, wired into the sample loop (draw)
+      if (o.ao) self._pending.push(addon("postprocessing/GTAOPass.js").then(function (m) { self._aoMod = m; }));
       var envP = o.environment === false || o.environment === "none" ? Promise.resolve(null) : environment(S, (o.environment && o.environment.preset) || o.environment || "studio");
       return envP.then(function (env) {
         if (env) {
@@ -1301,6 +1306,42 @@
     return d;
   };
 
+  // ------------------------------------------------------------------ ambient occlusion (GTAO), opt-in
+  // Stage option ao: true | { radius, thickness, scale, distanceExponent, samples, strength, every, resolution, denoise }
+  //   radius (world units, default 0.25 x the focus distance / 10), thickness (1), scale (1), distanceExponent (1), samples (GTAO taps, 16),
+  //   strength 0..1 of the multiply (0.85), resolution (AO size as a fraction of the frame: 1 final, 0.5 draft and check), denoise (Poisson
+  //   taps, 16; 0 skips the filter), every (the AO is recomputed on every Nth sub-frame and reused between: default 1 up to 4 samples, then
+  //   about a quarter of them; each sub-frame is multiplied by the latest AO, and the sub-pixel / aperture / shutter jitter plus the
+  //   accumulation average its noise like everything else). Meshes with userData.noAO = true (glass, glows, decals) do not occlude.
+  // The AO is computed from the SAMPLE's own camera (jitter and aperture shear included), so it blurs with the image, never over it.
+  Stage.prototype._aoPass = function (W, H) {
+    var o = this.opts.ao, M = this._aoMod;
+    if (!o || !M) return null;
+    var res = typeof o.resolution === "number" ? o.resolution : quality() === "final" ? 1 : 0.5;
+    var w = Math.max(16, Math.round(W * res)), h = Math.max(16, Math.round(H * res));
+    var opt = typeof o === "object" ? o : {};
+    if (!this._ao) {
+      var focus = this._focus || 10;
+      this._ao = new M.GTAOPass(this.scene, this.camera, w, h, undefined,
+        { radius: opt.radius != null ? opt.radius : focus * 0.025, thickness: opt.thickness != null ? opt.thickness : 1, scale: opt.scale != null ? opt.scale : 1, distanceExponent: opt.distanceExponent != null ? opt.distanceExponent : 1, samples: opt.samples || 16 },
+        { samples: opt.denoise == null ? 16 : Math.max(4, opt.denoise), radius: 8 });
+      this._ao.output = M.GTAOPass.OUTPUT.Off;
+      this._aoKey = w + "x" + h;
+    } else if (this._aoKey !== w + "x" + h) { this._ao.setSize(w, h); this._aoKey = w + "x" + h; }
+    return this._ao;
+  };
+  Stage.prototype._runAO = function (cam, W, H) {
+    var ao = this._aoPass(W, H);
+    if (!ao) return null;
+    ao.camera = cam;
+    // the AO "gbuffer" sees what occludes: hide what must not
+    var hid = [];
+    this.scene.traverse(function (ob) { if (ob.userData && ob.userData.noAO && ob.visible) { ob.visible = false; hid.push(ob); } });
+    ao.render(this.S.renderer, null, null);
+    hid.forEach(function (ob) { ob.visible = true; });
+    return ao.gtaoMap;
+  };
+
   Stage.prototype.samplesFor = function (t) {
     var q = QUALITY[quality()];
     var mb = this.opts.motionBlur === false ? null : this.opts.motionBlur || { shutter: 0.5 };
@@ -1340,6 +1381,9 @@
       r.clear(true, true, true);
       var bg = this.scene.background;
       var G = this.G, useD = !!(G && G.useDepth), D = useD ? this._depthRTs(W, H) : null, lastSrt = null;
+      var aoOn = !!(o.ao && this._aoMod), aoTex = null;
+      var aoEvery = aoOn ? Math.max(1, Math.round(typeof o.ao === "object" && o.ao.every ? o.ao.every : n <= 4 ? 1 : n / 4)) : 1;
+      var aoStrength = aoOn && typeof o.ao === "object" && o.ao.strength != null ? o.ao.strength : 0.85;
       for (var i = 0; i < n; i++) {
         var ti = n > 1 && shutter > 0 ? t + shutter * ((i + 0.5) / n - 0.5) : t;
         this._pose(ti);
@@ -1353,6 +1397,16 @@
             var u1 = halton(i + 1, 5), u2 = halton(i + 1, 7);
             var rr = Math.sqrt(u1) * R, th = u2 * Math.PI * 2;
             var dx = Math.cos(th) * rr, dy = Math.sin(th) * rr;
+            // iris blades (camera.blades >= 3): a regular polygon of the same area as the disc, turned by bokehRotation (deg);
+            // camera.squeeze stretches it sideways (an anamorphic oval). The disc stays the default.
+            var nb = this.camKeys && this.camKeys.blades;
+            if (nb >= 3) {
+              var nbl = Math.round(nb), sec = Math.floor(u2 * nbl), wf = u2 * nbl - sec, rot = ((this.camKeys.bokehRotation || 0) * Math.PI) / 180;
+              var rv = R * Math.sqrt(Math.PI / (0.5 * nbl * Math.sin((2 * Math.PI) / nbl))), sq = Math.sqrt(u1);
+              var a0 = rot + (sec * 2 * Math.PI) / nbl, a1 = rot + ((sec + 1) * 2 * Math.PI) / nbl;
+              dx = sq * rv * ((1 - wf) * Math.cos(a0) + wf * Math.cos(a1)); dy = sq * rv * ((1 - wf) * Math.sin(a0) + wf * Math.sin(a1));
+            }
+            if (this.camKeys && this.camKeys.squeeze > 0 && this.camKeys.squeeze !== 1) dx *= this.camKeys.squeeze;
             cam.translateX(dx); cam.translateY(dy);
             cam.updateMatrixWorld(true);
             var P0 = cam.projectionMatrix.elements;
@@ -1375,9 +1429,12 @@
         r.render(this.scene, cam);
         if (G && G.scene.length) for (var pi = 0; pi < G.scene.length; pi++) this._runScenePass(G.scene[pi], srt, ti, cam, W, H);
         lastSrt = srt;
-        S.post.weigh.uniforms.tSrc.value = srt.texture;
-        S.post.weigh.uniforms.weight.value = 1 / n;
-        pass(S, S.post.weigh, rts.accum, false);
+        if (aoOn && (!aoTex || i % aoEvery === 0)) aoTex = this._runAO(cam, W, H);
+        var wm = aoTex ? S.post.weighAO : S.post.weigh;
+        wm.uniforms.tSrc.value = srt.texture;
+        wm.uniforms.weight.value = 1 / n;
+        if (aoTex) { wm.uniforms.tAO.value = aoTex; wm.uniforms.strength.value = aoStrength; }
+        pass(S, wm, rts.accum, false);
       }
       // restore the exact pose at t (DOM sync and toScreen read it)
       this._pose(t);
@@ -1440,7 +1497,7 @@
     return {
       id: this.id, duration: this.duration, fps: this.fps, width: this.width, height: this.height,
       tracks: this.tracks, camera: !!o.camera, motionBlur: o.motionBlur === false ? false : o.motionBlur || { shutter: 0.5 },
-      dof: !!(o.camera && (o.camera.fstop || o.camera.aperture)), post: o.post || {}, toneMapping: o.toneMapping || "neutral",
+      dof: !!(o.camera && (o.camera.fstop || o.camera.aperture)), bokeh: o.camera && o.camera.blades ? { blades: o.camera.blades, rotation: o.camera.bokehRotation || 0, squeeze: o.camera.squeeze || 1 } : "disc", ao: o.ao ? (typeof o.ao === "object" ? o.ao : true) : false, post: o.post || {}, toneMapping: o.toneMapping || "neutral",
       environment: o.environment === false ? "none" : (o.environment && o.environment.preset) || o.environment || "studio",
       background: o.background || "transparent",
       graph: this.G ? { passes: this.G.passes.map(function (p) { return { name: p.name, at: p.at, blend: p.blend, depth: p.depth }; }), targets: Object.keys(this.G.targets), views: this.G.views.map(function (v) { return v.name; }), sims: this.G.sims.map(function (v) { return v.name; }), pins: this.G.pins.length } : null,

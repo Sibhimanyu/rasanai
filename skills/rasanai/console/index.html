@@ -516,6 +516,8 @@
   .dd-row { display: grid; grid-template-columns: 150px 1fr auto; gap: 14px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 14px; }
   .dd-row:first-of-type { border-top: 0; }
   .dd-row .k { color: var(--ink-3); }
+  .dd-old { grid-column: 2 / 4; color: var(--ink-3); font-size: 12.5px; }
+  .dd-old s { opacity: .75; }
   .dd-row .by { color: var(--ink-3); font-size: 12.5px; }
   .dd h4 { margin: 18px 0 8px; font: 600 13px/1 var(--sans); color: var(--ink-2); }
   .logline { font: 12.5px/1.6 var(--mono); color: var(--ink-3); }
@@ -780,6 +782,9 @@
       // typed values live in `local` so clicking an aspect chip never wipes them
       local.brief = local.brief || { content: f.content || "", sub: f.sub || "", destination: f.destination || "", length_s: f.length_s || "", aspect: f.aspect || aspects[0], narration: f.narration == null ? "yes" : f.narration ? "yes" : "no" };
       var B = local.brief;
+      // every input shows the default the film uses when it is left blank (d.defaults from the brief data, else the console's own fallbacks); nothing blocks on a blank
+      var DEF = d.defaults || {};
+      var defOf = function (key, fallback) { return "Default: " + (DEF[key] != null && DEF[key] !== "" ? String(DEF[key]) + (key === "length_s" ? " seconds" : "") : fallback); };
       function inp(key, ph, extra) {
         var n = h("input", Object.assign({ value: B[key] == null ? "" : String(B[key]), placeholder: ph }, extra || {}));
         n.addEventListener("input", function () { B[key] = n.value; });
@@ -790,8 +795,8 @@
       }));
       return [h("div", { class: "form" }, [
         field("What's the video? (required)", inp("content", "A product URL, a topic, a pasted script, a PR, a music track, footage…")),
-        field("Key line (optional)", inp("sub", "The one line it must land, e.g. the headline or tagline")),
-        h("div", { class: "two" }, [field("Where it plays", inp("destination", "website, reels, youtube, x-feed…")), field("Length (seconds)", inp("length_s", "blank = from content", { inputmode: "decimal" }))]),
+        field("Key line (optional)", inp("sub", defOf("sub", "Claude writes the line from the content"))),
+        h("div", { class: "two" }, [field("Where it plays", inp("destination", defOf("destination", "the website"))), field("Length (seconds)", inp("length_s", defOf("length_s", "set from the content"), { inputmode: "decimal" }))]),
         h("div", { class: "field" }, [h("label", { text: "Aspect" }), chips]),
         h("div", { class: "field" }, [h("label", { text: "Narration" }), h("div", { class: "chips", role: "group", "aria-label": "Narration" }, ["yes", "no"].map(function (v) {
           return h("button", { class: "chip" + (B.narration === v ? " on" : ""), "aria-pressed": B.narration === v ? "true" : "false", onclick: function () { B.narration = v; document.getElementById("main")._sig = null; render(); }, text: v === "yes" ? "Voiceover" : "No voiceover" });
@@ -1377,6 +1382,8 @@
   function briefScreen(d) {
     var f = local.brief = local.brief || JSON.parse(JSON.stringify(d.fields || {}));
     var ch = d.choices || {};
+    // the fallbacks the sentence below uses when a part is left blank; d.defaults (the brief data) wins when present
+    var DEF = Object.assign({ length_s: 45, subject: "your product", aspect: "16:9", destination: "the website" }, d.defaults || {});
     var touched = local.briefTouched = local.briefTouched || {};
     // "What are you making?" (formats.mjs list → d.formats; Claude's pre-selection → d.format {tile, option, why})
     var FT = (d.formats && d.formats.tiles) || [];
@@ -1458,7 +1465,7 @@
           m.appendChild(h("button", { class: String(f[key]) === String(v) ? "on" : "", onclick: function () { f[key] = v; touched[key] = true; closeFloating(); draw(); }, text: lab }));
         });
         if (!opts || key === "subject" || key === "length_s") {
-          var inp = h("input", { value: f[key] == null ? "" : String(f[key]), placeholder: key === "length_s" ? "seconds" : "type…" });
+          var inp = h("input", { value: f[key] == null ? "" : String(f[key]), placeholder: DEF[key] != null && DEF[key] !== "" ? "Default: " + DEF[key] + (key === "length_s" ? " seconds" : "") : (key === "length_s" ? "seconds" : "type…") });
           inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { f[key] = key === "length_s" ? Number(inp.value) || f[key] : inp.value; touched[key] = true; closeFloating(); draw(); } });
           m.appendChild(inp); setTimeout(function () { inp.focus(); }, 0);
         }
@@ -1469,12 +1476,12 @@
     function draw() {
       sent.innerHTML = "";
       var add = function (x) { sent.appendChild(typeof x === "string" ? document.createTextNode(x) : x); };
-      add("A "); add(part("length_s", (f.length_s || 45) + "-second", ch.length_s || [15, 30, 45, 60, 90], function (v) { return v + " seconds"; }));
+      add("A "); add(part("length_s", (f.length_s || DEF.length_s) + "-second", ch.length_s || [15, 30, 45, 60, 90], function (v) { return v + " seconds"; }));
       // the noun is the picked format's kind (still sent as `kind`); the old six-item menu only when the brief came without a picker
       add(" "); add(part("kind", f.kind || (FT.length ? "film" : "launch film"), ch.kind ||["launch film", "explainer", "brand film", "feature reveal", "social teaser", "product demo"]));
-      add(" for "); add(part("subject", f.subject || "your product", null));
-      add(", "); add(part("aspect", f.aspect || "16:9", ch.aspect || [{ value: "16:9", label: "16:9 (widescreen)" }, { value: "9:16", label: "9:16 (vertical)" }, { value: "1:1", label: "1:1 (square)" }, { value: "4:5", label: "4:5 (feed)" }]));
-      add(" for "); add(part("destination", f.destination || "the website", ch.destination || ["the website", "X", "LinkedIn", "YouTube", "Instagram Reels", "TikTok", "a keynote"]));
+      add(" for "); add(part("subject", f.subject || DEF.subject, null));
+      add(", "); add(part("aspect", f.aspect || DEF.aspect, ch.aspect || [{ value: "16:9", label: "16:9 (widescreen)" }, { value: "9:16", label: "9:16 (vertical)" }, { value: "1:1", label: "1:1 (square)" }, { value: "4:5", label: "4:5 (feed)" }]));
+      add(" for "); add(part("destination", f.destination || DEF.destination, ch.destination || ["the website", "X", "LinkedIn", "YouTube", "Instagram Reels", "TikTok", "a keynote"]));
       add(", "); add(part("narration", f.narration === false ? "without voiceover" : "with voiceover", [{ value: true, label: "with voiceover" }, { value: false, label: "without voiceover" }]));
       if (f.brand_name) { add(", "); add(part("use_brand", f.use_brand === false ? "in a new look" : "in " + f.brand_name + "'s own colours and type", [{ value: true, label: "in " + f.brand_name + "'s own colours and type" }, { value: false, label: "in a new look" }])); }
       add(".");
@@ -1893,8 +1900,15 @@
     if (!rows.length) p.appendChild(h("p", { class: "qsub", text: "Every choice, yours and mine, collects here. Change any of them by telling me." }));
     rows.forEach(function (s) {
       var d = S.steps[s[0]], you = d.sent && d.sent.type !== "decide" || d.by === "user";
-      p.appendChild(h("div", { class: "dd-row" }, [h("span", { class: "k", text: s[1] }), h("span", null, [d.decision, h("span", { class: "by", text: you ? "  · you" : "  · Claude" })]), h("button", { class: "link", onclick: function () { var inp = document.getElementById("tell"); inp.value = "Change the " + s[1].toLowerCase() + ": "; inp.focus(); }, text: "change" })]));
+      var kids = [h("span", { class: "k", text: s[1] }), h("span", null, [d.decision, h("span", { class: "by", text: you ? "  · you" : "  · Claude" })]), h("button", { class: "link", onclick: function () { var inp = document.getElementById("tell"); inp.value = "Change the " + s[1].toLowerCase() + ": "; inp.focus(); }, text: "change" })];
+      (d.decisions_history || []).slice().reverse().forEach(function (o) { kids.push(h("div", { class: "dd-old" }, [h("s", { text: o.decision }), " · " + (o.because || "")])); });
+      p.appendChild(h("div", { class: "dd-row" }, kids));
     });
+    var dg = S.downgrades || [];
+    if (dg.length) {
+      p.appendChild(h("h4", { text: "Working without" }));
+      dg.forEach(function (g) { p.appendChild(h("div", { class: "dd-row" }, [h("span", { class: "k", text: g.what }), h("span", null, ["Using " + g.instead + (g.why ? " because " + g.why : "") + (g.impact ? ". " + g.impact : "")]), h("span")])); });
+    }
     var th = []; STEPS.forEach(function (s) { ((S.steps[s[0]] || {}).thread || []).forEach(function (m) { th.push(m); }); }); th.sort(function (a, b) { return a.t < b.t ? -1 : 1; });
     if (th.length) { p.appendChild(h("h4", { text: "Conversation" })); th.slice(-12).forEach(function (m) { p.appendChild(h("div", { class: "logline" }, [h("b", { text: m.who === "you" ? "You: " : "Claude: " }), m.text])); }); }
     p.appendChild(h("h4", { text: "Details" }));

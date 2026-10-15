@@ -45,7 +45,14 @@ export default async function ({ ok, node, tmp }) {
   ff(["-f", "lavfi", "-i", "testsrc2=size=640x360:rate=30:d=4", "-vf", "tpad=stop_mode=clone:stop_duration=2", "-pix_fmt", "yuv420p", f("tail.mp4")]);
   const tl = G("tail.mp4");
   const tl2 = G("tail.mp4", ["--end-hold", "2.5"]);
-  ok("motion-gate: the end card holds at most 1.5 s still after its last move (--end-hold lifts it)", has(tl.j, "end-hold") && !has(tl2.j, "end-hold") && !has(tl.j, "freeze"), JSON.stringify(tl.j.findings).slice(0, 300));
+  ok("motion-gate: the end card holds at most 1.4 s still after its last move (--end-hold lifts it)", has(tl.j, "end-hold") && !has(tl2.j, "end-hold") && !has(tl.j, "freeze"), JSON.stringify(tl.j.findings).slice(0, 300));
+  // the render is as long as the plan says (0.25 s or 2%, whichever is larger)
+  const long9 = f("score9.json"), near = f("score6b.json");
+  fs.writeFileSync(long9, JSON.stringify({ duration: 9, scenes: [{ id: "hook", start: 0, end: 4 }, { id: "cta", start: 4, end: 9 }] }));
+  fs.writeFileSync(near, JSON.stringify({ duration: 6.2, scenes: [{ id: "hook", start: 0, end: 3 }, { id: "cta", start: 3, end: 6.2 }] }));
+  const dm = json(node("motion-gate.mjs", ["--video", f("moving.mp4"), "--plan", long9, "--json", "--no-text-fit"]));
+  const dn = json(node("motion-gate.mjs", ["--video", f("moving.mp4"), "--plan", near, "--json", "--no-text-fit"]));
+  ok("motion-gate: a 6 s render against a 9 s plan fails duration-mismatch; 0.2 s off passes", has(dm, "duration-mismatch") && !has(dn, "duration-mismatch") && !has(mv.j, "duration-mismatch"), JSON.stringify([dm.findings, dn.findings]).slice(0, 400));
   const nothing = node("motion-gate.mjs", ["--json"]);
   ok("motion-gate: with nothing to measure it says could not run (exit 1), never pass", nothing.status === 1 && json(nothing).verdict === "could not run");
 

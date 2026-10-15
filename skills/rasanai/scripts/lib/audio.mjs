@@ -1333,6 +1333,18 @@ export function findRepeats(y, { sr = SR, minRun = 6, thr = 0.99 } = {}) {
   return kept.map((r) => ({ from: r1(r.from), to: r1(r.to), repeats_at: r1(r.at), lag_s: r1(r.lag), seconds: r1(r.seconds) }));
 }
 
+// the SFX budget, one table read by sound.mjs (sfx-plan and check) and slop.mjs (sfx-overload): sounds per second, per
+// one-second window, the share of visual events that may get a sound, hero and whoosh spacing
+export const SFX_BUDGET = {
+  narrated: { perSec: 1 / 2, perWindow: 3, share: 1 / 3, heroEvery: 15, heroMax: 3, whooshEvery: 20 },
+  unnarrated: { perSec: 1 / 1.2, perWindow: 3, share: 1 / 2, heroEvery: 10, heroMax: 6, whooshEvery: 10 },
+  reel: { perSec: 1, perWindow: 4, share: 1 / 2, heroEvery: 8, heroMax: 6, whooshEvery: 8 },
+};
+export const sfxMode = ({ format, narrated } = {}) => (format === "reel" ? "reel" : narrated ? "narrated" : "unnarrated");
+// the most SFX a film of `dur` seconds should carry; sfx-plan places up to it, the checks allow one more (rounding)
+export const sfxLimit = (mode, dur) => Math.max(1, Math.floor(dur * SFX_BUDGET[mode].perSec));
+export const sfxOver = (count, mode, dur) => count > sfxLimit(mode, dur) + 1;
+
 // onset strength envelope at film time (for "the music already hits here")
 export function onsetProfile(file) {
   const y = decode(file);
@@ -1347,4 +1359,269 @@ export function onsetProfile(file) {
       return { strength: m, strong: m > p75 };
     },
   };
+}
+
+// ---------------------------------------------------------------- film shape: designed breaks and split edits
+// (onetake / lemo-opuscar: "at least two real silences; at least two J-cuts or L-cuts"; sound.mjs check, references/sound.md)
+
+// momentary level in dB over W-second windows (the payoff check's 100 ms windows)
+export function momentaryDb(y, W = 0.1, sr = SR) {
+  const n = Math.floor(y.length / sr / W), out = [];
+  for (let i = 0; i < n; i++) {
+    let z = 0; const a = Math.floor(i * W * sr), b = Math.floor((i + 1) * W * sr);
+    for (let k = a; k < b; k++) z += y[k] * y[k];
+    out.push(10 * Math.log10(z / Math.max(1, b - a) + 1e-12));
+  }
+  return out;
+}
+
+// designed breaks: stretches of at least minS seconds at least dropDb under the median momentary level, not in the first
+// headS seconds, not in the last tailS seconds and not after the last sound. A stretch is counted in whole windows, so
+// minS is rounded down to the windows that must be wholly inside it (0.25 s -> 2 windows of 100 ms).
+export function designedBreaks(mom, W, { dropDb = 10, minS = 0.25, headS = 0.5, tailS = 1.0 } = {}) {
+  const live = mom.filter((v) => v > -80).sort((a, b) => a - b);
+  const median = live.length ? live[Math.floor(live.length / 2)] : -120;
+  const need = Math.max(1, Math.floor(minS / W + 1e-9)), dur = mom.length * W;
+  let lastLive = -1; mom.forEach((v, i) => { if (v > median - dropDb) lastLive = i; });
+  const breaks = [];
+  let i = 0;
+  while (i < mom.length) {
+    if (mom[i] >= median - dropDb) { i++; continue; }
+    let j = i; while (j < mom.length && mom[j] < median - dropDb) j++;
+    const from = i * W, to = j * W;
+    if (j - i >= need && from >= headS - 1e-9 && to <= dur - tailS + 1e-9 && j <= lastLive) breaks.push({ from: Math.round(from * 100) / 100, to: Math.round(to * 100) / 100, depth_db: Math.round((median - Math.min(...mom.slice(i, j))) * 10) / 10 });
+    i = j;
+  }
+  return { median: Math.round(median * 10) / 10, breaks };
+}
+
+// speech phrases [start, end] from a VO stem: windows well above the stem's own noise count as speech; a pause of gapS or more
+// starts a new phrase. Relative to the loud end of the stem so a quiet or a hot stem both work.
+export function speechPhrases(y, { sr = SR, step = 0.05, gapS = 0.25, minS = 0.15 } = {}) {
+  const lv = momentaryDb(y, step, sr);
+  const s = [...lv].sort((a, b) => a - b), ref = s.length ? s[Math.floor(s.length * 0.9)] : -120, thr = Math.max(-55, ref - 25);
+  const spans = [];
+  let s0 = null, last = -9;
+  for (let i = 0; i < lv.length; i++) {
+    if (lv[i] <= thr) continue;
+    const t = i * step;
+    if (s0 == null) s0 = t; else if (t - last > gapS) { spans.push([s0, last + step]); s0 = t; }
+    last = t;
+  }
+  if (s0 != null) spans.push([s0, last + step]);
+  return spans.filter((p) => p[1] - p[0] >= minS);
+}
+
+// phrases from word timings [{start, end}] in film seconds, merged across pauses shorter than gapS
+export function phrasesFromWords(words, gapS = 0.25) {
+  const ws = words.filter((w) => Number.isFinite(w.start)).map((w) => [w.start, Number.isFinite(w.end) ? w.end : w.start + 0.2]).sort((a, b) => a[0] - b[0]);
+  const out = [];
+  for (const w of ws) { const l = out[out.length - 1]; if (l && w[0] - l[1] <= gapS) l[1] = Math.max(l[1], w[1]); else out.push([...w]); }
+  return out;
+}
+
+// J-cuts (a phrase starts minS..maxS before a cut and runs past it) and L-cuts (a phrase that began before a cut ends
+// minS..maxS after it), by cut. `fits` are the cuts with a phrase boundary within maxS that no split edit uses yet.
+export function splitEdits(cuts, phrases, { minS = 0.15, maxS = 1.5 } = {}) {
+  const j = [], l = [], fits = [];
+  for (const c of cuts) {
+    const hasJ = phrases.some(([s, e]) => c - s >= minS && c - s <= maxS && e > c + 0.05);
+    const hasL = phrases.some(([s, e]) => s < c - 0.05 && e - c >= minS && e - c <= maxS);
+    if (hasJ) j.push(c);
+    if (hasL) l.push(c);
+    if (!hasJ && !hasL && phrases.some(([s, e]) => (s > c && s - c <= maxS) || (e < c && c - e <= maxS))) fits.push(c);
+  }
+  return { j, l, count: new Set([...j, ...l]).size, fits };
+}
+
+// ---------------------------------------------------------------- wave 7 helpers (all uncalibrated: callers only warn)
+// Ideas from onetake / mortiflix / lemo-opuscar / group2 notes (.context/reaudit); the code is ours.
+
+// decode through an ffmpeg -af chain (mono f32, SR)
+export function decodeFiltered(file, af, { sr = SR } = {}) {
+  const buf = execFileSync("ffmpeg", ["-v", "error", "-nostdin", "-i", file, "-vn", "-af", af, "-f", "f32le", "-ac", "1", "-ar", String(sr), "-"], { maxBuffer: 1 << 30 });
+  const n = Math.floor(buf.length / 4);
+  return new Float32Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + n * 4));
+}
+
+// mean-square level in dB of y over [a, b] seconds
+export function windowDb(y, a, b, sr = SR) {
+  let z = 0, c = 0;
+  for (let i = Math.max(0, Math.floor(a * sr)); i < Math.min(y.length, Math.floor(b * sr)); i++) { z += y[i] * y[i]; c++; }
+  return c ? 10 * Math.log10(z / c + 1e-12) : -120;
+}
+
+// onset times (s) of the audible hits in y: spectral-flux peaks (full band + low band) above the 75th percentile of all peaks
+export function onsetTimes(y) {
+  const F = frameFeatures(y);
+  const pk = [];
+  for (let i = 1; i < F.n - 1; i++) if (F.onset[i] > F.onset[i - 1] && F.onset[i] >= F.onset[i + 1]) pk.push({ i, v: F.onset[i] + F.low[i] });
+  const p75 = pct(pk.map((p) => p.v), 75);
+  return pk.filter((p) => p.v > p75).map((p) => r3(f2t(p.i)));
+}
+
+// share of the cuts that land within tolS of an onset, and the near misses (tolS..nearS away) with the move that would fix them
+export function cutOnsetShare(cuts, onsets, { tolS = 0.08, nearS = 0.3 } = {}) {
+  let hit = 0;
+  const near = [];
+  for (const c of cuts) {
+    const o = onsets.reduce((b, x) => (Math.abs(x - c) < Math.abs(b - c) ? x : b), onsets[0]);
+    if (o == null) continue;
+    const d = o - c;
+    if (Math.abs(d) <= tolS) hit++;
+    else if (Math.abs(d) <= nearS) near.push({ cut: r3(c), onset: r3(o), off_ms: Math.round(d * 1000), move_cut_ms: Math.round(d * 1000) });
+  }
+  return { cuts: cuts.length, on_onset: hit, share: cuts.length ? r3(hit / cuts.length) : null, near_misses: near };
+}
+
+// low-frequency share per 0.5 s window of a file: the energy under `cut` Hz over the whole band, windows louder than -50 dB only
+export function lowShare(file, { cut = 300, W = 0.5 } = {}) {
+  const all = decode(file);
+  const low = decodeFiltered(file, `lowpass=f=${cut},lowpass=f=${cut}`);
+  const rows = [];
+  for (let t = 0; t + W <= all.length / SR + 1e-9; t += W) {
+    const ea = Math.pow(10, windowDb(all, t, t + W) / 10), el = Math.pow(10, windowDb(low, t, t + W) / 10);
+    const db = 10 * Math.log10(ea + 1e-12);
+    if (db > -50) rows.push({ t: r3(t), db: r1(db), share: r3(Math.min(1, el / (ea + 1e-12))) });
+  }
+  return rows;
+}
+
+// bit-identity of a mix: sha256 of the decoded 48 kHz stereo s16 PCM (the container and the picture do not matter) plus a 100 ms
+// level envelope so a change can be located and sized when the hash differs
+export function audioFingerprint(file) {
+  const r = spawnSync("ffmpeg", ["-v", "error", "-nostdin", "-i", file, "-vn", "-map", "0:a:0", "-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", "-f", "hash", "-hash", "sha256", "-"], { encoding: "utf8" });
+  const m = String(r.stdout || "").match(/SHA256=([0-9a-f]{64})/i);
+  const env = momentaryDb(decode(file), 0.1).map((v) => Math.round(v * 10) / 10);
+  return { pcm_sha256: m ? m[1].toLowerCase() : null, duration: r3(probeDuration(file)), env_100ms_db: env };
+}
+// locked vs now: identical hash, else the windows whose level moved by more than 0.5 dB (either side above -50 dB)
+export function compareFingerprint(lock, now) {
+  if (lock.pcm_sha256 && lock.pcm_sha256 === now.pcm_sha256) return { identical: true };
+  const a = lock.env_100ms_db || [], b = now.env_100ms_db || [];
+  const moved = [];
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const x = a[i] ?? -120, y = b[i] ?? -120;
+    if ((x > -50 || y > -50) && Math.abs(x - y) > 0.5) moved.push(i);
+  }
+  const spans = [];
+  for (const i of moved) { const l = spans[spans.length - 1]; if (l && i - l[1] <= 2) l[1] = i; else spans.push([i, i]); }
+  return { identical: false, duration_was: lock.duration, duration_now: now.duration, moved_windows: moved.length, spans_s: spans.slice(0, 8).map(([s, e]) => [r1(s * 0.1), r1((e + 1) * 0.1)]), only_encoding: !moved.length && Math.abs((lock.duration || 0) - (now.duration || 0)) < 0.05 };
+}
+
+// the speech cleanup chain for user footage (group2 11): rumble out, denoise, gate the room between words, mud cut, presence lift,
+// 3:1 compression, loudness. Order matters: denoise before the gate so the gate does not chop the noise floor's pumping.
+export function speechChain({ lufs = -16, denoise = true } = {}) {
+  return [
+    "highpass=f=80",
+    denoise ? "afftdn=nr=12:nf=-45:tn=1" : null,
+    "agate=threshold=0.015:ratio=2:attack=8:release=220:range=0.25",
+    "equalizer=f=250:t=q:w=1.2:g=-2.5",
+    "equalizer=f=3200:t=q:w=1:g=2",
+    "acompressor=threshold=-21dB:ratio=3:attack=12:release=180:makeup=3",
+    `loudnorm=I=${lufs}:TP=-1.5:LRA=9`,
+  ].filter(Boolean).join(",");
+}
+
+// BPM chosen from the picture's hit times (mortiflix idea): scan lo..hi, for each tempo the best grid phase, and keep the tempo whose
+// worst hit sits closest to a beat, as a fraction of the beat (so a fast tempo cannot win just by having more beats). Within `tie` of the best,
+// prefer a tempo inside `prefer` [a, b] (the style's range), nearest its middle.
+export function bpmFromHits(hits, { lo = 70, hi = 140, step = 0.5, prefer = null, tie = 0.02 } = {}) {
+  const hs = [...new Set(hits.filter((h) => Number.isFinite(h)).map((h) => Math.round(h * 1000) / 1000))].sort((a, b) => a - b);
+  if (hs.length < 3) return null;
+  const rows = [];
+  for (let bpm = lo; bpm <= hi + 1e-9; bpm += step) {
+    const beat = 60 / bpm;
+    let best = null;
+    for (const h0 of hs) {
+      const errs = hs.map((h) => { const r = (((h - h0) % beat) + beat) % beat; return Math.min(r, beat - r); });
+      const worst = Math.max(...errs);
+      if (!best || worst < best.worst) best = { worst, errs, phase: ((h0 % beat) + beat) % beat };
+    }
+    rows.push({ bpm, beat, worst: best.worst, frac: best.worst / beat, errs: best.errs, phase: best.phase });
+  }
+  const minFrac = Math.min(...rows.map((r) => r.frac));
+  const ok = rows.filter((r) => r.frac <= minFrac + tie);
+  const mid = prefer ? (prefer[0] + prefer[1]) / 2 : null;
+  const inP = prefer ? ok.filter((r) => r.bpm >= prefer[0] && r.bpm <= prefer[1]) : [];
+  const pool = inP.length ? inP : ok;
+  const pick = pool.sort((a, b) => (mid != null ? Math.abs(a.bpm - mid) - Math.abs(b.bpm - mid) : 0) || a.frac - b.frac)[0];
+  const runner = rows.filter((r) => Math.abs(r.bpm - pick.bpm) >= 3).sort((a, b) => a.frac - b.frac).slice(0, 2).map((r) => ({ bpm: r.bpm, max_err_ms: Math.round(r.worst * 1000) }));
+  return { bpm: pick.bpm, beat_s: r3(pick.beat), phase_s: r3(pick.phase), max_err_ms: Math.round(pick.worst * 1000), mean_err_ms: Math.round((pick.errs.reduce((a, b) => a + b, 0) / pick.errs.length) * 1000), hits: hs.length, per_hit_ms: pick.errs.map((e) => Math.round(e * 1000)), runners_up: runner };
+}
+
+// hit treatments (spotting table in references/sound.md): what the music and the sound do around a picture hit
+export const HIT_TREATMENTS = {
+  direct: "a music accent and the SFX land on the frame itself (measured offset under 40 ms)",
+  anticipation: "the bed pulls back (a rest, a filter dip or a riser) half a beat to one beat before, then the hit lands at full level",
+  aftermath: "the hit speaks alone on the frame; the music answers on the next beat (a swell, a tail, a low hit)",
+  "no-hit": "the picture moves and nothing sounds: a fade, a dissolve, a parallax, text easing in",
+};
+const TREAT_BY_KIND = [[/^(fade|dissolve|parallax|ambient|ease|wipe-soft)/i, "no-hit"], [/^(crash|slam|shock|glitch|smash|break)/i, "aftermath"], [/^(reveal|payoff|drop|turn|brand)/i, "anticipation"]];
+export function treatHits(hits, grid) {
+  return hits.map((h) => {
+    const t = Number(h.t), kind = String(h.kind || "hit");
+    const treatment = HIT_TREATMENTS[h.treatment] ? h.treatment : (TREAT_BY_KIND.find(([re]) => re.test(kind)) || [null, "direct"])[1];
+    const beat = grid ? grid.beat_s : null;
+    const off = beat ? (((t - grid.phase_s) % beat) + beat) % beat : null;
+    const err = off == null ? null : Math.min(off, beat - off) * (off <= beat - off ? 1 : -1);
+    return { t: r3(t), kind, treatment, beat_off_ms: err == null ? null : Math.round(err * 1000), spot: HIT_TREATMENTS[treatment], nudge_ms: err != null && Math.abs(err) > 0.06 ? -Math.round(err * 1000) : 0 };
+  });
+}
+
+// ---- sound from continuous picture curves (onetake idea: camera air scales with |d log zoom / dt|^1.3, brush noise with stroke speed)
+// A curve is {id, kind, log?, points:[[t, v]...]} or {t0, dt, v:[...]} in film seconds. Activity = |dv/dt|^1.3 (of ln v for a scale), scaled by its
+// own 95th percentile, smoothed (40 ms attack, 250 ms release). Still picture = silence.
+export function curvePoints(c) {
+  if (Array.isArray(c.points)) return c.points.map((p) => (Array.isArray(p) ? [Number(p[0]), Number(p[1])] : [Number(p.t), Number(p.v)])).filter((p) => p.every(Number.isFinite)).sort((a, b) => a[0] - b[0]);
+  if (Array.isArray(c.v) && c.dt > 0) return c.v.map((v, i) => [(Number(c.t0) || 0) + i * c.dt, Number(v)]).filter((p) => p.every(Number.isFinite));
+  return [];
+}
+export function curveActivity(c, { rate = 100 } = {}) {
+  const P = curvePoints(c);
+  if (P.length < 3) return null;
+  const log = c.log != null ? !!c.log : /zoom|scale|dive/i.test(String(c.kind));
+  const t0 = P[0][0], t1 = P[P.length - 1][0], n = Math.max(2, Math.ceil((t1 - t0) * rate));
+  const at = (t) => { let lo = 0, hi = P.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (P[m][0] <= t) lo = m; else hi = m; } const a = P[lo], b = P[hi]; const u = b[0] > a[0] ? Math.min(1, Math.max(0, (t - a[0]) / (b[0] - a[0]))) : 0; return a[1] + (b[1] - a[1]) * u; };
+  const f = (v) => (log ? Math.log(Math.max(1e-6, v)) : v);
+  const raw = [];
+  for (let i = 0; i < n; i++) { const t = t0 + i / rate; raw.push(Math.pow(Math.abs(f(at(t + 0.5 / rate)) - f(at(t - 0.5 / rate))) * rate, 1.3)); }
+  const sorted = [...raw].sort((a, b) => a - b), p95 = sorted[Math.floor(sorted.length * 0.95)] || 1e-9;
+  const aA = Math.exp(-1 / (0.04 * rate)), aR = Math.exp(-1 / (0.25 * rate));
+  let s = 0;
+  const act = raw.map((v) => { const x = Math.min(1, v / (p95 || 1e-9)); s = x > s ? aA * s + (1 - aA) * x : aR * s + (1 - aR) * x; return s; });
+  return { t0, t1, rate, act };
+}
+const TEXTURE_BY_KIND = [[/brush|draw|stroke|scribble|ink/i, "brush"], [/shake|impact|rumble|thrust/i, "rumble"]];
+// render one curve to a mono 48 kHz 16-bit WAV: seeded noise shaped by the activity (louder and brighter with speed), silent when still
+export function renderTexture(c, out, { sr = 48000, peak = 0.5 } = {}) {
+  const A = curveActivity(c);
+  if (!A || A.t1 - A.t0 < 0.2) return null;
+  const kind = (TEXTURE_BY_KIND.find(([re]) => re.test(String(c.kind))) || [null, "air"])[1];
+  const n = Math.round((A.t1 - A.t0) * sr), pcm = new Int16Array(n);
+  let h = 2166136261 >>> 0;
+  for (const ch of String(c.id || c.kind)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  let st = h || 1;
+  const rnd = () => { st ^= st << 13; st >>>= 0; st ^= st >>> 17; st ^= st << 5; st >>>= 0; return st / 2147483648 - 1; };
+  let lp = 0, hp = 0, grain = 0;
+  const hpC = Math.exp((-2 * Math.PI * (kind === "brush" ? 1200 : kind === "rumble" ? 20 : 250)) / sr);
+  for (let i = 0; i < n; i++) {
+    const a = A.act[Math.min(A.act.length - 1, Math.floor((i / sr) * A.rate))];
+    const w = rnd();
+    const lpC = Math.exp((-2 * Math.PI * (kind === "rumble" ? 180 : kind === "brush" ? 5000 + 2500 * a : 1500 + 3500 * a)) / sr);
+    lp = lpC * lp + (1 - lpC) * w;
+    hp = hpC * hp + (1 - hpC) * lp;
+    let v = lp - hp;
+    if (kind === "brush") { grain = 0.9995 * grain + 0.0005 * rnd(); v *= 0.6 + 4 * Math.abs(grain) ; }
+    const edge = Math.min(1, i / (0.02 * sr), (n - 1 - i) / (0.02 * sr));
+    const amp = a < 0.03 ? 0 : Math.pow(a, 0.8);
+    pcm[i] = Math.max(-32767, Math.min(32767, Math.round(v * 3 * amp * edge * peak * 32767)));
+  }
+  const hdr = Buffer.alloc(44);
+  hdr.write("RIFF", 0); hdr.writeUInt32LE(36 + n * 2, 4); hdr.write("WAVEfmt ", 8); hdr.writeUInt32LE(16, 16); hdr.writeUInt16LE(1, 20); hdr.writeUInt16LE(1, 22);
+  hdr.writeUInt32LE(sr, 24); hdr.writeUInt32LE(sr * 2, 28); hdr.writeUInt16LE(2, 32); hdr.writeUInt16LE(16, 34); hdr.write("data", 36); hdr.writeUInt32LE(n * 2, 40);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, Buffer.concat([hdr, Buffer.from(pcm.buffer)]));
+  const live = A.act.filter((v) => v >= 0.03).length / A.act.length;
+  return { texture: kind, start: r3(A.t0), duration_s: r3(A.t1 - A.t0), active_share: r3(live) };
 }

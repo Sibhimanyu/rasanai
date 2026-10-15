@@ -396,3 +396,91 @@ export function scoreFluency(res, { stillness = false } = {}) {
   if ((res.moves || 0) < MIN_MOVES) return { score: s, pass: null, insufficient: true, note: `only ${res.moves || 0} moves tracked (${MIN_MOVES} needed to judge)`, checks };
   return { score: s, pass: s != null && s >= PASS, checks };
 }
+
+// ---------------------------------------------------------------- pops and the loop seam
+// Idea from awesome-opus5-5-videos; our code. WARNINGS, uncalibrated (thresholds are first guesses, not tuned on films).
+// One pass over the film at its native fps (24 to 60) as 160 px grey frames. Per frame: the mean absolute change from the
+// frame before (d, in grey levels of 255), how that change splits over a 4x4 grid of cells, and how far the frame two
+// and three steps on has come back to the frame before (r1, r2: a pop is a change that undoes itself). The first two and
+// last two frames are kept for the loop seam.
+export const POP = {
+  floor: 8, // a step is "large" when it is at least this many grey levels of mean change ...
+  ratio: 6, // ... and at least this many times the local median of d over +-0.5 s
+  calm: 2.0, // the neighbourhood is calm when its median d is at most this
+  back: 0.35, // the frame after comes back when its distance from the frame before is under this share of the jump
+  cap: 12, // at most this many pops are listed
+  seam_frames: 3, // a jump within this many frames of a planned seam is a cut, not a pop
+};
+export const LOOP = { frame_mad: 3, ratio_lo: 0.5, ratio_hi: 2 }; // last vs first frame (grey levels); last step vs first step
+
+export async function scanFrames(file) {
+  const meta = probe(file);
+  const fps = Math.min(60, Math.max(24, Math.round(meta.fps || 30)));
+  const aw = 160, ah = Math.max(4, Math.round((meta.h * aw) / meta.w)), n = aw * ah;
+  const d = [0], cells = [new Float32Array(16)], r1 = [], r2 = [];
+  const ring = []; // the last four frames, newest last
+  let first = null, second = null, count = 0;
+  const mad = (a, b) => { let s = 0; for (let p = 0; p < n; p++) { const x = a[p] - b[p]; s += x < 0 ? -x : x; } return s / n; };
+  await decode(file, { fps, aw, ah }, (cur) => {
+    if (!first) first = cur; else if (!second) second = cur;
+    const prev = ring[ring.length - 1];
+    if (prev) {
+      const c = new Float32Array(16), cnt = new Float32Array(16);
+      let s = 0;
+      for (let y = 0; y < ah; y++) {
+        const row = Math.min(3, Math.floor((y * 4) / ah)) * 4;
+        for (let x = 0; x < aw; x++) { const o = y * aw + x, v = Math.abs(cur[o] - prev[o]), ci = row + Math.min(3, (x * 4 / aw) | 0); c[ci] += v; cnt[ci]++; s += v; }
+      }
+      for (let i = 0; i < 16; i++) c[i] = cnt[i] ? c[i] / cnt[i] : 0;
+      d.push(s / n); cells.push(c);
+    }
+    if (ring.length >= 2) r1.push(mad(cur, ring[ring.length - 2])); // index count-2 (the frame between): cur vs the frame before it
+    if (ring.length >= 3) r2.push(mad(cur, ring[ring.length - 3]));
+    ring.push(cur); if (ring.length > 4) ring.shift();
+    count++;
+  });
+  const last = ring[ring.length - 1], lastPrev = ring[ring.length - 2];
+  // r1[k] belongs to frame i = k + 1 (frame i+1 against frame i-1); r2[k] to frame i = k + 1 (frame i+2 against frame i-1)
+  return { fps, frames: count, d, cells, r1, r2, loop: count >= 4 ? { first_last: mad(first, last), step_first: mad(first, second), step_last: mad(lastPrev, last) } : null };
+}
+
+// pops: a thing that shows for 1 or 2 frames and goes away, in a calm stretch; and, when the seams are known,
+// a one-frame jump that is not on a planned seam (an unplanned cut). seamTimes: planned cut times in seconds.
+export function findPops(scan, { seamTimes = [] } = {}) {
+  const { fps, d, cells, r1, r2 } = scan, N = d.length, out = [];
+  const half = Math.max(2, Math.round(0.5 * fps));
+  const medAt = (i) => {
+    const w = [];
+    for (let k = Math.max(1, i - half); k <= Math.min(N - 1, i + half); k++) if (Math.abs(k - i) > 2) w.push(d[k]); // the pop's own steps do not count
+    if (!w.length) return 0;
+    w.sort((a, b) => a - b); return w[w.length >> 1];
+  };
+  const nearSeam = (i) => seamTimes.some((t) => Math.abs(i / fps - t) <= POP.seam_frames / fps + 1e-6);
+  const region = (i) => {
+    let best = 0; for (let c = 1; c < 16; c++) if (cells[i][c] > cells[i][best]) best = c;
+    const row = best >> 2, col = best & 3;
+    return `grid row ${row + 1}, column ${col + 1} of 4x4 (${["top", "upper-middle", "lower-middle", "bottom"][row]}, ${["left", "left-centre", "right-centre", "right"][col]})`;
+  };
+  const big = (v, med) => v >= Math.max(POP.floor, POP.ratio * med);
+  for (let i = 2; i < N - 3; i++) {
+    const med = medAt(i);
+    if (med > POP.calm || nearSeam(i)) continue;
+    // a one-frame blip: frame i differs from i-1 and the next step undoes it
+    if (big(d[i], med) && big(d[i + 1], med) && r1[i - 1] < POP.back * Math.min(d[i], d[i + 1])) { out.push({ i, frames: 1, t: i / fps, size: Math.min(d[i], d[i + 1]), region: region(i), kind: "blip" }); i += 2; continue; }
+    // a two-frame blip: frames i and i+1 differ from i-1 and i+2 comes back to it
+    if (big(d[i], med) && big(d[i + 2], med) && d[i + 1] < 0.5 * d[i] && r2[i - 1] < POP.back * Math.min(d[i], d[i + 2])) { out.push({ i, frames: 2, t: i / fps, size: Math.min(d[i], d[i + 2]), region: region(i), kind: "blip" }); i += 3; continue; }
+    // a one-frame jump that stays, with both neighbours calm, off every planned seam: an unplanned cut (only judged when seams are known)
+    if (seamTimes.length && big(d[i], med) && d[i - 1] <= Math.max(POP.calm, 2 * med) && d[i + 1] <= Math.max(POP.calm, 2 * med) && r1[i - 1] > 0.6 * d[i]) { out.push({ i, frames: 1, t: i / fps, size: d[i], region: region(i), kind: "jump" }); i += 2; }
+  }
+  return out.slice(0, POP.cap).map((p) => ({ ...p, t: Math.round(p.t * 100) / 100, size: Math.round(p.size * 10) / 10 }));
+}
+
+// the loop seam: the last frame against the first, and the speed into the last frame against the speed out of the first
+export function loopSeam(scan) {
+  const L = scan.loop;
+  if (!L) return null;
+  const r = (x) => Math.round(x * 100) / 100;
+  const both = L.step_first < 0.5 && L.step_last < 0.5; // both ends at rest: the speeds match
+  const ratio = both ? 1 : L.step_first > 1e-6 ? L.step_last / L.step_first : (L.step_last < 0.5 ? 1 : Infinity);
+  return { frame_diff: r(L.first_last), step_first: r(L.step_first), step_last: r(L.step_last), ratio: Number.isFinite(ratio) ? r(ratio) : null, frame_ok: L.first_last <= LOOP.frame_mad, motion_ok: ratio >= LOOP.ratio_lo && ratio <= LOOP.ratio_hi };
+}

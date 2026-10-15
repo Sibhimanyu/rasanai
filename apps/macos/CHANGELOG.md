@@ -2,6 +2,39 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **A render is never "Quiet".** While a render or encode runs on your Mac (finish, render, ffmpeg, HyperFrames or Remotion), the film reads "Rendering" with the time so far, for up to 90 minutes, and says that tokens and cost hold still until it finishes. The status bar and the director monitor no longer call it "No activity".
+- **One tracker while Claude works.** The five-call step capsule steps aside while the progress view is up; its phase list marks the phases that end in your call. The capsule returns for each call.
+- **Film cards keep their shape.** A portrait or square poster is cropped to fill the 16:9 card instead of making it taller.
+- **Heresay SDK 0.2.20.**
+- **Bundles RasanAI 1.18.0.**
+
+## 0.12.0 (build 29) — 2026-10-15
+
+- **The Studio shows the wave 8 data.** The decisions drawer keeps a history of the calls made, and shows what the film is "Working without" and the crew budget. Lessons can be dropped. The Final page has a Checks popover with the A/B verdicts and the gate numbers, and the film shows its real title.
+- **Bundles RasanAI 1.17.0:** one argument per film, motion from meaning.
+
+## 0.11.0 (build 28) — 2026-10-14
+
+- **Liquid Glass chrome.** The inspector, the film action bar and the five-call step capsule use the sidebar's own Liquid Glass, with its rounder corners. The stage no longer lights the glass, which replaces the stage-lit glass of 0.10.0.
+- **Pause freezes the film in place.** Nothing runs and no tokens are used. Resume carries on in the middle of the step, with nothing redone. Answering a question while paused carries it on, and quitting while paused stops the film cleanly.
+- **The Mac stays awake while a film is being made.** This is a setting, on by default. The screen can still sleep, and the Mac may sleep while the film is only waiting on you.
+- **Carries on after sleep.** Time spent asleep no longer reads as "Quiet", and an automatic resume that came due during sleep runs when the Mac wakes.
+- **A brief box that scrolls.** On Home and New film it grows to 12 lines, or 30% of the screen, and then scrolls instead of spilling over the page.
+
+## 0.10.0 (build 27) — 2026-10-14
+
+- **Glass that takes its light from the stage.** The inspector and the action bar glow with the edge colour and brightness of the frame beside them, live while the film plays. The glass is solid and has no tint of its own, so the desktop stays out of the text.
+- **The inspector is one sheet of glass.** Header, Notes and Decisions share one frosted surface, lit from above.
+- **Install Claude Code or Codex inside Studio.** Progress shows in the window, and Terminal opens only for sign-in. The Git notice is also on Welcome and rechecks by itself when Apple's tools arrive.
+- **A sidebar that shows where you are.** Icons say what each place holds, Queue sits in the one group after Needs review, and recent films are listed with a mark for their state. Navigation never bounces you Home.
+- **Suggested titles follow the brief.** The title is cleared with the brief and made again when it changes, and never replaces a name you typed.
+- **A steadier opening.** The splash frosts the whole window, leaves after its hold even if the library loaded during it, and never stays past 6 seconds.
+- **The film page says what is running.** It names the running agent, Resume is the main button when paused, and review notes can be skipped before Apply. Building, rendering or restoring without them asks first.
+- **Plainer words and smaller fixes.** New film puts the prompt first and says why Start is grey. Pace, Models and the story, look and build steps use plain words. Clicking a film card opens it again, and the help popover and step bar sit properly.
+
+
 ## 0.9.0 (build 26) — 2026-10-13
 
 - **Liquid Glass, built for real.** Studio is now built against the current macOS SDK, so macOS Tahoe draws its glass chrome itself instead of an imitation.

@@ -1,7 +1,7 @@
 import Foundation
 
 public enum DirectorHealthState: String, Codable, Sendable {
-    case starting, working, thinking, waitingForYou, quiet, possiblyLooping, finished, failed, stopped
+    case starting, working, thinking, waitingForYou, quiet, possiblyLooping, finished, failed, stopped, paused
 }
 
 public struct HealthThresholds: Equatable, Sendable {
@@ -39,12 +39,23 @@ public struct HealthContext: Sendable {
     public var lastConsoleUpdate: Date?
     /// Set when the process ended but the film was left unfinished (permission denials, or a quiet exit 0): shown as a failure.
     public var endedEarlyReason: String?
+    /// When the Mac last woke from sleep. Time asleep is not silence: every "how long since" measure starts no earlier than this.
+    public var lastWake: Date?
+    /// The director is frozen in place: it is alive but nothing runs and no tokens are used.
+    public var paused: Bool
     public init(now: Date = Date(), processRunning: Bool, hasStarted: Bool = true, exitCode: Int32? = nil, stopRequested: Bool = false,
-                awaitingUser: Bool = false, lastConsoleUpdate: Date? = nil, endedEarlyReason: String? = nil) {
+                awaitingUser: Bool = false, lastConsoleUpdate: Date? = nil, endedEarlyReason: String? = nil, lastWake: Date? = nil, paused: Bool = false) {
+        self.paused = paused
+        self.lastWake = lastWake
         self.endedEarlyReason = endedEarlyReason
         self.now = now; self.processRunning = processRunning; self.hasStarted = hasStarted; self.exitCode = exitCode
         self.stopRequested = stopRequested; self.awaitingUser = awaitingUser; self.lastConsoleUpdate = lastConsoleUpdate
     }
+}
+
+extension HealthContext {
+    /// `date`, or the last wake if that came later.
+    func since(_ date: Date) -> Date { lastWake.map { max(date, $0) } ?? date }
 }
 
 public struct DirectorHealth: Equatable, Sendable {
@@ -60,7 +71,7 @@ public struct DirectorHealth: Equatable, Sendable {
     public var isAlarming: Bool { state == .possiblyLooping || state == .failed }
 
     public static func evaluate(_ t: DirectorTelemetry, context c: HealthContext, thresholds th: HealthThresholds = HealthThresholds()) -> DirectorHealth {
-        let last = t.lastEventAt ?? t.sessionStartedAt
+        let last = (t.lastEventAt ?? t.sessionStartedAt).map { c.since($0) }
         let quiet = last.map { max(0, c.now.timeIntervalSince($0)) } ?? 0
         func make(_ state: DirectorHealthState, _ label: String, _ detail: String, loop: String? = nil, background: String? = nil) -> DirectorHealth {
             DirectorHealth(state: state, label: label, detail: detail, quietFor: quiet, loopReason: loop, background: background)
@@ -75,9 +86,10 @@ public struct DirectorHealth: Equatable, Sendable {
             }
             return make(.stopped, "Not running", "The director is not running.")
         }
+        if c.paused { return make(.paused, "Paused", "Paused. Nothing runs and no tokens are used until you resume.") }
         if !t.hasData { return make(.starting, "Starting", "The director is starting up. This usually takes under a minute.") }
         if c.awaitingUser {
-            if let work = backgroundWork(t, quiet: quiet, now: c.now, thresholds: th) {
+            if let work = backgroundWork(t, quiet: quiet, now: c.now, wake: c.lastWake, thresholds: th) {
                 return make(.waitingForYou, "Waiting for you", "Waiting for your call. Claude keeps working in the background meanwhile.", background: work)
             }
             return make(.waitingForYou, "Waiting for you", "The director is paused until you answer. It is not using tokens while it waits.")
@@ -89,7 +101,7 @@ public struct DirectorHealth: Equatable, Sendable {
             return make(.working, "Working", "The director is waiting for your reply.")
         }
         if let tool = t.toolInFlight, let since = t.toolInFlightSince {
-            let running = max(0, c.now.timeIntervalSince(since))
+            let running = max(0, c.now.timeIntervalSince(c.since(since)))
             let what = t.lastToolSummary ?? tool
             if t.toolInFlightIsLocalJob, running < th.localJobQuietAfter {
                 return make(.working, "Rendering", running < 30 ? what
@@ -113,10 +125,10 @@ public struct DirectorHealth: Equatable, Sendable {
 
     /// What the director is doing while it waits for the person, else nil. Its own console `wait` call and the push that
     /// opened the question are not work.
-    static func backgroundWork(_ t: DirectorTelemetry, quiet: TimeInterval, now: Date, thresholds th: HealthThresholds) -> String? {
+    static func backgroundWork(_ t: DirectorTelemetry, quiet: TimeInterval, now: Date, wake: Date? = nil, thresholds th: HealthThresholds) -> String? {
         if t.consoleWaitInFlight { return nil }
         let what = t.lastToolSummary ?? "Working"
-        if t.toolInFlight != nil, let since = t.toolInFlightSince, now.timeIntervalSince(since) < th.toolQuietAfter { return what }
+        if t.toolInFlight != nil, let since = t.toolInFlightSince, now.timeIntervalSince(wake.map { max(since, $0) } ?? since) < th.toolQuietAfter { return what }
         if t.modelCallInFlight, quiet < th.backgroundActiveWithin { return what }
         if quiet < th.backgroundActiveWithin, let kind = t.events.last?.kind, kind != .push, kind != .ask { return what }
         return nil
@@ -137,9 +149,9 @@ public struct DirectorHealth: Equatable, Sendable {
             for message in t.recentMessages.reversed() { if message == last { run += 1 } else { break } }
             if run >= th.repeatedMessages { return "It has said the same thing \(run) times in a row. It may be stuck." }
         }
-        let started = t.sessionStartedAt ?? t.firstEventAt ?? c.now
+        let started = c.since(t.sessionStartedAt ?? t.firstEventAt ?? c.now)
         let window = min(th.burnWindow, max(60, c.now.timeIntervalSince(started)))
-        let sinceConsole = c.now.timeIntervalSince(max(t.lastConsoleCallAt ?? started, c.lastConsoleUpdate ?? started, started))
+        let sinceConsole = c.now.timeIntervalSince(max(c.since(t.lastConsoleCallAt ?? started), c.since(c.lastConsoleUpdate ?? started), started))
         if sinceConsole >= th.burnNoPushAfter, c.now.timeIntervalSince(started) >= th.burnWindow {
             let used = t.freshTokens(since: c.now.addingTimeInterval(-window))
             let perMinute = Double(used) / (window / 60)

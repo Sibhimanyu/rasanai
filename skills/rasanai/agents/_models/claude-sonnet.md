@@ -26,6 +26,6 @@ The pose table you write first looks like this (a worked example for a UI card e
 | 0.40 | `#card` | y 540 to 470, scale 1.00 to 1.04 | `power3.out`, 0.7 s | primary mover: lifts on an arc |
 | 0.52 | `#total` | y +24 to 0, opacity 0 to 1 | `power2.out`, 0.5 s | secondary, 120 ms behind the card |
 | 1.80 | `#total` | counts 0 to 1,284 | `power4.out`, 1.1 s, tabular figures | lands on the beat at 2.9 s |
-| 2.90 | all | hold | none | 0.6 s + 0.4 s per word to read |
+| 2.90 | all | hold | none | 0.6 s + 0.3 s per word to read (`lib/reading.mjs` readTime) |
 
 Then build from the table, so every number in the file traces to a row. After building, read your own strips against the table.

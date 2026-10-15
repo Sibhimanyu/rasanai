@@ -1,0 +1,8 @@
+lemo-opuscar, by LemoLab (github.com/lemomo-ai/lemo-opuscar)
+
+RasanAI's `library/styles/` includes summaries, in RasanAI's own words, of the following style guides from lemo-opuscar (`styles/<slug>/STYLE.md`) and a 480 px copy of each style's `poster.jpg`:
+glass-product, dark-keynote, dataviz, blueprint, halftone-dossier, art-deco, ascii-crt, swiss-motion, living-screencast, hologram-hud, iso-infographic.
+
+lemo-opuscar is released under the MIT License, copyright (c) 2026 LemoLab (see LICENSE in this folder). Licence check, in the repository itself: the repo's LICENSE and the README ("Licence": "MIT licensed. Third-party assets in the demos keep their own licences (see each demo's CREDITS)") cover the code, the STYLE.md guides and the demo films alike. We found no separate CC BY 4.0 grant for the guides: CC BY 4.0 appears only as the licence of some third-party assets listed in individual demos' CREDITS (for example hd-2d's music and art), none of which we took. The posters are renders of each demo film (code-generated; the demos' CREDITS list fonts under the SIL Open Font License and fictional content).
+
+Not taken: any demo code, engines, audio, fonts, voices or third-party assets; the other 38 styles; DEMO.md files.

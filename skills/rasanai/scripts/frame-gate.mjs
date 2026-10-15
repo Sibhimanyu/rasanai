@@ -6,7 +6,7 @@
 //   node frame-gate.mjs (--stills <dir of PNG|JPG | a.png,b.png> [--html <dir of the same-named .html boards>]
 //                       | --video <film.mp4> [--fps 4]) [--project <videos/name>]
 //        [--brand-film <grammar.json | brand film .mp4 | frames dir>] [--write-brand <grammar.json>]
-//        [--kind launch|brand|explainer] [--density] [--json]
+//        [--kind launch|brand|explainer] [--density] [--plan <run>/motion/score.json] [--stillness] [--footage] [--json]
 //   -> per-frame and film metrics, findings (each with the number, the threshold and a fix);
 //      exit 0 clean (warnings allowed) · 2 errors · 1 could not run (never "clean")
 //
@@ -18,6 +18,14 @@
 // sample like lib/textfit.mjs): visible characters, readable lines, the biggest line as % of frame height (the
 // rendered line box x 0.82, which is what an OCR box of the glyphs measures), p90/p10 of the biggest line across the
 // film, frames with a line of 20% H or more, any 35% H moment, and the biggest object (img, canvas, video, svg).
+// Without --project / --html none of the DOM checks run (text-load, competing-heroes, scale-contrast, giant-moment,
+// no-peak-moment): the result says so in `skipped` and on screen, never silently.
+// Footage-led films (the plan's route is reel / talking-head-recut / embedded-captions, or the plan, brief or --footage says footage_led / footage: true) are exempt from
+// boldness: a talking head or a clip reel is never "bold" in this sense and live action would read as always bold (footageLed below; a skipped note says so).
+// Boldness (a video of 15 s or more; lib/pixels.mjs boldFrame): a frame is a big moment when it holds a giant glyph
+// (a letter, numeral or icon drawn 15% H or taller), an ink mass filling 40% of the frame, or a colour field (the
+// frame's own ground, covering 40% of it, is dE 20 or more from the film's main ground); with --project, also a DOM
+// line of 20% H or more. Grounds = the distinct ground colours held 3% of the film or longer.
 //
 // Thresholds (references/craft.md "Frame metrics"; R1 section 4 rounded to the reference films, calibrated in
 // .context/night/done-W2.md). A brand film's measured values replace them when given (--brand-film).
@@ -25,6 +33,8 @@
 //                                     measures exactly that; then the type-scale rules below are errors)
 //   soft-content    film soft-share p90 >= 0.15, or a blurred plane (soft share >= 0.15) in >= 15% of shots; skipped
 //                                     when the brand film never blurs (R1 asked 40% of shots: no reference reaches it)
+//   flat-swatch-grounds  more than 3 distinct flat grounds (9 sampled points under 6% luma range, Lab distance >= 8 apart) in a
+//                   film of 4+ shots: warning; 6 or more: error; waived when the brand film's ground is flat
 //   colourfulness   p90 >= 35 (warning)
 //   text-load       median characters on screen <= 40 (warning), > 70 (error)
 //   scale-contrast  p90/p10 of the biggest line >= 5, or object-scale p90/p10 >= 5
@@ -32,6 +42,12 @@
 //   giant-moment    >= 10% of frames with a line >= 20% H (warning below, error at 0 in a film of 20 s or more);
 //                   at least one moment >= 35% H (warning)
 //   cut-rhythm      average hard-cut shot <= 5 s on a launch film of 8 s or more (warning)
+//   boldness        big moments on >= 25% of the frames (refs 29 to 89%, Google 17%; FILM-D 54%, FILM-E 18%); an error,
+//                   a warning in a declared stillness or editorial style (--stillness, score stillness: true or
+//                   motion_style stillness|editorial, motion.md stillness: true). With a story/intent.json (found from --plan or
+//                   --project; lib/emphasis.mjs) the gate judges placement instead (`boldness-placement`, a WARNING, uncalibrated):
+//                   a big moment must sit in the `peak: true` beat and in at least half of the importance-3 beats, whatever the
+//                   film-wide share; the 25% share stays a floor only when there is no intent.json
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,7 +56,9 @@ import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
 import { launch } from "./lib/cdp.mjs";
 import { serve } from "./lib/stage3d.mjs";
 import { pagesOf, sizeOf } from "./lib/textfit.mjs";
-import { decodeStill, decodeVideo, frameMetrics, cutsAndCompositions, ffmpegOk, percentile as pct, median } from "./lib/pixels.mjs";
+import { decodeStill, decodeVideo, frameMetrics, boldFrame, cutsAndCompositions, ffmpegOk, rgbToLab, percentile as pct, median } from "./lib/pixels.mjs";
+import { noteDowngrade } from "./lib/downgrade.mjs";
+import { loadIntent, intentBeats } from "./lib/emphasis.mjs";
 
 export const GATE = {
   ground_chroma: 1.5, ground_range: 4, // R10
@@ -55,8 +73,41 @@ export const GATE = {
   min_line_pct: 0.8, // lines under 0.8% of the frame height are not readable (OCR floor in R1)
   min_opacity: 0.35, min_object_pct: 4, // an object counts as a hero candidate from 4% of the frame height
   hero_min_pct: 6, hero_ratio: 1.3, hero_share: 0.15, // competing-heroes: the two largest elements each >= 6% of the frame area and within 1.3x, in over 15% of the frames (11 built films: imago-launch 16% with a real headline-vs-card pair, every other film 7% or less)
+  swatch_grounds: 3, swatch_error: 6, swatch_de: 8, // flat swatch grounds: more than 3 distinct flat grounds (Lab distance >= 8) in a film of 4+ shots is a deck (warning), 6 or more an error; waived when the brand film's ground is flat
   unreadable_blur: 4, // text under a blur of this many px is not read (it counts for scale, not for load)
+  bold_share: 0.25, bold_min_dur: 15, // boldness: big moments on >= 25% of frames, films of 15 s or more (refs 29 to 89%: Sovra 29 is the floor; Google 17%; FILM-D 54%, FILM-E 18%)
+  bold_obj: 0.4, field_de: 20, field_near: 0.4, // a big moment: an ink mass >= 40% of the frame, or a colour field (the frame's ground covers >= 40% of it and is dE >= 20 from the main ground)
+  ground_near: 0.3, ground_min: 0.03, // a ground counts when it covers >= 30% of a frame, and toward the count of grounds when it holds >= 3% of the film (and 1 s)
 };
+
+// Boldness over a film's frames. rows: [{ t, gL, ga, gb, near, glyph, obj }] from boldFrame; domBig: optional [bool]
+// aligned (a DOM line >= 20% H). -> { bigShare, glyphShare, objShare, fieldShare, domShare, grounds, beats, beatsPer30,
+// glyphMax, beatTimes: [[t0, t1]], gap: [t0, t1] (the longest stretch without a big moment) }
+export function boldnessOf(rows, dur, domBig = null) {
+  const cl = [];
+  for (const r of rows) {
+    if (r.near < GATE.ground_near) continue;
+    let c = cl.find((c) => Math.hypot(c.L - r.gL, c.a - r.ga, c.b - r.gb) < GATE.field_de);
+    if (!c) { c = { L: r.gL, a: r.ga, b: r.gb, n: 0 }; cl.push(c); }
+    c.n++;
+  }
+  cl.sort((x, y) => y.n - x.n);
+  const m = cl[0], step = rows.length > 1 ? rows[1].t - rows[0].t : 0.25;
+  const grounds = cl.filter((c) => c.n >= Math.max(GATE.ground_min * rows.length, 1 / Math.max(step, 1e-3))).length;
+  const fl = rows.map((r, i) => {
+    const field = !!m && r.near >= GATE.field_near && Math.hypot(m.L - r.gL, m.a - r.ga, m.b - r.gb) >= GATE.field_de;
+    const glyph = r.glyph > 0, obj = r.obj >= GATE.bold_obj, dom = !!(domBig && domBig[i]);
+    return { t: r.t, glyph, obj, field, dom, big: glyph || obj || field || dom };
+  });
+  const share = (k) => r2(fl.filter((f) => f[k]).length / Math.max(1, fl.length));
+  const beatTimes = []; let gap = [0, 0], from = 0;
+  fl.forEach((f, i) => {
+    if (f.big && (i === 0 || !fl[i - 1].big)) { let j = i; while (j + 1 < fl.length && fl[j + 1].big) j++; if (j > i) beatTimes.push([r2(f.t), r2(fl[j].t + step)]); }
+    if (f.big) { if (f.t - from > gap[1] - gap[0]) gap = [r2(from), r2(f.t)]; from = f.t + step; }
+  });
+  if (dur - from > gap[1] - gap[0]) gap = [r2(from), r2(dur)];
+  return { bigShare: share("big"), glyphShare: share("glyph"), objShare: share("obj"), fieldShare: share("field"), domShare: domBig ? share("dom") : null, grounds, beats: beatTimes.length, beatsPer30: r1(30 * beatTimes.length / Math.max(dur, 1e-3)), glyphMax: r1(Math.max(0, ...rows.map((r) => r.glyph))), beatTimes, gap, flags: fl };
+}
 
 const r1 = (x) => (x == null || !Number.isFinite(x) ? null : Math.round(x * 10) / 10);
 const r2 = (x) => (x == null || !Number.isFinite(x) ? null : Math.round(x * 100) / 100);
@@ -278,7 +329,7 @@ const listStills = (spec) => {
 
 const slim = (m) => ({ groundRange: r1(m.groundRange), groundChroma: r2(m.groundChroma), emptyShare: r2(m.emptyShare), soft: r3(m.soft), colourful: r1(m.colourful), sat: r1(m.sat) });
 
-// opts: { stills | video, html (dir of boards), project, brandFilm, fps, kind, density, quiet }
+// opts: { stills | video, html (dir of boards), project, brandFilm, fps, kind, density, plan, stillness, quiet }
 // -> { ok, verdict, kind, dur, frames[], film{}, limits, findings[], skipped[], could_not_run[] }
 export async function measureFrames(opts = {}) {
   const res = { ok: false, verdict: "could not run", kind: null, dur: null, frames: [], film: null, limits: null, findings: [], skipped: [], could_not_run: [] };
@@ -290,7 +341,7 @@ export async function measureFrames(opts = {}) {
       if (!fs.existsSync(opts.video)) { res.could_not_run.push(`${opts.video} does not exist`); return res; }
       res.kind = "video";
       const fps = Number(opts.fps) || 4;
-      const d = await decodeVideo(path.resolve(opts.video), { fps, onFrame: (im) => { const m = frameMetrics(im); feats.push({ t: im.t, ...m }); } });
+      const d = await decodeVideo(path.resolve(opts.video), { fps, onFrame: (im) => { const m = frameMetrics(im); feats.push({ t: im.t, ...m, bold: boldFrame(im) }); } });
       res.dur = d.src.duration || feats.length / fps;
       times = feats.map((f) => f.t);
     } else if (opts.stills) {
@@ -326,6 +377,7 @@ export async function measureFrames(opts = {}) {
 
   // film metrics
   const film = { frames: feats.length };
+  let shotFrames = [];
   const flagsOf = (f, t) => {
     const fl = [];
     if (f.groundChroma != null && f.groundChroma < GATE.ground_chroma && f.groundRange != null && f.groundRange < GATE.ground_range) fl.push("flat-ground");
@@ -350,7 +402,25 @@ export async function measureFrames(opts = {}) {
     const inShot = (t, s) => t >= s[0] - 1e-6 && t < s[1] - 1e-6;
     film._shots = cc.shots.map((s) => Math.max(...feats.filter((f) => inShot(f.t, s)).map((f) => f.soft))).filter(Number.isFinite);
     film.shots = film._shots.length;
-  } else film._shots = feats.map((f) => f.soft); // a still is its own shot
+    shotFrames = cc.shots.map((s) => feats.filter((f) => inShot(f.t, s)));
+  } else { film._shots = feats.map((f) => f.soft); shotFrames = feats.map((f) => [f]); } // a still is its own shot
+  // flat swatch grounds (slop N4): a shot is a swatch when most of its frames are flat on 9 points; the film counts the
+  // distinct swatch colours (Lab distance of 8 or more apart)
+  {
+    const grounds = [];
+    let flatShots = 0;
+    for (const fr of shotFrames) {
+      const flat = fr.filter((f) => f.swatch && f.swatch.flat);
+      if (!fr.length || flat.length < 0.6 * fr.length) continue;
+      flatShots++;
+      const m = [0, 1, 2].map((k) => median(flat.map((f) => f.swatch.rgb[k])));
+      const lab = rgbToLab(m[0], m[1], m[2]);
+      if (!grounds.some((g) => Math.hypot(g[0] - lab[0], g[1] - lab[1], g[2] - lab[2]) < GATE.swatch_de)) grounds.push(lab);
+    }
+    film.flatShots = flatShots;
+    film.swatchGrounds = grounds.length;
+    film.swatchShots = shotFrames.length;
+  }
   film.softShotsShare = r2(film._shots.filter((v) => v >= GATE.soft_share).length / Math.max(1, film._shots.length));
   if (text) {
     const rows = text.filter(Boolean), big = rows.map((r) => r.bigPct), withText = big.filter((v) => v > 0);
@@ -371,6 +441,21 @@ export async function measureFrames(opts = {}) {
     film.objectMax = r1(Math.max(0, ...rows.map((r) => r.objPct)));
   }
   const shotsRaw = film._shots; delete film._shots; film.softShots = shotsRaw.length;
+  if (res.kind === "video") {
+    const b = boldnessOf(feats.map((f) => ({ t: f.t, ...f.bold })), res.dur, text ? text.map((r) => !!r && r.bigPct >= GATE.giant_h) : null);
+    film.boldness = b;
+    // where the intent puts the big moments: the peak beat and the importance-3 beats (story/intent.json; none -> the share floor below)
+    const intent = await loadIntent({ plan: opts.plan, project: opts.project }).catch(() => null);
+    if (intent) {
+      let pb = []; try { if (opts.plan) pb = (await import("./motion-gate.mjs")).readPlan(path.resolve(opts.plan)).beats || []; } catch {}
+      const want = intentBeats(intent, pb).filter((x) => (x.peak || x.importance === 3) && x.start != null && x.end != null);
+      if (want.length) {
+        const rows = want.map((x) => ({ beat: x.id, peak: x.peak, importance: x.importance, t0: r2(x.start), t1: r2(x.end), big: b.flags.some((f) => f.big && f.t >= x.start - 1e-6 && f.t < x.end + 1e-6) }));
+        b.placed = { intent: path.basename(intent._file || "intent.json"), beats: rows, peakCovered: rows.filter((x) => x.peak).every((x) => x.big), covered: rows.filter((x) => x.big).length };
+      }
+    }
+    delete b.flags;
+  }
   res.film = film;
 
   // brand film
@@ -399,6 +484,14 @@ export async function measureFrames(opts = {}) {
     add("warning", "flat-ground-unproven", `flat ground (chroma ${film.groundChroma}, L* range ${film.groundRange}) is allowed by the brand film, but without DOM text the type-scale rules that must carry it were not measured`, `run again with --project <videos/name> (a film) or --html <boards dir> (stills)`);
   }
 
+  // flat swatch grounds: a colour per scene is a deck. Adapted from motionmaxxing (Apache-2.0, Tejas Makwana), references/slop.md N4.
+  // A warning above 3 distinct flat grounds (the lead: a colour change can be a deliberate flood), an error from 6 (every scene
+  // its own plateau). Waived when the brand film measures a flat ground itself, as the ground rules above are.
+  if (film.swatchShots >= 4) {
+    if (L.flat) res.skipped.push(`flat swatch grounds: waived, the brand film's ground is flat (${film.swatchGrounds} distinct flat grounds measured)`);
+    else if (film.swatchGrounds > GATE.swatch_grounds) add(film.swatchGrounds >= GATE.swatch_error ? "error" : "warning", "flat-swatch-grounds", `${film.swatchGrounds} distinct flat grounds in ${film.swatchShots} shots (${film.flatShots} shots are a plain colour on 9 sampled points; more than ${GATE.swatch_grounds} reads as a deck of colour plateaus)`, `give the scenes a surface from the capture (a plate, product screen, material or lit ground) instead of a flat colour per scene; keep a flat colour only for a flood or dive under 1 s, or measure the brand film (--brand-film) if its own films are flat; references/craft.md Frame metrics`, { value: film.swatchGrounds, limit: GATE.swatch_grounds });
+  }
+
   // soft content (R9)
   if (L.neverBlurs) res.skipped.push("soft content: the brand film never blurs");
   else if (film.softP90 >= L.softP90 || film.softShotsShare >= GATE.soft_shots) { /* depth: a blurred plane in enough of the film */ }
@@ -411,8 +504,29 @@ export async function measureFrames(opts = {}) {
   // cut rhythm (R17)
   if (res.kind === "video" && dur >= GATE.asl_min_dur && film.aslS > GATE.asl_s && film.compositionsPer10s < GATE.comp_rate && !/^(brand|explainer)/i.test(opts.kind || "")) add("warning", "cut-rhythm", `average hard-cut shot ${film.aslS} s and ${film.compositionsPer10s} composition changes per 10 s (a launch film cuts at ${GATE.asl_s} s or less, or keeps changing composition inside its long shots: ${GATE.comp_rate} per 10 s; ${film.hardCuts} hard cuts in ${r1(dur)} s)`, `cut to a contrasting ground or size at least every 4 s, or make the in-frame transformations clear changes of composition; ${seeCraft}`, { value: film.aslS, limit: GATE.asl_s });
 
+  // boldness: enough big moments (a giant glyph, a frame-filling mass, a colour field) for a film of 15 s or more
+  const bd = film.boldness;
+  const fl = footageLed(opts);
+  if (fl) res.skipped.push(`boldness: a footage-led film (${fl}): live action is not measured for big moments`);
+  else if (res.kind !== "video") res.skipped.push("boldness: measured on a film (--video), not on stills");
+  else if (dur < GATE.bold_min_dur) res.skipped.push(`boldness: the film is ${r1(dur)} s (measured from ${GATE.bold_min_dur} s)`);
+  else if (bd.placed) {
+    // judged by placement: the big moments sit on the peak and the importance-3 beats; the film-wide share is not a quota
+    const p = bd.placed, miss = p.beats.filter((x) => !x.big), need = Math.ceil(p.beats.length / 2), ok = p.peakCovered && p.covered >= need;
+    if (!ok) add("warning", "boldness-placement", `no big moment on ${miss.map((x) => `beat ${x.beat}${x.peak ? " (the peak)" : ""} ${x.t0}-${x.t1} s`).join(", ")} (${p.covered} of ${p.beats.length} peak/importance-3 beats are big; the peak must be, and at least half of them); big moments cover ${Math.round(bd.bigShare * 100)}% of the frames`, `put the giant glyph, frame-filling object or colour field on those beats (the payoff word or number at 20 to 40% H, a push-in until it fills 40%, a full-frame brand field); not elsewhere (references/craft.md Boldness; story/intent.json)`, { value: p.covered, limit: need, beats: miss.map((x) => x.beat) });
+  } else if (bd.bigShare < GATE.bold_share) {
+    let stillness = opts.stillness == null ? null : !!opts.stillness;
+    if (stillness == null) {
+      const plan = opts.plan ? readJ(path.resolve(opts.plan)) : null;
+      let md = ""; try { md = opts.project ? fs.readFileSync(path.join(path.resolve(opts.project), "motion.md"), "utf8") : ""; } catch {}
+      stillness = !!(plan && (plan.stillness === true || /^(stillness|editorial)$/i.test(plan.motion_style || ""))) || /^stillness:\s*true\b/m.test(md);
+    }
+    const pc = (v) => `${Math.round((v || 0) * 100)}%`;
+    add(stillness ? "warning" : "error", "boldness", `big moments on ${pc(bd.bigShare)} of the frames (needs >= ${pc(GATE.bold_share)}; the references 29 to 89%): giant glyph ${pc(bd.glyphShare)}, frame-filling object ${pc(bd.objShare)}, colour field ${pc(bd.fieldShare)}${bd.domShare != null ? `, DOM line >= ${GATE.giant_h}% H ${pc(bd.domShare)}` : ""}; ${bd.grounds} ground${bd.grounds === 1 ? "" : "s"}; the longest stretch without one is ${bd.gap[0]}-${bd.gap[1]} s${stillness ? " (a declared stillness style: a warning)" : ""}: the film stays at one scale`, `make about one beat in four big: the payoff word or number at 20 to 40% H (cropped is fine), a push-in until the object fills 40% of the frame, or a cut to a full-frame field of the brand colour; the big one belongs in ${bd.gap[0]}-${bd.gap[1]} s; references/craft.md Boldness`, { value: bd.bigShare, limit: GATE.bold_share, gap: bd.gap });
+  }
+
   // DOM text
-  if (!text) res.skipped.push(res.kind === "video" ? "text load, scale contrast, giant moments: give --project <videos/name> (DOM text metrics)" : "text load, scale contrast, giant moments: give --html <dir of the boards> next to --stills");
+  if (!text) res.skipped.push(res.kind === "video" ? "DOM checks not run (text-load, competing-heroes, scale-contrast, giant-moment, no-peak-moment): give --project <videos/name>" : "DOM checks not run (text-load, competing-heroes, scale-contrast, giant-moment, no-peak-moment): give --html <dir of the boards> next to --stills");
   else {
     const dense = !!opts.density;
     if (film.charsMedian > L.charsError && !dense) add("error", "text-load", `median ${film.charsMedian} characters on screen (error above ${r1(L.charsError)}; the references carry 12 to 60): the picture is a screenful of UI and copy, not a hero`, `one component, 3 to 6x scale, 1 to 2 lines of real labels, at most ~30 characters outside one declared density shot; crop the rest (R4)`, { value: film.charsMedian, limit: r1(L.charsError) });
@@ -436,7 +550,8 @@ function printable(res) {
   const f = res.film, out = [];
   out.push(`frame gate: ${res.verdict}${res.kind === "video" ? ` · ${f.durS} s, ${f.frames} frames sampled` : ` · ${f.frames} stills`}`);
   const row = (k, v, u = "") => v == null ? "" : `${k} ${v}${u}`;
-  out.push("  pixels  " + [row("ground chroma", f.groundChroma), row("ground L* range", f.groundRange), row("empty", Math.round(f.emptyShare * 100), "%"), row("soft p90", f.softP90), row("soft shots", Math.round(f.softShotsShare * 100), "%"), row("colourful p90", f.colourfulP90), row("sat", f.satMedian, "%")].filter(Boolean).join(" · "));
+  out.push("  pixels  " + [row("ground chroma", f.groundChroma), row("ground L* range", f.groundRange), row("empty", Math.round(f.emptyShare * 100), "%"), row("soft p90", f.softP90), row("soft shots", Math.round(f.softShotsShare * 100), "%"), row("colourful p90", f.colourfulP90), row("sat", f.satMedian, "%"), row("flat grounds", f.swatchGrounds)].filter(Boolean).join(" · "));
+  if (f.boldness) { const b = f.boldness, pc = (v) => `${Math.round(v * 100)}%`; out.push("  bold    " + [row("big moments", pc(b.bigShare)), row("glyph", pc(b.glyphShare)), row("object", pc(b.objShare)), row("field", pc(b.fieldShare)), b.domShare != null ? row("DOM line", pc(b.domShare)) : "", row("grounds", b.grounds), row("beats", b.beats), b.placed ? row("peak/imp-3 beats big", `${b.placed.covered}/${b.placed.beats.length}`) : "", row("longest without", `${b.gap[0]}-${b.gap[1]}`, " s")].filter(Boolean).join(" · ")); }
   if (res.kind === "video") out.push("  cuts    " + [row("hard cuts", f.hardCuts), row("ASL", f.aslS, " s"), row("compositions/10 s", f.compositionsPer10s)].filter(Boolean).join(" · "));
   if (f.charsMedian != null) out.push("  text    " + [row("competing heroes", f.competingShare == null ? null : Math.round(f.competingShare * 100), "% of frames"), row("chars", f.charsMedian), row("lines", f.linesMedian), row("biggest p90", f.biggestP90, "% H"), row("p90/p10", f.biggestRatio), row("max", f.biggestMax, "% H"), row("frames >= 20% H", Math.round(f.share20 * 100), "%"), row("object p90/p10", f.objectRatio)].filter(Boolean).join(" · "));
   if (res.limits.notes.length) for (const n of res.limits.notes) out.push(`  note    ${n}`);
@@ -446,24 +561,39 @@ function printable(res) {
   return out.join("\n");
 }
 
+// a footage-led film: --footage, the plan's route (reel, talking-head-recut, embedded-captions) or its footage / footage_led flag, the run's brief.json route -> a reason string, else null
+export const FOOTAGE_ROUTES = ["reel", "talking-head-recut", "embedded-captions", "footage"];
+export function footageLed(opts = {}) {
+  if (opts.footage) return "--footage";
+  const plan = opts.plan ? readJ(path.resolve(opts.plan)) : null;
+  const flagged = (o) => o && (o.footage_led === true || o.footage === true || (o.footage && typeof o.footage === "object" && !Array.isArray(o.footage) && Object.keys(o.footage).length > 0));
+  if (flagged(plan)) return "the plan's footage flag";
+  if (plan && FOOTAGE_ROUTES.includes(String(plan.route || ""))) return `the plan's route ${plan.route}`;
+  const run = opts.plan ? path.dirname(path.dirname(path.resolve(opts.plan))) : null, brief = run ? readJ(path.join(run, "brief.json")) : null;
+  if (flagged(brief)) return "the brief's footage flag";
+  if (brief && FOOTAGE_ROUTES.includes(String(brief.route || ""))) return `the brief's route ${brief.route}`;
+  return null;
+}
+
 async function main() {
   const args = parseArgs();
   const str = (v) => (v == null || v === true ? null : String(v));
   if (!args.stills && !args.video) {
-    process.stderr.write("usage: node frame-gate.mjs (--stills <dir|a.png,b.png> [--html <boards dir>] | --video <film.mp4>) [--project <dir>] [--brand-film <grammar.json|film.mp4>] [--write-brand <grammar.json>] [--kind launch] [--density] [--json]\n");
+    process.stderr.write("usage: node frame-gate.mjs (--stills <dir|a.png,b.png> [--html <boards dir>] | --video <film.mp4>) [--project <dir>] [--brand-film <grammar.json|film.mp4>] [--write-brand <grammar.json>] [--kind launch] [--density] [--plan <score.json>] [--stillness] [--json]\n");
     process.exit(1);
   }
-  const res = await measureFrames({ stills: str(args.stills), video: str(args.video), html: args.html, project: str(args.project), brandFilm: str(args["brand-film"]), fps: Number(args.fps) || 4, kind: str(args.kind), density: !!args.density });
+  const res = await measureFrames({ stills: str(args.stills), video: str(args.video), html: args.html, project: str(args.project), brandFilm: str(args["brand-film"]), fps: Number(args.fps) || 4, kind: str(args.kind), density: !!args.density, plan: str(args.plan), stillness: args.stillness ? true : null, footage: !!args.footage });
   if (args["write-brand"] && res.film) {
     const p = path.resolve(String(args["write-brand"])), g = readJ(p) || {};
     g.frameMetrics = { groundChroma: res.film.groundChroma, groundRange: res.film.groundRange, softP90: res.film.softP90, colourfulP90: res.film.colourfulP90, charsMedian: res.film.charsMedian ?? null, measuredFrom: str(args.video) || str(args.stills) };
     fs.mkdirSync(path.dirname(p), { recursive: true });
     fs.writeFileSync(p, JSON.stringify(g, null, 2));
   }
+  for (const c of res.could_not_run) noteDowngrade({ run: args.run, what: "the frame gate", instead: "no frame check", why: String(c).slice(0, 200), impact: "this film's frames were not measured" });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else if (res.film) console.log(printable(res));
   else for (const c of res.could_not_run) console.error(`frame gate could not run: ${c}`);
   process.exit(res.findings.some((f) => f.severity === "error") ? 2 : res.could_not_run.length && !res.film ? 1 : res.could_not_run.length ? 1 : 0);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) main().catch((e) => { console.error(`frame gate could not run: ${e.message}`); process.exit(1); });
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) main().catch((e) => { noteDowngrade({ what: "the frame gate", instead: "no frame check", why: String(e.message).slice(0, 200), impact: "this film's frames were not measured" }); console.error(`frame gate could not run: ${e.message}`); process.exit(1); });

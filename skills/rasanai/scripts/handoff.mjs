@@ -13,6 +13,9 @@
 //
 // usage: node handoff.mjs --decisions <scratch>/decisions.json [--workspace .] [--dry-run]
 //        node handoff.mjs --decisions ... --revise --reopen look,motion   (existing project)
+//        node handoff.mjs --decisions <scratch>/decisions.json --prompt [--out <file>]
+//          (no project is made: the chosen plan becomes ONE paste-able markdown prompt for another coding agent, printed to
+//           stdout or written to --out. Sections: Inputs, Direction, Structure, Build, Gotchas, Start. Idea from awesome-opus5-5-videos; our wording.)
 // decisions.json format: references/handoff.md
 import fs from "node:fs";
 import path from "node:path";
@@ -41,6 +44,61 @@ for (const k of ["motion", "keyframes"]) if (D[k]) D[k] = resolveIn(D[k]);
 if (D.look && D.look.frame) D.look.frame = resolveIn(D.look.frame);
 if (D.look && D.look.design_md) D.look.design_md = resolveIn(D.look.design_md);
 if (D.direction) D.direction = resolveIn(D.direction);
+// ---- --prompt: the chosen plan as one paste-able markdown prompt (writes nothing else, makes no project)
+if (args.prompt) {
+  const dirOf = path.dirname(path.resolve(args.decisions));
+  const tryJSON = (rels) => { for (const r of rels) { const f = path.join(dirOf, r); if (fs.existsSync(f)) { try { return readJSON(f); } catch { /* next */ } } } return null; };
+  let M = {};
+  try { if (D.motion && fs.existsSync(D.motion)) M = readFrontmatterDoc(fs.readFileSync(D.motion, "utf8")).fields || {}; } catch { /* the prompt still works without motion.md */ }
+  const score = tryJSON(["motion/score.json", "score.json"]);
+  const rawBeats = D.scenes || D.beats || (score && (score.beats || score.scenes)) || (tryJSON(["scenes.json"]) || {}).scenes || [];
+  const beats = (Array.isArray(rawBeats) ? rawBeats : []).map((b, i) => ({ id: b.id || `b${i + 1}`, start: b.start != null ? Number(b.start) : null, end: b.end != null ? Number(b.end) : null, dur: b.duration != null ? Number(b.duration) : null, line: b.line || b.voiceover || b.on_screen || b.title || "", picture: b.picture || b.visual || "" }));
+  let at = 0;
+  for (const b of beats) { if (b.start == null) b.start = at; if (b.end == null) b.end = b.start + (b.dur || 0); at = b.end; }
+  const fmt = (x) => (Math.round(x * 100) / 100) + " s";
+  const asp = D.aspect || "16:9", len = Number(D.length_s) || (beats.length ? beats[beats.length - 1].end : 0);
+  const look = D.look ? (D.look.preset ? `the ${D.look.preset} preset` : D.look.design_md ? "the brand's own DESIGN.md" : "the frame spec in frame.md") : "";
+  const lookText = (() => { const f = D.look && (D.look.frame || D.look.design_md); try { return f && fs.existsSync(f) ? fs.readFileSync(f, "utf8").trim().slice(0, 1800) : ""; } catch { return ""; } })();
+  const banned = [...(M.banned || []), "a stock fade-up on everything", "one ease or one duration for most moves", "an even stagger", "idle loops that fill time", "invented UI words, numbers or features"];
+  const L = [];
+  L.push(`# Build the film "${D.project || D.content || "untitled"}"`, "", "Paste this whole prompt into your coding agent. It builds one video as a web page you can scrub, then renders it.", "");
+  L.push("## Inputs", "", "Ask me for each of these first. If I leave one blank, use the default shown.", "");
+  L.push(`- What the video is about: ${D.content || "(ask)"}. Default: that text, verbatim.`);
+  L.push(`- The one line it must land: ${D.message || D.sub || "(ask)"}. Default: that line.`);
+  L.push(`- Where it plays: ${D.destination || "the website"}. Default: the website.`);
+  L.push(`- Size: ${asp}. Default: 16:9.`);
+  L.push(`- Length: ${len ? fmt(len) : "set from the content"}. Default: ${len ? fmt(len) : "the sum of the beats below"}.`);
+  L.push(`- Voiceover: ${D.narration === false ? "none" : "yes"}. Default: ${D.narration === false ? "none" : "yes"}.`, "");
+  L.push("## Direction", "");
+  if (D.concept && (D.concept.title || D.concept.text)) L.push(`- Story: ${[D.concept.title, D.concept.text].filter(Boolean).join(". ")}`);
+  L.push(`- Look: ${look || "decide from the subject, then keep one palette, one type pairing and one light direction for the whole film"}.`);
+  if (lookText) L.push("", "Look notes:", "", lookText.split("\n").map((l) => "> " + l).join("\n"), "");
+  if (M.easing) L.push(`- Motion language: enter ${M.easing.enter}, exit ${M.easing.exit}, move ${M.easing.move}. Use a different curve for each role.`);
+  L.push("- Motion rules: give every move its own duration from how far it travels; start the next gesture while the last is still settling; every primary mover has a secondary a few frames behind it; one landing in about eight overshoots a little, never body text; a travel longer than a tenth of the frame bends along an arc.");
+  L.push(`- Banned: ${banned.join("; ")}.`, "");
+  L.push("## Structure", "", beats.length ? "Beats on the grid, in film seconds (do not change their order or times):" : "No beat map was in the plan: propose one (a hook inside 2 s, the proof, the turn, the end card) and show it before building.", "");
+  beats.forEach((b, i) => L.push(`${i + 1}. ${fmt(b.start)} to ${fmt(b.end)}: ${b.line || "(no line)"}${b.picture ? " | picture: " + b.picture : ""}`));
+  L.push("");
+  L.push("## Build", "",
+    "- One HTML page; every visual is a pure function of the film time, `seek(t)`. No `requestAnimationFrame`, no wall clock, no `Math.random` (use a seeded hash).",
+    "- Springs in closed form (critically damped: 1 - (1 + wt) e^(-wt)), never stepped frame to frame; a retargeted value adds a second response so its velocity carries on.",
+    "- Render at the fps of the final film. Fast moves get subframe motion blur: average 4 subframes across the shutter, 8 on a whip. Text being read is never blurred.",
+    "- Render rules: write frames from the same `seek(t)`, encode with ffmpeg, mux the audio last. Draft at half size first.", "");
+  L.push("## Gotchas", "",
+    "- Every canvas helper saves and restores alpha and transform.",
+    "- A flood circle that covers the frame becomes a full-frame rectangle.",
+    "- A morph runs inside the same camera transform as the scene it leaves.",
+    "- Counters, clocks and typed digits read the frame's own time (floor to the frame), so blur never smears them.",
+    "- Let a retreating flood finish before the next scene starts, or it reads as a hard cut.",
+    "- A line holds still for its reading time (0.6 s + 0.3 s per word, 1.2 s at least) before any decorative travel.",
+    "- Zoom in log space; never zoom into an off-centre point (open it as an iris); never zoom in and straight back out.",
+    "- Check for one-frame pops, and on a loop, that the last frame meets the first.", "");
+  L.push("## Start", "", "Ask me for the inputs above. Then show the beat map and 6 stills (one per key beat) before rendering anything. Render only after I say the stills are right.", "");
+  const text = L.join("\n");
+  if (args.out) { writeFile(path.resolve(args.out), text); console.log(JSON.stringify({ prompt: path.resolve(args.out), beats: beats.length, chars: text.length })); }
+  else process.stdout.write(text);
+  process.exit(0);
+}
 const ROUTES = ["motion-graphics", "general-video", "product-launch-video", "faceless-explainer", "music-to-video", "pr-to-video"];
 
 for (const k of ["project", "content", "message", "motion"]) if (!D[k]) die(`decisions.json is missing "${k}"`);

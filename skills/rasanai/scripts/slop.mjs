@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The anti-slop gate: checks a built film for the tells viewers read as generic AI video, before the render
 // question (next to obey.mjs, which checks the motion contract). Evidence: /references/craft.md "Anti-slop".
-//   node slop.mjs --project videos/<name> [--scenes <scenes.json>] [--video <render.mp4>] [--style <preset id>] [--run <run>] [--score <score.json>] [--json]
+//   node slop.mjs --project videos/<name> [--scenes <scenes.json>] [--video <render.mp4>] [--style <preset id>] [--format reel] [--run <run>] [--score <score.json>] [--no-text-fit] [--no-chrome] [--chrome-allow <rule ids>] [--json]
 // Hero effects (glow, blur-in, particles) are budgets, not bans: allowed on the hero up to the score's `budget`
 // (lib/budget.mjs); the same effect on every element is the error.
 // With a brand (the run's research/brand/assets/, found from --run, from "<run>/frames", or from the project's
@@ -11,15 +11,26 @@
 // at 10 fps (rule "text-cropped": a line that crosses the frame edge for more than 0.4 s, or sits outside the 6% safe
 // area at rest; lib/textfit.mjs; --no-text-fit skips it). The same pass reads line blocks: "text-too-brief" (a statement-size
 // line of 3+ words readable for less than 0.6 s + 0.3 s per word; data-read="skim" opts out) and "text-overlap" (two readable
-// lines on top of each other for 0.3 s or more; data-overlap="ok" opts out). Exit 0 = clean or warnings only; 2 = problems to fix (each with a fix); 1 = could not run.
+// lines on top of each other for 0.3 s or more; data-overlap="ok" opts out). Cut rhythm: "uniform-shots" (scene-length variation under
+// 0.2) and "narrow-rhythm" (5+ shots, longest under 4x the shortest, end card, flashes under 0.4 s and shots whose length is set by reading time left out), the second also
+// measured on the render's hard cuts (lib/carry.mjs) when --video is given; both are warnings.
+// Hook (warnings, uncalibrated; lib/textfit.mjs + the render): "slow-hook" when the first readable line or the first big picture / UI / brand mark (the DOM, sampled to 3 s) is later than 2 s, or the
+// render's first motion (--video: frame change in the first 2.5 s) is later than 0.5 s; "black-open" when the render opens on black for 0.2 s or more. "number-not-in-ledger": a number shown on screen (not in a data-ui
+// mock; plain integers 10 and under, years and times left out) that is in none of the run's research claims (research/claims.json, *.claims.json), truth sheet, chosen script, intent or brief.json (found from --run or --score).
+// "subject-lost": a data-hero / the score's hero element id leaves the safe area while the camera moves (lib/textfit.mjs).
+// The same headless pass reads the page chrome (rules kicker-over-headline, deck-layout, typed-headline, vibe-*, chapter-counter, progress-hairline, tracked-caps-label, corner-brackets, header-footer-bar, corner-micro-label, pinned-element: lib/chrome-lint.mjs; --no-chrome skips it). Exit 0 = clean or warnings only; 2 = problems to fix (each with a fix); 1 = could not run. Exit 0 = clean or warnings only; 2 = problems to fix (each with a fix); 1 = could not run.
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { parseArgs, die } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
 import { readLogos, scanLogos } from "./lib/logos.mjs";
-import { textFit } from "./lib/textfit.mjs";
+import { textFit, unknownNumbers, knownNumbers } from "./lib/textfit.mjs";
+import { chromeLint } from "./lib/chrome-lint.mjs";
+import { readTime, wordCount } from "./lib/reading.mjs";
 import { readBudget, budgetFor, budgetLimit } from "./lib/budget.mjs";
+import { decodeGrey, findCuts } from "./lib/carry.mjs";
+import { sfxMode, sfxLimit, sfxOver } from "./lib/audio.mjs";
 
 const args = parseArgs();
 track("Checking for generic AI-video tells", "Slop check done");
@@ -76,8 +87,11 @@ const hue = (hex) => { const n = parseInt(hex.slice(1).padEnd(6, "0").slice(0, 6
 const aiGrad = grads.filter((g) => { const hs = (g.match(/#[0-9a-f]{6}/gi) || []).map(hue).filter((x) => x >= 0); return hs.some((x) => x >= 250 && x <= 300) && hs.some((x) => x >= 190 && x < 250); });
 if (aiGrad.length && !/aurora|holographic|y2k|vapor|synth/.test(style)) add("ai-gradient", "error", `${aiGrad.length} purple-to-blue gradient(s)`, "Purple-blue gradients are the default 'AI' look.", "Use the style's palette: flat fields, one accent, or a gradient within one hue family.");
 if (/lens-?flare|flare\.png/i.test(allCode)) add("lens-flare", "warn", "lens flare", "Lens flares read as template decoration.", "Remove it.");
-const cornerLabels = visible.filter(({ t }) => /^(\d{1,2}:\d{2}(:\d{2})?|\d{2,3}\s?bpm|rec\s?●?|sys\b|v\d\.\d)/i.test(t)).length;
-if (cornerLabels >= 2 && !/hud|fui|terminal|telemetry|broadcast|vhs/.test(style)) add("corner-labels", "error", `${cornerLabels} timecode/BPM-style labels`, "Corner labels with timecodes and BPM are now a recognised Opus-showreel tell.", "Remove them unless the style is a HUD/broadcast style that means it.");
+// Corner labels have ONE rule name, corner-micro-label (lib/chrome-lint.mjs measures it in the rendered DOM). The timecode/BPM-style
+// strings found in the source are only a second way to see the same thing: section 5c merges them into that finding (or, when the
+// page-chrome pass did not run, reports them under the same name), so no element is reported twice.
+const hudStyle = /hud|fui|terminal|telemetry|broadcast|vhs/.test(style);
+const cornerLabelTexts = [...new Set(visible.filter(({ t }) => /^(\d{1,2}:\d{2}(:\d{2})?|\d{2,3}\s?bpm|rec\s?●?|sys\b|v\d\.\d)/i.test(t)).map(({ t }) => t))];
 const centered = (allCode.match(/text-align\s*:\s*center/g) || []).length, lefty = (allCode.match(/text-align\s*:\s*(left|start)/g) || []).length;
 if (centered >= 6 && centered > lefty * 4) add("centered-everything", "warn", `${centered} centred text blocks, ${lefty} left-aligned`, "Centring everything is the template default.", "Vary composition: left-aligned headlines, asymmetric layouts, text on the grid.");
 const fams = new Set((allCode.match(/font-family\s*:\s*['"]?([A-Za-z0-9 ]+)/g) || []).map((m) => m.replace(/font-family\s*:\s*['"]?/, "").trim().toLowerCase()).filter((x) => !/^(inherit|sans-serif|serif|monospace|system-ui|var)$/.test(x)));
@@ -97,18 +111,36 @@ if (entrances.length >= 8) {
   const share = n / entrances.length;
   if (share > 0.5) add("uniform-entrances", /^opacity\+(y|yPercent)$/.test(top) ? "error" : "warn", `${n} of ${entrances.length} entrances are ${top}`, "When every element arrives the same way (usually fading up), the film reads as a template.", "No entrance kind on more than ~30% of entrances: mix masks and wipes, scale from an anchor, a cut-in, a shared-element move, type that builds, and elements that are simply there (craft.md, Motion).");
 }
+{
+  const fadeOnly = entrances.filter((k) => k === "opacity").length;
+  if (entrances.length >= 8 && fadeOnly / entrances.length > 0.2) add("fade-heavy", "warn", `${fadeOnly} of ${entrances.length} entrances are a pure fade`, "In measured work almost nothing arrives by opacity alone (3,392 entries moved or scaled, 584 faded): a fade is a 6 f helper for a move.", "Arrive by transform (a slide, a scale from oversize, a mask) and keep opacity as the 4-12 f helper.");
+}
 if (spin) add("spinning-logo", "warn", "a 360° logo rotation", "Spinning logos are a template tell.", "Land the logo with the film's motion language: a mask, a snap into the grid, a match cut.");
 
 // ---- 4. timing ----
+// cut rhythm (onetake: "never cut on a metronome; shot lengths should vary by 4x or more"): longest over shortest shot, the end card
+// (last) and flashes under 0.4 s left out; 5+ shots to judge. Used on the scenes here and on the render's hard cuts below.
+// A shot whose length is set by reading time (within 15% of 0.6 s + 0.3 s per word of its line) is not a free choice, so a
+// line-per-beat film is judged on its free shots only (`reads` = each shot's reading time, 0 for none).
+const RHYTHM = { min_shots: 5, ratio: 4, flash_s: 0.4, read_slack: 0.15 };
+// (readTime: lib/reading.mjs, the one formula; plan-level here, so no slack)
+const rhythm = (lens, reads = []) => {
+  const ds = lens.slice(0, -1).filter((d, i) => d >= RHYTHM.flash_s && !(reads[i] && d <= reads[i] * (1 + RHYTHM.read_slack)));
+  if (lens.length < RHYTHM.min_shots || ds.length < 2) return null;
+  const lo = Math.min(...ds), hi = Math.max(...ds);
+  return { ratio: hi / lo, hi, lo, n: ds.length };
+};
+const narrow = (r, what) => r && r.ratio < RHYTHM.ratio ? add("narrow-rhythm", "warn", `${what}: longest ${r.hi.toFixed(1)} s over shortest ${r.lo.toFixed(1)} s is ${r.ratio.toFixed(1)}x across ${r.n} shots (aim for ≥ ${RHYTHM.ratio}x)`, "Shot lengths within a narrow band cut on a metronome even when they are not identical.", "Group quick beats and give the reveal the longest shot (craft.md §2, Timing, pacing and readability).") : null;
 let scenes = null;
 const sceneFile = args.scenes ? path.resolve(String(args.scenes)) : [path.join(dir, "scenes.json"), path.join(dir, "timeline.json")].find((p) => fs.existsSync(p));
 if (sceneFile && fs.existsSync(sceneFile)) { try { const j = JSON.parse(fs.readFileSync(sceneFile, "utf8")); scenes = (j.scenes || j).map((s) => ({ title: s.title, d: Number(s.duration_s ?? s.duration) || 0, text: String(s.on_screen || s.line || "") })); } catch {} }
 if (scenes && scenes.length >= 3) {
   const ds = scenes.map((s) => s.d).filter(Boolean), mean = ds.reduce((a, b) => a + b, 0) / ds.length, sd = Math.sqrt(ds.reduce((a, b) => a + (b - mean) ** 2, 0) / ds.length);
   if (ds.length >= 4 && sd / mean < 0.2) add("uniform-shots", "warn", `every scene ≈ ${mean.toFixed(1)} s (variation ${(sd / mean).toFixed(2)}; aim for ≥ 0.35)`, "Near-identical scene lengths make a slideshow rhythm: \"it's just a PowerPoint\".", "Vary rhythm: group quick beats, give the reveal the longest shot (see craft.md §2, Timing, pacing and readability).");
-  scenes.forEach((s, i) => { const w = s.text.split(/\s+/).filter(Boolean).length; const need = w ? 0.6 + 0.4 * w : 0; if (w && s.d && s.d < need) add("unreadable", "error", `scene ${i + 1} "${s.title}"`, `${w} words on screen for ${s.d} s; needs about ${need.toFixed(1)} s to read.`, "Cut the copy or lengthen the scene; never speed it up."); });
+  narrow(rhythm(scenes.map((s) => s.d), scenes.map((s) => readTime(s.text))), "scenes");
+  scenes.forEach((s, i) => { const w = wordCount(s.text); const need = readTime(w); if (w && s.d && s.d < need) add("unreadable", "error", `scene ${i + 1} "${s.title}"`, `${w} words on screen for ${s.d} s; needs about ${need.toFixed(1)} s to read.`, "Cut the copy or lengthen the scene; never speed it up."); });
   const last = scenes[scenes.length - 1]; if (last.d && last.d < 1.8) add("no-end-hold", "error", `last scene ${last.d} s`, "The ending has no hold: the name and call to action vanish.", "Give the end card 2–3 s: its elements land in sequence, then at most 1.5 s still (motion-gate.mjs measures it).");
-  if (scenes[0].d > 4 && !scenes[0].text) add("slow-hook", "warn", `scene 1 is ${scenes[0].d} s with no line`, "Nothing lands in the first 2 s.", "Open on the hook: a claim in ≤4 words or the product doing its thing within 1.5 s.");
+  if (scenes[0].d > 4 && !scenes[0].text) add("slow-hook", "warn", `scene 1 is ${scenes[0].d} s with no line`, "Nothing lands in the first 2 s (first motion by 0.5 s, first meaning by 2 s).", "Open on the hook: first motion by 0.5 s, then a claim in ≤4 words or the product doing its thing by 2 s.");
 }
 
 // ---- 4b. finish: default-on, hero effects on a budget, uniform use is the tell ----
@@ -156,18 +188,77 @@ const assets = path.join(dir, "assets");
 const bed = fs.existsSync(assets) ? fs.readdirSync(assets).find((f) => /^music-bed\.|bgm|music/i.test(f) && /\.(wav|mp3|m4a|ogg)$/i.test(f)) : null;
 const probe = (f) => { const r = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", f], { encoding: "utf8" }); return Number(r.stdout.trim()) || 0; };
 if (bed && filmLen) { const bl = probe(path.join(assets, bed)); if (bl && bl + 0.5 < filmLen) add("music-loop", "error", `${bed} is ${bl.toFixed(1)} s for a ${filmLen.toFixed(1)} s film`, "A bed shorter than the film loops audibly.", "Pick a longer track or edit by structure: node scripts/sound.mjs fit --track <file> --film <s>."); }
-const sfxCount = (allCode.match(/\.(wav|mp3|ogg)["']/gi) || []).filter((m) => !/music|bgm|bed|voice|vo[-_]/i.test(m)).length;
+// an SFX is an audio source that is not the music bed or a voice: the whole src string is tested (path and name), not the
+// extension. <audio> tags when the film has them (one per cue), else every quoted audio path.
+const audioRefs = (() => {
+  const tags = [...allCode.matchAll(/<audio\b[^>]*>/gi)].map((m) => { const src = (m[0].match(/\bsrc\s*=\s*["']([^"']+)["']/i) || [])[1] || "", id = (m[0].match(/\bid\s*=\s*["']([^"']+)["']/i) || [])[1] || ""; return /^el-texture-/.test(id) ? `/texture-${src}` : src; }); // a texture bed (sound.mjs sfx-plan: el-texture-*) is not an SFX
+  return tags.length ? tags : [...allCode.matchAll(/["']([^"'\s]+\.(?:wav|mp3|ogg|m4a|aac|flac))["']/gi)].map((m) => m[1]);
+})();
+const sfxCount = audioRefs.filter((r) => !/music|bgm|\/texture-|\bbed\b|[-_/]bed[-_.]|voice|(^|[-_/])vo[-_.]|narrat/i.test(r)).length;
+const narratedFilm = audioRefs.some((r) => /voice|(^|[-_/])vo[-_.]|narrat/i.test(r));
 const whoosh = (allCode.match(/whoosh|swoosh|swish/gi) || []).length;
-if (filmLen && sfxCount / filmLen > 0.6) add("sfx-overload", "error", `${sfxCount} SFX in ${filmLen.toFixed(0)} s`, "Too many sound effects: every beat has a sound, so none matter.", "Only visible, causal events get a sound: at most one every ~2 s (see sound.md); skip where the music already hits.");
+const sfxMd = sfxMode({ format: args.format, narrated: narratedFilm });
+if (filmLen && sfxOver(sfxCount, sfxMd, filmLen)) add("sfx-overload", "error", `${sfxCount} SFX in ${filmLen.toFixed(0)} s`, `Too many sound effects: every beat has a sound, so none matter (the budget, shared with sound.mjs: ${sfxLimit(sfxMd, filmLen)} in ${filmLen.toFixed(0)} s for a ${sfxMd} film).`, "Only visible, causal events get a sound (sound.md); skip where the music already hits.");
 const cuts = scenes ? scenes.length - 1 : 0;
 const whooshCap = cuts ? Math.max(1, Math.ceil(cuts / 3)) : 3;
 if (whoosh > whooshCap) add("whoosh-per-cut", "error", `${whoosh} whooshes${cuts ? ` for ${cuts} transitions` : ""}`, "A whoosh on every cut is the most common SFX tell.", "At most one whoosh in three transitions (and one per ~20 s): keep it for the signature transition.");
 
 // ---- 5b. text-fit: every word meant to be read sits inside the frame ----
+let tfRes = null;
 if (!args["no-text-fit"]) {
-  const tf = await textFit(dir);
+  // the beats' hero element ids (the score's hero, when it is an element id) for subject-lost
+  let heroIds = [];
+  try { const sc = JSON.parse(fs.readFileSync(args.score ? path.resolve(String(args.score)) : path.join(args.run && args.run !== true ? path.resolve(String(args.run)) : dir, "motion", "score.json"), "utf8")); heroIds = (sc.scenes || sc.beats || []).map((b) => [b.hero_id, b.heroId, b.hero_el, b.hero_element, typeof b.hero === "string" && /^[A-Za-z][\w-]*$/.test(b.hero.trim()) ? b.hero.trim() : null].find((x) => typeof x === "string" && x.trim())).filter(Boolean); } catch {}
+  const tf = await textFit(dir, { heroIds });
+  tfRes = tf;
   for (const f of tf.findings) add(f.check, "error", `${f.file}: "${f.text}" ${f.from}-${f.to} s`, f.message, f.fix);
+  for (const f of tf.warnings || []) add(f.check, "warn", `${f.file}: "${f.text}"${f.at != null ? ` ${f.at} s` : ""}`, f.message, f.fix);
   if (tf.could_not_run.length) add("text-fit-skipped", "warn", dir, `${tf.could_not_run[0]} (the text-fit check did not run)`, "Install Chrome (npx hyperframes browser ensure, or set RASANAI_CHROME) and re-run: the composition's text was not measured.");
+}
+
+// ---- 5b2. the hook and real numbers (from the text-fit samples; warnings) ----
+if (tfRes && !tfRes.could_not_run.length) {
+  const h = tfRes.hook || {};
+  if (!findings.some((f) => f.rule === "slow-hook") && tfRes.pages) {
+    if (h.meaning == null) add("slow-hook", "warn", "no readable line or product picture in the first 3 s", "First meaning by 2 s: nothing readable (a line, the product, a UI) shows in the opening.", "Open on the hook: a claim in 4 words or fewer, or the product doing its thing, by 2 s.");
+    else if (h.meaning > 2 + 1e-9) add("slow-hook", "warn", `first meaning at ${h.meaning.toFixed(1)} s (line ${h.text == null ? "none" : h.text.toFixed(1) + " s"}, picture ${h.visual == null ? "none" : h.visual.toFixed(1) + " s"})`, "The first readable line or product picture arrives after 2 s: the viewer has already decided.", "Land the hook line or the product by 2 s (first motion by 0.5 s).");
+  }
+  // real numbers: every number on screen is in the run's ledger or the brief
+  const runDirN = args.run && args.run !== true ? path.resolve(String(args.run)) : args.score ? path.dirname(path.dirname(path.resolve(String(args.score)))) : path.basename(dir) === "frames" ? path.dirname(dir) : null;
+  if (runDirN && fs.existsSync(runDirN)) {
+    const rd = path.join(runDirN, "research"), parts = [];
+    for (const f of [path.join(rd, "claims.json"), ...(fs.existsSync(rd) ? fs.readdirSync(rd).filter((x) => /\.claims\.json$/.test(x)).map((x) => path.join(rd, x)) : []), path.join(runDirN, "story", "truth.md"), path.join(runDirN, "story", "chosen.json"), path.join(runDirN, "story", "intent.json"), path.join(runDirN, "brief.json")]) { try { parts.push(fs.readFileSync(f, "utf8")); } catch {} }
+    if (parts.length) for (const f of unknownNumbers(tfRes.texts || [], knownNumbers(parts.join("\n"))).slice(0, 12)) add(f.check, "warn", `${f.file}: "${f.text}" ${f.at} s`, f.message, f.fix);
+  }
+}
+
+// ---- 5c. page chrome: the HUD / slide-deck / vibe-coded-UI tells, measured in the real DOM ----
+// Adapted from motionmaxxing (Apache-2.0, Tejas Makwana), scripts/lint.mjs.
+// lib/chrome-lint.mjs seeks every composition like text-fit and reads the held text blocks and shapes. Rules (ids in the
+// findings): kicker-over-headline, deck-layout, typed-headline, vibe-ui-card, vibe-greeting, vibe-ui-tell, chapter-counter,
+// progress-hairline, tracked-caps-label, corner-brackets, header-footer-bar, corner-micro-label, pinned-element. A brand
+// film's own device is honoured: grammar.json's measured.chrome lists rule ids that brand's films use (found from --run).
+// --no-chrome skips it; --chrome-allow <ids> lists rule ids to allow. Exempt: text inside a UI surface or data-ui, the
+// vibe rules inside data-ui="captured", anything inside data-chrome="allow", and wordmark/logo elements.
+let chromeElements = null;
+if (!args["no-chrome"]) {
+  let allow = String(args["chrome-allow"] && args["chrome-allow"] !== true ? args["chrome-allow"] : "").split(",").map((s) => s.trim()).filter(Boolean);
+  const gRun = args.run && args.run !== true ? path.resolve(String(args.run)) : path.basename(dir) === "frames" ? path.dirname(dir) : null;
+  if (gRun) { try { const g = JSON.parse(fs.readFileSync(path.join(gRun, "brand-film", "grammar.json"), "utf8")); if (g.measured && Array.isArray(g.measured.chrome)) allow = allow.concat(g.measured.chrome.map(String)); } catch {} }
+  const cl = await chromeLint(dir, { allow });
+  chromeElements = cl.elements;
+  for (const f of cl.findings) { if (hudStyle && /^corner-(micro-label|brackets)$/.test(f.rule)) continue; add(f.rule, f.severity, f.where, f.why, f.fix); } // a HUD/broadcast style means its corner chrome
+  if (cl.could_not_run.length) add("chrome-lint-skipped", "warn", dir, `${cl.could_not_run[0]} (the page-chrome check did not run)`, "Install Chrome (npx hyperframes browser ensure, or set RASANAI_CHROME) and re-run: the page chrome was not measured.");
+}
+
+// corner-micro-label, once: the source's timecode/BPM strings the rendered pass did not already see are merged into its finding
+if (!hudStyle && cornerLabelTexts.length) {
+  const norm = (s) => String(s).toLowerCase().replace(/\s+/g, " ").trim();
+  const seen = new Set(((chromeElements || {})["corner-micro-label"] || []).map(norm));
+  const rest = cornerLabelTexts.filter((t) => !seen.has(norm(t)));
+  const hit = findings.find((f) => f.rule === "corner-micro-label");
+  if (hit && rest.length) { hit.where += ` (+${rest.length} timecode/BPM-style label${rest.length > 1 ? "s" : ""} in the source: ${rest.slice(0, 3).map((t) => JSON.stringify(t.slice(0, 24))).join(", ")})`; if (seen.size + rest.length >= 2) hit.severity = "error"; }
+  else if (!hit && cornerLabelTexts.length >= 2) add("corner-micro-label", "error", `${cornerLabelTexts.length} timecode/BPM-style labels`, "Corner labels with timecodes and BPM are now a recognised Opus-showreel tell.", "Remove them unless the style is a HUD/broadcast style that means it.");
 }
 
 // ---- 6. the rendered video ----
@@ -177,11 +268,28 @@ if (args.video && fs.existsSync(String(args.video))) {
   const starts = [...(fr.stderr || "").matchAll(/freeze_start: ([\d.]+)/g)].map((m) => Number(m[1])), ends = [...(fr.stderr || "").matchAll(/freeze_end: ([\d.]+)/g)].map((m) => Number(m[1]));
   const dur = probe(v);
   starts.forEach((s, i) => { const e = ends[i] ?? dur; if (e < dur - 3.2 && e - s >= 0.8) add("dead-air", "error", `still frame ${s.toFixed(1)}–${e.toFixed(1)} s`, "A still stretch of 0.8 s or more mid-film reads as dead air (motion-gate.mjs measures the same).", "Stage something meaningful in that stretch (a reveal, a move, UI life, a line's carry) or cut it: holds are reading time and still carry secondary motion."); });
+  // the render's own rhythm: shot lengths between hard cuts (lib/carry.mjs findCuts)
+  try {
+    const cuts = findCuts(decodeGrey(v));
+    const bounds = [0, ...cuts, dur];
+    narrow(rhythm(bounds.slice(1).map((t, i) => t - bounds[i])), "render");
+  } catch {}
   const ld = spawnSync("ffmpeg", ["-hide_banner", "-i", v, "-af", "ebur128=peak=true", "-f", "null", "-"], { encoding: "utf8" });
   const I = Number(((ld.stderr || "").match(/I:\s+(-?[\d.]+) LUFS/g) || []).pop()?.match(/-?[\d.]+/)?.[0]);
   if (!Number.isNaN(I) && I !== 0 && Math.abs(I + 14) > 1.5) add("loudness", "error", `${I} LUFS`, "Web/social films should sit at about −14 LUFS integrated.", "Normalise the mix (sound.mjs check / render).");
-  const bl = spawnSync("ffmpeg", ["-hide_banner", "-i", v, "-vf", "blackdetect=d=0.4:pix_th=0.08", "-an", "-f", "null", "-"], { encoding: "utf8" });
-  if (/black_start:0(\.0+)?\b/.test(bl.stderr || "")) add("black-open", "warn", "black frames at the start", "The film opens on black; the first frame is also the thumbnail.", "Open on the first designed frame (and make frame 0 postable).");
+  const bl = spawnSync("ffmpeg", ["-hide_banner", "-i", v, "-vf", "blackdetect=d=0.2:pix_th=0.08", "-an", "-f", "null", "-"], { encoding: "utf8" });
+  if (/black_start:0(\.0+)?\b/.test(bl.stderr || "")) { const e = Number((String(bl.stderr).match(/black_start:0(?:\.0+)?\s+black_end:([\d.]+)/) || [])[1]); add("black-open", "warn", `black frames at the start${Number.isFinite(e) ? ` for ${e.toFixed(2)} s` : ""}`, "The film opens on black (0.2 s or more); the first frame is also the thumbnail, and the first motion belongs by 0.5 s.", "Open on the first designed frame (and make frame 0 postable); a fade-in from black is a choice only when something moves inside it."); }
+  // first motion by 0.5 s: frame change against the first frame, 15 fps, 96x54 grey, the first 2.5 s (the motion gate's threshold: 0.08% of pixels past 6 levels)
+  try {
+    const FW = 96, FH = 54, fps = 15, g = spawnSync("ffmpeg", ["-v", "error", "-t", "2.5", "-i", v, "-an", "-vf", `fps=${fps},scale=${FW}:${FH}:flags=area,format=gray`, "-f", "rawvideo", "-pix_fmt", "gray", "-"], { maxBuffer: 1 << 28 });
+    const n = Math.floor((g.stdout || []).length / (FW * FH));
+    if (g.status === 0 && n >= 4) {
+      let first = null;
+      for (let i = 1; i < n && first == null; i++) { let c = 0; for (let p = 0; p < FW * FH; p++) if (Math.abs(g.stdout[i * FW * FH + p] - g.stdout[(i - 1) * FW * FH + p]) > 6) c++; if (c / (FW * FH) >= 0.0008) first = i / fps; }
+      if (first == null) add("slow-hook", "warn", "no motion in the first 2.5 s of the render", "First motion by 0.5 s: the opening is a still frame.", "Start something moving in the first half second (a push, a line arriving, the UI waking up).");
+      else if (first > 0.5 + 1e-9) add("slow-hook", "warn", `first motion at ${first.toFixed(2)} s`, "The first motion arrives after 0.5 s: the opening reads as a still.", "Start something moving by 0.5 s (a push, a line arriving, the UI waking up).");
+    }
+  } catch {}
 }
 
 const errors = findings.filter((f) => f.severity === "error").length;

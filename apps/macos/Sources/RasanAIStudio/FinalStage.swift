@@ -13,6 +13,8 @@ struct FinalStage: View {
     @State private var playback = VideoPlayback()
     @State private var stageHeight: CGFloat = 640
     @State private var showChanges = false
+    @State private var showChecks = false
+    @State private var checks: RunChecks?
     @State private var confirmRender = false
     /// The version the person picked in the menu, until they confirm bringing it back.
     @State private var restore: JSONValue?
@@ -54,6 +56,7 @@ struct FinalStage: View {
                             .buttonStyle(.link).font(.system(size: 12))
                     }
                     changes(payload)
+                    runChecks()
                     controls(payload, isRender: isRender, done: done, canAct: canAct, firstPass: notRendered)
                 }
                 .padding(.horizontal, .filmInset).padding(.top, 10).padding(.bottom, scenes.isEmpty ? 10 : 0)
@@ -81,6 +84,7 @@ struct FinalStage: View {
         .onChange(of: model.seekTick) { playback.seek(to: model.seekTime) }
         .environment(model)
         .task(id: "\(videoURL?.path ?? "")") { playback.load(url: videoURL, fallbackDuration: duration) }
+        .task(id: model.snapshot.raw["updated"].string) { checks = await model.loadChecks() }
         .onDisappear { playback.shutdown() }
         .confirmationDialog("Render without your \(open.count) note\(open.count == 1 ? "" : "s")?", isPresented: $confirmRender, titleVisibility: .visible) {
             Button("Render Without Notes") { Task { await model.send(step: step, type: "choose", value: .string("render")) } }
@@ -141,6 +145,16 @@ struct FinalStage: View {
             return number + " · " + date.formatted(.relative(presentation: .named))
         }
         return number + " · " + when
+    }
+
+    /// The blind A/B verdicts and the gate numbers, one quiet button beside "What changed"; absent when the run holds neither.
+    @ViewBuilder
+    private func runChecks() -> some View {
+        if let checks, !checks.isEmpty {
+            Button { showChecks.toggle() } label: { Label("Checks", systemImage: "checklist").font(.system(size: 12)) }
+                .buttonStyle(.rasanSecondary).controlSize(.small)
+                .popover(isPresented: $showChecks, arrowEdge: .top) { ScrollView { RunChecksView(checks: checks) }.frame(maxHeight: 460) }
+        }
     }
 
     /// "What changed in v3" as a quiet button in the filmstrip header; the list opens in a popover.

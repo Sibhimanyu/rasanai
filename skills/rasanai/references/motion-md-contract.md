@@ -42,7 +42,8 @@ waivers: []
 | `tempo.scale_ms` | the language's **pace**: reference lengths short to long. Not a grid; swatches and engines read it, and it scales `durations` |
 | `durations` | the distance formula: `base + travel x sqrt(travel / frame diagonal) + area x sqrt(area / frame area)`, clamped to `min`..`max` ms, jittered ±`jitter`, exits x`exit_k`. `pace` = the middle `scale_ms` value / 500 ms |
 | `easing` | the language's signature curves (enter, exit, move). They stay in the family as `snap`, `exit` and `move` |
-| `curves` | a curve per role: `launch`, `glide`, `expressive`, `exit`, `settle`, `snap`, `drift`, `move`. GSAP names, `cubic-bezier(x1,y1,x2,y2)` or `spring(damping, omega)`; `RasanMotion.ease(name)` turns any of them into an ease function (no CustomEase needed) |
+| `blur_grammar` | one per film: `shutter` (the finish's real motion blur), `smear` (stretched duplicates, directional blur, `blurTrail`), `stepped` (on twos or threes, `steps()`) or `crisp` (steps, no blur); `finish.mjs` refuses a shutter over the other three |
+| `curves` | a curve per role: `launch`, `glide`, `expressive`, `exit`, `settle`, `snap`, `drift`, `move`. GSAP names, `cubic-bezier(x1,y1,x2,y2)` or `spring(damping, omega)`; `RasanMotion.ease(name)` turns any of them into an ease function (no CustomEase needed); the twelve measured eases (`softLand`, `snapSettle`, `accelExit`, `measured.glide` ... : `references/craft.md`, "Frame budgets") are valid curve names too |
 | `mix` | what obey enforces once a film has `min_gestures` gestures: at least `min_families` curve families, no curve on more than `max_share` of gestures, no duration (to the frame) on more than `max_duration_share` |
 | `overlap` | the next gesture starts at 55–75% of the last; secondaries trail by 2–4 frames |
 | `stagger` | the average spacing, the largest total spread, the distribution curve and ±1 frame of jitter. Never a constant step |
@@ -95,6 +96,9 @@ Enter, exit and move tweens are the film's **gestures**. A staggered tween is on
 | `snap-and-die` | warning | over a quarter of the travels longer than 10% of the frame take under 0.5 s |
 | `camera-too-short` | error | a camera tween under 1.0 s |
 | `hold-too-short` | warning | per element: from the end of its entrance to the start of its next exit < `holds.min_ms` x 0.85 |
+| `entrance-too-long` | warning | an entrance (a fade, scale, mask, wipe or blur-in) over 1.2 s, or over the language's own `durations.max_ms` when that is longer (a slow language keeps its pace) |
+| `entrance-too-short` | warning | an entrance under 3 frames at 30 fps |
+| `scale-from-zero` | warning | an entrance that scales a whole element from 0.05x or less to full size (right only when the growth is the content; waive it there; skipped when the language's own `entrances` are pops or scales, such as `char-pop`) |
 | `opaque-motion` | warning | a file whose motion lives in a `render(t)` function driven by one clock tween: obey cannot see it, the fluency gate on the draft judges it |
 | `banned:<name>` | error | the tween matches a banned signature (below) |
 | `non-gsap` | error | CSS `@keyframes`, anime.js, or WAAPI `animate([...])` in a composition file |
@@ -121,9 +125,35 @@ Every banned name has a signature here and in `scripts/lib/signatures.mjs` (shar
 | `scale-pop` | enter-class tween with uniform scale < 0.8 → ≥ 0.95 |
 | `opacity-only-entrance` | enter-class tween animating only opacity / autoAlpha |
 
+## Page-chrome rules (`slop.mjs`)
+
+These are not motion.md bans and obey does not read them: `slop.mjs --project` runs them (`scripts/lib/chrome-lint.mjs`; ids and default severities in `CHROME_RULES`, `scripts/lib/signatures.mjs`). Each composition is loaded headlessly, seeked 4 times a second and read again 0.1 s later; only a block that is **held** (same text, same place in both readings) and seen in 2 or more samples counts, so a line flying through a corner mid-transition does not. Sizes are shares of the frame height H. Adapted from motionmaxxing (Apache-2.0, Tejas Makwana), `scripts/lint.mjs` (gate G5): the held-pair idea, the UI-surface test and the rule list; thresholds and severities are this skill's own.
+
+| Rule | Severity | Matches |
+|---|---|---|
+| `kicker-over-headline` | error | a line of 4% H or less directly above a headline of 5% H or more (2x larger), left- or centre-aligned. A label over a figure (`Monthly payment` over `$2,217`) is a stat caption, not a kicker |
+| `deck-layout` | error with media, warning without | a held headline (5% H or more, near the largest text) with its left edge under 20% of the width and not centred: error when media or a UI surface sits to its right; a warning when only a sub-line or 2+ lines go with it. A lone one-line left headline is not flagged |
+| `typed-headline` | error; a caret alone is a warning | headline-size text (5% H or more) outside a UI surface that grows by letters (stops mid-word, across the 0.1 s pair or 3+ consecutive samples), or a caret beside it. Typing is allowed only inside the product's own input field (a UI surface or `data-ui`, an input, textarea or contenteditable) |
+| `vibe-ui-card` | error | 2 or more of: a greeting, a `label · value` line, a status dot before a label, Tailwind zinc-grey text (within 4 of #d4d4d8, #a1a1aa, #71717a, #52525b), on one UI surface or on the page |
+| `vibe-greeting` | error | "Good morning/afternoon/evening", "Welcome back", "Hi Name!" |
+| `vibe-ui-tell` | warning | one `label · value` line or one status dot on its own (a second kind on the same surface becomes `vibe-ui-card`) |
+| `chapter-counter` | error | "02 / SPEAK", "01 - THE WAIT", "N/M", "Chapter 3", "Scene 2", a bare "01", at 6% H or less (`24/7` excepted) |
+| `progress-hairline` | error | a thin bar (1.6% H or less) outside a UI surface whose width grows by 8% of the frame or more over 3+ samples, in the top or bottom band or reaching 60% of the width. An underline drawing in mid-frame is not progress |
+| `tracked-caps-label` | error for 2 or more distinct labels, warning for one | uppercase text of 4.5% H or less with letter-spacing of 0.05em or more |
+| `corner-brackets` | error | 2 or more corner brackets (a small unfilled box with exactly two adjacent borders, near a frame corner) |
+| `header-footer-bar` | error | a full-width bar (fill or border) or hairline in the top or bottom band, or a left and a right small label on one header or footer line |
+| `corner-micro-label` | warning | small held text (4% H or less) in a corner zone or the outer edge strip (timecodes and BPM are caught by `corner-labels`) |
+| `pinned-element` | error | the same text, small, at the same coordinates in 3 or more shots (sub-compositions; needs 3 or more), outside a UI surface |
+
+Severity: **errors** are tells with no reading that survives the viewer's first look (a kicker, a counter, a letter-typed headline, a pinned caption); **warnings** are leads that a real product screen or a brand's own device can explain (a lone `label · value` line, a corner label, a left headline with a sub-line, one tracked label). Findings name the file, the text, the time range and the box.
+
+**Exemptions.** Text inside a UI surface (a filled, rounded ancestor of 2.5% of the frame or more, or anything with `data-ui`) is exempt from the chrome rules but not from the vibe-coded-UI rules; text inside `data-ui="captured"` (a faithful rebuild of the product's real screen) is exempt from those too, and the exemption is listed. An element, or a parent, marked `data-chrome="allow"` is exempt from every rule (a brand's own device: say why in NOTE.md). Elements whose class or id says `logo`, `wordmark`, `brand-mark` or `lockup` are the logo, not a label. **The brand's own measurements win**: a brand film's `grammar.json` may list rule ids in `measured.chrome` (a brand whose own films carry tracked caps lists `tracked-caps-label`); `slop.mjs --run <run>` reads it, and `--chrome-allow <ids>` does the same by hand. `brandfilm.mjs measure` does not write this key yet: the brand film analyst adds it when the brand's films show the device. `--no-chrome` skips the whole check. Text drawn into a canvas or image is not seen (a lead, not a verdict).
+
+The pixel half of the same tell list is the frame gate's `flat-swatch-grounds` (`references/craft.md` Frame metrics).
+
 ## The draft: fluency
 
-`motion-gate.mjs --video <draft.mp4>` measures the rendered film (`lib/fluency.mjs`: block-matching motion on 480 px grey frames, moving regions tracked into moves) and fails a film whose weighted fluency score is under 0.70: curve-shape spread (t50 IQR ≥ 0.18, weight 3), two or more motions at once (≥ 55% of active frames, 2), median visible move (≥ 0.32 s, 2), settle share (≥ 6.5%, 2), duration spread (entropy ≥ 0.8), arcs (≥ 35% of travels), dead frames (≤ 30%), cuts between poses at rest (≤ 12%). Under 15 tracked moves it says so instead of judging. `stillness` waives dead frames, cuts at rest and concurrency. `node motion-gate.mjs fluency --video <film>` prints the measurement alone. The calibration table is in `.context/night/done-W7.md`.
+`motion-gate.mjs --video <draft.mp4>` measures the rendered film (`lib/fluency.mjs`: block-matching motion on 480 px grey frames, moving regions tracked into moves) and fails a film whose weighted fluency score is under 0.70: curve-shape spread (t50 IQR ≥ 0.18, weight 3), two or more motions at once (≥ 55% of active frames, 2), median visible move (≥ 0.32 s, 2), settle share (≥ 6.5%, 2), duration spread (entropy ≥ 0.8), arcs (≥ 35% of travels), dead frames (≤ 30%), cuts between poses at rest (≤ 12%). Under 15 tracked moves it says so instead of judging. With a plan (`--plan` or `--scenes`) it also fails `duration-mismatch` when the render length is more than 0.25 s or 2% (whichever is larger) off the planned duration. The end card may hold at most 1.4 s still after its last move (`end_hold_s` in the plan, or `--end-hold`, lifts it). `stillness` waives dead frames, cuts at rest and concurrency. `node motion-gate.mjs fluency --video <film>` prints the measurement alone. The calibration table is in `.context/night/done-W7.md`.
 
 ## Adjectives (`motion-md.mjs write --adjust a,b`)
 

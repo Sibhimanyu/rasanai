@@ -7,6 +7,9 @@
 //
 //   node console.mjs serve --run <run dir> [--root <workspace>] [--port 0] [--open]   (detaches; prints the URL)
 //   node console.mjs push  --run <dir> --step <id> (--data '<json>' | --file f.json) [--status awaiting|working|done|skipped] [--current]
+//        a decision that replaces a different earlier one on a done step needs --because "<why the old call lost>" (else exit 2); the old call is kept in decisions_history
+//   node console.mjs downgrade --run <dir> --what "<what the plan asked>" --instead "<what is used>" --why "<reason>" [--impact "<what the film loses>"]   (a fallback, told to the user in the drawer)
+//        (the brief push carries `budget`: the token budget crew.mjs plan wrote to <run>/crew/budget.json, added automatically when the push has none; see cleanBudget)
 //   node console.mjs activity --run <dir> --message "Reading your DESIGN.md" [--level info|ok|warn]   (what Claude is doing now)
 //   node console.mjs ask   --run <dir> --question "..." [--context "..."] [--options '[{"id","label","detail"}]'] [--recommended <id>] [--placeholder "..."]
 //        (any question outside the steps: missing material, a thin capture, an ambiguity; shown on the page, answered there)
@@ -16,6 +19,8 @@
 //   node console.mjs log   --run <dir> --message "..." [--level info|ok|warn|error] [--stage <id>] [--stage-status working|done|failed]
 //   node console.mjs wait  --run <dir> [--step <id>] [--timeout <sec, default 3000>]   -> prints the next action JSON (exit 2 on timeout)
 //   node console.mjs record --run <dir> --step <id> --type <type> [--value '<json>'] [--note "..."]   (a choice made in chat)
+//        --type comment (a note given in chat: --note "<text>", --value '{"t":12.4,"scope":"scene"}') and --type apply (--value '{"ids":[...]}',
+//        or all the step's open notes) also enter session.comments / session.applied, so the revision refusal covers notes given in chat
 //   node console.mjs state --run <dir> | url --run <dir> | stop --run <dir>
 //
 // HEADLESS mode (env RASANAI_CONSOLE_HEADLESS=1, remembered in <run>/console.json): no server at all. RasanAI Studio
@@ -29,8 +34,10 @@ import os from "node:os";
 import { spawn, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die, SKILL_DIR, STATE_DIR, GSAP_PATH } from "./lib/common.mjs";
+import { recordTaste } from "./memory.mjs";
 import { acquire, release, withLock } from "./lib/runlock.mjs";
 import { briefFormat } from "./lib/formats.mjs";
+import { noteDowngrade, readDowngrades } from "./lib/downgrade.mjs";
 
 // this copy's version: a console started by an older copy is replaced, not reused
 const VERSION = (() => {
@@ -60,6 +67,14 @@ const F = {
 };
 export const STEPS = ["brief", "research", "brand", "route", "footage", "story", "direction", "films", "concept", "scenes", "look", "motion", "styleframes", "animatic", "reel", "transitions", "voice", "music", "keyframes", "storyboard", "plan", "build", "render", "final"];
 
+// the Brief call's token budget, kept to the fields the page reads: {level: lean|standard|full, label, summary, fix_rounds, total, total_label, phases: [{phase, tokens, label}], levels: [{level, label, summary, fix_rounds, total, total_label}]}
+const BUDGET_LEVELS = ["lean", "standard", "full"];
+function cleanBudget(b) {
+  const n = (v) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Math.round(Number(v)) : 0);
+  const lab = (t) => (t >= 1e6 ? "~" + (t / 1e6).toFixed(1) + "M" : "~" + Math.round(t / 1000) + "k");
+  const lv = (x) => ({ level: BUDGET_LEVELS.includes(x.level) ? x.level : "standard", label: String(x.label || ""), summary: String(x.summary || "").slice(0, 300), fix_rounds: n(x.fix_rounds), total: n(x.total), total_label: String(x.total_label || lab(n(x.total))) });
+  return { ...lv(b), phases: (Array.isArray(b.phases) ? b.phases : []).slice(0, 40).map((p) => ({ phase: String(p.phase || ""), tokens: n(p.tokens), label: String(p.label || lab(n(p.tokens))) })), levels: (Array.isArray(b.levels) ? b.levels : []).slice(0, 3).map(lv), note: "an estimate from measured runs; the level can be changed before the film starts" };
+}
 const readJSON = (p, d) => {
   try {
     return JSON.parse(fs.readFileSync(p, "utf8"));
@@ -110,6 +125,15 @@ function activity(s, msg, level = "info", working = null) {
   // working: what the status line says Claude is doing (null = Claude is waiting on the user)
   s.working = working ? { msg: String(working).slice(0, 300), t: now() } : null;
 }
+// fallbacks the scripts noted (lib/downgrade.mjs -> <run>/downgrades.jsonl): each is merged once into session.downgrades and told in the feed
+function mergeDowngrades(s) {
+  const have = new Set((s.downgrades || []).map((d) => `${d.t}|${d.what}|${d.instead}`));
+  for (const d of readDowngrades(RUN)) {
+    if (have.has(`${d.t}|${d.what}|${d.instead}`)) continue;
+    s.downgrades = (s.downgrades || []).concat(d).slice(-100);
+    activity(s, `Working without ${d.what}: using ${d.instead}${d.why ? " because " + d.why : ""}`, "warn", s.working && s.working.msg);
+  }
+}
 function parseData() {
   if (args.file) return readJSON(path.resolve(String(args.file)), null) ?? die(`cannot read JSON from ${args.file}`);
   if (args.data) {
@@ -152,11 +176,27 @@ function validateAction(a) {
   return { step, type: String(a.type), value: a.value ?? null, note: String(a.note || "").slice(0, 4000) };
 }
 
+// The user's notes on the animatic and the final also go to their local evidence ledger (taste.jsonl; the crew reads the one digest,
+// lessons.mjs digest, which carries its last verdicts): a note pinned
+// to a moment or typed in the step's box is an edit; words sent with an approval of the final are a verdict. The
+// server, headless `wait` and chat `record` all end here, so RasanAI Studio's notes land in the same ledger. One action is one row
+// (recordTaste skips an action id it has already stored), so a chat `record --type comment|apply` that also runs applyAction counts once.
+function tasteFrom(action) {
+  const stage = action.step === "animatic" ? "animatic" : ["render", "final"].includes(action.step) ? "final" : null;
+  if (!stage) return;
+  const v = action.value && typeof action.value === "object" ? action.value : {};
+  const text = action.note || v.quick || "";
+  const kind = action.type === "comment" || action.type === "note" ? "edit" : action.type === "approve" && stage === "final" ? "verdict" : null;
+  if (!kind || !text) return;
+  recordTaste({ kind, film: path.basename(RUN), stage, note: text, scene: v.scene, t: typeof v.t === "number" ? v.t : undefined, ts: action.ts, action: action.id });
+}
+
 // What an action does to the session, besides being queued: the "sent" banner, the "You: ..." feed line, the note and
 // thread entries, an ask's answer. The server runs it on POST; headless `wait` runs it when it consumes the action, so
 // the session ends up the same either way. Mutates `s`; the caller saves it.
 function applyAction(s, action) {
   const step = action.step;
+  tasteFrom(action);
   if (step === "*") s.decide_rest = { ts: action.ts };
   else if (Object.prototype.hasOwnProperty.call(s.steps, step) && !["comment", "knob"].includes(action.type)) s.steps[step].sent = { type: action.type, value: action.value, note: action.note, ts: action.ts };
   // an answer to an `ask` card: record it on the question and clear it from the page
@@ -175,7 +215,7 @@ function applyAction(s, action) {
   // a note pinned to a moment of the animatic or the final: kept on the page until Claude resolves it
   if (action.type === "comment") {
     const v = action.value || {};
-    s.comments = (s.comments || []).concat({ id: action.id, step, scene: v.scene ?? null, t: typeof v.t === "number" ? v.t : null, x: typeof v.x === "number" ? v.x : null, y: typeof v.y === "number" ? v.y : null, scope: v.scope || "scene", quick: v.quick || null, text: action.note || v.quick || "", state: "open", ts: action.ts }).slice(-200);
+    s.comments = (s.comments || []).concat({ id: action.id, step, scene: v.scene ?? null, t: typeof v.t === "number" ? v.t : null, x: typeof v.x === "number" ? v.x : null, y: typeof v.y === "number" ? v.y : null, w: typeof v.w === "number" ? v.w : null, h: typeof v.h === "number" ? v.h : null, scope: v.scope || "scene", quick: v.quick || null, text: action.note || v.quick || "", state: "open", ts: action.ts }).slice(-200);
     activity(s, `You left a note${v.t != null ? " at " + Math.floor(v.t / 60) + ":" + String(Math.floor(v.t % 60)).padStart(2, "0") : ""}: ${action.note || v.quick}`, "you", null);
     return;
   }
@@ -274,11 +314,11 @@ function ensureServer() {
 // headless: never a server; the session is rewritten under the run's lock for the whole command (parallel agents and
 // scripts push at once, and an unlocked read-modify-write would lose one of them)
 if (HEADLESS) {
-  if (["push", "log", "activity", "reply", "ask", "resolve"].includes(cmd)) {
+  if (["push", "log", "activity", "reply", "ask", "resolve", "downgrade"].includes(cmd)) {
     acquire(F.sessionLock, 8000);
     process.on("exit", () => release(F.sessionLock));
   }
-} else if (["push", "log", "activity", "reply", "ask"].includes(cmd)) ensureServer();
+} else if (["push", "log", "activity", "reply", "ask", "downgrade"].includes(cmd)) ensureServer();
 if (cmd === "push") {
   if (!args.step || !STEPS.includes(args.step)) die(`--step must be one of ${STEPS.join(", ")}`);
   const s = session();
@@ -298,6 +338,15 @@ if (cmd === "push") {
     }
     s.applied = (s.applied || []).filter((id) => !(s.comments || []).some((c) => c.id === id && c.step === args.step));
   }
+  // the decision log is append-only: a changed decision keeps the old call, and says why it lost
+  const because = String(args.because !== undefined && args.because !== true ? args.because : data.because || "").trim();
+  delete data.because;
+  // only a call already closed (done) is a swap: a provisional decision on a working step may change freely
+  const swapped = typeof data.decision === "string" && prev.decision && prev.status === "done" && String(data.decision).trim() !== String(prev.decision).trim();
+  if (swapped && because.length < 8) {
+    console.error(`refused: ${args.step} already has a decision ("${String(prev.decision).slice(0, 100)}"). A different one replaces it only with the reason the old call lost: add --because "<why, 8+ characters>" (the old call is kept in the history).`);
+    process.exit(2);
+  }
   if (args.title) s.title = String(args.title);
   // a push REPLACES the step's payload (stale options, issues or a "you sent" banner must
   // not survive a re-push); --merge keeps the previous fields for small incremental updates
@@ -306,8 +355,17 @@ if (cmd === "push") {
   const base = args.merge || onlyDecision ? prev : {};
   const next = { ...base, ...data, status: args.status || data.status || (args.step === "build" ? "working" : "awaiting"), updated: now() };
   delete next.sent;
+  // history survives every re-push of the step
+  const hist = (prev.decisions_history || []).slice();
+  if (swapped) hist.push({ decision: prev.decision, at: prev.updated || now(), replaced_by: String(data.decision), because });
+  if (hist.length) next.decisions_history = hist;
   // the brief carries the "What are you making?" picker (library/formats.json) and the pre-selected pick, when the push has none
   if (args.step === "brief" && next.status === "awaiting") Object.assign(next, briefFormat(next));
+  // the brief shows what the film will cost: the token budget (level, total, per phase, the three levels), written by `crew.mjs plan` to <run>/crew/budget.json
+  if (args.step === "brief") {
+    const bud = next.budget && typeof next.budget === "object" ? next.budget : readJSON(path.join(RUN, "crew", "budget.json"), {}).budget;
+    if (bud && typeof bud === "object") next.budget = cleanBudget(bud);
+  }
   // closing a step the user answered keeps who made the call, so the Decisions drawer credits them, not Claude
   if (next.status === "done" && !data.by && prev.sent && !["decide", "decide-rest", "note"].includes(prev.sent.type)) next.by = "user";
   // the step's discussion survives a re-push (Claude revising the options is the answer to it)
@@ -322,6 +380,7 @@ if (cmd === "push") {
   if (next.status === "awaiting") activity(s, `Ready for you: ${label}`, "ask");
   else if (next.status === "working") activity(s, data.question || `Working on ${label}`, "info", data.question || `Working on ${label}…`);
   else if (next.status === "done") activity(s, next.decision ? `Decided ${label}: ${next.decision}` : `Done: ${label}`, "ok", s.working && s.working.msg);
+  mergeDowngrades(s);
   saveSession(s);
   console.log(JSON.stringify({ ok: true, step: args.step, status: s.steps[args.step].status }));
 } else if (cmd === "log") {
@@ -375,6 +434,14 @@ if (cmd === "push") {
   activity(s, `Claude answered about ${LABELS[args.step] || args.step}`, "ok", null);
   saveSession(s);
   console.log(JSON.stringify({ ok: true }));
+} else if (cmd === "downgrade") {
+  // a fallback the director made by hand: always told to the user, never silent
+  if (!args.what || !args.instead || !args.why) die('--what "<what the plan asked>", --instead "<what is used>" and --why "<reason>" are required');
+  noteDowngrade({ run: RUN, what: String(args.what), instead: String(args.instead), why: String(args.why), impact: args.impact ? String(args.impact) : undefined });
+  const s = session();
+  mergeDowngrades(s);
+  saveSession(s);
+  console.log(JSON.stringify({ ok: true, downgrades: (s.downgrades || []).length }));
 } else if (cmd === "activity") {
   // what Claude is doing right now, between questions ("Capturing tally.app", "Drawing style frame 2 of 3")
   if (!args.message) die("--message is required");
@@ -393,6 +460,7 @@ if (cmd === "push") {
     }
   }
   const a = appendAction({ step: args.step, type: args.type || "choose", value, note: args.note || "", source: "chat" });
+  if (!["comment", "apply"].includes(a.type)) tasteFrom(a); // a comment/apply goes through applyAction below, which records it
   // chat answers count as consumed: the agent already has them
   const markConsumed = () => {
     const consumed = readJSON(F.consumed, []);
@@ -401,6 +469,15 @@ if (cmd === "push") {
   };
   if (HEADLESS) withLock(F.actionsLock, markConsumed);
   else markConsumed();
+  // a note or an Apply given in chat enters the notes rule like one clicked on the page (the page's own would be applied by the server or by `wait`)
+  if (["comment", "apply"].includes(a.type)) {
+    if (a.type === "comment" && !a.note && !(value && value.quick)) die("record --type comment needs --note \"<the note>\"");
+    withLock(F.sessionLock, () => {
+      const s = session();
+      applyAction(s, a);
+      saveSession(s);
+    });
+  }
   console.log(JSON.stringify(a));
 } else if (cmd === "wait") {
   const timeout = Number(args.timeout || 3000) * 1000;

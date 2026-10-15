@@ -2,9 +2,13 @@
 //   readLogos(assetsDir)  validates research/brand/assets/ + logos.json (crew.mjs check --role brand-researcher)
 //   scanLogos(...)        finds every logo-looking element in the built compositions and says whether it is
 //                         the downloaded file or a lookalike (slop.mjs, rule "logo-not-the-file")
+//   fetchLogo(...)        gets a third-party mark as a real file: SVGL, then Simple Icons, then an SVG on the brand's own site. The bytes
+//                         are saved exactly as served and are NEVER recoloured (a mark in another colour is not the brand's mark);
+//                         node lib/logos.mjs fetch --brand "Notion" [--site notion.so] [--out research/brand/assets]
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { fileURLToPath } from "node:url";
 
 const KINDS = ["mark", "wordmark", "lockup", "app-icon"];
 const sha = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
@@ -206,4 +210,83 @@ export function scanLogos({ project, sources, logos, cssText }) {
     }
   }
   return findings;
+}
+
+// ---------------------------------------------------------------- fetching a third-party mark
+const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+const getText = async (url, ms = 15000) => {
+  const r = await fetch(url, { headers: { "user-agent": UA, accept: "*/*" }, signal: AbortSignal.timeout(ms), redirect: "follow" });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.text();
+};
+const slugOf = (name) => String(name).toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/\+/g, "plus").replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
+const MAX_SVG = 400 * 1024;
+// the usable SVG text or null (a well-formed <svg>, not huge, not a 1x1 tracker)
+const okSvg = (t) => typeof t === "string" && t.length > 80 && t.length <= MAX_SVG && !svgProblem(t);
+
+// -> { ok, source: "svgl"|"simple-icons"|"site", file, kind, source_url, bytes, tried[] } | { ok: false, tried[] }
+// opts: { brand, site (domain or URL), outDir, kind: "mark"|"wordmark" (SVGL wordmark when "wordmark"), register: true (add to logos.json) }
+export async function fetchLogo({ brand, site = "", outDir, kind = "mark", register = true } = {}) {
+  if (!brand || !outDir) throw new Error("fetchLogo needs { brand, outDir }");
+  const tried = [], slug = slugOf(brand);
+  const save = (source, url, text) => {
+    fs.mkdirSync(outDir, { recursive: true });
+    const file = path.join(outDir, `${slug}${kind === "wordmark" ? "-wordmark" : ""}-${source}.svg`);
+    fs.writeFileSync(file, text); // as served: never recoloured, resized or cleaned
+    const entry = { file: path.basename(file), kind, source_url: url, source_name: source };
+    if (register) addLogoEntry(outDir, entry);
+    return { ok: true, source, file, kind, source_url: url, bytes: Buffer.byteLength(text), tried };
+  };
+  // 1. SVGL: curated brand SVGs, light/dark routes
+  try {
+    const list = JSON.parse(await getText(`https://api.svgl.app?search=${encodeURIComponent(brand)}`));
+    const hit = (Array.isArray(list) ? list : []).find((x) => slugOf(x.title) === slug) || (Array.isArray(list) ? list : []).find((x) => slugOf(x.title).startsWith(slug));
+    const pick = (r) => (typeof r === "string" ? r : r && (r.light || r.dark));
+    const route = hit && (kind === "wordmark" ? pick(hit.wordmark) || pick(hit.route) : pick(hit.route));
+    if (route) { const t = await getText(route); if (okSvg(t)) return save("svgl", route, t); tried.push(`svgl: ${route} is not a usable svg`); }
+    else tried.push(`svgl: no entry for "${brand}"`);
+  } catch (e) { tried.push(`svgl: ${e.message}`); }
+  // 2. Simple Icons: the CDN serves the icon in the brand's own colour when no colour is asked for
+  if (kind !== "wordmark") {
+    try {
+      const u = `https://cdn.simpleicons.org/${slug}`;
+      const t = await getText(u);
+      if (okSvg(t)) return save("simple-icons", u, t);
+      tried.push(`simple-icons: ${u} is not a usable svg`);
+    } catch (e) { tried.push(`simple-icons: ${e.message}`); }
+  }
+  // 3. the brand's own site: an <img> or inline <svg> named logo, else an svg favicon
+  if (site) {
+    try {
+      const base = /^https?:/i.test(site) ? site : `https://${site}`;
+      const html = await getText(base);
+      const abs = (h) => { try { return new URL(h, base).href; } catch { return null; } };
+      const cands = [];
+      for (const m of html.matchAll(/<img\b[^>]*>/gi)) { const tag = m[0], src = (tag.match(/\bsrc=["']([^"']+\.svg[^"']*)["']/i) || [])[1]; if (src && /logo/i.test(tag)) cands.push(abs(src)); }
+      for (const m of html.matchAll(/<link\b[^>]*>/gi)) { const tag = m[0], h = (tag.match(/\bhref=["']([^"']+\.svg[^"']*)["']/i) || [])[1]; if (h && /rel=["'][^"']*icon/i.test(tag)) cands.push(abs(h)); }
+      for (const u of cands.filter(Boolean)) { try { const t = await getText(u); if (okSvg(t)) return save("site", u, t); } catch (e) { tried.push(`site: ${u}: ${e.message}`); } }
+      const inl = html.match(/<(?:a|div|span|header)\b[^>]*(?:class|id|aria-label)=["'][^"']*logo[^"']*["'][^>]*>\s*(<svg[\s\S]*?<\/svg>)/i);
+      if (inl && okSvg(inl[1])) return save("site", base, inl[1]);
+      tried.push(`site: no svg logo found on ${base}`);
+    } catch (e) { tried.push(`site: ${e.message}`); }
+  } else tried.push("site: no --site given");
+  return { ok: false, tried };
+}
+
+// add a row to <dir>/logos.json (creating it, or replacing a {none: true} note); the same file twice is one row
+export function addLogoEntry(dir, entry) {
+  const f = path.join(dir, "logos.json");
+  let j = []; try { j = JSON.parse(fs.readFileSync(f, "utf8")); } catch {}
+  if (!Array.isArray(j)) j = [];
+  const i = j.findIndex((e) => e && e.file === entry.file);
+  if (i >= 0) j[i] = { ...j[i], ...entry }; else j.push(entry);
+  fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");
+}
+
+if (process.argv[1] && fs.realpathSync(path.resolve(process.argv[1])) === fs.realpathSync(fileURLToPath(import.meta.url))) {
+  const a = process.argv.slice(2), val = (k) => { const i = a.indexOf(`--${k}`); return i >= 0 ? a[i + 1] : undefined; };
+  if (a[0] !== "fetch" || !val("brand")) { console.error('usage: node logos.mjs fetch --brand "<Name>" [--site <domain>] [--out research/brand/assets] [--kind mark|wordmark] [--no-register]'); process.exit(1); }
+  const r = await fetchLogo({ brand: val("brand"), site: val("site") || "", outDir: path.resolve(val("out") || path.join("research", "brand", "assets")), kind: val("kind") === "wordmark" ? "wordmark" : "mark", register: !a.includes("--no-register") });
+  console.log(JSON.stringify(r, null, 2));
+  process.exit(r.ok ? 0 : 2);
 }

@@ -10,7 +10,8 @@
 // banned-pattern signatures. Each ease is SAMPLED, so a cubic-bezier, a spring or a CustomEase is
 // judged by its shape, not its name. The uniform pattern (one ease, one duration, one stagger) is the
 // tell R5 measured; it is what this check fails.
-// Signatures and rules: references/motion-md-contract.md.
+// Also warns on twinning (rule twinning: two or three different elements making the same spatial move, same start, length and curve, each by its own tween; uncalibrated) and on dead tweens (rules dead-tween: every sampled property is the same at the tween's start and end; tween-past-end: it starts at or after the
+// composition's data-duration; tween-truncated: it runs more than 0.1 s past it). Signatures and rules: references/motion-md-contract.md.
 //
 // usage: node obey.mjs --project videos/<name> [--motion <path>] [--run <run> | --score <score.json>] [--json]
 //        (--run / --score: the score's `budget` lets a banned hero effect (overshoot, blur-in, scale-pop, glow) through
@@ -116,6 +117,8 @@ const WALKER = `
   out.width=rootEl?+rootEl.getAttribute("data-width"):1920;
   out.mixOff=!!document.querySelector('[data-obey-mix="off"]');
   out.clock=0;
+  var durEl=document.querySelector("[data-composition-id][data-duration]");
+  out.compDur=durEl?+durEl.getAttribute("data-duration"):null;
   try{
     var T=window.__timelines||{};
     Object.keys(T).forEach(function(id){
@@ -200,6 +203,9 @@ const unknownBans = banned.filter((b) => !SIGNATURES[b]);
 const MIX = { min_gestures: 12, min_families: 4, max_share: 0.4, max_duration_share: 0.4, ...(M.mix || {}) };
 const BUDGET = M.overshoot || (banned.includes("overshoot") ? { share: 0, max_pct: 0 } : { share: 0.15, max_pct: 8 });
 const FPS = 30;
+// frame-budget warning bands for entrances (craft.md). The long band follows the language: a slow language's own durations.max_ms lifts it
+const growsByDesign = (M.entrances || []).some((e) => /pop|scale|grow/i.test(String(e)));
+const ENTER_MAX_S = Math.max(1.2, ((M.durations && Number(M.durations.max_ms)) || 0) / 1000), ENTER_MIN_F = 3;
 // effect budgets (W4, lib/budget.mjs): a banned hero effect passes on the target the score names, up to the film's limit
 let SCORE = null;
 try { SCORE = args.score && args.score !== true ? JSON.parse(fs.readFileSync(path.resolve(String(args.score)), "utf8")) : args.run && args.run !== true ? JSON.parse(fs.readFileSync(path.join(path.resolve(String(args.run)), "motion", "score.json"), "utf8")) : null; } catch { SCORE = null; }
@@ -236,6 +242,25 @@ const easeLabel = (t) => (t.ease && t.ease.startsWith("rasan:") ? t.ease.slice(6
 
 if (unknownBans.length) add({ severity: "error", rule: "unknown-ban", file: motionPath, message: `motion.md bans ${unknownBans.join(", ")} but no machine signature exists for them`, fix: "remove them or add a signature in scripts/lib/signatures.mjs + motion-md-contract.md" });
 
+// dead tweens (warnings): a tween that never plays inside its composition, or that animates nothing
+const sameV = (a, b) => { if (a === b) return true; const x = Number(a), y = Number(b); if (Number.isFinite(x) && Number.isFinite(y)) return Math.abs(x - y) <= 1e-6 * Math.max(1, Math.abs(x)); return String(a) === String(b); };
+// from == to on every sampled property (and nothing unsampled): the target already sits where the tween sends it
+const isStatic = (t) => t.isEl && t.dur > 0 && !t.repeat && Object.keys(t.from || {}).length > 0 && t.keys.every((k) => k in t.from) && Object.keys(t.from).every((k) => sameV(t.from[k], t.to[k]));
+function deadTweens(res, rel) {
+  const dead = [], past = [], cut = [], D = res.compDur;
+  for (const t of res.tweens) {
+    if (isStatic(t)) dead.push(t);
+    if (D > 0 && t.dur > 0) { if (t.start >= D - 0.001) past.push(t); else if (t.start + t.dur > D + 0.1) cut.push(t); }
+  }
+  const emit = (list, rule, msg, fix) => {
+    list.slice(0, 5).forEach((t) => add({ severity: "warning", rule, file: rel, timeline: t.tl, target: t.target, at: `${t.start.toFixed(2)}s`, dur_ms: Math.round(t.dur * 1000), message: msg(t), fix }));
+    if (list.length > 5) add({ severity: "warning", rule, file: rel, message: `${list.length - 5} more tween(s) in ${rel} with the same problem (first 5 listed)`, fix });
+  };
+  emit(dead, "dead-tween", (t) => `animates nothing: every sampled property reads the same at its start and its end (${Object.keys(t.from).join(", ")})`, "delete it, or give it the value it should travel from (a from() on an element that already sits there does nothing)");
+  emit(past, "tween-past-end", (t) => `starts at ${t.start.toFixed(2)} s, at or after the composition's data-duration (${D} s): it never plays`, "move it inside the composition, or lengthen data-duration on the composition and its clip in index.html");
+  emit(cut, "tween-truncated", (t) => `runs ${t.start.toFixed(2)}-${(t.start + t.dur).toFixed(2)} s but the composition ends at ${D} s: its last ${(t.start + t.dur - D).toFixed(2)} s never plays`, "finish it before the composition ends, or lengthen data-duration");
+}
+
 const gestures = []; // every enter / exit / move tween in every checked file: the film's motion, for the mix rules
 let mixOff = false, width = 1920, clocks = [];
 for (const file of files) {
@@ -254,6 +279,7 @@ for (const file of files) {
     couldNotRun.push(`${rel}: defines GSAP tweens but none were found at runtime (timeline not registered synchronously on window.__timelines, or a script error)`);
   if (res.mixOff) mixOff = true;
   if (res.width) width = res.width;
+  if (!res.fatal) deadTweens(res, rel);
   const byTarget = {};
   let seen = 0;
   for (const t of res.tweens) {
@@ -279,6 +305,33 @@ for (const file of files) {
     }
     for (const b of bannedHits(t, cls, banned)) if (onBudget(b, t)) budgeted.push({ effect: effectOf(b), target: t.target, file: rel, at: where.at }); else add({ severity: "error", rule: `banned:${b}`, ...where, message: `matches the banned pattern "${b}"${effectOf(b) && budgetUsed[effectOf(b)] > LIMIT ? ` (${budgetUsed[effectOf(b)]} uses: over the film's budget of ${LIMIT}, the uniform tell)` : ""}`, fix: `a hero effect needs a score.budget entry {effect, scene, target, reason} (at most ${LIMIT} per film); otherwise use one of motion.md's entrances (${(M.entrances || []).join(", ")}) or RasanMotion.enter (mask, wipe, scale, focus, fly)` });
     if (t.shape && t.shape.overshoot_pct > 0 && BUDGET.share > 0 && t.shape.overshoot_pct > BUDGET.max_pct * 1.5) add({ severity: "warning", rule: "overshoot-too-big", ...where, message: `overshoots ${t.shape.overshoot_pct}% of its travel; motion.md's settle budget is ${BUDGET.max_pct}% at most`, fix: `a gentler settle (spring(0.68,12) is about 5%), or RasanMotion.land` });
+    // frame-budget bands (references/craft.md, "Frame budgets"): defaults measured on short SaaS-style clips, so warnings only
+    if (cls === "enter") {
+      if (t.dur > ENTER_MAX_S) add({ severity: "warning", rule: "entrance-too-long", ...where, message: `an entrance runs ${t.dur.toFixed(2)} s (${Math.round(t.dur * FPS)} f); measured entrances are 11-12 f and rarely pass ${ENTER_MAX_S} s`, fix: "shorten it to 0.3-0.8 s on a decelerating curve; a long entrance reads as a slow web page, not a landing" });
+      else if (t.dur * FPS < ENTER_MIN_F - 0.01) add({ severity: "warning", rule: "entrance-too-short", ...where, message: `an entrance lasts ${Math.round(t.dur * FPS)} f (${t.dur.toFixed(2)} s); under ${ENTER_MIN_F} f it reads as a cut, not a move`, fix: "give it 6-12 f, or make it a deliberate hard cut" });
+      // a language whose own entrances are pops or scales (char-pop, scale ...) grows things on purpose: that is its signature, not a default
+      const uniS = (v) => (v.scale !== undefined ? v.scale : v.scaleX !== undefined && v.scaleY !== undefined ? Math.min(num(v.scaleX), num(v.scaleY)) : undefined);
+      const s0 = num(uniS(t.from)), s1 = num(uniS(t.to));
+      if (s0 !== null && s1 !== null && s0 <= 0.05 && s1 >= 0.95 && !growsByDesign) add({ severity: "warning", rule: "scale-from-zero", ...where, message: "grows from zero scale: nothing in measured work is born from nothing (identity objects arrive oversize and scale down)", fix: "enter from 0.9-1.1x with a short opacity ramp, or from 1.4-3.5x and scale down; growing from zero is right only when the growth is the content (a chart bar, a tile cascade)" });
+      // identity objects arrive oversize (a logo about 3.5x, a mark about 1.9x) and scale down; one that arrives at 1x or smaller is the quiet default
+      if (/logo|wordmark|brand-?mark|lockup/i.test(String(t.target))) {
+        const sFrom = num(uniS(t.from)), sTo = num(uniS(t.to));
+        if (sFrom !== null && sTo !== null && sTo <= 1.2 && sFrom < 1.5 && sFrom >= 0.05) add({ severity: "warning", rule: "logo-arrives-small", ...where, message: `the brand mark arrives at ${sFrom}x and lands at ${sTo}x: identity objects in measured work arrive oversize (a logo about 3.5x, a mark about 1.9x) and scale down over 18-30 f`, fix: "from scale 1.9-3.5 down to 1, 'snapSettle' over 18-30 f (craft.md Frame budgets)" });
+      }
+    }
+    // word-to-word gap (uncalibrated warning): whole words 2-5 f apart, a CTA line 8 f, anything 2-12 f is in range
+    if (t.stagger != null && t.nTargets > 2 && /word|\bw\d|split.?words/i.test(String(t.target))) {
+      const gapF = t.stagger * FPS;
+      if (gapF < 1.5 || gapF > 12.5) add({ severity: "warning", rule: "word-gap", ...where, message: `words follow each other ${gapF.toFixed(1)} f apart; measured word choreography sits at 2 to 12 f (whole words 2-5, a CTA line 8)`, fix: gapF < 1.5 ? "slower than a smear: 2-5 f per word, the key word last" : "a word every 12 f at most, or the line reads as typing" });
+    }
+    // a 2D tween over 80 px per frame (at 1920 wide) smears or strobes unless the finish puts the shutter on it (finish.mjs blur|all), or the film smears by design
+    {
+      const tf = t.from || {}, tt = t.to || {};
+      const dist = Math.hypot((num(tt.x) ?? 0) - (num(tf.x) ?? 0), (num(tt.y) ?? 0) - (num(tf.y) ?? 0));
+      const pxf = dist / Math.max(1, t.dur * FPS) * (1920 / (width || 1920));
+      const grammar = String((SCORE && SCORE.blur_grammar) || (M && M.blur_grammar) || "").toLowerCase();
+      if (pxf > 80 && !/shutter|smear|stepped|crisp/.test(grammar)) add({ severity: "warning", rule: "fast-no-shutter", ...where, message: `moves about ${Math.round(pxf)} px per frame (over 80) in a film whose blur grammar is "${grammar || "undeclared"}": it strobes without a shutter`, fix: 'declare blur_grammar: "shutter" (the delivery finish adds the shutter, finish.mjs all) or "smear" (draw the smear), or slow the move' });
+    }
     gestures.push({ ...t, rel, where });
     (byTarget[`${t.tl}|${t.target}`] = byTarget[`${t.tl}|${t.target}`] || []).push(t);
   }
@@ -322,6 +375,17 @@ else {
   if (shaped.length && top.length / shaped.length > MIX.max_share) add({ severity: "error", rule: "dominant-ease", file: top[0].rel, message: `one curve (${names}) moves ${top.length} of ${shaped.length} gestures (${Math.round((top.length / shaped.length) * 100)}%; ${Math.round(MIX.max_share * 100)}% at most): every move has the same shape, the strongest machine tell`, fix: `give each kind of move its own curve: launch for entrances, glide or expressive for repositions, settle for hero landings, exit for leaves, drift for the camera (motion.md curves; RasanMotion picks them by role)` });
   const fams = Object.keys(byFam).length;
   if (fams < MIX.min_families) add({ severity: "error", rule: "few-curves", file: gestures[0].rel, message: `${fams} curve families in the film (${Object.entries(byFam).map(([k, v]) => `${k} ${v}`).join(", ")}); ${MIX.min_families} at least`, fix: "add the missing roles: a long-tailed launch, a soft-start glide, a settle on a hero landing, an accelerating exit, a sine drift on the camera" });
+  // role curves (motionmaxxing: about 58% of landings are ease-out, ease-in is the commonest exit): an entrance that accelerates in or an exit that decelerates out
+  const ENTER_BAD = new Set(["accelerate", "linear"]), EXIT_BAD = new Set(["snap", "decelerate", "glide"]);
+  for (const [cls, bad, rule, msg, fix] of [
+    ["enter", ENTER_BAD, "enter-curve-wrong-way", "arrives on a curve that accelerates in (ease-in or linear): a landing decelerates", "land it on a launch, glide or settle curve (motion.md curves)"],
+    ["exit", EXIT_BAD, "exit-curve-wrong-way", "leaves on a curve that decelerates out: a leave accelerates", "leave on the exit curve (ease-in: slow start, fast end)"],
+  ]) {
+    const all = shaped.filter((g) => g.cls === cls), wrong = all.filter((g) => bad.has(g.shape.family));
+    if (all.length >= 6 && wrong.length / all.length > 0.5) add({ severity: "warning", rule, file: wrong[0].rel, message: `${wrong.length} of ${all.length} ${cls}s ${msg} (${[...new Set(wrong.map((g) => easeLabel(g)))].slice(0, 3).join(", ")})`, fix });
+  }
+  const springs = shaped.filter((g) => g.shape.overshoot_pct >= 9);
+  if (springs.length > 1) add({ severity: "warning", rule: "springs-over-one", file: springs[0].rel, message: `${springs.length} gestures overshoot 9% or more of their travel (${[...new Set(springs.map((g) => g.target))].slice(0, 4).join(", ")}): at most one spring is visible in a film (a slow lean past the mark under 9% is not a spring)`, fix: "keep the one hero spring; land the rest on a launch or glide curve" });
   // durations on a 1-frame grid
   const fr = gestures.map((g) => Math.round(g.dur * FPS));
   const cnt = {};
@@ -361,6 +425,45 @@ else {
   const travels = gestures.filter((g) => { const dx = (num(g.to.x) ?? 0) - (num(g.from.x) ?? 0), dy = (num(g.to.y) ?? 0) - (num(g.from.y) ?? 0); return Math.hypot(dx, dy) >= width * 0.1; });
   const fast = travels.filter((g) => g.dur < 0.5);
   if (travels.length >= 3 && fast.length / travels.length > 0.25) add({ severity: "warning", rule: "snap-and-die", file: fast[0].rel, target: fast[0].target, message: `${fast.length} of ${travels.length} travels over 10% of the frame take under 0.5 s: they snap and die (references keep the median move visible 0.4-0.5 s)`, fix: "0.7-1.2 s for big travels, on a long-tailed curve (motion.md durations)" });
+}
+
+// ---- avoid twinning (WARNING, uncalibrated; ClaudeAnimationBase): two or three different elements that make the same spatial move with the same timing and curve, each by its own tween
+// (one tween on a group is a deliberate cascade, judged above). Same file and timeline, same moving keys with the same travel (x / y / scale / rotation, within 2%), starts within a frame, same
+// length (a frame), same curve. Fades alone do not count; groups of 4 or more are a cascade, not twins.
+{
+  const SPATIAL = /^(x|y|xPercent|yPercent|scale|scaleX|scaleY|rotation|rotate|width|height)$/;
+  const delta = (g) => {
+    const d = {};
+    for (const k of g.keys) {
+      if (!SPATIAL.test(k)) continue;
+      const a = num(g.from[k]), b = num(g.to[k]);
+      if (a === null || b === null) continue;
+      d[k] = /^scale/.test(k) && a ? b / a : b - a;
+    }
+    return d;
+  };
+  const same = (p, q) => { const ks = Object.keys(p); if (!ks.length || ks.length !== Object.keys(q).length) return false; return ks.every((k) => k in q && Math.abs(p[k] - q[k]) <= Math.max(0.02 * Math.max(Math.abs(p[k]), Math.abs(q[k])), /^scale/.test(k) ? 0.02 : 1)) && ks.some((k) => (/^scale/.test(k) ? Math.abs(p[k] - 1) > 0.04 : Math.abs(p[k]) > 2)); };
+  const cand = gestures.filter((g) => !(g.nTargets > 1) && g.dur > 0).map((g) => ({ g, d: delta(g) })).filter((x) => Object.keys(x.d).length);
+  const byFile = {};
+  for (const x of cand) (byFile[`${x.g.rel}|${x.g.tl}`] = byFile[`${x.g.rel}|${x.g.tl}`] || []).push(x);
+  const flagged = new Set();
+  let shown = 0;
+  for (const list of Object.values(byFile)) {
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      if (flagged.has(a)) continue;
+      const twins = [a];
+      for (let j = i + 1; j < list.length; j++) {
+        const b = list[j];
+        if (flagged.has(b) || b.g.target === a.g.target) continue;
+        if (Math.abs(b.g.start - a.g.start) * FPS > 1.01 || Math.abs(b.g.dur - a.g.dur) * FPS > 1.01 || easeLabel(b.g) !== easeLabel(a.g) || !same(a.d, b.d)) continue;
+        twins.push(b);
+      }
+      if (twins.length < 2 || twins.length > 3) continue;
+      twins.forEach((x) => flagged.add(x));
+      if (shown++ < 6) add({ severity: "warning", rule: "twinning", file: a.g.rel, timeline: a.g.tl, target: twins.map((x) => x.g.target).join(" + "), at: `${a.g.start.toFixed(2)}s`, dur_ms: Math.round(a.g.dur * 1000), ease: easeLabel(a.g), message: `${twins.length} elements make the same move (${Object.keys(a.d).join(", ")}) together: same start (within a frame), length and curve; twins read as a template, not as two things with their own weight`, fix: "offset one by 2-4 frames, give it a different duration or curve (the lighter or smaller one lands first and settles less), or change what it does (one slides, the other scales)" });
+    }
+  }
 }
 
 if (!report.tweens && !couldNotRun.length) couldNotRun.push("no GSAP tweens found in any composition: nothing was checked (run obey after the build writes compositions/index.html)");

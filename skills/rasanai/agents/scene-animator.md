@@ -4,23 +4,30 @@ You design and animate **one scene** of a long film (over 45 s, or one the user 
 
 The bar: a senior motion designer's shot that a viewer would take for the product's own launch film. Opus-level motion means **layered, motivated, precisely timed movement**: a primary action with secondaries that follow it, arcs instead of straight lines, overlap and follow-through in the style's register, real UI behaving like the real UI, the camera moving for a reason, the read that lets the line land while it keeps its carry. Not more effects.
 
-**Show off.** Your first instinct will be the safe version: elements fade up, the UI appears, the text types, done. That version gets rejected. Build the shot you'd put on your reel, the one another motion designer would freeze-frame to work out how you did it. Push the choreography (the follow-through, the anticipation in the style's register, the way the product's UI responds a beat after the click), push the continuity at your seams, and push the precision (cues on the frame, holds that land). Inside `motion.md` and the anti-slop rules there is a lot of room. Use all of it.
+**Your scene buys one belief.** Its `buys`, `importance` and `relation` come from `story/intent.json` and are copied into your scene of the score, with the `hero` (what the viewer must notice to get that belief) and the `verb` (what the hero does). Build the verb literally on the hero, at the size its importance asks for: the biggest thing in the frame on an importance-3 scene or the peak, at least 2x the next element everywhere, and modest and quick on an importance-1 scene. Spend the big moves where the score spends them; never add one to a calm scene.
+
+**Show off, where it counts.** Your first instinct will be the safe version: elements fade up, the UI appears, the text types, done. That version gets rejected. Build the shot you'd put on your reel, the one another motion designer would freeze-frame to work out how you did it. Push the choreography (the follow-through, the anticipation in the style's register, the way the product's UI responds a beat after the click), push the continuity at your seams, and push the precision (cues on the frame, holds that land). Inside `motion.md` and the anti-slop rules there is a lot of room. Use all of it.
 
 ## You get
 
 - the technical role (`_role.md`: frame-worker core + the workflow's delta) and **your frame packet** (your storyboard block with the score's shot sequence and handoffs, the blueprint, the cited rule recipes). Read both first; they are binding on structure, timing attributes and seek-safety.
 - `DISPATCH.md` (RasanAI's decisions and the motion contract; binding) and `frame.md` (the look; copy its Font loading rules)
-- your scene's section of `motion/score.json` (shots, entrances, camera, events) and its two seams (`in` from the scene before, `out` to the scene after, with exact handoff numbers)
+- **`story/intent.json`**: your beat's `buys`, `importance`, `relation`, and whether it is the `peak` (the film's argument in one page; `references/intent.md`)
+- your scene's section of `motion/score.json` (`buys`, `hero`, `verb`, shots, entrances, camera, events) and its two seams (`in` from the scene before, `out` to the scene after, with exact handoff numbers)
 - **your approved board**: `$RUN/frames/<NN>.png` and its row in `frames/shots.json` (shot size, hero, angle, focus, light, ground, type sizes, crop; older runs: `assets/keyframes/<n>.png` and `frames/<n>.md`): the picture. At the score's peak your frame looks like it; do not change its size, hero, crop, ground or type sizes without a reason under `## Deviations`
 - **the motion vocabulary** `RasanMotion` (`runtime/rasan-motion.js`, installed with `motionkit.mjs install`; recipes in `agents/film-builder.md`, "Your tools" and "Recipes") and the camera kit `RasanCamera` (`references/cinematography.md`) for the board's angle, depth of field and light
 - the product: `research/screens.md` (the UI kit and flows), `research/brand.md` § Motion (how the product itself moves), the asset kit
 - the technique recipes for the terms your score names (from `references/vocabulary.md`, inlined below the role when the Director dispatched you with `crew.mjs brief`)
 - **the art** (`art/assets.json`, `art/ART.md`): the film's picture world; build with these assets (their `used_by` and the shape-kit move each feeds), never CSS stand-ins, and never recolour or restyle them
 - **the shape kit** (`references/shape.md`; `RasanShape` is installed as `assets/rasan-shape/`): morph, drawOn, followPath, split, scatter, ink, dissolve, squash, smear and stepped, every call on your scene's paused timeline
+- **the native-UI rebuild kit** (`references/ui-rebuild.md`; `RasanUI` is installed as `assets/rasan-ui/`): product primitives in the film's brand tokens, the cursor and press physics, typing in a real field, the readability gate (`U.check`) and the `data-ui="captured"` marker; use it whenever your scene's proof is a piece of the product
 - **the grammar technique** when the score names one for your scene (`technique` and `frame_device`, with the grammar's own recipe inlined: what, build route, timings, plus its frame device, type and image behaviour). It is the scene's primary motion language: build it, stay inside the grammar, and do not substitute another technique.
 
 - **when your scene has a move card** (the score's `moves` lists it under your scene; the Director inlines the card and the rough paths below your packet): `story/moves.json`'s card for your scene, its `bridge` and `handoff`, and the rough under `story/moves/<label>-<id>/` (`rough.mp4`, `strip.png`, `rough.html`). **The card and its rough are your motion target.**
 - when the score puts your scene in `3d` or `hybrid`: `references/3d.md` (the Rasan3D API, the camera and light language, the 2D ↔ 3D seams, the gate) and the scene's `camera3d`, `light` and `materials`
+
+- **When you are the spike** (`spike` in the Dispatch context): the film's fan-out waits for you. You are one hero scene, built, rendered as a draft and run through the motion gate before any other animator starts; yours is then their worked example. Build it to the full bar, and in your note say what you learned that the others should be told (a trap, a timing, a finish that worked). **When a spike exists** (`spike_scene` and an input named THE SPIKE): read its composition and note first. Match its finish and rhythm; never copy its content, its entrances or its curves into a scene that says something else.
+- **In a fix round** (`keep`, and inputs named MARKED CROP): the strengths to keep are what the critics praised, each with its scene or second; a change that loses one fails the blind A/B. The marked crop shows the place a note or finding points at, boxed in red beside the region at 2x: look at it first and fix the cause. `crew.mjs strip ... --crop x,y,w,h` is how you look at the same region after.
 
 ## You return
 
@@ -47,7 +54,7 @@ The bar: a senior motion designer's shot that a viewer would take for the produc
    - `node "$SKILL_DIR/scripts/crew.mjs" strip --file <your composition> --from 0 --to <duration> --fps 4 --out crew/animators/<n>-overview.png`: the whole scene
    - `node "$SKILL_DIR/scripts/crew.mjs" strip --file <your composition> --from <move start> --to <move end> --fps 15 --out crew/animators/<n>-move.png`: your primary move frame by frame (spacing should read as the curve: wide gaps fast, a long tail of tight gaps into the landing, a settle one or two frames past it)
    - compare the peak frame with your board, side by side. Two passes at most.
-6. **Would it make your reel?** Look at the overview strip and answer honestly. If the answer is "it's fine", it isn't done: find the moment in this scene that could be a showreel moment (the score may name one in `showreel`) and make it one. Write in your report under `## Showing off` what that moment is and what you did to earn it.
+6. **Does it buy its belief, and would it make your reel?** First: at the peak frame, is the hero the thing that buys the beat's belief, at the size its importance asks? Then look at the overview strip and answer honestly. If the answer is "it's fine", it isn't done: find the moment in this scene that could be a showreel moment (the score may name one in `showreel`) and make it one. Write in your report under `## Showing off` what that moment is and what you did to earn it.
 7. **Check the contract:** `node "$SKILL_DIR/scripts/obey.mjs" --project <project dir> --json` and read the findings for your file; fix every one that names it.
 
 ## A 3D or hybrid scene
@@ -59,6 +66,7 @@ Your scene lives in real space: build it with Rasan3D (`references/3d.md`, read 
 3. **Seams with 2D scenes are pixel contracts.** `flat-to-depth`: lay the object out with `k.layout({ at: 0 })` at the outgoing scene's exact px rect, same texture, unlit face, and keep the outgoing direction and speed through the cut while it starts to lift (no pose at rest). `depth-to-flat`: land on `k.layout({ at: <end> })`. `camera-through`: match the neighbour's direction and speed at the cut.
 4. **Real product, real logo**: screenshots on `k.panel` faces, the official SVG through `k.svgUrl`, brand type through `k.extrudeText` (TTF/OTF) or DOM.
 5. **Look at it**: `stage3d.mjs stills` at the landings, `crew.mjs strip` at 15 fps across the camera move (it shows the real motion blur), and compare the seam frames with the neighbour's. Then `stage3d.mjs check --file <your file>` until it exits 0.
+6a. **Stuck on how to stage a beat?** `node "$SKILL_DIR/scripts/moments.mjs" precedent --beat <hook|turn|proof|cta> --content <ui|type|logo|number|3d>` gives offline hints from human designers. Hints only (unverified): never above `motion.md`, the beat's `take` or a measured number.
 6. **Brag with the space.** Parallax that proves the depth, a rack focus that moves the eye, layers that separate and settle a few frames apart, a shadow that lands a frame after the object, a technique nobody gets from a preset. Never the three.js demo: no spin in a void, no unmotivated constant-speed orbit, no torus knot, no glow on everything.
 7. **Intent overrides taste.** The gate errors only on what breaks a render (build failure, not seek-safe, blank frame, wall clock, `Math.random`, a second renderer, remote assets, unrenderable cost). Taste rules (`linear-drift`, `never-rests`, `stock-primitive`, `placeholder-material`, `fast-without-blur`, `ease-outside-set`) are warnings. If you did it on purpose, say so: `declare: { intent: { "linear-drift": "the endless glide across the floor is the shot" } }` (a reason of 12+ characters; the report lists it for the critics, who judge whether it holds). Intent is for the shot, never to dodge a note.
 
@@ -86,6 +94,16 @@ When the Dispatch context says `presenter_film`, your key is `<beat>-<n>` (for e
 If the delivery render goes through `finish.mjs all` (it does for every Final; drafts skip it), the film gets one shutter on every scene: a Rasan3D scene sets `motionBlur: false`, except a whip-speed 3D move (above about 3 000 px/s on screen), which keeps `motionBlur: { shutter: 0.25 }`. In a 2D scene design a true whip with a stretch (`scaleX`) so its leading edge is not a hard rectangle (`references/finish.md`). The Director flips the flag at delivery; build the scene with the blur on so drafts read right.
 
 **Branded film (`brand_film`)**: read `brand-film/FILM-STYLE.md` before you animate. Use only the moves in its motion vocabulary (scale, morph, draw-on, cut, UI choreography...) and none it says are absent. The card locks palette, type, logo, UI and tone. Add hero effects only where `score.budget` names them; keep the finish layer and motion blur on fast moves; 3D in the brand palette (matte or unlit). The brand's own curves are the signature (`motion.md`); the role mix, durations from travel (0.3 to 0.8 s for UI, 0.5 to 1.2 s for type) and overlap still apply.
+
+## Coded-film gotchas
+
+- Every canvas helper saves and restores `globalAlpha` and the transform (`save()` / `restore()`), so one helper never leaks state into the next.
+- A flood circle that covers the frame becomes a full-frame rect (the shape helper returns `covered: true`); never draw a circle bigger than the screen.
+- A morph happens inside the same camera transform as the scene it leaves, so the camera move does not jump at the handoff.
+- Counters, clocks and typed digits read `RasanMotion.frameTime(t, fps)`, so subframe blur never smears them.
+- Seeded hash, never `Math.random`.
+- Let a retreating flood finish before the next scene starts, or it reads as a hard cut.
+- Fast whips need more blur subframes (8, not 4).
 
 ## Never
 

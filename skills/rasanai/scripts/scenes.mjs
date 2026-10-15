@@ -5,13 +5,18 @@
 // own storyboard parser, and writes a timeline.json the console draws.
 //
 //   node scenes.mjs --scenes <scenes.json> --route product-launch-video|faceless-explainer|pr-to-video|general-video \
-//        --out <dir> [--mode collaborative|autonomous]
+//        --out <dir> [--mode collaborative|autonomous] [--intent <story/intent.json>] [--retime] [--total <s>]
+// Durations come from the story's meaning, never the reverse: a scene with no `duration` (or any scene under --retime) gets its seconds from its beat's
+// read time (lib/reading.mjs) and importance (lib/intent.mjs planDurations): the peak and the payoff hold longest, beats before the turn shorten, a rest
+// before the peak. --intent merges intent.json's beats into the scenes by position (importance, peak, rest_after, read, relation, buys); a scene may also
+// carry those fields itself. --total (else the scenes' own total, else intent.length_s) is the running time the free seconds are shared across.
 // Writes <dir>/STORYBOARD.md, <dir>/SCRIPT.md (narrated only), <dir>/timeline.json. Exit 1 with reasons on invalid input.
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs, die, readJSON, writeFile, normalizeAspect } from "./lib/common.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
 import { track } from "./lib/report.mjs";
+import { loadIntent, planDurations } from "./lib/intent.mjs";
 
 const args = parseArgs();
 track("Timing the scenes into a storyboard", "Storyboard timing ready");
@@ -22,6 +27,24 @@ if (!ROUTES.includes(route)) die(`--route must be one of ${ROUTES.join(", ")} (m
 const S = readJSON(path.resolve(String(args.scenes)));
 const scenes = S.scenes || [];
 const problems = [];
+// the beats' meaning: intent.json's beats merged into the scenes by position
+if (args.intent && args.intent !== true) {
+  const it = loadIntent(path.resolve(String(args.intent)));
+  if (!it) die(`--intent not found: ${args.intent}`);
+  const bs = it.beats || [];
+  if (bs.length !== scenes.length) problems.push(`intent.json has ${bs.length} beats and scenes.json ${scenes.length} scenes: they are the same list (a cut or merge applies to both)`);
+  scenes.forEach((sc, i) => { const b = bs[i]; if (!b) return; for (const k of ["importance", "peak", "rest_after", "read", "relation", "buys"]) if (sc[k] === undefined && b[k] !== undefined) sc[k] = b[k]; });
+  if (!S.length_s && it.length_s) S.length_s = it.length_s;
+}
+// durations from read time + importance: for scenes without a duration, or all of them under --retime
+if (scenes.length && (args.retime || scenes.some((sc) => !(Number(sc.duration) > 0)))) {
+  const given = scenes.reduce((a, sc) => a + (Number(sc.duration) > 0 ? Number(sc.duration) : 0), 0);
+  const total = Number(args.total) || (!args.retime && scenes.every((sc) => Number(sc.duration) > 0) ? given : 0) || Number(S.length_s) || 0;
+  const readOf = (sc) => (sc.read ? sc.read : { text: sc.on_screen || sc.voiceover || "" });
+  const plan = planDurations(scenes.map((sc) => ({ importance: sc.importance || 2, peak: sc.peak === true, rest_after: sc.rest_after === true, read: readOf(sc) })), { total });
+  if (plan.overflow) console.error(`rasanai: the scenes' reading times and rests need more than the ${total} s running time: durations are at their floors (cut a beat or lengthen the film)`);
+  scenes.forEach((sc, i) => { if (args.retime || !(Number(sc.duration) > 0)) sc.duration = plan.seconds[i]; });
+}
 if (!S.message) problems.push("message is required (the one thing the video says)");
 if (scenes.length < 2) problems.push("an entire video needs at least 2 scenes");
 if (scenes.length > 24) problems.push("more than 24 scenes: split the piece or merge beats");

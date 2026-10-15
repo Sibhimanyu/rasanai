@@ -130,6 +130,23 @@ Plates come from `art.mjs plate` (or an `abstract` row in the art plan; `referen
 | 41 | Zoom through a plate | `cam.plateTransition({at: <the cut>, src: "assets/art/plate-through.png", duration: 0.8..1.1, from: 1, to: 2.4, center: [x, y]})`: the plate fades up over 42% of the window while it swells (exponential zoom, constant felt speed), covers the cut, and opens on the next beat over the last 38%. Budgeted (2 per film); off a stage `RasanCamera.plateTransition(tl, {at, src, host})`. A vortex or a horizon plate reads as travel; give the next beat's first leg an `expo.out` in the same direction. | Sovra beat changes |
 | 42 | End-card field | The end card sits on a plate in the brand colours (`horizon` or `fold`, `calm 0.3`), flowGround on, the logo file on top with clear space; nothing else moves. | Kinso, Sovra end cards |
 
+## H. Camera from meaning, and the echo
+
+Each beat names its camera as one of eight kinds, and one shot is the signature (the move is chosen from what the beat buys: locked where the UI or type acts, a push toward the importance-3 hero, a pull-out for scale; one signature shot, on the peak). The kit's legs map onto them:
+
+| Kind | RasanCamera | When |
+|---|---|---|
+| locked | no leg (a `drift` on the ground only) | the UI or the type itself acts |
+| push-in | `push(0.06..0.15)`, `dolly(-dz)`, `zoom(mm)` | toward what matters; T1 to T3 |
+| pull-out | `push(-f)`, `dolly(+dz)` | reveal the context, the payoff wide |
+| pan-truck | `truck(dx, 0)`, `pan(deg)`, `orbit(yaw)` | follow an action across, a caret, a row |
+| tilt | `truck(0, dy)`, `tilt(deg)` | down a list, a stream, a page |
+| rotate | `roll(deg)` | a turn of the world, rarely |
+| handheld-drift | `drift({sway, float})` | a lived-in hold; never on small type |
+| whip | `truck` or `pan` in 0.15 to 0.3 s with trails, into a cut | the signature seam, once |
+
+The score's `camera` per beat starts with the kind ("push-in: toward the slot, 1.0 s expo.out") and `signature_shot: {beat, move, why}` names the one shot. `motion-gate.mjs` reports each beat's measured camera beside it and warns `camera-monotone` only when no beat names a camera, or the film never moves (`references/craft.md` "Camera from meaning" has the measure and the reference table). The film's ending also echoes its opening (`echo: {opening, ending, change}`; craft.md "Echo"): a camera that opened on the composer can close on it, pulled out.
+
 ## Budgets
 
 `chromaticSplit`, `halation`/`bloom`, `lightComet`, `burst` and `plateTransition` are budgeted extras: hero only, at most 3 of each per film (plateTransition: 2), each with a reason in the score's `budget` entries. `camera.mjs check` warns `over-budget` and `cam.budget()` counts them at runtime. Using the same effect on every element is still the tell. Ground (a flat tinted ground or a flowGround plate), key light, shadows, glass, depth of field, trails and grain are the default finish, not extras.

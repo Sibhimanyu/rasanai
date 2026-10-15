@@ -7,6 +7,10 @@
 //                             [--canvas "#0b0b0d" --ink "#f2f2f2" --accent "#ff4d12"] [--standalone] [--out <file>] [--force]
 //   node stage3d.mjs stills   --file <composition.html> --at 0.5,2,3.4 --out <dir> [--quality final|draft]
 //   node stage3d.mjs check    --project videos/<name> [--file <composition.html>] [--motion <motion.md>] [--json]
+//   node stage3d.mjs font     --project videos/<name> --family "<Brand Font>" [--weight 700] [--src <woff2|ttf|otf>] [--run <run>]
+//                             a STATIC TTF/OTF for k.extrudeText (it cannot read WOFF2 or a variable font): converts the staged woff2 /
+//                             variable font with fontTools + brotli into assets/fonts/<Family>-<weight>.ttf and prints the path to pass as `font`;
+//                             without the Python tools it says so, records a downgrade and offers a system face as a stand-in
 //
 // check loads every composition that uses Rasan3D in a real browser and gates it: it builds and draws
 // without errors, it isn't blank, the same time renders the same pixels (seek-safe), every 3D track eases
@@ -19,6 +23,8 @@ import path from "node:path";
 import { parseArgs, die, readFrontmatterDoc, SKILL_DIR } from "./lib/common.mjs";
 import { STAGE, install, projectRootOf, stills, checkFile, collect, uses3d } from "./lib/stage3d.mjs";
 import { track } from "./lib/report.mjs";
+import { noteDowngrade } from "./lib/downgrade.mjs";
+import { staticTtfFor } from "./lib/fonts.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -63,6 +69,13 @@ if (cmd === "install") {
   const r = await stills(file, times, dir, str(args.quality) || "final");
   const errs = (r.ready.stages || []).filter((s) => s.error);
   out({ ok: !errs.length, frames: r.files.map((f) => path.relative(process.cwd(), f.png)), errors: errs.map((s) => `${s.id}: ${s.error}`), console: r.logs.slice(0, 8) }, errs.length ? 2 : 0);
+} else if (cmd === "font") {
+  const project = path.resolve(str(args.project) || die("--project <videos/name> required"));
+  const family = str(args.family) || die("--family \"<Brand Font>\" required");
+  if (!exists(project)) die(`project not found: ${project}`);
+  const weight = Number(args.weight) || 400;
+  const r = await staticTtfFor(family, weight, project, { src: str(args.src) || null, run: str(args.run) || undefined, offline: !!args.offline });
+  out(r.ok ? { ok: true, file: r.rel, kind: r.kind, source: r.source, notes: r.notes, use: `k.extrudeText(text, { font: "${r.rel}", size, depth })` } : { ok: false, error: r.error, fallback: r.fallback || null, note: "recorded as a downgrade; k.text on a plane sets the word in the document's own @font-face" }, r.ok ? 0 : 2);
 } else if (cmd === "check") {
   const project = path.resolve(str(args.project) || ".");
   if (!exists(project)) die(`project not found: ${project}`);
@@ -87,6 +100,7 @@ if (cmd === "install") {
     }
   }
   report.could_not_run = couldNot;
+  for (const c of couldNot) noteDowngrade({ run: args.run, what: "the 3D check", instead: "no 3D check", why: String(c).slice(0, 200), impact: "the 3D scenes were not verified" });
   report.status = couldNot.length ? "could-not-run" : report.errors ? "violations" : "clean";
   if (args.json) console.log(JSON.stringify({ ...report, findings }, null, 2));
   else {
@@ -97,5 +111,5 @@ if (cmd === "install") {
   }
   process.exit(couldNot.length ? 1 : report.errors ? 2 : 0);
 } else {
-  die("usage: stage3d.mjs install|scaffold|stills|check … (see the header)");
+  die("usage: stage3d.mjs install|scaffold|stills|check|font … (see the header)");
 }

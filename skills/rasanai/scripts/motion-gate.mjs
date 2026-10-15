@@ -5,7 +5,8 @@
 // fails here with the time, the region or the beat, so the builder can fix the cause.
 //
 //   node motion-gate.mjs [--video <draft.mp4>] [--project <videos/name>] [--plan <run>/motion/score.json]
-//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--no-text-fit] [--no-fluency] [--no-carry] [--stillness] [--json]
+//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--vo <audio_meta.json|words.json>] [--no-text-fit] [--no-fluency] [--no-carry] [--no-echo] [--no-camera] [--no-emphasis] [--no-guards] [--no-pop] [--loop]
+//        [--stillness] [--json]
 //   node motion-gate.mjs fluency --video <film.mp4> [--stillness] [--json]     the fluency measurement alone
 //   -> exit 0 pass · 2 findings (listed, each with a time and a fix) · 1 could not run (never "clean")
 //
@@ -19,12 +20,14 @@
 //
 // From the frames (--video; sampled every 1/15 s by frame difference, ffmpeg, no window):
 //   coverage   visible motion in at least 70% of frames (the end card's allowed hold is exempt)
-//   freeze     no still stretch of 0.8 s or more outside the end card; the end card holds at most 1.5 s still after its
+//   freeze     no still stretch of 0.8 s or more outside the end card; the end card holds at most 1.4 s still after its
 //              last move (--end-hold, or the plan's end_hold_s, when the brief asks for longer)
+//   end-hold-short  (warning) the film holds under 0.3 s still after its last move: the ending flashes by. An error once a lesson sets
+//              motion.end_hold_min_s (a floor: a LARGER value is stricter; motion.end_hold_s is the ceiling above, a smaller one is stricter)
 //   creep      a whole-frame scale or drift slower than 4% a second is a WARNING (it can shimmer thin lines and small
 //              type); a living camera on a world layer is wanted (R5: UI references move the camera a third of the time)
 //   empty-frames  at most 10% of frames near-empty (foreground under 2.5% of the frame: see foregroundShare), the end hold (last
-//              1.5 s) and declared breaths (score.breaths: [[t0, t1]], each 1 s at most, two at most) exempt
+//              1.4 s) and declared breaths (score.breaths: [[t0, t1]], each 1 s at most, two at most) exempt
 //   gap-between-beats  no near-empty stretch over 0.3 s at a seam between two beats (outside breaths): the next element arrives
 //              before the last one leaves
 //   seams      every seam (a beat boundary from the plan) has motion on both sides within 0.2 s
@@ -32,11 +35,42 @@
 //              beat, carry it"): at each seam (the plan's beat boundaries, else the hard cuts found in the frames) the
 //              frames 0.1 s and 0.3 s either side are compared and the best pair wins; the score is the share of the
 //              foreground structure before the seam that reappears after it, allowing a shift (15% of the width) and a
-//              scale change (0.7 to 1.4), corrected for chance. A seam under 0.25 is not carried; fewer than half the
+//              scale change (0.7 to 1.4), corrected for chance; a cut-in on the same object (much bigger or smaller, 0.2 to 5) is credited by
+//              a verified second pass (edge match over chance plus the grey picture correlating: lib/carry.mjs). A seam under 0.25 is not carried; fewer than half the
 //              seams carried is a WARNING listing each uncarried seam with its time and score (an error only when a
 //              user lesson sets motion.carry_share, and never in a stillness style). Calibrated against our carry-chain films and the references (craft.md)
 //   long-ending  (warning, --plan) the last beat is more than 25% of the film (film.ending_share_max; motionmaxxing G3)
-// Lessons (lib/gate-lessons.mjs): motion.end_hold_s, motion.freeze_s, motion.carry_share and film.ending_share_max read
+//   no-echo    (warning) the ending does not echo the opening ("the end is the start, changed"; lib/echo.mjs): the opening's key frame
+//              (the first settled composition in 3 s) against the end card and the last still frame before it, palette + where the
+//              foreground sits + where the edges sit; under 0.55 does not rhyme (the references that rhyme by eye: 0.59 to 0.99; the
+//              ones that do not: 0.26 to 0.53). With --plan, also when the score has no echo {opening, ending, change}
+//   echo-identical  (warning) the end is the start unchanged (the same frame to a few levels): change it
+//   camera-monotone  (warning) the camera does one thing (lib/camera-moves.mjs): each beat's measured camera (locked, push-in,
+//              pull-out, pan-truck, tilt, rotate, handheld-drift, whip) is reported; the render needs 1 moving kind from 15 s, 2 from
+//              40 s, 3 from 90 s (where the references sit: most great 2D films barely move the camera), never in a stillness style;
+//              with --plan, a warning only when no beat names a camera (the move is chosen from what the beat buys) or there is no signature_shot
+//   emphasis   (WARNINGS, uncalibrated; lib/emphasis.mjs; needs story/intent.json beside the plan: <run>/story/intent.json) an emphasis curve
+//              per 0.5 s (boldness flags + motion energy + loudness) is reported with its measured peak time and the planned one;
+//              `emphasis-off-peak` when its maximum is outside the `peak: true` beat (+-0.5 s), `emphasis-on-minor` when the film's
+//              biggest moment is on an importance-1 beat (named, with what it buys). With --plan, the budget: `budget-minor-beat`
+//              (score.big_moments on an importance-1 beat), `budget-over` (more than ~4 per 30 s), `budget-none`. --no-emphasis skips it.
+//   flash-over-cap  (warning, lib/frame-guards.mjs) a flash of 1-3 frames where over ~60% of the picture is near-white (the frames 4 either side under 30%): it reads as a blank frame
+//   seam-blank  (warning, --plan) a frame from 10% to 90% of a transition that is blown out (over 50% near-white), flooded (over 60% one colour in neither neighbouring scene) or emptied of detail (edges under 30% of both neighbours); a seam with flood: true opts out
+//   hold-frame-drift  (warning, --plan with <run>/frames/<id>.png) a beat's settled frame (its peak_t, else the last quarter) against its approved styleframe: dHash distance over 14/64 or SSIM under 0.55; beats in score.deviations are skipped
+//              (--no-guards skips these three)
+//   duration-mismatch  (with --plan or --scenes) the render's length is within 0.25 s or 2% (whichever is larger) of the planned
+//              duration (the plan's `duration`, or where its last beat ends)
+//   pop        (WARNING, uncalibrated; lib/fluency.mjs scanFrames/findPops; idea from awesome-opus5-5-videos, our code) a single-frame
+//              pop: the film decoded at its native fps (24 to 60) as 160 px grey, the mean change per frame d; a thing that shows for
+//              1 or 2 frames and goes away (both steps at least max(8/255, 6x the local median over +-0.5 s), the median calm, 2/255 or under, and
+//              the frame after back near the frame before), or, when the plan names its seams, a one-frame jump on no planned seam (an
+//              unplanned cut). Planned seams (+-3 frames) are skipped. Each is reported with its time and the cell of a 4x4 grid that changed
+//              most; at most 12 listed. --no-pop skips it
+//   loop-seam  (WARNING, uncalibrated; only for a declared loop: plan `loop: true`, motion.md `loop: true`, or --loop) the last frame
+//              against the first (mean change over 3/255 does not close) and the motion continuity (the step into the last frame against the
+//              step out of the first: the ratio must sit between 0.5 and 2); both numbers are reported. finish.mjs drops a last frame that
+//              repeats frame 0 for a declared loop
+// Lessons (lib/gate-lessons.mjs): motion.end_hold_s, motion.end_hold_min_s, motion.freeze_s, motion.carry_share and film.ending_share_max read
 // through gateValue, so a mistake the user pointed out once can tighten them; the report lists each lesson in force.
 // From the plan and the code (--plan, --project):
 //   carriers   at least two seams carried by an object present on both sides (measured from index.html's carrier
@@ -51,22 +85,37 @@
 //              line blocks (SplitText spans = one line): error `text-too-brief` when a statement-size block (font >= 3.5%
 //              of the frame height, 3+ words) is readable for less than 0.6 s + 0.3 s per word (data-read="skim" opts out),
 //              and error `text-overlap` when two readable blocks sit on top of each other for 0.3 s or more
-//              (data-overlap="ok" opts out)
+//              (data-overlap="ok" opts out). `text-cropped` also fires when a mask or inset cuts letters off a readable line (region "mask"), and
+//              text-too-brief is judged per text state (a typed, deleted and swapped slot: each string on its own); see lib/textfit.mjs
+//   subject-lost  (WARNING, --project; the plan's beat `hero_id` / `hero` when it is an element id, and every [data-hero]) the hero keeps 90% of its box inside the 6% safe area
+//              while it is on screen: a camera move (or the hero's own) that takes it out for 0.3 s or more, or a hero never inside, is named with its times (lib/textfit.mjs; data-hero="bleed" opts out)
+//   see-and-say (WARNING; --project plus --vo <audio_meta.json | words.json>, found as <project>/audio_meta.json) each narration cue (a sentence or a pause of 0.6 s ends one) has an on-screen event within 1.0 s: a score event
+//              (the plan's beats[].events, scene-relative), a beat start or a line of text appearing (captions never count); and `text-off-word`: a text that names a word the voice says elsewhere
+//   caption-duplicates-text (WARNING; --project) a caption and another on-screen line of 3+ words say the same words (70% of the line) in the same window: say it once
+//   script-error  (--project) the same page loads error when a composition's script throws while it loads or when its timeline is seeked, a
+//              local script does not load, or the composition never registers window.__timelines[<its id>]: a render-blocking error that
+//              every other gate misses (obey, slop and lint pass a page whose timeline never registers)
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
-import { textFit } from "./lib/textfit.mjs";
-import { analyse as fluencyOf, scoreFluency } from "./lib/fluency.mjs";
+import { textFit, cuesOf, seeAndSay, captionDupes } from "./lib/textfit.mjs";
+import { analyse as fluencyOf, scoreFluency, scanFrames, findPops, loopSeam, LOOP } from "./lib/fluency.mjs";
 import { measureCarry } from "./lib/carry.mjs";
 import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
+import { noteDowngrade } from "./lib/downgrade.mjs";
+import { measureEcho, ECHO } from "./lib/echo.mjs";
+import { loadIntent, emphasisReport } from "./lib/emphasis.mjs";
+import { measureCamera, cameraKind, cameraFloor } from "./lib/camera-moves.mjs";
+import { whiteFlashes, seamBlanks, holdDrift } from "./lib/frame-guards.mjs";
 
 export const GATE = {
   coverage: 0.7, // share of frames with visible motion
   freeze_s: 0.8, // a still stretch this long fails
-  end_hold_s: 1.5, // the end card's stillness after its last move
+  end_hold_s: 1.5, // the end card's stillness after its last move (a ceiling; a lesson can lower it: motion.end_hold_s)
+  end_hold_min_s: 0.3, // ... and its floor: the film holds at least this long still after its last move, else the ending flashes by (a warning; an error once a lesson sets motion.end_hold_min_s, which can raise it)
   creep_per_s: 0.04, // a whole-frame scale or drift slower than this (4%/s) is a creep
   seam_window_s: 0.2, // motion on both sides of every seam within this window
   carried_seams: 2, // seams carried by an object present on both sides (read from the code and the plan)
@@ -84,7 +133,7 @@ const PIX_T = 6, MOVE_SHARE = 0.0008; // a frame moves when >= 0.08% of pixels c
 
 async function main() {
   const args = parseArgs();
-  if (!args.json) track("Measuring the film frame by frame: freezes, creep, seams", "Motion gate done");
+  if (!args.json) track("Measuring the film frame by frame: freezes, creep, seams, echo, camera", "Motion gate done");
   if (args._[0] === "fluency") {
     if (!str(args.video)) { console.error("fluency needs --video <film.mp4>"); process.exit(1); }
     const m = await fluencyOf(path.resolve(str(args.video)));
@@ -96,10 +145,13 @@ async function main() {
     }
     process.exit(g.pass === false ? 2 : 0);
   }
-  const res = await gate({ video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], stillness: args.stillness ? true : null });
+  const res = await gate({ vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], pop: !args["no-pop"], loop: args.loop ? true : null, stillness: args.stillness ? true : null });
+  for (const c of res.could_not_run) noteDowngrade({ run: args.run, what: "the motion gate", instead: "no motion check", why: String(c).slice(0, 200), impact: "this film's motion was not measured" });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else {
     console.log(`motion gate: ${res.verdict}${res.measured.coverage != null ? ` · ${Math.round(res.measured.coverage * 100)}% of frames move` : ""}`);
+    const em = res.measured.emphasis;
+    if (em && em.measured_peak) console.log(`  emphasis peak measured ${em.measured_peak.t} s, planned ${em.planned_peak ? `beat ${em.planned_peak.beat} ${em.planned_peak.t0}-${em.planned_peak.t1} s` : "unknown"}${em.second ? `, second ${em.second.t} s` : ""} (curve in --json)`);
     for (const f of res.findings) console.log(`  ${f.severity === "error" ? "FAIL" : "warn"} ${f.check}${f.at != null ? ` at ${f.at} s` : ""}${f.region ? ` (${f.region})` : ""}: ${f.message}${f.fix ? `\n       fix: ${f.fix}` : ""}`);
     for (const n of res.notes) console.log(`  note tightened by ${n}`);
     for (const s of res.skipped) console.log(`  skip ${s}`);
@@ -123,7 +175,8 @@ export function readPlan(planPath, scenesPath) {
     const start = Number.isFinite(Number(b.start)) && b.start !== "" && b.start != null ? Number(b.start) : t;
     const end = Number.isFinite(Number(b.end)) && b.end != null ? Number(b.end) : start + (Number(b.duration) || Number(b.duration_s) || 0);
     t = end;
-    return { i, n: b.n || i + 1, id: String(b.id || b.n || i + 1), start, end, exit: b.exit || null, carrier: b.carrier || null, line: b.line || b.on_screen || null };
+    const cam3 = b.camera3d && Array.isArray(b.camera3d.moves) ? b.camera3d.moves.map((m) => m && m.move).filter(Boolean) : [];
+    return { i, n: b.n || i + 1, id: String(b.id || b.n || i + 1), start, end, exit: b.exit || null, carrier: b.carrier || null, beat: b.beat != null ? Number(b.beat) : null, peak_t: Number.isFinite(Number(b.peak_t)) && b.peak_t != null && b.peak_t !== "" ? Number(b.peak_t) : null, hero_id: [b.hero_id, b.heroId, b.hero_el, b.hero_element, typeof b.hero === "string" && /^[A-Za-z][\w-]*$/.test(b.hero.trim()) ? b.hero.trim() : null].find((x) => typeof x === "string" && x.trim()) || null, events: Array.isArray(b.events) ? b.events : [], line: b.line || b.on_screen || null, camera: b.camera || null, camera3d: cam3, signature_shot: !!b.signature_shot };
   });
   const seams = (plan && Array.isArray(plan.seams) ? plan.seams : []);
   return { plan, beats, seams, brandReveal: plan ? plan.brandReveal : undefined, endHold: plan && Number(plan.end_hold_s) > 0 ? Number(plan.end_hold_s) : null, duration: plan && Number(plan.duration) > 0 ? Number(plan.duration) : t || null };
@@ -269,6 +322,20 @@ export function creepBetween(a, b, dt, dbg = null) {
 }
 
 // ---------------------------------------------------------------- code (the built project)
+// VO word times in film seconds from audio_meta.json ({voices:[{frame, words:[{text, start}]}]}, start into the beat) or a flat list / {words:[]}
+function loadVoWords(file, beats) {
+  let j; try { j = JSON.parse(fs.readFileSync(file, "utf8")); } catch { return null; }
+  const one = (w, off) => ({ text: String(w.text ?? w.word ?? ""), start: Number(w.start) + off, end: w.end != null ? Number(w.end) + off : Number(w.start) + off + 0.2 });
+  if (Array.isArray(j) || Array.isArray(j.words)) return (Array.isArray(j) ? j : j.words).map((w) => one(w, 0)).filter((w) => Number.isFinite(w.start) && w.text);
+  if (!Array.isArray(j.voices)) return null;
+  const out = [];
+  for (const v of j.voices) {
+    const b = beats.find((x) => String(x.n) === String(v.frame) || x.id === String(v.frame)), off = b ? b.start : 0;
+    if (!b && beats.length) continue;
+    for (const w of v.words || []) out.push(one(w, off));
+  }
+  return out.filter((w) => Number.isFinite(w.start) && w.text);
+}
 function readText(p) { try { return fs.readFileSync(p, "utf8"); } catch { return ""; } }
 function hostsOf(project) {
   const idx = readText(path.join(project, "index.html"));
@@ -382,7 +449,7 @@ function codeChecks(file, html) {
 }
 
 // ---------------------------------------------------------------- the gate
-export async function gate({ video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, stillness = null } = {}) {
+export async function gate({ vo = null, video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, pop = true, loop = null, stillness = null } = {}) {
   const findings = [], skipped = [], could = [], measured = {};
   const add = (f) => findings.push(f);
   const P = readPlan(plan && path.resolve(plan), scenes && path.resolve(scenes));
@@ -393,15 +460,22 @@ export async function gate({ video = null, project = null, plan = null, scenes =
     stillness = !!(P.plan && (P.plan.stillness === true || P.plan.motion_style === "stillness")) || /^stillness:\s*true\b/m.test(md);
   }
   measured.stillness = stillness;
+  // a declared loop: the flag, the plan (loop: true), or motion.md
+  if (loop == null) {
+    const md = project ? readText(path.join(path.resolve(project), "motion.md")) : "";
+    loop = !!(P.plan && P.plan.loop === true) || /^loop:\s*true\b/m.test(md);
+  }
+  measured.loop = !!loop;
   const still = stillness ? "warning" : "error";
   const beats = P.beats || [];
   const holdMax = gateValue("motion.end_hold_s", endHold || P.endHold || GATE.end_hold_s);
+  const holdMin = gateValue("motion.end_hold_min_s", GATE.end_hold_min_s), holdMinTaught = gateNotes(["motion.end_hold_min_s"]).length > 0;
   const freezeS = gateValue("motion.freeze_s", GATE.freeze_s);
   const carryShare = gateValue("motion.carry_share", GATE.carry_share), endingMax = gateValue("film.ending_share_max", GATE.ending_share_max);
-  const notes = gateNotes(["motion.end_hold_s", "motion.freeze_s", "motion.carry_share", "film.ending_share_max"]);
+  const notes = gateNotes(["motion.end_hold_s", "motion.end_hold_min_s", "motion.freeze_s", "motion.carry_share", "film.ending_share_max"]);
   const seamTimes = beats.slice(1).map((b) => b.start);
   const endStart = beats.length >= 2 ? beats[beats.length - 1].start : null;
-  measured.thresholds = { ...GATE, end_hold_s: holdMax, freeze_s: freezeS, carry_share: carryShare, ending_share_max: endingMax };
+  measured.thresholds = { ...GATE, end_hold_s: holdMax, end_hold_min_s: holdMin, freeze_s: freezeS, carry_share: carryShare, ending_share_max: endingMax };
   if (!video && !project) could.push("nothing to measure: give --video <draft.mp4> (the frame checks) and/or --project <dir> (the code checks)");
 
   // ---- frames
@@ -414,6 +488,13 @@ export async function gate({ video = null, project = null, plan = null, scenes =
       if (frames && frames.length < 3) { could.push(`${path.basename(file)} has ${frames.length} frames`); frames = null; }
       if (frames) {
         const dur = probeDuration(file) || frames.length / fps;
+        // the render is as long as the plan says (the plan's duration, or its beats' end when it gives none)
+        if (P.duration) {
+          const tol = Math.max(0.25, 0.02 * P.duration);
+          measured.planned_duration_s = r2(P.duration);
+          measured.render_duration_s = r2(dur);
+          if (Math.abs(dur - P.duration) > tol) add({ check: "duration-mismatch", severity: "error", at: null, region: "whole film", message: `the render runs ${r2(dur)} s but the plan says ${r2(P.duration)} s (${r2(tol)} s tolerance)`, fix: dur > P.duration ? "trim the tail or the over-long beat, or correct the plan's duration if the film was meant to run longer" : "a beat or the end card is short or the timeline ends early; extend it to the planned length, or correct the plan's duration" });
+        }
         const D = diffs(frames);
         const moving = D.map((d, i) => i > 0 && d.share >= MOVE_SHARE);
         const tOf = (i) => r2(i / fps);
@@ -423,6 +504,8 @@ export async function gate({ video = null, project = null, plan = null, scenes =
         const tailS = tail / fps;
         const lastMove = (D.length - 1 - tail) / fps;
         if (tailS > holdMax + 1 / fps) add({ check: "end-hold", severity: "error", at: r2(lastMove), region: "whole frame", message: `the end card holds ${r2(tailS)} s still after its last move (${holdMax} s at most)`, fix: `land the end card's last element later (the CTA wipes in, the mark settles), or end the film ${r2(tailS - holdMax)} s sooner` });
+        // the floor: a film that stops on its last move (or holds under the minimum) flashes its ending by; a warning, an error once the user taught it
+        if (tailS < holdMin - 1 / fps - 1e-9) add({ check: "end-hold-short", severity: holdMinTaught && still === "error" ? "error" : "warning", at: r2(lastMove), region: "whole frame", message: `the film holds ${r2(tailS)} s still after its last move (${holdMin} s at least): the ending flashes by`, fix: `let the last move settle and hold the end card for ${holdMin} s or more: land the call to action earlier, or end the film ${r2(holdMin - tailS)} s later` });
         const exempt = Math.min(tail, Math.round(holdMax * fps));
         const counted = moving.slice(1, D.length - exempt);
         const coverage = counted.length ? counted.filter(Boolean).length / counted.length : 0;
@@ -541,6 +624,23 @@ export async function gate({ video = null, project = null, plan = null, scenes =
       const m = await fluencyOf(path.resolve(video), { series: true });
       const g = scoreFluency(m, { stillness });
       const { _series, ...rest } = m;
+      if (!stillness && (measured.duration_s || P.duration || 0) >= 20 && m.dead_frac != null && m.dead_frac < 0.05 && !m.holds_ge_0_5s)
+        add({ check: "always-moving", severity: "warning", at: null, region: "whole film", message: `${Math.round(m.dead_frac * 100)}% of frames are still and no hold lasts 0.5 s: the frame is always in motion (the references keep about a third still)`, fix: "land the key moments and let them be read: hold 0.5-1 s where the line is read, after the move that earns it" });
+      // energy-off-reference (WARNING, uncalibrated): the draft's energy curve against the reference's (research.mjs deconstruct -> <run>/reference/numbers.json), both per 0.5 s and normalised by their own 90th percentile, the reference stretched to the draft's length
+      if (_series && plan && _series.t && _series.t.length > 2) {
+        let R = null; try { R = JSON.parse(fs.readFileSync(path.join(path.resolve(path.dirname(path.resolve(plan)), ".."), "reference", "numbers.json"), "utf8")); } catch {}
+        if (R && R.energy && Array.isArray(R.energy.energy_norm) && R.energy.energy_norm.length >= 6) {
+          const fpsS = 1 / Math.max(1e-3, _series.t[1] - _series.t[0]), per = Math.max(1, Math.round(0.5 * fpsS)), E = _series.energy, mine = [];
+          for (let i = 0; i < E.length; i += per) { const w = E.slice(i, i + per).filter((v) => v != null); mine.push(w.length ? w.reduce((a, b) => a + b, 0) / w.length : 0); }
+          const p90 = [...mine].sort((a, b) => a - b)[Math.floor(mine.length * 0.9)] || 1, A = mine.map((v) => v / p90);
+          const B = Array.from({ length: A.length }, (_, i) => R.energy.energy_norm[Math.min(R.energy.energy_norm.length - 1, Math.floor((i / A.length) * R.energy.energy_norm.length))]);
+          const ma = A.reduce((a, b) => a + b, 0) / A.length, mb = B.reduce((a, b) => a + b, 0) / B.length;
+          let sab = 0, saa = 0, sbb = 0; for (let i = 0; i < A.length; i++) { sab += (A[i] - ma) * (B[i] - mb); saa += (A[i] - ma) ** 2; sbb += (B[i] - mb) ** 2; }
+          const corr = saa && sbb ? sab / Math.sqrt(saa * sbb) : 0, gap = Math.abs((m.dead_frac ?? 0) - (R.energy.still_share ?? 0));
+          measured.energy_vs_reference = { corr: +corr.toFixed(2), still_draft: m.dead_frac, still_reference: R.energy.still_share };
+          if (corr < 0.2 || gap > 0.25) add({ check: "energy-off-reference", severity: "warning", at: null, region: "whole film", message: `the draft's energy curve follows the reference's at ${corr.toFixed(2)} (want 0.2 or more) and its still share is ${m.dead_frac} against the reference's ${R.energy.still_share}`, fix: "re-shape the pacing: where the reference builds and rests (reference/numbers.json energy_norm), build and rest; or state in the score why this film differs" });
+        }
+      }
       measured.fluency = { score: g.score, pass: g.pass, ...rest };
       const fails = g.checks.filter((c) => c.ok === false);
       if (g.insufficient) skipped.push(`fluency: ${g.note}`);
@@ -575,6 +675,67 @@ export async function gate({ video = null, project = null, plan = null, scenes =
     } catch (e) { skipped.push(`carry: ${e.message} (not measured, never passed)`); }
   } else if (video && !carry) skipped.push("carry: skipped (--no-carry)");
 
+  // ---- pops and the loop seam (lib/fluency.mjs scanFrames; warnings, uncalibrated)
+  if (video && (pop || loop) && fs.existsSync(path.resolve(video))) {
+    try {
+      const scan = await scanFrames(path.resolve(video));
+      if (pop) {
+        const pops = findPops(scan, { seamTimes });
+        measured.pops = pops.length;
+        if (!seamTimes.length) skipped.push("pop: no plan seams, so only blips that undo themselves are judged (a one-frame jump that stays could be a planned cut)");
+        for (const p of pops) add(p.kind === "blip"
+          ? { check: "pop", severity: "warning", at: p.t, region: p.region, message: `something shows for ${p.frames} frame${p.frames > 1 ? "s" : ""} at ${p.t} s and goes (a change of ${p.size}/255 that undoes itself) in a calm stretch`, fix: "find the element or layer that is on for one frame: a tween that starts a frame early, a fade that begins at its end value, a duplicate layer, a scene boundary that overlaps by a frame; start it from its hidden state or move the edge off the frame" }
+          : { check: "pop", severity: "warning", at: p.t, region: p.region, message: `a one-frame jump at ${p.t} s (${p.size}/255) with calm frames either side and no planned seam there`, fix: "if it is a cut, put it on a seam in the plan and carry motion through it; if not, something snaps for a frame: look for a state set without a tween" });
+      } else skipped.push("pop: skipped (--no-pop)");
+      if (loop) {
+        const ls = loopSeam(scan);
+        if (!ls) skipped.push("loop-seam: too few frames");
+        else {
+          measured.loop_seam = ls;
+          if (!ls.frame_ok || !ls.motion_ok) add({ check: "loop-seam", severity: "warning", at: null, region: "seam", message: `the loop does not close: last frame against first differs by ${ls.frame_diff}/255 (${LOOP.frame_mad}/255 or under closes), speed into the last frame ${ls.step_last} against out of the first ${ls.step_first} (ratio ${ls.ratio == null ? "infinite" : ls.ratio}; 0.5 to 2 matches)`, fix: "end the timeline on the frame it began (the last frame one step before frame 0, not equal to it) and give the last and first steps the same speed: loop a periodic motion, or ease both ends from the same velocity (RasanMotion.springTrack(...).velocity)" });
+        }
+      }
+    } catch (e) { skipped.push(`pop/loop-seam: ${e.message} (not measured, never passed)`); }
+  } else if (video && !pop) skipped.push("pop: skipped (--no-pop)");
+
+  // ---- echo: the end is the start, changed (lib/echo.mjs)
+  if (beats.length && P.plan) {
+    const e = P.plan.echo, miss = ["opening", "ending", "change"].filter((k) => !(e && typeof e[k] === "string" && e[k].trim().length >= 3));
+    if (miss.length) add({ check: "no-echo", severity: "warning", at: null, region: "plan", message: `the score has no echo${e ? ` ${miss.join(", ")}` : ""}: name how the ending answers the opening (score.echo {opening, ending, change})`, fix: 'add "echo": { "opening": "the empty composer, caret blinking", "ending": "the same composer, now holding the answer", "change": "empty to full" }: the end is the start, changed (the same object, frame or shape, transformed by the story)' });
+  }
+  if (video && echo && fs.existsSync(path.resolve(video))) {
+    try {
+      const e = measureEcho(path.resolve(video));
+      if (e.echo == null) skipped.push(`echo: ${e.note}`);
+      else {
+        measured.echo = { score: e.echo, palette: e.palette, mass: e.mass, edges: e.edges, opening_t: e.opening.t, ending_t: e.ending.t, ending: e.ending.which, need: ECHO.rhyme };
+        if (e.identical) add({ check: "echo-identical", severity: "warning", at: e.ending.t, region: "ending", message: `the ending (${e.ending.which} at ${e.ending.t} s) is the opening frame (${e.opening.t} s) unchanged: an echo is the start, changed`, fix: "keep the opening's object, frame or shape and let the story change it: filled instead of empty, grown, re-coloured, the mark in place of the question" });
+        else if (e.echo < ECHO.rhyme) add({ check: "no-echo", severity: "warning", at: e.ending.t, region: "ending", message: `the ending does not echo the opening: ${e.echo} (palette ${e.palette}, layout ${e.mass}, edges ${e.edges}; ${ECHO.rhyme} to rhyme) between ${e.opening.t} s and the ${e.ending.which} at ${e.ending.t} s`, fix: "bring the opening back, changed: the same ground, the same object or frame device in the same place, now transformed (the empty composer returns full, the dot returns as the full stop of the logo, the grid returns with the answer in it)" });
+      }
+    } catch (err) { skipped.push(`echo: ${err.message} (not measured, never passed)`); }
+  } else if (video && !echo) skipped.push("echo: skipped (--no-echo)");
+
+  // ---- camera variety (lib/camera-moves.mjs): what the camera does per beat; warns only when no beat names one
+  if (beats.length && P.plan) {
+    const named = beats.map((b) => ({ id: b.id, kinds: [b.camera, ...b.camera3d].map(cameraKind).filter(Boolean) }));
+    const kinds = new Set(named.flatMap((b) => b.kinds));
+    const sig = P.plan.signature_shot || beats.some((b) => b.signature_shot);
+    const why = [];
+    if (!kinds.size) why.push("no beat names a camera");
+    if (!sig) why.push("no signature_shot");
+    measured.camera_plan = { kinds: [...kinds], beats: named };
+    if (why.length) add({ check: "camera-monotone", severity: "warning", at: null, region: "plan", message: `the score's camera: ${why.join("; ")}`, fix: 'name each beat\'s camera (locked where the UI or type moves; a push toward what the beat buys; a pull-out for scale) and one "signature_shot": { "beat", "move", "why" } on the peak (references/craft.md "Camera from meaning")' });
+  }
+  if (video && camera && fs.existsSync(path.resolve(video))) {
+    try {
+      const c = await measureCamera(path.resolve(video), { beats: beats.length ? beats : null });
+      const floor = cameraFloor(c.duration_s);
+      measured.camera = { kinds: c.kinds, moving_kinds: c.moving_kinds, need: floor, beats: c.beats.map((b) => ({ id: b.id, start: b.start, end: b.end, camera: b.camera, declared: (beats.find((x) => x.id === b.id) || {}).camera || null })), moves: c.moves.slice(0, 40), signature: c.signature };
+      if (stillness) skipped.push(`camera-monotone: a stillness style (${c.moving_kinds} moving kind${c.moving_kinds === 1 ? "" : "s"} measured)`);
+      else if (c.moving_kinds < floor) add({ check: "camera-monotone", severity: "warning", at: null, region: "whole film", message: `the camera ${c.moving_kinds ? `moves one way only (${c.kinds.filter((k) => k !== "locked").join(", ")})` : "never moves"} over ${c.duration_s} s: ${floor} moving kind${floor === 1 ? "" : "s"} at least (measured per beat: ${c.beats.map((b) => `${b.id} ${b.camera}`).join(", ")})`, fix: "give the film a camera: a push-in toward what matters, a pull-out that reveals, a truck or tilt that follows, and one signature shot (a whip, a crash zoom, an orbit) at the biggest hinge; locked shots stay where the UI itself moves" });
+    } catch (err) { skipped.push(`camera: ${err.message} (not measured, never passed)`); }
+  } else if (video && !camera) skipped.push("camera: skipped (--no-camera)");
+
   // ---- the ending: the last beat is not a quarter of the film
   if (beats.length >= 2) {
     const total = measured.duration_s || P.duration, last = beats[beats.length - 1];
@@ -584,6 +745,40 @@ export async function gate({ video = null, project = null, plan = null, scenes =
       if (share > endingMax + 1e-6) add({ check: "long-ending", severity: "warning", at: r2(last.start), region: `beat ${last.id}`, message: `the last beat (${last.id}) runs ${r2(total - last.start)} s, ${Math.round(share * 100)}% of the ${r2(total)} s film (${Math.round(endingMax * 100)}% at most)`, fix: "the end card is 2 to 3 s: land the call to action and stop; give the story's weight to the beats before it" });
     }
   }
+
+  // ---- emphasis: does the weight land where the intent puts it? (lib/emphasis.mjs; warnings)
+  if (emphasis && (video || P.plan)) {
+    try {
+      const intent = await loadIntent({ plan, project });
+      const er = await emphasisReport({ video: video && fs.existsSync(path.resolve(video)) ? path.resolve(video) : null, intent, planBeats: beats, score: P.plan, dur: measured.duration_s || P.duration });
+      for (const f of er.findings) add(f);
+      skipped.push(...er.skipped);
+      measured.emphasis = { intent: er.intent, planned_peak: er.planned, measured_peak: er.measured, second: er.second, budget: er.budget ? { big_moments: er.budget.count, limit: er.budget.limit, moments: er.budget.moments } : null, curve: er.curve ? { step_s: er.curve.step, values: er.curve.curve } : null };
+    } catch (e) { skipped.push(`emphasis: ${e.message} (not measured, never passed)`); }
+  } else if (!emphasis) skipped.push("emphasis: skipped (--no-emphasis)");
+
+  // ---- picture guards (lib/frame-guards.mjs; warnings, uncalibrated): the white flash cap, a seam that never blanks, the hold frame against the approved board
+  if (guards && video && fs.existsSync(path.resolve(video))) {
+    try {
+      const vp = path.resolve(video), dur = measured.duration_s || P.duration || 0;
+      for (const f of whiteFlashes(vp)) add({ check: "flash-over-cap", severity: "warning", at: f.t, region: "flash", message: `a flash at ${f.t} s covers ${Math.round(f.share * 100)}% of the frame in near-white for ${f.n} frame(s); over ~60% it reads as a blank frame`, fix: "cap the flash layer's opacity at ~0.6 (or tint it with the ground colour) so the picture stays faintly visible; hold 1-2 frames" });
+      const sms = (P.seams || []).map((sm, k) => ({ ...sm, t: Number.isFinite(Number(sm.t)) ? Number(sm.t) : (beats[Number(sm.to) - 1] || beats[k + 1] || {}).start, dur: Number(sm.dur) || Number(sm.duration) || 0, from: sm.from, to: sm.to })).filter((sm) => Number.isFinite(sm.t) && (!dur || sm.t < dur - 0.2));
+      const rows = sms.length ? sms : seamTimes.map((t, k) => ({ t, from: beats[k].id, to: beats[k + 1].id }));
+      for (const f of seamBlanks(vp, rows)) add({ check: "seam-blank", severity: "warning", at: f.t, region: `seam ${f.seam}`, message: `the seam at ${f.t} s goes ${f.kind} (${Math.round(f.pct * 100)}%) mid-transition`, fix: 'add the missing layer (ground, outgoing scene held under, incoming scene arriving) so the transition never shows an empty or flooded frame; a short deliberate flood (a flash within the cap, a dip to the ground colour) opts out with data-seam="flood" on the transition (flood: true on the score seam)' });
+      if (plan && beats.length) {
+        const run = path.dirname(path.dirname(path.resolve(plan))), dev = new Set((Array.isArray(P.plan && P.plan.deviations) ? P.plan.deviations : []).map((d) => String((d && (d.beat ?? d.scene ?? d.id)) ?? d)));
+        const pad = (x) => String(x).padStart(2, "0"), items = [];
+        for (const b of beats) {
+          if (dev.has(String(b.id)) || dev.has(String(b.n))) continue;
+          const still = [b.id, pad(b.id), b.n, pad(b.n)].map((k) => path.join(run, "frames", `${k}.png`)).find((p) => fs.existsSync(p));
+          if (!still) continue;
+          const t = b.peak_t != null ? (b.peak_t >= b.start - 1e-6 && b.peak_t <= b.end + 1e-6 ? b.peak_t : b.start + b.peak_t) : b.end - 0.125 * (b.end - b.start);
+          items.push({ id: b.id, t, still });
+        }
+        for (const f of holdDrift(vp, items)) add({ check: "hold-frame-drift", severity: "warning", at: f.t, region: `beat ${f.id}`, message: `beat "${f.id}" settles on a frame unlike its approved styleframe (hash distance ${f.hamming}/64, ssim ${f.ssim})`, fix: "the Final must look like the board the user approved: re-check palette, layout and type size against the styleframe, or record the change as a deviation in the score" });
+      }
+    } catch (e) { skipped.push(`guards: ${e.message} (not measured, never passed)`); }
+  } else if (!guards) skipped.push("guards: skipped (--no-guards)");
 
   // ---- the plan and the code
   if (beats.length) {
@@ -638,10 +833,27 @@ export async function gate({ video = null, project = null, plan = null, scenes =
         skipped.push(...r.skipped.slice(0, 5));
       }
       if (doTextFit) {
-        const tf = await textFit(pj);
+        const tf = await textFit(pj, { heroIds: beats.map((b) => b.hero_id).filter(Boolean) });
         findings.push(...tf.findings);
+        findings.push(...(tf.warnings || []));
+        for (const e of tf.script_errors || []) findings.push({ check: "script-error", severity: "error", at: null, region: e.file, file: e.file, message: `${e.file}: ${e.message}`, fix: "the render will not play this composition: fix the script error (a selector that is not valid, a typo, a missing asset) so the timeline registers; run the page in a browser console to read the full stack" });
         skipped.push(...tf.skipped, ...tf.could_not_run.map((c) => `${c} (not measured, never passed)`));
-        measured.text_fit = { pages: tf.pages, samples: tf.samples, cropped: tf.findings.filter((f) => f.check === "text-cropped").length, too_brief: tf.findings.filter((f) => f.check === "text-too-brief").length, overlap: tf.findings.filter((f) => f.check === "text-overlap").length };
+        measured.text_fit = { pages: tf.pages, samples: tf.samples, script_errors: (tf.script_errors || []).length, cropped: tf.findings.filter((f) => f.check === "text-cropped").length, too_brief: tf.findings.filter((f) => f.check === "text-too-brief").length, overlap: tf.findings.filter((f) => f.check === "text-overlap").length, warnings: (tf.warnings || []).length };
+        // caption duplicates and see-and-say (warnings, uncalibrated; lib/textfit.mjs)
+        findings.push(...captionDupes(tf.texts || []));
+        const voFile = vo ? path.resolve(vo) : [path.join(pj, "audio_meta.json")].find((p) => fs.existsSync(p));
+        const words = voFile ? loadVoWords(voFile, beats) : null;
+        if (words && words.length) {
+          const evs = [];
+          for (const b of beats) {
+            evs.push({ t: b.start, what: `beat ${b.id} starts` });
+            for (const e of b.events || []) { const t = Number(e.t ?? e.at); if (Number.isFinite(t)) evs.push({ t: t <= b.end - b.start + 0.05 ? b.start + t : t, what: String(e.what || e.sound || "event").slice(0, 30) }); }
+          }
+          const cues = cuesOf(words);
+          findings.push(...seeAndSay(cues, evs, tf.texts || [], words));
+          measured.see_and_say = { cues: cues.length, events: evs.length, texts: (tf.texts || []).length };
+        } else if (vo) skipped.push(`see-and-say: no word times in ${vo}`);
+        else skipped.push("see-and-say: no VO word times (give --vo <audio_meta.json|words.json>; a silent film has no cues)");
       } else skipped.push("text-fit: skipped (--no-text-fit)");
     }
   }

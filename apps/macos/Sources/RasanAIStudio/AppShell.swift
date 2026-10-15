@@ -363,8 +363,8 @@ struct AppStatusBar: View {
                     }
                 }
                 .help("Open the film the director is working on")
-                Button { store.pauseDirector() } label: { Image(systemName: "pause.fill") }
-                    .foregroundStyle(.secondary).disabled(store.runtime.isPreparing).help("Pause the director")
+                Button { if store.runtime.isFrozen { store.resumeDirector() } else { store.pauseDirector() } } label: { Image(systemName: store.runtime.isFrozen ? "play.fill" : "pause.fill") }
+                    .foregroundStyle(.secondary).disabled(store.runtime.isPreparing).help(store.runtime.isFrozen ? "Resume the director" : "Pause the director")
             }
         } else if store.settings.isReady(agent) {
             HStack(spacing: 8) {

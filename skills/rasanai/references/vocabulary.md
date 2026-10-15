@@ -11,6 +11,32 @@ The working vocabulary Claude uses to turn a direction ("a slow push on the devi
 - **Cost.** Full-frame SVG filters and large blurs are slow to render. Pre-blur static layers once, keep blur radii under about 40 px, and prefer a 256–512 px noise tile over a full-frame `feTurbulence`.
 - **Specify, don't describe.** Every instruction names the element, the property, the values, the ease and the time: "the card scales 0.96 → 1 with opacity 0 → 1 in 0.45 s on `power3.out` at 2.4 s", never "the card pops in nicely".
 
+## Start from the meaning
+
+Don't open this file to find a beat a technique. Read the beat's `buys` in `story/intent.json`, decide what the hero does (its verb: `references/craft.md` "Direction from meaning"), then look up the terms that build that verb. The size of the move follows the beat's importance: on an importance-1 beat use the quiet end of a row, and save the big terms (punch-in, zoom-through, colour-field wipe, flood) for the peak and the importance-3 beats.
+
+| The hero… | Terms that build it |
+|---|---|
+| arrives (something new) | Line mask reveal, Mask reveal, Cover / reveal, Self-assembly, Trim paths / draw-on; entering from its cause: Shared-element morph |
+| matters more now | Punch-in, Push (§1 Movement), Hit point / accent, a scale step on Arrive fast, land soft |
+| splits, or is compared | Shape morph, Wipe along the dividing line, Push / slide (one side leaves) |
+| collapses, merges, finds the one | Shape morph, Cascade / ripple / domino in reverse, Shared-element morph |
+| replaces something | Match cut, Invisible cut, Object wipe, Shared-element morph in place |
+| travels from cause to effect | Arcs, Velocity matching, Cut on action, Cut-the-curve |
+| locks, is certain | Overshoot (one settle), Hit point / accent, Hard cut on the beat |
+| does the same thing faster | Beat-cut, Waterfall cut, a shorter Stagger on the same path |
+| is many, at scale | Count-up, Odometer / slot roll, Particles / confetti (as the carrier only), Inverse zoom |
+| lands and holds | Hold, Moving hold |
+
+| The relation into the beat | Transition terms (§5) |
+|---|---|
+| because | Match cut, Shared-element morph, Velocity matching (a carrier) |
+| but | Hard cut, Smash cut, Iris, Color-field wipe, Pattern interrupt |
+| so | Cut on action, Cut-the-curve, Zoom-through, Push / slide along the film's current |
+| example | Hard cut or Beat-cut on the refrain's layout, one variable changed |
+| escalation | Beat-cut, Waterfall cut, Punch-in, shorter holds |
+| answer | Match cut back to the setup's object, changed; End card / lockup as the final answer |
+
 ## Writing a scene's build instruction
 
 Compile each scene into labelled blocks, in this order (quote all copy verbatim; unquoted text gets paraphrased):
@@ -290,6 +316,7 @@ Other stock shorthand: **Super 8 / 16 mm** = heavy grain 12–18%, gate weave 0.
 | Trim paths / draw-on | A stroke draws itself along its path. | `stroke-dasharray` = path length, `stroke-dashoffset` length → 0 (DrawSVG); butt caps, or gate opacity so a round cap doesn't show a dot at 0. |
 | Shape morph | One shape becomes another. | MorphSVG or flubber with matched point counts, 0.4–0.8 s `power2.inOut`. |
 | Self-assembly | Pieces fly in and build the object or the world. | Elements from seeded scattered positions to their layout positions, staggered outward from the origin object, `expo.out`, each 0.4–0.6 s. |
+| Assemble from empty | The idea is built, piece by piece, on an empty field; the finished frame is the hold. The paper-collage look's whole motion (`library/styles/halftone-collage.md`). | First frame: the bare field. Structure first (the frame, the base, the container), the subject and cards second, the action and the result last, each piece landing in its place (a 0.2 to 0.4 s `power3.out` slide-in, or `steps(3)` on a 10 fps grid for stop-motion), 0.2 to 0.3 s between pieces, three to six pieces. After the last landing hold 0.8 s or more: the held frame is the approved still. Never drift, wobble, float or slow-zoom a finished frame; the transitions are pulled, flipped, sucked in or pushed in, with opacity only as a 0.1 to 0.2 s helper. It differs from Self-assembly in its start (a bare field, not scattered pieces) and its end (a held poster, not a settling world). |
 | Odometer / slot roll | Digits roll vertically into a number. | Per-digit columns translateY; fixed digit count; tabular figures; count **to** the value on `expo.out`; never past it. |
 | Count-up | A number climbs to its value. | Tween a proxy object and write `textContent` each update; `expo.out`; tabular figures; ≤ 2 s. |
 | Typewriter | Characters appear one at a time. | Char reveal with `steps(n)`; 12–18 chars/s; caret blinks only while typing is due. |
@@ -305,12 +332,14 @@ Other stock shorthand: **Super 8 / 16 mm** = heavy grain 12–18%, gate weave 0.
 | Trails / echo | Fading copies following a moving element. | 3–6 copies lagging 1–2 frames each with opacity stepping down 60% → 10%. |
 | Smear frame | A stretched frame that sells a very fast move. | For 1–2 frames, scale the element 1.5–3× along the direction of travel with 30–60% opacity ghosting. |
 | RGB split | Color channels separating. | 3 channel copies offset 2–8 px, screen blend, 2–6 frames. |
+| Lens extras (finish grade) | Chromatic aberration, lens distortion, a focus that follows the hero, a CRT or LED layer: lens effects applied to the whole render, not drawn in the scene. | `finish.mjs grade --ca 3 --ca-at "t0-t1"` (the corner split in px, in the budgeted scene only), `--lens 0.06`, `--focus-follow` (the score's `scenes[].hero_box`), `--crt 0.4` / `--led 6` for a film set on a screen; `references/finish.md` "Lens and print extras". |
 | Displacement / turbulence | Organic warping of an image. | SVG `feTurbulence` (seeded) into `feDisplacementMap` scale 5–30; step the seed on the timeline. |
 | Wiggle | Procedural jitter. | Seeded noise with explicit frequency (Hz) and amplitude (px or degrees); CustomWiggle. |
 | Match move / tracked graphics | Graphics locked to moving footage. | Per-frame x, y, scale and rotation keyframes from external tracking data applied to the overlay. |
 | Screen replacement | UI placed onto a device or screen in footage or a mockup. | Corner-pinned via `matrix3d` (4-point perspective) or a tracked plane; add screen glare at 5–10%. |
 | Spatial UI demo (cursor-led) | A cursor drives the product while the camera follows. | See craft.md §3 (cursor) and focus zoom above. |
 | Spectacle beat | The one exaggerated moment of the film. | Name it in the plan; e.g. 1.3× oversized landing plus the signature transition plus the hero hit. |
+| Thinking orb | A small dotted sphere that shows an AI agent working, one motion per verb (searching, composing, connecting...). | `RasanOrbs.mount(el, { state, size: 64 \| 20 \| "hero", tl, duration })` and `orb.to(state, at, 0.5)` when the verb changes; monochrome or one brand colour; see `references/orbs.md`. |
 
 ## 8. Texture
 

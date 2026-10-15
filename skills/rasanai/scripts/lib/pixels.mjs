@@ -12,7 +12,10 @@
 //                yb = (R + G) / 2 - B.
 //   sat          mean HSV saturation, percent.
 //   hist         16 x 8 x 8 HSV histogram, compared by Bhattacharyya distance (hard cuts: > 0.35).
+//   swatch       9 points (3 x 3 grid), the 2 farthest from the median luma dropped: flat when the other 7 span under 6% luma; its rgb is the ground colour.
 //   thumb/edge   a 60 x 33 luma thumbnail and a 30 x 16 edge-density map, for the composition-change count.
+//   boldFrame    the frame's ground colour, the tallest giant glyph and the largest ink mass, for the boldness check
+//                (defined above the function; not from r1-scripts).
 import { spawn, spawnSync } from "node:child_process";
 
 export const W = 480;
@@ -159,11 +162,82 @@ export function frameMetrics(img) {
     if (gx * gx + gy * gy > 120 * 120) { const bx = Math.floor(x / 16), by = Math.floor(y / 16); if (bx < ew && by < eh) edge[by * ew + bx] += 1 / 256; }
   }
 
+  // swatch: 9 points (a 3 x 3 grid at 17 / 50 / 83%), each the mean of a 7 px patch; the 2 points farthest from the median luma
+  // are dropped (a headline or an object sits on some of them), and the frame is a flat swatch when the other 7 span less than
+  // 6% of the luma range. rgb is their mean: the ground's colour.
+  // Adapted from motionmaxxing (Apache-2.0, Tejas Makwana), references/slop.md N4 ("9 points, under 6% luma range = flat").
+  const pts = [];
+  for (const fy of [0.17, 0.5, 0.83]) for (const fx of [0.17, 0.5, 0.83]) {
+    const cx = Math.round(fx * (w - 1)), cy = Math.round(fy * (h - 1));
+    let sr = 0, sg = 0, sb = 0, c = 0;
+    for (let yy = Math.max(0, cy - 3); yy <= Math.min(h - 1, cy + 3); yy++) for (let xx = Math.max(0, cx - 3); xx <= Math.min(w - 1, cx + 3); xx++) { const i = (yy * w + xx) * 3; sr += rgb[i]; sg += rgb[i + 1]; sb += rgb[i + 2]; c++; }
+    pts.push({ r: sr / c, g: sg / c, b: sb / c, y: 0.299 * sr / c + 0.587 * sg / c + 0.114 * sb / c });
+  }
+  const medY = median(pts.map((p) => p.y)), keep = pts.slice().sort((a, b2) => Math.abs(a.y - medY) - Math.abs(b2.y - medY)).slice(0, 7);
+  const ys = keep.map((p) => p.y), swatch = { flat: (Math.max(...ys) - Math.min(...ys)) / 255 < 0.06, range: (Math.max(...ys) - Math.min(...ys)) / 255, rgb: [keep.reduce((s, p) => s + p.r, 0) / 7, keep.reduce((s, p) => s + p.g, 0) / 7, keep.reduce((s, p) => s + p.b, 0) / 7] };
+
   return {
+    swatch,
     groundRange: groundOk ? pct(tm, 95) - pct(tm, 5) : null, groundChroma: groundOk ? median(tc) : null, emptyShare: tm.length / tiles,
     soft: content ? soft / content : 0, structure: content / (Math.floor((h - 1) / S) * Math.floor((w - 1) / S) || 1),
     colourful, sat: 100 * satSum / n, meanL: sumL / n, hist, thumb, edge,
   };
+}
+
+// ------------------------------------------------------------------ boldness (one frame)
+// The frame's ground is its commonest colour (the mode of a 10-unit L*a*b* grid, then the mean of that bin); `near` is
+// the share of the frame within dE 12 of it. Ink is every pixel more than dE 20 from the ground; its 4-connected
+// components 8% H or taller are measured (height, stroke = 2 x the deepest chamfer distance inside, fill = area / box).
+// A giant glyph is a component >= 15% H whose stroke is >= 1.2% H but <= 0.4 of its height and that fills <= 60% of
+// its box: a letter, numeral, ring or icon drawn big, not a solid photo or panel (those fail the stroke ratio or the
+// fill), not a hairline UI box (fails the stroke) and not a surround spanning the whole frame. obj is the largest component's share of the frame (a thing that
+// fills 40% of it). Calibrated in .context/round4 (agent X): FILM-D vs FILM-E and the reference films.
+export const BOLD = { nearDE: 12, inkDE: 20, minH: 0.08, glyphH: 15, strokeMin: 1.2, strokeRatio: 0.4, glyphFill: 0.6 };
+// -> { gL, ga, gb, near, glyph (the tallest giant glyph, % H, 0 when none), obj (largest ink component, share of frame) }
+export function boldFrame(img) {
+  const { width: w, height: h, rgb } = img, n = w * h;
+  const Ls = new Float32Array(n), As = new Float32Array(n), Bs = new Float32Array(n), bins = new Map();
+  for (let i = 0; i < n; i++) {
+    const [L, a, b] = rgbToLab(rgb[i * 3], rgb[i * 3 + 1], rgb[i * 3 + 2]); Ls[i] = L; As[i] = a; Bs[i] = b;
+    const k = (Math.floor(L / 10) * 100 + Math.floor(a / 10) + 50) * 100 + Math.floor(b / 10) + 50;
+    const e = bins.get(k); if (e) { e[0]++; e[1] += L; e[2] += a; e[3] += b; } else bins.set(k, [1, L, a, b]);
+  }
+  let best = null; for (const e of bins.values()) if (!best || e[0] > best[0]) best = e;
+  const g = [best[1] / best[0], best[2] / best[0], best[3] / best[0]];
+  // ink mask and its chamfer (3-4) distance to the ground
+  const D = new Int32Array(n); let near = 0;
+  for (let i = 0; i < n; i++) { const d = Math.hypot(Ls[i] - g[0], As[i] - g[1], Bs[i] - g[2]); if (d < BOLD.nearDE) near++; D[i] = d > BOLD.inkDE ? 1e9 : 0; }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x; if (!D[i]) continue; let v = Math.min(D[i], x > 0 ? D[i - 1] + 3 : 3);
+    if (y > 0) { v = Math.min(v, D[i - w] + 3); if (x > 0) v = Math.min(v, D[i - w - 1] + 4); if (x < w - 1) v = Math.min(v, D[i - w + 1] + 4); } else v = Math.min(v, 3);
+    D[i] = v;
+  }
+  for (let y = h - 1; y >= 0; y--) for (let x = w - 1; x >= 0; x--) {
+    const i = y * w + x; if (!D[i]) continue; let v = Math.min(D[i], x < w - 1 ? D[i + 1] + 3 : 3);
+    if (y < h - 1) { v = Math.min(v, D[i + w] + 3); if (x < w - 1) v = Math.min(v, D[i + w + 1] + 4); if (x > 0) v = Math.min(v, D[i + w - 1] + 4); } else v = Math.min(v, 3);
+    D[i] = v;
+  }
+  // components
+  const seen = new Uint8Array(n), st = new Int32Array(n);
+  let glyph = 0, obj = 0;
+  for (let s = 0; s < n; s++) {
+    if (!D[s] || seen[s]) continue;
+    let sp = 0, x0 = w, x1 = 0, y0 = h, y1 = 0, area = 0, md = 0; st[sp++] = s; seen[s] = 1;
+    while (sp) {
+      const i = st[--sp], x = i % w, y = (i / w) | 0; area++; if (D[i] > md) md = D[i];
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      if (x > 0 && D[i - 1] && !seen[i - 1]) { seen[i - 1] = 1; st[sp++] = i - 1; }
+      if (x < w - 1 && D[i + 1] && !seen[i + 1]) { seen[i + 1] = 1; st[sp++] = i + 1; }
+      if (y > 0 && D[i - w] && !seen[i - w]) { seen[i - w] = 1; st[sp++] = i - w; }
+      if (y < h - 1 && D[i + w] && !seen[i + w]) { seen[i + w] = 1; st[sp++] = i + w; }
+    }
+    if (area / n > obj) obj = area / n;
+    const bh = y1 - y0 + 1, bw = x1 - x0 + 1;
+    if (bh < BOLD.minH * h || (bw >= 0.98 * w && bh >= 0.98 * h)) continue; // a surround that spans the whole frame is the rest of the ground, not a glyph
+    const hp = 100 * bh / h, stroke = 100 * (2 * md / 3) / h;
+    if (hp >= BOLD.glyphH && stroke >= BOLD.strokeMin && stroke / hp <= BOLD.strokeRatio && area / (bw * bh) <= BOLD.glyphFill && hp > glyph) glyph = hp;
+  }
+  return { gL: g[0], ga: g[1], gb: g[2], near: near / n, glyph, obj };
 }
 
 // Bhattacharyya distance of two histograms (0 identical .. 1 disjoint), what cv2.compareHist gives

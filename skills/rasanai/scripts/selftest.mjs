@@ -31,7 +31,7 @@
 // 21. the Moves pass: isLabelOnly, moves.mjs (pack, check, check-verdict, payload, choose, record, and rough/check-rough when Chrome and ffmpeg are there),
 //     the crew's moves phases and roles, the score accounting against story/moves.json; fixtures in scripts/tests/fixtures/moves/
 // 22. motion grammars: grammar.mjs (list, show, check, pick, write, the brand palette merge), the score's grammar rules (grammar-missing, technique-unknown,
-//     technique-repeat, technique-thin, frame-device-missing), the builders' briefs, and the design desk's grammar.json gate (grammar-missing, grammar-invalid,
+//     technique-thin, frame-device-missing), the builders' briefs, and the design desk's grammar.json gate (grammar-missing, grammar-invalid,
 //     grammar-not-flat, grammar-repeat); fixtures in scripts/tests/fixtures/grammars/ (RASANAI_GRAMMAR_LIBRARY); no grammar file, no new errors
 // shape. the shape kit: RasanShape runtime + vendored flubber (licence), shape.mjs install/check, the demo page rendered headless (every function changes over time
 //     and is identical when seeked twice), the `character` motion language accepted by obey
@@ -43,7 +43,12 @@
 // camera. the RasanCamera kit (scripts/tests/camera.mjs): runtime, camera.mjs install/check (order, timeline, randomness, budgets), video.mjs inject
 //    (kit + GSAP plugins, script tags), finish.mjs --draft; full runs render the demo film (every function, seek identity, byte-identical double render)
 // 17. lyric videos: the treatment gate and the crew's song route, lyrics.mjs (check, audio, align when whisper is there), the RasanMusic runtime in a page, the film finish (grade, blur)
+// chrome-lint. the page-chrome lint (scripts/tests/chrome-lint.mjs): every rule of lib/chrome-lint.mjs on planted films with its negatives (UI surface, data-ui="captured", data-chrome="allow", a brand film's measured.chrome), through slop.mjs
 // formats. the "What are you making?" picker (scripts/tests/formats.mjs): formats.json check, match, resolve, the brief payload, the console picker, story.mjs format_shapes
+// one-memory. one memory (scripts/tests/one-memory.mjs): lessons.mjs digest and suggest, the taste ledger as raw evidence, one row per action id, the crew brief's one lessons block, the one reading-time formula (lib/reading.mjs)
+// deliver. the delivery package and the voice check (scripts/tests/deliver.mjs): video.mjs deliver (mp4, poster, srt, CREDITS.txt, build.sh, NOTE.md), voice.mjs verify against whisper-cli when it is there
+// orbs. the RasanOrbs kit (scripts/tests/orbs.mjs): runtime, video.mjs inject, the nine states seeked in headless Chrome; --quick runs only the static + golden checks (no Chrome)
+// styles. the style-reference library (scripts/tests/styles.mjs): library/styles parses (frontmatter, 9 sections, 3 to 6 signature features, posters), the third_party credits, design-desk.md and the designer brief point at it
 // plates. abstract plates (scripts/tests/plates.mjs): art.mjs recipe, the gradient-map palette lock, the procedural plate, make on an abstract row; full runs render flowGround + plateTransition twice (byte-identical)
 import fs from "node:fs";
 import os from "node:os";
@@ -121,6 +126,30 @@ for (const count of ["3", "6"]) {
     r = JSON.parse(p.stdout);
   } catch {}
   ok(`pick --count ${count}: 2+ tail candidates, auto never the remembered pick`, r.tail_count >= 2 && r.auto && r.auto.pick !== "retro-terminal", p.stdout.slice(0, 200));
+}
+
+// 5b taste ledger: record, digest, cap, clear
+{
+  const th = path.join(TMP, "taste-home");
+  const tenv = { ...env, RASANAI_HOME: th };
+  const mem = (a) => spawnSync(process.execPath, [path.join(HERE, "memory.mjs"), ...a], { encoding: "utf8", env: tenv, cwd: TMP });
+  ok("taste: empty ledger says so", /No taste notes/.test(mem(["taste"]).stdout));
+  const r1 = mem(["edit", "--film", "f1", "--stage", "animatic", "--note", "Slower", "--scene", "s2", "--t", "4.5"]);
+  mem(["edit", "--film", "f2", "--stage", "final", "--note", "slower!"]);
+  mem(["verdict", "--film", "f2", "--stage", "final", "--note", "Too busy in the middle"]);
+  ok("taste: record writes a row with film, stage, note, ts, scene and time", (() => { const r = JSON.parse(r1.stdout); return r.kind === "edit" && r.film === "f1" && r.stage === "animatic" && r.note === "Slower" && r.scene === "s2" && r.t === 4.5 && !!r.ts; })(), r1.stdout + r1.stderr);
+  ok("taste: a bad stage is refused", mem(["edit", "--film", "f", "--stage", "x", "--note", "n"]).status !== 0);
+  const dg = mem(["taste"]).stdout;
+  ok("taste: digest leads with the repeated theme, then the latest", /Recurring:\n- x2 \(2 films\) slower!?/i.test(dg) && /Too busy in the middle/.test(dg) && dg.indexOf("Recurring") < dg.indexOf("Latest"), dg);
+  for (let i = 0; i < 560; i++) fs.appendFileSync(path.join(th, "taste.jsonl"), JSON.stringify({ ts: "2026-01-01T00:00:00Z", kind: "edit", film: "bulk" + (i % 7), stage: "final", note: "note number " + i + " " + "word ".repeat(40) }) + "\n");
+  mem(["edit", "--film", "f3", "--stage", "final", "--note", "trigger trim"]);
+  const rows = fs.readFileSync(path.join(th, "taste.jsonl"), "utf8").split("\n").filter(Boolean).length;
+  const big = mem(["taste", "--raw"]).stdout; // the raw ledger digest keeps its own 1800-character cap; `taste` is now the lessons digest plus this
+  ok("taste: the ledger keeps at most 500 rows and the digest stays under 1800 characters", rows === 500 && big.length <= 1800 && /trigger trim/.test(big), `rows ${rows}, digest ${big.length}`);
+  const one = JSON.parse(mem(["taste-clear", "--film", "f3"]).stdout);
+  ok("taste: clear --film removes only that film", one.cleared === 1 && one.left === 499, JSON.stringify(one));
+  mem(["taste-clear"]);
+  ok("taste: clear forgets everything", !fs.existsSync(path.join(th, "taste.jsonl")) && /No taste notes/.test(mem(["taste"]).stdout));
 }
 
 // 6
@@ -268,6 +297,8 @@ if (url) {
   const wc = JSON.parse(h(["wait", "--run", hrun, "--timeout", "10"]).stdout);
   const st2 = J("session.json");
   ok("headless: a comment becomes an open note and a feed line", wc.type === "comment" && st2.comments.length === 1 && st2.comments[0].id === "cmt1" && st2.comments[0].state === "open" && st2.comments[0].t === 65.5 && st2.comments[0].quick === "Slower" && st2.activity.at(-1).msg === "You left a note at 1:05: slow this down", JSON.stringify(st2.comments));
+  const tl = (() => { try { return fs.readFileSync(path.join(TMP, "home", "taste.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)); } catch { return []; } })();
+  ok("taste: a note consumed by headless wait (the Studio path) lands in the ledger as an edit on the animatic", tl.length === 1 && tl[0].kind === "edit" && tl[0].stage === "animatic" && tl[0].note === "slow this down" && tl[0].scene === "s2" && tl[0].t === 65.5, JSON.stringify(tl));
   append({ id: "ans1", ts: "2026-01-01T00:00:02.000Z", step: st0.ask.step, type: "answer", value: { ask: st0.ask.id, choice: "y", text: "" }, note: "", source: "console" });
   const wa = JSON.parse(h(["wait", "--run", hrun, "--timeout", "10"]).stdout);
   const st3 = J("session.json");
@@ -592,22 +623,22 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
   ok("setup without Node says how to fix it and fails", none.status === 1 && /PROBLEM: Node >= 20 is required/.test(none.stderr) && /FAILED/.test(none.stdout), none.stdout + none.stderr);
 }
 
-// 11. story: the device catalog validates; pick returns three devices that differ (family, protagonist, visual world,
-//     >= 5 of 7 axes), deterministically per seed; check ships a concept pitch and rejects the cliche arc
+// 11. story: the device catalog validates; pick returns THE MENU (no seeded draw: recent devices removed, the rest ranked by fit) and three SLOTS
+//     (Sure/Bold/Wild, each with its shape and plot engine) the writers fill; check ships a concept pitch and rejects the cliche arc
 {
   const v = node("story.mjs", ["validate"]);
   let vj = {};
   try { vj = JSON.parse(v.stdout); } catch {}
-  ok("story: device catalog validates (60+ narrative devices)", v.status === 0 && vj.devices >= 60, v.stdout.slice(0, 300) + v.stderr);
+  ok("story: device catalog validates (70 narrative devices)", v.status === 0 && vj.devices >= 70, v.stdout.slice(0, 300) + v.stderr);
   const sd = path.join(TMP, "story");
   fs.mkdirSync(sd, { recursive: true });
   const truth = path.join(sd, "truth.json");
   fs.writeFileSync(truth, JSON.stringify({ product: { name: "Lintel" }, tags: ["ai", "devtool"], format: { format: "brand", length: "36" }, claim_scope: { scope: "category", why: "reviews every pull request" }, use_domains: [{ domain: "review", prompt: "review a small diff" }, { domain: "threads", prompt: "resolve a review thread" }, { domain: "repos", prompt: "review across repos" }], tone: ["deadpan"], transformation: "from PRs that wait to PRs already reviewed", emotional_truth: "the guilty LGTM", enemy: ["the review queue"], objects: ["the diff", "the LGTM comment", "the pager alert", "the review badge", "conflict markers", "the CI checkmark", "the nit: prefix", "the blame gutter"], forms: ["pull request", "review thread", "commit log", "incident postmortem", "changelog"], words: ["Lintel", "LGTM", "Apply suggestion"], proof: ["Reviews a 400-line PR in under 90 seconds (brief)"], competitors: ["Rival"], cliche: ["hook", "montage", "introducing", "f1", "f2", "f3"] }));
-  const picks = ["a", "b", "c"].map((s) => node("story.mjs", ["pick", "--truth", truth, "--seed", s]));
-  const P = picks.map((r) => { try { return JSON.parse(r.stdout); } catch { return { picks: [], distance: { matrix: [] } }; } });
-  const differ = P.every((r) => r.picks.length === 3 && ["family", "protagonist", "visual_world"].every((k) => new Set(r.picks.map((p) => p.axes[k])).size === 3) && r.distance.matrix.flat().every((d) => d === null || d >= 5));
-  const again = node("story.mjs", ["pick", "--truth", truth, "--seed", "a"]);
-  ok("story: pick gives Sure/Bold/Wild that differ (family, protagonist, visual world, >= 5 of 7 axes); same seed, same picks", differ && P[0].picks.map((p) => p.label).join() === "Sure,Bold,Wild" && again.stdout === picks[0].stdout, picks.map((r) => r.stderr).join(" "));
+  const picks = ["a", "b"].map((s) => node("story.mjs", ["pick", "--truth", truth, "--seed", s]));
+  const P = picks.map((r) => { try { return JSON.parse(r.stdout); } catch { return { picks: [], menu: [] }; } });
+  // the menu replaced the seeded draw: three slots with no device chosen, a menu spanning families, one engine per slot; --seed is accepted and ignored
+  const slots = P.every((r) => r.picks.length === 3 && r.picks.every((p) => p.device === null && p.engine && p.engine_rule) && new Set(r.picks.map((p) => p.engine)).size === 3 && (r.menu || []).length >= 6 && new Set((r.menu || []).map((m) => m.family)).size >= 3 && r.engines && r.turn_rule);
+  ok("story: pick gives THE MENU (6+ devices over 3+ families) and Sure/Bold/Wild slots with no device chosen and three different plot engines; no seeded draw (any seed, same output)", slots && P[0].picks.map((p) => p.label).join() === "Sure,Bold,Wild" && picks[0].stdout === picks[1].stdout, picks.map((r) => r.stderr).join(" "));
   const beat = (name, on_screen, duration_s, extra = {}) => ({ name, on_screen, visual: `${name}, in the review thread`, duration_s, ...extra });
   const scores = { originality: 4, clarity: 4, fit: 5, memorability: 4, feasibility: 5 };
   const aim = { takeaway: "Lintel reads every line so nothing slips through at 2 am.", feel: "Relieved", action: "Install Lintel on one repo", audience: "Engineers who approve pull requests" };
@@ -667,12 +698,13 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     fs.writeFileSync(ptruth, JSON.stringify({ ...JSON.parse(fs.readFileSync(truth, "utf8")), format: { format: "launch", length: "30" } }));
     const CONCEIT = new Set(["museum-exhibit", "extended-metaphor", "cover-version", "parable", "miniature-world", "chain-reaction", "game-level", "graphic-system", "material-study", "weather-report", "receipt", "recipe", "obituary", "horoscope", "nature-documentary", "movie-trailer", "infomercial", "silent-film", "product-as-character", "cosmos-zoom"]);
     const seen = new Set();
-    for (const sd2 of ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"]) {
+    // the menu (no seeded draw): the same call across rotations (--recent removes devices) never offers a conceit device
+    for (const rc of ["", "rewind", "countdown", "list-that-breaks"]) {
       let r = {};
-      try { r = JSON.parse(node("story.mjs", ["pick", "--truth", ptruth, "--seed", sd2]).stdout); } catch {}
-      (r.picks || []).forEach((x) => seen.add(x.id));
+      try { r = JSON.parse(node("story.mjs", ["pick", "--truth", ptruth, ...(rc ? ["--recent", rc] : [])]).stdout); } catch {}
+      (r.menu || []).forEach((x) => seen.add(x.id));
     }
-    ok("product-first: pick for a launch film never offers a conceit device (museum, metaphor, cover version, invented world...) across 12 seeds", seen.size >= 6 && ![...seen].some((id) => CONCEIT.has(id)), [...seen].join(","));
+    ok("product-first: the menu for a launch film never offers a conceit device (museum, metaphor, cover version, invented world...) across 4 rotations", seen.size >= 6 && ![...seen].some((id) => CONCEIT.has(id)), [...seen].join(","));
     const conc = node("story.mjs", ["pick", "--truth", ptruth, "--seed", "a", "--allow-conceit"]);
     ok("product-first: --allow-conceit lifts the filter (brand films, or when the user asks for a concept)", conc.status === 0 && !/"product_first": true/.test(conc.stdout));
     // the house 30 s shape (references/launch-film.md, Tempo): hook + product, promise, hero, four uses, payoff, end card = 7 ideas
@@ -832,7 +864,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       const pk = node("story.mjs", ["pick", "--truth", ptruth, "--format", "launch", "--seed", "k"]);
       let pj = {}; try { pj = JSON.parse(pk.stdout); } catch {}
       // (1.14: a launch film offers both viewer-first shapes: Sure ladder, Bold pas, Wild either; updated from "ladder for all three")
-      ok("ladder: pick --format launch offers both shapes: Sure is a ladder, Bold is a pas, Wild is either (shape mixed, one rule for each)", pj.shape === "mixed" && /refrain verb/.test(pj.shape_rule || "") && /Pas \(viewer first\)/.test(pj.shape_rule || "") && (pj.picks || []).length === 3 && pj.picks[0].structure === "ladder" && /Sure/.test(pj.picks[0].ladder_variant) && pj.picks[1].structure === "pas" && /Bold/.test(pj.picks[1].pas_variant) && ["ladder", "pas"].includes(pj.picks[2].structure), pk.stdout.slice(0, 300));
+      ok("ladder: pick --format launch (category claim) offers the three plot engines: Sure is a ladder (refrain-break), Bold a pas (reversal), Wild a before-after (shape mixed, one rule for each)", pj.shape === "mixed" && /refrain verb/.test(pj.shape_rule || "") && /Pas \(viewer first\)/.test(pj.shape_rule || "") && (pj.picks || []).length === 3 && pj.picks[0].structure === "ladder" && /Sure/.test(pj.picks[0].ladder_variant) && pj.picks[1].structure === "pas" && /Bold/.test(pj.picks[1].pas_variant) && pj.picks[2].structure === "before-after" && pj.picks.map((x) => x.engine).join() === "refrain-break,reversal,before-after", pk.stdout.slice(0, 300));
       const pkl = node("story.mjs", ["pick", "--truth", ptruth, "--format", "launch", "--seed", "k", "--shape", "ladder"]);
       let pjl = {}; try { pjl = JSON.parse(pkl.stdout); } catch {}
       ok("ladder: pick --shape ladder forces the ladder for all three", pjl.shape === "ladder" && (pjl.picks || []).length === 3 && pjl.picks.every((x) => x.structure === "ladder" && /Sure|Bold|Wild/.test(x.ladder_variant)), pkl.stdout.slice(0, 300));
@@ -859,14 +891,14 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
         let tj = {}; try { tj = JSON.parse(node("story.mjs", ["check", "--pitch", trio, "--truth", st, "--length", "30"]).stdout); } catch {}
         ok("scope: the portfolio fails two scripts that collapse onto one scenario (Bold and Wild are both the dinner bill)", ((tj.portfolio || {}).reasons || []).some((x) => /^collapse:/.test(x) && /The box you type into/.test(x)), JSON.stringify(tj.portfolio || {}).slice(0, 300));
         let up = {}; try { up = JSON.parse(node("story.mjs", ["pick", "--truth", st, "--seed", "a"]).stdout); } catch {}
-        ok("scope: pick on a universal claim gives three ladders (no coin flip, no user-protagonist device), each leading with different areas of life", up.claim_scope === "universal" && (up.picks || []).length === 3 && up.picks.every((x) => x.shape === "ladder" && x.axes.protagonist !== "user" && (x.lead_domains || []).length) && new Set(up.picks.map((x) => x.lead_domains[0])).size === 3 && /Universal claim/.test(up.scope_rule || ""), JSON.stringify((up.picks || []).map((x) => [x.id, x.shape, x.lead_domains])));
+        ok("scope: pick on a universal claim gives the three plot engines (ladder, pas, before-after: no coin flip), a menu with no user-protagonist device, and each slot leading with different areas of life", up.claim_scope === "universal" && (up.picks || []).length === 3 && up.picks.map((x) => x.shape).join() === "ladder,pas,before-after" && (up.menu || []).length >= 6 && up.menu.every((x) => x.axes.protagonist !== "user") && up.picks.every((x) => (x.lead_domains || []).length) && new Set(up.picks.map((x) => x.lead_domains[0])).size === 3 && /Universal claim/.test(up.scope_rule || ""), JSON.stringify((up.picks || []).map((x) => [x.shape, x.lead_domains])));
         const old = path.join(sd, "truth-no-scope.json");
         fs.writeFileSync(old, JSON.stringify({ ...JSON.parse(fs.readFileSync(ptruth, "utf8")), claim_scope: undefined, use_domains: undefined }));
         const ref = node("story.mjs", ["pick", "--truth", old, "--format", "launch", "--seed", "k"]);
         ok("scope: pick refuses a launch truth sheet without a Claim scope (regenerate it)", ref.status !== 0 && /no Claim scope/.test(ref.stderr), ref.stderr.slice(0, 200));
         const uniFeat = node("story.mjs", ["pick", "--truth", ptruth, "--format", "launch", "--seed", "k", "--feature", "Sites", "--scope", "universal"]);
         let uf = {}; try { uf = JSON.parse(uniFeat.stdout); } catch {}
-        ok("scope: one named feature with a universal claim is still a ladder (a breadth feature is a ladder even when it is the only feature)", uf.shape === "ladder", uniFeat.stdout.slice(0, 200) + uniFeat.stderr.slice(0, 200));
+        ok("scope: one named feature with a universal claim keeps the breadth shapes (a ladder leads even when it is the only feature; the trio is ladder, pas, before-after)", uf.shape === "mixed" && (uf.picks || [])[0].shape === "ladder", uniFeat.stdout.slice(0, 200) + uniFeat.stderr.slice(0, 200));
         const tmpl = path.join(sd, "truth-template.md");
         node("story.mjs", ["truth", "--out", tmpl, "--force"]);
         const tt = fs.existsSync(tmpl) ? fs.readFileSync(tmpl, "utf8") : "";
@@ -1047,14 +1079,14 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     return d;
   };
   const badHtml = `<style>.h{text-shadow:0 0 18px #0ff}.k{text-shadow:0 0 12px #f0f}.m{text-shadow:0 0 14px #0ff}.bg{background:linear-gradient(135deg,#7c3aed,#2563eb)}</style><div class="bg"><h1 class="h">Introducing Tally — seamless bookkeeping!</h1><span>00:12</span><span>120 BPM</span></div><p>It's not just an app, it's your accountant.</p><script>gsap.to(".x",{y:10,repeat:-1,yoyo:true});${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => `tl.from(".e${i}",{opacity:0,y:40,duration:0.6})`).join(";")}</script>`;
-  const bad = mk("bad", badHtml, [{ title: "a", duration: 4, on_screen: "Streamline your workflow with our amazing new platform today" }, { title: "b", duration: 4 }, { title: "c", duration: 4 }, { title: "end", duration: 1, on_screen: "Tally" }], 5);
+  const bad = mk("bad", badHtml, [{ title: "a", duration: 2, on_screen: "Streamline your workflow with our amazing new platform today" }, { title: "b", duration: 4 }, { title: "c", duration: 4 }, { title: "end", duration: 1, on_screen: "Tally" }], 5);
   const good = mk("good", `<style>h1{font-family:"Bricolage Grotesque"}</style><h1>Paper forgets.</h1><p>Tally reads every receipt the moment you get it.</p><script>tl.from(".h",{clipPath:"inset(0 100% 0 0)"});tl.from(".p",{scale:0.9,opacity:0});tl.fromTo(".r",{xPercent:-100},{xPercent:0});tl.from(".n",{y:30,opacity:0});tl.from(".l",{drawSVG:0});tl.from(".c",{x:-60});tl.from(".b",{rotation:-8,scale:0.8});tl.from(".t",{opacity:0})</script>`, [{ title: "Hook", duration: 2.5, on_screen: "Paper forgets." }, { title: "Year", duration: 6, on_screen: "Twelve months of paper." }, { title: "Tap", duration: 4.5, on_screen: "One tap." }, { title: "End", duration: 3, on_screen: "Tally" }], 20);
   const rb = node("slop.mjs", ["--project", bad, "--json"]);
   const rg = node("slop.mjs", ["--project", good, "--json"]);
   let jb = { findings: [] };
   try { jb = JSON.parse(rb.stdout); } catch {}
   const rules = new Set(jb.findings.map((f) => f.rule));
-  ok("anti-slop: generic copy, \"not X, it's Y\", glow past its budget (uniform glow), AI gradient, corner labels, idle loops, everything fading up, unreadable text, no end hold and a looping bed are caught (exit 2)", rb.status === 2 && ["generic-copy", "not-x-its-y", "glow-uniform", "ai-gradient", "corner-labels", "idle-breathing", "uniform-entrances", "unreadable", "no-end-hold", "music-loop"].every((r) => rules.has(r)), [...rules].join(", ") + rb.stderr);
+  ok("anti-slop: generic copy, \"not X, it's Y\", glow past its budget (uniform glow), AI gradient, corner labels, idle loops, everything fading up, unreadable text, no end hold and a looping bed are caught (exit 2)", rb.status === 2 && ["generic-copy", "not-x-its-y", "glow-uniform", "ai-gradient", "corner-micro-label", "idle-breathing", "uniform-entrances", "unreadable", "no-end-hold", "music-loop"].every((r) => rules.has(r)), [...rules].join(", ") + rb.stderr);
   ok("anti-slop: a clean project passes", rg.status === 0, rg.stdout.slice(0, 300));
   // W4: finish default-on, hero effects are budgets (glow, blur-in, particles), uniform use stays an error
   {
@@ -1481,12 +1513,12 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       v.depth = { none_because: 'the line "Twelve months of paper." is a flat ledger: depth would hurt it' };
       const chk = (o) => { put(o); return C(["check", "--run", run, "--role", "motion-director", "--key", "score"]); };
       const w0 = chk(v);
-      ok("crew: a 25 s score with no music_arc, no type_scale and no mechanics warns (music-arc-missing, flat-type, mechanics-thin) and still passes", w0.status === 0 && ["music-arc-missing", "flat-type", "mechanics-thin"].every((k) => w0.stdout.includes(k)), w0.stdout.slice(0, 600));
+      ok("crew: a 25 s score with no music_arc and no type_scale warns (music-arc-missing, flat-type; mechanics-thin needs 4+ named mechanics) and still passes", w0.status === 0 && ["music-arc-missing", "flat-type"].every((k) => w0.stdout.includes(k)), w0.stdout.slice(0, 600));
       v.music_arc = { intro_until: 5, drop_at: 9, break: [16, 18], payoff_at: 19, button_at: 25 };
       v.type_scale = { small_px: 28, large_px: 220 };
       v.scenes.forEach((x, i) => x.shots.forEach((h, j) => { h.mechanic = `mech-${i}-${j}`; }));
       const w1 = chk(v);
-      ok("crew: a music_arc, a 3x type scale and a different mechanic per line clear music-arc-missing, flat-type, mechanics-thin and mechanic-repeat", w1.status === 0 && !/music-arc-missing|music-arc-order|flat-type|mechanics-thin|mechanic-repeat/.test(w1.stdout), w1.stdout.slice(0, 600));
+      ok("crew: a music_arc, a 3x type scale and varied mechanics clear music-arc-missing, flat-type and mechanics-thin (mechanic-repeat no longer exists)", w1.status === 0 && !/music-arc-missing|music-arc-order|flat-type|mechanics-thin|mechanic-repeat/.test(w1.stdout), w1.stdout.slice(0, 600));
       v.music_arc = { intro_until: 5, drop_at: 9, break: null, payoff_at: 8, button_at: 25 };
       ok("crew: a music_arc out of order (payoff before the drop) warns music-arc-order; break may be null", /music-arc-order/.test(chk(v).stdout) && !/music-arc-missing/.test(chk(v).stdout));
       v.music_arc = { intro_until: 5, drop_at: 9, payoff_at: 19, button_at: 25 };
@@ -1497,7 +1529,7 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
       v.type_scale = { small_px: 28, large_px: 220 };
       v.scenes.forEach((x) => x.shots.forEach((h) => { h.mechanic = "slide-in"; }));
       const w2 = chk(v);
-      ok("crew: the same mechanic on 3 lines in a row warns mechanic-repeat (and mechanics-thin)", /mechanic-repeat: \\?"slide-in/.test(w2.stdout) && /mechanics-thin: 1 distinct/.test(w2.stdout) && w2.status === 0, w2.stdout.slice(0, 400));
+      ok("crew: one mechanic on every line is the one-trick film: it warns mechanics-thin only (a refrain may repeat; no mechanic-repeat)", !/mechanic-repeat/.test(w2.stdout) && /mechanics-thin: 1 distinct/.test(w2.stdout) && w2.status === 0, w2.stdout.slice(0, 400));
       v.scenes.forEach((x, i) => x.shots.forEach((h, j) => { h.mechanic = `mech-${i}-${j}`; }));
       v.scenes.forEach((x) => { x.events = [{ t: 1, what: "a thing moves" }]; });
       const w3 = chk(v);
@@ -2185,7 +2217,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   ok("presenter: other routes do not need ## Imagery", !/Imagery/.test(g(run2).stdout));
 
   // the scripts' own tests, each with the same helpers; absent files are a note, never a failure
-  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit", "frame-gate", "frames", "camera", "lessons", "sound-payoff", "carry", "notes", "variety"]) {
+  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit", "chrome-lint", "frame-gate", "frames", "camera", "lessons", "sound-payoff", "carry", "notes", "variety", "rhythm", "sound-shape", "decisions", "sound-fixes", "gate-fixes", "plumbing", "boldness", "ab-learn", "echo-camera", "ui", "one-memory", "deliver", "orbs", "styles"]) {
     const f = path.join(HERE, "tests", `${name}.mjs`);
     if (!fs.existsSync(f)) { console.log(`note  ${name}: scripts/tests/${name}.mjs is not there yet, skipped`); continue; }
     try {
@@ -2569,7 +2601,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   fs.rmSync(path.join(run, "decisions.json"), { force: true });
   GM(["write", "--run", run, "--id", "alpha-grid"]);
 
-  // the score's grammar rules (crew check): grammar-missing, technique-unknown, technique-repeat, technique-thin, frame-device-missing
+  // the score's grammar rules (crew check): grammar-missing, technique-unknown, technique-thin (a one-trick film), frame-device-missing
   const sc = path.join(run, "motion", "score.json");
   const fd = "the rules re-divide to frame the product";
   const beats = (techs, dev = fd) => techs.map((t, i) => ({ n: i + 1, duration: 4, ...(t ? { technique: t } : {}), ...(dev ? { frame_device: dev } : {}) }));
@@ -2587,12 +2619,12 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   ok("grammar (score): a technique that is not in the grammar, or none, is technique-unknown (scene named)", /technique-unknown: scene 2 technique "grid-zz"/.test(r0.p) && /technique-unknown: scene 4 names no technique/.test(r0.p), r0.p.slice(0, 400));
   score({ grammar: "alpha-grid", scenes: beats(["grid-a", "grid-b", "grid-b", "grid-d", "grid-e", "grid-f"]) });
   r0 = out();
-  ok("grammar (score): the same technique on consecutive beats is technique-repeat; repeating after a gap is allowed", /technique-repeat: scenes 2 and 3 both use "grid-b"/.test(r0.p) && !/scenes 3 and 4/.test(r0.p));
+  ok("grammar (score): the same technique on consecutive beats is allowed (a refrain): no technique-repeat, no error", !/technique-repeat/.test(r0.p + r0.w) && !/technique-/.test(r0.p), (r0.p + r0.w).slice(0, 300));
   score({ grammar: "alpha-grid", scenes: beats(["grid-a", "grid-b", "grid-a", "grid-b", "grid-a", "grid-b"]) });
   r0 = out();
-  ok("grammar (score): fewer than min(beats, 6) distinct techniques is a warning (technique-thin), not an error", /technique-thin: 2 distinct/.test(r0.w) && !/technique-thin/.test(r0.p), r0.w.slice(0, 300));
+  ok("grammar (score): a film of 4+ beats that spends 2 or fewer distinct techniques is a warning (technique-thin), never an error", /technique-thin: 2 distinct/.test(r0.w) && !/technique-thin/.test(r0.p), r0.w.slice(0, 300));
   score({ grammar: "alpha-grid", scenes: beats(["grid-a", "grid-b", "grid-c"]) });
-  ok("grammar (score): a 3-beat film needs 3 distinct techniques, not 6", !/technique-thin/.test(out().w));
+  ok("grammar (score): a 3-beat film never warns technique-thin (the floor starts at 4 beats)", !/technique-thin/.test(out().w));
   score({ grammar: "alpha-grid", scenes: beats(six).map((s, i) => (i === 2 ? { ...s, frame_device: "" } : s)) });
   r0 = out();
   ok("grammar (score): a beat without frame_device is frame-device-missing (error)", /frame-device-missing: scene 3/.test(r0.p), r0.p.slice(0, 300));
@@ -2652,7 +2684,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   const abt = brief("scene-animator", "2", ["--project", "videos/t"]);
   ok("grammar (brief): a scene animator gets its beat's technique and frame_device, not the other beats' techniques", /## The film's motion grammar/.test(abt) && abt.includes('"id": "grid-f"') && !abt.includes('"id": "grid-c"') && /rules slide to frame the screen/.test(abt), abt.slice(-300));
   const mdt = brief("motion-director", "score");
-  ok("grammar (brief): the Motion Director's brief names the grammar rules (score.grammar, technique, frame_device) and its input", /look\/grammar\.json/.test(mdt) && /technique-repeat/.test(mdt) && /frame_device/.test(mdt), mdt.slice(0, 200));
+  ok("grammar (brief): the Motion Director's brief names the grammar rules (score.grammar, technique, frame_device) and its input", /look\/grammar\.json/.test(mdt) && /technique-thin/.test(mdt) && !/technique-repeat/.test(mdt) && /frame_device/.test(mdt), mdt.slice(0, 200));
   const dst = brief("design-system-designer", "Bold");
   ok("grammar (brief): the design system designer is told to bind ONE grammar per look (design/Bold/grammar.json, three different grammars, the moving specimen)", /design\/Bold\/grammar\.json/.test(dst) && /three different grammars/.test(dst) && /grammar\.mjs/.test(dst) && /window\.__specimen/.test(dst), dst.slice(0, 200));
   const mit = brief("move-inventor", "Bold");
@@ -3316,6 +3348,17 @@ catch (e) { ok("plates: tests ran", false, String((e && e.stack) || e).split("\n
   ok("music: the generated take is analysed, retimed onto the asked BPM (within 3%), fitted and recorded with its prompt and vendor", aiOpt?.origin === "ai:elevenlabs/music_v1" && !!aiOpt.retimed && Math.abs(aiOpt.bpm - 119) < 1 && !!aiOpt.fit && /DROP/.test(JSON.parse(fs.readFileSync(path.join(d, "run4", "music", "LICENSES.json"), "utf8"))[0]?.generation?.prompt || ""), JSON.stringify(aiOpt || ai).slice(0, 300));
   const noKey = J(nodeEnv("music.mjs", ["--run", path.join(d, "run5"), "--film", "20", "--sources", "ai,catalog", "--no-preview", "--intents", "dry minimal electronic bass, synth arpeggio, 120 BPM"], { RASANAI_MUSIC_CATALOG: fixFile, RASANAI_ELEVENLABS_API_KEY: "", RASANAI_STABILITY_API_KEY: "" }));
   ok("music: without a key the AI source says nothing and the catalog answers", noKey.chain?.find((c) => c.id === "ai")?.on === false && (noKey.options || []).some((o) => o.origin === "catalog") && !(noKey.notes || []).some((n) => /AI generation/.test(n)), JSON.stringify(noKey.notes));
+}
+
+// precedent lookup (adapted from motionmaxxing): offline, ranked, provenance-labelled, a bad beat is refused
+{
+  const pj = node("moments.mjs", ["precedent", "--beat", "hook", "--content", "type", "--q", "word bleed", "--limit", "4", "--json"]);
+  let pr = {}; try { pr = JSON.parse(pj.stdout); } catch {}
+  const sc = (pr.results || []).map((r) => r.score);
+  ok("precedent: a known beat returns ranked results, each labelled model-decoded and unverified, offline with no manifest or cache", pj.status === 0 && pr.total >= 700 && pr.results?.length === 4 && sc.every((v, i) => !i || sc[i - 1] >= v) && pr.results.every((r) => r.beat === "hook" && /model-decoded precedent \(motionmaxxing\), unverified: a hint, not a rule/.test(r.provenance)), pj.stdout.slice(0, 300) + pj.stderr);
+  const pt = node("moments.mjs", ["precedent", "--beat", "proof", "--content", "ui"]);
+  ok("precedent: the text form prints compact hints with the label; a bad --beat or no filter exits non-zero", pt.status === 0 && /unverified: a hint, not a rule/.test(pt.stdout) && node("moments.mjs", ["precedent", "--beat", "nope"]).status !== 0 && node("moments.mjs", ["precedent"]).status !== 0, pt.stdout.slice(0, 200));
+  ok("precedent: the third-party licence, notice and data ship in the skill", ["LICENSE", "NOTICE", "README.md", "moments.jsonl"].every((f) => fs.existsSync(path.join(HERE, "..", "third_party", "motionmaxxing", f))) && /Apache License/.test(fs.readFileSync(path.join(HERE, "..", "third_party", "motionmaxxing", "LICENSE"), "utf8")));
 }
 
 fs.rmSync(TMP, { recursive: true, force: true });
