@@ -34,6 +34,9 @@
 //           <dir>/strip.png (5 evenly spaced frames, labelled with t) and <dir>/poster.png (the frame at window.__move.bridge
 //           when it is a number of seconds, else the middle). The longest side is 1280 px. Exit 2 when the page breaks the
 //           contract (no window.__move, a duration outside 1.5 to 4.5 s), 1 when Chrome or ffmpeg is missing.
+//        A rough is usually DATA, not HTML: <dir>/rough.json (the beat-kind DSL: text, window, phone, chart, hub, list, cards, input, chat,
+//        cloud, logo, number, image as grey boxes, plus timed moves; `moves.mjs rough-kinds` prints the fields) is compiled by one fixed template into
+//        rough.html first, then rendered as below. A rough.html written by hand (no generated marker) still renders as it is; --json recompiles over it.
 //   node moves.mjs check-rough --dir <run>/story/moves/<label>-<id>
 //        -> {ok, errors, warnings, duration}: rough.html, rough.mp4, strip.png and poster.png exist, the mp4 runs 1.5 to 4.5 s,
 //           and its frames differ (not blank, not still); exit 0 / 2.
@@ -171,6 +174,107 @@ function rankedIds(verdict, label, mv) {
 }
 const roughDir = (run, label, id) => path.join(run, "story", "moves", `${label}-${id}`);
 
+// ---------------------------------------------------------------- the beat-kind DSL (grey-box roughs as JSON)
+// A rough is data, not hand-written HTML: <dir>/rough.json names grey boxes by KIND and moves them; one fixed template
+// (roughHtml) draws every kind the same way, so the sketcher spends its tokens on the timing, which is the idea.
+//   { "aspect": "16:9", "duration": 3.0, "bridge": 1.4, "caption": "dot -> door -> next scene",
+//     "items": [ { "id": "dot", "kind": "number", "text": "3", "x": .5, "y": .5, "w": .1, "h": .1, "carrier": true, "opacity": 0, "scale": .6 }, ... ],
+//     "moves": [ { "target": "dot", "at": 0.2, "dur": 0.5, "ease": "power3.out", "from": { "opacity": 0 }, "to": { "opacity": 1, "scale": 1, "x": .5, "y": .4 } } ] }
+// x, y are an item's CENTRE and w, h its size, fractions of the stage (0 to 1), fixed at layout; a move's `from`/`to` take x y
+// (the centre again), scale, sx, sy, rotate and opacity. Kind fields: text/number/logo/image/cloud/input `text`; window `title`; list `rows[]`;
+// cards `cards[]`; chart `bars[]` (0 to 1); hub `text` + `spokes` (2 to 8); chat `bubbles[{from:"me"|"them",text}]`; phone `text`.
+const ROUGH_KINDS = {
+  text: "a line of type", window: "an app window with a title bar", phone: "a phone frame", chart: "bars (`bars`: 0 to 1 each)", hub: "a centre with `spokes` nodes",
+  list: "rows (`rows[]`)", cards: "a row of cards (`cards[]`)", input: "an input field with its text", chat: "bubbles (`bubbles[{from,text}]`)", cloud: "a cloud blob with a label",
+  logo: "a mark: a square with its name", number: "one big figure", image: "a flat grey picture with its label",
+};
+const ROUGH_EASES = /^(none|linear|(power[1-4]|sine|expo|circ|back|elastic|bounce)\.(in|out|inOut)(\([-\d., ]*\))?)$/;
+function roughProblems(s) {
+  const e = [];
+  if (!s || typeof s !== "object") return ["rough.json is not an object"];
+  const d = Number(s.duration);
+  if (!(d >= MIN_S && d <= MAX_S)) e.push(`duration ${s.duration} is outside ${MIN_S} to ${MAX_S} s`);
+  if (s.bridge != null && !(Number(s.bridge) >= 0 && Number(s.bridge) <= d)) e.push("bridge must be a time inside the clip");
+  if (typeof s.bridge !== "number") e.push("bridge (the time both states of the card are true, in seconds) is required");
+  if (!Array.isArray(s.items) || !s.items.length) return [...e, "items[] is empty"];
+  const ids = new Set();
+  for (const it of s.items) {
+    if (!it || typeof it.id !== "string" || !/^[A-Za-z][\w-]*$/.test(it.id)) { e.push("every item needs an id (letters, digits, - _)"); continue; }
+    if (ids.has(it.id)) e.push(`duplicate id ${it.id}`);
+    ids.add(it.id);
+    if (!ROUGH_KINDS[it.kind]) e.push(`item ${it.id}: kind "${it.kind}" is not one of ${Object.keys(ROUGH_KINDS).join(", ")}`);
+    for (const k of ["x", "y", "w", "h"]) if (it[k] != null && !(Number(it[k]) >= -1 && Number(it[k]) <= 2)) e.push(`item ${it.id}: ${k} is a fraction of the stage (0 to 1)`);
+  }
+  if (s.items.filter((i) => i && i.carrier).length > 1) e.push("one carrier only (the single accent)");
+  for (const m of s.moves || []) {
+    if (!m || !ids.has(m.target)) { e.push(`a move targets "${m && m.target}", which is not an item`); continue; }
+    if (!(Number(m.at) >= 0) || !(Number(m.dur) >= 0) || Number(m.at) + Number(m.dur) > d + 0.01) e.push(`move on ${m.target}: at ${m.at} + dur ${m.dur} runs past the clip`);
+    if (m.ease && !ROUGH_EASES.test(String(m.ease))) e.push(`move on ${m.target}: ease "${m.ease}" is not a GSAP ease`);
+    if (!m.to && !m.from) e.push(`move on ${m.target}: needs to and/or from`);
+  }
+  if (!(s.moves || []).length) e.push("moves[] is empty: nothing moves");
+  return e;
+}
+// the body of one item, by kind (all text escaped; nothing but flat boxes)
+function roughBody(it) {
+  const t = esc(String(it.text ?? it.label ?? ""));
+  const rows = (a, fallback) => (Array.isArray(a) && a.length ? a : fallback).map((r) => `<i class="r">${esc(String(r))}</i>`).join("");
+  switch (it.kind) {
+    case "text": return `<b class="t">${t}</b>`;
+    case "number": return `<b class="n">${t}</b>`;
+    case "window": return `<u class="bar">${esc(String(it.title ?? it.text ?? ""))}</u><div class="body">${rows(it.rows, ["", "", ""])}</div>`;
+    case "phone": return `<u class="notch"></u><div class="body">${t ? `<b class="t">${t}</b>` : rows(it.rows, ["", "", ""])}</div>`;
+    case "chart": return `<div class="bars">${(Array.isArray(it.bars) && it.bars.length ? it.bars : [0.4, 0.7, 0.55, 0.9]).map((v) => `<i style="height:${Math.round(Math.max(0.05, Math.min(1, Number(v) || 0)) * 100)}%"></i>`).join("")}</div>${t ? `<b class="cap">${t}</b>` : ""}`;
+    case "hub": { const n = Math.max(2, Math.min(8, Number(it.spokes) || 4)); return `<b class="core">${t}</b>${Array.from({ length: n }, (_, i) => `<i class="spoke" style="--a:${Math.round((360 / n) * i)}deg"></i>`).join("")}`; }
+    case "list": return `<div class="body">${rows(it.rows, ["", "", ""])}</div>`;
+    case "cards": return (Array.isArray(it.cards) && it.cards.length ? it.cards : ["", "", ""]).map((c) => `<i class="card">${esc(String(c))}</i>`).join("");
+    case "input": return `<b class="t">${t}</b><u class="caret"></u>`;
+    case "chat": return (Array.isArray(it.bubbles) && it.bubbles.length ? it.bubbles : [{ from: "them", text: t }]).map((b) => `<i class="bub ${b && b.from === "me" ? "me" : "them"}">${esc(String((b && b.text) ?? ""))}</i>`).join("");
+    case "cloud": return `<b class="t">${t}</b>`;
+    case "logo": return `<b class="t">${t}</b>`;
+    default: return `<b class="cap">${t}</b>`; // image
+  }
+}
+export function roughHtml(s) {
+  const [aw, ah] = normalizeAspect(String(s.aspect || "16:9")).split("x").map(Number), k = 1280 / Math.max(aw, ah);
+  const SW = Math.round((aw * k) / 2) * 2, SH = Math.round((ah * k) / 2) * 2;
+  const px = (v, size) => Math.round(Number(v) * size * 100) / 100;
+  const items = s.items.map((it) => {
+    const w = it.w != null ? Number(it.w) : 0.2, h = it.h != null ? Number(it.h) : 0.1;
+    return `<div class="it k-${it.kind}${it.carrier ? " carrier" : ""}" id="${esc(it.id)}" style="left:${px((it.x ?? 0.5) - w / 2, SW)}px;top:${px((it.y ?? 0.5) - h / 2, SH)}px;width:${px(w, SW)}px;height:${px(h, SH)}px">${roughBody(it)}</div>`;
+  }).join("");
+  const init = s.items.map((it) => ({ id: it.id, x: it.x ?? 0.5, y: it.y ?? 0.5, w: it.w ?? 0.2, h: it.h ?? 0.1, o: it.opacity ?? 1, sc: it.scale ?? 1, r: it.rotate ?? 0 }));
+  const css = `html,body{margin:0;background:#F1F0EC}#stage{position:relative;width:${SW}px;height:${SH}px;overflow:hidden;background:#F1F0EC;color:#1B1F2A;font-family:-apple-system,"Helvetica Neue",Arial,sans-serif}
+.it{position:absolute;box-sizing:border-box;display:flex;align-items:center;justify-content:center;background:#CFCDC6;border-radius:6px;overflow:hidden}
+.it .t{font-weight:600;font-size:${Math.round(SH * 0.045)}px;white-space:nowrap}.it .n{font-weight:700;font-size:${Math.round(SH * 0.16)}px}.it .cap{font-size:${Math.round(SH * 0.025)}px;color:#4A4D57}
+.k-text,.k-number,.k-logo,.k-cloud{background:transparent}.k-logo{background:#CFCDC6}.k-cloud{background:#DAD8D1;border-radius:50% / 55%}
+.k-window,.k-phone,.k-list,.k-input,.k-chart{flex-direction:column;align-items:stretch;justify-content:flex-start;background:#E4E2DC;border:2px solid #1B1F2A}.k-phone{border-radius:28px}
+.bar{display:block;height:9%;min-height:22px;background:#1B1F2A;color:#F1F0EC;font:500 13px/22px sans-serif;text-decoration:none;padding:0 10px}.notch{display:block;width:30%;height:10px;margin:8px auto;background:#1B1F2A;border-radius:6px;text-decoration:none}
+.body{display:flex;flex-direction:column;gap:8px;padding:12px;flex:1;justify-content:center}.body .t{font-size:${Math.round(SH * 0.032)}px}.r{display:block;font:500 ${Math.round(SH * 0.025)}px/1.2 sans-serif;background:#CFCDC6;padding:8px;border-radius:4px;min-height:14px}
+.bars{display:flex;align-items:flex-end;gap:8%;flex:1;padding:12px}.bars i{flex:1;background:#8F8D86}.k-chart .cap{padding:4px 12px}
+.k-hub{background:transparent;position:absolute}.core{position:absolute;left:50%;top:50%;width:34%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:#8F8D86;display:flex;align-items:center;justify-content:center;font-size:${Math.round(SH * 0.025)}px}
+.spoke{position:absolute;left:50%;top:50%;width:12%;aspect-ratio:1;border-radius:50%;background:#CFCDC6;transform:rotate(var(--a)) translate(0,-${Math.round(SH * 0.2)}px)}.k-hub{overflow:visible}
+.k-cards{gap:2%}.card{flex:1;height:100%;background:#E4E2DC;border:2px solid #1B1F2A;border-radius:6px;font:500 ${Math.round(SH * 0.025)}px sans-serif;display:flex;align-items:center;justify-content:center}
+.k-input{flex-direction:row;align-items:center;justify-content:flex-start;padding:0 16px;background:#F7F6F2}.caret{display:inline-block;width:2px;height:60%;background:#1B1F2A;margin-left:4px}
+.k-chat{flex-direction:column;background:transparent;gap:8px;align-items:stretch;justify-content:center}.bub{display:block;font:500 ${Math.round(SH * 0.026)}px sans-serif;padding:10px 14px;border-radius:14px;max-width:75%;background:#CFCDC6}.bub.me{align-self:flex-end;background:#8F8D86}
+.k-image{background:#CFCDC6}.carrier{background:#E8833A!important;color:#1B1F2A}.carrier .t,.carrier .n{color:#1B1F2A}
+#cap{position:absolute;left:14px;bottom:10px;font:14px sans-serif;color:#1B1F2A}`;
+  const D = Number(s.duration), B = Number(s.bridge);
+  const moves = (s.moves || []).map((m) => ({ t: m.target, at: Number(m.at), dur: Number(m.dur), ease: m.ease || "power2.inOut", from: m.from || null, to: m.to || null }));
+  const js = `const SW=${SW},SH=${SH},D=${D},BRIDGE=${B},ITEMS=${JSON.stringify(init)},MOVES=${JSON.stringify(moves)};
+const by={};ITEMS.forEach(i=>by[i.id]=i);
+// x,y (the centre, a fraction of the stage) become a pixel offset from where the item is laid out; size changes go through scale/sx/sy
+function props(id,v){const i=by[id],o={};if(v.x!=null)o.x=(v.x-i.x)*SW;if(v.y!=null)o.y=(v.y-i.y)*SH;if(v.scale!=null)o.scale=v.scale;if(v.sx!=null)o.scaleX=v.sx;if(v.sy!=null)o.scaleY=v.sy;if(v.rotate!=null)o.rotation=v.rotate;if(v.opacity!=null)o.opacity=v.opacity;return o;}
+ITEMS.forEach(i=>gsap.set("#"+i.id,{opacity:i.o,scale:i.sc,rotation:i.r,x:0,y:0}));
+const tl=gsap.timeline({paused:true});
+MOVES.forEach(m=>{const a=m.at,e=m.ease;if(m.from&&m.to)tl.fromTo("#"+m.t,props(m.t,m.from),Object.assign(props(m.t,m.to),{duration:m.dur,ease:e,immediateRender:false}),a);
+ else if(m.to)tl.to("#"+m.t,Object.assign(props(m.t,m.to),{duration:m.dur,ease:e}),a);else tl.from("#"+m.t,Object.assign(props(m.t,m.from),{duration:m.dur,ease:e}),a);});
+tl.addLabel("bridge",BRIDGE);tl.to({},{duration:0.01},D-0.01);
+window.__move={tl,duration:D,bridge:BRIDGE,width:SW,height:SH};`;
+  return `<!doctype html><html><head><meta charset="utf-8"><title>rough</title><!-- rasanai:rough-json: generated from rough.json by moves.mjs rough; edit the JSON -->
+<script src="gsap.min.js"></script><style>${css}</style></head><body><div id="stage">${items}${s.caption ? `<div id="cap">${esc(String(s.caption))}</div>` : ""}</div><script>${js}</script></body></html>`;
+}
+
 // ---------------------------------------------------------------- ffmpeg / ffprobe
 const tool = (bin) => spawnSync(bin, ["-version"], { encoding: "utf8" }).status === 0;
 function needTools() {
@@ -250,6 +354,8 @@ if (cmd === "pack") {
   const st = validateSet(by);
   const errors = [...pre, ...st.errors];
   out({ ok: !errors.length, errors, warnings: st.warnings }, errors.length ? 2 : 0);
+} else if (cmd === "rough-kinds") {
+  out({ ok: true, kinds: ROUGH_KINDS, file: "<dir>/rough.json", fields: "{aspect, duration 1.5-4.5, bridge (s), caption?, items:[{id, kind, x, y, w, h (fractions), text|title|rows|cards|bars|bubbles|spokes, carrier?, opacity?, scale?, rotate?}], moves:[{target, at, dur, ease, from?, to?:{x,y,scale,sx,sy,rotate,opacity}}]}" });
 } else if (cmd === "rough") {
   await rough();
 } else if (cmd === "check-rough") {
@@ -341,7 +447,7 @@ if (cmd === "pack") {
   writeFile(LEDGER, JSON.stringify(ledger, null, 2) + "\n");
   out({ ok: true, ledger: LEDGER, added: added.length, entries: ledger.length });
 } else {
-  die("usage: moves.mjs pack|check|check-set|check-verdict|rough|check-rough|payload|choose|record … (see the header)");
+  die("usage: moves.mjs pack|check|check-set|check-verdict|rough-kinds|rough|check-rough|payload|choose|record … (see the header)");
 }
 
 // mean absolute difference (0-255, on 64 px wide gray frames) of every frame against the first; flat = every pixel the same
@@ -370,7 +476,18 @@ async function rough() {
   if (!args.dir || args.dir === true) die("--dir <run>/story/moves/<label>-<id> required");
   const dir = path.resolve(String(args.dir));
   const src = path.join(dir, "rough.html");
-  if (!exists(src)) die(`rough.html not found in ${dir}`);
+  // rough.json (the beat-kind DSL, roughHtml) is compiled into rough.html by one fixed template; a hand-written rough.html (no generated marker) is left alone
+  const jf = path.join(dir, "rough.json");
+  if (exists(jf) && (!exists(src) || /rasanai:rough-json/.test(fs.readFileSync(src, "utf8")) || args.json)) {
+    const spec = jsonMaybe(jf);
+    const bad = spec ? roughProblems(spec) : ["rough.json is missing or not valid JSON"];
+    if (bad.length) out({ ok: false, error: "rough.json breaks the beat-kind DSL", problems: bad, kinds: Object.keys(ROUGH_KINDS) }, 2);
+    fs.writeFileSync(src, roughHtml(spec));
+    const g = path.join(dir, "gsap.min.js");
+    if (!exists(g)) fs.copyFileSync(path.join(SKILL_DIR, "scripts", "vendor", "gsap.min.js"), g);
+    if (!(args.aspect && args.aspect !== true) && spec.aspect) args.aspect = String(spec.aspect);
+  }
+  if (!exists(src)) die(`rough.html (or rough.json) not found in ${dir}`);
   const fps = args.fps && args.fps !== true ? Number(args.fps) : 15;
   if (!(fps >= 5 && fps <= 60)) die("--fps must be 5 to 60");
   needTools();
