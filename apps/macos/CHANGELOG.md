@@ -2,7 +2,7 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.14.0 (build 31) — 2026-10-15
 
 - **New film is a step-by-step setup.** One question per screen with big tiles: series, what you're making, material, brief, length and shape (read from the clip for footage), an example edit, the taste questions, then Review. The Home box keeps a one-click Start next to a new "Set it up".
 - **Review says where each answer came from:** You, From your clip, From your series, From your example, or RasanAI decides. Pace, Models, Motion, Brand, Director and Inspiration sit in a collapsed "More settings".
