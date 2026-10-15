@@ -73,6 +73,8 @@ public struct DirectorTelemetry: Codable, Equatable, Sendable {
     /// Name and time of a tool call that has not returned yet.
     public var toolInFlight: String?
     public var toolInFlightSince: Date?
+    /// The tool in flight is a long job on this Mac (a render, an encode): no model call runs, so tokens hold still until it returns.
+    public var toolInFlightIsLocalJob = false
     public var consoleWaitInFlight = false
 
     // Committed (finished) sessions.
@@ -288,12 +290,13 @@ public struct DirectorTelemetry: Codable, Equatable, Sendable {
         let described = ToolDescription.describe(name: name, input: input)
         registerCall(name: name, summary: described.summary, key: ToolDescription.key(name: name, input: input), kind: described.kind,
                      exempt: described.exempt, time, subagent: subagent)
+        toolInFlightIsLocalJob = name == "Bash" && ToolDescription.isLocalJob(input["command"] as? String ?? "")
     }
 
     mutating func registerCall(name: String, summary: String, key: String, kind: DirectorEvent.Kind, exempt: Bool, _ time: Date, subagent: Bool) {
         toolCalls[name, default: 0] += 1
         lastToolName = name; lastToolSummary = summary; lastToolAt = time
-        toolInFlight = name; toolInFlightSince = time; consoleWaitInFlight = exempt && kind == .ask
+        toolInFlight = name; toolInFlightSince = time; toolInFlightIsLocalJob = false; consoleWaitInFlight = exempt && kind == .ask
         if kind == .push || kind == .ask { lastConsoleCallAt = time }
         record(kind, (subagent ? "Helper · " : "") + summary, time)
         recentCalls.append(CallSignature(name: name, key: key, exempt: exempt))
@@ -480,6 +483,12 @@ enum ToolDescription {
     static func key(name: String, input: [String: Any]) -> String {
         guard JSONSerialization.isValidJSONObject(input), let data = try? JSONSerialization.data(withJSONObject: input, options: [.sortedKeys]) else { return name }
         return String(decoding: data, as: UTF8.self)
+    }
+
+    /// A command that renders or encodes on this Mac and can run for many minutes without the model.
+    static func isLocalJob(_ command: String) -> Bool {
+        let c = command.lowercased()
+        return ["finish.mjs", "render.mjs", "ffmpeg", "hyperframes render", "remotion render"].contains { c.contains($0) }
     }
 
     static func describe(name: String, input: [String: Any]) -> Result {

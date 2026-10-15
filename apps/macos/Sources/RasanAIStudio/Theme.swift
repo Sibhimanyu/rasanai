@@ -354,18 +354,22 @@ struct PosterImage: View {
 }
 
 /// 16:9 film thumbnail: the poster if the film has one, otherwise a soft indigo gradient with the film's initial.
+/// The box is always 16:9; a portrait or square poster is cropped to fill it, never allowed to make the card taller.
 struct FilmThumbnail: View {
     let name: String
     let poster: URL?
     var body: some View {
-        ZStack {
-            LinearGradient(colors: [Color.rasan.opacity(0.30), Color.rasan.opacity(0.10)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            Text(String(name.trimmingCharacters(in: .whitespaces).first.map(String.init)?.uppercased() ?? "R"))
-                .font(.system(size: 38, weight: .semibold, design: .rounded)).foregroundStyle(Color.rasan.opacity(0.75))
-            if let poster { PosterImage(url: poster) }
-        }
-        .aspectRatio(16.0 / 9.0, contentMode: .fit)
-        .clipped()
+        Color.clear
+            .aspectRatio(16.0 / 9.0, contentMode: .fit)
+            .overlay {
+                ZStack {
+                    LinearGradient(colors: [Color.rasan.opacity(0.30), Color.rasan.opacity(0.10)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    Text(String(name.trimmingCharacters(in: .whitespaces).first.map(String.init)?.uppercased() ?? "R"))
+                        .font(.system(size: 38, weight: .semibold, design: .rounded)).foregroundStyle(Color.rasan.opacity(0.75))
+                    if let poster { PosterImage(url: poster) }
+                }
+            }
+            .clipped()
     }
 }
 

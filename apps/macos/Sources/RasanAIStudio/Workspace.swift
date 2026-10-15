@@ -21,6 +21,8 @@ enum Workspace {
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x1E1E1E) : .rasanHex(0xF3F3F6)
     })
     static let radius: CGFloat = 12
+    /// The corners of the window's floating glass sidebar; the glass chrome on the film page matches them.
+    static let glassRadius: CGFloat = 18
     static let gap: CGFloat = 12
 }
 
@@ -36,50 +38,30 @@ struct WorkspacePanel: ViewModifier {
     }
 }
 
-/// A panel of frosted glass for the studio's chrome (the film inspector, action bar, status bar). The window's sidebar
-/// material blurs what is behind the window, as macOS sidebars do; on its own that takes its colour from the desktop
-/// picture, so a wallpaper that is blue on one side tinted the panel on one side only. An even wash of the RasanAI
-/// indigo, lit from the top, gives every panel the same colour on any desktop while it stays translucent.
-struct GlassPanel: ViewModifier {
-    var radius: CGFloat = Workspace.radius
-    var lightFrom: Edge?
+/// A panel of the studio's chrome (the film inspector, the action bar) in the same glass as the window's sidebar: the
+/// system's Liquid Glass, floating over the workspace with its own lit rim and the sidebar's rounder corners, so the
+/// chrome on both sides of the stage is one material. Left to itself the glass picks its fill from its size (a short bar
+/// came out as flat as the canvas); tinted with the panel colour, every panel lands on the sidebar's fill.
+struct GlassPanel<S: Shape>: ViewModifier {
+    let shape: S
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        content
-            .background { GlassSurface(lightFrom: lightFrom) }
-            .clipShape(shape)
-            .overlay {
-                shape.strokeBorder(LinearGradient(colors: [Color.white.opacity(0.16), Color.white.opacity(0.05)], startPoint: .top, endPoint: .bottom), lineWidth: 1)
-            }
+        if #available(macOS 26, *) {
+            content.clipShape(shape).glassEffect(.regular.tint(Workspace.panel), in: shape)
+        } else {
+            content.background(Workspace.panel, in: shape).clipShape(shape).overlay { shape.stroke(Workspace.hairline, lineWidth: 1) }
+        }
     }
 }
 
-/// The glass itself, without a shape: a solid panel (nothing shows through it, neither the desktop nor a tint of ours),
-/// a sheen of light along the top, and the light of the stage beside it. Its only colour is what the workspace shows.
+/// The glass for a full-width strip (the studio's status bar), without a shape: a solid panel and a sheen of light along
+/// the top.
 struct GlassSurface: View {
-    /// The side facing the stage. The stage's picture lights the glass from there (`StageLight`): a white frame
-    /// brightens it, a blue one tints it, a dark one leaves the glass as it is.
-    var lightFrom: Edge?
     @Environment(\.colorScheme) private var scheme
-    @Environment(\.stageLight) private var stageLight
-    private var glow: StageLight.Glow? {
-        switch lightFrom { case .leading?: stageLight?.right; case .top?: stageLight?.bottom; default: nil }
-    }
     var body: some View {
-        let dark = scheme == .dark
         ZStack {
             Workspace.panel
-            if let glow, let lightFrom {
-                // Strongest at the edge nearest the stage, falling off across the panel, scaled by the frame's brightness.
-                let strength = dark ? 0.08 + 0.40 * glow.brightness : 0.05 + 0.22 * glow.brightness
-                LinearGradient(stops: [.init(color: glow.color.opacity(strength), location: 0),
-                                       .init(color: glow.color.opacity(strength * 0.35), location: 0.35),
-                                       .init(color: .clear, location: 0.8)],
-                               startPoint: lightFrom == .top ? .top : .leading, endPoint: lightFrom == .top ? .bottom : .trailing)
-            }
-            LinearGradient(colors: [Color.white.opacity(dark ? 0.05 : 0.20), .clear], startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.35))
+            LinearGradient(colors: [Color.white.opacity(scheme == .dark ? 0.05 : 0.20), .clear], startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.35))
         }
-        .animation(.easeInOut(duration: 0.6), value: glow)
     }
 }
 
@@ -97,7 +79,8 @@ struct WindowMaterial: NSViewRepresentable {
 }
 
 extension View {
-    func glassPanel(radius: CGFloat = Workspace.radius, lightFrom: Edge? = nil) -> some View { modifier(GlassPanel(radius: radius, lightFrom: lightFrom)) }
+    func glassPanel(radius: CGFloat = Workspace.glassRadius) -> some View { modifier(GlassPanel(shape: RoundedRectangle(cornerRadius: radius, style: .continuous))) }
+    func glassPanel(in shape: some Shape) -> some View { modifier(GlassPanel(shape: shape)) }
     func workspacePanel(padding: CGFloat = 0) -> some View { modifier(WorkspacePanel(padding: padding)) }
 }
 

@@ -12,6 +12,8 @@ struct FilmStatusBar<Usage: View>: View {
     var onPause: (() -> Void)?
     var onResume: (() -> Void)?
     @ViewBuilder var usage: Usage
+    /// The monitor sees a tool or model call still running (a render can go most of an hour), so silence is not "no activity".
+    var stillWorking = false
     @Environment(\.agentName) private var agent
     @State private var lastActivityAt = Date()
 
@@ -38,7 +40,7 @@ struct FilmStatusBar<Usage: View>: View {
         }
         .padding(.horizontal, .filmInset).padding(.vertical, model.lastError == nil ? 0 : 8)
         .frame(maxWidth: .infinity, minHeight: 64)
-        .glassPanel(lightFrom: .top)   // chrome, like the inspector; lit by the stage above it
+        .glassPanel()   // chrome, like the inspector beside it: the same glass
         .onChange(of: turn) { lastActivityAt = Date() }
     }
 
@@ -87,7 +89,7 @@ struct FilmStatusBar<Usage: View>: View {
             }.help(full)
         case .working(_, let since, _):
             TimelineView(.periodic(from: .now, by: 1)) { context in
-                let quiet = context.date.timeIntervalSince(lastActivityAt) > 120
+                let quiet = !stillWorking && context.date.timeIntervalSince(lastActivityAt) > 120
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
                     Text(headline).font(.system(size: 12, weight: .medium)).lineLimit(1)
@@ -172,6 +174,7 @@ struct FilmStatusBarHost<Content: View, Usage: View>: View {
     /// False on pages with nothing to say or do at the bottom (drafts, the starting screen).
     var visible = true
     var turn: TurnState?
+    var stillWorking = false
     var onDetails: (() -> Void)?
     var onPause: (() -> Void)?
     var onResume: (() -> Void)?
@@ -183,11 +186,10 @@ struct FilmStatusBarHost<Content: View, Usage: View>: View {
         VStack(spacing: Workspace.gap) {
             content.onPreferenceChange(FilmActionsKey.self) { actions = $0 }
             if visible {
-                FilmStatusBar(model: model, turn: turn, actions: actions, onDetails: onDetails, onPause: onPause, onResume: onResume) { usage }
+                FilmStatusBar(model: model, turn: turn, actions: actions, onDetails: onDetails, onPause: onPause, onResume: onResume, usage: { usage }, stillWorking: stillWorking)
             }
         }
         // A note goes out with whatever was accepted (the note itself, or the call it rode along with).
         .onChange(of: model.sendCount) { model.tellText = "" }
-        .environment(\.stageLight, model.stageLight)   // the stage lights the inspector and this bar
     }
 }

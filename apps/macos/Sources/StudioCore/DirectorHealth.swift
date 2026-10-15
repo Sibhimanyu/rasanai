@@ -11,6 +11,8 @@ public struct HealthThresholds: Equatable, Sendable {
     public var quietAfter: TimeInterval = 120
     /// A tool that has not returned (a render, an install) is trusted for this long before it counts as quiet.
     public var toolQuietAfter: TimeInterval = 600
+    /// A render or encode on this Mac is trusted this long: a long film's final render can take most of an hour.
+    public var localJobQuietAfter: TimeInterval = 5400
     /// The same tool call with the same input this many times in a row.
     public var repeatedCalls = 3
     /// The same assistant message this many times in a row.
@@ -89,10 +91,14 @@ public struct DirectorHealth: Equatable, Sendable {
         if let tool = t.toolInFlight, let since = t.toolInFlightSince {
             let running = max(0, c.now.timeIntervalSince(since))
             let what = t.lastToolSummary ?? tool
+            if t.toolInFlightIsLocalJob, running < th.localJobQuietAfter {
+                return make(.working, "Rendering", running < 30 ? what
+                    : "\(what) · \(UsageFormat.span(running)) so far. This runs on your Mac, so tokens and cost hold still until it finishes.")
+            }
             if running < th.toolQuietAfter {
                 return make(.working, "Working", running < 30 ? what : "\(what) · \(UsageFormat.span(running)) so far")
             }
-            return make(.quiet, "Quiet", "No activity for \(UsageFormat.span(quiet)). Last: \(what).")
+            return make(.quiet, "Quiet", "One step has run for \(UsageFormat.span(running)) without finishing: \(what).")
         }
         if t.modelCallInFlight, quiet < th.thinkingFor {
             return quiet < 6 ? make(.working, "Working", "The director is working.")

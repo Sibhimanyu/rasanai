@@ -261,9 +261,15 @@ private struct PhaseRailRow: View {
                 }
                 .frame(width: 26)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(item.phase.title)
-                        .font(.system(size: 13, weight: item.state == .active || item.state == .waitingForYou ? .semibold : .medium))
-                        .foregroundStyle(item.state == .upcoming || item.state == .skipped ? .secondary : .primary)
+                    HStack(spacing: 5) {
+                        Text(item.phase.title)
+                            .font(.system(size: 13, weight: item.state == .active || item.state == .waitingForYou ? .semibold : .medium))
+                            .foregroundStyle(item.state == .upcoming || item.state == .skipped ? .secondary : .primary)
+                        if let call = item.phase.yourCall {
+                            Image(systemName: "person.fill").font(.system(size: 8)).foregroundStyle(.tertiary)
+                                .help("Ends with your call: \(call)")
+                        }
+                    }
                     Text(subtitle).font(.system(size: 11)).foregroundStyle(subtitleColor).monospacedDigit().lineLimit(1)
                 }
                 .padding(.top, 3)
@@ -321,6 +327,19 @@ private struct PhaseRailRow: View {
 }
 
 /// The state icon on the rail: a green check, a spinning ring, a waiting person, or the phase's own symbol, dimmed.
+extension ProgressPhase {
+    /// The person's call this phase ends in, if any: the five calls live on this list while Claude works.
+    var yourCall: String? {
+        switch self {
+        case .script: "pick a story"
+        case .look: "pick a look"
+        case .animatic: "notes on the animatic"
+        case .render: "review the final"
+        default: nil
+        }
+    }
+}
+
 struct PhaseGlyph: View {
     let phase: ProgressPhase
     let state: PhaseState
