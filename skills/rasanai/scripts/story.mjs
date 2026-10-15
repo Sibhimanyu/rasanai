@@ -11,11 +11,13 @@
 //        -> the default arc's 8 beats, stock openers, overused devices and visual cliches
 //   node story.mjs pick --truth <truth.md|truth.json> [--count 3] [--seed s] [--recent ids] [--exclude ids]
 //        [--like id] [--format launch|explainer|brand|social] [--tone t] [--product-first | --allow-conceit] [--shape ladder|pas|scenario] [--feature <name>]
-//        -> three devices ("Sure", "Bold", "Wild") that differ on >= 5 of 7 axes, with different family,
-//           protagonist and visual world; each with beats, pitfalls, an example and native material to fuse
-//           with. Deterministic for a seed (default seed: product name + today's date).
-//           The shapes come from SHAPES_BY_TYPE (video type x the truth sheet's Claim scope): a universal claim -> three ladders (breadth shapes
-//           differing in pacing, joins, emphasis and lead_domains, never in plot); a category claim -> Sure ladder, Bold pas, Wild ladder;
+//        -> a device menu and three slots ("Sure", "Bold", "Wild"), whose chosen devices must differ on >= 5 of 7 axes, with different family,
+//           protagonist and visual world (the menu cards carry beats, pitfalls, an example; `fuse_pool` the product's own material)
+//           THE MENU: no seeded draw. Rotation (--recent) REMOVES recent devices; what is left is ranked by plain fit and listed as `menu`; each script's writer
+//           CHOOSES one with a reason (pitch.device_reason) and check holds the three to the distance rules. --seed is accepted and ignored. Each pick
+//           slot carries a plot ENGINE with a turn (refrain-break | reversal | before-after): the pitch states engine + turn { line, reverses, payoff }.
+//           The shapes come from SHAPES_BY_TYPE (video type x the truth sheet's Claim scope): a universal or category claim -> Sure ladder (engine refrain-break),
+//           Bold pas (reversal), Wild before-after (the three plot engines, each with a turn, differing in where it sits and what it reverses, never in the claim);
 //           a single-task claim -> scenario. --shape forces one, --scope overrides the sheet. pas = pain -> meet -> benefits -> proof -> cta.
 //           A launch / promo / product / brand truth sheet without "## Claim scope" is refused (regenerate it). Product-first trios need not
 //           differ on protagonist; a universal claim gets no user-protagonist device.
@@ -25,6 +27,11 @@
 //   node story.mjs check --pitch <pitch.json | pitches.json> [--truth <truth.md|json>] [--footage] [--length <s>] [--narrated] [--product-first | --allow-conceit] [--sources <sources.json> | --source-mode <spine>] [--selects <selects.json>] [--brand-film <grammar.json>] [--calm] [--claims <claims.json>]
 //        -> the rubric: 6 pass/fail gates (+ G7 product-first for launch / promo / product films, + G10 shape-aware: `shape` ladder (refrain verb, 3-8 rungs by length, distinct uses, increasing levels, a real UI cause and effect per rung, a close) or scenario (one feature, one task), + G12 viewer first for launch / promo films (and any `pas` pitch): not-viewer-first, reveal-too-early (pas), no-benefit, no-proof (against research/claims.json: --claims, else <truth dir>/../research/claims.json), weak-cta, sparse-lines (film s / on-screen lines > 3.0); warnings slogan-copy, toy-demos, + G8 the aim: takeaway, feel, action, approach, a title that names the idea, + G9 tempo for the same films: ideas per length, a change every ~2.5 s, hold limits, the brand's measured tempo with --brand-film, + G13 scope for product-first films: the story's scope matches the truth sheet's Claim scope: uses, areas of life (D), the largest scenario's share (S_max), persona callbacks (P), reach, the promise clauses, the retell; the portfolio fails two scripts that collapse onto one scenario) + the weighted 1-5 score (ship at >= 3.8, no dimension < 3).
 //           Exit 0 = ship, 2 = rewrite (reasons in the JSON), 1 = bad input.
+//   node story.mjs intent --intent <story/intent.json> [--length <s>] [--pitch <pitch.json>] [--write]
+//        -> validates the film's argument (lib/intent.mjs, references/intent.md): proposition <= 12 words with no "and", every beat's buys / viewer_before / viewer_after /
+//           relation word (because | but | so | example | escalation | answer; none = error) / importance 1-3 (<= 25% at 3, exactly one peak at 60-75% of the running time
+//           (the pitch's durations with --pitch), a rest before it) / read with its reading time, ending_first, the turn; warnings: engine placement, payoff, buys wording.
+//           --write adds the derived emphasis_curve. check also reads story/intent-<Label>.json beside the pitch (its findings are warnings there). Exit 0 = ok, 2 = errors.
 //   node story.mjs validate
 //        -> checks devices.json against its schema (vocabularies, ids, counts)
 // Pitch format: references/story.md. Catalog schema: taxonomy/devices-SCHEMA.md.
@@ -36,6 +43,7 @@ import { isLabelOnly } from "./lib/moves-lib.mjs";
 import { readSources, isFootageLed, productFirstApplies } from "./lib/sources.mjs";
 import { formatShapesForRun } from "./lib/formats.mjs";
 import { readTime } from "./lib/reading.mjs";
+import { loadIntent, validateIntent } from "./lib/intent.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -61,35 +69,6 @@ const nz8 = (x) => String(x || "").toLowerCase().replace(/-/g, " ").replace(/[^a
 function findDevice(key) {
   const k = norm(key).trim();
   return DEVICES.find((d) => d.id === k || norm(d.code) === k || norm(d.name) === k) || null;
-}
-
-// --- seeded randomness ---------------------------------------------------------
-function hashSeed(s) {
-  let h = 2166136261 >>> 0;
-  for (const ch of String(s)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
-  return h;
-}
-function rng(seed) {
-  let a = hashSeed(seed);
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-function weightedSample(pool, k, rand) {
-  const items = pool.filter((p) => p.w > 0).slice();
-  const picked = [];
-  while (picked.length < k && items.length) {
-    const total = items.reduce((s, p) => s + p.w, 0);
-    let r = rand() * total;
-    let i = 0;
-    for (; i < items.length - 1; i++) if ((r -= items[i].w) <= 0) break;
-    picked.push(items.splice(i, 1)[0]);
-  }
-  return picked;
 }
 
 // --- the truth sheet -----------------------------------------------------------
@@ -432,12 +411,23 @@ const trioOk = (trio, pf = false) => trio.every((a, i) => trio.every((b, j) => j
 // The one place pick decides shapes. A later pass (the formats picker) adds rows per video type (S1 C/E.2: intercut uses,
 // hero + range strip, montage, manifesto...); today the shapes story.mjs can check are ladder, pas and scenario.
 // A type without a row (explainer, social) gets no shape unless the film is product-first (then the launch row).
-const LAUNCH_SHAPES = { universal: ["ladder", "ladder", "ladder"], category: ["ladder", "pas", "ladder"], "single-task": ["scenario", "scenario", "scenario"] };
+// the three plot engines (REBUILD 2): each HAS a turn the script states in one line (pitch.turn). refrain-break = a ladder of real uses that breaks at
+// 60-75%; reversal = problem -> turn (the product reverses it) -> proof ladder -> payoff that answers the setup (pas; scenario for a single task);
+// before-after = the old way against the new with the cause visible. A broad claim gets all three (they differ in where the turn sits and what it reverses).
+const LAUNCH_SHAPES = { universal: ["ladder", "pas", "before-after"], category: ["ladder", "pas", "before-after"], "single-task": ["scenario", "scenario", "scenario"] };
+// the shape -> engine table (references/story.md, Plot engines): a pitch's engine that does not match its shape is a warning
+const ENGINE_OF_SHAPE = { pas: "reversal", intercut: "reversal", ladder: "refrain-break", montage: "refrain-break", "claim-ladder": "refrain-break", "hero-strip": "refrain-break", scenario: "before-after", "before-after": "before-after", steps: "before-after", process: "before-after" };
+const ENGINES = {
+  "refrain-break": "Refrain ladder with a break: one refrain verb, a rung per real use, and at 60-75% the rung that BREAKS the pattern (the plain answer, the unexpected use, the refrain turned on the viewer). The turn is the break.",
+  reversal: "Problem, turn, proof ladder, payoff: the setup names a problem the viewer has, the turn is the product REVERSING it (something visibly flips), the proof is a short ladder of real uses, the payoff answers the setup (the setup's object or words return, changed).",
+  "before-after": "Before / after with the cause visible: the old way, then the new way, and the one thing that makes the difference (the cause) is on screen at the turn, so the viewer sees WHY it changed, not only that it did.",
+};
+const TURN_RULE = "Every script states its engine and its turn in the pitch: engine (refrain-break | reversal | before-after) and turn { line, reverses, payoff }: line = the one beat's words (that beat is marked turn: true and its intent relation is \"but\"), reverses = what flips (a belief, a situation, an object), payoff = what answers the setup (the \"answer\" beat). A turn that reverses nothing, or a payoff that does not answer the setup, is a rewrite.";
 const SHAPES_BY_TYPE = {
   launch: LAUNCH_SHAPES,
   promo: LAUNCH_SHAPES,
   product: LAUNCH_SHAPES,
-  brand: { universal: ["ladder", "ladder", "ladder"], category: ["ladder", "ladder", "ladder"], "single-task": ["scenario", "scenario", "scenario"] },
+  brand: LAUNCH_SHAPES,
   explainer: null,
 };
 const PICK_LABELS = ["Sure", "Bold", "Wild"];
@@ -480,15 +470,6 @@ function weigh(d, ctx) {
   return { w: Math.round(w * 1000) / 1000, why };
 }
 
-// Sure = the clearest, most buildable; Wild = the furthest reach; Bold = the one in between
-function ladder(trio) {
-  const sure = trio.slice().sort((a, b) => (b.d.build.score - b.d.ambition * 0.6 + (["container", "rhetoric"].includes(b.d.family) ? 0.5 : 0)) - (a.d.build.score - a.d.ambition * 0.6 + (["container", "rhetoric"].includes(a.d.family) ? 0.5 : 0)) || a.d.id.localeCompare(b.d.id))[0];
-  const rest = trio.filter((x) => x !== sure);
-  const wild = rest.slice().sort((a, b) => (b.d.ambition - b.d.build.score * 0.3) - (a.d.ambition - a.d.build.score * 0.3) || a.d.id.localeCompare(b.d.id))[0];
-  const bold = rest.find((x) => x !== wild);
-  return [{ ...sure, label: "Sure" }, { ...bold, label: "Bold" }, { ...wild, label: "Wild" }];
-}
-
 // product-first: the reach lives in craft (camera, joins, rhythm), never in a narrower or more personal story
 const LABEL_MEANING_PF = {
   Sure: "the clearest product story: the most universal uses, plainly, in order",
@@ -502,7 +483,7 @@ const LABEL_MEANING = {
 };
 
 const SCOPE_RULE = {
-  universal: "Universal claim: the story is the claim's range. All three scripts are breadth shapes (a ladder of real uses from 4+ areas of life, most universal first); they differ in pacing, joins, emphasis and which areas lead (lead_domains), never in plot. No persona, no recurring situation, no use over 35% of the film (aim 25%), every promise clause shown, the retell names the range. Specific in each use's details (the exact prompt, the real label), common in situation. G13 checks it.",
+  universal: "Universal claim: the story is the claim's range. All three scripts are breadth shapes (a ladder of real uses from 4+ areas of life, most universal first); they differ in plot engine (refrain-break, reversal, before-after: where the turn sits and what it reverses), pacing, joins and which areas lead (lead_domains), never in which claim they tell. No persona, no recurring situation, no use over 35% of the film (aim 25%), every promise clause shown, the retell names the range. Specific in each use's details (the exact prompt, the real label), common in situation. G13 checks it.",
   category: "Category claim: 3+ distinct real uses of the one job family, no single use over 35% of the film, at most one callback to a scenario. G13 checks it.",
   "single-task": "Single-task claim: one viewer doing the one real task (the scenario): the viewer's before, the task in the real UI, the after with the brand, one action.",
 };
@@ -614,8 +595,6 @@ if (cmd === "truth") {
   const exclude = new Set(list(args.exclude).map((r) => findDevice(r)?.id).filter(Boolean));
   const src = loadSource(args, args.truth);
   const footage = !!args.footage || isFootageLed(src) || truth.assets.some((a) => /footage|video of|founder on camera/i.test(a));
-  const seed = args.seed && args.seed !== true ? String(args.seed) : `${truth.product.name || "product"}|${new Date().toISOString().slice(0, 10)}`;
-  const rand = rng(seed);
   const ctx = { recent: new Set(recentIds), tags, format, tones, like, footage };
   const productFirst = isProductFirst(format, args, src);
   // a named feature (--feature, truth.feature) matters only on a legacy sheet with no Claim scope; with a scope, SHAPES_BY_TYPE decides
@@ -639,71 +618,22 @@ if (cmd === "truth") {
   const personaBan = (d) => productFirst && scope === "universal" && d.axes.protagonist === "user";
   const scored = DEVICES.filter((d) => !exclude.has(d.id) && !(productFirst && pfBanned(d)) && !personaBan(d)).map((d) => ({ d, ...weigh(d, ctx) }));
 
-  // candidates: at least one per family, two from the containers and metaphors, then three more from anywhere
-  const fams = Object.keys(CAT.families);
-  let cands = [];
-  for (const f of fams) cands.push(...weightedSample(scored.filter((s) => s.d.family === f), f === "container" || f === "metaphor" ? 2 : 1, rand));
-  cands.push(...weightedSample(scored.filter((s) => !cands.includes(s)), 3, rand));
-  // jitter so the heaviest devices don't win every seed
-  const jitter = new Map(cands.map((c) => [c.d.id, 0.7 + 0.6 * rand()]));
-  const val = (c) => c.w * (jitter.get(c.d.id) ?? 1);
-  const bestTrio = (pool) => {
-    let best = null;
-    let bestV = -1;
-    for (let i = 0; i < pool.length; i++)
-      for (let j = i + 1; j < pool.length; j++)
-        for (let k = j + 1; k < pool.length; k++) {
-          const trio = [pool[i], pool[j], pool[k]];
-          if (!trioOk(trio.map((x) => x.d), productFirst)) continue;
-          const v = trio.reduce((s, x) => s + val(x), 0) + 0.02 * (distance(pool[i].d, pool[j].d) + distance(pool[i].d, pool[k].d) + distance(pool[j].d, pool[k].d));
-          if (v > bestV) { bestV = v; best = trio; }
-        }
-    return best;
-  };
-  let trio = bestTrio(cands);
-  let widened = false;
-  if (!trio) {
-    // widen: the whole (non-excluded) catalog, with seeded jitter
-    for (const s of scored) if (!jitter.has(s.d.id)) jitter.set(s.d.id, 0.7 + 0.6 * rand());
-    trio = bestTrio(scored.slice().sort((a, b) => val(b) - val(a)).slice(0, 24));
-    widened = true;
-  }
-  if (!trio) die("no three devices satisfy the distance rule with these exclusions; drop some --exclude ids");
-  const laddered = ladder(trio);
-  // native material to fuse each device with: seeded, never the same central item twice
+  // THE MENU (no seeded draw): every device that is eligible, ranked by plain fit (weigh), with rotation as a FILTER: a device used in
+  // the recent films (--recent) is removed, never down-weighted into a lottery. The writer of each script chooses ONE device from the menu
+  // and says why (pitch.device_reason); check holds the three to the distance rules. Same inputs, same menu, every time.
   // a universal or category claim fuses only with the product's own surfaces (its input, cursor, dot, stream, mark), never one demo's artifact
   const SURFACE_RE = /\b(composer|caret|cursor|dot|bubble|stream\w*|prompt|input|search (bar|box)|text box|field|window|menu|mark|logo|wordmark|button|placeholder|hint|toolbar|sidebar|tab|chat|thread|reply|send|answer|canvas|keyboard|shortcut)\b/i;
-  const broad = productFirst && (scope === "universal" || scope === "category");
-  const native = [...truth.forms.map((x) => ({ kind: "format", item: x })), ...truth.objects.map((x) => ({ kind: "object", item: x }))].filter((n) => !broad || SURFACE_RE.test(n.item));
-  const used = new Set();
-  const fuse = () => {
-    const pool = native.filter((n) => !used.has(n.item));
-    const pickN = [];
-    const forms = pool.filter((n) => n.kind === "format");
-    const objs = pool.filter((n) => n.kind === "object");
-    if (forms.length) pickN.push(forms[Math.floor(rand() * forms.length)]);
-    if (objs.length) pickN.push(objs[Math.floor(rand() * objs.length)]);
-    pickN.forEach((n) => used.add(n.item));
-    return pickN.map((n) => `${n.item} (${n.kind})`);
-  };
-  const picks = laddered.slice(0, count).map((x) => {
-    const d = x.d;
-    return {
-      label: x.label,
-      ladder: (productFirst ? LABEL_MEANING_PF : LABEL_MEANING)[x.label],
-      id: d.id, code: d.code, name: d.name, family: `${CAT.families[d.family].code} ${CAT.families[d.family].name}`,
-      what: d.what,
-      axes: d.axes,
-      beats: d.beats,
-      pitfalls: d.pitfalls,
-      example: d.example,
-      build: d.build,
-      needs: d.needs,
-      overused: d.overused || undefined,
-      fuse_with: fuse(),
-      weight: x.w, weight_why: x.why,
-    };
-  });
+  const unbuildable = (d) => d.build.score <= 2 && !footage;
+  const eligible = scored.filter((s) => !ctx.recent.has(s.d.id) && !unbuildable(s.d));
+  const byFit = (a, b) => b.w - a.w || a.d.id.localeCompare(b.d.id);
+  const menuList = [];
+  for (const fam of Object.keys(CAT.families)) menuList.push(...eligible.filter((s) => s.d.family === fam).sort(byFit).slice(0, 3));
+  menuList.sort(byFit);
+  if (menuList.length < 6) die("fewer than 6 devices are eligible with these exclusions and this rotation; drop some --exclude / --recent ids");
+  const native = ((brd) => [...truth.forms.map((x) => ({ kind: "format", item: x })), ...truth.objects.map((x) => ({ kind: "object", item: x }))].filter((n) => !brd || SURFACE_RE.test(n.item)))(productFirst && (scope === "universal" || scope === "category"));
+  const menu = menuList.map((x) => { const d = x.d; return { id: d.id, code: d.code, name: d.name, family: `${CAT.families[d.family].code} ${CAT.families[d.family].name}`, what: d.what, axes: d.axes, beats: d.beats, pitfalls: d.pitfalls, example: d.example, build: d.build, needs: d.needs, overused: d.overused || undefined, fit: x.w, fit_why: x.why }; });
+  const rotatedOut = scored.filter((s) => ctx.recent.has(s.d.id)).map((s) => s.d.id);
+  const picks = PICK_LABELS.slice(0, count).map((label) => ({ label, ladder: (productFirst ? LABEL_MEANING_PF : LABEL_MEANING)[label], device: null, choose: "one device from `menu` (id) + a one-line device_reason; it must differ from the other two on family and visual_world" }));
   // the shapes come from SHAPES_BY_TYPE (type x claim scope), never from a coin flip
   const pickShape = (pk) => (plan.shapes ? plan.shapes[Math.max(0, PICK_LABELS.indexOf(pk.label))] : null);
   const mixed = !!plan.shapes && new Set(plan.shapes.slice(0, count)).size > 1;
@@ -731,6 +661,7 @@ if (cmd === "truth") {
   const broadClaim = productFirst && (scope === "universal" || scope === "category");
   picks.forEach((pk, i) => { if (broadClaim && doms.length) pk.lead_domains = leadOf(i).slice(0, 4); });
   for (const pk of picks) {
+    pk.engine = ENGINE_OF_SHAPE[pickShape(pk)] || undefined; if (pk.engine) pk.engine_rule = ENGINES[pk.engine];
     const sh = pickShape(pk);
     if (sh === "ladder") { pk.structure = "ladder"; pk.shape = "ladder"; pk.ladder_variant = LADDER_VARIANT[pk.label]; pk.device_role = "the device is the ladder's rhythm (list that breaks, escalation, call and response, countdown), never a plot"; }
     else if (sh && sh !== "scenario" && sh !== "pas" && STORY_SHAPES[sh]) { pk.structure = sh; pk.shape = sh; pk.shape_rule = shapeRule(sh); pk.device_role = `the device is the ${STORY_SHAPES[sh].name} shape's rhythm, never a plot${broadClaim ? "; the claim's range is the subject, no persona, no recurring situation" : ""}`; }
@@ -740,10 +671,8 @@ if (cmd === "truth") {
   const LADDER_RULE = "Ladder: one refrain verb is the spine; each rung is a title card (one highlighted word) plus a real UI demo of a DIFFERENT everyday use, escalating from simple to done-for-you; creativity lives in the joins between rungs, never in a plot. Rungs: <= 35 s 3-4, 36-60 s 4-6, > 60 s 6-8. Sure, Bold and Wild differ in which uses, their order, pacing and the refrain's wording, all on the same ladder. Pitch fields: shape, refrain {verb, pattern}, beats with role open | rung | ways_in | close; rungs carry use, highlight, level, on_screen, picture, ui[], duration_s. See references/story.md.";
   const PAS_RULE = "Pas (viewer first): the film is about the VIEWER's day. Beats: hook (the viewer's pain as a picture), agitate (optional: the pain lands, a reaction line like \"Woah\" is welcome), meet (the brand reveal, not before 20% of the film), benefit x2-4 (each: what the viewer gains in one line, one real UI behaviour), proof (a real number, adoption, rating or named customers from research/claims.json), cta ({ line, action, where }). Second person, short lines, one line per 1.5-2.5 s. Pitch fields: shape pas, beats with role, benefit (<= 12 words, viewer language), proof { line, claim }, cta { line, action, where }. See references/script.md and references/story.md." + (broadClaim ? " For a universal or category claim the pain is the category's (one every viewer has had: \"you asked, you got a wall of text\"), never one situation; the benefits are different uses from different areas of life (each with domain and reach), no two share a scenario noun." : "");
   const ruleOf = (sh, used) => (used.includes("pas") ? PAS_RULE + (used.includes("ladder") ? " The picks marked shape ladder follow: " + LADDER_RULE : "") : sh === "ladder" ? LADDER_RULE : undefined);
-  const matrix = picks.map((a) => picks.map((b) => (a === b ? null : distance(findDevice(a.id), findDevice(b.id)))));
   out({
     ok: true,
-    seed,
     product: truth.product.name || null,
     format, tones, tags,
     product_first: productFirst || undefined,
@@ -759,16 +688,19 @@ if (cmd === "truth") {
     shapes_by: plan.shapes ? plan.why : undefined,
     format_shapes: formatShapes || undefined,
     scope_rule: productFirst && scope ? SCOPE_RULE[scope] : undefined,
-    considered: cands.map((c) => ({ id: c.d.id, w: c.w })),
-    widened: widened || undefined,
+    menu,
+    rotated_out: rotatedOut.length ? rotatedOut : undefined,
+    fuse_pool: native.map((n) => `${n.item} (${n.kind})`),
+    engines: ENGINES,
+    turn_rule: TURN_RULE,
     picks,
-    distance: { axes: AXES, matrix, rule: productFirst ? "every pair differs on >= 4 of 7 axes, and on family and visual_world (a product film's protagonist is the product's range, so protagonist may repeat)" : "every pair differs on >= 5 of 7 axes, and on family, protagonist and visual_world" },
+    distance: { axes: AXES, rule: productFirst ? "every pair differs on >= 4 of 7 axes, and on family and visual_world (a product film's protagonist is the product's range, so protagonist may repeat)" : "every pair differs on >= 5 of 7 axes, and on family, protagonist and visual_world" },
     avoid: {
       cliche_arc: CL.arc,
       stock_openers: "Meet X / Introducing X / What if...? / Tired of...? / Imagine... / The future of ___ is here / Say goodbye to...",
       visual_cliches: CL.visuals.map((v) => v.name),
     },
-    next: "Write one pitch per pick (references/story.md: title, <= 12-word logline, timed beats with the turn at 60-75%, three sketch frames) fusing the device with its fuse_with material, then: node story.mjs check --pitch <pitches.json> --truth <truth>",
+    next: "CHOOSE a device per pick from the menu (a reason each, pitch.device_reason: no seeded draw decided), then write one pitch per pick with its engine's turn (references/story.md: title, <= 12-word logline, timed beats with the peak at 60-75% and the turn where its engine puts it: reversal 15-45%, refrain-break = the break at 60-75%, before-after before the peak, three sketch frames) fusing the device with its fuse_with material, then: node story.mjs check --pitch <pitches.json> --truth <truth>",
   });
 } else if (cmd === "check") {
   if (!args.pitch || args.pitch === true) die("--pitch <pitch.json> required");
@@ -786,11 +718,39 @@ if (cmd === "truth") {
   const fmt = truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null);
   opts.viewerFirst = !footageLed && productFirstApplies(src) !== false && ["launch", "promo"].includes(fmt);
   opts.claims = loadClaims(args.claims, args.truth);
-  const results = pitches.map((p, i) => checkPitch(p, i, truth, footage, opts));
+  const intentFor = (p) => {
+    const dir = path.dirname(pf), lab = p.label || null;
+    const cands = [args.intent && args.intent !== true ? path.resolve(String(args.intent)) : null, lab ? path.join(dir, `intent-${lab}.json`) : null, path.join(dir, "intent.json")].filter(Boolean);
+    const f = cands.find((x) => fs.existsSync(x));
+    if (!f) return { sheet: null, errors: [], warnings: [] };
+    try { const data = loadIntent(f); const v = validateIntent(data, { lengthS: opts.length, durations: (p.beats || []).map((b) => Number(b.duration_s)) }); return { sheet: f, data, errors: v.errors, warnings: v.warnings }; } catch (e) { return { sheet: f, errors: [e.message], warnings: [] }; }
+  };
+  const intents = pitches.map(intentFor);
+  const results = pitches.map((p, i) => checkPitch(p, i, truth, footage, { ...opts, intent: intents[i] }));
+  // the blind retell reads ONLY the beat list: story/beats-<label>.md = per beat on_screen, vo, visual (no aim, title, approach, intent, critique)
+  pitches.forEach((p, i) => {
+    if (!p.label || !Array.isArray(p.beats)) return;
+    const md = [`# Beats: ${p.label}\n`, ...p.beats.map((b, k) => `${k + 1}. on screen: ${String(b.on_screen == null ? "" : b.on_screen).replace(/\n/g, " ")}\n   voice: ${String(b.vo == null ? "" : b.vo).replace(/\n/g, " ") || "(none)"}\n   picture: ${String(b.visual || b.picture || "").replace(/\n/g, " ")}`)].join("\n") + "\n";
+    try { writeFile(path.join(path.dirname(pf), `beats-${p.label}.md`), md); } catch {}
+    // the derived emphasis curve goes back into the sheet (never written by hand)
+    const it = intents[i];
+    if (it && it.sheet && it.data) { try { const v = validateIntent(it.data, { lengthS: opts.length, durations: p.beats.map((b) => Number(b.duration_s)) }); if (v.curve.length && JSON.stringify(it.data.emphasis_curve) !== JSON.stringify(v.curve)) writeFile(it.sheet, JSON.stringify({ ...it.data, emphasis_curve: v.curve }, null, 2) + "\n"); } catch {} }
+  });
   const portfolio = pitches.length > 1 ? checkPortfolio(pitches, results, opts) : null;
   const ship = results.every((r) => r.verdict === "ship") && (!portfolio || portfolio.pass);
   out(pitches.length === 1 && !portfolio ? results[0] : { ok: ship, verdict: ship ? "ship" : "rewrite", pitches: results, portfolio });
   process.exitCode = results.some((r) => r.verdict === "invalid") ? 1 : ship ? 0 : 2; // exitCode, not exit(): a large report on a pipe must flush
+} else if (cmd === "intent") {
+  if (!args.intent || args.intent === true) die("--intent <story/intent.json> required");
+  const f = path.resolve(String(args.intent));
+  let it; try { it = loadIntent(f); } catch (e) { die(e.message); }
+  if (!it) die(`intent not found: ${f}`);
+  let durations = null;
+  if (args.pitch && args.pitch !== true) { try { const pj = readJSON(path.resolve(String(args.pitch))); durations = (Array.isArray(pj.beats) ? pj.beats : []).map((b) => Number(b.duration_s)); } catch (e) { die(`--pitch is not readable JSON: ${e.message}`); } }
+  const r = validateIntent(it, { lengthS: Number(args.length) || Number(it.length_s) || 0, durations });
+  if (args.write && r.curve.length) writeFile(f, JSON.stringify({ ...it, emphasis_curve: r.curve }, null, 2) + "\n"); // the derived emphasis curve (never written by hand)
+  out({ ...r, intent: f, proposition: it.proposition || null, wrote_emphasis_curve: args.write ? true : undefined });
+  process.exitCode = r.ok ? 0 : 2;
 } else if (cmd === "validate") {
   const problems = [];
   const ids = new Set();
@@ -817,7 +777,7 @@ if (cmd === "truth") {
   out({ ok: !problems.length, devices: DEVICES.length, by_family: byFam, overused: DEVICES.filter((d) => d.overused).map((d) => d.id), problems });
   process.exit(problems.length ? 1 : 0);
 } else {
-  die("usage: story.mjs truth|devices|cliche|pick|check|validate (see the header of scripts/story.mjs)");
+  die("usage: story.mjs truth|devices|cliche|pick|check|intent|validate (see the header of scripts/story.mjs)");
 }
 
 // --- check -------------------------------------------------------------------------
@@ -840,6 +800,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
   else if (logWords > 12) errors.push(`logline: ${logWords} words (12 at most)`);
   if (p.title && String(p.title).trim().split(/\s+/).length > 5) warnings.push("title: keep it to 2-4 words");
   if (p.label && !["Sure", "Bold", "Wild"].includes(p.label)) warnings.push(`label "${p.label}": use Sure, Bold or Wild`);
+  if (deviceIds.length && !String(p.device_reason || "").trim() && !(opts.intent && opts.intent.data && opts.intent.data.device && String(opts.intent.data.device.why || "").trim())) warnings.push("device_reason missing: pick offers a menu and the writer CHOOSES, so say in one line why this device fits this product's story");
   const beats = Array.isArray(p.beats) ? p.beats : [];
   if (beats.length < 3) errors.push(`beats: ${beats.length} (need 3-8, each {name, on_screen, visual, duration_s})`);
   if (beats.length > 9) warnings.push(`beats: ${beats.length}; more than 8 usually means a list, not a story`);
@@ -860,7 +821,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
   const turnIdx = beats.findIndex((b) => b.turn === true);
   const turnAt = turnIdx >= 0 ? starts[turnIdx] / lengthS : null;
   if (turnIdx < 0) warnings.push("no beat marked \"turn\": true (-1 memorability): name the turn and place it at 60-75%");
-  else if (turnAt < 0.5 || turnAt > 0.85) warnings.push(`the turn lands at ${Math.round(turnAt * 100)}% of the film; aim for 60-75%`);
+  else if ((turnAt < 0.5 || turnAt > 0.85) && !["reversal", "before-after"].includes(String(p.engine || ENGINE_OF_SHAPE[shapeOf(p, beats)] || ""))) warnings.push(`the turn lands at ${Math.round(turnAt * 100)}% of the film; aim for 60-75%`);
   const targetLen = truth && Number(String(truth.format.length || "").replace(/[^\d.]/g, ""));
   if (targetLen && Math.abs(lengthS - targetLen) / targetLen > 0.25) warnings.push(`beats total ${lengthS} s; the brief says ${targetLen} s`);
 
@@ -1031,7 +992,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
         if (brand && !/brand/i.test(String(t.source || ""))) g9.push('tempo.source must be "brand film": a brand film card is measured for this film, write to its tempo');
         if (!t.source) g9.push('tempo.source missing ("brand film" or "house")');
       }
-      if (!opts.calm && ideas < minIdeas) g9.push(`${ideas} ideas in a ${Math.round(opts.length || lengthS)} s film: at least ${minIdeas} (a promise, the hero, each use or proof, the payoff each count once; ${bucket === 30 ? "aim 6 or 7" : "more is better"}). A calm film must be asked for in the brief`);
+      if (!opts.calm && ideas < minIdeas) g9.push(`${ideas} ideas in a ${Math.round(opts.length || lengthS)} s film: at least ${minIdeas} (a promise, the hero, each use or proof, the payoff each count once; ${bucket === 30 ? "an idea is one beat's buys: 5 to 7 beliefs in 30 s" : "more is better"}). A calm film must be asked for in the brief`);
       const heroI = roles.indexOf("hero");
       // a hero-strip film's hero is a whole demo (40-50% of the film): it may run long when something changes inside it
       // at the film's tempo (its `changes`), since the cap is about a still hold, not about the demo's length
@@ -1157,6 +1118,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
         else if (!new RegExp(`\\b${esc(h.toLowerCase())}`).test(norm(b.on_screen))) w10.push(`rung ${i + 1} ${b.name}: highlight "${h}" is not in its title`);
       });
       warnings.push(...w10);
+      if (!rungs.some(({ b }) => b.break === true)) warnings.push('ladder: no rung is "break": true (the rung at 60-75% where the pattern changes: the product finishes the line, the refrain stops, the format flips; not just the next use)');
       gate("G10", "Ladder (a refrain verb, distinct everyday uses that escalate, each a real UI cause and effect, a close)", g10, { shape: "ladder", refrain: verb || null, rungs: rungs.length, rung_range: [lo, hi] });
     } else {
       const g10 = [];
@@ -1521,6 +1483,42 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
   const W = { originality: 0.25, clarity: 0.2, fit: 0.2, memorability: 0.2, feasibility: 0.15 };
   const total = Math.round(DIMS.reduce((s, k) => s + W[k] * adj[k], 0) * 100) / 100;
   const low = DIMS.filter((k) => adj[k] < 3);
+
+  // the intent sheet (story/intent-<Label>.json beside the pitch: the engine, the turn, the beats' buys / relation / importance): its findings are warnings here
+  // (uncalibrated; crew.mjs check --role script-writer makes the errors block)
+  if (opts.intent) {
+    if (!opts.intent.sheet) warnings.push("intent-missing: story/intent-<Label>.json (the argument written first: proposition, engine + turn, ending_first, beats with buys / relation / importance)");
+    else { for (const e of opts.intent.errors) warnings.push(`intent: ${e}`); for (const e of opts.intent.warnings) warnings.push(`intent: ${e}`); }
+  }
+
+  // the plot engine's turn (REBUILD 2): stated in the pitch, it must reverse something, the turn beat is a "but" and the payoff answers the setup. Uncalibrated: warnings.
+  {
+    const engine = String(p.engine || "").trim() || ENGINE_OF_SHAPE[shapeOf(p, beats)] || "";
+    const t = p.turn && typeof p.turn === "object" ? p.turn : null;
+    if (engine === "problem-turn") warnings.push('engine "problem-turn": the engine is named "reversal"');
+    else if (engine && !ENGINES[engine]) warnings.push(`engine "${engine}": use ${Object.keys(ENGINES).join(" | ")}`);
+    if (p.engine && ENGINE_OF_SHAPE[shapeOf(p, beats)] && ENGINE_OF_SHAPE[shapeOf(p, beats)] !== (engine === "problem-turn" ? "reversal" : engine)) warnings.push(`engine ${engine} does not match the shape "${shapeOf(p, beats)}" (its engine is ${ENGINE_OF_SHAPE[shapeOf(p, beats)]}): change one`);
+    if (!t) warnings.push(`turn: missing pitch.turn { line, reverses, payoff }${engine ? ` (the ${engine} engine has a turn)` : ""}: one line naming what flips and what answers the setup`);
+    else {
+      if (!String(t.line || "").trim()) warnings.push("turn.line: missing (the one line where the story turns)");
+      if (!String(t.reverses || "").trim()) warnings.push("turn.reverses: missing (what flips: a belief, a situation, an object); a turn that reverses nothing is not a turn");
+      if (!String(t.payoff || "").trim()) warnings.push("turn.payoff: missing (what the ending does that answers the setup)");
+      else {
+        const setup = new Set(nz8([p.logline, ...beats.slice(0, 2).map(beatText)].join(" ")).split(" ").filter((w) => w.length > 3));
+        if (!nz8(t.payoff).split(" ").some((w) => setup.has(w))) warnings.push("turn.payoff shares no word with the setup: a payoff that does not answer the setup reads as a new idea");
+      }
+    }
+    if (engine === "refrain-break" && turnIdx >= 0 && (turnAt < 0.55 || turnAt > 0.8)) warnings.push(`turn-place: refrain-break: the break lands at ${Math.round(turnAt * 100)}% (60-75%)`);
+    if (engine === "reversal" && turnIdx >= 0 && (turnAt < 0.15 || turnAt > 0.8)) warnings.push(`turn-place: reversal: the turn lands at ${Math.round(turnAt * 100)}% (the product arrives after the pain: 15-45% for a long setup, never after the peak)`);
+    const I = opts.intent && opts.intent.data;
+    if (I && Array.isArray(I.beats) && I.beats.length === beats.length && turnIdx >= 0) {
+      if (String(I.beats[turnIdx].relation || "").toLowerCase() !== "but") warnings.push(`turn-not-but: the turn beat (${turnIdx + 1}) has relation "${I.beats[turnIdx].relation}" in the intent sheet: a turn is a "but"`);
+      const pk = I.beats.findIndex((b) => b.peak === true), pay = I.beats.map((b) => String(b.relation || "").toLowerCase()).lastIndexOf("answer");
+      if (pk >= 0 && pay < pk) warnings.push("payoff-not-answer: no \"answer\" beat at or after the peak in the intent sheet: the payoff must answer the setup");
+      if (engine === "refrain-break" && pk >= 0 && turnIdx !== pk) warnings.push("turn-place: refrain-break: the turn beat IS the peak (the break in the pattern)");
+      if (engine === "before-after" && pk >= 0 && turnIdx >= pk) warnings.push("turn-place: before-after: the turn (the cause made visible) comes before the peak");
+    }
+  }
 
   // the eight self-critique prompts
   const CRIT = { retell: "The party retell: \"It's the one where...\"", first_4s: "What does second 0-4 show?", turn: "What's the turn and when does it land?", own_material: "What's made of the product's own material?", swap: "Swap test result?", second_reading: "What's the hostile second reading?", default_beats: "Which of the 8 default beats does it contain?", hardest_shot: "What's the single hardest shot to build, and how?" };

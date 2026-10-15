@@ -1159,6 +1159,72 @@
       "build": { "score": 5, "how": ["ui"], "note": "A fake platform UI, a cursor, one interaction." },
       "overused": false, "ambition": 4,
       "axes": { "family": "constraint", "protagonist": "audience", "time": "real-time", "camera": "locked-off", "tone": "absurd", "turn": "reversal", "visual_world": "ui-native" }
+    },
+    {
+      "id": "medium-per-beat", "code": "G8", "name": "A Different Medium Every Beat", "family": "constraint",
+      "what": "Each beat is one short task drawn in a completely different art medium; one fixed home look holds the film together between them, and the jolt of every switch is the beat.",
+      "fits": { "products": ["any", "consumer", "creative", "education", "platform"], "tones": ["playful", "bold"], "formats": ["social", "launch", "brand"] },
+      "beats": [
+        { "name": "Home look", "purpose": "The fixed frame the film returns to: a stage, a counter, a score." },
+        { "name": "Command and medium 1", "purpose": "One word, one action, one result, in the first medium." },
+        { "name": "Command and medium 2..n", "purpose": "A new medium each time; the hero keeps two or three silhouette marks." },
+        { "name": "The failure", "purpose": "One funny miss that the viewer can read at once." },
+        { "name": "The product's medium", "purpose": "The last beat is the product's own look, held longer." }
+      ],
+      "example": "A tax app: file a receipt in crayon, sort a drawer in ink wash, catch a deadline in pixels, then the clean real screen for the refund.",
+      "pitfalls": ["A style sampler with no rule: every beat needs a stake and a result grasped in a second", "The home look must come back between beats or the film falls apart", "Every medium is a simplified redrawing; one channel trick each (pressure, wetness, a grid), not a filter"],
+      "build": { "score": 3, "how": ["illustration", "ui"], "note": "One small renderer per medium on a shared timeline; the home stage stays DOM." },
+      "overused": false, "ambition": 4,
+      "axes": { "family": "constraint", "protagonist": "user", "time": "compressed", "camera": "cuts", "tone": "absurd", "turn": "escalation-collapse", "visual_world": "pastiche" }
+    },
+    {
+      "id": "five-accelerating", "code": "D13", "name": "Five Things Accelerating", "family": "rhetoric",
+      "what": "The film speeds up on a plan: at each step tempo, how long a scene lasts, how long a title is held, how long the command is shown and the characters' frame rate all tighten together.",
+      "fits": { "products": ["any", "productivity", "automation", "consumer"], "tones": ["playful", "tense", "bold"], "formats": ["social", "launch", "explainer"] },
+      "beats": [
+        { "name": "Slow and legible", "purpose": "The rule is taught at the calmest speed." },
+        { "name": "First step up", "purpose": "All five variables tighten at once; the viewer feels it." },
+        { "name": "Second step up", "purpose": "Faster again; a rising run in the score marks each step." },
+        { "name": "Last life", "purpose": "The groove drops to a heartbeat just before the final speed." },
+        { "name": "Release", "purpose": "The product slows everything back to a calm, held frame." }
+      ],
+      "example": "A scheduling tool: bookings arrive every 4 s, then 3, then 2, then 1, the cuts and the labels shrinking with them, until it clears the whole day and the frame goes still.",
+      "pitfalls": ["Changing only the tempo: it must be five things together or it reads as a speed-up filter", "A failure at top speed goes unread: make the action overshoot and hit something, or replay it", "Over 60 s the frenzy wears out"],
+      "build": { "score": 5, "how": ["typography", "ui", "audio"], "note": "One tempo table (step -> beat length, scene length, dwell, hold, fps) drives every timing." },
+      "overused": false, "ambition": 3,
+      "axes": { "family": "rhetoric", "protagonist": "product", "time": "compressed", "camera": "cuts", "tone": "tense", "turn": "escalation-collapse", "visual_world": "typographic" }
+    },
+    {
+      "id": "euler-path-reveal", "code": "B8", "name": "One Line, One Hidden Picture", "family": "camera",
+      "what": "A single continuous line draws a chain of small vignettes; a final pull-back shows they were all part of one big picture the whole time.",
+      "fits": { "products": ["any", "platform", "legacy-replacement", "consumer"], "tones": ["lyrical", "warm", "playful"], "formats": ["brand", "launch", "social"] },
+      "beats": [
+        { "name": "The line starts", "purpose": "One stroke, a small drawing, a first small joke." },
+        { "name": "Chapters", "purpose": "Each vignette morphs into the next; the line never leaves the paper." },
+        { "name": "The pull-back", "purpose": "The camera retreats across scales and the vignettes become parts of one picture." },
+        { "name": "The picture is the answer", "purpose": "What it spells is the point: a skyline, a map, the mark." }
+      ],
+      "example": "A coffee roaster: a bean, a cup, a hand, a street, a window, until the pull-back shows the whole line was the outline of one giant cup.",
+      "pitfalls": ["Stray connectors read as wrinkles and beards: plan the path like an Euler path, where a closed motif is a circuit that ends where it began, and fix the topology rather than the drawing", "Test the whole path at final scale after every change", "Each chapter must hold its own joke or the line is just a line"],
+      "build": { "score": 4, "how": ["illustration", "abstract"], "note": "SVG paths sampled by arc length, joined by tangent-continuous connectors; time assigned by curvature; a camera that follows the nib." },
+      "overused": false, "ambition": 5,
+      "axes": { "family": "camera", "protagonist": "none", "time": "linear", "camera": "zoom-scales", "tone": "lyrical", "turn": "reveal", "visual_world": "illustrated" }
+    },
+    {
+      "id": "old-lesson-ghosts", "code": "D14", "name": "Ghosts of the Old Lesson", "family": "rhetoric",
+      "what": "A faint trace of an earlier drawing, answer or draft stays on the surface, and the turn is that it becomes relevant: the old thing was nearly right, or exactly wrong.",
+      "fits": { "products": ["any", "education", "data", "legacy-replacement", "infra"], "tones": ["warm", "deadpan", "serious"], "formats": ["explainer", "brand", "launch"] },
+      "beats": [
+        { "name": "A board with ghosts", "purpose": "Faint marks of an old explanation are already there, unnoticed." },
+        { "name": "The new lesson", "purpose": "A clean new drawing goes over and between them." },
+        { "name": "The ghost lines up", "purpose": "One old mark meets one new mark; the old way is the problem, or the origin." },
+        { "name": "The erase", "purpose": "The old is wiped but a trace always remains." }
+      ],
+      "example": "A new forecasting model: last year's chart is a pale ghost on the board; the new curve is drawn over it and the two split exactly where the old assumption broke.",
+      "pitfalls": ["Ghosts that are decoration: one must come back and matter", "Too bright: ghosts live at 5 to 10% ink", "An eraser that removes a label you needed"],
+      "build": { "score": 4, "how": ["illustration", "diagram"], "note": "A hand-lettered surface with a stored layer of faint old strokes, a camera that travels across it, an eraser band at about 90% strength so a ghost remains." },
+      "overused": false, "ambition": 3,
+      "axes": { "family": "rhetoric", "protagonist": "audience", "time": "reversed", "camera": "locked-off", "tone": "warm", "turn": "reframe-line", "visual_world": "diagram" }
     }
   ]
 }
