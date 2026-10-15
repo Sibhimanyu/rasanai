@@ -71,14 +71,14 @@ struct StageScaffold<Content: View, Actions: View>: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 28) {
                 StageHeader(question: question, context: context, recommended: recommended)
                 content
                 if let decision = model.payload(step)["decision"].string, model.status(step) == "done" {
                     DecidedLine(decision: decision, by: model.snapshot.decisions.first { $0.step == step }?.byUser)
                 }
             }
-            .padding(.horizontal, .filmInset).padding(.top, 20).padding(.bottom, 28)
+            .padding(.horizontal, 24).padding(.top, 26).padding(.bottom, 32)
             .frame(maxWidth: maxWidth, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
@@ -105,11 +105,11 @@ struct StageHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(question)
-                .font(.system(size: 20, weight: .semibold)).tracking(-0.2)
+                .font(.system(size: 29, weight: .semibold)).tracking(-0.6)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
             if let context, !context.isEmpty {
-                Text(context).font(.system(size: 13)).foregroundStyle(.secondary).lineSpacing(2)
+                Text(context).font(.system(size: 14)).foregroundStyle(.secondary).lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let recommended, !recommended.isEmpty {

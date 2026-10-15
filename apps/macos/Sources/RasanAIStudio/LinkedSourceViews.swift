@@ -39,8 +39,11 @@ struct LinkedSourceWell: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Image(systemName: symbol).font(.system(size: 14, weight: .medium)).foregroundStyle(empty ? Color.secondary : Color.rasan)
+                Image(systemName: symbol).font(.system(size: 14, weight: .medium)).foregroundStyle(empty ? Color.secondary : kind == .footage ? Color.rasan : Color.primary.opacity(0.7))
                 Text(title).font(.system(size: 13, weight: .semibold))
+                // Footage is cut into the film; a reference is only studied. Say which, on the well itself.
+                Text(kind == .footage ? "Used in your film" : "Studied, never cut in")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
                 Spacer(minLength: 0)
             }
             if empty {
@@ -60,14 +63,14 @@ struct LinkedSourceWell: View {
                     }
                 }
             }
-            .controlSize(.small).disabled(disabled)
+            .buttonStyle(.rasanSecondary).controlSize(.small).disabled(disabled)
         }
-        .padding(14)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(targeted ? Color.rasan.opacity(0.10) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(targeted ? Color.rasan.opacity(0.10) : Workspace.panel, in: RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(targeted ? Color.rasan : Color(nsColor: .separatorColor), style: StrokeStyle(lineWidth: targeted ? 1.5 : 0.8, dash: empty ? [5, 4] : []))
+            RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous)
+                .strokeBorder(targeted ? Color.rasan : Workspace.hairline, style: StrokeStyle(lineWidth: targeted ? 1.5 : 1, dash: empty && !targeted ? [5, 4] : []))
         }
         .animation(.snappy(duration: 0.15), value: targeted)
         .animation(.snappy, value: mine)
@@ -124,7 +127,7 @@ struct LinkedSourceRow: View {
             }
             Spacer(minLength: 4)
             if let onRemove {
-                Button(action: onRemove) { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                Button(action: onRemove) { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary) }
                     .buttonStyle(.plain).help("Remove (nothing on disk changes)").accessibilityLabel("Remove \(source.name)")
             }
         }

@@ -20,6 +20,8 @@ struct FilmProgressView: View {
 
     /// The phase the person clicked, or `nil` to follow the live one.
     @State private var selected: ProgressPhase?
+    /// The focused working screen is the default; the phase rail, detail card and timeline are one toggle away.
+    @State private var showActivity = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.agentName) private var agent
 
@@ -44,30 +46,150 @@ struct FilmProgressView: View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let now = progress.isReplay ? progress.now : (progress.isLive ? context.date : progress.now)
             VStack(spacing: 0) {
-                header(now: now)
-                Divider()
-                HStack(spacing: 0) {
-                    PhaseRail(snapshot: snapshot, now: now, shown: shown, onSelect: choose)
-                        .frame(width: 244)
+                if showActivity {
+                    header(now: now)
                     Divider()
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 26) {
-                            if shown != snapshot.currentPhase { lookingBack }
-                            PhaseDetailCard(model: model, snapshot: snapshot, phase: shown, now: now)
-                                .id(shown)
-                                .transition(.opacity)
-                            ProgressTimeline(snapshot: snapshot, now: now, shown: shown, onShowLog: onShowLog)
+                    HStack(spacing: 0) {
+                        PhaseRail(snapshot: snapshot, now: now, shown: shown, onSelect: choose)
+                            .frame(width: 244)
+                        Divider()
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 26) {
+                                if shown != snapshot.currentPhase { lookingBack }
+                                PhaseDetailCard(model: model, snapshot: snapshot, phase: shown, now: now)
+                                    .id(shown)
+                                    .transition(.opacity)
+                                ProgressTimeline(snapshot: snapshot, now: now, shown: shown, onShowLog: onShowLog)
+                            }
+                            .padding(.horizontal, 28).padding(.top, 22).padding(.bottom, 32)
+                            .frame(maxWidth: 860, alignment: .leading)
+                            .frame(maxWidth: .infinity)
+                            .animation(reduceMotion ? nil : .smooth(duration: 0.3), value: shown)
                         }
-                        .padding(.horizontal, 28).padding(.top, 22).padding(.bottom, 32)
-                        .frame(maxWidth: 860, alignment: .leading)
-                        .frame(maxWidth: .infinity)
-                        .animation(reduceMotion ? nil : .smooth(duration: 0.3), value: shown)
                     }
+                } else {
+                    focused(now: now)
                 }
             }
         }
         .environment(model)
         .accessibilityElement(children: .contain)
+    }
+
+    private var activityToggle: some View {
+        Toggle(isOn: $showActivity.animation(reduceMotion ? nil : .smooth(duration: 0.25))) {
+            Label("View activity", systemImage: "list.bullet.rectangle")
+        }
+        .toggleStyle(.button).controlSize(.small)
+        .help("Show the eight phases, each phase's details and the activity timeline")
+    }
+
+    // MARK: Focused working screen
+
+    private func focused(now: Date) -> some View {
+        let s = snapshot
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 6) {
+                    Image(systemName: s.now.phase.symbolName).font(.system(size: 11, weight: .semibold))
+                    Text(s.now.phase.title.uppercased()).font(.system(size: 11, weight: .semibold)).tracking(0.6)
+                    if let pace {
+                        Text("\(pace.title) pace").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
+                            .padding(.horizontal, 7).padding(.vertical, 2).background(Color(nsColor: .quaternaryLabelColor).opacity(0.3), in: Capsule())
+                    }
+                    Spacer()
+                    activityToggle
+                    if let onPause { Button("Pause", action: onPause).controlSize(.small).help("Pause (⌘.). Your work is kept, and you can resume.") }
+                }
+                .foregroundStyle(s.isWaitingForYou ? Color.orange : Color.rasan)
+                if let notice = autoResume { resumeBanner(notice, now: now) }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(s.now.text)
+                        .font(.system(size: 24, weight: .semibold)).tracking(-0.2)
+                        .lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                        .contentTransition(.opacity).animation(reduceMotion ? nil : .smooth, value: s.now.text)
+                        .accessibilityAddTraits(.isHeader)
+                    if let detail = s.now.detail, !detail.isEmpty {
+                        Text(detail).font(.system(size: 14)).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    }
+                    HStack(spacing: 14) {
+                        Text(Self.clock(s.elapsed(now: now)) + " elapsed").font(.system(size: 13, weight: .semibold, design: .rounded)).monospacedDigit()
+                            .accessibilityLabel("Elapsed \(FilmProgressFormat.duration(s.elapsed(now: now)))")
+                        estimate(s)
+                    }
+                    .padding(.top, 2)
+                }
+                researchNotice(s, now: now)
+                activityWarning(s)
+                ProgressRenderStrip(render: s.render, now: now)
+                ProgressPreviewPane(snapshot: s, aspect: model.snapshot.aspectRatio)
+                nextRow(s)
+            }
+            .padding(.horizontal, 28).padding(.top, 14).padding(.bottom, 28)
+            .frame(maxWidth: 860, alignment: .leading)
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    @ViewBuilder private func nextRow(_ s: FilmProgressSnapshot) -> some View {
+        let needed = s.isWaitingForYou ? nil : NextNeeded.line(model.snapshot, pace: pace)
+        if needed != nil || s.nextCheckpoint != nil {
+            VStack(alignment: .leading, spacing: 4) {
+                if let needed {
+                    Label(TurnState.sentenceCaseFirst(needed), systemImage: "hand.raised").font(.system(size: 13, weight: .medium)).foregroundStyle(Color.rasan)
+                        .accessibilityLabel("You are needed next: \(needed)")
+                } else if let checkpoint = s.nextCheckpoint {
+                    Text(checkpoint).font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    /// The latest warning logged in the current phase, as the log words it. It is a note, not a claim that anything is still
+    /// blocked. The automatic-resume line has its own banner, so it is left out here.
+    @ViewBuilder private func activityWarning(_ s: FilmProgressSnapshot) -> some View {
+        let latest = s.activity
+            .filter { $0.kind == .warning && $0.phase == s.currentPhase && !$0.id.hasPrefix("auto-resume-") }
+            .max { $0.time < $1.time }
+        if let latest {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Label("Activity warning", systemImage: "exclamationmark.triangle.fill").font(.system(size: 12, weight: .semibold))
+                    Text(latest.time.formatted(date: .omitted, time: .shortened)).font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+                Text(latest.title).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+                Button("View details") {
+                    choose(s.currentPhase)
+                    withAnimation(reduceMotion ? nil : .smooth) { showActivity = true }
+                }.controlSize(.small)
+            }
+            .foregroundStyle(.orange)
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    /// The research budget warning, kept visible while the research card is folded away. The Wrap up control lives on the research card.
+    @ViewBuilder private func researchNotice(_ s: FilmProgressSnapshot, now: Date) -> some View {
+        let research = s.research
+        if s.summary(.research).state == .active, research.endedAt == nil, let budget = research.budget,
+           research.sourceCount > budget.sources || research.elapsed(now: now) > budget.seconds {
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Past the research budget. You can wrap up research to move on with what has been read.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+                Button("Open research controls") {
+                    selected = .research
+                    withAnimation(reduceMotion ? nil : .smooth) { showActivity = true }
+                }.controlSize(.small)
+            }
+            .foregroundStyle(.orange)
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        }
     }
 
     private func choose(_ phase: ProgressPhase) {
@@ -101,6 +223,7 @@ struct FilmProgressView: View {
                         .help("How much research and checking this film was set up for. Change it in Settings or New film.")
                 }
                 Spacer()
+                activityToggle
                 if let onShowLog { Button("Log", action: onShowLog).controlSize(.small).help("Open the full activity log") }
                 if let onPause { Button("Pause", action: onPause).controlSize(.small).help("Pause (⌘.). Your work is kept, and you can resume.") }
             }

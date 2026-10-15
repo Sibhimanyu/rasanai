@@ -279,9 +279,9 @@ extension ReviewNote {
 // MARK: Palette
 
 enum ReviewTheme {
-    static let room = Color(red: 0.045, green: 0.047, blue: 0.060)
-    static let roomRaised = Color(red: 0.085, green: 0.088, blue: 0.108)
-    static let hairline = Color.white.opacity(0.09)
+    static let room = Color(red: 0.070, green: 0.075, blue: 0.090)
+    static let roomRaised = Color(red: 0.094, green: 0.102, blue: 0.118)
+    static let hairline = Color.white.opacity(0.07)
 }
 
 // MARK: Panel
@@ -328,7 +328,7 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(ReviewTheme.hairline, lineWidth: 1) }
-        .shadow(color: .black.opacity(0.28), radius: 18, y: 8)
+        .shadow(color: .black.opacity(0.18), radius: 14, y: 6)
         .focusable()
         .focused($focused)
         .focusEffectDisabled()
@@ -575,7 +575,7 @@ struct ReviewScrubber<P: FilmPlayback>: View {
             let trackHeight: CGFloat = active ? 8 : 5
             ZStack(alignment: .leading) {
                 Capsule().fill(.white.opacity(0.16)).frame(height: trackHeight)
-                Capsule().fill(Color.white.opacity(0.85)).frame(width: max(x, 0), height: trackHeight)
+                Capsule().fill(Color.rasan).frame(width: max(x, 0), height: trackHeight)
                 ForEach(Array(scenes.enumerated()), id: \.element.id) { index, scene in
                     if index > 0 {
                         Rectangle().fill(ReviewTheme.roomRaised).frame(width: 2, height: trackHeight)
@@ -655,8 +655,8 @@ struct ReviewTransport<P: FilmPlayback>: View {
             .help("Previous scene (←)").accessibilityLabel("Previous scene").disabled(scenes.isEmpty)
             Button { playback.toggle() } label: {
                 Image(systemName: playback.isPlaying ? "pause.fill" : "play.fill").font(.system(size: 14, weight: .semibold))
-                    .frame(width: 36, height: 36)
-                    .background(.white.opacity(0.14), in: Circle())
+                    .frame(width: 34, height: 34)
+                    .background(.white.opacity(0.10), in: Circle())
                     .contentTransition(.symbolEffect(.replace))
             }
             .help("Play or pause (Space)").accessibilityLabel(playback.isPlaying ? "Pause" : "Play").disabled(!playback.isReady)

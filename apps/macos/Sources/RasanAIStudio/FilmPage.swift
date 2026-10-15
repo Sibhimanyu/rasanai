@@ -125,11 +125,10 @@ struct FilmPage: View {
     /// The film's toolbar: back and forward, the five calls in the centre, then the inspector toggle and the film's tools.
     @ToolbarContentBuilder private var filmToolbar: some ToolbarContent {
         HistoryToolbar(store: store)
-        // While Claude works, the progress view's phase list is the one tracker (it marks the calls); the pill returns for each call.
-        if ready && store.runURL != nil && !showsFilmProgress {
-            // The five calls in the sidebar's glass, in place of the toolbar's shared capsule.
+        // The seven-step rail stays through working and review; the progress view's phase list no longer competes with it.
+        if ready && store.runURL != nil && store.film != nil {
             if #available(macOS 26, *) {
-                ToolbarItem(placement: .principal) { stepper.padding(5).glassPanel(in: Capsule()) }
+                ToolbarItem(placement: .principal) { stepper.padding(.horizontal, 8).padding(.vertical, 2) }
                     .sharedBackgroundVisibility(.hidden)
             } else {
                 ToolbarItem(placement: .principal) { stepper }
@@ -146,9 +145,11 @@ struct FilmPage: View {
     }
 
     private var stepper: some View {
-        FilmStepper(current: store.snapshot.stage, finished: isFinished, viewing: store.film?.viewingStage,
-                    decided: isWorkingOnNextCall ? store.snapshot.decidedCalls : nil,
-                    canSelect: { store.film?.canView($0) ?? false }, onSelect: { store.film?.view($0) })
+        StudioFlowProgress(current: StudioFlowStep(store.snapshot.stage),
+                           viewing: store.film?.viewingStage.map { StudioFlowStep($0) },
+                           finished: isFinished,
+                           canSelect: { step in step.reviewStage.map { store.film?.canView($0) ?? false } ?? false },
+                           onSelect: { step in if let stage = step.reviewStage { store.film?.view(stage) } })
     }
 
     @ViewBuilder private var headerTools: some View {
@@ -192,8 +193,6 @@ struct FilmPage: View {
     var body: some View {
         chromeAndContent
         .buttonStyle(.rasanSecondary)   // inside the page only: toolbar items keep the system's glass
-        .animation(.snappy, value: ready)
-        .animation(.snappy, value: showsFinished)
         .navigationTitle(ready ? store.currentFilmTitle : "Film")
         .navigationSubtitle(ready ? filmFacts : "")
         .navigationBarBackButtonHidden(true)
@@ -463,14 +462,78 @@ struct FinishedView: View {
     private var notes: [FilmNote] { filmKey.flatMap { store.filmNotes[$0] } ?? [] }
     private var activePlayer: AVPlayer? { previewPlayer ?? store.finalPlayer }
     private var poster: URL? { store.asset(store.snapshot.scenes(for: .final).first?.thumbnail ?? store.snapshot.scenes(for: .animatic).first?.thumbnail) }
+    /// What the exporter can actually do with this render, read from the file itself.
+    @State private var facts = DeliveryFacts()
+
+    struct DeliveryFacts: Equatable { var pixels: String?; var bytes: Int64? }
+
+    private var portrait: Bool { store.snapshot.aspectRatio < 1 }
+
     var body: some View {
         ScrollView {
-            VStack(spacing: 22) {
-                ZStack {
-                    Color.black
-                    if let player = previewPlayer ?? store.finalPlayer { VideoPlayer(player: player) }
-                    if !playing {
-                        if previewVersion == nil, let poster { PosterImage(url: poster, maxPixels: 1600).aspectRatio(contentMode: .fill) }
+            VStack(alignment: .leading, spacing: 28) {
+                heading
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 24) {
+                        playerColumn.frame(maxWidth: .infinity)
+                        deliveryPanel.frame(width: 300)
+                    }
+                    .frame(minWidth: 840)
+                    VStack(alignment: .leading, spacing: 20) {
+                        playerColumn
+                        deliveryPanel
+                    }
+                }
+                VStack(alignment: .leading, spacing: 22) {
+                    changesSection
+                    FilmHistoryView(snapshot: store.snapshot, resolver: store.resolver, onPreview: { watch($0) }, onRestore: { restoreVersion = $0 })
+                }
+            }
+            .padding(.horizontal, 32).padding(.top, 28).padding(.bottom, 32)
+            .frame(maxWidth: 1240, alignment: .leading).frame(maxWidth: .infinity)
+        }
+        .confirmationDialog("Restore v\(restoreVersion?.id ?? "")?", isPresented: Binding(get: { restoreVersion != nil }, set: { if !$0 { restoreVersion = nil } }), titleVisibility: .visible) {
+            Button("Restore v\(restoreVersion?.id ?? "")") { if let version = restoreVersion { store.restoreFilmVersion(version); restoreVersion = nil } }
+        } message: { Text("\(store.settings.agent.shortName) restores this version. The other versions are kept.") }
+        .task(id: filmKey) {
+            guard let folder = filmKey else { references = []; return }
+            references = await Task.detached { FilmDraft.load(in: folder)?.moments ?? [] }.value
+            if !references.isEmpty { store.gallery.prime(); await store.gallery.loadIfNeeded() }
+        }
+        .task(id: store.displayedVideo) { facts = await Self.loadFacts(store.displayedVideo) }
+        .onDisappear {
+            previewPlayer?.pause()
+            store.previewFilm = nil; store.previewVideo = nil
+        }
+    }
+
+    // MARK: Layout
+
+    private var heading: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Ready for the world.").font(.system(size: 34, weight: .semibold)).tracking(-0.4)
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(Color(nsColor: .systemGreen))
+                Text("\(store.currentFilmTitle) · Final film").font(.system(size: 15)).foregroundStyle(.secondary).lineLimit(1)
+                if let previewVersion {
+                    Text("Watching v\(previewVersion.id)").font(.system(size: 12, weight: .medium)).foregroundStyle(Color.rasan)
+                    Button("Watch latest") { watch(nil) }.buttonStyle(.link).font(.system(size: 12))
+                }
+            }
+        }
+    }
+
+    private var playerColumn: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ZStack {
+                Color.black
+                if let player = previewPlayer ?? store.finalPlayer { VideoPlayer(player: player) }
+                else if poster == nil {
+                    Label("No video file for this film", systemImage: "film").font(.system(size: 12)).foregroundStyle(.white.opacity(0.6))
+                }
+                if !playing {
+                    if previewVersion == nil, let poster { PosterImage(url: poster, maxPixels: 1600).aspectRatio(contentMode: .fill) }
+                    if activePlayer != nil {
                         Button {
                             playing = true
                             let player = previewPlayer ?? store.finalPlayer
@@ -482,50 +545,75 @@ struct FinishedView: View {
                         }.buttonStyle(PressableStyle()).accessibilityLabel("Play film")
                     }
                 }
-                .aspectRatio(store.snapshot.aspectRatio, contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
-                .frame(maxWidth: store.snapshot.aspectRatio < 1 ? 360 : 820)
-                VStack(spacing: 4) {
-                    Text(store.currentFilmTitle).font(.system(size: 22, weight: .semibold))
-                    Text("\(clockText(store.phaseDuration)) · \(store.snapshot.aspect)").font(.system(size: 12)).foregroundStyle(.secondary)
-                    FinishedUsageLine(store: store)
-                    MomentReferencesLine(references: references, gallery: store.gallery).padding(.top, 2)
-                    if let previewVersion {
-                        HStack {
-                            Text("Watching v\(previewVersion.id)").font(.system(size: 12, weight: .medium))
-                            Button("Watch latest") { watch(nil) }
-                        }
-                    }
-                }
-                HStack(spacing: 10) {
-                    // One primary at a time: Export until there are notes to send, then the new version.
-                    Button { store.exportVideo() } label: { Label("Export…", systemImage: "square.and.arrow.down") }
-                        .rasanButton(primary: !canSend).controlSize(.large)
-                        .keyboardShortcut("e", modifiers: .command)
-                        .help("Save an MP4 you can share (⌘E)")
-                    Button("Show in Finder") { if let url = store.displayedVideo { NSWorkspace.shared.activateFileViewerSelecting([url]) } }.controlSize(.large)
-                }
-                VStack(alignment: .leading, spacing: 18) {
-                    FilmHistoryView(snapshot: store.snapshot, resolver: store.resolver, onPreview: { watch($0) }, onRestore: { restoreVersion = $0 })
-                    changesSection
-                }.frame(maxWidth: 820, alignment: .leading)
             }
-            .padding(32).frame(maxWidth: .infinity)
-        }
-        .confirmationDialog("Restore v\(restoreVersion?.id ?? "")?", isPresented: Binding(get: { restoreVersion != nil }, set: { if !$0 { restoreVersion = nil } }), titleVisibility: .visible) {
-            Button("Restore v\(restoreVersion?.id ?? "")") { if let version = restoreVersion { store.restoreFilmVersion(version); restoreVersion = nil } }
-        } message: { Text("\(store.settings.agent.shortName) restores this version. The other versions are kept.") }
-        .task(id: filmKey) {
-            guard let folder = filmKey else { references = []; return }
-            references = await Task.detached { FilmDraft.load(in: folder)?.moments ?? [] }.value
-            if !references.isEmpty { store.gallery.prime(); await store.gallery.loadIfNeeded() }
-        }
-        .onDisappear {
-            previewPlayer?.pause()
-            store.previewFilm = nil; store.previewVideo = nil
+            .aspectRatio(store.snapshot.aspectRatio, contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Workspace.hairline, lineWidth: 1) }
+            .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
+            .frame(maxWidth: portrait ? 360 : .infinity)
+            .frame(maxHeight: portrait ? 640 : nil)
+            MomentReferencesLine(references: references, gallery: store.gallery)
         }
     }
+
+    private var deliveryPanel: some View {
+        let video = store.displayedVideo
+        let hasCaptions = store.exportCaptions != nil || store.asset(store.snapshot.captionFile) != nil
+        return VStack(alignment: .leading, spacing: 18) {
+            Text("Export film").font(.system(size: 20, weight: .semibold))
+            VStack(alignment: .leading, spacing: 11) {
+                fact("Length", clockText(store.phaseDuration))
+                fact("Shape", store.snapshot.aspect)
+                if let pixels = facts.pixels { fact("Picture", pixels) }
+                if let video { fact("Format", video.pathExtension.uppercased()) }
+                if let bytes = facts.bytes { fact("Size", ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)) }
+            }
+            Divider().overlay(Workspace.hairline)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("You can save").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                ForEach(DeliveryFormat.allCases) { format in
+                    Label(format.title, systemImage: "checkmark").font(.system(size: 12)).labelStyle(.titleAndIcon)
+                }
+                if hasCaptions { Label("Captions as a separate file, or burned in", systemImage: "captions.bubble").font(.system(size: 12)) }
+            }
+            FinishedUsageLine(store: store)
+            VStack(spacing: 8) {
+                Button { store.exportVideo() } label: {
+                    Label("Export film…", systemImage: "square.and.arrow.down").font(.system(size: 14, weight: .semibold)).frame(maxWidth: .infinity, minHeight: 30)
+                }
+                .rasanButton(primary: !canSend).controlSize(.large)
+                .keyboardShortcut("e", modifiers: .command)
+                .disabled(video == nil)
+                .help("Choose a format and save a copy you can share (⌘E)")
+                Button { if let url = video { NSWorkspace.shared.activateFileViewerSelecting([url]) } } label: {
+                    Text("Show in Finder").frame(maxWidth: .infinity, minHeight: 26)
+                }.controlSize(.large).disabled(video == nil)
+            }
+        }
+        .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        .workspacePanel()
+    }
+
+    private func fact(_ title: String, _ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title).font(.system(size: 12)).foregroundStyle(.secondary)
+            Spacer(minLength: 10)
+            Text(value).font(.system(size: 13, weight: .medium)).monospacedDigit().lineLimit(1)
+        }
+    }
+
+    private static func loadFacts(_ url: URL?) async -> DeliveryFacts {
+        guard let url else { return DeliveryFacts() }
+        var result = DeliveryFacts()
+        result.bytes = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize.map { Int64($0) }
+        let asset = AVURLAsset(url: url)
+        if let track = try? await asset.loadTracks(withMediaType: .video).first,
+           let natural = try? await track.load(.naturalSize), natural.width > 0, natural.height > 0 {
+            result.pixels = "\(Int(natural.width.rounded())) × \(Int(natural.height.rounded()))"
+        }
+        return result
+    }
+
     // MARK: Request changes
 
     private var trimmedOverall: String { store.directorMessage.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -564,7 +652,7 @@ struct FinishedView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Make changes").font(.system(size: 17, weight: .semibold))
+                    Text("Request a change").font(.system(size: 17, weight: .semibold))
                     Text("Pause where something should change and add a note. You get a new version; this one is kept.")
                         .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
@@ -617,7 +705,7 @@ struct FinishedView: View {
                     .rasanButton(primary: canSend).controlSize(.large).disabled(!canSend)
             }
         }
-        .padding(20).cardSurface()
+        .padding(20).frame(maxWidth: .infinity, alignment: .leading).workspacePanel()
         .animation(.snappy, value: notes.count)
     }
 
@@ -653,7 +741,8 @@ struct SamplePage: View {
             HistoryToolbar(store: store)
             if let film = store.film {
                 ToolbarItem(placement: .principal) {
-                    FilmStepper(current: film.snapshot.stage, viewing: film.viewingStage, canSelect: { _ in true }, onSelect: { film.view($0) })
+                    StudioFlowProgress(current: StudioFlowStep(film.snapshot.stage), viewing: film.viewingStage.map { StudioFlowStep($0) },
+                                       canSelect: { $0.reviewStage != nil }, onSelect: { step in if let stage = step.reviewStage { film.view(stage) } })
                 }
             }
             ToolbarItem(placement: .primaryAction) {

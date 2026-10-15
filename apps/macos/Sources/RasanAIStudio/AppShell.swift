@@ -28,6 +28,7 @@ enum StudioPlace: Hashable {
 struct AppSidebar: View {
     @Bindable var store: StudioStore
     @Environment(\.openSettings) private var openSettings
+    @State private var libraryExpanded = false
 
     private var current: StudioPlace? {
         switch store.path.last {
@@ -52,26 +53,21 @@ struct AppSidebar: View {
 
     var body: some View {
         List(selection: Binding(get: { current }, set: { if let place = $0 { go(place) } })) {
-            // The brand as the list's first line: the mark and the name at full weight, not a small grey section header.
-            HStack(spacing: 10) {
-                RasanMark().fill(Color.rasanInk).frame(width: 18, height: 22)
-                Text("RasanAI Studio").font(.system(size: 15, weight: .semibold)).foregroundStyle(.primary)
-            }
-            .padding(.leading, 2).padding(.top, 2).padding(.bottom, 8)
-            .listRowBackground(Color.clear)
-            .selectionDisabled()
-            .accessibilityElement(children: .combine).accessibilityAddTraits(.isHeader)
             Section {
-                Label("Home", systemImage: StudioPlace.homeSymbol).tag(StudioPlace.home)
-                Label("All films", systemImage: StudioPlace.allSymbol).tag(StudioPlace.all)
-                Label("Needs review", systemImage: StudioPlace.needsReviewSymbol).badge(needsYouCount).tag(StudioPlace.needsReview)
-                Label("Queue", systemImage: StudioPlace.queueSymbol).badge(store.queuedCount).tag(StudioPlace.queue)
-                Label("Brands", systemImage: StudioPlace.brandsSymbol).tag(StudioPlace.brands)
-                Label("Templates", systemImage: StudioPlace.templatesSymbol).tag(StudioPlace.templates)
-                Label("Inspiration", systemImage: StudioPlace.inspireSymbol).tag(StudioPlace.inspire)
+                navRow("Films", symbol: "movieclapper", place: .home)
+                navRow("Brand", symbol: "square.3.layers.3d", place: .brands)
+                navRow("Inspiration", symbol: StudioPlace.inspireSymbol, place: .inspire)
+            }
+            DisclosureGroup(isExpanded: $libraryExpanded) {
+                navRow("All films", symbol: StudioPlace.allSymbol, place: .all)
+                navRow("Needs review", symbol: StudioPlace.needsReviewSymbol, place: .needsReview).badge(needsYouCount)
+                navRow("Queue", symbol: StudioPlace.queueSymbol, place: .queue).badge(store.queuedCount)
+                navRow("Templates", symbol: StudioPlace.templatesSymbol, place: .templates)
+            } label: {
+                SidebarNavLabel(title: "Library", symbol: "books.vertical", selected: false)
             }
             if !recentFilms.isEmpty {
-                Section("Recent films") {
+                Section("Recent") {
                     ForEach(recentFilms, id: \.0.id) { project, folder in
                         SidebarFilmRow(name: project.name, phase: store.summary(for: folder).phase).tag(StudioPlace.film(folder))
                     }
@@ -79,13 +75,39 @@ struct AppSidebar: View {
             }
         }
         .listStyle(.sidebar)
-        .tint(Color.rasan)
+        // A neutral tint, so nothing the system draws for a selection comes out blue or purple; the active row's own
+        // charcoal shape is the row background below. The material behind the list stays the split view's.
+        .tint(Color(white: 0.5))
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Button { openSettings() } label: { Label("Settings", systemImage: "gearshape").frame(maxWidth: .infinity, alignment: .leading) }
-                .buttonStyle(.plain).foregroundStyle(.secondary)
-                .padding(.horizontal, 18).padding(.vertical, 12)
+            Button { openSettings() } label: {
+                SidebarNavLabel(title: "Settings", symbol: "gearshape", selected: false)
+                    .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16).padding(.vertical, 8)
         }
-        .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 300)
+        .navigationSplitViewColumnWidth(min: 180, ideal: 205, max: 280)
+        .onChange(of: current, initial: true) { _, place in
+            switch place {
+            case .all?, .needsReview?, .queue?, .templates?: libraryExpanded = true
+            default: break
+            }
+        }
+    }
+
+    /// A place as a spacious row. Still a tagged row of the native List, so arrow keys, selection and the path-driven
+    /// `current` binding work as before; only the look is the shared one.
+    private func navRow(_ title: String, symbol: String, place: StudioPlace) -> some View {
+        let selected = current == place
+        return SidebarNavLabel(title: title, symbol: symbol, selected: selected)
+            .tag(place)
+            .listRowInsets(EdgeInsets(top: 0, leading: 10, bottom: 0, trailing: 10))
+            .listRowBackground(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(selected ? Color(white: 1, opacity: 0.12) : Color.clear)
+                    .padding(.horizontal, 4)
+            )
+            .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func go(_ place: StudioPlace) {
@@ -100,6 +122,32 @@ struct AppSidebar: View {
         case .film(let folder): [.film(folder)]
         }
         if store.path != target { store.path = target }
+    }
+}
+
+/// The shared look of a sidebar destination: an 18pt outlined icon centred in a 24pt column, 12pt gap, a 14pt medium label,
+/// 42pt tall. Active is the primary label with a lilac icon; inactive is a muted icon with a secondary label.
+private struct SidebarNavLabel: View {
+    let title: String
+    let symbol: String
+    let selected: Bool
+    private static let lilac = Color(red: 0.78, green: 0.71, blue: 1.0)
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.system(size: 18, weight: .light))
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(selected ? Self.lilac : Color(white: 0.58))
+                .frame(width: 24)
+            Text(title)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(selected ? Color.primary : Color.secondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
+        .padding(.horizontal, 6)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -157,9 +205,27 @@ private struct PageToolbar<Trailing: View>: ViewModifier {
             .toolbar {
                 HistoryToolbar(store: store)
                 if let store, let crumb = store.crumb { BreadcrumbToolbar(parent: crumb.title, title: title) { store.path = crumb.path } }
+                if let creationStep {
+                    if #available(macOS 26, *) {
+                        ToolbarItem(placement: .principal) { StudioFlowProgress(current: creationStep).padding(.vertical, 3) }
+                            .sharedBackgroundVisibility(.hidden)
+                    } else {
+                        ToolbarItem(placement: .principal) { StudioFlowProgress(current: creationStep) }
+                    }
+                }
                 ToolbarItemGroup(placement: .primaryAction) { trailing }
             }
     }
+
+    private var creationStep: StudioFlowStep? {
+        guard let store else { return nil }
+        switch store.path.last {
+        case nil: return .describe
+        case .newFilm?: return .setup
+        default: return nil
+        }
+    }
+
 }
 
 private struct HiddenToolbarTitle: ViewModifier {
@@ -209,7 +275,7 @@ extension StudioStore {
         if path.count == 1 {
             switch last {
             case .brand: return ("Brands", [.brands])
-            case .newFilm, .film, .sample: return ("Home", [])
+            case .newFilm, .film, .sample: return ("Films", [])
             default: return nil
             }
         }
@@ -219,7 +285,7 @@ extension StudioStore {
 
     func crumbTitle(_ route: Route?) -> String {
         switch route {
-        case nil: "Home"
+        case nil: "Films"
         case .library(let mode)?: mode.title
         case .brands?: "Brands"
         case .brand(let url)?: url.lastPathComponent
@@ -242,7 +308,7 @@ extension View {
     /// A library page's content column, as on Home: the same margins, at most 1240 wide, held to the left edge so titles
     /// line up from page to page.
     func pageColumn() -> some View {
-        padding(.horizontal, 32).padding(.top, 28).padding(.bottom, 40)
+        padding(.horizontal, 36).padding(.top, 36).padding(.bottom, 40)
             .frame(maxWidth: 1240, alignment: .leading).frame(maxWidth: .infinity)
     }
 }
@@ -251,7 +317,7 @@ extension View {
 struct PageTitle: View {
     let text: String
     var body: some View {
-        Text(text).font(.system(size: 26, weight: .bold)).tracking(-0.4).accessibilityAddTraits(.isHeader)
+        Text(text).font(.system(size: 30, weight: .semibold)).tracking(-0.7).accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -317,7 +383,7 @@ struct AppStatusBar: View {
     var body: some View {
         let queued = store.queuedCount
         HStack(spacing: 14) {
-            director
+            director.layoutPriority(1)   // readiness and the running film line give way last
             if let notice = store.notice {
                 Text(notice).foregroundStyle(.secondary).transition(.opacity)
             }
@@ -340,9 +406,11 @@ struct AppStatusBar: View {
         }
         .buttonStyle(.accessoryBarAction).font(.system(size: 11.5)).lineLimit(1)
         .animation(.default, value: store.notice)
-        .padding(.horizontal, 24).frame(height: 28)
-        .background { GlassSurface() }   // the studio's chrome glass, as on the film page
-        .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.10)).frame(height: 1) }
+        .padding(.horizontal, 16).frame(minHeight: 36)
+        // A floating bar of the system's own untinted glass, like the sidebar's: it samples what is behind it, with no
+        // gradient, solid fill or highlight line of ours on top. The bar itself is not interactive; its buttons are.
+        .liquidGlass(in: RoundedRectangle(cornerRadius: Workspace.glassRadius, style: .continuous), interactive: false)
+        .padding(.horizontal, Workspace.gap).padding(.top, 4).padding(.bottom, 10)
     }
 
     /// Working: the film, what it is doing and the next call, and a click goes to it. Idle: ready, with the director and
@@ -390,4 +458,3 @@ extension View {
         else { self.background(.regularMaterial, in: shape).overlay { shape.stroke(Color.primary.opacity(0.10), lineWidth: 1) } }
     }
 }
-

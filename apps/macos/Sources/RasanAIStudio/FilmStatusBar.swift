@@ -33,14 +33,15 @@ struct FilmStatusBar<Usage: View>: View {
             HStack(spacing: 12) {
                 status
                 Spacer(minLength: 8)
-                usage.fixedSize()
+                usage.fixedSize().padding(.trailing, 4)
                 if let actions, !model.isViewingPast, !sent, model.showsActions(for: actions.step) { buttons(actions) }
                 else if needsResume { resumeSlot }
             }
         }
         .padding(.horizontal, .filmInset).padding(.vertical, model.lastError == nil ? 0 : 8)
-        .frame(maxWidth: .infinity, minHeight: 64)
-        .glassPanel()   // chrome, like the inspector beside it: the same glass
+        .frame(maxWidth: .infinity, minHeight: 60)
+        // A calm footer on the canvas: one hairline above it, no panel of its own.
+        .overlay(alignment: .top) { Rectangle().fill(Workspace.hairline).frame(height: 1) }
         .onChange(of: turn) { lastActivityAt = Date() }
     }
 
@@ -123,7 +124,6 @@ struct FilmStatusBar<Usage: View>: View {
     /// Paused or stuck: Resume is the bar's primary, where every other state puts its own.
     @ViewBuilder private var resumeSlot: some View {
         HStack(spacing: 10) {
-            Divider().frame(height: 22)
             if case .attention = turn, let onDetails { Button("Show log", action: onDetails).buttonStyle(.rasanSecondary).controlSize(.large) }
             Button { onResume?() } label: { Label("Resume", systemImage: "play.fill").font(.system(size: 14, weight: .semibold)).padding(.horizontal, 6).frame(minHeight: 30) }
                 .buttonStyle(.rasanPrimary).controlSize(.large)
@@ -136,7 +136,6 @@ struct FilmStatusBar<Usage: View>: View {
         let canAct = model.canAct(on: actions.step)
         let note = model.tellText.trimmingCharacters(in: .whitespacesAndNewlines)
         HStack(spacing: 10) {
-            Divider().frame(height: 22)
             if hasNote {
                 Label("Your message goes too", systemImage: "text.bubble").font(.system(size: 11)).foregroundStyle(.secondary).labelStyle(.titleAndIcon)
                     .help("The message in the inspector is sent with this.")

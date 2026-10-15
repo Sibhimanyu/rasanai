@@ -8,6 +8,13 @@ struct StudioView: View {
     @Bindable var store: StudioStore
     @Environment(\.openSettings) private var openSettings
 
+    init(store: StudioStore) {
+        self.store = store
+        // The saved sidebar state goes into the split view's first layout; restoring it in onAppear drew the sidebar open
+        // for a frame and then reflowed the toolbar and page.
+        _columns = State(initialValue: UserDefaults.standard.bool(forKey: "studio.sidebarHidden") ? .detailOnly : .all)
+    }
+
     var body: some View {
         content.environment(\.momentStore, store)
             .modifier(LaunchFocus(ready: !store.isLoadingProjects, agent: store.settings.agent.title))
@@ -17,7 +24,7 @@ struct StudioView: View {
     /// The split view's own state, so its toggle (and ⌃⌘S) runs the system's slide. Binding it straight to the stored setting
     /// dropped the animation's transaction and made the sidebar snap; the setting is only written back afterwards.
     @State private var columns: NavigationSplitViewVisibility = .all
-    @State private var restored = false
+    @State private var isFullScreen = false
     /// A film (or the sample, or the film editor) brings its own bottom bar, so the studio's status bar steps aside there.
     private var showsStatusBar: Bool {
         switch store.path.last { case .film?, .sample?, .newFilm?: false; default: true }
@@ -35,15 +42,10 @@ struct StudioView: View {
             }
             .background(Color.appBackground)
         }
-        // No toolbar band: the glass items float over the page's own colour, in a window and in full screen alike, and
-        // content blurs softly under them as it scrolls (the system's scroll-edge effect).
-        .modifier(NoToolbarBand())
-        .onAppear {
-            guard !restored else { return }
-            restored = true
-            var quiet = Transaction(); quiet.disablesAnimations = true
-            withTransaction(quiet) { columns = sidebarHidden ? .detailOnly : .all }
-        }
+        // Keep floating toolbar controls in ordinary windows. In full screen, let AppKit choose the toolbar background
+        // so the native split view and fullscreen chrome can compose together.
+        .modifier(NoToolbarBand(fullScreen: isFullScreen))
+        .background(FullScreenState(isFullScreen: $isFullScreen))
         .onChange(of: columns) { _, visibility in sidebarHidden = visibility == .detailOnly }
     }
 
@@ -198,8 +200,8 @@ private struct LaunchFocus: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .blur(radius: focused ? 0 : 30)
-            .brightness(focused ? 0 : -0.12)
+            // No blur or brightness on the split view: that would rasterise the native sidebar and toolbar. The reveal is
+            // left to the window-level frost cover below.
             .allowsHitTesting(focused)
             .background(WindowSplashCover(active: !focused, fade: focusDuration, delay: focusDelay) {
                 SplashMark(agent: agent, waiting: held && !loaded)
@@ -217,7 +219,8 @@ private struct LaunchFocus: ViewModifier {
 
     private func revealIfDone() {
         guard held, loaded, !focused else { return }
-        withAnimation(.easeOut(duration: focusDuration).delay(focusDelay)) { focused = true }
+        // The AppKit cover owns the fade; no animation transaction is inherited by the split view’s layout.
+        focused = true
     }
 }
 
@@ -325,8 +328,9 @@ private struct WindowSplashCover<Splash: View>: NSViewRepresentable {
 }
 
 private struct NoToolbarBand: ViewModifier {
+    let fullScreen: Bool
     func body(content: Content) -> some View {
-        if #available(macOS 15, *) { content.toolbarBackgroundVisibility(.hidden, for: .windowToolbar) }
-        else { content.toolbarBackground(.hidden, for: .windowToolbar) }
+        if #available(macOS 15, *) { content.toolbarBackgroundVisibility(fullScreen ? .automatic : .hidden, for: .windowToolbar) }
+        else { content.toolbarBackground(fullScreen ? .automatic : .hidden, for: .windowToolbar) }
     }
 }

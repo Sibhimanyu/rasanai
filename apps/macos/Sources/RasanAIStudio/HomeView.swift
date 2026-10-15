@@ -109,7 +109,6 @@ struct HomeView: View {
                 }
             } label: { Label("More", systemImage: "ellipsis") }
                 .menuIndicator(.hidden).help("More").tint(.primary)   // a toolbar tool, white like its neighbours, not the brand tint
-            NewFilmHeaderButton { store.newFilm() }
         }
         .alert("Rename film", isPresented: Binding(get: { renameFolder != nil }, set: { if !$0 { renameFolder = nil } })) {
             TextField("Film name", text: $renameName)
@@ -123,21 +122,18 @@ struct HomeView: View {
 
     // MARK: Sections
 
-    /// The prompt box, right on Home: describe it and start. The full editor (format grid, footage wells, templates) is one
-    /// click away under it and keeps whatever was typed here.
+    /// Home starts with a brief; Continue carries the shared draft into a focused setup review.
     private var composer: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("What shall we make?").font(.system(size: 26, weight: .bold)).tracking(-0.4).accessibilityAddTraits(.isHeader)
-            NewFilmView(store: store, project: nil, embedded: true)
-            HStack(spacing: 14) {
-                Button { store.newFilm() } label: { Label("More options", systemImage: "slider.horizontal.3") }
-                    .buttonStyle(.link).font(.system(size: 12.5))
-                    .help("Open the full editor: what you are making, footage folders, a reference video, templates")
-                Button { store.path = [.inspire] } label: { Label("Inspiration", systemImage: "sparkles") }
-                    .buttonStyle(.link).font(.system(size: 12.5))
-                Spacer()
+        VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("What would you like to make?").font(.system(size: 30, weight: .semibold)).tracking(-0.5).accessibilityAddTraits(.isHeader)
+                Text("An idea, a link, or a few words is enough.").font(.system(size: 15)).foregroundStyle(.secondary)
             }
+            NewFilmView(store: store, project: nil, embedded: true)
         }
+        .frame(maxWidth: 780, alignment: .leading)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 24)
     }
 
     private func featuredSection(_ item: (LocalProject, URL)) -> some View {

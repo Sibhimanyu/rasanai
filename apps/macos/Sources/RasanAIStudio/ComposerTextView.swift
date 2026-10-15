@@ -17,6 +17,22 @@ final class PlaceholderTextView: NSTextView {
         (placeholder as NSString).draw(with: NSRect(x: origin.x, y: origin.y, width: max(width, 40), height: bounds.height), options: [.usesLineFragmentOrigin], attributes: attrs)
     }
     var onFocusChange: ((Bool) -> Void)?
+    /// Set when focus was asked for before the view had a window; granted once it is attached.
+    var wantsFocus = false
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if wantsFocus, window != nil { grabFocus() }
+    }
+    /// Lays the window out first so the caret's scroll-to-visible works on final geometry, not the first pass.
+    func grabFocus() {
+        guard let expectedWindow = window else { wantsFocus = true; return }
+        wantsFocus = false
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.window === expectedWindow else { return }
+            expectedWindow.layoutIfNeeded()
+            expectedWindow.makeFirstResponder(self)
+        }
+    }
     override func becomeFirstResponder() -> Bool { let ok = super.becomeFirstResponder(); if ok { onFocusChange?(true) }; return ok }
     override func resignFirstResponder() -> Bool { let ok = super.resignFirstResponder(); if ok { onFocusChange?(false) }; return ok }
     override var string: String { didSet { needsDisplay = true } }
@@ -81,7 +97,7 @@ struct ComposerTextView: NSViewRepresentable {
         view.placeholder = placeholder
         if context.coordinator.lastFocusRequest != focusRequest {
             context.coordinator.lastFocusRequest = focusRequest
-            DispatchQueue.main.async { view.window?.makeFirstResponder(view) }
+            view.grabFocus()
         }
     }
 
