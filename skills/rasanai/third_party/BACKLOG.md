@@ -80,6 +80,5 @@ Rules that hold for every item:
 
 ## B10. Smaller open items
 
-- The halftone-collage poster still: TODO.md listed it as left. `library/styles/posters/halftone-collage.jpg` exists; whether it is a proper render of the look is unverified. S.
 - Studio shows the new data (P0.4) shipped in #83; a Studio beta cut waits on the owner.
 - Release: master is ahead of 1.17.0 where noted; a release needs the owner's ask.
