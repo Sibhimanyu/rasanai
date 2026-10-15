@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.18.0 (2026-10-15): springs that keep their velocity, zoom in log space, pops and loop seams caught
 
 - **Craft from awesome-opus5-5-videos (idea only, our code; register in `third_party/SOURCES.md`).** A read of 703 prompts behind viral Opus-coded videos; we took only what RasanAI lacked.
   - Runtime: `RasanMotion.springTrack` (a value with many targets as a sum of closed-form spring step responses, so a retarget keeps its velocity and stays seek-safe, with `.velocity(t)`), `RasanMotion.edges` (two-edge indicators: the leading edge on a stiffer spring, so a pill stretches ahead and catches up; opt-in `liquid` on `U.tabs` and `U.toggle`), `RasanMotion.frameTime` (counters read the frame's own time). `RasanCamera` zoom eases in log space (`cam.keys([[t, zoom, x, y]])`, `cam.zoom` too; `linearZoom` opts out) and warns once on a zoom past 4× into an off-centre point. `RasanShape.iris`, `flood` and `circleAt` ease by area and turn a covering flood into a full-frame rect.
