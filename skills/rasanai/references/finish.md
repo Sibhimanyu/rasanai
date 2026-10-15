@@ -3,7 +3,7 @@
 `scripts/finish.mjs` is the last step of a delivery render. It does two things to the whole film, whatever made each scene (DOM, GSAP, CSS, Lottie, Three, Rasan3D):
 
 1. **Blur**: real motion blur on every scene. HyperFrames renders at fps x samples (the oversampled render), then ffmpeg averages each frame's sub-frames across a shutter window centred on the frame time. Today only Rasan3D scenes blur (inside the stage); this makes a 2D card whip, a type slide and a 3D orbit all share one 180 degree shutter.
-2. **Grade**: per-frame film grain, halation, vignette, optional bloom and LUT, the same on every scene so cuts do not change the film's texture.
+2. **Grade**: per-frame film grain, halation, vignette, optional bloom and LUT, the same on every scene so cuts do not change the film's texture. Optional lens and print extras on top (`--lens`, `--ca`, `--focus-follow`, `--crt`, `--led`, `--print riso`: see "Lens and print extras").
 
 Use the full finish for the delivery render, after the gates pass. Drafts get the cheap draft blur (`--draft`, next section), so hero moves are judged with their smear, never as sharp sliding boxes.
 
@@ -109,6 +109,36 @@ Colour handling: BT.709 limited in, gbrp full-range work, BT.709 limited out. Vi
 | blue near the corner | 55, 109, 163 | 51, 103, 155 | -4, -6, -8 (vignette, by design) |
 
 Grain measured on flat grey (126): mean 125.99, std 1.50 levels at grain 0.03 (target 1.35 plus 8-bit rounding), frame to frame different. Anything inside the central ~25% radius keeps its colour; toward the corners the vignette darkens by up to `vignette x 0.59`. Keep key brand colours (logo, CTA) out of the extreme corners, or set `--vignette 0`. `grade --probe x,y,w,h` reports the same before/after delta for any rectangle of a real film.
+
+## Lens and print extras (all off by default)
+
+`grade` and `all` take lens effects and a film-wide print, in this order after the LUT: lens distortion, chromatic aberration, focus-follow, halation / bloom, the riso print, CRT / LED, vignette, grain. None of them is on unless asked for; the first four are hero effects, **budgeted like the rest** (`references/craft.md` "Finish and budgets"): a film that uses one on every frame is the uniform tell. The graphs were checked to parse and to produce frames of the right size and count on a 3-frame test; their strengths are uncalibrated, so look at a still before a delivery render.
+
+| Flag | What it does | Budget |
+|---|---|---|
+| `--lens k` | Lens distortion, k1 in -0.3 to 0.3: positive is barrel (the edges pull in; a zoom of 1 + k hides the empty corners, measured), negative is pincushion (the edges stretch out, nothing to hide). A lens is a property of the whole film, so it may run film-wide | a note, no budget |
+| `--ca px [--ca-at "t0-t1,..."]` | Chromatic aberration: the channels magnified by different amounts about the centre (R most, G half that, B none), so the split grows toward the corners like a real lens. `px` is the red-to-blue split at the corner at 1080p (1.5 to 4 looks like glass, over 8 is a glitch) | the score's `chromatic-split` budget entries pick the scenes (`score.budget` with `--run` / `--score`); `--ca-at` gives windows in seconds; with neither it runs film-wide and warns (the uniform tell) |
+| `--focus-follow` (or `--focus x,y,w,h`) `[--focus-blur 7]` | A soft field outside the hero's box: the film is blurred once (sigma 7 px at 1080p) and merged through a mask that is 0 inside an ellipse around the box and rises smoothly to 1 beyond it. The boxes come from the score: `scenes[].hero_box = [x, y, w, h]` as 0..1 of the frame (with `--run` / `--score`), optionally `hero_box_end` (the focus follows it linearly across the scene); a scene without a box stays sharp. `--focus` is one constant box for the whole film | per scene by the score; a rack of every scene is still the hero's focus, not a blur on everything |
+| `--crt 0..1 [--crt-at ...]` | Scanlines (a dark row every 4 px at 1080p) and a phosphor triad (every third column brighter per channel), then the gain that brings the mean back | film-wide only for a film set on a CRT; else windows |
+| `--led px [--led-at ...]` | An LED-wall cell grid (square cells, a dark gutter, 6 px at 1080p), gain 1.75 | film-wide only for a film set on an LED wall; else windows |
+
+A "window" is `t0-t1` in seconds, several separated by commas; the effect is the original frame overlaid with the processed copy for those windows only (`overlay ... enable='between(t,...)'`). The report lists what each flag did in `notes`.
+
+### Riso print grade (`--print riso`)
+
+The whole finished film is printed as a risograph: our own code from the idea of the MIT `animate` kit's riso finish (cth9191/animate, `styles/riso/kit.js`; the report carries a `credits` row; `third_party/animate/README.md`). Method (the numbers are the kit's measured ones, summarised in `library/styles/riso.md`):
+
+1. **Plates.** The frame is separated into three plate tones, the nearest CMY to the three inks: teal `#3689ab` from 1 - R, fluorescent pink `#dc44a0` from 1 - G, yellow `#eede1e` from 1 - B (`--print-contrast` 1 stretches the tone about its middle).
+2. **Screens.** Each plate is re-screened at its own angle (teal 15, pink 75, yellow 45 degrees), a round dot to 50% tone and above that a solid with paper holes at the cell corners (the same dot / hole geometry as the style file), at `--print-pitch` 10.8 px at 1080p (7 for fine type and lone props, 17.5 for a coarse field; one pitch per film here). The tone is averaged over a cell first (a blur of 0.45 x the pitch), so the dots follow the picture, not its noise.
+3. **Register.** The pink plate sits (+4, -3) px and the yellow (-3, +4) px off the teal key (at 1080p), and every plate shimmers by `--print-shimmer` px (1; 0 off) over three variants that step every 2 frames, so the print shimmers without crawling (the kit measures 0.3 px of jitter; integer pixels are the finest this crop can do).
+4. **Dropout.** About `--print-dropout` (0.006, 0.6%) of the pixels lose one plate per variant, as 2 px specks (a random map at half size held for 2 frames).
+5. **Overprint.** Each plate prints as the ink-over-paper ratio multiplied together on the paper `#f2ece3`: pink + yellow = coral, teal + yellow = green, teal + pink = ink blue, all three an olive black, bare paper where the tone is nothing. There is no black ink and no white ink.
+
+With `--print riso` the defaults of grain, halation and vignette become 0 (the paper stays flat; pass them explicitly to override). Limits, said plainly: a post grade cannot knock out the plates under a fill (a pink detail on a dark ground stays overprinted), cannot make a line crisp (thin type under the cell average turns into dots: set riso type large and heavy), and its screen is fixed to the frame, so it does not travel with a camera move (for a film where the camera moves through the print, build the plates in the scene instead). Cost: about 1.5 to 2 times the grain-only grade (a few ffmpeg blends per plate on gray planes; the screens are made once, one geq per angle); `--grain 0` and the flat defaults keep it near that.
+
+### 3D scenes: ambient occlusion and focus
+
+Those are inside the stage (`references/3d.md` stage option `ao`, camera `fstop`, `blades`): they are not part of the finish, but they accumulate across the same sub-frames, so a finished film that turns the stage's `motionBlur` off for the finish's shutter keeps both.
 
 ## Cost (measured, 1080p, 30 fps, a busy shared machine)
 

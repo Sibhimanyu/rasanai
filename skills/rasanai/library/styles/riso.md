@@ -48,7 +48,7 @@ Not: a flat vector look with a texture filter on top, a halftone newsprint (one 
 - On 2s: steps every 2 frames, the hand wobble reseeds each step, and registration, line pressure and dropouts cycle through 3 variants, so the print shimmers without crawling.
 - Cuts, world changes and cues on the 8th grid (at 120 BPM and 24 fps that is 6 frames), fast onsets on 16ths (3 frames).
 - Worlds open as circles with a rough teal rim: a vignette circle grows over 4 frames (radius 172, 252, 293, 308 then 310 at 1080 wide) and shrinks over 3; an iris cut shows the new world in a circle, then bigger, then full frame.
-- Film-wide print grade (not built yet, see `TODO.md` R4 "animate 3"): three plates, re-screen per angle, register jitter per variant, dropout specks, as a finish step rather than per element.
+- Film-wide print grade: `scripts/finish.mjs grade|all --print riso` (references/finish.md "Riso print grade") separates the finished film into the three plates, re-screens them at 15, 75 and 45 degrees, shifts them off register with the 3-variant shimmer and drops specks, as a finish step rather than per element. It cannot knock out plates under a fill or move the screen with the picture; for those, build the plates in the scene.
 
 ## Camera grammar
 

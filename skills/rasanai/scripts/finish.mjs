@@ -9,6 +9,16 @@
 //                         [--quality draft|delivery] [--crf 18] [--composition <file>] [--workers n] [--keep]
 //   node finish.mjs grade --in <mp4> --out <mp4> [--grain 0.03] [--halation 0.2] [--vignette 0.2]
 //                         [--bloom 0] [--lut <cube>] [--seed 1] [--probe x,y,w,h]
+//                         lens and finish extras (all off by default, references/finish.md "Lens and print extras"):
+//                         [--lens k]              lens distortion, k1 in -0.3..0.3 (+ barrel with the zoom that hides its corners, - pincushion)
+//                         [--ca px] [--ca-at "t0-t1,..."]   chromatic aberration, px of R/B split at the corner at 1080p; windows, or the score's
+//                                                 "chromatic-split" budget scenes; film-wide only with a note (the uniform tell)
+//                         [--focus-follow | --focus x,y,w,h] [--focus-blur 7]   a soft field outside the hero's box (0..1 of the frame): the score's
+//                                                 scenes[].hero_box [x,y,w,h] (+ optional hero_box_end) with --run/--score, or one constant box
+//                         [--crt 0..1] [--crt-at ...] [--led px] [--led-at ...]   scanlines + phosphor triads / an LED-wall cell grid (screen worlds)
+//                         [--print riso]          the film-wide risograph print: three spot-ink plates (teal 15, pink 75, yellow 45 degrees),
+//                                                 re-screened, plates a few px off register with a 3-variant shimmer, 0.6% dropout specks
+//                         [--print-pitch 10.8] [--print-shimmer 1] [--print-dropout 0.006] [--print-contrast 1]
 //   node finish.mjs all   --project <dir> --out <mp4> [blur options] [grade options]
 //   --draft (blur or all): the cheap draft blur for drafts and review strips: 4 samples in one 120 fps pass, draft
 //                         quality, no auto pre-pass, no grade (all --draft = blur --draft). Hero moves show their smear
@@ -29,12 +39,15 @@ import { parseArgs, die, readFrontmatterDoc } from "./lib/common.mjs";
 import { sharpRanges as sharpRangesOf, graphWithSharp } from "./lib/sharp.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
 import { acquireSlotSync } from "./lib/slot.mjs";
+import { readBudget } from "./lib/budget.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
 const MAX_RENDER_FPS = 240; // hyperframes render accepts 1..240
 const MAX_PASSES = 4; // phase-shifted passes: up to 4 x 240 sub-frames per second
 
+// the print grade is our own code from the idea of the MIT animate kit's riso finish (cth9191/animate, styles/riso/kit.js): credited in the report
+const CREDIT_RISO = { name: "animate (cth9191)", licence: "MIT", what: "the idea of a film-wide riso print finish (three plates, per-angle screens, register shimmer, dropout); the code here is our own", url: "https://github.com/cth9191/animate" };
 const num = (v, d) => (v === undefined || v === true || v === "" || Number.isNaN(Number(v)) ? d : Number(v));
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const sh = (bin, argv, opts = {}) => spawnSync(bin, argv, { encoding: "utf8", maxBuffer: 1 << 28, ...opts });
@@ -52,7 +65,7 @@ function probe(file) {
   const v = j.streams.find((s) => s.codec_type === "video");
   const [a, b] = String(v.r_frame_rate).split("/").map(Number);
   return {
-    width: v.width, height: v.height, fps: a / (b || 1),
+    width: v.width, height: v.height, fps: a / (b || 1), fpsRat: `${a}/${b || 1}`,
     duration: Number(j.format.duration), frames: Number(v.nb_frames) || null,
     hasAudio: j.streams.some((s) => s.codec_type === "audio"),
   };
@@ -201,21 +214,134 @@ function calibrateGrain(seed) {
   return calCache;
 }
 
+// ---- lens, focus, CRT/LED and print extras (all off by default; references/finish.md "Lens and print extras")
+const r4 = (x) => Math.round(x * 1e4) / 1e4;
+const parseWindows = (v) => (v && v !== true ? String(v).split(",").map((s) => s.trim().split("-").map(Number)).filter((w) => w.length === 2 && w.every(Number.isFinite) && w[1] > w[0]) : []);
+const enableOf = (wins) => wins.map(([a, b]) => `between(t,${r4(a)},${r4(b)})`).join("+");
+function scoreDoc() {
+  const sf = args.score && args.score !== true ? path.resolve(String(args.score)) : args.run && args.run !== true ? path.join(path.resolve(String(args.run)), "motion", "score.json") : null;
+  try { return sf ? JSON.parse(fs.readFileSync(sf, "utf8")) : null; } catch { return null; }
+}
+// a budget entry's "scene" is a 1-based position or a scene id
+const sceneSpan = (sc, ref) => {
+  const L = (sc && sc.scenes) || [];
+  const s = L.find((x) => String(x.id) === String(ref)) || L[Number(ref) - 1];
+  return s && Number.isFinite(Number(s.start)) && Number.isFinite(Number(s.end)) && Number(s.end) > Number(s.start) ? [Number(s.start), Number(s.end)] : null;
+};
+// the score's hero boxes: scenes[].hero_box = [x, y, w, h] as 0..1 of the frame (optional hero_box_end: the box at the scene's end,
+// the focus follows it linearly); a scene without one stays sharp
+function heroBoxes(sc) {
+  const ok = (b) => Array.isArray(b) && b.length === 4 && b.every((v) => Number.isFinite(Number(v)));
+  const out = [];
+  for (const s of (sc && sc.scenes) || []) {
+    const b = s.hero_box || (s.hero && s.hero.box), a = Number(s.start), z = Number(s.end);
+    if (!ok(b) || !(z > a)) continue;
+    out.push({ id: s.id, a, z, from: b.map(Number), to: (ok(s.hero_box_end) ? s.hero_box_end : b).map(Number) });
+  }
+  return out;
+}
+
+const RISO = {
+  paper: [241, 235, 226], inks: [[0x36, 0x89, 0xab], [0xdc, 0x44, 0xa0], [0xee, 0xde, 0x1e]], // teal, fluorescent pink, yellow (measured)
+  angles: [15, 75, 45], reg: [[0, 0], [4, -3], [-3, 4]], // screen angles and the pink / yellow plates' offset from the teal key, px at 1080p
+};
+
+// A static halftone threshold map for one screen angle (PNG: R = dot map, G = hole map, 0..255). A cell is `pitch` px wide, rotated by
+// `angle`; R = pi d^2 (d: distance to the cell centre, in cells), G = 1 - pi dc^2 (dc: distance to the nearest cell corner).
+function makeScreen({ angle, pitch, width, height, dir, name }) {
+  const file = path.join(dir, `screen-${name}.png`), th = (angle * Math.PI) / 180;
+  const pre = `st(0,X*${r4(Math.cos(th))}+Y*${r4(Math.sin(th))});st(1,Y*${r4(Math.cos(th))}-X*${r4(Math.sin(th))});st(2,mod(mod(ld(0),${r4(pitch)})+${r4(pitch)},${r4(pitch)})/${r4(pitch)}-0.5);st(3,mod(mod(ld(1),${r4(pitch)})+${r4(pitch)},${r4(pitch)})/${r4(pitch)}-0.5);`;
+  const dot = `${pre}255*clip(PI*(ld(2)*ld(2)+ld(3)*ld(3)),0,1)`;
+  const hole = `${pre}255*clip(1-PI*(pow(0.5-abs(ld(2)),2)+pow(0.5-abs(ld(3)),2)),0,1)`;
+  ff(["-f", "lavfi", "-i", `color=c=black:s=${width}x${height}:d=1`, "-vf", `format=gbrp,geq=r='${dot}':g='${hole}':b='0'`, "-frames:v", "1", "-pix_fmt", "rgb24", file], `riso screen ${name}`);
+  return file;
+}
+
+// CRT: scanlines (dark row every `pitch` px) and a phosphor triad (every third column brighter per channel); the multiply darkens, so a gain follows.
+function makeCrtMask({ width, height, amount, s, dir }) {
+  const file = path.join(dir, "crt.png"), pitch = Math.max(3, Math.round(4 * s)), tw = Math.max(1, Math.round(s));
+  const row = `(1-${r4(amount * 0.6)}*(0.5+0.5*cos(2*PI*Y/${pitch})))`;
+  const tri = (k) => `if(eq(mod(floor(X/${tw}),3),${k}),1,${r4(1 - amount * 0.3)})`;
+  ff(["-f", "lavfi", "-i", `color=c=black:s=${width}x${height}:d=1`, "-vf", `format=gbrp,geq=r='255*${row}*${tri(0)}':g='255*${row}*${tri(1)}':b='255*${row}*${tri(2)}'`, "-frames:v", "1", "-pix_fmt", "rgb24", file], "crt mask");
+  return { file, gain: r4(1 / ((1 - amount * 0.3) * (1 - amount * 0.2))) };
+}
+// LED wall: square cells (pitch px at 1080p) with a dark gutter; about 57% of the area is lit, so a 1.75 gain follows.
+function makeLedMask({ width, height, pitch, dir }) {
+  const file = path.join(dir, "led.png"), P = Math.max(3, Math.round(pitch));
+  const m = `(1-0.94*clip((max(abs(mod(X,${P})/${P}-0.5),abs(mod(Y,${P})/${P}-0.5))-0.32)/0.1,0,1))`;
+  ff(["-f", "lavfi", "-i", `color=c=black:s=${width}x${height}:d=1`, "-vf", `format=gbrp,geq=r='255*${m}':g='255*${m}':b='255*${m}'`, "-frames:v", "1", "-pix_fmt", "rgb24", file], "led mask");
+  return { file, gain: 1.75 };
+}
+
 // Filter graph for the grade. `src` and `dst` are pad labels; yuv420p bt709 limited in and out.
-// Order follows post.ts: look (LUT) -> halation/bloom -> vignette -> grain, grain last so it sits on top.
-function gradeGraph({ src, dst, width, height, fps, g, extraInputs }) {
+// Order: look (LUT) -> lens -> chromatic aberration -> focus-follow -> halation/bloom -> riso print -> CRT / LED -> vignette -> grain,
+// grain last so it sits on top. extraInputs: {mask, crt, led, scr: [3 labels]} (the extra -i streams, see prepareExtras).
+function gradeGraph({ src, dst, width, height, fps, fpsRat, dur, g, extraInputs }) {
   const s = height / 1080;
   const parts = [];
   const f = (x) => (Math.round(x * 1e4) / 1e4).toString();
   let cur = "base";
-  parts.push(`[${src}]scale=in_color_matrix=bt709:in_range=limited:flags=accurate_rnd+full_chroma_int,format=gbrp[${cur}]`);
+  parts.push(`[${src}]scale=in_color_matrix=bt709:in_range=limited:flags=accurate_rnd+full_chroma_int,format=gbrp,setsar=1[${cur}]`);
   let k = 0;
   const next = () => `s${k++}`;
+  // a stage over the whole film, or only inside windows (the original and the processed copy overlaid with enable)
+  const stage = (inL, wins, build) => {
+    const o = next();
+    if (!wins || !wins.length) { build(inL, o); return o; }
+    const a = next(), b = next(), p = next();
+    parts.push(`[${inL}]split=2[${a}][${b}]`);
+    build(b, p);
+    parts.push(`[${a}][${p}]overlay=format=gbrp:enable='${enableOf(wins)}'[${o}]`);
+    return o;
+  };
 
   if (g.lut) {
     const n = next();
     parts.push(`[${cur}]lut3d=file='${g.lut.replace(/'/g, "\\'")}':interp=tetrahedral[${n}]`);
     cur = n;
+  }
+
+  // lens distortion (ffmpeg lenscorrection: k1 > 0 barrel, < 0 pincushion). A barrel pulls the corners in, so it is followed by a zoom of
+  // 1 + k1 (measured: black corners are gone at that zoom); a pincushion samples inside the frame and needs none.
+  if (g.lens) {
+    cur = stage(cur, [], (i, o) => parts.push(`[${i}]lenscorrection=k1=${f(g.lens)}:k2=0:fc=black${g.lens > 0 ? `,scale=iw*${f(1 + g.lens * 1.05)}:ih*${f(1 + g.lens * 1.05)}:flags=bicubic,crop=${width}:${height}` : ""},setsar=1,format=gbrp[${o}]`));
+  }
+
+  // chromatic aberration: the channels magnified by different amounts about the centre (R most, B none), so the split grows toward the
+  // corners like a real lens. g.ca = px of R/B split at the corner at 1080p.
+  if (g.ca > 0) {
+    cur = stage(cur, g.caAt, (i, o) => {
+      const e = (g.ca * s) / Math.hypot(width, height), even = (v) => Math.ceil(v / 2) * 2;
+      const [pr, pg, pb, r2, g2, mm] = [next(), next(), next(), next(), next(), next()];
+      parts.push(
+        `[${i}]extractplanes=r+g+b[${pr}][${pg}][${pb}]`,
+        `[${pr}]scale=${even(width * (1 + 2 * e))}:${even(height * (1 + 2 * e))}:flags=bicubic,crop=${width}:${height},setsar=1[${r2}]`,
+        `[${pg}]scale=${even(width * (1 + e))}:${even(height * (1 + e))}:flags=bicubic,crop=${width}:${height},setsar=1[${g2}]`,
+        `[${g2}][${pb}][${r2}]mergeplanes=0x001020:gbrp[${o}]`
+      );
+    });
+  }
+
+  // focus-follow: a soft field outside the hero's box. The mask is built at a quarter size from the score's boxes (time-driven, geq's T),
+  // 0 inside an ellipse around the box, a smoothstep to 1 beyond it; the film is blurred once and merged through the mask.
+  if (g.focus && g.focus.length) {
+    const w4 = Math.ceil(width / 4), h4 = Math.ceil(height / 4);
+    const scene = (b) => {
+      const lerp = (i) => `(${f(b.from[i])}+(${f(b.to[i] - b.from[i])})*clip((T-${f(b.a)})/${f(b.z - b.a)},0,1))`;
+      const cx = `((${lerp(0)}+${lerp(2)}/2)*${w4})`, cy = `((${lerp(1)}+${lerp(3)}/2)*${h4})`;
+      const rx = `(max(${lerp(2)},0.08)*0.575*${w4})`, ry = `(max(${lerp(3)},0.08)*0.575*${h4})`;
+      const m = `clip((hypot((X-${cx})/${rx},(Y-${cy})/${ry})-1)/0.9,0,1)`;
+      return `${m}*${m}*(3-2*${m})`;
+    };
+    const expr = g.focus.reduceRight((rest, b) => `if(between(T,${f(b.a)},${f(b.z)}),${scene(b)},${rest})`, "0");
+    const [a, b, bb, m, o] = [next(), next(), next(), next(), next()];
+    parts.push(
+      `[${cur}]split=2[${a}][${b}]`,
+      `[${b}]gblur=sigma=${f(g.focusBlur * s)}[${bb}]`,
+      `color=c=black:s=${w4}x${h4}:r=${fpsRat}:d=${f(dur)},format=gray,geq=lum='255*(${expr})',scale=${width}:${height}:flags=bicubic,format=gbrp[${m}]`,
+      `[${a}][${bb}][${m}]maskedmerge[${o}]`
+    );
+    cur = o;
   }
 
   // highlight glow: threshold luma, blur at two radii, tint, add. Pixels away from highlights get exactly 0.
@@ -236,6 +362,49 @@ function gradeGraph({ src, dst, width, height, fps, g, extraInputs }) {
   };
   if (g.halation > 0) glow("halation", { thr: 0.8, sigmas: [5, 22], tint: [1, 0.18, 0.04], amount: g.halation * 1.6 });
   if (g.bloom > 0) glow("bloom", { thr: 0.65, sigmas: [14, 48], tint: [1, 1, 1], amount: g.bloom * 1.2 });
+
+  // film-wide risograph print: the picture is separated into three plate tones (teal <- 1-R, pink <- 1-G, yellow <- 1-B, the nearest
+  // CMY to the three inks), each screened at its own angle against a static threshold map (a round dot to 50%, paper holes at the cell
+  // corners above), nudged off register (the 3 variants step every 2 frames, so it shimmers without crawling), robbed of a few specks
+  // (dropout), printed as the ink-over-paper ratio in a multiply, and the whole thing on the cream paper. No black, no white ink.
+  if (g.print === "riso") {
+    const pitch = g.printPitch * s, M = Math.ceil(8 * s) + 1, [fa, fb] = String(fpsRat).split("/");
+    const sig = f(pitch * 0.45), halfRat = `${fa}/${2 * Number(fb || 1)}`;
+    const pl = [next(), next(), next()], spk = [next(), next(), next()];
+    parts.push(`[${cur}]extractplanes=r+g+b[${pl[0]}][${pl[1]}][${pl[2]}]`);
+    const sp = `if(lt(random(0),${f(g.printDropout)}),0,255)`;
+    parts.push(`color=c=black:s=${Math.ceil(width / 2)}x${Math.ceil(height / 2)}:r=${fpsRat}:d=${f(dur)},format=gbrp,geq=g='${sp}':b='${sp}':r='${sp}',fps=fps=${halfRat},scale=${width}:${height}:flags=neighbor,fps=fps=${fpsRat},format=gbrp,extractplanes=g+b+r[${spk[0]}][${spk[1]}][${spk[2]}]`);
+    const layers = [];
+    for (let i = 0; i < 3; i++) {
+      const [t1, t2, b1, b2, c1, c2, cv, cs, cf, cm, wh, ink, L] = Array.from({ length: 13 }, next);
+      const ratio = RISO.inks[i].map((v, c) => Math.round(Math.min(255, (v / RISO.paper[c]) * 255)));
+      const hex = "0x" + ratio.map((v) => v.toString(16).padStart(2, "0")).join("");
+      const jit = (ph) => `${g.printShimmer}*(mod(floor(n/2)+${ph},3)-1)`;
+      parts.push(
+        `[${pl[i]}]negate,lut=y='clip(128+(val-128)*${f(g.printContrast)},0,255)',gblur=sigma=${sig},format=gray,split=2[${t1}][${t2}]`,
+        `[${extraInputs.scr[i]}]format=gbrp,extractplanes=r+g[${b1}][${b2}]`,
+        `[${t1}][${b1}]blend=all_expr='if(lte(A,127.5),if(gte(A,B),255,0),0)':shortest=1[${c1}]`,
+        `[${t2}][${b2}]blend=all_expr='if(gt(A,127.5),if(lte(A,B),255,0),0)':shortest=1[${c2}]`,
+        `[${c1}][${c2}]blend=all_mode=lighten:shortest=1,gblur=sigma=0.5,pad=iw+${2 * M}:ih+${2 * M}:${M}:${M}:color=black,crop=${width}:${height}:x='${M + Math.round(RISO.reg[i][0] * s)}+${jit(i)}':y='${M + Math.round(RISO.reg[i][1] * s)}+${jit(i + 1)}'[${cs}]`,
+        `[${cs}][${spk[i]}]blend=all_mode=darken:shortest=1,format=gbrp[${cm}]`,
+        `color=c=white:s=${width}x${height}:r=${fpsRat}:d=${f(dur)},format=gbrp[${wh}]`,
+        `color=c=${hex}:s=${width}x${height}:r=${fpsRat}:d=${f(dur)},format=gbrp[${ink}]`,
+        `[${wh}][${ink}][${cm}]maskedmerge[${L}]`
+      );
+      layers.push(L);
+    }
+    const m1 = next(), m2 = next(), o = next();
+    parts.push(
+      `[${layers[0]}][${layers[1]}]blend=all_mode=multiply:shortest=1[${m1}]`,
+      `[${m1}][${layers[2]}]blend=all_mode=multiply:shortest=1[${m2}]`,
+      `[${m2}]lutrgb=r='val*${f(RISO.paper[0] / 255)}':g='val*${f(RISO.paper[1] / 255)}':b='val*${f(RISO.paper[2] / 255)}'[${o}]`
+    );
+    cur = o;
+  }
+
+  // CRT scanlines and phosphor triads, an LED-wall cell grid: a multiply with a static mask, then the gain that brings the mean back
+  if (g.crt > 0) cur = stage(cur, g.crtAt, (i, o) => parts.push(`[${i}][${extraInputs.crt.label}]blend=all_mode=multiply:shortest=1,lutrgb=r='clip(val*${extraInputs.crt.gain},0,255)':g='clip(val*${extraInputs.crt.gain},0,255)':b='clip(val*${extraInputs.crt.gain},0,255)'[${o}]`));
+  if (g.led > 0) cur = stage(cur, g.ledAt, (i, o) => parts.push(`[${i}][${extraInputs.led.label}]blend=all_mode=multiply:shortest=1,lutrgb=r='clip(val*${extraInputs.led.gain},0,255)':g='clip(val*${extraInputs.led.gain},0,255)':b='clip(val*${extraInputs.led.gain},0,255)'[${o}]`));
 
   if (g.vignette > 0) {
     const n = next(), m = next();
@@ -276,14 +445,57 @@ function makeMask({ width, height, vignette, dir }) {
 }
 
 function gradeOpts() {
-  return {
-    grain: num(args.grain, 0.03),
-    halation: num(args.halation, 0.2),
-    vignette: num(args.vignette, 0.2),
+  const print = String(args.print || "").toLowerCase() === "riso" ? "riso" : null;
+  // a print is the whole look: no halation, vignette or grain filter over it unless asked for ("keep the paper flat")
+  const g = {
+    grain: num(args.grain, print ? 0 : 0.03),
+    halation: num(args.halation, print ? 0 : 0.2),
+    vignette: num(args.vignette, print ? 0 : 0.2),
     bloom: num(args.bloom, 0),
     lut: args.lut && args.lut !== true ? path.resolve(String(args.lut)) : null,
     seed: Math.round(num(args.seed, 1)),
+    lens: clamp(num(args.lens, 0), -0.3, 0.3),
+    ca: Math.max(0, num(args.ca, 0)), caAt: parseWindows(args["ca-at"]),
+    focus: [], focusBlur: num(args["focus-blur"], 7),
+    crt: clamp(num(args.crt, 0), 0, 1), crtAt: parseWindows(args["crt-at"]),
+    led: Math.max(0, num(args.led, 0)), ledAt: parseWindows(args["led-at"]),
+    print, printPitch: num(args["print-pitch"], 10.8), printShimmer: Math.round(num(args["print-shimmer"], 1)), printDropout: clamp(num(args["print-dropout"], 0.006), 0, 0.05), printContrast: num(args["print-contrast"], 1),
+    notes: [],
   };
+  const sc = scoreDoc();
+  // chromatic aberration is the budgeted "chromatic-split" hero effect: with no windows it takes the scenes of the score's budget entries;
+  // with neither it runs film-wide, which is the uniform tell, and says so
+  if (g.ca > 0 && !g.caAt.length) {
+    const wins = readBudget(sc || {}).filter((e) => e.effect === "chromatic-split").map((e) => sceneSpan(sc, e.scene)).filter(Boolean);
+    if (wins.length) { g.caAt = wins; g.notes.push(`chromatic aberration only in the score's budgeted scene(s): ${wins.map((w) => w.join("-")).join(", ")} s`); }
+    else g.notes.push("WARNING: chromatic aberration film-wide is the uniform tell; give it --ca-at windows or a chromatic-split entry in the score's budget (hero moments only)");
+  }
+  if (g.crt > 0 && !g.crtAt.length) g.notes.push("CRT layer film-wide: right for a film set on a screen, otherwise give it --crt-at windows");
+  if (g.led > 0 && !g.ledAt.length) g.notes.push("LED layer film-wide: right for a film set on an LED wall, otherwise give it --led-at windows");
+  if (args["focus-follow"]) {
+    g.focus = heroBoxes(sc);
+    g.notes.push(g.focus.length ? `focus follows the score's hero_box in ${g.focus.length} scene(s)` : "WARNING: --focus-follow found no scenes[].hero_box in the score (give --run/--score; scenes without a box stay sharp): no focus layer");
+  } else if (args.focus && args.focus !== true) {
+    const b = String(args.focus).split(",").map(Number);
+    if (b.length === 4 && b.every(Number.isFinite)) g.focus = [{ id: "film", a: 0, z: 1e6, from: b, to: b }];
+    else g.notes.push("WARNING: --focus wants x,y,w,h as 0..1 of the frame: no focus layer");
+  }
+  if (g.print && (args.lut || g.bloom > 0)) g.notes.push("print riso: a LUT or bloom under a three-ink print is mostly lost; the plates re-separate the colour");
+  return g;
+}
+
+// The extra -i inputs a grade needs (static masks as looped PNGs), the labels their streams get from `base`, the first free input index.
+function prepareExtras({ g, width, height, fps, dir, base }) {
+  const s = height / 1080, args2 = [], x = { scr: [] };
+  let idx = base;
+  const add = (file) => { args2.push("-loop", "1", "-framerate", String(fps), "-i", file); return `${idx++}:v`; };
+  if (g.vignette > 0) x.mask = add(makeMask({ width, height, vignette: g.vignette, dir }));
+  if (g.crt > 0) { const m = makeCrtMask({ width, height, amount: g.crt, s, dir }); x.crt = { label: add(m.file), gain: m.gain }; }
+  if (g.led > 0) { const m = makeLedMask({ width, height, pitch: g.led * s, dir }); x.led = { label: add(m.file), gain: m.gain }; }
+  if (g.print === "riso") RISO.angles.forEach((a, i) => x.scr.push(add(makeScreen({ angle: a, pitch: g.printPitch * s, width, height, dir, name: String(a) }))));
+  // sources made with a duration (the print's plates and specks, the focus mask) end with the film; -t keeps the output from running on
+  x.limit = g.print === "riso" || (g.focus && g.focus.length) ? ["-t", String(r4(g.dur || 0) || 1e6)] : [];
+  return { inputs: args2, x };
 }
 
 const ENCODE = (quality) => (quality === "draft"
@@ -305,12 +517,11 @@ function meanRGB(file, rect) {
 
 function runGrade({ input, output, g, quality, tmpDir, audioFrom }) {
   const p = probe(input);
-  const mask = g.vignette > 0 ? makeMask({ width: p.width, height: p.height, vignette: g.vignette, dir: tmpDir }) : null;
-  const graph = gradeGraph({ src: "0:v", dst: "out", width: p.width, height: p.height, fps: p.fps, g, extraInputs: { mask: "1:v" } });
-  const inputs = ["-i", input];
-  if (mask) inputs.push("-loop", "1", "-framerate", String(p.fps), "-i", mask);
+  g.dur = p.duration;
+  const { inputs: extra, x } = prepareExtras({ g, width: p.width, height: p.height, fps: p.fps, dir: tmpDir, base: 1 });
+  const graph = gradeGraph({ src: "0:v", dst: "out", width: p.width, height: p.height, fps: p.fps, fpsRat: p.fpsRat, dur: p.duration, g, extraInputs: x });
   const t0 = Date.now();
-  ff([...inputs, "-filter_complex", graph, "-map", "[out]", "-map", "0:a?", ...ENCODE(quality), ...TAGS, "-c:a", "copy", output], "grade");
+  ff(["-i", input, ...extra, "-filter_complex", graph, "-map", "[out]", "-map", "0:a?", ...x.limit, ...ENCODE(quality), ...TAGS, "-c:a", "copy", output], "grade");
   return { p, seconds: (Date.now() - t0) / 1000 };
 }
 
@@ -429,11 +640,10 @@ if (cmd === "blur" || cmd === "all") {
   } else {
     const g = gradeOpts();
     const o = probe(b.over);
-    const mask = g.vignette > 0 ? makeMask({ width: o.width, height: o.height, vignette: g.vignette, dir: tmpDir }) : null;
-    const graph = `${b.graphIn},fps=${b.fps}[blurred];` + gradeGraph({ src: "blurred", dst: "out", width: o.width, height: o.height, fps: b.fps, g, extraInputs: { mask: `${b.files.length}:v` } });
-    const inputs = b.files.flatMap((f) => ["-i", f]);
-    if (mask) inputs.push("-loop", "1", "-framerate", String(b.fps), "-i", mask);
-    ff([...inputs, "-filter_complex", graph.replace(/\[1:v\]format=gbrp/, `[${b.files.length}:v]format=gbrp`), "-map", "[out]", "-map", "0:a?", ...ENCODE(b.quality), ...TAGS, "-c:a", "copy", out], "blur+grade");
+    g.dur = srcInfo.duration;
+    const { inputs: extra, x } = prepareExtras({ g, width: o.width, height: o.height, fps: b.fps, dir: tmpDir, base: b.files.length });
+    const graph = `${b.graphIn},fps=${b.fps}[blurred];` + gradeGraph({ src: "blurred", dst: "out", width: o.width, height: o.height, fps: b.fps, fpsRat: `${b.fps}/1`, dur: srcInfo.duration, g, extraInputs: x });
+    ff([...b.files.flatMap((f) => ["-i", f]), ...extra, "-filter_complex", graph, "-map", "[out]", "-map", "0:a?", ...x.limit, ...ENCODE(b.quality), ...TAGS, "-c:a", "copy", out], "blur+grade");
     result = { grade: g };
   }
   const mixSeconds = (Date.now() - t0) / 1000;
@@ -445,7 +655,7 @@ if (cmd === "blur" || cmd === "all") {
     frames: { expected: expectFrames, got: o.frames }, audio: o.hasAudio,
     auto: b.motion ? { motion: b.motion, pre_pass_seconds: b.preSeconds } : undefined,
     seconds: { render_oversampled: b.renderSeconds, mix_and_encode: mixSeconds, pre_pass: b.preSeconds, total: b.renderSeconds + mixSeconds + b.preSeconds },
-    size_kb: fmtSize(out), notes: b.notes, ...result,
+    size_kb: fmtSize(out), notes: [...b.notes, ...(result.grade ? result.grade.notes : [])], credits: result.grade && result.grade.print ? [CREDIT_RISO] : undefined, ...result,
   });
   cleanup();
 } else if (cmd === "grade") {
@@ -461,7 +671,7 @@ if (cmd === "blur" || cmd === "all") {
     const a = meanRGB(input, rect), c = meanRGB(output, rect);
     probeReport = { rect, before: a, after: c, delta: a && c ? c.map((v, i) => Math.round((v - a[i]) * 100) / 100) : null };
   }
-  report({ ok: true, command: "grade", out: output, grade: g, seconds, size_kb: fmtSize(output), frames: probe(output).frames, input_frames: p.frames, probe: probeReport });
+  report({ ok: true, command: "grade", out: output, grade: g, notes: g.notes.length ? g.notes : undefined, credits: g.print ? [CREDIT_RISO] : undefined, seconds, size_kb: fmtSize(output), frames: probe(output).frames, input_frames: p.frames, probe: probeReport });
   cleanup();
 } else if (cmd === "patch-test") {
   // Flat brand-colour patches on mid grey: centre patches and an off-centre patch, before/after the grade.

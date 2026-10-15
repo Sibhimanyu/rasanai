@@ -21,6 +21,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { cutTimes } from "./lib/deconstruct.mjs";
 
 const YTDLP = fs.existsSync("/opt/homebrew/bin/yt-dlp") ? "/opt/homebrew/bin/yt-dlp" : "yt-dlp";
 const W = 64, H = 36;
@@ -57,8 +58,12 @@ function probe(file) {
   try { const j = JSON.parse(r.stdout); return { duration: parseFloat(j.format.duration) || 0, width: j.streams[0].width, height: j.streams[0].height }; } catch { return null; }
 }
 
-// scene-cut times (seconds) from ffmpeg's scene score
+// cut times (seconds): the robust detector (lib/deconstruct.mjs: a frame difference above max(8, 4x its rolling median +-12 frames),
+// cuts inside stepped / flicker runs dropped, so hand-animated footage on 2s does not read as a cut at every step); ffmpeg's fixed
+// scene score (0.25) only when the film cannot be read frame by frame
 function sceneCuts(file, thr = 0.25) {
+  const robust = cutTimes(file);
+  if (robust) return robust;
   const r = run("ffmpeg", ["-v", "info", "-nostats", "-i", file, "-an", "-vf", `scale=320:-2,select='gt(scene,${thr})',showinfo`, "-f", "null", "-"]);
   const t = [];
   for (const m of (r.stderr || "").matchAll(/pts_time:([0-9.]+)/g)) t.push(parseFloat(m[1]));

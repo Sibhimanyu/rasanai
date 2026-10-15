@@ -37,6 +37,9 @@ Find one: `grep -il "<words>" library/styles/*.md`, or read the table below.
 | [riso](riso.md) | Risograph print | A three-ink print on cream paper: screens at their own angles, overprints instead of mixed colours, plates off register, ink dropouts, on 2s. | animate |
 | [sketchbook](sketchbook.md) | Sketchbook | Graphite and one accent colour on a warm page: pencilled, inked, scribbled, hand lettering narrates, the page is the world. | animate |
 | [manim-math](manim-math.md) | Manim-style math | Coloured math on a near-black stage: written-on serif type, drawn curves, transforming equations, a tracker with a live readout. | animate |
+| [halftone-collage](halftone-collage.md) | Halftone paper collage | One flat, bold colour field and three to six black-and-white halftone cut-outs with cream keylines and soft paper shadows, assembled from empty. | gbro |
+
+A fourth source, `pyang5166/gbro-collage-broll` and `gbro-collage-info` (MIT; `source: "gbro"`), adds the halftone paper collage; `scripts/art.mjs treat --halftone-collage` makes its picture treatment.
 
 A third source, `cth9191/animate` (MIT, `third_party/animate/`), adds the three print and drawing looks above. Its files use `source: "animate"` and the same nine sections.
 
