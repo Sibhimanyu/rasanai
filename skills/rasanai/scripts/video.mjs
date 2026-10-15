@@ -145,6 +145,9 @@ if (cmd === "init") {
   // the native-UI rebuild kit (assets/rasan-ui/) when a composition or the storyboard names RasanUI (references/ui-rebuild.md)
   const uk = await import("./lib/uikit.mjs");
   const ui = args.runtime || uk.projectUsesUI(dir) || /RasanUI/.test(sb) ? uk.installUI(dir) : null;
+  // RasanSim (assets/rasan-sim/rasan-sim.js: cursor-driven physics, pre-simulated and seek-safe) when a composition or the storyboard names it (references/scale-dive.md)
+  const simUsed = args.runtime || uk.projectUsesSim(dir) || /RasanSim/.test(sb);
+  const sim = simUsed ? uk.installSim(dir) : null;
   // the orbs kit (assets/rasan-orbs/rasan-orbs.js: "AI is working" thinking orbs, a port of thinking-orbs, MIT) when a composition or the storyboard names RasanOrbs (references/orbs.md)
   const orbsSrc = path.join(HERE, "..", "runtime", "rasan-orbs.js");
   const orbsUsed = args.runtime || /RasanOrbs/.test(sb) || shp.collect(dir).some((f) => !/[/\\]rasan-orbs[/\\]/.test(f) && /\bRasanOrbs\b/.test(fs.readFileSync(f, "utf8")));
@@ -156,7 +159,7 @@ if (cmd === "init") {
     orbs = { dir: od, script: "assets/rasan-orbs/rasan-orbs.js" };
   }
   const tagged = cam.tagCompositions(dir, { camera: !!camera, plugins: !!plugins });
-  console.log(JSON.stringify({ ok: true, injected: done, direction: !!dirSection, ...(shape ? { shape: { runtime: path.relative(process.cwd(), shape.dir), scripts: shape.scripts } } : {}), ...(camera ? { camera: { runtime: path.relative(process.cwd(), camera.dir), script: camera.script } } : {}), ...(plugins ? { gsap_plugins: { file: path.relative(process.cwd(), plugins.file), script: plugins.script, registers: plugins.registers } } : {}), ...(motion ? { motion: { runtime: path.relative(process.cwd(), motion.dir), scripts: motion.scripts } } : {}), ...(ui ? { ui: { runtime: path.relative(process.cwd(), ui.dir), script: ui.script } } : {}), ...(orbs ? { orbs: { runtime: path.relative(process.cwd(), orbs.dir), script: orbs.script } } : {}), ...(tagged.length ? { tagged } : {}), ...(three ? { three: { runtime: path.relative(process.cwd(), three.dir), script: three.script } } : {}) }, null, 2));
+  console.log(JSON.stringify({ ok: true, injected: done, direction: !!dirSection, ...(shape ? { shape: { runtime: path.relative(process.cwd(), shape.dir), scripts: shape.scripts } } : {}), ...(camera ? { camera: { runtime: path.relative(process.cwd(), camera.dir), script: camera.script } } : {}), ...(plugins ? { gsap_plugins: { file: path.relative(process.cwd(), plugins.file), script: plugins.script, registers: plugins.registers } } : {}), ...(motion ? { motion: { runtime: path.relative(process.cwd(), motion.dir), scripts: motion.scripts } } : {}), ...(ui ? { ui: { runtime: path.relative(process.cwd(), ui.dir), script: ui.script } } : {}), ...(sim ? { sim: { runtime: path.relative(process.cwd(), sim.dir), script: sim.script } } : {}), ...(orbs ? { orbs: { runtime: path.relative(process.cwd(), orbs.dir), script: orbs.script } } : {}), ...(tagged.length ? { tagged } : {}), ...(three ? { three: { runtime: path.relative(process.cwd(), three.dir), script: three.script } } : {}) }, null, 2));
 } else if (cmd === "audio-lock") {
   const dir = projectDir();
   if (!args.music) die("--music <file> required");

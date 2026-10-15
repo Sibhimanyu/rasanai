@@ -5,7 +5,8 @@ Internal knowledge for the design desk and the Motion Director. It is never show
 ## Layout and formats
 - `systems/<domain>/<id>.md` — design systems. Domains: `movements` (graphic-design canon), `studios` (studios, brands, title design, broadcast, editorial), `vernacular` (era, regional and medium looks), `material` (print, craft and 3D material looks).
 - `motion/<family>/<id>.md` — animation, camera and 3D techniques (traditional, kinetic-type, ui-motion, cinematic, 3d-cgi, npr-3d, simulation, stop-motion, collage, data-viz, glitch, other).
-- `styles/<id>.md` — style references (lemo-opuscar, mg-styles-15; MIT): the design desk pulls 1 to 3 per look and cites their slugs in `blend.json` `style_refs`. Not indexed by `library.mjs index`.
+- `styles/<id>.md` — style references (lemo-opuscar, mg-styles-15, animate; MIT; 29 of them, plus `styles/prompts/` the prompt bank): the design desk pulls 1 to 3 per look and cites their slugs in `blend.json` `style_refs`. Not indexed by `library.mjs index`.
+- `motion/closes/<id>.md` — the end card and the close: ten measured closes (C1 to C10) and `close-chooser`. `grammars/<id>.json` — the eight motion grammars (dot-system, editorial-grid, glow-panels, glyph-chain, pixel-collage, specimen-sheet, viewfinder-reel, catalogue-cards).
 - `index/<letter>.json` — per-author index fragments, merged by the release step into `index.json`, which `scripts/library.mjs` reads.
 - `EDITING.md` — per-entry verification status and the remaining gaps (generated from the frontmatter).
 - Entry format: see `.context/library-spec.md`. Frontmatter is one key per line, each value valid JSON, `id` equals the filename. `blends_with` / `clashes_with` hold only ids of existing entries (free-text clashes live in the body's Blending notes). The key `verified` (added in the edit pass) records: `sources_fetched`, `non_wikipedia`, `colours`, `colour_images`, `grid`, `timings`, `recipes`, `edited`.

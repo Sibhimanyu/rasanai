@@ -26,6 +26,9 @@
  *   U.finish();                                              // LAST: registers the clock
  *   U.check({ at: [1.0, 2.5] })  -> { ok, warnings: [{rule, message}], stats }
  *
+ *   // 1.1.0: U.drag(card, target, { at }) the drag-and-drop reaction stack; U.scroll(col, { at, distance }) an accelerating dense scroll;
+ *   //        U.shimmer(statusEl, { at }) status words then two shimmer passes; U.terminal(parent, { lines: [{ cmd }, { out }, { pill }] }).
+ *
  * Reference: references/ui-rebuild.md (recipes, numbers, the rules the check enforces).
  */
 (function (root, factory) {
@@ -33,7 +36,7 @@
   else root.RasanUI = factory(root);
 })(typeof self !== "undefined" ? self : this, function (root) {
   "use strict";
-  var VERSION = "1.0.0";
+  var VERSION = "1.1.0";
   var NS = "http://www.w3.org/2000/svg";
 
   // ------------------------------------------------------------------ helpers
@@ -177,6 +180,9 @@
     ".ru-panel{display:flex;flex-direction:column;gap:calc(var(--ru-u)*3)}.ru-ptitle{font-weight:700;font-size:17px}",
     ".ru-notif{display:flex;gap:calc(var(--ru-u)*3.5);align-items:flex-start;padding:calc(var(--ru-u)*3.5);border-radius:var(--ru-r-lg);background:var(--ru-surface);border:1px solid var(--ru-border);box-shadow:var(--ru-shadow)}.ru-ntop{display:flex;gap:8px;align-items:baseline}.ru-ntitle{font-weight:700}.ru-ntime{margin-left:auto;color:var(--ru-muted);font-size:12px}.ru-nbody{margin-top:2px}",
     ".ru-msg{display:flex;flex-direction:column;gap:3px;max-width:78%}.ru-msg[data-mine]{align-self:flex-end;align-items:flex-end}.ru-from{font-size:12px;font-weight:600;color:var(--ru-muted)}.ru-bubble{padding:10px 14px;border-radius:var(--ru-r-lg);background:var(--ru-hover)}.ru-msg[data-mine] .ru-bubble{background:var(--ru-accent);color:var(--ru-on-accent)}",
+    ".ru-term{display:flex;flex-direction:column;gap:6px;padding:calc(var(--ru-u)*5) calc(var(--ru-u)*6);border-radius:var(--ru-r-lg);background:var(--ru-ink);color:var(--ru-canvas);font-family:var(--ru-mono);font-size:17px;line-height:1.5;white-space:pre;overflow:hidden;position:relative}",
+    ".ru-tline{min-height:1.5em}.ru-tline[data-kind=out]{opacity:.72}.ru-tprompt{color:var(--ru-accent);margin-right:1ch}.ru-tpill{display:inline-block;padding:0 10px;border-radius:var(--ru-r-pill);background:var(--ru-accent);color:var(--ru-on-accent);font-size:14px;font-weight:700;line-height:24px}.ru-tcaret{display:inline-block;width:.6em;height:1.15em;vertical-align:text-bottom;background:var(--ru-accent);margin-left:1px}",
+    ".ru-shim{position:absolute;pointer-events:none;white-space:pre}",
     ".ru-cursor-layer{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:2147483000;overflow:visible}",
     ".ru-cursor{position:absolute;left:0;top:0;transform-origin:0 0;opacity:0;will-change:transform}.ru-cursor svg{display:block;overflow:visible}",
   ].join("\n");
@@ -545,6 +551,157 @@
       return { start: at, end: endT2, next: endT2 + 0.15, chars: chars.length, times: times };
     }
 
+
+    // ---------------- drag and drop: the reaction stack, earliest first (references/ui-rebuild.md, "Drag and drop").
+    //   U.drag(card, target, { at, lift, hold, travel, tilt, consume, dropScale, hover, grow })
+    //   `at` is the grab. The target grows (14 f, ending on the drop) and takes a hover rim (data-hover) 0.4 s before the drop;
+    //   the card RISES (11 f, softLand, `lift` px), HOLDS 2 f at the crest, travels slow-fast-slow on a bowed path while
+    //   it tilts (`tilt` deg, default -8, over 8 f, back to 0 by the drop); the drop is ONE frame: the card is at the target
+    //   centre at `dropScale` (default 0.67), data-state="dropped" is set on the target, and with consume:true the card
+    //   instead shrinks to nothing about its own centre in 3 f with a 10 px blur (it was eaten, it does not fly to a slot).
+    //   Pair the cursor: cur.click(card, { at: grab }) and cur.move(target, { end: drop }).
+    //   Returns { start, crest, drop, end, next, hold: grab..drop }.
+    function drag(item, target, d) {
+      d = d || {};
+      var it = one(item), tg = one(target), t0 = fr(opt(d, "at", 0)), liftF = 11, holdF = 2;
+      var ir = it.getBoundingClientRect(), tr = tg.getBoundingClientRect();
+      var ratio = it.offsetWidth ? ir.width / it.offsetWidth : 1; ratio = ratio || 1; // the on-screen scale of the card's own coordinates
+      var dx = (tr.left + tr.width / 2 - ir.left - ir.width / 2) / ratio, dy = (tr.top + tr.height / 2 - ir.top - ir.height / 2) / ratio;
+      var dist = Math.sqrt(dx * dx + dy * dy), lift = opt(d, "lift", Math.round(ir.height / ratio * 0.35));
+      var travelDur = fr(opt(d, "travel", clamp(0.35 + (dist * ratio / W) * 0.6, 0.35, 0.9)));
+      var tLift = t0 + liftF * F, tCrest = tLift + holdF * F, tDrop = fr(tCrest + travelDur), tilt = opt(d, "tilt", -8), consume = !!opt(d, "consume", false);
+      var dropScale = opt(d, "dropScale", 0.67), growTo = opt(d, "grow", 1.04), nx = -dy / (dist || 1), ny = dx / (dist || 1), bow = (hash(dist | 0, seed) > 0.5 ? 1 : -1) * dist * 0.1;
+      it.style.transformOrigin = "50% 50%"; tg.style.transformOrigin = tg.style.transformOrigin || "50% 50%";
+      var endAt = consume ? tDrop + 3 * F : tDrop;
+      chan(function (t) {
+        var x = 0, y = 0, r = 0, sc = 1, op = 1, blur = 0;
+        if (t > t0) {
+          if (t < tLift) { y = -lift * EASE.out(clamp((t - t0) / (liftF * F), 0, 1)); }
+          else {
+            var q = clamp((t - tCrest) / Math.max(F, tDrop - tCrest), 0, 1), e = t <= tCrest ? 0 : EASE.inout(q);
+            y = -lift + (dy + lift) * e; x = dx * e;
+            var arc = 4 * e * (1 - e) * bow; x += nx * arc; y += ny * arc;
+            r = t < tCrest ? 0 : t < tCrest + 8 * F ? tilt * EASE.out((t - tCrest) / (8 * F)) : tilt * (1 - EASE.inout(clamp((t - tCrest - 8 * F) / Math.max(F, tDrop - tCrest - 8 * F), 0, 1)));
+          }
+          if (t >= tDrop - 1e-9) {
+            x = dx; y = dy; r = 0;
+            if (consume) { var k = clamp((t - tDrop) / (3 * F), 0, 1); sc = 1 - k; blur = 10 * k; op = k >= 1 ? 0 : 1; }
+            else sc = dropScale;
+          }
+        }
+        it.style.translate = r3(x) + "px " + r3(y) + "px"; it.style.rotate = r3(r) + "deg"; it.style.scale = r3(sc);
+        it.style.filter = blur > 0.05 ? "blur(" + r3(blur) + "px)" : ""; it.style.opacity = String(op);
+        var gr = t < tDrop - 14 * F ? 0 : t < tDrop ? EASE.out((t - (tDrop - 14 * F)) / (14 * F)) : 1;
+        tg.style.scale = r3(1 + (growTo - 1) * (t >= tDrop ? Math.max(0, 1 - (t - tDrop) / (6 * F)) : gr));
+        if (t >= tDrop - 0.4 - 1e-9 && t < tDrop - 1e-9 && opt(d, "hover", true)) tg.setAttribute("data-hover", ""); else tg.removeAttribute("data-hover");
+        if (t >= tDrop - 1e-9) tg.setAttribute("data-state", "dropped"); else tg.removeAttribute("data-state");
+      }, endAt + 6 * F);
+      return { start: t0, crest: tCrest, drop: tDrop, end: endAt, next: tDrop + 0.1, hold: tDrop - t0 };
+    }
+
+    // ---------------- accelerating scroll: a dense list or log that is already moving on frame `at`, speeds up the whole run
+    // and brakes onto a short readable list. `el` is the moving column (one group, no blur); `distance` is px of travel
+    // (a positive number moves the content UP, the way scrolling down does). Speed: slow start (the first 0.4 s of 1.84
+    // move about 7%), growing continuously to a peak (default 250 px per frame at 30 fps on a 3000+ px distance), then a
+    // quadratic brake over `settle` frames (default 9). Pure function of T. Let the viewport run EMPTY after the last block;
+    // do not fill it. Hold the landing still 0.8 s. New events step in whole (U.step) and then ride the scroll.
+    //   U.scroll(col, { at, dur: 1.84, distance, settle: 9, n: 2.4 }) -> { start, end, peak_px_per_frame, next }
+    function scroll(col, s) {
+      s = s || {};
+      var e = one(col), t0 = fr(opt(s, "at", 0)), dur = fr(opt(s, "dur", 1.84)), dist = s.distance;
+      need(typeof dist === "number" && dist, "scroll: distance (px of travel) is required");
+      var n = opt(s, "n", 2.4), settle = Math.max(1, opt(s, "settle", 9)) * F, pk = clamp(1 - settle / dur, 0.5, 0.97);
+      var S1 = 1 / (1 + n * (1 - pk) / (2 * pk)), vpk = S1 * n / pk; // fraction of the distance, per unit of progress, at the peak
+      function frac(p) {
+        if (p <= 0) return 0; if (p >= 1) return 1;
+        if (p <= pk) return S1 * Math.pow(p / pk, n);
+        var q = (p - pk) / (1 - pk); return S1 + vpk * (1 - pk) * (q - q * q / 2);
+      }
+      chan(function (t) { e.style.translate = "0px " + r3(-dist * frac(clamp((t - t0) / dur, 0, 1))) + "px"; }, t0 + dur);
+      return { start: t0, end: t0 + dur, next: t0 + dur, peak_px_per_frame: Math.round(Math.abs(dist) * vpk / (dur * fps)) };
+    }
+
+    // ---------------- shimmer: "the machine is thinking". Status words arrive whole (blur 12 px and opacity 0.1 to sharp over 4 to 5 f,
+    // back to back, 4 f apart: `words: true`), then TWO passes of a brighter copy of the text under a moving band masked to
+    // the glyphs (band ~0.35 of the text width, 13 f each, a 6 f gap), in the accent hue. No spinner, no dots, never per
+    // character. `end: "check"` draws nothing itself: finish with a left-to-right wipe + a check of your own (U.step).
+    //   U.shimmer(textEl, { at, words: true, passes: 2, band: 0.35, pass: 13, gap: 6, tone }) -> { start, shimmer, end, next }
+    function shimmer(textEl, m) {
+      m = m || {};
+      var e = one(textEl), at0 = fr(opt(m, "at", 0)), wordsIn = opt(m, "words", true), passes = Math.max(1, opt(m, "passes", 2)), passF = opt(m, "pass", 13), gapF = opt(m, "gap", 6), band = opt(m, "band", 0.35);
+      var txt = copy(e.textContent, "shimmer text"), wordEls = [], tIn = at0;
+      if (wordsIn) {
+        e.textContent = "";
+        txt.split(/(\s+)/).forEach(function (w) { if (!w) return; if (/^\s+$/.test(w)) e.appendChild(document.createTextNode(w)); else wordEls.push(el(e, "span", null, w)); });
+        wordEls.forEach(function (w) { w.style.display = "inline-block"; });
+        tIn = at0 + wordEls.length * 4 * F + 1 * F;
+      }
+      var pos = getComputedStyle(e.parentNode).position; if (pos === "static") e.parentNode.style.position = "relative";
+      var cl = el(e.parentNode, "div", "ru-shim", txt); cl.setAttribute("aria-hidden", "true");
+      var cs = getComputedStyle(e); cl.style.left = e.offsetLeft + "px"; cl.style.top = e.offsetTop + "px"; cl.style.font = cs.font; cl.style.letterSpacing = cs.letterSpacing; cl.style.width = e.offsetWidth + "px";
+      cl.style.color = m.tone || "var(--ru-accent)";
+      var wpx = Math.max(24, e.offsetWidth * band), t1 = tIn + 0 * F, endAll = t1 + passes * passF * F + (passes - 1) * gapF * F;
+      cl.style.webkitMaskImage = cl.style.maskImage = "linear-gradient(90deg,transparent,#000 50%,transparent)"; cl.style.webkitMaskRepeat = cl.style.maskRepeat = "no-repeat"; cl.style.webkitMaskSize = cl.style.maskSize = wpx + "px 100%";
+      chan(function (t) {
+        wordEls.forEach(function (w, i) {
+          var q = clamp((t - (at0 + i * 4 * F)) / (4.5 * F), 0, 1), k = EASE.out(q);
+          w.style.opacity = r3(0.1 + 0.9 * k); w.style.filter = k >= 1 ? "" : "blur(" + r3(12 * (1 - k)) + "px)";
+        });
+        var on = false, pp = 0;
+        for (var i = 0; i < passes; i++) { var a = t1 + i * (passF + gapF) * F; if (t >= a - 1e-9 && t < a + passF * F) { on = true; pp = (t - a) / (passF * F); } }
+        cl.style.opacity = on ? "1" : "0";
+        var x = -wpx + (e.offsetWidth + wpx) * pp; cl.style.webkitMaskPosition = cl.style.maskPosition = r3(x) + "px 0";
+      }, endAll);
+      return { start: at0, shimmer: t1, end: endAll, next: endAll };
+    }
+
+    // ---------------- code / terminal: a panel of typed commands, printed output and status pills, the way a real session reads.
+    //   U.terminal(parent, { title, at, speed: 0.035, lines: [{ cmd: "npm run build" }, { out: "compiled in 1.2 s" }, { pause: 0.6 }, { pill: "done" }] })
+    // cmd: types with a "$ " prompt at `speed` s per glyph (seeded +-40% jitter, a pause after a space); out: the whole line (or
+    // `outs: [..]` several lines) on ONE frame; pause: seconds of nothing but a blinking caret; pill: a status chip on one frame.
+    // Dark panel from the brand (ink ground, canvas text, accent prompt), mono font from the tokens. Everything is `data-ru-read`,
+    // so U.check holds it to the text-height floor: magnify with fillW / the world camera, never shrink the proof.
+    //   -> { el, start, end, next, lines: [{ start, end }] }
+    function terminal(parent, tm) {
+      tm = tm || {};
+      var pr = one(parent), root = el(pr, "div", "ru-term"), c = T.colors, sp = opt(tm, "speed", 0.035), t = fr(opt(tm, "at", 0)), plan = [], k, lineNo = 0;
+      var v = { "--ru-canvas": c.canvas, "--ru-ink": c.ink, "--ru-accent": c.accent, "--ru-on-accent": c.onAccent, "--ru-mono": T.fonts.mono, "--ru-r-lg": T.radii.lg + "px", "--ru-r-pill": "999px", "--ru-u": T.space + "px" };
+      for (k in v) if (!getComputedStyle(pr).getPropertyValue(k)) root.style.setProperty(k, v[k]);
+      root.setAttribute("data-ru-term", "1");
+      if (tm.title) { var ti = el(root, "div", null, copy(tm.title, "terminal title")); ti.style.cssText = "opacity:.55;font-size:13px;letter-spacing:.04em;margin-bottom:4px"; }
+      var t00 = t;
+      (tm.lines || []).forEach(function (ln) {
+        if (ln.pause != null) { t = fr(t + ln.pause); return; }
+        var row = el(root, "div", "ru-tline"); row.setAttribute("data-ru-read", ""); lineNo++;
+        if (ln.cmd != null) {
+          row.setAttribute("data-kind", "cmd"); var pm = el(row, "span", "ru-tprompt", "$"), tx = el(row, "span", null, ""), cr = el(row, "span", "ru-tcaret");
+          var chars = Array.from(copy(ln.cmd, "terminal command")), times = [], q = t + 3 * F, i;
+          for (i = 0; i < chars.length; i++) { times.push(fr(q)); q += sp * (0.6 + hash(i + lineNo * 31, seed + 5) * 0.8) + (chars[i] === " " ? sp * 1.5 : 0); }
+          var tEnd = times.length ? times[times.length - 1] : t, nxtT = fr(tEnd + 0.35);
+          plan.push({ row: row, tx: tx, cr: cr, chars: chars, times: times, a: t, b: tEnd, nxt: nxtT, cmd: true });
+          plan[plan.length - 1].span = [t, tEnd]; t = nxtT;
+        } else if (ln.pill != null) {
+          row.setAttribute("data-kind", "pill"); var pl = el(row, "span", "ru-tpill", copy(ln.pill, "terminal pill")); plan.push({ row: row, show: t, span: [t, t] }); t = fr(t + 0.2);
+        } else {
+          var outs = ln.outs || [ln.out]; row.setAttribute("data-kind", "out"); row.textContent = outs.map(function (o) { return copy(o, "terminal output"); }).join("\n");
+          plan.push({ row: row, show: t, span: [t, t] }); t = fr(t + 0.25);
+        }
+      });
+      var tEndAll = t;
+      chan(function (tm2) {
+        plan.forEach(function (L, idx) {
+          if (L.cmd) {
+            var n = 0; for (var q2 = 0; q2 < L.times.length; q2++) if (tm2 >= L.times[q2] - 1e-9) n = q2 + 1;
+            L.row.style.visibility = tm2 >= L.a - 1e-9 ? "visible" : "hidden";
+            L.tx.textContent = L.chars.slice(0, n).join("");
+            var typing = tm2 >= L.a && tm2 <= L.b + 1e-9, last = idx === plan.length - 1 || tm2 < plan[idx + 1].span[0], blink = last && tm2 > L.b && Math.floor((tm2 - L.b) / 0.26 + 1e-9) % 2 === 0;
+            L.cr.style.display = typing || blink ? "inline-block" : "none";
+          } else L.row.style.visibility = tm2 >= L.show - 1e-9 ? "visible" : "hidden";
+        });
+      }, tEndAll);
+      return { el: root, start: t00, end: tEndAll, next: tEndAll, lines: plan.map(function (L) { return { start: L.span[0], end: L.span[1] }; }) };
+    }
+
     // ---------------- readability: the check. Every measure is read from the rendered DOM at the sampled times.
     function warnObj(rule, message, node) { return { rule: rule, message: message, node: node ? (node.className || node.tagName) : null }; }
     function check(c) {
@@ -607,7 +764,7 @@
     return {
       tokens: T, stage: stage, W: W, H: H, fps: fps, mount: mount, main: main, sidebar: sidebar, header: header, panel: panel, button: button, input: input, toggle: toggle, chip: chip,
       avatar: avatar, row: row, list: list, table: table, tabs: tabs, notification: notification, message: message, hero: hero, read: read, texture: texture, step: step, world: world,
-      cursor: cursor, type: type, check: check, finish: finish, audit: audit, render: render,
+      cursor: cursor, type: type, drag: drag, scroll: scroll, shimmer: shimmer, terminal: terminal, check: check, finish: finish, audit: audit, render: render,
     };
   }
 

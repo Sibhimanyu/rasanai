@@ -1,0 +1,67 @@
+{
+ "version": 1,
+ "what": "Measured transition recipes with frame counts (motionmaxxing transitions catalogue, Apache-2.0, restated in our words; times are seconds from the cut, frames as noted). Use with references/vocabulary.md section 5.",
+ "source": "https://github.com/Tejashmakwana/motionmaxxing/blob/main/references/transitions.md",
+ "transitions": [
+  {
+   "id": "T5-grey-dip",
+   "name": "Flat grey dip that hides a theme flip",
+   "what": "A 4-frame contrast dip masks a light-to-dark flip plus a magnification of the same object.",
+   "frames": "At 24 fps source: contrast washes 30% (frame 0) -> 65% (frame 1) -> ONE flat mid-grey frame (#7D7D7D, frame 2) -> the dark macro under a grey veil (frame 3) -> clear by about frame 5. Across the dip the same object is magnified about 1.5x (rail height 0.14 H -> 0.21 H, labels 0.05 -> 0.07 H) and inverted to dark. A state change INSIDE a scene instead uses hard plateaus of 0.3 to 0.4 s with a one-frame gap between them (white, teal, cyan, white), never a crossfade.",
+   "use_when": "The film changes mode (a human UI becomes an AI part) and a light-to-dark plus a scale jump would otherwise show.",
+   "eye_carried_by": "The motion that continues across the dip: a selection pill that was sliding right continues onto its target (left edge 0.32 -> 0.38 -> 0.45 -> 0.56 W, decelerating, no overshoot) and the same object at 1.5x.",
+   "build": "A full-frame flat rect: opacity steps on a frame table (0.3, 0.65, 1 flat grey, 0.5, 0.15, 0); swap the theme CSS variables on the grey frame; magnify the carrier with M.snap on the same frame; do not cross-fade.",
+   "rule": "Hide a visible theme flip in a 4-frame flat grey dip, not a black cut, and carry the object's motion across."
+  },
+  {
+   "id": "T9-stair-wipe",
+   "name": "Stair / block wipe in screen-grid steps",
+   "what": "A wipe whose front advances in whole screen-grid jumps, with no interpolation.",
+   "frames": "Jumps of 80 px (0.06 W); three stacked brand-colour rects at opacity 0.68 / 0.30 / 0.20 (core about 0.8, bands about 0.44 and 0.2); glyphs inside the core white, in the bands grey, outside charcoal; the front travels right and up in discrete positions at 0.08 s steps (core x -0.06..0.31, y 0.74..1.00 at 2.64 s -> x 0.38..0.56, y 0.63..0.84 at 2.72 s -> x 0.69..0.75, y 0.53..0.69 at 2.80 s -> two 80 px columns 2.84 to 2.96 s -> gone at 3.00 s); the new text reveals behind the front: the first word at the first step, then one glyph per frame, whole by 0.28 s. Variant (a brand motif): a stair-edged wave floods left while the world jerks left by accelerating offsets (-.01, -.04, -.10, -.14, -.29, -.41, -.63, -.86 W, one repeated frame).",
+   "use_when": "The film's world is a grid of tiles or a stepped brand shape; the wipe takes the grid as its unit.",
+   "eye_carried_by": "The stepped front and the text revealed behind it.",
+   "build": "Position the three rects with a step() on a frame table, never a tween; clip the new text to a mask whose edge uses the same table.",
+   "rule": "The wipe uses the scene's own geometry as its unit."
+  },
+  {
+   "id": "T10-mosaic-dissolve",
+   "name": "Pixel / mosaic dissolve with stepped coverage",
+   "what": "A field of real hard-edged cells dissolves or resolves; opacity is not used.",
+   "frames": "Field to logo: cell 0.025 -> 0.02 W; coverage 90% (0 s) -> 60% (0.08) -> 35% (0.13) -> 10% (0.21) -> 0 (0.33), opening bottom-up. Mosaic bridge: a 12 x 12 grid (cell 106.7 x 60 px) at peak for 2 frames, retreating to the corners in 3 steps (85 x 48 at 1.07 s, 75 x 42 at 1.13 s, 64 x 36 at 1.20 s, none at 1.27 s). Number or logo resolve: the final value is present from the first frame and resolves left to right through 12 to 15 px squares and ASCII to real glyphs while scaling 96 -> 176 px, held 0.47 s, then dissolves from both outer digits toward the centre in 0.33 s. Field to object: dots drop out in place 25% -> 10% -> 2.5% -> 0 over 0.27 s.",
+   "use_when": "The brand has a pixel, dot or ASCII texture (cells carry brand colour); a logo or number needs a digital reveal.",
+   "eye_carried_by": "The cell grid and its front.",
+   "build": "A cell grid with a per-cell visibility from a seeded order table; coverage steps on a frame table.",
+   "rule": "Dissolve a field with real cells of 1.5 to 2.5% W and stepped coverage; pixel occlusion reads as craft, opacity reads as default."
+  },
+  {
+   "id": "T17-occlusion",
+   "name": "Occlusion: a rising card covers the old content",
+   "what": "A surface rises or slides over the previous content; nothing fades.",
+   "frames": "Card top edge y: 0.96 (0.08 s) -> 0.58 (0.21) -> 0.41 (0.42) -> 0.36 (0.58) -> 0.35 (0.71 s): 62% of the 0.61 H travel in the first 0.13 s (peak 0.22 H per frame), no overshoot; it hides a headline (gone by 0.38 s) and an object (gone by 0.63 s) bottom-up; a brand mark rides the card with a vertical smear of 0.05 H at 0.13 s, gone by 0.54 s. Related: a new card inserted at the TOP as a blank tinted card with text popping in 2 to 4 frames later and the stack shoved down in piecewise-linear jumps (first jump about 105 px in one frame, one 2-frame hold, 0.02 W lateral drift); cards painted above a headline; a black band expanding vertically (y .02 to 1.0) in 0.20 s while page strips slide up.",
+   "use_when": "The new scene is 'on top of' the old (a UI surface rising over a teaser) and the old content can be hidden by position.",
+   "eye_carried_by": "The leading edge of the surface.",
+   "build": "M.snap on the card (firstFrameShare 0.45, tail 14, from y 0.96 H to 0.35 H) with a vertical M.smear on the riding mark.",
+   "rule": "Cover, do not fade: the card's edge carries the eye."
+  },
+  {
+   "id": "T18-ghost-frame",
+   "name": "One-frame double exposure and carry-over ghosts",
+   "what": "One to three frames where A and B coexist, or a one-frame word or card carries across the cut.",
+   "frames": "Exactly ONE frame at 50% double exposure before a hard close-up (both buttons grey, the cursor still in the old spot); a 2-frame ghost of the previous headline with blurred 4 to 5 px thumbnails shifted 30 to 60 px outward on frame 1, then the hard cut; a 2-frame ghost of the old word (0.18 W, grey) behind the new hero with fragments over the new letters for 2 to 4 frames; a 2-frame drafting diagram at frame 0 as a receipt before the first hard cut; one frame of A (a tilted order panel) then black; a one-frame word card (0.10 H coral on cream at the centre (0.46, 0.53), 3 px blur) that opens the next scene.",
+   "use_when": "You want the cut felt but not seen, or a handoff needs one more frame of identity.",
+   "eye_carried_by": "The surviving ghost.",
+   "build": "A duplicate of the outgoing element at 50% opacity for exactly 1 frame (set on the frame table), or an outgoing copy held 2 frames behind the incoming hero.",
+   "rule": "A ghost lasts one to three frames; longer and it is a dissolve."
+  },
+  {
+   "id": "T20-strobe-flip",
+   "name": "Strobe / reel flip (montage bridge)",
+   "what": "Many plates or card and badge pairs flip on a rhythm to read as range or volume.",
+   "frames": "14 full-bleed plates: the first plate 2 frames, then 4 frames each (0.067 s, about 15 plates per second) over 20 slots (14 plates plus 6 repeats), hard switches, tiny internal drift only; entered on a peak-velocity cut and exited by a hard cut about 1.3 s later. Card-and-badge pairs: 13 pairs flipping instantly on a syncopated 4/2-frame pattern (about 9 swaps per second) over a 0.30 -> 1.0 scale track while outer words creep apart. A 4-frame ten-mockup stack; services swapping about every 11 frames.",
+   "use_when": "You must show breadth without reading each item.",
+   "eye_carried_by": "The fixed container and the rhythm.",
+   "build": "One container, N children, visibility from a frame table (no tweens); a barely-moving internal drift of 1 to 2% scale; cut in on a fast move, out on a hard cut.",
+   "rule": "The container stays; only the contents flip."
+  }
+ ]
+}

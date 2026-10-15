@@ -11,7 +11,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs, die } from "./lib/common.mjs";
-import { installUI, collect, usesUI } from "./lib/uikit.mjs";
+import { installUI, installSim, collect, usesUI, usesSim } from "./lib/uikit.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -37,6 +37,17 @@ function checkProject(project) {
     if (/\.cursor\s*\(/.test(t) && !/\.check\s*\(/.test(t)) add("warning", "no-check", f, "builds a UI with a cursor but never calls U.check({ at: [...] })", "run U.check at the beats the proof lands on and fix every warning");
     if (!/\.finish\s*\(/.test(t)) add("error", "no-finish", f, "never calls U.finish(): the clock is not on the timeline, so nothing moves", "call U.finish() last");
   }
+  // RasanSim (runtime/rasan-sim.js): a composition that names it must load an installed copy; GSAP order only matters for RasanSim.bind
+  const haveSim = fs.existsSync(path.join(project, "assets", "rasan-sim", "rasan-sim.js"));
+  for (const f of collect(project).filter(usesSim)) {
+    const t = fs.readFileSync(f, "utf8");
+    if (!/\.html?$/i.test(f)) continue;
+    const iS = t.search(/rasan-sim\.js/), iG = t.search(/gsap(\.min)?\.js/);
+    if (!haveSim) add("error", "sim-runtime-missing", f, "calls RasanSim but assets/rasan-sim/ is not installed", "node uikit.mjs install --project <dir> (video.mjs inject does it when a composition names RasanSim)");
+    if (iS < 0 && !/RasanSim\s*=/.test(t)) add("error", "sim-not-loaded", f, "calls RasanSim without loading rasan-sim.js", 'add <script src="../../assets/rasan-sim/rasan-sim.js"></script> (relative to the composition)');
+    if (iS >= 0 && iG >= 0 && iS < iG && /RasanSim\.bind\s*\(/.test(t)) add("error", "sim-script-order", f, "rasan-sim.js loads before GSAP and the composition uses RasanSim.bind", "load GSAP first");
+    if (/Math\.random\s*\(|Date\.now\s*\(|performance\.now\s*\(|requestAnimationFrame\s*\(/.test(t)) add("warning", "sim-nondeterministic", f, "Math.random, the wall clock or rAF next to RasanSim", "the sim is pre-simulated from a seed; every other state must be a pure function of the timeline time");
+  }
   const errors = findings.filter((x) => x.severity === "error").length;
   return { project, files: files.map((f) => path.relative(project, f)), runtime_installed: have, findings, errors, warnings: findings.length - errors, status: files.length ? (errors ? "violations" : "clean") : "no-ui-kit" };
 }
@@ -45,7 +56,8 @@ if (cmd === "install") {
   const root = path.resolve(str(args.project) || die("--project <videos/name> required"));
   if (!fs.existsSync(root)) die(`not found: ${root}`);
   const inst = installUI(root);
-  out({ ok: true, ...inst, dir: path.relative(process.cwd(), inst.dir), use: '<script src="../../assets/rasan-ui/rasan-ui.js"></script> after GSAP (relative to the composition), then var U = RasanUI.kit(tl, { tokens, W, H, seed })' });
+  const sim = args.sim ? installSim(root) : null; // --sim also installs RasanSim (assets/rasan-sim/)
+  out({ ok: true, ...inst, ...(sim ? { sim: { dir: path.relative(process.cwd(), sim.dir), script: sim.script } } : {}), dir: path.relative(process.cwd(), inst.dir), use: '<script src="../../assets/rasan-ui/rasan-ui.js"></script> after GSAP (relative to the composition), then var U = RasanUI.kit(tl, { tokens, W, H, seed })' });
 } else if (cmd === "check") {
   const project = path.resolve(str(args.project) || ".");
   const r = checkProject(project);
