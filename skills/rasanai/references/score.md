@@ -17,6 +17,8 @@ Film level: `duration` (s), `brand`, `feature` (`name`, `url`, `viewer`, `task`,
 
 Per beat (each `scenes[]` entry): `id`, `start` and `end` in film seconds (they follow the durations), `line` ("" for none), `picture` (what the viewer sees happen), `moment` and `take` (a reference moment's id and the ONE mechanic taken from it; on the peak and importance-3 beats, `take` also says which of the three candidates won and why), `ui` (the literal cause and effect on screen, two steps or more in the proof), `exit` (`carrier` or `cut`) and `carrier`; on a scene route `board`, `size`, `hero`, `peak_t` (when in the beat the frame matches its board). At least two beats exit on a carrier.
 
+A beat may carry `hero_id` (the hero element's DOM id) so `subject-lost` can follow it; `data-hero` on the element does the same with no score. Per scene also `hero_box: [x, y, w, h]` (0..1 of the frame; where the viewer must look at the beat's peak) and optional `hero_box_end` (the box at the scene's end; the focus follows it linearly). `finish.mjs grade|all --focus-follow --run <run>` puts the soft field outside it; a scene without a box stays sharp.
+
 Film level also: `ground_motion` (how the ground lives, from the grammar's and the card's; `no-living-ground` on films of 15 s or more), `accent: {colour, marks}` (`no-accent-signal`), `breaths: [[t0,t1]]` (at most 2, each 1.0 s or less, at the rest before the peak), `lines_type` (a size class per line; the giant size on the importance-3 lines; `type-rhythm-flat` when all within 15%).
 
 ## 3. Field by field

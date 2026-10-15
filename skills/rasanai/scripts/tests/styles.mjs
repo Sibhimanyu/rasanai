@@ -1,6 +1,6 @@
 // styles: the style-reference library (library/styles/*.md, imported from lemo-opuscar, mg-styles-15 and animate, all MIT) parses
 // (frontmatter, every section, 3 to 6 numbered signature features, a poster that exists, a source line), the 7 launch styles and the
-// 15 mg-styles-15 idioms are all there (plus animate's riso, sketchbook and manim-math: 29 files), the third_party credits exist, and design-desk.md and design-system-designer.md point at the
+// 15 mg-styles-15 idioms are all there (plus animate's riso, sketchbook and manim-math and gbro halftone-collage: 30 files), the third_party credits exist, and design-desk.md and design-system-designer.md point at the
 // library and require `## Signature features`.
 // export default async ({ ok, node, tmp, env })
 import fs from "node:fs";
@@ -34,7 +34,7 @@ export function parseStyle(text) {
 
 export default async function ({ ok }) {
   const files = fs.existsSync(DIR) ? fs.readdirSync(DIR).filter((f) => f.endsWith(".md") && f !== "README.md").sort() : [];
-  ok("styles: library/styles has the 7 launch styles and all 15 mg-styles-15 idioms (at least 29 files)", files.length >= 29 && [...LEMO, ...MG].every((s) => files.includes(s + ".md")), files.join(","));
+  ok("styles: library/styles has the 7 launch styles and all 15 mg-styles-15 idioms (at least 30 files)", files.length >= 30 && [...LEMO, ...MG].every((s) => files.includes(s + ".md")), files.join(","));
   const bad = [];
   const ids = new Set();
   for (const f of files) {
@@ -45,7 +45,7 @@ export default async function ({ ok }) {
       if (ids.has(r.fm.id)) bad.push(f + ": duplicate id");
       ids.add(r.fm.id);
       if (!fs.existsSync(path.join(DIR, r.fm.poster))) bad.push(f + ": poster missing " + r.fm.poster);
-      if (!["lemo-opuscar", "mg-styles-15", "animate"].includes(r.fm.source)) bad.push(f + ": source");
+      if (!["lemo-opuscar", "mg-styles-15", "animate", "gbro"].includes(r.fm.source)) bad.push(f + ": source");
     }
   }
   ok("styles: every style file has its frontmatter, all 9 sections, 3 to 6 numbered signature features, a poster and a source line", bad.length === 0, bad.join("\n"));
