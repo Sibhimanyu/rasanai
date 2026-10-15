@@ -35,6 +35,7 @@ import { track } from "./lib/report.mjs";
 import { isLabelOnly } from "./lib/moves-lib.mjs";
 import { readSources, isFootageLed, productFirstApplies } from "./lib/sources.mjs";
 import { formatShapesForRun } from "./lib/formats.mjs";
+import { readTime } from "./lib/reading.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -1046,12 +1047,12 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
           if (have < need) needChanges.push(`${i + 1} ${b.name} (${d} s needs ${need} listed change${need > 1 ? "s" : ""} in \"changes\", has ${have})`);
         }
         if (r === "statement") {
-          const w = String(b.on_screen || "").trim().split(/\s+/).filter(Boolean).length, read = 0.3 * w + 0.6;
+          const w = String(b.on_screen || "").trim().split(/\s+/).filter(Boolean).length, read = readTime(w);
           if (d > read + 1 && !(Array.isArray(b.changes) && b.changes.length)) long.push(`${i + 1} ${b.name} (${d} s for a ${w}-word line, reading time ${r1d(read)} s)`);
         }
       });
       if (needChanges.length) g9.push(`beats longer than ${r1d(holdMax)} s must list what changes inside them (in "changes" or "ui"), roughly one change per 2 s: ${needChanges.join("; ")}`);
-      if (long.length) g9.push(`a statement line holds only its reading time (0.3 s per word + 0.6 s): ${long.join("; ")}`);
+      if (long.length) g9.push(`a statement line holds only its reading time (0.6 s + 0.3 s per word): ${long.join("; ")}`);
       if (t && Number(t.ideas) && Number(t.ideas) !== ideas) warnings.push(`tempo.ideas says ${t.ideas}, the beats carry ${ideas}`);
       gate("G9", "Tempo (ideas per film, a change every ~2 s, no long holds)", g9, { ideas, min_ideas: minIdeas, change_every_s_max: r1d(everyMax), longest_hold_s: r1d(holdMax), hero_hold_s_max: r1d(heroLimit), source: brand ? "brand film" : "house" });
     }
@@ -1329,7 +1330,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     beats.forEach((b, i) => {
       const nm = `beat ${i + 1} "${b.name || ""}"`, os = String(b.on_screen || ""), v = String(b.vo || ""), d = Number(b.duration_s), ow = words(os), vw = words(v);
       if (ow > 6) g6.push(`${nm}: ${ow} on-screen words (6 at most)`);
-      if (ow && d < 0.6 + 0.4 * ow) g6.push(`${nm}: ${ow} on-screen words need ${(0.6 + 0.4 * ow).toFixed(1)} s to read, it has ${d} s`);
+      if (ow && d < readTime(ow)) g6.push(`${nm}: ${ow} on-screen words need ${readTime(ow).toFixed(1)} s to read, it has ${d} s`);
       if (vw && vw / d > 2.7) g6.push(`${nm}: ${vw} voiceover words in ${d} s (${(vw / d).toFixed(1)} words/s; keep it under 2.7)`);
       v.split(/(?<=[.?!])\s+/).forEach((sen) => { if (words(sen) > 14) g6.push(`${nm}: a ${words(sen)}-word voiceover sentence (14 at most; say it aloud)`); });
       if (ow >= 3 && v && nz(v).includes(nz(os))) g6.push(`${nm}: the on-screen line repeats the voiceover; make the screen add a word, a number or an image`);

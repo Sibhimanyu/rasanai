@@ -167,9 +167,11 @@ function validateAction(a) {
   return { step, type: String(a.type), value: a.value ?? null, note: String(a.note || "").slice(0, 4000) };
 }
 
-// The user's notes on the animatic and the final also go to their local taste ledger (memory.mjs taste): a note pinned
+// The user's notes on the animatic and the final also go to their local evidence ledger (taste.jsonl; the crew reads the one digest,
+// lessons.mjs digest, which carries its last verdicts): a note pinned
 // to a moment or typed in the step's box is an edit; words sent with an approval of the final are a verdict. The
-// server, headless `wait` and chat `record` all end here, so RasanAI Studio's notes land in the same ledger.
+// server, headless `wait` and chat `record` all end here, so RasanAI Studio's notes land in the same ledger. One action is one row
+// (recordTaste skips an action id it has already stored), so a chat `record --type comment|apply` that also runs applyAction counts once.
 function tasteFrom(action) {
   const stage = action.step === "animatic" ? "animatic" : ["render", "final"].includes(action.step) ? "final" : null;
   if (!stage) return;
@@ -177,7 +179,7 @@ function tasteFrom(action) {
   const text = action.note || v.quick || "";
   const kind = action.type === "comment" || action.type === "note" ? "edit" : action.type === "approve" && stage === "final" ? "verdict" : null;
   if (!kind || !text) return;
-  recordTaste({ kind, film: path.basename(RUN), stage, note: text, scene: v.scene, t: typeof v.t === "number" ? v.t : undefined, ts: action.ts });
+  recordTaste({ kind, film: path.basename(RUN), stage, note: text, scene: v.scene, t: typeof v.t === "number" ? v.t : undefined, ts: action.ts, action: action.id });
 }
 
 // What an action does to the session, besides being queued: the "sent" banner, the "You: ..." feed line, the note and
@@ -444,7 +446,7 @@ if (cmd === "push") {
     }
   }
   const a = appendAction({ step: args.step, type: args.type || "choose", value, note: args.note || "", source: "chat" });
-  tasteFrom(a);
+  if (!["comment", "apply"].includes(a.type)) tasteFrom(a); // a comment/apply goes through applyAction below, which records it
   // chat answers count as consumed: the agent already has them
   const markConsumed = () => {
     const consumed = readJSON(F.consumed, []);

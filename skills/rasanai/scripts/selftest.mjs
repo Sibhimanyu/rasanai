@@ -45,6 +45,10 @@
 // 17. lyric videos: the treatment gate and the crew's song route, lyrics.mjs (check, audio, align when whisper is there), the RasanMusic runtime in a page, the film finish (grade, blur)
 // chrome-lint. the page-chrome lint (scripts/tests/chrome-lint.mjs): every rule of lib/chrome-lint.mjs on planted films with its negatives (UI surface, data-ui="captured", data-chrome="allow", a brand film's measured.chrome), through slop.mjs
 // formats. the "What are you making?" picker (scripts/tests/formats.mjs): formats.json check, match, resolve, the brief payload, the console picker, story.mjs format_shapes
+// one-memory. one memory (scripts/tests/one-memory.mjs): lessons.mjs digest and suggest, the taste ledger as raw evidence, one row per action id, the crew brief's one lessons block, the one reading-time formula (lib/reading.mjs)
+// deliver. the delivery package and the voice check (scripts/tests/deliver.mjs): video.mjs deliver (mp4, poster, srt, CREDITS.txt, build.sh, NOTE.md), voice.mjs verify against whisper-cli when it is there
+// orbs. the RasanOrbs kit (scripts/tests/orbs.mjs): runtime, video.mjs inject, the nine states seeked in headless Chrome; --quick runs only the static + golden checks (no Chrome)
+// styles. the style-reference library (scripts/tests/styles.mjs): library/styles parses (frontmatter, 9 sections, 3 to 6 signature features, posters), the third_party credits, design-desk.md and the designer brief point at it
 // plates. abstract plates (scripts/tests/plates.mjs): art.mjs recipe, the gradient-map palette lock, the procedural plate, make on an abstract row; full runs render flowGround + plateTransition twice (byte-identical)
 import fs from "node:fs";
 import os from "node:os";
@@ -140,7 +144,7 @@ for (const count of ["3", "6"]) {
   for (let i = 0; i < 560; i++) fs.appendFileSync(path.join(th, "taste.jsonl"), JSON.stringify({ ts: "2026-01-01T00:00:00Z", kind: "edit", film: "bulk" + (i % 7), stage: "final", note: "note number " + i + " " + "word ".repeat(40) }) + "\n");
   mem(["edit", "--film", "f3", "--stage", "final", "--note", "trigger trim"]);
   const rows = fs.readFileSync(path.join(th, "taste.jsonl"), "utf8").split("\n").filter(Boolean).length;
-  const big = mem(["taste"]).stdout;
+  const big = mem(["taste", "--raw"]).stdout; // the raw ledger digest keeps its own 1800-character cap; `taste` is now the lessons digest plus this
   ok("taste: the ledger keeps at most 500 rows and the digest stays under 1800 characters", rows === 500 && big.length <= 1800 && /trigger trim/.test(big), `rows ${rows}, digest ${big.length}`);
   const one = JSON.parse(mem(["taste-clear", "--film", "f3"]).stdout);
   ok("taste: clear --film removes only that film", one.cleared === 1 && one.left === 499, JSON.stringify(one));
@@ -1074,14 +1078,14 @@ if (spawnSync("ffmpeg", ["-version"]).status === 0) {
     return d;
   };
   const badHtml = `<style>.h{text-shadow:0 0 18px #0ff}.k{text-shadow:0 0 12px #f0f}.m{text-shadow:0 0 14px #0ff}.bg{background:linear-gradient(135deg,#7c3aed,#2563eb)}</style><div class="bg"><h1 class="h">Introducing Tally — seamless bookkeeping!</h1><span>00:12</span><span>120 BPM</span></div><p>It's not just an app, it's your accountant.</p><script>gsap.to(".x",{y:10,repeat:-1,yoyo:true});${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => `tl.from(".e${i}",{opacity:0,y:40,duration:0.6})`).join(";")}</script>`;
-  const bad = mk("bad", badHtml, [{ title: "a", duration: 4, on_screen: "Streamline your workflow with our amazing new platform today" }, { title: "b", duration: 4 }, { title: "c", duration: 4 }, { title: "end", duration: 1, on_screen: "Tally" }], 5);
+  const bad = mk("bad", badHtml, [{ title: "a", duration: 2, on_screen: "Streamline your workflow with our amazing new platform today" }, { title: "b", duration: 4 }, { title: "c", duration: 4 }, { title: "end", duration: 1, on_screen: "Tally" }], 5);
   const good = mk("good", `<style>h1{font-family:"Bricolage Grotesque"}</style><h1>Paper forgets.</h1><p>Tally reads every receipt the moment you get it.</p><script>tl.from(".h",{clipPath:"inset(0 100% 0 0)"});tl.from(".p",{scale:0.9,opacity:0});tl.fromTo(".r",{xPercent:-100},{xPercent:0});tl.from(".n",{y:30,opacity:0});tl.from(".l",{drawSVG:0});tl.from(".c",{x:-60});tl.from(".b",{rotation:-8,scale:0.8});tl.from(".t",{opacity:0})</script>`, [{ title: "Hook", duration: 2.5, on_screen: "Paper forgets." }, { title: "Year", duration: 6, on_screen: "Twelve months of paper." }, { title: "Tap", duration: 4.5, on_screen: "One tap." }, { title: "End", duration: 3, on_screen: "Tally" }], 20);
   const rb = node("slop.mjs", ["--project", bad, "--json"]);
   const rg = node("slop.mjs", ["--project", good, "--json"]);
   let jb = { findings: [] };
   try { jb = JSON.parse(rb.stdout); } catch {}
   const rules = new Set(jb.findings.map((f) => f.rule));
-  ok("anti-slop: generic copy, \"not X, it's Y\", glow past its budget (uniform glow), AI gradient, corner labels, idle loops, everything fading up, unreadable text, no end hold and a looping bed are caught (exit 2)", rb.status === 2 && ["generic-copy", "not-x-its-y", "glow-uniform", "ai-gradient", "corner-labels", "idle-breathing", "uniform-entrances", "unreadable", "no-end-hold", "music-loop"].every((r) => rules.has(r)), [...rules].join(", ") + rb.stderr);
+  ok("anti-slop: generic copy, \"not X, it's Y\", glow past its budget (uniform glow), AI gradient, corner labels, idle loops, everything fading up, unreadable text, no end hold and a looping bed are caught (exit 2)", rb.status === 2 && ["generic-copy", "not-x-its-y", "glow-uniform", "ai-gradient", "corner-micro-label", "idle-breathing", "uniform-entrances", "unreadable", "no-end-hold", "music-loop"].every((r) => rules.has(r)), [...rules].join(", ") + rb.stderr);
   ok("anti-slop: a clean project passes", rg.status === 0, rg.stdout.slice(0, 300));
   // W4: finish default-on, hero effects are budgets (glow, blur-in, particles), uniform use stays an error
   {
@@ -2212,7 +2216,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   ok("presenter: other routes do not need ## Imagery", !/Imagery/.test(g(run2).stdout));
 
   // the scripts' own tests, each with the same helpers; absent files are a note, never a failure
-  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit", "chrome-lint", "frame-gate", "frames", "camera", "lessons", "sound-payoff", "carry", "notes", "variety", "rhythm", "sound-shape", "decisions", "sound-fixes", "gate-fixes", "plumbing", "boldness", "ab-learn", "echo-camera", "ui"]) {
+  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit", "chrome-lint", "frame-gate", "frames", "camera", "lessons", "sound-payoff", "carry", "notes", "variety", "rhythm", "sound-shape", "decisions", "sound-fixes", "gate-fixes", "plumbing", "boldness", "ab-learn", "echo-camera", "ui", "one-memory", "deliver", "orbs", "styles"]) {
     const f = path.join(HERE, "tests", `${name}.mjs`);
     if (!fs.existsSync(f)) { console.log(`note  ${name}: scripts/tests/${name}.mjs is not there yet, skipped`); continue; }
     try {

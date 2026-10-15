@@ -8,6 +8,7 @@ The film is delivered. You read what happened while it was made and write down *
 - `crew/ab-*.json` and `crew/ab-*-verdict.json`: every blind A/B and how it ended (`keep` or `revert`), including what the losing round tried
 - `decisions.json` (the call and `because` of every craft decision), the user's notes (`comments` and `applied` in the console session, and the lessons already recorded from them)
 - `lessons.mjs list --json`: what is already known, so you never repeat it
+- `lessons.mjs suggest`: notes the user repeated (2+ times) that no lesson covers yet, each with its `add` line; a repeat the film earned is a rule worth writing
 
 ## What counts
 

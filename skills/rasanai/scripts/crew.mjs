@@ -823,6 +823,7 @@ function contextFor(run, role, key, plan) {
     }
     case "retrospective": {
       ctx.lessons_cmd = `node "${path.join(SKILL_DIR, "scripts", "lessons.mjs")}" list --json`;
+      ctx.repeated_notes_cmd = `node "${path.join(SKILL_DIR, "scripts", "lessons.mjs")}" suggest --json`; // notes the user repeated that are not rules yet (the raw ledger behind the one store)
       for (const [l, p] of [["the crew ledger (briefs, accepted and refused checks)", R(run, "crew", "ledger.jsonl")], ["the motion gate's report on the last draft", R(run, "crew", "motion-gate.json")], ["the critics' rounds (crew/critic-<lens>-<round>.json)", R(run, "crew")], ["every blind A/B and its verdict (crew/ab-<k>.json, ab-<k>-verdict.json)", R(run, "crew")], ["the Director's decisions and the reasons the old calls lost", R(run, "decisions.json")], ["the console session: the user's notes and what was applied", R(run, "session.json")], ["the frame gate's report", R(run, "frames", "gate.json")]]) I(l, p);
       O(R(run, "crew", "retrospective.json"));
       break;
@@ -1013,7 +1014,7 @@ function promptFor(run, role, key, plan) {
     const rf = recentFilms(RECENT);
     extra += `\n\n## Your film's shape (score.shape)\n\nName it in motion/score.json: ${ASPECTS.map((k) => `${k} (${SHAPE_VOCAB[k].join("|")})`).join("; ")}. It must differ from each of the last ${RECENT} films in at least ${MIN_DIFFER} of the 6 aspects (crew.mjs check refuses \`same-shape\`; a series or an explicit ask for the same is a \`shape_waiver\` with a reason).\n${rf.length ? rf.map((f) => `- ${f.title}${f.date ? ` (${f.date})` : ""}: ${shapeLine(f.shape)}`).join("\n") : "- (no film recorded yet: nothing to move away from)"}`;
   }
-  { const lb = lessonsBlock(role).trim(); if (lb) extra += `\n\n${lb}`; } // standing notes from the user's past films (lessons.mjs); only the roles it lists get any
+  { const lb = lessonsBlock(role).trim(); if (lb) extra += `\n\n${lb}`; } // the ONE past-films block: standing notes from lessons.mjs plus its short "Recent verdicts" line (from the raw taste ledger); only the roles it lists get any
   let dare = DARES[role === "motion-director" && key === "seams" ? "seams" : role];
   if (dare && ctx.product_first) dare += " On this product-first film, showing off is craft only (motion, UI choreography, rhythm, the real product moving like nothing else): a letter or shape transformation that lands on the real product (its UI, its mark) is craft and is wanted, full frame and fast; never a conceit, a metaphor, an invented world or a prop standing in for the product. A show-off idea that never resolves to the product fails.";
   const base = `${shared}\n\n---\n\n${roleText}\n\n---\n\n${lines.join("\n")}${extra}\n`;

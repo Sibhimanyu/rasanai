@@ -244,7 +244,7 @@ Never open with: "Introducing…", "Meet…", "What if…?", "Tired of…?", "In
 **On-screen text**
 
 - 6 words at most per line, 1 to 4 is better. One line on screen at a time.
-- Each line stays still long enough to read: 0.6 s plus 0.4 s per word (four words: 2.2 s).
+- Each line stays still long enough to read: 0.6 s plus 0.3 s per word (four words: 1.8 s; `lib/reading.mjs` readTime).
 - The film must read with the sound off: the on-screen lines alone tell the story.
 - It complements the voiceover, never repeats it. The voice says the sentence; the screen shows the word, the number or the image that sticks.
 - Sentence case, a full stop for weight, no exclamation marks, no em dashes.

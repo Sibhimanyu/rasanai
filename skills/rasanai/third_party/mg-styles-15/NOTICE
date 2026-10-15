@@ -1,0 +1,8 @@
+mg-styles-15, by Vincentwei1021 (github.com/Vincentwei1021/mg-styles-15)
+
+RasanAI's `library/styles/` includes summaries, in RasanAI's own words, of the 15 motion-graphics style prompts in mg-styles-15 (`prompts/01-flat-vector.md` to `22-hud.md`: each prompt's creative seed, rules and "signature features and key techniques" block), and a 480 px copy of each style's poster (`videos/<n>-<slug>.jpg`):
+flat-vector, line-art, isometric, 3d-render, cel-boil, collage, liquid, morph, bauhaus, synthwave, aurora-glass, hanazi, paperclip, pixel, hud.
+
+mg-styles-15 is released under the MIT License, copyright (c) 2026 Vincentwei1021 (see LICENSE in this folder). Its README: "The code, prompts, docs and films made for this project are released under the MIT License. Third-party files keep their own licences" (instrument samples, HDRI, paper texture, photos and map data are CC0 or public domain; fonts are not in the repository and keep their own licences). The README asks for a link back when building on the prompts: this file and `library/styles/README.md` are that link. Prompt text is mostly Chinese; our summaries translate and condense it.
+
+Not taken: demo code, the soundtrack scripts, textures, HDRIs, fonts, photos, videos, the site, `rubric.md` (its jury idea, scoring style fidelity, is reflected in the signature-features check in RasanAI's own words).

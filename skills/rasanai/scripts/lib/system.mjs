@@ -257,6 +257,27 @@ export function checkSystem(dir, opts = {}) {
   const bl = S.blend;
   for (const k of ["name", "one_line", "why_for_story"]) if (!String(bl[k] || "").trim()) P.push(`blend.json needs "${k}"`);
   if (String(bl.one_line || "").length > 200) W.push("blend.one_line is long: one line the user reads under the specimen");
+  // the signature features: the contract the frame juror and the critic judge the film against (references/design-desk.md). A WARNING, so systems written before it existed still pass
+  {
+    const sec = (S.md.match(/^## Signature features[^\n]*\n([\s\S]*?)(?=^## |(?![\s\S]))/m) || [])[1];
+    if (sec === undefined) W.push('DESIGN.md has no "## Signature features" section: write 3 to 6 concrete, checkable traits of this system (the frame juror and the critic judge the film against them)');
+    else {
+      const items = sec.split("\n").filter((l) => /^\s*(\d+\.|[-*])\s+\S/.test(l)).map((l) => l.replace(/^\s*(\d+\.|[-*])\s+/, ""));
+      if (items.length < 3 || items.length > 6) W.push(`## Signature features has ${items.length} traits (write 3 to 6)`);
+      const vague = items.filter((t) => !/\d/.test(t) && t.split(/\s+/).length < 6);
+      if (vague.length) W.push(`## Signature features: ${vague.length} trait(s) read as adjectives, not checkable specifics ("${vague[0].slice(0, 40)}"): name a number, a place or a thing a juror can point at`);
+    }
+  }
+  // blend.style_refs[]: slugs of library/styles/<id>.md (unbranded films only, like references)
+  if (bl.style_refs !== undefined) {
+    const sr = Array.isArray(bl.style_refs) ? bl.style_refs : [];
+    if (!Array.isArray(bl.style_refs)) P.push("blend.style_refs must be an array of library/styles slugs");
+    else if (FILM && sr.length) P.push(`${label}: film style: blend.style_refs must be empty on a branded film (it cites ${sr.map((r) => (r && r.id) || r).join(", ")}): the look is the brand film's own grammar`);
+    else for (const r of sr) {
+      const id = typeof r === "string" ? r : r && r.id;
+      if (!id || !exists(path.join(SKILL_DIR, "library", "styles", `${id}.md`))) P.push(`blend.style_refs cites "${id}", which is not in library/styles/ (library/styles/README.md lists the slugs)`);
+    }
+  }
   const refs = Array.isArray(bl.references) ? bl.references : [];
   const ids = [...new Set(refs.map((r) => r && r.id).filter(Boolean))];
   if (FILM) { if (ids.length) P.push(`${label}: film style: blend.references must be empty on a branded film (it cites ${ids.join(", ")}): outside designers, directors and library references are for unbranded films only; the look is the brand film's own grammar`); }
