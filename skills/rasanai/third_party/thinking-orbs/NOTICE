@@ -1,0 +1,18 @@
+thinking-orbs: dotted thought-orb loading indicators
+Made by Jakub Antalik (github.com/Jakubantalik/thinking-orbs, https://orbs.jakubantalik.com)
+
+RasanAI uses material from thinking-orbs (v0.3.1) under the MIT License
+(see LICENSE in this folder): the geometry of the nine orb states, the tuned
+presets for the two sizes (64 and 20) and a subset of the golden vectors.
+
+runtime/rasan-orbs.js is a port of that material from TypeScript to vanilla
+JavaScript and is marked in its header comment. It was modified by RasanAI: the
+library's requestAnimationFrame / performance.now clock is replaced by the
+scene's paused-timeline time (so every frame is a pure function of that time),
+and a state-change dissolve, a brand-colour ink and a hero size are added.
+The MIT copyright notice and permission notice are kept in LICENSE.
+
+The rest of RasanAI stays under its own licence (MIT, see the root LICENSE).
+
+Not copied: the React component, the React Native and SwiftUI ports, the demo
+site and the library's header image.

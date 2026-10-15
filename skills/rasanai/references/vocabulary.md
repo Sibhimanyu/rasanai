@@ -311,6 +311,7 @@ Other stock shorthand: **Super 8 / 16 mm** = heavy grain 12–18%, gate weave 0.
 | Screen replacement | UI placed onto a device or screen in footage or a mockup. | Corner-pinned via `matrix3d` (4-point perspective) or a tracked plane; add screen glare at 5–10%. |
 | Spatial UI demo (cursor-led) | A cursor drives the product while the camera follows. | See craft.md §3 (cursor) and focus zoom above. |
 | Spectacle beat | The one exaggerated moment of the film. | Name it in the plan; e.g. 1.3× oversized landing plus the signature transition plus the hero hit. |
+| Thinking orb | A small dotted sphere that shows an AI agent working, one motion per verb (searching, composing, connecting...). | `RasanOrbs.mount(el, { state, size: 64 \| 20 \| "hero", tl, duration })` and `orb.to(state, at, 0.5)` when the verb changes; monochrome or one brand colour; see `references/orbs.md`. |
 
 ## 8. Texture
 
