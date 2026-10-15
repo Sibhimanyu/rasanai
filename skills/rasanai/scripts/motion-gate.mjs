@@ -5,7 +5,7 @@
 // fails here with the time, the region or the beat, so the builder can fix the cause.
 //
 //   node motion-gate.mjs [--video <draft.mp4>] [--project <videos/name>] [--plan <run>/motion/score.json]
-//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--no-text-fit] [--no-fluency] [--no-carry] [--no-echo] [--no-camera]
+//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--no-text-fit] [--no-fluency] [--no-carry] [--no-echo] [--no-camera] [--no-emphasis] [--no-guards]
 //        [--stillness] [--json]
 //   node motion-gate.mjs fluency --video <film.mp4> [--stillness] [--json]     the fluency measurement alone
 //   -> exit 0 pass · 2 findings (listed, each with a time and a fix) · 1 could not run (never "clean")
@@ -48,7 +48,16 @@
 //   camera-monotone  (warning) the camera does one thing (lib/camera-moves.mjs): each beat's measured camera (locked, push-in,
 //              pull-out, pan-truck, tilt, rotate, handheld-drift, whip) is reported; the render needs 1 moving kind from 15 s, 2 from
 //              40 s, 3 from 90 s (where the references sit: most great 2D films barely move the camera), never in a stillness style;
-//              with --plan, the score names a camera per beat, min(4, beats) different moves and one signature_shot (lemo's rule)
+//              with --plan, a warning only when no beat names a camera (the move is chosen from what the beat buys) or there is no signature_shot
+//   emphasis   (WARNINGS, uncalibrated; lib/emphasis.mjs; needs story/intent.json beside the plan: <run>/story/intent.json) an emphasis curve
+//              per 0.5 s (boldness flags + motion energy + loudness) is reported with its measured peak time and the planned one;
+//              `emphasis-off-peak` when its maximum is outside the `peak: true` beat (+-0.5 s), `emphasis-on-minor` when the film's
+//              biggest moment is on an importance-1 beat (named, with what it buys). With --plan, the budget: `budget-minor-beat`
+//              (score.big_moments on an importance-1 beat), `budget-over` (more than ~4 per 30 s), `budget-none`. --no-emphasis skips it.
+//   flash-over-cap  (warning, lib/frame-guards.mjs) a flash of 1-3 frames where over ~60% of the picture is near-white (the frames 4 either side under 30%): it reads as a blank frame
+//   seam-blank  (warning, --plan) a frame from 10% to 90% of a transition that is blown out (over 50% near-white), flooded (over 60% one colour in neither neighbouring scene) or emptied of detail (edges under 30% of both neighbours); a seam with flood: true opts out
+//   hold-frame-drift  (warning, --plan with <run>/frames/<id>.png) a beat's settled frame (its peak_t, else the last quarter) against its approved styleframe: dHash distance over 14/64 or SSIM under 0.55; beats in score.deviations are skipped
+//              (--no-guards skips these three)
 //   duration-mismatch  (with --plan or --scenes) the render's length is within 0.25 s or 2% (whichever is larger) of the planned
 //              duration (the plan's `duration`, or where its last beat ends)
 // Lessons (lib/gate-lessons.mjs): motion.end_hold_s, motion.end_hold_min_s, motion.freeze_s, motion.carry_share and film.ending_share_max read
@@ -83,7 +92,9 @@ import { measureCarry } from "./lib/carry.mjs";
 import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
 import { measureEcho, ECHO } from "./lib/echo.mjs";
+import { loadIntent, emphasisReport } from "./lib/emphasis.mjs";
 import { measureCamera, cameraKind, cameraFloor } from "./lib/camera-moves.mjs";
+import { whiteFlashes, seamBlanks, holdDrift } from "./lib/frame-guards.mjs";
 
 export const GATE = {
   coverage: 0.7, // share of frames with visible motion
@@ -119,11 +130,13 @@ async function main() {
     }
     process.exit(g.pass === false ? 2 : 0);
   }
-  const res = await gate({ video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], stillness: args.stillness ? true : null });
+  const res = await gate({ video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], stillness: args.stillness ? true : null });
   for (const c of res.could_not_run) noteDowngrade({ run: args.run, what: "the motion gate", instead: "no motion check", why: String(c).slice(0, 200), impact: "this film's motion was not measured" });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else {
     console.log(`motion gate: ${res.verdict}${res.measured.coverage != null ? ` · ${Math.round(res.measured.coverage * 100)}% of frames move` : ""}`);
+    const em = res.measured.emphasis;
+    if (em && em.measured_peak) console.log(`  emphasis peak measured ${em.measured_peak.t} s, planned ${em.planned_peak ? `beat ${em.planned_peak.beat} ${em.planned_peak.t0}-${em.planned_peak.t1} s` : "unknown"}${em.second ? `, second ${em.second.t} s` : ""} (curve in --json)`);
     for (const f of res.findings) console.log(`  ${f.severity === "error" ? "FAIL" : "warn"} ${f.check}${f.at != null ? ` at ${f.at} s` : ""}${f.region ? ` (${f.region})` : ""}: ${f.message}${f.fix ? `\n       fix: ${f.fix}` : ""}`);
     for (const n of res.notes) console.log(`  note tightened by ${n}`);
     for (const s of res.skipped) console.log(`  skip ${s}`);
@@ -148,7 +161,7 @@ export function readPlan(planPath, scenesPath) {
     const end = Number.isFinite(Number(b.end)) && b.end != null ? Number(b.end) : start + (Number(b.duration) || Number(b.duration_s) || 0);
     t = end;
     const cam3 = b.camera3d && Array.isArray(b.camera3d.moves) ? b.camera3d.moves.map((m) => m && m.move).filter(Boolean) : [];
-    return { i, n: b.n || i + 1, id: String(b.id || b.n || i + 1), start, end, exit: b.exit || null, carrier: b.carrier || null, line: b.line || b.on_screen || null, camera: b.camera || null, camera3d: cam3, signature_shot: !!b.signature_shot };
+    return { i, n: b.n || i + 1, id: String(b.id || b.n || i + 1), start, end, exit: b.exit || null, carrier: b.carrier || null, beat: b.beat != null ? Number(b.beat) : null, peak_t: Number.isFinite(Number(b.peak_t)) && b.peak_t != null && b.peak_t !== "" ? Number(b.peak_t) : null, line: b.line || b.on_screen || null, camera: b.camera || null, camera3d: cam3, signature_shot: !!b.signature_shot };
   });
   const seams = (plan && Array.isArray(plan.seams) ? plan.seams : []);
   return { plan, beats, seams, brandReveal: plan ? plan.brandReveal : undefined, endHold: plan && Number(plan.end_hold_s) > 0 ? Number(plan.end_hold_s) : null, duration: plan && Number(plan.duration) > 0 ? Number(plan.duration) : t || null };
@@ -407,7 +420,7 @@ function codeChecks(file, html) {
 }
 
 // ---------------------------------------------------------------- the gate
-export async function gate({ video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, stillness = null } = {}) {
+export async function gate({ video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, stillness = null } = {}) {
   const findings = [], skipped = [], could = [], measured = {};
   const add = (f) => findings.push(f);
   const P = readPlan(plan && path.resolve(plan), scenes && path.resolve(scenes));
@@ -627,19 +640,16 @@ export async function gate({ video = null, project = null, plan = null, scenes =
     } catch (err) { skipped.push(`echo: ${err.message} (not measured, never passed)`); }
   } else if (video && !echo) skipped.push("echo: skipped (--no-echo)");
 
-  // ---- camera variety (lib/camera-moves.mjs): what the camera does per beat, and how many kinds
+  // ---- camera variety (lib/camera-moves.mjs): what the camera does per beat; warns only when no beat names one
   if (beats.length && P.plan) {
     const named = beats.map((b) => ({ id: b.id, kinds: [b.camera, ...b.camera3d].map(cameraKind).filter(Boolean) }));
     const kinds = new Set(named.flatMap((b) => b.kinds));
-    const unnamed = named.filter((b) => !b.kinds.length).map((b) => b.id);
-    const need = Math.min(4, beats.length);
     const sig = P.plan.signature_shot || beats.some((b) => b.signature_shot);
     const why = [];
-    if (unnamed.length) why.push(`no camera on beat${unnamed.length > 1 ? "s" : ""} ${unnamed.join(", ")}`);
-    if (kinds.size < need) why.push(`${kinds.size} different camera move${kinds.size === 1 ? "" : "s"} (${[...kinds].join(", ") || "none"}; ${need} at least)`);
+    if (!kinds.size) why.push("no beat names a camera");
     if (!sig) why.push("no signature_shot");
     measured.camera_plan = { kinds: [...kinds], beats: named };
-    if (why.length) add({ check: "camera-monotone", severity: "warning", at: null, region: "plan", message: `the score's camera: ${why.join("; ")}`, fix: 'name each beat\'s camera ("camera": locked, push-in, pull-out, pan-truck, tilt, rotate, handheld-drift or whip), use 4 different moves across the film (a locked shot counts as one), and name one "signature_shot": { "beat", "move", "why" } (references/cinematography.md "Camera variety")' });
+    if (why.length) add({ check: "camera-monotone", severity: "warning", at: null, region: "plan", message: `the score's camera: ${why.join("; ")}`, fix: 'name each beat\'s camera (locked where the UI or type moves; a push toward what the beat buys; a pull-out for scale) and one "signature_shot": { "beat", "move", "why" } on the peak (references/craft.md "Camera from meaning")' });
   }
   if (video && camera && fs.existsSync(path.resolve(video))) {
     try {
@@ -660,6 +670,40 @@ export async function gate({ video = null, project = null, plan = null, scenes =
       if (share > endingMax + 1e-6) add({ check: "long-ending", severity: "warning", at: r2(last.start), region: `beat ${last.id}`, message: `the last beat (${last.id}) runs ${r2(total - last.start)} s, ${Math.round(share * 100)}% of the ${r2(total)} s film (${Math.round(endingMax * 100)}% at most)`, fix: "the end card is 2 to 3 s: land the call to action and stop; give the story's weight to the beats before it" });
     }
   }
+
+  // ---- emphasis: does the weight land where the intent puts it? (lib/emphasis.mjs; warnings)
+  if (emphasis && (video || P.plan)) {
+    try {
+      const intent = await loadIntent({ plan, project });
+      const er = await emphasisReport({ video: video && fs.existsSync(path.resolve(video)) ? path.resolve(video) : null, intent, planBeats: beats, score: P.plan, dur: measured.duration_s || P.duration });
+      for (const f of er.findings) add(f);
+      skipped.push(...er.skipped);
+      measured.emphasis = { intent: er.intent, planned_peak: er.planned, measured_peak: er.measured, second: er.second, budget: er.budget ? { big_moments: er.budget.count, limit: er.budget.limit, moments: er.budget.moments } : null, curve: er.curve ? { step_s: er.curve.step, values: er.curve.curve } : null };
+    } catch (e) { skipped.push(`emphasis: ${e.message} (not measured, never passed)`); }
+  } else if (!emphasis) skipped.push("emphasis: skipped (--no-emphasis)");
+
+  // ---- picture guards (lib/frame-guards.mjs; warnings, uncalibrated): the white flash cap, a seam that never blanks, the hold frame against the approved board
+  if (guards && video && fs.existsSync(path.resolve(video))) {
+    try {
+      const vp = path.resolve(video), dur = measured.duration_s || P.duration || 0;
+      for (const f of whiteFlashes(vp)) add({ check: "flash-over-cap", severity: "warning", at: f.t, region: "flash", message: `a flash at ${f.t} s covers ${Math.round(f.share * 100)}% of the frame in near-white for ${f.n} frame(s); over ~60% it reads as a blank frame`, fix: "cap the flash layer's opacity at ~0.6 (or tint it with the ground colour) so the picture stays faintly visible; hold 1-2 frames" });
+      const sms = (P.seams || []).map((sm, k) => ({ ...sm, t: Number.isFinite(Number(sm.t)) ? Number(sm.t) : (beats[Number(sm.to) - 1] || beats[k + 1] || {}).start, dur: Number(sm.dur) || Number(sm.duration) || 0, from: sm.from, to: sm.to })).filter((sm) => Number.isFinite(sm.t) && (!dur || sm.t < dur - 0.2));
+      const rows = sms.length ? sms : seamTimes.map((t, k) => ({ t, from: beats[k].id, to: beats[k + 1].id }));
+      for (const f of seamBlanks(vp, rows)) add({ check: "seam-blank", severity: "warning", at: f.t, region: `seam ${f.seam}`, message: `the seam at ${f.t} s goes ${f.kind} (${Math.round(f.pct * 100)}%) mid-transition`, fix: 'add the missing layer (ground, outgoing scene held under, incoming scene arriving) so the transition never shows an empty or flooded frame; a short deliberate flood (a flash within the cap, a dip to the ground colour) opts out with data-seam="flood" on the transition (flood: true on the score seam)' });
+      if (plan && beats.length) {
+        const run = path.dirname(path.dirname(path.resolve(plan))), dev = new Set((Array.isArray(P.plan && P.plan.deviations) ? P.plan.deviations : []).map((d) => String((d && (d.beat ?? d.scene ?? d.id)) ?? d)));
+        const pad = (x) => String(x).padStart(2, "0"), items = [];
+        for (const b of beats) {
+          if (dev.has(String(b.id)) || dev.has(String(b.n))) continue;
+          const still = [b.id, pad(b.id), b.n, pad(b.n)].map((k) => path.join(run, "frames", `${k}.png`)).find((p) => fs.existsSync(p));
+          if (!still) continue;
+          const t = b.peak_t != null ? (b.peak_t >= b.start - 1e-6 && b.peak_t <= b.end + 1e-6 ? b.peak_t : b.start + b.peak_t) : b.end - 0.125 * (b.end - b.start);
+          items.push({ id: b.id, t, still });
+        }
+        for (const f of holdDrift(vp, items)) add({ check: "hold-frame-drift", severity: "warning", at: f.t, region: `beat ${f.id}`, message: `beat "${f.id}" settles on a frame unlike its approved styleframe (hash distance ${f.hamming}/64, ssim ${f.ssim})`, fix: "the Final must look like the board the user approved: re-check palette, layout and type size against the styleframe, or record the change as a deviation in the score" });
+      }
+    } catch (e) { skipped.push(`guards: ${e.message} (not measured, never passed)`); }
+  } else if (!guards) skipped.push("guards: skipped (--no-guards)");
 
   // ---- the plan and the code
   if (beats.length) {
@@ -716,9 +760,10 @@ export async function gate({ video = null, project = null, plan = null, scenes =
       if (doTextFit) {
         const tf = await textFit(pj);
         findings.push(...tf.findings);
+        findings.push(...(tf.warnings || []));
         for (const e of tf.script_errors || []) findings.push({ check: "script-error", severity: "error", at: null, region: e.file, file: e.file, message: `${e.file}: ${e.message}`, fix: "the render will not play this composition: fix the script error (a selector that is not valid, a typo, a missing asset) so the timeline registers; run the page in a browser console to read the full stack" });
         skipped.push(...tf.skipped, ...tf.could_not_run.map((c) => `${c} (not measured, never passed)`));
-        measured.text_fit = { pages: tf.pages, samples: tf.samples, script_errors: (tf.script_errors || []).length, cropped: tf.findings.filter((f) => f.check === "text-cropped").length, too_brief: tf.findings.filter((f) => f.check === "text-too-brief").length, overlap: tf.findings.filter((f) => f.check === "text-overlap").length };
+        measured.text_fit = { pages: tf.pages, samples: tf.samples, script_errors: (tf.script_errors || []).length, cropped: tf.findings.filter((f) => f.check === "text-cropped").length, too_brief: tf.findings.filter((f) => f.check === "text-too-brief").length, overlap: tf.findings.filter((f) => f.check === "text-overlap").length, warnings: (tf.warnings || []).length };
       } else skipped.push("text-fit: skipped (--no-text-fit)");
     }
   }
