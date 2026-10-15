@@ -23,6 +23,7 @@ import { track } from "./lib/report.mjs";
 import { readLogos, scanLogos } from "./lib/logos.mjs";
 import { textFit } from "./lib/textfit.mjs";
 import { chromeLint } from "./lib/chrome-lint.mjs";
+import { readTime, wordCount } from "./lib/reading.mjs";
 import { readBudget, budgetFor, budgetLimit } from "./lib/budget.mjs";
 import { decodeGrey, findCuts } from "./lib/carry.mjs";
 import { sfxMode, sfxLimit, sfxOver } from "./lib/audio.mjs";
@@ -82,8 +83,11 @@ const hue = (hex) => { const n = parseInt(hex.slice(1).padEnd(6, "0").slice(0, 6
 const aiGrad = grads.filter((g) => { const hs = (g.match(/#[0-9a-f]{6}/gi) || []).map(hue).filter((x) => x >= 0); return hs.some((x) => x >= 250 && x <= 300) && hs.some((x) => x >= 190 && x < 250); });
 if (aiGrad.length && !/aurora|holographic|y2k|vapor|synth/.test(style)) add("ai-gradient", "error", `${aiGrad.length} purple-to-blue gradient(s)`, "Purple-blue gradients are the default 'AI' look.", "Use the style's palette: flat fields, one accent, or a gradient within one hue family.");
 if (/lens-?flare|flare\.png/i.test(allCode)) add("lens-flare", "warn", "lens flare", "Lens flares read as template decoration.", "Remove it.");
-const cornerLabels = visible.filter(({ t }) => /^(\d{1,2}:\d{2}(:\d{2})?|\d{2,3}\s?bpm|rec\s?●?|sys\b|v\d\.\d)/i.test(t)).length;
-if (cornerLabels >= 2 && !/hud|fui|terminal|telemetry|broadcast|vhs/.test(style)) add("corner-labels", "error", `${cornerLabels} timecode/BPM-style labels`, "Corner labels with timecodes and BPM are now a recognised Opus-showreel tell.", "Remove them unless the style is a HUD/broadcast style that means it.");
+// Corner labels have ONE rule name, corner-micro-label (lib/chrome-lint.mjs measures it in the rendered DOM). The timecode/BPM-style
+// strings found in the source are only a second way to see the same thing: section 5c merges them into that finding (or, when the
+// page-chrome pass did not run, reports them under the same name), so no element is reported twice.
+const hudStyle = /hud|fui|terminal|telemetry|broadcast|vhs/.test(style);
+const cornerLabelTexts = [...new Set(visible.filter(({ t }) => /^(\d{1,2}:\d{2}(:\d{2})?|\d{2,3}\s?bpm|rec\s?●?|sys\b|v\d\.\d)/i.test(t)).map(({ t }) => t))];
 const centered = (allCode.match(/text-align\s*:\s*center/g) || []).length, lefty = (allCode.match(/text-align\s*:\s*(left|start)/g) || []).length;
 if (centered >= 6 && centered > lefty * 4) add("centered-everything", "warn", `${centered} centred text blocks, ${lefty} left-aligned`, "Centring everything is the template default.", "Vary composition: left-aligned headlines, asymmetric layouts, text on the grid.");
 const fams = new Set((allCode.match(/font-family\s*:\s*['"]?([A-Za-z0-9 ]+)/g) || []).map((m) => m.replace(/font-family\s*:\s*['"]?/, "").trim().toLowerCase()).filter((x) => !/^(inherit|sans-serif|serif|monospace|system-ui|var)$/.test(x)));
@@ -111,7 +115,7 @@ if (spin) add("spinning-logo", "warn", "a 360° logo rotation", "Spinning logos 
 // A shot whose length is set by reading time (within 15% of 0.6 s + 0.3 s per word of its line) is not a free choice, so a
 // line-per-beat film is judged on its free shots only (`reads` = each shot's reading time, 0 for none).
 const RHYTHM = { min_shots: 5, ratio: 4, flash_s: 0.4, read_slack: 0.15 };
-const readTime = (text) => { const w = String(text || "").split(/\s+/).filter(Boolean).length; return w ? 0.6 + 0.3 * w : 0; };
+// (readTime: lib/reading.mjs, the one formula; plan-level here, so no slack)
 const rhythm = (lens, reads = []) => {
   const ds = lens.slice(0, -1).filter((d, i) => d >= RHYTHM.flash_s && !(reads[i] && d <= reads[i] * (1 + RHYTHM.read_slack)));
   if (lens.length < RHYTHM.min_shots || ds.length < 2) return null;
@@ -126,7 +130,7 @@ if (scenes && scenes.length >= 3) {
   const ds = scenes.map((s) => s.d).filter(Boolean), mean = ds.reduce((a, b) => a + b, 0) / ds.length, sd = Math.sqrt(ds.reduce((a, b) => a + (b - mean) ** 2, 0) / ds.length);
   if (ds.length >= 4 && sd / mean < 0.2) add("uniform-shots", "warn", `every scene ≈ ${mean.toFixed(1)} s (variation ${(sd / mean).toFixed(2)}; aim for ≥ 0.35)`, "Near-identical scene lengths make a slideshow rhythm: \"it's just a PowerPoint\".", "Vary rhythm: group quick beats, give the reveal the longest shot (see craft.md §2, Timing, pacing and readability).");
   narrow(rhythm(scenes.map((s) => s.d), scenes.map((s) => readTime(s.text))), "scenes");
-  scenes.forEach((s, i) => { const w = s.text.split(/\s+/).filter(Boolean).length; const need = w ? 0.6 + 0.4 * w : 0; if (w && s.d && s.d < need) add("unreadable", "error", `scene ${i + 1} "${s.title}"`, `${w} words on screen for ${s.d} s; needs about ${need.toFixed(1)} s to read.`, "Cut the copy or lengthen the scene; never speed it up."); });
+  scenes.forEach((s, i) => { const w = wordCount(s.text); const need = readTime(w); if (w && s.d && s.d < need) add("unreadable", "error", `scene ${i + 1} "${s.title}"`, `${w} words on screen for ${s.d} s; needs about ${need.toFixed(1)} s to read.`, "Cut the copy or lengthen the scene; never speed it up."); });
   const last = scenes[scenes.length - 1]; if (last.d && last.d < 1.8) add("no-end-hold", "error", `last scene ${last.d} s`, "The ending has no hold: the name and call to action vanish.", "Give the end card 2–3 s: its elements land in sequence, then at most 1.5 s still (motion-gate.mjs measures it).");
   if (scenes[0].d > 4 && !scenes[0].text) add("slow-hook", "warn", `scene 1 is ${scenes[0].d} s with no line`, "Nothing lands in the first 2 s.", "Open on the hook: a claim in ≤4 words or the product doing its thing within 1.5 s.");
 }
@@ -206,13 +210,25 @@ if (!args["no-text-fit"]) {
 // film's own device is honoured: grammar.json's measured.chrome lists rule ids that brand's films use (found from --run).
 // --no-chrome skips it; --chrome-allow <ids> lists rule ids to allow. Exempt: text inside a UI surface or data-ui, the
 // vibe rules inside data-ui="captured", anything inside data-chrome="allow", and wordmark/logo elements.
+let chromeElements = null;
 if (!args["no-chrome"]) {
   let allow = String(args["chrome-allow"] && args["chrome-allow"] !== true ? args["chrome-allow"] : "").split(",").map((s) => s.trim()).filter(Boolean);
   const gRun = args.run && args.run !== true ? path.resolve(String(args.run)) : path.basename(dir) === "frames" ? path.dirname(dir) : null;
   if (gRun) { try { const g = JSON.parse(fs.readFileSync(path.join(gRun, "brand-film", "grammar.json"), "utf8")); if (g.measured && Array.isArray(g.measured.chrome)) allow = allow.concat(g.measured.chrome.map(String)); } catch {} }
   const cl = await chromeLint(dir, { allow });
-  for (const f of cl.findings) add(f.rule, f.severity, f.where, f.why, f.fix);
+  chromeElements = cl.elements;
+  for (const f of cl.findings) { if (hudStyle && /^corner-(micro-label|brackets)$/.test(f.rule)) continue; add(f.rule, f.severity, f.where, f.why, f.fix); } // a HUD/broadcast style means its corner chrome
   if (cl.could_not_run.length) add("chrome-lint-skipped", "warn", dir, `${cl.could_not_run[0]} (the page-chrome check did not run)`, "Install Chrome (npx hyperframes browser ensure, or set RASANAI_CHROME) and re-run: the page chrome was not measured.");
+}
+
+// corner-micro-label, once: the source's timecode/BPM strings the rendered pass did not already see are merged into its finding
+if (!hudStyle && cornerLabelTexts.length) {
+  const norm = (s) => String(s).toLowerCase().replace(/\s+/g, " ").trim();
+  const seen = new Set(((chromeElements || {})["corner-micro-label"] || []).map(norm));
+  const rest = cornerLabelTexts.filter((t) => !seen.has(norm(t)));
+  const hit = findings.find((f) => f.rule === "corner-micro-label");
+  if (hit && rest.length) { hit.where += ` (+${rest.length} timecode/BPM-style label${rest.length > 1 ? "s" : ""} in the source: ${rest.slice(0, 3).map((t) => JSON.stringify(t.slice(0, 24))).join(", ")})`; if (seen.size + rest.length >= 2) hit.severity = "error"; }
+  else if (!hit && cornerLabelTexts.length >= 2) add("corner-micro-label", "error", `${cornerLabelTexts.length} timecode/BPM-style labels`, "Corner labels with timecodes and BPM are now a recognised Opus-showreel tell.", "Remove them unless the style is a HUD/broadcast style that means it.");
 }
 
 // ---- 6. the rendered video ----

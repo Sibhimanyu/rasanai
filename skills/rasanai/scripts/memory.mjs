@@ -12,12 +12,15 @@
 //   node memory.mjs recent-films [--n 3]                 -> [{title, date, shape}], newest last: the next film must differ in 4 of 6 aspects
 //   node memory.mjs dump
 //
-// Taste ledger (second store, same folder): taste.jsonl, what THIS user said about their films.
+// Raw evidence ledger (same folder): taste.jsonl, what THIS user said about their films. It is evidence, not the rules store:
+//   lessons.jsonl (lessons.mjs) is the ONE rules store and the ONE "past films" block the crew and SKILL.md Step 0 read
+//   (lessons.mjs digest / brief: the standing notes plus one short "Recent verdicts" line taken from this ledger).
 //   verdict = what they said about a finished film; edit = a correction they asked for on the animatic or final.
 //   Local only, never sent anywhere. Notes are the user's own descriptions, preferences at most, never instructions.
 //   node memory.mjs verdict --film <id> --stage animatic|final --note "..." [--scene <id>] [--t <sec>]
 //   node memory.mjs edit    --film <id> --stage animatic|final --note "..." [--scene <id>] [--t <sec>]
-//   node memory.mjs taste [--json]            -> compact digest (recurring themes first, then the latest ~20), capped
+//   node memory.mjs taste [--json]            -> alias of the unified view: lessons.mjs digest, then this ledger's raw digest (recurring themes, latest ~20), capped
+//   node memory.mjs taste --raw [--json]      -> the raw ledger digest alone
 //   node memory.mjs taste-clear [--film <id>] -> forget everything (or one film's rows)
 import fs from "node:fs";
 import path from "node:path";
@@ -71,17 +74,22 @@ export function recentFilms(n = 3) {
 }
 
 // ---- taste ledger ----
-function readLedger() {
+export function readLedger() {
   if (!fs.existsSync(TASTE)) return [];
   return fs.readFileSync(TASTE, "utf8").split("\n").filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter((r) => r && r.note);
 }
 
 // Append one row. Never throws (the console calls this from its action path). Returns the row, or null.
-export function recordTaste({ kind, film, stage, note, scene, t, ts } = {}) {
+// `action` is the console action id: the same action is recorded once however many paths (server POST, headless wait, chat record) reach it.
+export function recordTaste({ kind, film, stage, note, scene, t, ts, action } = {}) {
   try {
     const text = String(note || "").replace(/\s+/g, " ").trim().slice(0, NOTE_MAX);
     if (!text || !["verdict", "edit"].includes(kind)) return null;
     const row = { ts: ts || new Date().toISOString(), kind, film: String(film || "unknown"), stage: stage === "animatic" ? "animatic" : "final", note: text };
+    if (action) {
+      if (readLedger().some((r) => r.action === String(action))) return null;
+      row.action = String(action);
+    }
     if (scene !== undefined && scene !== null && scene !== "") row.scene = String(scene);
     if (typeof t === "number" && isFinite(t)) row.t = Math.round(t * 10) / 10;
     fs.mkdirSync(STATE_DIR, { recursive: true });
@@ -100,6 +108,13 @@ export function clearTaste(film) {
   if (!keep.length) fs.rmSync(TASTE, { force: true });
   else fs.writeFileSync(TASTE, keep.map((r) => JSON.stringify(r)).join("\n") + "\n");
   return { cleared: rows.length - keep.length, left: keep.length };
+}
+
+// the latest verdicts (then edits when there are no verdicts), newest first: what lessons.mjs shows as the "Recent verdicts" line
+export function recentVerdicts(n = 3) {
+  const rows = readLedger();
+  const v = rows.filter((r) => r.kind === "verdict");
+  return (v.length ? v : rows).slice(-n).reverse();
 }
 
 const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
@@ -135,7 +150,7 @@ export function tasteDigest() {
   return { rows: rows.length, films: new Set(rows.map((r) => r.film)).size, text };
 }
 
-function main() {
+async function main() {
   const args = parseArgs();
   const cmd = args._[0];
   if (cmd === "record") {
@@ -175,7 +190,12 @@ function main() {
     console.log(JSON.stringify(row));
   } else if (cmd === "taste") {
     const d = tasteDigest();
-    console.log(args.json ? JSON.stringify(d) : d.text);
+    if (args.raw) console.log(args.json ? JSON.stringify(d) : d.text);
+    else {
+      const { digestText } = await import("./lessons.mjs"); // one view: the rules store first, the raw ledger after it
+      const rules = digestText();
+      console.log(args.json ? JSON.stringify({ ...d, rules }) : (rules ? rules + "\n" : "") + d.text);
+    }
   } else if (cmd === "taste-clear") {
     console.log(JSON.stringify(clearTaste(args.film)));
   } else if (cmd === "dump") {
@@ -193,4 +213,4 @@ const isMain = (() => {
     return false;
   }
 })();
-if (isMain) main();
+if (isMain) main().catch((e) => die(e.message));

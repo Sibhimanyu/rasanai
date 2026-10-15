@@ -310,7 +310,7 @@ export function toFindings(hits, { allow = [], minSamples = 2 } = {}) {
 }
 
 export async function chromeLint(project, { fps = 4, allow = [], maxSamples = 400 } = {}) {
-  const res = { findings: [], pages: 0, samples: 0, exempt: [], skipped: [], could_not_run: [] };
+  const res = { findings: [], pages: 0, samples: 0, exempt: [], skipped: [], could_not_run: [], elements: {} };
   const root = path.resolve(project);
   const pages = pagesOf(root);
   if (!pages.length) { res.skipped.push("chrome lint: no compositions with a duration to sample (index.html, compositions/)"); return res; }
@@ -385,6 +385,7 @@ export async function chromeLint(project, { fps = 4, allow = [], maxSamples = 40
     }
   } else if (pages.length) res.skipped.push("chrome lint: pinned-element needs 3 or more sub-compositions (shots) to compare");
   res.findings = toFindings(hits, { allow });
+  for (const h of hits.m.values()) if (h.text && h.times.length >= 2 && !allow.includes(h.rule)) (res.elements[h.rule] = res.elements[h.rule] || []).push(h.text); // the elements behind each rule: slop merges its own timecode/BPM source check into corner-micro-label
   res.exempt = [...hits.exempt];
   return res;
 }

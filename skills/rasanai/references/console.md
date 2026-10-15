@@ -168,4 +168,4 @@ After `apply`, edit, then `console.mjs resolve --run <run> --ids <ids> --note "<
 
 A `note` can come with any action type too (e.g. `choose` + "but a bit slower").
 
-Taste ledger: a `comment` or `note` on the animatic or the final (and words sent with `approve` on the final) is also appended, when it is consumed, to the user's local `$RASANAI_HOME/taste.jsonl` through `console.mjs` (`memory.mjs taste` prints the digest, `memory.mjs taste-clear` forgets it). The page, RasanAI Studio and chat `record` all take this one path, so the app sends nothing extra.
+Taste ledger: a `comment` or `note` on the animatic or the final (and words sent with `approve` on the final) is also appended, when it is consumed, to the user's local `$RASANAI_HOME/taste.jsonl` through `console.mjs` (`lessons.mjs digest` prints the one digest, `memory.mjs taste-clear` forgets the ledger; one action is one row (the ledger skips an action id it already holds), so `record --type comment` is not counted twice). The page, RasanAI Studio and chat `record` all take this one path, so the app sends nothing extra.

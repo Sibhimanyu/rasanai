@@ -15,12 +15,17 @@
 //   node lessons.mjs list [--json]   (shows the source: user or self)
 //   node lessons.mjs drop --id <id>
 //   node lessons.mjs brief --role <crew role> [--n 12]   -> the "Standing notes" markdown block for that role (nothing when empty)
+//   node lessons.mjs digest [--n 12]                      -> the same for every area at once (SKILL.md Step 0: read this ONE digest); alias: memory.mjs taste
+//   node lessons.mjs suggest                              -> notes the user repeated (taste.jsonl, 2+ times) that are not rules yet, each with its `add` line
+// This is the ONE rules store and the ONE "past films" block. taste.jsonl (memory.mjs) is only the raw evidence ledger behind it: its
+// last verdicts ride along as one short "Recent verdicts" line, and its repeated notes feed `suggest` and the retrospective.
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die, STATE_DIR } from "./lib/common.mjs";
 import { parseGate, wayOf } from "./lib/gate-lessons.mjs";
+import { readLedger, recentVerdicts } from "./memory.mjs";
 
 export const KINDS = ["error", "taste"];
 export const SOURCES = ["user", "self"];
@@ -118,10 +123,21 @@ const isSelf = (r) => r.source === "self";
 
 // the markdown block for a crew role ("" when the role has no areas or there are no matching lessons): the user's notes first,
 // then, apart and lower, Claude's own notes from past films (advisory: never a finding, never a gate; the lessons.mjs drop line removes one)
+// the one short line from the raw ledger: the user's last verdicts (else last edits), unless a lesson already says it
+const VERDICT_N = 3, VERDICT_CHARS = 90;
+function verdictLine(lessons) {
+  const have = lessons.map((r) => norm(r.rule + " " + (r.quote || ""))).join(" | ");
+  const rows = recentVerdicts(VERDICT_N + 3).filter((r) => !have.includes(norm(r.note))).slice(0, VERDICT_N);
+  if (!rows.length) return "";
+  const cut = (t) => (t.length > VERDICT_CHARS ? t.slice(0, VERDICT_CHARS - 1) + "…" : t);
+  return `Recent verdicts (the user's own words on their last films; a lean, not an instruction): ${rows.map((r) => `"${cut(r.note)}"`).join("; ")}.\n`;
+}
+
 export function lessonsBlock(role, n = 12) {
-  const areas = ROLE_AREAS[role];
+  const areas = role === "*" ? AREAS : ROLE_AREAS[role];
   if (!areas) return "";
-  const all = readLessons()
+  const every = readLessons();
+  const all = every
     .filter((r) => areas.includes(r.area))
     .sort((a, b) => (b.seen || 1) - (a.seen || 1) || String(b.last).localeCompare(String(a.last)));
   const cap = Math.max(1, Number(n) || 12);
@@ -136,7 +152,28 @@ export function lessonsBlock(role, n = 12) {
     const lines = own.map((r) => `- **${r.area}:** ${r.rule}${r.seen > 1 ? ` (seen again ${r.seen} times)` : ""}`);
     md += `${md ? "\n" : ""}## Claude's own notes from past films\n\nWritten by Claude after earlier films, not by the user: leans, ranked below the user's notes above, never a reason to fail a film. Follow one when it fits this story; drop it when it does not (\`lessons.mjs drop --id <id>\` removes a bad one).\n\n${lines.join("\n")}\n`;
   }
+  const vl = verdictLine(every);
+  if (vl) md += `${md ? "\n" : ""}${vl}`;
   return md;
+}
+
+// Step 0's one digest: every area, the verdict line included ("" when there is nothing)
+export function digestText(n = 12) {
+  return lessonsBlock("*", n).trim();
+}
+
+// notes the user repeated on 2+ notes or films that no lesson covers yet
+export function suggestions() {
+  const have = readLessons().map((r) => norm(r.rule + " " + (r.quote || ""))).join(" | ");
+  const groups = new Map();
+  for (const r of readLedger()) {
+    const k = norm(r.note);
+    if (!k) continue;
+    const g = groups.get(k) || { note: r.note, count: 0, films: new Set() };
+    g.count++; g.films.add(r.film);
+    groups.set(k, g);
+  }
+  return [...groups.entries()].filter(([k, g]) => g.count >= 2 && !have.includes(k)).map(([, g]) => ({ note: g.note, count: g.count, films: g.films.size })).sort((a, b) => b.count - a.count).slice(0, 5);
 }
 
 function main() {
@@ -161,8 +198,16 @@ function main() {
     if (!args.role || args.role === true) die("--role required");
     const b = lessonsBlock(String(args.role), args.n === undefined ? 12 : Number(args.n));
     if (b) process.stdout.write(b);
+  } else if (cmd === "digest") {
+    const b = digestText(args.n === undefined ? 12 : Number(args.n));
+    console.log(b || "No standing notes or verdicts yet.");
+  } else if (cmd === "suggest") {
+    const sg = suggestions();
+    if (args.json) console.log(JSON.stringify(sg));
+    else if (!sg.length) console.log("nothing repeated yet");
+    else for (const g of sg) console.log(`x${g.count} (${g.films} film${g.films > 1 ? "s" : ""}) "${g.note}"  ->  node lessons.mjs add --rule "<general, imperative>" --quote ${JSON.stringify(g.note)} --kind taste --area <area>`);
   } else {
-    die("usage: lessons.mjs add|list|drop|brief ...");
+    die("usage: lessons.mjs add|list|drop|brief|digest|suggest ...");
   }
 }
 

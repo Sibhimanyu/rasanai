@@ -26,7 +26,7 @@
 // word/char spans are one line). A block is readable at a sample when at least half of its words (the most it ever has,
 // so a typewriter grows) are visible by the rules above and inside the frame.
 //   text-too-brief  a statement-size block (font >= 3.5% of the frame height) of 3+ words whose longest continuous
-//                   readable run is shorter than 0.6 s + 0.3 s per word (story.mjs's reading time) less one sample. Judged per text
+//                   readable run is shorter than 0.6 s + 0.3 s per word (lib/reading.mjs readTime, the one formula) x 0.85 slack, less one sample. Judged per text
 //                   STATE: a slot whose string changes (typed, deleted, swapped) is split into chains of strings that grow from one
 //                   another (typing); each chain's longest string must be readable for its own reading time, so a typed-and-swapped
 //                   line can fail. A shrinking string (deleting) is in flux and not counted.
@@ -47,9 +47,10 @@ import { launch } from "./cdp.mjs";
 import { serve } from "./stage3d.mjs";
 import { gateValue, gateNotes } from "./gate-lessons.mjs";
 import { noteDowngrade } from "./downgrade.mjs";
+import { readTime, READ_BASE_S, READ_PER_WORD_S, SLACK_RENDER } from "./reading.mjs";
 
 export const TEXT_FIT = { fps: 10, safe: 0.06, edge_s: 1.2, rest_s: 0.4, min_font_px: 20, rest_px: 1.5,
-  statement: 0.035, read_base_s: 0.6, read_per_word_s: 0.3, brief_min_words: 3, overlap_frac: 0.15, overlap_s: 0.3, read_slack: 0.85, mask_hid: 0.12, mask_max: 0.6, mask_s: 0.3 };
+  statement: 0.035, read_base_s: READ_BASE_S, read_per_word_s: READ_PER_WORD_S, brief_min_words: 3, overlap_frac: 0.15, overlap_s: 0.3, read_slack: SLACK_RENDER, mask_hid: 0.12, mask_max: 0.6, mask_s: 0.3 };
 const r2 = (x) => Math.round(x * 100) / 100;
 const readText = (p) => { try { return fs.readFileSync(p, "utf8"); } catch { return ""; } };
 
@@ -279,9 +280,9 @@ export function analyzeBlocks(byBlock, dt, file, H) {
     for (const ch of chains) {
       const wc = Math.max(...ch.map((r) => r.w)), okc = ch.filter((r) => !r.shrink && r.v * 2 >= wc);
       if (!okc.length || wc < T.brief_min_words) continue;
-      const need = T.read_base_s + T.read_per_word_s * wc;
+      const rt = { base: T.read_base_s, perWord: T.read_per_word_s }, need = readTime(wc, rt), needSeen = readTime(wc, { ...rt, slack: T.read_slack }); // lib/reading.mjs: render-level, so with slack
       const best = runs(okc.map((r) => r.t)).reduce((a, b) => (b[1] - b[0] > a[1] - a[0] ? b : a), [0, 0]);
-      if (best[1] - best[0] >= need * T.read_slack - dt - 1e-9) continue; // 15% slack: a line a few frames short reads; one held half its time does not
+      if (best[1] - best[0] >= needSeen - dt - 1e-9) continue; // 15% slack: a line a few frames short reads; one held half its time does not
       const shown = best[1] - best[0], tx = okc.reduce((a, b) => (b.v > a.v ? b : a)).x;
       findings.push({
         check: "text-too-brief", severity: "error", at: r2(best[0]), from: r2(best[0]), to: r2(best[1]), text: tx.slice(0, 40), file: base, region: "text",
