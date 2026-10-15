@@ -123,7 +123,7 @@ struct HomeView: View {
 
     // MARK: Sections
 
-    /// The prompt box, right on Home: describe it and start. The full editor (format grid, footage wells, templates) is one
+    /// The prompt box, right on Home: describe it and start. The full editor (the step-by-step setup, footage folders, a reference video) is one
     /// click away under it and keeps whatever was typed here.
     private var composer: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -132,7 +132,7 @@ struct HomeView: View {
             HStack(spacing: 14) {
                 Button { store.newFilm() } label: { Label("More options", systemImage: "slider.horizontal.3") }
                     .buttonStyle(.link).font(.system(size: 12.5))
-                    .help("Open the full editor: what you are making, footage folders, a reference video, templates")
+                    .help("Set up the film one question at a time: what you are making, footage, taste, series")
                 Button { store.path = [.inspire] } label: { Label("Inspiration", systemImage: "sparkles") }
                     .buttonStyle(.link).font(.system(size: 12.5))
                 Spacer()
