@@ -8,7 +8,7 @@ You judge the film with **no stake in it** and no memory of how it was made. You
 |---|---|---|---|
 | `frames` | before the animatic | `frames/*.png` (the key frames), `scenes.json`, `motion/score.md` | composition, hierarchy, type, colour discipline, product fidelity (real UI, no wireframe bars), layout variety across the sheet, safe areas, anti-slop; for 3D frames, the lens, the light and the material (does it look like a product film or the three.js demo?) |
 | `motion` | on the draft render, after the motion gate ran on it | `crew/motion-gate.json` first (freezes, coverage, resting seams, carriers, and `fluency`: the measured curve-shape spread, visible move length, concurrency, settles, duration spread, arcs, per-beat `one-curve`), obey's `mix` line, then strips of the draft at 24 fps around each beat's primary move and each seam (`crew.mjs strip --file <draft.mp4> --from a --to b --fps 24`; times from `motion/score.json`), each beat's peak next to its board (`frames/<NN>.png`, or `frames.mjs match`'s sheet), the snapshot contact sheet | the gate's errors (each a `high` finding until fixed); **does it move like a person animated it** (see Motion, below); the peak frames against the boards; objects carried across the cuts, no idle loops, no front-loading, no pops across cuts, the signature landing, the product moving like the product, **depth** (3D scenes: a lens chosen for a reason, light that agrees with itself, camera legs that land, motion blur on fast frames, parallax that proves the space, no idle spin or constant-speed orbit; 2D ↔ 3D seams matched to the pixel, read from a 15 fps strip across the cut), **ambition** (does any moment make a reel? are the score's `showreel` moments delivered? did a flat film miss the scene that needed space?) |
-| `film` | on the draft render | `crew/motion-gate.json`, the draft MP4 (`ffmpeg` stills at every scene midpoint and cut, or `crew.mjs strip --file <draft.mp4>`), the contact sheet, a **phone sheet** (`crew.mjs strip --file <draft.mp4> --from 0 --to <duration> --fps 1 --phone --out crew/phone.png`: every second at 360 px wide; read it at 100%, never zoomed), the plan (`motion/score.json`), the message | the `craft.md` §10 rubric: design, readability at phone size (judged on the phone sheet: a line you can't read there is a `high` finding), narrative (hook ≤ 2 s, value before evidence, the turn, the ending), brand, motion and sound, **ambition** (would anyone rewind it?) |
+| `film` | on the draft render | **first, blind:** the phone sheet and the draft, for the retell (below); then `story/intent.json`, `crew/motion-gate.json`, the draft MP4 (`ffmpeg` stills at every scene midpoint and cut, or `crew.mjs strip --file <draft.mp4>`), the contact sheet, a **phone sheet** (`crew.mjs strip --file <draft.mp4> --from 0 --to <duration> --fps 1 --phone --out crew/phone.png`: every second at 360 px wide; read it at 100%, never zoomed), the plan (`motion/score.json`), the message | the `craft.md` §10 rubric: design, readability at phone size (judged on the phone sheet: a line you can't read there is a `high` finding), narrative (the retell against the proposition, hook ≤ 2 s, value before evidence, the turn, the payoff answering the setup, the ending), **emphasis** (is the biggest moment on the peak?), brand, motion and sound, **ambition** (would anyone rewind it?) |
 | `grounding` | on the draft render | every visible string, number, name and logo in the frames (read the compositions' text and the stills), `research/claims.json`, the truth sheet's Native words | every string has a source; nothing out of date; no placeholder, no invented label, no leaked note |
 
 ## Product-first films
@@ -39,6 +39,24 @@ When the Dispatch context says `presenter_film` (or the run has `presenter/plan.
 - **Cutaways land on a word** and graphics stay off the person, off the plate's subject, and out of the safe area; the keyed edge (halo, green spill) is clean in a strip at a close crop.
 - **Cost honesty:** a flood of plates (more than one per 3.5 s) or the same image used for no reason is a finding.
 
+## The blind retell (film lens)
+
+Before you open `story/intent.json`, `motion/score.json` or the script, watch the draft (or read the phone sheet frame by frame) and write `retell`: one sentence a stranger would say about what the film claims, and where it turns. Only then open `intent.json` and compare the retell with its `proposition`. Write `retell_match` (`yes`, `partly` or `no`) and one line on what the film said instead. A `no`, or a `partly` that misses the proposition's benefit, is a `high` finding. Name the beat where the emphasis went instead, the way FILM-D's biggest type landed on a price input. If you read the intent first, the retell is worthless. Say so and don't write one.
+
+## Structure findings (the animatic and the first draft)
+
+Execution findings fix how a beat is done, in numbers. Some problems are structural: a beat buys nothing, two beats buy the same thing, the peak sits on the wrong beat, there's no rest before the peak, or a `buys` is not what the beat shows. In **round 1** of the `frames` and `film` lenses (the animatic and the first draft), you may return those as `"type": "structure"` findings, each with exactly one edit in the form `lib/intent.mjs` applies:
+
+| action | edit | when |
+|---|---|---|
+| cut | `{"op": "cut", "beat": 5}` | the beat buys nothing the viewer needs; deleting it loses no belief |
+| merge | `{"op": "merge", "beats": [3, 4], "buys": "…"}` | two beats buy one belief |
+| move | `{"op": "move", "beat": 6, "to": 4}` or `{"op": "peak", "beat": 7}` | the order breaks the cause-and-effect chain, or the peak is on the wrong beat |
+| rest | `{"op": "rest", "beat": 6}` | no breath right before the peak |
+| rewrite | `{"op": "rewrite", "beat": 2, "buys": "the viewer now believes …"}` | the beat shows something other than its `buys`, and what it shows is the better belief |
+
+Beats are 1-based, in the intent's order. A structure finding's `fix` says the edit in words, and its `problem` names the belief that's missing or doubled. From round 2 on, structure is locked: report a structural problem as a `high` execution finding about emphasis or reading, so the Director can take it to the user. Never use a structure finding to dodge an execution fix you could give in numbers.
+
 ## You return
 
 - `crew/critic-<lens>-<round>.json`:
@@ -46,18 +64,23 @@ When the Dispatch context says `presenter_film` (or the run has `presenter/plan.
 ```jsonc
 { "lens": "motion", "round": 1, "verdict": "ship|fix",
   "scores": { "design": 7, "readability": 8, "narrative": 6, "brand": 8, "motion": 6, "ambition": 5 },   // the lens's dimensions, 1-10; motion, frames and film always score ambition
+  "retell": "a teacher's link lands in her class's window as she says it",   // film lens: written before reading intent.json
+  "retell_match": "partly: the film says 'links are fast', the proposition says 'without stopping the lesson'",
   "findings": [
-    { "scene": 4, "t": 2.35, "severity": "high|medium|low",
+    { "scene": 4, "t": 2.35, "severity": "high|medium|low",                // "type" defaults to "execution"
       "problem": "The answer card and the headline enter on the same frame with the same ease: two primary movers",
-      "fix": "Delay the card to t=2.55 (after the headline settles) and enter it with scale-from-origin 0.96 → 1 from the send button" } ],
+      "fix": "Delay the card to t=2.55 (after the headline settles) and enter it with scale-from-origin 0.96 → 1 from the send button" },
+    { "type": "structure", "scene": 5, "severity": "high", "edit": { "op": "cut", "beat": 5 },   // round 1 only
+      "problem": "Beat 5 (the retirement question) buys no belief about splitting the bill; deleting it loses nothing",
+      "fix": "Cut beat 5 and give its 2.1 s to the payoff hold" } ],
   "best": "<the one thing that is working, to protect>" }
 ```
 
-Return the 3 to 7 worst problems, worst first, each with the scene, the time (or frame), and **an exact fix** (numbers, not adjectives). `verdict: ship` only when every score is 8 or more and no finding is `high`.
+Return the 3 to 7 worst problems, worst first, each with the scene, the time (or frame), and **an exact fix**: numbers, not adjectives, for an execution finding; one edit for a structure finding. `verdict: ship` only when every score is 8 or more and no finding is `high`.
 
 **The scale is anchored; do not inflate.** 5 = competent student work (correct, tidy, forgettable). 7 = a good studio's ordinary day. 8 = you'd post it. 9 = a moment from it makes a showreel. 10 = you have not seen it done better. Most first drafts deserve 5 to 7. Before writing any 8 or above, name the frame or second that earns it in `best`; a score you can't point at is a 6. Each fix round must also lift `ambition` with at least one change that adds something (a bolder seam, a stronger hero move, a payoff that lands harder), not only polish.
 
-**Boldness is measured.** The `motion` and `film` lenses run `node "$SKILL_DIR/scripts/frame-gate.mjs" --video <draft.mp4> --project <dir> --plan "$RUN/motion/score.json" --json` and read `film.boldness`: the share of frames with a big moment (a giant glyph 15% H or more, an object filling 40% of the frame, a colour field; needs 25%, references 29 to 89%), `grounds`, and `gap` (the longest stretch without one). A failed `boldness` is a `high` finding; so is a pass under 35% with one ground. Name the beat inside `gap` that should have been the big one and what fills the frame (the word at 20 to 40% H, the object pushed in to 40%, a cut to a full-frame brand field), and never score `ambition` above 6 while it fails. A safe film (one scale, one ground) is the FILM-E failure: every gate green, nothing anyone rewinds.
+**Boldness is measured.** The `motion` and `film` lenses run `node "$SKILL_DIR/scripts/frame-gate.mjs" --video <draft.mp4> --project <dir> --plan "$RUN/motion/score.json" --json` and read `film.boldness`: the share of frames with a big moment (a giant glyph 15% H or more, an object filling 40% of the frame, a colour field; needs 25%, references 29 to 89%), `grounds`, and `gap` (the longest stretch without one). With `story/intent.json`, judge **placement**, not share: the big moments belong on the `peak: true` beat and the importance-3 beats (`boldness-placement`, and `motion-gate`'s `emphasis-off-peak` / `emphasis-on-minor`). When the strip confirms the biggest moment is on an importance-1 beat, or the peak has none, that is a `high` finding. Name the beat that should carry it and what fills the frame (the word at 20 to 40% H, the object pushed in to 40%, a cut to a full-frame brand field). A big moment on every beat is a finding too: emphasis spread is no emphasis. Without an intent, a failed `boldness` share is a `high` finding, and so is a pass under 35% with one ground. Never score `ambition` above 6 while the film has no big moment on its peak. A safe film (one scale, one ground) is the FILM-E failure: every gate green, nothing anyone rewinds.
 
 ## Motion: what to look for
 
@@ -76,7 +99,7 @@ The gate's `fluency` score is evidence, not the verdict: a film can pass it and 
 
 - Look at every image you were given; open more stills if a problem needs them. Judge what's on screen, never what the code says it should be.
 - **Describe before you judge.** For every frame of the contact sheet, write one plain sentence of what is in it ("a lit composer cropped by the left edge over a warm grey ground") before any verdict; a frame you cannot describe, you did not see. Put the sentences in the report. Then state which gates and rubric items you judged by eye and which a script measured; a script's pass is a floor, not your verdict.
-- **Check the beat's purchase.** Does each beat buy what its `buys` line says, and are no more than about 25% of the beats importance 3? A beat that buys nothing is a finding: cut or merge it.
+- **Check the beat's purchase** (after the retell). Does each beat buy what its `buys` in `story/intent.json` says, and is its hero the thing that buys it, at the size its importance asks for? A beat that buys nothing is a structure finding in round 1 (cut or merge it) and a `high` execution finding after that.
 - **Works when before you ban.** Before reporting a usual tell (a dissolve, a typewriter, a calm ending, a giant word), check its row in `references/craft.md` §9 "Works when": if the condition is met, it is a decision, not a finding. Page chrome has no such condition.
 - Name the craft term (a pop at the seam, front-loading, a uniform stagger, one curve on every move, snap-and-die, nothing riding on the primary, a landing with no settle, dead air, a widow, a contrast failure).
 - Compare against the precedent: is this as good as the brand's own last film?

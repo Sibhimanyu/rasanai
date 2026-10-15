@@ -21,6 +21,14 @@
 //          shared with slop.mjs; ranked across the whole film before it is spent, a typing burst = one cue per line, a declared
 //          signature move's whoosh kept where the music hits), placed by each
 //          sample's measured sync point, plus the audio_meta.json "sfx" entries
+//        [--curves curves.json] [--pan [--width <px>]] [--no-generate] [--run <dir>]
+//       -> wave 7: foley that sounds inside a spoken phrase (through its word gaps) is ducked 5 dB (--words); an event with on_word: true snaps to the
+//          nearest word onset; cues inside a designed break of --bed are noted; --curves (or <project>/curves.json: {curves:[{id, kind, points:[[t,v]..]}]})
+//          renders a texture bed per curve (camera air from zoom speed |d ln zoom/dt|^1.3, brush noise from stroke speed; silent when the picture is
+//          still) into assets/sfx/rasa/texture-<id>.wav, listed in texture_beds and audio_meta_sfx, not counted in the SFX budget; --pan pans a cue
+//          by its event's x (0 left .. 1 right, or px with --width) by baking a stereo file (HyperFrames has no pan node: see references/sound.md);
+//          with no library sample, no media-use file and the user's own RASANAI_ELEVENLABS_API_KEY, a sample is generated (cached under assets/sfx/gen/),
+//          else the cue has no file and a downgrade is logged
 //   node sound.mjs check (--video <mp4> | --audio <file>) [--film <s>] [--vo <stem>] [--music <stem>]
 //        [--sfx <sfx-plan.json|index.html>] [--silent-by-choice "<reason>"] [--plan plan.json] [--events events.json]
 //        [--narrated] [--lufs -14] [--payoff <s>] [--score score.json]
@@ -35,7 +43,14 @@
 //          from the one checked: the reveal and the director's payoff are both reported, no-breath (fewer than 2 designed breaks, 1 under 20 s: a 0.25 s+ stretch 10 dB
 //          under the median level, outside the head and tail) and, narrated (--narrated, --vo or --words), no-split-edits (fewer than 2 J-cuts or L-cuts in 4+
 //          cuts; cuts from --scenes / --plan / --events, phrases from --words or the --vo stem); numbers in measures.shape;
-//          exit 2 with fixes when anything is off
+//          exit 2 with fixes when anything is off. Wave 7 warnings (uncalibrated, numbers in measures.sync): cut-onset-share (under 20% of the cuts within
+//          80 ms of a sound onset, with the near misses 80-300 ms and the slide that fixes each), text-lands-before-word (events with a "word" and --words /
+//          --scenes: the text must land 0-2 frames before the spoken word, 5 for a name), low-mud (0.5 s windows 80%+ under 300 Hz in 30% of the film or a 3 s
+//          run), with --sfx: sfx-buried (a cue 26 dB or more under the music in its 0.3 s window; --music for a true reading), sfx-in-break (a film with
+//          designed breaks and no sound in any) and sfx-on-word-onset (a cue within 150 ms of a spoken word's onset that was not placed there on purpose);
+//          --locked [lock.json] (default <run>/sound-lock.json) warns audio-changed when the mix differs from the one `lock` hashed, unless --note-asked "<note>"
+//   node sound.mjs lock (--video <mp4> | --audio <file>) [--run <dir>] [--out <lock.json>]
+//       -> hashes the approved mix (sha256 of the decoded 48 kHz s16 PCM, plus a 100 ms level envelope) into <run>/sound-lock.json
 //   node sound.mjs master (--video <mp4> | --audio <file>) --out <file> [--lufs -14]
 //       -> the post-render fix for check's loudness/peak problems: static gain + true-peak limiter
 //          (-1.5 dBTP, -2 for AAC/MP3), picture copied untouched
@@ -43,14 +58,17 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die, readJSON, writeFile } from "./lib/common.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
 import { track } from "./lib/report.mjs";
 import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
+import { noteDowngrade } from "./lib/downgrade.mjs";
+import { KEYS } from "./lib/music-lib.mjs";
 import {
   analyzeTrack, publicAnalysis, summarize, fitTrack, renderPlan, masterFile, probeSfx, loudness, loudnessOver,
-  decode, findRepeats, onsetProfile, SFX_BUDGET, sfxMode, sfxLimit, sfxOver, momentaryDb, designedBreaks, speechPhrases, phrasesFromWords, splitEdits, hasAudioStream, probeDuration, requireTools, r1, r3, SR,
+  decode, findRepeats, onsetProfile, onsetTimes, cutOnsetShare, lowShare, windowDb, audioFingerprint, compareFingerprint, renderTexture, SFX_BUDGET, sfxMode, sfxLimit, sfxOver, momentaryDb, designedBreaks, speechPhrases, phrasesFromWords, splitEdits, hasAudioStream, probeDuration, requireTools, r1, r3, SR,
 } from "./lib/audio.mjs";
 
 const args = parseArgs();
@@ -109,6 +127,37 @@ const SIZE = { small: 1, medium: 2, large: 3 };
 const BUDGET = SFX_BUDGET; // one budget with slop.mjs (lib/audio.mjs)
 const TYPE_GAP = 0.8, SPREAD = 3, SPREAD_PENALTY = 1.5; // sfx-plan: typing-burst gap, spread window (s), score lost per same-class neighbour
 const VARIANTS = [{ rate: 1, gain_db: 0 }, { rate: 1.035, gain_db: -1.5 }, { rate: 0.965, gain_db: -0.8 }];
+
+const DUCK_DB = 5; // foley that plays inside a spoken phrase
+
+// generated SFX fallback (mortiflix idea; our code): ElevenLabs sound generation with the user's own key, only when a cue has no sample.
+// Cached by prompt under <project>/assets/sfx/gen/. Sync call through curl so sfx-plan stays one straight pass; the key goes through a header file, never argv.
+const GEN_PROMPTS = {
+  click: ["a soft dry UI button click, very short, no reverb", 0.5], key: ["a single quiet keyboard key press, dry", 0.5], type: ["a few soft typing key taps, dry", 1.2],
+  land: ["a soft low thud of a card landing on a desk, short", 0.8], snap: ["a crisp snap click as an object locks into place, short", 0.6], pop: ["a gentle soft pop, short", 0.5],
+  toast: ["a short soft two-note notification chime, clean", 1.0], count: ["a single clean tick tone, short", 0.5], reveal: ["a deep cinematic impact hit with a short sub tail", 1.8],
+  logo: ["a deep clean impact hit with a short tail, brand sting", 1.8], whoosh: ["a smooth airy whoosh, medium speed", 1.0], riser: ["a rising tension riser that peaks at the end, 4 seconds", 4],
+  glitch: ["a short digital glitch stutter", 0.6], error: ["a short low soft error buzz tone", 0.7],
+};
+function genWhy(project) {
+  return !process.env[KEYS.elevenlabs] ? `no library category fits and no ${KEYS.elevenlabs} in the environment, so no sample could be generated` : !project ? "no --project dir to keep a generated sample in" : args["no-generate"] ? "--no-generate" : "generation failed";
+}
+function genSfx(kind, project) {
+  const key = process.env[KEYS.elevenlabs], g = GEN_PROMPTS[kind];
+  if (!key || !project || !g || args["no-generate"]) return null;
+  const dir = path.join(project, "assets", "sfx", "gen");
+  const id = `gen-${kind}`, file = path.join(dir, `${id}.mp3`);
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    if (!fs.existsSync(file)) {
+      const hdr = path.join(dir, `.h-${process.pid}`);
+      fs.writeFileSync(hdr, `xi-api-key: ${key}\ncontent-type: application/json\n`, { mode: 0o600 });
+      try { execFileSync("curl", ["-sS", "--fail", "-m", "90", "-X", "POST", "https://api.elevenlabs.io/v1/sound-generation?output_format=mp3_44100_128", "-H", `@${hdr}`, "-d", JSON.stringify({ text: g[0], duration_seconds: g[1], prompt_influence: 0.5 }), "-o", file], { stdio: ["ignore", "pipe", "pipe"] }); }
+      finally { fs.rmSync(hdr, { force: true }); }
+    }
+    return fs.existsSync(file) && fs.statSync(file).size > 1000 ? { id, file } : null;
+  } catch { fs.rmSync(file, { force: true }); return null; }
+}
 
 function sfxLibrary() {
   const mu = findSkill("media-use");
@@ -251,16 +300,21 @@ function sfxPlan() {
   cand = cand.filter((e) => !e._drop);
 
   const bed = args.bed ? onsetProfile(exists(path.resolve(String(args.bed)), "bed")) : null;
-  const words = [];
+  const words = [], wordSpans = [];
   if (args.words) {
     const M = readJSON(exists(path.resolve(String(args.words)), "audio meta"));
     for (const v of M.voices || []) {
       const s = sc.scenes.find((x) => x.n === Number(v.frame));
       if (!s) continue;
-      for (const w of v.words || []) if (String(w.text || "").replace(/\W/g, "").length >= 4) words.push(s.start + Number(w.start));
+      for (const w of v.words || []) {
+        const ws = s.start + Number(w.start);
+        if (Number.isFinite(ws)) wordSpans.push({ s: ws, e: w.end != null ? s.start + Number(w.end) : ws + 0.2 });
+        if (String(w.text || "").replace(/\W/g, "").length >= 4) words.push(ws);
+      }
     }
   }
 
+  const notes_tex = [];
   const maxCount = sfxLimit(mode, film);
   // the share cap is over ALL visual events: only an events file lists those (inferred events are
   // already the sound-worthy ones)
@@ -310,7 +364,11 @@ function sfxPlan() {
       if (h.strong) { gain -= 3; notes.push("music hits here: 3 dB lower"); }
     }
     let t = e.t;
-    if (words.length && k.cls !== "hero") {
+    if (e.on_word && wordSpans.length) {
+      // a cue that is meant to land with a spoken word (the event says so): snap to the nearest word onset within 0.25 s, no clash move
+      const o = wordSpans.reduce((b, w) => (Math.abs(w.s - t) < Math.abs(b.s - t) ? w : b), wordSpans[0]);
+      if (Math.abs(o.s - t) <= 0.25) { if (Math.abs(o.s - t) > 0.005) notes.push(`on a word onset on purpose: moved ${Math.round((o.s - t) * 1000)} ms`); t = o.s; }
+    } else if (words.length && k.cls !== "hero") {
       const clash = (x) => words.some((w) => Math.abs(w - x) < 0.15);
       if (clash(t)) {
         const later = [0.033, 0.066].map((d) => t + d).find((x) => !clash(x));
@@ -332,11 +390,21 @@ function sfxPlan() {
   const lastUse = {};
   const cues = [];
   const project = args.project ? path.resolve(String(args.project)) : null;
+  const noSample = new Set();
+  const phrases = wordSpans.length ? phrasesFromWords(wordSpans.map((w) => ({ start: w.s, end: w.e })), 0.25) : [];
+  const breaks = bed ? designedBreaks(momentaryDb(decode(path.resolve(String(args.bed))), 0.1), 0.1).breaks : [];
   for (const e of placed) {
     const k = KINDS[e.kind];
     const uses = cues.filter((c) => c.kind === e.kind).length;
     const rl = pickRasan(RL, e.kind, k.cls, history);
-    const sample = rl ? rl.id : k.samples[uses % k.samples.length];
+    let sample = rl ? rl.id : k.samples[uses % k.samples.length];
+    let generated = false;
+    if (!rl && !lib.files[sample]) {
+      // no library category and no media-use file: a generated sample when the user's own ElevenLabs key is in the environment
+      const g = genSfx(e.kind, project);
+      if (g) { lib.files[g.id] = g.file; sample = g.id; generated = true; }
+      else if (!noSample.has(e.kind)) { noSample.add(e.kind); noteDowngrade({ run: args.run, what: `a sample for "${e.kind}" cues`, instead: "the cue has no file", why: genWhy(project) }); }
+    }
     history.push(sample);
     const p = probe(sample);
     let v = VARIANTS[uses % VARIANTS.length];
@@ -353,6 +421,19 @@ function sfxPlan() {
     if (p && p.warnings.some((w) => /harsh|piercing/.test(w))) cue.notes.push("harsh sample: lowpass 9 kHz applied when rendered");
     if (e.t - sync < 0) cue.notes.push("crest would fall before the film starts: trimmed");
     cue._scene_start = scene.start;
+    if (generated) { cue.source = "elevenlabs-generated"; cue.notes = [...cue.notes, "generated sample (no library category fit): ElevenLabs sound generation, the user's own key"]; }
+    // foley under speech: a cue that sounds inside a spoken phrase (through its word gaps too) is ducked 5 dB, unless it is on a word on purpose or a hero hit
+    if (phrases.length && !e.on_word && k.cls !== "hero" && phrases.some(([a, b]) => a < start + dur && b > start)) {
+      cue.volume = r3(cue.volume * Math.pow(10, -DUCK_DB / 20));
+      cue.notes = [...cue.notes, `ducked ${DUCK_DB} dB: sounds inside a spoken phrase`];
+    }
+    const inBreak = breaks.find((b) => e.t >= b.from - 0.05 && e.t <= b.to + 0.05);
+    if (inBreak) cue.notes = [...cue.notes, `inside the designed break ${inBreak.from}-${inBreak.to} s: the only sound there, so keep it clean and dry`];
+    // pan: the on-screen x of the event (0 left .. 1 right, or px with --width); baked into the rendered stereo file (see the header)
+    if (args.pan && e.x != null && Number.isFinite(Number(e.x))) {
+      const w = Number(args.width) || 0, x = w > 0 && Number(e.x) > 1 ? Number(e.x) / w : Number(e.x);
+      cue.pan = r3(Math.max(-0.7, Math.min(0.7, (Math.max(0, Math.min(1, x)) - 0.5) * 2 * 0.7)));
+    }
     cues.push(cue);
   }
   // render variants into the project (pitch can't be varied at play time: data-playback-rate keeps pitch)
@@ -363,11 +444,12 @@ function sfxPlan() {
       if (!c.file) continue;
       const p = probes[c.sample];
       const lead = Math.max(0, p.lead_silence - 0.005);
-      const name = `${c.sample}${c.rate === 1 ? "" : `-r${Math.round(c.rate * 1000)}`}.wav`;
+      const pan = c.pan != null && Math.abs(c.pan) >= 0.02 ? c.pan : null;
+      const name = `${c.sample}${c.rate === 1 ? "" : `-r${Math.round(c.rate * 1000)}`}${pan == null ? "" : `-p${Math.round(pan * 100)}`}.wav`;
       const dest = path.join(dir, name);
       const harsh = p.warnings.some((w) => /harsh|piercing/.test(w));
       const lp = c.class === "hero" ? (harsh ? 9000 : null) : harsh ? 9000 : 11000;
-      const af = [`atrim=start=${lead.toFixed(3)}:end=${p.audible_end.toFixed(3)}`, "asetpts=PTS-STARTPTS", c.rate !== 1 ? `asetrate=48000*${c.rate},aresample=48000` : null, lp ? `lowpass=f=${lp}` : null, c.class === "hero" || c.class === "riser" ? null : "highpass=f=100", "afade=t=out:st=0:d=0.001", `areverse,afade=t=in:d=0.02,areverse`].filter(Boolean).join(",");
+      const af = [`atrim=start=${lead.toFixed(3)}:end=${p.audible_end.toFixed(3)}`, "asetpts=PTS-STARTPTS", c.rate !== 1 ? `asetrate=48000*${c.rate},aresample=48000` : null, lp ? `lowpass=f=${lp}` : null, c.class === "hero" || c.class === "riser" ? null : "highpass=f=100", "afade=t=out:st=0:d=0.001", `areverse,afade=t=in:d=0.02,areverse`, pan == null ? null : (() => { const a = ((pan + 1) * Math.PI) / 4; return `aformat=channel_layouts=mono,pan=stereo|c0=${(Math.SQRT2 * Math.cos(a)).toFixed(3)}*c0|c1=${(Math.SQRT2 * Math.sin(a)).toFixed(3)}*c0`; })()].filter(Boolean).join(",");
       if (!fs.existsSync(dest)) execFileSync("ffmpeg", ["-y", "-v", "error", "-i", c.file, "-ar", "48000", "-af", af, "-c:a", "pcm_s16le", dest]);
       c.sync_point = r3(Math.max(0, p.sync_point - lead) / c.rate);
       c.start = r3(Math.max(0, c.t - c.sync_point + 0.01));
@@ -375,7 +457,24 @@ function sfxPlan() {
       c.file = path.relative(project, dest).split(path.sep).join("/");
     }
   }
-  const audio_meta_sfx = cues.filter((c) => c.file).map((c) => ({ frame: c.scene, file: c.file, offset_s: r3(c.start - c._scene_start), duration_s: c.duration_s, volume: c.volume }));
+  // texture beds from the picture's continuous curves (score exports <project>/curves.json or --curves): camera air from zoom speed, brush noise from
+  // stroke speed. Not cues: they are not counted in the SFX budget and play at 0.05-0.12 under everything else.
+  const beds = [];
+  const curvesFile = args.curves && args.curves !== true ? path.resolve(String(args.curves)) : project && fs.existsSync(path.join(project, "curves.json")) ? path.join(project, "curves.json") : null;
+  if (curvesFile) {
+    const C = readJSON(exists(curvesFile, "curves"));
+    for (const [i, c] of (Array.isArray(C) ? C : C.curves || []).entries()) {
+      const id = String(c.id || `${c.kind || "curve"}${i + 1}`).replace(/[^\w-]+/g, "-");
+      const dest = project ? path.join(project, "assets", "sfx", "rasa", `texture-${id}.wav`) : path.join(os.tmpdir(), `rasanai-texture-${process.pid}-${id}.wav`);
+      const r = renderTexture({ ...c, id }, dest);
+      if (!r) { notes_tex.push(`curve "${id}" has under 3 points or under 0.2 s: no texture`); continue; }
+      if (!project) fs.rmSync(dest, { force: true });
+      const sc0 = sc.scenes.find((x) => r.start >= x.start - 1e-6 && r.start < x.start + x.duration) || sc.scenes[0];
+      const vol = r3((r.texture === "brush" ? 0.08 : r.texture === "rumble" ? 0.12 : 0.1) * (narrated ? 0.7 : 1));
+      beds.push({ id, curve: c.kind || null, texture: r.texture, start: r.start, duration_s: r.duration_s, active_share: r.active_share, volume: vol, scene: sc0.n, file: project ? path.relative(project, dest).split(path.sep).join("/") : null });
+    }
+  }
+  const audio_meta_sfx = [...cues.filter((c) => c.file).map((c) => ({ frame: c.scene, file: c.file, offset_s: r3(c.start - c._scene_start), duration_s: c.duration_s, volume: c.volume })), ...beds.filter((b) => b.file).map((b) => ({ frame: b.scene, file: b.file, offset_s: r3(b.start - (sc.scenes.find((x) => x.n === b.scene) || sc.scenes[0]).start), duration_s: b.duration_s, volume: b.volume }))];
   cues.forEach((c) => delete c._scene_start);
   const est = cues.filter((c) => c.estimated).length;
   out({
@@ -383,12 +482,15 @@ function sfxPlan() {
     film_duration: r3(film),
     budget: { max_sfx: maxCount, placed: cues.length, candidates: cand.length, per_window: B.perWindow, hero_every_s: B.heroEvery, whoosh_every_s: B.whooshEvery },
     cues,
+    texture_beds: beds,
     skipped,
     audio_meta_sfx,
     library: RL ? { dir: LIB_DIR, ui_pack: RL.uiPack } : lib.dir,
     notes: [
       est ? `${est} cue time(s) are estimates from the scene text: pass --events with the real settle/contact times from the built composition before final mix` : null,
       !lib.dir && !RL ? "no SFX library found (library/sfx missing and media-use not installed): cues have no files; pass --library <dir>" : null,
+      ...notes_tex,
+      args.pan && !cues.some((c) => c.pan != null) ? "--pan: no event carries an x (0 left .. 1 right, or px with --width): nothing was panned" : null,
       !project ? "pass --project <dir> to render pitch variants, trimmed and filtered, into assets/sfx/rasa/" : null,
     ].filter(Boolean),
   });
@@ -403,14 +505,40 @@ function sfxTimes(file) {
     const t = [];
     for (const m of txt.matchAll(/<audio[^>]*id="el-sfx-[^"]*"[^>]*>/g)) {
       const s = m[0].match(/data-start="([\d.]+)"/);
-      if (s) t.push({ t: Number(s[1]), kind: (m[0].match(/src="[^"]*?([\w-]+)\.\w+"/) || [])[1] || "sfx" });
+      if (s) t.push({ t: Number(s[1]), kind: (m[0].match(/src="[^"]*?([\w-]+)\.\w+"/) || [])[1] || "sfx", file: (m[0].match(/src="([^"]+)"/) || [])[1] || null, volume: Number((m[0].match(/data-volume="([\d.]+)"/) || [])[1] ?? 1), base: path.dirname(p) });
     }
     return t;
   }
   const J = JSON.parse(txt);
-  if (Array.isArray(J.cues)) return J.cues.map((c) => ({ t: c.t ?? c.start, kind: c.kind || c.sample }));
+  if (Array.isArray(J.cues)) return J.cues.map((c) => ({ t: c.t ?? c.start, kind: c.kind || c.sample, file: c.file || null, volume: c.volume ?? 1, notes: c.notes || [], base: path.dirname(p) }));
   return [];
 }
+
+// ---- wave 7 sync helpers (cuts, events, spoken words in film seconds)
+const normW = (t) => String(t || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+function cutTimes(dur) {
+  let starts = null;
+  if (args.scenes && args.scenes !== true) starts = readScenes(String(args.scenes)).scenes.map((s) => s.start);
+  if (!starts && args.plan) { const pl = readJSON(exists(path.resolve(String(args.plan)), "plan")); if (Array.isArray(pl.scenes) && pl.scenes.length) starts = pl.scenes.map((s) => Number(s.start ?? s.start_s)).filter(Number.isFinite); }
+  let cuts = starts ? starts.slice(1) : null;
+  if (!cuts && args.events) cuts = eventList().filter((e) => /^(transition|cut|seam)/i.test(String(e.kind || e.id || "")) && Number.isFinite(Number(e.t))).map((e) => Number(e.t));
+  return (cuts || []).filter((c) => c > 0.5 && c < dur - 0.5).sort((a, b) => a - b);
+}
+function eventList() {
+  if (!args.events || args.events === true) return [];
+  const raw = fs.readFileSync(exists(path.resolve(String(args.events)), "events"), "utf8");
+  if (!/^\s*[[{]/.test(raw)) return eventsFromLines(raw);
+  const E = JSON.parse(raw);
+  return Array.isArray(E) ? E : E.events || [];
+}
+function filmWords() {
+  if (!args.words || args.words === true || !args.scenes || args.scenes === true) return [];
+  const sc = readScenes(String(args.scenes)).scenes, M = readJSON(exists(path.resolve(String(args.words)), "audio meta")), out = [];
+  for (const v of M.voices || []) { const st = sc.find((x) => x.n === Number(v.frame))?.start; if (st == null) continue; for (const w of v.words || []) out.push({ text: w.text, start: st + Number(w.start), end: w.end != null ? st + Number(w.end) : st + Number(w.start) + 0.2 }); }
+  return out.filter((w) => Number.isFinite(w.start)).sort((a, b) => a.start - b.start);
+}
+// where the lock lives: --locked <file>, else <run>/sound-lock.json, else next to the audio
+const lockPath = (file) => path.resolve(args.locked && args.locked !== true ? String(args.locked) : args.lock && args.lock !== true ? String(args.lock) : args.run && args.run !== true ? path.join(String(args.run), "sound-lock.json") : path.join(path.dirname(file), "sound-lock.json"));
 
 function check() {
   const src = args.video || args.audio;
@@ -600,6 +728,58 @@ function check() {
     }
     measures.shape = shape;
   }
+  // wave 7 sync checks: every one a WARNING, thresholds uncalibrated (numbers in measures.sync)
+  {
+    const sync = {};
+    // cuts on sound onsets: pros land about 35% of their cuts within 80 ms of an onset; the near misses (80-300 ms) say how far to slide each cut
+    try {
+      const cuts = cutTimes(dur);
+      if (cuts.length >= 4) {
+        const my = args.music ? decode(exists(path.resolve(String(args.music)), "music stem")) : y;
+        const on = onsetTimes(my), R = cutOnsetShare(cuts, on);
+        sync.cut_onset = { on: args.music ? "music stem" : "mix", ...R, need: 0.2 };
+        if (R.share != null && R.share < 0.2) warnings.push(`cut-onset-share: ${R.on_onset} of ${R.cuts} cuts (${Math.round(R.share * 100)}%) land within 80 ms of a sound onset (professional cuts about 35%, needs 20%)${R.near_misses.length ? `; near misses: ${R.near_misses.slice(0, 5).map((m) => `cut ${m.cut} s, onset ${m.off_ms > 0 ? "+" : ""}${m.off_ms} ms`).join("; ")}` : ""} (slide the cut onto the onset, or the sound onto the cut)`);
+      } else sync.cut_onset = { skipped: `${cuts.length} cut(s) found (needs 4: --scenes, --plan with scenes or --events with transitions)` };
+    } catch (e) { sync.cut_onset = { skipped: String(e.message).slice(0, 100) }; }
+    // text lands 0-2 frames BEFORE the spoken word (5 for a name reveal): events with a "word" (kind text/title/label/name/caption/type)
+    try {
+      const ws = filmWords(), fps = Number(args.fps) || 30, rows = [];
+      if (ws.length) {
+        for (const e of eventList().filter((e) => e.word && /^(text|title|headline|label|name|caption|type|line)/i.test(String(e.kind || "")) && Number.isFinite(Number(e.t)))) {
+          const t = Number(e.t), w = ws.filter((x) => normW(x.text) === normW(e.word) && Math.abs(x.start - t) <= 1.5).sort((a, b) => Math.abs(a.start - t) - Math.abs(b.start - t))[0];
+          if (!w) continue;
+          const lead = (w.start - t) * fps, max = e.name || /name/i.test(String(e.kind)) ? 5 : 2;
+          rows.push({ event: e.id || null, word: e.word, text_at: r3(t), word_at: r3(w.start), lead_frames: r1(lead), max_frames: max });
+          if (lead < -0.5 || lead > max + 0.5) warnings.push(`text-lands-before-word: "${e.word}" is on screen at ${r1(t)} s and spoken at ${r1(w.start)} s: the text lands ${r1(lead)} frames before the word (wanted 0 to ${max}): ${lead < 0 ? "it lands after the voice, so the viewer hears it first" : "it sits there too long before the voice says it"}`);
+        }
+        sync.text_before_word = { checked: rows.length, rows };
+      } else sync.text_before_word = { skipped: "needs --words <audio_meta.json> with --scenes, and events that carry a word" };
+    } catch (e) { sync.text_before_word = { skipped: String(e.message).slice(0, 100) }; }
+    // low mud: the share of energy under 300 Hz per 0.5 s window of the mix
+    try {
+      const rows = lowShare(file), live = rows.length;
+      if (live >= 6) {
+        const mud = rows.map((r) => r.share >= 0.8);
+        let run = 0, maxRun = 0;
+        for (const m of mud) { run = m ? run + 1 : 0; maxRun = Math.max(maxRun, run); }
+        const frac = mud.filter(Boolean).length / live;
+        sync.low_mud = { windows: live, mud_share: r3(frac), longest_run_s: maxRun * 0.5, median_low_share: r3([...rows].map((r) => r.share).sort((a, b) => a - b)[Math.floor(live / 2)]), need: "under 30% of windows, no run over 3 s" };
+        if (frac >= 0.3 || maxRun >= 6) warnings.push(`low-mud: ${Math.round(frac * 100)}% of the mix's 0.5 s windows are 80% or more energy under 300 Hz (longest run ${maxRun * 0.5} s): the film is boomy and the voice and the SFX sit in the mud (high-pass the SFX at 100 Hz, cut the bed 2-3 dB around 200-300 Hz under speech, thin the low end of the music)`);
+      }
+    } catch (e) { sync.low_mud = { skipped: String(e.message).slice(0, 100) }; }
+    // the approved mix must not change across fix rounds unless a note asked (sound.mjs lock)
+    if (args.locked) {
+      const lf = lockPath(file);
+      if (!fs.existsSync(lf)) sync.lock = { skipped: `no lock at ${lf}: run sound.mjs lock after the audio is approved` };
+      else {
+        const L = readJSON(lf), R = compareFingerprint(L, audioFingerprint(file));
+        sync.lock = { lock: lf, locked_at: L.locked_at || null, ...R };
+        if (!R.identical && args["note-asked"] && args["note-asked"] !== true) sync.lock.allowed_by_note = String(args["note-asked"]);
+        else if (!R.identical) warnings.push(`audio-changed: the approved mix changed since it was locked (${R.only_encoding ? "same levels, different encoding" : `${R.moved_windows} windows moved by over 0.5 dB${R.spans_s.length ? `, at ${R.spans_s.map((x) => x.join("-") + " s").join(", ")}` : ""}`}; length ${R.duration_was} s then, ${R.duration_now} s now): a fix round touched the sound and no note asked for it (re-render with the locked audio, or pass --note-asked "<the note>" if one did and re-run sound.mjs lock)`);
+      }
+    }
+    measures.sync = sync;
+  }
   // SFX density
   if (args.sfx) {
     const cues = sfxTimes(String(args.sfx)).sort((a, b) => a.t - b.t);
@@ -611,6 +791,35 @@ function check() {
       if (args["silent-by-choice"] && args["silent-by-choice"] !== true) measures.silent_by_choice = String(args["silent-by-choice"]);
       else P("no-sfx", `0 SFX cues in a ${r1(dur)} s film`, "cues on transitions, landings, taps, counters and the reveal", "run sound.mjs sfx-plan with the score's events and seams after the build and mount the cues (whoosh on moves through space, hit on landings, click on taps, tick on counters, impact on the reveal); or pass --silent-by-choice \"<reason>\" for a film that is silent on purpose");
     }
+    // wave 7: SFX audibility (event-window RMS against the music), SFX in designed breaks, SFX on word onsets. Warnings.
+    try {
+      const sync = measures.sync || (measures.sync = {});
+      const my = args.music ? decode(exists(path.resolve(String(args.music)), "music stem")) : y;
+      const where = args.music ? "music stem" : "mix (the SFX are in it: the gap is understated; pass --music)";
+      const resolveFile = (c) => { if (!c.file) return null; for (const b of [c.base, args.project && args.project !== true ? path.resolve(String(args.project)) : null, process.cwd()].filter(Boolean)) { const f = path.resolve(b, c.file); if (fs.existsSync(f)) return f; const up = path.resolve(b, "..", c.file); if (fs.existsSync(up)) return up; } return null; };
+      const rows = [];
+      for (const c of cues) {
+        const f = resolveFile(c);
+        if (!f) continue;
+        const sy = decode(f, { duration: 2 });
+        let i0 = 0; while (i0 < sy.length && Math.abs(sy[i0]) < 0.02) i0++;
+        const sdb = windowDb(sy, i0 / SR, i0 / SR + 0.3) + 20 * Math.log10(Math.max(1e-4, Number(c.volume) || 1)), mdb = windowDb(my, c.t, c.t + 0.3);
+        if (mdb > -60) rows.push({ t: r3(c.t), kind: c.kind, sfx_db: r1(sdb), music_db: r1(mdb), gap_db: r1(mdb - sdb) });
+      }
+      sync.sfx_audibility = { on: where, measured: rows.length, of: cues.length, buried_at_db: 26 };
+      const buried = rows.filter((r) => r.gap_db >= 26);
+      if (buried.length) warnings.push(`sfx-buried: ${buried.length} of ${rows.length} measured SFX sit 26 dB or more under the ${args.music ? "music" : "mix"} in their 0.3 s window (${buried.slice(0, 5).map((r) => `${r.kind} at ${r.t} s, ${r.gap_db} dB`).join("; ")}): nobody hears them (raise the cue 6-12 dB, dip the bed under it, or drop it)`);
+      if (!rows.length) sync.sfx_audibility.skipped = "no cue file could be read (give --project, or an --sfx file whose cues carry their file and volume)";
+      const br = designedBreaks(momentaryDb(my, 0.1), 0.1).breaks;
+      sync.sfx_in_break = { breaks: br.length, empty: br.filter((b) => !cues.some((c) => c.t >= b.from - 0.1 && c.t <= b.to + 0.1)).map((b) => [b.from, b.to]) };
+      if (br.length && cues.length && sync.sfx_in_break.empty.length === br.length) warnings.push(`sfx-in-break: none of the ${br.length} designed break${br.length === 1 ? "" : "s"} (${br.slice(0, 3).map((b) => b.from + "-" + b.to + " s").join(", ")}) carries a sound: the silence is empty, and one dry tick or hit inside it is what makes it read as designed`);
+      const ws = filmWords().filter((w) => normW(w.text).length >= 4);
+      if (ws.length) {
+        const bad = cues.filter((c) => !(c.notes || []).some((n) => /on a word onset on purpose/.test(n)) && !/logo|reveal|impact|stinger|hit/i.test(String(c.kind)) && ws.some((w) => Math.abs(w.start - c.t) < 0.15));
+        sync.sfx_on_word = { words: ws.length, clashing: bad.map((c) => r3(c.t)) };
+        if (bad.length) warnings.push(`sfx-on-word-onset: ${bad.length} SFX land within 150 ms of a spoken word's onset (${bad.slice(0, 5).map((c) => r1(c.t) + " s " + c.kind).join(", ")}) without being placed there on purpose: they fight the word (sfx-plan --words moves them 1-2 frames, or mark the event on_word: true to land with the word)`);
+      }
+    } catch (e) { (measures.sync ||= {}).sfx_checks = { skipped: String(e.message).slice(0, 120) }; }
     Object.assign(measures, { sfx_count: cues.length, sfx_per_s: r3(cues.length / dur), sfx_max_in_1s: maxWin, whooshes });
     if (sfxOver(cues.length, mode, dur)) P("SFX density", `${cues.length} SFX in ${r1(dur)} s`, `<= ${sfxLimit(mode, dur)}`, "keep only causal events (clicks, lands, the reveal): sound.mjs sfx-plan enforces the budget");
     if (maxWin > B.perWindow) P("SFX pile-up", `${maxWin} sounds within one second`, `<= ${B.perWindow}`, "drop or spread the weakest cues");
@@ -620,6 +829,18 @@ function check() {
   const ok = problems.length === 0;
   out({ ok, file, measures, problems, warnings });
   if (!ok) process.exit(2);
+}
+
+// ============================================================== lock
+
+// sound.mjs lock (--video <mp4> | --audio <file>) [--run <dir>] [--out <lock.json>]: hash the approved mix so later fix rounds can prove they left it alone
+function lock() {
+  const src = exists(path.resolve(String(args.video || args.audio || need("audio", "<file> (or --video <mp4>)"))), "input");
+  if (!hasAudioStream(src)) die("the file has no audio track to lock");
+  const o = args.out && args.out !== true ? path.resolve(String(args.out)) : lockPath(src);
+  const fp = audioFingerprint(src);
+  writeFile(o, JSON.stringify({ locked_at: new Date().toISOString(), file: path.basename(src), ...fp }, null, 2) + "\n");
+  out({ ok: true, lock: o, pcm_sha256: fp.pcm_sha256, duration: fp.duration, next: `after every fix round: sound.mjs check --video <new render> --locked ${path.relative(process.cwd(), o)} (a warning when the mix moved; --note-asked "<note>" when a note asked for it)` });
 }
 
 // ============================================================== dispatch (last: the tables above must exist)
@@ -685,9 +906,12 @@ if (cmd === "analyze") {
 } else if (cmd === "sfx-plan") {
   track("Placing sound effects on causal moments only", "SFX planned");
   sfxPlan();
+} else if (cmd === "lock") {
+  track("Locking the approved mix", "Mix locked");
+  lock();
 } else if (cmd === "check") {
   track("Measuring the mix: loudness, peaks, loops, SFX density", "Audio checked");
   check();
 } else {
-  die("usage: sound.mjs analyze|fit|render|sfx-plan|check|master|probe ... (see the header)");
+  die("usage: sound.mjs analyze|fit|render|sfx-plan|check|lock|master|probe ... (see the header)");
 }

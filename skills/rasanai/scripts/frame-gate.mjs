@@ -42,7 +42,10 @@
 //   cut-rhythm      average hard-cut shot <= 5 s on a launch film of 8 s or more (warning)
 //   boldness        big moments on >= 25% of the frames (refs 29 to 89%, Google 17%; FILM-D 54%, FILM-E 18%); an error,
 //                   a warning in a declared stillness or editorial style (--stillness, score stillness: true or
-//                   motion_style stillness|editorial, motion.md stillness: true)
+//                   motion_style stillness|editorial, motion.md stillness: true). With a story/intent.json (found from --plan or
+//                   --project; lib/emphasis.mjs) the gate judges placement instead (`boldness-placement`, a WARNING, uncalibrated):
+//                   a big moment must sit in the `peak: true` beat and in at least half of the importance-3 beats, whatever the
+//                   film-wide share; the 25% share stays a floor only when there is no intent.json
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -53,6 +56,7 @@ import { serve } from "./lib/stage3d.mjs";
 import { pagesOf, sizeOf } from "./lib/textfit.mjs";
 import { decodeStill, decodeVideo, frameMetrics, boldFrame, cutsAndCompositions, ffmpegOk, rgbToLab, percentile as pct, median } from "./lib/pixels.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
+import { loadIntent, intentBeats } from "./lib/emphasis.mjs";
 
 export const GATE = {
   ground_chroma: 1.5, ground_range: 4, // R10
@@ -100,7 +104,7 @@ export function boldnessOf(rows, dur, domBig = null) {
     if (f.big) { if (f.t - from > gap[1] - gap[0]) gap = [r2(from), r2(f.t)]; from = f.t + step; }
   });
   if (dur - from > gap[1] - gap[0]) gap = [r2(from), r2(dur)];
-  return { bigShare: share("big"), glyphShare: share("glyph"), objShare: share("obj"), fieldShare: share("field"), domShare: domBig ? share("dom") : null, grounds, beats: beatTimes.length, beatsPer30: r1(30 * beatTimes.length / Math.max(dur, 1e-3)), glyphMax: r1(Math.max(0, ...rows.map((r) => r.glyph))), beatTimes, gap };
+  return { bigShare: share("big"), glyphShare: share("glyph"), objShare: share("obj"), fieldShare: share("field"), domShare: domBig ? share("dom") : null, grounds, beats: beatTimes.length, beatsPer30: r1(30 * beatTimes.length / Math.max(dur, 1e-3)), glyphMax: r1(Math.max(0, ...rows.map((r) => r.glyph))), beatTimes, gap, flags: fl };
 }
 
 const r1 = (x) => (x == null || !Number.isFinite(x) ? null : Math.round(x * 10) / 10);
@@ -438,6 +442,17 @@ export async function measureFrames(opts = {}) {
   if (res.kind === "video") {
     const b = boldnessOf(feats.map((f) => ({ t: f.t, ...f.bold })), res.dur, text ? text.map((r) => !!r && r.bigPct >= GATE.giant_h) : null);
     film.boldness = b;
+    // where the intent puts the big moments: the peak beat and the importance-3 beats (story/intent.json; none -> the share floor below)
+    const intent = await loadIntent({ plan: opts.plan, project: opts.project }).catch(() => null);
+    if (intent) {
+      let pb = []; try { if (opts.plan) pb = (await import("./motion-gate.mjs")).readPlan(path.resolve(opts.plan)).beats || []; } catch {}
+      const want = intentBeats(intent, pb).filter((x) => (x.peak || x.importance === 3) && x.start != null && x.end != null);
+      if (want.length) {
+        const rows = want.map((x) => ({ beat: x.id, peak: x.peak, importance: x.importance, t0: r2(x.start), t1: r2(x.end), big: b.flags.some((f) => f.big && f.t >= x.start - 1e-6 && f.t < x.end + 1e-6) }));
+        b.placed = { intent: path.basename(intent._file || "intent.json"), beats: rows, peakCovered: rows.filter((x) => x.peak).every((x) => x.big), covered: rows.filter((x) => x.big).length };
+      }
+    }
+    delete b.flags;
   }
   res.film = film;
 
@@ -491,7 +506,11 @@ export async function measureFrames(opts = {}) {
   const bd = film.boldness;
   if (res.kind !== "video") res.skipped.push("boldness: measured on a film (--video), not on stills");
   else if (dur < GATE.bold_min_dur) res.skipped.push(`boldness: the film is ${r1(dur)} s (measured from ${GATE.bold_min_dur} s)`);
-  else if (bd.bigShare < GATE.bold_share) {
+  else if (bd.placed) {
+    // judged by placement: the big moments sit on the peak and the importance-3 beats; the film-wide share is not a quota
+    const p = bd.placed, miss = p.beats.filter((x) => !x.big), need = Math.ceil(p.beats.length / 2), ok = p.peakCovered && p.covered >= need;
+    if (!ok) add("warning", "boldness-placement", `no big moment on ${miss.map((x) => `beat ${x.beat}${x.peak ? " (the peak)" : ""} ${x.t0}-${x.t1} s`).join(", ")} (${p.covered} of ${p.beats.length} peak/importance-3 beats are big; the peak must be, and at least half of them); big moments cover ${Math.round(bd.bigShare * 100)}% of the frames`, `put the giant glyph, frame-filling object or colour field on those beats (the payoff word or number at 20 to 40% H, a push-in until it fills 40%, a full-frame brand field); not elsewhere (references/craft.md Boldness; story/intent.json)`, { value: p.covered, limit: need, beats: miss.map((x) => x.beat) });
+  } else if (bd.bigShare < GATE.bold_share) {
     let stillness = opts.stillness == null ? null : !!opts.stillness;
     if (stillness == null) {
       const plan = opts.plan ? readJ(path.resolve(opts.plan)) : null;
@@ -528,7 +547,7 @@ function printable(res) {
   out.push(`frame gate: ${res.verdict}${res.kind === "video" ? ` · ${f.durS} s, ${f.frames} frames sampled` : ` · ${f.frames} stills`}`);
   const row = (k, v, u = "") => v == null ? "" : `${k} ${v}${u}`;
   out.push("  pixels  " + [row("ground chroma", f.groundChroma), row("ground L* range", f.groundRange), row("empty", Math.round(f.emptyShare * 100), "%"), row("soft p90", f.softP90), row("soft shots", Math.round(f.softShotsShare * 100), "%"), row("colourful p90", f.colourfulP90), row("sat", f.satMedian, "%"), row("flat grounds", f.swatchGrounds)].filter(Boolean).join(" · "));
-  if (f.boldness) { const b = f.boldness, pc = (v) => `${Math.round(v * 100)}%`; out.push("  bold    " + [row("big moments", pc(b.bigShare)), row("glyph", pc(b.glyphShare)), row("object", pc(b.objShare)), row("field", pc(b.fieldShare)), b.domShare != null ? row("DOM line", pc(b.domShare)) : "", row("grounds", b.grounds), row("beats", b.beats), row("longest without", `${b.gap[0]}-${b.gap[1]}`, " s")].filter(Boolean).join(" · ")); }
+  if (f.boldness) { const b = f.boldness, pc = (v) => `${Math.round(v * 100)}%`; out.push("  bold    " + [row("big moments", pc(b.bigShare)), row("glyph", pc(b.glyphShare)), row("object", pc(b.objShare)), row("field", pc(b.fieldShare)), b.domShare != null ? row("DOM line", pc(b.domShare)) : "", row("grounds", b.grounds), row("beats", b.beats), b.placed ? row("peak/imp-3 beats big", `${b.placed.covered}/${b.placed.beats.length}`) : "", row("longest without", `${b.gap[0]}-${b.gap[1]}`, " s")].filter(Boolean).join(" · ")); }
   if (res.kind === "video") out.push("  cuts    " + [row("hard cuts", f.hardCuts), row("ASL", f.aslS, " s"), row("compositions/10 s", f.compositionsPer10s)].filter(Boolean).join(" · "));
   if (f.charsMedian != null) out.push("  text    " + [row("competing heroes", f.competingShare == null ? null : Math.round(f.competingShare * 100), "% of frames"), row("chars", f.charsMedian), row("lines", f.linesMedian), row("biggest p90", f.biggestP90, "% H"), row("p90/p10", f.biggestRatio), row("max", f.biggestMax, "% H"), row("frames >= 20% H", Math.round(f.share20 * 100), "%"), row("object p90/p10", f.objectRatio)].filter(Boolean).join(" · "));
   if (res.limits.notes.length) for (const n of res.limits.notes) out.push(`  note    ${n}`);

@@ -64,13 +64,13 @@ export default async function ({ ok, tmp, env }) {
   ok("motion-gate: a 16 s film whose camera never moves warns camera-monotone (whole film), with the measured beats", !!has(lk, "camera-monotone", "whole film") && has(lk, "camera-monotone").severity === "warning" && lk.measured.camera && lk.measured.camera.moving_kinds === 0, JSON.stringify([lk.measured.camera, lk.findings && lk.findings.filter((x) => /camera/.test(x.check))]));
   ok("motion-gate: a declared stillness style waives the render's camera-monotone", !has(gate("locked16.mp4", ["--stillness"]), "camera-monotone", "whole film"));
 
-  // the score: echo {opening, ending, change}, a camera per beat, 4 kinds, one signature_shot
+  // the score: echo {opening, ending, change}, a camera per beat chosen from meaning (no kind quota), one signature_shot
   const scene = (id, start, end, camera) => ({ id, start, end, camera });
   const write = (name, obj) => { fs.writeFileSync(f(name), JSON.stringify({ brandReveal: "d", ...obj })); return f(name); };
   const good = write("good.json", { echo: { opening: "the picture on navy", ending: "the picture again, bigger", change: "small to large, a bar under it" }, signature_shot: { beat: "c", move: "whip", why: "the turn" }, scenes: [scene("a", 0, 2, "locked"), scene("b", 2, 4, "pan-truck along the bars"), scene("c", 4, 6, "whip to the end"), scene("d", 6, 8, "push-in on the end card")] });
   const flat = write("flat.json", { scenes: [scene("a", 0, 2, "locked"), scene("b", 2, 4, "T0 locked"), scene("c", 4, 6, null), scene("d", 6, 8, "locked")] });
   const pg = gate("rhyme.mp4", ["--plan", good]), pf = gate("rhyme.mp4", ["--plan", flat]);
   const pc = has(pf, "camera-monotone", "plan");
-  ok("motion-gate: a score with an echo, 4 camera moves and a signature_shot raises neither plan warning", !has(pg, "no-echo", "plan") && !has(pg, "camera-monotone", "plan"), JSON.stringify(pg.findings && pg.findings.filter((x) => /echo|camera/.test(x.check))));
-  ok("motion-gate: a score with no echo warns no-echo (plan); one locked camera, an unnamed beat and no signature_shot warn camera-monotone (plan)", !!has(pf, "no-echo", "plan") && !!pc && /beat c/.test(pc.message) && /1 different/.test(pc.message) && /signature_shot/.test(pc.message) && pc.severity === "warning", JSON.stringify(pf.findings && pf.findings.filter((x) => /echo|camera/.test(x.check))));
+  ok("motion-gate: a score with an echo, a camera per beat and a signature_shot raises neither plan warning", !has(pg, "no-echo", "plan") && !has(pg, "camera-monotone", "plan"), JSON.stringify(pg.findings && pg.findings.filter((x) => /echo|camera/.test(x.check))));
+  ok("motion-gate: a score with no echo warns no-echo (plan); no signature_shot warns camera-monotone (plan), but one locked kind and an unnamed beat are not a quota failure", !!has(pf, "no-echo", "plan") && !!pc && /signature_shot/.test(pc.message) && !/different camera|1 different|beat c/.test(pc.message) && pc.severity === "warning", JSON.stringify(pf.findings && pf.findings.filter((x) => /echo|camera/.test(x.check))));
 }

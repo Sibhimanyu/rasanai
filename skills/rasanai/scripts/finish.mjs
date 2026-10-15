@@ -16,13 +16,19 @@
 //   Projects that use RasanCamera render with its speed trails scaled to the gap between sub-frames
 //   (window.RASAN_CAMERA_TRAILS = 2/samples): the shutter makes the smear, the trail only fills the steps between samples.
 //   node finish.mjs patch-test [grade options]     (brand-colour drift of the grade on flat patches)
+// Blur details (references/finish.md): the shutter averages in LINEAR light (--blur-space gamma for the old gamma average); a frame whose
+// shutter window would straddle a hard cut is laid from its own centre sub-frame (nothing of the other shot leaks in; --no-cut-aware turns
+// that off); one blur grammar per film: a score (--run / --score) or motion.md that declares blur_grammar smear | stepped | crisp makes
+// blur/all refuse the shutter (--shutter-over-smear overrides, --draft is never refused); renders take a slot (lib/slot.mjs: at most
+// RASANAI_RENDER_SLOTS at once on the machine, a free-memory gate; RASANAI_RENDER_SLOTS=0 or --no-slot turns it off).
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { parseArgs, die } from "./lib/common.mjs";
+import { parseArgs, die, readFrontmatterDoc } from "./lib/common.mjs";
 import { sharpRanges as sharpRangesOf, graphWithSharp } from "./lib/sharp.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
+import { acquireSlotSync } from "./lib/slot.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -58,22 +64,63 @@ function probe(file) {
 // index n*N, and averages the window [n*N - M/2, n*N + M/2] sub-frames (shutter = M/N of a frame). M is
 // even so the centre is a sub-frame; the two end taps get half weight, which makes the window exactly
 // M sub-frame intervals wide (a true box filter of the sub-frame signal, symmetric about the frame time).
-function blurChain({ N, shutter, fps }) {
+// linear = true (default): the average is taken in linear light (a 2.2 power on 16-bit planes), not on gamma-encoded values: a bright
+// object crossing a dark ground keeps its highlight in the streak instead of fading into mud. The chain takes yuv420p bt709 limited in and
+// gives yuv420p bt709 limited out (explicit matrices both ways).
+function blurChain({ N, shutter, fps, linear = true }) {
   const M = N <= 1 ? 0 : Math.max(2, 2 * Math.round((shutter * N) / 2));
   if (M === 0) return { M, effShutter: 0, chain: `setpts=N/(${fps}*TB)` };
   const P = M / 2;
   const w = Array.from({ length: M + 1 }, (_, i) => (i === 0 || i === M ? 0.5 : 1)).join(" ");
+  const g = (e) => `lutrgb=r='pow(val/maxval,${e})*maxval':g='pow(val/maxval,${e})*maxval':b='pow(val/maxval,${e})*maxval'`;
+  const toLin = linear ? [`scale=in_color_matrix=bt709:in_range=limited:flags=accurate_rnd+full_chroma_int`, `format=gbrp16le`, g("2.2")] : [];
+  const fromLin = linear ? [g("(1/2.2)"), `scale=out_color_matrix=bt709:out_range=limited:flags=accurate_rnd+full_chroma_int`, `format=yuv420p`] : [];
   // pad P clones each side so frame 0 and the last frame have full windows; tmix output i averages
   // padded inputs i-M..i, i.e. original sub-frames centred on i-2P; the first full window is i = M.
   const chain = [
+    ...toLin,
     `tpad=start=${P}:start_mode=clone:stop=${P}:stop_mode=clone`,
     `tmix=frames=${M + 1}:weights='${w}'`,
     `trim=start_frame=${M}`,
     `setpts=PTS-STARTPTS`,
     `select='not(mod(n,${N}))'`,
     `setpts=N/(${fps}*TB)`,
+    ...fromLin,
   ].join(",");
-  return { M, effShutter: M / N, chain };
+  return { M, effShutter: M / N, chain, space: linear ? "linear" : "gamma" };
+}
+
+// Hard cuts in the oversampled render: a jump between two consecutive sub-frames of pass 0 (mean luma difference at 480 px wide, far above
+// the 240 fps motion floor). -> pass-0 frame indices i whose step i-1 -> i is a cut.
+function detectCuts(file) {
+  const r = sh("ffmpeg", ["-hide_banner", "-loglevel", "error", "-i", file, "-vf", "scale=480:-2,signalstats,metadata=print:key=lavfi.signalstats.YDIF:file=-", "-f", "null", "-"]);
+  const vals = [...String(r.stdout).matchAll(/YDIF=([0-9.e+-]+)/g)].map((m) => Number(m[1]));
+  if (vals.length < 3) return [];
+  const sorted = [...vals].sort((a, b) => a - b), med = sorted[Math.floor(sorted.length / 2)] || 0;
+  const thr = Math.max(10, med * 20);
+  return vals.map((v, i) => (i > 0 && v > thr ? i : -1)).filter((i) => i > 0);
+}
+
+// Output frames whose shutter window [nN-P, nN+P] holds both sides of a cut (the cut lies between interleaved sub-frames b-1 and b,
+// b in ((i-1)K, iK] for a cut seen at pass-0 frame i). Those frames are laid sharp from their own centre sub-frame, the frame-time side.
+function cutFrames(cuts, { N, M, K, fps, frames }) {
+  const P = M / 2, set = new Set();
+  for (const i of cuts) {
+    const lo = Math.ceil(((i - 1) * K + 1 - P) / N), hi = Math.floor((i * K - 1 + P) / N);
+    for (let n = Math.max(0, lo); n <= hi && (!frames || n < frames); n++) set.add(n);
+  }
+  return [...set].sort((a, b) => a - b).map((n) => [Math.round((n / fps - 0.002) * 10000) / 10000, Math.round((n / fps + 0.002) * 10000) / 10000, `cut at frame ${n}`]);
+}
+
+// The film's declared blur grammar (one per film): score.json `blur_grammar`, else motion.md `blur_grammar`: shutter | smear | stepped | crisp
+function declaredGrammar(project) {
+  const read = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } };
+  let v = null, from = null;
+  const sf = args.score && args.score !== true ? path.resolve(String(args.score)) : args.run && args.run !== true ? path.join(path.resolve(String(args.run)), "motion", "score.json") : null;
+  const sc = sf && read(sf);
+  if (sc && typeof (sc.blur_grammar || (sc.film && sc.film.blur_grammar)) === "string") { v = String(sc.blur_grammar || sc.film.blur_grammar); from = path.basename(sf); }
+  if (!v) { try { const M = readFrontmatterDoc(fs.readFileSync(path.join(project, "motion.md"), "utf8")).fields; if (M && typeof M.blur_grammar === "string") { v = M.blur_grammar; from = "motion.md"; } } catch {} }
+  return v ? { value: v.trim().toLowerCase(), from } : null;
 }
 
 // Motion energy per output frame from a cheap draft pass: mean absolute luma difference to the previous
@@ -284,6 +331,16 @@ function blurRender(tmpDir) {
   if (!args.project || !fs.existsSync(path.join(project, "index.html"))) die("--project <dir with index.html> is required");
   const { fps, shutter, quality, cap } = resolveBlurSettings();
   const notes = [];
+  // one blur grammar per film: a shutter over a smear / stepped / crisp-steps look doubles the blur (or turns each step into a dissolve)
+  const gram = declaredGrammar(project);
+  if (gram && /smear|stepp|crisp|steps|twos/.test(gram.value)) {
+    const msg = `${gram.from} declares blur_grammar "${gram.value}": a film has ONE blur grammar, and the shutter would average over it (a smear gets blurred twice, steps turn into dissolves)`;
+    if (DRAFT || args["shutter-over-smear"]) notes.push(`WARNING: ${msg}${args["shutter-over-smear"] ? " (--shutter-over-smear: going ahead)" : " (a draft: not refused)"}`);
+    else die(`${msg}. Run \`finish.mjs grade\` on the plain render instead, change blur_grammar to "shutter" in the score if the shutter is the film's blur, or pass --shutter-over-smear.`);
+  }
+  const slot = args["no-slot"] ? null : acquireSlotSync({ label: `finish ${path.basename(project)}` });
+  if (slot && slot.notes.length) notes.push(...slot.notes);
+  if (slot && slot.waited_s > 1) notes.push(`waited ${slot.waited_s} s for a render slot`);
   let N, motion = null, preSeconds = 0;
   if (!args.samples || args.samples === "auto") {
     const pre = path.join(tmpDir, "pre.mp4");
@@ -314,14 +371,23 @@ function blurRender(tmpDir) {
     renderSeconds += renderOversampled({ project: proj, composition: args.composition && String(args.composition), fps, N: Nb, quality, workers: args.workers, outFile: f });
     files.push(f);
   }
+  if (slot) slot.release(); // the renders are done: the mix below is ffmpeg only
   if (cam) notes.push(`RasanCamera trails at ${Math.round(200 / N)}% (they fill the steps between the ${N} samples)`);
   if (DRAFT) notes.push("draft blur: " + N + " samples, draft quality, no grade");
-  const { M, effShutter, chain } = blurChain({ N, shutter, fps });
+  const { M, effShutter, chain, space } = blurChain({ N, shutter, fps, linear: String(args["blur-space"] || "linear") !== "gamma" });
   // interleave: pass k frame i is sub-frame i*K + k at time (i*K+k) / (R*K)
   const pre = passes === 1 ? "[0:v]" : files.map((_, k) => `[${k}:v]setpts=(N*${passes}+${k})/(${R * passes}*TB)[p${k}]`).join(";") + ";" + files.map((_, k) => `[p${k}]`).join("") + `interleave=nb_inputs=${passes},`;
   const ranges = sharpRangesOf(project, args);
   if (ranges.length) notes.push(`sharp (not blurred): ${ranges.map((r) => `${r[2]} ${r[0]}-${r[1]}s`).join(", ")}`);
-    return { over: files[0], files, passes, sharp: ranges, graphIn: graphWithSharp(passes === 1 ? "[0:v]" : pre, chain, { N, fps, ranges }), fps, N, M, effShutter, chain, renderSeconds, preSeconds, motion, notes, quality };
+  // cut-aware: a frame whose shutter window straddles a hard cut keeps its own (frame-time) side
+  let cutRanges = [];
+  if (M > 0 && !args["no-cut-aware"]) {
+    const cuts = detectCuts(files[0]);
+    cutRanges = cutFrames(cuts, { N, M, K: passes, fps });
+    ranges.push(...cutRanges);
+    if (cutRanges.length) notes.push(`cut-aware: ${cuts.length} hard cut(s) seen; ${cutRanges.length} frame(s) whose shutter window crossed one are laid from their own centre sub-frame (no blur from the other shot)`);
+  }
+  return { over: files[0], files, passes, sharp: ranges.filter((r) => !cutRanges.includes(r)), cuts: cutRanges.length, graphIn: graphWithSharp(passes === 1 ? "[0:v]" : pre, chain, { N, fps, ranges }), fps, N, M, effShutter, space, chain, renderSeconds, preSeconds, motion, notes, quality };
 }
 
 // any .html/.js in the project (shallow: index, compositions, assets) that calls RasanCamera
@@ -375,7 +441,7 @@ if (cmd === "blur" || cmd === "all") {
   report({
     ok: true, command: cmd, draft: DRAFT || undefined, out, fps: b.fps, samples: b.N,
     sharp: b.sharp && b.sharp.length ? b.sharp.map((r) => ({ from_s: r[0], to_s: r[1], why: r[2] })) : undefined,
-    window: { subframes: b.M, shutter_requested: clamp(num(args.shutter, 0.5), 0.05, 1), shutter_effective: b.effShutter, taps: b.M ? b.M + 1 : 1, note: "centred on each frame time; end taps half weight" },
+    window: { subframes: b.M, shutter_requested: clamp(num(args.shutter, 0.5), 0.05, 1), shutter_effective: b.effShutter, taps: b.M ? b.M + 1 : 1, space: b.space, cut_frames_sharp: b.cuts, note: "centred on each frame time; end taps half weight; averaged in " + (b.space || "gamma") + " light" },
     frames: { expected: expectFrames, got: o.frames }, audio: o.hasAudio,
     auto: b.motion ? { motion: b.motion, pre_pass_seconds: b.preSeconds } : undefined,
     seconds: { render_oversampled: b.renderSeconds, mix_and_encode: mixSeconds, pre_pass: b.preSeconds, total: b.renderSeconds + mixSeconds + b.preSeconds },

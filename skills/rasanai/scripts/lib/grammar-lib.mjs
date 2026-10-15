@@ -1,5 +1,5 @@
 // Motion grammars: ONE grammar per film (a frame device, type and image behaviour, transitions and a list of
-// techniques), each beat spends a different technique of it. The library is <skill>/library/grammars/<id>.json;
+// techniques), each beat spends the technique that expresses its meaning. The library is <skill>/library/grammars/<id>.json;
 // RASANAI_GRAMMAR_LIBRARY points at another folder (the selftest uses fixtures). Shared by grammar.mjs, crew.mjs
 // (checkScore, contextFor, promptFor) and lib/system.mjs (the design desk's gate). Zero dependencies.
 import fs from "node:fs";
@@ -86,13 +86,9 @@ export function checkScoreGrammar(g, score, S, N) {
     const n = s.n || i + 1, t = String(s.technique || "").trim();
     if (!t) P.push(`technique-unknown: scene ${n} names no technique (one of: ${[...ids].join(", ")})`);
     else if (!ids.has(t)) P.push(`technique-unknown: scene ${n} technique "${t}" is not in the grammar "${g.id}" (${[...ids].join(", ")})`);
-    else {
-      used.push(t);
-      if (i > 0 && String(S[i - 1].technique || "").trim() === t) P.push(`technique-repeat: scenes ${n - 1} and ${n} both use "${t}": spend a different technique on each beat`);
-    }
+    else used.push(t);
     if (!String(s.frame_device || "").trim()) P.push(`frame-device-missing: scene ${n} has no frame_device (what the frame device does in this beat: "${String((g.frame_device || {}).moves || "").slice(0, 70)}")`);
   });
-  const want = Math.min(N || S.length, 6);
-  if (want > 0 && new Set(used).size < want) W.push(`technique-thin: ${new Set(used).size} distinct grammar techniques across ${S.length} beats (aim for ${want}): the grammar is the film's one language, but each beat spends a different part of it`);
+  if (S.length >= 4 && new Set(used).size <= 2) W.push(`technique-thin: ${new Set(used).size} distinct grammar technique(s) across ${S.length} beats: the film spends one or two tricks. Pick each beat's technique from what its hero does (a refrain may repeat one)`);
   return { P, W };
 }

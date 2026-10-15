@@ -10,7 +10,8 @@
 // banned-pattern signatures. Each ease is SAMPLED, so a cubic-bezier, a spring or a CustomEase is
 // judged by its shape, not its name. The uniform pattern (one ease, one duration, one stagger) is the
 // tell R5 measured; it is what this check fails.
-// Signatures and rules: references/motion-md-contract.md.
+// Also warns on dead tweens (rules dead-tween: every sampled property is the same at the tween's start and end; tween-past-end: it starts at or after the
+// composition's data-duration; tween-truncated: it runs more than 0.1 s past it). Signatures and rules: references/motion-md-contract.md.
 //
 // usage: node obey.mjs --project videos/<name> [--motion <path>] [--run <run> | --score <score.json>] [--json]
 //        (--run / --score: the score's `budget` lets a banned hero effect (overshoot, blur-in, scale-pop, glow) through
@@ -116,6 +117,8 @@ const WALKER = `
   out.width=rootEl?+rootEl.getAttribute("data-width"):1920;
   out.mixOff=!!document.querySelector('[data-obey-mix="off"]');
   out.clock=0;
+  var durEl=document.querySelector("[data-composition-id][data-duration]");
+  out.compDur=durEl?+durEl.getAttribute("data-duration"):null;
   try{
     var T=window.__timelines||{};
     Object.keys(T).forEach(function(id){
@@ -239,6 +242,25 @@ const easeLabel = (t) => (t.ease && t.ease.startsWith("rasan:") ? t.ease.slice(6
 
 if (unknownBans.length) add({ severity: "error", rule: "unknown-ban", file: motionPath, message: `motion.md bans ${unknownBans.join(", ")} but no machine signature exists for them`, fix: "remove them or add a signature in scripts/lib/signatures.mjs + motion-md-contract.md" });
 
+// dead tweens (warnings): a tween that never plays inside its composition, or that animates nothing
+const sameV = (a, b) => { if (a === b) return true; const x = Number(a), y = Number(b); if (Number.isFinite(x) && Number.isFinite(y)) return Math.abs(x - y) <= 1e-6 * Math.max(1, Math.abs(x)); return String(a) === String(b); };
+// from == to on every sampled property (and nothing unsampled): the target already sits where the tween sends it
+const isStatic = (t) => t.isEl && t.dur > 0 && !t.repeat && Object.keys(t.from || {}).length > 0 && t.keys.every((k) => k in t.from) && Object.keys(t.from).every((k) => sameV(t.from[k], t.to[k]));
+function deadTweens(res, rel) {
+  const dead = [], past = [], cut = [], D = res.compDur;
+  for (const t of res.tweens) {
+    if (isStatic(t)) dead.push(t);
+    if (D > 0 && t.dur > 0) { if (t.start >= D - 0.001) past.push(t); else if (t.start + t.dur > D + 0.1) cut.push(t); }
+  }
+  const emit = (list, rule, msg, fix) => {
+    list.slice(0, 5).forEach((t) => add({ severity: "warning", rule, file: rel, timeline: t.tl, target: t.target, at: `${t.start.toFixed(2)}s`, dur_ms: Math.round(t.dur * 1000), message: msg(t), fix }));
+    if (list.length > 5) add({ severity: "warning", rule, file: rel, message: `${list.length - 5} more tween(s) in ${rel} with the same problem (first 5 listed)`, fix });
+  };
+  emit(dead, "dead-tween", (t) => `animates nothing: every sampled property reads the same at its start and its end (${Object.keys(t.from).join(", ")})`, "delete it, or give it the value it should travel from (a from() on an element that already sits there does nothing)");
+  emit(past, "tween-past-end", (t) => `starts at ${t.start.toFixed(2)} s, at or after the composition's data-duration (${D} s): it never plays`, "move it inside the composition, or lengthen data-duration on the composition and its clip in index.html");
+  emit(cut, "tween-truncated", (t) => `runs ${t.start.toFixed(2)}-${(t.start + t.dur).toFixed(2)} s but the composition ends at ${D} s: its last ${(t.start + t.dur - D).toFixed(2)} s never plays`, "finish it before the composition ends, or lengthen data-duration");
+}
+
 const gestures = []; // every enter / exit / move tween in every checked file: the film's motion, for the mix rules
 let mixOff = false, width = 1920, clocks = [];
 for (const file of files) {
@@ -257,6 +279,7 @@ for (const file of files) {
     couldNotRun.push(`${rel}: defines GSAP tweens but none were found at runtime (timeline not registered synchronously on window.__timelines, or a script error)`);
   if (res.mixOff) mixOff = true;
   if (res.width) width = res.width;
+  if (!res.fatal) deadTweens(res, rel);
   const byTarget = {};
   let seen = 0;
   for (const t of res.tweens) {

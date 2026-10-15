@@ -42,6 +42,7 @@ waivers: []
 | `tempo.scale_ms` | the language's **pace**: reference lengths short to long. Not a grid; swatches and engines read it, and it scales `durations` |
 | `durations` | the distance formula: `base + travel x sqrt(travel / frame diagonal) + area x sqrt(area / frame area)`, clamped to `min`..`max` ms, jittered ±`jitter`, exits x`exit_k`. `pace` = the middle `scale_ms` value / 500 ms |
 | `easing` | the language's signature curves (enter, exit, move). They stay in the family as `snap`, `exit` and `move` |
+| `blur_grammar` | one per film: `shutter` (the finish's real motion blur), `smear` (stretched duplicates, directional blur, `blurTrail`), `stepped` (on twos or threes, `steps()`) or `crisp` (steps, no blur); `finish.mjs` refuses a shutter over the other three |
 | `curves` | a curve per role: `launch`, `glide`, `expressive`, `exit`, `settle`, `snap`, `drift`, `move`. GSAP names, `cubic-bezier(x1,y1,x2,y2)` or `spring(damping, omega)`; `RasanMotion.ease(name)` turns any of them into an ease function (no CustomEase needed); the twelve measured eases (`softLand`, `snapSettle`, `accelExit`, `measured.glide` ... : `references/craft.md`, "Frame budgets") are valid curve names too |
 | `mix` | what obey enforces once a film has `min_gestures` gestures: at least `min_families` curve families, no curve on more than `max_share` of gestures, no duration (to the frame) on more than `max_duration_share` |
 | `overlap` | the next gesture starts at 55–75% of the last; secondaries trail by 2–4 frames |

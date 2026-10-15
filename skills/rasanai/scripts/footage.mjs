@@ -15,6 +15,10 @@
 //           defaulted (lib/lang.mjs); a language that needs a model that is not installed is reported, never downloaded
 //   node footage.mjs bites    --run <run> [--min 1.5 --max 25]
 //        -> footage/bites-candidates.json: sentences from the word timings with word-aligned in/out (first start - 0.08, last end + 0.12), pace, confidence, fillers
+//   node footage.mjs clean-speech (--in <clip> | --run <run> --clip <id>) [--out <file>] [--lufs -16] [--no-denoise]
+//        -> the speech cleanup chain for a talking clip (lib/audio.mjs speechChain: high-pass 80 Hz, denoise, gate, mud cut, presence, 3:1 compression, loudnorm -16);
+//           a wav next to the footage under <run>/footage/clean/ (or --out), a video keeps its picture untouched. The original is never modified; the chain is
+//           for the user's own speech rushes, never for a music or room-tone track. ffmpeg without afftdn/agate runs the rest and says so.
 //   node footage.mjs merge-log | check-log | check-selects [--min-good 8] | check-paper --paper <story/paper-X.json> [--length s]
 //        -> the checks the crew's footage roles are accepted by (exit 2 with the problems listed)
 import fs from "node:fs";
@@ -27,6 +31,7 @@ import { parseArgs, die, writeFile } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
 import { decideLanguage, whisperTranscribe, hasWhisperCli, englishLooks, installedModels } from "./lib/lang.mjs";
+import { speechChain } from "./lib/audio.mjs";
 import { r3, jsonMaybe, FD, checkLog, mergeLogs, checkSelects, checkPaper } from "./lib/footage-lib.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -419,6 +424,28 @@ function bites() {
   out({ ok: true, candidates: rel(FD(run, "bites-candidates.json")), count: list.length, note: "Candidates are a draft: the selects producer rates them, joins the ones that belong together and writes footage/selects.json" });
 }
 
+// ---------------------------------------------------------------- speech cleanup
+function cleanSpeech() {
+  need1("ffmpeg");
+  let src = args.in && args.in !== true ? path.resolve(String(args.in)) : null;
+  if (!src && run && args.clip && args.clip !== true) {
+    const ing = jsonMaybe(FD(run, "ingest.json"));
+    const c = ((ing && (ing.clips || ing.files)) || []).find((x) => x.id === args.clip || slug(x.path || "") === args.clip);
+    if (c && c.path) src = c.path;
+  }
+  if (!src || !fs.existsSync(src)) die("--in <clip> (or --run <run> --clip <id> from ingest.json) is required, and must exist");
+  const isVideo = VIDEO.test(src);
+  const dest = args.out && args.out !== true ? path.resolve(String(args.out)) : path.join(run || path.dirname(src), ...(run ? ["footage", "clean"] : ["clean"]), `${slug(path.basename(src))}${isVideo ? ".mp4" : ".wav"}`);
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  if (path.resolve(dest) === path.resolve(src)) die("--out must not be the original file");
+  const have = String(sh("ffmpeg", ["-hide_banner", "-filters"]).stdout || "");
+  const chain = speechChain({ lufs: args.lufs != null && args.lufs !== true ? Number(args.lufs) : -16, denoise: !args["no-denoise"] && /\bafftdn\b/.test(have) }).split(",").filter((n) => { const f = n.split("=")[0]; return !/^(afftdn|agate|acompressor|loudnorm|equalizer|highpass)$/.test(f) || new RegExp("\\b" + f + "\\b").test(have); }).join(",");
+  const argv = ["-v", "error", "-y", "-i", src, ...(isVideo ? ["-map", "0:v:0", "-map", "0:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k"] : ["-vn", "-c:a", "pcm_s16le"]), "-af", chain, "-ar", "48000", dest];
+  const r = sh("ffmpeg", argv);
+  if (r.status !== 0 || !fs.existsSync(dest)) { noteDowngrade({ run: run || undefined, what: "speech cleanup of a rush", instead: "the original audio", why: String(r.stderr || "ffmpeg failed").trim().split("\n").pop().slice(0, 200) }); die(`the cleanup chain failed: ${String(r.stderr || "").trim().split("\n").pop()}`); }
+  out({ ok: true, in: rel(src), out: rel(dest), chain, note: "a first listen is still the user's: this is a safe default, not a mastering pass" });
+}
+
 // ---------------------------------------------------------------- checks
 function report(name, { P, W }, extra = {}) { out({ ok: !P.length, check: name, problems: P, warnings: W, ...extra }, P.length ? 2 : 0); }
 
@@ -427,6 +454,7 @@ else if (cmd === "shots") shots();
 else if (cmd === "vision") vision();
 else if (cmd === "transcribe") transcribe();
 else if (cmd === "bites") bites();
+else if (cmd === "clean-speech") cleanSpeech();
 else if (cmd === "merge-log") { need(); out({ ok: true, rows: mergeLogs(run), log: rel(FD(run, "log.json")) }); }
 else if (cmd === "check-log") { need(); report("log", checkLog(run)); }
 else if (cmd === "check-selects") { need(); report("selects", checkSelects(run, { minGood: args["min-good"] != null ? Number(args["min-good"]) : 8 })); }
@@ -435,4 +463,4 @@ else if (cmd === "check-paper") {
   if (!args.paper || args.paper === true) die("--paper <story/paper-X.json> required");
   const r = checkPaper(run, path.resolve(String(args.paper)), { length: Number(args.length) || 0 });
   report("paper edit", r, { stats: r.stats });
-} else die("usage: footage.mjs ingest|shots|vision|transcribe|bites|merge-log|check-log|check-selects|check-paper … (see the header)");
+} else die("usage: footage.mjs ingest|shots|vision|transcribe|bites|clean-speech|merge-log|check-log|check-selects|check-paper … (see the header)");

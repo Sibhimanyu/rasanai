@@ -11,6 +11,32 @@ The working vocabulary Claude uses to turn a direction ("a slow push on the devi
 - **Cost.** Full-frame SVG filters and large blurs are slow to render. Pre-blur static layers once, keep blur radii under about 40 px, and prefer a 256–512 px noise tile over a full-frame `feTurbulence`.
 - **Specify, don't describe.** Every instruction names the element, the property, the values, the ease and the time: "the card scales 0.96 → 1 with opacity 0 → 1 in 0.45 s on `power3.out` at 2.4 s", never "the card pops in nicely".
 
+## Start from the meaning
+
+Don't open this file to find a beat a technique. Read the beat's `buys` in `story/intent.json`, decide what the hero does (its verb: `references/craft.md` "Direction from meaning"), then look up the terms that build that verb. The size of the move follows the beat's importance: on an importance-1 beat use the quiet end of a row, and save the big terms (punch-in, zoom-through, colour-field wipe, flood) for the peak and the importance-3 beats.
+
+| The hero… | Terms that build it |
+|---|---|
+| arrives (something new) | Line mask reveal, Mask reveal, Cover / reveal, Self-assembly, Trim paths / draw-on; entering from its cause: Shared-element morph |
+| matters more now | Punch-in, Push (§1 Movement), Hit point / accent, a scale step on Arrive fast, land soft |
+| splits, or is compared | Shape morph, Wipe along the dividing line, Push / slide (one side leaves) |
+| collapses, merges, finds the one | Shape morph, Cascade / ripple / domino in reverse, Shared-element morph |
+| replaces something | Match cut, Invisible cut, Object wipe, Shared-element morph in place |
+| travels from cause to effect | Arcs, Velocity matching, Cut on action, Cut-the-curve |
+| locks, is certain | Overshoot (one settle), Hit point / accent, Hard cut on the beat |
+| does the same thing faster | Beat-cut, Waterfall cut, a shorter Stagger on the same path |
+| is many, at scale | Count-up, Odometer / slot roll, Particles / confetti (as the carrier only), Inverse zoom |
+| lands and holds | Hold, Moving hold |
+
+| The relation into the beat | Transition terms (§5) |
+|---|---|
+| because | Match cut, Shared-element morph, Velocity matching (a carrier) |
+| but | Hard cut, Smash cut, Iris, Color-field wipe, Pattern interrupt |
+| so | Cut on action, Cut-the-curve, Zoom-through, Push / slide along the film's current |
+| example | Hard cut or Beat-cut on the refrain's layout, one variable changed |
+| escalation | Beat-cut, Waterfall cut, Punch-in, shorter holds |
+| answer | Match cut back to the setup's object, changed; End card / lockup as the final answer |
+
 ## Writing a scene's build instruction
 
 Compile each scene into labelled blocks, in this order (quote all copy verbatim; unquoted text gets paraphrased):

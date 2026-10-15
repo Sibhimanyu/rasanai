@@ -34,3 +34,12 @@ Find one: `grep -il "<words>" library/styles/*.md`, or read the table below.
 | [paperclip](paperclip.md) | Bold-outline sticker explainer | Photo cut-outs turned stickers with thick white outlines, flat icons and exact charts on one giant canvas with a continuous camera. | mg-styles-15 |
 | [pixel](pixel.md) | Pixel art / 8-bit | Big chunky pixels, a limited palette, low-fps sprite animation and stepped timing, integer-scaled with nearest neighbour. | mg-styles-15 |
 | [hud](hud.md) | Cyberpunk HUD / FUI | Film-grade fictional UI: cyan wireframe, rotating rings, radar sweep, rolling data, lock-on brackets that flip to alert orange. | mg-styles-15 |
+| [riso](riso.md) | Risograph print | A three-ink print on cream paper: screens at their own angles, overprints instead of mixed colours, plates off register, ink dropouts, on 2s. | animate |
+| [sketchbook](sketchbook.md) | Sketchbook | Graphite and one accent colour on a warm page: pencilled, inked, scribbled, hand lettering narrates, the page is the world. | animate |
+| [manim-math](manim-math.md) | Manim-style math | Coloured math on a near-black stage: written-on serif type, drawn curves, transforming equations, a tracker with a live readout. | animate |
+
+A third source, `cth9191/animate` (MIT, `third_party/animate/`), adds the three print and drawing looks above. Its files use `source: "animate"` and the same nine sections.
+
+## Prompt bank (not a style slug)
+
+`prompts/opuscar-prompts.md` digests the 98 style prompts of the OPUSCAR 98 styleboard (lemo-opuscar, MIT): one reusable recipe per medium (a blend of named traits, a palette with hexes, texture and motion habits, one signature shot, an Avoid list), with film names, characters, years and credit lines stripped. Read it for the SHAPE of a bespoke look and its Avoid lists; it is not in the library index and its entries are not valid `blend.style_refs` slugs. Find one: `grep -i "<words>" library/styles/prompts/opuscar-prompts.md`.

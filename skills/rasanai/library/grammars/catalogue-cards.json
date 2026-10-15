@@ -1,0 +1,122 @@
+{
+ "id": "catalogue-cards",
+ "name": "Catalogue cards",
+ "source": "A beat-locked flash-card film about a set of N things (tools, dishes, stations, steps): one card per item, shown fast on the drum hits, each with a pictogram doing one action, a huge title, a second-language line and a running index; cards group into chapters and each chapter owns one hue. Distilled from a described style guide (lemo-opuscar, MIT); no files, pixels or real event identities are carried.",
+ "frame_device": {
+  "what": "A catalogue card on a square grid (cell about a sixth of the frame height): a pattern of big discs and half-discs in five tones of ONE hue behind a flat faceless pictogram, a title set very large, a heavy second-language line under it, and small mono HUD text in the corners with a tick-bar of N ticks (the current tick tall, the done ones dim, the rest faint). The hook is the count itself: 'ALL N'. Every card carries its index as '07 / N'.",
+  "moves": "Cards change on the beat. A card is one bar long; related sub-items run at half length as a rapid-fire ladder. Rows of the pattern slide sideways in alternating directions and jump a quarter-cell on beats; transitions are grid moves (rows sliding, columns dropping, a push, quarter-discs growing from cell corners, an iris from the last figure, a tile flip) and rotate from card to card."
+ },
+ "ground_motion": "The grid pattern breathes between cuts: rows drift one cell in alternating directions across the card, and on a chapter card they jump a quarter-cell on every beat; one faint light sweep crosses the disc behind the figure. The ground is never still.",
+ "type": {
+  "classes": "Title: a 900-weight grotesk, very large (about a seventh to a third of the frame height), tight tracking, auto-fitted. Second line: a heavy face under it. Meta: a mono, small, wide tracking, in the corners like a broadcast HUD; tags are mono chips.",
+  "behaviour": "Type enters by a mask slide-up: title first, the second line about 0.08 s later, the tag after, meta lines typing on without a caret. Light hues take dark type, dark hues take cream. A card that must be read (a spec, a number) holds at least 1.6 s; captions hold the longer of 1.8 s and speech plus 0.6 s. Text and figure never overlap: one text column, one stage."
+ },
+ "image": {
+  "treatment": "No photography. A flat pictogram built of round-capped bars and a disc head, far limbs mixed toward the background, standing on a large 'sun' disc in a neighbouring tone. Props are discs, rings, capsules and lines. An item with no body is a prop doing its one action (a gear turns, a cup pours).",
+  "behaviour": "One item, one verb: each pictogram does exactly one action readable in a bar, and its key pose (release, contact, landing) lands on a beat. The figure assembles as horizontal bands sliding into register from alternating sides. Figures never emote."
+ },
+ "transitions": [
+  "rows of the pattern slide sideways and the next card is already under them",
+  "columns drop out in steps and the new card stands where they were",
+  "a push: the old card is shoved off by the new one along the grid",
+  "quarter-discs grow from the cell corners until they are the next card's ground",
+  "an iris opens from the last figure's disc",
+  "a tile flip: one grid cell turns over into the next card"
+ ],
+ "techniques": [
+  {
+   "id": "all-n-hook",
+   "name": "ALL N hook",
+   "what": "The first card states the count ('ALL 24 TOOLS'), so the viewer knows the size of the run and waits for the end.",
+   "route": "A full-bleed pattern card in the first chapter's hue with the count as the title (mask slide-up, 0.5 s expo.out); the tick-bar draws on one tick per frame after it, N ticks."
+  },
+  {
+   "id": "index-counter",
+   "name": "Running index",
+   "what": "Every card carries '07 / N' in mono and the tick-bar advances by one tick on the cut.",
+   "route": "N is derived from the item list, never typed: render the index string and tick-bar from the array. The current tick is tall, done ticks 40% opacity, the rest 15%; the step lands on the cut frame."
+  },
+  {
+   "id": "grid-pattern",
+   "name": "Disc and half-disc grid",
+   "what": "The card's ground: big discs and half-discs spanning square cells, about half the cells carrying a small motif, all in five tones of one hue.",
+   "route": "Seeded random placement on grid nodes (mulberry32 from the card id); draw it wider than the frame by one cell so any row can shift; cache each pattern in a bounded LRU; at low contrast under type, full contrast on chapter cards."
+  },
+  {
+   "id": "row-shift",
+   "name": "Row shift",
+   "what": "Whole rows of the pattern are cut and slid sideways; the signature of the look and the engine of every transition.",
+   "route": "Per row translateX by a whole number of cells, alternating direction, on expo.inOut over 0.25 to 0.4 s; on chapter cards a quarter-cell jump on each beat (steps, no ease)."
+  },
+  {
+   "id": "word-choreo",
+   "name": "Word choreography",
+   "what": "The title and the second-language line each enter as masked slides, the title first, the second line about 0.08 s later, the tag after; each word enters from its own small offset and settles with a lift and a soft overshoot.",
+   "route": "Words in overflow-hidden spans, yPercent 105 to 0 with expo.out (0.35 to 0.5 s), second line delayed 0.08 s; at most one back-ease overshoot per film; short cards compress every timing."
+  },
+  {
+   "id": "pictogram-action",
+   "name": "One-verb pictogram",
+   "what": "A flat figure performs its single action on the beat, assembled from horizontal bands that slide into register.",
+   "route": "SVG groups for far limb, torso, near limb, head at a unit of body height; bands clipped by horizontal masks and tweened from alternating sides (0.3 s expo.out); the key pose is a keyframe on the beat time."
+  },
+  {
+   "id": "pace-ladder",
+   "name": "Pace ladder",
+   "what": "A sub-family of items runs at double speed, a run of half-length cards, without changing the tempo.",
+   "route": "Card length is a count of beats from the edit list (4 beats normal, 2 for a ladder); a second tempo comes from dividing the beat, never from changing the BPM."
+  },
+  {
+   "id": "chapter-hue",
+   "name": "Chapter equals hue",
+   "what": "Each family of items owns one hue, opened by a full-bleed pattern card, so the viewer always knows where they are.",
+   "route": "Five hues plus one dark neutral, each in five tones; a chapter sets CSS variables for its five tones; light hues switch type and figure to dark ink, the dark neutral needs a lighter sun disc."
+  },
+  {
+   "id": "drum-lock",
+   "name": "Onsets on the drum hits",
+   "what": "Every card change and every key action lands on a drum hit, within about 15 ms.",
+   "route": "Write the edit list in beats first; the score reads the shot times and puts accents there; check every onset against the picture with the sound check, per-chapter accents (a splash, a pok, a clank) on top of the drums."
+  },
+  {
+   "id": "icon-wall",
+   "name": "Icon wall",
+   "what": "At the end every pictogram returns as a tiled wall that turns one colour: the whole set at once.",
+   "route": "Pull back from the last card to a grid of all N pictograms at small scale (stagger 0.01 s from the centre), then a single-hue colour sweep across the grid (0.6 s); optional, only when the set is the point."
+  }
+ ],
+ "signature": "The last card is the whole set at once: an icon wall that turns one colour, or one card held long while the pattern rows stop one by one; the count that opened the film is the count that closes it.",
+ "density": {
+  "change_every_s": 2.0,
+  "note": "One card per bar (about 2 s at 120 BPM), half that inside a pace-ladder run; a held card (a spec or a number) is at least 1.6 s."
+ },
+ "palette": {
+  "ground": "one of five chapter hues, each in five tones, or a dark neutral",
+  "ink": "one cream and one near-black used on every hue (light hues take the near-black)",
+  "accent": "the chapter's second tone for the sun disc; one warm hue as the accent on the dark neutral",
+  "note": "Choose the five hues from the topic and invent their names; never borrow a real event's palette, pictograms, pattern art or slogan. No outlines, no highlights except the single light sweep."
+ },
+ "do": [
+  "Pick one tempo for the film and write the edit list in beats before any animation",
+  "Derive N, the index and the tick-bar from the item list",
+  "Give each chapter one hue and open it with a full-contrast pattern card",
+  "Keep every figure faceless and every pictogram to one action",
+  "Slide the grid rows for transitions; rotate through the six named transitions",
+  "Hold a card that must be read for at least 1.6 s"
+ ],
+ "dont": [
+  "No dissolves, 3D camera moves, handheld shake or depth of field; the camera is a locked flat frame or moves along the grid",
+  "No gradients except the one soft light sweep; no outlines",
+  "No overlap of figure and text: horizontal poses move the stage outward and narrow the text column",
+  "No faces or emotes on the pictograms, no mascots, landmarks or logos in the pattern motifs",
+  "Do not imitate a real sports or event identity; build the palette, mark and slogan from the grid motifs"
+ ],
+ "fits": [
+  "catalogue of N things",
+  "every tool, dish, station or step of a set",
+  "brand film with many products",
+  "explainer by items",
+  "launch roundup"
+ ],
+ "flat_ok": true
+}

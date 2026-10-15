@@ -6,11 +6,11 @@ Source quality note: Apple, OpenAI/Studio Dumbar and the Apple HIG are primary. 
 
 ## 1. Structure templates
 
-Rule for all lengths: the product (real UI or the real mark) is on screen by 3 s. Hook = the product doing its main thing, not a problem montage. (Agency guidance often says "start with the problem"; for a known product with a real UI, show the product answering the problem in the same shot.) Beats are sized by share of runtime so they scale.
+Rule for all lengths: the product (real UI or the real mark) is on screen by 3 s. Hook = the villain or the product in the real product's world, readable muted by 2 s, never a problem montage of stock pain. Every template is an argument (`references/intent.md`): a turn where the product visibly reverses the villain, a peak at 60 to 75% (the hardest proof, the biggest picture) with a rest right before it, and a payoff that answers the opening. Beats are sized by share of runtime so they scale; inside the ranges, durations come from each beat's read and importance.
 
 **Ladder, pas or scenario.** A launch of a product or brand is a **ladder** or a **pas** (the viewer-first shape: "pas templates" after the ladder templates; `story.mjs pick --format launch` offers both) (`references/story.md`, Story shapes): the tables below are then filled as rungs (one refrain verb, a title card per rung, a different real use each, escalating to done-for-you), see "Ladder templates" after the tables. A single-task spot (the truth sheet's `Claim scope` is single-task) uses the tables as they are: one hero demo and its uses. A breadth feature is a ladder even when it is the only feature (G13).
 
-Tempo comes first (see "Tempo" below): the tables carry the house idea counts and holds. An idea is one new thing the viewer learns; each row below that is not the hook, the end card or a transition is one or more ideas.
+Tempo (see "Tempo" below): an idea is one beat's `buys`, one new thing the viewer believes; each row below that is not the hook, the end card or a transition is one.
 
 ### 15 s (social teaser, one feature), 3 ideas minimum
 | t (s) | Beat | On screen |
@@ -18,28 +18,31 @@ Tempo comes first (see "Tempo" below): the tables carry the house idea counts an
 | 0.0-2.0 | Hook + product | Real UI already mid-action (prompt typing, shortcut pressed). Brand mark small at the margin. |
 | 2.0-4.0 | Statement | One line, 3-6 words, on the brand canvas, held only its reading time. UI may sit behind or beside it. |
 | 4.0-7.5 | Hero demo | The one feature, real UI, changing every ~2 s inside (new state, new line, a camera move that reveals). 3.5 s at most. |
-| 7.5-11.5 | 2 uses | About 2 s each, a different real use each, a 2-4 word label. |
-| 11.5-13 | Payoff line | Plain outcome sentence, 3-6 words. |
+| 7.5-11.5 | 2 uses | About 2 s each, a different real use each, a 2-4 word label; the second is the peak (the furthest use, at 60-75%), after a beat of stillness. |
+| 11.5-13 | Payoff line | Plain outcome sentence, 3-6 words, answering the hook. |
 | 13-15 | End card | Mark + product name + one CTA. The beat runs at least 2 s; its elements land in sequence, then it holds at most 1.4 s still. |
 
-### 30 s (launch spot), 5 ideas minimum, aim for 6 or 7
+### 30 s (launch spot), 5 to 7 ideas
 | t (s) | Beat | On screen |
 |---|---|---|
 | 0-2 | Hook + product reveal | Product UI or mark full frame. First text appears by 1.5 s. |
 | 2-4 | Statement / promise | One line, 3-6 words. Cut or morph into UI. |
-| 4-8 | Hero demo | The headline feature, real UI. The longest hold of the film (4 s), and it changes inside about every 2 s. |
-| 8-24 | 4 or 5 uses | 2.5-3.5 s each (about 3), each a different real use with a 2-4 word label, each changing inside about every 2 s. At most one calm hold (the breath), placed before the payoff; then accelerate into it. |
-| 24-27 | Payoff line | The largest line of the film. |
-| 27-30 | End card | Mark, name, CTA (availability: "Available today on Mac"), nothing else. |
+| 4-8 | Hero demo (the turn) | The headline feature, real UI, reversing the hook's problem in one visible move; changes inside about every 2 s. |
+| 8-18 | 3 uses | 2.5-3.5 s each, each a different real use with a 2-4 word label, escalating (simple to done-for-you); the last one calm (the rest). |
+| 18-22.5 | The peak | The furthest use, at 60-75%: the biggest picture and the longest hold of the film, the move a viewer rewinds. |
+| 22.5-26 | Payoff line | The largest line of the film; it answers the hook. |
+| 26-30 | End card | Mark, name, CTA (availability: "Available today on Mac"), nothing else. |
 
-### 60 s (launch film), 8 ideas minimum, aim for 10
+### 60 s (launch film), 8 to 10 ideas
 | t (s) | Beat | On screen |
 |---|---|---|
 | 0-3 | Hook + product | Real UI in action, or the brand's opening gesture (the prompt, the mark). |
 | 3-9 | Promise | 2 statement lines, one idea each, product always visible or one cut away. |
 | 9-15 | Hero demo | 5 s at most per hold, real UI, the feature end to end, changing every ~2 s. |
-| 15-48 | 6 or 7 feature demos | 4-5 s each (each changing inside every ~2 s). One idea per demo. Label (2-4 words) + UI. A rhythm change (one calm hold then quick cuts) once. |
-| 48-54 | Payoff | Outcome line + brand motif resolves (dot, mark, logo). |
+| 15-36 | 4 or 5 feature demos | 4-5 s each (each changing inside every ~2 s), escalating; one idea per demo, label (2-4 words) + UI; the last one calm (the rest). |
+| 36-42 | The peak | The furthest demo or the break, at 60-75%: the biggest picture, the longest hold. |
+| 42-48 | One last demo | Calmer, after the peak. |
+| 48-54 | Payoff | Outcome line answering the hook + brand motif resolves (dot, mark, logo). |
 | 54-60 | End card | Mark, name, one CTA, URL or platform. |
 
 ### 90 s (brand or keynote-style film), 10 ideas minimum
@@ -48,27 +51,29 @@ Tempo comes first (see "Tempo" below): the tables carry the house idea counts an
 | 0-4 | Hook + brand/product | As 60 s. |
 | 4-16 | Promise + principle | 2-3 statements. Brand motif introduced and transformed. |
 | 16-24 | Hero demo | Real UI, 6 s at most per hold, one take where possible, changing every ~2 s. |
-| 24-76 | 7 to 9 feature demos | 5-6 s each, a stat or detail beat inside at most 1. |
-| 76-84 | Payoff + collage or density build | Fast cuts on the beat building to the densest moment, then silence or one hit. |
+| 24-54 | 5 or 6 feature demos | 5-6 s each, escalating, a stat or detail beat inside at most 1; a rest before the peak. |
+| 54-62 | The peak | At 60-75%: the densest build (fast cuts on the beat) landing on one hit, then silence. |
+| 62-76 | 2 demos | Calmer, 7 s each. |
+| 76-84 | Payoff | The outcome line answering the hook, or a collage of more uses resolving on it. |
 | 84-90 | End card | As 60 s; the beat runs at least 3 s, with at most 1.4 s of it still. |
 
 ### Ladder templates (the default for a product or brand launch)
 
-One refrain verb is the spine. `open` = the refrain arrives with the product on screen; each `rung` = a title card (the verb plus one highlighted word, 6 words or fewer) over a real UI demo of a distinct everyday use, levels rising from simple to done-for-you; optional `ways_in` (type, say, snap, film); `close` = "<verb> anything" or the product's own line, then the logo and one CTA. No rung over 35% of the film; the joins between rungs carry the moves (a title word becomes the input, the input becomes the next demo, the last input becomes the logo).
+One refrain verb is the spine. `open` = the refrain arrives with the product on screen; each `rung` = a title card (the verb plus one highlighted word, 6 words or fewer) over a real UI demo of a distinct everyday use, levels rising from simple to done-for-you; the **break** rung at 60 to 75% changes the pattern itself (the product finishes the refrain line, the title card never comes, the plain answer arrives): it is the turn and the peak; optional `ways_in` (type, say, snap, film); `close` = "<verb> anything" or the product's own line, answering the open, then the logo and one CTA. No rung over 35% of the film; the joins between rungs carry the moves (a title word becomes the input, the input becomes the next demo, the last input becomes the logo).
 
-| Length | Rungs | open | each rung | ways_in | close and end card |
-|---|---|---|---|---|---|
-| 15 s | 3 | 0-2.5 s | about 3 s | none | 11.5-15 s |
-| 30 s | 3 to 4 | 0-3 s | 5-6 s | optional 2 s | 24-30 s |
-| 45 s | 4 | 0-4 s | 6-8 s | optional 3 s | 38-45 s |
-| 60 s | 4 to 6 | 0-5 s | 7-9 s | 3-4 s | 52-60 s |
-| 90 s | 6 to 8 | 0-6 s | 8-10 s | 4-6 s | 80-90 s |
+| Length | Rungs | open | each rung | the break starts | ways_in | close and end card |
+|---|---|---|---|---|---|---|
+| 15 s | 3 | 0-2.5 s | about 3 s | 9-11 s | none | 11.5-15 s |
+| 30 s | 3 to 4 | 0-3 s | 5-6 s | 18-22.5 s | optional 2 s | 24-30 s |
+| 45 s | 4 | 0-4 s | 6-8 s | 27-33 s | optional 3 s | 38-45 s |
+| 60 s | 4 to 6 | 0-5 s | 7-9 s | 36-45 s | 3-4 s | 52-60 s |
+| 90 s | 6 to 8 | 0-6 s | 8-10 s | 54-68 s | 4-6 s | 80-90 s |
 
 Rung counts follow the length: 35 s or less 3 to 4, 36 to 60 s 4 to 6, over 60 s 6 to 8. The tempo rules below still hold inside each rung (something changes about every 2 s).
 
 ### Pas templates (the viewer-first launch)
 
-Pain, meet, benefits, proof, cta (`references/script.md`, the pas). The reveal (`meet`) starts at 20 to 30% of the film, never before 20%. Benefits each carry one UI behaviour. One on-screen line every 1.5 to 2.5 s (`film_seconds / lines` at most 3.0). G12 holds all of it.
+Pain, meet, benefits, proof, cta (`references/script.md`, the pas). The reveal (`meet`) is the turn: the product visibly reverses the pain, starting at 20 to 30% of the film, never before 20%. The benefits escalate to the peak at 60 to 75% (the furthest benefit, the biggest picture), with a rest before it. Benefits each carry one UI behaviour. One on-screen line every 1.5 to 2.5 s (`film_seconds / lines` at most 3.0). G12 holds all of it.
 
 | Length | hook | agitate | meet | benefits | proof | cta and end card |
 |---|---|---|---|---|---|---|
@@ -80,7 +85,7 @@ Pain, meet, benefits, proof, cta (`references/script.md`, the pas). The reveal (
 
 Hook and agitate hold 20 to 25% together (the pain); meet is 8 to 10%; benefits fill 40 to 45%; proof 5 to 8% (a counter that climbs); the CTA and end card the last 12 to 15%. Tempo still holds: something changes about every 2 s inside every beat.
 
-**Launch length: 35 to 45 s is allowed.** Templates for 30 s and 45 s are both valid for a launch; a story with a viewer's day, a breath at the emotional turn and a mid-film brand line ("KINSO finds it") needs 35 to 45 s (Kinso runs 46 s). The breath is the one declared near-empty stretch of 1.0 s or less, placed at the turn (`craft.md`, "Continuity" and "Room"); everything else overlaps, so no frame is empty.
+**Launch length: 35 to 45 s is allowed.** Templates for 30 s and 45 s are both valid for a launch; a story with a viewer's day, a rest before the peak and a mid-film brand line ("KINSO finds it") needs 35 to 45 s (Kinso runs 46 s). The rest is the one declared calm stretch of 1.0 s or less, right before the peak (`craft.md`, "Continuity" and "Room"); everything else overlaps, so no frame is empty.
 
 Length limits: agency data puts social and teaser films at 15-30 s, explainers at 45-90 s, and the retention cliff near 45-50 s; kinetic-type pieces hold under about 90 s. OpenAI's own brand film runs 110 s as a hero piece, so over 90 s needs an explicit brief. Default to 30 s or 60 s if the brief does not say.
 
@@ -90,11 +95,11 @@ Cut-down rule: plan 15 s and 30 s cuts at storyboard stage by making every featu
 
 Name it tempo, never pace (Studio's Pace setting is research speed). Commercial shots have averaged under 2 s since the early 1990s (MacLachlan and Logan, "Camera Shot Length in TV Commercials and their Memorability and Persuasiveness", Journal of Advertising Research); a launch film that spends 8 s on one idea reads as slow. Numbers marked (house) are this engine's rule.
 
-- **An idea** is one new thing the viewer learns: a feature, a use, a proof, the promise, the payoff. The hook, the end card and pure transitions are not ideas.
-- **Ideas per film (house minimum for launch, promo and feature films):** 15 s: 3, 30 s: 5 (aim 6 or 7), 60 s: 8 (aim 10), 90 s: 10. Only a brief that asks for a calm or slow film goes under.
+- **An idea** is one beat's `buys`: one new thing the viewer believes (a use, a proof, the promise, the payoff). The hook, the end card and pure transitions are not ideas.
+- **Ideas per film (house minimum for launch, promo and feature films):** 15 s: 3, 30 s: 5, 60 s: 8, 90 s: 10, and no more than the argument needs: 5 to 7 in 30 s. More beliefs is not more tempo; more change inside each beat is. Only a brief that asks for a calm or slow film goes under.
 - **Change rate (house):** something meaningful changes on screen every 1.5 to 2.5 s on average: a cut, or inside a continuous take a new UI state, a new line, a morph, a camera move that reveals something new. A continuous-take brand still changes every 2 s; tempo is not only cuts.
-- **Longest hold (house):** the longest one idea stays on screen: 4 s for the one hero moment in a 30 s film (3.5 s at 15 s, 5 s at 60 s, 6 s at 90 s), 3 s for anything else, and it changes inside about every 2 s. A hold is never still: no stretch of 0.8 s without motion (the motion gate); a statement line holds only its reading time (0.3 s per word + 0.6 s). The end card beat runs 2 s or more, and holds at most 1.4 s still after its last move (the motion gate measures it).
-- **One breath:** at most one deliberate calm stretch per 30 s (one slow mover, never a freeze), placed before the payoff, then accelerate into it.
+- **Longest hold (house):** the peak and the payoff hold longest. The longest one idea stays on screen: 4 s for the hero moment or the peak in a 30 s film (3.5 s at 15 s, 5 s at 60 s, 6 s at 90 s), 3 s for anything else, and it changes inside about every 2 s. A hold is never still: no stretch of 0.8 s without motion (the motion gate); a statement line holds only its reading time (0.3 s per word + 0.6 s). The end card beat runs 2 s or more, and holds at most 1.4 s still after its last move (the motion gate measures it).
+- **One rest:** at most one deliberate calm stretch per 30 s (one slow mover, never a freeze), placed right before the peak; the beats before the turn run shorter, the peak and the payoff longer.
 - **The film's target:** the brand's measured tempo when a brand film card exists (`brandfilm.mjs measure` writes `tempo`: changes, seconds between changes, longest hold; the analyst adds ideas shown and seconds per idea), otherwise the house tempo. Ideas never fall below the house minimum. The pitch carries it as `tempo: { ideas, change_every_s, longest_hold_s, source: "brand film" | "house" }`; `story.mjs check` gate G9 enforces it (use `--brand-film <grammar.json>` for the brand's numbers), and `brandfilm.mjs compare` holds the draft to 0.7x to 1.4x of the brand's change rate and never slower than a change every 2.5 s, measured against the film the script follows (`compare --film <name>`; `measure --film <name> --structure <type>` keeps several films in one grammar.json: a one-take spot is not held to a 110 s montage's cut rate).
 
 ## 2. Hard rules (numbers are limits)
@@ -195,6 +200,7 @@ What the failed film did against this card: 46% dark green vs a 77% near-white c
 
 Concept
 - The idea needs explaining on a silent first view; a metaphor, character, museum, parable or world.
+- No turn that reverses anything (a list with a label on its third item); a payoff that answers a different question than the hook asked; the biggest moment on a side detail instead of the peak.
 - Product UI or mark not on screen by 3 s; the hero demo is shorter than the longest non-product shot.
 - Fewer than 2 or more than 4 real feature demos in 30-90 s films; two ideas in one shot.
 - On-screen line over 6 words, a riddle, a pun not resolved in 1 s, jargon the product does not use.

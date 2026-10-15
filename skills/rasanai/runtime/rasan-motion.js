@@ -17,13 +17,21 @@
  *   M.cascade("#list .row", { at: b.next, how: "scale" });
  *   M.camera("#world", { at: 0, dur: 4.2 });
  *   M.audit()   -> { gestures, dominant_share, families, settle_share, ... }  (obey.mjs measures the same on the build)
+ *
+ * 1.1.0 additions (all pure functions of time, no rAF): M.snap (one-frame snap: the first frame after the start is
+ * already `firstFrameShare` of the way, then a decelerating tail), M.dive (constant-octave zoom: the scale multiplies by
+ * the same factor every frame, no ease), M.scaleDive (a many-level dive: log zoom, an anchor pinned to a screen point,
+ * detail that fades by its on-screen size), M.smear (a directional blur on one element, peak on the first or last frame),
+ * M.mix / RasanMotion.mix(a, b, k) (a colour in between in OKLab, never mud) and M.colour (a colour tween with it).
+ * ONE blur grammar per film: smear, crisp steps or shutter. M.smear takes an element's filter from the speed softening;
+ * audit().blur_grammar says "smear", "soft" or "mixed" (mixed is the thing to fix).
  */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory(root);
   else root.RasanMotion = factory(root);
 })(typeof self !== "undefined" ? self : this, function (root) {
   "use strict";
-  var VERSION = "1.0.0";
+  var VERSION = "1.1.0";
 
   function need(c, m) { if (!c) throw new Error("RasanMotion: " + m); }
   function gs() { need(root.gsap, "GSAP must load before rasan-motion.js"); return root.gsap; }
@@ -117,6 +125,37 @@
   }
   function tag(f, name) { var g = function (x) { return f(x); }; g.rasanCurve = name; return g; }
 
+
+  // ------------------------------------------------------------------ colour in OKLab
+  // A tween between two colours in sRGB goes through mud (red to green passes brown); in OKLab it passes through yellow.
+  // Pure functions: mix(a, b, k) -> "#rrggbb" for k in 0..1 (k is clamped). Accepts #rgb, #rrggbb, rgb(r,g,b), rgba().
+  // The matrices are Bjorn Ottosson's published OKLab (public domain).
+  function parseColour(c) {
+    var s = String(c).trim(), m;
+    if ((m = /^#([0-9a-f]{3})$/i.exec(s))) return [parseInt(m[1][0] + m[1][0], 16), parseInt(m[1][1] + m[1][1], 16), parseInt(m[1][2] + m[1][2], 16)];
+    if ((m = /^#([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(s))) return [parseInt(m[1].slice(0, 2), 16), parseInt(m[1].slice(2, 4), 16), parseInt(m[1].slice(4, 6), 16)];
+    if ((m = /^rgba?\(\s*([\d.]+)[ ,]+([\d.]+)[ ,]+([\d.]+)/i.exec(s))) return [+m[1], +m[2], +m[3]];
+    throw new Error("RasanMotion.mix: cannot read the colour " + s + " (use #hex or rgb())");
+  }
+  function lin(v) { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+  function unlin(v) { v = v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055; return clamp(Math.round(v * 255), 0, 255); }
+  function toOklab(c) {
+    var r = lin(c[0]), g = lin(c[1]), b = lin(c[2]);
+    var l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b), m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b), s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+    return [0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s, 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s];
+  }
+  function fromOklab(L) {
+    var l = Math.pow(L[0] + 0.3963377774 * L[1] + 0.2158037573 * L[2], 3), m = Math.pow(L[0] - 0.1055613458 * L[1] - 0.0638541728 * L[2], 3), s = Math.pow(L[0] - 0.0894841775 * L[1] - 1.2914855480 * L[2], 3);
+    return [unlin(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s), unlin(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s), unlin(-0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s)];
+  }
+  function hex2(v) { return (v < 16 ? "0" : "") + v.toString(16); }
+  function mix(a, b, k) {
+    k = clamp(+k, 0, 1);
+    var A = toOklab(parseColour(a)), B = toOklab(parseColour(b));
+    var o = fromOklab([A[0] + (B[0] - A[0]) * k, A[1] + (B[1] - A[1]) * k, A[2] + (B[2] - A[2]) * k]);
+    return "#" + hex2(o[0]) + hex2(o[1]) + hex2(o[2]);
+  }
+
   // ------------------------------------------------------------------ the contract (motion.md, installed with the runtime)
   var CONTRACT = null;
   function contract(c) { if (c) CONTRACT = c; return CONTRACT; }
@@ -208,14 +247,16 @@
     // speed-softening: blur grows with on-screen speed above ~40% of the frame width per second (Kinso / Sovra)
     // each travel adds its own contribution and the element shows the largest, so the result does not depend on the
     // order GSAP renders overlapping tweens in (it renders backwards when you seek back)
-    var blurs = new WeakMap(), blurId = 0;
+    var blurs = new WeakMap(), blurId = 0, smeared = new WeakSet(), smearLog = 0, softLog = 0;
     function softenWith(el, fn, start, d, dist) {
       if (!blurOn || dist < W * 0.08) return;
+      softLog++;
       var h = 1 / (fps * d), id = ++blurId;
       if (!blurs.has(el)) blurs.set(el, {});
       var mine = blurs.get(el);
       drive(start, d, function (p) {
         var s = 0;
+        if (smeared.has(el)) return; // one blur grammar per film: a smeared element is not also softened
         if (p > 0 && p < 1) {
           var v = Math.abs(fn(p) - fn(Math.max(0, p - h))) * dist * fps; // px per second, from the curve itself
           s = v / W > 0.4 ? Math.min(6, (v / fps) * 0.12) : 0;
@@ -366,15 +407,127 @@
       tl.add(G.fromTo(el, { y: sa.y, rotation: sa.rotation }, { y: sa.y + jit(amp, 0.3), rotation: sa.rotation + (R() * 2 - 1) * 0.6, duration: frameRound(d / (reps + 1)), ease: "sine.inOut", yoyo: true, repeat: reps, immediateRender: first(sa) }), start);
       return handle(start, d, { role: "ambient" });
     }
+
+    // ---- 1.1.0: one-frame snap, constant-octave dive, scale dive, directional smear, OKLab colour
+    var svgDefs = null, smearId = 0;
+    function smearFilter() {
+      if (!svgDefs) {
+        var NS = "http://www.w3.org/2000/svg", sv = document.createElementNS(NS, "svg");
+        sv.setAttribute("width", 0); sv.setAttribute("height", 0); sv.setAttribute("aria-hidden", "true"); sv.style.cssText = "position:absolute;width:0;height:0";
+        svgDefs = document.createElementNS(NS, "defs"); sv.appendChild(svgDefs); rootEl.appendChild(sv);
+      }
+      var NS2 = "http://www.w3.org/2000/svg", f = document.createElementNS(NS2, "filter"), g = document.createElementNS(NS2, "feGaussianBlur"), id = "rm-smear-" + (++smearId);
+      f.setAttribute("id", id); f.setAttribute("x", "-50%"); f.setAttribute("y", "-50%"); f.setAttribute("width", "200%"); f.setAttribute("height", "200%"); f.setAttribute("color-interpolation-filters", "sRGB");
+      g.setAttribute("stdDeviation", "0 0"); f.appendChild(g); svgDefs.appendChild(f);
+      return { id: id, g: g };
+    }
+    // smear: a directional blur (a Gaussian along one axis, stdDeviation = length / 2) that peaks on the FIRST frame of
+    // a fast entrance (peak "first": the arrival is blurred, then it resolves) or the LAST frame of a fast exit
+    // (peak "last"). Over `frames` frames the length falls (or rises) with an exponent of 2.5. Take the length from the
+    // speed: about a quarter of the travel in px, 12 to 90.
+    function smear(sel, p) {
+      p = p || {};
+      var els = many(sel), N = Math.max(1, Math.round(p.frames || 3)), start = at(p.at), peak = p.peak === "last" ? "last" : "first", px = p.px != null ? +p.px : 24, ax = p.axis === "y" ? "y" : "x";
+      els.forEach(function (el) {
+        var f = smearFilter(); smeared.add(el); smearLog++;
+        drive(start, N * F, function (q) {
+          var i = Math.min(N - 1, Math.floor(q * N + 1e-9)), v = 0;
+          if (q > 0 && q < 1) v = px / 2 * Math.pow(peak === "last" ? (i + 1) / N : 1 - i / N, 2.5);
+          if (q === 0 && peak === "first") v = px / 2;
+          f.g.setAttribute("stdDeviation", ax === "y" ? "0 " + v.toFixed(3) : v.toFixed(3) + " 0");
+          el.style.filter = v > 0.05 ? "url(#" + f.id + ")" : "";
+        });
+      });
+      return handle(start, N * F);
+    }
+    // snap: frame `at` is the "from" pose, the NEXT frame is already `firstFrameShare` (default 0.6) of the way, then a
+    // decelerating tail of `tail` frames (default 15, ease "softLand"). The move reads as hit, not travelled. Properties:
+    // x, y, scale, rotation, opacity in from/to (from defaults to where the element is planned to be). smear: true adds
+    // the directional smear on the first frames, along the larger of dx / dy.
+    function snap(sel, p) {
+      p = p || {};
+      var el = one(sel), start = at(p.at), sh = p.firstFrameShare == null ? 0.6 : clamp(+p.firstFrameShare, 0, 1), tail = Math.max(1, Math.round(p.tail == null ? 15 : p.tail));
+      var tail_ease = ease(p.ease || "softLand"), st = state(el), to = p.to || {}, from = {};
+      var props = ["x", "y", "scale", "rotation", "opacity"], base = { x: st.x, y: st.y, scale: st.scale, rotation: st.rotation, opacity: 1 };
+      props.forEach(function (k) { var a = p.from && p.from[k] != null ? p.from[k] : base[k]; from[k] = a; if (to[k] == null) to[k] = a; });
+      var total = (1 + tail) * F;
+      drive(start, total, function (q) {
+        var e = q * (1 + tail), v = {};
+        props.forEach(function (k) {
+          var a = from[k], b = to[k], first = a + (b - a) * sh;
+          v[k] = e <= 0 ? a : e < 1 ? a + (first - a) * e : e >= 1 + tail ? b : first + (b - first) * tail_ease((e - 1) / tail);
+        });
+        G.set(el, v);
+      });
+      st.x = to.x; st.y = to.y; st.scale = to.scale; st.rotation = to.rotation; st.fresh = false;
+      log.gestures++; log.byRole.snap = (log.byRole.snap || 0) + 1; log.byCurve["snap:" + (p.ease || "softLand")] = (log.byCurve["snap:" + (p.ease || "softLand")] || 0) + 1;
+      var d = Math.hypot(to.x - from.x, to.y - from.y);
+      if (p.smear) smear(el, { at: start, frames: Math.min(4, tail), px: p.smearPx != null ? p.smearPx : clamp(d * 0.15, 8, 90), axis: Math.abs(to.x - from.x) >= Math.abs(to.y - from.y) ? "x" : "y", peak: "first" });
+      return handle(start, total, { role: "snap" });
+    }
+    // dive: a constant-octave zoom. The scale multiplies by `perStep` (default 1.6) EVERY frame for `frames` frames
+    // (default 9), no ease: the zoom never slows, which is what makes it read as falling into something. The origin
+    // is the point that stays put (a feature of the logo, not the frame centre): origin [x, y] in composition px.
+    // `to` (a final scale) can replace perStep. The end scale is perStep ^ frames (9 frames at 1.6 is about 69x).
+    function dive(sel, p) {
+      p = p || {};
+      var el = one(sel), start = at(p.at), frames = Math.max(1, Math.round(p.frames || 9)), ps = p.to ? Math.pow(+p.to, 1 / frames) : +p.perStep || 1.6, org = p.origin || [W / 2, H / 2];
+      G.set(el, { transformOrigin: org[0] + "px " + org[1] + "px" });
+      var s0 = state(el).scale || 1;
+      drive(start, frames * F, function (q) { G.set(el, { scale: s0 * Math.pow(ps, q * frames) }); });
+      state(el).scale = s0 * Math.pow(ps, frames); log.gestures++; log.byRole.dive = (log.byRole.dive || 0) + 1; log.byCurve["dive"] = (log.byCurve["dive"] || 0) + 1;
+      return handle(start, frames * F, { role: "dive", perStep: ps, end_scale: Math.pow(ps, frames) });
+    }
+    // scaleDive: a dive through levels of a world, 1x to 300x and beyond (references/scale-dive.md). `world` is one element
+    // holding every level; the zoom z(t) is exponential in time (constant octaves per second, eased only at the two
+    // ends by `ends` of the run), `anchor` is the world point [x, y] that stays at the screen point `at_screen`
+    // (default the frame centre), and each level fades by its ON-SCREEN size so the eye never sees a level it cannot read:
+    // `screenTo` [x, y] moves the anchor's screen position linearly over the dive (the target slides to the centre while the zoom falls).
+    //   levels: [{ el, size }]  size = the level's width in world px at zoom 1; visible while its on-screen width is
+    //   between `appear` (default 0.04 W, fades in by 0.08 W) and `leave` (default 3 W, fades out by 6 W).
+    function scaleDive(world, p) {
+      p = p || {};
+      var wEl = one(world), start = at(p.at), d = +p.dur || 4, z0 = +p.from || 1, z1 = +p.to || 300, an = p.anchor || [W / 2, H / 2], sc = p.screen || [W / 2, H / 2], sc2 = p.screenTo || sc, ends = p.ends != null ? p.ends : 0.12;
+      var lv = (p.levels || []).map(function (l) { return { el: one(l.el), size: +l.size || W }; });
+      var lz0 = Math.log(z0), lz1 = Math.log(z1), appear = (p.appear || 0.04) * W, leave = (p.leave || 3) * W;
+      G.set(wEl, { transformOrigin: "0 0" });
+      function zoomAt(q) { // log zoom: a trapezoid of speed (ease in over `ends`, constant octaves, ease out) so it starts and lands without a jolt
+        var a = clamp(ends, 0, 0.45), u = q;
+        if (a > 0) {
+          var norm = 1 - a;
+          u = q < a ? q * q / (2 * a) : q > 1 - a ? a / 2 + (1 - 2 * a) + (a - (1 - q) * (1 - q) / (2 * a)) : a / 2 + (q - a);
+          u /= norm;
+        }
+        return Math.exp(lz0 + (lz1 - lz0) * clamp(u, 0, 1));
+      }
+      drive(start, d, function (q) {
+        var z = zoomAt(q);
+        var sx = sc[0] + (sc2[0] - sc[0]) * q, sy = sc[1] + (sc2[1] - sc[1]) * q; // the anchor's screen spot may travel (linearly) to its resting place
+        G.set(wEl, { scale: z, x: sx - an[0] * z, y: sy - an[1] * z });
+        lv.forEach(function (l) {
+          var w = l.size * z, o = clamp((w - appear) / appear, 0, 1) * clamp((leave * 2 - w) / leave, 0, 1);
+          l.el.style.opacity = o.toFixed(3); l.el.style.visibility = o <= 0.001 ? "hidden" : "visible";
+        });
+      });
+      log.gestures++; log.byRole.dive = (log.byRole.dive || 0) + 1; log.byCurve.scaleDive = (log.byCurve.scaleDive || 0) + 1;
+      return handle(start, d, { role: "dive", octaves: Math.log(z1 / z0) / Math.LN2 });
+    }
+    // colour: tween a CSS colour property in OKLab (red to green passes yellow, not brown). Linear in k unless `curve`.
+    function colour(sel, p) {
+      p = p || {};
+      var els = many(sel), start = at(p.at), d = +p.dur || 0.5, prop = p.prop || "color", c = ease(p.curve || "softInOut");
+      drive(start, d, function (q) { var v = mix(p.from, p.to, c(q)); els.forEach(function (e) { e.style[prop] = v; }); });
+      return handle(start, d, { role: "colour" });
+    }
     function next(h, share) { return share == null ? h.next : frameRound(h.start + h.dur * share); }
     function audit() {
       var n = log.gestures || 1, top = 0, name = null, c;
       for (c in log.byCurve) if (log.byCurve[c] > top) { top = log.byCurve[c]; name = c; }
       var ds = log.durations.slice().sort(function (a, b) { return a - b; });
-      return { gestures: log.gestures, dominant_curve: name, dominant_share: Math.round((top / n) * 100) / 100, curves: log.byCurve, roles: log.byRole, settle_share: Math.round((log.settles / n) * 100) / 100, duration_median: ds.length ? ds[ds.length >> 1] : null, distinct_durations: Object.keys(log.durations.reduce(function (a, d) { a[Math.round(d * fps)] = 1; return a; }, {})).length };
+      return { gestures: log.gestures, dominant_curve: name, dominant_share: Math.round((top / n) * 100) / 100, curves: log.byCurve, roles: log.byRole, settle_share: Math.round((log.settles / n) * 100) / 100, duration_median: ds.length ? ds[ds.length >> 1] : null, distinct_durations: Object.keys(log.durations.reduce(function (a, d) { a[Math.round(d * fps)] = 1; return a; }, {})).length, blur_grammar: smearLog && softLog ? "mixed" : smearLog ? "smear" : softLog ? "soft" : "none" };
     }
-    return { travel: travel, land: land, follow: follow, enter: enter, exit: exit, cascade: cascade, camera: camera, ambient: ambient, next: next, audit: audit, dur: durFor, ease: function (role) { return ease(curves[role] || role); }, curves: curves, W: W, H: H, fps: fps };
+    return { travel: travel, land: land, follow: follow, enter: enter, exit: exit, cascade: cascade, camera: camera, ambient: ambient, snap: snap, dive: dive, scaleDive: scaleDive, smear: smear, colour: colour, mix: mix, next: next, audit: audit, dur: durFor, ease: function (role) { return ease(curves[role] || role); }, curves: curves, W: W, H: H, fps: fps };
   }
 
-  return { version: VERSION, kit: kit, ease: ease, curves: CURVES, measured: MEASURED, measuredFrames: MEASURED_FRAMES, contract: contract, spring: spring, bezier: bez };
+  return { version: VERSION, kit: kit, ease: ease, curves: CURVES, measured: MEASURED, measuredFrames: MEASURED_FRAMES, contract: contract, spring: spring, bezier: bez, mix: mix, oklab: toOklab, fromOklab: fromOklab };
 });

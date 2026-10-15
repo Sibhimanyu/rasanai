@@ -12,7 +12,7 @@
 | `axes` | object | `{ <axis>: { what, values: [..] } }`. The 7 axes of difference `pick` measures distance on. |
 | `tags` | object | `{ products: [..], tones: [..], formats: [..] }`. The vocabularies for `fits`. |
 | `cliche` | object | The default arc and the lists to avoid (below). |
-| `devices` | array | The devices (below). 66 in version 1. |
+| `devices` | array | The devices (below). 70 in version 1. |
 
 ### Families
 
