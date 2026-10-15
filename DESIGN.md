@@ -3,18 +3,18 @@ name: RasanAI
 description: Creative direction for whole films, made with Claude. Rice-paper ground, deep indigo ink, one turmeric spark; the mark is the Tamil letter ர with a play triangle in its counter.
 colors:
   rice: "#F1F0EC"           # page ground: the default canvas for print, site and slides
-  indigo: "#1B1F5E"         # ink: the mark, headlines and deep grounds
+  ink: "#1B1F5E"            # Indigo: the brand text colour; the mark, headlines and deep grounds
   turmeric: "#EFB21A"       # accent: the warm spark; the play triangle, one highlight per view
   rasanai-blue: "#2A31A8"   # action: the one primary button, links, selection (interface only)
   paper: "#F7F6F2"          # surface: cards, sheets and tables raised on rice
-  ink-body: "#15151C"       # body text on rice
+  graphite: "#15151C"       # long-form running copy on the site
   ink-2: "#3F4368"          # muted secondary text
   rice-2: "#E4E5EA"         # rule: hairlines and dividers
   mist: "#DFE3EE"           # cool surface, quiet panels
   silk: "#B3165A"           # support: rare emphasis in films and editorial
   leaf: "#1E5A3C"           # support: growth, calm, natural looks
   indigo-deep: "#11163F"    # dark sections
-  indigo-ink: "#0C1030"     # darkest ground
+  midnight: "#0C1030"       # darkest ground
   on-indigo: "#EEF0FF"      # text on indigo
   on-indigo-2: "#C3C7EC"    # quiet text on indigo
   blue-lift: "#7C83F5"      # RasanAI Blue as text in the app's dark mode
@@ -73,6 +73,7 @@ The one source for how RasanAI looks, reads and moves: the website (`docs/`), Ra
 | Mac app | `apps/macos/Sources/RasanAIStudio/Theme.swift` (`Color.rasan`, `rasanFill`, `turmeric`, `rasanDeep`, button styles) |
 | Logo files | `docs/assets/logo/` (SVG masters, PNG marks at 32 / 180 / 512 / 1024) |
 | App icon | `apps/macos/Packaging/AppIcon-1024.png` |
+| Brand guidelines (19 pages) | `docs/brand/RasanAI-Brand-Guidelines.ai` and `.pdf`, built by `docs/brand/source/build.jsx` |
 
 ## Overview
 
@@ -162,9 +163,9 @@ Allowed: indigo on rice (primary), rice on indigo (reverse), indigo on turmeric,
 
 | Name | Hex | Role |
 |---|---|---|
-| Indigo Ink | #0C1030 | Darkest ground |
+| Midnight | #0C1030 | Darkest ground (`--indigo-ink` on the site) |
 | Indigo Deep | #11163F | Dark sections |
-| Ink | #15151C | Body text |
+| Graphite | #15151C | Long-form running copy on the site; headlines, labels and film text stay Indigo |
 | Ink 2 | #3F4368 | Secondary text |
 | Rice 2 | #E4E5EA | Hairlines |
 | On Indigo | #EEF0FF | Text on indigo |
