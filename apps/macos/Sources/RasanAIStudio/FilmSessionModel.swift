@@ -215,6 +215,11 @@ final class FilmSessionModel {
 
     /// A payload path (workspace-relative or absolute) as a local file, or nil when it isn't one of this film's files.
     func fileURL(_ path: String?) -> URL? { resolver?.resolve(path) }
+    /// The run's A/B verdicts and gate numbers, read from its crew/ and frames/ files (nil for a fixture with no run folder).
+    func loadChecks() async -> RunChecks? {
+        guard let run = resolver?.run else { return nil }
+        return await Task.detached(priority: .utility) { RunChecks.load(run: run) }.value
+    }
 
     // MARK: Reading the session
 

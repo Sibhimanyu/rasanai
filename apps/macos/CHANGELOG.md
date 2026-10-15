@@ -2,6 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **The Studio shows the wave 8 data.** The decisions drawer and the final stage read the new crew budget and the new measurements (all warnings), and the session model carries them. Untested by choice.
+
 ## 0.11.0 (build 28) — 2026-10-14
 
 - **Liquid Glass chrome.** The inspector, the film action bar and the five-call step capsule use the sidebar's own Liquid Glass, with its rounder corners. The stage no longer lights the glass, which replaces the stage-lit glass of 0.10.0.
