@@ -459,6 +459,7 @@ Push the current film to the Final (its render, markers from STORYBOARD.md) and 
 
 | Need | Read |
 |---|---|
+| third-party sources, adding a new one, the backlog | `third_party/SOURCES.md`, `third_party/INTAKE.md`, `third_party/BACKLOG.md` |
 | the crew: who does what, when, the dispatch protocol, permission for local files, the score in the build, seeing motion | `references/crew.md`, `agents/*.md` |
 | the craft Claude decides without asking: timing, motion, transitions, composition, camera, lighting, sound, story, anti-slop, quality gates | `references/craft.md` |
 | the working vocabulary: film, lens, lighting, grade, editing, animation and sound terms, each with an HTML/CSS/GSAP recipe | `references/vocabulary.md` |

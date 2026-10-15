@@ -17,6 +17,10 @@ them only when asked or clearly needed, never with CSS or by covering Heresay's 
 Fix flow: `npx heresay briefs`, `claim <id>`, `brief <id>`, fix and test, `fixed <id> "<note for the reporter>"`.
 <!-- heresay:end -->
 
+## Third-party sources
+
+Third-party sources: `skills/rasanai/third_party/SOURCES.md`; adding a new one: `skills/rasanai/third_party/INTAKE.md`; backlog: `skills/rasanai/third_party/BACKLOG.md`.
+
 ## Releasing
 
 Releases MUST go through `scripts/release.mjs` (see RELEASING.md): `node scripts/release.mjs skill|studio <x.y.z>`. Never tag, publish, or edit the appcast by hand.
