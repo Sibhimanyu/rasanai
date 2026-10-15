@@ -43,6 +43,8 @@ import path from "node:path";
 import { spawnSync, execFileSync } from "node:child_process";
 import { parseArgs, die, readJSON, writeFile, chromeScreenshot, esc, GSAP_PATH, SKILL_DIR } from "./lib/common.mjs";
 import { lessonsBlock } from "./lessons.mjs";
+import { loadPrefs, prefsBlock } from "./lib/prefs.mjs";
+import { showSeries, seriesRulesBlock } from "./lib/series.mjs";
 import { recentFilms } from "./memory.mjs";
 import { shapeProblems, tooClose, shapeLine, SHAPE_VOCAB, ASPECTS, MIN_DIFFER, RECENT } from "./lib/film-shape.mjs";
 import { readBudget, checkBudget } from "./lib/budget.mjs";
@@ -115,7 +117,7 @@ const ROLES = {
   "research-lead": { desk: "research", tier: "inherit", desc: () => "Merging the research into one truth sheet" },
   "script-writer": { desk: "story", tier: "inherit", desc: (p, k) => `Writing the ${k || ""} script`.replace("  ", " ") },
   "treatment-writer": { desk: "story", tier: "inherit", desc: (p, k) => `Writing the ${k || ""} treatment for the song`.replace("  ", " ") },
-  "visual-writer": { desk: "story", tier: "inherit", desc: (p, k) => `Writing the ${k || ""} visual treatment of the talk`.replace("  ", " ") },
+  "visual-writer": { desk: "story", tier: "inherit", desc: (p, k) => (p.prefs && p.prefs.pictures ? `Writing the ${k || ""} variation of the ${p.prefs.pictures} pictures`.replace("  ", " ") : `Writing the ${k || ""} visual treatment of the talk`.replace("  ", " ")) },
   "move-inventor": { desk: "story", tier: "inherit", desc: (p, k) => `Inventing the hero moves for the ${k || ""} script`.replace("  ", " ") },
   "move-juror": { desk: "story", tier: "fast", desc: () => "Judging every move idea blind and ranking the best" },
   "move-sketcher": { desk: "story", tier: "fast", desc: (p, k) => `Sketching the ${k || ""} script's hero move as a rough`.replace("  ", " ") },
@@ -175,6 +177,9 @@ function planCrew(p) {
   const phases = [];
   const lean = !!p.lean;
   const N = p.scenes || null;
+  // a film in a series: its look is locked (no Look desk), and one writer writes one story within the series rules, auto-chosen
+  const seriesLook = !!(p.series && p.series_look);
+  const LABELS3 = p.series ? ["Sure"] : ["Sure", "Bold", "Wild"];
   const research = [];
   const footageSp = !!(p.sources && isFootageLed(p.sources));
   if (p.sources) research.push(...sourceResearch(p, d, lean));
@@ -208,7 +213,7 @@ function planCrew(p) {
   // outside-reference design researcher would only spend time: skip it there.
   // a direct film with a brand takes the brand's own look (no Look desk), so it needs no design research either
   const brandLook = !!(p.direct && (p.branded || bf) && DIRECT_ROUTES.has(p.route));
-  if (!bf && !brandLook) phases.push({ phase: "design-research", when: "right after the brief is pushed, in parallel with the research members (it needs only the subject)", dispatch: [d("design-researcher")], then: "design.mjs / crew.mjs check; the design-system designers wait for it and for the chosen story" });
+  if (!bf && !brandLook && !seriesLook) phases.push({ phase: "design-research", when: "right after the brief is pushed, in parallel with the research members (it needs only the subject)", dispatch: [d("design-researcher")], then: "design.mjs / crew.mjs check; the design-system designers wait for it and for the chosen story" });
   if (footageSp) {
     // the footage desk (references/sources.md): the Director runs the scripts, loggers log each bin in parallel, one selects producer finds the story in what exists
     phases.push({ phase: "footage-audit", when: "right after the brief is pushed, in parallel with the research desk (the source is the user's rushes: the script is written last, from what was shot)", dispatch: [],
@@ -228,17 +233,18 @@ function planCrew(p) {
   }
   if (p.route === "music-to-video") {
     // lyrics.mjs align + audio come first (music/lyrics.json, music/audio.json); three treatments replace three scripts
-    phases.push({ phase: "treatments", when: "after lyrics.mjs align + audio have written music/lyrics.json and music/audio.json (and the precedent, when it ran)", dispatch: ["Sure", "Bold", "Wild"].map((k) => d("treatment-writer", k)), then: "treatment.mjs check on each (crew.mjs check --role treatment-writer), then push story from the three TREATMENT-<label>.md; the chosen one is copied to story/chosen-treatment.json" });
+    phases.push({ phase: "treatments", when: "after lyrics.mjs align + audio have written music/lyrics.json and music/audio.json (and the precedent, when it ran)", dispatch: LABELS3.map((k) => d("treatment-writer", k)), then: "treatment.mjs check on each (crew.mjs check --role treatment-writer), then push story from the three TREATMENT-<label>.md; the chosen one is copied to story/chosen-treatment.json" });
   } else if (p.route === "presenter") {
-    phases.push({ phase: "visual-writers", when: "after the clip is keyed (presenter.mjs key) and transcribed (reel.mjs scan), beats.json is written (presenter.mjs beats) and the research, when it ran, is accepted", dispatch: ["Sure", "Bold", "Wild"].map((k) => d("visual-writer", k)), then: "presenter.mjs check on each (crew.mjs check --role visual-writer), then push story from the three plans; the chosen one is copied to presenter/plan.json" });
+    const pict = p.prefs && p.prefs.pictures;
+    phases.push({ phase: "visual-writers", when: "after the clip is keyed (presenter.mjs key, which also measures the marks) and transcribed (reel.mjs scan), beats.json is written (presenter.mjs beats) and the research, when it ran, is accepted" + (pict ? `. The owner chose the pictures (${pict}): the three writers write three variations inside that style, not the Sure / Bold / Wild ladder (the labels stay as the card names)` : ""), dispatch: LABELS3.map((k) => d("visual-writer", k)), then: p.series ? "presenter.mjs check --prefs on the plan (crew.mjs check --role visual-writer), then copy it to presenter/plan.json and push story --status done with the decision \"From your series: <name>\" (auto-chosen; the user can still open it)" : "presenter.mjs check --prefs on each (crew.mjs check --role visual-writer), then push story from the three plans; the chosen one is copied to presenter/plan.json" });
   } else if (footageSp) {
     // a film cut from footage: the writers are editors. Three paper edits (Sure, Bold, Wild) from the same selects; no Moves pass (a lighter "joins" idea lives in the builders' briefs)
-    phases.push({ phase: "story", when: "after the research lead and the selects are accepted", dispatch: ["Sure", "Bold", "Wild"].map((k) => d("footage-writer", k)), then: "footage.mjs check-paper on each (crew.mjs check --role footage-writer), then render each radio edit if you can and push story from the three paper edits" });
+    phases.push({ phase: "story", when: "after the research lead and the selects are accepted", dispatch: LABELS3.map((k) => d("footage-writer", k)), then: "footage.mjs check-paper on each (crew.mjs check --role footage-writer), then render each radio edit if you can and push story from the three paper edits" });
     phases.push({ phase: "story-edit", when: "after the three paper edits pass check-paper", dispatch: [d("script-editor")], then: "the editor reads each paper edit with a footage lens (does this bite really say that? is this the strongest hook in the material?); one round back to the writers, then push story" });
   } else if (STORY_ROUTES.has(p.route) && !lean) {
-    phases.push({ phase: "story", when: "after story.mjs pick", dispatch: ["Sure", "Bold", "Wild"].map((k) => d("script-writer", k)), then: "crew.mjs pitches, story.mjs check, then the editor" });
-    // the Moves pass (references/moves.md): ideas for how the film moves, invented and judged before the user reads the scripts
-    if (!["reel", "music-to-video"].includes(p.route)) {
+    phases.push({ phase: "story", when: "after story.mjs pick", dispatch: LABELS3.map((k) => d("script-writer", k)), then: p.series ? "story.mjs check on the one script, then the editor; auto-choose it and push story --status done with the decision \"From your series: <name>\"" : "crew.mjs pitches, story.mjs check, then the editor" });
+    // the Moves pass (references/moves.md): ideas for how the film moves, invented and judged before the user reads the scripts (a series episode skips it: one script, no jury)
+    if (!["reel", "music-to-video"].includes(p.route) && !p.series) {
       phases.push({ phase: "moves", when: "after the three pitches pass story.mjs check", director_steps: ["moves.mjs pack --run <run> --label <Sure|Bold|Wild> [--product-first]   (once per script, before its inventor is briefed)"], dispatch: ["Sure", "Bold", "Wild"].map((k) => d("move-inventor", k)), then: "moves.mjs check on each (crew.mjs check --role move-inventor), then the move-juror, then a move-sketcher per script (moves.mjs rough + check-rough), then the editor" });
       phases.push({ phase: "moves-jury", when: "after the three moves files pass moves.mjs check", dispatch: [d("move-juror")], then: "moves.mjs check-verdict; a script with fewer than 3 passing cards gets one denial round (re-dispatch its inventor once with the failures added to its banned list)" });
       phases.push({ phase: "moves-roughs", when: "after the verdict is accepted", director_steps: ["moves.mjs rough --dir <run>/story/moves/<label>-<hero id> --aspect <the film's aspect>   (after each sketcher writes rough.html)", "moves.mjs check-rough --dir <run>/story/moves/<label>-<hero id>"], dispatch: ["Sure", "Bold", "Wild"].map((k) => d("move-sketcher", k)), then: "moves.mjs payload puts each script's carrier and hero moves on the Story screen; after the pick, moves.mjs choose --label <L> writes story/moves.json and moves.mjs record keeps the heroes for the next film" });
@@ -248,6 +254,8 @@ function planCrew(p) {
   // three bespoke design systems for the chosen story (a lyric video: one, from the chosen treatment's style bible)
   if (p.route === "music-to-video") {
     phases.push({ phase: "design-system", when: "after the treatment is chosen (the Look step is the treatment's style bible, built out by the desk)", dispatch: [d("design-system-designer", "<chosen label>", { mode: "bible" })], then: "design.mjs check-system, then design.mjs choose-system for that label; no Look picker" });
+  } else if (seriesLook) {
+    phases.push({ phase: "look-series", when: "after the story is chosen: the series' look is locked, so there is no three-system desk and no Look call", dispatch: [], director_steps: [`copy ${p.series_look} to <run>/look/DESIGN.md (the series' DESIGN.md IS the look; never edit the series copy)`, "push look --status done with the decision \"From your series: <name>\" (console.mjs push --step look --status done --data '{\"decision\":\"From your series: <name>\"}'): the call is decided and shown as From your series; the user can still open it", "motion-md.mjs write from the look's motion, direction.mjs compile, and video-decisions look = {design_md, mode: \"series\"}"], then: "the concept gate (a presenter film: plates and the animatic)" });
   } else if (brandLook) {
     phases.push({ phase: "look-auto", when: "after the story is chosen: a direct film with a brand has no three-system desk", dispatch: [], director_steps: ["the look is the brand's own: research/brand/DESIGN.md (or the workspace DESIGN.md)" + (bf ? " and brand-film/FILM-STYLE.md" : ""), "push look --status done with the reason (\"The brand's own look: <type, colours>; the motion comes from the picked moments\"): the Look call is decided, like any craft call", "motion-md.mjs write from the brand's motion, direction.mjs compile, and video-decisions look = {design_md, mode: \"brand\"}", "the user can still ask for looks (\"show me looks\"): re-plan with --deep"], then: "the concept gate" });
   } else {
@@ -416,6 +424,14 @@ function brandFilm(run, P) {
 const LYR = (run, P) => (P && P.route === "music-to-video") || exists(R(run, "music", "lyrics.json"));
 // a presenter film: a keyed talking-head clip put into generated image worlds (references/presenter.md)
 const isPresenter = (run, P) => (P && P.route === "presenter") || ((jsonMaybe(R(run, "crew", "plan.json")) || {}).route === "presenter") || ((jsonMaybe(R(run, "decisions.json")) || {}).route === "presenter") || exists(R(run, "presenter", "plan.json"));
+// the three variations of a picture style the owner chose (the Story call then varies inside it, not up the Sure / Bold / Wild ladder)
+const PICTURE_VARIATIONS = {
+  literal: { sure: "the straightest set: for each beat the one thing the speaker names, shown as itself (the real book, the real bread and wine), framed plainly", bold: "the same plain, literal style with a closer eye: details and close crops of the named things (a hand on the page, the grain of the bread), still the things themselves", wild: "the same plain, literal style with a wider eye: the places and settings where the named things live, shown as they really are, in one consistent photographic treatment" },
+  world: { sure: "one running world, the most natural one for this talk, clear and well made", bold: "one running world with a strong point of view (a time of day, a season, a place) that changes as the argument changes", wild: "one running world nobody expects, still legible, that the person has a part in" },
+  concept: { sure: "bold ideas, the clearest: each picture adds one second meaning that is obvious in hindsight", bold: "a visual metaphor per beat, all from one family of materials or objects", wild: "conceits a studio would put on its reel: the second meaning is the picture" },
+};
+// the roles that make creative calls: they carry the owner's answers
+const PREF_ROLES = new Set(["visual-writer", "script-writer", "script-editor", "treatment-writer", "footage-writer", "motion-director", "film-builder", "scene-animator", "design-system-designer", "styleframe-designer", "frame-designer", "art-director", "critic", "frame-juror", "concept-critic"]);
 const PRES_KEY = /^(b\d+-\d+|plate-[A-Za-z0-9_-]+)$/; // a presenter film's graphic (beat-n) or designed plate (plate-<id>)
 const imagegenState = () => {
   if (process.env.RASANAI_IMAGEGEN === "off") return "off";
@@ -579,12 +595,15 @@ function contextFor(run, role, key, plan) {
     }
     case "visual-writer": {
       if (!key) die("visual-writer needs --key Sure|Bold|Wild");
-      const conceit = { sure: "the literal, well-made version: each beat gets an image that illustrates what is said, in one consistent world", bold: "one running world or metaphor that the whole talk happens inside, changing as the argument changes", wild: "a conceit a studio would put on its reel: the talk is staged inside something unexpected, and the person interacts with it" }[String(key).toLowerCase()];
+      const pict = P.prefs && P.prefs.pictures;
+      const conceit = (pict && PICTURE_VARIATIONS[pict] ? PICTURE_VARIATIONS[pict][String(key).toLowerCase()] : null) || { sure: "the literal, well-made version: each beat gets an image that illustrates what is said, in one consistent world", bold: "one running world or metaphor that the whole talk happens inside, changing as the argument changes", wild: "a conceit a studio would put on its reel: the talk is staged inside something unexpected, and the person interacts with it" }[String(key).toLowerCase()];
       const ig = imagegenState();
       Object.assign(ctx, { label: key, conceit: conceit || "(Sure, Bold or Wild)", brief: B, imagegen: ig, imagegen_note: ig === "ready" ? "plates of kind generated are real images (each costs about 1.5 minutes of a Codex run on the user's ChatGPT plan, so spend them where the picture argues)" : "image generation is not available: write plates as kind generated anyway only if you accept they become designed backdrops; prefer kind designed with a prompt-like description, and say so in why" });
       const pjson = R(run, "presenter", `plan-${key}.json`);
       for (const [l, p] of [["transcript (words with times)", R(run, "presenter", "transcript.json")], ["beats (the speech cut at its natural joints)", R(run, "presenter", "beats.json")], ["key facts (where the person stands, the frame, the duration)", R(run, "presenter", "key.json")], ["key check (the keyed edge)", R(run, "presenter", "key-check.png")], ["contact sheet of the clip", R(run, "presenter", "sheet.jpg")], ["briefing", research("BRIEFING.md")], ["truth", R(run, "story", "truth.md")], ["presenter playbook (read all of it)", path.join(SKILL_DIR, "references", "presenter.md")], ["imagery (prompt craft)", path.join(SKILL_DIR, "references", "imagery.md")], ["vocabulary", path.join(SKILL_DIR, "references", "vocabulary.md")]]) I(l, p);
-      ctx.check_cmd = `node "${path.join(SKILL_DIR, "scripts", "presenter.mjs")}" check --plan ${rel(pjson)} --beats ${rel(R(run, "presenter", "beats.json"))} --key ${rel(R(run, "presenter", "key.json"))} --imagegen ${ig === "ready" ? "ready" : "off"}`;
+      ctx.check_cmd = `node "${path.join(SKILL_DIR, "scripts", "presenter.mjs")}" check --plan ${rel(pjson)} --beats ${rel(R(run, "presenter", "beats.json"))} --key ${rel(R(run, "presenter", "key.json"))} --imagegen ${ig === "ready" ? "ready" : "off"}${P.prefs_file ? ` --prefs ${P.prefs_file}` : ""}`;
+      if (P.prefs_file) ctx.prefs_file = P.prefs_file;
+      if (pict) ctx.pictures = `${pict}: write a variation inside this style (${conceit}); the other two writers write the other two variations, so yours must differ from them in what is chosen and how it is framed, never in the style`;
       O(pjson);
       break;
     }
@@ -980,8 +999,15 @@ function promptFor(run, role, key, plan) {
     const rf = recentFilms(RECENT);
     extra += `\n\n## Your film's shape (score.shape)\n\nName it in motion/score.json: ${ASPECTS.map((k) => `${k} (${SHAPE_VOCAB[k].join("|")})`).join("; ")}. It must differ from each of the last ${RECENT} films in at least ${MIN_DIFFER} of the 6 aspects (crew.mjs check refuses \`same-shape\`; a series or an explicit ask for the same is a \`shape_waiver\` with a reason).\n${rf.length ? rf.map((f) => `- ${f.title}${f.date ? ` (${f.date})` : ""}: ${shapeLine(f.shape)}`).join("\n") : "- (no film recorded yet: nothing to move away from)"}`;
   }
+  if (PREF_ROLES.has(role)) {
+    const PL = plan || {};
+    const pb = prefsBlock({ prefs: PL.prefs || {}, ending_file: PL.ending_file, series: PL.series });
+    if (pb) extra += `\n\n## The owner's answers (obey them; they are not up for reinterpretation)\n\n${pb}`;
+  }
   { const lb = lessonsBlock(role).trim(); if (lb) extra += `\n\n${lb}`; } // standing notes from the user's past films (lessons.mjs); only the roles it lists get any
+  if (PREF_ROLES.has(role) && plan && plan.series && plan.series.path) { const sb = seriesRulesBlock(plan.series.path).trim(); if (sb) extra += `\n\n${sb}`; } // the series' own rules (series.mjs brief)
   let dare = DARES[role === "motion-director" && key === "seams" ? "seams" : role];
+  if (role === "visual-writer" && plan && plan.prefs && plan.prefs.pictures) dare = `Do the owner's chosen style (${plan.prefs.pictures}) better than the other two writers, inside it. Showing off here is the choice of what to show, the framing and the timing, never a different style: ${plan.prefs.pictures === "literal" ? "no world, no metaphor, no second meaning; the thing itself, the real thing wherever one exists (a real book, a real product, a real place), well chosen and well framed" : plan.prefs.pictures === "world" ? "one running world, kept, and changed as the argument changes" : "pictures that add a second meaning"}.`;
   if (dare && ctx.product_first) dare += " On this product-first film, showing off is craft only (motion, UI choreography, rhythm, the real product moving like nothing else): a letter or shape transformation that lands on the real product (its UI, its mark) is craft and is wanted, full frame and fast; never a conceit, a metaphor, an invented world or a prop standing in for the product. A show-off idea that never resolves to the product fails.";
   const base = `${shared}\n\n---\n\n${roleText}\n\n---\n\n${lines.join("\n")}${extra}\n`;
   // the prompt adapts to the model that runs the member (same goal and bar; different wording and scaffolding)
@@ -1647,6 +1673,7 @@ async function checkRole(run, role, key) {
       const ca = ["check", "--plan", f, "--json"];
       for (const [flag, file] of [["--beats", R(run, "presenter", "beats.json")], ["--key", R(run, "presenter", "key.json")]]) if (exists(file)) ca.push(flag, file);
       ca.push("--imagegen", imagegenState() === "ready" ? "ready" : "off");
+      { const pl = jsonMaybe(R(run, "crew", "plan.json")) || {}; if (pl.prefs_file && exists(pl.prefs_file)) ca.push("--prefs", pl.prefs_file); }
       const r = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "presenter.mjs"), ...ca], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" }, timeout: 60000 });
       let j = null;
       try { j = JSON.parse(r.stdout); } catch {}
@@ -2295,6 +2322,32 @@ if (cmd === "plan") {
   };
   for (const d of p.local) if (!exists(d)) die(`approved folder not found: ${d}`);
   const prev = jsonMaybe(R(run, "crew", "plan.json")) || {};
+  // the owner's taste answers (--prefs <rasanai-brief.json>) and the series the film belongs to (--series <dir>, or the brief's series.path)
+  {
+    const pfile = args.prefs && args.prefs !== true ? path.resolve(String(args.prefs)) : prev.prefs_file || [R(run, "rasanai-brief.json"), path.join(WS, "rasanai-brief.json")].find((x) => exists(x)) || null;
+    if (pfile) {
+      let L;
+      try { L = loadPrefs(pfile); } catch (e) { die(e.message); }
+      p.prefs_file = pfile;
+      p.prefs = L.prefs;
+      if (L.ending_file) p.ending_file = L.ending_file;
+      if (L.series) p.series = L.series;
+    }
+    if (args.series && args.series !== true) p.series = { name: null, slug: path.basename(path.resolve(String(args.series))), path: path.resolve(String(args.series)) };
+    if (!p.series && prev.series) p.series = prev.series;
+    if (p.series && p.series.path) {
+      try {
+        const sh = showSeries(p.series.path);
+        p.series = { name: sh.name || p.series.name, slug: sh.slug || p.series.slug, path: sh.path };
+        if (sh.look && sh.look.exists) p.series_look = sh.look.file;
+        if (!p.prefs) p.prefs = {};
+        for (const [k, v] of Object.entries(sh.preferences || {})) if (!p.prefs[k]) p.prefs[k] = v; // the series' answers fill what the film left open
+        if (!p.ending_file && sh.ending_file && sh.ending_file.exists && p.prefs.ending === "card") p.ending_file = sh.ending_file.file;
+      } catch (e) {
+        die(`--series: ${e.message}`);
+      }
+    }
+  }
   // re-planning later (scene count known, the project made) keeps what was planned before
   for (const k of ["subject", "url", "project", "focus", "features", "model", "brand", "kind", "pace"]) if (!p[k] && prev[k]) p[k] = prev[k];
   if (!p.model) p.model = detectModel().model;

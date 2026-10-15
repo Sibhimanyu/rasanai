@@ -10,13 +10,15 @@
 //         that number on every next film; keys and ranges: lib/gate-lessons.mjs, e.g. --gate text.statement_min_h=0.05)
 //   node lessons.mjs list [--json]
 //   node lessons.mjs drop --id <id>
-//   node lessons.mjs brief --role <crew role> [--n 12]   -> the "Standing notes" markdown block for that role (nothing when empty)
+//   node lessons.mjs brief --role <crew role> [--n 12] [--series <dir>]   -> the "Standing notes" markdown block for that role (nothing when empty);
+//        with --series <dir> (or a rasanai-brief.json in the current folder whose series.path is set) the series' own rules follow it
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die, STATE_DIR } from "./lib/common.mjs";
 import { parseGate } from "./lib/gate-lessons.mjs";
+import { seriesRulesBlock } from "./lib/series.mjs";
 
 export const KINDS = ["error", "taste"];
 export const AREAS = ["story", "look", "type", "motion", "pace", "sound", "brand"];
@@ -105,16 +107,29 @@ export function dropLesson(id) {
 }
 
 // the markdown block for a crew role ("" when the role has no areas or there are no matching lessons)
-export function lessonsBlock(role, n = 12) {
+export function lessonsBlock(role, n = 12, series = null) {
+  const rules = series ? seriesRulesBlock(series) : "";
   const areas = ROLE_AREAS[role];
-  if (!areas) return "";
+  if (!areas) return rules; // a role with no lesson areas (the visual writer) still obeys the series' rules
   const rows = readLessons()
     .filter((r) => areas.includes(r.area))
     .sort((a, b) => (b.seen || 1) - (a.seen || 1) || String(b.last).localeCompare(String(a.last)))
     .slice(0, Math.max(1, Number(n) || 12));
-  if (!rows.length) return "";
+  if (!rows.length) return rules;
   const lines = rows.map((r) => `- **${r.area}, ${r.kind === "error" ? "a mistake" : "a taste"}${r.seen > 1 ? `, noted ${r.seen} times` : ""}:** ${r.rule}${r.gate ? ` (now measured: ${r.gate.key} = ${r.gate.value})` : ""}${r.quote ? ` (the user said: "${r.quote}")` : ""}`);
-  return `## Standing notes from the user's past films\n\nThe user taught these on earlier films. They apply to this one: do not make them say it again. A mistake is a rule; a taste is a lean (follow it unless the story needs otherwise, and say so).\n\n${lines.join("\n")}\n`;
+  return `## Standing notes from the user's past films\n\nThe user taught these on earlier films. They apply to this one: do not make them say it again. A mistake is a rule; a taste is a lean (follow it unless the story needs otherwise, and say so).\n\n${lines.join("\n")}\n${rules ? "\n" + rules : ""}`;
+}
+
+// the series this project belongs to: --series <dir>, else rasanai-brief.json (cwd or $RASANAI_BRIEF) series.path
+export function seriesOf(arg) {
+  if (arg && arg !== true) return String(arg);
+  for (const f of [process.env.RASANAI_BRIEF, path.join(process.cwd(), "rasanai-brief.json")]) {
+    try {
+      const j = JSON.parse(fs.readFileSync(f, "utf8"));
+      if (j.series && j.series.path) return String(j.series.path);
+    } catch {}
+  }
+  return null;
 }
 
 function main() {
@@ -137,7 +152,7 @@ function main() {
     console.log(JSON.stringify({ ok: true, dropped: String(args.id) }));
   } else if (cmd === "brief") {
     if (!args.role || args.role === true) die("--role required");
-    const b = lessonsBlock(String(args.role), args.n === undefined ? 12 : Number(args.n));
+    const b = lessonsBlock(String(args.role), args.n === undefined ? 12 : Number(args.n), seriesOf(args.series));
     if (b) process.stdout.write(b);
   } else {
     die("usage: lessons.mjs add|list|drop|brief ...");

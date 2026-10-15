@@ -11,8 +11,9 @@
 //        -> <run>/footage/footage.json (+ contact sheets, posters, word transcripts)
 //   node reel.mjs briefs --reel <reel.json> --project-dir videos/<name>
 //        -> compositions/cards/<id>.brief.md for every card/overlay Claude draws (the default; "by": "swatch" = quick engine draft)
-//   node reel.mjs build --reel <reel.json> --project-dir videos/<name> [--render] [--quality draft|looks|delivery] [--force] [--no-lint] [--render-anyway]
+//   node reel.mjs build --reel <reel.json> --project-dir videos/<name> [--prefs <rasanai-brief.json>] [--render] [--quality draft|looks|delivery] [--force] [--no-lint] [--render-anyway]
 //        -> index.html + compositions/reel-*.html + assets/footage/*, lint, obey, (render)
+//        --prefs: the owner's taste answers win over reel.json: captions off | plain (style "clean") | styled (style "bold"); text=none warns about every overlay
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -24,6 +25,7 @@ import { stageFonts } from "./lib/fonts.mjs";
 import { installLook, installDirection, upsertMarked, DIRECTION_MARK } from "./lib/install.mjs";
 import { contractText } from "./lib/contract.mjs";
 import { track } from "./lib/report.mjs";
+import { loadPrefs } from "./lib/prefs.mjs";
 import { decideLanguage, installedModels, hasWhisperCli, whisperTranscribe, englishLooks } from "./lib/lang.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -467,6 +469,14 @@ async function build() {
     return path.resolve(ws, p);
   };
   const [W, H] = normalizeAspect(R.aspect || "9:16").split("x").map(Number);
+  const prefNotes = [];
+  if (args.prefs && args.prefs !== true) {
+    let L;
+    try { L = loadPrefs(String(args.prefs)); } catch (e) { die(e.message); }
+    const c = L.prefs.captions;
+    if (c) R.captions = { ...(R.captions || {}), on: c !== "off", ...(c === "plain" ? { style: "clean" } : c === "styled" ? { style: "bold" } : {}) };
+    if (L.prefs.text === "none" && (R.overlays || []).length) prefNotes.push(`text=none: the reel has ${R.overlays.length} overlay(s); the owner wants no writing on screen (cards and overlays that carry words)`);
+  }
   const FPS = Number(R.fps || 30);
   if (!(FPS >= 12 && FPS <= 120)) die("fps must be between 12 and 120");
   const footageDir = R.footage_dir ? resolveIn(R.footage_dir, base, ws) : null;
@@ -686,7 +696,7 @@ async function build() {
       e.dur = r3(d0[k] + ((hold - baseHold) / 1000) * slope);
     });
   }
-  const warnings = [...fontWarnings, ...engineItems.filter((e) => e.warn).map((e) => e.warn)];
+  const warnings = [...fontWarnings, ...engineItems.filter((e) => e.warn).map((e) => e.warn), ...prefNotes];
 
   // ---- timeline
   let t = 0;
