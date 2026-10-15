@@ -2,9 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.12.0 (build 29) — 2026-10-15
 
-- **The Studio shows the wave 8 data.** The decisions drawer and the final stage read the new crew budget and the new measurements (all warnings), and the session model carries them. Untested by choice.
+- **The Studio shows the wave 8 data.** The decisions drawer keeps a history of the calls made, and shows what the film is "Working without" and the crew budget. Lessons can be dropped. The Final page has a Checks popover with the A/B verdicts and the gate numbers, and the film shows its real title.
+- **Bundles RasanAI 1.17.0:** one argument per film, motion from meaning.
 
 ## 0.11.0 (build 28) — 2026-10-14
 
