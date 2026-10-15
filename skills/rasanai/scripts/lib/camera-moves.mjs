@@ -1,5 +1,5 @@
-// Camera moves, measured on a render: what the camera does, beat by beat (lemo: "at least 4 different moves and one
-// signature shot"). Grey frames from ffmpeg (320 px wide, 15 fps, no window). Per frame, block matching on the textured
+// Camera moves, measured on a render: what the camera does, beat by beat (lemo: the moves a film uses and one
+// signature shot). Grey frames from ffmpeg (320 px wide, 15 fps, no window). Per frame, block matching on the textured
 // blocks (pyramid search, sub-pixel V fit) and one robust affine fit for the whole frame. The fit counts as the CAMERA
 // only when it explains half the textured blocks or more and they cover the frame (5 of 9 cells, or one plane spanning
 // half of it both ways, and never under 35% either way): one card sliding over a flat ground, or a line that recentres
@@ -14,7 +14,7 @@
 //   locked               none of these
 // A 2D film has no lens, but a whole-frame slide, scale or turn reads as one; that is what is counted. A cut-in (a scale
 // jump across a cut) is a cut, and a heavy depth-of-field blur hides a move. Calibrated 2026-10-14 on the reference
-// films by eye (references/craft.md "Camera variety" has the table).
+// films by eye (references/craft.md "Camera from meaning" has the table).
 //
 //   import { measureCamera } from "./lib/camera-moves.mjs";
 //   const c = await measureCamera(mp4, { beats: [{ id, start, end }] });   // beats omitted: shots between hard cuts

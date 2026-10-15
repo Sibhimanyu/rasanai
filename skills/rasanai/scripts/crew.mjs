@@ -24,7 +24,7 @@
 //        -> <run>/crew/prompts/<role>[-<key>].md, the whole prompt (dispatch it as "Read <file> and do the job")
 //   node crew.mjs check --run <run> --role <role> [--key <k>] [--project <dir>]
 //        -> exit 0 accepted · 2 problems (listed) · 1 could not check
-//        (the score role also warns: music-arc-missing / music-arc-order (score.music_arc), seam-unsounded, mechanic-repeat and mechanics-thin (shots[].mechanic),
+//        (the score role also warns: music-arc-missing / music-arc-order (score.music_arc), seam-unsounded, mechanics-thin (a one-trick film: 2 or fewer mechanics over 4+ lines),
 //         flat-type (score.type_scale { small_px, large_px }), no-punctuation (a hard cut on the pain-to-meet or payoff seam); flat-3d-style honours the card's `Depth blur:` line)
 //        layers-thin (a showcase-grammar film whose median shots[].layers is under 4); the film-builder role warns no-pose-board / hero-not-stripped (hero moves in score.moves);
 //        the art-director role runs art.mjs check (the assets, one style, the shows mapped to assets) and wants art/ART.md)
@@ -34,6 +34,12 @@
 //           the brief for the ab-juror (crew/prompts/ab-juror-<k>.md). crew.mjs check --role ab-juror [--key <k>] reads the verdict, maps it back and
 //           prints "result": "keep" (the new version won) or "revert" (it lost: go back to the previous version's state; keep only fixes that do not lose).
 //           The retrospective role (after delivery) proposes at most 2 craft rules; check prints the lessons.mjs add --source self lines to record
+//   node crew.mjs thumbs --run <run> [--out <sheet.png>] [--cols 4]
+//        -> the thumbnail board (story/thumbs/sheet.png + thumbs.json): ONE rough thumbnail per beat of story/intent.json, laid out as one sheet with each beat's
+//           `buys` (relation, importance, seconds, the peak and the rests) under it. A thumbnail is what already exists, cheapest first: the beat's styleframe board
+//           (frames/<id>.png), a hand-dropped story/thumbs/<NN>.png, else a grey box with the thing to read. Runs after the script editor, BEFORE the music fit and
+//           the score; the structure-critic (agents/structure-critic.md) reads only this sheet + intent.json and may cut, merge, move, add a rest or rewrite a buys:
+//           crew.mjs check --role structure-critic applies those edits to story/intent.json, story/chosen.json (and scenes.json when it exists)
 //   node crew.mjs status --run <run>          -> every planned dispatch and where it stands (resume after compaction)
 //   node crew.mjs pitches --run <run>         -> merges story/pitch-*.json into story/pitches.json (Sure, Bold, Wild)
 //   node crew.mjs storyboard --run <run> --project <dir> [--score <score.json>]
@@ -67,6 +73,9 @@ import { checkSystemFull, checkSystems, firstLine } from "./lib/system.mjs";
 import { readRunGrammar, hasGrammarLibrary, checkScoreGrammar, techniquesNamed } from "./lib/grammar-lib.mjs";
 import { pitchShape, validateMoves, validateVerdict, validateSet, isLabelOnly, MOVE_LABELS } from "./lib/moves-lib.mjs";
 import { readShots, checkShots, boardFiles, checkVerdict, collectRefs, boardFor, heroesAgree } from "./lib/frames-lib.mjs";
+import { loadIntent, validateIntent, applyEdits, applyToScript, readSeconds } from "./lib/intent.mjs";
+import { budgetChecks, intentBeats } from "./lib/emphasis.mjs";
+import { cameraKind } from "./lib/camera-moves.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -128,6 +137,7 @@ const ROLES = {
   "move-juror": { desk: "story", tier: "fast", desc: () => "Judging every move idea blind and ranking the best" },
   "move-sketcher": { desk: "story", tier: "fast", desc: (p, k) => `Sketching the ${k || ""} script's hero move as a rough`.replace("  ", " ") },
   "script-editor": { desk: "story", tier: "inherit", desc: () => "Editing the three scripts like a hostile reader" },
+  "structure-critic": { desk: "story", tier: "inherit", desc: () => "Reading the thumbnail sheet and the intent, and cutting what buys nothing" },
   "motion-director": { desk: "motion", tier: "inherit", desc: (p, k) => (k === "seams" ? "Checking every cut and building the signature transition" : "Scoring how the whole film moves") },
   "art-director": { desk: "art", tier: "inherit", desc: () => "Making the film's pictures: one consistent world of illustrations, icons, cut-outs, line art and handwriting" },
   "frame-designer": { desk: "art", tier: "inherit", desc: (p, k) => `Designing the boards ${k || ""}, bound to the hero styleframes`.replace("  ", " ") },
@@ -255,6 +265,12 @@ function planCrew(p) {
     }
     phases.push({ phase: "story-edit", when: STORY_ROUTES.has(p.route) && !["reel", "music-to-video"].includes(p.route) ? "after the moves pass (the three moves files, the verdict and the roughs are accepted)" : "after the three pitches pass story.mjs check", dispatch: [d("script-editor")], then: "route its notes back to the writers (one round), then push story" });
   }
+  // The script editor is never skipped: a lean film has no writers to dispatch (the Director writes the three scripts), but its scripts are still read by the editor.
+  const scripted = STORY_ROUTES.has(p.route) && !["reel", "music-to-video"].includes(p.route) && !footageSp;
+  if (scripted && lean) {
+    phases.push({ phase: "story", when: "after story.mjs pick: the Director writes the three scripts (lean: no script writers), each with story/intent-<Label>.json", dispatch: [], director_steps: ["write story/pitch-<Sure|Bold|Wild>.json and story/intent-<Sure|Bold|Wild>.json yourself (agents/script-writer.md, references/intent.md)", "crew.mjs pitches, story.mjs check, story.mjs intent --intent story/intent-<Label>.json"], then: "then the script editor: it is never skipped" });
+    phases.push({ phase: "story-edit", when: "after the three pitches pass story.mjs check: the script editor runs on every scripted route, lean or not", dispatch: [d("script-editor")], then: "route its notes back (one round), then push story" });
+  }
   // three bespoke design systems for the chosen story (a lyric video: one, from the chosen treatment's style bible)
   if (p.route === "music-to-video") {
     phases.push({ phase: "design-system", when: "after the treatment is chosen (the Look step is the treatment's style bible, built out by the desk)", dispatch: [d("design-system-designer", "<chosen label>", { mode: "bible" })], then: "design.mjs check-system, then design.mjs choose-system for that label; no Look picker" });
@@ -271,6 +287,11 @@ function planCrew(p) {
   }
   if (STORY_ROUTES.has(p.route) && !["music-to-video"].includes(p.route) && (p.route !== "reel" || footageSp)) {
     phases.push({ phase: "concept-gate", when: footageSp ? "after the paper edit and the look are chosen, BEFORE the cut is built: a quick Sonnet critic scores them against the literal brief with the footage questions (is the hook the strongest real moment? does every claim come from the material or the ledger? does the cut keep each speaker's meaning? is the brand kit obeyed?)" : "after the story and the look are chosen, BEFORE motion planning (the expensive work): a quick Sonnet critic scores the chosen script and look against the literal brief", dispatch: [d("concept-critic", "concept-1")], then: "ship: record it in decisions (console push --step concept) and go on; fix: rewrite the script (or the look) from its findings, re-run it once, then go on. Never start the score on a failing concept" });
+  }
+  // The thumbnail board (REBUILD 3): one rough thumbnail per beat on one sheet, with each beat's buys under it, judged BEFORE any timing locks and before the art,
+  // the music fit and the score cost anything. The structure critic reads only the sheet and intent.json and is the one critic who may cut a beat.
+  if (scripted && SCENE_ROUTES.has(p.route)) {
+    phases.push({ phase: "thumbs", when: "after the story and the look are chosen, the script editor has passed and story/intent.json is the chosen script's: BEFORE the art, the music fit and the score (timings lock only after this)", director_steps: ["node scripts/story.mjs intent --intent <run>/story/intent.json --length <s>   (errors first)", "node scripts/crew.mjs thumbs --run <run>   (one thumbnail per beat + its buys, one sheet: story/thumbs/sheet.png)"], dispatch: [d("structure-critic", "structure-1")], then: "crew.mjs check --role structure-critic applies its cut / merge / move / rest / rewrite edits to intent.json, chosen.json and scenes.json (one round; a second only when it changed the peak); then re-run thumbs, fit the music from the durations (scenes.mjs --intent <intent.json> --retime), and go on to the art and the score" });
   }
   if (SCENE_ROUTES.has(p.route) && !lean) {
     phases.push({
@@ -340,7 +361,8 @@ function planCrew(p) {
     phases.push({ phase: "review", when: "after the draft render", dispatch: lean ? [d("critic", "film-1")] : [d("critic", "motion-1"), d("critic", "film-1")], then: "route each finding back (2 rounds at most); check by eye that every cut lands on a word boundary, every join is covered, every name is spelled as in footage/names.json" });
   }
   // every fix round after the first draft is accepted only after a blind A/B against the round before it; after delivery the film teaches the next
-  phases.push({ phase: "ab-review", when: "every fix round after the first draft, before the round is accepted", dispatch: [], director_steps: ["crew.mjs ab --run <run> --a <the previous render> --b <this round's render> --plan motion/score.json", "crew.mjs brief --role ab-juror --key <k> (dispatch it; it sees X and Y, never which is newer)", "crew.mjs check --role ab-juror --key <k> prints keep or revert; revert = back to the previous version's project state (git, or the .superseded copy), keep only fixes that do not lose, and log the lost round with --because"], then: "a lost round is reverted, never accepted" });
+  if (SCENE_ROUTES.has(p.route) || p.route === "motion-graphics") phases.push({ phase: "stage3d-font", when: "before a beat sets BRAND TYPE in 3D (extruded text): only then", dispatch: [], director_steps: ["node scripts/stage3d.mjs font --project <dir> --family \"<Brand Font>\" --weight 700 (prints the staged font path)", "k.extrudeText(text, { font: \"<printed path>\" }) in the scene"], then: "the 3D type is the brand's own face, never a stand-in" });
+  phases.push({ phase: "ab-review", when: "every fix round after the first draft, before the round is accepted", dispatch: [], director_steps: ["node scripts/fixcheck.mjs --before <the previous render> --after <this round's render> --touched <the notes' windows> (read regression_runs and diff_pngs: a leak into frames the round did not touch is fixed or explained)", "crew.mjs ab --run <run> --a <the previous render> --b <this round's render> --plan motion/score.json", "crew.mjs brief --role ab-juror --key <k> (dispatch it; it sees X and Y, never which is newer)", "crew.mjs check --role ab-juror --key <k> prints keep or revert; revert = back to the previous version's project state (git, or the .superseded copy), keep only fixes that do not lose, and log the lost round with --because"], then: "a lost round is reverted, never accepted" });
   phases.push({ phase: "retrospective", when: "at delivery, after the Final", dispatch: [d("retrospective")], then: "crew.mjs check --role retrospective prints the lessons.mjs add --source self lines (at most 2); run them" });
   return phases;
 }
@@ -574,10 +596,10 @@ function contextFor(run, role, key, plan) {
       const picks = jsonMaybe(R(run, "story", "picks.json"));
       const list = picks ? picks.picks || picks.devices || picks : [];
       const dev = Array.isArray(list) ? list.find((x) => String(x.label || x.angle || "").toLowerCase() === String(key).toLowerCase()) : null;
-      Object.assign(ctx, { label: key, device: dev || "(see story/picks.json for this label)", brief: B });
-      for (const [l, p] of [["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["screens", research("screens.md")], ["precedent", research("precedent.md")], ["picks", R(run, "story", "picks.json")], ["writer's brief", path.join(SKILL_DIR, "references", "script.md")], ["pitch format", path.join(SKILL_DIR, "references", "story.md")]]) I(l, p);
+      Object.assign(ctx, { label: key, device: dev || "(see story/picks.json for this label)", device_menu: "story/picks.json `menu`: CHOOSE one device from it with a one-line reason (pitch.device_reason); no seeded draw chose for you. Your slot's `engine` and the turn_rule say what your script's turn must do (pitch.turn { line, reverses, payoff })", brief: B });
+      for (const [l, p] of [["intent sheet format (story/intent-" + key + ".json: the argument, written first)", path.join(SKILL_DIR, "references", "intent.md")], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["screens", research("screens.md")], ["precedent", research("precedent.md")], ["picks", R(run, "story", "picks.json")], ["writer's brief", path.join(SKILL_DIR, "references", "script.md")], ["pitch format", path.join(SKILL_DIR, "references", "story.md")]]) I(l, p);
       for (const [l, p] of showcaseInputs(run, P, B)) I(l, p);
-      O(R(run, "story", `pitch-${key}.json`));
+      O(R(run, "story", `pitch-${key}.json`)); O(R(run, "story", `intent-${key}.json`));
       break;
     }
     case "treatment-writer": {
@@ -603,7 +625,7 @@ function contextFor(run, role, key, plan) {
     }
     case "concept-critic":
       Object.assign(ctx, { brief: B, length_s: B.length_s, round: Number(String(key || "1").split("-").pop()) || 1 });
-      for (const [l, p] of [["the brief (literal words)", R(run, "brief.json")], ["chosen script", R(run, "story", "chosen.json")], ["chosen look (design system)", R(run, "look", "DESIGN.md")], ["decisions", R(run, "decisions.json")], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["screens", research("screens.md")], ["brand", research("brand/DESIGN.md")], ["workspace brand", dsn ? path.resolve(dsn) : null], ["product-first rules", path.join(SKILL_DIR, "references", "product-first.md")]]) I(l, p);
+      for (const [l, p] of [["the brief (literal words)", R(run, "brief.json")], ["chosen script", R(run, "story", "chosen.json")], ["the intent sheet (the proposition, each beat's buys, relation and importance: does the chosen script's turn reverse something and does its payoff answer the setup?)", R(run, "story", "intent.json")], ["chosen look (design system)", R(run, "look", "DESIGN.md")], ["decisions", R(run, "decisions.json")], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["screens", research("screens.md")], ["brand", research("brand/DESIGN.md")], ["workspace brand", dsn ? path.resolve(dsn) : null], ["product-first rules", path.join(SKILL_DIR, "references", "product-first.md")]]) I(l, p);
       O(R(run, "story", "concept-check.json"));
       break;
     case "move-inventor": {
@@ -646,7 +668,7 @@ function contextFor(run, role, key, plan) {
       break;
     }
     case "script-editor":
-      for (const [l, p] of [["pitches", R(run, "story", "pitches.json")], ["check", R(run, "story", "check.json")], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["precedent", research("precedent.md")], ["rubric", path.join(SKILL_DIR, "references", "script.md")], ["story rules", path.join(SKILL_DIR, "references", "story.md")], ["craft", path.join(SKILL_DIR, "references", "craft.md")]]) I(l, p);
+      for (const [l, p] of [["the beat lists for the BLIND RETELL (read these first and retell each film in one sentence before anything else: on_screen, voice and picture only)", R(run, "story", "beats-Sure.md")], ["", R(run, "story", "beats-Bold.md")], ["", R(run, "story", "beats-Wild.md")], ["the intent sheets (the argument each script rests on: story/intent-<Label>.json, or intent.json once chosen)", R(run, "story")], ["pitches", R(run, "story", "pitches.json")], ["check", R(run, "story", "check.json")], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["precedent", research("precedent.md")], ["rubric", path.join(SKILL_DIR, "references", "script.md")], ["story rules", path.join(SKILL_DIR, "references", "story.md")], ["craft", path.join(SKILL_DIR, "references", "craft.md")]]) I(l, p);
       O(R(run, "story", "edit-notes.json"));
       break;
     case "art-director": {
@@ -660,9 +682,9 @@ function contextFor(run, role, key, plan) {
     }
     case "motion-director":
       Object.assign(ctx, { pass: key === "seams" ? "seams" : "score", length_s: B.length_s, aspect: B.aspect });
-      for (const [l, p] of [["script", R(run, "story", "chosen.json")], ["scenes", R(run, "scenes.json")], ["frame.md", lookFrame(run)], ["design system (its Motion and camera section binds the motion)", R(run, "look", "DESIGN.md")], ["direction", R(run, "direction", "DIRECTION.md")], ["motion.md", R(run, "motion.md")], ["music plan", R(run, "music", "plan.json")], ["screens", research("screens.md")], ["assets", research("assets.json")], ["brand", research("brand.md")], ["precedent", research("precedent.md")], ["reference moments (read-only: dense.md and code/REMIX.md per moment; one mechanic each, written as the beat's take)", R(run, "references", "moments")], ["craft", path.join(SKILL_DIR, "references", "craft.md")], ["vocabulary", path.join(SKILL_DIR, "references", "vocabulary.md")], ["3d playbook", path.join(SKILL_DIR, "references", "3d.md")]]) I(l, p);
+      for (const [l, p] of [["THE INTENT (read first: story/intent.json. Per beat: what it buys, its relation to the beat before, its importance 1-3, the one thing to read; the peak. Choose each beat's hero, verb and transition FROM it, and spend your big moments on the importance-3 beats and the peak)", R(run, "story", "intent.json")], ["the score's fields, format, seam pass and shape vocabulary", path.join(SKILL_DIR, "references", "score.md")], ["script", R(run, "story", "chosen.json")], ["scenes", R(run, "scenes.json")], ["frame.md", lookFrame(run)], ["design system (its Motion and camera section binds the motion)", R(run, "look", "DESIGN.md")], ["direction", R(run, "direction", "DIRECTION.md")], ["motion.md", R(run, "motion.md")], ["music plan", R(run, "music", "plan.json")], ["screens", research("screens.md")], ["assets", research("assets.json")], ["brand", research("brand.md")], ["precedent", research("precedent.md")], ["reference moments (read-only: dense.md and code/REMIX.md per moment; one mechanic each, written as the beat's take)", R(run, "references", "moments")], ["craft", path.join(SKILL_DIR, "references", "craft.md")], ["vocabulary", path.join(SKILL_DIR, "references", "vocabulary.md")], ["3d playbook", path.join(SKILL_DIR, "references", "3d.md")]]) I(l, p);
       if (readRunGrammar(run) !== null) {
-        ctx.grammar = "yes: the film's ONE motion grammar is look/grammar.json. Set score.grammar to its id; every beat (scene) names a technique (an id from its techniques, a different one on each consecutive beat, at least min(beats, 6) distinct) and a frame_device (what the grammar's frame device does in that beat). The check refuses grammar-missing, technique-unknown, technique-repeat and frame-device-missing.";
+        ctx.grammar = "yes: the film's ONE motion grammar is look/grammar.json. Set score.grammar to its id; every beat (scene) names the technique of it that expresses the beat's verb and a frame_device (what the grammar's frame device does in that beat). A refrain may repeat a technique; the check refuses grammar-missing, technique-unknown and frame-device-missing, and warns technique-thin when the whole film spends 2 or fewer.";
         I("motion grammar (THE film's one motion language: frame device, type and image behaviour, techniques with build routes)", R(run, "look", "grammar.json"));
       }
       if (LYR(run, P)) {
@@ -735,6 +757,7 @@ function contextFor(run, role, key, plan) {
       const packet = exists(packets) ? fs.readdirSync(packets).find((f) => new RegExp(`^0*${n}[-_.]`).test(f) && f.endsWith(".md")) : null;
       const sc3 = ((jsonMaybe(R(run, "motion", "score.json")) || {}).scenes || []).find((x) => Number(x.n) === n) || {};
       Object.assign(ctx, { scene: n, project: rel(pj), space: sc3.space || "2d" });
+      I("the argument (story/intent.json: each beat's buys, importance, relation, the peak)", R(run, "story", "intent.json"));
       if (is3d(sc3)) I("3d playbook", path.join(SKILL_DIR, "references", "3d.md"));
       if (readRunGrammar(run) !== null) I("motion grammar (the film's one grammar: your beat's technique and frame_device come from it)", R(run, "look", "grammar.json"));
       if (LYR(run, P)) {
@@ -753,6 +776,7 @@ function contextFor(run, role, key, plan) {
       const score = jsonMaybe(R(run, "motion", "score.json")) || {};
       const S = Array.isArray(score.scenes) ? score.scenes : [];
       Object.assign(ctx, { pass: lead ? "lead (the root and the carriers only; scene animators build the beats around them)" : "film (the whole film: the root, every beat and every carrier, in one pass)", project: rel(pj), length_s: B.length_s, aspect: B.aspect, beats: S.length || undefined });
+      I("the argument (story/intent.json: each beat's buys, importance, relation, the peak)", R(run, "story", "intent.json"));
       if (S.some(is3d)) I("3d playbook (the plan puts a beat in 3D)", path.join(SKILL_DIR, "references", "3d.md"));
       if (readRunGrammar(run) !== null) I("motion grammar (the film's ONE grammar: every beat spends the technique the plan names, in the frame device the plan names)", R(run, "look", "grammar.json"));
       for (const [l, p] of [["the plan (motion/score.json): THE contract", R(run, "motion", "score.json")], ["the plan in words", R(run, "motion", "score.md")], ["build brief (short: what to build, the momentum rules, the gate)", path.join(pj, "BUILD.md")], ["technical role (the workflow's frame-worker contract)", path.join(pj, ".hyperframes", "frame-packets", "_role.md")], ["frame packets (one per beat: the file each beat goes in)", path.join(pj, ".hyperframes", "frame-packets")], ["DISPATCH.md", path.join(pj, "DISPATCH.md")], ["frame.md (the look: fonts, colours)", path.join(pj, "frame.md")], ["motion.md", path.join(pj, "motion.md")], ["reference moments (read-only: one mechanic per beat, never copied)", R(run, "references", "moments")], ["the chosen moves (the Moves pass: the carrier you build and the hero cards with their roughs: your motion target; each is a move to beat, the reference moments are mechanics to execute it with)", R(run, "story", "moves.json")], ["the move roughs (grey-box loops of the hero moves)", R(run, "story", "moves")], ["ui kit", research("screens.md")], ["real screens", research("screens.json")], ["logo files (the only logo you may place: the staged copy is in the project at assets/brand/; if logos.json says none, set the name in type, no symbol)", research("brand", "assets")], ["assets", research("assets.json")]]) I(l, p);
@@ -763,15 +787,21 @@ function contextFor(run, role, key, plan) {
       O(R(run, "crew", "builder", `${key || "film"}.md`)); O(R(run, "crew", "builder", `${key || "film"}-overview.png`)); O(R(run, "crew", "builder", `${key || "film"}-seams.png`));
       break;
     }
+    case "structure-critic": {
+      Object.assign(ctx, { brief: B, length_s: B.length_s, round: Number(String(key || "1").split("-").pop()) || 1, thumbs_cmd: `node "${path.join(SKILL_DIR, "scripts", "crew.mjs")}" thumbs --run ${rel(run)}`, edits: "story/structure-notes.json { verdict: ship | edit, retell, edits: [{ op: cut | merge | move | peak | rest | rewrite, beat | beats, to, buys, why }] }; beats are numbered as on the sheet, 1-based; crew.mjs check applies them" });
+      for (const [l, p] of [["the thumbnail sheet (one rough per beat, each beat's buys under it: your ONLY picture of the film; look at it)", R(run, "story", "thumbs", "sheet.png")], ["the sheet's index (thumbs.json: source per beat, seconds, relation, importance)", R(run, "story", "thumbs", "thumbs.json")], ["THE INTENT (the argument: proposition, ending_first, beats)", R(run, "story", "intent.json")], ["the intent sheet format", path.join(SKILL_DIR, "references", "intent.md")], ["the brief (literal words)", R(run, "brief.json")]]) I(l, p);
+      O(R(run, "story", "structure-notes.json"));
+      break;
+    }
     case "critic": {
       const [lens, round] = String(key || "film-1").split("-");
       Object.assign(ctx, { lens, round: Number(round) || 1 });
       if (pj) ctx.project = rel(pj);
-      const common = [["craft", path.join(SKILL_DIR, "references", "craft.md")], ["3d playbook", path.join(SKILL_DIR, "references", "3d.md")], ["precedent", research("precedent.md")], ["direction", R(run, "direction", "DIRECTION.md")]];
+      const common = [["the intent sheet (what each beat was meant to buy and where the peak is: judge the film against it; a finding may name a beat that fails its buys)", R(run, "story", "intent.json")], ["craft", path.join(SKILL_DIR, "references", "craft.md")], ["3d playbook", path.join(SKILL_DIR, "references", "3d.md")], ["precedent", research("precedent.md")], ["direction", R(run, "direction", "DIRECTION.md")]];
       const byLens = {
         frames: [["key frames", R(run, "frames")], ["scenes", R(run, "scenes.json")], ["score", R(run, "motion", "score.md")], ["screens", research("screens.json")]],
         motion: [["the motion gate's report on the draft (motion-gate.mjs --json: freezes, coverage, seams, carriers, fluency and its per-beat one-curve findings; READ FIRST)", R(run, "crew", "motion-gate.json")], ["score", R(run, "motion", "score.json")], ["project", pj], ["renders (the draft render: judge the moving film, never stills alone)", pj && path.join(pj, "renders")], ["motion.md", pj && path.join(pj, "motion.md")]],
-        film: [["the motion gate's report on the draft (motion-gate.mjs --json; READ FIRST)", R(run, "crew", "motion-gate.json")], ["project", pj], ["renders", pj && path.join(pj, "renders")], ["snapshots", pj && path.join(pj, "snapshots")], ["decisions", R(run, "video-decisions.json")]],
+        film: [["the phone sheet (crew/phone.png): the retell is written from this, before anything else", R(run, "crew", "phone.png")], ["the motion gate's report on the draft (motion-gate.mjs --json; READ FIRST)", R(run, "crew", "motion-gate.json")], ["project", pj], ["renders", pj && path.join(pj, "renders")], ["snapshots", pj && path.join(pj, "snapshots")], ["decisions", R(run, "video-decisions.json")]],
         grounding: [["project", pj], ["claims", research("claims.json")], ["truth", R(run, "story", "truth.md")], ["screens", research("screens.json")]],
       }[lens];
       if (!byLens) die(`unknown critic lens "${lens}" (frames, motion, film, grounding)`);
@@ -893,14 +923,14 @@ function grammarBlock(run, scenes) {
   const named = techniquesNamed(g, scenes.map((s) => s && s.technique));
   const beats = scenes.filter((s) => s && (s.technique || s.frame_device)).map((s) => ({ scene: s.n, technique: s.technique, frame_device: s.frame_device }));
   const core = { id: g.id, name: g.name, frame_device: g.frame_device, type: g.type, image: g.image, transitions: g.transitions, signature: g.signature, density: g.density, palette: g.palette, do: g.do, dont: g.dont };
-  return `\n\n## The film's motion grammar (look/grammar.json): ONE grammar, a different technique per beat\n\n\`\`\`json\n${JSON.stringify(core, null, 2)}\n\`\`\`\n\n${beats.length ? `The score's beats:\n\n\`\`\`json\n${JSON.stringify(beats, null, 2)}\n\`\`\`\n\n` : ""}${named.length ? `### The techniques the score names (build each by its route)\n\n\`\`\`json\n${JSON.stringify(named, null, 2)}\n\`\`\`` : ""}`;
+  return `\n\n## The film's motion grammar (look/grammar.json): ONE grammar, each beat's technique from what it means\n\n\`\`\`json\n${JSON.stringify(core, null, 2)}\n\`\`\`\n\n${beats.length ? `The score's beats:\n\n\`\`\`json\n${JSON.stringify(beats, null, 2)}\n\`\`\`\n\n` : ""}${named.length ? `### The techniques the score names (build each by its route)\n\n\`\`\`json\n${JSON.stringify(named, null, 2)}\n\`\`\`` : ""}`;
 }
 
 // Claude does its best motion work when it's told to show off. Every creative prompt ends on that ask: the last
 // thing a member reads, after the inputs, so it isn't lost under them.
 const DARES = {
   "art-director": "Make art a studio would sign. One consistent world: every picture drawn by the same hand, with the same line weight, palette and light, so the film looks art-directed, not assembled. No stock-looking images (a smiling person at a laptop, a glowing 3D orb, a gradient blob), and none of the AI-slop tells (waxy skin, melted text, extra fingers, a plastic sheen, rainbow gradients). Look at every picture on the contact sheet and throw out the weak ones: regenerate until each one is a picture you would keep on the wall. Treat the photos (cut out, gradient-mapped, duotone) so they belong to the world, and trace the line art so the shape kit can draw it on.",
-  "motion-director": "Show off. Don't score the safe film you'd make by default: score the one a top studio would put on its reel, with 2 to 4 moments people rewind to see how they were done, landed by choreography and continuity, not by effects. You can plan in real 3D as well as 2D, and Opus is genuinely good at it. Rasan3D is an open engine (a render graph with your own GLSL passes, raymarched SDF worlds composited by depth, deterministic simulations, DOM pinned in 3D, every three.js addon, raw three.js), so don't pick from a menu: invent the technique each shot needs, and write it into the shot (engraved hatching along a wire, an endless instanced field, a portal, a simulated swarm). The design system (DESIGN.md, frame.md, the treatment's style bible) bounds the look; nothing else does. If a taste rule is the one thing standing between you and the shot, override it in the score (score.intent, a rule id and your reason of 12+ characters). Plan a scene in metres, choose a lens for a reason, light it with one motivated key, flying one camera through two scenes, lifting a flat card into depth on the exact frame of the cut. Use that. Decide where depth earns its place (the reveal, the signature seam, the moment the product becomes an object) and plan those seams to the pixel and the frame. Prove you can plan transitions and space better than the default ever would. The critics will reject a competent score that nobody would remember.",
+  "motion-director": "Show off where the intent spends, and prove it in the score. For the peak and each importance-3 beat, write three candidate moves from the beat's verb that differ in kind (a carried object; a camera or space move, real 3D included: Rasan3D is an open engine, so invent the technique the shot needs; a type or shape transformation), pick one and say why in `take`. Land 2 to 4 showreel moments there, and make the peak the one a motion designer rewinds. Keep the importance-1 beats calm: restraint there is what makes the peak land. If a taste rule is the one thing between you and the shot, override it in score.intent with a reason of 12+ characters. The critics reject a competent score nobody would remember, and they also reject a film whose biggest moment is on the wrong beat.",
   seams: "Show off at the seams. A cut that merely doesn't pop is the minimum. Make the signature transition the best two seconds of the film, and make the continuity seams so clean the viewer only notices them on the second watch. Where 2D meets 3D, the frames on both sides must match to the pixel and the colour: that exact match is the trick people rewind to see.",
   "scene-animator": "Show off. This scene is going on your reel. Your first version will be the safe one (things fade and slide in, the UI appears, the text types; in 3D, an object turning in a void under a flat light): throw that instinct out and build the shot another motion designer would freeze-frame to work out how you did it, inside motion.md and the anti-slop rules: a curve per role, durations from travel, gestures that overlap, secondaries that trail, a settle on the hero landing, a living camera. You are the inventor, not a picker: if the shot needs a technique no preset gives (a raymarched world, an engraved or stippled shading, a simulation, a custom post pass, a portal, a card pinned in 3D), write it yourself in GLSL or raw three.js (references/3d.md); the design system is the only bound on the look. If the gate warns on something you did on purpose, declare it (declare.intent, a rule id and your reason of 12+ characters). If your scene has depth, brag with it: a lens chosen for a reason, light that agrees with itself, a camera move that lands, motion blur on the fast frames, a seam that matches the 2D scene to the pixel. Then look at your strips and ask whether it's reel-worthy. If it's only fine, it isn't done.",
   "film-builder": "Show off. You hold the whole film in one mind, which no team of parallel animators can: use it. The boards are approved; make them move the way a senior motion designer would. Your first version will be the machine one: every move on the same curve and the same 0.45 s, one thing at a time, nothing settling, straight lines. Throw that out. Give each move its role's curve and a duration from its travel, let the next gesture start before the last one lands, trail secondaries a few frames behind, bend the paths, land the hero with a settle, keep the camera alive, carry objects across the cuts and make the product's UI answer each action like the real product. Build every hero move as a 4-6 pose board first, then look at it in a 24 fps strip next to its board and fix the frame that does not read. Land the plan's showreel moments to the frame. If a motion designer would not rewind it, it isn't done.",
@@ -909,14 +939,17 @@ const DARES = {
   "ab-juror": "Be the motion designer who has two films in front of you and one slot on the reel. Pick the one you would rewind, by quoted seconds, and take the riskier film that is still sound over the tidier one. You are never told which came first: a guess about that is not a reason.",
   retrospective: "Be a coach with two minutes: keep only a rule that repeated or cost a round, in one imperative line another film could use. Zero rules is a good answer; a wise-sounding rule the files do not support is not.",
   "frame-juror": "Be the creative director who has just watched Kinso, Sovra and Google's launch films and is shown these boards next to them. A board that is clean, centred and correct but would look weaker in that reel is below, and you say exactly what would lift it (size, crop, focus, light, type scale, with numbers). Find the weakest frame first. Never pass a frame because it follows the shot list.",
-  "treatment-writer": "Show off. Two other writers are pitching treatments of this song against you, and the user will pick one. Write the one that wins the room, not the one that merely passes treatment.mjs check: a concept the user can say in a sentence, a signal that runs through every plate, lines that become puns and transformations (never pictures of the sentence), three plates a motion designer would cut into their reel, a hook that escalates, and one seam that only pays off on the second watch. If a plate's idea is just the lyric restated, you are not done.",
+  "treatment-writer": "Show off. Two other writers pitch against you. Do the method at the end of your role in full: ban the three obvious treatments, overgenerate the concept and the peak plate, pick by the swap test, rewrite bolder and say what changed. If a plate's idea is just the lyric restated, you are not done.",
   "visual-writer": "Show off. Two other writers are staging this same talk against you, and the user will pick one. Write the one that wins the room, not the one that merely passes presenter.mjs check: one running visual idea the whole talk happens inside, images that argue with the sentence instead of illustrating it, at least one cutaway that lands on a word, and one moment where the person interacts with the world (points at it, steps into it, is framed by it). If a plate is just the sentence drawn as a picture, you are not done.",
   "move-inventor": "Read the pack's bar before anything and match its density and scale (the bar, never its content). Show off. This is the strongest version of the job: you are the designer whose move gets rewound, not the one who labels a transition. Do every step of the method even if you think you do not need to: the three obvious ideas come first and are banned, then 20 candidates, then rewrite them bolder and different and show what you changed. Give the film one carrier that travels through every beat, and a bridge frame at every boundary where both scenes are true at once. A card that names a technique instead of an object crossing the cut is a fail; a card a juror would call competent is a fail.",
   "move-juror": "Be the client burned by generic work. Judge each card blind, by the binary gates, quoting the card; when two survivors are close choose the riskier one that is still sound. A competent, tidy move that you have seen in ten launch films does not pass.",
   "move-sketcher": "The rough must make the idea legible in one loop. Timing is the idea: follow the card's move exactly, in its seconds and eases. Grey-box, no styling, one accent for the carrier. If the idea only works with a trick the rough cannot show, build the simplest version that keeps it and say so.",
   "footage-writer": "Show off. Two other editors are cutting the same material against you, and the user will pick one. First list five candidate hooks from the selects (rated 4+ bites and gold moments) and choose the one that makes a stranger stay by feeling, not by information. Then cut the radio edit so it works as audio alone, and let picture and sound cross at different times at least twice (a J-cut that lands the next face as its first word arrives, an L-cut that lets a line finish over the next shot). Cover every join with a shot that adds meaning. Write the paper edit an editor would be proud to hand over: the film a viewer feels, not a tidy transcript. If it is only correct, it is not done.",
   "selects-producer": "Show off. Find what the Director would have missed: the line a viewer would repeat to a friend, the two seconds nobody planned, the shot where the light or a face does the telling. Rate on the feeling first. Overgenerate: pull at least twice as many candidates as you keep, then drop the ones that only inform. A selects list of competent bites is the failure: the film is in the five you would fight for.",
-  "script-writer": "Show off. Two other writers are pitching against you. Write the script that wins the room, with at least one moment only motion could tell, not the one that merely passes the checks.",
+  "script-writer": "Show off with the argument, not the adjectives. Two other writers pitch against you. Do the method at the end of your role in full: the three obvious films first, banned; eight turns and five endings; pick by the retell and the swap; then rewrite it bolder and write down what changed. A script that is only correct loses the room.",
+  "script-editor": "Be the hardest reader in the room. Retell blind first; a script whose retell misses its proposition is a rewrite whatever its polish. Recommend the clearest true argument, not the safest script.",
+  "concept-critic": "Be the last cheap chance. A script with no reversing turn, or a payoff that doesn't answer its opening, fails now, before hours are spent on it.",
+  "structure-critic": "Be the editor with scissors. You are the only critic allowed to cut a beat: use it. A film with every beat kept and the peak where the writer put it needs a reason in the summary.",
   "design-researcher": "Show off. The generic version of this job returns the category's own look and a list of famous styles. Return the subject's visual world as only someone who went looking would know it: the real materials, places, eras and printed things around this product or topic, the clichés a lazy design pass would reach for (named, so the desk avoids them), and a shortlist of library references chosen because they are surprising and right for THIS subject, not because they are famous. If two of your references would make an obvious blend, replace one.",
   "design-system-designer": "Show off. This is the pitch: the user sees three systems for their story, and yours is drawn live on their own first line. Don't hand in the tasteful default (a neutral ground, one accent, a grotesk, a rounded card): build the system a top studio would present, one a motion designer could animate for a year and never repeat. Blend 2 to 4 references so the result is something no single reference is, put the subject's own visual world in it (its materials, its places, its printed things), choose a display face with a point of view, and write the motion and camera language as precisely as a director's note (durations, holds, eases by name, the camera's lens and moves). The gate rejects a generic or near-duplicate system; the user rejects a forgettable one.",
   critic: "Be the push. Competent is a fail: Claude's unpushed default is clean, tidy and forgettable, and you are the reason it doesn't ship. Score ambition honestly and, wherever the work played it safe, say exactly how it could have shown off: in 2D, and in space (a scene that should have had depth, a 3D shot that looks like the three.js demo or a preset where the shot called for an invented technique, a 2D-to-3D seam that pops). Read the gate's declared intents: an intent is a claim, so check it holds on screen.",
@@ -1095,7 +1128,7 @@ function checkScore(run) {
   // the film's shape: six slugs; it must differ from each of the last 3 recorded films in 4 of 6 aspects (lib/film-shape.mjs)
   {
     const rf = recentFilms(RECENT);
-    if (score.shape == null) (rf.length ? P : W).push(`no shape: set score.shape {${ASPECTS.map((k) => `${k}: ${SHAPE_VOCAB[k].slice(0, 3).join("|")}|...`).join(", ")}} (agents/motion-director.md lists each vocabulary)${rf.length ? "" : " (a warning only while no film is recorded; the first film still needs it to be recorded)"}`);
+    if (score.shape == null) (rf.length ? P : W).push(`no shape: set score.shape {${ASPECTS.map((k) => `${k}: ${SHAPE_VOCAB[k].slice(0, 3).join("|")}|...`).join(", ")}} (references/score.md section 5 lists each vocabulary)${rf.length ? "" : " (a warning only while no film is recorded; the first film still needs it to be recorded)"}`);
     else {
       const bad = shapeProblems(score.shape);
       if (bad.length) P.push(...bad);
@@ -1197,7 +1230,7 @@ function checkScore(run) {
   if (animated.length >= 6) {
     const counts = {};
     for (const e of animated) counts[e] = (counts[e] || 0) + 1;
-    for (const [e, c] of Object.entries(counts)) if (c / animated.length > 0.3) T("entrance-share", `"${e}" is ${Math.round((c / animated.length) * 100)}% of the animated entrances (30% at most: entrances by the object's nature)`);
+    for (const [e, c] of Object.entries(counts)) if (c / animated.length > 0.5) W.push(`entrance-share: "${e}" is ${Math.round((c / animated.length) * 100)}% of the animated entrances: entrances by the object's nature (a warning above half)`);
   }
   if (entr.length >= 6 && entr.filter((e) => e === "cut-in").length / entr.length < 0.15) W.push("under 15% of elements are simply there on the cut (aim for 30%)");
   if (N >= 4) {
@@ -1206,8 +1239,9 @@ function checkScore(run) {
     if (!en.some((e) => e <= 2)) T("no-calm", "no calm stretch: one scene at energy 2 or less");
   }
   const lay = S.map((s) => String(s.layout || "").toLowerCase().split(/[,;(]/)[0].trim());
-  for (let i = 2; i < lay.length; i++) if (lay[i] && lay[i] === lay[i - 1] && lay[i] === lay[i - 2]) T("layout-repeat", `scenes ${i - 1}-${i + 1} share the layout "${lay[i]}" (no layout in more than 2 consecutive scenes)`);
-  if (N >= 5 && new Set(lay.filter(Boolean)).size < 3) W.push("fewer than 3 different layouts across the film");
+  const refrain = (sc) => ["example", "escalation"].includes(String((sc && sc.relation) || "").toLowerCase());
+  for (let i = 2; i < lay.length; i++) if (lay[i] && lay[i] === lay[i - 1] && lay[i] === lay[i - 2] && !(refrain(S[i]) && refrain(S[i - 1]))) T("layout-repeat", `scenes ${i - 1}-${i + 1} share the layout "${lay[i]}" (no layout in more than 2 consecutive scenes, unless the beats are a refrain: relation example or escalation)`);
+  if (N >= 5 && new Set(lay.filter(Boolean)).size < 2) W.push("layouts-thin: one layout for the whole film");
   if (N >= 5 && (!score.motif || (score.motif.scenes || []).length < 3)) T("motif-spread", "the motif must appear in at least 3 scenes (motif.scenes)");
   const seams = Array.isArray(score.seams) ? score.seams : [];
   if (seams.length !== Math.max(0, N - 1)) P.push(`${seams.length} seams for ${N} scenes (need ${Math.max(0, N - 1)}: one per cut)`);
@@ -1239,7 +1273,49 @@ function checkScore(run) {
     if (A && B && (is3d(A) !== is3d(B)) && s.kind === "cut") W.push(`${id}: a hard cut between a 2D and a 3D scene; flat-to-depth, depth-to-flat or a shared element would carry the viewer across (references/3d.md §6)`);
     if (["flat-to-depth", "depth-to-flat", "camera-through"].includes(s.kind) && A && B && !is3d(A) && !is3d(B)) P.push(`${id}: ${s.kind} needs a 3D or hybrid scene on at least one side`);
   });
-  // sound and motion variety (warnings): the music arc, a sound for every moving seam, a different mechanic per line, huge-vs-tiny type, punctuation cuts
+  // direction from meaning (story/intent.json; references/score.md section 1): the score copies each beat's purchase and spends its budget there
+  {
+    const intent = jsonMaybe(R(run, "story", "intent.json"));
+    if (!intent || !Array.isArray(intent.beats)) W.push("no-intent: story/intent.json is missing, so the score is planned without the film's argument (buys, importance, relation, the peak)");
+    else {
+      const IB = intent.beats;
+      const ib = (sc, i) => { const k = Number(sc.beat); return k >= 1 && k <= IB.length ? IB[k - 1] : IB.length === S.length ? IB[i] : null; };
+      const unread = S.filter((sc, i) => !ib(sc, i) || !String(sc.buys || "").trim() || ![1, 2, 3].includes(Number(sc.importance))).map((sc) => sc.id || sc.n);
+      if (unread.length) W.push(`intent-unread: scene${unread.length > 1 ? "s" : ""} ${unread.slice(0, 8).join(", ")} do${unread.length > 1 ? "" : "es"} not copy the intent beat (scene.beat = its 1-based position in intent.beats, plus buys, importance, relation, peak)`);
+      S.forEach((sc, i) => {
+        const b = ib(sc, i); if (!b) return;
+        if (sc.importance != null && Number(sc.importance) !== Number(b.importance)) W.push(`importance-mismatch: scene ${sc.id || sc.n} is importance ${sc.importance}, its intent beat ${b.importance} (the intent decides importance; the structure critic changes it, not the score)`);
+        if (!String(sc.hero || "").trim()) W.push(`hero-missing: scene ${sc.id || sc.n} names no hero (what the viewer must notice to get "${String(b.buys || "").slice(0, 60)}")`);
+        if (!String(sc.verb || "").trim()) W.push(`verb-missing: scene ${sc.id || sc.n} names no verb (what the hero does, from the meaning of its buys)`);
+        // calm importance-1 beats: no budgeted hero effect, no moving camera
+        if (Number(b.importance) === 1) {
+          const kind = cameraKind(sc.camera);
+          if (kind && kind !== "locked") W.push(`camera-on-minor: scene ${sc.id || sc.n} (importance 1) moves the camera (${kind}): camera moves are spent on the peak and the importance-3 beats`);
+          if ((Array.isArray(score.budget) ? score.budget : []).some((e) => e && Number(e.scene) === Number(sc.n))) W.push(`budget-effect-minor: a budgeted hero effect sits on scene ${sc.id || sc.n}, an importance-1 beat`);
+        }
+      });
+      // big moments: the budget (lib/emphasis.mjs, S4): about 4 per 30 s, on the peak and importance-3 beats
+      const planBeats = S.map((sc, i) => ({ i, n: sc.n, id: String(sc.id ?? sc.n), beat: sc.beat, start: Number(sc.start), end: Number(sc.end) }));
+      const bc = budgetChecks(score, intentBeats(intent, planBeats), length);
+      for (const f of bc.findings) W.push(`${f.check}: ${f.message}${f.fix ? ` (${f.fix})` : ""}`);
+      if (!Array.isArray(score.big_moments)) W.push("budget-none: score.big_moments is missing: spend 2 to 4 big moments per 30 s on the peak and the importance-3 beats");
+      // the showreel and the peak
+      const peakIdx = IB.findIndex((b) => b && b.peak === true);
+      const peakScene = S.find((sc, i) => ib(sc, i) === IB[peakIdx]);
+      if (peakScene && Number(peakScene.energy) !== 5) W.push(`peak-energy: the peak beat (scene ${peakScene.id || peakScene.n}) is energy ${peakScene.energy}, not 5: the peak is the film's biggest moment`);
+      for (const m of reel) { const sc = S[Number(m.scene) - 1], b = sc && ib(sc, Number(m.scene) - 1); if (b && Number(b.importance) === 1) W.push(`showreel-off-peak: the showreel moment "${String(m.what).slice(0, 50)}" is on scene ${sc.id || sc.n}, an importance-1 beat: land the reel moments on the peak and the importance-3 beats`); }
+      // seams from relations
+      const CONTRAST = new Set(["cut", "smash-cut", "iris", "whip"]);
+      seams.forEach((sm) => {
+        const B = S[Number(sm.to) - 1], b = B && ib(B, Number(sm.to) - 1); if (!b) return;
+        const rel = String(sm.relation || b.relation || "").toLowerCase();
+        if (!String(sm.relation || "").trim()) W.push(`seam-relation-missing: seam ${sm.from}>${sm.to} names no relation (copy the incoming beat's: ${rel || "?"})`);
+        if (rel === "but" && !CONTRAST.has(sm.kind)) W.push(`relation-seam: seam ${sm.from}>${sm.to} is a "but" carried by ${sm.kind}: a contrast wants a hard cut (cut, smash-cut, iris) onto a changed ground or scale`);
+        if (rel === "because" && sm.kind === "cut" && !sm.element) W.push(`relation-seam: seam ${sm.from}>${sm.to} is a "because" with a plain cut: the cause's object should carry into its effect (carried-object, shared-element, match-cut)`);
+      });
+    }
+  }
+  // sound and motion variety (warnings): the music arc, a sound for every moving seam, a one-trick film (mechanics-thin), huge-vs-tiny type, punctuation cuts
   {
     const arc = score.music_arc && typeof score.music_arc === "object" ? score.music_arc : null;
     const num = (x) => x != null && x !== "" && Number.isFinite(Number(x));
@@ -1260,18 +1336,11 @@ function checkScore(run) {
     const moving = seams.map((sm, i) => ({ sm, i })).filter(({ sm }) => sm.kind !== "cut");
     const quiet = moving.filter(({ sm, i }) => !sounded(sm, i));
     if (moving.length && quiet.length / moving.length > 0.5) W.push(`seam-unsounded: ${quiet.length} of ${moving.length} seams with motion have no sound event (seam.sound, or an event with a sound at the seam: whoosh on a move through space, hit on a landing, impact on the reveal): ${quiet.slice(0, 4).map(({ sm }) => `${sm.from}>${sm.to}`).join(", ")}`);
-    // a different mechanic per line (shots[].mechanic): not the same on 3 lines running, and enough distinct ones in a film of 25 s or more
+    // mechanics: variety comes from meaning, so only a one-trick film warns (a refrain may repeat a mechanic on purpose)
     const lineShots = S.flatMap((x) => (Array.isArray(x.shots) ? x.shots : [])).filter((sh) => String(sh.on_screen || "").trim());
-    const mech = lineShots.map((sh) => String(sh.mechanic || "").toLowerCase().replace(/\s+/g, " ").trim());
-    let runLen = 1;
-    for (let i = 1; i < mech.length; i++) {
-      runLen = mech[i] && mech[i] === mech[i - 1] ? runLen + 1 : 1;
-      if (runLen === 3) W.push(`mechanic-repeat: "${mech[i]}" is the mechanic of 3 lines in a row (lines ${i - 1}-${i + 1}): a different entrance / transition mechanic per line, from the look's grammar and the showcases' techniques`);
-    }
-    if (length >= 25 && lineShots.length) {
-      const distinct = new Set(mech.filter(Boolean)).size, want = Math.min(lineShots.length, 12);
-      if (distinct < want) W.push(`mechanics-thin: ${distinct} distinct mechanic(s) over ${lineShots.length} line(s) in a ${Math.round(length)} s film (at least ${want}: set shots[].mechanic and vary it)`);
-    }
+    const mech = lineShots.map((sh) => String(sh.mechanic || "").toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);
+    const distinctM = new Set(mech).size;
+    if (mech.length >= 4 && distinctM <= 2) W.push(`mechanics-thin: ${distinctM} distinct mechanic(s) over ${mech.length} lines: the film runs on one trick. Beats that mean different things move differently (agents/motion-director.md step 2b); a refrain repeating one on purpose is fine`);
     // huge-vs-tiny type
     const ts = score.type_scale && typeof score.type_scale === "object" ? score.type_scale : null;
     if (length >= 15) {
@@ -1656,6 +1725,17 @@ async function checkRole(run, role, key) {
       const r = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "story.mjs"), ...ca], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" } });
       if (r.status === 2) P.push("story.mjs check says rewrite (run it and fix what it names)");
       else if (r.status !== 0) P.push(`story.mjs check could not read the pitch: ${(r.stderr || "").trim().split("\n")[0]}`);
+      // the argument is written first: story/intent-<Label>.json (lib/intent.mjs). Errors block; the uncalibrated ones are warnings.
+      {
+        const fi = R(run, "story", `intent-${key}.json`);
+        let it = null; try { it = loadIntent(fi); } catch (e) { P.push(`story/intent-${key}.json: ${e.message}`); }
+        if (!it && !exists(fi)) P.push(`story/intent-${key}.json is missing: write the argument (proposition, ending_first, beats with buys / relation / importance / read) before the script (references/intent.md)`);
+        else if (it) {
+          const v = validateIntent(it, { lengthS: Number(B.length_s) || 0, durations: beats.map((b) => Number(b.duration_s)) });
+          P.push(...v.errors.map((e) => `intent-${key}.json: ${e}`)); W.push(...v.warnings.map((e) => `intent-${key}.json: ${e}`));
+          if (Array.isArray(it.beats) && it.beats.length !== beats.length) P.push(`intent-${key}.json has ${it.beats.length} beats and the pitch ${beats.length}: they are the same list (beat N of the pitch is beat N of the intent)`);
+        }
+      }
       break;
     }
     case "treatment-writer": {
@@ -1744,12 +1824,95 @@ async function checkRole(run, role, key) {
         if (p.verdict !== "ship" && !(p.notes || []).length) P.push(`${p.id || p.label}: a ${p.verdict} verdict needs line notes with fixes`);
         for (const x of p.notes || []) if (!String(x.fix || "").trim()) P.push(`${p.id || p.label} beat ${x.beat}: a note without a fix`);
       }
+      // the meaning tests (warnings first): a blind retell from the beat list, the muted hook, the turn, the payoff (agents/script-editor.md)
+      for (const p of n.pitches) {
+        const miss = ["retell", "retell_matches", "muted_hook_ok", "turn", "payoff_answers"].filter((k) => p[k] == null || p[k] === "");
+        if (miss.length) W.push(`${p.id || p.label}: edit notes lack ${miss.join(", ")} (the blind retell, the muted hook, the turn, the payoff)`);
+        if (p.verdict === "ship" && p.retell_matches === false) P.push(`${p.id || p.label}: ship, but the blind retell does not match the proposition: that is a rewrite`);
+        if (p.verdict === "ship" && /^none\b/i.test(String(p.turn || "").trim())) P.push(`${p.id || p.label}: ship, but the script has no turn (turn: "none"): nothing reverses, so it is a list`);
+        if (p.verdict === "ship" && p.payoff_answers === false) W.push(`${p.id || p.label}: ship, but its payoff does not answer the setup`);
+      }
       if (!n.recommended) P.push("no recommended pitch");
       else if (productFirst(run, jsonMaybe(R(run, "crew", "plan.json")) || {})) {
         if (String(n.first_watch || "").trim().split(/\s+/).length < 8) P.push('a product-first film: the recommendation needs "first_watch": why a first-time viewer gets this film in one watch with no explanation (8 words at least)');
         const rp = (n.pitches || []).find((x) => x.id === n.recommended);
         if (rp && rp.verdict !== "ship" && !(n.pitches || []).some((x) => x.verdict === "ship")) W.push("no pitch is at verdict ship: the recommendation is the clearest product story, still to be rewritten");
         editorScopeProblems(run, n, P, W);
+      }
+      break;
+    }
+    case "structure-critic": {
+      // reads story/structure-notes.json and APPLIES its edits (once) to intent.json, chosen.json and scenes.json (cut / merge / move / peak / rest / rewrite)
+      const fn = R(run, "story", "structure-notes.json");
+      const n = jsonMaybe(fn);
+      if (!n) { P.push(`${rel(fn)} is ${n === undefined ? "not valid JSON" : "missing"}`); break; }
+      // two spellings of one thing: { verdict: pass | restructure, findings: [{ type: cut | merge | move | peak | rest | buys, beats: [..], to, why, change }] } (agents/structure-critic.md)
+      // and { verdict: ship | edit, edits: [{ op, beat | beats, to, buys, why }] }
+      const verdict = n.verdict === "pass" ? "ship" : n.verdict === "restructure" ? "edit" : n.verdict;
+      if (!["ship", "edit"].includes(verdict)) { P.push('verdict must be "pass" or "restructure"'); break; }
+      const FT = { cut: "cut", merge: "merge", move: "move", peak: "peak", rest: "rest", buys: "rewrite" };
+      const findings = Array.isArray(n.findings) ? n.findings : [];
+      findings.forEach((f, i) => {
+        if (!FT[f.type]) P.push(`findings[${i}]: type must be one of ${Object.keys(FT).join(", ")}`);
+        if (!(Array.isArray(f.beats) && f.beats.length && f.beats.every((b) => Number.isInteger(b) && b >= 1))) P.push(`findings[${i}]: beats needs the beat numbers as on the sheet`);
+        if (!String(f.change || "").trim()) P.push(`findings[${i}]: no change (the exact change, or the new buys sentence)`);
+        if (f.type === "merge" && !(Array.isArray(f.beats) && f.beats.length === 2)) P.push(`findings[${i}]: merge needs 2 beats`);
+      });
+      if (findings.length && !String(n.retell || "").trim()) P.push("retell is empty: write the one-sentence retell from the sheet alone first");
+      const edits = Array.isArray(n.edits) && n.edits.length ? n.edits : findings.filter((f) => FT[f.type] && Array.isArray(f.beats) && f.beats.length).map((f) => ({
+        op: FT[f.type], why: f.why, ...(f.type === "merge" ? { beats: f.beats, buys: f.change } : f.type === "peak" ? { beat: Number(f.to != null ? f.to : f.beats[0]) } : f.type === "move" ? { beat: f.beats[0], to: f.to } : f.type === "buys" ? { beat: f.beats[0], buys: f.change } : { beat: f.beats[0] }),
+      }));
+      const OPS = ["cut", "merge", "move", "peak", "rest", "rewrite"];
+      if (verdict === "ship" && edits.length) P.push("verdict pass with findings: say restructure, or drop the findings");
+      if (verdict === "edit" && !edits.length) P.push("verdict restructure needs at least one finding");
+      edits.forEach((e, i) => {
+        if (!OPS.includes(String(e.op))) P.push(`edits[${i}]: op must be one of ${OPS.join(", ")}`);
+        if (!String(e.why || "").trim()) P.push(`edits[${i}] (${e.op}): no why (name the beat's buys and why it fails it)`);
+        if (e.op === "merge" && !(Array.isArray(e.beats) && e.beats.length === 2)) P.push(`edits[${i}]: merge needs beats: [A, B]`);
+        else if (e.op !== "merge" && !(Number(e.beat) >= 1)) P.push(`edits[${i}] (${e.op}): needs beat: N (1-based, as numbered on the sheet)`);
+        if (e.op === "move" && !(Number(e.to) >= 1)) P.push(`edits[${i}]: move needs to: M`);
+        if (e.op === "rewrite" && !["buys", "relation", "importance", "viewer_before", "viewer_after"].some((k) => e[k] != null && String(e[k]).trim() !== "")) P.push(`edits[${i}]: rewrite needs the new buys (or relation / importance / viewer_before / viewer_after)`);
+      });
+      const fi = R(run, "story", "intent.json"), it = (() => { try { return loadIntent(fi); } catch { return null; } })();
+      if (!it) { P.push("story/intent.json is missing or not valid JSON"); break; }
+      if (n.retell && it.proposition) {
+        const w = (x) => new Set(String(x).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((t) => t.length > 3));
+        const a = w(n.retell), b = w(it.proposition);
+        if (![...b].some((t) => a.has(t))) W.push(`the retell ("${String(n.retell).slice(0, 80)}") shares no word with the proposition ("${it.proposition}"): the beats may not carry the argument`);
+      }
+      if (P.length) break;
+      const length = Number(brief(run).length_s) || Number(it.length_s) || 0;
+      const chosenB = (jsonMaybe(R(run, "story", "chosen.json")) || {}).beats;
+      const durs = Array.isArray(chosenB) && chosenB.length === it.beats.length ? chosenB.map((b) => Number(b.duration_s)) : null;
+      if (verdict === "edit" && !n.applied) {
+        const res = applyEdits(it, edits);
+        for (const k of res.skipped) P.push(`edit ${JSON.stringify(k)} could not be applied: ${k.why}`);
+        const resChosen = Array.isArray(chosenB) && chosenB.length === it.beats.length ? applyToScript({ beats: chosenB }, res).beats.map((b) => Number(b.duration_s)) : null;
+        const v = validateIntent(res.intent, { lengthS: length, durations: resChosen });
+        for (const e of v.errors) P.push(`after the edits, intent.json: ${e}`);
+        if (P.length) break; // nothing is written when the edited sheet would be invalid: fix the edits and re-run
+        const chosenF = R(run, "story", "chosen.json"), chosen = jsonMaybe(chosenF);
+        if (chosen && Array.isArray(chosen.beats) && chosen.beats.length === it.beats.length) {
+          fs.copyFileSync(chosenF, R(run, "story", "chosen.pre-structure.json"));
+          writeFile(chosenF, JSON.stringify(applyToScript(chosen, res), null, 2) + "\n");
+        } else W.push("story/chosen.json has a different number of beats than intent.json (or is missing): edit its beats by hand to match the sheet");
+        const scF = R(run, "scenes.json"), sc = jsonMaybe(scF);
+        if (sc && Array.isArray(sc.scenes) && sc.scenes.length === it.beats.length) {
+          fs.copyFileSync(scF, R(run, "scenes.pre-structure.json"));
+          const keep = res.order.map((o) => ({ ...sc.scenes[o - 1] }));
+          for (const [o, gone] of Object.entries(res.merged)) for (const m of gone) { const k = res.order.indexOf(Number(o)); if (k >= 0 && Number(sc.scenes[m - 1].duration) > 0) keep[k].duration = +((Number(keep[k].duration) || 0) + Number(sc.scenes[m - 1].duration)).toFixed(2); }
+          writeFile(scF, JSON.stringify({ ...sc, scenes: keep }, null, 2) + "\n");
+        }
+        fs.copyFileSync(fi, R(run, "story", "intent.pre-structure.json"));
+        writeFile(fi, JSON.stringify(res.intent, null, 2) + "\n");
+        writeFile(fn, JSON.stringify({ ...n, applied: true, applied_at: new Date().toISOString(), removed_beats: res.removed }, null, 2) + "\n");
+        CHECK_EXTRA = { result: "applied", beats_before: it.beats.length, beats_after: res.intent.beats.length, removed_beats: res.removed, next: "re-run crew.mjs thumbs (the sheet changed), then fit the music and the durations from the intent: scenes.mjs --intent story/intent.json --retime" };
+        W.push(...v.warnings);
+      } else {
+        const v = validateIntent(it, { lengthS: length, durations: durs });
+        for (const e of v.errors) P.push(`intent.json: ${e}`);
+        W.push(...v.warnings);
+        CHECK_EXTRA = { result: verdict === "ship" ? "ship" : "applied (earlier)" };
       }
       break;
     }
@@ -2011,7 +2174,7 @@ async function checkRole(run, role, key) {
       const c = jsonMaybe(f);
       if (!c) { P.push(`${rel(f)} is ${c === undefined ? "not valid JSON" : "missing"}`); break; }
       if (!["pass", "fix"].includes(c.verdict)) P.push('verdict must be "pass" or "fix"');
-      const Q = ["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear", ...(productFirst(run, jsonMaybe(R(run, "crew", "plan.json")) || {}) ? ["one_feature_one_scenario", "scope_matches_claim"] : [])];
+      const Q = ["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear", ...(exists(R(run, "story", "intent.json")) ? ["turn_reverses", "payoff_answers_setup"] : []), ...(productFirst(run, jsonMaybe(R(run, "crew", "plan.json")) || {}) ? ["one_feature_one_scenario", "scope_matches_claim"] : [])];
       { const sm = c.answers && c.answers.scope_matches_claim; if (sm && typeof sm.ok === "boolean" && !/\d/.test(String(sm.evidence || ""))) P.push("answers.scope_matches_claim must carry the numbers (S_max with its beats, D, the 8-word retell), never a judgement without them"); }
       for (const q of Q) {
         const a = c.answers && c.answers[q];
@@ -2042,6 +2205,25 @@ async function checkRole(run, role, key) {
         if (!String(x.fix || "").trim()) P.push(`finding ${i + 1}: no exact fix`);
         if (lens !== "grounding" && x.scene == null) W.push(`finding ${i + 1}: no scene`);
       });
+      // the blind retell (film lens) and structure findings (round 1 of frames / film only): agents/critic.md
+      if (lens === "film" && exists(R(run, "story", "intent.json"))) {
+        if (!String(c.retell || "").trim()) P.push('film lens: "retell" is missing (one sentence from the draft, written before reading story/intent.json)');
+        const rm = String(c.retell_match || "").trim().toLowerCase();
+        if (!/^(yes|partly|no)\b/.test(rm)) P.push('film lens: "retell_match" must start with yes, partly or no (then what the film said instead)');
+        else if (rm.startsWith("no") && !fs_.some((x) => x.severity === "high")) P.push("the retell does not match the proposition: that is a high finding");
+      }
+      const OPS = ["cut", "merge", "move", "peak", "rest", "rewrite"];
+      fs_.forEach((x, i) => {
+        if (x.type !== "structure") return;
+        if (!["frames", "film"].includes(lens) || (Number(round) || 1) > 1) P.push(`finding ${i + 1}: a structure finding is allowed only in round 1 of the frames and film lenses (structure is locked after the first draft: report it as a high execution finding)`);
+        const e = x.edit || {};
+        if (!OPS.includes(e.op)) P.push(`finding ${i + 1}: a structure finding needs edit.op (${OPS.join(" | ")}), in the form lib/intent.mjs applyEdits takes`);
+        else if (e.op === "merge" ? !(Array.isArray(e.beats) && e.beats.length === 2) : !(Number(e.beat) >= 1)) P.push(`finding ${i + 1}: edit ${e.op} needs ${e.op === "merge" ? "beats: [a, b]" : "beat (1-based)"}`);
+        else if (e.op === "move" && !(Number(e.to) >= 1)) P.push(`finding ${i + 1}: edit move needs "to" (1-based)`);
+        else if (e.op === "rewrite" && !String(e.buys || "").trim()) P.push(`finding ${i + 1}: edit rewrite needs the new "buys"`);
+      });
+      const edits = fs_.filter((x) => x.type === "structure" && x.edit).map((x) => x.edit);
+      if (edits.length) CHECK_EXTRA = { ...(CHECK_EXTRA || {}), structure_edits: edits }; // the Director applies them with lib/intent.mjs applyEdits (+ applyToScript), then re-times with scenes.mjs --intent --retime
       if (brandFilm(run) && ["frames", "film"].includes(lens)) {
         const sm = c.style_match;
         if (!sm || !["pass", "fail"].includes(String(sm.verdict || "").toLowerCase()) || !String(sm.numbers || "").trim()) P.push('a branded film needs style_match: {verdict: "pass|fail", numbers: "<the brandfilm.mjs compare numbers>", note} (run brandfilm.mjs compare first)');
@@ -2608,15 +2790,59 @@ if (cmd === "plan") {
   sheet(res.files, res.W, res.H, outPng, Number(args.cols) || (args.phone ? 3 : 6), args.phone ? 360 : 420); // 3 across keeps the sheet small enough to be read unscaled
   if (!exists(outPng)) die("the sheet did not render");
   out({ ok: true, sheet: rel(outPng), frames: res.files.length, dir: rel(dir), times: T, look: args.phone ? "Read the sheet at 100%: this is the film at phone size. Every line meant to be read must read here; one that doesn't is a readability finding" : "Read the sheet image: spacing between frames shows the ease (wide gaps = fast, tight = slowing into a landing)" });
+} else if (cmd === "thumbs") {
+  const run = runDir();
+  const fi = R(run, "story", "intent.json");
+  // the chosen script's sheet becomes story/intent.json (the Director just wrote story/chosen.json; its label names the writer's file)
+  if (!exists(fi)) { const lab = (jsonMaybe(R(run, "story", "chosen.json")) || {}).label, src = lab && R(run, "story", `intent-${lab}.json`); if (src && exists(src)) fs.copyFileSync(src, fi); }
+  let it; try { it = loadIntent(fi); } catch (e) { die(e.message); }
+  if (!it) die(`${rel(fi)} is missing: the thumbnail board is drawn from the intent sheet (the chosen script's story/intent-<Label>.json, copied to story/intent.json)`);
+  const B = brief(run);
+  const chosen = jsonMaybe(R(run, "story", "chosen.json")) || {};
+  const sbeats = Array.isArray(chosen.beats) ? chosen.beats : [];
+  const v = validateIntent(it, { lengthS: Number(B.length_s) || 0, durations: sbeats.length === it.beats.length ? sbeats.map((b) => Number(b.duration_s)) : null });
+  const fdir = R(run, "frames"), doc = readShots(path.join(fdir, "shots.json"));
+  const boards = doc ? boardFiles(fdir, doc) : [];
+  const thumbDir = R(run, "story", "thumbs");
+  fs.mkdirSync(thumbDir, { recursive: true });
+  const [aw, ah] = (String(B.aspect || "16:9").match(/(\d+)\D+(\d+)/) || [0, 16, 9]).slice(1).map(Number);
+  const tw = 360, th = Math.round((tw * ah) / aw), cols = Math.max(1, Math.min(Number(args.cols) || 4, it.beats.length));
+  const rows = [];
+  const cells = it.beats.map((b, i) => {
+    const n = i + 1, sb = sbeats[i] || {};
+    // what already exists, cheapest first: a thumbnail dropped by hand, the beat's styleframe board, else a grey box with the thing to read
+    const nn = String(n).padStart(2, "0");
+    const hand = ["png", "jpg"].map((e) => path.join(thumbDir, `${nn}.${e}`)).find(exists);
+    const bd = boards.find((x) => x.has_png && x.beat != null && String(x.beat).toLowerCase() === String(sb.name || sb.id || "").toLowerCase()) || (boards[i] && boards[i].has_png ? boards[i] : null);
+    const img = hand || (bd && bd.png) || null;
+    const read = typeof b.read === "object" ? b.read.text : b.read;
+    const t0 = v.timing ? v.timing.starts_s[i] : 0, secs = v.timing ? v.timing.seconds[i] : 0;
+    rows.push({ beat: n, source: hand ? "hand" : bd ? "board" : "grey-box", image: img ? rel(img) : null, relation: b.relation || (i ? null : "open"), importance: b.importance, peak: !!b.peak, rest_after: !!b.rest_after, start_s: t0, seconds: secs, read_s: +readSeconds(b).toFixed(2), buys: b.buys, read: read || null });
+    const box = img ? `<img src="file://${img}">` : `<div class="gb"><b>${esc(read || sb.on_screen || sb.name || "")}</b><i>${esc(sb.visual || "")}</i></div>`;
+    const imp = Math.max(1, Math.min(3, Number(b.importance) || 1));
+    const dots = "\u25CF".repeat(imp) + "\u25CB".repeat(3 - imp);
+    return `<figure class="${b.peak ? "peak" : ""}">${box}<figcaption><span class="m">${n} \u00B7 ${esc(b.relation || (i ? "?" : "open"))} \u00B7 ${t0.toFixed(1)}-${(t0 + secs).toFixed(1)}s \u00B7 ${dots}${b.peak ? " \u00B7 PEAK" : ""}${b.rest_after ? " \u00B7 rest after" : ""}</span><span class="b">${esc(b.buys || "(no buys)")}</span></figcaption></figure>`;
+  });
+  const css = `html,body{margin:0;background:#141414;font:500 13px/1.3 -apple-system,Helvetica,Arial,sans-serif;color:#ddd}h1{font-size:15px;margin:0;padding:10px 8px 0;color:#fff}h2{font-size:12px;margin:0;padding:2px 8px 6px;color:#9a9a9a;font-weight:500}.g{display:grid;grid-template-columns:repeat(${cols},${tw}px);gap:10px;padding:8px}figure{margin:0}img,.gb{width:${tw}px;height:${th}px;object-fit:contain;background:#000;display:block;box-sizing:border-box}.gb{background:#3a3a3a;border:1px solid #555;padding:14px;display:flex;flex-direction:column;justify-content:center;gap:8px}.gb b{font-size:20px;color:#eee;font-weight:600}.gb i{font-size:11px;color:#9a9a9a;font-style:normal}figcaption{padding:5px 2px 0;height:78px;overflow:hidden}.m{display:block;color:#8fb4ff;font-size:11px}.b{display:block;color:#eee;margin-top:2px}.peak img,.peak .gb{outline:3px solid #ffb020}`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body><h1>${esc(it.proposition || "")}</h1><h2>ending: ${esc((it.ending_first && it.ending_first.line) || "")}</h2><div class="g">${cells.join("")}</div></body></html>`;
+  const outPng = args.out && args.out !== true ? path.resolve(String(args.out)) : path.join(thumbDir, "sheet.png");
+  const tmp = path.join(os.tmpdir(), `rasanai-thumbs-${process.pid}.html`);
+  fs.writeFileSync(tmp, html);
+  const nrows = Math.ceil(cells.length / cols);
+  try { chromeScreenshot(`file://${tmp}`, outPng, cols * tw + (cols + 1) * 10, 70 + nrows * (th + 78 + 22) + 10, 3000); } finally { fs.rmSync(tmp, { force: true }); }
+  if (!exists(outPng)) die("the thumbnail sheet did not render");
+  writeFile(path.join(thumbDir, "thumbs.json"), JSON.stringify({ sheet: rel(outPng), proposition: it.proposition, ending_first: it.ending_first, total_s: v.timing && v.timing.total_s, planned_timing: v.timing && v.timing.planned, errors: v.errors, warnings: v.warnings, beats: rows }, null, 2) + "\n");
+  out({ ok: v.ok, sheet: rel(outPng), beats: rows.length, sources: rows.reduce((a, r) => ((a[r.source] = (a[r.source] || 0) + 1), a), {}), intent_errors: v.errors, intent_warnings: v.warnings, next: "brief the structure-critic (crew.mjs brief --role structure-critic --key structure-1), then crew.mjs check --role structure-critic --key structure-1" }, v.ok ? 0 : 2);
 } else {
-  die("usage: crew.mjs plan|brief|check|ab|status|pitches|storyboard|strip … (see the header)");
+  die("usage: crew.mjs plan|brief|check|ab|status|pitches|thumbs|storyboard|strip … (see the header)");
 }
 
 // The script editor cannot be skipped on a scripted route: the concept critic is never briefed (or accepted) until the editor
 // has passed (S3 niche diagnosis 5d: run6 went straight from the juror to the concept critic with no editor).
 function editorGate(run, plan) {
   const planned = (plan && Array.isArray(plan.phases) ? plan.phases : []).some((ph) => (ph.dispatch || []).some((x) => x && x.role === "script-editor"));
-  if (!planned) return null;
+  const scripted = !!plan && STORY_ROUTES.has(plan.route) && !["reel", "music-to-video"].includes(plan.route) && !(plan.sources && isFootageLed(plan.sources));
+  if (!planned && !scripted) return null;
   const last = readLedger(run).filter((r) => r.role === "script-editor").pop();
   if (last && last.event === "ok") return null;
   return "the script editor has not passed: brief it (crew.mjs brief --role script-editor), let it write story/edit-notes.json, accept it (crew.mjs check --role script-editor), and only then the concept critic. The editor cannot be skipped on a scripted route";

@@ -13,8 +13,16 @@ The approved boards are the picture. Your job is the motion between them, and it
 
 The references do the opposite: a family of curves, hard launches with long visible glides (0.4 to 0.5 s visible, 40% of moves over 0.5 s), two or more things moving at once in about half the frames, a settle on about 1 move in 8, travels that bend, a camera that lives. That is the target.
 
+**A beat's motion serves what it buys.** Every beat in `story/intent.json` carries one `buys` (the belief the viewer now holds), an `importance` (1 to 3) and how it relates to the beat before. The plan copies them into each scene, with the `hero` (what the viewer must notice to get that belief) and the `verb` (what the hero does). Build them literally:
+
+- **Size is importance.** At the beat's peak the hero is the biggest thing in the frame on an importance-3 beat or the peak, at least 2x the next element's area anywhere, and modest on an importance-1 beat. It arrives first; supporting elements arrive after it and move less.
+- **The hero does the verb.** "The receipt splits" means the receipt divides on screen, not a card that fades in beside the word "split". If a recipe would hide the verb, the verb wins.
+- **Spend where the plan spends.** The plan's `big_moments`, `budget` effects, camera moves and hero sounds land on the peak and the importance-3 beats. Importance-1 beats are calm: a locked camera, short holds, no hero effect. Don't add a big moment the plan didn't spend, and don't calm the one it did.
+- **The seam carries the relation.** `because` hands an object across, `but` cuts hard onto a changed ground or scale, `so` keeps the motion going across the cut, `answer` brings the setup's object back changed.
+
 ## You get
 
+- **The argument: `story/intent.json`** (`references/intent.md`): the proposition, and per beat `buys`, `importance`, `relation`, the one `peak` and the `rest_after` before it. Read it before the plan, so you know what each beat is for.
 - **The boards: `$RUN/frames/<NN>.png` and `frames/shots.json`.** The approved picture of every beat: shot size, hero, angle, focus, light, ground, type sizes, crop. At each beat's peak your frame looks like its board. Do not change a board's size, hero, crop, ground or type sizes; if a board cannot be built, say why under deviations.
 - **The plan: `motion/score.json`** (the contract: beats and times, lines, shows, `ui[]`, carriers, seams, the brand reveal, the hero moves) and `BUILD.md` (short: files, beat times, the gate).
 - `frame.md` (fonts, colours), `motion.md` (the curves by role, the duration formula, the settle budget), `DISPATCH.md` (logo files), the frame packets and `_role.md` (file paths and how a composition renders; binding on structure and seek-safety).
@@ -59,7 +67,7 @@ Raw GSAP is fine where the kit has no verb (UI state changes, counters, morphs w
 ## Look at it
 
 1. Before a hero move, a pose board: 4 to 6 stills (start, anticipation, bridge, settle, end) with `design.mjs stills` into `boards/<move-id>.png`.
-2. After: `crew.mjs strip --project <project> --from <t0> --to <t1> --fps 24 --out crew/builder/<move-id>-24fps.png` for every hero move (a settle is invisible at 2 fps); `--from 0 --to <duration> --fps 2 --out crew/builder/<key>-overview.png`; `--at <each seam - 0.1>,<each seam + 0.1> --out crew/builder/<key>-seams.png`. Put each beat's peak next to its board: does it match?
+2. After: `crew.mjs strip --project <project> --from <t0> --to <t1> --fps 24 --out crew/builder/<move-id>-24fps.png` for every hero move (a settle is invisible at 2 fps); `--from 0 --to <duration> --fps 2 --out crew/builder/<key>-overview.png`; `--at <each seam - 0.1>,<each seam + 0.1> --out crew/builder/<key>-seams.png`. Put each beat's peak next to its board: does it match? And is the hero at that frame the thing that buys the beat's belief, at the size its importance asks? Is the film's biggest moment on the peak?
 3. `node "$SKILL_DIR/scripts/obey.mjs" --project <project>` (the curve mix, durations, staggers, cascades, settles, bans) and `node "$SKILL_DIR/scripts/motion-gate.mjs" --project <project> --plan "$RUN/motion/score.json"` (carriers, the brand reveal, text fit). Fix every error. The Director renders the draft and runs the gate on its frames: freezes, seams and **fluency** (does it move like a person animated it) come back to you with times and beats.
 
 ## You return
