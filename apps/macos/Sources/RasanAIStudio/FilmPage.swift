@@ -99,6 +99,7 @@ struct FilmPage: View {
         VStack(spacing: Workspace.gap) {
             if let film = store.film {
                 FilmStatusBarHost(model: film, visible: showsNativeFilm, turn: statusTurn,
+                                  stillWorking: [.working, .thinking].contains(store.monitor.health?.state),
                                   onDetails: store.runtime.logURL != nil ? { store.sheet = .log } : nil,
                                   onPause: store.canPause ? { store.pauseDirector() } : nil,
                                   onResume: store.canResume ? { store.resumeDirector() } : nil,
@@ -124,7 +125,8 @@ struct FilmPage: View {
     /// The film's toolbar: back and forward, the five calls in the centre, then the inspector toggle and the film's tools.
     @ToolbarContentBuilder private var filmToolbar: some ToolbarContent {
         HistoryToolbar(store: store)
-        if ready && store.runURL != nil {
+        // While Claude works, the progress view's phase list is the one tracker (it marks the calls); the pill returns for each call.
+        if ready && store.runURL != nil && !showsFilmProgress {
             // The five calls in the sidebar's glass, in place of the toolbar's shared capsule.
             if #available(macOS 26, *) {
                 ToolbarItem(placement: .principal) { stepper.padding(5).glassPanel(in: Capsule()) }

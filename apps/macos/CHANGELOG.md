@@ -2,6 +2,14 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **A render is never "Quiet".** While a render or encode runs on your Mac (finish, render, ffmpeg, HyperFrames or Remotion), the film reads "Rendering" with the time so far, for up to 90 minutes, and says that tokens and cost hold still until it finishes. The status bar and the director monitor no longer call it "No activity".
+- **One tracker while Claude works.** The five-call step capsule steps aside while the progress view is up; its phase list marks the phases that end in your call. The capsule returns for each call.
+- **Film cards keep their shape.** A portrait or square poster is cropped to fill the 16:9 card instead of making it taller.
+- **Heresay SDK 0.2.20.**
+- **Bundles RasanAI 1.18.0.**
+
 ## 0.12.0 (build 29) — 2026-10-15
 
 - **The Studio shows the wave 8 data.** The decisions drawer keeps a history of the calls made, and shows what the film is "Working without" and the crew budget. Lessons can be dropped. The Final page has a Checks popover with the A/B verdicts and the gate numbers, and the film shows its real title.

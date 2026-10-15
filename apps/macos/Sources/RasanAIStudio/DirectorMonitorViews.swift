@@ -139,7 +139,7 @@ struct DirectorMonitorPanel: View {
     private func detailText(_ health: DirectorHealth?, now: Date) -> String {
         guard let health else { return "The director is getting ready." }
         if health.state == .possiblyLooping { return "It looks like it is repeating itself. Details below." }
-        if health.state == .quiet, let last = monitor.telemetry.lastEventAt {
+        if health.state == .quiet, monitor.telemetry.toolInFlight == nil, let last = monitor.telemetry.lastEventAt {
             let what = monitor.telemetry.lastToolSummary.map { " Last: \($0)." } ?? ""
             return "No activity for \(UsageFormat.span(max(0, now.timeIntervalSince(last)))).\(what)"
         }
@@ -187,6 +187,10 @@ struct DirectorMonitorPanel: View {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(UsageFormat.tokens(tokens.fresh)).font(.system(size: 26, weight: .semibold, design: .rounded)).monospacedDigit()
                 Text("used, not counting cache reads").font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            if t.toolInFlight != nil, t.toolInFlightIsLocalJob {
+                Text("Holding still while the render runs on your Mac. Claude is not called until it finishes.")
+                    .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 5) {
                 GridRow { stat("Input", tokens.input); stat("Output", tokens.output) }
