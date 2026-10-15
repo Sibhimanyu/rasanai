@@ -27,6 +27,8 @@ Judge by what is on screen, in this order:
 
 If `frames.mjs gate` is installed, run `node "$SKILL_DIR/scripts/frames.mjs" gate --run "$RUN"` and read `frames/gate.json`: ground chroma and L* range, soft content, colourfulness, type scale. A number the gate flags is evidence; your eye decides.
 
+- **Signature features.** Read `look/DESIGN.md` `## Signature features` (3 to 6 traits). For every trait, by its own wording, say HOLDS or FAILS on the frames you were given, quoting where you looked ("trait 2, 'grain on every plate': holds on frames 3, 7; fails on 5, a flat plate"). A failed trait is a defect at the severity of a palette error (the look's contract is broken), not a nit. A trait you cannot judge from stills (a motion trait) is "not testable from stills", never a pass. If the section is missing, report that as a defect.
+
 ## 3. The verdict (`frames/verdict.json`)
 
 ```jsonc

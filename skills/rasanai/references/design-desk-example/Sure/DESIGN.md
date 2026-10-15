@@ -78,3 +78,11 @@ Counting House draws a finance product the way an auditor's desk looks: ledger p
 - Don't put the accent on a background or on text under 40 px.
 - Don't centre the layout: align to the left axis of the ledger.
 - Don't use bounce, overshoot or blur-in on any entrance.
+
+## Signature features
+
+1. Every figure is set in the mono face and aligns on the decimal.
+2. Ledger rules are 1 px and run the full width of the plate.
+3. The vermilion stamp appears once per scene, never as a fill.
+4. Paper grain is visible on every plate.
+5. Nothing fades in: entrances are slides on the 8 px grid.
