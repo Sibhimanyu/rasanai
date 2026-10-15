@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.17.0 (2026-10-15): one argument per film, motion from meaning
 
 - **Wave 8: a token budget and a leaner process.** `crew.mjs plan --budget lean|standard|full` prints the token estimate per phase and in total (`crew/budget.json`); lean is one script, one look, one fix round (about 1M tokens on a direct film). A long film builds one hero scene first (the spike), critics return `strengths[]` that the fix round keeps and the A/B juror guards, notes become marked crops (`crew.mjs marks`, `strip --crop`), roughs are JSON in a 13-kind DSL (`moves.mjs rough`), and outside text is data, never instructions.
 - **More measured laws, as warnings.** Landing and leaving curves, at most one visible spring, oversize logo arrivals, word-to-word gaps, fast moves without a shutter, pure-fade entrances, no more than a quarter of the beats as the point, an always-moving frame, energy against a reference, the hook (0.5 s / 2 s), real numbers only, see-and-say, caption duplicates, twinning and a subject that stays in frame. Carry credits stretches and shrinks; footage-led films skip boldness.
