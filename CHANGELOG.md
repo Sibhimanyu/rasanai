@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- **One memory.** `lessons.jsonl` is the only rules store and the only "past films" block: Step 0 runs `lessons.mjs digest` (standing notes, Claude's own, one short "Recent verdicts" line); `taste.jsonl` stays as the raw evidence ledger behind it, one row per action id (a `record --type comment` is not counted twice). `lessons.mjs suggest` lists notes the user repeated that no lesson covers yet, each with its `add` line, and the retrospective gets the same list. `memory.mjs taste` still works and prints the same digest.
+- **One reading-time formula.** `lib/reading.mjs` readTime: a line needs 0.6 s + 0.3 s per word, used by the story gate, slop, the score and the text-fit check; render-level checks allow 15% slack. The 0.4 s variants in script.md, story.md, the Sonnet profile and slop are gone, and corner labels have one rule name, `corner-micro-label`, reported once.
+- **The delivery package.** `video.mjs deliver` packs `deliver/` with the film, `poster.jpg`, `<name>.srt` (narrated films), `CREDITS.txt`, `build.sh` and `NOTE.md` (every gate's numbers, critics, A/B verdicts, waivers, downgrades; what is not on disk is listed as Missing, never invented). `references/deliver.md`.
+- **The voice is checked against its script.** `voice.mjs verify` transcribes the voiceover with whisper-cli and fails a line over 0.2 word error rate, a misheard name, or a caption shorter than max(1.8 s, speech + 0.6 s); without whisper it logs a downgrade and says the voice went unchecked.
+- **Thinking orbs.** `RasanOrbs` (`runtime/rasan-orbs.js`, a port of thinking-orbs, MIT, credited in `third_party/thinking-orbs/`): nine "AI is working" states in 64, 20 and hero sizes, in the brand colour; `video.mjs inject` installs it into `assets/rasan-orbs/` when a composition or the storyboard names it. `references/orbs.md`.
+- **A style library.** `library/styles/`: 26 style references (lemo-opuscar and mg-styles-15, MIT, credited in `third_party/`), each with nine sections, a poster and its signature features. The design desk pulls one to three per look and cites them in `blend.json` `style_refs` (unbranded films only; not indexed by `library.mjs index`).
+- **Signature features.** Every DESIGN.md carries `## Signature features`: 3 to 6 concrete, checkable traits. The frame juror and the critic answer HOLDS or FAILS on each (two fails, or one on the hero beat, block); `check-system` warns on a missing, too short or adjective-only section and errors on a `style_refs` slug that is not in the library, so systems written before it still pass. The design-desk example carries one.
+
 ## 1.16.0 (2026-10-14): the film is judged against itself, and motionmaxxing's craft
 
 - **Blind A/B on every fix round.** `crew.mjs ab` puts the previous and the new render side by side as X and Y for an `ab-juror` who is never told which is newer; a round that loses is reverted (FILM-E got safer through its fix rounds). The critic now treats a fix that buys a green gate by shrinking big type or calming the ending as a `high` finding.
