@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.19.0 (2026-10-15): series and taste questions, learning from an edit
 
 - **Learn from an edit you like.** `learn.mjs infer|set|prompt` reads an example edit (cuts, captions, text on screen, speaker layout, creator marks, end card; `lib/marks.mjs` finds badges and watermarks) into `taste.json`, and a short headless job decides the picture style from its contact sheet. The Studio pre-fills its setup questions from it.
 - **Taste questions.** `library/questions.json` holds the choices that decide a film (pictures, speaker, text, captions, marks, ending); `formats.json` options list the ones they ask.
