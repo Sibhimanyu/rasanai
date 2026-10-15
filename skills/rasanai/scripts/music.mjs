@@ -11,6 +11,10 @@
 //        [--format launch|explainer|reel|kinetic|brand|premium] [--narrated] [--count 3]
 //        [--track <file or folder with stems> [--library artlist|epidemic|epidemic-connect|musicbed|...] [--declared "<where it is licensed>"] [--more]]
 //        [--sources user,ai,catalog,heygen,ccmixter,openverse] [--no-ai] [--pick <catalog id>] [--no-preview]
+//        [--hits "1.2,4.8,9.0" | --events <events.json>] [--no-hit-tempo]
+//   The tempo comes from the picture when it has 3 or more hit times (--hits, --events, the score's hits/events/seams, or a real music_arc's drop, payoff and
+//   button): 70-140 BPM is scanned and the tempo whose worst hit sits closest to a beat wins (ties go to the style's own range), instead of the style's
+//   default. <run>/music/hits.json keeps the grid, the error per hit and each hit's treatment (direct / anticipation / aftermath / no-hit: references/sound.md).
 //   -> {"options":[{id,title,mood,duration,file,preview,source,origin,license,attribution,credit,url,bpm,
 //                   summary,ending,strong_from,score,quality,fit,usable,problems,warnings}],
 //       "suggestions":[Mixkit cards, fetched only when picked: --pick <id>], "recommended", "chain", "arc", "credits", ...}
@@ -34,7 +38,7 @@ import { parseArgs, die } from "./lib/common.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
 import { track } from "./lib/report.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
-import { analyzeTrack, summarize, fitTrack, renderPlan, toolsAvailable } from "./lib/audio.mjs";
+import { analyzeTrack, summarize, fitTrack, renderPlan, toolsAvailable, bpmFromHits, treatHits } from "./lib/audio.mjs";
 import { KEYS, PRIOR, sourceChain, licenceNote, findUserTrack, judge, readArc, buildPrompt, elevenPlan, loadCatalog, validateCatalog, pickFromCatalog, creditsText } from "./lib/music-lib.mjs";
 
 const args = parseArgs();
@@ -185,14 +189,37 @@ async function download(url, dest, { referer, sha256 } = {}) {
   }
   return dest;
 }
-const tempoOf = (it) => {
-  const m = String(it.intent).match(/(\d+)(?:-(\d+))?\s*BPM/i);
-  return m ? (m[2] ? (Number(m[1]) + Number(m[2])) / 2 : Number(m[1])) : 112;
-};
-const rangeOf = (it) => {
+const styleRange = (it) => {
   const m = String(it.intent).match(/(\d+)(?:-(\d+))?\s*BPM/i);
   return m ? [Number(m[1]), Number(m[2] || m[1])] : null;
 };
+// the picture's hit times: --hits, --events, the score's hits/events/seams, and a real (not derived) music_arc's drop, payoff and button
+function pictureHits() {
+  if (args["no-hit-tempo"]) return [];
+  const rows = [], add = (t, kind) => { if (Number.isFinite(Number(t)) && Number(t) > 0) rows.push({ t: Number(t), kind: kind || "hit" }); };
+  if (args.hits && args.hits !== true) String(args.hits).split(",").forEach((x) => add(x));
+  const lists = [];
+  try { if (args.events && args.events !== true) { const E = JSON.parse(fs.readFileSync(String(args.events), "utf8")); lists.push(Array.isArray(E) ? E : E.events || []); } } catch {}
+  try { if (fs.existsSync(scoreFile)) { const S = JSON.parse(fs.readFileSync(scoreFile, "utf8")); for (const k of ["hits", "events", "seams"]) if (Array.isArray(S[k])) lists.push(S[k]); } } catch {}
+  for (const l of lists) for (const e of l) if (e && typeof e === "object") add(e.t ?? e.at ?? e.start ?? e.start_s, e.kind || e.type || e.id);
+  if (!arcDerived) { add(arc.drop_at, "drop"); add(arc.payoff_at, "payoff"); add(arc.button_at, "button"); if (arc.break) add(arc.break[1], "break-end"); }
+  return rows.filter((r) => !film || r.t <= film);
+}
+const HITS = pictureHits();
+const hitCache = new Map();
+const hitPick = (it) => {
+  if (HITS.length < 3) return null;
+  const r = styleRange(it), key = r ? r.join("-") : "-";
+  if (!hitCache.has(key)) hitCache.set(key, bpmFromHits(HITS.map((h) => h.t), { prefer: r }));
+  return hitCache.get(key);
+};
+const tempoOf = (it) => {
+  const hp = hitPick(it);
+  if (hp) return hp.bpm;
+  const m = String(it.intent).match(/(\d+)(?:-(\d+))?\s*BPM/i);
+  return m ? (m[2] ? (Number(m[1]) + Number(m[2])) / 2 : Number(m[1])) : 112;
+};
+const rangeOf = (it) => { const hp = hitPick(it); return hp ? [hp.bpm * 0.92, hp.bpm * 1.08] : styleRange(it); };
 
 // 0. the user's own track (a file, or a folder with the full mix and stems), with the licence notes of their library
 let libraryNote = null;
@@ -571,7 +598,17 @@ const credits = creditsText(best ? { ...ledger.find((l) => l.id === best.id), li
 fs.writeFileSync(path.join(dir, "CREDITS.txt"), credits.credits);
 fs.writeFileSync(path.join(dir, "description.txt"), credits.description);
 
-const result = { options: shown, suggestions, recommended: best ? best.id : null, intents: intents.map((i) => i.intent), film_s: film, min_length_s: Math.round(minLen), arc: { ...arc, derived: arcDerived }, chain: chain.map((c) => ({ id: c.id, on: c.on, why: c.why })), licenses: rel(ledgerFile), credits: rel(path.join(dir, "CREDITS.txt")), description: rel(path.join(dir, "description.txt")), notes };
+// the picture's hits, their grid and treatments (the spotting table in references/sound.md)
+let hitsReport = null;
+{
+  const hp = intents.length ? hitPick(intents[0]) : null;
+  if (hp) {
+    hitsReport = { tempo_from: "the picture's hit times", ...hp, treatments: treatHits(HITS, hp), note: "a hit more than 60 ms off the grid carries nudge_ms: move the picture hit by that much, or let the music's own hit lead and give the picture hit an aftermath" };
+    fs.writeFileSync(path.join(dir, "hits.json"), JSON.stringify(hitsReport, null, 2) + "\n");
+    notes.push(`tempo ${hp.bpm} BPM chosen from ${hp.hits} picture hits (worst ${hp.max_err_ms} ms off a beat): <run>/music/hits.json`);
+  } else if (!args["no-hit-tempo"]) notes.push(`tempo from the style's range: ${HITS.length} picture hit time(s) known, 3 are needed (--hits, --events, the score's hits/events/seams, or a music_arc)`);
+}
+const result = { options: shown, ...(hitsReport ? { hits: { bpm: hitsReport.bpm, max_err_ms: hitsReport.max_err_ms, file: rel(path.join(dir, "hits.json")) } } : {}), suggestions, recommended: best ? best.id : null, intents: intents.map((i) => i.intent), film_s: film, min_length_s: Math.round(minLen), arc: { ...arc, derived: arcDerived }, chain: chain.map((c) => ({ id: c.id, on: c.on, why: c.why })), licenses: rel(ledgerFile), credits: rel(path.join(dir, "CREDITS.txt")), description: rel(path.join(dir, "description.txt")), notes };
 if (libraryNote) result.library_note = libraryNote;
 if (!film) notes.push("pass --film <seconds> so each track is fitted to the film and gets a preview of the edit");
 if (!shown.length) result.unavailable = `No music could be fetched (${notes.join("; ") || "no source answered"}). Check the network, or give your own track (--track <file>) or pick "No music". Signed in to HeyGen (\`npx hyperframes auth status\`) adds its catalog.`;

@@ -18,9 +18,30 @@
 //      Caption timing (captions from --captions / --srt / <project>/compositions/captions.html): error `caption-too-short` when a caption
 //      is on screen for less than max(1.8 s, its speech + 0.6 s).
 //      Exit 0 = clean (warnings allowed), 2 = findings, 1 = could not run (no whisper-cli / model / audio; logged as a downgrade). Prints JSON.
+//
+//   node voice.mjs verify --mix <final.mp4|wav> --script <lines> (--windows <json [{start,end}|[s,e]] one per line> | --meta <audio_meta.json> --scenes <scenes.json>)
+//        [--max-wer 0.2] [--lang en]
+//   -> the same check on the FINAL MIX, one transcription per line window (the window plus 0.25 s each side, a clip under 2 s padded with 0.6 s of silence so whisper
+//      does not skip it): music, ducking and SFX can bury or smear a word that the clean VO stem still passes. Findings are warnings (mix-line-wer).
+//
+//   node voice.mjs refine --audio <vo.wav> [--words <words.json | audio_meta.json [--frame <n>]>] [--out <refined.json>] [--noise -35] [--min-gap 0.06]
+//   -> snaps word times to the audible speech (ffmpeg silencedetect): a word that starts in silence moves to the next speech onset (within 0.3 s), one that starts
+//      just after an onset snaps back to it (within 0.15 s), ends likewise. TTS word timings and whisper timings both run early or late by 50-200 ms; text that must
+//      land 0-2 frames before its word needs the real onset. No --words: the clip is transcribed first (whisper-cli). {words, changes, speech_spans}.
+//
+//   node voice.mjs speak --run <run> --script <lines.json|lines.txt> [--voice <id>] [--engine auto|heygen|kokoro|edge] [--lang en] [--speed 1] [--retakes 3] [--match 0.92]
+//        [--respell '{"Brand":"bray-nd"}'] [--out <dir>] [--names "Brand,Product"]
+//   -> narration by take, transcribe, retake: each line is spoken, trimmed, transcribed back (verify's alignment) and kept when 92% of its words match, no 3 words are
+//      dropped or added and no non-speech tag ("(laughs)") was heard; otherwise up to 3 retakes (from the second, --respell is applied) and the best take is kept.
+//      A single-word line gets its vowel tail trimmed (TTS adds an "uh" after a lone word). Files: <dir>/line-NN.wav, speak.json. Engines, in order: HeyGen via media-use,
+//      then Kokoro (the kokoro-tts CLI with its model files already on disk: RASANAI_KOKORO_DIR or the cwd) and edge-tts (online, no key) if installed; a model is
+//      never downloaded here. Voice-prompt rules for a model that takes a description: describe the voice (age, pace, warmth), put IPA in quotes for a hard name, never SSML.
+//      Exit 0 = every line matched, 2 = a line stayed under the match after its retakes (warnings, the best take is kept), 1 = could not run (no engine, or no whisper-cli
+//      / model to listen with; logged as a downgrade).
 import fs from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import os from "node:os";
+import { execFileSync, spawnSync } from "node:child_process";
 import { parseArgs, die } from "./lib/common.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
 import { track } from "./lib/report.mjs";
@@ -144,7 +165,33 @@ function readCaptions() {
   return { from: null, list: [], why: "no --captions, --srt or --project given" };
 }
 
+// the script's words (each with its line) against the heard words (each with its time), by Levenshtein alignment: per-line errors and the
+// heard words and span of each line, the link of every script word to the heard one, and the longest run of dropped script words / added heard words
+function align(lines, words) {
+  const ref = [], hyp = [];
+  lines.forEach((l, li) => norm(l).forEach((w) => ref.push({ w, li })));
+  for (const x of words) for (const w of norm(x.text)) hyp.push({ w, start: x.start, end: x.end });
+  const n = ref.length, m = hyp.length;
+  const D = Array.from({ length: n + 1 }, () => new Int32Array(m + 1));
+  for (let i = 1; i <= n; i++) D[i][0] = i;
+  for (let j = 1; j <= m; j++) D[0][j] = j;
+  for (let i = 1; i <= n; i++) for (let j = 1; j <= m; j++) D[i][j] = Math.min(D[i - 1][j] + 1, D[i][j - 1] + 1, D[i - 1][j - 1] + (ref[i - 1].w === hyp[j - 1].w ? 0 : 1));
+  const per = lines.map(() => ({ N: 0, err: 0, heard: [], start: null, end: null }));
+  let i = n, j = m;
+  const link = new Array(n).fill(null);
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && D[i][j] === D[i - 1][j - 1] + (ref[i - 1].w === hyp[j - 1].w ? 0 : 1)) { const same = ref[i - 1].w === hyp[j - 1].w; link[i - 1] = { j: j - 1, same }; if (!same) per[ref[i - 1].li].err++; i--; j--; }
+    else if (i > 0 && D[i][j] === D[i - 1][j] + 1) { link[i - 1] = { j: -1, same: false }; per[ref[i - 1].li].err++; i--; }
+    else { per[ref[Math.min(Math.max(i, 1), n) - 1].li].err++; j--; } // heard a word the script does not have
+  }
+  ref.forEach((r, k) => { per[r.li].N++; const l = link[k]; if (l && l.j >= 0) { const h = hyp[l.j]; per[r.li].heard.push(h.w); per[r.li].start = per[r.li].start == null ? h.start : Math.min(per[r.li].start, h.start); per[r.li].end = Math.max(per[r.li].end ?? 0, h.end); } });
+  const used = new Set(link.filter((l) => l && l.j >= 0).map((l) => l.j));
+  const run = (flags) => { let c = 0, mx = 0; for (const f of flags) { c = f ? c + 1 : 0; mx = Math.max(mx, c); } return mx; };
+  return { ref, hyp, link, per, n, m, maxDrop: run(link.map((l) => !l || l.j < 0)), maxAdd: run(hyp.map((_, k) => !used.has(k))) };
+}
+
 async function verify() {
+  if (args.mix && args.mix !== true) return verifyMix();
   track("Listening to the narration against the script", "Narration checked");
   const run = args.run && args.run !== true ? args.run : undefined;
   const cannot = (why) => { noteDowngrade({ run, what: "narration check by transcription", instead: "the voiceover was not verified against the script", why: String(why).slice(0, 200) }); process.stderr.write(`rasanai: could not run: ${why}\n`); process.exit(1); };
@@ -160,24 +207,7 @@ async function verify() {
   try { tr = whisperTranscribe(String(args.audio), { model: dec.model.file, lang: dec.lang }); } catch (e) { cannot(`transcription failed: ${String(e.message).split("\n").pop()}`); }
   const maxWer = Number(args["max-wer"] || 0.2);
 
-  // reference words (with their line) and heard words (with their time), then a Levenshtein alignment
-  const ref = [], hyp = [];
-  lines.forEach((l, li) => norm(l).forEach((w) => ref.push({ w, li })));
-  for (const x of tr.words) for (const w of norm(x.text)) hyp.push({ w, start: x.start, end: x.end });
-  const n = ref.length, m = hyp.length;
-  const D = Array.from({ length: n + 1 }, () => new Int32Array(m + 1));
-  for (let i = 1; i <= n; i++) D[i][0] = i;
-  for (let j = 1; j <= m; j++) D[0][j] = j;
-  for (let i = 1; i <= n; i++) for (let j = 1; j <= m; j++) D[i][j] = Math.min(D[i - 1][j] + 1, D[i][j - 1] + 1, D[i - 1][j - 1] + (ref[i - 1].w === hyp[j - 1].w ? 0 : 1));
-  const per = lines.map(() => ({ N: 0, err: 0, heard: [], start: null, end: null }));
-  let i = n, j = m;
-  const link = new Array(n).fill(null);
-  while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && D[i][j] === D[i - 1][j - 1] + (ref[i - 1].w === hyp[j - 1].w ? 0 : 1)) { const same = ref[i - 1].w === hyp[j - 1].w; link[i - 1] = { j: j - 1, same }; if (!same) per[ref[i - 1].li].err++; i--; j--; }
-    else if (i > 0 && D[i][j] === D[i - 1][j] + 1) { link[i - 1] = { j: -1, same: false }; per[ref[i - 1].li].err++; i--; }
-    else { per[ref[Math.min(Math.max(i, 1), n) - 1].li].err++; j--; } // heard a word the script does not have
-  }
-  ref.forEach((r, k) => { per[r.li].N++; const l = link[k]; if (l && l.j >= 0) { const h = hyp[l.j]; per[r.li].heard.push(h.w); per[r.li].start = per[r.li].start == null ? h.start : Math.min(per[r.li].start, h.start); per[r.li].end = Math.max(per[r.li].end ?? 0, h.end); } });
+  const { ref, hyp, link, per, n, m } = align(lines, tr.words);
   const findings = [];
   const outLines = lines.map((text, li) => {
     const p = per[li], wer = p.N ? p.err / p.N : 0;
@@ -230,5 +260,197 @@ async function verify() {
   process.exit(errors ? 2 : 0);
 }
 
+
+// ---------------------------------------------------------------- shared by refine / speak / verify --mix
+const sh = (bin, argv, opts = {}) => spawnSync(bin, argv, { encoding: "utf8", maxBuffer: 256 * 1024 * 1024, ...opts });
+const probeDur = (f) => Number(sh("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", f]).stdout) || 0;
+const runOf = () => (args.run && args.run !== true ? args.run : undefined);
+const tmpDir = () => fs.mkdtempSync(path.join(os.tmpdir(), "rasanai-voice-"));
+const NONSPEECH = /^[\[(*♪]|[\])*♪]$/;
+
+// transcribe a clip; a clip under 2 s is padded with 0.6 s of silence each side (whisper skips very short clips), the padding taken off the times again
+function listen(file, { model, lang, start = 0, dur = 0 }) {
+  const t = tmpDir();
+  try {
+    const src = path.join(t, "src.wav");
+    const win = dur > 0 ? dur : probeDur(file) - start;
+    const pad = win < 2 ? 0.6 : 0;
+    const argv = ["-v", "error", "-y", ...(start > 0 ? ["-ss", String(start)] : []), "-i", file, ...(dur > 0 ? ["-t", String(dur)] : []), "-vn", "-ac", "1", "-ar", "16000"];
+    if (pad) argv.push("-af", `adelay=${pad * 1000}:all=1,apad=pad_dur=${pad}`);
+    argv.push("-c:a", "pcm_s16le", src);
+    if (sh("ffmpeg", argv).status !== 0) throw new Error("ffmpeg could not read the audio");
+    const tr = whisperTranscribe(src, { model, lang, tmp: path.join(t, "w") });
+    const words = tr.words.map((w) => ({ ...w, start: w.start - pad + start, end: w.end - pad + start })).filter((w) => w.end > start - 0.01);
+    return { words, tags: words.filter((w) => NONSPEECH.test(w.text.trim())).map((w) => w.text), padded: !!pad };
+  } finally { fs.rmSync(t, { recursive: true, force: true }); }
+}
+// whisper + its model, or a "could not run" exit
+function needListener(what) {
+  const cannot = (why) => { noteDowngrade({ run: runOf(), what, instead: "no listening check", why: String(why).slice(0, 200) }); process.stderr.write(`rasanai: could not run: ${why}\n`); process.exit(1); };
+  if (!hasWhisperCli()) cannot("whisper-cli is not installed (brew install whisper-cpp), and nothing else transcribes here");
+  const dec = decideLanguage({ file: String(args.audio || args.mix || args.script || ""), lang: args.lang && args.lang !== true ? String(args.lang) : "en", duration: 0 });
+  if (dec.blocked || !dec.model) cannot(dec.blocked || "no whisper model installed (hyperframes models install)");
+  return { model: dec.model.file, lang: dec.lang, cannot };
+}
+const wordList = (j, frame) => (Array.isArray(j) ? j : Array.isArray(j.words) ? j.words : (j.voices || []).filter((v) => frame == null || Number(v.frame) === Number(frame)).flatMap((v) => v.words || [])).map((w) => ({ ...w, text: w.text, start: Number(w.start), end: w.end != null ? Number(w.end) : Number(w.start) + 0.2 })).filter((w) => Number.isFinite(w.start));
+
+// ---------------------------------------------------------------- refine
+function refine() {
+  track("Snapping word times to the audible speech", "Word times refined");
+  if (!args.audio || args.audio === true || !fs.existsSync(String(args.audio))) die("--audio <vo.wav> is required (and must exist)");
+  const audio = String(args.audio), dur = probeDur(audio), noise = Number(args.noise ?? -35), minGap = Number(args["min-gap"] ?? 0.06);
+  let words;
+  if (args.words && args.words !== true) { if (!fs.existsSync(String(args.words))) die("--words file not found"); words = wordList(JSON.parse(fs.readFileSync(String(args.words), "utf8")), args.frame); }
+  else { const L = needListener("word times snapped to speech"); words = listen(audio, L).words; }
+  if (!words.length) die("no words to refine");
+  const r = sh("ffmpeg", ["-hide_banner", "-nostats", "-i", audio, "-vn", "-af", `silencedetect=noise=${noise}dB:d=${minGap}`, "-f", "null", "-"]);
+  if (r.status !== 0) { noteDowngrade({ run: runOf(), what: "word times snapped to speech", instead: "the word times as given", why: "ffmpeg silencedetect failed" }); process.stderr.write("rasanai: could not run: ffmpeg silencedetect failed\n"); process.exit(1); }
+  const sil = [];
+  let cur = null;
+  for (const m of String(r.stderr).matchAll(/silence_(start|end): (-?[\d.]+)/g)) { if (m[1] === "start") cur = Math.max(0, Number(m[2])); else if (cur != null) { sil.push([cur, Number(m[2])]); cur = null; } }
+  if (cur != null) sil.push([cur, dur]);
+  const spans = [];
+  let at = 0;
+  for (const [a, b] of sil) { if (a - at > 0.02) spans.push([at, a]); at = b; }
+  if (dur - at > 0.02) spans.push([at, dur]);
+  const r3 = (v) => Math.round(v * 1000) / 1000;
+  const inSpan = (t) => spans.find(([a, b]) => t >= a && t <= b);
+  const out = [], changes = [];
+  words.sort((a, b) => a.start - b.start);
+  words.forEach((w, i) => {
+    const prevEnd = i ? out[i - 1].end : 0, nextStart = i + 1 < words.length ? words[i + 1].start : dur;
+    let s0 = w.start, e0 = w.end;
+    if (!inSpan(s0)) { const nx = spans.find(([a]) => a >= s0 && a - s0 <= 0.3); if (nx) s0 = nx[0]; }
+    else { const sp = spans.find(([a]) => a >= s0 - 0.15 && a < s0 && a >= prevEnd - 0.01); if (sp) s0 = sp[0]; }
+    if (!inSpan(e0)) { const pv = [...spans].reverse().find(([, b]) => b <= e0 && e0 - b <= 0.3 && b > s0); if (pv) e0 = pv[1]; }
+    else { const sp = spans.find(([, b]) => b > e0 && b - e0 <= 0.15 && b <= nextStart + 0.01); if (sp) e0 = sp[1]; }
+    if (e0 <= s0) { s0 = w.start; e0 = w.end; }
+    out.push({ ...w, start: r3(s0), end: r3(e0) });
+    if (Math.abs(s0 - w.start) > 0.004 || Math.abs(e0 - w.end) > 0.004) changes.push({ word: w.text, start_ms: Math.round((s0 - w.start) * 1000), end_ms: Math.round((e0 - w.end) * 1000) });
+  });
+  const res = { audio, noise_db: noise, words: out, changes: changes.length, moved: changes.slice(0, 40), speech_spans: spans.map(([a, b]) => [r3(a), r3(b)]), median_start_shift_ms: changes.length ? [...changes].map((c) => Math.abs(c.start_ms)).sort((a, b) => a - b)[Math.floor(changes.length / 2)] : 0 };
+  if (args.out && args.out !== true) fs.writeFileSync(path.resolve(String(args.out)), JSON.stringify(res.words, null, 2) + "\n");
+  console.log(JSON.stringify(res, null, 2));
+  process.exit(0);
+}
+
+// ---------------------------------------------------------------- verify --mix
+function verifyMix() {
+  track("Listening to each line in the final mix", "Final mix checked");
+  const mix = String(args.mix);
+  if (!fs.existsSync(mix)) die("--mix file not found");
+  if (!args.script || args.script === true || !fs.existsSync(String(args.script))) die("--script <lines.json|lines.txt> is required (and must exist)");
+  const lines = readScript(String(args.script));
+  let windows = null;
+  if (args.windows && args.windows !== true) windows = JSON.parse(fs.readFileSync(String(args.windows), "utf8")).map((w) => (Array.isArray(w) ? { start: w[0], end: w[1] } : w));
+  else if (args.meta && args.scenes && args.meta !== true && args.scenes !== true) {
+    const S = JSON.parse(fs.readFileSync(String(args.scenes), "utf8")), M = JSON.parse(fs.readFileSync(String(args.meta), "utf8"));
+    let t = 0;
+    const starts = Object.fromEntries((S.scenes || []).map((s, i) => { const st = s.start_s != null ? Number(s.start_s) : t; t = st + (Number(s.duration ?? s.duration_s) || 0); return [s.n ?? i + 1, st]; }));
+    windows = (M.voices || []).map((v) => { const ws = wordList({ words: v.words || [] }), st = starts[Number(v.frame)]; return ws.length && st != null ? { start: st + ws[0].start, end: st + Math.max(...ws.map((w) => w.end)) } : null; });
+  }
+  if (!windows) die("--windows <json> or --meta <audio_meta.json> with --scenes <scenes.json> is required: the window of each line in the film");
+  const L = needListener("per-line check of the final mix");
+  const maxWer = Number(args["max-wer"] || 0.2), findings = [], rows = [];
+  lines.forEach((text, i) => {
+    const w = windows[i];
+    if (!w || !Number.isFinite(w.start) || !Number.isFinite(w.end)) { rows.push({ n: i + 1, text, skipped: "no window for this line" }); return; }
+    const a = Math.max(0, w.start - 0.25), d = w.end - w.start + 0.5;
+    let heard;
+    try { heard = listen(mix, { ...L, start: a, dur: d }); } catch (e) { rows.push({ n: i + 1, text, skipped: String(e.message).split("\n").pop() }); return; }
+    const A = align([text], heard.words), p = A.per[0], wer = p.N ? p.err / p.N : 0;
+    rows.push({ n: i + 1, text, window: [Math.round(w.start * 100) / 100, Math.round(w.end * 100) / 100], heard: p.heard.join(" "), wer: r2(wer), padded: heard.padded });
+    if (wer > maxWer) findings.push({ severity: "warning", check: "mix-line-wer", line: i + 1, message: `line ${i + 1} "${text.slice(0, 70)}" in the final mix: word error rate ${r2(wer)} (over ${maxWer}); heard "${p.heard.join(" ")}"`, fix: "the music, a duck that is too shallow or an SFX is covering the line: lower the bed under it, move the SFX off it, or check it against the VO stem (verify --audio)" });
+  });
+  console.log(JSON.stringify({ ok: true, verdict: findings.length ? "clean, warnings" : "clean", mix, model: L.model && path.basename(L.model), lines: rows, findings }, null, 2));
+  process.exit(0);
+}
+
+// ---------------------------------------------------------------- speak
+const KOKORO_DIR = () => [process.env.RASANAI_KOKORO_DIR, process.cwd()].filter(Boolean).find((d) => fs.existsSync(path.join(d, "kokoro-v1.0.onnx")) && fs.existsSync(path.join(d, "voices-v1.0.bin"))) || null;
+const have = (bin) => sh("which", [bin]).status === 0;
+function engineList() {
+  const mu = findSkill("media-use"), tts = mu && path.join(mu, "audio", "scripts", "heygen-tts.mjs");
+  return [
+    { id: "heygen", ok: !!(tts && fs.existsSync(tts) && have("heygen")), why: "needs media-use and the heygen CLI signed in", tts },
+    { id: "kokoro", ok: have("kokoro-tts") && !!KOKORO_DIR(), why: have("kokoro-tts") ? "the kokoro-tts CLI is installed but kokoro-v1.0.onnx and voices-v1.0.bin are not on disk (RASANAI_KOKORO_DIR or the cwd); they are not downloaded here (Apache-2.0 weights, ~330 MB: ask first)" : "the kokoro-tts CLI is not installed" },
+    { id: "edge", ok: have("edge-tts"), why: "the edge-tts CLI is not installed (it also needs the network: Microsoft's online voices, no key)" },
+  ];
+}
+function synth(eng, text, out, { voice, lang, speed }) {
+  const t = tmpDir(), raw = path.join(t, "raw.wav");
+  try {
+    if (eng.id === "heygen") execFileSync("node", [eng.tts, text, "-o", raw, ...(voice ? ["--voice", voice] : []), "--lang", lang], { stdio: ["ignore", "pipe", "pipe"], timeout: 180000 });
+    else if (eng.id === "kokoro") {
+      const inp = path.join(t, "in.txt"); fs.writeFileSync(inp, text);
+      execFileSync("kokoro-tts", [inp, raw, "--voice", voice || "af_sarah", "--speed", String(speed), "--lang", lang === "en" ? "en-us" : lang], { cwd: KOKORO_DIR(), stdio: ["ignore", "pipe", "pipe"], timeout: 300000 });
+    } else {
+      const mp3 = path.join(t, "raw.mp3"), pct = Math.round((speed - 1) * 100);
+      execFileSync("edge-tts", ["--text", text, "--voice", voice || ({ en: "en-US-AriaNeural", fr: "fr-FR-DeniseNeural", de: "de-DE-KatjaNeural", es: "es-ES-ElviraNeural", hi: "hi-IN-SwaraNeural", ta: "ta-IN-PallaviNeural", ja: "ja-JP-NanamiNeural" }[lang] || "en-US-AriaNeural"), `--rate=${pct >= 0 ? "+" : ""}${pct}%`, "--write-media", mp3], { stdio: ["ignore", "pipe", "pipe"], timeout: 120000 });
+      execFileSync("ffmpeg", ["-v", "error", "-y", "-i", mp3, "-ar", "24000", "-ac", "1", raw]);
+    }
+    // trim the silence at both ends (keeps 40 ms before and 80 ms after the speech)
+    const r = sh("ffmpeg", ["-v", "error", "-y", "-i", raw, "-af", "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.04,areverse,silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.08,areverse", "-ar", "24000", "-ac", "1", out]);
+    if (r.status !== 0) throw new Error("ffmpeg could not trim the take");
+  } finally { fs.rmSync(t, { recursive: true, force: true }); }
+}
+function speak() {
+  track("Speaking each line and listening back", "Narration recorded");
+  if (!args.script || args.script === true || !fs.existsSync(String(args.script))) die("--script <lines.json|lines.txt> is required (and must exist)");
+  const raw = fs.readFileSync(String(args.script), "utf8");
+  let rates = [];
+  try { const j = JSON.parse(raw); const a = Array.isArray(j) ? j : j.lines || j.script || []; rates = a.map((x) => (x && typeof x === "object" && x.rate ? Number(x.rate) : null)); } catch {}
+  const lines = readScript(String(args.script));
+  if (!lines.length) die("the script has no lines");
+  const lang = String(args.lang || "en").toLowerCase(), retakes = Math.max(0, Math.min(3, args.retakes != null ? Number(args.retakes) : 3)), match = Number(args.match || 0.92);
+  const respell = args.respell && args.respell !== true ? JSON.parse(String(args.respell)) : {};
+  const names = String(args.names && args.names !== true ? args.names : "").split(",").map((x) => x.trim()).filter(Boolean);
+  const engines = engineList(), want = String(args.engine || "auto");
+  const pool = engines.filter((e) => e.ok && (want === "auto" || e.id === want));
+  const cannot = (why) => { noteDowngrade({ run: runOf(), what: "narration by take, transcribe, retake", instead: "no narration was recorded", why: String(why).slice(0, 220) }); process.stderr.write(`rasanai: could not run: ${why}\n`); process.exit(1); };
+  if (!pool.length) cannot(`no speech engine (${engines.filter((e) => want === "auto" || e.id === want).map((e) => `${e.id}: ${e.why}`).join("; ")})`);
+  const L = needListener("narration retake loop");
+  const dir = path.resolve(args.out && args.out !== true ? String(args.out) : path.join(String(args.run || "."), "voice", "narration"));
+  fs.mkdirSync(dir, { recursive: true });
+  const nn = (i) => String(i + 1).padStart(2, "0");
+  const apply = (text, k) => (k < 2 ? text : Object.entries(respell).reduce((t, [a, b]) => t.split(a).join(b), text));
+  let eng = pool[0];
+  const rows = [], findings = [];
+  lines.forEach((text, i) => {
+    const takes = [];
+    for (let k = 1; k <= 1 + retakes; k++) {
+      const f = path.join(dir, `line-${nn(i)}-take${k}.wav`);
+      const speed = (rates[i] || Number(args.speed) || 1) * (k > 1 && eng.id !== "heygen" ? 1 + (k % 2 ? -0.03 : 0.03) : 1);
+      let spoke = false;
+      for (const e of [eng, ...pool.filter((p) => p !== eng)]) { try { synth(e, apply(text, k), f, { voice: args.voice && args.voice !== true ? String(args.voice) : undefined, lang, speed }); eng = e; spoke = true; break; } catch (err) { takes.push({ take: k, engine: e.id, error: String(err.stderr || err.message).split("\n").filter(Boolean).pop().slice(0, 140) }); } }
+      if (!spoke) continue;
+      const h = listen(f, L), A = align([text], h.words), p = A.per[0], wer = p.N ? p.err / p.N : 0;
+      const bad = h.tags.length > 0 || A.maxDrop >= 3 || A.maxAdd >= 3;
+      const row = { take: k, engine: eng.id, file: f, wer: r2(wer), heard: p.heard.join(" "), tags: h.tags, dropped_run: A.maxDrop, added_run: A.maxAdd, score: wer + (bad ? 1 : 0), word: h.words.length ? { start: h.words[0].start, end: h.words[h.words.length - 1].end } : null, ok: 1 - wer >= match && !bad };
+      takes.push(row);
+      if (row.ok) break;
+    }
+    const good = takes.filter((t) => t.file);
+    if (!good.length) { rows.push({ n: i + 1, text, takes, ok: false, error: "no engine could speak this line" }); findings.push({ severity: "error", check: "line-not-spoken", line: i + 1, message: `line ${i + 1} could not be spoken: ${takes.map((t) => t.error).filter(Boolean).join("; ")}` }); return; }
+    const best = good.reduce((b, t) => (t.score < b.score ? t : b), good[0]);
+    const final = path.join(dir, `line-${nn(i)}.wav`);
+    // a lone word gets a vowel tail from most voices ("uh"): cut the clip 120 ms after the heard word ends
+    if (norm(text).length === 1 && best.word && Number.isFinite(best.word.end) && probeDur(best.file) - best.word.end > 0.18) {
+      sh("ffmpeg", ["-v", "error", "-y", "-i", best.file, "-t", String(Math.max(0.2, best.word.end + 0.12)), "-af", "afade=t=out:st=" + Math.max(0, best.word.end + 0.12 - 0.05).toFixed(3) + ":d=0.05", final]);
+      best.tail_trimmed = true;
+    } else fs.copyFileSync(best.file, final);
+    if (!best.ok) findings.push({ severity: "warning", check: "line-match", line: i + 1, message: `line ${i + 1} "${text.slice(0, 60)}": the best of ${good.length} take(s) matches ${Math.round((1 - best.wer) * 100)}% (needs ${Math.round(match * 100)}%)${best.tags.length ? `, heard a non-speech tag ${best.tags.join(" ")}` : ""}${best.dropped_run >= 3 || best.added_run >= 3 ? `, a run of ${Math.max(best.dropped_run, best.added_run)} words dropped or added` : ""}; heard "${best.heard}"`, fix: "respell the hard words (--respell), another voice, or rewrite the line" });
+    for (const nm of names) if (norm(text).join(" ").includes(norm(nm).join(" ")) && !norm(best.heard).join(" ").includes(norm(nm).join(" "))) findings.push({ severity: "warning", check: "name-misheard", line: i + 1, message: `"${nm}" in line ${i + 1} was heard as "${best.heard}"`, fix: "respell it phonetically for the retake (--respell)" });
+    rows.push({ n: i + 1, text, file: final, kept_take: best.take, ok: best.ok, wer: best.wer, takes: takes.map(({ word, ...t }) => t) });
+  });
+  const res = { ok: true, engine: eng.id, model: path.basename(L.model), dir, match, lines: rows, findings };
+  fs.writeFileSync(path.join(dir, "speak.json"), JSON.stringify(res, null, 2) + "\n");
+  if (eng.id !== "heygen") noteDowngrade({ run: runOf(), what: "the planned narration voice", instead: `${eng.id} (${eng.id === "kokoro" ? "offline, Apache-2.0 weights" : "Microsoft online voices, no key"})`, why: "the HeyGen voice was not available", impact: "the voice differs from the one the options offered" });
+  console.log(JSON.stringify(res, null, 2));
+  process.exit(findings.some((f) => f.severity === "error" || f.severity === "warning") ? 2 : 0);
+}
+
 if (args._[0] === "verify") await verify();
+else if (args._[0] === "refine") refine();
+else if (args._[0] === "speak") speak();
 else main();

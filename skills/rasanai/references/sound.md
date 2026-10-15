@@ -134,6 +134,45 @@ One table (`SFX_BUDGET` in `lib/audio.mjs`) feeds `sfx-plan`, `sound.mjs check` 
 - Spell out numbers, currencies and URLs; respell brand names. Transcribe each clip back and re-roll any line that doesn't match the script word for word.
 - Skip VO for reels ≤ 30 s that autoplay muted, kinetic type (the text is the voice), mood reels and beat-synced cuts.
 
+## Sound that follows the picture (spotting)
+
+**Tempo from the picture.** When the film's hit times are known (the score's hits / events / seams, `--hits`, `--events`, or a real `music_arc`'s drop, payoff and button), `music.mjs` scans 70-140 BPM and keeps the tempo whose worst hit sits closest to a beat, measured as a fraction of the beat so a fast tempo cannot win by having more beats; ties go to the style's own range. It writes `<run>/music/hits.json`: the grid, the error per hit and a treatment per hit. A hit more than 60 ms off the grid carries `nudge_ms`: move the picture hit that much, or let the music's own hit lead and give the picture hit an aftermath. `--no-hit-tempo` turns it off.
+
+| Treatment | What the music and the sound do | For |
+|---|---|---|
+| direct | a music accent and the SFX land on the frame (offset under 40 ms) | landings, the logo, the button, impacts |
+| anticipation | the bed pulls back (a rest, a filter dip, a riser) half a beat to a beat before, then the hit lands at full level | the reveal, the payoff, a turn in the story |
+| aftermath | the hit speaks alone on the frame; the music answers on the next beat (a swell, a tail, a low hit) | slams, crashes, glitches, shocks |
+| no-hit | the picture moves and nothing sounds | fades, dissolves, parallax, text easing in |
+
+Give each hit in the score one of these (`treatment` on the event; the kind picks one when it is missing). Four direct hits in a row is a drum machine; mix the treatments.
+
+**Cuts land on sound.** About 35% of a professional film's cuts fall within 80 ms of a sound onset. `check` warns `cut-onset-share` under 20% (4 or more cuts) and lists the near misses (80-300 ms) with the slide that fixes each: move the cut onto the onset, or the sound onto the cut.
+
+**Text lands before the word.** On-screen text lands 0 to 2 frames before the spoken word (up to 5 for a name reveal): the eye reads faster than the ear, so the word arrives as confirmation. Use `voice.mjs refine` first (below): TTS and whisper word times run 50-200 ms early or late, and the text must be placed against the audible onset. Events that carry a `word` are checked (`text-lands-before-word`): a text that lands after the voice reads late, one more than 2 frames early reads as a different beat.
+
+**SFX around speech and silence.** Foley that sounds inside a spoken phrase (through its word gaps too, not only on a word) is ducked 5 dB by `sfx-plan --words`; an event marked `on_word: true` snaps to the nearest word onset and keeps its level, and any other cue within 150 ms of a word's onset is `sfx-on-word-onset`. A designed break (a 0.25 s stretch 10 dB under the median) is the best place for one dry sound: `sfx-in-break` warns when a film has breaks and no sound in any, and `sfx-plan --bed` notes the cues that fall inside one.
+
+**Audible and clean.** `sfx-buried`: an SFX 26 dB or more under the music in its 0.3 s window (cue file level plus its volume against the music stem) is not heard; raise it 6-12 dB or dip the bed under it. `low-mud`: 0.5 s windows that are 80% or more energy under 300 Hz in 30% of the film, or for 3 s running, mean the voice and the sounds sit in the mud: high-pass the SFX at 100 Hz, cut the bed 2-3 dB at 200-300 Hz under speech. Both are uncalibrated warnings; pass `--music <stem>` for a true reading.
+
+**Sound from continuous curves.** A moving camera has air: its level follows the speed of the move, |d ln zoom / dt|^1.3 (a dive is loud at its fastest, silent when still), and a brush or a drawn line has noise that follows stroke speed. The score exports `curves.json` (`{"curves":[{"id":"zoom","kind":"zoom|pan|brush|shake","points":[[t,v],...]}]}`, film seconds; or `{t0, dt, v:[...]}`) and `sfx-plan --curves` (or `<project>/curves.json`) renders one texture bed per curve into `assets/sfx/rasa/texture-<id>.wav` and lists it in `texture_beds` and `audio_meta_sfx`: volume 0.05-0.12, silent when the picture is still, not a cue (outside the SFX budget). Mount it with a stable id that does not start with `el-sfx-`.
+
+**Pan to the picture.** HyperFrames' effects registry (hyperframes-audio, `fx-registry.md`) has no pan or stereo node, and `data-automation` lanes can only move `volume` and an effect's own params, so a pan cannot be set or automated in the composition. `sfx-plan --pan` therefore bakes it into the rendered cue file instead: an event's `x` (0 left .. 1 right, or px with `--width`) becomes an equal-power stereo file at up to 70% to one side (`<sample>-p<N>.wav`). Opt-in because it is unverified that the render keeps a stereo cue stereo: render one clip and `ffprobe` it before relying on it; a fast move across the screen is a pan the file cannot follow (use it for landings and taps at a fixed x).
+
+**Generated samples and ambience.** When a cue has no library category and no media-use file, and the user's own `RASANAI_ELEVENLABS_API_KEY` is set, `sfx-plan --project` generates one (ElevenLabs sound generation, cached under `assets/sfx/gen/`, `--no-generate` to skip); otherwise the cue has no file and a downgrade is logged. Never a shared key.
+
+**Lock the approved mix.** After the user approves the sound, `sound.mjs lock --video renders/<film>.mp4 --run $RUN` hashes the decoded audio (and a 100 ms level envelope). After every fix round, `sound.mjs check --video <new render> --locked` (warning `audio-changed`, with the windows that moved) proves the fix did not touch the sound; `--note-asked "<the note>"` when a note asked for it (then lock again).
+
+## Voice: take, listen, retake
+
+`voice.mjs speak --run $RUN --script lines.json --voice <id>` records each line, transcribes it back and keeps the best of up to 4 takes: a line passes at 92% of its words matched, no run of 3 dropped or added words, and no non-speech tag ("(laughs)") heard. From the second retake `--respell '{"Name":"phonetic"}'` is applied to the TTS text (the caption keeps the right spelling). A lone-word line has its vowel tail cut 120 ms after the word. Engines: HeyGen (media-use) first; then, only if installed, **Kokoro** (`kokoro-tts` with `kokoro-v1.0.onnx` and `voices-v1.0.bin` already on disk: Apache-2.0 weights, never downloaded silently) and **edge-tts** (Microsoft's online voices, no key, needs the network); the swap is logged as a downgrade because the voice differs from the one the options offered. For a model that takes a description, describe the voice (age, pace, warmth), put IPA in quotes for a hard name, never SSML.
+
+`voice.mjs verify --mix <final.mp4> --script lines.json --meta audio_meta.json --scenes scenes.json` runs the same check on the **final mix**, one transcription per line window: music, a shallow duck or an SFX can bury a word the clean stem passes (`mix-line-wer`, a warning). A window under 2 s is padded with 0.6 s of silence, or whisper skips it.
+
+`voice.mjs refine --audio vo.wav --words words.json` snaps word times to the audible speech (ffmpeg silencedetect): a word that starts in silence moves to the next onset, one that starts just after an onset snaps back to it. Run it before placing text or SFX against a word.
+
+**Speech in the user's footage** gets the cleanup chain: `footage.mjs clean-speech --in <clip>` (high-pass 80 Hz, denoise, gate, mud cut at 250 Hz, presence at 3.2 kHz, 3:1 compression, -16 LUFS), written beside the rushes, the original untouched, the picture copied as is. Speech only, never a music or room-tone track.
+
 ## Mix targets (what `check` measures)
 
 | Item | Target |
