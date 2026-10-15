@@ -2,6 +2,14 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **New film is a step-by-step setup.** One question per screen with big tiles: series, what you're making, material, brief, length and shape (read from the clip for footage), an example edit, the taste questions, then Review. The Home box keeps a one-click Start next to a new "Set it up".
+- **Review says where each answer came from:** You, From your clip, From your series, From your example, or RasanAI decides. Pace, Models, Motion, Brand, Director and Inspiration sit in a collapsed "More settings".
+- **Series.** Each series has its own page and lives in `<library>/Series/<slug>/series.json`. Existing templates become series on first launch, with the old data kept. On the film page, "Make this the <series> look" locks the look.
+- **Learn from an example edit.** Dropping an edit you like runs a short background job that reads it and pre-fills the answers.
+- **Bundles RasanAI 1.19.0:** taste questions, series and learning from an edit.
+
 ## 0.13.0 (build 30) — 2026-10-15
 
 - **A render is never "Quiet".** While a render or encode runs on your Mac (finish, render, ffmpeg, HyperFrames or Remotion), the film reads "Rendering" with the time so far, for up to 90 minutes, and says that tokens and cost hold still until it finishes. The status bar and the director monitor no longer call it "No activity".
