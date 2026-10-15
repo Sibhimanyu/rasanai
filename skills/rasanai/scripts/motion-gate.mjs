@@ -5,7 +5,7 @@
 // fails here with the time, the region or the beat, so the builder can fix the cause.
 //
 //   node motion-gate.mjs [--video <draft.mp4>] [--project <videos/name>] [--plan <run>/motion/score.json]
-//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--no-text-fit] [--no-fluency] [--no-carry] [--no-echo] [--no-camera] [--no-emphasis] [--no-guards]
+//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--vo <audio_meta.json|words.json>] [--no-text-fit] [--no-fluency] [--no-carry] [--no-echo] [--no-camera] [--no-emphasis] [--no-guards]
 //        [--stillness] [--json]
 //   node motion-gate.mjs fluency --video <film.mp4> [--stillness] [--json]     the fluency measurement alone
 //   -> exit 0 pass · 2 findings (listed, each with a time and a fix) · 1 could not run (never "clean")
@@ -77,6 +77,11 @@
 //              and error `text-overlap` when two readable blocks sit on top of each other for 0.3 s or more
 //              (data-overlap="ok" opts out). `text-cropped` also fires when a mask or inset cuts letters off a readable line (region "mask"), and
 //              text-too-brief is judged per text state (a typed, deleted and swapped slot: each string on its own); see lib/textfit.mjs
+//   subject-lost  (WARNING, --project; the plan's beat `hero_id` / `hero` when it is an element id, and every [data-hero]) the hero keeps 90% of its box inside the 6% safe area
+//              while it is on screen: a camera move (or the hero's own) that takes it out for 0.3 s or more, or a hero never inside, is named with its times (lib/textfit.mjs; data-hero="bleed" opts out)
+//   see-and-say (WARNING; --project plus --vo <audio_meta.json | words.json>, found as <project>/audio_meta.json) each narration cue (a sentence or a pause of 0.6 s ends one) has an on-screen event within 1.0 s: a score event
+//              (the plan's beats[].events, scene-relative), a beat start or a line of text appearing (captions never count); and `text-off-word`: a text that names a word the voice says elsewhere
+//   caption-duplicates-text (WARNING; --project) a caption and another on-screen line of 3+ words say the same words (70% of the line) in the same window: say it once
 //   script-error  (--project) the same page loads error when a composition's script throws while it loads or when its timeline is seeked, a
 //              local script does not load, or the composition never registers window.__timelines[<its id>]: a render-blocking error that
 //              every other gate misses (obey, slop and lint pass a page whose timeline never registers)
@@ -86,7 +91,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
-import { textFit } from "./lib/textfit.mjs";
+import { textFit, cuesOf, seeAndSay, captionDupes } from "./lib/textfit.mjs";
 import { analyse as fluencyOf, scoreFluency } from "./lib/fluency.mjs";
 import { measureCarry } from "./lib/carry.mjs";
 import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
@@ -130,7 +135,7 @@ async function main() {
     }
     process.exit(g.pass === false ? 2 : 0);
   }
-  const res = await gate({ video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], stillness: args.stillness ? true : null });
+  const res = await gate({ vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], stillness: args.stillness ? true : null });
   for (const c of res.could_not_run) noteDowngrade({ run: args.run, what: "the motion gate", instead: "no motion check", why: String(c).slice(0, 200), impact: "this film's motion was not measured" });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else {
@@ -161,7 +166,7 @@ export function readPlan(planPath, scenesPath) {
     const end = Number.isFinite(Number(b.end)) && b.end != null ? Number(b.end) : start + (Number(b.duration) || Number(b.duration_s) || 0);
     t = end;
     const cam3 = b.camera3d && Array.isArray(b.camera3d.moves) ? b.camera3d.moves.map((m) => m && m.move).filter(Boolean) : [];
-    return { i, n: b.n || i + 1, id: String(b.id || b.n || i + 1), start, end, exit: b.exit || null, carrier: b.carrier || null, beat: b.beat != null ? Number(b.beat) : null, peak_t: Number.isFinite(Number(b.peak_t)) && b.peak_t != null && b.peak_t !== "" ? Number(b.peak_t) : null, line: b.line || b.on_screen || null, camera: b.camera || null, camera3d: cam3, signature_shot: !!b.signature_shot };
+    return { i, n: b.n || i + 1, id: String(b.id || b.n || i + 1), start, end, exit: b.exit || null, carrier: b.carrier || null, beat: b.beat != null ? Number(b.beat) : null, peak_t: Number.isFinite(Number(b.peak_t)) && b.peak_t != null && b.peak_t !== "" ? Number(b.peak_t) : null, hero_id: [b.hero_id, b.heroId, b.hero_el, b.hero_element, typeof b.hero === "string" && /^[A-Za-z][\w-]*$/.test(b.hero.trim()) ? b.hero.trim() : null].find((x) => typeof x === "string" && x.trim()) || null, events: Array.isArray(b.events) ? b.events : [], line: b.line || b.on_screen || null, camera: b.camera || null, camera3d: cam3, signature_shot: !!b.signature_shot };
   });
   const seams = (plan && Array.isArray(plan.seams) ? plan.seams : []);
   return { plan, beats, seams, brandReveal: plan ? plan.brandReveal : undefined, endHold: plan && Number(plan.end_hold_s) > 0 ? Number(plan.end_hold_s) : null, duration: plan && Number(plan.duration) > 0 ? Number(plan.duration) : t || null };
@@ -307,6 +312,20 @@ export function creepBetween(a, b, dt, dbg = null) {
 }
 
 // ---------------------------------------------------------------- code (the built project)
+// VO word times in film seconds from audio_meta.json ({voices:[{frame, words:[{text, start}]}]}, start into the beat) or a flat list / {words:[]}
+function loadVoWords(file, beats) {
+  let j; try { j = JSON.parse(fs.readFileSync(file, "utf8")); } catch { return null; }
+  const one = (w, off) => ({ text: String(w.text ?? w.word ?? ""), start: Number(w.start) + off, end: w.end != null ? Number(w.end) + off : Number(w.start) + off + 0.2 });
+  if (Array.isArray(j) || Array.isArray(j.words)) return (Array.isArray(j) ? j : j.words).map((w) => one(w, 0)).filter((w) => Number.isFinite(w.start) && w.text);
+  if (!Array.isArray(j.voices)) return null;
+  const out = [];
+  for (const v of j.voices) {
+    const b = beats.find((x) => String(x.n) === String(v.frame) || x.id === String(v.frame)), off = b ? b.start : 0;
+    if (!b && beats.length) continue;
+    for (const w of v.words || []) out.push(one(w, off));
+  }
+  return out.filter((w) => Number.isFinite(w.start) && w.text);
+}
 function readText(p) { try { return fs.readFileSync(p, "utf8"); } catch { return ""; } }
 function hostsOf(project) {
   const idx = readText(path.join(project, "index.html"));
@@ -420,7 +439,7 @@ function codeChecks(file, html) {
 }
 
 // ---------------------------------------------------------------- the gate
-export async function gate({ video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, stillness = null } = {}) {
+export async function gate({ vo = null, video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, stillness = null } = {}) {
   const findings = [], skipped = [], could = [], measured = {};
   const add = (f) => findings.push(f);
   const P = readPlan(plan && path.resolve(plan), scenes && path.resolve(scenes));
@@ -589,6 +608,23 @@ export async function gate({ video = null, project = null, plan = null, scenes =
       const m = await fluencyOf(path.resolve(video), { series: true });
       const g = scoreFluency(m, { stillness });
       const { _series, ...rest } = m;
+      if (!stillness && (measured.duration_s || P.duration || 0) >= 20 && m.dead_frac != null && m.dead_frac < 0.05 && !m.holds_ge_0_5s)
+        add({ check: "always-moving", severity: "warning", at: null, region: "whole film", message: `${Math.round(m.dead_frac * 100)}% of frames are still and no hold lasts 0.5 s: the frame is always in motion (the references keep about a third still)`, fix: "land the key moments and let them be read: hold 0.5-1 s where the line is read, after the move that earns it" });
+      // energy-off-reference (WARNING, uncalibrated): the draft's energy curve against the reference's (research.mjs deconstruct -> <run>/reference/numbers.json), both per 0.5 s and normalised by their own 90th percentile, the reference stretched to the draft's length
+      if (_series && plan && _series.t && _series.t.length > 2) {
+        let R = null; try { R = JSON.parse(fs.readFileSync(path.join(path.resolve(path.dirname(path.resolve(plan)), ".."), "reference", "numbers.json"), "utf8")); } catch {}
+        if (R && R.energy && Array.isArray(R.energy.energy_norm) && R.energy.energy_norm.length >= 6) {
+          const fpsS = 1 / Math.max(1e-3, _series.t[1] - _series.t[0]), per = Math.max(1, Math.round(0.5 * fpsS)), E = _series.energy, mine = [];
+          for (let i = 0; i < E.length; i += per) { const w = E.slice(i, i + per).filter((v) => v != null); mine.push(w.length ? w.reduce((a, b) => a + b, 0) / w.length : 0); }
+          const p90 = [...mine].sort((a, b) => a - b)[Math.floor(mine.length * 0.9)] || 1, A = mine.map((v) => v / p90);
+          const B = Array.from({ length: A.length }, (_, i) => R.energy.energy_norm[Math.min(R.energy.energy_norm.length - 1, Math.floor((i / A.length) * R.energy.energy_norm.length))]);
+          const ma = A.reduce((a, b) => a + b, 0) / A.length, mb = B.reduce((a, b) => a + b, 0) / B.length;
+          let sab = 0, saa = 0, sbb = 0; for (let i = 0; i < A.length; i++) { sab += (A[i] - ma) * (B[i] - mb); saa += (A[i] - ma) ** 2; sbb += (B[i] - mb) ** 2; }
+          const corr = saa && sbb ? sab / Math.sqrt(saa * sbb) : 0, gap = Math.abs((m.dead_frac ?? 0) - (R.energy.still_share ?? 0));
+          measured.energy_vs_reference = { corr: +corr.toFixed(2), still_draft: m.dead_frac, still_reference: R.energy.still_share };
+          if (corr < 0.2 || gap > 0.25) add({ check: "energy-off-reference", severity: "warning", at: null, region: "whole film", message: `the draft's energy curve follows the reference's at ${corr.toFixed(2)} (want 0.2 or more) and its still share is ${m.dead_frac} against the reference's ${R.energy.still_share}`, fix: "re-shape the pacing: where the reference builds and rests (reference/numbers.json energy_norm), build and rest; or state in the score why this film differs" });
+        }
+      }
       measured.fluency = { score: g.score, pass: g.pass, ...rest };
       const fails = g.checks.filter((c) => c.ok === false);
       if (g.insufficient) skipped.push(`fluency: ${g.note}`);
@@ -758,12 +794,27 @@ export async function gate({ video = null, project = null, plan = null, scenes =
         skipped.push(...r.skipped.slice(0, 5));
       }
       if (doTextFit) {
-        const tf = await textFit(pj);
+        const tf = await textFit(pj, { heroIds: beats.map((b) => b.hero_id).filter(Boolean) });
         findings.push(...tf.findings);
         findings.push(...(tf.warnings || []));
         for (const e of tf.script_errors || []) findings.push({ check: "script-error", severity: "error", at: null, region: e.file, file: e.file, message: `${e.file}: ${e.message}`, fix: "the render will not play this composition: fix the script error (a selector that is not valid, a typo, a missing asset) so the timeline registers; run the page in a browser console to read the full stack" });
         skipped.push(...tf.skipped, ...tf.could_not_run.map((c) => `${c} (not measured, never passed)`));
         measured.text_fit = { pages: tf.pages, samples: tf.samples, script_errors: (tf.script_errors || []).length, cropped: tf.findings.filter((f) => f.check === "text-cropped").length, too_brief: tf.findings.filter((f) => f.check === "text-too-brief").length, overlap: tf.findings.filter((f) => f.check === "text-overlap").length, warnings: (tf.warnings || []).length };
+        // caption duplicates and see-and-say (warnings, uncalibrated; lib/textfit.mjs)
+        findings.push(...captionDupes(tf.texts || []));
+        const voFile = vo ? path.resolve(vo) : [path.join(pj, "audio_meta.json")].find((p) => fs.existsSync(p));
+        const words = voFile ? loadVoWords(voFile, beats) : null;
+        if (words && words.length) {
+          const evs = [];
+          for (const b of beats) {
+            evs.push({ t: b.start, what: `beat ${b.id} starts` });
+            for (const e of b.events || []) { const t = Number(e.t ?? e.at); if (Number.isFinite(t)) evs.push({ t: t <= b.end - b.start + 0.05 ? b.start + t : t, what: String(e.what || e.sound || "event").slice(0, 30) }); }
+          }
+          const cues = cuesOf(words);
+          findings.push(...seeAndSay(cues, evs, tf.texts || [], words));
+          measured.see_and_say = { cues: cues.length, events: evs.length, texts: (tf.texts || []).length };
+        } else if (vo) skipped.push(`see-and-say: no word times in ${vo}`);
+        else skipped.push("see-and-say: no VO word times (give --vo <audio_meta.json|words.json>; a silent film has no cues)");
       } else skipped.push("text-fit: skipped (--no-text-fit)");
     }
   }

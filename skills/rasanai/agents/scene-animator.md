@@ -26,6 +26,9 @@ The bar: a senior motion designer's shot that a viewer would take for the produc
 - **when your scene has a move card** (the score's `moves` lists it under your scene; the Director inlines the card and the rough paths below your packet): `story/moves.json`'s card for your scene, its `bridge` and `handoff`, and the rough under `story/moves/<label>-<id>/` (`rough.mp4`, `strip.png`, `rough.html`). **The card and its rough are your motion target.**
 - when the score puts your scene in `3d` or `hybrid`: `references/3d.md` (the Rasan3D API, the camera and light language, the 2D ↔ 3D seams, the gate) and the scene's `camera3d`, `light` and `materials`
 
+- **When you are the spike** (`spike` in the Dispatch context): the film's fan-out waits for you. You are one hero scene, built, rendered as a draft and run through the motion gate before any other animator starts; yours is then their worked example. Build it to the full bar, and in your note say what you learned that the others should be told (a trap, a timing, a finish that worked). **When a spike exists** (`spike_scene` and an input named THE SPIKE): read its composition and note first. Match its finish and rhythm; never copy its content, its entrances or its curves into a scene that says something else.
+- **In a fix round** (`keep`, and inputs named MARKED CROP): the strengths to keep are what the critics praised, each with its scene or second; a change that loses one fails the blind A/B. The marked crop shows the place a note or finding points at, boxed in red beside the region at 2x: look at it first and fix the cause. `crew.mjs strip ... --crop x,y,w,h` is how you look at the same region after.
+
 ## You return
 
 - your composition, at the path your packet names (`compositions/frames/NN-*.html`), nothing else in the project

@@ -43,6 +43,8 @@ node scripts/voice.mjs verify --audio vo.wav --script lines.json [--names "Brand
 
 Transcribes the voiceover with `whisper-cli` and the model `footage.mjs transcribe` uses (no name prompt, so a name the voice mangles is not rescued), aligns it word by word to the script (`lines.json`: a list of strings or `{text}`; or one line per row in a .txt) and reports the word error rate per line.
 
+With `--project videos/<name> --score "$RUN/motion/score.json"` it also reports see-and-say and caption duplicates (warnings; craft.md "Sound").
+
 - error `line-wer`: a line over 0.2 (`--max-wer`); warning over 0.1. Re-record, or respell hard words phonetically in the TTS text.
 - error `name-misheard`: a `--names` word that was not heard as written (the product name!). Respell it for the TTS only; keep the caption spelled right. A name not in the script is a warning.
 - error `caption-too-short`: a caption (from `--captions` json, `--srt`, or `<project>/compositions/captions.html` elements with `data-start` and `data-duration`/`data-end`) on screen for less than max(1.8 s, its speech + 0.6 s).

@@ -17,6 +17,9 @@
 //      (the voice mispronounces it: respell it phonetically in the TTS text or pick another voice); warning: a line over 0.1.
 //      Caption timing (captions from --captions / --srt / <project>/compositions/captions.html): error `caption-too-short` when a caption
 //      is on screen for less than max(1.8 s, its speech + 0.6 s).
+//      See-and-say and caption duplicates (WARNINGS, uncalibrated; with --project [--score <run>/motion/score.json] [--offset <s the audio starts in the film>] [--no-sync]; loads the built compositions headlessly):
+//      `see-and-say`: a narration cue (a sentence, or a phrase ended by a 0.6 s pause, from the heard word times) with no on-screen event within 1.0 s (a score event, a beat start, a line of text appearing; captions never count);
+//      `text-off-word`: a line of text that names a word the voice says elsewhere, not within 1.0 s of it; `caption-duplicates-text`: a caption and another on-screen line say the same words in the same window.
 //      Exit 0 = clean (warnings allowed), 2 = findings, 1 = could not run (no whisper-cli / model / audio; logged as a downgrade). Prints JSON.
 //
 //   node voice.mjs verify --mix <final.mp4|wav> --script <lines> (--windows <json [{start,end}|[s,e]] one per line> | --meta <audio_meta.json> --scenes <scenes.json>)
@@ -254,9 +257,34 @@ async function verify() {
     }
   } catch (e) { cap = { checked: false, why: `captions unreadable: ${e.message}` }; }
 
+  // see-and-say + caption duplicates: the film's DOM text against the narration's word times (warnings)
+  let sync = { checked: false, why: "give --project to compare the narration with the on-screen text" };
+  if (args.project && args.project !== true && !args["no-sync"]) {
+    try {
+      const tf = await import("./lib/textfit.mjs"), r = await tf.textFit(path.resolve(String(args.project)));
+      if (r.could_not_run.length) sync = { checked: false, why: r.could_not_run[0] };
+      else {
+        const off = Number(args.offset) || 0, words = tr.words.map((w) => ({ ...w, start: w.start + off, end: (w.end ?? w.start) + off })), evs = [];
+        if (args.score && args.score !== true) {
+          try {
+            const sc = JSON.parse(fs.readFileSync(path.resolve(String(args.score)), "utf8")); let t0 = 0;
+            for (const b of sc.beats || sc.scenes || []) {
+              const st = Number.isFinite(Number(b.start)) && b.start != null && b.start !== "" ? Number(b.start) : t0, en = Number.isFinite(Number(b.end)) && b.end != null ? Number(b.end) : st + (Number(b.duration) || Number(b.duration_s) || 0);
+              t0 = en; evs.push({ t: st, what: `beat ${b.id || ""} starts` });
+              for (const e of Array.isArray(b.events) ? b.events : []) { const t = Number(e.t ?? e.at); if (Number.isFinite(t)) evs.push({ t: t <= en - st + 0.05 ? st + t : t, what: String(e.what || e.sound || "event").slice(0, 30) }); }
+            }
+          } catch {}
+        }
+        const cues = tf.cuesOf(words);
+        for (const f of [...tf.seeAndSay(cues, evs, r.texts, words), ...tf.captionDupes(r.texts)]) findings.push({ severity: "warning", check: f.check, at: f.at, message: f.message, fix: f.fix });
+        sync = { checked: true, cues: cues.length, events: evs.length, texts: r.texts.length, offset_s: off, score: evs.length ? "read" : "none (text appearances and beat starts only)" };
+      }
+    } catch (e) { sync = { checked: false, why: `could not compare with the on-screen text: ${String(e.message).slice(0, 120)}` }; }
+  }
+
   const errors = findings.filter((f) => f.severity === "error").length;
   const total = lines.reduce((a, _, k) => a + per[k].err, 0);
-  console.log(JSON.stringify({ ok: !errors, verdict: errors ? "findings" : findings.length ? "clean, warnings" : "clean", model: tr.model, language: tr.language, wer: r2(total / Math.max(1, n)), words: { script: n, heard: m }, lines: outLines, names: nameRows, captions: cap, findings }, null, 2));
+  console.log(JSON.stringify({ ok: !errors, verdict: errors ? "findings" : findings.length ? "clean, warnings" : "clean", model: tr.model, language: tr.language, wer: r2(total / Math.max(1, n)), words: { script: n, heard: m }, lines: outLines, names: nameRows, captions: cap, sync, findings }, null, 2));
   process.exit(errors ? 2 : 0);
 }
 

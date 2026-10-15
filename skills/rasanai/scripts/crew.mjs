@@ -5,6 +5,10 @@
 //
 //   node crew.mjs plan --run <run> --route <route> --subject "<name>" [--mode product|topic] [--url <url>] [--public]
 //        [--local "<dir>,<dir>"] [--may-run] [--scenes N] [--length s] [--project videos/<name>] [--lean] [--model <id>]
+//        [--budget lean|standard|full]   (the token budget, default standard: lean = ONE script, ONE look (no Look picker), the film builder draws its own boards, 1 fix round, the film-lens critic + 1 A/B;
+//                                         standard = every desk, 2 fix rounds, no precedent researcher, the film lens joins the review; full = every desk and every pass, up to 3 fix rounds. --lean = --budget lean.
+//                                         plan prints the estimate per phase and in total (TOKENS below, editable) and writes crew/budget.json for the console's Brief call)
+//        [--spike <scene>]   (a long film: the ONE hero scene built, drafted and gated before the other animators are dispatched; default: the peak beat's scene)
 //        [--sources <sources.json>]   (research.mjs sources: what the film is made FROM. The researchers are chosen by source kind, not by route; a footage spine adds the footage desk
 //                                      (footage-audit, footage-log, selects) and the footage writers (paper edits) in place of the script writers, and turns product-first off)
 //        [--brand "<name>"] [--kind launch|promo|brand] [--brand-film | --no-brand-film] [--pace fast] [--deep | --direct]
@@ -40,13 +44,17 @@
 //           (frames/<id>.png), a hand-dropped story/thumbs/<NN>.png, else a grey box with the thing to read. Runs after the script editor, BEFORE the music fit and
 //           the score; the structure-critic (agents/structure-critic.md) reads only this sheet + intent.json and may cut, merge, move, add a rest or rewrite a buys:
 //           crew.mjs check --role structure-critic applies those edits to story/intent.json, story/chosen.json (and scenes.json when it exists)
-//   node crew.mjs status --run <run>          -> every planned dispatch and where it stands (resume after compaction)
+//   node crew.mjs status --run <run>          -> every planned dispatch and where it stands (resume after compaction), and the estimated token spend so far (accepted members at TOKENS, or the
+//        actual --tokens N a check recorded) against the plan's estimate
+//   node crew.mjs marks --run <run> [--file <draft.mp4>] [--t <s>]   -> crew/marks/<id>.png + marks/index.json: one MARKED CROP per open note that points at a place (console notes with scene, t, x, y[, w, h],
+//        fractions of the frame) and per critic finding with a `region` {x,y,w,h} (fractions) at a time: the frame with the region boxed in red beside the same region cut out at 2x. The fix briefs list them first
 //   node crew.mjs pitches --run <run>         -> merges story/pitch-*.json into story/pitches.json (Sure, Bold, Wild)
 //   node crew.mjs storyboard --run <run> --project <dir> [--score <score.json>]
 //        -> writes the Motion Director's score into the project's STORYBOARD.md as the workflow's visual design
 //           (## Video direction, per frame: shot sequence, blueprint, focal, roles, sfx, handoffs, transition_in)
 //   node crew.mjs strip (--file <composition.html | video.mp4> | --project <dir>) (--at t1,t2 | --from a --to b --fps n)
-//        --out <sheet.png> [--cols 6] [--phone]
+//        --out <sheet.png> [--cols 6] [--phone] [--crop x,y,w,h]
+//        (--crop: the third zoom, after the sheet and the strip: every frame cut to that region (pixels, or fractions of the frame when all four are 1 or less) and shown large, so a hand, a seam or a contact point can be read)
 //        -> a labelled contact strip of the motion at those times (+ the frames in <sheet>/), to look at;
 //           --phone draws each frame 360 px wide (the film on a phone held upright: can every line be read?)
 import fs from "node:fs";
@@ -156,6 +164,36 @@ const ROLES = {
   critic: { desk: "review", tier: "inherit", desc: (p, k) => `Reviewing the ${String(k || "film").split("-")[0]} with fresh eyes` },
 };
 
+// ---------------------------------------------------------------- the token budget (--budget lean|standard|full)
+// Estimates, in tokens, per dispatched member: the first five are MEASURED on real films (MD score ~250k, builder ~300k, critic pass ~75k,
+// A/B ~50k, a writer ~60k, the design desk ~150k = the researcher + three systems); the rest are guesses to be corrected from the actuals
+// that `crew.mjs check --tokens N` records. Edit freely: plan, status and the console's Brief call all read these.
+export const TOKENS = {
+  "motion-director": 250000, "film-builder": 300000, critic: 75000, "ab-juror": 50000,
+  "script-writer": 60000, "footage-writer": 60000, "treatment-writer": 60000, "visual-writer": 60000,
+  "design-researcher": 45000, "design-system-designer": 35000,
+  "scene-animator": 90000, "styleframe-designer": 60000, "frame-designer": 40000, "frame-juror": 30000,
+  "product-researcher": 30000, "brand-researcher": 25000, "screens-researcher": 20000, "precedent-researcher": 30000, "local-scout": 25000, "research-lead": 30000,
+  "move-inventor": 40000, "move-juror": 30000, "move-sketcher": 20000, "script-editor": 40000, "structure-critic": 30000, "concept-critic": 20000,
+  "art-director": 80000, "footage-logger": 25000, "selects-producer": 40000, "brand-kit-builder": 30000, "brand-film-analyst": 30000, retrospective: 15000,
+};
+const TOKEN_KEYS = { "film-builder:lead": 120000, "motion-director:seams": 60000 }; // a key that costs differently from its role
+const FIX_ROUND = 60000; // the builder's fix pass per round (its critic pass and the A/B are counted separately)
+export const BUDGETS = {
+  lean: { fix_rounds: 1, label: "Lean", summary: "one script, one look, the film builder draws its own boards, one fix round, the film critic and one blind A/B" },
+  standard: { fix_rounds: 2, label: "Standard", summary: "every desk, two fix rounds, the film lens joins the review, a blind A/B on each round" },
+  full: { fix_rounds: 3, label: "Full", summary: "every desk and every pass, up to three fix rounds, the precedent study and a separate film review" },
+};
+const tokensFor = (role, key) => TOKEN_KEYS[`${role}:${key}`] || TOKENS[role] || 30000;
+const kTok = (n) => (n >= 1e6 ? (n / 1e6).toFixed(2).replace(/0$/, "") + "M" : Math.round(n / 1000) + "k");
+function estimateFor(p, phases) {
+  const b = BUDGETS[p.budget || "standard"] || BUDGETS.standard;
+  const rows = phases.map((ph) => ({ phase: ph.phase, tokens: ph.dispatch.reduce((a, x) => a + tokensFor(x.role, x.key), 0) })).filter((r) => r.tokens);
+  const fixes = b.fix_rounds * (FIX_ROUND + tokensFor("ab-juror"));
+  const total = rows.reduce((a, r) => a + r.tokens, 0) + fixes;
+  return { budget: p.budget || "standard", fix_rounds: b.fix_rounds, phases: rows, fix_rounds_tokens: fixes, total, total_label: "~" + kTok(total), note: "estimates from measured runs (crew.mjs TOKENS); `crew.mjs check --tokens N` records the real figure per member, and status reports both. A lean film is meant to stay near 0.8M" };
+}
+
 // ---------------------------------------------------------------- plan
 const STORY_ROUTES = new Set(["product-launch-video", "faceless-explainer", "pr-to-video", "general-video", "reel", "music-to-video"]);
 const SCENE_ROUTES = new Set(["product-launch-video", "faceless-explainer", "pr-to-video", "general-video", "music-to-video"]);
@@ -181,7 +219,7 @@ function sourceResearch(p, d, lean) {
   const out = [];
   const kinds = new Set((src.sources || []).map((s) => s.kind));
   for (const dk of desksFor(src)) for (const r of dk.roles) {
-    if (r === "product-researcher") { out.push(d("product-researcher", null, p.direct ? { screens: true } : {})); if (!p.direct) { out.push(d("screens-researcher")); if (p.public && !lean && !p.brand_film) out.push(d("precedent-researcher")); } }
+    if (r === "product-researcher") { out.push(d("product-researcher", null, p.direct ? { screens: true } : {})); if (!p.direct) { out.push(d("screens-researcher")); if (p.public && full && !p.brand_film) out.push(d("precedent-researcher")); } }
     else if (r === "product-researcher:topic") out.push(d("product-researcher", null, { mode: "topic" }));
     else if (r === "product-researcher:document") out.push(d("product-researcher", null, { mode: "document", documents: (src.sources || []).filter((s) => s.kind === "document").map((s) => s.path) }));
     else if (r === "brand-kit-builder") { out.push(d("brand-kit-builder", null, { kit_paths: (src.sources || []).filter((s) => s.kind === "assets").map((s) => s.path), ...(kinds.has("web") ? { verify_url: ((src.sources || []).find((s) => s.kind === "web") || {}).url, note: "the user's kit wins: report drift from the live site as needs_from_user, never override it" } : {}) })); }
@@ -193,7 +231,10 @@ function sourceResearch(p, d, lean) {
 function planCrew(p) {
   const d = (role, key = null, extra = {}) => ({ role, key, tier: ROLES[role].tier, background: true, description: ROLES[role].desc(p, key), ...extra });
   const phases = [];
-  const lean = !!p.lean;
+  const budget = p.budget || "standard";
+  const lean = budget === "lean";
+  const FR = BUDGETS[budget].fix_rounds, FRT = `${FR} fix round${FR > 1 ? "s" : ""}`;
+  const full = budget === "full";
   const N = p.scenes || null;
   const research = [];
   const footageSp = !!(p.sources && isFootageLed(p.sources));
@@ -205,16 +246,16 @@ function planCrew(p) {
     else {
       research.push(d("product-researcher"), d("brand-researcher"), d("screens-researcher"));
       // a branded launch film studies the brand's own films in the brand-film phase instead (faster, and it is the look)
-      if (p.public && !lean && !p.brand_film) research.push(d("precedent-researcher"));
+      if (p.public && full && !p.brand_film) research.push(d("precedent-researcher"));
     }
   } else if (p.route === "faceless-explainer" || p.mode === "topic") {
     research.push(d("product-researcher", null, { mode: "topic" }));
-    if (!lean) research.push(d("precedent-researcher"));
+    if (full) research.push(d("precedent-researcher"));
   } else if (p.route === "pr-to-video") {
     research.push(d("product-researcher"));
   } else if (p.route === "music-to-video") {
     // a song: precedent (the artist's and genre's visual conventions) only when the artist/brand has a public face
-    if (p.public && !lean) research.push(d("precedent-researcher", null, { mode: "music" }));
+    if (p.public && full) research.push(d("precedent-researcher", null, { mode: "music" }));
   } else if (p.route === "presenter") {
     // the speech is the source; research only when it names a product or company worth getting right
     if (p.subject && p.public) research.push(d("product-researcher", null, { mode: "topic" }), d("brand-researcher"));
@@ -268,14 +309,16 @@ function planCrew(p) {
   // The script editor is never skipped: a lean film has no writers to dispatch (the Director writes the three scripts), but its scripts are still read by the editor.
   const scripted = STORY_ROUTES.has(p.route) && !["reel", "music-to-video"].includes(p.route) && !footageSp;
   if (scripted && lean) {
-    phases.push({ phase: "story", when: "after story.mjs pick: the Director writes the three scripts (lean: no script writers), each with story/intent-<Label>.json", dispatch: [], director_steps: ["write story/pitch-<Sure|Bold|Wild>.json and story/intent-<Sure|Bold|Wild>.json yourself (agents/script-writer.md, references/intent.md)", "crew.mjs pitches, story.mjs check, story.mjs intent --intent story/intent-<Label>.json"], then: "then the script editor: it is never skipped" });
-    phases.push({ phase: "story-edit", when: "after the three pitches pass story.mjs check: the script editor runs on every scripted route, lean or not", dispatch: [d("script-editor")], then: "route its notes back (one round), then push story" });
+    phases.push({ phase: "story", when: "after story.mjs pick: the Director writes ONE script (lean: no script writers, no three-way pick), with story/intent-Sure.json", dispatch: [], director_steps: ["write story/pitch-Sure.json and story/intent-Sure.json yourself, in the shape and device story.mjs pick recommended (agents/script-writer.md, references/intent.md)", "crew.mjs pitches, story.mjs check, story.mjs intent --intent story/intent-Sure.json"], then: "then the script editor: it is never skipped; the Story call shows the one script as a confirm (recommended), not a pick of three" });
+    phases.push({ phase: "story-edit", when: "after the pitch passes story.mjs check: the script editor runs on every scripted route, lean or not", dispatch: [d("script-editor")], then: "route its notes back (one round), then push story" });
   }
   // three bespoke design systems for the chosen story (a lyric video: one, from the chosen treatment's style bible)
   if (p.route === "music-to-video") {
     phases.push({ phase: "design-system", when: "after the treatment is chosen (the Look step is the treatment's style bible, built out by the desk)", dispatch: [d("design-system-designer", "<chosen label>", { mode: "bible" })], then: "design.mjs check-system, then design.mjs choose-system for that label; no Look picker" });
   } else if (brandLook) {
     phases.push({ phase: "look-auto", when: "after the story is chosen: a direct film with a brand has no three-system desk", dispatch: [], director_steps: ["the look is the brand's own: research/brand/DESIGN.md (or the workspace DESIGN.md)" + (bf ? " and brand-film/FILM-STYLE.md" : ""), "push look --status done with the reason (\"The brand's own look: <type, colours>; the motion comes from the picked moments\"): the Look call is decided, like any craft call", "motion-md.mjs write from the brand's motion, direction.mjs compile, and video-decisions look = {design_md, mode: \"brand\"}", "the user can still ask for looks (\"show me looks\"): re-plan with --deep"], then: "the concept gate" });
+  } else if (lean) {
+    phases.push({ phase: "design-system", when: "after the story is chosen (story/chosen.json)" + (bf ? " and the brand film card (brand-film/FILM-STYLE.md) is accepted" : " and design-research is accepted") + ": lean has ONE look, not three", dispatch: [d("design-system-designer", "Sure")], then: "design.mjs check-system, design.mjs choose-system Sure; the Look call is a confirm of the one look (design.mjs look-payload with one style), never a pick of three, and there are no look hero frames" });
   } else {
     phases.push({ phase: "design-systems", when: p.route === "reel" || ["talking-head-recut", "embedded-captions"].includes(p.route) ? "after the story is chosen (a reel is Story -> Look -> Cut: the cards, overlays and captions are drawn before the cut is built) or after the brief (talking-head-recut, embedded-captions): three card / overlay / caption identities" : (bf ? "after the story is chosen (story/chosen.json) and the brand film card (brand-film/FILM-STYLE.md) is accepted" : "after the story is chosen (story/chosen.json) and design-research is accepted"), dispatch: ["Sure", "Bold", "Wild"].map((k) => d("design-system-designer", k)), then: "design.mjs check-systems (each valid and the three distinct" + (bf ? "; a branded look cites FILM-STYLE.md, uses the card's palette and type, and carries no outside references" : "") + "), then design.mjs look-payload and push the Look" });
     // picture-first (references/styleframes.md): on a scene route each system is shown by its 3 hero styleframes of this story
@@ -283,7 +326,7 @@ function planCrew(p) {
   }
   if (p.route === "presenter") {
     phases.push({ phase: "animate-graphics", when: "after presenter.mjs build wrote the project and briefs/graphics/*.md (the plates are generated and approved)", dispatch: [d("scene-animator", "<beat>-<n>")], then: "one scene-animator per graphic brief (key b3-1 = beat b3, graphic 1) and per designed plate (key plate-p2), in parallel; then obey, slop and a draft render" });
-    phases.push({ phase: "review", when: "after the graphics are in and the draft is rendered", dispatch: [d("critic", "motion-1"), d("critic", "film-1")], then: "route each finding to its graphic's animator or to the plate's prompt (2 rounds at most)" });
+    phases.push({ phase: "review", when: "after the graphics are in and the draft is rendered", dispatch: [d("critic", "motion-1"), d("critic", "film-1")], then: "route each finding to its graphic's animator or to the plate's prompt (" + FRT + " at most)" });
   }
   if (STORY_ROUTES.has(p.route) && !["music-to-video"].includes(p.route) && (p.route !== "reel" || footageSp)) {
     phases.push({ phase: "concept-gate", when: footageSp ? "after the paper edit and the look are chosen, BEFORE the cut is built: a quick Sonnet critic scores them against the literal brief with the footage questions (is the hook the strongest real moment? does every claim come from the material or the ledger? does the cut keep each speaker's meaning? is the brand kit obeyed?)" : "after the story and the look are chosen, BEFORE motion planning (the expensive work): a quick Sonnet critic scores the chosen script and look against the literal brief", dispatch: [d("concept-critic", "concept-1")], then: "ship: record it in decisions (console push --step concept) and go on; fix: rewrite the script (or the look) from its findings, re-run it once, then go on. Never start the score on a failing concept" });
@@ -311,7 +354,8 @@ function planCrew(p) {
   if (DIRECT_ROUTES.has(p.route)) {
     const sfWhen = lean ? "after the concept gate, BEFORE the music and the score" : "after the art department, BEFORE the music and the score (the score animates between the boards)";
     const sfSteps = ["node scripts/frames.mjs init --run <run>   (the frame kit, RasanCamera when the skill has it, a shots.json skeleton from the chosen script)", "node scripts/frames.mjs refs --run <run> --sheet   (the reference stills the run has)", "node scripts/frames.mjs shots-check --run <run>", "node scripts/design.mjs stills --dir <run>/frames --aspect <aspect>"];
-    if (lean) phases.push({ phase: "styleframes", when: sfWhen, dispatch: [], director_steps: ["you design the styleframes yourself, the same files and checks (agents/styleframe-designer.md): frames/shots.json, 3 hero frames, a board per beat, frames/FRAMES.md", ...sfSteps, "frames.mjs sheet --ours <run>/frames --refs <stills of the same kind> --out <run>/frames/sheet.png: look at it and revise the weakest frame once"], then: "crew.mjs check --role styleframe-designer --key frames, then the music and the score" });
+    if (lean && p.direct) phases.push({ phase: "styleframes", when: sfWhen, dispatch: [], director_steps: sfSteps.slice(0, 1), then: "no designer and no separate board pass: the film builder draws each beat's board (frames/shots.json, frames/<id>.html + .png via design.mjs stills) as the first step of its build and looks at them before it animates; crew.mjs check --role film-builder --key film then holds the film to them" });
+    else if (lean) phases.push({ phase: "styleframes", when: sfWhen, dispatch: [], director_steps: ["you design the styleframes yourself, the same files and checks (agents/styleframe-designer.md): frames/shots.json, 3 hero frames, a board per beat, frames/FRAMES.md", ...sfSteps, "frames.mjs sheet --ours <run>/frames --refs <stills of the same kind> --out <run>/frames/sheet.png: look at it and revise the weakest frame once"], then: "crew.mjs check --role styleframe-designer --key frames, then the music and the score" });
     else if (p.direct) phases.push({ phase: "styleframes", when: sfWhen, dispatch: [d("styleframe-designer", "frames")], director_steps: sfSteps.slice(0, 1), then: "crew.mjs check --role styleframe-designer --key frames, then the frame juror" });
     else {
       phases.push({ phase: "styleframes", when: sfWhen, dispatch: [d("styleframe-designer", "heroes")], director_steps: sfSteps.slice(0, 1), then: "crew.mjs check --role styleframe-designer --key heroes, then the boards" });
@@ -340,31 +384,78 @@ function planCrew(p) {
       // beat in one pass, so objects carry across beats by construction. No parallel animators, no seam pass.
       phases.push({ phase: "build", when: "after the workflow's frame-packets.mjs and video.mjs inject (the plan is accepted)", dispatch: [d("film-builder", "film")], then: "motion-gate.mjs on the project, the draft render, motion-gate.mjs on the draft, then the animatic call on the draft" });
       phases.push({ phase: "animatic-draft", when: "after the first draft render passes the motion gate: the Animatic call shows the built film (the boards were approved before the score)", dispatch: [], director_steps: ["stills of the draft at each beat's midpoint (crew.mjs strip --file <draft.mp4> --at <midpoints>) as the scenes' thumbs", "push animatic with scenes [{id, title, line, visual, duration, thumb}], audio = the draft's own mix (or music.file = the bed) and video = <draft.mp4>", "notes come back by beat: route them to the film builder, re-render, re-run the gate; approve -> the critics and the Final"], then: "the critics on the approved draft" });
-      const review = lean ? [d("critic", "film-1")] : [d("critic", "motion-1"), d("critic", "grounding-1")];
-      phases.push({ phase: "review", when: "after the build and the draft render; motion-gate.mjs has run on the draft (a critic never judges without a render and the gate's report)", dispatch: review, then: "route each finding back to the film builder (2 rounds at most); film critic on the draft" });
+      const review = lean ? [d("critic", "film-1")] : full ? [d("critic", "motion-1"), d("critic", "grounding-1")] : [d("critic", "motion-1"), d("critic", "film-1")];
+      phases.push({ phase: "review", when: "after the build and the draft render; motion-gate.mjs has run on the draft (a critic never judges without a render and the gate's report)", dispatch: review, then: "route each finding back to the film builder (" + FRT + " at most; carry each critic's strengths[] into the fix brief as what to keep)" + (full ? "; film critic on the draft" : "") });
     } else {
       // a longer film keeps parallel animators, but every object that crosses a seam belongs to the lead builder (one object
       // on one tween in the root), and the seam contract hands over a moving state (velocity, direction), never a pose at rest
       phases.push({ phase: "lead", when: "after the workflow's frame-packets.mjs and video.mjs inject, before the scene animators: the root, the ground and every carrier (an object that crosses a cut; story/moves.json's `carrier` is the one it builds first) on its own track", dispatch: [d("film-builder", "lead")], then: "the scene animators, who build around the carriers' landing rects" });
-      phases.push({ phase: "animate", when: "after the lead builder's carriers are in", dispatch: scenes.map((k) => d("scene-animator", k)), then: "assemble, then the seam pass" });
+      // spike before fan-out: ONE hero scene is animated, drafted and gated first; what it teaches goes into every other animator's brief
+      const spike = p.spike ? String(p.spike) : null;
+      phases.push({ phase: "spike", when: "after the lead builder's carriers are in, BEFORE the other animators: one hero scene (" + (spike ? "scene " + spike : "the peak beat's scene: the intent's peak, else the first used hero move") + ") is built, rendered as a draft and gated", dispatch: [d("scene-animator", spike || "<hero scene>")], director_steps: ["crew.mjs brief --role scene-animator --key <hero scene> (its brief says it is the spike), dispatch it, crew.mjs check", "assemble the index with that one scene, render a DRAFT of it (the project's draft render), run motion-gate.mjs on the draft and crew.mjs strip --file <draft.mp4> around its primary move and its seams; look at it", "the spike must pass the gate and be a scene you would show; one fix round on the same animator if not. The rest of the fan-out waits for this: a wrong approach found here costs one scene, not all of them"], then: "animate: the other scene animators get the spike's composition as a worked example of the finish and the rhythm (crew.mjs brief adds it)" });
+      phases.push({ phase: "animate", when: "after the spike scene passes its draft and the gate", dispatch: scenes.filter((k) => k !== spike).map((k) => d("scene-animator", k)), then: "assemble (the spike scene is already in), then the seam pass" });
       phases.push({ phase: "seams", when: "after every scene is accepted and the index is assembled", dispatch: [d("motion-director", "seams")], then: lean ? "the film critic" : "the motion critic" });
-      const review = lean ? [d("critic", "film-1")] : [d("critic", "motion-1"), d("critic", "grounding-1")];
-      phases.push({ phase: "review", when: "after the seam pass (motion, grounding) and the draft render (film); motion-gate.mjs has run on the draft", dispatch: review, then: "route each finding to its scene's animator (2 rounds at most); film critic on the draft" });
+      const review = lean ? [d("critic", "film-1")] : full ? [d("critic", "motion-1"), d("critic", "grounding-1")] : [d("critic", "motion-1"), d("critic", "film-1")];
+      phases.push({ phase: "review", when: "after the seam pass (motion, grounding) and the draft render (film); motion-gate.mjs has run on the draft", dispatch: review, then: "route each finding to its scene's animator (" + FRT + " at most; carry each critic's strengths[] into the fix brief as what to keep)" + (full ? "; film critic on the draft" : "") });
     }
     if (bf) phases.push({ phase: "style-match-draft", when: "after the first draft render, before the film critic", dispatch: [], gate: "node scripts/brandfilm.mjs compare --ref <run>/brand-film/grammar.json --ours <draft.mp4>", then: "on FAIL fix the failing scenes (colour, canvas, cut rate) and re-render; record the numbers in decisions (decisions.style_match.draft) and push the short note" });
-    if (!lean) phases.push({ phase: "review-film", when: "after the draft render", dispatch: [d("critic", "film-1")], then: "fix or waive at the Final" });
+    if (full) phases.push({ phase: "review-film", when: "after the draft render", dispatch: [d("critic", "film-1")], then: "fix or waive at the Final" });
   }
   if (footageSp && p.route === "reel") {
     // the reel's own build, after Story -> Look: the Director cuts from the chosen paper edit; cards and overlays are drawn by scene animators from reel.mjs briefs
     phases.push({ phase: "cut", when: "after the paper edit and the look are chosen and the concept gate passed", dispatch: [], director_steps: ["write reel.json from story/paper-<L>.json: the spine becomes segments on word boundaries, broll_map becomes the covering clips, graphics become cards and overlays, captions.on for speech, the music bed", "footage.mjs check-paper --run <run> --paper story/paper-<L>.json --length <s>", "reel.mjs briefs --reel <run>/reel.json --project-dir videos/<name>", "push reel (the Animatic: the rough cut, editable in/out points)"], then: "animate-graphics" });
     phases.push({ phase: "animate-graphics", when: "after reel.mjs briefs wrote compositions/cards/*.brief.md", dispatch: [d("scene-animator", "<card>")], then: "one scene-animator per card or overlay brief, in parallel; then reel.mjs build --render --quality draft (lint + obey)" });
-    phases.push({ phase: "review", when: "after the draft render", dispatch: lean ? [d("critic", "film-1")] : [d("critic", "motion-1"), d("critic", "film-1")], then: "route each finding back (2 rounds at most); check by eye that every cut lands on a word boundary, every join is covered, every name is spelled as in footage/names.json" });
+    phases.push({ phase: "review", when: "after the draft render", dispatch: lean ? [d("critic", "film-1")] : [d("critic", "motion-1"), d("critic", "film-1")], then: "route each finding back (" + FRT + " at most); check by eye that every cut lands on a word boundary, every join is covered, every name is spelled as in footage/names.json" });
   }
   // every fix round after the first draft is accepted only after a blind A/B against the round before it; after delivery the film teaches the next
   if (SCENE_ROUTES.has(p.route) || p.route === "motion-graphics") phases.push({ phase: "stage3d-font", when: "before a beat sets BRAND TYPE in 3D (extruded text): only then", dispatch: [], director_steps: ["node scripts/stage3d.mjs font --project <dir> --family \"<Brand Font>\" --weight 700 (prints the staged font path)", "k.extrudeText(text, { font: \"<printed path>\" }) in the scene"], then: "the 3D type is the brand's own face, never a stand-in" });
-  phases.push({ phase: "ab-review", when: "every fix round after the first draft, before the round is accepted", dispatch: [], director_steps: ["node scripts/fixcheck.mjs --before <the previous render> --after <this round's render> --touched <the notes' windows> (read regression_runs and diff_pngs: a leak into frames the round did not touch is fixed or explained)", "crew.mjs ab --run <run> --a <the previous render> --b <this round's render> --plan motion/score.json", "crew.mjs brief --role ab-juror --key <k> (dispatch it; it sees X and Y, never which is newer)", "crew.mjs check --role ab-juror --key <k> prints keep or revert; revert = back to the previous version's project state (git, or the .superseded copy), keep only fixes that do not lose, and log the lost round with --because"], then: "a lost round is reverted, never accepted" });
+  phases.push({ phase: "ab-review", when: lean ? "the fix round (lean: one), before it is accepted" : "every fix round after the first draft (" + FRT + " at most), before the round is accepted", dispatch: [], director_steps: ["node scripts/fixcheck.mjs --before <the previous render> --after <this round's render> --touched <the notes' windows> (read regression_runs and diff_pngs: a leak into frames the round did not touch is fixed or explained)", "crew.mjs ab --run <run> --a <the previous render> --b <this round's render> --plan motion/score.json (the juror's brief carries the critics' strengths[]: a round that loses one is a regression)", "crew.mjs brief --role ab-juror --key <k> (dispatch it; it sees X and Y, never which is newer)", "crew.mjs check --role ab-juror --key <k> prints keep or revert; revert = back to the previous version's project state (git, or the .superseded copy), keep only fixes that do not lose, and log the lost round with --because"], then: "a lost round is reverted, never accepted" });
   phases.push({ phase: "retrospective", when: "at delivery, after the Final", dispatch: [d("retrospective")], then: "crew.mjs check --role retrospective prints the lessons.mjs add --source self lines (at most 2); run them" });
   return phases;
+}
+
+// The critics' strengths-to-keep: crew/critic-<lens>-<round>.json `strengths` (strings, or {what, scene?, t?}); the latest round of each lens. The fix brief carries them and the A/B juror is told to flag a regression.
+function latestCritics(run) {
+  const dir = R(run, "crew"), by = new Map();
+  if (!exists(dir)) return [];
+  for (const fn of fs.readdirSync(dir)) {
+    const mm = fn.match(/^critic-([a-z]+)-(\d+)\.json$/);
+    if (!mm) continue;
+    const j = jsonMaybe(path.join(dir, fn));
+    if (!j || typeof j !== "object") continue;
+    const cur = by.get(mm[1]);
+    if (!cur || Number(mm[2]) > cur.round) by.set(mm[1], { lens: mm[1], round: Number(mm[2]), file: path.join(dir, fn), j });
+  }
+  return [...by.values()];
+}
+function strengthLine(s, lens) {
+  if (typeof s === "string") return s.trim() ? { what: s.trim(), lens } : null;
+  if (!s || typeof s !== "object" || !String(s.what || "").trim()) return null;
+  return { what: String(s.what).trim(), scene: s.scene != null ? s.scene : undefined, t: s.t != null ? s.t : undefined, lens };
+}
+function keepList(run) {
+  const seen = new Set(), out = [];
+  for (const c of latestCritics(run)) for (const s of Array.isArray(c.j.strengths) ? c.j.strengths : []) {
+    const x = strengthLine(s, c.lens);
+    if (x && !seen.has(x.what.toLowerCase())) { seen.add(x.what.toLowerCase()); out.push(x); }
+  }
+  return out.slice(0, 12);
+}
+const keepText = (k) => k.map((x) => `${x.what}${x.scene != null ? ` (scene ${x.scene}${x.t != null ? ", " + x.t + " s" : ""})` : x.t != null ? ` (${x.t} s)` : ""}`);
+// the marked crops (crew.mjs marks) that exist, newest index
+const marksIndex = (run) => jsonMaybe(R(run, "crew", "marks", "index.json")) || null;
+
+// the scene the spike builds: the intent's peak beat, else the first scene a used hero move sits in, else the middle one
+function spikeScene(run, N) {
+  try {
+    const it = jsonMaybe(R(run, "story", "intent.json"));
+    const bi = it && Array.isArray(it.beats) ? it.beats.findIndex((b) => b && b.peak) : -1;
+    if (bi >= 0) return bi + 1;
+    const sc = jsonMaybe(R(run, "motion", "score.json"));
+    const mv = sc && Array.isArray(sc.moves) ? sc.moves.find((e) => e && e.status === "used" && Number(e.scene) > 0) : null;
+    if (mv) return Number(mv.scene);
+  } catch {}
+  return N ? Math.ceil(N / 2) : null;
 }
 
 // ---------------------------------------------------------------- ledger
@@ -848,6 +939,12 @@ function contextFor(run, role, key, plan) {
       ctx.films = "two, called X and Y; their order is not known to you or to anyone who briefed you";
       for (const [l, p] of [["rows of moments, X on the left and Y on the right, the same seconds (the endings last); read at 100%", rec.strips.rows[0]], ...rec.strips.rows.slice(1).map((r, i) => [`more rows (${i + 2})`, r]), ["X on a phone (every second at 360 px)", rec.strips.phone_X], ["Y on a phone (every second at 360 px)", rec.strips.phone_Y]]) I(l, path.resolve(WS, p));
       if (rec.plan) I("the score (what each beat means to say; never an excuse for what the frames do not show)", path.resolve(WS, rec.plan));
+      // strengths a reviewer named earlier, said without a word about which film they came from: the juror looks for each in BOTH films
+      const keep = keepList(run);
+      if (keep.length) {
+        ctx.strengths_to_keep = keepText(keep);
+        ctx.strengths_rule = "these were praised in one of the films by someone who saw it. Look for each in BOTH X and Y at that second. In the verdict add strength_regressions: [{film: \"X\"|\"Y\", strength, at}] for every one a film lacks or does worse; a film that has lost one is weaker on that point, and a loss that decides it belongs in your reasons (say \"lacks\" or \"does worse\", never \"regression\"). Never say which film came first";
+      }
       O(R(run, "crew", `ab-${k}-verdict.json`));
       break;
     }
@@ -889,6 +986,31 @@ function contextFor(run, role, key, plan) {
       if (shot) { ctx.board = `frames/${shot.id}.png (${String(shot.size || "").toUpperCase()} · ${shot.hero || ""}): your visual target at the scene's peak`; inputs.unshift([`your board (the approved picture of this scene)`, R(run, "frames", `${shot.id}.png`)]); }
       I("the shot list (your board's size, hero, angle, focus, light, ground, type sizes, crop)", R(run, "frames", "shots.json"));
     }
+  }
+  // the fixer's extras: the marked crops of the notes and findings (crew.mjs marks), and what the critics said to keep
+  if (["film-builder", "scene-animator"].includes(role)) {
+    const mk = marksIndex(run);
+    if (mk && Array.isArray(mk.marks) && mk.marks.length) {
+      const mine = role === "scene-animator" && Number(key) > 0 ? mk.marks.filter((x) => x.scene == null || Number(x.scene) === Number(key)) : mk.marks;
+      for (const x of mine.slice(0, 12)) I(`MARKED CROP ${x.id} (${x.t} s${x.scene != null ? ", scene " + x.scene : ""}): the red box is the place; ${String(x.text || "").slice(0, 100)}`, path.resolve(WS, x.png));
+    }
+    const keep = keepList(run);
+    if (keep.length) ctx.keep = keepText(keep);
+    if (keep.length) ctx.keep_rule = "these strengths were named by the critics: a fix that loses one fails the blind A/B. Make every change around them, never through them";
+    if (role === "scene-animator" && P.spike && Number(key) > 0) {
+      if (Number(key) === Number(P.spike)) ctx.spike = "you are the SPIKE: the one hero scene built, drafted and gated before the others start. Build it to the full bar; your composition becomes the other animators' worked example. Say in your note what you learned that the others should be told (a trap, a timing, a finish that worked)";
+      else {
+        const pkd = pj ? path.join(pj, ".hyperframes", "frame-packets") : null;
+        const sp = pkd && exists(pkd) ? fs.readdirSync(pkd).find((fn) => new RegExp(`^0*${P.spike}[-_.]`).test(fn) && fn.endsWith(".md")) : null;
+        const spf = pj ? path.join(pj, "compositions", "frames", sp ? sp.replace(/\.md$/, ".html") : `${String(P.spike).padStart(2, "0")}-*.html`) : null;
+        ctx.spike_scene = P.spike;
+        if (spf) I(`THE SPIKE (scene ${P.spike}, already built, rendered as a draft and through the gate): its finish and rhythm are your bar; the content is yours`, spf);
+        I("the spike animator's handback note (what it learned)", R(run, "crew", "animators", `${P.spike}.md`));
+      }
+    }
+  }
+  if (role === "film-builder" && P.budget === "lean" && P.direct && key !== "lead") {
+    ctx.own_boards = "lean budget: no designer drew the boards. FIRST, before any animation, draw them yourself: frames/shots.json (one shot per beat: size, hero, light, ground, type sizes), then frames/<id>.html and its .png per beat (node scripts/frames.mjs init --run <run>, then node scripts/design.mjs stills --dir frames), LOOK at them against the score, and animate between them. Keep it to the beats' peak frames: one picture per beat, no variants";
   }
   for (const kv of str(args.set).split(",").filter(Boolean)) {
     const i = kv.indexOf("=");
@@ -1017,7 +1139,7 @@ function promptFor(run, role, key, plan) {
         const card = mvj.cards.find((c) => c && c.id === e.id);
         if (!card) return "";
         const d = R(run, "story", "moves", `${mvj.label}-${e.id}`);
-        const files = ["rough.mp4", "strip.png", "rough.html"].filter((f) => exists(path.join(d, f))).map((f) => `\`${rel(path.join(d, f))}\``);
+        const files = ["rough.mp4", "strip.png", "rough.json", "rough.html"].filter((f) => exists(path.join(d, f))).map((f) => `\`${rel(path.join(d, f))}\``);
         return `### Move ${e.id}: ${card.title}${e.scene ? ` (scene ${e.scene})` : ""}${e.seam ? ` (seam ${e.seam})` : ""}\n\n\`\`\`json\n${JSON.stringify(card, null, 2)}\n\`\`\`\n\nThe rough (a grey-box of the timing; look at its strip, play the mp4): ${files.length ? files.join(", ") : "(none rendered)"}`;
       }).filter(Boolean);
       const car = mvj.carrier && mvj.carrier.what ? `**${mvj.carrier.what}**` : "set in story/moves.json";
@@ -2201,7 +2323,12 @@ async function checkRole(run, role, key) {
         if (!gr) P.push(`no motion gate report (crew/motion-gate.json): the ${lens} critic judges a draft render with the gate's numbers, never stills alone. The Director runs motion-gate.mjs --video <draft.mp4> --plan <run>/motion/score.json --project <dir> --json > <run>/crew/motion-gate.json first`);
         else if (gr.verdict === "fail" && c.verdict === "ship") P.push(`ship while the motion gate fails (${(gr.findings || []).filter((x) => x.severity === "error").length} finding(s)): fix those first`);
       }
+      // strengths-to-keep: what the critic would protect, so a fix does not buy a green gate with it (the fix brief carries them; the A/B juror flags a regression)
+      if (c.strengths != null && !Array.isArray(c.strengths)) P.push('"strengths" must be an array of strings or {what, scene?, t?}');
+      else if (!Array.isArray(c.strengths) || !c.strengths.some((s) => strengthLine(s, lens))) W.push('no "strengths": name 1 to 4 things that work and must survive the fixes (each with the scene or second), so the fix brief can keep them');
+      else if (c.strengths.length > 6) W.push("more than 6 strengths: keep the ones a fix could break");
       fs_.forEach((x, i) => {
+        if (x.region != null) { const rv = Array.isArray(x.region) ? x.region : [x.region.x, x.region.y, x.region.w, x.region.h]; if (rv.length !== 4 || rv.some((q) => !Number.isFinite(Number(q)))) P.push(`finding ${i + 1}: region must be {x, y, w, h} (fractions of the frame) or [x, y, w, h]`); else if (typeof x.t !== "number") W.push(`finding ${i + 1}: a region needs t (seconds) for crew.mjs marks to cut the crop`); }
         if (!String(x.fix || "").trim()) P.push(`finding ${i + 1}: no exact fix`);
         if (lens !== "grounding" && x.scene == null) W.push(`finding ${i + 1}: no scene`);
       });
@@ -2299,6 +2426,9 @@ async function checkRole(run, role, key) {
       if (rs.length > 6) W.push("more than 6 reasons: keep the ones that decided it");
       const dims = ["boldness", "readability", "ending", "rhythm"];
       for (const x of ["X", "Y"]) for (const dm of dims) { const n = Number(v.scores && v.scores[x] && v.scores[x][dm]); if (!(n >= 1 && n <= 10)) P.push(`scores.${x}.${dm} must be 1 to 10`); }
+      if (v.strength_regressions != null && !Array.isArray(v.strength_regressions)) P.push('"strength_regressions" must be an array of {film, strength, at}');
+      else for (const q of v.strength_regressions || []) if (!q || !["X", "Y"].includes(q.film) || !String(q.strength || "").trim()) P.push('each strength_regressions entry needs film ("X" or "Y") and strength');
+      if (keepList(run).length && !Array.isArray(v.strength_regressions)) W.push('the brief listed strengths to keep: say "strength_regressions": [] when neither film lost one');
       if (!String(v.loses_on || "").trim()) W.push('"loses_on" is empty: say what the film not picked does better (a fix can borrow it)');
       // the juror was never told the order: a reason that guesses it is a breach, and the verdict is asked again
       const leak = JSON.stringify([v.reasons, v.loses_on]).match(/\b(newer|newest|older|oldest|revised|revision|draft|version|improved|regress(?:ed|ion)?|reworked|fix round|after the fix)\b/i);
@@ -2306,7 +2436,7 @@ async function checkRole(run, role, key) {
       if (!P.length) {
         const winnerRole = rec.order[v.pick]; // "new" | "prev"
         const result = winnerRole === "new" ? "keep" : "revert";
-        rec.verdict = { pick: v.pick, winner: winnerRole, result, at: new Date().toISOString(), scores: v.scores, loses_on: v.loses_on || null };
+        rec.verdict = { pick: v.pick, winner: winnerRole, result, at: new Date().toISOString(), scores: v.scores, loses_on: v.loses_on || null, strength_regressions: (v.strength_regressions || []).map((q) => ({ ...q, role: rec.order[q.film] })) };
         fs.writeFileSync(rf, JSON.stringify(rec, null, 2));
         CHECK_EXTRA = { result, winner: winnerRole, picked: v.pick, next: result === "keep" ? "the new version won the blind A/B: accept the round" : "the new version LOST the blind A/B: go back to the previous version's project state (git checkout of the project, or its .superseded copy), keep only fixes that do not lose (re-apply each on the old state and A/B again if in doubt), and log it: console.mjs push ... --because \"round N lost the blind A/B: <loses_on>\"", loses_on: v.loses_on || null };
       }
@@ -2535,6 +2665,21 @@ function projectAt(dir0, T, dir) {
   const hf = jsonMaybe(path.join(dir0, "hyperframes.json")) || {};
   return { files, W: hf.width || 1920, H: hf.height || 1080 };
 }
+// a crop region "x,y,w,h": pixels, or fractions of the frame when all four are 1 or less; clamped to the frame, even sizes for the encoder
+function parseCrop(s, W, H) {
+  const v = s.split(",").map(Number);
+  if (v.length !== 4 || v.some((n) => !Number.isFinite(n) || n < 0) || !(v[2] > 0 && v[3] > 0)) die("--crop x,y,w,h (pixels, or fractions of the frame when all four are 1 or less)");
+  const fr = v.every((n) => n <= 1);
+  let [x, y, w, h] = fr ? [v[0] * W, v[1] * H, v[2] * W, v[3] * H] : v;
+  x = Math.min(Math.max(0, Math.round(x)), W - 2); y = Math.min(Math.max(0, Math.round(y)), H - 2);
+  w = Math.max(2, Math.min(Math.round(w), W - x)) & ~1; h = Math.max(2, Math.min(Math.round(h), H - y)) & ~1;
+  return { x, y, w, h };
+}
+function cropPng(src, dst, c, scaleW = 0) {
+  const vf = `crop=${c.w}:${c.h}:${c.x}:${c.y}` + (scaleW ? `,scale=${scaleW}:-2:flags=lanczos` : "");
+  const r = spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-i", src, "-vf", vf, "-frames:v", "1", dst], { encoding: "utf8" });
+  if (r.status !== 0 || !exists(dst)) die(`ffmpeg could not crop ${path.basename(src)}: ${(r.stderr || "").trim().split("\n").pop()}`);
+}
 function sheet(files, W, H, outPng, cols, tw = 420) {
   const th = Math.round((tw * H) / W);
   const c = Math.min(cols, files.length);
@@ -2556,7 +2701,7 @@ if (cmd === "plan") {
   const p = {
     route: String(args.route), subject: str(args.subject), mode: str(args.mode) || (args.route === "faceless-explainer" ? "topic" : "product"),
     url: str(args.url) || null, public: !!args.public, local: str(args.local).split(",").map((s) => s.trim()).filter(Boolean).map((s) => path.resolve(s.replace(/^~(?=\/|$)/, os.homedir()))),
-    may_run: !!args["may-run"], scenes: Number(args.scenes) || null, length: Number(args.length) || null, project: args.project && args.project !== true ? rel(String(args.project)) : null, lean: !!args.lean,
+    may_run: !!args["may-run"], scenes: Number(args.scenes) || null, length: Number(args.length) || null, project: args.project && args.project !== true ? rel(String(args.project)) : null,
     focus: str(args.focus) || null, features: str(args.features) || null,
     brand: str(args.brand) || null, kind: str(args.kind) || null, pace: str(args.pace) || null,
     model: args.model && args.model !== true ? String(args.model) : null,
@@ -2583,11 +2728,24 @@ if (cmd === "plan") {
   if (p.sources && (p.sources.sources || []).some((x) => x.kind === "assets") && !args["brand-film"]) p.brand_film = false;
   p.direct = directFilm(p, prev, run);
   p.branded = !!(p.brand || brandLocked(run));
+  // the token budget: --budget, --lean (= lean), else the previous plan's, else standard
+  const bq = args.budget && args.budget !== true ? String(args.budget).toLowerCase() : args.lean ? "lean" : prev.budget || (prev.lean ? "lean" : "standard");
+  if (!BUDGETS[bq]) die(`--budget must be one of ${Object.keys(BUDGETS).join(", ")}`);
+  p.budget = bq;
+  p.lean = bq === "lean"; // kept for readers of older plans
+  // the spike scene of a long film (the animators' fan-out waits for it): --spike, the previous plan's, else the peak beat's scene
+  if (!p.direct && SCENE_ROUTES.has(p.route)) p.spike = Number(args.spike) || prev.spike || spikeScene(run, p.scenes) || null;
   p.phases = planCrew(p);
+  p.estimate = estimateFor(p, p.phases);
+  for (const ph of p.phases) ph.est_tokens = ph.dispatch.reduce((a, x) => a + tokensFor(x.role, x.key), 0);
   writeFile(R(run, "crew", "plan.json"), JSON.stringify(p, null, 2));
+  // the console's Brief call shows what each level would cost (console.mjs push --step brief picks crew/budget.json up)
+  const levels = Object.keys(BUDGETS).map((k) => { const q = { ...p, budget: k, lean: k === "lean" }; return { level: k, label: BUDGETS[k].label, summary: BUDGETS[k].summary, fix_rounds: BUDGETS[k].fix_rounds, total: estimateFor(q, planCrew(q)).total }; });
+  levels.forEach((l) => (l.total_label = "~" + kTok(l.total)));
+  writeFile(R(run, "crew", "budget.json"), JSON.stringify({ budget: { level: p.budget, label: BUDGETS[p.budget].label, summary: BUDGETS[p.budget].summary, fix_rounds: p.estimate.fix_rounds, total: p.estimate.total, total_label: p.estimate.total_label, phases: p.estimate.phases.map((r) => ({ phase: r.phase, tokens: r.tokens, label: kTok(r.tokens) })), levels } }, null, 2));
   const count = p.phases.reduce((a, ph) => a + ph.dispatch.length, 0);
   const prof = modelOf(p);
-  out({ ok: true, plan: rel(R(run, "crew", "plan.json")), model: p.model, harness: prof.harness, dispatches: count, phases: p.phases.map((ph) => ({ phase: ph.phase, when: ph.when, members: ph.dispatch.map((x) => `${x.role}${x.key ? ":" + x.key : ""} (${x.tier})`), then: ph.then })), next: "For each member: crew.mjs brief, then dispatch it in the background with the prompt file; accept it with crew.mjs check." });
+  out({ ok: true, plan: rel(R(run, "crew", "plan.json")), model: p.model, harness: prof.harness, budget: p.budget, estimate: { total: p.estimate.total_label, fix_rounds: p.estimate.fix_rounds, by_phase: Object.fromEntries(p.estimate.phases.map((r) => [r.phase, kTok(r.tokens)])), fix_rounds_tokens: kTok(p.estimate.fix_rounds_tokens), levels: levels.map((l) => `${l.level} ${l.total_label}`) }, show_on_brief: "node scripts/console.mjs push --run <run> --step brief --merge --file <run>/crew/budget.json  (the Brief call shows the level and the three totals; the user may change it, then re-plan with --budget)", dispatches: count, phases: p.phases.map((ph) => ({ phase: ph.phase, when: ph.when, tokens: ph.est_tokens ? kTok(ph.est_tokens) : undefined, members: ph.dispatch.map((x) => `${x.role}${x.key ? ":" + x.key : ""} (${x.tier})`), then: ph.then })), next: "For each member: crew.mjs brief, then dispatch it in the background with the prompt file; accept it with crew.mjs check." });
 } else if (cmd === "brief") {
   const run = runDir();
   const role = str(args.role);
@@ -2618,7 +2776,7 @@ if (cmd === "plan") {
   if (!ROLES[role]) die(`--role must be one of ${Object.keys(ROLES).join(", ")}`);
   const key = args.key && args.key !== true ? String(args.key) : null;
   const { P, W } = await checkRole(run, role, key);
-  ledger(run, { event: P.length ? "fail" : "ok", role, key, problems: P.length ? P.slice(0, 20) : undefined, ...(CHECK_EXTRA && CHECK_EXTRA.result ? { result: CHECK_EXTRA.result } : {}) });
+  ledger(run, { event: P.length ? "fail" : "ok", role, key, tokens: Number(args.tokens) > 0 ? Math.round(Number(args.tokens)) : undefined, problems: P.length ? P.slice(0, 20) : undefined, ...(CHECK_EXTRA && CHECK_EXTRA.result ? { result: CHECK_EXTRA.result } : {}) });
   out({ ok: !P.length, role, key, problems: P, warnings: W, ...(CHECK_EXTRA || {}) }, P.length ? 2 : 0);
 } else if (cmd === "status") {
   const run = runDir();
@@ -2630,7 +2788,21 @@ if (cmd === "plan") {
   const phases = plan ? plan.phases.map((ph) => ({ phase: ph.phase, members: ph.dispatch.map((x) => { const r = last.get(`${x.role}|${x.key || ""}`); return { role: x.role, key: x.key, state: state(r), problems: r && r.problems }; }) })) : [];
   const extra = [...last.values()].filter((r) => !plan || !plan.phases.some((ph) => ph.dispatch.some((x) => x.role === r.role && String(x.key || "") === String(r.key || "")))).map((r) => ({ role: r.role, key: r.key, state: state(r) }));
   const next = phases.find((ph) => ph.members.some((m) => m.state !== "accepted"));
-  out({ ok: true, plan: !!plan, phases, unplanned: extra.length ? extra : undefined, next: next ? next.phase : null });
+  // the spend so far: every accepted member at its recorded actual tokens (check --tokens N), else its estimate; against the plan's estimate
+  let spent = 0, actual = 0, counted = 0;
+  const spentBy = {};
+  for (const r of last.values()) {
+    if (r.event !== "ok") continue;
+    const t = Number(r.tokens) > 0 ? Number(r.tokens) : tokensFor(r.role, r.key);
+    if (Number(r.tokens) > 0) actual += Number(r.tokens);
+    spent += t; counted++;
+    const ph = plan && plan.phases.find((x) => x.dispatch.some((d) => d.role === r.role && String(d.key || "") === String(r.key || "")));
+    const pn = ph ? ph.phase : "(unplanned)";
+    spentBy[pn] = (spentBy[pn] || 0) + t;
+  }
+  const est = plan && plan.estimate ? plan.estimate.total : null;
+  const spend = { budget: plan ? plan.budget || "standard" : null, members_done: counted, spent_est: kTok(spent), spent_recorded: actual ? kTok(actual) + " of it from recorded actuals" : "no actuals recorded (crew.mjs check --tokens N)", by_phase: Object.fromEntries(Object.entries(spentBy).map(([k, v]) => [k, kTok(v)])), plan_total: est ? kTok(est) : null, share: est ? Math.round((spent / est) * 100) + "%" : null, note: "accepted dispatches only; the Director's own work, fix passes and A/B rounds not briefed through crew.mjs are not in it" };
+  out({ ok: true, plan: !!plan, phases, unplanned: extra.length ? extra : undefined, next: next ? next.phase : null, spend });
 } else if (cmd === "pitches") {
   const run = runDir();
   const dir = R(run, "story");
@@ -2786,10 +2958,68 @@ if (cmd === "plan") {
       res = { files: r.files, W: r.W, H: r.H };
     } else res = renderCompositionAt(f, T, dir);
   } else die("--file <composition.html | video> or --project <dir>");
+  // --crop x,y,w,h: the third zoom (sheet, strip, CROP): every frame cut to the region, shown large
+  if (args.crop && args.crop !== true) {
+    const cr = parseCrop(String(args.crop), res.W, res.H);
+    for (const x of res.files) { const o = x.png.replace(/\.png$/, ".crop.png"); cropPng(x.png, o, cr); fs.renameSync(o, x.png); }
+    res = { ...res, W: cr.w, H: cr.h };
+  }
   // --phone: every frame at 360 px wide, the size the film plays at on a phone held upright (animate's phone check)
-  sheet(res.files, res.W, res.H, outPng, Number(args.cols) || (args.phone ? 3 : 6), args.phone ? 360 : 420); // 3 across keeps the sheet small enough to be read unscaled
+  sheet(res.files, res.W, res.H, outPng, Number(args.cols) || (args.phone ? 3 : args.crop ? 3 : 6), args.phone ? 360 : args.crop ? 640 : 420); // 3 across keeps the sheet small enough to be read unscaled
   if (!exists(outPng)) die("the sheet did not render");
   out({ ok: true, sheet: rel(outPng), frames: res.files.length, dir: rel(dir), times: T, look: args.phone ? "Read the sheet at 100%: this is the film at phone size. Every line meant to be read must read here; one that doesn't is a readability finding" : "Read the sheet image: spacing between frames shows the ease (wide gaps = fast, tight = slowing into a landing)" });
+} else if (cmd === "marks") {
+  const run = runDir();
+  const file = args.file && args.file !== true ? path.resolve(String(args.file)) : die("--file <draft.mp4 | composition.html> required (the render the notes were left on)");
+  if (!exists(file)) die(`not found: ${file}`);
+  const asFrac = (r, W, H) => {
+    const v = Array.isArray(r) ? r : [r.x, r.y, r.w, r.h];
+    if (v.length !== 4 || v.some((n) => !Number.isFinite(Number(n)))) return null;
+    const n = v.map(Number), fr = n.every((q) => q <= 1);
+    return fr ? { x: n[0], y: n[1], w: n[2], h: n[3] } : { x: n[0] / W, y: n[1] / H, w: n[2] / W, h: n[3] / H };
+  };
+  const want = [];
+  const sess = jsonMaybe(R(run, "session.json")) || {};
+  for (const c of sess.comments || []) {
+    if (c.state === "resolved" || typeof c.t !== "number" || typeof c.x !== "number" || typeof c.y !== "number") continue;
+    // a point (x, y) is boxed 24% x 24% around it when the note carries no w, h
+    const w = typeof c.w === "number" ? c.w : 0.24, h = typeof c.h === "number" ? c.h : 0.24;
+    want.push({ id: "note-" + String(c.id).replace(/[^A-Za-z0-9_-]/g, ""), kind: "note", t: c.t, scene: c.scene, text: c.text || c.quick || "", frac: { x: c.x - w / 2, y: c.y - h / 2, w, h } });
+  }
+  for (const c of latestCritics(run)) (Array.isArray(c.j.findings) ? c.j.findings : []).forEach((x, i) => {
+    if (!x || !x.region || typeof x.t !== "number") return;
+    want.push({ id: `finding-${c.lens}-${c.round}-${i + 1}`, kind: "finding", t: x.t, scene: x.scene, text: x.problem || "", fix: x.fix, raw: x.region });
+  });
+  if (args.t && args.t !== true) { const t = Number(args.t); for (let i = want.length - 1; i >= 0; i--) if (Math.abs(want[i].t - t) > 0.05) want.splice(i, 1); }
+  if (!want.length) out({ ok: true, marks: [], note: "no open note with a point (scene, t, x, y) and no finding with a region {x,y,w,h} and a t" });
+  const dir = R(run, "crew", "marks");
+  fs.mkdirSync(dir, { recursive: true });
+  const marks = [];
+  for (const w of want) {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "rasanai-mark-"));
+    try {
+      const res = /\.(mp4|mov|webm|m4v|mkv)$/i.test(file) ? videoAt(file, [w.t], tmp) : renderCompositionAt(file, [w.t], tmp);
+      const frac = w.frac || asFrac(w.raw, res.W, res.H);
+      if (!frac) continue;
+      const cr = parseCrop([frac.x, frac.y, frac.w, frac.h].map((q) => Math.max(0, Math.min(1, q))).join(","), res.W, res.H);
+      // the pixel crop must read as pixels even when it is 1 px: parseCrop took fractions, so it is already pixels
+      const crop = path.join(tmp, "crop.png");
+      cropPng(res.files[0].png, crop, cr, 640);
+      const fw = 640, fh = Math.round((fw * res.H) / res.W), s = fw / res.W;
+      const box = `left:${Math.round(cr.x * s)}px;top:${Math.round(cr.y * s)}px;width:${Math.round(cr.w * s)}px;height:${Math.round(cr.h * s)}px`;
+      const html = `<!doctype html><html><head><style>html,body{margin:0;background:#141414;font:500 14px/1.3 -apple-system,Helvetica,Arial,sans-serif;color:#ddd}.g{display:flex;gap:10px;padding:10px;align-items:flex-start}.f{position:relative;width:${fw}px;height:${fh}px}.f img{width:100%;display:block}.b{position:absolute;border:3px solid #ff2d2d;box-shadow:0 0 0 1px #fff;box-sizing:border-box;${box}}figure{margin:0}img.c{width:640px;display:block}p{margin:6px 0 0;max-width:640px}</style></head><body><div class="g"><figure><div class="f"><img src="file://${res.files[0].png}"><div class="b"></div></div><p>${esc(w.id)} at ${w.t} s${w.scene != null ? ", scene " + esc(String(w.scene)) : ""} (the boxed region)</p></figure><figure><img class="c" src="file://${crop}"><p>${esc(String(w.text).slice(0, 160))}</p></figure></div></body></html>`;
+      const ph = path.join(tmp, "mark.html");
+      fs.writeFileSync(ph, html);
+      const png = path.join(dir, `${w.id}.png`);
+      const ch = Math.max(fh, Math.round((640 * cr.h) / cr.w)) + 70;
+      chromeScreenshot(`file://${ph}`, png, 1300, ch, 3000);
+      if (exists(png)) marks.push({ id: w.id, kind: w.kind, t: w.t, scene: w.scene != null ? w.scene : null, region_px: cr, region: { x: +frac.x.toFixed(3), y: +frac.y.toFixed(3), w: +frac.w.toFixed(3), h: +frac.h.toFixed(3) }, text: w.text, fix: w.fix, png: rel(png) });
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  }
+  writeFile(R(run, "crew", "marks", "index.json"), JSON.stringify({ file: rel(file), marks }, null, 2));
+  out({ ok: true, marks: marks.map((x) => ({ id: x.id, t: x.t, png: x.png })), index: rel(R(run, "crew", "marks", "index.json")), next: "the fix briefs (crew.mjs brief for the film builder or scene animator) list these crops first; look at each before the fix" });
 } else if (cmd === "thumbs") {
   const run = runDir();
   const fi = R(run, "story", "intent.json");

@@ -16,6 +16,12 @@
 //   node research.mjs film (--url <video page> | --file <video>) --out <dir> [--keep] [--threshold 0.3]
 //        -> <dir>/film.json (every cut, shot lengths, pacing stats, loudness) + <dir>/sheet.jpg (one frame per
 //           shot). A downloaded film is for analysis only and is deleted afterwards unless --keep.
+//   node research.mjs deconstruct --video <ref.mp4> [--run <run> | --out <numbers.json>] [--only cuts,motion,camera,echo,bold,sound] [--print]
+//        -> <run>/reference/numbers.json (default ./reference/numbers.json): a whole reference film as numbers to score against: the energy
+//           curve per 0.5 s and the still share, cuts (the robust detector: diff > max(8, 4x its rolling median +-12 frames), cuts inside
+//           stepped / flicker runs dropped) with bursts and the shot lengths, the median move and the curve family (lib/fluency), the
+//           boldness share, the echo, the camera kinds, and the sound arc (loudness median / p90 per second, onsets). lib/deconstruct.mjs.
+//           The Motion Director reads it; motion-gate can compare a draft's energy curve to it (energy-off-reference).
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -27,8 +33,8 @@ import { classify, desksFor } from "./lib/sources.mjs";
 const args = parseArgs();
 const cmd = args._[0];
 track(
-  { "local-find": `Looking for ${args.name || "the product"} on this computer (folder names only)`, "local-inventory": "Listing what's in the folder you approved", film: "Measuring a reference film shot by shot", sources: "Working out what your film is made from (names and sizes only)" }[cmd],
-  { "local-find": "Local search done", "local-inventory": "Folder listed", film: "Film measured", sources: "Sources listed" }[cmd]
+  { "local-find": `Looking for ${args.name || "the product"} on this computer (folder names only)`, "local-inventory": "Listing what's in the folder you approved", film: "Measuring a reference film shot by shot", deconstruct: "Turning the reference film into numbers (cuts, energy, moves, camera, sound)", sources: "Working out what your film is made from (names and sizes only)" }[cmd],
+  { "local-find": "Local search done", "local-inventory": "Folder listed", film: "Film measured", deconstruct: "Reference measured", sources: "Sources listed" }[cmd]
 );
 const out = (o, code = 0) => {
   console.log(JSON.stringify(o, null, 2));
@@ -292,6 +298,16 @@ else if (cmd === "film") {
   if (downloaded && !args.keep) fs.rmSync(file, { force: true });
   writeFile(path.join(outDir, "film.json"), JSON.stringify(film, null, 2));
   out({ ok: true, film: path.relative(process.cwd(), path.join(outDir, "film.json")), title, ...film.stats, threshold: thr, sheet: film.sheet });
+} else if (cmd === "deconstruct") {
+  const video = args.video && args.video !== true ? path.resolve(String(args.video)) : die("--video <reference.mp4> required");
+  if (!fs.existsSync(video)) die(`not found: ${video}`);
+  const dest = args.out && args.out !== true ? path.resolve(String(args.out)) : path.join(args.run && args.run !== true ? path.resolve(String(args.run)) : process.cwd(), "reference", "numbers.json");
+  const only = args.only && args.only !== true ? String(args.only).split(",").map((x) => x.trim()).filter(Boolean) : null;
+  const { deconstruct } = await import("./lib/deconstruct.mjs");
+  const N = await deconstruct(video, { only, log: (m) => process.stderr.write(`deconstruct: ${m}\n`) });
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.writeFileSync(dest, JSON.stringify(N, null, 2));
+  out(args.print ? { ok: true, file: tilde(dest), ...N } : { ok: true, file: tilde(dest), duration_s: N.duration_s, cuts: N.cuts.count, cuts_per_min: N.cuts.per_min, bursts: N.cuts.bursts.length, dropped_cuts: N.cuts.dropped.length, shots: N.shots.shots, shot_median_s: N.shots.median_s, shot_spread_p90_p10: N.shots.spread_p90_p10, still_share: N.energy.still_share, median_move_frames: N.motion && N.motion.median_move_frames, dominant_curve: N.motion && N.motion.dominant_family, camera_kinds: N.camera && N.camera.kinds, boldness_share: N.boldness && N.boldness.share, sound: N.sound && N.sound.audio ? { median_db: N.sound.loudness.median_db, p90_db: N.sound.loudness.p90_db, onsets_per_s: N.sound.onset_rate } : "no audio", measured: N.measured, skipped: N.skipped });
 } else {
-  die("usage: research.mjs local-find|local-inventory|sources|film … (see the header)");
+  die("usage: research.mjs local-find|local-inventory|sources|film|deconstruct … (see the header)");
 }

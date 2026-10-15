@@ -290,8 +290,19 @@ final class StudioStore {
     var phaseDuration: Double { loadedVideoDuration > 0 ? loadedVideoDuration : snapshot.duration(for: .final) }
     var currentFilmTitle: String {
         if let entry = settings.filmQueue.first(where: { $0.project == selectedProjectURL }) { return entry.name }
+        // the film's own name (session.title, set by `console.mjs push --title`) before the folder's; the session's default "RasanAI" is no name
+        if let name = specificFilmName { return name }
         if let url = selectedProjectURL, let project = localProjects.first(where: { $0.1 == url }) { return project.0.name }
-        return snapshot.title
+        // the brief's brand, else the first words of its subject; never the app's own name
+        let fields = snapshot.step("brief")["fields"]
+        if let brand = fields["brand_name"].string?.trimmingCharacters(in: .whitespaces), !brand.isEmpty { return brand }
+        if let subject = fields["subject"].string, !subject.isEmpty { return FilmTitle.fromBrief(subject) }
+        return "Untitled film"
+    }
+    private var specificFilmName: String? {
+        guard let title = snapshot.raw["title"].string?.trimmingCharacters(in: .whitespaces), !title.isEmpty,
+              !["rasanai", "new film", "untitled film"].contains(title.lowercased()) else { return nil }
+        return title
     }
     /// Home-card status for a library project: live for the open film, from disk for the rest.
     func summary(for folder: URL) -> FilmSummary {

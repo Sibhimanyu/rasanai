@@ -15,6 +15,11 @@
 //        ground (RASANAI_CUTOUT=flood skips the tool); trimmed to its content.
 //   node art.mjs treat --in a.png --out b.png --op gradient-map|duotone|halftone|dither|pixelate|xray|grade [--colors c1,c2,..] [--cell N]
 //        gradient-map also takes [--dither L] (grey levels of seeded noise before the ramp: no banding) [--grain 0.01] [--seed N]
+//   node art.mjs treat --in a.png --out b.png --halftone-collage [--card #f6f1e4] [--ink #1b1a18] [--cell N] [--keyline px] [--tilt deg] [--shadow 0.32]
+//        [--grain 0.03] [--seed N] [--field #hex] [--no-cutout]     the gbro paper-collage piece (library/styles/halftone-collage.md): the picture cut
+//        out (its own alpha, else cutout()), a greyscale halftone in the ink over the cardstock colour, a ~2 px cream keyline, paper grain, a seeded
+//        tilt under 1.5 degrees, one soft shadow down and right; a transparent PNG with room for the shadow (--field flattens it on a colour).
+//        As a plan treatment: "halftone-collage" (or "halftone-collage:card=#e0783c").
 //   node art.mjs trace --in a.png --out b.svg [--colors N] [--lineart] [--max 900]   vendored imagetracerjs: real <path>s
 //   node art.mjs hand --text "..." --out b.svg [--font script|simplex] [--size 120] [--weight W] [--color #111] [--spacing 0]
 //        single-stroke handwriting from the vendored Hershey fonts: one <path> per glyph stroke, in writing order (ready for draw-on)
@@ -253,6 +258,107 @@ function cutout(inp, outp, { tol = 40, pad = 0 } = {}) {
   }
   const d = dims(outp);
   return { method, ...(removed != null ? { removed_pct: removed } : {}), ...(tried ? { note: tried } : {}), ...d };
+}
+
+// ------------------------------------------------------------------ halftone paper collage (library/styles/halftone-collage.md)
+// A picture becomes one piece of the gbro-style collage: cut out (its own alpha, else cutout()), a greyscale halftone in the ink
+// over the cardstock colour (the screen is multiplied onto the card, so the card shows through the paper between the dots), a 2 px cream
+// keyline (the knife's highlight; width follows the picture: `keyline`), paper grain on the piece, a hand-set tilt under 2 degrees
+// (seeded, never dead straight), and one soft shadow down and to the right. The result is a transparent PNG larger than the input by
+// the shadow's room. `field` (a hex) flattens it onto that colour with a margin, for a preview or a poster. Our own code; the
+// look's numbers come from the two gbro skills (MIT).
+function chamferOutside(mask, w, h) { // distance (px) from each pixel to the nearest inside pixel; 0 inside
+  const d = new Float32Array(w * h), INF = 1e9;
+  for (let i = 0; i < d.length; i++) d[i] = mask[i] ? 0 : INF;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x; let v = d[i];
+    if (x > 0) v = Math.min(v, d[i - 1] + 1);
+    if (y > 0) { v = Math.min(v, d[i - w] + 1); if (x > 0) v = Math.min(v, d[i - w - 1] + 1.414); if (x < w - 1) v = Math.min(v, d[i - w + 1] + 1.414); }
+    d[i] = v;
+  }
+  for (let y = h - 1; y >= 0; y--) for (let x = w - 1; x >= 0; x--) {
+    const i = y * w + x; let v = d[i];
+    if (x < w - 1) v = Math.min(v, d[i + 1] + 1);
+    if (y < h - 1) { v = Math.min(v, d[i + w] + 1); if (x < w - 1) v = Math.min(v, d[i + w + 1] + 1.414); if (x > 0) v = Math.min(v, d[i + w - 1] + 1.414); }
+    d[i] = v;
+  }
+  return d;
+}
+function boxBlurAlpha(a, w, h, r) { // three box passes per axis: a close match to a gaussian of sigma ~ r / 1.2
+  r = Math.max(1, Math.round(r));
+  const pass = (src, dst, horizontal) => {
+    const n = horizontal ? w : h, lines = horizontal ? h : w, step = horizontal ? 1 : w, lstep = horizontal ? w : 1, div = 2 * r + 1;
+    for (let l = 0; l < lines; l++) {
+      const base = l * lstep, at = (i) => src[base + Math.min(n - 1, Math.max(0, i)) * step];
+      let s = 0;
+      for (let i = -r; i <= r; i++) s += at(i);
+      for (let i = 0; i < n; i++) { dst[base + i * step] = s / div; s += at(i + r + 1) - at(i - r); }
+    }
+  };
+  let cur = a;
+  for (let p = 0; p < 3; p++) { const t = new Float32Array(w * h), o = new Float32Array(w * h); pass(cur, t, true); pass(t, o, false); cur = o; }
+  return cur;
+}
+function halftoneCollage(inp, outp, o = {}) {
+  let img = readImage(inp), method = "own alpha";
+  let hasA = false;
+  for (let i = 3; i < img.data.length; i += 4) if (img.data[i] < 250) { hasA = true; break; }
+  if (!hasA && !o.noCutout) {
+    const tmp = outp + ".cut.png"; const c = cutout(inp, tmp); img = readImage(tmp); fs.rmSync(tmp, { force: true }); method = c.method;
+  }
+  const scale = Math.max(1, Math.max(img.w, img.h) / 1080);
+  const cell = Math.max(3, Number(o.cell) || Math.round(4 * scale)), key = Math.max(1.5, Number(o.keyline) || 2 * scale);
+  const card = hex(o.card || "#f6f1e4"), ink = hex(o.ink || "#1b1a18"), cream = hex("#fcf8ed"), seed = Number(o.seed) || 1;
+  const tilt = o.tilt != null && o.tilt !== "" ? Number(o.tilt) : (hashPx(7, seed) < 0.5 ? -1 : 1) * (0.3 + hashPx(11, seed) * 1.1); // 0.3 to 1.4 degrees, either way, seeded
+  const blur = 7 * scale, offx = 5 * scale, offy = 8 * scale, M = Math.ceil(key + Math.max(offx, offy) + blur * 2.2 + 4);
+  const W = img.w + 2 * M, H = img.h + 2 * M;
+  // body: greyscale halftone, ink dots on the card colour, alpha kept
+  const ht = treat(img, "halftone", { colors: [ink, card], cell });
+  const body = new Uint8ClampedArray(W * H * 4), mask = new Uint8Array(W * H);
+  for (let y = 0; y < img.h; y++) for (let x = 0; x < img.w; x++) { const s = (y * img.w + x) * 4, d = ((y + M) * W + x + M) * 4; body.set(ht.data.subarray(s, s + 4), d); if (ht.data[s + 3] > 127) mask[(y + M) * W + x + M] = 1; }
+  const dist = chamferOutside(mask, W, H), pa = new Float32Array(W * H), pc = new Float32Array(W * H * 3);
+  for (let i = 0; i < W * H; i++) {
+    const oa = body[i * 4 + 3] / 255, ka = mask[i] ? 1 : Math.max(0, Math.min(1, key - dist[i] + 0.5));
+    pa[i] = Math.max(oa, ka);
+    for (let c = 0; c < 3; c++) pc[i * 3 + c] = pa[i] > 0 ? (body[i * 4 + c] * oa + cream[c] * (pa[i] - oa)) / pa[i] : 0; // the keyline fills what the body does not
+  }
+  // paper grain on the piece: fine per-pixel plus a coarser fibre, the same on every channel
+  const g = (Number(o.grain) || 0.03) * 255 * 2;
+  for (let i = 0; i < W * H; i++) if (pa[i] > 0) { const n = (hashPx(i, seed + 5) + hashPx(i, seed + 6) - 1) * g + (hashPx(((i % W) >> 2) + (((i / W) | 0) >> 2) * 7919, seed + 9) - 0.5) * g * 0.6; for (let c = 0; c < 3; c++) pc[i * 3 + c] = clamp(pc[i * 3 + c] + n); }
+  // tilt: bilinear, premultiplied, about the centre
+  let qa = pa, qc = pc;
+  if (Math.abs(tilt) > 0.001) {
+    qa = new Float32Array(W * H); qc = new Float32Array(W * H * 3);
+    const th = (-tilt * Math.PI) / 180, ct = Math.cos(th), st = Math.sin(th), cx = W / 2, cy = H / 2;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const sx = ct * (x - cx) - st * (y - cy) + cx, sy = st * (x - cx) + ct * (y - cy) + cy;
+      if (sx < 0 || sy < 0 || sx >= W - 1 || sy >= H - 1) continue;
+      const x0 = sx | 0, y0 = sy | 0, fx = sx - x0, fy = sy - y0, i00 = y0 * W + x0, w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+      const a = pa[i00] * w00 + pa[i00 + 1] * w10 + pa[i00 + W] * w01 + pa[i00 + W + 1] * w11;
+      qa[y * W + x] = a;
+      if (a > 0) for (let c = 0; c < 3; c++) qc[(y * W + x) * 3 + c] = (pc[i00 * 3 + c] * pa[i00] * w00 + pc[(i00 + 1) * 3 + c] * pa[i00 + 1] * w10 + pc[(i00 + W) * 3 + c] * pa[i00 + W] * w01 + pc[(i00 + W + 1) * 3 + c] * pa[i00 + W + 1] * w11) / a;
+    }
+  }
+  // one soft shadow: the piece's alpha, blurred, moved down and right, a warm dark at 32%
+  const sh = boxBlurAlpha(qa, W, H, blur), so = Math.max(0, Math.min(1, Number(o.shadow == null ? 0.32 : o.shadow))), sc = [44, 30, 18];
+  const dx = Math.round(offx), dy = Math.round(offy), out = new Uint8ClampedArray(W * H * 4);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, sxp = x - dx, syp = y - dy, sa = sxp >= 0 && syp >= 0 && sxp < W && syp < H ? sh[syp * W + sxp] * so : 0, a = qa[i], oa = a + sa * (1 - a);
+    out[i * 4 + 3] = Math.round(oa * 255);
+    if (oa > 0) for (let c = 0; c < 3; c++) out[i * 4 + c] = Math.round((qc[i * 3 + c] * a + sc[c] * sa * (1 - a)) / oa);
+  }
+  let res = { w: W, h: H, data: out };
+  if (o.field) { // flatten on a flat colour field with a quiet fibre, a margin of a quarter of the piece around it
+    const f = hex(o.field), mx = Math.round(W * 0.25), my = Math.round(H * 0.25), FW = W + 2 * mx, FH = H + 2 * my, fd = new Uint8ClampedArray(FW * FH * 4);
+    for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++) {
+      const i = (y * FW + x) * 4, sx = x - mx, sy = y - my, s = sx >= 0 && sy >= 0 && sx < W && sy < H ? (sy * W + sx) * 4 : -1, a = s >= 0 ? out[s + 3] / 255 : 0, n = (hashPx(y * FW + x, seed + 13) - 0.5) * 10;
+      for (let c = 0; c < 3; c++) fd[i + c] = clamp((s >= 0 ? out[s + c] * a : 0) + (f[c] + n) * (1 - a));
+      fd[i + 3] = 255;
+    }
+    res = { w: FW, h: FH, data: fd };
+  }
+  writePng(outp, res);
+  return { width: res.w, height: res.h, cell, keyline_px: Math.round(key * 10) / 10, tilt_deg: Math.round(tilt * 100) / 100, cutout: method, field: o.field || null };
 }
 
 // ------------------------------------------------------------------ trace (vendored imagetracerjs, the Unlicense)
@@ -496,7 +602,8 @@ function plan() {
       if (kind === "photo" && (pixel || /cut[- ]?out|gradient|grade|duotone/i.test(text))) treatments.push("cutout");
       if (/gradient[- ]?map|hot grade/i.test(text) || (pixel && kind === "photo")) treatments.push("gradient-map");
       else if (/duotone/i.test(text)) treatments.push("duotone");
-      if (/halftone/i.test(text)) treatments.push("halftone");
+      if (/halftone[- ]?(paper[- ]?)?collage|paper collage|cut-?outs? with (a )?cream/i.test(text)) treatments.push("halftone-collage");
+      else if (/halftone/i.test(text)) treatments.push("halftone");
       if (/x[- ]?ray/i.test(text)) treatments.push("xray");
       const row = { id, kind, prompt: kind === "handwriting" ? String(r.line || "").trim() : `${String(r.show || r.line).trim().replace(/\s+/g, " ").slice(0, 320)}`, treatments, used_by: [`${beatId}: ${String(r.line || "").trim()}`], from: { beat: bi + 1, built_from: bf || null } };
       if (kind === "handwriting") row.text = row.prompt;
@@ -539,6 +646,7 @@ function applyTreatments(file, row) {
     const { op, colors, cell } = parseTreatment(t);
     const dst = file.replace(/\.png$/, `.t${i + 1}.png`);
     if (op === "cutout") { cutout(cur, dst); done.push("cutout"); }
+    else if (op === "halftone-collage") { halftoneCollage(cur, dst, { card: (String(t).match(/card=(#[0-9a-f]{3,6})/i) || [])[1], seed: i + 1 }); done.push(op); }
     else if (OPS.includes(op)) { runTreat(cur, dst, op, colors.map(hex), cell); done.push(op); }
     else { err(`NOTE: ${row.id}: unknown treatment "${t}" skipped`); return; }
     cur = dst;
@@ -699,6 +807,9 @@ else if (cmd === "check") check();
 else if (cmd === "cutout") {
   const inp = abs(str(args.in) || fail("--in <png> required")), outp = abs(str(args.out) || fail("--out <png> required"));
   out({ ok: true, out: outp, ...cutout(inp, outp, { tol: Number(args.tol) || 40, pad: Number(args.pad) || 0 }) });
+} else if (cmd === "treat" && args["halftone-collage"]) {
+  const inp = abs(str(args.in) || fail("--in <png> required")), outp = abs(str(args.out) || fail("--out <png> required"));
+  out({ ok: true, op: "halftone-collage", out: outp, ...halftoneCollage(inp, outp, { cell: args.cell, keyline: args.keyline, card: str(args.card), ink: str(args.ink), tilt: args.tilt === true ? "" : args.tilt, grain: args.grain, shadow: args.shadow, seed: args.seed, field: str(args.field), noCutout: !!args["no-cutout"] }) });
 } else if (cmd === "treat") {
   const inp = abs(str(args.in) || fail("--in <png> required")), outp = abs(str(args.out) || fail("--out <png> required")), op = str(args.op);
   if (!OPS.includes(op)) fail(`--op must be one of ${OPS.join(", ")}`);

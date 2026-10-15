@@ -12,8 +12,10 @@
 //   whip                 shift 60%W/s or more, or a burst of directional motion blur where the match fails
 //   handheld-drift       a wandering shift (0.4 to 2%W/s, net under half its path over 1.5 s)
 //   locked               none of these
-// A 2D film has no lens, but a whole-frame slide, scale or turn reads as one; that is what is counted. A cut-in (a scale
-// jump across a cut) is a cut, and a heavy depth-of-field blur hides a move. Calibrated 2026-10-14 on the reference
+//   cut-in               a scale-matched pair across a hard cut: the same object much bigger or smaller (1.25x or more, either
+//                        way) in the frame after the cut, found by lib/carry.mjs's matcher (edges over chance, NCC-verified); 0.1 s
+// A 2D film has no lens, but a whole-frame slide, scale or turn reads as one; that is what is counted. A cut-in counts as a
+// camera kind (the shot after the cut is "cut-in" when no move covers it), and a heavy depth-of-field blur hides a move. Calibrated 2026-10-14 on the reference
 // films by eye (references/craft.md "Camera from meaning" has the table).
 //
 //   import { measureCamera } from "./lib/camera-moves.mjs";
@@ -21,6 +23,7 @@
 //   -> { moves: [{ kind, t0, t1, speed }], beats: [{ id, start, end, camera, moves }], kinds: [...], locked_share }
 //   node lib/camera-moves.mjs <film.mp4>     the table, for calibration
 import { spawnSync } from "node:child_process";
+import { carryScore, edgeMask } from "./carry.mjs";
 
 export const CW = 320, CH = 180, CFPS = 15;
 export const CAMERA = {
@@ -29,15 +32,16 @@ export const CAMERA = {
   zoom: 1, rot: 4, pan: 2, whip: 60, shape_corr: 0.5, axis_agree: 0.35, // thresholds: %/s, deg/s, %W/s, %W/s
   hand_lo: 0.4, hand_hi: 2, hand_window_s: 1.5, hand_net: 0.5,
   min_move_s: 0.4, min_whip_s: 0.1, gap_s: 0.4, long: 6,
+  cut_in_scale: 1.25, cut_in_score: 0.25, cut_in_s: 0.1, // a cut-in: scale beyond 1.25x (or under 1/1.25) at a carry score of 0.25, counted for 0.1 s
   beat_share: 0.25, // a beat's camera is the move covering at least this share of it, else locked
 };
-export const KINDS = ["locked", "push-in", "pull-out", "pan-truck", "tilt", "rotate", "handheld-drift", "whip"];
+export const KINDS = ["locked", "push-in", "pull-out", "pan-truck", "tilt", "rotate", "handheld-drift", "whip", "cut-in"];
 // the render's floor: moving kinds by film length (the references: 0 to 2 under 25 s, 2 to 3 at 45 to 55 s, 4 at 87 and 157 s)
 export const cameraFloor = (dur) => (dur >= 90 ? 3 : dur >= 40 ? 2 : dur >= 15 ? 1 : 0);
 // a score's camera words -> a kind: the move named first ("push-in: toward the slot", "T2 focus zoom" -> push-in,
 // "T0 locked: the push lands" -> locked, "arc 28 deg right" -> pan-truck); null when it names none
 const WORDS = [
-  ["whip", /whip|swish/], ["pull-out", /pull[- ]?(out|back)|dolly[- ]?(out|back)|zoom[- ]?out|step[s]? out|widen/],
+  ["cut-in", /cut[- ]?in|punch[- ]?cut|jump[- ]?in/], ["whip", /whip|swish/], ["pull-out", /pull[- ]?(out|back)|dolly[- ]?(out|back)|zoom[- ]?out|step[s]? out|widen/],
   ["push-in", /push|dolly[- ]?in|zoom|crash|punch[- ]?in|lean[- ]?in|\bt[123]\b/], ["handheld-drift", /hand[- ]?held|drift|float|sway|shake/],
   ["rotate", /\broll|rotat|spin|dutch/], ["tilt", /tilt|crane|pedestal|boom/], ["pan-truck", /\bpan|truck|track|\barc|orbit|follow/],
   ["locked", /\block|static|\bt0\b/],
@@ -269,6 +273,22 @@ export function classify(rows) {
   return { moves, labels: lab };
 }
 
+// cut-ins: at each hard cut the frame before and after are matched (carry.mjs, near and far scales, NCC-verified); the same object at
+// 1.25x or more (or under 1/1.25) is a cut-in, a camera kind though no frame of it moves
+export function cutIns(frames, rows) {
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    if (!rows[i].cut) continue;
+    let r = null;
+    try { r = carryScore(edgeMask(frames[i - 1]), edgeMask(frames[i]), frames[i - 1], frames[i]); } catch { r = null; }
+    if (!r || !(r.score >= CAMERA.cut_in_score)) continue;
+    const sc = r.sx ? Math.sqrt(r.sx * r.sy) : r.scale;
+    if (r.sx || (sc < CAMERA.cut_in_scale && sc > 1 / CAMERA.cut_in_scale)) continue; // a stretch is not a camera; a near-1 match is a plain carry
+    out.push({ kind: "cut-in", t0: r2(rows[i].t), t1: r2(rows[i].t + CAMERA.cut_in_s), speed: r2(sc), unit: "x scale" });
+  }
+  return out;
+}
+
 // beats: the plan's, else the shots between hard cuts; each beat's camera is the move covering most of it (25% at least)
 export function beatsOf(moves, rows, beats) {
   const dur = rows.length / CFPS;
@@ -284,7 +304,7 @@ export function beatsOf(moves, rows, beats) {
     const cover = {};
     for (const m of moves) { const o = Math.min(m.t1, b.end) - Math.max(m.t0, b.start); if (o > 0) cover[m.kind] = (cover[m.kind] || 0) + o; }
     const top = Object.entries(cover).sort((x, y) => y[1] - x[1])[0];
-    const camera = top && (top[1] / len >= CAMERA.beat_share || top[0] === "whip") ? top[0] : "locked";
+    const camera = top && (top[1] / len >= CAMERA.beat_share || top[0] === "whip" || top[0] === "cut-in") ? top[0] : "locked";
     return { ...b, camera, moves: Object.keys(cover) };
   });
 }
@@ -293,7 +313,8 @@ export async function measureCamera(file, { beats = null } = {}) {
   const frames = decode(file);
   if (frames.length < 8) throw new Error(`${file} has ${frames.length} frames`);
   const rows = frameMotion(frames);
-  const { moves } = classify(rows);
+  const { moves: slid } = classify(rows);
+  const moves = [...slid, ...cutIns(frames, rows)].sort((a, b) => a.t0 - b.t0);
   const bs = beatsOf(moves, rows, beats);
   const kinds = [...new Set([...moves.map((m) => m.kind), ...bs.map((b) => b.camera)])].sort((a, b) => KINDS.indexOf(a) - KINDS.indexOf(b));
   const moving = kinds.filter((k) => k !== "locked");

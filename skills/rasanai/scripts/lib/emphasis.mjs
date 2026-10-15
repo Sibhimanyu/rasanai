@@ -131,6 +131,10 @@ export function budgetChecks(score, beats, dur) {
   const add = (f) => out.findings.push({ severity: "warning", ...f });
   if (!bm.length) add({ check: "budget-none", at: null, message: "the plan has no big moments (score.big_moments is empty): the film stays at one scale", fix: `spend ${out.limit > 2 ? "2 to " + out.limit : "2"} big moments on the importance-3 beats and the peak (scale, colour field, camera move, spectacle)` });
   if (bm.length > out.limit) add({ check: "budget-over", at: null, message: `${bm.length} big moments planned in ${Math.round(dur || 0)} s (about ${EMPH.budget_per_30s} per 30 s is the budget, ${out.limit} here): emphasis spread over that many beats is no emphasis`, fix: "keep the peak and the importance-3 beats, calm the rest" });
+  if (beats.length >= 4) {
+    const share = bm.length / beats.length, three = beats.filter((b) => b.importance === 3).length / beats.length;
+    if (share > 0.25 || three > 0.25) add({ check: "beats-over-quarter", at: null, message: `${bm.length} big moments over ${beats.length} beats (${Math.round(share * 100)}%)${three > 0.25 ? `, ${Math.round(three * 100)}% of the beats are importance 3` : ""}: at most a quarter of the beats are the point`, fix: "calm the rest: the peak and one or two importance-3 beats carry the emphasis" });
+  }
   for (const m of out.moments) if (m.importance === 1) add({ check: "budget-minor-beat", at: m.t0 != null ? Number(m.t0) : null, region: `beat ${m.beat}`, message: `a big moment is planned on beat ${m.beat}, importance 1 (it only buys: "${m.buys || "no buys written"}")`, fix: "move the big moment to an importance-3 beat or the peak, or raise the beat's importance in story/intent.json with a reason" });
   return out;
 }

@@ -43,6 +43,14 @@ When the Dispatch context says `presenter_film` (or the run has `presenter/plan.
 
 Before you open `story/intent.json`, `motion/score.json` or the script, watch the draft (or read the phone sheet frame by frame) and write `retell`: one sentence a stranger would say about what the film claims, and where it turns. Only then open `intent.json` and compare the retell with its `proposition`. Write `retell_match` (`yes`, `partly` or `no`) and one line on what the film said instead. A `no`, or a `partly` that misses the proposition's benefit, is a `high` finding. Name the beat where the emphasis went instead, the way FILM-D's biggest type landed on a price input. If you read the intent first, the retell is worthless. Say so and don't write one.
 
+## Strengths to keep
+
+Every report carries `strengths`: 1 to 4 things that **work** and that a careless fix could break (a landing, a seam, a read, the rhythm of a hold), each with its scene or second, concrete enough to be found again ("the 0.4 s hold before the price", never "good pacing"). The Director copies them into the fix brief as what to keep, and the blind A/B juror is told to flag a round that lost one. A fix that buys a green gate by losing a listed strength is a worse film. `best` is the single strongest one; `strengths` is the list to protect. When the report is round 2 or later, repeat the earlier strengths that still hold and add the new ones.
+
+## Where it is (regions)
+
+When a finding is about a place on the frame (a hand, a misaligned edge, a contact point, a line that does not read), give `t` and a `region` {x, y, w, h} in fractions of the frame (x, y the top left). `crew.mjs marks` renders it as a marked crop (the frame with the region boxed, beside the region at 2x), which goes to the fixer, so name the smallest region that shows the problem. At the third zoom level you can look yourself: `crew.mjs strip --file <draft.mp4> --at <t> --crop <x,y,w,h> --out <png>`.
+
 ## Structure findings (the animatic and the first draft)
 
 Execution findings fix how a beat is done, in numbers. Some problems are structural: a beat buys nothing, two beats buy the same thing, the peak sits on the wrong beat, there's no rest before the peak, or a `buys` is not what the beat shows. In **round 1** of the `frames` and `film` lenses (the animatic and the first draft), you may return those as `"type": "structure"` findings, each with exactly one edit in the form `lib/intent.mjs` applies:
@@ -69,11 +77,14 @@ Beats are 1-based, in the intent's order. A structure finding's `fix` says the e
   "findings": [
     { "scene": 4, "t": 2.35, "severity": "high|medium|low",                // "type" defaults to "execution"
       "problem": "The answer card and the headline enter on the same frame with the same ease: two primary movers",
+      "region": { "x": 0.52, "y": 0.18, "w": 0.3, "h": 0.2 },                // optional, with t: where on the frame (fractions); crew.mjs marks cuts a marked crop for the fixer
       "fix": "Delay the card to t=2.55 (after the headline settles) and enter it with scale-from-origin 0.96 → 1 from the send button" },
     { "type": "structure", "scene": 5, "severity": "high", "edit": { "op": "cut", "beat": 5 },   // round 1 only
       "problem": "Beat 5 (the retirement question) buys no belief about splitting the bill; deleting it loses nothing",
       "fix": "Cut beat 5 and give its 2.1 s to the payoff hold" } ],
-  "best": "<the one thing that is working, to protect>" }
+  "best": "<the one thing that is working, to protect>",
+  "strengths": [ { "what": "the card lands with a 4% overshoot and a settled hold", "scene": 3, "t": 6.2 },
+                 { "what": "the cursor path into the button reads as one gesture", "scene": 2, "t": 3.1 } ] }   // 1 to 4, each with its scene or second
 ```
 
 Return the 3 to 7 worst problems, worst first, each with the scene, the time (or frame), and **an exact fix**: numbers, not adjectives, for an execution finding; one edit for a structure finding. `verdict: ship` only when every score is 8 or more and no finding is `high`.
@@ -84,7 +95,7 @@ Return the 3 to 7 worst problems, worst first, each with the scene, the time (or
 
 ## Motion: what to look for
 
-Read the spacing between frames in a 24 fps strip; a 2 fps sheet hides all of this. Name the tell and the fix in numbers:
+Read the spacing between frames in a 24 fps strip; a 2 fps sheet hides all of this. Look at three zooms: the sheet (the whole film), the strip (one move at 24 fps), and the crop (`crew.mjs strip ... --crop x,y,w,h`: a hand, a prop touching a surface, a seam). Also name **twinning** (two things doing the same move side by side: give one a different delay, distance or ease), a move with **no anticipation or follow-through**, and an object that **does not make contact** (a prop not at the hand, a cursor not on its target, a figure not on its ground). Name the tell and the fix in numbers:
 
 - **One curve for everything**: every move launches and lands the same way. Fix: the role curves (launch for entrances, glide for repositions, settle for a hero landing, exit, drift), naming which move gets which.
 - **Snap and die**: moves visible for a quarter second, the frame then still. Fix: a long visible glide, 0.7 to 1.2 s for travels past 10% of the frame.

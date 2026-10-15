@@ -17,11 +17,13 @@ You run on a fast model and you are literal. So read this as a spec: follow the 
 
 In `story/moves/<label>-<heroid>/` (for example `story/moves/Bold-m3/`):
 
-- `rough.html`: the self-contained grey-box rough (rules below)
+- `rough.json`: the grey-box rough in the beat-kind DSL (below); `moves.mjs rough` compiles it to `rough.html` (marker `rasanai:rough-json`). Write `rough.html` by hand only when no kind can draw the move, and say why in the handback
 - `gsap.min.js`: a copy of the vendored GSAP, from `$SKILL_DIR/scripts/vendor/gsap.min.js`
 - the files `moves.mjs rough` renders: `rough.mp4` (looping H.264), `strip.png` (5 frames with their times) and `poster.png` (the bridge frame)
 
 ## The rough
+
+Write `rough.json` (kinds: `moves.mjs rough-kinds`): `{aspect, duration 1.5-4.5, bridge, caption?, items:[{id, kind (text|window|phone|chart|hub|list|cards|input|chat|cloud|logo|number|image), x, y, w, h (fractions), text|title|rows|cards|bars|bubbles|spokes, carrier?, opacity?, scale?, rotate?}], moves:[{target, at, dur, ease, from?, to?:{x,y,scale,sx,sy,rotate,opacity}}]}`. Keep the rules below: one accent on the carrier, timings from the card, the bridge held 0.2 s (now: two moves on the bridge item, or a gap). The rest of this section describes the hand-written `rough.html` fallback.
 
 - **One file, at the film's aspect, 1280 px wide**: `#stage` is 1280 x 720 for 16:9, 720 x 1280 for 9:16, 1000 x 1000 for 1:1, `position: relative; overflow: hidden`.
 - **Neutral grey-box look, nothing else**: paper `#F1F0EC` ground, ink `#1B1F2A`, **one** accent `#E8833A` used only on the carrier, a system sans (`-apple-system, "Helvetica Neue", Arial, sans-serif`). No gradients, shadows, glows, blur filters, textures or decoration. No images unless the move is about one: then a flat grey rect (`#CFCDC6`) labelled with what it is. The look comes later, from the design system.
@@ -59,7 +61,7 @@ A skeleton to start from (replace the contents of `#stage`; this is the shell on
 
 1. Read the hero card and its ledger row and the rows either side. Say in one line what the carrier is, what it does in order, and what is constant across the bridge (this is your acceptance test).
 1b. If the card's staging is unclear, `node "$SKILL_DIR/scripts/moments.mjs" precedent --beat <beat> --content <type> --q "<the carrier>"` gives offline hints; hints only, never a reason to change the card's idea.
-2. Copy GSAP beside the rough (`cp "$SKILL_DIR/scripts/vendor/gsap.min.js" "$RUN/story/moves/<label>-<id>/gsap.min.js"`) and write `rough.html` from the card: frame A, each timed step, the bridge frame, frame B and the hand-off.
+2. Copy GSAP beside the rough (`cp "$SKILL_DIR/scripts/vendor/gsap.min.js" "$RUN/story/moves/<label>-<id>/gsap.min.js"`) and write `rough.json` (or, only when no kind fits, `rough.html`) from the card: frame A, each timed step, the bridge frame, frame B and the hand-off.
 3. **Render and check**: `node "$SKILL_DIR/scripts/moves.mjs" rough --dir "$RUN/story/moves/<label>-<id>" [--aspect <w:h>]`, then `node "$SKILL_DIR/scripts/moves.mjs" check-rough --dir "$RUN/story/moves/<label>-<id>"`. Fix what each names.
 4. **Look at `strip.png` and `poster.png`** (open the images). Answer: does the strip show frame A, the move, the bridge frame (is `poster.png` the frame where both states are true?) and the hand-off? Is the carrier the only orange? Does the timing read as the card says? If it does not read as the card, fix the rough (twice at most), render and look again.
 5. If the card cannot be built as written, build the card's `build.simplest` and say so, with the reason, in your handback note. Never silently change the idea.

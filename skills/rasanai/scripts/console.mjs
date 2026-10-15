@@ -9,6 +9,7 @@
 //   node console.mjs push  --run <dir> --step <id> (--data '<json>' | --file f.json) [--status awaiting|working|done|skipped] [--current]
 //        a decision that replaces a different earlier one on a done step needs --because "<why the old call lost>" (else exit 2); the old call is kept in decisions_history
 //   node console.mjs downgrade --run <dir> --what "<what the plan asked>" --instead "<what is used>" --why "<reason>" [--impact "<what the film loses>"]   (a fallback, told to the user in the drawer)
+//        (the brief push carries `budget`: the token budget crew.mjs plan wrote to <run>/crew/budget.json, added automatically when the push has none; see cleanBudget)
 //   node console.mjs activity --run <dir> --message "Reading your DESIGN.md" [--level info|ok|warn]   (what Claude is doing now)
 //   node console.mjs ask   --run <dir> --question "..." [--context "..."] [--options '[{"id","label","detail"}]'] [--recommended <id>] [--placeholder "..."]
 //        (any question outside the steps: missing material, a thin capture, an ambiguity; shown on the page, answered there)
@@ -66,6 +67,14 @@ const F = {
 };
 export const STEPS = ["brief", "research", "brand", "route", "footage", "story", "direction", "films", "concept", "scenes", "look", "motion", "styleframes", "animatic", "reel", "transitions", "voice", "music", "keyframes", "storyboard", "plan", "build", "render", "final"];
 
+// the Brief call's token budget, kept to the fields the page reads: {level: lean|standard|full, label, summary, fix_rounds, total, total_label, phases: [{phase, tokens, label}], levels: [{level, label, summary, fix_rounds, total, total_label}]}
+const BUDGET_LEVELS = ["lean", "standard", "full"];
+function cleanBudget(b) {
+  const n = (v) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Math.round(Number(v)) : 0);
+  const lab = (t) => (t >= 1e6 ? "~" + (t / 1e6).toFixed(1) + "M" : "~" + Math.round(t / 1000) + "k");
+  const lv = (x) => ({ level: BUDGET_LEVELS.includes(x.level) ? x.level : "standard", label: String(x.label || ""), summary: String(x.summary || "").slice(0, 300), fix_rounds: n(x.fix_rounds), total: n(x.total), total_label: String(x.total_label || lab(n(x.total))) });
+  return { ...lv(b), phases: (Array.isArray(b.phases) ? b.phases : []).slice(0, 40).map((p) => ({ phase: String(p.phase || ""), tokens: n(p.tokens), label: String(p.label || lab(n(p.tokens))) })), levels: (Array.isArray(b.levels) ? b.levels : []).slice(0, 3).map(lv), note: "an estimate from measured runs; the level can be changed before the film starts" };
+}
 const readJSON = (p, d) => {
   try {
     return JSON.parse(fs.readFileSync(p, "utf8"));
@@ -206,7 +215,7 @@ function applyAction(s, action) {
   // a note pinned to a moment of the animatic or the final: kept on the page until Claude resolves it
   if (action.type === "comment") {
     const v = action.value || {};
-    s.comments = (s.comments || []).concat({ id: action.id, step, scene: v.scene ?? null, t: typeof v.t === "number" ? v.t : null, x: typeof v.x === "number" ? v.x : null, y: typeof v.y === "number" ? v.y : null, scope: v.scope || "scene", quick: v.quick || null, text: action.note || v.quick || "", state: "open", ts: action.ts }).slice(-200);
+    s.comments = (s.comments || []).concat({ id: action.id, step, scene: v.scene ?? null, t: typeof v.t === "number" ? v.t : null, x: typeof v.x === "number" ? v.x : null, y: typeof v.y === "number" ? v.y : null, w: typeof v.w === "number" ? v.w : null, h: typeof v.h === "number" ? v.h : null, scope: v.scope || "scene", quick: v.quick || null, text: action.note || v.quick || "", state: "open", ts: action.ts }).slice(-200);
     activity(s, `You left a note${v.t != null ? " at " + Math.floor(v.t / 60) + ":" + String(Math.floor(v.t % 60)).padStart(2, "0") : ""}: ${action.note || v.quick}`, "you", null);
     return;
   }
@@ -352,6 +361,11 @@ if (cmd === "push") {
   if (hist.length) next.decisions_history = hist;
   // the brief carries the "What are you making?" picker (library/formats.json) and the pre-selected pick, when the push has none
   if (args.step === "brief" && next.status === "awaiting") Object.assign(next, briefFormat(next));
+  // the brief shows what the film will cost: the token budget (level, total, per phase, the three levels), written by `crew.mjs plan` to <run>/crew/budget.json
+  if (args.step === "brief") {
+    const bud = next.budget && typeof next.budget === "object" ? next.budget : readJSON(path.join(RUN, "crew", "budget.json"), {}).budget;
+    if (bud && typeof bud === "object") next.budget = cleanBudget(bud);
+  }
   // closing a step the user answered keeps who made the call, so the Decisions drawer credits them, not Claude
   if (next.status === "done" && !data.by && prev.sent && !["decide", "decide-rest", "note"].includes(prev.sent.type)) next.by = "user";
   // the step's discussion survives a re-push (Claude revising the options is the answer to it)

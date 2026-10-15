@@ -6,9 +6,11 @@ import SwiftUI
 struct DecisionsInspector: View {
     let model: FilmSessionModel
     @Environment(\.agentName) private var agent
+    @State private var lessons: [LessonRow] = []
 
     var body: some View {
         let decisions = model.decisions
+        let downgrades = model.snapshot.downgrades
         List {
             Section("Made so far") {
                 if decisions.isEmpty {
@@ -17,6 +19,16 @@ struct DecisionsInspector: View {
                         .listRowSeparator(.hidden)
                 }
                 ForEach(decisions) { row in DecisionRowView(model: model, row: row) }
+            }
+            if !downgrades.isEmpty {
+                Section("Working without") { DowngradesSection(rows: downgrades) }
+            }
+            if !lessons.isEmpty {
+                Section("Lessons carried to every film") {
+                    ForEach(lessons) { lesson in
+                        LessonRowView(row: lesson, agent: agent) { Task { if await LessonStore.drop(lesson.id) { lessons = LessonStore.load() } } }
+                    }
+                }
             }
             let details = Array(model.activity.prefix(40))
             if !details.isEmpty {
@@ -35,6 +47,7 @@ struct DecisionsInspector: View {
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)   // the inspector's glass shows through, the same as under Notes
         .accessibilityLabel("Decisions")
+        .task { lessons = await Task.detached { LessonStore.load() }.value }
     }
 }
 
@@ -55,6 +68,8 @@ private struct DecisionRowView: View {
                     .foregroundStyle(row.byUser ? Color.rasan : Color.secondary)
             }
             Text(row.decision).font(.system(size: 12)).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+            let history = model.snapshot.decisionHistory(step: row.step)
+            if !history.isEmpty { DecisionHistoryView(entries: history) }
             Button("Change…") { model.beginTell(step: row.step, prefill: "Change the \(row.label.lowercased()): ") }
                 .buttonStyle(.link).font(.system(size: 11)).opacity(hovering ? 1 : 0.75)
                 .accessibilityLabel("Change \(row.label)")
