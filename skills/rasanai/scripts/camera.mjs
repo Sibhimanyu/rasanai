@@ -17,6 +17,13 @@
 //                                   passes its paused timeline to stage(), no Math.random / wall clock, and keeps the
 //                                   budgeted extras (chromaticSplit, halation/bloom, lightComet, burst, plateTransition) within 3 each.
 //                                   Exit 0 = clean, 2 = violations.
+//                                   Two more WARNINGS (uncalibrated; idea from awesome-opus5-5-videos, our code), a static scan of every
+//                                   cam.keys([[t, zoom, x, y], ...]) call whose rows are plain numbers (x, y in px from the frame centre;
+//                                   the frame is the composition's data-width / data-height, else 1920 x 1080):
+//                                   zoom-into-point   a key past 4x whose point sits more than 15% of the frame (width for x, height for y)
+//                                                     off centre: a push into an off-centre point reads as a crop, open it as an iris instead
+//                                   zoom-in-out       a zoom in (a key at least 15% above the one before) followed by a zoom back out (the next
+//                                                     key at least 15% below) within 1.5 s: it breathes in and out, pick one direction per scene
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -121,6 +128,32 @@ async function demo(dir, times) {
 }
 
 // ------------------------------------------------------------------ check
+// every cam.keys([[t, zoom, x, y], ...]) call with all-number rows: zoom-into-point and zoom-in-out (warnings)
+export const ZOOM_POINT = { zoom: 4, off: 0.15 }, ZOOM_INOUT = { change: 1.15, within_s: 1.5 };
+export function zoomKeyFindings(code) {
+  const out = [];
+  const Wd = Number((code.match(/data-width="(\d+)"/) || [])[1]) || 1920, Hd = Number((code.match(/data-height="(\d+)"/) || [])[1]) || 1080;
+  const re = /\.keys\s*\(\s*\[/g;
+  let m;
+  while ((m = re.exec(code))) {
+    // the array literal, by bracket balance
+    let i = re.lastIndex - 1, d = 0, j = i;
+    for (; j < code.length; j++) { if (code[j] === "[") d++; else if (code[j] === "]" && !--d) break; }
+    if (d) continue;
+    const num = "(-?\\d*\\.?\\d+)";
+    const row = new RegExp(`\\[\\s*${num}\\s*,\\s*${num}(?:\\s*,\\s*${num})?(?:\\s*,\\s*${num})?\\s*\\]`, "g");
+    const ks = [...code.slice(i + 1, j).matchAll(row)].map((r) => ({ t: +r[1], z: +r[2], x: r[3] != null ? +r[3] : 0, y: r[4] != null ? +r[4] : 0 })).sort((a, b) => a.t - b.t);
+    for (const k of ks) {
+      const off = Math.max(Math.abs(k.x) / Wd, Math.abs(k.y) / Hd);
+      if (k.z > ZOOM_POINT.zoom && off > ZOOM_POINT.off) out.push({ rule: "zoom-into-point", message: `a camera key at t=${k.t} s zooms to ${k.z}x toward a point ${Math.round(off * 100)}% of the frame off centre (${k.x}, ${k.y} px)`, fix: "open it as an iris instead (a circular reveal grown from that point, eased by area), or keep the push on the frame's centre" });
+    }
+    for (let n = 1; n + 1 < ks.length; n++) {
+      const a = ks[n - 1], b = ks[n], c = ks[n + 1];
+      if (b.z >= a.z * ZOOM_INOUT.change && c.z <= b.z / ZOOM_INOUT.change && c.t - b.t <= ZOOM_INOUT.within_s) out.push({ rule: "zoom-in-out", message: `the camera zooms in to ${b.z}x by t=${b.t} s and back out to ${c.z}x by t=${c.t} s (${Math.round((c.t - b.t) * 100) / 100} s later)`, fix: "one eased move per scene: hold the push, or cut to the next scene instead of pulling back" });
+    }
+  }
+  return out;
+}
 export function checkProject(project) {
   const findings = [];
   const add = (severity, rule, file, message, fix) => findings.push({ severity, rule, file: path.relative(project, file) || file, message, fix });
@@ -137,6 +170,7 @@ export function checkProject(project) {
       if (/RasanCamera\.stage\s*\(/.test(t) && /gsap\.timeline/.test(t) && !/RasanCamera\.stage\s*\([^)]*\btl\s*:/.test(t.replace(/\n/g, " "))) add("warning", "stage-without-timeline", f, "RasanCamera.stage(...) is not given the scene's timeline ({ tl: tl }): the camera, focus and light will not move with it", "RasanCamera.stage(root, { lens_mm: 35, tl: tl, duration: <scene seconds> })");
       if (/RasanCamera/.test(t) && /gsap\.timeline/.test(t) && !/paused\s*:\s*true/.test(t)) add("warning", "timeline-not-paused", f, "no gsap.timeline({ paused: true }) found; the camera is driven by a paused timeline", "create the timeline paused and register it on window.__timelines");
     }
+    if (/\bRasanCamera\b/.test(t)) for (const k of zoomKeyFindings(t)) add("warning", k.rule, f, k.message, k.fix);
     if (/\bRasanCamera\b/.test(t) && /Math\.random\s*\(|Date\.now\s*\(|performance\.now\s*\(/.test(t)) add("error", "nondeterministic", f, "Math.random / the wall clock in a composition that uses RasanCamera", "use RasanCamera.rng(seed) and derive everything from the timeline");
   }
   // budgeted extras are counted across every scene file (a scene script may only say cam.chromaticSplit(...))

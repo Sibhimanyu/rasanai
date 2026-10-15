@@ -356,6 +356,8 @@ Do not paste the dense real UI flat and small. Kinso redraws its UI for video: a
 
 - **Build in stages**: card, then frame (header, tabs), then rows, then the highlight. A UI that arrives whole is a screenshot (`ui-unstaged` warns when no shot of a UI beat mentions build, rows, highlight, step, simplify or card).
 - **The product acts**: highlights step down the rows, rows reorder, cards appear on their own, a count climbs. A cursor appears only when the user's action is the point (a click that sends, a drag that is the feature); a cursor leading most UI beats reads as a screen recording (`cursor-led`).
+- **Springs that add up** (idea from awesome-opus5-5-videos; our code): when a value is retargeted mid-flight (a highlight chasing a moving cursor, a count handed a new target), do not restart a tween from the current value. Give the property its keys and read it with `RasanMotion.springTrack(keys, {z, w})`: every new target adds its own spring response, so the motion keeps its velocity and stays a pure function of `t` (seek-safe). `.velocity(t)` gives the speed, for matching a loop seam.
+- **Indicators with two edges**: a tab underline, a selection pill or a toggle knob travels as two edges, the leading one on a stiffer spring than the trailing one, so it stretches toward the target and the tail catches up. `RasanMotion.edges(keys, {lead, trail})` returns `left(t)`, `right(t)`, `center(t)` and `width(t)`. Use it on the one indicator that is the beat; a quiet slide needs only a plain ease.
 
 ### Depth
 
@@ -364,6 +366,8 @@ One flat plane reads as a template. Put sharp UI over a blurred giant word, give
 ### Word choreography
 
 Letter-by-letter type-on every time is a template. Each word arrives from its own place (its own offset, scale and blur) and settles into the line with a 4 to 8 px lift and a soft overshoot; the key word arrives last. Every word is readable at rest and the line is whole before it leaves. Every grammar carries a `word-choreo` technique with its GSAP route; use type-on only where the typing itself is the show (a prompt being written).
+
+Once the line is whole, it holds still for its reading time (`readTime` in `scripts/lib/reading.mjs`, section 2) before any decorative travel; the arrival is the reveal, a drift or push afterwards is not (`text-moves-before-read`, textfit, warning). Motion blur and camera scaling never touch the text being read, and text that a camera scales gets no `will-change` (the browser rasterises it once and it renders soft). In a morphing container the outgoing and the incoming text get separate exit and enter timing, so the two never overlap.
 
 ### Type rhythm
 
@@ -470,6 +474,12 @@ At least 3 clear sizes in the system, display at least 2.5× the body, at least 
 | T1 push | a push that goes somewhere | 6–15% over 0.8–1.5 s toward the subject, `power2.inOut` or `expo.inOut`, then locked (at least 4% a second: a 2–4% lean-in over a whole shot is a creep, and the motion gate fails it) | image and hero shots, toward the thing that matters; never while small text is being read |
 | T2 focus zoom | screen-studio zoom into a UI region | 1.3–2.5× so the action fills ≥ 60% of the width, 0.6–0.9 s `power3.inOut`, then hold locked | each UI beat; back to 1× before the next target or the cut |
 | T3 crash zoom | impact punch-in | 1.5–2× in 0.15–0.25 s `expo.in`, optional 1–2 frame flash | once per film, on the peak |
+
+**Camera rules of thumb** (ideas from awesome-opus5-5-videos; our wording):
+- Zoom is felt as a ratio, so interpolate it in log space: `cam.keys([[t, zoom, x, y], ...])` does (opt out with `linearZoom`); a linear lerp from 1× to 4× rushes at the start and crawls at the end.
+- Never zoom into an off-centre point (past 4× and 15% of the frame from centre: `zoom-into-point`, camera.mjs). Open it as an iris or a mask from that point instead; the frame stays put and the target grows.
+- Iris and flood circles ease by area (radius = R·sqrt(e)), since the eye reads the area that is covered, not the radius; `byArea` is on by default in the shape helpers.
+- Launch-film camera moves take 1.5–3 s on gentle in-out curves, about half the speed a model reaches for by default. One eased move per scene. Never zoom in and straight back out (`zoom-in-out`): the second move cancels the first and reads as a wobble.
 
 **Camera from meaning.** Name each beat's camera (locked, push-in, pull-out, pan-truck, tilt, rotate, handheld-drift, whip) and one signature shot, at the peak. A camera move is spent like a big moment: a push toward what the beat's `buys` is about, a pull-out when it means "at scale", locked where the UI or the type does the moving; importance-1 beats stay locked. There is no count of kinds to reach: walking the list one kind per beat is a sampler (FILM-F). The render is measured too (`lib/camera-moves.mjs`: a whole-frame affine fit on the textured blocks, counted only when it covers the frame or one big plane; a line that recentres while it types is not a pan): `camera-monotone` warns when the film shows fewer moving kinds than the references do at its length (1 from 15 s, 2 from 40 s, 3 from 90 s; a stillness style is exempt), and the gate lists each beat's measured camera next to the declared one. Most great 2D films barely move the camera; the warning floor sits where they sit. A cut-in (a scale jump across a cut) is a cut, not a camera move, and a heavy depth-of-field blur hides a move from the measure. Calibrated 2026-10-14, by eye on strips:
 

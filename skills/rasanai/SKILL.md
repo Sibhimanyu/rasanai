@@ -499,4 +499,4 @@ Push the current film to the Final (its render, markers from STORYBOARD.md) and 
 | console payloads per step, action types, security | `references/console.md` |
 | motion.md fields, tween classes, rules, banned patterns, waivers | `references/motion-md-contract.md` |
 | the motion-language terms and their contracts | `taxonomy/dimensions/motion-language.json`, `references/personalities.md` |
-| single units: keyframe board format; decisions.json and handoff | `references/board-format.md`, `references/handoff.md` |
+| single units: keyframe board format; decisions.json and handoff | `references/board-format.md`, `references/handoff.md` (`handoff.mjs --decisions <decisions.json> --prompt [--out <file>]` writes the chosen plan as one paste-able prompt for another coding agent) |

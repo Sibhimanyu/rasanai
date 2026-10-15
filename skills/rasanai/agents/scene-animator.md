@@ -95,6 +95,16 @@ If the delivery render goes through `finish.mjs all` (it does for every Final; d
 
 **Branded film (`brand_film`)**: read `brand-film/FILM-STYLE.md` before you animate. Use only the moves in its motion vocabulary (scale, morph, draw-on, cut, UI choreography...) and none it says are absent. The card locks palette, type, logo, UI and tone. Add hero effects only where `score.budget` names them; keep the finish layer and motion blur on fast moves; 3D in the brand palette (matte or unlit). The brand's own curves are the signature (`motion.md`); the role mix, durations from travel (0.3 to 0.8 s for UI, 0.5 to 1.2 s for type) and overlap still apply.
 
+## Coded-film gotchas
+
+- Every canvas helper saves and restores `globalAlpha` and the transform (`save()` / `restore()`), so one helper never leaks state into the next.
+- A flood circle that covers the frame becomes a full-frame rect (the shape helper returns `covered: true`); never draw a circle bigger than the screen.
+- A morph happens inside the same camera transform as the scene it leaves, so the camera move does not jump at the handoff.
+- Counters, clocks and typed digits read `RasanMotion.frameTime(t, fps)`, so subframe blur never smears them.
+- Seeded hash, never `Math.random`.
+- Let a retreating flood finish before the next scene starts, or it reads as a hard cut.
+- Fast whips need more blur subframes (8, not 4).
+
 ## Never
 
 - Never idle loops on content (breathing, pulsing, endless float) to fill time; the living frame is a finite camera push, a ground drift or an ambient on a background layer. Never a dead frame: no still stretch of 0.8 s (the motion gate measures it, with fluency on the draft).

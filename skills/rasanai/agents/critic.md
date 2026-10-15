@@ -103,6 +103,7 @@ Read the spacing between frames in a 24 fps strip; a 2 fps sheet hides all of th
 - **Nothing settles** (or everything bounces): about 1 landing in 8 overshoots by 3 to 8% and returns; name which.
 - **Ruler-straight paths, metronome cascades, durations on a grid, a dead frame or a frozen hold.** A composed hold with a living layer is right; constant mechanical drift is as wrong as a freeze.
 - **Speed**: fast UI moves should soften with speed; whips need blur.
+- **One-frame pops and loop seams**: a thing that appears for a frame or two, or a one-frame jump (motion-gate `pop`); on a loop, the join of the last frame to the first (`loop-seam`). Check both in the 24 fps strip across the suspected frame.
 
 The gate's `fluency` score is evidence, not the verdict: a film can pass it and still be dull, and a declared stillness style can be right with long holds. Your eyes judge; the numbers point.
 

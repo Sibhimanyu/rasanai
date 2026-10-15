@@ -5,7 +5,7 @@
 // fails here with the time, the region or the beat, so the builder can fix the cause.
 //
 //   node motion-gate.mjs [--video <draft.mp4>] [--project <videos/name>] [--plan <run>/motion/score.json]
-//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--vo <audio_meta.json|words.json>] [--no-text-fit] [--no-fluency] [--no-carry] [--no-echo] [--no-camera] [--no-emphasis] [--no-guards]
+//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--vo <audio_meta.json|words.json>] [--no-text-fit] [--no-fluency] [--no-carry] [--no-echo] [--no-camera] [--no-emphasis] [--no-guards] [--no-pop] [--loop]
 //        [--stillness] [--json]
 //   node motion-gate.mjs fluency --video <film.mp4> [--stillness] [--json]     the fluency measurement alone
 //   -> exit 0 pass · 2 findings (listed, each with a time and a fix) · 1 could not run (never "clean")
@@ -60,6 +60,16 @@
 //              (--no-guards skips these three)
 //   duration-mismatch  (with --plan or --scenes) the render's length is within 0.25 s or 2% (whichever is larger) of the planned
 //              duration (the plan's `duration`, or where its last beat ends)
+//   pop        (WARNING, uncalibrated; lib/fluency.mjs scanFrames/findPops; idea from awesome-opus5-5-videos, our code) a single-frame
+//              pop: the film decoded at its native fps (24 to 60) as 160 px grey, the mean change per frame d; a thing that shows for
+//              1 or 2 frames and goes away (both steps at least max(8/255, 6x the local median over +-0.5 s), the median calm, 2/255 or under, and
+//              the frame after back near the frame before), or, when the plan names its seams, a one-frame jump on no planned seam (an
+//              unplanned cut). Planned seams (+-3 frames) are skipped. Each is reported with its time and the cell of a 4x4 grid that changed
+//              most; at most 12 listed. --no-pop skips it
+//   loop-seam  (WARNING, uncalibrated; only for a declared loop: plan `loop: true`, motion.md `loop: true`, or --loop) the last frame
+//              against the first (mean change over 3/255 does not close) and the motion continuity (the step into the last frame against the
+//              step out of the first: the ratio must sit between 0.5 and 2); both numbers are reported. finish.mjs drops a last frame that
+//              repeats frame 0 for a declared loop
 // Lessons (lib/gate-lessons.mjs): motion.end_hold_s, motion.end_hold_min_s, motion.freeze_s, motion.carry_share and film.ending_share_max read
 // through gateValue, so a mistake the user pointed out once can tighten them; the report lists each lesson in force.
 // From the plan and the code (--plan, --project):
@@ -92,7 +102,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
 import { textFit, cuesOf, seeAndSay, captionDupes } from "./lib/textfit.mjs";
-import { analyse as fluencyOf, scoreFluency } from "./lib/fluency.mjs";
+import { analyse as fluencyOf, scoreFluency, scanFrames, findPops, loopSeam, LOOP } from "./lib/fluency.mjs";
 import { measureCarry } from "./lib/carry.mjs";
 import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
@@ -135,7 +145,7 @@ async function main() {
     }
     process.exit(g.pass === false ? 2 : 0);
   }
-  const res = await gate({ vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], stillness: args.stillness ? true : null });
+  const res = await gate({ vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], pop: !args["no-pop"], loop: args.loop ? true : null, stillness: args.stillness ? true : null });
   for (const c of res.could_not_run) noteDowngrade({ run: args.run, what: "the motion gate", instead: "no motion check", why: String(c).slice(0, 200), impact: "this film's motion was not measured" });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else {
@@ -439,7 +449,7 @@ function codeChecks(file, html) {
 }
 
 // ---------------------------------------------------------------- the gate
-export async function gate({ vo = null, video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, stillness = null } = {}) {
+export async function gate({ vo = null, video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, pop = true, loop = null, stillness = null } = {}) {
   const findings = [], skipped = [], could = [], measured = {};
   const add = (f) => findings.push(f);
   const P = readPlan(plan && path.resolve(plan), scenes && path.resolve(scenes));
@@ -450,6 +460,12 @@ export async function gate({ vo = null, video = null, project = null, plan = nul
     stillness = !!(P.plan && (P.plan.stillness === true || P.plan.motion_style === "stillness")) || /^stillness:\s*true\b/m.test(md);
   }
   measured.stillness = stillness;
+  // a declared loop: the flag, the plan (loop: true), or motion.md
+  if (loop == null) {
+    const md = project ? readText(path.join(path.resolve(project), "motion.md")) : "";
+    loop = !!(P.plan && P.plan.loop === true) || /^loop:\s*true\b/m.test(md);
+  }
+  measured.loop = !!loop;
   const still = stillness ? "warning" : "error";
   const beats = P.beats || [];
   const holdMax = gateValue("motion.end_hold_s", endHold || P.endHold || GATE.end_hold_s);
@@ -658,6 +674,29 @@ export async function gate({ vo = null, video = null, project = null, plan = nul
       }
     } catch (e) { skipped.push(`carry: ${e.message} (not measured, never passed)`); }
   } else if (video && !carry) skipped.push("carry: skipped (--no-carry)");
+
+  // ---- pops and the loop seam (lib/fluency.mjs scanFrames; warnings, uncalibrated)
+  if (video && (pop || loop) && fs.existsSync(path.resolve(video))) {
+    try {
+      const scan = await scanFrames(path.resolve(video));
+      if (pop) {
+        const pops = findPops(scan, { seamTimes });
+        measured.pops = pops.length;
+        if (!seamTimes.length) skipped.push("pop: no plan seams, so only blips that undo themselves are judged (a one-frame jump that stays could be a planned cut)");
+        for (const p of pops) add(p.kind === "blip"
+          ? { check: "pop", severity: "warning", at: p.t, region: p.region, message: `something shows for ${p.frames} frame${p.frames > 1 ? "s" : ""} at ${p.t} s and goes (a change of ${p.size}/255 that undoes itself) in a calm stretch`, fix: "find the element or layer that is on for one frame: a tween that starts a frame early, a fade that begins at its end value, a duplicate layer, a scene boundary that overlaps by a frame; start it from its hidden state or move the edge off the frame" }
+          : { check: "pop", severity: "warning", at: p.t, region: p.region, message: `a one-frame jump at ${p.t} s (${p.size}/255) with calm frames either side and no planned seam there`, fix: "if it is a cut, put it on a seam in the plan and carry motion through it; if not, something snaps for a frame: look for a state set without a tween" });
+      } else skipped.push("pop: skipped (--no-pop)");
+      if (loop) {
+        const ls = loopSeam(scan);
+        if (!ls) skipped.push("loop-seam: too few frames");
+        else {
+          measured.loop_seam = ls;
+          if (!ls.frame_ok || !ls.motion_ok) add({ check: "loop-seam", severity: "warning", at: null, region: "seam", message: `the loop does not close: last frame against first differs by ${ls.frame_diff}/255 (${LOOP.frame_mad}/255 or under closes), speed into the last frame ${ls.step_last} against out of the first ${ls.step_first} (ratio ${ls.ratio == null ? "infinite" : ls.ratio}; 0.5 to 2 matches)`, fix: "end the timeline on the frame it began (the last frame one step before frame 0, not equal to it) and give the last and first steps the same speed: loop a periodic motion, or ease both ends from the same velocity (RasanMotion.springTrack(...).velocity)" });
+        }
+      }
+    } catch (e) { skipped.push(`pop/loop-seam: ${e.message} (not measured, never passed)`); }
+  } else if (video && !pop) skipped.push("pop: skipped (--no-pop)");
 
   // ---- echo: the end is the start, changed (lib/echo.mjs)
   if (beats.length && P.plan) {

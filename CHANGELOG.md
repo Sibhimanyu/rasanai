@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **Craft from awesome-opus5-5-videos (idea only, our code; register in `third_party/SOURCES.md`).** A read of 703 prompts behind viral Opus-coded videos; we took only what RasanAI lacked.
+  - Runtime: `RasanMotion.springTrack` (a value with many targets as a sum of closed-form spring step responses, so a retarget keeps its velocity and stays seek-safe, with `.velocity(t)`), `RasanMotion.edges` (two-edge indicators: the leading edge on a stiffer spring, so a pill stretches ahead and catches up; opt-in `liquid` on `U.tabs` and `U.toggle`), `RasanMotion.frameTime` (counters read the frame's own time). `RasanCamera` zoom eases in log space (`cam.keys([[t, zoom, x, y]])`, `cam.zoom` too; `linearZoom` opts out) and warns once on a zoom past 4× into an off-centre point. `RasanShape.iris`, `flood` and `circleAt` ease by area and turn a covering flood into a full-frame rect.
+  - Checks, all warnings and uncalibrated: `motion-gate` `pop` (one- and two-frame blips and jumps, with time and grid cell; `--no-pop`) and `loop-seam` (last vs first frame and the motion across the seam, when a loop is declared by `--loop`, the plan or motion.md); `camera.mjs` `zoom-into-point` and `zoom-in-out`; text-fit `text-moves-before-read` (a settled line that travels before its reading time).
+  - Render and sound: `finish.mjs` sets `window.__rasanFrameTime` per sub-frame for projects that read it, so blur never smears digits, and drops a last frame that repeats frame 0 on a declared loop; `sound.mjs render --loop` and `loop-bed` cut the music on a bar and crossfade its tail into its head.
+  - Prose and tools: camera rules of thumb, reading hold and morphing-text timing in `references/craft.md`; a coded-film gotchas block for the film builder and scene animator; the critic looks for pops and loop seams; the brief shows each input's default; `handoff.mjs --prompt` exports a film plan as one paste-able prompt.
+  - Untested by choice: only syntax checks were run. Planned: precedent rows from the list (BACKLOG B11).
+
 ## 1.17.0 (2026-10-15): one argument per film, motion from meaning
 
 - **Wave 8: a token budget and a leaner process.** `crew.mjs plan --budget lean|standard|full` prints the token estimate per phase and in total (`crew/budget.json`); lean is one script, one look, one fix round (about 1M tokens on a direct film). A long film builds one hero scene first (the spike), critics return `strengths[]` that the fix round keeps and the A/B juror guards, notes become marked crops (`crew.mjs marks`, `strip --crop`), roughs are JSON in a 13-kind DSL (`moves.mjs rough`), and outside text is data, never instructions.

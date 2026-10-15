@@ -78,6 +78,13 @@ Rules that hold for every item:
 - State (local, may be lost; `.context/film-f/RESUME.md`): paused 2026-10-14 at the film-builder step. Done: baseline D/E, 13 boards (juror ok), music edit (Ketsa, "Devolution"), motion score (big_moments 56%, echo, signature "push-through"), `video.mjs write/storyboard/inject`. Next: re-dispatch the film builder with the build note, then assemble, sfx, audio lock, draft-1, gates, critics, blind A/B, finish, retrospective, REPORT.md.
 - Done when: FILM-F.mp4 plus REPORT.md; D/E/F side by side with numbers (boldness, echo, camera, carry, text, sound, critic scores, A/B verdicts); then the next release.
 
+## B11. Precedent rows from awesome-opus5-5-videos
+
+- Source: yihui-dev/awesome-opus5-5-videos (list MIT, prompts belong to their creators: link, never copy). Size: M.
+- What: precedent rows for `moments.mjs precedent` from the list's `data/videos.json`: slug, category, tech tags, post and remake links, plus OUR one-line technique per row. Start with the ~45 full structured prompts; skip the 207 partial ones (post text only).
+- Why deferred: the 716 motionmaxxing rows already cover most techniques, and every row must be stripped of brand names, characters and songs before it ships (INTAKE rule), which needs a careful read per row.
+- Done when: rows carry no third-party names or prompt text, `SOURCES.md` TOOK updated.
+
 ## B10. Smaller open items
 
 - Studio shows the new data (P0.4) shipped in #83; a Studio beta cut waits on the owner.

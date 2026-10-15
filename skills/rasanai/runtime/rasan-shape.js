@@ -7,6 +7,15 @@
  *
  *   <script src="assets/rasan-shape/flubber.min.js"></script>      (only needed for morph)
  *   <script src="assets/rasan-shape/rasan-shape.js"></script>      (after GSAP)
+ *
+ * AO additions (idea from awesome-opus5-5-videos; our code): circular reveals eased by AREA.
+ *   RasanShape.iris(tl, target, { at, duration, ease, dir: "open"|"close", center: [x, y], byArea: true })   clip-path circle on an element
+ *   RasanShape.flood(tl, host, { at, duration, ease, dir: "open"|"close", color, center: [x, y], byArea: true })  a coloured circle over a frame
+ *   RasanShape.circleAt(e, { R, dir, byArea }) -> { r, covered }   the pure radius for eased progress e
+ * The eye reads the AREA a circle uncovers, so with byArea (default true, these helpers are new) the radius is R*sqrt(e) opening and
+ * R*sqrt(1-e) closing: the area grows at the rate of the ease, not the radius, so an iris never crawls at the start and snaps at the end.
+ * byArea: false gives the plain linear radius. Once a flood circle reaches the farthest corner (r >= R) it is drawn as a full-frame
+ * rect (no clip-path) and reports covered: true, so no hairline of the underlying frame survives anti-aliasing.
  */
 (function (root) {
   "use strict";
@@ -424,10 +433,48 @@
     return tl;
   }
 
+  // ------------------------------------------------------------------ iris and flood (circle reveals eased by area)
+  // the radius of a circle reveal at eased progress e (0..1): R is the radius that covers everything
+  function circleAt(e, o) {
+    o = o || {}; e = clamp(e, 0, 1);
+    var byArea = o.byArea !== false, close = o.dir === "close", R = o.R || 1;
+    var k = close ? 1 - e : e;                       // closing is the same curve run from full to nothing
+    var r = R * (byArea ? Math.sqrt(k) : k);
+    return { r: r, covered: r >= R - 1e-6 };
+  }
+  // distance from a point to the farthest corner of a w x h box (the radius that covers the whole box)
+  function coverR(c, w, h) { return Math.max(Math.hypot(c[0], c[1]), Math.hypot(w - c[0], c[1]), Math.hypot(c[0], h - c[1]), Math.hypot(w - c[0], h - c[1])); }
+  function sizeOf(el, o) { return [opt(o, "width", el.offsetWidth || 1920), opt(o, "height", el.offsetHeight || 1080)]; }
+  function iris(tl, target, o) {
+    o = o || {};
+    var el = one(target), ease = opt(o, "ease", "power2.inOut");
+    drive(tl, o.at, opt(o, "duration", 0.8), ease, function (p) {
+      var wh = sizeOf(el, o), c = o.center || [wh[0] / 2, wh[1] / 2], c2 = circleAt(p, { R: coverR(c, wh[0], wh[1]), dir: o.dir, byArea: o.byArea });
+      el.style.clipPath = c2.covered ? "none" : "circle(" + c2.r.toFixed(2) + "px at " + c[0] + "px " + c[1] + "px)";
+    });
+    return el;
+  }
+  function flood(tl, hostEl, o) {
+    o = o || {};
+    var h = one(hostEl), ease = opt(o, "ease", "power2.inOut"), cover = document.createElement("div");
+    cover.setAttribute("data-rs-flood", "");
+    cover.style.cssText = "position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:" + opt(o, "z", 1000) + ";background:" + opt(o, "color", "#000") + ";visibility:hidden";
+    h.appendChild(cover);
+    var covered = false;
+    drive(tl, o.at, opt(o, "duration", 0.8), ease, function (p) {
+      var wh = sizeOf(h, o), c = o.center || [wh[0] / 2, wh[1] / 2], c2 = circleAt(p, { R: coverR(c, wh[0], wh[1]), dir: o.dir, byArea: o.byArea });
+      covered = c2.covered;
+      if (c2.r <= 0) { cover.style.visibility = "hidden"; return; }
+      cover.style.visibility = "visible";
+      cover.style.clipPath = c2.covered ? "none" : "circle(" + c2.r.toFixed(2) + "px at " + c[0] + "px " + c[1] + "px)"; // covered: a full-frame rect
+    });
+    return { el: cover, get covered() { return covered; } };
+  }
+
   root.RasanShape = {
     version: VERSION,
     rng: rng, hash2: hash2,
     morph: morph, drawOn: drawOn, followPath: followPath, split: split, scatter: scatter,
-    ink: ink, dissolve: dissolve, squash: squash, smear: smear, stepped: stepped,
+    iris: iris, flood: flood, circleAt: circleAt, ink: ink, dissolve: dissolve, squash: squash, smear: smear, stepped: stepped,
   };
 })(typeof window !== "undefined" ? window : this);

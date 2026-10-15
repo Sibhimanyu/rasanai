@@ -83,6 +83,11 @@ pose(t, k){
 ```
 `pose` is a pure function of `t` because the spring is evaluated in closed form, not integrated.
 
+### Retargets and two-edge indicators (runtime)
+
+- A value that gets a new target mid-flight (a highlight following a moving cursor, a count handed a new number) uses `RasanMotion.springTrack(keys, { z, w })`: the responses of successive targets add, so velocity carries through the retarget and the result is still a pure function of `t`. `.velocity(t)` is there for matching a loop seam.
+- A tab underline, selection pill or toggle knob uses `RasanMotion.edges(keys, { lead, trail })`: the leading edge on a stiffer spring (about w 28) than the trailing one (about w 16), so it stretches toward the target and the tail catches up. Use it on the indicator that is the beat; elsewhere one damping-1.0 spring is enough.
+
 ## What makes a cheap imitation
 
 - `elastic.out(1, 0.3)` on everything: wobbly, toy-like, not Apple.

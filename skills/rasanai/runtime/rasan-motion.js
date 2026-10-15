@@ -23,6 +23,16 @@
  * the same factor every frame, no ease), M.scaleDive (a many-level dive: log zoom, an anchor pinned to a screen point,
  * detail that fades by its on-screen size), M.smear (a directional blur on one element, peak on the first or last frame),
  * M.mix / RasanMotion.mix(a, b, k) (a colour in between in OKLab, never mud) and M.colour (a colour tween with it).
+ * AO additions (idea from awesome-opus5-5-videos; our code), all pure functions of time:
+ *   RasanMotion.springTrack(keys, { z, w })  keys [{t, v}]: a value that chases each new key with a closed-form damped
+ *     spring. Each key adds (v_i - v_{i-1}) * step(t - t_i), so responses ADD: retargeting mid-flight keeps the velocity,
+ *     and there is no state to seek. f(t) -> value, f.velocity(t) -> units/s (for matching a loop seam). Defaults z 1, w 20.
+ *   RasanMotion.edges(keys, { lead, trail })  keys [{t, x, w}]: an indicator (tab pill, toggle, segmented control) as two
+ *     edges on two springs. The edge on the side of travel uses the stiffer `lead` (default z 1, w 28), the other the softer
+ *     `trail` (z 1, w 16), so the pill stretches ahead and catches up. -> { left(t), right(t), center(t), width(t) }.
+ *   RasanMotion.frameTime(t, fps)  the time of the frame itself, floor(t * fps + 1e-6) / fps. Counters, clocks and typed
+ *     digits must read THIS, not t: finish.mjs blends sub-frames for motion blur, and a counter read at a sub-time smears
+ *     into a double image. When the page sets window.__rasanFrameTime (seconds, finish.mjs does this per sub-frame) that wins.
  * ONE blur grammar per film: smear, crisp steps or shutter. M.smear takes an element's filter from the speed softening;
  * audit().blur_grammar says "smear", "soft" or "mixed" (mixed is the thing to fix).
  */
@@ -529,5 +539,64 @@
     return { travel: travel, land: land, follow: follow, enter: enter, exit: exit, cascade: cascade, camera: camera, ambient: ambient, snap: snap, dive: dive, scaleDive: scaleDive, smear: smear, colour: colour, mix: mix, next: next, audit: audit, dur: durFor, ease: function (role) { return ease(curves[role] || role); }, curves: curves, W: W, H: H, fps: fps };
   }
 
-  return { version: VERSION, kit: kit, ease: ease, curves: CURVES, measured: MEASURED, measuredFrames: MEASURED_FRAMES, contract: contract, spring: spring, bezier: bez, mix: mix, oklab: toOklab, fromOklab: fromOklab };
+  // ------------------------------------------------------------------ spring superposition (AO.1)
+  // step response of a damped spring from 0 to 1 at t >= 0 (z: damping ratio, w: angular frequency rad/s)
+  function stepResponse(z, w, t) {
+    if (t <= 0) return 0;
+    if (z < 1) { var wd = w * Math.sqrt(1 - z * z); return 1 - Math.exp(-z * w * t) * (Math.cos(wd * t) + (z * w / wd) * Math.sin(wd * t)); }
+    if (z === 1) return 1 - (1 + w * t) * Math.exp(-w * t);
+    var q = Math.sqrt(z * z - 1), r1 = -w * (z - q), r2 = -w * (z + q); // two real poles
+    return 1 - (r2 * Math.exp(r1 * t) - r1 * Math.exp(r2 * t)) / (r2 - r1);
+  }
+  function stepRate(z, w, t) { // d/dt of stepResponse
+    if (t <= 0) return 0;
+    if (z < 1) { var wd = w * Math.sqrt(1 - z * z); return (w / Math.sqrt(1 - z * z)) * Math.exp(-z * w * t) * Math.sin(wd * t); }
+    if (z === 1) return w * w * t * Math.exp(-w * t);
+    var q = Math.sqrt(z * z - 1), r1 = -w * (z - q), r2 = -w * (z + q);
+    return -r1 * r2 * (Math.exp(r1 * t) - Math.exp(r2 * t)) / (r2 - r1);
+  }
+  // times [t_i], values [v_i], pick(i) -> { z, w } for the step that arrives at key i (i >= 1)
+  function chase(ts, vs, pick) {
+    var n = ts.length, par = [];
+    for (var i = 1; i < n; i++) par[i] = pick(i);
+    function f(t) {
+      var v = vs[0];
+      for (var i = 1; i < n; i++) { if (t <= ts[i]) break; v += (vs[i] - vs[i - 1]) * stepResponse(par[i].z, par[i].w, t - ts[i]); }
+      return v;
+    }
+    f.velocity = function (t) {
+      var d = 0;
+      for (var i = 1; i < n; i++) { if (t <= ts[i]) break; d += (vs[i] - vs[i - 1]) * stepRate(par[i].z, par[i].w, t - ts[i]); }
+      return d;
+    };
+    return f;
+  }
+  function springTrack(keys, o) {
+    o = o || {};
+    need(keys && keys.length, "springTrack needs at least one key {t, v}");
+    var z = o.z == null ? 1 : +o.z, w = o.w == null ? 20 : +o.w;
+    return chase(keys.map(function (k) { return +k.t; }), keys.map(function (k) { return +k.v; }), function () { return { z: z, w: w }; });
+  }
+  function edges(keys, o) {
+    o = o || {};
+    need(keys && keys.length, "edges needs at least one key {t, x, w}");
+    var L = o.lead || {}, T = o.trail || {};
+    var lead = { z: L.z == null ? 1 : +L.z, w: L.w == null ? 28 : +L.w }, trail = { z: T.z == null ? 1 : +T.z, w: T.w == null ? 16 : +T.w };
+    var ts = keys.map(function (k) { return +k.t; });
+    var lv = keys.map(function (k) { return +k.x; }), rv = keys.map(function (k) { return +k.x + +k.w; });
+    function dir(i) { return (lv[i] + rv[i]) - (lv[i - 1] + rv[i - 1]); } // sign of the centre's travel at key i
+    var left = chase(ts, lv, function (i) { return dir(i) < 0 ? lead : trail; });   // moving left: the left edge leads
+    var right = chase(ts, rv, function (i) { return dir(i) > 0 ? lead : trail; });  // moving right: the right edge leads
+    return {
+      left: left, right: right,
+      center: function (t) { return (left(t) + right(t)) / 2; },
+      width: function (t) { return right(t) - left(t); },
+    };
+  }
+  function frameTime(t, fps) {
+    if (typeof root.__rasanFrameTime === "number") return root.__rasanFrameTime;
+    return Math.floor(t * fps + 1e-6) / fps;
+  }
+
+  return { version: VERSION, springTrack: springTrack, edges: edges, frameTime: frameTime, kit: kit, ease: ease, curves: CURVES, measured: MEASURED, measuredFrames: MEASURED_FRAMES, contract: contract, spring: spring, bezier: bez, mix: mix, oklab: toOklab, fromOklab: fromOklab };
 });

@@ -29,6 +29,11 @@
  *   // 1.1.0: U.drag(card, target, { at }) the drag-and-drop reaction stack; U.scroll(col, { at, distance }) an accelerating dense scroll;
  *   //        U.shimmer(statusEl, { at }) status words then two shimmer passes; U.terminal(parent, { lines: [{ cmd }, { out }, { pill }] }).
  *
+ *   // AO: liquid indicators (opt-in, idea from awesome-opus5-5-videos; our code). The tab underline / toggle knob becomes two edges on two
+ *   //     springs (RasanMotion.edges: the leading edge is stiff, the trailing edge catches up). Needs rasan-motion.js loaded first.
+ *   //        U.tabs(p, { items, active: 0, liquid: [{ t: 1.2, index: 2 }, { t: 2.4, index: 0 }] });   U.toggle(p, { on: false, liquid: [{ t: 1.0, on: true }] });
+ *   //        opts: liquid is the move list; liquidSpring: { lead: {z, w}, trail: {z, w} } passes through to RasanMotion.edges.
+ *
  * Reference: references/ui-rebuild.md (recipes, numbers, the rules the check enforces).
  */
 (function (root, factory) {
@@ -176,7 +181,7 @@
     ".ru-chip{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:var(--ru-r-pill);background:var(--ru-hover);color:var(--ru-ink);font-size:12px;font-weight:600}.ru-chip[data-tone=accent]{background:color-mix(in srgb,var(--ru-accent) 16%,transparent);color:var(--ru-ink)}",
     ".ru-table{width:100%;border-collapse:collapse;border:1px solid var(--ru-border);border-radius:var(--ru-r-lg);overflow:hidden}.ru-table th{text-align:left;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--ru-muted);padding:10px 16px;background:var(--ru-surface)}.ru-table td{padding:13px 16px;border-top:1px solid var(--ru-border)}.ru-table td[data-num]{text-align:right;font-variant-numeric:tabular-nums}",
     ".ru-tabs{display:flex;gap:calc(var(--ru-u)*6);border-bottom:1px solid var(--ru-border)}.ru-tab{padding:0 0 10px;color:var(--ru-muted);font-weight:600;border-bottom:2px solid transparent;margin-bottom:-1px}.ru-tab[data-active]{color:var(--ru-ink);border-bottom-color:var(--ru-accent)}",
-    ".ru-toggle{display:inline-block;width:46px;height:28px;border-radius:var(--ru-r-pill);background:var(--ru-border);position:relative;flex:none;transform-origin:50% 50%}.ru-toggle::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--ru-canvas)}.ru-toggle[data-on]{background:var(--ru-accent)}.ru-toggle[data-on]::after{left:21px}",
+    ".ru-toggle{display:inline-block;width:46px;height:28px;border-radius:var(--ru-r-pill);background:var(--ru-border);position:relative;flex:none;transform-origin:50% 50%}.ru-toggle::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--ru-canvas)}.ru-toggle[data-on]{background:var(--ru-accent)}.ru-toggle[data-on]::after{left:21px}.ru-toggle[data-liquid]::after{display:none}.ru-knob{position:absolute;top:3px;height:22px;border-radius:11px;background:var(--ru-canvas)}.ru-tabs[data-liquid]{position:relative}.ru-tabs[data-liquid] .ru-tab[data-active]{border-bottom-color:transparent}.ru-tabbar{position:absolute;bottom:-1px;height:2px;background:var(--ru-accent)}",
     ".ru-panel{display:flex;flex-direction:column;gap:calc(var(--ru-u)*3)}.ru-ptitle{font-weight:700;font-size:17px}",
     ".ru-notif{display:flex;gap:calc(var(--ru-u)*3.5);align-items:flex-start;padding:calc(var(--ru-u)*3.5);border-radius:var(--ru-r-lg);background:var(--ru-surface);border:1px solid var(--ru-border);box-shadow:var(--ru-shadow)}.ru-ntop{display:flex;gap:8px;align-items:baseline}.ru-ntitle{font-weight:700}.ru-ntime{margin-left:auto;color:var(--ru-muted);font-size:12px}.ru-nbody{margin-top:2px}",
     ".ru-msg{display:flex;flex-direction:column;gap:3px;max-width:78%}.ru-msg[data-mine]{align-self:flex-end;align-items:flex-end}.ru-from{font-size:12px;font-weight:600;color:var(--ru-muted)}.ru-bubble{padding:10px 14px;border-radius:var(--ru-r-lg);background:var(--ru-hover)}.ru-msg[data-mine] .ru-bubble{background:var(--ru-accent);color:var(--ru-on-accent)}",
@@ -293,7 +298,29 @@
       d.setAttribute("data-ru-field", "1");
       return d;
     }
-    function toggle(parent, t) { var d = el(one(parent), "span", "ru-toggle"); if (t && t.on) d.setAttribute("data-on", ""); return d; }
+    // the shared edges() from rasan-motion.js (browser global, or a sibling file under node)
+    function motionEdges(keys, spring) {
+      var M = root.RasanMotion || (typeof require === "function" ? require("./rasan-motion.js") : null);
+      need(M && M.edges, "liquid indicators need rasan-motion.js loaded before rasan-ui.js");
+      return M.edges(keys, spring);
+    }
+    function toggle(parent, t) {
+      var d = el(one(parent), "span", "ru-toggle"); if (t && t.on) d.setAttribute("data-on", "");
+      if (t && t.liquid && t.liquid.length) { // opt-in: a real knob whose two edges chase separately. Track is 46 x 28, knob 22 high, rests at x 3 (off) or 21+... (on: right edge 43)
+        d.setAttribute("data-liquid", "");
+        var knob = el(d, "i", "ru-knob"), mv = t.liquid.slice().sort(function (a, b) { return a.t - b.t; });
+        var on0 = !!t.on, keys = [{ t: 0, x: on0 ? 21 : 3, w: 22 }];
+        mv.forEach(function (m) { keys.push({ t: m.t, x: m.on ? 21 : 3, w: 22 }); });
+        var E = motionEdges(keys, t.liquidSpring);
+        chan(function (T) {
+          var l = E.left(T), r = E.right(T);
+          knob.style.left = l.toFixed(2) + "px"; knob.style.width = (r - l).toFixed(2) + "px";
+          var on = on0; for (var i = 0; i < mv.length; i++) if (T >= mv[i].t - 1e-9) on = !!mv[i].on;
+          if (on) d.setAttribute("data-on", ""); else d.removeAttribute("data-on");
+        }, mv[mv.length - 1].t + 0.6);
+      }
+      return d;
+    }
     function chip(parent, c) { c = c || {}; var d = el(one(parent), "span", "ru-chip", copy(req(c.label, "chip label", "chip"), "chip")); if (c.tone) d.setAttribute("data-tone", c.tone); return d; }
     function avatar(parent, a) {
       a = a || {}; var d = el(one(parent), "div", "ru-av");
@@ -326,7 +353,22 @@
     }
     function tabs(parent, t) {
       t = t || {}; var d = el(one(parent), "div", "ru-tabs"); req(t.items && t.items.length, "tabs items", "tabs");
-      t.items.forEach(function (x, i) { var e = el(d, "div", "ru-tab", copy(x, "tab")); if (i === (t.active || 0)) e.setAttribute("data-active", ""); });
+      var tabEls = t.items.map(function (x, i) { var e = el(d, "div", "ru-tab", copy(x, "tab")); if (i === (t.active || 0)) e.setAttribute("data-active", ""); return e; });
+      if (t.liquid && t.liquid.length) { // opt-in: the underline is two springy edges; the active tab's own border hides, the label colour follows the bar
+        d.setAttribute("data-liquid", "");
+        var bar = el(d, "i", "ru-tabbar"), mv = t.liquid.slice().sort(function (a, b) { return a.t - b.t; }), E = null, cur0 = t.active || 0;
+        chan(function (T) {
+          if (!E) { // measure lazily: layout exists by the first render, and tab geometry never changes with time
+            var box = function (i) { return { x: tabEls[i].offsetLeft, w: tabEls[i].offsetWidth }; }, keys = [Object.assign({ t: 0 }, box(cur0))];
+            mv.forEach(function (m) { keys.push(Object.assign({ t: m.t }, box(m.index))); });
+            E = motionEdges(keys, t.liquidSpring);
+          }
+          var l = E.left(T);
+          bar.style.left = l.toFixed(2) + "px"; bar.style.width = (E.right(T) - l).toFixed(2) + "px";
+          var cur = cur0; for (var i = 0; i < mv.length; i++) if (T >= mv[i].t - 1e-9) cur = mv[i].index;
+          tabEls.forEach(function (e, j) { if (j === cur) e.setAttribute("data-active", ""); else e.removeAttribute("data-active"); });
+        }, mv[mv.length - 1].t + 0.6);
+      }
       return d;
     }
     function notification(parent, n) {
