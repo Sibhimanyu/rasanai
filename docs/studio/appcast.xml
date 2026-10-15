@@ -6,6 +6,18 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.12.0 beta 1</title>
+      <pubDate>Thu, 15 Oct 2026 05:02:00 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **The Studio shows the wave 8 data.** The decisions drawer keeps a history of the calls made and shows what the film is working without; lessons can be dropped.
+- **A Checks popover on the Final page** with the A/B verdicts and the gate numbers, and the film shows its real title.
+- **Bundles RasanAI 1.17.0:** one argument per film, motion from meaning.]]></description>
+      <sparkle:version>29</sparkle:version>
+      <sparkle:shortVersionString>0.12.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.12.0-beta.1/RasanAI-Studio-0.12.0.dmg" sparkle:edSignature="0UGRkmPaOJYAnbuZrt8llfGQ0YLlN5bBuv1AuHIvfxwuj0pkw0Yl5Ucy/Xw2ElDACxONpLC53ptf9TEwawbfAQ==" length="76294524" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.11.0 beta 1</title>
       <pubDate>Wed, 14 Oct 2026 16:02:00 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **Liquid Glass chrome.** The inspector, action bar and step capsule use the sidebar's own Liquid Glass; the stage no longer lights it.
