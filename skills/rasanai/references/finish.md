@@ -20,7 +20,7 @@ node scripts/finish.mjs all   --project <dir> --out film.mp4 --samples 8 --grain
 node scripts/finish.mjs patch-test --grain 0.03 --halation 0.2 --vignette 0.2
 ```
 
-Extras: `--composition <file>` (render a file other than index.html), `--workers n`, `--crf 18` (delivery x264 CRF; `--quality draft` uses CRF 20, veryfast), `--seed n` (grain seed), `--keep` (keep the temp oversampled render). Every command prints JSON: frame counts (expected vs got), seconds per stage, size in KB, the window used.
+Extras: `--blur-space linear|gamma`, `--no-cut-aware`, `--shutter-over-smear`, `--no-slot`, `--composition <file>` (render a file other than index.html), `--workers n`, `--crf 18` (delivery x264 CRF; `--quality draft` uses CRF 20, veryfast), `--seed n` (grain seed), `--keep` (keep the temp oversampled render). Every command prints JSON: frame counts (expected vs got), seconds per stage, size in KB, the window used.
 
 ## Blur: how the window is aligned
 
@@ -44,6 +44,20 @@ What is NOT shifted: CSS keyframe / WAAPI / Lottie / Anime animations, video and
 Measured on the whip test (card at about 10 000 px/s, 1080p): 32 samples = 4 passes, window 16 sub-frames, 17 taps. The streak is a continuous ramp (R values 16 31 40 51 68 ... 254 ... 62 47 32, no plateaus), centroids 1165.8 / 1738.7 / 1883.1 at frames 38 / 40 / 42 against the sharp frames' 1167.1 / 1740.6 / 1884.0, 90 of 90 frames, audio kept. hfdemo (sub-compositions plus a 3D scene) at 16 samples renders 225 of 225 frames with no judder or doubling.
 
 Cost: render time is K x the single-pass oversampled render, and tmix gets longer. Whip test: 4 passes 45 s + 20 s mix, against 9-11 s + 1.3 s for 8 samples. hfdemo at 16: 47 s render + 10 s mix (single pass 26.5 s + a few s). Multiplier against a normal render: about 3x per pass of 8 samples, so 16 is about 5 to 6x, 32 about 10 to 12x, before the grade. `--samples auto` now picks 4 / 6 / cap / 2 x cap / 4 x cap by the pre-pass p95 (< 0.5, < 2, < 4, < 8, else), but HyperFrames cannot render a frame range, so it is one count for the whole film: a film with one whip pays for 32 samples everywhere. For a mostly calm film with a few whips, prefer `--samples 8` for the film and render the whip scene alone at 32 if it matters.
+
+## Linear light, cuts, one grammar, render slots
+
+**The shutter averages in linear light.** The window is averaged on 16-bit linear planes (a 2.2 power in, the inverse out, explicit BT.709 limited matrices both ways), not on gamma-encoded values: a bright object crossing a dark ground keeps its highlight in the streak instead of fading into mud, and a white card whipping across black reads as a white streak. Costs a little more ffmpeg time (16-bit planes). `--blur-space gamma` restores the old gamma average. The report says `window.space`.
+
+**Cuts keep the frame-time side.** After the oversampled render, `finish.mjs` finds hard cuts (a jump between two consecutive sub-frames far above the 240 fps motion floor) and the one output frame per cut whose shutter window would hold both shots. That frame is laid from its own centre sub-frame (the same overlay the sharp windows use), so nothing of the other shot leaks into a cut frame. Reported as `window.cut_frames_sharp` and a note. `--no-cut-aware` skips it. Dissolves and wipes are not cuts: the shutter averages across them as it should.
+
+**One blur grammar per film.** A film's blur is ONE of: `shutter` (this finish), `smear` (stretched duplicates, directional blur, `blurTrail`, RasanShape smear), `stepped` (on twos, `steps()`), `crisp` (crisp steps, no blur). The Motion Director names it in the score (`score.json` `blur_grammar`, or `blur_grammar:` in motion.md). `finish.mjs blur|all` refuses to put the shutter over a declared smear / stepped / crisp grammar (a smear blurred twice, steps turned into dissolves): run `grade` on the plain render, or change the declaration to `shutter` if the shutter really is the film's blur, or pass `--shutter-over-smear`. `--draft` is never refused (it prints the warning). Per-scene exceptions stay `data-finish-blur="off"`.
+
+**Render slots.** Every `hyperframes render` the skill starts goes through `lib/slot.mjs`: at most `RASANAI_RENDER_SLOTS` run at once on the machine (default 2 on 8+ cores and 16+ GB, else 1; `0` turns the limiter off), across processes (PID-lock files in the temp folder; a slot whose holder is gone is taken over at once, an async holder's slot not beaten for 10 minutes too, any slot older than 6 hours), and a new render waits until `RASANAI_RENDER_MIN_FREE_MB` (default 1500) is free (macOS: free + inactive + speculative pages). It never deadlocks a film: after 5 minutes of waiting for memory it renders anyway and says so. `finish.mjs` holds one slot for its pre-pass and all its passes. For any other command: `node scripts/lib/slot.mjs run --label reel -- npx --yes hyperframes render ...`; `node scripts/lib/slot.mjs status` shows holders and free memory. `--no-slot` skips it for one finish.
+
+## White flash cap
+
+A full-white frame reads as a blank frame (a dropout), not a flash. Cap a flash at about 60% white: peak opacity ~0.6 over the picture (or a tint of the ground colour), held 1 to 2 frames, so the picture is still faintly there. `vocabulary.md` "opacity 1 for 1-2 frames" is superseded by this cap. Measured: a frame with more than ~60% of its pixels at 235+ luma in a run of 1-3 frames is a flash over the cap; the frame gate's warning for it is specified in the wave notes (frame-gate.mjs); until then the Motion Director and scene animators apply it by hand.
 
 ## Draft blur (`--draft`): motion blur on drafts and review strips
 

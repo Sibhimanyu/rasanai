@@ -11,7 +11,11 @@
 //     -> {ok, out, width, height, raw, seconds, model, session, log}
 //        writes <out> (cover-cropped to 1920x1080 / 1080x1920 / 1080x1080 / 1080x1350 / WxH), <name>.raw.png (as
 //        Codex made it), <out>.json (prompt, full_prompt, model, refs, aspect, seconds, session, created).
-//        An existing <out> is kept (the result says "skipped": true) unless --force.
+//        An existing <out> is kept (the result says "skipped": true) unless --force, or its sidecar hash (prompt + aspect + transparency +
+//        model + the reference files' bytes) no longer matches the request: a changed prompt or reference regenerates the plate ("stale": true;
+//        --keep-stale keeps it). Sidecars from before the hash existed are kept as they are.
+//        --transparent: an opaque PNG (no alpha: the tool ignored the ask) is regenerated once on a flat #00FF00 and keyed (colorkey + despill),
+//        and every transparent result has alpha >= 250 snapped to 255. Identical bytes from two parallel runs (a collision) are regenerated once.
 //   node imagegen.mjs batch --plan <images.json> [--concurrency 3] [--only id,id] [--force]
 //     plan: {aspect, style, avoid, refs: [...], anchor?: "<id>", images: [{id, prompt, out, aspect?, refs?, transparent?}]}
 //     -> writes <plan minus .json>.result.json and prints {ok, result, done: [{id,out,seconds}], skipped: [...], failed: [{id,error}]}
@@ -32,6 +36,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import zlib from "node:zlib";
+import crypto from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { parseArgs, normalizeAspect, ASPECTS } from "./lib/common.mjs";
 import { findCodex, codexHome, imageModels, loginStatus, rememberModel, forgetModel, rememberedModel } from "./lib/codex.mjs";
@@ -81,13 +86,13 @@ function aspectWords(a, w, h) {
 }
 function aspectKey(a) { const s = String(a || "16:9").trim().toLowerCase(); return ASPECTS[s] ? s : s; }
 
-export function buildInstruction({ prompt, aspect, w, h, refs, transparent, part }) {
+export function buildInstruction({ prompt, aspect, w, h, refs, transparent, part, keyed = false }) {
   return [
     "Use your built-in image generation tool to create exactly one image. Do not write code, do not call an API or run a Python script, do not ask questions, and do not touch any other file.",
     refs.length ? (refs.length > 1 ? "The attached images are references for style, palette and composition. They are not edit targets: make a new image." : "The attached image is a reference for style, palette and composition. It is not an edit target: make a new image.") : "",
     `Image to create: ${prompt}`,
     `Aspect ratio: ${aspectWords(aspect, w, h)}.`,
-    transparent ? "Use a plain transparent background (the subject alone, no backdrop, no shadow plane)." : "",
+    keyed ? "Draw the subject alone on a perfectly flat, solid, pure green background (#00FF00, chroma-key green) that fills the whole frame: no shadow, no floor, no gradient, no vignette, no green light or reflections on the subject, and no green anywhere in the subject. Do not try to make the background transparent." : transparent ? "Use a plain transparent background (the subject alone, no backdrop, no shadow plane)." : "",
     `When the image is generated, copy the generated PNG file to exactly this path: ${part}`,
     "Reply with only that path.",
   ].filter(Boolean).join("\n\n");
@@ -149,12 +154,51 @@ function retrieve({ part, session, since }) {
 // cover-crop and scale to w x h (lanczos); transparent output is padded, never cropped
 function normalise(src, dest, w, h, transparent) {
   const vf = transparent
-    ? `format=rgba,scale=${w}:${h}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=black@0,setsar=1`
+    ? `format=rgba,scale=${w}:${h}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=black@0,setsar=1,format=rgba,lutrgb=a='if(gte(val,250),255,val)'`
     : `scale=${w}:${h}:force_original_aspect_ratio=increase:flags=lanczos,crop=${w}:${h},setsar=1`;
   const tmp = dest.replace(/(\.[a-z0-9]+)$/i, ".norm$1");
   const r = spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-i", src, "-vf", vf, "-frames:v", "1", ...(/\.jpe?g$/i.test(dest) ? ["-q:v", "2"] : []), tmp], { encoding: "utf8" });
   if (r.status !== 0 || !fs.existsSync(tmp)) throw new Error(`ffmpeg could not normalise the image: ${(r.stderr || "").trim().split("\n").pop()}`);
   fs.renameSync(tmp, dest);
+}
+
+// ------------------------------------------------------------------ plate identity, transparency, collisions
+const sha256 = (b) => crypto.createHash("sha256").update(b).digest("hex");
+const md5File = (p) => crypto.createHash("md5").update(fs.readFileSync(p)).digest("hex");
+// what makes a plate THIS plate: the full prompt, aspect, transparency, an explicitly asked model, and the bytes of every reference
+function plateHash({ fullPrompt, aspect, transparent, model, refs }) {
+  const r = refs.map((f) => { try { return [path.basename(f), sha256(fs.readFileSync(f))]; } catch { return [path.basename(f), "missing"]; } });
+  return sha256(JSON.stringify({ p: String(fullPrompt).trim(), a: aspectKey(aspect), t: !!transparent, m: model || "", r })).slice(0, 16);
+}
+const readSide = (outAbs) => { try { return JSON.parse(fs.readFileSync(outAbs + ".json", "utf8")); } catch { return {}; } };
+// share of pixels with alpha < 250 (null when ffmpeg could not read it)
+function transparentShare(p) {
+  const r = spawnSync("ffmpeg", ["-v", "error", "-i", p, "-vf", "format=rgba,alphaextract,scale=480:-2:flags=area,format=gray", "-frames:v", "1", "-f", "rawvideo", "-"], { maxBuffer: 1 << 24 });
+  if (r.status !== 0 || !r.stdout || !r.stdout.length) return null;
+  let n = 0; for (const v of r.stdout) if (v < 250) n++;
+  return n / r.stdout.length;
+}
+const OPAQUE_BELOW = 0.003, KEYED_MIN = 0.02;
+// key a flat #00FF00 ground out: colorkey, then despill the green off the edges (the colours are not recoloured anywhere else)
+function keyGreen(src, dest) {
+  const r = spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-i", src, "-vf", "format=rgba,colorkey=color=0x00FF00:similarity=0.28:blend=0.1,format=gbrap,despill=type=green,format=rgba", "-frames:v", "1", dest], { encoding: "utf8" });
+  return r.status === 0 && fs.existsSync(dest);
+}
+// parallel runs that return the same bytes: another plate of this process, or a sibling sidecar in the folder, already holds this md5
+const SEEN = new Map();
+function collision(md5, outAbs) {
+  const o = SEEN.get(md5);
+  if (o && o !== outAbs) return o;
+  try {
+    for (const f of fs.readdirSync(path.dirname(outAbs))) {
+      if (!f.endsWith(".json")) continue;
+      const other = path.join(path.dirname(outAbs), f.slice(0, -5));
+      if (other === outAbs || !fs.existsSync(other)) continue;
+      let j; try { j = JSON.parse(fs.readFileSync(path.join(path.dirname(outAbs), f), "utf8")); } catch { continue; }
+      if (j && j.md5 === md5) return other;
+    }
+  } catch {}
+  return null;
 }
 
 // ------------------------------------------------------------------ generate one image
@@ -163,10 +207,17 @@ async function generateOne(o) {
   const outAbs = path.resolve(o.out);
   const label = o.id || path.basename(outAbs);
   const side = outAbs + ".json";
+  const fullPrompt = o.fullPrompt || o.prompt;
+  const refs = (o.refs || []).map((r) => path.resolve(r));
+  const hash = plateHash({ fullPrompt, aspect: o.aspect, transparent: !!o.transparent, model: o.model || "", refs });
   if (!o.force && fs.existsSync(outAbs) && fs.statSync(outAbs).size > 0) {
-    let meta = {}; try { meta = JSON.parse(fs.readFileSync(side, "utf8")); } catch {}
-    const d = dims(outAbs);
-    return { ok: true, skipped: true, out: outAbs, ...d, raw: rawPath(outAbs), seconds: meta.seconds ?? 0, model: meta.model ?? null, session: meta.session ?? null, log: null };
+    const meta = readSide(outAbs);
+    const stale = !!meta.hash && meta.hash !== hash;
+    if (!stale || args["keep-stale"]) {
+      const d = dims(outAbs);
+      return { ok: true, skipped: true, ...(stale ? { stale: true } : {}), ...(meta.hash ? {} : { hash_known: false }), out: outAbs, ...d, raw: rawPath(outAbs), seconds: meta.seconds ?? 0, model: meta.model ?? null, session: meta.session ?? null, log: null };
+    }
+    err(`IMAGE ${label} is stale (its prompt, aspect, model or reference images changed since it was made): regenerating`);
   }
   const bin = findCodex(ENV);
   const [w, h] = normalizeAspect(o.aspect).split("x").map(Number);
@@ -175,10 +226,9 @@ async function generateOne(o) {
   fs.mkdirSync(dir, { recursive: true });
   const part = outAbs + ".part.png";
   const logFile = outAbs.replace(/\.[a-z0-9]+$/i, "") + ".codex.log";
-  const refs = (o.refs || []).map((r) => path.resolve(r));
   for (const r of refs) if (!fs.existsSync(r)) return { ok: false, error: `reference image not found: ${r}`, out: outAbs };
-  const fullPrompt = o.fullPrompt || o.prompt;
-  const instruction = buildInstruction({ prompt: fullPrompt, aspect, w, h, refs, transparent: !!o.transparent, part });
+  let keyedMode = false;
+  let instruction = buildInstruction({ prompt: fullPrompt, aspect, w, h, refs, transparent: !!o.transparent, part });
 
   let candidates = o.model ? [o.model] : imageModels(ENV);
   const t0 = Date.now();
@@ -196,14 +246,37 @@ async function generateOne(o) {
       try {
         const raw = rawPath(outAbs);
         fs.copyFileSync(src, raw);
-        normalise(raw, outAbs, w, h, !!o.transparent);
+        const md5 = md5File(raw);
+        const other = collision(md5, outAbs);
+        if (other) throw new Error(`the image is byte-identical to ${path.basename(other)} (two parallel runs returned the same file)`);
+        const notes = [];
+        let from = raw;
+        if (o.transparent) {
+          const share = transparentShare(raw);
+          if (!keyedMode && share !== null && share < OPAQUE_BELOW) {
+            // the tool ignored "transparent" and drew a ground: ask again on flat green and key it
+            keyedMode = true;
+            err(`IMAGE ${label} came back opaque for a transparent ask: regenerating on a flat #00FF00 to key`);
+            instruction = buildInstruction({ prompt: fullPrompt, aspect, w, h, refs, transparent: false, keyed: true, part });
+            const e = new Error("regen-green"); e.regen = true; throw e;
+          }
+          if (keyedMode) {
+            const kf = raw.replace(/\.raw\.png$/, ".keyed.png");
+            const ks = keyGreen(raw, kf) ? transparentShare(kf) : null;
+            if (ks !== null && ks >= KEYED_MIN) { from = kf; notes.push("keyed from a flat #00FF00 plate (the tool returned an opaque image for the transparent ask)"); }
+            else notes.push("WARNING: transparent was asked but the image is opaque and keying it failed (no flat green to remove): this plate has a background");
+          }
+        }
+        normalise(from, outAbs, w, h, !!o.transparent);
+        if (from !== raw) try { fs.rmSync(from, { force: true }); } catch {}
         try { fs.rmSync(part, { force: true }); } catch {}
+        SEEN.set(md5, outAbs);
         const seconds = Math.round((Date.now() - t0) / 1000);
         const d = dims(outAbs);
-        fs.writeFileSync(side, JSON.stringify({ prompt: o.prompt, full_prompt: fullPrompt, model, refs, aspect, seconds, session: r.session, created: new Date().toISOString() }, null, 2));
+        fs.writeFileSync(side, JSON.stringify({ prompt: o.prompt, full_prompt: fullPrompt, model, refs, aspect, transparent: !!o.transparent, hash, md5, ...(keyedMode ? { keyed: true } : {}), ...(notes.length ? { notes } : {}), seconds, session: r.session, created: new Date().toISOString() }, null, 2));
         if (!o.model) rememberModel(model, ENV);
-        return { ok: true, out: outAbs, ...d, raw, seconds, model, session: r.session, log: logFile };
-      } catch (e) { lastErr = e.message; }
+        return { ok: true, out: outAbs, ...d, raw, seconds, model, session: r.session, log: logFile, ...(keyedMode ? { keyed: true } : {}), ...(notes.length ? { notes } : {}) };
+      } catch (e) { if (e.regen) continue; lastErr = e.message; }
     } else if (MODEL_ERR.test(r.log)) {
       lastErr = `model ${model} is not usable on this account`;
       err(`IMAGE ${label} model ${model} rejected, trying the next`);
@@ -260,7 +333,24 @@ async function cmdBatch() {
     return `${p}.${plan.style ? ` Style: ${String(plan.style).trim().replace(/[.\s]+$/, "")}.` : ""}${plan.avoid ? ` Avoid: ${String(plan.avoid).trim().replace(/[.\s]+$/, "")}.` : ""}`;
   };
   const wanted = plan.images.filter((im) => !only.size || only.has(im.id));
-  const todo = wanted.filter((im) => force || !fs.existsSync(rel(im.out)) || fs.statSync(rel(im.out)).size === 0);
+  const anchorOut = plan.anchor ? rel(plan.images.find((i) => i.id === plan.anchor).out) : null;
+  const refsOf = (im, anchorFile) => [...new Set([...(plan.refs || []).map(rel), ...(im.refs || []).map(rel), ...(anchorFile && im.id !== plan.anchor ? [anchorFile] : [])])];
+  const missingOut = (im) => !fs.existsSync(rel(im.out)) || fs.statSync(rel(im.out)).size === 0;
+  const anchorRedo = !!plan.anchor && !args["keep-stale"] && wanted.some((im) => im.id === plan.anchor) && (force || missingOut(plan.images.find((i) => i.id === plan.anchor)) || isStale(plan.images.find((i) => i.id === plan.anchor), null));
+  // a plate whose sidecar hash no longer matches its prompt / aspect / transparency / references is stale (an older sidecar with no hash is kept)
+  function isStale(im, anchorFile) {
+    if (args["keep-stale"]) return false;
+    const meta = readSide(rel(im.out));
+    return !!meta.hash && meta.hash !== plateHash({ fullPrompt: full(im), aspect: im.aspect || plan.aspect, transparent: !!im.transparent, model: "", refs: refsOf(im, anchorFile) });
+  }
+  const staleIds = [];
+  const todo = wanted.filter((im) => {
+    if (force || missingOut(im)) return true;
+    const st = (anchorRedo && im.id !== plan.anchor && fs.existsSync(rel(im.out)) && !!readSide(rel(im.out)).hash) || isStale(im, anchorOut && fs.existsSync(anchorOut) ? anchorOut : null);
+    if (st) staleIds.push(im.id);
+    return st;
+  });
+  if (staleIds.length) err(`BATCH ${staleIds.length} stale plate(s) (prompt, references or anchor changed): ${staleIds.join(", ")}`);
   const skipped = wanted.filter((im) => !todo.includes(im)).map((im) => ({ id: im.id, out: rel(im.out) }));
   if (todo.length) requireReady();
   const done = [], failed = [];
@@ -295,7 +385,7 @@ async function cmdBatch() {
   await Promise.all(Array.from({ length: Math.min(conc, queue.length) }, worker));
 
   const resultPath = planPath.replace(/\.json$/i, "") + ".result.json";
-  const result = { ok: failed.length === 0, plan: planPath, result: resultPath, done, skipped, failed, finished: new Date().toISOString() };
+  const result = { ok: failed.length === 0, plan: planPath, result: resultPath, done, skipped, ...(staleIds.length ? { stale_regenerated: staleIds } : {}), failed, finished: new Date().toISOString() };
   fs.writeFileSync(resultPath, JSON.stringify(result, null, 2));
   out(result);
   process.exit(failed.length ? 2 : 0);

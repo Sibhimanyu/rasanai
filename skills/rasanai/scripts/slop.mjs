@@ -183,10 +183,10 @@ if (bed && filmLen) { const bl = probe(path.join(assets, bed)); if (bl && bl + 0
 // an SFX is an audio source that is not the music bed or a voice: the whole src string is tested (path and name), not the
 // extension. <audio> tags when the film has them (one per cue), else every quoted audio path.
 const audioRefs = (() => {
-  const tags = [...allCode.matchAll(/<audio\b[^>]*>/gi)].map((m) => (m[0].match(/\bsrc\s*=\s*["']([^"']+)["']/i) || [])[1] || "");
+  const tags = [...allCode.matchAll(/<audio\b[^>]*>/gi)].map((m) => { const src = (m[0].match(/\bsrc\s*=\s*["']([^"']+)["']/i) || [])[1] || "", id = (m[0].match(/\bid\s*=\s*["']([^"']+)["']/i) || [])[1] || ""; return /^el-texture-/.test(id) ? `/texture-${src}` : src; }); // a texture bed (sound.mjs sfx-plan: el-texture-*) is not an SFX
   return tags.length ? tags : [...allCode.matchAll(/["']([^"'\s]+\.(?:wav|mp3|ogg|m4a|aac|flac))["']/gi)].map((m) => m[1]);
 })();
-const sfxCount = audioRefs.filter((r) => !/music|bgm|\bbed\b|[-_/]bed[-_.]|voice|(^|[-_/])vo[-_.]|narrat/i.test(r)).length;
+const sfxCount = audioRefs.filter((r) => !/music|bgm|\/texture-|\bbed\b|[-_/]bed[-_.]|voice|(^|[-_/])vo[-_.]|narrat/i.test(r)).length;
 const narratedFilm = audioRefs.some((r) => /voice|(^|[-_/])vo[-_.]|narrat/i.test(r));
 const whoosh = (allCode.match(/whoosh|swoosh|swish/gi) || []).length;
 const sfxMd = sfxMode({ format: args.format, narrated: narratedFilm });
@@ -199,6 +199,7 @@ if (whoosh > whooshCap) add("whoosh-per-cut", "error", `${whoosh} whooshes${cuts
 if (!args["no-text-fit"]) {
   const tf = await textFit(dir);
   for (const f of tf.findings) add(f.check, "error", `${f.file}: "${f.text}" ${f.from}-${f.to} s`, f.message, f.fix);
+  for (const f of tf.warnings || []) add(f.check, "warn", `${f.file}: "${f.text}"${f.at != null ? ` ${f.at} s` : ""}`, f.message, f.fix);
   if (tf.could_not_run.length) add("text-fit-skipped", "warn", dir, `${tf.could_not_run[0]} (the text-fit check did not run)`, "Install Chrome (npx hyperframes browser ensure, or set RASANAI_CHROME) and re-run: the composition's text was not measured.");
 }
 

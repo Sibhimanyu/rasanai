@@ -37,6 +37,14 @@
 // text.read_per_word_s (default 0.3) is read through gateValue too: a lesson can only make the reading time longer.
 // The same page loads also report SCRIPT ERRORS (result.script_errors[], read by motion-gate as the error `script-error`): an uncaught error or an unloadable local script
 // while the page loads, a timeline that throws when seeked, a composition whose script never registered window.__timelines[<its id>].
+// WARNINGS ONLY, in result.warnings (same shape as findings; uncalibrated, never errors), measured in the same page loads:
+//   low-contrast    a readable block whose text colour against the backdrop the browser really draws behind it (text made transparent, one screenshot,
+//                   median WCAG contrast over the pixels under its line boxes) is under 4.5:1 (body) or 3:1 (large: 24 px, or 18.66 px bold). data-contrast="ok" opts out.
+//   asset-missing / asset-empty / font-failed   a file the page asked for came back 404 or empty, an image or video did not decode, a font file did not load
+//   glyph-missing   a LOADED web font lacks characters the page sets in it (they fall back to another face: tofu risk)
+//   media-upscaled  an image or video shown at more than 1.5x its natural size at some sampled time (data-upscale="ok" opts out)
+//   rtl-direction   Arabic / Hebrew script in a direction: ltr block
+// CJK lines count in reading-equivalent words (CJK chars / 4.5 + other chars / 15 per second against 0.3 s a word; lib/reading.mjs) so text-too-brief judges them.
 // data-read="skim" (on the element or a parent; captions, in a composition or element named caption*, are skim by default
 // because they track the narration) opts a block out of text-too-brief (UI text that only has to register);
 // data-overlap="ok" opts it out of text-overlap; data-text-fit="ignore" opts out of everything.
@@ -48,6 +56,7 @@ import { serve } from "./stage3d.mjs";
 import { gateValue, gateNotes } from "./gate-lessons.mjs";
 import { noteDowngrade } from "./downgrade.mjs";
 import { readTime, READ_BASE_S, READ_PER_WORD_S, SLACK_RENDER } from "./reading.mjs";
+import { decodePng } from "./png.mjs";
 
 export const TEXT_FIT = { fps: 10, safe: 0.06, edge_s: 1.2, rest_s: 0.4, min_font_px: 20, rest_px: 1.5,
   statement: 0.035, read_base_s: READ_BASE_S, read_per_word_s: READ_PER_WORD_S, brief_min_words: 3, overlap_frac: 0.15, overlap_s: 0.3, read_slack: SLACK_RENDER, mask_hid: 0.12, mask_max: 0.6, mask_s: 0.3 };
@@ -98,7 +107,8 @@ window.__tfMeasure=function(){
   return out;};
 // line blocks: text nodes grouped under the first non-inline ancestor (SplitText word/char spans are one line);
 // per block the visible share of its words and its visible line boxes (same visibility rules as above)
-var BID=new WeakMap(),BN=0;
+var BID=new WeakMap(),BN=0,BE={};
+var CJK=/[぀-ヿ㐀-䶿一-鿿가-힯＀-￯]/,RTLS=/[֐-ࣿיִ-﷿ﹰ-﻿]/;
 function blockOf(el){var b=el;while(b.parentElement&&/^(inline|contents)/.test(getComputedStyle(b).display))b=b.parentElement;return b;}
 window.__tfBlocks=function(){
   var W=CFG.W,H=CFG.H,G=[],map=new Map(),walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT),n;
@@ -123,19 +133,70 @@ window.__tfBlocks=function(){
   var out=[];
   G.forEach(function(g){
     var str='',vc=[];g.segs.forEach(function(x){str+=x.s;for(var i=0;i<x.s.length;i++)vc.push(x.v?1:0);});
-    var words=0,vw=0,re=/\\S+/g,m;while((m=re.exec(str))){words++;var c=0;for(var i=m.index;i<m.index+m[0].length;i++)c+=vc[i];vw+=c/m[0].length;}
+    var words=0,vw=0,re=/\\S+/g,m;
+    // CJK has no spaces: a line counts in reading-equivalent words (lib/reading.mjs: CJK chars / 4.5 + other chars / 15 per second, 0.3 s per word: 0.74 per CJK char, 0.22 per other char)
+    if(CJK.test(str)){for(var q=0;q<str.length;q++){var cc=str.charAt(q);if(/\\s/.test(cc))continue;var wt=CJK.test(cc)?0.7407:0.2222;words+=wt;vw+=wt*vc[q];}words=Math.round(words*10)/10;vw=Math.round(vw*10)/10;}
+    else while((m=re.exec(str))){words++;var c=0;for(var i=m.index;i<m.index+m[0].length;i++)c+=vc[i];vw+=c/m[0].length;}
     var f=parseFloat(getComputedStyle(g.el).fontSize);
     if(!(vw>0)||!g.rects.length||!(f>=CFG.minFont))return;
     var lines=[];g.rects.sort(function(a,b){return a.top-b.top;}).forEach(function(r){
       for(var j=0;j<lines.length;j++){var L=lines[j],ov=Math.min(L.bottom,r.bottom)-Math.max(L.top,r.top);
         if(ov>0.5*Math.min(L.bottom-L.top,r.bottom-r.top)){L.left=Math.min(L.left,r.left);L.right=Math.max(L.right,r.right);L.top=Math.min(L.top,r.top);L.bottom=Math.max(L.bottom,r.bottom);return;}}
       lines.push({left:r.left,right:r.right,top:r.top,bottom:r.bottom});});
-    var id=BID.get(g.el);if(!id){id=++BN;BID.set(g.el,id);}
-    out.push({i:id,w:words,v:vw,f:f,m:Math.round(g.mh*100)/100,mx:Math.round(g.mx*100)/100,t:str.replace(/\\s+/g,' ').trim().slice(0,80),s:g.el.closest('[data-read="skim"],[data-composition-id*="caption" i],[class*="caption" i],[id*="caption" i]')?1:0,o:g.el.closest('[data-overlap="ok"]')?1:0,
+    var id=BID.get(g.el);if(!id){id=++BN;BID.set(g.el,id);}BE[id]=g.el;
+    out.push({i:id,w:words,v:vw,f:f,m:Math.round(g.mh*100)/100,mx:Math.round(g.mx*100)/100,t:str.replace(/\\s+/g,' ').trim().slice(0,80),s:g.el.closest('[data-read="skim"],[data-composition-id*="caption" i],[class*="caption" i],[id*="caption" i]')?1:0,o:g.el.closest('[data-overlap="ok"]')?1:0,rtl:(RTLS.test(str)&&getComputedStyle(g.el).direction==='ltr')?1:0,
       r:lines.map(function(r){var p=0.15*(r.bottom-r.top);return [Math.round(r.left),Math.round(r.top+p),Math.round(r.right),Math.round(r.bottom-p)];}),el:g.el});}); // ink, not the line box: stacked lines at line-height 1 do not overlap
   out.forEach(function(x){x.a=out.filter(function(y){return y!==x&&y.el.contains(x.el);}).map(function(y){return y.i;});});
   out.forEach(function(x){delete x.el;});
   return out;};
+// ink of the given blocks (flat text colours, effective alpha, size, weight, line boxes) for the contrast check
+window.__tfInk=function(ids){var out=[];
+  ids.forEach(function(id){var el=BE[id];if(!el||!el.isConnected||el.closest('[data-contrast="ok"],[data-text-fit="ignore"]'))return;
+    var w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT),n,ents=[];
+    while((n=w.nextNode())){var raw=String(n.nodeValue||'');if(!/\\S/.test(raw))continue;var pe=n.parentElement;if(!pe||/^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE|TITLE)$/.test(pe.tagName))continue;
+      var cs=getComputedStyle(pe);if(cs.display==='none'||cs.visibility==='hidden'||/text/.test(cs.webkitBackgroundClip||cs.backgroundClip||''))continue;
+      var ch=chain(pe);if(!ch||!(ch.op>0.5))continue;
+      var m=String(cs.webkitTextFillColor||cs.color).match(/rgba?\\(([^)]+)\\)/);if(!m)continue;var p=m[1].split(/[ ,\\/]+/).filter(Boolean).map(parseFloat),a=(p.length>=4?p[3]:1)*ch.op;if(!(a>0.05))continue;
+      var rg=document.createRange();rg.selectNodeContents(n);
+      var rs=[].map.call(rg.getClientRects(),function(r){return [r.left,r.top,r.right,r.bottom];}).filter(function(r){return r[2]-r[0]>2&&r[3]-r[1]>2&&r[2]>0&&r[0]<CFG.W&&r[3]>0&&r[1]<CFG.H;});
+      if(!rs.length)continue;
+      ents.push({c:[p[0],p[1],p[2]],a:a,f:parseFloat(cs.fontSize),w:parseInt(cs.fontWeight,10)||400,r:rs,t:raw.replace(/\\s+/g,' ').trim().slice(0,40)});}
+    if(ents.length)out.push({i:id,e:ents});});
+  return out;};
+// asset preflight at page load: resources that 404 or came back empty (resource timing), images/video that did not decode, fonts that failed
+window.__tfAssets=function(){var bad=[];
+  try{performance.getEntriesByType('resource').forEach(function(e){var u=e.name;if(/^(data|blob):|__rasanai\\/|\\.rasanai-textfit|\\.js(\\?|$)/.test(u))return;
+    var st=e.responseStatus||0;
+    if(st>=400)bad.push({u:u,why:'HTTP '+st});
+    else if(st===200&&e.decodedBodySize===0&&e.encodedBodySize===0)bad.push({u:u,why:'zero-size file'});});}catch(e){}
+  [].forEach.call(document.images,function(im){var u=im.currentSrc||im.src||'';if(!u||/^data:|\\.svg(\\?|$)/i.test(u))return;if(im.complete&&!im.naturalWidth)bad.push({u:u,why:'the image did not decode (broken, empty or not an image)'});});
+  [].forEach.call(document.querySelectorAll('video,audio'),function(v){if(v.error||v.networkState===3&&v.readyState===0)bad.push({u:v.currentSrc||v.getAttribute('src')||(v.querySelector('source')||{}).src||'(media)',why:'the media did not load'});});
+  try{document.fonts.forEach(function(f){if(f.status==='error')bad.push({u:'font "'+String(f.family).replace(/"/g,'')+'"',why:'the font file did not load'});});}catch(e){}
+  return bad;};
+// at a seek time: media shown larger than its natural size, and the characters each LOADED web font lacks (a char whose width changes with the fallback is not in the font)
+var GC=document.createElement('canvas').getContext('2d'),GLY={};
+function loadedFam(f){var ok=false;try{document.fonts.forEach(function(x){if(x.status==='loaded'&&String(x.family).replace(/["']/g,'')===f)ok=true;});}catch(e){}return ok;}
+window.__tfSweep=function(T){window.__tfSeek(T);var media=[],miss={};
+  [].forEach.call(document.querySelectorAll('img,video'),function(m){
+    if(m.closest('[data-text-fit="ignore"],[data-upscale="ok"]'))return;
+    var nw,nh;if(m.tagName==='IMG'){if(/\\.svg(\\?|$)/i.test(m.currentSrc||m.src||''))return;nw=m.naturalWidth;nh=m.naturalHeight;}else{nw=m.videoWidth;nh=m.videoHeight;}
+    if(!(nw>0&&nh>0))return;var cs=getComputedStyle(m);if(cs.display==='none'||cs.visibility==='hidden')return;
+    var ch=chain(m);if(!ch||!(ch.op>0.3))return;var r=m.getBoundingClientRect();
+    if(!(r.width>4&&r.height>4)||r.right<=0||r.left>=CFG.W||r.bottom<=0||r.top>=CFG.H)return;
+    var sx=r.width/nw,sy=r.height/nh,fit=cs.objectFit,sc=fit==='contain'||fit==='scale-down'?Math.min(sx,sy):fit==='none'?1:Math.max(sx,sy);
+    media.push({s:String(m.currentSrc||m.src||'').split('/').slice(-2).join('/').slice(0,80),nw:nw,nh:nh,k:Math.round(sc*100)/100});});
+  var w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT),n;
+  while((n=w.nextNode())){var raw=String(n.nodeValue||'');if(!/\\S/.test(raw))continue;var pe=n.parentElement;if(!pe||/^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE|TITLE)$/.test(pe.tagName)||pe.closest('[data-text-fit="ignore"]'))continue;
+    var cs2=getComputedStyle(pe);if(cs2.display==='none')continue;
+    var fam=String(cs2.fontFamily).split(',')[0].replace(/["']/g,'').trim();if(!fam)continue;
+    var lf=GLY['L|'+fam];if(lf===undefined)lf=GLY['L|'+fam]=loadedFam(fam);if(!lf)continue;
+    var fb=cs2.fontStyle+' '+cs2.fontWeight+' 64px "'+fam+'"';
+    for(var i=0;i<raw.length;i++){var ch2=raw.charAt(i),cp=raw.codePointAt(i);if(cp>=0xd800&&cp<=0xdfff)continue;
+      if(cp<33||(cp>=0x200b&&cp<=0x200f)||cp===0xfe0f||cp===0x2028||cp===0xa0||cp===0xad)continue;
+      var k=fb+'|'+ch2,v=GLY[k];
+      if(v===undefined){GC.font=fb+', serif';var a1=GC.measureText(ch2).width;GC.font=fb+', monospace';var a2=GC.measureText(ch2).width;v=GLY[k]=Math.abs(a1-a2)>0.01;}
+      if(v){(miss[fam]=miss[fam]||{})[ch2]=1;}}}
+  return {T:T,media:media,miss:Object.keys(miss).map(function(f){return {f:f,c:Object.keys(miss[f])};})};};
 window.__tfRun=function(times){return times.map(function(T){window.__tfSeek(T);return {T:T,hits:window.__tfMeasure(),blocks:window.__tfBlocks()};});};
 })();</script>`;
 
@@ -227,7 +288,7 @@ export function analyze(byKey, dt, file) {
 }
 
 // block rows -> findings. byBlock: Map id -> [{t, w, v, f, t:text, s, o, a, r:[[l,t,r,b]]}] in time order
-export function analyzeBlocks(byBlock, dt, file, H) {
+export function analyzeBlocks(byBlock, dt, file, H, warn = []) {
   const findings = [], T = { ...TEXT_FIT, read_per_word_s: gateValue("text.read_per_word_s", TEXT_FIT.read_per_word_s) }, base = path.basename(file);
   const minH = gateValue("text.statement_min_h", null), lesson = gateNotes(["text.read_per_word_s", "text.statement_min_h"]);
   const tail = lesson.length ? ` [measured by ${lesson.join("; ")}]` : "";
@@ -240,6 +301,11 @@ export function analyzeBlocks(byBlock, dt, file, H) {
   };
   for (const [id, rows] of byBlock) {
     const w = maxW.get(id), ok = rows.filter((r) => r.v * 2 >= w), text = rows.reduce((a, b) => (b.v > a.v ? b : a)).x;
+    // RTL script (Arabic, Hebrew...) in a block whose direction is ltr: punctuation and numbers land on the wrong side, start-alignment sits left
+    const rtl = ok.find((r) => r.rtl);
+    if (rtl) warn.push({ check: "rtl-direction", severity: "warning", at: r2(rtl.t), from: r2(rtl.t), to: r2(ok[ok.length - 1].t + dt), text: text.slice(0, 40), file: base, region: "text",
+      message: `"${text.slice(0, 40)}" is right-to-left script in a block set to direction: ltr (from ${r2(rtl.t)} s)`,
+      fix: 'set dir="rtl" (or direction: rtl) on the block so punctuation, numbers and alignment follow the script; mirror its directional moves (an entrance from the right becomes one from the left) and run a stagger from the right' });
     for (const r of ok) { const k = Math.round(r.t * 1000); if (!per.has(k)) per.set(k, []); per.get(k).push({ id, ...r }); }
     if (minH != null && ok.length && w >= T.brief_min_words && rows[0].f < minH * H && !rows.some((r) => r.s)) {
       const run = runs(ok.map((r) => r.t)).reduce((a, b) => (b[1] - b[0] > a[1] - a[0] ? b : a), [0, 0]);
@@ -342,8 +408,90 @@ async function scriptErrors(b, file, root) {
   return out;
 }
 
+// ---- extra measurements (all WARNINGS, uncalibrated; they land in result.warnings, never in findings) ----
+const CONTRAST = { body: 4.5, large: 3, max_times: 30, max_pixels: 6000, upscale: 1.5, sweep: 8 };
+const lin8 = (() => { const t = new Float64Array(256); for (let i = 0; i < 256; i++) { const c = i / 255; t[i] = c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; } return t; })();
+const linf = (v) => { const c = Math.min(1, Math.max(0, v / 255)); return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+const relLum = (r, g, b) => 0.2126 * r + 0.7152 * g + 0.0722 * b; // r, g, b already linear
+const rel = (u) => { try { const x = new URL(u); return decodeURIComponent(x.pathname).replace(/^\//, "") || u; } catch { return u; } };
+
+// contrast of each readable block against the backdrop the browser really draws: the page is seeked, every text is made transparent, one
+// screenshot is taken and the pixels under each line box are the backdrop (gradients, images, other shapes all count; text shadows stay).
+// The ratio is the median over those pixels of WCAG contrast between the text colour (blended by its alpha) and the pixel.
+async function contrastPass(b, pg, byBlock, warn, W, H, base) {
+  const picks = [];
+  for (const [id, rows] of byBlock) {
+    const w = Math.max(...rows.map((r) => r.w)), ok = rows.filter((r) => r.v * 2 >= w);
+    if (!ok.length) continue;
+    picks.push({ id, T: Math.round((ok[Math.floor(ok.length / 2)].t - pg.start) * 1000) / 1000, f: rows[0].f });
+  }
+  const byT = new Map();
+  for (const p of picks.sort((a, c) => c.f - a.f)) { const k = p.T; if (!byT.has(k) && byT.size >= CONTRAST.max_times) continue; if (!byT.has(k)) byT.set(k, []); byT.get(k).push(p.id); }
+  for (const [T, ids] of [...byT].sort((a, c) => a[0] - c[0])) {
+    await b.eval(`window.__tfSeek(${T})`);
+    const ink = await b.eval(`window.__tfInk(${JSON.stringify(ids)})`);
+    if (!ink || !ink.length) continue;
+    await b.eval(`(function(){var s=document.createElement('style');s.id='__tfHide';s.textContent='*{color:transparent!important;-webkit-text-fill-color:transparent!important;-webkit-text-stroke:0!important}';document.head.appendChild(s);})()`);
+    let img;
+    try { img = decodePng(await b.screenshot()); } finally { await b.eval("(function(){var s=document.getElementById('__tfHide');if(s)s.remove();})()"); }
+    const kx = img.width / W, ky = img.height / H;
+    for (const blk of ink) {
+      let worst = null;
+      for (const e of blk.e) {
+        const lt = [linf(e.c[0]), linf(e.c[1]), linf(e.c[2])], ratios = [];
+        for (const r of e.r) {
+          const x0 = Math.max(0, Math.floor(r[0] * kx)), x1 = Math.min(img.width, Math.ceil(r[2] * kx)), y0 = Math.max(0, Math.floor(r[1] * ky)), y1 = Math.min(img.height, Math.ceil(r[3] * ky));
+          const step = Math.max(1, Math.ceil(Math.sqrt(((x1 - x0) * (y1 - y0)) / (CONTRAST.max_pixels / e.r.length))));
+          for (let y = y0; y < y1; y += step) for (let x = x0; x < x1; x += step) {
+            const i = (y * img.width + x) * 3, br = lin8[img.rgb[i]], bg = lin8[img.rgb[i + 1]], bb = lin8[img.rgb[i + 2]];
+            const lb = relLum(br, bg, bb), lf = relLum(e.a * lt[0] + (1 - e.a) * br, e.a * lt[1] + (1 - e.a) * bg, e.a * lt[2] + (1 - e.a) * bb);
+            ratios.push((Math.max(lb, lf) + 0.05) / (Math.min(lb, lf) + 0.05));
+          }
+        }
+        if (ratios.length < 8) continue;
+        ratios.sort((a, c) => a - c);
+        const med = ratios[Math.floor(ratios.length / 2)], large = e.f >= 24 || (e.f >= 18.66 && e.w >= 700), need = large ? CONTRAST.large : CONTRAST.body;
+        if (med < need && (!worst || med / need < worst.med / worst.need)) worst = { med, need, large, t: e.t, f: e.f };
+      }
+      if (worst) warn.push({ check: "low-contrast", severity: "warning", at: r2(pg.start + T), from: r2(pg.start + T), to: r2(pg.start + T), text: worst.t, file: base, region: "text",
+        message: `"${worst.t}" (${Math.round(worst.f)} px) reads at ${r2(worst.med)}:1 against the backdrop drawn behind it at ${r2(pg.start + T)} s; ${worst.large ? "large" : "body"} text needs ${worst.need}:1`,
+        fix: 'change the ink or the ground (or add a scrim / panel behind the line); data-contrast="ok" on a deliberate ghost or texture line (references/craft.md section 10)' });
+    }
+  }
+}
+
+// asset preflight + media scale + font glyph coverage over a few seek times; merged per page into `acc`
+async function sweepPass(b, pg, acc, root) {
+  const bad = await b.eval("window.__tfAssets()");
+  for (const x of bad || []) { const k = x.u + "|" + x.why; if (!acc.bad.has(k)) acc.bad.set(k, { ...x, file: path.relative(root, pg.file) }); }
+  const n = CONTRAST.sweep, span = Math.max(0.1, pg.end - pg.start);
+  for (let i = 0; i < n; i++) {
+    const T = Math.round(span * ((i + 0.5) / n) * 1000) / 1000;
+    const r = await b.eval(`window.__tfSweep(${T})`);
+    for (const m of r.media) { const k = m.s; const o = acc.media.get(k); if (!o || m.k > o.k) acc.media.set(k, { ...m, at: pg.start + T }); }
+    for (const f of r.miss) { const set = acc.glyphs.get(f.f) || new Set(); f.c.forEach((c) => set.add(c)); acc.glyphs.set(f.f, set); }
+  }
+}
+function sweepFindings(acc) {
+  const out = [];
+  for (const x of acc.bad.values()) out.push({ check: x.u.startsWith("font ") ? "font-failed" : /zero-size/.test(x.why) ? "asset-empty" : "asset-missing", severity: "warning", at: null, text: x.u, file: x.file, region: "assets",
+    message: `${x.u.startsWith("font ") ? x.u : `"${rel(x.u)}"`} ${/^HTTP|zero/.test(x.why) ? "came back as " + x.why : "failed: " + x.why} (loaded by ${x.file})`,
+    fix: "copy the real file into the project (assets/) and fix the path; a missing image or video renders as a blank or a broken-image box, a missing font as the fallback face" });
+  for (const m of acc.media.values()) if (m.k > CONTRAST.upscale) out.push({ check: "media-upscaled", severity: "warning", at: r2(m.at), text: m.s, file: m.s, region: "assets",
+    message: `"${m.s}" is ${m.nw}x${m.nh} px and is shown at ${m.k}x its natural size (by ${r2(m.at)} s); above ${CONTRAST.upscale}x a picture softens`,
+    fix: 'use a larger source (generate or fetch it at 2x the on-screen size), show it smaller, or data-upscale="ok" for a deliberate soft or blurred plate' });
+  for (const [fam, set] of acc.glyphs) {
+    const cs = [...set].sort(); const sample = cs.slice(0, 12);
+    out.push({ check: "glyph-missing", severity: "warning", at: null, text: sample.join(" "), file: fam, region: "assets",
+      message: `the loaded font "${fam}" has no glyph for ${sample.join(" ")}${cs.length > 12 ? ` (+${cs.length - 12} more)` : ""} (${sample.slice(0, 4).map((c) => "U+" + c.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")).join(", ")}${cs.length > 4 ? ", ..." : ""}): they render in a fallback font`,
+      fix: "stage a font file that covers them (the full family, not the latin subset: fonts.mjs stages latin only; Noto for CJK/Indic/Arabic), or set those characters in another face on purpose (a real glyph, never tofu)" });
+  }
+  return out;
+}
+
 export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.safe } = {}) {
-  const res = { findings: [], pages: 0, samples: 0, skipped: [], could_not_run: [], script_errors: [] };
+  const res = { findings: [], warnings: [], pages: 0, samples: 0, skipped: [], could_not_run: [], script_errors: [] }; // warnings: the uncalibrated extras (contrast, assets, glyphs, upscaled media, rtl): same shape as findings, never errors
+  const acc = { bad: new Map(), media: new Map(), glyphs: new Map() };
   const root = path.resolve(project);
   const pages = pagesOf(root);
   if (!pages.length) { res.skipped.push("text-fit: no compositions with a duration to sample (index.html, compositions/)"); return res; }
@@ -381,7 +529,8 @@ export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.saf
         res.script_errors.push(...(await scriptErrors(b, pg.file, root)));
         res.samples += times.length;
         res.pages++;
-        res.findings.push(...analyze(byKey, dt, pg.file), ...analyzeBlocks(byBlock, dt, pg.file, H));
+        res.findings.push(...analyze(byKey, dt, pg.file), ...analyzeBlocks(byBlock, dt, pg.file, H, res.warnings));
+        try { await sweepPass(b, pg, acc, root); await contrastPass(b, pg, byBlock, res.warnings, W, H, path.basename(pg.file)); } catch (e) { res.skipped.push(`text-fit extras (contrast, assets, glyphs): ${path.relative(root, pg.file)}: ${String(e.message).slice(0, 120)}`); }
       } catch (e) {
         res.could_not_run.push(`text-fit: ${path.relative(root, pg.file)}: ${e.message}`);
       }
@@ -393,5 +542,6 @@ export async function textFit(project, { fps = TEXT_FIT.fps, safe = TEXT_FIT.saf
     if (srv) await srv.close();
     for (const t of tmps) fs.rmSync(t, { force: true });
   }
+  res.warnings.push(...sweepFindings(acc));
   return res;
 }

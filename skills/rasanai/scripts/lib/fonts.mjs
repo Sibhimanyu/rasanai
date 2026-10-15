@@ -2,8 +2,13 @@
 // composition names needs a local .woff2 and an @font-face (lint: font_family_without_font_face).
 // Order: families HyperFrames resolves itself → files shipped with a frame preset →
 // Google Fonts (latin subset) → Fontshare → give up (caller falls back, with a warning).
+// 3D type (`k.extrudeText`) cannot read WOFF2 or a variable font: staticTtfFor() turns a staged woff2 / variable / otf into ONE static TTF (or OTF) at a
+// weight with fontTools + brotli (Python; font tooling, not an audio library; `pip3 install fonttools brotli`). Missing tools: a recorded downgrade
+// and a system face as a stand-in (or set the word with k.text on a plane, which uses the document's own @font-face).
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
+import { noteDowngrade } from "./downgrade.mjs";
 
 export const HF_AUTO_FONTS = ["inter", "montserrat", "outfit", "nunito", "oswald", "league gothic", "archivo black", "space mono", "ibm plex mono", "jetbrains mono", "eb garamond", "playfair display", "source code pro", "noto sans jp", "roboto", "open sans", "lato", "poppins"];
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
@@ -92,4 +97,77 @@ export async function stageFonts(list, projectDir, opts = {}) {
     }
   }
   return { css: css.join("\n  "), families: used, warnings };
+}
+
+// ---------------------------------------------------------------- static TTF for 3D type
+const PY_CONVERT = `
+import sys
+from fontTools.ttLib import TTFont
+src, dest, wght = sys.argv[1], sys.argv[2], sys.argv[3]
+f = TTFont(src)
+if "fvar" in f:
+    from fontTools.varLib import instancer
+    axes = {a.axisTag: (a.minValue, a.defaultValue, a.maxValue) for a in f["fvar"].axes}
+    loc = {t: df for t, (lo, df, hi) in axes.items()}
+    if "wght" in axes and wght:
+        lo, df, hi = axes["wght"]
+        loc["wght"] = max(lo, min(hi, float(wght)))
+    f = instancer.instantiateVariableFont(f, loc, inplace=False)
+f.flavor = None
+f.save(dest)
+print("otf" if "CFF " in f else "ttf")
+`;
+let toolsCache = null;
+// -> { ok, python } or { ok: false, why }
+export function fontTools() {
+  if (toolsCache) return toolsCache;
+  for (const py of ["python3", "python"]) {
+    const r = spawnSync(py, ["-c", "import fontTools, brotli"], { encoding: "utf8" });
+    if (r.status === 0) return (toolsCache = { ok: true, python: py });
+  }
+  return (toolsCache = { ok: false, why: "Python fontTools and brotli are not installed (pip3 install fonttools brotli)" });
+}
+// woff2 / woff / variable ttf / otf -> a static font at `weight`. -> { ok, file, kind: "ttf"|"otf" } | { ok: false, error }
+export function toStaticTtf(src, destBase, { weight = 400 } = {}) {
+  const t = fontTools();
+  if (!t.ok) return { ok: false, error: t.why };
+  const tmp = `${destBase}.tmp.ttf`;
+  fs.mkdirSync(path.dirname(tmp), { recursive: true });
+  const r = spawnSync(t.python, ["-c", PY_CONVERT, src, tmp, String(weight)], { encoding: "utf8", maxBuffer: 1 << 24 });
+  if (r.status !== 0 || !fs.existsSync(tmp)) return { ok: false, error: `fontTools could not convert ${path.basename(src)}: ${String(r.stderr || "").trim().split("\n").pop() || "no output"}` };
+  const kind = String(r.stdout).trim() === "otf" ? "otf" : "ttf";
+  const file = `${destBase}.${kind}`;
+  fs.renameSync(tmp, file);
+  return { ok: true, file, kind };
+}
+const SYSTEM_TTF = ["/System/Library/Fonts/Supplemental/Arial Bold.ttf", "/Library/Fonts/Arial Bold.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf"];
+
+// The static font file 3D type should load: assets/fonts/<Family>-<weight>.ttf|otf, made from `src`, else the staged woff2 nearest the weight
+// (fetched with stageFont when none is staged). -> { ok, rel, file, kind, source, notes[] } ; ok false carries { error, fallback? } and writes a downgrade row.
+export async function staticTtfFor(family, weight, projectDir, { src = null, run, offline = false } = {}) {
+  const fontDir = path.join(projectDir, "assets", "fonts"), compact = String(family || "font").replace(/\s+/g, "");
+  const notes = [];
+  const done = (r) => ({ ok: true, ...r, rel: path.relative(projectDir, r.file), notes });
+  for (const ext of ["ttf", "otf"]) { const f = path.join(fontDir, `${compact}-${weight}.${ext}`); if (fs.existsSync(f) && !src) return done({ file: f, kind: ext, source: "already staged" }); }
+  let from = src && fs.existsSync(path.resolve(src)) ? path.resolve(src) : null;
+  if (!from) {
+    const staged = () => fs.existsSync(fontDir) ? fs.readdirSync(fontDir).filter((f) => f.startsWith(compact + "-") && /\.woff2?$/i.test(f)).map((f) => ({ f, w: Number((f.match(/-(\d+)\.woff2?$/i) || [])[1]) || 400 })) : [];
+    let have = staged();
+    if (!have.length && family && !offline) { await stageFont(family, [weight], projectDir, { offline }); have = staged(); }
+    if (have.length) { have.sort((a, b) => Math.abs(a.w - weight) - Math.abs(b.w - weight)); from = path.join(fontDir, have[0].f); if (have[0].w !== weight) notes.push(`no ${weight} staged: converted the ${have[0].w} face`); }
+  }
+  if (!from) {
+    const e = `no font file for "${family}" to convert (none staged under assets/fonts, none found on Google Fonts / Fontshare, no --src)`;
+    noteDowngrade({ run, what: `3D type in "${family}"`, instead: "no brand-font 3D type", why: e, impact: "extrudeText has no font to load: use k.text on a plane (it uses the document's @font-face) or give --src a TTF" });
+    return { ok: false, error: e };
+  }
+  notes.push("the staged woff2 is a latin subset when it came from Google Fonts: 3D type can only set characters the file holds");
+  if (/\.(ttf|otf)$/i.test(from) && !fontTools().ok) return done({ file: from, kind: path.extname(from).slice(1).toLowerCase(), source: path.basename(from) }); // a plain TTF/OTF needs no tools (if it is variable, install fonttools)
+  const r = toStaticTtf(from, path.join(fontDir, `${compact}-${weight}`), { weight });
+  if (r.ok) return done({ file: r.file, kind: r.kind, source: path.basename(from) });
+  const sys = SYSTEM_TTF.find((f) => fs.existsSync(f));
+  let fb = null;
+  if (sys) { fb = path.join(fontDir, `fallback-3d${path.extname(sys)}`); try { fs.mkdirSync(fontDir, { recursive: true }); fs.copyFileSync(sys, fb); } catch { fb = null; } }
+  noteDowngrade({ run, what: `3D type in "${family}"`, instead: fb ? `the system face ${path.basename(sys)}` : "no brand-font 3D type", why: r.error, impact: "the extruded type is not in the brand's font; install fonttools + brotli (pip3 install fonttools brotli) and re-run stage3d.mjs font, or set the word with k.text on a plane" });
+  return { ok: false, error: r.error, ...(fb ? { fallback: { file: fb, rel: path.relative(projectDir, fb), source: sys } } : {}) };
 }

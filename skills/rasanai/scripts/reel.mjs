@@ -24,6 +24,7 @@ import { stageFonts } from "./lib/fonts.mjs";
 import { installLook, installDirection, upsertMarked, DIRECTION_MARK } from "./lib/install.mjs";
 import { contractText } from "./lib/contract.mjs";
 import { track } from "./lib/report.mjs";
+import { acquireSlotSync } from "./lib/slot.mjs";
 import { decideLanguage, installedModels, hasWhisperCli, whisperTranscribe, englishLooks } from "./lib/lang.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -908,7 +909,11 @@ ${MARK}
     const outFile = path.join(dir, "renders", `${slug(R.title || path.basename(dir))}.mp4`);
     fs.mkdirSync(path.dirname(outFile), { recursive: true });
     const q = String(args.quality || "looks");
-    const rr = spawnSync("npx", ["--yes", "hyperframes", "render", dir, "-o", outFile, "--fps", String(FPS), "--quality", q, "--skill=general-video"], { encoding: "utf8", timeout: 3600000, maxBuffer: 64 * 1024 * 1024 });
+    // one render at a time (and one the machine's memory can carry): take a render slot around the hyperframes render (lib/slot.mjs)
+    const slot = acquireSlotSync({ label: `reel ${path.basename(dir)}` });
+    let rr;
+    try { rr = spawnSync("npx", ["--yes", "hyperframes", "render", dir, "-o", outFile, "--fps", String(FPS), "--quality", q, "--skill=general-video"], { encoding: "utf8", timeout: 3600000, maxBuffer: 64 * 1024 * 1024 }); }
+    finally { slot.release(); }
     if (rr.status !== 0 || !fs.existsSync(outFile)) die(`render failed:\n${(rr.stdout + rr.stderr).trim().split("\n").slice(-25).join("\n")}`);
     const info = probe(outFile);
     rendered = { file: path.relative(ws, outFile), duration: info.duration, size: `${info.width}x${info.height}`, audio: info.has_audio };
