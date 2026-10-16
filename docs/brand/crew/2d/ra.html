@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ra · 2D puppet · RasanAI crew</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anek+Latin:wght@600&family=JetBrains+Mono:wght@500&family=Mukta:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --rice: #f1f0ec; --paper: #f7f6f2; --indigo: #1b1f5e; --ink: #15151c; --ink-2: #3f4368; --rule: #e4e5ea; --blue: #2a31a8; --turmeric: #efb21a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--rice); color: var(--ink); font: 15px/1.45 Mukta, "Avenir Next", system-ui, sans-serif; }
+  body { display: grid; grid-template-columns: 1fr 320px; }
+  main { display: grid; place-items: center; height: 100vh; }
+  #ra { width: min(78vh, 92%); } #ra svg { width: 100%; height: auto; overflow: visible; display: block; }
+  aside { background: var(--paper); border-left: 1px solid var(--rule); padding: 24px 22px; overflow: auto; height: 100vh; }
+  h1 { font: 600 40px/1 "Anek Latin", "Avenir Next Condensed", sans-serif; color: var(--indigo); margin: 0 0 4px; }
+  .sub { color: var(--ink-2); margin: 0 0 18px; font-size: 14px; }
+  .label { font: 500 11px/1 "JetBrains Mono", ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--blue); margin: 20px 0 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  button { font: 500 13px Mukta, system-ui, sans-serif; height: 32px; padding: 0 13px; border-radius: 8px; border: 1px solid rgba(21,21,28,.16); background: transparent; color: var(--ink); cursor: pointer; }
+  button:hover { background: rgba(21,21,28,.06); }
+  button.primary { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 600; }
+  button.on { background: var(--indigo); color: #fff; border-color: var(--indigo); }
+  label.check { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-top: 8px; cursor: pointer; }
+  #pad { position: relative; width: 150px; height: 150px; border-radius: 12px; background: #fff; border: 1px solid var(--rule); cursor: crosshair; }
+  #pad::before, #pad::after { content: ""; position: absolute; background: var(--rule); }
+  #pad::before { left: 50%; top: 8px; bottom: 8px; width: 1px; } #pad::after { top: 50%; left: 8px; right: 8px; height: 1px; }
+  #dot { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--turmeric); border: 2px solid var(--indigo); left: 50%; top: 50%; }
+  .keys { color: var(--ink-2); font-size: 13px; margin-top: 18px; }
+  kbd { font: 500 11px "JetBrains Mono", monospace; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; background: #fff; }
+  @media (prefers-reduced-motion: reduce) { /* the controller reads this and turns off idle motion */ }
+</style>
+</head>
+<body>
+<main>
+<div id="ra"></div>
+</main>
+
+<aside>
+  <h1>Ra</h1>
+  <p class="sub">2D puppet: vector layers, moved by code.</p>
+  <div class="label">Eyes</div>
+  <div class="row" style="align-items:flex-start; gap:14px">
+    <div id="pad"><div id="dot"></div></div>
+    <div>
+      <label class="check"><input type="checkbox" id="follow" checked> Follow pointer</label>
+      <label class="check"><input type="checkbox" id="autoblink" checked> Blink on its own</label>
+      <div class="row" style="margin-top:10px"><button id="blink">Blink</button></div>
+    </div>
+  </div>
+  <div class="label">Expression</div>
+  <div class="row" id="expr"></div>
+  <div class="label">Moves</div>
+  <div class="row">
+    <button class="primary" data-play="action">Action!</button>
+    <button data-play="hop">Hop</button><button data-play="nod">Nod</button>
+    <button data-play="wiggle">Wiggle</button><button data-play="lookAround">Look around</button>
+  </div>
+  <div class="label">Stage</div>
+  <label class="check"><input type="checkbox" id="idle" checked> Breathe (idle)</label>
+  <p class="keys"><kbd>Space</kbd> Action! &nbsp; <kbd>B</kbd> blink &nbsp; <kbd>H</kbd> hop &nbsp; <kbd>1</kbd>–<kbd>5</kbd> expressions</p>
+</aside>
+
+<script type="module">
+import { mountRa, EXPRESSIONS } from './ra-puppet.js';
+const $ = (id) => document.getElementById(id);
+const ra = mountRa($('ra')); window.ra = ra;
+
+const capture = new URLSearchParams(location.search).has('capture');
+window.renderAt = (t) => { ra.update(t); return true; };
+if (!capture) { const t0 = performance.now(); const loop = () => { ra.update((performance.now() - t0) / 1000); requestAnimationFrame(loop); }; requestAnimationFrame(loop); }
+else ra.update(0);
+window.__ready = true;
+
+// ---------- controls ----------
+const pad = $('pad'), dot = $('dot'), follow = $('follow');
+const setDot = (x, y) => { dot.style.left = (50 + x * 45) + '%'; dot.style.top = (50 - y * 45) + '%'; };
+let dragging = false;
+const padLook = (e) => { const r = pad.getBoundingClientRect(); const x = ((e.clientX - r.left) / r.width) * 2 - 1, y = -(((e.clientY - r.top) / r.height) * 2 - 1); ra.lookAt(x, y); setDot(Math.max(-1, Math.min(1, x)), Math.max(-1, Math.min(1, y))); };
+pad.addEventListener('pointerdown', (e) => { dragging = true; follow.checked = false; pad.setPointerCapture(e.pointerId); padLook(e); });
+pad.addEventListener('pointermove', (e) => { if (dragging) padLook(e); });
+pad.addEventListener('pointerup', () => { dragging = false; });
+const svg = $('ra');
+document.querySelector('main').addEventListener('pointermove', (e) => {
+  if (!follow.checked) return;
+  const r = svg.getBoundingClientRect(), sx = r.left + r.width * 0.5, sy = r.top + r.height * 0.45;
+  const x = (e.clientX - sx) / (r.width * 0.6), y = -(e.clientY - sy) / (r.height * 0.6);
+  ra.lookAt(x, y); setDot(Math.max(-1, Math.min(1, x)), Math.max(-1, Math.min(1, y)));
+});
+document.querySelector('main').addEventListener('pointerleave', () => { if (follow.checked) { ra.lookAt(0, 0); setDot(0, 0); } });
+$('blink').onclick = () => ra.blink();
+$('autoblink').onchange = (e) => { ra.autoBlink = e.target.checked; };
+$('idle').checked = ra.idle; $('idle').onchange = (e) => { ra.idle = e.target.checked; };
+document.querySelectorAll('[data-play]').forEach((b) => b.onclick = () => ra.play(b.dataset.play));
+const names = Object.keys(EXPRESSIONS), row = $('expr');
+const btns = names.map((n) => { const b = document.createElement('button'); b.textContent = n[0].toUpperCase() + n.slice(1);
+  b.onclick = () => { ra.setExpression(n); btns.forEach((x) => x.classList.toggle('on', x === b)); }; row.appendChild(b); return b; });
+btns[0].classList.add('on');
+addEventListener('keydown', (e) => {
+  if (e.code === 'Space') { e.preventDefault(); ra.play('action'); } else if (e.key === 'b') ra.blink(); else if (e.key === 'h') ra.play('hop');
+  else if (/^[1-5]$/.test(e.key)) btns[+e.key - 1]?.click();
+});
+</script>
+</body>
+</html>

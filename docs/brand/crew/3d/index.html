@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ra · RasanAI crew 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anek+Latin:wght@500;600&family=JetBrains+Mono:wght@500&family=Mukta:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --rice: #f1f0ec; --paper: #f7f6f2; --indigo: #1b1f5e; --ink: #15151c; --ink-2: #3f4368; --rule: #e4e5ea; --blue: #2a31a8; --turmeric: #efb21a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--rice); color: var(--ink); font: 15px/1.45 Mukta, "Avenir Next", system-ui, sans-serif; }
+  body { display: grid; grid-template-columns: 1fr 320px; }
+  canvas { width: 100%; height: 100vh; display: block; touch-action: none; }
+  aside { background: var(--paper); border-left: 1px solid var(--rule); padding: 24px 22px; overflow: auto; height: 100vh; }
+  h1 { font: 600 40px/1 "Anek Latin", "Avenir Next Condensed", sans-serif; color: var(--indigo); margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--ink-2); margin: 0 0 18px; font-size: 14px; }
+  .label { font: 500 11px/1 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.12em; text-transform: uppercase; color: var(--blue); margin: 20px 0 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  button { font: 500 13px Mukta, system-ui, sans-serif; height: 32px; padding: 0 13px; border-radius: 8px; border: 1px solid rgba(21,21,28,.16); background: transparent; color: var(--ink); cursor: pointer; }
+  button:hover { background: rgba(21,21,28,.06); }
+  button.primary { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 600; }
+  button.primary:hover { filter: brightness(1.08); }
+  button.on { background: var(--indigo); color: #fff; border-color: var(--indigo); }
+  label.check { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-top: 8px; cursor: pointer; }
+  #pad { position: relative; width: 150px; height: 150px; border-radius: 12px; background: #fff; border: 1px solid var(--rule); cursor: crosshair; }
+  #pad::before, #pad::after { content: ""; position: absolute; background: var(--rule); }
+  #pad::before { left: 50%; top: 8px; bottom: 8px; width: 1px; } #pad::after { top: 50%; left: 8px; right: 8px; height: 1px; }
+  #dot { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--turmeric); border: 2px solid var(--indigo); left: 50%; top: 50%; }
+  .keys { color: var(--ink-2); font-size: 13px; margin-top: 18px; }
+  kbd { font: 500 11px "JetBrains Mono", monospace; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; background: #fff; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<aside>
+  <h1>Ra</h1>
+  <p class="sub">Mascot · runs the set. Drag to orbit, scroll to zoom.</p>
+
+  <div class="label">Eyes</div>
+  <div class="row" style="align-items:flex-start; gap:14px">
+    <div id="pad"><div id="dot"></div></div>
+    <div>
+      <label class="check"><input type="checkbox" id="follow" checked> Follow pointer</label>
+      <label class="check"><input type="checkbox" id="autoblink" checked> Blink on its own</label>
+      <div class="row" style="margin-top:10px"><button id="blink">Blink</button></div>
+    </div>
+  </div>
+
+  <div class="label">Expression</div>
+  <div class="row" id="expr"></div>
+
+  <div class="label">Moves</div>
+  <div class="row">
+    <button class="primary" data-play="action">Action!</button>
+    <button data-play="hop">Hop</button>
+    <button data-play="nod">Nod</button>
+    <button data-play="wiggle">Wiggle</button>
+    <button data-play="lookAround">Look around</button>
+  </div>
+
+  <div class="label">Stage</div>
+  <label class="check"><input type="checkbox" id="idle" checked> Breathe (idle)</label>
+  <label class="check"><input type="checkbox" id="turn"> Turntable</label>
+
+  <div class="label">Export</div>
+  <div class="row"><button id="glb">GLB</button><button id="usdz">USDZ</button></div>
+
+  <p class="keys"><kbd>Space</kbd> Action! &nbsp; <kbd>B</kbd> blink &nbsp; <kbd>H</kbd> hop &nbsp; <kbd>1</kbd>–<kbd>5</kbd> expressions</p>
+</aside>
+
+<script type="module">
+import { THREE, stage, EXPRESSIONS } from './crew-kit.js';
+import { createRa } from './ra.js';
+import { OrbitControls } from '../../../../skills/rasanai/stage3d/addons/controls/OrbitControls.js';
+
+const params = new URLSearchParams(location.search);
+const capture = params.has('capture');
+const canvas = document.getElementById('c');
+const S = stage(canvas);
+const ra = createRa();
+S.scene.add(ra.root);
+window.ra = ra; window.THREE = THREE;
+
+const controls = new OrbitControls(S.camera, canvas);
+controls.target.copy(S.target); controls.enableDamping = true; controls.minDistance = 3; controls.maxDistance = 14;
+controls.maxPolarAngle = Math.PI * 0.52; controls.update();
+
+function fit() {
+  const r = canvas.getBoundingClientRect();
+  S.resize(Math.max(1, r.width), Math.max(1, r.height));
+}
+addEventListener('resize', fit); fit();
+
+let turntable = false;
+function frame(t) {
+  ra.update(t);
+  if (turntable) ra.root.rotation.y = t * 0.6;
+  const lift = ra.rig.position.y;
+  S.contact.scale.setScalar(1 - Math.min(0.5, lift * 0.9)); S.contact.material.opacity = 1 - Math.min(0.6, lift * 1.2);
+  controls.update();
+  S.renderer.render(S.scene, S.camera);
+}
+
+// Headless capture: render any moment on demand.
+window.renderAt = (t) => { frame(t); return true; };
+if (!capture) {
+  const t0 = performance.now();
+  const loop = () => { frame((performance.now() - t0) / 1000); requestAnimationFrame(loop); };
+  requestAnimationFrame(loop);
+}
+window.__ready = true;
+
+// ---------- controls ----------
+const pad = document.getElementById('pad'), dot = document.getElementById('dot'), follow = document.getElementById('follow');
+const setDot = (x, y) => { dot.style.left = (50 + x * 45) + '%'; dot.style.top = (50 - y * 45) + '%'; };
+let dragging = false;
+const padLook = (e) => {
+  const r = pad.getBoundingClientRect();
+  const x = ((e.clientX - r.left) / r.width) * 2 - 1, y = -(((e.clientY - r.top) / r.height) * 2 - 1);
+  ra.lookAt(x, y); setDot(Math.max(-1, Math.min(1, x)), Math.max(-1, Math.min(1, y)));
+};
+pad.addEventListener('pointerdown', (e) => { dragging = true; follow.checked = false; pad.setPointerCapture(e.pointerId); padLook(e); });
+pad.addEventListener('pointermove', (e) => { if (dragging) padLook(e); });
+pad.addEventListener('pointerup', () => { dragging = false; });
+// follow the pointer: aim at where it sits relative to Ra's face on screen
+const head = new THREE.Vector3();
+canvas.addEventListener('pointermove', (e) => {
+  if (!follow.checked) return;
+  head.set(0, 1.25, 0.9); ra.root.localToWorld(head); head.project(S.camera);
+  const r = canvas.getBoundingClientRect();
+  const sx = (head.x * 0.5 + 0.5) * r.width + r.left, sy = (-head.y * 0.5 + 0.5) * r.height + r.top;
+  const x = (e.clientX - sx) / (r.width * 0.35), y = -(e.clientY - sy) / (r.height * 0.35);
+  ra.lookAt(x, y); setDot(Math.max(-1, Math.min(1, x)), Math.max(-1, Math.min(1, y)));
+});
+canvas.addEventListener('pointerleave', () => { if (follow.checked) { ra.lookAt(0, 0); setDot(0, 0); } });
+
+document.getElementById('blink').onclick = () => ra.blink();
+document.getElementById('autoblink').onchange = (e) => { ra.autoBlink = e.target.checked; };
+document.getElementById('idle').onchange = (e) => { ra.idle = e.target.checked; };
+document.getElementById('turn').onchange = (e) => { turntable = e.target.checked; if (!turntable) ra.root.rotation.y = 0; };
+document.querySelectorAll('[data-play]').forEach((b) => b.onclick = () => ra.play(b.dataset.play));
+
+const exprRow = document.getElementById('expr'), exprNames = Object.keys(EXPRESSIONS);
+const exprButtons = exprNames.map((n) => {
+  const b = document.createElement('button'); b.textContent = n[0].toUpperCase() + n.slice(1);
+  b.onclick = () => { ra.setExpression(n); exprButtons.forEach((x) => x.classList.toggle('on', x === b)); };
+  exprRow.appendChild(b); return b;
+});
+exprButtons[0].classList.add('on');
+
+addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space') { e.preventDefault(); ra.play('action'); }
+  else if (e.key === 'b') ra.blink();
+  else if (e.key === 'h') ra.play('hop');
+  else if (/^[1-5]$/.test(e.key)) exprButtons[+e.key - 1]?.click();
+});
+
+// ---------- export ----------
+const download = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
+document.getElementById('glb').onclick = async () => {
+  const { GLTFExporter } = await import('../../../../skills/rasanai/stage3d/addons/exporters/GLTFExporter.js');
+  new GLTFExporter().parse(ra.root, (glb) => download(new Blob([glb], { type: 'model/gltf-binary' }), 'ra.glb'), console.error, { binary: true });
+};
+document.getElementById('usdz').onclick = async () => {
+  const { USDZExporter } = await import('../../../../skills/rasanai/stage3d/addons/exporters/USDZExporter.js');
+  const data = await new USDZExporter().parseAsync(ra.root);
+  download(new Blob([data], { type: 'model/vnd.usdz+zip' }), 'ra.usdz');
+};
+</script>
+</body>
+</html>
