@@ -6,6 +6,23 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.15.0 beta 1</title>
+      <pubDate>Fri, 16 Oct 2026 06:59:08 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **The crew on Home.** Ra and the six crew members stand on the prompt box's rim over a soft mesh wash, and each one has a role in making the film. Scrolling down carries the prompt into your workspace, with your films as cards.
+- **Pages load calmly.** A page that is still reading shows a quiet loading state instead of a blank or a jump, and film posters come from a thumbnail cache, so the library and Inspiration scroll smoothly.
+- **Calmer working screens.** The sidebar rows and the window chrome are shared by every page, with keyboard focus on the sidebar. The status bar floats as glass at the bottom, and the working screen keeps to the film, with the phase rail one toggle away.
+- **Settings is a page in the window,** reached from the sidebar like any other place.
+- **The brief as named fields.** Each part of the brief is its own editable field, with the evidence it came from beside it.
+- **The inspector starts closed.** Cmd-K opens Notes.
+- **A Finished page with an export panel.** The delivered film sits beside one panel for its title, files, export and series look.
+- **Columns that adapt** to the window's width on the library and stage pages.]]></description>
+      <sparkle:version>32</sparkle:version>
+      <sparkle:shortVersionString>0.15.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.15.0-beta.1/RasanAI-Studio-0.15.0.dmg" sparkle:edSignature="yrOrLUB3Vj/frT6xADNy9Q5hUlqUqgq3pOpcmk0YuEJ0oQG6MxdVIxQuP5sesMfA42p1gFqJY+b1ES9ivFhrDQ==" length="81347675" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.14.0 beta 1</title>
       <pubDate>Thu, 15 Oct 2026 06:39:23 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **New film is a step-by-step setup.** One question per screen with big tiles: series, what you're making, material, brief, length and shape (read from the clip for footage), an example edit, the taste questions, then Review. The Home box keeps a one-click Start next to a new "Set it up".
