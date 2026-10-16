@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ra is watching · RasanAI</title>
+<title>Rasan is watching · RasanAI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anek+Latin:wght@600&family=JetBrains+Mono:wght@500&family=Mukta:wght@400&display=swap" rel="stylesheet">
 <style>
@@ -23,16 +23,16 @@
 </head>
 <body>
 <header>
-  <div><div class="eyebrow">RasanAI crew</div><h1>Ra is watching.</h1></div>
+  <div><div class="eyebrow">RasanAI crew</div><h1>Rasan is watching.</h1></div>
   <div class="eyebrow" id="mood">Mascot · runs the set</div>
 </header>
-<main><div id="stage" aria-label="Ra, the RasanAI mascot, follows your pointer with his eyes"></div></main>
-<footer><span class="hint">Move your pointer anywhere. Click Ra for <b>Action!</b>, double-click to make him hop.</span><span class="hint"><kbd>1</kbd>–<kbd>5</kbd> moods</span></footer>
+<main><div id="stage" aria-label="Rasan, the RasanAI mascot, follows your pointer with his eyes"></div></main>
+<footer><span class="hint">Move your pointer anywhere. Click Rasan for <b>Action!</b>, double-click to make him hop.</span><span class="hint"><kbd>1</kbd>–<kbd>5</kbd> moods</span></footer>
 
 <script type="module">
 import { mountRa } from './ra-puppet.js';
 import { mountRaRender } from './ra-render.js';
-// default: Ra from the approved render with live eyes; ?style=vector shows the all-vector puppet
+// default: Rasan from the approved render with live eyes; ?style=vector shows the all-vector puppet
 const vector = new URLSearchParams(location.search).get('style') === 'vector';
 const stage = document.getElementById('stage');
 const ra = vector ? mountRa(stage) : mountRaRender(stage);
@@ -49,7 +49,7 @@ let lastMove = performance.now(), lastX = 0, lastY = 0, startled = 0, mood = 'ne
 function follow(x, y) {
   const e = eyesOnScreen();
   const dx = x - e.x, dy = y - e.y;
-  // ease the reach so the eyes swing quickly near Ra and settle toward the edges of the page
+  // ease the reach so the eyes swing quickly near Rasan and settle toward the edges of the page
   const reach = e.w * 1.4;
   const nx = Math.tanh(dx / reach * 1.6), ny = -Math.tanh(dy / reach * 1.6);
   ra.lookAt(nx, ny);
@@ -71,7 +71,7 @@ stage.addEventListener('dblclick', () => ra.play('hop'));
 const moods = ['neutral', 'happy', 'surprised', 'focused', 'sleepy'];
 addEventListener('keydown', (e) => { if (/^[1-5]$/.test(e.key)) { mood = moods[+e.key - 1]; ra.setExpression(mood); } else if (e.code === 'Space') { e.preventDefault(); ra.play('action'); } });
 
-// left alone, Ra gets curious and looks around; after a long while he dozes off
+// left alone, Rasan gets curious and looks around; after a long while he dozes off
 const t0 = performance.now();
 function loop() {
   const now = performance.now(), quiet = now - lastMove;

@@ -343,7 +343,7 @@ struct CrewRows: View {
 }
 
 extension CrewMember {
-    /// The crew character who presents this agent: its role first, else its description, else Ra.
+    /// The crew character who presents this agent: its role first, else its description, else Rasan.
     var character: CrewCharacter {
         CrewCharacter(key: CrewRoles.character(forRole: role) ?? CrewRoles.character(forDescription: name)) ?? .ra
     }

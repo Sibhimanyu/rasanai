@@ -1,6 +1,6 @@
-// Ra as a 2D puppet: layered vector art (clay shading, soft shadows) whose parts are moved by code.
-// mountRa(el) draws Ra into `el` and returns the puppet: lookAt(x, y), blink(), setExpression(name), play(clip), update(t).
-const SVG = `<svg class="ra-puppet" viewBox="0 0 600 660" role="img" aria-label="Ra, the RasanAI mascot">
+// Rasan as a 2D puppet: layered vector art (clay shading, soft shadows) whose parts are moved by code.
+// mountRa(el) draws Rasan into `el` and returns the puppet: lookAt(x, y), blink(), setExpression(name), play(clip), update(t).
+const SVG = `<svg class="ra-puppet" viewBox="0 0 600 660" role="img" aria-label="Rasan, the RasanAI mascot">
   <defs>
     <!-- clay shading: warm light from the upper left, a deeper turmeric where the form turns away -->
     <radialGradient id="raBody" cx="0.36" cy="0.3" r="0.78">
@@ -41,7 +41,7 @@ const SVG = `<svg class="ra-puppet" viewBox="0 0 600 660" role="img" aria-label=
     <clipPath id="bodyClip"><use href="#bodyShape"/></clipPath>
   </defs>
 
-  <!-- contact shadow on the floor; it shrinks and fades when Ra leaves the ground -->
+  <!-- contact shadow on the floor; it shrinks and fades when Rasan leaves the ground -->
   <ellipse id="contact" cx="300" cy="592" rx="215" ry="24" fill="#3c2d14" opacity="0.2" filter="url(#blur10)"/>
 
   <g id="rig">
@@ -112,7 +112,7 @@ const SVG = `<svg class="ra-puppet" viewBox="0 0 600 660" role="img" aria-label=
   </g>
 </svg>`;
 
-// ---------- Ra's 2D puppet ----------
+// ---------- Rasan's 2D puppet ----------
  const ease = { inOut: (p) => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2, out: (p) => 1 - Math.pow(1 - p, 3), in: (p) => p * p * p,
   backOut: (p) => { const c = 1.9; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); } };
 const clamp01 = (x) => Math.min(1, Math.max(0, x)), seg = (p, a, b) => clamp01((p - a) / (b - a));
@@ -210,7 +210,7 @@ class Puppet {
     set(P.handLhi, `translate(${bx} ${byy})`); set(P.handRhi, `translate(${bx} ${byy})`);
     P.armL.setAttribute('d', `M110 384 C 128 ${448 + byy * 0.4} ${176 + bx} ${hL.y} ${hL.x + 2} ${hL.y}`);
     P.armR.setAttribute('d', `M490 384 C 472 ${448 + byy * 0.4} ${424 + bx} ${hR.y} ${hR.x - 2} ${hR.y}`);
-    // the floor shadow shrinks and fades as Ra rises
+    // the floor shadow shrinks and fades as Rasan rises
     const f = Math.min(1, ch.lift / 140);
     set(P.contact, `translate(300 592) scale(${1 - f * 0.45}) translate(-300 -592)`); P.contact.setAttribute('opacity', (0.2 * (1 - f * 0.6)).toFixed(3));
   }

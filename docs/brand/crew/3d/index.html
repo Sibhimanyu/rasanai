@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ra · RasanAI crew 3D</title>
+<title>Rasan · RasanAI crew 3D</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anek+Latin:wght@500;600&family=JetBrains+Mono:wght@500&family=Mukta:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -34,7 +34,7 @@
 <body>
 <canvas id="c"></canvas>
 <aside>
-  <h1>Ra</h1>
+  <h1>Rasan</h1>
   <p class="sub">Mascot · runs the set. Drag to orbit, scroll to zoom.</p>
 
   <div class="label">Eyes</div>
@@ -123,7 +123,7 @@ const padLook = (e) => {
 pad.addEventListener('pointerdown', (e) => { dragging = true; follow.checked = false; pad.setPointerCapture(e.pointerId); padLook(e); });
 pad.addEventListener('pointermove', (e) => { if (dragging) padLook(e); });
 pad.addEventListener('pointerup', () => { dragging = false; });
-// follow the pointer: aim at where it sits relative to Ra's face on screen
+// follow the pointer: aim at where it sits relative to Rasan's face on screen
 const head = new THREE.Vector3();
 canvas.addEventListener('pointermove', (e) => {
   if (!follow.checked) return;

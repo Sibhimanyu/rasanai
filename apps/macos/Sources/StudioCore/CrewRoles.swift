@@ -2,7 +2,7 @@ import Foundation
 
 /// Which crew character stands for which agent, step, panel or phase. Pure strings so it can be tested without any UI:
 /// the app turns a key ("tara", "kavi", "chitra", "ra", "laya", "rasika", "mala") into a `CrewCharacter`.
-/// Ra, the mascot and the Director, is the answer for anything the crew do not own.
+/// Rasan, the mascot and the Director, is the answer for anything the crew do not own.
 public enum CrewRoles {
     public static let keys = ["tara", "kavi", "chitra", "ra", "laya", "rasika", "mala"]
 

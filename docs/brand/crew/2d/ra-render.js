@@ -1,4 +1,4 @@
-// Ra from the approved render: the painted body (eyes and brows removed) moves as one piece, and only the eyes and
+// Rasan from the approved render: the painted body (eyes and brows removed) moves as one piece, and only the eyes and
 // brows are drawn live on top. Few moving parts, so it keeps the render's realism.
 // mountRaRender(el) returns the puppet: lookAt(x, y), blink(), setExpression(name), play(clip), update(t).
 const BASE = new URL('./ra-base.png', import.meta.url).href;
@@ -7,7 +7,7 @@ const EYES = [{ cx: 612.5, cy: 466, rx: 21.5, ry: 45 }, { cx: 776.5, cy: 466, rx
 const BROWS = [{ d: 'M568 391 Q596 335 625 388', pivot: [596, 376] }, { d: 'M750 386 Q778 337 806 388', pivot: [778, 374] }];
 
 const svgMarkup = (n) => `
-<svg viewBox="170 90 920 1040" role="img" aria-label="Ra, the RasanAI mascot" style="overflow:visible">
+<svg viewBox="170 90 920 1040" role="img" aria-label="Rasan, the RasanAI mascot" style="overflow:visible">
   <defs>
     <radialGradient id="g-${n}" cx="0.38" cy="0.28" r="0.85"><stop offset="0" stop-color="#34343C"/><stop offset="0.55" stop-color="#121216"/><stop offset="1" stop-color="#050507"/></radialGradient>
     <filter id="soft-${n}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
@@ -97,7 +97,7 @@ class RenderPuppet {
   draw(ch) {
     const P = this.P, ex = this.ex, set = (el, tr) => el.setAttribute('transform', tr);
     const lx = Math.max(-1.3, Math.min(1.3, this.look.x + ch.lookX)), ly = Math.max(-1.3, Math.min(1.3, this.look.y + ch.lookY));
-    // the whole body: squash from the feet, hop, a small lean toward where Ra looks, the nod
+    // the whole body: squash from the feet, hop, a small lean toward where Rasan looks, the nod
     const sq = ch.squash;
     set(P.rig, `translate(${lx * 5} ${-ch.lift}) translate(${FEET.x} ${FEET.y}) rotate(${ch.tilt + lx * 1.3 + ch.nod}) scale(${1 + sq * 0.5} ${1 - sq}) translate(${-FEET.x} ${-FEET.y})`);
     // eyes slide over the face with the gaze; blink and expressions squash them about their centres
@@ -110,7 +110,7 @@ class RenderPuppet {
     P.smile.setAttribute('opacity', Math.max(ex.smile, happy).toFixed(3));
     P.mouthO.setAttribute('opacity', ex.mouthO.toFixed(3));
     set(P.mouthO, `translate(694 562) scale(${0.4 + 0.6 * ex.mouthO}) translate(-694 -562)`);
-    // the floor shadow stays on the ground: smaller and fainter the higher Ra goes
+    // the floor shadow stays on the ground: smaller and fainter the higher Rasan goes
     const f = Math.min(1, ch.lift / 200);
     set(P.floor, `translate(${FEET.x} ${FEET.y}) scale(${(1 - f * 0.45) * (1 + sq * 0.4)} 1) translate(${-FEET.x} ${-FEET.y})`);
     P.floor.setAttribute('opacity', (0.22 * (1 - f * 0.6)).toFixed(3));

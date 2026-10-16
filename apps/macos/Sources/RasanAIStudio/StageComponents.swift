@@ -61,7 +61,7 @@ enum CrewCredit {
         case "build": "Laya is building the film, scene by scene."
         case "final", "render": "Rasika checked every scene. The last call is yours."
         case "footage", "reel": "Mala logged your clips and picked the selects."
-        case "working": "Ra is setting up the crew."
+        case "working": "Rasan is setting up the crew."
         default: "\(character.displayName) worked on this."
         }
     }
