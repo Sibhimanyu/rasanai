@@ -171,10 +171,14 @@
     document.body.appendChild(layer);
     var lerp = function (a, b, t) { return a + (b - a) * t; };
     var inOut = function (t) { return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
-    var shown = false;
+    var shown = false, away = null;
     var setShown = function (on) {
       if (on === shown) return; shown = on;
       layer.classList.toggle("on", on);
+    };
+    // the hero's own cards are hidden from the moment they take off; once the crew have landed they stay in the screenshot
+    var setAway = function (on) {
+      if (on === away) return; away = on;
       fl.forEach(function (f) { f.c.style.visibility = on ? "hidden" : ""; });
     };
     var flight = addScene({
@@ -184,6 +188,7 @@
       progress: function (r, vh) { return clamp((vh - r.top) / (vh * .75), 0, 1); },
       render: function (q) {
         var vq = q;
+        setAway(vq > 0);
         if (vq <= 0 || vq >= 1) { setShown(false); setEmpty(false); return; }
         setShown(true); setEmpty(true);
         var ir = homeImg.getBoundingClientRect(), rimY = ir.top + ir.height * RIM / 100;
@@ -206,7 +211,7 @@
           f.cut.style.clipPath = over > .01 ? "inset(0 0 " + (over / cs).toFixed(2) + "px 0)" : "none";
         });
       },
-      reset: function () { setShown(false); setEmpty(false); }
+      reset: function () { setShown(false); setEmpty(false); setAway(false); }
     });
   }
 
