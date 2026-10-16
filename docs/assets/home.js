@@ -181,7 +181,7 @@
     layer.className = "cflight"; layer.setAttribute("aria-hidden", "true");
     var fl = [];
     $$(".fc", heroEl).forEach(function (c) {
-      var im = $(".fi img", c), m = im && /card-([a-z]+)\.webp/.exec(im.getAttribute("src") || "");
+      var im = $(".fi img", c), m = im && /(?:card-|crew\/hero\/)([a-z]+)\.webp/.exec(im.getAttribute("src") || "");
       if (!m || !BOX[m[1]]) return;
       var d = parseFloat(c.style.getPropertyValue("--d")) || 1;
       var box = document.createElement("div"); box.className = "cf";
@@ -230,16 +230,19 @@
           f.box.style.transform = "translate3d(" + lerp(scx, tcx, e).toFixed(2) + "px," + (lerp(scy, tcy, e) - lift).toFixed(2) + "px,0)";
           if (f.sw !== sw || f.sh !== sh) { f.sw = sw; f.sh = sh; f.card.style.width = sw + "px"; f.card.style.height = sh + "px"; f.card.style.left = -sw / 2 + "px"; f.card.style.top = -sh / 2 + "px"; }
           if (Math.abs(f.tw - tw) > .01 || Math.abs(f.th - th) > .01) { f.tw = tw; f.th = th; f.cut.style.width = tw + "px"; f.cut.style.height = th + "px"; f.cut.style.left = -tw / 2 + "px"; f.cut.style.top = -th / 2 + "px"; }
-          var ks = lerp(1, Math.min(tw / sw, th / sh), e), s0 = sh * .78 / th, cs = lerp(s0, 1, e);
+          var ks = lerp(1, Math.min(tw / sw, th / sh), e), s0 = sh / th, cs = lerp(s0, 1, e);
           f.card.style.transform = "scale(" + ks.toFixed(4) + ")";
           // every card sheds its background early in the move, together, before the window is up: only the characters fly
-          var shed = seg(vq, .04, .26);
-          f.card.style.opacity = (f.base * (1 - shed)).toFixed(3);
+          // the same character cut two ways (same framing): the hero's sharp render hands over to the screenshot's own pixels
+          // late in the flight, when they are small and on top of each other
+          var shed = seg(t, .72, .96);
+          f.card.style.opacity = (f.base * (1 - shed) + shed * 0).toFixed(3);
           f.cut.style.transform = "scale(" + cs.toFixed(4) + ")";
           f.cut.style.opacity = shed.toFixed(3);
           // feet tuck behind the prompt box's rim, as in the screenshot
           var over = Math.max(0, ty + th - rimY) * ease(seg(t, .6, 1));
           f.cut.style.clipPath = over > .01 ? "inset(0 0 " + (over / cs).toFixed(2) + "px 0)" : "none";
+          f.card.style.clipPath = over > .01 ? "inset(0 0 " + (over / ks).toFixed(2) + "px 0)" : "none";
         });
       },
       reset: function () { setShown(false); setEmpty(false); setAway(false); homeWin.style.transform = ""; }
