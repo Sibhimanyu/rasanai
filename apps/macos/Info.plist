@@ -57,7 +57,7 @@
 	<key>SUPublicEDKey</key>
 	<string>G7jLvqDCheO+YFMPOwDiE3TqkFEe/eAipR+MZt4lZvY=</string>
 	<key>SUScheduledCheckInterval</key>
-	<integer>18000</integer>
+	<integer>3600</integer>
 	<key>SUVerifyUpdateBeforeExtraction</key>
 	<true/>
 	<key>UTExportedTypeDeclarations</key>

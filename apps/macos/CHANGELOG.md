@@ -2,6 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **Updates arrive sooner.** Studio checks for a new version every hour instead of every 5 hours.
+
 ## 0.15.0 (build 32) — 2026-10-16
 
 - **The crew on Home.** Ra and the six crew members stand on the prompt box's rim over a soft mesh wash, and each one has a role in making the film. Scrolling down carries the prompt into your workspace, with your films as cards.
