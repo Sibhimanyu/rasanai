@@ -24,6 +24,8 @@ struct FormatPickerView: View {
     var alwaysGrid = false
     /// False where the scope question is already on the page beside it (the New film format popover).
     var showsScope = true
+    /// False when a screen already says "What are you making?" above the picker (the New film setup).
+    var showsHeading = true
     @State private var openTile: String?
 
     private var option: FormatCatalog.Option? { catalog.option(pick?.option) }
@@ -118,7 +120,7 @@ struct FormatPickerView: View {
     private var grid: some View {
         ScrollViewReader { proxy in
             VStack(alignment: .leading, spacing: 12) {
-                if option == nil || alwaysGrid {
+                if showsHeading, option == nil || alwaysGrid {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("What are you making?").font(.system(size: 15, weight: .semibold)).accessibilityAddTraits(.isHeader)
                         if alwaysGrid { Text("Optional. RasanAI picks one from your words.").font(.system(size: 12)).foregroundStyle(.secondary) }

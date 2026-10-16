@@ -134,7 +134,7 @@ final class LinkedSourcesTests: XCTestCase {
     }
 
     func testTemplatesDoNotCarryPointersToAFilmsFolders() {
-        // The template is saved from the draft with `linked` cleared (see StudioStore.saveTemplate).
+        // The template is saved from the draft with `linked` cleared (see SeriesLibrary).
         var draft = FilmDraft(brief: "x")
         draft.linked = [LinkedSource(kind: .footage, path: "/a", isFolder: true)]
         draft.linked = []

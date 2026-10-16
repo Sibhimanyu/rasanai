@@ -12,7 +12,8 @@ enum Route: Hashable {
     case brand(URL)
     case sample
     case queue
-    case templates
+    case series
+    case seriesPage(URL)
     case inspire
     case library(LibraryMode)
     case settings
@@ -159,7 +160,13 @@ final class StudioStore {
     }
     /// Whether the last session ended on a film page; read once at init, before any navigation can rewrite it.
     private let reopenFilmAtLaunch = UserDefaults.standard.bool(forKey: "reopenFilmOnLaunch")
-    var templatePrefill: FilmDraft?
+    /// The series the person has saved (folders next to Brands), newest data from disk; reloaded when a page changes one.
+    var seriesList: [Series] = []
+    /// Home's Start button: the next New film opens on Review, with the box's words and everything else decided.
+    var newFilmStartsAtReview = false
+    /// Set by a series page: the next New film is an episode of this series (its folder) or starts a new one.
+    var newFilmSeries: URL?
+    var newFilmStartsSeries = false
     var queuePaused = true
     var queueMessage = ""
     var queueStarting = false
@@ -355,6 +362,9 @@ final class StudioStore {
             settings.filmQueue[index].state = .attention
             settings.filmQueue[index].message = "Interrupted when the app closed. Resume the queue to continue the saved run."
         }
+        TasteQuestions.installed = TasteQuestions.load(engine: DirectorRuntime.engineURL)
+        migrateTemplatesIfNeeded()
+        reloadSeries()
         reloadProjects()
         if settings.showWelcome { sheet = .welcome }
         runtime.onExit = { [weak self] code, stopped in
@@ -525,6 +535,9 @@ final class StudioStore {
         if path.last != .inspire { path.append(.inspire) }
     }
     func openBrands() { if path.last != .brands { path.append(.brands) } }
+    var libraryRoot: URL { URL(fileURLWithPath: settings.projectRoot, isDirectory: true) }
+    func reloadSeries() { seriesList = SeriesLibrary.list(in: libraryRoot) }
+    func openSeries(_ folder: URL? = nil) { path = folder.map { [.series, .seriesPage($0)] } ?? [.series] }
     func goHome() { path = [] }
     /// Settings is a page like the others: a sheet over the window (Readiness) steps aside, and the page replaces the
     /// current one through `path`, so it lands in the same back/forward history. The director is not touched.
@@ -637,6 +650,7 @@ final class StudioStore {
             try await Task.detached {
                 _ = try ProjectSources.importFiles(sources, into: project)
                 if let brand { try BrandLibrary.apply(brand, to: project) }
+                if brand == nil, let ref = draft.series { try SeriesLibrary.applyLook(of: ref, to: project) }
                 try draft.save(in: project)
             }.value
             filmSourcesCopied = true

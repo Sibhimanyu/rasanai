@@ -14,7 +14,8 @@
 //         stricter): lib/gate-lessons.mjs, e.g. --gate text.statement_min_h=0.05, or motion.end_hold_min_s=1.0 for "the ending flashes by")
 //   node lessons.mjs list [--json]   (shows the source: user or self)
 //   node lessons.mjs drop --id <id>
-//   node lessons.mjs brief --role <crew role> [--n 12]   -> the "Standing notes" markdown block for that role (nothing when empty)
+//   node lessons.mjs brief --role <crew role> [--n 12] [--series <dir>]   -> the "Standing notes" markdown block for that role (nothing when empty);
+//        with --series <dir> (or a rasanai-brief.json in the current folder whose series.path is set) the series' own rules follow it
 //   node lessons.mjs digest [--n 12]                      -> the same for every area at once (SKILL.md Step 0: read this ONE digest); alias: memory.mjs taste
 //   node lessons.mjs suggest                              -> notes the user repeated (taste.jsonl, 2+ times) that are not rules yet, each with its `add` line
 // This is the ONE rules store and the ONE "past films" block. taste.jsonl (memory.mjs) is only the raw evidence ledger behind it: its
@@ -26,6 +27,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs, die, STATE_DIR } from "./lib/common.mjs";
 import { parseGate, wayOf } from "./lib/gate-lessons.mjs";
 import { readLedger, recentVerdicts } from "./memory.mjs";
+import { seriesRulesBlock } from "./lib/series.mjs";
 
 export const KINDS = ["error", "taste"];
 export const SOURCES = ["user", "self"];
@@ -133,9 +135,10 @@ function verdictLine(lessons) {
   return `Recent verdicts (the user's own words on their last films; a lean, not an instruction): ${rows.map((r) => `"${cut(r.note)}"`).join("; ")}.\n`;
 }
 
-export function lessonsBlock(role, n = 12) {
+export function lessonsBlock(role, n = 12, series = null) {
+  const rules = series ? seriesRulesBlock(series) : "";
   const areas = role === "*" ? AREAS : ROLE_AREAS[role];
-  if (!areas) return "";
+  if (!areas) return rules; // a role with no lesson areas (the visual writer) still obeys the series' rules
   const every = readLessons();
   const all = every
     .filter((r) => areas.includes(r.area))
@@ -154,6 +157,7 @@ export function lessonsBlock(role, n = 12) {
   }
   const vl = verdictLine(every);
   if (vl) md += `${md ? "\n" : ""}${vl}`;
+  if (rules) md += `${md ? "\n" : ""}${rules}`;
   return md;
 }
 
@@ -176,6 +180,18 @@ export function suggestions() {
   return [...groups.entries()].filter(([k, g]) => g.count >= 2 && !have.includes(k)).map(([, g]) => ({ note: g.note, count: g.count, films: g.films.size })).sort((a, b) => b.count - a.count).slice(0, 5);
 }
 
+// the series this project belongs to: --series <dir>, else rasanai-brief.json (cwd or $RASANAI_BRIEF) series.path
+export function seriesOf(arg) {
+  if (arg && arg !== true) return String(arg);
+  for (const f of [process.env.RASANAI_BRIEF, path.join(process.cwd(), "rasanai-brief.json")]) {
+    try {
+      const j = JSON.parse(fs.readFileSync(f, "utf8"));
+      if (j.series && j.series.path) return String(j.series.path);
+    } catch {}
+  }
+  return null;
+}
+
 function main() {
   const args = parseArgs();
   const cmd = args._[0];
@@ -196,7 +212,7 @@ function main() {
     console.log(JSON.stringify({ ok: true, dropped: String(args.id) }));
   } else if (cmd === "brief") {
     if (!args.role || args.role === true) die("--role required");
-    const b = lessonsBlock(String(args.role), args.n === undefined ? 12 : Number(args.n));
+    const b = lessonsBlock(String(args.role), args.n === undefined ? 12 : Number(args.n), seriesOf(args.series));
     if (b) process.stdout.write(b);
   } else if (cmd === "digest") {
     const b = digestText(args.n === undefined ? 12 : Number(args.n));

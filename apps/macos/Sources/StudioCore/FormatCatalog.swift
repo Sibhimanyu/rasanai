@@ -68,9 +68,11 @@ public struct FormatCatalog: Decodable, Equatable, Sendable {
         public var lengthSeconds: Int?
         public var aspect: String
         public var keywords: [String]?
+        /// Taste question ids this option asks (`questions` in formats.json; the questions themselves are in questions.json).
+        public var questions: [String]?
 
         private enum CodingKeys: String, CodingKey {
-            case id, tile, title, kind, description, status, partial, soon, inputs, aspect, keywords
+            case id, tile, title, kind, description, status, partial, soon, inputs, aspect, keywords, questions
             case scopeDefault = "scope_default", scopeQuestion = "scope_question", lengthSeconds = "length_s"
         }
     }
@@ -112,6 +114,9 @@ public struct FormatCatalog: Decodable, Equatable, Sendable {
         inputSlots(for: option).first { $0.takesFolder && !Self.nonFootageFolders.contains($0.id) }?.prompt
     }
     static let nonFootageFolders: Set<String> = ["brand-kit", "code"]
+
+    /// Formats cut from one clip of the person (a talking head or a green-screen take): length and shape are read from it, never asked.
+    public func readsClip(_ option: Option) -> Bool { option.inputs.contains { ["one-clip", "green-screen"].contains($0.id) } }
 
     /// The "many uses or one job?" question, only for options that ask one (feature launch).
     public func scopeQuestion(for option: Option) -> ScopeQuestion? { option.scopeQuestion }

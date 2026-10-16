@@ -141,7 +141,7 @@ struct RasanAIStudioApp: App {
                 Button("Needs review", systemImage: StudioPlace.needsReviewSymbol) { store.path = [.library(.needsReview)] }.keyboardShortcut("3")
                 Button("Queue", systemImage: StudioPlace.queueSymbol) { store.path = [.queue] }.keyboardShortcut("4")
                 Button("Brands", systemImage: StudioPlace.brandsSymbol) { store.path = [.brands] }.keyboardShortcut("5")
-                Button("Templates", systemImage: StudioPlace.templatesSymbol) { store.path = [.templates] }.keyboardShortcut("6")
+                Button("Series", systemImage: StudioPlace.seriesSymbol) { store.path = [.series] }.keyboardShortcut("6")
                 Button("Inspiration", systemImage: StudioPlace.inspireSymbol) { store.path = [.inspire] }.keyboardShortcut("7")
                 Divider()
                 // The same history as the toolbar's ‹ ›.

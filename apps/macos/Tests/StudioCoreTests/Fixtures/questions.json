@@ -1,0 +1,66 @@
+{
+  "$comment": "Taste questions: the few choices that decide a film and that RasanAI can't infer. One source of truth for the Studio's setup flow (one question per screen) and for the skill (the PREFERENCES block, presenter.mjs check/build, learn.mjs infer). A format option lists the ids it asks in formats.json `questions`. `unsure` hands the call to RasanAI. `ask_if` limits a question to films where it means something. Answers are stored as { <question id>: <choice id> } in rasanai-brief.json `preferences` and in a series' series.json `preferences`.",
+  "version": 1,
+  "questions": [
+    {
+      "id": "pictures",
+      "question": "What should the pictures be like?",
+      "choices": [
+        { "id": "literal", "label": "Plain and literal", "description": "Show the actual thing that's named: the real book cover, the bread and the wine.", "thumb": "pictures-literal" },
+        { "id": "world", "label": "One running world", "description": "Every idea happens in one place that changes as the talk goes on.", "thumb": "pictures-world" },
+        { "id": "concept", "label": "Bold ideas", "description": "Pictures that add a second meaning to what's said.", "thumb": "pictures-concept" }
+      ],
+      "unsure": "You decide"
+    },
+    {
+      "id": "speaker",
+      "question": "Where does the speaker go?",
+      "choices": [
+        { "id": "fixed", "label": "Large, always in the same place", "description": "The speaker never moves; the pictures change around them.", "thumb": "speaker-fixed" },
+        { "id": "moving", "label": "Moves with the story", "description": "Full, beside the picture, in a corner: the layout changes with what's said.", "thumb": "speaker-moving" },
+        { "id": "cutaways", "label": "Moves, and sometimes leaves", "description": "As above, plus moments where only the picture is on screen and the voice carries on.", "thumb": "speaker-cutaways" }
+      ],
+      "unsure": "You decide"
+    },
+    {
+      "id": "text",
+      "question": "How much writing on screen?",
+      "choices": [
+        { "id": "none", "label": "None", "description": "Only pictures. The voice says everything.", "thumb": "text-none" },
+        { "id": "key", "label": "Key words only", "description": "A name, a title or a number now and then.", "thumb": "text-key" },
+        { "id": "full", "label": "Full graphics", "description": "Titles, labels, lists and numbers that move with the talk.", "thumb": "text-full" }
+      ],
+      "unsure": "You decide"
+    },
+    {
+      "id": "captions",
+      "question": "Captions?",
+      "choices": [
+        { "id": "off", "label": "No captions", "description": "Nothing at the bottom of the screen.", "thumb": "captions-off" },
+        { "id": "plain", "label": "Plain captions", "description": "Quiet white words, easy to read.", "thumb": "captions-plain" },
+        { "id": "styled", "label": "Styled captions", "description": "Bold words that light up as they're spoken.", "thumb": "captions-styled" }
+      ],
+      "unsure": "You decide"
+    },
+    {
+      "id": "marks",
+      "question": "There's a mark in your video (a badge, logo or watermark). Keep it?",
+      "ask_if": "marks-found",
+      "choices": [
+        { "id": "keep", "label": "Keep it visible", "description": "Nothing is ever placed over it.", "thumb": "marks-keep" },
+        { "id": "cover", "label": "Cover it", "description": "Captions or graphics may sit on top of it.", "thumb": "marks-cover" }
+      ],
+      "unsure": "You decide"
+    },
+    {
+      "id": "ending",
+      "question": "How should it end?",
+      "choices": [
+        { "id": "card", "label": "My end card", "description": "A picture or clip you choose, added after the last word.", "thumb": "ending-card", "needs_file": true },
+        { "id": "make", "label": "RasanAI makes one", "description": "A closing card in the film's look.", "thumb": "ending-make" },
+        { "id": "none", "label": "No end card", "description": "It ends on the last word.", "thumb": "ending-none" }
+      ],
+      "unsure": "You decide"
+    }
+  ]
+}

@@ -58,7 +58,8 @@ struct StudioView: View {
         case .brands: BrandsView(store: store)
         case .brand(let url): BrandPage(store: store, brand: url)
         case .queue: FilmQueueView(store: store)
-        case .templates: FilmTemplatesView(store: store)
+        case .series: SeriesListView(store: store)
+        case .seriesPage(let url): SeriesPage(store: store, folder: url)
         case .inspire: GetInspiredPage(store: store)
         case .sample: SamplePage(store: store)
         case .library(let mode): HomeView(store: store, mode: mode)
@@ -74,7 +75,7 @@ struct StudioView: View {
         case .brands?: "Brands"
         case .brand?: "Brand"
         case .queue?: "Queue"
-        case .templates?: "Templates"
+        case .series?, .seriesPage?: "Series"
         case .inspire?: "Inspiration"
         case .sample?: "Sample film"
         case .library(let mode)?: mode.title

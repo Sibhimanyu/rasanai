@@ -28,10 +28,8 @@ struct NewFilmView: View {
     @State private var committed = false
     @State private var recoveryProject: URL?
     @State private var showDiscard = false
-    @State private var showSaveTemplate = false
-    @State private var templateName = ""
-    @State private var replacementDraft: FilmDraft?
-    @State private var templateMessage: String?
+    /// The setup walk: where it is, what it learned, which series is in play.
+    @State private var flow = NewFilmFlowModel()
     @State private var queueNote: String?
     @State private var showModels = false
     @State private var showGallery = false
@@ -39,13 +37,9 @@ struct NewFilmView: View {
     @State private var focusRequest = 0
     /// The previous option, so a pick only moves length and shape the person has not changed.
     @State private var lastFormatOption: String?
-    @State private var changingFormat = false
-    @State private var showSettings = false
     @State private var showFootage = false
     @State private var showReference = false
-    @State private var editingBrief = false
     @State private var linkMessage: String?
-    @FocusState private var nameFocused: Bool
     /// What an automatic format pick replaced, so "Undo" puts length and shape back; and the format the person undid.
     @State private var beforeAutoPick: (duration: Int, aspect: String, option: String?)?
     @State private var declinedOption: String?
@@ -63,41 +57,23 @@ struct NewFilmView: View {
     private var autoName: String {
         trimmedBrief.isEmpty ? "Untitled film" : String(FilmTitle.fromBrief(trimmedBrief).prefix(60))
     }
-    private var lengthLabel: String {
-        if !customLength, let match = Self.lengths.first(where: { $0.1 == draft.duration }) { return match.0 }
-        return "\(draft.duration) seconds"
-    }
 
     var body: some View {
         Group {
             if embedded {
-                // On Home: just the prompt box. Its Continue names the film and opens the New film page with everything
-                // filled in on the same unsaved draft. Starting still requires the setup page’s explicit action.
+                // On Home: just the prompt box, with Start (straight to Review) and Set it up (the step-by-step setup). Both carry
+                // this same unsaved draft, so nothing starts until the person has seen it.
                 homeComposer
-            } else { fullPage }
+            } else { setup }
         }
         .dropDestination(for: URL.self, action: { urls, _ in add(urls.filter(\.isFileURL)) }, isTargeted: { targeted = $0 })
-        .alert("Save as template", isPresented: $showSaveTemplate) {
-            TextField("Template name", text: $templateName)
-            Button("Cancel", role: .cancel) { }
-            Button("Save") { store.saveTemplate(name: templateName, draft: draft); templateMessage = "Template saved. Use it for your next film." }
-                .disabled(templateName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        } message: { Text("Saves everything on this page except the film name and its files.") }
-        .confirmationDialog("Replace your brief and film options?", isPresented: Binding(get: { replacementDraft != nil }, set: { if !$0 { replacementDraft = nil } }), titleVisibility: .visible) {
-            Button("Use template") { if let next = replacementDraft { applyTemplate(next) }; replacementDraft = nil }
-        } message: { Text("Your film name and attached files are kept.") }
         .sheet(isPresented: $showGallery) {
             GetInspiredSheet(gallery: store.gallery, selection: MomentSelection(draft.moments)) { picks in
                 showGallery = false; edit { draft.moments = picks }
             } onCancel: { showGallery = false }
             .tint(.rasan)
         }
-        .onChange(of: store.templatePrefill) { consumeTemplatePrefill() }
-        .onChange(of: briefFocused) {
-            // Keep an initially empty editor open as soon as typing makes the brief nonempty.
-            if briefFocused { editingBrief = true }
-        }
-        // Typing saves once it pauses; a newer edit cancels the wait. Leaving, Continue, saving and quitting flush below.
+        // Typing saves once it pauses; a newer edit cancels the wait. Leaving, Start, saving and quitting flush below.
         .task(id: editorState) {
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
@@ -160,8 +136,6 @@ struct NewFilmView: View {
             if !draft.moments.isEmpty { store.gallery.prime(); Task { await store.gallery.loadIfNeeded() } }
             lastFormatOption = draft.format?.option
             loaded = true
-            consumeTemplatePrefill()
-            editingBrief = trimmedBrief.isEmpty
             if project == nil, draft.brief.isEmpty { focusRequest += 1 }
         }
     }
@@ -182,36 +156,6 @@ struct NewFilmView: View {
     /// Words and dropped files that can pre-select a format; changes re-run the match (debounced) while the pick is still automatic.
     private var matchKey: String {
         ([draft.brief] + draft.linked.map(\.path) + sources.map(\.path)).joined(separator: "\u{1}") + (loaded ? "|loaded" : "")
-    }
-
-    /// A suggested format remains explainable and undoable in the setup summary.
-    @ViewBuilder private var formatNotes: some View {
-        if let option = pickedOption {
-            VStack(alignment: .leading, spacing: 6) {
-                if let why = draft.format?.why, !why.isEmpty {
-                    HStack(spacing: 4) {
-                        Text("Suggested from your brief").help(why)
-                        Button("Undo") { undoAutoPick() }.buttonStyle(.link)
-                            .help("Undo the suggested format and restore your earlier length and shape")
-                    }.font(.system(size: 11.5)).foregroundStyle(.secondary)
-                }
-                if option.status == .soon {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("This format is coming soon. Choose another format to start.").font(.system(size: 12)).foregroundStyle(Color(nsColor: .systemOrange))
-                        if let missing = option.soon?.missing {
-                            Text(missing).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                        }
-                        if !working, let catalog, let near = catalog.nearest(of: option) {
-                            Button("Use \(near.title) instead") { choose(near, in: catalog) }.controlSize(.small)
-                        }
-                    }
-                } else if option.status == .partial, let limitation = option.partial {
-                    Label(limitation, systemImage: "info.circle")
-                        .font(.system(size: 12)).foregroundStyle(.secondary)
-                }
-            }
-            .padding(.horizontal, 4)
-        }
     }
 
     private func choose(_ option: FormatCatalog.Option, in catalog: FormatCatalog, why: String? = nil) {
@@ -260,123 +204,69 @@ struct NewFilmView: View {
 
     // MARK: Prompt box
 
-    private var fullPage: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(project == nil ? "A good starting point." : "Edit your film")
-                        .font(.system(size: 30, weight: .semibold)).tracking(-0.5)
-                        .accessibilityAddTraits(.isHeader)
-                    Text(project == nil ? "We’ve suggested the essentials. Adjust anything before you start."
-                         : "Adjust anything, then save. You’ll review the creative choices as your film takes shape.")
-                        .font(.system(size: 14)).foregroundStyle(.secondary)
-                }
-                projectSection
-                briefSection
-                materials
-                settingsSection
-                if let templateMessage { Text(templateMessage).font(.system(size: 12)).foregroundStyle(.secondary) }
-            }
-            .disabled(working)
+    /// New film on its own page: the step-by-step setup. It edits the same draft the Home box does, so saving, the queue and
+    /// the request are unchanged. A film being edited opens on Review.
+    private var setup: some View {
+        NewFilmFlow(store: store, model: flow, draft: $draft, name: $name, newSources: sources, existingSources: existingSources,
+                    catalog: catalog, questions: TasteQuestions.installed, ready: loaded, editing: project != nil, working: working, host: flowHost)
             .task(id: matchKey) {
                 try? await Task.sleep(for: .milliseconds(400))
                 guard !Task.isCancelled else { return }
-                readLength()
-                if let catalog { await autoMatch(catalog) }
+                await settleFormat()
             }
-            .task(id: templateMessage) {
-                guard templateMessage != nil else { return }
-                try? await Task.sleep(for: .seconds(4))
-                guard !Task.isCancelled else { return }
-                withAnimation { templateMessage = nil }
+            .navigationTitle(project == nil ? "New film" : "Edit film")
+            .pageHeader(project == nil ? "New film" : "Edit film") {
+                HelpButton(title: "New film", lines: [
+                    "One question at a time. Skip any of them: what you leave, RasanAI decides.",
+                    "Add footage, images or documents on the material screen, or drop them anywhere on the page. Copies go into the film; originals stay put.",
+                    "Drop an edit you like and RasanAI studies it, so the questions about captions, writing and layout are answered for you.",
+                    "Review shows every answer and where it came from. More settings holds pace, models, motion design, brand and Inspiration moves.",
+                    "Save as series… keeps the answers, brand and end card so the next episode asks less."])
             }
-            .padding(.horizontal, 32).padding(.top, 36).padding(.bottom, 28)
-            .frame(maxWidth: 850).frame(maxWidth: .infinity)
-        }
-        .background(Color.appBackground)
-        .safeAreaInset(edge: .bottom, spacing: 0) { footer }
-        .navigationTitle(project == nil ? "New film" : "Edit film")
-        .pageHeader(project == nil ? "New film" : "Edit film")
     }
 
-    private func sectionTitle(_ text: String) -> some View {
-        Text(text).font(.system(size: 15, weight: .semibold)).accessibilityAddTraits(.isHeader)
+    /// Reads a length written in the brief and pre-selects a format from the words and files, right now.
+    private func settleFormat() async {
+        readLength()
+        if let catalog { await autoMatch(catalog) }
     }
 
-    /// The quiet panel every setup section sits in.
-    private func sectionPanel<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 14, content: content)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16).workspacePanel()
+    private var flowHost: FlowHost {
+        FlowHost(addFiles: { add($0) }, chooseFiles: { choose() }, removeSource: { url in sources.removeAll { $0 == url } },
+                 pickOption: { option in if let catalog { choose(option, in: catalog) } }, undoAutoPick: { undoAutoPick() },
+                 settleFormat: { await settleFormat() }, briefPlaceholder: briefPlaceholder,
+                 moreSettings: AnyView(moreSettings), runButton: AnyView(runButton), footerActions: AnyView(reviewFooterActions))
     }
 
-    // MARK: Project
-
-    private var projectSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("Project")
-            sectionPanel {
-                HStack(spacing: 12) {
-                    Image(systemName: pickedOption.map { FormatPickerView.symbol($0.tile) } ?? "film")
-                        .font(.system(size: 17, weight: .medium)).foregroundStyle(Color.rasan)
-                        .frame(width: 44, height: 44).background(Color.rasan.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    TextField(autoName, text: $name)
-                        .textFieldStyle(.plain).font(.system(size: 20, weight: .semibold))
-                        .focused($nameFocused)
-                        .disabled(project != nil).accessibilityLabel("Film name")
-                        .help(project == nil ? "Rename your film" : "Rename this film from the Library")
-                    if project == nil {
-                        Button { nameFocused = true } label: { Label("Rename", systemImage: "pencil").font(.system(size: 12.5)) }
-                            .buttonStyle(.plain).foregroundStyle(.secondary).help("Edit the film’s name")
-                    }
-                    Spacer(minLength: 0)
-                }
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: 14) { formatField; lengthField; shapeField }
-                    VStack(alignment: .leading, spacing: 12) { formatField; HStack(alignment: .top, spacing: 14) { lengthField; shapeField } }
-                }
-                if pickedOption == nil {
-                    Text(catalog == nil ? "Your director will work out the format from your brief." : "Choose a film type, or let your director work it out from your brief.")
-                        .font(.system(size: 12)).foregroundStyle(.secondary)
-                }
-                formatNotes
-                if let catalog, let option = pickedOption, option.scopeQuestion != nil {
-                    FormatPickerView(catalog: catalog, pick: draft.format, canAct: !working,
-                                     onPick: { choose($0, in: catalog) }, onScope: { draft.format?.scope = $0 },
-                                     changing: .constant(false), showsChip: false)
-                }
+    /// Everything that used to sit on the prompt box's chips and in the wells, behind "More settings" on Review.
+    private var moreSettings: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            FlowLayout(spacing: ComposerLayout.gap) {
+                paceChip
+                if agent == .claude { modelsChip }
+                motionChip
+                brandChip
             }
+            HStack(spacing: 4) {
+                Text(directorReady ? "Directed by \(agent.title) ·" : "No director set up yet ·")
+                Button(directorReady ? "Change" : "Set up…") { if directorReady { store.openSettingsPage() } else { store.settings.showWelcome = true } }
+                    .buttonStyle(.link)
+            }.font(.system(size: 12)).foregroundStyle(.secondary)
+            linkedWells
         }
     }
 
-    // MARK: Brief
-
-    private var briefSection: some View {
-        let expanded = editingBrief || trimmedBrief.isEmpty
-        return VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("Brief")
-            if expanded {
-                promptBox
-                if trimmedBrief.isEmpty {
-                    Text("Describe your film to continue. An idea, a link, or a few words is enough.").font(.system(size: 12)).foregroundStyle(.secondary)
-                } else {
-                    Button("Done") { toggleBriefEditing() }.buttonStyle(.link).font(.system(size: 12.5))
-                }
-            } else {
-                HStack(alignment: .top, spacing: 12) {
-                    Text(trimmedBrief).font(.system(size: 14)).lineLimit(4).fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Button { toggleBriefEditing() } label: { Label("Edit", systemImage: "pencil").font(.system(size: 12.5)) }
-                        .buttonStyle(.plain).foregroundStyle(.secondary).help("Edit your brief")
-                }
-                .padding(16).workspacePanel()
+    /// Beside the run button on Review: discard, the note that the draft is kept, and Save to Library.
+    private var reviewFooterActions: some View {
+        HStack(spacing: 10) {
+            if loaded && !editorState.isEmpty {
+                Button(isNewFilm ? "Discard film…" : "Discard changes…", role: .destructive) { showDiscard = true }.buttonStyle(.rasanSecondary).disabled(working)
             }
+            if working || checkingStart { ProgressView().controlSize(.small) }
+            if let queueNote { Text(queueNote).font(.system(size: 12)).foregroundStyle(.secondary).transition(.opacity) }
+            Button("Save to Library") { save(start: false) }.buttonStyle(.rasanSecondary).disabled(working || (project == nil && trimmedBrief.isEmpty && name.isEmpty))
+                .help("Adds this film to your Library without starting it")
         }
-    }
-
-    private func toggleBriefEditing() {
-        withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { editingBrief.toggle() }
-        if editingBrief { focusRequest += 1 }
     }
 
     /// Describe, on Home: one card holds the brief, what is attached and Continue; examples sit under it, never settings.
@@ -398,7 +288,7 @@ struct NewFilmView: View {
                 HStack(spacing: 12) {
                     addMaterialsMenu(prominent: false)
                     Spacer(minLength: 8)
-                    homeContinueButton
+                    homeStartButtons
                 }
                 .padding(.horizontal, 12).padding(.bottom, 12)
             }
@@ -449,26 +339,32 @@ struct NewFilmView: View {
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 0.14, alpha: 1) : NSColor(white: 0.95, alpha: 1)
     })
 
-    /// Home's Continue: a lilac circle with a forward arrow and a quiet label beside it. Same action and rules as setup's
-    /// button for an unsaved draft.
-    private var homeContinueButton: some View {
+    /// Home's two ways on: Start goes straight to Review with everything else decided (a lilac circle with a forward arrow), and
+    /// Set it up walks through the questions one at a time. Both carry this same unsaved draft, so nothing starts unseen.
+    private var homeStartButtons: some View {
         let enabled = !(working || trimmedBrief.isEmpty)
-        return Button { continueToEditor() } label: {
-            HStack(spacing: 8) {
-                Text("Continue").font(.system(size: 13)).foregroundStyle(.secondary)
-                ZStack {
-                    Circle().fill(enabled ? Color.rasanFill : Color.primary.opacity(0.12))
-                    if working { ProgressView().controlSize(.small) }
-                    else { Image(systemName: "arrow.right").font(.system(size: 14, weight: .semibold)).foregroundStyle(enabled ? Color.rasanPrimaryLabel : Color.secondary) }
+        return HStack(spacing: 10) {
+            Button("Set it up") { continueToEditor(atReview: false) }
+                .buttonStyle(.plain).font(.system(size: 13)).foregroundStyle(.secondary)
+                .disabled(!enabled)
+                .help(trimmedBrief.isEmpty ? "Describe your film first" : "Answer a few questions about the film, one at a time")
+            Button { continueToEditor(atReview: true) } label: {
+                HStack(spacing: 8) {
+                    Text("Start").font(.system(size: 13, weight: .medium)).foregroundStyle(enabled ? Color.primary : Color.secondary)
+                    ZStack {
+                        Circle().fill(enabled ? Color.rasanFill : Color.primary.opacity(0.12))
+                        if working { ProgressView().controlSize(.small) }
+                        else { Image(systemName: "arrow.right").font(.system(size: 14, weight: .semibold)).foregroundStyle(enabled ? Color.rasanPrimaryLabel : Color.secondary) }
+                    }
+                    .frame(width: 36, height: 36)
                 }
-                .frame(width: 36, height: 36)
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
+            .buttonStyle(.plain).keyboardShortcut(.return, modifiers: .command)
+            .disabled(!enabled)
+            .accessibilityLabel("Start")
+            .help(trimmedBrief.isEmpty ? "Describe your film first" : "Check what RasanAI will do and start the film (⌘↩)")
         }
-        .buttonStyle(.plain).keyboardShortcut(.return, modifiers: .command)
-        .disabled(!enabled)
-        .accessibilityLabel("Continue to setup")
-        .help(trimmedBrief.isEmpty ? "Describe your film first" : "Next: check the options and start (⌘↩)")
     }
 
     private var cardBorder: Color {
@@ -534,17 +430,6 @@ struct NewFilmView: View {
             }
         }
         .padding(.vertical, 2)
-    }
-
-    /// The brief box: text only. Attachments and the primary action live outside it.
-    private var promptBox: some View {
-        ComposerTextView(text: $draft.brief, placeholder: briefPlaceholder, minLines: embedded ? 5 : 4, maxLines: 12, focused: $briefFocused, focusRequest: focusRequest, fontSize: embedded ? 17 : 15)
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 20).padding(.vertical, 18)
-            .background(Workspace.panel, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(targeted ? Color.rasan : briefFocused ? Color.rasan.opacity(0.7) : Workspace.hairline, lineWidth: targeted || briefFocused ? 1.5 : 1))
-            .animation(reduceMotion ? nil : .snappy(duration: 0.15), value: targeted)
     }
 
     private func addMaterialsMenu(prominent: Bool) -> some View {
@@ -636,80 +521,8 @@ struct NewFilmView: View {
 
     // MARK: Toolbar
 
-    private var lengthShort: String { ComposerLayout.shortLength(draft.duration) }
     private var brandShort: String { draft.brand ?? "Brand" }
     private var motionShort: String { MotionLevel.title(draft.motionLevel) }
-    private var formatLabel: String {
-        if let option = pickedOption { return option.title }
-        return catalog == nil ? "Automatic format" : "Choose a format"
-    }
-
-    /// A labelled, field-shaped control: the label above, the current value inside.
-    private func field<Control: View>(_ title: String, @ViewBuilder _ control: () -> Control) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.system(size: 12)).foregroundStyle(.secondary)
-            control()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func fieldLabel(_ icon: String, _ text: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon).font(.system(size: 13)).foregroundStyle(.secondary).frame(width: 18)
-            Text(text).font(.system(size: 14)).lineLimit(1).truncationMode(.tail)
-            Spacer(minLength: 4)
-            Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
-        }
-        .foregroundStyle(Color.primary)
-        .padding(.horizontal, 12).frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
-        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.14), lineWidth: 1) }
-        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-
-    private var formatField: some View {
-        field("Film type") {
-            Button { changingFormat.toggle() } label: {
-                fieldLabel(pickedOption.map { FormatPickerView.symbol($0.tile) } ?? "square.grid.2x2", formatLabel)
-            }
-            .buttonStyle(.plain).help("Optional. RasanAI picks a format from your words. Click to choose one yourself.")
-            .accessibilityLabel("Film type: \(formatLabel)")
-            .disabled(catalog == nil)
-            // The full catalogue appears only when requested.
-            .popover(isPresented: $changingFormat, arrowEdge: .bottom) {
-                if let catalog {
-                    ScrollView {
-                        FormatPickerView(catalog: catalog, pick: draft.format, canAct: !working,
-                                         onPick: { option in choose(option, in: catalog); changingFormat = false },
-                                         onScope: { draft.format?.scope = $0 }, changing: $changingFormat, showsChip: false, showsScope: false)
-                            .padding(16)
-                    }
-                    .frame(width: 740).frame(maxHeight: 560)
-                }
-            }
-        }
-    }
-
-    private var lengthField: some View {
-        field("Duration") {
-            Menu { lengthMenuContent } label: { fieldLabel("clock", lengthLabel) }
-                .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).help("Length: \(lengthLabel)")
-                .accessibilityLabel("Length: \(lengthLabel)")
-            if customLength {
-                Stepper(value: $draft.duration, in: 5...600, step: 5) { Text("\(draft.duration) s").monospacedDigit().font(.system(size: 12)) }
-                    .controlSize(.small).accessibilityLabel("Custom length in seconds")
-            }
-        }
-    }
-
-    private var shapeField: some View {
-        field("Shape") {
-            let name = Self.aspectNames[draft.aspect] ?? draft.aspect
-            Menu { shapeMenuContent } label: { fieldLabel(Self.aspectIcons[draft.aspect] ?? "rectangle", "\(name) \(draft.aspect)") }
-                .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).help("Shape: \(name)")
-                .accessibilityLabel("Shape: \(name)")
-        }
-    }
 
     /// Model preferences remain available within the setup settings.
     private var modelsChip: some View {
@@ -719,88 +532,12 @@ struct NewFilmView: View {
             .popover(isPresented: $showModels, arrowEdge: .bottom) { modelPicker }
     }
 
-    private var wantsFootage: Bool {
-        pickedOption.flatMap { catalog?.folderPrompt(for: $0) } != nil
-    }
-
-    private var hasAnyMaterial: Bool { !sources.isEmpty || !existingSources.isEmpty || !draft.linked.isEmpty || !draft.moments.isEmpty }
-
-    private var materials: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("Materials")
-            VStack(spacing: 0) {
-                if !hasAnyMaterial {
-                    Text("No files attached. Add materials now or when your director asks for them.")
-                        .font(.system(size: 12.5)).foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.vertical, 14)
-                    Divider()
-                }
-                ForEach(existingSources, id: \.self) { sourceRow($0, removable: false); Divider() }
-                ForEach(sources, id: \.self) { sourceRow($0, removable: true); Divider() }
-                if !draft.moments.isEmpty {
-                    momentThumbs.padding(.horizontal, 16).padding(.vertical, 10)
-                    Divider()
-                }
-                HStack { addMaterialsMenu(prominent: false); Spacer(minLength: 0) }.padding(.horizontal, 12).padding(.vertical, 10)
-            }
-            .workspacePanel()
-            if let catalog, let option = pickedOption, option.status != .soon {
-                FormatInputsNote(catalog: catalog, option: option, requiredOnly: true)
-                if catalog.inputSlots(for: option).contains(where: { !$0.required }) {
-                    DisclosureGroup("Other useful materials") {
-                        FormatInputsNote(catalog: catalog, option: option, optionalOnly: true).padding(.top, 8)
-                    }
-                    .font(.system(size: 12))
-                }
-            }
-            if wantsFootage || showFootage || draft.linked.contains(where: { $0.kind == .footage }) {
-                LinkedSourceWell(kind: .footage, sources: $draft.linked, disabled: working,
-                                 prompt: pickedOption.flatMap { catalog?.folderPrompt(for: $0) })
-            }
-            if showReference || !draft.moments.isEmpty || draft.linked.contains(where: { $0.kind == .reference }) {
-                LinkedSourceWell(kind: .reference, sources: $draft.linked, disabled: working,
-                                 moves: AnyView(momentThumbs), movesCount: draft.moments.count, onPickMoves: { showGallery = true })
-            }
-        }
-    }
-
-    private var settingsSummary: String {
-        ([draft.pace.chipTitle, motionShort, draft.brand ?? "No brand"] + (agent == .claude ? [draft.modelPlan.chipTitle] : [])).joined(separator: " · ")
-    }
-
-    private var settingsSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button {
-                withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { showSettings.toggle() }
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
-                        .rotationEffect(.degrees(showSettings ? 90 : 0)).frame(width: 14)
-                    Text("Creative settings").font(.system(size: 14, weight: .medium))
-                    Spacer(minLength: 12)
-                    Text(settingsSummary).font(.system(size: 12.5)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
-                }
-                .padding(16).contentShape(Rectangle())
-            }
-            .buttonStyle(.plain).accessibilityValue(showSettings ? "Expanded" : "Collapsed")
-            if showSettings {
-                VStack(alignment: .leading, spacing: 16) {
-                    settingRow("Pace") { paceChip }
-                    settingRow("Motion") { motionChip }
-                    settingRow("Brand") { brandChip }
-                    if agent == .claude { settingRow("Models") { modelsChip } }
-                }
-                .padding(.horizontal, 16).padding(.bottom, 16)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading).workspacePanel()
-    }
-
-    private func settingRow<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        HStack {
-            Text(title).font(.system(size: 13)).foregroundStyle(.secondary)
-            Spacer()
-            content()
+    /// Footage folders and a reference video, used where they are. Separate wells: footage is cut, a reference is only studied.
+    private var linkedWells: some View {
+        HStack(alignment: .top, spacing: 14) {
+            LinkedSourceWell(kind: .footage, sources: $draft.linked, disabled: working, prompt: pickedOption.flatMap { catalog?.folderPrompt(for: $0) })
+            LinkedSourceWell(kind: .reference, sources: $draft.linked, disabled: working,
+                             moves: AnyView(momentThumbs), movesCount: draft.moments.count, onPickMoves: { showGallery = true })
         }
     }
 
@@ -817,14 +554,6 @@ struct NewFilmView: View {
         .background(tint ? Color.rasan.opacity(0.16) : chipFill, in: Capsule())
     }
 
-    @ViewBuilder private var lengthMenuContent: some View {
-        Picker("Length", selection: Binding(get: { customLength ? -1 : draft.duration }, set: { v in
-            if v == -1 { customLength = true } else { customLength = false; draft.duration = v } })) {
-            ForEach(Self.lengths, id: \.1) { Text($0.0).tag($0.1) }
-            Divider()
-            Text("Custom…").tag(-1)
-        }.pickerStyle(.inline).labelsHidden()
-    }
     @ViewBuilder private var paceMenuContent: some View {
         Picker("Pace", selection: $draft.pace) {
             ForEach(FilmPace.allCases) { Text("\($0.title): \($0.summary)").tag($0) }
@@ -837,13 +566,6 @@ struct NewFilmView: View {
             .accessibilityLabel("Pace: \(draft.pace.title)")
     }
 
-    private static let aspectNames = ["16:9": "Landscape", "9:16": "Portrait", "1:1": "Square"]
-    private static let aspectIcons = ["16:9": "rectangle", "9:16": "rectangle.portrait", "1:1": "square"]
-    @ViewBuilder private var shapeMenuContent: some View {
-        Picker("Shape", selection: $draft.aspect) {
-            ForEach(["16:9", "9:16", "1:1"], id: \.self) { Label("\(Self.aspectNames[$0] ?? $0) · \($0)", systemImage: Self.aspectIcons[$0] ?? "rectangle").tag($0) }
-        }.pickerStyle(.inline).labelsHidden()
-    }
     @ViewBuilder private var motionMenuContent: some View {
         Section("How much motion design") {
             Picker("Motion design", selection: $draft.motionLevel) {
@@ -911,16 +633,7 @@ struct NewFilmView: View {
 
     @ViewBuilder private var runButton: some View {
         if embedded {
-            Button { continueToEditor() } label: {
-                HStack(spacing: 6) {
-                    if working { ProgressView().controlSize(.mini) }
-                    Text("Continue"); Image(systemName: "arrow.right")
-                }
-                .font(.system(size: 13, weight: .medium))
-            }
-            .buttonStyle(.rasanPrimary).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
-            .disabled(working || trimmedBrief.isEmpty)
-            .help(trimmedBrief.isEmpty ? "Describe your film first" : "Next: check the options and start (⌘↩)")
+            homeStartButtons
         } else if editingQueued {
             Button { saveQueuedChanges() } label: { Text("Save changes") }
                 .buttonStyle(.rasanPrimary).controlSize(.regular).keyboardShortcut(.return, modifiers: .command)
@@ -946,79 +659,7 @@ struct NewFilmView: View {
         }
     }
 
-    // MARK: Footer
-
-    private var footer: some View {
-        VStack(spacing: 8) {
-            // The main row holds only actions, so the primary one is never squeezed.
-            HStack(spacing: 12) {
-                Button { if store.canGoBack { store.goBack() } else { store.goHome() } } label: { Label("Back", systemImage: "arrow.left") }
-                    .buttonStyle(.plain).foregroundStyle(.secondary).disabled(working).help("Back (your draft is kept)")
-                Spacer(minLength: 8)
-                if working || checkingStart { ProgressView().controlSize(.small) }
-                Menu {
-                    Button("Save to Library") { save(start: false) }
-                        .disabled(working || (project == nil && trimmedBrief.isEmpty && name.isEmpty))
-                    Menu("Use template") {
-                        ForEach(store.settings.filmTemplates) { template in
-                            Button(template.name) { proposeTemplate(template.draft) }
-                        }
-                        if store.settings.filmTemplates.isEmpty { Text("No saved templates") }
-                    }
-                    Button("Save as template…") { templateName = name.isEmpty ? autoName : name; showSaveTemplate = true }
-                        .disabled(trimmedBrief.isEmpty || working)
-                    if loaded && !editorState.isEmpty {
-                        Divider()
-                        Button(isNewFilm ? "Discard film…" : "Discard changes…", role: .destructive) { showDiscard = true }
-                    }
-                } label: { Label("More", systemImage: "ellipsis") }
-                    .menuStyle(.button).buttonStyle(.rasanSecondary).menuIndicator(.hidden).fixedSize().disabled(working)
-                runButton.fixedSize()
-            }
-            // The quiet line: what is kept, who directs, and the queue's last word.
-            HStack(spacing: 8) {
-                HStack(spacing: 4) {
-                    if loaded && !editorState.isEmpty {
-                        Image(systemName: "checkmark.circle")
-                        Text("Kept if you leave ·")
-                    }
-                    Text(directorReady ? "Directed by \(agent.title) ·" : "No director set up yet ·")
-                    Button(directorReady ? "Change" : "Set up…") { if directorReady { store.openSettingsPage() } else { store.settings.showWelcome = true } }
-                        .buttonStyle(.link)
-                }.font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
-                Spacer(minLength: 8)
-                if let queueNote { Text(queueNote).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1).transition(.opacity) }
-            }
-        }
-        .padding(.horizontal, 32).padding(.vertical, 12)
-        .frame(maxWidth: 850 + 64).frame(maxWidth: .infinity)
-        .background(Color.appBackground)
-    }
-
     // MARK: Actions
-
-    private func consumeTemplatePrefill() {
-        guard loaded, let next = store.templatePrefill else { return }
-        store.templatePrefill = nil
-        proposeTemplate(next)
-    }
-    private func proposeTemplate(_ next: FilmDraft) {
-        if draft != FilmDraft(agent: draft.agent, pace: draft.pace) { replacementDraft = next } else { applyTemplate(next) }
-    }
-    private func applyTemplate(_ next: FilmDraft) {
-        draft = next
-        draft.agent = store.settings.defaultAgent
-        customLength = !Self.lengths.contains { $0.1 == draft.duration }
-        templateMessage = nil
-        if let brandName = draft.brand {
-            if let brand = brands.first(where: { $0.name == brandName }) ?? brands.first(where: { $0.previousNames.contains(brandName) }) {
-                draft.brand = brand.name
-            } else {
-                draft.brand = nil
-                templateMessage = "The template’s brand \(brandName) is unavailable. Choose a brand in Settings."
-            }
-        }
-    }
 
     private func persistEditor() {
         guard loaded, !committed else { return }
@@ -1058,8 +699,8 @@ struct NewFilmView: View {
         suggested = (fresh, brief)
         store.suggestedFilmTitle = (fresh, brief)
     }
-    /// Home’s Continue retains the draft and opens its compact setup review.
-    private func continueToEditor() {
+    /// Home's Start and Set it up: a working title from the brief (unless one is typed), then the setup on this draft, on Review or at its first question.
+    private func continueToEditor(atReview: Bool) {
         working = true
         Task {
             if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -1069,6 +710,7 @@ struct NewFilmView: View {
             }
             working = false
             persistEditor()
+            store.newFilmStartsAtReview = atReview
             store.path = [.newFilm(nil)]
         }
     }
@@ -1104,6 +746,8 @@ struct NewFilmView: View {
         draft.agent = store.settings.defaultAgent
         let typedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let brand = brands.first { $0.name == draft.brand } ?? brands.first { $0.previousNames.contains(draft.brand ?? "") }
+        // "Start a series" was picked: the series is made as the film starts, so its brief already names it.
+        if start || queue { flow.commitStartingSeries(&draft, store: store, catalog: catalog, fallbackName: typedName.isEmpty ? autoName : typedName) }
         let submittedDraft = draft
         let submittedSources = sources
         Task {
@@ -1112,6 +756,7 @@ struct NewFilmView: View {
             working = false
             if let saved {
                 if queue { store.enqueueFilm(saved, name: title, draft: submittedDraft) }
+                if start || queue, let ref = submittedDraft.series { SeriesLibrary.appendEpisode(saved, to: ref); store.reloadSeries() }
                 committed = true
                 store.settings.clearEditorDraft(for: project)
                 if queue { store.path = [.queue] } else { store.showFilm(saved) }

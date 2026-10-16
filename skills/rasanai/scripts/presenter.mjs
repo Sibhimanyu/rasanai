@@ -8,21 +8,28 @@
 //        -> <dir>/presenter.webm (VP9 alpha, no audio), <dir>/key.json, <dir>/key-check.png (3 frames over grey and magenta)
 //   node presenter.mjs beats  --transcript <words.json> --out <beats.json> [--min 2.5] [--max 9] [--duration <s>] [--clip <id>]
 //        -> {duration, beats: [{id, start, end, text, words: [i0, i1]}]}; reads a bare word array, {words}, or reel scan's footage.json
-//   node presenter.mjs check  --plan <plan.json> [--beats <beats.json>] [--key <key.json>] [--imagegen ready|off] [--json]
+//   node presenter.mjs marks  --clip <video> --out <dir>      (reads <dir>/key.json to leave the speaker out; `key` runs it itself)
+//        -> key.json.marks[]: [{x, y, w, h, presence}] (fractions of the clip's frame): a badge, logo or watermark that is in the footage
+//   node presenter.mjs check  --plan <plan.json> [--beats <beats.json>] [--key <key.json>] [--imagegen ready|off] [--prefs <rasanai-brief.json>] [--captions] [--json]
 //        exit 0 pass (warnings allowed), 2 errors found, 1 could not run. Prints one line per finding, or JSON with --json:
-//        {ok, errors, warnings, findings: [{level, beat, code, message, fix}]}
-//   node presenter.mjs plates --plan <plan.json> [--look <DESIGN.md>] --out <images.json> [--dir <plates dir>]
-//        -> the batch plan for `imagegen.mjs batch` (one image per generated plate, anchor = the first one)
+//        {ok, errors, warnings, duration, film_duration, ending, findings: [{level, beat, code, message, fix}]}
+//        --prefs reads the owner's taste answers (lib/prefs.mjs; library/questions.json): speaker, text, captions, marks, ending
+//        are enforced here (speaker-fixed, plate-only-banned, text-none, text-key-count, text-key-long, mark-covered, ending-file ...)
+//   node presenter.mjs plates --plan <plan.json> [--look <DESIGN.md>] --out <images.json> [--dir <plates dir>] [--prefs <rasanai-brief.json>]
+//        -> the batch plan for `imagegen.mjs batch` (one image per generated plate, anchor = the first one); real plates (a sourced
+//           image of the actual thing) are listed with their source and are never generated
 //   node presenter.mjs stills --plan <plan.json> --key <key.json> --plates <plates dir> --out <dir> [--look <DESIGN.md>]
 //        -> <dir>/<beat id>.png at each beat's middle (plate with camera move + keyed presenter in layout + graphic boxes) and stills.json
 //   node presenter.mjs build  --plan <plan.json> --key <key.json> --plates <plates dir> --project-dir videos/<name>
-//        [--captions <words.json>] [--look <DESIGN.md>] [--motion <motion.md>] [--refresh-scaffolds] [--force] [--no-lint]
+//        [--captions <words.json>] [--prefs <rasanai-brief.json>] [--look <DESIGN.md>] [--motion <motion.md>] [--refresh-scaffolds] [--force] [--no-lint]
 //        -> a HyperFrames project: index.html (track 0 plates, 1 presenter, 2 graphics, 3 captions), compositions/graphics/*,
 //           briefs/graphics/*, assets/*; runs `hyperframes lint` and prints {ok, project, index, graphics, lint, ...}
 //
 // plan.json (version 1): {clip, aspect, style: {lock, avoid}, beats: [{id, start, end, say, layout, side?, plate: {id, kind, prompt,
-//   camera, reuse?}|null, graphics: [{type, text, items?, sub?, at, out, zone}], transition_in}]}. at/out are absolute clip seconds.
-// Layouts: presenter-full | presenter-left | presenter-right | presenter-corner | presenter-only | plate-only | split.
+//   camera, reuse?, source?, file?, todo?}|null, graphics: [{type, text, items?, sub?, at, out, zone}], transition_in}]}. at/out are absolute clip seconds.
+// Layouts: presenter-full | presenter-left | presenter-right | presenter-corner | presenter-only | plate-only | split | presenter-stack
+// (presenter-stack: the speaker large at the bottom with the plate above in 9:16; the same as presenter-full in 16:9).
+// Plate kinds: generated | designed | reuse | real (a sourced image of the actual thing: needs `source`, a URL or path, or a `todo`).
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -34,14 +41,15 @@ import { stageFonts } from "./lib/fonts.mjs";
 import { installLook } from "./lib/install.mjs";
 import { track } from "./lib/report.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
+import { loadPrefs } from "./lib/prefs.mjs";
 
 void gsapInline;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const args = parseArgs();
 const cmd = args._[0];
 track(
-  { key: "Keying the presenter out of the footage", beats: "Splitting the speech into beats", plates: "Planning the image plates", stills: "Compositing a still for every beat", build: "Building the presenter film" }[cmd],
-  { key: "Presenter keyed", beats: "Beats written", plates: "Image plan written", stills: "Stills written", build: "Presenter film built" }[cmd]
+  { key: "Keying the presenter out of the footage", marks: "Looking for marks in the footage", beats: "Splitting the speech into beats", plates: "Planning the image plates", stills: "Compositing a still for every beat", build: "Building the presenter film" }[cmd],
+  { key: "Presenter keyed", marks: "Marks found", beats: "Beats written", plates: "Image plan written", stills: "Stills written", build: "Presenter film built" }[cmd]
 );
 
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -51,7 +59,10 @@ const err = (m) => process.stderr.write(m + "\n");
 const words = (s) => String(s || "").trim().split(/\s+/).filter(Boolean);
 const safeId = (s) => String(s).replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "x";
 
-const LAYOUTS = ["presenter-full", "presenter-left", "presenter-right", "presenter-corner", "presenter-only", "plate-only", "split"];
+const LAYOUTS = ["presenter-full", "presenter-left", "presenter-right", "presenter-corner", "presenter-only", "plate-only", "split", "presenter-stack"];
+const PLATE_KINDS = ["generated", "designed", "reuse", "real"];
+const IMG_EXT = [".png", ".jpg", ".jpeg", ".webp"];
+const VIDEO_EXT = [".mp4", ".mov", ".m4v", ".webm", ".mkv"];
 const CAMERAS = ["push-in", "pull-out", "pan-left", "pan-right", "tilt-up", "tilt-down", "drift", "parallax", "static"];
 const GFX_TYPES = ["kinetic-title", "callout", "stat", "lower-third", "list", "quote", "diagram", "label"];
 const ZONES = ["left", "right", "top", "bottom", "center"];
@@ -262,6 +273,8 @@ function geom(layout, key, W, H, side = "left") {
     g.clip = P;
     g.deco = { ...P };
     g.plateClip = tall ? { x: 0, y: 0, w: W, h: P.y } : side === "right" ? { x: 0, y: 0, w: Math.round(0.5 * W), h: H } : { x: Math.round(0.5 * W), y: 0, w: Math.round(0.5 * W), h: H };
+  } else if (layout === "presenter-stack") {
+    if (tall) { g.s = 0.72; place(W / 2); } // large at the bottom, centred, the plate above; in a wide frame it is presenter-full
   } else if (layout === "plate-only") g.hidden = true;
   g.box = { x: W / 2 + g.s * (S.x - W / 2) + g.tx, y: H + g.s * (S.y - H) + g.ty, w: S.w * g.s, h: S.h * g.s };
   return g;
@@ -295,19 +308,19 @@ function freeText(layout, key, W, H, side) {
   return `free beside the presenter: left ${l}% of the frame width, right ${r}% (a graphic needs 22%)`;
 }
 // which side the presenter stands on in a layout (null when none), and which side each image keeps calm
-const presenterSide = (b) => (b.layout === "presenter-left" ? "left" : b.layout === "presenter-right" ? "right" : b.layout === "split" ? (b.side === "right" ? "right" : "left") : null);
-function plateSides(plan, defs) {
+const presenterSide = (b, tall = false) => (b.layout === "presenter-left" ? "left" : b.layout === "presenter-right" ? "right" : b.layout === "split" ? (b.side === "right" ? "right" : "left") : b.layout === "presenter-stack" && tall ? "bottom" : null);
+function plateSides(plan, defs, tall = false) {
   const use = new Map();
   for (const b of plan.beats) {
-    const sd = presenterSide(b);
+    const sd = presenterSide(b, tall);
     if (!sd || !b.plate || !b.plate.id) continue;
     const d = defs.get(b.plate.id), img = d && d.kind === "reuse" ? d.image : b.plate.id;
-    const u = use.get(img) || { left: 0, right: 0, first: sd };
+    const u = use.get(img) || { left: 0, right: 0, bottom: 0, first: sd };
     u[sd] += b.end - b.start;
     use.set(img, u);
   }
   const out = new Map();
-  for (const [img, u] of use) out.set(img, u.left > u.right ? "left" : u.right > u.left ? "right" : u.first);
+  for (const [img, u] of use) out.set(img, u.first === "bottom" ? "bottom" : u.left > u.right ? "left" : u.right > u.left ? "right" : u.first);
   return out;
 }
 function overlapFrac(zone, occ) {
@@ -365,10 +378,80 @@ function resolvePlates(plan) {
   for (const d of defs.values()) { d.kind = d.kind || (d.reuse ? "reuse" : "generated"); d.image = imageOf(d.id); }
   return defs;
 }
+// the image file of a plate: its own `file` (a real image saved elsewhere), else <plates dir>/<id>.png|jpg|jpeg|webp
+function plateFile(platesDir, planDir, id, def) {
+  const c = [];
+  if (def && def.file) { const q = String(def.file); c.push(path.isAbsolute(q) ? q : path.resolve(planDir, q), path.resolve(platesDir, q)); }
+  for (const e of IMG_EXT) c.push(path.join(platesDir, id + e));
+  return c.find((x) => fs.existsSync(x) && fs.statSync(x).isFile()) || null;
+}
 function planSize(plan) {
   const [W, H] = normalizeAspect(plan.aspect || "16:9").split("x").map(Number);
   return { W, H };
 }
+// ------------------------------------------------------------------ the owner's taste answers (--prefs; library/questions.json)
+let PREFS = null;
+function prefs() {
+  if (PREFS) return PREFS;
+  try {
+    PREFS = loadPrefs(args.prefs && args.prefs !== true ? String(args.prefs) : null);
+  } catch (e) {
+    die(`PROBLEM: ${e.message}`);
+  }
+  if (args["ending-file"] && args["ending-file"] !== true) PREFS.ending_file = path.resolve(String(args["ending-file"]));
+  return PREFS;
+}
+// speaker=fixed: one layout for the whole film
+const fixedLayout = (W, H) => (isTall(W, H) ? "presenter-stack" : "presenter-full");
+// is a caption track part of this film? the answer wins over the flag
+const captionsWanted = (P, flag) => (P.prefs.captions ? P.prefs.captions !== "off" : !!flag);
+// the ending beat after the clip: { kind: card|make|none, file, video, seconds }
+function endingInfo(P) {
+  const kind = P.prefs.ending || "none";
+  if (kind === "make") return { kind, file: null, video: false, seconds: Number(args["ending-seconds"]) || 3 };
+  if (kind !== "card") return { kind: "none", file: null, video: false, seconds: 0 };
+  const file = P.ending_file ? path.resolve(P.ending_file) : null;
+  const exists = !!file && fs.existsSync(file);
+  const video = !!file && VIDEO_EXT.includes(path.extname(file).toLowerCase());
+  let seconds = 3;
+  if (exists && video) { try { seconds = probe(file).duration || 3; } catch { seconds = 3; } }
+  return { kind, file, exists, video, seconds: r2(seconds) };
+}
+const marksOf = (key) => (key && Array.isArray(key.marks) ? key.marks.filter((m) => m && m.w > 0 && m.h > 0) : []);
+// a mark's rectangle in frame pixels, where the clip's own pixels put it (cover-fit, no layout transform)
+function markRect(m, key, W, H) {
+  const { vw, vh, ox, oy } = geom("presenter-full", key, W, H).vid;
+  return { x: ox + m.x * vw, y: oy + m.y * vh, w: m.w * vw, h: m.h * vh };
+}
+// everything that would cover a mark, beat by beat: [{beat, code, message, fix}]
+function markFindings(plan, key, W, H, captionsOn) {
+  const out = [];
+  const marks = marksOf(key);
+  if (!marks.length) return out;
+  const near = (rect, mr) => overlapFrac(mr, rect) > 0.05;
+  const seen = new Set();
+  const add = (b, why, fix) => { const k = b.id + why; if (seen.has(k)) return; seen.add(k); out.push({ beat: b.id, code: "mark-covered", message: `${b.id}: ${why} covers the mark in the footage`, fix }); };
+  for (const b of plan.beats) {
+    if (!LAYOUTS.includes(b.layout)) continue;
+    marks.forEach((m, i) => {
+      const mr = markRect(m, key, W, H), tag = `mark ${i + 1}`;
+      if (b.layout === "plate-only") add(b, `the plate-only layout (the clip is hidden, ${tag})`, `give ${b.id} a layout that shows the clip as shot (presenter-full)`);
+      else if (b.layout === "presenter-corner" || b.layout === "split") add(b, `the ${b.layout} layout (the clip shrinks into a panel, ${tag})`, `use presenter-full for ${b.id}`);
+      else if (["presenter-left", "presenter-right", "presenter-stack"].includes(b.layout)) {
+        const g = geom(b.layout, key, W, H, b.side);
+        if (overlapFrac(mr, g.box) > 0.2) add(b, `the speaker moved by ${b.layout} (${tag})`, `use presenter-full for ${b.id}, or another side of the frame`);
+      }
+      (b.graphics || []).forEach((gr, n) => {
+        const zone = ZONES.includes(gr.zone) ? gr.zone : "center";
+        const r = graphicRect(zone, b.layout, key, W, H, b.side, captionsOn).rect;
+        if (near(r, mr)) add(b, `graphic ${n + 1} (${gr.type}, zone ${zone}, ${tag})`, `move graphic ${n + 1} to a zone away from the mark (it is at x ${Math.round(mr.x)}-${Math.round(mr.x + mr.w)}, y ${Math.round(mr.y)}-${Math.round(mr.y + mr.h)} px), or drop it`);
+      });
+      if (captionsOn && near(captionRect(b, key, W, H), mr)) add(b, `the caption band (${tag})`, "turn captions off, or ask for them in a layout whose caption column is clear of the mark");
+    });
+  }
+  return out;
+}
+
 function readLookSafe(file) {
   if (!file || !fs.existsSync(file)) return readLook(null);
   try {
@@ -561,6 +644,10 @@ async function key() {
     border_transparent: r3(m.border), center_opaque: r3(m.centre), warnings: [...new Set(warnings)],
     webm: "presenter.webm", clip,
   };
+  // marks (a badge, logo or watermark that is in the footage): measured here so the check and the build can keep them clear
+  const mk = await findMarksSafe(clip, subject);
+  keyJson.marks = mk.marks;
+  if (mk.note) keyJson.marks_note = mk.note;
   writeFile(path.join(out, "key.json"), JSON.stringify(keyJson, null, 2) + "\n");
 
   // ---- key-check.png: three frames over grey (top) and over magenta (bottom), labelled
@@ -581,6 +668,40 @@ async function key() {
   cv.save(path.join(out, "key-check.png"));
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log(JSON.stringify({ ok: true, ...keyJson, key: path.join(out, "key.json"), webm_path: webm, check: path.join(out, "key-check.png") }, null, 2));
+}
+
+// ------------------------------------------------------------------ marks
+// lib/marks.mjs (findMarks(video, { samples, exclude }) -> [{x, y, w, h, presence}], fractions of the frame) belongs to the learn tool;
+// without it there are simply no marks found, and the note says so.
+async function findMarksSafe(clip, exclude) {
+  let mod;
+  try {
+    mod = await import("./lib/marks.mjs");
+  } catch (e) {
+    return { marks: [], note: e && e.code === "ERR_MODULE_NOT_FOUND" ? "lib/marks.mjs is not installed; no marks measured" : `marks: ${String((e && e.message) || e).split("\n")[0]}` };
+  }
+  try {
+    const r = await mod.findMarks(clip, { exclude: exclude || undefined });
+    return { marks: (Array.isArray(r) ? r : []).map((m) => ({ x: r3(m.x), y: r3(m.y), w: r3(m.w), h: r3(m.h), presence: r3(m.presence ?? 1) })), note: null };
+  } catch (e) {
+    return { marks: [], note: `marks: ${String((e && e.message) || e).split("\n")[0]}` };
+  }
+}
+async function marks() {
+  if (!args.clip || !args.out) die("PROBLEM: marks needs --clip <video> and --out <dir>");
+  const clip = path.resolve(String(args.clip));
+  if (!fs.existsSync(clip)) die(`PROBLEM: clip not found: ${args.clip}`);
+  const out = path.resolve(String(args.out));
+  fs.mkdirSync(out, { recursive: true });
+  const kf = path.join(out, "key.json");
+  const key = fs.existsSync(kf) ? readJSON(kf) : null;
+  const r = await findMarksSafe(clip, key && key.subject);
+  if (key) {
+    key.marks = r.marks;
+    if (r.note) key.marks_note = r.note; else delete key.marks_note;
+    writeFile(kf, JSON.stringify(key, null, 2) + "\n");
+  } else writeFile(path.join(out, "marks.json"), JSON.stringify({ marks: r.marks }, null, 2) + "\n");
+  console.log(JSON.stringify({ ok: true, marks: r.marks, key: key ? kf : null, speaker_left_out: !!(key && key.subject), ...(r.note ? { note: r.note } : {}), ...(key ? {} : { warning: "no key.json beside --out: the speaker was not left out; run presenter.mjs key first" }) }, null, 2));
 }
 
 // ------------------------------------------------------------------ beats
@@ -673,12 +794,15 @@ function beats() {
 const SLOP = ["stunning", "breathtaking", "8k", "4k", "hyper-realistic", "hyperrealistic", "ultra-detailed", "masterpiece", "trending on artstation", "octane render", "unreal engine", "award-winning", "epic"];
 const TEXT_WORDS = /\b(text|texts|letters?|lettering|words?|signage|signs?|logos?|watermarks?|typography|captions?|subtitles?|inscriptions?|handwriting|written|writing|labels?|headlines?|slogans?)\b/i;
 
+let REPORT_EXTRA = {};
 function check() {
   const planFile = path.resolve(String(args.plan || ""));
   const plan = readPlan(args.plan ? planFile : null);
   const findings = [];
   const add = (level, beat, code, message, fix) => findings.push({ level, beat: beat || null, code, message, fix: fix || "" });
   const { W, H } = planSize(plan);
+  const P = prefs(), pf = P.prefs, tall = isTall(W, H);
+  const captionsOn = captionsWanted(P, args.captions);
   let keyJ = null, beatsJ = null;
   if (args.key) { try { keyJ = readJSON(String(args.key)); } catch { die(`PROBLEM: cannot read --key ${args.key}`); } }
   if (args.beats) { try { beatsJ = readJSON(String(args.beats)); } catch { die(`PROBLEM: cannot read --beats ${args.beats}`); } }
@@ -686,6 +810,12 @@ function check() {
   const B = plan.beats;
   const planDur = Number(B[B.length - 1].end);
   const duration = Number((beatsJ && beatsJ.duration) || (keyJ && keyJ.duration) || planDur);
+  // the ending beat plays after the clip: the film is that much longer
+  const ending = endingInfo(P);
+  REPORT_EXTRA = { film_duration: r2(duration + ending.seconds), ending: ending.kind === "none" ? null : { kind: ending.kind, file: ending.file, seconds: ending.seconds } };
+  if (pf.ending === "card" && !ending.file) add("error", null, "ending-file", "ending=card but no ending card file was given (ENDING CARD FILE / ending_file)", "pass --prefs <rasanai-brief.json> with ending_file, or --ending-file <image or video>");
+  else if (pf.ending === "card" && !ending.exists) add("error", null, "ending-file-missing", `the ending card file is not there: ${ending.file}`, "fix the path, or ask the owner for the file");
+  if (pf.captions === "off" && args.captions) add("warning", null, "captions-off", "captions are answered off, so no caption band is reserved and build adds none", "drop --captions");
 
   // basics and the speech is covered
   B.forEach((b, i) => {
@@ -715,17 +845,22 @@ function check() {
   B.forEach((b) => {
     if (!LAYOUTS.includes(b.layout)) add("error", b.id, "layout-invalid", `${b.id} layout "${b.layout}" is not one of ${LAYOUTS.join(", ")}`, `set ${b.id}.layout to a listed layout`);
   });
+  const fixed = pf.speaker === "fixed", fixedL = fixedLayout(W, H);
+  if (fixed) {
+    B.forEach((b) => { if (LAYOUTS.includes(b.layout) && b.layout !== fixedL) add("error", b.id, "speaker-fixed", `${b.id} uses ${b.layout}, but the owner chose a speaker who stays put (one layout, ${fixedL}, for the whole film)`, `set ${b.id}.layout to ${fixedL}${tall ? " (the speaker large at the bottom, the plate above)" : ""}`); });
+  }
+  if (pf.speaker === "moving") B.filter((b) => b.layout === "plate-only").forEach((b) => add("error", b.id, "plate-only-banned", `${b.id} is a plate-only cutaway, but the owner wants the speaker on screen throughout`, `give ${b.id} a presenter layout (presenter-left or -right, split, presenter-corner)`));
   let run = 1;
-  for (let i = 1; i < B.length; i++) {
+  for (let i = 1; !fixed && i < B.length; i++) {
     run = B[i].layout === B[i - 1].layout ? run + 1 : 1;
     if (run === 4) add("error", B[i].id, "layout-run", `${run} beats in a row use ${B[i].layout} (b${i - 2} to ${B[i].id})`, `change ${B[i].id} to a different layout (a cutaway, presenter-corner or split)`);
   }
   const distinct = new Set(B.map((b) => b.layout));
-  if (duration >= 30 && distinct.size < 3) add("error", null, "layout-variety", `${distinct.size} distinct layout(s) in ${r2(duration)}s; a film this long needs at least 3`, "vary the layouts: add a plate-only cutaway and a presenter-left or presenter-right beat");
+  if (!fixed && duration >= 30 && distinct.size < 3) add("error", null, "layout-variety", `${distinct.size} distinct layout(s) in ${r2(duration)}s; a film this long needs at least 3`, "vary the layouts: add a plate-only cutaway and a presenter-left or presenter-right beat");
   const plateOnly = B.filter((b) => b.layout === "plate-only");
   const poTotal = plateOnly.reduce((s, b) => s + (b.end - b.start), 0);
-  if (poTotal > 0.35 * Math.max(duration, 1)) add("error", null, "plate-only-share", `plate-only beats are ${Math.round((100 * poTotal) / duration)}% of the runtime (limit 35%)`, "turn some plate-only beats into presenter-left/right beats; the person should stay on screen most of the time");
-  plateOnly.forEach((b) => { if (b.end - b.start > 6) add("error", b.id, "plate-only-long", `${b.id} is a ${r2(b.end - b.start)}s cutaway (limit 6s)`, `shorten ${b.id} or give half of it a presenter layout`); });
+  if (!fixed && poTotal > 0.35 * Math.max(duration, 1)) add("error", null, "plate-only-share", `plate-only beats are ${Math.round((100 * poTotal) / duration)}% of the runtime (limit 35%)`, "turn some plate-only beats into presenter-left/right beats; the person should stay on screen most of the time");
+  plateOnly.forEach((b) => { if (!fixed && b.end - b.start > 6) add("error", b.id, "plate-only-long", `${b.id} is a ${r2(b.end - b.start)}s cutaway (limit 6s)`, `shorten ${b.id} or give half of it a presenter layout`); });
 
   // plates
   const defs = resolvePlates(plan);
@@ -735,8 +870,8 @@ function check() {
     if (!p && b.layout !== "presenter-only") add("error", b.id, "plate-missing", `${b.id} (${b.layout}) has no plate`, `give ${b.id} a plate, or make its layout presenter-only`);
     if (p && !p.id) add("error", b.id, "plate-id", `${b.id}'s plate has no id`, `give the plate an id like "p${B.indexOf(b) + 1}"`);
   });
-  const real = [...defs.values()].filter((d) => d.kind === "generated" || d.kind === "designed");
-  if (!real.length) add("error", null, "no-plate", "the plan has no generated or designed plate", "give at least one beat a plate with kind generated (or designed)");
+  const real = [...defs.values()].filter((d) => d.kind === "generated" || d.kind === "designed" || d.kind === "real");
+  if (!real.length) add("error", null, "no-plate", "the plan has no generated, designed or real plate", "give at least one beat a plate with kind generated (or designed, or real)");
   const genIds = real.filter((d) => d.kind === "generated");
   const maxGen = Math.ceil(duration / 3.5);
   if (genIds.length > maxGen) add("error", null, "too-many-plates", `${genIds.length} generated plates in ${r2(duration)}s (limit ${maxGen}: cost and pacing)`, `drop ${genIds.length - maxGen} plate(s): hold one image across two beats or reuse an earlier plate with a new camera move`);
@@ -753,7 +888,14 @@ function check() {
       if (!tgt || tgt.id === d.id || (tgt.kind === "reuse" && tgt.image === d.id)) add("error", where, "reuse-missing", `plate ${d.id} reuses "${d.reuse}", which is not a plate in this plan`, `point reuse at an existing plate id (${[...defs.keys()].filter((k) => k !== d.id).join(", ") || "none yet"})`);
       continue;
     }
-    if (!["generated", "designed", "reuse"].includes(d.kind)) add("error", where, "plate-kind", `plate ${d.id} kind "${d.kind}" is not generated, designed or reuse`, `set kind to "generated"`);
+    if (!PLATE_KINDS.includes(d.kind)) add("error", where, "plate-kind", `plate ${d.id} kind "${d.kind}" is not generated, designed, reuse or real`, `set kind to "generated"`);
+    if (d.kind === "real") {
+      if (!d.source && !d.todo) add("error", where, "real-source", `plate ${d.id} is a real image but names no source`, `set plate.source to the URL or file the picture came from; if you could not find it, set plate.todo ("find the cover of ...") and the Director asks for it`);
+      else if (!d.source) add("warning", where, "real-todo", `plate ${d.id} still needs its real image: ${d.todo}`, "find it (web search, the owner's files) or ask the owner; until then build mounts a placeholder");
+      if (!d.camera) add("error", where, "camera-missing", `plate ${d.id} has no camera move`, `set camera to one of ${CAMERAS.join(", ")}`);
+      else if (!CAMERAS.includes(d.camera)) add("error", where, "camera-invalid", `plate ${d.id} camera "${d.camera}" is not one of ${CAMERAS.join(", ")}`, `use a listed camera move`);
+      continue;
+    }
     const pr = String(d.prompt || "");
     if (words(pr).length < 12) add("error", where, "prompt-short", `plate ${d.id}'s prompt is ${words(pr).length} words (minimum 12): a short prompt gets a generic picture`, `describe subject, setting, lens, light, palette and where the person will stand (12+ words)`);
     if (d.kind === "generated") {
@@ -788,6 +930,14 @@ function check() {
   if (lock < 12 || lock > 80) add("error", null, "style-lock", `style.lock is ${lock} words (needs 12 to 80)`, "write the one look every image obeys: medium, light, palette, lens, grain");
 
   // graphics
+  const gfxAll = B.flatMap((b) => (b.graphics || []).map((g) => ({ b, g })));
+  const gfxWords = (g) => words([].concat(g.text ?? "", g.sub ?? "", Array.isArray(g.items) ? g.items : []).join(" ")).length;
+  if (pf.text === "none") gfxAll.forEach(({ b, g }) => add("error", b.id, "text-none", `${b.id} has a ${g.type}, but the owner wants no writing on screen`, `remove it from ${b.id}.graphics (the pictures and the voice carry it)`));
+  if (pf.text === "key") {
+    const limit = Math.max(1, Math.floor(duration / 15));
+    if (gfxAll.length > limit) add("error", null, "text-key-count", `${gfxAll.length} graphics in ${r2(duration)}s; the owner wants key words only (at most one per 15 s: ${limit} here)`, `keep the ${limit} strongest (a name, a title or a number) and remove the rest`);
+    gfxAll.forEach(({ b, g }) => { const w = gfxWords(g); if (w > 4) add("error", b.id, "text-key-long", `${b.id} has a ${g.type} of ${w} words; key words only means 4 at most`, "cut it to the one name, title or number"); });
+  }
   B.forEach((b) => {
     (b.graphics || []).forEach((g, n) => {
       const tag = `${b.id} graphic ${n + 1} (${g.type})`;
@@ -800,7 +950,7 @@ function check() {
       if (g.type === "kinetic-title" && words(txt).length > 8) add("error", b.id, "graphic-long", `${tag}: ${words(txt).length} words (titles are 8 words at most)`, "cut the title to its strongest 2 to 5 words");
       else if (words(txt).length > 16) add("warning", b.id, "graphic-long", `${tag}: ${words(txt).length} words is a lot to read in ${r2(out - at)}s`, "cut it down");
       if (ZONES.includes(g.zone) && LAYOUTS.includes(b.layout)) {
-        const gr = graphicRect(g.zone, b.layout, keyJ, W, H, b.side, !!args.captions);
+        const gr = graphicRect(g.zone, b.layout, keyJ, W, H, b.side, captionsOn);
         const other = g.zone === "left" ? "right" : "left";
         if (gr.blocked) { add("error", b.id, "zone-blocked", `${tag}: only ${Math.round(gr.free * 100)}% of the frame is free on the ${g.zone} in ${b.layout} (needs 22%)`, `move the ${g.type} to zone ${other}, or change ${b.id}'s layout to ${g.zone === "left" ? "presenter-right" : "presenter-left"} (${freeText(b.layout, keyJ, W, H, b.side)})`); return; }
         const f = overlapFrac(gr.rect, occupied(b.layout, keyJ, W, H, b.side));
@@ -810,7 +960,7 @@ function check() {
     });
   });
   // captions: a bottom graphic sits where the captions run
-  if (args.captions && !isTall(W, H)) {
+  if (captionsOn && !isTall(W, H)) {
     B.forEach((b) => (b.graphics || []).forEach((g, n) => {
       if (g.zone !== "bottom") return;
       const z = zoneRect("bottom", W, H), by = CAP_BAND.wide[0] * H;
@@ -818,13 +968,19 @@ function check() {
     }));
   }
   // a plate keeps one side calm; a reuse that puts the presenter on its busy side fights the picture
-  const sides = plateSides(plan, defs);
+  const sides = plateSides(plan, defs, tall);
   B.forEach((b) => {
-    const sd = presenterSide(b);
+    const sd = presenterSide(b, tall);
     if (!sd || !b.plate || !b.plate.id) return;
     const d = defs.get(b.plate.id), img = d && d.kind === "reuse" ? d.image : b.plate.id, keep = sides.get(img);
     if (keep && keep !== sd) add("warning", b.id, "plate-side-conflict", `${b.id} puts the presenter on the ${sd}, but plate ${img} keeps its ${keep} third clear for the person`, `use presenter-${keep} (or split with side ${keep}) here, or give ${b.id} a different plate`);
   });
+  // marks the owner wants kept: nothing may cover them
+  if (pf.marks === "keep") {
+    if (!keyJ) add("warning", null, "marks-unknown", "marks=keep but no --key was given, so the marks could not be checked", "pass --key presenter/key.json");
+    else if (!Array.isArray(keyJ.marks)) add("warning", null, "marks-unmeasured", "marks=keep but key.json has no marks[] (they were never measured)", "run presenter.mjs marks --clip <clip> --out <key dir>");
+    else for (const m of markFindings(plan, keyJ, W, H, captionsOn)) add("error", m.beat, m.code, m.message, m.fix);
+  }
   return report(findings, plan, duration);
 }
 function suggestZone(layout, key, W, H, side) {
@@ -833,9 +989,10 @@ function suggestZone(layout, key, W, H, side) {
 }
 function report(findings, plan, duration) {
   const errors = findings.filter((f) => f.level === "error").length, warnings = findings.filter((f) => f.level === "warning").length;
-  if (args.json) console.log(JSON.stringify({ ok: errors === 0, errors, warnings, duration: r2(duration), findings }, null, 2));
+  if (args.json) console.log(JSON.stringify({ ok: errors === 0, errors, warnings, duration: r2(duration), ...REPORT_EXTRA, findings }, null, 2));
   else {
     for (const f of findings) console.log(`${f.level.toUpperCase()} ${f.beat || "plan"} ${f.code}: ${f.message}${f.fix ? ` -> ${f.fix}` : ""}`);
+    if (REPORT_EXTRA.ending) console.log(`film: ${REPORT_EXTRA.film_duration}s (the clip ${r2(duration)}s plus a ${REPORT_EXTRA.ending.seconds}s ending, ${REPORT_EXTRA.ending.kind})`);
     console.log(`${errors} error(s), ${warnings} warning(s) in ${plan.beats.length} beats`);
   }
   process.exit(errors ? 2 : 0);
@@ -850,7 +1007,8 @@ function plates() {
   const dir = path.resolve(String(args.dir || path.join(path.dirname(planFile), "plates")));
   const defs = resolvePlates(plan);
   const imagery = imagerySection(args.look ? String(args.look) : null);
-  const sides = plateSides(plan, defs);
+  const P = prefs();
+  const sides = plateSides(plan, defs, isTall(W, H));
   const avoid = [...new Set([...String((plan.style && plan.style.avoid) || "").split(/\s*,\s*/).filter(Boolean), "text", "letters", "logos", "watermarks"])].join(", ");
   const images = [];
   for (const d of defs.values()) {
@@ -864,7 +1022,7 @@ function plates() {
   const style = imagery || String((plan.style && plan.style.lock) || "");
   const batch = { aspect: plan.aspect || "16:9", style, avoid, refs: [], ...(images[0] ? { anchor: images[0].id } : {}), images };
   writeFile(path.resolve(String(args.out)), JSON.stringify(batch, null, 2) + "\n");
-  console.log(JSON.stringify({ ok: true, out: String(args.out), images: images.length, anchor: batch.anchor || null, style_from: imagery ? "DESIGN.md ## Imagery" : "plan.style.lock", plates_dir: dir, ids: images.map((i) => i.id), reuse: [...defs.values()].filter((d) => d.kind === "reuse").map((d) => d.id), designed: [...defs.values()].filter((d) => d.kind === "designed").map((d) => d.id) }, null, 2));
+  console.log(JSON.stringify({ ok: true, out: String(args.out), images: images.length, anchor: batch.anchor || null, style_from: imagery ? "DESIGN.md ## Imagery" : "plan.style.lock", plates_dir: dir, ids: images.map((i) => i.id), reuse: [...defs.values()].filter((d) => d.kind === "reuse").map((d) => d.id), real: [...defs.values()].filter((d) => d.kind === "real").map((d) => ({ id: d.id, source: d.source || null, todo: d.todo || null, file: plateFile(dir, path.dirname(planFile), d.id, d) })), pictures: P.prefs.pictures || null, designed: [...defs.values()].filter((d) => d.kind === "designed").map((d) => d.id) }, null, 2));
 }
 
 // ------------------------------------------------------------------ spans: consecutive beats on one plate with one camera are one clip
@@ -879,7 +1037,7 @@ function plateSpans(plan, defs) {
     if (last && last.plate === p.id && last.camera === camera && last.beats[last.beats.length - 1].end >= b.start - 0.05 && last.beats[last.beats.length - 1] === plan.beats[plan.beats.indexOf(b) - 1]) {
       last.beats.push(b);
       last.end = b.end;
-    } else spans.push({ plate: p.id, image: d.image || p.id, kind: d.kind, camera, start: b.start, end: b.end, beats: [b], prompt: d.prompt || "" });
+    } else spans.push({ plate: p.id, image: d.image || p.id, kind: d.kind, camera, start: b.start, end: b.end, beats: [b], prompt: d.prompt || d.todo || "" });
   }
   return spans;
 }
@@ -903,6 +1061,7 @@ function stills() {
   const look = readLookSafe(args.look ? String(args.look) : null);
   const defs = resolvePlates(plan);
   const spans = plateSpans(plan, defs);
+  const planDirS = path.dirname(path.resolve(String(args.plan)));
   const bg = hexRGB(look.bg), accent = hexRGB(look.accent), ink = hexRGB(look.ink);
   const K = Math.max(2, Math.round(Math.max(W, H) / 640));
   const results = [];
@@ -913,9 +1072,9 @@ function stills() {
     const missing = [];
     const sp = spanFor(spans, b);
     if (sp) {
-      const file = path.join(platesDir, `${sp.image}.png`);
+      const file = plateFile(platesDir, planDirS, sp.image, defs.get(sp.image));
       const clipR = g.plateClip || { x: 0, y: 0, w: W, h: H };
-      if (fs.existsSync(file)) {
+      if (file) {
         const dim = probe(file), c0 = Math.max(W / dim.width, H / dim.height);
         const cam = camAt(sp.camera, clamp((t - sp.start) / Math.max(0.01, sp.end - sp.start), 0, 1));
         const sw = Math.ceil(dim.width * c0 * cam.s), sh = Math.ceil(dim.height * c0 * cam.s);
@@ -927,10 +1086,10 @@ function stills() {
       } else {
         // a designed (or not yet generated) plate: the look's ground with a gradient and its description
         for (let y = 0; y < H; y++) { const sh2 = 0.75 + 0.25 * (1 - y / H); for (let x = clipR.x; x < clipR.x + clipR.w; x++) { const i = (y * W + x) * 4; cv.d[i] = bg[0] * sh2; cv.d[i + 1] = bg[1] * sh2; cv.d[i + 2] = bg[2] * sh2; } }
-        cv.text(`PLATE ${sp.plate} (${sp.kind === "generated" ? "IMAGE MISSING" : sp.kind.toUpperCase()})`, clipR.x + 24 * K / 2, H * 0.12, K + 1, ink);
+        cv.text(`PLATE ${sp.plate} (${sp.kind === "generated" ? "IMAGE MISSING" : sp.kind === "real" ? "REAL IMAGE NEEDED" : sp.kind.toUpperCase()})`, clipR.x + 24 * K / 2, H * 0.12, K + 1, ink);
         const lines = String(sp.prompt || "").slice(0, 150);
         cv.text(lines, clipR.x + 24 * K / 2, H * 0.12 + 12 * K, K, [ink[0], ink[1], ink[2], 200]);
-        if (sp.kind === "generated") missing.push(sp.image);
+        if (sp.kind === "generated" || sp.kind === "real") missing.push(sp.image);
       }
     }
     if (!g.hidden) {
@@ -1005,15 +1164,17 @@ function captionRect(b, key, W, H) {
   if (x0 === null || x1 - x0 < 0.28 * W) return base;
   return { ...base, x: Math.round(x0), w: Math.round(x1 - x0), col: true };
 }
-function captionsComp({ id, W, H, look, groups, total, fontCss }) {
+// style "bold" (the answer "styled"): white words that light up as they are spoken; "clean" (the answer "plain"): the look's ink on its ground, as reel.mjs draws it
+function captionsComp({ id, W, H, look, groups, total, fontCss, style = "bold" }) {
   const tall = isTall(W, H);
+  const bold = style !== "clean";
   const rect = tall ? { x: Math.round(0.06 * W), y: Math.round(0.67 * H), w: Math.round(0.88 * W), h: Math.round(0.1 * H) } : { x: Math.round(0.06 * W), y: Math.round(0.83 * H), w: Math.round(0.88 * W), h: Math.round(0.11 * H) };
   const size = Math.round((tall ? 0.068 : 0.036) * W);
-  const html = groups.map((g, i) => `<div class="cap" id="cap-${i}" style="left:${g.rect.x}px;top:${g.rect.y}px;width:${g.rect.w}px;height:${g.rect.h}px;${g.rect.col ? `font-size:${Math.round(size * 0.82)}px;` : ""}"><p class="line">${g.words.map((w, j) => `<span class="w" id="w-${i}-${j}">${esc(w.text.toUpperCase())}</span>`).join(" ")}</p></div>`).join("\n  ");
+  const html = groups.map((g, i) => `<div class="cap" id="cap-${i}" style="left:${g.rect.x}px;top:${g.rect.y}px;width:${g.rect.w}px;height:${g.rect.h}px;${g.rect.col ? `font-size:${Math.round(size * 0.82)}px;` : ""}"><p class="line">${g.words.map((w, j) => `<span class="w" id="w-${i}-${j}">${esc(bold ? w.text.toUpperCase() : w.text)}</span>`).join(" ")}</p></div>`).join("\n  ");
   const sets = [];
   groups.forEach((g, i) => {
     sets.push(`tl.set("#cap-${i}", { autoAlpha: 1 }, ${r3(g.in)});`, `tl.set("#cap-${i}", { autoAlpha: 0 }, ${r3(g.out)});`);
-    g.words.forEach((w, j) => sets.push(`tl.set("#w-${i}-${j}", { color: "${look.accent}" }, ${r3(Math.max(g.in, w.start))});`, `tl.set("#w-${i}-${j}", { color: "#ffffff" }, ${r3(Math.max(g.in, Math.min(w.end, g.out)))});`));
+    if (bold) g.words.forEach((w, j) => sets.push(`tl.set("#w-${i}-${j}", { color: "${look.accent}" }, ${r3(Math.max(g.in, w.start))});`, `tl.set("#w-${i}-${j}", { color: "#ffffff" }, ${r3(Math.max(g.in, Math.min(w.end, g.out)))});`));
   });
   return `<!doctype html>
 <html>
@@ -1025,7 +1186,8 @@ function captionsComp({ id, W, H, look, groups, total, fontCss }) {
   #root { position: absolute; inset: 0; width: ${W}px; height: ${H}px; overflow: hidden; pointer-events: none; }
   #root .cap { position: absolute; left: ${rect.x}px; top: ${rect.y}px; width: ${rect.w}px; height: ${rect.h}px; display: flex; align-items: center; justify-content: center; text-align: center;
     font-family: "${look.font}", Inter, ui-sans-serif, system-ui, sans-serif; font-size: ${size}px; line-height: 1.1; visibility: hidden; opacity: 0;
-    font-weight: 800; letter-spacing: -0.01em; color: #ffffff; -webkit-text-stroke: ${Math.max(2, Math.round(size / 18))}px rgba(0,0,0,0.85); paint-order: stroke fill; text-shadow: 0 ${Math.round(size / 12)}px ${Math.round(size / 5)}px rgba(0,0,0,0.45); }
+    ${bold ? `font-weight: 800; letter-spacing: -0.01em; color: #ffffff; -webkit-text-stroke: ${Math.max(2, Math.round(size / 18))}px rgba(0,0,0,0.85); paint-order: stroke fill; text-shadow: 0 ${Math.round(size / 12)}px ${Math.round(size / 5)}px rgba(0,0,0,0.45);` : `font-weight: 600; color: ${look.ink};`} }
+  ${bold ? "" : `#root .cap span.w { background: ${look.bg}; box-decoration-break: clone; -webkit-box-decoration-break: clone; padding: 0.06em 0.18em; }`}
 </style>
 <div id="root" data-composition-id="${id}" data-width="${W}" data-height="${H}">
   ${html}
@@ -1171,6 +1333,8 @@ async function build() {
   const { W, H } = planSize(plan);
   const FPS = 30;
   const warnings = [];
+  const P = prefs(), pf = P.prefs;
+  const planDir = path.dirname(planFile);
   const B = plan.beats;
   B.forEach((b, i) => { b.id = safeId(b.id || `b${i + 1}`); });
   const total = r3(Math.max(Number(key.duration) || 0, 0) || Number(B[B.length - 1].end));
@@ -1180,6 +1344,10 @@ async function build() {
   B.forEach((b) => { if (Number(b.end) > total) b.end = total; });
   const defs = resolvePlates(plan);
   const spans = plateSpans(plan, defs);
+  // the ending beat after the clip (the card file, or a scaffold the film builder animates): the film is that much longer
+  const ending = endingInfo(P);
+  if (ending.kind === "card" && !ending.exists) { warnings.push(`ending=card but the card file is missing (${ending.file || "none given"}); no ending beat was built`); ending.kind = "none"; ending.seconds = 0; }
+  const filmTotal = r3(total + ending.seconds);
 
   // ---- project shell
   const idx = path.join(dir, "index.html");
@@ -1281,15 +1449,16 @@ async function build() {
   });
   spans.forEach((sp) => {
     const k = sp.k, first = sp.beats[0], start = gAt(sp.start), dur = gAt(Math.min(Math.max(sp.end, sp.holdUntil || 0), total) - sp.start);
-    const imgFile = path.join(platesDir, `${sp.image}.png`);
+    const imgFile = plateFile(platesDir, planDir, sp.image, defs.get(sp.image));
     let inner = "";
     const hostId = `plate-${k}`;
-    if (fs.existsSync(imgFile)) {
-      if (!usedImages.has(sp.image)) { fs.copyFileSync(imgFile, path.join(platesOut, `${safeId(sp.image)}.png`)); usedImages.set(sp.image, true); }
-      inner = `<img id="${hostId}" class="clip" src="assets/plates/${safeId(sp.image)}.png" alt="" data-start="${start}" data-duration="${dur}" data-track-index="0">`;
+    if (imgFile) {
+      const ext = path.extname(imgFile).toLowerCase() || ".png";
+      if (!usedImages.has(sp.image)) { fs.copyFileSync(imgFile, path.join(platesOut, `${safeId(sp.image)}${ext}`)); usedImages.set(sp.image, true); }
+      inner = `<img id="${hostId}" class="clip" src="assets/plates/${safeId(sp.image)}${ext}" alt="" data-start="${start}" data-duration="${dur}" data-track-index="0">`;
     } else {
-      // designed (or a generated image that is missing): a sub-composition the animators draw
-      if (sp.kind === "generated") warnings.push(`plate ${sp.image}: ${path.relative(ws, imgFile)} is missing; mounted a designed backdrop scaffold in its place`);
+      // designed (or a generated or real image that is missing): a sub-composition the animators draw
+      if (sp.kind === "generated" || sp.kind === "real") warnings.push(`plate ${sp.image}: its image is missing (${path.relative(ws, path.join(platesDir, sp.image + ".png"))}); mounted a designed backdrop scaffold in its place${sp.kind === "real" ? " (a real image was asked for: find it or ask the owner)" : ""}`);
       const cid = `plate-${safeId(sp.image)}`;
       const rel = `compositions/plates/${safeId(sp.image)}.html`;
       const exists = fs.existsSync(path.join(dir, rel));
@@ -1362,19 +1531,21 @@ async function build() {
   });
 
   // ---- graphics (track 2)
+  const captionsOn = captionsWanted(P, args.captions);
   const graphics = [];
   const slots = [];
   const occupiedNote = (b) => {
     const g = geom(b.layout, key, W, H, b.side);
     return g.hidden ? "nothing (plate-only: the presenter is hidden)" : `the box x ${Math.round(g.box.x)}-${Math.round(g.box.x + g.box.w)}, y ${Math.round(g.box.y)}-${Math.round(g.box.y + g.box.h)} px${g.deco ? ` inside a framed panel (${g.clip.x},${g.clip.y} ${g.clip.w}x${g.clip.h})` : ""}`;
   };
+  if (pf.text === "none" && B.some((b) => (b.graphics || []).length)) warnings.push("text=none: the plan has graphics, which were not built (the owner wants no writing on screen); run presenter.mjs check --prefs");
   for (const b of B) {
-    (b.graphics || []).forEach((g, n) => {
+    (pf.text === "none" ? [] : b.graphics || []).forEach((g, n) => {
       const num = n + 1, id = `gfx-${b.id}-${num}`, rel = `compositions/graphics/${b.id}-${num}.html`, file = path.join(dir, rel);
       const at = clamp(Number(g.at), Number(b.start), Number(b.end) - 0.3), out = clamp(Number(g.out), at + 0.3, Number(b.end));
       const dur = r3(out - at);
       const zone = ZONES.includes(g.zone) ? g.zone : "center";
-      const gres = graphicRect(zone, b.layout, key, W, H, b.side, !!args.captions);
+      const gres = graphicRect(zone, b.layout, key, W, H, b.side, captionsOn);
       const rect = gres.rect;
       if (gres.blocked) warnings.push(`${b.id} graphic ${num} sits in a blocked ${zone} zone for ${b.layout}; run presenter.mjs check`);
       const existing = fs.existsSync(file);
@@ -1398,15 +1569,79 @@ ${g.note || g.brief ? `**Note from the visual plan:** ${g.note || g.brief}\n` : 
 
   // ---- captions (track 3)
   let groups = [];
-  if (args.captions) {
+  if (pf.captions === "off" && args.captions) warnings.push("captions=off: the owner wants no captions, so none were built");
+  else if (captionsOn && !args.captions) warnings.push(`captions=${pf.captions}: pass --captions <words.json> to build them`);
+  if (captionsOn && args.captions) {
     const cw = loadWords(path.resolve(String(args.captions)));
     groups = groupWords(cw, { maxWords: isTall(W, H) ? 3 : 5, maxChars: isTall(W, H) ? 18 : 34 });
     groups.forEach((g) => (g.out = Math.min(g.out, total)));
     groups = groups.filter((g) => g.out - g.in > 0.1);
     groups.forEach((g) => { const mid = (g.in + g.out) / 2; g.rect = captionRect(B.find((b) => mid >= b.start && mid < b.end) || B[B.length - 1], key, W, H); });
-    if (groups.length) writeFile(path.join(dir, "compositions", "captions.html"), captionsComp({ id: "captions", W, H, look, groups, total, fontCss }));
+    if (groups.length) writeFile(path.join(dir, "compositions", "captions.html"), captionsComp({ id: "captions", W, H, look, groups, total, fontCss, style: pf.captions === "plain" ? "clean" : "bold" }));
   }
   if (groups.length) slots.push(`<div id="slot-captions" class="slot" style="z-index:300" data-composition-id="captions" data-composition-src="compositions/captions.html" data-start="0" data-duration="${total}" data-track-index="3" data-track-kind="captions" data-width="${W}" data-height="${H}"></div>`);
+
+  // ---- marks (track 5): a badge, logo or watermark in the footage stays where the footage has it, whatever the layout does to the speaker
+  const markEls = [];
+  if (pf.marks === "keep") {
+    const mk = marksOf(key);
+    if (!mk.length) { if (!Array.isArray(key.marks)) warnings.push("marks=keep but key.json has no marks[]; run presenter.mjs marks --clip <clip> --out <key dir>"); }
+    else {
+      for (const c of markFindings(plan, key, W, H, captionsOn)) warnings.push(`${c.code}: ${c.message} (${c.fix})`);
+      if (!clipSrc) warnings.push("marks=keep: the source clip was not found, so the marks could not be re-composited from it");
+      else {
+        fs.mkdirSync(path.join(dir, "assets", "marks"), { recursive: true });
+        const [hu] = key.color ? hsv(...hexRGB(key.color).slice(0, 3)) : [0];
+        const cw = key.width || probe(clipSrc).width, ch = key.height || probe(clipSrc).height;
+        mk.forEach((m, i) => {
+          const x0 = clamp(Math.floor(m.x * cw), 0, cw - 2), y0 = clamp(Math.floor(m.y * ch), 0, ch - 2), w = clamp(Math.ceil(m.w * cw), 2, cw - x0), h = clamp(Math.ceil(m.h * ch), 2, ch - y0);
+          // the pixels come from the original clip, keyed the way the speaker was (the screen colour around a mark stays transparent)
+          const vf = `crop=${w}:${h}:${x0}:${y0},${key.method === "chroma" && key.color ? chromaFilter(key.color.replace("#", ""), key.similarity, key.blend, hu >= 190 && hu <= 270 ? "blue" : "green", "rgba") : "format=rgba"}`;
+          const out = path.join(dir, "assets", "marks", `mark-${i + 1}.png`);
+          try {
+            sh("ffmpeg", ["-y", "-v", "error", "-ss", String(r3(total / 2)), "-i", clipSrc, "-frames:v", "1", "-vf", vf, out]);
+            const r = markRect(m, key, W, H);
+            markEls.push(`<img id="mark-${i + 1}" class="clip" src="assets/marks/mark-${i + 1}.png" alt="" style="position:absolute;left:${Math.round(r.x)}px;top:${Math.round(r.y)}px;width:${Math.round(r.w)}px;height:${Math.round(r.h)}px;z-index:150" data-start="0" data-duration="${total}" data-track-index="5">`);
+          } catch (e) {
+            warnings.push(`mark ${i + 1}: could not cut it from the clip (${String(e.message).split("\n")[0]})`);
+          }
+        });
+      }
+    }
+  }
+
+  // ---- ending (track 6): the owner's card (an image held 3 s, or a video for its own length) or a scaffold the film builder animates; a clean cut after the last word
+  const endEls = [];
+  if (ending.kind === "card") {
+    fs.mkdirSync(path.join(dir, "assets"), { recursive: true });
+    const ext = path.extname(ending.file).toLowerCase();
+    fs.copyFileSync(ending.file, path.join(dir, "assets", `ending${ext}`));
+    const st = `position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:400`;
+    if (ending.video) {
+      endEls.push(`<video id="ending" class="clip" src="assets/ending${ext}" muted playsinline style="${st}" data-start="${total}" data-duration="${ending.seconds}" data-track-index="6"></video>`);
+      let ea = false;
+      try { ea = probe(ending.file).has_audio; } catch {}
+      if (ea) {
+        try {
+          sh("ffmpeg", ["-y", "-v", "error", "-i", ending.file, "-vn", "-ac", "2", "-ar", "48000", "-c:a", "pcm_s16le", path.join(dir, "assets", "ending.wav")], { timeout: 300000 });
+          endEls.push(`<audio id="ending-audio" src="assets/ending.wav" data-start="${total}" data-duration="${ending.seconds}" data-volume="1" data-track-index="11"></audio>`);
+        } catch (e) {
+          warnings.push(`could not extract the ending card's sound: ${String(e.message).split("\n")[0]}`);
+        }
+      }
+    } else endEls.push(`<img id="ending" class="clip" src="assets/ending${ext}" alt="" style="${st}" data-start="${total}" data-duration="${ending.seconds}" data-track-index="6">`);
+  } else if (ending.kind === "make") {
+    const cid = "plate-ending", rel = "compositions/plates/ending.html";
+    const exists = fs.existsSync(path.join(dir, rel));
+    if (!exists || (args["refresh-scaffolds"] && fs.readFileSync(path.join(dir, rel), "utf8").includes(SCAFFOLD))) writeFile(path.join(dir, rel), designedScaffold({ id: cid, W, H, dur: ending.seconds, look, fontCss, label: "closing card (designed)" }));
+    writeFile(path.join(dir, "briefs", "plates", "ending.md"), `# Closing card (the ending beat)
+
+Write: \`${rel}\` (a HyperFrames sub-composition: <template>, root id and data-composition-id \`${cid}\`, \`window.__timelines["${cid}"]\`, full frame ${W}x${H}, ${ending.seconds}s long).
+
+What it must be: the film's closing card, in the film's look (\`frame.md\`, \`motion.md\`): ${plan.title ? JSON.stringify(plan.title) + " as" : "the"} title or the series name, and at most one short line. The entrance is in the first 0.8 s, then it holds. It cuts in cleanly after the last word at ${total}s (this slot starts there); nothing from the film runs under it. No text the speaker did not earn: no invented tagline.
+`);
+    endEls.push(`<div id="ending" class="slot" style="z-index:400" data-composition-id="${cid}" data-composition-src="${rel}" data-start="${total}" data-duration="${ending.seconds}" data-track-index="6" data-width="${W}" data-height="${H}"></div>`);
+  }
 
   // ---- index.html
   const html = `<!doctype html>
@@ -1433,19 +1668,21 @@ ${MARK}
 </style>
 </head>
 <body>
-<div id="root" data-composition-id="root" data-start="0" data-duration="${total}" data-width="${W}" data-height="${H}" data-fps="${FPS}">
+<div id="root" data-composition-id="root" data-start="0" data-duration="${filmTotal}" data-width="${W}" data-height="${H}" data-fps="${FPS}">
   ${plateEls.join("\n  ")}
   <div class="pd" id="pd-fill"></div><div class="pd" id="pd-t"></div><div class="pd" id="pd-b"></div><div class="pd" id="pd-l"></div><div class="pd" id="pd-r"></div>
   <div id="pres-clip"><div id="pres-wrap"><div id="pres-par"><video id="presenter" class="clip" src="assets/presenter.webm" muted playsinline data-start="0" data-duration="${total}" data-track-index="1"></video></div></div></div>
   ${hasAudio ? `<audio id="voice" src="assets/voice.wav" data-start="0" data-duration="${total}" data-volume="1" data-track-index="10"></audio>` : ""}
   ${slots.join("\n  ")}
+  ${markEls.join("\n  ")}
+  ${endEls.join("\n  ")}
 </div>
 <script>
   window.__timelines = window.__timelines || {};
   var tl = gsap.timeline({ paused: true });
   gsap.set("#pres-wrap", { transformOrigin: "50% 100%" });
   ${tweens.join("\n  ")}
-  tl.set({}, {}, ${total});
+  tl.set({}, {}, ${filmTotal});
   window.__timelines["root"] = tl;
 </script>
 </body>
@@ -1475,13 +1712,14 @@ ${MARK}
     if (ob.error && ob.error.code === "ETIMEDOUT") obey = { timed_out: true, status: "could-not-run" };
     else obey = { exit: ob.status, summary: (ob.stdout || "").split("\n")[0], status: ob.status === 0 ? "clean" : ob.status === 2 ? "violations" : "could-not-run" };
   }
-  console.log(JSON.stringify({ ok: !lint || lint.ok !== false || lint.skipped === true, project: path.relative(ws, dir) || dir, index: path.relative(ws, idx), duration: total, size: `${W}x${H}`, beats: B.length, plates: spans.map((s) => ({ plate: s.plate, image: s.image, start: s.start, end: s.end, camera: s.camera })), graphics, captions: groups.length, voice: hasAudio, lint, obey, transitions_simplified: simplified, warnings }, null, 2));
+  console.log(JSON.stringify({ ok: !lint || lint.ok !== false || lint.skipped === true, project: path.relative(ws, dir) || dir, index: path.relative(ws, idx), duration: filmTotal, clip_duration: total, ending: ending.kind === "none" ? null : { kind: ending.kind, seconds: ending.seconds }, marks: markEls.length, size: `${W}x${H}`, beats: B.length, plates: spans.map((s) => ({ plate: s.plate, image: s.image, start: s.start, end: s.end, camera: s.camera })), graphics, captions: groups.length, voice: hasAudio, lint, obey, transitions_simplified: simplified, warnings }, null, 2));
 }
 
 if (cmd === "key") await key();
+else if (cmd === "marks") await marks();
 else if (cmd === "beats") beats();
 else if (cmd === "check") check();
 else if (cmd === "plates") plates();
 else if (cmd === "stills") stills();
 else if (cmd === "build") await build();
-else die("usage: presenter.mjs key --clip <video> --out <dir> | beats --transcript <words.json> --out <beats.json> | check --plan <plan.json> | plates --plan <plan.json> --out <images.json> | stills --plan --key --plates --out | build --plan --key --plates --project-dir videos/<name>");
+else die("usage: presenter.mjs key --clip <video> --out <dir> | marks --clip <video> --out <dir> | beats --transcript <words.json> --out <beats.json> | check --plan <plan.json> | plates --plan <plan.json> --out <images.json> | stills --plan --key --plates --out | build --plan --key --plates --project-dir videos/<name>");

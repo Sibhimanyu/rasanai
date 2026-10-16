@@ -4,6 +4,26 @@ Desktop releases are separate from RasanAI skill releases.
 
 ## Unreleased
 
+- **The crew on Home.** Ra and the six crew members stand on the prompt box's rim over a soft mesh wash, and each one has a role in making the film. Scrolling down carries the prompt into your workspace, with your films as cards.
+- **Pages load calmly.** A page that is still reading shows a quiet loading state instead of a blank or a jump, and film posters come from a thumbnail cache, so the library and Inspiration scroll smoothly.
+- **Calmer working screens.** The sidebar rows and the window chrome are shared by every page, with keyboard focus on the sidebar. The status bar floats as glass at the bottom, and the working screen keeps to the film, with the phase rail one toggle away.
+- **Settings is a page in the window,** reached from the sidebar like any other place.
+- **The brief as named fields.** Each part of the brief is its own editable field, with the evidence it came from beside it.
+- **The inspector starts closed.** Cmd-K opens Notes.
+- **A Finished page with an export panel.** The delivered film sits beside one panel for its title, files, export and series look.
+- **Columns that adapt** to the window's width on the library and stage pages.
+- **Bundles RasanAI 1.19.0.**
+
+## 0.14.0 (build 31) — 2026-10-15
+
+- **New film is a step-by-step setup.** One question per screen with big tiles: series, what you're making, material, brief, length and shape (read from the clip for footage), an example edit, the taste questions, then Review. The Home box keeps a one-click Start next to a new "Set it up".
+- **Review says where each answer came from:** You, From your clip, From your series, From your example, or RasanAI decides. Pace, Models, Motion, Brand, Director and Inspiration sit in a collapsed "More settings".
+- **Series.** Each series has its own page and lives in `<library>/Series/<slug>/series.json`. Existing templates become series on first launch, with the old data kept. On the film page, "Make this the <series> look" locks the look.
+- **Learn from an example edit.** Dropping an edit you like runs a short background job that reads it and pre-fills the answers.
+- **Bundles RasanAI 1.19.0:** taste questions, series and learning from an edit.
+
+## 0.13.0 (build 30) — 2026-10-15
+
 - **A render is never "Quiet".** While a render or encode runs on your Mac (finish, render, ffmpeg, HyperFrames or Remotion), the film reads "Rendering" with the time so far, for up to 90 minutes, and says that tokens and cost hold still until it finishes. The status bar and the director monitor no longer call it "No activity".
 - **One tracker while Claude works.** The five-call step capsule steps aside while the progress view is up; its phase list marks the phases that end in your call. The capsule returns for each call.
 - **Film cards keep their shape.** A portrait or square poster is cropped to fill the 16:9 card instead of making it taller.

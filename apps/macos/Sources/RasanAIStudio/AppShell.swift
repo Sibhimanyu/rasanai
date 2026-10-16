@@ -13,7 +13,7 @@ enum LibraryMode: String, Hashable {
 /// The places in the studio, as a native source list in the split view's sidebar. On macOS Tahoe the system draws it as the
 /// floating glass sidebar, places the window buttons inside it and moves its toggle into the toolbar when it hides.
 enum StudioPlace: Hashable {
-    case home, all, needsReview, brands, templates, inspire, queue, settings, film(URL)
+    case home, all, needsReview, brands, series, inspire, queue, settings, film(URL)
 
     /// One symbol per place, shared by the sidebar, the Go menu and the status bar so a place always looks the same.
     static let homeSymbol = "house"
@@ -21,7 +21,7 @@ enum StudioPlace: Hashable {
     static let needsReviewSymbol = "eye"                                     // something waiting for you to look at
     static let queueSymbol = "text.line.first.and.arrowtriangle.forward"     // Music's Up Next: what plays next
     static let brandsSymbol = "paintpalette"                                 // colours, type and a logo
-    static let templatesSymbol = "doc.on.doc"                                // start from a copy
+    static let seriesSymbol = "rectangle.stack"                              // a show: setup and memory for every episode
     static let inspireSymbol = "rectangle.stack.badge.play"                  // a collection of clips to watch
 }
 
@@ -34,7 +34,7 @@ struct AppSidebar: View {
         case .library(.all)?: .all
         case .library(.needsReview)?: .needsReview
         case .brands?, .brand?: .brands
-        case .templates?: .templates
+        case .series?, .seriesPage?: .series
         case .inspire?: .inspire
         case .queue?: .queue
         case .settings?: .settings
@@ -55,7 +55,7 @@ struct AppSidebar: View {
     /// Every destination in on-screen order, so Up and Down walk the menu and then the recent films.
     private var order: [StudioPlace] {
         [.home, .all] + (needsYouCount > 0 ? [.needsReview] : [])
-            + [.brands, .templates, .inspire, .queue]
+            + [.brands, .series, .inspire, .queue]
             + recentFilms.map { StudioPlace.film($0.1) } + [.settings]
     }
 
@@ -83,7 +83,7 @@ struct AppSidebar: View {
                         navRow("Needs review", symbol: StudioPlace.needsReviewSymbol, place: .needsReview, count: needsYouCount)
                     }
                     navRow("Brands", symbol: "square.3.layers.3d", place: .brands)
-                    navRow("Templates", symbol: StudioPlace.templatesSymbol, place: .templates)
+                    navRow("Series", symbol: StudioPlace.seriesSymbol, place: .series)
                     navRow("Inspiration", symbol: StudioPlace.inspireSymbol, place: .inspire)
                     navRow("Queue", symbol: StudioPlace.queueSymbol, place: .queue, count: store.queuedCount)
                     if !recentFilms.isEmpty {
@@ -149,7 +149,7 @@ struct AppSidebar: View {
         case .all: [.library(.all)]
         case .needsReview: [.library(.needsReview)]
         case .brands: [.brands]
-        case .templates: [.templates]
+        case .series: [.series]
         case .inspire: [.inspire]
         case .queue: [.queue]
         case .settings: [.settings]
@@ -352,6 +352,7 @@ extension StudioStore {
         if path.count == 1 {
             switch last {
             case .brand: return ("Brands", [.brands])
+            case .seriesPage: return ("Series", [.series])
             case .newFilm, .film, .sample: return ("Films", [])
             default: return nil
             }
@@ -368,7 +369,8 @@ extension StudioStore {
         case .brand(let url)?: url.lastPathComponent
         case .queue?: "Queue"
         case .settings?: "Settings"
-        case .templates?: "Templates"
+        case .series?: "Series"
+        case .seriesPage(let url)?: SeriesLibrary.load(url)?.name ?? url.lastPathComponent
         case .inspire?: "Inspiration"
         case .sample?: "Sample film"
         case .newFilm?: "New film"

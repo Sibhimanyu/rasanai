@@ -6,6 +6,32 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.14.0 beta 1</title>
+      <pubDate>Thu, 15 Oct 2026 06:39:23 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **New film is a step-by-step setup.** One question per screen with big tiles: series, what you're making, material, brief, length and shape (read from the clip for footage), an example edit, the taste questions, then Review. The Home box keeps a one-click Start next to a new "Set it up".
+- **Review says where each answer came from:** You, From your clip, From your series, From your example, or RasanAI decides. Pace, Models, Motion, Brand, Director and Inspiration sit in a collapsed "More settings".
+- **Series.** Each series has its own page and lives in `<library>/Series/<slug>/series.json`. Existing templates become series on first launch, with the old data kept. On the film page, "Make this the <series> look" locks the look.
+- **Learn from an example edit.** Dropping an edit you like runs a short background job that reads it and pre-fills the answers.]]></description>
+      <sparkle:version>31</sparkle:version>
+      <sparkle:shortVersionString>0.14.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.14.0-beta.1/RasanAI-Studio-0.14.0.dmg" sparkle:edSignature="BkOZQue1ZFbTOdTqeWtt2p9mMDL1RAqS/WY8mfUKK4Q4KVUfbD6bPAeiiW6q0aGDYdaIHBQHniEK1wVbmHgfCQ==" length="76802100" type="application/octet-stream" />
+    </item>
+    <item>
+      <title>RasanAI Studio 0.13.0 beta 1</title>
+      <pubDate>Thu, 15 Oct 2026 06:10:09 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **A render is never "Quiet".** While a render or encode runs on your Mac (finish, render, ffmpeg, HyperFrames or Remotion), the film reads "Rendering" with the time so far, for up to 90 minutes, and says that tokens and cost hold still until it finishes. The status bar and the director monitor no longer call it "No activity".
+- **One tracker while Claude works.** The five-call step capsule steps aside while the progress view is up; its phase list marks the phases that end in your call. The capsule returns for each call.
+- **Film cards keep their shape.** A portrait or square poster is cropped to fill the 16:9 card instead of making it taller.
+- **Heresay SDK 0.2.20.**]]></description>
+      <sparkle:version>30</sparkle:version>
+      <sparkle:shortVersionString>0.13.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.13.0-beta.1/RasanAI-Studio-0.13.0.dmg" sparkle:edSignature="X49MNof0sOMt1WEbiYpYij09Bx4eHcGX0hEs/2m37Eiegvan8yDyqrc0Se4pl1z2e1T1WajtOmC4oksWMt8vDA==" length="76438628" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.12.0 beta 1</title>
       <pubDate>Thu, 15 Oct 2026 05:02:00 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **The Studio shows the wave 8 data.** The decisions drawer keeps a history of the calls made and shows what the film is working without; lessons can be dropped.

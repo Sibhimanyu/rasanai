@@ -587,6 +587,7 @@ struct FinishedView: View {
                     Text("Show in Finder").frame(maxWidth: .infinity, minHeight: 26)
                 }.controlSize(.large).disabled(video == nil)
             }
+            SeriesLookButton(store: store, project: filmKey)
         }
         .padding(20).frame(maxWidth: .infinity, alignment: .leading)
         .workspacePanel()

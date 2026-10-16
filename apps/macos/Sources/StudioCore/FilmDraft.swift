@@ -87,6 +87,15 @@ public struct FilmMoment: Codable, Equatable, Hashable, Sendable {
     }
 }
 
+/// The series a film belongs to (`series: {name, slug, path}` in rasanai-brief.json): the saved setup and memory the director reads.
+public struct SeriesRef: Codable, Equatable, Hashable, Sendable {
+    public var name: String
+    public var slug: String
+    /// Absolute path of the series folder (`<library>/Series/<slug>`).
+    public var path: String
+    public init(name: String, slug: String, path: String) { self.name = name; self.slug = slug; self.path = path }
+}
+
 public struct FilmDraft: Codable, Equatable, Sendable {
     /// At most this many picked moments travel in a brief .
     public static let maxMoments = 4
@@ -108,13 +117,20 @@ public struct FilmDraft: Codable, Equatable, Sendable {
     public var linked: [LinkedSource]
     /// What the film is (`format: {tile, option, scope?}` in rasanai-brief.json), picked in "What are you making?". Optional.
     public var format: FormatPick?
-    public init(brief: String = "", duration: Int = 45, aspect: String = "16:9", agent: String = "claude", motionLevel: String = "maximal", brand: String? = nil, modelPlan: ModelPlan = .recommended, pace: FilmPace = .defaultForNewFilms, moments: [FilmMoment] = [], linked: [LinkedSource] = [], format: FormatPick? = nil) {
-        self.linked = linked; self.format = format
+    /// The owner's taste answers (`preferences: {<question id>: <choice id>}`), only the answered ones. Questions live in library/questions.json.
+    public var preferences: [String: String]
+    /// The series this film is an episode of, if any.
+    public var series: SeriesRef?
+    /// The end card the film closes on when `ending` is `card` (`ending_file`, an absolute path).
+    public var endingFile: String?
+    public init(brief: String = "", duration: Int = 45, aspect: String = "16:9", agent: String = "claude", motionLevel: String = "maximal", brand: String? = nil, modelPlan: ModelPlan = .recommended, pace: FilmPace = .defaultForNewFilms, moments: [FilmMoment] = [], linked: [LinkedSource] = [], format: FormatPick? = nil, preferences: [String: String] = [:], series: SeriesRef? = nil, endingFile: String? = nil) {
+        self.linked = linked; self.format = format; self.preferences = preferences; self.series = series; self.endingFile = endingFile
         self.brief = brief; self.duration = duration; self.aspect = aspect; self.agent = agent; self.motionLevel = motionLevel; self.brand = brand; self.modelPlan = modelPlan; self.pace = pace
         self.moments = Array(moments.prefix(Self.maxMoments))
     }
-    private enum CodingKeys: String, CodingKey { case brief, duration, aspect, agent, motionLevel, brand, modelPlan, pace, moments, format
+    private enum CodingKeys: String, CodingKey { case brief, duration, aspect, agent, motionLevel, brand, modelPlan, pace, moments, format, preferences, series
         case linked = "linkedSources"
+        case endingFile = "ending_file"
     }
     private enum LegacyKeys: String, CodingKey { case researchDepth }
     public init(from decoder: Decoder) throws {
@@ -133,6 +149,9 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         moments = Array(((try? c.decodeIfPresent([FilmMoment].self, forKey: .moments)) ?? nil ?? []).prefix(Self.maxMoments))
         linked = (try? c.decodeIfPresent([LinkedSource].self, forKey: .linked)) ?? nil ?? []
         format = (try? c.decodeIfPresent(FormatPick.self, forKey: .format)) ?? nil
+        preferences = (try? c.decodeIfPresent([String: String].self, forKey: .preferences)) ?? nil ?? [:]
+        series = (try? c.decodeIfPresent(SeriesRef.self, forKey: .series)) ?? nil
+        endingFile = (try? c.decodeIfPresent(String.self, forKey: .endingFile)) ?? nil
     }
     /// The `--model` value for the director: the chosen plan under Claude Code, otherwise the Settings model.
     public func cliModel(settingsModel: String) -> String {
@@ -174,9 +193,9 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         return text
     }
     /// Folders the director may read outside the project (every linked folder).
-    public var readOnlyFolders: [String] { linked.filter(\.isFolder).map(\.path) }
+    public var readOnlyFolders: [String] { linked.filter(\.isFolder).map(\.path) + (series.map { [$0.path] } ?? []) }
     /// Single files it may read (a linked clip or reference video): granted by file, not by the folder around it.
-    public var readOnlyFiles: [String] { linked.filter { !$0.isFolder }.map(\.path) }
+    public var readOnlyFiles: [String] { linked.filter { !$0.isFolder }.map(\.path) + [endingFile].compactMap { $0 }.filter { !$0.isEmpty } }
     var hasLinkedFootage: Bool { linked.contains { $0.kind == .footage } }
     /// The picked reference moments, as the director reads them in the request (empty when none were picked).
     public var momentsText: String {
@@ -193,7 +212,29 @@ public struct FilmDraft: Codable, Equatable, Sendable {
             text += "\n\nFOOTAGE REEL\n" + Self.footageText[level]!
             text += "\n\nPRESENTER FILMS\n" + Self.presenterText[level]!
         }
+        text += tasteText()
         return text
+    }
+    /// The owner's taste answers, the end card and the series, as the director reads them (empty when there are none). Part of
+    /// the creative direction, so a resumed or revised run keeps obeying them. `questions` names the choices in the owner's words.
+    public func tasteText(using questions: TasteQuestions? = TasteQuestions.installed) -> String {
+        var lines: [String] = []
+        if !preferences.isEmpty {
+            let order = questions?.questions.map(\.id) ?? []
+            let ids = preferences.keys.sorted { (order.firstIndex(of: $0) ?? Int.max, $0) < (order.firstIndex(of: $1) ?? Int.max, $1) }
+            let answers = ids.map { id -> String in
+                let choice = preferences[id] ?? ""
+                let label = questions?.label(question: id, choice: choice).map { " (\($0))" } ?? ""
+                return "- \(id) = \(choice)\(label)"
+            }
+            lines.append("PREFERENCES (the owner's choices; obey them, never reinterpret; read library/questions.json for meanings):")
+            lines += answers
+        }
+        if let endingFile, !endingFile.isEmpty { lines.append("ENDING CARD FILE: \(endingFile)") }
+        if let series {
+            lines.append("SERIES: \(series.name) (\(series.path)). Read series.json there: its look (DESIGN.md) is locked, so skip the Look call, write one Story option within its rules, and auto-choose it; obey its `rules`.")
+        }
+        return lines.isEmpty ? "" : "\n\n" + lines.joined(separator: "\n")
     }
     private static let levelText = [
         "maximal": """
