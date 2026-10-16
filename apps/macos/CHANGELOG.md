@@ -2,7 +2,7 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.15.0 (build 32) — 2026-10-16
 
 - **The crew on Home.** Ra and the six crew members stand on the prompt box's rim over a soft mesh wash, and each one has a role in making the film. Scrolling down carries the prompt into your workspace, with your films as cards.
 - **Pages load calmly.** A page that is still reading shows a quiet loading state instead of a blank or a jump, and film posters come from a thumbnail cache, so the library and Inspiration scroll smoothly.
