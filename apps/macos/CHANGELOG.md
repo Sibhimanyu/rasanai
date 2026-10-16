@@ -2,10 +2,11 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.15.1 (build 33) — 2026-10-16
 
 - **Fixes a crash at launch in 0.15.0.** Home now finds the crew artwork inside the installed app instead of stopping the app when it looks in the wrong place.
 - **Updates arrive sooner.** Studio checks for a new version every hour instead of every 5 hours.
+- **Bundles RasanAI 1.19.0.**
 
 ## 0.15.0 (build 32) — 2026-10-16
 
