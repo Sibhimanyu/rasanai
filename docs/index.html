@@ -29,6 +29,7 @@
 <link rel="apple-touch-icon" href="assets/logo/rasanai-mark-180.png" />
 
 <script>(function(){var d=document.documentElement,w=matchMedia("(min-width: 900px)"),r=matchMedia("(prefers-reduced-motion: reduce)");d.classList.add("js");function s(){d.classList.toggle("pin",w.matches&&!r.matches);d.classList.toggle("calm",r.matches)}s();w.addEventListener("change",s);r.addEventListener("change",s)})()</script>
+<script>(function(){var d=document.documentElement;if(!matchMedia("(prefers-reduced-motion: reduce)").matches)d.classList.add("intro")})();</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anek+Latin:wdth,wght@75..125,300..800&family=Anek+Tamil:wdth,wght@75..125,500..700&family=JetBrains+Mono:wght@400;500&family=Mukta:wght@400;500;600&display=swap" />
@@ -76,7 +77,7 @@
     </div>
     <div class="hero-copy" data-hero-copy>
       <p class="eyebrow">RasanAI Studio for Mac</p>
-      <h1 id="hero-title">Describe a film.<br />Direct it from there.</h1>
+      <h1 id="hero-title"><span class="ln">Describe a film.</span><br /><span class="ln">Direct it from there.</span></h1>
       <p class="hero-sub">A sentence and your footage go in. A finished film comes out. In between, RasanAI asks for your taste at five moments that matter.</p>
       <div class="hero-cta"><a data-studio="dmg" class="btn btn-primary btn-lg" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.15.1-beta.1/RasanAI-Studio-0.15.1.dmg">Download for Mac <svg aria-hidden="true"><use href="#i-down"/></svg></a><a class="text-link" href="#flow">See how it works <span aria-hidden="true">&rsaquo;</span></a></div>
       <p class="hero-meta"><span data-studio="version">0.15.1 beta 1</span> &middot; Apple Silicon &middot; macOS 14+ &middot; Free and open source</p>
@@ -87,7 +88,7 @@
 <section class="shot-band"><div class="wrap">
   <div class="home-track">
   <div class="window rise home-win" data-rise><img src="img/studio/home-1x.jpg" srcset="img/studio/home-1x.jpg 907w, img/studio/home-2x.jpg 1814w" sizes="(min-width:1100px) 900px, 94vw" width="1814" height="1480" alt="RasanAI Studio, the start screen: What would you like to make? The seven crew characters stand on the prompt box, which reads Describe your video, or paste a link, with the steps Describe, Setup, Brief, Story, Look, Preview and Final above." loading="lazy" decoding="async" />
-    <div class="home-scroll" aria-hidden="true"><img class="hs-strip" src="img/studio/home-scroll-1x.jpg" srcset="img/studio/home-scroll-1x.jpg 907w, img/studio/home-scroll-2x.jpg 1814w" sizes="(min-width:1100px) 900px, 94vw" width="1814" height="2776" alt="" loading="lazy" decoding="async" /></div>
+    <div class="home-scroll" aria-hidden="true"><img class="hs-films" src="img/studio/home-films-1x.jpg" srcset="img/studio/home-films-1x.jpg 907w, img/studio/home-films-2x.jpg 1814w" sizes="(min-width:1100px) 900px, 94vw" width="1814" height="1388" alt="" loading="lazy" decoding="async" /><img class="hs-home" src="img/studio/home-content-1x.jpg" srcset="img/studio/home-content-1x.jpg 907w, img/studio/home-content-2x.jpg 1814w" sizes="(min-width:1100px) 900px, 94vw" width="1814" height="1388" alt="" loading="lazy" decoding="async" /></div>
   </div>
   </div>
   <p class="shot-note">Screens from the app, with sample projects. Scroll Home and your films come up as cards.</p>
