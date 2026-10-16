@@ -272,7 +272,7 @@
 .member h3 { margin: 0; }
 .m-role { margin: 0; color: var(--ink-2); font-size: 1rem; line-height: 1.45; }
 .chip { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; margin: 6px 0 0; padding: 6px 12px; background: var(--paper); border: 1px solid var(--line-light); border-radius: 20px; font: 500 .88rem/1.3 var(--body); color: var(--graphite); }
-.chip i.ring { background: none; box-shadow: inset 0 0 0 2px var(--c); }
+.chip i.hollow { background: none; box-shadow: inset 0 0 0 2px var(--c); }
 
 /* ============ kept sections ============ */
 .home .section { padding: var(--section) 0; }
