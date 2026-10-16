@@ -133,6 +133,7 @@
 
   // rising windows: scale and lift as they enter
   $$("[data-rise]").forEach(function (el) {
+    if (el.classList.contains("home-win")) return;   // the Home window rises with the crew flight, below
     addScene({
       el: el, pin: false,
       progress: function (r, vh) { return clamp((vh - r.top) / (vh * .75), 0, 1); },
@@ -187,13 +188,16 @@
       // so the flyers give way to the screenshot's own crew in one frame
       progress: function (r, vh) { return clamp((vh - r.top) / (vh * .75), 0, 1); },
       render: function (q) {
-        var vq = q;
+        var vq = q, re = ease(vq);
+        // the window's rise and the flight share one progress value, so the crew and the screenshot never drift apart
+        homeWin.style.transform = "translate3d(0," + ((1 - re) * 64).toFixed(1) + "px,0) scale(" + (.93 + .07 * re).toFixed(3) + ")";
         setAway(vq > 0);
-        if (vq <= 0 || vq >= 1) { setShown(false); setEmpty(false); return; }
+        // every cut-out has arrived by 0.86; from 0.9 the screenshot's own crew takes over in a single frame
+        if (vq <= 0 || vq >= .9) { setShown(false); setEmpty(false); return; }
         setShown(true); setEmpty(true);
         var ir = homeImg.getBoundingClientRect(), rimY = ir.top + ir.height * RIM / 100;
         fl.forEach(function (f) {
-          var t = seg(vq, f.k * STAG, f.k * STAG + 1 - 3 * STAG), e = inOut(t);
+          var t = seg(vq, f.k * STAG, f.k * STAG + .86 - 3 * STAG), e = inOut(t);
           var sr = f.fi.getBoundingClientRect(), sw = f.fi.offsetWidth, sh = f.fi.offsetHeight;
           var tx = ir.left + ir.width * f.b[0] / 100, ty = ir.top + ir.height * f.b[1] / 100, tw = ir.width * f.b[2] / 100, th = ir.height * f.b[3] / 100;
           var scx = sr.left + sr.width / 2, scy = sr.top + sr.height / 2, tcx = tx + tw / 2, tcy = ty + th / 2;
@@ -211,8 +215,28 @@
           f.cut.style.clipPath = over > .01 ? "inset(0 0 " + (over / cs).toFixed(2) + "px 0)" : "none";
         });
       },
-      reset: function () { setShown(false); setEmpty(false); setAway(false); }
+      reset: function () { setShown(false); setEmpty(false); setAway(false); homeWin.style.transform = ""; }
     });
+
+    // inside the window: once the crew are home, scrolling the page scrolls Home itself, the prompt rising away and the
+    // films coming up as cards, as in the app
+    var track = homeWin.parentElement, hs = $(".home-scroll", homeWin);
+    if (track && track.classList.contains("home-track") && hs) {
+      var strip = $(".hs-strip", hs);
+      addScene({
+        el: track, pin: true,
+        progress: function (r, vh) {
+          var stick = parseFloat(getComputedStyle(homeWin).top) || 0, run = r.height - homeWin.offsetHeight;
+          return run > 0 ? clamp((stick - r.top) / run, 0, 1) : 0;
+        },
+        render: function (p) {
+          // one tall strip, Home above its film cards, scrolled by exactly one screen: a real scroll, nothing cross-fades
+          hs.style.opacity = p > 0 ? "1" : "0";
+          strip.style.transform = "translate3d(0," + (-inOut(seg(p, .1, .9)) * 50).toFixed(3) + "%,0)";
+        },
+        reset: function () { hs.style.opacity = "0"; }
+      });
+    }
   }
 
   /* ---------- the loop: rAF only while something is moving ---------- */
