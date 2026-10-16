@@ -6,6 +6,17 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.15.1 beta 1</title>
+      <pubDate>Fri, 16 Oct 2026 07:15:17 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **Fixes a crash at launch in 0.15.0.** Home now finds the crew artwork inside the installed app instead of stopping the app when it looks in the wrong place.
+- **Updates arrive sooner.** Studio checks for a new version every hour instead of every 5 hours.]]></description>
+      <sparkle:version>33</sparkle:version>
+      <sparkle:shortVersionString>0.15.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.15.1-beta.1/RasanAI-Studio-0.15.1.dmg" sparkle:edSignature="8suIEPBvjg9lbMzujjlTlMBb4ejCA7NXW6cOnToO/jCCsnLAG2h2s96y3kZERiWm0wgq9vVXhKNl07/83ngICA==" length="81345221" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.15.0 beta 1</title>
       <pubDate>Fri, 16 Oct 2026 06:59:08 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **The crew on Home.** Ra and the six crew members stand on the prompt box's rim over a soft mesh wash, and each one has a role in making the film. Scrolling down carries the prompt into your workspace, with your films as cards.
