@@ -36,11 +36,11 @@ struct CrewFaces: Decodable {
     /// The face map and every layer, each image `nil` when it is missing or unreadable. Never traps: new code draws nothing for a
     /// missing layer. `nil` when the map itself is missing.
     @MainActor static let loaded: (faces: CrewFaces, images: [NSImage?])? = {
-        guard let json = Bundle.module.url(forResource: "crew-faces", withExtension: "json"),
+        guard let json = StudioResources.url("crew-faces", "json"),
               let data = try? Data(contentsOf: json),
               let faces = try? JSONDecoder().decode(CrewFaces.self, from: data) else { return nil }
         let images = faces.members.map { member -> NSImage? in
-            guard let url = Bundle.module.url(forResource: member.image, withExtension: "png"),
+            guard let url = StudioResources.url(member.image, "png"),
                   let source = NSImage(contentsOf: url),
                   let pixels = source.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
             return NSImage(cgImage: pixels, size: NSSize(width: pixels.width, height: pixels.height))
