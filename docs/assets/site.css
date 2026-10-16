@@ -23,6 +23,14 @@
   --pad: clamp(20px, 4.4vw, 72px);
   --max: 1320px;
   --section: clamp(84px, 9.5vw, 144px);
+  /* DESIGN.md tokens the home page uses (additive; the field guide ignores them) */
+  --rasanai-blue: #2a31a8;
+  --graphite: #15151c;
+  --midnight: #0c1030;
+  --blue-lift: #7c83f5;
+  --r-btn: 8px; --r-card: 12px; --r-pill: 999px;
+  --s-1: 4px; --s-2: 8px; --s-3: 16px; --s-4: 24px; --s-5: 32px; --s-6: 48px; --s-7: 72px;
+  --shadow-hover: 0 5px 12px rgba(0, 0, 0, 0.12);
 }
 *, *::before, *::after { box-sizing: border-box; }
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
