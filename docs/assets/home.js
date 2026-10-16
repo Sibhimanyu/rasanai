@@ -32,46 +32,8 @@
 
   /* ---------- unit renderers: render(q), q in 0..1; discrete states are class toggles with CSS transitions ---------- */
   var R = {};
-  R.brief = function (el) {
-    var toks = $$(".tok", el), tag = $(".found", el);
-    return function (q) { toks.forEach(function (t, i) { tog(t, q > .1 + i * .1); }); tog(tag, q > .78); };
-  };
-  R.story = function (el) {
-    var cs = $$(".sc", el);
-    return function (q) {
-      cs.forEach(function (c, i) {
-        tog(c, q > .06 + i * .13);
-        var picked = q > .62;
-        c.classList.toggle("sel", picked && i === 1); c.classList.toggle("dim", picked && i !== 1);
-      });
-    };
-  };
-  R.look = function (el) {
-    var lks = $$(".lk", el), panel = $(".looks", el), ring = $(".look-ring", el);
-    return function (q) {
-      tog(panel, q > .05); lks.forEach(function (l, i) { tog(l, q > .1 + i * .1); });
-      lks[0].classList.toggle("pick", q > .6); tog(ring, q > .32);
-    };
-  };
-  R.animatic = function (el) {
-    var ph = $(".ph", el), t = $(".ph b", el), pin = $(".pin-drop", el), last = "";
-    return function (q) {
-      var s = ease(seg(q, .08, .92));
-      ph.style.transform = "translateX(" + (s * 59.5).toFixed(2) + "cqw)";
-      var sec = Math.round(s * 45), txt = "0:" + (sec < 10 ? "0" : "") + sec;
-      if (txt !== last) { t.textContent = txt; last = txt; }
-      tog(pin, s >= 0.2);
-    };
-  };
-  R.final = function (el) {
-    var box = $(".render", el), bar = $(".bar i", el), pc = $(".r-p", el), lab = $(".r-l", el), last = -1;
-    return function (q) {
-      var s = seg(q, .1, .78);
-      bar.style.transform = "scaleX(" + s.toFixed(3) + ")";
-      var n = Math.round(s * 100); if (n !== last) { pc.textContent = n >= 100 ? "Ready" : n + "%"; lab.textContent = n >= 100 ? "Final render" : "Rendering the final"; last = n; }
-      box.classList.toggle("done", s >= 1);
-    };
-  };
+  /* the five call screens are the real Studio screens: nothing is drawn on top of them */
+  R.brief = R.story = R.look = R.animatic = R.final = function () { return function () {}; };
   R.notify = function (el) {
     var nts = $$(".nt", el), step = 92;
     return function (q) {
