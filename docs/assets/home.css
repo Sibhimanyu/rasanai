@@ -399,3 +399,8 @@
   .foot-links { grid-template-columns: 1fr; }
   .hb { white-space: normal; }
 }
+
+/* the Home screenshot with its crew painted out, shown only while the crew fly in */
+.shot-band .window[data-rise] { position: relative; }
+.shot-band .window .shot-empty { position: absolute; left: 0; top: 0; width: 100%; height: auto; opacity: 0; pointer-events: none; }
+.shot-band .window.is-empty .shot-empty { opacity: 1; }
