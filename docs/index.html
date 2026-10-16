@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>RasanAI Studio for Mac: describe a film, direct it from there</title>
 <meta name="description" content="RasanAI Studio is a free, open-source Mac app that turns a sentence and your footage into a finished film. You make five calls; RasanAI directs the rest. Community beta for Apple Silicon." />
-<meta name="theme-color" content="#F7F6F2" />
+<meta name="theme-color" content="#1B1F5E" />
 <meta name="author" content="Sibhimanyu" />
 <meta name="keywords" content="RasanAI, RasanAI Studio, ரசனை, Mac app, AI video, AI video director, motion graphics, HyperFrames, Claude Code, OpenAI Codex, launch video, explainer video, Sibhimanyu" />
 <link rel="canonical" href="https://sibhimanyu.github.io/rasanai/" />
@@ -46,9 +46,9 @@
 
 <header class="top">
   <nav class="nav wrap" aria-label="Primary">
-    <a class="brand" href="./"><img src="assets/logo/rasanai-lockup.svg" width="214" height="44" alt="RasanAI" /></a>
+    <a class="brand" href="./"><img src="assets/logo/rasanai-lockup-reverse.svg" width="214" height="44" alt="RasanAI" /></a>
     <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="home-nav" hidden>Menu <span aria-hidden="true">+</span></button>
-    <div class="nav-links" id="home-nav"><a href="#features">Features</a><a href="guide.html">Field guide</a><a href="https://github.com/Sibhimanyu/rasanai">GitHub</a><a class="nav-action" href="#download">Download</a></div>
+    <div class="nav-links" id="home-nav"><a href="#features">Features</a><a href="#meet-crew">The crew</a><a href="guide.html">Field guide</a><a href="https://github.com/Sibhimanyu/rasanai">GitHub</a><a class="nav-action" href="#download">Download</a></div>
   </nav>
 </header>
 
@@ -56,14 +56,20 @@
 <section class="hero" aria-labelledby="hero-title">
   <div class="wrap hero-copy">
     <p class="eyebrow">RasanAI Studio for Mac</p>
-    <h1 id="hero-title">Describe a film.<br /><em>Direct it from there.</em></h1>
+    <h1 id="hero-title">Describe a film.<br />Direct it from there.</h1>
     <p class="hero-sub">A sentence and your footage go in. A finished film comes out. In between, RasanAI asks for your taste at five moments that matter.</p>
     <div class="hero-cta"><a data-studio="dmg" class="btn btn-primary btn-lg" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.5.0-beta.1/RasanAI-Studio-0.5.0.dmg">Download for Mac <svg aria-hidden="true"><use href="#i-down"/></svg></a><a class="text-link" href="#start">See how it works <span aria-hidden="true">&rsaquo;</span></a></div>
     <p class="hero-meta"><span data-studio="version">0.5.0 beta 1</span> &middot; Apple Silicon &middot; macOS 14+ &middot; Free and open source</p>
   </div>
-  <div class="wrap hero-shot"><div class="window" data-parallax><img src="img/studio/home-1x.jpg" srcset="img/studio/home-1x.jpg 1120w, img/studio/home-2x.jpg 2240w" sizes="(min-width:1100px) 1100px, 94vw" width="2240" height="1480" alt="RasanAI Studio home screen: What shall we make today? A New film tile above a grid of your films, with sample projects." decoding="async" /></div>
-  <p class="shot-note">Screens from the app, with sample projects.</p></div>
+  <div class="hero-stage">
+    <div class="crew-live" data-crew-live data-src="assets/crew/crew-faces.json" aria-hidden="true"><noscript><img src="assets/crew/ra.webp" width="553" height="640" alt="" /></noscript></div>
+  </div>
 </section>
+
+<section class="section shot-band"><div class="wrap">
+  <div class="window"><img src="img/studio/home-1x.jpg" srcset="img/studio/home-1x.jpg 1120w, img/studio/home-2x.jpg 2240w" sizes="(min-width:1100px) 1100px, 94vw" width="2240" height="1480" alt="RasanAI Studio home screen: What shall we make today? A New film tile above a grid of your films, with sample projects." loading="lazy" decoding="async" /></div>
+  <p class="shot-note">Screens from the app, with sample projects.</p>
+</div></section>
 
 <section class="section" id="start"><div class="wrap split">
   <div class="split-copy" id="features">
@@ -80,17 +86,71 @@
 </div></section>
 
 <section class="section tint" id="flow"><div class="wrap">
-  <div class="head"><p class="eyebrow">Five calls</p><h2>Make five calls.<br />Skip the rest.</h2><p class="lede">RasanAI decides the craft: scenes, pacing, motion, transitions, music and sound. You decide what makes the film yours, and see it at every step.</p></div>
-</div>
-<div class="calls-wrap"><ol class="cxs" tabindex="0" aria-label="The five calls, scroll sideways">
-<li class="cx"><figure><img src="img/studio/call-brief.jpg" width="1040" height="560" loading="lazy" decoding="async" alt="Brief: one sentence of what RasanAI understood, each part editable in place" /></figure><div><span class="cx-n">Call 01</span><h3>Brief</h3><p><b>Confirm the sentence.</b> One line you can edit, and what RasanAI understood from it.</p></div></li>
-<li class="cx"><figure><img src="img/studio/call-story.jpg" width="1040" height="560" loading="lazy" decoding="async" alt="Script: three stories, the selected one as a table of timed beats" /></figure><div><span class="cx-n">Call 02</span><h3>Story</h3><p><b>Pick one of three.</b> Three scripts, written from your product's truth. Choose, or ask for another take.</p></div></li>
-<li class="cx"><figure><img src="img/studio/call-look.jpg" width="1040" height="560" loading="lazy" decoding="async" alt="Look: Claude&#39;s recommended design, The Museum of the Detour, shown large beside its name and reasoning" /></figure><div><span class="cx-n">Call 03</span><h3>Look</h3><p><b>Pick one of three.</b> Three design systems made for that story, each drawn live on its first line.</p></div></li>
-<li class="cx"><figure><img src="img/studio/call-animatic.jpg" width="1040" height="560" loading="lazy" decoding="async" alt="Animatic: the timed film with music, a scrubber, the scene strip and notes pinned to moments" /></figure><div><span class="cx-n">Call 04</span><h3>Animatic</h3><p><b>Watch the rhythm.</b> The whole film, rough, with music. Pin a note to any moment.</p></div></li>
-<li class="cx"><figure><img src="img/studio/call-final.jpg" width="1040" height="560" loading="lazy" decoding="async" alt="Final: the render with versions, what changed and notes" /></figure><div><span class="cx-n">Call 05</span><h3>Final</h3><p><b>Review. Export.</b> The finished film, with your notes and every version kept.</p></div></li>
-</ol></div>
-<div class="wrap calls-foot"><p>The review rooms inside each film.</p><div class="calls-nav"><button type="button" data-calls="-1" aria-label="Previous calls"><svg aria-hidden="true"><use href="#i-arrow"/></svg></button><button type="button" data-calls="1" aria-label="Next calls"><svg aria-hidden="true"><use href="#i-arrow"/></svg></button></div></div>
-</section>
+  <div class="head head-ra">
+    <img class="head-ra-img" src="assets/crew/ra.webp" width="553" height="640" alt="Ra, the RasanAI mascot, a turmeric-yellow gumdrop in a flat black cap, holding a clapperboard." loading="lazy" decoding="async" />
+    <div>
+      <p class="eyebrow">Five calls</p><h2>Make five calls.<br />Skip the rest.</h2>
+      <p class="lede">RasanAI decides the craft: scenes, pacing, motion, transitions, music and sound. You decide what makes the film yours, and see it at every step.</p>
+      <p class="ra-says"><b>Ra</b> runs the set and hands you each call. Each call is brought by the crew member who did the work.</p>
+    </div>
+  </div>
+  <ol class="calls" aria-label="The five calls">
+    <li class="call">
+      <div class="who" style="--c:#2A31A8"><img style="--fh:173" src="assets/crew/tara.webp" width="640" height="604" loading="lazy" decoding="async" alt="Tara, a small blue sphere with a brass scout's eyepiece." /><p class="who-name"><i></i>Tara</p><p class="who-role">Scout</p></div>
+      <div class="call-body"><span class="cx-n">Call 01</span><h3>Brief</h3><p><b>Confirm the sentence.</b> One line you can edit, and what RasanAI understood from it. Tara scouts your product and brings it back for you to check.</p></div>
+      <figure class="call-shot"><img src="img/studio/call-brief.jpg" width="1040" height="560" loading="lazy" decoding="async" alt="Brief: one sentence of what RasanAI understood, each part editable in place" /></figure>
+    </li>
+    <li class="call">
+      <div class="who" style="--c:#1B1F5E"><img style="--fh:322" src="assets/crew/kavi.webp" width="385" height="640" loading="lazy" decoding="async" alt="Kavi, a tall indigo block with round brass glasses and a big yellow pencil." /><p class="who-name"><i></i>Kavi</p><p class="who-role">Writer</p></div>
+      <div class="call-body"><span class="cx-n">Call 02</span><h3>Story</h3><p><b>Pick one of three.</b> Three scripts, written from your product's truth. Choose, or ask for another take.</p></div>
+      <figure class="call-shot"><img src="img/studio/call-story.jpg" width="1040" height="560" loading="lazy" decoding="async" alt="Script: three stories, the selected one as a table of timed beats" /></figure>
+    </li>
+    <li class="call">
+      <div class="who" style="--c:#B3165A"><img style="--fh:344" src="assets/crew/chitra.webp" width="408" height="640" loading="lazy" decoding="async" alt="Chitra, a magenta drop with a swept brush-stroke crest, holding a fan of paint swatches." /><p class="who-name"><i></i>Chitra</p><p class="who-role">Art Director</p></div>
+      <div class="call-body"><span class="cx-n">Call 03</span><h3>Look</h3><p><b>Pick one of three.</b> Three design systems made for that story, each drawn live on its first line.</p></div>
+      <figure class="call-shot"><img src="img/studio/call-look.jpg" width="1040" height="560" loading="lazy" decoding="async" alt="Look: Claude&#39;s recommended design, The Museum of the Detour, shown large beside its name and reasoning" /></figure>
+    </li>
+    <li class="call">
+      <div class="who" style="--c:#1E5A3C"><img style="--fh:310" src="assets/crew/laya.webp" width="395" height="640" loading="lazy" decoding="async" alt="Laya, a leaf-green bean in brass headphones, floating mid-move." /><p class="who-name"><i></i>Laya</p><p class="who-role">Motion Director</p></div>
+      <div class="call-body"><span class="cx-n">Call 04</span><h3>Animatic</h3><p><b>Watch the rhythm.</b> The whole film, rough, with music. Pin a note to any moment.</p></div>
+      <figure class="call-shot"><img src="img/studio/call-animatic.jpg" width="1040" height="560" loading="lazy" decoding="async" alt="Animatic: the timed film with music, a scrubber, the scene strip and notes pinned to moments" /></figure>
+    </li>
+    <li class="call">
+      <div class="who" style="--c:#3F4368"><img style="--fh:157" src="assets/crew/rasika.webp" width="640" height="420" loading="lazy" decoding="async" alt="Rasika, a low graphite dome with a cream face window and a brass loupe." /><p class="who-name"><i></i>Rasika</p><p class="who-role">Critic</p></div>
+      <div class="call-body"><span class="cx-n">Call 05</span><h3>Final</h3><p><b>Review. Export.</b> The finished film, with your notes and every version kept. Rasika checks it first and sends back what is off.</p></div>
+      <figure class="call-shot"><img src="img/studio/call-final.jpg" width="1040" height="560" loading="lazy" decoding="async" alt="Final: the render with versions, what changed and notes" /></figure>
+    </li>
+  </ol>
+  <p class="calls-foot">The review rooms inside each film.</p>
+  <div class="mala-note">
+    <img style="--fh:245" src="assets/crew/mala.webp" width="603" height="640" loading="lazy" decoding="async" alt="Mala, a pale blue round body with a top-knot, wrapped in a strip of 35 mm film." />
+    <p><b>Footage reels bring Mala.</b> When you point RasanAI at a folder of clips, Mala, the Editor, logs them and picks the selects before the rest of the crew starts. <a class="link" href="#reels">See footage reels &darr;</a></p>
+  </div>
+</div></section>
+
+<section class="section crew" id="meet-crew"><div class="wrap">
+  <div class="head"><p class="eyebrow">Meet the crew</p><h2>Seven characters.<br />One film crew.</h2><p class="lede">RasanAI runs a crew of agents. Each character stands for a group of them, so you can see who is working and what they just did. Their status lines come from what the agents actually report.</p></div>
+
+  <article class="member featured" style="--c:#EFB21A">
+    <div class="m-art"><img src="assets/crew/ra.webp" width="553" height="640" loading="lazy" decoding="async" alt="Ra, a plump turmeric gumdrop in a flat black cap, holding a clapperboard in both hands." /></div>
+    <div class="m-text">
+      <p class="label">Ra &middot; the sound of <span lang="ta">ர</span>, first syllable of RasanAI</p>
+      <h3>Ra</h3>
+      <p class="m-role">Mascot, and the face of the Director. Runs the set, greets you, and hands you each of the five calls.</p>
+      <p class="m-line">You make the calls. Ra runs the set.</p>
+      <p class="chip"><i></i>Ra &middot; three scripts are ready: pick one</p>
+    </div>
+  </article>
+
+  <div class="members">
+    <article class="member" style="--c:#2A31A8"><div class="m-art"><img style="--fh:173" src="assets/crew/tara.webp" width="640" height="604" loading="lazy" decoding="async" alt="Tara, a small blue sphere with a brass scout's eyepiece." /></div><div class="m-text"><p class="label">Tara &middot; star, the guide star</p><h3>Tara</h3><p class="m-role">Scout. Researches your product and brings you call 1, confirm the brief.</p><p class="chip"><i></i>Tara &middot; found 14 product screens</p></div></article>
+    <article class="member" style="--c:#1B1F5E"><div class="m-art"><img style="--fh:322" src="assets/crew/kavi.webp" width="385" height="640" loading="lazy" decoding="async" alt="Kavi, a tall indigo block with round brass glasses and a big yellow pencil." /></div><div class="m-text"><p class="label">Kavi &middot; poet</p><h3>Kavi</h3><p class="m-role">Writer. Drafts the scripts and brings you call 2, pick a script.</p><p class="chip"><i></i>Kavi &middot; drafting script 2 of 3</p></div></article>
+    <article class="member" style="--c:#B3165A"><div class="m-art"><img style="--fh:344" src="assets/crew/chitra.webp" width="408" height="640" loading="lazy" decoding="async" alt="Chitra, a magenta drop with a swept brush-stroke crest, holding a fan of paint swatches." /></div><div class="m-text"><p class="label">Chitra &middot; picture</p><h3>Chitra</h3><p class="m-role">Art Director. Designs the looks and brings you call 3, pick a look.</p><p class="chip"><i></i>Chitra &middot; blending three looks</p></div></article>
+    <article class="member" style="--c:#1E5A3C"><div class="m-art"><img style="--fh:310" src="assets/crew/laya.webp" width="395" height="640" loading="lazy" decoding="async" alt="Laya, a leaf-green bean in brass headphones, floating mid-move." /></div><div class="m-text"><p class="label">Laya &middot; tempo, rhythm</p><h3>Laya</h3><p class="m-role">Motion Director. Times the moves and brings you call 4, notes on the animatic.</p><p class="chip"><i></i>Laya &middot; timing the moves to the music</p></div></article>
+    <article class="member" style="--c:#3F4368"><div class="m-art"><img style="--fh:157" src="assets/crew/rasika.webp" width="640" height="420" loading="lazy" decoding="async" alt="Rasika, a low graphite dome with a cream face window and a brass loupe." /></div><div class="m-text"><p class="label">Rasika &middot; a connoisseur</p><h3>Rasika</h3><p class="m-role">Critic. Judges the finished film and brings you call 5, review the final.</p><p class="chip"><i></i>Rasika &middot; sent scene 4 back: the title overlaps the logo</p></div></article>
+    <article class="member" style="--c:#DFE3EE"><div class="m-art"><img style="--fh:245" src="assets/crew/mala.webp" width="603" height="640" loading="lazy" decoding="async" alt="Mala, a pale blue round body with a top-knot, wrapped in a strip of 35 mm film." /></div><div class="m-text"><p class="label">Mala &middot; garland</p><h3>Mala</h3><p class="m-role">Editor. Only for footage reels: logs your clips and picks the selects.</p><p class="chip"><i class="ring"></i>Mala &middot; logged 38 clips, 9 selects</p></div></article>
+  </div>
+</div></section>
 
 <section class="section" id="brand"><div class="wrap split split-rev">
   <div class="stack">
@@ -115,7 +175,7 @@
 </div></section>
 
 <section class="section" id="presenter"><div class="wrap">
-  <div class="head"><p class="eyebrow">Presenter films</p><h2>You on a green screen,<br />in a world made for the words.</h2><p class="lede">Film yourself talking in front of a green or blue screen. RasanAI keys you out, cuts your speech into beats and builds a world behind you for each one, with motion graphics that land on the right word. The pictures are made through Codex on your own ChatGPT plan, about a minute and a half each, and without Codex Claude draws the backdrops instead. It is new: checked on synthetic footage, not yet recorded on a real shoot, and the clip plays whole for now.</p></div>
+  <div class="head"><p class="eyebrow">Presenter films</p><h2>You on a green screen,<br />in a world made for the words.</h2><p class="lede">Film yourself talking in front of a green or blue screen. RasanAI keys you out, cuts your speech into beats and builds a world behind you for each one, with motion graphics that land on the right word. The pictures are made through Codex on your own ChatGPT plan, about a minute and a half each, and without Codex Claude draws the backdrops instead. It is new: checked on synthetic footage, not yet recorded on a real shoot, and the clip plays whole for now. Your answers to a few taste questions (plain, literal pictures or bold ones; a speaker who stays put; how much writing; captions; a badge to keep; an end card) are enforced by the checks, not guessed.</p></div>
 </div></section>
 
 <section class="section" id="gallery"><div class="wrap">
@@ -141,7 +201,7 @@
       <p class="eyebrow">Download</p>
       <h2>RasanAI Studio<br />for Mac.</h2>
       <p class="lede">Free and open source, under the MIT license.</p>
-      <a data-studio="dmg" class="btn btn-light btn-lg" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.5.0-beta.1/RasanAI-Studio-0.5.0.dmg">Download for Mac <svg aria-hidden="true"><use href="#i-down"/></svg></a>
+      <a data-studio="dmg" class="btn btn-primary btn-lg" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.5.0-beta.1/RasanAI-Studio-0.5.0.dmg">Download for Mac <svg aria-hidden="true"><use href="#i-down"/></svg></a>
       <p class="dl-meta"><span data-studio="version">0.5.0 beta 1</span><br />Apple Silicon &middot; macOS 14+</p>
       <p class="dl-links"><a data-studio="notes" href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.5.0-beta.1">Release notes</a><a data-studio="sha256" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.5.0-beta.1/RasanAI-Studio-0.5.0.dmg.sha256">Checksum</a></p>
     </div>
@@ -177,7 +237,8 @@
 
 <aside class="home-signoff wrap"><p><span lang="ta">ரசனை</span> means taste.</p><p>The eye, and ear, for what feels right.</p></aside>
 </main>
-<footer class="foot"><div class="wrap home-footer"><a class="brand" href="./"><img src="assets/logo/rasanai-lockup-reverse.svg" width="214" height="44" alt="RasanAI home" /></a><p>By <a href="https://github.com/Sibhimanyu">Sibhimanyu</a> &middot; Open source / MIT</p><div><a href="guide.html">Field guide</a><a data-studio="notes" href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.5.0-beta.1">Release notes</a><a href="https://github.com/Sibhimanyu/rasanai">GitHub &rarr;</a></div></div></footer>
+<footer class="foot"><div class="wrap home-footer"><a class="brand" href="./"><img src="assets/logo/rasanai-lockup-reverse.svg" width="214" height="44" alt="RasanAI home" /></a><p>By <a href="https://github.com/Sibhimanyu">Sibhimanyu</a> &middot; Open source / MIT</p><div><a href="guide.html">Field guide</a><a href="brand/RasanAI-Brand-Guidelines.pdf">Brand guidelines (PDF)</a><a href="brand/overview.png">Brand overview</a><a data-studio="notes" href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.5.0-beta.1">Release notes</a><a href="https://github.com/Sibhimanyu/rasanai">GitHub &rarr;</a></div></div></footer>
 <script src="assets/site.js"></script><script src="assets/home.js"></script>
+<script type="module" src="assets/crew/crew-live.js"></script>
 </body>
 </html>

@@ -12,13 +12,18 @@ struct DecisionsInspector: View {
         let decisions = model.decisions
         let downgrades = model.snapshot.downgrades
         List {
-            Section("Made so far") {
+            Section {
                 if decisions.isEmpty {
                     Text("Every choice, yours and \(agent)'s, collects here. Change any of them by messaging \(agent).")
                         .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                         .listRowSeparator(.hidden)
                 }
                 ForEach(decisions) { row in DecisionRowView(model: model, row: row) }
+            } header: {
+                HStack(spacing: 6) {
+                    CrewAvatar(.ra, style: .bust(diameter: 22), watching: false)
+                    Text("Made so far")
+                }
             }
             if !downgrades.isEmpty {
                 Section("Working without") { DowngradesSection(rows: downgrades) }
@@ -59,6 +64,7 @@ private struct DecisionRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 6) {
+                CrewAvatar(CrewCharacter(key: CrewRoles.character(forPanel: row.step)) ?? .ra, style: .bust(diameter: 18), watching: false)
                 Text(row.label.uppercased()).font(.system(size: 10, weight: .semibold)).tracking(0.5).foregroundStyle(.secondary)
                 Spacer()
                 Text(row.byUser ? "You" : agent)

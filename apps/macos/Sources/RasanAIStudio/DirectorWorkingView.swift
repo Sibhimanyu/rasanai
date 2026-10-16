@@ -22,6 +22,7 @@ struct DirectorWorkingView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 VStack(alignment: .leading, spacing: 14) {
+                    CrewByline(step: "working")
                     Text(headline)
                         .font(.system(size: 28, weight: .semibold)).tracking(-0.3)
                         .fixedSize(horizontal: false, vertical: true)

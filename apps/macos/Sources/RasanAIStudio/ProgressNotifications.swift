@@ -70,11 +70,11 @@ final class ProgressNotifier {
 
     nonisolated static func text(for event: Event, snapshot: FilmProgressSnapshot) -> (title: String, body: String) {
         switch event {
-        case .buildDone: ("Your film is built", "All scenes are built. The checks and a draft render are next.")
+        case .buildDone: ("Laya built your film", "All scenes are built. The checks and a draft render are next.")
         case .finalRendered:
-            ("Your film is ready to watch", snapshot.render.outputName.map { "\($0) is ready to watch in RasanAI Studio." } ?? "Open RasanAI Studio to watch it.")
+            ("Rasika checked the film. It's ready for your review", snapshot.render.outputName.map { "\($0) is ready to watch in RasanAI Studio." } ?? "Open RasanAI Studio to watch it.")
         case .researchBudget:
-            ("Research reached its time box", "Claude has read \(snapshot.research.sourceCount) source\(snapshot.research.sourceCount == 1 ? "" : "s"). Open RasanAI Studio to wrap up research, or let it carry on.")
+            ("Tara reached the research time box", "Claude has read \(snapshot.research.sourceCount) source\(snapshot.research.sourceCount == 1 ? "" : "s"). Open RasanAI Studio to wrap up research, or let it carry on.")
         }
     }
 

@@ -13,7 +13,7 @@ enum LibraryMode: String, Hashable {
 /// The places in the studio, as a native source list in the split view's sidebar. On macOS Tahoe the system draws it as the
 /// floating glass sidebar, places the window buttons inside it and moves its toggle into the toolbar when it hides.
 enum StudioPlace: Hashable {
-    case home, all, needsReview, brands, templates, inspire, queue, film(URL)
+    case home, all, needsReview, brands, templates, inspire, queue, settings, film(URL)
 
     /// One symbol per place, shared by the sidebar, the Go menu and the status bar so a place always looks the same.
     static let homeSymbol = "house"
@@ -27,8 +27,6 @@ enum StudioPlace: Hashable {
 
 struct AppSidebar: View {
     @Bindable var store: StudioStore
-    @Environment(\.openSettings) private var openSettings
-    @State private var libraryExpanded = false
 
     private var current: StudioPlace? {
         switch store.path.last {
@@ -39,6 +37,7 @@ struct AppSidebar: View {
         case .templates?: .templates
         case .inspire?: .inspire
         case .queue?: .queue
+        case .settings?: .settings
         case .film(let folder)?: .film(folder)
         default: nil
         }
@@ -51,63 +50,97 @@ struct AppSidebar: View {
         return Array(store.activeProjects.sorted { stamp($0) > stamp($1) }.prefix(8))
     }
 
-    var body: some View {
-        List(selection: Binding(get: { current }, set: { if let place = $0 { go(place) } })) {
-            Section {
-                navRow("Films", symbol: "movieclapper", place: .home)
-                navRow("Brand", symbol: "square.3.layers.3d", place: .brands)
-                navRow("Inspiration", symbol: StudioPlace.inspireSymbol, place: .inspire)
-            }
-            DisclosureGroup(isExpanded: $libraryExpanded) {
-                navRow("All films", symbol: StudioPlace.allSymbol, place: .all)
-                navRow("Needs review", symbol: StudioPlace.needsReviewSymbol, place: .needsReview).badge(needsYouCount)
-                navRow("Queue", symbol: StudioPlace.queueSymbol, place: .queue).badge(store.queuedCount)
-                navRow("Templates", symbol: StudioPlace.templatesSymbol, place: .templates)
-            } label: {
-                SidebarNavLabel(title: "Library", symbol: "books.vertical", selected: false)
-            }
-            if !recentFilms.isEmpty {
-                Section("Recent") {
-                    ForEach(recentFilms, id: \.0.id) { project, folder in
-                        SidebarFilmRow(name: project.name, phase: store.summary(for: folder).phase).tag(StudioPlace.film(folder))
-                    }
-                }
-            }
-        }
-        .listStyle(.sidebar)
-        // A neutral tint, so nothing the system draws for a selection comes out blue or purple; the active row's own
-        // charcoal shape is the row background below. The material behind the list stays the split view's.
-        .tint(Color(white: 0.5))
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            Button { openSettings() } label: {
-                SidebarNavLabel(title: "Settings", symbol: "gearshape", selected: false)
-                    .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 16).padding(.vertical, 8)
-        }
-        .navigationSplitViewColumnWidth(min: 180, ideal: 205, max: 280)
-        .onChange(of: current, initial: true) { _, place in
-            switch place {
-            case .all?, .needsReview?, .queue?, .templates?: libraryExpanded = true
-            default: break
-            }
-        }
+    @FocusState private var focused: StudioPlace?
+
+    /// Every destination in on-screen order, so Up and Down walk the menu and then the recent films.
+    private var order: [StudioPlace] {
+        [.home, .all] + (needsYouCount > 0 ? [.needsReview] : [])
+            + [.brands, .templates, .inspire, .queue]
+            + recentFilms.map { StudioPlace.film($0.1) } + [.settings]
     }
 
-    /// A place as a spacious row. Still a tagged row of the native List, so arrow keys, selection and the path-driven
-    /// `current` binding work as before; only the look is the shared one.
-    private func navRow(_ title: String, symbol: String, place: StudioPlace) -> some View {
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 2) {
+                    Button { store.goHome() } label: {
+                        HStack(spacing: 12) {
+                            RasanMark().fill(Color.rasanInk).frame(width: 22, height: 26).frame(width: 24)
+                            Text("RasanAI").font(.system(size: 20, weight: .semibold)).tracking(-0.5)
+                                .foregroundStyle(.primary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 14).padding(.horizontal, 6)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.bottom, 8)
+                    .accessibilityLabel("RasanAI Home")
+                    .help("Go to Home")
+                    navRow("Films", symbol: "movieclapper", place: .home)
+                    navRow("All films", symbol: StudioPlace.allSymbol, place: .all)
+                    if needsYouCount > 0 {
+                        navRow("Needs review", symbol: StudioPlace.needsReviewSymbol, place: .needsReview, count: needsYouCount)
+                    }
+                    navRow("Brands", symbol: "square.3.layers.3d", place: .brands)
+                    navRow("Templates", symbol: StudioPlace.templatesSymbol, place: .templates)
+                    navRow("Inspiration", symbol: StudioPlace.inspireSymbol, place: .inspire)
+                    navRow("Queue", symbol: StudioPlace.queueSymbol, place: .queue, count: store.queuedCount)
+                    if !recentFilms.isEmpty {
+                        Text("Recent")
+                            .font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+                            .padding(.horizontal, 6).padding(.top, 18).padding(.bottom, 6)
+                            .accessibilityAddTraits(.isHeader)
+                        ForEach(recentFilms, id: \.0.id) { project, folder in
+                            let phase = store.summary(for: folder).phase
+                            navRow(project.name, symbol: SidebarFilmRow.mark(for: phase).0, place: .film(folder),
+                                   tint: SidebarFilmRow.mark(for: phase).1)
+                                .help(project.name)
+                        }
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.bottom, 8)
+            }
+            // Up and Down arrive here from whichever row has focus; they move focus only, Return or Space opens the row.
+            .onMoveCommand { direction in
+                let places = order
+                guard !places.isEmpty, direction == .up || direction == .down else { return }
+                let from = focused ?? current
+                let index = from.flatMap { places.firstIndex(of: $0) }
+                let next: Int
+                switch (direction, index) {
+                case (.down, let i?): next = min(i + 1, places.count - 1)
+                case (.up, let i?): next = max(i - 1, 0)
+                case (.down, nil): next = 0
+                default: next = places.count - 1
+                }
+                focused = places[next]
+                proxy.scrollTo(places[next])
+            }
+            .onChange(of: needsYouCount) { _, count in
+                if count == 0, focused == .needsReview { focused = .all }
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            SidebarRowButton(selected: current == .settings, action: { go(.settings) }) {
+                SidebarNavLabel(title: "Settings", symbol: "gearshape", selected: current == .settings)
+            }
+            .focused($focused, equals: .settings)
+            .padding(.horizontal, 10).padding(.vertical, 8)
+        }
+        .navigationSplitViewColumnWidth(min: 180, ideal: 205, max: 280)
+    }
+
+    /// A place as a spacious, full-width button. No List selection is involved: the row is active when the path says so,
+    /// and a click calls `go` directly.
+    private func navRow(_ title: String, symbol: String, place: StudioPlace, count: Int = 0, tint: Color? = nil) -> some View {
         let selected = current == place
-        return SidebarNavLabel(title: title, symbol: symbol, selected: selected)
-            .tag(place)
-            .listRowInsets(EdgeInsets(top: 0, leading: 10, bottom: 0, trailing: 10))
-            .listRowBackground(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(selected ? Color(white: 1, opacity: 0.12) : Color.clear)
-                    .padding(.horizontal, 4)
-            )
-            .accessibilityAddTraits(selected ? .isSelected : [])
+        return SidebarRowButton(selected: selected, action: { go(place) }) {
+            SidebarNavLabel(title: title, symbol: symbol, selected: selected, count: count, tint: tint)
+        }
+        .focused($focused, equals: place)
+        .id(place)
     }
 
     private func go(_ place: StudioPlace) {
@@ -119,18 +152,60 @@ struct AppSidebar: View {
         case .templates: [.templates]
         case .inspire: [.inspire]
         case .queue: [.queue]
+        case .settings: [.settings]
         case .film(let folder): [.film(folder)]
         }
-        if store.path != target { store.path = target }
+        if place == .settings { store.openSettingsPage() } else if store.path != target { store.path = target }
+    }
+}
+
+/// A full-width sidebar button: the whole row is the hit target, the active row gets one neutral rounded shape, hover a
+/// fainter one, and keyboard focus a thin ring. Plain style, so the system never paints a blue selection.
+private struct SidebarRowButton<Label: View>: View {
+    let selected: Bool
+    let action: () -> Void
+    @ViewBuilder let label: Label
+    @State private var hovering = false
+    @Environment(\.isFocused) private var isFocused
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button(action: action) {
+            label
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .focusable()
+        .focusEffectDisabled()
+        .onKeyPress(.return) { action(); return .handled }
+        .onKeyPress(.space) { action(); return .handled }
+        .background(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(selected ? Color(white: 1, opacity: 0.12) : hovering ? Color(white: 1, opacity: 0.06) : Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .strokeBorder(Color(white: 0.6, opacity: 0.55), lineWidth: 1)
+                .opacity(isFocused ? 1 : 0)
+        )
+        .contentShape(Rectangle())
+        .onHover { inside in
+            if reduceMotion { hovering = inside } else { withAnimation(.easeOut(duration: 0.12)) { hovering = inside } }
+        }
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
 /// The shared look of a sidebar destination: an 18pt outlined icon centred in a 24pt column, 12pt gap, a 14pt medium label,
-/// 42pt tall. Active is the primary label with a lilac icon; inactive is a muted icon with a secondary label.
+/// 42pt tall, an optional count drawn at the trailing edge. Active is the primary label with a lilac icon; inactive is a
+/// muted icon (or the film's status colour) with a secondary label.
 private struct SidebarNavLabel: View {
     let title: String
     let symbol: String
     let selected: Bool
+    var count: Int = 0
+    var tint: Color? = nil
     private static let lilac = Color(red: 0.78, green: 0.71, blue: 1.0)
 
     var body: some View {
@@ -138,12 +213,21 @@ private struct SidebarNavLabel: View {
             Image(systemName: symbol)
                 .font(.system(size: 18, weight: .light))
                 .symbolRenderingMode(.monochrome)
-                .foregroundStyle(selected ? Self.lilac : Color(white: 0.58))
+                .foregroundStyle(selected ? Self.lilac : tint ?? Color(white: 0.58))
                 .frame(width: 24)
             Text(title)
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(selected ? Color.primary : Color.secondary)
-                .lineLimit(1)
+                .lineLimit(1).truncationMode(.tail)
+            Spacer(minLength: 4)
+            if count > 0 {
+                Text("\(count)")
+                    .font(.system(size: 11, weight: .semibold)).monospacedDigit()
+                    .foregroundStyle(selected ? Color.primary : Color.secondary)
+                    .padding(.horizontal, 6)
+                    .frame(minWidth: 20, minHeight: 20)
+                    .background(Color.primary.opacity(selected ? 0.16 : 0.1), in: Capsule())
+            }
         }
         .frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
         .padding(.horizontal, 6)
@@ -151,12 +235,10 @@ private struct SidebarNavLabel: View {
     }
 }
 
-/// A film in the sidebar: its name, with a small mark for its state where it says something (waiting on you, working,
-/// finished); drafts and quiet films show a plain film icon.
-private struct SidebarFilmRow: View {
-    let name: String
-    let phase: FilmPhase
-    private var mark: (String, Color) {
+/// The status mark of a film in the sidebar's Recent list: a symbol and colour for where it says something (waiting on you,
+/// working, finished); drafts and quiet films show a plain film icon.
+private enum SidebarFilmRow {
+    static func mark(for phase: FilmPhase) -> (String, Color) {
         switch phase {
         case .yourTurn: ("eye.fill", Color(nsColor: .systemOrange))
         case .needsAttention: ("exclamationmark.triangle.fill", Color(nsColor: .systemRed))
@@ -166,11 +248,6 @@ private struct SidebarFilmRow: View {
         case .paused: ("pause.circle", .secondary)
         case .draft, .inProgress, .offline: ("film", .secondary)
         }
-    }
-    var body: some View {
-        let (symbol, color) = mark
-        Label { Text(name).lineLimit(1).truncationMode(.tail) } icon: { Image(systemName: symbol).foregroundStyle(color) }
-            .help(name)
     }
 }
 
@@ -290,6 +367,7 @@ extension StudioStore {
         case .brands?: "Brands"
         case .brand(let url)?: url.lastPathComponent
         case .queue?: "Queue"
+        case .settings?: "Settings"
         case .templates?: "Templates"
         case .inspire?: "Inspiration"
         case .sample?: "Sample film"
@@ -376,7 +454,6 @@ struct AppStatusBar: View {
     @Bindable var store: StudioStore
     /// True while the sidebar is hidden, when its badges are not on screen.
     var sidebarHidden = false
-    @Environment(\.openSettings) private var openSettings
     private var agent: LocalAgent { store.settings.agent }
     private var needsYou: Int { store.activeProjects.filter { store.summary(for: $0.1).phase.needsYou }.count }
 
@@ -409,7 +486,7 @@ struct AppStatusBar: View {
         .padding(.horizontal, 16).frame(minHeight: 36)
         // A floating bar of the system's own untinted glass, like the sidebar's: it samples what is behind it, with no
         // gradient, solid fill or highlight line of ours on top. The bar itself is not interactive; its buttons are.
-        .liquidGlass(in: RoundedRectangle(cornerRadius: Workspace.glassRadius, style: .continuous), interactive: false)
+        .liquidGlass(in: Capsule(), interactive: false)
         .padding(.horizontal, Workspace.gap).padding(.top, 4).padding(.bottom, 10)
     }
 
@@ -438,7 +515,7 @@ struct AppStatusBar: View {
             HStack(spacing: 8) {
                 Circle().fill(Color(nsColor: .systemGreen)).frame(width: 8, height: 8)
                 Text("Ready for a film").font(.system(size: 12, weight: .medium))
-                Button { openSettings() } label: { Text("\(agent.title) · \(store.settings.pace.title) pace").foregroundStyle(.secondary) }
+                Button { store.openSettingsPage() } label: { Text("\(agent.title) · \(store.settings.pace.title) pace").foregroundStyle(.secondary) }
                     .help("Change the director or pace in Settings")
             }
         } else {

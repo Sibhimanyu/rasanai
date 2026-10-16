@@ -15,6 +15,7 @@ enum Route: Hashable {
     case templates
     case inspire
     case library(LibraryMode)
+    case settings
 }
 
 /// Everything the app needs to say about one film, in one place.
@@ -525,6 +526,12 @@ final class StudioStore {
     }
     func openBrands() { if path.last != .brands { path.append(.brands) } }
     func goHome() { path = [] }
+    /// Settings is a page like the others: a sheet over the window (Readiness) steps aside, and the page replaces the
+    /// current one through `path`, so it lands in the same back/forward history. The director is not touched.
+    func openSettingsPage() {
+        if sheet != nil { sheet = nil }
+        if path != [.settings] { path = [.settings] }
+    }
     func exploreSample() { loadSample(); if path.last != .sample { path = [.sample] } }
     func clearRecentRuns() {
         recentRuns = []; UserDefaults.standard.removeObject(forKey: "recentRuns")

@@ -9,7 +9,7 @@ final class CallNoticesTests: XCTestCase {
 
     func testStoriesReadyNamesCountFilmAndPick() throws {
         let notice = try XCTUnwrap(CallNotices.notice(from: snap(working), to: snap(stories), film: "Tally launch film"))
-        XCTAssertEqual(notice.title, "Three stories are ready for Tally launch film")
+        XCTAssertEqual(notice.title, "Kavi has three scripts for you")
         XCTAssertTrue(notice.body.contains("Claude's pick: Twelve small victories"))
         XCTAssertEqual(notice.id, "call-story")
     }
@@ -40,9 +40,9 @@ final class CallNoticesTests: XCTestCase {
 
     func testOtherCallsGetTheirOwnWords() throws {
         let look = #"{"current":"look","steps":{"brief":{"status":"done","fields":{"subject":"x"}},"look":{"status":"awaiting","styles":[{"id":"1","name":"Paper"},{"id":"2","name":"Ink"},{"id":"3","name":"Glass"}]}}}"#
-        XCTAssertEqual(CallNotices.notice(from: snap(stories), to: snap(look), film: "Tally")?.title, "Three looks are ready for Tally")
+        XCTAssertEqual(CallNotices.notice(from: snap(stories), to: snap(look), film: "Tally")?.title, "Chitra has three looks ready")
         let animatic = #"{"current":"animatic","steps":{"animatic":{"status":"awaiting"}}}"#
-        XCTAssertEqual(CallNotices.notice(from: snap(look), to: snap(animatic), film: "Tally")?.title, "The animatic is ready for Tally")
+        XCTAssertEqual(CallNotices.notice(from: snap(look), to: snap(animatic), film: "Tally")?.title, "Laya's first cut is ready")
         let music = #"{"current":"music","steps":{"music":{"status":"awaiting"}}}"#
         XCTAssertEqual(CallNotices.notice(from: snap(animatic), to: snap(music), film: "Tally")?.body, "Time to pick the music.")
     }

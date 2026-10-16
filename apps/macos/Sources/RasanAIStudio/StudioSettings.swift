@@ -64,10 +64,19 @@ final class StudioSettings {
     }
     func saveEditorDraft(_ draft: FilmEditorDraft, for project: URL?) {
         if draft.isEmpty { clearEditorDraft(for: project); return }
-        do { editorDrafts[editorKey(project)] = try JSONEncoder().encode(draft) }
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .sortedKeys   // stable bytes, so an unchanged draft compares equal
+            let data = try encoder.encode(draft)
+            let key = editorKey(project)
+            if editorDrafts[key] != data { editorDrafts[key] = data }
+        }
         catch { self.error = "Your draft could not be saved. \(error.localizedDescription)" }
     }
-    func clearEditorDraft(for project: URL?) { editorDrafts.removeValue(forKey: editorKey(project)) }
+    func clearEditorDraft(for project: URL?) {
+        let key = editorKey(project)
+        if editorDrafts[key] != nil { editorDrafts.removeValue(forKey: key) }
+    }
     func hasConsent(_ agent: LocalAgent) -> Bool { agentConsent[agent.id] == true }
     func giveConsent(_ agent: LocalAgent) { agentConsent[agent.id] = true }
     private let defaults: UserDefaults
@@ -289,21 +298,63 @@ struct StudioSettingsView: View {
     @Bindable var settings: StudioSettings
     @ObservedObject private var updater = StudioUpdater.shared
     @State private var tab: String
-    init(settings: StudioSettings, initialTab: String = "general") { self.settings = settings; _tab = State(initialValue: initialTab) }
+    /// True when this is the Settings page in the main window (full size, page header); false keeps the fixed-size tabbed
+    /// panel the snapshot harness renders.
+    private let page: Bool
+    init(settings: StudioSettings, initialTab: String = "general", page: Bool = false) {
+        self.settings = settings; self.page = page; _tab = State(initialValue: initialTab)
+    }
     @State private var showAdvanced = false
 
     var body: some View {
+        Group {
+            if page { pageBody } else { panelBody }
+        }
+        .preferredColorScheme(settings.colorScheme)
+        .tint(page ? Color(nsColor: .controlAccentColor) : .rasan)
+        .alert("Settings", isPresented: Binding(get: { settings.error != nil }, set: { if !$0 { settings.error = nil } })) {
+            Button("OK") { settings.error = nil }
+        } message: { Text(settings.error ?? "") }
+    }
+
+    private var panelBody: some View {
         TabView(selection: $tab) {
             general.tabItem { Label("General", systemImage: "gearshape") }.tag("general")
             director.tabItem { Label("Director", systemImage: "wand.and.stars") }.tag("director")
         }
         .frame(width: 520, height: tab == "general" ? 470 : 500)
         .animation(.snappy, value: tab)
-        .preferredColorScheme(settings.colorScheme)
-        .tint(.rasan)
-        .alert("Settings", isPresented: Binding(get: { settings.error != nil }, set: { if !$0 { settings.error = nil } })) {
-            Button("OK") { settings.error = nil }
-        } message: { Text(settings.error ?? "") }
+    }
+
+    /// The page: one header (title, then the General / Director switch) on the same leading edge as the grouped forms, in a
+    /// centred column. The form owns the scrolling and its own background is hidden so the canvas runs through.
+    private var pageBody: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Settings")
+                    .font(.system(size: 28, weight: .semibold)).tracking(-0.4)
+                    .accessibilityAddTraits(.isHeader)
+                Picker("Settings", selection: $tab) {
+                    Text("General").tag("general")
+                    Text("Director").tag("director")
+                }
+                .pickerStyle(.segmented).labelsHidden().fixedSize()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20).padding(.top, 32).padding(.bottom, 4)
+            .frame(maxWidth: 700)
+            .frame(maxWidth: .infinity)
+            Group {
+                if tab == "general" { general } else { director }
+            }
+            .scrollContentBackground(.hidden)
+            .buttonStyle(.bordered).controlSize(.small)   // native buttons inside the forms, not the page's brand style
+            .frame(maxWidth: 700)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.appBackground)
+        .pageHeader("Settings")
     }
 
     private var general: some View {
@@ -322,9 +373,8 @@ struct StudioSettingsView: View {
                 Toggle("Notify me when RasanAI needs me", isOn: Binding(
                     get: { settings.notificationsEnabled },
                     set: { enabled in Task { await settings.setNotificationsEnabled(enabled) } }))
-            } footer: {
+            } header: { Text("Studio") } footer: {
                 Text("Films and brands live in the library as ordinary folders.")
-                    .font(.callout).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
             }
             Section("Updates") {
                 Toggle("Check automatically", isOn: Binding(get: { updater.automaticChecks }, set: { updater.setAutomaticChecks($0) }))
@@ -336,7 +386,7 @@ struct StudioSettingsView: View {
                     }
                 }
             }
-            Section {
+            Section("About") {
                 LabeledContent("Version", value: settings.appVersion)
             }
         }.formStyle(.grouped)
@@ -349,7 +399,7 @@ struct StudioSettingsView: View {
                 Picker("Director", selection: $settings.defaultAgent) {
                     Text("Claude Code").tag(LocalAgent.claude.id)
                     Text("Codex").tag(LocalAgent.codex.id)
-                }.pickerStyle(.segmented)
+                }.pickerStyle(.menu)
                 if agent != .custom {
                     LabeledContent("Found at") {
                         HStack(spacing: 8) {
@@ -366,14 +416,14 @@ struct StudioSettingsView: View {
                     }
                 }
                 statusLine(agent)
-            } footer: {
+            } header: { Text("Director account") } footer: {
                 Text("RasanAI directs with your \(agent.title) account. Usage counts toward your plan.")
             }
             Section {
                 Picker("Pace", selection: $settings.pace) {
                     ForEach(FilmPace.allCases) { Text($0.title).tag($0) }
-                }.pickerStyle(.segmented)
-            } footer: {
+                }.pickerStyle(.menu)
+            } header: { Text("Film defaults") } footer: {
                 Text("How fast the director works. \(settings.pace.summary) You can change it for one film on the Pace button in New film.")
             }
             Section {
@@ -388,11 +438,11 @@ struct StudioSettingsView: View {
             }
             Section {
                 BudgetSetting(settings: settings)
-            } footer: {
+            } header: { Text("Budget") } footer: {
                 Text("RasanAI shows the director's tokens and cost for each film. Dollar figures marked est. are calculated from list prices.")
             }
-            Section {
-                DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
+            Section("Advanced") {
+                DisclosureGroup("Developer options", isExpanded: $showAdvanced) {
                     Toggle("Allow unrestricted tools", isOn: $settings.allowUnrestrictedTools)
                     if settings.allowUnrestrictedTools {
                         Text("The director can read and change files outside the film's folder. Only use this on films you trust.")

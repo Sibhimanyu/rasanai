@@ -13,61 +13,95 @@ final class MomentGallery {
     var state: State = .idle
     /// True while the list on screen is the saved copy because the network was unreachable.
     var showingSavedCopy = false
+    private(set) var isRefreshing = false
     var technique: Technique?
     var mechanic: String?
     var onlyNew = false
+    var searchQuery = ""
     /// The one card that is playing its clip right now.
     private(set) var playingID: String?
 
     private let autoload: Bool
     private let loader: @Sendable () async throws -> MomentCatalog.Loaded
+    private let cachedLoader: @Sendable () -> [Moment]
+    @ObservationIgnored private var cacheTask: Task<[Moment], Never>?
     private var refreshed = false
-    private var hoverTask: Task<Void, Never>?
+    @ObservationIgnored private var hoverTask: Task<Void, Never>?
+    @ObservationIgnored private var scrollTask: Task<Void, Never>?
+    @ObservationIgnored private var hoveredID: String?
+    @ObservationIgnored private var lastScroll = ContinuousClock.now
+    @ObservationIgnored private var scrolling = false
+    private let hoverDelay: Duration
+    private let scrollIdle: Duration
+    private let allowsHoverMotion: @MainActor () -> Bool
 
-    init(autoload: Bool = true, loader: @escaping @Sendable () async throws -> MomentCatalog.Loaded = { try await MomentCatalog.load() }) {
-        self.autoload = autoload; self.loader = loader
+    init(autoload: Bool = true, loader: @escaping @Sendable () async throws -> MomentCatalog.Loaded = { try await MomentCatalog.load() },
+         cachedLoader: @escaping @Sendable () -> [Moment] = { MomentCatalog.loadCached() },
+         hoverDelay: Duration = .milliseconds(260), scrollIdle: Duration = .milliseconds(220),
+         allowsHoverMotion: @escaping @MainActor () -> Bool = { !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }) {
+        self.autoload = autoload; self.loader = loader; self.cachedLoader = cachedLoader
+        self.hoverDelay = hoverDelay; self.scrollIdle = scrollIdle; self.allowsHoverMotion = allowsHoverMotion
     }
 
     func moment(_ id: String) -> Moment? { moments.first { $0.id == id } }
 
-    /// Shows the saved copy at once if there is one (no network), so credits and chips resolve instantly.
+    /// Read and parse the saved copy off the UI thread. Callers can request priming without blocking navigation.
     func prime() {
-        guard autoload, moments.isEmpty else { return }
-        let cached = MomentCatalog.loadCached()
-        if !cached.isEmpty { moments = cached; state = .ready; showingSavedCopy = true }
+        guard autoload, moments.isEmpty, cacheTask == nil else { return }
+        let load = cachedLoader
+        let task = Task.detached(priority: .userInitiated) { load() }
+        cacheTask = task
+        Task { [weak self] in
+            let cached = await task.value
+            self?.publishCached(cached)
+        }
+    }
+
+    private func publishCached(_ cached: [Moment]) {
+        guard moments.isEmpty, !cached.isEmpty else { return }
+        moments = cached; state = .ready; showingSavedCopy = true
     }
 
     /// Saved copy first, then one fresh fetch per session. A failed fetch keeps whatever is on screen.
     func loadIfNeeded() async {
-        guard autoload, state != .loading, !refreshed || moments.isEmpty else { return }
+        guard autoload, !isRefreshing, !refreshed || moments.isEmpty else { return }
         prime()
+        if let cacheTask { publishCached(await cacheTask.value) }
+        guard !Task.isCancelled, !isRefreshing, !refreshed || moments.isEmpty else { return }
         await reload()
     }
     func reload() async {
-        guard autoload, state != .loading else { return }
+        guard autoload, !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
         let hadMoments = !moments.isEmpty
         if !hadMoments { state = .loading }
+        let load = loader
+        let worker = Task.detached(priority: .userInitiated) { try await load() }
         do {
-            let loaded = try await loader()
+            let loaded = try await withTaskCancellationHandler { try await worker.value } onCancel: { worker.cancel() }
+            guard !Task.isCancelled else { state = moments.isEmpty ? .idle : .ready; return }
             moments = loaded.moments
             showingSavedCopy = loaded.source == .cache
             state = .ready
             refreshed = true
         } catch {
-            state = hadMoments ? .ready : .failed
-            if hadMoments { showingSavedCopy = true }
+            state = moments.isEmpty ? (Task.isCancelled ? .idle : .failed) : .ready
+            if !moments.isEmpty { showingSavedCopy = true }
         }
     }
 
     // MARK: Filters
 
     var filtered: [Moment] {
-        moments.filter { moment in
+        let terms = searchQuery.split(whereSeparator: \.isWhitespace).map(String.init)
+        return moments.filter { moment in
             (technique == nil || moment.techniques.contains(technique!)) && (mechanic == nil || moment.mechanic.contains(mechanic!)) && (!onlyNew || moment.isNew)
+                && terms.allSatisfy { moment.searchText.localizedStandardContains($0) }
         }
     }
-    var hasFilters: Bool { technique != nil || mechanic != nil || onlyNew }
-    func clearFilters() { technique = nil; mechanic = nil; onlyNew = false }
+    var hasFilters: Bool { technique != nil || mechanic != nil || onlyNew || !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    func clearFilters() { technique = nil; mechanic = nil; onlyNew = false; searchQuery = "" }
     var newCount: Int { moments.filter(\.isNew).count }
     func count(for technique: Technique?) -> Int { moments.filter { technique == nil || $0.techniques.contains(technique!) }.count }
     /// The technique groups that have at least one move, in a fixed order.
@@ -105,20 +139,53 @@ final class MomentGallery {
 
     // MARK: Hover playback
 
-    /// A short pause before playing, so sweeping the pointer across the grid does not start a clip on every card.
-    /// With Reduce Motion on, the still stays; a click still opens the viewer.
-    func hoverBegan(_ id: String) {
-        hoverTask?.cancel()
-        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
-        hoverTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(260))
-            guard !Task.isCancelled else { return }
-            self?.playingID = id
+    /// Scrolling never creates video players. Remember the hovered card and wait for the gesture,
+    /// including momentum, to settle before starting its usual hover dwell.
+    func noteScrollActivity() {
+        lastScroll = .now
+        guard !scrolling else { return }
+        scrolling = true
+        stopPlaying()
+        scrollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .milliseconds(80)) } catch { return }
+                guard let self else { return }
+                if self.lastScroll.duration(to: .now) >= self.scrollIdle {
+                    self.scrolling = false
+                    self.scrollTask = nil
+                    self.scheduleHover()
+                    return
+                }
+            }
         }
     }
-    func hoverEnded(_ id: String) {
+
+    func hoverBegan(_ id: String) {
+        hoveredID = id
+        scheduleHover()
+    }
+
+    private func scheduleHover() {
         hoverTask?.cancel()
+        guard let id = hoveredID, !scrolling, viewingID == nil, allowsHoverMotion() else { return }
+        let delay = hoverDelay
+        hoverTask = Task { [weak self] in
+            do { try await Task.sleep(for: delay) } catch { return }
+            guard let self, !Task.isCancelled, !self.scrolling, self.hoveredID == id,
+                  self.viewingID == nil, self.allowsHoverMotion() else { return }
+            self.playingID = id
+        }
+    }
+
+    func hoverEnded(_ id: String) {
+        // A delayed exit from an old cell must not cancel the new cell's dwell.
+        if hoveredID == id { hoveredID = nil; hoverTask?.cancel() }
         if playingID == id { playingID = nil }
     }
     func stopPlaying() { hoverTask?.cancel(); playingID = nil }
+    func endInteraction() {
+        stopPlaying()
+        hoveredID = nil
+        scrollTask?.cancel(); scrollTask = nil; scrolling = false
+    }
 }

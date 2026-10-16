@@ -6,7 +6,6 @@ import Heresay
 /// The window's root: a NavigationStack with Home at the bottom. No sidebars, no inspectors.
 struct StudioView: View {
     @Bindable var store: StudioStore
-    @Environment(\.openSettings) private var openSettings
 
     init(store: StudioStore) {
         self.store = store
@@ -21,7 +20,7 @@ struct StudioView: View {
     }
 
     @AppStorage("studio.sidebarHidden") private var sidebarHidden = false
-    /// The split view's own state, so its toggle (and ⌃⌘S) runs the system's slide. Binding it straight to the stored setting
+    /// The split view's own state, so its toggle (and ⌘B) runs the system's slide. Binding it straight to the stored setting
     /// dropped the animation's transaction and made the sidebar snap; the setting is only written back afterwards.
     @State private var columns: NavigationSplitViewVisibility = .all
     @State private var isFullScreen = false
@@ -36,8 +35,9 @@ struct StudioView: View {
         NavigationSplitView(columnVisibility: $columns) {
             AppSidebar(store: store)
         } detail: {
-            VStack(spacing: 0) {
-                stack
+            stack
+            .safeAreaPadding(.bottom, showsStatusBar && !store.path.isEmpty ? 50 : 0)
+            .overlay(alignment: .bottom) {
                 if showsStatusBar { AppStatusBar(store: store, sidebarHidden: columns == .detailOnly) }
             }
             .background(Color.appBackground)
@@ -62,6 +62,23 @@ struct StudioView: View {
         case .inspire: GetInspiredPage(store: store)
         case .sample: SamplePage(store: store)
         case .library(let mode): HomeView(store: store, mode: mode)
+        case .settings: StudioSettingsView(settings: store.settings, page: true)
+        }
+    }
+
+    private func loadingTitle(for route: Route?) -> String {
+        switch route {
+        case nil: "Films"
+        case .newFilm?: "New film"
+        case .film?: "Film"
+        case .brands?: "Brands"
+        case .brand?: "Brand"
+        case .queue?: "Queue"
+        case .templates?: "Templates"
+        case .inspire?: "Inspiration"
+        case .sample?: "Sample film"
+        case .library(let mode)?: mode.title
+        case .settings?: "Settings"
         }
     }
 
@@ -79,10 +96,12 @@ struct StudioView: View {
                 if store.path != path { store.path = path }
             })
         return NavigationStack(path: pushed) {
-            Group {
+            ResponsivePage(title: loadingTitle(for: root)) {
                 if let root { page(root) } else { HomeView(store: store) }
             }
-            .navigationDestination(for: Route.self) { page($0) }
+            .navigationDestination(for: Route.self) { route in
+                ResponsivePage(title: loadingTitle(for: route)) { page(route) }
+            }
         }
         .id(root)
         .tint(.rasan)
@@ -159,7 +178,7 @@ struct StudioView: View {
     /// The most relevant two recovery actions for the current error.
     private var errorActions: [ErrorAction] {
         var actions: [ErrorAction] = []
-        if errorNeedsSettings(store.errorMessage) { actions.append(ErrorAction(title: "Open Settings") { openSettings() }) }
+        if errorNeedsSettings(store.errorMessage) { actions.append(ErrorAction(title: "Open Settings") { store.openSettingsPage() }) }
         if store.runURL != nil && !store.isConnected { actions.append(ErrorAction(title: "Reload film") { store.reloadFilm() }) }
         if store.canResume { actions.append(ErrorAction(title: "Resume Director") { store.resumeDirector() }) }
         if store.runtime.logURL != nil { actions.append(ErrorAction(title: "Show Log") { store.sheet = .log }) }
@@ -206,7 +225,8 @@ private struct LaunchFocus: ViewModifier {
             .background(WindowSplashCover(active: !focused, fade: focusDuration, delay: focusDelay) {
                 SplashMark(agent: agent, waiting: held && !loaded)
             })
-            .onAppear { loaded = ready; hold() }
+            // Offscreen snapshots capture the library, not the launch splash.
+            .onAppear { if SnapshotHarness.directory != nil { held = true; loaded = true; focused = true; return }; loaded = ready; hold() }
             .onChange(of: ready) { loaded = ready; revealIfDone() }
     }
 

@@ -31,6 +31,9 @@ struct HomeView: View {
     @State private var renameFolder: URL?
     @State private var renameName = ""
     @State private var trashFolder: URL?
+    /// The prompt and the same film cards remain mounted through the whole reveal.
+    @State private var browsing = false
+    @State private var gate = HomeScrollGate()
 
     private var sort: HomeSort { HomeSort(rawValue: sortRaw) ?? .recent }
     private var asList: Bool { layoutRaw == "list" }
@@ -63,39 +66,18 @@ struct HomeView: View {
     }
     /// Films that are stopped until the person acts.
     private var needsYou: [(LocalProject, URL)] { films.filter { store.summary(for: $0.1).phase.needsYou } }
-    /// The film Home leads with: the first one waiting on the person, else the latest one still in the works.
-    private var featured: (LocalProject, URL)? {
-        needsYou.first ?? films.sorted { stamp($0) > stamp($1) }.first { !store.summary(for: $0.1).isFinished }
+    private var workspaceFilms: [(LocalProject, URL)] {
+        Array(films.sorted { a, b in
+            let first = HomeWorkspaceRules.priority(store.summary(for: a.1).phase)
+            let second = HomeWorkspaceRules.priority(store.summary(for: b.1).phase)
+            return first == second ? stamp(a) > stamp(b) : first < second
+        }.prefix(6))
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 32) {
-                switch mode {
-                case nil:
-                    composer
-                    if let featured { featuredSection(featured) }
-                    if !films.isEmpty { filmsSection(title: "Recent films", items: Array(films.filter { $0.1 != featured?.1 }.prefix(6)), showAll: films.count > 7) }
-                case .all?:
-                    PageTitle(text: "All films").padding(.bottom, -14)
-                    filmsSection(title: archived ? "Archived films" : nil, items: films, showAll: false)
-                case .needsReview?:
-                    PageTitle(text: "Needs review").padding(.bottom, -14)
-                    if needsYou.isEmpty {
-                        ContentUnavailableView("Nothing needs you", systemImage: "checkmark.circle",
-                                               description: Text("When a film is waiting for one of your calls, it shows up here."))
-                            .frame(maxWidth: .infinity, minHeight: 320)
-                    }
-                    ForEach(needsYou, id: \.0.id) { project, folder in
-                        FeaturedFilmCard(name: project.name, summary: store.summary(for: folder)) { open(folder) } menu: { menu(project, folder) }
-                            .contextMenu { menu(project, folder) }
-                            .onDeleteCommand { trashFolder = folder }
-                    }
-                }
-            }
-            .pageColumn()
+        Group {
+            if mode == nil { homePage } else { libraryPage }
         }
-        .scrollIndicators(.automatic)
         .background(Color.appBackground)
         .navigationTitle(mode?.title ?? "Home")
         .pageHeader(mode?.title ?? "Home") {
@@ -120,35 +102,189 @@ struct HomeView: View {
         } message: { Text("You can put it back from the Trash in Finder.") }
     }
 
+    /// One persistent workspace rises through a stationary soft viewport mask. No material rectangle expands, no poster
+    /// changes parents or turns into a different card. The prompt remains mounted so its draft and selection survive.
+    private var homePage: some View {
+        let hasFilms = !workspaceFilms.isEmpty
+        let showFilms = browsing && hasFilms
+        return GeometryReader { viewport in
+            let metrics = HomeTransitionMetrics(browsing: showFilms, reduceMotion: reduceMotion, viewportHeight: viewport.size.height, viewportWidth: viewport.size.width)
+            ZStack {
+                HomeAmbientGlow(viewportHeight: viewport.size.height)
+                promptLayer(metrics, height: viewport.size.height)
+                if hasFilms {
+                    filmsLayer(metrics, height: viewport.size.height)
+                        .zIndex(1)
+                    HomePeekOpener(expanded: showFilms) { setBrowsing(true) }
+                        .zIndex(2)
+                }
+            }
+            .frame(width: viewport.size.width, height: viewport.size.height)
+            .clipped()
+            .animation(HomeTransitionMetrics.travel(reduceMotion: reduceMotion), value: showFilms)
+        }
+        .background(HomeScrollMonitor(gate: gate))
+        .onAppear { syncGate(hasFilms: hasFilms) }
+        .onChange(of: hasFilms) { _, now in syncGate(hasFilms: now); if !now { browsing = false } }
+        .onChange(of: browsing) { _, _ in syncGate(hasFilms: hasFilms) }
+        .onDisappear {
+            gate.enabled = false
+            gate.onTrigger = { _ in }
+            gate.filmsScroll = nil
+        }
+    }
+
+    private func syncGate(hasFilms: Bool) {
+        gate.enabled = hasFilms
+        gate.browsing = browsing && hasFilms
+        gate.onTrigger = { direction in setBrowsing(direction == .towardFilms) }
+    }
+
+    /// Opening the films first takes the keyboard away from the (hidden, still mounted) prompt, so nothing types into it.
+    private func setBrowsing(_ value: Bool) {
+        guard value != browsing else { return }
+        if value {
+            guard !workspaceFilms.isEmpty else { return }
+            NSApp.keyWindow?.makeFirstResponder(nil)
+        }
+        browsing = value
+    }
+
+    private func promptLayer(_ metrics: HomeTransitionMetrics, height: CGFloat) -> some View {
+        // Scrolls only when the brief outgrows a short window; otherwise it is a fixed, centered page.
+        ScrollView {
+            VStack(spacing: 0) {
+                Spacer(minLength: 24)
+                composer
+                Spacer(minLength: 24)
+            }
+            .padding(.horizontal, Self.columnInset)
+            // Keep the prompt's position steady while the library loads, including an initially empty library.
+            .padding(.bottom, HomeTransitionMetrics.promptClearance)
+            .frame(maxWidth: Self.columnWidth + 2 * Self.columnInset, minHeight: height)
+            .frame(maxWidth: .infinity)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .opacity(metrics.promptOpacity).animation(HomeTransitionMetrics.promptFade, value: metrics.browsing)
+        .offset(y: metrics.promptOffset)
+        .allowsHitTesting(!metrics.browsing).accessibilityHidden(metrics.browsing).disabled(metrics.browsing)
+    }
+
+    private func filmsLayer(_ metrics: HomeTransitionMetrics, height: CGFloat) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: HomeTransitionMetrics.workspaceGap) {
+                workspaceHeader
+                    .frame(height: HomeTransitionMetrics.workspaceHeaderHeight, alignment: .top)
+                    .modifier(HomeWorkspaceChrome(expanded: metrics.browsing))
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16, alignment: .top), count: 3), alignment: .center, spacing: 20) {
+                    ForEach(workspaceFilms, id: \.1) { project, folder in
+                        let summary = store.summary(for: folder)
+                        HomeWorkspaceCard(name: project.name, summary: summary, expanded: metrics.browsing) {
+                            if case .queued = summary.phase { store.path = [.queue] } else { open(folder) }
+                        }
+                        .contextMenu { menu(project, folder) }
+                        .onDeleteCommand { trashFolder = folder }
+                    }
+                }
+            }
+            .padding(.horizontal, Self.columnInset).padding(.top, HomeTransitionMetrics.workspaceTopPadding).padding(.bottom, 100)
+            .frame(maxWidth: Self.columnWidth + 2 * Self.columnInset, minHeight: height, alignment: .top)
+            .frame(maxWidth: .infinity)
+            .background(HomeFilmsScrollProbe(gate: gate))
+        }
+        .scrollIndicators(.automatic)
+        .scrollClipDisabled()
+        .frame(height: height)
+        .offset(y: metrics.workspaceOffset)
+        .opacity(metrics.workspaceOpacity)
+        .mask { HomeViewportFade() }
+        .overlay(alignment: .top) {
+            HomeReturnButton { setBrowsing(false) }.padding(.top, 12)
+                .modifier(HomeWorkspaceChrome(expanded: metrics.browsing))
+        }
+        .allowsHitTesting(metrics.browsing).accessibilityHidden(!metrics.browsing).disabled(!metrics.browsing)
+    }
+
+    private var workspaceHeader: some View {
+        let decisions = films.filter { store.summary(for: $0.1).phase.callsForYou }.count
+        return HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Pick up where you left off").font(.system(size: 25, weight: .semibold)).tracking(-0.5)
+                    .accessibilityAddTraits(.isHeader)
+                Text(decisions > 0 ? (decisions == 1 ? "One film needs your attention." : "\(decisions) films need your attention.") : "Continue a brief, follow progress, or watch your latest work.")
+                    .font(.system(size: 13)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            Button("All films") { store.path = [.library(.all)] }
+                .buttonStyle(.rasanSecondary).controlSize(.small)
+        }
+    }
+
+    /// Library pages keep their wide layout.
+    private var libraryPage: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 32) {
+                if store.isLoadingProjects {
+                    PageLoadingView(title: mode?.title ?? "films", gallery: true)
+                } else {
+                    switch mode {
+                    case nil:
+                        EmptyView()
+                    case .all?:
+                        PageTitle(text: "All films").padding(.bottom, -14)
+                        filmsSection(title: archived ? "Archived films" : nil, items: films, showAll: false)
+                    case .needsReview?:
+                        PageTitle(text: "Needs review").padding(.bottom, -14)
+                        if needsYou.isEmpty {
+                            ContentUnavailableView("Nothing needs you", systemImage: "checkmark.circle",
+                                                   description: Text("When a film is waiting for one of your calls, it shows up here."))
+                                .frame(maxWidth: .infinity, minHeight: 320)
+                        }
+                        ForEach(needsYou, id: \.0.id) { project, folder in
+                            FeaturedFilmCard(name: project.name, summary: store.summary(for: folder)) { open(folder) } menu: { menu(project, folder) }
+                                .contextMenu { menu(project, folder) }
+                                .onDeleteCommand { trashFolder = folder }
+                        }
+                    }
+                }
+            }
+            .pageColumn()
+        }
+        .scrollIndicators(.automatic)
+    }
+
+    // Home geometry: one 720pt reading column with 32pt gutters for every section.
+    private static let columnWidth = HomeTransitionMetrics.columnWidth, columnInset = HomeTransitionMetrics.columnInset
+    private static let bottomGap: CGFloat = 40
+
     // MARK: Sections
 
     /// Home starts with a brief; Continue carries the shared draft into a focused setup review.
     private var composer: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("What would you like to make?").font(.system(size: 30, weight: .semibold)).tracking(-0.5).accessibilityAddTraits(.isHeader)
-                Text("An idea, a link, or a few words is enough.").font(.system(size: 15)).foregroundStyle(.secondary)
+        VStack(spacing: 28) {
+            VStack(spacing: 8) {
+                Text("What would you like to make?").font(.system(size: 28, weight: .regular)).tracking(-0.4).multilineTextAlignment(.center).accessibilityAddTraits(.isHeader)
+                Text("An idea, a link, or a few words is enough.").font(.system(size: 14)).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
-            NewFilmView(store: store, project: nil, embedded: true)
+            .frame(maxWidth: .infinity)
+            VStack(spacing: -34) {
+                // The crew sit on the prompt's rim and watch the pointer, then the caret while you type. Decorative: clicks
+                // and keyboard focus belong to the editor.
+                // they stand on the rim: only the soles of their feet tuck behind the box
+                HomeCrewLineup(isAway: browsing)
+                    .frame(width: 560, height: 131, alignment: .bottom)
+                    .padding(.bottom, 26)
+                    .frame(maxWidth: .infinity)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                NewFilmView(store: store, project: nil, embedded: true)
+            }
         }
-        .frame(maxWidth: 780, alignment: .leading)
         .frame(maxWidth: .infinity)
-        .padding(.top, 24)
-    }
-
-    private func featuredSection(_ item: (LocalProject, URL)) -> some View {
-        let waiting = needsYou.count
-        return VStack(alignment: .leading, spacing: 14) {
-            Text(waiting == 0 ? "Latest film" : waiting == 1 ? "Waiting for your review" : "\(waiting) films are waiting for you")
-                .font(.system(size: 20, weight: .bold)).tracking(-0.3).accessibilityAddTraits(.isHeader)
-            FeaturedFilmCard(name: item.0.name, summary: store.summary(for: item.1)) { open(item.1) } menu: { menu(item.0, item.1) }
-                .contextMenu { menu(item.0, item.1) }
-                .onDeleteCommand { trashFolder = item.1 }
-        }
     }
 
     /// A film list with its own view and sort controls. A page that already has a title passes none.
-    private func filmsSection(title: String?, items: [(LocalProject, URL)], showAll: Bool) -> some View {
+    private func filmsSection(title: String?, items: [(LocalProject, URL)], showAll: Bool, home: Bool = false, hero: HomeHero? = nil) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 if let title { Text(title).font(.system(size: 20, weight: .bold)).tracking(-0.3).accessibilityAddTraits(.isHeader) }
@@ -162,23 +298,24 @@ struct HomeView: View {
                 }
                 .pickerStyle(.menu).fixedSize().help("Sort films")
             }
+            .modifier(HomeReveal(hero: hero))
             if items.isEmpty {
                 emptyState.frame(maxWidth: .infinity, minHeight: 320)
             } else if asList {
                 VStack(spacing: 0) {
                     ForEach(Array(items.enumerated()), id: \.element.0.id) { index, item in
-                        if index > 0 { Divider() }
-                        FilmListRow(name: item.0.name, summary: store.summary(for: item.1)) { open(item.1) } menu: { menu(item.0, item.1) }
+                        if index > 0 { Divider().modifier(HomeReveal(hero: hero)) }
+                        FilmListRow(name: item.0.name, summary: store.summary(for: item.1), compact: home, hero: hero, posterID: item.1) { open(item.1) } menu: { menu(item.0, item.1) }
                             .contextMenu { menu(item.0, item.1) }
                             .onDeleteCommand { trashFolder = item.1 }
                     }
                 }
-                .workspacePanel()
+                .background { Rectangle().fill(.clear).workspacePanel().modifier(HomeReveal(hero: hero)) }
                 .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 440), spacing: 16, alignment: .top)], spacing: 16) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: home ? 220 : 440), spacing: 16, alignment: .top)], spacing: 16) {
                     ForEach(items, id: \.0.id) { project, folder in
-                        FilmTile(name: project.name, summary: store.summary(for: folder)) { open(folder) } menu: { menu(project, folder) }
+                        FilmTile(name: project.name, summary: store.summary(for: folder), stacked: home, hero: hero, posterID: folder) { open(folder) } menu: { menu(project, folder) }
                             .contextMenu { menu(project, folder) }
                             .onDeleteCommand { trashFolder = folder }
                             .dropDestination(for: URL.self) { urls, _ in store.importSources(urls.filter(\.isFileURL), into: folder) }
@@ -274,7 +411,7 @@ struct FilmStatusBadge: View {
 
 /// The shape on a card (the length is on the poster), and "Updated 12 min ago" on its own.
 private func filmFacts(_ summary: FilmSummary) -> String { filmFacts(duration: nil, aspect: summary.aspect) }
-private func updatedLine(_ summary: FilmSummary) -> String? {
+func updatedLine(_ summary: FilmSummary) -> String? {
     guard let date = summary.updatedAt else { return nil }
     let formatter = RelativeDateTimeFormatter(); formatter.unitsStyle = .full
     return abs(date.timeIntervalSinceNow) < 45 ? "Updated just now" : "Updated " + formatter.localizedString(for: date, relativeTo: Date())
@@ -284,6 +421,7 @@ private func updatedLine(_ summary: FilmSummary) -> String? {
 private struct PosterWithTime: View {
     let name: String
     let summary: FilmSummary
+    var hero: HomeHero? = nil
     var body: some View {
         FilmThumbnail(name: name, poster: summary.poster)
             .overlay(alignment: .bottomTrailing) {
@@ -291,6 +429,7 @@ private struct PosterWithTime: View {
                     Text(clockText(Double(duration))).font(.system(size: 12, weight: .semibold)).monospacedDigit().foregroundStyle(.white)
                         .padding(.horizontal, 7).padding(.vertical, 3).background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
                         .padding(8)
+                        .modifier(HomeReveal(hero: hero))
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -301,6 +440,11 @@ private struct PosterWithTime: View {
 struct FeaturedFilmCard<Menu: View>: View {
     let name: String
     let summary: FilmSummary
+    /// Home passes a narrower poster so the card fits its reading column.
+    var posterWidth: CGFloat = 320
+    /// Home's reveal: matches the poster with the preview's and holds the card's chrome back until it lands.
+    var hero: HomeHero? = nil
+    var posterID: URL? = nil
     let action: () -> Void
     @ViewBuilder var menu: () -> Menu
     @State private var hovering = false
@@ -324,7 +468,7 @@ struct FeaturedFilmCard<Menu: View>: View {
     }
     var body: some View {
         HStack(alignment: .top, spacing: 18) {
-            PosterWithTime(name: name, summary: summary).frame(width: 320)
+            PosterWithTime(name: name, summary: summary, hero: hero).frame(width: posterWidth).matchedPoster(posterID, hero: hero)
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top) {
                     Text(name).font(.system(size: 20, weight: .semibold)).tracking(-0.2).lineLimit(2)
@@ -343,10 +487,11 @@ struct FeaturedFilmCard<Menu: View>: View {
                     .buttonStyle(.rasanSecondary).controlSize(.large).padding(.top, 6)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .modifier(HomeReveal(hero: hero))
         }
         .padding(12)
-        .background(hovering ? Workspace.raised : Workspace.panel, in: RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous).strokeBorder(hovering ? Color.primary.opacity(0.22) : Workspace.hairline, lineWidth: 1) }
+        .background { RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous).fill(hovering ? Workspace.raised : Workspace.panel).modifier(HomeReveal(hero: hero)) }
+        .overlay { RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous).strokeBorder(hovering ? Color.primary.opacity(0.22) : Workspace.hairline, lineWidth: 1).modifier(HomeReveal(hero: hero)) }
         .modifier(OpensOnActivate(action: action))
         .onHover { hovering = $0 }
         .animation(.snappy(duration: 0.15), value: hovering)
@@ -359,27 +504,48 @@ struct FeaturedFilmCard<Menu: View>: View {
 struct FilmTile<Menu: View>: View {
     let name: String
     let summary: FilmSummary
+    /// Home's narrow columns stack the poster over the details; the library keeps the poster beside them.
+    var stacked = false
+    var hero: HomeHero? = nil
+    var posterID: URL? = nil
     let action: () -> Void
     @ViewBuilder var menu: () -> Menu
     @State private var hovering = false
-    var body: some View {
-        HStack(alignment: .top, spacing: 18) {
-            PosterWithTime(name: name, summary: summary).frame(width: 220)
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .top) {
-                    Text(name).font(.system(size: 16, weight: .semibold)).lineLimit(2)
-                    Spacer(minLength: 6)
-                    SwiftUI.Menu { menu() } label: { Image(systemName: "ellipsis").font(.system(size: 14, weight: .semibold)).frame(width: 24, height: 20) }
-                        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("More")
-                }
-                FilmStatusBadge(phase: summary.phase)
-                if !filmFacts(summary).isEmpty { Text(filmFacts(summary)).font(.system(size: 13)).foregroundStyle(.secondary).monospacedDigit() }
-                if let updated = updatedLine(summary) { Text(updated).font(.system(size: 13)).foregroundStyle(.secondary) }
+
+    private var moreMenu: some View {
+        SwiftUI.Menu { menu() } label: { Image(systemName: "ellipsis").font(.system(size: 14, weight: .semibold)).frame(width: 24, height: 20) }
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("More")
+    }
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top) {
+                Text(name).font(.system(size: 16, weight: .semibold)).lineLimit(2)
+                Spacer(minLength: 6)
+                moreMenu
+            }
+            FilmStatusBadge(phase: summary.phase)
+            if !filmFacts(summary).isEmpty { Text(filmFacts(summary)).font(.system(size: 13)).foregroundStyle(.secondary).monospacedDigit() }
+            if let updated = updatedLine(summary) { Text(updated).font(.system(size: 13)).foregroundStyle(.secondary) }
+        }
+    }
+    @ViewBuilder private var content: some View {
+        if stacked {
+            VStack(alignment: .leading, spacing: 12) {
+                PosterWithTime(name: name, summary: summary, hero: hero).matchedPoster(posterID, hero: hero)
+                details.modifier(HomeReveal(hero: hero))
+            }
+        } else {
+            HStack(alignment: .top, spacing: 18) {
+                PosterWithTime(name: name, summary: summary, hero: hero).frame(width: 220).matchedPoster(posterID, hero: hero)
+                details.modifier(HomeReveal(hero: hero))
             }
         }
+    }
+    var body: some View {
+        content
         .padding(12)
-        .background(hovering ? Workspace.raised : Workspace.panel, in: RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous).strokeBorder(hovering ? Color.primary.opacity(0.22) : Workspace.hairline, lineWidth: 1) }
+        .background { RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous).fill(hovering ? Workspace.raised : Workspace.panel).modifier(HomeReveal(hero: hero)) }
+        .overlay { RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous).strokeBorder(hovering ? Color.primary.opacity(0.22) : Workspace.hairline, lineWidth: 1).modifier(HomeReveal(hero: hero)) }
         .modifier(OpensOnActivate(action: action))
         .onHover { hovering = $0 }
         .animation(.snappy(duration: 0.15), value: hovering)
@@ -393,19 +559,29 @@ struct FilmTile<Menu: View>: View {
 struct FilmListRow<Menu: View>: View {
     let name: String
     let summary: FilmSummary
+    /// Home's reading column drops the facts and update time to fit.
+    var compact = false
+    var hero: HomeHero? = nil
+    var posterID: URL? = nil
     let action: () -> Void
     @ViewBuilder var menu: () -> Menu
     @State private var hovering = false
     var body: some View {
         HStack(spacing: 14) {
-            PosterWithTime(name: name, summary: summary).frame(width: 112)
-            Text(name).font(.system(size: 14, weight: .semibold)).lineLimit(1).frame(minWidth: 160, alignment: .leading)
-            FilmStatusBadge(phase: summary.phase)
-            Spacer(minLength: 8)
-            Text(filmFacts(summary)).font(.system(size: 12.5)).foregroundStyle(.secondary).monospacedDigit()
-            Text(updatedLine(summary) ?? "").font(.system(size: 12.5)).foregroundStyle(.secondary).frame(width: 170, alignment: .trailing)
-            SwiftUI.Menu { menu() } label: { Image(systemName: "ellipsis").frame(width: 24, height: 20) }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("More").accessibilityLabel("More for \(name)")
+            PosterWithTime(name: name, summary: summary, hero: hero).frame(width: 112).matchedPoster(posterID, hero: hero)
+            Group {
+                Text(name).font(.system(size: 14, weight: .semibold)).lineLimit(1).frame(minWidth: compact ? 0 : 160, alignment: .leading)
+                if !compact { FilmStatusBadge(phase: summary.phase) }
+                Spacer(minLength: 8)
+                if compact { FilmStatusBadge(phase: summary.phase) }
+                else {
+                    Text(filmFacts(summary)).font(.system(size: 12.5)).foregroundStyle(.secondary).monospacedDigit()
+                    Text(updatedLine(summary) ?? "").font(.system(size: 12.5)).foregroundStyle(.secondary).frame(width: 170, alignment: .trailing)
+                }
+                SwiftUI.Menu { menu() } label: { Image(systemName: "ellipsis").frame(width: 24, height: 20) }
+                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("More").accessibilityLabel("More for \(name)")
+            }
+            .modifier(HomeReveal(hero: hero))
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
         .background(hovering ? Workspace.raised : .clear)

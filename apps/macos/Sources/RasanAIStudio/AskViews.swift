@@ -22,8 +22,8 @@ struct AskSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 10) {
-                Image(systemName: "questionmark.bubble.fill").font(.system(size: 22)).foregroundStyle(Color.rasan)
-                Text("\(agent) needs your call").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+                CrewAvatar(.ra, style: .full(height: 52), watching: true)
+                Text(AskTitle.text(agent)).font(.system(size: 13, weight: .semibold)).foregroundStyle(.secondary)
             }
             VStack(alignment: .leading, spacing: 6) {
                 Text(ask.question).font(.system(size: 20, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
@@ -98,9 +98,9 @@ struct AskCard: View {
     let ask: DirectorAsk
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "questionmark.bubble.fill").foregroundStyle(Color.rasan)
+            CrewAvatar(.ra, style: .full(height: 32), watching: true)
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(agent) needs your call").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                Text(AskTitle.text(agent)).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
                 Text(ask.question).font(.system(size: 13, weight: .medium)).lineLimit(2)
             }
             Spacer(minLength: 8)
@@ -112,4 +112,9 @@ struct AskCard: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(agent) has a question: \(ask.question)")
     }
+}
+
+/// "Ra needs your call": Ra is the Director, so the default agent name is Ra; a customised name is used as typed.
+private enum AskTitle {
+    static func text(_ agent: String) -> String { "\(agent.isEmpty || agent == "Claude" ? "Ra" : agent) needs your call" }
 }

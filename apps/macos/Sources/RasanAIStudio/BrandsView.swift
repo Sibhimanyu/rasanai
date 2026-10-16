@@ -15,9 +15,25 @@ extension Color {
     }
 }
 
-private func brandLogoImage(_ url: URL?) -> NSImage? {
-    guard let url else { return nil }
-    return NSImage(contentsOf: url)
+private struct BrandLogoImage: View {
+    let url: URL
+    @State private var image: NSImage?
+    var body: some View {
+        Group {
+            if let image { Image(nsImage: image).resizable().scaledToFit() }
+            else { Color.clear }
+        }
+        .task(id: url) {
+            let file = url
+            let loaded = await Task.detached(priority: .userInitiated) { () -> NSImage? in
+                guard let source = NSImage(contentsOf: file),
+                      let pixels = source.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+                return NSImage(cgImage: pixels, size: source.size)
+            }.value
+            guard !Task.isCancelled else { return }
+            image = loaded
+        }
+    }
 }
 
 private struct SwatchStrip: View {
@@ -41,6 +57,8 @@ struct BrandsView: View {
     @Bindable var store: StudioStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var brands: [Brand] = []
+    @State private var loaded = false
+    @State private var reloadGeneration = 0
     @State private var showNew = false
     private var root: URL { URL(fileURLWithPath: store.settings.projectRoot, isDirectory: true) }
     private let columns = [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 18)]
@@ -49,7 +67,8 @@ struct BrandsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 PageTitle(text: "Brands")
-                if brands.isEmpty { empty } else { grid }
+                if !loaded { PageLoadingView(title: "brands") }
+                else if brands.isEmpty { empty } else { grid }
             }
             .pageColumn()
         }
@@ -60,14 +79,19 @@ struct BrandsView: View {
         }
         .sheet(isPresented: $showNew) {
             NewBrandSheet(root: root) { brand in
-                reload()
+                reloadGeneration += 1
                 store.path.append(.brand(brand.folder))
             }
         }
-        .onAppear(perform: reload)
+        .task(id: "\(root.path):\(reloadGeneration)") { await reload() }
     }
 
-    private func reload() { withAnimation(reduceMotion ? nil : .snappy) { brands = BrandLibrary.list(in: root) } }
+    private func reload() async {
+        let folder = root
+        let result = await Task.detached(priority: .userInitiated) { BrandLibrary.list(in: folder) }.value
+        guard !Task.isCancelled else { return }
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { brands = result; loaded = true }
+    }
 
     private var empty: some View {
         VStack(spacing: 14) {
@@ -98,8 +122,8 @@ private struct BrandCard: View {
             VStack(alignment: .leading, spacing: 0) {
                 SwatchStrip(colors: brand.colors).frame(height: 84)
                     .overlay(alignment: .bottomTrailing) {
-                        if let image = brandLogoImage(brand.logo) {
-                            Image(nsImage: image).resizable().scaledToFit().frame(width: 30, height: 30)
+                        if let logo = brand.logo {
+                            BrandLogoImage(url: logo).frame(width: 30, height: 30)
                                 .padding(5).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                                 .padding(8)
                         }
@@ -237,21 +261,24 @@ struct BrandPage: View {
     @State private var confirmDelete = false
     @State private var error: String?
     @State private var showEditor = false
+    @State private var loaded = false
+    @State private var reloadGeneration = 0
 
     var body: some View {
         Group {
             if let model { content(model) }
+            else if !loaded { PageLoadingView(title: "brand") }
             else { Text("This brand is no longer in your library.").foregroundStyle(.secondary) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.appBackground)
         .navigationTitle(model?.name ?? "Brand")
-        .onAppear(perform: reload)
+        .task(id: "\(brand.path):\(reloadGeneration)") { await reload() }
         .sheet(isPresented: $showEditor) {
-            if let model { BrandEditorSheet(brand: model, design: text) { reload() } }
+            if let model { BrandEditorSheet(brand: model, design: text) { reloadGeneration += 1 } }
         }
         .pageHeader(model?.name ?? "Brand") {
-            Button { reload(); showEditor = true } label: { Label("Edit Brand…", systemImage: "pencil") }.help("Edit colours, fonts and logo")
+            Button { showEditor = true } label: { Label("Edit Brand…", systemImage: "pencil") }.help("Edit colours, fonts and logo").disabled(model == nil)
             Menu {
                 Button("Edit in TextEdit") { edit() }
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([brand]) }
@@ -270,9 +297,13 @@ struct BrandPage: View {
         } message: { Text(error ?? "") }
     }
 
-    private func reload() {
-        model = BrandLibrary.load(brand)
-        text = (try? String(contentsOf: brand.appendingPathComponent("DESIGN.md"), encoding: .utf8)) ?? ""
+    private func reload() async {
+        let folder = brand
+        let result = await Task.detached(priority: .userInitiated) {
+            (BrandLibrary.load(folder), (try? String(contentsOf: folder.appendingPathComponent("DESIGN.md"), encoding: .utf8)) ?? "")
+        }.value
+        guard !Task.isCancelled else { return }
+        model = result.0; text = result.1; loaded = true
     }
 
     private func edit() {
@@ -286,8 +317,8 @@ struct BrandPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 HStack(alignment: .center, spacing: 16) {
-                    if let image = brandLogoImage(b.logo) {
-                        Image(nsImage: image).resizable().scaledToFit().frame(width: 56, height: 56)
+                    if let logo = b.logo {
+                        BrandLogoImage(url: logo).frame(width: 56, height: 56)
                             .padding(8).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color(nsColor: .separatorColor)))
                     }
@@ -353,7 +384,7 @@ private struct MarkdownText: View {
                 .padding(.top, level <= 2 ? 8 : 2)
         } else if line.hasPrefix("- ") || line.hasPrefix("* ") {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("â¢").foregroundStyle(.secondary)
+                Text("\u{2022}").foregroundStyle(.secondary)
                 Text(inline(line.dropFirst(2))).font(.system(size: 13))
             }
         } else if line.hasPrefix("```") || line.hasPrefix("---") { EmptyView() }

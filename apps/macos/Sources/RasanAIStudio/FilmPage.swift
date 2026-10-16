@@ -8,7 +8,6 @@ import SwiftUI
 struct FilmPage: View {
     @Bindable var store: StudioStore
     let url: URL
-    @Environment(\.openSettings) private var openSettings
     @State private var draft: FilmDraft?
     @State private var savedPace: FilmPace?
     @State private var confirmJustMakeIt = false
@@ -29,7 +28,7 @@ struct FilmPage: View {
     @ViewBuilder private var pageContent: some View {
         Group {
             if !ready {
-                ProgressView().controlSize(.large).frame(maxWidth: .infinity, maxHeight: .infinity)
+                PageLoadingView(title: "film")
             } else if store.runURL == nil {
                 if store.runtime.isPreparing || store.runtime.isRunning { StartingView(runtime: store.runtime) }
                 else { DraftView(store: store, url: url, draft: draft) }
@@ -370,7 +369,6 @@ struct DraftView: View {
     @Bindable var store: StudioStore
     let url: URL
     let draft: FilmDraft?
-    @Environment(\.openSettings) private var openSettings
     @State private var starting = false
     private var agent: LocalAgent { store.settings.agent }
     private var ready: Bool { store.settings.isReady(agent) }
@@ -418,7 +416,7 @@ struct DraftView: View {
                         .disabled(starting || (draft?.brief ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.runtime.isRunning || store.runtime.isPreparing)
                         HStack(spacing: 4) {
                             Text("Directed by \(agent.title) on your Mac ·")
-                            Button("Change") { openSettings() }.buttonStyle(.link)
+                            Button("Change") { store.openSettingsPage() }.buttonStyle(.link)
                         }.font(.system(size: 11)).foregroundStyle(.secondary)
                     } else {
                         Button("Set up a director…") { store.settings.showWelcome = true }.buttonStyle(.rasanPrimary).controlSize(.extraLarge)

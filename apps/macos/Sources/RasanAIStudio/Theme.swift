@@ -338,20 +338,15 @@ struct PosterImage: View {
     let url: URL
     var maxPixels: CGFloat = 720
     @State private var image: NSImage?
+    private struct Request: Hashable { let url: URL; let maxPixels: CGFloat }
     var body: some View {
         Group {
             if let image { Image(nsImage: image).resizable().scaledToFill() } else { Color.clear }
         }
-        .task(id: url) {
-            let size = maxPixels
-            image = await Task.detached(priority: .utility) { () -> NSImage? in
-                guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-                let options: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true,
-                                                kCGImageSourceCreateThumbnailWithTransform: true,
-                                                kCGImageSourceThumbnailMaxPixelSize: size]
-                guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
-                return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
-            }.value
+        .task(id: Request(url: url, maxPixels: maxPixels)) {
+            let thumbnail = await PosterThumbnailCache.shared.image(at: url, maxPixels: maxPixels)
+            guard !Task.isCancelled else { return }
+            image = thumbnail
         }
     }
 }

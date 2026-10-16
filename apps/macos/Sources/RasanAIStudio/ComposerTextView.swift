@@ -5,6 +5,7 @@ import SwiftUI
 /// caret and the hint start at exactly the same point.
 final class PlaceholderTextView: NSTextView {
     var placeholder = "" { didSet { needsDisplay = true } }
+    var placeholderColor = NSColor.tertiaryLabelColor { didSet { needsDisplay = true } }
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         guard string.isEmpty, !placeholder.isEmpty, let container = textContainer else { return }
@@ -13,7 +14,7 @@ final class PlaceholderTextView: NSTextView {
         let style = NSMutableParagraphStyle()
         style.lineBreakMode = .byWordWrapping
         if let current = defaultParagraphStyle { style.setParagraphStyle(current) }
-        let attrs: [NSAttributedString.Key: Any] = [.font: font ?? NSFont.systemFont(ofSize: 15), .foregroundColor: NSColor.tertiaryLabelColor, .paragraphStyle: style]
+        let attrs: [NSAttributedString.Key: Any] = [.font: font ?? NSFont.systemFont(ofSize: 15), .foregroundColor: placeholderColor, .paragraphStyle: style]
         (placeholder as NSString).draw(with: NSRect(x: origin.x, y: origin.y, width: max(width, 40), height: bounds.height), options: [.usesLineFragmentOrigin], attributes: attrs)
     }
     var onFocusChange: ((Bool) -> Void)?
@@ -51,6 +52,7 @@ struct ComposerTextView: NSViewRepresentable {
     /// Bumped by the parent to ask for focus.
     var focusRequest = 0
     var fontSize: CGFloat = 15
+    var placeholderColor = NSColor.tertiaryLabelColor
 
     static let inset = NSSize(width: 0, height: 2)
     /// The box never takes more than this share of the screen's height, so the toolbar and the page stay in view.
@@ -85,6 +87,7 @@ struct ComposerTextView: NSViewRepresentable {
         view.isAutomaticQuoteSubstitutionEnabled = false
         view.setAccessibilityLabel("Describe your film")
         view.placeholder = placeholder
+        view.placeholderColor = placeholderColor
         view.string = text
         scroll.documentView = view
         return scroll
@@ -95,6 +98,7 @@ struct ComposerTextView: NSViewRepresentable {
         guard let view = scroll.documentView as? PlaceholderTextView else { return }
         if view.string != text, !view.hasMarkedText() { view.string = text }
         view.placeholder = placeholder
+        view.placeholderColor = placeholderColor
         if context.coordinator.lastFocusRequest != focusRequest {
             context.coordinator.lastFocusRequest = focusRequest
             view.grabFocus()
@@ -107,15 +111,7 @@ struct ComposerTextView: NSViewRepresentable {
         let width = proposal.width ?? 600
         let font = NSFont.systemFont(ofSize: fontSize)
         let line = ceil(NSLayoutManager().defaultLineHeight(for: font))
-        let storage = NSTextStorage(string: text, attributes: [.font: font])
-        let layout = NSLayoutManager()
-        let container = NSTextContainer(size: NSSize(width: max(width, 1), height: .greatestFiniteMagnitude))
-        container.lineFragmentPadding = 0
-        layout.addTextContainer(container)
-        storage.addLayoutManager(layout)
-        layout.ensureLayout(for: container)
-        var content = layout.usedRect(for: container).height
-        if text.hasSuffix("\n") { content += line }   // a trailing newline puts the caret on a line of its own
+        let content = context.coordinator.contentHeight(text: text, width: width, fontSize: fontSize, font: font, line: line)
         var cap = line * CGFloat(maxLines)
         // The screen, not the window: a window that fits its content would shrink the cap every pass.
         if let screen = scroll.window?.screen ?? NSScreen.main { cap = min(cap, max(line * CGFloat(minLines), screen.visibleFrame.height * Self.screenShare)) }
@@ -126,10 +122,37 @@ struct ComposerTextView: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: ComposerTextView
         var lastFocusRequest = 0
+        /// The last measured text height, so repeated layout passes at the same text, width and size skip the layout work.
+        private var measured: (text: String, width: CGFloat, fontSize: CGFloat, height: CGFloat)?
+        func contentHeight(text: String, width: CGFloat, fontSize: CGFloat, font: NSFont, line: CGFloat) -> CGFloat {
+            if let m = measured, m.width == width, m.fontSize == fontSize, m.text == text { return m.height }
+            let storage = NSTextStorage(string: text, attributes: [.font: font])
+            let layout = NSLayoutManager()
+            let container = NSTextContainer(size: NSSize(width: max(width, 1), height: .greatestFiniteMagnitude))
+            container.lineFragmentPadding = 0
+            layout.addTextContainer(container)
+            storage.addLayoutManager(layout)
+            layout.ensureLayout(for: container)
+            var content = layout.usedRect(for: container).height
+            if text.hasSuffix("\n") { content += line }   // a trailing newline puts the caret on a line of its own
+            measured = (text, width, fontSize, content)
+            return content
+        }
         init(_ parent: ComposerTextView) { self.parent = parent }
         func textDidChange(_ notification: Notification) {
             guard let view = notification.object as? NSTextView else { return }
             parent.text = view.string
+            reportCaret(view)
+        }
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let view = notification.object as? NSTextView, view.window?.firstResponder === view else { return }
+            reportCaret(view)
+        }
+        /// Tells the crew on Home where the caret is, so they can watch what is being typed.
+        private func reportCaret(_ view: NSTextView) {
+            let caret = view.firstRect(forCharacterRange: NSRange(location: view.selectedRange().location, length: 0), actualRange: nil)
+            guard caret != .zero else { return }
+            MainActor.assumeIsolated { CrewGaze.shared.typed(caretOnScreen: CGPoint(x: caret.midX, y: caret.midY)) }
         }
     }
 }

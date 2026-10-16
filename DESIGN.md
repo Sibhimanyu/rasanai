@@ -73,7 +73,7 @@ The one source for how RasanAI looks, reads and moves: the website (`docs/`), Ra
 | Mac app | `apps/macos/Sources/RasanAIStudio/Theme.swift` (`Color.rasan`, `rasanFill`, `turmeric`, `rasanDeep`, button styles) |
 | Logo files | `docs/assets/logo/` (SVG masters, PNG marks at 32 / 180 / 512 / 1024) |
 | App icon | `apps/macos/Packaging/AppIcon-1024.png` |
-| Brand guidelines (19 pages) | `docs/brand/RasanAI-Brand-Guidelines.ai` and `.pdf`, built by `docs/brand/source/build.jsx` |
+| Brand guidelines (28 pages) | `docs/brand/RasanAI-Brand-Guidelines.ai` and `.pdf`, built by `docs/brand/source/build.jsx` |
 
 ## Overview
 

@@ -21,7 +21,7 @@ struct FilmProgressView: View {
     /// The phase the person clicked, or `nil` to follow the live one.
     @State private var selected: ProgressPhase?
     /// The focused working screen is the default; the phase rail, detail card and timeline are one toggle away.
-    @State private var showActivity = false
+    @State private var showActivity = ProcessInfo.processInfo.environment["RASAN_PROGRESS_ACTIVITY"] != nil // snapshots open it
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.agentName) private var agent
 
@@ -103,21 +103,24 @@ struct FilmProgressView: View {
                 }
                 .foregroundStyle(s.isWaitingForYou ? Color.orange : Color.rasan)
                 if let notice = autoResume { resumeBanner(notice, now: now) }
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(s.now.text)
-                        .font(.system(size: 24, weight: .semibold)).tracking(-0.2)
-                        .lineLimit(3).fixedSize(horizontal: false, vertical: true)
-                        .contentTransition(.opacity).animation(reduceMotion ? nil : .smooth, value: s.now.text)
-                        .accessibilityAddTraits(.isHeader)
-                    if let detail = s.now.detail, !detail.isEmpty {
-                        Text(detail).font(.system(size: 14)).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .center, spacing: 18) {
+                    NowCrewAvatar(snapshot: s)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(s.now.text)
+                            .font(.system(size: 24, weight: .semibold)).tracking(-0.2)
+                            .lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                            .contentTransition(.opacity).animation(reduceMotion ? nil : .smooth, value: s.now.text)
+                            .accessibilityAddTraits(.isHeader)
+                        if let detail = s.now.detail, !detail.isEmpty {
+                            Text(detail).font(.system(size: 14)).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                        }
+                        HStack(spacing: 14) {
+                            Text(Self.clock(s.elapsed(now: now)) + " elapsed").font(.system(size: 13, weight: .semibold, design: .rounded)).monospacedDigit()
+                                .accessibilityLabel("Elapsed \(FilmProgressFormat.duration(s.elapsed(now: now)))")
+                            estimate(s)
+                        }
+                        .padding(.top, 2)
                     }
-                    HStack(spacing: 14) {
-                        Text(Self.clock(s.elapsed(now: now)) + " elapsed").font(.system(size: 13, weight: .semibold, design: .rounded)).monospacedDigit()
-                            .accessibilityLabel("Elapsed \(FilmProgressFormat.duration(s.elapsed(now: now)))")
-                        estimate(s)
-                    }
-                    .padding(.top, 2)
                 }
                 researchNotice(s, now: now)
                 activityWarning(s)
@@ -230,7 +233,8 @@ struct FilmProgressView: View {
             .foregroundStyle(s.isWaitingForYou ? Color.orange : Color.rasan)
             .padding(.bottom, 6)
             if let notice = autoResume { resumeBanner(notice, now: now) }
-            HStack(alignment: .firstTextBaseline, spacing: 28) {
+            HStack(alignment: .center, spacing: 18) {
+                NowCrewAvatar(snapshot: s)
                 Text(s.now.text)
                     .font(.system(size: 28, weight: .semibold)).tracking(-0.3)
                     .lineLimit(2).fixedSize(horizontal: false, vertical: true)

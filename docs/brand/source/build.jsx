@@ -4,7 +4,7 @@ var ROOT = new File($.fileName).parent.parent.parent.parent.fsName + "/";
 var LOGO = ROOT + "docs/assets/logo/";
 var OUT = ROOT + "docs/brand/";
 var W = 1920, H = 1080, GAP = 200, COLS = 5, M = 120, CW = W - 2 * M;
-var TOTAL = 19;
+var TOTAL = 28;
 
 app.userInteractionLevel = UserInteractionLevel.DONTDISPLAYALERTS;
 // close.jsx closes earlier copies in a separate call; closing and re-creating swatches in one call fails intermittently
@@ -219,16 +219,17 @@ T("Contents", M, 120, ST.display, SW.indigo);
 A("Everything you need to make RasanAI look, read and move like itself: in a film, on the site, in the Mac app and in print.", M, 300, 640, 140, ST.bodyL, SW.ink2);
 var TOC = [["01", "Brand", "Essence, principles, voice", "03"], ["02", "Logo", "Mark, construction, suite, clear space, colour, misuse", "05"],
     ["03", "Colour", "Primary, supporting, neutrals, proportion, contrast", "11"], ["04", "Typography", "Families and the type scale", "14"],
-    ["05", "Interface", "Buttons, controls, cards, radii, spacing", "16"], ["06", "Motion", "How RasanAI moves", "17"], ["07", "Applications", "The system at work", "18"]];
+    ["05", "Interface", "Buttons, controls, cards, radii, spacing", "16"], ["06", "Motion", "How RasanAI moves", "17"], ["07", "Applications", "The system at work", "18"],
+    ["08", "Crew", "Ra and the crew who make the films", "19"]];
 for (i = 0; i < TOC.length; i++) {
-    var ty = 130 + i * 112;
+    var ty = 130 + i * 100;
     line(900, ty, W - M, ty, SW.rice2, 1);
     T(TOC[i][0], 900, ty + 30, ST.label, SW.blue);
-    T(TOC[i][1], 980, ty + 22, ST.h2, SW.indigo);
-    T(TOC[i][2], 980, ty + 70, ST.small, SW.ink2);
+    T(TOC[i][1], 980, ty + 18, ST.h2, SW.indigo);
+    T(TOC[i][2], 980, ty + 64, ST.small, SW.ink2);
     TR(TOC[i][3], W - M, ty + 30, ST.label, SW.ink2);
 }
-line(900, 130 + 7 * 112, W - M, 130 + 7 * 112, SW.rice2, 1);
+line(900, 130 + TOC.length * 100, W - M, 130 + TOC.length * 100, SW.rice2, 1);
 
 // ===== 03 Brand essence =====
 page("Brand", "rice");
@@ -605,7 +606,113 @@ var gt = T("Get RasanAI", W - M - 186, 760 + 34, ST.body, SW.white);
 gt.textRange.characterAttributes.textFont = fnt("Mukta-SemiBold");
 T("Website header  \u00B7  indigo hero, rice body", M, 876, ST.label, SW.ink2);
 
-// ===== 19 Back cover =====
+// ===== 19-27 Crew =====
+// The crew: seven characters that present RasanAI's agents. Art in docs/brand/crew/ (canon: the approved clay lineup).
+function picture(file, x, y, w, h) {
+    var pi = lay().placedItems.add(); pi.file = new File(OUT + "crew/" + file);
+    var sc = Math.min(w / pi.width, h / pi.height); pi.width = pi.width * sc; pi.height = pi.height * sc;
+    pi.position = [X(x + (w - pi.width) / 2), Y(y + (h - pi.height) / 2)];
+    pi.embed();
+}
+function statusChip(x, y, name, text, color) {
+    var t = T(name + "  \u00B7  " + text, x + 34, y + 9, ST.small, SW.ink);
+    for (var k = 0; k < name.length; k++) t.characters[k].characterAttributes.textFont = fnt("Mukta-SemiBold");
+    var b = rect(x, y, t.width + 54, 40, SW.white, 8, SW.rice2, 1); b.move(t, ElementPlacement.PLACEAFTER);
+    circle(x + 18, y + 20, 5, color);
+}
+var CREW = [
+    ["ra", "Ra", "turmeric", "Mascot  \u00B7  runs the set", "Every call: hands you each one",
+     "The sound \u201Cra\u201D, the first syllable of RasanAI.",
+     "Warm, sure and unhurried. Ra is the face of RasanAI's Director: it greets you, runs the set, introduces the crew and hands you each call. You make the calls; Ra runs the set.",
+     "Plump gumdrop, the biggest of the crew", "Black flat director's cap; a clapperboard held in both hands", "Steady eyes, soft brows; stands square, ready to call action",
+     "The Director, the main Claude session that talks to you", ["three scripts are ready: pick one", "the film is ready for your review"]],
+    ["tara", "Tara", "blue", "Scout  \u00B7  research", "Call 1: confirm the brief",
+     "Star; the guide star travellers steer by.",
+     "Curious and quick, always looking. Tara reads your product, your screens and the films like it before anything is written, and brings back what is true.",
+     "Small sphere, the smallest of the crew", "A hands-free brass scout's eyepiece strapped over one eye", "One eye to the eyepiece, leaning in",
+     "7: research-lead, product, screens, local scout, precedent, design and brand researchers", ["found 14 product screens", "reading 3 launch films like yours"]],
+    ["kavi", "Kavi", "indigo", "Writer  \u00B7  scripts", "Call 2: pick a script",
+     "Poet.",
+     "Thoughtful, a little dreamy, precise with words. Kavi turns what Tara found into three different scripts, each built from what your product really does.",
+     "Tall rounded block, like a notebook standing up", "Round brass glasses, a short beard, a big yellow pencil", "Looking up, considering; the pencil held like a staff",
+     "6: treatment, script and visual writers, script editor, concept and structure critics", ["drafting script 2 of 3", "cut the opening to 4 seconds"]],
+    ["chitra", "Chitra", "silk", "Art Director  \u00B7  looks", "Call 3: pick a look",
+     "Picture, painting.",
+     "Bold, decisive and stylish. Chitra researches and blends three looks for your story, each a full design system, and draws every one on your film's first line.",
+     "Soft drop with a swept brush-stroke crest", "A fan of paint swatches; long lashes", "Chin up, swatches fanned, ready to argue for a look",
+     "8: art director, styleframe, frame and design-system designers, frame and A/B jurors, brand kit, brand film", ["blending three looks", "Look B uses your brand's own type"]],
+    ["laya", "Laya", "leaf", "Motion Director  \u00B7  moves and build", "Call 4: notes on the animatic",
+     "Tempo and rhythm in Indian music.",
+     "Rhythmic, energetic, joyful. Laya invents the moves, times every cut to the music and builds the film, scene by scene.",
+     "Bean floating mid-move, a sprout curl on top", "Brass headphones with a waveform on the cup", "Always off the ground, leaning into the beat",
+     "6: motion director, move inventor, sketcher and juror, film builder, scene animators", ["timing the moves to the music", "building scene 5 of 8"]],
+    ["rasika", "Rasika", "ink2", "Critic  \u00B7  taste", "Call 5: review the final",
+     "A connoisseur: one who truly appreciates.",
+     "Discerning, kind but exacting. Rasika checks every scene against the brief, the look and the craft bar, and sends back anything that isn't ready before you see it.",
+     "Low hooded dome with a cream face window", "A brass loupe held to one eye", "One brow raised; still and upright",
+     "2: critic, retrospective", ["sent scene 4 back: the title overlaps the logo", "passed all 8 scenes"]],
+    ["mala", "Mala", "mist", "Editor  \u00B7  footage reels", "Only when you bring footage",
+     "Garland.",
+     "Calm, patient, good at putting things in order. Mala logs your clips, picks the selects and strings them into a reel, with motion cards between them.",
+     "Round body with a top-knot bun", "A 35 mm film strip wrapped around body and bun", "Settled and steady; the strip loops like a garland",
+     "3: footage logger, selects producer, footage writer", ["logged 38 clips, 9 selects", "cutting the reel to the chorus"]]
+];
+
+page("Meet the crew", "rice");
+chrome("08 \u2014 Crew");
+T("Meet the crew", M, 120, ST.display, SW.indigo);
+A("RasanAI makes films with a crew of 32 agents. Seven characters give them faces: Ra runs the set, and one crew member brings you each of your five calls. Mala joins when you bring footage.", 1000, 130, 800, 130, ST.bodyL, SW.ink2);
+picture("lineup.jpg", M, 290, CW, 600);
+var cx2 = [0.089, 0.205, 0.329, 0.487, 0.64, 0.757, 0.898];   // centres in the stitched lineup (.context/crew/stitch.py)
+var order = [1, 2, 3, 0, 4, 5, 6];
+for (i = 0; i < 7; i++) TC(CREW[order[i]][1], M + CW * cx2[i], 790, ST.label, SW.ink2);
+
+for (var c = 0; c < CREW.length; c++) {
+    var C = CREW[c], col = SW[C[2]];
+    page(C[1], "rice");
+    chrome("08 \u2014 Crew");
+    picture(C[0] + ".jpg", 60, 120, 860, 860);
+    circle(1012, 159, 9, col, C[2] == "mist" ? SW.ink2 : null, 0.75);
+    T(C[3], 1034, 150, ST.label, SW.blue);
+    TR(C[4], W - M, 150, ST.label, SW.ink2);
+    var nm = T(C[1], 1000, 190, ST.hero, SW.indigo); nm.textRange.characterAttributes.size = 150; nm.position = [X(996), Y(176)];
+    A(C[5], 1000, 345, 800, 34, ST.bodyL, SW.ink2);
+    A(C[6], 1000, 392, 800, 130, ST.body, SW.ink);
+    var ROWS2 = [["Colour", INFO[C[2]][1] + "  " + HEX[C[2]]], ["Shape", C[7]], ["Prop", C[8]], ["Face & pose", C[9]], ["Team", C[10]]];
+    for (var r = 0; r < ROWS2.length; r++) {
+        var ry = 540 + r * 58;
+        line(1000, ry, W - M, ry, SW.rice2);
+        T(ROWS2[r][0], 1000, ry + 20, ST.label, SW.blue);
+        if (r == 0) { rect(1180, ry + 15, 28, 28, col, 6, SW.rice2, 1); T(ROWS2[r][1], 1222, ry + 16, ST.body, SW.indigo); }
+        else A(ROWS2[r][1], 1180, ry + 14, 620, 44, ST.small, SW.indigo);
+    }
+    T("In the app", 1000, 852, ST.label, SW.blue);
+    statusChip(1000, 880, C[1], C[11][0], col);
+    statusChip(1000, 930, C[1], C[11][1], col);
+}
+
+page("Crew rules", "rice");
+chrome("08 \u2014 Crew");
+title("Crew rules");
+var DO = ["Put Ra first; the crew stand at about 70% of Ra's height.", "Keep each character to its own colour, shape and one prop; hands are plain nubs.", "Use the clay renders for marketing and flat versions in the app.", "Write status lines from what the agents really did.", "Keep Reduce Motion: idle loops stop, changes cross-fade."];
+var DONT = ["Draw them from the logo, or use them in place of it.", "Swap colours or props between characters, or add new ones.", "Give them big mouths, outfits or text on their bodies.", "Put them inside someone's film unless they ask.", "Turn status lines into cheerleading."];
+T("Do", M, 240, ST.h3, SW.leaf); T("Don't", 700, 240, ST.h3, SW.silk);
+for (i = 0; i < 5; i++) {
+    var dy = 290 + i * 84;
+    line(M, dy, 640, dy, SW.rice2); line(700, dy, 1220, dy, SW.rice2);
+    A(DO[i], M, dy + 14, 520, 60, ST.body, SW.indigo); A(DONT[i], 700, dy + 14, 520, 60, ST.body, SW.indigo);
+}
+T("Where they appear", 1300, 240, ST.h3, SW.indigo);
+var WH = ["Progress view: who is working, one live line each", "The five calls: each introduced by its crew member", "Decisions drawer: every decision signed", "Empty states, onboarding and errors: Ra explains", "Site, launch films and social", "Optional end credit: \u201CDirected by you \u00B7 Crew: RasanAI\u201D"];
+for (i = 0; i < WH.length; i++) { var wy = 290 + i * 70; line(1300, wy, W - M, wy, SW.rice2); A(WH[i], 1300, wy + 14, 500, 50, ST.body, SW.ink); }
+T("Palette", M, 760, ST.label, SW.blue);
+for (i = 0; i < 7; i++) {
+    var K = CREW[order[i]], px2 = M + i * 240;
+    circle(px2 + 24, 830, 24, SW[K[2]], K[2] == "mist" ? SW.ink2 : null, 0.75);
+    T(K[1], px2 + 60, 806, ST.h3, SW.indigo); T(HEX[K[2]], px2 + 60, 842, ST.label, SW.ink2);
+}
+
+// ===== 28 Back cover =====
 page("Back cover", "indigo");
 var bg2 = glyph(W / 2 - 153, 260, 3, SW.rice, SW.turmeric);
 tamil("rasanai-anek", W / 2, 690, 56, SW.rice, "center");

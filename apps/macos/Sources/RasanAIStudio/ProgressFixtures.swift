@@ -117,6 +117,12 @@ enum ProgressFixtures {
             (.script, "Writing the Wild script", "Reading the truth sheet"), (.script, "Editing the three scripts like a hostile reader", nil),
             (.look, "Designing the Sure design system for this story", "Drawing the specimen"), (.look, "Designing the Bold design system for this story", "Writing DESIGN.md"),
             (.look, "Designing the Wild design system for this story", "Reading the story's first line"),
+            (.plan, "Designing the shot list for every scene", "Writing storyboard.json"), (.plan, "Drawing the six hero styleframes", "Drawing frame 3"),
+            (.animatic, "Inventing the hero moves for the gallery", "Sketching a move"), (.animatic, "Judging every move idea", "Reading moves.json"),
+            (.build, "Animating scene 4, the long gallery", "Writing scene-4.html"), (.build, "Animating scene 5, the bell jar", "Writing scene-5.html"),
+            (.build, "Building the shared set once", "Writing set.html"),
+            (.check, "Reviewing the film against its script", "Reading the contact sheet"), (.check, "Reviewing every cut for slop", nil),
+            (.render, "Reviewing the rendered frames", "Reading frame 412"),
         ]
         s.crew = crewNames.enumerated().filter { $0.element.0 <= phase }.map { index, item in
             let running = item.0 == phase && !(item.2 == nil)

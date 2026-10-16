@@ -195,7 +195,8 @@ public struct FilmProgressEngine: Sendable {
         case "Agent", "Task":
             let description = string("description").isEmpty ? "A helper" : string("description")
             if crew[id] == nil {
-                crew[id] = CrewMember(id: id, name: description, role: input["subagent_type"] as? String, phase: .research, startedAt: time)
+                // The prompt names the real role (crew/prompts/<role>.md); subagent_type is usually just "general-purpose".
+                crew[id] = CrewMember(id: id, name: description, role: CrewRoles.role(fromPrompt: string("prompt")) ?? input["subagent_type"] as? String, phase: .research, startedAt: time)
                 crewOrder.append(id)
             }
             if let verdict = ProgressPhaseMapper.verdict(forAgent: description) {
@@ -270,7 +271,7 @@ public struct FilmProgressEngine: Sendable {
             if object["task_type"] as? String == "local_agent" {
                 if object["is_backgrounded"] as? Bool == true { backgroundTasks.insert(toolID) } else { foregroundCrew.insert(toolID) }
                 let description = object["description"] as? String ?? crew[toolID]?.name ?? "A helper"
-                if var member = crew[toolID] { member.name = description; member.role = object["subagent_type"] as? String ?? member.role; crew[toolID] = member }
+                if var member = crew[toolID] { member.name = description; if CrewRoles.character(forRole: member.role) == nil { member.role = object["subagent_type"] as? String ?? member.role }; crew[toolID] = member }
                 else {
                     crew[toolID] = CrewMember(id: toolID, name: description, role: object["subagent_type"] as? String, phase: .research, startedAt: time)
                     crewOrder.append(toolID)
