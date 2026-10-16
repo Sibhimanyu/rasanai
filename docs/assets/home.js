@@ -205,11 +205,13 @@
           f.box.style.transform = "translate3d(" + lerp(scx, tcx, e).toFixed(2) + "px," + (lerp(scy, tcy, e) - lift).toFixed(2) + "px,0)";
           if (f.sw !== sw || f.sh !== sh) { f.sw = sw; f.sh = sh; f.card.style.width = sw + "px"; f.card.style.height = sh + "px"; f.card.style.left = -sw / 2 + "px"; f.card.style.top = -sh / 2 + "px"; }
           if (Math.abs(f.tw - tw) > .01 || Math.abs(f.th - th) > .01) { f.tw = tw; f.th = th; f.cut.style.width = tw + "px"; f.cut.style.height = th + "px"; f.cut.style.left = -tw / 2 + "px"; f.cut.style.top = -th / 2 + "px"; }
-          var ks = lerp(1, Math.min(tw / sw, th / sh), e), s0 = sh * .85 / th, cs = lerp(s0, 1, e);
+          var ks = lerp(1, Math.min(tw / sw, th / sh), e), s0 = sh * .78 / th, cs = lerp(s0, 1, e);
           f.card.style.transform = "scale(" + ks.toFixed(4) + ")";
-          f.card.style.opacity = (f.base * (1 - seg(t, .3, .68))).toFixed(3);
+          // every card sheds its background early in the move, together, before the window is up: only the characters fly
+          var shed = seg(vq, .04, .26);
+          f.card.style.opacity = (f.base * (1 - shed)).toFixed(3);
           f.cut.style.transform = "scale(" + cs.toFixed(4) + ")";
-          f.cut.style.opacity = seg(t, .4, .75).toFixed(3);
+          f.cut.style.opacity = shed.toFixed(3);
           // feet tuck behind the prompt box's rim, as in the screenshot
           var over = Math.max(0, ty + th - rimY) * ease(seg(t, .6, 1));
           f.cut.style.clipPath = over > .01 ? "inset(0 0 " + (over / cs).toFixed(2) + "px 0)" : "none";
