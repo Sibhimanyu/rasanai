@@ -12,6 +12,17 @@
   function $(s, r) { return (r || document).querySelector(s); }
   function $$(s, r) { return [].slice.call((r || document).querySelectorAll(s)); }
 
+  /* ---------- hero intro: any scroll or key finishes it at once ---------- */
+  if (root.classList.contains("intro")) {
+    var endIntro = function () {
+      root.classList.add("intro-done");
+      ["scroll", "wheel", "touchstart", "keydown"].forEach(function (t) { window.removeEventListener(t, endIntro); });
+    };
+    if (window.scrollY > 8) endIntro();
+    else ["scroll", "wheel", "touchstart", "keydown"].forEach(function (t) { window.addEventListener(t, endIntro, { passive: true }); });
+    setTimeout(function () { root.classList.add("intro-done"); }, 2600);
+  }
+
   /* ---------- mobile menu + old deep links ---------- */
   var menu = $(".menu-toggle"), nav = $(".home .nav");
   if (menu && nav) {
@@ -96,26 +107,40 @@
   var flowEl = $(".flow.track");
   var flowSteps = [], flowRail = [];
   if (flowEl) {
-    flowSteps = $$(".fstep", flowEl).map(function (s) { return { el: s, r: R[s.getAttribute("data-unit")](s) }; });
+    flowSteps = $$(".fstep", flowEl).map(function (s) {
+      return { el: s, r: R[s.getAttribute("data-unit")](s), pose: $(".fwho", s), text: $$(".fcopy > :not(.fwho)", s), win: $(".fwin", s) };
+    });
     flowRail = $$(".frail li", flowEl);
+    // every change is a continuous overlap driven by scroll alone: u(k) is how far call k has handed over to call k+1
+    var ss = function (t) { return t * t * (3 - 2 * t); };
+    var setT = function (el, op, x, y, sc) {
+      if (!el) return;
+      el.style.opacity = op.toFixed(3);
+      el.style.transform = "translate3d(" + x.toFixed(2) + "px," + y.toFixed(2) + "px,0) scale(" + sc.toFixed(4) + ")";
+    };
     addScene({
       el: flowEl, pin: true,
       progress: function (r, vh) { return clamp(-r.top / Math.max(1, r.height - vh), 0, 1); },
       render: function (p) {
         var f = p * 5, n = flowSteps.length;
+        var u = function (k) { return k < 0 ? 1 : k > n - 2 ? 0 : ss(seg(f, k + .72, k + 1.12)); };
         flowSteps.forEach(function (s, k) {
-          var local = f - k;
-          var inn = k === 0 ? 1 : ease(seg(local, -.02, .1)), out = k === n - 1 ? 0 : ease(seg(local, .9, 1.02));
-          var op = Math.min(inn, 1 - out);
-          s.el.style.opacity = op.toFixed(3);
-          s.el.style.transform = "translate3d(0," + (((1 - inn) * 36) - out * 36).toFixed(1) + "px,0)";
-          s.el.style.visibility = op < .01 ? "hidden" : "";
-          s.el.style.pointerEvents = op < .6 ? "none" : "";
-          s.r(seg(local, .08, .82));
-          var li = flowRail[k]; if (li) { li.firstChild.style.setProperty("--f", clamp(local + .1, 0, 1).toFixed(3)); tog(li, local > -.05 && local < 1); }
+          var inn = u(k - 1), out = u(k);
+          var tx = inn * (1 - out);              // text and pose: symmetric, so the two always sum to one
+          var dom = inn >= .5 && out < .5;
+          // window: the next one rises over the current, which stays put until it is covered
+          setT(s.win, k === 0 ? 1 : ss(seg(inn, 0, .16)), 0, (1 - ss(inn)) * 56 - out * 10, 1 - (1 - inn) * .015 - out * .01);
+          // words and characters hand over without stacking: the old leaves in the first half, the new arrives in the second
+          var vis = ss(seg(inn, .42, 1)) * (1 - ss(seg(out, 0, .58)));
+          setT(s.pose, k === 0 ? 1 - ss(seg(out, 0, .58)) : vis, 0, (1 - inn) * 18 - out * 14, 1 - (1 - inn) * .05 - out * .05);
+          s.text.forEach(function (t, i) { setT(t, k === 0 ? 1 - ss(seg(out, 0, .58)) : vis, 0, (1 - inn) * (14 + i * 1.5) - out * (12 + i * 1.5), 1); });
+          s.el.style.visibility = (inn > .001 || k === 0) && out < .999 ? "" : "hidden";
+          s.el.style.pointerEvents = dom ? "" : "none";
+          s.r(seg(f - k, .08, .82));
+          var li = flowRail[k]; if (li) { li.firstChild.style.setProperty("--f", clamp(f - k, 0, 1).toFixed(3)); tog(li, f - k > -.05 && f - k < 1); }
         });
       },
-      reset: function () { flowSteps.forEach(function (s) { s.el.style.cssText = ""; }); }
+      reset: function () { flowSteps.forEach(function (s) { s.el.style.cssText = ""; [s.win, s.pose].concat(s.text).forEach(function (e) { if (e) e.style.cssText = ""; }); }); }
     });
   }
 
@@ -224,7 +249,8 @@
     // films coming up as cards, as in the app
     var track = homeWin.parentElement, hs = $(".home-scroll", homeWin);
     if (track && track.classList.contains("home-track") && hs) {
-      var strip = $(".hs-strip", hs);
+      var layA = $(".hs-home", hs), layB = $(".hs-films", hs);
+      var smooth = inOut, out = function (t) { return 1 - Math.pow(1 - t, 2.2); };
       addScene({
         el: track, pin: true,
         progress: function (r, vh) {
@@ -232,11 +258,17 @@
           return run > 0 ? clamp((stick - r.top) / run, 0, 1) : 0;
         },
         render: function (p) {
-          // one tall strip, Home above its film cards, scrolled by exactly one screen: a real scroll, nothing cross-fades
+          // the app's own move: the prompt (and the crew on it) fades out fast while rising a little; the films workspace,
+          // peeking at the bottom, travels up into place and fades to full
           hs.style.opacity = p > 0 ? "1" : "0";
-          strip.style.transform = "translate3d(0," + (-inOut(seg(p, .1, .9)) * 50).toFixed(3) + "%,0)";
+          var a = out(seg(p, .05, .35)), b = smooth(seg(p, .1, .85));
+          layA.style.opacity = (1 - a).toFixed(3);
+          layA.style.visibility = a >= 1 ? "hidden" : "";
+          layA.style.transform = "translate3d(0," + (-a * 2.4).toFixed(3) + "%,0)";
+          layB.style.opacity = (.32 + .68 * b).toFixed(3);
+          layB.style.transform = "translate3d(0," + ((1 - b) * 63.1).toFixed(3) + "%,0)";
         },
-        reset: function () { hs.style.opacity = "0"; }
+        reset: function () { hs.style.opacity = "0"; layA.style.cssText = ""; layB.style.cssText = ""; }
       });
     }
   }
