@@ -4,10 +4,10 @@ import AppKit
 @MainActor
 enum HomeCrewArtwork {
     static let image: NSImage = {
-        guard let url = Bundle.module.url(forResource: "crew-prompt-v3", withExtension: "png"),
+        guard let url = StudioResources.url("crew-prompt-v3", "png"),
               let source = NSImage(contentsOf: url),
               let pixels = source.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            preconditionFailure("The Home crew artwork must be bundled and decodable")
+            return NSImage(size: NSSize(width: 1, height: 1))  // missing artwork draws nothing; never crash Home
         }
         return NSImage(cgImage: pixels, size: source.size)
     }()
