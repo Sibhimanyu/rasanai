@@ -3,6 +3,18 @@ import StudioCore
 @testable import RasanAIStudio
 
 final class ResourceTests: XCTestCase {
+    @MainActor
+    func testHomeCrewArtworkIsBundledAndDecodable() throws {
+        let image = HomeCrewArtwork.image
+        XCTAssertTrue(image.isValid)
+        let pixels = try XCTUnwrap(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
+        XCTAssertGreaterThan(pixels.width, 1000)
+        XCTAssertGreaterThan(pixels.height, 300)
+        XCTAssertNotEqual(pixels.alphaInfo, .none)
+        XCTAssertNotEqual(pixels.alphaInfo, .noneSkipFirst)
+        XCTAssertNotEqual(pixels.alphaInfo, .noneSkipLast)
+    }
+
     func testRelocatedAppFindsCLIAndXcodeResourcesWithoutBuildDirectory() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

@@ -12,17 +12,20 @@ extension NSColor {
 }
 
 extension Color {
-    /// The RasanAI blue (#2A31A8, the site's accent) for text, icons and system tints. On dark surfaces it lifts to a lighter
-    /// step of the same hue so small text stays readable; fills use `rasanFill`, which never changes.
+    /// A restrained periwinkle accent, with a stronger shade for contrast on light surfaces.
     static let rasan = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x7C83F5) : .rasanHex(0x2A31A8)
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0xA0A8FF) : .rasanHex(0x454DCE)
     })
-    /// The RasanAI blue as a solid fill (primary buttons, the current step, selection): the brand value in both appearances.
-    static let rasanFill = Color(nsColor: .rasanHex(0x2A31A8))
-    /// The window's background: macOS Tahoe's neutral charcoal in dark mode (#1E1E1E, as in Apple's own sidebar apps),
-    /// the system window colour in light mode.
+    /// Primary controls use lilac with ink text in dark mode and indigo with white text in light mode.
+    static let rasanFill = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x969EFF) : .rasanHex(0x454DCE)
+    })
+    static let rasanPrimaryLabel = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x141627) : .white
+    })
+    /// The reference design's charcoal canvas, with the system window surface in light mode.
     static let appBackground = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x1E1E1E) : .windowBackgroundColor
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x181A1E) : .windowBackgroundColor
     })
     /// Turmeric, the brand's warm accent: note times, a waiting badge.
     static let turmeric = Color(nsColor: .rasanHex(0xEFB21A))
@@ -132,12 +135,12 @@ struct PressableStyle: ButtonStyle {
 private func buttonMetrics(_ size: ControlSize) -> (height: CGFloat, font: CGFloat, padding: CGFloat) {
     switch size {
     case .mini, .small: (26, 12, 10)
-    case .large, .extraLarge: (38, 14, 16)
-    default: (32, 13, 13)
+    case .large, .extraLarge: (42, 14, 19)
+    default: (36, 13, 15)
     }
 }
 
-/// The one loud button on a screen: solid RasanAI blue, white label.
+/// The primary action: a lilac fill with an ink label in the dark workspace.
 struct RasanPrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.controlSize) private var controlSize
@@ -151,7 +154,7 @@ struct RasanPrimaryButtonStyle: ButtonStyle {
             let m = buttonMetrics(size)
             configuration.label
                 .font(.system(size: m.font, weight: .semibold))
-                .foregroundStyle(.white.opacity(enabled ? 1 : 0.7))
+                .foregroundStyle(Color.rasanPrimaryLabel.opacity(enabled ? 1 : 0.7))
                 .padding(.horizontal, m.padding).frame(minHeight: m.height)
                 .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.rasanFill)
                     .brightness(configuration.isPressed ? -0.06 : hovering && enabled ? 0.06 : 0))
@@ -335,20 +338,15 @@ struct PosterImage: View {
     let url: URL
     var maxPixels: CGFloat = 720
     @State private var image: NSImage?
+    private struct Request: Hashable { let url: URL; let maxPixels: CGFloat }
     var body: some View {
         Group {
             if let image { Image(nsImage: image).resizable().scaledToFill() } else { Color.clear }
         }
-        .task(id: url) {
-            let size = maxPixels
-            image = await Task.detached(priority: .utility) { () -> NSImage? in
-                guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-                let options: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true,
-                                                kCGImageSourceCreateThumbnailWithTransform: true,
-                                                kCGImageSourceThumbnailMaxPixelSize: size]
-                guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
-                return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
-            }.value
+        .task(id: Request(url: url, maxPixels: maxPixels)) {
+            let thumbnail = await PosterThumbnailCache.shared.image(at: url, maxPixels: maxPixels)
+            guard !Task.isCancelled else { return }
+            image = thumbnail
         }
     }
 }

@@ -123,31 +123,41 @@ struct MovieExportSheet: View {
     init(source: URL, captions: URL?) { _model = State(initialValue: MovieExporter(source: source, captions: captions)) }
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text(model.completed == nil ? "Export film" : "Film exported").font(.system(size: 24, weight: .semibold))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(model.completed == nil ? "Export film" : "Film exported").font(.system(size: 24, weight: .semibold))
+                if model.completed == nil {
+                    Text(model.source.lastPathComponent).font(.system(size: 13)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                }
+            }
             if let destination = model.completed {
                 Label(destination.lastPathComponent, systemImage: "checkmark.circle.fill").foregroundStyle(.green)
                 Text(destination.deletingLastPathComponent().path).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                 if let captions = model.completedCaptions { Label(captions.lastPathComponent, systemImage: "captions.bubble").font(.caption) }
             } else {
-                Text(model.source.lastPathComponent).font(.system(size: 13)).foregroundStyle(.secondary)
-                Picker("Delivery", selection: $model.format) { ForEach(DeliveryFormat.allCases) { Text($0.title).tag($0) } }.disabled(model.isExporting)
-                Text("Original keeps the rendered file unchanged. MP4 options preserve the film's shape and audio.").font(.caption).foregroundStyle(.secondary)
-                Toggle("Include a separate caption file", isOn: $model.includeCaptions).disabled(model.isExporting)
-                if model.includeCaptions {
-                    HStack {
-                        Text(model.captions?.lastPathComponent ?? "Choose an SRT or VTT file").font(.caption).lineLimit(1)
-                        Spacer()
-                        Button("Choose…") { chooseCaptions() }.disabled(model.isExporting)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Format").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                    ForEach(DeliveryFormat.allCases) { format in formatRow(format) }
+                    Text("Original keeps the rendered file unchanged. MP4 options preserve the film's shape and audio.").font(.caption).foregroundStyle(.secondary)
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle("Include a separate caption file", isOn: $model.includeCaptions).disabled(model.isExporting)
+                    if model.includeCaptions {
+                        HStack {
+                            Text(model.captions?.lastPathComponent ?? "Choose an SRT or VTT file").font(.caption).lineLimit(1)
+                            Spacer()
+                            Button("Choose…") { chooseCaptions() }.disabled(model.isExporting)
+                        }
+                        Text("Captions are saved alongside the video as a separate file.").font(.caption).foregroundStyle(.secondary)
                     }
-                    Text("Captions are saved alongside the video as a separate file.").font(.caption).foregroundStyle(.secondary)
+                    if model.captions != nil || model.includeCaptions {
+                        Toggle("Burn captions into the picture", isOn: $model.burnCaptions)
+                            .disabled(model.isExporting || model.format == .original || model.captions == nil)
+                        Text(model.format == .original ? "Choose an MP4 option above to burn captions in. The original render is never changed."
+                             : "Captions are drawn on the video itself, so they show in every player and on social apps.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }
-                if model.captions != nil || model.includeCaptions {
-                    Toggle("Burn captions into the picture", isOn: $model.burnCaptions)
-                        .disabled(model.isExporting || model.format == .original || model.captions == nil)
-                    Text(model.format == .original ? "Choose an MP4 option above to burn captions in. The original render is never changed."
-                         : "Captions are drawn on the video itself, so they show in every player and on social apps.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
+                .padding(14).frame(maxWidth: .infinity, alignment: .leading).workspacePanel()
             }
             if model.isExporting {
                 TimelineView(.periodic(from: .now, by: 0.25)) { _ in
@@ -172,6 +182,21 @@ struct MovieExportSheet: View {
             }
         }.padding(28).frame(width: 500)
             .interactiveDismissDisabled(model.isExporting)
+    }
+    private func formatRow(_ format: DeliveryFormat) -> some View {
+        let on = model.format == format
+        return Button { model.format = format } label: {
+            HStack(spacing: 10) {
+                Image(systemName: on ? "largecircle.fill.circle" : "circle").foregroundStyle(on ? Color.rasan : Color.secondary)
+                Text(format.title).font(.system(size: 13, weight: on ? .semibold : .regular))
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 9).contentShape(Rectangle())
+            .background(on ? Color.rasan.opacity(0.10) : Color.clear, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .overlay { RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(on ? Color.rasan.opacity(0.7) : Workspace.hairline, lineWidth: 1) }
+        }
+        .buttonStyle(.plain).disabled(model.isExporting)
+        .accessibilityLabel(format.title).accessibilityAddTraits(on ? .isSelected : [])
     }
     private func chooseCaptions() {
         let panel = NSOpenPanel(); panel.title = "Choose captions"; panel.canChooseDirectories = false

@@ -86,15 +86,20 @@ public enum CallNotices {
         var body: String
         switch step {
         case "brief":
-            title = "Your brief is ready to confirm"; body = "\(film): see what Claude understood and found."
+            title = "Tara wrote your brief"; body = "\(film): see what Claude understood and found."
         case "story", "concept":
-            title = "\(spelled(count, "story", "stories", fallback: "Stories")) ready for \(film)"; body = "Pick the one worth telling."
+            title = count == 1 ? "Kavi has a script for you" : count > 1 ? "Kavi has \(countWord(count)) scripts for you" : "Kavi has scripts for you"
+            body = "\(film): pick the one worth telling."
         case "look", "films", "direction":
-            title = "\(spelled(count, "look", "looks", fallback: "Looks")) ready for \(film)"; body = "Pick the visual world for this story."
+            title = count == 1 ? "Chitra has a look ready" : count > 1 ? "Chitra has \(countWord(count)) looks ready" : "Chitra has looks ready"
+            body = "\(film): pick the visual world for this story."
         case "styleframes":
-            title = "Style frames are ready for \(film)"; body = count > 0 ? "\(count) frames to look over before anything moves." : "Look them over before anything moves."
+            title = "Chitra's style frames are ready"
+            body = count > 0 ? "\(film): \(count) frames to look over before anything moves." : "\(film): look them over before anything moves."
         case "animatic":
-            title = "The animatic is ready for \(film)"; body = "Watch it with the music and leave notes."
+            title = "Laya's first cut is ready"; body = "\(film): watch it with the music and leave notes."
+        case "footage", "reel":
+            title = "Mala logged your clips"; body = "\(film): look over the selects."
         default:
             title = "\(film) needs your call"; body = "Time to \(CallVocabulary.turnPhrase(step: step, in: new))."
         }
@@ -102,12 +107,8 @@ public enum CallNotices {
         return CallNotice(id: "call-\(step)", title: title, body: body)
     }
 
-    /// "Three stories", "1 look", "Stories" when the payload has no list.
-    private static func spelled(_ count: Int, _ one: String, _ many: String, fallback: String) -> String {
-        let words = [2: "Two", 3: "Three", 4: "Four", 5: "Five", 6: "Six"]
-        if count == 1 { return "1 \(one) is" }
-        if count > 1 { return "\(words[count] ?? String(count)) \(many) are" }
-        return "\(fallback) are"
+    private static func countWord(_ count: Int) -> String {
+        [2: "two", 3: "three", 4: "four", 5: "five", 6: "six"][count] ?? String(count)
     }
 
     /// Home's context line for a film waiting on a call: "3 stories ready · Claude's pick: Twelve small victories".

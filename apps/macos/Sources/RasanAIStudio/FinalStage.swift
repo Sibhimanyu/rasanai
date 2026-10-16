@@ -41,11 +41,20 @@ struct FinalStage: View {
         // The same editor layout as the animatic: the player fills the space, the scenes run as a filmstrip under it,
         // notes live in the inspector, and the call's action sits in the bar at the bottom.
         VStack(spacing: Workspace.gap) {
+            VStack(alignment: .leading, spacing: 6) {
+                CrewByline(step: "final").padding(.bottom, 4)
+                Text(notRendered ? "Ready to render." : "Watch the final cut.").font(.system(size: 30, weight: .semibold)).tracking(-0.3)
+                Text(notRendered ? "Make a quick preview first, or render the full-quality final."
+                     : "Leave a note where something should change, or export when it feels right.")
+                    .font(.system(size: 15)).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, .filmInset).padding(.top, 10).padding(.bottom, 4)
+            .accessibilityElement(children: .combine).accessibilityAddTraits(.isHeader)
             ReviewPlayerPanel(model: model, step: step, playback: playback, scenes: scenes, notes: allNotes,
                               aspect: model.snapshot.aspectRatio, canNote: canAct && playback.isReady, pinWindow: 2.5, showStrip: false) {
                 FinalFrame(playback: playback, posterPath: posterPath, hasVideo: videoURL != nil, notRendered: notRendered)
             }
-            .environment(\.reviewFrameHeight, max(200, stageHeight - 96 - (scenes.isEmpty ? 56 : 168) - Workspace.gap))
+            .environment(\.reviewFrameHeight, max(200, stageHeight - 96 - 84 - (scenes.isEmpty ? 56 : 168) - Workspace.gap))
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 10) {
                     Text(scenes.isEmpty ? (isRender && !done ? "Ready to render" : "Your film") : "Scenes").font(.system(size: 13, weight: .semibold))

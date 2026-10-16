@@ -53,8 +53,15 @@ struct LibraryFilmPage: View {
                         Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
                     }.padding(32).frame(maxWidth: 820).frame(maxWidth: .infinity)
                 }
-            } else if let error { ContentUnavailableView("Couldn't open this film", systemImage: "film", description: Text(error)) }
-            else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
+            } else if let error {
+                VStack(spacing: 6) {
+                    CrewAvatar(.ra, style: .full(height: 56), watching: true)
+                    ContentUnavailableView("Couldn't open this film", systemImage: "film", description: Text(error))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            else { PageLoadingView(title: "film") }
         }
         .navigationTitle(archive?.title ?? "Film")
         .pageHeader(archive?.title ?? "Film")

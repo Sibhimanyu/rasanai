@@ -6,7 +6,13 @@ import Heresay
 /// The window's root: a NavigationStack with Home at the bottom. No sidebars, no inspectors.
 struct StudioView: View {
     @Bindable var store: StudioStore
-    @Environment(\.openSettings) private var openSettings
+
+    init(store: StudioStore) {
+        self.store = store
+        // The saved sidebar state goes into the split view's first layout; restoring it in onAppear drew the sidebar open
+        // for a frame and then reflowed the toolbar and page.
+        _columns = State(initialValue: UserDefaults.standard.bool(forKey: "studio.sidebarHidden") ? .detailOnly : .all)
+    }
 
     var body: some View {
         content.environment(\.momentStore, store)
@@ -14,10 +20,10 @@ struct StudioView: View {
     }
 
     @AppStorage("studio.sidebarHidden") private var sidebarHidden = false
-    /// The split view's own state, so its toggle (and ⌃⌘S) runs the system's slide. Binding it straight to the stored setting
+    /// The split view's own state, so its toggle (and ⌘B) runs the system's slide. Binding it straight to the stored setting
     /// dropped the animation's transaction and made the sidebar snap; the setting is only written back afterwards.
     @State private var columns: NavigationSplitViewVisibility = .all
-    @State private var restored = false
+    @State private var isFullScreen = false
     /// A film (or the sample, or the film editor) brings its own bottom bar, so the studio's status bar steps aside there.
     private var showsStatusBar: Bool {
         switch store.path.last { case .film?, .sample?, .newFilm?: false; default: true }
@@ -29,21 +35,17 @@ struct StudioView: View {
         NavigationSplitView(columnVisibility: $columns) {
             AppSidebar(store: store)
         } detail: {
-            VStack(spacing: 0) {
-                stack
+            stack
+            .safeAreaPadding(.bottom, showsStatusBar && !store.path.isEmpty ? 50 : 0)
+            .overlay(alignment: .bottom) {
                 if showsStatusBar { AppStatusBar(store: store, sidebarHidden: columns == .detailOnly) }
             }
             .background(Color.appBackground)
         }
-        // No toolbar band: the glass items float over the page's own colour, in a window and in full screen alike, and
-        // content blurs softly under them as it scrolls (the system's scroll-edge effect).
-        .modifier(NoToolbarBand())
-        .onAppear {
-            guard !restored else { return }
-            restored = true
-            var quiet = Transaction(); quiet.disablesAnimations = true
-            withTransaction(quiet) { columns = sidebarHidden ? .detailOnly : .all }
-        }
+        // Keep floating toolbar controls in ordinary windows. In full screen, let AppKit choose the toolbar background
+        // so the native split view and fullscreen chrome can compose together.
+        .modifier(NoToolbarBand(fullScreen: isFullScreen))
+        .background(FullScreenState(isFullScreen: $isFullScreen))
         .onChange(of: columns) { _, visibility in sidebarHidden = visibility == .detailOnly }
     }
 
@@ -61,6 +63,23 @@ struct StudioView: View {
         case .inspire: GetInspiredPage(store: store)
         case .sample: SamplePage(store: store)
         case .library(let mode): HomeView(store: store, mode: mode)
+        case .settings: StudioSettingsView(settings: store.settings, page: true)
+        }
+    }
+
+    private func loadingTitle(for route: Route?) -> String {
+        switch route {
+        case nil: "Films"
+        case .newFilm?: "New film"
+        case .film?: "Film"
+        case .brands?: "Brands"
+        case .brand?: "Brand"
+        case .queue?: "Queue"
+        case .series?, .seriesPage?: "Series"
+        case .inspire?: "Inspiration"
+        case .sample?: "Sample film"
+        case .library(let mode)?: mode.title
+        case .settings?: "Settings"
         }
     }
 
@@ -78,10 +97,12 @@ struct StudioView: View {
                 if store.path != path { store.path = path }
             })
         return NavigationStack(path: pushed) {
-            Group {
+            ResponsivePage(title: loadingTitle(for: root)) {
                 if let root { page(root) } else { HomeView(store: store) }
             }
-            .navigationDestination(for: Route.self) { page($0) }
+            .navigationDestination(for: Route.self) { route in
+                ResponsivePage(title: loadingTitle(for: route)) { page(route) }
+            }
         }
         .id(root)
         .tint(.rasan)
@@ -158,7 +179,7 @@ struct StudioView: View {
     /// The most relevant two recovery actions for the current error.
     private var errorActions: [ErrorAction] {
         var actions: [ErrorAction] = []
-        if errorNeedsSettings(store.errorMessage) { actions.append(ErrorAction(title: "Open Settings") { openSettings() }) }
+        if errorNeedsSettings(store.errorMessage) { actions.append(ErrorAction(title: "Open Settings") { store.openSettingsPage() }) }
         if store.runURL != nil && !store.isConnected { actions.append(ErrorAction(title: "Reload film") { store.reloadFilm() }) }
         if store.canResume { actions.append(ErrorAction(title: "Resume Director") { store.resumeDirector() }) }
         if store.runtime.logURL != nil { actions.append(ErrorAction(title: "Show Log") { store.sheet = .log }) }
@@ -199,13 +220,14 @@ private struct LaunchFocus: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .blur(radius: focused ? 0 : 30)
-            .brightness(focused ? 0 : -0.12)
+            // No blur or brightness on the split view: that would rasterise the native sidebar and toolbar. The reveal is
+            // left to the window-level frost cover below.
             .allowsHitTesting(focused)
             .background(WindowSplashCover(active: !focused, fade: focusDuration, delay: focusDelay) {
                 SplashMark(agent: agent, waiting: held && !loaded)
             })
-            .onAppear { loaded = ready; hold() }
+            // Offscreen snapshots capture the library, not the launch splash.
+            .onAppear { if SnapshotHarness.directory != nil { held = true; loaded = true; focused = true; return }; loaded = ready; hold() }
             .onChange(of: ready) { loaded = ready; revealIfDone() }
     }
 
@@ -218,7 +240,8 @@ private struct LaunchFocus: ViewModifier {
 
     private func revealIfDone() {
         guard held, loaded, !focused else { return }
-        withAnimation(.easeOut(duration: focusDuration).delay(focusDelay)) { focused = true }
+        // The AppKit cover owns the fade; no animation transaction is inherited by the split view’s layout.
+        focused = true
     }
 }
 
@@ -326,8 +349,9 @@ private struct WindowSplashCover<Splash: View>: NSViewRepresentable {
 }
 
 private struct NoToolbarBand: ViewModifier {
+    let fullScreen: Bool
     func body(content: Content) -> some View {
-        if #available(macOS 15, *) { content.toolbarBackgroundVisibility(.hidden, for: .windowToolbar) }
-        else { content.toolbarBackground(.hidden, for: .windowToolbar) }
+        if #available(macOS 15, *) { content.toolbarBackgroundVisibility(fullScreen ? .automatic : .hidden, for: .windowToolbar) }
+        else { content.toolbarBackground(fullScreen ? .automatic : .hidden, for: .windowToolbar) }
     }
 }

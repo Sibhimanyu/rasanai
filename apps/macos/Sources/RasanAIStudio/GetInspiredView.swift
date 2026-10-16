@@ -2,6 +2,15 @@ import AppKit
 import AVFoundation
 import StudioCore
 import SwiftUI
+import UniformTypeIdentifiers
+
+/// Only gallery identifiers travel on the pasteboard; a drop must resolve to a known gallery card.
+private struct MomentDragPayload: Codable, Transferable {
+    let id: String
+    static var transferRepresentation: some TransferRepresentation {
+        CodableRepresentation(contentType: UTType(exportedAs: "com.rasanai.studio.gallery-moment"))
+    }
+}
 
 // MARK: Pieces shared by the gallery, Home, New film and the finished page
 
@@ -9,14 +18,19 @@ import SwiftUI
 struct MomentStill: View {
     let url: URL
     var maxPixels: CGFloat = 640
-    @State private var local: URL?
+    @State private var image: NSImage?
     var body: some View {
+        let request = GalleryThumbnailLoader.Request(url: url, maxPixels: maxPixels)
         ZStack {
             Color.primary.opacity(0.06)
-            if let local { PosterImage(url: local, maxPixels: maxPixels).transition(.opacity) }
+            if let image { Image(nsImage: image).resizable().scaledToFill() }
         }
-        .animation(.easeOut(duration: 0.2), value: local)
-        .task(id: url) { local = await MomentImageCache.localURL(for: url) }
+        .task(id: request) {
+            let loaded = await GalleryThumbnailLoader.shared.image(for: request)
+            guard !Task.isCancelled else { return }
+            image = loaded
+        }
+        .onDisappear { image = nil }
     }
 }
 
@@ -101,10 +115,12 @@ struct MomentCard: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .cardSurface(hovering: hovering, selected: selected)
+        .draggable(MomentDragPayload(id: moment.id))
         .onHover { inside in
             hovering = inside
             if inside { gallery.hoverBegan(moment.id) } else { gallery.hoverEnded(moment.id) }
         }
+        .onDisappear { hovering = false; gallery.hoverEnded(moment.id) }
     }
 
     private var media: some View {
@@ -267,12 +283,16 @@ struct GetInspiredView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let columns = [GridItem(.adaptive(minimum: 230, maximum: 320), spacing: 16, alignment: .top)]
+    @FocusState private var searchFocused: Bool
+    @State private var movesTargeted = false
+    @State private var dropMessage: String?
 
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     header
+                    searchBar
                     if !gallery.moments.isEmpty { filters }
                     content
                     Text("Clips belong to their creators, and each card links to the original post. RasanAI borrows how a moment moves, never its words, brand or footage, and lists these credits with your finished film.")
@@ -280,11 +300,12 @@ struct GetInspiredView: View {
                 }
                 .modifier(InspireColumn(onPage: pageTitle != nil))
             }
+            .background(GalleryScrollMonitor(gallery: gallery))
             tray
         }
         .background(Color.appBackground)
         .task { await gallery.loadIfNeeded() }
-        .onDisappear { gallery.stopPlaying(); gallery.closeViewer() }
+        .onDisappear { gallery.endInteraction(); gallery.closeViewer() }
         .momentViewer(gallery: gallery, selection: $selection)
     }
 
@@ -301,6 +322,29 @@ struct GetInspiredView: View {
     }
 
     // MARK: Filters
+
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField("Search inspiration", text: $gallery.searchQuery)
+                .textFieldStyle(.plain).focused($searchFocused)
+                .accessibilityLabel("Search inspiration")
+            if !gallery.searchQuery.isEmpty {
+                Button { gallery.searchQuery = ""; searchFocused = true } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain).accessibilityLabel("Clear search")
+            }
+        }
+        .font(.system(size: 13))
+        .padding(.horizontal, 12).frame(height: 36)
+        .background(Workspace.panel, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .strokeBorder(searchFocused ? Color.rasan.opacity(0.6) : Workspace.hairline, lineWidth: 1)
+        }
+        .help("Search names, creators, techniques and motion styles")
+    }
 
     private var filters: some View {
         FlowLayout(spacing: 8) {
@@ -362,8 +406,7 @@ struct GetInspiredView: View {
         switch gallery.state {
         case .idle, .loading:
             if gallery.moments.isEmpty {
-                HStack(spacing: 10) { ProgressView().controlSize(.small); Text("Loading the gallery…").font(.system(size: 13)).foregroundStyle(.secondary) }
-                    .frame(maxWidth: .infinity).padding(.vertical, 80)
+                PageLoadingView(title: "Inspiration", gallery: true)
             } else { grid }
         case .failed:
             if gallery.moments.isEmpty {
@@ -381,7 +424,12 @@ struct GetInspiredView: View {
     }
 
     @ViewBuilder private var grid: some View {
-        if gallery.showingSavedCopy {
+        if gallery.isRefreshing {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.mini)
+                Text("Updating Inspiration…")
+            }.font(.system(size: 11.5)).foregroundStyle(.secondary)
+        } else if gallery.showingSavedCopy {
             HStack(spacing: 6) {
                 Image(systemName: "icloud.slash").font(.system(size: 11))
                 Text("Showing the saved gallery. You are offline or it can't be reached right now.")
@@ -390,7 +438,7 @@ struct GetInspiredView: View {
         }
         if gallery.filtered.isEmpty {
             VStack(spacing: 8) {
-                Text("Nothing matches those filters.").font(.system(size: 13)).foregroundStyle(.secondary)
+                Text(gallery.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Nothing matches those filters." : "No examples match your search and filters.").font(.system(size: 13)).foregroundStyle(.secondary)
                 Button("Show everything") { gallery.clearFilters() }.buttonStyle(.link)
             }.frame(maxWidth: .infinity).padding(.vertical, 60)
         } else {
@@ -419,6 +467,10 @@ struct GetInspiredView: View {
                 if !selection.isEmpty {
                     Button("Clear") { withAnimation(reduceMotion ? nil : .snappy) { selection.clear() } }.buttonStyle(.link).font(.system(size: 11))
                 }
+                if let dropMessage {
+                    Text(dropMessage).font(.system(size: 11)).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true).frame(maxWidth: 200)
+                }
             }
             .padding(.leading, 6)
         }
@@ -426,6 +478,25 @@ struct GetInspiredView: View {
         .frame(maxWidth: .infinity)
         .background(Color.appBackground)
         .overlay(alignment: .top) { Divider() }
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(movesTargeted ? Color.rasan : .clear, lineWidth: 2)
+                .padding(4).allowsHitTesting(false)
+        }
+        .dropDestination(for: MomentDragPayload.self) { payloads, _ in
+            var accepted = false
+            var full = false
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) {
+                for payload in payloads {
+                    guard let moment = gallery.moment(payload.id) else { continue }
+                    if selection.contains(moment.id) { accepted = true; continue }
+                    if selection.set(moment.asFilmMoment()) { accepted = true } else { full = true }
+                }
+            }
+            dropMessage = full ? "Your moves holds four cards. Remove one to add another." : nil
+            return accepted
+        } isTargeted: { movesTargeted = $0 }
+        .onChange(of: selection.count) { _, count in if count < FilmDraft.maxMoments { dropMessage = nil } }
         .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: selection)
     }
 
@@ -453,7 +524,7 @@ struct GetInspiredView: View {
         } else {
             HStack(spacing: 6) {
                 Image(systemName: "plus").font(.system(size: 10, weight: .semibold))
-                Text("Add a move").font(.system(size: 12))
+                Text(movesTargeted ? "Drop a move" : "Add a move").font(.system(size: 12))
             }
             .foregroundStyle(.tertiary).frame(maxWidth: .infinity, minHeight: 46)
             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))

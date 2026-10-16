@@ -342,22 +342,56 @@ struct CrewRows: View {
     }
 }
 
+extension CrewMember {
+    /// The crew character who presents this agent: its role first, else its description, else Ra.
+    var character: CrewCharacter {
+        CrewCharacter(key: CrewRoles.character(forRole: role) ?? CrewRoles.character(forDescription: name)) ?? .ra
+    }
+}
+
+/// Who is working now: the first running crew member large and watching, the others as a row of small busts.
+/// Nobody running: the phase's owner. Draws nothing when the art is missing (CrewAvatar degrades to empty space).
+struct NowCrewAvatar: View {
+    let snapshot: FilmProgressSnapshot
+
+    private var running: [CrewCharacter] {
+        var seen = Set<CrewCharacter>()
+        return snapshot.crew.filter { $0.state == .running }.map(\.character).filter { seen.insert($0).inserted }
+    }
+
+    var body: some View {
+        let people = running
+        let lead = people.first ?? CrewCharacter(key: CrewRoles.character(forPhase: snapshot.now.phase)) ?? .ra
+        let others = Array(people.dropFirst())
+        VStack(spacing: 6) {
+            CrewAvatar(lead, style: .full(height: 72), watching: true)
+                .id(lead)
+                .transition(.opacity)
+                .help("\(lead.displayName), \(lead.roleTitle)")
+            if !others.isEmpty {
+                HStack(spacing: 3) {
+                    ForEach(others.prefix(3)) { CrewAvatar($0, style: .bust(diameter: 20), watching: false).help($0.displayName) }
+                    if others.count > 3 { Text("+\(others.count - 3)").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary) }
+                }
+            }
+        }
+        .frame(width: 76)
+        .accessibilityHidden(true)
+    }
+}
+
 struct CrewRow: View {
     let member: CrewMember
     let now: Date
     var body: some View {
+        let who = member.character
         HStack(spacing: 10) {
-            ZStack {
-                Circle().fill(tint.opacity(0.14))
-                switch member.state {
-                case .running: ProgressView().controlSize(.mini).scaleEffect(0.7)
-                case .done: Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(tint)
-                case .failed: Image(systemName: "exclamationmark").font(.system(size: 10, weight: .bold)).foregroundStyle(tint)
-                }
-            }
-            .frame(width: 22, height: 22)
+            CrewAvatar(who, style: .bust(diameter: 24), watching: false)
+                .overlay(alignment: .bottomTrailing) { badge.offset(x: 3, y: 3) }
+                .frame(width: 24, height: 24)
             VStack(alignment: .leading, spacing: 1) {
-                Text(member.name).font(.system(size: 13, weight: member.state == .running ? .medium : .regular))
+                (Text(who.displayName).fontWeight(.semibold) + Text(" · \(member.name)"))
+                    .font(.system(size: 13, weight: member.state == .running ? .medium : .regular))
                     .foregroundStyle(member.state == .running ? .primary : .secondary).lineLimit(1)
                 if member.state == .running, let action = member.lastAction, !action.isEmpty {
                     Text(action).font(.system(size: 11)).foregroundStyle(.tertiary).lineLimit(1)
@@ -369,8 +403,22 @@ struct CrewRow: View {
         }
         .padding(.vertical, 3)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(member.name), \(member.state == .running ? "working" : member.state == .done ? "finished" : "failed")")
+        .accessibilityLabel("\(who.displayName), \(member.name), \(member.state == .running ? "working" : member.state == .done ? "finished" : "failed")")
     }
+
+    private var badge: some View {
+        ZStack {
+            Circle().fill(Color(nsColor: .windowBackgroundColor))
+            Circle().fill(tint).padding(1.5)
+            switch member.state {
+            case .running: ProgressView().controlSize(.mini).scaleEffect(0.42).colorScheme(.dark)
+            case .done: Image(systemName: "checkmark").font(.system(size: 6, weight: .heavy)).foregroundStyle(.white)
+            case .failed: Image(systemName: "exclamationmark").font(.system(size: 7, weight: .heavy)).foregroundStyle(.white)
+            }
+        }
+        .frame(width: 13, height: 13)
+    }
+
     private var tint: Color {
         switch member.state {
         case .running: Color.rasan

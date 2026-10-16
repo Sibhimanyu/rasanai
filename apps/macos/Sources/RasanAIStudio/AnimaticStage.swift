@@ -30,6 +30,7 @@ struct AnimaticStage: View {
         // An editor's layout: the player fills the space, the scenes run as a filmstrip under it, notes live in the
         // inspector beside it, and the call's action sits in the bar at the bottom.
         VStack(spacing: Workspace.gap) {
+            heading
             if scenes.isEmpty {
                 emptyState.workspacePanel()
             } else {
@@ -38,7 +39,7 @@ struct AnimaticStage: View {
                                   caption: { index in index.flatMap { scenes.indices.contains($0) ? scenes[$0].line : nil } }) {
                     AnimaticFrame(playback: playback, scenes: scenes)
                 }
-                .environment(\.reviewFrameHeight, max(200, stageHeight - 96 - 168 - Workspace.gap))
+                .environment(\.reviewFrameHeight, max(200, stageHeight - 96 - 168 - 84 - Workspace.gap))
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 10) {
                         Text("Scenes").font(.system(size: 13, weight: .semibold))
@@ -84,6 +85,18 @@ struct AnimaticStage: View {
         .confirmationDialog("Build without your \(open.count) note\(open.count == 1 ? "" : "s")?", isPresented: $confirmBuild, titleVisibility: .visible) {
             Button("Build Without Notes") { Task { await model.send(step: step, type: "approve") } }
         } message: { Text("Your notes stay on the animatic but are not applied.") }
+    }
+
+    /// The step's one clear heading. The picture below is key frames at their real timing, not rendered video, so it says so.
+    private var heading: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            CrewByline(step: step).padding(.bottom, 4)
+            Text("Watch the first cut.").font(.system(size: 30, weight: .semibold)).tracking(-0.3)
+            Text("Review the pacing, story and sound before the final build.").font(.system(size: 15)).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, .filmInset).padding(.bottom, 4)
+        .accessibilityElement(children: .combine).accessibilityAddTraits(.isHeader)
     }
 
     private var emptyState: some View {
@@ -158,6 +171,12 @@ private struct AnimaticFrame: View {
                         .multilineTextAlignment(.center).padding(.horizontal, 30)
                 }
             }
+        }
+        .overlay(alignment: .topLeading) {
+            Label("Timing preview", systemImage: "timer").font(.system(size: 12, weight: .medium)).foregroundStyle(.white)
+                .padding(.horizontal, 11).padding(.vertical, 6).background(.black.opacity(0.55), in: Capsule())
+                .padding(12).allowsHitTesting(false)
+                .help("Key frames at their real timing over the music bed. Not the rendered film.")
         }
         .animation(.easeInOut(duration: 0.18), value: scene.id)
     }

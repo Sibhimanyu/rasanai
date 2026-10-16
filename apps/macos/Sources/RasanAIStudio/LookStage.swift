@@ -5,7 +5,7 @@ import SwiftUI
 
 /// Call 03, three looks (`look` with design systems, and the older `films` / `direction` with films).
 /// The chosen system is the hero (its poster, or a muted looping preview video, or a recipe card drawn natively);
-/// three tiles below switch it. Nothing here is a web view.
+/// three tiles below switch it, and a rail names its colours and type. Nothing here is a web view.
 struct LookStage: View {
     let model: FilmSessionModel
     let step: String
@@ -14,6 +14,8 @@ struct LookStage: View {
     @State private var selection: String?
     @Environment(\.agentName) private var agent
     @State private var showMix = false
+    @State private var showRefine = false
+    @State private var showMotion = false
     @State private var mixLook = ""
     @State private var mixStory = ""
     @FocusState private var keysFocused: Bool
@@ -30,25 +32,19 @@ struct LookStage: View {
 
     var body: some View {
         StageScaffold(model: model, step: step,
-                      question: payload["question"].string ?? (isFilms ? "Which film do you want?" : "Which look fits this story?"),
+                      question: payload["question"].string ?? (isFilms ? "Which film do you want?" : "Find the right feeling."),
                       context: payload["context"].string ?? payload["sub"].string,
                       maxWidth: 1240) {
             if let current {
-                VStack(alignment: .leading, spacing: 20) {
-                    HStack(alignment: .top, spacing: 26) {
+                StudioAdaptiveColumns(railWidth: 250, railFirst: false, breakpoint: 820, gap: 24, stackSpacing: 24) {
+                    VStack(alignment: .leading, spacing: 18) {
                         LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook)
-                        VStack(alignment: .leading, spacing: 18) {
-                            LookCaption(item: current, isRecommended: current.id == recommendedID)
-                            if isFilms && !current.frames.isEmpty { LookFrames(item: current, aspect: aspect) }
-                            Spacer(minLength: 0)
-                            controls(current)
-                        }
-                        .frame(width: 280)
+                        LookTiles(items: items, selectedID: current.id, recommendedID: recommendedID, aspect: aspect,
+                                  hook: payload["hook"].string) { selection = $0 }
+                        if isFilms && !current.frames.isEmpty { LookFrames(item: current, aspect: aspect) }
                     }
-                    LookTiles(items: items, selectedID: current.id, recommendedID: recommendedID, aspect: aspect,
-                              hook: payload["hook"].string) { selection = $0 }
+                    rail(current)
                 }
-                .animation(.smooth(duration: 0.3), value: current.id)
                 .focusable()
                 .focusEffectDisabled()
                 .focused($keysFocused)
@@ -72,6 +68,52 @@ struct LookStage: View {
         .onChange(of: items.map(\.id)) { _, ids in
             if let selection, !ids.contains(selection) { self.selection = nil }
         }
+    }
+
+    // MARK: Rail
+
+    /// The selected look's caption and what it is made of, with the deeper controls folded away.
+    private func rail(_ current: LookItem) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            LookCaption(item: current, isRecommended: current.id == recommendedID)
+            if let recipe = current.recipe {
+                Rectangle().fill(Workspace.hairline).frame(height: 1)
+                LookPalette(recipe: recipe)
+                if !recipe.display.isEmpty { LookTypeStyle(recipe: recipe) }
+            }
+            Rectangle().fill(Workspace.hairline).frame(height: 1)
+            DisclosureGroup("Refine direction", isExpanded: $showRefine) { controls(current).padding(.top, 10) }
+                .font(.system(size: 13, weight: .medium))
+            if current.music != nil || current.video != nil || !current.beats.isEmpty {
+                DisclosureGroup("Motion and sound", isExpanded: $showMotion) { motionAndSound(current).padding(.top, 10) }
+                    .font(.system(size: 13, weight: .medium))
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .workspacePanel()
+    }
+
+    @ViewBuilder private func motionAndSound(_ current: LookItem) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if current.video != nil {
+                Label("The picture above plays this look's motion preview.", systemImage: "play.rectangle")
+                    .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            if let music = current.music {
+                Label(music, systemImage: "music.note").font(.system(size: 12)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if !current.beats.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(Array(current.beats.enumerated()), id: \.offset) { index, beat in
+                        Text("\(index + 1). \(beat)").font(.system(size: 12)).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: Controls
@@ -335,7 +377,7 @@ private struct LookFallbackCard: View {
     }
 }
 
-// MARK: - Hero, caption, frames, tiles
+// MARK: - Hero, caption, palette, frames, tiles
 
 private struct LookHero: View {
     let item: LookItem
@@ -345,13 +387,11 @@ private struct LookHero: View {
     var body: some View {
         LookMedia(item: item, hook: hook)
             .aspectRatio(aspect, contentMode: .fit)
-            .frame(maxHeight: 340)
+            .frame(maxHeight: 560)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
-            .shadow(color: .black.opacity(0.28), radius: 28, y: 14)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Workspace.hairline, lineWidth: 1) }
+            .frame(maxWidth: .infinity)
             .id(item.id)
-            .transition(.opacity.combined(with: .scale(scale: 0.99)))
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(item.label) look, \(item.name). \(item.blend)")
             .accessibilityAddTraits(.isImage)
@@ -362,20 +402,62 @@ private struct LookCaption: View {
     let item: LookItem
     var isRecommended: Bool
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Text(item.label.uppercased()).font(.system(size: 11, weight: .bold)).tracking(1.2).foregroundStyle(.secondary)
-                if isRecommended { RecommendedBadge() }
+        VStack(alignment: .leading, spacing: 8) {
+            StageSectionTitle("Selected look")
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(item.name).font(.system(size: 20, weight: .semibold)).tracking(-0.2).fixedSize(horizontal: false, vertical: true)
             }
-            Text(item.name).font(.system(size: 26, weight: .semibold)).tracking(-0.4).fixedSize(horizontal: false, vertical: true)
-            if !item.blend.isEmpty { Text(item.blend).font(.system(size: 14, weight: .medium)).foregroundStyle(.primary.opacity(0.85)) }
-            if !item.why.isEmpty { Text(item.why).font(.system(size: 14)).foregroundStyle(.secondary).lineSpacing(2).fixedSize(horizontal: false, vertical: true) }
+            HStack(spacing: 8) {
+                Text(item.label).font(.system(size: 11, weight: .bold)).tracking(1.0).foregroundStyle(.secondary)
+                if isRecommended { RecommendedBadge(text: "Recommended") }
+            }
+            if !item.blend.isEmpty { Text(item.blend).font(.system(size: 13, weight: .medium)).foregroundStyle(.primary.opacity(0.85)).fixedSize(horizontal: false, vertical: true) }
+            if !item.why.isEmpty { Text(item.why).font(.system(size: 13)).foregroundStyle(.secondary).lineSpacing(2).fixedSize(horizontal: false, vertical: true) }
             if item.specimen != nil { OpenInBrowserButton(path: item.specimen, title: "Open type and colour sheet").padding(.top, 2) }
-            if let music = item.music { Label(music, systemImage: "music.note").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 2) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .id(item.id)
-        .transition(.opacity)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// The recipe's own colours, as drawn swatches.
+private struct LookPalette: View {
+    let recipe: LookItem.Recipe
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Colour palette").font(.system(size: 13, weight: .medium))
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 32, maximum: 40), spacing: 8)], alignment: .leading, spacing: 8) {
+                ForEach(Array(recipe.swatches.enumerated()), id: \.offset) { _, color in
+                    RoundedRectangle(cornerRadius: 8, style: .continuous).fill(color)
+                        .aspectRatio(1, contentMode: .fit)
+                        .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.primary.opacity(0.18), lineWidth: 1) }
+                }
+            }
+            .accessibilityHidden(true)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Colour palette, \(recipe.swatches.count) colours")
+    }
+}
+
+private struct LookTypeStyle: View {
+    let recipe: LookItem.Recipe
+    private var font: Font {
+        if NSFontManager.shared.availableFontFamilies.contains(recipe.display) { return .custom(recipe.display, size: 38) }
+        return .system(size: 38, weight: .semibold, design: .serif)
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Type style").font(.system(size: 13, weight: .medium))
+            HStack(alignment: .center, spacing: 12) {
+                Text("Aa").font(font).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(recipe.display).font(.system(size: 13, weight: .medium))
+                    if !recipe.body.isEmpty { Text(recipe.body).font(.system(size: 12)).foregroundStyle(.secondary) }
+                    if let typeClass = recipe.typeClass, !typeClass.isEmpty { Text(typeClass).font(.system(size: 12)).foregroundStyle(.secondary) }
+                }
+            }
+        }
         .accessibilityElement(children: .combine)
     }
 }
@@ -390,7 +472,7 @@ private struct LookFrames: View {
                     PayloadImage(path: frame, contentMode: .fill, maxPixels: 700)
                         .aspectRatio(aspect, contentMode: .fit)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.primary.opacity(0.1), lineWidth: 0.5) }
+                        .overlay { RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Workspace.hairline, lineWidth: 1) }
                     if index < item.beats.count {
                         Text(item.beats[index]).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
                     }
@@ -410,7 +492,7 @@ private struct LookTiles: View {
     let pick: (String) -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
+        HStack(alignment: .top, spacing: 14) {
             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                 LookTile(item: item, index: index, selected: item.id == selectedID, recommended: item.id == recommendedID,
                          aspect: min(aspect, 1.8), hook: hook) { pick(item.id) }
@@ -433,28 +515,22 @@ private struct LookTile: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 8) {
                 LookMedia(item: item, hook: hook, playVideo: false, compact: true)
-                    .frame(maxWidth: .infinity).frame(height: 112)
-                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .aspectRatio(aspect, contentMode: .fit)
+                    .frame(maxWidth: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .strokeBorder(selected ? Color.primary.opacity(0.85) : .primary.opacity(0.1), lineWidth: selected ? 2.5 : 0.5)
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(selected ? Color.rasan : (hovering ? Color.primary.opacity(0.25) : Workspace.hairline), lineWidth: selected ? 2 : 1)
                     }
-                    .shadow(color: .black.opacity(hovering ? 0.28 : 0.12), radius: hovering ? 14 : 5, y: hovering ? 8 : 2)
-                    .animation(.smooth(duration: 0.2), value: hovering)
                 HStack(spacing: 6) {
-                    Text("\(index + 1)").font(.system(size: 10, weight: .semibold, design: .rounded)).foregroundStyle(.secondary)
-                        .frame(width: 16, height: 16).background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
-                    Text(item.name).font(.system(size: 13, weight: selected ? .semibold : .medium)).lineLimit(1)
-                    if recommended { Image(systemName: "sparkles").font(.system(size: 10)).foregroundStyle(Color.rasan) }
+                    Text(item.name).font(.system(size: 13, weight: selected ? .semibold : .regular)).lineLimit(1)
+                    if recommended { RecommendedBadge(text: "Recommended") }
                     Spacer(minLength: 0)
-                    Text(item.label).font(.system(size: 11)).foregroundStyle(.secondary)
                 }
             }
-            // Hover deepens the media's shadow only: lifting or fading the tile would re-rasterise its label (flicker).
-            .animation(.smooth(duration: 0.2), value: selected)
             .contentShape(Rectangle())
         }
-        .buttonStyle(PressableStyle())
+        .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .frame(maxWidth: .infinity)
         .accessibilityLabel("\(item.label), \(item.name)\(recommended ? ", Claude's pick" : "")")

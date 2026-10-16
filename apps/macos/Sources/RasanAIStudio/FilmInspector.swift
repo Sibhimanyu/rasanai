@@ -29,9 +29,9 @@ struct FilmInspector: View {
             case .decisions: DecisionsInspector(model: model)
             }
         }
-        .frame(width: 340)
+        .frame(width: 320)
         .frame(maxHeight: .infinity)
-        .glassPanel()   // the sidebar's glass, one surface under the header, Notes and Decisions alike
+        .workspacePanel()   // a calm bordered panel, one surface under the header, Notes and Decisions alike
     }
 
     private func tab(_ which: InspectorTab, title: String) -> some View {
@@ -146,14 +146,14 @@ struct ThreadBubble: View {
     }
 }
 
-/// Lays the inspector panel beside the stage panel. Opens by default when the window is wide (over 1100 pt) and then
-/// remembers the person's last choice. ⌘K opens it on Notes with the composer focused.
+/// Lays the inspector panel beside the stage panel. Closed by default at any width; it remembers the person's last
+/// explicit choice. ⌘K opens it on Notes with the composer focused.
 struct DecisionsHost<Page: View>: View {
     @Bindable var model: FilmSessionModel
     let page: Page
     /// Fixtures keep whatever state they set themselves.
     var remembersState = true
-    /// 0: not chosen yet (follow the window width), 1: open, 2: closed.
+    /// 0: not chosen yet (closed), 1: open, 2: closed.
     @AppStorage("studio.filmInspectorState") private var stored = 0
     @State private var configured = false
     @State private var applied: Bool?
@@ -166,10 +166,10 @@ struct DecisionsHost<Page: View>: View {
             }
         }
         .animation(.snappy(duration: 0.22), value: model.decisionsPresented)
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { _ in
             guard remembersState, !configured else { return }
             configured = true
-            let open = stored == 0 ? width > 1000 : stored == 1
+            let open = stored == 1   // closed unless the person last left it open, whatever the window width
             if open != model.decisionsPresented { applied = open; model.decisionsPresented = open }
         }
         .onChange(of: model.decisionsPresented) { _, open in
@@ -184,23 +184,13 @@ struct DecisionsHost<Page: View>: View {
     }
 }
 
-/// The stage panel. A stage that lays out its own panels (the animatic's player and filmstrip) says so through
-/// `StageDrawsPanelsKey` and is drawn straight on the canvas instead.
+/// Every stage sits on the canvas and draws its own content panels.
+/// Keep this wrapper stable from the first layout pass to preserve focus and player identity.
 struct StagePanelHost<Content: View>: View {
     @ViewBuilder var content: Content
-    @State private var ownPanels = false
     var body: some View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onPreferenceChange(StageDrawsPanelsKey.self) { ownPanels = $0 }
-            .modifier(OptionalPanel(on: !ownPanels))
-    }
-}
-
-private struct OptionalPanel: ViewModifier {
-    let on: Bool
-    func body(content: Content) -> some View {
-        if on { content.workspacePanel() } else { content }
     }
 }
 

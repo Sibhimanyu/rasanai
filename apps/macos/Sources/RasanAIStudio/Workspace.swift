@@ -8,17 +8,17 @@ import SwiftUI
 /// Light mode keeps the same structure on a grey canvas with white panels.
 enum Workspace {
     static let canvas = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x1E1E1E) : .rasanHex(0xE9E9EC)
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x181A1E) : .rasanHex(0xF0F1F5)
     })
     static let panel = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x262626) : .rasanHex(0xFFFFFF)
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x202328) : .rasanHex(0xFFFFFF)
     })
     static let raised = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x2E2E2E) : .rasanHex(0xF4F4F6)
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x292D35) : .rasanHex(0xF4F4F6)
     })
-    static let hairline = Color.primary.opacity(0.08)
+    static let hairline = Color.primary.opacity(0.10)
     static let sidebar = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x1E1E1E) : .rasanHex(0xF3F3F6)
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .rasanHex(0x181A1E) : .rasanHex(0xF3F3F6)
     })
     static let radius: CGFloat = 12
     /// The corners of the window's floating glass sidebar; the glass chrome on the film page matches them.
@@ -38,29 +38,14 @@ struct WorkspacePanel: ViewModifier {
     }
 }
 
-/// A panel of the studio's chrome (the film inspector, the action bar) in the same glass as the window's sidebar: the
-/// system's Liquid Glass, floating over the workspace with its own lit rim and the sidebar's rounder corners, so the
-/// chrome on both sides of the stage is one material. Left to itself the glass picks its fill from its size (a short bar
-/// came out as flat as the canvas); tinted with the panel colour, every panel lands on the sidebar's fill.
+/// The sidebar, inspector and action chrome use the native untinted glass material.
 struct GlassPanel<S: Shape>: ViewModifier {
     let shape: S
     func body(content: Content) -> some View {
         if #available(macOS 26, *) {
-            content.clipShape(shape).glassEffect(.regular.tint(Workspace.panel), in: shape)
+            content.clipShape(shape).glassEffect(.regular, in: shape)
         } else {
-            content.background(Workspace.panel, in: shape).clipShape(shape).overlay { shape.stroke(Workspace.hairline, lineWidth: 1) }
-        }
-    }
-}
-
-/// The glass for a full-width strip (the studio's status bar), without a shape: a solid panel and a sheen of light along
-/// the top.
-struct GlassSurface: View {
-    @Environment(\.colorScheme) private var scheme
-    var body: some View {
-        ZStack {
-            Workspace.panel
-            LinearGradient(colors: [Color.white.opacity(scheme == .dark ? 0.05 : 0.20), .clear], startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.35))
+            content.background(.regularMaterial, in: shape).clipShape(shape).overlay { shape.stroke(Workspace.hairline, lineWidth: 1) }
         }
     }
 }

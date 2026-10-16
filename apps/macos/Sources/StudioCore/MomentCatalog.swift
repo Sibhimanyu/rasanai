@@ -176,28 +176,28 @@ public enum MomentCatalog {
     /// Flags the newest rows and returns the moments newest first (featured lead); the manifest's own order breaks ties.
     static func markNew(_ input: [Moment]) -> [Moment] {
         var moments = input
-        let dates = moments.compactMap { $0.added.flatMap(day) }
-        if let newest = dates.max() {
+        // Parse each date once. Creating formatters inside the sort comparator made a large gallery expensive to open.
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = TimeZone(identifier: "UTC"); formatter.dateFormat = "yyyy-MM-dd"
+        let dates = moments.map { moment in
+            moment.added.flatMap { formatter.date(from: String($0.prefix(10))) }
+        }
+        if let newest = dates.compactMap({ $0 }).max() {
             let cutoff = newest.addingTimeInterval(-Double(newWindowDays) * 86_400)
-            for index in moments.indices { moments[index].isNew = moments[index].added.flatMap(day).map { $0 >= cutoff } ?? false }
+            for index in moments.indices { moments[index].isNew = dates[index].map { $0 >= cutoff } ?? false }
         } else {
             for index in moments.indices.suffix(fallbackNewCount) { moments[index].isNew = true }
         }
         let indexed = Array(moments.enumerated())
         return indexed.sorted { a, b in
             if a.element.featured != b.element.featured { return a.element.featured }
-            let da = a.element.added.flatMap(day), db = b.element.added.flatMap(day)
+            let da = dates[a.offset], db = dates[b.offset]
             if let da, let db, da != db { return da > db }
             if (da == nil) != (db == nil) { return da != nil }
             return da == nil ? a.offset > b.offset : a.offset < b.offset
         }.map(\.element)
     }
 
-    private static func day(_ text: String) -> Date? {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = TimeZone(identifier: "UTC"); formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.date(from: String(text.prefix(10)))
-    }
     private static func strings(_ value: Any?) -> [String] { (value as? [Any])?.compactMap { $0 as? String } ?? [] }
     /// Paths in the manifest are relative to the manifest URL; only http(s) and file URLs are accepted.
     static func resolve(_ path: String, base: URL) -> URL? {

@@ -2,7 +2,7 @@ import AppKit
 import StudioCore
 import SwiftUI
 
-/// Call 02, three scripts. Three comparable cards that lead with what each story would achieve, then the chosen script's aim, approach and timed table.
+/// Call 02, three scripts. A list of stories on the left; the chosen script's aim, key moments, timeline and full table on the right.
 struct StoryStage: View {
     let model: FilmSessionModel
     let step: String
@@ -29,23 +29,24 @@ struct StoryStage: View {
     var body: some View {
         let all = scripts
         StageScaffold(model: model, step: step,
-                      question: payload["question"].string ?? "Which story should we tell?",
+                      question: payload["question"].string ?? "Choose the story.",
                       context: payload["context"].string,
                       maxWidth: 1240) {
             VStack(alignment: .leading, spacing: 26) {
                 if all.isEmpty {
                     StoryEmpty()
                 } else {
-                    selector(all)
-                    if let current {
-                        StoryDetail(script: current, isRecommended: current.id == recommendedID)
-                            .id(current.id)
-                            .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: 8)), removal: .opacity))
+                    StudioAdaptiveColumns(railWidth: 260, railFirst: true, breakpoint: 760, gap: 24, stackSpacing: 20) {
+                        if let current {
+                            StoryDetail(script: current, isRecommended: current.id == recommendedID)
+                                .id(current.id)
+                        } else {
+                            Color.clear.frame(height: 0)
+                        }
+                        storyList(all)
                     }
-                    moreRow(all)
                 }
             }
-            .animation(.smooth(duration: 0.28), value: current?.id)
             .focusable()
             .focusEffectDisabled()
             .focused($keysFocused)
@@ -67,44 +68,42 @@ struct StoryStage: View {
         }
     }
 
-    // MARK: Selector
+    // MARK: List
 
-    private func selector(_ all: [StoryScript]) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            ForEach(Array(all.enumerated()), id: \.element.id) { index, script in
-                StoryOptionCard(script: script, index: index, count: all.count,
-                                selected: script.id == current?.id, isPick: script.id == recommendedID) {
-                    withAnimation(.smooth(duration: 0.28)) { selectedID = script.id }
+    private func storyList(_ all: [StoryScript]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(spacing: 8) {
+                ForEach(Array(all.enumerated()), id: \.element.id) { index, script in
+                    StoryListRow(script: script, index: index, count: all.count,
+                                 selected: script.id == current?.id, isPick: script.id == recommendedID) {
+                        selectedID = script.id
+                    }
                 }
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Stories")
+            moreButton(all)
         }
-        .fixedSize(horizontal: false, vertical: true)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Stories")
     }
 
-    private func moreRow(_ all: [StoryScript]) -> some View {
+    private func moreButton(_ all: [StoryScript]) -> some View {
         let canAct = model.canAct(on: step) && !model.hasSent(step)
-        return HStack(spacing: 12) {
-            Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 0.5)
-            Button {
-                let near = current?.id ?? all.first?.id ?? ""
-                let exclude = all.map { JSONValue.string($0.id) }
-                Task { await model.send(step: step, type: "more", value: .object(["near": .string(near), "exclude": .array(exclude)])) }
-            } label: {
-                Label("Three more stories", systemImage: "arrow.triangle.2.circlepath")
-            }
-            .controlSize(.regular)
-            .disabled(!canAct)
-            .help("Ask \(agent) for three new scripts near the one you're looking at.")
-            Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 0.5)
+        return Button {
+            let near = current?.id ?? all.first?.id ?? ""
+            let exclude = all.map { JSONValue.string($0.id) }
+            Task { await model.send(step: step, type: "more", value: .object(["near": .string(near), "exclude": .array(exclude)])) }
+        } label: {
+            Label("Three more stories", systemImage: "arrow.triangle.2.circlepath")
         }
+        .controlSize(.regular)
+        .disabled(!canAct)
+        .help("Ask \(agent) for three new scripts near the one you're looking at.")
     }
 }
 
-// MARK: Option card
+// MARK: List row
 
-private struct StoryOptionCard: View {
+private struct StoryListRow: View {
     let script: StoryScript
     let index: Int, count: Int
     let selected: Bool, isPick: Bool
@@ -113,55 +112,41 @@ private struct StoryOptionCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 6) {
-                    Text(script.angle.uppercased())
-                        .font(.system(size: 10, weight: .bold)).tracking(0.9)
-                        .foregroundStyle(selected ? Color.primary : Color.secondary)
-                    Text(script.angleMeaning)
-                        .font(.system(size: 11)).foregroundStyle(.secondary)
-                    if isPick {
-                        Image(systemName: "sparkles").font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.rasan)
-                    }
-                    Spacer(minLength: 0)
-                    if count > 1 {
-                        Text("\(index + 1)").font(.system(size: 10, weight: .medium, design: .rounded)).monospacedDigit()
-                            .foregroundStyle(.tertiary)
-                            .padding(.horizontal, 5).padding(.vertical, 1)
-                            .background(Color(nsColor: .quaternaryLabelColor).opacity(0.5), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-                    }
-                }
-                Text(script.headline)
-                    .font(.system(size: 17, weight: .semibold, design: .serif)).lineSpacing(2)
-                    .foregroundStyle(.primary)
-                    .lineLimit(3).multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, minHeight: 66, alignment: .topLeading)
+            HStack(alignment: .top, spacing: 12) {
+                Text(String(format: "%02d", index + 1))
+                    .font(.system(size: 12, weight: .medium)).monospacedDigit()
+                    .foregroundStyle(selected ? Color.rasan : Color.secondary)
+                    .padding(.top, 2)
                 VStack(alignment: .leading, spacing: 5) {
-                    if let feel = script.aim?.feel, !feel.isEmpty { quiet("Feel", feel) }
-                    if let next = script.aim?.action, !next.isEmpty { quiet("Then", next) }
+                    Text(script.title).font(.system(size: 14, weight: .semibold))
+                        .lineLimit(2).multilineTextAlignment(.leading)
+                    if isPick { RecommendedBadge(text: "Recommended") }
+                    Text(script.headline).font(.system(size: 12)).foregroundStyle(.secondary)
+                        .lineLimit(3).multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+                    if !script.angleMeaning.isEmpty {
+                        Text("\(script.angle) · \(script.angleMeaning)").font(.system(size: 11)).foregroundStyle(.tertiary)
+                    }
                 }
-                .frame(maxWidth: .infinity, minHeight: 40, alignment: .topLeading)
-                Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 0.5)
-                Text(script.title)
-                    .font(.system(size: 12, weight: selected ? .semibold : .medium))
-                    .foregroundStyle(selected ? .primary : .secondary)
-                    .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: selected ? "largecircle.fill.circle" : "circle")
+                    .font(.system(size: 16)).foregroundStyle(selected ? Color.rasan : Color.secondary.opacity(0.6))
+                    .padding(.top, 1)
             }
-            .padding(.horizontal, 16).padding(.vertical, 14)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .cardSurface(hovering: hovering, selected: selected)
-            .contentShape(Rectangle())
+            .padding(.horizontal, 14).padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .background(selected ? Color.rasan.opacity(0.10) : (hovering ? Workspace.hairline : Color.clear),
+                        in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(selected ? Color.rasan.opacity(0.8) : Workspace.hairline, lineWidth: selected ? 1.5 : 1)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .help("Press \(index + 1) to show this one")
         .accessibilityLabel("\(script.angle) story, \(script.angleMeaning): \(script.headline)\(isPick ? ", Claude's pick" : "")")
         .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
-    }
-
-    private func quiet(_ label: String, _ text: String) -> some View {
-        (Text("\(label): ").foregroundStyle(.tertiary) + Text(text).foregroundStyle(.secondary))
-            .font(.system(size: 12)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -170,63 +155,86 @@ private struct StoryOptionCard: View {
 private struct StoryDetail: View {
     let script: StoryScript
     let isRecommended: Bool
+    @State private var showBeats = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 10) {
-                    Text(script.angle.uppercased())
-                        .font(.system(size: 11, weight: .bold)).tracking(1.2).foregroundStyle(Color.rasan)
-                    if isRecommended { RecommendedBadge() }
-                }
-                Text(script.title)
-                    .font(.system(size: 34, weight: .semibold, design: .serif)).tracking(-0.4)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityAddTraits(.isHeader)
-                if script.aim == nil, !script.logline.isEmpty {
-                    Text(script.logline)
-                        .font(.system(size: 17)).foregroundStyle(.secondary).lineSpacing(3)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            if let aim = script.aim { achieves(aim) }
-            howItGetsThere
+        VStack(alignment: .leading, spacing: 26) {
+            header
+            if let aim = script.aim { facts(aim) }
             if !script.moves.isEmpty { StoryMoves(script: script) }
-            if !script.beats.isEmpty { StoryTable(script: script) }
+            if !script.beats.isEmpty { timeline }
+            howItGetsThere
+            if !script.beats.isEmpty {
+                DisclosureGroup("Full script and scene details (\(script.beats.count))", isExpanded: $showBeats) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        StoryTable(script: script).frame(minWidth: 720)
+                    }
+                    .padding(.top, 10)
+                }
+                .font(.system(size: 13, weight: .semibold))
+            }
             if !script.lastLine.isEmpty { StoryLastLine(text: script.lastLine) }
         }
+        .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .workspacePanel()
     }
 
-    private func achieves(_ aim: StoryAim) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            sectionLabel("What it achieves", symbol: "scope")
-            Text(aim.takeaway)
-                .font(.system(size: 24, weight: .medium, design: .serif)).lineSpacing(3)
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Text(script.angle.uppercased())
+                    .font(.system(size: 11, weight: .bold)).tracking(1.2).foregroundStyle(Color.rasan)
+                if isRecommended { RecommendedBadge() }
+            }
+            Text(script.title)
+                .font(.system(size: 30, weight: .semibold)).tracking(-0.4)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(alignment: .top, spacing: 28) {
-                if !aim.feel.isEmpty { fact("Feel", aim.feel) }
-                if !aim.action.isEmpty { fact("Do next", aim.action) }
-                if !aim.audience.isEmpty { fact("For whom", aim.audience) }
+                .accessibilityAddTraits(.isHeader)
+            let subtitle = script.aim?.takeaway ?? script.logline
+            if !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.system(size: 18)).foregroundStyle(.secondary).lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(LinearGradient(colors: [Color.rasan.opacity(0.09), Color.rasan.opacity(0.03)], startPoint: .topLeading, endPoint: .bottomTrailing))
+    }
+
+    private func facts(_ aim: StoryAim) -> some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 24, alignment: .top)], alignment: .leading, spacing: 16) {
+            if !aim.feel.isEmpty { fact("Feel", aim.feel) }
+            if !aim.action.isEmpty { fact("Do next", aim.action) }
+            if !aim.audience.isEmpty { fact("For whom", aim.audience) }
         }
-        .overlay { RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.rasan.opacity(0.18), lineWidth: 0.5) }
         .accessibilityElement(children: .combine)
+    }
+
+    /// The beats in order, each with when it runs and its on-screen line; the full table stays folded below.
+    private var timeline: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(script.beats.enumerated()), id: \.offset) { index, beat in
+                HStack(alignment: .firstTextBaseline, spacing: 18) {
+                    Text(clockText(beat.start) + (beat.duration > 0 ? " – " + clockText(beat.start + beat.duration) : ""))
+                        .font(.system(size: 13)).monospacedDigit().foregroundStyle(.secondary)
+                        .frame(width: 96, alignment: .leading)
+                    Text(beat.onScreen.isEmpty ? beat.name : beat.onScreen)
+                        .font(.system(size: 15)).fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.vertical, 12)
+                .accessibilityElement(children: .combine)
+                if index < script.beats.count - 1 { Divider().opacity(0.7) }
+            }
+        }
     }
 
     @ViewBuilder private var howItGetsThere: some View {
         let how = script.approach.isEmpty ? script.why : script.approach
         if !how.isEmpty || !script.device.isEmpty || script.tempoLine != nil {
             VStack(alignment: .leading, spacing: 8) {
-                sectionLabel(script.approach.isEmpty ? "Why this one" : "How it gets there", symbol: "arrow.triangle.turn.up.right.diamond")
+                StageSectionTitle(script.approach.isEmpty ? "Why this one" : "How it gets there")
                 if !how.isEmpty {
-                    Text(how).font(.system(size: 15)).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+                    Text(how).font(.system(size: 14)).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
                 }
                 if let tempo = script.tempoLine {
                     Label(tempo, systemImage: "metronome")
@@ -242,11 +250,6 @@ private struct StoryDetail: View {
         }
     }
 
-    private func sectionLabel(_ title: String, symbol: String) -> some View {
-        Label(title.uppercased(), systemImage: symbol)
-            .font(.system(size: 10, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
-    }
-
     private func fact(_ title: String, _ text: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title.uppercased()).font(.system(size: 10, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
@@ -255,6 +258,7 @@ private struct StoryDetail: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
+
 
 // MARK: Hero moves
 
@@ -266,19 +270,15 @@ private struct StoryMoves: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Label("KEY MOMENTS", systemImage: "sparkles")
-                    .font(.system(size: 10, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
+                StageSectionTitle("Key moments")
                 if let carrier = script.carrier {
                     (Text("Held together by: ").foregroundStyle(.tertiary) + Text(carrier).foregroundStyle(.secondary))
                         .font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
                 }
             }
-            HStack(alignment: .top, spacing: 14) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 14, alignment: .top)], alignment: .leading, spacing: 18) {
                 ForEach(Array(script.moves.enumerated()), id: \.element.id) { index, move in
                     tile(move, lead: index == 0)
-                }
-                if script.moves.count < 3 {
-                    ForEach(0..<(3 - script.moves.count), id: \.self) { _ in Color.clear.frame(maxWidth: .infinity) }
                 }
             }
         }

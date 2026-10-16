@@ -43,6 +43,7 @@ struct NativeStageView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .environment(model)
+        .environment(\.crewCharacter, CrewCharacter(key: CrewRoles.character(forRoute: route)))
         .sheet(item: askBinding) { ask in AskSheet(model: model, ask: ask).tint(.rasan) }
     }
 

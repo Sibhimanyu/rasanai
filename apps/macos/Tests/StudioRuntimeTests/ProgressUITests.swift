@@ -75,9 +75,9 @@ final class ProgressUITests: XCTestCase {
     func testNotificationText() {
         var s = snapshot(.research)
         s.research.sourceCount(pages: 5, searches: 1)
-        XCTAssertEqual(ProgressNotifier.text(for: .researchBudget, snapshot: s).title, "Research reached its time box")
+        XCTAssertEqual(ProgressNotifier.text(for: .researchBudget, snapshot: s).title, "Tara reached the research time box")
         XCTAssertTrue(ProgressNotifier.text(for: .researchBudget, snapshot: s).body.contains("6 sources"))
-        XCTAssertEqual(ProgressNotifier.text(for: .finalRendered, snapshot: s).title, "Your film is ready to watch")
+        XCTAssertEqual(ProgressNotifier.text(for: .finalRendered, snapshot: s).title, "Rasika checked the film. It's ready for your review")
     }
 
     func testEstimateWordingStaysHonest() {

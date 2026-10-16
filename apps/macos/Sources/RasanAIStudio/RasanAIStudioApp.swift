@@ -7,6 +7,7 @@ struct RasanAIStudioApp: App {
     @NSApplicationDelegateAdaptor(StudioAppDelegate.self) private var delegate
     @StateObject private var updater = StudioUpdater.shared
     @State private var store: StudioStore
+    @Environment(\.openWindow) private var openWindow
     private let snapshotDirectory = SnapshotHarness.directory
 
     init() {
@@ -66,7 +67,25 @@ struct RasanAIStudioApp: App {
         .defaultSize(width: 1240, height: 800)
         .windowToolbarStyle(.unified)
         .commands {
-            SidebarCommands()
+            CommandGroup(replacing: .sidebar) {
+                Button("Toggle Sidebar") {
+                    NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)
+                }
+                .keyboardShortcut("b", modifiers: .command)
+            }
+            // Settings is a page in the main window, so ⌘, brings that window forward and goes there.
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") {
+                    store.openSettingsPage()
+                    if let window = NSApp.windows.first(where: { $0.canBecomeMain }) {
+                        if window.isMiniaturized { window.deminiaturize(nil) }
+                        window.makeKeyAndOrderFront(nil)
+                    } else {
+                        openWindow(id: "studio")
+                    }
+                    NSApp.activate(ignoringOtherApps: true)
+                }.keyboardShortcut(",")
+            }
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") { updater.check() }.disabled(!updater.canCheck)
             }
@@ -135,9 +154,6 @@ struct RasanAIStudioApp: App {
                 Button("Explore a Sample Film") { store.exploreSample() }
             }
             if snapshotDirectory == nil && SnapshotHarness.stagesDirectory == nil { HeresayCommands() }
-        }
-        Settings {
-            StudioSettingsView(settings: store.settings).buttonStyle(.rasanSecondary).tint(.rasan)
         }
     }
 }

@@ -22,6 +22,8 @@ struct FormatPickerView: View {
     var showsChip = true
     /// The New film page keeps the grid on show, under the prompt, with or without a pick.
     var alwaysGrid = false
+    /// False where the scope question is already on the page beside it (the New film format popover).
+    var showsScope = true
     /// False when a screen already says "What are you making?" above the picker (the New film setup).
     var showsHeading = true
     @State private var openTile: String?
@@ -32,7 +34,7 @@ struct FormatPickerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if showsChip, let option { chip(option) }
-            if let option, option.scopeQuestion != nil, option.status != .soon { scopeQuestion(option) }
+            if showsScope, let option, option.scopeQuestion != nil, option.status != .soon { scopeQuestion(option) }
             if showGrid { grid }
         }
         .animation(.snappy(duration: 0.2), value: changing)
@@ -154,8 +156,8 @@ struct FormatPickerView: View {
             .padding(.horizontal, 12).padding(.vertical, 10)
             .frame(maxWidth: .infinity, minHeight: 84, maxHeight: 84, alignment: .topLeading)
             // Selected is a raised neutral with a hairline, never brand blue (that is for the one primary action).
-            .background(selected ? Color.primary.opacity(0.12) : Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(selected ? Color.primary.opacity(0.35) : Color(nsColor: .separatorColor), lineWidth: selected ? 1 : 0.5) }
+            .background(selected ? Color.primary.opacity(0.10) : Workspace.panel, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(selected ? Color.primary.opacity(0.35) : Workspace.hairline, lineWidth: 1) }
             .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain).disabled(!canAct)
@@ -174,8 +176,8 @@ struct FormatPickerView: View {
             }
         }
         .padding(.horizontal, 14).padding(.vertical, 4)
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
+        .background(Workspace.panel, in: RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous).strokeBorder(Workspace.hairline, lineWidth: 1) }
         .transition(.opacity)
     }
 
@@ -235,9 +237,11 @@ struct ComingSoonBadge: View {
 struct FormatInputsNote: View {
     let catalog: FormatCatalog
     let option: FormatCatalog.Option
+    var requiredOnly = false
+    var optionalOnly = false
 
     var body: some View {
-        let slots = catalog.inputSlots(for: option)
+        let slots = catalog.inputSlots(for: option).filter { (!requiredOnly || $0.required) && (!optionalOnly || !$0.required) }
         if !slots.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(slots) { slot in

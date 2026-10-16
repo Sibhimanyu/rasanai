@@ -239,6 +239,13 @@ enum StageFixtures {
     static func run(into directory: URL, only: Set<String>?) async {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let size = CGSize(width: Double(ProcessInfo.processInfo.environment["RASAN_SNAP_W"] ?? "") ?? 1120, height: Double(ProcessInfo.processInfo.environment["RASAN_SNAP_H"] ?? "") ?? 740)
+        if only?.contains("crew-avatars") == true {
+            for dark in [false, true] {
+                await SnapshotHarness.capture(CrewAvatarSheet(), size: CGSize(width: 760, height: 640), dark: dark, titled: false,
+                                              to: directory.appendingPathComponent("stage-crew-avatars\(dark ? "-dark" : "").png"))
+            }
+            return
+        }
         for dark in [false, true] {
             for name in names where only == nil || only!.contains(name) {
                 let model = model(name)
@@ -246,5 +253,24 @@ enum StageFixtures {
                                               title: "Tally launch film", to: directory.appendingPathComponent("stage-\(name)\(dark ? "-dark" : "").png"))
             }
         }
+    }
+}
+
+/// `--only crew-avatars`: all seven characters in both avatar styles at 24, 48 and 96 pt, to check eyes, crops and colours.
+private struct CrewAvatarSheet: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(CrewCharacter.allCases) { character in
+                HStack(alignment: .bottom, spacing: 22) {
+                    Text("\(character.displayName)\n\(character.roleTitle)").font(.caption).frame(width: 90, alignment: .leading)
+                    ForEach([24, 48, 96], id: \.self) { h in CrewAvatar(character, style: .full(height: CGFloat(h))) }
+                    Divider().frame(height: 60)
+                    ForEach([24, 48, 96], id: \.self) { d in CrewAvatar(character, style: .bust(diameter: CGFloat(d))) }
+                }
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 }

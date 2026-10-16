@@ -40,7 +40,6 @@ extension StudioStore {
 struct PreflightView: View {
     @Bindable var store: StudioStore
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openSettings) private var openSettings
     @State private var selectedTools: Set<SetupTool> = []
     private var gate: StartGate { StartGate.shared }
     private var missingTools: [SetupTool] { SetupTool.missing(in: store.preflightReport) }
@@ -95,7 +94,7 @@ struct PreflightView: View {
             } else { Spacer() }
             HStack {
                 Button("Director setup…") { store.sheet = .welcome; store.settings.showWelcome = true }.disabled(store.toolSetup.isRunning)
-                Button("Settings…") { openSettings() }.disabled(store.toolSetup.isRunning)
+                Button("Settings…") { store.openSettingsPage() }.disabled(store.toolSetup.isRunning)
                 Spacer()
                 if gate.pending != nil {
                     Button("Recheck") { Task { await store.checkPreflight() } }.disabled(store.isCheckingPreflight || store.toolSetup.isRunning)

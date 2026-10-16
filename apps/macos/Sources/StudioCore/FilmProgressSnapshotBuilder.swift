@@ -312,7 +312,12 @@ extension FilmProgressEngine {
             return NowLine(phase: phase, kind: .waiting, text: text, since: sessionLines.last { $0.level == "ask" }?.time)
         }
         let runningCrew = s.crew(in: phase, running: true)
-        let crewDetail: String? = runningCrew.isEmpty ? nil : (runningCrew.count == 1 ? runningCrew[0].name : "\(runningCrew.count) helpers at work: " + runningCrew.prefix(2).map(\.name).joined(separator: "; "))
+        // Lines name the crew character doing the work ("Kavi · Writing the Bold script"), as the progress rows do.
+        let credited = { (m: CrewMember) -> String in
+            guard let key = CrewRoles.character(forRole: m.role) ?? CrewRoles.character(forDescription: m.name) else { return m.name }
+            return "\(key.prefix(1).uppercased() + key.dropFirst()) · \(m.name)"
+        }
+        let crewDetail: String? = runningCrew.isEmpty ? nil : (runningCrew.count == 1 ? credited(runningCrew[0]) : "\(runningCrew.count) at work: " + runningCrew.prefix(2).map(credited).joined(separator: "; "))
         switch phase {
         case .research:
             if let source = sources.last(where: { now.timeIntervalSince($0.time) < 30 }), s.research.endedAt == nil {

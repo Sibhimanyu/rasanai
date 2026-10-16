@@ -14,7 +14,10 @@ struct BriefStage: View {
     /// The person's pick in the format picker; nil until they choose, so the director's own `format` shows through.
     @State private var picked: FormatPick?
     @State private var changingFormat = false
-    @State private var appeared = false
+    /// With no format yet the 12-tile list stays folded behind "Choose a format" until the person asks for it.
+    @State private var formatRequested = false
+    @State private var showResearch = false
+    @State private var selectedCapture = 0
     @FocusState private var subjectFocused: Bool
 
     private var payload: JSONValue { model.payload(step) }
@@ -37,39 +40,16 @@ struct BriefStage: View {
 
     var body: some View {
         StageScaffold(model: model, step: step,
-                      question: payload["question"].string ?? "Here's what we're making",
+                      question: "Here's the film we'll make.",
                       context: payload["context"].string,
-                      maxWidth: 1000) {
-            VStack(alignment: .leading, spacing: 24) {
-                sentenceCard
-                    .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 10)
-                if usesFormatPicker, let catalog {
-                    VStack(alignment: .leading, spacing: 10) {
-                        FormatPickerView(catalog: catalog, pick: format, canAct: canAct,
-                                         onPick: pickFormat, onScope: { scope in
-                            guard var current = format else { return }
-                            current.scope = scope; picked = current
-                        }, changing: $changingFormat)
-                        if let option = formatOption, option.status != .soon { FormatInputsNote(catalog: catalog, option: option) }
-                    }
-                    .opacity(appeared ? 1 : 0)
-                }
-                let findings = payload["findings"].array
-                let captures = payload["captures"].array
-                if !captures.isEmpty {
-                    captureStrip(captures)
-                        .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 14)
-                        .animation(.smooth(duration: 0.5).delay(0.08), value: appeared)
-                }
-                if !findings.isEmpty {
-                    findingsList(findings)
-                        .opacity(appeared ? 1 : 0).offset(y: appeared ? 0 : 14)
-                        .animation(.smooth(duration: 0.5).delay(0.16), value: appeared)
-                }
+                      maxWidth: 1080) {
+            let findings = payload["findings"].array
+            let captures = payload["captures"].array
+            StudioAdaptiveColumns(railWidth: 340, railFirst: false, breakpoint: 780, gap: 40, stackSpacing: 32) {
+                agreement
+                evidencePanel(captures: captures, findings: findings)
             }
-            .animation(.smooth(duration: 0.45), value: appeared)
             .onAppear {
-                appeared = true
                 if needsSource && model.canAct(on: step) { editingSubject = true; subjectFocused = true }
             }
         } actions: {
@@ -80,53 +60,128 @@ struct BriefStage: View {
         }
     }
 
-    // MARK: Sentence
+    // MARK: Creative agreement
 
-    private var sentenceCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            BriefFlow(spacing: 0, lineSpacing: 6) { sentenceTokens }
-                .font(.system(size: 28, weight: .regular, design: .serif))
-                .lineSpacing(4)
+    private var agreement: some View {
+        VStack(alignment: .leading, spacing: 28) {
+            sentenceBlock
+            Rectangle().fill(Workspace.hairline).frame(height: 1)
+            detailsGrid
+            if usesFormatPicker, let catalog { formatSection(catalog) }
+        }
+    }
+
+    private var sentenceBlock: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            StageSectionTitle("The idea")
+            BriefFlow(spacing: 0, lineSpacing: 8) { sentenceTokens }
+                .font(.system(size: 24, weight: .regular))
+                .lineSpacing(5)
                 .accessibilityElement(children: .contain)
             if canAct {
-                Label(needsSource ? "Say what the film is about, then start." : "Click any highlighted part to change it.", systemImage: "hand.tap")
+                Text(needsSource ? "Say what the film is about, then confirm." : "Highlighted words can be changed.")
                     .font(.system(size: 12)).foregroundStyle(.secondary)
             }
         }
-        .padding(.horizontal, 28).padding(.vertical, 24)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(.regularMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(LinearGradient(colors: [Color.rasan.opacity(0.10), .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
-                }
+    }
+
+    /// The same brief fields as the sentence, named, so each one can be changed without reading for the highlighted word.
+    private var detailsGrid: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 16, alignment: .top)], alignment: .leading, spacing: 18) {
+            if usesFormatPicker { formatField } else { fieldMenu("Format", key: "kind", fallback: .string("launch film"), options: kindOptions, display: { Self.soften($0.string ?? "launch film") }) }
+            fieldMenu("Length", key: "length_s", fallback: .number(45), options: lengthOptions, display: { "\(Int($0.number ?? 45))-second" })
+            fieldMenu("Shape", key: "aspect", fallback: .string("16:9"), options: shapeOptions, display: { Self.aspectLabel($0.string ?? "16:9") })
+            fieldMenu("Destination", key: "destination", fallback: .string("the website"), options: destinationOptions, display: { Self.soften($0.string ?? "the website") })
+            fieldMenu("Voiceover", key: "narration", fallback: .bool(true), options: narrationOptions, display: { Self.narrationText($0) })
+            if let brand = fields["brand_name"]?.string, !brand.isEmpty {
+                fieldMenu("Brand", key: "use_brand", fallback: .bool(true), options: brandOptions(brand),
+                          display: { $0.bool == false ? "A new look" : "\(brand)'s own colours and type" })
+            }
         }
-        .overlay { RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
-        .shadow(color: .black.opacity(0.08), radius: 18, y: 8)
+    }
+
+    private var formatField: some View {
+        let text = format == nil ? "Choose a format" : (formatOption?.kind ?? fields["kind"]?.string ?? "Film")
+        return BriefFieldFrame(label: "Format") {
+            Button { if format == nil { formatRequested = true } else { changingFormat.toggle() } } label: {
+                BriefFieldValue(text: text, enabled: canAct)
+            }
+            .buttonStyle(.plain).disabled(!canAct)
+            .accessibilityLabel("Format: \(text)").accessibilityHint("Opens the list of formats")
+        }
+    }
+
+    private func formatSection(_ catalog: FormatCatalog) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if format == nil && !formatRequested {
+                Button { formatRequested = true } label: { Label("Choose a format", systemImage: "square.grid.2x2") }
+                    .controlSize(.regular).disabled(!canAct)
+                    .help("Pick the kind of film. Optional: the director chooses one if you don't.")
+            } else {
+                FormatPickerView(catalog: catalog, pick: format, canAct: canAct,
+                                 onPick: pickFormat, onScope: { scope in
+                    guard var current = format else { return }
+                    current.scope = scope; picked = current
+                }, changing: $changingFormat)
+            }
+            if let option = formatOption, option.status != .soon {
+                FormatInputsNote(catalog: catalog, option: option, requiredOnly: true)
+                if catalog.inputSlots(for: option).contains(where: { !$0.required }) {
+                    DisclosureGroup("Other useful materials") {
+                        FormatInputsNote(catalog: catalog, option: option, optionalOnly: true).padding(.top, 8)
+                    }
+                    .font(.system(size: 12))
+                }
+            }
+        }
+    }
+
+    // MARK: Evidence
+
+    /// Real captures and findings from the payload. Nothing is drawn when the director has gathered nothing yet.
+    private func evidencePanel(captures: [JSONValue], findings: [JSONValue]) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("What we're working with").font(.system(size: 15, weight: .semibold)).accessibilityAddTraits(.isHeader)
+            if captures.isEmpty && findings.isEmpty {
+                Label("Nothing gathered yet. Captures and findings appear here when the director has them.", systemImage: "photo.on.rectangle")
+                    .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            if !captures.isEmpty { captureGallery(captures) }
+            if !findings.isEmpty {
+                DisclosureGroup(isExpanded: $showResearch) {
+                    findingsList(findings).padding(.top, 10)
+                } label: {
+                    (Text("Research and sources").font(.system(size: 13, weight: .medium))
+                     + Text("  \(findings.count) finding\(findings.count == 1 ? "" : "s")").font(.system(size: 12)).foregroundColor(.secondary))
+                }
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .workspacePanel()
     }
 
     @ViewBuilder private var sentenceTokens: some View {
         word("A ")
         menu("Length", key: "length_s", fallback: .number(45),
-             options: options("length_s", defaults: [15, 30, 45, 60, 90, 120].map { .number(Double($0)) }) { "\($0.number.map { String(Int($0)) } ?? $0.identifier ?? "")-second" },
+             options: lengthOptions,
              display: { "\(Int($0.number ?? 45))-second" })
         word(" ")
         if usesFormatPicker { formatToken } else {
             menu("Kind", key: "kind", fallback: .string("launch film"),
-                 options: options("kind", defaults: ["launch film", "explainer", "brand film", "feature reveal", "social teaser", "product demo"].map(JSONValue.string)) { $0.string ?? "" },
+                 options: kindOptions,
                  display: { Self.soften($0.string ?? "launch film") })
         }
         word(" for ")
         subjectTokens
         word(", ")
         menu("Shape", key: "aspect", fallback: .string("16:9"),
-             options: options("aspect", defaults: ["16:9", "9:16", "1:1"].map(JSONValue.string)) { Self.aspectLabel($0.string ?? "") },
+             options: shapeOptions,
              display: { Self.aspectLabel($0.string ?? "16:9") })
         word(" for ")
         menu("Destination", key: "destination", fallback: .string("the website"),
-             options: options("destination", defaults: ["the website", "X", "LinkedIn", "YouTube", "Instagram Reels", "TikTok", "a keynote"].map(JSONValue.string)) { $0.string ?? "" },
+             options: destinationOptions,
              display: { Self.soften($0.string ?? "the website") })
         word(", ")
         menu("Narration", key: "narration", fallback: .bool(true),
@@ -134,7 +189,7 @@ struct BriefStage: View {
         if let brand = fields["brand_name"]?.string, !brand.isEmpty {
             word(", ")
             menu("Brand", key: "use_brand", fallback: .bool(true),
-                 options: [.bool(true), .bool(false)].map { BriefOption(value: $0, label: $0.bool == true ? "in \(brand)'s own colours and type" : "in a new look") },
+                 options: brandOptions(brand),
                  display: { $0.bool == false ? "in a new look" : "in \(brand)'s own colours and type" })
         }
         word(".")
@@ -143,7 +198,7 @@ struct BriefStage: View {
     /// The kind noun in the sentence ("launch film"); pressing it opens the format list below.
     private var formatToken: some View {
         let text = Self.soften(formatOption?.kind ?? fields["kind"]?.string ?? "film")
-        return Button { changingFormat.toggle() } label: {
+        return Button { if format == nil { formatRequested = true } else { changingFormat.toggle() } } label: {
             Text(text).foregroundStyle(Color.rasan).padding(.horizontal, 7).padding(.vertical, 1)
                 .background(Color.rasan.opacity(canAct ? 0.11 : 0), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay(alignment: .bottom) { Rectangle().fill(Color.rasan.opacity(canAct ? 0.5 : 0)).frame(height: 1.5).padding(.horizontal, 7) }
@@ -210,14 +265,57 @@ struct BriefStage: View {
         }
     }
 
-    private func menu(_ title: String, key: String, fallback: JSONValue, options: [BriefOption],
-                      display: @escaping (JSONValue) -> String) -> some View {
+    private var lengthOptions: [BriefOption] {
+        options("length_s", defaults: [15, 30, 45, 60, 90, 120].map { .number(Double($0)) }) { "\($0.number.map { String(Int($0)) } ?? $0.identifier ?? "")-second" }
+    }
+    private var kindOptions: [BriefOption] {
+        options("kind", defaults: ["launch film", "explainer", "brand film", "feature reveal", "social teaser", "product demo"].map(JSONValue.string)) { $0.string ?? "" }
+    }
+    private var shapeOptions: [BriefOption] {
+        options("aspect", defaults: ["16:9", "9:16", "1:1"].map(JSONValue.string)) { Self.aspectLabel($0.string ?? "") }
+    }
+    private var destinationOptions: [BriefOption] {
+        options("destination", defaults: ["the website", "X", "LinkedIn", "YouTube", "Instagram Reels", "TikTok", "a keynote"].map(JSONValue.string)) { $0.string ?? "" }
+    }
+    private func brandOptions(_ brand: String) -> [BriefOption] {
+        [.bool(true), .bool(false)].map { BriefOption(value: $0, label: $0.bool == true ? "in \(brand)'s own colours and type" : "in a new look") }
+    }
+
+    /// The options with the current value kept in the list, and the binding that writes the pick back into the draft.
+    private func resolved(key: String, fallback: JSONValue, options: [BriefOption], display: (JSONValue) -> String)
+        -> (options: [BriefOption], text: String, selection: Binding<Int>) {
         let current = fields[key] ?? fallback
         var all = options
         if !all.contains(where: { $0.value == current }) { all.insert(BriefOption(value: current, label: display(current)), at: 0) }
         let selection = Binding<Int>(get: { all.firstIndex { $0.value == current } ?? 0 }, set: { set(key, all[$0].value) })
-        return BriefMenuToken(title: title, text: display(current), enabled: canAct, options: all.map(\.label), selection: selection)
+        return (all, display(current), selection)
     }
+
+    private func menu(_ title: String, key: String, fallback: JSONValue, options: [BriefOption],
+                      display: @escaping (JSONValue) -> String) -> some View {
+        let r = resolved(key: key, fallback: fallback, options: options, display: display)
+        return BriefMenuToken(title: title, text: r.text, enabled: canAct, options: r.options.map(\.label), selection: r.selection)
+    }
+
+    private func fieldMenu(_ title: String, key: String, fallback: JSONValue, options: [BriefOption],
+                           display: @escaping (JSONValue) -> String) -> some View {
+        let r = resolved(key: key, fallback: fallback, options: options, display: display)
+        return BriefFieldFrame(label: title) {
+            Menu {
+                Picker(title, selection: r.selection) {
+                    ForEach(Array(r.options.map(\.label).enumerated()), id: \.offset) { index, label in Text(label).tag(index) }
+                }
+                .pickerStyle(.inline).labelsHidden()
+            } label: {
+                BriefFieldValue(text: r.text, enabled: canAct)
+            }
+            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
+            .disabled(!canAct)
+            .accessibilityLabel("\(title): \(r.text)")
+            .accessibilityHint("Opens a menu to change it")
+        }
+    }
+
 
     private func options(_ key: String, defaults: [JSONValue], label: @escaping (JSONValue) -> String) -> [BriefOption] {
         let given = choices[key].array
@@ -245,59 +343,62 @@ struct BriefStage: View {
 
     // MARK: Findings and captures
 
-    private func captureStrip(_ captures: [JSONValue]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            BriefSectionTitle("What I'll use", detail: "\(captures.count) capture\(captures.count == 1 ? "" : "s")")
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 16) {
-                    ForEach(Array(captures.enumerated()), id: \.offset) { _, capture in
-                        let path = capture["image"].string ?? capture.string
-                        let caption = capture["caption"].string ?? ""
-                        VStack(alignment: .leading, spacing: 8) {
-                            PayloadImage(path: path, contentMode: .fill, maxPixels: 900)
-                                .frame(width: 208, height: 130)
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.white.opacity(0.10), lineWidth: 0.5) }
-                                .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.black.opacity(0.12), lineWidth: 0.5) }
-                                .shadow(color: .black.opacity(0.16), radius: 10, y: 5)
-                            if !caption.isEmpty {
-                                Text(caption).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
-                                    .frame(width: 208, alignment: .leading)
-                            }
+    /// The first capture large, the rest as thumbnails that swap it in. Files and captions come from the payload.
+    private func captureGallery(_ captures: [JSONValue]) -> some View {
+        let index = min(max(0, selectedCapture), captures.count - 1)
+        let shown = captures[index]
+        let caption = shown["caption"].string ?? ""
+        return VStack(alignment: .leading, spacing: 10) {
+            PayloadImage(path: shown["image"].string ?? shown.string, contentMode: .fill, maxPixels: 1200)
+                .aspectRatio(4.0 / 3.0, contentMode: .fit)
+                .frame(maxWidth: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Workspace.hairline, lineWidth: 1) }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(caption.isEmpty ? "Capture \(index + 1) of \(captures.count)" : "Capture: \(caption)")
+            if !caption.isEmpty {
+                Text(caption).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+            }
+            if captures.count > 1 {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 56, maximum: 80), spacing: 8)], alignment: .leading, spacing: 8) {
+                    ForEach(Array(captures.enumerated()), id: \.offset) { offset, capture in
+                        Button { selectedCapture = offset } label: {
+                            PayloadImage(path: capture["image"].string ?? capture.string, contentMode: .fill, maxPixels: 300)
+                                .aspectRatio(1, contentMode: .fit)
+                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .strokeBorder(offset == index ? Color.rasan : Workspace.hairline, lineWidth: offset == index ? 2 : 1)
+                                }
                         }
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(caption.isEmpty ? "Capture" : "Capture: \(caption)")
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(capture["caption"].string.map { "Show capture: \($0)" } ?? "Show capture \(offset + 1)")
+                        .accessibilityAddTraits(offset == index ? [.isButton, .isSelected] : .isButton)
                     }
                 }
-                .padding(.vertical, 6).padding(.horizontal, 2)
             }
-            .scrollClipDisabled()
         }
     }
 
     private func findingsList(_ findings: [JSONValue]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            BriefSectionTitle("What I found")
-            VStack(spacing: 0) {
-                let shown = Array(findings.prefix(6).enumerated())
-                ForEach(shown, id: \.offset) { index, finding in
-                    let text = finding["text"].string ?? finding.string ?? ""
-                    let source = finding["source"].string ?? ""
-                    HStack(alignment: .firstTextBaseline, spacing: 14) {
-                        Text("\(index + 1)").font(.system(size: 12, weight: .semibold, design: .rounded)).monospacedDigit()
-                            .foregroundStyle(Color.rasan).frame(width: 20, height: 20)
+        VStack(spacing: 0) {
+            let shown = Array(findings.prefix(6).enumerated())
+            ForEach(shown, id: \.offset) { index, finding in
+                let text = finding["text"].string ?? finding.string ?? ""
+                let source = finding["source"].string ?? ""
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text("\(index + 1)").font(.system(size: 11, weight: .semibold, design: .rounded)).monospacedDigit()
+                            .foregroundStyle(Color.rasan).frame(width: 18, height: 18)
                             .background(Color.rasan.opacity(0.12), in: Circle())
-                        Text(text).font(.system(size: 14.5)).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+                        Text(text).font(.system(size: 13)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                        if !source.isEmpty { BriefSourceChip(source: source) }
                     }
-                    .padding(.vertical, 12)
-                    if index < shown.count - 1 { Divider().opacity(0.7) }
+                    if !source.isEmpty { BriefSourceChip(source: source).padding(.leading, 28) }
                 }
+                .padding(.vertical, 10)
+                if index < shown.count - 1 { Divider().opacity(0.7) }
             }
-            .padding(.horizontal, 18).padding(.vertical, 4)
-            .background(Color(nsColor: .controlBackgroundColor).opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
         }
     }
 
@@ -382,15 +483,34 @@ private struct BriefMenuToken: View {
     }
 }
 
-private struct BriefSectionTitle: View {
-    let text: String
-    var detail: String?
-    init(_ text: String, detail: String? = nil) { self.text = text; self.detail = detail }
+/// A named slot above an editable value.
+private struct BriefFieldFrame<Content: View>: View {
+    let label: String
+    @ViewBuilder var content: Content
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(text).font(.system(size: 17, weight: .semibold)).accessibilityAddTraits(.isHeader)
-            if let detail { Text(detail).font(.system(size: 12)).foregroundStyle(.tertiary) }
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+            content
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The boxed value of a field; a chevron marks it as editable.
+private struct BriefFieldValue: View {
+    let text: String
+    let enabled: Bool
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(text).font(.system(size: 14)).foregroundStyle(.primary).lineLimit(2).multilineTextAlignment(.leading)
+            Spacer(minLength: 4)
+            if enabled { Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary) }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
+        .background(Workspace.raised, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Workspace.hairline, lineWidth: 1) }
+        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -434,7 +554,7 @@ private struct BriefSourceChip: View {
     }
 }
 
-/// The brief's actions, published to the status bar: "Just make it" and "Looks right". Draws nothing itself.
+/// The brief's actions, published to the status bar: "Just make it" and "Confirm brief". Draws nothing itself.
 private struct BriefActions: View {
     let model: FilmSessionModel
     let step: String
@@ -445,7 +565,7 @@ private struct BriefActions: View {
 
     var body: some View {
         FilmActionsPublisher(actions: model.showsActions(for: step) ? FilmActions(
-            step: step, primaryTitle: "Looks right", primarySymbol: "checkmark", primaryEnabled: startEnabled,
+            step: step, primaryTitle: "Confirm brief", primarySymbol: "checkmark", primaryEnabled: startEnabled,
             secondaryTitle: "Decide the rest for me", secondaryHelp: "Confirm the brief and let the director pick the script, the look and the music. You'll see only the finished film.",
             secondaryEnabled: startEnabled, onPrimary: { note in model.noteThen(step: step, note, start) },
             onSecondary: { note in model.noteThen(step: step, note, justMakeIt) }) : nil)

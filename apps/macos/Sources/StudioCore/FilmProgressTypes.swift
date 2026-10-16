@@ -29,13 +29,13 @@ public enum ProgressPhase: String, CaseIterable, Codable, Sendable, Identifiable
     /// One plain sentence of what happens in this phase, for tooltips and empty states.
     public var summary: String {
         switch self {
-        case .research: "Reading the product, brand and screens, and how its past films were made."
-        case .script: "Three writers draft scripts, an editor reads them, you pick one."
-        case .look: "Three designers each build a look for that story, you pick one."
-        case .plan: "Motion, transitions, music and key frames for every scene."
+        case .research: "Tara reads the product, brand and screens, and how its past films were made."
+        case .script: "Kavi's writers draft three scripts, an editor reads them, you pick one."
+        case .look: "Chitra's designers each build a look for that story, you pick one."
+        case .plan: "Laya plans motion, transitions, music and key frames for every scene."
         case .animatic: "The timed storyboard with the music, ready for your notes."
-        case .build: "Animators build every scene on top of the shared set."
-        case .check: "Gates and critics watch the built film, and fixes go back in."
+        case .build: "Laya's animators build every scene on top of the shared set."
+        case .check: "Rasika and the gates watch the built film, and fixes go back in."
         case .render: "The final film is rendered, with motion blur and grain."
         }
     }

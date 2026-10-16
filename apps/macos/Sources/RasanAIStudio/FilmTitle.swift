@@ -7,6 +7,7 @@ import FoundationModels
 /// Intelligence on), else the brief's own subject. The person can always rename it on the New film page.
 enum FilmTitle {
     static func suggest(for brief: String) async -> String {
+        guard !Task.isCancelled else { return fromBrief(brief) }
         #if canImport(FoundationModels)
         if #available(macOS 26, *), SystemLanguageModel.default.isAvailable {
             let model = Task { () -> String? in
@@ -18,7 +19,11 @@ enum FilmTitle {
             }
             // Never hold the person up: a slow first load of the model falls back to the brief's subject.
             let timeout = Task { try? await Task.sleep(for: .seconds(3)); model.cancel() }
-            let title = await model.value
+            let title = await withTaskCancellationHandler {
+                await model.value
+            } onCancel: {
+                model.cancel()
+            }
             timeout.cancel()
             if let title, !title.isEmpty, title.count <= 60 { return title }
         }

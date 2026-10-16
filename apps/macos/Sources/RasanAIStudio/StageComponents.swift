@@ -45,6 +45,46 @@ extension EnvironmentValues {
     @Entry var agentName = "Claude"
 }
 
+extension EnvironmentValues {
+    /// The crew member who prepared the stage on screen. NativeStageView sets it from the route; nil hides the byline.
+    @Entry var crewCharacter: CrewCharacter?
+}
+
+/// One line saying who prepared a stage, in the crew member's own voice.
+enum CrewCredit {
+    static func line(step: String?, character: CrewCharacter) -> String {
+        switch step?.lowercased() {
+        case "brief": "Tara read your product and wrote this brief."
+        case "story": "Kavi wrote three scripts from what Tara found."
+        case "look", "films", "direction": "Chitra designed three looks for this story."
+        case "animatic": "Laya timed this first cut to the music."
+        case "build": "Laya is building the film, scene by scene."
+        case "final", "render": "Rasika checked every scene. The last call is yours."
+        case "footage", "reel": "Mala logged your clips and picked the selects."
+        case "working": "Ra is setting up the crew."
+        default: "\(character.displayName) worked on this."
+        }
+    }
+}
+
+/// The crew member beside a one-line credit. Draws nothing when no character is set.
+struct CrewByline: View {
+    var step: String?
+    @Environment(\.crewCharacter) private var character
+    var body: some View {
+        if let character {
+            HStack(alignment: .bottom, spacing: 10) {
+                CrewAvatar(character, style: .full(height: 48))
+                Text(CrewCredit.line(step: step, character: character))
+                    .font(.system(size: 13)).foregroundStyle(.secondary)
+                    .padding(.bottom, 4)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(CrewCredit.line(step: step, character: character))
+        }
+    }
+}
+
 extension CGFloat {
     /// The one horizontal inset the film page's status text, stage heading and filmstrip header share.
     static let filmInset: CGFloat = 16
@@ -71,14 +111,14 @@ struct StageScaffold<Content: View, Actions: View>: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                StageHeader(question: question, context: context, recommended: recommended)
+            VStack(alignment: .leading, spacing: 28) {
+                StageHeader(question: question, context: context, recommended: recommended, step: step)
                 content
                 if let decision = model.payload(step)["decision"].string, model.status(step) == "done" {
                     DecidedLine(decision: decision, by: model.snapshot.decisions.first { $0.step == step }?.byUser)
                 }
             }
-            .padding(.horizontal, .filmInset).padding(.top, 20).padding(.bottom, 28)
+            .padding(.horizontal, 24).padding(.top, 26).padding(.bottom, 32)
             .frame(maxWidth: maxWidth, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
@@ -101,15 +141,18 @@ struct StageHeader: View {
     var context: String?
     /// The title of Claude's recommended option, shown as "Claude recommends X".
     var recommended: String?
+    /// The step, for the crew credit line.
+    var step: String?
     @Environment(\.agentName) private var agent
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
+            CrewByline(step: step).padding(.bottom, 8)
             Text(question)
-                .font(.system(size: 20, weight: .semibold)).tracking(-0.2)
+                .font(.system(size: 29, weight: .semibold)).tracking(-0.6)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
             if let context, !context.isEmpty {
-                Text(context).font(.system(size: 13)).foregroundStyle(.secondary).lineSpacing(2)
+                Text(context).font(.system(size: 14)).foregroundStyle(.secondary).lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let recommended, !recommended.isEmpty {
