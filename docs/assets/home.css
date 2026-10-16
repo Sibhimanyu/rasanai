@@ -55,8 +55,9 @@
 .fcs { position: relative; height: 300px; margin: 0 auto; max-width: 560px; }
 .fc { position: absolute; left: calc(var(--mx, 0) * 1%); top: calc(var(--my, 0) * 1%); width: calc(var(--mw, 50) * 1px); display: none; }
 .fc[style*="--mx"] { display: block; }
-.fi { aspect-ratio: 4 / 5; border-radius: 10px; overflow: hidden; background: linear-gradient(#c9b4c4, #f2c9a8); box-shadow: 0 10px 26px -12px rgba(27, 31, 94, .38); opacity: calc(.6 + var(--d, 1) * .4); }
-.fi img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.fi { opacity: calc(.6 + var(--d, 1) * .4); }
+/* the crew stand free, no cards: a soft shadow on the ground under each */
+.fi img { display: block; width: 100%; height: auto; filter: drop-shadow(0 16px 14px rgba(27, 31, 94, .16)); }
 .fi img.cut { object-fit: contain; padding: 8% 6% 0; }
 .hero-copy { text-align: center; padding: 28px var(--pad) 40px; max-width: 760px; margin: 0 auto; }
 .hero-copy .eyebrow { margin-bottom: 22px; }
@@ -91,7 +92,7 @@
 .cflight.on { visibility: visible; }
 .cf { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; }
 .cf-card, .cf-cut { position: absolute; left: 0; top: 0; display: block; transform-origin: 50% 50%; will-change: transform, opacity; max-width: none; }
-.cf-card { border-radius: 10px; object-fit: cover; box-shadow: 0 10px 26px -12px rgba(27, 31, 94, .38); background: linear-gradient(#c9b4c4, #f2c9a8); }
+.cf-card { filter: drop-shadow(0 16px 14px rgba(27, 31, 94, .16)); }
 .cf-cut { object-fit: fill; opacity: 0; }
 
 /* ============ FIVE CALLS ============ */
