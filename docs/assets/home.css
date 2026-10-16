@@ -78,11 +78,20 @@
   .wshot-band { padding-top: 0; }
 }
 @media (min-width: 900px) and (max-width: 1250px) { .fc { --k: .78; } }
-.pin .hero { height: 170vh; }
+.pin .hero { height: 190vh; }
 .pin .hero .sticky { position: sticky; top: 0; }
+/* the screenshot rises under the pinned hero while the cards fly onto it */
+.pin .shot-band { position: relative; z-index: 2; margin-top: -70vh; }
 @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
 .fi { animation: bob var(--b, 4s) ease-in-out infinite; }
 .calm .fi { animation: none; }
+/* the flying layer: the seven cards become the seven crew on the screenshot (pinned, motion allowed only) */
+.cflight { position: fixed; inset: 0; z-index: 45; pointer-events: none; visibility: hidden; contain: layout style; }
+.cflight.on { visibility: visible; }
+.cf { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; }
+.cf-card, .cf-cut { position: absolute; left: 0; top: 0; display: block; transform-origin: 50% 50%; will-change: transform, opacity; max-width: none; }
+.cf-card { border-radius: 10px; object-fit: cover; box-shadow: 0 10px 26px -12px rgba(27, 31, 94, .38); background: linear-gradient(#c9b4c4, #f2c9a8); }
+.cf-cut { object-fit: fill; opacity: 0; }
 
 /* ============ FIVE CALLS ============ */
 .flow-head { padding: calc(var(--section) * .7) 0 clamp(24px, 4vw, 48px); }
