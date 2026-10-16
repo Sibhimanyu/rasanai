@@ -5,7 +5,7 @@ import SwiftUI
 @MainActor
 final class StudioUpdater: ObservableObject {
     static let shared = StudioUpdater()
-    /// Updates are checked every 5 hours.
+    /// Updates are checked every hour.
     static let checkInterval: TimeInterval = 18_000
     @Published var canCheck = false
     @Published var automaticChecks = false
