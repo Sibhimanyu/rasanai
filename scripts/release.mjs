@@ -33,6 +33,22 @@ const STUDIO_PLIST = "apps/macos/Info.plist";
 const STUDIO_CHANGELOG = "apps/macos/CHANGELOG.md";
 const APPCAST = "docs/studio/appcast.xml";
 const INSTALL_DOC = "apps/macos/COMMUNITY-INSTALL.md";
+const SITE_DOWNLOAD_PAGES = ["docs/index.html", "docs/guide.html"];
+
+// Point the site's download links (DMG, checksum, release notes) and its version labels at a Studio release.
+// Studio releases are prereleases, so GitHub's releases/latest URL would serve the skill release instead.
+function pointSiteAt(dir, tag, dmgName, version, beta) {
+  for (const rel of SITE_DOWNLOAD_PAGES) {
+    const p = join(dir, rel);
+    if (!existsSync(p)) continue;
+    const html = readFileSync(p, "utf8")
+      .replace(/releases\/download\/studio-v[^/"]+\/RasanAI-Studio-[^"]+?\.dmg(\.sha256)?"/g, (_, sha) => `releases/download/${tag}/${dmgName}${sha || ""}"`)
+      .replace(/releases\/tag\/studio-v[^"]+"/g, `releases/tag/${tag}"`)
+      .replace(/(<span data-studio="version">)[^<]*(<\/span>)/g, `$1${version} beta ${beta}$2`)
+      .replace(/("name":"RasanAI Studio"[^}]*?"softwareVersion":")[^"]*"/, `$1${version}"`);
+    writeFileSync(p, html);
+  }
+}
 
 const argv = process.argv.slice(2);
 const DRY = argv.includes("--dry-run");
@@ -668,7 +684,7 @@ async function releaseStudio(version) {
       get title() {
         return `Appcast: RasanAI Studio ${version} beta ${(STATE.tag || "").match(/beta\.(\d+)$/)?.[1] || 1} (build ${build})`;
       },
-      body: `Adds RasanAI Studio ${version} (build ${build}) to the Sparkle appcast. Merging deploys the feed through the site workflow.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)`,
+      body: `Adds RasanAI Studio ${version} (build ${build}) to the Sparkle appcast and points the site's download links at it. Merging deploys the feed through the site workflow.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)`,
       get commitMsg() {
         return this.title;
       },
@@ -696,6 +712,7 @@ async function releaseStudio(version) {
         const at = xml.indexOf("    <item>");
         if (at < 0) throw new Error("appcast.xml has no <item> to insert before.");
         writeFileSync(p, xml.slice(0, at) + item + "\n" + xml.slice(at));
+        pointSiteAt(dir, STATE.tag, STATE.dmg.split("/").pop(), version, beta);
       },
     }),
     {
