@@ -145,7 +145,12 @@
   var homeWin = $(".shot-band .window[data-rise]"), homeImg = homeWin && $("img", homeWin);
   if (heroEl && homeImg) {
     var BOX = { tara: [20.066, 42.213, 7.189, 8.175], kavi: [27.354, 35.249, 7.436, 15.169], chitra: [34.74, 34.128, 8.473, 16.229], ra: [43.04, 33.311, 12.055, 17.047], laya: [55.096, 33.704, 7.633, 14.624], rasika: [61.691, 42.97, 9.387, 7.388], mala: [71.079, 38.882, 8.745, 11.536] };
-    var RIM = 49.46, STAG = .06, HAND = 150;
+    var RIM = 49.46, STAG = .06;
+    // while the crew fly in, the screenshot shows its prompt with the crew painted out, so no one lands on top of themselves
+    var emptyImg = new Image(); emptyImg.className = "shot-empty"; emptyImg.alt = ""; emptyImg.setAttribute("aria-hidden", "true"); emptyImg.decoding = "async";
+    emptyImg.srcset = "img/studio/home-1x-empty.jpg 907w, img/studio/home-2x-empty.jpg 1814w"; emptyImg.sizes = homeImg.getAttribute("sizes") || "100vw"; emptyImg.src = "img/studio/home-1x-empty.jpg";
+    homeWin.appendChild(emptyImg);
+    var setEmpty = function (on) { homeWin.classList.toggle("is-empty", on); };
     var layer = document.createElement("div");
     layer.className = "cflight"; layer.setAttribute("aria-hidden", "true");
     var fl = [];
@@ -174,13 +179,13 @@
     };
     var flight = addScene({
       el: homeWin, pin: true,
-      // 0..1 while the screenshot rises into its resting place, then 1..(1+h) over HAND px of scroll for the hand-off
-      progress: function (r, vh) { return clamp((vh - r.top) / (vh * .75), 0, 1 + HAND / (vh * .75)); },
+      // 0..1 while the screenshot rises into its resting place; at 1 every cut-out sits exactly on its painted-out spot,
+      // so the flyers give way to the screenshot's own crew in one frame
+      progress: function (r, vh) { return clamp((vh - r.top) / (vh * .75), 0, 1); },
       render: function (q) {
-        var vq = q > 1 ? 1 : q, hand = 1 - seg(q, 1, 1 + HAND / (vh * .75));
-        if (vq <= 0 || hand <= 0) { setShown(false); return; }
-        setShown(true);
-        layer.style.opacity = hand < 1 ? hand.toFixed(3) : "";
+        var vq = q;
+        if (vq <= 0 || vq >= 1) { setShown(false); setEmpty(false); return; }
+        setShown(true); setEmpty(true);
         var ir = homeImg.getBoundingClientRect(), rimY = ir.top + ir.height * RIM / 100;
         fl.forEach(function (f) {
           var t = seg(vq, f.k * STAG, f.k * STAG + 1 - 3 * STAG), e = inOut(t);
@@ -201,7 +206,7 @@
           f.cut.style.clipPath = over > .01 ? "inset(0 0 " + (over / cs).toFixed(2) + "px 0)" : "none";
         });
       },
-      reset: function () { setShown(false); layer.style.opacity = ""; }
+      reset: function () { setShown(false); setEmpty(false); }
     });
   }
 
