@@ -32,7 +32,9 @@ struct HomeView: View {
     @State private var renameName = ""
     @State private var trashFolder: URL?
     /// The prompt and the same film cards remain mounted through the whole reveal.
-    @State private var browsing = false
+    @State private var browsing = HomeView.snapshotBrowsing
+    /// Offscreen snapshots only: open Home already scrolled down to the films.
+    @MainActor static var snapshotBrowsing = false
     @State private var gate = HomeScrollGate()
 
     private var sort: HomeSort { HomeSort(rawValue: sortRaw) ?? .recent }

@@ -160,6 +160,9 @@ enum SnapshotHarness {
 
                 await shot("home", StudioView(store: full.store))
                 await shot("home-empty", StudioView(store: empty.store))
+                HomeView.snapshotBrowsing = true
+                await shot("home-browsing", StudioView(store: full.store))
+                HomeView.snapshotBrowsing = false
 
                 let recovered = try makeSeed(films: false)
                 recovered.store.settings.saveEditorDraft(FilmEditorDraft(name: "Launch film", film: FilmDraft(brief: "A 30-second launch film for our app.", duration: 30), sources: []), for: nil)
