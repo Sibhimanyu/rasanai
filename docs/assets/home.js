@@ -160,7 +160,7 @@
       box.appendChild(card); box.appendChild(cut); layer.appendChild(box);
       fl.push({ c: c, fi: $(".fi", c), box: box, card: card, cut: cut, b: BOX[m[1]], base: .6 + d * .4, sw: 0, tw: 0 });
     });
-    // ripple from the middle outwards: Ra first
+    // ripple from the middle outwards: Rasan first
     fl.slice().sort(function (a, b) { return Math.abs(a.b[0] + a.b[2] / 2 - 50) - Math.abs(b.b[0] + b.b[2] / 2 - 50); })
       .forEach(function (f, i) { f.k = Math.floor((i + 1) / 2); });
     document.body.appendChild(layer);

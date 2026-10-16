@@ -1,4 +1,4 @@
-// Ra, the RasanAI mascot: a plump turmeric gumdrop in a black flat cap, holding a clapperboard.
+// Rasan, the RasanAI mascot: a plump turmeric gumdrop in a black flat cap, holding a clapperboard.
 import { THREE, Character, PALETTE, clay, brass, ease } from './crew-kit.js';
 import { RoundedBoxGeometry } from '../../../../skills/rasanai/stage3d/addons/geometries/RoundedBoxGeometry.js';
 
@@ -79,7 +79,7 @@ function buildCap() {
 
 export function createRa() {
     return new Character({
-        name: 'Ra',
+        name: 'Rasan',
         color: PALETTE.turmeric,
         shape: raShape,
         bodyY: 1.0,

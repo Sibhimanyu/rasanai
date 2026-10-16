@@ -220,7 +220,7 @@ A("Everything you need to make RasanAI look, read and move like itself: in a fil
 var TOC = [["01", "Brand", "Essence, principles, voice", "03"], ["02", "Logo", "Mark, construction, suite, clear space, colour, misuse", "05"],
     ["03", "Colour", "Primary, supporting, neutrals, proportion, contrast", "11"], ["04", "Typography", "Families and the type scale", "14"],
     ["05", "Interface", "Buttons, controls, cards, radii, spacing", "16"], ["06", "Motion", "How RasanAI moves", "17"], ["07", "Applications", "The system at work", "18"],
-    ["08", "Crew", "Ra and the crew who make the films", "19"]];
+    ["08", "Crew", "Rasan and the crew who make the films", "19"]];
 for (i = 0; i < TOC.length; i++) {
     var ty = 130 + i * 100;
     line(900, ty, W - M, ty, SW.rice2, 1);
@@ -621,9 +621,9 @@ function statusChip(x, y, name, text, color) {
     circle(x + 18, y + 20, 5, color);
 }
 var CREW = [
-    ["ra", "Ra", "turmeric", "Mascot  \u00B7  runs the set", "Every call: hands you each one",
-     "The sound \u201Cra\u201D, the first syllable of RasanAI.",
-     "Warm, sure and unhurried. Ra is the face of RasanAI's Director: it greets you, runs the set, introduces the crew and hands you each call. You make the calls; Ra runs the set.",
+    ["ra", "Rasan", "turmeric", "Mascot  \u00B7  runs the set", "Every call: hands you each one",
+     "The first half of RasanAI: rasanai is Tamil for taste.",
+     "Warm, sure and unhurried. Rasan is the face of RasanAI's Director: it greets you, runs the set, introduces the crew and hands you each call. You make the calls; Rasan runs the set.",
      "Plump gumdrop, the biggest of the crew", "Black flat director's cap; a clapperboard held in both hands", "Steady eyes, soft brows; stands square, ready to call action",
      "The Director, the main Claude session that talks to you", ["three scripts are ready: pick one", "the film is ready for your review"]],
     ["tara", "Tara", "blue", "Scout  \u00B7  research", "Call 1: confirm the brief",
@@ -661,7 +661,7 @@ var CREW = [
 page("Meet the crew", "rice");
 chrome("08 \u2014 Crew");
 T("Meet the crew", M, 120, ST.display, SW.indigo);
-A("RasanAI makes films with a crew of 32 agents. Seven characters give them faces: Ra runs the set, and one crew member brings you each of your five calls. Mala joins when you bring footage.", 1000, 130, 800, 130, ST.bodyL, SW.ink2);
+A("RasanAI makes films with a crew of 32 agents. Seven characters give them faces: Rasan runs the set, and one crew member brings you each of your five calls. Mala joins when you bring footage.", 1000, 130, 800, 130, ST.bodyL, SW.ink2);
 picture("lineup.jpg", M, 290, CW, 600);
 var cx2 = [0.089, 0.205, 0.329, 0.487, 0.64, 0.757, 0.898];   // centres in the stitched lineup (.context/crew/stitch.py)
 var order = [1, 2, 3, 0, 4, 5, 6];
@@ -694,7 +694,7 @@ for (var c = 0; c < CREW.length; c++) {
 page("Crew rules", "rice");
 chrome("08 \u2014 Crew");
 title("Crew rules");
-var DO = ["Put Ra first; the crew stand at about 70% of Ra's height.", "Keep each character to its own colour, shape and one prop; hands are plain nubs.", "Use the clay renders for marketing and flat versions in the app.", "Write status lines from what the agents really did.", "Keep Reduce Motion: idle loops stop, changes cross-fade."];
+var DO = ["Put Rasan first; the crew stand at about 70% of Rasan's height.", "Keep each character to its own colour, shape and one prop; hands are plain nubs.", "Use the clay renders for marketing and flat versions in the app.", "Write status lines from what the agents really did.", "Keep Reduce Motion: idle loops stop, changes cross-fade."];
 var DONT = ["Draw them from the logo, or use them in place of it.", "Swap colours or props between characters, or add new ones.", "Give them big mouths, outfits or text on their bodies.", "Put them inside someone's film unless they ask.", "Turn status lines into cheerleading."];
 T("Do", M, 240, ST.h3, SW.leaf); T("Don't", 700, 240, ST.h3, SW.silk);
 for (i = 0; i < 5; i++) {
@@ -703,7 +703,7 @@ for (i = 0; i < 5; i++) {
     A(DO[i], M, dy + 14, 520, 60, ST.body, SW.indigo); A(DONT[i], 700, dy + 14, 520, 60, ST.body, SW.indigo);
 }
 T("Where they appear", 1300, 240, ST.h3, SW.indigo);
-var WH = ["Progress view: who is working, one live line each", "The five calls: each introduced by its crew member", "Decisions drawer: every decision signed", "Empty states, onboarding and errors: Ra explains", "Site, launch films and social", "Optional end credit: \u201CDirected by you \u00B7 Crew: RasanAI\u201D"];
+var WH = ["Progress view: who is working, one live line each", "The five calls: each introduced by its crew member", "Decisions drawer: every decision signed", "Empty states, onboarding and errors: Rasan explains", "Site, launch films and social", "Optional end credit: \u201CDirected by you \u00B7 Crew: RasanAI\u201D"];
 for (i = 0; i < WH.length; i++) { var wy = 290 + i * 70; line(1300, wy, W - M, wy, SW.rice2); A(WH[i], 1300, wy + 14, 500, 50, ST.body, SW.ink); }
 T("Palette", M, 760, ST.label, SW.blue);
 for (i = 0; i < 7; i++) {

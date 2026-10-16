@@ -114,7 +114,7 @@ struct AskCard: View {
     }
 }
 
-/// "Ra needs your call": Ra is the Director, so the default agent name is Ra; a customised name is used as typed.
+/// "Rasan needs your call": Rasan is the Director, so the default agent name is Rasan; a customised name is used as typed.
 private enum AskTitle {
-    static func text(_ agent: String) -> String { "\(agent.isEmpty || agent == "Claude" ? "Ra" : agent) needs your call" }
+    static func text(_ agent: String) -> String { "\(agent.isEmpty || agent == "Claude" ? "Rasan" : agent) needs your call" }
 }

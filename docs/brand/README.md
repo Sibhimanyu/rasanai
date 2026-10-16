@@ -1,6 +1,6 @@
 # RasanAI brand guidelines
 
-`RasanAI-Brand-Guidelines.ai` (editable) and `.pdf` (for sharing): 28 artboards covering brand, voice, the mark and its construction, the logo suite, clear space, logo colour and misuse, colour, contrast, typography, interface, motion, applications and the crew (Ra and the six crew characters, one page each, art in `crew/`). `overview.png` shows every page. The written rules and tokens are in `/DESIGN.md`; keep the two in step.
+`RasanAI-Brand-Guidelines.ai` (editable) and `.pdf` (for sharing): 28 artboards covering brand, voice, the mark and its construction, the logo suite, clear space, logo colour and misuse, colour, contrast, typography, interface, motion, applications and the crew (Rasan and the six crew characters, one page each, art in `crew/`). `overview.png` shows every page. The written rules and tokens are in `/DESIGN.md`; keep the two in step.
 
 The `.ai` has the palette as global swatches (groups "RasanAI Primary / Supporting / Neutral") and the type scale as character styles, so edit a swatch or style rather than individual objects.
 
