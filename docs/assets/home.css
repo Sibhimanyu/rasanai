@@ -423,6 +423,5 @@
 .intro:not(.intro-done) .hero-sub { animation: in-rise-s .6s cubic-bezier(.22, 1, .36, 1) .5s both; }
 .intro:not(.intro-done) .hero-cta { animation: in-rise-s .6s cubic-bezier(.22, 1, .36, 1) .62s both; }
 .intro:not(.intro-done) .hero-meta { animation: in-rise-s .6s cubic-bezier(.22, 1, .36, 1) .72s both; }
-.intro:not(.intro-done) .fc { animation: in-pop .7s cubic-bezier(.3, .7, .3, 1) calc(.3s + var(--r, 0) * .06s) both; }
 .fc:nth-child(1) { --r: 6; } .fc:nth-child(2) { --r: 2; } .fc:nth-child(3) { --r: 1; } .fc:nth-child(4) { --r: 4; }
 .fc:nth-child(5) { --r: 5; } .fc:nth-child(6) { --r: 3; } .fc:nth-child(7) { --r: 0; }
