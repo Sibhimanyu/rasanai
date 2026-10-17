@@ -33,6 +33,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anek+Latin:wdth,wght@75..125,300..800&family=Anek+Tamil:wdth,wght@75..125,500..700&family=JetBrains+Mono:wght@400;500&family=Mukta:wght@400;500;600&display=swap" />
+<script src="assets/images.js"></script>
 <link rel="stylesheet" href="assets/site.css" />
 <link rel="stylesheet" href="assets/home.css" />
 </head>
@@ -66,14 +67,14 @@
 <!-- 1. HERO -->
 <section class="hero track" data-scene="hero" aria-labelledby="hero-title">
   <div class="sticky">
-    <div class="fcs" aria-hidden="true">
-      <div class="fc" style="--x:6;--y:16;--w:183;--d:1;--mx:4;--my:6;--mw:78"><div class="fi" style="--b:4s"><img src="assets/crew/hero/ra.webp" width="488" height="563" alt="" loading="lazy" decoding="async" /></div></div>
-      <div class="fc" style="--x:23;--y:13;--w:95;--d:0.6;--mx:30;--my:2;--mw:50"><div class="fi" style="--b:3.2s"><img src="assets/crew/hero/tara.webp" width="291" height="270" alt="" loading="lazy" decoding="async" /></div></div>
-      <div class="fc" style="--x:72;--y:13;--w:105;--d:0.8;--mx:46;--my:10;--mw:62"><div class="fi" style="--b:4.1s"><img src="assets/crew/hero/kavi.webp" width="301" height="501" alt="" loading="lazy" decoding="async" /></div></div>
-      <div class="fc" style="--x:84;--y:40;--w:124;--d:0.9;--mx:70;--my:3;--mw:58"><div class="fi" style="--b:3.6s"><img src="assets/crew/hero/chitra.webp" width="343" height="536" alt="" loading="lazy" decoding="async" /></div></div>
-      <div class="fc" style="--x:14;--y:56;--w:108;--d:0.8;--mx:76;--my:34;--mw:66"><div class="fi" style="--b:4.4s"><img src="assets/crew/hero/laya.webp" width="309" height="483" alt="" loading="lazy" decoding="async" /></div></div>
-      <div class="fc" style="--x:20;--y:84;--w:124;--d:0.6;--mx:58;--my:50;--mw:48"><div class="fi" style="--b:3.8s"><img src="assets/crew/hero/rasika.webp" width="380" height="244" alt="" loading="lazy" decoding="async" /></div></div>
-      <div class="fc" style="--x:68;--y:76;--w:120;--d:0.7;--mx:12;--my:48;--mw:64"><div class="fi" style="--b:4.7s"><img src="assets/crew/hero/mala.webp" width="354" height="381" alt="" loading="lazy" decoding="async" /></div></div>
+    <div class="fcs" data-image-group aria-hidden="true">
+      <div class="fc" style="--x:6;--y:16;--w:183;--d:1;--mx:4;--my:6;--mw:78"><div class="fi" style="--b:4s"><img src="assets/crew/hero/ra.webp" width="488" height="563" alt="" loading="eager" fetchpriority="high" decoding="async" /></div></div>
+      <div class="fc" style="--x:23;--y:13;--w:95;--d:0.6;--mx:30;--my:2;--mw:50"><div class="fi" style="--b:3.2s"><img src="assets/crew/hero/tara.webp" width="291" height="270" alt="" loading="eager" fetchpriority="high" decoding="async" /></div></div>
+      <div class="fc" style="--x:72;--y:13;--w:105;--d:0.8;--mx:46;--my:10;--mw:62"><div class="fi" style="--b:4.1s"><img src="assets/crew/hero/kavi.webp" width="301" height="501" alt="" loading="eager" fetchpriority="high" decoding="async" /></div></div>
+      <div class="fc" style="--x:84;--y:40;--w:124;--d:0.9;--mx:70;--my:3;--mw:58"><div class="fi" style="--b:3.6s"><img src="assets/crew/hero/chitra.webp" width="343" height="536" alt="" loading="eager" fetchpriority="high" decoding="async" /></div></div>
+      <div class="fc" style="--x:14;--y:56;--w:108;--d:0.8;--mx:76;--my:34;--mw:66"><div class="fi" style="--b:4.4s"><img src="assets/crew/hero/laya.webp" width="309" height="483" alt="" loading="eager" fetchpriority="high" decoding="async" /></div></div>
+      <div class="fc" style="--x:20;--y:84;--w:124;--d:0.6;--mx:58;--my:50;--mw:48"><div class="fi" style="--b:3.8s"><img src="assets/crew/hero/rasika.webp" width="380" height="244" alt="" loading="eager" fetchpriority="high" decoding="async" /></div></div>
+      <div class="fc" style="--x:68;--y:76;--w:120;--d:0.7;--mx:12;--my:48;--mw:64"><div class="fi" style="--b:4.7s"><img src="assets/crew/hero/mala.webp" width="354" height="381" alt="" loading="eager" fetchpriority="high" decoding="async" /></div></div>
     </div>
     <div class="hero-copy" data-hero-copy>
       <p class="eyebrow">RasanAI Studio for Mac</p>
@@ -86,12 +87,8 @@
 </section>
 
 <section class="shot-band"><div class="wrap">
-  <div class="home-track">
-  <div class="window rise home-win" data-rise><img src="img/studio/home-1x.jpg" srcset="img/studio/home-1x.jpg 907w, img/studio/home-2x.jpg 1814w" sizes="(min-width:1100px) 900px, 94vw" width="1814" height="1480" alt="RasanAI Studio, the start screen: What would you like to make? The seven crew characters stand on the prompt box, which reads Describe your video, or paste a link, with the steps Describe, Setup, Brief, Story, Look, Preview and Final above." loading="lazy" decoding="async" />
-    <div class="home-scroll" aria-hidden="true"><img class="hs-films" src="img/studio/home-films-1x.jpg" srcset="img/studio/home-films-1x.jpg 907w, img/studio/home-films-2x.jpg 1814w" sizes="(min-width:1100px) 900px, 94vw" width="1814" height="1388" alt="" loading="lazy" decoding="async" /><img class="hs-home" src="img/studio/home-content-1x.jpg" srcset="img/studio/home-content-1x.jpg 907w, img/studio/home-content-2x.jpg 1814w" sizes="(min-width:1100px) 900px, 94vw" width="1814" height="1388" alt="" loading="lazy" decoding="async" /></div>
-  </div>
-  </div>
-  <p class="shot-note">Screens from the app, with sample projects. Scroll Home and your films come up as cards.</p>
+  <div class="window rise home-win" data-rise><img src="img/studio/home-1x.jpg" srcset="img/studio/home-1x.jpg 907w, img/studio/home-2x.jpg 1814w" sizes="(min-width:1100px) 900px, 94vw" width="1814" height="1480" alt="RasanAI Studio, the start screen: What would you like to make? The seven crew characters stand on the prompt box, which reads Describe your video, or paste a link, with the steps Describe, Setup, Brief, Story, Look, Preview and Final above." loading="lazy" decoding="async" /></div>
+  <p class="shot-note">Screens from the app, with sample projects.</p>
 </div></section>
 
 <!-- 2. FIVE CALLS -->
@@ -269,7 +266,7 @@ motion: unhurried, eased, never bouncy</pre></div>
       <h2 id="crew-title">Seven characters.<br />One film crew.</h2>
     </div>
     <div class="orbit" data-unit="crew">
-      <div class="oc"><div class="spin" aria-hidden="true">
+      <div class="oc"><div class="spin" data-image-group aria-hidden="true">
         <div class="rn" style="--a:0"><img src="assets/crew/v2/card-ra.webp" width="576" height="720" alt="" loading="lazy" decoding="async" /></div>
         <div class="rn" style="--a:1"><img src="assets/crew/v2/card-tara.webp" width="576" height="720" alt="" loading="lazy" decoding="async" /></div>
         <div class="rn" style="--a:2"><img src="assets/crew/v2/card-kavi.webp" width="576" height="720" alt="" loading="lazy" decoding="async" /></div>

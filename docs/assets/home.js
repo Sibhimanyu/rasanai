@@ -178,7 +178,7 @@
     homeWin.appendChild(emptyImg);
     var setEmpty = function (on) { homeWin.classList.toggle("is-empty", on); };
     var layer = document.createElement("div");
-    layer.className = "cflight"; layer.setAttribute("aria-hidden", "true");
+    layer.className = "cflight"; layer.setAttribute("aria-hidden", "true"); layer.setAttribute("data-image-group", "");
     var fl = [];
     $$(".fc", heroEl).forEach(function (c) {
       var im = $(".fi img", c), m = im && /(?:card-|crew\/hero\/)([a-z]+)\.webp/.exec(im.getAttribute("src") || "");
@@ -216,6 +216,10 @@
         var vq = q, re = ease(vq);
         // the window's rise and the flight share one progress value, so the crew and the screenshot never drift apart
         homeWin.style.transform = "translate3d(0," + ((1 - re) * 64).toFixed(1) + "px,0) scale(" + (.93 + .07 * re).toFixed(3) + ")";
+        // Keep the original artwork until every flight asset and the screenshot are ready.
+        if (!layer.hasAttribute("data-images-ready") || !homeImg.hasAttribute("data-image-ready") || !emptyImg.complete || !emptyImg.naturalWidth) {
+          setShown(false); setEmpty(false); setAway(false); return;
+        }
         setAway(vq > 0);
         // every cut-out has arrived by 0.86; from 0.9 the screenshot's own crew takes over in a single frame
         if (vq <= 0 || vq >= .9) { setShown(false); setEmpty(false); return; }
@@ -248,32 +252,6 @@
       reset: function () { setShown(false); setEmpty(false); setAway(false); homeWin.style.transform = ""; }
     });
 
-    // inside the window: once the crew are home, scrolling the page scrolls Home itself, the prompt rising away and the
-    // films coming up as cards, as in the app
-    var track = homeWin.parentElement, hs = $(".home-scroll", homeWin);
-    if (track && track.classList.contains("home-track") && hs) {
-      var layA = $(".hs-home", hs), layB = $(".hs-films", hs);
-      var smooth = inOut, out = function (t) { return 1 - Math.pow(1 - t, 2.2); };
-      addScene({
-        el: track, pin: true,
-        progress: function (r, vh) {
-          var stick = parseFloat(getComputedStyle(homeWin).top) || 0, run = r.height - homeWin.offsetHeight;
-          return run > 0 ? clamp((stick - r.top) / run, 0, 1) : 0;
-        },
-        render: function (p) {
-          // the app's own move: the prompt (and the crew on it) fades out fast while rising a little; the films workspace,
-          // peeking at the bottom, travels up into place and fades to full
-          hs.style.opacity = p > 0 ? "1" : "0";
-          var a = out(seg(p, .05, .35)), b = smooth(seg(p, .1, .85));
-          layA.style.opacity = (1 - a).toFixed(3);
-          layA.style.visibility = a >= 1 ? "hidden" : "";
-          layA.style.transform = "translate3d(0," + (-a * 2.4).toFixed(3) + "%,0)";
-          layB.style.opacity = (.32 + .68 * b).toFixed(3);
-          layB.style.transform = "translate3d(0," + ((1 - b) * 63.1).toFixed(3) + "%,0)";
-        },
-        reset: function () { hs.style.opacity = "0"; layA.style.cssText = ""; layB.style.cssText = ""; }
-      });
-    }
   }
 
   /* ---------- the loop: rAF only while something is moving ---------- */

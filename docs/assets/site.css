@@ -382,3 +382,15 @@ kbd { font: 500 0.82em/1 var(--mono); border: 1px solid currentColor; border-rad
 .lib-dl svg { width: 13px; height: 13px; }
 .lib-dl:hover { background: var(--turmeric); color: var(--indigo-ink); }
 .link-light { color: var(--turmeric); text-underline-offset: 3px; }
+
+/* Decode images before revealing them; dimensions in the markup reserve their space.
+   Without JavaScript (or if the loader cannot download), images render normally. */
+.images-js img[loading]:not([data-image-ready]):not([data-image-error]) { opacity: 0; }
+.images-js img[data-image-ready] { transition: opacity .3s ease-out; }
+.images-js [data-image-group] { transition: opacity .35s ease-out; }
+.images-js [data-image-group]:not([data-images-ready]) { opacity: 0; }
+.images-js [data-image-group] img { transition: none; }
+.images-js [data-image-group] img[data-image-error] { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .images-js img[data-image-ready], .images-js [data-image-group] { transition: none; }
+}
