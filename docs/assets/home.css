@@ -407,13 +407,8 @@
 .shot-band .window .shot-empty { position: absolute; left: 0; top: 0; width: 100%; height: auto; opacity: 0; pointer-events: none; }
 .shot-band .window.is-empty .shot-empty { opacity: 1; }
 
-/* Home scrolls inside its window once the crew have landed (pinned, motion on only) */
+/* The crew land inside the prompt screenshot. */
 .home-win { position: relative; }
-.home-scroll { position: absolute; left: 0; right: 0; top: 6.216%; bottom: 0; overflow: hidden; opacity: 0; pointer-events: none; }
-.home-scroll { background: url(../img/studio/home-films-bg.png) 0 0 / 100% 100% no-repeat; }
-.home-scroll img { position: absolute; left: 0; top: 0; width: 100%; height: auto; will-change: transform, opacity; }
-.pin .home-track { height: 175vh; }
-.pin .home-track .home-win { position: sticky; top: 96px; }
 
 /* ============ HERO INTRO: once on load, transform and opacity only; any scroll finishes it ============ */
 @keyframes in-down { from { opacity: 0; transform: translate3d(0, -8px, 0); } to { opacity: 1; transform: none; } }
