@@ -26,7 +26,8 @@ Everything deterministic stays a script (`story.mjs check`, `sound.mjs fit`, `ob
 | | `brand-film-analyst`: reads the brand's own film frames and writes `brand-film/FILM-STYLE.md` (the film grammar); branded launch / promo / brand films only | during the Brief, after the Director runs `brandfilm.mjs` | 1 | fast is fine (Sonnet) |
 | Design | `design-researcher`: the subject's own visual world, its category's clichés, 8 to 12 library references that fit (`research/design.md`, `design-refs.json`) | during the Brief, parallel with research | 1 | session |
 | | `design-system-designer`: ONE bespoke design system for the chosen story, blended from 2 to 4 library references (`design/<label>/DESIGN.md`, `recipe.json`, `blend.json`); with a brand, Sure is the brand extended | after the story is chosen (Look) | 3 (Sure, Bold, Wild); a lyric video: 1, from the chosen treatment | session |
-| Writers' room | `script-writer`: one script around one device | Story | 3 (Sure, Bold, Wild) | session |
+| Writers' room | `story-planner`: the plan that keeps the three scripts apart: per slot an angle, villain picture, turn kind, peak kind, device and owned claims, plus a coverage map for the brief's must-shows and surprising facts (`story/plan.json`) | Story, after `story.mjs pick`, before the writers | 1 | session (Opus) |
+| | `script-writer`: one script around one device, in its plan slot; revised once when the editor says `rewrite` or `replace` | Story | 3 (Sure, Bold, Wild) | session |
 | | `footage-writer`: one paper edit cut from the footage (the radio edit in order, b-roll over it, graphics, the gaps covered; checked by `footage.mjs check-paper`) | Story, footage spine only | 3 (Sure, Bold, Wild), instead of the script writers | session |
 | | `treatment-writer`: one treatment of a song (concept, style bible, motifs, a plate per lyric section, every line an idea) | Story, `music-to-video` only | 3 (Sure, Bold, Wild), instead of the script writers | session |
 | | `visual-writer`: one visual treatment of a presenter film's speech (the layout of the person, a plate and camera per beat, graphics, an `idea`) | Story, `presenter` only | 3 (Sure, Bold, Wild), instead of the script writers | session |
@@ -52,7 +53,7 @@ Model column: see `models.md` (the prompt each member gets adapts to the model t
 Brief ── push brief ──────────────────────────────────────────────── user reads, confirms
    └─ local-find → (console ask: may I read these folders?) ─┐
    └─ research desk, in parallel, in the background ─────────┴─→ research-lead
-Story ── story.mjs pick → 3 writers in parallel → pitches → story.mjs check → Moves pass (below) → editor → 1 rewrite round → push story
+Story ── story.mjs pick → story-planner (story.mjs plan, crew.mjs check --role story-planner) → 3 writers in parallel → pitches → story.mjs check → Moves pass (below) → editor → story-revise (writers re-run for rewrite/replace notes, story.mjs revise, then check again) → push story
 Moves ── moves.mjs pack per script → 3 move-inventors in parallel → moves.mjs check each → move-juror (moves-verdict.json) → 3 move-sketchers (moves.mjs rough + check-rough) → moves.mjs payload into the story push; on choose: moves.mjs choose (story/moves.json binds the Motion Director)
 Story (a presenter film) ── presenter.mjs key + beats, reel.mjs scan → 3 visual writers in parallel → presenter.mjs check each → push story; the pick is presenter/plan.json
 Story (a song) ── lyrics.mjs align + audio → 3 treatment writers in parallel → treatment.mjs check each → push story; the pick is story/chosen-treatment.json
@@ -157,7 +158,7 @@ Earlier videos about the same product are in that list too. They show what was a
 ```
 $RUN/research/       product.md · product.claims.json · brand.md · brand/DESIGN.md · brand/assets/ · screens.json · screens.md · screens/
                      precedent.md · films/<slug>/{film.json,sheet.jpg} · local.md · local.claims.json · local/ · claims.json · assets.json · BRIEFING.md
-$RUN/story/          truth.md · picks.json (story.mjs pick's output) · pitch-<Sure|Bold|Wild>.json · pitches.json · check.json · edit-notes.json · chosen.json
+$RUN/story/          truth.md · picks.json (story.mjs pick's output) · plan.json (the story planner's) · pitch-<Sure|Bold|Wild>.json · intent-<label>.json · check-ledger.json (story.mjs check's run count per label) · pitches.json · check.json · edit-notes.json · chosen.json
                      moves: moves-pack-<label>.json · moves-<label>.json · moves-verdict.json · moves/<label>-<id>/{rough.html,rough.mp4,strip.png,poster.png} · moves.json (the chosen script's, binds the Motion Director)
                      songs: treatment-<Sure|Bold|Wild>.json · TREATMENT-<label>.md · chosen-treatment.json · chosen-treatment.md
 $RUN/music/          lyrics.json (word timings) · audio.json (beats, downbeats, sections, onsets) · plan.json · LICENSES.json

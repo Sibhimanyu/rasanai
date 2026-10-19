@@ -15,7 +15,7 @@ const sha = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
 const URL1 = /^https?:\/\/\S+$/i;
 
 // a light well-formedness check: an <svg> root, every tag closed in order (no XML library in this skill)
-function svgProblem(text) {
+export function svgProblem(text) {
   const t = text.replace(/<\?[\s\S]*?\?>/g, "").replace(/<!--[\s\S]*?-->/g, "").replace(/<!DOCTYPE[^>[]*(\[[\s\S]*?\])?[^>]*>/gi, "").replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, "");
   if (!/^\s*<svg[\s>]/i.test(t)) return "does not start with an <svg> root";
   const stack = [];
@@ -36,7 +36,7 @@ function svgProblem(text) {
   return null;
 }
 
-function pngLongSide(buf) {
+export function pngLongSide(buf) {
   if (buf.length < 24 || buf.readUInt32BE(0) !== 0x89504e47 || buf.readUInt32BE(4) !== 0x0d0a1a0a) return null;
   return Math.max(buf.readUInt32BE(16), buf.readUInt32BE(20));
 }
@@ -58,7 +58,8 @@ export function readLogos(assetsDir) {
     out.state = "none"; out.none = true; out.why = String(j.why || ""); out.searched = Array.isArray(j.searched) ? j.searched : [];
     if (out.why.trim().length < 10) out.problems.push("logos.json says none but gives no `why` (what was tried, what was missing)");
     const urls = out.searched.filter((u) => typeof u === "string" && URL1.test(u));
-    if (urls.length < 2) out.problems.push(`logos.json says none but \`searched\` lists ${urls.length} URLs (at least 2: the site's own header/favicon and the press or brand page)`);
+    const userKit = j.origin === "user" || /the user'?s (own )?brand/i.test(out.why); // nothing was searched: the user's kit has no logo file
+    if (urls.length < 2 && !userKit) out.problems.push(`logos.json says none but \`searched\` lists ${urls.length} URLs (at least 2: the site's own header/favicon and the press or brand page)`);
     return out;
   }
   if (!Array.isArray(j) || !j.length) { out.state = "invalid"; out.problems.push("logos.json must be a non-empty array of {file, kind, source_url} (or {none: true, why, searched})"); return out; }
@@ -84,11 +85,13 @@ export function readLogos(assetsDir) {
       const side = pngLongSide(buf);
       if (side === null) { out.problems.push(`${e.file} is not a PNG (bad signature)`); continue; }
       if (side < 512) { out.problems.push(`${e.file} is ${side}px on its long side (a PNG logo needs at least 512; get the SVG or a larger file)`); continue; }
+    } else if (/\.(jpe?g|webp)$/i.test(e.file) && fileSrc) { /* the user's own brand-kit file: placed as given */
+    } else if (/\.pdf$/i.test(e.file) && fileSrc) { out.warnings.push(`${e.file} is a PDF: a film cannot place it (add an SVG or PNG of the logo)`); continue;
     } else { out.problems.push(`${e.file}: a logo file is an .svg (preferred) or a .png of at least 512 px`); continue; }
     out.entries.push({ ...e, abs, hash: sha(buf), bytes: buf.length });
   }
   if (!out.entries.length && !out.problems.length) out.problems.push("logos.json lists no usable logo file");
-  for (const f of fs.readdirSync(assetsDir)) if (/\.(svg|png)$/i.test(f) && !listed.has(path.resolve(assetsDir, f))) out.warnings.push(`${f} is in research/brand/assets/ but not listed in logos.json (unlisted files are never placed in a film)`);
+  for (const f of fs.readdirSync(assetsDir)) if (/\.(svg|png|jpe?g|webp)$/i.test(f) && !listed.has(path.resolve(assetsDir, f))) out.warnings.push(`${f} is in research/brand/assets/ but not listed in logos.json (unlisted files are never placed in a film)`);
   return out;
 }
 

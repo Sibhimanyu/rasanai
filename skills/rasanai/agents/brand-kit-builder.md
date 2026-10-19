@@ -13,7 +13,7 @@ The brand is the user's own, and it is on disk: a guidelines PDF, a folder of lo
 
 - `research/brand/DESIGN.md`: the same shape the web researcher writes (`brand.mjs read --file` must find a canvas, an ink, an accent and a display font; frontmatter `colors:` with role comments, `typography:`, `rounded:`, then Overview, Colors, Typography, Logo, Voice, Motion, Do and Don't). Every colour's comment cites a file and page (`# source: Brand Guidelines v2.pdf p.14`) or a measured asset
 - `research/brand/assets/`: copies of the logo files (SVG first, PNG 512 px or more) in the colour variants that exist, and `logos.json`: `[{ "file", "kind": "mark|wordmark|lockup|app-icon", "source": { "file": "<path>", "page": 12 }, "colour_versions": [...] }]`. A logo is the user's file: never redraw, trace, recolour or rebuild one
-- `research/brand/fonts/`: the font files the guidelines name, copied from the kit (the user's own files, used locally to render), or a declared web substitute with the reason
+- `research/brand/fonts/` (write them through `node $SKILL_DIR/scripts/brand-assets.mjs add --brand <dir> --file <font>` / `import` when a brand folder exists, so family, weight and style land in `assets/fonts/` correctly): the font files the guidelines name, copied from the kit (the user's own files, used locally to render), or a declared web substitute with the reason
 - `research/brand/KIT.md`: the rules from the PDF in plain words: clear space, minimum size, **forbidden uses** (for example "never animate the mark's parts"), colour pairings, photography and tone rules, the lower-third and end-card templates if the kit has them
 - `research/brand.md`: where every token came from (file, page) and how sure you are
 

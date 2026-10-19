@@ -27,9 +27,64 @@ async function save(url, dest) {
   return true;
 }
 
+const FONT_EXTS = ["woff2", "woff", "ttf", "otf"];
+const FORMATS = { woff2: "woff2", woff: "woff", ttf: "truetype", otf: "opentype" };
+// the font files the user supplied for a family: assets/fonts/<Compact>-<w>[-italic].<ext> and anything assets/fonts/fonts.json lists for it
+// (case-insensitive family match) -> [{ w, style, rel, ext }]
+export function localFaces(family, projectDir) {
+  const fontDir = path.join(projectDir, "assets", "fonts");
+  const out = [], seen = new Set();
+  const add = (file, w, style) => {
+    const abs = path.isAbsolute(file) ? file : file.includes("/") ? path.join(projectDir, file) : path.join(fontDir, file);
+    const ext = path.extname(abs).slice(1).toLowerCase();
+    if (!FONT_EXTS.includes(ext) || !fs.existsSync(abs) || seen.has(abs)) return;
+    seen.add(abs);
+    out.push({ w: Number(w) || 400, style: style === "italic" ? "italic" : "normal", rel: path.relative(projectDir, abs).split(path.sep).join("/"), ext });
+  };
+  try {
+    const j = JSON.parse(fs.readFileSync(path.join(fontDir, "fonts.json"), "utf8"));
+    for (const e of Array.isArray(j) ? j : []) if (e && e.file && String(e.family || "").toLowerCase() === family.toLowerCase()) add(String(e.file), e.weight, e.style);
+  } catch {}
+  const compact = family.replace(/\s+/g, "").toLowerCase();
+  if (fs.existsSync(fontDir)) for (const f of fs.readdirSync(fontDir)) {
+    const m = f.match(/^(.+)-(\d{3})(-italic)?\.(woff2|woff|ttf|otf)$/i);
+    if (m && m[1].toLowerCase() === compact) add(f, m[2], m[3] ? "italic" : "normal");
+  }
+  return out.sort((a, b) => FONT_EXTS.indexOf(a.ext) - FONT_EXTS.indexOf(b.ext));
+}
+// the user's own files win over every web source: the exact weight, else the nearest weight the family has (never a silent Inter).
+// -> { res, complete (every weight has its own file), listed (fonts.json names the family: a brand kit, so no web lookup) } | null
+function stageLocalFamily(family, weights, projectDir) {
+  const all = localFaces(family, projectDir);
+  if (!all.length) return null;
+  const normal = all.filter((f) => f.style === "normal"), italic = all.filter((f) => f.style === "italic");
+  const faces = [], put = (f, w, style) => { if (!faces.some((x) => x.w === w && x.style === style)) faces.push({ ...f, w, style }); };
+  for (const w of weights) {
+    const pool = normal.length ? normal : italic;
+    const best = pool.slice().sort((a, b) => Math.abs(a.w - w) - Math.abs(b.w - w) || a.w - b.w)[0];
+    put(best, w, best.style);
+  }
+  for (const f of italic) if (weights.includes(f.w)) put(f, f.w, "italic");
+  faces.sort((a, b) => a.w - b.w || (a.style === "italic") - (b.style === "italic"));
+  let listed = false;
+  try { listed = (JSON.parse(fs.readFileSync(path.join(projectDir, "assets", "fonts", "fonts.json"), "utf8")) || []).some((e) => e && String(e.family || "").toLowerCase() === family.toLowerCase()); } catch {}
+  return {
+    listed,
+    complete: weights.every((w) => normal.some((f) => f.w === w)),
+    res: {
+      family,
+      source: "local",
+      files: [...new Set(faces.map((f) => f.rel))],
+      css: faces.map((f) => `@font-face { font-family: "${family}"; src: url("${f.rel}") format("${FORMATS[f.ext]}"); font-weight: ${f.w}; font-style: ${f.style}; font-display: block; }`).join("\n  "),
+    },
+  };
+}
+
 // -> { family, css, source, files } ; css is "" when HyperFrames resolves the family itself
 export async function stageFont(family, weights, projectDir, { presetDir = null, offline = false } = {}) {
   if (!family) return { family: null, css: "", source: "none", files: [] };
+  const mine = stageLocalFamily(family, weights, projectDir);
+  if (mine && (mine.listed || mine.complete)) return mine.res;
   if (HF_AUTO_FONTS.includes(family.toLowerCase())) return { family, css: "", source: "hyperframes", files: [] };
   const fontDir = path.join(projectDir, "assets", "fonts");
   const compact = family.replace(/\s+/g, "");
@@ -70,6 +125,7 @@ export async function stageFont(family, weights, projectDir, { presetDir = null,
       }
     } catch {}
   }
+  if (!faces.length && mine) return mine.res; // some local files, the web has no more: the nearest weight beats Inter
   if (!faces.length) return { family: null, css: "", source: "unavailable", files: [] };
   faces.sort((a, b) => a.w - b.w);
   return {
@@ -151,7 +207,7 @@ export async function staticTtfFor(family, weight, projectDir, { src = null, run
   for (const ext of ["ttf", "otf"]) { const f = path.join(fontDir, `${compact}-${weight}.${ext}`); if (fs.existsSync(f) && !src) return done({ file: f, kind: ext, source: "already staged" }); }
   let from = src && fs.existsSync(path.resolve(src)) ? path.resolve(src) : null;
   if (!from) {
-    const staged = () => fs.existsSync(fontDir) ? fs.readdirSync(fontDir).filter((f) => f.startsWith(compact + "-") && /\.woff2?$/i.test(f)).map((f) => ({ f, w: Number((f.match(/-(\d+)\.woff2?$/i) || [])[1]) || 400 })) : [];
+    const staged = () => fs.existsSync(fontDir) ? fs.readdirSync(fontDir).filter((f) => f.startsWith(compact + "-") && /\.(woff2?|ttf|otf)$/i.test(f) && !/-italic\./i.test(f)).map((f) => ({ f, w: Number((f.match(/-(\d+)\.(woff2?|ttf|otf)$/i) || [])[1]) || 400 })) : [];
     let have = staged();
     if (!have.length && family && !offline) { await stageFont(family, [weight], projectDir, { offline }); have = staged(); }
     if (have.length) { have.sort((a, b) => Math.abs(a.w - weight) - Math.abs(b.w - weight)); from = path.join(fontDir, have[0].f); if (have[0].w !== weight) notes.push(`no ${weight} staged: converted the ${have[0].w} face`); }

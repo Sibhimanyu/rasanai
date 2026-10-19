@@ -7,16 +7,29 @@ public struct Brand: Identifiable, Hashable, Sendable {
     public let folder: URL
     public var name: String
     public var designFile: URL
+    /// What the page shows: check.json's role-ordered colours when fresh, else the ones found in the text.
     public var colors: [String]
     public var fonts: [String]
+    /// The primary logo file (assets/logos/...), if any.
     public var logo: URL?
     public var previousNames: [String]
+    /// What a plain read of DESIGN.md finds; the Edit Brand sheet works on these because it rewrites the text.
+    public var textColors: [String]
+    public var textFonts: [String]
+    /// hex -> role ("canvas", "ink", "accent"...) from check.json.
+    public var colorRoles: [String: String] = [:]
+    public var assets = BrandAssetManifest()
+    public var check: BrandCheck?
 
-    public init(folder: URL, name: String, designFile: URL, colors: [String], fonts: [String], logo: URL?, previousNames: [String] = []) {
+    public init(folder: URL, name: String, designFile: URL, colors: [String], fonts: [String], logo: URL?, previousNames: [String] = [],
+                textColors: [String]? = nil, textFonts: [String]? = nil, colorRoles: [String: String] = [:], assets: BrandAssetManifest = BrandAssetManifest(), check: BrandCheck? = nil) {
         self.folder = folder; self.name = name; self.designFile = designFile
         self.colors = colors; self.fonts = fonts; self.logo = logo
         self.previousNames = previousNames
+        self.textColors = textColors ?? colors; self.textFonts = textFonts ?? fonts
+        self.colorRoles = colorRoles; self.assets = assets; self.check = check
     }
+    public func hash(into hasher: inout Hasher) { hasher.combine(folder) }
 }
 
 public enum BrandLibrary {
@@ -52,9 +65,25 @@ public enum BrandLibrary {
             previousNames = json["previousNames"] as? [String] ?? []
         }
         let text = (try? String(contentsOf: design, encoding: .utf8)) ?? ""
-        let logo = logoURL(in: folder)
-        return Brand(folder: folder, name: name, designFile: design,
-                     colors: parseColors(text), fonts: parseFonts(text), logo: logo, previousNames: previousNames)
+        BrandAssets.migrateLegacyLogo(in: folder)
+        let assets = BrandAssets.loadManifest(folder)
+        let logo = assets.primaryLogo.map { BrandAssets.url($0.file, in: folder) }.flatMap { fm.fileExists(atPath: $0.path) ? $0 : nil }
+        let textColors = parseColors(text), textFonts = parseFonts(text)
+        let check = BrandAssets.checkIsFresh(folder) ? BrandAssets.loadCheck(folder) : nil
+        var colors = textColors, fonts = textFonts, roles: [String: String] = [:]
+        if let check {
+            var seen = Set<String>(), fromCheck: [String] = []
+            for c in check.colors {
+                let hex = normalizedHex(c.hex)
+                guard let hex, seen.insert(hex).inserted else { continue }
+                fromCheck.append(hex); roles[hex] = c.role
+            }
+            if !fromCheck.isEmpty { colors = Array(fromCheck.prefix(8)) }
+            let named = [check.fonts.display, check.fonts.body].compactMap { $0 }.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+            if !named.isEmpty { fonts = named }
+        }
+        return Brand(folder: folder, name: name, designFile: design, colors: colors, fonts: fonts, logo: logo, previousNames: previousNames,
+                     textColors: textColors, textFonts: textFonts, colorRoles: roles, assets: assets, check: check)
     }
 
     public static func create(name: String, importing design: URL?, logo: URL?, in libraryRoot: URL) throws -> Brand {
@@ -74,25 +103,18 @@ public enum BrandLibrary {
         else { try template(for: display).write(to: designFile, atomically: true, encoding: .utf8) }
         let meta = try JSONSerialization.data(withJSONObject: ["name": display], options: [.prettyPrinted])
         try meta.write(to: target.appendingPathComponent("brand.json"))
-        if let logo { try setLogo(logo, in: target) }
+        if let logo { try BrandAssets.addLogo(logo, kind: "mark", primary: true, to: target) }
         guard let brand = load(target) else { throw CocoaError(.fileReadUnknown) }
         return brand
     }
 
-    /// Replaces the brand's logo (`logo.<ext>`).
+    /// Makes `logo` the brand's primary mark: it replaces the current primary logo file, or is added when there is none.
     public static func setLogo(_ logo: URL, in folder: URL) throws {
-        let fm = FileManager.default
-        let ext = logo.pathExtension.lowercased()
-        guard logoExtensions.contains(ext) else { throw BrandEditError.invalidLogo }
-        let target = folder.appendingPathComponent("logo." + ext)
-        if logo.standardizedFileURL == target.standardizedFileURL { return }
-        let staged = folder.appendingPathComponent(".logo-\(UUID().uuidString).\(ext)")
-        defer { try? fm.removeItem(at: staged) }
-        try fm.copyItem(at: logo, to: staged)
-        let old = logoURL(in: folder)
-        if fm.fileExists(atPath: target.path) { _ = try fm.replaceItemAt(target, withItemAt: staged) }
-        else { try fm.moveItem(at: staged, to: target) }
-        if let old, old != target { try fm.removeItem(at: old) }
+        guard logoExtensions.contains(logo.pathExtension.lowercased()) else { throw BrandEditError.invalidLogo }
+        BrandAssets.migrateLegacyLogo(in: folder)
+        if let primary = BrandAssets.loadManifest(folder).primaryLogo {
+            try BrandAssets.replace(.logo(primary), with: logo, in: folder)
+        } else { try BrandAssets.addLogo(logo, kind: "mark", primary: true, to: folder) }
     }
 
     public static func update(_ brand: Brand, name: String, colors: [String], fonts: [String], originalText: String, logo: URL?, removeLogo: Bool) throws -> Brand {
@@ -105,20 +127,22 @@ public enum BrandLibrary {
         var updated = originalText
         // Temporary markers allow swapping two colours without replacing the same value twice.
         let marker = UUID().uuidString
-        for (index, old) in brand.colors.enumerated() where index < colors.count {
-            updated = updated.replacingOccurrences(of: NSRegularExpression.escapedPattern(for: old) + "(?![0-9a-fA-F])", with: "RASAN_COLOR_\(marker)_\(index)", options: [.regularExpression, .caseInsensitive])
+        for (index, old) in brand.textColors.enumerated() where index < colors.count {
+            var pattern = NSRegularExpression.escapedPattern(for: old) + "(?![0-9a-fA-F])"
+            if let short = shortHex(old) { pattern = "(?:" + pattern + "|#" + short + "(?![\\w-]))" }
+            updated = updated.replacingOccurrences(of: pattern, with: "RASAN_COLOR_\(marker)_\(index)", options: [.regularExpression, .caseInsensitive])
         }
         for index in colors.indices { updated = updated.replacingOccurrences(of: "RASAN_COLOR_\(marker)_\(index)", with: colors[index].uppercased()) }
-        for (index, old) in brand.fonts.enumerated() where index < fonts.count {
+        for (index, old) in brand.textFonts.enumerated() where index < fonts.count {
             updated = updated.replacingOccurrences(of: NSRegularExpression.escapedPattern(for: old), with: "RASAN_FONT_\(marker)_\(index)", options: [.regularExpression, .caseInsensitive])
         }
         for index in fonts.indices { updated = updated.replacingOccurrences(of: "RASAN_FONT_\(marker)_\(index)", with: fonts[index]) }
-        if brand.colors.isEmpty {
+        if brand.textColors.isEmpty {
             let roles = ["Background", "Foreground", "Primary", "Accent", "Secondary", "Muted"]
             updated += "\n\n## Colours\n" + colors.enumerated().map { "- \(roles[$0.offset]): \($0.element.uppercased())" }.joined(separator: "\n") + "\n"
         }
-        if brand.fonts.isEmpty { updated += "\n\n## Typography\n- Display: \(fonts.first ?? "Inter")\n- Body: \(fonts.last ?? "Inter")\n" }
-        else if brand.fonts.count == 1, fonts.count > 1 {
+        if brand.textFonts.isEmpty { updated += "\n\n## Typography\n- Display: \(fonts.first ?? "Inter")\n- Body: \(fonts.last ?? "Inter")\n" }
+        else if brand.textFonts.count == 1, fonts.count > 1 {
             let pattern = "(?im)(^[ \\t>*\\-]*Body:[ \\t]*)([^,\\n]+)"
             if updated.range(of: pattern, options: .regularExpression) != nil {
                 updated = updated.replacingOccurrences(of: pattern, with: "$1" + NSRegularExpression.escapedTemplate(for: fonts[1]), options: .regularExpression)
@@ -127,7 +151,7 @@ public enum BrandLibrary {
         // Keep the prior design as a recoverable file, including all imported motion and voice notes.
         try originalText.write(to: brand.folder.appendingPathComponent("DESIGN.previous.md"), atomically: true, encoding: .utf8)
         if let logo { try setLogo(logo, in: brand.folder) }
-        if removeLogo, let old = logoURL(in: brand.folder) { try FileManager.default.trashItem(at: old, resultingItemURL: nil) }
+        if removeLogo, logo == nil, let primary = BrandAssets.loadManifest(brand.folder).primaryLogo { try BrandAssets.remove(.logo(primary), in: brand.folder) }
         try updated.write(to: brand.designFile, atomically: true, encoding: .utf8)
         let metaURL = brand.folder.appendingPathComponent("brand.json")
         var metadata = (try? JSONSerialization.jsonObject(with: Data(contentsOf: metaURL))) as? [String: Any] ?? [:]
@@ -152,26 +176,9 @@ public enum BrandLibrary {
         try FileManager.default.trashItem(at: brand.folder, resultingItemURL: nil)
     }
 
+    /// Copies the brand into a film project (DESIGN.md, logos, fonts, media): see BrandAssets.apply.
     public static func apply(_ brand: Brand, to project: URL) throws {
-        let fm = FileManager.default
-        let dest = project.appendingPathComponent("DESIGN.md")
-        if fm.fileExists(atPath: dest.path) {
-            if fm.contentsEqual(atPath: dest.path, andPath: brand.designFile.path) {
-                try fm.removeItem(at: dest)
-            } else {
-                let backup = project.appendingPathComponent("DESIGN.previous.md")
-                if fm.fileExists(atPath: backup.path) { try fm.removeItem(at: backup) }
-                try fm.moveItem(at: dest, to: backup)
-            }
-        }
-        try fm.copyItem(at: brand.designFile, to: dest)
-        if let logo = brand.logo {
-            let dir = project.appendingPathComponent("assets/brand", isDirectory: true)
-            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
-            let target = dir.appendingPathComponent(logo.lastPathComponent)
-            if fm.fileExists(atPath: target.path) { try fm.removeItem(at: target) }
-            try fm.copyItem(at: logo, to: target)
-        }
+        try BrandAssets.apply(brand, to: project)
     }
 
     // MARK: Parsing
@@ -189,15 +196,30 @@ public enum BrandLibrary {
     }
 
     public static func parseColors(_ text: String) -> [String] {
-        guard let regex = try? NSRegularExpression(pattern: "#([0-9A-Fa-f]{6})(?![0-9A-Fa-f])") else { return [] }
+        guard let regex = try? NSRegularExpression(pattern: "#(?:[0-9A-Fa-f]{6}(?![0-9A-Fa-f])|[0-9A-Fa-f]{3}(?![\\w-]))") else { return [] }
         var seen = Set<String>(), out: [String] = []
         for m in regex.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
-            guard let r = Range(m.range, in: text) else { continue }
-            let hex = String(text[r]).uppercased()
+            guard let r = Range(m.range, in: text), let hex = normalizedHex(String(text[r])) else { continue }
             if seen.insert(hex).inserted { out.append(hex) }
             if out.count == 6 { break }
         }
         return out
+    }
+
+    /// "#abc" / "#AABBCC" -> "#AABBCC"; nil for anything else.
+    static func normalizedHex(_ raw: String) -> String? {
+        let h = raw.trimmingCharacters(in: CharacterSet(charactersIn: "# \n")).uppercased()
+        guard h.allSatisfy({ $0.isHexDigit }) else { return nil }
+        if h.count == 6 { return "#" + h }
+        if h.count == 3 { return "#" + h.map { "\($0)\($0)" }.joined() }
+        return nil
+    }
+
+    /// "#AABBCC" -> "ABC" when it has a 3-digit form.
+    static func shortHex(_ hex: String) -> String? {
+        let h = Array(hex.trimmingCharacters(in: CharacterSet(charactersIn: "#")))
+        guard h.count == 6, h[0] == h[1], h[2] == h[3], h[4] == h[5] else { return nil }
+        return String([h[0], h[2], h[4]])
     }
 
     public static func parseFonts(_ text: String) -> [String] {

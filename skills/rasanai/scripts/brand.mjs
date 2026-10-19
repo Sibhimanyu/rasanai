@@ -9,7 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseArgs, die, writeFile, esc, chromeScreenshot, readLook, normalizeAspect } from "./lib/common.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
-import { readDesignMd, toFrameMd, toTokensJson, findDesignMd, contrast } from "./lib/design-md.mjs";
+import { readDesignMd, toFrameMd, toTokensJson, findDesignMd, findBrandManifest, contrast } from "./lib/design-md.mjs";
 import { track } from "./lib/report.mjs";
 
 const args = parseArgs();
@@ -59,7 +59,8 @@ if (cmd === "detect") {
   const dir = path.resolve(String(args.dir || "."));
   const f = findDesignMd(dir);
   if (!f) { console.log(JSON.stringify({ found: false, looked_in: dir })); process.exit(0); }
-  console.log(JSON.stringify({ found: true, ...summary(readDesignMd(f, { mode })) }, null, 2));
+  const am = findBrandManifest(f);
+  console.log(JSON.stringify({ found: true, ...summary(readDesignMd(f, { mode })), ...(am ? { assets: am } : {}) }, null, 2));
 } else if (cmd === "read") {
   const B = readDesignMd(need(), { mode });
   console.log(JSON.stringify(args.full ? B : summary(B), null, 2));
@@ -69,7 +70,7 @@ if (cmd === "detect") {
   const B = readDesignMd(f, { mode });
   if (!B.roles.canvas || !B.roles.ink) die(`could not find a background and a text color in ${args.out}; ${B.warnings.join("; ")}`);
   const out = path.resolve(String(args.out));
-  writeFile(out, toFrameMd(B));
+  writeFile(out, toFrameMd(B, { assets: findBrandManifest(f) }));
   const check = await verifyFrame(out);
   const problems = [];
   if (check.hyperframes) {
