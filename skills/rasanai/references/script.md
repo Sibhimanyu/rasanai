@@ -155,7 +155,9 @@ Before moving on: read the `show` column alone; does it tell the film? At least 
 
 ## Structures by length
 
-Durations are guides; the read times and the engine win. A beat is one belief; shot changes inside it are fine. Shown for `reversal` (and `before-after`, where the turn is the cause); on a `refrain-break` ladder the rungs fill the middle and the break is both turn and peak.
+The sheet for any length, with its slot names, is printed by `node $SKILL_DIR/scripts/story.mjs sheet --length <s> [--engine <e>]`; each beat may carry its `slot` (`open|hook|turn|rung|proof|rest|peak|payoff|end|close`). Durations are guides; the read times and the engine win. At every length the peak is the longest beat, and the last beat holds at least 1.8 s (10 s and under), 2.0 s (to 22 s) or 2.5 s. A beat is one belief; shot changes inside it are fine. Shown for `reversal` (and `before-after`, where the turn is the cause); on a `refrain-break` ladder the rungs fill the middle and the break is both turn and peak.
+
+**10 s (one idea, `reversal` or `before-after`):** hook and product 0-2 · turn 2-3.5 · proof 3.5-5.8 (a rest) · peak 5.8-8.2 (the longest beat, at least 2.2 s, starting at 58 to 75%) · payoff and end 8.2-10 (the end line is the payoff line, held at least 1.8 s). Four to five beats, one line of voiceover at most. A 10 s `refrain-break` ladder: open 0-2 · rung 2-3.5 · rung 3.5-5.8 (a rest) · break, which is the peak, 5.8-8.2 · close 8.2-10. The beats are deliberately uneven, so the evenness check is skipped at 12 s or less while the peak is the longest beat. A 10 s `before-after` pair runs 1.5 to 3 s (3 to 6 s is for longer films), and the film has 2 to 3 pairs (G10: 2 to 3 pairs up to 12 s, 2 to 4 up to 22 s, 3 to 6 above).
 
 **15 s (social teaser):** hook 0-2 · turn by 5 · one proof 5-9 · peak 9-11 · payoff and end 11-15. Three to four beats, no voiceover or one line.
 
@@ -229,7 +231,10 @@ Never open with "Introducing…", "Meet…" (as a first line), "What if…?", "T
 - [ ] The first 2 s say something with the sound off.
 - [ ] Every on-screen line has a `shows` row; the pitch names its `actor`; no row is a caption over UI.
 - [ ] Launch films: the first quarter speaks to the viewer, the brand arrives after the pain, every benefit says what the viewer gets with one UI behaviour, a proof with a real number (or none), a CTA with an action and a place, a line every 1.5 to 2.5 s.
-- [ ] Every number and UI word is on the truth sheet.
+- [ ] Every number and UI word is on the truth sheet, and a number's noun is the claim's noun ("50 people", not "50 phones").
+- [ ] Coverage: every Must-show feature and every Surprising fact is a row in `coverage` with a `beat`, or a `cut` with a reason of four words or more.
+- [ ] The plan: your slot's device, `turn_kind`, `peak_kind` and owned claims are in the pitch, and no word was moved into `actor` to pass the scope count.
+- [ ] The peak is the longest beat and the end line is held long enough for its length; `tempo.ideas` is the intent's count of distinct beliefs.
 - [ ] Product-first: UI within 3 s, a hero moment, real uses, lines of 6 words or fewer, the end line the largest type, nothing is a museum, allegory, invented world or metaphor.
 - [ ] The three scripts are three arguments or engines, not one takeaway in three costumes.
 

@@ -3,7 +3,7 @@
 // takes every beat's duration from it.
 //   loadIntent(file)                      -> the parsed sheet, or null when there is none
 //   validateIntent(intent, { lengthS, durations }) -> { ok, errors, warnings, timing, curve }
-//        errors block: missing fields, relation words, importance values, the 25% budget, the one peak at importance 3, the proposition (<= 12 words, no "and"), ending_first;
+//        errors block: missing fields, relation words, importance values, the 25% budget, the one peak at importance 3, the peak holds longest (peak-not-longest), the proposition (<= 12 words, no "and"), ending_first;
 //        warnings are the uncalibrated rules: the peak's place (60-75%), the rest before it, read seconds, duplicate buys, buys wording, felt-number count
 //        durations = the pitch's beats' duration_s (the draft the peak's position is measured on); without them the beats' own, else planDurations()
 //        (the plot engine, the turn and the payoff live in the pitch: story.mjs check holds them to these beats)
@@ -15,7 +15,8 @@ import fs from "node:fs";
 import { readTime, wordCount } from "./reading.mjs";
 
 export const RELATIONS = ["because", "but", "so", "example", "escalation", "answer"]; // beat 1 is always "open"
-export const PEAK_RANGE = [0.6, 0.75]; // a lyric video's treatment: the song's own climax, 55-90%
+export const PEAK_RANGE = [0.6, 0.75];
+export const PEAK_RANGE_10S = [0.58, 0.75]; // a 10 s film (<= 12 s) rounds hard: the window opens at 58% // a lyric video's treatment: the song's own climax, 55-90%
 export const TREATMENT_PEAK_RANGE = [0.55, 0.9];
 export const MAX_TOP_SHARE = 0.25;
 export const MAX_PROPOSITION_WORDS = 12;
@@ -149,7 +150,9 @@ export function validateIntent(intent, { lengthS = 0, durations = null } = {}) {
 
   const timing = N ? timingOf(beats, { lengthS: lengthS || Number(intent.length_s) || 0, durations }) : null;
   if (timing && peaks.length === 1) {
-    const pk = peaks[0], at = timing.starts[pk] / (timing.total || 1), [lo, hi] = treatment ? TREATMENT_PEAK_RANGE : PEAK_RANGE;
+    const pk = peaks[0], at = timing.starts[pk] / (timing.total || 1), [lo, hi] = treatment ? TREATMENT_PEAK_RANGE : timing.total <= 12 ? PEAK_RANGE_10S : PEAK_RANGE;
+    // the peak holds longest: a measured beat (the pitch's durations, else the beats' own duration_s) shorter than another is an error; planned durations hold the peak longest by construction
+    if (!timing.planned) { const longer = timing.secs.map((d, i) => ({ d, i })).filter(({ d, i }) => i !== pk && d > timing.secs[pk] + 1e-9); if (longer.length) E(`peak-not-longest: ${label(beats[pk], pk)} runs ${+timing.secs[pk].toFixed(2)} s, shorter than ${longer.map(({ d, i }) => `${label(beats[i], i)} (${+d.toFixed(2)} s)`).join(", ")}: the peak holds longest`); }
     if (at < lo - 0.01 || at > hi + 0.01) W(`peak-place: ${label(beats[pk], pk)} starts at ${Math.round(at * 100)}% of the running time (${Math.round(lo * 100)}-${Math.round(hi * 100)}%)`);
     if (pk > 0 && beats[pk - 1].rest_after !== true) W(`no-rest-before-peak: the beat before the peak (${label(beats[pk - 1], pk - 1)}) needs rest_after: true (the film breathes right before its peak)`);
   }

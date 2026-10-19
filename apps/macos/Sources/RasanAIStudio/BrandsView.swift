@@ -9,13 +9,14 @@ extension Color {
     /// "#RRGGBB" -> Color. Falls back to clear for malformed input.
     init(brandHex hex: String) {
         let h = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
-        guard h.count == 6, let v = UInt32(h, radix: 16) else { self = .clear; return }
+        let full = h.count == 3 ? h.map { "\($0)\($0)" }.joined() : h
+        guard full.count == 6, let v = UInt32(full, radix: 16) else { self = .clear; return }
         self.init(.sRGB, red: Double((v >> 16) & 0xFF) / 255, green: Double((v >> 8) & 0xFF) / 255,
                   blue: Double(v & 0xFF) / 255, opacity: 1)
     }
 }
 
-private struct BrandLogoImage: View {
+struct BrandLogoImage: View {
     let url: URL
     @State private var image: NSImage?
     var body: some View {
@@ -160,7 +161,9 @@ struct NewBrandSheet: View {
     @State private var logoURL: URL?
     @State private var dropping = false
     @State private var error: String?
+    @State private var working = false
     @FocusState private var focused: Bool
+    private static let designExtensions = ["md", "markdown", "txt"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -176,12 +179,12 @@ struct NewBrandSheet: View {
                 .onDrop(of: [.fileURL], isTargeted: $dropping) { providers in
                     guard let p = providers.first else { return false }
                     _ = p.loadObject(ofClass: URL.self) { url, _ in
-                        if let url { Task { @MainActor in designURL = url; if name.isEmpty { name = suggested(url) } } }
+                        if let url { Task { @MainActor in accept(url) } }
                     }
                     return true
                 }
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.accentColor, lineWidth: dropping ? 2 : 0).padding(-3))
-                Text(designURL == nil ? "Starts with Colours, Typography and Motion sections for you to fill in." : "Colours and fonts are read from the file.")
+                Text(designURL == nil ? "Starts with Colours, Typography and Motion sections for you to fill in." : "Colours and fonts are read from the file. Logos, fonts and images it points to are pulled in.")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
             }
 
@@ -201,13 +204,14 @@ struct NewBrandSheet: View {
             if let error { Text(error).font(.system(size: 12)).foregroundStyle(.red) }
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                if working { ProgressView().controlSize(.small); Text("Reading the brand’s files…").font(.system(size: 11)).foregroundStyle(.secondary) }
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction).disabled(working)
                 Button("Create") { create() }.buttonStyle(.rasanPrimary)
                     .keyboardShortcut(.defaultAction)
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || working)
             }
         }
-        .padding(24).frame(width: 440)
+        .padding(24).frame(width: 440).interactiveDismissDisabled(working)
         .onAppear { focused = true }
         .animation(reduceMotion ? nil : .snappy, value: designURL)
     }
@@ -223,6 +227,13 @@ struct NewBrandSheet: View {
         }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
     }
 
+    private func accept(_ url: URL) {
+        guard Self.designExtensions.contains(url.pathExtension.lowercased()) else {
+            error = "A design system is a .md, .markdown or .txt file. Add logos, fonts and images from the brand page after you create it."; return
+        }
+        error = nil; designURL = url; if name.isEmpty { name = suggested(url) }
+    }
+
     private func suggested(_ url: URL) -> String {
         let base = url.deletingPathExtension().lastPathComponent
         return base.uppercased() == "DESIGN" ? "" : base
@@ -231,8 +242,8 @@ struct NewBrandSheet: View {
     private func pickDesign() {
         let panel = NSOpenPanel()
         panel.title = "Choose a DESIGN.md"
-        panel.allowedContentTypes = [UTType(filenameExtension: "md") ?? .plainText, .plainText]
-        if panel.runModal() == .OK, let url = panel.url { designURL = url; if name.isEmpty { name = suggested(url) } }
+        panel.allowedContentTypes = ["md", "markdown"].compactMap { UTType(filenameExtension: $0) } + [.plainText]
+        if panel.runModal() == .OK, let url = panel.url { accept(url) }
     }
 
     private func pickLogo() {
@@ -243,11 +254,18 @@ struct NewBrandSheet: View {
     }
 
     private func create() {
-        do {
-            let brand = try BrandLibrary.create(name: name, importing: designURL, logo: logoURL, in: root)
-            dismiss()
-            onCreate(brand)
-        } catch { self.error = error.localizedDescription }
+        working = true; error = nil
+        let name = name, design = designURL, logo = logoURL, root = root
+        Task {
+            do {
+                let brand = try await Task.detached { try BrandLibrary.create(name: name, importing: design, logo: logo, in: root) }.value
+                // Pull in what DESIGN.md points to and check the brand; the brand page then shows anything still missing.
+                if BrandEngine.available { await BrandEngine.importAndCheck(brand.folder, design: design) }
+                working = false
+                dismiss()
+                onCreate(brand)
+            } catch { self.error = error.localizedDescription; working = false }
+        }
     }
 }
 
@@ -263,6 +281,7 @@ struct BrandPage: View {
     @State private var showEditor = false
     @State private var loaded = false
     @State private var reloadGeneration = 0
+    @State private var checkedGeneration = -1
 
     var body: some View {
         Group {
@@ -275,7 +294,13 @@ struct BrandPage: View {
         .navigationTitle(model?.name ?? "Brand")
         .task(id: "\(brand.path):\(reloadGeneration)") { await reload() }
         .sheet(isPresented: $showEditor) {
-            if let model { BrandEditorSheet(brand: model, design: text) { reloadGeneration += 1 } }
+            if let model {
+                BrandEditorSheet(brand: model, design: text) {
+                    reloadGeneration += 1
+                    let folder = brand
+                    Task { await BrandEngine.check(folder); reloadGeneration += 1 }
+                }
+            }
         }
         .pageHeader(model?.name ?? "Brand") {
             Button { showEditor = true } label: { Label("Edit Brand…", systemImage: "pencil") }.help("Edit colours, fonts and logo").disabled(model == nil)
@@ -304,6 +329,14 @@ struct BrandPage: View {
         }.value
         guard !Task.isCancelled else { return }
         model = result.0; text = result.1; loaded = true
+        // No check yet, or DESIGN.md changed since (edited in TextEdit): run the cheap check once and show its result.
+        if let loadedBrand = result.0, loadedBrand.check == nil, BrandEngine.available, checkedGeneration != reloadGeneration {
+            checkedGeneration = reloadGeneration
+            await BrandEngine.check(folder)
+            guard !Task.isCancelled else { return }
+            let refreshed = await Task.detached(priority: .userInitiated) { BrandLibrary.load(folder) }.value
+            if let refreshed { model = refreshed }
+        }
     }
 
     private func edit() {
@@ -336,6 +369,7 @@ struct BrandPage: View {
                                     .frame(height: 88)
                                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color(nsColor: .separatorColor)))
                                 Text(hex).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
+                                if let role = b.colorRoles[hex], !role.isEmpty { Text(role).font(.system(size: 10)).foregroundStyle(.tertiary).lineLimit(1) }
                             }
                             .contentShape(Rectangle())
                             .onTapGesture {
@@ -352,6 +386,8 @@ struct BrandPage: View {
                         }
                     }
                 }
+
+                BrandAssetsSection(brand: b) { reloadGeneration += 1 }
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("DESIGN.md").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)

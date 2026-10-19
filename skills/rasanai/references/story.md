@@ -4,14 +4,18 @@ Left alone, every AI launch video tells the same story: hook stat → problem mo
 
 Why: three films in a row (FILM-D, E, F) reused one story assembled from a seeded device draw, a template with no turn slot and a launch template's payoff line. Its "turn" was a third, unrelated use; its payoff answered a question asked ten seconds earlier; its biggest type went to a price input. Every check passed, because the checks counted form. Judgment now comes from one owner (the writer) holding one written argument, checked by meaning tests.
 
+Why (the set): the QR Jam run (a 10 s launch) shipped three pitches that each passed alone while the set collided. Two shared a device, all three peaked on the same pull-back, two shared lines word for word, all three dropped the brief's one surprising fact, and two writers moved nouns into the `actor` to pass the scope check. Checks that look at one pitch cannot see that, so the set is now planned before it is written, and the gates read the set.
+
 The engine is `scripts/story.mjs` over the catalog `taxonomy/devices.json` (70 devices in 7 families; schema in `taxonomy/devices-SCHEMA.md`). The loop:
 
 1. **Truth sheet** → `story.mjs truth --out "$RUN/story/truth.md"`, then fill it.
 2. **Pick** → `story.mjs pick --truth "$RUN/story/truth.md" [--recent <ids>]` → three slots (Sure, Bold, Wild), each with a shape and a plot engine, and a device **menu** (recent devices removed).
+2b. **Plan** → the story planner (`agents/story-planner.md`) writes `story/plan.json`: per slot the angle, villain picture, turn kind, peak kind, device, `swap_breaks` (what the main competitor cannot claim) and owned claims, plus a coverage map for the brief's must-shows and surprising facts. `story.mjs plan --plan story/plan.json --picks story/picks.json --truth story/truth.md` validates it (`plan-slots`, `plan-shape`, `plan-device`, `plan-turn-kind`, `plan-peak-kind`, `plan-angle`, `plan-swap`, `plan-claims`, `plan-coverage`). Writers fill their slot; they do not choose these.
 3. **Argument, then pitch** → each writer writes `story/intent-<label>.json` (`references/intent.md`), then `story/pitch-<label>.json`.
 4. **Check** → `story.mjs intent` and `story.mjs check`, then rewrite until they pass.
 4b. **Moves** → a move-inventor per passing pitch invents its carrier and hero moves (`references/moves.md`); a juror gates them; a sketcher roughs each script's top move.
-5. **Edit** → the script editor (always; no route skips it) runs the meaning tests: blind retell, cover-the-logo and competitor swap, muted hook, turn, payoff.
+5. **Edit** → the script editor (always; no route skips it) runs the meaning tests: blind retell, cover-the-logo and competitor swap, muted hook, turn, payoff, plus plan conformance and coverage.
+5b. **Revise** → any pitch the editor marks `rewrite` or `replace` goes back to its writer once, with that label's notes from `story/edit-notes.json` (`story.mjs revise --notes story/edit-notes.json` lists them). Then `story.mjs check` re-runs on the set. A second editor pass does not run.
 6. **Show** → the three scripts in the console (SKILL.md "2 · Story"), with each one's proposition and turn line above its beats.
 7. **After the choice** → the concept critic, then one rough thumbnail per beat on one sheet and the **structure critic** (`agents/structure-critic.md`), who may cut, merge or move beats, move the peak, demand a rest or rewrite a buys. Only then are durations set, from each beat's read and importance.
 
@@ -58,10 +62,10 @@ Real launch films are not plots. Google's "Ask Search Anything" (87 s) is a **re
 
 `shape` is `ladder | pas | scenario | before-after`, or one of the shapes the format picker ranks (`library/formats.json`: `intercut`, `montage`, `hero-strip`, `claim-ladder`, `manifesto`, `life-arc`, `day-in-life`, `what-if`, `countdown`, `testimony`, `roundup`, `strategic`, `data-journey`, `steps`, `abt`, `titles`, `process`, `acts`, `trailer`); each has its roles and timing in `STORY_SHAPES` (`story.mjs`), and G10 checks its roles, counts, a picture per beat and a real UI cause and effect per use beat. `pick` takes shapes from `SHAPES_BY_TYPE` (video type x claim scope): a universal or category launch gets Sure a ladder, Bold a pas, Wild a before-after; a single-task claim gets the scenario. `--shape` forces one, `--scope` overrides the sheet.
 
-- **`ladder`** (engine `refrain-break`). `refrain: {verb, pattern}`; beats with `role`: `open` (the refrain and the product within 3 s), `rung` (each: `use` 2 to 6 words, distinct, no shared content noun; `highlight` in the title; `level` strictly rising from simple to done-for-you; `on_screen` containing the verb, 6 words or fewer; `picture`; `ui[]`; `benefit`; `duration_s`, no rung over 35% of the film), optional `ways_in`, `close`. The break rung is the intent's peak; mark it `"break": true`. Rungs: 35 s or less 3 to 4; 36 to 60 s 4 to 6; over 60 s 6 to 8. The creativity lives in the joins between rungs (the title word becomes the input, the last input becomes the logo), never in a plot.
+- **`ladder`** (engine `refrain-break`). `refrain: {verb, pattern}`; beats with `role`: `open` (the refrain and the product within 3 s), `rung` (each: `use` 2 to 6 words, distinct, no shared content noun; `highlight` in the title; `level` strictly rising from simple to done-for-you; `on_screen` containing the verb (the break rung is exempt: it may change the verb), 6 words or fewer; `picture`; `ui[]`; `benefit`; `duration_s`, no rung over 35% of the film), optional `ways_in`, `close`. The break rung is the intent's peak; mark it `"break": true`. `fake-ui-takeover` as a device never trips the invented-screen ban on its own name. Rungs: 35 s or less 3 to 4; 36 to 60 s 4 to 6; over 60 s 6 to 8. The creativity lives in the joins between rungs (the title word becomes the input, the last input becomes the logo), never in a plot.
 - **`pas`** (engine `reversal`), told from the viewer's day: `hook` (the pain as a picture, second person), `agitate` (optional; a reaction, "Ugh."), `meet` (the reveal and the turn, never before 20%), `benefit` x2 to 4 (each `benefit` in viewer language, 12 words at most, and one UI behaviour in `ui[]`, escalating toward the peak), `proof` (`proof: {line, claim}`, a claim id with a number), `cta` (`cta: {line, action, where}`). Kinso's launch is one.
 - **`scenario`** (engine `reversal`, single-task claims only): the `feature` block (`name, url, viewer, task, before, after`) and roles hook, proof, turn, cta, a `picture` and `ui[]` per beat, `two_way`. A single persona only when `audience: role | persona`, `series: yes`, or the arc is archetypal through 3+ uses.
-- **`before-after`** (engine `before-after`): the before at the claim's scope, the cause on screen at the turn, the after proven with real uses, the payoff in the before's frame.
+- **`before-after`** (engine `before-after`): the before at the claim's scope, the cause on screen at the turn, the after proven with real uses, the payoff in the before's frame. Pairs (role `pair`, a `domain` each): 3 to 6 above 22 s, 2 to 4 up to 22 s, 2 to 3 up to 12 s (1.5 to 3 s each; G10 `pair`).
 
 ### Scope (G13) and viewer first (G12)
 
@@ -73,7 +77,13 @@ Real launch films are not plots. Google's "Ask Search Anything" (87 s) is a **re
 | category | 3 | 2 / 3 / 4 | 35% at most | 1 at most | any |
 | single-task | n/a | n/a | n/a | n/a | the viewer's before, one action |
 
-Universal claims also: a ladder, pas or before-after (never a scenario), no use of reach "few", every promise clause shown, a retell that names the range. Two scripts in a set that each spend over 25% on one situation fail the portfolio (`collapse`).
+**Range vs honesty.** One script of a set may show fewer uses or areas of life than the table asks when it declares `scope_waiver: { reason }` (6+ words, for example "one table keeps the sync claim honest") AND a plan is active. Its G13 uses and D minima then become warnings, and the portfolio holds the set instead: the union of distinct areas of life across the three scripts meets the claim scope's D for the length (`range-short`), and at most one script declares a waiver (`waiver-count`). Without a plan a waiver is ignored and the errors stand.
+
+**Continuity implies a claim (G4, `continuity-claim`).** When the pitch's device is `oner`, or its `actor` runs unbroken across beats whose `domain` differs, the pitch sets `continuity: { across: "places" | "time" | "one", claim: "<claim id>" }`. Across "places" needs the claim that makes the places one thing; without it, cut the carrier between places.
+
+**No system-UI imitation (G7, `system-ui-pose`).** A visual that poses as the viewer's own OS (a system dialog, an app-store sheet, a notification shade) full frame, with no phone in a hand or on a surface, is an error. Open on the phone in a hand, then push in.
+
+Universal claims also: a ladder, pas or before-after (never a scenario), no use of reach "few", every promise clause shown (with a plan, each script shows the clauses its slot owns and the set shows all of them: `clause-dropped`), a retell that names the range. Two scripts in a set that each spend over 25% on one situation fail the portfolio (`collapse`).
 
 **G12** (launch and promo films, every shape): the first 25% addresses the viewer (`you`, `your`, or a first-person viewer line), a pas `meet` starts at 20% or later, every `benefit` or `rung` carries a `benefit`, a `proof` when the ledger has a number, a `cta` with an action and a place, and a line at least every 3.0 s. Warnings: `slogan-copy`, `toy-demos`, `same-situation`.
 
@@ -87,7 +97,7 @@ A named brand's launch, promo or brand film follows `launch-film.md` §1 for its
 node $SKILL_DIR/scripts/story.mjs pick --truth "$RUN/story/truth.md" --recent "$(recent device ids, comma-separated)"
 ```
 
-`pick` returns a ranked **menu**, not a draw: recent devices are filtered out (rotation is a filter, never a picker), what is left is ranked by fit to the product's tags, format and tone, and each card carries its beats, pitfalls, an example and `fuse_pool` (the product's own material). Each writer **chooses** one device or none, with a reason (`pitch.device_reason`): a device earns its place only when it makes the proposition land harder. `check` holds the three chosen devices to the distance rules (different family and visual world, and on most of the 7 axes; product films need not differ on protagonist).
+`pick` returns a ranked **menu**, not a draw: recent devices are filtered out (rotation is a filter, never a picker), what is left is ranked by fit to the product's tags, format and tone, and each card carries its beats, pitfalls, an example and `fuse_pool` (the product's own material). When a plan exists the planner has already chosen each slot's device from its menu and the writer keeps it; with no plan each writer **chooses** one device or none, with a reason (`pitch.device_reason`): a device earns its place only when it makes the proposition land harder. `check` holds the three chosen devices to the distance rules (different family and visual world, and on most of the 7 axes; product films need not differ on protagonist).
 
 - **Sure** = the clearest argument; **Bold** = the most original still on the brief; **Wild** = the reach. On a product-first film the reach is in craft (camera, joins, rhythm), never a narrower or more personal story.
 - Browse when you need to: `story.mjs devices [--family metaphor] [--fits devtool] [--q "receipt"]`, `story.mjs devices --id A5`, `story.mjs cliche`.
@@ -116,7 +126,9 @@ The argument first (`references/intent.md`): proposition, PAGE, villain and felt
   "approach": "Starts at the 2 am outage, then rewinds to the one line nobody read.",   // one plain sentence, <= 25 words
   "engine": "reversal",                             // reversal | refrain-break | before-after (the slot's, from pick)
   "turn": { "line": "Lintel suggested a change", "reverses": "the line nobody read is now the line that got read", "payoff": "the 2 am pager stays dark" },
-  "device": "rewind", "device_reason": "starting on the outage makes the unread line the villain before anyone explains it",
+  "device": "rewind", "device_reason": "starting on the outage makes the unread line the villain before anyone explains it",   // the plan slot's device
+  "turn_kind": "object-flips", "peak_kind": "scale-reveal",   // the plan slot's; story.mjs TURN_KINDS and PEAK_KINDS
+  "coverage": [ { "claim": "c8", "beat": 5 }, { "feature": "scan and join with no install", "beat": 2 }, { "claim": "c6", "cut": "host controls need a second screen" } ],   // beat is 1-based; a cut needs 4+ words of reason
   "tempo": { "ideas": 6, "change_every_s": 2.2, "longest_hold_s": 4, "source": "house" },   // launch, promo and feature films (G9)
   "logline": "A 2 am outage rewinds to the one line nobody read.",
   "twist": "",                                      // required when the device is overused: what makes it not the default
@@ -138,6 +150,8 @@ The argument first (`references/intent.md`): proposition, PAGE, villain and felt
 }
 ```
 
+`tempo.ideas` is the number of distinct beliefs in the intent (its beats with a distinct `buys`); `check` finds the intent (`--intent`, else `intent-<label>.json`, else `intent.json` beside the pitch) and an off count is an error (`tempo-ideas`). Each beat may carry `slot` (`open|hook|turn|rung|proof|rest|peak|payoff|end|close`), the length's beat sheet (below).
+
 Shape fields (ladder `refrain` and rung fields, pas `proof` and `cta`, scenario `feature` and `two_way`, `hero_moment`, `uses`, `last_line`, `end_line_largest`, `actor` and each beat's `shows`) are in `references/script.md`; `check` names any that are missing.
 
 **The moves file lives beside the pitch.** The Moves pass writes `story/moves-<label>.json`, `story/moves-verdict.json` and a rough per hero. It never edits the script, so write `visual` lines with objects, glyphs and UI surfaces a motion designer can mine, and name the one element that carries into the next beat.
@@ -149,21 +163,29 @@ node $SKILL_DIR/scripts/story.mjs intent --intent "$RUN/story/intent-<label>.jso
 node $SKILL_DIR/scripts/story.mjs check --pitch "$RUN/story/pitch-<label>.json" --truth "$RUN/story/truth.md" --length <seconds> [--narrated]
 ```
 
-Exit 0 = ship; 2 = rewrite (reasons in the JSON); 1 = malformed. The gates:
+Exit 0 = ship; 2 = rewrite (reasons in the JSON); 1 = malformed; 3 = escalate. The gates:
 
 | Gate | What fails |
 |---|---|
 | **G1 Distance from the cliché arc** | 4+ default beats in default order, 3 feature beats in a row, a stock opener, 2+ visual clichés, a logo in the first beat |
 | **G2 Swap test** | no beat uses the product's own objects, formats or words |
 | **G3 Clear by second 4** | no beat starts before 4 s, or a logo or title card fills seconds 0-4 |
-| **G4 Honest demo** | a number not in `grounded_claims`, the truth sheet or `props`; a UI label not in Native words |
+| **G4 Honest demo** | a number not in `grounded_claims`, the truth sheet or `props`; a UI label not in Native words; `number-unit` ("50 phones" on screen where claim c9 says "50 people"; props and product native words are exempt); `continuity-claim` (a oner, or an actor carried across different areas of life, without `continuity { across, claim }`) |
 | **G5 Buildable** | live action without footage; a device rated 2/5 or lower |
-| **G6 Script** (with `--length`) | the length off by over 10%, a hook over 4 s, the value after beat 2, a line held under its reading time, VO over 2.7 words/s, stock copy, equal beat lengths, no end beat |
-| **G7, G10, G12, G13** | product-first, shape, viewer first, scope (above) |
+| **G6 Script** (with `--length`) | the length off by over 10%, a hook over 4 s, the value after beat 2, a line held under its reading time, VO over 2.7 words/s, stock copy, equal beat lengths (not checked at 12 s or less while the peak is the longest beat), no end beat; `peak-not-longest` (the peak beat is shorter than another), `end-short` (the last beat under 1.8 s at 12 s or less, 2.0 s to 22 s, 2.5 s above), `beat-count` (4 or 5 beats at 12 s or less) |
+| **G7, G10, G12, G13** | product-first (`system-ui-pose`), shape, viewer first, scope (above; `scope_waiver` with a plan). In G13 only actor words that are also the truth sheet's Native objects or Native words are exempt; any other noun in `actor` counts as a scenario noun |
+| **G14 Plan** (with `--plan`, or `plan.json` beside the pitch) | the pitch's slot missing; `device`, `shape` or `engine` different from the slot's; `turn_kind` or `peak_kind` missing or different; an owned claim with no `beat` row in `coverage` |
+| **Coverage** (product-first films) | `coverage-missing` (a Must-show feature or a Surprising-facts claim id with no row), `coverage-beat` (a beat out of range), `coverage-cut` (a cut with under 4 words of reason) |
 | **G8 The aim** | `aim` (takeaway <= 16 words, feel, action), `approach`, a title that names the idea |
-| **G9 Tempo** | too few ideas for the length, too long between changes |
+| **G9 Tempo** | too few ideas for the length, too long between changes, `tempo-ideas` (the count differs from the intent's distinct beliefs) |
 
-Then the weighted score (originality 25%, clarity 20%, fit 20%, memorability 20%, feasibility 15%; ship at 3.8 or more with no dimension below 3), with the adjustments `check` lists. To rewrite, push in this order: a more specific artifact from the truth sheet → a sharper turn → a stricter constraint. Two rewrites at most, then another device from the menu.
+**The set** (`story.mjs check` on `{pitches:[...]}`, the portfolio). Besides the distance rules and `collapse`: `shared-line` (an on-screen line, lowercased and unpunctuated, 2 words or more, in two pitches), `shared-peak-kind` and `shared-turn-kind` (two pitches declare the same kind), `same-order` (two pitches show 3 or more coverage items in the same order; `cliche-order` when all three do), `coverage-dropped` (all three pitches cut a claim and the plan did not cut it with a reason). The plan prevents these; the set check proves it.
+
+**The beat sheet by length** (`story.mjs sheet --length <s> [--engine <e>]`): each length bucket (10, 15, 30, 45, 60 s) has slots with their windows. The 10 s reversal or before-after film is hook and product 0 to 2 s, turn 2 to 3.5, proof 3.5 to 5.8 (a rest), peak 5.8 to 8.2 (the longest beat, at least 2.2 s, starting at 58 to 75%), payoff and end 8.2 to 10 (the end line is the payoff line, held at least 1.8 s), in 4 to 5 beats. The 10 s refrain-break film is open 0 to 2, rung 2 to 3.5, rung 3.5 to 5.8 (a rest), break and peak 5.8 to 8.2, close 8.2 to 10. Longer lengths: `references/script.md`, "Structures by length".
+
+**The rewrite ledger.** `check` on a single pitch records its run in `story/check-ledger.json` beside it (`{label: {runs, last}}`). The limit is 3 runs (the first and two rewrites), plus 2 when `story/edit-notes.json` marks that label `rewrite` or `replace`. Past it, `check` runs no gates and prints `{ok:false, verdict:"escalate", reason:"rewrite limit: hand back to the Director"}`, exit 3: the writer stops and reports, never works around it. `--no-ledger` skips the record (the Director's set check and the editor's reads); a set check never records.
+
+Then the weighted score (originality 25%, clarity 20%, fit 20%, memorability 20%, feasibility 15%; ship at 3.8 or more with no dimension below 3), with the adjustments `check` lists. To rewrite, push in this order: a more specific artifact from the truth sheet → a sharper turn → a stricter constraint. Two rewrites at most (the ledger enforces it), then the Director decides: a plan slot's device changes only through the planner.
 
 ## Different from your recent films
 

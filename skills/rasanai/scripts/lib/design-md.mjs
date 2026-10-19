@@ -289,6 +289,7 @@ function fontsFromProse(text, subs) {
     }
     let fam = (line.match(/`([A-Z][A-Za-z0-9 -]{1,40})`/) || [])[1];
     if (!fam) fam = (line.match(/\*\*[^*]+\*\*\s*:?\s*([A-Z][A-Za-z0-9]+(?: [A-Z0-9][A-Za-z0-9]+){0,3})/) || [])[1];
+    if (!fam) fam = (line.match(/^\s*[-*]\s+[A-Za-z][\w /]{0,24}:\s*([A-Z][A-Za-z0-9]+(?: [A-Z0-9][A-Za-z0-9]+){0,3})\s*$/) || [])[1]; // "- Display: Acme Sans"
     if (!fam) fam = (line.match(/font-family:\s*["']?([A-Za-z0-9 -]+)/i) || [])[1];
     // "System stack." with the stack on the next line
     if (!fam && /\*\*/.test(line) && /system/i.test(line)) fam = (lines[i + 1] || "").includes("apple-system") ? "-apple-system" : "system stack";
@@ -347,6 +348,8 @@ export function readDesignMd(file, { mode } = {}) {
   for (const m of body.matchAll(/--([\w-]+)\s*:\s*(#[0-9a-f]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\)|oklch\([^)]*\))\s*;?\s*(?:\/\*\s*(.*?)\s*\*\/)?/gi)) add(m[1], m[2], m[3], "css");
   // 3. prose bullets: "- **Canvas White** (#F9FAFB) — role"
   for (const m of body.matchAll(/^\s*[-*]\s+\*\*([^*]+)\*\*\s*\(?\s*`?(#[0-9a-f]{3,8}|rgba?\([^)]*\)|oklch\([^)]*\))`?\s*\)?\s*[—–:-]?\s*(.*)$/gim)) add(m[1], m[2], m[3], "prose");
+  // 3b. plain bullets: "- Canvas: #0B0B0F — role" (no bold name)
+  for (const m of body.matchAll(/^\s*[-*]\s+([A-Za-z][\w /&-]{0,30}?)[ \t]*[:—–=][ \t]*`?(#[0-9a-f]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\)|oklch\([^)]*\))`?[ \t]*[—–:-]?[ \t]*(.*)$/gim)) add(m[1], m[2], m[3], "prose");
   // 4. tables: a row with a name cell and a hex cell (with or without #)
   for (const row of body.split("\n").filter((l) => /^\s*\|/.test(l) && !/^\s*\|[\s|:-]+\|\s*$/.test(l))) {
     const cells = row.split("|").slice(1, -1).map((c) => c.trim().replace(/`/g, ""));
@@ -426,8 +429,18 @@ export function readDesignMd(file, { mode } = {}) {
 
 // ------------------------------------------------------------------ writers
 const q = (s) => JSON.stringify(String(s));
-export function toFrameMd(B) {
+// opts.assets: a brand-assets.json (path or parsed): its logos get a ## Logo section
+export function toFrameMd(B, opts = {}) {
   const r = B.roles;
+  const logoSection = (() => {
+    let m = opts.assets;
+    if (typeof m === "string") { try { m = JSON.parse(fs.readFileSync(m, "utf8")); } catch { m = null; } }
+    const L = m && Array.isArray(m.logos) ? m.logos.filter((l) => l && l.file) : [];
+    if (!L.length) return "";
+    const pre = m.origin === "user" ? "" : "assets/";
+    const lines = L.slice().sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0)).map((l) => `- \`${pre}${l.file}\` (${l.kind || "mark"}${(l.colour_versions || []).length ? `; colour versions: ${l.colour_versions.join(", ")}` : ""}${l.primary ? "; primary" : ""})`);
+    return `\n## Logo\n\nThe brand's logo files:\n\n${lines.join("\n")}\n\nUse these files unchanged: never draw, trace, recolour or approximate a logo. Pick the colour version that suits the background.\n`;
+  })();
   const accent = r.accent || r.ink;
   // HyperFrames picks its accent as the most chromatic remaining color: keep support colors below the accent's chroma
   const support = (r.support || []).filter((h) => chroma(h) < chroma(accent) - 0.02);
@@ -505,7 +518,7 @@ ${B.shadows.length ? B.shadows.map((s) => `- ${s.name}: \`${s.value}\``).join("\
 ## Shapes
 
 Card radius ${card}px; controls ${Math.max(2, Math.round(card * 0.6))}px.
-${B.motion ? `\n## Brand motion notes (from the reference)\n\n${B.motion}\n` : ""}
+${logoSection}${B.motion ? `\n## Brand motion notes (from the reference)\n\n${B.motion}\n` : ""}
 ## Composition Rules
 
 ### Do
@@ -535,5 +548,12 @@ export function findDesignMd(dir) {
     const p = path.join(dir, n);
     if (fs.existsSync(p)) return p;
   }
+  return null;
+}
+
+// the brand-assets.json that sits next to a DESIGN.md: <dir>/assets/brand-assets.json (a brand folder) or <project>/assets/brand/brand-assets.json (a film project)
+export function findBrandManifest(designFile) {
+  const dir = path.dirname(path.resolve(designFile));
+  for (const p of [path.join(dir, "assets", "brand-assets.json"), path.join(dir, "assets", "brand", "brand-assets.json")]) if (fs.existsSync(p)) return p;
   return null;
 }

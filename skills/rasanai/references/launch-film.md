@@ -12,6 +12,17 @@ Rule for all lengths: the product (real UI or the real mark) is on screen by 3 s
 
 Tempo (see "Tempo" below): an idea is one beat's `buys`, one new thing the viewer believes; each row below that is not the hook, the end card or a transition is one.
 
+### 10 s (one idea), 3 ideas minimum
+| t (s) | Beat | On screen |
+|---|---|---|
+| 0.0-2.0 | Hook + product | The villain or the real UI already mid-action, readable muted. Brand mark small at the margin. |
+| 2.0-4.0 | Turn | The product visibly reverses the villain; one line, 3-6 words. |
+| 4.0-5.8 | Proof, then a rest | One real use, held still enough to read; the breath before the peak. |
+| 5.8-8.2 | Peak | The hardest proof, the biggest picture, the longest beat (2.2 s or more, starting at 58-75% of the film). |
+| 8.2-10 | Payoff + end | The payoff line is the end line, answering the hook, with the mark and one CTA. Held at least 1.8 s. |
+
+Four to five beats (`story.mjs sheet --length 10` prints it; a `refrain-break` ladder is open 0-2 · rung 2-3.8 · rung 3.8-5.8 · break, the peak, 5.8-8.2 · close 8.2-10).
+
 ### 15 s (social teaser, one feature), 3 ideas minimum
 | t (s) | Beat | On screen |
 |---|---|---|

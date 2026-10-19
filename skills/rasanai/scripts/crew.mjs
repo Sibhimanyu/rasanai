@@ -147,6 +147,7 @@ const ROLES = {
   "move-juror": { desk: "story", tier: "fast", desc: () => "Judging every move idea blind and ranking the best" },
   "move-sketcher": { desk: "story", tier: "fast", desc: (p, k) => `Sketching the ${k || ""} script's hero move as a rough`.replace("  ", " ") },
   "script-editor": { desk: "story", tier: "inherit", desc: () => "Editing the three scripts like a hostile reader" },
+  "story-planner": { desk: "story", tier: "inherit", desc: () => "Planning three stories that cannot collide" },
   "structure-critic": { desk: "story", tier: "inherit", desc: () => "Reading the thumbnail sheet and the intent, and cutting what buys nothing" },
   "motion-director": { desk: "motion", tier: "inherit", desc: (p, k) => (k === "seams" ? "Checking every cut and building the signature transition" : "Scoring how the whole film moves") },
   "art-director": { desk: "art", tier: "inherit", desc: () => "Making the film's pictures: one consistent world of illustrations, icons, cut-outs, line art and handwriting" },
@@ -176,7 +177,7 @@ export const TOKENS = {
   "design-researcher": 45000, "design-system-designer": 35000,
   "scene-animator": 90000, "styleframe-designer": 60000, "frame-designer": 40000, "frame-juror": 30000,
   "product-researcher": 30000, "brand-researcher": 25000, "screens-researcher": 20000, "precedent-researcher": 30000, "local-scout": 25000, "research-lead": 30000,
-  "move-inventor": 40000, "move-juror": 30000, "move-sketcher": 20000, "script-editor": 40000, "structure-critic": 30000, "concept-critic": 20000,
+  "move-inventor": 40000, "move-juror": 30000, "move-sketcher": 20000, "script-editor": 40000, "story-planner": 40000, "structure-critic": 30000, "concept-critic": 20000,
   "art-director": 80000, "footage-logger": 25000, "selects-producer": 40000, "brand-kit-builder": 30000, "brand-film-analyst": 30000, retrospective: 15000,
 };
 const TOKEN_KEYS = { "film-builder:lead": 120000, "motion-director:seams": 60000 }; // a key that costs differently from its role
@@ -190,7 +191,7 @@ const tokensFor = (role, key) => TOKEN_KEYS[`${role}:${key}`] || TOKENS[role] ||
 const kTok = (n) => (n >= 1e6 ? (n / 1e6).toFixed(2).replace(/0$/, "") + "M" : Math.round(n / 1000) + "k");
 function estimateFor(p, phases) {
   const b = BUDGETS[p.budget || "standard"] || BUDGETS.standard;
-  const rows = phases.map((ph) => ({ phase: ph.phase, tokens: ph.dispatch.reduce((a, x) => a + tokensFor(x.role, x.key), 0) })).filter((r) => r.tokens);
+  const rows = phases.map((ph) => ({ phase: ph.phase, tokens: ph.dispatch.filter((x) => !x.conditional).reduce((a, x) => a + tokensFor(x.role, x.key), 0) })).filter((r) => r.tokens);
   const fixes = b.fix_rounds * (FIX_ROUND + tokensFor("ab-juror"));
   const total = rows.reduce((a, r) => a + r.tokens, 0) + fixes;
   return { budget: p.budget || "standard", fix_rounds: b.fix_rounds, phases: rows, fix_rounds_tokens: fixes, total, total_label: "~" + kTok(total), note: "estimates from measured runs (crew.mjs TOKENS); `crew.mjs check --tokens N` records the real figure per member, and status reports both. A lean film is meant to stay near 0.8M" };
@@ -268,6 +269,7 @@ function planCrew(p) {
     research.push(d("brand-researcher"));
   }
   for (const dir of p.local) research.push(d("local-scout", path.basename(dir), { approved_paths: [dir], may_run: !!p.may_run }));
+  if (p.user_brand) for (let i = research.length - 1; i >= 0; i--) if (research[i].role === "brand-researcher") research.splice(i, 1); // the user supplied the brand (assets/brand/)
   const bf = !!p.brand_film;
   // the design desk: the subject's visual world is researched during the Brief, in parallel with the research desk
   // A branded launch / promo / brand film takes its look from the brand's own film (the brand-film phase), so the
@@ -303,14 +305,18 @@ function planCrew(p) {
     phases.push({ phase: "story", when: "after the research lead and the selects are accepted", dispatch: LABELS3.map((k) => d("footage-writer", k)), then: "footage.mjs check-paper on each (crew.mjs check --role footage-writer), then render each radio edit if you can and push story from the three paper edits" });
     phases.push({ phase: "story-edit", when: "after the three paper edits pass check-paper", dispatch: [d("script-editor")], then: "the editor reads each paper edit with a footage lens (does this bite really say that? is this the strongest hook in the material?); one round back to the writers, then push story" });
   } else if (STORY_ROUTES.has(p.route) && !lean) {
-    phases.push({ phase: "story", when: "after story.mjs pick", dispatch: LABELS3.map((k) => d("script-writer", k)), then: p.series ? "story.mjs check on the one script, then the editor; auto-choose it and push story --status done with the decision \"From your series: <name>\"" : "crew.mjs pitches, story.mjs check, then the editor" });
+    // the story plan (agents/story-planner.md): one agent assigns each slot the decisions that must not collide (angle, villain picture, turn kind, peak kind, device, claims), so the writers fill slots instead of choosing them; a series episode has one script and no plan
+    if (!p.series) phases.push({ phase: "story-plan", when: "after story.mjs pick, before the three script writers", dispatch: [d("story-planner")], then: "crew.mjs check --role story-planner (runs story.mjs plan on story/plan.json); then the writers, each reading its slot" });
+    phases.push({ phase: "story", when: p.series ? "after story.mjs pick" : "after the story plan is accepted (story/plan.json)", dispatch: LABELS3.map((k) => d("script-writer", k)), then: p.series ? "story.mjs check on the one script, then the editor; auto-choose it and push story --status done with the decision \"From your series: <name>\"" : "crew.mjs pitches, story.mjs check, then the editor" });
     // the Moves pass (references/moves.md): ideas for how the film moves, invented and judged before the user reads the scripts (a series episode skips it: one script, no jury)
     if (!["reel", "music-to-video"].includes(p.route) && !p.series) {
       phases.push({ phase: "moves", when: "after the three pitches pass story.mjs check", director_steps: ["moves.mjs pack --run <run> --label <Sure|Bold|Wild> [--product-first]   (once per script, before its inventor is briefed)"], dispatch: ["Sure", "Bold", "Wild"].map((k) => d("move-inventor", k)), then: "moves.mjs check on each (crew.mjs check --role move-inventor), then the move-juror, then a move-sketcher per script (moves.mjs rough + check-rough), then the editor" });
       phases.push({ phase: "moves-jury", when: "after the three moves files pass moves.mjs check", dispatch: [d("move-juror")], then: "moves.mjs check-verdict; a script with fewer than 3 passing cards gets one denial round (re-dispatch its inventor once with the failures added to its banned list)" });
       phases.push({ phase: "moves-roughs", when: "after the verdict is accepted", director_steps: ["moves.mjs rough --dir <run>/story/moves/<label>-<hero id> --aspect <the film's aspect>   (after each sketcher writes rough.html)", "moves.mjs check-rough --dir <run>/story/moves/<label>-<hero id>"], dispatch: ["Sure", "Bold", "Wild"].map((k) => d("move-sketcher", k)), then: "moves.mjs payload puts each script's carrier and hero moves on the Story screen; after the pick, moves.mjs choose --label <L> writes story/moves.json and moves.mjs record keeps the heroes for the next film" });
     }
-    phases.push({ phase: "story-edit", when: STORY_ROUTES.has(p.route) && !["reel", "music-to-video"].includes(p.route) ? "after the moves pass (the three moves files, the verdict and the roughs are accepted)" : "after the three pitches pass story.mjs check", dispatch: [d("script-editor")], then: "route its notes back to the writers (one round), then push story" });
+    phases.push({ phase: "story-edit", when: STORY_ROUTES.has(p.route) && !["reel", "music-to-video"].includes(p.route) ? "after the moves pass (the three moves files, the verdict and the roughs are accepted)" : "after the three pitches pass story.mjs check", dispatch: [d("script-editor")], then: "story.mjs revise --notes story/edit-notes.json lists the pitches marked rewrite or replace: the story-revise phase sends each back to its writer once; then push story" });
+    // the editor's notes go back to the writers, once and automatically, before the console sees the set (no second editor pass)
+    phases.push({ phase: "story-revise", when: "after the script editor's notes are accepted: every pitch marked rewrite or replace in story/edit-notes.json goes back to its own writer once (a label marked ship is not dispatched)", dispatch: LABELS3.map((k) => d("script-writer", k, { conditional: true, only_if: "story/edit-notes.json marks this label rewrite or replace", mode: "revise" })), then: "re-run story.mjs check on the set (crew.mjs pitches, then story.mjs check --pitch story/pitches.json --truth story/truth.md --no-ledger); the Director shows the set; a second editor pass is NOT run" });
   }
   // The script editor is never skipped: a lean film has no writers to dispatch (the Director writes the three scripts), but its scripts are still read by the editor.
   const scripted = STORY_ROUTES.has(p.route) && !["reel", "music-to-video"].includes(p.route) && !footageSp;
@@ -479,9 +485,32 @@ function readLedger(run) {
   }).filter(Boolean);
 }
 
+// The user's own brand kit (brand-assets.mjs apply): <project>/assets/brand/brand-assets.json with origin "user". The user supplied the brand, so
+// nobody researches it: research/brand/DESIGN.md and research/brand/assets/ (logo files + logos.json) are seeded from the project, which lets readLogos,
+// stageLogos, the brand gate and slop's logo check pass on the user's own files. A seed made earlier is refreshed when the project's DESIGN.md changed.
+function userBrand(pj) {
+  const m = pj ? jsonMaybe(path.join(pj, "assets", "brand", "brand-assets.json")) : null;
+  return m && m.origin === "user" ? m : null;
+}
+function seedUserBrand(run, pj) {
+  const m = userBrand(pj);
+  if (!m || !run) return null;
+  const dd = R(run, "research", "brand", "DESIGN.md"), mark = R(run, "research", "brand", ".user-kit"), pd = path.join(pj, "DESIGN.md");
+  if (exists(pd) && (!exists(dd) || (exists(mark) && !fs.readFileSync(pd).equals(fs.readFileSync(dd))))) { fs.mkdirSync(path.dirname(dd), { recursive: true }); fs.copyFileSync(pd, dd); fs.writeFileSync(mark, "seeded from the user's brand kit\n"); }
+  const ad = R(run, "research", "brand", "assets"), lj = path.join(pj, "assets", "brand", "logos.json");
+  if ((!exists(path.join(ad, "logos.json")) || exists(mark)) && exists(lj)) {
+    fs.mkdirSync(ad, { recursive: true });
+    const L = jsonMaybe(lj);
+    if (Array.isArray(L)) for (const e of L) if (e && e.file && exists(path.join(pj, "assets", "brand", e.file))) fs.copyFileSync(path.join(pj, "assets", "brand", e.file), path.join(ad, path.basename(e.file)));
+    fs.writeFileSync(path.join(ad, "logos.json"), JSON.stringify(Array.isArray(L) ? L : { ...L, origin: "user" }, null, 2) + "\n");
+  }
+  return m;
+}
+
 // The brand's logo files travel into the build: research/brand/assets/* is copied (same bytes) to <project>/assets/brand/
 // and named in DISPATCH.md, DIRECTION.md and BRIEF.md so every animator sees the exact path; "none" is said there too.
 function stageLogos(run, pj) {
+  seedUserBrand(run, pj);
   const src = R(run, "research", "brand", "assets");
   if (!pj || !exists(path.join(src, "logos.json"))) return null;
   const lg = readLogos(src);
@@ -491,7 +520,7 @@ function stageLogos(run, pj) {
     fs.mkdirSync(dest, { recursive: true });
     fs.copyFileSync(path.join(src, "logos.json"), path.join(dest, "logos.json"));
     for (const e of lg.entries) fs.copyFileSync(e.abs, path.join(dest, path.basename(e.file)));
-    lines = lg.entries.map((e) => `- \`${rel(path.join(dest, path.basename(e.file)))}\` (${e.kind}${e.colour_versions ? `; colour versions: ${[].concat(e.colour_versions).join(", ")}` : ""}; from ${e.source_url})`);
+    lines = lg.entries.map((e) => `- \`${rel(path.join(dest, path.basename(e.file)))}\` (${e.kind}${e.colour_versions ? `; colour versions: ${[].concat(e.colour_versions).join(", ")}` : ""}; from ${e.source_url || (e.source && e.source.file) || "the user's brand kit"})`);
     lines.unshift("The brand's logo is **these files and nothing else**. Place one with an `<img>` (or `<image>`), unchanged; keep the brand's clear space and the right colour version for the background. Never draw, trace, approximate, recolour or generate a logo.");
   } else if (lg.state === "none" && !lg.problems.length) {
     lines = [`**No official logo file could be downloaded for this brand** (${lg.why.replace(/\s+/g, " ").trim()}). Set the brand name in the brand font and show **no symbol**: never draw, trace, approximate or generate a logo. Delete anything labelled logo, mark or symbol that is not type.`];
@@ -596,6 +625,12 @@ function contextFor(run, role, key, plan) {
   const research = (f) => R(run, "research", f);
   const capture = pj ? path.join(pj, "capture") : null;
   const B = brief(run);
+  const kitFile = pj && userBrand(pj) ? path.join(pj, "assets", "brand", "brand-assets.json") : null;
+  if (kitFile) {
+    seedUserBrand(run, pj);
+    ctx.user_brand = "the user's brand kit is supplied at assets/brand/ (logos, fonts in assets/fonts/, media): use these files, do not search the web for a logo";
+    if (["product-researcher", "screens-researcher", "film-builder", "scene-animator"].includes(role)) I("brand_media (the user's real screenshots, images and icons: use them in the film)", kitFile);
+  }
   if (productFirst(run, P)) {
     ctx.product_first = "yes: a launch, promo or product film. Read references/product-first.md (the rules and the concept gate). The product UI is on screen within 3 s, one hero product moment, 2 to 4 real uses, short plain kinetic lines, the end line the largest type; no museums, allegories, invented worlds, extended metaphors or cover versions; show off through craft (motion, UI choreography, rhythm), never through concept.";
     if (role !== "film-builder") I("product-first rules (read all of it)", path.join(SKILL_DIR, "references", "product-first.md")); // the builder's BUILD.md carries what it needs
@@ -629,6 +664,7 @@ function contextFor(run, role, key, plan) {
       break;
     case "brand-researcher":
       Object.assign(ctx, { subject: P.subject, url: P.url || null });
+      if (kitFile) I("brand_kit (the user's own files)", kitFile);
       I("capture", capture); I("workspace_design_md", dsn ? path.resolve(dsn) : null); I("local_notes", research("local.md"));
       O(research("brand", "DESIGN.md")); O(research("brand", "assets") + "/"); O(research("brand", "assets", "logos.json")); O(research("brand.md"));
       break;
@@ -703,10 +739,28 @@ function contextFor(run, role, key, plan) {
       const picks = jsonMaybe(R(run, "story", "picks.json"));
       const list = picks ? picks.picks || picks.devices || picks : [];
       const dev = Array.isArray(list) ? list.find((x) => String(x.label || x.angle || "").toLowerCase() === String(key).toLowerCase()) : null;
+      // the story plan (story/plan.json, the story-planner's): this label's slot is GIVEN (device, turn_kind, peak_kind, owned claims, angle, villain picture), not chosen
+      const planJ = jsonMaybe(R(run, "story", "plan.json")), slot = planJ && Array.isArray(planJ.slots) ? planJ.slots.find((x) => String(x.label).toLowerCase() === String(key).toLowerCase()) : null;
+      if (slot) Object.assign(ctx, { plan_slot: slot, plan_rule: "YOUR SLOT in story/plan.json is given, not chosen: use its device (when not null), engine, turn_kind and peak_kind (declare turn_kind and peak_kind on the pitch), argue its angle, show its villain_picture, and put every owned_claims id on a beat (pitch.coverage rows { claim, beat }). story.mjs check holds you to it (G14 Plan). The plan's coverage also assigns the other must-show features to slots: cover yours (G15 Coverage)", plan_coverage: planJ.coverage || [] });
+      else if (!planJ) ctx.plan_rule = "no story/plan.json (a single-script or series film): choose from the menu as before; pitch.coverage still lists every must-show feature and surprising fact (G15)";
+      // the beat sheet for this film's length and the rewrite ledger
+      const lenS = Number(B.length_s) || Number(P.length) || 0;
+      if (lenS) ctx.beat_sheet = `node ${path.join(SKILL_DIR, "scripts", "story.mjs")} sheet --length ${Math.round(lenS)}${dev && dev.engine ? " --engine " + dev.engine : ""}   (fill it: the peak is the longest beat; at <= 12 s four to five beats)`;
+      ctx.ledger = "story.mjs check on your pitch counts a run in story/check-ledger.json: 3 runs (the first and two rewrites), +2 after the editor's rewrite or replace. Exit 3 / verdict escalate = STOP and report to the Director; never work around the ledger (never delete it, never copy the pitch under another label)";
+      // revise mode: the editor marked this label rewrite or replace; its notes go back to its writer once
+      const enotes = jsonMaybe(R(run, "story", "edit-notes.json")), mine = enotes && Array.isArray(enotes.pitches) ? enotes.pitches.find((x) => String(x.label || x.id).toLowerCase() === String(key).toLowerCase() && ["rewrite", "replace"].includes(x.verdict)) : null;
+      if (mine) { Object.assign(ctx, { revise: "REVISE MODE: the script editor marked your script " + mine.verdict + ". Apply EVERY note's exact fix below, keep your plan slot, then re-run story.mjs check and crew.mjs check --role script-writer (the ledger gives you +2 runs). One round only: no second editor pass", edit_notes: mine.notes || [], editor_verdict: mine.verdict }); I("the editor's notes (your pitch's entry in story/edit-notes.json)", R(run, "story", "edit-notes.json")); }
+      I("the story plan (your slot, and the coverage of every must-show feature)", R(run, "story", "plan.json"));
       Object.assign(ctx, { label: key, device: dev || "(see story/picks.json for this label)", device_menu: "story/picks.json `menu`: CHOOSE one device from it with a one-line reason (pitch.device_reason); no seeded draw chose for you. Your slot's `engine` and the turn_rule say what your script's turn must do (pitch.turn { line, reverses, payoff })", brief: B });
       for (const [l, p] of [["intent sheet format (story/intent-" + key + ".json: the argument, written first)", path.join(SKILL_DIR, "references", "intent.md")], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["screens", research("screens.md")], ["precedent", research("precedent.md")], ["picks", R(run, "story", "picks.json")], ["writer's brief", path.join(SKILL_DIR, "references", "script.md")], ["pitch format", path.join(SKILL_DIR, "references", "story.md")]]) I(l, p);
       for (const [l, p] of showcaseInputs(run, P, B)) I(l, p);
       O(R(run, "story", `pitch-${key}.json`)); O(R(run, "story", `intent-${key}.json`));
+      break;
+    }
+    case "story-planner": {
+      Object.assign(ctx, { brief: B, check_cmd: `node "${path.join(SKILL_DIR, "scripts", "story.mjs")}" plan --plan ${rel(R(run, "story", "plan.json"))} --picks ${rel(R(run, "story", "picks.json"))} --truth ${rel(R(run, "story", "truth.md"))}${exists(research("claims.json")) ? " --claims " + rel(research("claims.json")) : ""}`, turn_kinds: ["object-flips", "role-swap", "removal", "refrain-stops", "cause-lands", "rule-breaks"], peak_kinds: ["scale-reveal", "pattern-break", "absence", "split-compare", "count-climb", "cause-close-up", "speed-ramp", "full-state"] });
+      for (const [l, p] of [["picks (the three slots: label, shape, engine, and the device menu)", R(run, "story", "picks.json")], ["truth (must-show features, surprising facts, use moments, native words)", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["screens", research("screens.md")], ["pitch format and the plan's fields", path.join(SKILL_DIR, "references", "story.md")]]) I(l, p);
+      O(R(run, "story", "plan.json"));
       break;
     }
     case "treatment-writer": {
@@ -1695,6 +1749,7 @@ async function checkRole(run, role, key) {
   const P = [], W = [];
   const research = (f) => R(run, "research", f);
   const pj = projectDir(run);
+  seedUserBrand(run, pj);
   switch (role) {
     case "product-researcher": {
       const plan = jsonMaybe(R(run, "crew", "plan.json")) || {};
@@ -1722,7 +1777,8 @@ async function checkRole(run, role, key) {
       if (!(B.fonts && B.fonts.display && B.fonts.display.family)) P.push("DESIGN.md has no display font");
       for (const w of B.warnings || []) W.push(`brand.mjs: ${w}`);
       const notes = readMaybe(research("brand.md"));
-      if (!notes) P.push("research/brand.md (where each token came from) is missing");
+      if (userBrand(pj)) { /* the user's own kit: no web sources to cite */ }
+      else if (!notes) P.push("research/brand.md (where each token came from) is missing");
       else if ((notes.match(URL_RE) || []).length < 2) P.push("research/brand.md cites fewer than 2 sources");
       // the logo is a downloaded file listed in logos.json (or logos.json says none, with why and where it looked); prose is not a logo
       const lg = readLogos(research("brand/assets"));
@@ -1867,7 +1923,7 @@ async function checkRole(run, role, key) {
         if (b.on_screen == null && b.vo == null) P.push(`beat ${i + 1}: needs on_screen or vo`);
       });
       const B = brief(run);
-      const ca = ["check", "--pitch", f, "--truth", R(run, "story", "truth.md")];
+      const ca = ["check", "--pitch", f, "--truth", R(run, "story", "truth.md"), "--no-ledger"]; // the writer's own runs are the ledger's count; the Director's acceptance does not spend one (plan.json beside the pitch is read by check itself)
       if (B.length_s) ca.push("--length", String(B.length_s));
       if (B.narrated) ca.push("--narrated");
       const r = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "story.mjs"), ...ca], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" } });
@@ -1884,6 +1940,20 @@ async function checkRole(run, role, key) {
           if (Array.isArray(it.beats) && it.beats.length !== beats.length) P.push(`intent-${key}.json has ${it.beats.length} beats and the pitch ${beats.length}: they are the same list (beat N of the pitch is beat N of the intent)`);
         }
       }
+      break;
+    }
+    case "story-planner": {
+      const f = R(run, "story", "plan.json"), picks = R(run, "story", "picks.json");
+      if (!exists(f)) { P.push("story/plan.json is missing"); break; }
+      if (jsonMaybe(f) === undefined) { P.push("story/plan.json is not valid JSON"); break; }
+      if (!exists(picks)) { P.push("story/picks.json is missing: run story.mjs pick first (the plan is checked against its slots and menu)"); break; }
+      const ca = ["plan", "--plan", f, "--picks", picks, "--truth", R(run, "story", "truth.md")];
+      if (exists(research("claims.json"))) ca.push("--claims", research("claims.json"));
+      const r = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "story.mjs"), ...ca], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" } });
+      let j = null; try { j = JSON.parse(r.stdout); } catch {}
+      if (r.status === 2 && j) { P.push(...(j.problems || [])); W.push(...(j.warnings || [])); }
+      else if (r.status !== 0 || !j) P.push(`story.mjs plan could not run: ${(r.stderr || r.stdout || "").trim().split("\n")[0]}`);
+      else W.push(...(j.warnings || []));
       break;
     }
     case "treatment-writer": {
@@ -2775,6 +2845,8 @@ if (cmd === "plan") {
     const ing = jsonMaybe(R(run, "footage", "ingest.json"));
     if (ing && Array.isArray(ing.bins)) p.bins = ing.bins.map((b) => b.id);
   }
+  // the user's own brand kit is applied to the project: seed research/brand from it; the brand-researcher is then not dispatched
+  { const pj0 = p.project ? path.resolve(p.project) : projectDir(run); p.user_brand = !!seedUserBrand(run, pj0); }
   // a branded launch / promo / brand film gets the brand-film phase (the brand's own films are researched and measured) and the style-match gates
   p.brand_film = args["no-brand-film"] ? false : !!args["brand-film"] || !!prev.brand_film || (["product-launch-video", "general-video"].includes(p.route) && !!(p.brand || p.public || brandLocked(run)) && (p.route === "product-launch-video" || /launch|promo|brand|reveal/i.test(String(p.kind || brief(run).kind || ""))));
   // the user's own brand kit (assets) replaces the brand-film web search: the kit builder reads the kit and any earlier films on disk (references/sources.md)
@@ -2838,9 +2910,12 @@ if (cmd === "plan") {
   const last = new Map();
   for (const r of L) last.set(`${r.role}|${r.key || ""}`, r);
   const state = (r) => (!r ? "planned" : r.event === "brief" ? "dispatched" : r.event === "ok" ? "accepted" : "needs work");
-  const phases = plan ? plan.phases.map((ph) => ({ phase: ph.phase, members: ph.dispatch.map((x) => { const r = last.get(`${x.role}|${x.key || ""}`); return { role: x.role, key: x.key, state: state(r), problems: r && r.problems }; }) })) : [];
+  // a conditional member (story-revise: only the labels the editor marked rewrite or replace) that is not needed is "not needed", never pending
+  const editNotes = jsonMaybe(R(run, "story", "edit-notes.json"));
+  const needed = (x) => !x.conditional || ((editNotes && editNotes.pitches) || []).some((q) => (q.label || q.id) === x.key && ["rewrite", "replace"].includes(q.verdict));
+  const phases = plan ? plan.phases.map((ph) => ({ phase: ph.phase, members: ph.dispatch.map((x) => { const r = last.get(`${x.role}|${x.key || ""}`); return { role: x.role, key: x.key, state: needed(x) ? state(r) : "not needed", problems: r && r.problems }; }) })) : [];
   const extra = [...last.values()].filter((r) => !plan || !plan.phases.some((ph) => ph.dispatch.some((x) => x.role === r.role && String(x.key || "") === String(r.key || "")))).map((r) => ({ role: r.role, key: r.key, state: state(r) }));
-  const next = phases.find((ph) => ph.members.some((m) => m.state !== "accepted"));
+  const next = phases.find((ph) => ph.members.some((m) => m.state !== "accepted" && m.state !== "not needed"));
   // the spend so far: every accepted member at its recorded actual tokens (check --tokens N), else its estimate; against the plan's estimate
   let spent = 0, actual = 0, counted = 0;
   const spentBy = {};

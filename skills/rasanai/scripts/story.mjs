@@ -32,6 +32,21 @@
 //           relation word (because | but | so | example | escalation | answer; none = error) / importance 1-3 (<= 25% at 3, exactly one peak at 60-75% of the running time
 //           (the pitch's durations with --pitch), a rest before it) / read with its reading time, ending_first, the turn; warnings: engine placement, payoff, buys wording.
 //           --write adds the derived emphasis_curve. check also reads story/intent-<Label>.json beside the pitch (its findings are warnings there). Exit 0 = ok, 2 = errors.
+//        AIRTIGHT (references/story.md): check also takes --plan <story/plan.json> (else plan.json beside the pitch): G14 Plan = the pitch's slot (label, device, shape, engine, turn_kind,
+//           peak_kind, owned_claims as beat rows in its coverage); G15 Coverage on product-first films (the pitch's `coverage` rows: every Must-show feature and every Surprising-facts claim
+//           id has a beat row or a cut with 4+ words: coverage-missing, coverage-beat, coverage-cut); new errors G4 number-unit ("50 phones" but c9 says "50 people"), G6 peak-not-longest /
+//           end-short / beat-count (<= 12 s: 4 to 5 beats), G9 tempo-ideas (tempo.ideas must equal the intent's distinct beliefs; --intent <file>, else intent-<Label>.json, else intent.json
+//           beside the pitch); the portfolio adds shared-line, shared-peak-kind, shared-turn-kind, same-order, cliche-order, coverage-dropped. The actor is exempt from the scope count only
+//           for words that are the product's own surfaces (truth Native objects / words).
+//           THE LEDGER: check on ONE pitch file records a run in story/check-ledger.json beside it ({label: {runs, last}}): 3 runs, +2 when story/edit-notes.json marks the label rewrite or
+//           replace. Over the limit: no gates run, {ok:false, verdict:"escalate"}, exit 3 (hand back to the Director). --no-ledger skips recording (set checks never record).
+//   node story.mjs plan --plan <story/plan.json> --picks <story/picks.json> --truth <truth.md> [--claims <claims.json>]
+//        -> validates the story plan (agents/story-planner.md): plan-slots, plan-shape, plan-device, plan-turn-kind, plan-peak-kind, plan-angle, plan-swap, plan-claims, plan-coverage. Also: G4 continuity-claim, G7 system-ui-pose, G13 scope_waiver (portfolio range-short, waiver-count), G10 before-after pairs by length (2-3 at <=12 s, 2-4 at <=22 s).
+//           { ok, problems, warnings }, exit 0 ok, 2 problems
+//   node story.mjs sheet --length <s> [--engine refrain-break|reversal|before-after]
+//        -> the beat sheet for that film length (BEAT_SHEETS: slot, from, to, note per beat; the 10 s sheets are exact) and the rules G6 holds it to
+//   node story.mjs revise --notes <story/edit-notes.json>
+//        -> { revise: [labels the editor marked rewrite | replace], notes: { label: [...] } }: what goes back to the writers (once)
 //   node story.mjs validate
 //        -> checks devices.json against its schema (vocabularies, ids, counts)
 // Pitch format: references/story.md. Catalog schema: taxonomy/devices-SCHEMA.md.
@@ -181,6 +196,12 @@ const scopeOf = (t) => {
   return SCOPES.includes(s) ? s : null;
 };
 // the promise's own clauses ("everyday answers more visual; learning complex topics easier; ..."): every one must be shown (G13)
+// the clause indexes a pitch's beats show (beat.clause: index or text)
+const clausesShown = (clauses, beats) => {
+  const covered = new Set();
+  beats.forEach((b) => [].concat(b.clause == null ? [] : b.clause).forEach((c) => { const n = Number(c); if (Number.isInteger(n) && n >= 0 && n < clauses.length) covered.add(n); else { const k = clauses.findIndex((x) => nz8(x) === nz8(c)); if (k >= 0) covered.add(k); } }));
+  return covered;
+};
 const clausesOf = (t) => { const c = t && t.claim_scope ? t.claim_scope.clauses : null; return (Array.isArray(c) ? c : String(c || "").split(/\s*;\s*/)).map((x) => String(x).trim()).filter(Boolean); };
 // a single persona is allowed only when the audience is a role or a persona, or the film is one spot of a declared series (S1 D.2 rule 5)
 const personaAllowed = (t, p = {}) => { const cs = (t && t.claim_scope) || {}; return ["role", "persona"].includes(norm(cs.audience).trim()) || /^(yes|true|series)/i.test(String(cs.series || "").trim()) || p.persona_arc === true; };
@@ -258,7 +279,7 @@ const LADDER_ROLES = ["open", "rung", "ways_in", "close"];
 // rungs per film length: <= 35 s 3-4, 36-60 s 4-6, > 60 s 6-8
 const rungRange = (len) => (len <= 35 ? [3, 4] : len <= 60 ? [4, 6] : [6, 8]);
 const USE_STOP = new Set(["the", "a", "an", "of", "for", "to", "and", "in", "on", "at", "your", "my", "with", "it", "its", "from", "by", "or", "as", "is", "this", "that", "some", "new", "find", "get", "make", "plan", "book", "buy", "shop", "ask", "do", "see", "show", "build", "write", "check", "compare", "choose", "pick", "use", "look", "up", "out", "me", "you", "go", "try", "start", "finish", "done"]);
-const stem = (w) => w.replace(/(ies)$/, "y").replace(/(es|s)$/, (m, g, off, str) => (str.length > 4 ? "" : m));
+const stem = (w) => w.replace(/['\u2019]s?$/, "").replace(/(ies)$/, "y").replace(/(es|s)$/, (m, g, off, str) => (str.length > 4 ? "" : m));
 const useNouns = (u) => new Set(nz8(u).split(" ").filter((w) => w.length >= 3 && !USE_STOP.has(w)).map(stem));
 // --- the story shapes (S1 §B): the catalogue pick hands to the writers and check holds them to -----------------------------
 // ladder, pas and scenario have their own G10 branches below; every other shape is checked by its roles here (G10 generic):
@@ -291,7 +312,10 @@ const STORY_SHAPES = {
 };
 const SHAPE_IDS = Object.keys(STORY_SHAPES);
 const SHAPE_ROLES = new Set(SHAPE_IDS.flatMap((s) => STORY_SHAPES[s].roles || []));
-const shapeRule = (s) => (STORY_SHAPES[s] ? `${STORY_SHAPES[s].name} (shape "${s}"): ${STORY_SHAPES[s].beats}.` : undefined);
+// the shape's beat text; at <= 12 s a before / after pair is 1.5-3 s (3-6 s pairs do not fit 10 s: 4-5 beats in all)
+const shapeBeats = (s, len = 0) => (s === "before-after" && len > 0 && len <= 22 ? STORY_SHAPES[s].beats.replace("3-6 s each", len <= 12 ? "1.5-3 s each" : "2-4 s each").replace("over 3-6 everyday", len <= 12 ? "over 2-3 everyday" : "over 2-4 everyday") : STORY_SHAPES[s].beats);
+const pairRange = (len) => (len > 0 && len <= 12 ? [2, 3] : len > 0 && len <= 22 ? [2, 4] : [3, 6]);
+const shapeRule = (s, len = 0) => (STORY_SHAPES[s] ? `${STORY_SHAPES[s].name} (shape "${s}"): ${shapeBeats(s, len)}.` : undefined);
 
 function lfRole(b, i, n, hero) {
   const r = String(b.role || "").toLowerCase();
@@ -319,7 +343,11 @@ function sceneAnalysis(p, beats, roles, lengthS, truth) {
   const stop = new Set([...SURFACE_STOP]);
   const addStop = (s) => nz8(s).split(" ").filter(Boolean).forEach((w) => stop.add(stem(w)));
   addStop(truth?.product?.name || ""); addStop(p.product || ""); addStop((p.refrain && p.refrain.verb) || "");
-  if (p.actor && typeof p.actor === "object") { addStop(p.actor.what || ""); addStop(p.actor.does || ""); }
+  // the actor is exempt only for the product's own surfaces: a word that is in the truth sheet's Native objects or Native words (anything else counts as a scenario noun)
+  if (p.actor && typeof p.actor === "object") {
+    const nat = new Set(nz8([...(truth?.objects || []), ...(truth?.words || [])].join(" ")).split(" ").filter(Boolean).map(stem));
+    for (const w of nz8(`${p.actor.what || ""} ${p.actor.does || ""}`).split(" ").filter(Boolean)) if (nat.has(stem(w))) stop.add(stem(w));
+  }
   const nouns = (text) => new Set(nz8(text).replace(/'/g, " ").split(" ").filter((w) => w.length >= 4 && !/\d/.test(w)).map(stem).filter((w) => w.length >= 4 && !stop.has(w)));
   const tok = beats.map((b) => nouns([b.on_screen, b.picture, b.use, ...linesOf(b)].filter(Boolean).join(" ")));
   const shared = (A, B) => [...A].filter((w) => [...B].some((v) => v === w || (Math.min(w.length, v.length) >= 5 && Math.abs(w.length - v.length) <= 3 && (w.startsWith(v) || v.startsWith(w)))));
@@ -532,6 +560,120 @@ function visualCliches(texts) {
   return CL.visuals.filter((v) => v.signals.some((s) => hasSignal(t, s))).map((v) => v.name);
 }
 
+// --- airtight story: the plan, the coverage map, the beat sheets (references/story.md) -------------------------------------
+const TURN_KINDS = ["object-flips", "role-swap", "removal", "refrain-stops", "cause-lands", "rule-breaks"];
+const PEAK_KINDS = ["scale-reveal", "pattern-break", "absence", "split-compare", "count-climb", "cause-close-up", "speed-ramp", "full-state"];
+// beat sheets by length bucket (10, 15, 30, 45, 60) and engine: { slot, from, to, note } in seconds of the bucket's own length (sheet --length scales them to the film)
+const SHEET_BUCKETS = [10, 15, 30, 45, 60];
+const sheetBucket = (len) => (len <= 12 ? 10 : len <= 22 ? 15 : len <= 37 ? 30 : len <= 52 ? 45 : 60);
+const S = (slot, from, to, note, extra = {}) => ({ slot, from, to, note, ...extra });
+const REV_SHEETS = {
+  10: [S("hook", 0, 2, "hook + the product on screen"), S("turn", 2, 3.5, "the turn: what visibly flips"), S("proof", 3.5, 5.8, "the proof, then a breath", { rest_after: true }), S("peak", 5.8, 8.2, "the peak: the LONGEST beat, >= 2.2 s, starts at 58-75%"), S("payoff", 8.2, 10, "payoff + end card: the end line IS the payoff line, >= 1.8 s")],
+  15: [S("hook", 0, 2, "hook + product: real UI mid-action"), S("turn", 2, 4, "the turn by 5 s (a statement line, held only its reading time)"), S("proof", 4, 7.5, "the one proof, real UI changing every ~2 s"), S("rung", 7.5, 9.5, "a second use, then a breath", { rest_after: true }), S("peak", 9.5, 11.5, "the peak, the furthest use, at 60-75%"), S("payoff", 11.5, 13, "payoff line answering the hook"), S("end", 13, 15, "end card: >= 2 s")],
+  30: [S("hook", 0, 2, "hook"), S("open", 2, 6, "setup"), S("turn", 6, 11, "the turn"), S("proof", 11, 18, "proofs, escalating, then a rest", { rest_after: true }), S("peak", 18, 22.5, "the peak"), S("payoff", 22.5, 27, "payoff"), S("end", 27, 30, "end card")],
+  45: [S("hook", 0, 3, "hook"), S("open", 3, 9, "setup"), S("turn", 9, 14, "the turn"), S("proof", 14, 27, "proofs, escalating, then a rest", { rest_after: true }), S("peak", 27, 33, "the peak"), S("payoff", 33, 40, "payoff"), S("end", 40, 45, "end card")],
+  60: [S("hook", 0, 3, "cold open"), S("open", 3, 12, "setup"), S("turn", 12, 18, "the turn"), S("proof", 18, 36, "three proofs, escalating, then a rest", { rest_after: true }), S("peak", 36, 45, "the peak"), S("payoff", 45, 54, "payoff"), S("end", 54, 60, "end card")],
+};
+const REFRAIN_SHEETS = {
+  10: [S("open", 0, 2, "the refrain arrives, the product on screen"), S("rung", 2, 3.5, "a rung"), S("rung", 3.5, 5.8, "a rung, then a breath", { rest_after: true }), S("peak", 5.8, 8.2, "the break = the peak: the LONGEST beat, >= 2.2 s, starts at 58-75%"), S("close", 8.2, 10, "close: the end line, >= 1.8 s")],
+  15: [S("open", 0, 2, "the refrain arrives, the product on screen"), S("rung", 2, 4.5, "a rung"), S("rung", 4.5, 7.5, "a rung"), S("rung", 7.5, 9.5, "a rung, then a breath", { rest_after: true }), S("peak", 9.5, 11.5, "the break = the peak, at 60-75%"), S("close", 11.5, 15, "close + end card: >= 2 s")],
+  30: [S("open", 0, 2, "the refrain arrives"), S("rung", 2, 6, "rung"), S("rung", 6, 11, "rung"), S("rung", 11, 18, "rungs, escalating, then a rest", { rest_after: true }), S("peak", 18, 22.5, "the break = the peak"), S("close", 22.5, 30, "close + end card")],
+  45: [S("open", 0, 3, "the refrain arrives"), S("rung", 3, 9, "rung"), S("rung", 9, 14, "rung"), S("rung", 14, 27, "rungs, escalating, then a rest", { rest_after: true }), S("peak", 27, 33, "the break = the peak"), S("close", 33, 45, "close + end card")],
+  60: [S("open", 0, 3, "cold open: the refrain arrives"), S("rung", 3, 12, "rung"), S("rung", 12, 18, "rung"), S("rung", 18, 36, "rungs, escalating, then a rest", { rest_after: true }), S("peak", 36, 45, "the break = the peak"), S("close", 45, 60, "close + end card")],
+};
+const BEAT_SHEETS = Object.fromEntries(SHEET_BUCKETS.map((b) => [b, { reversal: REV_SHEETS[b], "before-after": REV_SHEETS[b], "refrain-break": REFRAIN_SHEETS[b] }]));
+const END_MIN_S = (len) => (len <= 12 ? 1.8 : len <= 22 ? 2.0 : 2.5);
+const peakWindowOf = (len) => (len <= 12 ? [0.58, 0.75] : [0.6, 0.75]);
+function sheetFor(len, engine) {
+  const b = sheetBucket(len), k = len / b;
+  const one = (e) => BEAT_SHEETS[b][e].map((r) => ({ slot: r.slot, from_s: r1d(r.from * k), to_s: r1d(r.to * k), from_pct: Math.round((r.from / b) * 100), to_pct: Math.round((r.to / b) * 100), note: r.note, rest_after: r.rest_after || undefined }));
+  const engines = engine ? [engine] : Object.keys(BEAT_SHEETS[b]);
+  return { length_s: len, bucket: b, sheets: Object.fromEntries(engines.map((e) => [e, one(e)])), rules: { peak: `the peak beat is the longest in the film (peak-not-longest); it starts at ${peakWindowOf(len).map((x) => Math.round(x * 100)).join("-")}% of the running time`, end: `the last beat is at least ${END_MIN_S(len)} s (end-short)`, beats: len <= 12 ? "4 to 5 beats (beat-count)" : "see the bucket" } };
+}
+// the claim ids a truth sheet's Surprising facts cite: "[c8]" or "c8:" ("- c8: the jam keeps playing...")
+const factClaimIds = (truth) => [...new Set((truth.facts || []).flatMap((f) => [...String(f).matchAll(/\[(c\d+)\]|(?<![\w])(c\d+)\s*:/gi)].map((m) => String(m[1] || m[2]).toLowerCase())))];
+// what the story must account for: every Must-show feature and every claim id in Surprising facts
+const requiredCoverage = (truth) => [...(truth.features || []).map((f) => ({ feature: f })), ...factClaimIds(truth).map((c) => ({ claim: c }))];
+const covKey = (r) => (r.claim != null ? `claim:${String(r.claim).toLowerCase()}` : `feature:${nz8(r.feature)}`);
+const covMatch = (row, req) => (req.claim != null ? row.claim != null && String(row.claim).toLowerCase() === String(req.claim).toLowerCase() : row.feature != null && (nz8(row.feature) === nz8(req.feature) || nz8(row.feature).includes(nz8(req.feature)) || nz8(req.feature).includes(nz8(row.feature))));
+const covName = (r) => (r.claim != null ? String(r.claim) : `"${r.feature}"`);
+const wordsN = (x) => String(x || "").trim().split(/\s+/).filter(Boolean).length;
+const ANGLE_STOP = new Set("the a an and or of to in on at by for with from is it its this that as be are was you your we our i my me not no so but if then than into onto over up out all any one every each just get gets can will".split(" "));
+const angleWords = (a) => new Set(nz8(a).split(" ").filter((w) => w.length >= 3 && !ANGLE_STOP.has(w)).map(stem));
+
+// a swap_breaks line is anchored when it names a Native word, a claim id, or shares 3+ meaningful words with a claim's text
+function swapAnchored(text, truth, claims) {
+  const ids = new Set([...factClaimIds(truth), ...(claims || []).map((c) => String(c.id).toLowerCase())]);
+  if ([...String(text).matchAll(/\bc\d+\b/gi)].some((m) => ids.has(m[0].toLowerCase()))) return true;
+  if ((truth.words || []).some((w) => mentions(text, w))) return true;
+  const sig = (x) => new Set(nz8(x).split(" ").filter((w) => w.length >= 4 && !ANGLE_STOP.has(w)).map(stem));
+  const t = sig(text);
+  return [...(truth.facts || []), ...(claims || []).map((c) => c.text)].some((c) => [...sig(c)].filter((w) => t.has(w)).length >= 3);
+}
+// the plan validator: story/plan.json against story/picks.json, the truth sheet and the claims
+function planProblems(plan, picks, truth, claims) {
+  const problems = [], warnings = [];
+  const slots = plan && Array.isArray(plan.slots) ? plan.slots : [];
+  const pickList = picks && Array.isArray(picks.picks) ? picks.picks : [];
+  const labels = pickList.map((x) => x.label);
+  const got = slots.map((s) => s.label);
+  if (!slots.length) problems.push("plan-slots: the plan has no slots[]");
+  else if (got.length !== labels.length || new Set(got).size !== got.length || !labels.every((l) => got.includes(l))) problems.push(`plan-slots: the plan has ${got.join(", ") || "none"}; the picks have ${labels.join(", ")}: exactly those labels, once each`);
+  const menu = new Set(((picks && picks.menu) || []).map((m) => m.id));
+  const pf = !!(picks && picks.product_first);
+  for (const s of slots) {
+    const pk = pickList.find((x) => x.label === s.label);
+    if (pk) {
+      if (pk.shape && s.shape !== pk.shape) problems.push(`plan-shape: ${s.label}: shape "${s.shape}" but the picks slot says "${pk.shape}" (copy it)`);
+      if (pk.engine && s.engine !== pk.engine) problems.push(`plan-shape: ${s.label}: engine "${s.engine}" but the picks slot says "${pk.engine}" (copy it)`);
+    }
+    if (s.device != null && !menu.has(s.device)) problems.push(`plan-device: ${s.label}: device "${s.device}" is not on the picks menu`);
+    if (s.device != null && !String(s.device_reason || "").trim()) warnings.push(`${s.label}: device_reason missing`);
+    if (!TURN_KINDS.includes(s.turn_kind)) problems.push(`plan-turn-kind: ${s.label}: "${s.turn_kind}" is not one of ${TURN_KINDS.join(" | ")}`);
+    if (!PEAK_KINDS.includes(s.peak_kind)) problems.push(`plan-peak-kind: ${s.label}: "${s.peak_kind}" is not one of ${PEAK_KINDS.join(" | ")}`);
+    const aw = wordsN(s.angle);
+    if (!aw) problems.push(`plan-angle: ${s.label}: no angle (the proposition this script argues, <= 14 words)`);
+    else if (aw > 14 || /\band\b/i.test(String(s.angle))) problems.push(`plan-angle: ${s.label}: "${s.angle}" ${aw > 14 ? `is ${aw} words (14 at most)` : 'has "and" (one idea)'}`);
+    const sw = String(s.swap_breaks || "").trim();
+    if (!sw) problems.push(`plan-swap: ${s.label}: no swap_breaks (what in this angle the main competitor cannot claim, 5+ words naming a Native word or a claim)`);
+    else if (wordsN(sw) < 5) problems.push(`plan-swap: ${s.label}: swap_breaks "${sw}" is ${wordsN(sw)} words (5 at least)`);
+    else if (truth && !swapAnchored(sw, truth, claims)) problems.push(`plan-swap: ${s.label}: swap_breaks "${sw}" names no Native word and no claim id or claim text of the truth sheet: say what only this product has`);
+    for (const k of ["villain_picture", "turn", "peak"]) if (!String(s[k] || "").trim()) warnings.push(`${s.label}: ${k} missing`);
+    if (claims) for (const c of s.owned_claims || []) if (!claims.some((x) => x.id === String(c))) problems.push(`plan-claims: ${s.label}: owned claim "${c}" is not in the claims`);
+  }
+  for (let i = 0; i < slots.length; i++) for (let j = i + 1; j < slots.length; j++) {
+    const a = slots[i], b = slots[j];
+    if (a.device != null && a.device === b.device) problems.push(`plan-device: ${a.label} and ${b.label} share the device "${a.device}"`);
+    else if (a.device != null && b.device != null) { const da = findDevice(a.device), db = findDevice(b.device); if (da && db && !(hardDiffer(da, db, pf) && distance(da, db) >= (pf ? 4 : 5))) problems.push(`plan-device: ${a.label} (${da.id}) and ${b.label} (${db.id}) are too alike (differ on ${distance(da, db)} of 7 axes, ${pf ? 4 : 5} needed, and on family and visual_world)`); }
+    if (TURN_KINDS.includes(a.turn_kind) && a.turn_kind === b.turn_kind) problems.push(`plan-turn-kind: ${a.label} and ${b.label} share the turn kind "${a.turn_kind}"`);
+    if (PEAK_KINDS.includes(a.peak_kind) && a.peak_kind === b.peak_kind) problems.push(`plan-peak-kind: ${a.label} and ${b.label} share the peak kind "${a.peak_kind}"`);
+    const wa = angleWords(a.angle), wb = angleWords(b.angle), m = Math.min(wa.size, wb.size);
+    if (m && [...wa].filter((w) => wb.has(w)).length / m >= 0.6) problems.push(`plan-angle: ${a.label} and ${b.label} argue nearly the same angle ("${a.angle}" / "${b.angle}")`);
+  }
+  // coverage: every Must-show feature and every Surprising-facts claim id has a row (a slot that owns it, or a cut with a reason)
+  const cov = plan && Array.isArray(plan.coverage) ? plan.coverage : [];
+  if (truth) for (const req of requiredCoverage(truth)) if (!cov.some((r) => covMatch(r, req))) problems.push(`plan-coverage: ${covName(req)} (${req.claim != null ? "a Surprising fact" : "a Must-show feature"}) has no coverage row: give it a slot or cut it with a reason`);
+  for (const r of cov) {
+    if (r.cut != null && wordsN(r.cut) < 4) problems.push(`plan-coverage: ${covName(r)}: a cut needs a reason of 4+ words ("${r.cut}")`);
+    if (r.cut == null && r.slot == null) problems.push(`plan-coverage: ${covName(r)}: a row needs a slot or a cut`);
+    if (r.slot != null) {
+      const sl = slots.find((s) => s.label === r.slot);
+      if (!sl) problems.push(`plan-coverage: ${covName(r)}: slot "${r.slot}" is not a label of the plan`);
+      else if (r.claim != null && !(sl.owned_claims || []).map(String).includes(String(r.claim))) problems.push(`plan-coverage: ${r.claim} is assigned to ${r.slot} but not in its owned_claims`);
+    }
+  }
+  return { problems, warnings };
+}
+// a pitch's coverage rows in beat order: [{key, name, beat}]
+const coverageSeq = (p) => (Array.isArray(p.coverage) ? p.coverage : []).filter((r) => r && r.cut == null && Number(r.beat) >= 1).map((r) => ({ key: covKey(r), name: covName(r), beat: Number(r.beat) })).sort((a, b) => a.beat - b.beat).map((x) => x.key).filter((k, i, a) => a.indexOf(k) === i);
+const lcsLen = (a, b) => { const t = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0)); for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) t[i][j] = a[i - 1] === b[j - 1] ? t[i - 1][j - 1] + 1 : Math.max(t[i - 1][j], t[i][j - 1]); return t[a.length][b.length]; };
+// the plan beside a pitch (story/plan.json), or --plan
+function loadPlan(args, pitchFile) {
+  const f = args.plan && args.plan !== true ? path.resolve(String(args.plan)) : pitchFile ? path.join(path.dirname(pitchFile), "plan.json") : null;
+  if (!f || !fs.existsSync(f)) { if (args.plan && args.plan !== true) die(`--plan not found: ${f}`); return null; }
+  try { return readJSON(f); } catch (e) { die(`plan is not valid JSON: ${e.message}`); }
+}
+
 // --- commands -------------------------------------------------------------------
 if (cmd === "truth") {
   if (!args.out || args.out === true) die("--out <truth.md> required");
@@ -660,11 +802,12 @@ if (cmd === "truth") {
   const leadOf = (i) => (doms.length ? [...doms.slice(i % doms.length), ...doms.slice(0, i % doms.length)] : []);
   const broadClaim = productFirst && (scope === "universal" || scope === "category");
   picks.forEach((pk, i) => { if (broadClaim && doms.length) pk.lead_domains = leadOf(i).slice(0, 4); });
+  const pickLen = Number(args.length) || Number(String(truth.format.length || "").replace(/[^\d.]/g, "")) || 0;
   for (const pk of picks) {
     pk.engine = ENGINE_OF_SHAPE[pickShape(pk)] || undefined; if (pk.engine) pk.engine_rule = ENGINES[pk.engine];
     const sh = pickShape(pk);
     if (sh === "ladder") { pk.structure = "ladder"; pk.shape = "ladder"; pk.ladder_variant = LADDER_VARIANT[pk.label]; pk.device_role = "the device is the ladder's rhythm (list that breaks, escalation, call and response, countdown), never a plot"; }
-    else if (sh && sh !== "scenario" && sh !== "pas" && STORY_SHAPES[sh]) { pk.structure = sh; pk.shape = sh; pk.shape_rule = shapeRule(sh); pk.device_role = `the device is the ${STORY_SHAPES[sh].name} shape's rhythm, never a plot${broadClaim ? "; the claim's range is the subject, no persona, no recurring situation" : ""}`; }
+    else if (sh && sh !== "scenario" && sh !== "pas" && STORY_SHAPES[sh]) { pk.structure = sh; pk.shape = sh; pk.shape_rule = shapeRule(sh, pickLen); pk.device_role = `the device is the ${STORY_SHAPES[sh].name} shape's rhythm, never a plot${broadClaim ? "; the claim's range is the subject, no persona, no recurring situation" : ""}`; }
     if (sh === "pas") { pk.structure = "pas"; pk.shape = "pas"; pk.pas_variant = PAS_VARIANT[pk.label]; pk.device_role = broadClaim ? "the device is the story's rhythm (the pain, the reveal, the benefits as a run); the pain is the category's, one every viewer has had, and the range of real uses is the subject; never one person's evening" : "the device is the story's rhythm (the pain, the reveal, the benefits as a run); the viewer's day is the subject, never the product's features"; }
   }
   const shapesUsed = [...new Set(picks.map((x) => x.shape).filter(Boolean))];
@@ -681,7 +824,7 @@ if (cmd === "truth") {
     product_first_rule: productFirst ? "Launch / promo / product film: the product UI is on screen within 3 s, one hero product moment, 2-4 real uses, short plain kinetic lines, the end line the largest type, a clean CTA. No conceit devices; Sure, Bold and Wild differ in structure, pacing and energy, never by leaving the product. See references/product-first.md." : undefined,
     shape: mixed && shapesUsed.length > 1 ? "mixed" : shapesUsed.length === 1 ? shapesUsed[0] : shape || undefined,
     shapes: mixed ? shapesUsed : undefined,
-    shape_rule: [ruleOf(shape, shapesUsed), ...shapesUsed.filter((x) => !["ladder", "pas", "scenario"].includes(x)).map(shapeRule)].filter(Boolean).join(" ") || (shape === "scenario" ? "Scenario: one feature, one viewer, one task (G10 scenario rules)." : undefined),
+    shape_rule: [ruleOf(shape, shapesUsed), ...shapesUsed.filter((x) => !["ladder", "pas", "scenario"].includes(x)).map((x) => shapeRule(x, pickLen))].filter(Boolean).join(" ") || (shape === "scenario" ? "Scenario: one feature, one viewer, one task (G10 scenario rules)." : undefined),
     truth_gaps: gaps.length ? gaps : undefined,
     claim_scope: scope || undefined,
     scope_conflict: briefScope && scope && briefScope !== scope ? `the brief says the claim is ${briefScope}, the truth sheet says ${scope}: the shapes follow the brief; G13 checks the truth sheet's, so update the sheet's Claim scope (or ask the user)` : undefined,
@@ -709,6 +852,19 @@ if (cmd === "truth") {
   let raw;
   try { raw = readJSON(pf); } catch (e) { die(`pitch is not valid JSON: ${e.message}`); }
   const pitches = Array.isArray(raw) ? raw : Array.isArray(raw.pitches) ? raw.pitches : [raw];
+  // THE LEDGER: a check on ONE pitch file counts a run in story/check-ledger.json beside it; 3 runs (the first and two rewrites), +2 after the editor's rewrite / replace; a set never records
+  const single = !Array.isArray(raw) && !Array.isArray(raw.pitches) && !!raw.label;
+  if (single && !args["no-ledger"]) {
+    const lf = path.join(path.dirname(pf), "check-ledger.json"), lab = String(raw.label);
+    let led = {}; try { led = readJSON(lf) || {}; } catch {}
+    let notes = null; try { notes = readJSON(path.join(path.dirname(pf), "edit-notes.json")); } catch {}
+    const marked = !!(notes && Array.isArray(notes.pitches) && notes.pitches.some((x) => x && x.label === lab && ["rewrite", "replace"].includes(x.verdict)));
+    const limit = 3 + (marked ? 2 : 0), runs = Number(led[lab] && led[lab].runs) || 0;
+    if (runs >= limit) { out({ ok: false, verdict: "escalate", reason: "rewrite limit: hand back to the Director", label: lab, runs, limit }); process.exit(3); }
+    led[lab] = { runs: runs + 1, last: new Date().toISOString() };
+    try { writeFile(lf, JSON.stringify(led, null, 2) + "\n"); } catch {}
+  }
+  const plan = loadPlan(args, pf);
   const truth = loadTruth(args.truth);
   const src = loadSource(args, args.truth);
   const footageLed = isFootageLed(src) && !args["product-first"];
@@ -718,6 +874,7 @@ if (cmd === "truth") {
   const fmt = truth?.format?.format ? norm(truth.format.format).trim() : (args.format && args.format !== true ? norm(args.format) : null);
   opts.viewerFirst = !footageLed && productFirstApplies(src) !== false && ["launch", "promo"].includes(fmt);
   opts.claims = loadClaims(args.claims, args.truth);
+  opts.plan = plan; opts.truth = truth;
   const intentFor = (p) => {
     const dir = path.dirname(pf), lab = p.label || null;
     const cands = [args.intent && args.intent !== true ? path.resolve(String(args.intent)) : null, lab ? path.join(dir, `intent-${lab}.json`) : null, path.join(dir, "intent.json")].filter(Boolean);
@@ -751,6 +908,24 @@ if (cmd === "truth") {
   if (args.write && r.curve.length) writeFile(f, JSON.stringify({ ...it, emphasis_curve: r.curve }, null, 2) + "\n"); // the derived emphasis curve (never written by hand)
   out({ ...r, intent: f, proposition: it.proposition || null, wrote_emphasis_curve: args.write ? true : undefined });
   process.exitCode = r.ok ? 0 : 2;
+} else if (cmd === "plan") {
+  for (const k of ["plan", "picks", "truth"]) if (!args[k] || args[k] === true) die("usage: story.mjs plan --plan <story/plan.json> --picks <story/picks.json> --truth <truth.md> [--claims <claims.json>]");
+  const rj = (k) => { const f = path.resolve(String(args[k])); if (!fs.existsSync(f)) die(`--${k} not found: ${f}`); try { return readJSON(f); } catch (e) { die(`--${k} is not valid JSON: ${e.message}`); } };
+  const r = planProblems(rj("plan"), rj("picks"), loadTruth(args.truth), loadClaims(args.claims, args.truth));
+  if (!loadClaims(args.claims, args.truth)) r.warnings.push("no research/claims.json found (--claims): owned claim ids were not checked");
+  out({ ok: !r.problems.length, problems: r.problems, warnings: r.warnings });
+  process.exitCode = r.problems.length ? 2 : 0;
+} else if (cmd === "sheet") {
+  const len = Number(args.length);
+  if (!(len > 0)) die("--length <seconds> required");
+  const eng = args.engine && args.engine !== true ? String(args.engine) : null;
+  if (eng && !ENGINES[eng]) die(`--engine: ${Object.keys(ENGINES).join(" | ")}`);
+  out({ ok: true, ...sheetFor(len, eng) });
+} else if (cmd === "revise") {
+  if (!args.notes || args.notes === true) die("--notes <story/edit-notes.json> required");
+  let n; try { n = readJSON(path.resolve(String(args.notes))); } catch (e) { die(`--notes is not readable JSON: ${e.message}`); }
+  const back = (n.pitches || []).filter((x) => x && ["rewrite", "replace"].includes(x.verdict));
+  out({ revise: back.map((x) => x.label || x.id), notes: Object.fromEntries(back.map((x) => [x.label || x.id, x.notes || []])), verdicts: Object.fromEntries(back.map((x) => [x.label || x.id, x.verdict])), next: back.length ? "dispatch script-writer once per label (crew.mjs brief --role script-writer --key <label>: revise mode), then story.mjs check on the set; no second editor pass" : "nothing goes back" });
 } else if (cmd === "validate") {
   const problems = [];
   const ids = new Set();
@@ -777,7 +952,7 @@ if (cmd === "truth") {
   out({ ok: !problems.length, devices: DEVICES.length, by_family: byFam, overused: DEVICES.filter((d) => d.overused).map((d) => d.id), problems });
   process.exit(problems.length ? 1 : 0);
 } else {
-  die("usage: story.mjs truth|devices|cliche|pick|check|intent|validate (see the header of scripts/story.mjs)");
+  die("usage: story.mjs truth|devices|cliche|pick|check|plan|sheet|revise|intent|validate (see the header of scripts/story.mjs)");
 }
 
 // --- check -------------------------------------------------------------------------
@@ -791,6 +966,8 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
   // shape
   const deviceIds = (Array.isArray(p.device) ? p.device : [p.device]).filter(Boolean);
   const devices = deviceIds.map((d) => findDevice(d));
+  // the fake-ui-takeover device names itself in its visuals: its own words are not an invented output screen (G10 bans the rest)
+  const noDev = (t) => (deviceIds.includes("fake-ui-takeover") ? t.replace(/fake[- ]ui([- ]takeover)?|ui takeover/gi, " ") : t);
   if (!deviceIds.length) errors.push("device: missing (a device id from taxonomy/devices.json)");
   devices.forEach((d, i) => { if (!d) errors.push(`device: unknown "${deviceIds[i]}"`); });
   const dev = devices[0] || null;
@@ -895,6 +1072,42 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     if (props.some(numIn)) { propHits.push(m.trim()); continue; }
     ungrounded.push(`"${m.trim()}" in "${b.name}"`);
   }
+  // number-unit: a grounded number's noun must be the claim's own ("50 phones" against "up to 50 people"), or one of the product's native words; props are exempt
+  if (opts.claims && opts.claims.length) {
+    const NU_STOP = new Set("the and for with from per are was has had not you your our out all any one two new off its his her who what when how why can will this that than then too very just also more most some into onto over under only each every same ago later left right".split(" "));
+    const UNIT_RE = /^(s|ms|sec|secs|seconds?|min|mins|minutes?|hours?|hrs?|days?|weeks?|months?|years?|am|pm|percent|k|m|x)$/i;
+    const sing = (w) => (/ies$/.test(w) ? w.replace(/ies$/, "y") : /[^s]s$/.test(w) ? w.slice(0, -1) : w);
+    const nativeWords = new Set((truth ? truth.words : []).map((w) => sing(nz8(w))));
+    const seen = new Set();
+    for (const b of beats) for (const line of [String(b.on_screen || ""), ...linesOf(b)]) for (const m of line.replace(/,/g, "").matchAll(/(?<![\w.])(\d+(?:\.\d+)?)\s+([a-z][a-z'-]{2,})/gi)) {
+      const n = m[1], noun = m[2].toLowerCase();
+      if (NU_STOP.has(noun) || UNIT_RE.test(noun) || seen.has(m[0].toLowerCase())) continue;
+      seen.add(m[0].toLowerCase());
+      const numIn = (text) => new RegExp(`(?<![\\d.])${n.replace(".", "\\.")}(?![\\d])`).test(text);
+      if (props.some(numIn)) continue;
+      const cl = opts.claims.find((c) => numIn(`${c.text} ${c.value == null ? "" : c.value}`));
+      if (!cl) continue;
+      const ns = sing(noun);
+      if (nz8(cl.text).split(" ").map(sing).includes(ns) || nativeWords.has(ns)) continue;
+      const said = String(cl.text).match(new RegExp(`${n.replace(".", "\\.")}\\s+[a-z][a-z'-]*`, "i"));
+      g4.push(`number-unit: "${m[0]}" but ${cl.id} says "${said ? said[0] : cl.text}"`);
+    }
+  }
+  // continuity implies a claim: a carrier that runs unbroken across different places (a oner, one row of phones, one playhead) tells the viewer those places are one thing
+  {
+    const doms = new Set(beats.map((b) => norm(b.domain).trim()).filter(Boolean));
+    const actorTxt = p.actor && typeof p.actor === "object" ? `${p.actor.what || ""} ${p.actor.does || ""}` : "";
+    const carries = /without a cut|no cut|unbroken|one (unbroken )?(move|take|shot)|one (row|line|scrubber|playhead)[^.;]{0,20}(runs?|carries|moves|passes)|phone to phone|trucks?\b|carries? (the|from|across|on)|runs? (along|across|through|on)/i.test(actorTxt) && doms.size >= 2;
+    if (deviceIds.includes("oner") || carries) {
+      const c = p.continuity && typeof p.continuity === "object" ? p.continuity : null;
+      const across = c ? norm(c.across).trim() : "";
+      const cid = c ? String(c.claim || "").trim() : "";
+      const why = deviceIds.includes("oner") ? "a oner" : "an actor that carries across different areas of life";
+      if (!["places", "time", "one"].includes(across)) g4.push(`continuity-claim: ${why} runs unbroken, so the pitch must set continuity { across: "places" | "time" | "one", claim: "<claim id that makes it true>" }`);
+      else if (across === "places" && !cid) g4.push("continuity-claim: continuity.across is places, so it needs a claim id that makes those places one thing (e.g. the sync claim); without one, cut the carrier between places");
+      else if (across === "places" && opts.claims && opts.claims.length && !opts.claims.some((x) => x.id.toLowerCase() === cid.toLowerCase())) g4.push(`continuity-claim: continuity.claim "${cid}" is not a claim id in the claims (${opts.claims.map((x) => x.id).join(", ")})`);
+    }
+  }
   if (propHits.length) warnings.push(`numbers shown as story props, not claims: ${propHits.join(", ")}; make sure none reads as a product claim`);
   if (ungrounded.length) g4.push(`numbers on screen not in grounded_claims or the truth sheet (a claim needs a source; a story detail goes in "props"): ${ungrounded.join("; ")}`);
   const labels = p.ui_labels || [];
@@ -930,6 +1143,10 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     const cm = conceitText.match(CONCEIT_RE);
     if (cm && !punOk) g7.push(`conceit word "${cm[0]}" in the title, logline or beats: an invented world or extended metaphor cannot carry a product film (an instant visual pun that resolves to the product within 1 s is allowed: set visual_pun {what, resolves_in_s})`);
     else if (cm) warnings.push(`conceit word "${cm[0]}" allowed only as the visual pun "${pun.what || ""}"`);
+    // no system-UI imitation: a frame posing as the viewer's own OS (dialog, store sheet, notification shade) with no phone in a hand or on a surface around it
+    const SYS_RE = /poses? as the viewer'?s?|posing as the viewer'?s?|full[- ]?frame (system|os)\b|app[- ]?store (sheet|dialog|page)|\bos (dialog|alert|prompt|sheet)|system (dialog|alert|prompt|sheet)|notification shade/i;
+    const PHONE_IN_HAND_RE = /\b(phone|device|handset)\b[^.]{0,80}\b(in (a|the|his|her|their) hand|held|hand|thumb|on (a|the) (table|desk|counter|sofa|cushion|surface|speaker)|lies|lying|rests?|resting|propped)\b|\b(in (a|the|his|her|their) hand|hand holds?|held)\b[^.]{0,80}\b(phone|device|handset)\b/i;
+    beats.forEach((b, i) => { const v = `${b.visual || ""} ${b.picture || ""}`; const m = v.match(SYS_RE); if (m && !PHONE_IN_HAND_RE.test(v)) g7.push(`system-ui-pose: beat ${i + 1} "${b.name || roles[i]}" says "${m[0]}": a full-frame system dialog or store sheet posing as the viewer's own phone is rejected by ad platforms. Open on the phone in a hand (or on a surface), then push in`); });
     // the product on screen within 3 s
     const prodName = truth?.product?.name || p.product || "";
     const uiWords = [...(truth ? truth.words : []), ...(p.ui_labels || [])];
@@ -983,7 +1200,10 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
       const heroLimit = brand && brand.longestHoldS >= 2 ? Math.min(heroMax, brand.longestHoldS) : heroMax;
       const ideaRoles = new Set(["statement", "hero", "demo", "payoff", "proof", "turn", "open", "rung", "ways_in", "meet", "benefit"]);
       // in a one-feature film every UI step of the proof beyond its first is one more thing the viewer learns
-      const ideas = beats.filter((b, i) => b.idea === true || ideaRoles.has(roles[i])).length + beats.reduce((a, b, i) => a + (roles[i] === "proof" || roles[i] === "rung" || roles[i] === "benefit" ? Math.max(0, uiOf(b).length - 1) : 0), 0);
+      // the idea count is the number of distinct beliefs: the intent's beats with a distinct `buys` (without an intent sheet, the roles count as before)
+      const II = opts.intent && opts.intent.data && Array.isArray(opts.intent.data.beats) ? opts.intent.data : null;
+      const intentIdeas = II ? new Set(II.beats.map((b) => nz8(typeof (b && b.buys) === "object" ? JSON.stringify(b.buys) : b && b.buys)).filter(Boolean)).size : null;
+      const ideas = intentIdeas != null ? intentIdeas : beats.filter((b, i) => b.idea === true || ideaRoles.has(roles[i])).length + beats.reduce((a, b, i) => a + (roles[i] === "proof" || roles[i] === "rung" || roles[i] === "benefit" ? Math.max(0, uiOf(b).length - 1) : 0), 0);
       const t = p.tempo && typeof p.tempo === "object" ? p.tempo : null;
       if (!t) g9.push("tempo missing: set tempo { ideas, change_every_s, longest_hold_s, source: \"brand film\" | \"house\" } (references/script.md pass 0)");
       else {
@@ -1014,7 +1234,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
       });
       if (needChanges.length) g9.push(`beats longer than ${r1d(holdMax)} s must list what changes inside them (in "changes" or "ui"), roughly one change per 2 s: ${needChanges.join("; ")}`);
       if (long.length) g9.push(`a statement line holds only its reading time (0.6 s + 0.3 s per word): ${long.join("; ")}`);
-      if (t && Number(t.ideas) && Number(t.ideas) !== ideas) warnings.push(`tempo.ideas says ${t.ideas}, the beats carry ${ideas}`);
+      if (t && Number(t.ideas) && Number(t.ideas) !== ideas) (intentIdeas != null ? g9 : warnings).push(`${intentIdeas != null ? "tempo-ideas: " : ""}tempo.ideas says ${t.ideas}, ${intentIdeas != null ? "the intent's beats carry" : "the beats carry"} ${ideas}${intentIdeas != null ? " distinct beliefs (set tempo.ideas to that count)" : ""}`);
       gate("G9", "Tempo (ideas per film, a change every ~2 s, no long holds)", g9, { ideas, min_ideas: minIdeas, change_every_s_max: r1d(everyMax), longest_hold_s: r1d(holdMax), hero_hold_s_max: r1d(heroLimit), source: brand ? "brand film" : "house" });
     }
 
@@ -1026,9 +1246,10 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
       const allowed = new Set([...(SH.roles || []), "cta", "proof", "open", "close"]);
       const bad = beats.map((b, i) => (!allowed.has(roles[i]) ? `${i + 1} ${b.name} (${b.role || roles[i]})` : null)).filter(Boolean);
       if (bad.length) g10.push(`beat role(s) not in the ${SH.name} shape: ${bad.join(", ")} (roles: ${[...(SH.roles || [])].join(", ")})`);
-      for (const [r, [lo, hi]] of Object.entries(SH.need || {})) {
+      for (const [r, [lo0, hi0]] of Object.entries(SH.need || {})) {
+        const [lo, hi] = shape === "before-after" && r === "pair" ? pairRange(opts.length || lengthS) : [lo0, hi0];
         const n = roles.filter((x) => x === r).length;
-        if (n < lo || n > hi) g10.push(`${r}: ${n} beat(s) (${lo === hi ? lo : `${lo}-${hi}`} in a ${SH.name}: ${SH.beats})`);
+        if (n < lo || n > hi) g10.push(`${r}: ${n} beat(s) (${lo === hi ? lo : `${lo}-${hi}`} in a ${SH.name}: ${shapeBeats(shape, opts.length || lengthS)})`);
       }
       const noPic = beats.map((b, i) => (!String(b.picture || "").trim() ? `${i + 1} ${b.name}` : null)).filter(Boolean);
       if (noPic.length) g10.push(`beat(s) without a picture (one sentence: what the viewer sees happen): ${noPic.join(", ")}`);
@@ -1037,7 +1258,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
       const noUi = useB.filter((i) => !uiOf(beats[i]).some((u) => UI_RE.test(u)) && !/^(footage|card)$/.test(roles[i])).map((i) => `${i + 1} ${beats[i].name}`);
       if (noUi.length && !["titles", "trailer", "countdown", "data-journey", "manifesto", "acts"].includes(shape)) g10.push(`use beat(s) without a real ui cause and effect in ui[]: ${noUi.join(", ")}`);
       if (SH.heroCap) { const hi = roles.indexOf("hero"); if (hi >= 0 && Number(beats[hi].duration_s) > SH.heroCap * lengthS + 0.01) g10.push(`the hero takes ${Math.round((Number(beats[hi].duration_s) / lengthS) * 100)}% of the film (${Math.round(SH.heroCap * 100)}% at most)`); }
-      gate("G10", `${SH.name} (${SH.beats})`, g10, { shape, uses: useB.length });
+      gate("G10", `${SH.name} (${shapeBeats(shape, opts.length || lengthS)})`, g10, { shape, uses: useB.length });
     } else if (isPas) {
       const g10 = [], w10 = [];
       const at = (r) => roles.map((x, i) => (x === r ? i : -1)).filter((i) => i >= 0);
@@ -1048,7 +1269,8 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
       if (ben.length < 2 || ben.length > 4) g10.push(`benefit beats: ${ben.length} (2-4, each one thing the viewer gains with one real UI behaviour)`);
       if (ag.length > 1) g10.push(`agitate: ${ag.length} beats (zero or one: the pain lands, a reaction line is welcome)`);
       if (ct.length !== 1 || roles[roles.length - 1] !== "cta") g10.push("one cta, last (role \"cta\": { line, action, where } on the pitch)");
-      if (!pr.length) w10.push("no proof beat (role \"proof\": a real number, adoption, rating or named customers; G12 checks it against research/claims.json)");
+      const proofOnBeat = (opts.length || lengthS) <= 15 && p.proof && typeof p.proof === "object" && String(p.proof.claim || "").trim() && (Array.isArray(p.coverage) ? p.coverage : []).some((r) => r && r.cut == null && Number(r.beat) >= 1 && String(r.claim).toLowerCase() === String(p.proof.claim).toLowerCase()); // a 10 s pas has no room for a proof beat
+      if (!pr.length && !proofOnBeat) w10.push("no proof beat (role \"proof\": a real number, adoption, rating or named customers; G12 checks it against research/claims.json)");
       if (meet.length === 1) {
         if (ag.length && ag[0] > meet[0]) g10.push("agitate comes after the meet: the pain lands before the reveal");
         if (ben.some((i) => i < meet[0])) g10.push("a benefit comes before the meet: the brand is revealed first, then what it does for the viewer");
@@ -1067,7 +1289,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
       const badUi = beats.flatMap((b) => uiOf(b)).filter((u) => !/→|->|:|\bthen\b|\bopens?\b|\bappears?\b|\blands?\b/i.test(u));
       if (badUi.length) g10.push(`ui entries need a cause and its effect: ${badUi.slice(0, 2).map((u) => `"${u}"`).join(", ")}`);
       const INVP = /\b(placeholder|generic (cards?|boxes|page|screen|output|result)|(grey|gray|purple|lavender|empty) boxes|boxes standing in|dummy (ui|screen|page|data)|fake (ui|screen|page|output)|invented (page|screen|output|ui)|lorem)\b/i;
-      const invP = beats.map((b, i) => (INVP.test(`${b.visual || ""} ${b.picture || ""} ${uiOf(b).join(" ")}`) ? `${i + 1} ${b.name}` : null)).filter(Boolean);
+      const invP = beats.map((b, i) => (INVP.test(noDev(`${b.visual || ""} ${b.picture || ""} ${uiOf(b).join(" ")}`)) ? `${i + 1} ${b.name}` : null)).filter(Boolean);
       if (invP.length) g10.push(`invented output screen in beat(s) ${invP.join(", ")}: the result is the product's real UI`);
       if (meet.length === 1 && !/brand|logo|mark|wordmark|name/i.test(`${beats[meet[0]].visual || ""} ${beats[meet[0]].picture || ""} ${beats[meet[0]].on_screen || ""}`) && !p.brand_reveal) w10.push("the meet beat should carry the brand reveal (the mark or name lands once, here): say so in its picture");
       warnings.push(...w10);
@@ -1085,8 +1307,8 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
       if (!idx("open").length) w10.push("no open beat (role: \"open\": the refrain arrives, the product on screen within 3 s)");
       if (!idx("close").length) g10.push("close beat missing (role: \"close\": \"<verb> anything\" or the product's own line, then the logo / end line)");
       if (verb) {
-        const noVerb = beats.map((b, i) => ({ b, i })).filter(({ b, i }) => ["open", "rung", "close"].includes(roles[i]) && !hasVerb(b)).map(({ b, i }) => `${i + 1} ${b.name} ("${b.on_screen || ""}")`);
-        if (noVerb.length) g10.push(`title without the refrain verb "${verb}": ${noVerb.join("; ")} (only the ways_in beat may use other verbs)`);
+        const noVerb = beats.map((b, i) => ({ b, i })).filter(({ b, i }) => ["open", "rung", "close"].includes(roles[i]) && !hasVerb(b) && b.break !== true).map(({ b, i }) => `${i + 1} ${b.name} ("${b.on_screen || ""}")`);
+        if (noVerb.length) g10.push(`title without the refrain verb "${verb}": ${noVerb.join("; ")} (only the ways_in beat and the break rung may use other verbs: the break changes the structure or the verb)`);
       }
       const nouns = rungs.map(({ b }) => useNouns(b.use));
       rungs.forEach(({ b, i }) => {
@@ -1109,7 +1331,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
       const noPic = beats.map((b, i) => (!String(b.picture || "").trim() ? `${i + 1} ${b.name}` : null)).filter(Boolean);
       if (noPic.length) g10.push(`beat(s) without a picture (one sentence: what the viewer sees happen): ${noPic.join(", ")}`);
       const INV = /\b(placeholder|generic (cards?|boxes|page|screen|output|result)|(grey|gray|purple|lavender|empty) boxes|boxes standing in|dummy (ui|screen|page|data)|fake (ui|screen|page|output)|invented (page|screen|output|ui)|lorem)\b/i;
-      const inv = beats.map((b, i) => (INV.test(`${b.visual || ""} ${b.picture || ""} ${uiOf(b).join(" ")}`) ? `${i + 1} ${b.name}` : null)).filter(Boolean);
+      const inv = beats.map((b, i) => (INV.test(noDev(`${b.visual || ""} ${b.picture || ""} ${uiOf(b).join(" ")}`)) ? `${i + 1} ${b.name}` : null)).filter(Boolean);
       if (inv.length) g10.push(`invented output screen in beat(s) ${inv.join(", ")}: the result is the product's real UI`);
       rungs.forEach(({ b, i }) => {
         if (wc(b.on_screen) > 6) w10.push(`rung ${i + 1} ${b.name}: title "${b.on_screen}" is ${wc(b.on_screen)} words (6 at most)`);
@@ -1142,7 +1364,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
       const badUi = beats.flatMap((b) => uiOf(b)).filter((u) => !/→|->|:|\bthen\b|\bopens?\b|\bappears?\b|\blands?\b/i.test(u));
       if (badUi.length) g10.push(`ui entries need a cause and its effect ("click Send → the message lands in the thread, the composer clears"): ${badUi.slice(0, 2).map((u) => `"${u}"`).join(", ")}`);
       const INVENTED = /\b(placeholder|generic (cards?|boxes|page|screen|output|result)|(grey|gray|purple|lavender|empty) boxes|boxes standing in|mock(ed)?[- ]up (page|output|result|screen)|dummy (ui|screen|page|data)|fake (ui|screen|page|output)|invented (page|screen|output|ui)|lorem)\b/i;
-      const inv = beats.map((b, i) => (INVENTED.test(`${b.visual || ""} ${b.picture || ""} ${uiOf(b).join(" ")}`) ? `${i + 1} ${b.name}` : null)).filter(Boolean);
+      const inv = beats.map((b, i) => (INVENTED.test(noDev(`${b.visual || ""} ${b.picture || ""} ${uiOf(b).join(" ")}`)) ? `${i + 1} ${b.name}` : null)).filter(Boolean);
       if (inv.length) g10.push(`invented output screen in beat(s) ${inv.join(", ")}: the result is the product's real UI from the research (research/screens), never generic boxes standing in for it`);
       const tw = p.two_way && typeof p.two_way === "object" ? p.two_way : {};
       if (!String(tw.lines_alone || "").trim() || !String(tw.pictures_alone || "").trim()) g10.push("two_way missing: { lines_alone, pictures_alone }: read the lines with the pictures hidden, then the pictures with the lines hidden, and write the story each tells; they must be the same story");
@@ -1162,8 +1384,14 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
       const pct = (x) => `${Math.round(x * 100)}%`;
       const bl = (is) => is.map((i) => `${i + 1} ${beats[i].name || roles[i]}`).join(", ");
       const len = opts.length || lengthS;
+      // one script may show fewer uses / areas than the claim scope asks when it declares scope_waiver { reason } and a plan is active (the set's union then carries the range)
+      const sw = p.scope_waiver && typeof p.scope_waiver === "object" ? p.scope_waiver : null;
+      const waived = !!sw && !!opts.plan && wordsN(sw.reason) >= 6;
+      if (sw && !opts.plan) w13.push("scope-waiver ignored: no plan is active, so the range minimums stand");
+      else if (sw && wordsN(sw.reason) < 6) g13.push(`waiver-reason: scope_waiver.reason is ${wordsN(sw.reason)} words (6 at least: say what claim the narrower range keeps honest)`);
+      const rng = waived ? w13 : g13;
       const persona = personaAllowed(truth, p) || (shapeOf(p, beats) === "life-arc" && A.useIdx.length >= 3);
-      const extra = { claim_scope: sc, D: A.D, S_max: Math.round(A.sMax * 100) / 100, cluster: A.cluster.beats.map((i) => i + 1), cluster_nouns: A.cluster.nouns.slice(0, 8), scenario_words: A.multi ? [...new Set(A.cluster.beats.flatMap((i) => [...A.tok[i]]))].slice(0, 40) : [], P: A.P, uses: A.useIdx.length };
+      const extra = { claim_scope: sc, D: A.D, S_max: Math.round(A.sMax * 100) / 100, cluster: A.cluster.beats.map((i) => i + 1), cluster_nouns: A.cluster.nouns.slice(0, 8), scenario_words: A.multi ? [...new Set(A.cluster.beats.flatMap((i) => [...A.tok[i]]))].slice(0, 40) : [], P: A.P, uses: A.useIdx.length, domains: [...new Set(A.domains)], min_D: null, waiver: waived };
       if (!sc) g13.push("claim-scope-missing: the truth sheet has no Claim scope (scope: universal | category | single-task). Regenerate it (re-run the research lead, or add ## Claim scope and ## Use moments): the story's scope must match the claim's");
       else if (sc !== "single-task") {
         const uni = sc === "universal";
@@ -1174,12 +1402,13 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
         // uses and areas of life
         const minUses = uni ? (len <= 35 ? 4 : len <= 50 ? 5 : 6) : 3;
         const nUses = A.useIdx.length + A.burst.length;
-        if (nUses < minUses) g13.push(`use-count: ${nUses} uses for a ${Math.round(len)} s ${sc} film (${minUses} at least)`);
+        if (nUses < minUses) rng.push(`use-count: ${nUses} uses for a ${Math.round(len)} s ${sc} film (${minUses} at least)`);
         const noDom = A.useIdx.filter((i) => !A.useDomains[A.useIdx.indexOf(i)]);
         if (noDom.length) g13.push(`domain missing on use beat(s) ${bl(noDom)}: every rung or benefit names its area of life in "domain"${uni ? ` (${USE_DOMAINS.join(", ")})` : ""}`);
         if (uni) { const bad = [...new Set(A.domains.filter((d) => !USE_DOMAINS.includes(d)))]; if (bad.length) g13.push(`domain(s) ${bad.join(", ")} not in the list: ${USE_DOMAINS.join(", ")}`); }
         const minD = uni ? (len <= 22 ? 3 : len <= 40 ? 4 : 5) : (len <= 22 ? 2 : len <= 40 ? 3 : 4);
-        if (A.D < minD) g13.push(`areas: ${A.D} distinct area(s) of life (${[...new Set(A.domains)].join(", ") || "none"}) for a ${Math.round(len)} s ${sc} claim (${minD} at least): the film is the claim's range`);
+        extra.min_D = minD;
+        if (A.D < minD) rng.push(`areas: ${A.D} distinct area(s) of life (${[...new Set(A.domains)].join(", ") || "none"}) for a ${Math.round(len)} s ${sc} claim (${minD} at least): the film is the claim's range`);
         const byDom = {}; A.useDomains.filter(Boolean).forEach((d) => { byDom[d] = (byDom[d] || 0) + 1; });
         const topDom = Object.entries(byDom).sort((a, b) => b[1] - a[1])[0];
         if (uni && topDom && A.useDomains.length >= 3 && topDom[1] / A.useDomains.length > 0.5) g13.push(`areas: "${topDom[0]}" holds ${topDom[1]} of ${A.useDomains.length} uses (half at most)`);
@@ -1220,10 +1449,10 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
         // the promise's own clauses, each shown by a use (clause: index or text on a use beat)
         const clauses = clausesOf(truth);
         if (clauses.length) {
-          const covered = new Set();
-          beats.forEach((b) => [].concat(b.clause == null ? [] : b.clause).forEach((c) => { const n = Number(c); if (Number.isInteger(n) && n >= 0 && n < clauses.length) covered.add(n); else { const k = clauses.findIndex((x) => nz8(x) === nz8(c)); if (k >= 0) covered.add(k); } }));
+          const covered = clausesShown(clauses, beats);
           const missing = clauses.filter((_, k) => !covered.has(k));
-          if (missing.length) (A.useIdx.some((i) => beats[i].clause != null) ? g13 : w13).push(`coverage: the promise clause(s) ${missing.map((c) => `"${c}"`).join(", ")} are shown by no use (set clause: <index> on the use beat that shows each)`);
+          // with a plan each script owns only some claims: its missing clauses are warnings here, and the portfolio's clause-dropped holds the set to all of them
+          if (missing.length) (!opts.plan && A.useIdx.some((i) => beats[i].clause != null) ? g13 : w13).push(`coverage: the promise clause(s) ${missing.map((c) => `"${c}"`).join(", ")} are shown by no use (set clause: <index> on the use beat that shows each)`);
         }
         // the retell test: what is the film about, in a sentence? a universal claim's retell names the range, never one situation
         const retell = String((p.critique && p.critique.retell) || "").trim();
@@ -1286,7 +1515,17 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     if (valueIdx > 1) g6.push(`the value lands in beat ${valueIdx + 1}: state what the viewer gets by beat 2, then prove it`);
     else if (valueIdx < 0) warnings.push("mark the beat that states the value with value: true (it must be beat 1 or 2)");
     const last = beats[beats.length - 1];
-    if (Number(last.duration_s) < 2) g6.push(`the end beat runs ${last.duration_s} s: the end card needs 2-3 s for the name and call to action to land (and at most 1.4 s still after the last one)`);
+    const lenG6 = opts.length || lengthS;
+    if (Number(last.duration_s) < END_MIN_S(lenG6) - 1e-9) g6.push(`end-short: the end beat runs ${last.duration_s} s: at least ${END_MIN_S(lenG6)} s in a ${Math.round(lenG6)} s film, so the name and call to action land (and at most 1.4 s still after the last one)`);
+    if (lenG6 <= 12 && (beats.length < 4 || beats.length > 5)) g6.push(`beat-count: ${beats.length} beats in a ${Math.round(lenG6)} s film (4 to 5: story.mjs sheet --length ${Math.round(lenG6)} is the beat sheet)`);
+    // the peak holds longest: the peak beat (peak: true, slot "peak", else the intent sheet's) is never shorter than another beat
+    {
+      const II = opts.intent && opts.intent.data && Array.isArray(opts.intent.data.beats) && opts.intent.data.beats.length === beats.length ? opts.intent.data : null;
+      let pk = beats.findIndex((b) => b.peak === true);
+      if (pk < 0) pk = beats.findIndex((b) => norm(b.slot).trim() === "peak");
+      if (pk < 0 && II) pk = II.beats.findIndex((b) => b.peak === true);
+      if (pk >= 0) { const shorter = beats.map((b, i) => ({ b, i })).filter(({ b, i }) => i !== pk && Number(b.duration_s) > Number(beats[pk].duration_s) + 1e-9); if (shorter.length) g6.push(`peak-not-longest: the peak (beat ${pk + 1} "${beats[pk].name || ""}", ${beats[pk].duration_s} s) is shorter than beat ${shorter.map(({ b, i }) => `${i + 1} "${b.name || ""}" (${b.duration_s} s)`).join(", ")}: the peak holds longest`); }
+    }
     if (!String(last.on_screen || "").trim()) g6.push("the end beat has no on-screen line (the name and one call to action)");
     let vo = 0;
     beats.forEach((b, i) => {
@@ -1306,7 +1545,8 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     });
     if (narrated && vo > 2.5 * lengthS * 0.85) g6.push(`${vo} voiceover words for ${lengthS} s: leave music-only moments (about ${Math.round(2.5 * lengthS * 0.8)} words at most)`);
     const ds = beats.map((b) => Number(b.duration_s)), mean = ds.reduce((a, b) => a + b, 0) / ds.length, cv = Math.sqrt(ds.reduce((a, b) => a + (b - mean) ** 2, 0) / ds.length) / mean;
-    if (ds.length >= 4 && cv < 0.15) g6.push(`every beat runs about ${mean.toFixed(1)} s: vary the rhythm (quick beats, then give the turn and the reveal the longest shots)`);
+    const peakOk = lenG6 <= 12 && !g6.some((m) => m.startsWith("peak-not-longest")); // at <=12 s the peak rule already forces variation
+    if (ds.length >= 4 && cv < 0.15 && !peakOk) g6.push(`every beat runs about ${mean.toFixed(1)} s: vary the rhythm (quick beats, then give the turn and the reveal the longest shots)`);
     gate("G6", "The script holds up (references/script.md)", g6);
     script = { narrated, vo_words: vo, words_per_s: Math.round((vo / lengthS) * 100) / 100, rhythm_cv: Math.round(cv * 100) / 100 };
   }
@@ -1463,6 +1703,38 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     gate("G12", "Viewer first (second person early, the reveal after the pain, a benefit per use, proof, a concrete cta, one line per 1.5-2.5 s)", g12, { shape: shape12, lines: rows.length, seconds_per_line: secPerLine == null ? null : r1d(secPerLine), proof: hasProof });
   }
 
+  // G14: the pitch conforms to its slot in story/plan.json (the planner chose the device, the turn kind, the peak kind and the claims this script owns)
+  if (opts.plan) {
+    const g14 = [];
+    const slot = (opts.plan.slots || []).find((x) => x.label === p.label);
+    if (!slot) g14.push(`plan-slot: no slot "${p.label || ""}" in plan.json (${(opts.plan.slots || []).map((x) => x.label).join(", ")})`);
+    else {
+      if (slot.device != null && deviceIds[0] !== slot.device) g14.push(`plan-device: the pitch's device is "${deviceIds[0]}", the plan gives "${slot.device}"`);
+      const sh = norm(p.shape).trim() || shapeOf(p, beats), en = String(p.engine || ENGINE_OF_SHAPE[shapeOf(p, beats)] || "");
+      if (slot.shape && sh !== slot.shape) g14.push(`plan-shape: the pitch's shape is "${sh}", the plan gives "${slot.shape}"`);
+      if (slot.engine && en !== slot.engine) g14.push(`plan-engine: the pitch's engine is "${en}", the plan gives "${slot.engine}"`);
+      if (p.turn_kind !== slot.turn_kind) g14.push(`plan-turn-kind: the pitch declares ${p.turn_kind ? `"${p.turn_kind}"` : "no turn_kind"}, the plan gives "${slot.turn_kind}"`);
+      if (p.peak_kind !== slot.peak_kind) g14.push(`plan-peak-kind: the pitch declares ${p.peak_kind ? `"${p.peak_kind}"` : "no peak_kind"}, the plan gives "${slot.peak_kind}"`);
+      const rows = Array.isArray(p.coverage) ? p.coverage : [];
+      for (const c of slot.owned_claims || []) if (!rows.some((r) => r && r.cut == null && Number(r.beat) >= 1 && String(r.claim).toLowerCase() === String(c).toLowerCase())) g14.push(`plan-claims: the plan gives this script the claim ${c}: it needs a coverage row { claim: "${c}", beat: N } on a beat (a cut is not allowed)`);
+    }
+    gate("G14", "Plan (this pitch fills its slot in story/plan.json)", g14, { slot: slot ? slot.label : null });
+  }
+
+  // G15: the coverage map (pitch.coverage): every Must-show feature and every claim in the truth sheet's Surprising facts is on a beat, or cut with a reason
+  if (truth && (opts.productFirst || p.product_first === true)) {
+    const g15 = [];
+    const rows = Array.isArray(p.coverage) ? p.coverage.filter((r) => r && typeof r === "object") : [];
+    const missing = requiredCoverage(truth).filter((req) => !rows.some((r) => covMatch(r, req)));
+    if (missing.length) g15.push(`coverage-missing: no coverage row for ${missing.map(covName).join(", ")} (pitch.coverage: { claim | feature, beat } or { claim | feature, cut: "<reason, 4+ words>" })`);
+    rows.forEach((r, i) => {
+      if (r.beat != null && !(Number.isInteger(Number(r.beat)) && Number(r.beat) >= 1 && Number(r.beat) <= beats.length)) g15.push(`coverage-beat: coverage[${i}] ${covName(r)} names beat ${r.beat}; this script has beats 1-${beats.length}`);
+      if (r.cut != null && wordsN(r.cut) < 4) g15.push(`coverage-cut: coverage[${i}] ${covName(r)} is cut with "${r.cut}": a cut needs a reason of 4+ words`);
+      if (r.beat == null && r.cut == null) g15.push(`coverage-beat: coverage[${i}] ${covName(r)} has neither a beat nor a cut`);
+    });
+    gate("G15", "Coverage (every must-show feature and surprising fact is on a beat or cut with a reason)", g15, { rows: rows.length });
+  }
+
   // scores: self-assessed, then adjusted by rule
   const self = Object.fromEntries(DIMS.map((k) => [k, Number(scores[k])]));
   const adj = { ...self };
@@ -1600,6 +1872,39 @@ function checkPortfolio(pitches, results, opts = {}) {
       const ia = norm(pitches[i].signature_image), ib = norm(pitches[j].signature_image);
       if (ia && ia === ib) reasons.push(`"${pa}" and "${pb}" share a signature image`);
     }
+  // airtight: no line, peak kind, turn kind or coverage order shared between scripts, and nothing the brief asked for dropped by all of them
+  const nm = (p, i) => `"${p.title || p.label || i + 1}"`;
+  const lineSet = (p) => new Set((p.beats || []).flatMap((b) => [String(b.on_screen || ""), ...linesOf(b)]).map(nz8).filter((l) => l.split(" ").filter(Boolean).length >= 2));
+  const lines = pitches.map(lineSet);
+  for (let i = 0; i < pitches.length; i++) for (let j = i + 1; j < pitches.length; j++) {
+    const common = [...lines[i]].filter((l) => lines[j].has(l));
+    for (const l of common) reasons.push(`shared-line: the on-screen line "${l}" is in ${nm(pitches[i], i)} and ${nm(pitches[j], j)}: every script says its own lines`);
+    for (const [k, code] of [["peak_kind", "shared-peak-kind"], ["turn_kind", "shared-turn-kind"]]) if (pitches[i][k] && pitches[i][k] === pitches[j][k]) reasons.push(`${code}: ${nm(pitches[i], i)} and ${nm(pitches[j], j)} both declare ${k} "${pitches[i][k]}"`);
+  }
+  const seqs = pitches.map(coverageSeq);
+  const sameOrder = [];
+  for (let i = 0; i < pitches.length; i++) for (let j = i + 1; j < pitches.length; j++) if (seqs[i].length >= 3 && seqs[j].length >= 3 && lcsLen(seqs[i], seqs[j]) >= 3) { sameOrder.push([i, j]); reasons.push(`same-order: ${nm(pitches[i], i)} and ${nm(pitches[j], j)} cover the brief's claims and features in the same order (3+ in a row): reorder one`); }
+  if (pitches.length >= 3 && sameOrder.length === (pitches.length * (pitches.length - 1)) / 2) reasons.push("cliche-order: all three scripts cover the claims and features in the same order: that order is the cliche version's");
+  if (opts.truth && pitches.length > 1) {
+    const cuts = ((opts.plan && opts.plan.coverage) || []).filter((r) => r && r.cut != null && wordsN(r.cut) >= 4);
+    for (const req of requiredCoverage(opts.truth)) {
+      const shown = pitches.some((p) => (p.coverage || []).some((r) => r && r.cut == null && r.beat != null && covMatch(r, req)));
+      if (!shown && !cuts.some((r) => covMatch(r, req))) reasons.push(`coverage-dropped: ${covName(req)} is on no beat of any script and the plan does not cut it with a reason`);
+    }
+  }
+  if (opts.truth && opts.plan && pitches.length > 1) {
+    const cl = clausesOf(opts.truth);
+    const shownBy = pitches.map((p) => clausesShown(cl, p.beats || []));
+    cl.forEach((c, k) => { if (!shownBy.some((x) => x.has(k))) reasons.push(`clause-dropped: the promise clause "${c}" is shown by no script (set clause: ${k} on the use beat of the script that owns it)`); });
+  }
+  // range vs honesty: at most one waiver per set, and the set's union of areas of life meets the claim scope's D threshold
+  const wv = g13.map((g, i) => (g && g.waiver ? i : -1)).filter((i) => i >= 0);
+  if (wv.length > 1) reasons.push(`waiver-count: ${wv.map((i) => nm(pitches[i], i)).join(" and ")} each declare a scope_waiver: at most one script per set may show a narrower range`);
+  if (wv.length) {
+    const minD = Math.max(0, ...g13.map((g) => (g && g.min_D) || 0));
+    const union = [...new Set(g13.flatMap((g) => (g && g.domains) || []))];
+    if (minD && union.length < minD) reasons.push(`range-short: with a scope_waiver the set's scripts together show ${union.length} area(s) of life (${union.join(", ") || "none"}), ${minD} needed: another script must carry the areas the waived one drops`);
+  }
   const adj = results.filter((r) => r.scores).map((r) => r.scores.adjusted);
   if (pitches.length >= 3) {
     if (!adj.some((s) => s.originality >= 4)) reasons.push("no pitch scores 4+ on originality (the brave one)");

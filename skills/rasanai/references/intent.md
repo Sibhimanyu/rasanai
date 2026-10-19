@@ -35,18 +35,20 @@ Each beat:
 | `peak` | boolean | exactly one beat is `true` |
 | `read` | object | `{text, seconds, kind (opt)}` (`s` is read as `seconds`): the ONE thing to read. `kind` `words` (default) \| `number` \| `picture`. `seconds` at least `readTime(text)` (`scripts/lib/reading.mjs`: 0.6 + 0.3 per word); a picture read at least 1.0 |
 | `rest_after` | boolean | the film breathes after this beat |
-| `duration_s` | number | the pitch beat's draft `duration_s`, copied, so the peak's place can be measured |
+| `duration_s` | number | the pitch beat's draft `duration_s`, copied, so the peak's place and its length against the other beats can be measured |
+| `slot` | string (opt) | the beat sheet's slot for this beat (`story.mjs sheet --length <s>`): `open` \| `hook` \| `turn` \| `rung` \| `proof` \| `rest` \| `peak` \| `payoff` \| `end` \| `close` |
 
 Film-level rules:
 
 1. Importance 3 on at most 25% of the beats. At least one beat at importance 1: emphasis is spent, not spread.
-2. The peak beat has importance 3 and starts between 60% and 75% of the running time (a lyric treatment: on the song's own climax, 55% to 90%).
+2. The peak beat has importance 3 and starts between 60% and 75% of the running time (58% to 75% at 10 s) (a lyric treatment: on the song's own climax, 55% to 90%).
 3. The beat right before the peak has `rest_after: true`.
 4. The pitch's turn beat (`turn: true`, stated in `pitch.turn`) has relation `but`. Engine placement (references/story.md, Plot engines): `reversal`: the turn starts at 15% to 45%, before the peak; `refrain-break`: the turn IS the peak (the break); `before-after`: the turn (the cause made visible) comes before the peak.
 5. The payoff is a beat with relation `answer`, at or after the peak, and it answers what `ending_first.echo` names.
 6. No two beats share a `buys`.
+7. The peak holds longest: the peak beat's `duration_s` is at least every other beat's (error `peak-not-longest`). At a 10 s film the peak window is 58% to 75% (a 10 s film rounds hard); elsewhere 60% to 75%.
 
-Errors: the proposition, `page`, `villain`, `ending_first`, each beat's buys, before, after, relation, importance and read, the 25% budget, the one peak at importance 3. Warnings (uncalibrated): `muted_hook`, felt numbers, the form of a buys (`buys-form`, `buys-and`), `no-change`, `no-valley`, `peak-place`, `no-rest-before-peak`, `read-short`, repeated buys.
+Errors: the proposition, `page`, `villain`, `ending_first`, each beat's buys, before, after, relation, importance and read, the 25% budget, the one peak at importance 3, the peak holding longest (`peak-not-longest`). Warnings (uncalibrated): `muted_hook`, felt numbers, the form of a buys (`buys-form`, `buys-and`), `no-change`, `no-valley`, `peak-place`, `no-rest-before-peak`, `read-short`, repeated buys.
 
 Timings follow the intent, never the reverse: `scenes.mjs --intent story/intent.json --retime` sizes each beat from its `read` and `importance` (the peak and the payoff hold longest, the beats before the peak shorten, a `rest_after` adds air). The draft `duration_s` is only where that starts.
 

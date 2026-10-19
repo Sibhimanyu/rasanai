@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { readJSON, writeFile } from "./common.mjs";
 import { findOption } from "./taxonomy.mjs";
-import { readDesignMd, toFrameMd, toTokensJson } from "./design-md.mjs";
+import { readDesignMd, toFrameMd, toTokensJson, findBrandManifest } from "./design-md.mjs";
 import { stageFonts } from "./fonts.mjs";
 
 export const DIRECTION_MARK = "<!-- rasanai:direction -->";
@@ -42,7 +42,7 @@ export async function installLook(dir, { designMd = null, mode = undefined, fram
   let brand = null;
   if (designMd) {
     brand = readDesignMd(designMd, { mode });
-    frameText = toFrameMd(brand);
+    frameText = toFrameMd(brand, { assets: findBrandManifest(designMd) });
     writeFile(path.join(dir, "capture", "extracted", "tokens.json"), JSON.stringify(toTokensJson(brand), null, 2) + "\n");
     notes.push(`frame.md converted from the project's brand reference ${path.basename(designMd)} (${brand.format}); capture/extracted/tokens.json written for build-frame.mjs remixes`);
     notes.push(...brand.warnings);

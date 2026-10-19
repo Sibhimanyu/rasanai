@@ -84,7 +84,7 @@ enum LessonStore {
     }
 
     /// Where a Node binary lives for the skill's scripts: the bundled one, Studio's managed one, then the usual folders.
-    nonisolated private static var node: URL? {
+    nonisolated static var node: URL? {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let bundled = Bundle.main.resourceURL?.appendingPathComponent("Runtime/node/bin/node").path
         let paths = [bundled, home + "/.rasanai/node/bin/node"].compactMap { $0 } + LocalAgent.searchDirectories.map { $0 + "/node" }

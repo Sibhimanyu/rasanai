@@ -50,3 +50,16 @@ node scripts/brand.mjs board --file DESIGN.md --out <dir> [--aspect 16:9] [--mod
 ## In decisions
 
 `look: { "design_md": "DESIGN.md", "mode": "dark" }` (the brand's own frame.md) in video-decisions.json, handoff decisions.json and reel.json; or brand-locked design directions (`design.mjs looks --brand DESIGN.md`, then `design.mjs pick`, which sets `look.frame` and keeps `brand`). In `video.mjs` only, `{ design_md, preset }` also works: the brand remixed onto a preset's layout by `build-frame.mjs`. A picked `look.frame` wins over `design_md` when both are set.
+
+## User brand kits
+
+A brand the user keeps in the Studio library (or any folder) is a DESIGN.md plus managed assets: `<brand>/DESIGN.md`, `brand.json`, `assets/brand-assets.json` (the manifest: logos with kind, colour versions and a primary; fonts with family, weight, style; media with kind and tags; `missing` references), `assets/logos|fonts|media/`, and `assets/check.json` (the last check).
+
+```bash
+node scripts/brand-assets.mjs import --brand <dir> [--design <DESIGN.md>] [--offline]   # pull in every file DESIGN.md points at (images, links, @font-face, logo:/font-file: keys, bare paths and URLs); unresolved ones go to `missing`
+node scripts/brand-assets.mjs add    --brand <dir> --file <path> [--as logo|font|media] [--kind ...]   # one file in; clears a matching `missing` entry
+node scripts/brand-assets.mjs check  --brand <dir> [--online]    # colours by role, fonts, font files, logos, problems (block) and warnings -> assets/check.json
+node scripts/brand-assets.mjs apply  --brand <dir> --project <dir>   # DESIGN.md (the old one kept as DESIGN.previous[-n].md), assets/brand/ (logos + logos.json + media), assets/fonts/ (+ fonts.json), assets/brand/brand-assets.json with `origin: "user"`
+```
+
+When `<project>/assets/brand/brand-assets.json` has `origin: "user"`, the user supplied the brand: crew.mjs seeds `research/brand/DESIGN.md` and `research/brand/assets/` from the project, does **not** dispatch the brand-researcher (no web search for a logo), passes the media list to the product and screens researchers and the builders, and `lib/fonts.mjs` uses the supplied font files (exact weight, else the nearest) before Google Fonts or Fontshare. `frame.md` gets a `## Logo` section naming the files.
