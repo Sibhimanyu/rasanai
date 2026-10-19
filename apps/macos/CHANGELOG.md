@@ -2,7 +2,7 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.16.0 (build 34) — 2026-10-19
 
 - **Brands get an Assets section.** Logos with a kind (mark, wordmark, lockup, app icon), colour versions and a primary star; font files with their family, weight and style; screenshots, images, icons, video and guideline PDFs with tags. Drop files on a group or use its + button.
 - **Importing a DESIGN.md brings its files.** Logos, fonts and images the file points to are copied into the brand. A Needs attention strip lists anything missing, with Locate…, and warns when a font has no file and would become Inter.
