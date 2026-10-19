@@ -79,8 +79,9 @@ struct BrandsView: View {
             Button { showNew = true } label: { Label("New brand", systemImage: "plus") }.help("New brand")
         }
         .sheet(isPresented: $showNew) {
-            NewBrandSheet(root: root) { brand in
+            NewBrandSheet(root: root) { brand, kit, name in
                 reloadGeneration += 1
+                if let kit { store.brandCompiler(for: brand.folder).start(kit: kit, brand: brand.folder, name: name, store: store) }
                 store.path.append(.brand(brand.folder))
             }
         }
@@ -153,11 +154,14 @@ private struct BrandCard: View {
 
 struct NewBrandSheet: View {
     let root: URL
-    var onCreate: (Brand) -> Void
+    /// The brand, and the kit folder or .zip it is to be compiled from (with the name the person typed, if any).
+    var onCreate: (Brand, URL?, String?) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var designURL: URL?
+    @State private var kitURL: URL?
+    @State private var pickingKit = false
     @State private var logoURL: URL?
     @State private var dropping = false
     @State private var error: String?
@@ -168,13 +172,14 @@ struct NewBrandSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("New brand").font(.system(size: 20, weight: .semibold))
-            TextField("Brand name", text: $name).textFieldStyle(.roundedBorder).controlSize(.large).focused($focused)
+            TextField(kitURL == nil ? "Brand name" : "From the kit", text: $name).textFieldStyle(.roundedBorder).controlSize(.large).focused($focused)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Design system").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
                 HStack(spacing: 10) {
-                    choice("Blank template", "doc.badge.plus", selected: designURL == nil) { designURL = nil }
+                    choice("Blank template", "doc.badge.plus", selected: designURL == nil && kitURL == nil) { designURL = nil; kitURL = nil }
                     choice(designURL?.lastPathComponent ?? "Import DESIGN.md…", "square.and.arrow.down", selected: designURL != nil) { pickDesign() }
+                    choice(kitURL?.lastPathComponent ?? "Brand kit folder…", "folder", selected: kitURL != nil) { pickingKit = true }
                 }
                 .onDrop(of: [.fileURL], isTargeted: $dropping) { providers in
                     guard let p = providers.first else { return false }
@@ -184,11 +189,11 @@ struct NewBrandSheet: View {
                     return true
                 }
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.accentColor, lineWidth: dropping ? 2 : 0).padding(-3))
-                Text(designURL == nil ? "Starts with Colours, Typography and Motion sections for you to fill in." : "Colours and fonts are read from the file. Logos, fonts and images it points to are pulled in.")
+                Text(hint)
                     .font(.system(size: 11)).foregroundStyle(.secondary)
             }
 
-            HStack {
+            if kitURL == nil { HStack {
                 if let logoURL, let image = NSImage(contentsOf: logoURL) {
                     Image(nsImage: image).resizable().scaledToFit().frame(width: 28, height: 28)
                     Text(logoURL.lastPathComponent).font(.system(size: 12)).lineLimit(1)
@@ -199,21 +204,25 @@ struct NewBrandSheet: View {
                     Text("Optional").font(.system(size: 11)).foregroundStyle(.secondary)
                 }
                 Spacer()
-            }
+            } }
 
             if let error { Text(error).font(.system(size: 12)).foregroundStyle(.red) }
             HStack {
                 Spacer()
-                if working { ProgressView().controlSize(.small); Text("Reading the brand’s files…").font(.system(size: 11)).foregroundStyle(.secondary) }
+                if working { ProgressView().controlSize(.small); Text(kitURL == nil ? "Reading the brand’s files…" : "Setting up the brand…").font(.system(size: 11)).foregroundStyle(.secondary) }
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction).disabled(working)
                 Button("Create") { create() }.buttonStyle(.rasanPrimary)
                     .keyboardShortcut(.defaultAction)
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || working)
+                    .disabled((name.trimmingCharacters(in: .whitespaces).isEmpty && kitURL == nil) || working)
             }
         }
-        .padding(24).frame(width: 440).interactiveDismissDisabled(working)
+        .padding(24).frame(width: 520).interactiveDismissDisabled(working)
         .onAppear { focused = true }
+        .fileImporter(isPresented: $pickingKit, allowedContentTypes: [.folder, .zip]) { result in
+            if case .success(let url) = result { accept(url) }
+        }
         .animation(reduceMotion ? nil : .snappy, value: designURL)
+        .animation(reduceMotion ? nil : .snappy, value: kitURL)
     }
 
     private func choice(_ title: String, _ symbol: String, selected: Bool, action: @escaping () -> Void) -> some View {
@@ -227,11 +236,18 @@ struct NewBrandSheet: View {
         }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
     }
 
+    private var hint: String {
+        if kitURL != nil { return "RasanAI reads everything in the kit, then Claude writes the design system and sorts the logos, fonts and images. This takes a few minutes; the brand opens right away." }
+        return designURL == nil ? "Starts with Colours, Typography and Motion sections for you to fill in." : "Colours and fonts are read from the file. Logos, fonts and images it points to are pulled in."
+    }
+
     private func accept(_ url: URL) {
+        let isFolder = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
+        if isFolder || url.pathExtension.lowercased() == "zip" { error = nil; kitURL = url; designURL = nil; logoURL = nil; return }
         guard Self.designExtensions.contains(url.pathExtension.lowercased()) else {
-            error = "A design system is a .md, .markdown or .txt file. Add logos, fonts and images from the brand page after you create it."; return
+            error = "Drop a .md, .markdown or .txt design system, or a brand kit folder or .zip. Add logos, fonts and images from the brand page after you create it."; return
         }
-        error = nil; designURL = url; if name.isEmpty { name = suggested(url) }
+        error = nil; kitURL = nil; designURL = url; if name.isEmpty { name = suggested(url) }
     }
 
     private func suggested(_ url: URL) -> String {
@@ -255,15 +271,22 @@ struct NewBrandSheet: View {
 
     private func create() {
         working = true; error = nil
-        let name = name, design = designURL, logo = logoURL, root = root
+        let name = name, design = designURL, logo = logoURL, kit = kitURL, root = root
         Task {
             do {
+                if let kit {
+                    // The compile job (started by the page that opened this sheet) copies the kit's files in and writes the design system.
+                    let brand = try await Task.detached { try BrandLibrary.createFromKit(kit, name: name, in: root) }.value
+                    working = false; dismiss()
+                    onCreate(brand, kit, name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : name)
+                    return
+                }
                 let brand = try await Task.detached { try BrandLibrary.create(name: name, importing: design, logo: logo, in: root) }.value
                 // Pull in what DESIGN.md points to and check the brand; the brand page then shows anything still missing.
                 if BrandEngine.available { await BrandEngine.importAndCheck(brand.folder, design: design) }
                 working = false
                 dismiss()
-                onCreate(brand)
+                onCreate(brand, nil, nil)
             } catch { self.error = error.localizedDescription; working = false }
         }
     }
@@ -282,6 +305,8 @@ struct BrandPage: View {
     @State private var loaded = false
     @State private var reloadGeneration = 0
     @State private var checkedGeneration = -1
+    @State private var report = BrandKitReport()
+    private var compiler: BrandCompiler { store.brandCompiler(for: brand) }
 
     var body: some View {
         Group {
@@ -292,6 +317,14 @@ struct BrandPage: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.appBackground)
         .navigationTitle(model?.name ?? "Brand")
+        .onChange(of: compiler.state) { _, _ in reloadGeneration += 1 }
+        // While Claude works the manifest fills in; show it as it goes.
+        .task(id: compiler.isRunning) {
+            while compiler.isRunning, !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(6))
+                if compiler.isRunning, !Task.isCancelled { reloadGeneration += 1 }
+            }
+        }
         .task(id: "\(brand.path):\(reloadGeneration)") { await reload() }
         .sheet(isPresented: $showEditor) {
             if let model {
@@ -307,6 +340,9 @@ struct BrandPage: View {
             Menu {
                 Button("Edit in TextEdit") { edit() }
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([brand]) }
+                if let kit = model?.kit, FileManager.default.fileExists(atPath: kit.path) {
+                    Button("Recompile from kit") { recompile(kit) }.disabled(compiler.isRunning)
+                }
                 Divider()
                 Button("Delete Brand…", role: .destructive) { confirmDelete = true }
             } label: { Label("More", systemImage: "ellipsis") }
@@ -314,7 +350,7 @@ struct BrandPage: View {
         }
         .confirmationDialog("Move \(model?.name ?? "this brand") to the Trash?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Move to Trash", role: .destructive) {
-                if let model { do { try BrandLibrary.delete(model); store.path.removeLast() } catch { self.error = error.localizedDescription } }
+                if let model { do { compiler.cancel(); try BrandLibrary.delete(model); store.path.removeLast() } catch { self.error = error.localizedDescription } }
             }
         } message: { Text("Films that already use it keep their own copy.") }
         .alert("Couldn’t move the brand to the Trash", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
@@ -322,15 +358,19 @@ struct BrandPage: View {
         } message: { Text(error ?? "") }
     }
 
+    private func recompile(_ kit: URL) {
+        compiler.start(kit: kit, brand: brand, name: nil, store: store)
+    }
+
     private func reload() async {
         let folder = brand
         let result = await Task.detached(priority: .userInitiated) {
-            (BrandLibrary.load(folder), (try? String(contentsOf: folder.appendingPathComponent("DESIGN.md"), encoding: .utf8)) ?? "")
+            (BrandLibrary.load(folder), (try? String(contentsOf: folder.appendingPathComponent("DESIGN.md"), encoding: .utf8)) ?? "", BrandKitReport.load(folder))
         }.value
         guard !Task.isCancelled else { return }
-        model = result.0; text = result.1; loaded = true
+        model = result.0; text = result.1; report = result.2; loaded = true
         // No check yet, or DESIGN.md changed since (edited in TextEdit): run the cheap check once and show its result.
-        if let loadedBrand = result.0, loadedBrand.check == nil, BrandEngine.available, checkedGeneration != reloadGeneration {
+        if let loadedBrand = result.0, loadedBrand.check == nil, BrandEngine.available, !compiler.isRunning, checkedGeneration != reloadGeneration {
             checkedGeneration = reloadGeneration
             await BrandEngine.check(folder)
             guard !Task.isCancelled else { return }
@@ -360,6 +400,9 @@ struct BrandPage: View {
                     }
                     Spacer()
                 }
+                if let summary = report.summary {
+                    Text(summary).font(.system(size: 13)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                }
 
                 if !b.colors.isEmpty {
                     HStack(spacing: 12) {
@@ -387,7 +430,13 @@ struct BrandPage: View {
                     }
                 }
 
-                BrandAssetsSection(brand: b) { reloadGeneration += 1 }
+                BrandAssetsSection(brand: b, report: report, compiler: compiler, retry: b.kit.map { kit in { recompile(kit) } }) { reloadGeneration += 1 }
+
+                if let rules = report.rules {
+                    DisclosureGroup {
+                        MarkdownText(text: rules).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
+                    } label: { Text("Brand rules").font(.system(size: 15, weight: .semibold)) }
+                }
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("DESIGN.md").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
@@ -413,6 +462,7 @@ private struct MarkdownText: View {
     @ViewBuilder private func row(_ raw: String) -> some View {
         let line = raw.trimmingCharacters(in: .whitespaces)
         if line.isEmpty { Color.clear.frame(height: 4) }
+        else if line.hasPrefix("<!--") { EmptyView() }
         else if line.hasPrefix("#") {
             let level = line.prefix { $0 == "#" }.count
             Text(inline(line.drop { $0 == "#" || $0 == " " }))

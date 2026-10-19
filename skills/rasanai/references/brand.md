@@ -62,4 +62,13 @@ node scripts/brand-assets.mjs check  --brand <dir> [--online]    # colours by ro
 node scripts/brand-assets.mjs apply  --brand <dir> --project <dir>   # DESIGN.md (the old one kept as DESIGN.previous[-n].md), assets/brand/ (logos + logos.json + media), assets/fonts/ (+ fonts.json), assets/brand/brand-assets.json with `origin: "user"`
 ```
 
+**A whole kit folder (or .zip):** `inventory` copies and classifies every file (logos by folder and name, fonts, media, guideline PDFs; `.ai` that is PDF-compatible becomes an SVG logo candidate; the rest of the design formats are listed as `unusable`), imports the kit's DESIGN.md and writes `assets/kit-inventory.json`; then a Claude job reads `agents/brand-compiler.md` (`compile-prompt` prints it with the paths filled in) to write the DESIGN.md, fix the manifest with `set`, write `assets/KIT.md` and `assets/compile.json`; then `check`. `compile` runs all of it in one go from a terminal.
+
+```bash
+node scripts/brand-assets.mjs inventory --kit <folder|.zip> --brand <dir> [--name <Name>]
+node scripts/brand-assets.mjs compile-prompt --kit <folder> --brand <dir>
+node scripts/brand-assets.mjs set --brand <dir> --file logos/x.svg [--kind] [--colours on-light,on-dark] [--primary] [--family] [--weight] [--style] [--tags a,b] [--note] [--remove]
+node scripts/brand-assets.mjs compile --kit <folder|.zip> --brand <dir> [--name] [--claude <path>] [--model claude-sonnet-5-5]
+```
+
 When `<project>/assets/brand/brand-assets.json` has `origin: "user"`, the user supplied the brand: crew.mjs seeds `research/brand/DESIGN.md` and `research/brand/assets/` from the project, does **not** dispatch the brand-researcher (no web search for a logo), passes the media list to the product and screens researchers and the builders, and `lib/fonts.mjs` uses the supplied font files (exact weight, else the nearest) before Google Fonts or Fontshare. `frame.md` gets a `## Logo` section naming the files.

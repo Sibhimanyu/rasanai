@@ -7,6 +7,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import os from "node:os";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { readDesignMd } from "./design-md.mjs";
 import { HF_AUTO_FONTS } from "./fonts.mjs";
@@ -201,7 +203,7 @@ function addBuffer(brand, m, hashes, { as, name, buf, src, page = "DESIGN.md", m
   const group = GROUP[as];
   const file = placeFile(path.join(assetsDir(brand), group), sanitizeName(name), buf);
   let entry;
-  if (as === "logo") entry = { file: `logos/${file}`, kind: LOGO_KINDS.includes(meta.kind) ? meta.kind : "mark", colour_versions: meta.colour_versions || [], ...(m.logos.length ? {} : { primary: true }), source: { file: src, page } };
+  if (as === "logo") entry = { file: `logos/${file}`, kind: LOGO_KINDS.includes(meta.kind) ? meta.kind : "mark", colour_versions: meta.colour_versions || [], ...(m.logos.length ? {} : { primary: true }), source: { file: src, page }, ...(meta.extra || {}) };
   else if (as === "font") { const g = guessFont(file); entry = { file: `fonts/${file}`, family: meta.family || g.family, weight: wnum(meta.weight) || g.weight, style: meta.style === "italic" ? "italic" : meta.style === "normal" ? "normal" : g.style }; }
   else entry = { file: `media/${file}`, kind: MEDIA_KINDS.includes(meta.kind) ? meta.kind : mediaKind(file), tags: meta.tags || [], note: meta.note || "" };
   m[group].push(entry);
@@ -210,15 +212,15 @@ function addBuffer(brand, m, hashes, { as, name, buf, src, page = "DESIGN.md", m
   return { status: "added", ...rec };
 }
 
-export async function importBrand({ brand, design = null, offline = false }) {
+export async function importBrand({ brand, design = null, offline = false, keepOwn = false }) {
   brand = path.resolve(brand);
   if (!fs.existsSync(brand)) throw new Error(`brand folder not found: ${brand}`);
   const own = path.join(brand, "DESIGN.md");
   let designFile = design ? path.resolve(design) : own;
   if (!fs.existsSync(designFile)) throw new Error(`DESIGN.md not found: ${designFile}`);
   const baseDir = path.dirname(designFile); // references resolve against the ORIGINAL file's folder
-  if (designFile !== own) { fs.copyFileSync(designFile, own); }
-  const text = fs.readFileSync(own, "utf8");
+  if (designFile !== own && !keepOwn) fs.copyFileSync(designFile, own); // keepOwn: read the kit's file for its references but leave the brand's DESIGN.md (a recompile) alone
+  const text = fs.readFileSync(keepOwn && designFile !== own ? designFile : own, "utf8");
   const m = readManifest(brand);
   const hashes = knownHashes(brand, m);
   const have = new Set([...m.logos, ...m.fonts, ...m.media].map((e) => baseKey(e.file)));
@@ -385,4 +387,227 @@ export function applyBrand({ brand, project }) {
   files.push("assets/brand/brand-assets.json");
   writeJson(pm, { version: 1, origin: "user", brand: name, logos: outLogos, fonts: outFonts, media: outMedia, missing: m.missing, applied_files: [...files] });
   return { ok: true, files, removed };
+}
+
+// ---------------------------------------------------------------- set: edit one manifest entry
+function findEntry(m, file) {
+  const want = String(file).replace(/^\.?\/+/, "");
+  for (const g of ["logos", "fonts", "media"]) {
+    const e = m[g].find((x) => x.file === want || x.file === `${g}/${want}` || path.basename(x.file) === want);
+    if (e) return { group: g, entry: e };
+  }
+  return null;
+}
+const list = (v) => String(v).split(",").map((s) => s.trim()).filter(Boolean);
+export function setEntry({ brand, file, kind, colours, primary, family, weight, style, tags, note, remove }) {
+  brand = path.resolve(brand);
+  const m = readManifest(brand);
+  const hit = findEntry(m, file);
+  if (!hit) throw new Error(`no manifest entry for ${file} (files are listed like logos/x.svg)`);
+  const { group, entry } = hit;
+  if (remove) {
+    const f = path.join(assetsDir(brand), entry.file);
+    // remember the bytes so a recompile from the kit does not bring the junk back
+    try { const h = sha(fs.readFileSync(f)); m.removed_hashes = [...new Set([...(m.removed_hashes || []), h])]; } catch {}
+    m[group] = m[group].filter((x) => x !== entry);
+    try { if (within(assetsDir(brand), f)) fs.unlinkSync(f); } catch {}
+    writeManifest(brand, m);
+    return { ok: true, removed: entry.file };
+  }
+  if (kind != null) {
+    const set = group === "logos" ? LOGO_KINDS : group === "media" ? MEDIA_KINDS : null;
+    if (!set) throw new Error("--kind is for logos and media");
+    if (!set.includes(kind)) throw new Error(`--kind for ${group} is one of ${set.join(", ")}`);
+    entry.kind = kind;
+  }
+  if (colours != null) { if (group !== "logos") throw new Error("--colours is for logos"); entry.colour_versions = list(colours); }
+  if (primary) { if (group !== "logos") throw new Error("--primary is for logos"); m.logos.forEach((l) => delete l.primary); entry.primary = true; }
+  if (family != null || weight != null || style != null) {
+    if (group !== "fonts") throw new Error("--family/--weight/--style are for fonts");
+    if (family != null) entry.family = String(family);
+    if (weight != null) { const w = wnum(weight); if (!w) throw new Error("--weight is 100..900"); entry.weight = w; }
+    if (style != null) { if (!["normal", "italic"].includes(style)) throw new Error("--style is normal or italic"); entry.style = style; }
+  }
+  if (tags != null) { if (group !== "media") throw new Error("--tags is for media"); entry.tags = list(tags); }
+  if (note != null) { if (group !== "media") throw new Error("--note is for media"); entry.note = String(note); }
+  writeManifest(brand, m);
+  return { ok: true, entry };
+}
+
+// ---------------------------------------------------------------- kit folder: inventory, compile prompt, compile
+const UNUSABLE = { ai: "Illustrator file: export SVG", eps: "EPS file: export SVG or PNG", indd: "InDesign file: export PDF or the images", sketch: "Sketch file: export SVG or PNG", fig: "Figma file: export SVG or PNG", psd: "Photoshop file: export PNG", aep: "After Effects project: not used directly", mogrt: "Motion graphics template: not used directly", prproj: "Premiere project: not used directly", xd: "Adobe XD file: export SVG or PNG" };
+const SKIP_NAMES = new Set(["__macosx", ".ds_store", "thumbs.db", "desktop.ini"]);
+const MAX_KIT_FILE = 200 * 1024 * 1024;
+const LOGO_DIR = /logo|wordmark|(^|[^a-z])marks?([^a-z]|$)|^identity$/i;
+const DESIGN_NAME = [/^design\.md$/i, /^brand\.md$/i, /design[-_ ]?system.*\.md$/i, /brand.*guide.*\.md$/i];
+const titleCase = (s) => String(s).replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim().replace(/\b([a-z])/g, (c) => c.toUpperCase());
+const STUB = "<!-- rasanai:compile pending -->";
+const isStub = (f) => { try { const t = fs.readFileSync(f, "utf8"); return !t.trim() || t.includes(STUB); } catch { return true; } };
+
+function toolPath(name) {
+  const dirs = [...String(process.env.PATH || "").split(path.delimiter), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", path.join(os.homedir(), ".local", "bin")];
+  for (const d of dirs) { if (!d) continue; const p = path.join(d, name); try { if (fs.statSync(p).isFile()) return p; } catch {} }
+  return null;
+}
+const richEnv = () => ({ ...process.env, PATH: [process.env.PATH || "", "/opt/homebrew/bin", "/usr/local/bin", path.join(os.homedir(), ".local", "bin")].join(path.delimiter) });
+
+function walkKit(root, skipDir) {
+  const out = [];
+  const go = (dir) => {
+    let names; try { names = fs.readdirSync(dir).sort(); } catch { return; }
+    for (const n of names) {
+      if (n.startsWith(".") || SKIP_NAMES.has(n.toLowerCase())) continue;
+      const p = path.join(dir, n);
+      if (skipDir && within(skipDir, p)) continue;
+      let st; try { st = fs.lstatSync(p); } catch { continue; }
+      if (st.isSymbolicLink()) continue;
+      if (st.isDirectory()) go(p); else if (st.isFile()) out.push({ abs: p, rel: path.relative(root, p), size: st.size });
+    }
+  };
+  go(root);
+  return out;
+}
+
+// the readable folder of a kit: the folder itself, or a .zip extracted into <brand>/assets/.kit-unzipped/
+function openKit(kit, brand) {
+  kit = path.resolve(kit);
+  if (!fs.existsSync(kit)) throw new Error(`kit not found: ${kit}`);
+  if (fs.statSync(kit).isDirectory()) return { root: kit, source: kit };
+  if (!/\.zip$/i.test(kit)) throw new Error("the kit is a folder or a .zip");
+  const dest = path.join(assetsDir(brand), ".kit-unzipped");
+  fs.rmSync(dest, { recursive: true, force: true });
+  fs.mkdirSync(dest, { recursive: true });
+  let r = spawnSync("/usr/bin/ditto", ["-x", "-k", kit, dest], { encoding: "utf8" });
+  if (r.status !== 0) { r = spawnSync("unzip", ["-q", "-o", kit, "-d", dest], { encoding: "utf8" }); if (r.status !== 0) throw new Error(`could not unzip the kit: ${(r.stderr || "").trim() || "unzip failed"}`); }
+  return { root: dest, source: kit };
+}
+
+// .ai / PDF logo -> SVG with pdftocairo; null when it cannot
+function pdfToSvg(abs, scratch) {
+  const tool = toolPath("pdftocairo");
+  if (!tool) return null;
+  fs.mkdirSync(scratch, { recursive: true });
+  const out = path.join(scratch, `${crypto.randomBytes(4).toString("hex")}.svg`);
+  const r = spawnSync(tool, ["-svg", abs, out], { encoding: "utf8", timeout: 60000, env: richEnv() });
+  try { if (r.status === 0 && fs.statSync(out).size > 0) { const buf = fs.readFileSync(out); fs.unlinkSync(out); return buf; } } catch {}
+  try { fs.unlinkSync(out); } catch {}
+  return null;
+}
+const isPdfBytes = (abs) => { try { const fd = fs.openSync(abs, "r"); const b = Buffer.alloc(1024); const n = fs.readSync(fd, b, 0, 1024, 0); fs.closeSync(fd); return b.subarray(0, n).includes("%PDF"); } catch { return false; } };
+
+export async function inventoryKit({ kit, brand, name = null }) {
+  brand = path.resolve(brand);
+  if (!fs.existsSync(brand)) fs.mkdirSync(brand, { recursive: true });
+  const { root, source } = openKit(kit, brand);
+  const scratch = path.join(assetsDir(brand), ".scratch");
+  const walked = walkKit(root, within(root, brand) ? brand : null);
+  const bj = readJson(path.join(brand, "brand.json")) || {};
+  const recompile = bj.kit && path.resolve(bj.kit) === source;
+  const m = readManifest(brand);
+  const gone = new Set(m.removed_hashes || []);
+  const hashes = knownHashes(brand, m);
+  const files = [];
+  const rec = (f, as, extra = {}) => files.push({ path: f.rel, size: f.size, as, ...extra });
+  // DESIGN.md: the best candidate gets imported; the other markdown is notes
+  const mds = walked.filter((f) => /\.(md|markdown)$/i.test(f.rel));
+  const cands = mds.map((f) => { const b = path.basename(f.rel), pri = DESIGN_NAME.findIndex((re) => re.test(b)); return pri < 0 ? null : { f, pri, depth: f.rel.split(path.sep).length }; }).filter(Boolean)
+    .sort((a, b) => (a.pri === 0 && b.pri !== 0 ? -1 : b.pri === 0 && a.pri !== 0 ? 1 : 0) || a.depth - b.depth || a.pri - b.pri || a.f.rel.localeCompare(b.f.rel));
+  const designFile = cands.length ? cands[0].f : null;
+  const own = path.join(brand, "DESIGN.md");
+  let imported = { added: { logos: 0, fonts: 0, media: 0 }, missing: [] };
+  if (designFile) {
+    // a recompile keeps the brand's own (compiled, hand-edited) DESIGN.md; the kit's file still supplies its references
+    const keepOwn = fs.existsSync(own) && !isStub(own) && !!recompile;
+    imported = await importBrand({ brand, design: designFile.abs, offline: false, keepOwn });
+  } else if (!fs.existsSync(own) || !fs.readFileSync(own, "utf8").trim()) {
+    fs.writeFileSync(own, `# ${name || bj.name || titleCase(path.basename(source).replace(/\.zip$/i, ""))}\n\n${STUB}\n`);
+  }
+  const m2 = readManifest(brand); // importBrand wrote it
+  const hs = knownHashes(brand, m2);
+  for (const [k, v] of hs) hashes.set(k, v);
+  for (const f of walked) {
+    if (designFile && f === designFile) { rec(f, "design", { entry: "DESIGN.md" }); continue; }
+    const ext = extOf(f.rel), base = path.basename(f.rel);
+    if (/\.(md|markdown)$/i.test(base)) { rec(f, "notes"); continue; }
+    if (f.size > MAX_KIT_FILE) { rec(f, "skipped", { why: "larger than 200 MB" }); continue; }
+    if (UNUSABLE[ext]) {
+      if (ext === "ai" && isPdfBytes(f.abs)) {
+        const svg = pdfToSvg(f.abs, scratch);
+        if (svg) {
+          const h = sha(svg);
+          const hit = hashes.has(h) ? hashes.get(h) : null;
+          if (gone.has(h)) { rec(f, "skipped", { why: "removed earlier" }); continue; }
+          const hints = logoHints(f.rel);
+          const res = hit ? { status: "dup", ...hit } : addBuffer(brand, m2, hashes, { as: "logo", name: base.replace(/\.ai$/i, ".svg"), buf: svg, src: f.abs, page: "converted from .ai", meta: { ...hints, extra: { converted_from: f.rel } } });
+          rec(f, "logo", { entry: res.entry.file, converted_from: f.rel, ...(res.status === "dup" ? { why: "duplicate of an earlier file" } : {}) });
+          continue;
+        }
+      }
+      rec(f, "unusable", { why: UNUSABLE[ext] });
+      continue;
+    }
+    if (!ALL_EXT.includes(ext)) { rec(f, "skipped", { why: ext ? `.${ext} files are not used` : "no file extension" }); continue; }
+    let buf; try { buf = fs.readFileSync(f.abs); } catch (e) { rec(f, "skipped", { why: `could not read: ${e.code || e.message}` }); continue; }
+    if (!buf.length) { rec(f, "skipped", { why: "empty file" }); continue; }
+    const h = sha(buf);
+    if (gone.has(h)) { rec(f, "skipped", { why: "removed earlier" }); continue; }
+    const dirs = path.dirname(f.rel).split(path.sep).filter((d) => d && d !== ".");
+    const inLogoDir = dirs.some((d) => LOGO_DIR.test(d));
+    const cls = classify(f.rel, {});
+    let as = FONT_EXT.includes(ext) ? "font" : LOGO_EXT.includes(ext) && ext !== "pdf" && (inLogoDir || cls.as === "logo") ? "logo" : "media";
+    let data = buf, name2 = base, srcFile = f.abs, extra, meta = {};
+    if (ext === "pdf" && (inLogoDir || cls.as === "logo")) { // a vector logo as PDF: make it an SVG a film can place; otherwise it stays a guideline
+      const svg = pdfToSvg(f.abs, scratch);
+      if (svg) { as = "logo"; data = svg; name2 = base.replace(/\.pdf$/i, ".svg"); extra = { converted_from: f.rel }; }
+    }
+    if (as === "logo") meta = { ...logoHints(f.rel), ...(extra ? { extra } : {}) };
+    const res = hashes.has(sha(data)) ? { status: "dup", ...hashes.get(sha(data)) } : addBuffer(brand, m2, hashes, { as, name: name2, buf: data, src: srcFile, page: "brand kit", meta });
+    if (data !== buf && res.status === "dup") hashes.set(h, hashes.get(sha(data)));
+    rec(f, as, { entry: res.entry.file, ...(res.status === "dup" ? { why: "duplicate of an earlier file" } : {}), ...(extra ? { converted_from: f.rel } : {}) });
+  }
+  writeManifest(brand, m2);
+  // brand.json: name and kit
+  let nm = name;
+  if (!nm && recompile && bj.name) nm = bj.name;
+  if (!nm && designFile) { const t = fs.readFileSync(designFile.abs, "utf8"); const fm = t.match(/^---\s*\n([\s\S]*?)\n---/); const a = fm && fm[1].match(/^name\s*:\s*["']?(.+?)["']?\s*$/m); const h1 = t.match(/^#\s+(.+?)\s*$/m); nm = (a && a[1]) || (h1 && h1[1]) || null; }
+  if (!nm && bj.name) nm = bj.name;
+  if (!nm) nm = titleCase(path.basename(source).replace(/\.zip$/i, ""));
+  writeJson(path.join(brand, "brand.json"), { ...bj, name: nm, kit: source });
+  const inv = { kit: root, ...(root !== source ? { source } : {}), scanned: walked.length, design_md: designFile ? designFile.rel : null, files };
+  const invPath = path.join(assetsDir(brand), "kit-inventory.json");
+  writeJson(invPath, inv);
+  const fin = readManifest(brand);
+  const n = (a) => files.filter((f) => f.as === a).length;
+  return { ok: true, name: nm, design_md: inv.design_md, counts: { logos: fin.logos.length, fonts: fin.fonts.length, media: fin.media.length, unusable: n("unusable"), skipped: n("skipped") }, missing: imported.missing, inventory: invPath };
+}
+
+export function compilePrompt({ kit, brand }) {
+  brand = path.resolve(brand);
+  const invPath = path.join(assetsDir(brand), "kit-inventory.json");
+  const inv = readJson(invPath);
+  let k = inv && inv.kit ? inv.kit : path.resolve(kit || "");
+  if (!inv && kit && /\.zip$/i.test(kit)) { const u = path.join(assetsDir(brand), ".kit-unzipped"); if (fs.existsSync(u)) k = u; }
+  const skillDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+  const tpl = path.join(skillDir, "agents", "brand-compiler.md");
+  if (!fs.existsSync(tpl)) throw new Error(`prompt not found: ${tpl}`);
+  return fs.readFileSync(tpl, "utf8").replaceAll("{{KIT}}", k).replaceAll("{{BRAND}}", brand).replaceAll("{{SKILL_DIR}}", skillDir).replaceAll("{{INVENTORY}}", invPath);
+}
+
+const CLAUDE_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep", "Bash(pdftotext:*)", "Bash(pdftoppm:*)", "Bash(pdfimages:*)", "Bash(fc-scan:*)", "Bash(node:*)", "Bash(ls:*)", "Bash(mkdir:*)", "Bash(cat:*)", "Bash(rm:*)"];
+export async function compileKit({ kit, brand, name = null, claude = null, model = "claude-sonnet-5-5" }) {
+  brand = path.resolve(brand);
+  const inv = await inventoryKit({ kit, brand, name });
+  const prompt = compilePrompt({ kit, brand });
+  const root = readJson(path.join(assetsDir(brand), "kit-inventory.json")).kit;
+  const bin = claude || toolPath("claude");
+  if (!bin) throw new Error("Claude Code was not found: install it or pass --claude <path>");
+  const logPath = path.join(assetsDir(brand), "compile.log");
+  const fd = fs.openSync(logPath, "w");
+  // the prompt goes first: --allowedTools takes a list and would swallow a trailing positional
+  const r = spawnSync(bin, [prompt, "--print", "--output-format", "text", "--permission-mode", "acceptEdits", "--model", model, "--add-dir", root, "--allowedTools", ...CLAUDE_TOOLS], { cwd: brand, stdio: ["ignore", fd, fd], timeout: 15 * 60 * 1000, env: richEnv() });
+  fs.closeSync(fd);
+  const check = await checkBrand({ brand });
+  const cj = readJson(path.join(assetsDir(brand), "compile.json"));
+  const err = r.error ? (r.error.code === "ETIMEDOUT" ? "timed out after 15 minutes" : r.error.message) : r.status ? `claude exited with ${r.status} (see ${logPath})` : null;
+  return { ok: !err && !!cj, compile: cj, check, inventory: inv, ...(err ? { error: err } : {}), log: logPath };
 }
