@@ -2,7 +2,7 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.17.1 (build 36) — 2026-10-19
 
 - **⌘K jumps to search,** everywhere but a film page, where ⌘K still writes to the agent.
 - **A yes to the transcriber installs it.** Studio installs the speech transcriber itself, checks it works, and shows the real reason if it can't. The film no longer carries on without transcripts after you said yes.
