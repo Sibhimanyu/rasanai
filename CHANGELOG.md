@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.21.0 (2026-10-19): brand kit folders compiled by Claude
 
 - **Brand kit folders.** `brand-assets.mjs inventory` takes a whole kit (folder or .zip): it imports the best DESIGN.md, copies and sorts logos (by folder and name), fonts and media, converts `.ai` and PDF logos to SVG with `pdftocairo`, and lists files it can't use with the reason. `compile-prompt` and the new `agents/brand-compiler.md` drive a headless Claude job that completes DESIGN.md with cited colour roles and fonts, fixes logo kinds and the primary, tags media, writes `KIT.md` (the guidelines' rules) and `compile.json` (summary, questions, unsure). `set` edits one entry; `compile` runs it all from a terminal.
 
