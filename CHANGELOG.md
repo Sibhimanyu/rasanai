@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.20.0 (2026-10-19): brand kits that reach the film, stories planned as a set
 
 - **Brand kits that reach the film.** `brand-assets.mjs` (`import`, `add`, `check`, `apply`): files a DESIGN.md points to (logos, `@font-face` fonts, images, URLs) are copied in and sorted into logos (mark, wordmark, lockup, app icon, with colour versions), fonts and media, and anything it can't find is listed with its line. `check` writes `assets/check.json` (colour roles, fonts, logo problems, fonts that would fall back to Inter). `apply` puts a brand into a film project: `logos.json`, fonts named for the build plus `fonts.json`, media, and it removes the previous brand's files.
 - **A user's own brand skips the web research.** When the project carries the user's brand kit, `crew.mjs` seeds `research/brand` from it, does not dispatch the brand researcher, and hands the brand's screenshots and media to the researchers and builders. Local `.otf`, `.ttf`, `.woff` and `.woff2` files are used in the render (nearest local weight before Inter). `frame.md` gets a Logo section.
