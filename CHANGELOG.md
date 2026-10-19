@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.22.0 (2026-10-19): a transcriber that installs after a yes, the full storyline
 
 - **A transcriber that really installs after a yes.** New `transcriber.mjs status|install`: installs `whisper-cli` (Homebrew, else a build) and a model, proves the pair on a silent clip, and gives the real reason when it fails. `whisper-cli` is found off PATH too (Homebrew and HyperFrames build folders). `reel.mjs scan` and `footage.mjs` stop (exit 3) without a working transcriber instead of falling back to loudness, and SKILL.md forbids continuing without transcripts after the user said yes: a failed install goes back to the user with the reason.
 - **The full storyline on the Story call.** `moves.mjs payload` merges each story's pitch, intent and claims into the push: the argument, villain, turn, ending, coverage, and per beat what we see, the claim it proves, why it is there and the markers.
