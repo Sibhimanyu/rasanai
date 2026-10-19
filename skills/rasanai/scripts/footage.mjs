@@ -331,7 +331,7 @@ function vision() {
 const FILLERS = new Set(["um", "uh", "er", "erm", "hmm", "mm", "ah"]);
 function transcribe() {
   need();
-  if (!hasWhisperCli()) die("whisper-cli is not installed (brew install whisper-cpp); nothing else is used for footage transcripts");
+  if (!hasWhisperCli()) die("TRANSCRIBER NOT READY: whisper-cli is not installed. Ask the user once; only after a yes run `node $SKILL_DIR/scripts/transcriber.mjs install` (background, poll it), then re-run. If install fails, give the user its reason and ask retry or continue without transcripts; never choose that yourself.");
   const ing = jsonMaybe(FD(run, "ingest.json")) || die("run footage.mjs ingest first");
   const lang = args.lang && args.lang !== true ? String(args.lang) : "auto";
   const names = args.names && args.names !== true && fs.existsSync(String(args.names)) ? fs.readFileSync(String(args.names), "utf8").split("\n").map((s) => s.trim()).filter(Boolean) : [];

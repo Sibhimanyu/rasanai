@@ -37,6 +37,8 @@ struct NewFilmView: View {
     @State private var focusRequest = 0
     /// The previous option, so a pick only moves length and shape the person has not changed.
     @State private var lastFormatOption: String?
+    @State private var waitingForBrand = false
+    @State private var brandWait: Task<Void, Never>?
     @State private var showFootage = false
     @State private var showReference = false
     @State private var linkMessage: String?
@@ -438,6 +440,16 @@ struct NewFilmView: View {
             Button("Footage folder…") { if embedded { chooseLinked(.footage) } else { showFootage = true } }
             Button("Reference video…") { if embedded { chooseLinked(.reference) } else { showReference = true } }
             Button("Moves from Inspiration…") { showGallery = true }
+            Divider()
+            Menu("Brand") {
+                Picker("Brand", selection: Binding(get: { draft.brand ?? "" }, set: { draft.brand = $0.isEmpty ? nil : $0 })) {
+                    Text("No brand").tag("")
+                    ForEach(brands) { Text($0.name).tag($0.name) }
+                }.pickerStyle(.inline).labelsHidden()
+                Divider()
+                Button("Brand kit folder or .zip…") { chooseBrandKit() }
+                Button("Manage brands…") { store.openBrands() }
+            }
         } label: {
             if embedded {
                 Image(systemName: "plus").font(.system(size: 16, weight: .regular)).frame(width: 32, height: 32).contentShape(Circle())
@@ -477,7 +489,7 @@ struct NewFilmView: View {
         }
         guard panel.runModal() == .OK else { return }
         var added: [LinkedSource] = [], failure: LinkedSource.Rejection?
-        for url in panel.urls {
+        for url in kind == .footage ? screenForBrandKits(panel.urls) : panel.urls {
             switch kind == .footage ? LinkedSource.footageFolder(url) : LinkedSource.referenceVideo(url) {
             case .success(let source): added.append(source)
             case .failure(let rejection): failure = rejection
@@ -521,7 +533,11 @@ struct NewFilmView: View {
 
     // MARK: Toolbar
 
-    private var brandShort: String { draft.brand ?? "Brand" }
+    private var brandShort: String {
+        guard let name = draft.brand else { return "Brand" }
+        if let brand = brands.first(where: { $0.name == name }), store.brandCompiler(for: brand.folder).isRunning { return "\(name) · Compiling…" }
+        return name
+    }
     private var motionShort: String { MotionLevel.title(draft.motionLevel) }
 
     /// Model preferences remain available within the setup settings.
@@ -535,7 +551,7 @@ struct NewFilmView: View {
     /// Footage folders and a reference video, used where they are. Separate wells: footage is cut, a reference is only studied.
     private var linkedWells: some View {
         HStack(alignment: .top, spacing: 14) {
-            LinkedSourceWell(kind: .footage, sources: $draft.linked, disabled: working, prompt: pickedOption.flatMap { catalog?.folderPrompt(for: $0) })
+            LinkedSourceWell(kind: .footage, sources: $draft.linked, disabled: working, prompt: pickedOption.flatMap { catalog?.folderPrompt(for: $0) }, screen: screenForBrandKits)
             LinkedSourceWell(kind: .reference, sources: $draft.linked, disabled: working,
                              moves: AnyView(momentThumbs), movesCount: draft.moments.count, onPickMoves: { showGallery = true })
         }
@@ -632,6 +648,29 @@ struct NewFilmView: View {
     }
 
     @ViewBuilder private var runButton: some View {
+        if waitingForBrand {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Waiting for the brand to compile…").font(.system(size: 12)).foregroundStyle(.secondary)
+                Button("Cancel") { brandWait?.cancel() }.buttonStyle(.rasanSecondary).controlSize(.regular)
+            }
+        } else { runButtonBase }
+    }
+    /// A film never gets a half-written brand: saving waits here while that brand's compile job runs. A failed compile
+    /// still continues (the files are already in the brand). Returns false when the person cancelled.
+    private func awaitBrandCompile(_ brand: Brand?) async -> Bool {
+        guard let brand else { return true }
+        let compiler = store.brandCompiler(for: brand.folder)
+        guard compiler.isRunning else { return true }
+        waitingForBrand = true
+        defer { waitingForBrand = false }
+        while compiler.isRunning {
+            if Task.isCancelled { return false }
+            try? await Task.sleep(for: .milliseconds(300))
+        }
+        return !Task.isCancelled
+    }
+    @ViewBuilder private var runButtonBase: some View {
         if embedded {
             homeStartButtons
         } else if editingQueued {
@@ -669,12 +708,49 @@ struct NewFilmView: View {
     /// A drop anywhere on the page: a folder is footage and stays where it is; files are copied into the film as before.
     private func add(_ urls: [URL]) -> Bool {
         guard !working, !urls.isEmpty else { return false }
-        let split = LinkedSource.split(urls)
+        var split = LinkedSource.split(urls)
+        let kept = Set(screenForBrandKits(split.folders.map(\.url)).map(\.path))
+        split.folders = split.folders.filter { kept.contains($0.url.path) }
+        split.files = screenForBrandKits(split.files)
         edit {
             if !split.folders.isEmpty { draft.linked = LinkedSource.merge(draft.linked, adding: split.folders) }
             if !split.files.isEmpty { sources = Array(Set(sources + split.files)).sorted { $0.path < $1.path } }
         }
         return true
+    }
+    /// Folders that look like a brand kit rather than footage get a question; "Use as the film's brand" takes them out of the list.
+    private func screenForBrandKits(_ folders: [URL]) -> [URL] {
+        folders.filter { folder in
+            guard BrandKitSniffer.isKit(folder) else { return true }
+            let alert = NSAlert()
+            alert.messageText = "This looks like a brand kit"
+            alert.informativeText = "\(folder.lastPathComponent) has brand files (logos, fonts or guidelines) and almost no video. Brand kits work best as the film's brand, not as footage."
+            alert.addButton(withTitle: "Use as the film's brand")
+            alert.addButton(withTitle: "Add as footage anyway")
+            if alert.runModal() == .alertFirstButtonReturn { useAsBrand(kit: folder); return false }
+            return true
+        }
+    }
+    private func chooseBrandKit() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true; panel.canChooseFiles = true; panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.folder, .zip]
+        panel.title = "Choose a brand kit"; panel.prompt = "Use as brand"
+        panel.message = "A folder or .zip with the brand's logos, fonts and guidelines. Claude reads it and writes the brand."
+        if panel.runModal() == .OK, let url = panel.url { useAsBrand(kit: url) }
+    }
+    /// Makes a brand from the kit (the files are copied in, Claude compiles the design system in the background) and picks it for this film.
+    private func useAsBrand(kit: URL) {
+        let root = URL(fileURLWithPath: store.settings.projectRoot)
+        Task {
+            do {
+                let brand = try await Task.detached { try BrandLibrary.createFromKit(kit, name: "", in: root) }.value
+                brands = await Task.detached { BrandLibrary.list(in: root) }.value
+                if !brands.contains(where: { $0.folder == brand.folder }) { brands.append(brand) }
+                edit { draft.brand = brand.name }
+                store.brandCompiler(for: brand.folder).start(kit: kit, brand: brand.folder, name: nil, store: store)
+            } catch { linkMessage = error.localizedDescription }
+        }
     }
     /// The person's own attachment edits animate; hydration in `.task` mutates the same state without a transaction.
     private func edit(_ change: () -> Void) {
@@ -728,7 +804,8 @@ struct NewFilmView: View {
         let brand = brands.first { $0.name == draft.brand } ?? brands.first { $0.previousNames.contains(draft.brand ?? "") }
         let submittedDraft = draft
         let submittedSources = sources
-        Task {
+        brandWait = Task {
+            guard await awaitBrandCompile(brand) else { working = false; return }
             let title = typedName.isEmpty ? await FilmTitle.suggest(for: trimmedBrief) : name
             let saved = await store.saveFilm(name: title, draft: submittedDraft, sources: submittedSources, existing: project, brand: brand, start: false)
             working = false
@@ -750,7 +827,8 @@ struct NewFilmView: View {
         if start || queue { flow.commitStartingSeries(&draft, store: store, catalog: catalog, fallbackName: typedName.isEmpty ? autoName : typedName) }
         let submittedDraft = draft
         let submittedSources = sources
-        Task {
+        brandWait = Task {
+            guard await awaitBrandCompile(brand) else { working = false; return }
             let title = typedName.isEmpty ? await FilmTitle.suggest(for: trimmedBrief) : name
             let saved = await store.saveFilm(name: title, draft: submittedDraft, sources: submittedSources, existing: project ?? store.filmDraftProject, brand: brand, start: start)
             working = false

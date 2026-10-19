@@ -48,4 +48,4 @@ With `--project videos/<name> --score "$RUN/motion/score.json"` it also reports 
 - error `line-wer`: a line over 0.2 (`--max-wer`); warning over 0.1. Re-record, or respell hard words phonetically in the TTS text.
 - error `name-misheard`: a `--names` word that was not heard as written (the product name!). Respell it for the TTS only; keep the caption spelled right. A name not in the script is a warning.
 - error `caption-too-short`: a caption (from `--captions` json, `--srt`, or `<project>/compositions/captions.html` elements with `data-start` and `data-duration`/`data-end`) on screen for less than max(1.8 s, its speech + 0.6 s).
-- Exit 0 clean (warnings allowed), 2 findings, 1 could not run (no `whisper-cli`, no model, unreadable audio: "could not run" on stderr and a row in `downgrades.jsonl`; install with `brew install whisper-cpp` and `hyperframes models install`). Exit 1 is never a pass.
+- Exit 0 clean (warnings allowed), 2 findings, 1 could not run (no `whisper-cli`, no model, unreadable audio: "could not run" on stderr and a row in `downgrades.jsonl`; install with `node scripts/transcriber.mjs install` after the user says yes). Exit 1 is never a pass.

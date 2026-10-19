@@ -5,7 +5,7 @@ import StudioCore
 import SwiftUI
 
 enum SetupTool: String, CaseIterable, Identifiable, Sendable {
-    case ffmpeg, renderer, browser, skills
+    case ffmpeg, renderer, browser, skills, transcriber
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -13,6 +13,7 @@ enum SetupTool: String, CaseIterable, Identifiable, Sendable {
         case .renderer: "HyperFrames renderer"
         case .browser: "Render browser"
         case .skills: "Design resources"
+        case .transcriber: "Speech transcriber"
         }
     }
     var detail: String {
@@ -21,6 +22,7 @@ enum SetupTool: String, CaseIterable, Identifiable, Sendable {
         case .renderer: "Install the renderer in your Studio tools folder."
         case .browser: "Find or download the browser used for rendering."
         case .skills: "Install HyperFrames resources for your directors. Requires Git."
+        case .transcriber: "Install the speech transcriber (whisper) and its model, about 470 MB, then test it. Used to caption and cut footage by what is said."
         }
     }
     static func missing(in report: PreflightReport?) -> [SetupTool] {
@@ -70,7 +72,9 @@ enum SetupTool: String, CaseIterable, Identifiable, Sendable {
             let run = root.appendingPathComponent("logs/setup-\(UUID().uuidString)")
             try fm.createDirectory(at: run, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             let job = run.appendingPathComponent("job.json")
-            try JSONEncoder().encode(["tools": tools.map(\.rawValue)]).write(to: job, options: .atomic)
+            var jobObject: [String: Any] = ["tools": tools.map(\.rawValue)]
+            if let engine = DirectorRuntime.engineURL { jobObject["engine"] = engine.path }
+            try JSONSerialization.data(withJSONObject: jobObject).write(to: job, options: .atomic)
             let log = run.appendingPathComponent("setup.log")
             guard fm.createFile(atPath: log.path, contents: nil, attributes: [.posixPermissions: 0o600]) else { throw SetupError.log }
             output = try FileHandle(forWritingTo: log)

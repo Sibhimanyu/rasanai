@@ -42,7 +42,7 @@ The research lead stays the single merge point. Precedence: an approved brand ki
 
 ## 3 · The footage desk (scripts)
 
-All under `$RUN/footage/`; originals are never modified; every step can be re-run. Only installed tools are used: ffmpeg, whisper-cli, and (optional, macOS) Apple Vision through `/usr/bin/swift`.
+All under `$RUN/footage/`; originals are never modified; every step can be re-run. Only installed tools are used (the transcriber is installed by `transcriber.mjs install`, and only after the user says yes; a failed install is reported with its reason and the user chooses retry or continue without transcripts, never the director): ffmpeg, whisper-cli, and (optional, macOS) Apple Vision through `/usr/bin/swift`.
 
 ```bash
 node $SKILL_DIR/scripts/footage.mjs ingest   --footage <dir>[,<dir>] --run "$RUN" [--hash full] [--proxy 720]
