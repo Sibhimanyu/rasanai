@@ -2,7 +2,7 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.17.0 (build 35) — 2026-10-19
 
 - **Upload a brand kit folder.** New Brand takes a folder or .zip. RasanAI copies every usable file, then Claude compiles the brand in the background: DESIGN.md, logo roles, fonts, media tags and the guidelines' rules. A progress card shows where it is, with Cancel.
 - **What Claude found, on the brand page.** A short summary, its questions in Needs attention, the files it couldn't use and why, and a Brand rules section. Recompile from kit runs it again and keeps your fixes.
