@@ -24,6 +24,8 @@ struct FilmProgressView: View {
     @State private var showActivity = ProcessInfo.processInfo.environment["RASAN_PROGRESS_ACTIVITY"] != nil // snapshots open it
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.agentName) private var agent
+    @State private var wrapSent = false
+    @State private var wrapFailed = false
 
     private var snapshot: FilmProgressSnapshot {
         var s = progress.snapshot
@@ -174,7 +176,8 @@ struct FilmProgressView: View {
         }
     }
 
-    /// The research budget warning, kept visible while the research card is folded away. The Wrap up control lives on the research card.
+    /// The research budget warning, kept visible while the research card is folded away. Wrap up is right here, so the person
+    /// never has to leave the working screen for the phase rail to act on it.
     @ViewBuilder private func researchNotice(_ s: FilmProgressSnapshot, now: Date) -> some View {
         let research = s.research
         if s.summary(.research).state == .active, research.endedAt == nil, let budget = research.budget,
@@ -183,10 +186,21 @@ struct FilmProgressView: View {
                 Label("Past the research budget. You can wrap up research to move on with what has been read.",
                       systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
-                Button("Open research controls") {
-                    selected = .research
-                    withAnimation(reduceMotion ? nil : .smooth) { showActivity = true }
-                }.controlSize(.small)
+                if wrapSent {
+                    Label("Sent. \(agent) will wrap up.", systemImage: "paperplane.fill").font(.system(size: 12)).foregroundStyle(.secondary)
+                } else if let step = ResearchTimeBox.noteStep(in: model.snapshot) {
+                    HStack(spacing: 10) {
+                        Button {
+                            Task {
+                                let ok = await model.send(step: step, type: "note", note: ResearchTimeBox.noteText)
+                                wrapSent = ok; wrapFailed = !ok
+                            }
+                        } label: { Label("Wrap up research", systemImage: "checkmark.circle") }
+                            .controlSize(.small)
+                            .help("Tells \(agent) to stop reading and go with what it has.")
+                        if wrapFailed { Text("Couldn't send. Try again.").font(.system(size: 11)) }
+                    }
+                }
             }
             .foregroundStyle(.orange)
             .padding(.horizontal, 12).padding(.vertical, 8)
