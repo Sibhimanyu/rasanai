@@ -6,6 +6,21 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.17.1 beta 1</title>
+      <pubDate>Mon, 19 Oct 2026 12:45:08 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **⌘K jumps to search,** everywhere but a film page, where ⌘K still writes to the agent.
+- **A yes to the transcriber installs it.** Studio installs the speech transcriber itself, checks it works, and shows the real reason if it can't. The film no longer carries on without transcripts after you said yes.
+- **The old activity page is gone.** View activity shows what happened, newest first; a warning's View details shows that warning. Wrap up research sits right on the research budget warning.
+- **Brand in the + menu.** Pick a brand or add a brand kit folder or .zip from the prompt box. A folder that looks like a brand kit asks before it goes in as footage, and a film waits for its brand to finish compiling.
+- **The full storyline on the Story call,** beat by beat: what you see, what it proves, why it's there, the turn and the ending.
+- **Better time estimates.** They fit the film (length, scenes, pace), leave out phases it skips, learn from your past films, stay steady, and show a range until they're sure.]]></description>
+      <sparkle:version>36</sparkle:version>
+      <sparkle:shortVersionString>0.17.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.17.1-beta.1/RasanAI-Studio-0.17.1.dmg" sparkle:edSignature="FVP8Jye9ZL9akE7XSrZHjyZ6uYJYzmQbKiDVZzbwXaWutIg9QbYq0Xxvtv+Um6LQ6zb+xzW4I4x1K1yViVn7Ag==" length="81659703" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.17.0 beta 1</title>
       <pubDate>Mon, 19 Oct 2026 11:08:04 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **Upload a brand kit folder.** New Brand takes a folder or .zip. RasanAI copies every usable file, then Claude compiles the brand in the background: DESIGN.md, logo roles, fonts, media tags and the guidelines' rules. A progress card shows where it is, with Cancel.
