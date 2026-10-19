@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Brand kits that reach the film.** `brand-assets.mjs` (`import`, `add`, `check`, `apply`): files a DESIGN.md points to (logos, `@font-face` fonts, images, URLs) are copied in and sorted into logos (mark, wordmark, lockup, app icon, with colour versions), fonts and media, and anything it can't find is listed with its line. `check` writes `assets/check.json` (colour roles, fonts, logo problems, fonts that would fall back to Inter). `apply` puts a brand into a film project: `logos.json`, fonts named for the build plus `fonts.json`, media, and it removes the previous brand's files.
+- **A user's own brand skips the web research.** When the project carries the user's brand kit, `crew.mjs` seeds `research/brand` from it, does not dispatch the brand researcher, and hands the brand's screenshots and media to the researchers and builders. Local `.otf`, `.ttf`, `.woff` and `.woff2` files are used in the render (nearest local weight before Inter). `frame.md` gets a Logo section.
+- **DESIGN.md reads plain bullets.** `- Canvas: #0B0B0F` and `- Display: Acme Sans` are now read without bold names.
+- **The three stories are planned as a set.** A story planner (`agents/story-planner.md`, `story.mjs plan`) gives each slot its angle, villain picture, turn kind, peak kind, device and owned claims before anyone writes. `story.mjs check` adds G14 Plan and coverage (every must-show feature and surprising fact has a beat or a reasoned cut), `number-unit`, `peak-not-longest`, `tempo-ideas`, `continuity-claim` and `system-ui-pose`; the set adds `shared-line`, `shared-peak-kind` and `shared-turn-kind`. Rejected pitches go back to their writer once with the editor's notes, and a rewrite ledger escalates after three runs.
+
 ## 1.19.0 (2026-10-15): series and taste questions, learning from an edit
 
 - **Learn from an edit you like.** `learn.mjs infer|set|prompt` reads an example edit (cuts, captions, text on screen, speaker layout, creator marks, end card; `lib/marks.mjs` finds badges and watermarks) into `taste.json`, and a short headless job decides the picture style from its contact sheet. The Studio pre-fills its setup questions from it.
