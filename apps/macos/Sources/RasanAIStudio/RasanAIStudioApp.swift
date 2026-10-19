@@ -123,6 +123,11 @@ struct RasanAIStudioApp: App {
                     switch store.path.last { case nil, .library?: break; default: store.goHome() }
                     DispatchQueue.main.async { NotificationCenter.default.post(name: ToolbarSearchField.focusRequest, object: nil) }
                 }.keyboardShortcut("f", modifiers: .command)
+                // ⌘K jumps to search too, everywhere but a film page, where ⌘K writes to the agent (a disabled item leaves the key to it).
+                Button("Jump to Search") {
+                    switch store.path.last { case nil, .library?: break; default: store.goHome() }
+                    DispatchQueue.main.async { NotificationCenter.default.post(name: ToolbarSearchField.focusRequest, object: nil) }
+                }.keyboardShortcut("k", modifiers: .command).disabled(onFilmPage)
             }
             CommandGroup(before: .sidebar) {
                 Picker("View", selection: $layoutRaw) {
