@@ -31,7 +31,25 @@ const rank = (n) => { const i = RANK.findIndex((r) => n.replace(/\.en$/, "").sta
 export function pickModel({ multilingual }) {
   return installedModels().filter((m) => m.multilingual === multilingual && !/-q\d/.test(m.name)).sort((a, b) => rank(a.name) - rank(b.name))[0] || installedModels().filter((m) => m.multilingual === multilingual).sort((a, b) => rank(a.name) - rank(b.name))[0] || null;
 }
-export const hasWhisperCli = () => spawnSync("whisper-cli", ["--version"], { encoding: "utf8" }).status === 0 || spawnSync("which", ["whisper-cli"], { encoding: "utf8" }).status === 0;
+// whisper-cli is looked for where Homebrew, Studio's managed tools and HyperFrames' own source build put it, not only on PATH:
+// a build under ~/.cache/hyperframes/whisper/whisper.cpp is never on PATH, and a sandboxed director may not have /opt/homebrew/bin.
+export function whisperCandidates() {
+  const home = os.homedir();
+  return [process.env.HYPERFRAMES_WHISPER_PATH, path.join(home, "Library", "Application Support", "RasanAI", "Tools", "bin", "whisper-cli"),
+    "/opt/homebrew/bin/whisper-cli", "/usr/local/bin/whisper-cli",
+    path.join(home, ".cache", "hyperframes", "whisper", "whisper.cpp", "build", "bin", "whisper-cli"),
+    path.join(home, ".cache", "hyperframes", "whisper", "whisper.cpp", "build", "whisper-cli")].filter(Boolean);
+}
+let _whisperBin;
+export function whisperBin() {
+  if (_whisperBin && fs.existsSync(_whisperBin)) return _whisperBin;
+  const w = spawnSync("which", ["whisper-cli"], { encoding: "utf8" });
+  const onPath = w.status === 0 ? String(w.stdout).trim().split("\n")[0] : "";
+  const found = [onPath, ...whisperCandidates()].filter(Boolean).find((p) => { try { fs.accessSync(p, fs.constants.X_OK); return true; } catch { return false; } });
+  _whisperBin = found || null;
+  return found || "whisper-cli";
+}
+export const hasWhisperCli = () => { const b = whisperBin(); return b !== "whisper-cli" || spawnSync(whisperBin(), ["--version"], { encoding: "utf8" }).status === 0; };
 
 // a 16 kHz mono wav of [start, start+dur] seconds (whisper-cli reads wav, mp3, flac, ogg)
 export function extractWav(src, dest, { start = 0, dur = 0 } = {}) {
@@ -48,7 +66,7 @@ export function extractWav(src, dest, { start = 0, dur = 0 } = {}) {
 export function detectLanguage(wav) {
   const m = pickModel({ multilingual: true });
   if (!m || !hasWhisperCli()) return null;
-  const r = spawnSync("whisper-cli", ["-m", m.file, "-f", wav, "-dl", "-np"], { encoding: "utf8", maxBuffer: 32 * 1024 * 1024, timeout: 120000 });
+  const r = spawnSync(whisperBin(), ["-m", m.file, "-f", wav, "-dl", "-np"], { encoding: "utf8", maxBuffer: 32 * 1024 * 1024, timeout: 120000 });
   const mm = String(r.stderr || "").concat(String(r.stdout || "")).match(/auto-detected language:\s*([a-z]{2,3})\s*\(p\s*=\s*([\d.]+)\)/i);
   return mm ? { lang: mm[1].toLowerCase(), p: Number(mm[2]), model: m.name } : null;
 }
@@ -79,7 +97,7 @@ export function whisperTranscribe(src, opts) {
   const base = path.join(tmp, "out");
   const argv = ["-m", opts.model, "-f", wav, "-ojf", "-of", base, "-sow", "-ml", "1", "-l", opts.lang || "en", "-np"];
   if (opts.prompt) argv.push("--prompt", String(opts.prompt).slice(0, 400));
-  const r = spawnSync("whisper-cli", argv, { encoding: "utf8", maxBuffer: 128 * 1024 * 1024, timeout: opts.timeout || 3600000 });
+  const r = spawnSync(whisperBin(), argv, { encoding: "utf8", maxBuffer: 128 * 1024 * 1024, timeout: opts.timeout || 3600000 });
   if (r.status !== 0 || !fs.existsSync(base + ".json")) throw new Error(String(r.stderr || r.error || "whisper-cli failed").trim().split("\n").filter(Boolean).pop());
   const j = JSON.parse(fs.readFileSync(base + ".json", "utf8"));
   const words = wordsFromWhisperJson(j, opts.start || 0);
@@ -108,7 +126,7 @@ export function decideLanguage({ file, lang, tag, duration, speechAt = 0 }) {
   const isEn = (l) => l === "en" || l === "eng";
   if (want) {
     if (isEn(want)) return { lang: "en", verified: true, model: en || multi, source: "--lang" };
-    return multi ? { lang: want, verified: true, model: multi, source: "--lang" } : { lang: want, verified: true, model: null, blocked: `needs a multilingual whisper model (ggml-small.bin, about 466 MB; \`hyperframes models install\` or download it into ~/.cache/hyperframes/whisper/models/): ask the user before downloading`, source: "--lang" };
+    return multi ? { lang: want, verified: true, model: multi, source: "--lang" } : { lang: want, verified: true, model: null, blocked: `needs a multilingual whisper model (ggml-small.bin, about 466 MB): ask the user once, and only after a yes run \`node $SKILL_DIR/scripts/transcriber.mjs install --model small\` (if it fails, give the user its reason and ask retry or skip; never skip on your own)`, source: "--lang" };
   }
   const t = tag && !/^(und|zxx|mis|mul)$/i.test(tag) ? String(tag).slice(0, 2).toLowerCase() : null;
   if (t && !isEn(t)) {

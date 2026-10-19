@@ -16,6 +16,8 @@ struct LinkedSourceWell: View {
     var moves: AnyView?
     var movesCount = 0
     var onPickMoves: (() -> Void)?
+    /// Footage wells only: lets the page take brand kits out of a drop before they become footage.
+    var screen: (([URL]) -> [URL])?
     @State private var targeted = false
     @State private var message: String?
 
@@ -79,8 +81,10 @@ struct LinkedSourceWell: View {
         .accessibilityLabel(title)
     }
 
-    private func take(_ urls: [URL]) -> Bool {
-        guard !disabled, !urls.isEmpty else { return false }
+    private func take(_ dropped: [URL]) -> Bool {
+        guard !disabled, !dropped.isEmpty else { return false }
+        let urls = kind == .footage ? (screen?(dropped) ?? dropped) : dropped
+        if urls.isEmpty { return true }
         var added: [LinkedSource] = [], failure: LinkedSource.Rejection?
         for url in urls {
             switch kind == .footage ? LinkedSource.footageFolder(url) : LinkedSource.referenceVideo(url) {

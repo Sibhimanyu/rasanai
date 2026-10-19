@@ -84,6 +84,8 @@ function probe(file) {
 }
 
 // ---------------------------------------------------------------- scan
+// Marker text: a clip with this transcript_error makes scan exit 3, so a missing transcriber can never pass as a normal scan.
+const NO_TRANSCRIBER = "TRANSCRIBER NOT READY: no working whisper-cli + speech model, so nothing was transcribed. Ask the user once; only after a yes run `node $SKILL_DIR/scripts/transcriber.mjs install` (background, poll it), then re-run scan. If install fails, tell the user its reason and ask retry or continue without transcripts (--no-transcribe). Never choose that yourself.";
 function scan() {
   if (!args.footage || !args.run) die("scan needs --footage <dir> and --run <run dir>");
   need("ffmpeg");
@@ -166,7 +168,7 @@ function scan() {
         try {
           let list;
           const modelFile = model && fs.existsSync(model) ? model : model ? (installedModels().find((m) => m.name === model.replace(/^ggml-|\.bin$/g, "")) || {}).file : (dec.model || {}).file;
-          if (!(modelFile && hasWhisperCli()) && !args["allow-download"]) throw new Error("no whisper model (or whisper-cli) is installed, so nothing was transcribed and nothing was downloaded: ask the user, then install one (hyperframes models install, about 487 MB) or re-run with --allow-download");
+          if (!(modelFile && hasWhisperCli()) && !args["allow-download"]) throw new Error(NO_TRANSCRIBER);
           if (modelFile && hasWhisperCli()) {
             const r = whisperTranscribe(f, { model: modelFile, lang: dec.lang });
             list = r.words.filter((w) => w.end > w.start).map((w) => ({ ...w, end: r3(Math.min(w.end, D)) }));
@@ -217,6 +219,10 @@ function scan() {
       2
     )
   );
+  if (clips.some((c) => c.transcript_error === NO_TRANSCRIBER)) {
+    console.error("\n" + NO_TRANSCRIBER);
+    process.exitCode = 3;
+  }
 }
 
 // ---------------------------------------------------------------- build

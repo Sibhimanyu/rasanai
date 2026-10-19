@@ -393,48 +393,92 @@ extension FilmProgressEngine {
 
     // MARK: Estimates
 
-    func applyEstimates(_ s: inout FilmProgressSnapshot, now: Date) {
-        let quick = (budget?.seconds ?? 9_999) <= 150
-        var total: TimeInterval = 0
-        var any = false
-        for index in s.phases.indices {
-            let row = s.phases[index]
-            let typical = ProgressPhaseMapper.typicalSeconds(row.phase, quickResearch: quick, filmSeconds: filmSeconds)
-            switch row.state {
-            case .upcoming:
-                s.phases[index].estimate = PhaseEstimate(secondsLeft: typical, basis: .typical)
-            case .active:
-                s.phases[index].estimate = activeEstimate(row, typical: typical, snapshot: s, now: now)
-            case .waitingForYou, .done, .skipped:
-                s.phases[index].estimate = nil
-            }
-            if let estimate = s.phases[index].estimate { total += estimate.secondsLeft; any = true }
-        }
-        s.remaining = (s.finishedAt == nil && any) ? PhaseEstimate(secondsLeft: total, basis: .typical) : nil
+    /// How this film is set up right now: the run's files, with length, aspect and scene count taken live.
+    func timingContext(_ s: FilmProgressSnapshot) -> FilmTimingContext {
+        var c = timingFiles
+        c.lengthSeconds = max(5, filmSeconds)
+        c.aspect = aspect
+        if c.route == nil, let briefKind, !briefKind.isEmpty { c.kind = briefKind }
+        let scenesKnown = s.scenes.count > 0 ? s.scenes.count : (s.keyframesExpected ?? artifacts.plannedSceneCount)
+        c.sceneCount = scenesKnown.flatMap { $0 > 0 ? $0 : nil }
+        if c.pace == nil, let budget { c.pace = budget.seconds <= 150 ? FilmPace.fast.rawValue : FilmPace.standard.rawValue }
+        var skipped = Set(c.skipped).union(c.derivedSkips)
+        for row in s.phases where row.state == .skipped { skipped.insert(row.phase) }
+        c.skipped = ProgressPhase.allCases.filter { skipped.contains($0) }
+        return c
     }
 
-    func activeEstimate(_ row: PhaseSummary, typical: TimeInterval, snapshot s: FilmProgressSnapshot, now: Date) -> PhaseEstimate {
+    func applyEstimates(_ s: inout FilmProgressSnapshot, now: Date) {
+        let context = timingContext(s)
+        s.timingContext = context
+        var parts: [(guess: FilmTimeEstimator.Guess, measured: Bool)] = []
+        var measuredTotal = false
+        for index in s.phases.indices {
+            let row = s.phases[index]
+            var guess: FilmTimeEstimator.Guess?
+            var measured = false
+            switch row.state {
+            case .upcoming:
+                guess = FilmTimeEstimator.expected(row.phase, context, timingHistory)
+            case .active:
+                (guess, measured) = activeEstimate(row, context: context, snapshot: s, now: now)
+            case .waitingForYou, .done, .skipped:
+                // A phase waiting for the person contributes nothing: the figure leaves out their calls.
+                guess = nil
+            }
+            guard let guess else { s.phases[index].estimate = nil; continue }
+            let basis: PhaseEstimate.Basis = measured ? .measured : (guess.samples > 0 ? .learned : .typical)
+            let wide = guess.samples < 3 && !measured
+            s.phases[index].estimate = PhaseEstimate(secondsLeft: guess.seconds, basis: basis, lowSeconds: wide ? guess.low : nil, highSeconds: wide ? guess.high : nil)
+            parts.append((guess, measured))
+            if measured { measuredTotal = true }
+        }
+        s.remaining = s.finishedAt == nil ? FilmTimeEstimator.total(parts, basisMeasured: measuredTotal) : nil
+    }
+
+    /// The active phase: a measured rate where there is a progress signal (blended in from the first item), else the conditional estimate.
+    func activeEstimate(_ row: PhaseSummary, context c: FilmTimingContext, snapshot s: FilmProgressSnapshot, now: Date) -> (FilmTimeEstimator.Guess?, Bool) {
         let worked = row.workSeconds(now: now)
+        let fallback = FilmTimeEstimator.conditionalRemaining(row.phase, worked: worked, c, timingHistory)
+        func guess(_ seconds: TimeInterval, spread: Double, samples: Int = 0) -> FilmTimeEstimator.Guess {
+            .init(seconds: seconds, low: seconds * (1 - spread), high: seconds * (1 + spread), samples: samples)
+        }
+        func blend(_ measured: TimeInterval, items: Double) -> FilmTimeEstimator.Guess {
+            let w = items / (items + 1)
+            return guess(max(10, w * measured + (1 - w) * fallback.seconds), spread: 0.2, samples: 3)
+        }
         switch row.phase {
         case .research:
-            if let budget { return PhaseEstimate(secondsLeft: max(20, budget.seconds - s.research.elapsed(now: now)), basis: .typical) }
+            if let budget {
+                let left = budget.seconds - s.research.elapsed(now: now)
+                if left > 0 { return (guess(max(20, left), spread: 0.3, samples: fallback.samples), false) }
+            }
         case .build:
-            let done = s.scenes.filter { $0.state == .done }.count
-            if !s.scenes.isEmpty, done > 0 {
-                let fraction = Double(done) / Double(s.scenes.count)
-                return PhaseEstimate(secondsLeft: worked * (1 - fraction) / fraction, basis: .measured)
+            let total = s.scenes.count
+            if total > 0 {
+                let done = Double(s.scenes.filter { $0.state == .done }.count)
+                let working = Double(s.scenes.filter { $0.state == .working }.count)
+                // A scene in flight counts for half, so the rate starts to bite as soon as the first scene is under way.
+                let effective = min(Double(total), done + 0.5 * working)
+                if effective >= 0.5, worked > 30 {
+                    let measured = worked * (Double(total) - effective) / effective
+                    return (blend(measured, items: effective), effective >= 1)
+                }
             }
         case .plan:
             let frames = s.keyframes.filter { $0.kind == .keyframe }
-            if let expected = s.keyframesExpected, frames.count >= 2, frames.count < expected, let first = frames.first?.addedAt {
-                let per = max(30, now.timeIntervalSince(first) / Double(frames.count))
-                return PhaseEstimate(secondsLeft: per * Double(expected - frames.count), basis: .measured)
+            if let expected = s.keyframesExpected, frames.count >= 1, frames.count < expected, let first = frames.first?.addedAt {
+                let count = Double(frames.count)
+                let observed = now.timeIntervalSince(first) / count
+                let prior = FilmTimeEstimator.prior(.plan, c) / Double(expected)
+                let per = max(30, frames.count >= 2 ? observed : prior)
+                return (blend(per * Double(expected - frames.count), items: count), frames.count >= 2)
             }
         case .render:
-            if let eta = s.render.etaSeconds { return PhaseEstimate(secondsLeft: eta, basis: .measured) }
-            if s.render.isMeasured, s.render.fraction == 1 { return PhaseEstimate(secondsLeft: 20, basis: .measured) }
+            if let eta = s.render.etaSeconds { return (guess(eta, spread: 0.2, samples: 3), true) }
+            if s.render.isMeasured, s.render.fraction == 1 { return (guess(20, spread: 0.2, samples: 3), true) }
         default: break
         }
-        return PhaseEstimate(secondsLeft: max(typical * 0.2, typical - worked), basis: .typical)
+        return (fallback, false)
     }
 }

@@ -165,11 +165,8 @@ private struct StoryDetail: View {
             if !script.beats.isEmpty { timeline }
             howItGetsThere
             if !script.beats.isEmpty {
-                DisclosureGroup("Full script and scene details (\(script.beats.count))", isExpanded: $showBeats) {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        StoryTable(script: script).frame(minWidth: 720)
-                    }
-                    .padding(.top, 10)
+                DisclosureGroup("The full storyline, beat by beat (\(script.beats.count))", isExpanded: $showBeats) {
+                    StoryLine(script: script).padding(.top, 12)
                 }
                 .font(.system(size: 13, weight: .semibold))
             }
@@ -359,101 +356,191 @@ private struct StoryMoves: View {
     }
 }
 
-private struct StoryTable: View {
+/// The deep read: the story's argument, then every beat in full. Shows only what the payload carries.
+private struct StoryLine: View {
     let script: StoryScript
-    private let timeWidth: CGFloat = 92
 
     var body: some View {
-        VStack(spacing: 0) {
-            headerRow
-            Divider()
+        VStack(alignment: .leading, spacing: 18) {
+            if let line = script.storyline, !line.isEmpty { StoryArgument(line: line, beats: script.beats) }
             ForEach(Array(script.beats.enumerated()), id: \.offset) { index, beat in
-                row(beat)
-                if index < script.beats.count - 1 { Divider().opacity(0.6) }
+                StoryBeatCard(beat: beat, number: index + 1)
             }
             if script.total > 0 {
-                Divider()
                 HStack {
-                    Text("Runs").font(.system(size: 11, weight: .semibold)).tracking(0.5).foregroundStyle(.secondary)
+                    Text("RUNS").font(.system(size: 10, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
                     Spacer()
                     Text(clockText(script.total)).monospacedDigit().font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
                 }
-                .padding(.horizontal, 16).padding(.vertical, 9)
                 .accessibilityElement(children: .combine)
             }
         }
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.65), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Script for \(script.title)")
+        .accessibilityLabel("Full storyline for \(script.title)")
     }
+}
 
-    private var headerRow: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 16) {
-            head("Time").frame(width: timeWidth, alignment: .leading)
-            head("On screen").frame(maxWidth: .infinity, alignment: .leading)
-            head("Voiceover").frame(maxWidth: .infinity, alignment: .leading)
-            head("What the motion does").frame(maxWidth: .infinity, alignment: .leading)
+private struct StoryLabeled: View {
+    let label: String
+    let text: String
+    var serif = false
+    var emphasis = false
+    init(_ label: String, _ text: String, serif: Bool = false, emphasis: Bool = false) { self.label = label; self.text = text; self.serif = serif; self.emphasis = emphasis }
+    var body: some View {
+        if !text.isEmpty {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(label.uppercased()).font(.system(size: 10, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
+                if serif {
+                    Text(text).font(.system(size: 14, design: .serif)).italic().lineSpacing(3)
+                } else {
+                    Text(text).font(.system(size: emphasis ? 15 : 13, weight: emphasis ? .semibold : .regular)).lineSpacing(3)
+                        .foregroundStyle(emphasis ? Color.primary : Color.primary.opacity(0.85))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
+            .accessibilityElement(children: .combine)
         }
-        .padding(.horizontal, 16).padding(.vertical, 9)
-        .background(Color(nsColor: .quaternaryLabelColor).opacity(0.18))
-        .accessibilityHidden(true)
     }
-    private func head(_ text: String) -> some View {
-        Text(text.uppercased()).font(.system(size: 10, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
-    }
+}
 
-    /// Each show row: the line in bold, what the motion does under it; the beat's visual when it has no shows.
-    @ViewBuilder private func motionColumn(_ beat: StoryBeat) -> some View {
-        Group {
-            if beat.shows.isEmpty {
-                Text(beat.visual).font(.system(size: 13)).foregroundStyle(.secondary).lineSpacing(3)
-            } else {
-                VStack(alignment: .leading, spacing: 9) {
-                    ForEach(beat.shows) { s in
-                        VStack(alignment: .leading, spacing: 2) {
-                            if !s.line.isEmpty { Text(s.line).font(.system(size: 13, weight: .semibold)) }
-                            if !s.show.isEmpty { Text(s.show).font(.system(size: 13)).foregroundStyle(.secondary).lineSpacing(3) }
+/// Above the beats: the argument, the problem, the turn, the ending and what the film covers or leaves out.
+private struct StoryArgument: View {
+    let line: StoryLineInfo
+    let beats: [StoryBeat]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            StageSectionTitle("The argument")
+            StoryLabeled("It argues", line.proposition, emphasis: true)
+            StoryLabeled("The problem", line.problem)
+            if !line.villainWhat.isEmpty || !line.villainPicture.isEmpty {
+                StoryLabeled("What we blame", [line.villainWhat, line.villainPicture].filter { !$0.isEmpty }.joined(separator: ": "))
+            }
+            if !line.numbers.isEmpty {
+                StoryLabeled("Its numbers", line.numbers.map { $0.source.isEmpty ? $0.value : "\($0.value) (\($0.source))" }.joined(separator: " · "))
+            }
+            StoryLabeled("From", line.emotion)
+            StoryLabeled("The first seconds", line.first4s)
+            if !line.turnLine.isEmpty {
+                StoryLabeled("The turn", line.turnLine, emphasis: true)
+                StoryLabeled("It reverses", line.turnReverses)
+                StoryLabeled("Which pays off as", line.turnPayoff)
+            }
+            if !line.endingLine.isEmpty || !line.endingFrame.isEmpty {
+                StoryLabeled("The ending", line.endingLine, emphasis: true)
+                StoryLabeled("The last frame", line.endingFrame)
+                StoryLabeled("It answers", line.endingEcho)
+            }
+            StoryLabeled("The image to remember", line.signatureImage)
+            if !line.coverage.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("COVERS AND CUTS").font(.system(size: 10, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
+                    ForEach(Array(line.coverage.enumerated()), id: \.offset) { _, c in
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Image(systemName: c.cut.isEmpty ? "checkmark.circle" : "minus.circle")
+                                .font(.system(size: 12)).foregroundStyle(c.cut.isEmpty ? Color.rasan : Color.secondary)
+                            Text(c.text).font(.system(size: 13)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
                         }
+                        .accessibilityElement(children: .combine)
                     }
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.65), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
     }
+}
 
-    private func row(_ beat: StoryBeat) -> some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 3) {
+private struct StoryBeatCard: View {
+    let beat: StoryBeat
+    let number: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text("\(number)").font(.system(size: 11, weight: .bold, design: .rounded)).foregroundStyle(.secondary).monospacedDigit()
                 Text(clockText(beat.start)).font(.system(size: 14, weight: .semibold, design: .rounded)).monospacedDigit()
-                if !beat.name.isEmpty {
-                    Text(beat.turn ? "TURNING POINT" : beat.name.uppercased())
-                        .font(.system(size: 9.5, weight: .bold)).tracking(0.6)
-                        .foregroundStyle(beat.turn ? Color.rasan : Color.secondary)
-                }
-                if beat.duration > 0 {
-                    Text("\(Int(beat.duration.rounded())) s").font(.system(size: 10)).foregroundStyle(.tertiary).monospacedDigit()
+                if beat.duration > 0 { Text("\(Int(beat.duration.rounded())) s").font(.system(size: 11)).foregroundStyle(.tertiary).monospacedDigit() }
+                if !beat.name.isEmpty { Text(beat.name).font(.system(size: 15, weight: .semibold)) }
+                Spacer(minLength: 8)
+                ForEach(markers, id: \.self) { m in
+                    Text(m.uppercased()).font(.system(size: 9.5, weight: .bold)).tracking(0.6)
+                        .foregroundStyle(m == "Turning point" || m == "Peak" ? Color.rasan : Color.secondary)
                 }
             }
-            .frame(width: timeWidth, alignment: .leading)
-            Text(beat.onScreen).font(.system(size: 15, weight: .semibold)).lineSpacing(2)
-                .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
-            Text(beat.vo).font(.system(size: 13, design: .serif)).italic().lineSpacing(3)
-                .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true)
-            motionColumn(beat)
+            StoryLabeled("What we see", seen)
+            if !beat.shows.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("MOTION AND TRANSITION").font(.system(size: 10, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
+                    ForEach(beat.shows) { s in
+                        VStack(alignment: .leading, spacing: 2) {
+                            if !s.line.isEmpty { Text(s.line).font(.system(size: 13, weight: .semibold)) }
+                            if !s.show.isEmpty { Text(s.show).font(.system(size: 13)).foregroundStyle(.secondary).lineSpacing(3) }
+                            if !s.handoff.isEmpty { Text("Hands off: \(s.handoff)").font(.system(size: 12)).foregroundStyle(.secondary) }
+                        }
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            StoryLabeled("On screen", beat.onScreen, emphasis: true)
+            StoryLabeled("Voiceover", beat.vo, serif: true)
+            StoryLabeled("Sound", beat.sound)
+            if !beat.claimText.isEmpty {
+                StoryLabeled("What it proves", beat.claimSource.isEmpty ? beat.claimText : "\(beat.claimText) (\(beat.claimSource))")
+            }
+            if !beat.buys.isEmpty || !beat.relation.isEmpty {
+                StoryLabeled("Why it is here", whyHere)
+            }
+            if !beat.before.isEmpty || !beat.after.isEmpty {
+                StoryLabeled("The viewer goes from", [beat.before, beat.after].filter { !$0.isEmpty }.joined(separator: " to "))
+            }
         }
-        .padding(.horizontal, 16).padding(.vertical, 14)
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            if beat.turn {
+            if beat.turn || beat.peak {
                 ZStack(alignment: .leading) {
-                    Color.rasan.opacity(0.09)
+                    Color.rasan.opacity(0.07)
                     Rectangle().fill(Color.rasan).frame(width: 3)
                 }
+            } else {
+                Color(nsColor: .controlBackgroundColor).opacity(0.65)
             }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(beat.spoken)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var markers: [String] {
+        var m: [String] = []
+        if beat.turn { m.append("Turning point") }
+        if beat.peak { m.append("Peak") }
+        if !beat.role.isEmpty { m.append(beat.role) }
+        if beat.importance == 3 { m.append("Key beat") }
+        return m
+    }
+
+    /// Setting, who or what, props and the shot, in one read; the beat's `visual` stays the spine.
+    private var seen: String {
+        var parts: [String] = []
+        let spine = beat.visual.isEmpty ? beat.picture : beat.visual
+        if !spine.isEmpty { parts.append(spine) }
+        if !beat.picture.isEmpty && !beat.visual.isEmpty && !beat.visual.contains(beat.picture) { parts.append(beat.picture) }
+        var extra: [String] = []
+        if !beat.actor.isEmpty { extra.append("Who or what: \(beat.actor)") }
+        if !beat.domain.isEmpty { extra.append("Setting: \(beat.domain)") }
+        if !beat.props.isEmpty { extra.append("Props: \(beat.props.joined(separator: ", "))") }
+        return (parts + extra).joined(separator: "\n")
+    }
+
+    private var whyHere: String {
+        let word = beat.relation.isEmpty || beat.relation == "open" ? "" : beat.relation.prefix(1).uppercased() + beat.relation.dropFirst()
+        if !word.isEmpty && !beat.buys.isEmpty { return "\(word): \(beat.buys)" }
+        return beat.buys.isEmpty ? word : beat.buys
     }
 }
 
@@ -495,6 +582,12 @@ private struct StoryBeat {
     var shows: [StoryShow] = []
     var duration: Double, start: Double
     var turn: Bool
+    // Richer fields from the pitch and the intent; empty on older payloads.
+    var role = "", actor = "", domain = "", picture = "", sound = "", buys = "", before = "", after = "", relation = "", read = ""
+    var props: [String] = []
+    var peak = false
+    var importance = 0
+    var claimText = "", claimSource = ""
     var spoken: String {
         var parts = ["At \(clockText(start))"]
         if turn { parts.append("the turn") }
@@ -503,6 +596,39 @@ private struct StoryBeat {
         if !shows.isEmpty { parts.append("the motion: " + shows.map { [$0.line, $0.show].filter { !$0.isEmpty }.joined(separator: ", ") }.joined(separator: "; ")) }
         else if !visual.isEmpty { parts.append("we see: \(visual)") }
         return parts.joined(separator: ". ")
+    }
+}
+
+private struct StoryLineInfo {
+    var proposition = "", problem = "", emotion = "", first4s = "", signatureImage = ""
+    var villainWhat = "", villainPicture = ""
+    var numbers: [(value: String, source: String)] = []
+    var turnLine = "", turnReverses = "", turnPayoff = ""
+    var endingLine = "", endingFrame = "", endingEcho = ""
+    var coverage: [(text: String, cut: String)] = []
+    var isEmpty: Bool {
+        proposition.isEmpty && problem.isEmpty && villainWhat.isEmpty && villainPicture.isEmpty && numbers.isEmpty && turnLine.isEmpty
+            && endingLine.isEmpty && endingFrame.isEmpty && coverage.isEmpty && emotion.isEmpty && first4s.isEmpty && signatureImage.isEmpty
+    }
+
+    init(_ json: JSONValue, beats: Int) {
+        func s(_ v: JSONValue) -> String { (v.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
+        proposition = s(json["proposition"]); problem = s(json["problem"]); emotion = s(json["emotion"])
+        first4s = s(json["first_4s"]); signatureImage = s(json["signature_image"])
+        villainWhat = s(json["villain"]["what"]); villainPicture = s(json["villain"]["picture"])
+        numbers = json["villain"]["numbers"].array.compactMap { n in
+            let v = s(n["value"]); return v.isEmpty ? nil : (v, s(n["source"]))
+        }
+        turnLine = s(json["turn"]["line"]); turnReverses = s(json["turn"]["reverses"]); turnPayoff = s(json["turn"]["payoff"])
+        endingLine = s(json["ending"]["line"]); endingFrame = s(json["ending"]["last_frame"]); endingEcho = s(json["ending"]["echo"])
+        coverage = json["coverage"].array.compactMap { c in
+            let what = [s(c["claim"]), s(c["feature"])].first { !$0.isEmpty } ?? ""
+            guard !what.isEmpty else { return nil }
+            let cut = s(c["cut"])
+            if !cut.isEmpty { return ("\(what), left out: \(cut)", cut) }
+            if let b = c["beat"].number, Int(b) >= 1, Int(b) <= max(beats, Int(b)) { return ("\(what), shown in beat \(Int(b))", "") }
+            return (what, "")
+        }
     }
 }
 
@@ -518,6 +644,7 @@ private struct StoryScript: Identifiable {
     var carrier: String?
     var moves: [StoryMove]
     var beats: [StoryBeat]
+    var storyline: StoryLineInfo?
     /// What the card's headline says: the takeaway, or for older payloads the logline, then why.
     var headline: String { aim?.takeaway ?? [logline, why].first { !$0.isEmpty } ?? title }
     var angleMeaning: String {
@@ -556,8 +683,20 @@ private struct StoryScript: Identifiable {
         beats = json["beats"].array.map { beat in
             let d = beat["duration_s"].number ?? beat["duration"].number ?? 0
             defer { clock += d }
-            return StoryBeat(name: beat["name"].string ?? "", onScreen: beat["on_screen"].string ?? "", vo: beat["vo"].string ?? "",
-                             visual: beat["visual"].string ?? "", shows: StoryShow.parse(beat["shows"]), duration: d, start: clock, turn: beat["turn"].bool ?? false)
+            var b = StoryBeat(name: beat["name"].string ?? "", onScreen: beat["on_screen"].string ?? "", vo: beat["vo"].string ?? "",
+                              visual: beat["visual"].string ?? "", shows: StoryShow.parse(beat["shows"]), duration: d, start: clock, turn: beat["turn"].bool ?? false)
+            func s(_ k: String) -> String { (beat[k].string ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
+            b.role = s("role"); b.actor = s("actor"); b.domain = s("domain"); b.picture = s("picture"); b.sound = s("sound")
+            b.buys = s("buys"); b.before = s("viewer_before"); b.after = s("viewer_after"); b.relation = s("relation")
+            b.read = (beat["read"].string ?? beat["read"]["text"].string ?? "")
+            b.props = beat["props"].array.compactMap { $0.string }.filter { !$0.isEmpty }
+            b.peak = beat["peak"].bool ?? false
+            b.importance = Int(beat["importance"].number ?? 0)
+            b.claimText = (beat["claim"]["text"].string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            b.claimSource = (beat["claim"]["source"].string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return b
         }
+        let line = StoryLineInfo(json["storyline"], beats: beats.count)
+        storyline = line.isEmpty ? nil : line
     }
 }

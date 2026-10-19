@@ -2,12 +2,9 @@ import AppKit
 import StudioCore
 import SwiftUI
 
-/// Film progress: what the director is doing right now, in eight phases. Replaces the old single "Director working" line.
-///
-/// Layout (fits 1000x700): a header with one large "now" sentence, elapsed and an honest estimate; a vertical phase rail with
-/// durations and cost; the selected phase's detail card (sources, key frames, scenes, drafts, render); then the activity
-/// timeline grouped by phase, with the raw details one click away. Everything reads `FilmProgress.snapshot` and nothing is
-/// invented here: where the model cannot measure something, the view says so.
+/// Film progress: the focused working screen. A header with the live phase, one large "now" sentence, elapsed and an honest
+/// estimate, the render strip and latest preview. "View activity" opens the event list as a sheet. Everything reads
+/// `FilmProgress.snapshot` and nothing is invented here: where the model cannot measure something, the view says so.
 struct FilmProgressView: View {
     let model: FilmSessionModel
     let progress: FilmProgress
@@ -18,10 +15,9 @@ struct FilmProgressView: View {
     var autoResume: AutoResumeNotice?
     var onResumeNow: (() -> Void)?
 
-    /// The phase the person clicked, or `nil` to follow the live one.
-    @State private var selected: ProgressPhase?
-    /// The focused working screen is the default; the phase rail, detail card and timeline are one toggle away.
-    @State private var showActivity = ProcessInfo.processInfo.environment["RASAN_PROGRESS_ACTIVITY"] != nil // snapshots open it
+    /// "View activity" opens the list of what has happened as a sheet; a warning's "View details" opens that one event.
+    @State private var showActivity = false
+    @State private var detailItem: ProgressActivity?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.agentName) private var agent
     @State private var wrapSent = false
@@ -42,48 +38,23 @@ struct FilmProgressView: View {
         }
         return s
     }
-    private var shown: ProgressPhase { selected ?? snapshot.currentPhase }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let now = progress.isReplay ? progress.now : (progress.isLive ? context.date : progress.now)
-            VStack(spacing: 0) {
-                if showActivity {
-                    header(now: now)
-                    Divider()
-                    HStack(spacing: 0) {
-                        PhaseRail(snapshot: snapshot, now: now, shown: shown, onSelect: choose)
-                            .frame(width: 244)
-                        Divider()
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 26) {
-                                if shown != snapshot.currentPhase { lookingBack }
-                                PhaseDetailCard(model: model, snapshot: snapshot, phase: shown, now: now)
-                                    .id(shown)
-                                    .transition(.opacity)
-                                ProgressTimeline(snapshot: snapshot, now: now, shown: shown, onShowLog: onShowLog)
-                            }
-                            .padding(.horizontal, 28).padding(.top, 22).padding(.bottom, 32)
-                            .frame(maxWidth: 860, alignment: .leading)
-                            .frame(maxWidth: .infinity)
-                            .animation(reduceMotion ? nil : .smooth(duration: 0.3), value: shown)
-                        }
-                    }
-                } else {
-                    focused(now: now)
-                }
-            }
+            focused(now: now)
         }
         .environment(model)
+        .sheet(isPresented: $showActivity) {
+            ProgressActivitySheet(snapshot: snapshot, onShowLog: onShowLog).tint(.rasan)
+        }
         .accessibilityElement(children: .contain)
     }
 
     private var activityToggle: some View {
-        Toggle(isOn: $showActivity.animation(reduceMotion ? nil : .smooth(duration: 0.25))) {
-            Label("View activity", systemImage: "list.bullet.rectangle")
-        }
-        .toggleStyle(.button).controlSize(.small)
-        .help("Show the eight phases, each phase's details and the activity timeline")
+        Button { showActivity = true } label: { Label("View activity", systemImage: "list.bullet.rectangle") }
+            .controlSize(.small)
+            .help("See what has happened so far, newest first")
     }
 
     // MARK: Focused working screen
@@ -163,10 +134,11 @@ struct FilmProgressView: View {
                     Text(latest.time.formatted(date: .omitted, time: .shortened)).font(.system(size: 11)).foregroundStyle(.secondary)
                 }
                 Text(latest.title).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
-                Button("View details") {
-                    choose(s.currentPhase)
-                    withAnimation(reduceMotion ? nil : .smooth) { showActivity = true }
-                }.controlSize(.small)
+                Button("View details") { detailItem = latest }
+                    .controlSize(.small)
+                    .popover(item: $detailItem, arrowEdge: .bottom) { item in
+                        ProgressActivityDetail(item: item, snapshot: snapshot, onShowLog: onShowLog)
+                    }
             }
             .foregroundStyle(.orange)
             .padding(.horizontal, 12).padding(.vertical, 8)
@@ -209,76 +181,6 @@ struct FilmProgressView: View {
         }
     }
 
-    private func choose(_ phase: ProgressPhase) {
-        selected = phase == snapshot.currentPhase ? nil : phase
-    }
-
-    private var lookingBack: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "clock.arrow.circlepath").foregroundStyle(.secondary)
-            Text("Looking back at \(shown.title). The film is on \(snapshot.currentPhase.title).").font(.system(size: 12))
-            Spacer()
-            Button("Back to now") { selected = nil }.controlSize(.small)
-        }
-        .padding(.horizontal, 14).padding(.vertical, 9)
-        .background(Color.rasan.opacity(0.09), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .accessibilityElement(children: .combine)
-    }
-
-    // MARK: Header
-
-    private func header(now: Date) -> some View {
-        let s = snapshot
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 6) {
-                Image(systemName: s.now.phase.symbolName).font(.system(size: 11, weight: .semibold))
-                Text("\(s.now.phase.title) · step \(s.now.phase.index + 1) of \(ProgressPhase.allCases.count)".uppercased())
-                    .font(.system(size: 11, weight: .semibold)).tracking(0.6)
-                if let pace {
-                    Text("\(pace.title) pace").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
-                        .padding(.horizontal, 7).padding(.vertical, 2).background(Color(nsColor: .quaternaryLabelColor).opacity(0.3), in: Capsule())
-                        .help("How much research and checking this film was set up for. Change it in Settings or New film.")
-                }
-                Spacer()
-                activityToggle
-                if let onShowLog { Button("Log", action: onShowLog).controlSize(.small).help("Open the full activity log") }
-                if let onPause { Button("Pause", action: onPause).controlSize(.small).help("Pause (⌘.). Your work is kept, and you can resume.") }
-            }
-            .foregroundStyle(s.isWaitingForYou ? Color.orange : Color.rasan)
-            .padding(.bottom, 6)
-            if let notice = autoResume { resumeBanner(notice, now: now) }
-            HStack(alignment: .center, spacing: 18) {
-                NowCrewAvatar(snapshot: s)
-                Text(s.now.text)
-                    .font(.system(size: 28, weight: .semibold)).tracking(-0.3)
-                    .lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                    .contentTransition(.opacity).animation(reduceMotion ? nil : .smooth, value: s.now.text)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: 12)
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text(Self.clock(s.elapsed(now: now)))
-                        .font(.system(size: 22, weight: .semibold, design: .rounded)).monospacedDigit()
-                        .accessibilityLabel("Elapsed \(FilmProgressFormat.duration(s.elapsed(now: now)))")
-                    Text("elapsed").font(.system(size: 11)).foregroundStyle(.secondary)
-                }
-                .fixedSize()
-            }
-            HStack(alignment: .firstTextBaseline, spacing: 16) {
-                if let detail = s.now.detail, !detail.isEmpty {
-                    Text(detail).font(.system(size: 14)).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 12)
-                estimate(s)
-            }
-            .padding(.top, 6)
-            if !s.isWaitingForYou, let next = NextNeeded.line(model.snapshot, pace: pace) {
-                Label(TurnState.sentenceCaseFirst(next), systemImage: "hand.raised").font(.system(size: 13, weight: .medium)).foregroundStyle(Color.rasan)
-                    .padding(.top, 8).accessibilityLabel("You are needed next: \(next)")
-            }
-        }
-        .padding(.horizontal, 28).padding(.top, 14).padding(.bottom, 16)
-    }
-
     private func resumeBanner(_ notice: AutoResumeNotice, now: Date) -> some View {
         HStack(spacing: 8) {
             Image(systemName: notice.isLimit ? "hourglass" : "arrow.clockwise.circle.fill").font(.system(size: 13, weight: .semibold))
@@ -302,16 +204,37 @@ struct FilmProgressView: View {
         } else if let remaining = s.remaining {
             HStack(spacing: 5) {
                 Text(Self.estimateText(remaining)).font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.rasan)
-                Text(remaining.basis == .measured ? "· from progress so far" : "· based on typical films").font(.system(size: 11)).foregroundStyle(.tertiary)
+                Text(Self.basisNote(remaining)).font(.system(size: 11)).foregroundStyle(.tertiary)
             }
-            .help(remaining.basis == .measured ? "Worked out from what has been built or rendered so far." : "A typical figure for these stages. It firms up once there is progress to measure.")
+            .help(Self.basisHelp(remaining))
             .accessibilityElement(children: .combine)
         }
     }
 
     /// A measured estimate is quoted as the model gives it; one that only rests on how long films usually take is rounded coarsely,
     /// because "2 h 55 min" would promise more than anyone knows.
+    nonisolated static func basisNote(_ e: PhaseEstimate) -> String {
+        switch e.basis {
+        case .measured: "· from progress so far, not counting your calls"
+        case .learned: "· from your past films, not counting your calls"
+        case .typical: "· based on typical films, not counting your calls"
+        }
+    }
+
+    nonisolated static func basisHelp(_ e: PhaseEstimate) -> String {
+        let calls = " It leaves out the time you spend on your calls (picking a script or look, reviewing the animatic)."
+        switch e.basis {
+        case .measured: return "Worked out from what has been built or rendered so far." + calls
+        case .learned: return "Worked out from how long your earlier films took, scaled to this one. A range means there is not enough history to be sure." + calls
+        case .typical: return "A typical figure for these stages. It firms up once there is progress to measure or past films to learn from." + calls
+        }
+    }
+
     nonisolated static func estimateText(_ estimate: PhaseEstimate) -> String {
+        if estimate.isRange, let low = estimate.lowSeconds, let high = estimate.highSeconds {
+            let text = FilmProgressFormat.aboutRange(low, high)
+            return "Roughly " + text.dropFirst("about ".count) + " left"
+        }
         if estimate.basis == .measured {
             let text = estimate.text
             return text.prefix(1).uppercased() + text.dropFirst() + " left"
@@ -336,138 +259,6 @@ struct FilmProgressView: View {
     }
 }
 
-// MARK: - Phase rail
-
-struct PhaseRail: View {
-    let snapshot: FilmProgressSnapshot
-    let now: Date
-    let shown: ProgressPhase
-    let onSelect: (ProgressPhase) -> Void
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                ForEach(Array(snapshot.phases.enumerated()), id: \.element.id) { index, item in
-                    PhaseRailRow(item: item, now: now, selected: item.phase == shown, isLast: index == snapshot.phases.count - 1,
-                                 nextDone: index + 1 < snapshot.phases.count && snapshot.phases[index + 1].state != .upcoming) {
-                        onSelect(item.phase)
-                    }
-                }
-                if snapshot.totalCostUSD > 0 || snapshot.totalTokens.fresh > 0 {
-                    Divider().padding(.vertical, 10)
-                    totals
-                }
-            }
-            .padding(.horizontal, 12).padding(.vertical, 14)
-        }
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
-        .accessibilityLabel("Phases")
-    }
-
-    private var totals: some View {
-        HStack {
-            Text("So far").font(.system(size: 11)).foregroundStyle(.secondary)
-            Spacer()
-            Text(snapshot.isIncludedInPlan ? FilmProgressFormat.tokens(snapshot.totalTokens.fresh)
-                 : (snapshot.costIsEstimated ? "est. " : "") + UsageFormat.dollars(snapshot.totalCostUSD))
-                .font(.system(size: 12, weight: .semibold)).monospacedDigit()
-        }
-        .padding(.horizontal, 10)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-private struct PhaseRailRow: View {
-    let item: PhaseSummary
-    let now: Date
-    let selected: Bool
-    let isLast: Bool
-    let nextDone: Bool
-    let action: () -> Void
-    @State private var hovering = false
-
-    private var enabled: Bool { item.state != .upcoming }
-
-    var body: some View {
-        Button(action: action) {
-            HStack(alignment: .top, spacing: 11) {
-                VStack(spacing: 0) {
-                    PhaseGlyph(phase: item.phase, state: item.state)
-                    if !isLast {
-                        Rectangle()
-                            .fill(nextDone && item.state == .done ? Color(nsColor: .systemGreen).opacity(0.5) : Color(nsColor: .separatorColor))
-                            .frame(width: 1.5).frame(maxHeight: .infinity)
-                            .padding(.vertical, 3)
-                    }
-                }
-                .frame(width: 26)
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 5) {
-                        Text(item.phase.title)
-                            .font(.system(size: 13, weight: item.state == .active || item.state == .waitingForYou ? .semibold : .medium))
-                            .foregroundStyle(item.state == .upcoming || item.state == .skipped ? .secondary : .primary)
-                        if let call = item.phase.yourCall {
-                            Image(systemName: "person.fill").font(.system(size: 8)).foregroundStyle(.tertiary)
-                                .help("Ends with your call: \(call)")
-                        }
-                    }
-                    Text(subtitle).font(.system(size: 11)).foregroundStyle(subtitleColor).monospacedDigit().lineLimit(1)
-                }
-                .padding(.top, 3)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 8).padding(.top, 5).padding(.bottom, 4)
-            .frame(height: isLast ? 46 : 54, alignment: .top)
-            .background(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(selected ? Color.rasan.opacity(0.13) : (hovering && enabled ? Color(nsColor: .quaternaryLabelColor).opacity(0.25) : .clear))
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
-        .onHover { hovering = $0 }
-        .help(item.phase.summary)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(item.railText(now: now)), \(stateWord)")
-        .accessibilityHint(enabled ? "Shows this phase's details" : "")
-        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
-    }
-
-    private var stateWord: String {
-        switch item.state {
-        case .done: "finished"
-        case .active: "in progress"
-        case .waitingForYou: "waiting for you"
-        case .skipped: "skipped"
-        case .upcoming: "not started"
-        }
-    }
-
-    private var subtitle: String {
-        switch item.state {
-        case .upcoming:
-            return item.estimate.map { "Later · \($0.text)" } ?? "Up next"
-        case .skipped: return "Skipped"
-        case .waitingForYou: return "Waiting for you"
-        case .active, .done:
-            var parts: [String] = []
-            if item.startedAt != nil { parts.append(FilmProgressFormat.duration(item.workSeconds(now: now))) }
-            if let cost = item.costText { parts.append(item.costIsEstimated && !item.isIncludedInPlan ? cost.replacingOccurrences(of: "est. ", with: "~") : cost) }
-            return parts.isEmpty ? "Starting" : parts.joined(separator: " · ")
-        }
-    }
-
-    private var subtitleColor: Color {
-        switch item.state {
-        case .waitingForYou: .orange
-        case .active: Color.rasan
-        default: Color(nsColor: .secondaryLabelColor)
-        }
-    }
-}
-
-/// The state icon on the rail: a green check, a spinning ring, a waiting person, or the phase's own symbol, dimmed.
 extension ProgressPhase {
     /// The person's call this phase ends in, if any: the five calls live on this list while Claude works.
     var yourCall: String? {
@@ -478,37 +269,5 @@ extension ProgressPhase {
         case .render: "review the final"
         default: nil
         }
-    }
-}
-
-struct PhaseGlyph: View {
-    let phase: ProgressPhase
-    let state: PhaseState
-    var size: CGFloat = 24
-
-    var body: some View {
-        ZStack {
-            switch state {
-            case .done:
-                Circle().fill(Color(nsColor: .systemGreen).opacity(0.9))
-                Image(systemName: "checkmark").font(.system(size: size * 0.42, weight: .bold)).foregroundStyle(.white)
-            case .active:
-                Circle().fill(Color.rasan.opacity(0.16))
-                Circle().strokeBorder(Color.rasan.opacity(0.6), lineWidth: 1.5)
-                ProgressView().controlSize(.mini).scaleEffect(0.75)
-            case .waitingForYou:
-                Circle().fill(Color.orange.opacity(0.18))
-                Circle().strokeBorder(Color.orange.opacity(0.7), lineWidth: 1.5)
-                Image(systemName: "person.fill").font(.system(size: size * 0.42, weight: .semibold)).foregroundStyle(.orange)
-            case .skipped:
-                Circle().strokeBorder(Color(nsColor: .tertiaryLabelColor), style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
-                Image(systemName: "minus").font(.system(size: size * 0.4, weight: .semibold)).foregroundStyle(.tertiary)
-            case .upcoming:
-                Circle().strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1.25)
-                Image(systemName: phase.symbolName).font(.system(size: size * 0.4)).foregroundStyle(.tertiary)
-            }
-        }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
     }
 }

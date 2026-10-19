@@ -9,12 +9,20 @@ actor FilmProgressWorker {
     private var offset: UInt64 = 0
     private var lastScan = Date.distantPast
     private var sessionStamp: Date?
+    private var smoother = EstimateSmoother()
+    private var history: [FilmTimingRecord]?
+    private var lastRecorded = ""
+    private let timingStore = FilmTimingStore()
 
-    func reset() { engine = FilmProgressEngine(); offset = 0; lastScan = .distantPast; sessionStamp = nil }
+    func reset() { engine = FilmProgressEngine(); offset = 0; lastScan = .distantPast; sessionStamp = nil; smoother = EstimateSmoother(); history = nil; lastRecorded = "" }
 
     /// One live step: new log lines, the session, artifacts (every 2 s) and render output.
     func advance(run: URL, project: URL?, budget: ResearchBudget?, now: Date, running: Bool, wasRunning: Bool) -> FilmProgressSnapshot {
         engine.budget = budget
+        // The history is read once per film, here (never inside the engine), and without this film's own partial record.
+        let filmID = run.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent + "/" + run.lastPathComponent
+        if history == nil { history = timingStore.load() }
+        engine.timingHistory = (history ?? []).filter { $0.id != filmID }
         let log = run.appendingPathComponent("director.log")
         while true {
             let read = DirectorUsageStore.readLines(file: log, from: offset)
@@ -32,6 +40,7 @@ actor FilmProgressWorker {
         if now.timeIntervalSince(lastScan) >= 2 {
             lastScan = now
             engine.update(artifacts: FilmArtifactScanner.scan(project: project, run: run), now: now)
+            engine.timingFiles = FilmTimingContext.read(run: run, project: project)
         }
         for file in engine.renderOutputFiles {
             if let handle = try? FileHandle(forReadingFrom: URL(fileURLWithPath: file)) {
@@ -42,7 +51,10 @@ actor FilmProgressWorker {
             }
         }
         if wasRunning && !running { engine.directorStopped(at: now) }
-        return engine.snapshot(now: now)
+        var snapshot = engine.snapshot(now: now)
+        snapshot.remaining = smoother.apply(snapshot.remaining, now: now)
+        record(snapshot, id: filmID)
+        return snapshot
     }
 
     /// Replay step: the caller supplies everything for the simulated clock.
@@ -52,7 +64,19 @@ actor FilmProgressWorker {
         if let session { engine.update(session: session, now: now) }
         if let artifacts { engine.update(artifacts: artifacts, now: now) }
         for (toolID, text) in renderChunks { engine.ingest(renderOutput: text, toolID: toolID, now: now) }
-        return engine.snapshot(now: now)
+        var snapshot = engine.snapshot(now: now)
+        snapshot.remaining = smoother.apply(snapshot.remaining, now: now)
+        return snapshot
+    }
+
+    /// Appends this film's per-phase work time to the history when a phase ended or the film finished (live films only, never a replay).
+    private func record(_ snapshot: FilmProgressSnapshot, id: String) {
+        guard let record = FilmTimingRecord.make(id: id, snapshot: snapshot) else { return }
+        let signature = "\(id)/\(record.phaseSeconds.count)/\(record.complete)"
+        guard signature != lastRecorded else { return }
+        lastRecorded = signature
+        timingStore.append(record, existing: history)
+        history = FilmTimingHistory.compact((history ?? []) + [record])
     }
 
     func telemetry() -> DirectorTelemetry { engine.telemetrySnapshot }

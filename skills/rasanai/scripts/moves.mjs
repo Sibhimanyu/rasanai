@@ -44,6 +44,8 @@
 //        -> prints the stories array with carrier (string, the short plain form) and moves[] (up to 3: {id, title, move (the plain line), says, scale (when the card has one), beat, video, strip, poster})
 //           added per story, from moves-<label>.json, the verdict's ranking and the roughs (a move with a rough comes first;
 //           media paths are relative to the working directory, like the other console payload media; a missing file's key is omitted).
+//           It also adds the storyline from story/pitch-<label>.json and story/intent-<label>.json: per beat role, peak, actor, domain, picture, props, claim {id, text, source}, buys, viewer_before, viewer_after, relation, importance, read;
+//           per story storyline {proposition, problem, emotion, villain {what, picture, numbers[]}, turn {line, reverses, payoff}, ending {line, last_frame, echo}, muted_hook, coverage[]}. Missing files add nothing.
 //   node moves.mjs choose --run <run> --label <label>
 //        -> copies moves-<label>.json to <run>/story/moves.json with ranking and heroes merged from the verdict
 //           (the Motion Director reads moves.json; crew.mjs check holds the score to it).
@@ -397,7 +399,7 @@ if (cmd === "pack") {
     const cut = str(c.what).split(/[,:;(]| from | carried | that /)[0].trim().split(/\s+/).filter(Boolean);
     return cut.slice(0, 10).join(" ");
   };
-  const result = stories.map((s) => {
+  const withMoves = (s) => {
     const label = MOVE_LABELS.find((l) => l.toLowerCase() === String((s && (s.angle || s.label)) || "").toLowerCase());
     const mv = label && jsonMaybe(movesFile(run, label));
     if (!mv || typeof mv !== "object") return s;
@@ -418,7 +420,74 @@ if (cmd === "pack") {
     const ordered = [...entries.filter((e) => e.video), ...entries.filter((e) => !e.video)].slice(0, 3);
     const carrier = carrierShort(mv.carrier);
     return { ...s, ...(carrier ? { carrier } : {}), ...(ordered.length ? { moves: ordered } : {}) };
-  });
+  };
+  // The storyline: what the pitch (story/pitch-<label>.json) and the intent (story/intent-<label>.json) know beyond the summary, so the Story call can show the whole script.
+  // Backward compatible: a story with neither file is returned as it was; existing payload fields are never overwritten.
+  const claimsRaw = jsonMaybe(path.join(run, "research", "claims.json"));
+  const ledger = new Map((Array.isArray(claimsRaw) ? claimsRaw : claimsRaw && Array.isArray(claimsRaw.claims) ? claimsRaw.claims : []).filter((c) => c && c.id != null).map((c) => [String(c.id), c]));
+  const claimOf = (ref, grounded) => {
+    const id = str(ref).trim();
+    if (!id) return null;
+    const c = ledger.get(id);
+    if (c) return { id, text: str(c.text || c.claim), ...(str(c.source) ? { source: str(c.source) } : {}) };
+    const g = grounded.find((x) => x && (str(x.id) === id || str(x.claim) === id));
+    return g ? { id, text: str(g.claim), ...(str(g.source) ? { source: str(g.source) } : {}) } : { id, text: id };
+  };
+  const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v != null && v !== "" && !(Array.isArray(v) && !v.length) && !(typeof v === "object" && !Array.isArray(v) && !Object.keys(v).length)));
+  const withStoryline = (s) => {
+    const label = MOVE_LABELS.find((l) => l.toLowerCase() === String((s && (s.angle || s.label)) || "").toLowerCase());
+    if (!label) return s;
+    const pitch = jsonMaybe(path.join(run, "story", `pitch-${label}.json`));
+    const intent = jsonMaybe(path.join(run, "story", `intent-${label}.json`));
+    const P = pitch && typeof pitch === "object" ? pitch : {};
+    const I = intent && typeof intent === "object" ? intent : {};
+    if (!Object.keys(P).length && !Object.keys(I).length) return s;
+    const grounded = Array.isArray(P.grounded_claims) ? P.grounded_claims : [];
+    const pb = Array.isArray(P.beats) ? P.beats : [];
+    const ib = Array.isArray(I.beats) ? I.beats : [];
+    const sb = Array.isArray(s.beats) ? s.beats : [];
+    const find = (arr, b, i) => arr.find((x) => x && str(x.name) && str(x.name) === str(b && b.name)) || (arr.length === sb.length ? arr[i] : null) || null;
+    const beats = sb.map((b, i) => {
+      const p = find(pb, b, i) || {}, n = find(ib, b, i) || {};
+      const claim = claimOf(p.claim, grounded);
+      const read = n.read && typeof n.read === "object" ? str(n.read.text) : "";
+      const extra = clean({
+        role: str(p.role), peak: n.peak === true || p.peak === true ? true : undefined, slot: str(n.slot || p.slot),
+        actor: str(p.actor && typeof p.actor === "object" ? [p.actor.what, p.actor.does].filter(Boolean).join(" ") : p.actor), domain: str(p.domain),
+        picture: str(p.picture), props: Array.isArray(p.props) ? p.props.map(str).filter(Boolean) : undefined, sound: str(p.sound),
+        claim: claim || undefined, buys: str(n.buys), viewer_before: str(n.viewer_before), viewer_after: str(n.viewer_after),
+        relation: str(n.relation), importance: [1, 2, 3].includes(Number(n.importance)) ? Number(n.importance) : undefined, read,
+      });
+      const merged = { ...b };
+      for (const [k, v] of Object.entries(extra)) if (merged[k] == null || merged[k] === "") merged[k] = v;
+      if (p.turn === true && merged.turn == null) merged.turn = true;
+      if (!str(merged.visual) && str(p.visual)) merged.visual = str(p.visual);
+      return merged;
+    });
+    const covers = (Array.isArray(P.coverage) ? P.coverage : []).filter((c) => c && typeof c === "object").map((c) => {
+      const what = c.claim != null ? claimOf(c.claim, grounded) : null;
+      return clean({ claim: what ? what.text : undefined, claim_id: what ? what.id : undefined, feature: str(c.feature), beat: Number(c.beat) >= 1 ? Number(c.beat) : undefined, cut: str(c.cut) });
+    });
+    const villain = I.villain && typeof I.villain === "object" ? I.villain : null;
+    const numbers = (Array.isArray(I.felt_numbers) ? I.felt_numbers : []).filter((x) => x && str(x.value)).map((x) => {
+      const c = str(x.source) && str(x.source) !== "prop" ? claimOf(x.source, grounded) : null;
+      return clean({ value: str(x.value), source: c ? (c.source || c.text) : str(x.source) === "prop" ? "a story detail" : "" });
+    });
+    const turn = P.turn && typeof P.turn === "object" ? P.turn : null;
+    const end = I.ending_first && typeof I.ending_first === "object" ? I.ending_first : null;
+    const page = I.page && typeof I.page === "object" ? I.page : {};
+    const storyline = clean({
+      proposition: str(I.proposition),
+      problem: str(page.problem), emotion: str(page.emotion),
+      villain: villain ? clean({ what: str(villain.what), picture: str(villain.picture), numbers }) : numbers.length ? { numbers } : undefined,
+      turn: turn ? clean({ line: str(turn.line), reverses: str(turn.reverses), payoff: str(turn.payoff), engine: str(P.engine) }) : undefined,
+      ending: end ? clean({ line: str(end.line), last_frame: str(end.last_frame), echo: str(end.echo) }) : undefined,
+      muted_hook: str(I.muted_hook), first_4s: str(P.first_4s), signature_image: str(P.signature_image),
+      coverage: covers,
+    });
+    return { ...s, ...(sb.length ? { beats } : {}), ...(Object.keys(storyline).length && !s.storyline ? { storyline } : {}) };
+  };
+  const result = stories.map((s) => withStoryline(withMoves(s)));
   console.log(JSON.stringify(result, null, 2));
 } else if (cmd === "choose") {
   const run = runDir();

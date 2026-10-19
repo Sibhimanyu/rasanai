@@ -8,7 +8,7 @@ A lyric video is a film whose clock is the song. Two JSON files make that exact,
 | `audio.json` | `lyrics.mjs audio` | tempo, beats, downbeats, sections, kick/snare/hat (and vocal) onsets, 100 Hz envelopes |
 | `rasan-music.js` | `stage3d/` (`stage3d.mjs install` puts it in `assets/three/` beside `rasan3d.js`; `video.mjs inject --runtime` for a film with no 3D scene) | `window.RasanMusic`: pure functions of time over both files |
 
-Pure Node + ffmpeg + whisper.cpp (the `whisper-cli` and models `hyperframes transcribe` installs). Python is never needed. **demucs**, if installed, is used automatically (it isolates vocals and drums); without it the tool works on the mix and says `source.vocals: "mix"`.
+Pure Node + ffmpeg + whisper.cpp (the `whisper-cli` and models `transcriber.mjs install` sets up). Python is never needed. **demucs**, if installed, is used automatically (it isolates vocals and drums); without it the tool works on the mix and says `source.vocals: "mix"`.
 
 ## Commands
 

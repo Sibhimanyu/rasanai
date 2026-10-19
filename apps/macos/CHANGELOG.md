@@ -2,6 +2,16 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **⌘K jumps to search,** everywhere but a film page, where ⌘K still writes to the agent.
+- **A yes to the transcriber installs it.** Studio installs the speech transcriber itself, checks it works, and shows the real reason if it can't. The film no longer carries on without transcripts after you said yes.
+- **The old activity page is gone.** View activity shows what happened, newest first; a warning's View details shows that warning. Wrap up research sits right on the research budget warning.
+- **Brand in the + menu.** Pick a brand or add a brand kit folder or .zip from the prompt box. A folder that looks like a brand kit asks before it goes in as footage, and a film waits for its brand to finish compiling.
+- **The full storyline on the Story call,** beat by beat: what you see, what it proves, why it's there, the turn and the ending.
+- **Better time estimates.** They fit the film (length, scenes, pace), leave out phases it skips, learn from your past films, stay steady, and show a range until they're sure.
+- **Bundles RasanAI 1.22.0.**
+
 ## 0.17.0 (build 35) — 2026-10-19
 
 - **Upload a brand kit folder.** New Brand takes a folder or .zip. RasanAI copies every usable file, then Claude compiles the brand in the background: DESIGN.md, logo roles, fonts, media tags and the guidelines' rules. A progress card shows where it is, with Cancel.

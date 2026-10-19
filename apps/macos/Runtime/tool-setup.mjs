@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 
 const job = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-const allowed = ['ffmpeg', 'renderer', 'browser', 'skills'];
+const allowed = ['ffmpeg', 'renderer', 'browser', 'skills', 'transcriber'];
 if (!Array.isArray(job.tools) || !job.tools.length || job.tools.some(t => !allowed.includes(t))) throw new Error('Invalid tool selection');
 const root = path.join(os.homedir(), 'Library', 'Application Support', 'RasanAI', 'Tools');
 const bin = path.join(root, 'bin');
@@ -123,6 +123,22 @@ try {
   if (job.tools.includes('skills')) {
     await run(renderer, ['skills', 'update'], 'Installing design resources…');
     completed.push('skills');
+  }
+  if (job.tools.includes('transcriber')) {
+    // The same installer the director uses, run here outside its sandbox: installs whisper-cli and the model, then proves them on a silent wav.
+    const engine = typeof job.engine === 'string' ? job.engine : '';
+    const script = path.join(engine, 'scripts', 'transcriber.mjs');
+    if (!engine || !fs.existsSync(script)) throw new Error('The bundled transcriber installer is missing. Download a fresh copy of Studio.');
+    const reasonFile = path.join(path.dirname(process.argv[2]), 'transcriber-reason.txt');
+    try {
+      await run(process.execPath, [script, 'install', '--reason-file', reasonFile], 'Installing the speech transcriber (this can take several minutes)…', 3_600_000);
+    } catch (error) {
+      if (stopping) throw error;
+      let reason = '';
+      try { reason = fs.readFileSync(reasonFile, 'utf8').trim(); } catch {}
+      throw new Error(reason || error.message);
+    }
+    completed.push('transcriber');
   }
   checkCancellation();
   status('Setup finished. Rechecking readiness…');

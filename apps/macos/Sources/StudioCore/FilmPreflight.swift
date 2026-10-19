@@ -79,6 +79,15 @@ public enum FilmPreflight {
             : "A local browser executable was found. HyperFrames verifies its compatibility when rendering.", browser == nil ? .warning : .ready,
             command: browser == nil ? "npx --yes hyperframes browser ensure" : nil))
         rows.append(await imageGenerationRow(config))
+        // Footage with speech needs a working transcriber. Only shown when the film has audio or video sources.
+        let mediaExtensions: Set<String> = ["mp4", "mov", "m4v", "webm", "mkv", "avi", "mts", "m4a", "mp3", "wav", "aac", "flac"]
+        if config.sources.contains(where: { mediaExtensions.contains($0.pathExtension.lowercased()) }) {
+            let script = config.engine?.appendingPathComponent("scripts/transcriber.mjs")
+            var ready = false
+            if let node = config.node, let script, fm.isReadableFile(atPath: script.path) { ready = await probe(node, arguments: [script.path, "status"], config: config) }
+            rows.append(PreflightItem("transcriber", "Speech transcriber", ready ? "The transcriber works (tested on a silent clip)."
+                : "No working transcriber was found. Install it here so footage is captioned and cut by what is said; Studio tests it after installing.", ready ? .ready : .warning))
+        }
         let home = fm.homeDirectoryForCurrentUser
         var roots = [home.appendingPathComponent(".claude/skills"), home.appendingPathComponent(".agents/skills"),
                      config.project.appendingPathComponent(".claude/skills"), config.project.appendingPathComponent(".agents/skills")]
