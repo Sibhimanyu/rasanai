@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Brand kit folders.** `brand-assets.mjs inventory` takes a whole kit (folder or .zip): it imports the best DESIGN.md, copies and sorts logos (by folder and name), fonts and media, converts `.ai` and PDF logos to SVG with `pdftocairo`, and lists files it can't use with the reason. `compile-prompt` and the new `agents/brand-compiler.md` drive a headless Claude job that completes DESIGN.md with cited colour roles and fonts, fixes logo kinds and the primary, tags media, writes `KIT.md` (the guidelines' rules) and `compile.json` (summary, questions, unsure). `set` edits one entry; `compile` runs it all from a terminal.
+
 ## 1.20.0 (2026-10-19): brand kits that reach the film, stories planned as a set
 
 - **Brand kits that reach the film.** `brand-assets.mjs` (`import`, `add`, `check`, `apply`): files a DESIGN.md points to (logos, `@font-face` fonts, images, URLs) are copied in and sorted into logos (mark, wordmark, lockup, app icon, with colour versions), fonts and media, and anything it can't find is listed with its line. `check` writes `assets/check.json` (colour roles, fonts, logo problems, fonts that would fall back to Inter). `apply` puts a brand into a film project: `logos.json`, fonts named for the build plus `fonts.json`, media, and it removes the previous brand's files.
