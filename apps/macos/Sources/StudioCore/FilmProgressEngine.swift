@@ -91,6 +91,11 @@ public struct FilmProgressEngine: Sendable {
     var findingsPushedAt: Date?
     var expectedKeyframes: Int?
     var filmSeconds: Double = 30
+    var aspect = "16:9"
+    var briefKind: String?
+    /// Past films and this run's setup, handed in by the caller (never read here), for the time estimates.
+    public var timingHistory: [FilmTimingRecord] = []
+    public var timingFiles = FilmTimingContext()
     var finishedAt: Date?
     var workingMessage: String?
     var finalVideoPath: String?
@@ -385,6 +390,8 @@ public struct FilmProgressEngine: Sendable {
         askQuestion = session.ask?.question
         workingMessage = session.workingMessage
         filmSeconds = session.duration(for: session.stage) > 0 ? session.duration(for: session.stage) : (session.step("brief")["fields"]["length_s"].number ?? 30)
+        aspect = session.aspect
+        briefKind = session.step("brief")["fields"]["kind"].string
 
         var facts: [String: StepFact] = [:]
         var evidence: [Evidence] = []

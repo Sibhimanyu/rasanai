@@ -80,12 +80,20 @@ public struct PhaseEstimate: Codable, Equatable, Sendable {
         case typical
         /// From progress that was actually measured (scenes done, frames rendered).
         case measured
+        /// From how long this person's past films took (blended with the typical figure).
+        case learned
     }
     public var secondsLeft: TimeInterval
     public var basis: Basis
-    public init(secondsLeft: TimeInterval, basis: Basis) { self.secondsLeft = secondsLeft; self.basis = basis }
+    /// Set only when the spread is wide: the text then reads "about 25-35 min".
+    public var lowSeconds: TimeInterval?
+    public var highSeconds: TimeInterval?
+    public init(secondsLeft: TimeInterval, basis: Basis, lowSeconds: TimeInterval? = nil, highSeconds: TimeInterval? = nil) {
+        self.secondsLeft = secondsLeft; self.basis = basis; self.lowSeconds = lowSeconds; self.highSeconds = highSeconds
+    }
+    public var isRange: Bool { lowSeconds != nil && highSeconds != nil }
     /// "about 3 min", "under a minute", "about 1 h 10 min".
-    public var text: String { FilmProgressFormat.about(secondsLeft) }
+    public var text: String { isRange ? FilmProgressFormat.aboutRange(lowSeconds ?? secondsLeft, highSeconds ?? secondsLeft) : FilmProgressFormat.about(secondsLeft) }
 }
 
 /// One row of the phase rail: state, wall-clock window, tokens and cost.
@@ -359,6 +367,8 @@ public struct FilmProgressSnapshot: Codable, Equatable, Sendable {
     public var asOf = Date()
     /// Overall "about N min left" across the remaining phases; nil when the film is done or nothing is known.
     public var remaining: PhaseEstimate?
+    /// How the film is set up (kind, length, pace, scenes, skipped phases): what the estimates and the timing history use.
+    public var timingContext: FilmTimingContext?
     public var isWaitingForYou = false
     /// The director's latest plain-words tool calls (commands run, files written), newest last, capped at 80. For the "Details" disclosure.
     public var recentTools: [ProgressActivity] = []
@@ -424,6 +434,18 @@ public enum FilmProgressFormat {
         if minutes < 60 { return "about \(minutes) min" }
         let rest = (minutes % 60 / 5) * 5
         return rest == 0 ? "about \(minutes / 60) h" : "about \(minutes / 60) h \(rest) min"
+    }
+    /// "about 25-35 min": both ends rounded to the same step (5 min from 10 min up, 15 min from 1 h up).
+    public static func aboutRange(_ low: TimeInterval, _ high: TimeInterval) -> String {
+        func minutes(_ s: TimeInterval) -> Int {
+            let m = Int((max(0, s) / 60).rounded())
+            switch m { case ..<10: return max(1, m); case 10..<60: return Int((Double(m) / 5).rounded()) * 5; default: return Int((Double(m) / 15).rounded()) * 15 }
+        }
+        let a = minutes(low), b = max(minutes(high), minutes(low))
+        func label(_ m: Int) -> String { m < 60 ? "\(m) min" : (m % 60 == 0 ? "\(m / 60) h" : "\(m / 60) h \(m % 60) min") }
+        if a == b { return "about \(label(a))" }
+        if a < 60, b < 60 { return "about \(a)\u{2013}\(b) min" }
+        return "about \(label(a)) to \(label(b))"
     }
     public static func tokens(_ count: Int) -> String {
         UsageFormat.tokens(count) + " tokens"

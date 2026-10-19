@@ -204,16 +204,37 @@ struct FilmProgressView: View {
         } else if let remaining = s.remaining {
             HStack(spacing: 5) {
                 Text(Self.estimateText(remaining)).font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.rasan)
-                Text(remaining.basis == .measured ? "· from progress so far" : "· based on typical films").font(.system(size: 11)).foregroundStyle(.tertiary)
+                Text(Self.basisNote(remaining)).font(.system(size: 11)).foregroundStyle(.tertiary)
             }
-            .help(remaining.basis == .measured ? "Worked out from what has been built or rendered so far." : "A typical figure for these stages. It firms up once there is progress to measure.")
+            .help(Self.basisHelp(remaining))
             .accessibilityElement(children: .combine)
         }
     }
 
     /// A measured estimate is quoted as the model gives it; one that only rests on how long films usually take is rounded coarsely,
     /// because "2 h 55 min" would promise more than anyone knows.
+    nonisolated static func basisNote(_ e: PhaseEstimate) -> String {
+        switch e.basis {
+        case .measured: "· from progress so far, not counting your calls"
+        case .learned: "· from your past films, not counting your calls"
+        case .typical: "· based on typical films, not counting your calls"
+        }
+    }
+
+    nonisolated static func basisHelp(_ e: PhaseEstimate) -> String {
+        let calls = " It leaves out the time you spend on your calls (picking a script or look, reviewing the animatic)."
+        switch e.basis {
+        case .measured: return "Worked out from what has been built or rendered so far." + calls
+        case .learned: return "Worked out from how long your earlier films took, scaled to this one. A range means there is not enough history to be sure." + calls
+        case .typical: return "A typical figure for these stages. It firms up once there is progress to measure or past films to learn from." + calls
+        }
+    }
+
     nonisolated static func estimateText(_ estimate: PhaseEstimate) -> String {
+        if estimate.isRange, let low = estimate.lowSeconds, let high = estimate.highSeconds {
+            let text = FilmProgressFormat.aboutRange(low, high)
+            return "Roughly " + text.dropFirst("about ".count) + " left"
+        }
         if estimate.basis == .measured {
             let text = estimate.text
             return text.prefix(1).uppercased() + text.dropFirst() + " left"
