@@ -230,7 +230,7 @@ node $SKILL_DIR/scripts/moves.mjs check --file "$RUN/story/moves-<L>.json" --pit
 node $SKILL_DIR/scripts/moves.mjs check-verdict --run "$RUN"      # a script with fewer than 3 passing cards: one denial round, its inventor again with the failures banned
 # three move-sketchers (crew.mjs brief --role move-sketcher --key <L>): a grey-box rough of each script's top hero move
 node $SKILL_DIR/scripts/moves.mjs rough --dir "$RUN/story/moves/<L>-<id>" && node $SKILL_DIR/scripts/moves.mjs check-rough --dir "$RUN/story/moves/<L>-<id>"
-node $SKILL_DIR/scripts/moves.mjs payload --run "$RUN" --stories "$RUN/story/stories.json"        # adds carrier and moves[] to each story for the push
+node $SKILL_DIR/scripts/moves.mjs payload --run "$RUN" --stories "$RUN/story/stories.json"        # adds carrier, moves[] and the storyline (pitch + intent: proposition, villain, turn, ending, coverage, per-beat claim, buys, relation) to each story for the push
 ```
 
 The inventors work from the real product's UI on a product-first film, and from the brand's film card on a branded one; both are in their briefs. Look at each `strip.png` yourself before pushing. Without delegation, write the cards and rough yourself from `references/moves.md`, in the same order; the checks are the same.
