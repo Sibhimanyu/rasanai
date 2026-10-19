@@ -185,6 +185,13 @@ final class StudioStore {
     let settings: StudioSettings
     let runtime = DirectorRuntime()
     let monitor = DirectorMonitor()
+    /// Brand kit compile jobs, one per brand folder; held here so leaving the brand page does not stop one.
+    @ObservationIgnored private var brandCompilers: [URL: BrandCompiler] = [:]
+    func brandCompiler(for folder: URL) -> BrandCompiler {
+        let key = folder.standardizedFileURL
+        if let existing = brandCompilers[key] { return existing }
+        let created = BrandCompiler(); brandCompilers[key] = created; return created
+    }
     /// Film progress models, one per run, created on first use (see FilmProgress.swift).
     @ObservationIgnored var progressModels: [URL: FilmProgress] = [:]
     /// Set by the DEBUG replay: while non-nil nothing may attach to a run folder (no transport, no live read).

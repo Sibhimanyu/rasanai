@@ -20,6 +20,8 @@ public struct Brand: Identifiable, Hashable, Sendable {
     public var colorRoles: [String: String] = [:]
     public var assets = BrandAssetManifest()
     public var check: BrandCheck?
+    /// The brand kit this brand was compiled from (brand.json `kit`), when it came from one.
+    public var kit: URL?
 
     public init(folder: URL, name: String, designFile: URL, colors: [String], fonts: [String], logo: URL?, previousNames: [String] = [],
                 textColors: [String]? = nil, textFonts: [String]? = nil, colorRoles: [String: String] = [:], assets: BrandAssetManifest = BrandAssetManifest(), check: BrandCheck? = nil) {
@@ -58,11 +60,13 @@ public enum BrandLibrary {
         let design = folder.appendingPathComponent("DESIGN.md")
         var name = folder.lastPathComponent
         var previousNames: [String] = []
+        var kit: URL?
         if let data = try? Data(contentsOf: folder.appendingPathComponent("brand.json")),
            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
            let n = json["name"] as? String, !n.trimmingCharacters(in: .whitespaces).isEmpty {
             name = n
             previousNames = json["previousNames"] as? [String] ?? []
+            if let k = json["kit"] as? String, !k.isEmpty { kit = URL(fileURLWithPath: k) }
         }
         let text = (try? String(contentsOf: design, encoding: .utf8)) ?? ""
         BrandAssets.migrateLegacyLogo(in: folder)
@@ -82,8 +86,10 @@ public enum BrandLibrary {
             let named = [check.fonts.display, check.fonts.body].compactMap { $0 }.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
             if !named.isEmpty { fonts = named }
         }
-        return Brand(folder: folder, name: name, designFile: design, colors: colors, fonts: fonts, logo: logo, previousNames: previousNames,
-                     textColors: textColors, textFonts: textFonts, colorRoles: roles, assets: assets, check: check)
+        var brand = Brand(folder: folder, name: name, designFile: design, colors: colors, fonts: fonts, logo: logo, previousNames: previousNames,
+                          textColors: textColors, textFonts: textFonts, colorRoles: roles, assets: assets, check: check)
+        brand.kit = kit
+        return brand
     }
 
     public static func create(name: String, importing design: URL?, logo: URL?, in libraryRoot: URL) throws -> Brand {
@@ -106,6 +112,28 @@ public enum BrandLibrary {
         if let logo { try BrandAssets.addLogo(logo, kind: "mark", primary: true, to: target) }
         guard let brand = load(target) else { throw CocoaError(.fileReadUnknown) }
         return brand
+    }
+
+    /// A brand made from a dropped brand kit (folder or .zip): an empty brand folder with a stub DESIGN.md and `kit` in brand.json.
+    /// The compile job fills it in. With no name the kit's own name is used, title-cased.
+    public static func createFromKit(_ kit: URL, name: String, in libraryRoot: URL) throws -> Brand {
+        let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let display = clean.isEmpty ? kitName(kit) : clean
+        let brand = try create(name: display, importing: nil, logo: nil, in: libraryRoot)
+        let stub = "# \(display)\n\n<!-- rasanai:compile pending -->\n"
+        try stub.write(to: brand.designFile, atomically: true, encoding: .utf8)
+        let metaURL = brand.folder.appendingPathComponent("brand.json")
+        var metadata = (try? JSONSerialization.jsonObject(with: Data(contentsOf: metaURL))) as? [String: Any] ?? [:]
+        metadata["kit"] = kit.path
+        try JSONSerialization.data(withJSONObject: metadata, options: [.prettyPrinted]).write(to: metaURL, options: .atomic)
+        return load(brand.folder) ?? brand
+    }
+
+    /// "acme-brand_kit.zip" -> "Acme Brand Kit".
+    public static func kitName(_ kit: URL) -> String {
+        let base = kit.pathExtension.lowercased() == "zip" ? kit.deletingPathExtension().lastPathComponent : kit.lastPathComponent
+        let words = base.split(whereSeparator: { "-_ .".contains($0) }).map { $0.prefix(1).uppercased() + $0.dropFirst() }
+        return words.isEmpty ? "Untitled brand" : words.joined(separator: " ")
     }
 
     /// Makes `logo` the brand's primary mark: it replaces the current primary logo file, or is added when there is none.

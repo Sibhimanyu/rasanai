@@ -84,7 +84,7 @@ final class TasteLearner {
         }
 
         /// Runs a program with no window and no input; returns its output (written to a file in `dir`, never a pipe that could fill).
-        static func capture(_ executable: URL, _ arguments: [String], in dir: URL, environment: [String: String], timeout: TimeInterval, name: String) async -> String? {
+        static func capture(_ executable: URL, _ arguments: [String], in dir: URL, environment: [String: String], timeout: TimeInterval, name: String, quiet: Bool = false) async -> String? {
             let log = dir.appendingPathComponent(name)
             FileManager.default.createFile(atPath: log.path, contents: nil, attributes: [.posixPermissions: 0o600])
             guard let output = try? FileHandle(forWritingTo: log) else { return nil }
@@ -93,7 +93,7 @@ final class TasteLearner {
             process.executableURL = executable; process.arguments = arguments
             process.currentDirectoryURL = dir; process.environment = environment
             process.standardInput = FileHandle.nullDevice; process.standardOutput = output
-            process.standardError = name == "prompt.txt" ? FileHandle.nullDevice : output
+            process.standardError = quiet || name == "prompt.txt" ? FileHandle.nullDevice : output
             do { try process.run() } catch { return nil }
             let deadline = Date().addingTimeInterval(timeout)
             while process.isRunning {

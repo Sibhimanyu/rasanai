@@ -6,6 +6,10 @@ import UniformTypeIdentifiers
 /// The brand page's Assets section: what needs attention, then Logos, Fonts and Media, each with a drop target and a "+" button.
 struct BrandAssetsSection: View {
     let brand: Brand
+    var report = BrandKitReport()
+    var compiler: BrandCompiler?
+    /// Runs the kit job again (nil when the brand has no kit to go back to).
+    var retry: (() -> Void)?
     /// Reload the brand from disk.
     let changed: () -> Void
     @State private var importTarget: ImportTarget?
@@ -29,7 +33,7 @@ struct BrandAssetsSection: View {
     private var manifest: BrandAssetManifest { brand.assets }
     private var fontWarnings: [String] { (brand.check?.warnings ?? []).filter { $0.lowercased().contains("font") } }
     private var otherWarnings: [String] { (brand.check?.warnings ?? []).filter { !$0.lowercased().contains("font") } }
-    private var needsAttention: Bool { !(brand.check?.problems.isEmpty ?? true) || !otherWarnings.isEmpty || !manifest.missing.isEmpty }
+    private var needsAttention: Bool { !(brand.check?.problems.isEmpty ?? true) || !otherWarnings.isEmpty || !manifest.missing.isEmpty || !report.needsFromUser.isEmpty || !report.unsure.isEmpty }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -38,7 +42,9 @@ struct BrandAssetsSection: View {
                 if pending > 0 { ProgressView().controlSize(.small) }
                 Spacer()
             }
+            if let compiler { progress(compiler) }
             if needsAttention { attention }
+            if !report.unusable.isEmpty { unusable }
             logosGroup
             fontsGroup
             mediaGroup
@@ -53,6 +59,51 @@ struct BrandAssetsSection: View {
         .alert("Couldn’t update the brand’s assets", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
             Button("OK") { error = nil }
         } message: { Text(error ?? "") }
+    }
+
+    // MARK: Kit job
+
+    @ViewBuilder private func progress(_ compiler: BrandCompiler) -> some View {
+        switch compiler.state {
+        case .reading, .compiling, .checking:
+            HStack(spacing: 12) {
+                ProgressView().controlSize(.small)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(compiler.state == .reading ? "Reading the kit…" : compiler.state == .compiling ? "Claude is compiling the brand… this takes a few minutes" : "Checking…")
+                        .font(.system(size: 13, weight: .medium))
+                    Text("You can leave this page; it keeps going.").font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Cancel") { compiler.cancel() }.controlSize(.small)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading).workspacePanel(padding: 14)
+        case .failed(let reason):
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).frame(width: 16)
+                Text(reason).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                if let retry { Button("Try again") { compiler.dismiss(); retry() }.controlSize(.small) }
+                Button("Dismiss") { compiler.dismiss() }.controlSize(.small)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading).workspacePanel(padding: 14)
+        default: EmptyView()
+        }
+    }
+
+    private var unusable: some View {
+        DisclosureGroup {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(report.unusable) { file in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text((file.path as NSString).lastPathComponent).font(.system(size: 12, weight: .medium)).lineLimit(1).truncationMode(.middle)
+                        if !file.why.isEmpty { Text(file.why).font(.system(size: 11)).foregroundStyle(.secondary) }
+                    }.help(file.path)
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
+        } label: {
+            Text("Couldn’t use \(report.unusable.count) file\(report.unusable.count == 1 ? "" : "s")").font(.system(size: 12, weight: .medium))
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading).workspacePanel()
     }
 
     // MARK: Needs attention
@@ -74,6 +125,8 @@ struct BrandAssetsSection: View {
                     }
                 }
                 ForEach(Array(otherWarnings.enumerated()), id: \.offset) { _, text in note(text, symbol: "exclamationmark.triangle.fill", tint: .orange) }
+                ForEach(Array(report.needsFromUser.enumerated()), id: \.offset) { _, text in note(text, symbol: "questionmark.circle.fill", tint: .orange) }
+                ForEach(Array(report.unsure.enumerated()), id: \.offset) { _, text in note("Not sure: \(text)", symbol: "exclamationmark.triangle.fill", tint: .orange) }
             }
             .frame(maxWidth: .infinity, alignment: .leading).workspacePanel(padding: 14)
         }

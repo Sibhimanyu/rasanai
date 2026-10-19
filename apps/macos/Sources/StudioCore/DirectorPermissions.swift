@@ -42,7 +42,7 @@ public struct DirectorPermissions: Sendable, Equatable {
 
     /// `readFolders` and `readFiles` are the person's own footage folders and reference videos, linked in place: readable,
     /// never writable (they are not in `writableDirectories`, and the launch prompt forbids writing to them).
-    public init(engine: URL, home: URL, toolsDirectory: URL, readFolders: [String] = [], readFiles: [String] = [],
+    public init(engine: URL, home: URL, toolsDirectory: URL, readFolders: [String] = [], readFiles: [String] = [], extraCommands: [String] = [],
                 fileExists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }) {
         // Read access: the engine, the installed skills the engine reads (HyperFrames' workflows), the managed tools and the model caches.
         let readOnly = [
@@ -60,7 +60,7 @@ public struct DirectorPermissions: Sendable, Equatable {
         writableDirectories = writable
         let linked = readFolders.filter { !$0.isEmpty && !writable.contains($0) }
         additionalDirectories = keep(readOnly) + writable + linked
-        allow = Self.tools + Self.commands.map { $0.contains("*") && !$0.hasPrefix("*/") || $0.hasSuffix("@*") ? "Bash(\($0))" : "Bash(\($0) *)" } + Self.bareCommands.map { "Bash(\($0))" }
+        allow = Self.tools + (Self.commands + extraCommands).map { $0.contains("*") && !$0.hasPrefix("*/") || $0.hasSuffix("@*") ? "Bash(\($0))" : "Bash(\($0) *)" } + Self.bareCommands.map { "Bash(\($0))" }
             + readFiles.filter { !$0.isEmpty }.map { "Read(\($0))" }
         // Not denied with Edit/Write rules on the engine: Claude Code applies those to every path a shell command names, which
         // would block `cp <engine>/templates …`. The launch prompt already forbids modifying the signed bundle.

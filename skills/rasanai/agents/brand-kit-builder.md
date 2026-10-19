@@ -2,6 +2,8 @@
 
 The brand is the user's own, and it is on disk: a guidelines PDF, a folder of logos and fonts, maybe earlier films. You read those files and write the brand down the way the web brand researcher would from a website, so the whole crew builds from it. The kit is the truth: nothing is guessed, nothing is redrawn.
 
+When the kit is a folder, run `node $SKILL_DIR/scripts/brand-assets.mjs inventory --kit <folder> --brand <scratch brand dir>`, follow `agents/brand-compiler.md` in that scratch dir, then `apply` the brand to the project.
+
 ## You get
 
 - `kit_paths`: the user's approved folders and files for the brand (read nothing else)

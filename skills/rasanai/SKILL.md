@@ -130,7 +130,7 @@ Push `brief` within the first minute, before any long work: a request with no so
 
 ```bash
 node $SKILL_DIR/scripts/brand.mjs detect                         # DESIGN.md / design.md / BRAND.md / docs/DESIGN.md
-node $SKILL_DIR/scripts/brand-assets.mjs import|add|check|apply   # a user's brand kit: DESIGN.md + logos, fonts, media (references/brand.md "User brand kits")
+node $SKILL_DIR/scripts/brand-assets.mjs import|add|check|apply|inventory|compile   # a user's brand kit: DESIGN.md + logos, fonts, media (references/brand.md "User brand kits")
 node $SKILL_DIR/scripts/memory.mjs recommend --step aspect        # a remembered aspect to pre-fill
 node $SKILL_DIR/scripts/lessons.mjs digest                      # ONE digest of what this user has taught and said (standing notes + a short "Recent verdicts" line); read it at step 0
 ```
