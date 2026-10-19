@@ -2,6 +2,14 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **Brands get an Assets section.** Logos with a kind (mark, wordmark, lockup, app icon), colour versions and a primary star; font files with their family, weight and style; screenshots, images, icons, video and guideline PDFs with tags. Drop files on a group or use its + button.
+- **Importing a DESIGN.md brings its files.** Logos, fonts and images the file points to are copied into the brand. A Needs attention strip lists anything missing, with Locate…, and warns when a font has no file and would become Inter.
+- **Your brand is the one in the film.** A film made with a brand now uses its logos and fonts, and RasanAI no longer researches the brand on the web. Switching brands clears the old brand's files, and older DESIGN.md backups are kept.
+- **The mascot is called Rasan everywhere.**
+- **Bundles RasanAI 1.20.0.**
+
 ## 0.15.1 (build 33) — 2026-10-16
 
 - **Fixes a crash at launch in 0.15.0.** Home now finds the crew artwork inside the installed app instead of stopping the app when it looks in the wrong place.
