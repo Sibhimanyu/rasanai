@@ -19,6 +19,12 @@
 //        -> the speech cleanup chain for a talking clip (lib/audio.mjs speechChain: high-pass 80 Hz, denoise, gate, mud cut, presence, 3:1 compression, loudnorm -16);
 //           a wav next to the footage under <run>/footage/clean/ (or --out), a video keeps its picture untouched. The original is never modified; the chain is
 //           for the user's own speech rushes, never for a music or room-tone track. ffmpeg without afftdn/agate runs the rest and says so.
+//   node footage.mjs retakes  --run <run> [--clip <id>[,<id>]] [--words <file>] [--source <file>] [--keep-fillers] [--no-auto-fillers] [--force]
+//        -> footage/cuts/<clip>.cut.json (rasanai.cut.v1: words, retake/false-start/filler/pause candidates, an undoable action log) + CANDIDATES.md. Proposals only.
+//   node footage.mjs cut      --run <run> --clip <id> --op accept|reject|undecide|cut|keep|correct|undo|redo [--ids k007,k008] [--from <wordId> --to <wordId>] [--text "<display>"] [--note "<why>"] [--by agent|user] | --action <json>
+//   node footage.mjs cut-plan --run <run> --clip <id> [--max-pause 0.3] [--pad 0.1] [--check-splices]
+//        -> footage/cuts/<clip>.plan.json: kept source ranges, cuts, edited-time word map, splice warnings. The source is never modified.
+//   node footage.mjs cut-payload --run <run> [--clips a,b]   -> the { cut: { clips: [...] } } JSON the Director pushes to the console reel step
 //   node footage.mjs merge-log | check-log | check-selects [--min-good 8] | check-paper --paper <story/paper-X.json> [--length s]
 //        -> the checks the crew's footage roles are accepted by (exit 2 with the problems listed)
 import fs from "node:fs";
@@ -32,7 +38,10 @@ import { track } from "./lib/report.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
 import { decideLanguage, whisperTranscribe, hasWhisperCli, englishLooks, installedModels } from "./lib/lang.mjs";
 import { speechChain } from "./lib/audio.mjs";
-import { r3, jsonMaybe, FD, checkLog, mergeLogs, checkSelects, checkPaper } from "./lib/footage-lib.mjs";
+import { r3, jsonMaybe, FD, wordsOf, checkLog, mergeLogs, checkSelects, checkPaper } from "./lib/footage-lib.mjs";
+import { findCandidates } from "./lib/retakes.mjs";
+import { newCutDoc, applyAction, cutState, keptRanges, editedMap, spliceWarnings, checkSource, saveCutDoc } from "./lib/cutplan.mjs";
+import { fingerprintFile, sha1OfFile } from "./lib/fingerprint.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const args = parseArgs();
@@ -446,6 +455,149 @@ function cleanSpeech() {
   out({ ok: true, in: rel(src), out: rel(dest), chain, note: "a first listen is still the user's: this is a safe default, not a mastering pass" });
 }
 
+// ---------------------------------------------------------------- retakes and non-destructive cuts (cut docs: lib/cutplan.mjs, schema rasanai.cut.v1)
+const CUTS = (...p) => FD(run, "cuts", ...p);
+const clipRecords = () => {
+  const ing = jsonMaybe(FD(run, "ingest.json")), fj = jsonMaybe(FD(run, "footage.json"));
+  const list = (ing && (ing.clips || ing.files)) || (fj && fj.clips) || [];
+  return list.filter((c) => c && c.id);
+};
+const wantClips = (flag) => (args[flag] && args[flag] !== true ? String(args[flag]).split(",").map((s) => s.trim()).filter(Boolean) : null);
+const cutFile = (clip) => CUTS(`${clip}.cut.json`);
+const loadCut = (clip) => { const d = jsonMaybe(cutFile(clip)); if (!d || d.schema !== "rasanai.cut.v1") die(`no cut doc for ${clip}: run footage.mjs retakes --run <run> --clip ${clip}`); return d; };
+const inRun = (p) => { const r = path.relative(run, p); return r && !r.startsWith("..") && !path.isAbsolute(r) ? r : p; };
+const fromRun = (p) => (path.isAbsolute(p) ? p : fs.existsSync(path.join(run, p)) ? path.join(run, p) : path.resolve(p));
+const summaryOf = (doc) => {
+  const st = cutState(doc), c = Object.values(st.candidates);
+  return { accepted: c.filter((x) => x === "accepted").length, rejected: c.filter((x) => x === "rejected").length, proposed: c.filter((x) => x === "proposed").length, removed_words: st.words.filter((w) => w.removed).length };
+};
+
+function retakes() {
+  need();
+  const ids = wantClips("clip");
+  const recs = clipRecords();
+  const oneWords = args.words && args.words !== true ? path.resolve(String(args.words)) : null;
+  const oneSource = args.source && args.source !== true ? path.resolve(String(args.source)) : null;
+  if ((oneWords || oneSource) && (!ids || ids.length !== 1)) die("--words and --source need exactly one --clip <id>");
+  const targets = ids || recs.map((c) => c.id);
+  if (!targets.length) die("no clips: run footage.mjs ingest (or reel.mjs scan) first, or pass --clip <id> with --words and --source");
+  const clips = [], skipped = [];
+  const md = ["# Retake and cut candidates", "", "Proposals only: nothing is cut until a candidate is accepted (footage.mjs cut --op accept --ids ...).", ""];
+  for (const clip of targets) {
+    const rec = recs.find((c) => c.id === clip) || {};
+    let words;
+    if (oneWords) { words = jsonMaybe(oneWords); if (words && !Array.isArray(words)) words = words.words; }
+    else words = wordsOf(run, clip);
+    if (!Array.isArray(words) || !words.length) { skipped.push({ clip, why: "no word transcript (footage.mjs transcribe, or --words <file>)" }); continue; }
+    const srcFile = oneSource || (rec.path ? path.resolve(rec.path) : null);
+    if (!srcFile || !fs.existsSync(srcFile)) { skipped.push({ clip, why: "source file not found (--source <file>)" }); continue; }
+    const file = cutFile(clip);
+    const old = jsonMaybe(file);
+    if (old && old.schema === "rasanai.cut.v1" && old.actions && old.actions.length && !args.force) { skipped.push({ clip, why: `a cut with ${old.actions.length} action(s) exists; --force keeps it as ${clip}.cut.r${old.head}.json and starts over` }); continue; }
+    if (old && old.schema === "rasanai.cut.v1" && old.actions && old.actions.length) saveCutDoc(CUTS(`${clip}.cut.r${old.head}.json`), old);
+    const clean = words.filter((w) => w && w.text != null && Number.isFinite(Number(w.start)) && Number.isFinite(Number(w.end))).map((w) => ({ text: String(w.text), start: Number(w.start), end: Number(w.end), conf: w.conf ?? null, speaker: w.speaker ?? null }));
+    const keepFillers = !!args["keep-fillers"];
+    const autoFillers = !args["no-auto-fillers"];
+    const cands = findCandidates(clean, { clip, keepFillers });
+    let duration = Number(rec.duration) || 0, fps = Number(rec.fps) || 0;
+    if (!duration || !fps) {
+      const pr = sh("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=avg_frame_rate:format=duration", "-of", "json", srcFile]);
+      try { const j = JSON.parse(pr.stdout || "{}"); const [a, b] = String((j.streams || [{}])[0].avg_frame_rate || "0/1").split("/").map(Number); duration ||= r3(Number(j.format && j.format.duration) || 0); fps ||= b ? r3(a / b) : 0; } catch {}
+    }
+    const wordsFile = oneWords || (fs.existsSync(FD(run, "transcripts", `${clip}.words.json`)) ? FD(run, "transcripts", `${clip}.words.json`) : FD(run, `${clip}.words.json`));
+    const doc = newCutDoc({
+      clip,
+      source: { path: rec.path || path.relative(ws, srcFile), fingerprint: fingerprintFile(srcFile), duration, fps: fps || 30 },
+      transcript: { file: inRun(wordsFile), sha1: sha1OfFile(wordsFile), lang: rec.lang || null },
+      words: clean, candidates: cands, params: { keep_fillers: keepFillers, auto_hard_fillers: autoFillers },
+    });
+    saveCutDoc(file, doc);
+    const byKind = {};
+    for (const c of doc.candidates) byKind[c.kind] = (byKind[c.kind] || 0) + 1;
+    clips.push({ clip, file: rel(file), candidates: doc.candidates.length, by_kind: byKind });
+    md.push(`## ${clip}`, "");
+    for (const c of doc.candidates.filter((x) => x.check)) md.push(`- ${r3(c.start).toFixed(2)}s ${c.kind} "${c.text}"${c.second ? ` -> said again: "${c.second}"` : ""} [${c.id}]`);
+    md.push("", `${byKind.hard_filler || 0} hard filler(s), ${byKind.long_pause || 0} long pause(s), ${byKind.alt_hook || 0} alternative hook(s), ${byKind.filler || 0} soft filler(s), ${byKind.meta || 0} meta remark(s).`, "");
+  }
+  if (clips.length) writeFile(CUTS("CANDIDATES.md"), md.join("\n") + "\n");
+  out({ ok: clips.length > 0 || !skipped.length, clips, skipped, candidates: clips.length ? rel(CUTS("CANDIDATES.md")) : null, note: "Candidates are proposals; the originals are never touched and every decision is an undoable action." }, clips.length || !skipped.length ? 0 : 1);
+}
+
+function cutCmd() {
+  need();
+  if (!args.clip || args.clip === true) die("--clip <id> required");
+  let action;
+  if (args.action && args.action !== true) { try { action = JSON.parse(String(args.action)); } catch { die("--action must be JSON"); } }
+  else {
+    action = { op: args.op };
+    for (const k of ["from", "to", "text", "note", "by"]) if (args[k] != null && args[k] !== true) action[k] = String(args[k]);
+    if (args.ids && args.ids !== true) action.ids = String(args.ids).split(",").map((s) => s.trim()).filter(Boolean);
+  }
+  if (!action || !action.op) die("--op accept|reject|undecide|cut|keep|correct|undo|redo required");
+  if (typeof action.ids === "string") action.ids = action.ids.split(",").map((s) => s.trim()).filter(Boolean);
+  const doc = loadCut(String(args.clip));
+  let next;
+  try { next = applyAction(doc, action); } catch (e) { out({ ok: false, clip: doc.clip, error: e.message }, 2); }
+  saveCutDoc(cutFile(doc.clip), next);
+  out({ ok: true, clip: doc.clip, rev: next.head, state_summary: summaryOf(next) });
+}
+
+async function cutPlan() {
+  need();
+  if (!args.clip || args.clip === true) die("--clip <id> required");
+  const doc = loadCut(String(args.clip));
+  const srcFile = path.resolve(doc.source.path);
+  const trFile = doc.transcript && doc.transcript.file ? fromRun(doc.transcript.file) : null;
+  const probs = [];
+  if (!fs.existsSync(srcFile)) probs.push(`the source ${doc.source.path} is missing`);
+  if (trFile && !fs.existsSync(trFile)) probs.push(`the transcript ${doc.transcript.file} is missing`);
+  if (!probs.length) probs.push(...checkSource(doc, { sourceFile: srcFile, transcriptFile: trFile }).problems);
+  if (probs.length) out({ ok: false, clip: doc.clip, problems: probs }, 2);
+  const opts = {};
+  if (args["max-pause"] != null && args["max-pause"] !== true) opts.maxPause = Number(args["max-pause"]);
+  if (args.pad != null && args.pad !== true) opts.pad = Number(args.pad);
+  const kr = keptRanges(doc, opts);
+  const map = editedMap(doc, kr.segments);
+  const warnings = [...(kr.notes || []).map((m) => ({ check: "cut-note", severity: "warning", message: typeof m === "string" ? m : JSON.stringify(m) }))];
+  if (args["check-splices"]) warnings.push(...(await spliceWarnings(srcFile, kr.segments, { fps: doc.source.fps || 30, duration: doc.source.duration || null })));
+  const total = r3(kr.segments.reduce((n, s) => n + (s.out - s.in), 0));
+  const file = CUTS(`${doc.clip}.plan.json`);
+  writeFile(file, JSON.stringify({ clip: doc.clip, rev: doc.head, segments: kr.segments, cuts: kr.cuts, words: map, warnings, total_s: total }, null, 2) + "\n");
+  out({ ok: true, clip: doc.clip, rev: doc.head, plan: rel(file), segments: kr.segments.length, cuts: kr.cuts.length, words_kept: map.length, total_s: total, source_s: doc.source.duration || null, warnings: warnings.length, warning_list: warnings });
+}
+
+function cutPayload() {
+  need();
+  const want = wantClips("clips");
+  const dir = CUTS();
+  const ids = want || (fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => /\.cut\.json$/.test(f)).map((f) => f.replace(/\.cut\.json$/, "")).sort() : []);
+  const recs = clipRecords(), CAP = 4000, notes = [];
+  const clips = [];
+  for (const id of ids) {
+    const doc = jsonMaybe(cutFile(id));
+    if (!doc || doc.schema !== "rasanai.cut.v1") { notes.push(`${id}: no cut doc`); continue; }
+    const st = cutState(doc), kr = keptRanges(doc);
+    const idx = new Map(doc.words.map((w) => [w.id, w.i]));
+    const candOf = new Array(doc.words.length).fill(null);
+    for (const c of doc.candidates) {
+      if (c.kind === "long_pause" || c.kind === "alt_hook") continue;
+      const a = idx.get(c.from), b = idx.get(c.to);
+      if (a == null || b == null) continue;
+      for (let i = a; i <= b; i++) if (!candOf[i]) candOf[i] = c.id;
+    }
+    const rec = recs.find((c) => c.id === id) || {};
+    if (doc.words.length > CAP) notes.push(`${id}: words capped at ${CAP} of ${doc.words.length}`);
+    clips.push({
+      clip: id, name: rec.name || path.basename(doc.source.path || id), rev: doc.head, head: doc.head,
+      can_undo: doc.head > 0, can_redo: doc.head < doc.actions.length,
+      total_s: r3(kr.segments.reduce((n, s) => n + (s.out - s.in), 0)),
+      words: doc.words.slice(0, CAP).map((w, i) => ({ id: w.id, text: w.text, display: st.words[i].display, start: w.start, end: w.end, removed: st.words[i].removed, by: st.words[i].by, cand: candOf[i] })),
+      candidates: doc.candidates.map((c) => ({ id: c.id, kind: c.kind, from: c.from, to: c.to, start: c.start, end: c.end, text: c.text, second: c.second ?? null, decision: st.candidates[c.id], reason: c.reason, check: !!c.check })),
+    });
+  }
+  out({ cut: { clips }, ...(notes.length ? { notes } : {}) });
+}
+
 // ---------------------------------------------------------------- checks
 function report(name, { P, W }, extra = {}) { out({ ok: !P.length, check: name, problems: P, warnings: W, ...extra }, P.length ? 2 : 0); }
 
@@ -455,6 +607,10 @@ else if (cmd === "vision") vision();
 else if (cmd === "transcribe") transcribe();
 else if (cmd === "bites") bites();
 else if (cmd === "clean-speech") cleanSpeech();
+else if (cmd === "retakes") retakes();
+else if (cmd === "cut") cutCmd();
+else if (cmd === "cut-plan") await cutPlan();
+else if (cmd === "cut-payload") cutPayload();
 else if (cmd === "merge-log") { need(); out({ ok: true, rows: mergeLogs(run), log: rel(FD(run, "log.json")) }); }
 else if (cmd === "check-log") { need(); report("log", checkLog(run)); }
 else if (cmd === "check-selects") { need(); report("selects", checkSelects(run, { minGood: args["min-good"] != null ? Number(args["min-good"]) : 8 })); }
@@ -463,4 +619,4 @@ else if (cmd === "check-paper") {
   if (!args.paper || args.paper === true) die("--paper <story/paper-X.json> required");
   const r = checkPaper(run, path.resolve(String(args.paper)), { length: Number(args.length) || 0 });
   report("paper edit", r, { stats: r.stats });
-} else die("usage: footage.mjs ingest|shots|vision|transcribe|bites|clean-speech|merge-log|check-log|check-selects|check-paper … (see the header)");
+} else die("usage: footage.mjs ingest|shots|vision|transcribe|bites|clean-speech|retakes|cut|cut-plan|cut-payload|merge-log|check-log|check-selects|check-paper … (see the header)");
