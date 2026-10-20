@@ -33,7 +33,7 @@
 //           (the pitch's durations with --pitch), a rest before it) / read with its reading time, ending_first, the turn; warnings: engine placement, payoff, buys wording.
 //           --write adds the derived emphasis_curve. check also reads story/intent-<Label>.json beside the pitch (its findings are warnings there). Exit 0 = ok, 2 = errors.
 //        AIRTIGHT (references/story.md): check also takes --plan <story/plan.json> (else plan.json beside the pitch): G14 Plan = the pitch's slot (label, device, shape, engine, turn_kind,
-//           peak_kind, owned_claims as beat rows in its coverage); G15 Coverage on product-first films (the pitch's `coverage` rows: every Must-show feature and every Surprising-facts claim
+//           peak_kind, hook_kind (a warning), owned_claims as beat rows in its coverage); G15 Coverage on product-first films (the pitch's `coverage` rows: every Must-show feature and every Surprising-facts claim
 //           id has a beat row or a cut with 4+ words: coverage-missing, coverage-beat, coverage-cut); new errors G4 number-unit ("50 phones" but c9 says "50 people"), G6 peak-not-longest /
 //           end-short / beat-count (<= 12 s: 4 to 5 beats), G9 tempo-ideas (tempo.ideas must equal the intent's distinct beliefs; --intent <file>, else intent-<Label>.json, else intent.json
 //           beside the pitch); the portfolio adds shared-line, shared-peak-kind, shared-turn-kind, same-order, cliche-order, coverage-dropped. The actor is exempt from the scope count only
@@ -562,6 +562,8 @@ function visualCliches(texts) {
 
 // --- airtight story: the plan, the coverage map, the beat sheets (references/story.md) -------------------------------------
 const TURN_KINDS = ["object-flips", "role-swap", "removal", "refrain-stops", "cause-lands", "rule-breaks"];
+// idea from social-media-skills hook-writer (MIT); our code: how the first 2 s open, one mechanism per script (warnings only, old plans stay valid)
+const HOOK_KINDS = ["villain-in-action", "outcome-flat", "felt-tension", "true-fact", "product-doing", "flash-forward", "transformation", "character-action"];
 const PEAK_KINDS = ["scale-reveal", "pattern-break", "absence", "split-compare", "count-climb", "cause-close-up", "speed-ramp", "full-state"];
 // beat sheets by length bucket (10, 15, 30, 45, 60) and engine: { slot, from, to, note } in seconds of the bucket's own length (sheet --length scales them to the film)
 const SHEET_BUCKETS = [10, 15, 30, 45, 60];
@@ -631,6 +633,8 @@ function planProblems(plan, picks, truth, claims) {
     if (s.device != null && !String(s.device_reason || "").trim()) warnings.push(`${s.label}: device_reason missing`);
     if (!TURN_KINDS.includes(s.turn_kind)) problems.push(`plan-turn-kind: ${s.label}: "${s.turn_kind}" is not one of ${TURN_KINDS.join(" | ")}`);
     if (!PEAK_KINDS.includes(s.peak_kind)) problems.push(`plan-peak-kind: ${s.label}: "${s.peak_kind}" is not one of ${PEAK_KINDS.join(" | ")}`);
+    if (!s.hook_kind) warnings.push(`plan-hook-kind: ${s.label}: no hook_kind (one of ${HOOK_KINDS.join(" | ")})`);
+    else if (!HOOK_KINDS.includes(s.hook_kind)) warnings.push(`plan-hook-kind: ${s.label}: "${s.hook_kind}" is not one of ${HOOK_KINDS.join(" | ")}`);
     const aw = wordsN(s.angle);
     if (!aw) problems.push(`plan-angle: ${s.label}: no angle (the proposition this script argues, <= 14 words)`);
     else if (aw > 14 || /\band\b/i.test(String(s.angle))) problems.push(`plan-angle: ${s.label}: "${s.angle}" ${aw > 14 ? `is ${aw} words (14 at most)` : 'has "and" (one idea)'}`);
@@ -647,6 +651,7 @@ function planProblems(plan, picks, truth, claims) {
     else if (a.device != null && b.device != null) { const da = findDevice(a.device), db = findDevice(b.device); if (da && db && !(hardDiffer(da, db, pf) && distance(da, db) >= (pf ? 4 : 5))) problems.push(`plan-device: ${a.label} (${da.id}) and ${b.label} (${db.id}) are too alike (differ on ${distance(da, db)} of 7 axes, ${pf ? 4 : 5} needed, and on family and visual_world)`); }
     if (TURN_KINDS.includes(a.turn_kind) && a.turn_kind === b.turn_kind) problems.push(`plan-turn-kind: ${a.label} and ${b.label} share the turn kind "${a.turn_kind}"`);
     if (PEAK_KINDS.includes(a.peak_kind) && a.peak_kind === b.peak_kind) problems.push(`plan-peak-kind: ${a.label} and ${b.label} share the peak kind "${a.peak_kind}"`);
+    if (HOOK_KINDS.includes(a.hook_kind) && a.hook_kind === b.hook_kind) warnings.push(`plan-hook-kind: ${a.label} and ${b.label} share the hook kind "${a.hook_kind}"`);
     const wa = angleWords(a.angle), wb = angleWords(b.angle), m = Math.min(wa.size, wb.size);
     if (m && [...wa].filter((w) => wb.has(w)).length / m >= 0.6) problems.push(`plan-angle: ${a.label} and ${b.label} argue nearly the same angle ("${a.angle}" / "${b.angle}")`);
   }
@@ -1715,6 +1720,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
       if (slot.engine && en !== slot.engine) g14.push(`plan-engine: the pitch's engine is "${en}", the plan gives "${slot.engine}"`);
       if (p.turn_kind !== slot.turn_kind) g14.push(`plan-turn-kind: the pitch declares ${p.turn_kind ? `"${p.turn_kind}"` : "no turn_kind"}, the plan gives "${slot.turn_kind}"`);
       if (p.peak_kind !== slot.peak_kind) g14.push(`plan-peak-kind: the pitch declares ${p.peak_kind ? `"${p.peak_kind}"` : "no peak_kind"}, the plan gives "${slot.peak_kind}"`);
+      if (slot.hook_kind && p.hook_kind !== slot.hook_kind) warnings.push(`plan-hook-kind: the pitch declares ${p.hook_kind ? `"${p.hook_kind}"` : "no hook_kind"}, the plan gives "${slot.hook_kind}"`);
       const rows = Array.isArray(p.coverage) ? p.coverage : [];
       for (const c of slot.owned_claims || []) if (!rows.some((r) => r && r.cut == null && Number(r.beat) >= 1 && String(r.claim).toLowerCase() === String(c).toLowerCase())) g14.push(`plan-claims: the plan gives this script the claim ${c}: it needs a coverage row { claim: "${c}", beat: N } on a beat (a cut is not allowed)`);
     }
@@ -1881,6 +1887,7 @@ function checkPortfolio(pitches, results, opts = {}) {
     for (const l of common) reasons.push(`shared-line: the on-screen line "${l}" is in ${nm(pitches[i], i)} and ${nm(pitches[j], j)}: every script says its own lines`);
     for (const [k, code] of [["peak_kind", "shared-peak-kind"], ["turn_kind", "shared-turn-kind"]]) if (pitches[i][k] && pitches[i][k] === pitches[j][k]) reasons.push(`${code}: ${nm(pitches[i], i)} and ${nm(pitches[j], j)} both declare ${k} "${pitches[i][k]}"`);
   }
+  for (let i = 0; i < pitches.length; i++) for (let j = i + 1; j < pitches.length; j++) if (pitches[i].hook_kind && pitches[i].hook_kind === pitches[j].hook_kind) warnings.push(`shared-hook-kind: ${nm(pitches[i], i)} and ${nm(pitches[j], j)} both open with hook_kind "${pitches[i].hook_kind}"`);
   const seqs = pitches.map(coverageSeq);
   const sameOrder = [];
   for (let i = 0; i < pitches.length; i++) for (let j = i + 1; j < pitches.length; j++) if (seqs[i].length >= 3 && seqs[j].length >= 3 && lcsLen(seqs[i], seqs[j]) >= 3) { sameOrder.push([i, j]); reasons.push(`same-order: ${nm(pitches[i], i)} and ${nm(pitches[j], j)} cover the brief's claims and features in the same order (3+ in a row): reorder one`); }

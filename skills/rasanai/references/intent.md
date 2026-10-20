@@ -18,6 +18,7 @@ Words are whitespace-separated tokens; "no `and`" means the whole word, any case
 | `villain` | object | `{what, picture}`. `what`: the one object or problem to blame (the viewer's real pain; never a competitor, never the product). `picture`: how it is visible on screen |
 | `felt_numbers` | array | 1 to 3 of `{value, source}`: `value` holds a digit; `source` a claim id from `research/claims.json`, or `"prop"` (a story detail, also in the pitch's `props`) |
 | `ending_first` | object | `{line, last_frame, echo, echoes_beat (opt)}`: the last line and frame, written first; `echo` what of the opening they answer; `echoes_beat` the beat it answers (usually 1) |
+| `character` | object (opt) | `{want, obstacle, behaviour, change, acting}` for mascot, brand-character and animated-story films; `acting` is how the body shows the change (cautious early, decisive late) |
 | `muted_hook` | string | what the first 2 s say with the sound off (picture plus any words) |
 | `beats` | array | one per pitch beat, same order and count (3 at least) |
 | `emphasis_curve` | derived | written by the validator, never by hand |
@@ -48,7 +49,7 @@ Film-level rules:
 6. No two beats share a `buys`.
 7. The peak holds longest: the peak beat's `duration_s` is at least every other beat's (error `peak-not-longest`). At a 10 s film the peak window is 58% to 75% (a 10 s film rounds hard); elsewhere 60% to 75%.
 
-Errors: the proposition, `page`, `villain`, `ending_first`, each beat's buys, before, after, relation, importance and read, the 25% budget, the one peak at importance 3, the peak holding longest (`peak-not-longest`). Warnings (uncalibrated): `muted_hook`, felt numbers, the form of a buys (`buys-form`, `buys-and`), `no-change`, `no-valley`, `peak-place`, `no-rest-before-peak`, `read-short`, repeated buys.
+Errors: the proposition, `page`, `villain`, `ending_first`, each beat's buys, before, after, relation, importance and read, the 25% budget, the one peak at importance 3, the peak holding longest (`peak-not-longest`). Warnings (uncalibrated): `muted_hook`, `logo-only-ending`, `character-arc-thin`, `character-no-change`, felt numbers, the form of a buys (`buys-form`, `buys-and`), `no-change`, `no-valley`, `peak-place`, `no-rest-before-peak`, `read-short`, repeated buys.
 
 Timings follow the intent, never the reverse: `scenes.mjs --intent story/intent.json --retime` sizes each beat from its `read` and `importance` (the peak and the payoff hold longest, the beats before the peak shorten, a `rest_after` adds air). The draft `duration_s` is only where that starts.
 

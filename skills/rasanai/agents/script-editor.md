@@ -22,7 +22,7 @@ Why: in the QR Jam run each pitch passed alone and the set still failed: a share
     { "id": "<pitch id>", "label": "Bold", "verdict": "ship|rewrite|replace",
       "score": 7,                                    // 1-10, as a film
       "retell": "<your one-sentence blind retell>", "retell_matches": true,
-      "muted_hook_ok": true, "turn": "<what reverses, in one line, or \"none\">", "payoff_answers": true,
+      "muted_hook_ok": true, "channels_ok": true, "turn": "<what reverses, in one line, or \"none\">", "payoff_answers": true,
       "strongest": "<the one thing to keep at all costs>",
       "notes": [ { "beat": 3, "line": "on_screen|vo|visual|buys|relation|importance", "problem": "…", "fix": "<the exact new words or the exact change>" } ],
       "recognition": [ { "who": "…", "sees_self": true, "wants_to_be": true, "beat": 4 } ] } ],   // product-first: 6 members
@@ -34,9 +34,9 @@ Why: in the QR Jam run each pitch passed alone and the set still failed: a share
 
 1. **Blind retell (first, before you open any intent, title, aim or critique).** For each pitch read ONLY its beats' `on_screen`, `vo` and `visual`. Write the film in one sentence, as a stranger would tell a friend. Then open `story/intent-<label>.json` and compare with its `proposition`: `retell_matches` is true only when a stranger would say the same thing in other words. A miss is a `rewrite` whatever the polish, with a note on the beats that pulled the retell away.
 2. **Cover the logo, swap the competitor.** Put the main competitor's name in, and read the slot's `swap_breaks` in the plan: it must be on screen by the turn. Mark every beat that still works: those beats are generic. Then the scope swap: put a single-purpose app in (a bill splitter); if the film still works, it sells that app, not the claim.
-3. **Muted hook.** The first 2 s with the sound off: does a picture or a line say something (the villain, the product), readable? Set `muted_hook_ok`.
+3. **Hook and channels.** The first 2 s with the sound off: does a picture or a line say something (the villain, the product), readable? Set `muted_hook_ok`. For the hook and the peak, name what picture, line and sound each carry; two saying the same thing, or the voice describing the picture, gets a line edit. Set `channels_ok`.
 4. **The turn.** Name what reverses, in one line. A label on the third use, a new topic or "and also" is `"none"`, and `"none"` is a `rewrite`. The turn sits where its engine puts it (`references/story.md`, Plot engines).
-5. **The payoff.** Does the ending answer the question the opening asked (the opening's object or words return, changed)? Ten seconds of unrelated uses between them breaks it. Set `payoff_answers`.
+5. **The payoff.** Does the ending answer the question the opening asked (the opening's object or words return, changed)? Ten seconds of unrelated uses between them breaks it. Set `payoff_answers`. The payoff resolves three things: the question the opening raised (narrative), a visible change against the opening frame (visual, `ending_first.last_frame`, never only the logo), and the `to` feeling of `page.emotion`.
 6. **The emphasis.** Read the intent's importance and peak against the beats: is the peak the moment the proposition is proven hardest, at 60 to 75%, with a rest before it? Is importance 3 spent on what matters, or on what is pretty (a price input at frame scale, an off-story beat with the only colour change)? Does any beat buy nothing, or the same belief as its neighbour? Each is a note: cut, merge, move, or a new `buys`.
 
 ## Then the reading
