@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.23.0 (2026-10-20): Director upgrades: motion and delivery checks, Reference DNA, word-level cuts
 
 - **Research handoff (motion hierarchy, delivery QA, scene contract, decision locks, reference principles).** Warnings are uncalibrated; ideas only from the sources in `third_party/SOURCES.md`, Creative research handoff.
   - **Safe zones and phone view.** `scripts/lib/safezones.mjs`: per-destination platform zones and phone-size points, read by `frame-gate.mjs`, `slop.mjs`, `lib/textfit.mjs` and `crew.mjs`.
