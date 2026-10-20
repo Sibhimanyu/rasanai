@@ -21,6 +21,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die, readJSON, writeFile, normalizeAspect, esc, gsapInline, chromeDumpDom, readLook, readFrontmatterDoc, SKILL_DIR } from "./lib/common.mjs";
 import { resolvePreset } from "./lib/hyperframes.mjs";
+import { checkSource, keptRanges, editedMap } from "./lib/cutplan.mjs";
 import { stageFonts } from "./lib/fonts.mjs";
 import { installLook, installDirection, upsertMarked, DIRECTION_MARK } from "./lib/install.mjs";
 import { contractText } from "./lib/contract.mjs";
@@ -487,9 +488,36 @@ async function build() {
   const FPS = Number(R.fps || 30);
   if (!(FPS >= 12 && FPS <= 120)) die("fps must be between 12 and 120");
   const footageDir = R.footage_dir ? resolveIn(R.footage_dir, base, ws) : null;
-  const items = R.timeline || [];
   const overlays = R.overlays || [];
   const problems = [];
+  // type:"cut" items (a word-aligned cut decision file) expand into consecutive clip items, one per kept range
+  const cutDocs = new Map(); // abs cut file -> { file, doc, segments, map, root }
+  const items = [];
+  (R.timeline || []).forEach((it, i) => {
+    if (!it || it.type !== "cut") return items.push(it);
+    const where = `timeline[${i}]${it.label ? ` (${it.label})` : ""}`;
+    if (!it.cut) return problems.push(`${where}: a cut item needs cut: the path of a footage/cuts/<clip>.cut.json`);
+    const file = resolveIn(it.cut, base, ws);
+    if (!fs.existsSync(file)) return problems.push(`${where}: cut file not found: ${it.cut}`);
+    if (it.join && !["cut", "dissolve"].includes(it.join)) problems.push(`${where}: join must be cut or dissolve`);
+    let c = cutDocs.get(file);
+    if (!c) {
+      let doc;
+      try { doc = readJSON(file); } catch (e) { return problems.push(`${where}: could not read ${it.cut}: ${e.message}`); }
+      if (doc.schema !== "rasanai.cut.v1" || !Array.isArray(doc.words)) return problems.push(`${where}: ${it.cut} is not a rasanai.cut.v1 file`);
+      const root = path.resolve(path.dirname(file), "..", "..");
+      const srcAbs = resolveIn(doc.source && doc.source.path, footageDir, base, ws, root);
+      const trAbs = doc.transcript && doc.transcript.file ? resolveIn(doc.transcript.file, root, base, ws) : null;
+      const chk = checkSource(doc, { sourceFile: srcAbs && fs.existsSync(srcAbs) ? srcAbs : null, transcriptFile: trAbs && fs.existsSync(trAbs) ? trAbs : null });
+      if (!chk.ok) return problems.push(...chk.problems.map((m) => `${where}: ${m}`));
+      const kr = keptRanges(doc, { fps: FPS });
+      if (!kr.segments.length) return problems.push(`${where}: ${kr.notes.join("; ") || "nothing is kept"}`);
+      c = { file: path.relative(ws, file), doc, segments: kr.segments, map: editedMap(doc, kr.segments), root };
+      cutDocs.set(file, c);
+    }
+    const { cut: _c, join, ...rest } = it;
+    c.segments.forEach((sg, k) => items.push({ ...rest, type: "clip", clip: c.doc.source.path, in: sg.in, out: sg.out, transition_in: k === 0 ? it.transition_in : join || "cut", _cut: { file: c.file, clip: c.doc.clip, rev: c.doc.head, seg: k }, _cutRoot: c.root }));
+  });
   if (!items.length) problems.push("timeline is empty");
   const clipsUsed = items.filter((it) => (it.type || "clip") === "clip");
   if (!clipsUsed.length) problems.push("the timeline has no footage clips (use the video routes for an all-graphics piece)");
@@ -514,7 +542,7 @@ async function build() {
     const where = `timeline[${i}]${it.label ? ` (${it.label})` : ""}`;
     const type = it.type || "clip";
     if (type === "clip") {
-      const src = resolveIn(it.clip, footageDir, base, ws);
+      const src = resolveIn(it.clip, footageDir, base, ws, it._cutRoot);
       if (!src || !fs.existsSync(src)) return problems.push(`${where}: clip not found: ${it.clip}`);
       const info = (probes[src] = probes[src] || probe(src));
       if (info.error) return problems.push(`${where}: ${info.error}`);
@@ -546,11 +574,18 @@ async function build() {
         if (!["claude", "swatch"].includes(authorOf(it))) problems.push(`${where}: by must be "claude" or "swatch"`);
         if (authorOf(it) === "claude" && !(Number(it.duration) > 0)) problems.push(`${where}: a card needs a duration`);
       }
-    } else problems.push(`${where}: type must be clip or card`);
+    } else problems.push(`${where}: type must be clip, card or cut`);
   });
   overlays.forEach((o, i) => {
     if (!o.text) problems.push(`overlays[${i}]: text is required`);
-    if (!(Number(o.start) >= 0)) problems.push(`overlays[${i}]: start (seconds on the reel's timeline) is required`);
+    if (o.anchor != null) {
+      const a = o.anchor;
+      if (typeof a !== "object" || !a.cut || !a.word) problems.push(`overlays[${i}]: anchor needs cut (the cut file) and word (a word id)`);
+      else {
+        if (a.lead_s != null && !(Number(a.lead_s) >= 0)) problems.push(`overlays[${i}]: anchor.lead_s must be 0 or more`);
+        if (!(Number(o.start) >= 0)) o.start = 0; // placeholder; the anchor sets the real start
+      }
+    } else if (!(Number(o.start) >= 0)) problems.push(`overlays[${i}]: start (seconds on the reel's timeline) is required`);
     if (o.zone && !["top", "center", "lower-third"].includes(o.zone)) problems.push(`overlays[${i}]: zone must be top, center or lower-third`);
     if (!["claude", "swatch"].includes(authorOf(o))) problems.push(`overlays[${i}]: by must be "claude" or "swatch"`);
     if (authorOf(o) === "claude" && !(Number(o.duration) > 0)) problems.push(`overlays[${i}]: an overlay needs a duration`);
@@ -745,13 +780,39 @@ async function build() {
     }
   });
   const total = r3(t);
+  const anchorLog = [];
   const overlaySegs = [
     ...engineItems.filter((e) => e.kind === "overlay").map((e) => ({ e, it: e.it, i: e.i, dur0: e.dur })),
     ...authored.filter((a) => a.kind === "overlay").map((a) => ({ a, it: a.it, i: a.i, dur0: a.duration, id: a.id, src: a.src })),
   ].sort((x, y) => x.i - y.i).map((o) => {
-    const start = r3(Number(o.it.start));
+    let start = r3(Number(o.it.start)), dur0 = o.dur0;
+    const an = o.it.anchor;
+    if (an) {
+      // reel time of a cut word: its segment's start plus its offset in the staged clip (same formula as the captions)
+      const at = (file, id) => {
+        const c = file ? cutDocs.get(resolveIn(file, base, ws)) : null;
+        const e = c ? c.map.find((x) => x.id === id) : null;
+        const s = e ? segs.find((x) => x.kind === "clip" && x.it._cut && x.it._cut.file === c.file && x.it._cut.seg === e.seg) : null;
+        return s ? { a: r3(s.start + (e.src_start - s.it._in) / s.rate), b: r3(s.start + (e.src_end - s.it._in) / s.rate) } : null;
+      };
+      const w = at(an.cut, an.word);
+      const text = [].concat(o.it.text).join(" / ").slice(0, 30);
+      if (!w) {
+        warnings.push(`anchor-unresolved: overlay ${o.i + 1} "${text}" points at ${an.word}, which is not in the cut; re-anchor it or set start`);
+        anchorLog.push({ overlay: o.i + 1, word: an.word, resolved_at: null });
+        return { ...o, start, dur: 0 };
+      }
+      start = r3(Math.max(0, w.a - (an.lead_s == null ? 0.1 : Number(an.lead_s))));
+      if (an.hold_to) {
+        const h = at(an.cut, an.hold_to);
+        if (!h) warnings.push(`anchor-unresolved: overlay ${o.i + 1} "${text}" holds to ${an.hold_to}, which is not in the cut; its own duration (${dur0}s) is used`);
+        else if (o.e) warnings.push(`overlay ${o.i + 1} "${text}": hold_to is ignored for a swatch overlay (its length comes from the motion); it keeps ${dur0}s`);
+        else dur0 = r3(h.b - start + 0.3);
+      }
+      anchorLog.push({ overlay: o.i + 1, word: an.word, resolved_at: start });
+    }
     if (start >= total) warnings.push(`overlay ${o.i + 1} starts at ${start}s, after the reel ends (${total}s); dropped`);
-    return { ...o, start, dur: r3(Math.min(o.dur0, total - start)) };
+    return { ...o, start, dur: r3(Math.min(dur0, total - start)) };
   }).filter((o) => o.dur > 0.2);
 
   // ---- captions: transcript words remapped through the cuts
@@ -762,6 +823,18 @@ async function build() {
     const scanned = fp && fs.existsSync(fp) ? readJSON(fp) : { clips: [] };
     const words = [];
     for (const s of segs.filter((x) => x.kind === "clip" && x.audio && x.it.captions !== false)) {
+      if (s.it._cut) {
+        // a cut item: the corrected words of its decision file (display text), restricted to this kept range
+        const cd = [...cutDocs.values()].find((x) => x.file === s.it._cut.file);
+        const lo = s.start + s.d;
+        for (const w of cd.map.filter((e) => e.seg === s.it._cut.seg)) {
+          const a = r3(s.start + (w.src_start - s.it._in) / s.rate), b = r3(s.start + (w.src_end - s.it._in) / s.rate);
+          if (a < lo - 0.01) continue;
+          const fix = (R.captions.replace || {})[w.text.toLowerCase().replace(/[^\p{L}\p{N}']/gu, "")];
+          words.push({ text: fix || w.text, start: a, end: Math.min(b, s.start + s.dur) });
+        }
+        continue;
+      }
       const c = scanned.clips.find((cl) => cl.path && path.resolve(ws, cl.path) === s.it._src);
       if (!c || !c.transcript) {
         warnings.push(`captions: no transcript for ${s.it.clip} (run scan without --no-transcribe, and set reel.footage to its footage.json)`);
@@ -911,9 +984,11 @@ ${MARK}
     fps: FPS,
     total_s: total,
     motion: M ? (M.personality === "custom" ? `${M.parent}+${(M.adjustments || []).join("+")}` : M.personality) : null,
-    items: segs.map((s) => (s.kind === "clip" ? { n: s.i + 1, kind: "clip", label: s.it.label || path.basename(s.it._src), clip: s.it.clip, in: s.it._in, out: s.it._out, start: s.start, duration: s.dur, transition_in: s.tr, audio: s.audio, poster: null } : { n: s.i + 1, kind: "card", label: s.e || s.a ? [].concat(s.it.text).join(" / ") : s.id, by: s.a ? "claude" : s.e ? "swatch" : "src", start: s.start, duration: s.dur, transition_in: "cut" })),
+    items: segs.map((s) => (s.kind === "clip" ? { n: s.i + 1, kind: "clip", label: s.it.label || path.basename(s.it._src), clip: s.it.clip, in: s.it._in, out: s.it._out, start: s.start, duration: s.dur, transition_in: s.tr, audio: s.audio, poster: null, ...(s.it._cut ? { cut: s.it._cut } : {}) } : { n: s.i + 1, kind: "card", label: s.e || s.a ? [].concat(s.it.text).join(" / ") : s.id, by: s.a ? "claude" : s.e ? "swatch" : "src", start: s.start, duration: s.dur, transition_in: "cut" })),
     overlays: overlaySegs.map((o) => ({ text: o.it.text, zone: o.it.zone || "lower-third", start: o.start, duration: o.dur, by: o.a ? "claude" : "swatch" })),
     captions: groups.length ? { groups: groups.length, style: cap.style || "bold" } : null,
+    ...(cutDocs.size ? { cuts: [...cutDocs.values()].filter((c) => segs.some((s) => s.it && s.it._cut && s.it._cut.file === c.file)).map((c) => ({ file: c.file, clip: c.doc.clip, rev: c.doc.head, segments: c.segments })) } : {}),
+    ...(anchorLog.length ? { anchors: anchorLog } : {}),
     music: musicRel,
     warnings,
   };
