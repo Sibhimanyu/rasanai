@@ -7,8 +7,9 @@
 //   measure  --in <video|frames dir> --out <grammar.json> [--film <name>] [--structure one-take|montage|...]
 //                                                                luminance, white/black shares, palette, saturation, motion, cut rate;
 //                                                                --film adds the film to grammar.json's `films` (the first one measured is also `measured`)
-//   card     --dir <dir> [--brand <name>]                        FILM-STYLE.json + FILM-STYLE.md (measured numbers + slots for the AI to fill)
+//   card     --dir <dir> [--brand <name>]                        FILM-STYLE.json + FILM-STYLE.md (measured numbers + slots + `principles: []` (2 to 4: why it works) for the AI to fill)
 //   compare  --ref <grammar.json|FILM-STYLE.json> --ours <video|frames dir> [--tolerance strict|normal] [--film <name>] [--structure <type>]
+//                                                                a ref (or a FILM-STYLE.json beside it) with `principles` adds principles_to_judge [{id, principle, check}] to the output (idea from reference-to-principle work; our code)
 //                                                                --film: measure against that film in grammar.json (the one the script follows);
 //                                                                --structure one-take (no film of that type): cut rate warns, tempo has no floor
 //                                                                style-match gate, exit 1 on an error (palette dE, off-brand hue,
@@ -416,7 +417,7 @@ function cardCmd() {
   const slots = {
     tempo: "", typefaces: "", motif: "", layout: "", motionVocabulary: "", photographyStyle: "", endCard: "", notes: "",
   };
-  const card = { version: 1, brand, source: g.source, measured: m, frames: fr ? { cutCount: fr.cutCount, cutsPer10s: fr.cutsPer10s, avgShotLength: fr.avgShotLength, sheets: fr.sheets.map((s) => s.file) } : null, slots, filled: false };
+  const card = { version: 1, brand, source: g.source, measured: m, frames: fr ? { cutCount: fr.cutCount, cutsPer10s: fr.cutsPer10s, avgShotLength: fr.avgShotLength, sheets: fr.sheets.map((s) => s.file) } : null, slots, principles: [], filled: false };
   fs.writeFileSync(path.join(dir, "FILM-STYLE.json"), JSON.stringify(card, null, 2));
   const pal = m.palette.map((c) => `${c.hex} (${Math.round(c.share * 100)}%)`).join(", ");
   const c = m.cuts;
@@ -445,6 +446,9 @@ ${finishLine(m.finish)}
 - Opening (first image):
 - End card:
 - Notes (what would make a film look off-brand):
+
+## Principles (2 to 4: why it works, not what it shows)
+For each, a JSON entry in FILM-STYLE.json principles: id, principle (the technique in one line), why (why it works on a viewer), effect (the feeling it is for), prerequisites (what our film needs for it to work), distinctive (the brand's own: never copy), check (how a critic sees it in our film on a strip: one sentence), evidence (optional: a measured number).
 
 Then run: node brandfilm.mjs compare --ref ${gp} --ours <our film>
 `;
@@ -539,7 +543,9 @@ function compareCmd() {
   if (ref.finish && m.finish) add("finish", `ours: ${m.finish.route}, brand film: ${ref.finish.route}`, "the brand's films carry a finish layer, so ours does too", ref.finish.layerOff || !m.finish.layerOff, "measured grain, ground tint and falloff, vignette, soft shadow (references/brand-film.md 4)");
   const failed = checks.filter((c) => !c.pass && c.severity === "error").map((c) => c.name);
   const warnings = checks.filter((c) => !c.pass && c.severity === "warning").map((c) => c.name);
-  const res = { ok: true, tolerance: tolName, ...(refFilm ? { film: refFilm } : {}), ...(oneTakeVsOther ? { note: "structure one-take against a reference that is not one-take: cut rate is a warning, tempo has no floor" } : {}), verdict: failed.length ? "FAIL" : "PASS", failed, warnings, checks, ours: { luminance: m.luminance, shares: m.shares, palette: m.palette, finish: m.finish, cuts: m.cuts && { count: m.cuts.count, per10s: m.cuts.per10s }, tempo: m.tempo && { changes: m.tempo.changes, changeEveryS: m.tempo.changeEveryS, longestHoldS: m.tempo.longestHoldS } } };
+  let prs = Array.isArray(gram.principles) ? gram.principles : null;
+  if (!prs) { try { const cp = path.join(path.dirname(refp), "FILM-STYLE.json"); if (fs.existsSync(cp)) { const cj = JSON.parse(fs.readFileSync(cp, "utf8")); if (Array.isArray(cj.principles)) prs = cj.principles; } } catch {} }
+  const res = { ok: true, tolerance: tolName, ...(prs && prs.length ? { principles_to_judge: prs.map((p) => ({ id: p.id, principle: p.principle, check: p.check })) } : {}), ...(refFilm ? { film: refFilm } : {}), ...(oneTakeVsOther ? { note: "structure one-take against a reference that is not one-take: cut rate is a warning, tempo has no floor" } : {}), verdict: failed.length ? "FAIL" : "PASS", failed, warnings, checks, ours: { luminance: m.luminance, shares: m.shares, palette: m.palette, finish: m.finish, cuts: m.cuts && { count: m.cuts.count, per10s: m.cuts.per10s }, tempo: m.tempo && { changes: m.tempo.changes, changeEveryS: m.tempo.changeEveryS, longestHoldS: m.tempo.longestHoldS } } };
   out(res, failed.length ? 1 : 0);
 }
 

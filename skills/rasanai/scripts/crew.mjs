@@ -2431,6 +2431,10 @@ async function checkRole(run, role, key) {
         if (!String(x.fix || "").trim()) P.push(`finding ${i + 1}: no exact fix`);
         if (lens !== "grounding" && x.scene == null) W.push(`finding ${i + 1}: no scene`);
       });
+      // principles + basis warnings (uncalibrated; idea from reference-to-principle work, our code)
+      { const pn = (p) => { const j = jsonMaybe(p); return j && Array.isArray(j.principles) ? j.principles.length : 0; };
+        if (lens === "film" && !Array.isArray(c.principles_check) && (pn(R(run, "research", "reference-principles.json")) || pn(R(run, "brand-film", "FILM-STYLE.json")))) W.push("principles: the reference has principles (research/reference-principles.json or FILM-STYLE.json); the film lens returns principles_check [{id, verdict, t, evidence}]");
+        if (fs_.length && fs_.filter((x) => !x.basis).length > fs_.length / 2) W.push("basis: say measured or judged on each finding (agents/critic.md, How to look)"); }
       // the blind retell (film lens) and structure findings (round 1 of frames / film only): agents/critic.md
       if (lens === "film" && exists(R(run, "story", "intent.json"))) {
         if (!String(c.retell || "").trim()) P.push('film lens: "retell" is missing (one sentence from the draft, written before reading story/intent.json)');
