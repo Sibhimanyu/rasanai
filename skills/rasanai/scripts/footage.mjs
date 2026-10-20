@@ -24,7 +24,7 @@
 //   node footage.mjs cut      --run <run> --clip <id> --op accept|reject|undecide|cut|keep|correct|undo|redo [--ids k007,k008] [--from <wordId> --to <wordId>] [--text "<display>"] [--note "<why>"] [--by agent|user] | --action <json>
 //   node footage.mjs cut-plan --run <run> --clip <id> [--max-pause 0.3] [--pad 0.1] [--check-splices]
 //        -> footage/cuts/<clip>.plan.json: kept source ranges, cuts, edited-time word map, splice warnings. The source is never modified.
-//   node footage.mjs cut-payload --run <run> [--clips a,b]   -> the { cut: { clips: [...] } } JSON the Director pushes to the console reel step
+//   node footage.mjs cut-payload --run <run> [--clips a,b]   -> the { cut: { clips: [...] } } JSON the Director pushes to the console reel step; each word also carries out_start/out_end (edited-cut seconds, null when cut or unresolvable)
 //   node footage.mjs faces    --run <run> [--clip <id>[,<id>]] [--every 0.5] [--max 240]   (optional: macOS + /usr/bin/swift)
 //        -> footage/faces/<clip>.json: { clip, fingerprint, step_s, samples, heads: [{ t, boxes: [{x,y,w,h,conf}] }] }, head boxes expanded (lib/heads.mjs), low-confidence faces kept with conf
 //   node footage.mjs merge-log | check-log | check-selects [--min-good 8] | check-paper --paper <story/paper-X.json> [--length s]
@@ -569,6 +569,16 @@ async function cutPlan() {
   out({ ok: true, clip: doc.clip, rev: doc.head, plan: rel(file), segments: kr.segments.length, cuts: kr.cuts.length, words_kept: map.length, total_s: total, source_s: doc.source.duration || null, warnings: warnings.length, warning_list: warnings });
 }
 
+// Edited-cut positions per kept word id, computed exactly as cut-plan does (default keptRanges options, editedMap).
+function editedTimes(doc) {
+  const srcFile = path.resolve(doc.source.path);
+  const trFile = doc.transcript && doc.transcript.file ? fromRun(doc.transcript.file) : null;
+  if (!fs.existsSync(srcFile)) throw new Error(`the source ${doc.source.path} is missing`);
+  if (trFile && !fs.existsSync(trFile)) throw new Error(`the transcript ${doc.transcript.file} is missing`);
+  const kr = keptRanges(doc);
+  return new Map(editedMap(doc, kr.segments).map((e) => [e.id, e]));
+}
+
 function cutPayload() {
   need();
   const want = wantClips("clips");
@@ -590,11 +600,16 @@ function cutPayload() {
     }
     const rec = recs.find((c) => c.id === id) || {};
     if (doc.words.length > CAP) notes.push(`${id}: words capped at ${CAP} of ${doc.words.length}`);
+    let times = null;
+    try { times = editedTimes(doc); } catch (e) { notes.push(`${id}: edited-cut word times unavailable (${e.message}); out_start/out_end left null`); }
     clips.push({
       clip: id, name: rec.name || path.basename(doc.source.path || id), rev: doc.head, head: doc.head,
       can_undo: doc.head > 0, can_redo: doc.head < doc.actions.length,
       total_s: r3(kr.segments.reduce((n, s) => n + (s.out - s.in), 0)),
-      words: doc.words.slice(0, CAP).map((w, i) => ({ id: w.id, text: w.text, display: st.words[i].display, start: w.start, end: w.end, removed: st.words[i].removed, by: st.words[i].by, cand: candOf[i] })),
+      words: doc.words.slice(0, CAP).map((w, i) => {
+        const at = times && !st.words[i].removed ? times.get(w.id) : null;
+        return { id: w.id, text: w.text, display: st.words[i].display, start: w.start, end: w.end, removed: st.words[i].removed, by: st.words[i].by, cand: candOf[i], out_start: at ? at.out_start : null, out_end: at ? at.out_end : null };
+      }),
       candidates: doc.candidates.map((c) => ({ id: c.id, kind: c.kind, from: c.from, to: c.to, start: c.start, end: c.end, text: c.text, second: c.second ?? null, decision: st.candidates[c.id], reason: c.reason, check: !!c.check })),
     });
   }
