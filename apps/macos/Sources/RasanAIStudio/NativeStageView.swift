@@ -54,7 +54,7 @@ struct NativeStageView: View {
 
     @ViewBuilder private func stage(_ route: StageRoute) -> some View {
         if showsProgress, let progress {
-            FilmProgressView(model: model, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow)
+            FilmProgressView(model: model, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow, paused: paused)
         } else { classic(route) }
     }
 
@@ -96,7 +96,7 @@ private struct UpdateNotice: View {
     }
 }
 
-/// The router plus the toolbar items. Used by FilmPage, the sample and fixtures; each wraps it and the status bar in
+/// The router plus the toolbar items. Used by FilmPage and the sample film; each wraps it and the status bar in
 /// `DecisionsHost`, so the inspector runs the full window height.
 struct NativeFilmView: View {
     @Bindable var model: FilmSessionModel

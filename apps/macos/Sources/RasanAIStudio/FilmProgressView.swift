@@ -14,6 +14,8 @@ struct FilmProgressView: View {
     /// The director stopped mid-film and Studio will resume it by itself (or when a plan limit resets).
     var autoResume: AutoResumeNotice?
     var onResumeNow: (() -> Void)?
+    /// The director is stopped by the person: the crew on stage snooze (as they do while a usage limit is waited out).
+    var paused = false
 
     /// "View activity" opens the list of what has happened as a sheet; a warning's "View details" opens that one event.
     @State private var showActivity = false
@@ -40,9 +42,11 @@ struct FilmProgressView: View {
     }
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let now = progress.isReplay ? progress.now : (progress.isLive ? context.date : progress.now)
-            focused(now: now)
+        GeometryReader { geo in
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let now = progress.isReplay ? progress.now : (progress.isLive ? context.date : progress.now)
+                focused(now: now, visibleHeight: geo.size.height)
+            }
         }
         .environment(model)
         .sheet(isPresented: $showActivity) {
@@ -59,7 +63,7 @@ struct FilmProgressView: View {
 
     // MARK: Focused working screen
 
-    private func focused(now: Date) -> some View {
+    private func focused(now: Date, visibleHeight: CGFloat) -> some View {
         let s = snapshot
         return ScrollView {
             VStack(alignment: .leading, spacing: 18) {
@@ -76,25 +80,7 @@ struct FilmProgressView: View {
                 }
                 .foregroundStyle(s.isWaitingForYou ? Color.orange : Color.rasan)
                 if let notice = autoResume { resumeBanner(notice, now: now) }
-                HStack(alignment: .center, spacing: 18) {
-                    NowCrewAvatar(snapshot: s)
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(s.now.text)
-                            .font(.system(size: 24, weight: .semibold)).tracking(-0.2)
-                            .lineLimit(3).fixedSize(horizontal: false, vertical: true)
-                            .contentTransition(.opacity).animation(reduceMotion ? nil : .smooth, value: s.now.text)
-                            .accessibilityAddTraits(.isHeader)
-                        if let detail = s.now.detail, !detail.isEmpty {
-                            Text(detail).font(.system(size: 14)).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                        }
-                        HStack(spacing: 14) {
-                            Text(Self.clock(s.elapsed(now: now)) + " elapsed").font(.system(size: 13, weight: .semibold, design: .rounded)).monospacedDigit()
-                                .accessibilityLabel("Elapsed \(FilmProgressFormat.duration(s.elapsed(now: now)))")
-                            estimate(s)
-                        }
-                        .padding(.top, 2)
-                    }
-                }
+                crewStage(s, now: now, visibleHeight: visibleHeight)
                 researchNotice(s, now: now)
                 activityWarning(s)
                 ProgressRenderStrip(render: s.render, now: now)
@@ -105,6 +91,52 @@ struct FilmProgressView: View {
             .frame(maxWidth: 860, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
+    }
+
+    /// The crew member on stage with the real work around them, and under it the one line of what is happening. While a decision
+    /// waits, the same character stands to the side and asks it in one speech bubble.
+    @ViewBuilder private func crewStage(_ s: FilmProgressSnapshot, now: Date, visibleHeight: CGFloat) -> some View {
+        let lead = NowCrewAvatar.lead(for: s)
+        let asleep = paused || autoResume?.isLimit == true
+        let timing = HStack(spacing: 14) {
+            Text(Self.clock(s.elapsed(now: now)) + " elapsed").font(.system(size: 13, weight: .semibold, design: .rounded)).monospacedDigit()
+                .accessibilityLabel("Elapsed \(FilmProgressFormat.duration(s.elapsed(now: now)))")
+            estimate(s)
+        }
+        if s.isWaitingForYou {
+            VStack(alignment: .leading, spacing: 10) {
+                CrewAskRow(character: lead, text: s.now.text)
+                    .contentTransition(.opacity).animation(reduceMotion ? nil : .smooth, value: s.now.text)
+                timing
+            }
+        } else {
+            let unit = min(320, max(200, visibleHeight * 0.45))
+            VStack(spacing: 8) {
+                CrewStage(character: lead, thoughts: CrewThoughts.make(s, lead: lead), asleep: asleep,
+                          lines: lead == .kavi ? CrewThoughts.finishedSteps(s) : 0,
+                          picture: lead == .chitra || lead == .rasika ? CrewThoughts.newestPicture(s) : nil, unit: unit)
+                    .id(lead)
+                    .frame(maxWidth: .infinity)
+                    .help("\(lead.displayName), \(lead.roleTitle)")
+                VStack(spacing: 6) {
+                    Text(Self.crewLine(lead, s)).font(.system(size: 13)).foregroundStyle(.secondary).lineLimit(2).multilineTextAlignment(.center)
+                    Text(s.now.text)
+                        .font(.system(size: 26, weight: .semibold)).tracking(-0.3)
+                        .lineLimit(3).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                        .contentTransition(.opacity).animation(reduceMotion ? nil : .smooth, value: s.now.text)
+                        .accessibilityAddTraits(.isHeader)
+                    timing.padding(.top, 2)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    /// "Kavi · 3 writers drafting": the character, then what the crew is doing as the model words it, else their role.
+    private static func crewLine(_ lead: CrewCharacter, _ s: FilmProgressSnapshot) -> String {
+        if let detail = s.now.detail, !detail.isEmpty { return "\(lead.displayName) · \(detail)" }
+        let running = s.crew.filter { $0.state == .running && $0.character == lead }.count
+        return running > 1 ? "\(lead.displayName) · \(running) helpers working" : "\(lead.displayName) · \(lead.roleTitle)"
     }
 
     @ViewBuilder private func nextRow(_ s: FilmProgressSnapshot) -> some View {
@@ -149,7 +181,7 @@ struct FilmProgressView: View {
     }
 
     /// The research budget warning, kept visible while the research card is folded away. Wrap up is right here, so the person
-    /// never has to leave the working screen for the phase rail to act on it.
+    /// never has to leave the working screen for the progress list to act on it.
     @ViewBuilder private func researchNotice(_ s: FilmProgressSnapshot, now: Date) -> some View {
         let research = s.research
         if s.summary(.research).state == .active, research.endedAt == nil, let budget = research.budget,
@@ -260,7 +292,7 @@ struct FilmProgressView: View {
 }
 
 extension ProgressPhase {
-    /// The person's call this phase ends in, if any: the five calls live on this list while Claude works.
+    /// The person's call this phase ends in, if any: the calls live on this list while Claude works.
     var yourCall: String? {
         switch self {
         case .script: "pick a story"
