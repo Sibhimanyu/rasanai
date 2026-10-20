@@ -912,6 +912,10 @@ async function build() {
     const dest = destinationOf({ destination: R.destination || null, aspect: R.aspect || "9:16" });
     const zones = zonesFor(dest, R.aspect || "9:16");
     const facesCache = new Map(), unknownSeen = new Set();
+    // opt-in: reels with no destination and no faces files build exactly as before (no new warnings)
+    const optIn = !!R.destination;
+    let anyFaces = false;
+    const unknownMsgs = [];
     const pieces = [
       ...overlaySegs.map((o) => ({ id: "overlay", label: `overlay ${o.i + 1} "${[].concat(o.it.text || "").join(" / ").slice(0, 30)}"`, rect: zoneRect(o.it.zone || "lower-third", W, H), a: o.start, b: o.start + o.dur, ui: "overlay-in-platform-ui", face: "overlay-on-face" })),
       ...groups.map((g, k) => ({ id: "captions", label: "the captions", group: k, rect: zoneRect("captions", W, H), a: g.in, b: g.out, ui: "caption-in-platform-ui", face: "caption-on-face" })),
@@ -921,14 +925,15 @@ async function build() {
     for (const p of pieces) {
       const box = frac(p.rect);
       const hit = boxInZones(box, zones, { minShare: PLATFORM_SHARE }).filter((z) => z.zone !== "margin")[0];
-      if (hit && !noted.has(p.ui + (p.group === undefined ? p.label : ""))) { noted.add(p.ui + (p.group === undefined ? p.label : "")); warnings.push(`${p.ui}: ${p.label} sits ${Math.round(hit.share * 100)}% under the ${hit.zone} on ${dest}; move it inside the safe area`); }
+      if (optIn && hit && !noted.has(p.ui + (p.group === undefined ? p.label : ""))) { noted.add(p.ui + (p.group === undefined ? p.label : "")); warnings.push(`${p.ui}: ${p.label} sits ${Math.round(hit.share * 100)}% under the ${hit.zone} on ${dest}; move it inside the safe area`); }
       for (const u of clipsUnder(segs, p.a, p.b)) {
         const key = String(u.s.it.clip);
         const doc = loadFaces(R, base, ws, key, u.s.it._src, facesCache);
+        if (doc) anyFaces = true;
         const head = doc ? headsDuring(doc, u.t0, u.t1) : { unknown: true, reason: "no faces file" };
         const h = head.unknown ? null : head;
         if (!h) {
-          if (!unknownSeen.has(key)) { unknownSeen.add(key); warnings.push(`face-unknown: faces not checked for ${key} (${head.reason}); run footage.mjs faces --run "$RUN"`); }
+          if (!unknownSeen.has(key)) { unknownSeen.add(key); unknownMsgs.push(`face-unknown: faces not checked for ${key} (${head.reason}); run footage.mjs faces --run "$RUN"`); }
           // a doubtful (low confidence) head is still checked, flagged as unsure
           if (head.box && overlapShare(box, head.box) >= FACE_COVER) { const k = p.face + "?" + p.label; if (!noted.has(k)) { noted.add(k); warnings.push(`${p.face}: ${p.label} may cover a face (low-confidence detection) at ${r3(p.a)}s; check the frame`); } }
           continue;
@@ -937,6 +942,7 @@ async function build() {
         if (share >= FACE_COVER) { const k = p.face + p.label; if (!noted.has(k)) { noted.add(k); warnings.push(`${p.face}: ${p.label} covers ${Math.round(share * 100)}% of the speaker's head at ${r3(p.a)}s; move it to another zone or time`); } }
       }
     }
+    if (optIn || anyFaces) warnings.push(...unknownMsgs);
   }
 
   // ---- write compositions
