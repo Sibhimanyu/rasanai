@@ -297,33 +297,16 @@ final class StudioSettings {
 struct StudioSettingsView: View {
     @Bindable var settings: StudioSettings
     @ObservedObject private var updater = StudioUpdater.shared
-    @State private var tab: String
-    /// True when this is the Settings page in the main window (full size, page header); false keeps the fixed-size tabbed
-    /// panel the snapshot harness renders.
-    private let page: Bool
-    init(settings: StudioSettings, initialTab: String = "general", page: Bool = false) {
-        self.settings = settings; self.page = page; _tab = State(initialValue: initialTab)
-    }
+    @State private var tab = "general"
     @State private var showAdvanced = false
 
     var body: some View {
-        Group {
-            if page { pageBody } else { panelBody }
-        }
-        .preferredColorScheme(settings.colorScheme)
-        .tint(page ? Color(nsColor: .controlAccentColor) : .rasan)
+        pageBody
+            .preferredColorScheme(settings.colorScheme)
+            .tint(Color(nsColor: .controlAccentColor))
         .alert("Settings", isPresented: Binding(get: { settings.error != nil }, set: { if !$0 { settings.error = nil } })) {
             Button("OK") { settings.error = nil }
         } message: { Text(settings.error ?? "") }
-    }
-
-    private var panelBody: some View {
-        TabView(selection: $tab) {
-            general.tabItem { Label("General", systemImage: "gearshape") }.tag("general")
-            director.tabItem { Label("Director", systemImage: "wand.and.stars") }.tag("director")
-        }
-        .frame(width: 520, height: tab == "general" ? 470 : 500)
-        .animation(.snappy, value: tab)
     }
 
     /// The page: one header (title, then the General / Director switch) on the same leading edge as the grouped forms, in a

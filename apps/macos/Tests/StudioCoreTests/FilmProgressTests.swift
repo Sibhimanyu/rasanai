@@ -177,10 +177,8 @@ final class FilmProgressRealRunTests: XCTestCase {
         XCTAssertEqual(snap.summary(.check).rounds, 2)
     }
 
-    func testActivityTimelineIsGroupedByPhaseInOrder() {
+    func testActivityTimelineIsOldestFirst() {
         let snap = ProgressFixture.finishedEngine().snapshot(now: ProgressFixture.end)
-        let groups = snap.activityByPhase
-        XCTAssertEqual(groups.map(\.phase), ProgressPhase.allCases)
         XCTAssertTrue(snap.activity(for: .script).contains { $0.title.contains("Three writers") })
         XCTAssertTrue(snap.activity(for: .animatic).contains { $0.kind == .ask })
         XCTAssertTrue(snap.activity(for: .render).contains { $0.title.contains("Done: the render") })

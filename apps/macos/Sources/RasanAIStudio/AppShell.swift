@@ -436,16 +436,6 @@ struct ToolbarSearchField: NSViewRepresentable {
     }
 }
 
-/// "+ New film", the studio's one prominent toolbar button: tinted glass on Tahoe.
-struct NewFilmHeaderButton: View {
-    let action: () -> Void
-    var body: some View {
-        Button(action: action) { Label("New film", systemImage: "plus").labelStyle(.titleAndIcon) }
-            .buttonStyle(.borderedProminent).tint(Color.rasanFill)
-            .help("Start a new film (⌘N)")   // ⌘N itself is File › New Film's
-    }
-}
-
 // MARK: Status bar
 
 /// The studio's status bar under every page but a film's (a film page has its own action bar). Each part answers a

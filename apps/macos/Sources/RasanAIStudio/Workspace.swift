@@ -50,97 +50,10 @@ struct GlassPanel<S: Shape>: ViewModifier {
     }
 }
 
-/// An AppKit material behind SwiftUI content. Follows the window's active state, as system sidebars do.
-struct WindowMaterial: NSViewRepresentable {
-    var material: NSVisualEffectView.Material
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = material
-        view.blendingMode = .behindWindow
-        view.state = .followsWindowActiveState
-        return view
-    }
-    func updateNSView(_ view: NSVisualEffectView, context: Context) { view.material = material }
-}
-
 extension View {
     func glassPanel(radius: CGFloat = Workspace.glassRadius) -> some View { modifier(GlassPanel(shape: RoundedRectangle(cornerRadius: radius, style: .continuous))) }
     func glassPanel(in shape: some Shape) -> some View { modifier(GlassPanel(shape: shape)) }
     func workspacePanel(padding: CGFloat = 0) -> some View { modifier(WorkspacePanel(padding: padding)) }
-}
-
-/// Set by a stage that lays out its own panels (player, filmstrip), so the film page does not wrap it in one more.
-struct StageDrawsPanelsKey: PreferenceKey {
-    static var defaultValue: Bool { false }
-    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
-}
-
-// MARK: Stepper
-
-/// The five calls, as in an editor's header: done calls are ticked outlines, the current one is a filled number, the rest are
-/// quiet outlined numbers. A done call can be opened read-only.
-struct FilmStepper: View {
-    let current: ReviewStage?
-    var finished = false
-    var viewing: ReviewStage?
-    /// While Claude works: how many calls are decided (the next one shows a quiet ring, none is "current").
-    var decided: Int?
-    var canSelect: ((ReviewStage) -> Bool)?
-    var onSelect: ((ReviewStage) -> Void)?
-    private var stages: [ReviewStage] { ReviewStage.allCases }
-    private var working: Bool { decided != nil && !finished }
-    private var currentIndex: Int {
-        if finished { return stages.count }
-        if let decided { return decided }
-        return current.flatMap { stages.firstIndex(of: $0) } ?? -1
-    }
-
-    var body: some View {
-        HStack(spacing: 8) {
-            ForEach(Array(stages.enumerated()), id: \.offset) { index, stage in
-                item(index, stage)
-                if index < stages.count - 1 {
-                    Rectangle().fill(index < currentIndex ? Color.secondary.opacity(0.6) : Workspace.hairline).frame(width: 18, height: 1)
-                }
-            }
-        }
-        // Framed by the toolbar's capsule: the first circle sits in the round left end, so it needs no inset; the last
-        // word is text and needs about half the capsule's height before the right end, or it runs into the curve.
-        .padding(.leading, 2).padding(.trailing, 12)
-        .fixedSize()
-        .animation(.snappy, value: currentIndex)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(finished ? "All five calls done" : currentIndex >= 0 && currentIndex < stages.count ? "Call \(currentIndex + 1) of 5, \(stages[currentIndex].stepTitle)" : "Not started")
-    }
-
-    @ViewBuilder private func item(_ index: Int, _ stage: ReviewStage) -> some View {
-        let selectable = onSelect != nil && ((canSelect?(stage) ?? false) || (stage == current && viewing != nil))
-        if selectable {
-            Button { onSelect?(stage) } label: { label(index, stage) }.buttonStyle(.plain)
-                .help(stage == current ? "Back to \(stage.stepTitle)" : "Look back at \(stage.stepTitle)")
-        } else { label(index, stage) }
-    }
-
-    private func label(_ index: Int, _ stage: ReviewStage) -> some View {
-        let done = index < currentIndex, active = index == currentIndex && !working, next = working && index == currentIndex
-        let looking = viewing == stage && viewing != current
-        return HStack(spacing: 8) {
-            ZStack {
-                if active { Circle().fill(Color.primary) }
-                else { Circle().strokeBorder(next ? Color.primary.opacity(0.5) : done ? Color.secondary.opacity(0.55) : Workspace.hairline.opacity(2.2), lineWidth: 1.2) }
-                if done { Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary) }
-                else { Text("\(index + 1)").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(active ? Color(nsColor: .windowBackgroundColor) : Color.secondary) }
-            }
-            .frame(width: 26, height: 26)
-            Text(stage.stepTitle).font(.system(size: 13, weight: active ? .semibold : .regular))
-                .foregroundStyle(active || looking ? Color.primary : Color.secondary).fixedSize()
-        }
-        .padding(.horizontal, looking ? 8 : 0).padding(.vertical, looking ? 3 : 0)
-        .background(looking ? Color.primary.opacity(0.10) : .clear, in: Capsule())
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(stage.stepTitle)\(done ? ", done" : active ? ", current" : "")")
-    }
 }
 
 // MARK: Filmstrip

@@ -151,7 +151,7 @@ struct ThreadBubble: View {
 struct DecisionsHost<Page: View>: View {
     @Bindable var model: FilmSessionModel
     let page: Page
-    /// Fixtures keep whatever state they set themselves.
+    /// Set false to keep whatever state was set in code.
     var remembersState = true
     /// 0: not chosen yet (closed), 1: open, 2: closed.
     @AppStorage("studio.filmInspectorState") private var stored = 0

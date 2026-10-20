@@ -1,0 +1,10 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/Workspace.swift, replaced by nothing (stages draw their own panels now). Reference only.
+
+/// Set by a stage that lays out its own panels (player, filmstrip), so the film page does not wrap it in one more.
+struct StageDrawsPanelsKey: PreferenceKey {
+    static var defaultValue: Bool { false }
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
+}
+
+
+// The two setters were `.preference(key: StageDrawsPanelsKey.self, value: true)` in FinalStage.swift and AnimaticStage.swift.

@@ -40,7 +40,7 @@ public enum ProgressPhase: String, CaseIterable, Codable, Sendable, Identifiable
         }
     }
 
-    /// An SF Symbol for the phase rail.
+    /// An SF Symbol for the phase.
     public var symbolName: String {
         switch self {
         case .research: "magnifyingglass"
@@ -96,7 +96,7 @@ public struct PhaseEstimate: Codable, Equatable, Sendable {
     public var text: String { isRange ? FilmProgressFormat.aboutRange(lowSeconds ?? secondsLeft, highSeconds ?? secondsLeft) : FilmProgressFormat.about(secondsLeft) }
 }
 
-/// One row of the phase rail: state, wall-clock window, tokens and cost.
+/// One phase of the film: state, wall-clock window, tokens and cost.
 public struct PhaseSummary: Identifiable, Codable, Equatable, Sendable {
     public var phase: ProgressPhase
     public var state: PhaseState
@@ -397,13 +397,6 @@ public struct FilmProgressSnapshot: Codable, Equatable, Sendable {
 
     public func summary(_ phase: ProgressPhase) -> PhaseSummary { phases.first { $0.phase == phase } ?? PhaseSummary(phase: phase) }
     public func activity(for phase: ProgressPhase) -> [ProgressActivity] { activity.filter { $0.phase == phase } }
-    /// Activity grouped by phase in phase order, skipping empty phases; items inside a group are oldest first.
-    public var activityByPhase: [(phase: ProgressPhase, items: [ProgressActivity])] {
-        ProgressPhase.allCases.compactMap { phase in
-            let items = activity(for: phase)
-            return items.isEmpty ? nil : (phase, items)
-        }
-    }
     public func crew(in phase: ProgressPhase, running: Bool? = nil) -> [CrewMember] {
         crew.filter { $0.phase == phase && (running == nil || ($0.state == .running) == running!) }
     }

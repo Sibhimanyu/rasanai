@@ -2,7 +2,7 @@ import Foundation
 
 /// The words Studio uses for "your move", in one place: the turn line, Home, the Dock badge and notifications all read it.
 public enum CallVocabulary {
-    /// Steps that are one of the five calls (or its twin step names).
+    /// Steps that are one of the person's calls (or its twin step names).
     static let mainSteps: Set<String> = ["brief", "story", "concept", "look", "films", "animatic", "render", "final"]
 
     /// "pick a story", "approve the style frames"… for a step awaiting the person. `renderedPreview` tells the final's two

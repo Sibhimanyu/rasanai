@@ -115,7 +115,7 @@ struct FilmSummary: Equatable, Sendable {
 @MainActor @Observable
 final class StudioStore {
     enum Sheet: String, Identifiable {
-        case welcome, log, files, note, export, preflight, projectTransfer
+        case welcome, log, files, export, preflight, projectTransfer
         var id: String { rawValue }
     }
     var preflightReport: PreflightReport?
@@ -275,6 +275,8 @@ final class StudioStore {
     }
     var snapshot: SessionSnapshot
     var stage: ReviewStage = .animatic
+    // OLD UI (pre-native stages), kept for reference; candidate for archive: the review player and notes cluster
+    // (playhead, isPlaying, togglePlayback, addNote, applyNotes, sendDirectorMessage, ...) is tangled with live code.
     var playhead = 26.0
     var isPlaying = false
     var isSample = false
@@ -337,7 +339,6 @@ final class StudioStore {
         }
         return summaries[folder] ?? .draft
     }
-    var showNoteSheet: Bool { get { sheet == .note } set { present(newValue, .note) } }
     var showDecisions = false
     var directorMessage = ""
     /// Timed notes drafted on a finished film, kept per film so they survive navigating away.

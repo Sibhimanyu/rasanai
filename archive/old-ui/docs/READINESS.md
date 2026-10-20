@@ -1,3 +1,5 @@
+OLD UI — archived 2026-10-20, from apps/macos/READINESS.md. It describes the removed console-server transport; Studio now follows the run folder through its files. Reference only.
+
 # Native Mac release readiness
 
 Audit date: 2026-10-04. Verdict: **experimental community beta; installed build-7 startup crash reproduced and fixed for build 9**. The user accepted the unverified paths below for an explicitly labeled experimental beta, not a production-ready or full-parity release.

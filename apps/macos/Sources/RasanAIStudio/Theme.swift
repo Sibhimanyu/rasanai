@@ -29,8 +29,6 @@ extension Color {
     })
     /// Turmeric, the brand's warm accent: note times, a waiting badge.
     static let turmeric = Color(nsColor: .rasanHex(0xEFB21A))
-    /// The logo's ink. Light-mode headers only.
-    static let rasanDeep = Color(nsColor: .rasanHex(0x1B1F5E))
     /// The mark itself: deep ink in light mode, white in dark mode.
     static let rasanInk = Color(nsColor: NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .white : .rasanHex(0x1B1F5E)
@@ -41,18 +39,6 @@ extension Color {
         guard text.count == 6, let value = UInt32(text, radix: 16) else { return nil }
         return Color(nsColor: .rasanHex(value))
     }
-}
-
-/// Kept so the sample-film views and older files keep compiling; every value maps onto the calm palette.
-enum StudioPalette {
-    static let background = Color.appBackground
-    static let panel = Color(nsColor: .controlBackgroundColor)
-    static let raised = Color(nsColor: .underPageBackgroundColor)
-    static let ink = Color.primary
-    static let muted = Color.secondary
-    static let accent = Color.rasan
-    static let mint = Color(nsColor: .systemGreen)
-    static let divider = Color(nsColor: .separatorColor)
 }
 
 // MARK: Mark
@@ -102,20 +88,6 @@ struct CardSurface: ViewModifier {
 extension View {
     func cardSurface(hovering: Bool = false, selected: Bool = false) -> some View {
         modifier(CardSurface(hovering: hovering, selected: selected))
-    }
-}
-
-/// A button that reads as a card, with a hover lift.
-struct HoverCard<Content: View>: View {
-    let action: () -> Void
-    @ViewBuilder var content: (Bool) -> Content
-    @State private var hovering = false
-    var body: some View {
-        Button(action: action) {
-            content(hovering).cardSurface(hovering: hovering)
-        }
-        .buttonStyle(PressableStyle())
-        .onHover { hovering = $0 }
     }
 }
 
@@ -277,30 +249,6 @@ extension View {
 // MARK: Status
 
 enum StatusTone { case good, warn, bad, quiet }
-
-struct StatusDot: View {
-    let tone: StatusTone
-    var pulsing = false
-    @State private var pulse = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    var color: Color {
-        switch tone {
-        case .good: Color(nsColor: .systemGreen)
-        case .warn: Color(nsColor: .systemOrange)
-        case .bad: Color(nsColor: .systemRed)
-        case .quiet: Color(nsColor: .tertiaryLabelColor)
-        }
-    }
-    var body: some View {
-        // The repeating animation is scoped to the dot's opacity. Started with `withAnimation` in `onAppear`, it would
-        // also repeat whatever else changed in that update (the row's layout and text).
-        Circle().fill(color).frame(width: 7, height: 7)
-            .opacity(pulsing && pulse ? 0.35 : 1)
-            .animation(pulsing && !reduceMotion ? .easeInOut(duration: 0.9).repeatForever(autoreverses: true) : .default, value: pulse)
-            .onAppear { pulse = pulsing }
-            .onChange(of: pulsing) { _, now in pulse = now }
-    }
-}
 
 // MARK: Help
 

@@ -1,0 +1,5 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/FilmProgress.swift, replaced by nothing (snapshot harness removed). Reference only.
+
+    func replayTelemetry() async -> DirectorTelemetry { await worker.telemetry() }
+
+    func endReplay() { isLive = false }

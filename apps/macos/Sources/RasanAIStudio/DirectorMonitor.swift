@@ -70,13 +70,6 @@ final class DirectorMonitor {
         }
     }
 
-    /// Fixture entry point: a monitor showing a given state with no runtime behind it.
-    func present(run: URL?, telemetry: DirectorTelemetry, health: DirectorHealth, live: Bool, now: Date = Date(), budget: Double? = nil) {
-        self.run = run; self.telemetry = telemetry; self.health = health; self.isLive = live; self.now = now; self.budgetLimit = budget
-    }
-
-    func presentSession(_ entries: [URL: (tokens: Int, usd: Double, estimated: Bool, plan: Bool)]) { ledger = entries }
-
     /// Totals for any film: the live one, else what was saved in its run folder.
     func usage(for run: URL?) -> DirectorTelemetry? {
         guard let run else { return nil }

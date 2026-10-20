@@ -162,61 +162,10 @@ struct DirectorLogSheet: View {
     }
 }
 
-/// A native note on a sample-film moment. Live films take notes in the console.
-struct NoteSheet: View {
-    @Bindable var store: StudioStore
-    @Environment(\.dismiss) private var dismiss
-    @State private var text = ""
-    @State private var scope = "scene"
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Note at \(timecode(store.playhead))").font(.system(size: 20, weight: .semibold))
-                Text(store.selectedScene?.title ?? "Whole film").font(.system(size: 12)).foregroundStyle(.secondary)
-            }
-            TextField("What would make this moment better?", text: $text, axis: .vertical).lineLimit(4...6).textFieldStyle(.roundedBorder)
-            Picker("Applies to", selection: $scope) { Text("This scene").tag("scene"); Text("Whole film").tag("film") }.pickerStyle(.segmented)
-            HStack {
-                Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
-                Spacer()
-                Button(store.isSample ? "Save sample note" : "Send note") {
-                    Task {
-                        await store.addNote(text: text, scope: scope)
-                        if store.errorMessage == nil { dismiss() }
-                    }
-                }.buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction)
-                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.isSending)
-            }
-        }.padding(28).frame(width: 470)
-    }
-}
-
 @MainActor final class StudioAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     var runtime: DirectorRuntime?
     weak var store: StudioStore?
     private var pendingPackage: URL?
-    func runSnapshots() {
-        if let monitorShots = DirectorMonitorFixtures.directory {
-            Task { @MainActor in await DirectorMonitorFixtures.run(into: monitorShots); exit(0) }
-            return
-        }
-        if let shots = SnapshotHarness.stagesDirectory, SnapshotHarness.onlyStages == ["progress"] {
-            Task { @MainActor in await ProgressFixtures.run(into: shots); exit(0) }
-            return
-        }
-        if let stages = SnapshotHarness.stagesDirectory {
-            Task { @MainActor in
-                await StageFixtures.run(into: stages, only: SnapshotHarness.onlyStages)
-                exit(0)
-            }
-            return
-        }
-        guard let directory = SnapshotHarness.directory else { return }
-        Task { @MainActor in
-            await SnapshotHarness.run(into: directory)
-            exit(0)
-        }
-    }
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let package = urls.first(where: { $0.pathExtension.lowercased() == PortableProject.fileExtension }) else { return }
         if let store { store.importProjectPackage(package) } else { pendingPackage = package }

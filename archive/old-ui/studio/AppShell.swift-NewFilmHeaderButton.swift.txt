@@ -1,0 +1,12 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/AppShell.swift, replaced by the sidebar's New film button and File > New Film (⌘N). Reference only.
+
+/// "+ New film", the studio's one prominent toolbar button: tinted glass on Tahoe.
+struct NewFilmHeaderButton: View {
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) { Label("New film", systemImage: "plus").labelStyle(.titleAndIcon) }
+            .buttonStyle(.borderedProminent).tint(Color.rasanFill)
+            .help("Start a new film (⌘N)")   // ⌘N itself is File › New Film's
+    }
+}
+

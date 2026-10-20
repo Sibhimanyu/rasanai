@@ -1,0 +1,35 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/DirectorViews.swift, replaced by notes taken on the Preview/Final stages. Reference only.
+
+/// A native note on a sample-film moment. Live films take notes in the console.
+struct NoteSheet: View {
+    @Bindable var store: StudioStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+    @State private var scope = "scene"
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Note at \(timecode(store.playhead))").font(.system(size: 20, weight: .semibold))
+                Text(store.selectedScene?.title ?? "Whole film").font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            TextField("What would make this moment better?", text: $text, axis: .vertical).lineLimit(4...6).textFieldStyle(.roundedBorder)
+            Picker("Applies to", selection: $scope) { Text("This scene").tag("scene"); Text("Whole film").tag("film") }.pickerStyle(.segmented)
+            HStack {
+                Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
+                Spacer()
+                Button(store.isSample ? "Save sample note" : "Send note") {
+                    Task {
+                        await store.addNote(text: text, scope: scope)
+                        if store.errorMessage == nil { dismiss() }
+                    }
+                }.buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction)
+                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.isSending)
+            }
+        }.padding(28).frame(width: 470)
+    }
+}
+
+
+// Removed with it:
+//   StudioStore.swift   enum Sheet { ... case note ... }   and   var showNoteSheet: Bool { get { sheet == .note } set { present(newValue, .note) } }
+//   StudioView.swift    case .note: NoteSheet(store: store).tint(.rasan).buttonStyle(.rasanSecondary)

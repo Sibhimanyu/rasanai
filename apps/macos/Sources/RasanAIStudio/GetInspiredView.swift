@@ -191,33 +191,6 @@ private struct MomentAvatar: View {
     }
 }
 
-/// A picked move as a small removable chip: "Opening · Build the claim… · By OpusClip". The place is optional and set from a
-/// small menu on the chip (Anywhere by default).
-struct MomentChip: View {
-    let pick: FilmMoment
-    let moment: Moment?
-    var onPlace: ((MomentPlace) -> Void)?
-    var onRemove: (() -> Void)?
-    var body: some View {
-        HStack(spacing: 8) {
-            if let moment { MomentStill(url: moment.stillURL, maxPixels: 120).frame(width: 32, height: 18).clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous)) }
-            if let onPlace { PlaceMenu(place: pick.place, onChange: onPlace) }
-            else if pick.place != .anywhere { Text(pick.place.title).fontWeight(.semibold).fixedSize() }
-            Text(moment?.name ?? pick.id).lineLimit(1).truncationMode(.tail)
-            if let credit = moment?.creditLine { Text("· \(credit)").foregroundStyle(.secondary).lineLimit(1).layoutPriority(1) }
-            if let onRemove {
-                Button(action: onRemove) { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
-                    .buttonStyle(.plain).help("Remove this move")
-            }
-        }
-        .font(.system(size: 12))
-        .padding(.leading, moment == nil ? 10 : 6).padding(.trailing, 10).frame(height: 30)
-        .background(chipFill, in: Capsule())
-        .frame(maxWidth: 420, alignment: .leading)
-        .fixedSize(horizontal: false, vertical: true)
-    }
-}
-
 /// "Where?" for one move: Opening, Between moments, Big moment, Ending or Anywhere (the default).
 struct PlaceMenu: View {
     let place: MomentPlace

@@ -1,0 +1,26 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/Theme.swift, replaced by status text and the sidebar badges (StatusTone itself is still used). Reference only.
+
+struct StatusDot: View {
+    let tone: StatusTone
+    var pulsing = false
+    @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var color: Color {
+        switch tone {
+        case .good: Color(nsColor: .systemGreen)
+        case .warn: Color(nsColor: .systemOrange)
+        case .bad: Color(nsColor: .systemRed)
+        case .quiet: Color(nsColor: .tertiaryLabelColor)
+        }
+    }
+    var body: some View {
+        // The repeating animation is scoped to the dot's opacity. Started with `withAnimation` in `onAppear`, it would
+        // also repeat whatever else changed in that update (the row's layout and text).
+        Circle().fill(color).frame(width: 7, height: 7)
+            .opacity(pulsing && pulse ? 0.35 : 1)
+            .animation(pulsing && !reduceMotion ? .easeInOut(duration: 0.9).repeatForever(autoreverses: true) : .default, value: pulse)
+            .onAppear { pulse = pulsing }
+            .onChange(of: pulsing) { _, now in pulse = now }
+    }
+}
+

@@ -40,11 +40,6 @@ private func mpbIsGIF(_ path: String?) -> Bool { mpbExt(path) == "gif" }
 private func mpbIsImage(_ path: String?) -> Bool { ["png", "jpg", "jpeg", "webp", "heic", "tiff", "gif"].contains(mpbExt(path)) }
 private func mpbIsHTML(_ path: String?) -> Bool { ["html", "htm"].contains(mpbExt(path)) }
 
-private func mpbSeconds(_ value: JSONValue) -> String? {
-    guard let n = value.number else { return value.string }
-    return clockText(n)
-}
-
 /// The id to preselect: what was already sent, else Claude's pick, else the first.
 private func mpbInitial(_ payload: JSONValue, ids: [String], fallback: String? = nil) -> String? {
     if let sent = payload["sent"]["value"].identifier, ids.contains(sent) { return sent }

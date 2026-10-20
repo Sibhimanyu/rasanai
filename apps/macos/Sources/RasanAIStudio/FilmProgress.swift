@@ -107,9 +107,6 @@ final class FilmProgress {
         runURL = run; self.snapshot = snapshot; self.now = now; isReplay = replay
     }
 
-    /// A model over a fixed snapshot, for the snapshot harness and previews.
-    static func fixture(_ snapshot: FilmProgressSnapshot) -> FilmProgress { FilmProgress(run: nil, snapshot: snapshot, now: snapshot.asOf) }
-
     // Convenience reads.
     var currentPhase: ProgressPhase { snapshot.currentPhase }
     /// Research elapsed time (wall clock from the first research activity), nil before research starts.
@@ -149,14 +146,12 @@ final class FilmProgress {
     // MARK: Replay (the DEBUG replay and tests drive the same model)
 
     func beginReplay() { stop(); isReplay = true; isLive = false }
-    func endReplay() { isLive = false }
     func resetForReplay() async { await worker.reset() }
     func feed(lines: [String], session: SessionSnapshot?, artifacts: FilmArtifacts?, renderChunks: [(String, String)], at time: Date) async {
         let result = await worker.feed(lines: lines, session: session, artifacts: artifacts, renderChunks: renderChunks, budget: researchBudget, now: time)
         now = time
         snapshot = result
     }
-    func replayTelemetry() async -> DirectorTelemetry { await worker.telemetry() }
 }
 
 extension StudioStore {

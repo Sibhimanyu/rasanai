@@ -36,7 +36,7 @@ public enum StageRoute: Hashable, Sendable {
 }
 
 public enum StageRouter {
-    /// `viewing` is a completed step pinned from the stage bar: it is shown as it was decided, not as "working".
+    /// `viewing` is a completed step pinned from the step rail: it is shown as it was decided, not as "working".
     public static func route(_ snapshot: SessionSnapshot, viewing: String? = nil) -> StageRoute {
         let step = viewing ?? snapshot.currentStep
         let payload = snapshot.step(step)
@@ -47,7 +47,7 @@ public enum StageRouter {
         let status = payload["status"].string
         let busy = !pinned && !snapshot.isWaitingOnUser && status != "done" && step != "build" && step != "render" && step != "final"
         // A decided call stays current until the director pushes the next one; meanwhile show what it is doing
-        // (the decided call is still one click away in the stage bar). Unlike the web console, which keeps it on screen.
+        // (the decided call is still one click away in the step rail). Unlike the web console, which keeps it on screen.
         if !pinned, status == "done", !snapshot.isWaitingOnUser, step != "render", step != "final" { return .working }
         switch step {
         case "brief":

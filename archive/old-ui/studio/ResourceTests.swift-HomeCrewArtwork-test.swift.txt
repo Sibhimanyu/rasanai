@@ -1,0 +1,14 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Tests/StudioRuntimeTests/ResourceTests.swift, replaced by (deleted with HomeCrewArtwork). Reference only.
+
+    @MainActor
+    func testHomeCrewArtworkIsBundledAndDecodable() throws {
+        let image = HomeCrewArtwork.image
+        XCTAssertTrue(image.isValid)
+        let pixels = try XCTUnwrap(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
+        XCTAssertGreaterThan(pixels.width, 1000)
+        XCTAssertGreaterThan(pixels.height, 300)
+        XCTAssertNotEqual(pixels.alphaInfo, .none)
+        XCTAssertNotEqual(pixels.alphaInfo, .noneSkipFirst)
+        XCTAssertNotEqual(pixels.alphaInfo, .noneSkipLast)
+    }
+

@@ -1,7 +1,7 @@
 import StudioCore
 import SwiftUI
 
-/// Whose move it is, as a value so the live page and the fixtures feed the same view.
+/// Whose move it is, as a value so the live page and the sample film feed the same view.
 enum TurnState: Equatable {
     /// The person's call. `background` is what Claude is doing meanwhile (research runs in parallel with a call), if anything.
     case yourTurn(String, background: String?)
@@ -63,7 +63,7 @@ extension StudioStore {
     }
 }
 
-/// One strip under the stage bar, and the only place that states the film's state: your turn, Claude working (and, with
+/// One strip above the status bar, and the only place that states the film's state: your turn, Claude working (and, with
 /// your turn, what it does meanwhile), paused, or needs attention. The usage pill and the action bar never repeat it.
 struct TurnLine: View {
     let state: TurnState

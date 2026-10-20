@@ -1,0 +1,9 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/DirectorMonitor.swift, replaced by DirectorMonitor driven by the real runtime (no fixtures). Reference only.
+
+    /// Fixture entry point: a monitor showing a given state with no runtime behind it.
+    func present(run: URL?, telemetry: DirectorTelemetry, health: DirectorHealth, live: Bool, now: Date = Date(), budget: Double? = nil) {
+        self.run = run; self.telemetry = telemetry; self.health = health; self.isLive = live; self.now = now; self.budgetLimit = budget
+    }
+
+    func presentSession(_ entries: [URL: (tokens: Int, usd: Double, estimated: Bool, plan: Bool)]) { ledger = entries }
+
