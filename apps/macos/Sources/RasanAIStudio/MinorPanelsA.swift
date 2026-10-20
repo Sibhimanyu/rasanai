@@ -637,6 +637,9 @@ struct ReelPanel: View {
                 Spacer()
                 Text("\(rows.count) items · \(secondsText(total))").font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit()
             }
+            if !payload["cut"]["clips"].array.isEmpty {
+                CutTranscriptView(model: model, step: step, cut: payload["cut"], player: player)
+            }
             timelineStrip
             List {
                 ForEach($rows) { $row in
