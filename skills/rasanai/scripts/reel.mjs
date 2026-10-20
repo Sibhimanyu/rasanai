@@ -555,6 +555,8 @@ async function build() {
     if (!["claude", "swatch"].includes(authorOf(o))) problems.push(`overlays[${i}]: by must be "claude" or "swatch"`);
     if (authorOf(o) === "claude" && !(Number(o.duration) > 0)) problems.push(`overlays[${i}]: an overlay needs a duration`);
   });
+  if (R.captions && R.captions.words_per_group != null && !(Number.isInteger(R.captions.words_per_group) && R.captions.words_per_group >= 1 && R.captions.words_per_group <= 6)) problems.push("captions.words_per_group must be an integer 1-6 (words shown per caption group)");
+  if (R.reference_profile != null && (typeof R.reference_profile !== "string" || !fs.existsSync(resolveIn(R.reference_profile, base, ws)))) problems.push("reference_profile must be the path of an existing reference/profile.json (its caption density sets the group size)");
   if (problems.length) die(`reel.json has ${problems.length} problem(s):\n- ${problems.join("\n- ")}`);
 
   // ---- project
@@ -776,7 +778,21 @@ async function build() {
       }
     }
     const tall = H / W > 1.2;
-    groups = groupWords(words.sort((x, y) => x.start - y.start), { maxWords: tall ? 3 : 5, maxChars: tall ? 18 : 34 });
+    let nWords = tall ? 3 : 5, maxChars = tall ? 18 : 34, fromDna = null;
+    if (Number.isInteger(cap.words_per_group) && cap.words_per_group >= 1 && cap.words_per_group <= 6) fromDna = { n: cap.words_per_group, src: "reel.json captions.words_per_group" };
+    else if (R.reference_profile) {
+      try {
+        const prof = readJSON(resolveIn(R.reference_profile, base, ws));
+        const ov = (prof.style_overrides || {}).caption_words_per_unit, m = (prof.metrics || {}).caption_words_per_unit;
+        const v = ov != null ? Number(ov) : m && m.confidence !== "unmeasured" && m.value != null ? Number(m.value) : null;
+        if (Number.isFinite(v)) fromDna = { n: Math.min(6, Math.max(1, Math.round(v))), src: `Reference DNA (${prof.id || "profile"})` };
+      } catch (e) { warnings.push(`captions: could not read reference_profile (${e.message})`); }
+    }
+    if (fromDna) {
+      nWords = fromDna.n; maxChars = tall ? Math.round(nWords * 6) : nWords * 7;
+      warnings.push(`captions: ${nWords} words a group from ${fromDna.src}`);
+    }
+    groups = groupWords(words.sort((x, y) => x.start - y.start), { maxWords: nWords, maxChars });
     groups.forEach((g) => (g.out = Math.min(g.out, total)));
     groups = groups.filter((g) => g.out - g.in > 0.1);
     for (const o of overlaySegs) if ((o.it.zone || "lower-third") === "lower-third" && H / W > 1.2 && groups.some((g) => g.in < o.start + o.dur && g.out > o.start)) warnings.push(`overlay ${o.i + 1} sits just above the captions while they run; check the frame`);
