@@ -2,13 +2,14 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.18.0 (build 37) — 2026-10-20
 
 - **The crew on the working screen.** Film progress puts the phase's crew member big in the centre with live eyes, and the newest real activity as thought bubbles. Paused, they snooze; when a call waits on you, they step aside and ask.
 - **Setup in three buttons: Claude, Codex, Tools.** One click does the next step: install, sign in, or make it your director. Tools installs the missing rendering tools right there.
 - **Sign in without Terminal.** Claude and Codex sign in from inside Studio: your browser opens, and there is a box for the code Claude shows. Use Terminal instead is still there.
 - **Codex is found when it is signed in.** A Codex that Studio installed now passes its sign-in check, and one installed after launch is picked up in Settings.
 - **Notifications are on.** Studio asks macOS once, after setup, and Settings says when macOS has them turned off, with a button to fix it.
+- **Bundles RasanAI 1.22.0.**
 
 ## 0.17.1 (build 36) — 2026-10-19
 
