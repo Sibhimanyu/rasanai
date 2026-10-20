@@ -1,0 +1,7 @@
+node_modules/
+out/
+dist/
+*.blend1
+*.blend2
+blender/animations/frames/
+blender/animations/walk-and-wave/
