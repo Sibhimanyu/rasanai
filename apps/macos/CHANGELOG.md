@@ -2,7 +2,7 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.19.0 (build 38) — 2026-10-20
 
 - **Edit a talking-head cut by its words.** The Cut step shows the transcript with Claude's suggested cuts (retakes, false starts, "wait, let me start again", fillers) marked. Cut or restore any phrase, accept or keep a suggestion, fix a misspelled name, and undo or redo with ⌘Z / ⇧⌘Z. Your decisions are kept if you quit and reopen.
 - **Notes can point at a word,** so Claude fixes the exact moment, even when the same word is said more than once.
