@@ -15,6 +15,9 @@
 //        (any question outside the steps: missing material, a thin capture, an ambiguity; shown on the page, answered there)
 //   node console.mjs resolve --run <dir> --ids a,b [--note "what changed"]   (notes left on the animatic/final are done)
 //        a push of animatic/render with a higher version is refused (exit 2) while an applied note has no --note; --force "<reason>" overrides
+//        --layers <story,look,timing,motion,sound,production> (default motion,timing): the layers the notes were about; a locked file outside them that changed is a warning (lock_breaks)
+//   node console.mjs locks  --run <dir>   (what Story, Look and the Animatic locked, what drifted since, lock_breaks, relocks; JSON)
+//   node console.mjs relock --run <dir> --layer <story|look|timing|motion> --because "<why, 8+ characters>"   (a meant change to a locked layer)
 //   node console.mjs reply --run <dir> --step <id> --message "..."   (Claude answers the user in that step's discussion)
 //   node console.mjs log   --run <dir> --message "..." [--level info|ok|warn|error] [--stage <id>] [--stage-status working|done|failed]
 //   node console.mjs wait  --run <dir> [--step <id>] [--timeout <sec, default 3000>]   -> prints the next action JSON (exit 2 on timeout)
@@ -38,6 +41,7 @@ import { recordTaste } from "./memory.mjs";
 import { acquire, release, withLock } from "./lib/runlock.mjs";
 import { briefFormat } from "./lib/formats.mjs";
 import { noteDowngrade, readDowngrades } from "./lib/downgrade.mjs";
+import { LAYERS, NOTE_LAYERS, snapshot, drift, relock } from "./lib/locks.mjs";
 
 // this copy's version: a console started by an older copy is replaced, not reused
 const VERSION = (() => {
@@ -314,7 +318,7 @@ function ensureServer() {
 // headless: never a server; the session is rewritten under the run's lock for the whole command (parallel agents and
 // scripts push at once, and an unlocked read-modify-write would lose one of them)
 if (HEADLESS) {
-  if (["push", "log", "activity", "reply", "ask", "resolve", "downgrade"].includes(cmd)) {
+  if (["push", "log", "activity", "reply", "ask", "resolve", "downgrade", "relock"].includes(cmd)) {
     acquire(F.sessionLock, 8000);
     process.on("exit", () => release(F.sessionLock));
   }
@@ -375,6 +379,13 @@ if (cmd === "push") {
     next.stages = data.stages || prev.stages || {};
   }
   s.steps[args.step] = next;
+  // closing a call locks what it approved (lib/locks.mjs); an identical re-push keeps the old lock
+  if (next.status === "done") for (const [layer, L] of Object.entries(LAYERS)) {
+    if (L.step !== args.step) continue;
+    const snap = snapshot(RUN, layer), old = (s.locks || {})[layer];
+    if (old && JSON.stringify(old.files) === JSON.stringify(snap.files)) continue;
+    s.locks = { ...(s.locks || {}), [layer]: snap };
+  }
   if (args.current || next.status === "awaiting" || (next.status === "working" && ["build", "render", "final"].includes(args.step))) s.current = args.step;
   const label = LABELS[args.step] || args.step;
   if (next.status === "awaiting") activity(s, `Ready for you: ${label}`, "ask");
@@ -418,10 +429,36 @@ if (cmd === "push") {
   const ids = String(args.ids || "").split(",").filter(Boolean);
   const s = session();
   let n = 0;
-  for (const c of s.comments || []) if (ids.includes(c.id) || args.all) { if (c.state !== "resolved") n++; c.state = "resolved"; c.resolved = now(); if (args.note) c.resolution = String(args.note); }
+  const layers = (args.layers === undefined || args.layers === true ? "motion,timing" : String(args.layers)).split(",").map((x) => x.trim()).filter(Boolean);
+  if (!layers.length || layers.some((l) => !NOTE_LAYERS.includes(l))) die(`--layers must be a comma list of ${NOTE_LAYERS.join(", ")}`);
+  const resolvedIds = [];
+  for (const c of s.comments || []) if (ids.includes(c.id) || args.all) { if (c.state !== "resolved") n++; c.state = "resolved"; c.resolved = now(); c.layers = layers; resolvedIds.push(c.id); if (args.note) c.resolution = String(args.note); }
+  // a fix that changed a locked file outside the notes' layers is a warning, not a stop (lib/locks.mjs)
+  for (const d of drift(RUN, s.locks)) {
+    if (layers.includes(d.layer)) { relock(RUN, s, d.layer, args.note ? String(args.note) : "notes scoped to " + layers.join(", ")); continue; }
+    console.error(`warning: ${d.file} (${d.layer}, approved at the ${LAYERS[d.layer].step} call) changed, but the notes were scoped to ${layers.join(", ")}. If the change is meant, say so: console.mjs relock --run <run> --layer ${d.layer} --because "<why>"`);
+    if (!(s.lock_breaks || []).some((b) => b.layer === d.layer && b.file === d.file && b.sha === d.now)) s.lock_breaks = (s.lock_breaks || []).concat({ at: now(), layer: d.layer, file: d.file, ids: resolvedIds, layers, note: args.note ? String(args.note) : "", sha: d.now }).slice(-100);
+  }
   if (n) activity(s, `Applied ${n} note${n > 1 ? "s" : ""}${args.note ? ": " + args.note : ""}`, "ok", null);
   saveSession(s);
   console.log(JSON.stringify({ ok: true, resolved: n }));
+} else if (cmd === "locks") {
+  const s = session();
+  console.log(JSON.stringify({ locks: s.locks || {}, drift: drift(RUN, s.locks), lock_breaks: s.lock_breaks || [], relocks: s.relocks || [] }, null, 2));
+} else if (cmd === "relock") {
+  const layer = String(args.layer || "");
+  if (!LAYERS[layer]) die(`--layer must be one of ${Object.keys(LAYERS).join(", ")}`);
+  const why = args.because === undefined || args.because === true ? "" : String(args.because).trim();
+  if (why.length < 8) die('--because "<why the change is meant, 8+ characters>" is required');
+  const s = session();
+  if (!(s.locks || {})[layer]) {
+    console.log(JSON.stringify({ ok: true, layer, relocked: false, note: "no lock yet: the call was not closed" }));
+  } else {
+    relock(RUN, s, layer, why);
+    s.lock_breaks = (s.lock_breaks || []).filter((b) => b.layer !== layer);
+    saveSession(s);
+    console.log(JSON.stringify({ ok: true, layer, relocked: true }));
+  }
 } else if (cmd === "reply") {
   // Claude's answer in a step's discussion thread, shown on the page under that step
   if (!args.step || !STEPS.includes(args.step)) die(`--step must be one of ${STEPS.join(", ")}`);

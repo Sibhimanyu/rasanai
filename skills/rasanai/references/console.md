@@ -72,6 +72,20 @@ The brief's first question, inside call 1 (never a sixth call): it asks WHAT the
 
 **The decision log is append-only.** A `push` whose `decision` differs from the step's existing one, once that step is done, needs `--because "<why the old call lost, 8+ characters>"` (or `data.because`); without it the push is refused (exit 2). The old call moves into the step's `decisions_history: [{decision, at, replaced_by, because}]` (it survives every re-push) and the Decisions drawer shows it struck through under the current one, with its reason. A first decision and an identical re-push are never refused.
 
+**Locks and a note's layer.** Closing Story locks the script's lines, the intent's proposition and buys, and the claims; closing Look locks DESIGN.md, frame.md and motion.md; closing the Animatic locks the timing and the score (`lib/locks.mjs`). A note is applied inside the layers it names: `console.mjs resolve --ids … --layers motion,timing --note "…"` (default motion,timing). A fix that changed a locked file outside those layers prints a warning and is recorded in `lock_breaks` (shown in NOTE.md); a meant change is `console.mjs relock --layer <l> --because "<why>"`. A story change the user did not ask for is a decision to put to them, never a side effect of a motion fix.
+
+**Reading a note.** Vague words name a feeling; turn them into levers before touching anything, and stay in the layer the note is about.
+
+| The note says | Try first (in this order) | Layer | Never, unless the note says so |
+|---|---|---|---|
+| more energetic, it drags | shorten holds that outlast their read; start the primary sooner; harder seams on the `but`; one bigger move on the peak | timing, motion | the lines, the claims, the beat order |
+| too slow | the delay before the primary action; a read held past its time; slow camera travel; sequential moves that could overlap | timing, motion | cutting a beat (that is the structure critic's) |
+| too busy, confusing | one primary per shot, the rest held or slowed; fewer simultaneous moves (`motion-busy`); a longer hold after the key change | motion | new elements |
+| more premium | more room and a slower settle on the hero; one accent; tighter type rhythm; true product detail, held | motion, look (within DESIGN.md) | glass, gradients, glow or slow motion by default |
+| flat, boring | an energy contrast (a calm beat before a hard one); a bigger peak; a carried seam | motion, timing | a new concept |
+| I can't read it | size (`phone-small-text`), hold (`text-too-brief`), contrast | look, timing | changing the words |
+| the logo or the type is wrong | the brand file, the font, the size | look | the story |
+
 **No silent downgrades.** A script that substitutes something weaker for what the plan asked (image generation unavailable so procedural plates, no curated track, no default voice, a gate that could not run) calls `noteDowngrade({run, what, instead, why, impact})` from `scripts/lib/downgrade.mjs`: one row in `<run>/downgrades.jsonl` (run from the argument, else `RASANAI_RUN`, else `.rasanai/current`; no run, no row, never a crash). The next `console.mjs push` of any step merges unseen rows into `session.downgrades` (once each) and writes the feed line; the drawer lists them under "Working without". A gate that could not run still exits 1; the row is only the note.
 
 Paths in payloads are workspace-relative (or absolute). The page serves them at `/fs/rel/<path>` / `/fs/abs/<path>`.

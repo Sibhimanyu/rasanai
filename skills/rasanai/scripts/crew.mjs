@@ -2126,6 +2126,7 @@ async function checkRole(run, role, key) {
         }
         fs.copyFileSync(fi, R(run, "story", "intent.pre-structure.json"));
         writeFile(fi, JSON.stringify(res.intent, null, 2) + "\n");
+        spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "console.mjs"), "relock", "--run", run, "--layer", "story", "--because", "structure critic edits applied"], { stdio: "ignore" }); // the approved story changed on purpose (lib/locks.mjs)
         writeFile(fn, JSON.stringify({ ...n, applied: true, applied_at: new Date().toISOString(), removed_beats: res.removed }, null, 2) + "\n");
         CHECK_EXTRA = { result: "applied", beats_before: it.beats.length, beats_after: res.intent.beats.length, removed_beats: res.removed, next: "re-run crew.mjs thumbs (the sheet changed), then fit the music and the durations from the intent: scenes.mjs --intent story/intent.json --retime" };
         W.push(...v.warnings);
