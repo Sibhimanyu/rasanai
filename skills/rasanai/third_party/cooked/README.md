@@ -11,6 +11,7 @@ RasanAI adapts algorithms and constants from **cooked.** by NextWork (https://gi
 | `scripts/lib/cutplan.mjs` | `build_timeline.py` `edge` L141-149, `snap_and_pad` L160-178, `merge` L416-431, `enforce_splice_budget` L457-479, `kept_frames` L498-522, `window_rms_db` L200-210, `derive_noise_db` L312-331, `in_speech` L530-533; `splice_check.py` L27-69 | `footage.mjs cut-plan`, `reel.mjs` `type:"cut"` | adapted code |
 | `scripts/lib/heads.mjs` | `style-edit/scripts/face.py` `head_box` L42-48 | `footage.mjs faces`, `reel.mjs` preflight | adapted code |
 | `scripts/lib/framecheck.mjs` | `style-edit/scripts/check.py` `face_cover` L563-571 (rule rewritten for Apple Vision; warning only) | `reel.mjs check-frames` | rewritten |
+| `scripts/vision/vision.swift` | `creator-teardown/scripts/look.py` faces and OCR line boxes (`find_captions`, face framing; Apple Vision replaces upstream's OCR and face engines) | `footage.mjs vision`, `lib/reflook.mjs` | adapted code (subset) |
 
 Rows for files not yet merged are planned until the docs package confirms them.
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- **Research handoff (motion hierarchy, delivery QA, scene contract, decision locks, reference principles).** Warnings are uncalibrated; ideas only from the sources in `third_party/SOURCES.md`, Creative research handoff.
+  - **Safe zones and phone view.** `scripts/lib/safezones.mjs`: per-destination platform zones and phone-size points, read by `frame-gate.mjs`, `slop.mjs`, `lib/textfit.mjs` and `crew.mjs`.
+  - **Motion hierarchy and energy.** `scripts/lib/fluency.mjs`, `scripts/lib/film-energy.mjs` and `scripts/motion-gate.mjs`: dominant-motion share, busy beats, the energy arc and result holds (`motion-busy`, `energy-flat`, `energy-arc-off`, `calm-beat-busy`), first frame and declared seams (`first-frame-empty`, `seam-colour-jump`).
+  - **Phone readability.** `scripts/frame-gate.mjs`: `phone-small-text` by destination, with `basis` and a `see` strip command.
+  - **Scene contract.** `scripts/lib/scene-contract.mjs`, `scripts/scenes.mjs` and `scripts/crew.mjs`: scene states, cast canon and continuity, held results (`states-thin`, `result-unheld-plan`, `cast-canon-missing`, `continuity-break`, `hero-in-ui-zone`), warnings only.
+  - **Decision locks.** `scripts/lib/locks.mjs` and `scripts/console.mjs`: locked decisions and each note's layer; a vague note is read with the table in `references/console.md`.
+  - **Reference principles.** `scripts/brandfilm.mjs` and `scripts/crew.mjs`: `research/reference-principles.json`, read by the Motion Director and checked on the render by the film critic (`agents/critic.md`).
+  - **Writers and editor.** `scripts/story.mjs` and `scripts/lib/intent.mjs`: hook kinds per story slot, three channels, the payoff triad and a character arc block.
+- **cooked. integration (adapted from cooked., MIT, credited in `third_party/cooked/`).**
+  - Reference DNA: `research.mjs profile --refs …` measures 1 to 12 reference videos once (cached by content fingerprint and analysis version), labels cut kinds and zoom punches, groups references by format and leaves out outliers with a reason, and writes `reference/profile.json` and `PROFILE.md` with medians, spreads and confidence; `profile-compare` re-measures a draft the same way (warnings). `motion-md.mjs write --reference-profile` adds the measured habits to motion.md; reels can take caption density from it. Adapted from cooked. (MIT, NextWork), credited in `third_party/cooked/`.
+  - Retakes and reversible cuts: `footage.mjs retakes` proposes retakes, false starts, talking-to-self, fillers, long pauses and alternate hooks on stable word ids; `footage.mjs cut` records accept, reject, cut, restore, spelling fixes, undo and redo in `footage/cuts/<clip>.cut.json` (originals untouched); `cut-plan` builds word-aligned, frame-snapped kept ranges and warns on splices inside speech; `reel.json` takes `{"type": "cut"}` items, overlays anchored to a word, and captions in the corrected spelling. Adapted from cooked. (MIT).
+  - RasanAI Studio: the Cut stage shows the transcript with proposed and accepted cuts, cut and restore by selection, fix a spelling, undo and redo, and notes on a word.
+  - New warnings: overlay or caption on the speaker's face, under platform UI (from `lib/safezones.mjs`), face hidden on the rendered frame (`reel.mjs check-frames`), and `text-under-platform-ui` in `slop.mjs --destination`. All warnings, uncalibrated.
+
 ## 1.22.0 (2026-10-19): a transcriber that installs after a yes, the full storyline
 
 - **A transcriber that really installs after a yes.** New `transcriber.mjs status|install`: installs `whisper-cli` (Homebrew, else a build) and a model, proves the pair on a silent clip, and gives the real reason when it fails. `whisper-cli` is found off PATH too (Homebrew and HyperFrames build folders). `reel.mjs scan` and `footage.mjs` stop (exit 3) without a working transcriber instead of falling back to loudness, and SKILL.md forbids continuing without transcripts after the user said yes: a failed install goes back to the user with the reason.
