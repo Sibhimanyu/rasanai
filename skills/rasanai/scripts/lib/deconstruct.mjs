@@ -191,12 +191,20 @@ export async function soundArc(file, cuts = []) {
   };
 }
 
+// cut kinds and zooms: lib/cutkinds.mjs (adapted from cooked., third_party/cooked/); the punch/jump re-labelling of cuts lives there.
+import { fingerprintFile } from "./fingerprint.mjs";
+import { classifyCuts, CUTKINDS_VERSION } from "./cutkinds.mjs";
+import { REFLOOK_VERSION } from "./reflook.mjs";
+export const ANALYSIS_VERSION = "deconstruct@2+" + CUTKINDS_VERSION + "+" + REFLOOK_VERSION;
+
 // ---------------------------------------------------------------- everything
-// opts: { only: ["cuts","motion","camera","echo","bold","sound"] (default all), log }
+// opts: { only: ["cuts","motion","camera","kinds","echo","bold","sound"] (default all), look: true adds the Vision "look" part, words: [{text,start,end}], log }
 export async function deconstruct(file, opts = {}) {
   const want = (k) => !opts.only || opts.only.includes(k);
   const log = opts.log || (() => {});
   const out = { source: path.basename(file), measured: [], skipped: [], note: "numbers to score a draft against, never pictures to copy" };
+  try { out.fingerprint = fingerprintFile(file); } catch { out.fingerprint = null; }
+  out.analysis_version = ANALYSIS_VERSION;
   log("frame differences");
   const F = await frameDiffs(file);
   out.duration_s = r2(F.duration); out.fps = r2(F.fps); out.size = [F.w, F.h];
@@ -226,6 +234,8 @@ export async function deconstruct(file, opts = {}) {
     const byKind = {}; for (const m of c.moves || []) byKind[m.kind] = (byKind[m.kind] || 0) + 1;
     return { kinds: c.kinds, moves_by_kind: byKind, locked_share: c.locked_share, moves: (c.moves || []).map((m) => ({ kind: m.kind, t0: m.t0, t1: m.t1 })) };
   });
+  await soft("kinds", () => classifyCuts(file, { cuts: C.cuts, words: opts.words || null }));
+  if (opts.look === true) await soft("look", async () => { const { sampleLook } = await import("./reflook.mjs"); return sampleLook(file, { words: opts.words || null }); });
   await soft("echo", async () => {
     const { measureEcho } = await import("./echo.mjs");
     const e = measureEcho(file);

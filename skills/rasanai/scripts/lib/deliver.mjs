@@ -273,7 +273,8 @@ function noteMd({ run, project, name, render, posterPick, srt, extra, missing, r
   out.push("## Decision history (calls that were replaced)");
   const sess = jm(path.join(run, "session.json")) || {};
   const hist = Object.entries(sess.steps || {}).flatMap(([step, s]) => (s.decisions_history || []).map((h) => `- ${step}: "${String(h.decision).slice(0, 140)}" was replaced by "${String(h.replaced_by).slice(0, 140)}" because ${h.because}`));
-  out.push(...(hist.length ? hist : ["- none: no call was swapped after it was closed"]), "");
+  const lockLines = [...(sess.lock_breaks || []).map((b) => `- ${b.layer}: ${b.file} changed by a ${(b.ids || []).join(", ") || "note"} fix scoped to ${(b.layers || []).join(", ")} (not relocked)`), ...(sess.relocks || []).map((r) => `- ${r.layer} relocked: ${r.why}`)];
+  out.push(...(hist.length || lockLines.length ? [...hist, ...lockLines] : ["- none: no call was swapped after it was closed"]), "");
 
   out.push("## Delivery checks (warnings)");
   out.push(...(checks.length ? checks.map((c) => `- ${c}`) : ["- the delivered file matches the brief and no account path or key was found in the package"]), "");
@@ -356,6 +357,8 @@ function recipeMd({ run, project, name, render, brief, score, scenes, dest, used
   L.push(...(steps.length ? steps.map(([k, s]) => `- ${k}: ${String(s.decision).replace(/\s+/g, " ").slice(0, 300)}`) : ["- none recorded in session.json"]));
   const hist = Object.entries(sess.steps || {}).flatMap(([k, s]) => (s.decisions_history || []).map((h) => `- ${k}: "${String(h.decision).slice(0, 100)}" lost to "${String(h.replaced_by).slice(0, 100)}" because ${h.because}`));
   if (hist.length) L.push("", "Calls that were replaced (do not re-try them):", ...hist);
+  const lockLines = [...(sess.lock_breaks || []).map((b) => `- ${b.layer}: ${b.file} changed by a ${(b.ids || []).join(", ") || "note"} fix scoped to ${(b.layers || []).join(", ")} (not relocked)`), ...(sess.relocks || []).map((r) => `- ${r.layer} relocked: ${r.why}`)];
+  if (lockLines.length) L.push("", "Locked calls a fix changed, and relocks:", ...lockLines);
   L.push("", "## How it is built");
   const comps = ls(path.join(project, "compositions", "frames")).filter((f) => f.endsWith(".html"));
   const fonts = [...new Set(ls(path.join(project, "assets", "fonts")).filter((f) => /\.(woff2?|ttf|otf)$/i.test(f)).map((f) => f.replace(/\.[a-z0-9]+$/i, "").replace(/-(\d+|Thin|Light|Regular|Medium|SemiBold|Bold|ExtraBold|Black|Italic).*$/i, "")))];

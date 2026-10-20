@@ -90,6 +90,9 @@ public struct ReviewNote: Identifiable, Sendable, Equatable {
     public var quick: String? = nil
     /// What Claude changed when it resolved the note.
     public var resolution: String? = nil
+    /// The transcript word the note is anchored to, and the clip it sits in (nil for ordinary notes).
+    public var wordID: String? = nil
+    public var clip: String? = nil
 }
 
 public struct SessionSnapshot: Sendable {
@@ -166,7 +169,8 @@ public struct SessionSnapshot: Sendable {
             return ReviewNote(id: id, text: value["text"].string ?? "", time: value["t"].number ?? 0,
                               scene: value["scene"].identifier, step: value["step"].string ?? "animatic",
                               scope: value["scope"].string ?? "scene", state: value["state"].string ?? "open",
-                              x: value["x"].number, y: value["y"].number, quick: value["quick"].string, resolution: value["resolution"].string)
+                              x: value["x"].number, y: value["y"].number, quick: value["quick"].string, resolution: value["resolution"].string,
+                              wordID: value["word_id"].string, clip: value["clip"].string)
         }
     }
     public func payload(for stage: ReviewStage) -> JSONValue {

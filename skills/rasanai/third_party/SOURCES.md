@@ -34,6 +34,8 @@ Modes (the column "mode" and every "HOW MUCH" line use these words):
 | [Jamailar/high-retention-video-script](#high-retention-video-script) | none declared | idea only | stimulus clock, HKRR (read, not built in) | read; nothing built (unverified) |
 | [FilmAgent, MovieAgent, ViMax and other agent papers](#filmagent-movieagent-vimax) | MIT / none / MIT | idea only | critique loops, structure critic | taken as ideas |
 | [yihui-dev/awesome-opus5-5-videos](#awesome-opus5-5-videos) | MIT (the list); each prompt belongs to its creator | idea only | spring superposition, two-edge indicators, log-space zoom, iris by area, one-frame pop scan, loop seam, reading hold, frame-time counters, one-prompt export | taken (AO.1–AO.7, AO.9); precedent rows planned (B11) |
+| [nextwork-projects/ai-video-editor-cooked](#cooked) | MIT | adapted code + idea only | cut kinds and zoom punches, format grouping and outliers, reference profile and output match, captions and faces on references (Apple Vision), retake and false-start candidates, word-aligned kept ranges and splice check, head boxes, face-under-graphic warning | taken (waves 1 to 4); patch render, clip factory and scoped taste open (B3, B16, B17, B18) |
+| [Creative research handoff (13 repos)](#creative-research-handoff) | MIT (11), none detected (2) | idea only | hook kinds, decision locks, scene states and cast, motion hierarchy and energy checks, phone readability, platform safe zones, first frame, reference principles | taken (WP1-WP7); B12-B15 open |
 | [Craft sources](#craft-sources) (Murch, Hitchcock, Kuleshov, Pixar, Eisenstein, ...) | not code | idea only, cited | direction procedure, Rule of Six, importance = size | taken |
 
 ## Licence reminder (full matrix in INTAKE.md)
@@ -254,6 +256,36 @@ MIT / Apache-2.0: we may copy or adapt with credit (LICENSE copy plus NOTICE in 
 - DECLINED: the prompts' brand-specific content (named products, characters, songs); the house format as a replacement for the four-call flow (it is offered as an export only).
 - PLANNED: B11 (precedent rows from the list's metadata).
 - Unverified: the per-file mapping is from the build spec (`.context/ao-spec.md`); builders' exact names are in the CHANGELOG.
+
+## cooked
+
+- URL: https://github.com/nextwork-projects/ai-video-editor-cooked  (commit read: 3b236ec8fe32343cdf38375df90f6cd71e0846d7, 2026-10-19)
+- Licence: MIT, Copyright (c) 2026 NextWork. Lets us: copy or adapt with credit. Per-file exceptions: `plugins/ai-editor/remotion/` carries HyperFrames-derived Apache-2.0 material (not taken); Remotion packages (Remotion licence), Robust Video Matting weights (GPL-3.0), CrisperWhisper weights (non-commercial), YuNet and RapidOCR models (downloaded at run time): none taken.
+- Credit location: third_party/cooked/ (LICENSE, NOTICE, README)
+- TOOK:
+  - Cut kinds (hard, jump, dissolve, mask, whip, match, zoom punch), punch and push zooms, the zoom habit: `scripts/lib/cutkinds.mjs`, from `creator-teardown/scripts/visual.py`. HOW MUCH: adapted code.
+  - Format grouping and outliers across references; tolerance rules for output vs reference: `scripts/lib/refprofile.mjs`, from `format_check.py` and `match.py`. HOW MUCH: adapted code.
+  - Captions matched to the transcript, caption position, size, words and case, face presence and framing on references: `scripts/lib/reflook.mjs` (Apple Vision through `scripts/vision/vision.swift`, not OCR models), from `look.py`. HOW MUCH: adapted code (subset).
+  - Retake, false start, talking-to-self, soft and hard filler and alternate-hook candidates: `scripts/lib/retakes.mjs`, from `cut/scripts/retakes.py` and `textnorm.py`. HOW MUCH: adapted code.
+  - Word-aligned kept ranges, padding, splice budget, frame snapping, splice-in-speech check: `scripts/lib/cutplan.mjs`, from `cut/scripts/build_timeline.py` and `splice_check.py`. HOW MUCH: adapted code. The decision log (word ids, undo, redo, corrections) is ours.
+  - Head boxes from face boxes: `scripts/lib/heads.mjs`, from `style-edit/scripts/face.py`. HOW MUCH: adapted code.
+  - Face under a graphic on the rendered frame: `scripts/lib/framecheck.mjs`, from the idea in `style-edit/scripts/check.py` (`face_cover`). HOW MUCH: rewritten (Vision on source vs render, warning).
+  - Transcript review interactions (cut, restore, pause, notes on a word): `apps/macos/Sources/RasanAIStudio/CutTranscriptView.swift`, from `lib/ai_editor/review.py`. HOW MUCH: idea only (native SwiftUI, no HTML or server).
+  - Safe-zone numbers in `style-edit/scripts/plan.py` (`SAFE`) were read as a cross-check only; RasanAI's table is `scripts/lib/safezones.mjs`. HOW MUCH: idea only.
+- DECLINED: the Remotion renderer and templates; the Python review server and HTML pages; Modal, GitHub Actions and Lambda rendering; matting (GPL-3.0 weights); YuNet, RapidOCR and Whisper model downloads; Gemini look analysis; ElevenLabs; posting; the taste skill's GitHub-issue upload; yt-dlp downloads of other creators' videos; the measured product-film lessons (they name third-party brands); caption colour, weight and word-effect measurement, clean plates and curve fitting (too heavy for now: B16).
+- PLANNED: B3 (clip factory with clips.py scoring), B16 (Reference DNA P1: sound, caption look, graphics), B17 (selective stills and patch render), B18 (scoped preferences), B6 (capture hygiene, with product-video ideas).
+- Unverified: YuNet's licence (MIT as far as known; not taken). Thresholds were measured upstream on other OCR and face engines; on Apple Vision every check is an uncalibrated warning.
+
+## Creative research handoff
+
+- From a Heresay brief (r_l76Nb-yr81kAj3YZ, 2026-10-20) that listed these; licences read from the GitHub API on 2026-10-20 (root licence only, per-file not checked: unverified). make-awesome-video's quality-bar.md and critic-loop.md and Paldom's frame-QA checklist were read; the others through the brief's summary.
+- URLs: social-media-skills/skills (MIT), brensterbaz/ai-skills (MIT), alt-code-ai/agent (none detected), agentara/skills (MIT), Paldom/storytelling-animation (MIT), svenkatreddy/universal-video-skills (MIT), LottieFiles/motion-design-skill (MIT), iart-ai/motion-design-skills (MIT), NewTurn2017/make-awesome-video (MIT), iart-ai/kinetic-typography-skills (MIT), Liamrjohnston/remotion-motion-graphics-skill (MIT), iart-ai/explainer-video-skills (MIT), iart-ai/webgl-animation-skills (MIT), wonderunit/storyboarder (none detected), motion-canvas/motion-canvas (MIT). All at github.com.
+- Credit location: none (ideas only). Code comments say "idea from <name>; our code".
+- TOOK (idea only, our words and code): hook kinds per story slot (`story.mjs`, `agents/story-planner.md`); three channels and the payoff triad in the writer and editor; a character arc block (`lib/intent.mjs`); decision locks and a note's layer (`lib/locks.mjs`, `console.mjs`); a table that reads vague notes; scene states, cast canon and continuity in the score (`lib/scene-contract.mjs`); the dominant-motion share, busy beats, the energy arc and result holds (`lib/fluency.mjs`, `lib/film-energy.mjs`, `motion-gate.mjs`); first frame and declared-continuity seams (`motion-gate.mjs`); phone-size type and per-destination overlay zones (`frame-gate.mjs`, `lib/safezones.mjs`); reference principles and the critic's check (`brandfilm.mjs`, `agents/brand-film-analyst.md`, `agents/critic.md`); measured vs judged findings. HOW MUCH: idea only, every line.
+- Already ours before this read (not re-taken): reading time, the loop seam, pops, carry, seam blanks, emphasis on the peak, boldness, budgets not bans, the one score contract, the append-only decision log, blind retell, marked crops, the phone sheet.
+- DECLINED: Remotion and any new renderer; installing the skills; a second storyboard format; fixed panel counts; rendered before/after films in this wave (owner rule).
+- PLANNED: B12, B13, B14, B15.
+- Unverified: per-file licences; the safe-zone numbers in `lib/safezones.mjs` (from public platform guidance, uncalibrated).
 
 ## Craft sources
 

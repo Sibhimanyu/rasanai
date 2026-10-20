@@ -6,7 +6,7 @@
 //   node frame-gate.mjs (--stills <dir of PNG|JPG | a.png,b.png> [--html <dir of the same-named .html boards>]
 //                       | --video <film.mp4> [--fps 4]) [--project <videos/name>]
 //        [--brand-film <grammar.json | brand film .mp4 | frames dir>] [--write-brand <grammar.json>]
-//        [--kind launch|brand|explainer] [--density] [--plan <run>/motion/score.json] [--stillness] [--footage] [--json]
+//        [--kind launch|brand|explainer] [--density] [--plan <run>/motion/score.json] [--stillness] [--footage] [--destination <id>] [--json]
 //   -> per-frame and film metrics, findings (each with the number, the threshold and a fix);
 //      exit 0 clean (warnings allowed) · 2 errors · 1 could not run (never "clean")
 //
@@ -42,6 +42,9 @@
 //   giant-moment    >= 10% of frames with a line >= 20% H (warning below, error at 0 in a film of 20 s or more);
 //                   at least one moment >= 35% H (warning)
 //   cut-rhythm      average hard-cut shot <= 5 s on a launch film of 8 s or more (warning)
+//   phone-small-text  the smallest readable 3+ word line (not data-read="skim") is under 11 pt on the destination's phone view
+//                   (lib/safezones.mjs phonePt) for 2 or more samples in a row (WARNING, uncalibrated; --video --project, --destination <id>,
+//                   else the run's brief.json destination, else the frame's aspect)
 //   boldness        big moments on >= 25% of the frames (refs 29 to 89%, Google 17%; FILM-D 54%, FILM-E 18%); an error,
 //                   a warning in a declared stillness or editorial style (--stillness, score stillness: true or
 //                   motion_style stillness|editorial, motion.md stillness: true). With a story/intent.json (found from --plan or
@@ -58,6 +61,7 @@ import { serve } from "./lib/stage3d.mjs";
 import { pagesOf, sizeOf } from "./lib/textfit.mjs";
 import { decodeStill, decodeVideo, frameMetrics, boldFrame, cutsAndCompositions, ffmpegOk, rgbToLab, percentile as pct, median } from "./lib/pixels.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
+import { zonesFor, destinationOf, phonePt, PHONE_MIN_PT } from "./lib/safezones.mjs";
 import { loadIntent, intentBeats } from "./lib/emphasis.mjs";
 
 export const GATE = {
@@ -182,7 +186,7 @@ function clip(r,clips){var v={left:r.left,right:r.right,top:r.top,bottom:r.botto
   clips.forEach(function(c){v.left=Math.max(v.left,c.left);v.right=Math.min(v.right,c.right);v.top=Math.max(v.top,c.top);v.bottom=Math.min(v.bottom,c.bottom);});
   v.left=Math.max(v.left,0);v.top=Math.max(v.top,0);v.right=Math.min(v.right,CFG.W);v.bottom=Math.min(v.bottom,CFG.H);return v;}
 window.__fgMeasure=function(){
-  var W=CFG.W,H=CFG.H,minPx=H*CFG.minPct/100,chars=0,lines=0,big=0,bigText='',els=[],walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT),n;
+  var W=CFG.W,H=CFG.H,minPx=H*CFG.minPct/100,chars=0,lines=0,big=0,bigText='',minInk=0,minText='',els=[],walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT),n;
   while((n=walker.nextNode())){
     var txt=String(n.nodeValue||'').replace(/\\s+/g,' ').trim();if(!txt)continue;
     var el=n.parentElement;if(!el||/^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE|TITLE)$/.test(el.tagName)||el.closest('template'))continue;
@@ -196,6 +200,7 @@ window.__fgMeasure=function(){
       if(vw*vh<0.5*r.width*r.height)continue;
       var ink=r.height*CFG.ink;if(ink<minPx)continue;if(ink>big){big=ink;bigText=txt.slice(0,40);}
       if(ch.blur>=CFG.blurPx)continue;ok++;lines++;
+      if(txt.split(/\\s+/).length>=3&&!el.closest('[data-read="skim"]')&&(!minInk||ink<minInk)){minInk=ink;minText=txt.slice(0,40);}
       nb=nb?{l:Math.min(nb.l,v.left),t:Math.min(nb.t,v.top),r:Math.max(nb.r,v.right),b:Math.max(nb.b,v.bottom),s:Math.max(nb.s,ink)}:{l:v.left,t:v.top,r:v.right,b:v.bottom,s:ink};}
     if(total&&ok)chars+=txt.replace(/\\s/g,'').length*ok/total;
     if(nb){var q=el,bk=el;while(q&&q!==document.body){var dd=getComputedStyle(q).display;if(dd!=='inline'&&dd!=='contents'){bk=q;break;}q=q.parentElement;}
@@ -205,7 +210,7 @@ window.__fgMeasure=function(){
   for(var j=0;j<objs.length;j++){var o=objs[j];if(o.closest('template')||(o.tagName!=='svg'&&o.parentElement&&o.parentElement.closest('svg')))continue;if(o.tagName==='svg'&&o.parentElement&&o.parentElement.closest('svg'))continue;
     var c2=chain(o);if(!c2||!(c2.op>=CFG.minOp))continue;var b=o.getBoundingClientRect();if(!(b.width>1&&b.height>1))continue;var vv=clip(b,c2.clips),w2=vv.right-vv.left,h2=vv.bottom-vv.top;if(!(w2>1&&h2>1))continue;
     if(w2>=0.9*W&&h2>=0.9*H)continue;if(h2>obj)obj=h2;els.push({l:vv.left,t:vv.top,r:vv.right,b:vv.bottom,s:0});}
-  return {chars:Math.round(chars),lines:lines,bigPct:100*big/H,bigText:bigText,objPct:100*obj/H,heroes:window.__fgHeroes(els,W,H)};};
+  return {chars:Math.round(chars),lines:lines,bigPct:100*big/H,bigText:bigText,minInk:minInk,minText:minText,objPct:100*obj/H,heroes:window.__fgHeroes(els,W,H)};};
 // the two largest elements by area (% of the frame): stacked text blocks of one size are one headline; an element inside a larger one is part of it
 window.__fgHeroes=function(els,W,H){var a=els.map(function(e){return {l:e.l,t:e.t,r:e.r,b:e.b,s:e.s,text:!!e.text};}),m=true,i,j;
   while(m){m=false;for(i=0;i<a.length&&!m;i++)for(j=i+1;j<a.length&&!m;j++){var x=a[i],y=a[j];if(!x.text||!y.text||!x.s||!y.s)continue;
@@ -247,7 +252,7 @@ export async function domTextProject(project, times) {
   const noChrome = haveChrome();
   if (noChrome) { out.could_not_run.push(`DOM metrics: ${noChrome}`); return out; }
   const { W, H } = sizeOf(root);
-  const rows = times.map(() => ({ chars: 0, lines: 0, bigPct: 0, objPct: 0, bigText: "", heroes: [] }));
+  const rows = times.map(() => ({ chars: 0, lines: 0, bigPct: 0, objPct: 0, bigText: "", heroes: [], minPct: null, minText: "" }));
   let b, srv; const tmps = [];
   try {
     srv = await serve(root);
@@ -268,6 +273,7 @@ export async function domTextProject(project, times) {
             row.chars += m.chars; row.lines += m.lines; row.objPct = Math.max(row.objPct, m.objPct);
             row.heroes = row.heroes.concat(m.heroes || []).sort((a, b) => b - a).slice(0, 2);
             if (m.bigPct > row.bigPct) { row.bigPct = m.bigPct; row.bigText = m.bigText; }
+            if (m.minInk > 0 && (row.minPct == null || 100 * m.minInk / H < row.minPct)) { row.minPct = 100 * m.minInk / H; row.minText = m.minText; }
           });
         }
       } catch (e) { out.could_not_run.push(`DOM metrics: ${path.relative(root, pg.file)}: ${e.message}`); }
@@ -335,7 +341,7 @@ export async function measureFrames(opts = {}) {
   const res = { ok: false, verdict: "could not run", kind: null, dur: null, frames: [], film: null, limits: null, findings: [], skipped: [], could_not_run: [] };
   if (!ffmpegOk()) { res.could_not_run.push("ffmpeg is not installed (brew install ffmpeg)"); return res; }
   const feats = []; // per-frame pixel features, kept for the cut / composition pass
-  let names = [], times = [], stillFiles = [], stillSize;
+  let names = [], times = [], stillFiles = [], stillSize, vidSize = null;
   try {
     if (opts.video) {
       if (!fs.existsSync(opts.video)) { res.could_not_run.push(`${opts.video} does not exist`); return res; }
@@ -343,6 +349,7 @@ export async function measureFrames(opts = {}) {
       const fps = Number(opts.fps) || 4;
       const d = await decodeVideo(path.resolve(opts.video), { fps, onFrame: (im) => { const m = frameMetrics(im); feats.push({ t: im.t, ...m, bold: boldFrame(im) }); } });
       res.dur = d.src.duration || feats.length / fps;
+      if (d.src.width && d.src.height) vidSize = { width: d.src.width, height: d.src.height };
       times = feats.map((f) => f.t);
     } else if (opts.stills) {
       stillFiles = listStills(opts.stills);
@@ -373,7 +380,7 @@ export async function measureFrames(opts = {}) {
   }
 
   // per-frame rows
-  res.frames = feats.map((f, i) => ({ ...(res.kind === "stills" ? { name: names[i] } : { t: r2(f.t) }), ...slim(f), ...(text && text[i] ? { chars: text[i].chars, lines: text[i].lines, bigPct: r1(text[i].bigPct), objPct: r1(text[i].objPct), bigText: text[i].bigText } : {}) }));
+  res.frames = feats.map((f, i) => ({ ...(res.kind === "stills" ? { name: names[i] } : { t: r2(f.t) }), ...slim(f), ...(text && text[i] ? { chars: text[i].chars, lines: text[i].lines, bigPct: r1(text[i].bigPct), objPct: r1(text[i].objPct), bigText: text[i].bigText, ...(text[i].minPct != null ? { minPct: r2(text[i].minPct), minText: text[i].minText } : {}) } : {}) }));
 
   // film metrics
   const film = { frames: feats.length };
@@ -538,6 +545,34 @@ export async function measureFrames(opts = {}) {
     else if (!film.peak35) add("warning", "no-peak-moment", `no moment reaches ${GATE.peak_h}% H (the biggest is ${film.biggestMax}% H)`, `one moment of the film at 35% H or more: the payoff word, the number, the full stop (R5)`, { value: film.biggestMax, limit: GATE.peak_h });
   }
 
+  // phone-small-text (WARNING, uncalibrated; idea from Apple HIG minimum text size; our code): the smallest 3+ word readable line,
+  // converted to points on the destination's phone view (lib/safezones.mjs), under PHONE_MIN_PT for 2 or more samples in a row
+  if (res.kind !== "video") res.skipped.push("phone-small-text: measured on a film (--video --project), not on stills");
+  else if (!text) res.skipped.push("phone-small-text: needs DOM text, give --project <videos/name>");
+  else {
+    const ar = vidSize ? vidSize.width / vidSize.height : 16 / 9;
+    const aspect = ar < 0.6 ? "9:16" : ar < 0.9 ? "4:5" : ar < 1.2 ? "1:1" : "16:9";
+    let destName = opts.destination || null;
+    if (!destName) {
+      const runs = [opts.plan ? path.dirname(path.dirname(path.resolve(opts.plan))) : null, opts.plan ? path.dirname(path.resolve(opts.plan)) : null, opts.project ? path.dirname(path.resolve(opts.project)) : null].filter(Boolean);
+      for (const rd of runs) { const b = readJ(path.join(rd, "brief.json")); if (b && b.destination) { destName = String(b.destination); break; } }
+    }
+    const zid = destinationOf({ destination: destName, aspect }), zones = zonesFor(zid, aspect);
+    film.phone = { destination: zones.id, pt_h: zones.view.pt_h, min_pt: PHONE_MIN_PT };
+    const small = feats.map((f, i) => { const r = text[i]; return r && r.minPct != null ? phonePt(r.minPct / 100, zones.id) : null; }).map((pt, i) => (pt != null && pt < PHONE_MIN_PT ? { pt, i } : null));
+    let k = 0, reported = 0;
+    while (k < small.length) {
+      if (!small[k]) { k++; continue; }
+      let e = k; while (e + 1 < small.length && small[e + 1]) e++;
+      if (e - k + 1 >= 2 && reported < 6) {
+        const run = small.slice(k, e + 1), lo = run.reduce((a, b) => (b.pt < a.pt ? b : a)), t0 = r1(feats[k].t), t1 = r1(feats[e].t), H = vidSize ? vidSize.height : 1080;
+        add("warning", "phone-small-text", `"${text[lo.i].minText}" reads at about ${r1(lo.pt)} pt on a phone (${zones.id}: ${zones.view.how}) from ${t0} to ${t1} s; ${PHONE_MIN_PT} pt is the floor`, `set it at ${Math.ceil(PHONE_MIN_PT / zones.view.pt_h * H)} px or more (a ${Math.round(100 * PHONE_MIN_PT / zones.view.pt_h)}% frame-height line), cut words, or mark a deliberate skim label data-read="skim"`, { at: t0, basis: "measured" });
+        reported++;
+      }
+      k = e + 1;
+    }
+  }
+
   const errors = F.filter((f) => f.severity === "error").length, warns = F.length - errors;
   res.ok = errors === 0;
   res.verdict = errors ? `${errors} error${errors === 1 ? "" : "s"}${warns ? `, ${warns} warning${warns === 1 ? "" : "s"}` : ""}` : warns ? `clean, ${warns} warning${warns === 1 ? "" : "s"}` : "clean";
@@ -582,7 +617,7 @@ async function main() {
     process.stderr.write("usage: node frame-gate.mjs (--stills <dir|a.png,b.png> [--html <boards dir>] | --video <film.mp4>) [--project <dir>] [--brand-film <grammar.json|film.mp4>] [--write-brand <grammar.json>] [--kind launch] [--density] [--plan <score.json>] [--stillness] [--json]\n");
     process.exit(1);
   }
-  const res = await measureFrames({ stills: str(args.stills), video: str(args.video), html: args.html, project: str(args.project), brandFilm: str(args["brand-film"]), fps: Number(args.fps) || 4, kind: str(args.kind), density: !!args.density, plan: str(args.plan), stillness: args.stillness ? true : null, footage: !!args.footage });
+  const res = await measureFrames({ stills: str(args.stills), video: str(args.video), html: args.html, project: str(args.project), brandFilm: str(args["brand-film"]), fps: Number(args.fps) || 4, kind: str(args.kind), density: !!args.density, plan: str(args.plan), stillness: args.stillness ? true : null, footage: !!args.footage, destination: str(args.destination) });
   if (args["write-brand"] && res.film) {
     const p = path.resolve(String(args["write-brand"])), g = readJ(p) || {};
     g.frameMetrics = { groundChroma: res.film.groundChroma, groundRange: res.film.groundRange, softP90: res.film.softP90, colourfulP90: res.film.colourfulP90, charsMedian: res.film.charsMedian ?? null, measuredFrom: str(args.video) || str(args.stills) };

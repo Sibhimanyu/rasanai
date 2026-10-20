@@ -86,6 +86,7 @@ import { readShots, checkShots, boardFiles, checkVerdict, collectRefs, boardFor,
 import { loadIntent, validateIntent, applyEdits, applyToScript, readSeconds } from "./lib/intent.mjs";
 import { budgetChecks, intentBeats } from "./lib/emphasis.mjs";
 import { cameraKind } from "./lib/camera-moves.mjs";
+import { sceneContractChecks } from "./lib/scene-contract.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -1728,6 +1729,7 @@ function checkScore(run) {
   if (N >= 3 && sigs === 0) W.push("no signature transition named");
   if (sig > maxSig) T("signature-count", `${sig} signature seams (${maxSig} at most for a ${Math.round(length)} s film)`);
   if (seams.length && plain / seams.length < 0.5) T("seam-mix", `only ${Math.round((plain / seams.length) * 100)}% of seams are cuts or scene-born continuity (at least 50%)`);
+  { const sc = sceneContractChecks(score, { intent: jsonMaybe(R(run, "story", "intent.json")) || null, run }); W.push(...sc.W); }
   return { P, W };
 }
 
@@ -2124,6 +2126,7 @@ async function checkRole(run, role, key) {
         }
         fs.copyFileSync(fi, R(run, "story", "intent.pre-structure.json"));
         writeFile(fi, JSON.stringify(res.intent, null, 2) + "\n");
+        spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "console.mjs"), "relock", "--run", run, "--layer", "story", "--because", "structure critic edits applied"], { stdio: "ignore" }); // the approved story changed on purpose (lib/locks.mjs)
         writeFile(fn, JSON.stringify({ ...n, applied: true, applied_at: new Date().toISOString(), removed_beats: res.removed }, null, 2) + "\n");
         CHECK_EXTRA = { result: "applied", beats_before: it.beats.length, beats_after: res.intent.beats.length, removed_beats: res.removed, next: "re-run crew.mjs thumbs (the sheet changed), then fit the music and the durations from the intent: scenes.mjs --intent story/intent.json --retime" };
         W.push(...v.warnings);
@@ -2429,6 +2432,10 @@ async function checkRole(run, role, key) {
         if (!String(x.fix || "").trim()) P.push(`finding ${i + 1}: no exact fix`);
         if (lens !== "grounding" && x.scene == null) W.push(`finding ${i + 1}: no scene`);
       });
+      // principles + basis warnings (uncalibrated; idea from reference-to-principle work, our code)
+      { const pn = (p) => { const j = jsonMaybe(p); return j && Array.isArray(j.principles) ? j.principles.length : 0; };
+        if (lens === "film" && !Array.isArray(c.principles_check) && (pn(R(run, "research", "reference-principles.json")) || pn(R(run, "brand-film", "FILM-STYLE.json")))) W.push("principles: the reference has principles (research/reference-principles.json or FILM-STYLE.json); the film lens returns principles_check [{id, verdict, t, evidence}]");
+        if (fs_.length && fs_.filter((x) => !x.basis).length > fs_.length / 2) W.push("basis: say measured or judged on each finding (agents/critic.md, How to look)"); }
       // the blind retell (film lens) and structure findings (round 1 of frames / film only): agents/critic.md
       if (lens === "film" && exists(R(run, "story", "intent.json"))) {
         if (!String(c.retell || "").trim()) P.push('film lens: "retell" is missing (one sentence from the draft, written before reading story/intent.json)');
@@ -2584,6 +2591,8 @@ export function renderScoreMd(score) {
     if (x.moment || x.take) L.push(`- **Take${x.moment ? ` (from ${x.moment})` : ""}:** ${x.take || ""}`);
     for (const u of x.ui || []) L.push(`- **UI:** ${u}`);
     for (const sh of x.shots || []) L.push(`- ${r2(sh.t0)}-${r2(sh.t1)} s: ${sh.on_screen}. ${sh.moves}${sh.primary ? ` (primary: ${sh.primary})` : ""}`);
+    if ((x.states || []).length) L.push(`- states: ${x.states.map((st) => `${st.t} s ${st.what} (eye: ${st.look})`).join("; ")}`);
+    if (x.cast_state) { const fmtC = (o) => Object.entries(o || {}).map(([id, c]) => `${id} ${c.where ? `in ${c.where}` : ""}${c.holds ? `, holds ${c.holds}` : ""}${c.facing ? `, faces ${c.facing}` : ""}${c.state ? `, ${c.state}` : ""}`.trim()).join("; "); if (x.cast_state.in || x.cast_state.out) L.push(`- cast: ${fmtC(x.cast_state.in)}${x.cast_state.out ? ` -> out ${fmtC(x.cast_state.out)}` : ""}`); }
     if (x.camera) L.push(`- **Camera:** ${x.camera}${x.space && x.space !== "2d" ? ` · ${x.space}` : ""}`);
     if (x.exit) L.push(`- **Exit:** ${x.exit}${x.carrier ? `: ${x.carrier}` : ""}`);
     L.push("");
@@ -2613,6 +2622,7 @@ export function renderBuildMd(score, { direct = true, gateCmd = "", carriersCmd 
     "- The product's UI behaves like the product: animate each beat's `ui` list, cause then effect. No invented output screens.",
     "- Each beat's `take` is one mechanic from a reference moment (`$RUN/references/moments/<id>/`, read-only): build it fresh with this film's content; never copy its code, copy, brand, bookends or frame tables.",
     "",
+    ...((score.cast || []).length ? ["## Cast (keep identical in every scene)", "", ...score.cast.map((c) => `- ${c.id} (${c.kind}): canon \`${c.canon || "?"}\`; fixed: ${(c.fixed || []).join("; ") || "?"}${(c.may_change || []).length ? `; may change: ${c.may_change.join(", ")}` : ""}`), ""] : []),
     "## Motion (obey checks the code, the motion gate measures the draft)",
     "",
     "- The boards (`$RUN/frames/<NN>.png`, `frames/shots.json`) are the picture: at each beat's peak the frame matches its board.",

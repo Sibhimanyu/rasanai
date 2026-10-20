@@ -91,6 +91,8 @@ Universal claims also: a ladder, pas or before-after (never a scenario), no use 
 
 A named brand's launch, promo or brand film follows `launch-film.md` §1 for its length: the product or brand in 1 to 3 s, the reveal, 2 to 4 real feature demos, one payoff line, the end card with one CTA. Pitch fields: `role` per beat (`hook`, `statement`, `hero`, `demo`, `payoff`, `cta`), `payoff_line`, plus G7's. The three scripts differ only in emphasis and order, never in concept.
 
+**Character-led films.** For mascot, brand-character, animated-story and emotion-led films: fill the intent's `character` block and show the change as an acting arc. A product film keeps its factual claims; the character never invents a capability.
+
 ## 5. The device menu
 
 ```bash

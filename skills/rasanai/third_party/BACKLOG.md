@@ -29,9 +29,10 @@ Rules that hold for every item:
 
 ## B3. P3.3 New pipelines
 
-- Source: OpenMontage (AGPL: pipeline ideas only). Size: L each.
-- What: a clip factory (one long video to many shorts with captions; the clear gap, since RasanAI has reel, presenter and talking-head-recut), documentary montage, screen-demo. Also small items from group2 22: podcast-repurpose and audiogram pipeline, adjacent-cut redundancy for reels (diversify clip search).
-- Spec: each pipeline is a format option in `formats.mjs` with its own route, source mode (`research.mjs sources`) and story pass; reuse the footage tools (`footage.mjs`, `reel.mjs`).
+- Source: OpenMontage (AGPL: pipeline ideas only); cooked. (MIT, `plugins/ai-editor/skills/clips/scripts/clips.py` @3b236ec, adapt with credit in `third_party/cooked/`). Size: L each.
+- What: a clip factory first (one long video or podcast to several shorts; `formats.json` `shorter-versions` and `podcast-clips` are `soon`), then documentary montage and screen-demo; podcast-repurpose and audiogram; adjacent-cut redundancy for reels.
+- Spec (clip factory): `footage.mjs clips --run "$RUN" --clip <id> [--min 20] [--max 40] [--top 8]` on the clip's existing word transcript (never a second transcription): sentences (end on `. ? !` or a gap ≥ 1.2 s), windows that open on a sentence of ≥ 4 words and close on a complete sentence, features (energy over the median, wpm, a hook in the first 3 s, laughs, named things, numbers, a connective opening "and/but/so…" = leans back, promo phrases), scored as in clips.py `feature_score` L252-260 but with names and numbers capped so they never decide alone, plus our intelligibility test (the window reads alone: `bites`' `standalone_guess`); greedy non-overlapping shortlist (`shortlist` L314-322) and a near-duplicate filter (two windows sharing ≥ 50% of words keep the better one). Output `footage/clips.json` = `[{ id, from_word, to_word, in, out, score, why, text }]`, word ids from `lib/cutplan.mjs`. Each approved clip becomes its own child run that points at the parent's source and transcript (`cut.json` with only that range kept) and goes through the reel route's Look, Cut, Build and Final and the usual gates. Two speakers are never framed as one talking head (speaker field). Trim pads as clips.py `trim` L417-463 (−0.12 s, +0.35 s, never into a neighbouring word).
+- Done when: one 10 to 30 minute authorised recording yields 3 distinct candidates with exact word ranges and one finished short that passes the existing gates; `formats.json` `podcast-clips`/`shorter-versions` move to `partial`.
 
 ## B4. P3.4 Math and diagram scenes via ManimGX
 
@@ -43,6 +44,7 @@ Rules that hold for every item:
 
 - Source: NullMotion viewer (no licence: idea only). Size: M to L.
 - What: the user's reference clip beside the animatic or final, one synced playhead. Native SwiftUI only (`apps/macos/Sources/RasanAIStudio/`); coordinate with whoever is editing Studio; protect owner choices.
+- cooked. adds the interaction reference (MIT, `lib/ai_editor/review.py`: transcript spans cut/restore/pause, notes pinned to a card, caption or word, `.prev` snapshots). Waves 3 of the cooked plan built the transcript review (`CutTranscriptView.swift`) and word-anchored notes; the side-by-side reference player is still open. Spec: in the Final and Animatic panels, a second AVPlayer with the user's reference clip (from `reference/profile.json` references), one shared clock, a "match cut points" toggle that jumps both to the nearest cut, and the `profile-compare` findings listed under it. Native only.
 
 ## B6. R5 optional and later
 
@@ -55,6 +57,7 @@ Rules that hold for every item:
 - lemo 11: offline narration fallback (Kokoro or edge-tts) appears DONE: `scripts/voice.mjs` mentions both. Verify the model licence is recorded in `SOURCES.md`. S.
 - group2 19: mocap puppet for the cartoon route (with B2). M to L. group2 21: first and last frame generated plates (gbro idea), only for a generative-video route. L, optional. group2 22: the small items above.
 - animate 4: seamless-loop check for reels (`review.mjs` LOOP: diff(last, first) at most the typical consecutive diff; audio tail folded). S, low.
+- cooked. product-video (MIT, @3b236ec, `skills/product-video/scripts/crawl.mjs`, `record.mjs`; ideas from brag via cooked): scroll the page section by section before a screenshot so scroll-in content is not blank, dismiss overlays first, name each captured UI state and keep its source URL, blur personal data by default, never press anything that creates, pays or publishes without a yes, and fail grounding (no fake screen) when a claimed feature is not on the captured page. Verify against the brand researcher's current capture first; most of it may exist. Idea only unless code is ported (then credit in `third_party/cooked/`).
 
 ## B7. The Studio budget picker
 
@@ -84,6 +87,46 @@ Rules that hold for every item:
 - What: precedent rows for `moments.mjs precedent` from the list's `data/videos.json`: slug, category, tech tags, post and remake links, plus OUR one-line technique per row. Start with the ~45 full structured prompts; skip the 207 partial ones (post text only).
 - Why deferred: the 716 motionmaxxing rows already cover most techniques, and every row must be stripped of brand names, characters and songs before it ships (INTAKE rule), which needs a careful read per row.
 - Done when: rows carry no third-party names or prompt text, `SOURCES.md` TOOK updated.
+
+## B12. Recurring 3D characters from the canon
+
+- Source: iart-ai/webgl-animation-skills, svenkatreddy/universal-video-skills (MIT, ideas only). Size: L.
+- What: after `Sibhimanyu/rasan-3d` merges, `stage3d.mjs` loads a cast member from its `identity.json` (references/3d.md, Recurring characters) and its rig; reusable actions (look, point, hop, react) through an AnimationMixer that is seek-safe (time-driven, no clock); a check that the rendered character keeps its `fixed` traits across scenes (silhouette and palette against the canon render).
+- Done when: one cast member renders identically in two scenes of one film, with the check's numbers.
+
+## B13. Storyboard editing inside the Animatic (Studio)
+
+- Source: wonderunit/storyboarder (no licence detected: idea only), motion-canvas (MIT, idea only). Size: M to L.
+- What: in the native Animatic page, the scene strip shows each scene's `states` stills (`scenes.mjs states`), drag to reorder (a structure note), drag a scene edge to change its duration (a timing note), and a note pinned to a state. All of it writes notes, never the score directly. Native SwiftUI only; goes with B5; protect owner choices.
+
+## B14. Kinetic type craft audit
+
+- Source: iart-ai/kinetic-typography-skills, Liamrjohnston/remotion-motion-graphics-skill (MIT, ideas only; no Remotion). Size: S to M.
+- What: check `references/vocabulary.md` and `library/motion/kinetic-type/` for text-to-shape morphs, variable-font axis choreography and word-level timing on sound; add a recipe only where none exists, GSAP only.
+
+## B15. Calibrate the research warnings with real films
+
+- Source: our own. Size: M (tokens: renders of the reference films and FILM-D/E only, no new film).
+- What: run the new warnings (motion-busy, energy-flat, energy-arc-off, calm-beat-busy, result-unheld, first-frame-*, seam-continuity-missing, seam-colour-jump, phone-small-text, states-thin, continuity-break, hero-in-ui-zone, shared-hook-kind, logo-only-ending) on the B8 reference films and our films; set thresholds where the references pass; promote nothing to an error without that. The brief's rendered before/after tests (A to F) and blind review belong here, when the owner asks; also the tests for `lib/film-energy.mjs`, `lib/scene-contract.mjs`, `lib/locks.mjs` and `lib/safezones.mjs`.
+
+## B16. Reference DNA, part 2
+
+- Source: cooked. (MIT, @3b236ec): `creator-teardown/scripts/sound.py` (`voice_mask` L69-85, `onsets` L88-109, `classify` L112-153, `music` L156-201), `look.py` (`caption_colours` L317-442, `stem_ratio`/`weight_of` L287-302, `word_effect` L602-760, graphics density L895-935), `graphics.py` (`fit_ease` L93-116, clean plates L151-218). Size: M (sound), L (look and graphics).
+- What: music-under-voice level and motivated SFX density per minute in `lib/deconstruct.mjs soundArc` (Node STFT on ffmpeg f32le, reuse `lib/audio.mjs`; port the code, which tests < 120 Hz only, not the docstring); caption fill, stroke, box, weight and word effect (karaoke, highlight, pill, reveal) into `reflook.mjs`; persistent-graphic entrance curves.
+- Why deferred: the slice ships without them; caption colour needs k-means and contours (a small typed-array k-means is fine; no opencv.js unless measured worth it).
+- Done when: `research.mjs profile` reports `music_under_voice_db`, `sfx_per_min` and `caption_word_effect` with confidence on 3 authorised references, and `profile-compare` compares them (warnings).
+
+## B17. Localized revisions and selective renders (cooked plan wave 5)
+
+- Source: cooked. (MIT, @3b236ec): `style-edit/scripts/edit.py` `still_frames` L176-211, `frames_at` L932-941, `changed_ranges` L963-990, `patch` L1035-1083 (`PATCH_PAD_S` 0.5, `PATCH_MAX_SHARE` 0.6), `splice` L993-1025; `overlays/SKILL.md` L137-142; `references/changes.md`. Size: M (stills), L (patch).
+- What: first, selective stills: `finish.mjs stills --at 15.4 | --at 12-16` (five stills at 0.04/0.25/0.5/0.75/0.96 of a range) from the current composition, without a full render. Then a dependency manifest per render (`render.manifest.json`: sha1 of every composition file, asset, font, music, motion.md and global settings, plus per-scene/item time ranges from `reel.edl.json` or `final.scenes`); a change set is local only when every changed hash belongs to items whose ranges are known; padded 0.5 s; more than 60% changed, a change to music, duration, fonts, grade or shared runtime → full render with the reason printed. Patch only after verifying HyperFrames can render a time window deterministically (`hyperframes render` range support: verify first, it is not known); splice by re-encoding the whole film once, audio cut on exact sample offsets; prove untouched intervals with `fixcheck.mjs --touched`. Content hashes only, never mtimes (cooked's speculative cache uses mtime: do not copy that). Keep the approved MP4 untouched; write the patched one beside it.
+- Done when: a one-card change in a multi-scene film re-renders only that window (or prints why not), `fixcheck` shows untouched frames identical, and the approved version is still there.
+
+## B18. Scoped preferences (Feature H)
+
+- Source: cooked. (MIT, @3b236ec) `plugins/ai-editor/skills/taste/SKILL.md` L27-38 (scope question), idea only. Size: M.
+- What: `lessons.mjs` rows gain `scope: "film" | "reference" | "series" | "all"` (default `"film"` for a correction, `"all"` only when the user says "always" or answers so) and `scope_ref` (run id, profile id or series path); `lessonsBlock` filters by the current run, profile and series; dedupe stays on normalised rule text within one scope; `lessons.mjs list --scope` and `drop` let the user see and undo. A reference-style correction writes `reference/profile.json` `style_overrides`, never `metrics`. No GitHub-issue upload, no second taste store.
+- Done when: a caption-size correction applies at the chosen scope, does not reach an unrelated branded film, survives `research.mjs profile` re-measuring, and can be listed and dropped.
 
 ## B10. Smaller open items
 

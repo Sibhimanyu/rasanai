@@ -266,6 +266,10 @@ struct NoteDraft: Identifiable, Equatable {
     /// Fractions of the frame; nil when the note comes from the keyboard (no point on the frame).
     var x: Double?
     var y: Double?
+    /// Set when the note starts from a transcript word: the word id, its clip, and the word text (shown in the composer only).
+    var wordID: String? = nil
+    var clip: String? = nil
+    var wordText: String? = nil
 }
 
 enum NoteQuick {
@@ -274,6 +278,8 @@ enum NoteQuick {
 
 extension ReviewNote {
     var isOpen: Bool { state == "open" }
+    /// "on “word”" when the note is anchored to a transcript word.
+    var wordLabel: String? { wordID.map { "on “\($0)”" } }
 }
 
 // MARK: Palette
@@ -300,6 +306,8 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
     var pinWindow: Double?
     var showStrip = true
     var caption: (Int?) -> String? = { _ in nil }
+    /// A transcript view sets this to start a note on a word; the player adopts it (pausing) and clears it.
+    var startDraft: Binding<NoteDraft?>? = nil
     @ViewBuilder var frame: () -> Frame
 
     @State private var draft: NoteDraft?
@@ -334,6 +342,13 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
         .focusEffectDisabled()
         // Take the keys only when nothing is being typed: a step that arrives while the person writes in the inspector must not steal them.
         .onAppear { if !(NSApp.keyWindow?.firstResponder is NSTextView) { focused = true } }
+        .onChange(of: startDraft?.wrappedValue) { _, new in
+            guard canNote, let new else { return }
+            resumeAfterNote = false
+            playback.pause()
+            draft = new
+            startDraft?.wrappedValue = nil
+        }
         .onKeyPress(.space) { playback.toggle(); return .handled }
         .onKeyPress(.leftArrow) { jump(forward: false) }
         .onKeyPress(.rightArrow) { jump(forward: true) }
@@ -413,11 +428,13 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
 
     private func composer(_ draft: NoteDraft) -> some View {
         let scene = draft.sceneIndex.flatMap { scenes.indices.contains($0) ? scenes[$0] : nil }
-        let title = [scene.map { _ in "Scene \((draft.sceneIndex ?? 0) + 1)" }, scene?.title, reviewTime(draft.t)].compactMap { $0 }.joined(separator: " · ")
+        let title = [scene.map { _ in "Scene \((draft.sceneIndex ?? 0) + 1)" }, scene?.title, reviewTime(draft.t), draft.wordText.map { "on “\($0)”" }].compactMap { $0 }.joined(separator: " · ")
         return ReviewNoteComposer(title: title, hasScene: scene != nil, onCancel: closeDraft, onSave: { text, quick, scope in
             var value: [String: JSONValue] = ["t": .number((draft.t * 100).rounded() / 100), "scope": .string(scope)]
             if let scene { value["scene"] = scene.originalID }
             if let x = draft.x, let y = draft.y { value["x"] = .number((x * 1000).rounded() / 1000); value["y"] = .number((y * 1000).rounded() / 1000) }
+            if let w = draft.wordID { value["word_id"] = .string(w) }
+            if let c = draft.clip { value["clip"] = .string(c) }
             value["quick"] = quick.map(JSONValue.string) ?? .null
             let sent = await model.send(step: step, type: "comment", value: .object(value), note: text)
             if sent { closeDraft() }
@@ -440,7 +457,7 @@ private struct PinsLayer<P: FilmPlayback>: View {
         GeometryReader { box in
             ForEach(Array(notes.enumerated()), id: \.element.id) { index, note in
                 if let x = note.x, let y = note.y, visible(note, t: t, current: current) {
-                    PinView(number: index + 1, noteID: note.id, text: note.text)
+                    PinView(number: index + 1, noteID: note.id, text: note.text, anchor: note.wordLabel)
                         .position(x: x * box.size.width, y: y * box.size.height)
                         .transition(.scale(scale: 0.6).combined(with: .opacity))
                 }
@@ -460,6 +477,7 @@ private struct PinView: View {
     let number: Int
     let noteID: String
     let text: String
+    var anchor: String? = nil
     @Environment(NoteSkips.self) private var skips: NoteSkips?
     @State private var hovering = false
     var body: some View {
@@ -473,7 +491,7 @@ private struct PinView: View {
         .scaleEffect(hovering ? 1.12 : 1)
         .overlay(alignment: .top) {
             if hovering {
-                Text(text).font(.system(size: 12)).foregroundStyle(.white).lineLimit(3).frame(maxWidth: 220, alignment: .leading)
+                Text(anchor.map { "\($0)  " + text } ?? text).font(.system(size: 12)).foregroundStyle(.white).lineLimit(3).frame(maxWidth: 220, alignment: .leading)
                     .padding(.horizontal, 10).padding(.vertical, 7)
                     .background(.black.opacity(0.82), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .fixedSize(horizontal: false, vertical: true)

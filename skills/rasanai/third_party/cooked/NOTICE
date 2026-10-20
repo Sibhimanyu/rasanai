@@ -1,0 +1,38 @@
+cooked., by NextWork (https://github.com/nextwork-projects/ai-video-editor-cooked)
+Read at commit 3b236ec8fe32343cdf38375df90f6cd71e0846d7.
+
+RasanAI adapts algorithms and constants from cooked. under the MIT License
+(see LICENSE in this folder, Copyright (c) 2026 NextWork). The adapted code was
+ported from Python to Node.js by RasanAI and modified; each adapted file names its
+upstream path, function and lines in its header comment.
+
+Used from these upstream paths only:
+  plugins/creator-teardown/skills/creator-teardown/scripts/visual.py
+  plugins/creator-teardown/skills/creator-teardown/scripts/format_check.py
+  plugins/creator-teardown/skills/creator-teardown/scripts/look.py (caption and face subset)
+  plugins/creator-teardown/skills/creator-teardown/scripts/match.py (tolerance rules)
+  plugins/ai-editor/skills/cut/scripts/retakes.py
+  plugins/ai-editor/skills/cut/scripts/textnorm.py
+  plugins/ai-editor/skills/cut/scripts/build_timeline.py
+  plugins/ai-editor/skills/cut/scripts/splice_check.py
+  plugins/ai-editor/skills/style-edit/scripts/face.py (head-box geometry)
+  plugins/ai-editor/skills/style-edit/scripts/check.py (face-cover rule, as a warning)
+
+Not taken: the Remotion renderer and templates (plugins/ai-editor/remotion/, Remotion
+licence), the HyperFrames-derived material under remotion/ (Apache-2.0, see the upstream
+notice below), Robust Video Matting (GPL-3.0), YuNet, RapidOCR, faster-whisper and
+CrisperWhisper weights, the Gemini, ElevenLabs and Modal integrations, the Python review
+server and HTML pages, fonts, icons, audio and any measured third-party films.
+
+The rest of RasanAI stays under its own licence (MIT, see the root LICENSE).
+
+---- upstream NOTICE (verbatim) ----
+cooked.
+Copyright 2026 NextWork. Licensed under the MIT License (see LICENSE).
+
+This product includes software adapted from HyperFrames
+(https://github.com/heygen-com/hyperframes), Copyright 2026 HeyGen, Inc.,
+licensed under the Apache License, Version 2.0
+(http://www.apache.org/licenses/LICENSE-2.0). Adapted files are under
+plugins/ai-editor/remotion/ and were modified from the originals.
+---- end ----

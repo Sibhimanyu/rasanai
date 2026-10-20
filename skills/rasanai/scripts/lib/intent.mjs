@@ -109,6 +109,19 @@ export function validateIntent(intent, { lengthS = 0, durations = null } = {}) {
     if (!str(ef.echo)) E("ending_first.echo: missing (what of the opening the ending answers)");
     if (ef.echoes_beat != null && !(Number(ef.echoes_beat) >= 1 && Number(ef.echoes_beat) <= N)) W(`ending_first.echoes_beat: a beat number 1-${N}`);
   }
+  // idea from storytelling/payoff craft notes; our code, uncalibrated: a last frame that is only the mark does not pay the opening
+  if (ef && str(ef.last_frame)) {
+    const lf = str(ef.last_frame), lw = lf.split(/\s+/).filter(Boolean);
+    const echoW = new Set((str(ef.echo).toLowerCase().match(/[a-z]{4,}/g) || []));
+    const hasEcho = (lf.toLowerCase().match(/[a-z]{4,}/g) || []).some((w) => echoW.has(w));
+    if ((/^\s*(the\s+)?(logo|mark|wordmark|lockup|end card)\b/i.test(lf) || (lw.length <= 6 && /logo|mark|wordmark|lockup/i.test(lf))) && !hasEcho) W(`logo-only-ending: the last frame is only the mark ("${lf}"); show the outcome the opening promised (ending_first.echo) and let the mark sit in it`);
+  }
+  // optional character arc (mascot, brand-character, animated-story films); silent when absent
+  if (intent.character != null) {
+    const ch = typeof intent.character === "object" ? intent.character : {};
+    for (const k of ["want", "obstacle", "behaviour", "change", "acting"]) if (!str(ch[k])) W(`character-arc-thin: character.${k} missing`);
+    if (str(ch.change) && str(ch.want) && str(ch.change).toLowerCase() === str(ch.want).toLowerCase()) W("character-no-change: character.change repeats character.want (what is different at the end?)");
+  }
   if (!str(intent.muted_hook)) W("muted_hook: missing (what the first 2 s say with the sound off)");
 
   if (N < 3) E(`beats: ${N} (need at least 3)`);

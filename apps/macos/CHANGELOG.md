@@ -2,6 +2,13 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **Edit a talking-head cut by its words.** The Cut step shows the transcript with Claude's suggested cuts (retakes, false starts, "wait, let me start again", fillers) marked. Cut or restore any phrase, accept or keep a suggestion, fix a misspelled name, and undo or redo with ⌘Z / ⇧⌘Z. Your decisions are kept if you quit and reopen.
+- **Notes can point at a word,** so Claude fixes the exact moment, even when the same word is said more than once.
+- **Updated Heresay** (the Report button) to 0.2.34.
+- **Bundles RasanAI 1.23.0.**
+
 ## 0.18.0 (build 37) — 2026-10-20
 
 - **The crew on the working screen.** Film progress puts the phase's crew member big in the centre with live eyes, and the newest real activity as thought bubbles. Paused, they snooze; when a call waits on you, they step aside and ask.

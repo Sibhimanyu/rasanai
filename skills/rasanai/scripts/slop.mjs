@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The anti-slop gate: checks a built film for the tells viewers read as generic AI video, before the render
 // question (next to obey.mjs, which checks the motion contract). Evidence: /references/craft.md "Anti-slop".
-//   node slop.mjs --project videos/<name> [--scenes <scenes.json>] [--video <render.mp4>] [--style <preset id>] [--format reel] [--run <run>] [--score <score.json>] [--no-text-fit] [--no-chrome] [--chrome-allow <rule ids>] [--json]
+//   node slop.mjs --project videos/<name> [--scenes <scenes.json>] [--video <render.mp4>] [--style <preset id>] [--format reel] [--run <run>] [--score <score.json>] [--destination <id>] [--no-text-fit] [--no-chrome] [--chrome-allow <rule ids>] [--json]
 // Hero effects (glow, blur-in, particles) are budgets, not bans: allowed on the hero up to the score's `budget`
 // (lib/budget.mjs); the same effect on every element is the error.
 // With a brand (the run's research/brand/assets/, found from --run, from "<run>/frames", or from the project's
@@ -209,7 +209,7 @@ if (!args["no-text-fit"]) {
   // the beats' hero element ids (the score's hero, when it is an element id) for subject-lost
   let heroIds = [];
   try { const sc = JSON.parse(fs.readFileSync(args.score ? path.resolve(String(args.score)) : path.join(args.run && args.run !== true ? path.resolve(String(args.run)) : dir, "motion", "score.json"), "utf8")); heroIds = (sc.scenes || sc.beats || []).map((b) => [b.hero_id, b.heroId, b.hero_el, b.hero_element, typeof b.hero === "string" && /^[A-Za-z][\w-]*$/.test(b.hero.trim()) ? b.hero.trim() : null].find((x) => typeof x === "string" && x.trim())).filter(Boolean); } catch {}
-  const tf = await textFit(dir, { heroIds });
+  const tf = await textFit(dir, { heroIds, destination: args.destination && args.destination !== true ? String(args.destination) : null, aspect: args.aspect && args.aspect !== true ? String(args.aspect) : null });
   tfRes = tf;
   for (const f of tf.findings) add(f.check, "error", `${f.file}: "${f.text}" ${f.from}-${f.to} s`, f.message, f.fix);
   for (const f of tf.warnings || []) add(f.check, "warn", `${f.file}: "${f.text}"${f.at != null ? ` ${f.at} s` : ""}`, f.message, f.fix);

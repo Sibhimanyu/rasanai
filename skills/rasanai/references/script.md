@@ -167,7 +167,7 @@ The sheet for any length, with its slot names, is printed by `node $SKILL_DIR/sc
 
 **60 s:** cold open 0-3 · setup 3-12 · turn 12-18 · three proofs 18-36, escalating · rest · peak 36-45 · payoff 45-54 · end 54-60. Eight to ten beats, 110 to 140 voiceover words.
 
-**90 s (explainer):** the 60 s shape with a stakes act (8-12 s) before the first proof; a second, smaller peak is allowed before the main one. Longer needs a character or a world.
+**90 s (explainer):** the 60 s shape with a stakes act (8-12 s) before the first proof; a second, smaller peak is allowed before the main one. Longer needs a character or a world. **Explainers: progressive disclosure.** Introduce the system in the order the viewer needs it: the action that starts it, then each part as it acts; one new element per beat, earlier ones stay as anchors, the full diagram is the payoff, and the narration names each part as it appears.
 
 **Brand film (20-40 s):** no feature proof. Image, image, image, the turn as a change in the viewer's point of view, then the name. Voiceover, if any, reads like a short poem with a plain last line.
 
@@ -179,12 +179,14 @@ The sheet for any length, with its slot names, is printed by `node $SKILL_DIR/sc
 
 Pick from the truth sheet, not this list. Each must work muted:
 
-- **The villain in action:** "Does 3 work?" bubbles burying Thursday. (The effect before the cause.)
-- **The outcome, stated flat:** "Your books, balanced. Every month."
-- **The tension they already feel:** "April 14. 11:58 pm."
-- **The true, surprising fact:** "Receipt ink fades in about a year." (Only if it's on the truth sheet.)
-- **The product doing its thing:** a phone snaps a receipt and the ledger fills before the first second ends.
-- **The flash-forward:** open on the finished result, then rewind and earn it.
+- `villain-in-action` **The villain in action:** "Does 3 work?" bubbles burying Thursday. (The effect before the cause.)
+- `outcome-flat` **The outcome, stated flat:** "Your books, balanced. Every month."
+- `felt-tension` **The tension they already feel:** "April 14. 11:58 pm."
+- `true-fact` **The true, surprising fact:** "Receipt ink fades in about a year." (Only if it's on the truth sheet.)
+- `product-doing` **The product doing its thing:** a phone snaps a receipt and the ledger fills before the first second ends.
+- `flash-forward` **The flash-forward:** open on the finished result, then rewind and earn it.
+- `transformation` **The transformation:** a complicated state that resolves in front of us.
+- `character-action` **The character acting:** a character does something we care about (mascot and story films).
 
 Never open with "Introducing…", "Meet…" (as a first line), "What if…?", "Tired of…?", "In today's world…", a logo, a company description, a question the viewer can answer "no" to, or a statistic without a stake.
 
