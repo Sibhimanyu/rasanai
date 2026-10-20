@@ -13,6 +13,8 @@
 //        -> compositions/cards/<id>.brief.md for every card/overlay Claude draws (the default; "by": "swatch" = quick engine draft)
 //   node reel.mjs build --reel <reel.json> --project-dir videos/<name> [--prefs <rasanai-brief.json>] [--render] [--quality draft|looks|delivery] [--force] [--no-lint] [--render-anyway]
 //        -> index.html + compositions/reel-*.html + assets/footage/*, lint, obey, (render)
+//   node reel.mjs check-frames --reel <reel.json> --project-dir videos/<name> [--video <render.mp4>] [--every 0.5]
+//        -> <project>/reel.frames-check.json: warnings where a graphic may cover a face or text sits under platform UI (needs footage.mjs faces; Apple Vision)
 //        --prefs: the owner's taste answers win over reel.json: captions off | plain (style "clean") | styled (style "bold"); text=none warns about every overlay
 import fs from "node:fs";
 import path from "node:path";
@@ -28,6 +30,9 @@ import { contractText } from "./lib/contract.mjs";
 import { track } from "./lib/report.mjs";
 import { acquireSlotSync } from "./lib/slot.mjs";
 import { loadPrefs } from "./lib/prefs.mjs";
+import { headsDuring, overlapShare } from "./lib/heads.mjs";
+import { destinationOf, zonesFor, boxInZones } from "./lib/safezones.mjs";
+import { checkFrames } from "./lib/framecheck.mjs";
 import { decideLanguage, installedModels, hasWhisperCli, whisperTranscribe, englishLooks } from "./lib/lang.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -271,6 +276,37 @@ const cellCss = (look) => `
   #root .md-cursor { display: inline-block; width: 0.5em; background: ${look.accent}; margin-left: 0.04em; }
   #root .md-subline { font-weight: 500; letter-spacing: 0.02em; line-height: 1.3; color: color-mix(in srgb, var(--md-ink) 78%, var(--md-bg)); }
   #root .md-rule + .md-subline { margin-top: 0.35em; }`;
+
+// ---- face and platform-UI warnings (all warnings; unknown faces are never treated as safe)
+const FACE_COVER = 0.02; // share of a head an overlay or the captions may cover (cooked. check.py FACE_COVER)
+const PLATFORM_SHARE = 0.2;
+// $RUN/footage/faces/<clip>.json for a clip reference: tries the reference as written, its file stem and a slug of it, then the footage.json clip id by path
+function loadFaces(R, base, ws, ref, srcAbs, cache) {
+  const fp = R.footage ? (path.isAbsolute(R.footage) ? R.footage : [base, ws].map((r) => path.resolve(r, R.footage)).find((p) => fs.existsSync(p)) || path.resolve(ws, R.footage)) : null;
+  if (!fp) return null;
+  const dirF = path.join(path.dirname(fp), "faces");
+  const ids = new Set([String(ref), path.basename(String(ref)), path.basename(String(ref)).replace(/\.[^.]+$/, ""), slug(ref)]);
+  try {
+    const scanned = fs.existsSync(fp) ? readJSON(fp) : null;
+    for (const c of (scanned && scanned.clips) || []) if (c.id && c.path && srcAbs && path.resolve(ws, c.path) === srcAbs) ids.add(c.id);
+  } catch {}
+  for (const id of ids) {
+    const f = path.join(dirF, id + ".json");
+    if (cache.has(f)) { if (cache.get(f)) return cache.get(f); continue; }
+    let doc = null;
+    try { if (fs.existsSync(f)) doc = readJSON(f); } catch {}
+    cache.set(f, doc);
+    if (doc) return doc;
+  }
+  return null;
+}
+// the clip pieces playing during [a, b] of the reel: [{ s, t0, t1 }] with source times
+function clipsUnder(segs, a, b) {
+  return segs.filter((x) => x.kind === "clip" && x.start < b && x.start + x.dur > a).map((x) => {
+    const lo = Math.max(a, x.start), hi = Math.min(b, x.start + x.dur);
+    return { s: x, t0: x.it._in + (lo - x.start) * x.rate, t1: x.it._in + (hi - x.start) * x.rate };
+  });
+}
 
 // the brief Claude designs one card or overlay from (reel.mjs briefs)
 function cardBrief(a, { W, H, look, fontCss, M, direction, reelTitle }) {
@@ -871,6 +907,38 @@ async function build() {
     for (const o of overlaySegs) if ((o.it.zone || "lower-third") === "lower-third" && H / W > 1.2 && groups.some((g) => g.in < o.start + o.dur && g.out > o.start)) warnings.push(`overlay ${o.i + 1} sits just above the captions while they run; check the frame`);
   }
 
+  // ---- preflight: faces and platform UI (warnings only)
+  {
+    const dest = destinationOf({ destination: R.destination || null, aspect: R.aspect || "9:16" });
+    const zones = zonesFor(dest, R.aspect || "9:16");
+    const facesCache = new Map(), unknownSeen = new Set();
+    const pieces = [
+      ...overlaySegs.map((o) => ({ id: "overlay", label: `overlay ${o.i + 1} "${[].concat(o.it.text || "").join(" / ").slice(0, 30)}"`, rect: zoneRect(o.it.zone || "lower-third", W, H), a: o.start, b: o.start + o.dur, ui: "overlay-in-platform-ui", face: "overlay-on-face" })),
+      ...groups.map((g, k) => ({ id: "captions", label: "the captions", group: k, rect: zoneRect("captions", W, H), a: g.in, b: g.out, ui: "caption-in-platform-ui", face: "caption-on-face" })),
+    ];
+    const frac = (r) => ({ x: r.x / W, y: r.y / H, w: r.w / W, h: r.h / H });
+    const noted = new Set();
+    for (const p of pieces) {
+      const box = frac(p.rect);
+      const hit = boxInZones(box, zones, { minShare: PLATFORM_SHARE }).filter((z) => z.zone !== "margin")[0];
+      if (hit && !noted.has(p.ui + (p.group === undefined ? p.label : ""))) { noted.add(p.ui + (p.group === undefined ? p.label : "")); warnings.push(`${p.ui}: ${p.label} sits ${Math.round(hit.share * 100)}% under the ${hit.zone} on ${dest}; move it inside the safe area`); }
+      for (const u of clipsUnder(segs, p.a, p.b)) {
+        const key = String(u.s.it.clip);
+        const doc = loadFaces(R, base, ws, key, u.s.it._src, facesCache);
+        const head = doc ? headsDuring(doc, u.t0, u.t1) : { unknown: true, reason: "no faces file" };
+        const h = head.unknown ? null : head;
+        if (!h) {
+          if (!unknownSeen.has(key)) { unknownSeen.add(key); warnings.push(`face-unknown: faces not checked for ${key} (${head.reason}); run footage.mjs faces --run "$RUN"`); }
+          // a doubtful (low confidence) head is still checked, flagged as unsure
+          if (head.box && overlapShare(box, head.box) >= FACE_COVER) { const k = p.face + "?" + p.label; if (!noted.has(k)) { noted.add(k); warnings.push(`${p.face}: ${p.label} may cover a face (low-confidence detection) at ${r3(p.a)}s; check the frame`); } }
+          continue;
+        }
+        const share = overlapShare(box, h);
+        if (share >= FACE_COVER) { const k = p.face + p.label; if (!noted.has(k)) { noted.add(k); warnings.push(`${p.face}: ${p.label} covers ${Math.round(share * 100)}% of the speaker's head at ${r3(p.a)}s; move it to another zone or time`); } }
+      }
+    }
+  }
+
   // ---- write compositions
   const wrote = [];
   const put = (rel, text) => {
@@ -1028,6 +1096,38 @@ ${MARK}
   console.log(JSON.stringify({ ok: true, project_dir: path.relative(ws, dir), total_s: total, clips: segs.filter((s) => s.kind === "clip").length, cards: segs.filter((s) => s.kind === "card").length, overlays: overlaySegs.length, caption_groups: groups.length, music: musicRel, edl: path.relative(ws, path.join(dir, "reel.edl.json")), wrote, warnings, checks, rendered }, null, 2));
 }
 
+// rendered-frame checks: does a graphic cover a face, is text under platform UI (warnings; needs a render)
+async function checkFramesCmd() {
+  if (!args.reel || !args["project-dir"]) die("check-frames needs --reel <reel.json> and --project-dir videos/<name>");
+  const reelPath = path.resolve(String(args.reel));
+  const R = readJSON(reelPath);
+  const base = path.dirname(reelPath), ws = process.cwd();
+  const dir = path.resolve(String(args["project-dir"]));
+  const edlPath = path.join(dir, "reel.edl.json");
+  if (!fs.existsSync(edlPath)) die("no reel.edl.json in the project folder: build the reel first");
+  const edl = readJSON(edlPath);
+  let video = args.video && args.video !== true ? path.resolve(String(args.video)) : null;
+  if (!video) {
+    const found = [];
+    for (const d of [path.join(dir, "renders"), dir]) if (fs.existsSync(d)) for (const f of fs.readdirSync(d)) if (/\.mp4$/i.test(f)) found.push(path.join(d, f));
+    video = found.sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0] || null;
+  }
+  if (!video || !fs.existsSync(video)) die("no render found: pass --video <render.mp4>");
+  const cache = new Map(), faces = {};
+  for (const it of edl.items || []) {
+    if (it.kind !== "clip" || !it.clip || faces[it.clip]) continue;
+    const doc = loadFaces(R, base, ws, it.clip, null, cache);
+    if (doc) faces[it.clip] = doc;
+  }
+  const aspect = R.aspect || "9:16";
+  const every = Number(args.every) > 0 ? Number(args.every) : 0.5;
+  const res = await checkFrames({ video, edl, faces, destination: destinationOf({ destination: R.destination || null, aspect }), aspect, every });
+  if (res.ok === false) die((res.skipped || []).join("; ") || "could not check the frames");
+  writeFile(path.join(dir, "reel.frames-check.json"), JSON.stringify({ video: path.relative(ws, video), ...res }, null, 2) + "\n");
+  console.log(JSON.stringify({ ok: true, findings: res.findings, samples: res.samples, skipped: res.skipped && res.skipped.length ? res.skipped : undefined, wrote: path.relative(ws, path.join(dir, "reel.frames-check.json")) }, null, 2));
+}
+
 if (cmd === "scan") scan();
+else if (cmd === "check-frames") await checkFramesCmd();
 else if (cmd === "build" || cmd === "briefs") await build();
-else die("usage: reel.mjs scan --footage <dir> --run <run> | build --reel <reel.json> --project-dir <dir> [--render]");
+else die("usage: reel.mjs scan --footage <dir> --run <run> | build --reel <reel.json> --project-dir <dir> [--render] | check-frames --reel <reel.json> --project-dir <dir> [--video <mp4>]");
