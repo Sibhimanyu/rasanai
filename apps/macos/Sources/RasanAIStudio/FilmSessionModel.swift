@@ -37,7 +37,7 @@ final class FilmSessionModel {
     private(set) var lastSent: String?
     /// Counts accepted actions, so a view can clear its draft only once a send really went through.
     private(set) var sendCount = 0
-    /// A completed step pinned from the stage bar and shown read-only. `nil` follows the director.
+    /// A completed step pinned from the step rail and shown read-only. `nil` follows the director.
     private(set) var viewingStep: String?
     /// When the director started working, for the elapsed clock. Set by the store from the runtime.
     var startedAt: Date?
@@ -234,8 +234,6 @@ final class FilmSessionModel {
 
     func payload(_ step: String) -> JSONValue { snapshot.step(step) }
     func status(_ step: String) -> String? { snapshot.step(step)["status"].string }
-    /// The payload of the step on screen.
-    var shownPayload: JSONValue { payload(route.step ?? shownStep) }
     var activity: [ActivityItem] { snapshot.activityFeed }
     var workingMessage: String? { snapshot.workingMessage }
     var ask: DirectorAsk? { snapshot.ask }

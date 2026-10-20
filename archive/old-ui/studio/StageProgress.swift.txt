@@ -1,0 +1,17 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/StageProgress.swift, replaced by ProgressPhase titles (StudioFlowProgress). Reference only.
+
+import StudioCore
+import SwiftUI
+
+extension ReviewStage {
+    /// Plain-language step names for the progress bar.
+    var stepTitle: String {
+        switch self {
+        case .brief: "Brief"
+        case .story: "Story"
+        case .look: "Look"
+        case .animatic: "Animatic"
+        case .final: "Final"
+        }
+    }
+}

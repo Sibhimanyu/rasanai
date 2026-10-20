@@ -1,0 +1,3 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/StudioCore/RunTransport.swift, replaced by removed web-console transport (console.json). Reference only.
+
+    public var consoleURL: URL { run.appendingPathComponent("console.json") }

@@ -1,0 +1,39 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/FilmProgressCards.swift, replaced by CrewStage (live crew stage on the working screen); lead(for:) kept in FilmProgressCards.swift. Reference only.
+
+/// Who is working now: the first running crew member large and watching, the others as a row of small busts.
+/// Nobody running: the phase's owner. Draws nothing when the art is missing (CrewAvatar degrades to empty space).
+struct NowCrewAvatar: View {
+    let snapshot: FilmProgressSnapshot
+
+    private var running: [CrewCharacter] {
+        var seen = Set<CrewCharacter>()
+        return snapshot.crew.filter { $0.state == .running }.map(\.character).filter { seen.insert($0).inserted }
+    }
+
+    /// Who is on stage: the first running crew member, else the owner of the phase.
+    static func lead(for snapshot: FilmProgressSnapshot) -> CrewCharacter {
+        var seen = Set<CrewCharacter>()
+        let running = snapshot.crew.filter { $0.state == .running }.map(\.character).filter { seen.insert($0).inserted }
+        return running.first ?? CrewCharacter(key: CrewRoles.character(forPhase: snapshot.now.phase)) ?? .ra
+    }
+
+    var body: some View {
+        let people = running
+        let lead = Self.lead(for: snapshot)
+        let others = Array(people.dropFirst())
+        VStack(spacing: 6) {
+            CrewAvatar(lead, style: .full(height: 72), watching: true)
+                .id(lead)
+                .transition(.opacity)
+                .help("\(lead.displayName), \(lead.roleTitle)")
+            if !others.isEmpty {
+                HStack(spacing: 3) {
+                    ForEach(others.prefix(3)) { CrewAvatar($0, style: .bust(diameter: 20), watching: false).help($0.displayName) }
+                    if others.count > 3 { Text("+\(others.count - 3)").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary) }
+                }
+            }
+        }
+        .frame(width: 76)
+        .accessibilityHidden(true)
+    }
+}

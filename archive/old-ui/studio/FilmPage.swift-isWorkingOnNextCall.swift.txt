@@ -1,0 +1,6 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/FilmPage.swift, replaced by StudioFlowProgress (sidebar/toolbar rail). Reference only.
+
+    /// Claude is busy with the next call: the stage bar ticks the decided calls and marks the next one as being worked on.
+    private var isWorkingOnNextCall: Bool {
+        !isFinished && (showsFilmProgress || (store.runtime.isRunning && !store.hasPendingQuestion && store.phase == .working))
+    }

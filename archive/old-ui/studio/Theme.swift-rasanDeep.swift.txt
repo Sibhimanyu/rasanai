@@ -1,0 +1,4 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/Theme.swift, replaced by Color.rasanInk. Reference only.
+
+    /// The logo's ink. Light-mode headers only.
+    static let rasanDeep = Color(nsColor: .rasanHex(0x1B1F5E))

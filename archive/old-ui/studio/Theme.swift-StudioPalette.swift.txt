@@ -1,0 +1,14 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/Theme.swift, replaced by Color.appBackground / system colours. Reference only.
+
+/// Kept so the sample-film views and older files keep compiling; every value maps onto the calm palette.
+enum StudioPalette {
+    static let background = Color.appBackground
+    static let panel = Color(nsColor: .controlBackgroundColor)
+    static let raised = Color(nsColor: .underPageBackgroundColor)
+    static let ink = Color.primary
+    static let muted = Color.secondary
+    static let accent = Color.rasan
+    static let mint = Color(nsColor: .systemGreen)
+    static let divider = Color(nsColor: .separatorColor)
+}
+

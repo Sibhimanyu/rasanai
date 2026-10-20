@@ -1,0 +1,16 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/Theme.swift, replaced by cardSurface(hovering:) with the stage cards. Reference only.
+
+/// A button that reads as a card, with a hover lift.
+struct HoverCard<Content: View>: View {
+    let action: () -> Void
+    @ViewBuilder var content: (Bool) -> Content
+    @State private var hovering = false
+    var body: some View {
+        Button(action: action) {
+            content(hovering).cardSurface(hovering: hovering)
+        }
+        .buttonStyle(PressableStyle())
+        .onHover { hovering = $0 }
+    }
+}
+

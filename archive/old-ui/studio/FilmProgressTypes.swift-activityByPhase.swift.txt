@@ -1,0 +1,9 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/StudioCore/FilmProgressTypes.swift, replaced by nothing (old activity page removed; activity(for:) remains). Reference only.
+
+    /// Activity grouped by phase in phase order, skipping empty phases; items inside a group are oldest first.
+    public var activityByPhase: [(phase: ProgressPhase, items: [ProgressActivity])] {
+        ProgressPhase.allCases.compactMap { phase in
+            let items = activity(for: phase)
+            return items.isEmpty ? nil : (phase, items)
+        }
+    }

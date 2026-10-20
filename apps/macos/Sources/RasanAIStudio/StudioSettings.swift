@@ -42,6 +42,8 @@ final class StudioSettings {
     }
     func model(for agent: LocalAgent) -> String { agent == .claude ? claudeModel : codexModel }
     var statuses: [String: String] = [:]
+    /// The in-app sign-in, shared by Welcome and Settings.
+    let login = AgentSignIn()
     var checking: Set<String> = []
     var error: String?
     var showWelcome = false
@@ -90,7 +92,8 @@ final class StudioSettings {
         agentConsent = defaults.dictionary(forKey: "agentConsent") as? [String: Bool] ?? [:]
         hasCompletedWelcome = defaults.bool(forKey: "hasCompletedWelcome")
         reopenLastProject = defaults.object(forKey: "reopenLastProject") as? Bool ?? true
-        notificationsEnabled = defaults.bool(forKey: "notificationsEnabled")
+        // On unless turned off: a film that waits on you is useless if nobody hears about it.
+        notificationsEnabled = defaults.object(forKey: "notificationsEnabled") as? Bool ?? true
         showWelcome = !defaults.bool(forKey: "hasCompletedWelcome")
         projectRoot = defaults.string(forKey: "projectRoot") ?? ProjectLibrary.defaultRoot.path
         appearance = defaults.string(forKey: "appearance") ?? "system"
@@ -107,6 +110,7 @@ final class StudioSettings {
         generateImagesWithCodex = defaults.object(forKey: "generateImagesWithCodex") as? Bool ?? true
         keepAwakeWhileMaking = defaults.object(forKey: "keepAwakeWhileMaking") as? Bool ?? true
         do { try library.prepare() } catch { self.error = error.localizedDescription }
+        login.settings = self
     }
     func path(for agent: LocalAgent) -> String {
         switch agent { case .claude: claudePath; case .codex: codexPath; case .custom: customPath }
@@ -143,12 +147,39 @@ final class StudioSettings {
         }
         checking.insert(agent.id)
         defer { checking.remove(agent.id) }
-        let result = await Task.detached {
+        // An agent Studio installed is a Node script, so the bundled Node has to be on its PATH for the check to run at all.
+        let nodeDirectory = nodeURL?.deletingLastPathComponent().path
+        var used = executable
+        var result = await Self.runStatus(executable, agent, nodeDirectory: nodeDirectory)
+        // An old copy can shadow a newer one elsewhere: when this one fails, try what discovery finds.
+        if result == .signedOut, let found = agent.discoveredExecutable(), found != executable,
+           await Self.runStatus(found, agent, nodeDirectory: nodeDirectory) == .ready {
+            setPath(found, for: agent); used = found; result = .ready
+        }
+        guard path(for: agent) == used else { return }
+        statuses[agent.id] = result.message(for: agent)
+    }
+
+    private enum StatusResult: Sendable {
+        case ready, signedOut, timedOut, failedToStart
+        func message(for agent: LocalAgent) -> String {
+            switch self {
+            case .ready: agent == .custom ? "CLI available · authentication not checked" : "CLI reports signed in"
+            case .signedOut: "Not signed in yet. Tap Sign in to connect it."
+            case .timedOut: "The check timed out. Try again."
+            case .failedToStart: "Unable to start the selected executable."
+            }
+        }
+    }
+
+    /// Asks an agent whether it is signed in. Waits up to 30 s: a freshly updated binary can start slowly under endpoint security.
+    nonisolated private static func runStatus(_ executable: String, _ agent: LocalAgent, nodeDirectory: String?) async -> StatusResult {
+        await Task.detached {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: executable)
             process.arguments = agent.statusArguments
             var environment = ProcessInfo.processInfo.environment
-            environment["PATH"] = LocalAgent.searchDirectories.joined(separator: ":")
+            environment["PATH"] = ([nodeDirectory].compactMap { $0 } + LocalAgent.searchDirectories).joined(separator: ":")
             process.environment = environment
             // Never collect or display account identifiers, tokens, or CLI credential files.
             process.standardOutput = FileHandle.nullDevice
@@ -156,18 +187,17 @@ final class StudioSettings {
             process.standardInput = FileHandle.nullDevice
             do {
                 try process.run()
-                let deadline = Date().addingTimeInterval(15)
+                let deadline = Date().addingTimeInterval(30)
                 while process.isRunning && Date() < deadline { try await Task.sleep(for: .milliseconds(50)) }
-                if process.isRunning { process.terminate(); return "Check timed out. Try the CLI in Terminal." }
-                if process.terminationStatus == 0 {
-                    return agent == .custom ? "CLI available · authentication not checked" : "CLI reports signed in"
-                }
-                return "Not signed in yet. Tap Sign in to connect it."
-            } catch { return "Unable to start the selected executable." }
+                if process.isRunning { process.terminate(); return .timedOut }
+                return process.terminationStatus == 0 ? .ready : .signedOut
+            } catch { return .failedToStart }
         }.value
-        guard path(for: agent) == executable else { return }
-        statuses[agent.id] = result
     }
+
+    /// Signs an agent in from inside Studio (no Terminal window): see `AgentSignIn`.
+    func signIn(_ agent: LocalAgent) { login.start(agent) }
+    func cancelSignIn() { login.cancel() }
     func copyLogin(_ agent: LocalAgent) {
         let command = ([LocalAgent.shellQuote(path(for: agent))] + agent.loginArguments).joined(separator: " ")
         NSPasteboard.general.clearContents(); NSPasteboard.general.setString(command, forType: .string)
@@ -220,7 +250,7 @@ final class StudioSettings {
                 : "Couldn't install \(agent.title)\(tail.map { ": " + $0.trimmingCharacters(in: .whitespaces) } ?? "."). Try again, or install in Terminal."
             return
         }
-        if !isReady(agent) { setupInTerminal(agent) }
+        if !isReady(agent) { signIn(agent) }
     }
 
     /// Runs a command to the end with its output in a log file. -1 when it could not start.
@@ -255,7 +285,7 @@ final class StudioSettings {
         setup_result=$?
         /bin/rm -- \(LocalAgent.shellQuote(file.path))
         echo
-        echo 'Return to RasanAI and press Recheck when setup is complete.'
+        echo 'Return to RasanAI when setup is complete. It checks again on its own.'
         read -r -p 'Press Return to close this window.'
         exit "$setup_result"
         """
@@ -284,46 +314,48 @@ final class StudioSettings {
     func executable(named name: String) -> String? {
         LocalAgent.searchDirectories.map { $0 + "/" + name }.first { FileManager.default.isExecutableFile(atPath: $0) }
     }
+    /// What macOS currently allows, refreshed on launch, on return to the app and after asking.
+    var notificationsAllowed: UNAuthorizationStatus = .notDetermined
+    func refreshNotificationPermission() async {
+        guard Bundle.main.bundleIdentifier != nil else { return }
+        notificationsAllowed = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+    }
+    /// Asks macOS once, when notifications are on and nobody has answered yet. Called after Welcome and on launch.
+    func requestNotificationPermissionIfNeeded() async {
+        await refreshNotificationPermission()
+        guard notificationsEnabled, notificationsAllowed == .notDetermined, Bundle.main.bundleIdentifier != nil else { return }
+        _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
+        await refreshNotificationPermission()
+    }
+    func openNotificationSettings() {
+        let id = Bundle.main.bundleIdentifier ?? ""
+        let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(id)")
+            ?? URL(fileURLWithPath: "/System/Applications/System Settings.app")
+        NSWorkspace.shared.open(url)
+    }
     func setNotificationsEnabled(_ enabled: Bool) async {
         if !enabled { notificationsEnabled = false; return }
         guard Bundle.main.bundleIdentifier != nil else { error = "Notifications are available when running the bundled Mac app."; return }
-        do {
-            notificationsEnabled = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
-            if !notificationsEnabled { error = "Notifications are disabled in macOS. Enable RasanAI Studio in System Settings → Notifications." }
-        } catch { self.error = error.localizedDescription }
+        notificationsEnabled = true
+        await requestNotificationPermissionIfNeeded()
+        // Already refused in macOS: only System Settings can turn it back on.
+        if notificationsAllowed == .denied { openNotificationSettings() }
     }
 }
 
 struct StudioSettingsView: View {
     @Bindable var settings: StudioSettings
     @ObservedObject private var updater = StudioUpdater.shared
-    @State private var tab: String
-    /// True when this is the Settings page in the main window (full size, page header); false keeps the fixed-size tabbed
-    /// panel the snapshot harness renders.
-    private let page: Bool
-    init(settings: StudioSettings, initialTab: String = "general", page: Bool = false) {
-        self.settings = settings; self.page = page; _tab = State(initialValue: initialTab)
-    }
+    @State private var tab = "general"
     @State private var showAdvanced = false
 
     var body: some View {
-        Group {
-            if page { pageBody } else { panelBody }
-        }
-        .preferredColorScheme(settings.colorScheme)
-        .tint(page ? Color(nsColor: .controlAccentColor) : .rasan)
+        pageBody
+            .preferredColorScheme(settings.colorScheme)
+            .tint(Color(nsColor: .controlAccentColor))
         .alert("Settings", isPresented: Binding(get: { settings.error != nil }, set: { if !$0 { settings.error = nil } })) {
             Button("OK") { settings.error = nil }
         } message: { Text(settings.error ?? "") }
-    }
-
-    private var panelBody: some View {
-        TabView(selection: $tab) {
-            general.tabItem { Label("General", systemImage: "gearshape") }.tag("general")
-            director.tabItem { Label("Director", systemImage: "wand.and.stars") }.tag("director")
-        }
-        .frame(width: 520, height: tab == "general" ? 470 : 500)
-        .animation(.snappy, value: tab)
     }
 
     /// The page: one header (title, then the General / Director switch) on the same leading edge as the grouped forms, in a
@@ -371,8 +403,15 @@ struct StudioSettingsView: View {
                     Text("System").tag("system"); Text("Light").tag("light"); Text("Dark").tag("dark")
                 }
                 Toggle("Notify me when RasanAI needs me", isOn: Binding(
-                    get: { settings.notificationsEnabled },
+                    get: { settings.notificationsEnabled && settings.notificationsAllowed != .denied },
                     set: { enabled in Task { await settings.setNotificationsEnabled(enabled) } }))
+                if settings.notificationsEnabled && settings.notificationsAllowed == .denied {
+                    HStack {
+                        Text("Notifications are off for RasanAI in macOS.").font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Open Notification Settings…") { settings.openNotificationSettings() }.controlSize(.small)
+                    }
+                }
             } header: { Text("Studio") } footer: {
                 Text("Films and brands live in the library as ordinary folders.")
             }
@@ -455,10 +494,10 @@ struct StudioSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .task(id: settings.defaultAgent) { if settings.isInstalled(agent) { await settings.check(agent) } }
-        // Back from Terminal after signing in: look again without a button press.
+        .task(id: settings.defaultAgent) { await settings.check(agent) }
+        // Back from the browser or Terminal after signing in: look again without a button press.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            guard settings.isInstalled(agent), !settings.checking.contains(agent.id) else { return }
+            guard !settings.checking.contains(agent.id), !settings.login.isRunning else { return }
             Task { await settings.check(agent) }
         }
     }
@@ -477,8 +516,8 @@ struct StudioSettingsView: View {
                 Text(!installed ? "\(agent.title) isn't installed" : (signedIn ? "Found and signed in" : "Found, but not signed in"))
             }
             Spacer()
-            if installed && !signedIn && !settings.checking.contains(agent.id) {
-                Button("Sign in…") { settings.setupInTerminal(agent) }
+            if installed && !signedIn && !settings.checking.contains(agent.id) && !settings.login.isRunning {
+                Button("Sign in…") { settings.signIn(agent) }
             }
             if settings.installing == agent { ProgressView().controlSize(.small); Text("Installing…").foregroundStyle(.secondary) }
             Button { Task { await settings.check(agent) } } label: { Image(systemName: "arrow.clockwise") }
@@ -490,6 +529,9 @@ struct StudioSettingsView: View {
                 Button("Install in Terminal…") { settings.setupInTerminal(agent) }.buttonStyle(.link)
             }
             if let error = settings.installErrors[agent.id] { Text(error).font(.caption).foregroundStyle(.orange) }
+        }
+        if settings.login.isRunning && settings.login.agent == agent || settings.login.error != nil {
+            AgentSignInPanel(settings: settings, compact: true)
         }
         if installed && !signedIn, let status { Text(status).font(.caption).foregroundStyle(.secondary) }
     }

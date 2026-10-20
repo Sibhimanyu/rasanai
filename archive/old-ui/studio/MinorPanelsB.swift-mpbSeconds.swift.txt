@@ -1,0 +1,7 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/MinorPanelsB.swift, replaced by clockText(_:). Reference only.
+
+private func mpbSeconds(_ value: JSONValue) -> String? {
+    guard let n = value.number else { return value.string }
+    return clockText(n)
+}
+

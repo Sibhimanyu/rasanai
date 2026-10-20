@@ -1,0 +1,9 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/FilmProgressCards.swift, replaced by fixed .aspectRatio frames in the cards. Reference only.
+
+
+extension View {
+    /// Gives the view an exact aspect box that its content (a filled image) can never grow beyond, then clips to it.
+    func aspectRatioBox(_ ratio: Double) -> some View {
+        Color.clear.aspectRatio(ratio, contentMode: .fit).overlay { self }.clipped()
+    }
+}

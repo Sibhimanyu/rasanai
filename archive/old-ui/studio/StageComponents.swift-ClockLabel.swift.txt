@@ -1,0 +1,7 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/StageComponents.swift, replaced by plain Text(clockText(_:)).monospacedDigit(). Reference only.
+
+struct ClockLabel: View {
+    let seconds: Double
+    var body: some View { Text(clockText(seconds)).monospacedDigit() }
+}
+

@@ -1,3 +1,5 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/HomeCrewArtwork.swift, replaced by HomeCrewLineup + crew-stage art. Reference only.
+
 import AppKit
 
 /// Load the loose SwiftPM resource explicitly; Home doesn't depend on SwiftUI's named-asset lookup.

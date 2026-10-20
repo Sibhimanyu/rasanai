@@ -14,7 +14,6 @@ final class StudioFlowTests: XCTestCase {
     }
 
     func testTheBarSaysStoryNotScript() {
-        XCTAssertEqual(ReviewStage.story.stepTitle, "Story")
         XCTAssertEqual(ProgressPhase.script.title, "Story")
     }
 
@@ -31,15 +30,5 @@ final class StudioFlowTests: XCTestCase {
         let state = TurnState.working("Drawing key frames", since: nil, next: "next: pick a look · in about 8 min")
         if case .working(_, _, let next) = state { XCTAssertEqual(next.map(TurnState.sentenceCaseFirst), "Next: pick a look · in about 8 min") } else { XCTFail() }
         XCTAssertEqual(TurnState.working("a", since: nil), TurnState.working("a", since: nil, next: nil))
-    }
-
-    @MainActor func testTheStyleframesFixtureDecodesWithReferences() throws {
-        let session = try SessionSnapshot(data: Data(StageFixtures.json("panel-styleframes").utf8))
-        let data = StyleframesPayload(session.step("styleframes"))
-        XCTAssertEqual(data.frames.count, 3)
-        XCTAssertFalse(data.isLegacy)
-        XCTAssertTrue(data.hasReferences)
-        XCTAssertEqual(data.heroes, ["1", "3"])
-        XCTAssertEqual(session.stage, .look)
     }
 }

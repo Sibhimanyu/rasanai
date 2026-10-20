@@ -2,18 +2,22 @@ import AppKit
 import SwiftUI
 import StudioCore
 
-/// First-launch setup. One calm screen: it finds your director, then you are in.
+/// First-launch setup. One calm screen: three tiles (Claude, Codex, Tools), each one click to the next step.
 struct WelcomeView: View {
     @Bindable var store: StudioStore
     @State private var selected: LocalAgent = .claude
     @State private var checkedTools = false
     private var settings: StudioSettings { store.settings }
+    private var login: AgentSignIn { settings.login }
     private var agents: [LocalAgent] { [.claude, .codex] }
     private var missingTools: [SetupTool] { SetupTool.missing(in: store.preflightReport) }
     private var toolsChecking: Bool { !store.isDemo && (store.isCheckingPreflight || (!checkedTools && store.preflightReport == nil)) }
-    private var toolsReady: Bool { store.isDemo || (store.preflightReport != nil && missingTools.isEmpty && store.preflightReport?.canStart == true) }
+    /// The account item belongs to the director tiles, so tools are ready when no tool is missing.
+    private var toolsReady: Bool { store.isDemo || (store.preflightReport != nil && missingTools.isEmpty) }
     private var needsGitSetup: Bool { store.preflightReport?.items.contains { $0.id == "git" && $0.level != .ready } == true }
     private var anyReady: Bool { agents.contains { settings.isReady($0) } }
+    private var readyIDs: [String] { agents.filter { settings.isReady($0) }.map(\.id) }
+    private var agentBusy: Bool { settings.installing != nil || login.isRunning }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -25,37 +29,22 @@ struct WelcomeView: View {
             Text("Describe a film. RasanAI directs it, start to finish.")
                 .font(.system(size: 14)).foregroundStyle(.secondary).padding(.top, 6)
 
-            Text("You need one of these.").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 24)
-            VStack(spacing: 0) {
-                row(.claude, optional: false)
-                Divider().padding(.leading, 52)
-                row(.codex, optional: false)
+            HStack(spacing: 10) {
+                agentTile(.claude)
+                agentTile(.codex)
+                toolsTile
             }
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color(nsColor: .separatorColor)))
-            .padding(.top, 8)
+            .padding(.top, 28)
+            .animation(.snappy, value: readyIDs)
 
-            toolsCard.padding(.top, 12)
-                .animation(.snappy, value: toolsChecking)
-                .animation(.snappy, value: missingTools)
-            if needsGitSetup { DeveloperToolsSetup(store: store).padding(.top, 8) }
-
-            Text("RasanAI directs films with your Claude Code or Codex account. Usage counts toward your plan.")
-                .font(.system(size: 12)).foregroundStyle(.secondary)
-                .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 16).padding(.horizontal, 12)
-            HStack {
-                Button("Recheck") { Task { await recheck() } }
-                    .disabled(!settings.checking.isEmpty)
-                if !settings.isReady(selected) {
-                    Text("Sign in, then come back here. RasanAI checks again on its own.").foregroundStyle(.secondary)
-                }
-            }.font(.system(size: 12)).padding(.top, 12)
+            detail.frame(maxWidth: .infinity, minHeight: 130, alignment: .top).padding(.top, 18)
+                .animation(.snappy, value: login.isRunning)
 
             Spacer(minLength: 16)
             Button {
                 if settings.isReady(selected) { settings.giveConsent(selected); settings.defaultAgent = selected.id }
                 settings.finishWelcome()
+                Task { await settings.requestNotificationPermissionIfNeeded() }
             } label: {
                 Group {
                     if settings.isReady(selected) { Label("Get started", systemImage: "checkmark.circle.fill") } else { Text("Explore the studio") }
@@ -74,11 +63,12 @@ struct WelcomeView: View {
         .alert("Director setup", isPresented: Binding(get: { settings.error != nil }, set: { if !$0 { settings.error = nil } })) {
             Button("OK") { settings.error = nil }
         } message: { Text(settings.error ?? "") }
-        // Coming back from Terminal after signing in: look again without a button press.
+        // Coming back from the browser after signing in: look again without a button press.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            guard settings.checking.isEmpty else { return }
+            guard settings.checking.isEmpty, !login.isRunning else { return }
             Task { await recheck() }
         }
+        .onChange(of: readyIDs) { pickDirector() }
         .task {
             selected = settings.agent
             async let tools: Void = checkTools()
@@ -87,7 +77,28 @@ struct WelcomeView: View {
         }
     }
 
-    /// Runs the readiness check silently so the rendering-tools card can say what is missing.
+    /// What matters right now, in one place: the sign-in, the tool install, a problem, or a calm line.
+    @ViewBuilder private var detail: some View {
+        let problem = agents.compactMap { settings.installErrors[$0.id] }.first
+        VStack(alignment: .leading, spacing: 10) {
+            if login.isRunning {
+                AgentSignInPanel(settings: settings)
+            } else {
+                if login.error != nil { AgentSignInPanel(settings: settings) }
+                if let problem { Text(problem).font(.system(size: 12)).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true) }
+                if store.toolSetup.isRunning || store.toolSetup.error != nil { ToolSetupProgress(setup: store.toolSetup) }
+                if needsGitSetup && !store.toolSetup.isRunning { DeveloperToolsSetup(store: store) }
+                if login.error == nil && problem == nil && !store.toolSetup.isRunning && store.toolSetup.error == nil && !needsGitSetup {
+                    Text("Pick Claude or Codex to direct your films. Usage counts toward your plan.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center).frame(maxWidth: .infinity)
+                        .padding(.horizontal, 12)
+                }
+            }
+        }
+    }
+
+    /// Runs the readiness check silently so the Tools tile can say what is missing.
     private func checkTools() async {
         guard !store.isDemo else { checkedTools = true; return }
         if store.toolSetup.isRunning { checkedTools = true; return }
@@ -96,95 +107,38 @@ struct WelcomeView: View {
         checkedTools = true
     }
 
-    private var toolsCard: some View {
-        HStack(spacing: 12) {
-            Group {
-                if toolsChecking { ProgressView().controlSize(.small) }
-                else if toolsReady { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.green) }
-                else { Image(systemName: "wrench.and.screwdriver.fill").foregroundStyle(Color.orange) }
-            }.font(.system(size: 18)).frame(width: 24)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(toolsReady ? "Rendering tools ready" : "Rendering tools").font(.system(size: 13, weight: .medium))
-                Text(toolsSubtitle).font(.system(size: 11)).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer()
-            if !toolsChecking && !toolsReady {
-                Button("Set up…") { settings.showWelcome = false; store.showPreflight() }.controlSize(.small)
-            }
-        }
-        .padding(.horizontal, 14).padding(.vertical, 12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color(nsColor: .separatorColor)))
-        .accessibilityElement(children: .combine)
-    }
-
-    private var toolsSubtitle: String {
-        if toolsChecking { return "Checking this Mac…" }
-        if toolsReady { return "Video, renderer and browser are in place." }
-        if missingTools.isEmpty { return "Some checks need a look before your first film." }
-        let names = missingTools.map(\.title)
-        return (names.count > 2 ? names.prefix(2).joined(separator: ", ") + " and more" : names.joined(separator: " and ")) + " still to set up."
-    }
-
     private func recheck() async {
         for agent in agents { await settings.check(agent) }
-        if !settings.isReady(selected) {
-            selected = settings.isReady(settings.agent) ? settings.agent : (agents.first { settings.isReady($0) } ?? agents.first { settings.isInstalled($0) } ?? .claude)
+        pickDirector()
+    }
+
+    /// One ready director is chosen for you; with two, your choice stays unless it stopped being ready.
+    private func pickDirector() {
+        let ready = agents.filter { settings.isReady($0) }
+        if ready.count == 1 { selected = ready[0] }
+        else if !settings.isReady(selected) {
+            selected = settings.isReady(settings.agent) ? settings.agent : (ready.first ?? agents.first { settings.isInstalled($0) } ?? .claude)
         }
     }
 
-    private func signedIn(_ agent: LocalAgent) -> Bool {
-        settings.isReady(agent)
-    }
+    // MARK: Tiles
 
-    private func row(_ agent: LocalAgent, optional: Bool) -> some View {
+    private func agentTile(_ agent: LocalAgent) -> some View {
         let installed = settings.isInstalled(agent)
-        let checking = settings.checking.contains(agent.id)
-        let choosable = installed
-        // A director nobody chose, next to one that is ready, is an option and not a problem: neutral, never a warning.
-        let spare = installed && !signedIn(agent) && agent != selected && anyReady
-        let needsAction = !checking && (!installed || !signedIn(agent))
-        return HStack(spacing: 0) {
-            // The row is a button, so the keyboard can choose a director; Sign in and Install stay separate buttons beside it.
-            Button { withAnimation(.snappy) { selected = agent } } label: {
-                HStack(spacing: 12) {
-                    Group {
-                        if checking || settings.installing == agent { ProgressView().controlSize(.small) }
-                        else if installed {
-                            Image(systemName: signedIn(agent) ? "checkmark.circle.fill" : spare ? "circle.dashed" : "exclamationmark.circle.fill")
-                                .foregroundStyle(signedIn(agent) ? Color.green : spare ? Color.secondary : Color.orange)
-                        } else {
-                            Image(systemName: "circle.dashed").foregroundStyle(.tertiary)
-                        }
-                    }.font(.system(size: 18)).frame(width: 24)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(agent == .claude ? "Claude Code" : "Codex").font(.system(size: 13, weight: .medium))
-                        Text(subtitle(agent, installed: installed, checking: checking, optional: optional || spare))
-                            .font(.system(size: 11)).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    if choosable && !needsAction && !checking {
-                        Image(systemName: selected == agent ? "largecircle.fill.circle" : "circle")
-                            .foregroundStyle(selected == agent ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
-                            .font(.system(size: 16))
-                    }
-                }
-                .padding(.leading, 14).padding(.vertical, 12).padding(.trailing, needsAction ? 8 : 14)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain).disabled(!choosable)
-            .accessibilityAddTraits(selected == agent && choosable ? .isSelected : [])
-            if needsAction && settings.installing != agent {
-                // Installing happens here, with progress; only signing in (browser and code) opens Terminal.
-                Button(installed ? "Sign in…" : "Install") {
-                    if installed { settings.setupInTerminal(agent) } else { Task { await settings.install(agent) } }
-                }
-                .controlSize(.small).padding(.trailing, 14).disabled(!installed && settings.installing != nil)
-            }
+        let checking = settings.checking.contains(agent.id) || (installed && settings.statuses[agent.id] == nil)
+        let installing = settings.installing == agent
+        let signing = login.isRunning && login.agent == agent
+        let ready = settings.isReady(agent)
+        let caption = installing ? "Installing…" : signing ? "Signing in…" : checking ? "Checking…" : ready ? "Ready" : installed ? "Sign in" : "Install"
+        return tile(agent == .claude ? "Claude" : "Codex", symbol: agent == .claude ? "sparkle" : "chevron.left.forwardslash.chevron.right",
+                    caption: caption, busy: installing || signing || checking, ready: ready, active: ready && selected == agent, badge: ready && selected == agent,
+                    enabled: !checking && !installing && !agentBusy || ready && !agentBusy) {
+            if !installed { Task { await settings.install(agent) } }
+            else if !ready { settings.signIn(agent) }
+            else { withAnimation(.snappy) { selected = agent } }
         }
         .contextMenu {
-            if !installed { Button("Install in Terminal Instead…") { settings.setupInTerminal(agent) } }
+            Button("Use Terminal instead…") { settings.cancelSignIn(); settings.setupInTerminal(agent) }
             Button("Copy setup command") {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(settings.setupCommand(for: agent), forType: .string)
@@ -192,14 +146,44 @@ struct WelcomeView: View {
         }
     }
 
-    private func subtitle(_ agent: LocalAgent, installed: Bool, checking: Bool, optional: Bool) -> String {
-        if settings.installing == agent { return "Installing… this takes a minute" }
-        if checking { return "Checking…" }
-        if !installed, let error = settings.installErrors[agent.id] { return error }
-        if !installed { return "Not installed" }
-        if signedIn(agent) { return "Found · signed in" }
-        // A failed check says why ("timed out"); the plain signed-out case reads the same everywhere.
-        if let status = settings.statuses[agent.id], !status.hasPrefix("Not signed in") { return status }
-        return "Installed · not signed in"
+    private var toolsTile: some View {
+        let running = store.toolSetup.isRunning
+        let caption = running ? "Installing…" : toolsChecking ? "Checking…" : toolsReady ? "Ready"
+            : missingTools.isEmpty ? "Set up" : missingTools.count == 1 ? "1 to install" : "\(missingTools.count) to install"
+        return tile("Tools", symbol: "wrench.and.screwdriver", caption: caption, busy: running || toolsChecking, ready: toolsReady && !running, active: running,
+                    badge: false, enabled: !running && !toolsChecking && !toolsReady && store.canInstallTools) {
+            // Git comes first: design resources need it, and Apple's installer is shown below the tiles.
+            let todo = missingTools.filter { !(needsGitSetup && $0 == .skills) }
+            if !todo.isEmpty { store.installTools(todo) }
+        }
+    }
+
+    private func tile(_ title: String, symbol: String, caption: String, busy: Bool, ready: Bool, active: Bool, badge: Bool, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Group {
+                    if busy { ProgressView().controlSize(.regular) }
+                    else if ready { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.green) }
+                    else { Image(systemName: symbol).foregroundStyle(.secondary) }
+                }.font(.system(size: 28)).frame(height: 34)
+                Text(title).font(.system(size: 15, weight: .semibold))
+                Text(caption).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, minHeight: 120)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(active ? AnyShapeStyle(.tint) : AnyShapeStyle(Color(nsColor: .separatorColor)), lineWidth: active ? 2 : 1))
+            .overlay(alignment: .top) {
+                if badge {
+                    Text("Director").font(.system(size: 9, weight: .semibold)).foregroundStyle(.white)
+                        .padding(.horizontal, 7).padding(.vertical, 2).background(Capsule().fill(Color.rasan)).offset(y: -8)
+                }
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain).disabled(!enabled)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title), \(caption)")
+        .accessibilityAddTraits(active ? .isSelected : [])
     }
 }

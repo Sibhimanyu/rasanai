@@ -111,7 +111,6 @@ public final class RunTransport: Sendable {
     public var actionsURL: URL { run.appendingPathComponent("actions.jsonl") }
     public var consumedURL: URL { run.appendingPathComponent("consumed.json") }
     public var rejectedURL: URL { run.appendingPathComponent("rejected.json") }
-    public var consoleURL: URL { run.appendingPathComponent("console.json") }
     public var actionsLockURL: URL { run.appendingPathComponent("actions.lock") }
 
     // MARK: Reading

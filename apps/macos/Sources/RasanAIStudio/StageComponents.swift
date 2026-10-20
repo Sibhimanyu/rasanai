@@ -7,8 +7,7 @@ import SwiftUI
 // MARK: - Component catalog (phase 2 building blocks)
 //
 // Every stage view is `init(model: FilmSessionModel, step: String)` and reads its payload with `model.payload(step)`.
-// The model is also in the environment (`.environment(model)`), which is how `PayloadImage` and `AudioPreviewButton`
-// find files. Use these instead of rebuilding the same chrome:
+// The model is also in the environment (`.environment(model)`), which is how `PayloadImage` finds files. Use these instead of rebuilding the same chrome:
 //
 //   StageScaffold(model:step:question:context:recommended:maxWidth:content:actions:)
 //       The whole page: a scroll view with the StageHeader, your content and the "Decided:" line for finished steps.
@@ -23,12 +22,10 @@ import SwiftUI
 //       `primaryTitle: nil` for decide-only.
 //   RecommendedBadge(text:)            Claude's pick, as a small capsule. Put it on the recommended option.
 //   PayloadImage(path:contentMode:maxPixels:)   A local file named in the payload (workspace-relative or absolute).
-//   AudioPreviewButton(id:path:title:) A play/pause round button; one preview plays at a time.
 //   OpenInBrowserButton(path:title:)   For HTML-only boards: opens the file in the default browser (never embedded).
 //   DecidedLine(decision:by:)          Green "Decided:" line.
 //   StageCard / .stageCard(selected:)  The card surface for options (selected = accent outline).
 //   StageSectionTitle(_:)              Small caps section label.
-//   ClockLabel(seconds:)               "0:12" in monospaced digits.
 //   JSONValue helpers (StudioCore): .string, .number, .bool, .strings, .array, .object, .identifier, ["key"].
 
 // MARK: Agent name and shared metrics
@@ -41,7 +38,7 @@ extension LocalAgent {
 }
 
 extension EnvironmentValues {
-    /// The running agent's name for UI copy. The film page sets it from the agent setting; fixtures keep "Claude".
+    /// The running agent's name for UI copy. The film page sets it from the agent setting; the default is "Claude".
     @Entry var agentName = "Claude"
 }
 
@@ -82,6 +79,15 @@ struct CrewByline: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(CrewCredit.line(step: step, character: character))
         }
+    }
+}
+
+/// The asking variant of the byline: the crew member's asking pose beside one speech bubble that holds the stage's question.
+struct CrewAskByline: View {
+    let question: String
+    @Environment(\.crewCharacter) private var character
+    var body: some View {
+        if let character { CrewAskRow(character: character, text: question, unit: 140) }
     }
 }
 
@@ -144,13 +150,18 @@ struct StageHeader: View {
     /// The step, for the crew credit line.
     var step: String?
     @Environment(\.agentName) private var agent
+    @Environment(\.crewCharacter) private var character
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            CrewByline(step: step).padding(.bottom, 8)
-            Text(question)
-                .font(.system(size: 29, weight: .semibold)).tracking(-0.6)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
+            if character != nil {
+                // The crew member asks it herself: the question is her speech bubble, so it is not repeated as a heading.
+                CrewAskByline(question: question).padding(.bottom, 6)
+            } else {
+                Text(question)
+                    .font(.system(size: 29, weight: .semibold)).tracking(-0.6)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
+            }
             if let context, !context.isEmpty {
                 Text(context).font(.system(size: 14)).foregroundStyle(.secondary).lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -202,11 +213,6 @@ struct StageSectionTitle: View {
         Text(text.uppercased()).font(.system(size: 11, weight: .semibold)).tracking(0.6).foregroundStyle(.secondary)
             .accessibilityAddTraits(.isHeader)
     }
-}
-
-struct ClockLabel: View {
-    let seconds: Double
-    var body: some View { Text(clockText(seconds)).monospacedDigit() }
 }
 
 struct StageCard<Content: View>: View {
@@ -310,30 +316,6 @@ final class AudioPreviewCenter {
     func stop() {
         player?.pause(); player = nil; playingID = nil
         if let observer { NotificationCenter.default.removeObserver(observer); self.observer = nil }
-    }
-}
-
-struct AudioPreviewButton: View {
-    let id: String
-    let path: String?
-    var title = "Preview"
-    @Environment(FilmSessionModel.self) private var model: FilmSessionModel?
-    private var center: AudioPreviewCenter { .shared }
-    var body: some View {
-        let url = model?.fileURL(path)
-        let playing = center.playingID == id
-        Button {
-            if let url { center.toggle(id: id, url: url) }
-        } label: {
-            Image(systemName: playing ? "pause.fill" : "play.fill").font(.system(size: 12, weight: .semibold))
-                .frame(width: 30, height: 30)
-                .background(playing ? Color.rasan : Color(nsColor: .quaternaryLabelColor).opacity(0.5), in: Circle())
-                .foregroundStyle(playing ? Color.appBackground : Color.primary)
-        }
-        .buttonStyle(.plain).disabled(url == nil)
-        .help(url == nil ? "No audio file for this option" : (playing ? "Pause \(title)" : "Play \(title)"))
-        .accessibilityLabel(playing ? "Pause \(title)" : "Play \(title)")
-        .onDisappear { if playing { center.stop() } }
     }
 }
 

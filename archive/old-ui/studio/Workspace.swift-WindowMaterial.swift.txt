@@ -1,0 +1,15 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/Workspace.swift, replaced by the system sidebar/glass materials. Reference only.
+
+/// An AppKit material behind SwiftUI content. Follows the window's active state, as system sidebars do.
+struct WindowMaterial: NSViewRepresentable {
+    var material: NSVisualEffectView.Material
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = .behindWindow
+        view.state = .followsWindowActiveState
+        return view
+    }
+    func updateNSView(_ view: NSVisualEffectView, context: Context) { view.material = material }
+}
+

@@ -29,36 +29,16 @@ extension CrewMember {
     }
 }
 
-/// Who is working now: the first running crew member large and watching, the others as a row of small busts.
-/// Nobody running: the phase's owner. Draws nothing when the art is missing (CrewAvatar degrades to empty space).
-struct NowCrewAvatar: View {
-    let snapshot: FilmProgressSnapshot
-
-    private var running: [CrewCharacter] {
+/// Who is on the crew stage now: the first running crew member, else the owner of the phase. (The old avatar view that
+/// drew this character beside the progress card is archived in archive/old-ui/studio/.)
+enum NowCrewAvatar {
+    static func lead(for snapshot: FilmProgressSnapshot) -> CrewCharacter {
         var seen = Set<CrewCharacter>()
-        return snapshot.crew.filter { $0.state == .running }.map(\.character).filter { seen.insert($0).inserted }
-    }
-
-    var body: some View {
-        let people = running
-        let lead = people.first ?? CrewCharacter(key: CrewRoles.character(forPhase: snapshot.now.phase)) ?? .ra
-        let others = Array(people.dropFirst())
-        VStack(spacing: 6) {
-            CrewAvatar(lead, style: .full(height: 72), watching: true)
-                .id(lead)
-                .transition(.opacity)
-                .help("\(lead.displayName), \(lead.roleTitle)")
-            if !others.isEmpty {
-                HStack(spacing: 3) {
-                    ForEach(others.prefix(3)) { CrewAvatar($0, style: .bust(diameter: 20), watching: false).help($0.displayName) }
-                    if others.count > 3 { Text("+\(others.count - 3)").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary) }
-                }
-            }
-        }
-        .frame(width: 76)
-        .accessibilityHidden(true)
+        let running = snapshot.crew.filter { $0.state == .running }.map(\.character).filter { seen.insert($0).inserted }
+        return running.first ?? CrewCharacter(key: CrewRoles.character(forPhase: snapshot.now.phase)) ?? .ra
     }
 }
+
 // MARK: - Playable video thumbnail
 
 extension Notification.Name { static let rasanVideoDidStart = Notification.Name("rasanai.progress.videoDidStart") }
@@ -145,10 +125,3 @@ enum VideoPosters {
     }
 }
 
-
-extension View {
-    /// Gives the view an exact aspect box that its content (a filled image) can never grow beyond, then clips to it.
-    func aspectRatioBox(_ ratio: Double) -> some View {
-        Color.clear.aspectRatio(ratio, contentMode: .fit).overlay { self }.clipped()
-    }
-}

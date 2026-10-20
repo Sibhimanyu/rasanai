@@ -23,8 +23,7 @@ struct FilmPage: View {
     private var isFinished: Bool { if case .finished = phase { true } else { false } }
     private var showsConsole: Bool { store.film != nil && (store.isConnected || store.runtime.isRunning || store.runtime.isPreparing) }
 
-    /// The page itself, below the stage bar. The bar is laid out above it (not as a safe-area inset) so the stage's own
-    /// scroll view starts under the bar and its first line never hides behind it.
+    /// The page itself: the stage, with the status bar under it.
     @ViewBuilder private var pageContent: some View {
         Group {
             if !ready {
@@ -52,10 +51,6 @@ struct FilmPage: View {
     private var showsFilmProgress: Bool {
         guard store.progress != nil, let route = store.film?.route else { return false }
         return route == .working || route == .build
-    }
-    /// Claude is busy with the next call: the stage bar ticks the decided calls and marks the next one as being worked on.
-    private var isWorkingOnNextCall: Bool {
-        !isFinished && (showsFilmProgress || (store.runtime.isRunning && !store.hasPendingQuestion && store.phase == .working))
     }
     private var showsNativeFilm: Bool {
         ready && store.runURL != nil && !showsFinished && store.film != nil && (store.isConnected || store.runtime.isRunning || store.runtime.isPreparing)
@@ -121,7 +116,7 @@ struct FilmPage: View {
         } message: { Text("You'll see the final film. You can still change any decision from the inspector.") }
     }
 
-    /// The film's toolbar: back and forward, the five calls in the centre, then the inspector toggle and the film's tools.
+    /// The film's toolbar: back and forward, the seven-step rail in the centre, then the inspector toggle and the film's tools.
     @ToolbarContentBuilder private var filmToolbar: some ToolbarContent {
         HistoryToolbar(store: store)
         // The seven-step rail stays through working and review; the progress view's phase list no longer competes with it.

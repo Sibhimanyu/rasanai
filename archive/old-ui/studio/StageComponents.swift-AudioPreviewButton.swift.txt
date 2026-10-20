@@ -1,0 +1,26 @@
+// OLD UI — archived 2026-10-20, from apps/macos/Sources/RasanAIStudio/StageComponents.swift, replaced by the native Look stage music preview. Reference only.
+
+struct AudioPreviewButton: View {
+    let id: String
+    let path: String?
+    var title = "Preview"
+    @Environment(FilmSessionModel.self) private var model: FilmSessionModel?
+    private var center: AudioPreviewCenter { .shared }
+    var body: some View {
+        let url = model?.fileURL(path)
+        let playing = center.playingID == id
+        Button {
+            if let url { center.toggle(id: id, url: url) }
+        } label: {
+            Image(systemName: playing ? "pause.fill" : "play.fill").font(.system(size: 12, weight: .semibold))
+                .frame(width: 30, height: 30)
+                .background(playing ? Color.rasan : Color(nsColor: .quaternaryLabelColor).opacity(0.5), in: Circle())
+                .foregroundStyle(playing ? Color.appBackground : Color.primary)
+        }
+        .buttonStyle(.plain).disabled(url == nil)
+        .help(url == nil ? "No audio file for this option" : (playing ? "Pause \(title)" : "Play \(title)"))
+        .accessibilityLabel(playing ? "Pause \(title)" : "Play \(title)")
+        .onDisappear { if playing { center.stop() } }
+    }
+}
+

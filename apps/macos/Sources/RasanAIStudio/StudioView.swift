@@ -63,7 +63,7 @@ struct StudioView: View {
         case .inspire: GetInspiredPage(store: store)
         case .sample: SamplePage(store: store)
         case .library(let mode): HomeView(store: store, mode: mode)
-        case .settings: StudioSettingsView(settings: store.settings, page: true)
+        case .settings: StudioSettingsView(settings: store.settings)
         }
     }
 
@@ -115,7 +115,6 @@ struct StudioView: View {
             case .welcome: WelcomeView(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
             case .log: DirectorLogSheet(runtime: store.runtime).tint(.rasan).buttonStyle(.rasanSecondary)
             case .files: FilesSheet(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
-            case .note: NoteSheet(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
             case .preflight: PreflightView(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
             case .projectTransfer: ProjectTransferView(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
             case .export:
@@ -226,8 +225,7 @@ private struct LaunchFocus: ViewModifier {
             .background(WindowSplashCover(active: !focused, fade: focusDuration, delay: focusDelay) {
                 SplashMark(agent: agent, waiting: held && !loaded)
             })
-            // Offscreen snapshots capture the library, not the launch splash.
-            .onAppear { if SnapshotHarness.directory != nil { held = true; loaded = true; focused = true; return }; loaded = ready; hold() }
+            .onAppear { loaded = ready; hold() }
             .onChange(of: ready) { loaded = ready; revealIfDone() }
     }
 

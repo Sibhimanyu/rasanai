@@ -89,7 +89,6 @@ struct FinalStage: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { stageHeight = $0 }
-        .preference(key: StageDrawsPanelsKey.self, value: true)
         .onChange(of: model.seekTick) { playback.seek(to: model.seekTime) }
         .environment(model)
         .task(id: "\(videoURL?.path ?? "")") { playback.load(url: videoURL, fallbackDuration: duration) }

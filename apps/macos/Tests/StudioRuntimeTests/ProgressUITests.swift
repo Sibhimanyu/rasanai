@@ -91,19 +91,6 @@ final class ProgressUITests: XCTestCase {
         XCTAssertEqual(FilmProgressView.clock(78), "1:18")
         XCTAssertEqual(FilmProgressView.clock(3 * 3600 + 5 * 60 + 9), "3:05:09")
     }
-
-    @MainActor func testFixturesCoverEveryPhaseWithRealShapes() {
-        for phase in ProgressPhase.allCases {
-            let s = ProgressFixtures.snapshot(phase, now: now)
-            XCTAssertEqual(s.currentPhase, phase)
-            XCTAssertEqual(s.phases.count, 8)
-            XCTAssertFalse(s.now.text.isEmpty)
-            XCTAssertFalse(s.activity.isEmpty)
-        }
-        XCTAssertGreaterThan(ProgressFixtures.snapshot(.plan, now: now).keyframes.count, 3)
-        XCTAssertEqual(ProgressFixtures.snapshot(.build, now: now).scenes.count, 8)
-        XCTAssertEqual(ProgressFixtures.snapshot(.render, now: now).render.framesTotal, 900)
-    }
 }
 
 private extension ResearchProgress {
