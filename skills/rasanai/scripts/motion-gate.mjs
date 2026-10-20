@@ -5,7 +5,7 @@
 // fails here with the time, the region or the beat, so the builder can fix the cause.
 //
 //   node motion-gate.mjs [--video <draft.mp4>] [--project <videos/name>] [--plan <run>/motion/score.json]
-//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--vo <audio_meta.json|words.json>] [--no-text-fit] [--no-fluency] [--no-carry] [--no-echo] [--no-camera] [--no-emphasis] [--no-guards] [--no-pop] [--loop]
+//        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--vo <audio_meta.json|words.json>] [--no-text-fit] [--no-fluency] [--no-carry] [--no-echo] [--no-camera] [--no-emphasis] [--no-guards] [--no-pop] [--no-energy] [--loop]
 //        [--stillness] [--json]
 //   node motion-gate.mjs fluency --video <film.mp4> [--stillness] [--json]     the fluency measurement alone
 //   -> exit 0 pass · 2 findings (listed, each with a time and a fix) · 1 could not run (never "clean")
@@ -58,6 +58,17 @@
 //   seam-blank  (warning, --plan) a frame from 10% to 90% of a transition that is blown out (over 50% near-white), flooded (over 60% one colour in neither neighbouring scene) or emptied of detail (edges under 30% of both neighbours); a seam with flood: true opts out
 //   hold-frame-drift  (warning, --plan with <run>/frames/<id>.png) a beat's settled frame (its peak_t, else the last quarter) against its approved styleframe: dHash distance over 14/64 or SSIM under 0.55; beats in score.deviations are skipped
 //              (--no-guards skips these three)
+//   motion-busy  (WARNING, uncalibrated; lib/film-energy.mjs, --plan) a beat where over 35% of the moving frames have 3+ things moving at once and the biggest motion is under half of all motion: no primary leads
+//   energy-flat  (WARNING, uncalibrated; --plan) a film of 12 s or more with 4+ beats whose beat-to-beat energy varies under 0.25 (coefficient of variation): no build, no rest
+//   energy-arc-off  (WARNING, uncalibrated; --plan) the beats' measured mean energy follows the score's planned 1-5 energy at a rank correlation under 0.3
+//   calm-beat-busy  (WARNING, uncalibrated; --plan) a beat planned energy 2 or less that moves harder than three quarters of the film
+//   result-unheld  (WARNING, uncalibrated; --plan) the peak, an importance-3 or a picture-read beat whose main action is still going under 0.3 s before the cut, unless the seam carries the motion on purpose
+//              (--no-energy skips these five)
+//   first-frame-empty  (WARNING, uncalibrated) frame 0 is near-empty (not black, not a declared dark open): it is the thumbnail and the poster
+//   first-frame-mid-change  (WARNING, uncalibrated) the step from frame 0 to frame 1 is over 4x the opening's typical step: frame 0 is a half-entered element
+//   seam-continuity-missing  (WARNING, uncalibrated; --plan) a seam planned as shared-element, carried-object, match-cut, push-through ... that measurably carries nothing
+//   seam-colour-jump  (WARNING, uncalibrated; --plan) a continuity seam where the picture's mean colour jumps by dE over 25 within 0.2 s
+//   Every finding carries `basis` (default "measured") and, with a time and --video, `see` (a crew.mjs strip command; JSON only).
 //   duration-mismatch  (with --plan or --scenes) the render's length is within 0.25 s or 2% (whichever is larger) of the planned
 //              duration (the plan's `duration`, or where its last beat ends)
 //   pop        (WARNING, uncalibrated; lib/fluency.mjs scanFrames/findPops; idea from awesome-opus5-5-videos, our code) a single-frame
@@ -109,7 +120,9 @@ import { noteDowngrade } from "./lib/downgrade.mjs";
 import { measureEcho, ECHO } from "./lib/echo.mjs";
 import { loadIntent, emphasisReport } from "./lib/emphasis.mjs";
 import { measureCamera, cameraKind, cameraFloor } from "./lib/camera-moves.mjs";
-import { whiteFlashes, seamBlanks, holdDrift } from "./lib/frame-guards.mjs";
+import { whiteFlashes, seamBlanks, holdDrift, decodeFrames } from "./lib/frame-guards.mjs";
+import { rgbToLab } from "./lib/pixels.mjs";
+import { beatStats, busyChecks, energyArcChecks, resultHoldChecks } from "./lib/film-energy.mjs";
 
 export const GATE = {
   coverage: 0.7, // share of frames with visible motion
@@ -145,7 +158,7 @@ async function main() {
     }
     process.exit(g.pass === false ? 2 : 0);
   }
-  const res = await gate({ vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], pop: !args["no-pop"], loop: args.loop ? true : null, stillness: args.stillness ? true : null });
+  const res = await gate({ vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], pop: !args["no-pop"], energy: !args["no-energy"], loop: args.loop ? true : null, stillness: args.stillness ? true : null });
   for (const c of res.could_not_run) noteDowngrade({ run: args.run, what: "the motion gate", instead: "no motion check", why: String(c).slice(0, 200), impact: "this film's motion was not measured" });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else {
@@ -449,9 +462,14 @@ function codeChecks(file, html) {
 }
 
 // ---------------------------------------------------------------- the gate
-export async function gate({ vo = null, video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, pop = true, loop = null, stillness = null } = {}) {
+export async function gate({ vo = null, video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, pop = true, energy = true, loop = null, stillness = null } = {}) {
   const findings = [], skipped = [], could = [], measured = {};
-  const add = (f) => findings.push(f);
+  const SKILL_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+  const add = (f) => {
+    const g = { basis: "measured", ...f };
+    if (video && typeof g.at === "number" && g.see == null) g.see = `node "${path.join(SKILL_DIR, "scripts", "crew.mjs")}" strip --file ${path.resolve(video)} --from ${r2(Math.max(0, g.at - 0.4))} --to ${r2(g.at + 0.4)} --fps 24`;
+    findings.push(g);
+  };
   const P = readPlan(plan && path.resolve(plan), scenes && path.resolve(scenes));
   if (P.error) could.push(P.error);
   // a declared stillness style: the flag, the plan (stillness: true or motion_style: "stillness"), or motion.md
@@ -576,6 +594,18 @@ export async function gate({ vo = null, video = null, project = null, plan = nul
           measured.gaps_between_beats = gaps.length;
           if (!seamTimes.length) skipped.push("gap-between-beats: no plan (--plan) to say where the beats meet");
         }
+        // first frame (WARNINGS, uncalibrated): the thumbnail and poster before play; a declared dark open is exempt
+        {
+          const dark = !!(P.plan && (P.plan.open_dark === true || (P.plan.shape && P.plan.shape.opening === "silence-then-hit")));
+          const f0 = frames[0];
+          let g0 = 0; for (let p = 0; p < f0.length; p++) g0 += f0[p];
+          g0 /= f0.length;
+          const fg0 = foregroundShare(f0);
+          if (fg0 < GATE.empty_fg && g0 >= 12 && !dark) add({ check: "first-frame-empty", severity: "warning", at: 0, region: "frame 0", message: `frame 0 is near-empty (foreground ${r2(fg0 * 100)}% of the frame): it is the thumbnail and the poster before play`, fix: "open on a designed frame: the hook's picture or line already in place at frame 0, then move" });
+          const early = D.slice(1, Math.max(2, Math.round(2 * fps) + 1)).map((d) => d.mean).sort((a, b) => a - b);
+          const med = early.length ? (early.length % 2 ? early[early.length >> 1] : (early[early.length / 2 - 1] + early[early.length / 2]) / 2) : 0;
+          if (D.length > 1 && D[1].mean >= 8 && D[1].mean > 4 * med) add({ check: "first-frame-mid-change", severity: "warning", at: 0, region: "frame 0", message: `frame 0 is caught mid-change (the step into frame 1 is ${med > 0 ? r2(D[1].mean / med) : "many"}x the opening's typical step): a half-entered element is the poster`, fix: "start the first entrance from a settled, readable state at frame 0 (or begin the timeline a few frames into the move)" });
+        }
         // creep: frame pairs 0.8 s and 2.4 s apart (the longer baseline sees a push as slow as 0.3% a second), every 0.2 s;
         // a creep is three pairs in a row on one baseline with the same move (a settle at the end of an ease is shorter)
         const step = Math.max(1, Math.round(fps / 5)), creeps = [];
@@ -656,6 +686,13 @@ export async function gate({ vo = null, video = null, project = null, plan = nul
         if (t50.length >= 10 && iqr != null && iqr < 0.08) add({ check: "one-curve", severity: "warning", at: r2(b.start), region: `beat ${b.id}`, message: `${t50.length} moves in beat ${b.id} share one curve shape (t50 spread ${iqr})`, fix: "give the group irregular offsets and two or three curves (RasanMotion.cascade), and its hero a settle" });
       }
       if (rows.length) measured.fluency_beats = rows;
+      // motion hierarchy, energy arc and result holds (WARNINGS, uncalibrated; lib/film-energy.mjs): measured on the same series
+      if (energy && _series && P.plan && beats.length >= 2) {
+        const stats = beatStats(_series, beats), rawScenes = Array.isArray(P.plan.scenes) ? P.plan.scenes : Array.isArray(P.plan.beats) ? P.plan.beats : [];
+        let intent = null; try { intent = await loadIntent({ plan: plan ? path.resolve(plan) : null }); } catch { intent = null; }
+        measured.energy_beats = stats.map((s) => ({ id: s.id, mean: s.mean == null ? null : Math.round(s.mean * 100) / 100, busy_share: Math.round(s.busy_share * 100) / 100, last_strong_t: s.last_strong_t == null ? null : r2(s.last_strong_t) }));
+        for (const f of [...busyChecks(stats, rawScenes, { stillness }), ...energyArcChecks(stats, rawScenes, { dur: measured.duration_s || P.duration, stillness }), ...resultHoldChecks(stats, rawScenes, P.seams, intent)]) add(f);
+      } else if (!energy) skipped.push("energy: skipped (--no-energy)");
     } catch (e) { skipped.push(`fluency: ${e.message} (not measured, never passed)`); }
   } else if (video && !fluency) skipped.push("fluency: skipped (--no-fluency)");
 
@@ -666,6 +703,22 @@ export async function gate({ vo = null, video = null, project = null, plan = nul
       const rows = c.seams.map((x) => ({ t: x.t, score: x.score, carried: (x.score ?? 0) >= GATE.carry_seam }));
       const total = rows.length, got = rows.filter((x) => x.carried).length, share = total ? got / total : null;
       measured.carry = { source: seamTimes.length ? "plan" : "hard cuts", seams: rows, carried_share: share == null ? null : r2(share), need: carryShare };
+      // declared continuity seams (WARNINGS, uncalibrated): each is checked even when the film-wide share passes
+      const CONT = new Set(["shared-element", "carried-object", "match-cut", "push-through", "camera-through", "zoom-through", "mask-line", "flat-to-depth", "depth-to-flat"]);
+      for (const sm of P.seams || []) {
+        if (!sm || !CONT.has(sm.kind)) continue;
+        const bi = beats.findIndex((b) => String(b.n) === String(sm.to) || String(b.id) === String(sm.to));
+        const to = bi >= 0 ? beats[bi] : beats[Number(sm.to) - 1];
+        if (!to || !(to.start > 0)) continue;
+        const t = to.start, label = `${sm.from}>${sm.to}`;
+        const row = rows.find((x) => Math.abs(x.t - t) < 0.06);
+        if (row && row.score != null ? row.score < GATE.carry_seam : row && row.score == null) add({ check: "seam-continuity-missing", severity: "warning", at: r2(t), region: `seam ${label}`, message: `seam ${label} at ${r2(t)} s is planned as ${sm.kind} ("${String(sm.bridge || "").slice(0, 80)}") but nothing measurably survives it (carry ${row.score == null ? "none" : row.score.toFixed(2)})`, fix: "build the bridge frame the score names: the element must be on screen on both sides at the handoff numbers" });
+        if (sm.kind !== "flood" && sm.kind !== "iris" && !sm.flood && t - 0.1 >= 0) {
+          const grab = (a) => { const f = decodeFrames(path.resolve(video), { w: 64, h: 36, pix: "rgb24", from: a, to: a + 0.06 })[0]; if (!f) return null; let r = 0, g = 0, b = 0; const n = f.px.length / 3; for (let i = 0; i < f.px.length; i += 3) { r += f.px[i]; g += f.px[i + 1]; b += f.px[i + 2]; } return rgbToLab(r / n, g / n, b / n); };
+          const A = grab(t - 0.1), B = grab(t + 0.1);
+          if (A && B) { const dE = Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]); if (dE > 25) add({ check: "seam-colour-jump", severity: "warning", at: r2(t), region: `seam ${label}`, message: `seam ${label} at ${r2(t)} s is a continuity seam but the picture's mean colour jumps dE ${r2(dE)}`, fix: "carry the ground or the carrier's colour across, or make it a declared cut (relation but)" }); }
+        }
+      }
       if (!total) skipped.push(`carry: ${seamTimes.length ? "no seam fell inside the render" : "no plan and no hard cut found in the frames"} (nothing to compare)`);
       else if (share < carryShare) {
         const bad = rows.filter((x) => !x.carried);
