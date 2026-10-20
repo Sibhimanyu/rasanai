@@ -1,6 +1,10 @@
 // Adapted from cooked. (MIT, Copyright (c) 2026 NextWork), plugins/creator-teardown/skills/creator-teardown/scripts/visual.py constants L51-62, candidates() L76-90, analyse() L93-130 (hand-written pushes and punches), best_scale() L60-75, cut_kind() L178-219, speech() L356-372, zoom_block() L374-394 @3b236ec; ported to Node and modified by RasanAI. Credit: third_party/cooked/.
 // (Line numbers are the pinned upstream file's; the pin is 3b236ec8fe32343cdf38375df90f6cd71e0846d7.)
 //
+// RasanAI additions, not in upstream: a pair that is clearly a new picture (block-median r1 > SHOT_R and histogram jump >= SHOT_H)
+// only counts as a zoom punch when the scaled residual is under 0.1 x r1 (a hard cut between unrelated pictures must not read as
+// a punch), and every accepted scale match needs its residual under 0.5 x r1 AND under SHOT_R, so a "best of bad fits" cannot pass.
+//
 // Cut kinds and zoom moves, measured on small grey frames (108 px short side). Complements lib/deconstruct.mjs robustCuts: the
 // RasanAI cut list stays authoritative; this module names each cut (hard, jump, match, whip, mask, dissolve, zoom-punch), finds
 // the zoom punches that are NOT cuts (a scaled copy of the same picture), the slow pushes inside shots, and (with words) how the
@@ -243,8 +247,9 @@ export async function classifyCuts(file, { cuts = null, words = null } = {}) {
     const gestureOnly = r1 <= K.SHOT_R && hj <= K.SHOT_H && !(r1 >= K.JUMP_R && spike >= K.JUMP_SPIKE);
     const jumpish = r1 >= K.JUMP_R && spike >= K.JUMP_SPIKE;
     let s = 1.0, rb = r1;
+    const newPicture = r1 > K.SHOT_R && hj >= K.SHOT_H; // RasanAI guard: clearly a new picture, so a scale match must be an excellent fit
     if (!gestureOnly && r1 > 2) ({ scale: s, residual: rb } = bestScale(a, b, w, h, K.PUNCH_SCALES, 9));
-    const scaled = s !== 1.0 && rb < 0.5 * r1;
+    const scaled = s !== 1.0 && rb < (newPicture ? 0.1 : 0.5) * r1 && rb < K.SHOT_R; // RasanAI guard: and an absolute ceiling on the fit
     return { r1, hj, gestureOnly, jumpish, s, scaled };
   };
 
