@@ -614,9 +614,17 @@ struct CrewAskRow: View {
     let text: String
     var unit: CGFloat = 150
 
+    /// How far down the drawn pose its eyes sit, in points; split up so the release compiler type-checks it quickly.
+    private static func eyeLine(_ pose: StagePose?, unit: CGFloat) -> CGFloat {
+        guard let pose else { return 40 }
+        let sum: CGFloat = pose.eyes.reduce(0) { $0 + $1.cy }
+        let mean: CGFloat = sum / CGFloat(max(1, pose.eyes.count))
+        let drawnHeight: CGFloat = min(unit, 220 * pose.height / pose.width)
+        return mean * drawnHeight / pose.height
+    }
+
     var body: some View {
-        let pose = CrewStageArt.pose(character, .ask)
-        let eyeY = pose.map { ($0.eyes.map(\.cy).reduce(0, +) / CGFloat(max(1, $0.eyes.count))) * min(unit, 220 * $0.height / $0.width) / $0.height } ?? 40
+        let eyeY = Self.eyeLine(CrewStageArt.pose(character, .ask), unit: unit)
         HStack(alignment: .top, spacing: 0) {
             CrewStage(character: character, mode: .ask, unit: unit)
             CrewSpeechBubble(text: text)
