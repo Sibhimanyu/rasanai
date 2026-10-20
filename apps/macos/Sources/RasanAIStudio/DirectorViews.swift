@@ -166,13 +166,22 @@ struct DirectorLogSheet: View {
     var runtime: DirectorRuntime?
     weak var store: StudioStore?
     private var pendingPackage: URL?
+    private var watchingActivation = false
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let package = urls.first(where: { $0.pathExtension.lowercased() == PortableProject.fileExtension }) else { return }
         if let store { store.importProjectPackage(package) } else { pendingPackage = package }
     }
     func configureNotifications() {
         if let pendingPackage { store?.importProjectPackage(pendingPackage); self.pendingPackage = nil }
-        if Bundle.main.bundleIdentifier != nil { UNUserNotificationCenter.current().delegate = self }
+        guard Bundle.main.bundleIdentifier != nil else { return }
+        UNUserNotificationCenter.current().delegate = self
+        // People past Welcome who never answered get asked once now; first launch asks when Welcome closes.
+        if let settings = store?.settings, settings.hasCompletedWelcome { Task { await settings.requestNotificationPermissionIfNeeded() } }
+        guard !watchingActivation else { return }
+        watchingActivation = true
+        NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in await self?.store?.settings.refreshNotificationPermission() }
+        }
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
         guard let path = response.notification.request.content.userInfo["runPath"] as? String else { return }
