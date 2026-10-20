@@ -25,6 +25,8 @@
 //   node footage.mjs cut-plan --run <run> --clip <id> [--max-pause 0.3] [--pad 0.1] [--check-splices]
 //        -> footage/cuts/<clip>.plan.json: kept source ranges, cuts, edited-time word map, splice warnings. The source is never modified.
 //   node footage.mjs cut-payload --run <run> [--clips a,b]   -> the { cut: { clips: [...] } } JSON the Director pushes to the console reel step
+//   node footage.mjs faces    --run <run> [--clip <id>[,<id>]] [--every 0.5] [--max 240]   (optional: macOS + /usr/bin/swift)
+//        -> footage/faces/<clip>.json: { clip, fingerprint, step_s, samples, heads: [{ t, boxes: [{x,y,w,h,conf}] }] }, head boxes expanded (lib/heads.mjs), low-confidence faces kept with conf
 //   node footage.mjs merge-log | check-log | check-selects [--min-good 8] | check-paper --paper <story/paper-X.json> [--length s]
 //        -> the checks the crew's footage roles are accepted by (exit 2 with the problems listed)
 import fs from "node:fs";
@@ -41,6 +43,7 @@ import { speechChain } from "./lib/audio.mjs";
 import { r3, jsonMaybe, FD, wordsOf, checkLog, mergeLogs, checkSelects, checkPaper } from "./lib/footage-lib.mjs";
 import { findCandidates } from "./lib/retakes.mjs";
 import { newCutDoc, applyAction, cutState, keptRanges, editedMap, spliceWarnings, checkSource, saveCutDoc } from "./lib/cutplan.mjs";
+import { headBox, HEAD } from "./lib/heads.mjs";
 import { fingerprintFile, sha1OfFile } from "./lib/fingerprint.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -598,12 +601,61 @@ function cutPayload() {
   out({ cut: { clips }, ...(notes.length ? { notes } : {}) });
 }
 
+// ---------------------------------------------------------------- faces: head boxes per clip (Apple Vision)
+function faces() {
+  need();
+  const swift = "/usr/bin/swift", vswift = path.join(HERE, "vision", "vision.swift");
+  if (process.platform !== "darwin" || !fs.existsSync(swift) || !fs.existsSync(vswift)) {
+    noteDowngrade({ run, what: "Apple Vision (head boxes)", instead: "no face-aware warnings; faces count as unknown", why: "needs macOS and /usr/bin/swift" });
+    out({ ok: true, skipped: "Apple Vision not available" });
+  }
+  const ids = wantClips("clip");
+  const recs = clipRecords();
+  const targets = ids || recs.map((c) => c.id);
+  if (!targets.length) die("no clips: run footage.mjs ingest first, or pass --clip <id>");
+  const every = Number(args.every) > 0 ? Number(args.every) : HEAD.STEP_S;
+  const max = Number(args.max) > 0 ? Math.floor(Number(args.max)) : 240;
+  const clips = [], skipped = [];
+  for (const clip of targets) {
+    const rec = recs.find((c) => c.id === clip);
+    const src = rec && rec.path ? path.resolve(rec.path) : null;
+    if (!src || !fs.existsSync(src)) { skipped.push({ clip, why: "source file not found" }); continue; }
+    let dur = Number(rec.duration) || 0;
+    if (!dur) { try { dur = Number(JSON.parse(sh("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "json", src]).stdout).format.duration) || 0; } catch {} }
+    if (!dur) { skipped.push({ clip, why: "no duration" }); continue; }
+    const step = Math.max(every, dur / max);
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "rasanai-faces-"));
+    try {
+      const fr = sh("ffmpeg", ["-v", "error", "-y", "-i", src, "-an", "-vf", `fps=1/${step},scale=720:-2`, "-frames:v", String(max), "-q:v", "3", path.join(tmp, "f%05d.jpg")], { timeout: 600000 });
+      const jpgs = fs.readdirSync(tmp).filter((f) => f.endsWith(".jpg")).sort().map((f) => path.join(tmp, f));
+      if (!jpgs.length) { skipped.push({ clip, why: `ffmpeg decoded no frames (${String(fr.stderr || "").trim().split("\n").pop()})` }); continue; }
+      const byPath = new Map();
+      let failed = 0;
+      for (let i = 0; i < jpgs.length; i += 40) {
+        const r = sh(swift, [vswift, ...jpgs.slice(i, i + 40)], { timeout: 300000 });
+        try { if (r.status !== 0) throw new Error("vision failed"); for (const o of JSON.parse(r.stdout)) byPath.set(o.path, o); } catch { failed++; }
+      }
+      if (failed && !byPath.size) { skipped.push({ clip, why: "Apple Vision returned nothing readable" }); continue; }
+      // frames Vision did not return are left out (unknown to headsDuring), never recorded as "no face"
+      const heads = jpgs.map((p, i) => ({ t: r3(i * step), o: byPath.get(p) })).filter((s) => s.o && !s.o.error)
+        .map((s) => ({ t: s.t, boxes: (s.o.faces || []).map(headBox).filter(Boolean) }));
+      const doc = { clip, fingerprint: rec.fingerprint || fingerprintFile(src), step_s: r3(step), samples: heads.length, heads };
+      const file = FD(run, "faces", `${clip}.json`);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, JSON.stringify(doc, null, 2) + "\n");
+      clips.push({ clip, file: rel(file), samples: heads.length, with_faces: heads.filter((h) => h.boxes.length).length, low_conf: heads.filter((h) => h.boxes.length && h.boxes.every((b) => !(b.conf >= HEAD.MIN_CONF))).length, ...(failed ? { batches_failed: failed } : {}) });
+    } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+  }
+  out({ ok: true, clips, ...(skipped.length ? { skipped } : {}) });
+}
+
 // ---------------------------------------------------------------- checks
 function report(name, { P, W }, extra = {}) { out({ ok: !P.length, check: name, problems: P, warnings: W, ...extra }, P.length ? 2 : 0); }
 
 if (cmd === "ingest") ingest();
 else if (cmd === "shots") shots();
 else if (cmd === "vision") vision();
+else if (cmd === "faces") faces();
 else if (cmd === "transcribe") transcribe();
 else if (cmd === "bites") bites();
 else if (cmd === "clean-speech") cleanSpeech();
@@ -619,4 +671,4 @@ else if (cmd === "check-paper") {
   if (!args.paper || args.paper === true) die("--paper <story/paper-X.json> required");
   const r = checkPaper(run, path.resolve(String(args.paper)), { length: Number(args.length) || 0 });
   report("paper edit", r, { stats: r.stats });
-} else die("usage: footage.mjs ingest|shots|vision|transcribe|bites|clean-speech|retakes|cut|cut-plan|cut-payload|merge-log|check-log|check-selects|check-paper … (see the header)");
+} else die("usage: footage.mjs ingest|shots|vision|faces|transcribe|bites|clean-speech|retakes|cut|cut-plan|cut-payload|merge-log|check-log|check-selects|check-paper … (see the header)");
