@@ -202,7 +202,7 @@ function applyAction(s, action) {
   const step = action.step;
   tasteFrom(action);
   if (step === "*") s.decide_rest = { ts: action.ts };
-  else if (Object.prototype.hasOwnProperty.call(s.steps, step) && !["comment", "knob"].includes(action.type)) s.steps[step].sent = { type: action.type, value: action.value, note: action.note, ts: action.ts };
+  else if (Object.prototype.hasOwnProperty.call(s.steps, step) && !["comment", "knob", "cut-edit"].includes(action.type)) s.steps[step].sent = { type: action.type, value: action.value, note: action.note, ts: action.ts };
   // an answer to an `ask` card: record it on the question and clear it from the page
   if (action.type === "answer" && s.ask && !s.ask.answered) {
     const v = action.value || {};
@@ -219,10 +219,12 @@ function applyAction(s, action) {
   // a note pinned to a moment of the animatic or the final: kept on the page until Claude resolves it
   if (action.type === "comment") {
     const v = action.value || {};
-    s.comments = (s.comments || []).concat({ id: action.id, step, scene: v.scene ?? null, t: typeof v.t === "number" ? v.t : null, x: typeof v.x === "number" ? v.x : null, y: typeof v.y === "number" ? v.y : null, w: typeof v.w === "number" ? v.w : null, h: typeof v.h === "number" ? v.h : null, scope: v.scope || "scene", quick: v.quick || null, text: action.note || v.quick || "", state: "open", ts: action.ts }).slice(-200);
+    s.comments = (s.comments || []).concat({ id: action.id, step, scene: v.scene ?? null, t: typeof v.t === "number" ? v.t : null, x: typeof v.x === "number" ? v.x : null, y: typeof v.y === "number" ? v.y : null, w: typeof v.w === "number" ? v.w : null, h: typeof v.h === "number" ? v.h : null, scope: v.scope || "scene", quick: v.quick || null, word_id: typeof v.word_id === "string" ? v.word_id : null, clip: typeof v.clip === "string" ? v.clip : null, text: action.note || v.quick || "", state: "open", ts: action.ts }).slice(-200);
     activity(s, `You left a note${v.t != null ? " at " + Math.floor(v.t / 60) + ":" + String(Math.floor(v.t % 60)).padStart(2, "0") : ""}: ${action.note || v.quick}`, "you", null);
     return;
   }
+  // a transcript edit in the Cut stage (Studio): a feed line only; it must not mark the reel step as answered
+  if (action.type === "cut-edit") { activity(s, `You edited the cut: ${(action.value && action.value.op) || "edit"}`, "you", null); return; }
   // a redo of some style frames ({ids, note}): name the frames
   const nm = action.type === "redo" && action.value && Array.isArray(action.value.ids) ? `frame${action.value.ids.length > 1 ? "s" : ""} ${action.value.ids.join(", ")}` : nameOf(s, step, action.value);
   const verb = { choose: "picked", submit: "sent", approve: "approved", adjust: "adjusted", more: "asked for more of", redo: "asked to redo" }[action.type] || action.type;
