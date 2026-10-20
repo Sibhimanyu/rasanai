@@ -1,7 +1,12 @@
 // Apple Vision on keyframes, on-device and headless (no window, nothing leaves the Mac). Optional: footage.mjs vision runs it with
 // /usr/bin/swift and works without it (the log then has no face boxes, saliency, labels or on-screen text).
-//   swift vision.swift <image> [<image> ...]   ->  one JSON array on stdout:
-//   [{ path, faces: [{x,y,w,h}], humans: n, saliency: [{x,y,w,h}], labels: [{id, conf}], text: ["..."] }]  (rects normalised, origin top-left)
+//   swift vision.swift [--accurate] <image> [<image> ...]   ->  one JSON array on stdout:
+//   [{ path, faces: [{x,y,w,h,conf}], humans: n, saliency: [{x,y,w,h}], labels: [{id, conf}], text: ["..."],
+//      text_boxes: [{text, conf, x, y, w, h}] }]  (rects normalised, origin top-left)
+//   --accurate sets recognitionLevel = .accurate (slower; lib/reflook.mjs uses it); without it the level stays .fast (footage.mjs depends on speed).
+//   conf on faces and text_boxes, and text_boxes itself, are additive: older readers that ignore them keep working.
+//   Adapted for reference-look sampling from cooked. (MIT, Copyright (c) 2026 NextWork), plugins/creator-teardown/skills/creator-teardown/scripts/look.py
+//   (faces + OCR line boxes feeding find_captions and the face framing) @ 3b236ec8fe32343cdf38375df90f6cd71e0846d7. Credit: third_party/cooked/.
 import Foundation
 import Vision
 import ImageIO
@@ -15,7 +20,9 @@ func rect(_ r: CGRect) -> [String: Double] {
 }
 
 var out: [[String: Any]] = []
-for path in CommandLine.arguments.dropFirst() {
+let argv = Array(CommandLine.arguments.dropFirst())
+let accurate = argv.contains("--accurate")
+for path in argv where path != "--accurate" {
   guard let img = load(path) else { out.append(["path": path, "error": "unreadable"]); continue }
   let handler = VNImageRequestHandler(cgImage: img, options: [:])
   let faceReq = VNDetectFaceRectanglesRequest()
@@ -23,16 +30,22 @@ for path in CommandLine.arguments.dropFirst() {
   let salReq = VNGenerateAttentionBasedSaliencyImageRequest()
   let clsReq = VNClassifyImageRequest()
   let txtReq = VNRecognizeTextRequest()
-  txtReq.recognitionLevel = .fast
+  txtReq.recognitionLevel = accurate ? .accurate : .fast
   txtReq.usesLanguageCorrection = false
   try? handler.perform([faceReq, humReq, salReq, clsReq, txtReq])
-  let faces = (faceReq.results ?? []).map { rect($0.boundingBox) }
+  let faces: [[String: Double]] = (faceReq.results ?? []).map { f in var d = rect(f.boundingBox); d["conf"] = Double(f.confidence); return d }
   let humans = (humReq.results ?? []).count
   var sal: [[String: Double]] = []
   if let o = salReq.results?.first as? VNSaliencyImageObservation { sal = (o.salientObjects ?? []).map { rect($0.boundingBox) } }
   let labels: [[String: Any]] = ((clsReq.results ?? []) as [VNClassificationObservation])
     .filter { $0.confidence > 0.25 }.prefix(6).map { ["id": $0.identifier, "conf": Double($0.confidence)] }
   let text: [String] = (txtReq.results ?? []).compactMap { $0.topCandidates(1).first?.string }
-  out.append(["path": path, "faces": faces, "humans": humans, "saliency": sal, "labels": labels, "text": text])
+  let textBoxes: [[String: Any]] = (txtReq.results ?? []).compactMap { o in
+    guard let c = o.topCandidates(1).first else { return nil }
+    var d: [String: Any] = rect(o.boundingBox)
+    d["text"] = c.string; d["conf"] = Double(c.confidence)
+    return d
+  }
+  out.append(["path": path, "faces": faces, "humans": humans, "saliency": sal, "labels": labels, "text": text, "text_boxes": textBoxes])
 }
 if let data = try? JSONSerialization.data(withJSONObject: out, options: []), let s = String(data: data, encoding: .utf8) { print(s) }
