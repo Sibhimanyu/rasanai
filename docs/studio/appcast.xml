@@ -6,6 +6,18 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.19.3 beta 1</title>
+      <pubDate>Wed, 21 Oct 2026 17:20:54 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **A stuck director pauses itself.** When Claude repeats the same step, or burns tokens without showing you anything new, for two minutes, Studio pauses it so a loop stops spending tokens. A red banner says why, with Resume, Message Claude and Show log; nothing is lost and Resume carries on mid-step. Turn it off in Settings → "Pause the director when it looks stuck".
+- **Your budget is a limit, not just a warning.** When a film passes your spend per film, the director pauses. Keep going resumes it; Raise by $10 lifts the limit.
+- **Loops are caught even with Studio closed.** If Studio crashes or is force-quit mid-film, the director's supervisor stops it after the same call five times in a row instead of letting it run on unwatched.]]></description>
+      <sparkle:version>41</sparkle:version>
+      <sparkle:shortVersionString>0.19.3</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.3-beta.1/RasanAI-Studio-0.19.3.dmg" sparkle:edSignature="LloGkM6Vho/L3I9JFz3bQp+yTvnPzTP+ClPfWMewZkx3/mxEuihKo2r/c9B9I6W8GSVOk7v+ZZTCzUvOOFMmDg==" length="80959317" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.19.2 beta 1</title>
       <pubDate>Wed, 21 Oct 2026 11:25:44 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **Decisions say where you made them.** A call answered from another app (Squeak on your iPhone) shows "You · iPhone" in the Decisions drawer.]]></description>
