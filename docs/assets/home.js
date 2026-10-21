@@ -148,9 +148,16 @@
       if (fx === "slam") {
         // the shockwave reaches the letters nearest the impact first; each is thrown outward and up, then falls, spinning
         chars.forEach(function (ch, k) {
-          var f = blast[k], t = seg(r, f.at, f.at + .5 + hash(k + 29) * .25);
-          ch.style.transform = t ? "translate3d(" + (f.vx * t).toFixed(1) + "px," + (f.vy * t + f.g * t * t).toFixed(1) + "px,0) rotate(" + (f.spin * t).toFixed(1) + "deg) scale(" + (1 + (f.grow - 1) * t).toFixed(3) + ")" : "";
-          ch.style.opacity = (1 - seg(t, f.grow < 1 ? .35 : .55, 1)).toFixed(3);
+          var f = blast[k], t = seg(r, f.at, f.at + .62 + hash(k + 29) * .2);
+          // the speed curve: a hard burst (a third of the travel in the first fifth, easing out), then a slow hover with a
+          // little bob, then gathering speed away, falling as it goes
+          var u = t < .2 ? .3 * (1 - Math.pow(1 - t / .2, 4))
+            : t < .68 ? .3 + .08 * ((t - .2) / .48)
+            : .38 + 1.2 * Math.pow((t - .68) / .32, 2);
+          var bob = t > .2 && t < .68 ? Math.sin((t - .2) / .48 * Math.PI * 2 + k) * 6 * Math.sin((t - .2) / .48 * Math.PI) : 0;
+          var fall = f.g * .55 * Math.pow(Math.max(0, t - .62) / .38, 2);
+          ch.style.transform = t ? "translate3d(" + (f.vx * u).toFixed(1) + "px," + (f.vy * u + bob + fall).toFixed(1) + "px,0) rotate(" + (f.spin * (u * .8 + .2 * t)).toFixed(1) + "deg) scale(" + (1 + (f.grow - 1) * Math.min(1, u * 1.3)).toFixed(3) + ")" : "";
+          ch.style.opacity = (1 - seg(t, .72, 1)).toFixed(3);
           ch.style.zIndex = f.grow > 1 ? "2" : "";
         });
         layer.style.opacity = (1 - seg(r, .05, .45)).toFixed(3);
@@ -490,12 +497,12 @@
   // crew flight: the hero cards assemble and land on the crew standing on the Home screenshot, then hand off to it
   var homeWin = $(".shot-band .window[data-rise]"), homeImg = homeWin && $("img", homeWin);
   if (heroEl && homeImg) {
-    // percentages of the dark Studio home capture (3024x1768): each box is the full character, measured against the painted-out version
-    var BOX = { tara: [39.649, 43.326, 4.299, 6.165], kavi: [44.048, 37.387, 4.332, 12.104], chitra: [48.479, 36.482, 4.861, 13.009], ra: [53.34, 35.973, 7.374, 13.518], laya: [60.714, 36.312, 4.034, 12.161], rasika: [64.749, 43.891, 5.556, 5.6], mala: [70.337, 40.554, 5.225, 8.937] };
+    // percentages of the Studio home capture (light, sidebar collapsed, 3024x1768): each box is the full character, measured against the painted-out version
+    var BOX = { tara: [32.077, 43.269, 4.233, 6.222], kavi: [36.442, 37.5, 4.398, 11.991], chitra: [40.906, 36.652, 5.06, 12.839], ra: [45.966, 35.86, 7.11, 13.631], laya: [53.142, 36.256, 4.332, 12.217], rasika: [57.474, 44.005, 5.225, 5.486], mala: [62.765, 40.554, 5.225, 8.937] };
     var RIM = 49.5, STAG = .06;   // the prompt box's top edge
     // while the crew fly in, the screenshot shows its prompt with the crew painted out, so no one lands on top of themselves
     var emptyImg = new Image(); emptyImg.className = "shot-empty"; emptyImg.alt = ""; emptyImg.setAttribute("aria-hidden", "true"); emptyImg.decoding = "async";
-    emptyImg.srcset = "img/studio/home-dark-1x-empty.webp 1000w, img/studio/home-dark-2x-empty.webp 2000w"; emptyImg.sizes = homeImg.getAttribute("sizes") || "100vw"; emptyImg.src = "img/studio/home-dark-1x-empty.webp";
+    emptyImg.srcset = "img/studio/home-light-1x-empty.webp 1000w, img/studio/home-light-2x-empty.webp 2000w"; emptyImg.sizes = homeImg.getAttribute("sizes") || "100vw"; emptyImg.src = "img/studio/home-light-1x-empty.webp";
     homeWin.appendChild(emptyImg);
     var setEmpty = function (on) { homeWin.classList.toggle("is-empty", on); };
     var layer = document.createElement("div");
@@ -507,7 +514,7 @@
       var d = parseFloat(c.style.getPropertyValue("--d")) || 1;
       var box = document.createElement("div"); box.className = "cf";
       var card = new Image(); card.className = "cf-card"; card.alt = ""; card.decoding = "async"; card.src = im.getAttribute("src");
-      var cut = new Image(); cut.className = "cf-cut"; cut.alt = ""; cut.decoding = "async"; cut.src = "assets/crew/land/" + m[1] + ".webp?v=3";   // v3: from the dark Studio home
+      var cut = new Image(); cut.className = "cf-cut"; cut.alt = ""; cut.decoding = "async"; cut.src = "assets/crew/land/" + m[1] + ".webp?v=4";   // v4: from the light Studio home
       card.style.opacity = (.6 + d * .4).toFixed(2);
       box.appendChild(card); box.appendChild(cut); layer.appendChild(box);
       fl.push({ c: c, fi: $(".fi", c), box: box, card: card, cut: cut, b: BOX[m[1]], base: .6 + d * .4, sw: 0, tw: 0 });
