@@ -79,7 +79,7 @@
   .wshot-band { padding-top: 0; }
 }
 @media (min-width: 900px) and (max-width: 1250px) { .fc { --k: .78; } }
-.pin .hero { height: 190vh; }
+.pin .hero { height: 260vh; position: relative; z-index: 1; }   /* above the crew scene, which starts a screen early behind the window (z 2) */
 .pin .hero .sticky { position: sticky; top: 0; }
 /* the screenshot rises under the pinned hero while the cards fly onto it */
 .pin .shot-band { position: relative; z-index: 2; margin-top: -70vh; }
@@ -122,7 +122,7 @@
 
 /* ---- pinned scene (wide, motion allowed, controller ready) ---- */
 @media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
-  .pin .flow.crew-ready { height: 1420vh; margin-top: -100vh; }   /* starts behind the rising window (.shot-band is above it), so the opening line is uncovered in place */
+  .pin .flow.crew-ready { height: 2840vh; margin-top: -100vh; }   /* starts behind the rising window (.shot-band is above it), so the opening line is uncovered in place */
   .pin .flow.crew-ready > .crew-sticky { position: sticky; top: 0; height: 100vh; height: 100svh; max-width: none; margin: 0; padding: 0; overflow: hidden; display: block; background: var(--rice); }
   /* Rasan's introduction holds the right half while he stands on the left */
   .pin .crew-ready .crew-lead { position: absolute; left: 52%; top: 50%; z-index: 2; width: min(34rem, 40vw); translate: 0 -50%; will-change: transform, opacity; }
@@ -167,7 +167,7 @@
 .beat-word.is-accent { color: var(--rasanai-blue); }
 .beat-char { display: inline-block; position: relative; }
 @media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
-  .pin .beat-host.host-ready { height: 260vh; padding: 0; overflow: clip; }   /* clip, not hidden: hidden would stop the stage from sticking */
+  .pin .beat-host.host-ready { height: 520vh; padding: 0; overflow: clip; }   /* clip, not hidden: hidden would stop the stage from sticking */
   .pin .host-ready > .host-pin { position: sticky; top: 0; height: 100vh; height: 100svh; box-sizing: border-box; display: grid; align-content: center; overflow: hidden; }
   .pin :is(.host-ready, .crew-ready) .beat { position: absolute; inset: 0; z-index: 8; min-height: 0; padding: 0 var(--pad); background: none; pointer-events: none; }
   .pin :is(.host-ready, .crew-ready) .beat-layer { display: block; position: absolute; inset: 0; background: var(--beat-bg); transform-origin: 50% 0; }
@@ -387,7 +387,7 @@
   .pin .host-ready .g-sparks i { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px; border-radius: 50%; background: var(--rasanai-blue); opacity: 0; }
   .pin .host-ready .g-sparks i:nth-child(3n) { background: #ffc812; width: 14px; height: 14px; margin: -7px; }
   .pin .host-ready .g-sparks i:nth-child(3n+1) { background: #ff972e; border-radius: 3px; }
-  .pin .squeak-scene.host-ready { height: 900vh; }
+  .pin .squeak-scene.host-ready { height: 1800vh; }
   .pin .squeak-scene.host-ready > .host-pin { padding: 0; display: block; }
   .pin .host-ready .sq-stage { position: absolute; inset: 0; max-width: none; margin: 0; display: block; }
   .pin .host-ready .sq-copy { position: absolute; left: max(var(--pad), calc(50vw - 610px)); top: 50%; width: min(30rem, 33vw); height: 70vh; translate: 0 -50%; display: block; }
