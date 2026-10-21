@@ -14,6 +14,8 @@ struct FilmProgressView: View {
     /// The director stopped mid-film and Studio will resume it by itself (or when a plan limit resets).
     var autoResume: AutoResumeNotice?
     var onResumeNow: (() -> Void)?
+    /// Nothing is running and nobody paused it: the person resumes it by hand.
+    var onResume: (() -> Void)?
     /// The director is stopped by the person: the crew on stage snooze (as they do while a usage limit is waited out).
     var paused = false
 
@@ -24,6 +26,9 @@ struct FilmProgressView: View {
     @Environment(\.agentName) private var agent
     @State private var wrapSent = false
     @State private var wrapFailed = false
+
+    /// The film is unfinished, nothing runs, and the person did not pause it: the director stopped and waits for Resume.
+    private var stalled: Bool { progress.snapshot.directorIdle && !paused && autoResume == nil && !progress.isReplay }
 
     private var snapshot: FilmProgressSnapshot {
         var s = progress.snapshot
@@ -37,6 +42,9 @@ struct FilmProgressView: View {
         // The automatic resume is a line in the activity timeline too.
         if let notice = autoResume {
             s.activity.append(ProgressActivity(id: "auto-resume-\(Int(notice.since.timeIntervalSince1970))", time: notice.since, phase: s.currentPhase, kind: .warning, title: notice.text))
+        }
+        if stalled {
+            s.now = NowLine(phase: s.now.phase, kind: .thinking, text: "\(agent) isn't working on this film right now", detail: nil, since: nil)
         }
         return s
     }
@@ -80,6 +88,7 @@ struct FilmProgressView: View {
                 }
                 .foregroundStyle(s.isWaitingForYou ? Color.orange : Color.rasan)
                 if let notice = autoResume { resumeBanner(notice, now: now) }
+                if stalled { stalledBanner }
                 crewStage(s, now: now, visibleHeight: visibleHeight)
                 researchNotice(s, now: now)
                 activityWarning(s)
@@ -97,9 +106,10 @@ struct FilmProgressView: View {
     /// waits, the same character stands to the side and asks it in one speech bubble.
     @ViewBuilder private func crewStage(_ s: FilmProgressSnapshot, now: Date, visibleHeight: CGFloat) -> some View {
         let lead = NowCrewAvatar.lead(for: s)
-        let asleep = paused || autoResume?.isLimit == true
+        let asleep = paused || stalled || autoResume?.isLimit == true
         let timing = HStack(spacing: 14) {
             Text(Self.clock(s.elapsed(now: now)) + " elapsed").font(.system(size: 13, weight: .semibold, design: .rounded)).monospacedDigit()
+                .help("Working time. Time the director was not running (a plan limit, a pause, the app closed) and your calls are left out.")
                 .accessibilityLabel("Elapsed \(FilmProgressFormat.duration(s.elapsed(now: now)))")
             estimate(s)
         }
@@ -230,9 +240,35 @@ struct FilmProgressView: View {
         .accessibilityElement(children: .combine)
     }
 
+    /// Nothing runs and nobody paused it: say the director stopped, and offer Resume as the one action.
+    private var stalledBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "pause.circle.fill").font(.system(size: 13, weight: .semibold))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(agent) stopped working on this film").font(.system(size: 13, weight: .semibold))
+                Text("Your work is saved. Press Resume and it carries on from where it left off.").font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            if let onResume { Button("Resume", action: onResume).buttonStyle(.rasanPrimary).controlSize(.regular) }
+        }
+        .foregroundStyle(Color.orange)
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .padding(.bottom, 10)
+        .accessibilityElement(children: .combine)
+    }
+
     @ViewBuilder private func estimate(_ s: FilmProgressSnapshot) -> some View {
         if s.isWaitingForYou {
             Label("Waiting for you", systemImage: "person.fill.questionmark").font(.system(size: 12, weight: .semibold)).foregroundStyle(.orange)
+        } else if s.directorIdle {
+            if paused {
+                Label("Paused", systemImage: "pause.circle").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+            } else if autoResume?.isLimit == true {
+                Label("Waiting for your plan limit to reset", systemImage: "hourglass").font(.system(size: 12, weight: .semibold)).foregroundStyle(.orange)
+            } else {
+                Label("Not running", systemImage: "stop.circle").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+            }
         } else if let remaining = s.remaining {
             HStack(spacing: 5) {
                 Text(Self.estimateText(remaining)).font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.rasan)

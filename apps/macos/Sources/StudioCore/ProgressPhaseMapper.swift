@@ -97,17 +97,17 @@ public enum ProgressPhaseMapper {
         return draft ? (.draft, Verdict(phase: .check, requires: .build)) : (.final, Verdict(phase: .render, requires: .build))
     }
 
-    /// Typical working minutes per phase, from the real ChatGPT film (used for "about N min left" until progress can be measured).
+    /// Typical working seconds per phase, calibrated on three real films (Oct 2026, work time only; used for "about N min left" until progress can be measured).
     public static func typicalSeconds(_ phase: ProgressPhase, quickResearch: Bool = false, filmSeconds: Double = 30) -> TimeInterval {
         switch phase {
-        case .research: quickResearch ? 150 : 420
-        case .script: 600
-        case .look: 900
-        case .plan: 1_800
-        case .animatic: 180
-        case .build: 2_400
-        case .check: 1_800
-        case .render: max(180, filmSeconds * 10)
+        case .research: quickResearch ? 150 : 360
+        case .script: 420
+        case .look: 720
+        case .plan: 720
+        case .animatic: 120
+        case .build: 1_500
+        case .check: 1_200
+        case .render: max(300, filmSeconds * 40)
         }
     }
 }

@@ -37,7 +37,8 @@ struct FilmPage: View {
                 NativeFilmView(model: film, startedAt: store.runtime.startedAt, progress: store.progress,
                                onPause: store.canPause ? { store.pauseDirector() } : nil,
                                onShowLog: store.runtime.logURL != nil ? { store.sheet = .log } : nil,
-                               pace: shownPace, autoResume: store.runtime.autoResume, onResumeNow: store.runtime.autoResume != nil ? { store.resumeDirector() } : nil, paused: store.phase == .paused)
+                               pace: shownPace, autoResume: store.runtime.autoResume, onResumeNow: store.runtime.autoResume != nil ? { store.resumeDirector() } : nil,
+                               onResume: store.canResume && !store.runtime.isRunning ? { store.resumeDirector() } : nil, paused: store.runtime.isFrozen || store.runtime.stopRequested)
             } else if store.runtime.isRunning || store.runtime.isPreparing {
                 StartingView(runtime: store.runtime)
             } else {

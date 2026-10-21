@@ -38,6 +38,10 @@ final class DirectorRuntime {
     var projectURL: URL? { activeProject }
     var runURL: URL? { activeRun }
     private var process: Process?
+    /// The driver's process id: its own child, or a director a previous Studio left running (adopted after a relaunch).
+    private(set) var pid: Int32?
+    /// Polls an adopted director until it is gone, then handles its exit like an own one.
+    private var adoptWatch: Task<Void, Never>?
     private var activeRun: URL?
     private var activeProject: URL?
     static var engineURL: URL? {
@@ -79,6 +83,7 @@ final class DirectorRuntime {
         let executable = URL(fileURLWithPath: settings.path(for: agent))
         guard FileManager.default.isExecutableFile(atPath: executable.path) else { throw RuntimeError.missingAgent }
         isPreparing = true
+        adoptWatch?.cancel(); adoptWatch = nil
         startedAt = Date(); recovery = nil; recoveryDetail = ""; endedOnBackgroundCeiling = false; preflightReport = nil
         autoResume = nil; autoResumeDecision = .none
         status = "Checking director sign-in…"
@@ -132,49 +137,14 @@ final class DirectorRuntime {
         self.identity = identity
         process.terminationHandler = { [weak self] finished in
             try? output.close()
-            Task { @MainActor in
-                guard let self, self.identity == identity else { return }
-                self.isFinishing = true
-                defer { self.isFinishing = false }
-                self.isRunning = false
-                self.isFrozen = false; self.frozenAt = nil
-                self.process = nil
-                self.lastExitCode = finished.terminationStatus
-                let code = finished.terminationStatus
-                self.status = self.stopRequested ? "Director stopped · your files are preserved; resume when ready" : (code == 0 ? "Director finished" : "Director stopped (\(code)) · inspect the log, fix prerequisites or permissions, then resume")
-                if !self.stopRequested {
-                    // Any exit that leaves the film unfinished is a failure, including a quiet exit 0 with nothing pushed.
-                    let result = await Task.detached { () -> (outcome: (recovery: DirectorRecovery, detail: String)?, progress: DirectorRecovery.Progress, tail: String) in
-                        let progress = DirectorRecovery.Progress(session: try? SessionSnapshot(data: Data(contentsOf: run.appendingPathComponent("session.json"))))
-                        let tail = Self.readLogTail(log)
-                        return (DirectorRecovery.classify(exitCode: code, log: tail, progress: progress), progress, tail)
-                    }.value
-                    guard self.identity == identity else { return }
-                    if let outcome = result.outcome {
-                        self.recovery = outcome.recovery; self.recoveryDetail = outcome.detail
-                        self.endedOnBackgroundCeiling = DirectorRecovery.hitBackgroundCeiling(log: result.tail)
-                        if code == 0 { self.status = "\(outcome.recovery.title) · open the log, then resume" }
-                    }
-                    let decision = AutoResumePolicy.decide(outcome: result.outcome, stopRequested: false, progress: result.progress, log: result.tail,
-                                                           lastAutoResume: self.lastAutoResume[run.path])
-                    self.autoResumeDecision = decision
-                    switch decision {
-                    case .none: break
-                    case .resume(let delay):
-                        self.autoResume = AutoResumeNotice(text: AutoResumePolicy.resumingText, since: Date(), resumesAt: Date().addingTimeInterval(delay))
-                        self.status = AutoResumePolicy.resumingText
-                    case .waitForLimit(let limit):
-                        self.autoResume = AutoResumeNotice(text: limit.message, since: Date(), resumesAt: limit.resetsAt, isLimit: true)
-                        self.status = limit.message
-                    }
-                } else {
-                    self.autoResumeDecision = .none
-                }
-                self.onExit?(finished.terminationStatus, self.stopRequested)
-            }
+            let code = finished.terminationStatus
+            Task { @MainActor in await self?.handleExit(code: code, run: run, log: log, identity: identity) }
         }
         try process.run()
         self.process = process
+        pid = process.processIdentifier
+        // The film this app is working on: a relaunched Studio looks here first to pick it back up.
+        UserDefaults.standard.set(run.path, forKey: Self.activeRunKey)
         activeRun = run; activeProject = project; logURL = log
         isRunning = true
         runningStatus = "Director running · \(agent.title)"
@@ -183,32 +153,202 @@ final class DirectorRuntime {
     }
     private var identity = UUID()
     private var runningStatus = "Director running"
+    static let activeRunKey = "activeDirectorRun"
+    /// The driver's pid while it is alive: our own child, or an adopted one.
+    private var livePid: Int32? {
+        if let process { return process.isRunning ? process.processIdentifier : nil }
+        return pid
+    }
+    /// The state every exit leaves behind, then what to do about it. Shared by our own director's termination and an adopted one's disappearance.
+    private func handleExit(code: Int32, run: URL, log: URL, identity: UUID, autoResumable: Bool = true) async {
+        guard self.identity == identity else { return }
+        isFinishing = true
+        defer { isFinishing = false }
+        isRunning = false
+        isFrozen = false; frozenAt = nil
+        process = nil; pid = nil
+        lastExitCode = code
+        status = stopRequested ? "Director stopped · your files are preserved; resume when ready" : (code == 0 ? "Director finished" : "Director stopped (\(code)) · inspect the log, fix prerequisites or permissions, then resume")
+        if !stopRequested {
+            guard let finished = await classifyStop(code: code, run: run, log: log, identity: identity, limitClock: nil, autoResumable: autoResumable) else { return }
+            // A real finish: nothing left for a relaunch to pick up.
+            if finished, UserDefaults.standard.string(forKey: Self.activeRunKey) == run.path { UserDefaults.standard.removeObject(forKey: Self.activeRunKey) }
+        } else {
+            autoResumeDecision = .none
+        }
+        onExit?(code, stopRequested)
+    }
+    /// Reads how the stop went (progress, log tail), sets `recovery`, the automatic-resume decision and its notice.
+    /// Returns true for a real finish, false for a failure, nil when something else took over meanwhile.
+    /// `limitClock` is when the director actually stopped, for a stop found after the fact; `autoResumable` is false for runs with no event log.
+    private func classifyStop(code: Int32, run: URL, log: URL, identity: UUID, limitClock: Date?, autoResumable: Bool) async -> Bool? {
+        // Any exit that leaves the film unfinished is a failure, including a quiet exit 0 with nothing pushed.
+        let result = await Task.detached { () -> (outcome: (recovery: DirectorRecovery, detail: String)?, progress: DirectorRecovery.Progress, tail: String, logged: Date?) in
+            let progress = DirectorRecovery.Progress(session: try? SessionSnapshot(data: Data(contentsOf: run.appendingPathComponent("session.json"))))
+            let tail = Self.readLogTail(log)
+            return (DirectorRecovery.classify(exitCode: code, log: tail, progress: progress), progress, tail, RunEvents.lastAutoResume(RunEvents.load(run: run)))
+        }.value
+        guard self.identity == identity else { return nil }
+        guard let outcome = result.outcome else { autoResumeDecision = .none; return true }
+        recovery = outcome.recovery; recoveryDetail = outcome.detail
+        endedOnBackgroundCeiling = DirectorRecovery.hitBackgroundCeiling(log: result.tail)
+        if code == 0 { status = "\(outcome.recovery.title) · open the log, then resume" }
+        guard autoResumable else { autoResumeDecision = .none; return false }
+        let last = [lastAutoResume[run.path], result.logged].compactMap { $0 }.max()
+        let decision = AutoResumePolicy.decide(outcome: result.outcome, stopRequested: false, progress: result.progress, log: result.tail,
+                                               lastAutoResume: last, limitClock: limitClock)
+        autoResumeDecision = decision
+        switch decision {
+        case .none: break
+        case .resume(let delay):
+            autoResume = AutoResumeNotice(text: AutoResumePolicy.resumingText, since: Date(), resumesAt: Date().addingTimeInterval(delay))
+            status = AutoResumePolicy.resumingText
+        case .waitForLimit(let limit):
+            autoResume = AutoResumeNotice(text: limit.message, since: Date(), resumesAt: limit.resetsAt, isLimit: true)
+            status = limit.message
+        }
+        return false
+    }
+    /// True when `pid` is alive and is the director driver of `run`: a pid alone could be reused by any other process.
+    nonisolated static func isDriver(pid: Int32, run: URL) -> Bool {
+        guard pid > 1, kill(pid, 0) == 0 else { return false }
+        let ps = Process()
+        ps.executableURL = URL(fileURLWithPath: "/bin/ps")
+        ps.arguments = ["-ww", "-o", "command=", "-p", String(pid)]
+        let pipe = Pipe()
+        ps.standardOutput = pipe; ps.standardError = FileHandle.nullDevice; ps.standardInput = FileHandle.nullDevice
+        guard (try? ps.run()) != nil else { return false }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        ps.waitUntilExit()
+        let command = String(decoding: data, as: UTF8.self)
+        let paths = Set([run.path, run.resolvingSymlinksInPath().path])
+        return command.contains("director-driver.mjs") && paths.contains(where: command.contains)
+    }
+    /// The live director driver of `run` found from the process list, for runs started before the event log existed. Nil when none (or `ps` stalls).
+    nonisolated static func findDriver(run: URL) -> Int32? {
+        let ps = Process()
+        ps.executableURL = URL(fileURLWithPath: "/bin/ps")
+        ps.arguments = ["-axww", "-o", "pid=,command="]
+        let pipe = Pipe()
+        ps.standardOutput = pipe; ps.standardError = FileHandle.nullDevice; ps.standardInput = FileHandle.nullDevice
+        let done = DispatchSemaphore(value: 0)
+        ps.terminationHandler = { _ in done.signal() }
+        guard (try? ps.run()) != nil else { return nil }
+        var data = Data()
+        let reader = DispatchQueue(label: "findDriver.read")
+        let read = DispatchSemaphore(value: 0)
+        reader.async { data = pipe.fileHandleForReading.readDataToEndOfFile(); read.signal() }
+        if done.wait(timeout: .now() + 2) == .timedOut { ps.terminate(); _ = done.wait(timeout: .now() + 1); return nil }
+        guard read.wait(timeout: .now() + 1) == .success else { return nil }
+        let me = ProcessInfo.processInfo.processIdentifier
+        let paths = Set([run.path, run.resolvingSymlinksInPath().path])
+        for line in String(decoding: data, as: UTF8.self).split(whereSeparator: \.isNewline) {
+            let trimmed = line.drop { $0 == " " }
+            guard let space = trimmed.firstIndex(of: " "), let pid = Int32(trimmed[..<space]), pid > 1, pid != me else { continue }
+            let command = trimmed[space...]
+            if command.contains("director-driver.mjs"), paths.contains(where: { command.contains($0) }) { return pid }
+        }
+        return nil
+    }
+    /// Takes over a director a previous Studio left running (a quit or an update does not stop it): shows it as running and handles its exit.
+    /// Returns false when no live driver belongs to the run.
+    @discardableResult func adopt(run: URL, project: URL) -> Bool {
+        guard !isRunning, !isPreparing, !isFinishing else { return false }
+        let events = RunEvents.load(run: run)
+        let open = RunEvents.openStart(events)
+        let pid: Int32
+        if let p = open?.pid, Self.isDriver(pid: p, run: run) { pid = p }
+        else if let found = Self.findDriver(run: run) { pid = found }
+        else { return false }
+        let fm = FileManager.default
+        let jobAttrs = try? fm.attributesOfItem(atPath: run.appendingPathComponent("director-job.json").path)
+        let began = events.first { $0.event == .start }?.t ?? (jobAttrs?[.creationDate] as? Date) ?? (jobAttrs?[.modificationDate] as? Date) ?? Date()
+        adoptWatch?.cancel()
+        let log = run.appendingPathComponent("director.log")
+        activeRun = run; activeProject = project; logURL = log
+        process = nil; self.pid = pid
+        let identity = UUID(); self.identity = identity
+        lastExitCode = nil; stopRequested = false; recovery = nil; recoveryDetail = ""; endedOnBackgroundCeiling = false
+        autoResume = nil; autoResumeDecision = .none
+        startedAt = began
+        runningStatus = "Director running"
+        isRunning = true
+        if RunEvents.isFrozen(events) {
+            isFrozen = true
+            frozenAt = events.last { $0.event == .freeze }?.t
+            status = "Paused · nothing runs until you resume"
+        } else {
+            isFrozen = false; frozenAt = nil
+            status = runningStatus
+        }
+        UserDefaults.standard.set(run.path, forKey: Self.activeRunKey)
+        adoptWatch = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                guard let self, !Task.isCancelled, self.identity == identity else { return }
+                guard kill(pid, 0) != 0, errno == ESRCH else { continue }
+                // Gone. The driver wrote its exit before it went (a stop is marked as one); a missing exit means it died hard.
+                let exit = RunEvents.load(run: run).last { $0.event == .exit && $0.t >= began }
+                if exit?.stopped == true { self.stopRequested = true }
+                await self.handleExit(code: exit?.code ?? 1, run: run, log: log, identity: identity, autoResumable: !RunEvents.load(run: run).isEmpty)
+                return
+            }
+        }
+        return true
+    }
+    /// The app did not see the director stop (it was closed or updated meanwhile): work out how it ended from the run's own files.
+    /// A stop the person asked for stays paused; any other stop is classified like a live exit, with a plan limit's reset read as of the stop.
+    /// Runs without an event log are classified but never resumed automatically.
+    func reconcileStopped(run: URL, project: URL) async {
+        guard !isRunning, !isPreparing, !isFinishing else { return }
+        let events = RunEvents.load(run: run)
+        let log = run.appendingPathComponent("director.log")
+        activeRun = run; activeProject = project; logURL = log
+        let identity = UUID(); self.identity = identity
+        let open = RunEvents.openStart(events)
+        let exit = RunEvents.lastExit(events)
+        if open == nil, let exit, exit.stopped == true {
+            stopRequested = true; lastExitCode = exit.code ?? 0
+            autoResume = nil; autoResumeDecision = .none
+            status = "Paused · resume when ready"
+            return
+        }
+        // A start with no exit after it whose process is gone: it died hard (code 1), and the log's last write is when.
+        let code = open == nil ? (exit?.code ?? 1) : 1
+        let stoppedAt = open == nil ? exit?.t : (try? FileManager.default.attributesOfItem(atPath: log.path)[.modificationDate] as? Date) ?? open?.t
+        lastExitCode = code
+        stopRequested = false
+        status = code == 0 ? "Director finished" : "Director stopped (\(code)) · inspect the log, fix prerequisites or permissions, then resume"
+        let finished = await classifyStop(code: code, run: run, log: log, identity: identity, limitClock: stoppedAt, autoResumable: !events.isEmpty)
+        if finished == true, UserDefaults.standard.string(forKey: Self.activeRunKey) == run.path { UserDefaults.standard.removeObject(forKey: Self.activeRunKey) }
+    }
     /// Freezes the director and everything it started, exactly where it is. Resume with `thaw()`.
     func freeze() {
-        guard isRunning, !isFrozen, let process, process.isRunning else { return }
-        kill(process.processIdentifier, SIGUSR1)
+        guard isRunning, !isFrozen, let pid = livePid else { return }
+        kill(pid, SIGUSR1)
         isFrozen = true; frozenAt = Date()
         status = "Paused · nothing runs until you resume"
     }
     /// Continues a frozen director mid-step.
     func thaw() {
-        guard isRunning, isFrozen, let process, process.isRunning else { return }
-        kill(process.processIdentifier, SIGUSR2)
+        guard isRunning, isFrozen, let pid = livePid else { return }
+        kill(pid, SIGUSR2)
         isFrozen = false; frozenAt = nil
         status = runningStatus
     }
     func clearPresentation() {
         guard !isRunning, !isPreparing, !isFinishing else { return }
+        adoptWatch?.cancel(); adoptWatch = nil
         lastExitCode = nil; stopRequested = false; logURL = nil; activeRun = nil; activeProject = nil
         startedAt = nil; recovery = nil; recoveryDetail = ""; autoResume = nil; autoResumeDecision = .none
         status = "Director stopped"
     }
     func stop() {
-        guard let process, process.isRunning else { return }
+        guard let pid = livePid else { return }
         stopRequested = true
         isFrozen = false; frozenAt = nil // The driver continues a frozen group itself so it can handle the stop.
         status = "Stopping director and its child processes…"
-        process.terminate()
+        kill(pid, SIGTERM)
     }
     func logTail() -> String {
         guard let logURL else { return "No director output yet." }

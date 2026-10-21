@@ -14,6 +14,8 @@ struct NativeStageView: View {
     var pace: FilmPace?
     var autoResume: AutoResumeNotice?
     var onResumeNow: (() -> Void)?
+    /// Nothing is running and nobody paused it: the person resumes it by hand.
+    var onResume: (() -> Void)?
     /// The director is stopped: the working view says where it stopped and stops moving.
     var paused = false
 
@@ -54,7 +56,7 @@ struct NativeStageView: View {
 
     @ViewBuilder private func stage(_ route: StageRoute) -> some View {
         if showsProgress, let progress {
-            FilmProgressView(model: model, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow, paused: paused)
+            FilmProgressView(model: model, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow, onResume: onResume, paused: paused)
         } else { classic(route) }
     }
 
@@ -107,8 +109,9 @@ struct NativeFilmView: View {
     var pace: FilmPace?
     var autoResume: AutoResumeNotice?
     var onResumeNow: (() -> Void)?
+    var onResume: (() -> Void)?
     var paused = false
     var body: some View {
-        NativeStageView(model: model, startedAt: startedAt, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow, paused: paused)
+        NativeStageView(model: model, startedAt: startedAt, progress: progress, onPause: onPause, onShowLog: onShowLog, pace: pace, autoResume: autoResume, onResumeNow: onResumeNow, onResume: onResume, paused: paused)
     }
 }
