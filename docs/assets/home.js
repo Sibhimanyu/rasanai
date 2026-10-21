@@ -8,7 +8,6 @@
   var clamp = function (v, a, b) { return Math.min(b, Math.max(a, v)); };
   var seg = function (v, a, b) { return clamp((v - a) / (b - a), 0, 1); };
   var ease = function (t) { return 1 - Math.pow(1 - t, 3); };
-  function tog(el, on) { if (el && el.classList.contains("on") !== on) el.classList.toggle("on", on); }
   function $(s, r) { return (r || document).querySelector(s); }
   function $$(s, r) { return [].slice.call((r || document).querySelectorAll(s)); }
 
@@ -37,53 +36,26 @@
     document.addEventListener("click", function (e) { if (!nav.contains(e.target)) closeMenu(); });
     wideQ.addEventListener("change", closeMenu);
   }
-  var moved = ["different", "desk", "stack", "crew", "depth", "engine", "models", "songs", "library"];
-  function route() { if (moved.indexOf(location.hash.slice(1)) !== -1) location.replace("guide.html" + location.hash); }
+  // old anchors: technical sections moved to the field guide; homepage sections removed in the redesign point to their new home
+  // only these names are routed. Current anchors (#flow, #projects, #questions, #download) are never listed, so they are never redirected
+  var aliases = {
+    different: "guide.html#different", desk: "guide.html#desk", stack: "guide.html#stack", crew: "guide.html#crew",
+    depth: "guide.html#depth", engine: "guide.html#engine", models: "guide.html#models", songs: "guide.html#songs", library: "guide.html#library",
+    reels: "guide.html#reels", presenter: "guide.html#presenter", install: "guide.html#install",
+    "meet-crew": "#flow", start: "#flow", "flow-head": "#flow",
+    examples: "#projects", gallery: "#projects", yours: "#projects", away: "#projects", features: "#projects", brand: "#projects", finished: "#projects"
+  };
+  // a plain hash replacement: the local targets are not routed again, so there is no loop; guide targets leave the page once
+  function route() {
+    var h = location.hash.slice(1);
+    if (h && Object.prototype.hasOwnProperty.call(aliases, h)) location.replace(aliases[h]);
+  }
   route(); window.addEventListener("hashchange", route);
 
-  /* ---------- unit renderers: render(q), q in 0..1; discrete states are class toggles with CSS transitions ---------- */
-  var R = {};
-  /* the five call screens are the real Studio screens: nothing is drawn on top of them */
-  R.brief = R.story = R.look = R.animatic = R.final = function () { return function () {}; };
-  R.notify = function (el) {
-    var nts = $$(".nt", el), step = 92;
-    return function (q) {
-      var t = nts.map(function (n, i) { return ease(seg(q, .05 + i * .17, .05 + i * .17 + .13)); });
-      nts.forEach(function (n, i) {
-        var slot = 0, j; for (j = i + 1; j < nts.length; j++) slot += t[j];
-        n.style.opacity = t[i].toFixed(3);
-        n.style.transform = pinned() ? "translateY(" + (slot * step - (1 - t[i]) * 36).toFixed(1) + "px)" : "translateY(" + ((1 - t[i]) * 18).toFixed(1) + "px)";
-      });
-    };
-  };
-  R.start = function (el) {
-    var span = $(".typed", el), full = span.getAttribute("data-text"), files = $$(".nf-file", el), chips = $$(".ch", el), go = $(".go", el), caret = $(".caret", el), n = -1;
-    return function (q) {
-      var k = Math.round(seg(q, .03, .42) * full.length);
-      if (k !== n) { span.textContent = full.slice(0, k); n = k; }
-      files.forEach(function (f, i) { tog(f, q > .46 + i * .1); });
-      chips.forEach(function (c, i) { tog(c, q > .64 + i * .045); });
-      tog(go, q > .9);
-    };
-  };
-  R.brand = function (el) {
-    var rcs = $$(".rc", el), pops = $$(".pop", el);
-    return function (q) {
-      rcs.forEach(function (r, i) { tog(r, q > .05 + i * .07); });
-      [.22, .46, .7].forEach(function (th, i) { tog(pops[i], q > th); });
-    };
-  };
-  R.crew = function (el) {
-    var hbs = $$(".hb", el);
-    return function (q) {
-      var a = q < .08 ? -1 : Math.min(4, Math.floor((q - .08) / .18));
-      hbs.forEach(function (h, i) { tog(h, i === a); });
-    };
-  };
-
-  /* ---------- scenes ---------- */
+  /* ---------- scenes: the hero, the rising screenshot with its crew flight, and any [data-rise] window ---------- */
   var scenes = [];
   function addScene(sc) { scenes.push(sc); return sc; }
+  var pinnedMode = { motion: false };
 
   // hero: the copy leaves; the cards stay put until the flight (below) lifts them onto the screenshot
   var heroEl = $(".hero.track");
@@ -102,59 +74,6 @@
       reset: function () { if (copy) { copy.style.transform = ""; copy.style.opacity = ""; copy.style.visibility = ""; } }
     });
   }
-
-  // five calls: one window plays all five as you scroll
-  var flowEl = $(".flow.track");
-  var flowSteps = [], flowRail = [];
-  if (flowEl) {
-    flowSteps = $$(".fstep", flowEl).map(function (s) {
-      return { el: s, r: R[s.getAttribute("data-unit")](s), pose: $(".fwho", s), text: $$(".fcopy > :not(.fwho)", s), win: $(".fwin", s) };
-    });
-    flowRail = $$(".frail li", flowEl);
-    // every change is a continuous overlap driven by scroll alone: u(k) is how far call k has handed over to call k+1
-    var ss = function (t) { return t * t * (3 - 2 * t); };
-    var setT = function (el, op, x, y, sc) {
-      if (!el) return;
-      el.style.opacity = op.toFixed(3);
-      el.style.transform = "translate3d(" + x.toFixed(2) + "px," + y.toFixed(2) + "px,0) scale(" + sc.toFixed(4) + ")";
-    };
-    addScene({
-      el: flowEl, pin: true,
-      progress: function (r, vh) { return clamp(-r.top / Math.max(1, r.height - vh), 0, 1); },
-      render: function (p) {
-        var f = p * 5, n = flowSteps.length;
-        var u = function (k) { return k < 0 ? 1 : k > n - 2 ? 0 : ss(seg(f, k + .72, k + 1.12)); };
-        flowSteps.forEach(function (s, k) {
-          var inn = u(k - 1), out = u(k);
-          var tx = inn * (1 - out);              // text and pose: symmetric, so the two always sum to one
-          var dom = inn >= .5 && out < .5;
-          // window: the next one rises over the current, which stays put until it is covered
-          setT(s.win, k === 0 ? 1 : ss(seg(inn, 0, .16)), 0, (1 - ss(inn)) * 56 - out * 10, 1 - (1 - inn) * .015 - out * .01);
-          // words and characters hand over without stacking: the old leaves in the first half, the new arrives in the second
-          var vis = ss(seg(inn, .42, 1)) * (1 - ss(seg(out, 0, .58)));
-          setT(s.pose, k === 0 ? 1 - ss(seg(out, 0, .58)) : vis, 0, (1 - inn) * 18 - out * 14, 1 - (1 - inn) * .05 - out * .05);
-          s.text.forEach(function (t, i) { setT(t, k === 0 ? 1 - ss(seg(out, 0, .58)) : vis, 0, (1 - inn) * (14 + i * 1.5) - out * (12 + i * 1.5), 1); });
-          s.el.style.visibility = (inn > .001 || k === 0) && out < .999 ? "" : "hidden";
-          s.el.style.pointerEvents = dom ? "" : "none";
-          s.r(seg(f - k, .08, .82));
-          var li = flowRail[k]; if (li) { li.firstChild.style.setProperty("--f", clamp(f - k, 0, 1).toFixed(3)); tog(li, f - k > -.05 && f - k < 1); }
-        });
-      },
-      reset: function () { flowSteps.forEach(function (s) { s.el.style.cssText = ""; [s.win, s.pose].concat(s.text).forEach(function (e) { if (e) e.style.cssText = ""; }); }); }
-    });
-  }
-
-  // single-unit pinned scenes
-  [["notify", "notify"], ["start", "start"], ["brandsec", "brand"], ["crew", "crew"]].forEach(function (pair) {
-    var el = $("." + pair[0] + ".track"); if (!el) return;
-    var u = $("[data-unit]", el), r = R[u.getAttribute("data-unit")](u);
-    var sc = addScene({
-      el: el, pin: true, unit: u, r: r,
-      progress: function (rc, vh) { return clamp(-rc.top / Math.max(1, rc.height - vh), 0, 1); },
-      render: function (p) { r(seg(p, .06, .9)); },
-      reset: function () {}
-    });
-  });
 
   // rising windows: scale and lift as they enter
   $$("[data-rise]").forEach(function (el) {
@@ -256,16 +175,18 @@
   }
 
   /* ---------- the loop: rAF only while something is moving ---------- */
-  var busy = false, raf = 0, vh = window.innerHeight;
+  var raf = 0, vh = window.innerHeight;
   function tick() {
     raf = 0;
     if (!pinnedMode.motion) return;
     var rects = scenes.map(function (s) { return s.el.getBoundingClientRect(); });
     var more = false;
     scenes.forEach(function (s, i) {
-      if (s.pin && !pinned()) return;
+      if (s.pin && !pinned()) return;   // pinned scenes only run in the sticky desktop layout
       var r = rects[i], near = r.bottom > -vh * .5 && r.top < vh * 1.5;
       var target = s.progress(r, vh);
+      // direct scenes follow the scroll position exactly, so reversing scroll retraces the same frames
+      if (s.direct) { if (s.last !== target) { s.render(target); s.last = target; } return; }
       if (s.cur === undefined) s.cur = target;
       if (!near) { s.cur = target; if (s.last !== target) { s.render(target); s.last = target; } return; }
       var d = target - s.cur;
@@ -277,44 +198,115 @@
   }
   function request() { if (!raf) raf = requestAnimationFrame(tick); }
   window.addEventListener("scroll", request, { passive: true });
-  window.addEventListener("resize", function () { vh = window.innerHeight; request(); }, { passive: true });
+  window.addEventListener("resize", function () { vh = window.innerHeight; clearCrew(); enableCrew(); request(); }, { passive: true });
 
-  /* ---------- stacked mode (mobile) and calm mode ---------- */
-  var pinnedMode = { motion: false };
-  var stacked = [], io = null;
-  function play(u) {
-    if (u.done) return; u.done = true;
-    var t0 = performance.now(), dur = 2400;
-    (function step(now) {
-      var q = clamp((now - t0) / dur, 0, 1); u.r(q); if (q < 1) requestAnimationFrame(step);
-    })(t0);
-  }
+  /* ---------- calm mode and the layout switch: rest in the finished state, or let the scroll drive it ---------- */
   function apply() {
     var calmNow = calm(), pin = pinned();
     pinnedMode.motion = !calmNow;
-    if (io) { io.disconnect(); io = null; }
-    stacked = [];
     scenes.forEach(function (s) { s.cur = undefined; s.last = undefined; if (s.reset && (!s.pin || !pin)) s.reset(); });
-    if (calmNow) {
-      scenes.forEach(function (s) { if (s.pin) { var u = s.unit; } });
-      flowSteps.forEach(function (s) { s.r(1); });
-      scenes.forEach(function (s) { if (s.unit) s.r(1); });
-      return;
-    }
-    if (pin) { request(); return; }
-    // stacked: each unit plays once when it scrolls into view
-    var list = [];
-    flowSteps.forEach(function (s) { list.push({ el: $(".fwin", s.el), r: s.r }); });
-    scenes.forEach(function (s) { if (s.unit) list.push({ el: s.unit, r: s.r }); });
-    list.forEach(function (u) { u.r(0); u.done = false; });
-    io = new IntersectionObserver(function (es) {
-      es.forEach(function (e) { if (e.isIntersecting) { var u = list.filter(function (x) { return x.el === e.target; })[0]; if (u) { play(u); io.unobserve(e.target); } } });
-    }, { threshold: .35 });
-    list.forEach(function (u) { io.observe(u.el); });
-    stacked = list; request();
+    clearCrew();
+    if (calmNow) return;
+    if (pin) enableCrew();
+    request();
   }
   reduceQ.addEventListener("change", function () { setTimeout(apply, 0); });
   wideQ.addEventListener("change", function () { setTimeout(apply, 0); });
+
+  /* ---------- crew scene: Rasan stands at the centre, six teammates fly in from the edges onto one orbit, the circle breaks into a
+     balanced edge scatter, and the statement reveals word by word. Every frame is a pure function of the scroll position p (0..1 through
+     the pinned track), so scrolling back retraces it exactly. Only transform, opacity and clip-path are driven, by inline styles.
+     Contract: each .crew-node sits untransformed at the stage centre (the JS moves it with an inline translate); .statement-word is inline-block.
+     Stacked (narrow screen, reduced motion, or markup missing): nothing is pinned, and no inline style, class or attribute is left behind. */
+  var crewScene = $("[data-crew-scene]");
+  var CREW = ["ra", "mala", "tara", "kavi", "chitra", "laya", "rasika"];   // Rasan, then the six teammates in orbit order
+  var CREW_FROM = [[1.3, -1], [-1.35, -.2], [.1, 1.35], [1.35, .35], [-1.2, -1], [1.1, 1.2]];   // each teammate's entry edge, in half-stage units
+  var CREW_SCATTER = [[0, -.92], [.82, -.5], [-.82, -.5], [.9, .3], [-.9, .3], [.5, .9], [-.5, .9]];   // balanced edge scatter, half-stage units
+  var CREW_STEP = .06, CREW_ENTER = .2;   // teammate i flies in over [i * step, i * step + enter]: the last one settles at .5
+  var mix = function (a, b, t) { return a + (b - a) * t; };
+  var crewOn = false, crewGeo = null, crewRun = null;
+
+  // the markup contract: anything missing or out of order turns the scene off, and the page stays a plain stack
+  function crewSpec() {
+    var nodes = $$(".crew-node[data-crew]", crewScene);
+    var s = {
+      nodes: nodes, stage: $(".crew-stage", crewScene), orbit: $(".crew-orbit", crewScene), line: $(".crew-orbit-line", crewScene),
+      payoff: $(".crew-payoff", crewScene), statement: $(".crew-statement", crewScene), words: $$(".statement-word", crewScene),
+      labels: nodes.map(function (el) { return $(".crew-label", el); })
+    };
+    var ordered = nodes.length === CREW.length && nodes.every(function (el, i) { return el.getAttribute("data-crew") === CREW[i]; });
+    if (!ordered || !s.stage || !s.orbit || !s.line || !s.payoff || !s.statement || !s.words.length) return null;
+    // every element the scene may touch, with its own inline style as the page wrote it, so clearing restores it exactly
+    s.all = nodes.concat(s.labels.filter(Boolean), [s.line, s.payoff, s.statement], s.words);
+    s.style = s.all.map(function (el) { return el.getAttribute("style"); });
+    return s;
+  }
+  var crew = crewScene && crewSpec();
+
+  // leave the pinned layout: drop the class, and put back every inline style the scene touched
+  function clearCrew() {
+    if (!crew) return;
+    crewOn = false;
+    if (crewRun) crewRun.last = undefined;
+    crewScene.classList.remove("crew-ready");
+    if (!crewScene.getAttribute("class")) crewScene.removeAttribute("class");
+    crew.all.forEach(function (el, k) { if (crew.style[k] === null) el.removeAttribute("style"); else el.setAttribute("style", crew.style[k]); });
+  }
+
+  // wide desktop with motion allowed (the page sets .pin for exactly that): measure once, then the scene drives itself
+  function enableCrew() {
+    if (!crew || crewOn || !wideQ.matches || !pinned() || calm()) return;
+    crewScene.classList.add("crew-ready");
+    var W = crew.stage.offsetWidth / 2, H = crew.stage.offsetHeight / 2;
+    if (!W || !H) { clearCrew(); return; }   // no size yet: stay a plain stack
+    // the orbit's own diameter sets the circle, so the drawn line and the seven positions agree
+    crewGeo = { W: W, H: H, R: crew.orbit.offsetWidth / 2 || Math.min(W, H) * .6 };
+    crewOn = true;
+  }
+
+  function renderCrew(p) {
+    if (!crewOn) return;
+    var g = crewGeo;
+    // the orbit line comes in softly, and leaves with the circle
+    crew.line.style.opacity = (seg(p, .2, .5) * (1 - seg(p, .67, .8))).toFixed(3);
+    // the payoff holds from .52 to .67, then clears for the statement
+    var pIn = seg(p, .44, .52), pOut = seg(p, .66, .71);
+    crew.payoff.style.opacity = (pIn * (1 - pOut)).toFixed(3);
+    crew.payoff.style.transform = "translate3d(0," + ((1 - pIn) * 16).toFixed(1) + "px,0)";
+    crew.nodes.forEach(function (node, k) {
+      var st = k ? (k - 1) * CREW_STEP : 0, x = 0, y = 0, s = 1, op = 1;
+      if (k) {
+        // a teammate: in from its edge onto its fixed orbit slot, growing to size as it lands
+        var a = -Math.PI / 2 + (k - 1) * Math.PI / 3, e = ease(seg(p, st, st + CREW_ENTER));
+        x = mix(CREW_FROM[k - 1][0] * g.W, g.R * Math.cos(a), e);
+        y = mix(CREW_FROM[k - 1][1] * g.H, g.R * Math.sin(a), e);
+        s = .7 + .3 * e; op = seg(p, st, st + .06);
+      }
+      // from .67 each node breaks off the circle, one after another, to its scatter slot
+      var q = ease(seg(p, .67 + k * .02, .88 + k * .02));
+      x = mix(x, CREW_SCATTER[k][0] * g.W, q); y = mix(y, CREW_SCATTER[k][1] * g.H, q);
+      node.style.opacity = op.toFixed(3);
+      node.style.transform = "translate3d(" + x.toFixed(2) + "px," + y.toFixed(2) + "px,0) scale(" + s.toFixed(3) + ")";
+      // a label becomes readable as its teammate settles; Rasan's is always readable
+      if (crew.labels[k]) crew.labels[k].style.opacity = (k ? seg(p, st + .12, st + CREW_ENTER) : 1).toFixed(3);
+    });
+    // the statement: each word reveals left to right, in order, from .7
+    var N = crew.words.length;
+    crew.statement.style.opacity = seg(p, .67, .73).toFixed(3);
+    crew.words.forEach(function (w, j) {
+      var t = seg(p, .7 + j * .22 / N, .8 + j * .22 / N), e = ease(t);
+      w.style.opacity = t.toFixed(3);
+      w.style.clipPath = t < 1 ? "inset(0 " + ((1 - t) * 100).toFixed(2) + "% 0 0)" : "none";
+      w.style.transform = "translate3d(0," + ((1 - e) * .3).toFixed(3) + "em,0)";
+    });
+  }
+
+  crewRun = crew && addScene({
+    el: crewScene, pin: true, direct: true,
+    progress: function (r, view) { return clamp(-r.top / Math.max(1, r.height - view), 0, 1); },
+    render: renderCrew,
+    reset: clearCrew
+  });
 
   /* ---------- calm reveals, once ---------- */
   if ("IntersectionObserver" in window) {
@@ -325,4 +317,7 @@
   } else { $$(".rv").forEach(function (e) { e.classList.add("in"); }); }
 
   apply();
+  // site.js publishes the .pin capability during startup. Re-run after load so the
+  // crew scene also initializes when that class arrives after this first pass.
+  window.addEventListener("load", apply, { once: true });
 })();

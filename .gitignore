@@ -15,3 +15,6 @@ _site/
 
 # release state (scripts/release.mjs)
 .release-state/
+
+# gstack team mode uses each developer's global install
+.claude/skills/gstack/
