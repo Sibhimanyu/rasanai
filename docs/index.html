@@ -33,9 +33,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anek+Latin:wdth,wght@75..125,300..800&family=Anek+Tamil:wdth,wght@75..125,500..700&family=JetBrains+Mono:wght@400;500&family=Mukta:wght@400;500;600&display=swap" />
-<script src="assets/images.js"></script>
-<link rel="stylesheet" href="assets/site.css" />
-<link rel="stylesheet" href="assets/home.css" />
+<script src="assets/images.js?v=2"></script>
+<link rel="stylesheet" href="assets/site.css?v=3" />
+<link rel="stylesheet" href="assets/home.css?v=18" />
 </head>
 <body class="home">
 <a class="skip" href="#main">Skip to content</a>
@@ -47,7 +47,7 @@
 <header class="top">
   <nav class="nav" aria-label="Primary">
     <a class="brand" href="./"><img src="assets/logo/rasanai-lockup.svg" width="214" height="44" alt="RasanAI" /></a>
-    <div class="nav-links" id="home-nav"><a href="#flow">How it works</a><a href="#projects">Your projects</a></div>
+    <div class="nav-links" id="home-nav"><a href="#flow" data-jump="crew">The crew</a><a href="#control" data-jump="squeak">Squeak</a><a href="#projects" data-jump="projects">Your projects</a><a href="how-it-works.html">Under the hood</a><a href="#questions">FAQ</a></div>
     <a class="nav-action" href="#download">Download</a>
     <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="home-nav" hidden>Menu <span aria-hidden="true">+</span></button>
   </nav>
@@ -71,14 +71,14 @@
       <p class="eyebrow">RasanAI Studio for Mac</p>
       <h1 id="hero-title"><span class="ln">Describe a film.</span><br /><span class="ln">Direct it from there.</span></h1>
       <p class="hero-sub">A sentence and your footage go in. A finished film comes out. In between, RasanAI asks for your taste at five moments that matter.</p>
-      <div class="hero-cta"><a data-studio="dmg" class="btn btn-primary btn-lg" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.0-beta.1/RasanAI-Studio-0.19.0.dmg">Download for Mac <svg aria-hidden="true"><use href="#i-down"/></svg></a><a class="text-link" href="#flow">See how it works <span aria-hidden="true">&rsaquo;</span></a></div>
+      <div class="hero-cta"><a data-studio="dmg" class="btn btn-primary btn-lg" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.0-beta.1/RasanAI-Studio-0.19.0.dmg">Download for Mac <svg aria-hidden="true"><use href="#i-down"/></svg></a><a class="text-link" href="#flow" data-jump="crew">See how it works <span aria-hidden="true">&rsaquo;</span></a></div>
       <p class="hero-meta"><span data-studio="version">0.19.0 beta 1</span> &middot; Apple Silicon &middot; macOS 14+ &middot; Free and open source</p>
     </div>
   </div>
 </section>
 
 <section class="shot-band"><div class="wrap">
-  <div class="window rise home-win" data-rise><img src="img/studio/home-1x.jpg" srcset="img/studio/home-1x.jpg 907w, img/studio/home-2x.jpg 1814w" sizes="(min-width:1100px) 900px, 94vw" width="1814" height="1190" alt="RasanAI Studio, the start screen: What would you like to make? The seven crew characters stand on the prompt box, which reads Describe your video, or paste a link, with the steps Describe, Setup, Brief, Story, Look, Preview and Final above." loading="lazy" decoding="async" /></div>
+  <div class="window rise home-win" data-rise><img src="img/studio/home-dark-1x.webp" srcset="img/studio/home-dark-1x.webp 1000w, img/studio/home-dark-2x.webp 2000w" sizes="(min-width:1100px) 900px, 94vw" width="2000" height="1169" alt="RasanAI Studio, the start screen: What would you like to make? The seven crew characters stand on the prompt box, which reads Describe your video, or paste a link, with the steps Describe, Setup, Brief, Story, Look, Preview and Final above and the films in the sidebar." loading="lazy" decoding="async" /></div>
 </div></section>
 
 <!-- 2. THE CREW: Rasan is introduced on his own, takes the centre of a circle, and brings in each specialist, who stops and says what they do; then the circle breaks into depth around the statement, and the camera flies through the crew -->
@@ -153,8 +153,8 @@
       </div>
       <div class="sq-step" data-sq="1">
         <p class="eyebrow">On your Mac</p>
-        <h3>The duck knows first.</h3>
-        <p class="lede">The moment the crew stops for one of your five calls, Squeak's duck lights up and the call goes to the top of its list.</p>
+        <h3>Squeak tells you first.</h3>
+        <p class="lede">The moment the crew stops for one of your five calls, Squeak sends the call to you, with the film and what is waiting.</p>
       </div>
       <div class="sq-step" data-sq="2">
         <p class="eyebrow">Away from it</p>
@@ -164,53 +164,53 @@
       <div class="sq-step" data-sq="3">
         <p class="eyebrow">On your iPhone</p>
         <h3>Answer with a tap.</h3>
-        <p class="lede">Pick the look, choose the story, approve the brief. The draft and the final come as small copies you can watch on the phone.</p>
+        <p class="lede">Approve the brief, choose the story, pick the look, watch the cut. The preview and the final come as small copies made for the phone.</p>
       </div>
       <div class="sq-step" data-sq="4">
         <p class="eyebrow">Back on your Mac</p>
         <h3>Already moving.</h3>
-        <p class="lede">Your answer goes into the same run. Studio's decisions show it as “You · iPhone”, and the crew carries on.</p>
+        <p class="lede">Your answer goes into the same run and Studio carries on: here, the film is done and ready for the world.</p>
       </div>
     </div>
 
-    <div class="sq-device" role="img" aria-label="RasanAI Studio on a Mac stops at the Look call; Squeak's duck lights up with the call. The screen becomes an iPhone, where Squeak shows the three looks and Ledger is picked. Back on the Mac, Studio has moved on to the animatic and its decisions read You · iPhone: picked the look: Ledger.">
+    <!-- the call itself, in flight between the two screens -->
+    <!-- the call itself, in flight between the two screens: a paper plane -->
+    <svg class="sq-trail" aria-hidden="true" focusable="false"><path d="" /></svg>
+    <div class="sq-fly" aria-hidden="true">
+      <img class="f-plane" src="img/paper-plane.webp" width="256" height="256" alt="" />
+    </div>
+    <div class="sq-device" role="img" aria-label="RasanAI Studio on a Mac stops at the Final call and Squeak posts a notification. The call flies to the iPhone, where Squeak shows the final cut and it is approved. The answer flies back, and Studio shows the finished film, ready for the world.">
+      <i class="sq-base" aria-hidden="true"></i>
       <div class="sq-screen">
         <!-- the Mac: designed at 1280 x 800 (80 x 50 em) -->
         <div class="sq-mac">
-          <div class="sq-wall" aria-hidden="true"><i></i><i></i><i></i></div>
-          <div class="sq-menubar"><b>RasanAI Studio</b><span>File</span><span>Edit</span><span>View</span><span>Window</span><span>Help</span><i class="sq-menu-duck"><img src="assets/squeak/squeak-duck.svg" width="1000" height="862" alt="" /><em class="sq-badge">1</em></i><span class="sq-clock">Tue 9:41</span></div>
+          <img class="sq-wall" src="img/mac-wallpaper.webp" width="1586" height="992" alt="" loading="lazy" decoding="async" />
+          <div class="sq-menubar"><b>RasanAI Studio</b><span>File</span><span>Edit</span><span>View</span><span>Window</span><i class="sq-menu-duck"><img src="assets/squeak/squeak-duck.svg" width="1000" height="862" alt="" /><em class="sq-badge">1</em></i><span class="sq-clock">Tue 9:41</span></div>
+          <i class="sq-notch"><b></b></i>
+          <i class="sq-glare" aria-hidden="true"></i>
+          <!-- Studio itself, captured from the app: the Final call before the answer, the finished film after it -->
           <div class="sq-win">
-            <img class="sq-shot sq-shot-look" src="img/studio/call-look-1x.jpg" width="1120" height="740" alt="" loading="lazy" decoding="async" />
-            <img class="sq-shot sq-shot-next" src="img/studio/call-animatic-1x.jpg" width="1120" height="740" alt="" loading="lazy" decoding="async" />
-            <div class="sq-decision"><small>Decisions · Look</small><b>You · iPhone</b><span>Picked the look: Ledger</span></div>
+            <img class="sq-shot sq-shot-look" src="img/studio/real-final-call.webp" width="1600" height="935" alt="" loading="lazy" decoding="async" />
+            <img class="sq-shot sq-shot-next" src="img/studio/real-finished.webp" width="1600" height="935" alt="" loading="lazy" decoding="async" />
+            <i class="sq-land" aria-hidden="true"></i>
           </div>
-          <div class="sq-panel">
-            <div class="sq-panel-head"><b>Agents</b><span>1 waiting on you</span></div>
-            <div class="sq-row is-call"><i></i><div><b>Tally launch film · Look</b><span>rasanai · needs you · Chitra is waiting for your pick</span></div><img src="assets/crew/v2/pose-chitra-show.webp" width="592" height="900" alt="" /></div>
-            <div class="sq-row"><i class="ok"></i><div><b>atlas · search-index</b><span>codex · working · just now</span></div></div>
-            <div class="sq-row"><i class="ok"></i><div><b>pebble · onboarding</b><span>claude · working · 2m</span></div></div>
-          </div>
-          <div class="sq-duck">
-            <img class="mood-working" src="assets/squeak/duck-working.webp" width="240" height="240" alt="" />
-            <img class="mood-needs" src="assets/squeak/duck-needs_you.webp" width="240" height="240" alt="" />
-            <img class="mood-done" src="assets/squeak/duck-celebrating.webp" width="240" height="240" alt="" />
-            <em class="sq-badge">1</em>
-          </div>
+          <!-- the macOS notification Squeak posts -->
+          <div class="sq-note"><img src="assets/squeak/squeak-duck.svg" width="1000" height="862" alt="" /><div><small>Squeak · now</small><b>Spring launch film · Your turn</b><span>The final cut is ready.</span></div></div>
         </div>
+        <i class="sq-dark" aria-hidden="true"></i>
         <!-- the iPhone: designed at 390 x 844 (24.375 x 52.75 em) -->
         <div class="sq-phone">
-          <div class="sq-status"><b>9:41</b><span class="sq-island"></span><span>●●● ▮</span></div>
+          <div class="sq-status"><b>9:41</b><span class="sq-island"></span><span class="sq-icons"><svg viewBox="0 0 18 12" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx=".8"/><rect x="5" y="5.5" width="3" height="6.5" rx=".8"/><rect x="10" y="3" width="3" height="9" rx=".8"/><rect x="15" y="0" width="3" height="12" rx=".8"/></svg><svg viewBox="0 0 16 12" aria-hidden="true"><path d="M8 11.6 5.6 9.1a3.4 3.4 0 0 1 4.8 0Z"/><path d="M3.6 7.1a6.2 6.2 0 0 1 8.8 0l-1.4 1.4a4.2 4.2 0 0 0-6 0Z"/><path d="M1.2 4.7a9.6 9.6 0 0 1 13.6 0l-1.4 1.4a7.6 7.6 0 0 0-10.8 0Z"/></svg><svg class="batt" viewBox="0 0 27 13" aria-hidden="true"><rect x=".5" y=".5" width="23" height="12" rx="3.6" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2.2" y="2.2" width="17" height="8.6" rx="2.2"/><path d="M25 4.4v4.2c.9-.3 1.5-1.1 1.5-2.1s-.6-1.8-1.5-2.1Z" fill-opacity=".45"/></svg></span></div>
           <div class="sq-nav"><span class="sq-back">‹</span><img src="assets/squeak/squeak-duck.svg" width="1000" height="862" alt="" /></div>
-          <h4>Tally launch film</h4>
-          <p class="sq-sub"><i></i>RasanAI · Look · waiting on you</p>
-          <p class="sq-who"><img src="assets/crew/v2/pose-chitra-show.webp" width="592" height="900" alt="" />Chitra designed three looks for this story.</p>
-          <p class="sq-q">Which look fits this story?</p>
+          <h4>Spring launch film</h4>
+          <p class="sq-sub"><i></i>RasanAI · Final · waiting on you</p>
+          <p class="sq-who"><img src="assets/crew/v2/pose-rasika-inspect.webp" width="1430" height="900" alt="" />Rasika checked every scene. The last call is yours.</p>
+          <p class="sq-q">Watch the final cut.</p>
           <div class="sq-looks">
-            <div class="sq-look l-ledger"><span class="sw"></span><div><b>Ledger</b><small>Swiss editorial grid, warm paper</small></div><em>Recommended</em></div>
-            <div class="sq-look l-signal"><span class="sw"></span><div><b>Signal</b><small>Bold type, one bright accent</small></div></div>
-            <div class="sq-look l-paper"><span class="sw"></span><div><b>Paper</b><small>Soft cut-paper layers</small></div></div>
+            <div class="sq-cutcard l-ledger"><img src="img/studio/real-final-cut-frame.webp" width="480" height="269" alt="" /><span class="sq-dur">0:29 · phone copy</span></div>
+            <div class="sq-noterow"><b>Leave a note</b><small>Point at the moment that should change</small></div>
           </div>
-          <div class="sq-cta"><span class="sq-use">Use Ledger →</span><span class="sq-sent">✓ Sent to RasanAI Studio</span></div>
+          <div class="sq-cta"><span class="sq-use">Approve the final cut →</span><span class="sq-sent">✓ Sent to RasanAI Studio</span></div>
           <p class="sq-foot">Replies go to this film's run on your Mac.</p>
         </div>
       </div>
@@ -243,8 +243,8 @@
   <div class="faq-list">
     <details><summary>What do I need to run it?</summary><div><p>An Apple Silicon Mac running macOS 14 or newer.</p></div></details>
     <details><summary>Does it cost anything?</summary><div><p>RasanAI Studio is free and open source under the MIT license. It uses your own Claude Code or OpenAI Codex, installed and signed in, so usage counts toward your own plan.</p></div></details>
-    <details><summary>Is it finished?</summary><div><p>No. It is a community beta. The real-agent generation flow is still in beta and not fully verified, so expect rough edges. Presenter films, where you film yourself on a green screen, are newer still and have experimental limits: <a href="guide.html#presenter">read them in the technical guide</a>. Please <a href="https://github.com/Sibhimanyu/rasanai/issues">tell us what breaks</a>.</p></div></details>
-    <details><summary>What happens the first time I open it?</summary><div><p>This beta is ad-hoc signed and not yet notarized by Apple, so macOS asks you to confirm. Drag RasanAI Studio into Applications, right-click it and choose <b>Open</b>, or use <b>Open Anyway</b> in System Settings &rarr; Privacy &amp; Security. After that, signed updates arrive on their own. <a href="guide.html#mac">Full installation help</a>.</p></div></details>
+    <details><summary>Is it finished?</summary><div><p>No. It is a community beta. The real-agent generation flow is still in beta and not fully verified, so expect rough edges. Presenter films, where you film yourself on a green screen, are newer still and have experimental limits: <a href="how-it-works.html#presenter">read them in How it works</a>. Please <a href="https://github.com/Sibhimanyu/rasanai/issues">tell us what breaks</a>.</p></div></details>
+    <details><summary>What happens the first time I open it?</summary><div><p>This beta is ad-hoc signed and not yet notarized by Apple, so macOS asks you to confirm. Drag RasanAI Studio into Applications, right-click it and choose <b>Open</b>, or use <b>Open Anyway</b> in System Settings &rarr; Privacy &amp; Security. After that, signed updates arrive on their own. <a href="how-it-works.html#mac">Full installation help</a>.</p></div></details>
     <details><summary>What about rendering tools?</summary><div><p>Use Help &rarr; Prepare Rendering Tools in the app. It installs whatever is missing.</p></div></details>
   </div>
 </div></section>
@@ -254,19 +254,75 @@
   <div class="beat beat-paper" data-beat="blinds"><div class="beat-layer"></div><p class="beat-line"><span class="beat-word">That’s</span> <span class="beat-word">the</span> <span class="beat-word">story.</span> <span class="beat-word is-accent">Your</span> <span class="beat-word is-accent">turn.</span></p></div>
   <img class="end-img" src="assets/crew/v2/endcard-ra.webp" width="2400" height="1351" alt="Rasan seen from behind, standing on a grassy ridge above a sea of clouds at sunset, holding a clapperboard." loading="lazy" decoding="async" />
   <div class="end-copy"><h2 id="end-title">Make your first film.</h2><a data-studio="dmg" class="btn btn-primary btn-lg" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.0-beta.1/RasanAI-Studio-0.19.0.dmg">Download for Mac <svg aria-hidden="true"><use href="#i-down"/></svg></a><p class="end-meta"><span data-studio="version">0.19.0 beta 1</span> &middot; Apple Silicon &middot; macOS 14+ &middot; Free and open source</p></div>
-  <p class="end-links"><span>Community beta, ad-hoc signed. Works with your own Claude Code or OpenAI Codex.</span><a data-studio="notes" href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.19.0-beta.1">Release notes</a><a data-studio="sha256" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.0-beta.1/RasanAI-Studio-0.19.0.dmg.sha256">Checksum</a><a href="guide.html#install">Prefer the terminal?</a></p>
+  <p class="end-links"><span>Community beta, ad-hoc signed. Works with your own Claude Code or OpenAI Codex.</span><a data-studio="notes" href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.19.0-beta.1">Release notes</a><a data-studio="sha256" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.0-beta.1/RasanAI-Studio-0.19.0.dmg.sha256">Checksum</a><a href="how-it-works.html#install">Prefer the terminal?</a></p>
 </div></section>
 </main>
 
 <!-- FOOTER -->
-<footer class="foot"><div class="wrap">
-  <div class="foot-top">
-    <p class="foot-sign"><span lang="ta">ரசனை</span> means taste. The eye, and ear, for what feels right.</p>
-    <nav class="foot-links" aria-label="Footer"><a href="guide.html">Technical guide</a><a href="brand/RasanAI-Brand-Guidelines.pdf">Brand guidelines (PDF)</a><a href="brand/overview.png">Brand overview</a><a data-studio="notes" href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.19.0-beta.1">Release notes</a><a href="https://github.com/Sibhimanyu/rasanai">GitHub &rarr;</a></nav>
+<footer class="foot" aria-labelledby="foot-title"><div class="foot-wrap">
+  <h2 class="sr-only" id="foot-title">RasanAI</h2>
+  <div class="foot-grid">
+    <div class="foot-brand">
+      <img class="foot-logo" src="assets/logo/rasanai-lockup-reverse.svg" width="487" height="100" alt="RasanAI" loading="lazy" />
+      <p class="foot-sign"><span lang="ta">ரசனை</span> means taste: the eye, and ear, for what feels right.</p>
+      <p class="foot-what">A director and a crew of agents that make a whole film from a sentence and your footage, and stop for your taste at five calls.</p>
+    </div>
+    <nav class="foot-col" aria-label="Studio">
+      <h3>Studio</h3>
+      <a data-studio="dmg" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.0-beta.1/RasanAI-Studio-0.19.0.dmg">Download for Mac</a>
+      <a data-studio="notes" href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.19.0-beta.1">Release notes</a>
+      <a data-studio="sha256" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.0-beta.1/RasanAI-Studio-0.19.0.dmg.sha256">Checksum</a>
+      <a href="#questions">First launch help</a>
+    </nav>
+    <nav class="foot-col" aria-label="Learn">
+      <h3>Learn</h3>
+      <a href="how-it-works.html">How it works</a>
+      <a href="#flow" data-jump="crew">The crew</a>
+      <a href="#control" data-jump="squeak">Squeak on iPhone</a>
+      <a href="#questions">FAQ</a>
+    </nav>
+    <nav class="foot-col" aria-label="Open source">
+      <h3>Open source</h3>
+      <a href="https://github.com/Sibhimanyu/rasanai">GitHub</a>
+      <a href="https://github.com/Sibhimanyu/rasanai/issues">Report an issue</a>
+      <a href="https://github.com/Sibhimanyu/rasanai/blob/master/CHANGELOG.md">Changelog</a>
+      <a href="https://github.com/Sibhimanyu/rasanai/blob/master/LICENSE">MIT licence</a>
+    </nav>
+    <nav class="foot-col" aria-label="Brand">
+      <h3>Brand</h3>
+      <a href="brand/RasanAI-Brand-Guidelines.pdf">Guidelines (PDF)</a>
+      <a href="brand/overview.png">Overview</a>
+    </nav>
   </div>
-  <img class="foot-mark" src="assets/logo/rasanai-lockup-reverse.svg" width="487" height="100" alt="RasanAI" loading="lazy" />
-  <p class="foot-by">By <a href="https://github.com/Sibhimanyu">Sibhimanyu</a> &middot; Open source / MIT</p>
+
+  <!-- optional: the same engine as a skill, for Claude Code or Codex in the terminal -->
+  <section class="foot-skill" aria-labelledby="skill-title">
+    <div class="skill-copy">
+      <p class="skill-kicker">Optional</p>
+      <h3 id="skill-title">Use RasanAI in your terminal.</h3>
+      <p>Studio is all you need. If you would rather direct from Claude Code or Codex, install the RasanAI skill: the same director, crew and five calls, with a console in your browser.</p>
+    </div>
+    <div class="skill-box" data-skill>
+      <div class="skill-tabs" role="tablist" aria-label="How to install the skill">
+        <button type="button" role="tab" aria-selected="true" aria-controls="skill-plugin" id="tab-plugin">Claude Code plugin</button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="skill-curl" id="tab-curl" tabindex="-1">One-line installer</button>
+        <button type="button" role="tab" aria-selected="false" aria-controls="skill-cli" id="tab-cli" tabindex="-1">skills CLI</button>
+      </div>
+      <div class="skill-pane" role="tabpanel" id="skill-plugin" aria-labelledby="tab-plugin"><pre><code>/plugin marketplace add Sibhimanyu/rasanai
+/plugin install rasanai@rasanai</code></pre><button type="button" class="skill-copybtn">Copy</button></div>
+      <div class="skill-pane" role="tabpanel" id="skill-curl" aria-labelledby="tab-curl" hidden><pre><code>curl -fsSL https://raw.githubusercontent.com/Sibhimanyu/rasanai/master/install.sh | bash</code></pre><button type="button" class="skill-copybtn">Copy</button></div>
+      <div class="skill-pane" role="tabpanel" id="skill-cli" aria-labelledby="tab-cli" hidden><pre><code>npx skills add Sibhimanyu/rasanai --skill rasanai</code></pre><button type="button" class="skill-copybtn">Copy</button></div>
+      <p class="skill-note">Needs Claude Code (or Codex), Node 20+ and the HyperFrames skills. <a href="https://github.com/Sibhimanyu/rasanai#install">Full install notes</a></p>
+    </div>
+  </section>
+
+  <img class="foot-mark" src="assets/logo/rasanai-lockup-reverse.svg" width="487" height="100" alt="" aria-hidden="true" loading="lazy" />
+  <div class="foot-bar">
+    <p>By <a href="https://github.com/Sibhimanyu">Sibhimanyu</a> &middot; Free and open source, MIT</p>
+    <p><span data-studio="version">0.19.0 beta 1</span> &middot; Apple Silicon &middot; macOS 14+</p>
+  </div>
 </div></footer>
-<script src="assets/site.js"></script><script src="assets/home.js"></script>
+<script src="assets/foot.js?v=1"></script>
+<script src="assets/site.js?v=3"></script><script src="assets/home.js?v=23"></script>
 </body>
 </html>
