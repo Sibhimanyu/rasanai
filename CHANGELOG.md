@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.24.0 (2026-10-21): Make a film's calls from your phone with Squeak
 
 - **A published contract for other apps (`references/remote.md`).** An app on the same Mac (a phone pager such as Squeak) can show RasanAI's calls and send the answer back the way RasanAI Studio does: the waiting rule, the step-to-call map, the action shapes per call, the `actions.lock` protocol and the picture paths per call. `session.json` now carries `schema: 1` and `console.json` `external_actions: 1`.
 - **Answers keep where they came from.** An action's `source` is kept when it is one of `console`, `chat`, `studio`, `squeak` or `squeak-phone` (anything else reads as `console`), on the step's `sent` (`source`, `via`) and, once the step is closed, as `by_source` / `by_via`. The feed says "You (iPhone): picked the story: …" and the decisions drawer "you (iPhone)".
