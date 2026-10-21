@@ -303,23 +303,46 @@ struct MonitorBudgetBanner: View {
     var store: StudioStore
     var body: some View {
         let monitor = store.monitor
-        if let limit = monitor.budgetLimit, monitor.run == store.runURL {
-            HStack(spacing: 12) {
-                Image(systemName: "dollarsign.circle.fill").foregroundStyle(Color(nsColor: .systemOrange))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("This film is over your \(UsageFormat.dollars(limit)) budget").font(.system(size: 13, weight: .semibold))
-                    Text("About \(UsageFormat.dollars(monitor.telemetry.cost.usd)) so far\(monitor.telemetry.cost.isEstimated ? " (est.)" : ""). Pause now, or let it carry on.")
-                        .font(.system(size: 12)).foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button("Pause") { store.pauseDirector() }.disabled(!store.canPause)
-                Button("Keep going") { monitor.dismissBudgetWarning() }
+        if monitor.run == store.runURL, let paused = monitor.autoPaused, paused.kind == .loop {
+            banner(symbol: "exclamationmark.arrow.triangle.2.circlepath", tint: .systemRed,
+                   title: "Paused: the director looked stuck",
+                   detail: paused.reason + " Nothing is lost. Resume to let it carry on, or tell it what to do.") {
+                Button("Show log") { store.sheet = .log }
+                Button("Message \(monitor.agentTitle)…") { store.film?.beginTell() }
+                Button("Resume") { store.resumeDirector() }.keyboardShortcut(.defaultAction)
             }
-            .padding(.horizontal, 16).padding(.vertical, 10)
-            .background(Color(nsColor: .systemOrange).opacity(0.12))
-            .overlay(alignment: .bottom) { Divider() }
-            .transition(.move(edge: .top).combined(with: .opacity))
+        } else if let limit = monitor.budgetLimit, monitor.run == store.runURL {
+            let spent = "About \(UsageFormat.dollars(monitor.telemetry.cost.usd)) so far\(monitor.telemetry.cost.isEstimated ? " (est.)" : "")."
+            if monitor.autoPaused?.kind == .budget {
+                banner(symbol: "dollarsign.circle.fill", tint: .systemOrange, title: "Paused at your \(UsageFormat.dollars(limit)) budget",
+                       detail: spent + " Keep going to resume, or raise the limit.") {
+                    Button("Raise by $10") { monitor.raiseBudget(by: 10) }
+                    Button("Keep going") { monitor.dismissBudgetWarning() }
+                }
+            } else {
+                banner(symbol: "dollarsign.circle.fill", tint: .systemOrange, title: "This film is over your \(UsageFormat.dollars(limit)) budget",
+                       detail: spent + " Pause now, or let it carry on.") {
+                    Button("Pause") { store.pauseDirector() }.disabled(!store.canPause)
+                    Button("Keep going") { monitor.dismissBudgetWarning() }
+                }
+            }
         }
+    }
+
+    private func banner<Buttons: View>(symbol: String, tint: NSColor, title: String, detail: String, @ViewBuilder buttons: () -> Buttons) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol).foregroundStyle(Color(nsColor: tint))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.system(size: 13, weight: .semibold))
+                Text(detail).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            buttons()
+        }
+        .padding(.horizontal, 16).padding(.vertical, 10)
+        .background(Color(nsColor: tint).opacity(0.12))
+        .overlay(alignment: .bottom) { Divider() }
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 }
 
@@ -384,9 +407,9 @@ struct FinishedUsageLine: View {
 struct BudgetSetting: View {
     @Bindable var settings: StudioSettings
     var body: some View {
-        Toggle("Warn me above a spend per film", isOn: Binding(get: { settings.budgetPerFilm > 0 }, set: { settings.budgetPerFilm = $0 ? 10 : 0 }))
+        Toggle("Pause above a spend per film", isOn: Binding(get: { settings.budgetPerFilm > 0 }, set: { settings.budgetPerFilm = $0 ? 10 : 0 }))
         if settings.budgetPerFilm > 0 {
-            LabeledContent("Warn above") {
+            LabeledContent("Pause above") {
                 HStack(spacing: 4) {
                     Text("$")
                     TextField("", value: $settings.budgetPerFilm, format: .number.precision(.fractionLength(0...2)))

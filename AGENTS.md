@@ -29,3 +29,10 @@ Third-party sources: `skills/rasanai/third_party/SOURCES.md`; adding a new one: 
 ## Releasing
 
 Releases MUST go through `scripts/release.mjs` (see RELEASING.md): `node scripts/release.mjs skill|studio <x.y.z>`. Never tag, publish, or edit the appcast by hand.
+
+## Studio UI in pictures
+
+Whenever you draw, mock up or film the RasanAI Studio app (site, launch films, promo frames, docs), use the **current**
+dark UI with the sidebar and the Describe…Final dot stepper: see `docs/brand/studio-ui/README.md` and
+`current-studio-home.png`, or screenshot the real app. The old light "Watch the first cut / Animatic" UI
+(`docs/brand/studio-ui/OLD-do-not-use.jpg`, `archive/old-ui/`) is retired: never copy it.
