@@ -2,9 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.19.4 (build 42) — 2026-10-21
 
 - **Pause holds after a relaunch.** Pausing a film that Studio picked back up after a restart (by you, or by its own stuck or budget check) now really pauses it; before, the director was stopped and had to start over from its saved state.
+- **Bundles RasanAI 1.24.0.**
 
 ## 0.19.3 (build 41) — 2026-10-21
 
