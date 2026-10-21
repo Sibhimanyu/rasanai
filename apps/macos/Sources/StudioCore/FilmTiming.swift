@@ -66,9 +66,11 @@ public struct FilmTimingRecord: Codable, Equatable, Sendable, Identifiable {
     public var context: FilmTimingContext
     /// Phase raw value to work seconds, for the phases that ended.
     public var phaseSeconds: [String: Double]
+    /// 2 once the clock leaves out the time no director ran. Older records (nil) may include plan limit waits.
+    public var clock: Int?
 
-    public init(id: String, recordedAt: Date, complete: Bool, context: FilmTimingContext, phaseSeconds: [String: Double]) {
-        self.id = id; self.recordedAt = recordedAt; self.complete = complete; self.context = context; self.phaseSeconds = phaseSeconds
+    public init(id: String, recordedAt: Date, complete: Bool, context: FilmTimingContext, phaseSeconds: [String: Double], clock: Int? = 2) {
+        self.id = id; self.recordedAt = recordedAt; self.complete = complete; self.context = context; self.phaseSeconds = phaseSeconds; self.clock = clock
     }
 
     /// The record for a snapshot, or nil when no phase has ended yet.
@@ -173,8 +175,8 @@ public enum FilmTimeEstimator {
         let base: TimeInterval
         switch phase {
         case .research:
-            switch pace { case .fast?: base = 150; case .standard?: base = 330; case .thorough?: base = 600; case nil: base = 420 }
-        case .render: base = max(180, c.lengthSeconds * 10)
+            switch pace { case .fast?: base = 150; case .standard?: base = 330; case .thorough?: base = 600; case nil: base = 360 }
+        case .render: base = max(300, c.lengthSeconds * 40)
         default: base = ProgressPhaseMapper.typicalSeconds(phase)
         }
         // Render is linear in length; build, plan, animatic and check grow with length and scene count, but less than linearly.
@@ -224,6 +226,8 @@ public enum FilmTimeEstimator {
         let target = prior(phase, c)
         return pool.compactMap { record -> TimeInterval? in
             guard let seconds = record.phaseSeconds[phase.rawValue], seconds > 0 else { return nil }
+            // Before the clock left out downtime, a phase over an hour is a limit wait, not work.
+            if record.clock == nil, seconds > 3_600 { return nil }
             let theirs = prior(phase, record.context)
             let ratio = theirs > 0 && target > 0 ? min(4, max(0.25, target / theirs)) : 1
             return seconds * ratio
@@ -296,11 +300,16 @@ public struct EstimateSmoother: Sendable, Equatable {
     var at: Date?
     public init() {}
 
-    public mutating func apply(_ raw: PhaseEstimate?, now: Date) -> PhaseEstimate? {
+    /// `hold`: nothing is running or it is the person's turn. The shown figure stays put (no countdown) instead of ticking through the pause.
+    public mutating func apply(_ raw: PhaseEstimate?, now: Date, hold: Bool = false) -> PhaseEstimate? {
         guard let raw else { shown = nil; at = nil; return nil }
         guard let last = shown, let lastAt = at else {
             shown = raw.secondsLeft; at = now
             return raw
+        }
+        if hold {
+            at = now
+            return Self.shifted(raw, to: last)
         }
         let dt = min(900, max(0, now.timeIntervalSince(lastAt)))
         let expected = max(0, last - dt)
@@ -310,11 +319,15 @@ public struct EstimateSmoother: Sendable, Equatable {
         if raw.basis != .measured { next = min(next, expected + 0.10 * last * dt / 60) }
         next = max(0, next)
         shown = next; at = now
+        return Self.shifted(raw, to: next)
+    }
+
+    private static func shifted(_ raw: PhaseEstimate, to value: TimeInterval) -> PhaseEstimate {
         var out = raw
-        let shift = next - raw.secondsLeft
-        out.secondsLeft = next
+        let shift = value - raw.secondsLeft
+        out.secondsLeft = value
         out.lowSeconds = raw.lowSeconds.map { max(0, $0 + shift) }
-        out.highSeconds = raw.highSeconds.map { max(next, $0 + shift) }
+        out.highSeconds = raw.highSeconds.map { max(value, $0 + shift) }
         return out
     }
 }

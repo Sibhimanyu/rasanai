@@ -2,6 +2,12 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **Honest time estimates.** Elapsed time and "time left" leave out the hours nothing ran (a Claude plan limit, a pause, the app closed) and stop while it is your call. Estimates start from how long real films take (about 1 h 45 min of work for a 30 s film, not 2.5 h), and no longer count down while you decide.
+- **Films pick themselves back up.** Quitting or updating Studio mid-film no longer strands it: a director still working is picked back up (never a second one on the same film), a plan limit still resumes by itself when it resets, and an unexpected stop resumes once.
+- **A stopped film says so.** When nothing is working on a film, it says "Claude stopped working on this film" with a Resume button, instead of a working screen stuck on "18 min left".
+
 ## 0.19.0 (build 38) — 2026-10-20
 
 - **Edit a talking-head cut by its words.** The Cut step shows the transcript with Claude's suggested cuts (retakes, false starts, "wait, let me start again", fillers) marked. Cut or restore any phrase, accept or keep a suggestion, fix a misspelled name, and undo or redo with ⌘Z / ⇧⌘Z. Your decisions are kept if you quit and reopen.

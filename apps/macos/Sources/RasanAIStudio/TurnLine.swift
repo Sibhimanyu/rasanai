@@ -56,7 +56,10 @@ extension StudioStore {
             let reading = snapshot.workingMessage == SessionOverlay.readingMessage ? snapshot.workingMessage : nil
             return .working(reading ?? activity ?? snapshot.workingMessage ?? "\(settings.agent.shortName) is working on your film.", since: runtime.startedAt,
                             next: NextNeeded.line(snapshot, pace: settings.pace))
-        case .paused: return .paused
+        case .paused:
+            // Nothing runs, nobody paused it and no automatic resume is coming: say so plainly, Resume is the bar's primary.
+            if !runtime.stopRequested, !runtime.isFrozen, runtime.autoResume == nil { return .attention("\(settings.agent.shortName) stopped working on this film. Your work is saved; press Resume to carry on.") }
+            return .paused
         case .needsAttention: return .attention("The last session stopped unexpectedly. The log shows why.")
         default: return nil
         }
