@@ -34,9 +34,16 @@ function stop() {
 process.on('SIGTERM', stop);
 process.on('SIGINT', stop);
 // If the app dies while the director is frozen nobody could ever continue it, so stop it for real.
+// A relaunched Studio is not the driver's parent but still watches it: it touches director-watch in the run folder every few
+// seconds, so a fresh touch counts as watched and a director it paused stays paused.
 const parent = process.ppid;
-setInterval(() => { if (frozen && (process.ppid !== parent || process.ppid === 1)) { orphaned = true; stop(); } }, 5000).unref();
-// If the app crashed or was force-quit, nobody watches for loops any more, so the driver does: the same tool call with the
+const watchFile = path.join(path.dirname(process.argv[2]), 'director-watch');
+function appWatching() {
+  if (process.ppid === parent && parent !== 1) return true;
+  try { return Date.now() - fs.statSync(watchFile).mtimeMs < 30000; } catch { return false; }
+}
+setInterval(() => { if (frozen && !appWatching()) { orphaned = true; stop(); } }, 5000).unref();
+// If the app crashed or was force-quit (and has not been reopened), nobody watches for loops, so the driver does: the same tool call with the
 // same input this many times in a row (console waits and wake-ups excepted) stops the director rather than burning tokens.
 const LOOP_REPEATS = 5;
 const logFile = path.join(path.dirname(process.argv[2]), 'director.log');
@@ -82,7 +89,7 @@ function watchForLoop() {
   }
 }
 let loopStopped = false;
-setInterval(() => { if (process.ppid !== parent || process.ppid === 1) watchForLoop(); else { try { logOffset = fs.statSync(logFile).size; } catch {} partial = ''; } }, 15000).unref();
+setInterval(() => { if (!appWatching()) watchForLoop(); else { try { logOffset = fs.statSync(logFile).size; } catch {} partial = ''; } }, 15000).unref();
 child.on('error', () => { event({ event: 'exit', code: 1, stopped: false }); console.error('Could not start the configured director executable.'); process.exit(1); });
 child.on('exit', code => {
   if (stopping) return; // Give descendants the grace period, even if their parent exits early.
