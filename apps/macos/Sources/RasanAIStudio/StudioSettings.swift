@@ -16,12 +16,14 @@ final class StudioSettings {
     var codexModel = UserDefaults.standard.string(forKey: "codexModel") ?? "" { didSet { defaults.set(codexModel, forKey: "codexModel") } }
     var nodePath = UserDefaults.standard.string(forKey: "nodePath") ?? "" { didSet { defaults.set(nodePath, forKey: "nodePath") } }
     var allowUnrestrictedTools = UserDefaults.standard.bool(forKey: "allowUnrestrictedTools") { didSet { defaults.set(allowUnrestrictedTools, forKey: "allowUnrestrictedTools") } }
-    /// Warn when one film's director spend passes this many dollars. 0 means off.
+    /// Pause the director when one film's spend passes this many dollars. 0 means off.
     var budgetPerFilm = UserDefaults.standard.double(forKey: "budgetPerFilm") { didSet { defaults.set(budgetPerFilm, forKey: "budgetPerFilm") } }
     /// How fast the director works (research time and build plan), for films that do not choose their own.
     var pace: FilmPace { didSet { defaults.set(pace.rawValue, forKey: "pace") } }
     /// Keeps the Mac from idle sleep while the director is working. On unless turned off.
     var keepAwakeWhileMaking: Bool { didSet { defaults.set(keepAwakeWhileMaking, forKey: "keepAwakeWhileMaking") } }
+    /// Pauses the director when it has looked stuck for a while, so a loop cannot keep spending tokens. On unless turned off.
+    var pauseWhenStuck: Bool { didSet { defaults.set(pauseWhenStuck, forKey: "pauseWhenStuck") } }
     /// Lets the director make images through the Codex CLI on the user's ChatGPT plan. On unless turned off.
     var generateImagesWithCodex: Bool { didSet { defaults.set(generateImagesWithCodex, forKey: "generateImagesWithCodex") } }
     /// The Codex CLI for image generation, whichever director is selected: the configured path, else discovery.
@@ -109,6 +111,7 @@ final class StudioSettings {
             ?? defaults.string(forKey: "researchDepth").flatMap(FilmPace.init(legacyResearchDepth:)) ?? .defaultForNewFilms
         generateImagesWithCodex = defaults.object(forKey: "generateImagesWithCodex") as? Bool ?? true
         keepAwakeWhileMaking = defaults.object(forKey: "keepAwakeWhileMaking") as? Bool ?? true
+        pauseWhenStuck = defaults.object(forKey: "pauseWhenStuck") as? Bool ?? true
         do { try library.prepare() } catch { self.error = error.localizedDescription }
         login.settings = self
     }
@@ -476,9 +479,14 @@ struct StudioSettingsView: View {
                 Text("The screen can still sleep. Closing the lid on battery still sleeps the Mac; RasanAI picks the film back up when it wakes.")
             }
             Section {
+                Toggle("Pause the director when it looks stuck", isOn: $settings.pauseWhenStuck)
+            } footer: {
+                Text("If it repeats the same step or burns tokens without showing you anything new for two minutes, RasanAI pauses it. Nothing is lost; Resume carries on where it was.")
+            }
+            Section {
                 BudgetSetting(settings: settings)
             } header: { Text("Budget") } footer: {
-                Text("RasanAI shows the director's tokens and cost for each film. Dollar figures marked est. are calculated from list prices.")
+                Text("RasanAI shows the director's tokens and cost for each film, and pauses it when a film passes your limit. Dollar figures marked est. are calculated from list prices.")
             }
             Section("Advanced") {
                 DisclosureGroup("Developer options", isExpanded: $showAdvanced) {
