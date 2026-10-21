@@ -411,6 +411,13 @@
       var sx = (P1.x + stage.left) - (g.cx - scr.W / 2), sy = (P1.y + stage.top) - (g.cy - scr.H / 2);
       return { x: sx, y: sy, r: ease(rv) * Math.hypot(scr.W, scr.H), dir: dir, rv: rv };
     }
+    // the beats' timeline (s) against scroll: the paper-plane flights (.38-.565 and .78-.905) take three times the scroll
+    var SQ_K = [[0, 0], [.38, .38], [.565, .935], [.78, 1.15], [.905, 1.525], [1, 1.62]];
+    function warpSq(x) {
+      var v = x * 1.62;
+      for (var k = 1; k < SQ_K.length; k++) if (v <= SQ_K[k][1]) { var a = SQ_K[k - 1], b = SQ_K[k]; return a[0] + (b[0] - a[0]) * (v - a[1]) / (b[1] - a[1]); }
+      return 1;
+    }
     var touched = [].concat.apply([], stepRest).concat([].concat.apply([], stepWords)).concat([dev, screen, mac, phone]).concat(steps, parts.badges, [darkEl, fly, planeEl, parts.next, parts.note, parts.base, parts.ledger, parts.cta, parts.use, parts.sent]).concat(G.root ? [G.root, G.row, G.r, G.s, G.rm, G.sm, G.rw, G.sw, G.x, G.glow, G.small].concat(G.rings, G.sparks, G.words) : []).filter(Boolean);
     var op = function (el, v) { if (el) el.style.opacity = (+v).toFixed(3); };
     window.addEventListener("resize", function () { spots = { row: null, foot: null, cta: null }; stageBox = null; gGeo = null; }, { passive: true });
@@ -422,7 +429,7 @@
       if (fly) stageBox = fly.parentElement.getBoundingClientRect();   // read before any write this frame
       var s0 = seg(p, host.span, 1), vw = window.innerWidth, vh = window.innerHeight;
       // the first part of the chapter is the partnership; the five beats share the rest
-      var come = renderGrand(seg(s0, 0, .22)), s = seg(s0, .22, 1);
+      var come = renderGrand(seg(s0, 0, .22)), s = warpSq(seg(s0, .22, 1));
       // the line: each beat's line rises in and the last one rises out
       steps.forEach(function (el, i) {
         var a = STEP[i][0], b = STEP[i][1], tin = i ? seg(s, a - .015, a + .04) : come, tout = seg(s, b - .045, b + .005);
@@ -555,15 +562,17 @@
       if (on === away) return; away = on;
       fl.forEach(function (f) { f.c.style.visibility = on ? "hidden" : ""; });
     };
+    var shotBand = homeWin.closest(".shot-band");
     var flight = addScene({
-      el: homeWin, pin: true,
+      el: shotBand, pin: true,
       // 0..1 while the screenshot rises into its resting place; at 1 every cut-out sits exactly on its painted-out spot,
       // so the flyers give way to the screenshot's own crew in one frame
-      progress: function (r, vh) { return clamp((vh - r.top) / (vh * .75), 0, 1); },
+      // 0..1 through the band's pinned stretch: the window rises over the first 85% of it and rests for the rest
+      progress: function (r, vh) { return clamp(-r.top / Math.max(1, r.height - vh), 0, 1); },
       render: function (q) {
-        var vq = q, re = ease(vq);
+        var vq = Math.min(1, q / .85), re = ease(vq);
         // the window's rise and the flight share one progress value, so the crew and the screenshot never drift apart
-        homeWin.style.transform = "translate3d(0," + ((1 - re) * 64).toFixed(1) + "px,0) scale(" + (.93 + .07 * re).toFixed(3) + ")";
+        homeWin.style.transform = "translate3d(0," + ((1 - re) * window.innerHeight * .8).toFixed(1) + "px,0) scale(" + (.93 + .07 * re).toFixed(3) + ")";
         // Keep the original artwork until every flight asset and the screenshot are ready.
         if (!layer.hasAttribute("data-images-ready") || !homeImg.hasAttribute("data-image-ready") || !emptyImg.complete || !emptyImg.naturalWidth) {
           setShown(false); setEmpty(false); setAway(false); setRest(false); return;
@@ -767,7 +776,7 @@
   var mix = function (a, b, t) { return a + (b - a) * t; };
   var inOutC = function (t) { return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
   var crewOn = false, crewGeo = null, crewRun = null, crewBeat = null;
-  var CREW_OPEN = .15;   // the first part of the track is the opening line ("Behind that box, a whole crew."), which scatters off Rasan
+  var CREW_OPEN = .26;   // the first part of the track is the opening line ("Behind that box, a whole crew."), which scatters off Rasan
 
   // the markup contract: anything missing or out of order turns the scene off, and the page stays a plain stack
   function crewSpec() {
@@ -816,7 +825,7 @@
     }
     // the crew scene starts a screen early, behind the rising window, so its line is already in place when the window uncovers it;
     // the words fill as they are uncovered
-    if (crew.beat) crewBeat = makeBeat(crew.beat, { fill: [.22, .5], out: .64 });
+    if (crew.beat) crewBeat = makeBeat(crew.beat, { fill: [.12, .3], out: .42 });
     // the specialists start off-screen, where lazy images would not load until they fly in; fetch and decode them all now
     crew.imgs.forEach(function (im) { var pre = new Image(); pre.src = im.currentSrc || im.src; if (pre.decode) pre.decode().catch(function () {}); });
     crewOn = true;
@@ -897,18 +906,19 @@
   // arrives on the right. At the end of it everything is exactly where the scene proper begins.
   function crewOpening(o) {
     var g = crewGeo, ra = crew.nodes[0], img = crew.imgs[0];
-    var fall = seg(o, .5, .64), land = seg(o, .64, .78), step = inOutC(seg(o, .74, 1));
+    // Rasan lands as the shatter starts, stands in the hovering letters, and steps aside once they have gone
+    var fall = seg(o, .32, .42), land = seg(o, .42, .52), step = inOutC(seg(o, .82, 1));
     var y = fall < 1 ? -(g.H + 260) * (1 - fall * fall) : 0;             // gravity: slow to start, fastest at the moment of impact
     // squash on impact, then a small rebound; stretched a little while falling
     var sq = land > 0 ? Math.sin(Math.PI * land) * Math.exp(-2.2 * land) : 0;
     var sx = fall < 1 ? 1 - .06 * fall : 1 + .22 * sq, sy = fall < 1 ? 1 + .08 * fall : 1 - .24 * sq;
     var s = mix(1.6, CREW_BIG, step);
     ra.style.transform = "translate3d(" + mix(0, -.46 * g.W, step).toFixed(2) + "px," + (y * (1 - step)).toFixed(2) + "px,0)";
-    ra.style.opacity = o < .5 ? "0" : "1";
+    ra.style.opacity = o < .32 ? "0" : "1";
     ra.style.zIndex = "9";
     img.style.transform = "scale(" + (s * sx).toFixed(4) + "," + (s * sy).toFixed(4) + ")";
     // his introduction comes in from the right as he steps aside
-    var li = seg(o, .82, 1);
+    var li = seg(o, .88, 1);
     crew.lead.style.opacity = li.toFixed(3);
     crew.lead.style.visibility = li > 0 ? "" : "hidden";
     crew.lead.style.transform = "translate3d(" + ((1 - ease(li)) * 40).toFixed(1) + "px,0,0)";
