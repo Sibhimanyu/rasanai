@@ -38,6 +38,8 @@ public struct DecisionRow: Identifiable, Equatable, Sendable {
     public let decision: String
     /// True when the person made the call; false when Claude did.
     public let byUser: Bool
+    /// Where the person made it, when that was another app that speaks `references/remote.md` (e.g. "iPhone"); nil from Studio or the console.
+    public let via: String?
 }
 
 public struct ThreadMessage: Identifiable, Equatable, Sendable {
@@ -106,7 +108,8 @@ public extension SessionSnapshot {
             guard payload["status"].string == "done", let decision = payload["decision"].string, !decision.isEmpty else { return nil }
             let sentType = payload["sent"]["type"].string
             let byUser = (sentType != nil && sentType != "decide") || payload["by"].string == "user"
-            return DecisionRow(step: name, label: StepCatalog.label(name), decision: decision, byUser: byUser)
+            let via = byUser ? (payload["sent"]["via"].string ?? payload["by_via"].string).flatMap { $0.isEmpty ? nil : String($0.prefix(40)) } : nil
+            return DecisionRow(step: name, label: StepCatalog.label(name), decision: decision, byUser: byUser, via: via)
         }
     }
     /// The discussion on one step: the person's notes and Claude's replies, oldest first.
