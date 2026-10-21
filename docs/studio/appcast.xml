@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.19.4 beta 1</title>
+      <pubDate>Wed, 21 Oct 2026 17:39:40 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **Pause holds after a relaunch.** Pausing a film that Studio picked back up after a restart (by you, or by its own stuck or budget check) now really pauses it; before, the director was stopped and had to start over from its saved state.]]></description>
+      <sparkle:version>42</sparkle:version>
+      <sparkle:shortVersionString>0.19.4</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.4-beta.1/RasanAI-Studio-0.19.4.dmg" sparkle:edSignature="tCGcO9+PV9ek1/9nSTj/sVv8g1BJH3jRdb1lmlkM0Vgu5/bbH2f/beaa9f9kdp1SsDs1MG7ao3ZY1BVD4lyNDg==" length="80962365" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.19.3 beta 1</title>
       <pubDate>Wed, 21 Oct 2026 17:20:54 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **A stuck director pauses itself.** When Claude repeats the same step, or burns tokens without showing you anything new, for two minutes, Studio pauses it so a loop stops spending tokens. A red banner says why, with Resume, Message Claude and Show log; nothing is lost and Resume carries on mid-step. Turn it off in Settings → "Pause the director when it looks stuck".
