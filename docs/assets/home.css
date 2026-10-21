@@ -366,7 +366,7 @@
 .foot-sign span { font-family: var(--tamil); font-weight: 700; color: #fff; }
 .foot-links { display: grid; grid-template-columns: repeat(2, auto); gap: 10px 48px; }
 .foot-links a { color: #fff; text-underline-offset: 4px; }
-.foot-mark { display: block; width: 100%; height: auto; margin: clamp(48px, 9vw, 120px) 0 24px; }
+.foot-mark { display: block; width: 88%; height: auto; opacity: .82; margin: clamp(48px, 9vw, 120px) 0 24px; }
 .foot-by { margin: 0; font-size: .9rem; }
 .foot-by a { color: #fff; }
 

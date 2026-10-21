@@ -170,8 +170,9 @@
   // crew flight: the hero cards assemble and land on the crew standing on the Home screenshot, then hand off to it
   var homeWin = $(".shot-band .window[data-rise]"), homeImg = homeWin && $("img", homeWin);
   if (heroEl && homeImg) {
-    var BOX = { tara: [20.066, 42.213, 7.189, 8.175], kavi: [27.354, 35.249, 7.436, 15.169], chitra: [34.74, 34.128, 8.473, 16.229], ra: [43.04, 33.311, 12.055, 17.047], laya: [55.096, 33.704, 7.633, 14.624], rasika: [61.691, 42.97, 9.387, 7.388], mala: [71.079, 38.882, 8.745, 11.536] };
-    var RIM = 49.46, STAG = .06;
+    // percentages of the cropped 1814x1190 screenshot (y and height rescaled from the old 1480-high crop)
+    var BOX = { tara: [20.066, 52.5, 7.189, 10.167], kavi: [27.354, 43.839, 7.436, 18.866], chitra: [34.74, 42.445, 8.473, 20.184], ra: [43.04, 41.429, 12.055, 21.201], laya: [55.096, 41.918, 7.633, 18.188], rasika: [61.691, 53.442, 9.387, 9.188], mala: [71.079, 48.357, 8.745, 14.347] };
+    var RIM = 61.513, STAG = .06;
     // while the crew fly in, the screenshot shows its prompt with the crew painted out, so no one lands on top of themselves
     var emptyImg = new Image(); emptyImg.className = "shot-empty"; emptyImg.alt = ""; emptyImg.setAttribute("aria-hidden", "true"); emptyImg.decoding = "async";
     emptyImg.srcset = "img/studio/home-1x-empty.jpg 907w, img/studio/home-2x-empty.jpg 1814w"; emptyImg.sizes = homeImg.getAttribute("sizes") || "100vw"; emptyImg.src = "img/studio/home-1x-empty.jpg";
