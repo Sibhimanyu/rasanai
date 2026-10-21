@@ -75,6 +75,281 @@
     });
   }
 
+  /* ---------- story beats: a short narrator line opens a chapter, then a reveal clears it off the chapter underneath ----------
+     makeBeat(el) prepares one .beat for the pinned stage and returns { render(b), reset() }; b is 0..1 through the beat:
+     the words fill faint to full (.02-.32), the line holds, then the reveal named in data-beat plays (.45-1):
+       scatter  every letter flies off on its own heading, spinning, while the paper thins out
+       doors    the line and its paper split along the middle and part, up and down
+       playhead a timeline playhead scrubs across with a running timecode and a soft trail: behind it the chapter is revealed,
+                ahead of it the line and its paper are still there, cut cleanly at the playhead
+       blinds   the letters drop, then the paper folds away in strips, top to bottom
+     reset() puts the beat's own markup back exactly, so the stacked page never sees the reveal's extra elements. */
+  var hash = function (n) { var x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+  function splitChars(root) {
+    $$(".beat-word", root).forEach(function (w) {
+      var t = w.textContent; w.textContent = "";
+      for (var i = 0; i < t.length; i++) { var ch = document.createElement("span"); ch.className = "beat-char"; ch.textContent = t[i]; w.appendChild(ch); }
+    });
+    return $$(".beat-char", root);
+  }
+  function makeBeat(el, at) {
+    at = at || { fill: [.02, .32], out: .45 };   // when the words fill, and when the reveal starts
+    var fx = el.getAttribute("data-beat"), html = el.innerHTML, style = el.getAttribute("style");
+    var line = $(".beat-line", el), layer = $(".beat-layer", el), halves = [], strips = [], chars = [], vw = 0, vh2 = 0;
+    if (fx === "doors") {
+      // two copies of layer and line, each showing one half; the second is decoration for assistive tech
+      el.innerHTML = '<div class="beat-half">' + html + '</div><div class="beat-half" aria-hidden="true">' + html + "</div>";
+      halves = $$(".beat-half", el);
+      halves[0].style.clipPath = "inset(0 0 50% 0)"; halves[1].style.clipPath = "inset(50% 0 0 0)";
+    }
+    if (fx === "blinds") {
+      var box = document.createElement("div"); box.className = "beat-strips";
+      for (var i = 0; i < 9; i++) { var s = document.createElement("div"); s.className = "beat-strip"; box.appendChild(s); strips.push(s); }
+      el.insertBefore(box, el.firstChild);
+    }
+    if (fx === "scatter" || fx === "blinds" || fx === "slam" || fx === "playhead") chars = splitChars(line);
+    var head = null, code = null;
+    if (fx === "playhead") {
+      head = document.createElement("div"); head.className = "beat-head"; head.setAttribute("aria-hidden", "true");
+      head.innerHTML = "<b>00:00:00:00</b>"; code = head.firstChild;
+      el.appendChild(head);
+    }
+    var words = $$(".beat-word", el), lines = $$(".beat-line", el), N = chars.length;
+    // each letter's own flight: a heading away from the middle of the line, a distance past the screen edge, a spin, a start
+    var fly = chars.map(function (ch, k) {
+      var r = ch.getBoundingClientRect(), lr = line.getBoundingClientRect();
+      var dx = (r.left + r.width / 2) - (lr.left + lr.width / 2), dy = (r.top + r.height / 2) - (lr.top + lr.height / 2);
+      var ang = Math.atan2(dy + (hash(k) - .5) * 160, dx + (hash(k + 9) - .5) * 60);
+      return { ang: ang, far: .7 + hash(k + 3) * .7, spin: (hash(k + 5) - .5) * 520, grow: .6 + hash(k + 7) * 1.4, at: hash(k + 11) * .32 };
+    });
+    // slam: each letter's throw from the impact at the middle of the line (px per unit of its own time)
+    var lineBox = line.getBoundingClientRect(), half = Math.max(1, lineBox.width / 2);
+    var blast = chars.map(function (ch, k) {
+      var r = ch.getBoundingClientRect(), dx = (r.left + r.width / 2) - (lineBox.left + half), dy = (r.top + r.height / 2) - (lineBox.top + lineBox.height / 2);
+      var nx = clamp(Math.abs(dx) / half, 0, 1), sx = dx < 0 ? -1 : 1, near = 1 - nx * .55;
+      return { vx: sx * (380 + 720 * near + hash(k) * 320), vy: -(260 + 620 * near + hash(k + 3) * 260) + dy * 2, spin: sx * (120 + hash(k + 5) * 420), at: nx * .14 + hash(k + 7) * .05 };
+    });
+    // playhead: where each letter sits across the screen
+    var cx = chars.map(function (ch) { var r = ch.getBoundingClientRect(); return r.left + r.width / 2; });
+    function render(b) {
+      vw = window.innerWidth; vh2 = window.innerHeight;
+      var fill = seg(b, at.fill[0], at.fill[1]), W = words.length / Math.max(1, lines.length);
+      words.forEach(function (w, k) { var i = k % W; w.style.opacity = (.16 + .84 * seg(fill, i / W, (i + 1.6) / W)).toFixed(3); });
+      var r = seg(b, at.out, 1);
+      el.style.visibility = r >= 1 ? "hidden" : "";
+      if (fx === "slam") {
+        // the shockwave reaches the letters nearest the impact first; each is thrown outward and up, then falls, spinning
+        chars.forEach(function (ch, k) {
+          var f = blast[k], t = seg(r, f.at, f.at + .6);
+          ch.style.transform = t ? "translate3d(" + (f.vx * t).toFixed(1) + "px," + (f.vy * t + 1500 * t * t).toFixed(1) + "px,0) rotate(" + (f.spin * t).toFixed(1) + "deg)" : "";
+          ch.style.opacity = (1 - seg(t, .55, 1)).toFixed(3);
+        });
+        layer.style.opacity = (1 - seg(r, .05, .45)).toFixed(3);
+      } else if (fx === "scatter") {
+        var reach = Math.max(vw, vh2);
+        chars.forEach(function (ch, k) {
+          var f = fly[k], t = seg(r, f.at, f.at + .62), e = t * t * (3 - 2 * t) * t;   // slow to leave, then away
+          ch.style.transform = t ? "translate3d(" + (Math.cos(f.ang) * f.far * reach * e).toFixed(1) + "px," + (Math.sin(f.ang) * f.far * reach * e).toFixed(1) + "px,0) rotate(" + (f.spin * e).toFixed(1) + "deg) scale(" + (1 + (f.grow - 1) * e).toFixed(3) + ")" : "";
+          ch.style.opacity = (1 - seg(t, .55, 1)).toFixed(3);
+        });
+        layer.style.opacity = (1 - seg(r, .12, .7)).toFixed(3);
+      } else if (fx === "doors") {
+        var d = inOutC(seg(r, 0, .9)) * vh2 * .56;
+        halves[0].style.transform = "translate3d(0," + (-d).toFixed(1) + "px,0)";
+        halves[1].style.transform = "translate3d(0," + d.toFixed(1) + "px,0)";
+      } else if (fx === "playhead") {
+        // the playhead eases in from the left edge and accelerates through; everything left of it is the chapter
+        var x = r > 0 ? -24 + (vw + 48) * inOutC(r) : -24;
+        head.style.transform = "translate3d(" + x.toFixed(1) + "px,0,0)";
+        head.style.opacity = r > 0 && r < 1 ? "1" : "0";
+        var fr = Math.round(r * 96);   // 4 seconds at 24 fps
+        code.textContent = "00:00:" + ("0" + Math.floor(fr / 24)).slice(-2) + ":" + ("0" + fr % 24).slice(-2);
+        layer.style.clipPath = x > -24 ? "inset(0 0 0 " + Math.max(0, x).toFixed(1) + "px)" : "";
+        // a clean wipe: the line is cut by the same edge as its paper, so nothing piles up at the playhead
+        var lb = line.getBoundingClientRect();
+        line.style.clipPath = x > -24 ? "inset(0 0 0 " + Math.max(0, x - lb.left).toFixed(1) + "px)" : "";
+      } else if (fx === "blinds") {
+        chars.forEach(function (ch, k) {
+          var t = seg(r, k / N * .3, k / N * .3 + .34), sgn = hash(k + 2) < .5 ? -1 : 1;
+          ch.style.transform = t ? "translate3d(0," + (t * t * vh2 * .7).toFixed(1) + "px,0) rotate(" + (sgn * (12 + hash(k + 4) * 40) * t).toFixed(1) + "deg)" : "";
+          ch.style.opacity = (1 - seg(t, .55, 1)).toFixed(3);
+        });
+        strips.forEach(function (s, i) { var t = inOutC(seg(r, .3 + i * .045, .62 + i * .045)); s.style.transform = t ? "scaleY(" + (1 - t).toFixed(4) + ")" : ""; });
+      }
+    }
+    function reset() { el.innerHTML = html; if (style === null) el.removeAttribute("style"); else el.setAttribute("style", style); }
+    return { render: render, reset: reset };
+  }
+
+  // a chapter that opens with a beat pins its own stage: the beat plays over the first 70% of the pin, then the chapter holds
+  var hosts = $$(".beat-host").map(function (host) {
+    var pin = $(":scope > .host-pin", host), el = pin && $(":scope > [data-beat]", pin);
+    if (!el) return null;
+    // span: how much of the pin the beat takes (the rest holds the chapter, or plays its own scene: h.extra)
+    var h = { host: host, el: el, beat: null, span: host.classList.contains("squeak-scene") ? .15 : .7 };
+    h.on = function () {
+      if (h.beat || !wideQ.matches || !pinned() || calm()) return;
+      host.classList.add("host-ready");
+      h.beat = makeBeat(el);
+    };
+    h.off = function () {
+      if (!h.beat) return;
+      h.beat.reset(); h.beat = null;
+      if (h.clear) h.clear();
+      host.classList.remove("host-ready");
+    };
+    h.scene = addScene({
+      el: host, pin: true, glide: 120,
+      progress: function (r, view) { return clamp(-r.top / Math.max(1, r.height - view), 0, 1); },
+      render: function (p) {
+        if (!h.beat) return;
+        h.beat.render(seg(p, 0, h.span));
+        if (h.extra) h.extra(p);
+      },
+      reset: h.off
+    });
+    return h;
+  }).filter(Boolean);
+  /* ---------- RasanAI x Squeak: after its line, the chapter plays five beats as p runs from the beat's end to 1 ----------
+     0 the partnership (Mac: Studio at work, the duck working)   1 the duck knows first (badge, Squeak's panel with the call)
+     2 the Mac becomes the iPhone                                 3 answer with a tap (Ledger picked, Use Ledger, Sent)
+     4 back to the Mac (Studio on the animatic, the decision card, the duck celebrating)
+     The line on the left changes with each beat; every frame is a function of p, so scrolling back plays it in reverse. */
+  (function () {
+    var host = hosts.filter(function (h) { return h.host.classList.contains("squeak-scene"); })[0];
+    if (!host) return;
+    var root = host.host, q = function (s) { return $(s, root); };
+    var dev = q(".sq-device"), screen = q(".sq-screen"), mac = q(".sq-mac"), phone = q(".sq-phone");
+    if (!dev || !screen || !mac || !phone) return;
+    var steps = $$(".sq-step", root), STEP = [[0, .2], [.2, .38], [.38, .52], [.52, .8], [.8, 1.1]];
+    var parts = {
+      badges: $$(".sq-badge", root), panel: q(".sq-panel"), working: q(".mood-working"), needs: q(".mood-needs"), done: q(".mood-done"),
+      next: q(".sq-shot-next"), decision: q(".sq-decision"), ledger: q(".l-ledger"), cta: q(".sq-cta"), use: q(".sq-use"), sent: q(".sq-sent")
+    };
+    // the partnership: the two marks, the x, the impact (glow, rings, sparks), the line, and the small lockup it lands in
+    var G = {
+      root: q(".sq-grand"), row: q(".g-row"), r: q(".g-r"), s: q(".g-s"), rm: q(".g-r .g-mark"), sm: q(".g-s .g-mark"),
+      rw: q(".g-r .g-word"), sw: q(".g-s .g-word"), x: q(".g-x"), glow: q(".g-glow"), rings: $$(".g-ring", root),
+      sparks: $$(".g-sparks i", root), words: $$(".g-line span", root), small: q(".sq-partners")
+    };
+    var gKey = "", gGeo = null;
+    function grandGeo() {
+      var key = window.innerWidth + "x" + window.innerHeight;
+      if (gGeo && gKey === key) return gGeo;
+      [G.row, G.r, G.s, G.x].forEach(function (el) { el.style.transform = ""; });
+      var cx = window.innerWidth / 2, c = function (el) { var b = el.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2, w: b.width, h: b.height }; };
+      var rm = c(G.rm), sm = c(G.sm), x = c(G.x), row = c(G.row), pin = G.root.getBoundingClientRect();
+      // the row's centre relative to the pinned stage, so it holds wherever the stage was when this was measured
+      row.rx = row.x - pin.left; row.ry = row.y - pin.top;
+      var gap = x.w * .9;
+      // where the marks meet: touching either side of the x, in the middle of the screen
+      gGeo = { row: row, rOff: (cx - gap - rm.w / 2) - rm.x, sOff: (cx + gap + sm.w / 2) - sm.x, xOff: cx - x.x, cx: cx, cy: row.y };
+      gKey = key;
+      return gGeo;
+    }
+    var backOut = function (t) { var c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+    function renderGrand(gp) {
+      if (!G.root || !G.row) return 1;
+      var g = grandGeo(), vw = window.innerWidth, vmin = Math.min(vw, window.innerHeight);
+      G.root.style.visibility = gp >= 1 ? "hidden" : "";
+      if (gp >= 1) { if (G.small) G.small.style.opacity = ""; return 1; }
+      // 1. the marks fly in from the edges, big and turning, and slam together (fast in, hard stop)
+      var a = seg(gp, 0, .3), eA = 1 - Math.pow(1 - a, 4), hit = seg(gp, .3, .38);
+      // 2. the impact: a short shudder, the x pops, rings and sparks go out, the glow flares
+      var shake = gp > .3 && gp < .4 ? Math.sin(gp * 900) * 10 * (1 - hit) : 0;
+      // 3. the words unfold out of the marks and the lockup opens up to full width
+      var u = inOutC(seg(gp, .4, .6));
+      var rX = mix(g.rOff - vw * .75, g.rOff, eA), sX = mix(g.sOff + vw * .75, g.sOff, eA);
+      var squash = 1 - .1 * Math.sin(Math.PI * hit), sc = 1.35 - .35 * eA;
+      G.r.style.transform = "translate3d(" + mix(rX, 0, u).toFixed(1) + "px,0,0)";
+      G.s.style.transform = "translate3d(" + mix(sX, 0, u).toFixed(1) + "px,0,0)";
+      G.rm.style.transform = "rotate(" + (-28 * (1 - eA)).toFixed(2) + "deg) scale(" + (sc * squash).toFixed(4) + "," + (sc * (2 - squash)).toFixed(4) + ")";
+      G.sm.style.transform = "rotate(" + (28 * (1 - eA)).toFixed(2) + "deg) scale(" + (sc * squash).toFixed(4) + "," + (sc * (2 - squash)).toFixed(4) + ")";
+      G.rm.style.opacity = G.sm.style.opacity = seg(gp, 0, .06).toFixed(3);
+      [G.rw, G.sw].forEach(function (w) { w.style.clipPath = "inset(0 " + ((1 - u) * 100).toFixed(2) + "% 0 0)"; });
+      var xp = seg(gp, .3, .42);
+      G.x.style.opacity = xp > 0 ? "1" : "0";
+      G.x.style.transform = "translate3d(" + mix(g.xOff, 0, u).toFixed(1) + "px,0,0) scale(" + Math.max(0, backOut(xp)).toFixed(4) + ") rotate(" + ((1 - xp) * 90).toFixed(1) + "deg)";
+      G.rings.forEach(function (ring, k) {
+        var t = seg(gp, .3 + k * .03, .62 + k * .05), e = 1 - Math.pow(1 - t, 3);
+        ring.style.transform = "scale(" + (.2 + e * (3.6 + k * 1.4)).toFixed(3) + ")";
+        ring.style.opacity = (t > 0 ? (1 - t) * .9 : 0).toFixed(3);
+      });
+      G.sparks.forEach(function (sp, k) {
+        var t = seg(gp, .3, .58 + (k % 4) * .03), e = 1 - Math.pow(1 - t, 2.4), ang = k * Math.PI / 8 + (k % 3) * .2, dist = vmin * (.22 + (k % 5) * .07);
+        sp.style.transform = "translate3d(" + (Math.cos(ang) * dist * e).toFixed(1) + "px," + (Math.sin(ang) * dist * e).toFixed(1) + "px,0) scale(" + (1 - .6 * t).toFixed(3) + ")";
+        sp.style.opacity = (t > 0 ? 1 - t : 0).toFixed(3);
+      });
+      G.glow.style.opacity = (seg(gp, .28, .34) * (1 - .55 * seg(gp, .38, .7)) * (1 - seg(gp, .82, .95))).toFixed(3);
+      G.glow.style.transform = "scale(" + (.6 + .5 * seg(gp, .28, .5)).toFixed(3) + ")";
+      // 4. the line, word by word; then everything lands in the small lockup above the first line of the chapter
+      G.words.forEach(function (w, k) {
+        var t = ease(seg(gp, .52 + k * .025, .6 + k * .025)) * (1 - seg(gp, .78, .84));
+        w.style.opacity = t.toFixed(3);
+        w.style.transform = "translate3d(0," + ((1 - t) * 18).toFixed(1) + "px,0)";
+      });
+      var f = inOutC(seg(gp, .76, .93)), tx = 0, ty = 0, k2 = 1;
+      if (G.small && f > 0) {
+        var pr = G.small.getBoundingClientRect(), pn = G.root.getBoundingClientRect();
+        k2 = pr.width / g.row.w; tx = (pr.left + pr.width / 2 - pn.left) - g.row.rx; ty = (pr.top + pr.height / 2 - pn.top) - g.row.ry;
+      }
+      G.row.style.transform = "translate3d(" + (tx * f + shake).toFixed(1) + "px," + (ty * f + shake * .4).toFixed(1) + "px,0) scale(" + mix(1, k2, f).toFixed(4) + ")";
+      // it lands, the small lockup takes over in place, and only then do the line and the Mac come in
+      G.root.style.opacity = (1 - seg(gp, .92, .97)).toFixed(3);
+      if (G.small) G.small.style.opacity = seg(gp, .92, .97).toFixed(3);
+      return ease(seg(gp, .9, 1));   // how far the chapter has come in
+    }
+    var lead0 = steps[0] ? $$(":scope > :not(.sq-partners)", steps[0]) : [];
+    var touched = lead0.concat([dev, screen, mac, phone]).concat(steps, parts.badges, [parts.panel, parts.working, parts.needs, parts.done, parts.next, parts.decision, parts.ledger, parts.cta, parts.use, parts.sent]).concat(G.root ? [G.root, G.row, G.r, G.s, G.rm, G.sm, G.rw, G.sw, G.x, G.glow, G.small].concat(G.rings, G.sparks, G.words) : []).filter(Boolean);
+    var op = function (el, v) { if (el) el.style.opacity = (+v).toFixed(3); };
+    host.clear = function () { touched.forEach(function (el) { el.removeAttribute("style"); }); };
+    host.extra = function (p) {
+      var s0 = seg(p, host.span, 1), vw = window.innerWidth, vh = window.innerHeight;
+      // the first part of the chapter is the partnership; the five beats share the rest
+      var come = renderGrand(seg(s0, 0, .22)), s = seg(s0, .22, 1);
+      // the line: each beat's line rises in and the last one rises out
+      steps.forEach(function (el, i) {
+        var a = STEP[i][0], b = STEP[i][1], tin = i ? seg(s, a - .015, a + .035) : 1, tout = seg(s, b - .035, b + .015);
+        el.style.opacity = (tin * (1 - tout)).toFixed(3);
+        el.style.transform = "translate3d(0," + ((1 - ease(tin)) * 28 - ease(tout) * 28).toFixed(1) + "px,0)";
+        el.style.visibility = tin * (1 - tout) > .01 ? "" : "hidden";
+      });
+      lead0.forEach(function (el) { el.style.opacity = come.toFixed(3); el.style.transform = "translate3d(0," + ((1 - come) * 20).toFixed(1) + "px,0)"; });
+      // the device: Mac -> iPhone over beat 2, and back as beat 4 begins
+      var m = inOutC(seg(s, .4, .52)) - inOutC(seg(s, .78, .86));
+      var right = vw - Math.max(24, (vw - 1220) / 2), left = vw * .42, cx = (left + right) / 2, cy = vh / 2 + 16;
+      var macW = Math.min(right - left, (vh * .78) * 1.6, 1100), macH = macW / 1.6;
+      var phH = Math.min(vh * .84, 780), phW = phH * 390 / 844;
+      var W = mix(macW, phW, m), H = mix(macH, phH, m), pad = mix(10, 11, m), rad = mix(16, phW * .16, m);
+      dev.style.width = W.toFixed(1) + "px"; dev.style.height = H.toFixed(1) + "px";
+      dev.style.padding = pad.toFixed(1) + "px"; dev.style.borderRadius = rad.toFixed(1) + "px";
+      dev.style.transform = "translate3d(" + (cx - W / 2).toFixed(1) + "px," + (cy - H / 2 + (1 - come) * 40).toFixed(1) + "px,0) scale(" + (.9 + .1 * come).toFixed(4) + ")";
+      dev.style.opacity = come.toFixed(3);
+      screen.style.borderRadius = Math.max(4, rad - pad).toFixed(1) + "px";
+      // a clean hand-over: the desktop is gone before the phone screen comes up
+      op(mac, 1 - seg(m, .08, .42)); op(phone, seg(m, .5, .88));
+      // beat 1: the duck needs you, the badge pops, Squeak's panel opens from the duck; beat 4: done, the duck celebrates
+      var need = seg(s, .2, .24), done = seg(s, .84, .9), pop = seg(s, .21, .26);
+      var popS = pop < 1 ? Math.sin(pop * Math.PI * .5) * (1 + .35 * Math.sin(pop * Math.PI)) : 1;
+      parts.badges.forEach(function (bd) { bd.style.transform = "scale(" + (popS * (1 - done)).toFixed(3) + ")"; });
+      op(parts.working, 1 - need); op(parts.needs, need * (1 - done)); op(parts.done, done);
+      var pan = ease(seg(s, .23, .31)) * (1 - seg(s, .36, .42));
+      op(parts.panel, pan); if (parts.panel) parts.panel.style.transform = "translate3d(0," + ((1 - pan) * 18).toFixed(1) + "px,0) scale(" + (.94 + .06 * pan).toFixed(3) + ")";
+      op(parts.next, done);
+      var dc = ease(seg(s, .88, .95));
+      op(parts.decision, dc); if (parts.decision) parts.decision.style.transform = "translate3d(" + ((1 - dc) * 24).toFixed(1) + "px,0,0)";
+      // beat 3: Ledger is picked, Use Ledger is pressed, then Sent
+      var pick = seg(s, .6, .63), press = seg(s, .67, .69) * (1 - seg(s, .69, .71)), sent = seg(s, .7, .73);
+      if (parts.ledger) { parts.ledger.style.boxShadow = "0 0 0 " + (2 * pick).toFixed(2) + "px var(--rasanai-blue), 0 " + (6 * pick).toFixed(1) + "px " + (16 * pick).toFixed(1) + "px rgba(42,49,168," + (.18 * pick).toFixed(3) + ")"; parts.ledger.style.transform = "scale(" + (1 + .02 * pick).toFixed(4) + ")"; }
+      if (parts.cta) { parts.cta.style.transform = "scale(" + (1 - .05 * press).toFixed(4) + ")"; parts.cta.style.background = sent > .5 ? "#1f9d55" : ""; }
+      op(parts.use, 1 - sent); op(parts.sent, sent);
+    };
+  })();
+
+  function hostsOn() { hosts.forEach(function (h) { h.on(); }); }
+  function hostsOff() { hosts.forEach(function (h) { h.off(); }); }
+
+
   // rising windows: scale and lift as they enter
   $$("[data-rise]").forEach(function (el) {
     if (el.classList.contains("home-win")) return;   // the Home window rises with the crew flight, below
@@ -89,9 +364,9 @@
   // crew flight: the hero cards assemble and land on the crew standing on the Home screenshot, then hand off to it
   var homeWin = $(".shot-band .window[data-rise]"), homeImg = homeWin && $("img", homeWin);
   if (heroEl && homeImg) {
-    // percentages of the cropped 1814x1190 screenshot (y and height rescaled from the old 1480-high crop)
-    var BOX = { tara: [20.066, 52.5, 7.189, 10.167], kavi: [27.354, 43.839, 7.436, 18.866], chitra: [34.74, 42.445, 8.473, 20.184], ra: [43.04, 41.429, 12.055, 21.201], laya: [55.096, 41.918, 7.633, 18.188], rasika: [61.691, 53.442, 9.387, 9.188], mala: [71.079, 48.357, 8.745, 14.347] };
-    var RIM = 61.513, STAG = .06;
+    // percentages of the 1814x1190 screenshot: each box is the full painted character, measured against the painted-out version
+    var BOX = { tara: [20.066, 51.933, 7.166, 9.664], kavi: [27.343, 43.193, 7.442, 18.403], chitra: [34.73, 41.933, 8.49, 19.748], ra: [43.054, 41.008, 12.018, 20.588], laya: [55.072, 41.261, 7.663, 20], rasika: [61.687, 52.941, 9.372, 8.74], mala: [71.058, 48.319, 8.765, 13.277] };
+    var RIM = 61.597, STAG = .06;
     // while the crew fly in, the screenshot shows its prompt with the crew painted out, so no one lands on top of themselves
     var emptyImg = new Image(); emptyImg.className = "shot-empty"; emptyImg.alt = ""; emptyImg.setAttribute("aria-hidden", "true"); emptyImg.decoding = "async";
     emptyImg.srcset = "img/studio/home-1x-empty.jpg 907w, img/studio/home-2x-empty.jpg 1814w"; emptyImg.sizes = homeImg.getAttribute("sizes") || "100vw"; emptyImg.src = "img/studio/home-1x-empty.jpg";
@@ -106,7 +381,7 @@
       var d = parseFloat(c.style.getPropertyValue("--d")) || 1;
       var box = document.createElement("div"); box.className = "cf";
       var card = new Image(); card.className = "cf-card"; card.alt = ""; card.decoding = "async"; card.src = im.getAttribute("src");
-      var cut = new Image(); cut.className = "cf-cut"; cut.alt = ""; cut.decoding = "async"; cut.src = "assets/crew/land/" + m[1] + ".webp";
+      var cut = new Image(); cut.className = "cf-cut"; cut.alt = ""; cut.decoding = "async"; cut.src = "assets/crew/land/" + m[1] + ".webp?v=2";   // v2: full characters, measured from the screenshot
       card.style.opacity = (.6 + d * .4).toFixed(2);
       box.appendChild(card); box.appendChild(cut); layer.appendChild(box);
       fl.push({ c: c, fi: $(".fi", c), box: box, card: card, cut: cut, b: BOX[m[1]], base: .6 + d * .4, sw: 0, tw: 0 });
@@ -115,6 +390,26 @@
     fl.slice().sort(function (a, b) { return Math.abs(a.b[0] + a.b[2] / 2 - 50) - Math.abs(b.b[0] + b.b[2] / 2 - 50); })
       .forEach(function (f, i) { f.k = Math.floor((i + 1) / 2); });
     document.body.appendChild(layer);
+    // once landed, the same cut-outs stay inside the window as its picture (over the painted-out screenshot), so the flight ends
+    // on exactly the pixels it flew: there is no hand-over to the screenshot's own crew
+    var rests = fl.map(function (f) {
+      var im = new Image();
+      im.className = "cf-rest"; im.alt = ""; im.setAttribute("aria-hidden", "true"); im.decoding = "async"; im.src = f.cut.src;
+      homeWin.appendChild(im);
+      return im;
+    });
+    var layoutRests = function () {
+      var L = homeImg.offsetLeft, T = homeImg.offsetTop, W = homeImg.offsetWidth, H = homeImg.offsetHeight;
+      fl.forEach(function (f, i) {
+        var b = f.b, im = rests[i], over = Math.max(0, b[1] + b[3] - RIM);
+        im.style.left = (L + W * b[0] / 100).toFixed(2) + "px"; im.style.top = (T + H * b[1] / 100).toFixed(2) + "px";
+        im.style.width = (W * b[2] / 100).toFixed(2) + "px"; im.style.height = (H * b[3] / 100).toFixed(2) + "px";
+        // feet tuck behind the prompt box's rim, as in the flight
+        im.style.clipPath = over > 0 ? "inset(0 0 " + (over / b[3] * 100).toFixed(3) + "% 0)" : "none";
+      });
+    };
+    layoutRests(); window.addEventListener("resize", layoutRests, { passive: true });
+    var setRest = function (on) { homeWin.classList.toggle("is-rest", on); };
     var lerp = function (a, b, t) { return a + (b - a) * t; };
     var inOut = function (t) { return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
     var shown = false, away = null;
@@ -138,12 +433,16 @@
         homeWin.style.transform = "translate3d(0," + ((1 - re) * 64).toFixed(1) + "px,0) scale(" + (.93 + .07 * re).toFixed(3) + ")";
         // Keep the original artwork until every flight asset and the screenshot are ready.
         if (!layer.hasAttribute("data-images-ready") || !homeImg.hasAttribute("data-image-ready") || !emptyImg.complete || !emptyImg.naturalWidth) {
-          setShown(false); setEmpty(false); setAway(false); return;
+          setShown(false); setEmpty(false); setAway(false); setRest(false); return;
         }
+        if (!homeImg.offsetWidth) return;
+        layoutRests();
         setAway(vq > 0);
-        // every cut-out has arrived by 0.86; from 0.9 the screenshot's own crew takes over in a single frame
-        if (vq <= 0 || vq >= .9) { setShown(false); setEmpty(false); return; }
-        setShown(true); setEmpty(true);
+        // every cut-out has arrived by 0.86; from there the same cut-outs, now inside the window, are the picture
+        setEmpty(true);
+        if (vq <= 0) { setShown(false); setRest(false); return; }
+        if (vq >= .87) { setShown(false); setRest(true); return; }
+        setShown(true); setRest(false);
         var ir = homeImg.getBoundingClientRect(), rimY = ir.top + ir.height * RIM / 100;
         fl.forEach(function (f) {
           var t = seg(vq, f.k * STAG, f.k * STAG + .86 - 3 * STAG), e = inOut(t);
@@ -169,15 +468,66 @@
           f.card.style.clipPath = over > .01 ? "inset(0 0 " + (over / ks).toFixed(2) + "px 0)" : "none";
         });
       },
-      reset: function () { setShown(false); setEmpty(false); setAway(false); homeWin.style.transform = ""; }
+      reset: function () { setShown(false); setEmpty(false); setAway(false); setRest(false); homeWin.style.transform = ""; }
     });
 
   }
 
+  /* ---------- the orbit's resting points: only while the circle turns through the introductions ----------
+     When a scroll comes to rest between two introductions, it glides on to the next one in the direction it was going (a small
+     nudge moves one introduction on). Before the first and after the last, and everywhere else on the page, scrolling is free. */
+  var lastY = window.scrollY, scrollT = 0, dir = 1, vel = 0, restTimer = 0, spring = 0;
+  var noRest = /[?&]norest\b/.test(location.search);   // for frame-by-frame checks: hold any scroll position
+  // the glide is a critically damped spring on the scroll position: it starts with the speed the reader was scrolling at, so the
+  // hand-off from their flick is continuous, and it eases into the introduction without overshooting it. Any input stops it.
+  var OMEGA = 8.5;   // spring stiffness (rad/s): settled in about 0.7 s
+  function glideTo(target) {
+    var y = window.scrollY, v = clamp(vel, -4, 4), prev = 0;
+    cancelAnimationFrame(spring);
+    var step = function (now) {
+      var dt = prev ? Math.min(.034, (now - prev) / 1000) : .016; prev = now;
+      var x = y - target, a = -OMEGA * OMEGA * x - 2 * OMEGA * v * 1000;   // v is px per ms
+      v += a * dt / 1000; y += v * 1000 * dt;
+      if (Math.abs(y - target) < .5 && Math.abs(v) < .02) { window.scrollTo({ top: target, behavior: "instant" }); spring = 0; lastY = target; vel = 0; return; }
+      // instant: the page sets scroll-behavior: smooth, which would re-animate every step of the spring
+      window.scrollTo({ top: Math.round(y * 2) / 2, behavior: "instant" });
+      spring = requestAnimationFrame(step);
+    };
+    spring = requestAnimationFrame(step);
+  }
+  function stopGlide() { if (spring) { cancelAnimationFrame(spring); spring = 0; } }
+  ["wheel", "touchstart", "keydown", "mousedown"].forEach(function (t) { window.addEventListener(t, stopGlide, { passive: true }); });
+  function settle() {
+    if (!pinned() || calm() || spring || noRest || !crewOn) return;
+    var r = crewScene.getBoundingClientRect(), span = Math.max(1, r.height - window.innerHeight), top = window.scrollY + r.top, y = window.scrollY;
+    var rests = crewRests().map(function (p) { return top + p * span; });
+    if (y < rests[0] - 2 || y > rests[rests.length - 1] + 2) return;
+    var pick = null;
+    rests.forEach(function (t) {
+      if (dir > 0 ? t >= y - 2 : t <= y + 2) { if (pick === null || Math.abs(t - y) < Math.abs(pick - y)) pick = t; }
+    });
+    if (pick === null || Math.abs(pick - y) < 3) return;
+    // carry the reader's speed only if it points at the target
+    if ((pick - y) * vel < 0) vel = 0;
+    glideTo(Math.round(pick));
+  }
+  window.addEventListener("scroll", function () {
+    if (spring) return;   // our own glide: not the reader's input
+    var y = window.scrollY, t = performance.now();
+    if (y !== lastY) {
+      dir = y > lastY ? 1 : -1;
+      if (scrollT && t - scrollT < 100) vel = vel * .6 + ((y - lastY) / (t - scrollT)) * .4; else vel = 0;
+    }
+    lastY = y; scrollT = t;
+    clearTimeout(restTimer); restTimer = setTimeout(function () { vel *= .5; settle(); }, 200);
+  }, { passive: true });
+
   /* ---------- the loop: rAF only while something is moving ---------- */
-  var raf = 0, vh = window.innerHeight;
-  function tick() {
+  var raf = 0, vh = window.innerHeight, lastT = 0;
+  function tick(now) {
     raf = 0;
+    // frame time, so a glide feels the same at 60 and 120 Hz; a long gap (a background tab) counts as one frame
+    var dt = lastT && now - lastT < 100 ? now - lastT : 16.7; lastT = now;
     if (!pinnedMode.motion) return;
     var rects = scenes.map(function (s) { return s.el.getBoundingClientRect(); });
     var more = false;
@@ -187,6 +537,15 @@
       var target = s.progress(r, vh);
       // direct scenes follow the scroll position exactly, so reversing scroll retraces the same frames
       if (s.direct) { if (s.last !== target) { s.render(target); s.last = target; } return; }
+      // gliding scenes chase the scroll position with a time-based ease, so a fast flick or a coarse wheel step plays as motion
+      // instead of jumping frames; the chase is position-only, so reversing scroll still retraces the same frames
+      if (s.glide) {
+        if (s.cur === undefined || !near) s.cur = target;
+        else { var gd = target - s.cur; s.cur = Math.abs(gd) < .00005 ? target : s.cur + gd * (1 - Math.exp(-dt / s.glide)); }
+        if (s.cur !== target) more = true;
+        if (s.cur !== s.last) { s.render(s.cur); s.last = s.cur; }
+        return;
+      }
       if (s.cur === undefined) s.cur = target;
       if (!near) { s.cur = target; if (s.last !== target) { s.render(target); s.last = target; } return; }
       var d = target - s.cur;
@@ -198,7 +557,7 @@
   }
   function request() { if (!raf) raf = requestAnimationFrame(tick); }
   window.addEventListener("scroll", request, { passive: true });
-  window.addEventListener("resize", function () { vh = window.innerHeight; clearCrew(); enableCrew(); request(); }, { passive: true });
+  window.addEventListener("resize", function () { vh = window.innerHeight; clearCrew(); hostsOff(); enableCrew(); hostsOn(); request(); }, { passive: true });
 
   /* ---------- calm mode and the layout switch: rest in the finished state, or let the scroll drive it ---------- */
   function apply() {
@@ -206,51 +565,69 @@
     pinnedMode.motion = !calmNow;
     scenes.forEach(function (s) { s.cur = undefined; s.last = undefined; if (s.reset && (!s.pin || !pin)) s.reset(); });
     clearCrew();
+    if (calmNow || !pin) hostsOff();
     if (calmNow) return;
-    if (pin) enableCrew();
+    if (pin) { enableCrew(); hostsOn(); }
     request();
   }
   reduceQ.addEventListener("change", function () { setTimeout(apply, 0); });
   wideQ.addEventListener("change", function () { setTimeout(apply, 0); });
 
-  /* ---------- crew scene: Rasan stands at the centre, six teammates fly in from the edges onto one orbit, the circle breaks into a
-     balanced edge scatter, and the statement reveals word by word. Every frame is a pure function of the scroll position p (0..1 through
-     the pinned track), so scrolling back retraces it exactly. Only transform, opacity and clip-path are driven, by inline styles.
-     Contract: each .crew-node sits untransformed at the stage centre (the JS moves it with an inline translate); .statement-word is inline-block.
+  /* ---------- crew scene: Rasan is introduced on his own, at the side, beside his description. The text fades, Rasan takes the centre
+     of a circle and dims a little, and the six specialists fly in quickly, one after another, each from its own direction, onto the
+     circle. The circle moves to the left and turns, one place at a time: whoever reaches the right-hand point grows a little and their
+     card opens in the empty space beside them. When all six have been introduced, Rasan brightens, the circle breaks
+     into depth around the statement (near crew big and clear, far crew small and faded), the statement fills in word by word, and the
+     camera flies forward through the crew until only the statement is left. Every frame is a pure function of the scroll position
+     p (0..1 through the pinned track), so scrolling back retraces it exactly. Only transform and opacity are driven, by inline styles.
      Stacked (narrow screen, reduced motion, or markup missing): nothing is pinned, and no inline style, class or attribute is left behind. */
   var crewScene = $("[data-crew-scene]");
-  var CREW = ["ra", "mala", "tara", "kavi", "chitra", "laya", "rasika"];   // Rasan, then the six teammates in orbit order
-  var CREW_FROM = [[1.3, -1], [-1.35, -.2], [.1, 1.35], [1.35, .35], [-1.2, -1], [1.1, 1.2]];   // each teammate's entry edge, in half-stage units
-  var CREW_SCATTER = [[0, -.92], [.82, -.5], [-.82, -.5], [.9, .3], [-.9, .3], [.5, .9], [-.5, .9]];   // balanced edge scatter, half-stage units
-  var CREW_STEP = .06, CREW_ENTER = .2;   // teammate i flies in over [i * step, i * step + enter]: the last one settles at .5
+  var CREW = ["ra", "tara", "kavi", "chitra", "laya", "rasika", "mala"];   // Rasan, then the six in the order they are introduced
+  var CREW_FROM = [205, 335, 120, 20, 250, 80];   // each specialist's entry direction, degrees (0 = from the right, 90 = from below)
+  var CREW_TILT = [-14, 12, -10, 16, -12, 10];    // a little lean in flight, gone on landing
+  var CREW_ARRIVE = .2, CREW_GAP = .022, CREW_FLY = .05;   // specialist i flies in over [arrive + i * gap, + fly]: all in by .36
+  var CREW_TURN = .4, CREW_STEP = .065, CREW_SWING = .025; // the circle turns one place at turn + k * step (k = 1..5), over swing
+  var CREW_BIG = 2.2, CREW_SPOT = 1.35;                     // Rasan's size beside his introduction; a specialist's size while introduced
+  // where each character goes when the circle breaks, in half-stage units: [x, y] close around the statement, [x, y] out at the
+  // edges where the slow push-in carries it while the words fill, and depth (1 = near; larger = farther)
+  var CREW_DEPTH = [
+    [-.54, -.58, -.76, -.5, 1], [.08, -.62, .12, -.74, 2.3], [.52, -.56, .72, -.56, 1.4], [.6, .52, .8, .48, 1.05],
+    [-.22, .6, -.3, .72, 1.8], [.24, .66, .32, .8, 2.7], [-.6, .5, -.82, .5, 1.25]
+  ];
+  var CREW_NEAR = 1.35;                            // a character's size at depth 1
   var mix = function (a, b, t) { return a + (b - a) * t; };
-  var crewOn = false, crewGeo = null, crewRun = null;
+  var inOutC = function (t) { return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
+  var crewOn = false, crewGeo = null, crewRun = null, crewBeat = null;
+  var CREW_OPEN = .15;   // the first part of the track is the opening line ("Behind that box, a whole crew."), which scatters off Rasan
 
   // the markup contract: anything missing or out of order turns the scene off, and the page stays a plain stack
   function crewSpec() {
     var nodes = $$(".crew-node[data-crew]", crewScene);
     var s = {
-      nodes: nodes, stage: $(".crew-stage", crewScene), orbit: $(".crew-orbit", crewScene), line: $(".crew-orbit-line", crewScene),
-      payoff: $(".crew-payoff", crewScene), statement: $(".crew-statement", crewScene), words: $$(".statement-word", crewScene),
-      labels: nodes.map(function (el) { return $(".crew-label", el); })
+      nodes: nodes, stage: $(".crew-stage", crewScene), orbit: $(".crew-orbit", crewScene),
+      beat: $(":scope > [data-beat]", $(".crew-sticky", crewScene) || crewScene), lead: $(".crew-lead", crewScene), payoff: $(".crew-payoff", crewScene), words: $$(".statement-word", crewScene),
+      imgs: nodes.map(function (el) { return $("img", el); }),
+      cards: nodes.map(function (el) { return $(".crew-label", el); })
     };
     var ordered = nodes.length === CREW.length && nodes.every(function (el, i) { return el.getAttribute("data-crew") === CREW[i]; });
-    if (!ordered || !s.stage || !s.orbit || !s.line || !s.payoff || !s.statement || !s.words.length) return null;
+    if (!ordered || !s.stage || !s.orbit || !s.lead || !s.payoff || s.imgs.some(function (im) { return !im; })) return null;
     // every element the scene may touch, with its own inline style as the page wrote it, so clearing restores it exactly
-    s.all = nodes.concat(s.labels.filter(Boolean), [s.line, s.payoff, s.statement], s.words);
+    s.all = nodes.concat(s.imgs, s.cards.filter(Boolean), [s.orbit, s.lead, s.payoff], s.words);
     s.style = s.all.map(function (el) { return el.getAttribute("style"); });
     return s;
   }
   var crew = crewScene && crewSpec();
 
-  // leave the pinned layout: drop the class, and put back every inline style the scene touched
+  // leave the pinned layout: drop the class and the card sides, and put back every inline style the scene touched
   function clearCrew() {
     if (!crew) return;
     crewOn = false;
     if (crewRun) crewRun.last = undefined;
     crewScene.classList.remove("crew-ready");
     if (!crewScene.getAttribute("class")) crewScene.removeAttribute("class");
+    crew.nodes.forEach(function (el) { el.removeAttribute("data-side"); });
     crew.all.forEach(function (el, k) { if (crew.style[k] === null) el.removeAttribute("style"); else el.setAttribute("style", crew.style[k]); });
+    if (crewBeat) { crewBeat.reset(); crewBeat = null; }
   }
 
   // wide desktop with motion allowed (the page sets .pin for exactly that): measure once, then the scene drives itself
@@ -260,49 +637,125 @@
     var W = crew.stage.offsetWidth / 2, H = crew.stage.offsetHeight / 2;
     if (!W || !H) { clearCrew(); return; }   // no size yet: stay a plain stack
     // the orbit's own diameter sets the circle, so the drawn line and the seven positions agree
-    crewGeo = { W: W, H: H, R: crew.orbit.offsetWidth / 2 || Math.min(W, H) * .6 };
+    var R = crew.orbit.offsetWidth / 2 || Math.min(W, H) * .6, far = Math.hypot(W, H) + crew.nodes[0].offsetWidth * 1.5;
+    crewGeo = { W: W, H: H, R: R, from: [] };
+    for (var i = 0; i < 6; i++) {
+      var b = CREW_FROM[i] * Math.PI / 180;
+      crewGeo.from.push([far * Math.cos(b), far * Math.sin(b)]);
+      // every card opens into the empty space on the right of the circle
+      crew.nodes[i + 1].setAttribute("data-side", "r");
+    }
+    // the crew scene starts a screen early, behind the rising window, so its line is already in place when the window uncovers it;
+    // the words fill as they are uncovered
+    if (crew.beat) crewBeat = makeBeat(crew.beat, { fill: [.22, .5], out: .64 });
+    // the specialists start off-screen, where lazy images would not load until they fly in; fetch and decode them all now
+    crew.imgs.forEach(function (im) { var pre = new Image(); pre.src = im.currentSrc || im.src; if (pre.decode) pre.decode().catch(function () {}); });
     crewOn = true;
+  }
+
+  // how much of specialist i's introduction is showing (0..1): from when the circle brings them to the right-hand point until it turns on
+  function crewSpot(p, i) {
+    var a = i ? CREW_TURN + i * CREW_STEP + CREW_SWING : CREW_TURN, b = CREW_TURN + (i + 1) * CREW_STEP;
+    return seg(p, a - .004, a + .01) * (1 - seg(p, b - .012, b));
   }
 
   function renderCrew(p) {
     if (!crewOn) return;
-    var g = crewGeo;
-    // the orbit line comes in softly, and leaves with the circle
-    crew.line.style.opacity = (seg(p, .2, .5) * (1 - seg(p, .67, .8))).toFixed(3);
-    // the payoff holds from .52 to .67, then clears for the statement
-    var pIn = seg(p, .44, .52), pOut = seg(p, .66, .71);
-    crew.payoff.style.opacity = (pIn * (1 - pOut)).toFixed(3);
-    crew.payoff.style.transform = "translate3d(0," + ((1 - pIn) * 16).toFixed(1) + "px,0)";
-    crew.nodes.forEach(function (node, k) {
-      var st = k ? (k - 1) * CREW_STEP : 0, x = 0, y = 0, s = 1, op = 1;
-      if (k) {
-        // a teammate: in from its edge onto its fixed orbit slot, growing to size as it lands
-        var a = -Math.PI / 2 + (k - 1) * Math.PI / 3, e = ease(seg(p, st, st + CREW_ENTER));
-        x = mix(CREW_FROM[k - 1][0] * g.W, g.R * Math.cos(a), e);
-        y = mix(CREW_FROM[k - 1][1] * g.H, g.R * Math.sin(a), e);
-        s = .7 + .3 * e; op = seg(p, st, st + .06);
+    var open = seg(p, 0, CREW_OPEN);
+    if (crewBeat) crewBeat.render(open);
+    p = seg(p, CREW_OPEN, 1);
+    var g = crewGeo, ra = crew.nodes[0];
+    // Rasan's introduction leaves first
+    var lo = seg(p, .06, .14);
+    crew.lead.style.opacity = (1 - lo).toFixed(3);
+    crew.lead.style.transform = "translate3d(0," + (-36 * ease(lo)).toFixed(1) + "px,0)";
+    crew.lead.style.visibility = lo >= 1 ? "hidden" : "";
+    // the circle: moves left once everyone is in, then turns one place per introduction (the right-hand point is the spotlight)
+    var ox = -.4 * g.W * inOutC(seg(p, .35, .41)), turn = 0;
+    for (var k = 1; k < 6; k++) turn += inOutC(seg(p, CREW_TURN + k * CREW_STEP, CREW_TURN + k * CREW_STEP + CREW_SWING));
+    var th = -turn * Math.PI / 3;
+    crew.orbit.style.opacity = (seg(p, .2, .3) * .9 * (1 - seg(p, .8, .84))).toFixed(3);
+    crew.orbit.style.transform = "translate3d(" + ox.toFixed(2) + "px,0,0) rotate(" + (th * 180 / Math.PI).toFixed(2) + "deg)";
+    // the break: from .80 each character leaves the circle for its place in depth around the statement, one shortly after another
+    // the camera: a slow spread out to the edges while the words fill, then a fast flight through the crew to the end of the track
+    var spread = ease(seg(p, .87, .97)), cam = 2.4 * Math.pow(seg(p, .955, 1), 1.6);
+    var place = function (node, img, k, x, y, s, r, o) {
+      var d = CREW_DEPTH[k], b = inOutC(seg(p, .8 + k * .006, .88 + k * .006));
+      if (b > 0) {
+        var z = Math.max(.2, d[4] - cam), f = d[4] / z;
+        x = mix(x, mix(d[0], d[2], spread) * g.W * f, b); y = mix(y, mix(d[1], d[3], spread) * g.H * f, b);
+        s = mix(s, CREW_NEAR * mix(.8, 1, spread) / z, b); r = mix(r, 0, b);
+        // far characters fade into the paper; anyone the camera passes fades as it goes by
+        o *= mix(1, 1 - clamp((d[4] - 1.1) / 2.2, 0, .6), b) * seg(z, .2, .55);
       }
-      // from .67 each node breaks off the circle, one after another, to its scatter slot
-      var q = ease(seg(p, .67 + k * .02, .88 + k * .02));
-      x = mix(x, CREW_SCATTER[k][0] * g.W, q); y = mix(y, CREW_SCATTER[k][1] * g.H, q);
-      node.style.opacity = op.toFixed(3);
-      node.style.transform = "translate3d(" + x.toFixed(2) + "px," + y.toFixed(2) + "px,0) scale(" + s.toFixed(3) + ")";
-      // a label becomes readable as its teammate settles; Rasan's is always readable
-      if (crew.labels[k]) crew.labels[k].style.opacity = (k ? seg(p, st + .12, st + CREW_ENTER) : 1).toFixed(3);
-    });
-    // the statement: each word reveals left to right, in order, from .7
+      node.style.transform = "translate3d(" + x.toFixed(2) + "px," + y.toFixed(2) + "px,0)";
+      node.style.opacity = o.toFixed(3);
+      img.style.transform = "rotate(" + (r || 0).toFixed(2) + "deg) scale(" + s.toFixed(4) + ")";
+    };
+    // Rasan: big beside his introduction, then to the centre of the circle (and with it), dimmed while the others are introduced
+    var m = inOutC(seg(p, .1, .22));
+    place(ra, crew.imgs[0], 0, mix(-.46 * g.W, ox, m), 0, mix(CREW_BIG, 1.2, m), 0, 1 - .3 * seg(p, .19, .24) + .3 * seg(p, .78, .81));
+    var tagsOut = 1 - seg(p, .8, .83);
+    ra.style.setProperty("--l", (seg(p, .3, .34) * tagsOut).toFixed(3));
+    for (var i = 0; i < 6; i++) {
+      var kk = i + 1, node = crew.nodes[kk], card = crew.cards[kk], s0 = CREW_ARRIVE + i * CREW_GAP, fr = g.from[i];
+      // place on the circle: specialist i starts at i * 60 degrees from the right-hand point, and the whole circle turns
+      var ang = i * Math.PI / 3 + th, cx = ox + g.R * Math.cos(ang), cy = g.R * Math.sin(ang);
+      var e = ease(seg(p, s0, s0 + CREW_FLY)), spot = crewSpot(p, i), se = inOutC(spot);
+      place(node, crew.imgs[kk], kk, mix(fr[0], cx, e), mix(fr[1], cy, e), mix(.8, 1, e) * mix(1, CREW_SPOT, se), CREW_TILT[i] * (1 - e), p < s0 ? 0 : 1);
+      node.style.zIndex = spot > 0 ? "3" : "";
+      // the name tag shows once landed, and gives way to the card while introduced
+      node.style.setProperty("--l", (seg(p, s0 + CREW_FLY * .8, s0 + CREW_FLY) * (1 - spot) * tagsOut).toFixed(3));
+      if (card) {
+        card.style.opacity = spot.toFixed(3);
+        card.style.transform = "translate3d(" + ((1 - ease(spot)) * -16).toFixed(1) + "px,-50%,0)";
+      }
+    }
+    // the statement: in with the break, then each word fills from faint to full, left to right, as the crew spread out
+    crew.payoff.style.opacity = seg(p, .85, .88).toFixed(3);
     var N = crew.words.length;
-    crew.statement.style.opacity = seg(p, .67, .73).toFixed(3);
     crew.words.forEach(function (w, j) {
-      var t = seg(p, .7 + j * .22 / N, .8 + j * .22 / N), e = ease(t);
-      w.style.opacity = t.toFixed(3);
-      w.style.clipPath = t < 1 ? "inset(0 " + ((1 - t) * 100).toFixed(2) + "% 0 0)" : "none";
-      w.style.transform = "translate3d(0," + ((1 - e) * .3).toFixed(3) + "em,0)";
+      var t = seg(p, .87 + j * .08 / N, .885 + j * .08 / N);
+      w.style.opacity = (.16 + .84 * t).toFixed(3);
     });
+    if (open < 1) crewOpening(open);
+    else crew.nodes[0].style.zIndex = "";
+  }
+
+  // the opening, over the first part of the track: the window uncovers the line, Rasan drops from above onto it, the impact throws
+  // the letters off the screen (the beat's "slam" reveal, from .64), and Rasan steps left to stand beside his introduction, which
+  // arrives on the right. At the end of it everything is exactly where the scene proper begins.
+  function crewOpening(o) {
+    var g = crewGeo, ra = crew.nodes[0], img = crew.imgs[0];
+    var fall = seg(o, .5, .64), land = seg(o, .64, .78), step = inOutC(seg(o, .74, 1));
+    var y = fall < 1 ? -(g.H + 260) * (1 - fall * fall) : 0;             // gravity: slow to start, fastest at the moment of impact
+    // squash on impact, then a small rebound; stretched a little while falling
+    var sq = land > 0 ? Math.sin(Math.PI * land) * Math.exp(-2.2 * land) : 0;
+    var sx = fall < 1 ? 1 - .06 * fall : 1 + .22 * sq, sy = fall < 1 ? 1 + .08 * fall : 1 - .24 * sq;
+    var s = mix(1.6, CREW_BIG, step);
+    ra.style.transform = "translate3d(" + mix(0, -.46 * g.W, step).toFixed(2) + "px," + (y * (1 - step)).toFixed(2) + "px,0)";
+    ra.style.opacity = o < .5 ? "0" : "1";
+    ra.style.zIndex = "9";
+    img.style.transform = "scale(" + (s * sx).toFixed(4) + "," + (s * sy).toFixed(4) + ")";
+    // his introduction comes in from the right as he steps aside
+    var li = seg(o, .82, 1);
+    crew.lead.style.opacity = li.toFixed(3);
+    crew.lead.style.visibility = li > 0 ? "" : "hidden";
+    crew.lead.style.transform = "translate3d(" + ((1 - ease(li)) * 40).toFixed(1) + "px,0,0)";
+  }
+
+  // the orbit's resting points, as track progress (0..1): each specialist fully introduced
+  function crewRests() {
+    var at = function (q) { return CREW_OPEN + q * (1 - CREW_OPEN); }, q = [];
+    for (var i = 0; i < 6; i++) {
+      var a = i ? CREW_TURN + i * CREW_STEP + CREW_SWING : CREW_TURN, b = CREW_TURN + (i + 1) * CREW_STEP;
+      q.push(at((a + b) / 2));
+    }
+    return q;
   }
 
   crewRun = crew && addScene({
-    el: crewScene, pin: true, direct: true,
+    el: crewScene, pin: true, glide: 140,
     progress: function (r, view) { return clamp(-r.top / Math.max(1, r.height - view), 0, 1); },
     render: renderCrew,
     reset: clearCrew

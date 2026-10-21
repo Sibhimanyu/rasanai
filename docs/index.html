@@ -47,7 +47,7 @@
 <header class="top">
   <nav class="nav" aria-label="Primary">
     <a class="brand" href="./"><img src="assets/logo/rasanai-lockup.svg" width="214" height="44" alt="RasanAI" /></a>
-    <div class="nav-links" id="home-nav"><a href="#flow">How it works</a><a href="#projects">Your projects</a><a href="guide.html">Field guide</a></div>
+    <div class="nav-links" id="home-nav"><a href="#flow">How it works</a><a href="#projects">Your projects</a></div>
     <a class="nav-action" href="#download">Download</a>
     <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="home-nav" hidden>Menu <span aria-hidden="true">+</span></button>
   </nav>
@@ -81,51 +81,147 @@
   <div class="window rise home-win" data-rise><img src="img/studio/home-1x.jpg" srcset="img/studio/home-1x.jpg 907w, img/studio/home-2x.jpg 1814w" sizes="(min-width:1100px) 900px, 94vw" width="1814" height="1190" alt="RasanAI Studio, the start screen: What would you like to make? The seven crew characters stand on the prompt box, which reads Describe your video, or paste a link, with the steps Describe, Setup, Brief, Story, Look, Preview and Final above." loading="lazy" decoding="async" /></div>
 </div></section>
 
-<!-- 2. THE CREW: one continuous scroll scene. Rasan, then the six join him in a circle; the circle holds; then they scatter as the statement is revealed -->
+<!-- 2. THE CREW: Rasan is introduced on his own, takes the centre of a circle, and brings in each specialist, who stops and says what they do; then the circle breaks into depth around the statement, and the camera flies through the crew -->
 <section class="flow track crew-scene" id="flow" data-crew-scene aria-labelledby="flow-title">
   <div class="crew-sticky">
+    <div class="beat beat-rice" data-beat="slam"><div class="beat-layer"></div><p class="beat-line"><span class="beat-word">Behind</span> <span class="beat-word">that</span> <span class="beat-word">box,</span> <span class="beat-word is-accent">a</span> <span class="beat-word is-accent">whole</span> <span class="beat-word is-accent">crew.</span></p></div>
+    <div class="crew-lead">
+      <p class="eyebrow">Meet the director</p>
+      <h2 id="flow-title">Rasan runs your film.</h2>
+      <p class="lede">From your first sentence to the final export, Rasan directs the whole film. Rasan hands each job to the specialist who does it best, keeps the film on one idea, and stops only at the five calls where your taste decides: brief, story, look, animatic and final.</p>
+    </div>
     <div class="crew-stage">
       <div class="crew-orbit" aria-hidden="true">
         <svg class="crew-orbit-line" viewBox="0 0 100 100" focusable="false"><circle cx="50" cy="50" r="49.4" pathLength="100" /></svg>
       </div>
-      <figure class="crew-node" data-crew="ra" style="--c:#EFB21A;--a:-90">
+      <figure class="crew-node" data-crew="ra" data-name="Rasan" style="--c:#EFB21A">
         <img src="assets/crew/v2/pose-ra-wave.webp" width="814" height="900" alt="Rasan, a turmeric-yellow gumdrop in a flat black cap, waving." loading="lazy" decoding="async" />
         <figcaption class="crew-label"><b>Rasan</b><small>Director</small></figcaption>
       </figure>
-      <figure class="crew-node" data-crew="mala" style="--c:#8FA0C8;--a:-39">
-        <img src="assets/crew/v2/pose-mala-spool.webp" width="839" height="900" alt="Mala, a pale blue round body with a top-knot, unspooling a strip of 35 mm film." loading="lazy" decoding="async" />
-        <figcaption class="crew-label"><b>Mala</b><small>Editor</small></figcaption>
-      </figure>
-      <figure class="crew-node" data-crew="tara" style="--c:#2A31A8;--a:13">
+      <figure class="crew-node" data-crew="tara" data-name="Tara" style="--c:#2A31A8">
         <img src="assets/crew/v2/pose-tara-look.webp" width="964" height="900" alt="Tara, a small blue sphere with a brass scout's eyepiece, looking through it." loading="lazy" decoding="async" />
-        <figcaption class="crew-label"><b>Tara</b><small>Scout</small></figcaption>
+        <figcaption class="crew-label"><b>Tara</b><small>Scout</small><span class="crew-what">I read your product's site, help center, changelog and real screens, and bring back one sheet of facts the film can stand on.</span></figcaption>
       </figure>
-      <figure class="crew-node" data-crew="kavi" style="--c:#1B1F5E;--a:64">
+      <figure class="crew-node" data-crew="kavi" data-name="Kavi" style="--c:#1B1F5E">
         <img src="assets/crew/v2/pose-kavi-write.webp" width="493" height="900" alt="Kavi, a tall indigo block with round brass glasses, writing with a big yellow pencil." loading="lazy" decoding="async" />
-        <figcaption class="crew-label"><b>Kavi</b><small>Writer</small></figcaption>
+        <figcaption class="crew-label"><b>Kavi</b><small>Writer</small><span class="crew-what">I write three scripts from those facts, each a different story. You pick the one to make.</span></figcaption>
       </figure>
-      <figure class="crew-node" data-crew="chitra" style="--c:#B3165A;--a:116">
+      <figure class="crew-node" data-crew="chitra" data-name="Chitra" style="--c:#B3165A">
         <img src="assets/crew/v2/pose-chitra-show.webp" width="592" height="900" alt="Chitra, a magenta drop with a swept brush-stroke crest, holding out a fan of paint swatches." loading="lazy" decoding="async" />
-        <figcaption class="crew-label"><b>Chitra</b><small>Art Director</small></figcaption>
+        <figcaption class="crew-label"><b>Chitra</b><small>Art Director</small><span class="crew-what">I design three looks for your story: type, colour, layout and how it moves. You pick one.</span></figcaption>
       </figure>
-      <figure class="crew-node" data-crew="laya" style="--c:#1E5A3C;--a:167">
+      <figure class="crew-node" data-crew="laya" data-name="Laya" style="--c:#1E5A3C">
         <img src="assets/crew/v2/pose-laya-dance.webp" width="631" height="900" alt="Laya, a leaf-green bean in brass headphones, floating mid-move." loading="lazy" decoding="async" />
-        <figcaption class="crew-label"><b>Laya</b><small>Motion Director</small></figcaption>
+        <figcaption class="crew-label"><b>Laya</b><small>Motion Director</small><span class="crew-what">I score how every shot moves, in 2D or real 3D, and build the scenes to that score.</span></figcaption>
       </figure>
-      <figure class="crew-node" data-crew="rasika" style="--c:#3F4368;--a:219">
+      <figure class="crew-node" data-crew="rasika" data-name="Rasika" style="--c:#3F4368">
         <img src="assets/crew/v2/pose-rasika-inspect.webp" width="1430" height="900" alt="Rasika, a low graphite dome with a cream face window, inspecting through a brass loupe." loading="lazy" decoding="async" />
-        <figcaption class="crew-label"><b>Rasika</b><small>Critic</small></figcaption>
+        <figcaption class="crew-label"><b>Rasika</b><small>Critic</small><span class="crew-what">I check every frame, the motion, the facts and the sound. Competent but safe does not pass.</span></figcaption>
+      </figure>
+      <figure class="crew-node" data-crew="mala" data-name="Mala" style="--c:#8FA0C8">
+        <img src="assets/crew/v2/pose-mala-spool.webp" width="839" height="900" alt="Mala, a pale blue round body with a top-knot, unspooling a strip of 35 mm film." loading="lazy" decoding="async" />
+        <figcaption class="crew-label"><b>Mala</b><small>Editor</small><span class="crew-what">Bring a folder of footage and I cut it into a reel, with cards between the clips and captions on top.</span></figcaption>
       </figure>
     </div>
     <div class="crew-payoff">
-      <h2 id="flow-title">One director. Six specialists. <span>Five calls are yours.</span></h2>
+      <h2>One director. Six specialists. <span>Five calls are yours.</span></h2>
+      <p class="crew-statement"><span class="statement-word">RasanAI</span> <span class="statement-word">is</span> <span class="statement-word">a</span> <span class="statement-word">crew</span> <span class="statement-word">with</span> <span class="statement-word">names</span> <span class="statement-word">and</span> <span class="statement-word">craft.</span> <span class="statement-word">They</span> <span class="statement-word">research,</span> <span class="statement-word">write,</span> <span class="statement-word">design,</span> <span class="statement-word">move,</span> <span class="statement-word">check</span> <span class="statement-word">and</span> <span class="statement-word">cut</span> <span class="statement-word">your</span> <span class="statement-word">film,</span> <span class="statement-word">and</span> <span class="statement-word">stop</span> <span class="statement-word">for</span> <span class="statement-word">you</span> <span class="statement-word">at</span> <span class="statement-word">the</span> <span class="statement-word">five</span> <span class="statement-word">calls</span> <span class="statement-word">that</span> <span class="statement-word">shape</span> <span class="statement-word">it.</span></p>
     </div>
-    <p class="crew-statement"><span class="statement-word">RasanAI</span> <span class="statement-word">is</span> <span class="statement-word">a</span> <span class="statement-word">crew</span> <span class="statement-word">with</span> <span class="statement-word">names</span> <span class="statement-word">and</span> <span class="statement-word">craft.</span> <span class="statement-word">They</span> <span class="statement-word">handle</span> <span class="statement-word">the</span> <span class="statement-word">work</span> <span class="statement-word">between</span> <span class="statement-word">your</span> <span class="statement-word">decisions.</span> <span class="statement-word">You</span> <span class="statement-word">make</span> <span class="statement-word">the</span> <span class="statement-word">five</span> <span class="statement-word">calls</span> <span class="statement-word">that</span> <span class="statement-word">shape</span> <span class="statement-word">the</span> <span class="statement-word">film.</span></p>
   </div>
 </section>
 
-<!-- 3. YOUR PROJECTS -->
-<section class="section projects" id="projects" aria-labelledby="projects-title"><div class="wrap">
+<!-- 3. REMOTE CALLS: RasanAI x Squeak. One pinned scene: the Mac (Studio stops, Squeak's duck lights up), the screen becomes an iPhone (answer the call), and back to the Mac (the crew carries on) -->
+<section class="remote-control squeak-scene beat-host" id="control" aria-labelledby="control-title"><div class="host-pin">
+  <div class="beat beat-mist" data-beat="doors"><div class="beat-layer"></div><p class="beat-line"><span class="beat-word">The</span> <span class="beat-word">big</span> <span class="beat-word">calls</span> <span class="beat-word is-accent">stay</span> <span class="beat-word is-accent">yours.</span></p></div>
+  <div class="sq-stage">
+    <div class="sq-grand" aria-hidden="true">
+      <div class="g-glow"></div>
+      <div class="g-ring"></div><div class="g-ring g-ring2"></div>
+      <div class="g-sparks"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="g-row">
+        <div class="g-side g-r"><img class="g-mark" src="assets/logo/rasanai-glyph.svg" width="102" height="126" alt="" /><span class="g-word"><img src="assets/logo/rasanai-wordmark.svg" width="414" height="75" alt="" /></span></div>
+        <span class="g-x">×</span>
+        <div class="g-side g-s"><img class="g-mark" src="assets/squeak/squeak-duck.svg" width="1000" height="862" alt="" /><span class="g-word"><img src="assets/squeak/squeak-wordmark.svg" width="1716" height="484" alt="" /></span></div>
+      </div>
+      <p class="g-line"><span>Two apps.</span> <span>One film.</span> <span>Wherever</span> <span>you</span> <span>are.</span></p>
+    </div>
+    <div class="sq-copy">
+      <div class="sq-step" data-sq="0">
+        <p class="sq-partners"><img src="assets/logo/rasanai-lockup.svg" width="214" height="44" alt="RasanAI" /><span aria-hidden="true">×</span><img src="assets/squeak/squeak-lockup.svg" width="150" height="45" alt="Squeak" /></p>
+        <h2 id="control-title">Your film has a pager.</h2>
+        <p class="lede">Squeak is a pager for your coding agents, with a duck. Now it knows when your film needs you, too.</p>
+      </div>
+      <div class="sq-step" data-sq="1">
+        <p class="eyebrow">On your Mac</p>
+        <h3>The duck knows first.</h3>
+        <p class="lede">The moment the crew stops for one of your five calls, Squeak's duck lights up and the call goes to the top of its list.</p>
+      </div>
+      <div class="sq-step" data-sq="2">
+        <p class="eyebrow">Away from it</p>
+        <h3>Step away. The call follows you.</h3>
+        <p class="lede">Squeak for iPhone shows the same call, with the same choices, wherever you are.</p>
+      </div>
+      <div class="sq-step" data-sq="3">
+        <p class="eyebrow">On your iPhone</p>
+        <h3>Answer with a tap.</h3>
+        <p class="lede">Pick the look, choose the story, approve the brief. The draft and the final come as small copies you can watch on the phone.</p>
+      </div>
+      <div class="sq-step" data-sq="4">
+        <p class="eyebrow">Back on your Mac</p>
+        <h3>Already moving.</h3>
+        <p class="lede">Your answer goes into the same run. Studio's decisions show it as “You · iPhone”, and the crew carries on.</p>
+      </div>
+    </div>
+
+    <div class="sq-device" role="img" aria-label="RasanAI Studio on a Mac stops at the Look call; Squeak's duck lights up with the call. The screen becomes an iPhone, where Squeak shows the three looks and Ledger is picked. Back on the Mac, Studio has moved on to the animatic and its decisions read You · iPhone: picked the look: Ledger.">
+      <div class="sq-screen">
+        <!-- the Mac: designed at 1280 x 800 (80 x 50 em) -->
+        <div class="sq-mac">
+          <div class="sq-wall" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="sq-menubar"><b>RasanAI Studio</b><span>File</span><span>Edit</span><span>View</span><span>Window</span><span>Help</span><i class="sq-menu-duck"><img src="assets/squeak/squeak-duck.svg" width="1000" height="862" alt="" /><em class="sq-badge">1</em></i><span class="sq-clock">Tue 9:41</span></div>
+          <div class="sq-win">
+            <img class="sq-shot sq-shot-look" src="img/studio/call-look-1x.jpg" width="1120" height="740" alt="" loading="lazy" decoding="async" />
+            <img class="sq-shot sq-shot-next" src="img/studio/call-animatic-1x.jpg" width="1120" height="740" alt="" loading="lazy" decoding="async" />
+            <div class="sq-decision"><small>Decisions · Look</small><b>You · iPhone</b><span>Picked the look: Ledger</span></div>
+          </div>
+          <div class="sq-panel">
+            <div class="sq-panel-head"><b>Agents</b><span>1 waiting on you</span></div>
+            <div class="sq-row is-call"><i></i><div><b>Tally launch film · Look</b><span>rasanai · needs you · Chitra is waiting for your pick</span></div><img src="assets/crew/v2/pose-chitra-show.webp" width="592" height="900" alt="" /></div>
+            <div class="sq-row"><i class="ok"></i><div><b>atlas · search-index</b><span>codex · working · just now</span></div></div>
+            <div class="sq-row"><i class="ok"></i><div><b>pebble · onboarding</b><span>claude · working · 2m</span></div></div>
+          </div>
+          <div class="sq-duck">
+            <img class="mood-working" src="assets/squeak/duck-working.webp" width="240" height="240" alt="" />
+            <img class="mood-needs" src="assets/squeak/duck-needs_you.webp" width="240" height="240" alt="" />
+            <img class="mood-done" src="assets/squeak/duck-celebrating.webp" width="240" height="240" alt="" />
+            <em class="sq-badge">1</em>
+          </div>
+        </div>
+        <!-- the iPhone: designed at 390 x 844 (24.375 x 52.75 em) -->
+        <div class="sq-phone">
+          <div class="sq-status"><b>9:41</b><span class="sq-island"></span><span>●●● ▮</span></div>
+          <div class="sq-nav"><span class="sq-back">‹</span><img src="assets/squeak/squeak-duck.svg" width="1000" height="862" alt="" /></div>
+          <h4>Tally launch film</h4>
+          <p class="sq-sub"><i></i>RasanAI · Look · waiting on you</p>
+          <p class="sq-who"><img src="assets/crew/v2/pose-chitra-show.webp" width="592" height="900" alt="" />Chitra designed three looks for this story.</p>
+          <p class="sq-q">Which look fits this story?</p>
+          <div class="sq-looks">
+            <div class="sq-look l-ledger"><span class="sw"></span><div><b>Ledger</b><small>Swiss editorial grid, warm paper</small></div><em>Recommended</em></div>
+            <div class="sq-look l-signal"><span class="sw"></span><div><b>Signal</b><small>Bold type, one bright accent</small></div></div>
+            <div class="sq-look l-paper"><span class="sw"></span><div><b>Paper</b><small>Soft cut-paper layers</small></div></div>
+          </div>
+          <div class="sq-cta"><span class="sq-use">Use Ledger →</span><span class="sq-sent">✓ Sent to RasanAI Studio</span></div>
+          <p class="sq-foot">Replies go to this film's run on your Mac.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<!-- 4. YOUR PROJECTS -->
+<section class="section projects beat-host" id="projects" aria-labelledby="projects-title"><div class="host-pin">
+  <div class="beat beat-rice" data-beat="playhead"><div class="beat-layer"></div><p class="beat-line"><span class="beat-word">When</span> <span class="beat-word">it’s</span> <span class="beat-word">done,</span> <span class="beat-word is-accent">it’s</span> <span class="beat-word is-accent">yours.</span></p></div>
+  <div class="wrap">
   <div class="proj-grid">
     <div class="proj-copy">
       <p class="eyebrow">Your projects</p>
@@ -139,33 +235,34 @@
     </div>
     <figure class="proj-shot"><div class="window rise" data-rise><img src="img/studio/film-finished-1x.jpg" srcset="img/studio/film-finished-1x.jpg 907w, img/studio/film-finished-2x.jpg 1814w" sizes="(min-width:900px) 620px, 94vw" width="1814" height="1480" alt="RasanAI Studio, a finished film: Ready for the world. The final film, Spring launch film, 45 seconds at 16:9, sits in a large player with its references listed below." loading="lazy" decoding="async" /></div><figcaption>The finished-film screen, from a sample project.</figcaption></figure>
   </div>
-</div></section>
+</div></div></section>
 
-<!-- 4. QUESTIONS -->
+<!-- 5. QUESTIONS -->
 <section class="section faq" id="questions" aria-labelledby="faq-title"><div class="wrap faq-wrap">
   <div class="faq-head"><p class="eyebrow">Questions</p><h2 id="faq-title">Before you download.</h2></div>
   <div class="faq-list">
     <details><summary>What do I need to run it?</summary><div><p>An Apple Silicon Mac running macOS 14 or newer.</p></div></details>
     <details><summary>Does it cost anything?</summary><div><p>RasanAI Studio is free and open source under the MIT license. It uses your own Claude Code or OpenAI Codex, installed and signed in, so usage counts toward your own plan.</p></div></details>
-    <details><summary>Is it finished?</summary><div><p>No. It is a community beta. The real-agent generation flow is still in beta and not fully verified, so expect rough edges. Presenter films, where you film yourself on a green screen, are newer still and have experimental limits: <a href="guide.html#presenter">read them in the field guide</a>. Please <a href="https://github.com/Sibhimanyu/rasanai/issues">tell us what breaks</a>.</p></div></details>
+    <details><summary>Is it finished?</summary><div><p>No. It is a community beta. The real-agent generation flow is still in beta and not fully verified, so expect rough edges. Presenter films, where you film yourself on a green screen, are newer still and have experimental limits: <a href="guide.html#presenter">read them in the technical guide</a>. Please <a href="https://github.com/Sibhimanyu/rasanai/issues">tell us what breaks</a>.</p></div></details>
     <details><summary>What happens the first time I open it?</summary><div><p>This beta is ad-hoc signed and not yet notarized by Apple, so macOS asks you to confirm. Drag RasanAI Studio into Applications, right-click it and choose <b>Open</b>, or use <b>Open Anyway</b> in System Settings &rarr; Privacy &amp; Security. After that, signed updates arrive on their own. <a href="guide.html#mac">Full installation help</a>.</p></div></details>
     <details><summary>What about rendering tools?</summary><div><p>Use Help &rarr; Prepare Rendering Tools in the app. It installs whatever is missing.</p></div></details>
   </div>
 </div></section>
 
-<!-- 5. CLOSING DOWNLOAD -->
-<section class="endcard" id="download" aria-labelledby="end-title">
+<!-- 6. CLOSING DOWNLOAD -->
+<section class="endcard beat-host" id="download" aria-labelledby="end-title"><div class="host-pin end-stage">
+  <div class="beat beat-paper" data-beat="blinds"><div class="beat-layer"></div><p class="beat-line"><span class="beat-word">That’s</span> <span class="beat-word">the</span> <span class="beat-word">story.</span> <span class="beat-word is-accent">Your</span> <span class="beat-word is-accent">turn.</span></p></div>
   <img class="end-img" src="assets/crew/v2/endcard-ra.webp" width="2400" height="1351" alt="Rasan seen from behind, standing on a grassy ridge above a sea of clouds at sunset, holding a clapperboard." loading="lazy" decoding="async" />
   <div class="end-copy"><h2 id="end-title">Make your first film.</h2><a data-studio="dmg" class="btn btn-primary btn-lg" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.0-beta.1/RasanAI-Studio-0.19.0.dmg">Download for Mac <svg aria-hidden="true"><use href="#i-down"/></svg></a><p class="end-meta"><span data-studio="version">0.19.0 beta 1</span> &middot; Apple Silicon &middot; macOS 14+ &middot; Free and open source</p></div>
   <p class="end-links"><span>Community beta, ad-hoc signed. Works with your own Claude Code or OpenAI Codex.</span><a data-studio="notes" href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.19.0-beta.1">Release notes</a><a data-studio="sha256" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.0-beta.1/RasanAI-Studio-0.19.0.dmg.sha256">Checksum</a><a href="guide.html#install">Prefer the terminal?</a></p>
-</section>
+</div></section>
 </main>
 
 <!-- FOOTER -->
 <footer class="foot"><div class="wrap">
   <div class="foot-top">
     <p class="foot-sign"><span lang="ta">ரசனை</span> means taste. The eye, and ear, for what feels right.</p>
-    <nav class="foot-links" aria-label="Footer"><a href="guide.html">Field guide</a><a href="brand/RasanAI-Brand-Guidelines.pdf">Brand guidelines (PDF)</a><a href="brand/overview.png">Brand overview</a><a data-studio="notes" href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.19.0-beta.1">Release notes</a><a href="https://github.com/Sibhimanyu/rasanai">GitHub &rarr;</a></nav>
+    <nav class="foot-links" aria-label="Footer"><a href="guide.html">Technical guide</a><a href="brand/RasanAI-Brand-Guidelines.pdf">Brand guidelines (PDF)</a><a href="brand/overview.png">Brand overview</a><a data-studio="notes" href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.19.0-beta.1">Release notes</a><a href="https://github.com/Sibhimanyu/rasanai">GitHub &rarr;</a></nav>
   </div>
   <img class="foot-mark" src="assets/logo/rasanai-lockup-reverse.svg" width="487" height="100" alt="RasanAI" loading="lazy" />
   <p class="foot-by">By <a href="https://github.com/Sibhimanyu">Sibhimanyu</a> &middot; Open source / MIT</p>
