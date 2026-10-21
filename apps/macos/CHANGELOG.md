@@ -2,11 +2,12 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.19.3 (build 41) — 2026-10-21
 
 - **A stuck director pauses itself.** When Claude repeats the same step, or burns tokens without showing you anything new, for two minutes, Studio pauses it so a loop stops spending tokens. A red banner says why, with Resume, Message Claude and Show log; nothing is lost and Resume carries on mid-step. Turn it off in Settings → "Pause the director when it looks stuck".
 - **Your budget is a limit, not just a warning.** When a film passes your spend per film, the director pauses. Keep going resumes it; Raise by $10 lifts the limit.
 - **Loops are caught even with Studio closed.** If Studio crashes or is force-quit mid-film, the director's supervisor stops it after the same call five times in a row instead of letting it run on unwatched.
+- **Bundles RasanAI 1.24.0.**
 
 ## 0.19.2 (build 40) — 2026-10-21
 
