@@ -2,9 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.19.2 (build 40) — 2026-10-21
 
 - **Decisions say where you made them.** A call answered from another app (Squeak on your iPhone) shows "You · iPhone" in the Decisions drawer.
+- **Bundles RasanAI 1.24.0.**
 
 ## 0.19.1 (build 39) — 2026-10-21
 
