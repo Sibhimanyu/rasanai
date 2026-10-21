@@ -2,6 +2,11 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## 0.19.2 (build 40) — 2026-10-21
+
+- **Decisions say where you made them.** A call answered from another app (Squeak on your iPhone) shows "You · iPhone" in the Decisions drawer.
+- **Bundles RasanAI 1.24.0.**
+
 ## 0.19.1 (build 39) — 2026-10-21
 
 - **Honest time estimates.** Elapsed time and "time left" leave out the hours nothing ran (a Claude plan limit, a pause, the app closed) and stop while it is your call. Estimates start from how long real films take (about 1 h 45 min of work for a 30 s film, not 2.5 h), and no longer count down while you decide.

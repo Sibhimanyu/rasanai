@@ -67,7 +67,7 @@ private struct DecisionRowView: View {
                 CrewAvatar(CrewCharacter(key: CrewRoles.character(forPanel: row.step)) ?? .ra, style: .bust(diameter: 18), watching: false)
                 Text(row.label.uppercased()).font(.system(size: 10, weight: .semibold)).tracking(0.5).foregroundStyle(.secondary)
                 Spacer()
-                Text(row.byUser ? "You" : agent)
+                Text(row.byUser ? row.via.map { "You · \($0)" } ?? "You" : agent)
                     .font(.system(size: 10, weight: .semibold))
                     .padding(.horizontal, 7).padding(.vertical, 2)
                     .background((row.byUser ? Color.rasan : Color.secondary).opacity(0.15), in: Capsule())

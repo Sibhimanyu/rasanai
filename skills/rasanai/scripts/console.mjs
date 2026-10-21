@@ -25,10 +25,19 @@
 //        --type comment (a note given in chat: --note "<text>", --value '{"t":12.4,"scope":"scene"}') and --type apply (--value '{"ids":[...]}',
 //        or all the step's open notes) also enter session.comments / session.applied, so the revision refusal covers notes given in chat
 //   node console.mjs state --run <dir> | url --run <dir> | stop --run <dir>
+//   (internal) node console.mjs proxy --run <dir> --step animatic|render|final --video <path>: a push of one of those steps with a
+//        `video` (or `videos`, the newest last) starts this in the background; it writes a phone-sized copy in <run>/phone/
+//        (H.264 540p ~1.2 Mbit/s, AAC) with ffmpeg and adds `proxy` to the step. No ffmpeg, no proxy, no error.
+//        RASANAI_PHONE_PROXY=off turns it off.
 //
 // HEADLESS mode (env RASANAI_CONSOLE_HEADLESS=1, remembered in <run>/console.json): no server at all. RasanAI Studio
 // (the native Mac app) reads session.json itself and appends the user's actions to actions.jsonl; every command above
 // except serve/url works the same, and `wait` applies each action's effects to session.json as it consumes it.
+//
+// OTHER APPS (references/remote.md, the published contract): session.json carries `schema` (SESSION_SCHEMA) and console.json
+// `external_actions` (EXTERNAL_ACTIONS), in both modes. An app may append an action to actions.jsonl under actions.lock with
+// its `source` (SOURCES); `wait` validates and applies it in both modes, the way a POST is applied. The server marks the
+// lines it already applied (`applied: true`), so `wait` never applies one twice.
 import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
@@ -69,6 +78,15 @@ const F = {
   actionsLock: path.join(RUN, "actions.lock"),
   rejected: path.join(RUN, "rejected.json"),
 };
+// the published contract (references/remote.md): bump only for a change an outside reader would misread
+export const SESSION_SCHEMA = 1;
+// console.json: `wait` validates and applies actions another process appended to actions.jsonl, in both modes
+export const EXTERNAL_ACTIONS = 1;
+// who answered: the console page, chat `record`, RasanAI Studio, or an app that speaks remote.md. The label is what the feed
+// and the decisions drawer say after "You" ("You (iPhone): picked the story: …"); a source not listed here is "console".
+export const SOURCES = { console: "", chat: "", studio: "", squeak: "Squeak", "squeak-phone": "iPhone" };
+export const cleanSource = (v) => (typeof v === "string" && /^[a-z-]{2,20}$/.test(v) && Object.hasOwn(SOURCES, v) ? v : "console");
+const youOf = (action) => (SOURCES[action.source] ? `You (${SOURCES[action.source]})` : "You");
 export const STEPS = ["brief", "research", "brand", "route", "footage", "story", "direction", "films", "concept", "scenes", "look", "motion", "styleframes", "animatic", "reel", "transitions", "voice", "music", "keyframes", "storyboard", "plan", "build", "render", "final"];
 
 // the Brief call's token budget, kept to the fields the page reads: {level: lean|standard|full, label, summary, fix_rounds, total, total_label, phases: [{phase, tokens, label}], levels: [{level, label, summary, fix_rounds, total, total_label}]}
@@ -95,14 +113,18 @@ const writeJSON = (p, v) => {
 // headless: no console server in this run (RasanAI Studio reads the files). Set by env, then remembered in console.json.
 const HEADLESS = (() => {
   const c = readJSON(F.console, null);
-  if (c && c.headless === true) return true;
+  if (c && c.headless === true) {
+    // a run started before the flag existed: advertise that this copy's `wait` applies other apps' actions
+    if (c.external_actions !== EXTERNAL_ACTIONS) { try { writeJSON(F.console, { ...c, external_actions: EXTERNAL_ACTIONS }); } catch {} }
+    return true;
+  }
   if (process.env.RASANAI_CONSOLE_HEADLESS !== "1") return false;
   // a run an older Studio started has a console server: stop it and forget its address, then mark the run
   if (c && c.pid) {
     try { process.kill(c.pid); } catch {}
   }
   fs.rmSync(F.address, { force: true });
-  writeJSON(F.console, { headless: true, since: new Date().toISOString(), version: VERSION, skill: SKILL_DIR });
+  writeJSON(F.console, { headless: true, since: new Date().toISOString(), version: VERSION, skill: SKILL_DIR, external_actions: EXTERNAL_ACTIONS });
   return true;
 })();
 const now = () => new Date().toISOString();
@@ -110,6 +132,7 @@ function session() {
   return readJSON(F.session, { title: "RasanAI", current: "brief", steps: {}, updated: now() });
 }
 function saveSession(s) {
+  s.schema = SESSION_SCHEMA;
   s.updated = now();
   writeJSON(F.session, s);
 }
@@ -149,25 +172,10 @@ function parseData() {
   }
   return {};
 }
-function readActions() {
-  if (!fs.existsSync(F.actions)) return [];
-  return fs
-    .readFileSync(F.actions, "utf8")
-    .split("\n")
-    .filter(Boolean)
-    .map((l) => {
-      try {
-        return JSON.parse(l);
-      } catch {
-        return null;
-      }
-    })
-    .filter(Boolean);
-}
+// always under actions.lock: another app may be appending to the same file (references/remote.md)
 function appendAction(a) {
   const action = { id: crypto.randomBytes(5).toString("hex"), ts: now(), ...a };
-  if (HEADLESS) withLock(F.actionsLock, () => fs.appendFileSync(F.actions, JSON.stringify(action) + "\n"));
-  else fs.appendFileSync(F.actions, JSON.stringify(action) + "\n");
+  withLock(F.actionsLock, () => fs.appendFileSync(F.actions, JSON.stringify(action) + "\n"));
   return action;
 }
 
@@ -202,13 +210,14 @@ function applyAction(s, action) {
   const step = action.step;
   tasteFrom(action);
   if (step === "*") s.decide_rest = { ts: action.ts };
-  else if (Object.prototype.hasOwnProperty.call(s.steps, step) && !["comment", "knob", "cut-edit"].includes(action.type)) s.steps[step].sent = { type: action.type, value: action.value, note: action.note, ts: action.ts };
+  else if (Object.prototype.hasOwnProperty.call(s.steps, step) && !["comment", "knob", "cut-edit"].includes(action.type)) s.steps[step].sent = { type: action.type, value: action.value, note: action.note, ts: action.ts, source: cleanSource(action.source), ...(SOURCES[action.source] ? { via: SOURCES[action.source] } : {}) };
+  const you = youOf(action);
   // an answer to an `ask` card: record it on the question and clear it from the page
   if (action.type === "answer" && s.ask && !s.ask.answered) {
     const v = action.value || {};
     const opt = (s.ask.options || []).find((o) => o.id === v.choice);
     s.ask.answered = { choice: v.choice || null, label: opt ? opt.label : null, text: v.text || "", t: action.ts };
-    activity(s, `You answered: ${opt ? opt.label : ""}${opt && v.text ? " · " : ""}${v.text ? "“" + String(v.text).slice(0, 120) + "”" : ""}`, "you", "Claude is reading your answer…");
+    activity(s, `${you} answered: ${opt ? opt.label : ""}${opt && v.text ? " · " : ""}${v.text ? "“" + String(v.text).slice(0, 120) + "”" : ""}`, "you", "Claude is reading your answer…");
     return;
   }
   // the user pressed Apply: remember which notes, so a revision can't go out with one unanswered
@@ -220,11 +229,11 @@ function applyAction(s, action) {
   if (action.type === "comment") {
     const v = action.value || {};
     s.comments = (s.comments || []).concat({ id: action.id, step, scene: v.scene ?? null, t: typeof v.t === "number" ? v.t : null, x: typeof v.x === "number" ? v.x : null, y: typeof v.y === "number" ? v.y : null, w: typeof v.w === "number" ? v.w : null, h: typeof v.h === "number" ? v.h : null, scope: v.scope || "scene", quick: v.quick || null, word_id: typeof v.word_id === "string" ? v.word_id : null, clip: typeof v.clip === "string" ? v.clip : null, text: action.note || v.quick || "", state: "open", ts: action.ts }).slice(-200);
-    activity(s, `You left a note${v.t != null ? " at " + Math.floor(v.t / 60) + ":" + String(Math.floor(v.t % 60)).padStart(2, "0") : ""}: ${action.note || v.quick}`, "you", null);
+    activity(s, `${you} left a note${v.t != null ? " at " + Math.floor(v.t / 60) + ":" + String(Math.floor(v.t % 60)).padStart(2, "0") : ""}: ${action.note || v.quick}`, "you", null);
     return;
   }
   // a transcript edit in the Cut stage (Studio): a feed line only; it must not mark the reel step as answered
-  if (action.type === "cut-edit") { activity(s, `You edited the cut: ${(action.value && action.value.op) || "edit"}`, "you", null); return; }
+  if (action.type === "cut-edit") { activity(s, `${you} edited the cut: ${(action.value && action.value.op) || "edit"}`, "you", null); return; }
   // a redo of some style frames ({ids, note}): name the frames
   const nm = action.type === "redo" && action.value && Array.isArray(action.value.ids) ? `frame${action.value.ids.length > 1 ? "s" : ""} ${action.value.ids.join(", ")}` : nameOf(s, step, action.value);
   const verb = { choose: "picked", submit: "sent", approve: "approved", adjust: "adjusted", more: "asked for more of", redo: "asked to redo" }[action.type] || action.type;
@@ -233,12 +242,14 @@ function applyAction(s, action) {
   // anything the user writes becomes part of that step's discussion
   const said2 = action.note || (action.type === "redo" && action.value && action.value.note ? String(action.value.note).slice(0, 4000) : "");
   if (said2 && s.steps[step]) s.steps[step].thread = (s.steps[step].thread || []).concat({ who: "you", text: said2, t: action.ts }).slice(-50);
-  activity(s, `You: ${said}`, "you", "Claude is reading your answer…");
+  activity(s, `${you}: ${said}`, "you", "Claude is reading your answer…");
 }
 
-// headless `wait`: the next action for this wait, after applying (and consuming) what arrived. Runs under the actions
+// `wait`, in both modes: the next action for this wait, after applying (and consuming) what arrived. Runs under the actions
 // lock. Every line is validated like a POST would be; a bad one is consumed with its reason in rejected.json, never thrown on.
-function nextHeadlessAction(step) {
+// A line the console server wrote on POST carries `applied: true` (its effects are already in session.json) and is only
+// consumed; every other line (RasanAI Studio, another app, an older server's) gets applyAction here.
+function nextAction(step) {
   let found = null;
   withLock(F.actionsLock, () => {
     let text = "";
@@ -265,15 +276,17 @@ function nextHeadlessAction(step) {
         continue;
       }
       if (step && v.step !== step && v.step !== "*") continue;
-      const action = { id: rid, ts: typeof raw.ts === "string" ? raw.ts : now(), step: v.step, type: v.type, value: v.value, note: v.note, source: raw.source === "chat" ? "chat" : "console" };
-      try {
-        withLock(F.sessionLock, () => {
-          const s = session();
-          applyAction(s, action);
-          saveSession(s);
-        });
-      } catch (e) {
-        rejected.push({ id: rid, error: `could not apply: ${e && e.message}`, ts: now(), delivered: true });
+      const action = { id: rid, ts: typeof raw.ts === "string" ? raw.ts : now(), step: v.step, type: v.type, value: v.value, note: v.note, source: cleanSource(raw.source) };
+      if (raw.applied !== true) {
+        try {
+          withLock(F.sessionLock, () => {
+            const s = session();
+            applyAction(s, action);
+            saveSession(s);
+          });
+        } catch (e) {
+          rejected.push({ id: rid, error: `could not apply: ${e && e.message}`, ts: now(), delivered: true });
+        }
       }
       consumed.push(rid); done.add(rid);
       changed = true;
@@ -319,12 +332,12 @@ function ensureServer() {
 // ---------------------------------------------------------------------------
 // headless: never a server; the session is rewritten under the run's lock for the whole command (parallel agents and
 // scripts push at once, and an unlocked read-modify-write would lose one of them)
-if (HEADLESS) {
-  if (["push", "log", "activity", "reply", "ask", "resolve", "downgrade", "relock"].includes(cmd)) {
-    acquire(F.sessionLock, 8000);
-    process.on("exit", () => release(F.sessionLock));
-  }
-} else if (["push", "log", "activity", "reply", "ask", "downgrade"].includes(cmd)) ensureServer();
+// In server mode too: `wait` now applies other apps' actions to session.json, so every rewrite takes the same lock.
+if (!HEADLESS && ["push", "log", "activity", "reply", "ask", "downgrade"].includes(cmd)) ensureServer();
+if (["push", "log", "activity", "reply", "ask", "resolve", "downgrade", "relock"].includes(cmd)) {
+  acquire(F.sessionLock, 8000);
+  process.on("exit", () => release(F.sessionLock));
+}
 if (cmd === "push") {
   if (!args.step || !STEPS.includes(args.step)) die(`--step must be one of ${STEPS.join(", ")}`);
   const s = session();
@@ -373,12 +386,24 @@ if (cmd === "push") {
     if (bud && typeof bud === "object") next.budget = cleanBudget(bud);
   }
   // closing a step the user answered keeps who made the call, so the Decisions drawer credits them, not Claude
-  if (next.status === "done" && !data.by && prev.sent && !["decide", "decide-rest", "note"].includes(prev.sent.type)) next.by = "user";
+  if (next.status === "done" && !data.by && prev.sent && !["decide", "decide-rest", "note"].includes(prev.sent.type)) {
+    next.by = "user";
+    // ... and where they made it from, when that was another app ("You · iPhone" in the drawer)
+    if (prev.sent.via) { next.by_source = cleanSource(prev.sent.source); next.by_via = String(prev.sent.via).slice(0, 40); }
+    else { delete next.by_source; delete next.by_via; }
+  }
   // the step's discussion survives a re-push (Claude revising the options is the answer to it)
   if (prev.thread && !data.thread) next.thread = prev.thread;
   if (args.step === "build" && !args.merge) {
     next.log = data.log || prev.log || [];
     next.stages = data.stages || prev.stages || {};
+  }
+  // the phone's copy of the newest video (references/remote.md): already made and fresh, said now; else made in the background
+  if (["animatic", "render", "final"].includes(args.step)) {
+    delete next.proxy;
+    const ph = phoneProxy(newestVideo(next));
+    if (ph && ph.fresh) next.proxy = ph.proxy;
+    else if (ph) spawnProxy(args.step, ph.video);
   }
   s.steps[args.step] = next;
   // closing a call locks what it approved (lib/locks.mjs); an identical re-push keeps the old lock
@@ -506,8 +531,7 @@ if (cmd === "push") {
     consumed.push(a.id);
     writeJSON(F.consumed, consumed);
   };
-  if (HEADLESS) withLock(F.actionsLock, markConsumed);
-  else markConsumed();
+  withLock(F.actionsLock, markConsumed);
   // a note or an Apply given in chat enters the notes rule like one clicked on the page (the page's own would be applied by the server or by `wait`)
   if (["comment", "apply"].includes(a.type)) {
     if (a.type === "comment" && !a.note && !(value && value.quick)) die("record --type comment needs --note \"<the note>\"");
@@ -523,32 +547,17 @@ if (cmd === "push") {
   const start = Date.now();
   let checks = 0;
   const tick = () => {
-    if (HEADLESS) {
-      let next = null;
-      try { next = nextHeadlessAction(args.step); } catch {}
-      if (next) {
-        console.log(JSON.stringify(next));
-        process.exit(0);
-      }
-      if (Date.now() - start > timeout) {
-        console.log(JSON.stringify({ timeout: true, step: args.step || null }));
-        process.exit(2);
-      }
-      return setTimeout(tick, 300);
-    }
     // every ~5s: if the console server died, say so instead of waiting forever
-    if (++checks % 12 === 0) {
+    if (!HEADLESS && ++checks % 12 === 0) {
       const c = readJSON(F.console, null);
       if ((!c || (c.pid && !alive(c.pid))) && readJSON(F.address, null) && !ensureServer()) {
         console.log(JSON.stringify({ console_down: true, hint: "it could not be restarted; run `console.mjs serve --run <dir> --open`; answers can also come from chat" }));
         process.exit(3);
       }
     }
-    const consumed = new Set(readJSON(F.consumed, []));
-    const next = readActions().find((a) => !consumed.has(a.id) && (!args.step || a.step === args.step || a.step === "*"));
+    let next = null;
+    try { next = nextAction(args.step); } catch {}
     if (next) {
-      consumed.add(next.id);
-      writeJSON(F.consumed, [...consumed]);
       console.log(JSON.stringify(next));
       process.exit(0);
     }
@@ -556,9 +565,21 @@ if (cmd === "push") {
       console.log(JSON.stringify({ timeout: true, step: args.step || null }));
       process.exit(2);
     }
-    setTimeout(tick, 400);
+    setTimeout(tick, HEADLESS ? 300 : 400);
   };
   tick();
+} else if (cmd === "proxy") {
+  // internal (see the header): never prints an error, never fails the film
+  const step = String(args.step || ""), video = String(args.video || "");
+  const ph = ["animatic", "render", "final"].includes(step) ? phoneProxy(video) : null;
+  if (ph && !ph.fresh && makeProxy(ph)) {
+    withLock(F.sessionLock, () => {
+      const s = session();
+      // only if the step still shows that video (a newer push may have replaced it)
+      if (s.steps[step] && newestVideo(s.steps[step]) === video) { s.steps[step].proxy = ph.proxy; saveSession(s); }
+    });
+  }
+  process.exit(0);
 } else if (cmd === "state") {
   console.log(JSON.stringify(session(), null, 2));
 } else if (cmd === "url") {
@@ -721,11 +742,16 @@ function serve() {
         const v = validateAction(a);
         if (v.error) return send(400, { error: v.error });
         const step = v.step;
-        const action = appendAction({ step, type: v.type, value: v.value, note: v.note, source: "console" });
-        const s = session();
-        applyAction(s, action);
-        saveSession(s);
-        send(200, { ok: true, action });
+        // applied here, so the line says so and `wait` only consumes it; the session is rewritten under its lock
+        // (one lock at a time, never session.lock around actions.lock: `wait` takes them the other way round)
+        const action = appendAction({ step, type: v.type, value: v.value, note: v.note, source: "console", applied: true });
+        withLock(F.sessionLock, () => {
+          const s = session();
+          applyAction(s, action);
+          saveSession(s);
+        });
+        const { applied, ...shown } = action;
+        send(200, { ok: true, action: shown });
       });
       return;
     }
@@ -799,13 +825,15 @@ function serve() {
     port = server.address().port;
     writeJSON(F.address, { port, token, root });
     const url = `http://127.0.0.1:${port}/?t=${token}`;
-    writeJSON(F.console, { url, port, pid: process.pid, root, started: now(), version: VERSION, skill: SKILL_DIR });
+    writeJSON(F.console, { url, port, pid: process.pid, root, started: now(), version: VERSION, skill: SKILL_DIR, external_actions: EXTERNAL_ACTIONS });
     // the page shows this copy's version and, from the last update check (no network here), a newer one
-    const s = session();
-    const upd = readJSON(path.join(STATE_DIR, "update-check.json"), null);
-    s.app = { version: VERSION, latest: upd && upd.latest ? upd.latest : VERSION };
-    if (!s.activity) activity(s, "Console open", "sys", "Getting started…");
-    saveSession(s);
+    withLock(F.sessionLock, () => {
+      const s = session();
+      const upd = readJSON(path.join(STATE_DIR, "update-check.json"), null);
+      s.app = { version: VERSION, latest: upd && upd.latest ? upd.latest : VERSION };
+      if (!s.activity) activity(s, "Console open", "sys", "Getting started…");
+      saveSession(s);
+    });
   });
   const bye = () => {
     const c = readJSON(F.console, null);
@@ -814,6 +842,54 @@ function serve() {
   };
   process.on("SIGTERM", bye);
   process.on("SIGINT", bye);
+}
+
+// ---------------------------------------------------------------------------
+// phone proxies: a small H.264 copy of a step's video for a phone (references/remote.md, "Video for phones")
+function newestVideo(d) {
+  const v = d && (typeof d.video === "string" && d.video ? d.video : Array.isArray(d.videos) ? d.videos.filter((x) => typeof x === "string" && x).at(-1) : null);
+  return v && /\.(mp4|mov|m4v|webm)$/i.test(v) ? v : null;
+}
+// where a payload path is: absolute, else the project (the director's cwd, the console's root), else the run
+function payloadFile(p) {
+  if (path.isAbsolute(p)) return p;
+  const roots = [process.cwd(), (readJSON(F.console, {}) || {}).root, (readJSON(F.address, {}) || {}).root, RUN].filter(Boolean);
+  for (const r of roots) { const f = path.resolve(String(r), p); if (fs.existsSync(f)) return f; }
+  return null;
+}
+// {video, file, out (absolute), proxy (the payload path: relative to the project like other media), fresh} or null (no video,
+// off, missing file). Kept in the run folder, never beside the render, so nothing that looks for the newest render finds it.
+function phoneProxy(video) {
+  if (!video || process.env.RASANAI_PHONE_PROXY === "off") return null;
+  const file = payloadFile(video);
+  if (!file) return null;
+  const key = crypto.createHash("sha1").update(path.resolve(file)).digest("hex").slice(0, 8);
+  const out = path.join(RUN, "phone", `${path.basename(file).replace(/\.[^.]+$/, "").replace(/[^A-Za-z0-9_-]+/g, "-").slice(0, 60)}-${key}.mp4`);
+  let fresh = false;
+  try { fresh = fs.statSync(out).mtimeMs >= fs.statSync(file).mtimeMs; } catch {}
+  // by real path: macOS's /var is /private/var, and cwd comes back resolved
+  let rel = "";
+  try { rel = path.relative(fs.realpathSync(process.cwd()), path.join(fs.realpathSync(RUN), path.relative(RUN, out))); } catch {}
+  return { video, file, out, fresh, proxy: rel && !rel.startsWith("..") && !path.isAbsolute(rel) ? rel : out };
+}
+function spawnProxy(step, video) {
+  try {
+    spawn(process.execPath, [fileURLToPath(import.meta.url), "proxy", "--run", RUN, "--step", step, "--video", video], { detached: true, stdio: "ignore", cwd: process.cwd() }).unref();
+  } catch {}
+}
+// 540 on the short side (never upscaled), ~1.2 Mbit/s, AAC, faststart; written to a temp name and renamed. False when ffmpeg is missing or fails.
+function makeProxy(ph) {
+  const tmp = path.join(path.dirname(ph.out), `.${path.basename(ph.out)}.${process.pid}.tmp`);
+  try { fs.mkdirSync(path.dirname(ph.out), { recursive: true }); } catch { return false; }
+  const scale = "scale='if(gt(iw,ih),-2,min(540,iw))':'if(gt(iw,ih),min(540,ih),-2)'";
+  try {
+    execFileSync("ffmpeg", ["-y", "-v", "error", "-i", ph.file, "-map", "0:v:0", "-map", "0:a:0?", "-vf", scale, "-c:v", "libx264", "-preset", "veryfast", "-profile:v", "main", "-pix_fmt", "yuv420p", "-b:v", "1200k", "-maxrate", "1500k", "-bufsize", "2400k", "-c:a", "aac", "-b:a", "96k", "-ac", "2", "-movflags", "+faststart", "-f", "mp4", tmp], { stdio: "ignore", timeout: 15 * 60 * 1000 });
+    fs.renameSync(tmp, ph.out);
+    return true;
+  } catch {
+    fs.rmSync(tmp, { force: true });
+    return false;
+  }
 }
 
 function alive(pid) {

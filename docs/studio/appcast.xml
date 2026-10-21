@@ -6,6 +6,28 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.19.2 beta 1</title>
+      <pubDate>Wed, 21 Oct 2026 11:25:44 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **Decisions say where you made them.** A call answered from another app (Squeak on your iPhone) shows "You · iPhone" in the Decisions drawer.]]></description>
+      <sparkle:version>40</sparkle:version>
+      <sparkle:shortVersionString>0.19.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.2-beta.1/RasanAI-Studio-0.19.2.dmg" sparkle:edSignature="o/f9hsdBeeZ8A95NGBOgNedurPuDZCa9bfJ9+A7ux/18CZplYq+izkEgPZmopXaEZdk3r4Upm6mkhmZyp4ixDg==" length="80976905" type="application/octet-stream" />
+    </item>
+    <item>
+      <title>RasanAI Studio 0.19.1 beta 1</title>
+      <pubDate>Wed, 21 Oct 2026 02:48:24 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **Honest time estimates.** Elapsed time and "time left" leave out the hours nothing ran (a Claude plan limit, a pause, the app closed) and stop while it is your call. Estimates start from how long real films take (about 1 h 45 min of work for a 30 s film, not 2.5 h), and no longer count down while you decide.
+- **Films pick themselves back up.** Quitting or updating Studio mid-film no longer strands it: a director still working is picked back up (never a second one on the same film), a plan limit still resumes by itself when it resets, and an unexpected stop resumes once.
+- **A stopped film says so.** When nothing is working on a film, it says "Claude stopped working on this film" with a Resume button, instead of a working screen stuck on "18 min left".]]></description>
+      <sparkle:version>39</sparkle:version>
+      <sparkle:shortVersionString>0.19.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.1-beta.1/RasanAI-Studio-0.19.1.dmg" sparkle:edSignature="KbHu50RGzB5h8jqwzS9SNwJ4SyfK6nDVIJYkCYILxCr/gfPrseNvy9kwYtT3xS6aiJaQf2cY9C+4u48s+eLvCg==" length="80959898" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.19.0 beta 1</title>
       <pubDate>Tue, 20 Oct 2026 20:32:11 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **Edit a talking-head cut by its words.** The Cut step shows the transcript with Claude's suggested cuts (retakes, false starts, "wait, let me start again", fillers) marked. Cut or restore any phrase, accept or keep a suggestion, fix a misspelled name, and undo or redo with ⌘Z / ⇧⌘Z. Your decisions are kept if you quit and reopen.

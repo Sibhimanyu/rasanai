@@ -34,6 +34,7 @@ RasanAI Studio, the native Mac app, does not use the page or the server. It star
 - Until `wait` consumes an action the app shows it as sent (its own optimistic copy of the banner, note or answer).
 - A run an older Studio started (it has `address.json` and a console server) is switched on its next headless command: the old server is stopped and its address forgotten.
 - Without the variable, and without `console.json` saying headless, nothing changes: the server, the page, the token and the restarts work as described above.
+- **Other apps** (a phone pager such as Squeak) write answers the same way in **both** modes: `wait` validates and applies an appended line with the console server running too, and `console.json` says so with `external_actions: 1`; the server marks the lines it applied on POST (`applied: true`) so `wait` never applies one twice, and appends and session rewrites take `actions.lock` and `session.lock` in both modes. `session.json` carries `schema: 1`. The contract, with the allowed `source` values, is `references/remote.md`.
 
 ### The brief file (`rasanai-brief.json`)
 
@@ -65,7 +66,7 @@ The brief's first question, inside call 1 (never a sixth call): it asks WHAT the
 | `reply --run <dir> --step <id> --message "..."` | Claude's answer in that step's discussion thread (under the step on the page); clears the "Claude is replying" state. The thread survives re-pushes of the step. |
 | `activity --run <dir> --message "..." [--level info\|ok\|warn] [--done]` | what Claude is doing now, between questions ("Capturing tally.app", "Drawing style frame 2 of 3"): a feed entry and the status line. `--done` records it without showing Claude as working. |
 | `log --run <dir> --message "..." [--level info\|ok\|warn\|error] [--stage <id> --stage-status working\|done\|failed]` | appends a build log line and sets a stage chip (stages: handoff, plan, design, build, verify, obey, render-gate). It moves the page to Build only while the current step is plan or build (never away from the render gate); `--stage render-gate --stage-status done` marks Build done. |
-| `wait --run <dir> [--step <id>] [--timeout <sec>]` | blocks until an unconsumed action arrives (for that step, or `*`), prints it, marks it consumed. Exit 2 on timeout; a stopped server is restarted on the same address; exit 3 (`console_down`) only if that fails. Run it in the background, one at a time. |
+| `wait --run <dir> [--step <id>] [--timeout <sec>]` | blocks until an unconsumed action arrives (for that step, or `*`), prints it, marks it consumed. Exit 2 on timeout; a stopped server is restarted on the same address; exit 3 (`console_down`) only if that fails. Run it in the background, one at a time. In both modes it validates every line and applies a line another app appended (the server's own POST lines carry `applied: true` and are applied once, on POST): see Headless mode, and `references/remote.md` |
 | `resolve --run <dir> --ids a,b [--note "..."] [--all]` | marks notes (`comment` actions) as handled after an Apply; `--note` says what changed (shown to the user); `--all` resolves every open note |
 | `record --run <dir> --step <id> --type <type> [--value '<json>'] [--note "..."]` | logs an answer the user gave in chat (already consumed) so the session history is complete. `--type comment` (`--note "<their words>"`, `--value '{"t":12.4,"scene":"s3","scope":"scene"}'`) and `--type apply` (`--value '{"ids":[...]}'`, else the step's open notes) also update `session.comments` / `session.applied` the way a click on the page does, so a note given in chat is resolved with `resolve --note` and covered by the revision refusal |
 | `state`, `url`, `stop` | print the session, reprint the URL (errors if the server is gone, or the run is headless), stop the server |
@@ -114,7 +115,7 @@ The five calls:
 | `films` (older single-step flow) | `films: [{id, angle: "Sure"\|"Bold"\|"Wild", title, logline, hook, why, preset (style id) or style (an inline recipe), music, frames?: [3 PNGs], beats?: [3 captions]}]`, `recommended`, `headline`/`sub` (fallback words), `brand` (optional) → three live films, energy knob (Calmer · As is · Punchier), More like these, Mix two, "Show in my brand" (no style browser) |
 | `animatic` | `scenes: [{id, title, line, visual, duration, thumb}]`, `music: {title, file, offset?, alternatives: [{id, title, mood, file}]}`, `voice: {name, alternatives: [{id, name}]}` (omit when silent), `audio` (optional, a mixed track instead of `music.file`), `angles: false` hides "Try another angle" → the player, chips (Music, Voice, Try another angle), notes, "Looks right, build it" / "Apply N notes" |
 | `build` | `scenes: [{id, title, duration, thumb, state: todo\|working\|done, frame}]`, `latest` (newest still) → the newest built still and the strip filling in; `log` also writes here (`log: [{t, level, msg}]`, `stages`) |
-| `render` / `final` | `video` (or `videos: [..]`, the newest last), `poster`, `scenes: [{id, title, start, thumb}]` (markers), `duration`, `version`, `versions: [{v, when}]`, `changes: [..]`, `studio` (preview URL), `images` (optional snapshots) → the player with markers, notes, versions; not done: "Render the final" / "Preview first"; done: "Download MP4" |
+| `render` / `final` | `video` (or `videos: [..]`, the newest last), `proxy` (added by `push`, never pushed: the phone copy of the newest video, `references/remote.md`), `poster`, `scenes: [{id, title, start, thumb}]` (markers), `duration`, `version`, `versions: [{v, when}]`, `changes: [..]`, `studio` (preview URL), `images` (optional snapshots) → the player with markers, notes, versions; not done: "Render the final" / "Preview first"; done: "Download MP4" |
 
 Other steps (Claude usually pushes these `--status done` with only a `decision`; their panels open when a step needs the user or they ask to see it):
 
@@ -144,7 +145,7 @@ After `apply`, edit, then `console.mjs resolve --run <run> --ids <ids> --note "<
 
 ## Actions (what `wait` returns)
 
-`{"id", "ts", "step", "type", "value", "note", "source": "console"|"chat"}`
+`{"id", "ts", "step", "type", "value", "note", "source"}`: `source` is `console` (the page, and anything unknown), `chat` (`record`), `studio`, `squeak` or `squeak-phone` (`references/remote.md`, Sources); it is kept on the step's `sent` (with `via`, the label the feed and the drawer show: "You (iPhone): …") and, once the step is closed, as `by_source` / `by_via`
 
 | type | step | value |
 |---|---|---|

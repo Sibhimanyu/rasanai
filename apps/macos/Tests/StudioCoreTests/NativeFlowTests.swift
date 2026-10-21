@@ -76,6 +76,12 @@ final class NativeFlowTests: XCTestCase {
         let film = try snap(#"{"steps":{"story":{"status":"done","decision":"Bold","sent":{"type":"choose"}},"music":{"status":"done","decision":"Piano","sent":{"type":"decide"}},"look":{"status":"done","decision":"Ledger","by":"user"},"voice":{"status":"awaiting","decision":"x"}}}"#)
         XCTAssertEqual(film.decisions.map(\.step), ["story", "look", "music"])
         XCTAssertEqual(film.decisions.map(\.byUser), [true, true, false])
+        XCTAssertEqual(film.decisions.map(\.via), [nil, nil, nil])
+    }
+    func testDecisionsSayWhereAnOutsideAppAnswered() throws {
+        let film = try snap(#"{"steps":{"story":{"status":"done","decision":"Bold","by":"user","by_source":"squeak-phone","by_via":"iPhone"},"look":{"status":"done","decision":"Ledger","sent":{"type":"choose","source":"squeak","via":"Squeak"}},"music":{"status":"done","decision":"Piano","by_via":"iPhone"}}}"#)
+        XCTAssertEqual(film.decisions.map(\.step), ["story", "look", "music"])
+        XCTAssertEqual(film.decisions.map(\.via), ["iPhone", "Squeak", nil])
     }
     func testThreadActivityAndNotes() throws {
         let film = try snap(#"{"steps":{"story":{"thread":[{"who":"you","text":"Slower","t":"2026-10-06T09:00:00.000Z"},{"who":"claude","text":"Done","t":"2026-10-06T09:01:00.000Z"}]}},"working":{"msg":"x"},"activity":[{"t":"2026-10-06T09:00:00.000Z","msg":"sys","level":"sys"},{"t":"2026-10-06T09:00:01.000Z","msg":"first"},{"t":"2026-10-06T09:00:02.500Z","msg":"second","level":"ok"}],"comments":[{"id":"n","step":"animatic","t":3,"x":0.5,"y":0.25,"quick":"Slower","text":"hold","state":"open"},{"id":"m","step":"animatic","state":"resolved"}]}"#)
