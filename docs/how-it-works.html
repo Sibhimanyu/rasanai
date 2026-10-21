@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>How RasanAI Studio works: the app, the crew and the stack</title>
+<meta name="description" content="Under the hood of RasanAI Studio: a native SwiftUI app that runs your own Claude Code or OpenAI Codex as a film director, a crew of agents, a Node engine, HyperFrames rendering, and every file it writes on your Mac." />
+<meta name="theme-color" content="#1B1F5E" />
+<meta name="author" content="Sibhimanyu" />
+<link rel="canonical" href="https://sibhimanyu.github.io/rasanai/how-it-works.html" />
+<meta property="og:title" content="How RasanAI Studio works" />
+<meta property="og:description" content="A native Mac app, your own Claude Code or Codex as the director, a crew of agents, and a render engine built on HyperFrames, GSAP, three.js and FFmpeg." />
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="RasanAI" />
+<meta property="og:url" content="https://sibhimanyu.github.io/rasanai/how-it-works.html" />
+<meta property="og:image" content="https://sibhimanyu.github.io/rasanai/img/social-card.jpg" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="https://sibhimanyu.github.io/rasanai/img/social-card.jpg" />
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="assets/logo/rasanai-mark-180.png" />
+<script>document.documentElement.classList.add("js")</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anek+Latin:wdth,wght@75..125,300..800&family=Anek+Tamil:wdth,wght@75..125,500..700&family=JetBrains+Mono:wght@400;500&family=Mukta:wght@400;500;600&display=swap" />
+<link rel="stylesheet" href="assets/site.css?v=3" />
+<link rel="stylesheet" href="assets/how.css?v=1" />
+</head>
+<body class="how">
+<a class="skip" href="#main">Skip to content</a>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-copy" viewBox="0 0 16 16"><rect x="5" y="5" width="9" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 16 16"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<header class="top">
+  <nav class="nav" aria-label="Primary">
+    <a class="brand" href="./"><img src="assets/logo/rasanai-lockup.svg" width="214" height="44" alt="RasanAI home" /></a>
+    <div class="nav-links" id="how-nav"><a href="#layers">The layers</a><a href="#life">A film's life</a><a href="#crew">The crew</a><a href="#render">Rendering</a><a href="#stack">The stack</a><a href="#install">Install</a></div>
+    <a class="nav-action" href="index.html#download">Download</a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="how-nav" hidden>Menu <span aria-hidden="true">+</span></button>
+  </nav>
+</header>
+
+<main id="main">
+
+<!-- HERO -->
+<section class="hw-hero" aria-labelledby="hero-title">
+  <div class="wrap">
+    <p class="eyebrow">Under the hood</p>
+    <h1 id="hero-title">How a sentence becomes a film.</h1>
+    <div class="hw-hero-grid">
+      <div>
+        <p class="lede">RasanAI Studio is a native Mac app. It doesn't make the film itself. It runs your own Claude Code or OpenAI Codex as the film's director, hands it a crew and an engine, and shows you the work at every step. This page follows one film through all of it, down to the files on your disk.</p>
+      </div>
+      <dl class="hw-facts" aria-label="At a glance">
+        <div><dt>App</dt><dd>Swift 6, SwiftUI</dd></div>
+        <div><dt>Director</dt><dd>Your Claude Code or Codex</dd></div>
+        <div><dt>Engine</dt><dd>Node 22, bundled</dd></div>
+        <div><dt>Renderer</dt><dd>HyperFrames, GSAP, three.js</dd></div>
+        <div><dt>Media</dt><dd>FFmpeg</dd></div>
+        <div><dt>Server</dt><dd>None. Files only.</dd></div>
+      </dl>
+    </div>
+    <figure class="hw-shot">
+      <div class="window"><img src="img/how/studio-home.jpg" width="1600" height="936" alt="RasanAI Studio's start screen in dark mode: a sidebar with Films, All films, Needs review, Brands, Series, Inspiration and Queue; the steps Describe, Setup, Brief, Story, Look, Preview and Final across the toolbar; the seven crew characters standing on a prompt box that reads Describe your video, or paste a link; and a status bar reading Ready for a film, Claude Code, Fast pace." fetchpriority="high" /></div>
+      <figcaption>Studio <span data-studio="version">0.19.2 beta 1</span>. Everything below happens behind this one prompt box.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- THE LAYERS -->
+<section class="section" id="layers" aria-labelledby="layers-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><p class="eyebrow">The big picture</p><h2 id="layers-title">Four layers, and files between them.</h2></div>
+      <p class="lede">Studio, the director and the engine never call each other over a network. Each one reads and writes files in your project folder. That is why you can quit the app mid-film, and why a phone pager like Squeak can answer a call the same way Studio does.</p>
+    </div>
+
+    <div class="layers">
+      <article class="layer layer-you">
+        <p class="layer-tag"><span>Layer 1</span><b>RasanAI Studio</b></p>
+        <p>The window you use. <b>Every stage is a native SwiftUI screen</b>: no web view, no embedded console. It keeps your film library, launches the director, shows what it is doing, and turns your clicks into answers.</p>
+        <ul class="hw-chips" aria-label="Built with"><li>Swift 6</li><li>SwiftUI</li><li>Sparkle 2.10</li><li>macOS 14+</li><li>Apple Silicon</li></ul>
+      </article>
+      <p class="wire" aria-hidden="true">launches, then watches <span>session.json</span> and appends to <span>actions.jsonl</span></p>
+      <article class="layer">
+        <p class="layer-tag"><span>Layer 2</span><b>The director</b></p>
+        <p>Your own <b>Claude Code</b> or <b>OpenAI Codex</b>, signed in to your own plan, started headless in the project folder. It reads RasanAI's <code>SKILL.md</code> and directs: it plans the film, briefs the crew, and stops at the calls that are yours.</p>
+        <ul class="hw-chips" aria-label="Runs on"><li>claude --print</li><li>codex exec</li><li>SKILL.md</li><li>35 role briefs</li></ul>
+      </article>
+      <p class="wire" aria-hidden="true">spawns crew agents, runs the engine's scripts, writes <span>compositions/</span></p>
+      <article class="layer">
+        <p class="layer-tag"><span>Layer 3</span><b>The engine</b></p>
+        <p>The RasanAI skill, copied inside the app with <b>its own Node</b>. Zero-dependency scripts that print JSON: research tools, the design desk's library, the music edit, the gates, the 3D runtime and the finish. <b>HyperFrames</b> renders the scenes; <b>FFmpeg</b> handles every sound and pixel after that.</p>
+        <ul class="hw-chips" aria-label="Built with"><li>Node 22</li><li>HyperFrames</li><li>GSAP 3.14</li><li>three.js r181</li><li>FFmpeg</li></ul>
+      </article>
+      <p class="wire" aria-hidden="true">everything lands in <span>~/Documents/RasanAI/&lt;film&gt;/</span></p>
+      <article class="layer layer-disk">
+        <p class="layer-tag"><span>Layer 4</span><b>Your disk</b></p>
+        <p>One plain folder per film. The brief, the research, the three scripts, the chosen design system, the score, the scenes as HTML, every render and every decision with its reason. <b>Nothing lives inside the app</b>, so updates never touch your films.</p>
+        <ul class="hw-chips" aria-label="Contains"><li>DESIGN.md</li><li>motion.md</li><li>decisions.json</li><li>exports/</li></ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- A FILM'S LIFE -->
+<section class="section night" id="life" aria-labelledby="life-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><p class="eyebrow">A film's life</p><h2 id="life-title">Seven steps. Here is what runs under each.</h2></div>
+      <p class="lede">These are the same seven dots you see across Studio's toolbar. Pick one to see what is on your screen, who on the crew is working, and what is written to disk.</p>
+    </div>
+
+    <ol class="stepper" role="tablist" aria-label="The seven steps of a film" data-stepper>
+      <li><button type="button" role="tab" id="t-describe" aria-controls="p-describe" aria-selected="true"><span class="dot"></span><span>Describe</span></button></li>
+      <li><button type="button" role="tab" id="t-setup" aria-controls="p-setup" aria-selected="false" tabindex="-1"><span class="dot"></span><span>Setup</span></button></li>
+      <li><button type="button" role="tab" id="t-brief" aria-controls="p-brief" aria-selected="false" tabindex="-1"><span class="dot"></span><span>Brief</span></button></li>
+      <li><button type="button" role="tab" id="t-story" aria-controls="p-story" aria-selected="false" tabindex="-1"><span class="dot"></span><span>Story</span></button></li>
+      <li><button type="button" role="tab" id="t-look" aria-controls="p-look" aria-selected="false" tabindex="-1"><span class="dot"></span><span>Look</span></button></li>
+      <li><button type="button" role="tab" id="t-preview" aria-controls="p-preview" aria-selected="false" tabindex="-1"><span class="dot"></span><span>Preview</span></button></li>
+      <li><button type="button" role="tab" id="t-final" aria-controls="p-final" aria-selected="false" tabindex="-1"><span class="dot"></span><span>Final</span></button></li>
+    </ol>
+
+    <div class="life-panels">
+      <article class="life on" role="tabpanel" id="p-describe" aria-labelledby="t-describe">
+        <div>
+          <div class="life-who"><img src="assets/crew/v2/pose-ra-wave.webp" width="814" height="900" alt="" loading="lazy" /><div><small>Rasan, director</small><b>Waiting for an idea</b></div></div>
+          <h3>A sentence, a link, or some footage.</h3>
+          <p>You type what you want, paste a product URL, or drop in clips, a logo or a track. Studio creates the film's folder straight away and saves it as a draft. No agent has started yet, so a draft costs nothing.</p>
+          <p class="you"><small>Your part</small>Say what the film is about. That is the only thing RasanAI ever requires.</p>
+        </div>
+        <div class="under">
+          <h4><span>Underneath</span><span>Studio only</span></h4>
+          <ol>
+            <li><span>Studio makes <b>~/Documents/RasanAI/&lt;film&gt;/</b> with <code>assets/</code>, <code>audio/</code>, <code>compositions/</code> and <code>exports/</code>.</span></li>
+            <li><span>Files you drop in are copied in as <b>managed copies</b>. Your originals are never moved or changed.</span></li>
+            <li><span>The film appears in the sidebar under Recent, with its status.</span></li>
+          </ol>
+          <div class="files"><span>rasanai-project.json</span><span>rasanai-brief.json</span><span>assets/</span></div>
+        </div>
+      </article>
+
+      <article class="life" role="tabpanel" id="p-setup" aria-labelledby="t-setup" hidden>
+        <div>
+          <div class="life-who"><img src="assets/crew/v2/pose-ra-clap.webp" width="814" height="900" alt="" loading="lazy" /><div><small>Rasan, director</small><b>Getting ready to roll</b></div></div>
+          <h3>The essentials, then the director starts.</h3>
+          <p>Studio suggests a film type, a length and a shape from your sentence. You can also answer a few taste questions, pick a brand, and set the pace: Fast, Standard or Thorough. Fast is the default: about two minutes of research, one agent per scene, and one review round.</p>
+          <p class="you"><small>Your part</small>Adjust anything, then press Start film.</p>
+        </div>
+        <div class="under">
+          <h4><span>Underneath</span><span>the director is launched</span></h4>
+          <ol>
+            <li><span>Studio starts your CLI headless in the film's folder: <code>claude --print --output-format stream-json</code>, or <code>codex exec --json</code> with a workspace-write sandbox.</span></li>
+            <li><span>A <b>scoped permission list</b> goes with it. The director may read the engine, write inside the project and run <code>node</code>, <code>npx hyperframes</code> and <code>ffmpeg</code>. It may not use <code>sudo</code>, delete recursively, run installers, or <code>git push</code>.</span></li>
+            <li><span><code>director-driver.mjs</code> supervises the process. Pause and Resume really stop and continue it, and it stops a director that repeats the same tool call five times in a row.</span></li>
+            <li><span>The director's first instruction: read <code>SKILL.md</code>. Never start a server.</span></li>
+          </ol>
+          <div class="files"><span>.rasanai/run-&lt;id&gt;/</span><span>director-job.json</span><span>director-events.jsonl</span><span>director.log</span></div>
+        </div>
+      </article>
+
+      <article class="life" role="tabpanel" id="p-brief" aria-labelledby="t-brief" hidden>
+        <div>
+          <div class="life-who"><img src="assets/crew/v2/pose-tara-look.webp" width="964" height="900" alt="" loading="lazy" /><div><small>Tara, scout</small><b>Researching the product</b></div></div>
+          <h3>Research first, then one sentence.</h3>
+          <p>Before a single word of script, a research crew reads the product's site, help center, changelog and brand pages and collects its real screens. With your permission it also reads the product's code on your Mac. Their notes merge into one truth sheet, and every fact on screen has to trace back to it.</p>
+          <p class="you"><small>Your call 1 of 5</small>Read the brief sentence and what the research found. Fix a word, or carry on.</p>
+        </div>
+        <div class="under">
+          <h4><span>Underneath</span><span>crew in parallel</span></h4>
+          <ol>
+            <li><span>The director plans the crew with <code>crew.mjs plan</code> and writes each member a brief adapted to the model that will run it.</span></li>
+            <li><span><b>Product, brand, screens and precedent researchers</b> run at once. A research lead merges them into the truth sheet.</span></li>
+            <li><span><code>console.mjs push</code> writes the Brief into <code>session.json</code>. Studio sees the file change and shows the call as a native screen.</span></li>
+            <li><span>Your answer becomes one line in <code>actions.jsonl</code>. <code>console.mjs wait</code> picks it up and marks it in <code>consumed.json</code>.</span></li>
+          </ol>
+          <div class="files"><span>research/</span><span>session.json</span><span>actions.jsonl</span><span>consumed.json</span></div>
+        </div>
+      </article>
+
+      <article class="life" role="tabpanel" id="p-story" aria-labelledby="t-story" hidden>
+        <div>
+          <div class="life-who"><img src="assets/crew/v2/pose-kavi-write.webp" width="493" height="900" alt="" loading="lazy" /><div><small>Kavi, writer</small><b>Writing three scripts</b></div></div>
+          <h3>Three scripts: Sure, Bold and Wild.</h3>
+          <p>Three writers each pitch one film from the truth sheet, picking from 70 narrative devices. A script editor reads them like a hostile client. Each script is a title, a logline and every timed beat: what is on screen, what is said and what we see. There is no look yet, so you judge the story as words and timing.</p>
+          <p class="you"><small>Your call 2 of 5</small>Pick one, ask for three more, or tell Claude what to change.</p>
+        </div>
+        <div class="under">
+          <h4><span>Underneath</span><span>writers' room</span></h4>
+          <ol>
+            <li><span>Three <b>script writers</b> run in parallel. A <b>concept critic</b> throws out any pitch that would work for any product.</span></li>
+            <li><span>A moves pass gives each script the one object that travels through the film, and bans the obvious ideas.</span></li>
+            <li><span><code>story.mjs check</code> scores each script against the story rubric before you see it.</span></li>
+          </ol>
+          <div class="files"><span>story/</span><span>crew/</span><span>decisions.json</span></div>
+        </div>
+      </article>
+
+      <article class="life" role="tabpanel" id="p-look" aria-labelledby="t-look" hidden>
+        <div>
+          <div class="life-who"><img src="assets/crew/v2/pose-chitra-show.webp" width="592" height="900" alt="" loading="lazy" /><div><small>Chitra, art director</small><b>Designing three looks</b></div></div>
+          <h3>Three design systems, made for this story.</h3>
+          <p>There is no style menu. A design researcher studies the story's subject, then three designers each blend two to four references from a library of 108 design systems and 64 motion styles into a new system. Each is a complete DESIGN.md, drawn on your film's own first line. If you picked a brand, the first look is your brand, extended for motion.</p>
+          <p class="you"><small>Your call 3 of 5</small>Pick a look, ask for new blends near one, or turn the energy up or down.</p>
+        </div>
+        <div class="under">
+          <h4><span>Underneath</span><span>the design desk</span></h4>
+          <ol>
+            <li><span><b>A design researcher</b>, then <b>three design-system designers</b> in parallel.</span></li>
+            <li><span>Each system's specimen is rendered and measured. A gate fails off-palette colour, poor contrast, fonts that don't exist, and generic defaults. It also fails any two systems that are too alike.</span></li>
+            <li><span>The chosen system becomes the film's <code>DESIGN.md</code>, and its motion language becomes <code>motion.md</code>, a contract of eases, durations and holds.</span></li>
+          </ol>
+          <div class="files"><span>design/</span><span>look/</span><span>DESIGN.md</span><span>motion.md</span></div>
+        </div>
+      </article>
+
+      <article class="life" role="tabpanel" id="p-preview" aria-labelledby="t-preview" hidden>
+        <div>
+          <div class="life-who"><img src="assets/crew/v2/pose-laya-dance.webp" width="631" height="900" alt="" loading="lazy" /><div><small>Laya, motion director</small><b>Scoring the motion</b></div></div>
+          <h3>The whole film, rough, at its real length.</h3>
+          <p>A motion director scores every shot in 2D or real 3D, and every cut with exact handoff numbers on both sides. The music is edited to picture on bar lines, so it ends when the film ends. The preview puts each scene's key frame at its real duration, with the music and the voice under it.</p>
+          <p class="you"><small>Your call 4 of 5</small>Play it, and click any moment to leave a note. Then the scenes are built.</p>
+        </div>
+        <div class="under">
+          <h4><span>Underneath</span><span>score, then build</span></h4>
+          <ol>
+            <li><span>The <b>motion director</b> writes the score. <code>music.mjs</code> finds beats, bars, sections and a real ending using Node and FFmpeg only.</span></li>
+            <li><span>Your notes come back as <code>comment</code> actions pinned to a scene, a time and a point on the frame.</span></li>
+            <li><span>A short film (45 seconds or less) gets <b>one film builder</b>. A longer one gets <b>one animator per scene, all at once</b>. Each writes HyperFrames HTML and checks its own motion frame by frame.</span></li>
+          </ol>
+          <div class="files"><span>motion/score.json</span><span>music/</span><span>animatic.json</span><span>compositions/</span></div>
+        </div>
+      </article>
+
+      <article class="life" role="tabpanel" id="p-final" aria-labelledby="t-final" hidden>
+        <div>
+          <div class="life-who"><img src="assets/crew/v2/pose-rasika-inspect.webp" width="1430" height="900" alt="" loading="lazy" /><div><small>Rasika, critic</small><b>Checking every frame</b></div></div>
+          <h3>Checked, finished, rendered.</h3>
+          <p>Before you see the film, it has to pass the gates, and critics who never saw it being made judge it fresh. Anything that fails goes back to the scene's animator, at most twice. Then the finish adds real motion blur and one grade across every scene, and the film is rendered.</p>
+          <p class="you"><small>Your call 5 of 5</small>Note a moment, apply the notes, then export.</p>
+        </div>
+        <div class="under">
+          <h4><span>Underneath</span><span>gates, finish, export</span></h4>
+          <ol>
+            <li><span>The ship gates run: <code>story.mjs</code>, <code>slop.mjs</code>, <code>obey.mjs</code>, <code>motion-gate.mjs</code>, <code>stage3d.mjs check</code> and <code>sound.mjs check</code>.</span></li>
+            <li><span><code>finish.mjs</code> renders sub-frames for motion blur (up to 32 samples), then adds grain, halation, a vignette and an optional LUT.</span></li>
+            <li><span>Export the original, an MP4 at up to 1080p or 720p, SRT or VTT captions, or captions burned in. Every version is kept, with what changed between them.</span></li>
+          </ol>
+          <div class="files"><span>render-final.json</span><span>renders/</span><span>exports/</span><span>poster.jpg</span></div>
+        </div>
+      </article>
+    </div>
+
+    <div class="life-nav" aria-hidden="false">
+      <button type="button" data-step="-1">&larr; Previous step</button>
+      <button type="button" data-step="1">Next step &rarr;</button>
+    </div>
+  </div>
+</section>
+
+<!-- THE HANDSHAKE -->
+<section class="section" id="files" aria-labelledby="files-title">
+  <div class="wrap two-col">
+    <div>
+      <p class="eyebrow">How the app and the director talk</p>
+      <h2 id="files-title">One file to read. One file to append to.</h2>
+      <p class="lede">The director's state lives in <code>session.json</code>. Only the engine writes it, atomically, by writing a temporary file and renaming it. Studio only reads it. Answers go the other way, as one JSON line appended to <code>actions.jsonl</code> under a lock file.</p>
+      <ul class="hw-ticks">
+        <li><b>Nothing is lost.</b> An answer that hasn't been picked up yet is pending, not missing. Studio shows it as sent and never writes it twice.</li>
+        <li><b>Bad input stops at the door.</b> A line with an unknown step, a bad id or over 1 MB is listed in <code>rejected.json</code> with the reason, and never reaches the director.</li>
+        <li><b>It is a published contract.</b> The protocol is versioned (<code>"schema": 1</code>), so other apps can answer too. That is how Squeak lets you make a call from your phone.</li>
+      </ul>
+    </div>
+    <div class="term">
+      <div class="term-top"><span>.rasanai/run-&lt;id&gt;/actions.jsonl</span><span class="tag">one line per answer</span></div>
+<pre><code><span class="c"># Studio takes actions.lock, appends, releases</span>
+{<span class="d">"id"</span>: <span class="k">"st-8f2c"</span>,
+ <span class="d">"ts"</span>: <span class="k">"2026-10-21T09:41:07Z"</span>,
+ <span class="d">"step"</span>: <span class="k">"story"</span>,
+ <span class="d">"type"</span>: <span class="k">"choose"</span>,
+ <span class="d">"value"</span>: <span class="k">"bold"</span>,
+ <span class="d">"note"</span>: <span class="k">""</span>,
+ <span class="d">"source"</span>: <span class="k">"studio"</span>}
+
+<span class="c"># the director, blocked on the call</span>
+$ node console.mjs wait
+<span class="ok">consumed</span> st-8f2c  story · choose · bold
+<span class="c"># → the Look desk starts</span></code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- THE CREW -->
+<section class="section" id="crew" aria-labelledby="crew-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><p class="eyebrow">The crew, for real</p><h2 id="crew-title">Each character is a group of agents.</h2></div>
+      <p class="lede">The faces in Studio stand for real jobs. Behind them are 35 role briefs. Each one is a separate agent with its own instructions, the files it must produce, and a check its work must pass before the director accepts it. The crew never talks to you directly.</p>
+    </div>
+    <div class="crew-grid">
+      <article class="crew-card lead"><img src="assets/crew/v2/pose-ra-wave.webp" width="814" height="900" alt="Rasan" loading="lazy" /><h3>Rasan <small>Director</small></h3><p>Your Claude Code or Codex session. Plans the crew, accepts or rejects their work, and keeps every decision with its reason.</p><p class="runs">SKILL.md · crew.mjs · console.mjs</p></article>
+      <article class="crew-card"><img src="assets/crew/v2/pose-tara-look.webp" width="964" height="900" alt="Tara" loading="lazy" /><h3>Tara <small>Scout</small></h3><p>Product, brand, screens and precedent researchers, a local code scout (with permission), and a research lead who merges their findings.</p><p class="runs">research/ · truth sheet</p></article>
+      <article class="crew-card"><img src="assets/crew/v2/pose-kavi-write.webp" width="493" height="900" alt="Kavi" loading="lazy" /><h3>Kavi <small>Writer</small></h3><p>Three script writers in parallel, a script editor, and a treatment writer for music videos.</p><p class="runs">story/ · story.mjs check</p></article>
+      <article class="crew-card"><img src="assets/crew/v2/pose-chitra-show.webp" width="592" height="900" alt="Chitra" loading="lazy" /><h3>Chitra <small>Art director</small></h3><p>A design researcher, three design-system designers, plus styleframe and frame designers for key frames.</p><p class="runs">design/ · DESIGN.md · design.mjs</p></article>
+      <article class="crew-card"><img src="assets/crew/v2/pose-laya-dance.webp" width="631" height="900" alt="Laya" loading="lazy" /><h3>Laya <small>Motion director</small></h3><p>Scores the whole film, then either one film builder or one animator per scene builds it, in 2D or real 3D.</p><p class="runs">motion/score.json · compositions/</p></article>
+      <article class="crew-card"><img src="assets/crew/v2/pose-rasika-inspect.webp" width="1430" height="900" alt="Rasika" loading="lazy" /><h3>Rasika <small>Critic</small></h3><p>A concept critic, a structure critic, a film critic, and frame, move and A/B jurors. "Competent but safe" counts as a fail.</p><p class="runs">the gates · critic reports</p></article>
+      <article class="crew-card"><img src="assets/crew/v2/pose-mala-spool.webp" width="839" height="900" alt="Mala" loading="lazy" /><h3>Mala <small>Editor</small></h3><p>For a folder of footage. Each clip is measured and transcribed, then cut on word boundaries, with cards between clips and captions on top.</p><p class="runs">footage/ · Footage and Cut panels</p></article>
+    </div>
+    <p class="note"><b>The same crew on either model.</b> <code>crew.mjs brief</code> rewrites each brief for the model that will run it. The role, the check and the bar stay the same. On Codex, where there is no sub-agent tool, the crew runs as parallel <code>codex exec</code> processes from the same prompt files, and the same checks accept their work.</p>
+  </div>
+</section>
+
+<!-- THE GATES -->
+<section class="section" id="gates" aria-labelledby="gates-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><p class="eyebrow">The checks</p><h2 id="gates-title">Nothing ships on a hope.</h2></div>
+      <p class="lede">Each gate is a script that reads the actual work, not the agent's description of it. A check that couldn't run is never reported as a pass.</p>
+    </div>
+    <div class="gates">
+      <article class="gate"><h3>Story</h3><p><code>story.mjs check</code> rejects the default arc, and any pitch that would work for any product.</p></article>
+      <article class="gate"><h3>Anti-slop</h3><p><code>slop.mjs</code> catches the tells in copy, look, motion, timing and sound, from "seamless" to glowing text to a whoosh on every cut.</p></article>
+      <article class="gate"><h3>Motion contract</h3><p><code>obey.mjs</code> opens every scene in headless Chrome and checks every GSAP tween against <code>motion.md</code>.</p></article>
+      <article class="gate"><h3>Fluency</h3><p><code>motion-gate.mjs</code> measures the draft frame by frame: motion in at least 75% of frames, no freeze over 0.8 s, and text that fits.</p></article>
+      <article class="gate"><h3>3D and sound</h3><p><code>stage3d.mjs check</code>: the same pixels at the same time, and never blank. <code>sound.mjs check</code>: −14 LUFS, no audible loop, no dead air.</p></article>
+    </div>
+    <div class="term">
+      <div class="term-top"><span>node obey.mjs --project videos/tally-launch</span><span class="tag">real checker output</span></div>
+<pre><code><span class="err">obey: violations</span> — 2 tweens (0 exempt) in 1 file(s); 2 error(s)
+  <span class="err">[ERROR]</span> ease-outside-set compositions/frames/01-shoebox.html
+      h1.headline "Tax season. Again." @0.20s 800ms ease=power4.out
+      ease power4.out is not one of motion.md's eases
+      <span class="c">fix: use ease: "expo.out"</span>
+  <span class="err">[ERROR]</span> banned:fade-up-slide compositions/frames/01-shoebox.html
+      h1.headline "Tax season. Again." @0.20s 800ms ease=power4.out
+      <span class="c">fix: replace with one of motion.md's entrances</span>
+
+<span class="c"># after the repair pass</span>
+<span class="ok">obey: clean</span> — 8 tweens (0 exempt) in 1 file(s); 0 error(s)</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- RENDERING -->
+<section class="section night" id="render" aria-labelledby="render-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><p class="eyebrow">Rendering</p><h2 id="render-title">Scenes are web pages. Frames are exact.</h2></div>
+      <p class="lede">Every scene is an HTML composition with one paused GSAP timeline. The renderer doesn't play the page; it seeks it to each frame's exact time and takes a picture. So the same time always gives the same pixels, on every render.</p>
+    </div>
+    <ol class="pipe">
+      <li><small>1 · Compose</small><b>HyperFrames HTML</b><span>One composition per scene, in the film's DESIGN.md, timed by <code>data-</code> attributes.</span></li>
+      <li><small>2 · Animate</small><b>GSAP, three.js</b><span>2D on GSAP 3.14. 3D on Rasan3D, a three.js r181 runtime clocked by the same timeline.</span></li>
+      <li><small>3 · Capture</small><b>Headless Chrome</b><span>Each frame is seeked and captured. The finish renders sub-frames and averages them for real motion blur.</span></li>
+      <li><small>4 · Grade</small><b>One look, every cut</b><span>Grain, halation, vignette and an optional LUT, the same on every scene, so cuts never change texture.</span></li>
+      <li><small>5 · Deliver</small><b>FFmpeg</b><span>Encodes the MP4 and mixes the edited music and effects to −14 LUFS, plus a poster and captions.</span></li>
+    </ol>
+    <div class="two-col">
+      <ul class="hw-ticks">
+        <li><b>Real 3D, not a demo.</b> Rasan3D averages several renders per frame for motion blur, depth of field and anti-aliasing. Simulations are a pure function of time, so a seek always lands on the same frame.</li>
+        <li><b>Every word on its note.</b> For lyric videos, <b>RasanMusic</b> lights each word on its sung start, read as a function of time.</li>
+      </ul>
+      <ul class="hw-ticks">
+        <li><b>The cost, stated.</b> Motion blur costs about 3× a normal render at 8 samples and 10 to 12× at 32. Drafts skip it. 3D frames with depth of field can take seconds each without a GPU.</li>
+        <li><b>Stepped looks stay sharp.</b> A scene animated on twos or threes can opt out of the blur, so its steps stay hard.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ON DISK -->
+<section class="section" id="disk" aria-labelledby="disk-title">
+  <div class="wrap two-col">
+    <div class="term tree">
+      <div class="term-top"><span>~/Documents/RasanAI/</span><span class="tag">a real film folder, trimmed</span></div>
+<pre><code><span class="k">Tally launch film/</span>
+├─ rasanai-project.json   <span class="c">type, length, shape, status</span>
+├─ rasanai-brief.json     <span class="c">your sentence, sources, taste</span>
+├─ DESIGN.md              <span class="c">the chosen look</span>
+├─ assets/  audio/        <span class="c">managed copies of your files</span>
+├─ compositions/          <span class="c">the scenes, as HTML</span>
+├─ exports/               <span class="c">what you exported</span>
+└─ <span class="d">.rasanai/</span>
+   ├─ current             <span class="c">→ the active run</span>
+   └─ <span class="d">run-&lt;id&gt;/</span>
+      ├─ session.json     <span class="c">the director's state</span>
+      ├─ actions.jsonl    <span class="c">your answers</span>
+      ├─ decisions.json   <span class="c">every call + reason</span>
+      ├─ research/  story/  design/  look/
+      ├─ motion/score.json  motion.md
+      ├─ music/  sound/  footage/
+      ├─ animatic.json  render-final.json
+      └─ director.log
+<span class="k">Brands/</span>&lt;name&gt;/DESIGN.md      <span class="c">reused across films</span></code></pre>
+    </div>
+    <div>
+      <p class="eyebrow">On your disk</p>
+      <h2 id="disk-title">A film is a folder you can open.</h2>
+      <p class="lede">Studio's library is <code>~/Documents/RasanAI</code>. Search, rename, archive and duplicate films in the app, or open the folder in Finder. Nothing is kept inside the app.</p>
+      <div class="disk-notes">
+        <div><h3>Every decision has a reason</h3><p><code>decisions.json</code> is what the Decisions drawer (<kbd>⌥⌘D</kbd>) shows: the story device, the look, the motion, the transitions and the music edit. Each one names the obvious option it passed over.</p></div>
+        <div><h3>The look travels</h3><p>The chosen system is a complete <code>DESIGN.md</code>: colours by role, real fonts, motion and camera. Any agent or design tool can build from it. Brands live in <code>Brands/</code> and are reused across films.</p></div>
+        <div><h3>Pick up where you left off</h3><p>The run folder holds the whole state. Quit mid-film and the director resumes from it; there is no session to lose.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- THE STACK -->
+<section class="section" id="stack" aria-labelledby="stack-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><p class="eyebrow">The stack</p><h2 id="stack-title">Everything it is built on.</h2></div>
+      <p class="lede">Open source under MIT, in one repository. The app, the engine, the site and the release tooling all live together, and each release goes out through one script.</p>
+    </div>
+    <div class="table-scroll">
+    <table class="stack-table">
+      <thead><tr><th scope="col">Part</th><th scope="col">Technology</th><th scope="col">What it does here</th></tr></thead>
+      <tbody>
+        <tr class="grp"><th colspan="3" scope="colgroup">The Mac app</th></tr>
+        <tr><th scope="row">Interface</th><td>Swift 6 · SwiftUI</td><td>A native screen for every step and panel, with no web view. The logic lives in <code>StudioCore</code>, separate from the app target.</td></tr>
+        <tr><th scope="row">Platform</th><td>macOS 14+ · Apple Silicon</td><td>Ad-hoc signed, not yet notarized by Apple, and not sandboxed, because it has to run your CLI tools.</td></tr>
+        <tr><th scope="row">Updates</th><td>Sparkle 2.10 · EdDSA</td><td>Checks a signed appcast every hour. An update is installed only if its signature verifies.</td></tr>
+        <tr><th scope="row">Feedback</th><td>Heresay</td><td>The in-app Report button for telling us what broke.</td></tr>
+        <tr class="grp"><th colspan="3" scope="colgroup">The director</th></tr>
+        <tr><th scope="row">Agent</th><td>Claude Code · OpenAI Codex</td><td>Your own install and your own plan. Studio checks it is signed in and never handles your login.</td></tr>
+        <tr><th scope="row">Supervisor</th><td>director-driver.mjs</td><td>Owns the process group: pause, resume, the loop guard, and the event log Studio reads.</td></tr>
+        <tr><th scope="row">Instructions</th><td>RasanAI skill</td><td><code>SKILL.md</code> plus 35 role briefs. The same skill runs in Claude Code on its own, with a browser console instead of Studio.</td></tr>
+        <tr class="grp"><th colspan="3" scope="colgroup">The engine</th></tr>
+        <tr><th scope="row">Runtime</th><td>Node 22 (bundled)</td><td>Zero-dependency scripts that print JSON. Shipped inside the app, so you don't need Node installed.</td></tr>
+        <tr><th scope="row">Composition</th><td>HyperFrames</td><td>Turns HTML scenes into video, frame by frame, in headless Chrome. Installed on first use.</td></tr>
+        <tr><th scope="row">2D motion</th><td>GSAP 3.14</td><td>Every tween has an explicit ease and is checked against the film's motion contract.</td></tr>
+        <tr><th scope="row">3D</th><td>three.js r181 · Rasan3D</td><td>A deterministic 3D runtime with a render graph, GLSL passes, DOM in 3D and keyable lens settings.</td></tr>
+        <tr><th scope="row">Sound and picture</th><td>FFmpeg · ffprobe</td><td>Music analysis and editing, footage measurement, the grade, loudness and the final encode. Installed on first use.</td></tr>
+        <tr><th scope="row">Type</th><td>Google Fonts · Fontshare</td><td>Real fonts for every design system, copied into the project.</td></tr>
+        <tr class="grp"><th colspan="3" scope="colgroup">The library (data, not code)</th></tr>
+        <tr><th scope="row">Design systems</th><td>108</td><td>Movements, studios, regional and period looks, and materials. The designers blend from these; you never pick from a list.</td></tr>
+        <tr><th scope="row">Motion</th><td>64 entries · 10 personalities</td><td>Motion and camera styles, each with eases, durations, holds and banned moves.</td></tr>
+        <tr><th scope="row">Story</th><td>70 devices</td><td>Narrative devices the writers pick from what is true about your product.</td></tr>
+        <tr><th scope="row">Sound</th><td>64 tracks · 190 effects</td><td>A catalogue for the music edit and a sound-effect index for things you can see happen.</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<!-- PRIVACY -->
+<section class="section night" id="privacy" aria-labelledby="privacy-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><p class="eyebrow">What leaves your Mac</p><h2 id="privacy-title">Local by design. Honest about the rest.</h2></div>
+      <p class="lede">Studio has no account, no server and no open port. But making a film uses outside services, so here is where your data goes.</p>
+    </div>
+    <div class="cards3">
+      <div class="card"><h3>Stays on your Mac</h3><p>Your film folders, your footage, the engine and its scripts, music analysis, every gate, and the render itself.</p></div>
+      <div class="card"><h3>Goes to your AI provider</h3><p>Your director sends prompts and project context to Anthropic or OpenAI, under your own account and their terms. Check your agent's permissions before sharing private material.</p></div>
+      <div class="card"><h3>May use the web</h3><p>Research reads public pages. Site capture, voice, music and fonts can use HyperFrames, Google Fonts or Fontshare. Updates are fetched from GitHub.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- STATUS -->
+<section class="section" id="presenter" aria-labelledby="status-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><p class="eyebrow">Where it stands</p><h2 id="status-title">A community beta, and what that means.</h2></div>
+      <p class="lede">We would rather tell you what hasn't been proven yet than let you find out halfway through a film.</p>
+    </div>
+    <div class="cards3">
+      <div class="card"><span class="tag tag-ok">Tested</span><h3>The app itself</h3><p>Updates, storage, the questions, playback and export have been tested locally on real Macs.</p></div>
+      <div class="card"><span class="tag tag-wip">Being validated</span><h3>Real-agent films</h3><p>Generating a whole film through Studio with a real agent is still being validated across every film type and revision. Expect rough edges, and <a href="https://github.com/Sibhimanyu/rasanai/issues">tell us what breaks</a>.</p></div>
+      <div class="card"><span class="tag tag-new">Experimental</span><h3>Presenter films</h3><p>You on a green screen, keyed into worlds made for each beat. These have only been checked on synthetic footage, with no full run on a real shoot yet. The clip plays whole: it isn't trimmed.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section class="section" id="mac" aria-labelledby="mac-title">
+  <div class="wrap two-col">
+    <div>
+      <p class="eyebrow">Installing the app</p>
+      <h2 id="mac-title">First launch, step by step.</h2>
+      <p class="lede">The beta is ad-hoc signed but not yet notarized by Apple, so macOS asks you to confirm the first time. Managed Macs may not allow it.</p>
+      <p><a class="btn btn-primary" data-studio="dmg" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.2-beta.1/RasanAI-Studio-0.19.2.dmg">Download for Mac <svg aria-hidden="true"><use href="#i-down"/></svg></a></p>
+      <p class="note"><a data-studio="notes" href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.19.2-beta.1">Release notes</a> · <a data-studio="sha256" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.2-beta.1/RasanAI-Studio-0.19.2.dmg.sha256">SHA-256 checksum</a> · <a href="studio/appcast.xml">Update feed</a> · <a href="https://github.com/Sibhimanyu/rasanai/tree/master/apps/macos">Source and build instructions</a></p>
+    </div>
+    <ol class="steps-mac">
+      <li><span><b>Drag RasanAI Studio into Applications</b> before you open it, so updates can replace it.</span></li>
+      <li><span><b>Right-click the app and choose Open</b>, or use <b>Open Anyway</b> in System Settings → Privacy &amp; Security.</span></li>
+      <li><span><b>Install and sign in to Claude Code or Codex</b> if you haven't already. Studio finds it and shows its sign-in status in Settings (<kbd>⌘,</kbd>).</span></li>
+      <li><span><b>Choose Help → Prepare Rendering Tools.</b> It installs FFmpeg and HyperFrames into <code>~/Library/Application Support/RasanAI/Tools</code>. Node is already inside the app.</span></li>
+      <li><span><b>Describe your first film.</b> After that, signed updates arrive on their own.</span></li>
+    </ol>
+  </div>
+</section>
+
+<section class="section night" id="install" aria-labelledby="install-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><p class="eyebrow">Prefer the terminal?</p><h2 id="install-title">The same engine, as a skill.</h2></div>
+      <p class="lede">The engine inside Studio is the RasanAI skill for Claude Code. Install it on its own and type <code>/rasanai</code>. Your calls then open in a Director's Console in your browser, on <code>127.0.0.1</code> with a per-session token. It needs Node 20 or newer (it fetches a private copy if you have none), the HyperFrames skills, and FFmpeg.</p>
+    </div>
+    <div class="cmd-rows">
+      <div class="card"><h3>Claude Code plugin</h3><p>From inside Claude Code.</p>
+        <div class="cmd"><code><span class="p">&gt; </span>/plugin marketplace add Sibhimanyu/rasanai</code><button class="copy" type="button" data-copy="/plugin marketplace add Sibhimanyu/rasanai" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+        <div class="cmd"><code><span class="p">&gt; </span>/plugin install rasanai@rasanai</code><button class="copy" type="button" data-copy="/plugin install rasanai@rasanai" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div></div>
+      <div class="card"><h3>skills CLI</h3><p>From your terminal.</p>
+        <div class="cmd"><code><span class="p">$ </span>npx skills add Sibhimanyu/rasanai --skill rasanai</code><button class="copy" type="button" data-copy="npx skills add Sibhimanyu/rasanai --skill rasanai" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div></div>
+      <div class="card"><h3>One-line installer</h3><p>Clones and links the skill.</p>
+        <div class="cmd"><code><span class="p">$ </span>curl -fsSL https://raw.githubusercontent.com/Sibhimanyu/rasanai/master/install.sh | bash</code><button class="copy" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/Sibhimanyu/rasanai/master/install.sh | bash" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div></div>
+    </div>
+    <div class="cmd" style="margin-top:22px"><code><span class="p">&gt; </span>/rasanai make a 45s launch film for https://tally.app</code><button class="copy" type="button" data-copy="/rasanai make a 45s launch film for https://tally.app" aria-label="Copy command"><svg aria-hidden="true"><use href="#i-copy"/></svg></button></div>
+    <p class="note">The skill updates itself when it loads. MIT licensed; the bundled GSAP stays under its own Standard License.</p>
+    <p class="sr-status" role="status" id="copy-status"></p>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot"><div class="wrap">
+  <div class="foot-top">
+    <p class="foot-sign"><span lang="ta">ரசனை</span> means taste. The eye, and ear, for what feels right.</p>
+    <nav class="foot-links" aria-label="Footer"><a href="./">Home</a><a href="brand/RasanAI-Brand-Guidelines.pdf">Brand guidelines (PDF)</a><a data-studio="notes" href="https://github.com/Sibhimanyu/rasanai/releases/tag/studio-v0.19.2-beta.1">Release notes</a><a href="https://github.com/Sibhimanyu/rasanai">GitHub &rarr;</a></nav>
+  </div>
+  <img class="foot-mark" src="assets/logo/rasanai-lockup-reverse.svg" width="487" height="100" alt="RasanAI" loading="lazy" />
+  <p class="foot-by">By <a href="https://github.com/Sibhimanyu">Sibhimanyu</a> &middot; Open source / MIT</p>
+</div></footer>
+<script src="assets/how.js?v=1"></script>
+</body>
+</html>

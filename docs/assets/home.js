@@ -36,12 +36,12 @@
     document.addEventListener("click", function (e) { if (!nav.contains(e.target)) closeMenu(); });
     wideQ.addEventListener("change", closeMenu);
   }
-  // old anchors: technical sections moved to the field guide; homepage sections removed in the redesign point to their new home
+  // old anchors: technical sections moved to How it works; homepage sections removed in the redesign point to their new home
   // only these names are routed. Current anchors (#flow, #projects, #questions, #download) are never listed, so they are never redirected
   var aliases = {
-    different: "guide.html#different", desk: "guide.html#desk", stack: "guide.html#stack", crew: "guide.html#crew",
-    depth: "guide.html#depth", engine: "guide.html#engine", models: "guide.html#models", songs: "guide.html#songs", library: "guide.html#library",
-    reels: "guide.html#reels", presenter: "guide.html#presenter", install: "guide.html#install",
+    different: "how-it-works.html", desk: "how-it-works.html#life", stack: "how-it-works.html#stack", crew: "how-it-works.html#crew",
+    depth: "how-it-works.html#render", engine: "how-it-works.html#render", models: "how-it-works.html#crew", songs: "how-it-works.html#render", library: "how-it-works.html#stack",
+    reels: "how-it-works.html#crew", presenter: "how-it-works.html#presenter", install: "how-it-works.html#install",
     "meet-crew": "#flow", start: "#flow", "flow-head": "#flow",
     examples: "#projects", gallery: "#projects", yours: "#projects", away: "#projects", features: "#projects", brand: "#projects", finished: "#projects"
   };
@@ -127,7 +127,15 @@
     var blast = chars.map(function (ch, k) {
       var r = ch.getBoundingClientRect(), dx = (r.left + r.width / 2) - (lineBox.left + half), dy = (r.top + r.height / 2) - (lineBox.top + lineBox.height / 2);
       var nx = clamp(Math.abs(dx) / half, 0, 1), sx = dx < 0 ? -1 : 1, near = 1 - nx * .55;
-      return { vx: sx * (380 + 720 * near + hash(k) * 320), vy: -(260 + 620 * near + hash(k + 3) * 260) + dy * 2, spin: sx * (120 + hash(k + 5) * 420), at: nx * .14 + hash(k + 7) * .05 };
+      // the shockwave leaves from the impact at once (at: nearest letters first, all within a few frames);
+      // every letter its own throw: speed, lift and spin vary a lot, a few go the "wrong" way, and each has a depth: some fly at
+      // the reader and grow, some fall back and shrink, so the burst has front and back instead of travelling in clumps
+      var wild = hash(k + 13) < .18 ? -1 : 1, depth = hash(k + 17);
+      return {
+        vx: sx * wild * (260 + 900 * near * hash(k + 19) + hash(k) * 520), vy: -(140 + 900 * hash(k + 3) * (.4 + near)) + dy * 2.5,
+        spin: (hash(k + 5) - .5) * 900, at: nx * .05 + hash(k + 7) * .04, grow: depth < .35 ? .35 + depth : 1 + (depth - .35) * 2.6,
+        g: 1100 + hash(k + 23) * 1000
+      };
     });
     // playhead: where each letter sits across the screen
     var cx = chars.map(function (ch) { var r = ch.getBoundingClientRect(); return r.left + r.width / 2; });
@@ -140,9 +148,10 @@
       if (fx === "slam") {
         // the shockwave reaches the letters nearest the impact first; each is thrown outward and up, then falls, spinning
         chars.forEach(function (ch, k) {
-          var f = blast[k], t = seg(r, f.at, f.at + .6);
-          ch.style.transform = t ? "translate3d(" + (f.vx * t).toFixed(1) + "px," + (f.vy * t + 1500 * t * t).toFixed(1) + "px,0) rotate(" + (f.spin * t).toFixed(1) + "deg)" : "";
-          ch.style.opacity = (1 - seg(t, .55, 1)).toFixed(3);
+          var f = blast[k], t = seg(r, f.at, f.at + .5 + hash(k + 29) * .25);
+          ch.style.transform = t ? "translate3d(" + (f.vx * t).toFixed(1) + "px," + (f.vy * t + f.g * t * t).toFixed(1) + "px,0) rotate(" + (f.spin * t).toFixed(1) + "deg) scale(" + (1 + (f.grow - 1) * t).toFixed(3) + ")" : "";
+          ch.style.opacity = (1 - seg(t, f.grow < 1 ? .35 : .55, 1)).toFixed(3);
+          ch.style.zIndex = f.grow > 1 ? "2" : "";
         });
         layer.style.opacity = (1 - seg(r, .05, .45)).toFixed(3);
       } else if (fx === "scatter") {
@@ -199,7 +208,7 @@
       host.classList.remove("host-ready");
     };
     h.scene = addScene({
-      el: host, pin: true, glide: 120,
+      el: host, pin: true, glide: host.classList.contains("squeak-scene") ? 170 : 120,   // the device scene glides a touch softer
       progress: function (r, view) { return clamp(-r.top / Math.max(1, r.height - view), 0, 1); },
       render: function (p) {
         if (!h.beat) return;
@@ -223,8 +232,8 @@
     if (!dev || !screen || !mac || !phone) return;
     var steps = $$(".sq-step", root), STEP = [[0, .2], [.2, .38], [.38, .52], [.52, .8], [.8, 1.1]];
     var parts = {
-      badges: $$(".sq-badge", root), panel: q(".sq-panel"), working: q(".mood-working"), needs: q(".mood-needs"), done: q(".mood-done"),
-      next: q(".sq-shot-next"), decision: q(".sq-decision"), ledger: q(".l-ledger"), cta: q(".sq-cta"), use: q(".sq-use"), sent: q(".sq-sent")
+      badges: $$(".sq-badge", root),
+      next: q(".sq-shot-next"), note: q(".sq-note"), base: q(".sq-base"), ledger: q(".l-ledger"), cta: q(".sq-cta"), use: q(".sq-use"), sent: q(".sq-sent")
     };
     // the partnership: the two marks, the x, the impact (glow, rings, sparks), the line, and the small lockup it lands in
     var G = {
@@ -299,45 +308,162 @@
       if (G.small) G.small.style.opacity = seg(gp, .92, .97).toFixed(3);
       return ease(seg(gp, .9, 1));   // how far the chapter has come in
     }
-    var lead0 = steps[0] ? $$(":scope > :not(.sq-partners)", steps[0]) : [];
-    var touched = lead0.concat([dev, screen, mac, phone]).concat(steps, parts.badges, [parts.panel, parts.working, parts.needs, parts.done, parts.next, parts.decision, parts.ledger, parts.cta, parts.use, parts.sent]).concat(G.root ? [G.root, G.row, G.r, G.s, G.rm, G.sm, G.rw, G.sw, G.x, G.glow, G.small].concat(G.rings, G.sparks, G.words) : []).filter(Boolean);
+    // the line on the left: each heading is split into words that rise out of a mask; the rest of the line fades and sharpens
+    var heads = steps.map(function (el) { return $("h2, h3", el); });
+    var stepWords = heads.map(function (h) {
+      if (!h) return [];
+      h.innerHTML = h.textContent.trim().split(/\s+/).map(function (w) { return '<span class="w"><span>' + w + "</span></span>"; }).join(" ");
+      return $$(".w > span", h);
+    });
+    var stepRest = steps.map(function (el) { return $$(":scope > :not(h2):not(h3):not(.sq-partners)", el); });
+    // the word spans stay in the stacked page too (they read as plain text); only their inline styles are cleared
+    var trailSvg = q(".sq-trail"), planeEl = q(".f-plane"), trailSegs = [];
+    if (trailSvg) { trailSvg.innerHTML = ""; for (var ti = 0; ti < 12; ti++) trailSegs.push(trailSvg.appendChild(document.createElementNS("http://www.w3.org/2000/svg", "path"))); }
+    var darkEl = q(".sq-dark"), fly = q(".sq-fly"), callRow = q(".sq-note"), macFoot = q(".sq-land"), cta = q(".sq-cta");
+    // where the flight starts and lands, as fractions of the device box, measured while each screen is at rest
+    var spots = { row: null, foot: null, cta: null };
+    var layoutSpot = function (el) {
+      var x = 0, y = 0, n = el;
+      while (n && n !== dev) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
+      return { x: (x + el.offsetWidth / 2) / dev.offsetWidth, y: (y + el.offsetHeight / 2) / dev.offsetHeight, w: el.offsetWidth / dev.offsetWidth };
+    };
+    var spot = function (el) {
+      var d = dev.getBoundingClientRect(), b = el.getBoundingClientRect();
+      return { x: (b.left + b.width / 2 - d.left) / d.width, y: (b.top + b.height / 2 - d.top) / d.height, w: b.width / d.width };
+    };
+    var backOut2 = function (t) { var c1 = 1.7, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+    var TRAIL = 12, stageBox = null;
+    // the plane is the message: it launches straight out of where the call is (Squeak's notification on the Mac, the Approve
+    // button on the phone), flies a loop-the-loop, and dives into the other screen, which lights up in a circle spreading
+    // from the point it went in. Returns where the reveal is, for the dark glass to open around.
+    function renderFly(s, g) {
+      if (!fly) return null;
+      var vw = window.innerWidth, vh = window.innerHeight;
+      // the stage box is read once at the top of the frame, before anything is written (see host.extra); the landing spots
+      // are measured once each, since layout reads after writes every frame are what make a fast scroll stutter
+      var stage = stageBox;
+      // the Mac's spots come from layout boxes (offsets), which no transform can skew: the notification slides with one,
+      // and the whole device is scaled while the chapter comes in. Measured while the device is the Mac.
+      if (s < .42 && dev.offsetWidth > dev.offsetHeight) {
+        if (!spots.row && callRow) spots.row = layoutSpot(callRow);
+        if (!spots.foot && macFoot) spots.foot = layoutSpot(macFoot);
+      }
+      if (!spots.cta && s > .6 && s < .78 && cta) spots.cta = spot(cta);
+      var at = function (sp, W, H) { return { x: g.cx - W / 2 + sp.x * W - stage.left, y: g.cy - H / 2 + sp.y * H - stage.top, w: sp.w * W }; };
+      var go = seg(s, .38, .565), back = seg(s, .78, .905), dir = go > 0 && go < 1 ? "go" : back > 0 && back < 1 ? "back" : "";
+      var clearTrail = function () { for (var k = 0; k < TRAIL; k++) trailSegs[k].setAttribute("d", ""); };
+      if (!dir || !spots.row || !spots.foot) { fly.style.opacity = "0"; clearTrail(); return null; }
+      fly.setAttribute("data-dir", dir);
+      var a, z, T, scr;
+      if (dir === "go") {
+        a = at(spots.row, g.macW, g.macH); z = { x: g.cx - stage.left, y: g.cy - g.phH / 2 + g.phH * .3 - stage.top };
+        T = [.38, .4, .5, .52, .565]; scr = { W: g.phW, H: g.phH };
+      } else {
+        a = at(spots.cta || { x: .5, y: .8, w: .8 }, g.phW, g.phH); z = at(spots.foot, g.macW, g.macH);
+        T = [.78, .795, .865, .88, .905]; scr = { W: g.macW, H: g.macH };
+      }
+      var lt = seg(s, T[0], T[1]), ft = inOutC(seg(s, T[1], T[2])), dv = seg(s, T[2], T[3]), rv = seg(s, T[3], T[4]);
+      var low = function (y) { return Math.max(130 - stage.top, y); };
+      var P0 = { x: a.x, y: a.y - 40 }, P1 = z, r = Math.min(vh * .12, 110);
+      var H = { x: Math.max(r + 40, g.cx - g.macW / 2 - vw * .08) - stage.left, y: low(vh * .7 - stage.top) };
+      var E = { x: H.x, y: H.y + r };
+      var A = [P0, { x: P0.x - vw * .22, y: low(P0.y - vh * .04) }, { x: E.x - vw * .24, y: E.y + vh * .06 }, E];
+      var B = [E, { x: E.x + vw * .14, y: E.y }, { x: P1.x - vw * .12, y: P1.y + vh * .1 }, P1];
+      var bez = function (C, u) { var v = 1 - u; return { x: v * v * v * C[0].x + 3 * v * v * u * C[1].x + 3 * v * u * u * C[2].x + u * u * u * C[3].x, y: v * v * v * C[0].y + 3 * v * v * u * C[1].y + 3 * v * u * u * C[2].y + u * u * u * C[3].y }; };
+      var hoop = function (u) { var th = Math.PI / 2 - u * Math.PI * 2; return { x: H.x + r * Math.cos(th), y: H.y + r * Math.sin(th) }; };
+      var raw = function (t) { return t < .38 ? bez(A, t / .38) : t < .7 ? hoop((t - .38) / .32) : bez(B, (t - .7) / .3); };
+      // even speed along the whole route: the three pieces differ in length, so progress is mapped by distance travelled
+      var N = 120, cum = [0], prev = raw(0);
+      for (var q = 1; q <= N; q++) { var pt = raw(q / N); cum.push(cum[q - 1] + Math.hypot(pt.x - prev.x, pt.y - prev.y)); prev = pt; }
+      var total = cum[N] || 1;
+      var path = function (u) {
+        var want = Math.max(0, Math.min(1, u)) * total, lo = 0, hi = N;
+        while (hi - lo > 1) { var mid = (lo + hi) >> 1; if (cum[mid] < want) lo = mid; else hi = mid; }
+        var f = (want - cum[lo]) / Math.max(1e-6, cum[hi] - cum[lo]);
+        return raw((lo + f) / N);
+      };
+      // launch: the plane springs up out of the call itself, already pointing the way it will go
+      var pos = ft > 0 ? path(ft) : { x: mix(a.x, P0.x, ease(lt)), y: mix(a.y, P0.y, ease(lt)) };
+      var ahead = path(Math.min(1, ft + .01)), behind = path(Math.max(0, ft - .01));
+      var heading = Math.atan2(ahead.y - behind.y, ahead.x - behind.x) * 180 / Math.PI;
+      fly.style.opacity = "1";
+      fly.style.transform = "translate3d(" + pos.x.toFixed(1) + "px," + pos.y.toFixed(1) + "px,0)";
+      var grow = ft > 0 ? 1 : Math.max(0, backOut2(lt));
+      planeEl.style.opacity = (Math.min(1, lt * 4) * (1 - dv)).toFixed(3);
+      planeEl.style.transform = "rotate(" + (heading + 40).toFixed(1) + "deg) scale(" + (grow * (1 - .7 * dv)).toFixed(3) + ")";
+      // the trail: only the last stretch behind the plane, fading to nothing at its tail
+      var span = .2;
+      for (var k = 0; k < TRAIL; k++) {
+        var t0 = ft - span * (k + 1) / TRAIL, t1 = ft - span * k / TRAIL;
+        if (ft <= 0 || t1 <= 0 || dv >= 1) { trailSegs[k].setAttribute("d", ""); continue; }
+        var p0 = path(Math.max(0, t0)), pm = path(Math.max(0, (t0 + t1) / 2)), p1 = path(t1);
+        trailSegs[k].setAttribute("d", "M" + p0.x.toFixed(1) + " " + p0.y.toFixed(1) + "Q" + pm.x.toFixed(1) + " " + pm.y.toFixed(1) + " " + p1.x.toFixed(1) + " " + p1.y.toFixed(1));
+        trailSegs[k].style.opacity = ((1 - k / TRAIL) * .6 * (1 - dv)).toFixed(3);
+      }
+      // where it went in, relative to the screen, and how far the screen has lit up from there
+      var sx = (P1.x + stage.left) - (g.cx - scr.W / 2), sy = (P1.y + stage.top) - (g.cy - scr.H / 2);
+      return { x: sx, y: sy, r: ease(rv) * Math.hypot(scr.W, scr.H), dir: dir, rv: rv };
+    }
+    var touched = [].concat.apply([], stepRest).concat([].concat.apply([], stepWords)).concat([dev, screen, mac, phone]).concat(steps, parts.badges, [darkEl, fly, planeEl, parts.next, parts.note, parts.base, parts.ledger, parts.cta, parts.use, parts.sent]).concat(G.root ? [G.root, G.row, G.r, G.s, G.rm, G.sm, G.rw, G.sw, G.x, G.glow, G.small].concat(G.rings, G.sparks, G.words) : []).filter(Boolean);
     var op = function (el, v) { if (el) el.style.opacity = (+v).toFixed(3); };
-    host.clear = function () { touched.forEach(function (el) { el.removeAttribute("style"); }); };
+    window.addEventListener("resize", function () { spots = { row: null, foot: null, cta: null }; stageBox = null; gGeo = null; }, { passive: true });
+    host.clear = function () {
+      spots = { row: null, foot: null, cta: null }; stageBox = null;
+      touched.forEach(function (el) { el.removeAttribute("style"); });
+    };
     host.extra = function (p) {
+      if (fly) stageBox = fly.parentElement.getBoundingClientRect();   // read before any write this frame
       var s0 = seg(p, host.span, 1), vw = window.innerWidth, vh = window.innerHeight;
       // the first part of the chapter is the partnership; the five beats share the rest
       var come = renderGrand(seg(s0, 0, .22)), s = seg(s0, .22, 1);
       // the line: each beat's line rises in and the last one rises out
       steps.forEach(function (el, i) {
-        var a = STEP[i][0], b = STEP[i][1], tin = i ? seg(s, a - .015, a + .035) : 1, tout = seg(s, b - .035, b + .015);
-        el.style.opacity = (tin * (1 - tout)).toFixed(3);
-        el.style.transform = "translate3d(0," + ((1 - ease(tin)) * 28 - ease(tout) * 28).toFixed(1) + "px,0)";
-        el.style.visibility = tin * (1 - tout) > .01 ? "" : "hidden";
+        var a = STEP[i][0], b = STEP[i][1], tin = i ? seg(s, a - .015, a + .04) : come, tout = seg(s, b - .045, b + .005);
+        el.style.visibility = tin > 0 && tout < 1 ? "" : "hidden";
+        el.style.opacity = tin > 0 && tout < 1 ? "1" : "0";
+        // the heading: word by word up out of the mask, and word by word up and away when the next line comes
+        stepWords[i].forEach(function (w, k) {
+          var ti = i ? seg(s, a - .02 + k * .008, a + .025 + k * .008) : seg(come, k * .07, .55 + k * .07);
+          var to = seg(s, b - .045 + k * .006, b - .012 + k * .006);
+          w.style.transform = "translate3d(0," + ((1 - inOutC(ti)) * 108 - inOutC(to) * 108).toFixed(1) + "%,0)";
+        });
+        // the eyebrow and the text: in from a soft blur, out to one
+        stepRest[i].forEach(function (r) {
+          var v = tin * (1 - tout);
+          r.style.opacity = v.toFixed(3);
+          r.style.filter = v < .999 ? "blur(" + ((1 - v) * 8).toFixed(1) + "px)" : "";
+          r.style.transform = "translate3d(0," + ((1 - ease(tin)) * 16 - ease(tout) * 10).toFixed(1) + "px,0)";
+        });
       });
-      lead0.forEach(function (el) { el.style.opacity = come.toFixed(3); el.style.transform = "translate3d(0," + ((1 - come) * 20).toFixed(1) + "px,0)"; });
       // the device: Mac -> iPhone over beat 2, and back as beat 4 begins
-      var m = inOutC(seg(s, .4, .52)) - inOutC(seg(s, .78, .86));
+      // the device changes shape while its screen is dark glass: Mac -> iPhone (.42-.5) and back (.8-.86)
+      var m = inOutC(seg(s, .42, .5)) - inOutC(seg(s, .8, .86));
+      var dark = (s < .565 ? seg(s, .39, .42) : 0) + (s > .78 && s < .905 ? seg(s, .785, .8) : 0);
       var right = vw - Math.max(24, (vw - 1220) / 2), left = vw * .42, cx = (left + right) / 2, cy = vh / 2 + 16;
       var macW = Math.min(right - left, (vh * .78) * 1.6, 1100), macH = macW / 1.6;
       var phH = Math.min(vh * .84, 780), phW = phH * 390 / 844;
-      var W = mix(macW, phW, m), H = mix(macH, phH, m), pad = mix(10, 11, m), rad = mix(16, phW * .16, m);
+      var W = mix(macW, phW, m), H = mix(macH, phH, m), pad = mix(8, 11, m), rad = mix(14, phW * .16, m);
+      op(parts.base, 1 - seg(m, 0, .3));
+      var rev = renderFly(s, { cx: cx, cy: cy, macW: macW, macH: macH, phW: phW, phH: phH });
+      if (darkEl) {
+        var m2 = rev && rev.rv > 0 ? "radial-gradient(circle at " + (rev.x - pad).toFixed(1) + "px " + (rev.y - pad).toFixed(1) + "px, transparent " + rev.r.toFixed(1) + "px, #000 " + (rev.r + 60).toFixed(1) + "px)" : "none";
+        darkEl.style.webkitMaskImage = m2; darkEl.style.maskImage = m2;
+      }
       dev.style.width = W.toFixed(1) + "px"; dev.style.height = H.toFixed(1) + "px";
       dev.style.padding = pad.toFixed(1) + "px"; dev.style.borderRadius = rad.toFixed(1) + "px";
       dev.style.transform = "translate3d(" + (cx - W / 2).toFixed(1) + "px," + (cy - H / 2 + (1 - come) * 40).toFixed(1) + "px,0) scale(" + (.9 + .1 * come).toFixed(4) + ")";
       dev.style.opacity = come.toFixed(3);
       screen.style.borderRadius = Math.max(4, rad - pad).toFixed(1) + "px";
-      // a clean hand-over: the desktop is gone before the phone screen comes up
-      op(mac, 1 - seg(m, .08, .42)); op(phone, seg(m, .5, .88));
-      // beat 1: the duck needs you, the badge pops, Squeak's panel opens from the duck; beat 4: done, the duck celebrates
-      var need = seg(s, .2, .24), done = seg(s, .84, .9), pop = seg(s, .21, .26);
+      op(mac, m < .5 ? 1 : 0); op(phone, m < .5 ? 0 : 1); op(darkEl, dark);
+      // beat 1: the call arrives, the badge on Squeak's menu-bar duck pops; beat 4: answered, the badge clears
+      var done = seg(s, .88, .905), pop = seg(s, .21, .26);
       var popS = pop < 1 ? Math.sin(pop * Math.PI * .5) * (1 + .35 * Math.sin(pop * Math.PI)) : 1;
       parts.badges.forEach(function (bd) { bd.style.transform = "scale(" + (popS * (1 - done)).toFixed(3) + ")"; });
-      op(parts.working, 1 - need); op(parts.needs, need * (1 - done)); op(parts.done, done);
-      var pan = ease(seg(s, .23, .31)) * (1 - seg(s, .36, .42));
-      op(parts.panel, pan); if (parts.panel) parts.panel.style.transform = "translate3d(0," + ((1 - pan) * 18).toFixed(1) + "px,0) scale(" + (.94 + .06 * pan).toFixed(3) + ")";
-      op(parts.next, done);
-      var dc = ease(seg(s, .88, .95));
-      op(parts.decision, dc); if (parts.decision) parts.decision.style.transform = "translate3d(" + ((1 - dc) * 24).toFixed(1) + "px,0,0)";
+      // Squeak's notification slides in when the call arrives and stays until it lifts off for the iPhone;
+      // once the answer has landed, Studio shows its next step
+      if (parts.next) parts.next.style.opacity = s >= .88 ? "1" : "0";
+      var note = ease(seg(s, .205, .245)) * (1 - seg(s, .38, .385));
+      op(parts.note, note); if (parts.note) parts.note.style.transform = "translate3d(" + ((1 - note) * 110).toFixed(1) + "%,0,0)";
       // beat 3: Ledger is picked, Use Ledger is pressed, then Sent
       var pick = seg(s, .6, .63), press = seg(s, .67, .69) * (1 - seg(s, .69, .71)), sent = seg(s, .7, .73);
       if (parts.ledger) { parts.ledger.style.boxShadow = "0 0 0 " + (2 * pick).toFixed(2) + "px var(--rasanai-blue), 0 " + (6 * pick).toFixed(1) + "px " + (16 * pick).toFixed(1) + "px rgba(42,49,168," + (.18 * pick).toFixed(3) + ")"; parts.ledger.style.transform = "scale(" + (1 + .02 * pick).toFixed(4) + ")"; }
@@ -364,12 +490,12 @@
   // crew flight: the hero cards assemble and land on the crew standing on the Home screenshot, then hand off to it
   var homeWin = $(".shot-band .window[data-rise]"), homeImg = homeWin && $("img", homeWin);
   if (heroEl && homeImg) {
-    // percentages of the 1814x1190 screenshot: each box is the full painted character, measured against the painted-out version
-    var BOX = { tara: [20.066, 51.933, 7.166, 9.664], kavi: [27.343, 43.193, 7.442, 18.403], chitra: [34.73, 41.933, 8.49, 19.748], ra: [43.054, 41.008, 12.018, 20.588], laya: [55.072, 41.261, 7.663, 20], rasika: [61.687, 52.941, 9.372, 8.74], mala: [71.058, 48.319, 8.765, 13.277] };
-    var RIM = 61.597, STAG = .06;
+    // percentages of the dark Studio home capture (3024x1768): each box is the full character, measured against the painted-out version
+    var BOX = { tara: [39.649, 43.326, 4.299, 6.165], kavi: [44.048, 37.387, 4.332, 12.104], chitra: [48.479, 36.482, 4.861, 13.009], ra: [53.34, 35.973, 7.374, 13.518], laya: [60.714, 36.312, 4.034, 12.161], rasika: [64.749, 43.891, 5.556, 5.6], mala: [70.337, 40.554, 5.225, 8.937] };
+    var RIM = 49.5, STAG = .06;   // the prompt box's top edge
     // while the crew fly in, the screenshot shows its prompt with the crew painted out, so no one lands on top of themselves
     var emptyImg = new Image(); emptyImg.className = "shot-empty"; emptyImg.alt = ""; emptyImg.setAttribute("aria-hidden", "true"); emptyImg.decoding = "async";
-    emptyImg.srcset = "img/studio/home-1x-empty.jpg 907w, img/studio/home-2x-empty.jpg 1814w"; emptyImg.sizes = homeImg.getAttribute("sizes") || "100vw"; emptyImg.src = "img/studio/home-1x-empty.jpg";
+    emptyImg.srcset = "img/studio/home-dark-1x-empty.webp 1000w, img/studio/home-dark-2x-empty.webp 2000w"; emptyImg.sizes = homeImg.getAttribute("sizes") || "100vw"; emptyImg.src = "img/studio/home-dark-1x-empty.webp";
     homeWin.appendChild(emptyImg);
     var setEmpty = function (on) { homeWin.classList.toggle("is-empty", on); };
     var layer = document.createElement("div");
@@ -381,7 +507,7 @@
       var d = parseFloat(c.style.getPropertyValue("--d")) || 1;
       var box = document.createElement("div"); box.className = "cf";
       var card = new Image(); card.className = "cf-card"; card.alt = ""; card.decoding = "async"; card.src = im.getAttribute("src");
-      var cut = new Image(); cut.className = "cf-cut"; cut.alt = ""; cut.decoding = "async"; cut.src = "assets/crew/land/" + m[1] + ".webp?v=2";   // v2: full characters, measured from the screenshot
+      var cut = new Image(); cut.className = "cf-cut"; cut.alt = ""; cut.decoding = "async"; cut.src = "assets/crew/land/" + m[1] + ".webp?v=3";   // v3: from the dark Studio home
       card.style.opacity = (.6 + d * .4).toFixed(2);
       box.appendChild(card); box.appendChild(cut); layer.appendChild(box);
       fl.push({ c: c, fi: $(".fi", c), box: box, card: card, cut: cut, b: BOX[m[1]], base: .6 + d * .4, sw: 0, tw: 0 });
@@ -474,8 +600,8 @@
   }
 
   /* ---------- the orbit's resting points: only while the circle turns through the introductions ----------
-     When a scroll comes to rest between two introductions, it glides on to the next one in the direction it was going (a small
-     nudge moves one introduction on). Before the first and after the last, and everywhere else on the page, scrolling is free. */
+     When a scroll comes to rest between two introductions, it settles on the one its momentum points at: the nearest to where
+     the flick would have carried it. Before the first and after the last, and everywhere else on the page, scrolling is free. */
   var lastY = window.scrollY, scrollT = 0, dir = 1, vel = 0, restTimer = 0, spring = 0;
   var noRest = /[?&]norest\b/.test(location.search);   // for frame-by-frame checks: hold any scroll position
   // the glide is a critically damped spring on the scroll position: it starts with the speed the reader was scrolling at, so the
@@ -502,12 +628,12 @@
     var r = crewScene.getBoundingClientRect(), span = Math.max(1, r.height - window.innerHeight), top = window.scrollY + r.top, y = window.scrollY;
     var rests = crewRests().map(function (p) { return top + p * span; });
     if (y < rests[0] - 2 || y > rests[rests.length - 1] + 2) return;
-    var pick = null;
-    rests.forEach(function (t) {
-      if (dir > 0 ? t >= y - 2 : t <= y + 2) { if (pick === null || Math.abs(t - y) < Math.abs(pick - y)) pick = t; }
-    });
+    // where the reader's own momentum would carry the page (a flick decays over about a third of a second), and the introduction
+    // nearest to that: a small nudge past one settles back on it, a real flick carries on to the next one or further
+    var projected = y + clamp(vel, -1.6, 1.6) * 325, pick = null;   // a wild wheel spin cannot throw it past more than one
+    rests.forEach(function (t) { if (pick === null || Math.abs(t - projected) < Math.abs(pick - projected)) pick = t; });
     if (pick === null || Math.abs(pick - y) < 3) return;
-    // carry the reader's speed only if it points at the target
+    // the spring starts with the reader's speed only when that speed points at the target
     if ((pick - y) * vel < 0) vel = 0;
     glideTo(Math.round(pick));
   }
@@ -519,8 +645,37 @@
       if (scrollT && t - scrollT < 100) vel = vel * .6 + ((y - lastY) / (t - scrollT)) * .4; else vel = 0;
     }
     lastY = y; scrollT = t;
-    clearTimeout(restTimer); restTimer = setTimeout(function () { vel *= .5; settle(); }, 200);
+    clearTimeout(restTimer); restTimer = setTimeout(settle, 160);
   }, { passive: true });
+
+  /* ---------- menu jumps: in the pinned layout a chapter is a long scroll scene, so its menu link lands on the moment worth
+     reading (Rasan beside his introduction, the Squeak chapter's first line, the projects revealed), not the top of the track.
+     Stacked, the plain anchors do the job. */
+  function jumpTarget(name) {
+    if (!pinned() || calm()) return null;
+    var at = function (el, p) { var r = el.getBoundingClientRect(); return window.scrollY + r.top + p * Math.max(0, r.height - window.innerHeight); };
+    if (name === "crew" && crewOn) return at(crewScene, CREW_OPEN + .03 * (1 - CREW_OPEN));
+    var host = hosts.filter(function (h) { return h.beat && h.host.id === (name === "squeak" ? "control" : name); })[0];
+    if (!host) return null;
+    // Squeak: past the partnership, its first line fully in; projects: revealed
+    return at(host.host, name === "squeak" ? host.span + (1 - host.span) * (.22 + .78 * .1) : .86);
+  }
+  $$("[data-jump]").forEach(function (a) {
+    a.addEventListener("click", function (e) {
+      var y = jumpTarget(a.getAttribute("data-jump"));
+      if (y === null) return;   // the anchor does it
+      e.preventDefault();
+      history.replaceState(null, "", a.getAttribute("href"));
+      // smooth-scrolling through a few scroll scenes would play them all at once; instead the page dips to its own colour,
+      // jumps, and comes back up on the moment
+      var veil = $(".jump-veil") || document.body.appendChild(Object.assign(document.createElement("div"), { className: "jump-veil" }));
+      requestAnimationFrame(function () { veil.classList.add("on"); });
+      setTimeout(function () {
+        window.scrollTo({ top: Math.round(jumpTarget(a.getAttribute("data-jump")) || y), behavior: "instant" });
+        setTimeout(function () { veil.classList.remove("on"); }, 120);
+      }, 230);
+    });
+  });
 
   /* ---------- the loop: rAF only while something is moving ---------- */
   var raf = 0, vh = window.innerHeight, lastT = 0;
@@ -540,8 +695,15 @@
       // gliding scenes chase the scroll position with a time-based ease, so a fast flick or a coarse wheel step plays as motion
       // instead of jumping frames; the chase is position-only, so reversing scroll still retraces the same frames
       if (s.glide) {
-        if (s.cur === undefined || !near) s.cur = target;
-        else { var gd = target - s.cur; s.cur = Math.abs(gd) < .00005 ? target : s.cur + gd * (1 - Math.exp(-dt / s.glide)); }
+        // a critically damped spring on the progress (it carries velocity, so a fast flick eases in and out instead of
+        // stepping); the spring is stiffer for a shorter glide. Far from the screen it simply snaps.
+        if (s.cur === undefined || !near) { s.cur = target; s.vel = 0; }
+        else {
+          var w = 1700 / s.glide, h = Math.min(dt, 34) / 1000, gd = target - s.cur;
+          s.vel = (s.vel || 0) + (w * w * gd - 2 * w * (s.vel || 0)) * h;
+          s.cur += s.vel * h;
+          if (Math.abs(target - s.cur) < .00004 && Math.abs(s.vel) < .0004) { s.cur = target; s.vel = 0; }
+        }
         if (s.cur !== target) more = true;
         if (s.cur !== s.last) { s.render(s.cur); s.last = s.cur; }
         return;
@@ -678,7 +840,8 @@
     crew.orbit.style.transform = "translate3d(" + ox.toFixed(2) + "px,0,0) rotate(" + (th * 180 / Math.PI).toFixed(2) + "deg)";
     // the break: from .80 each character leaves the circle for its place in depth around the statement, one shortly after another
     // the camera: a slow spread out to the edges while the words fill, then a fast flight through the crew to the end of the track
-    var spread = ease(seg(p, .87, .97)), cam = 2.4 * Math.pow(seg(p, .955, 1), 1.6);
+    // they hold close around the statement while it is written, and only then drift out, gathering speed into the flight
+    var spread = Math.pow(seg(p, .91, .975), 2), cam = 2.4 * Math.pow(seg(p, .955, 1), 1.6);
     var place = function (node, img, k, x, y, s, r, o) {
       var d = CREW_DEPTH[k], b = inOutC(seg(p, .8 + k * .006, .88 + k * .006));
       if (b > 0) {
