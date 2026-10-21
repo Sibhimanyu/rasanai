@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **A published contract for other apps (`references/remote.md`).** An app on the same Mac (a phone pager such as Squeak) can show RasanAI's calls and send the answer back the way RasanAI Studio does: the waiting rule, the step-to-call map, the action shapes per call, the `actions.lock` protocol and the picture paths per call. `session.json` now carries `schema: 1` and `console.json` `external_actions: 1`.
+- **Answers keep where they came from.** An action's `source` is kept when it is one of `console`, `chat`, `studio`, `squeak` or `squeak-phone` (anything else reads as `console`), on the step's `sent` (`source`, `via`) and, once the step is closed, as `by_source` / `by_via`. The feed says "You (iPhone): picked the story: …" and the decisions drawer "you (iPhone)".
+- **Other apps' answers work with the browser console too.** `console.mjs wait` now validates and applies a line another app appended in server mode as well (before, it was handed to the director with no `sent`, no feed line, and the page still waiting). The server marks the lines it applied on POST (`applied: true`) so nothing is applied twice, and appends and session rewrites take `actions.lock` and `session.lock` in both modes.
+- **Phone copies of the draft and the final.** A push of `animatic`, `render` or `final` with a video makes a small H.264 copy in the background (540p, about 1.2 Mbit/s, AAC) in `<run>/phone/` with ffmpeg and adds `proxy` to the step; no ffmpeg, no copy, no error (`RASANAI_PHONE_PROXY=off` turns it off).
+
 ## 1.23.0 (2026-10-20): Director upgrades: motion and delivery checks, Reference DNA, word-level cuts
 
 - **Research handoff (motion hierarchy, delivery QA, scene contract, decision locks, reference principles).** Warnings are uncalibrated; ideas only from the sources in `third_party/SOURCES.md`, Creative research handoff.

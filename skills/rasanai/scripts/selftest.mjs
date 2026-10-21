@@ -8,6 +8,8 @@
 // 4. the keyframe board flags a banned pose pair
 // 5. pick keeps its guarantees (2 tail candidates; "you decide" never the remembered pick)
 // 6. the console serves, accepts a token-authenticated action, and wait returns it
+//    remote. the contract for other apps (scripts/tests/remote.mjs): schema, external_actions, sources kept on sent/feed/decision,
+//    other apps' lines applied by wait in both modes, the server's own POST applied once
 // 7. entire videos: multi-scene tasting obeys, scenes.mjs writes a parseable plan and rejects
 //    bad input, the contract upsert is idempotent, inject + audio-lock work, the transitions menu renders
 // 8. footage reels: scan reads rotation and sound, build conforms segments, sizes cards, times the cut, obeys;
@@ -2217,7 +2219,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   ok("presenter: other routes do not need ## Imagery", !/Imagery/.test(g(run2).stdout));
 
   // the scripts' own tests, each with the same helpers; absent files are a note, never a failure
-  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit", "chrome-lint", "frame-gate", "frames", "camera", "lessons", "sound-payoff", "carry", "notes", "variety", "rhythm", "sound-shape", "decisions", "sound-fixes", "gate-fixes", "plumbing", "boldness", "ab-learn", "echo-camera", "ui", "one-memory", "deliver", "orbs", "styles", "preferences", "series"]) {
+  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit", "chrome-lint", "frame-gate", "frames", "camera", "lessons", "sound-payoff", "carry", "notes", "variety", "rhythm", "sound-shape", "decisions", "sound-fixes", "gate-fixes", "plumbing", "boldness", "ab-learn", "echo-camera", "ui", "one-memory", "deliver", "orbs", "styles", "preferences", "series", "remote"]) {
     const f = path.join(HERE, "tests", `${name}.mjs`);
     if (!fs.existsSync(f)) { console.log(`note  ${name}: scripts/tests/${name}.mjs is not there yet, skipped`); continue; }
     try {
