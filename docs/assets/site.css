@@ -385,7 +385,12 @@ kbd { font: 500 0.82em/1 var(--mono); border: 1px solid currentColor; border-rad
 
 /* Decode images before revealing them; dimensions in the markup reserve their space.
    Without JavaScript (or if the loader cannot download), images render normally. */
-.images-js img[loading]:not([data-image-ready]):not([data-image-error]) { opacity: 0; }
+.images-js img[loading]:not([data-image-ready]) { opacity: 0; }
+/* a failed image (being retried) is never shown as a broken-image icon */
+.images-js img[data-image-error]:not([data-image-ready]) { visibility: hidden; }
+/* a window waiting for its screenshot breathes softly instead of sitting empty */
+.images-js :is(.window, .sq-win, .proj-shot .window):has(> img[data-image-wait]) { background: linear-gradient(100deg, rgba(27, 31, 94, .05) 30%, rgba(27, 31, 94, .1) 50%, rgba(27, 31, 94, .05) 70%) 0 0 / 300% 100%, #eceaf2; animation: img-shimmer 1.4s linear infinite; }
+@keyframes img-shimmer { to { background-position: -150% 0, 0 0; } }
 .images-js img[data-image-ready] { transition: opacity .3s ease-out; }
 .images-js [data-image-group] { transition: opacity .35s ease-out; }
 .images-js [data-image-group]:not([data-images-ready]) { opacity: 0; }
