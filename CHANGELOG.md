@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.25.0 (2026-10-22): Video-production upgrade: modular skill, checks, characters, styles, score, evidence, quick preview, benchmarks
 
 - **A much smaller entrypoint.** `SKILL.md` is a 12 KB router (was 148 KB); each phase and route loads its own guide from `references/workflows/` (`scripts/skill-map.mjs` lists what a route reads; `scripts/tests/skill-routing.mjs` checks every link, heading and command survived). The Studio launch prompt follows the routing.
 - **Checks on every PR.** `.github/workflows/checks.yml` (syntax, manifests, render regression, quick selftest) and `scripts/regression.mjs`: seeks a paused timeline A-B-A and cold, rejects blank, clipped, missing-asset, random and broken scenes, compares to reviewed baselines by a bounded metric (exit 0 / 2 / 1; a missing baseline is never a pass).
