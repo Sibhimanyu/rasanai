@@ -44,6 +44,8 @@ export function sourceChain(env = process.env, opts = {}) {
   // track) and the offline fallback when no source gave a usable track; never replaces a track the user supplied
   const explicitProc = !!opts.procedural || !!(opts.sources && opts.sources.includes("procedural"));
   chain.push({ id: "procedural", on: true, explicit: explicitProc, fallback: !explicitProc, threshold: THRESHOLD.procedural, why: explicitProc ? "chosen: an original score synthesised offline to the film's events (scripts/original-score.mjs)" : "offline fallback: an original score synthesised to the film's events when no other source gave a usable track" });
+  // an explicit --procedural with no --sources is the offline choice: the user's track and the original score only, no catalog or network source
+  if (opts.procedural && !opts.sources) opts = { ...opts, sources: ["user", "procedural"] };
   if (opts.sources) {
     const want = new Set(opts.sources);
     if (opts.procedural) want.add("procedural");
