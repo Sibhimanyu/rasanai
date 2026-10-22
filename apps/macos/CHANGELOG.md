@@ -2,9 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.19.5 (build 43) — 2026-10-22
 
 - **Story and Look stay in view.** The review workspace keeps your choices and key context visible while detailed scripts and look guidance scroll in their own panels. The existing action bar remains available, including when looking back at an earlier decision.
+- **Bundles RasanAI 1.25.0.**
 
 ## 0.19.4 (build 42) — 2026-10-21
 
