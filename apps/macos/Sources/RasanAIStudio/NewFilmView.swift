@@ -3,7 +3,7 @@ import StudioCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Describe on Home, then review a compact setup before starting the existing film workflow.
+/// Describe on Home, then review the automatically prepared film before starting the existing workflow.
 struct NewFilmView: View {
     @Bindable var store: StudioStore
     let project: URL?
@@ -63,8 +63,8 @@ struct NewFilmView: View {
     var body: some View {
         Group {
             if embedded {
-                // On Home: just the prompt box, with Start (straight to Review) and Set it up (the step-by-step setup). Both carry
-                // this same unsaved draft, so nothing starts until the person has seen it.
+                // On Home: one description creates the draft. Start goes straight to Review; optional refinements open the
+                // same draft's detailed questions. Nothing starts until the person has seen the review.
                 homeComposer
             } else { setup }
         }
@@ -271,7 +271,7 @@ struct NewFilmView: View {
         }
     }
 
-    /// Describe, on Home: one card holds the brief, what is attached and Continue; examples sit under it, never settings.
+    /// Describe, on Home: one card holds the brief, what is attached and the next action; examples sit under it, never settings.
     private var homeComposer: some View {
         promptCard
     }
@@ -341,15 +341,16 @@ struct NewFilmView: View {
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 0.14, alpha: 1) : NSColor(white: 0.95, alpha: 1)
     })
 
-    /// Home's two ways on: Start goes straight to Review with everything else decided (a lilac circle with a forward arrow), and
-    /// Set it up walks through the questions one at a time. Both carry this same unsaved draft, so nothing starts unseen.
+    /// Home starts from one description: Start goes straight to Review after local setup, while Refine details opens optional
+    /// questions. Both carry this same unsaved draft, so nothing starts unseen.
     private var homeStartButtons: some View {
         let enabled = !(working || trimmedBrief.isEmpty)
         return HStack(spacing: 10) {
-            Button("Set it up") { continueToEditor(atReview: false) }
+            Button("Refine details…") { continueToEditor(atReview: false) }
                 .buttonStyle(.plain).font(.system(size: 13)).foregroundStyle(.secondary)
                 .disabled(!enabled)
-                .help(trimmedBrief.isEmpty ? "Describe your film first" : "Answer a few questions about the film, one at a time")
+                .accessibilityLabel("Refine film details")
+                .help(trimmedBrief.isEmpty ? "Describe your film first" : "Optionally answer detailed questions about the film, one at a time")
             Button { continueToEditor(atReview: true) } label: {
                 HStack(spacing: 8) {
                     Text("Start").font(.system(size: 13, weight: .medium)).foregroundStyle(enabled ? Color.primary : Color.secondary)
@@ -364,8 +365,8 @@ struct NewFilmView: View {
             }
             .buttonStyle(.plain).keyboardShortcut(.return, modifiers: .command)
             .disabled(!enabled)
-            .accessibilityLabel("Start")
-            .help(trimmedBrief.isEmpty ? "Describe your film first" : "Check what RasanAI will do and start the film (⌘↩)")
+            .accessibilityLabel("Start and review film")
+            .help(trimmedBrief.isEmpty ? "Describe your film first" : "Review the automatic setup, then start the film (⌘↩)")
         }
     }
 
@@ -775,7 +776,8 @@ struct NewFilmView: View {
         suggested = (fresh, brief)
         store.suggestedFilmTitle = (fresh, brief)
     }
-    /// Home's Start and Set it up: a working title from the brief (unless one is typed), then the setup on this draft, on Review or at its first question.
+    /// Home turns one description into a draft: it makes a title and completes local format/length setup before showing Review
+    /// or the optional detail questions. This never contacts a director or starts the film.
     private func continueToEditor(atReview: Bool) {
         working = true
         Task {
@@ -784,6 +786,7 @@ struct NewFilmView: View {
                 name = await FilmTitle.suggest(for: brief)
                 store.suggestedFilmTitle = (name, brief)
             }
+            await settleFormat()
             working = false
             persistEditor()
             store.newFilmStartsAtReview = atReview
