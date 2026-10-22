@@ -1,0 +1,14 @@
+{
+  "changes": {
+    "palette.canvas": "#14201b",
+    "palette.ink": "#eaf1ec",
+    "palette.surface": "#1d2d26",
+    "palette.muted": "#a9b8af",
+    "pacing.tempo": 1.25,
+    "motion.intensity": 0.8,
+    "sound.instruments": [
+      "felt piano",
+      "brushed snare"
+    ]
+  }
+}

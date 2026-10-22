@@ -1,0 +1,14 @@
+{
+  "name": "Counting House",
+  "one_line": "The FT's paper-and-chart restraint, banknote engraving and Saul Bass's one hot accent, for receipts that become trusted numbers.",
+  "why_for_story": "The story turns a crumpled receipt into an audited number: a ledger desk with a single stamp is that moment, and nothing in the category looks like it.",
+  "references": [
+    { "id": "financial-times-graphics", "traits": ["paper-tinted ground", "restrained chart typography", "one signal colour"], "why": "the audience trusts paper and charts that look audited" },
+    { "id": "banknote-guilloche", "traits": ["engraved line work", "rosette borders at low opacity"], "why": "money's own visual language of trust, absent from every fintech film" },
+    { "id": "saul-bass", "traits": ["one hot accent as the whole point of the frame", "blunt flat shapes"], "why": "makes the stamp the single event of each scene" },
+    { "id": "kubrick-one-point-symmetry", "traits": ["level centred corridor camera", "24 mm slow dolly"], "why": "the 3D camera grammar for the depth beat: a receipt in a long ruled corridor" }
+  ],
+  "subject_world": ["ledger paper and carbon receipts", "rubber stamps and perforated edges", "bookkeepers' mono-spaced figures"],
+  "stack": { "visual-style": ["editorial"], "motion-language": "snappy" },
+  "motion_contract": { "language": "snappy", "scale_ms": [120, 200, 320, 480, 720], "easing": { "enter": "power4.out", "exit": "power3.in", "move": "expo.inOut" }, "stagger_ms": 50, "hold_ms": 600, "banned": ["fade-up-slide", "bounce", "overshoot", "blur-in"] }
+}
