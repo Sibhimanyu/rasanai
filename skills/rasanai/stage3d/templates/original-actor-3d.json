@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "id": "pomo-3d",
+  "display_name": "Pomo (original synthetic 3D fixture)",
+  "medium": "3d-rig",
+  "palette": { "body": "#e8a35f", "accent": "#fbe6c2", "scarf": "#2f8f9d", "leaf": "#5aa469", "eye": "#2a2230", "cheek": "#f08a7e" },
+  "palette_swappable": ["scarf"],
+  "outfits": [
+    { "id": "winter", "colors": { "scarf": "#c2453b" } },
+    { "id": "party", "colors": { "scarf": "#8a5bd6" } }
+  ],
+  "proportions": { "body_w": 10, "body_h": 8.4, "head_w": 11.4, "head_h": 9.4, "eye_sep": 4, "leg_len": 2.4, "arm_len": 4.6, "ear_r": 2.3, "sprout_h": 3.4 },
+  "fixed_traits": ["round ears", "leaf sprout", "striped scarf", "two short legs", "cream belly patch", "cream mittens", "big glossy eyes"],
+  "materials": { "body": "clay", "accent": "clay", "scarf": "matte", "leaf": "clay", "eye": "plastic", "cheek": "matte" },
+  "rig": { "kind": "code", "builder": "rasan-critter", "builder_version": 1 },
+  "attachments": ["hand_r", "hand_l", "head_top"],
+  "camera_reference": {
+    "front": { "azimuth": 0, "elevation": 3, "lens": 70, "fill": 0.78 },
+    "quarter": { "azimuth": 38, "elevation": 6, "lens": 70, "fill": 0.78 }
+  },
+  "actions": ["look", "point", "hop", "react", "walk", "turn", "carry"],
+  "source": "original",
+  "notes": "Synthetic fixture: an original generic clay creature built from code by RasanAI's own adapter (stage3d/character-rig.js, builder rasan-critter). Not a copy of any existing character. Copy it, change the name, palette, proportions and traits, then run canon.mjs seal."
+}

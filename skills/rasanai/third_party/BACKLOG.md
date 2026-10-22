@@ -91,9 +91,9 @@ Rules that hold for every item:
 
 ## B12. Recurring 3D characters from the canon
 
-- Source: iart-ai/webgl-animation-skills, svenkatreddy/universal-video-skills (MIT, ideas only). Size: L.
-- What: after `Sibhimanyu/rasan-3d` merges, `stage3d.mjs` loads a cast member from its `identity.json` (references/3d.md, Recurring characters) and its rig; reusable actions (look, point, hop, react) through an AnimationMixer that is seek-safe (time-driven, no clock); a check that the rendered character keeps its `fixed` traits across scenes (silhouette and palette against the canon render).
-- Done when: one cast member renders identically in two scenes of one film, with the check's numbers.
+- Source: iart-ai/webgl-animation-skills, svenkatreddy/universal-video-skills (MIT, ideas only); our own code. Size: L.
+- Done in W6 on the current runtime (the upstream `Sibhimanyu/rasan-3d` is not merged, nothing pulled): `stage3d/character-rig.js` (RasanCharacter3D: loadCharacter, poseAt, validateCanon, canonViews, renderModelSheet; actions look, point, hop, react, walk, turn, carry as pure functions of t; prop attachment; permitted outfit swaps), `scripts/canon.mjs` (check, validate, seal, plate, sheet, scaffold), `lib/canon3d.mjs`, the `3d-rig` medium in `lib/canon.mjs`, `cast-canon-*` warnings in `lib/scene-contract.mjs`, the crew's character role, `scripts/tests/canon3d.mjs`. Verified: one rig id in two separately rendered scenes with the check's numbers (IoU 1.0, palette 0.0 against the plate), A-B-A and independent renders identical, a changed body ratio, a hidden scarf, a removed ear, a recolour, a stale identity copy and an edited shared rig all caught, a permitted pose change and uniform scale not.
+- Still open: a rigged GLB actor with skeleton clips (needs the unmerged upstream rig and `AnimationMixer.setTime(t)`); calibrating the visual thresholds on actors other than the synthetic fixture and on GPU renders.
 
 ## B13. Storyboard editing inside the Animatic (Studio)
 

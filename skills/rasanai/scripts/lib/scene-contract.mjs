@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { destinationOf, zonesFor, boxInZones } from "./safezones.mjs";
+import { castCanonWarnings } from "./canon.mjs";
 
 export const SC = { min_states_complex: 3, hold_s: 0.6, hold_picture_s: 1.0, zone_share: 0.2 };
 
@@ -83,6 +84,8 @@ export function sceneContractChecks(score, { intent = null, run = null } = {}) {
     if (!c.canon || fixed.length < 2) W.push(`cast-canon-missing: cast ${c.id} (${c.kind}) has no canon file or fewer than 2 fixed traits: a recurring subject needs a canonical identity`);
     else if (run && !fs.existsSync(path.resolve(run, String(c.canon)))) W.push(`cast-canon-not-found: cast ${c.id} canon ${c.canon} does not exist`);
   }
+  // W6: the identity files themselves (painted-2d and 3d-rig) and each scene's cast states against them: same warning family, same severity
+  if (run) W.push(...castCanonWarnings(score, run));
   for (const sm of seams) {
     const a = S.find((x) => Number(x.n) === Number(sm.from)), b = S.find((x) => Number(x.n) === Number(sm.to));
     if (!a || !b || String(sm.continuity_change || "").trim().length >= 12) continue;

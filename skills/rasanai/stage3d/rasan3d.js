@@ -212,7 +212,9 @@
   function ensureSize(S, w, h) {
     if (S.w === w && S.h === h && S.rts) return S.rts;
     var T = S.T;
-    if (S.rts) Object.keys(S.rts).forEach(function (k) { var r = S.rts[k]; if (Array.isArray(r)) r.forEach(function (x) { x.dispose(); }); else r.dispose(); });
+    // (the bloom chain is an array of pairs: dispose recursively, so a second stage of another size does not throw "x.dispose is not a function")
+    var disposeRt = function (r) { if (Array.isArray(r)) r.forEach(disposeRt); else r.dispose(); };
+    if (S.rts) Object.keys(S.rts).forEach(function (k) { disposeRt(S.rts[k]); });
     S.renderer.setSize(w, h, false);
     var opt = { type: T.HalfFloatType, format: T.RGBAFormat, colorSpace: T.LinearSRGBColorSpace, depthBuffer: true };
     var sample = new T.WebGLRenderTarget(w, h, Object.assign({}, opt, { samples: 4 }));

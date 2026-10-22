@@ -24,3 +24,12 @@ You make the film's one recurring actor, once, before any shot is drawn or anima
 5. Write the cast entry. Do not start the boards: the styleframe designer binds to your sheet, the builder never redesigns the actor per shot.
 
 `crew.mjs check --role character-designer --key cast` holds you to this: the identity validates, the files exist, the cast link agrees.
+
+## When the actor is 3D (medium `3d-rig`; the brief names `canon.mjs`, not `stage2d.mjs`)
+
+Everything above holds, with these differences. Read the "Recurring characters" section of `references/3d.md` and study `stage3d/templates/original-actor-3d.json` (the shape of a `3d-rig` identity; an original synthetic actor, never reuse it for a real film). Do not read `2d-character.md`.
+
+- `identity.json` is the same file and the same `score.cast[].canon` link: `medium: "3d-rig"`, `rig { kind: "code", builder: "rasan-critter", builder_version: 1 }`, `palette` (body and accent are the signature colours, never swappable; a `palette_swappable` accessory key and `outfits` only if the story needs a swap), `materials` (one Rasan3D preset per palette key), `proportions` (the nine the builder reads: body_w, body_h, head_w, head_h, eye_sep, leg_len, arm_len, ear_r, sprout_h), `fixed_traits` (3 to 7 the rig draws: round ears, leaf sprout, scarf, short legs, belly patch, mittens, big glossy eyes, blush cheeks), `attachments` (`hand_r` at least), `camera_reference` (the standardized `front` and `quarter` views), `actions`. The only builder shipped is `rasan-critter`; a rigged GLB actor needs the unmerged upstream `Sibhimanyu/rasan-3d` API and is refused, so say so instead of faking it.
+- Tools, in order: `canon.mjs validate --file identity.json` (errors first), `canon.mjs seal --run <run> --id <id>` (stamps `rig_hash`: from now on the body is the canon), `canon.mjs sheet --canon identity.json --out cast/<id>/model-sheet.png` (four views and look, point, hop, react, walk: look at it; it must read as a charming character, not a box), `canon.mjs plate --run <run> --id <id>` (the plate every scene's on-model check compares with). Re-seal and re-plate only for a change the owner approved.
+- You return `identity.json`, `model-sheet.png`, `canon-plate.json`, the cast entry and `crew/designer/character.md`. No emotion sheets: the 3D actor's `react` action carries emotion.
+- The canon is written before any scene animator starts. Scenes reference the rig and never modify it; in a long film the lead builder owns the shared rig and animators only scaffold from it (`canon.mjs scaffold`).
