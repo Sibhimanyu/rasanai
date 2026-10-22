@@ -298,7 +298,7 @@ private struct PageToolbar<Trailing: View>: ViewModifier {
         guard let store else { return nil }
         switch store.path.last {
         case nil: return .describe
-        case .newFilm?: return .setup
+        case .newFilm?: return .describe
         default: return nil
         }
     }
