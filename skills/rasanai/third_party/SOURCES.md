@@ -30,6 +30,10 @@ Modes (the column "mode" and every "HOW MUCH" line use these words):
 | [pyang5166/gbro-collage-broll](#gbro) + gbro-collage-info | MIT | rewritten | halftone paper collage look | taken |
 | [JohnHeibel/ClaudeAnimationBase](#claudeanimationbase) | MIT | idea only | twinning, three zooms, reads, echo | taken as ideas; cartoon route open (P3.2) |
 | [lemomo-ai/lemo-opuscar](#lemo-opuscar) | MIT | rewritten + data | 11 styles, 98 prompts, catalogue grammar, devices, slot limiter, CJK reading | taken |
+| [tuzhechen2005/opus-video-skills](#video-upgrade-pins) | MIT (root LICENSE; `painted-animation/template/` is John Heibel, MIT) | idea only so far | painted-animation skill (W5 reference) | pinned 59744a6; code adapted only with its LICENSE + NOTICE, see pins |
+| [JohnHeibel/PDoomVideo](#video-upgrade-pins) | none verified | idea only | storyboard and chapter-level production | no source copied |
+| [diggerhq/shipvideo](#video-upgrade-pins) | none verified | idea only | launch-video pipeline ideas | no source copied |
+| [riba2534/claude-opus-5-5-demo](#video-upgrade-pins) | none verified | not used | low-value coding demo | not integrated |
 | [ferndesk/no-slop-motion](#no-slop-motion) | MIT | idea only | story chain, acts, crescendo, villain and felt numbers | taken as ideas |
 | [Jamailar/high-retention-video-script](#high-retention-video-script) | none declared | idea only | stimulus clock, HKRR (read, not built in) | read; nothing built (unverified) |
 | [FilmAgent, MovieAgent, ViMax and other agent papers](#filmagent-movieagent-vimax) | MIT / none / MIT | idea only | critique loops, structure critic | taken as ideas |
@@ -290,3 +294,17 @@ MIT / Apache-2.0: we may copy or adapt with credit (LICENSE copy plus NOTICE in 
 ## Craft sources
 
 Ideas only, cited, not code: Walter Murch's Rule of Six and the blink; Alfred Hitchcock's rule that screen size is story importance; Lev Kuleshov (meaning lives between shots); Sergei Eisenstein's montage types; the Pixar story spine and rules; the single-minded proposition; Problem-Agitate-Solve; the story circle; SUCCESs (Made to Stick); the rule of three; ManvsMachine and Buck concept methods; Saul Bass, Terry Gilliam (library entries `library/motion/kinetic-type/saul-bass-cutout-type.md`, `library/motion/collage/cutout-collage-gilliam.md`, `library/systems/studios/saul-bass.md`). Where used: `references/craft.md` (the direction procedure; footer "Ideas from Walter Murch, Hitchcock and Kuleshov via R-craft ... Our own words"), `references/story.md`, `references/intent.md`, `agents/motion-director.md`, `agents/footage-logger.md`. Full notes with URLs (including secondary sources) are in the local research file `R-craft.md`, not in git; secondary-source URLs are unverified here. Nothing to credit under a licence; cite the person or work, never quote at length.
+
+## Video upgrade pins
+
+Revalidated 2026-10-22 for the video-upgrade brief (heresay r_VejkvP8IXAd9jCgJ). Pins are upstream default-branch HEADs; licence is what GitHub reports plus the root LICENSE file.
+
+| Repo | HEAD | Licence |
+| --- | --- | --- |
+| JohnHeibel/ClaudeAnimationBase | 0ac8bf2 | MIT |
+| JohnHeibel/PDoomVideo | fa546a3 | none verified: ideas only |
+| tuzhechen2005/opus-video-skills | 59744a6 | MIT (GitHub shows NOASSERTION; root LICENSE is MIT) |
+| lemomo-ai/lemo-opuscar | b5e8ef9 | MIT (code, docs); demo films/stills CC BY 4.0 |
+| diggerhq/shipvideo | 53d7c6f | none verified: ideas only |
+| yihui-dev/awesome-opus5-5-videos | 92aee2f | MIT (the list only; each creator's prompts and art are theirs) |
+| riba2534/claude-opus-5-5-demo | 54adc1f | none verified: not integrated |
