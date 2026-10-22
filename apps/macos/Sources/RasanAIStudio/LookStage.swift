@@ -30,10 +30,20 @@ struct LookStage: View {
     private var aspect: CGFloat { LookItem.aspect(model.payload("brief")["fields"]["aspect"].string) }
     private var canAct: Bool { model.canAct(on: step) }
 
+    /// Windows at least this wide put the crew header, tiles and inspector on the left and the preview on the right.
+    private static let wideThreshold: CGFloat = 1000
+    private var question: String { payload["question"].string ?? (isFilms ? "Which film do you want?" : "Find the right feeling.") }
+    private var context: String? { payload["context"].string ?? payload["sub"].string }
+
     var body: some View {
-        ReviewStageWorkspace(model: model, step: step,
-                             question: payload["question"].string ?? (isFilms ? "Which film do you want?" : "Find the right feeling."),
-                             context: payload["context"].string ?? payload["sub"].string) {
+        GeometryReader { outer in
+            let wide = outer.size.width >= Self.wideThreshold && outer.size.height >= 500 && current != nil
+            stage(wide: wide)
+        }
+    }
+
+    private func stage(wide: Bool) -> some View {
+        ReviewStageWorkspace(model: model, step: step, question: question, context: context, showsHeader: !wide) {
             if let current {
                 reviewWorkspace(current)
             } else {
@@ -62,6 +72,8 @@ struct LookStage: View {
                     fallbackWorkspace(current)
                         .padding(.bottom, 20)
                 }
+            } else if proxy.size.width >= Self.wideThreshold {
+                wideWorkspace(current, available: proxy.size)
             } else {
                 boundedWorkspace(current, available: proxy.size)
             }
@@ -76,6 +88,36 @@ struct LookStage: View {
         }
         // Keys only when nothing is being typed: a step arriving while the person writes must not steal them.
         .onAppear { if !(NSApp.keyWindow?.firstResponder is NSTextView) { keysFocused = true } }
+    }
+
+    /// Wide windows: the crew header, compact tiles and the selected look's inspector share the left column;
+    /// the preview runs from the top of the page on the right.  Everything stays inside the safe area, above the bottom bar.
+    private func wideWorkspace(_ current: LookItem, available: CGSize) -> some View {
+        let left = min(460, max(380, available.width * 0.34))
+        return HStack(alignment: .top, spacing: 20) {
+            VStack(alignment: .leading, spacing: 0) {
+                StageHeader(question: question, context: context, step: step)
+                    .padding(.bottom, 12)
+                LookTiles(items: items, selectedID: current.id, recommendedID: recommendedID, aspect: aspect,
+                          hook: payload["hook"].string, compact: true) { selection = $0 }
+                    .padding(.bottom, 14)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        rail(current)
+                        if isFilms && !current.frames.isEmpty { LookFrames(item: current, aspect: aspect) }
+                    }
+                    .padding(.bottom, 4)
+                }
+                .accessibilityLabel("Selected look details")
+            }
+            .frame(width: left)
+            .frame(maxHeight: .infinity, alignment: .top)
+
+            LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook, maxHeight: .infinity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+        .padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 18)
+        .frame(width: available.width, height: available.height, alignment: .topLeading)
     }
 
     private func boundedWorkspace(_ current: LookItem, available: CGSize) -> some View {
@@ -427,11 +469,12 @@ private struct LookHero: View {
     let item: LookItem
     let aspect: CGFloat
     var hook: String?
+    var maxHeight: CGFloat = 560
 
     var body: some View {
         LookMedia(item: item, hook: hook)
             .aspectRatio(aspect, contentMode: .fit)
-            .frame(maxHeight: 560)
+            .frame(maxHeight: maxHeight)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Workspace.hairline, lineWidth: 1) }
             .frame(maxWidth: .infinity)
@@ -533,13 +576,14 @@ private struct LookTiles: View {
     let recommendedID: String?
     let aspect: CGFloat
     var hook: String?
+    var compact = false
     let pick: (String) -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
+        HStack(alignment: .top, spacing: compact ? 8 : 14) {
             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                 LookTile(item: item, index: index, selected: item.id == selectedID, recommended: item.id == recommendedID,
-                         aspect: min(aspect, 1.8), hook: hook) { pick(item.id) }
+                         aspect: min(aspect, 1.8), hook: hook, compact: compact) { pick(item.id) }
             }
         }
     }
@@ -552,12 +596,13 @@ private struct LookTile: View {
     let recommended: Bool
     let aspect: CGFloat
     var hook: String?
+    var compact = false
     let action: () -> Void
     @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: compact ? 5 : 8) {
                 LookMedia(item: item, hook: hook, playVideo: false, compact: true)
                     .aspectRatio(aspect, contentMode: .fit)
                     .frame(maxWidth: .infinity)
@@ -566,10 +611,17 @@ private struct LookTile: View {
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .strokeBorder(selected ? Color.rasan : (hovering ? Color.primary.opacity(0.25) : Workspace.hairline), lineWidth: selected ? 2 : 1)
                     }
-                HStack(spacing: 6) {
-                    Text(item.name).font(.system(size: 13, weight: selected ? .semibold : .regular)).lineLimit(1)
-                    if recommended { RecommendedBadge(text: "Recommended") }
-                    Spacer(minLength: 0)
+                if compact {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(item.name).font(.system(size: 12, weight: selected ? .semibold : .regular)).lineLimit(1)
+                        if recommended { RecommendedBadge(text: "Recommended") }
+                    }
+                } else {
+                    HStack(spacing: 6) {
+                        Text(item.name).font(.system(size: 13, weight: selected ? .semibold : .regular)).lineLimit(1)
+                        if recommended { RecommendedBadge(text: "Recommended") }
+                        Spacer(minLength: 0)
+                    }
                 }
             }
             .contentShape(Rectangle())

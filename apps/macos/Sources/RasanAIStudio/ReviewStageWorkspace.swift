@@ -8,53 +8,33 @@ struct ReviewStageWorkspace<Content: View, Actions: View>: View {
     let step: String
     let question: String
     var context: String?
+    /// False when the content draws the header itself (Story's wide layout).
+    var showsHeader: Bool = true
     @ViewBuilder var content: Content
     @ViewBuilder var actions: Actions
 
-    @Environment(\.crewCharacter) private var character
-
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Divider()
+            if showsHeader {
+                header
+                Divider()
+            }
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            if let decision = model.payload(step)["decision"].string, model.status(step) == "done" {
-                DecidedLine(decision: decision, by: model.snapshot.decisions.first { $0.step == step }?.byUser)
-                    .padding(.horizontal, 16).padding(.vertical, 8)
-            }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { actions }
     }
 
+    /// The same crew header as every other stage: the character asks the question in a speech bubble.
     private var header: some View {
-        HStack(alignment: .top, spacing: 10) {
-            if let character {
-                CrewAvatar(character, style: .bust(diameter: 30), watching: false)
-                Text(CrewCredit.line(step: step, character: character))
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
-                    .frame(width: 150, alignment: .leading)
-            }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(question)
-                    .font(.system(size: 20, weight: .semibold)).tracking(-0.25)
-                    .lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                    .accessibilityAddTraits(.isHeader)
-                if let context, !context.isEmpty {
-                    Text(context).font(.system(size: 12)).foregroundStyle(.secondary)
-                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 16).padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        StageHeader(question: question, context: context, step: step)
+            .padding(.horizontal, 24).padding(.top, 18).padding(.bottom, 14)
     }
 }
 
 extension ReviewStageWorkspace where Actions == EmptyView {
     init(model: FilmSessionModel, step: String, question: String, context: String? = nil,
-         @ViewBuilder content: () -> Content) {
-        self.init(model: model, step: step, question: question, context: context, content: content, actions: { EmptyView() })
+         showsHeader: Bool = true, @ViewBuilder content: () -> Content) {
+        self.init(model: model, step: step, question: question, context: context, showsHeader: showsHeader, content: content, actions: { EmptyView() })
     }
 }

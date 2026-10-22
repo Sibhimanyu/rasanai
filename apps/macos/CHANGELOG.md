@@ -2,6 +2,12 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **The crew asks, properly.** Every stage opens with the crew member at full size asking the question in a new speech bubble: one smooth outline with a curved tail toward the speaker, sized to the words, soft depth, and a small pop as it appears.
+- **Story and Look use the whole window.** On wide windows the character, question and your choices sit on the left; the script, or the look preview, runs top to bottom on the right. The selected look's details now sit beside the tiles instead of under the preview.
+- **One floating bar at the bottom.** The status and actions live in a full-width glass bar that content scrolls under, like the sidebar. Looking back at a step keeps "Back to now" and "Change this…" there; the separate green "Decided" strip is gone, since the stepper and the highlighted choice already show it.
+
 ## 0.19.5 (build 43) — 2026-10-22
 
 - **Story and Look stay in view.** The review workspace keeps your choices and key context visible while detailed scripts and look guidance scroll in their own panels. The existing action bar remains available, including when looking back at an earlier decision.

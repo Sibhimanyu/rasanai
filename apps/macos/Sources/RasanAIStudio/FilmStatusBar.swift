@@ -38,10 +38,11 @@ struct FilmStatusBar<Usage: View>: View {
                 else if needsResume { resumeSlot }
             }
         }
-        .padding(.horizontal, .filmInset).padding(.vertical, model.lastError == nil ? 0 : 8)
-        .frame(maxWidth: .infinity, minHeight: 60)
-        // A calm footer on the canvas: one hairline above it, no panel of its own.
-        .overlay(alignment: .top) { Rectangle().fill(Workspace.hairline).frame(height: 1) }
+        .padding(.horizontal, 22).padding(.vertical, model.lastError == nil ? 0 : 9)
+        .frame(maxWidth: .infinity, minHeight: 52)
+        // A floating full-width pill of the same glass as the sidebar; content scrolls underneath it.
+        .glassPanel(radius: 26)
+        .padding(.horizontal, Workspace.gap).padding(.bottom, 10)
         .onChange(of: turn) { lastActivityAt = Date() }
     }
 
@@ -57,14 +58,7 @@ struct FilmStatusBar<Usage: View>: View {
 
     @ViewBuilder private var status: some View {
         if model.isViewingPast {
-            HStack(spacing: 8) {
-                Image(systemName: "clock.arrow.circlepath").foregroundStyle(.secondary)
-                Text("Looking back at \(StepCatalog.label(model.shownStep))").font(.system(size: 12, weight: .medium)).lineLimit(1)
-                Button("Back to now") { model.returnToLive() }.buttonStyle(.rasanSecondary).controlSize(.small)
-                Button("Change this…") { model.beginTell(step: model.shownStep, prefill: "Change the \(StepCatalog.label(model.shownStep).lowercased()): ") }
-                    .buttonStyle(.rasanSecondary).controlSize(.small)
-                    .help("Write to \(agent) about this step")
-            }
+            LookingBackControls(model: model)
         } else if sent {
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
@@ -182,12 +176,13 @@ struct FilmStatusBarHost<Content: View, Usage: View>: View {
     @State private var actions: FilmActions?
 
     var body: some View {
-        VStack(spacing: Workspace.gap) {
-            content.onPreferenceChange(FilmActionsKey.self) { actions = $0 }
-            if visible {
-                FilmStatusBar(model: model, turn: turn, actions: actions, onDetails: onDetails, onPause: onPause, onResume: onResume, usage: { usage }, stillWorking: stillWorking)
+        content.onPreferenceChange(FilmActionsKey.self) { actions = $0 }
+            // A floating glass pill over the page: content scrolls underneath and can still scroll clear of it.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if visible {
+                    FilmStatusBar(model: model, turn: turn, actions: actions, onDetails: onDetails, onPause: onPause, onResume: onResume, usage: { usage }, stillWorking: stillWorking)
+                }
             }
-        }
         // A note goes out with whatever was accepted (the note itself, or the call it rode along with).
         .onChange(of: model.sendCount) { model.tellText = "" }
     }

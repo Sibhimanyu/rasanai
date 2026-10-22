@@ -26,51 +26,65 @@ struct StoryStage: View {
         return all.first?.id
     }
 
+    /// Windows at least this wide put the script panel up top beside the crew header and the choices.
+    private static let wideThreshold: CGFloat = 1000
+
     var body: some View {
         let all = scripts
-        ReviewStageWorkspace(model: model, step: step,
-                             question: payload["question"].string ?? "Choose the story.",
-                             context: payload["context"].string) {
-            GeometryReader { proxy in
-                if all.isEmpty {
-                    StoryEmpty().padding(20).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                } else if let current {
-                    storyWorkspace(all, current: current, size: proxy.size)
+        GeometryReader { outer in
+            let wide = outer.size.width >= Self.wideThreshold && !all.isEmpty && current != nil
+            ReviewStageWorkspace(model: model, step: step,
+                                 question: question,
+                                 context: payload["context"].string,
+                                 showsHeader: !wide) {
+                Group {
+                    if all.isEmpty {
+                        StoryEmpty().padding(20).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    } else if let current {
+                        storyWorkspace(all, current: current, width: outer.size.width)
+                    }
                 }
-            }
-            .focusable()
-            .focusEffectDisabled()
-            .focused($keysFocused)
-            .onKeyPress(characters: CharacterSet(charactersIn: "123"), phases: .down) { press in
-                guard model.canAct(on: step), let n = Int(press.characters), n >= 1, n <= all.count else { return .ignored }
-                selectedID = all[n - 1].id
-                return .handled
-            }
-            // Keys only when nothing is being typed: a step arriving while the person writes must not steal them.
-            .onAppear { if !(NSApp.keyWindow?.firstResponder is NSTextView) { keysFocused = true } }
-        } actions: {
-            CallActions(model: model, step: step,
-                        primaryTitle: all.isEmpty ? nil : "Use this story",
-                        primarySymbol: "checkmark",
-                        primaryEnabled: current != nil) { note in
-                guard let current else { return }
-                Task { await model.send(step: step, type: "choose", value: .string(current.id), note: note) }
+                .focusable()
+                .focusEffectDisabled()
+                .focused($keysFocused)
+                .onKeyPress(characters: CharacterSet(charactersIn: "123"), phases: .down) { press in
+                    guard model.canAct(on: step), let n = Int(press.characters), n >= 1, n <= all.count else { return .ignored }
+                    selectedID = all[n - 1].id
+                    return .handled
+                }
+                // Keys only when nothing is being typed: a step arriving while the person writes must not steal them.
+                .onAppear { if !(NSApp.keyWindow?.firstResponder is NSTextView) { keysFocused = true } }
+            } actions: {
+                CallActions(model: model, step: step,
+                            primaryTitle: all.isEmpty ? nil : "Use this story",
+                            primarySymbol: "checkmark",
+                            primaryEnabled: current != nil) { note in
+                    guard let current else { return }
+                    Task { await model.send(step: step, type: "choose", value: .string(current.id), note: note) }
+                }
             }
         }
     }
 
-    @ViewBuilder private func storyWorkspace(_ all: [StoryScript], current: StoryScript, size: CGSize) -> some View {
-        // Keep the three choices in their own rail on normal windows.  At the
-        // smallest sizes they lead the single readable scroll column instead of
-        // squeezing three panels into unusable widths.
-        if size.width >= 1160 {
-            HStack(alignment: .top, spacing: 16) {
-                choiceRail(all).frame(width: 250)
-                detailScroll(current, showRationale: false).frame(maxWidth: .infinity)
-                rationaleRail(current).frame(width: 280)
+    private var question: String { payload["question"].string ?? "Choose the story." }
+
+    @ViewBuilder private func storyWorkspace(_ all: [StoryScript], current: StoryScript, width: CGFloat) -> some View {
+        // Wide: the crew header and the choices share the left column; the script panel
+        // takes the full height on the right with "Why this one" folded in.  Narrower
+        // windows keep the header on top, then two columns, then one scroll.
+        if width >= Self.wideThreshold {
+            let left = min(480, max(400, width * 0.38))
+            HStack(alignment: .top, spacing: 20) {
+                VStack(alignment: .leading, spacing: 0) {
+                    StageHeader(question: question, context: payload["context"].string, step: step)
+                        .padding(.bottom, 12)
+                    choiceRail(all)
+                }
+                .frame(width: left)
+                detailScroll(current, showRationale: true).frame(maxWidth: .infinity)
             }
-            .padding(16)
-        } else if size.width >= 860 {
+            .padding(18)
+        } else if width >= 860 {
             HStack(alignment: .top, spacing: 16) {
                 choiceRail(all).frame(width: 250)
                 detailScroll(current, showRationale: true).frame(maxWidth: .infinity)
@@ -101,13 +115,6 @@ struct StoryStage: View {
                 .id(current.id)
                 .padding(.trailing, 2)
         }
-    }
-
-    private func rationaleRail(_ current: StoryScript) -> some View {
-        ScrollView {
-            StoryRationale(script: current)
-        }
-        .workspacePanel(padding: 14)
     }
 
     // MARK: List
