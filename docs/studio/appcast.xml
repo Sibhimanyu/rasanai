@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.19.5 beta 1</title>
+      <pubDate>Thu, 22 Oct 2026 08:43:24 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **Story and Look stay in view.** The review workspace keeps your choices and key context visible while detailed scripts and look guidance scroll in their own panels. The existing action bar remains available, including when looking back at an earlier decision.]]></description>
+      <sparkle:version>43</sparkle:version>
+      <sparkle:shortVersionString>0.19.5</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.5-beta.1/RasanAI-Studio-0.19.5.dmg" sparkle:edSignature="Ekzb7xPZAq7rfHmF1VwCSWWy8lEr/n4SlOwI3Yy6CdxrI32HVCm++u0KD2YUmW9u3YJ0982msBHxYYHoZSLCDg==" length="81611321" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.19.4 beta 1</title>
       <pubDate>Wed, 21 Oct 2026 17:39:40 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **Pause holds after a relaunch.** Pausing a film that Studio picked back up after a restart (by you, or by its own stuck or budget check) now really pauses it; before, the director was stopped and had to start over from its saved state.]]></description>
