@@ -73,6 +73,7 @@ The canonical homes of the detail this guide points at (read the one the current
 | the motion gate: freezes, creep, resting seams, carriers, parked lines, measured on the draft | `scripts/motion-gate.mjs`, `references/craft.md` §3 and §10 |
 | 3D: where depth goes, the Rasan3D API, camera and lens, light and materials per style, the 2D ↔ 3D seams, type and UI in space, the 3D gate, cost, showing off in 3D | `references/3d.md`, `stage3d/` (the runtime and templates), `scripts/stage3d.mjs` |
 | an optional fast first draft of a simple 10-40 s film as one HTML composition (quick-preview): scaffold, check, render, promote into this flow; when not to use it | `references/quick-film.md`, `scripts/quick-film.mjs`, `agents/quick-builder.md` |
+| a technique catalogue (20 pinned, licence-clean rows) and a three-fixture A/B benchmark that reuses the existing gates (blind X / Y strips, no new score) | `references/benchmark.md`, `scripts/benchmark.mjs`, `library/benchmarks/video-techniques.json` |
 | music choice, the edit-to-picture algorithm, SFX rules, VO pacing, mix targets | `references/sound.md` |
 | per-route integration: what RasanAI pre-writes, hook points, scenes.json and video-decisions.json formats | `references/video.md` |
 | rebuilding the real product as DOM for video: brand-token primitives, cursor and press physics, typing in a field, the readability check, the `data-ui="captured"` marker | `references/ui-rebuild.md`, `runtime/rasan-ui.js`, `scripts/uikit.mjs` |

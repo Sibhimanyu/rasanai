@@ -85,9 +85,9 @@ Rules that hold for every item:
 ## B11. Precedent rows from awesome-opus5-5-videos
 
 - Source: yihui-dev/awesome-opus5-5-videos (list MIT, prompts belong to their creators: link, never copy). Size: M.
-- What: precedent rows for `moments.mjs precedent` from the list's `data/videos.json`: slug, category, tech tags, post and remake links, plus OUR one-line technique per row. Start with the ~45 full structured prompts; skip the 207 partial ones (post text only).
-- Why deferred: the 716 motionmaxxing rows already cover most techniques, and every row must be stripped of brand names, characters and songs before it ships (INTAKE rule), which needs a careful read per row.
-- Done when: rows carry no third-party names or prompt text, `SOURCES.md` TOOK updated.
+- Partly done (W11): 20 curated, link-verified technique rows in `library/benchmarks/video-techniques.json` (not in the motionmaxxing precedent file: those rows carry no URL or pin), 17 pinned GitHub files from lemo-opuscar, opus-video-skills and ClaudeAnimationBase plus 3 index rows from the list (aschapmann-724497, jackfriks-338762, ror-fly-880547; clips not reviewed by a human), and a three-fixture A/B benchmark (`scripts/benchmark.mjs`).
+- Still not done: the list's other ~700 entries and the ~45 full structured prompts (deliberately not imported); `moments.mjs precedent` does not read the new catalogue; a human review of the three index clips; local fixtures for VT-04 generative Three.js terrain, VT-13 palette-preserving grade, VT-14 interface walkthrough, VT-15 vertical short and VT-20 opening and end echo (`local_fixture.kind` is null for them); the 9:16 and 3D-character fixtures; a human blind A/B verdict on any pair (all are pending-human-review); an earlier-behaviour baseline (origin/master has none of the tools, so baselines are degraded variants).
+- Done when: the rows above have fixtures and a juror has reviewed at least one pair per fixture; `SOURCES.md` TOOK updated.
 
 ## B12. Recurring 3D characters from the canon
 
