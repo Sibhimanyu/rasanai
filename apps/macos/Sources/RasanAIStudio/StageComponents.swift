@@ -10,7 +10,7 @@ import SwiftUI
 // The model is also in the environment (`.environment(model)`), which is how `PayloadImage` finds files. Use these instead of rebuilding the same chrome:
 //
 //   StageScaffold(model:step:question:context:recommended:maxWidth:content:actions:)
-//       The whole page: a scroll view with the StageHeader, your content and the "Decided:" line for finished steps.
+//       The whole page: a scroll view with the StageHeader, your content.
 //       The step's conversation lives in the inspector (Notes). `actions` draws nothing: it holds a view that publishes
 //       the step's buttons (CallActions, StepActionBar, ...) to the one status bar at the bottom of the film page.
 //   StageHeader(question:context:recommended:)
@@ -23,7 +23,6 @@ import SwiftUI
 //   RecommendedBadge(text:)            Claude's pick, as a small capsule. Put it on the recommended option.
 //   PayloadImage(path:contentMode:maxPixels:)   A local file named in the payload (workspace-relative or absolute).
 //   OpenInBrowserButton(path:title:)   For HTML-only boards: opens the file in the default browser (never embedded).
-//   DecidedLine(decision:by:)          Green "Decided:" line.
 //   StageCard / .stageCard(selected:)  The card surface for options (selected = accent outline).
 //   StageSectionTitle(_:)              Small caps section label.
 //   JSONValue helpers (StudioCore): .string, .number, .bool, .strings, .array, .object, .identifier, ["key"].
@@ -82,15 +81,6 @@ struct CrewByline: View {
     }
 }
 
-/// The asking variant of the byline: the crew member's asking pose beside one speech bubble that holds the stage's question.
-struct CrewAskByline: View {
-    let question: String
-    @Environment(\.crewCharacter) private var character
-    var body: some View {
-        if let character { CrewAskRow(character: character, text: question, unit: 140) }
-    }
-}
-
 extension CGFloat {
     /// The one horizontal inset the film page's status text, stage heading and filmstrip header share.
     static let filmInset: CGFloat = 16
@@ -120,9 +110,6 @@ struct StageScaffold<Content: View, Actions: View>: View {
             VStack(alignment: .leading, spacing: 28) {
                 StageHeader(question: question, context: context, recommended: recommended, step: step)
                 content
-                if let decision = model.payload(step)["decision"].string, model.status(step) == "done" {
-                    DecidedLine(decision: decision, by: model.snapshot.decisions.first { $0.step == step }?.byUser)
-                }
             }
             .padding(.horizontal, 24).padding(.top, 26).padding(.bottom, 32)
             .frame(maxWidth: maxWidth, alignment: .leading)
@@ -151,26 +138,60 @@ struct StageHeader: View {
     var step: String?
     @Environment(\.agentName) private var agent
     @Environment(\.crewCharacter) private var character
+
+    private var contextText: String? { (context?.isEmpty ?? true) ? nil : context }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if character != nil {
+        HStack(alignment: .top, spacing: 16) {
+            if let character {
                 // The crew member asks it herself: the question is her speech bubble, so it is not repeated as a heading.
-                CrewAskByline(question: question).padding(.bottom, 6)
+                CrewStage(character: character, mode: .ask, unit: 150)
+                VStack(alignment: .leading, spacing: 6) {
+                    CrewSpeechBubble(text: question, tailY: 28)
+                    if let contextText { contextLine(contextText).padding(.leading, 11) }
+                }
+                .padding(.top, 150 * 0.3 - 28)
             } else {
-                Text(question)
-                    .font(.system(size: 29, weight: .semibold)).tracking(-0.6)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityAddTraits(.isHeader)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(question)
+                        .font(.system(size: 29, weight: .semibold)).tracking(-0.6)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+                    if let contextText { contextLine(contextText) }
+                }
             }
-            if let context, !context.isEmpty {
-                Text(context).font(.system(size: 14)).foregroundStyle(.secondary).lineSpacing(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if let recommended, !recommended.isEmpty {
-                RecommendedBadge(text: "\(agent) recommends \(recommended)").padding(.top, 4)
-            }
+            Spacer(minLength: 12)
+            trailing
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func contextLine(_ text: String) -> some View {
+        Text(text).font(.system(size: 13)).foregroundStyle(.secondary).lineSpacing(2)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder private var trailing: some View {
+        if let recommended, !recommended.isEmpty {
+            RecommendedBadge(text: "\(agent) recommends \(recommended)")
+        }
+    }
+}
+
+/// "Looking back at <step>" with the two ways out, shown at the right of a stage's header while a finished step is on screen.
+struct LookingBackControls: View {
+    let model: FilmSessionModel
+    @Environment(\.agentName) private var agent
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "clock.arrow.circlepath").foregroundStyle(.secondary)
+            Text("Looking back at \(StepCatalog.label(model.shownStep))").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary).lineLimit(1)
+            Button("Back to now") { model.returnToLive() }.buttonStyle(.rasanSecondary).controlSize(.small)
+            Button("Change this…") { model.beginTell(step: model.shownStep, prefill: "Change the \(StepCatalog.label(model.shownStep).lowercased()): ") }
+                .buttonStyle(.rasanSecondary).controlSize(.small)
+                .help("Write to \(agent) about this step")
+        }
+        .fixedSize()
     }
 }
 
@@ -186,23 +207,6 @@ struct RecommendedBadge: View {
             .padding(.horizontal, 9).padding(.vertical, 4)
             .background(Color.rasan.opacity(0.13), in: Capsule())
             .accessibilityLabel(text)
-    }
-}
-
-struct DecidedLine: View {
-    @Environment(\.agentName) private var agent
-    let decision: String
-    var by: Bool?
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color(nsColor: .systemGreen))
-            (Text("Decided: ").fontWeight(.semibold) + Text(decision))
-                .font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
-            if let by { Text(by ? "· you" : "· \(agent)").font(.system(size: 12)).foregroundStyle(.secondary) }
-        }
-        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .systemGreen).opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .accessibilityElement(children: .combine)
     }
 }
 

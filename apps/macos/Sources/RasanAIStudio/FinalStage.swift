@@ -41,12 +41,15 @@ struct FinalStage: View {
         // The same editor layout as the animatic: the player fills the space, the scenes run as a filmstrip under it,
         // notes live in the inspector, and the call's action sits in the bar at the bottom.
         VStack(spacing: Workspace.gap) {
-            VStack(alignment: .leading, spacing: 6) {
-                CrewByline(step: "final").padding(.bottom, 4)
-                Text(notRendered ? "Ready to render." : "Watch the final cut.").font(.system(size: 30, weight: .semibold)).tracking(-0.3)
-                Text(notRendered ? "Make a quick preview first, or render the full-quality final."
-                     : "Leave a note where something should change, or export when it feels right.")
-                    .font(.system(size: 15)).foregroundStyle(.secondary)
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    CrewByline(step: "final").padding(.bottom, 4)
+                    Text(notRendered ? "Ready to render." : "Watch the final cut.").font(.system(size: 30, weight: .semibold)).tracking(-0.3)
+                    Text(notRendered ? "Make a quick preview first, or render the full-quality final."
+                         : "Leave a note where something should change, or export when it feels right.")
+                        .font(.system(size: 15)).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 12)
             }
             .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, .filmInset).padding(.top, 10).padding(.bottom, 4)
             .accessibilityElement(children: .combine).accessibilityAddTraits(.isHeader)
