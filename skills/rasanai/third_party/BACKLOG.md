@@ -54,7 +54,7 @@ Rules that hold for every item:
 - mortiflix 7: per-line voice recording booth for the user's own narration (hold-to-talk, clipped/quiet/too short flags, takes per line) in Studio. M to L. AGPL: idea only.
 - mortiflix 8: original-score engine (Strudel, harmony lock, intensity curve against the blueprint, MIDI). L, heavy, optional. AGPL: idea only.
 - mortiflix 9: publish approved films (Upload-Post or Postiz). M, probably out of scope.
-- lemo 12: original score and foley from an event list (97 CC0 instruments; pluck.py needs numba, banned, so a Node engine). L, low priority. Source: lemo-opuscar (MIT).
+- lemo 12: original score and foley from an event list: the Node synthesis engine is DONE (W8: `scripts/original-score.mjs`, `references/procedural-music.md`); still open: a licence-verified CC0 instrument sample library (97 CC0 instruments in lemo-opuscar, each licence to verify) to replace the synthesised voices. L, low priority. Source: lemo-opuscar (MIT).
 - lemo 11: offline narration fallback (Kokoro or edge-tts) appears DONE: `scripts/voice.mjs` mentions both. Verify the model licence is recorded in `SOURCES.md`. S.
 - group2 19: mocap puppet for the cartoon route (with B2). M to L. group2 21: first and last frame generated plates (gbro idea), only for a generative-video route. L, optional. group2 22: the small items above.
 - animate 4: seamless-loop check for reels (`review.mjs` LOOP: diff(last, first) at most the typical consecutive diff; audio tail folded). S, low.

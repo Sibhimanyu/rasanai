@@ -223,8 +223,9 @@ MIT / Apache-2.0: we may copy or adapt with credit (LICENSE copy plus NOTICE in 
   - The shape of STYLE.md (essence and what it is not, materials, ...) as DESIGN.md "Motion and camera": the structure, not the text.
   - Idea only, our code: render slot limiter (`scripts/lib/slot.mjs`), CJK reading time (`scripts/lib/reading.mjs`), ASR per line on the final mix (`voice.mjs verify --mix`), leak scan (`video.mjs deliver`), `sfx-in-break` and `sfx-on-word-onset` (`sound.mjs`), white flash cap (`frame-guards.mjs flash-over-cap`), GTAO and bokeh in Rasan3D (`stage3d/`), film shape and last-three-films rule (`scripts/lib/film-shape.mjs`, `camera-moves.mjs`).
 - Idea only, our code (W7): user-owned reusable styles with a visual test (`MY-STYLES.md`): `scripts/custom-style.mjs`, `scripts/lib/custom-style.mjs`, `scripts/lib/style-film.mjs`, `references/custom-styles.md`. No text, code, media or styles taken; the library lives in the user's own folder, never committed.
+- Idea only, our code (W8): an original score and foley scheduled from an event list (lemo-opuscar's score/sampler idea; opus-video-skills kinetic-reel's picture-cue-driven synthesis): `scripts/original-score.mjs`, `scripts/lib/procedural-score.mjs`, `references/procedural-music.md`. Pure sine / triangle / noise synthesis in Node; no sample, instrument library, code or audio taken (the 97 CC0 instruments were not imported: no licence-verified library is shipped).
 - DECLINED: demo code, engines, audio, fonts, voices, DEMO.md files, the other 38 styles, the sound palettes and pitfall sections.
-- PLANNED: R1 lemo 11 offline narration fallback (Kokoro or edge-tts; check the model licence), lemo 12 sampled score (L, low). BACKLOG.md.
+- PLANNED: R1 lemo 11 offline narration fallback (Kokoro or edge-tts; check the model licence), lemo 12 sampled score (the synthesised Node engine is done in W8; sampled instruments stay planned, L, low). BACKLOG.md.
 
 ## no-slop-motion
 

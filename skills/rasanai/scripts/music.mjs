@@ -10,7 +10,11 @@
 //        [--intents "one|two|three"] [--style "<visual style words>"] [--story "<arc / tone words>"]
 //        [--format launch|explainer|reel|kinetic|brand|premium] [--narrated] [--count 3]
 //        [--track <file or folder with stems> [--library artlist|epidemic|epidemic-connect|musicbed|...] [--declared "<where it is licensed>"] [--more]]
-//        [--sources user,ai,catalog,heygen,ccmixter,openverse] [--no-ai] [--pick <catalog id>] [--no-preview]
+//        [--sources user,ai,catalog,heygen,ccmixter,openverse,procedural] [--no-ai] [--pick <catalog id>] [--no-preview]
+//        [--procedural [--identity <file>] [--seed <n>]] [--silent-by-choice "<reason>"]
+//   procedural = an original score synthesised offline to the film's events (scripts/original-score.mjs, references/procedural-music.md): an explicit choice (--procedural,
+//   or "procedural" in --sources: it comes right after the user's own track) and the offline fallback when nothing else was usable. The user's own track always wins;
+//   --silent-by-choice makes no music at all.
 //        [--hits "1.2,4.8,9.0" | --events <events.json>] [--no-hit-tempo]
 //   The tempo comes from the picture when it has 3 or more hit times (--hits, --events, the score's hits/events/seams, or a real music_arc's drop, payoff and
 //   button): 70-140 BPM is scanned and the tempo whose worst hit sits closest to a beat wins (ties go to the style's own range), instead of the style's
@@ -40,6 +44,7 @@ import { track } from "./lib/report.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
 import { loadManifest, presentManifest, hitTimes as manifestHits } from "./lib/film-events.mjs";
 import { analyzeTrack, summarize, fitTrack, renderPlan, toolsAvailable, bpmFromHits, treatHits } from "./lib/audio.mjs";
+import { resolveIdentity, renderScore, identityPlan, sidecarPath, readSidecar } from "./lib/procedural-score.mjs";
 import { KEYS, PRIOR, sourceChain, licenceNote, findUserTrack, judge, readArc, buildPrompt, elevenPlan, loadCatalog, validateCatalog, pickFromCatalog, creditsText } from "./lib/music-lib.mjs";
 
 const args = parseArgs();
@@ -48,7 +53,7 @@ const ws = process.cwd();
 const rel = (p) => path.relative(ws, p) || p;
 
 if (mode === "chain") {
-  console.log(JSON.stringify(sourceChain(process.env, { user: !!args.track, noAi: !!args["no-ai"], sources: args.sources ? String(args.sources).split(",").map((s) => s.trim()).map((s) => (s === "curated" ? "catalog" : s)) : null }), null, 2));
+  console.log(JSON.stringify(sourceChain(process.env, { user: !!args.track, noAi: !!args["no-ai"], procedural: !!args.procedural, sources: args.sources ? String(args.sources).split(",").map((s) => s.trim()).map((s) => (s === "curated" ? "catalog" : s)) : null }), null, 2));
   process.exit(0);
 }
 if (mode === "gate") {
@@ -108,7 +113,7 @@ const dir = path.resolve(String(args.run), "music");
 fs.mkdirSync(dir, { recursive: true });
 const notes = [];
 const narrated = !!args.narrated;
-const chain = sourceChain(process.env, { user: !!args.track, noAi: !!args["no-ai"], sources: args.sources ? String(args.sources).split(",").map((s) => s.trim()).map((s) => (s === "curated" ? "catalog" : s)) : null });
+const chain = sourceChain(process.env, { user: !!args.track, noAi: !!args["no-ai"], procedural: !!args.procedural, sources: args.sources ? String(args.sources).split(",").map((s) => s.trim()).map((s) => (s === "curated" ? "catalog" : s)) : null });
 const on = (id) => (chain.find((c) => c.id === id) || {}).on;
 const scoreFile = path.resolve(String(args.run), "motion", "score.json");
 const { arc, derived: arcDerived } = readArc(args.arc || (fs.existsSync(scoreFile) ? scoreFile : null), film || 30);
@@ -212,13 +217,14 @@ function pictureHits() {
     if (p.manifest) fromManifest = p.manifest;
     else if (p.reason) notes.push(`motion/events.json ignored (${p.reason}); the score's own hits are used`);
   }
-  if (fromManifest) { for (const h of manifestHits(fromManifest)) add(h.t, h.kind); notes.push("picture hit times from the film-event manifest (motion/events.json)"); return rows.filter((r) => !film || r.t <= film); }
+  if (fromManifest) { eventsInput = fromManifest; for (const h of manifestHits(fromManifest)) add(h.t, h.kind); notes.push("picture hit times from the film-event manifest (motion/events.json)"); return rows.filter((r) => !film || r.t <= film); }
   try { if (args.events && args.events !== true) { const E = JSON.parse(fs.readFileSync(String(args.events), "utf8")); lists.push(Array.isArray(E) ? E : E.events || []); } } catch {}
   try { if (fs.existsSync(scoreFile)) { const S = JSON.parse(fs.readFileSync(scoreFile, "utf8")); for (const k of ["hits", "events", "seams"]) if (Array.isArray(S[k])) lists.push(S[k]); } } catch {}
   for (const l of lists) for (const e of l) if (e && typeof e === "object") add(e.t ?? e.at ?? e.start ?? e.start_s, e.kind || e.type || e.id);
   if (!arcDerived) { add(arc.drop_at, "drop"); add(arc.payoff_at, "payoff"); add(arc.button_at, "button"); if (arc.break) add(arc.break[1], "break-end"); }
   return rows.filter((r) => !film || r.t <= film);
 }
+let eventsInput = null; // the film-event manifest (or a list built from the picture's hits) the original score is scheduled from
 const HITS = pictureHits();
 const hitCache = new Map();
 const hitPick = (it) => {
@@ -370,6 +376,26 @@ async function fromAI() {
     const file = path.join(dir, `${id}.${got.ext}`);
     fs.writeFileSync(file, got.bytes);
     found.push({ id, title: `Made to the cut: ${it.family.id.replace("-", " ")}, ${bpm} BPM`, file, source: `AI generation (${got.vendor})`, kind: "ai", origin: `ai:${got.vendor}`, license: "Commercial use under the vendor plan active at generation time", attribution: null, url: null, intent: it, targetBpm: bpm, generation: { vendor: got.vendor, prompt: got.prompt, request: got.request, date: new Date().toISOString(), plan_note: "the licence depends on the vendor plan at this date: record the plan" } });
+  }
+}
+
+// the original score: synthesised offline, in Node, from the film-event manifest (or the picture's own hit times and the arc's cues)
+async function fromProcedural() {
+  if (!film) { notes.push("an original procedural score needs --film <seconds>"); return; }
+  try {
+    const input = eventsInput || { duration_s: film, events: [...HITS.map((h, i) => ({ id: `hit-${i + 1}`, t: h.t, kind: h.kind })), ...(arcDerived ? [] : [["drop_at", arc.drop_at], ["payoff_at", arc.payoff_at], ["button_at", arc.button_at]].filter(([, t]) => Number.isFinite(Number(t)) && Number(t) > 0).map(([cue, t]) => ({ id: `music-${cue.replace(/_at$/, "")}`, at_s: Number(t), kind: "music_cue", cue })))] };
+    const identity = resolveIdentity(args.identity && args.identity !== true ? path.resolve(String(args.identity)) : null, { look: args.style, story: args.story, seed: args.seed, narrated: narrated || null });
+    const r = renderScore(input, identity, { duration: film });
+    const id = `procedural-${identity.family}`;
+    const file = path.join(dir, `${id}.wav`);
+    fs.writeFileSync(file, r.wav);
+    const prov = r.provenance;
+    fs.writeFileSync(sidecarPath(file), JSON.stringify({ schema_version: 1, origin: "procedural", wav: path.basename(file), sha256: crypto.createHash("sha256").update(r.wav).digest("hex"), sr: r.plan.sr, duration_s: r.plan.duration_s, fps: r.plan.fps, bpm: r.plan.bpm, key: r.plan.key, seed: r.plan.seed, identity: r.plan.identity, sections: r.plan.sections, hits: r.plan.hits, pause: r.plan.pause, gates: r.plan.gates, ending: r.plan.ending, foley: r.plan.foley, samples_used: [], license: prov, quality_downgrade: prov.quality_downgrade }, null, 2) + "\n");
+    noteDowngrade({ run: args.run, what: "sampled instruments in the original score", instead: "synthesised sine / triangle / noise voices", why: "no licence-verified instrument sample library ships with the skill", impact: "thinner than a produced track; pass --track <file> to use a real one" });
+    notes.push(`original score: ${identity.family}, ${r.plan.bpm} BPM, ${r.plan.key}, seed ${r.plan.seed}; peak hit ${r.plan.hits[0] ? `${r.plan.hits[0].id} at ${r.plan.hits[0].at_s} s` : "none (no drop cue or hit to build on)"}; quality downgrade recorded (synthesised voices, not sampled instruments)`);
+    found.push({ id, title: `Original score: ${identity.family.replace("-", " ")}, ${r.plan.bpm} BPM, ${r.plan.key}`, file, source: "Original score (RasanAI, generated offline)", kind: "procedural", prior: procChain.explicit ? "ai" : "procedural", origin: "procedural", license: "Original work generated from code; no third-party material", requires_credit: false, attribution: null, url: null, intent: { family: { id: identity.family }, intent: "original score to the film's events" }, samples_used: [] });
+  } catch (e) {
+    notes.push(`original score failed: ${String(e.message).slice(0, 200)}`);
   }
 }
 
@@ -532,9 +558,18 @@ const analyzeOne = (f) => {
     o.sections = A.sections.map((s) => ({ t0: s.t0, t1: s.t1, tier: s.tier, label: s.label }));
     o.problems = [...A.problems];
     o.warnings = [...A.warnings];
+    if (f.kind === "procedural") {
+      // the generator knows its own tempo and grid, and the track is never re-cut on bar lines: the beat tracker's drift reading is not a defect here
+      const ps = readSidecar(f.file);
+      if (ps) o.bpm = ps.bpm;
+      o.problems = o.problems.filter((p) => !/^tempo is not steady/.test(p));
+      o.warnings.push("synthesised voices (sine / triangle / noise), not sampled instruments: a recorded quality downgrade; the user's own track always wins");
+    }
     let plan = null;
     if (film) {
-      plan = fitTrack(A, { film, ...(arcDerived ? {} : { reveal: arc.drop_at, logo: arc.button_at }) });
+      // a procedural score is already the film's length and built to its events: its own plan, never re-cut on bar lines (that would move its hits)
+      const ps = f.kind === "procedural" ? readSidecar(f.file) : null;
+      plan = ps ? { ...identityPlan(f.file, { duration_s: film, ending: ps.ending, hits: ps.hits }), cost: 0 } : fitTrack(A, { film, ...(arcDerived ? {} : { reveal: arc.drop_at, logo: arc.button_at }) });
       const planFile = path.join(dir, `plan-${f.id}.json`);
       fs.writeFileSync(planFile, JSON.stringify(plan, null, 2) + "\n");
       o.fit = { shape: plan.shape, film_duration: plan.film_duration, needs_longer: !!plan.needs_longer, cost: plan.cost ?? null, why: plan.why, plan: rel(planFile) };
@@ -568,20 +603,26 @@ const analyzeOne = (f) => {
   return o;
 };
 
+const silentByChoice = !!args["silent-by-choice"];
+if (silentByChoice) notes.push(`--silent-by-choice${args["silent-by-choice"] !== true ? ` (${args["silent-by-choice"]})` : ""}: no music is looked for or made`);
 const usableCount = () => options.filter((o) => o.usable).length;
 const mineFirst = () => !!args.track && !args.more && options.some((o) => o.usable && o.origin === "user");
 const runSource = async (name, fn) => {
   if (!on(name) || usableCount() >= count || mineFirst()) return;
+  if (silentByChoice) return;
   const before = found.length;
   await fn();
   for (const f of found.slice(before)) options.push(analyzeOne(f));
 };
 await runSource("user", fromUser);
+const procChain = chain.find((c) => c.id === "procedural");
+if (procChain.explicit) await runSource("procedural", fromProcedural);
 await runSource("ai", fromAI);
 await runSource("catalog", fromCatalog);
 await runSource("heygen", fromHeygen);
 await runSource("ccmixter", fromCcmixter);
 await runSource("openverse", fromOpenverse);
+if (procChain.fallback && usableCount() === 0 && !mineFirst()) await runSource("procedural", fromProcedural);
 
 // licence ledger: everything a credit or an audit needs
 const ledgerFile = path.join(dir, "LICENSES.json");
@@ -591,7 +632,7 @@ try {
 } catch {}
 for (const o of options) {
   const f = found.find((x) => x.id === o.id) || {};
-  const row = { id: o.id, file: o.file, title: f.bare_title || o.title, artist: o.artist || null, origin: o.origin, source: o.source, license: o.license, licence_url: o.licence_url || null, requires_credit: o.requires_credit ?? null, credit: o.credit || o.attribution || null, attribution: o.attribution, url: o.url, sha256: o.sha256 || null, commercial_ok: o.commercial_ok ?? null, ads_ok: o.ads_ok ?? "unknown", content_id_risk: o.content_id_risk || "unknown", declared: o.declared || null, library: o.library || null, generation: f.generation || null, checked_on: new Date().toISOString().slice(0, 10), fetched: new Date().toISOString() };
+  const row = { id: o.id, file: o.file, title: f.bare_title || o.title, artist: o.artist || null, origin: o.origin, source: o.source, license: o.license, licence_url: o.licence_url || null, requires_credit: o.requires_credit ?? null, credit: o.credit || o.attribution || null, attribution: o.attribution, url: o.url, sha256: o.sha256 || null, commercial_ok: o.commercial_ok ?? null, ads_ok: o.ads_ok ?? "unknown", content_id_risk: o.content_id_risk || "unknown", declared: o.declared || null, library: o.library || null, ...(o.origin === "procedural" ? { samples_used: [] } : {}), generation: f.generation || null, checked_on: new Date().toISOString().slice(0, 10), fetched: new Date().toISOString() };
   const i = ledger.findIndex((l) => l.id === o.id);
   if (i >= 0) ledger[i] = row;
   else ledger.push(row);
