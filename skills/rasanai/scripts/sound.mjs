@@ -74,6 +74,7 @@ import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
 import { KEYS } from "./lib/music-lib.mjs";
 import { isManifest, loadManifest, legacyEvents } from "./lib/film-events.mjs";
+import { readSidecar, identityPlan } from "./lib/procedural-score.mjs";
 import {
   analyzeTrack, publicAnalysis, summarize, fitTrack, renderPlan, masterFile, probeSfx, loudness, loudnessOver,
   decode, findRepeats, onsetProfile, onsetTimes, cutOnsetShare, lowShare, windowDb, audioFingerprint, compareFingerprint, renderTexture, SFX_BUDGET, sfxMode, sfxLimit, sfxOver, momentaryDb, designedBreaks, speechPhrases, phrasesFromWords, splitEdits, hasAudioStream, probeDuration, requireTools, r1, r3, SR,
@@ -899,9 +900,13 @@ if (cmd === "analyze") {
     const r = sc.scenes.find((s) => /product_intro|reveal/i.test(s.type) || /\breveal/i.test(s.title));
     if (r) reveal = r.start;
   }
-  const A = analyzeTrack(f, { quick: true });
-  const plan = fitTrack(A, { film, reveal, logo, scenes: sc ? sc.scenes : null, flex: args.flex, softStart: !!args["soft-start"], xfade: args.xfade, preroll: args.preroll });
-  plan.track_summary = summarize(A);
+  // an original procedural score (original-score.mjs) is already the film's length and built to its events: its own plan goes through the
+  // same fit / render / check, never re-cut on bar lines (that would move its hits off the picture)
+  const side = readSidecar(f);
+  const exact = side && Math.abs(side.duration_s - film) <= 0.05 ? side : null;
+  const A = exact ? null : analyzeTrack(f, { quick: true });
+  const plan = exact ? { ...identityPlan(f, { duration_s: film, ending: exact.ending, hits: exact.hits }), track_summary: `original procedural score (${exact.key}, ${exact.bpm} BPM, seed ${exact.seed}), ${exact.sections.length} sections`, license: exact.license } : fitTrack(A, { film, reveal, logo, scenes: sc ? sc.scenes : null, flex: args.flex, softStart: !!args["soft-start"], xfade: args.xfade, preroll: args.preroll });
+  if (!exact) plan.track_summary = summarize(A);
   if (args.out) {
     writeFile(path.resolve(String(args.out)), JSON.stringify(plan, null, 2) + "\n");
     plan.render = `node ${path.relative(process.cwd(), process.argv[1])} render --plan ${args.out} --out <bed.wav>`;

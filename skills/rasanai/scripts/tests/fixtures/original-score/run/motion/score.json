@@ -1,0 +1,14 @@
+{
+  "_synthetic": "SYNTHETIC TEST FIXTURE: a made-up 20 s film with no real product, claim or number. Never ship it.",
+  "duration": 20, "fps": 30, "brand": "Synthetic Example Co",
+  "music_arc": { "intro_until": 3, "drop_at": 8, "break": [7.5, 8], "payoff_at": 15, "button_at": 19 },
+  "scenes": [
+    { "n": 1, "id": "open", "start": 0, "end": 8, "duration": 8, "line": "", "events": [ { "id": "e-key", "t": 1.2, "what": "synthetic key press", "sound": "key" }, { "id": "e-key2", "t": 4.5, "what": "synthetic tap", "sound": "tap" } ] },
+    { "n": 2, "id": "reveal", "start": 8, "end": 15, "duration": 7, "line": "", "events": [ { "id": "e-reveal", "t": 0, "what": "synthetic reveal", "sound": "reveal" }, { "id": "e-count", "t": 3.1, "what": "synthetic counter", "sound": "tick" } ] },
+    { "n": 3, "id": "close", "start": 15, "end": 20, "duration": 5, "line": "", "events": [ { "id": "e-logo", "t": 4, "what": "synthetic logo lands", "kind": "logo" } ] }
+  ],
+  "seams": [
+    { "from": 1, "to": 2, "kind": "cut" },
+    { "from": 2, "to": 3, "kind": "shared-element", "sound": "whoosh" }
+  ]
+}
