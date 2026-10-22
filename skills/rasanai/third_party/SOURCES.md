@@ -207,6 +207,7 @@ MIT / Apache-2.0: we may copy or adapt with credit (LICENSE copy plus NOTICE in 
 - Licence: MIT. Lets us: copy or adapt with credit. We copied nothing.
 - Credit location: none (comments name it). If anything is copied later, add `third_party/claude-animation-base/`.
 - TOOK (idea only): avoid twinning (`scripts/obey.mjs`, "avoid twinning" warning); review at three zooms: sheet, strip, crop (`references/crew.md`, `crew.mjs strip --crop`); "write the reads" timing (reading-time per beat, `references/intent.md` `read`); the end rhymes with the opening (`scripts/lib/echo.mjs`); "something happens in every scene" (critic checklist, unverified).
+- W4 (idea only, our code): timed per-scene `reads[]` (notice, action, reaction, payoff) checked by `scripts/reads.mjs` and `scripts/lib/reads.mjs`, reviewed on four-position sheets (`references/reads.md`).
 - DECLINED: the p5.js plus p5.brush toolchain and the boil system.
 - PLANNED: P3.2 hand-drawn cartoon route (p5.js, acted emotions, boil reseeded 12 times a second, no pure black or white), with the mocap puppet idea from OpenMontage (group2 19). BACKLOG.md.
 

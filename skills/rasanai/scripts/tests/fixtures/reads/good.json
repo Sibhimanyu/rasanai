@@ -1,0 +1,37 @@
+{
+  "_fixture": "SYNTHETIC test fixture: invented scene, no product claim",
+  "scenes": [
+    {
+      "n": 3,
+      "id": "03",
+      "start": 6,
+      "duration": 4.2,
+      "reads": [
+        {
+          "id": "notice",
+          "t0": 0,
+          "t1": 0.8,
+          "kind": "notice",
+          "subject": "actor sees falling cup",
+          "visual_cue": "eyes turn to cup"
+        },
+        {
+          "id": "action",
+          "t0": 0.8,
+          "t1": 2,
+          "kind": "action",
+          "subject": "actor reaches",
+          "visual_cue": "crouch then reaching arm"
+        },
+        {
+          "id": "reaction",
+          "t0": 2,
+          "t1": 3.3,
+          "kind": "reaction",
+          "subject": "actor realizes cup is gone",
+          "visual_cue": "gaze, take, final pose"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "_fixture": "SYNTHETIC test fixture: invented scene, no product claim",
+  "scenes": [
+    {
+      "n": 1,
+      "id": "01",
+      "start": 0,
+      "duration": 3,
+      "reads": [
+        {
+          "id": "a",
+          "t0": 2,
+          "t1": 1,
+          "kind": "wink",
+          "subject": "x",
+          "visual_cue": "y"
+        }
+      ]
+    }
+  ]
+}

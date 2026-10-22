@@ -8,7 +8,7 @@ import { destinationOf, zonesFor, boxInZones } from "./safezones.mjs";
 export const SC = { min_states_complex: 3, hold_s: 0.6, hold_picture_s: 1.0, zone_share: 0.2 };
 
 // the same list as the motion gate's result-unheld: a seam that carries the result forward needs no separate hold
-const CARRY_KINDS = new Set(["push-through", "camera-through", "zoom-through", "carried-object", "shared-element", "whip", "match-cut", "signature"]);
+export const CARRY_KINDS = new Set(["push-through", "camera-through", "zoom-through", "carried-object", "shared-element", "whip", "match-cut", "signature"]);
 const num = (x) => (Number.isFinite(Number(x)) && x !== null && x !== "" ? Number(x) : null);
 const r2 = (x) => Math.round(x * 100) / 100;
 const castIn = (s, side) => (s && s.cast_state && s.cast_state[side] && typeof s.cast_state[side] === "object" ? s.cast_state[side] : {});
@@ -37,6 +37,16 @@ function readBrief(run) {
   try { return run ? JSON.parse(fs.readFileSync(path.join(run, "brief.json"), "utf8")) : {}; } catch { return {}; }
 }
 
+// the held-result rule, shared with reads.mjs: the last state (or the payoff read) at `last` s of `dur` s leaves less than the hold,
+// unless the scene hands its result on through a carrying seam -> { need, left, picture } or null
+export function unheldResult(scene, score, { last, dur, picture = false }) {
+  if (last === null || last === undefined || dur === null || dur === undefined) return null;
+  const so = (Array.isArray(score.seams) ? score.seams : []).find((x) => Number(x.from) === Number(scene.n));
+  const skip = so && (CARRY_KINDS.has(so.kind) || so.relation === "so");
+  const need = picture ? SC.hold_picture_s : SC.hold_s;
+  return !skip && dur - last < need ? { need, left: dur - last, picture } : null;
+}
+
 export function sceneContractChecks(score, { intent = null, run = null } = {}) {
   const W = [];
   const S = Array.isArray(score.scenes) ? score.scenes : [];
@@ -59,11 +69,9 @@ export function sceneContractChecks(score, { intent = null, run = null } = {}) {
     const imp = num(s.importance) ?? num(beats[i] && beats[i].importance) ?? 0;
     const last = sceneLast(s);
     if (imp >= 2 && last !== null && dur !== null) {
-      const so = seamOut(s.n);
-      const skip = so && (CARRY_KINDS.has(so.kind) || so.relation === "so");
       const picture = beats[i] && beats[i].read && beats[i].read.kind === "picture";
       const need = picture ? SC.hold_picture_s : SC.hold_s;
-      if (!skip && dur - last < need) W.push(`result-unheld-plan: scene ${s.n} (${s.id}, importance ${imp}): its last state (or peak_t) is at ${r2(last)} s of ${r2(dur)} s, leaving ${r2(dur - last)} s to see the result (${need} s${picture ? ": 1.0 for a picture read" : ""})`);
+      if (unheldResult(s, score, { last, dur, picture })) W.push(`result-unheld-plan: scene ${s.n} (${s.id}, importance ${imp}): its last state (or peak_t) is at ${r2(last)} s of ${r2(dur)} s, leaving ${r2(dur - last)} s to see the result (${need} s${picture ? ": 1.0 for a picture read" : ""})`);
     }
     for (const side of ["in", "out"]) for (const id of Object.keys(castIn(s, side))) {
       if (!castIds.has(id)) W.push(`cast-undeclared: scene ${s.n} cast_state names ${id}, which is not in score.cast`);

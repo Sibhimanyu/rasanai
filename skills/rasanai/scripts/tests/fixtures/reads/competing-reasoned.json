@@ -1,0 +1,39 @@
+{
+  "_fixture": "SYNTHETIC test fixture: invented scene, no product claim",
+  "scenes": [
+    {
+      "n": 2,
+      "id": "02",
+      "start": 0,
+      "duration": 5,
+      "reads": [
+        {
+          "id": "action",
+          "t0": 0.5,
+          "t1": 3,
+          "kind": "action",
+          "subject": "actor jumps",
+          "visual_cue": "big jump arc",
+          "continuity": "motion-carried"
+        },
+        {
+          "id": "card",
+          "t0": 1,
+          "t1": 4,
+          "kind": "text",
+          "text": "Ready when you are",
+          "subject": "title card",
+          "visual_cue": "card fades in"
+        },
+        {
+          "id": "reaction",
+          "t0": 4,
+          "t1": 4.8,
+          "kind": "reaction",
+          "subject": "lands",
+          "visual_cue": "final pose"
+        }
+      ]
+    }
+  ]
+}

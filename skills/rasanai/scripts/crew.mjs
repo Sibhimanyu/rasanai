@@ -87,6 +87,7 @@ import { loadIntent, validateIntent, applyEdits, applyToScript, readSeconds } fr
 import { budgetChecks, intentBeats } from "./lib/emphasis.mjs";
 import { cameraKind } from "./lib/camera-moves.mjs";
 import { sceneContractChecks } from "./lib/scene-contract.mjs";
+import { readsChecks } from "./lib/reads.mjs";
 import { eventsPath, loadManifest, exportRun } from "./lib/film-events.mjs";
 
 const args = parseArgs();
@@ -1743,6 +1744,7 @@ function checkScore(run) {
   if (sig > maxSig) T("signature-count", `${sig} signature seams (${maxSig} at most for a ${Math.round(length)} s film)`);
   if (seams.length && plain / seams.length < 0.5) T("seam-mix", `only ${Math.round((plain / seams.length) * 100)}% of seams are cuts or scene-born continuity (at least 50%)`);
   { const sc = sceneContractChecks(score, { intent: jsonMaybe(R(run, "story", "intent.json")) || null, run }); W.push(...sc.W); }
+  { const rd = readsChecks(score, { run }); P.push(...rd.P); W.push(...rd.W); } // W4: optional timed reads[] (references/reads.md); every named finding is a warning
   return { P, W };
 }
 

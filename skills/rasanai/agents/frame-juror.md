@@ -51,6 +51,10 @@ If `frames.mjs gate` is installed, run `node "$SKILL_DIR/scripts/frames.mjs" gat
 
 Done when `node "$SKILL_DIR/scripts/crew.mjs" check --run "$RUN" --role frame-juror --key <key>` exits 0.
 
+## Reads (scenes with a `reads[]`)
+
+When the run has `review/reads/<scene>-sheet.png` (four positions: entry, action, reaction, hold), judge them on the image as well, subjectively, each with a timestamp and visible evidence: can a first-time viewer tell what happened without the storyboard? does the reaction occur after the cause? can the emotion and the object be seen at final size? was the payoff held long enough (the hold frame still shows it)? Name the frame and the edit. A passing `reads.mjs check` proves only structure and text time, never understanding.
+
 ## Never
 
 - Never redesign a frame yourself; write the fix.

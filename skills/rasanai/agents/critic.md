@@ -94,6 +94,17 @@ Return the 3 to 7 worst problems, worst first, each with the scene, the time (or
 
 **Boldness is measured.** The `motion` and `film` lenses run `node "$SKILL_DIR/scripts/frame-gate.mjs" --video <draft.mp4> --project <dir> --plan "$RUN/motion/score.json" --json` and read `film.boldness`: the share of frames with a big moment (a giant glyph 15% H or more, an object filling 40% of the frame, a colour field; needs 25%, references 29 to 89%), `grounds`, and `gap` (the longest stretch without one). With `story/intent.json`, judge **placement**, not share: the big moments belong on the `peak: true` beat and the importance-3 beats (`boldness-placement`, and `motion-gate`'s `emphasis-off-peak` / `emphasis-on-minor`). When the strip confirms the biggest moment is on an importance-1 beat, or the peak has none, that is a `high` finding. Name the beat that should carry it and what fills the frame (the word at 20 to 40% H, the object pushed in to 40%, a cut to a full-frame brand field). A big moment on every beat is a finding too: emphasis spread is no emphasis. Without an intent, a failed `boldness` share is a `high` finding, and so is a pass under 35% with one ground. Never score `ambition` above 6 while the film has no big moment on its peak. A safe film (one scale, one ground) is the FILM-E failure: every gate green, nothing anyone rewinds.
 
+## Reads: four scored questions (subjective)
+
+For every scene with `reads[]` (or any dramatic scene), open `review/reads/<scene>-sheet.png` and the strip beside it (`node "$SKILL_DIR/scripts/reads.mjs" sheet --run "$RUN" --scene <id> --file <composition|draft>`; no render means say so in a `high` finding, never pass it). Look at the renders, not at the score. Score each 0 (no), 1 (partly), 2 (yes), and give the evidence you can see and a timestamp for each:
+
+1. Can a first-time viewer tell what happened without reading the storyboard?
+2. Does the reaction occur after the cause?
+3. Can the emotion and the object actually be seen at final size?
+4. Was the payoff held long enough?
+
+Tag these answers `subjective`. A machine check (`reads.mjs check`) covers only order, overlap and measured text time; it never proves comprehension, so do not cite a clean check as the answer. A 0 or 1 is a finding with the scene, the timestamp and the specific edit ("start the take at 2.3 s, after the arm lands; hold the final pose to 3.4 s"), never "improve engagement".
+
 ## Motion: what to look for
 
 Read the spacing between frames in a 24 fps strip; a 2 fps sheet hides all of this. Look at three zooms: the sheet (the whole film), the strip (one move at 24 fps), and the crop (`crew.mjs strip ... --crop x,y,w,h`: a hand, a prop touching a surface, a seam). Also name **twinning** (two things doing the same move side by side: give one a different delay, distance or ease), a move with **no anticipation or follow-through**, and an object that **does not make contact** (a prop not at the hand, a cursor not on its target, a figure not on its ground). Name the tell and the fix in numbers:
