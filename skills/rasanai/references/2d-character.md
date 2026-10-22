@@ -51,6 +51,8 @@ Rasan2D.stage({ id, canvas, timeline, duration, seed, sequence, canons, look });
 
 At 1080p the actor reads as a charming original character, not a box: clear silhouette, a face that changes with the emotion, planted feet, a reaction that is held long enough to read. Look at `stage2d.mjs sheet` and `strips` output before building scenes, and at the 24 fps strip of each hero action. `stage2d.mjs check` fails: a missing or invalid canon, a copied design, unseeded randomness or a clock, an actor out of frame, a missing runtime, a frame that is not seek-safe, an unseeded boil, a slid planted foot. It warns: poses near their limits, a shot with no action, a slow frame.
 
+**Finishing.** The scene root carries `data-finish-blur="off"`, so `finish.mjs` leaves a Rasan2D scene unblurred (a shutter would average two boil drawings into a dissolve); the grade still applies. See [finish](finish.md).
+
 ## Not built yet
 
 Talking (mouth shapes for speech), cloth and hair simulation, outfits beyond the palette, a mocap puppet. `formats.json` says `partial` for that reason.

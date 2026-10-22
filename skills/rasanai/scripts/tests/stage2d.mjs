@@ -109,6 +109,13 @@ export default async function ({ ok, node, tmp, env }) {
   const proj = path.join(tmp, "film-2d"), comp = path.join(proj, "compositions", "frames", "01-film.html");
   const sc = run(["scaffold", "--project", proj, "--frame", "01-film", "--duration", "15", "--sequence", path.join(FX, "demo-sequence.json"), "--canon", path.join(FX, "original-actor.json")]);
   ok("stage2d: install + scaffold write the composition and assets/rasan2d/ (four runtime files)", sc.status === 0 && fs.existsSync(comp) && lib2d.RUNTIME_FILES.every((f) => fs.existsSync(path.join(proj, "assets", "rasan2d", f))), sc.stderr.slice(0, 200));
+  // finish.mjs auto-sharp: the painted look is drawn on twos (12 drawings a second), so the film finish must leave a Rasan2D scene unblurred (a shutter would turn the steps into dissolves)
+  {
+    const { sharpRanges } = await import(pathToFileURL(path.join(S, "lib", "sharp.mjs")).href);
+    fs.writeFileSync(path.join(proj, "index.html"), `<div data-composition-id="root"><div id="s1" data-composition-id="01-film" data-composition-src="compositions/frames/01-film.html" data-start="0" data-duration="15" data-track-index="0"></div></div>`);
+    const rg = sharpRanges(proj, {}), rgOff = sharpRanges(proj, { "no-auto-sharp": true });
+    ok("stage2d: finish.mjs auto-sharp leaves a Rasan2D scene unblurred (the scene root carries data-finish-blur=off; --no-auto-sharp turns it off)", rg.length === 1 && rg[0][0] === 0 && rg[0][1] === 15 && rgOff.length === 0, JSON.stringify(rg));
+  }
   const st = run(["stills", "--file", comp, "--at", "1,2.5,3.8,9.5,13.5", "--out", path.join(tmp, "stills")]);
   const sj = json(st);
   ok("stage2d: stills renders the requested times to PNGs without errors", st.status === 0 && (sj.frames || []).length === 5 && sj.frames.every((f) => fs.statSync(path.resolve(f)).size > 50000), st.stdout.slice(0, 300) + st.stderr.slice(0, 200));

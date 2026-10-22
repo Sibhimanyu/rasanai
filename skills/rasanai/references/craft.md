@@ -761,3 +761,13 @@ Every Claude-decided step is pushed `--status done` with a `decision` a person c
 - Report what a person could have an opinion on: the route, scenes and length, pacing and rhythm, transitions, camera, lighting and grade, the sound plan, the cursor and UI treatment, and **any rule in this file you broke on purpose, with why**. Don't report eases, staggers and pixel values; they live in the brief.
 - After a "you decide", add the receipt: what was picked and the obvious option passed over.
 - A `note` on a decision gets a `reply` in the console; make the change, re-push the step, and say what changed.
+
+---
+
+## Related guides (one source of truth each; this file links, it does not repeat)
+
+- **Timed reads** (what the viewer must notice, in what order, for how long; the optional `reads[]` of a scene): [reads](reads.md). It extends the reading-time rule above and `result-unheld-plan`; it never claims a viewer understood anything.
+- **Character timing and canon** (a recurring painted 2D actor, the 31 emotions, A-B-A seek safety, held reactions): [2d-character](2d-character.md); the 3D actor on the current runtime: [3d](3d.md), "The recurring 3D actor".
+- **Evidence truth rules** (every number, geometry and measurement traced to a source; sketches labelled SCHEMATIC; fixtures never claims): [evidence](evidence.md).
+- **Score and audio** (the derived, hash-stamped event timeline picture, sound and QA share; the optional original procedural score): [film-events](film-events.md), [procedural-music](procedural-music.md), and [sound](sound.md) for the mix.
+- **Blur on stepped scenes**: [finish](finish.md). A painted Rasan2D scene is drawn on twos (12 drawings a second), so its frame root carries `data-finish-blur="off"` and `finish.mjs` leaves it sharp by itself.

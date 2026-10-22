@@ -74,7 +74,9 @@ const env = { ...process.env, RASANAI_HOME: path.join(TMP, "home"), RASANAI_MODE
 delete env.RASANAI_CONSOLE_HEADLESS; // the console cases below start a real server unless they opt in
 const quick = process.argv.includes("--quick");
 let failed = 0;
-const node = (script, args, opts = {}) => spawnSync(process.execPath, [path.join(HERE, script), ...args], { encoding: "utf8", env, cwd: opts.cwd || TMP, timeout: 180000 });
+// story.mjs check keeps a per-label rewrite ledger beside the pitch (3 runs, then "escalate"): the story cases below check the same files many times, so they must not count as a writer's rewrites (that made the 4th check of a label return no gates, and the quick suite crash at the product-first case)
+const noLedger = (script, args) => (script === "story.mjs" && args[0] === "check" && !args.includes("--no-ledger") ? [...args, "--no-ledger"] : args);
+const node = (script, args, opts = {}) => spawnSync(process.execPath, [path.join(HERE, script), ...noLedger(script, args)], { encoding: "utf8", env, cwd: opts.cwd || TMP, timeout: 180000 });
 const ok = (name, cond, detail = "") => {
   console.log(`${cond ? "ok  " : "FAIL"}  ${name}${!cond && detail ? `\n      ${detail}` : ""}`);
   if (!cond) failed++;

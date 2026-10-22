@@ -133,3 +133,9 @@ Rules that hold for every item:
 
 - Studio shows the new data (P0.4) shipped in #83; a Studio beta cut waits on the owner.
 - Release: master is ahead of 1.17.0 where noted; a release needs the owner's ask.
+
+## B19. Video-upgrade outstanding blockers (W12)
+
+- Not verified: end-to-end creative-agent production with the new routes and modules; a GitHub Linux run of `.github/workflows/checks.yml` (regression baselines are macOS arm64); a human blind A/B (report says pending-human-review).
+- Known red tests, not fixed: the stale `scenes.mjs rejects an unknown transition and a zero duration` assertion (zero durations are now filled from reading time by design); W8 added `procedural` to the music source chain, so the `music:` chain assertions in `selftest.mjs` may need the new last entry (seen in a quick run, not compared with master).
+- Open items: rigged GLB actors (B12), quick-preview versus a real lean film's spend (`references/quick-film.md`), calibration of the new warnings, licence-unverified repos (PDoomVideo, shipvideo, claude-opus-5-5-demo) stay ideas only.
