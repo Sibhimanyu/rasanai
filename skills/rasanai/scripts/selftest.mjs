@@ -50,6 +50,7 @@
 // one-memory. one memory (scripts/tests/one-memory.mjs): lessons.mjs digest and suggest, the taste ledger as raw evidence, one row per action id, the crew brief's one lessons block, the one reading-time formula (lib/reading.mjs)
 // deliver. the delivery package and the voice check (scripts/tests/deliver.mjs): video.mjs deliver (mp4, poster, srt, CREDITS.txt, build.sh, NOTE.md), voice.mjs verify against whisper-cli when it is there
 // orbs. the RasanOrbs kit (scripts/tests/orbs.mjs): runtime, video.mjs inject, the nine states seeked in headless Chrome; --quick runs only the static + golden checks (no Chrome)
+// regression. the deterministic render regression (scripts/tests/regression.mjs): A-B-A seeks and cold renders, baselines by a bounded metric, planted bad scenes refused, exit 0/1/2; Chrome cases print "not run" without Chrome
 // styles. the style-reference library (scripts/tests/styles.mjs): library/styles parses (frontmatter, 9 sections, 3 to 6 signature features, posters), the third_party credits, design-desk.md and the designer brief point at it
 // plates. abstract plates (scripts/tests/plates.mjs): art.mjs recipe, the gradient-map palette lock, the procedural plate, make on an abstract row; full runs render flowGround + plateTransition twice (byte-identical)
 import fs from "node:fs";
@@ -2219,7 +2220,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   ok("presenter: other routes do not need ## Imagery", !/Imagery/.test(g(run2).stdout));
 
   // the scripts' own tests, each with the same helpers; absent files are a note, never a failure
-  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit", "chrome-lint", "frame-gate", "frames", "camera", "lessons", "sound-payoff", "carry", "notes", "variety", "rhythm", "sound-shape", "decisions", "sound-fixes", "gate-fixes", "plumbing", "boldness", "ab-learn", "echo-camera", "ui", "one-memory", "deliver", "orbs", "styles", "preferences", "series", "remote"]) {
+  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit", "chrome-lint", "frame-gate", "frames", "camera", "lessons", "sound-payoff", "carry", "notes", "variety", "rhythm", "sound-shape", "decisions", "sound-fixes", "gate-fixes", "plumbing", "boldness", "ab-learn", "echo-camera", "ui", "one-memory", "deliver", "orbs", "styles", "preferences", "series", "remote", "regression"]) {
     const f = path.join(HERE, "tests", `${name}.mjs`);
     if (!fs.existsSync(f)) { console.log(`note  ${name}: scripts/tests/${name}.mjs is not there yet, skipped`); continue; }
     try {
