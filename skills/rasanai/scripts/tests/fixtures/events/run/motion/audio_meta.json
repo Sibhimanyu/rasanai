@@ -1,0 +1,6 @@
+{
+  "_synthetic": "SYNTHETIC TEST FIXTURE: invented word times, not a real recording.",
+  "voices": [
+    { "frame": 2, "words": [ { "text": "The", "start": 0.2, "end": 0.35 }, { "text": "reveal", "start": 0.48, "end": 0.9 }, { "text": "lands", "start": 0.95, "end": 1.4 } ] }
+  ]
+}

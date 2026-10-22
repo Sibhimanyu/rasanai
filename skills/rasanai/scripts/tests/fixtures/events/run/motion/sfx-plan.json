@@ -1,0 +1,7 @@
+{
+  "_synthetic": "SYNTHETIC TEST FIXTURE: an invented sfx plan.",
+  "cues": [
+    { "event": "hit-open-1", "kind": "key", "t": 1.2, "scene": 1 },
+    { "event": "e-reveal", "kind": "reveal", "t": 9.51, "scene": 2 }
+  ]
+}

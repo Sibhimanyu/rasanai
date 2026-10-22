@@ -38,6 +38,7 @@ import { parseArgs, die } from "./lib/common.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
 import { track } from "./lib/report.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
+import { loadManifest, presentManifest, hitTimes as manifestHits } from "./lib/film-events.mjs";
 import { analyzeTrack, summarize, fitTrack, renderPlan, toolsAvailable, bpmFromHits, treatHits } from "./lib/audio.mjs";
 import { KEYS, PRIOR, sourceChain, licenceNote, findUserTrack, judge, readArc, buildPrompt, elevenPlan, loadCatalog, validateCatalog, pickFromCatalog, creditsText } from "./lib/music-lib.mjs";
 
@@ -199,6 +200,19 @@ function pictureHits() {
   const rows = [], add = (t, kind) => { if (Number.isFinite(Number(t)) && Number(t) > 0) rows.push({ t: Number(t), kind: kind || "hit" }); };
   if (args.hits && args.hits !== true) String(args.hits).split(",").forEach((x) => add(x));
   const lists = [];
+  // the derived film-event manifest (events.mjs export), when supplied (--events <events.json>, refused when stale) or present and fresh in the run:
+  // its hit times are the picture's hit times; the tempo is still scanned from them and the tracks are chosen and fitted as before
+  let fromManifest = null;
+  if (args.events && args.events !== true) {
+    const r = loadManifest(String(args.events), { run: String(args.run) });
+    if (r.ok) fromManifest = r.manifest;
+    else if (!r.notManifest) die(`--events: ${r.error}`);
+  } else {
+    const p = presentManifest(String(args.run));
+    if (p.manifest) fromManifest = p.manifest;
+    else if (p.reason) notes.push(`motion/events.json ignored (${p.reason}); the score's own hits are used`);
+  }
+  if (fromManifest) { for (const h of manifestHits(fromManifest)) add(h.t, h.kind); notes.push("picture hit times from the film-event manifest (motion/events.json)"); return rows.filter((r) => !film || r.t <= film); }
   try { if (args.events && args.events !== true) { const E = JSON.parse(fs.readFileSync(String(args.events), "utf8")); lists.push(Array.isArray(E) ? E : E.events || []); } } catch {}
   try { if (fs.existsSync(scoreFile)) { const S = JSON.parse(fs.readFileSync(scoreFile, "utf8")); for (const k of ["hits", "events", "seams"]) if (Array.isArray(S[k])) lists.push(S[k]); } } catch {}
   for (const l of lists) for (const e of l) if (e && typeof e === "object") add(e.t ?? e.at ?? e.start ?? e.start_s, e.kind || e.type || e.id);
