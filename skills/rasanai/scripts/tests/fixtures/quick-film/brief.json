@@ -1,0 +1,26 @@
+{
+  "schema": "rasanai-quick-brief/1",
+  "synthetic": "quick-film test fixture: SYNTHETIC, product-neutral, no real product or claim",
+  "kind": "explainer",
+  "duration_s": 30,
+  "size": { "w": 960, "h": 540 },
+  "seed": 7,
+  "source": { "kind": "prompt", "note": "synthetic fixture text written for the test" },
+  "kicker": "Synthetic example",
+  "title": "A simple three-step loop",
+  "tagline": "Capture it, refine it, share it.",
+  "mechanism": {
+    "heading": "How the loop turns",
+    "steps": [
+      { "label": "Capture", "detail": "Collect the raw idea" },
+      { "label": "Refine", "detail": "Shape it into one clear thing" },
+      { "label": "Share", "detail": "Send it out and listen" }
+    ]
+  },
+  "endcard": { "line": "Run the loop again.", "sub": "SCHEMATIC: no real product." },
+  "facts": [],
+  "assets": [],
+  "audio": {},
+  "regulated": false,
+  "look": { "canvas": "#101820", "ink": "#f4f1ea", "accent": "#ff7a3d", "support": "#5fd0c5", "muted": "#a9b4bf", "display": "Inter", "body": "Inter", "weight": 800, "source": "quick.json (synthetic fixture look)" }
+}

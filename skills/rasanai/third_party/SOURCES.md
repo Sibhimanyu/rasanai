@@ -32,7 +32,7 @@ Modes (the column "mode" and every "HOW MUCH" line use these words):
 | [lemomo-ai/lemo-opuscar](#lemo-opuscar) | MIT | rewritten + data | 11 styles, 98 prompts, catalogue grammar, devices, slot limiter, CJK reading | taken |
 | [tuzhechen2005/opus-video-skills](#video-upgrade-pins) | MIT (root LICENSE; `painted-animation/template/` is John Heibel, MIT) | idea only so far | painted-animation skill (W5 reference) | pinned 59744a6; code adapted only with its LICENSE + NOTICE, see pins |
 | [JohnHeibel/PDoomVideo](#video-upgrade-pins) | none verified | idea only | storyboard and chapter-level production | no source copied |
-| [diggerhq/shipvideo](#video-upgrade-pins) | none verified | idea only | launch-video pipeline ideas | no source copied |
+| [diggerhq/shipvideo](#video-upgrade-pins) | none verified | idea only | quick-preview (W10): one HTML scene, a seeked clock, scene-error checks, ffmpeg | taken as ideas (`quick-film.mjs`, original virtual-time adapter); no source copied |
 | [riba2534/claude-opus-5-5-demo](#video-upgrade-pins) | none verified | not used | low-value coding demo | not integrated |
 | [ferndesk/no-slop-motion](#no-slop-motion) | MIT | idea only | story chain, acts, crescendo, villain and felt numbers | taken as ideas |
 | [Jamailar/high-retention-video-script](#high-retention-video-script) | none declared | idea only | stimulus clock, HKRR (read, not built in) | read; nothing built (unverified) |

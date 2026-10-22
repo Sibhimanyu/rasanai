@@ -53,6 +53,7 @@
 // events. the derived film-event manifest (scripts/tests/events.mjs): deterministic export, stable ids and order, scene-local to film time once, invalid input refused, stale sha256 refused, hand edits overwritten, no network, consumers read it only when given it
 // regression. the deterministic render regression (scripts/tests/regression.mjs): A-B-A seeks and cold renders, baselines by a bounded metric, planted bad scenes refused, exit 0/1/2; Chrome cases print "not run" without Chrome
 // custom-style. user-owned film styles (scripts/tests/custom-style.mjs): extract from a fixture run, variants with the base byte-identical, closed edit schema (unknown / brand colour / different medium refused), snapshot bind, compare sheet and 15 s test film; Chrome / ffmpeg cases print "not run"
+// quick-film. the opt-in single-HTML film prototype (scripts/tests/quick-film.mjs): scaffold, check (planted missing font / remote image / exception / blank cut / unseeded random caught), A-B-A and cold seeks, a 30 s synthetic film to MP4 with audio, promote, out-of-scope upgrade log, bench; Chrome / ffmpeg cases print "not run"
 // styles. the style-reference library (scripts/tests/styles.mjs): library/styles parses (frontmatter, 9 sections, 3 to 6 signature features, posters), the third_party credits, design-desk.md and the designer brief point at it
 // plates. abstract plates (scripts/tests/plates.mjs): art.mjs recipe, the gradient-map palette lock, the procedural plate, make on an abstract row; full runs render flowGround + plateTransition twice (byte-identical)
 import fs from "node:fs";
@@ -2225,7 +2226,7 @@ window.__r = { same: A === B, i: A.i, nth: nth.i, miss: miss, starts: starts, ki
   ok("presenter: other routes do not need ## Imagery", !/Imagery/.test(g(run2).stdout));
 
   // the scripts' own tests, each with the same helpers; absent files are a note, never a failure
-  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit", "chrome-lint", "frame-gate", "frames", "camera", "lessons", "sound-payoff", "carry", "notes", "variety", "rhythm", "sound-shape", "decisions", "sound-fixes", "gate-fixes", "plumbing", "boldness", "ab-learn", "echo-camera", "ui", "one-memory", "deliver", "orbs", "styles", "preferences", "series", "remote", "regression", "skill-routing", "events", "reads", "custom-style"]) {
+  for (const name of ["imagegen", "presenter", "brandfilm", "motion-gate", "moments", "textfit", "chrome-lint", "frame-gate", "frames", "camera", "lessons", "sound-payoff", "carry", "notes", "variety", "rhythm", "sound-shape", "decisions", "sound-fixes", "gate-fixes", "plumbing", "boldness", "ab-learn", "echo-camera", "ui", "one-memory", "deliver", "orbs", "styles", "preferences", "series", "remote", "regression", "skill-routing", "events", "reads", "custom-style", "quick-film"]) {
     const f = path.join(HERE, "tests", `${name}.mjs`);
     if (!fs.existsSync(f)) { console.log(`note  ${name}: scripts/tests/${name}.mjs is not there yet, skipped`); continue; }
     try {
