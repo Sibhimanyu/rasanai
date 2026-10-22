@@ -2,6 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **Story and Look stay in view.** The review workspace keeps your choices and key context visible while detailed scripts and look guidance scroll in their own panels. The existing action bar remains available, including when looking back at an earlier decision.
+
 ## 0.19.4 (build 42) — 2026-10-21
 
 - **Pause holds after a relaunch.** Pausing a film that Studio picked back up after a restart (by you, or by its own stuck or budget check) now really pauses it; before, the director was stopped and had to start over from its saved state.
