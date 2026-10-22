@@ -28,23 +28,14 @@ struct StoryStage: View {
 
     var body: some View {
         let all = scripts
-        StageScaffold(model: model, step: step,
-                      question: payload["question"].string ?? "Choose the story.",
-                      context: payload["context"].string,
-                      maxWidth: 1240) {
-            VStack(alignment: .leading, spacing: 26) {
+        ReviewStageWorkspace(model: model, step: step,
+                             question: payload["question"].string ?? "Choose the story.",
+                             context: payload["context"].string) {
+            GeometryReader { proxy in
                 if all.isEmpty {
-                    StoryEmpty()
-                } else {
-                    StudioAdaptiveColumns(railWidth: 260, railFirst: true, breakpoint: 760, gap: 24, stackSpacing: 20) {
-                        if let current {
-                            StoryDetail(script: current, isRecommended: current.id == recommendedID)
-                                .id(current.id)
-                        } else {
-                            Color.clear.frame(height: 0)
-                        }
-                        storyList(all)
-                    }
+                    StoryEmpty().padding(20).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                } else if let current {
+                    storyWorkspace(all, current: current, size: proxy.size)
                 }
             }
             .focusable()
@@ -66,6 +57,57 @@ struct StoryStage: View {
                 Task { await model.send(step: step, type: "choose", value: .string(current.id), note: note) }
             }
         }
+    }
+
+    @ViewBuilder private func storyWorkspace(_ all: [StoryScript], current: StoryScript, size: CGSize) -> some View {
+        // Keep the three choices in their own rail on normal windows.  At the
+        // smallest sizes they lead the single readable scroll column instead of
+        // squeezing three panels into unusable widths.
+        if size.width >= 1160 {
+            HStack(alignment: .top, spacing: 16) {
+                choiceRail(all).frame(width: 250)
+                detailScroll(current, showRationale: false).frame(maxWidth: .infinity)
+                rationaleRail(current).frame(width: 280)
+            }
+            .padding(16)
+        } else if size.width >= 860 {
+            HStack(alignment: .top, spacing: 16) {
+                choiceRail(all).frame(width: 250)
+                detailScroll(current, showRationale: true).frame(maxWidth: .infinity)
+            }
+            .padding(16)
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    storyList(all)
+                    StoryDetail(script: current, isRecommended: current.id == recommendedID, showRationale: true)
+                        .id(current.id)
+                }
+                .padding(16)
+            }
+        }
+    }
+
+    private func choiceRail(_ all: [StoryScript]) -> some View {
+        ScrollView {
+            storyList(all).padding(.trailing, 2)
+        }
+        .workspacePanel(padding: 12)
+    }
+
+    private func detailScroll(_ current: StoryScript, showRationale: Bool) -> some View {
+        ScrollView {
+            StoryDetail(script: current, isRecommended: current.id == recommendedID, showRationale: showRationale)
+                .id(current.id)
+                .padding(.trailing, 2)
+        }
+    }
+
+    private func rationaleRail(_ current: StoryScript) -> some View {
+        ScrollView {
+            StoryRationale(script: current)
+        }
+        .workspacePanel(padding: 14)
     }
 
     // MARK: List
@@ -155,6 +197,7 @@ private struct StoryListRow: View {
 private struct StoryDetail: View {
     let script: StoryScript
     let isRecommended: Bool
+    var showRationale = true
     @State private var showBeats = false
 
     var body: some View {
@@ -163,7 +206,7 @@ private struct StoryDetail: View {
             if let aim = script.aim { facts(aim) }
             if !script.moves.isEmpty { StoryMoves(script: script) }
             if !script.beats.isEmpty { timeline }
-            howItGetsThere
+            if showRationale { StoryRationale(script: script) }
             if !script.beats.isEmpty {
                 DisclosureGroup("The full storyline, beat by beat (\(script.beats.count))", isExpanded: $showBeats) {
                     StoryLine(script: script).padding(.top, 12)
@@ -225,7 +268,14 @@ private struct StoryDetail: View {
         }
     }
 
-    @ViewBuilder private var howItGetsThere: some View {
+}
+
+/// The argument for a choice stays visible beside the script on wide windows.
+/// In the two-column and narrow layouts it rejoins the central detail scroll.
+private struct StoryRationale: View {
+    let script: StoryScript
+
+    @ViewBuilder var body: some View {
         let how = script.approach.isEmpty ? script.why : script.approach
         if !how.isEmpty || !script.device.isEmpty || script.tempoLine != nil {
             VStack(alignment: .leading, spacing: 8) {
@@ -244,10 +294,15 @@ private struct StoryDetail: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
+        } else {
+            ContentUnavailableView("Story details", systemImage: "text.quote")
+                .font(.system(size: 12))
         }
     }
+}
 
-    private func fact(_ title: String, _ text: String) -> some View {
+private extension StoryDetail {
+    func fact(_ title: String, _ text: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title.uppercased()).font(.system(size: 10, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
             Text(text).font(.system(size: 13)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
