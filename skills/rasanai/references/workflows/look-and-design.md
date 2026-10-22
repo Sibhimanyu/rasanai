@@ -21,6 +21,8 @@ Answers:
 - `more {near, exclude}` → ask the design desk for new blends near the selected system (re-dispatch the three designers with the selected system's `blend.json` as the anchor and the excluded names to avoid), gate them, re-push. `knob {name: "energy", value: calmer|as is|punchier}` → the designers shift the motion language of the selected system (calmer: slower, softer eases; punchier: snappier) and re-push.
 - Footage routes (`embedded-captions`, `talking-head-recut`): the looks are three caption / overlay identities on the footage; `music-to-video`: the story step already chose the world (three treatments, above); the look is that treatment's style bible.
 
+**A saved custom style** (`<library>/Styles/<slug>`) is used only when the owner names it or a Series carries it: bind it first (`custom-style.mjs bind --style <dir> --run "$RUN" --as-look`) and skip the design desk for that film only. Otherwise the three bespoke candidates are unchanged. Everything about custom styles (create, edit classes, brand lock, test film) is in `references/custom-styles.md`.
+
 ## 3b · Concept gate (before any expensive work)
 
 Once the Look is chosen and **before** the music, the motion score, key frames or any animation (rule 17), run the concept critic: a quick Sonnet pass that scores the chosen script and look against the literal brief.

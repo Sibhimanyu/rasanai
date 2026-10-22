@@ -1,0 +1,18 @@
+{
+  "name": "Counting House",
+  "tagline": "ledger paper, banknote green, one vermilion stamp",
+  "recipe": {
+    "palette": { "canvas": "#e9efe6", "ink": "#10231c", "accent": "#d4392b", "accent2": "#1f6f54", "surface": "#f7faf4", "muted": "#5d6f66" },
+    "fonts": { "display": "Bricolage Grotesque", "body": "IBM Plex Sans", "mono": "IBM Plex Mono", "displayWeight": 700, "bodyWeight": 400 },
+    "layout": "record",
+    "radius": 2,
+    "stroke": { "width": 2, "style": "solid" },
+    "shadow": "soft",
+    "surface": "paper",
+    "texture": "paper",
+    "icons": "line",
+    "motif": "rules",
+    "motion": "snap",
+    "effects": []
+  }
+}

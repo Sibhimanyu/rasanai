@@ -222,6 +222,7 @@ MIT / Apache-2.0: we may copy or adapt with credit (LICENSE copy plus NOTICE in 
   - `library/grammars/catalogue-cards.json` from the pictogram-motion STYLE.md (rewritten); four devices in `taxonomy/devices.json` (rewritten ideas).
   - The shape of STYLE.md (essence and what it is not, materials, ...) as DESIGN.md "Motion and camera": the structure, not the text.
   - Idea only, our code: render slot limiter (`scripts/lib/slot.mjs`), CJK reading time (`scripts/lib/reading.mjs`), ASR per line on the final mix (`voice.mjs verify --mix`), leak scan (`video.mjs deliver`), `sfx-in-break` and `sfx-on-word-onset` (`sound.mjs`), white flash cap (`frame-guards.mjs flash-over-cap`), GTAO and bokeh in Rasan3D (`stage3d/`), film shape and last-three-films rule (`scripts/lib/film-shape.mjs`, `camera-moves.mjs`).
+- Idea only, our code (W7): user-owned reusable styles with a visual test (`MY-STYLES.md`): `scripts/custom-style.mjs`, `scripts/lib/custom-style.mjs`, `scripts/lib/style-film.mjs`, `references/custom-styles.md`. No text, code, media or styles taken; the library lives in the user's own folder, never committed.
 - DECLINED: demo code, engines, audio, fonts, voices, DEMO.md files, the other 38 styles, the sound palettes and pitfall sections.
 - PLANNED: R1 lemo 11 offline narration fallback (Kokoro or edge-tts; check the model licence), lemo 12 sampled score (L, low). BACKLOG.md.
 
