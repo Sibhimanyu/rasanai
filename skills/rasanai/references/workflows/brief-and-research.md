@@ -20,6 +20,7 @@ node $SKILL_DIR/scripts/lessons.mjs digest                      # ONE digest of 
   |---|---|
   | a product, app, company or site being launched / promoted / toured | `product-launch-video` |
   | a topic, article, notes or how-to told with invented visuals | `faceless-explainer` |
+  | **an evidence film** (the Brief picked Evidence film: a technical explainer from the user's own data, scans or models) | `faceless-explainer` → [routes/evidence](routes/evidence.md) |
   | a GitHub pull request / code change | `pr-to-video` |
   | cut to a music track (lyric video, beat-synced promo) | `music-to-video` |
   | **a folder of raw clips** to cut together, with cards between clips and titles/captions on top | `reel` → **Footage reels** |

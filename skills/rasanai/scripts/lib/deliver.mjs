@@ -14,6 +14,7 @@ import { spawnSync } from "node:child_process";
 import { SKILL_DIR } from "./common.mjs";
 import { readDowngrades } from "./downgrade.mjs";
 import { presentManifest, wordsOf, publicManifest, serialize } from "./film-events.mjs";
+import { evidenceCredits, evidenceRecipeLines, publicEvidence } from "./evidence.mjs";
 
 const jm = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } };
 const tm = (f) => { try { return fs.readFileSync(f, "utf8"); } catch { return null; } };
@@ -158,6 +159,9 @@ function creditsText({ run, project, missing }) {
   // reference moments (technique only)
   const mc = jm(path.join(run, "references", "moments", "credits.json"));
   if (mc && Array.isArray(mc.moments) && mc.moments.length) L.push("MOTION REFERENCES", `Technique only, nothing shipped: ${mc.moments.map((c) => `${c.handle || c.name || "unknown"}${c.film ? ` ("${c.film}")` : ""}${c.source_url ? ` ${c.source_url}` : ""}`).join("; ")}.`, "");
+  // evidence sources (W9): origin, source type, permission and content hash of each ingested object; never a local path; a synthetic fixture says so
+  const evc = evidenceCredits(run);
+  if (evc) L.push(evc);
   // fonts
   const fonts = ls(path.join(project, "assets", "fonts")).filter((f) => /\.(woff2?|ttf|otf)$/i.test(f));
   if (fonts.length) { const fams = [...new Set(fonts.map((f) => f.replace(/\.[a-z0-9]+$/i, "").replace(/-(Thin|Light|Regular|Medium|SemiBold|Bold|ExtraBold|Black|Italic|\d+).*$/i, "")))]; L.push("FONTS", `${fams.join(", ")} (files: ${fonts.join(", ")}). Their licences are the foundries': not recorded here.`, ""); missing.push("font licences: the fonts are listed by file, but the run does not record where each came from or its licence"); }
@@ -444,7 +448,10 @@ export function deliver({ run, project, out, rerun = false }) {
   else if (ev.reason) missing.push(`film-events.json: motion/events.json was not packed (${ev.reason})`);
 
   const projBrief = jm(path.join(project, "rasanai-brief.json")) || {};
-  fs.writeFileSync(path.join(dest, "RECIPE.md"), recipeMd({ run, project, name, render, brief: { ...brief, ...projBrief }, score, scenes, dest, usedFinish })); files.recipe = "RECIPE.md";
+  // evidence films (W9): the sources, hashes and measurement rows travel with the film's reproducibility metadata (public form: no paths, no file names, no EXIF)
+  const pubEv = publicEvidence(run), evLines = evidenceRecipeLines(run);
+  if (pubEv) { fs.writeFileSync(path.join(dest, "evidence.json"), JSON.stringify(pubEv, null, 2) + "\n"); files.evidence = "evidence.json"; }
+  fs.writeFileSync(path.join(dest, "RECIPE.md"), recipeMd({ run, project, name, render, brief: { ...brief, ...projBrief }, score, scenes, dest, usedFinish }) + (evLines ? "\n" + evLines : "")); files.recipe = "RECIPE.md";
 
   // delivery checks: all warnings, none stops the package
   const spec = specCheck(mp4, { brief: projBrief, runBrief: brief, score });

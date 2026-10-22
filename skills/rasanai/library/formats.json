@@ -370,7 +370,8 @@
         "data-story",
         "sketch-explainer",
         "isometric",
-        "character-story"
+        "character-story",
+        "evidence-film"
       ]
     },
     {
@@ -1304,6 +1305,76 @@
       ],
       "aspects": [
         "16:9"
+      ]
+    },
+    {
+      "id": "evidence-film",
+      "tile": "explainer",
+      "title": "Evidence film",
+      "kind": "evidence film",
+      "description": "A technical explainer where every number comes from your own data, scans or models.",
+      "status": "partial",
+      "partial": "The recipes, source manifest and checks work offline; LAS/LAZ, CAD, slides and pathology slides need your own converter, and the proof film (acceptance) has not run yet.",
+      "route": "faceless-explainer",
+      "source_mode": "document",
+      "source_modes": [
+        "document"
+      ],
+      "case": "data-report",
+      "inputs": [
+        {
+          "id": "document",
+          "required": true,
+          "prompt": "The data, scan, image or model you are allowed to use"
+        },
+        {
+          "id": "brand-kit",
+          "required": false
+        }
+      ],
+      "research": {
+        "mode": "document",
+        "desks": [
+          "product-researcher:document"
+        ],
+        "note": "every number traced to its source file, cell or part, with the permission to use it"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "explainer",
+        "note": "the question, the measured proof, the comparison, the so-what; a sketch is labelled SCHEMATIC"
+      },
+      "story_shapes": [
+        "data-journey",
+        "process",
+        "roundup"
+      ],
+      "forbidden_shapes": [
+        "scenario",
+        "pas",
+        "steps"
+      ],
+      "scope_default": null,
+      "length_s": 60,
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16",
+        "1:1"
+      ],
+      "keywords": [
+        "evidence film",
+        "technical explainer",
+        "engineering briefing",
+        "lidar",
+        "point cloud",
+        "teardown",
+        "exploded view",
+        "satellite briefing",
+        "microscope story",
+        "archive light table",
+        "data physicalization",
+        "white model"
       ]
     },
     {

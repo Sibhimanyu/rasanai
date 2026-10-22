@@ -129,7 +129,8 @@ export const ROUTES = {
     deeper: { final: ["references/handoff.md"] },
     skipBrief: true,
   },
-  evidence: { kind: "placeholder", guide: "routes/evidence", defaultVariant: "direct", phases: {}, deeper: {}, skipBrief: true },
+  // W9: the evidence route is the scene route plus the evidence guide (the Brief picked Evidence film; library/formats.json evidence-film)
+  evidence: scene({ guide: "routes/evidence", deeper: { brief: ["references/evidence.md"], story: ["references/evidence.md"], look: ["references/evidence.md"], styleframes: ["references/evidence.md"], animatic: ["references/evidence.md"] } }),
 };
 
 export const ALIASES = {
