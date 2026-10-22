@@ -87,6 +87,7 @@ import { loadIntent, validateIntent, applyEdits, applyToScript, readSeconds } fr
 import { budgetChecks, intentBeats } from "./lib/emphasis.mjs";
 import { cameraKind } from "./lib/camera-moves.mjs";
 import { sceneContractChecks } from "./lib/scene-contract.mjs";
+import { eventsPath, loadManifest, exportRun } from "./lib/film-events.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -1539,6 +1540,18 @@ function checkScore(run) {
     const moving = seams.map((sm, i) => ({ sm, i })).filter(({ sm }) => sm.kind !== "cut");
     const quiet = moving.filter(({ sm, i }) => !sounded(sm, i));
     if (moving.length && quiet.length / moving.length > 0.5) W.push(`seam-unsounded: ${quiet.length} of ${moving.length} seams with motion have no sound event (seam.sound, or an event with a sound at the seam: whoosh on a move through space, hit on a landing, impact on the reveal): ${quiet.slice(0, 4).map(({ sm }) => `${sm.from}>${sm.to}`).join(", ")}`);
+    // the derived film-event manifest (events.mjs export), only when the run has one: a stale or invalid one, and a picture hit / foley / spoken word that are not within a frame, warn
+    if (fs.existsSync(eventsPath(path.resolve(run)))) {
+      try {
+        const lm = loadManifest(eventsPath(path.resolve(run)), { run });
+        if (!lm.ok) W.push(`events-manifest: motion/events.json is not usable (${lm.error}); it is derived from the score: node events.mjs export --run <run>`);
+        else {
+          const fx = exportRun(path.resolve(run));
+          for (const p of fx.problems) W.push(`events-manifest: the score does not derive a valid event timeline: ${p}`);
+          for (const w of fx.warnings) W.push(`events-sync: ${w}`);
+        }
+      } catch (e) { W.push(`events-manifest: could not read the event sources (${String(e.message).slice(0, 100)})`); }
+    }
     // mechanics: variety comes from meaning, so only a one-trick film warns (a refrain may repeat a mechanic on purpose)
     const lineShots = S.flatMap((x) => (Array.isArray(x.shots) ? x.shots : [])).filter((sh) => String(sh.on_screen || "").trim());
     const mech = lineShots.map((sh) => String(sh.mechanic || "").toLowerCase().replace(/\s+/g, " ").trim()).filter(Boolean);

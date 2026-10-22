@@ -13,6 +13,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { SKILL_DIR } from "./common.mjs";
 import { readDowngrades } from "./downgrade.mjs";
+import { presentManifest, wordsOf, publicManifest, serialize } from "./film-events.mjs";
 
 const jm = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } };
 const tm = (f) => { try { return fs.readFileSync(f, "utf8"); } catch { return null; } };
@@ -88,7 +89,9 @@ function poster(mp4, dur, scenes, dest) {
 // --- srt -------------------------------------------------------------------------------------------------------------------------
 const stamp = (t) => { const ms = Math.max(0, Math.round(t * 1000)); const p = (n, l = 2) => String(n).padStart(l, "0"); return `${p(Math.floor(ms / 3600000))}:${p(Math.floor(ms / 60000) % 60)}:${p(Math.floor(ms / 1000) % 60)},${p(ms % 1000, 3)}`; };
 // film-time words: audio_meta voices (their times are seconds into the beat `frame` = scene n), else a film-time transcript.json
-export function filmWords(project, scenes) {
+// manifest: the run's derived film-event manifest (present and fresh), whose word_start events are the same word times in film seconds
+export function filmWords(project, scenes, manifest = null) {
+  if (manifest) { const w = wordsOf(manifest).filter((x) => String(x.text || "").trim()); if (w.length) return { words: w.map((x) => ({ text: String(x.text).trim(), start: x.start, end: x.end })).sort((a, b) => a.start - b.start), source: "motion/events.json (the film-event manifest's word times)" }; }
   const am = jm(path.join(project, "audio_meta.json"));
   const out = [];
   for (const v of (am && am.voices) || []) {
@@ -420,7 +423,8 @@ export function deliver({ run, project, out, rerun = false }) {
 
   const brief = jm(path.join(run, "brief.json")) || {};
   const narrated = !!(score && score.narration) || ((jm(path.join(project, "audio_meta.json")) || {}).voices || []).length > 0 || (!!brief.narration && !/^(none|no\b)/i.test(String(brief.narration)));
-  const fw = filmWords(project, scenes);
+  const ev = presentManifest(run);
+  const fw = filmWords(project, scenes, ev.manifest);
   let srt;
   if (fw.words.length) { const cues = srtCues(fw.words); fs.writeFileSync(path.join(dest, `${name}.srt`), srtText(cues)); files.srt = `${name}.srt`; srt = `\`${name}.srt\`, ${cues.length} cues from ${fw.source}, each held at least max(1.8 s, speech + 0.6 s)`; }
   else if (narrated) { srt = "none: the film is narrated but no word timings were found (audio_meta.json voices are empty)"; missing.push(".srt: narrated film with no voice word timings in audio_meta.json or a transcript.json"); }
@@ -434,6 +438,10 @@ export function deliver({ run, project, out, rerun = false }) {
   const usedFinish = /finish/i.test(render.f) || /finish/i.test(render.considered.join(" "));
   fs.writeFileSync(path.join(dest, "build.sh"), buildSh({ project, dest, name, usedFinish, hfVersion, ffArgs: "--samples 8 --grain 0.03 --halation 0.2 --vignette 0.2" }), { mode: 0o755 });
   files.build = "build.sh";
+
+  // the derived event timeline travels with the film's build metadata: ids, times, frames, kinds, scenes, words; never the score's free text or a local path
+  if (ev.manifest) { fs.writeFileSync(path.join(dest, "film-events.json"), serialize(publicManifest(ev.manifest))); files.events = "film-events.json"; }
+  else if (ev.reason) missing.push(`film-events.json: motion/events.json was not packed (${ev.reason})`);
 
   const projBrief = jm(path.join(project, "rasanai-brief.json")) || {};
   fs.writeFileSync(path.join(dest, "RECIPE.md"), recipeMd({ run, project, name, render, brief: { ...brief, ...projBrief }, score, scenes, dest, usedFinish })); files.recipe = "RECIPE.md";

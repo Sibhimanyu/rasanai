@@ -6,6 +6,7 @@
 //
 //   node motion-gate.mjs [--video <draft.mp4>] [--project <videos/name>] [--plan <run>/motion/score.json]
 //        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--vo <audio_meta.json|words.json>] [--no-text-fit] [--no-fluency] [--no-carry] [--no-echo] [--no-camera] [--no-emphasis] [--no-guards] [--no-pop] [--no-energy] [--loop]
+//        [--events <events.json>] (the derived film-event manifest, events.mjs export; also found as events.json beside --plan; stale ones are refused)
 //        [--stillness] [--json]
 //   node motion-gate.mjs fluency --video <film.mp4> [--stillness] [--json]     the fluency measurement alone
 //   -> exit 0 pass · 2 findings (listed, each with a time and a fix) · 1 could not run (never "clean")
@@ -122,6 +123,7 @@ import { loadIntent, emphasisReport } from "./lib/emphasis.mjs";
 import { measureCamera, cameraKind, cameraFloor } from "./lib/camera-moves.mjs";
 import { whiteFlashes, seamBlanks, holdDrift, decodeFrames } from "./lib/frame-guards.mjs";
 import { rgbToLab } from "./lib/pixels.mjs";
+import { loadManifest, wordsOf } from "./lib/film-events.mjs";
 import { beatStats, busyChecks, energyArcChecks, resultHoldChecks } from "./lib/film-energy.mjs";
 
 export const GATE = {
@@ -158,7 +160,7 @@ async function main() {
     }
     process.exit(g.pass === false ? 2 : 0);
   }
-  const res = await gate({ vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], pop: !args["no-pop"], energy: !args["no-energy"], loop: args.loop ? true : null, stillness: args.stillness ? true : null });
+  const res = await gate({ events: str(args.events), vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], pop: !args["no-pop"], energy: !args["no-energy"], loop: args.loop ? true : null, stillness: args.stillness ? true : null });
   for (const c of res.could_not_run) noteDowngrade({ run: args.run, what: "the motion gate", instead: "no motion check", why: String(c).slice(0, 200), impact: "this film's motion was not measured" });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else {
@@ -462,7 +464,7 @@ function codeChecks(file, html) {
 }
 
 // ---------------------------------------------------------------- the gate
-export async function gate({ vo = null, video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, pop = true, energy = true, loop = null, stillness = null } = {}) {
+export async function gate({ events = null, vo = null, video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, pop = true, energy = true, loop = null, stillness = null } = {}) {
   const findings = [], skipped = [], could = [], measured = {};
   const SKILL_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
   const add = (f) => {
@@ -894,11 +896,16 @@ export async function gate({ vo = null, video = null, project = null, plan = nul
         measured.text_fit = { pages: tf.pages, samples: tf.samples, script_errors: (tf.script_errors || []).length, cropped: tf.findings.filter((f) => f.check === "text-cropped").length, too_brief: tf.findings.filter((f) => f.check === "text-too-brief").length, overlap: tf.findings.filter((f) => f.check === "text-overlap").length, warnings: (tf.warnings || []).length };
         // caption duplicates and see-and-say (warnings, uncalibrated; lib/textfit.mjs)
         findings.push(...captionDupes(tf.texts || []));
+        // the derived film-event manifest (--events <events.json>, or events.json beside --plan), when there and fresh: the same word times and picture events as every other consumer; stale is refused
+        let man = null;
+        const mf = events ? path.resolve(events) : plan && fs.existsSync(path.join(path.dirname(path.resolve(plan)), "events.json")) ? path.join(path.dirname(path.resolve(plan)), "events.json") : null;
+        if (mf) { const lm = loadManifest(mf); if (lm.ok) man = lm.manifest; else if (!lm.notManifest) skipped.push(`events manifest not used: ${lm.error}`); }
         const voFile = vo ? path.resolve(vo) : [path.join(pj, "audio_meta.json")].find((p) => fs.existsSync(p));
-        const words = voFile ? loadVoWords(voFile, beats) : null;
+        const words = vo || !man || !wordsOf(man).length ? (voFile ? loadVoWords(voFile, beats) : null) : wordsOf(man).map((w) => ({ text: w.text, start: w.start, end: w.end }));
         if (words && words.length) {
           const evs = [];
-          for (const b of beats) {
+          if (man) for (const e of man.events) { if (e.kind === "scene_start" || e.kind === "visual_hit") evs.push({ t: e.at_s, what: String((e.attrs && e.attrs.what) || (e.kind === "scene_start" ? `beat ${e.scene} starts` : "event")).slice(0, 30) }); }
+          else for (const b of beats) {
             evs.push({ t: b.start, what: `beat ${b.id} starts` });
             for (const e of b.events || []) { const t = Number(e.t ?? e.at); if (Number.isFinite(t)) evs.push({ t: t <= b.end - b.start + 0.05 ? b.start + t : t, what: String(e.what || e.sound || "event").slice(0, 30) }); }
           }

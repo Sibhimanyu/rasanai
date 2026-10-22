@@ -2,25 +2,19 @@
 
 1. on screen: You ask.
    voice: (none)
-   picture: The real composer zoomed huge, caret blinking; 'ask' drops into the hint text so it reads 'Ask ChatGPT'.
-2. on screen: Ask to understand.
+   picture: Brand opening exactly: #FCFCFC canvas, the downloaded blossom mark (research/brand/assets/chatgpt-mark-black.svg) small and centred at 0.0 s, lifting to a tiny top-margin position. 'You ask.' types centred in OpenAI Sans semibold with a black caret. The real light composer (rounded white pill, '+' at left, 'Instant' picker with chevron, mic, round send button) rises from the bottom edge as a cropped fragment; the word 'ask' leaves the line, drops and lands capitalised as the 'Ask' of the hint text 'Ask ChatGPT'. Carries: the composer and its caret, centred, the same position for every ask.
+2. on screen: Ask how it works.
    voice: (none)
-   picture: 'understand' drops into 'Help me understand the central limit theorem intuitively', send, an interactive explainer streams in and the cursor drags its control so the distribution reshapes.
-3. on screen: Ask what if.
+   picture: 'Ask how it works.' types centred above the composer, 'how' in accent blue (#0285FF), the only colour. The other words clear; 'how' slides down into its exact slot inside the typed prompt 'Show me how does a roth IRA work' and turns black. Push-in crop: the cursor presses the round send button; the prompt lifts into a pale green bubble at right, the single green dot pulses below it, and the Roth calculator card streams in as a cropped fragment (the embed rebuilt light, OpenAI Sans): the $416,129 headline, 'Projected balance after 30 years', sliders Monthly contribution / Years invested / Annual return (assumed), the two-colour bar (blue contributions, green growth). The black macOS cursor drags Monthly contribution; the headline digits roll and the bar grows. Carries: the composer at the frame bottom, empty again, caret blinking.
+3. on screen: Ask it to plan.
    voice: (none)
-   picture: 'Show me how does a roth IRA work' sends, the calculator streams, the cursor drags Years invested and $416,129 rolls as the bar grows.
-4. on screen: Ask it to plan.
+   picture: Same slot, same rhythm: 'Ask it to plan.' types above the composer, 'plan' in accent blue. 'plan' drops into its place in the long prompt, which is already typed and scrolls left inside the field as the word lands. Send, the pale green bubble, the green dot; the roast planner streams in as a cropped card: menu lines, then 'Number of people' with the minus / 5 People / plus stepper, then the shopping list with 'Bone-in leg of lamb 2.0 kg'. Push-in on the stepper: the cursor taps plus and the quantities in the list change in place, row by row. The cursor presses 'Copy shopping list'. Carries: the stepper's plus button, which the cut matches to the receipt's paperclip position in the next ask.
+4. on screen: Ask it to split the bill.
    voice: (none)
-   picture: The roast prompt sends and a planner with the Number of people stepper arrives; the cursor taps plus and the quantities change.
-5. on screen: Ask it to build one.
+   picture: The hero ask, the longest and cleanest shot. A crumpled restaurant receipt photo (TRATTORIA, itemised, Subtotal, Tax, Total) drops onto the composer and becomes its attachment thumbnail. 'Ask it to split the bill.' types; 'bill' (blue) drops, capitalises and becomes the first word of 'Bill splitter for a party of five based on what we ate, can you make it look like a clipboard'. Send. The pale green bubble lifts; the single green dot breathes for 0.6 s (the brand's breath before the result). Then the show-off: the answer starts as one line of grey streaming text wiping in left to right, and each phrase, as it streams, lifts out of the line and snaps into a part of a brown clipboard with a metal clip building beneath it: 'THE DINNER LEDGER' into the header, 'The Check, Please.' into the title, 'TABLE OF FIVE · ITEMIZED BILL' into the strap; '01 / Who's at the table?' unfolds five GUEST fields, '02 / What did you order?' lays the dish rows with Price ($) and WHO HAD IT?. The text never becomes a paragraph: every word ends up as a part of the tool. Push-in crop on the Cacio e Pepe row: the cursor ticks two names, green ticks land, and the per-guest shares change. Carries: the clipboard's top edge and its metal clip, which the cut matches to the top of the next console.
+5. on screen: Ask it to play.
    voice: (none)
-   picture: A receipt photo and 'Bill splitter, make it look like a clipboard' send; The Check, Please. builds as it streams and a tap on WHO HAD IT? recomputes the split.
-6. on screen: Ask anything.
+   picture: The break. The music drops out for 0.6 s and the frame holds only the empty composer with its caret blinking (one slow mover, never a freeze). Then 'Ask it to play.' types at the same size as the three before; 'play' (blue) flies to the END of the prompt this time, completing 'Create a retro interactive gaming console that I can play'. Send; the beige PIXEL PALACE handheld streams in as a cropped card, tabs SNAKE / BREAKOUT / PONG; the cursor presses START GAME and the snake moves across the console screen. Carries: the snake's head, a small square moving right, which the cut matches into the closing composer's caret.
+6. on screen: Ask ChatGPT.
    voice: (none)
-   picture: The composer stays put while real prompts flick through it: GDP explained simply, Monty Hall problem, drone photography, a 7-speed bike; the last builds PIXEL PALACE and START GAME runs.
-7. on screen: 1.2 billion people ask weekly.
-   voice: (none)
-   picture: The composer pulls back; the count rolls in tabular digits.
-8. on screen: Ask ChatGPT.
-   voice: (none)
-   picture: The largest type in the film, the blossom mark, then the single black dot.
+   picture: The snake's head becomes the composer's caret, blinking. Above it the four pale green bubbles from the film stack up the right of the thread (the Roth, roast, bill and console prompts), then a fast scroll of OpenAI's own example asks rises behind them (Help me understand the central limit theorem intuitively, GDP explained simply, Monty Hall problem): a burst of cuts on the beat, the brand's density build. It stops; '1.2 billion people use it weekly.' lands centred on the composer line, 1.2 billion in black semibold. Then the composer's chrome (+, Instant, mic, send) draws away and its hint text 'Ask ChatGPT' scales up to the largest type in the film, black on #FCFCFC, the blossom mark small to its left. Held 2.4 s, then the line clears and the caret contracts to a single black dot, centred, the last frame (the brand's ending). One CTA, no URL, no badge.

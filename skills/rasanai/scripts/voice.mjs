@@ -17,7 +17,7 @@
 //      (the voice mispronounces it: respell it phonetically in the TTS text or pick another voice); warning: a line over 0.1.
 //      Caption timing (captions from --captions / --srt / <project>/compositions/captions.html): error `caption-too-short` when a caption
 //      is on screen for less than max(1.8 s, its speech + 0.6 s).
-//      See-and-say and caption duplicates (WARNINGS, uncalibrated; with --project [--score <run>/motion/score.json] [--offset <s the audio starts in the film>] [--no-sync]; loads the built compositions headlessly):
+//      See-and-say and caption duplicates (WARNINGS, uncalibrated; with --project [--score <run>/motion/score.json] [--offset <s the audio starts in the film>] [--events <events.json>] [--no-sync]; loads the built compositions headlessly):
 //      `see-and-say`: a narration cue (a sentence, or a phrase ended by a 0.6 s pause, from the heard word times) with no on-screen event within 1.0 s (a score event, a beat start, a line of text appearing; captions never count);
 //      `text-off-word`: a line of text that names a word the voice says elsewhere, not within 1.0 s of it; `caption-duplicates-text`: a caption and another on-screen line say the same words in the same window.
 //      Exit 0 = clean (warnings allowed), 2 = findings, 1 = could not run (no whisper-cli / model / audio; logged as a downgrade). Prints JSON.
@@ -49,6 +49,7 @@ import { parseArgs, die } from "./lib/common.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
 import { track } from "./lib/report.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
+import { loadManifest } from "./lib/film-events.mjs";
 import { decideLanguage, hasWhisperCli, whisperTranscribe } from "./lib/lang.mjs";
 
 const args = parseArgs();
@@ -265,7 +266,16 @@ async function verify() {
       if (r.could_not_run.length) sync = { checked: false, why: r.could_not_run[0] };
       else {
         const off = Number(args.offset) || 0, words = tr.words.map((w) => ({ ...w, start: w.start + off, end: (w.end ?? w.start) + off })), evs = [];
-        if (args.score && args.score !== true) {
+        // the derived film-event manifest (--events <events.json>, or motion/events.json beside --score) when it is there and fresh: its scene starts and
+        // picture hits are the on-screen events; a stale one is refused with a finding and the score is read as before
+        let man = null;
+        const mf = args.events && args.events !== true ? String(args.events) : args.score && args.score !== true && fs.existsSync(path.join(path.dirname(path.resolve(String(args.score))), "events.json")) ? path.join(path.dirname(path.resolve(String(args.score))), "events.json") : null;
+        if (mf) {
+          const m = loadManifest(mf);
+          if (m.ok) { man = m.manifest; for (const e of man.events) if (e.kind === "scene_start" || e.kind === "visual_hit") evs.push({ t: e.at_s, what: String((e.attrs && e.attrs.what) || (e.kind === "scene_start" ? `beat ${e.scene} starts` : "event")).slice(0, 30) }); }
+          else if (!m.notManifest) findings.push({ severity: "warning", check: "events-manifest", message: `the film-event manifest was not used: ${m.error}`, fix: "node events.mjs export --run <run>" });
+        }
+        if (!man && args.score && args.score !== true) {
           try {
             const sc = JSON.parse(fs.readFileSync(path.resolve(String(args.score)), "utf8")); let t0 = 0;
             for (const b of sc.beats || sc.scenes || []) {
