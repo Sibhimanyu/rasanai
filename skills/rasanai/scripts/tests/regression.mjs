@@ -26,8 +26,10 @@ export default async function ({ ok, tmp }) {
   const good = run(["check", "--json"]);
   if (/no Chrome found/.test(good.stderr || "")) { console.log("note  regression: Chrome cases not run (no headless Chrome: run `npx hyperframes browser ensure` or set RASANAI_CHROME)"); return; }
   const g = rep(good);
+  // baselines record the machine that made them: exact (~0) on that platform, within the per-scene threshold elsewhere
+  const samePlatform = JSON.parse(fs.readFileSync(path.join(FX, "baselines", "meta.json"), "utf8")).platform === `${process.platform}-${process.arch}`;
   ok("regression: the good fixtures pass (exit 0), 4 scenes x 3 timestamps, each with the report fields", good.status === 0 && g.rows.length === 12 && g.rows.every((r) => r.status === "ok" && ["scene", "timestamp_s", "repeat_identical", "metric", "threshold", "console_errors", "actual", "baseline", "status"].every((k) => k in r)), good.stdout.slice(0, 300) + good.stderr.slice(0, 200));
-  ok("regression: A-B-A seeks and a cold render are identical on the good fixtures, and the baseline metric is ~0 on this machine", g.rows.every((r) => r.repeat_identical === true) && g.rows.every((r) => r.metric < 0.001), "");
+  ok("regression: A-B-A seeks and a cold render are identical on the good fixtures, and the baseline metric is ~0 on the baseline platform (inside its threshold elsewhere)", g.rows.every((r) => r.repeat_identical === true) && g.rows.every((r) => (samePlatform ? r.metric < 0.001 : r.metric <= r.threshold)), "");
 
   const bad = run(["check", "--manifest", path.join(FX, "bad-manifest.json"), "--json"]);
   const b = rep(bad);
