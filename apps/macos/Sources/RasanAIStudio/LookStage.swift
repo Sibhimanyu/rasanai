@@ -31,30 +31,11 @@ struct LookStage: View {
     private var canAct: Bool { model.canAct(on: step) }
 
     var body: some View {
-        StageScaffold(model: model, step: step,
-                      question: payload["question"].string ?? (isFilms ? "Which film do you want?" : "Find the right feeling."),
-                      context: payload["context"].string ?? payload["sub"].string,
-                      maxWidth: 1240) {
+        ReviewStageWorkspace(model: model, step: step,
+                             question: payload["question"].string ?? (isFilms ? "Which film do you want?" : "Find the right feeling."),
+                             context: payload["context"].string ?? payload["sub"].string) {
             if let current {
-                StudioAdaptiveColumns(railWidth: 250, railFirst: false, breakpoint: 820, gap: 24, stackSpacing: 24) {
-                    VStack(alignment: .leading, spacing: 18) {
-                        LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook)
-                        LookTiles(items: items, selectedID: current.id, recommendedID: recommendedID, aspect: aspect,
-                                  hook: payload["hook"].string) { selection = $0 }
-                        if isFilms && !current.frames.isEmpty { LookFrames(item: current, aspect: aspect) }
-                    }
-                    rail(current)
-                }
-                .focusable()
-                .focusEffectDisabled()
-                .focused($keysFocused)
-                .onKeyPress(characters: CharacterSet(charactersIn: "123"), phases: .down) { press in
-                    guard canAct, let n = Int(press.characters), n >= 1, n <= items.count else { return .ignored }
-                    selection = items[n - 1].id
-                    return .handled
-                }
-                // Keys only when nothing is being typed: a step arriving while the person writes must not steal them.
-                .onAppear { if !(NSApp.keyWindow?.firstResponder is NSTextView) { keysFocused = true } }
+                reviewWorkspace(current)
             } else {
                 Text("\(agent) is still drawing the looks.").foregroundStyle(.secondary)
             }
@@ -67,6 +48,69 @@ struct LookStage: View {
         }
         .onChange(of: items.map(\.id)) { _, ids in
             if let selection, !ids.contains(selection) { self.selection = nil }
+        }
+    }
+
+    /// The compact choices stay in view above the chosen look.  The inspector owns its
+    /// own scroll area so a long recipe cannot push the decision surface or footer away.
+    @ViewBuilder private func reviewWorkspace(_ current: LookItem) -> some View {
+        GeometryReader { proxy in
+            let tinyWindow = proxy.size.width < 820 || proxy.size.height < 500
+            if tinyWindow {
+                // A real scroll view remains usable with large type, Split View, and very small windows.
+                ScrollView {
+                    fallbackWorkspace(current)
+                        .padding(.bottom, 20)
+                }
+            } else {
+                boundedWorkspace(current, available: proxy.size)
+            }
+        }
+        .focusable()
+        .focusEffectDisabled()
+        .focused($keysFocused)
+        .onKeyPress(characters: CharacterSet(charactersIn: "123"), phases: .down) { press in
+            guard canAct, let n = Int(press.characters), n >= 1, n <= items.count else { return .ignored }
+            selection = items[n - 1].id
+            return .handled
+        }
+        // Keys only when nothing is being typed: a step arriving while the person writes must not steal them.
+        .onAppear { if !(NSApp.keyWindow?.firstResponder is NSTextView) { keysFocused = true } }
+    }
+
+    private func boundedWorkspace(_ current: LookItem, available: CGSize) -> some View {
+        let inspectorWidth = min(320, max(250, available.width * 0.27))
+        let heroHeight = min(560, max(250, available.height - 170))
+
+        return HStack(alignment: .top, spacing: 24) {
+            VStack(alignment: .leading, spacing: 16) {
+                LookTiles(items: items, selectedID: current.id, recommendedID: recommendedID, aspect: aspect,
+                          hook: payload["hook"].string) { selection = $0 }
+                    .frame(maxHeight: 142, alignment: .top)
+                LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook)
+                    .frame(maxHeight: heroHeight, alignment: .top)
+                if isFilms && !current.frames.isEmpty {
+                    LookFrames(item: current, aspect: aspect)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+            ScrollView {
+                rail(current)
+            }
+            .frame(width: inspectorWidth, height: available.height, alignment: .top)
+            .accessibilityLabel("Selected look details")
+        }
+        .frame(width: available.width, height: available.height, alignment: .topLeading)
+    }
+
+    private func fallbackWorkspace(_ current: LookItem) -> some View {
+        VStack(alignment: .leading, spacing: 20) {
+            LookTiles(items: items, selectedID: current.id, recommendedID: recommendedID, aspect: aspect,
+                      hook: payload["hook"].string) { selection = $0 }
+            LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook)
+            if isFilms && !current.frames.isEmpty { LookFrames(item: current, aspect: aspect) }
+            rail(current)
         }
     }
 
