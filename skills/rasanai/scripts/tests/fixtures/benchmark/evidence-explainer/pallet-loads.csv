@@ -1,0 +1,8 @@
+# SYNTHETIC BENCHMARK FIXTURE: invented numbers, not real data
+pallet,load (kg),height (mm)
+North,118,420
+East,94.5,360
+South,142,510
+West,76.25,290
+Annex,131,470
+Dock,103,385

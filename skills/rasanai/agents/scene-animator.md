@@ -95,6 +95,10 @@ If the delivery render goes through `finish.mjs all` (it does for every Final; d
 
 **Branded film (`brand_film`)**: read `brand-film/FILM-STYLE.md` before you animate. Use only the moves in its motion vocabulary (scale, morph, draw-on, cut, UI choreography...) and none it says are absent. The card locks palette, type, logo, UI and tone. Add hero effects only where `score.budget` names them; keep the finish layer and motion blur on fast moves; 3D in the brand palette (matte or unlit). The brand's own curves are the signature (`motion.md`); the role mix, durations from travel (0.3 to 0.8 s for UI, 0.5 to 1.2 s for type) and overlap still apply.
 
+## Reads
+
+Your scene's `reads[]` in the score (if any) is the order the audience reads it: every dramatic shot has **one focal change** and a planned order in which the audience reads it. Ask for anticipation, action, reaction and payoff only where the content has them (a product demo may need only an action and its result). Format and checks: `references/reads.md`. Hit each read's `t0`/`t1` (scene-local seconds), keep its `visual_cue` on screen for the whole read, make the reaction land after the cause, and hold the payoff 0.6 s or more. Before you return, generate and open `node "$SKILL_DIR/scripts/reads.mjs" sheet --run "$RUN" --scene <id> --file <your composition>` (four positions plus a strip around the key transition) and fix anything you cannot read in it.
+
 ## Coded-film gotchas
 
 - Every canvas helper saves and restores `globalAlpha` and the transform (`save()` / `restore()`), so one helper never leaks state into the next.

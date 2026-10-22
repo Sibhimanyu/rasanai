@@ -1,0 +1,10 @@
+<!doctype html><meta charset=utf-8><title>regression: RasanShape scene (synthetic fixture)</title><style>html,body{margin:0;width:320px;height:180px;overflow:hidden;background:#101820;font-family:sans-serif}#stage{position:absolute;inset:0}</style>
+<div id=stage data-composition-id=gsap-shape><svg id=sv width=320 height=180 viewBox="0 0 320 180" style="position:absolute;inset:0">
+<path id=p d="M30 140 C 90 20, 150 20, 210 140 S 290 150 300 60" fill=none stroke="#f4efe6" stroke-width=6 stroke-linecap=round /></svg>
+<div id=ring style="position:absolute;left:130px;top:60px;width:60px;height:60px;border-radius:30px;background:#e8a33d"></div></div>
+<script src="../../../../vendor/gsap.min.js"></script><script src="../../../../../runtime/rasan-shape.js"></script><script>
+var tl=gsap.timeline({paused:true});
+RasanShape.drawOn(tl,"#p",{at:0,duration:2,ease:"none"});
+tl.fromTo("#ring",{scale:0.2,opacity:0},{scale:1,opacity:1,duration:1.4,ease:"back.out(1.7)"},0.4);
+window.__timelines={"gsap-shape":tl};tl.seek(0);
+</script>

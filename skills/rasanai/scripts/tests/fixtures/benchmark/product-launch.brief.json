@@ -1,0 +1,25 @@
+{
+  "schema": "rasanai-quick-brief/1",
+  "synthetic": "benchmark fixture product-launch: SYNTHETIC and unbranded. The product 'Model P-1 desk lamp' does not exist; every word is invented for the benchmark, makes no claim and must never be published as a real product film.",
+  "kind": "product-launch",
+  "duration_s": 30,
+  "size": { "w": 960, "h": 540 },
+  "seed": 11,
+  "source": { "kind": "prompt", "note": "synthetic benchmark text written for the fixture; no real product" },
+  "title": "Model P-1 desk lamp",
+  "tagline": "Light that follows your day.",
+  "mechanism": {
+    "heading": "Three settings, one dial",
+    "steps": [
+      { "label": "Dawn", "detail": "Warm and low to wake up" },
+      { "label": "Noon", "detail": "Clear and bright for focus" },
+      { "label": "Dusk", "detail": "Soft and dim to wind down" }
+    ]
+  },
+  "endcard": { "line": "Meet the P-1.", "sub": "SYNTHETIC: no real product." },
+  "facts": [ { "text": "Model P-1", "source": "the synthetic fixture product name, invented for this benchmark" } ],
+  "assets": [],
+  "audio": {},
+  "regulated": false,
+  "look": { "canvas": "#14110f", "ink": "#f6efe6", "accent": "#ffb347", "support": "#8fd3c8", "muted": "#b7aca0", "display": "Inter", "body": "Inter", "weight": 800, "source": "benchmark fixture look (synthetic)" }
+}

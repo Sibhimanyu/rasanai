@@ -69,3 +69,7 @@ The Motion Director reads `frames/shots.json`, the PNGs and `frames/verdict.json
 ## The build is bound to the boards
 
 The film builder and the scene animators get `frames/<id>.png` and `shots.json` as the visual target. After the draft, `frames.mjs match --run "$RUN" --video <draft.mp4>` renders the draft at each board's peak (the score's `peak_t`, else 65% through the beat, else the shot's `t`) next to the board, with SSIM on a 160x90 grey downscale as a number (`frames/match.json`, `frames/match.png`). The critics judge the match by eye: hero, crop, ground, focus and type sizes as the board.
+
+## Actor sheets and timed reads (only when the film has them)
+
+A film with a recurring character draws its **actor sheets** (model sheet, emotion sheets; `stage2d.mjs sheet` or `canon.mjs sheet`) before the hero frames, and the boards bind to the sheet like they bind to the heroes: [2d-character](2d-character.md), [3d](3d.md). A scene that carries `reads[]` is reviewed from a four-position sheet and a short strip around the key transition (`reads.mjs sheet`), next to its board: [reads](reads.md). Both are inputs to the same frame juror; they add no call and no step for films without a character or reads.

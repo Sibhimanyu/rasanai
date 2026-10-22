@@ -28,12 +28,16 @@ Modes (the column "mode" and every "HOW MUCH" line use these words):
 | [Jakubantalik/thinking-orbs](#thinking-orbs) | MIT | adapted code + data | RasanOrbs runtime, 15 golden cases | taken |
 | [feitangyuan/onetake](#onetake) | PolyForm Noncommercial 1.0.0 | idea only | cut-aware shutter, sfx-buried, carry, scale-dive, regression diff | taken as ideas; translated versions open (P3.1) |
 | [pyang5166/gbro-collage-broll](#gbro) + gbro-collage-info | MIT | rewritten | halftone paper collage look | taken |
-| [JohnHeibel/ClaudeAnimationBase](#claudeanimationbase) | MIT | idea only | twinning, three zooms, reads, echo | taken as ideas; cartoon route open (P3.2) |
+| [JohnHeibel/ClaudeAnimationBase](#claudeanimationbase) | MIT | idea only | twinning, three zooms, reads, echo | taken as ideas; the cartoon route is built as original code (P3.2, B2 partly done) |
 | [lemomo-ai/lemo-opuscar](#lemo-opuscar) | MIT | rewritten + data | 11 styles, 98 prompts, catalogue grammar, devices, slot limiter, CJK reading | taken |
+| [tuzhechen2005/opus-video-skills](#video-upgrade-pins) | MIT (root LICENSE; `painted-animation/template/` is John Heibel, MIT) | idea only so far | painted-animation skill (W5 reference) | pinned 59744a6; code adapted only with its LICENSE + NOTICE, see pins |
+| [JohnHeibel/PDoomVideo](#video-upgrade-pins) | none verified | idea only | storyboard and chapter-level production | no source copied |
+| [diggerhq/shipvideo](#video-upgrade-pins) | none verified | idea only | quick-preview (W10): one HTML scene, a seeked clock, scene-error checks, ffmpeg | taken as ideas (`quick-film.mjs`, original virtual-time adapter); no source copied |
+| [riba2534/claude-opus-5-5-demo](#video-upgrade-pins) | none verified | not used | low-value coding demo | not integrated |
 | [ferndesk/no-slop-motion](#no-slop-motion) | MIT | idea only | story chain, acts, crescendo, villain and felt numbers | taken as ideas |
 | [Jamailar/high-retention-video-script](#high-retention-video-script) | none declared | idea only | stimulus clock, HKRR (read, not built in) | read; nothing built (unverified) |
 | [FilmAgent, MovieAgent, ViMax and other agent papers](#filmagent-movieagent-vimax) | MIT / none / MIT | idea only | critique loops, structure critic | taken as ideas |
-| [yihui-dev/awesome-opus5-5-videos](#awesome-opus5-5-videos) | MIT (the list); each prompt belongs to its creator | idea only | spring superposition, two-edge indicators, log-space zoom, iris by area, one-frame pop scan, loop seam, reading hold, frame-time counters, one-prompt export | taken (AO.1–AO.7, AO.9); precedent rows planned (B11) |
+| [yihui-dev/awesome-opus5-5-videos](#awesome-opus5-5-videos) | MIT (the list); each prompt belongs to its creator | idea only | spring superposition, two-edge indicators, log-space zoom, iris by area, one-frame pop scan, loop seam, reading hold, frame-time counters, one-prompt export | taken (AO.1–AO.7, AO.9); 20 technique rows with links (W11, B11 partly done) |
 | [nextwork-projects/ai-video-editor-cooked](#cooked) | MIT | adapted code + idea only | cut kinds and zoom punches, format grouping and outliers, reference profile and output match, captions and faces on references (Apple Vision), retake and false-start candidates, word-aligned kept ranges and splice check, head boxes, face-under-graphic warning | taken (waves 1 to 4); patch render, clip factory and scoped taste open (B3, B16, B17, B18) |
 | [Creative research handoff (13 repos)](#creative-research-handoff) | MIT (11), none detected (2) | idea only | hook kinds, decision locks, scene states and cast, motion hierarchy and energy checks, phone readability, platform safe zones, first frame, reference principles | taken (WP1-WP7); B12-B15 open |
 | [Craft sources](#craft-sources) (Murch, Hitchcock, Kuleshov, Pixar, Eisenstein, ...) | not code | idea only, cited | direction procedure, Rule of Six, importance = size | taken |
@@ -203,6 +207,7 @@ MIT / Apache-2.0: we may copy or adapt with credit (LICENSE copy plus NOTICE in 
 - Licence: MIT. Lets us: copy or adapt with credit. We copied nothing.
 - Credit location: none (comments name it). If anything is copied later, add `third_party/claude-animation-base/`.
 - TOOK (idea only): avoid twinning (`scripts/obey.mjs`, "avoid twinning" warning); review at three zooms: sheet, strip, crop (`references/crew.md`, `crew.mjs strip --crop`); "write the reads" timing (reading-time per beat, `references/intent.md` `read`); the end rhymes with the opening (`scripts/lib/echo.mjs`); "something happens in every scene" (critic checklist, unverified).
+- W4 (idea only, our code): timed per-scene `reads[]` (notice, action, reaction, payoff) checked by `scripts/reads.mjs` and `scripts/lib/reads.mjs`, reviewed on four-position sheets (`references/reads.md`).
 - DECLINED: the p5.js plus p5.brush toolchain and the boil system.
 - PLANNED: P3.2 hand-drawn cartoon route (p5.js, acted emotions, boil reseeded 12 times a second, no pure black or white), with the mocap puppet idea from OpenMontage (group2 19). BACKLOG.md.
 
@@ -217,8 +222,11 @@ MIT / Apache-2.0: we may copy or adapt with credit (LICENSE copy plus NOTICE in 
   - `library/grammars/catalogue-cards.json` from the pictogram-motion STYLE.md (rewritten); four devices in `taxonomy/devices.json` (rewritten ideas).
   - The shape of STYLE.md (essence and what it is not, materials, ...) as DESIGN.md "Motion and camera": the structure, not the text.
   - Idea only, our code: render slot limiter (`scripts/lib/slot.mjs`), CJK reading time (`scripts/lib/reading.mjs`), ASR per line on the final mix (`voice.mjs verify --mix`), leak scan (`video.mjs deliver`), `sfx-in-break` and `sfx-on-word-onset` (`sound.mjs`), white flash cap (`frame-guards.mjs flash-over-cap`), GTAO and bokeh in Rasan3D (`stage3d/`), film shape and last-three-films rule (`scripts/lib/film-shape.mjs`, `camera-moves.mjs`).
+- Idea only, our code (W7): user-owned reusable styles with a visual test (`MY-STYLES.md`): `scripts/custom-style.mjs`, `scripts/lib/custom-style.mjs`, `scripts/lib/style-film.mjs`, `references/custom-styles.md`. No text, code, media or styles taken; the library lives in the user's own folder, never committed.
+- Idea only, our code (W8): an original score and foley scheduled from an event list (lemo-opuscar's score/sampler idea; opus-video-skills kinetic-reel's picture-cue-driven synthesis): `scripts/original-score.mjs`, `scripts/lib/procedural-score.mjs`, `references/procedural-music.md`. Pure sine / triangle / noise synthesis in Node; no sample, instrument library, code or audio taken (the 97 CC0 instruments were not imported: no licence-verified library is shipped).
+- Idea only, our code (W9): the Evidence Films category (satellite briefing, engineering board, LiDAR survey, white model, data physicalization, exploded teardown, microscope, archive light table) as the rule that every number and geometry comes from documented source material: `scripts/evidence.mjs`, `scripts/lib/evidence*.mjs`, `library/evidence/`, `references/evidence.md`. No imagery, prompts, text or code taken; all fixtures are synthetic.
 - DECLINED: demo code, engines, audio, fonts, voices, DEMO.md files, the other 38 styles, the sound palettes and pitfall sections.
-- PLANNED: R1 lemo 11 offline narration fallback (Kokoro or edge-tts; check the model licence), lemo 12 sampled score (L, low). BACKLOG.md.
+- PLANNED: R1 lemo 11 offline narration fallback (Kokoro or edge-tts; check the model licence), lemo 12 sampled score (the synthesised Node engine is done in W8; sampled instruments stay planned, L, low). BACKLOG.md.
 
 ## no-slop-motion
 
@@ -249,7 +257,7 @@ MIT / Apache-2.0: we may copy or adapt with credit (LICENSE copy plus NOTICE in 
 
 - URL: https://github.com/yihui-dev/awesome-opus5-5-videos  (commit read: 92aee2f, 2026-10-15)
 - Licence: MIT, yihui-dev, for the list. The prompts inside are other people's posts (each entry links its creator), so the MIT grant does not reach their text. Lets us: ideas only for the prompts; the list's metadata (slug, category, tags, links) could be used with credit.
-- Credit location: none (ideas only). Code comments say "idea from awesome-opus5-5-videos; our code".
+- Credit location: `library/benchmarks/video-techniques.json` (W11: 3 index rows keep their gallery link and the creator's post link; metadata only, no prompt text, stills or video), and code comments ("idea from awesome-opus5-5-videos; our code").
 - What it is: 703 prompts behind viral videos where Claude Opus 5.5 wrote the animation as code (369 motion, 117 3D, 116 explainers, 101 interactive; 207 partial). The ~45 long prompts share one structure: inputs with defaults, direction with a banned list, a beat-numbered storyboard, numbered build rules, gotchas, and "show the beat map and stills before rendering".
 - TOOK (idea only, our words and code): spring superposition, a value with many targets as a sum of closed-form step responses, and two-edge indicators (`RasanMotion.springTrack`, `RasanMotion.edges`); counters read the frame's own time under subframe blur (`RasanMotion.frameTime`, `window.__rasanFrameTime` in `finish.mjs`); zoom interpolated in log space and the zoom-into-an-off-centre-point warning (`RasanCamera` keys, `camera.mjs zoom-into-point`, `zoom-in-out`); iris and flood eased by area, flood switches to a full-frame rect (`rasan-shape.js`); the one-frame pop scan (`motion-gate pop`); the loop seam in picture, motion and sound (`motion-gate loop-seam`, `finish.mjs`, `sound.mjs`); a reading hold before decorative travel, blur never on read text, separate exit and enter timing in morphing containers (`references/craft.md`, text check); coded-film gotchas in `agents/film-builder.md` and `agents/scene-animator.md`; every brief input shows its default (`console/index.html`); a plan exported as one paste-able prompt (`handoff.mjs --prompt`). HOW MUCH: idea only, every line.
 - Already ours before this read (not re-taken): seek(t) as a pure function of time, closed-form springs, subframe motion blur, last frame equals first, one morphing shape, shared-element handoffs, floods and irises, the beat grid, stills before render, SFX by measured peak, -14 LUFS, banned lists, grain and halation, word timestamps.
@@ -287,6 +295,26 @@ MIT / Apache-2.0: we may copy or adapt with credit (LICENSE copy plus NOTICE in 
 - PLANNED: B12, B13, B14, B15.
 - Unverified: per-file licences; the safe-zone numbers in `lib/safezones.mjs` (from public platform guidance, uncalibrated).
 
+## Rasan2D (original code; ideas credited)
+
+- Idea only, no code or media copied: ClaudeAnimationBase (MIT, pin 0ac8bf2) and opus-video-skills `painted-animation` (MIT, pin 59744a6) for the shape of a painted-character route (named animation principles, line boil reseeded about 12 times a second, "something happens in every scene", show don't tell), as described in the video-upgrade brief; their files were not read or copied. PDoomVideo (no licence verified) for chapter-level production thinking: idea only.
+- p5.brush was not used (licence not verified for adaptation); the painting backend is original Canvas 2D code in `stage2d/runtime/brush.js`. The demo actor (Pim) is an original design drawn by `stage2d/runtime/character.js`; no existing character, and no Clawd, ships.
+- Unverified: nothing taken, so nothing to verify.
+
 ## Craft sources
 
 Ideas only, cited, not code: Walter Murch's Rule of Six and the blink; Alfred Hitchcock's rule that screen size is story importance; Lev Kuleshov (meaning lives between shots); Sergei Eisenstein's montage types; the Pixar story spine and rules; the single-minded proposition; Problem-Agitate-Solve; the story circle; SUCCESs (Made to Stick); the rule of three; ManvsMachine and Buck concept methods; Saul Bass, Terry Gilliam (library entries `library/motion/kinetic-type/saul-bass-cutout-type.md`, `library/motion/collage/cutout-collage-gilliam.md`, `library/systems/studios/saul-bass.md`). Where used: `references/craft.md` (the direction procedure; footer "Ideas from Walter Murch, Hitchcock and Kuleshov via R-craft ... Our own words"), `references/story.md`, `references/intent.md`, `agents/motion-director.md`, `agents/footage-logger.md`. Full notes with URLs (including secondary sources) are in the local research file `R-craft.md`, not in git; secondary-source URLs are unverified here. Nothing to credit under a licence; cite the person or work, never quote at length.
+
+## Video upgrade pins
+
+Revalidated 2026-10-22 for the video-upgrade brief (heresay r_VejkvP8IXAd9jCgJ). Pins are upstream default-branch HEADs; licence is what GitHub reports plus the root LICENSE file.
+
+| Repo | HEAD | Licence |
+| --- | --- | --- |
+| JohnHeibel/ClaudeAnimationBase | 0ac8bf2 | MIT |
+| JohnHeibel/PDoomVideo | fa546a3 | none verified: ideas only |
+| tuzhechen2005/opus-video-skills | 59744a6 | MIT (GitHub shows NOASSERTION; root LICENSE is MIT) |
+| lemomo-ai/lemo-opuscar | b5e8ef9 | MIT (code, docs); demo films/stills CC BY 4.0 |
+| diggerhq/shipvideo | 53d7c6f | none verified: ideas only |
+| yihui-dev/awesome-opus5-5-videos | 92aee2f | MIT (the list only; each creator's prompts and art are theirs) |
+| riba2534/claude-opus-5-5-demo | 54adc1f | none verified: not integrated |

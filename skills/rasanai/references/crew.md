@@ -119,6 +119,15 @@ Every earlier film had type and product UI and no picture world: the builders dr
 
 Downstream: the Motion Director, the film builder and the scene animators are given `art/assets.json` and `art/ART.md` and build with these files, not with their own drawings; the design-system designers may name the picture world in `## Imagery` on every route, not only presenter films; the shape kit (`references/shape.md`) is how the assets move (paths to morph and draw, cut-outs to scatter and dissolve).
 
+## Actor, evidence and quick-preview in the crew (all optional)
+
+None of these runs on an ordinary launch, explainer, reel or lyric film; the Director adds them only when the brief calls for them, and none adds a user call.
+
+- **`character-designer`** (phase `character-design`, after the Look and the art department, before the hero frames): only when the score's cast has a recurring character (the `character-cartoon` route, or any film with a persistent actor in `score.cast`). It writes `cast/<id>/identity.json` and the model, emotion or canon sheets with `stage2d.mjs sheet` (painted 2D, [2d-character](2d-character.md)) or `canon.mjs` (a code-built 3D actor, [3d](3d.md)). **Accepted** by `crew.mjs check --role character-designer`: the identity validates, the sheets exist and the score's cast links to the same files. `crew.mjs brief --role scene-animator` is refused until that canon exists (the Motion Director, film builder and animators are told to reference the rig, never redesign it), and `canon.mjs check` / `stage2d.mjs check` hold every scene to it.
+- **Evidence roles.** On an Evidence film only (the Brief picked it; a launch with one number is not one), the researchers, writers, designers, the Motion Director, the builders and the critic get an `evidence` line in their dispatch context: numbers come from `evidence/manifest.json` or `research/claims.json`, sketches are labelled SCHEMATIC. The film is called grounded only when `evidence.mjs check --strict` passes (the builder's `crew.mjs check` runs it). Method and recipes: [evidence](evidence.md).
+- **Reads.** The Motion Director may add the optional `reads[]` to a scene; `crew.mjs check --role score` reports them (an invalid list is a problem, a thin one a warning), and the critic and frame juror answer four scored questions from `reads.mjs sheet` frames. Contract: [reads](reads.md).
+- **`quick-builder`** (only on an explicit quick-preview request): writes the quick brief, never the HTML by default; [quick-film](quick-film.md) states when the full crew is needed instead.
+
 ## The Moves pass in the crew
 
 Showing off is not enough: left to itself the crew plans motion in technique names ("match cut", "iris") and builds competent, forgettable films. The Moves pass invents content-born moves instead (`references/moves.md`). It runs inside Story, after the three scripts pass `story.mjs check` and before the editor, on every film route except a song (`music-to-video`) and a footage reel; `--lean` skips it.

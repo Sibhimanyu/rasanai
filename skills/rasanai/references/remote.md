@@ -138,7 +138,7 @@ against the project, refuse anything that leaves it, and read only paths the cur
 | Look (`look`) | `styles[].poster`: the system's `design/<label>/specimen.png`; `styles[].frames[]`: `{id: "open"\|"peak"\|"end", image}` | `poster` is written by `design.mjs look-payload` only when the system has a `specimen.html` **and** `design.mjs check-system` rendered its `specimen.png`; a recipe-only system has no poster (fall back to its `frames`, else its name and `blend`). `frames` are there only on routes whose crew plan has the look-heroes phase (`crew.mjs plan`), once those frames are drawn |
 | Look (`films`, older flow) | `films[].frames`: a plain list of up to 3 PNG paths (strings, not objects) | no `poster` on this flow: use the first frame |
 | Look (`styleframes`) | `frames[].image`, `frames[].ref.image`, `sheet` | always `image`; it is an approve/redo call, not a pick |
-| Animatic | `scenes[].thumb` (stills), `audio` or `music.file` (the bed); `video` and `proxy` when the animatic is a draft render | thumbs nearly always; `video` when the animatic is the built draft (SKILL.md, the Animatic call) |
+| Animatic | `scenes[].thumb` (stills), `audio` or `music.file` (the bed); `video` and `proxy` when the animatic is a draft render | thumbs nearly always; `video` when the animatic is the built draft (references/workflows/music-animatic-build.md, the Animatic call) |
 | Final | `video` (or `videos[]`, the newest last), `poster`, `scenes[].thumb`, `proxy` | |
 
 **Video for phones (`proxy`).** When `console.mjs push` sends `animatic`, `render` or `final` with a `video` (or

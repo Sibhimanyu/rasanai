@@ -1,0 +1,5 @@
+# SYNTHETIC BENCHMARK FIXTURE: invented numbers, not real data
+option,span (mm),mass (kg),cost index (count)
+Frame,3800,92,12
+Girder,3300,150,8
+Vault,5000,68,19

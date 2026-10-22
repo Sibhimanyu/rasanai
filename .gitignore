@@ -18,3 +18,9 @@ _site/
 
 # gstack team mode uses each developer's global install
 .claude/skills/gstack/
+
+# benchmark fixture renders (W11)
+skills/rasanai/scripts/tests/fixtures/benchmark/generated/
+
+# story.mjs check writes a rewrite ledger beside the pitch it checks; never a fixture
+skills/rasanai/scripts/tests/fixtures/story-scope/check-ledger.json

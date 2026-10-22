@@ -1,0 +1,30 @@
+{
+ "source": "git show HEAD:skills/rasanai/SKILL.md before W2 (148196 bytes)",
+ "headings": [
+  "RasanAI",
+  "The shape of a run: five calls",
+  "Short films: the direct path",
+  "Hard rules",
+  "Setup (once per run)",
+  "The Director's Console",
+  "1 · Brief",
+  "2 · Story (three scripts, before any look)",
+  "Story for a song (route `music-to-video`)",
+  "3 · Look (three design systems for that story)",
+  "3b · Concept gate (before any expensive work)",
+  "3c · Art (the film's picture world, before the score)",
+  "3d · Styleframes and boards (the film as pictures, before the score)",
+  "4 · Animatic (the whole film, rough, with sound)",
+  "4b · Build (inside the Animatic state; the user watches)",
+  "5 · Final",
+  "Footage reels (route `reel`)",
+  "Presenter films (route `presenter`)",
+  "The owner's answers and series",
+  "Single units (route `motion-graphics`)",
+  "Design systems",
+  "Memory",
+  "Revise an existing video",
+  "Failure handling",
+  "References"
+ ]
+}

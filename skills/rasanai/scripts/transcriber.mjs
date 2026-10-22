@@ -8,7 +8,7 @@
 //
 // Output: one JSON line on stdout {ready, whisper, model, step, reason}. Exit 0 ready, 3 not ready (reason says why, in plain words).
 // Progress goes to stderr. Run `install` ONLY after the person said yes; if it exits 3, tell them the reason and ask whether to
-// retry or continue without transcripts. A failed install is never a reason to carry on silently (SKILL.md, footage reels).
+// retry or continue without transcripts. A failed install is never a reason to carry on silently (references/workflows/routes/footage.md, footage reels).
 // Used by the director (background + poll: the model download is about 466 MB) and by RasanAI Studio's tool setup.
 import fs from "node:fs";
 import os from "node:os";

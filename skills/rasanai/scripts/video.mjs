@@ -38,7 +38,9 @@ track(
   { capture: "Capture done", write: "Plan written: brief, storyboard, design system, motion rules", inject: "Every scene has its brief", init: "Project ready", deliver: "Delivery folder ready" }[cmd]
 );
 const STORY_ROUTES = ["product-launch-video", "faceless-explainer", "pr-to-video", "general-video"];
-const ALL_ROUTES = [...STORY_ROUTES, "music-to-video", "talking-head-recut", "embedded-captions"];
+// RasanAI's own routes that HyperFrames has no workflow for: init uses the named HyperFrames workflow, explicitly (never an unknown --skill)
+const HF_ALIAS = { "character-cartoon": "general-video" };
+const ALL_ROUTES = [...STORY_ROUTES, "music-to-video", "talking-head-recut", "embedded-captions", "character-cartoon"];
 const RESOLUTION = { "1920x1080": "landscape", "1080x1920": "portrait", "1080x1080": "square" };
 const q = (s) => JSON.stringify(String(s));
 // a fallback is never silent: one row in the run's downgrades.jsonl (the drawer's "Working without") and a line in this command's output
@@ -65,13 +67,13 @@ if (cmd === "init") {
   else if (!fs.existsSync(path.join(dir, "hyperframes.json"))) {
     fs.mkdirSync(path.dirname(dir), { recursive: true });
     try {
-      run("npx", ["--yes", "hyperframes", "init", dir, "--non-interactive", "--example=blank", `--skill=${route}`, ...(RESOLUTION[aspect] ? [`--resolution=${RESOLUTION[aspect]}`] : [])], { cwd: ws });
+      run("npx", ["--yes", "hyperframes", "init", dir, "--non-interactive", "--example=blank", `--skill=${HF_ALIAS[route] || route}`, ...(RESOLUTION[aspect] ? [`--resolution=${RESOLUTION[aspect]}`] : [])], { cwd: ws });
     } catch (e) {
       if (!fs.existsSync(path.join(dir, "hyperframes.json"))) die(`hyperframes init failed:\n${e.stderr || e.message}`);
     }
     initialized = true;
   }
-  console.log(JSON.stringify({ ok: true, route, project_dir: dir, aspect, initialized }, null, 2));
+  console.log(JSON.stringify({ ok: true, route, ...(HF_ALIAS[route] ? { hyperframes_workflow: HF_ALIAS[route] } : {}), project_dir: dir, aspect, initialized }, null, 2));
 } else if (cmd === "capture") {
   const dir = projectDir();
   const cap = path.join(dir, "capture");
@@ -158,8 +160,11 @@ if (cmd === "init") {
     if (!fs.existsSync(of) || !fs.readFileSync(of).equals(body)) fs.writeFileSync(of, body);
     orbs = { dir: od, script: "assets/rasan-orbs/rasan-orbs.js" };
   }
+  // painted 2D characters (assets/rasan2d/) when a composition, the storyboard or a cartoon score names Rasan2D
+  const s2d = await import("./lib/stage2d.mjs");
+  const twoD = args.runtime || /Rasan2D|space: 2d-character/.test(sb) || s2d.projectUsesRasan2d(dir) ? s2d.install(dir) : null;
   const tagged = cam.tagCompositions(dir, { camera: !!camera, plugins: !!plugins });
-  console.log(JSON.stringify({ ok: true, injected: done, direction: !!dirSection, ...(shape ? { shape: { runtime: path.relative(process.cwd(), shape.dir), scripts: shape.scripts } } : {}), ...(camera ? { camera: { runtime: path.relative(process.cwd(), camera.dir), script: camera.script } } : {}), ...(plugins ? { gsap_plugins: { file: path.relative(process.cwd(), plugins.file), script: plugins.script, registers: plugins.registers } } : {}), ...(motion ? { motion: { runtime: path.relative(process.cwd(), motion.dir), scripts: motion.scripts } } : {}), ...(ui ? { ui: { runtime: path.relative(process.cwd(), ui.dir), script: ui.script } } : {}), ...(sim ? { sim: { runtime: path.relative(process.cwd(), sim.dir), script: sim.script } } : {}), ...(orbs ? { orbs: { runtime: path.relative(process.cwd(), orbs.dir), script: orbs.script } } : {}), ...(tagged.length ? { tagged } : {}), ...(three ? { three: { runtime: path.relative(process.cwd(), three.dir), script: three.script } } : {}) }, null, 2));
+  console.log(JSON.stringify({ ok: true, injected: done, direction: !!dirSection, ...(shape ? { shape: { runtime: path.relative(process.cwd(), shape.dir), scripts: shape.scripts } } : {}), ...(camera ? { camera: { runtime: path.relative(process.cwd(), camera.dir), script: camera.script } } : {}), ...(plugins ? { gsap_plugins: { file: path.relative(process.cwd(), plugins.file), script: plugins.script, registers: plugins.registers } } : {}), ...(motion ? { motion: { runtime: path.relative(process.cwd(), motion.dir), scripts: motion.scripts } } : {}), ...(ui ? { ui: { runtime: path.relative(process.cwd(), ui.dir), script: ui.script } } : {}), ...(sim ? { sim: { runtime: path.relative(process.cwd(), sim.dir), script: sim.script } } : {}), ...(orbs ? { orbs: { runtime: path.relative(process.cwd(), orbs.dir), script: orbs.script } } : {}), ...(tagged.length ? { tagged } : {}), ...(twoD ? { rasan2d: { runtime: path.relative(process.cwd(), twoD.dir), scripts: twoD.scripts } } : {}), ...(three ? { three: { runtime: path.relative(process.cwd(), three.dir), script: three.script } } : {}) }, null, 2));
 } else if (cmd === "audio-lock") {
   const dir = projectDir();
   if (!args.music) die("--music <file> required");
@@ -300,7 +305,7 @@ async function write() {
   };
 
   // ---- frame.md (the one file every frame worker reads) + the motion contract in it
-  const workflowDir = findSkill(route);
+  const workflowDir = findSkill(HF_ALIAS[route] || route);
   let stepTwo = "";
   const lookNotes = [];
   const runDir = fs.existsSync(path.join(base, "session.json")) ? base : undefined;

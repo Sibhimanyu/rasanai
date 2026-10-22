@@ -26,6 +26,7 @@ Rules that hold for every item:
 - Source: ClaudeAnimationBase (MIT; ideas, add a credit folder if anything is copied), OpenMontage ink-theater mocap puppet idea (AGPL: idea only, group2 19). Size: L.
 - What: a new route, runtime and guide: p5.js plus p5.brush, a character with acted emotions, line boil reseeded 12 times a second, flat 2D, no pure black or white, "no text, show it", "something happens in every scene", reads timing sheet, a transition at every seam. The mocap puppet (CMU mocap) is a later add-on (M to L).
 - Done when: a 15 s cartoon film passes the motion gate; the route is listed in the format picker as proven.
+- Status (W5, video-upgrade branch): PARTLY DONE. Built as original code, not p5.brush: `stage2d/` (Rasan2D: five views, 31 emotions, time-addressable actions, 12 Hz seeded boil, style layers, multi-actor depth order, stateless `renderAt`), `stage2d.mjs`, `lib/canon.mjs`, the `character-cartoon` route, the character-designer role and the `cartoon` format (status `partial`). Passed by test (`tests/stage2d.mjs`): 31/31 distinct, A-B-A and cold-render identical pixels, independent actor jitter, planted feet, `check` failing broken canon / unseeded randomness / actor out of frame / missing runtime, and the synthetic 15 s film through `motion-gate.mjs`. Still open: a real film made through the crew with a Look, a model-sheet approval and the Animatic (so the picker stays `partial`, not proven); talking (mouth shapes); the CMU mocap puppet add-on.
 
 ## B3. P3.3 New pipelines
 
@@ -53,7 +54,7 @@ Rules that hold for every item:
 - mortiflix 7: per-line voice recording booth for the user's own narration (hold-to-talk, clipped/quiet/too short flags, takes per line) in Studio. M to L. AGPL: idea only.
 - mortiflix 8: original-score engine (Strudel, harmony lock, intensity curve against the blueprint, MIDI). L, heavy, optional. AGPL: idea only.
 - mortiflix 9: publish approved films (Upload-Post or Postiz). M, probably out of scope.
-- lemo 12: original score and foley from an event list (97 CC0 instruments; pluck.py needs numba, banned, so a Node engine). L, low priority. Source: lemo-opuscar (MIT).
+- lemo 12: original score and foley from an event list: the Node synthesis engine is DONE (W8: `scripts/original-score.mjs`, `references/procedural-music.md`); still open: a licence-verified CC0 instrument sample library (97 CC0 instruments in lemo-opuscar, each licence to verify) to replace the synthesised voices. L, low priority. Source: lemo-opuscar (MIT).
 - lemo 11: offline narration fallback (Kokoro or edge-tts) appears DONE: `scripts/voice.mjs` mentions both. Verify the model licence is recorded in `SOURCES.md`. S.
 - group2 19: mocap puppet for the cartoon route (with B2). M to L. group2 21: first and last frame generated plates (gbro idea), only for a generative-video route. L, optional. group2 22: the small items above.
 - animate 4: seamless-loop check for reels (`review.mjs` LOOP: diff(last, first) at most the typical consecutive diff; audio tail folded). S, low.
@@ -84,15 +85,15 @@ Rules that hold for every item:
 ## B11. Precedent rows from awesome-opus5-5-videos
 
 - Source: yihui-dev/awesome-opus5-5-videos (list MIT, prompts belong to their creators: link, never copy). Size: M.
-- What: precedent rows for `moments.mjs precedent` from the list's `data/videos.json`: slug, category, tech tags, post and remake links, plus OUR one-line technique per row. Start with the ~45 full structured prompts; skip the 207 partial ones (post text only).
-- Why deferred: the 716 motionmaxxing rows already cover most techniques, and every row must be stripped of brand names, characters and songs before it ships (INTAKE rule), which needs a careful read per row.
-- Done when: rows carry no third-party names or prompt text, `SOURCES.md` TOOK updated.
+- Partly done (W11): 20 curated, link-verified technique rows in `library/benchmarks/video-techniques.json` (not in the motionmaxxing precedent file: those rows carry no URL or pin), 17 pinned GitHub files from lemo-opuscar, opus-video-skills and ClaudeAnimationBase plus 3 index rows from the list (aschapmann-724497, jackfriks-338762, ror-fly-880547; clips not reviewed by a human), and a three-fixture A/B benchmark (`scripts/benchmark.mjs`).
+- Still not done: the list's other ~700 entries and the ~45 full structured prompts (deliberately not imported); `moments.mjs precedent` does not read the new catalogue; a human review of the three index clips; local fixtures for VT-04 generative Three.js terrain, VT-13 palette-preserving grade, VT-14 interface walkthrough, VT-15 vertical short and VT-20 opening and end echo (`local_fixture.kind` is null for them); the 9:16 and 3D-character fixtures; a human blind A/B verdict on any pair (all are pending-human-review); an earlier-behaviour baseline (origin/master has none of the tools, so baselines are degraded variants).
+- Done when: the rows above have fixtures and a juror has reviewed at least one pair per fixture; `SOURCES.md` TOOK updated.
 
 ## B12. Recurring 3D characters from the canon
 
-- Source: iart-ai/webgl-animation-skills, svenkatreddy/universal-video-skills (MIT, ideas only). Size: L.
-- What: after `Sibhimanyu/rasan-3d` merges, `stage3d.mjs` loads a cast member from its `identity.json` (references/3d.md, Recurring characters) and its rig; reusable actions (look, point, hop, react) through an AnimationMixer that is seek-safe (time-driven, no clock); a check that the rendered character keeps its `fixed` traits across scenes (silhouette and palette against the canon render).
-- Done when: one cast member renders identically in two scenes of one film, with the check's numbers.
+- Source: iart-ai/webgl-animation-skills, svenkatreddy/universal-video-skills (MIT, ideas only); our own code. Size: L.
+- Done in W6 on the current runtime (the upstream `Sibhimanyu/rasan-3d` is not merged, nothing pulled): `stage3d/character-rig.js` (RasanCharacter3D: loadCharacter, poseAt, validateCanon, canonViews, renderModelSheet; actions look, point, hop, react, walk, turn, carry as pure functions of t; prop attachment; permitted outfit swaps), `scripts/canon.mjs` (check, validate, seal, plate, sheet, scaffold), `lib/canon3d.mjs`, the `3d-rig` medium in `lib/canon.mjs`, `cast-canon-*` warnings in `lib/scene-contract.mjs`, the crew's character role, `scripts/tests/canon3d.mjs`. Verified: one rig id in two separately rendered scenes with the check's numbers (IoU 1.0, palette 0.0 against the plate), A-B-A and independent renders identical, a changed body ratio, a hidden scarf, a removed ear, a recolour, a stale identity copy and an edited shared rig all caught, a permitted pose change and uniform scale not.
+- Still open: a rigged GLB actor with skeleton clips (needs the unmerged upstream rig and `AnimationMixer.setTime(t)`); calibrating the visual thresholds on actors other than the synthetic fixture and on GPU renders.
 
 ## B13. Storyboard editing inside the Animatic (Studio)
 
@@ -132,3 +133,9 @@ Rules that hold for every item:
 
 - Studio shows the new data (P0.4) shipped in #83; a Studio beta cut waits on the owner.
 - Release: master is ahead of 1.17.0 where noted; a release needs the owner's ask.
+
+## B19. Video-upgrade outstanding blockers (W12)
+
+- Not verified: end-to-end creative-agent production with the new routes and modules; a GitHub Linux run of `.github/workflows/checks.yml` (regression baselines are macOS arm64); a human blind A/B (report says pending-human-review).
+- Known red tests, not fixed: the stale `scenes.mjs rejects an unknown transition and a zero duration` assertion (zero durations are now filled from reading time by design); W8 added `procedural` to the music source chain, so the `music:` chain assertions in `selftest.mjs` may need the new last entry (seen in a quick run, not compared with master).
+- Open items: rigged GLB actors (B12), quick-preview versus a real lean film's spend (`references/quick-film.md`), calibration of the new warnings, licence-unverified repos (PDoomVideo, shipvideo, claude-opus-5-5-demo) stay ideas only.

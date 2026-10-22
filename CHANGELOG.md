@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- **A much smaller entrypoint.** `SKILL.md` is a 12 KB router (was 148 KB); each phase and route loads its own guide from `references/workflows/` (`scripts/skill-map.mjs` lists what a route reads; `scripts/tests/skill-routing.mjs` checks every link, heading and command survived). The Studio launch prompt follows the routing.
+- **Checks on every PR.** `.github/workflows/checks.yml` (syntax, manifests, render regression, quick selftest) and `scripts/regression.mjs`: seeks a paused timeline A-B-A and cold, rejects blank, clipped, missing-asset, random and broken scenes, compares to reviewed baselines by a bounded metric (exit 0 / 2 / 1; a missing baseline is never a pass).
+- **One event timeline.** `scripts/events.mjs` derives `motion/events.json` from `motion/score.json` (hash-stamped, deterministic); music, sound, voice, motion-gate, crew and delivery read it when present.
+- **Reads.** Optional `reads[]` per scene and `scripts/reads.mjs` (warnings only until calibrated), contact sheets for review, and the four scored questions for the critic and frame juror.
+- **Rasan2D and the cartoon route.** `stage2d/` hand-painted character runtime (five views, 31 emotions, time-addressed actions, 12 Hz seeded boil), `scripts/stage2d.mjs`, an original actor, `character-designer` agent and the `character-cartoon` format (partial).
+- **Recurring 3D characters.** `scripts/canon.mjs`, `stage3d/character-rig.js` and the shared `identity.json` canon for painted and 3D actors (structural and silhouette checks; uncertain cases go to the frame juror). Rigged GLB actors still wait for the unmerged `rasan-3d`.
+- **Your own styles.** `scripts/custom-style.mjs`: save a style from a run, customize it as a new revision (closed schema, brand locks, nothing silently ignored), compare, a 15 to 30 s style test film, and a snapshot bound to a film.
+- **Original score (optional).** `scripts/original-score.mjs`: an offline, seeded score aligned to the event timeline; `music.mjs --procedural`. Your own track still wins; no network.
+- **Evidence films.** `scripts/evidence.mjs` and `library/evidence/`: every number and geometry traces to a measurement; schematic fixtures are labelled; unsupported formats fail honestly. The `evidence-film` format is partial.
+- **Quick preview (experimental).** `scripts/quick-film.mjs`: a single-HTML 10 to 40 s draft, rendered locally and promoted into the normal flow. Opt-in only.
+- **Benchmarks.** `scripts/benchmark.mjs` and 20 link-verified technique rows (`library/benchmarks/`); three synthetic fixture films with an A/B report. Human preference stays pending.
+- **Fixes.** Rasan2D on-twos scenes keep their finish blur off; `rasan3d.js` no longer throws when a second stage has a different size; the selftest no longer trips the story rewrite ledger.
+- Known: the full selftest was not re-run for this release; the Studio `swift test` shows 3 failures not yet compared with master; the Linux CI run of the new checks is the first one.
+
 ## 1.24.0 (2026-10-21): Make a film's calls from your phone with Squeak
 
 - **A published contract for other apps (`references/remote.md`).** An app on the same Mac (a phone pager such as Squeak) can show RasanAI's calls and send the answer back the way RasanAI Studio does: the waiting rule, the step-to-call map, the action shapes per call, the `actions.lock` protocol and the picture paths per call. `session.json` now carries `schema: 1` and `console.json` `external_actions: 1`.

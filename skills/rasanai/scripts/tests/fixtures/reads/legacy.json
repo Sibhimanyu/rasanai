@@ -1,0 +1,29 @@
+{
+  "_fixture": "SYNTHETIC test fixture: invented scene, no product claim",
+  "scenes": [
+    {
+      "n": 1,
+      "id": "01",
+      "start": 0,
+      "duration": 3,
+      "states": [
+        {
+          "t": 0.5,
+          "what": "a",
+          "look": "b"
+        },
+        {
+          "t": 1,
+          "what": "c",
+          "look": "d"
+        }
+      ]
+    },
+    {
+      "n": 2,
+      "id": "02",
+      "start": 3,
+      "duration": 4
+    }
+  ]
+}

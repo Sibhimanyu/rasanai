@@ -19,6 +19,7 @@
 //          (quarter-sine) fade, so the tail runs into the head in the same bar phase and the audio seam is clean. The loop is L long:
 //          set the film's loop length to loop_s. Reported as {loop: {loop_s, cut_at_bar, xfade_s, ...}}
 //   node sound.mjs sfx-plan --scenes scenes.json|timeline.json [--events events.json] [--narrated]
+//        (--events also takes the derived film-event manifest from events.mjs export: its picture hits are the cues, stale ones are refused)
 //        [--format reel] [--bed bed.wav] [--plan plan.json] [--words audio_meta.json] [--project <dir>]
 //        [--pack glass|minimal|studio|soft|cinematic|scifi] [--no-library] [--library <dir>]
 //       -> samples come from library/sfx (CC0, index.json) first: one uisfx pack per film for the UI sounds,
@@ -72,6 +73,8 @@ import { track } from "./lib/report.mjs";
 import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
 import { KEYS } from "./lib/music-lib.mjs";
+import { isManifest, loadManifest, legacyEvents } from "./lib/film-events.mjs";
+import { readSidecar, identityPlan } from "./lib/procedural-score.mjs";
 import {
   analyzeTrack, publicAnalysis, summarize, fitTrack, renderPlan, masterFile, probeSfx, loudness, loudnessOver,
   decode, findRepeats, onsetProfile, onsetTimes, cutOnsetShare, lowShare, windowDb, audioFingerprint, compareFingerprint, renderTexture, SFX_BUDGET, sfxMode, sfxLimit, sfxOver, momentaryDb, designedBreaks, speechPhrases, phrasesFromWords, splitEdits, hasAudioStream, probeDuration, requireTools, r1, r3, SR,
@@ -269,6 +272,20 @@ function eventsFromLines(text) {
   return out;
 }
 
+// an events file's rows. A derived film-event manifest (events.mjs export; stale ones are refused) is read through legacyEvents;
+// any other events.json is read exactly as before. cuesOnly: just the rows that can carry a sound (sfx-plan)
+function eventRows(file, cuesOnly = false) {
+  const raw = fs.readFileSync(file, "utf8");
+  if (!/^\s*[[{]/.test(raw)) return eventsFromLines(raw);
+  const E = JSON.parse(raw);
+  if (isManifest(E)) {
+    const r = loadManifest(file);
+    if (!r.ok) die(`--events ${file}: ${r.error}`);
+    return legacyEvents(r.manifest, { cuesOnly });
+  }
+  return Array.isArray(E) ? E : E.events || [];
+}
+
 function sfxPlan() {
   const sc = readScenes(need("scenes", "<scenes.json|timeline.json>"));
   const plan = args.plan ? readJSON(exists(path.resolve(String(args.plan)), "plan")) : null;
@@ -279,11 +296,7 @@ function sfxPlan() {
   let events;
   if (args.events) {
     const ef = exists(path.resolve(String(args.events)), "events");
-    const raw = fs.readFileSync(ef, "utf8");
-    if (/^\s*[[{]/.test(raw)) {
-      const E = JSON.parse(raw);
-      events = (Array.isArray(E) ? E : E.events || []).map((e) => ({ ...e }));
-    } else events = eventsFromLines(raw); // the builders' "## Events" lines: "t=<film s> <what happens>"
+    events = eventRows(ef, true).map((e) => ({ ...e })); // a film-event manifest, an events.json, or the builders' "## Events" lines ("t=<film s> <what happens>")
   } else events = inferEvents(sc.scenes, plan);
   events = events.map((e, i) => {
     const kind = KINDS[e.kind] ? e.kind : ALIAS[e.kind] || null;
@@ -532,10 +545,7 @@ function cutTimes(dur) {
 }
 function eventList() {
   if (!args.events || args.events === true) return [];
-  const raw = fs.readFileSync(exists(path.resolve(String(args.events)), "events"), "utf8");
-  if (!/^\s*[[{]/.test(raw)) return eventsFromLines(raw);
-  const E = JSON.parse(raw);
-  return Array.isArray(E) ? E : E.events || [];
+  return eventRows(exists(path.resolve(String(args.events)), "events"));
 }
 function filmWords() {
   if (!args.words || args.words === true || !args.scenes || args.scenes === true) return [];
@@ -627,8 +637,7 @@ function check() {
   {
     let logoT = null;
     if (args.events) {
-      const E = readJSON(exists(path.resolve(String(args.events)), "events"));
-      const ts = (Array.isArray(E) ? E : E.events || []).filter((e) => /^(logo|cta|end)/i.test(String(e.kind || e.id || "")) && Number.isFinite(Number(e.t))).map((e) => Number(e.t));
+      const ts = eventRows(exists(path.resolve(String(args.events)), "events")).filter((e) => /^(logo|cta|end)/i.test(String(e.kind || e.id || "")) && Number.isFinite(Number(e.t))).map((e) => Number(e.t));
       if (ts.length) logoT = Math.max(...ts);
     }
     if (logoT == null && args.plan) {
@@ -653,7 +662,7 @@ function check() {
   {
     let payoffT = null, src = null;
     if (args.payoff != null && args.payoff !== true && Number.isFinite(Number(args.payoff))) { payoffT = Number(args.payoff); src = "--payoff"; }
-    const evs = args.events ? (() => { const E = readJSON(exists(path.resolve(String(args.events)), "events")); return (Array.isArray(E) ? E : E.events || []); })() : [];
+    const evs = args.events ? eventRows(exists(path.resolve(String(args.events)), "events")) : [];
     const evT = (re) => evs.filter((e) => re.test(String(e.kind || e.id || "")) && Number.isFinite(Number(e.t))).map((e) => Number(e.t));
     const pl = args.plan ? readJSON(exists(path.resolve(String(args.plan)), "plan")) : null;
     // the score's music_arc.payoff_at (--score <score.json>, else the plan's own music_arc / score.music_arc)
@@ -714,7 +723,7 @@ function check() {
       let starts = sc ? sc.map((s) => s.start) : null;
       if (!starts && args.plan) { const pl = readJSON(exists(path.resolve(String(args.plan)), "plan")); if (Array.isArray(pl.scenes) && pl.scenes.length) starts = pl.scenes.map((s) => Number(s.start ?? s.start_s)).filter(Number.isFinite); }
       let cuts = starts ? starts.slice(1) : null;
-      if (!cuts && args.events) { const E = readJSON(exists(path.resolve(String(args.events)), "events")); cuts = (Array.isArray(E) ? E : E.events || []).filter((e) => /^(transition|cut|seam)/i.test(String(e.kind || e.id || "")) && Number.isFinite(Number(e.t))).map((e) => Number(e.t)); }
+      if (!cuts && args.events) { cuts = eventRows(exists(path.resolve(String(args.events)), "events")).filter((e) => /^(transition|cut|seam)/i.test(String(e.kind || e.id || "")) && Number.isFinite(Number(e.t))).map((e) => Number(e.t)); }
       cuts = (cuts || []).filter((c) => c > 0.5 && c < dur - 0.5).sort((a, b) => a - b);
       let phrases = null, from = null;
       if (args.words && sc) {
@@ -891,9 +900,13 @@ if (cmd === "analyze") {
     const r = sc.scenes.find((s) => /product_intro|reveal/i.test(s.type) || /\breveal/i.test(s.title));
     if (r) reveal = r.start;
   }
-  const A = analyzeTrack(f, { quick: true });
-  const plan = fitTrack(A, { film, reveal, logo, scenes: sc ? sc.scenes : null, flex: args.flex, softStart: !!args["soft-start"], xfade: args.xfade, preroll: args.preroll });
-  plan.track_summary = summarize(A);
+  // an original procedural score (original-score.mjs) is already the film's length and built to its events: its own plan goes through the
+  // same fit / render / check, never re-cut on bar lines (that would move its hits off the picture)
+  const side = readSidecar(f);
+  const exact = side && Math.abs(side.duration_s - film) <= 0.05 ? side : null;
+  const A = exact ? null : analyzeTrack(f, { quick: true });
+  const plan = exact ? { ...identityPlan(f, { duration_s: film, ending: exact.ending, hits: exact.hits }), track_summary: `original procedural score (${exact.key}, ${exact.bpm} BPM, seed ${exact.seed}), ${exact.sections.length} sections`, license: exact.license } : fitTrack(A, { film, reveal, logo, scenes: sc ? sc.scenes : null, flex: args.flex, softStart: !!args["soft-start"], xfade: args.xfade, preroll: args.preroll });
+  if (!exact) plan.track_summary = summarize(A);
   if (args.out) {
     writeFile(path.resolve(String(args.out)), JSON.stringify(plan, null, 2) + "\n");
     plan.render = `node ${path.relative(process.cwd(), process.argv[1])} render --plan ${args.out} --out <bed.wav>`;

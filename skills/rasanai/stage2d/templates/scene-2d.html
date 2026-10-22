@@ -1,0 +1,46 @@
+<template>
+  <!--
+    {{FRAME_ID}}: a hand-painted 2D character scene (Rasan2D). One canvas, drawn from the scene's paused GSAP timeline:
+    the timeline is the clock, and every frame is a pure function of its time (seek-safe, parallel-safe).
+      #r2-{{FRAME_ID}}-art    the painted canvas: paper, set, actors, props, glow, grain (12 drawings a second of line boil,
+                              seeded per actor and per body part; the camera stays smooth)
+      #r2-{{FRAME_ID}}-ui     optional HTML on top (subtitles, lower thirds). Cartoons prefer to show, not tell.
+    Edit SEQUENCE below: the actors' canon (identity.json, inlined), the shots, the set, the props and the ACTIONS
+    (look, walk, reach, hop, turn, react, emote, hold, ...: a cause, then its reaction; one readable focal action per shot).
+    Reference: references/2d-character.md (the API, the 31 emotions, the action table, the quality bar, the gate).
+  -->
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; background: {{CANVAS}}; }
+    #r2-{{FRAME_ID}}-art { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    #r2-{{FRAME_ID}}-ui { position: absolute; inset: 0; pointer-events: none; }
+  </style>
+
+  <div id="root" data-composition-id="{{FRAME_ID}}" data-finish-blur="off" data-width="{{W}}" data-height="{{H}}" data-duration="{{DURATION}}">
+    <canvas id="r2-{{FRAME_ID}}-art" class="clip" data-start="0" data-duration="{{DURATION}}" data-track-index="0"></canvas>
+    <div id="r2-{{FRAME_ID}}-ui" class="clip" data-start="0" data-duration="{{DURATION}}" data-track-index="1"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script src="assets/rasan2d/brush.js"></script>
+  <script src="assets/rasan2d/character.js"></script>
+  <script src="assets/rasan2d/gestures.js"></script>
+  <script src="assets/rasan2d/rasan2d.js"></script>
+  <script>
+    const FID = "{{FRAME_ID}}", D = {{DURATION}}, W = {{W}}, H = {{H}};
+    const tl = gsap.timeline({ paused: true });
+    window.__timelines = window.__timelines || {};
+    window.__timelines[FID] = tl;
+
+    // The film's one actor identity (RUN/cast/<id>/identity.json, inlined so the scene is self-contained and offline).
+    const CANONS = {{CANONS}};
+
+    const SEQUENCE = {{SEQUENCE}};
+
+    Rasan2D.stage({
+      id: FID, canvas: document.getElementById(`r2-${FID}-art`), timeline: tl, duration: D, width: W, height: H, fps: 30,
+      seed: {{SEED}},               // every drawing wobble is seeded: no Math.random, no clock
+      sequence: SEQUENCE, canons: CANONS,
+      look: { paper: { tint: "{{CANVAS}}" } },
+    });
+  </script>
+</template>
