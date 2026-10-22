@@ -2,7 +2,7 @@
 
 ## decisions.json
 
-Written by the agent at the Plan step of a single motion unit (SKILL.md "Single motion units") in the run's scratch dir, consumed by `scripts/handoff.mjs`.
+Written by the agent at the Plan step of a single motion unit (references/workflows/routes/motion-graphics.md, "Single units") in the run's scratch dir, consumed by `scripts/handoff.mjs`.
 
 ```json
 {

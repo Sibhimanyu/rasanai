@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Lessons the user taught, carried to every next film (see SKILL.md "Memory"; location: $RASANAI_HOME or ~/.rasanai):
+// Lessons the user taught, carried to every next film (see references/workflows/operations/series-and-preferences.md "Memory"; location: $RASANAI_HOME or ~/.rasanai):
 //   lessons.jsonl  one row per general rule distilled from a user's note ("the type is always too small",
 //                  "stop ending on a logo fade"). history.jsonl (memory.mjs) is picks for rotation; this is rules.
 //

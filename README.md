@@ -127,7 +127,7 @@ A SwiftUI studio is available as an [Apple Silicon community beta](https://githu
 
 ```
 skills/rasanai/
-  SKILL.md                    the flow the agent follows: Brief · Story · Look · Animatic · Final
+  SKILL.md                    small entrypoint of the flow: Brief · Story · Look · Animatic · Final; the phase, route and operation guides are in references/workflows/
   agents/                     the crew's role briefs: researchers (product, brand, screens, precedent, local scout),
                               research lead, design researcher, design-system designer, script writer, script editor,
                               Motion Director, frame designer, scene animator, treatment writer, critic;

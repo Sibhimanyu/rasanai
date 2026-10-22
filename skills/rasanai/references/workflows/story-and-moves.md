@@ -1,0 +1,68 @@
+# Call 2: Story, story checks and the Moves pass
+
+> Moved verbatim from the former single `SKILL.md`. References such as "§3d", "rule 18", "below" and "above" point into the sibling guides: the five-call contract and the hard rules are in [shared-contract](shared-contract.md); the phase guides are listed in `SKILL.md`.
+
+## 2 · Story (three scripts, before any look)
+
+**A song is different: skip to "Story for a song" at the end of this section.** The words are already written, so the writers' room becomes three treatments.
+
+The story is written by its own pass, in the **writers' room**, with its own brief: **`references/script.md`** (how a good video script goes: structures by length and format, hooks, beats, the turn, voiceover and on-screen lines, the end, a worked example, the self-check) on top of the story engine (`references/story.md`: the truth sheet, devices, the rubric). It is a dedicated step, not something done on the way to the look. Judge the scripts as words and timing.
+
+```bash
+node $SKILL_DIR/scripts/story.mjs truth --out "$RUN/story/truth.md" --product "<name>"      # the template; the research lead fills it from the research
+node $SKILL_DIR/scripts/story.mjs pick --truth "$RUN/story/truth.md" --count 3 --recent <ids from memory.mjs recent --step concept --n 6> [--format launch|explainer|brand|social] [--shape ladder|pas] > "$RUN/story/picks.json"
+# (launch / promo / product films: --format launch, product-first, no conceit devices; references/product-first.md)
+# the story planner (Opus; crew.mjs brief --role story-planner): writes story/plan.json, one slot per label (angle, villain picture, turn kind, peak kind, device, owned claims) and a coverage map, so the three cannot collide
+node $SKILL_DIR/scripts/story.mjs plan --plan "$RUN/story/plan.json" --picks "$RUN/story/picks.json" --truth "$RUN/story/truth.md"    # exit 2 → the planner fixes what it names; crew.mjs check --role story-planner runs the same
+# three script-writers in parallel (crew.mjs brief --role script-writer --key Sure|Bold|Wild; the brief carries the writer's plan slot): each writes story/intent-<label>.json first, then its pitch, with a device chosen from the menu and a reason → story/pitch-<label>.json
+node $SKILL_DIR/scripts/crew.mjs pitches --run "$RUN"                                        # → story/pitches.json
+node $SKILL_DIR/scripts/story.mjs check --pitch "$RUN/story/pitches.json" --truth "$RUN/story/truth.md" --length <seconds> [--narrated] > "$RUN/story/check.json"   # exit 2 → that writer rewrites exactly what it names
+# then the script-editor, which always runs (crew.mjs brief --role script-editor; meaning tests first): story/edit-notes.json, line edits with exact fixes
+node $SKILL_DIR/scripts/story.mjs revise --notes "$RUN/story/edit-notes.json"                                     # → { revise: [labels], notes } for the Director
+# story-revise: each label marked rewrite or replace goes back to its writer once (crew.mjs brief --role script-writer --key <label> includes that label's notes; apply every exact fix, keep the plan slot, re-run both checks); then check the set again, show the set. No second editor pass.
+```
+
+**The argument first.** Each writer writes `story/intent-<label>.json` (`references/intent.md`) before its lines, then the pitch. The intent holds the proposition (12 words at most, no "and"), PAGE, the villain and its felt numbers, and the ending first. Per beat it holds what the beat buys, the relation word, importance 1 to 3 and the one read. One peak sits at 60–75% with a rest before it. Devices are a menu the writer chooses from, with a reason (`device_reason`); they are never drawn by lot. There are three plot engines, and each has a real turn stated in `pitch.turn {line, reverses, payoff}` (`references/story.md`, "Plot engines"):
+- reversal: problem → the product reverses it → an escalating proof ladder → a payoff that answers the setup.
+- refrain-break: a ladder of real uses that breaks at 60–75%.
+- before-after: the cause is visible at the turn.
+
+**The plan comes first.** Before any writer starts, the story planner assigns each slot what must not collide (`agents/story-planner.md`, `story/plan.json`): a different angle, villain picture, turn kind, peak kind and device, and which slot shows each of the brief's must-show features and surprising facts (a coverage map; anything cut has a reason). The writers fill their slot, and `story.mjs check` holds each pitch to it (G14, coverage). The set check then fails shared lines, shared turn or peak kinds, the same order of claims and a dropped claim. A pitch's checks keep a ledger: three runs, two more after the editor, then `escalate` (exit 3) and the Director takes it back.
+
+**The script editor always runs**, on every scripted route. It runs the meaning tests first: a blind retell from the beats alone must match the proposition; cover the logo and swap in a competitor; the muted hook (the first 2 s say something with no sound); the turn (what reverses); the payoff (does it answer the opening?). A retell that misses, or a turn that reverses nothing, means a rewrite, and a rewrite or replace goes back to its writer once, automatically (`story-revise`), before the user sees the set. The Story card shows each script's proposition and turn line above its beats. `story.mjs check` also writes `story/beats-<label>.md` (the blind-retell input) and the derived `emphasis_curve` back into the intent sheet beside the pitch.
+
+The truth sheet comes from the research, not from guessing: real product words, real numbers, the real before and after, every proof item in the claims ledger. Every pitch also carries its `tempo` (ideas, a change every ~2 s, the longest hold; the brand film's measured tempo when one exists, else the house tempo in `references/launch-film.md`), and `check` runs **G9** on it (pass `--brand-film "$RUN/brand-film/grammar.json"` when the brand film step ran). The editor's recommendation is evidence for your pick, not the pick (rule 2 still holds). **Then the Moves pass (below), before the editor.** With `--lean` or no delegation, write the three scripts yourself from `references/script.md`. `check` runs the story gates (G1 distance from the cliché arc, G2 swap test, G3 clear by second 4, G4 honest demo, G5 buildable), **G7 product-first** on launch, promo and product films (no conceit device or world, the product on screen within 3 s, a `hero_moment`, 2 to 4 `uses`, the end line the largest type, lines of 6 words or fewer), **G12, viewer first,** on the same films (the first quarter speaks to the viewer, a pas's reveal comes after 20% of the film, every benefit or rung has a `benefit` in viewer language, a proof when the claims have a number, a CTA with an action and a place, a line every 1.5 to 2.5 s: `references/story.md`, "Story shapes") and **G10, shape-aware,** on the same films (a `ladder` pitch: the refrain verb in every rung and open/close title, the rung count for the length, distinct uses, strictly rising levels, no rung over 35% of the film, UI cause and effect per rung, a close; a `scenario` pitch: one feature, one scenario: the `feature` block of viewer, task, before, after; hook, proof, turn, cta; a picture and the UI's cause and effect per beat; no invented output screens; the two-way read: `references/script.md` pass 0) and **G6 the script** (length, the hook beat, value by beat 2, reading time, voiceover pace and sentence length, on-screen lines that repeat the voice, stock copy, rhythm, the end hold). Nothing reaches the user until all three pass; two rewrites at most, then swap the device.
+
+**The Moves pass** (`references/moves.md`, `agents/move-inventor.md`, `agents/move-juror.md`, `agents/move-sketcher.md`): runs after the three scripts pass `story.mjs check` and **before the script editor**, on every route except `music-to-video` and `reel`, and skipped under `--lean`. Planning names technique labels ("match cut", "iris") unless something forces carriers, bridge frames and overgeneration, so this is where the film's moves are invented, not left to the Motion Director's first draft. The script is never changed by it.
+
+```bash
+# per script (Sure, Bold, Wild): code draws the exemplars, one stimulus and the banned list
+node $SKILL_DIR/scripts/moves.mjs pack --run "$RUN" --label <L> [--product-first] [--seed N]     # → story/moves-pack-<L>.json
+# three move-inventors in parallel (crew.mjs brief --role move-inventor --key <L>), then check each
+node $SKILL_DIR/scripts/moves.mjs check --file "$RUN/story/moves-<L>.json" --pitch "$RUN/story/pitch-<L>.json" [--product-first]    # exit 2 → that inventor fixes exactly what it names
+# the move-juror (crew.mjs brief --role move-juror): story/moves-verdict.json
+node $SKILL_DIR/scripts/moves.mjs check-verdict --run "$RUN"      # a script with fewer than 3 passing cards: one denial round, its inventor again with the failures banned
+# three move-sketchers (crew.mjs brief --role move-sketcher --key <L>): a grey-box rough of each script's top hero move
+node $SKILL_DIR/scripts/moves.mjs rough --dir "$RUN/story/moves/<L>-<id>" && node $SKILL_DIR/scripts/moves.mjs check-rough --dir "$RUN/story/moves/<L>-<id>"
+node $SKILL_DIR/scripts/moves.mjs payload --run "$RUN" --stories "$RUN/story/stories.json"        # adds carrier, moves[] and the storyline (pitch + intent: proposition, villain, turn, ending, coverage, per-beat claim, buys, relation) to each story for the push
+```
+
+The inventors work from the real product's UI on a product-first film, and from the brand's film card on a branded one; both are in their briefs. Look at each `strip.png` yourself before pushing. Without delegation, write the cards and rough yourself from `references/moves.md`, in the same order; the checks are the same.
+A rough is JSON in the beat-kind DSL (`rough.json`; `moves.mjs rough-kinds` lists the 13 kinds), compiled by `moves.mjs rough`; hand-written `rough.html` only when no kind fits.
+
+Push `story`: `stories: [{id, angle: "Sure"|"Bold"|"Wild", title (the story's idea in 2 to 5 words), aim: {takeaway (what the viewer comes away with, ≤ 16 words), feel, action (what they do next), audience}, approach (one sentence: how this story gets there), tempo ({ideas, change_every_s, source}), logline (≤ 12 words), device (its name), why (one line: why this story for this product), beats: [{name, duration_s, on_screen, vo, visual, turn?, value?}], last_line}]` and `recommended` (the most ambitious that works; **for launch, promo and product films the clearest product story**, with the editor's `first_watch` line: why a first-time viewer gets it in one watch, in the `why`). Each story also carries `carrier` (what travels through it) and `moves` (its hero moves with their looping roughs, from `moves.mjs payload`); the page shows them as "Carried by" and a row of hero-move tiles. The page shows the three as tabs and the selected one as a script table (time, on screen, voiceover, what we see), with the turn marked. No style yet: the story is judged on its own.
+
+Answers:
+- `choose <story id>` → write that pitch to `$RUN/story/chosen.json` (the Motion Director scores from it), run `node $SKILL_DIR/scripts/moves.mjs choose --run "$RUN" --label <its angle>` (writes `story/moves.json`: the chosen script's carrier, cards, ledger, the juror's ranking and heroes) then `moves.mjs record --run "$RUN"` (the heroes join the cross-run ledger), record `memory.mjs record --step concept --value <device id> --mode confirmed`, close `story` with "<title> (<angle>): <logline>", and go to the Look.
+- A `note` ("make the hook shorter", "lose the voiceover in beat 3", "the museum one, but warmer") → rewrite those lines, re-run `check`, `reply` with what changed, re-push. `more {near, exclude}` → three new scripts from the next devices (`pick --exclude <shown>`); re-push.
+
+## Deeper references for this guide
+
+The canonical homes of the detail this guide points at (read the one the current step needs):
+
+| Need | Read |
+|---|---|
+| the Moves pass: inventing content-born moves (carrier, affordance mining, bridge frames, the chain ledger, 20 generators as questions), the card, the juror's gates, the grey-box rough, the product-first and brand-film variants | `references/moves.md`, `agents/move-inventor.md`, `agents/move-juror.md`, `agents/move-sketcher.md`, `library/moves/`, `scripts/moves.mjs` |
+| writing the script: structures by length, hooks, beats, the turn, voiceover and on-screen lines, the end, the self-check (the writer pass's brief) | `references/script.md` |
+| the story engine: truth sheet, devices, Sure/Bold/Wild, the pitch rubric | `references/story.md`, `taxonomy/devices-SCHEMA.md` |
+| launch, promo and product films: product-first rules, no conceits, real product fidelity, brand lock, the recommender, the concept gate | `references/product-first.md`, `agents/concept-critic.md`, `story.mjs` (G7) |

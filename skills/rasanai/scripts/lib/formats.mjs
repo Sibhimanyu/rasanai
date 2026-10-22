@@ -11,7 +11,7 @@ export const STATUSES = ["ready", "partial", "soon"];
 export const SCOPES = ["universal", "category", "single-task"];
 export const SOURCE_MODES = ["web", "local", "footage", "assets", "document", "existing-video", "audio", "mixed", "text"];
 export const STORY_PASSES = ["script-writers", "footage-writers", "treatment-writers", "visual-writers", "cutdown-planner", "none"];
-// the routes a run can take today (SKILL.md "1 · Brief" route table)
+// the routes a run can take today (references/workflows/brief-and-research.md "1 · Brief" route table)
 export const ROUTES = ["product-launch-video", "faceless-explainer", "pr-to-video", "music-to-video", "reel", "presenter", "embedded-captions", "talking-head-recut", "general-video", "motion-graphics"];
 // the shapes story.mjs pick knows today (W10 adds more; check reports the rest as pending, never as an error)
 export const STORY_MJS_SHAPES = ["ladder", "pas", "scenario"];
@@ -220,7 +220,9 @@ export function checkFormats({ skillMd = path.join(SKILL_DIR, "SKILL.md"), sourc
   let doc;
   try { doc = loadFormats(); } catch (e) { return { ok: false, errors: [`formats.json does not parse: ${e.message}`], warnings }; }
   const E = (m) => errors.push(m), W = (m) => warnings.push(m);
-  const skill = fs.existsSync(skillMd) ? fs.readFileSync(skillMd, "utf8") : "";
+  // the route table lives in the Brief guide since the skill was split into progressive guides; SKILL.md names the routes too
+  const briefGuide = path.join(path.dirname(skillMd), "references", "workflows", "brief-and-research.md");
+  const skill = (fs.existsSync(skillMd) ? fs.readFileSync(skillMd, "utf8") : "") + (fs.existsSync(briefGuide) ? "\n" + fs.readFileSync(briefGuide, "utf8") : "");
   const srcText = fs.existsSync(sourcesLib) ? fs.readFileSync(sourcesLib, "utf8") : "";
   const storyText = fs.existsSync(storyMjs) ? fs.readFileSync(storyMjs, "utf8") : "";
   const ids = new Set();
@@ -266,7 +268,7 @@ export function checkFormats({ skillMd = path.join(SKILL_DIR, "SKILL.md"), sourc
     if (o.status !== "soon") {
       if (!o.route) E(`${at}: a ${o.status} option needs a route`);
       else if (!ROUTES.includes(o.route)) E(`${at}: route "${o.route}" is not a route RasanAI has`);
-      else if (skill && !routeInSkill(o.route)) E(`${at}: route "${o.route}" is not in SKILL.md's route table`);
+      else if (skill && !routeInSkill(o.route)) E(`${at}: route "${o.route}" is not in the skill's route table (references/workflows/brief-and-research.md)`);
     } else {
       if (!o.soon || !o.soon.missing) E(`${at}: a soon option says what's missing (soon.missing)`);
       if (o.soon && o.soon.nearest && (!opts.has(o.soon.nearest) || opts.get(o.soon.nearest).status === "soon")) E(`${at}: soon.nearest must be an option that works today`);
