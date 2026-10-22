@@ -173,6 +173,16 @@ export default async function ({ ok, node, tmp }) {
   ok("original-score: music.mjs --sources procedural gives the original score as an option (usable, never re-cut, no credit, licence recorded)", own.status === 0 && po && po.usable === true && po.fit.shape === "procedural-exact" && po.requires_credit === false && /no third-party/.test(po.license) && O.recommended === po.id, own.stdout.slice(0, 500) + own.stderr);
   const led = readJ(path.join(mrun, "music", "LICENSES.json")).find((l) => l.origin === "procedural");
   ok("original-score: the licence ledger and CREDITS.txt say original, samples used: none", led && Array.isArray(led.samples_used) && led.samples_used.length === 0 && /Samples used: none/.test(fs.readFileSync(path.join(mrun, "music", "CREDITS.txt"), "utf8")));
+  // --procedural alone is offline: a fetch guard (NODE_OPTIONS --import) records any request and fails it; none may happen and no catalog track may appear
+  {
+    const guard = path.join(tmp, "fetch-guard.mjs"), log = path.join(tmp, "fetch-guard.log");
+    fs.writeFileSync(guard, `import fs from "node:fs"; globalThis.fetch = async (u) => { fs.appendFileSync(${JSON.stringify(log)}, String(u && u.url || u) + "\\n"); throw new Error("network blocked by the test"); };`);
+    const mr = fresh(path.join(FIX, "run"), "mnet"); exportEv(mr);
+    const g = spawnSync(process.execPath, ["--import", guard, path.join(HERE, "..", "music.mjs"), "--run", mr, "--film", "20", "--no-preview", "--procedural", "--style", "swiss editorial grid"], { encoding: "utf8", cwd: tmp, env: { ...process.env, RASANAI_HOME: path.join(tmp, "home") } });
+    const G = J(g);
+    const ch = (G.chain || []).filter((c) => c.on).map((c) => c.id);
+    ok("original-score: music.mjs --procedural alone makes no network request and pulls no catalog track (only the original score)", g.status === 0 && !fs.existsSync(log) && (G.options || []).length === 1 && G.options[0].origin === "procedural" && ch.every((x) => ["user", "procedural"].includes(x)), (fs.existsSync(log) ? fs.readFileSync(log, "utf8") : "") + (g.stdout || "").slice(0, 300) + g.stderr);
+  }
   const chain = J(node("music.mjs", ["chain"]));
   const pr = (Array.isArray(chain) ? chain : []).find((c) => c.id === "procedural");
   ok("original-score: the default chain keeps its order and lists procedural last as the offline fallback (not explicit)", Array.isArray(chain) && pr && pr.fallback === true && pr.explicit === false && chain[chain.length - 1].id === "procedural" && chain.findIndex((c) => c.id === "user") === 0);
