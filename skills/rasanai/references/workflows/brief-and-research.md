@@ -28,6 +28,7 @@ node $SKILL_DIR/scripts/lessons.mjs digest                      # ONE digest of 
   | talking-head / interview footage + designed overlay cards | `talking-head-recut` |
   | anything else: brand film, montage, custom multi-scene piece; a video for a talk or keynote | `general-video` |
   | one short unnarrated unit (a title, sting, stat hit, under ~10 s) | `motion-graphics` → **Single units** |
+  | a short hand-painted cartoon with one recurring character | `character-cartoon` → [routes/cartoon](routes/cartoon.md) |
 
   Only when two routes are genuinely both right for different films, `ask`. Then set up the project and capture (work you can start while the user reads the brief):
 

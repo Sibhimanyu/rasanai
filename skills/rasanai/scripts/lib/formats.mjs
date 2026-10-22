@@ -12,7 +12,7 @@ export const SCOPES = ["universal", "category", "single-task"];
 export const SOURCE_MODES = ["web", "local", "footage", "assets", "document", "existing-video", "audio", "mixed", "text"];
 export const STORY_PASSES = ["script-writers", "footage-writers", "treatment-writers", "visual-writers", "cutdown-planner", "none"];
 // the routes a run can take today (references/workflows/brief-and-research.md "1 · Brief" route table)
-export const ROUTES = ["product-launch-video", "faceless-explainer", "pr-to-video", "music-to-video", "reel", "presenter", "embedded-captions", "talking-head-recut", "general-video", "motion-graphics"];
+export const ROUTES = ["product-launch-video", "faceless-explainer", "pr-to-video", "music-to-video", "reel", "presenter", "embedded-captions", "talking-head-recut", "general-video", "motion-graphics", "character-cartoon"];
 // the shapes story.mjs pick knows today (W10 adds more; check reports the rest as pending, never as an error)
 export const STORY_MJS_SHAPES = ["ladder", "pas", "scenario"];
 

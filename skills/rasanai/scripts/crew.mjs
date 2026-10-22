@@ -154,6 +154,7 @@ const ROLES = {
   "structure-critic": { desk: "story", tier: "inherit", desc: () => "Reading the thumbnail sheet and the intent, and cutting what buys nothing" },
   "motion-director": { desk: "motion", tier: "inherit", desc: (p, k) => (k === "seams" ? "Checking every cut and building the signature transition" : "Scoring how the whole film moves") },
   "art-director": { desk: "art", tier: "inherit", desc: () => "Making the film's pictures: one consistent world of illustrations, icons, cut-outs, line art and handwriting" },
+  "character-designer": { desk: "art", tier: "inherit", desc: () => "Designing the film's one recurring actor: an original identity, its model sheet and its emotion sheets" },
   "frame-designer": { desk: "art", tier: "inherit", desc: (p, k) => `Designing the boards ${k || ""}, bound to the hero styleframes`.replace("  ", " ") },
   "styleframe-designer": { desk: "art", tier: "inherit", desc: (p, k) => (String(k || "").startsWith("heroes-") ? `Drawing the ${String(k).slice(7)} look's three hero styleframes on this story` : k === "heroes" ? "Designing the shot list and the three hero styleframes" : "Designing the film as pictures: a shot list, three hero styleframes and a board per beat") },
   "ab-juror": { desk: "review", tier: "inherit", desc: (p, k) => `Judging two films blind (X or Y) and picking the one to show${k ? ` (A/B ${k})` : ""}` },
@@ -181,7 +182,7 @@ export const TOKENS = {
   "scene-animator": 90000, "styleframe-designer": 60000, "frame-designer": 40000, "frame-juror": 30000,
   "product-researcher": 30000, "brand-researcher": 25000, "screens-researcher": 20000, "precedent-researcher": 30000, "local-scout": 25000, "research-lead": 30000,
   "move-inventor": 40000, "move-juror": 30000, "move-sketcher": 20000, "script-editor": 40000, "story-planner": 40000, "structure-critic": 30000, "concept-critic": 20000,
-  "art-director": 80000, "footage-logger": 25000, "selects-producer": 40000, "brand-kit-builder": 30000, "brand-film-analyst": 30000, retrospective: 15000,
+  "art-director": 80000, "character-designer": 45000, "footage-logger": 25000, "selects-producer": 40000, "brand-kit-builder": 30000, "brand-film-analyst": 30000, retrospective: 15000,
 };
 const TOKEN_KEYS = { "film-builder:lead": 120000, "motion-director:seams": 60000 }; // a key that costs differently from its role
 const FIX_ROUND = 60000; // the builder's fix pass per round (its critic pass and the A/B are counted separately)
@@ -201,14 +202,18 @@ function estimateFor(p, phases) {
 }
 
 // ---------------------------------------------------------------- plan
-const STORY_ROUTES = new Set(["product-launch-video", "faceless-explainer", "pr-to-video", "general-video", "reel", "music-to-video"]);
-const SCENE_ROUTES = new Set(["product-launch-video", "faceless-explainer", "pr-to-video", "general-video", "music-to-video"]);
+const STORY_ROUTES = new Set(["product-launch-video", "faceless-explainer", "pr-to-video", "general-video", "reel", "music-to-video", "character-cartoon"]);
+const SCENE_ROUTES = new Set(["product-launch-video", "faceless-explainer", "pr-to-video", "general-video", "music-to-video", "character-cartoon"]);
 
 // The direct path: ONE builder writes the whole film (root and every beat) in one pass. It applies to films of 45 s or less
 // and to every single-feature launch or promo (a launch film is about one feature: references/product-first.md); lyric
 // videos, presenter films and reels keep their own shapes. --deep (the user asked for "deep" or "show me looks") forces the
 // long path; --direct forces this one.
-const DIRECT_ROUTES = new Set(["product-launch-video", "faceless-explainer", "pr-to-video", "general-video"]);
+const DIRECT_ROUTES = new Set(["product-launch-video", "faceless-explainer", "pr-to-video", "general-video", "character-cartoon"]);
+// a recurring character (references/2d-character.md): the character-cartoon route always has one; any other film only when the plan or
+// the score's cast says so (--character, or score.cast has a kind "character"), so a logo animation never gets a character designer
+const scoreHasCharacter = (run) => { const sc = run ? jsonMaybe(R(run, "motion", "score.json")) : null; return !!(sc && Array.isArray(sc.cast) && sc.cast.some((c) => c && c.kind === "character")); };
+function hasCharacterCast(p) { return p.route === "character-cartoon" || !!p.character; }
 function directFilm(p, prev = {}, run = null) {
   if (args.deep) return false;
   if (args.direct) return true;
@@ -216,6 +221,7 @@ function directFilm(p, prev = {}, run = null) {
   if (prev.direct != null && !args.length && !args.kind) return !!prev.direct;
   const len = p.length || (run ? Number(brief(run).length_s) || null : null);
   if (len) return len <= 45;
+  if (p.route === "character-cartoon") return true; // a cartoon of unknown length is a short one: --deep takes the long path
   return p.route === "product-launch-video" || /launch|promo|feature/i.test(String(p.kind || (run ? brief(run).kind : "") || ""));
 }
 
@@ -368,6 +374,10 @@ function planCrew(p) {
     for (let i = 1; i <= N; i += per) g.push(`${i}-${Math.min(N, i + per - 1)}`);
     return g;
   };
+  // one character-design phase, only when the film has a recurring character: after the art and the Look, before the hero frames
+  if (DIRECT_ROUTES.has(p.route) && hasCharacterCast(p)) {
+    phases.push({ phase: "character-design", when: "after the Look and the art department, BEFORE the hero frames and the boards (the boards bind to the sheet): the film has a recurring character", dispatch: [d("character-designer", "cast")], director_steps: ["node scripts/stage2d.mjs canon --file <run>/cast/<id>/identity.json   (errors first)", "node scripts/stage2d.mjs sheet --canon <identity> --kind views|emotions|turn --out <run>/cast/<id>/...png   (looked at)"], then: "crew.mjs check --role character-designer --key cast (identity valid, model sheet and emotion sheets exist, the score's cast entry agrees); the boards and the Animatic use the sheet, no separate approval call" });
+  }
   if (DIRECT_ROUTES.has(p.route)) {
     const sfWhen = lean ? "after the concept gate, BEFORE the music and the score" : "after the art department, BEFORE the music and the score (the score animates between the boards)";
     const sfSteps = ["node scripts/frames.mjs init --run <run>   (the frame kit, RasanCamera when the skill has it, a shots.json skeleton from the chosen script)", "node scripts/frames.mjs refs --run <run> --sheet   (the reference stills the run has)", "node scripts/frames.mjs shots-check --run <run>", "node scripts/design.mjs stills --dir <run>/frames --aspect <aspect>"];
@@ -847,6 +857,13 @@ function contextFor(run, role, key, plan) {
       O(R(run, "art", "plan.json")); O(R(run, "art", "assets.json")); O(R(run, "art", "ART.md")); O(`${rel(R(run, "art", "assets"))}/<id>.png|svg`); O(R(run, "art", "sheet.png"));
       break;
     }
+    case "character-designer": {
+      const S2 = `node "${path.join(SKILL_DIR, "scripts", "stage2d.mjs")}"`;
+      Object.assign(ctx, { cast_dir: rel(R(run, "cast")), canon_cmd: `${S2} canon --run ${rel(run)}`, sheet_cmd: `${S2} sheet --canon <identity.json> --kind views|emotions|turn --out <png>` });
+      for (const [l, p] of [["the 2D character playbook (read all of it)", path.join(SKILL_DIR, "references", "2d-character.md")], ["the shape of an identity (an original demo actor: study it, do not reuse it)", path.join(SKILL_DIR, "stage2d", "fixtures", "original-actor.json")], ["the brief (literal words)", R(run, "brief.json")], ["chosen script (who the actor is, what happens)", R(run, "story", "chosen.json")], ["chosen look (palette, materials, finish)", R(run, "look", "DESIGN.md")], ["frame.md", lookFrame(run)], ["ART.md (the picture world, when the art department ran)", R(run, "art", "ART.md")]]) I(l, p);
+      O(R(run, "cast", "<id>", "identity.json")); O(R(run, "cast", "<id>", "model-sheet.png")); O(R(run, "cast", "<id>", "emotions-1.png")); O(R(run, "cast", "<id>", "emotions-2.png")); O(R(run, "cast", "<id>", "turn.png")); O(R(run, "crew", "designer", "character.md"));
+      break;
+    }
     case "motion-director":
       Object.assign(ctx, { pass: key === "seams" ? "seams" : "score", length_s: B.length_s, aspect: B.aspect });
       for (const [l, p] of [["THE INTENT (read first: story/intent.json. Per beat: what it buys, its relation to the beat before, its importance 1-3, the one thing to read; the peak. Choose each beat's hero, verb and transition FROM it, and spend your big moments on the importance-3 beats and the peak)", R(run, "story", "intent.json")], ["the score's fields, format, seam pass and shape vocabulary", path.join(SKILL_DIR, "references", "score.md")], ["script", R(run, "story", "chosen.json")], ["scenes", R(run, "scenes.json")], ["frame.md", lookFrame(run)], ["design system (its Motion and camera section binds the motion)", R(run, "look", "DESIGN.md")], ["direction", R(run, "direction", "DIRECTION.md")], ["motion.md", R(run, "motion.md")], ["music plan", R(run, "music", "plan.json")], ["screens", research("screens.md")], ["assets", research("assets.json")], ["brand", research("brand.md")], ["precedent", research("precedent.md")], ["reference moments (read-only: dense.md and code/REMIX.md per moment; one mechanic each, written as the beat's take)", R(run, "references", "moments")], ["craft", path.join(SKILL_DIR, "references", "craft.md")], ["vocabulary", path.join(SKILL_DIR, "references", "vocabulary.md")], ["3d playbook", path.join(SKILL_DIR, "references", "3d.md")]]) I(l, p);
@@ -1047,6 +1064,16 @@ function contextFor(run, role, key, plan) {
     I("art assets (the film's own pictures, with their paths and treatments: use them, never stock images or a re-draw)", R(run, "art", "assets.json"));
     I("ART.md (the picture world in a paragraph, and the asset sheet)", R(run, "art", "ART.md"));
   }
+  // a recurring character: the playbook, the canon and the approved sheets reach the builders; the actor is never redesigned per shot
+  if (["motion-director", "film-builder", "scene-animator"].includes(role) && (P.route === "character-cartoon" || P.character || scoreHasCharacter(run)) && exists(R(run, "cast"))) {
+    I("2D character playbook (the actor is drawn by Rasan2D: read it before you write a line)", path.join(SKILL_DIR, "references", "2d-character.md"));
+    for (const d of fs.readdirSync(R(run, "cast"))) {
+      I(`cast canon ${d} (identity: palette, fixed traits; the ONLY source of the actor's look)`, R(run, "cast", d, "identity.json"));
+      I(`cast ${d}: the model sheet and emotion sheets (artist-approved; match them)`, R(run, "cast", d));
+    }
+    ctx.cast_rule = "the actor is the canon in cast/<id>/identity.json and the approved sheets: never redesign it per shot (palette, fixed traits, proportions); score.cast[].canon is the only link; every shot's actions go in the scene's SEQUENCE (stage2d.mjs scaffold), then stage2d.mjs check";
+    if (["film-builder", "scene-animator"].includes(role)) ctx.reads = "reads[] and the timed reads contract apply to any words on screen; a cartoon shows, it does not tell";
+  }
   // picture-first: the approved boards are the visual target of the score and the build (references/styleframes.md)
   if (["motion-director", "film-builder", "scene-animator"].includes(role) && key !== "seams" && exists(R(run, "frames", "shots.json"))) {
     const doc = readShots(R(run, "frames", "shots.json"));
@@ -1227,6 +1254,10 @@ function promptFor(run, role, key, plan) {
   if (role === "film-builder") {
     const sc0 = jsonMaybe(R(run, "motion", "score.json"));
     extra += grammarBlock(run, sc0 && Array.isArray(sc0.scenes) ? sc0.scenes : []);
+  }
+  if ((role === "scene-animator" || role === "film-builder") && plan && (plan.route === "character-cartoon" || plan.character)) {
+    const S2 = `node "${path.join(SKILL_DIR, "scripts", "stage2d.mjs")}"`;
+    extra += `\n\n## Your film has a recurring character (Rasan2D)\n\nRead \`references/2d-character.md\` in full. The actor is the canon in \`cast/<id>/identity.json\` and the approved sheets next to it: you never redesign it per shot. Build each shot with Rasan2D from the template, never from a blank file:\n\n\`\`\`bash\n\${S2} install --project "${ctx.project || "<project>"}"\n\${S2} scaffold --project "${ctx.project || "<project>"}" --frame <frame_id> --duration <s> --canon <run>/cast/<id>/identity.json\n\${S2} stills --file <composition> --at 0,1,2 --out <dir>   # look at them\n\${S2} check --project "${ctx.project || "<project>"}" --run <run> --score <run>/motion/score.json\n\`\`\`\n\nEvery dramatic shot has an event: a cause, then its reaction, one readable focal action, a held reaction. Anticipate, squash and stretch, overshoot; planted feet stay planted; the line boil is on twos, the camera stays smooth. Show, don't tell: no caption where an action says it (words on screen follow reads[]).`;
   }
   if (role === "scene-animator" && LYR(run, plan)) {
     const sc = scenesOf(run)[Number(key) - 1];
@@ -2255,6 +2286,25 @@ async function checkRole(run, role, key) {
       if (doc) { const sc = checkShots(doc, { duration: Number(brief(run).length_s) || null }); for (const e of sc.errors) if (new RegExp(`\\b(${Array.from({ length: b - a + 1 }, (_, i) => String(a + i).padStart(2, "0")).join("|")})\\b`).test(e)) P.push(e); }
       break;
     }
+    case "character-designer": {
+      const castDir = R(run, "cast");
+      const ids = exists(castDir) ? fs.readdirSync(castDir).filter((d) => exists(path.join(castDir, d, "identity.json"))) : [];
+      if (!ids.length) { P.push("cast/<id>/identity.json is missing (the identity of the film's recurring actor)"); break; }
+      const { validateIdentity, loadIdentity } = await import("./lib/canon.mjs");
+      const { traitsFor2d } = await import("./lib/stage2d.mjs");
+      for (const id of ids) {
+        let idn;
+        try { idn = loadIdentity(path.join(castDir, id, "identity.json")); } catch (e) { P.push(e.message); continue; }
+        const v = validateIdentity(idn, { medium: idn.medium === "3d-rig" ? "3d-rig" : "painted-2d", baseDir: path.join(castDir, id), traits: traitsFor2d });
+        for (const e of v.errors) P.push(`cast/${id}: ${e.rule}: ${e.message}`);
+        for (const w of v.warnings) W.push(`cast/${id}: ${w.rule}: ${w.message}`);
+        if (idn.id !== id) P.push(`cast/${id}/identity.json has id ${idn.id}: the folder and the id are one name`);
+        for (const f of ["model-sheet.png", "emotions-1.png", "emotions-2.png"]) if (!exists(path.join(castDir, id, f))) P.push(`cast/${id}/${f} is missing: render it with stage2d.mjs sheet and look at it`);
+      }
+      const sc = jsonMaybe(R(run, "motion", "score.json"));
+      if (sc && Array.isArray(sc.cast)) { const { validateCast } = await import("./lib/canon.mjs"); const vc = validateCast(sc, run, { medium: "painted-2d", traits: traitsFor2d }); for (const e of vc.errors) P.push(`score.cast ${e.cast}: ${e.rule}: ${e.message}`); }
+      break;
+    }
     case "art-director": {
       const gate = path.join(SKILL_DIR, "scripts", "art.mjs");
       if (!exists(R(run, "art", "plan.json"))) { P.push("art/plan.json is missing (art.mjs plan --run <run>, then edit it)"); break; }
@@ -2338,6 +2388,20 @@ async function checkRole(run, role, key) {
     case "film-builder": {
       if (!pj) { P.push("--project <videos/name> required"); break; }
       const k = key || "film", lead = k === "lead";
+      {
+        // a project that draws a recurring character in Rasan2D is held to stage2d.mjs check
+        const { projectUsesRasan2d } = await import("./lib/stage2d.mjs");
+        if (projectUsesRasan2d(pj)) {
+          const r2 = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "stage2d.mjs"), "check", "--project", pj, "--run", run, "--json"], { encoding: "utf8", timeout: 600000 });
+          let j2 = null;
+          try { j2 = JSON.parse(r2.stdout); } catch { /* none */ }
+          if (!j2) W.push("stage2d.mjs check could not run: " + String(r2.stderr).trim().split("\n").pop());
+          else {
+            for (const x of (j2.findings || []).filter((f) => f.severity === "error").slice(0, 8)) P.push(`stage2d: ${x.rule} ${x.file}${x.at ? " @" + x.at : ""}: ${x.message}`);
+            for (const c of j2.could_not_run || []) W.push(`stage2d could not run: ${c}`);
+          }
+        }
+      }
       const report = readMaybe(R(run, "crew", "builder", `${k}.md`));
       if (!report) P.push(`crew/builder/${k}.md is missing`);
       else {
@@ -2876,6 +2940,7 @@ if (cmd === "plan") {
   p.brand_film = args["no-brand-film"] ? false : !!args["brand-film"] || !!prev.brand_film || (["product-launch-video", "general-video"].includes(p.route) && !!(p.brand || p.public || brandLocked(run)) && (p.route === "product-launch-video" || /launch|promo|brand|reveal/i.test(String(p.kind || brief(run).kind || ""))));
   // the user's own brand kit (assets) replaces the brand-film web search: the kit builder reads the kit and any earlier films on disk (references/sources.md)
   if (p.sources && (p.sources.sources || []).some((x) => x.kind === "assets") && !args["brand-film"]) p.brand_film = false;
+  p.character = !!args.character || !!prev.character || scoreHasCharacter(run);
   p.direct = directFilm(p, prev, run);
   p.branded = !!(p.brand || brandLocked(run));
   // the token budget: --budget, --lean (= lean), else the previous plan's, else standard

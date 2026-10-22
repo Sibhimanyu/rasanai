@@ -86,7 +86,7 @@ The route table itself (which HyperFrames workflow builds which video) is in the
 | a folder of raw clips cut together; talking-head + captions or overlay cards | `reel`, `embedded-captions`, `talking-head-recut` | [routes/footage](references/workflows/routes/footage.md) |
 | a green-screen talking head in generated image worlds | `presenter` | [routes/presenter](references/workflows/routes/presenter.md) |
 | one short unnarrated unit (title, sting, stat hit, under about 10 s) | `motion-graphics` | [routes/motion-graphics](references/workflows/routes/motion-graphics.md) |
-| a cartoon (arrives in a later wave) | not routable yet | [routes/cartoon](references/workflows/routes/cartoon.md) |
+| a short hand-painted cartoon, one recurring character | `character-cartoon` | [routes/cartoon](references/workflows/routes/cartoon.md) |
 | an evidence-based film (arrives in a later wave) | not routable yet | [routes/evidence](references/workflows/routes/evidence.md) |
 | a change to a video that already exists in `videos/` | revision | [single-unit-and-revision](references/workflows/operations/single-unit-and-revision.md) |
 

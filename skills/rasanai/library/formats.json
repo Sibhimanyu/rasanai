@@ -419,7 +419,8 @@
         "animated-map",
         "animated-post",
         "brand-loop",
-        "graphics-package"
+        "graphics-package",
+        "character-cartoon"
       ]
     },
     {
@@ -4348,6 +4349,62 @@
       "keywords": [],
       "aspects": [
         "16:9"
+      ]
+    },
+    {
+      "id": "character-cartoon",
+      "tile": "short",
+      "title": "Character cartoon",
+      "kind": "character cartoon",
+      "description": "A short hand-painted cartoon: one original character, a cause, then its reaction.",
+      "status": "partial",
+      "partial": "Acceptance (31 emotions, deterministic boil, planted feet, the gate) passes on the synthetic test film; no real film has been made with it yet, and the character does not talk (no mouth shapes).",
+      "route": "character-cartoon",
+      "source_mode": "document",
+      "source_modes": [
+        "document"
+      ],
+      "case": null,
+      "inputs": [
+        {
+          "id": "script",
+          "required": true,
+          "prompt": "The little story: who, what happens, how it ends"
+        }
+      ],
+      "research": {
+        "mode": "topic",
+        "desks": [
+          "product-researcher:document"
+        ],
+        "note": "the story, checked"
+      },
+      "story": {
+        "pass": "script-writers",
+        "format": "explainer",
+        "note": "a cause, then its reaction; show, don't tell"
+      },
+      "story_shapes": [
+        "scenario",
+        "life-arc",
+        "pas"
+      ],
+      "forbidden_shapes": [],
+      "scope_default": null,
+      "length_s": 15,
+      "aspect": "16:9",
+      "aspects": [
+        "16:9",
+        "9:16",
+        "1:1"
+      ],
+      "keywords": [
+        "cartoon",
+        "character cartoon",
+        "hand-painted cartoon",
+        "animated character",
+        "mascot cartoon",
+        "2d character"
       ]
     }
   ]

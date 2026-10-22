@@ -88,6 +88,7 @@ export const ROUTES = {
     deeper: { story: ["references/product-first.md", "references/launch-film.md"], look: ["references/brand-film.md", "references/product-first.md"] },
   }),
   "faceless-explainer": scene(),
+  "character-cartoon": scene({ guide: "routes/cartoon", defaultVariant: "direct", deeper: { story: ["references/2d-character.md"], styleframes: ["references/2d-character.md"], animatic: ["references/2d-character.md"] } }),
   "pr-to-video": scene(),
   "general-video": scene(),
   "music-to-video": {
@@ -128,7 +129,6 @@ export const ROUTES = {
     deeper: { final: ["references/handoff.md"] },
     skipBrief: true,
   },
-  cartoon: { kind: "placeholder", guide: "routes/cartoon", defaultVariant: "direct", phases: {}, deeper: {}, skipBrief: true },
   evidence: { kind: "placeholder", guide: "routes/evidence", defaultVariant: "direct", phases: {}, deeper: {}, skipBrief: true },
 };
 
@@ -136,7 +136,7 @@ export const ALIASES = {
   product: { route: "product-launch-video", variant: "direct" }, direct: { route: "product-launch-video", variant: "direct" },
   launch: { route: "product-launch-video", variant: "direct" },
   long: { route: "product-launch-video", variant: "deep" }, deep: { route: "product-launch-video", variant: "deep" },
-  footage: { route: "reel" }, lyrics: { route: "music-to-video" }, song: { route: "music-to-video" },
+  footage: { route: "reel" }, cartoon: { route: "character-cartoon" }, "character-cartoon-short": { route: "character-cartoon" }, lyrics: { route: "music-to-video" }, song: { route: "music-to-video" },
   "single-unit": { route: "motion-graphics" }, "single-units": { route: "motion-graphics" }, revise: { route: "revision" },
 };
 

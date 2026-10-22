@@ -28,7 +28,7 @@ Modes (the column "mode" and every "HOW MUCH" line use these words):
 | [Jakubantalik/thinking-orbs](#thinking-orbs) | MIT | adapted code + data | RasanOrbs runtime, 15 golden cases | taken |
 | [feitangyuan/onetake](#onetake) | PolyForm Noncommercial 1.0.0 | idea only | cut-aware shutter, sfx-buried, carry, scale-dive, regression diff | taken as ideas; translated versions open (P3.1) |
 | [pyang5166/gbro-collage-broll](#gbro) + gbro-collage-info | MIT | rewritten | halftone paper collage look | taken |
-| [JohnHeibel/ClaudeAnimationBase](#claudeanimationbase) | MIT | idea only | twinning, three zooms, reads, echo | taken as ideas; cartoon route open (P3.2) |
+| [JohnHeibel/ClaudeAnimationBase](#claudeanimationbase) | MIT | idea only | twinning, three zooms, reads, echo | taken as ideas; the cartoon route is built as original code (P3.2, B2 partly done) |
 | [lemomo-ai/lemo-opuscar](#lemo-opuscar) | MIT | rewritten + data | 11 styles, 98 prompts, catalogue grammar, devices, slot limiter, CJK reading | taken |
 | [tuzhechen2005/opus-video-skills](#video-upgrade-pins) | MIT (root LICENSE; `painted-animation/template/` is John Heibel, MIT) | idea only so far | painted-animation skill (W5 reference) | pinned 59744a6; code adapted only with its LICENSE + NOTICE, see pins |
 | [JohnHeibel/PDoomVideo](#video-upgrade-pins) | none verified | idea only | storyboard and chapter-level production | no source copied |
@@ -292,6 +292,12 @@ MIT / Apache-2.0: we may copy or adapt with credit (LICENSE copy plus NOTICE in 
 - DECLINED: Remotion and any new renderer; installing the skills; a second storyboard format; fixed panel counts; rendered before/after films in this wave (owner rule).
 - PLANNED: B12, B13, B14, B15.
 - Unverified: per-file licences; the safe-zone numbers in `lib/safezones.mjs` (from public platform guidance, uncalibrated).
+
+## Rasan2D (original code; ideas credited)
+
+- Idea only, no code or media copied: ClaudeAnimationBase (MIT, pin 0ac8bf2) and opus-video-skills `painted-animation` (MIT, pin 59744a6) for the shape of a painted-character route (named animation principles, line boil reseeded about 12 times a second, "something happens in every scene", show don't tell), as described in the video-upgrade brief; their files were not read or copied. PDoomVideo (no licence verified) for chapter-level production thinking: idea only.
+- p5.brush was not used (licence not verified for adaptation); the painting backend is original Canvas 2D code in `stage2d/runtime/brush.js`. The demo actor (Pim) is an original design drawn by `stage2d/runtime/character.js`; no existing character, and no Clawd, ships.
+- Unverified: nothing taken, so nothing to verify.
 
 ## Craft sources
 

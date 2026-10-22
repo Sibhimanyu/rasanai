@@ -26,6 +26,7 @@ Rules that hold for every item:
 - Source: ClaudeAnimationBase (MIT; ideas, add a credit folder if anything is copied), OpenMontage ink-theater mocap puppet idea (AGPL: idea only, group2 19). Size: L.
 - What: a new route, runtime and guide: p5.js plus p5.brush, a character with acted emotions, line boil reseeded 12 times a second, flat 2D, no pure black or white, "no text, show it", "something happens in every scene", reads timing sheet, a transition at every seam. The mocap puppet (CMU mocap) is a later add-on (M to L).
 - Done when: a 15 s cartoon film passes the motion gate; the route is listed in the format picker as proven.
+- Status (W5, video-upgrade branch): PARTLY DONE. Built as original code, not p5.brush: `stage2d/` (Rasan2D: five views, 31 emotions, time-addressable actions, 12 Hz seeded boil, style layers, multi-actor depth order, stateless `renderAt`), `stage2d.mjs`, `lib/canon.mjs`, the `character-cartoon` route, the character-designer role and the `cartoon` format (status `partial`). Passed by test (`tests/stage2d.mjs`): 31/31 distinct, A-B-A and cold-render identical pixels, independent actor jitter, planted feet, `check` failing broken canon / unseeded randomness / actor out of frame / missing runtime, and the synthetic 15 s film through `motion-gate.mjs`. Still open: a real film made through the crew with a Look, a model-sheet approval and the Animatic (so the picker stays `partial`, not proven); talking (mouth shapes); the CMU mocap puppet add-on.
 
 ## B3. P3.3 New pipelines
 
