@@ -91,7 +91,7 @@ struct FilmPage: View {
     /// The workspace: the header row, then the stage panel beside the inspector panel, then the action bar panel, all on
     /// one dark canvas. Nothing above the panels repeats the status; the bar at the bottom carries it.
     @ViewBuilder private var chromeAndContent: some View {
-        VStack(spacing: Workspace.gap) {
+        VStack(spacing: 0) {
             if let film = store.film {
                 FilmStatusBarHost(model: film, visible: showsNativeFilm, turn: statusTurn,
                                   stillWorking: [.working, .thinking].contains(store.monitor.health?.state),
@@ -99,16 +99,18 @@ struct FilmPage: View {
                                   onPause: store.canPause ? { store.pauseDirector() } : nil,
                                   onResume: store.canResume ? { store.resumeDirector() } : nil,
                                   usage: { StatusPill(store: store) }) {
-                    VStack(spacing: Workspace.gap) {
+                    VStack(spacing: 0) {
                         topChrome
                         DecisionsHost(model: film, page: StagePanelHost { pageContent })
                     }
                 }
             } else {
-                VStack(spacing: Workspace.gap) { topChrome; StagePanelHost { pageContent } }
+                VStack(spacing: 0) { topChrome; StagePanelHost { pageContent } }
             }
         }
-        .padding(.horizontal, .filmInset).padding(.top, 12).padding(.bottom, 16)
+        // Safe-area padding, not padding: the page runs under the floating sidebar, whose safe area would swallow a plain
+        // leading padding (the content then touched the sidebar while the right kept its gutter).
+        .safeAreaPadding(Workspace.pageInset)
         .background(Workspace.canvas)
         .environment(\.agentName, agent)
         .environment(skips)
@@ -131,9 +133,15 @@ struct FilmPage: View {
         }
         ToolbarItemGroup(placement: .primaryAction) {
             if let film = store.film {
-                Button { film.decisionsPresented.toggle() } label: { Label("Inspector", systemImage: "sidebar.trailing") }
-                    .keyboardShortcut("i", modifiers: [.command, .option])
-                    .help("Show or hide notes and decisions (⌥⌘I)")
+                // ⌘B is the left sidebar, so the right one is ⌥⌘B (as in VS Code); ⌥⌘I, Apple's inspector key, also works.
+                Button { film.decisionsPresented.toggle() } label: { Label("Chat with Rasan", systemImage: "sidebar.trailing") }
+                    .keyboardShortcut("b", modifiers: [.command, .option])
+                    .help("Chat with Rasan and decisions (⌥⌘B)")
+                    .background {
+                        Button("Toggle Inspector") { film.decisionsPresented.toggle() }
+                            .keyboardShortcut("i", modifiers: [.command, .option])
+                            .opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
+                    }
             }
             headerTools
         }
@@ -289,8 +297,9 @@ struct AutoResumeBanner: View {
             Spacer(minLength: 8)
             Button("Resume now") { store.resumeDirector() }.disabled(!store.canResume)
         }
-        .padding(.horizontal, .filmInset).padding(.vertical, 10).background(Color.orange.opacity(0.08))
+        .padding(.horizontal, Workspace.panelPadding).padding(.vertical, 10).background(Color.orange.opacity(0.08))
         .overlay(alignment: .bottom) { Divider() }
+        .padding(.bottom, Workspace.gap)
         .accessibilityElement(children: .combine)
     }
 }
@@ -320,8 +329,9 @@ struct DirectorRecoveryView: View {
                 Button("Resume") { store.resumeDirector() }.buttonStyle(.rasanPrimary).disabled(!store.canResume)
             }
         }
-        .padding(.filmInset).background(Color.orange.opacity(0.08))
+        .padding(Workspace.panelPadding).background(Color.orange.opacity(0.08))
         .overlay(alignment: .bottom) { Divider() }
+        .padding(.bottom, Workspace.gap)
     }
 }
 
@@ -357,7 +367,7 @@ struct NotRunningView: View {
                     Button("Show log") { store.sheet = .log }.controlSize(.large)
                 }
             }
-        }.frame(maxWidth: .infinity, maxHeight: .infinity).padding(40)
+        }.frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -396,7 +406,7 @@ struct DraftView: View {
                         }.buttonStyle(.plain)
                     }
                 }
-                .padding(24).cardSurface()
+                .padding(Workspace.panelPadding).cardSurface()
                 VStack(spacing: 8) {
                     if queued {
                         Button("View queue") { store.path.append(.queue) }.buttonStyle(.rasanPrimary).controlSize(.large)
@@ -419,7 +429,6 @@ struct DraftView: View {
                     }
                 }
             }
-            .padding(.horizontal, 32).padding(.vertical, 32)
             .frame(maxWidth: 704).frame(maxWidth: .infinity)
         }
     }
@@ -483,7 +492,7 @@ struct FinishedView: View {
                     FilmHistoryView(snapshot: store.snapshot, resolver: store.resolver, onPreview: { watch($0) }, onRestore: { restoreVersion = $0 })
                 }
             }
-            .padding(.horizontal, 32).padding(.top, 28).padding(.bottom, 32)
+            .padding(.bottom, 32)
             .frame(maxWidth: 1240, alignment: .leading).frame(maxWidth: .infinity)
         }
         .confirmationDialog("Restore v\(restoreVersion?.id ?? "")?", isPresented: Binding(get: { restoreVersion != nil }, set: { if !$0 { restoreVersion = nil } }), titleVisibility: .visible) {
@@ -585,7 +594,7 @@ struct FinishedView: View {
             }
             SeriesLookButton(store: store, project: filmKey)
         }
-        .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Workspace.panelPadding).frame(maxWidth: .infinity, alignment: .leading)
         .workspacePanel()
     }
 
@@ -700,7 +709,7 @@ struct FinishedView: View {
                     .rasanButton(primary: canSend).controlSize(.large).disabled(!canSend)
             }
         }
-        .padding(20).frame(maxWidth: .infinity, alignment: .leading).workspacePanel()
+        .padding(Workspace.panelPadding).frame(maxWidth: .infinity, alignment: .leading).workspacePanel()
         .animation(.snappy, value: notes.count)
     }
 
@@ -719,14 +728,16 @@ struct FinishedView: View {
 struct SamplePage: View {
     @Bindable var store: StudioStore
     var body: some View {
-        VStack(spacing: Workspace.gap) {
+        VStack(spacing: 0) {
             if let film = store.film {
                 FilmStatusBarHost(model: film, turn: Self.turn(film), usage: { EmptyView() }) {
                     DecisionsHost(model: film, page: StagePanelHost { NativeFilmView(model: film) })
                 }
             }
         }
-        .padding(.horizontal, .filmInset).padding(.top, 12).padding(.bottom, 16)
+        // Safe-area padding, not padding: the page runs under the floating sidebar, whose safe area would swallow a plain
+        // leading padding (the content then touched the sidebar while the right kept its gutter).
+        .safeAreaPadding(Workspace.pageInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Workspace.canvas)
         .buttonStyle(.rasanSecondary)

@@ -400,7 +400,7 @@ extension FilmProgressEngine {
         case "brief": "check the brief"
         case "story", "concept": "pick a script"
         case "look", "films", "direction": "pick a look"
-        case "animatic": "review the animatic"
+        case "animatic": "review the storyboard"
         case "render", "final": "press Render"
         default: "your call on the \(StepCatalog.label(currentStep).lowercased()) step"
         }

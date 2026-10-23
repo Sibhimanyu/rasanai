@@ -167,6 +167,7 @@ struct DirectorLogSheet: View {
     weak var store: StudioStore?
     private var pendingPackage: URL?
     private var watchingActivation = false
+    func applicationDidFinishLaunching(_ notification: Notification) { DebugSnapshot.install() }
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let package = urls.first(where: { $0.pathExtension.lowercased() == PortableProject.fileExtension }) else { return }
         if let store { store.importProjectPackage(package) } else { pendingPackage = package }

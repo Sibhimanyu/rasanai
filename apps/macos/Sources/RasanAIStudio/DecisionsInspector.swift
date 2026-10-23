@@ -2,7 +2,7 @@ import StudioCore
 import SwiftUI
 
 /// Every decided step: Claude's craft calls with their reasons and the person's picks, each changeable by telling
-/// Claude. The inspector's Decisions tab (toolbar toggle or ⌥⌘I), with the details log. The conversation is the Notes tab.
+/// Claude. The inspector's Decisions tab (toolbar toggle, ⌥⌘B or ⌥⌘I), with the details log. The conversation is the Rasan chat tab.
 struct DecisionsInspector: View {
     let model: FilmSessionModel
     @Environment(\.agentName) private var agent

@@ -2,6 +2,17 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **Chat with Rasan.** The right sidebar is a chat with Rasan, the director: tell him what you want or what to avoid, with suggestions to start from. Open it with ⌥⌘B (⌥⌘I and ⌘K work too).
+- **Point at the film.** Click the video to mark a spot, drag a box, or circle an area: the chat opens with that frame, your mark and the time attached.
+- **A real player on Final.** Speed, loop, volume, full screen, ±5 s and frame steps, J/K/L, and a filmstrip timeline with your notes pinned on it.
+- **Preview is now Storyboard.** It was always key frames timed to the music, so it now looks like a storyboard: numbered panels with time, line and voice, and Play with music.
+- **Describe and Setup are one step.** The stepper reads Describe · Brief · Story · Look · Storyboard · Final.
+- **Calmer, even layout.** Equal 20 pt gutters on every page, panels that stay put while their content scrolls, a slimmer bottom bar with Pause and an honest "the director is stopped" with Resume, look options above the preview, and Preview and Final laid out like Look.
+- **The crew, drawn better.** A new speech bubble tinted per character that hugs its words and points at the speaker's mouth, readable highlight colours, Kavi's papers no longer see-through, and Rasan never cropped into a circle.
+- **Clearer buttons.** "Apply notes" is now "Revise with N notes"; "Preview again" is gone.
+
 ## 0.19.6 (build 44) — 2026-10-22
 
 - **The crew asks, properly.** Every stage opens with the crew member at full size asking the question in a new speech bubble: one smooth outline with a curved tail toward the speaker, sized to the words, soft depth, and a small pop as it appears.

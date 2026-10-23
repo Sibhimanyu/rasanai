@@ -2,7 +2,7 @@ import StudioCore
 import SwiftUI
 
 /// The build: the newest built still large, the scene strip filling in, the pipeline's stage chips and a log.
-/// Nothing to decide here (the director builds; Tell Claude and Decisions live in the window chrome), so no action bar.
+/// Nothing to decide here (the director builds; the Rasan chat and Decisions live in the window chrome), so no action bar.
 struct BuildStage: View {
     let model: FilmSessionModel
     let step: String

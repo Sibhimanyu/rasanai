@@ -39,7 +39,7 @@ struct StoryStage: View {
                                  showsHeader: !wide) {
                 Group {
                     if all.isEmpty {
-                        StoryEmpty().padding(20).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        StoryEmpty().frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     } else if let current {
                         storyWorkspace(all, current: current, width: outer.size.width)
                     }
@@ -73,31 +73,29 @@ struct StoryStage: View {
         // takes the full height on the right with "Why this one" folded in.  Narrower
         // windows keep the header on top, then two columns, then one scroll.
         if width >= Self.wideThreshold {
-            let left = min(480, max(400, width * 0.38))
-            HStack(alignment: .top, spacing: 20) {
+            let left = Workspace.leftColumn(for: width)
+            HStack(alignment: .top, spacing: Workspace.columnGap) {
                 VStack(alignment: .leading, spacing: 0) {
                     StageHeader(question: question, context: payload["context"].string, step: step)
                         .padding(.bottom, 12)
                     choiceRail(all)
                 }
-                .frame(width: left)
+                .frame(width: left, alignment: .leading)
                 detailScroll(current, showRationale: true).frame(maxWidth: .infinity)
             }
-            .padding(18)
         } else if width >= 860 {
-            HStack(alignment: .top, spacing: 16) {
+            HStack(alignment: .top, spacing: Workspace.columnGap) {
                 choiceRail(all).frame(width: 250)
                 detailScroll(current, showRationale: true).frame(maxWidth: .infinity)
             }
-            .padding(16)
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     storyList(all)
                     StoryDetail(script: current, isRecommended: current.id == recommendedID, showRationale: true)
                         .id(current.id)
+                        .workspacePanel()
                 }
-                .padding(16)
             }
         }
     }
@@ -106,15 +104,16 @@ struct StoryStage: View {
         ScrollView {
             storyList(all).padding(.trailing, 2)
         }
-        .workspacePanel(padding: 12)
+        .workspacePanel(padding: Workspace.panelPadding)
     }
 
     private func detailScroll(_ current: StoryScript, showRationale: Bool) -> some View {
         ScrollView {
             StoryDetail(script: current, isRecommended: current.id == recommendedID, showRationale: showRationale)
                 .id(current.id)
-                .padding(.trailing, 2)
         }
+        // The panel holds still; only the script scrolls inside it.
+        .workspacePanel()
     }
 
     // MARK: List
@@ -222,9 +221,8 @@ private struct StoryDetail: View {
             }
             if !script.lastLine.isEmpty { StoryLastLine(text: script.lastLine) }
         }
-        .padding(24)
+        .padding(Workspace.panelPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .workspacePanel()
     }
 
     private var header: some View {

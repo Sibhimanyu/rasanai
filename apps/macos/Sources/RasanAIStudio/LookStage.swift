@@ -70,7 +70,6 @@ struct LookStage: View {
                 // A real scroll view remains usable with large type, Split View, and very small windows.
                 ScrollView {
                     fallbackWorkspace(current)
-                        .padding(.bottom, 20)
                 }
             } else if proxy.size.width >= Self.wideThreshold {
                 wideWorkspace(current, available: proxy.size)
@@ -93,14 +92,11 @@ struct LookStage: View {
     /// Wide windows: the crew header, compact tiles and the selected look's inspector share the left column;
     /// the preview runs from the top of the page on the right.  Everything stays inside the safe area, above the bottom bar.
     private func wideWorkspace(_ current: LookItem, available: CGSize) -> some View {
-        let left = min(460, max(380, available.width * 0.34))
-        return HStack(alignment: .top, spacing: 20) {
+        let left = Workspace.leftColumn(for: available.width)
+        return HStack(alignment: .top, spacing: Workspace.columnGap) {
             VStack(alignment: .leading, spacing: 0) {
                 StageHeader(question: question, context: context, step: step)
                     .padding(.bottom, 12)
-                LookTiles(items: items, selectedID: current.id, recommendedID: recommendedID, aspect: aspect,
-                          hook: payload["hook"].string, compact: true) { selection = $0 }
-                    .padding(.bottom, 14)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         rail(current)
@@ -108,15 +104,22 @@ struct LookStage: View {
                     }
                     .padding(.bottom, 4)
                 }
+                // The panel holds still; only the details scroll inside it.
+                .workspacePanel()
                 .accessibilityLabel("Selected look details")
             }
-            .frame(width: left)
+            .frame(width: left, alignment: .leading)
             .frame(maxHeight: .infinity, alignment: .top)
 
-            LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook, maxHeight: .infinity)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            // The options sit above the preview, so the selected look's details get the whole left column.
+            VStack(alignment: .leading, spacing: 16) {
+                LookTiles(items: items, selectedID: current.id, recommendedID: recommendedID, aspect: aspect,
+                          hook: payload["hook"].string, compact: true) { selection = $0 }
+                LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 18)
         .frame(width: available.width, height: available.height, alignment: .topLeading)
     }
 
@@ -124,7 +127,7 @@ struct LookStage: View {
         let inspectorWidth = min(320, max(250, available.width * 0.27))
         let heroHeight = min(560, max(250, available.height - 170))
 
-        return HStack(alignment: .top, spacing: 24) {
+        return HStack(alignment: .top, spacing: Workspace.columnGap) {
             VStack(alignment: .leading, spacing: 16) {
                 LookTiles(items: items, selectedID: current.id, recommendedID: recommendedID, aspect: aspect,
                           hook: payload["hook"].string) { selection = $0 }
@@ -140,6 +143,7 @@ struct LookStage: View {
             ScrollView {
                 rail(current)
             }
+            .workspacePanel()
             .frame(width: inspectorWidth, height: available.height, alignment: .top)
             .accessibilityLabel("Selected look details")
         }
@@ -152,7 +156,7 @@ struct LookStage: View {
                       hook: payload["hook"].string) { selection = $0 }
             LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook)
             if isFilms && !current.frames.isEmpty { LookFrames(item: current, aspect: aspect) }
-            rail(current)
+            rail(current).workspacePanel()
         }
     }
 
@@ -175,9 +179,8 @@ struct LookStage: View {
                     .font(.system(size: 13, weight: .medium))
             }
         }
-        .padding(18)
+        .padding(Workspace.panelPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .workspacePanel()
     }
 
     @ViewBuilder private func motionAndSound(_ current: LookItem) -> some View {

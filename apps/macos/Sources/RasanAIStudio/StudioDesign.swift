@@ -3,22 +3,21 @@ import SwiftUI
 
 /// The creation journey is presentation only; the director still owns the existing five review checkpoints.
 enum StudioFlowStep: Int, CaseIterable, Identifiable {
-    case describe, setup, brief, story, look, preview, final
+    case describe, brief, story, look, preview, final
     var id: Int { rawValue }
     var title: String {
         switch self {
         case .describe: "Describe"
-        case .setup: "Setup"
         case .brief: "Brief"
         case .story: "Story"
         case .look: "Look"
-        case .preview: "Preview"
+        case .preview: "Storyboard"
         case .final: "Final"
         }
     }
     var reviewStage: ReviewStage? {
         switch self {
-        case .describe, .setup: nil
+        case .describe: nil
         case .brief: .brief
         case .story: .story
         case .look: .look
@@ -59,7 +58,7 @@ struct StudioFlowProgress: View {
             }
         }
         .fixedSize().accessibilityElement(children: .contain)
-        .accessibilityLabel("\(current.title), step \(current.rawValue + 1) of 7")
+        .accessibilityLabel("\(current.title), step \(current.rawValue + 1) of 6")
     }
 
     private func marker(_ step: StudioFlowStep) -> some View {
