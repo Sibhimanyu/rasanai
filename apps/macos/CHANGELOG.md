@@ -2,6 +2,12 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **Hover a note on the timeline and see that note.** Each pin answered for the whole timeline, so one note's card showed wherever the pointer was; each pin now shows its own. The card and the time under the pointer sit just above the timeline, where the video no longer covers them.
+- **A smoother timeline.** Only the playhead follows the clock now, so the video and the scene thumbnails stop redrawing thirty times a second, and dragging the playhead seeks to the nearest frame it can reach quickly, then lands exactly when you let go.
+- **Studio's own full screen.** Full screen (F) shows the film edge to edge with its pins and captions, and the timeline, notes and controls in a bar that fades while it plays. Esc or F comes back; C or a pin takes you to the chat with that moment.
+
 ## 0.19.7 (build 45) — 2026-10-23
 
 - **Chat with Rasan.** The right sidebar is a chat with Rasan, the director: tell him what you want or what to avoid, with suggestions to start from. Open it with ⌥⌘B (⌥⌘I and ⌘K work too).

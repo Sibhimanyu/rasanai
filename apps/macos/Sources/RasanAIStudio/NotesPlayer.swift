@@ -80,11 +80,14 @@ func reviewTime(_ seconds: Double, tenths: Bool = false) -> String {
     func play()
     func pause()
     func seek(to seconds: Double)
+    /// A seek while the person drags the playhead: may land a little off the exact frame so it keeps up with the pointer.
+    func scrub(to seconds: Double)
     func step(frames: Int)
 }
 
 extension FilmPlayback {
     func toggle() { isPlaying ? pause() : play() }
+    func scrub(to seconds: Double) { seek(to: seconds) }
     var avPlayer: AVPlayer? { nil }
     func step(frames: Int) { seek(to: time + Double(frames) / 30) }
 }
@@ -205,7 +208,7 @@ final class VideoPlayback: FilmPlayback {
     @ObservationIgnored private var observer: Any?
     @ObservationIgnored private var endObserver: NSObjectProtocol?
     @ObservationIgnored private var seeking = false
-    @ObservationIgnored private var pending: Double?
+    @ObservationIgnored private var pending: (time: Double, exact: Bool)?
 
     init() {
         observer = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 30), queue: .main) { [weak self] value in
@@ -269,21 +272,28 @@ final class VideoPlayback: FilmPlayback {
         player.pause()
     }
 
-    func seek(to seconds: Double) {
+    func seek(to seconds: Double) { seek(seconds, exact: true) }
+    func scrub(to seconds: Double) { seek(seconds, exact: false) }
+
+    /// One seek in flight at a time; while it runs only the newest target waits, so a fast drag never queues a backlog.
+    private func seek(_ seconds: Double, exact: Bool) {
         time = FilmTiming.clamp(seconds, duration)
         if isReady { hasStarted = hasStarted || time > 0 }
-        if seeking { pending = time; return }
-        issueSeek(time)
+        if seeking { pending = (time, exact); return }
+        issueSeek(time, exact: exact)
     }
 
     func shutdown() { pause(); player.replaceCurrentItem(with: nil); url = nil; isReady = false }
 
-    private func issueSeek(_ seconds: Double) {
+    private func issueSeek(_ seconds: Double, exact: Bool) {
         seeking = true
-        player.seek(to: CMTime(seconds: seconds, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
+        // A scrub may land up to a tenth of a second early or late: exact seeks decode from the previous key frame every time,
+        // which is what made dragging stutter. Letting go seeks exactly.
+        let tolerance = exact ? CMTime.zero : CMTime(seconds: 0.1, preferredTimescale: 600)
+        player.seek(to: CMTime(seconds: seconds, preferredTimescale: 600), toleranceBefore: tolerance, toleranceAfter: tolerance) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
-                if let next = self.pending { self.pending = nil; self.issueSeek(next) } else { self.seeking = false }
+                if let next = self.pending { self.pending = nil; self.issueSeek(next.time, exact: next.exact) } else { self.seeking = false }
             }
         }
     }
@@ -348,8 +358,11 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
     @State private var stroke: [CGPoint] = []
     @State private var strokeTime = 0.0
     @State private var wasPlaying = false
+    /// What the pointer is over on the timeline; the card for it is drawn on the frame (see `TimelinePeekLayer`).
+    @State private var hover = TimelineHover()
     @FocusState private var focused: Bool
     @Environment(\.reviewFrameHeight) private var frameHeight
+    @Environment(NoteSkips.self) private var skips: NoteSkips?
 
     private var open: [ReviewNote] { notes.filter(\.isOpen).sorted { $0.time < $1.time } }
 
@@ -357,7 +370,7 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
         VStack(spacing: 0) {
             stage
             VStack(spacing: 10) {
-                ReviewTimeline(playback: playback, scenes: scenes, notes: notes,
+                ReviewTimeline(playback: playback, scenes: scenes, notes: notes, hover: hover,
                                onPin: { model.openChat(at: $0) },
                                onBegin: { wasPlaying = playback.isPlaying; playback.pause() },
                                onEnd: { if wasPlaying { playback.play() } })
@@ -384,8 +397,16 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
         .accessibilityLabel("Film player. Space plays or pauses, arrow keys move one second, J K L shuttle, F full screen, M mute, C leaves a note at the playhead.")
     }
 
+    /// Full screen is Studio's own layout (the film, its pins and captions, the timeline and the transport), not the system player.
     private func toggleFullScreen() {
-        if let player = playback.avPlayer { FilmFullScreen.shared.toggle(player: player) }
+        guard playback.avPlayer != nil else { return }
+        if FilmTheater.shared.isOpen { FilmTheater.shared.close(); return }
+        FilmTheater.shared.open(title: model.snapshot.title) {
+            FilmTheaterView(model: model, step: step, playback: playback, scenes: scenes, notes: notes, canNote: canNote,
+                            pinWindow: pinWindow, caption: caption)
+                .environment(model)
+                .environment(skips)
+        }
     }
 
     /// Space, J/K/L, ←/→ (Shift: 5 s, Option: scenes), , and . (a frame), Home/End, F, M, C. Nothing with ⌘ or ⌃.
@@ -439,11 +460,7 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
                     frame()
                     PinsLayer(playback: playback, scenes: scenes, notes: open, window: pinWindow)
                     CaptionLayer(playback: playback, scenes: scenes, caption: caption)
-                    // The mark waiting in the chat stays drawn on its frame; the one being drawn shows live.
-                    if let pending = model.pendingMark, pending.step == step, abs(pending.time - playback.time) < 0.5 {
-                        MarkGlyph(kind: pending.kind, rect: pending.rect, path: pending.path)
-                            .frame(width: content.width, height: content.height).position(x: content.midX, y: content.midY)
-                    }
+                    PendingMarkLayer(model: model, step: step, playback: playback, content: content)
                     if stroke.count > 1 {
                         let live = MarkGesture.classify(stroke, in: content)
                         MarkGlyph(kind: live.kind, rect: live.rect, path: live.path)
@@ -494,6 +511,9 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
         .aspectRatio(min(max(aspect, 0.5), 2.4), contentMode: .fit)
         .frame(minHeight: 160, maxHeight: frameHeight)
         .frame(maxWidth: .infinity)
+        // The card for the pin or moment under the pointer on the timeline, drawn at the bottom of the frame: above the
+        // timeline it would overlap the video's AppKit view, which draws over anything outside its own SwiftUI stack.
+        .overlay { TimelinePeekLayer(hover: hover, scenes: scenes, inset: 16, bottom: 6) }
         .background(ReviewTheme.room)
     }
 
@@ -661,30 +681,29 @@ enum PlaybackSpeed {
     static func slower(than rate: Double) -> Double { all.last { $0 < rate - 0.001 } ?? all[0] }
 }
 
-/// The film full screen: a window with the system player (floating controls) on the same AVPlayer, so the playhead, the
-/// page's clock and every control stay in sync. Esc or the green button brings the person back to the page.
+/// Studio's own full screen: a window on its own Space showing `FilmTheaterView` on the same playback, so the playhead, the
+/// page's clock and every control stay in sync. Esc, F or the exit button bring the person back to the page.
 @MainActor
-final class FilmFullScreen: NSObject, NSWindowDelegate {
-    static let shared = FilmFullScreen()
+final class FilmTheater: NSObject, NSWindowDelegate {
+    static let shared = FilmTheater()
     private var window: NSWindow?
+    var isOpen: Bool { window != nil }
+    #if DEBUG
+    var qaWindow: NSWindow? { window }
+    #endif
 
-    func toggle(player: AVPlayer) {
-        if let window {
-            if window.styleMask.contains(.fullScreen) { window.toggleFullScreen(nil) } else { window.close() }
-            return
-        }
-        let view = AVPlayerView()
-        view.controlsStyle = .floating
-        view.videoGravity = .resizeAspect
-        view.allowsPictureInPicturePlayback = true
-        view.player = player
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 960, height: 540),
-                              styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-        window.title = "Film"
+    func open<Content: View>(title: String, @ViewBuilder content: () -> Content) {
+        guard window == nil else { return }
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 760),
+                              styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
+        window.title = title.isEmpty ? "Film" : title
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
         window.backgroundColor = .black
+        window.appearance = NSAppearance(named: .darkAqua)
         window.collectionBehavior = [.fullScreenPrimary]
-        window.contentView = view
+        window.contentView = NSHostingView(rootView: content())
         window.delegate = self
         window.center()
         self.window = window
@@ -692,32 +711,192 @@ final class FilmFullScreen: NSObject, NSWindowDelegate {
         window.toggleFullScreen(nil)
     }
 
+    func close() {
+        guard let window else { return }
+        if window.styleMask.contains(.fullScreen) { window.toggleFullScreen(nil) } else { window.close() }
+    }
+
     func windowDidExitFullScreen(_ notification: Notification) { window?.close() }
 
     func windowWillClose(_ notification: Notification) {
-        (window?.contentView as? AVPlayerView)?.player = nil
         window?.delegate = nil
+        window?.contentView = nil
         window = nil
+        NSCursor.setHiddenUntilMouseMoves(false)
+    }
+}
+
+/// The full-screen layout: the film edge to edge with its pins and captions, and the timeline and transport in a bar that
+/// fades away while the film plays and the pointer rests. The keys are the page's: Space, arrows, J K L, M, C; Esc or F leave.
+struct FilmTheaterView<P: FilmPlayback>: View {
+    let model: FilmSessionModel
+    let step: String
+    let playback: P
+    let scenes: [FilmScene]
+    let notes: [ReviewNote]
+    var canNote: Bool
+    var pinWindow: Double?
+    var caption: (Int?) -> String?
+
+    @State private var hover = TimelineHover()
+    @State private var chrome = true
+    @State private var idle = IdleClock()
+    @State private var wasPlaying = false
+    @FocusState private var focused: Bool
+
+    private final class IdleClock { var last = Date() }
+    private var open: [ReviewNote] { notes.filter(\.isOpen).sorted { $0.time < $1.time } }
+    private var showsChrome: Bool { chrome || !playback.isPlaying || hover.scrubbing }
+    private var aspect: Double { min(max(model.snapshot.aspectRatio, 0.3), 3) }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Color.black
+            GeometryReader { box in
+                let width = min(box.size.width, box.size.height * aspect)
+                let size = CGSize(width: width, height: width / aspect)
+                ZStack {
+                    if let player = playback.avPlayer { NativeFilmPlayer(player: player) }
+                    PinsLayer(playback: playback, scenes: scenes, notes: open, window: pinWindow)
+                    CaptionLayer(playback: playback, scenes: scenes, caption: caption)
+                }
+                .frame(width: size.width, height: size.height)
+                .contentShape(Rectangle())
+                .onTapGesture { playback.toggle() }
+                .position(x: box.size.width / 2, y: box.size.height / 2)
+            }
+            controls
+                .opacity(showsChrome ? 1 : 0)
+                .animation(.easeOut(duration: showsChrome ? 0.15 : 0.35), value: showsChrome)
+        }
+        .ignoresSafeArea()
+        .environment(\.colorScheme, .dark)
+        .onContinuousHover { phase in if case .active = phase { poke() } }
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(400))
+                if chrome, playback.isPlaying, !hover.scrubbing, hover.peek == nil, Date().timeIntervalSince(idle.last) > 2.5 {
+                    chrome = false
+                    NSCursor.setHiddenUntilMouseMoves(true)
+                }
+            }
+        }
+        .focusable()
+        .focused($focused)
+        .focusEffectDisabled()
+        .onAppear { focused = true }
+        .onKeyPress(phases: [.down, .repeat]) { press in poke(); return handle(press) }
+    }
+
+    private var controls: some View {
+        VStack(spacing: 10) {
+            ReviewTimeline(playback: playback, scenes: scenes, notes: notes, hover: hover,
+                           onPin: { note in FilmTheater.shared.close(); model.openChat(at: note) },
+                           onBegin: { wasPlaying = playback.isPlaying; playback.pause() },
+                           onEnd: { if wasPlaying { playback.play() } })
+            ReviewTransport(playback: playback, scenes: scenes, canNote: canNote, onNote: note,
+                            onFullScreen: { FilmTheater.shared.close() }, isFullScreen: true)
+        }
+        .padding(.horizontal, 40).padding(.top, 70).padding(.bottom, 26)
+        .background(LinearGradient(colors: [.clear, .black.opacity(0.88)], startPoint: .top, endPoint: .bottom).allowsHitTesting(false))
+        // The card for the pin or moment under the pointer sits just above the bar, inside the same stack as the film.
+        .overlay(alignment: .top) {
+            TimelinePeekLayer(hover: hover, scenes: scenes, inset: 40, bottom: 0)
+                .frame(height: 200)
+                .alignmentGuide(.top) { $0[.bottom] - 70 }
+        }
+    }
+
+    private func poke() {
+        idle.last = Date()
+        if !chrome { chrome = true }
+    }
+
+    /// C: the note is written in the chat on the page, so full screen closes and the frame goes to the composer there.
+    private func note() {
+        guard canNote else { return }
+        playback.pause()
+        FilmTheater.shared.close()
+        let index = FilmTiming.sceneIndex(at: playback.time, in: scenes)
+        let thumbnail = index.flatMap { scenes[$0].thumbnail }.flatMap { model.fileURL($0) }
+        model.attach(.wholeFrame(step: step, time: playback.time), player: playback.avPlayer, thumbnail: thumbnail)
+    }
+
+    private func handle(_ press: KeyPress) -> KeyPress.Result {
+        guard !press.modifiers.contains(.command), !press.modifiers.contains(.control) else { return .ignored }
+        switch press.key {
+        case .escape: FilmTheater.shared.close(); return .handled
+        case .space: playback.toggle(); return .handled
+        case .leftArrow, .rightArrow:
+            let forward = press.key == .rightArrow
+            if press.modifiers.contains(.option) {
+                guard let target = FilmTiming.jump(from: playback.time, forward: forward, in: scenes) else { return .ignored }
+                playback.seek(to: target); return .handled
+            }
+            playback.seek(to: playback.time + (forward ? 1 : -1) * (press.modifiers.contains(.shift) ? 5 : 1))
+            return .handled
+        case .home: playback.seek(to: 0); return .handled
+        case .end: playback.seek(to: playback.duration); return .handled
+        default: break
+        }
+        switch press.characters.lowercased() {
+        case "f": FilmTheater.shared.close(); return .handled
+        case "k": playback.pause(); return .handled
+        case "j": playback.rate = PlaybackSpeed.slower(than: playback.rate); if !playback.isPlaying { playback.play() }; return .handled
+        case "l": if playback.isPlaying { playback.rate = PlaybackSpeed.faster(than: playback.rate) } else { playback.play() }; return .handled
+        case ",": guard !playback.isPlaying else { return .ignored }; playback.step(frames: -1); return .handled
+        case ".": guard !playback.isPlaying else { return .ignored }; playback.step(frames: 1); return .handled
+        case "m": playback.isMuted.toggle(); return .handled
+        case "c": guard canNote else { return .ignored }; note(); return .handled
+        default: return .ignored
+        }
     }
 }
 
 // MARK: Timeline
 
+/// What the pointer is over on the timeline, shared with the card drawn for it. It changes on every pointer move, so only the
+/// small views that draw the hover read `peek`; the timeline itself reads only which pin is hovered.
+@MainActor @Observable
+final class TimelineHover {
+    struct Peek: Equatable {
+        var x: CGFloat
+        var time: Double
+        /// Empty for a plain moment on the track.
+        var notes: [ReviewNote] = []
+        var numbers: [String: Int] = [:]
+    }
+    var peek: Peek?
+    var pinID: String?
+    var scrubbing = false
+    #if DEBUG
+    /// The newest timeline's hover, for the QA harness (`{"peek": ...}`): synthetic pointer moves do not reach SwiftUI hover.
+    static weak var latest: TimelineHover?
+    static var qaPins: [(id: String, x: CGFloat, notes: [ReviewNote], numbers: [String: Int])] = []
+    /// QA: `pin` is a 1-based pin index; otherwise `x` is a point on the track.
+    func qaPeek(pin: Int?, x: Double?) {
+        if let pin, Self.qaPins.indices.contains(pin - 1) {
+            let p = Self.qaPins[pin - 1]
+            pinID = p.id; peek = Peek(x: p.x, time: p.notes[0].time, notes: p.notes, numbers: p.numbers)
+        } else if let x { pinID = nil; peek = Peek(x: x, time: 0) } else { pinID = nil; peek = nil }
+    }
+    #endif
+}
+
 /// The filmstrip timeline: scenes as thumbnails in proportion to their length, the playhead, note pins above the track
-/// (grouped when close), a hover bubble with the time and scene, and a legend line.
+/// (grouped when close), and a legend line. The card for a hovered pin or moment is `TimelinePeekLayer`, drawn by the owner.
+/// Only `TimelinePlayhead` reads the clock, so the thumbnails are not redrawn thirty times a second.
 struct ReviewTimeline<P: FilmPlayback>: View {
     let playback: P
     let scenes: [FilmScene]
     /// Every note on this step; open ones are amber and numbered like their pins on the frame, the rest grey.
     let notes: [ReviewNote]
+    let hover: TimelineHover
     /// A pin was clicked (the first note of a group): the chat opens scrolled to it.
     var onPin: (ReviewNote) -> Void = { _ in }
     var onBegin: () -> Void = {}
     var onEnd: () -> Void = {}
     @Environment(NoteSkips.self) private var skips: NoteSkips?
-    @State private var hoverX: CGFloat?
-    @State private var hoverPin: String?
-    @State private var dragging = false
 
     private let pinZone: CGFloat = 24
     private let trackHeight: CGFloat = 46
@@ -749,52 +928,42 @@ struct ReviewTimeline<P: FilmPlayback>: View {
             GeometryReader { box in
                 let width = max(box.size.width, 1)
                 let duration = max(playback.duration, 0.001)
-                let x = CGFloat(min(1, max(0, playback.time / duration))) * width
                 let placed = pins(width: width, duration: duration)
                 ZStack(alignment: .topLeading) {
-                    track(width: width, duration: duration, x: x)
+                    TimelineTrack(scenes: scenes, width: width, duration: duration, height: trackHeight)
+                        .equatable()
                         .offset(y: pinZone)
-                    // The playhead: a 2pt line across the track with a knob above it.
-                    Rectangle().fill(.white).frame(width: 2, height: trackHeight)
-                        .shadow(color: .black.opacity(0.5), radius: 2)
-                        .offset(x: min(max(x - 1, 0), width - 2), y: pinZone)
+                    TimelinePlayhead(playback: playback, width: width, duration: duration, pinZone: pinZone, height: trackHeight)
                         .allowsHitTesting(false)
-                    Circle().fill(.white).frame(width: 10, height: 10)
-                        .shadow(color: .black.opacity(0.5), radius: 2)
-                        .offset(x: min(max(x - 5, 0), width - 10), y: pinZone - 6)
+                    TimelineHoverLine(hover: hover, width: width, pinZone: pinZone, height: trackHeight)
                         .allowsHitTesting(false)
-                    if let hoverX, !dragging {
-                        Rectangle().fill(.white.opacity(0.45)).frame(width: 1, height: trackHeight)
-                            .offset(x: min(max(hoverX, 0), width - 1), y: pinZone).allowsHitTesting(false)
-                    }
+                    scrubSurface(width: width, duration: duration)
+                        .offset(y: pinZone)
                     ForEach(placed) { pin in
-                        TimelinePin(notes: pin.notes, numbers: numbering(for: pin.notes), skipped: skippedIDs, hovering: hoverPin == pin.id)
-                            .position(x: pin.x, y: pinZone / 2)
+                        let numbers = numbering(for: pin.notes)
+                        TimelinePin(notes: pin.notes, numbers: numbers, skipped: skippedIDs, hovering: hover.pinID == pin.id)
+                            // Hover and tap go before `position`: after it they cover the whole timeline, and the last pin
+                            // answered wherever the pointer was.
                             .onHover { inside in
-                                if inside { hoverPin = pin.id } else if hoverPin == pin.id { hoverPin = nil }
+                                if inside {
+                                    hover.pinID = pin.id
+                                    hover.peek = .init(x: pin.x, time: pin.notes[0].time, notes: pin.notes, numbers: numbers)
+                                } else if hover.pinID == pin.id {
+                                    hover.pinID = nil
+                                    hover.peek = nil
+                                }
                             }
                             .onTapGesture { if let first = pin.notes.first { onPin(first) } }
-                            .zIndex(hoverPin == pin.id ? 3 : 1)
+                            .position(x: pin.x, y: pinZone / 2)
+                            .zIndex(hover.pinID == pin.id ? 3 : 1)
                     }
                 }
                 .frame(width: width, height: pinZone + trackHeight, alignment: .topLeading)
-                // The hover bubble and the note card float above the timeline in an overlay, so showing them never changes
-                // the timeline's own layout (inside the ZStack they grew it upward and the track jumped under the pointer).
-                .overlay(alignment: .topLeading) {
-                    if let id = hoverPin, let pin = placed.first(where: { $0.id == id }) {
-                        PinCard(notes: pin.notes, numbers: numbering(for: pin.notes))
-                            .alignmentGuide(.top) { $0[.bottom] + 4 }
-                            .offset(x: min(max(pin.x - 115, 0), max(width - 230, 0)))
-                            .allowsHitTesting(false)
-                    } else if let hoverX, !dragging {
-                        let t = Double(min(1, max(0, hoverX / width))) * duration
-                        HoverBubble(text: reviewTime(t, tenths: true) + (FilmTiming.sceneIndex(at: t, in: scenes).map { " · \($0 + 1) " + scenes[$0].title } ?? ""))
-                            .alignmentGuide(.top) { $0[.bottom] + 6 }
-                            .offset(x: min(max(hoverX - 70, 0), max(width - 140, 0)))
-                            .allowsHitTesting(false)
-                    }
-                }
-                .animation(.snappy(duration: 0.14), value: hoverPin)
+                .animation(.snappy(duration: 0.14), value: hover.pinID)
+                #if DEBUG
+                .onAppear { TimelineHover.latest = hover; TimelineHover.qaPins = placed.map { ($0.id, $0.x, $0.notes, numbering(for: $0.notes)) } }
+                .onChange(of: placed.map(\.id)) { TimelineHover.qaPins = placed.map { ($0.id, $0.x, $0.notes, numbering(for: $0.notes)) } }
+                #endif
             }
             .frame(height: pinZone + trackHeight)
             .accessibilityElement()
@@ -826,18 +995,51 @@ struct ReviewTimeline<P: FilmPlayback>: View {
             .font(.system(size: 11)).foregroundStyle(.white.opacity(0.5))
     }
 
-    // MARK: Track
+    /// Drag to scrub (approximate seeks that keep up with the pointer, an exact one on release); hover for the time and scene.
+    private func scrubSurface(width: CGFloat, duration: Double) -> some View {
+        func time(at x: CGFloat) -> Double { Double(min(1, max(0, x / width))) * duration }
+        return Color.clear
+            .frame(width: width, height: trackHeight)
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    if !hover.scrubbing { hover.scrubbing = true; onBegin() }
+                    let x = min(max(value.location.x, 0), width)
+                    playback.scrub(to: time(at: x))
+                    hover.peek = .init(x: x, time: time(at: x))
+                }
+                .onEnded { value in
+                    playback.seek(to: time(at: value.location.x))
+                    hover.scrubbing = false
+                    onEnd()
+                })
+            .onContinuousHover { phase in
+                guard !hover.scrubbing, hover.pinID == nil else { return }
+                switch phase {
+                case .active(let point): hover.peek = .init(x: point.x, time: time(at: point.x))
+                case .ended: hover.peek = nil
+                }
+            }
+    }
+}
 
-    private func track(width: CGFloat, duration: Double, x: CGFloat) -> some View {
+/// The scene thumbnails. Equatable, so it redraws only when the scenes or the size change.
+private struct TimelineTrack: View, Equatable {
+    let scenes: [FilmScene]
+    let width: CGFloat
+    let duration: Double
+    let height: CGFloat
+
+    var body: some View {
         let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
-        return ZStack(alignment: .topLeading) {
+        ZStack(alignment: .topLeading) {
             Rectangle().fill(.white.opacity(0.08))
             ForEach(Array(scenes.enumerated()), id: \.element.id) { index, scene in
                 let left = CGFloat(scene.start / duration) * width
                 let w = max(2, CGFloat(scene.duration / duration) * width - (index == scenes.count - 1 ? 0 : 1))
                 ZStack(alignment: .topLeading) {
                     if let path = scene.thumbnail {
-                        PayloadImage(path: path, contentMode: .fill, maxPixels: 240).frame(width: w, height: trackHeight).clipped()
+                        PayloadImage(path: path, contentMode: .fill, maxPixels: 240).frame(width: w, height: height).clipped()
                     }
                     Rectangle().fill(.black.opacity(0.42))
                     if w >= 36 {
@@ -846,28 +1048,108 @@ struct ReviewTimeline<P: FilmPlayback>: View {
                             .padding(.leading, 5).padding(.top, 3)
                     }
                 }
-                .frame(width: w, height: trackHeight)
+                .frame(width: w, height: height)
                 .clipped()
                 .offset(x: left)
             }
-            Rectangle().fill(Color.rasan.opacity(0.30)).frame(width: max(x, 0), height: trackHeight)
-            Color.clear.contentShape(Rectangle())
-                .gesture(DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        if !dragging { dragging = true; onBegin() }
-                        playback.seek(to: Double(min(1, max(0, value.location.x / width))) * duration)
-                    }
-                    .onEnded { _ in dragging = false; onEnd() })
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active(let point): hoverX = point.x
-                    case .ended: hoverX = nil
-                    }
-                }
         }
-        .frame(width: width, height: trackHeight)
+        .frame(width: width, height: height)
         .clipShape(shape)
-        .overlay { shape.strokeBorder(.white.opacity(0.10), lineWidth: 1).allowsHitTesting(false) }
+        .overlay { shape.strokeBorder(.white.opacity(0.10), lineWidth: 1) }
+        .allowsHitTesting(false)
+    }
+}
+
+/// The played part of the track and the playhead: the only part of the timeline that follows the clock.
+private struct TimelinePlayhead<P: FilmPlayback>: View {
+    let playback: P
+    let width: CGFloat
+    let duration: Double
+    let pinZone: CGFloat
+    let height: CGFloat
+
+    var body: some View {
+        let x = CGFloat(min(1, max(0, playback.time / duration))) * width
+        ZStack(alignment: .topLeading) {
+            Rectangle().fill(Color.rasan.opacity(0.30)).frame(width: max(x, 0), height: height)
+                .clipShape(UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 6, style: .continuous))
+                .offset(y: pinZone)
+            Rectangle().fill(.white).frame(width: 2, height: height)
+                .shadow(color: .black.opacity(0.5), radius: 2)
+                .offset(x: min(max(x - 1, 0), width - 2), y: pinZone)
+            Circle().fill(.white).frame(width: 10, height: 10)
+                .shadow(color: .black.opacity(0.5), radius: 2)
+                .offset(x: min(max(x - 5, 0), width - 10), y: pinZone - 6)
+        }
+        .frame(width: width, height: pinZone + height, alignment: .topLeading)
+    }
+}
+
+private struct TimelineHoverLine: View {
+    let hover: TimelineHover
+    let width: CGFloat
+    let pinZone: CGFloat
+    let height: CGFloat
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            if let peek = hover.peek, peek.notes.isEmpty, !hover.scrubbing {
+                Rectangle().fill(.white.opacity(0.45)).frame(width: 1, height: height)
+                    .offset(x: min(max(peek.x, 0), width - 1), y: pinZone)
+            }
+        }
+        .frame(width: width, height: pinZone + height, alignment: .topLeading)
+    }
+}
+
+/// The card for what the pointer is over on the timeline: a pin's notes, or the time and scene under the pointer (also while
+/// dragging the playhead). It sits at the bottom of this layer; `inset` is where the timeline starts inside it.
+private struct TimelinePeekLayer: View {
+    let hover: TimelineHover
+    let scenes: [FilmScene]
+    var inset: CGFloat
+    var bottom: CGFloat = 8
+
+    var body: some View {
+        GeometryReader { box in
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                if let peek = hover.peek {
+                    let width: CGFloat = peek.notes.isEmpty ? 180 : 230
+                    let left = min(max(inset + peek.x - width / 2, 6), max(box.size.width - width - 6, 6))
+                    Group {
+                        if peek.notes.isEmpty { HoverBubble(text: label(peek.time)) }
+                        else { PinCard(notes: peek.notes, numbers: peek.numbers) }
+                    }
+                    .frame(width: width)
+                    .padding(.leading, left)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, bottom)
+                    .transition(.opacity)
+                }
+            }
+            .frame(width: box.size.width, height: box.size.height)
+        }
+        .allowsHitTesting(false)
+        .animation(.snappy(duration: 0.12), value: hover.pinID)
+    }
+
+    private func label(_ t: Double) -> String {
+        reviewTime(t, tenths: true) + (FilmTiming.sceneIndex(at: t, in: scenes).map { " · \($0 + 1) " + scenes[$0].title } ?? "")
+    }
+}
+
+/// The mark waiting in the chat, drawn on its frame while the playhead is near it. Its own view, so the panel and the video
+/// surface do not redraw with the clock.
+private struct PendingMarkLayer<P: FilmPlayback>: View {
+    let model: FilmSessionModel
+    let step: String
+    let playback: P
+    let content: CGRect
+    var body: some View {
+        if let pending = model.pendingMark, pending.step == step, abs(pending.time - playback.time) < 0.5 {
+            MarkGlyph(kind: pending.kind, rect: pending.rect, path: pending.path)
+                .frame(width: content.width, height: content.height).position(x: content.midX, y: content.midY)
+        }
     }
 }
 
@@ -981,6 +1263,8 @@ struct ReviewTransport<P: FilmPlayback>: View {
     var canNote: Bool
     var onNote: () -> Void
     var onFullScreen: () -> Void = {}
+    /// In Studio's full screen the button leaves it.
+    var isFullScreen = false
     @State private var showRemaining = false
 
     var body: some View {
@@ -1040,7 +1324,10 @@ struct ReviewTransport<P: FilmPlayback>: View {
                     .controlSize(.mini).tint(.white.opacity(0.8)).frame(width: 70)
                     .help("Volume").accessibilityLabel("Volume")
             }
-            if video { PlayerIconButton(symbol: "arrow.up.left.and.arrow.down.right", help: "Full screen (F)", action: onFullScreen) }
+            if video {
+                PlayerIconButton(symbol: isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
+                                 help: isFullScreen ? "Exit full screen (F, Esc)" : "Full screen (F)", action: onFullScreen)
+            }
             Button(action: onNote) {
                 Label("Note", systemImage: "plus.bubble.fill").font(.system(size: 12, weight: .semibold))
                     .padding(.horizontal, 10).frame(height: 28)
