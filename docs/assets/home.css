@@ -528,3 +528,185 @@
 .intro:not(.intro-done) .hero-meta { animation: in-rise-s .6s cubic-bezier(.22, 1, .36, 1) .72s both; }
 .fc:nth-child(1) { --r: 6; } .fc:nth-child(2) { --r: 2; } .fc:nth-child(3) { --r: 1; } .fc:nth-child(4) { --r: 4; }
 .fc:nth-child(5) { --r: 5; } .fc:nth-child(6) { --r: 3; } .fc:nth-child(7) { --r: 0; }
+
+/* ======================================================================================================================
+   MOBILE (.mpin): phones and small windows (under 900px) with motion allowed. Everything below is gated by `.mpin` on <html>
+   (the mirror of `.pin`; reduced motion keeps the plain stack), so the desktop page is untouched.
+   CONTRACT for a scene that wants to pin on a phone (agents B and C):
+     JS   addScene({ pin: true, mpin: true, ... }); a beat host adds data-mpin to its <section> and home.js plays it when
+          mpinned(). Build every height from viewH() (= 100svh on phones, window.innerHeight on desktop), never innerHeight.
+     CSS  gate with `.mpin`; stages are `position: sticky; top: 0; height: 100svh` (write `100vh` first, then `100svh`);
+          a beat host's track height is `--mh` (default 260svh): set `--mh: 1100svh` on your own section and the shared
+          `.mpin .beat-host.host-ready` rule uses it. Beat styling for `.host-ready` and `.crew-ready` is already below.
+   ====================================================================================================================== */
+.home .brand img.brand-glyph { display: none; }
+@media (max-width: 899px) {
+  /* the menu: a full-width sheet under the pill, 48px rows */
+  .home .nav { position: relative; }
+  .home .nav[data-open="true"] { flex-wrap: nowrap; border-radius: 999px; }
+  .home .nav[data-open="true"] .nav-links { position: absolute; left: 0; right: 0; top: calc(100% + 8px); order: 0; width: auto; margin: 0; padding: 4px 22px 8px; flex-direction: column; gap: 0; border-radius: 24px; background: var(--paper); border: 1px solid color-mix(in srgb, var(--line-light), transparent 30%); box-shadow: 0 18px 40px -16px rgba(27, 31, 94, .4); }
+  .home .nav-links a { min-height: 48px; font-size: 1.06rem; justify-content: flex-start; width: 100%; text-align: left; }
+  .home .nav-links a:first-child { border-top: 0; }
+}
+@media (max-width: 399px) {
+  .home .nav { padding-left: 14px; }
+  .home .brand img.brand-full { display: none; }
+  .home .brand img.brand-glyph { display: block; height: 30px; width: auto; transform: none; }
+  .home .nav-action { display: none; }
+  .home .menu-toggle { margin-left: auto; }
+}
+
+/* ---- hero: one 100svh stage, the crew loosely above, the words below; the window rises over the second half ---- */
+.mpin .hero { height: 290vh; height: 290svh; position: relative; z-index: 1; }
+.mpin .hero .sticky { position: sticky; top: 0; height: 100vh; height: 100svh; padding-top: 0; overflow: hidden; display: flex; flex-direction: column; }
+.mpin .fcs { position: relative; flex: 1 1 0; min-height: 0; margin: 84px 0 0; max-width: none; height: auto; container-type: size; }
+.mpin .fc, .mpin .fc[style*="--mx"] { display: block; left: calc(var(--px) * 1%); top: calc(var(--py) * 1%); width: calc(var(--mw) * min(.36cqw, .44cqh)); will-change: transform; }
+.mpin .fc:nth-child(1) { --px: 32; --py: 30; }   /* Rasan, in front, in the middle */
+.mpin .fc:nth-child(2) { --px: 3; --py: 4; }
+.mpin .fc:nth-child(3) { --px: 21; --py: 0; }
+.mpin .fc:nth-child(4) { --px: 64; --py: 0; }
+.mpin .fc:nth-child(5) { --px: 73; --py: 36; }
+.mpin .fc:nth-child(6) { --px: 52; --py: 70; }
+.mpin .fc:nth-child(7) { --px: 5; --py: 52; }
+.mpin .hero-copy { position: relative; flex: none; width: 100%; max-width: none; margin: 0; box-sizing: border-box; text-align: left; padding: 0 var(--pad) max(22px, calc(env(safe-area-inset-bottom) + 12px)); }
+.mpin .hero-copy .eyebrow { margin-bottom: 12px; }
+.mpin .hero h1 { font-size: min(10.4vw, 5.4svh, 4.2rem); line-height: .98; }
+.mpin .hero-sub { max-width: none; margin: 14px 0 18px; font-size: 1.02rem; line-height: 1.45; }
+.mpin .hero-cta { justify-content: flex-start; gap: 2px 20px; }
+.mpin .hero-cta .btn { flex: 1 1 100%; justify-content: center; }
+.mpin .hero-cta .text-link { flex: 1 1 100%; justify-content: center; min-height: 40px; }
+.mpin .hero-meta { margin-top: 6px; font-size: .72rem; text-align: center; }
+@media (max-height: 720px) {
+  .mpin .hero-copy .eyebrow, .mpin .hero-meta { display: none; }
+  .mpin .hero-sub { margin: 10px 0 14px; font-size: .96rem; }
+}
+html.mpin { overflow-x: clip; }
+/* the window rises under the pinned hero and pushes in on the prompt box while the crew fly onto it (home.js drives both) */
+.mpin .shot-band { overflow: clip; position: relative; z-index: 2; margin-top: -190vh; margin-top: -190svh; height: 190vh; height: 190svh; padding: 0; }
+.mpin .shot-band > .wrap { position: sticky; top: 0; height: 100vh; height: 100svh; display: grid; align-content: center; }
+.mpin .rise { will-change: transform; }
+
+/* ---- story beats, pinned (hosts that opted in with data-mpin, and the crew's opening line once B pins it) ---- */
+.mpin .beat-line { max-width: 9ch; font-size: clamp(2.6rem, 12vw, 4.2rem); line-height: 1; }
+.mpin .beat-host.host-ready { height: 260vh; height: var(--mh, 260svh); padding: 0; overflow: clip; }   /* clip, not hidden: hidden would stop the stage from sticking */
+.mpin .host-ready > .host-pin { position: sticky; top: 0; height: 100vh; height: 100svh; box-sizing: border-box; display: grid; align-content: center; overflow: hidden; }
+.mpin :is(.host-ready, .crew-ready) .beat { position: absolute; inset: 0; z-index: 8; min-height: 0; padding: 0 var(--pad); background: none; pointer-events: none; }
+.mpin :is(.host-ready, .crew-ready) .beat-layer { display: block; position: absolute; inset: 0; background: var(--beat-bg); transform-origin: 50% 0; }
+.mpin :is(.host-ready, .crew-ready) .beat-line { position: relative; z-index: 1; will-change: transform; }
+.mpin :is(.host-ready, .crew-ready) .beat-char { will-change: transform, opacity; }
+.mpin .beat-half { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 var(--pad); will-change: transform; }
+.mpin .beat-strips { position: absolute; inset: 0; display: grid; }
+.mpin .beat-strip { background: var(--beat-bg); transform-origin: 50% 0; will-change: transform; }
+.mpin :is(.host-ready, .crew-ready) [data-beat="blinds"] .beat-layer { display: none; }
+.mpin .beat-head { position: absolute; z-index: 2; left: 0; top: 0; bottom: 0; width: 2px; background: var(--rasanai-blue); box-shadow: 0 0 0 1px rgba(255,255,255,.5), 0 0 24px rgba(42, 49, 168, .35); opacity: 0; will-change: transform; }
+.mpin .beat-head::before { content: ""; position: absolute; left: -9px; top: 92px; width: 20px; height: 26px; border-radius: 5px 5px 10px 10px; background: var(--rasanai-blue); }
+.mpin .beat-head b { position: absolute; left: 16px; top: 94px; padding: 4px 8px; border-radius: 6px; background: var(--indigo); color: #fff; font: 500 .72rem/1 var(--mono); letter-spacing: .06em; white-space: nowrap; }
+.mpin .beat-head::after { content: ""; position: absolute; right: 2px; top: 0; bottom: 0; width: 80px; background: linear-gradient(90deg, transparent, rgba(42, 49, 168, .1)); pointer-events: none; }
+
+/* ---- your projects: the playhead line pins over its own stretch (its stage holds the chapter's heading); the points and the
+   picture then scroll on as a plain page. MBEAT_TRACK in home.js (1.5) is the 1.5 below ---- */
+.mpin .projects.host-ready { --mh: auto; padding: 0; }
+.mpin .projects.host-ready > .host-pin { position: static; height: auto; display: block; overflow: visible; }
+.mpin .projects.host-ready :is(.wrap, .proj-grid, .proj-copy) { display: contents; }
+.mpin .projects.host-ready .m-stage { position: relative; height: calc(100vh * 2.5); height: calc(100svh * 2.5); }
+.mpin .projects.host-ready .m-stage > .beat { position: sticky; inset: auto; top: 0; height: 100vh; height: 100svh; margin-bottom: -100vh; margin-bottom: -100svh; }
+.mpin .projects.host-ready .proj-head { position: sticky; top: 0; z-index: 1; height: 100vh; height: 100svh; box-sizing: border-box; padding: max(96px, 14svh) var(--pad) 0; }
+.mpin .projects.host-ready .points { margin: -46vh var(--pad) 0; margin: -46svh var(--pad) 0; }
+.mpin .projects.host-ready .proj-shot { margin: 36px var(--pad) var(--section); }
+.mpin .projects.host-ready .proj-shot .window { max-width: none; margin-left: 0; }
+
+/* ---- the end card: one 100svh stage; the blinds fold away and Rasan stands in the picture ---- */
+.mpin .endcard.host-ready > .end-stage { display: flex; align-items: flex-start; min-height: 0; }
+.mpin .endcard.host-ready .end-copy { padding-top: max(120px, 17svh); padding-bottom: 96px; }
+
+/* ====================================================================================================================
+   MOBILE SQUEAK: RasanAI x Squeak (#control). One 100svh stage: the device in the top ~60%, the line in the bottom ~38%.
+   Same five steps and timeline as the desktop scene; home.js (host.extra, renderGrand, renderFly) places the device and the
+   plane's arc for phones. --mh on the section is the track length.
+   ==================================================================================================================== */
+.mpin .squeak-scene { --mh: 960svh; }
+.mpin .squeak-scene.host-ready > .host-pin { padding: 0; display: block; }
+.mpin .host-ready .sq-stage { position: absolute; inset: 0; max-width: none; margin: 0; display: block; }
+.mpin .host-ready .sq-copy { position: absolute; left: var(--pad); right: var(--pad); top: auto; height: clamp(168px, 22vh, 204px); height: clamp(168px, 22svh, 204px); bottom: max(18px, env(safe-area-inset-bottom)); display: block; }
+.mpin .host-ready .sq-step { position: absolute; left: 0; right: 0; top: 0; opacity: 0; will-change: transform, opacity; }
+.mpin .host-ready .sq-step .eyebrow { margin: 0 0 10px; }
+.mpin .host-ready .sq-step h2, .mpin .host-ready .sq-step h3 { max-width: 15ch; font: 600 clamp(1.7rem, 7.6vw, 2.3rem)/1.04 var(--display); letter-spacing: -.02em; color: var(--indigo); }
+.mpin .host-ready .sq-step .lede { max-width: none; margin: 12px 0 0; font-size: clamp(.92rem, 4vw, 1.04rem); line-height: 1.45; }
+.mpin .host-ready .sq-partners { margin: 0 0 14px; gap: 10px; }
+.mpin .host-ready .sq-partners img { height: 26px; }
+.mpin .host-ready .sq-partners img + span + img { height: 29px; }
+.mpin .host-ready .sq-partners span { font-size: 1.2rem; }
+.mpin .host-ready .sq-device { position: absolute; left: 0; top: 0; aspect-ratio: auto; will-change: transform; }
+.mpin .host-ready .sq-phone { display: block; opacity: 0; }
+.mpin .host-ready .sq-dark { display: block; position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: 0; background: radial-gradient(120% 70% at 30% 0%, rgba(255, 255, 255, .1), transparent 55%), #07080f; }
+/* the hand-off: the paper plane, smaller, and its dotted trail */
+.mpin .host-ready .sq-fly { display: block; position: absolute; left: 0; top: 0; z-index: 7; width: 200px; height: 60px; margin: -30px 0 0 -100px; opacity: 0; pointer-events: none; will-change: transform, opacity; }
+.mpin .sq-fly .f-plane { position: absolute; left: 50%; top: 50%; width: 66px; height: 66px; margin: -33px 0 0 -33px; opacity: 0; filter: drop-shadow(0 10px 10px rgba(17, 22, 63, .3)); will-change: transform, opacity; }
+.mpin .host-ready .sq-trail { display: block; position: absolute; inset: 0; width: 100%; height: 100%; z-index: 6; pointer-events: none; overflow: visible; }
+.mpin .host-ready .sq-trail path { fill: none; stroke: var(--rasanai-blue); stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: 1 8; }
+/* the partnership: one row (mark, wordmark, x, mark, wordmark) sized to fit the width; home.js blows the marks up for the collision */
+.mpin .host-ready .sq-grand { display: grid; place-items: center; position: absolute; inset: 0; z-index: 6; pointer-events: none; --gh: clamp(28px, 8.4vw, 44px); }
+.mpin .host-ready .g-row { display: flex; align-items: center; gap: calc(var(--gh) * .34); will-change: transform; }
+.mpin .host-ready .g-side { display: flex; align-items: center; gap: calc(var(--gh) * .2); will-change: transform; }
+.mpin .host-ready .g-side img { display: block; width: auto; max-width: none; }
+.mpin .host-ready .g-r .g-mark { height: var(--gh); }
+.mpin .host-ready .g-r .g-word img { height: calc(var(--gh) * .62); }
+.mpin .host-ready .g-s .g-mark { height: calc(var(--gh) * 1.12); }
+.mpin .host-ready .g-s .g-word img { height: calc(var(--gh) * .56); }
+.mpin .host-ready .g-mark { will-change: transform; }
+.mpin .host-ready .g-word { display: block; will-change: clip-path; }
+.mpin .host-ready .g-x { display: block; font: 300 calc(var(--gh) * .75)/1 var(--display); color: var(--ink-2); will-change: transform, opacity; }
+.mpin .host-ready .g-line { position: absolute; left: 0; right: 0; top: calc(50% + var(--gh) * 1.5); margin: 0; padding: 0 var(--pad); text-align: center; text-wrap: balance; font: 600 clamp(1.35rem, 6.2vw, 1.9rem)/1.15 var(--display); letter-spacing: -.01em; color: var(--indigo); }
+.mpin .host-ready .g-line span { display: inline-block; opacity: 0; }
+.mpin .host-ready .g-line span:nth-child(n+3) { color: var(--rasanai-blue); }
+.mpin .host-ready .g-glow { position: absolute; left: 50%; top: 50%; width: 120vmin; height: 120vmin; translate: -50% -50%; border-radius: 50%; background: radial-gradient(circle, rgba(255, 218, 26, .5), rgba(239, 178, 26, .22) 30%, rgba(42, 49, 168, .14) 52%, transparent 70%); opacity: 0; }
+.mpin .host-ready .g-ring { position: absolute; left: 50%; top: 50%; width: 34vmin; height: 34vmin; margin: -17vmin 0 0 -17vmin; border-radius: 50%; border: 2px solid var(--rasanai-blue); opacity: 0; }
+.mpin .host-ready .g-ring2 { border-color: #ffc812; border-width: 3px; }
+.mpin .host-ready .g-sparks { position: absolute; inset: 0; }
+.mpin .host-ready .g-sparks i { position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; margin: -4.5px; border-radius: 50%; background: var(--rasanai-blue); opacity: 0; }
+.mpin .host-ready .g-sparks i:nth-child(3n) { background: #ffc812; width: 12px; height: 12px; margin: -6px; }
+.mpin .host-ready .g-sparks i:nth-child(3n+1) { background: #ff972e; border-radius: 3px; }
+@media (max-height: 700px) { .mpin .host-ready .sq-step .lede { margin-top: 8px; line-height: 1.38; } }
+
+/* ======================================================================================================================
+   MOBILE CREW (.mpin .crew-ready): the crew scene in portrait. One pinned 100svh stage: Rasan falls onto the line, steps up into
+   the top and his introduction rises in below him; the circle sits in the top ~55% and turns with the spotlight at its BOTTOM
+   point, the card a bottom sheet; the crew then break into depth around the statement. home.js sets --lt (where his
+   introduction starts) and --sd (spotlight point to the screen's bottom edge) on #flow, and drives every transform.
+   ====================================================================================================================== */
+.mpin .flow.crew-ready { height: 1500vh; height: 1500svh; margin-top: -100vh; margin-top: -100svh; }
+.mpin .flow.crew-ready > .crew-sticky { position: sticky; top: 0; height: 100vh; height: 100svh; max-width: none; margin: 0; padding: 0; overflow: hidden; display: block; background: var(--rice); }
+.mpin .crew-ready .crew-lead { position: absolute; left: var(--pad); right: var(--pad); top: var(--lt, 44svh); z-index: 2; width: auto; will-change: transform, opacity; }
+.mpin .crew-ready .crew-lead .eyebrow { margin: 0 0 8px; }
+.mpin .crew-ready .crew-lead h2 { max-width: none; font-size: clamp(1.9rem, 8.4vw, 2.5rem); line-height: 1.02; }
+.mpin .crew-ready .crew-lead .lede { margin: 12px 0 0; max-width: none; font-size: clamp(.95rem, 4.1vw, 1.08rem); line-height: 1.48; color: var(--ink-2); }
+.mpin .crew-ready .crew-payoff { position: absolute; left: 50%; top: 50%; z-index: 2; width: calc(100vw - 2 * var(--pad)); translate: -50% -50%; text-align: center; opacity: 0; pointer-events: none; will-change: opacity; }
+.mpin .crew-ready .crew-payoff h2 { display: none; }
+.mpin .crew-ready .crew-statement { max-width: none; margin: 0; font: 600 clamp(1.6rem, 7vw, 2.2rem)/1.16 var(--display); letter-spacing: -.018em; color: var(--indigo); text-wrap: balance; }
+.mpin .crew-ready .statement-word { opacity: .16; }
+.mpin .crew-ready .crew-stage { position: absolute; inset: 0; display: block; --d: min(78vw, 42svh); --nw: clamp(64px, 11svh, 100px); }
+.mpin .crew-ready .crew-orbit { display: block; position: absolute; left: 50%; top: 50%; width: var(--d); height: var(--d); margin: calc(var(--d) / -2) 0 0 calc(var(--d) / -2); pointer-events: none; opacity: 0; will-change: transform, opacity; }
+.mpin .crew-ready .crew-orbit-line { display: block; width: 100%; height: 100%; overflow: visible; }
+.mpin .crew-ready .crew-orbit-line circle { fill: none; stroke: var(--rasanai-blue); stroke-opacity: .45; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 0 2.4; vector-effect: non-scaling-stroke; }
+.mpin .crew-ready .crew-node { position: absolute; left: 50%; top: 50%; width: var(--nw); height: calc(var(--nw) * 1.05); margin: calc(var(--nw) * -.525) 0 0 calc(var(--nw) * -.5); display: block; will-change: transform, opacity; }
+.mpin .crew-ready .crew-node img { width: 100%; height: 100%; max-width: none; object-position: center bottom; transform-origin: 50% 70%; will-change: transform; }
+.mpin .crew-ready .crew-node::after { content: attr(data-name); position: absolute; left: 50%; top: 100%; margin-top: 4px; translate: -50% 0; font: 600 .8rem/1 var(--display); color: var(--indigo); white-space: nowrap; opacity: var(--l, 0); }
+/* the bottom sheet: pinned to the lower edge of the screen whatever the circle is doing, its character standing just above it */
+.mpin .crew-ready .crew-label { position: absolute; left: 50%; top: calc(50% + var(--sd, 40svh) - 14px - env(safe-area-inset-bottom)); translate: -50% -100%; z-index: 4; box-sizing: border-box; width: calc(100vw - 2 * var(--pad)); max-width: 34rem; padding: 22px 22px 22px; border-radius: 22px; border: 1px solid color-mix(in srgb, var(--c), transparent 70%); background: #fff; box-shadow: 0 -10px 36px rgba(27, 31, 94, .16), 0 18px 36px rgba(27, 31, 94, .1); opacity: 0; pointer-events: none; will-change: transform, opacity; }
+.mpin .crew-ready .crew-label::before { content: ""; position: absolute; left: 50%; top: 8px; width: 38px; height: 4px; border-radius: 4px; translate: -50% 0; background: color-mix(in srgb, var(--c), transparent 55%); }
+.mpin .crew-ready .crew-label b { margin-top: 6px; font-size: 1.8rem; gap: 10px; }
+.mpin .crew-ready .crew-label b::before { width: 12px; height: 12px; }
+.mpin .crew-ready .crew-label small { font-size: .76rem; }
+.mpin .crew-ready .crew-what { margin-top: 10px; font-size: clamp(1rem, 4.4vw, 1.14rem); line-height: 1.45; color: var(--ink); }
+.mpin .crew-ready .crew-node[data-crew="ra"] .crew-label { display: none; }
+@media (max-height: 700px) {
+  .mpin .crew-ready .crew-stage { --d: min(78vw, 38svh); }
+  .mpin .crew-ready .crew-label { padding: 18px 18px 16px; }
+  .mpin .crew-ready .crew-label b { font-size: 1.5rem; }
+  .mpin .crew-ready .crew-what { font-size: .96rem; line-height: 1.4; }
+}
+/* phones: the install command wraps (it was cut off at 360) and the Copy button gets its own strip above it */
+@media (max-width: 899px) {
+  .skill-pane pre { padding: 46px 16px 14px; }
+  .skill-pane code { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .8rem; }
+}

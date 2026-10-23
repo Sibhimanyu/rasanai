@@ -28,14 +28,14 @@
 <link rel="icon" href="assets/mark.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="assets/logo/rasanai-mark-180.png" />
 
-<script>(function(){var d=document.documentElement,w=matchMedia("(min-width: 900px)"),r=matchMedia("(prefers-reduced-motion: reduce)");d.classList.add("js");function s(){d.classList.toggle("pin",w.matches&&!r.matches);d.classList.toggle("calm",r.matches)}s();w.addEventListener("change",s);r.addEventListener("change",s)})()</script>
+<script>(function(){var d=document.documentElement,w=matchMedia("(min-width: 900px)"),r=matchMedia("(prefers-reduced-motion: reduce)");d.classList.add("js");function s(){d.classList.toggle("pin",w.matches&&!r.matches);d.classList.toggle("mpin",!w.matches&&!r.matches);d.classList.toggle("calm",r.matches)}s();w.addEventListener("change",s);r.addEventListener("change",s)})()</script>
 <script>(function(){var d=document.documentElement;if(!matchMedia("(prefers-reduced-motion: reduce)").matches)d.classList.add("intro")})();</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anek+Latin:wdth,wght@75..125,300..800&family=Anek+Tamil:wdth,wght@75..125,500..700&family=JetBrains+Mono:wght@400;500&family=Mukta:wght@400;500;600&display=swap" />
 <script src="assets/images.js?v=2"></script>
 <link rel="stylesheet" href="assets/site.css?v=3" />
-<link rel="stylesheet" href="assets/home.css?v=22" />
+<link rel="stylesheet" href="assets/home.css?v=26" />
 </head>
 <body class="home">
 <a class="skip" href="#main">Skip to content</a>
@@ -46,7 +46,7 @@
 
 <header class="top">
   <nav class="nav" aria-label="Primary">
-    <a class="brand" href="./"><img src="assets/logo/rasanai-lockup.svg" width="214" height="44" alt="RasanAI" /></a>
+    <a class="brand" href="./"><img class="brand-full" src="assets/logo/rasanai-lockup.svg" width="214" height="44" alt="RasanAI" /><img class="brand-glyph" src="assets/logo/rasanai-glyph.svg" width="102" height="126" alt="RasanAI" /></a>
     <div class="nav-links" id="home-nav"><a href="#flow" data-jump="crew">The crew</a><a href="#control" data-jump="squeak">Squeak</a><a href="#projects" data-jump="projects">Your projects</a><a href="how-it-works.html">Under the hood</a><a href="#questions">FAQ</a></div>
     <a class="nav-action" href="#download">Download</a>
     <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="home-nav" hidden>Menu <span aria-hidden="true">+</span></button>
@@ -131,7 +131,7 @@
 </section>
 
 <!-- 3. REMOTE CALLS: RasanAI x Squeak. One pinned scene: the Mac (Studio stops, Squeak's duck lights up), the screen becomes an iPhone (answer the call), and back to the Mac (the crew carries on) -->
-<section class="remote-control squeak-scene beat-host" id="control" aria-labelledby="control-title"><div class="host-pin">
+<section class="remote-control squeak-scene beat-host" id="control" data-mpin aria-labelledby="control-title"><div class="host-pin">
   <div class="beat beat-mist" data-beat="doors"><div class="beat-layer"></div><p class="beat-line"><span class="beat-word">The</span> <span class="beat-word">big</span> <span class="beat-word">calls</span> <span class="beat-word is-accent">stay</span> <span class="beat-word is-accent">yours.</span></p></div>
   <div class="sq-stage">
     <div class="sq-grand" aria-hidden="true">
@@ -219,14 +219,16 @@
 </div></section>
 
 <!-- 4. YOUR PROJECTS -->
-<section class="section projects beat-host" id="projects" aria-labelledby="projects-title"><div class="host-pin">
+<section class="section projects beat-host" id="projects" data-mpin aria-labelledby="projects-title"><div class="host-pin">
   <div class="beat beat-rice" data-beat="playhead"><div class="beat-layer"></div><p class="beat-line"><span class="beat-word">When</span> <span class="beat-word">it’s</span> <span class="beat-word">done,</span> <span class="beat-word is-accent">it’s</span> <span class="beat-word is-accent">yours.</span></p></div>
   <div class="wrap">
   <div class="proj-grid">
     <div class="proj-copy">
+      <div class="proj-head">
       <p class="eyebrow">Your projects</p>
       <h2 id="projects-title">Your film stays yours.</h2>
       <p class="lede">Every film is a project on your Mac, with its drafts, its notes and its export in one place.</p>
+      </div>
       <ul class="points">
         <li><b>A folder for every film.</b> Projects live in a local Documents/RasanAI library. Search, rename, archive or duplicate drafts. Files you add are copied in, and your originals are not changed.</li>
         <li><b>Every version kept.</b> Your notes and each version of the film are kept, and the final screen has a version picker.</li>
@@ -250,7 +252,7 @@
 </div></section>
 
 <!-- 6. CLOSING DOWNLOAD -->
-<section class="endcard beat-host" id="download" aria-labelledby="end-title"><div class="host-pin end-stage">
+<section class="endcard beat-host" id="download" data-mpin aria-labelledby="end-title"><div class="host-pin end-stage">
   <div class="beat beat-paper" data-beat="blinds"><div class="beat-layer"></div><p class="beat-line"><span class="beat-word">That’s</span> <span class="beat-word">the</span> <span class="beat-word">story.</span> <span class="beat-word is-accent">Your</span> <span class="beat-word is-accent">turn.</span></p></div>
   <img class="end-img" src="assets/crew/v2/endcard-ra.webp" width="2400" height="1351" alt="Rasan seen from behind, standing on a grassy ridge above a sea of clouds at sunset, holding a clapperboard." loading="lazy" decoding="async" />
   <div class="end-copy"><h2 id="end-title">Make your first film.</h2><a data-studio="dmg" class="btn btn-primary btn-lg" href="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.9-beta.1/RasanAI-Studio-0.19.9.dmg">Download for Mac <svg aria-hidden="true"><use href="#i-down"/></svg></a><p class="end-meta"><span data-studio="version">0.19.9 beta 1</span> &middot; Apple Silicon &middot; macOS 14+ &middot; Free and open source</p></div>
@@ -323,6 +325,6 @@
   </div>
 </div></footer>
 <script src="assets/foot.js?v=1"></script>
-<script src="assets/site.js?v=3"></script><script src="assets/home.js?v=28"></script>
+<script src="assets/site.js?v=3"></script><script src="assets/home.js?v=31"></script>
 </body>
 </html>
