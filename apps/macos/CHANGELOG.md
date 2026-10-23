@@ -2,6 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **Help opens the new How it works page**, which follows one film through the app, the crew, the engine and the files on your disk.
+
 ## 0.19.8 (build 46) — 2026-10-23
 
 - **Hover a note on the timeline and see that note.** Each pin answered for the whole timeline, so one note's card showed wherever the pointer was; each pin now shows its own. The card and the time under the pointer sit just above the timeline, where the video no longer covers them.

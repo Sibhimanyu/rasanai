@@ -252,7 +252,7 @@ enum StatusTone { case good, warn, bad, quiet }
 
 // MARK: Help
 
-let guideURL = URL(string: "https://sibhimanyu.github.io/rasanai/guide.html")!
+let guideURL = URL(string: "https://sibhimanyu.github.io/rasanai/how-it-works.html")!
 
 /// The `?` in every toolbar: two to four friendly lines about this screen, plus a link to the guide.
 struct HelpButton: View {
