@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.19.9 beta 1</title>
+      <pubDate>Fri, 23 Oct 2026 12:06:57 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **Help opens the new How it works page**, which follows one film through the app, the crew, the engine and the files on your disk.]]></description>
+      <sparkle:version>47</sparkle:version>
+      <sparkle:shortVersionString>0.19.9</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.9-beta.1/RasanAI-Studio-0.19.9.dmg" sparkle:edSignature="tqqokaAmNCwuXPglN7AmFyWJ6MLJjl9vxzIHZovIMcrzF+gqH1LLzP9IsfEWYt6SdWafzm3QHRC0x9D/Ks5jDw==" length="81969248" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.19.8 beta 1</title>
       <pubDate>Fri, 23 Oct 2026 11:54:50 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **Hover a note on the timeline and see that note.** Each pin answered for the whole timeline, so one note's card showed wherever the pointer was; each pin now shows its own. The card and the time under the pointer sit just above the timeline, where the video no longer covers them.
