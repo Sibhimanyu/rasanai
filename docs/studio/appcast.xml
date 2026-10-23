@@ -6,6 +6,23 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.19.7 beta 1</title>
+      <pubDate>Fri, 23 Oct 2026 06:28:02 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **Chat with Rasan.** The right sidebar is a chat with Rasan, the director: tell him what you want or what to avoid, with suggestions to start from. Open it with ⌥⌘B (⌥⌘I and ⌘K work too).
+- **Point at the film.** Click the video to mark a spot, drag a box, or circle an area: the chat opens with that frame, your mark and the time attached.
+- **A real player on Final.** Speed, loop, volume, full screen, ±5 s and frame steps, J/K/L, and a filmstrip timeline with your notes pinned on it.
+- **Preview is now Storyboard.** It was always key frames timed to the music, so it now looks like a storyboard: numbered panels with time, line and voice, and Play with music.
+- **Describe and Setup are one step.** The stepper reads Describe · Brief · Story · Look · Storyboard · Final.
+- **Calmer, even layout.** Equal 20 pt gutters on every page, panels that stay put while their content scrolls, a slimmer bottom bar with Pause and an honest "the director is stopped" with Resume, look options above the preview, and Preview and Final laid out like Look.
+- **The crew, drawn better.** A new speech bubble tinted per character that hugs its words and points at the speaker's mouth, readable highlight colours, Kavi's papers no longer see-through, and Rasan never cropped into a circle.
+- **Clearer buttons.** "Apply notes" is now "Revise with N notes"; "Preview again" is gone.]]></description>
+      <sparkle:version>45</sparkle:version>
+      <sparkle:shortVersionString>0.19.7</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.7-beta.1/RasanAI-Studio-0.19.7.dmg" sparkle:edSignature="uYrC//WaMu1vY1ieYrQ5AzQAZKp+ZOyrcIcPaQrmLSCs3aNZHk/sGOd8D8dyIafwqKLdDkSYa9NKzdfVD/LzDQ==" length="81913055" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.19.6 beta 1</title>
       <pubDate>Thu, 22 Oct 2026 18:02:14 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **The crew asks, properly.** Every stage opens with the crew member at full size asking the question in a new speech bubble: one smooth outline with a curved tail toward the speaker, sized to the words, soft depth, and a small pop as it appears.
