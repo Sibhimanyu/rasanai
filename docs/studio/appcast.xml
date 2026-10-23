@@ -6,6 +6,21 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.19.8 beta 1</title>
+      <pubDate>Fri, 23 Oct 2026 11:54:50 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **Hover a note on the timeline and see that note.** Each pin answered for the whole timeline, so one note's card showed wherever the pointer was; each pin now shows its own. The card and the time under the pointer sit just above the timeline, where the video no longer covers them.
+- **A smoother timeline.** Only the playhead follows the clock now, so the video and the scene thumbnails stop redrawing thirty times a second, and dragging the playhead seeks to the nearest frame it can reach quickly, then lands exactly when you let go.
+- **Studio's own full screen.** Full screen (F) shows the film edge to edge with its pins and captions, and the timeline, notes and controls in a bar that fades while it plays. Esc or F comes back; C or a pin takes you to the chat with that moment.
+- **Your call wakes the director.** A call made on a film whose director had stopped used to sit unread, and the page never moved. Studio now starts the director to apply it, so the crew member comes to the centre and gets to work. Pin notes still wait for Apply, and a plan-limit wait keeps its own resume.
+- **Rasika has both eyebrows when she asks.** Her asking pose (Final, and checks) drew only the right brow; the left one is back.
+- **The sample film shows the crew at work.** Make a call in the sample and the crew member for the next step comes to the centre with the work in bubbles around them, then steps aside to ask before the sample returns.]]></description>
+      <sparkle:version>46</sparkle:version>
+      <sparkle:shortVersionString>0.19.8</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.19.8-beta.1/RasanAI-Studio-0.19.8.dmg" sparkle:edSignature="+nOfWfZVpWp5uj0tzZLz+DTcASaVM03Y9dT1ugL+hPLGS8t36Tng50T9Jf+vP0n6I11R7yQa6IuIIjUmwOHGDg==" length="81970634" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.19.7 beta 1</title>
       <pubDate>Fri, 23 Oct 2026 06:28:02 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **Chat with Rasan.** The right sidebar is a chat with Rasan, the director: tell him what you want or what to avoid, with suggestions to start from. Open it with ⌥⌘B (⌥⌘I and ⌘K work too).
