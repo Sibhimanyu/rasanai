@@ -275,7 +275,7 @@
     var steps = $$(".sq-step", root), STEP = [[0, .2], [.2, .38], [.38, .52], [.52, .8], [.8, 1.1]];
     var parts = {
       badges: $$(".sq-badge", root),
-      next: q(".sq-shot-next"), note: q(".sq-note"), base: q(".sq-base"), ledger: q(".l-ledger"), cta: q(".sq-cta"), use: q(".sq-use"), sent: q(".sq-sent")
+      next: q(".sq-shot-next"), note: q(".sq-note"), ledger: q(".l-ledger"), cta: q(".sq-cta"), use: q(".sq-use"), sent: q(".sq-sent")
     };
     // the partnership: the two marks, the x, the impact (glow, rings, sparks), the line, and the small lockup it lands in
     var G = {
@@ -365,6 +365,9 @@
     var trailSvg = q(".sq-trail"), planeEl = q(".f-plane"), trailSegs = [];
     if (trailSvg) { trailSvg.innerHTML = ""; for (var ti = 0; ti < 12; ti++) trailSegs.push(trailSvg.appendChild(document.createElementNS("http://www.w3.org/2000/svg", "path"))); }
     var copyEl = q(".sq-copy"), mBandKey = "", mBandBot = 0, devMasked = false;
+    var frL = q(".sq-frame-l"), frP = q(".sq-frame-p"), shL = q(".sq-shadow-l"), shP = q(".sq-shadow-p"), rimEl = q(".sq-rim");
+    // measured from the generated device photos (img/devices/devices.json): the screen hole as a share of each frame, and its aspect
+    var LA = 1.6498, LSW = 0.78549, LSH = 0.80691, PA = 0.4655, PSW = 0.84999, PSH = 0.93328, PRAD = 0.1355;
     var darkEl = q(".sq-dark"), fly = q(".sq-fly"), callRow = q(".sq-note"), macFoot = q(".sq-land"), cta = q(".sq-cta");
     // where the flight starts and lands, as fractions of the device box, measured while each screen is at rest
     var spots = { row: null, foot: null, cta: null };
@@ -463,7 +466,7 @@
       for (var k = 1; k < SQ_K.length; k++) if (v <= SQ_K[k][1]) { var a = SQ_K[k - 1], b = SQ_K[k]; return a[0] + (b[0] - a[0]) * (v - a[1]) / (b[1] - a[1]); }
       return 1;
     }
-    var touched = [].concat.apply([], stepRest).concat([].concat.apply([], stepWords)).concat([dev, screen, mac, phone]).concat(steps, parts.badges, [darkEl, fly, planeEl, parts.next, parts.note, parts.base, parts.ledger, parts.cta, parts.use, parts.sent]).concat(G.root ? [G.root, G.row, G.r, G.s, G.rm, G.sm, G.rw, G.sw, G.x, G.glow, G.small].concat(G.rings, G.sparks, G.words) : []).filter(Boolean);
+    var touched = [].concat.apply([], stepRest).concat([].concat.apply([], stepWords)).concat([dev, screen, mac, phone]).concat(steps, parts.badges, [darkEl, fly, planeEl, parts.next, parts.note, frL, frP, shL, shP, rimEl, parts.ledger, parts.cta, parts.use, parts.sent]).concat(G.root ? [G.root, G.row, G.r, G.s, G.rm, G.sm, G.rw, G.sw, G.x, G.glow, G.small].concat(G.rings, G.sparks, G.words) : []).filter(Boolean);
     var op = function (el, v) { if (el) el.style.opacity = (+v).toFixed(3); };
     window.addEventListener("resize", function () { spots = { row: null, foot: null, cta: null }; stageBox = null; gGeo = null; }, { passive: true });
     host.clear = function () {
@@ -499,8 +502,8 @@
       var m = inOutC(seg(s, .42, .5)) - inOutC(seg(s, .8, .86));
       var dark = (s < .565 ? seg(s, .39, .42) : 0) + (s > .78 && s < .905 ? seg(s, .785, .8) : 0);
       var right = vw - Math.max(24, (vw - 1220) / 2), left = vw * .42, cx = (left + right) / 2, cy = vh / 2 + 16;
-      var macW = Math.min(right - left, (vh * .78) * 1.6, 1100), macH = macW / 1.6;
-      var phH = Math.min(vh * .84, 780), phW = phH * 390 / 844;
+      var macW = Math.min(right - left, (vh * .78) * LA * LSH, 1100) * LSW, macH = macW / LA;   // frame (screen / LSW wide) takes the old device room
+      var phH = Math.min(vh * .84, 780) * PSH, phW = phH * PA;
       if (mpinned()) {
         // phones: the device sits in the top ~60% (under the nav), the line in the rest. The Mac is as wide as the screen
         // allows; the iPhone as tall as the band allows. Both share one centre, so the plane's route is the same for both.
@@ -509,21 +512,33 @@
         if (mkey !== mBandKey) { mBandKey = mkey; mBandBot = Math.max(vh * .45, copyEl.offsetTop - 6); }
         var dTop = Math.min(84, vh * .12), dBot = mBandBot, band = dBot - dTop;
         cx = vw / 2; cy = dTop + band / 2 - 2;
-        macW = Math.min(vw * .96, (band - 14) * 1.6, 680); macH = macW / 1.6;
-        phH = Math.min(band, vh * .68, 620); phW = phH * 390 / 844;
+        macW = Math.min(vw * .96 * LSW, (band - 14) * LA * LSH, 680 * LSW); macH = macW / LA;
+        phH = Math.min(band, vh * .68, 620) * PSH; phW = phH * PA;
         // beat 1 ("Squeak tells you first"): the camera pushes in on the Mac's top-right corner so the notification and the
         // menu-bar duck read, then eases back out before the plane launches (.38)
         push = inOutC(seg(s, .185, .235)) * (1 - inOutC(seg(s, .3, .37)));
       }
-      var W = mix(macW, phW, m), H = mix(macH, phH, m), pad = mix(8, 11, m), rad = mix(14, phW * .16, m);
-      op(parts.base, 1 - seg(m, 0, .3));
+      var W = mix(macW, phW, m), H = mix(macH, phH, m), rad = mix(macW * .0017, phW * PRAD, m);
+      // the frames are locked to the screen box at each end and cross-fade out of and into the dark glass; mid-morph is just
+      // that glass with a thin generic rim
+      // a frame shows only while the box is its own shape: |log(aspect / hole aspect)| inside 6%, and each frame is gone before the glass
+      // starts changing shape (out .40-.42 / .78-.80) and back only after it has settled (.50-.52 / .86-.88)
+      var asp = Math.log(W / H), close = function (t) { return 1 - ease(Math.min(1, Math.max(0, Math.abs(asp - Math.log(t)) / .06))); };
+      var fl = (s < .65 ? 1 - ease(seg(s, .40, .42)) : ease(seg(s, .86, .88))) * close(LA);
+      var fp = (s < .65 ? ease(seg(s, .50, .52)) : 1 - ease(seg(s, .78, .80))) * close(PA), rimK = 1 - Math.max(fl, fp), rimPx = 7 * rimK;
+      op(frL, fl); op(frP, fp); op(shL, fl); op(shP, fp);
+      if (rimEl) {
+        rimEl.style.inset = (-rimPx).toFixed(2) + "px"; rimEl.style.borderRadius = (rad + rimPx).toFixed(1) + "px";
+        rimEl.style.boxShadow = "0 0 0 " + (1.5 * rimK).toFixed(2) + "px rgba(143,145,157," + rimK.toFixed(3) + ")";
+      }
+      // the laptop photo's bottom margin is deeper than its top: lift the Mac so the whole laptop sits centred in the band
+      cy -= (macH / LSH) * .0225 * (1 - m);
       var rev = renderFly(s, { cx: cx, cy: cy, macW: macW, macH: macH, phW: phW, phH: phH });
       if (darkEl) {
-        var m2 = rev && rev.rv > 0 ? "radial-gradient(circle at " + (rev.x - pad).toFixed(1) + "px " + (rev.y - pad).toFixed(1) + "px, transparent " + rev.r.toFixed(1) + "px, #000 " + (rev.r + 60).toFixed(1) + "px)" : "none";
+        var m2 = rev && rev.rv > 0 ? "radial-gradient(circle at " + rev.x.toFixed(1) + "px " + rev.y.toFixed(1) + "px, transparent " + rev.r.toFixed(1) + "px, #000 " + (rev.r + 60).toFixed(1) + "px)" : "none";
         darkEl.style.webkitMaskImage = m2; darkEl.style.maskImage = m2;
       }
       dev.style.width = W.toFixed(1) + "px"; dev.style.height = H.toFixed(1) + "px";
-      dev.style.padding = pad.toFixed(1) + "px"; dev.style.borderRadius = rad.toFixed(1) + "px";
       var dz = 1, dcx = cx, dcy = cy + (1 - come) * 40;
       if (push > 0) {
         var ZM = Math.min(2.6, Math.max(2.1, vw / 150));   // full push: the Mac about 2.5x, its corner at the screen's top-right
@@ -531,12 +546,13 @@
         dz = 1 + (ZM - 1) * push; dcx = mix(cx, fx, push); dcy = mix(dcy, fy, push);
         // the part of the Mac below the picture's band fades out instead of running into the words
         var cut = (mBandBot - (dcy - H * dz / 2)) / dz;
-        var mk = "linear-gradient(to bottom,#000 " + Math.max(0, cut - 36 / dz).toFixed(1) + "px,transparent " + Math.max(1, cut).toFixed(1) + "px)";
+        // the mask box is 5x the device, centred (home.css), so the frame photo that overhangs the screen is not clipped: stops shift by 2H
+        var mk = "linear-gradient(to bottom,#000 " + (2 * H + Math.max(0, cut - 36 / dz)).toFixed(1) + "px,transparent " + (2 * H + Math.max(1, cut)).toFixed(1) + "px)";
         dev.style.webkitMaskImage = mk; dev.style.maskImage = mk; devMasked = true;
       } else if (devMasked) { dev.style.webkitMaskImage = ""; dev.style.maskImage = ""; devMasked = false; }
       dev.style.transform = "translate3d(" + (dcx - W / 2).toFixed(1) + "px," + (dcy - H / 2).toFixed(1) + "px,0) scale(" + (dz * (.9 + .1 * come)).toFixed(4) + ")";
       dev.style.opacity = come.toFixed(3);
-      screen.style.borderRadius = Math.max(4, rad - pad).toFixed(1) + "px";
+      screen.style.borderRadius = (rad * .94).toFixed(1) + "px";   // a hair inside the hole: the glass backing fills the sliver
       op(mac, m < .5 ? 1 : 0); op(phone, m < .5 ? 0 : 1); op(darkEl, dark);
       // beat 1: the call arrives, the badge on Squeak's menu-bar duck pops; beat 4: answered, the badge clears
       var done = seg(s, .88, .905), pop = seg(s, .21, .26);
@@ -650,6 +666,9 @@
           homeWin.style.transformOrigin = "50% 44%";
         }
         homeWin.style.transform = "translate3d(0," + ((1 - re) * viewH() * .8).toFixed(1) + "px,0) scale(" + ((.93 + .07 * re) * zoom).toFixed(3) + ")";
+        // on a phone the zoomed window runs edge to edge, so the desktop shadow would read as a hard dark band under it: a long,
+        // light falloff instead, drawn at its on-screen size whatever the zoom
+        if (mob) { var ks = 1 / zoom; homeWin.style.boxShadow = "0 " + (26 * ks).toFixed(1) + "px " + (90 * ks).toFixed(1) + "px 0 rgba(17, 22, 63, .13)"; }
         // Keep the original artwork until every flight asset and the screenshot are ready.
         if (!layer.hasAttribute("data-images-ready") || !homeImg.hasAttribute("data-image-ready") || !emptyImg.complete || !emptyImg.naturalWidth) {
           setShown(false); setEmpty(false); setAway(false); setRest(false); return;
@@ -687,7 +706,7 @@
           f.card.style.clipPath = over > .01 ? "inset(0 0 " + (over / ks).toFixed(2) + "px 0)" : "none";
         });
       },
-      reset: function () { setShown(false); setEmpty(false); setAway(false); setRest(false); homeWin.style.transform = ""; homeWin.style.transformOrigin = ""; }
+      reset: function () { setShown(false); setEmpty(false); setAway(false); setRest(false); homeWin.style.transform = ""; homeWin.style.transformOrigin = ""; homeWin.style.boxShadow = ""; }
     });
 
   }
