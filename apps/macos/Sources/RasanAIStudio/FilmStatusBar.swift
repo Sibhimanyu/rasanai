@@ -38,11 +38,10 @@ struct FilmStatusBar<Usage: View>: View {
                 else if needsResume { resumeSlot }
             }
         }
-        .padding(.horizontal, 22).padding(.vertical, model.lastError == nil ? 0 : 9)
-        .frame(maxWidth: .infinity, minHeight: 52)
+        .padding(.leading, 16).padding(.trailing, 7).padding(.vertical, model.lastError == nil ? 7 : 9)
+        .frame(maxWidth: .infinity, minHeight: 44)
         // A floating full-width pill of the same glass as the sidebar; content scrolls underneath it.
-        .glassPanel(radius: 26)
-        .padding(.horizontal, Workspace.gap).padding(.bottom, 10)
+        .glassPanel(radius: 20)
         .onChange(of: turn) { lastActivityAt = Date() }
     }
 
@@ -59,10 +58,23 @@ struct FilmStatusBar<Usage: View>: View {
     @ViewBuilder private var status: some View {
         if model.isViewingPast {
             LookingBackControls(model: model)
+        } else if sent, let onResume {
+            // Sent, but no director is running to pick it up (quit, crashed or paused): say so and offer the way on.
+            HStack(spacing: 8) {
+                Image(systemName: "pause.circle.fill").foregroundStyle(Color(nsColor: .systemOrange))
+                Text("Sent to Rasan, but the director is stopped.").font(.system(size: 12, weight: .medium)).lineLimit(1)
+                Button("Resume", action: onResume).buttonStyle(.rasanSecondary).controlSize(.small)
+                    .help("Start the director again. It picks up your message where it left off.")
+            }
         } else if sent {
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
-                Text("Sent to \(agent). Waiting for the next update.").font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
+                Text("Sent to Rasan. Waiting for the next update.").font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
+                // The director is running here too, so the way to stop it stays in reach (⌘.).
+                if let onPause {
+                    Button("Pause", action: onPause).buttonStyle(.borderless).controlSize(.small)
+                        .help("Pause the director. Your files are kept; Resume carries on (⌘.)")
+                }
             }
         } else if let turn {
             turnStatus(turn)
@@ -97,7 +109,7 @@ struct FilmStatusBar<Usage: View>: View {
                         Text(clockText(max(0, context.date.timeIntervalSince(since)))).font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
                     }
                     if let onDetails { Button(quiet ? "Show log" : "Details", action: onDetails).buttonStyle(.borderless).controlSize(.small) }
-                    if let onPause { Button("Pause", action: onPause).buttonStyle(.borderless).controlSize(.small) }
+                    if let onPause { Button("Pause", action: onPause).buttonStyle(.borderless).controlSize(.small).help("Pause the director. Your files are kept; Resume carries on (⌘.)") }
                 }.help(quiet ? "No new activity for two minutes. Check the log, or pause and resume if needed." : full)
             }
         case .paused:
@@ -119,7 +131,7 @@ struct FilmStatusBar<Usage: View>: View {
     @ViewBuilder private var resumeSlot: some View {
         HStack(spacing: 10) {
             if case .attention = turn, let onDetails { Button("Show log", action: onDetails).buttonStyle(.rasanSecondary).controlSize(.large) }
-            Button { onResume?() } label: { Label("Resume", systemImage: "play.fill").font(.system(size: 14, weight: .semibold)).padding(.horizontal, 6).frame(minHeight: 30) }
+            Button { onResume?() } label: { Label("Resume", systemImage: "play.fill").font(.system(size: 13, weight: .semibold)).padding(.horizontal, 4).frame(minHeight: 24) }
                 .buttonStyle(.rasanPrimary).controlSize(.large)
                 .keyboardShortcut(.return, modifiers: [.command, .shift])
                 .help("Resume (⇧⌘↩)")
@@ -147,11 +159,11 @@ struct FilmStatusBar<Usage: View>: View {
                         if model.isSending { ProgressView().controlSize(.small) }
                         else { Image(systemName: "arrow.right") }
                     }
-                    .font(.system(size: 14, weight: .semibold))
-                    .padding(.horizontal, 6).frame(minWidth: 120, minHeight: 30)
+                    .font(.system(size: 13, weight: .semibold))
+                    .padding(.horizontal, 4).frame(minWidth: 110, minHeight: 24)
                 }
                 // ⇧⌘↩, not plain Return: Return while typing a message must never approve a call by accident.
-                .buttonStyle(.rasanPrimary).controlSize(.large)
+                .buttonStyle(.rasanPrimary).controlSize(.regular)
                 .keyboardShortcut(.return, modifiers: [.command, .shift])
                 .help("\(title) (⇧⌘↩)")
                 .disabled(!canAct || !actions.primaryEnabled)
@@ -178,7 +190,8 @@ struct FilmStatusBarHost<Content: View, Usage: View>: View {
     var body: some View {
         content.onPreferenceChange(FilmActionsKey.self) { actions = $0 }
             // A floating glass pill over the page: content scrolls underneath and can still scroll clear of it.
-            .safeAreaInset(edge: .bottom, spacing: 0) {
+            // A clear gap above the bar so the panels never butt against it.
+            .safeAreaInset(edge: .bottom, spacing: Workspace.gap) {
                 if visible {
                     FilmStatusBar(model: model, turn: turn, actions: actions, onDetails: onDetails, onPause: onPause, onResume: onResume, usage: { usage }, stillWorking: stillWorking)
                 }

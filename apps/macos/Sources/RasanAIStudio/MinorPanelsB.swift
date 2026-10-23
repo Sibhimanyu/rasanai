@@ -988,7 +988,7 @@ struct KeyframesPanel: View {
                             Text(issue).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
                                 .padding(.leading, 22)
                         }
-                        Text("Tell Claude what to change and it will redraw the poses.").font(.system(size: 12)).foregroundStyle(.secondary).padding(.leading, 22)
+                        Text("Tell Rasan what to change and the crew will redraw the poses.").font(.system(size: 12)).foregroundStyle(.secondary).padding(.leading, 22)
                     }
                     .padding(14).frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color(nsColor: .systemOrange).opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))

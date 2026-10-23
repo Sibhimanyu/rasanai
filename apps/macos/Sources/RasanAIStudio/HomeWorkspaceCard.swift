@@ -24,7 +24,7 @@ enum HomeWorkspaceRules {
             case .brief: return "Confirm brief"
             case .story: return "Choose story"
             case .look: return "Choose look"
-            case .animatic: return "Review preview"
+            case .animatic: return "Review storyboard"
             case .final: return "Review final"
             case nil: return "Review film"
             }

@@ -15,10 +15,7 @@ struct ReviewStageWorkspace<Content: View, Actions: View>: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if showsHeader {
-                header
-                Divider()
-            }
+            if showsHeader { header }
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -28,7 +25,7 @@ struct ReviewStageWorkspace<Content: View, Actions: View>: View {
     /// The same crew header as every other stage: the character asks the question in a speech bubble.
     private var header: some View {
         StageHeader(question: question, context: context, step: step)
-            .padding(.horizontal, 24).padding(.top, 18).padding(.bottom, 14)
+            .padding(.bottom, Workspace.gap)
     }
 }
 

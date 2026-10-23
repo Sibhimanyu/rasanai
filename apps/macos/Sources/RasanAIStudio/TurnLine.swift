@@ -51,7 +51,7 @@ extension StudioStore {
             return .yourTurn(what, background: health?.state == .waitingForYou ? health?.background : nil)
         case .working, .starting:
             if health?.state == .possiblyLooping { return .attention(health?.loopReason ?? "It may be stuck.") }
-            // "Ready for you: the animatic" is the director's last push, stale once you've answered: never show it as work.
+            // "Ready for you: the storyboard" is the director's last push, stale once you've answered: never show it as work.
             let activity = snapshot.latestActivity.flatMap { $0.hasPrefix("Ready for you") ? nil : $0 }
             let reading = snapshot.workingMessage == SessionOverlay.readingMessage ? snapshot.workingMessage : nil
             return .working(reading ?? activity ?? snapshot.workingMessage ?? "\(settings.agent.shortName) is working on your film.", since: runtime.startedAt,

@@ -157,7 +157,7 @@ struct BriefStage: View {
                 }
             }
         }
-        .padding(18)
+        .padding(Workspace.panelPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .workspacePanel()
     }

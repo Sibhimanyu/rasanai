@@ -4,7 +4,7 @@ import StudioCore
 
 /// The two tabs of the film page's right inspector.
 enum InspectorTab: String, CaseIterable, Identifiable {
-    case notes = "Notes", decisions = "Decisions"
+    case chat = "Chat", decisions = "Decisions"
     var id: String { rawValue }
 }
 
@@ -48,9 +48,16 @@ final class FilmSessionModel {
     var tellStep: String?
     /// The unsent note in the inspector composer. The status bar's actions send it along with the call.
     var tellText = ""
+    /// A mark on the picture waiting in the chat composer; sending the message sends it as a timed note.
+    var pendingMark: FilmMark?
+    /// Marks that went out with a note, by `markKey`, so the chat can draw them on the note's chip (this session only).
+    var sentMarks: [String: FilmMark] = [:]
+    /// The note whose pin is lit on the player, and the note the chat should scroll to.
+    var focusedNoteID: String?
+    var scrollToNoteID: String?
     /// The right inspector (Notes and Decisions) is open.
     var decisionsPresented = false
-    var inspectorTab: InspectorTab = .notes
+    var inspectorTab: InspectorTab = .chat
     /// A note card in the inspector asks the player on the stage to jump to its moment (the stage watches `seekTick`).
     private(set) var seekTime: Double = 0
     private(set) var seekTick = 0
@@ -196,17 +203,17 @@ final class FilmSessionModel {
     func answer(_ ask: DirectorAsk, choice: String?, text: String) async -> Bool {
         await send(step: ask.step, type: "answer", value: .object(["ask": .string(ask.id), "choice": choice.map(JSONValue.string) ?? .null, "text": .string(text)]), note: text)
     }
-    /// Sends a note to a step's discussion (Tell Claude).
+    /// Sends a message to the director on a step (the chat with Rasan).
     func tell(_ text: String, step: String? = nil) async -> Bool {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return false }
         return await send(step: step ?? shownStep, type: "note", note: text)
     }
-    /// Opens the inspector on Notes for a step and focuses the composer, optionally with text already in it.
+    /// Opens the inspector on the chat with Rasan for a step and focuses the composer, optionally with text already in it.
     func beginTell(step: String? = nil, prefill: String = "") {
         tellStep = step ?? shownStep
         if !prefill.isEmpty || tellText.isEmpty { tellText = prefill }
-        inspectorTab = .notes
+        inspectorTab = .chat
         decisionsPresented = true
         tellPresented = true
     }

@@ -155,7 +155,7 @@ struct DirectorMonitorPanel: View {
                 .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             HStack {
                 Button("Pause") { monitor.actions.pause(); dismiss() }
-                Button("Message \(agent)…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
+                Button("Chat with Rasan…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
                 Spacer()
             }.controlSize(.regular)
         }
@@ -308,7 +308,7 @@ struct MonitorBudgetBanner: View {
                    title: "Paused: the director looked stuck",
                    detail: paused.reason + " Nothing is lost. Resume to let it carry on, or tell it what to do.") {
                 Button("Show log") { store.sheet = .log }
-                Button("Message \(monitor.agentTitle)…") { store.film?.beginTell() }
+                Button("Chat with Rasan…") { store.film?.beginTell() }
                 Button("Resume") { store.resumeDirector() }.keyboardShortcut(.defaultAction)
             }
         } else if let limit = monitor.budgetLimit, monitor.run == store.runURL {
@@ -339,9 +339,10 @@ struct MonitorBudgetBanner: View {
             Spacer()
             buttons()
         }
-        .padding(.horizontal, 16).padding(.vertical, 10)
+        .padding(.horizontal, Workspace.panelPadding).padding(.vertical, 10)
         .background(Color(nsColor: tint).opacity(0.12))
         .overlay(alignment: .bottom) { Divider() }
+        .padding(.bottom, Workspace.gap)   // the stage's gap below the banner, only when a banner is shown
         .transition(.move(edge: .top).combined(with: .opacity))
     }
 }

@@ -627,7 +627,7 @@ struct CrewAskRow: View {
         let eyeY = Self.eyeLine(CrewStageArt.pose(character, .ask), unit: unit)
         HStack(alignment: .top, spacing: 0) {
             CrewStage(character: character, mode: .ask, unit: unit)
-            CrewSpeechBubble(text: text)
+            CrewSpeechBubble(text: text, tint: character.color)
                 .frame(maxWidth: 480, alignment: .leading)
                 .alignmentGuide(.top) { d in min(0, d.height / 2 - eyeY) }
             Spacer(minLength: 0)
