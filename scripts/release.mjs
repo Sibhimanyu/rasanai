@@ -33,7 +33,7 @@ const STUDIO_PLIST = "apps/macos/Info.plist";
 const STUDIO_CHANGELOG = "apps/macos/CHANGELOG.md";
 const APPCAST = "docs/studio/appcast.xml";
 const INSTALL_DOC = "apps/macos/COMMUNITY-INSTALL.md";
-const SITE_DOWNLOAD_PAGES = ["docs/index.html", "docs/guide.html"];
+const SITE_DOWNLOAD_PAGES = ["docs/index.html", "docs/how-it-works.html"];
 
 // Point the site's download links (DMG, checksum, release notes) and its version labels at a Studio release.
 // Studio releases are prereleases, so GitHub's releases/latest URL would serve the skill release instead.
