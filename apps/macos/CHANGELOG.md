@@ -2,7 +2,7 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.19.7 (build 45) — 2026-10-23
 
 - **Chat with Rasan.** The right sidebar is a chat with Rasan, the director: tell him what you want or what to avoid, with suggestions to start from. Open it with ⌥⌘B (⌥⌘I and ⌘K work too).
 - **Point at the film.** Click the video to mark a spot, drag a box, or circle an area: the chat opens with that frame, your mark and the time attached.
@@ -12,6 +12,7 @@ Desktop releases are separate from RasanAI skill releases.
 - **Calmer, even layout.** Equal 20 pt gutters on every page, panels that stay put while their content scrolls, a slimmer bottom bar with Pause and an honest "the director is stopped" with Resume, look options above the preview, and Preview and Final laid out like Look.
 - **The crew, drawn better.** A new speech bubble tinted per character that hugs its words and points at the speaker's mouth, readable highlight colours, Kavi's papers no longer see-through, and Rasan never cropped into a circle.
 - **Clearer buttons.** "Apply notes" is now "Revise with N notes"; "Preview again" is gone.
+- **Bundles RasanAI 1.25.0.**
 
 ## 0.19.6 (build 44) — 2026-10-22
 
