@@ -2,9 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.19.9 (build 47) — 2026-10-23
 
 - **Help opens the new How it works page**, which follows one film through the app, the crew, the engine and the files on your disk.
+- **Bundles RasanAI 1.25.0.**
 
 ## 0.19.8 (build 46) — 2026-10-23
 
