@@ -1,0 +1,30 @@
+{
+ "laptop": {
+  "image": "laptop.webp",
+  "width": 2400,
+  "height": 1416,
+  "screen": {
+   "x": 10.735,
+   "y": 7.4,
+   "w": 78.549,
+   "h": 80.691
+  },
+  "screenAspect": 1.6498,
+  "cornerRadiusPctOfScreenWidth": 0,
+  "unit": "percent of image"
+ },
+ "iphone": {
+  "image": "iphone.webp",
+  "width": 1022,
+  "height": 2000,
+  "screen": {
+   "x": 7.552,
+   "y": 3.338,
+   "w": 84.999,
+   "h": 93.328
+  },
+  "screenAspect": 0.4655,
+  "cornerRadiusPctOfScreenWidth": 13.55,
+  "unit": "percent of image"
+ }
+}
