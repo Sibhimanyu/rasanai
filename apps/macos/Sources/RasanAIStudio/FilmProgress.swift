@@ -148,6 +148,8 @@ final class FilmProgress {
     // MARK: Replay (the DEBUG replay and tests drive the same model)
 
     func beginReplay() { stop(); isReplay = true; isLive = false }
+    /// The sample film's scripted working moment sets each beat itself (no run, no log).
+    func present(_ next: FilmProgressSnapshot, at time: Date) { now = time; snapshot = next }
     func resetForReplay() async { await worker.reset() }
     func feed(lines: [String], session: SessionSnapshot?, artifacts: FilmArtifacts?, renderChunks: [(String, String)], at time: Date) async {
         let result = await worker.feed(lines: lines, session: session, artifacts: artifacts, renderChunks: renderChunks, budget: researchBudget, now: time)

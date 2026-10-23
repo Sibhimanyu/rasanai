@@ -7,6 +7,7 @@ import StudioCore
 ///   {"shot": "name"}                     renders the real window to <qa-dir>/shots/name.png (offscreen, works locked)
 ///   {"size": [w, h], "dark": true}       resizes the window and sets the appearance
 ///   {"hover": [x, y]}                    moves the pointer there (top-left origin) for hover states
+///   {"sample": true}                    opens the sample film
 ///   {"send": {"step","type","value","note"}}  sends through the model exactly like a tapped button (and is logged)
 /// Not compiled into release builds.
 @MainActor enum QAHarness {
@@ -28,6 +29,7 @@ import StudioCore
                     if let dark = object["dark"] as? Bool, let window = mainWindow() {
                         window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua); NSApp.appearance = window.appearance
                     }
+                    if object["sample"] != nil { store.exploreSample() }
                     if let send = object["send"] as? [String: Any], let model = store.film {
                         let value = (try? JSONSerialization.data(withJSONObject: send["value"] ?? NSNull(), options: [.fragmentsAllowed]))
                             .flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) } ?? .null

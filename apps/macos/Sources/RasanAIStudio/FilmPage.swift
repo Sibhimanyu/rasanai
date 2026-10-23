@@ -727,12 +727,21 @@ struct FinishedView: View {
 /// choices are accepted but go nowhere.
 struct SamplePage: View {
     @Bindable var store: StudioStore
+    /// After a call, the crew stage plays the sample's working moment, as a real film shows while its director works.
+    @State private var working = SampleWorking()
     var body: some View {
         VStack(spacing: 0) {
             if let film = store.film {
                 FilmStatusBarHost(model: film, turn: Self.turn(film), usage: { EmptyView() }) {
-                    DecisionsHost(model: film, page: StagePanelHost { NativeFilmView(model: film) })
+                    DecisionsHost(model: film, page: StagePanelHost {
+                        ZStack {
+                            if working.isShowing { FilmProgressView(model: film, progress: working.progress).transition(.opacity) }
+                            else { NativeFilmView(model: film).transition(.opacity) }
+                        }
+                        .animation(.smooth, value: working.isShowing)
+                    })
                 }
+                .onChange(of: film.sendCount) { working.play(after: film.lastSent) }
             }
         }
         // Safe-area padding, not padding: the page runs under the floating sidebar, whose safe area would swallow a plain
@@ -757,7 +766,7 @@ struct SamplePage: View {
                     "Nothing here is sent anywhere. Go back to start a real film."])
             }
         }
-        .onDisappear { store.pause() }
+        .onDisappear { store.pause(); working.stop() }
     }
     /// The sample has no director, so its status line is whose call the fixed session is waiting on.
     private static func turn(_ film: FilmSessionModel) -> TurnState? {

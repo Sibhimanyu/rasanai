@@ -68,6 +68,8 @@ final class FilmSessionModel {
     /// Called after every snapshot, so the store can keep its own phase and badge in step.
     var onSnapshot: ((SessionSnapshot) -> Void)?
     var onConnection: ((Connection) -> Void)?
+    /// A call was written for the director (`step`, `type`). Not called for fixtures.
+    var onSent: ((String, String) -> Void)?
 
     private var resolver: AssetResolver?
     private let transport: RunTransport?
@@ -186,6 +188,7 @@ final class FilmSessionModel {
             lastError = nil
             lastSent = "\(step)|\(type)"; sendCount += 1
             await reload()
+            onSent?(step, type)
             return true
         } catch {
             lastError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
