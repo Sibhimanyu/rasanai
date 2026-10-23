@@ -801,6 +801,10 @@ final class StudioStore {
             guard let self, let model, self.film === model else { return }
             self.ingest(next)
         }
+        model.onSent = { [weak self, weak model] _, type in
+            guard let self, let model, self.film === model else { return }
+            self.wakeForSentCall(type: type)
+        }
         model.onConnection = { [weak self, weak model] connection in
             guard let self, let model, self.film === model else { return }
             let connected = connection == .live || connection == .polling
@@ -974,6 +978,14 @@ final class StudioStore {
     /// Called by the monitor's tick: the person sent something while the director was frozen, so carry on.
     func thawIfSentWhileFrozen() {
         guard runtime.isFrozen, let before = sendCountAtFreeze, let now = film?.sendCount, now > before else { return }
+        resumeDirector()
+    }
+    /// A call made while no director runs would sit unread in actions.jsonl and the page would never move: start the director
+    /// to apply it. Pin notes wait for their Apply, a frozen director wakes through `thawIfSentWhileFrozen`, and a plan-limit
+    /// wait keeps its own scheduled resume.
+    func wakeForSentCall(type: String) {
+        guard type != "comment", !runtime.isRunning, !runtime.isFrozen, runtime.autoResume?.isLimit != true, canResume else { return }
+        statusMessage = "Starting the director to apply your call"
         resumeDirector()
     }
     /// Whether the queue was already paused when the director was frozen, so Resume restores it and not more.

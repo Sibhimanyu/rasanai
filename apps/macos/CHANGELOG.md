@@ -7,6 +7,9 @@ Desktop releases are separate from RasanAI skill releases.
 - **Hover a note on the timeline and see that note.** Each pin answered for the whole timeline, so one note's card showed wherever the pointer was; each pin now shows its own. The card and the time under the pointer sit just above the timeline, where the video no longer covers them.
 - **A smoother timeline.** Only the playhead follows the clock now, so the video and the scene thumbnails stop redrawing thirty times a second, and dragging the playhead seeks to the nearest frame it can reach quickly, then lands exactly when you let go.
 - **Studio's own full screen.** Full screen (F) shows the film edge to edge with its pins and captions, and the timeline, notes and controls in a bar that fades while it plays. Esc or F comes back; C or a pin takes you to the chat with that moment.
+- **Your call wakes the director.** A call made on a film whose director had stopped used to sit unread, and the page never moved. Studio now starts the director to apply it, so the crew member comes to the centre and gets to work. Pin notes still wait for Apply, and a plan-limit wait keeps its own resume.
+- **Rasika has both eyebrows when she asks.** Her asking pose (Final, and checks) drew only the right brow; the left one is back.
+- **The sample film shows the crew at work.** Make a call in the sample and the crew member for the next step comes to the centre with the work in bubbles around them, then steps aside to ask before the sample returns.
 
 ## 0.19.7 (build 45) — 2026-10-23
 
