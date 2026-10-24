@@ -219,30 +219,34 @@
 .sq-partners img + span + img { height: 34px; }
 .sq-partners span { font: 400 1.4rem/1 var(--display); color: var(--ink-2); }
 /* the device: black glass bezel inside a thin anodised rim, which reads as both the MacBook's lid and the iPhone's frame */
-.sq-device { position: relative; aspect-ratio: 1.6498 / 1; width: 78.549%; margin: 4.4% auto 7%; -webkit-mask-size: 500% 500%; mask-size: 500% 500%; -webkit-mask-position: 50% 50%; mask-position: 50% 50%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-clip: no-clip; mask-clip: no-clip; }
+.sq-device { position: relative; aspect-ratio: 1.6474 / 1; width: 79.304%; margin: 3.1% auto 8%; -webkit-mask-size: 500% 500%; mask-size: 500% 500%; -webkit-mask-position: 50% 50%; mask-position: 50% 50%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-clip: no-clip; mask-clip: no-clip; }
 /* the device is its SCREEN box: the generated laptop and phone photos (img/devices, measured in devices.json) sit over it, their
    transparent holes exactly on it. Frame sizes are locked to the screen box; home.js fades them across the Mac <-> iPhone morph. */
-.sq-rim { position: absolute; inset: 0; z-index: 0; background: #07080f; border-radius: 2px; pointer-events: none; }
-.sq-frame { position: absolute; z-index: 3; max-width: none; height: auto; pointer-events: none; user-select: none; }
-.sq-frame-l { width: 127.309%; left: -13.667%; top: -9.171%; }
+.sq-rim, .sq-ph, .sq-dark { display: none; }
+.sq-frame { position: absolute; z-index: 3; will-change: opacity; max-width: none; height: auto; pointer-events: none; user-select: none; }
+.sq-frame-l { width: 126.092%; left: -13.042%; top: -6.418%; }
 .sq-frame-p { width: 117.648%; left: -8.885%; top: -3.577%; opacity: 0; }
 /* soft, wide contact shadows: their own blurred elements, not a box-shadow on a clipped box */
 .sq-shadow { position: absolute; z-index: -1; pointer-events: none; border-radius: 50%; background: rgba(17, 22, 63, .5); filter: blur(16px); }
-.sq-shadow-l { left: -4%; right: -4%; top: calc(100% + 10.5%); height: 4.5%; }
+.sq-shadow-l { left: -4%; right: -4%; top: calc(100% + 12.5%); height: 4.5%; }
 .sq-shadow-l::after { content: ""; position: absolute; left: 6%; right: 6%; top: -30%; height: 160%; border-radius: 50%; background: rgba(17, 22, 63, .35); filter: blur(34px); }
 .sq-shadow-p { left: 4%; right: 4%; top: calc(100% + 1.2%); height: 4%; opacity: 0; }
 .sq-shadow-p::after { content: ""; position: absolute; left: 8%; right: 8%; top: -40%; height: 190%; border-radius: 50%; background: rgba(17, 22, 63, .3); filter: blur(30px); }
-.sq-screen { position: relative; z-index: 1; width: 100%; height: 100%; overflow: hidden; border-radius: 2px; container-type: size; background: #000; }
-.sq-mac { position: absolute; inset: 0; font-size: calc(100cqw / 80); overflow: hidden; }
-.sq-phone { display: none; }
+.sq-screen { position: relative; z-index: 1; width: 100%; height: 100%; overflow: hidden; container-type: size; }
+.sq-mac { position: absolute; inset: 0; font-size: calc(100cqw / 80); overflow: hidden; background: #000; }
 .home .sq-mac img, .home .sq-phone img { height: auto; }
 
 /* the Mac */
 /* the desktop: an original macOS-style wallpaper (generated for this page; not Apple's artwork), over its own colours while it loads */
 .home .sq-mac .sq-wall { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: linear-gradient(165deg, #141846, #2c2a78 40%, #6b3d93 70%, #d46a7a); }
-.sq-menubar { position: absolute; left: 0; right: 0; top: 0; height: 1.75em; display: flex; align-items: center; gap: 1.4em; padding: 0 1.2em; box-sizing: border-box; background: rgba(255, 255, 255, .62); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); font: 500 .95em/1 var(--body); color: #17171c; }
+/* the menu bar is exactly as tall as the camera notch (2.94% of the screen = 1.43em of the Mac, 1.833em of its own .78em text); the app menus sit left of the notch, the status items right of it, nothing under it */
+.sq-menubar { position: absolute; left: 0; right: 0; top: 0; height: 1.833em; display: flex; align-items: center; box-sizing: border-box; padding: 0 1em; background: rgba(255, 255, 255, .62); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); font: 500 .78em/1 var(--body); color: #17171c; }
+.sq-menubar .mb-l, .sq-menubar .mb-r { flex: 1 1 0; min-width: 0; display: flex; align-items: center; white-space: nowrap; }
+.sq-menubar .mb-l { gap: 1.5em; }
+.sq-menubar .mb-r { gap: 1.3em; justify-content: flex-end; }
+.sq-menubar .mb-notch { flex: none; width: 12.02em; }   /* 11.726% of the screen: the notch, in menu-bar em */
 .sq-menubar b { font-weight: 700; }
-.sq-menu-duck { position: relative; margin-left: auto; width: 1.5em; font-style: normal; }
+.sq-menu-duck { position: relative; flex: none; width: 1.3em; font-style: normal; }
 .home .sq-menu-duck img { display: block; width: 100%; }
 .sq-clock { font-weight: 500; }
 /* a faint reflection across the glass */
@@ -286,7 +290,7 @@
 .sq-mini[data-done] .mw-steps i.next { border-color: var(--rasanai-blue); box-shadow: inset 0 0 0 .2em #fff, inset 0 0 0 1em var(--rasanai-blue); }
 .mw-btn { position: absolute; right: 0; top: 0; width: 8.5em; height: 2.4em; border-radius: .6em; background: var(--rasanai-blue); opacity: .25; }
 /* the notification Squeak posts, in the corner under the menu bar */
-.sq-note { position: absolute; z-index: 2; right: 1.4em; top: 3.2em; width: 23em; display: flex; align-items: center; gap: .9em; padding: .9em 1.1em; border-radius: 1.2em; background: rgba(246, 246, 248, .86); -webkit-backdrop-filter: blur(1.4em); backdrop-filter: blur(1.4em); box-shadow: 0 1em 2.4em rgba(0, 0, 0, .28); color: #17171c; opacity: 0; }
+.sq-note { position: absolute; z-index: 2; right: 1.4em; top: 2.5em; width: 23em; display: flex; align-items: center; gap: .9em; padding: .9em 1.1em; border-radius: 1.2em; background: rgba(246, 246, 248, .86); -webkit-backdrop-filter: blur(1.4em); backdrop-filter: blur(1.4em); box-shadow: 0 1em 2.4em rgba(0, 0, 0, .28); color: #17171c; opacity: 0; }
 .home .sq-note img { width: 2.8em; height: auto; flex: none; }
 .sq-note div { display: grid; gap: .25em; min-width: 0; }
 .sq-note small { font-size: .72em; color: #6a6a74; }
@@ -358,9 +362,24 @@
 .sq-grand { display: none; }
 /* the hand-off: the call lifts out of one screen as a card, the screen goes dark while the device changes shape, and the card
    dives into the other screen (pinned scene only) */
-.sq-fly, .sq-dark, .sq-trail { display: none; }
+.sq-fly, .sq-trail { display: none; }
+/* the device is built once at fixed layout sizes (home.js sets them on resize, never per frame): the Mac screen is the device box, the
+   iPhone screen its own centred box, and the shape change is one piece of dark glass (.sq-dark) drawn with clip-path and transform
+   on top of both. The screen goes off by dimming to black with a faint afterglow, and comes on from black through an iris that opens
+   where the plane lands (a scaled disc inside the glass: no layout and no mask is rewritten while it plays). */
+.pin .host-ready .sq-ph, .pin .host-ready .sq-dark, .pin .host-ready .sq-rim, .mpin .host-ready .sq-ph, .mpin .host-ready .sq-dark, .mpin .host-ready .sq-rim { display: block; }
+.sq-ph { position: absolute; left: 50%; top: 50%; }
+.sq-pscreen { position: absolute; inset: 0; overflow: hidden; container-type: size; background: #f2f2f7; visibility: hidden; }
+.sq-rim { position: absolute; z-index: 1; left: 50%; top: 50%; pointer-events: none; opacity: 0; visibility: hidden; }
+.sq-rim-g { background: rgb(143, 145, 157); }
+.sq-rim-d { background: #07080f; }
+.sq-dark { position: absolute; z-index: 2; left: 50%; top: 50%; overflow: hidden; pointer-events: none; opacity: 0; visibility: hidden; will-change: opacity; }
+.sq-dark > i { position: absolute; display: block; }
+.sq-dark-fill, .sq-dark-dim { inset: 0; background: #07080f; }
+.sq-dark-dim { opacity: 0; }
+.sq-dark-glow { left: 50%; top: 50%; width: 76%; height: 62%; margin: -31% 0 0 -38%; border-radius: 50%; opacity: 0; background: radial-gradient(closest-side, rgba(214, 222, 255, .55), rgba(190, 202, 255, .16) 46%, rgba(190, 202, 255, 0) 100%); will-change: transform, opacity; }
+.sq-dark-iris { left: 0; top: 0; width: 200px; height: 200px; margin: -100px 0 0 -100px; visibility: hidden; background: radial-gradient(closest-side, transparent 0, transparent 74%, #07080f 100%); box-shadow: 0 0 0 200000px #07080f; will-change: transform; }
 @media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
-  .pin .host-ready .sq-dark { display: block; position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: 0; background: radial-gradient(120% 70% at 30% 0%, rgba(255, 255, 255, .1), transparent 55%), #07080f; }
   .pin .host-ready .sq-fly { display: block; position: absolute; left: 0; top: 0; z-index: 7; width: 320px; height: 76px; margin: -38px 0 0 -160px; opacity: 0; pointer-events: none; will-change: transform, opacity; }
   /* the paper plane the card folds into (a generated render, nose up and to the right at about 40 degrees) */
   .home .sq-fly .f-plane { position: absolute; left: 50%; top: 50%; width: 92px; height: 92px; margin: -46px 0 0 -46px; opacity: 0; filter: drop-shadow(0 14px 14px rgba(17, 22, 63, .3)); will-change: transform, opacity; }
@@ -395,8 +414,7 @@
   .pin .host-ready .sq-stage { position: absolute; inset: 0; max-width: none; margin: 0; display: block; }
   .pin .host-ready .sq-copy { position: absolute; left: max(var(--pad), calc(50vw - 610px)); top: 50%; width: min(30rem, 33vw); height: 70vh; translate: 0 -50%; display: block; }
   .pin .host-ready .sq-step { position: absolute; left: 0; right: 0; top: 50%; translate: 0 -50%; opacity: 0; will-change: transform, opacity; }
-  .pin .host-ready .sq-device { position: absolute; left: 0; top: 0; margin: 0; aspect-ratio: auto; will-change: transform; }
-  .pin .host-ready .sq-phone { display: block; opacity: 0; }
+  .pin .host-ready .sq-device { position: absolute; left: 0; top: 0; margin: 0; aspect-ratio: auto; will-change: transform, opacity; }
 }
 .proj-grid { display: grid; gap: 44px; max-width: 1240px; margin: 0 auto; align-items: center; }
 .proj-copy .lede { margin-bottom: 8px; }
@@ -637,9 +655,7 @@ html.mpin { overflow-x: clip; }
 .mpin .host-ready .sq-partners img { height: 26px; }
 .mpin .host-ready .sq-partners img + span + img { height: 29px; }
 .mpin .host-ready .sq-partners span { font-size: 1.2rem; }
-.mpin .host-ready .sq-device { position: absolute; left: 0; top: 0; margin: 0; aspect-ratio: auto; will-change: transform; }
-.mpin .host-ready .sq-phone { display: block; opacity: 0; }
-.mpin .host-ready .sq-dark { display: block; position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: 0; background: radial-gradient(120% 70% at 30% 0%, rgba(255, 255, 255, .1), transparent 55%), #07080f; }
+.mpin .host-ready .sq-device { position: absolute; left: 0; top: 0; margin: 0; aspect-ratio: auto; will-change: transform, opacity; }
 /* the hand-off: the paper plane, smaller, and its dotted trail */
 .mpin .host-ready .sq-fly { display: block; position: absolute; left: 0; top: 0; z-index: 7; width: 200px; height: 60px; margin: -30px 0 0 -100px; opacity: 0; pointer-events: none; will-change: transform, opacity; }
 .mpin .sq-fly .f-plane { position: absolute; left: 50%; top: 50%; width: 66px; height: 66px; margin: -33px 0 0 -33px; opacity: 0; filter: drop-shadow(0 10px 10px rgba(17, 22, 63, .3)); will-change: transform, opacity; }
