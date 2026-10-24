@@ -1,0 +1,29 @@
+<template>
+  <!-- Example: recipe product-slab-evidence on a Rasan3D stage. Needs assets/shot.(png|svg) in the project. Check with:
+       node scripts/stage3d.mjs check --project <project> --file <project>/compositions/frames/slab-evidence.html -->
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; background: #0b0b0d; }
+    #r3-slab-evidence-gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  </style>
+  <div id="root" data-composition-id="slab-evidence" data-width="1920" data-height="1080" data-duration="3.2">
+    <canvas id="r3-slab-evidence-gl" class="clip" data-start="0" data-duration="3.2" data-track-index="0"></canvas>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script src="assets/three/rasan3d.js"></script>
+  <script src="assets/three/recipes/common.js"></script>
+  <script src="assets/three/recipes/product-slab-evidence.js"></script>
+  <script>
+    const R = RasanRecipes.get("product-slab-evidence");
+    const OPTS = { screenshot: "assets/shot.svg", aspect: 1920 / 1152, durationS: 3.2, regionX: 0.2, regionY: 0.3, regionW: 0.7, regionH: 0.55 };
+    const tl = gsap.timeline({ paused: true });
+    window.__timelines["slab-evidence"] = tl;
+    let rec;
+    Rasan3D.stage({
+      id: "slab-evidence", canvas: document.getElementById("r3-slab-evidence-gl"), timeline: tl, duration: R.plan(OPTS).duration, width: 1920, height: 1080, fps: 30,
+      camera: R.camera(OPTS),
+      motionBlur: { shutter: 0.5 }, environment: "studio", toneMapping: "neutral",
+      async build(k) { rec = await R.build(k, OPTS); return rec.objects; },
+      pose(t, k) { rec.pose(t, k); },
+    });
+  </script>
+</template>
