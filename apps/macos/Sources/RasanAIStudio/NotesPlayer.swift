@@ -351,6 +351,8 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
     /// nil: a pin shows while its scene is on screen. A number: while the playhead is within that many seconds of it.
     var pinWindow: Double?
     var showStrip = true
+    /// Motion Studio: when set (the film has an element index), a click also resolves what is under it. The point/box/circle note is unchanged.
+    var motionSel: MotionSelectionModel? = nil
     var caption: (Int?) -> String? = { _ in nil }
     @ViewBuilder var frame: () -> Frame
 
@@ -498,6 +500,12 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
                             let points = stroke.isEmpty ? [value.startLocation, value.location] : stroke
                             let result = MarkGesture.classify(points, in: content)
                             attach(FilmMark(step: step, time: strokeTime, kind: result.kind, rect: result.rect, path: result.path, snapshot: nil))
+                            // `size` is the fitted frame the gesture lives in; the index's frame_size is aspect-fitted into it (vertical films too).
+                            if let motionSel, let film = motionSel.index?.frameSize, film.w > 0, film.h > 0,
+                               hypot(value.translation.width, value.translation.height) < 4 {
+                                motionSel.select(viewPoint: value.location, time: strokeTime, viewSize: size,
+                                                 filmSize: CGSize(width: film.w, height: film.h), fit: .aspectFit)
+                            }
                         }
                 )
                 .hoverCursor(.crosshair, enabled: canNote)

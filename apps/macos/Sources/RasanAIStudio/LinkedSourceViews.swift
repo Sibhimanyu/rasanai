@@ -116,11 +116,21 @@ struct LinkedSourceWell: View {
 struct LinkedSourceRow: View {
     let source: LinkedSource
     var onRemove: (() -> Void)?
+    /// Where the director writes reference-motion.json once it has studied the reference (nil before the film has a folder).
+    var motionRoot: URL?
     @State private var summary: String?
 
     private var exists: Bool { FileManager.default.fileExists(atPath: source.path) }
 
     var body: some View {
+        if source.kind == .reference && !source.isFolder {
+            LinkedReferenceMotionChip(source: source, root: motionRoot, onRemove: onRemove)
+        } else {
+            plainRow
+        }
+    }
+
+    private var plainRow: some View {
         HStack(spacing: 10) {
             Image(systemName: source.isFolder ? "folder.fill" : "play.rectangle.fill").foregroundStyle(exists ? Color.rasan : Color(nsColor: .systemOrange)).frame(width: 18)
             VStack(alignment: .leading, spacing: 2) {
@@ -144,5 +154,31 @@ struct LinkedSourceRow: View {
                 return ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
             }.value
         }
+    }
+}
+
+/// A linked reference video as a Motion Studio chip: analyzing, ready or cannot analyze. The director runs the analysis;
+/// this only watches for reference-motion.json to appear.
+private struct LinkedReferenceMotionChip: View {
+    let source: LinkedSource
+    var root: URL?
+    var onRemove: (() -> Void)?
+    @State private var model = MotionReferenceModel()
+
+    var body: some View {
+        MotionReferenceChip(title: source.name, fileURL: source.url, durationS: model.durationS, rights: model.summary?.source?.rights,
+                            status: model.status, onRemove: onRemove)
+            .task(id: "\(source.path)|\(root?.path ?? "")") {
+                model.markAnalyzing()
+                guard let root else { return }
+                // Light poll, stopped when the view goes away or the file has appeared (up to about ten minutes).
+                for _ in 0..<200 {
+                    await model.load(projectRoot: root)
+                    if model.summary != nil || Task.isCancelled { return }
+                    model.markAnalyzing()
+                    try? await Task.sleep(for: .seconds(3))
+                    if Task.isCancelled { return }
+                }
+            }
     }
 }

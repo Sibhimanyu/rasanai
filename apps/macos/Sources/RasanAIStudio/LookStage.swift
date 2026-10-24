@@ -19,6 +19,9 @@ struct LookStage: View {
     @State private var mixLook = ""
     @State private var mixStory = ""
     @FocusState private var keysFocused: Bool
+    /// Motion Studio: the reference summary and the kit catalog, each shown only when its file exists.
+    @State private var motionStore = MotionStudioStore.empty
+    @State private var showMotionLibrary = false
 
     private var payload: JSONValue { model.payload(step) }
     private var items: [LookItem] { LookItem.parse(payload) }
@@ -178,9 +181,47 @@ struct LookStage: View {
                 DisclosureGroup("Motion and sound", isExpanded: $showMotion) { motionAndSound(current).padding(.top, 10) }
                     .font(.system(size: 13, weight: .medium))
             }
+            motionExtras
         }
         .padding(Workspace.panelPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .task(id: model.motionRun?.path) { await loadMotionStore() }
+    }
+
+    // MARK: Motion Studio (only when its files exist; both collapsed, neither blocks the call)
+
+    private func loadMotionStore() async {
+        guard let run = model.motionRun else { return }
+        let project = model.motionProject
+        motionStore = await Task.detached(priority: .utility) {
+            var store = MotionStudioStore.load(projectRoot: run)
+            if store.kitCatalog == nil, let project, project != run { store.kitCatalog = MotionStudioStore.load(projectRoot: project).kitCatalog }
+            return store
+        }.value
+    }
+
+    @ViewBuilder private var motionExtras: some View {
+        if let reference = motionStore.reference {
+            Rectangle().fill(Workspace.hairline).frame(height: 1)
+            MotionInspirationSummary(summary: reference, onChangeInfluence: canAct ? { text in
+                Task { await model.send(step: step, type: "note", value: .object(["kind": .string("motion-influence")]), note: text) }
+            } : nil)
+        }
+        if let catalog = motionStore.kitCatalog, !catalog.allItems.isEmpty {
+            DisclosureGroup("Motion library", isExpanded: $showMotionLibrary) {
+                MotionLibraryView(catalog: catalog, projectRoot: model.motionProject ?? model.motionRun) { req in
+                    guard canAct else { return }
+                    Task {
+                        await model.send(step: step, type: "note",
+                                         value: .object(["kind": .string("motion-kit"), "item": .string(req.itemID), "annotation": .string(req.annotation),
+                                                         "params": .object(req.params)]),
+                                         note: req.instruction)
+                    }
+                }
+                .frame(height: 420).padding(.top, 10)
+            }
+            .font(.system(size: 13, weight: .medium))
+        }
     }
 
     @ViewBuilder private func motionAndSound(_ current: LookItem) -> some View {
