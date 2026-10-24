@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "note": "Approved workflow list (C4). Only these ids can be submitted; templates are data, never code. Saved graphs are UNTESTED against a real ComfyUI until a real-provider run is recorded (status: integration pending).",
+  "workflows": [
+    {
+      "id": "ltx-video-t2v",
+      "file": "ltx-video-t2v.json",
+      "kind": "text-to-video",
+      "tested_with": null,
+      "accepts_reference": false,
+      "needs_nodes": ["CheckpointLoaderSimple", "EmptyLTXVLatentVideo", "LTXVConditioning", "KSampler", "VAEDecode", "CreateVideo", "SaveVideo"],
+      "allowed_nodes": ["CheckpointLoaderSimple", "CLIPTextEncode", "EmptyLTXVLatentVideo", "LTXVConditioning", "KSampler", "VAEDecode", "CreateVideo", "SaveVideo"],
+      "licence_note": "LTX-family weights are never bundled or default. Check the licence of the exact checkpoint revision you load (some LTX licences restrict commercial use above a revenue threshold) before delivery. RasanAI has not verified it."
+    }
+  ]
+}
