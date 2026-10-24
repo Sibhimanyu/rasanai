@@ -16,7 +16,9 @@
 //   node video-generation.mjs status --film <dir> --job <id> [--wait S]     polls the provider; collects a preview (preview-ready)
 //   node video-generation.mjs cancel --film <dir> --job <id>
 //   node video-generation.mjs adopt  --film <dir> --job <id>                conforms preview to the film size/fps/duration (never stretches),
-//                                                                           writes hybrid/generated/<id>/asset.json, state "accepted"
+//                                                                           writes hybrid/generated/<id>/asset.json, state "accepted", then upserts
+//                                                                           hybrid/sources.json (C1: asset copied to assets/generated/<id>.mp4; layer via --layer at submit;
+//                                                                           --role background|foreground|matte|screen-content (default background) --z N)
 //   node video-generation.mjs verify --film <dir> --job <id>                ffprobe frames/size + sha256 + no leaked path/token -> "delivery-ready"
 // Files: <film>/hybrid/jobs.jsonl (append-only; consent lines have kind "consent"), hybrid/generated/<job-id>/{job.json,preview/,plate.mp4,asset.json}.
 // Env: RASANAI_HYBRID_COMFYUI=1 enables ComfyUI; RASANAI_COMFYUI_URL (default http://127.0.0.1:8188; non-loopback needs --approve-endpoint <host>);
@@ -29,6 +31,7 @@ import { parseArgs } from "./lib/common.mjs";
 import { digest, fileSha, parseFps, frameCount, redactor, inside, ffprobe, ffmpeg, have, atomicWrite } from "./lib/video-generation/util.mjs";
 import { approved, getWorkflow, fill } from "./lib/video-generation/workflows.mjs";
 import { makeFake, makeComfy } from "./lib/video-generation/providers.mjs";
+import { upsertSources } from "./lib/video-generation/sources.mjs";
 import { append, latest, readJob, writeJob, jobDir, validId, consentFor, TERMINAL } from "./lib/video-generation/jobs.mjs";
 
 const args = parseArgs();
@@ -201,10 +204,23 @@ async function cancel() {
   out({ ok: true, job_id: job.job_id, state: "cancelled" });
 }
 
+// the C1 sources hint of an adopted plate (asset.json is the provenance; hybrid/sources.json is upserted from this)
+function sourcesHint(job, asset, c) {
+  return { asset: { id: job.job_id, path: asset.output.path, rights: "generated", sha256: asset.output.sha256, media: { fps_num: c.fps_num, fps_den: c.fps_den, width: c.width, height: c.height } },
+    shot_layer: job.layer_id ? { layer_id: job.layer_id, kind: "generated-plate", asset_id: job.job_id, in_s: 0, duration_s: c.duration_s } : null };
+}
+function writeSources(film, job, asset, c) {
+  const role = args.role && args.role !== true ? String(args.role) : "background";
+  if (!["background", "foreground", "matte", "screen-content"].includes(role)) usage("--role must be background|foreground|matte|screen-content");
+  const hint = sourcesHint(job, asset, c);
+  try { const sources = upsertSources(film, hint, asset.output.path, { role, z: Number.isInteger(+args.z) ? +args.z : 0 }); if (sources.written) hint.asset.path = sources.asset_path; return { hint, sources }; }
+  catch (e) { return { hint, sources: { written: false, errors: [String(e.message)] } }; }
+}
+
 function adopt() {
   const film = filmDir(), redact = mkRedact(film), { cur, job } = needJob(film);
   const dir = jobDir(film, job.job_id), assetP = path.join(dir, "asset.json");
-  if (["accepted", "delivery-ready"].includes(cur.state) && fs.existsSync(assetP)) out({ ok: true, idempotent: true, job_id: job.job_id, state: cur.state, asset: `hybrid/generated/${job.job_id}/asset.json` });
+  if (["accepted", "delivery-ready"].includes(cur.state) && fs.existsSync(assetP)) { const a = JSON.parse(fs.readFileSync(assetP, "utf8")), w = writeSources(film, job, a, a.config); out({ ok: true, idempotent: true, job_id: job.job_id, state: cur.state, asset: `hybrid/generated/${job.job_id}/asset.json`, sha256: a.output.sha256, sources: w.sources, sources_hint: w.hint }); }
   if (cur.state !== "preview-ready") out({ ok: false, error: `job is ${cur.state}: adopt needs preview-ready (run status first)` }, 1);
   const c = job.config, src = path.join(film, job.preview.path);
   if (fileSha(src) !== job.preview.sha256) out({ ok: false, error: "preview changed on disk since it was collected" }, 1);
@@ -222,8 +238,8 @@ function adopt() {
   };
   atomicWrite(assetP, redact(JSON.stringify(asset, null, 2)) + "\n");
   line(film, redact, cur, job, "accepted", "adopted: conformed to film size/fps/duration");
-  out({ ok: true, job_id: job.job_id, state: "accepted", asset: `hybrid/generated/${job.job_id}/asset.json`, sha256: asset.output.sha256,
-    sources_hint: { asset: { id: job.job_id, path: asset.output.path, rights: "generated", sha256: asset.output.sha256, media: { fps_num: c.fps_num, fps_den: c.fps_den, width: c.width, height: c.height } }, shot_layer: job.layer_id ? { layer_id: job.layer_id, kind: "generated-plate", asset_id: job.job_id, in_s: 0, duration_s: c.duration_s } : null, note: "asset path is relative to the film root; hybrid/sources.json is written by its owner, not here" } });
+  const w = writeSources(film, job, asset, c);
+  out({ ok: true, job_id: job.job_id, state: "accepted", asset: `hybrid/generated/${job.job_id}/asset.json`, sha256: asset.output.sha256, sources: w.sources, sources_hint: w.hint });
 }
 
 function verify() {

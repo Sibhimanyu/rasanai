@@ -82,6 +82,13 @@ const bbox = (q) => { const xs = q.map((p) => p[0]), ys = q.map((p) => p[1]); co
 const lerpQ = (a, b, u) => a.map((p, k) => [p[0] + (b[k][0] - p[0]) * u, p[1] + (b[k][1] - p[1]) * u]);
 const frameRow = (t_s, q, confidence, origin, extra = {}) => ({ t_s: r6(t_s), quad_norm: q.map((p) => [r6(p[0]), r6(p[1])]), bbox_norm: bbox(q).map(r6), confidence: r6(confidence), origin, ...extra });
 
+// the C1 asset id: --asset-id, else the id hybrid/sources.json gives this path (so the graph can find the track), else the file name
+function assetIdFor(film, rel, abs) {
+  if (opt("--asset-id")) return opt("--asset-id");
+  try { const src = JSON.parse(fs.readFileSync(path.join(film, "hybrid", "sources.json"), "utf8")); const a = (src.assets || []).find((x) => x.path === rel); if (a) return a.id; } catch {}
+  return path.basename(abs);
+}
+
 function writeTrack(film, id, doc) {
   const dir = path.join(film, "hybrid", "tracks");
   fs.mkdirSync(dir, { recursive: true });
@@ -120,7 +127,7 @@ function level0() {
     const i = kfs.findLastIndex((k) => k.t_s < t);
     return frameRow(t, lerpQ(kfs[i].quad_norm, kfs[i + 1].quad_norm, (t - kfs[i].t_s) / (kfs[i + 1].t_s - kfs[i].t_s)), 0.9, "interpolated");
   });
-  const doc = { schema_version: 1, id, asset_id: opt("--asset-id") || path.basename(asset), track_type: "planar-quad", source_digest: sha256File(asset), timebase: "source_pts_seconds", frames, corrections: [], status: "manual", level: 0 };
+  const doc = { schema_version: 1, id, asset_id: assetIdFor(film, opt("--asset"), asset), track_type: "planar-quad", source_digest: sha256File(asset), timebase: "source_pts_seconds", frames, corrections: [], status: "manual", level: 0 };
   const file = writeTrack(film, id, doc);
   out({ ok: true, level: 0, file, frames: frames.length, status: doc.status });
 }
@@ -184,7 +191,7 @@ function track() {
     const warnings = [];
     if (low) warnings.push(`${low} of ${tracked.length} tracked frames below confidence 0.5: review or correct them`);
     if (frames.length < times.length) warnings.push(`${times.length - frames.length} frames had no valid quad and were left out`);
-    const doc = { schema_version: 1, id, asset_id: opt("--asset-id") || path.basename(asset), track_type: "planar-quad", source_digest: sha256File(asset), timebase: "source_pts_seconds", frames, corrections, status, level: 1, warnings };
+    const doc = { schema_version: 1, id, asset_id: assetIdFor(film, opt("--asset"), asset), track_type: "planar-quad", source_digest: sha256File(asset), timebase: "source_pts_seconds", frames, corrections, status, level: 1, warnings };
     const v = validate(doc, doc.source_digest, duration_s);
     if (v.errors.length) die("tracker produced an invalid track: " + v.errors[0], 1, { errors: v.errors });
     const file = writeTrack(film, id, doc);

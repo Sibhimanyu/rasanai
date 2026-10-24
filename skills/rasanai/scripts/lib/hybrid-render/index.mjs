@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { buildHost, parseHosts } from "./host.mjs";
 import { renderHost, assemble, probeVideo, hyperframesVersion } from "./engine.mjs";
 import { slotCount } from "../slot.mjs";
+import { planComps, renderComp } from "./comp.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPTS = path.resolve(HERE, "..", "..");
@@ -46,7 +47,10 @@ export function loadGraph(deps, P, { quiet } = {}) {
   need(c.code === 0, `hybrid-graph compile failed (exit ${c.code}): ${(c.err || "").trim().split("\n").slice(-3).join(" | ")}`);
   const gp = path.join(P.film, "hybrid", "edit-graph.json");
   const graph = JSON.parse(fs.readFileSync(gp, "utf8"));
-  return { graph, graph_changed: pre.json && pre.code === 0 ? { changed: pre.json.changed, scenes_to_render: pre.json.scenes_to_render } : null };
+  // graph-level change only: hybrid-graph's own scenes_to_render also counts nodes absent from the cache under their node key, but this renderer stores
+  // fragments under its own derived keys, so that list would claim every scene is stale; the render plan (scenes_rendered / comps_rendered) is the truth
+  const sceneOf = new Map(graph.nodes.map((n) => [n.id, n.scene_id]));
+  return { graph, graph_changed: pre.json && pre.code === 0 ? { changed: pre.json.changed, scenes_changed: [...new Set(pre.json.changed.map((id) => sceneOf.get(id)).filter(Boolean))] } : null };
 }
 
 export function sceneNodes(graph) { return graph.nodes.filter((n) => n.kind === "scene-render" && n.scene_id); }
@@ -91,10 +95,12 @@ export async function renderFilm({ args, mode, log = (s) => process.stderr.write
   const lacking = plan.filter((p) => !p.duration_s); need(!lacking.length, `scene(s) ${lacking.map((p) => p.scene_id).join(", ")} have no composition host in ${path.join(P.project, "index.html")}`);
   const first = args.scene && args.scene !== true ? String(args.scene) : null;
   if (first) need(plan.some((p) => p.scene_id === first), `scene "${first}" is not in the graph (${plan.map((p) => p.scene_id).join(", ")})`);
-  const todo = plan.filter((p) => !p.hit).sort((a, b) => (b.scene_id === first) - (a.scene_id === first));
-  const results = new Map();
+  const comps = planComps(deps, graph, cache, mode, plan, P.film, new Set(plan.map((p) => p.scene_id)));
+  const compHit = new Set(comps.filter((c) => c.hit).map((c) => c.scene_id));   // a cached fragment needs no scene clip
+  const todo = plan.filter((p) => !p.hit && !compHit.has(p.scene_id)).sort((a, b) => (b.scene_id === first) - (a.scene_id === first));
   if (args["dry-run"]) {
-    return { ok: true, dry_run: true, mode, scenes_to_render: todo.map((p) => p.scene_id), scenes_reused: plan.filter((p) => p.hit).map((p) => p.scene_id), miss_reasons: Object.fromEntries(todo.map((p) => [p.scene_id, p.miss_reason])), graph_changed };
+    return { ok: true, dry_run: true, mode, scenes_to_render: todo.map((p) => p.scene_id), scenes_reused: plan.filter((p) => p.hit || compHit.has(p.scene_id)).map((p) => p.scene_id),
+      comps_to_render: comps.filter((c) => !c.hit).map((c) => c.scene_id), comps_reused: comps.filter((c) => c.hit).map((c) => c.scene_id), miss_reasons: Object.fromEntries(todo.map((p) => [p.scene_id, p.miss_reason])), graph_changed };
   }
   let done = 0, sumMs = 0;
   await pool(todo, Math.min(slotCount() || 1, todo.length), async (p) => {
@@ -115,7 +121,19 @@ export async function renderFilm({ args, mode, log = (s) => process.stderr.write
     const left = todo.length - done;
     log(`[${done}/${todo.length}] scene ${p.scene_id} ${r.produced ? `rendered in ${p.render_ms} ms` : "produced by another process"}${left ? `, ETA ~${Math.round((sumMs / done) * left / 1000)} s` : ""}`);
   });
-  const clips = plan.map((p) => { const g = cache.lookup(p.key, { deep: false }); need(g.hit, `scene ${p.scene_id} has no valid cached clip after render`); cache.touch(p.key); return { ...p, file: g.file, frames: g.meta.expected_frames }; });
+  const clips = plan.map((p) => { if (compHit.has(p.scene_id) && !p.hit) return { ...p, file: null, frames: p.expected_frames }; const g = cache.lookup(p.key, { deep: false }); need(g.hit, `scene ${p.scene_id} has no valid cached clip after render`); cache.touch(p.key); return { ...p, file: g.file, frames: g.meta.expected_frames }; });
+  // comp nodes: composite the scene clip into its tracked plate; the fragment replaces the plain scene clip in the assembly
+  const compTodo = comps.filter((c) => !c.hit);
+  for (const c of compTodo) {
+    const sc = clips.find((x) => x.scene_id === c.scene_id);
+    const r = await cache.produce(c.key, (tmp) => renderComp(c, sc.file, P.film, tmp, log), { label: `hybrid-render comp ${c.scene_id}`, deep: false });
+    c.produced = r.produced; log(`comp ${c.scene_id} ${r.produced ? `composited in ${c.render_ms} ms` : "produced by another process"}`);
+  }
+  for (const c of comps) {
+    const g = cache.lookup(c.key, { deep: false }); need(g.hit, `comp ${c.scene_id} has no valid cached fragment after render`); cache.touch(c.key);
+    const i = clips.findIndex((x) => x.scene_id === c.scene_id);
+    clips[i] = { ...clips[i], scene_key: clips[i].key, key: c.key, file: g.file, frames: g.meta.expected_frames, width: c.width, height: c.height, comp: true };
+  }
   const totalFrames = clips.reduce((n, c) => n + c.frames, 0), fps = clips[0].fps;
   for (const c of clips) need(c.fps.num === fps.num && c.fps.den === fps.den && c.width === clips[0].width && c.height === clips[0].height, "scenes disagree on fps or frame size; a re-encode assembly is not implemented");
   const sig = new Set(clips.map((c) => { const pv = probeVideo(c.file); return `${pv.codec}/${pv.pix_fmt}/${pv.width}x${pv.height}`; }));
@@ -134,7 +152,8 @@ export async function renderFilm({ args, mode, log = (s) => process.stderr.write
   }
   return {
     ok: true, mode, out: outFile, frames: totalFrames, duration_s: Number(durationS.toFixed(6)), fps, size: `${final.width}x${final.height}`, audio: audio ? path.relative(P.run, audio) : null,
-    scenes: clips.map((c) => ({ scene_id: c.scene_id, action: todo.some((t) => t.scene_id === c.scene_id) ? "rendered" : "reused", frames: c.frames, render_ms: c.render_ms ?? null, miss_reason: c.miss_reason, key: c.key })),
+    scenes: clips.map((c) => ({ scene_id: c.scene_id, action: todo.some((t) => t.scene_id === c.scene_id) ? "rendered" : "reused", frames: c.frames, render_ms: c.render_ms ?? null, miss_reason: c.miss_reason, key: c.scene_key || c.key, ...(c.comp ? { comp_key: c.key, comp_action: compTodo.some((t) => t.scene_id === c.scene_id) ? "composited" : "reused" } : {}) })),
+    comps_rendered: compTodo.map((c) => c.scene_id), comps_reused: comps.filter((c) => !compTodo.includes(c)).map((c) => c.scene_id),
     scenes_rendered: todo.map((p) => p.scene_id), scenes_reused: plan.filter((p) => !todo.includes(p)).map((p) => p.scene_id),
     timings_ms: { total: Date.now() - t0, assemble: Date.now() - ta }, cache: cache.stats(), graph_changed,
   };

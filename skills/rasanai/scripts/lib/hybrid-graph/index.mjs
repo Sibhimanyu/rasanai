@@ -67,13 +67,16 @@ export function readInputs(run, film, opts = {}) {
   try { for (const f of fs.readdirSync(musicDir).sort()) if (/^(music|vo|voice|voiceover).*\.(wav|mp3|m4a|aac|flac)$/i.test(f)) audio.push({ path: `audio/${f}`, sha256: fileSha256(path.join(musicDir, f)) }); } catch {}
   const tracks = {};
   try { for (const f of fs.readdirSync(path.join(film, "hybrid", "tracks")).sort()) { if (!f.endsWith(".json")) continue; const t = readJ(path.join(film, "hybrid", "tracks", f)); if (t && t.asset_id) (tracks[t.asset_id] = tracks[t.asset_id] || []).push({ id: t.id || f.replace(/\.json$/, ""), sha256: hashPath(film, `hybrid/tracks/${f}`) }); } } catch {}
+  const provenance = {};   // generated plates: the model/workflow/seed identity from hybrid/generated/<id>/asset.json (C3: external model identity)
   const assetDigests = {};   // sha256 recorded in sources.json (validated against bytes by W4's reader); fall back to bytes when readable
   for (const a of (sources && Array.isArray(sources.assets) ? sources.assets : [])) {
     let d = a.sha256 || null;
     if (a.path && typeof a.path === "string" && !a.path.includes("..") && !path.isAbsolute(a.path)) { const f = path.join(film, a.path); if (exists(f)) d = fileSha256(f); }
     assetDigests[a.id] = d;
+    const pj = a.rights === "generated" ? readJ(path.join(film, "hybrid", "generated", String(a.id).replace(/[^A-Za-z0-9_.-]/g, "-"), "asset.json")) : null;
+    if (pj && pj.output) provenance[a.id] = { model_id: pj.model_id ?? null, model_revision: pj.model_revision ?? null, workflow_digest: pj.workflow_digest ?? null, seed: pj.config ? pj.config.seed ?? null : null, output_sha256: pj.output.sha256 ?? null };
   }
-  return { score, sources, files, audio, tracks, assetDigests, edits: appliedEdits(run), engine: opts.engine || {}, versions: { skill: skillVersion(), component: COMPONENT_VERSION } };
+  return { score, sources, files, audio, tracks, assetDigests, provenance, edits: appliedEdits(run), engine: opts.engine || {}, versions: { skill: skillVersion(), component: COMPONENT_VERSION } };
 }
 
 function sceneList(score, P) {
@@ -140,7 +143,7 @@ export function compile(inputs) {
       const tag = safeId(l.layer_id);
       const asset = (inputs.sources.assets || []).find((a) => a.id === l.asset_id) || {};
       const m = asset.media || {};
-      const dec = add("source-decode", `source-decode:${tag}`, sc.id, [], { asset_id: l.asset_id, sha256: inputs.assetDigests[l.asset_id] ?? null, media: m },
+      const dec = add("source-decode", `source-decode:${tag}`, sc.id, [], { asset_id: l.asset_id, sha256: (inputs.provenance && inputs.provenance[l.asset_id] ? inputs.provenance[l.asset_id].output_sha256 : null) ?? inputs.assetDigests[l.asset_id] ?? null, media: m, provenance: (inputs.provenance && inputs.provenance[l.asset_id]) || null },
         out("video", { width: m.width ?? w, height: m.height ?? h, fps_num: m.fps_num ?? fps.num, fps_den: m.fps_den ?? fps.den }));
       const trim = add("trim", `trim:${tag}`, sc.id, [dec.id], { in_s: l.in_s, duration_s: l.duration_s }, out("video", { alpha: l.render_role === "matte" ? "straight" : "none" }), { range: [l.in_s, r6(l.in_s + l.duration_s)] });
       let last = trim;
