@@ -1,6 +1,9 @@
 (function () {
   "use strict";
   var root = document.documentElement;
+  // ?measure: every scene follows the scroll position exactly (no springs, no resting points), for timing measurements;
+  // ?pace only publishes window.__pace (the timeline position of the Squeak scene, the crew's resting points) and changes nothing
+  var measure = /[?&]measure\b/.test(location.search), PACE = measure || /[?&]pace\b/.test(location.search) ? (window.__pace = {}) : null;
   var reduceQ = window.matchMedia("(prefers-reduced-motion: reduce)");
   var wideQ = window.matchMedia("(min-width: 900px)");
   function pinned() { return root.classList.contains("pin"); }
@@ -22,7 +25,145 @@
   function calm() { return reduceQ.matches; }
   var clamp = function (v, a, b) { return Math.min(b, Math.max(a, v)); };
   var seg = function (v, a, b) { return clamp((v - a) / (b - a), 0, 1); };
-  var ease = function (t) { return 1 - Math.pow(1 - t, 3); };
+  // the curves are gentle on purpose: a soft quadratic out (never more than twice the average speed), a smoothstep in-out (1.5x) and
+  // a cruise (a flat run with short ramps, 1.25x) for anything that travels a long way, so no motion has a sharp peak of its own
+  var ease = function (t) { return 1 - (1 - t) * (1 - t); };
+  var cruise = function (t, a) { var k = 1 / (1 - a); return t < a ? k * t * t / (2 * a) : t < 1 - a ? k * (t - a / 2) : 1 - k * (1 - t) * (1 - t) / (2 * a); };
+  /* ---------- retiming: how a scene's timeline is spread over its scroll ----------
+     A scene's timeline t (0..1) is what its render() draws; scroll fraction x (0..1) is how far through its pinned track the reader
+     is. MAPS[scene].d / .m (desktop / phones) are flat lists of knots [x0, t0, x1, t1, ...], joined by a monotone cubic (no
+     overshoot, no kinks), that give every stretch of the timeline the scroll it needs: busy stretches get more of the track, still
+     ones less, so the picture changes by about the same amount per px of scroll everywhere (see PACE_VH below for the ceiling on
+     speed). A scene with no entry plays 1:1. */
+  var MAPS = {
+    hero: {
+      d: [
+      0,0, 0.3114,0.3548, 0.3821,0.4355, 0.4105,0.4677, 0.4846,0.5484, 0.5206,0.5806, 0.5417,0.5968, 0.5658,0.6129,
+      0.6209,0.6452, 0.6502,0.6613, 0.7051,0.6935, 0.7491,0.7258, 0.7845,0.7581, 0.8003,0.7742, 0.8584,0.8387, 0.9009,0.8871,
+      1,1
+      ],
+      m: [
+      0,0, 0.2034,0.2354, 0.3165,0.3662, 0.3844,0.4447, 0.4308,0.497, 0.4812,0.5493, 0.5098,0.5755, 0.5422,0.6016,
+      0.5794,0.6278, 0.6698,0.6801, 0.712,0.7062, 0.7478,0.7324, 0.7794,0.7586, 0.8075,0.7847, 0.8334,0.8109, 0.8577,0.837,
+      0.9269,0.9155, 1,1
+      ]
+    },
+    flight: {
+      d: [
+      0,0, 0.0276,0.0333, 0.0566,0.0667, 0.0879,0.1, 0.1225,0.1333, 0.1611,0.1667, 0.2052,0.2, 0.2539,0.2333,
+      0.306,0.2667, 0.3598,0.3, 0.4121,0.3333, 0.4603,0.3667, 0.503,0.4, 0.5408,0.4333, 0.5747,0.4667, 0.6056,0.5,
+      0.6345,0.5333, 0.6619,0.5667, 0.7409,0.6667, 0.8187,0.7667, 1,1
+      ],
+      m: [
+      0,0, 0.0551,0.1037, 0.1176,0.159, 0.1893,0.2142, 0.2751,0.2694, 0.3635,0.3246, 0.4449,0.3799, 0.514,0.4351,
+      0.5748,0.4903, 0.629,0.5455, 0.6788,0.6007, 0.7258,0.656, 0.8591,0.8216, 1,1
+      ]
+    },
+    crew: {
+      d: [
+      0,0, 0.0284,0.0316, 0.0309,0.0364, 0.0361,0.0459, 0.0539,0.0791, 0.0659,0.0981, 0.0811,0.1076, 0.1005,0.1187,
+      0.1156,0.1266, 0.1327,0.144, 0.1597,0.1741, 0.1751,0.1899, 0.2059,0.2073, 0.2257,0.2168, 0.2421,0.2326, 0.2563,0.2484,
+      0.2627,0.2563, 0.2655,0.2611, 0.2722,0.2769, 0.284,0.3054, 0.2925,0.3259, 0.2981,0.3386, 0.3136,0.3576, 0.3335,0.3797,
+      0.3533,0.4019, 0.3635,0.413, 0.3713,0.4193, 0.3803,0.4241, 0.4038,0.4367, 0.4224,0.4509, 0.4391,0.4668, 0.4725,0.4842,
+      0.4824,0.4921, 0.495,0.5047, 0.5184,0.5174, 0.5245,0.5222, 0.532,0.5301, 0.5433,0.5427, 0.5788,0.5823, 0.593,0.5981,
+      0.6021,0.6076, 0.6151,0.6171, 0.6204,0.6218, 0.6277,0.6297, 0.6419,0.6456, 0.6493,0.6535, 0.6547,0.6582, 0.6682,0.6677,
+      0.6773,0.6772, 0.6915,0.693, 0.6988,0.7009, 0.7187,0.7168, 0.7417,0.7421, 0.749,0.75, 0.7544,0.7547, 0.7636,0.7611,
+      0.7706,0.7674, 0.7905,0.7896, 0.7978,0.7975, 0.8032,0.8022, 0.8185,0.8133, 0.8331,0.8291, 0.8601,0.8592, 0.8843,0.8861,
+      0.8998,0.9019, 0.9199,0.9241, 0.944,0.9509, 0.9569,0.9652, 0.9667,0.9731, 0.9817,0.981, 1,1
+      ],
+      m: [
+      0,0, 0.0465,0.0617, 0.062,0.0822, 0.0722,0.0939, 0.0807,0.0998, 0.0875,0.1027, 0.1063,0.1085, 0.1369,0.1202,
+      0.1563,0.129, 0.1638,0.1348, 0.1693,0.1407, 0.1739,0.1465, 0.185,0.1611, 0.194,0.1728, 0.2022,0.1816, 0.2098,0.1875,
+      0.2245,0.1962, 0.2428,0.2079, 0.2525,0.2167, 0.2688,0.2372, 0.293,0.2693, 0.3745,0.3775, 0.3965,0.4067, 0.4109,0.4243,
+      0.4178,0.4301, 0.4362,0.4418, 0.4471,0.4476, 0.4628,0.4564, 0.4769,0.4652, 0.4973,0.4798, 0.5108,0.4886, 0.5276,0.5003,
+      0.5407,0.509, 0.5545,0.5178, 0.5611,0.5237, 0.5798,0.547, 0.6084,0.585, 0.6249,0.6055, 0.6315,0.6114, 0.6397,0.6172,
+      0.6459,0.6231, 0.6668,0.6494, 0.6755,0.6581, 0.6833,0.664, 0.6897,0.6698, 0.716,0.702, 0.7227,0.7078, 0.7308,0.7137,
+      0.7369,0.7195, 0.7487,0.7341, 0.7531,0.74, 0.7635,0.7517, 0.7752,0.7605, 0.7816,0.7663, 0.8078,0.7985, 0.8144,0.8043,
+      0.8222,0.8102, 0.8306,0.8189, 0.8419,0.8335, 0.8639,0.8628, 0.8753,0.8774, 0.8923,0.8979, 0.908,0.9183, 0.9322,0.9505,
+      0.9436,0.9651, 0.9494,0.9709, 0.9584,0.9768, 0.9828,0.9856, 0.9919,0.9914, 0.995,0.9943, 1,1
+      ]
+    },
+    control: {
+      d: [
+      0,0, 0.0407,0.0451, 0.0659,0.0717, 0.081,0.084, 0.0997,0.0984, 0.1247,0.1168, 0.1693,0.1516, 0.1913,0.168,
+      0.2438,0.209, 0.3434,0.2869, 0.3775,0.3135, 0.3879,0.3217, 0.3971,0.3299, 0.4,0.334, 0.4019,0.3381, 0.4043,0.3463,
+      0.4073,0.3586, 0.4165,0.3955, 0.4493,0.5266, 0.458,0.5615, 0.461,0.5738, 0.4634,0.582, 0.4652,0.5861, 0.4682,0.5902,
+      0.4802,0.6004, 0.496,0.6107, 0.5169,0.6189, 0.5472,0.6291, 0.5975,0.6434, 0.6405,0.6578, 0.6573,0.668, 0.6653,0.6742,
+      0.6732,0.6803, 0.6872,0.6926, 0.6914,0.6988, 0.6933,0.7029, 0.6984,0.7152, 0.7068,0.7357, 0.7378,0.8115, 0.7462,0.832,
+      0.7506,0.8422, 0.7541,0.8484, 0.7598,0.8545, 0.7732,0.8648, 0.7848,0.8709, 0.8108,0.8791, 0.8638,0.8934, 0.8933,0.9016,
+      0.9034,0.9057, 0.9189,0.916, 0.9406,0.9344, 0.9556,0.9508, 0.9834,0.9816, 1,1
+      ],
+      m: [
+      0,0, 0.0179,0.0289, 0.0286,0.0462, 0.036,0.0578, 0.0484,0.0751, 0.0592,0.0867, 0.0733,0.0982, 0.0881,0.1098,
+      0.0939,0.1156, 0.1034,0.1271, 0.1112,0.1387, 0.1221,0.156, 0.1328,0.1734, 0.1524,0.2023, 0.1631,0.2138, 0.1702,0.2196,
+      0.1844,0.2312, 0.1911,0.2369, 0.2015,0.2485, 0.2058,0.2543, 0.2135,0.2658, 0.2395,0.3063, 0.2543,0.3236, 0.2608,0.3294,
+      0.2659,0.3352, 0.2747,0.3467, 0.286,0.3641, 0.3218,0.4219, 0.3332,0.4392, 0.3434,0.4508, 0.351,0.4565, 0.362,0.4623,
+      0.3793,0.4681, 0.4365,0.4797, 0.4619,0.4854, 0.4767,0.4912, 0.4866,0.497, 0.4935,0.5028, 0.5034,0.5143, 0.5124,0.5259,
+      0.5177,0.5317, 0.5246,0.5374, 0.534,0.5432, 0.5476,0.549, 0.6131,0.5663, 0.6321,0.5721, 0.6556,0.5837, 0.6634,0.5895,
+      0.6928,0.6183, 0.6998,0.6241, 0.7247,0.6472, 0.7311,0.653, 0.7455,0.6704, 0.7606,0.6935, 0.7857,0.7339, 0.8321,0.8091,
+      0.858,0.8495, 0.8673,0.8611, 0.873,0.8668, 0.8882,0.8784, 0.9113,0.89, 0.9226,0.8957, 0.9385,0.9073, 0.9488,0.9189,
+      0.9529,0.9246, 0.9641,0.942, 0.9748,0.9593, 1,1
+      ]
+    },
+    projects: {
+      d: [
+      0,0, 1,1
+      ],
+      m: [
+      0,0, 0.2045,0.2982, 0.3182,0.4639, 0.3641,0.5301, 0.4116,0.5964, 0.4369,0.6295, 0.4639,0.6627, 0.4937,0.6958,
+      0.5273,0.7289, 0.566,0.762, 0.6112,0.7952, 0.6643,0.8283, 0.7844,0.8946, 0.8493,0.9277, 0.9167,0.9608, 1,1
+      ]
+    },
+    download: {
+      d: [
+      0,0, 0.1145,0.1548, 0.1761,0.2381, 0.2114,0.2857, 0.2291,0.3095, 0.2473,0.3333, 0.2569,0.3452, 0.2789,0.369,
+      0.2921,0.381, 0.3253,0.4048, 0.3688,0.4286, 0.4193,0.4524, 0.5216,0.5, 0.547,0.5119, 0.5717,0.5238, 0.6097,0.5476,
+      0.6571,0.5833, 0.6731,0.5952, 0.6896,0.6071, 0.7055,0.619, 0.7312,0.6429, 0.7522,0.6667, 0.7798,0.7024, 0.8239,0.7619,
+      1,1
+      ],
+      m: [
+      0,0, 0.0403,0.0932, 0.0674,0.1553, 0.0812,0.1864, 0.0956,0.2174, 0.1112,0.2485, 0.1292,0.2796, 0.1514,0.3106,
+      0.1815,0.3417, 0.2245,0.3727, 0.2913,0.4038, 0.3832,0.4349, 0.4881,0.4659, 0.5931,0.497, 0.6725,0.5281, 0.7306,0.5591,
+      0.7742,0.5902, 0.8076,0.6212, 0.8335,0.6523, 0.8545,0.6834, 0.8722,0.7144, 0.888,0.7455, 0.9025,0.7765, 0.9436,0.8697,
+      1,1
+      ]
+    }
+  };
+  function pchip(K) {
+    var n = K.length / 2, xs = [], ys = [], dl = [], m = [], i;
+    for (i = 0; i < n; i++) { xs.push(K[2 * i]); ys.push(K[2 * i + 1]); }
+    for (i = 0; i < n - 1; i++) dl.push((ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i]));
+    m[0] = dl[0]; m[n - 1] = dl[n - 2];
+    for (i = 1; i < n - 1; i++) m[i] = dl[i - 1] * dl[i] <= 0 ? 0 : 2 * dl[i - 1] * dl[i] / (dl[i - 1] + dl[i]);
+    for (i = 0; i < n - 1; i++) {
+      if (dl[i] === 0) { m[i] = m[i + 1] = 0; continue; }
+      var a = m[i] / dl[i], b = m[i + 1] / dl[i], q = a * a + b * b;
+      if (q > 9) { var tt = 3 / Math.sqrt(q); m[i] = tt * a * dl[i]; m[i + 1] = tt * b * dl[i]; }
+    }
+    return function (x) {
+      if (x <= xs[0]) return ys[0];
+      if (x >= xs[n - 1]) return ys[n - 1];
+      var lo = 0, hi = n - 1;
+      while (hi - lo > 1) { var mid = (lo + hi) >> 1; if (xs[mid] <= x) lo = mid; else hi = mid; }
+      var h = xs[hi] - xs[lo], t = (x - xs[lo]) / h, t2 = t * t, t3 = t2 * t;
+      return (2 * t3 - 3 * t2 + 1) * ys[lo] + (t3 - 2 * t2 + t) * h * m[lo] + (-2 * t3 + 3 * t2) * ys[hi] + (t3 - t2) * h * m[hi];
+    };
+  }
+  var mapFns = {};
+  function mapTable(name) { var t = MAPS[name]; return t && (mpinned() ? t.m : t.d) || null; }
+  function mapFn(name) {
+    var t = mapTable(name); if (!t) return null;
+    var key = name + (mpinned() ? "m" : "d");
+    return mapFns[key] || (mapFns[key] = pchip(t));
+  }
+  // scroll fraction -> timeline, and back (a menu jump or a resting point is named by its moment in the timeline)
+  function mapOf(name) { return function (x) { var f = mapFn(name); return f ? f(x) : x; }; }
+  function unmap(name, t) {
+    var f = mapFn(name); if (!f) return t;
+    var lo = 0, hi = 1;
+    for (var i = 0; i < 28; i++) { var mid = (lo + hi) / 2; if (f(mid) < t) lo = mid; else hi = mid; }
+    return (lo + hi) / 2;
+  }
   function $(s, r) { return (r || document).querySelector(s); }
   function $$(s, r) { return [].slice.call((r || document).querySelectorAll(s)); }
 
@@ -69,7 +210,7 @@
 
   /* ---------- scenes: the hero, the rising screenshot with its crew flight, and any [data-rise] window ---------- */
   var scenes = [];
-  var MBEAT_TRACK = 1.5;   // phones: how many screens of scroll a chapter’s narrator line takes when the chapter is not pinned around it
+  var MBEAT_TRACK = 2.2;   // phones: how many screens of scroll a chapter’s narrator line takes when the chapter is not pinned around it
   function addScene(sc) { scenes.push(sc); return sc; }
   var pinnedMode = { motion: false };
 
@@ -78,7 +219,7 @@
   var copy = heroEl && $("[data-hero-copy]", heroEl);
   if (heroEl) {
     addScene({
-      el: heroEl, pin: true, mpin: true,
+      el: heroEl, pin: true, mpin: true, glide: 110, map: mapOf("hero"),
       progress: function (r, vh) { return clamp(-r.top / Math.max(1, r.height - vh), 0, 1); },
       render: function (p) {
         if (!copy) return;
@@ -178,7 +319,7 @@
           var f = blast[k], t = seg(r, f.at, f.at + .62 + hash(k + 29) * .2);
           // the speed curve: a hard burst (a third of the travel in the first fifth, easing out), then a slow hover with a
           // little bob, then gathering speed away, falling as it goes
-          var u = t < .2 ? .3 * (1 - Math.pow(1 - t / .2, 4))
+          var u = t < .2 ? .3 * (1 - Math.pow(1 - t / .2, 2.2))
             : t < .68 ? .3 + .08 * ((t - .2) / .48)
             : .38 + 1.2 * Math.pow((t - .68) / .32, 2);
           var bob = t > .2 && t < .68 ? Math.sin((t - .2) / .48 * Math.PI * 2 + k) * 6 * Math.sin((t - .2) / .48 * Math.PI) : 0;
@@ -258,11 +399,13 @@
       host.classList.remove("host-ready");
     };
     h.scene = addScene({
-      el: host, pin: true, mpin: h.mobile, glide: host.classList.contains("squeak-scene") ? 170 : 120,   // the device scene glides a touch softer
+      el: host, pin: true, mpin: h.mobile, glide: host.classList.contains("squeak-scene") ? 150 : 120,   // the device scene glides a touch softer
+      map: mapOf(host.id),
       progress: function (r, view) {
         if (h.mtrack && mpinned()) return clamp(-r.top / (h.mtrack * view), 0, 1);
         return clamp(-r.top / Math.max(1, r.height - view), 0, 1);
       },
+      span: function (r, view) { return h.mtrack && mpinned() ? h.mtrack * view : Math.max(1, r.height - view); },
       render: function (p) {
         if (!h.beat) return;
         h.beat.render(seg(p, 0, h.mtrack && mpinned() ? 1 : h.span));
@@ -444,11 +587,10 @@
       // are measured once each, since layout reads after writes every frame are what make a fast scroll stutter
       var stage = stageBox;
       // the Mac's spots come from layout boxes (offsets), which no transform can skew: the notification slides with one,
-      // and the whole device is scaled while the chapter comes in. Measured while the device is the Mac.
-      if (s < .42) {
-        if (!spots.row && callRow) spots.row = layoutSpot(callRow);
-        if (!spots.foot && macFoot) spots.foot = layoutSpot(macFoot);
-      }
+      // and the whole device is scaled while the chapter comes in. The Mac screen keeps its layout size for the whole scene, so
+      // they can be read at any point (a reader who arrives from below, or reloads in the middle, still sees the plane both ways).
+      if (!spots.row && callRow) spots.row = layoutSpot(callRow);
+      if (!spots.foot && macFoot) spots.foot = layoutSpot(macFoot);
       if (!spots.cta && s > .6 && s < .78 && cta) spots.cta = spot(cta, phBox);
       var at = function (sp, W, H, cy) { return { x: g.cx - W / 2 + sp.x * W - stage.left, y: cy - H / 2 + sp.y * H - stage.top, w: sp.w * W }; };
       var go = seg(s, .38, .565), back = seg(s, .78, .905), dir = go > 0 && go < 1 ? "go" : back > 0 && back < 1 ? "back" : "";
@@ -463,7 +605,7 @@
         a = at(spots.cta || { x: .5, y: .8, w: .8 }, g.phW, g.phH, g.cyp); z = at(spots.foot, g.macW, g.macH, g.cym);
         T = [.78, .795, .865, .88, .905]; scr = { W: g.macW, H: g.macH };
       }
-      var lt = seg(s, T[0], T[1]), ft = inOutC(seg(s, T[1], T[2])), dv = seg(s, T[2], T[3]), rv = seg(s, T[3], T[4]);
+      var lt = seg(s, T[0], T[1]), ft = cruise(seg(s, T[1], T[2]), .2), dv = seg(s, T[2], T[3]), rv = seg(s, T[3], T[4]);
       var mob = mpinned();
       var low = function (y) { return Math.max((mob ? 92 : 130) - stage.top, y); };   // never up under the nav
       var P0 = { x: a.x, y: a.y - 40 }, P1 = z, r = Math.min(vh * .12, 110);
@@ -511,13 +653,6 @@
       var sx = (P1.x + stage.left) - (g.cx - scr.W / 2), sy = (P1.y + stage.top) - ((dir === "go" ? g.cyp : g.cym) - scr.H / 2);
       return { x: sx, y: sy, r: ease(rv) * Math.hypot(scr.W, scr.H), dir: dir, rv: rv };
     }
-    // the beats' timeline (s) against scroll: the paper-plane flights (.38-.565 and .78-.905) take three times the scroll
-    var SQ_K = [[0, 0], [.38, .38], [.565, .935], [.78, 1.15], [.905, 1.525], [1, 1.62]];
-    function warpSq(x) {
-      var v = x * 1.62;
-      for (var k = 1; k < SQ_K.length; k++) if (v <= SQ_K[k][1]) { var a = SQ_K[k - 1], b = SQ_K[k]; return a[0] + (b[0] - a[0]) * (v - a[1]) / (b[1] - a[1]); }
-      return 1;
-    }
     var touched = [].concat.apply([], stepRest).concat([].concat.apply([], stepWords)).concat([dev, screen, mac, phone, phBox, pScr]).concat(steps, parts.badges, [darkEl, dkFill, dkDim, dkGlow, dkIris, fly, planeEl, parts.next, parts.note, frL, frP, shL, shP, rimG, rimD, parts.ledger, parts.cta, parts.use, parts.sent]).concat(G.root ? [G.root, G.row, G.r, G.s, G.rm, G.sm, G.rw, G.sw, G.x, G.glow, G.small].concat(G.rings, G.sparks, G.words) : []).filter(Boolean);
     var op = function (el, v) { if (el) el.style.opacity = (+v).toFixed(3); };
     window.addEventListener("resize", function () { spots = { row: null, foot: null, cta: null }; stageBox = null; gGeo = null; lay = null; }, { passive: true });
@@ -529,7 +664,8 @@
       if (fly) stageBox = fly.parentElement.getBoundingClientRect();   // read before any write this frame
       var s0 = seg(p, host.span, 1), vw = window.innerWidth, vh = viewH(), push = 0;
       // the first part of the chapter is the partnership; the five beats share the rest
-      var come = renderGrand(seg(s0, 0, .22)), s = warpSq(seg(s0, .22, 1));
+      var come = renderGrand(seg(s0, 0, .22)), s = seg(s0, .22, 1);   // the beats' timeline; how it is spread over the scroll is the scene's MAPS entry
+      if (PACE) { PACE.s = s; PACE.s0 = s0; }
       // the line: each beat's line rises in and the last one rises out
       steps.forEach(function (el, i) {
         var a = STEP[i][0], b = STEP[i][1], tin = i ? seg(s, a - .015, a + .04) : come, tout = seg(s, b - .045, b + .005);
@@ -638,8 +774,9 @@
   $$("[data-rise]").forEach(function (el) {
     if (el.classList.contains("home-win")) return;   // the Home window rises with the crew flight, below
     addScene({
-      el: el, pin: false,
+      el: el, pin: false, glide: 90,
       progress: function (r, vh) { return clamp((vh - r.top) / (vh * .75), 0, 1); },
+      span: function (r, vh) { return vh * .75; },
       render: function (p) { var e = ease(p); el.style.transform = "translate3d(0," + ((1 - e) * 64).toFixed(1) + "px,0) scale(" + (.93 + .07 * e).toFixed(3) + ")"; },
       reset: function () { el.style.transform = ""; }
     });
@@ -695,7 +832,7 @@
     layoutRests(); window.addEventListener("resize", layoutRests, { passive: true });
     var setRest = function (on) { homeWin.classList.toggle("is-rest", on); };
     var lerp = function (a, b, t) { return a + (b - a) * t; };
-    var inOut = function (t) { return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
+    var inOut = function (t) { return t * t * (3 - 2 * t); };
     var shown = false, away = null;
     var setShown = function (on) {
       if (on === shown) return; shown = on;
@@ -708,7 +845,7 @@
     };
     var shotBand = homeWin.closest(".shot-band");
     var flight = addScene({
-      el: shotBand, pin: true, mpin: true,
+      el: shotBand, pin: true, mpin: true, glide: 110, map: mapOf("flight"),
       // 0..1 while the screenshot rises into its resting place; at 1 every cut-out sits exactly on its painted-out spot,
       // so the flyers give way to the screenshot's own crew in one frame
       // 0..1 through the band's pinned stretch: the window rises over the first 85% of it and rests for the rest
@@ -774,7 +911,7 @@
      When a scroll comes to rest between two introductions, it settles on the one its momentum points at: the nearest to where
      the flick would have carried it. Before the first and after the last, and everywhere else on the page, scrolling is free. */
   var lastY = window.scrollY, scrollT = 0, dir = 1, vel = 0, restTimer = 0, spring = 0;
-  var noRest = /[?&]norest\b/.test(location.search);   // for frame-by-frame checks: hold any scroll position
+  var noRest = measure || /[?&]norest\b/.test(location.search);   // for frame-by-frame checks: hold any scroll position
   // the glide is a critically damped spring on the scroll position: it starts with the speed the reader was scrolling at, so the
   // hand-off from their flick is continuous, and it eases into the introduction without overshooting it. Any input stops it.
   var OMEGA = 8.5;   // spring stiffness (rad/s): settled in about 0.7 s
@@ -828,14 +965,15 @@
      Stacked, the plain anchors do the job. */
   function jumpTarget(name) {
     if (!(pinned() || mpinned()) || calm()) return null;
-    var at = function (el, p) { var r = el.getBoundingClientRect(); return window.scrollY + r.top + p * Math.max(0, r.height - viewH()); };
-    if (name === "crew" && crewOn) return at(crewScene, CREW_OPEN + .03 * (1 - CREW_OPEN));
+    // t is a moment in the scene's timeline; the scroll it sits at comes from the scene's retiming
+    var at = function (el, t, key) { var r = el.getBoundingClientRect(); return window.scrollY + r.top + unmap(key, t) * Math.max(0, r.height - viewH()); };
+    if (name === "crew" && crewOn) return at(crewScene, CREW_OPEN + .03 * (1 - CREW_OPEN), "crew");
     var host = hosts.filter(function (h) { return h.beat && h.host.id === (name === "squeak" ? "control" : name); })[0];
     if (!host) return null;
     // phones, projects: the line has just finished and the chapter’s first screen is up
     if (host.mtrack && mpinned()) return window.scrollY + host.host.getBoundingClientRect().top + host.mtrack * viewH();
     // Squeak: past the partnership, its first line fully in; projects: revealed
-    return at(host.host, name === "squeak" ? host.span + (1 - host.span) * (.22 + .78 * .1) : .86);
+    return at(host.host, name === "squeak" ? host.span + (1 - host.span) * (.22 + .78 * .16) : .86, host.host.id);
   }
   $$("[data-jump]").forEach(function (a) {
     a.addEventListener("click", function (e) {
@@ -852,48 +990,47 @@
       requestAnimationFrame(function () { veil.classList.add("on"); });
       setTimeout(function () {
         window.scrollTo({ top: Math.round(jumpTarget(a.getAttribute("data-jump")) || y), behavior: "instant" });
+        snapAll = true; request();   // behind the veil every scene lands on its moment; none plays through to it
         setTimeout(function () { veil.classList.remove("on"); }, 120);
       }, 230);
     });
   });
 
-  /* ---------- the loop: rAF only while something is moving ---------- */
-  var raf = 0, vh = viewH(), lastT = 0;
+  /* ---------- the loop: rAF only while something is moving ----------
+     PACING. Every pinned scene's progress chases its scroll target with a critically damped spring (solved exactly, so it is the same
+     at 60 and 120 Hz) and a ceiling on how fast the picture may be played: PACE_VH viewport heights of scroll per second, as if the
+     reader scrolled at that speed. Each scene's timeline is retimed (MAPS, above the scenes) so the same scroll distance always buys
+     about the same amount of change; the ceiling then means the same thing everywhere. A slow scroll never reaches it; a hard flick
+     plays through at the ceiling and catches up, instead of skipping frames. The chase is position-only, so scrolling back retraces
+     the same frames. */
+  var raf = 0, vh = viewH(), lastT = 0, snapAll = false;
+  var PACE_VH = 1.8, PACE_VH_M = 1.6;   // desktop / phones: viewport heights of scroll per second the picture will play at most
+  function chase(s, target, dtMs, span) {
+    var w = 1700 / (s.glide || 120), h = Math.min(dtMs, 50) / 1000, x0 = s.cur - target, v0 = s.vel || 0;
+    var c = v0 + w * x0, e = Math.exp(-w * h), x1 = (x0 + c * h) * e, v1 = (v0 - w * c * h) * e;
+    var lim = (mpinned() ? PACE_VH_M : PACE_VH) * vh / span, step = target + x1 - s.cur;   // progress per second the picture may move at most
+    if (Math.abs(step) > lim * h) { step = step < 0 ? -lim * h : lim * h; v1 = Math.max(-lim, Math.min(lim, v1)); }
+    s.cur += step; s.vel = v1;
+    if (Math.abs(target - s.cur) * span < .25 && Math.abs(s.vel) * span < 4) { s.cur = target; s.vel = 0; }
+  }
+  function draw(s, v) { s.render(s.map ? s.map(v) : v); s.last = v; }
   function tick(now) {
     raf = 0;
     // frame time, so a glide feels the same at 60 and 120 Hz; a long gap (a background tab) counts as one frame
     var dt = lastT && now - lastT < 100 ? now - lastT : 16.7; lastT = now;
     if (!pinnedMode.motion) return;
     var rects = scenes.map(function (s) { return s.el.getBoundingClientRect(); });
-    var more = false;
+    var more = false, snap = snapAll || measure; snapAll = false;
     scenes.forEach(function (s, i) {
       if (s.pin && !pinned() && !(s.mpin && mpinned())) return;   // pinned scenes run in the sticky layouts: desktop, or phones for scenes that opt in
       var r = rects[i], near = r.bottom > -vh * .5 && r.top < vh * 1.5;
       var target = s.progress(r, vh);
-      // direct scenes follow the scroll position exactly, so reversing scroll retraces the same frames
-      if (s.direct) { if (s.last !== target) { s.render(target); s.last = target; } return; }
-      // gliding scenes chase the scroll position with a time-based ease, so a fast flick or a coarse wheel step plays as motion
-      // instead of jumping frames; the chase is position-only, so reversing scroll still retraces the same frames
-      if (s.glide) {
-        // a critically damped spring on the progress (it carries velocity, so a fast flick eases in and out instead of
-        // stepping); the spring is stiffer for a shorter glide. Far from the screen it simply snaps.
-        if (s.cur === undefined || !near) { s.cur = target; s.vel = 0; }
-        else {
-          var w = 1700 / s.glide, h = Math.min(dt, 34) / 1000, gd = target - s.cur;
-          s.vel = (s.vel || 0) + (w * w * gd - 2 * w * (s.vel || 0)) * h;
-          s.cur += s.vel * h;
-          if (Math.abs(target - s.cur) < .00004 && Math.abs(s.vel) < .0004) { s.cur = target; s.vel = 0; }
-        }
-        if (s.cur !== target) more = true;
-        if (s.cur !== s.last) { s.render(s.cur); s.last = s.cur; }
-        return;
-      }
-      if (s.cur === undefined) s.cur = target;
-      if (!near) { s.cur = target; if (s.last !== target) { s.render(target); s.last = target; } return; }
-      var d = target - s.cur;
-      s.cur = Math.abs(d) < .0006 ? target : s.cur + d * .2;
+      // far from the screen, the first frame it is back in range (a reload or a jump landed inside it), after a menu jump, or when
+      // measuring the timeline itself, a scene simply follows the scroll position; it only chases while the reader is scrolling
+      if (s.cur === undefined || !near || s.far || snap) { s.far = !near; s.cur = target; s.vel = 0; if (s.last !== target) draw(s, target); return; }
+      chase(s, target, dt, s.span ? s.span(r, vh) : Math.max(1, r.height - vh));
       if (s.cur !== target) more = true;
-      if (s.cur !== s.last) { s.render(s.cur); s.last = s.cur; }
+      if (s.cur !== s.last) draw(s, s.cur);
     });
     if (more) request();
   }
@@ -957,7 +1094,7 @@
   var CREW_TM = { bk: [.8, .865], pay: [.84, .865], w: .865, ws: .07, sp: [.958, .985], cam: .962 };
   var CREW_NEAR = 1.35;                           // a character's size at depth 1
   var mix = function (a, b, t) { return a + (b - a) * t; };
-  var inOutC = function (t) { return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
+  var inOutC = function (t) { return t * t * (3 - 2 * t); };
   var crewOn = false, crewGeo = null, crewRun = null, crewBeat = null;
   var CREW_OPEN = .26;   // the first part of the track is the opening line ("Behind that box, a whole crew."), which scatters off Rasan
 
@@ -1097,7 +1234,7 @@
       var kk = i + 1, node = crew.nodes[kk], card = crew.cards[kk], s0 = CREW_ARRIVE + i * CREW_GAP, fr = g.from[i];
       // place on the circle: specialist i starts at i * 60 degrees from the right-hand point, and the whole circle turns
       var ang = i * Math.PI / 3 + th + g.a0, cx = ox + g.R * Math.cos(ang), cy = oy + g.R * Math.sin(ang);
-      var e = ease(seg(p, s0, s0 + CREW_FLY)), spot = crewSpot(p, i), se = inOutC(spot);
+      var e = cruise(seg(p, s0, s0 + CREW_FLY), .3), spot = crewSpot(p, i), se = inOutC(spot);
       place(node, crew.imgs[kk], kk, mix(fr[0], cx, e), mix(fr[1], cy, e), mix(.8, 1, e) * mix(1, g.spot, se), CREW_TILT[i] * (1 - e), p < s0 ? 0 : 1);
       node.style.zIndex = spot > 0 ? "3" : "";
       // the name tag shows once landed, and gives way to the card while introduced
@@ -1146,13 +1283,17 @@
     var at = function (q) { return CREW_OPEN + q * (1 - CREW_OPEN); }, q = [];
     for (var i = 0; i < 6; i++) {
       var a = i ? CREW_TURN + i * CREW_STEP + CREW_SWING : CREW_TURN, b = CREW_TURN + (i + 1) * CREW_STEP;
-      q.push(at((a + b) / 2));
+      q.push(unmap("crew", at((a + b) / 2)));
     }
     return q;
   }
 
+  if (PACE) PACE.rests = function () {
+    var r = crewScene.getBoundingClientRect(), span = Math.max(1, r.height - viewH()), top = window.scrollY + r.top;
+    return crewRests().map(function (p) { return Math.round(top + p * span); });
+  };
   crewRun = crew && addScene({
-    el: crewScene, pin: true, mpin: true, glide: 140,
+    el: crewScene, pin: true, mpin: true, glide: 140, map: mapOf("crew"),
     progress: function (r, view) { return clamp(-r.top / Math.max(1, r.height - view), 0, 1); },
     render: renderCrew,
     reset: clearCrew
