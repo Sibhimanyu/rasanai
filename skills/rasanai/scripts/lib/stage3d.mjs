@@ -25,7 +25,18 @@ export function install(destRoot) {
   const dst = path.join(destRoot, "assets", "three");
   // the runtime file itself decides (a fix without a version bump still reaches the project)
   const same = ["rasan3d.js", "rasan-music.js", "glsl.js", "character-rig.js"].every((f) => exists(path.join(dst, f)) && fs.readFileSync(path.join(dst, f), "utf8") === fs.readFileSync(path.join(STAGE, f), "utf8"));
-  const updated = !same || !exists(path.join(dst, "three.core.min.js"));
+  // stage3d/recipes/ too, so a recipe edit refreshes projects (absent folder: unchanged behaviour)
+  const recipesSame = (function cmp(rel) {
+    const s = path.join(STAGE, "recipes", rel);
+    if (!exists(s)) return true;
+    return fs.readdirSync(s, { withFileTypes: true }).every((e) => {
+      const r = path.join(rel, e.name);
+      if (e.isDirectory()) return cmp(r);
+      const d = path.join(dst, "recipes", r);
+      return exists(d) && fs.readFileSync(d).equals(fs.readFileSync(path.join(STAGE, "recipes", r)));
+    });
+  })("");
+  const updated = !same || !recipesSame || !exists(path.join(dst, "three.core.min.js"));
   if (updated) {
     fs.rmSync(dst, { recursive: true, force: true });
     copyDir(STAGE, dst);
