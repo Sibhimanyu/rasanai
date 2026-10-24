@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.26.0 (2026-10-24): Motion Studio: reference motion, motion kit, click-to-revise elements
 
 - **Reference motion.** `scripts/reference-motion.mjs` (`ingest`, `analyze --fast`, `summarize --for crew`, `check`) turns a video the owner likes into `reference-motion.json` (cuts, shots, palette, energy arc, uncertainties; rights are required, the file's path stays private) and a short crew packet. A recipe step (`scripts/lib/reference-recipe`) lists transferable mechanics and what is not transferable. Inspiration for rhythm and mechanics only; never its logos, footage, audio or copy.
 - **Motion kit.** `motion-kit/catalog.json` registers 32 named mechanics (4 in each of 8 families); 12 are implemented in `runtime/rasan-motion-kit.js`, the other 20 are catalogued and report `implemented: false`. `scripts/motion-kit.mjs` (`list`, `suggest`, `inspect`, `scaffold`, `check`) gives a deterministic shortlist, not a decision; scenes carry `data-motion-kit="motion-kit:<id>@<ver>"`. Not the older `motionkit.mjs` (RasanMotion verbs), which is unchanged.
