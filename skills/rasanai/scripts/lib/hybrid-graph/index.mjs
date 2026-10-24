@@ -154,7 +154,7 @@ export function compile(inputs) {
     compIds.push(c.id);
   }
   const grade = add("color-finish", "color-finish", null, compIds, { grade: score.grade ?? score.finish ?? null, effects: inputs.files.effects.sha256, color }, out("video"));
-  const mix = add("sound-mix", "sound-mix", null, [], { audio: inputs.audio, events: inputs.files.events.sha256, duration_s: r6(scenes[scenes.length - 1].start_s + scenes[scenes.length - 1].duration_s) }, out("audio", { pix_fmt: "none", width: 0, height: 0, fps_num: 0, fps_den: 1, alpha: "none" }), { sample_rate: score.sample_rate ?? 48000 });
+  const mix = add("sound-mix", "sound-mix", null, [], { audio: inputs.audio, duration_s: r6(scenes[scenes.length - 1].start_s + scenes[scenes.length - 1].duration_s) }, out("audio", { pix_fmt: "none", width: 0, height: 0, fps_num: 0, fps_den: 1, alpha: "none" }), { sample_rate: score.sample_rate ?? 48000 });
   add("package", "package", null, [grade.id, mix.id], { codec: eng.codec, container: eng.container ?? "mp4" }, out("video"));
 
   const source_digest = sha256(canonical({ score: inputs.files.score.sha256, cut: inputs.files.cut, sources: inputs.files.sources.sha256, effects: inputs.files.effects.sha256, events: inputs.files.events.sha256, edits: inputs.edits.map((e) => e.id).sort(), skill: inputs.versions }));
