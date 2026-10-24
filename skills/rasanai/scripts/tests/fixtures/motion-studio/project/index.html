@@ -82,8 +82,7 @@
     .set("#scene-2", { autoAlpha: 0 }, 10);
   // scene 3: the picture lands exactly on the beat at 11.0 s
   tl.set("#scene-3", { autoAlpha: 0 }, 0).set("#scene-3", { autoAlpha: 1 }, 10)
-    .set(q("[data-el='scene-3.hit-card']"), { scale: 0.001 }, 10)
-    .to(q("[data-el='scene-3.hit-card']"), { scale: 1, duration: 0.18, ease: "power4.out" }, 11.0)
+    .fromTo(q("[data-el='scene-3.hit-card']"), { scale: 0.001, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: 0.18, ease: "power4.out" }, 11.0)
     .fromTo(q("[data-el='scene-3.caption']"), { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 }, 11.4)
     .set("#scene-3", { autoAlpha: 0 }, 14.5);
   // scene 4: end card settles by 15.6 s and holds still to the cut
