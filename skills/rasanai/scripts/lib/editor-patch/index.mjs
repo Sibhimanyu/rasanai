@@ -300,12 +300,40 @@ function tokenSet(src, elId, key, value) {
   }
   throw fail(`no ${key} token on data-el="${elId}" (looked for ${TOKEN_NAMES[key].join(", ")}): not a simple change`);
 }
+// Swift inspector shapes (MotionEditRequest.fields) -> token conventions. position {dx,dy} are DELTAS as fractions of the frame
+// (dx * frame width px, dy * frame height px) ADDED to the element's current --el-x/--el-y (or data-x/data-y) token (px);
+// scale is a MULTIPLIER applied to the current --el-scale/--scale/data-scale token (1 when it is not a number). The token must
+// already exist on the element (apply-simple never adds one). Frame size: motion/element-index.json frame_size, else the first data-width/data-height.
+function frameSize(proj) {
+  const ix = readIndex(proj);
+  if (ix && ix.frame_size && ix.frame_size.w > 0 && ix.frame_size.h > 0) return ix.frame_size;
+  for (const f of listHtml(proj)) {
+    const m = /data-width\s*=\s*"(\d+)"[^>]*data-height\s*=\s*"(\d+)"/.exec(fs.readFileSync(f, "utf8"));
+    if (m) return { w: Number(m[1]), h: Number(m[2]) };
+  }
+  return { w: 1920, h: 1080 };
+}
+function tokenNumber(src, elId, key) {
+  const open = locate(src, elId).open;
+  for (const name of TOKEN_NAMES[key]) {
+    const m = name.startsWith("--") ? new RegExp(`${name}\\s*:\\s*(-?[\\d.]+)`).exec(open) : new RegExp(`\\s${name}\\s*=\\s*["'](-?[\\d.]+)["']`).exec(open);
+    if (m && Number.isFinite(Number(m[1]))) return Number(m[1]);
+  }
+  return null;
+}
+const r2 = (n) => Math.round(n * 100) / 100;
 export function applySimple(run, id, { project } = {}) {
   const proj = resolveProject(run, project);
   const edit = need(run, id);
   const F = files(run);
   if (["applied", "rendered", "reverted"].includes(edit.status)) throw fail(`edit ${id} is already ${edit.status}`);
-  const f = edit.fields || {};
+  const f = { ...(edit.fields || {}) };
+  const swiftPos = f.position && typeof f.position === "object" ? f.position : null, swiftScale = f.scale != null && typeof f.scale === "number" ? f.scale : null;
+  if (swiftPos) {
+    const dx = Number(swiftPos.dx || 0), dy = Number(swiftPos.dy || 0);
+    if (![dx, dy].every(Number.isFinite) || Math.abs(dx) > 2 || Math.abs(dy) > 2) return { ok: false, simple: false, id, step: "needs_model", reason: "position dx/dy must be fractions of the frame" };
+    f.__dx = dx; f.__dy = dy; delete f.position;
+  }
   // operations that need the events manifest or a model are flagged, not guessed
   const flag = (reason, step) => {
     appendStatus(run, id, { note: `${step || "needs_model"}: ${reason}` });
@@ -315,7 +343,7 @@ export function applySimple(run, id, { project } = {}) {
   if (edit.operation === "reorder") return flag("reorder changes the film events", "needs_events_export");
   if (!["modify", "retime"].includes(edit.operation)) return flag(`${edit.operation} is not a simple operation`);
   const tokenKeys = Object.keys(f).filter((k) => TOKEN_NAMES[k] || k === "tokens");
-  const known = new Set(["text", "start", "duration", "tokens", ...Object.keys(TOKEN_NAMES)]);
+  const known = new Set(["text", "start", "duration", "tokens", "position", "__dx", "__dy", ...Object.keys(TOKEN_NAMES)]);
   const unknown = Object.keys(f).filter((k) => !known.has(k));
   if (unknown.length) return flag(`field(s) ${unknown.join(", ")} are not simple`);
   if (!Object.keys(f).length) return flag("no machine-readable fields; use propose");
@@ -326,6 +354,11 @@ export function applySimple(run, id, { project } = {}) {
   let code = before;
   try {
     if (f.text != null) code = setText(code, edit.element_id, f.text);
+    if (f.__dx != null) {
+      const fr = frameSize(proj);
+      for (const [k, d, size] of [["x", f.__dx, fr.w], ["y", f.__dy, fr.h]]) if (d !== 0) code = tokenSet(code, edit.element_id, k, r2((tokenNumber(code, edit.element_id, k) ?? 0) + d * size));
+    }
+    if (swiftScale != null) { f.scale = r2((tokenNumber(code, edit.element_id, "scale") ?? 1) * swiftScale); }
     for (const k of Object.keys(TOKEN_NAMES)) if (f[k] != null) code = tokenSet(code, edit.element_id, k, f[k]);
     if (f.tokens && typeof f.tokens === "object") for (const [n, v] of Object.entries(f.tokens)) {
       if (!/^(--[\w-]+|data-[\w-]+)$/.test(n)) throw fail(`token name not allowed: ${n}`);

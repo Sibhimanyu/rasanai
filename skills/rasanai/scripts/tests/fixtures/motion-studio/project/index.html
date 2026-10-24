@@ -9,6 +9,7 @@
   h1{margin:0;font-size:150px;line-height:1;font-weight:800;letter-spacing:-3px;text-align:center}
   .mask{display:inline-block;overflow:hidden;vertical-align:top}
   .mask>span{display:inline-block}
+  .lines{position:relative;max-width:1700px}
   .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px}
   .win{width:1100px;height:620px;border-radius:24px;background:#151922;border:2px solid #2a3140;position:relative;box-shadow:0 30px 80px #0008}
   .row{position:absolute;left:48px;right:48px;height:64px;border-radius:12px;background:#1d2330;display:flex;align-items:center;padding:0 24px;font-size:30px;color:#c9c4b8}
@@ -22,14 +23,15 @@
   #stage[data-variant="vertical"] .hitcard{width:560px;height:560px}
 </style>
 <script src="assets/vendor/gsap.min.js"></script>
+<script src="assets/rasan-motion-kit/rasan-motion-kit.js"></script>
 <script>window.__timelines={};</script>
 </head><body>
 <div id="stage" data-composition-id="main" data-width="1920" data-height="1080" data-variant="landscape" data-start="0" data-duration="18">
 
   <!-- scene 1: kinetic text hook, hold from ~1.4 s to 5 s -->
-  <section class="clip" id="scene-1" data-scene="scene-1" data-start="0" data-duration="5" data-track-index="1" data-motion-kit="motion-kit:kinetic-type-text-mask-v1@1">
+  <section class="clip" id="scene-1" data-scene="scene-1" data-start="0" data-duration="5" data-track-index="1" data-motion-kit="motion-kit:kinetic-type-text-mask-reveal-v1@1">
     <div class="center">
-      <h1 data-el="scene-1.hero-title" data-el-label="Hero title" data-el-editable="text,color,timing"><span class="mask"><span class="w">Every</span></span> <span class="mask"><span class="w">coin</span></span> <span class="mask"><span class="w">tells</span></span> <span class="mask"><span class="w">a story.</span></span></h1>
+      <div id="s1-lines" class="lines"><h1 data-el="scene-1.hero-title" data-el-label="Hero title" data-el-editable="text,color,timing">Every coin tells a story.</h1></div>
       <div class="sub" data-el="scene-1.subtitle" data-el-label="Subtitle">Lumen Ledger, the quiet spending diary.</div>
     </div>
   </section>
@@ -56,10 +58,10 @@
 
   <!-- scene 4: end card, safe-area hold from 15.6 s to the cut at 18 s -->
   <section class="clip" id="scene-4" data-scene="scene-4" data-start="14.5" data-duration="3.5" data-track-index="1" data-motion-kit="motion-kit:ending-hold-then-cut-v1@1">
-    <div class="safe"><div class="center">
+    <div id="s4-hold" style="position:absolute;inset:0"><div class="safe"><div class="center">
       <h1 data-el="scene-4.end-title" data-el-label="End title">Lumen Ledger</h1>
       <div class="sub" data-el="scene-4.end-line">Free on every desk.</div>
-    </div></div>
+    </div></div></div>
   </section>
 
   <audio id="beat" src="assets/beat.wav" data-start="0" data-duration="18" data-track-index="2" data-volume="1"></audio>
@@ -68,9 +70,8 @@
 (function () {
   var tl = gsap.timeline({ paused: true, defaults: { lazy: false } });
   var q = function (s) { return document.querySelector(s); };
-  // scene 1: masked word rise, then hold (nothing moves from 1.4 s to 5 s)
+  // scene 1: the headline rises out of its clip box via the REAL motion kit (RasanMotionKit.apply, bound to this paused timeline), then holds
   tl.set("#scene-1", { autoAlpha: 0 }, 0).set("#scene-1", { autoAlpha: 1 }, 0.001)
-    .fromTo("#scene-1 .w", { yPercent: 110 }, { yPercent: 0, duration: 0.6, ease: "power3.out", stagger: 0.18 }, 0.2)
     .fromTo(q("[data-el='scene-1.subtitle']"), { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.5, ease: "power2.out" }, 1.0)
     .set("#scene-1", { autoAlpha: 0 }, 5);
   // scene 2: window slides in, rows stagger, chip pops
@@ -81,14 +82,19 @@
     .set("#scene-2", { autoAlpha: 0 }, 10);
   // scene 3: the picture lands exactly on the beat at 11.0 s
   tl.set("#scene-3", { autoAlpha: 0 }, 0).set("#scene-3", { autoAlpha: 1 }, 10)
-    .set(q("[data-el='scene-3.hit-card']"), { scale: 0.001 }, 10)
-    .to(q("[data-el='scene-3.hit-card']"), { scale: 1, duration: 0.18, ease: "power4.out" }, 11.0)
+    .fromTo(q("[data-el='scene-3.hit-card']"), { scale: 0.001, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: 0.18, ease: "power4.out" }, 11.0)
     .fromTo(q("[data-el='scene-3.caption']"), { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 }, 11.4)
     .set("#scene-3", { autoAlpha: 0 }, 14.5);
   // scene 4: end card settles by 15.6 s and holds still to the cut
   tl.set("#scene-4", { autoAlpha: 0 }, 0).set("#scene-4", { autoAlpha: 1 }, 14.5)
     .fromTo(q("[data-el='scene-4.end-title']"), { autoAlpha: 0, y: 30 }, { autoAlpha: 1, y: 0, duration: 0.7, ease: "power3.out" }, 14.8)
     .fromTo(q("[data-el='scene-4.end-line']"), { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, 15.3);
+  // the two data-motion-kit scenes use the real runtime (assets/rasan-motion-kit/, put there by video.mjs inject). Cues are absolute film seconds.
+  var design = { colors: { fg: "#f4f1ea", bg: "#0b0d12" } };
+  window.__kit = [
+    window.RasanMotionKit.apply({ id: "kinetic-type-text-mask-reveal-v1", timeline: tl, target: q("#s1-lines"), design: design, fps: 30, seed: 1, cues: [0.2], props: { duration: 0.8 } }),
+    window.RasanMotionKit.apply({ id: "ending-hold-then-cut-v1", timeline: tl, target: q("#s4-hold"), design: design, fps: 30, seed: 1, cues: [17.6], props: { at: 15.6 } })
+  ];
   tl.set({}, {}, 18);
   window.__timelines["main"] = tl;
 })();
