@@ -147,6 +147,17 @@
       // every letter its own throw: speed, lift and spin vary a lot, a few go the "wrong" way, and each has a depth: some fly at
       // the reader and grow, some fall back and shrink, so the burst has front and back instead of travelling in clumps
       var wild = hash(k + 13) < .18 ? -1 : 1, depth = hash(k + 17);
+      if (at.mob) {
+        // phones: the throw is sized to the screen. The hover (about .34 of the travel) lands 30-45% of the width and height out from
+        // the impact, so the slow drift is seen on screen; the later gathering of speed and the fall still carry the letters away
+        var pw = window.innerWidth, ph = viewH(), hov = .34;
+        return {
+          vx: sx * wild * pw * (.28 + .17 * hash(k + 19)) / hov * (.85 + .3 * near),
+          vy: (hash(k + 31) < .62 ? -ph * (.22 + .15 * hash(k + 3)) : ph * (.26 + .18 * hash(k + 3))) / hov + dy * 1.2,
+          spin: (hash(k + 5) - .5) * 700, at: nx * .05 + hash(k + 7) * .04, grow: depth < .35 ? .5 + depth : 1 + (depth - .35) * 1.2,
+          g: (1100 + hash(k + 23) * 1000) * ph / 900
+        };
+      }
       return {
         vx: sx * wild * (260 + 900 * near * hash(k + 19) + hash(k) * 520), vy: -(140 + 900 * hash(k + 3) * (.4 + near)) + dy * 2.5,
         spin: (hash(k + 5) - .5) * 900, at: nx * .05 + hash(k + 7) * .04, grow: depth < .35 ? .35 + depth : 1 + (depth - .35) * 2.6,
@@ -365,10 +376,51 @@
     var trailSvg = q(".sq-trail"), planeEl = q(".f-plane"), trailSegs = [];
     if (trailSvg) { trailSvg.innerHTML = ""; for (var ti = 0; ti < 12; ti++) trailSegs.push(trailSvg.appendChild(document.createElementNS("http://www.w3.org/2000/svg", "path"))); }
     var copyEl = q(".sq-copy"), mBandKey = "", mBandBot = 0, devMasked = false;
-    var frL = q(".sq-frame-l"), frP = q(".sq-frame-p"), shL = q(".sq-shadow-l"), shP = q(".sq-shadow-p"), rimEl = q(".sq-rim");
-    // measured from the generated device photos (img/devices/devices.json): the screen hole as a share of each frame, and its aspect
-    var LA = 1.6498, LSW = 0.78549, LSH = 0.80691, PA = 0.4655, PSW = 0.84999, PSH = 0.93328, PRAD = 0.1355;
+    var frL = q(".sq-frame-l"), frP = q(".sq-frame-p"), shL = q(".sq-shadow-l"), shP = q(".sq-shadow-p"), rimG = q(".sq-rim-g"), rimD = q(".sq-rim-d");
+    var phBox = q(".sq-ph"), pScr = q(".sq-pscreen");
+    var dkFill = q(".sq-dark-fill"), dkDim = q(".sq-dark-dim"), dkGlow = q(".sq-dark-glow"), dkIris = q(".sq-dark-iris");
+    // measured from the device photos (img/devices/devices.json): the screen hole as a share of each frame, its aspect, and how far
+    // the screen centre sits above the frame's centre (LLIFT, of the frame height)
+    var LA = 1.6474, LSW = 0.79304, LSH = 0.81367, LLIFT = 0.04094, PA = 0.4655, PSW = 0.84999, PSH = 0.93328, PRAD = 0.1355;
     var darkEl = q(".sq-dark"), fly = q(".sq-fly"), callRow = q(".sq-note"), macFoot = q(".sq-land"), cta = q(".sq-cta");
+    // decode every picture of the device up front, so no frame is decoded (or uploaded) in the middle of a scroll
+    (function () {
+      var pics = [frL, frP, $(".f-plane", root)].concat($$("img", dev)).filter(Boolean);
+      var go = function () { pics.forEach(function (im) { try { if (im.getAttribute("loading") === "lazy") im.loading = "eager"; if (im.decode) im.decode().catch(function () {}); } catch (e) {} }); };
+      if (document.readyState === "complete") go(); else window.addEventListener("load", function () { setTimeout(go, 0); }, { once: true });
+    })();
+    // the device is laid out once per viewport (fixed sizes: the Mac screen is the device box, the iPhone screen its own box,
+    // the dark glass and its rim one box that holds both); nothing here is written while the page scrolls
+    var lay = null, layKey = "";
+    var px = function (v) { return v.toFixed(2) + "px"; };
+    function layout(vw, vh, mob) {
+      var key = vw + "x" + vh + (mob ? "m" : "d");
+      if (lay && layKey === key) return lay;
+      layKey = key;
+      var cx = vw - Math.max(24, (vw - 1220) / 2), left = vw * .42, cy = vh / 2 + 16;
+      var right = cx;
+      cx = (left + right) / 2;
+      var macW = Math.min(right - left, (vh * .78) * LA * LSH, 1100) * LSW, macH = macW / LA;   // frame (screen / LSW wide) takes the old device room
+      var phH = Math.min(vh * .84, 780) * PSH, phW = phH * PA;
+      if (mob) {
+        // phones: the device sits in the top ~60% (under the nav), the line in the rest. The Mac is as wide as the screen
+        // allows; the iPhone as tall as the band allows. Both share one centre, so the plane's route is the same for both.
+        if (mBandKey !== key) { mBandKey = key; mBandBot = Math.max(vh * .45, copyEl.offsetTop - 6); }
+        var dTop = Math.min(84, vh * .12), dBot = mBandBot, band = dBot - dTop;
+        cx = vw / 2; cy = dTop + band / 2 - 2;
+        macW = Math.min(vw * .96 * LSW, (band - 14) * LA * LSH, 680 * LSW); macH = macW / LA;
+        phH = Math.min(band, vh * .68, 620) * PSH; phW = phH * PA;
+      }
+      // the laptop photo's bottom margin is deeper than its top: the Mac sits that much higher than the iPhone, whose centre is cy
+      var lift = (macH / LSH) * LLIFT, UW = Math.max(macW, phW) + 32, UH = Math.max(macH, phH) + 2 * lift + 32;
+      dev.style.width = px(macW); dev.style.height = px(macH);
+      phBox.style.width = px(phW); phBox.style.height = px(phH); phBox.style.margin = px(-phH / 2 + lift) + " 0 0 " + px(-phW / 2);
+      pScr.style.borderRadius = px(phW * PRAD);
+      [darkEl, rimG, rimD].forEach(function (el) { el.style.width = px(UW); el.style.height = px(UH); el.style.margin = px(-UH / 2) + " 0 0 " + px(-UW / 2); });
+      dkGlow.style.width = px(macW * .76); dkGlow.style.height = px(macH * .62); dkGlow.style.margin = px(-macH * .31) + " 0 0 " + px(-macW * .38);
+      return (lay = { cx: cx, cym: cy - lift, cyp: cy, macW: macW, macH: macH, phW: phW, phH: phH, lift: lift, UW: UW, UH: UH });
+    }
+    var shown = function (el, on) { var v = on ? "visible" : "hidden"; if (el._v !== v) { el._v = v; el.style.visibility = v; } };
     // where the flight starts and lands, as fractions of the device box, measured while each screen is at rest
     var spots = { row: null, foot: null, cta: null };
     var layoutSpot = function (el) {
@@ -376,8 +428,8 @@
       while (n && n !== dev) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
       return { x: (x + el.offsetWidth / 2) / dev.offsetWidth, y: (y + el.offsetHeight / 2) / dev.offsetHeight, w: el.offsetWidth / dev.offsetWidth };
     };
-    var spot = function (el) {
-      var d = dev.getBoundingClientRect(), b = el.getBoundingClientRect();
+    var spot = function (el, box) {
+      var d = box.getBoundingClientRect(), b = el.getBoundingClientRect();
       return { x: (b.left + b.width / 2 - d.left) / d.width, y: (b.top + b.height / 2 - d.top) / d.height, w: b.width / d.width };
     };
     var backOut2 = function (t) { var c1 = 1.7, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
@@ -393,22 +445,22 @@
       var stage = stageBox;
       // the Mac's spots come from layout boxes (offsets), which no transform can skew: the notification slides with one,
       // and the whole device is scaled while the chapter comes in. Measured while the device is the Mac.
-      if (s < .42 && dev.offsetWidth > dev.offsetHeight) {
+      if (s < .42) {
         if (!spots.row && callRow) spots.row = layoutSpot(callRow);
         if (!spots.foot && macFoot) spots.foot = layoutSpot(macFoot);
       }
-      if (!spots.cta && s > .6 && s < .78 && cta) spots.cta = spot(cta);
-      var at = function (sp, W, H) { return { x: g.cx - W / 2 + sp.x * W - stage.left, y: g.cy - H / 2 + sp.y * H - stage.top, w: sp.w * W }; };
+      if (!spots.cta && s > .6 && s < .78 && cta) spots.cta = spot(cta, phBox);
+      var at = function (sp, W, H, cy) { return { x: g.cx - W / 2 + sp.x * W - stage.left, y: cy - H / 2 + sp.y * H - stage.top, w: sp.w * W }; };
       var go = seg(s, .38, .565), back = seg(s, .78, .905), dir = go > 0 && go < 1 ? "go" : back > 0 && back < 1 ? "back" : "";
       var clearTrail = function () { for (var k = 0; k < TRAIL; k++) trailSegs[k].setAttribute("d", ""); };
       if (!dir || !spots.row || !spots.foot) { fly.style.opacity = "0"; clearTrail(); return null; }
       fly.setAttribute("data-dir", dir);
       var a, z, T, scr;
       if (dir === "go") {
-        a = at(spots.row, g.macW, g.macH); z = { x: g.cx - stage.left, y: g.cy - g.phH / 2 + g.phH * .3 - stage.top };
+        a = at(spots.row, g.macW, g.macH, g.cym); z = { x: g.cx - stage.left, y: g.cyp - g.phH / 2 + g.phH * .3 - stage.top };
         T = [.38, .4, .5, .52, .565]; scr = { W: g.phW, H: g.phH };
       } else {
-        a = at(spots.cta || { x: .5, y: .8, w: .8 }, g.phW, g.phH); z = at(spots.foot, g.macW, g.macH);
+        a = at(spots.cta || { x: .5, y: .8, w: .8 }, g.phW, g.phH, g.cyp); z = at(spots.foot, g.macW, g.macH, g.cym);
         T = [.78, .795, .865, .88, .905]; scr = { W: g.macW, H: g.macH };
       }
       var lt = seg(s, T[0], T[1]), ft = inOutC(seg(s, T[1], T[2])), dv = seg(s, T[2], T[3]), rv = seg(s, T[3], T[4]);
@@ -456,7 +508,7 @@
         trailSegs[k].style.opacity = ((1 - k / TRAIL) * .6 * (1 - dv)).toFixed(3);
       }
       // where it went in, relative to the screen, and how far the screen has lit up from there
-      var sx = (P1.x + stage.left) - (g.cx - scr.W / 2), sy = (P1.y + stage.top) - (g.cy - scr.H / 2);
+      var sx = (P1.x + stage.left) - (g.cx - scr.W / 2), sy = (P1.y + stage.top) - ((dir === "go" ? g.cyp : g.cym) - scr.H / 2);
       return { x: sx, y: sy, r: ease(rv) * Math.hypot(scr.W, scr.H), dir: dir, rv: rv };
     }
     // the beats' timeline (s) against scroll: the paper-plane flights (.38-.565 and .78-.905) take three times the scroll
@@ -466,12 +518,12 @@
       for (var k = 1; k < SQ_K.length; k++) if (v <= SQ_K[k][1]) { var a = SQ_K[k - 1], b = SQ_K[k]; return a[0] + (b[0] - a[0]) * (v - a[1]) / (b[1] - a[1]); }
       return 1;
     }
-    var touched = [].concat.apply([], stepRest).concat([].concat.apply([], stepWords)).concat([dev, screen, mac, phone]).concat(steps, parts.badges, [darkEl, fly, planeEl, parts.next, parts.note, frL, frP, shL, shP, rimEl, parts.ledger, parts.cta, parts.use, parts.sent]).concat(G.root ? [G.root, G.row, G.r, G.s, G.rm, G.sm, G.rw, G.sw, G.x, G.glow, G.small].concat(G.rings, G.sparks, G.words) : []).filter(Boolean);
+    var touched = [].concat.apply([], stepRest).concat([].concat.apply([], stepWords)).concat([dev, screen, mac, phone, phBox, pScr]).concat(steps, parts.badges, [darkEl, dkFill, dkDim, dkGlow, dkIris, fly, planeEl, parts.next, parts.note, frL, frP, shL, shP, rimG, rimD, parts.ledger, parts.cta, parts.use, parts.sent]).concat(G.root ? [G.root, G.row, G.r, G.s, G.rm, G.sm, G.rw, G.sw, G.x, G.glow, G.small].concat(G.rings, G.sparks, G.words) : []).filter(Boolean);
     var op = function (el, v) { if (el) el.style.opacity = (+v).toFixed(3); };
-    window.addEventListener("resize", function () { spots = { row: null, foot: null, cta: null }; stageBox = null; gGeo = null; }, { passive: true });
+    window.addEventListener("resize", function () { spots = { row: null, foot: null, cta: null }; stageBox = null; gGeo = null; lay = null; }, { passive: true });
     host.clear = function () {
-      spots = { row: null, foot: null, cta: null }; stageBox = null;
-      touched.forEach(function (el) { el.removeAttribute("style"); });
+      spots = { row: null, foot: null, cta: null }; stageBox = null; lay = null; layKey = ""; mBandKey = "";
+      touched.forEach(function (el) { el.removeAttribute("style"); delete el._v; });
     };
     host.extra = function (p) {
       if (fly) stageBox = fly.parentElement.getBoundingClientRect();   // read before any write this frame
@@ -497,49 +549,58 @@
           r.style.transform = "translate3d(0," + ((1 - ease(tin)) * 16 - ease(tout) * 10).toFixed(1) + "px,0)";
         });
       });
-      // the device: Mac -> iPhone over beat 2, and back as beat 4 begins
-      // the device changes shape while its screen is dark glass: Mac -> iPhone (.42-.5) and back (.8-.86)
-      var m = inOutC(seg(s, .42, .5)) - inOutC(seg(s, .8, .86));
-      var dark = (s < .565 ? seg(s, .39, .42) : 0) + (s > .78 && s < .905 ? seg(s, .785, .8) : 0);
-      var right = vw - Math.max(24, (vw - 1220) / 2), left = vw * .42, cx = (left + right) / 2, cy = vh / 2 + 16;
-      var macW = Math.min(right - left, (vh * .78) * LA * LSH, 1100) * LSW, macH = macW / LA;   // frame (screen / LSW wide) takes the old device room
-      var phH = Math.min(vh * .84, 780) * PSH, phW = phH * PA;
+      // the device: Mac -> iPhone over beat 2, and back as beat 4 begins. The Mac screen and the iPhone screen keep fixed layout
+      // sizes for the whole scene; only transform, opacity, clip-path and visibility change below.
+      //   go    .385-.42 the Mac screen dims to black (afterglow)   .405-.455 the laptop dissolves   .445-.495 the glass becomes the
+      //         iPhone's shape   .495-.525 the iPhone dissolves in   .52-.565 the iPhone screen comes on from where the plane lands
+      //   back  .775-.805 the iPhone dims   .785-.825 it dissolves   .825-.86 the glass becomes the Mac's shape   .855-.88 the laptop
+      //         dissolves in   .88-.905 the Mac screen comes on
+      var lo = layout(vw, vh = mpinned() ? viewH() : vh, mpinned());
+      var macW = lo.macW, macH = lo.macH, phW = lo.phW, phH = lo.phH, cx = lo.cx, cy = lo.cym;
+      var go = s < .65;
+      var mm = inOutC(seg(s, .445, .495)) - inOutC(seg(s, .825, .86));
+      var off = go ? ease(seg(s, .385, .42)) : ease(seg(s, .775, .805));
+      var glass = s < .565 ? off : s < .65 ? 0 : s < .905 ? off : 0;
+      var fl = go ? 1 - ease(seg(s, .405, .455)) : ease(seg(s, .855, .88));
+      var fp = go ? ease(seg(s, .495, .525)) : 1 - ease(seg(s, .785, .825));
       if (mpinned()) {
-        // phones: the device sits in the top ~60% (under the nav), the line in the rest. The Mac is as wide as the screen
-        // allows; the iPhone as tall as the band allows. Both share one centre, so the plane's route is the same for both.
-        vh = viewH();
-        var mkey = vw + "x" + vh;
-        if (mkey !== mBandKey) { mBandKey = mkey; mBandBot = Math.max(vh * .45, copyEl.offsetTop - 6); }
-        var dTop = Math.min(84, vh * .12), dBot = mBandBot, band = dBot - dTop;
-        cx = vw / 2; cy = dTop + band / 2 - 2;
-        macW = Math.min(vw * .96 * LSW, (band - 14) * LA * LSH, 680 * LSW); macH = macW / LA;
-        phH = Math.min(band, vh * .68, 620) * PSH; phW = phH * PA;
         // beat 1 ("Squeak tells you first"): the camera pushes in on the Mac's top-right corner so the notification and the
         // menu-bar duck read, then eases back out before the plane launches (.38)
         push = inOutC(seg(s, .185, .235)) * (1 - inOutC(seg(s, .3, .37)));
       }
-      var W = mix(macW, phW, m), H = mix(macH, phH, m), rad = mix(macW * .0017, phW * PRAD, m);
-      // the frames are locked to the screen box at each end and cross-fade out of and into the dark glass; mid-morph is just
-      // that glass with a thin generic rim
-      // a frame shows only while the box is its own shape: |log(aspect / hole aspect)| inside 6%, and each frame is gone before the glass
-      // starts changing shape (out .40-.42 / .78-.80) and back only after it has settled (.50-.52 / .86-.88)
-      var asp = Math.log(W / H), close = function (t) { return 1 - ease(Math.min(1, Math.max(0, Math.abs(asp - Math.log(t)) / .06))); };
-      var fl = (s < .65 ? 1 - ease(seg(s, .40, .42)) : ease(seg(s, .86, .88))) * close(LA);
-      var fp = (s < .65 ? ease(seg(s, .50, .52)) : 1 - ease(seg(s, .78, .80))) * close(PA), rimK = 1 - Math.max(fl, fp), rimPx = 7 * rimK;
-      op(frL, fl); op(frP, fp); op(shL, fl); op(shP, fp);
-      if (rimEl) {
-        rimEl.style.inset = (-rimPx).toFixed(2) + "px"; rimEl.style.borderRadius = (rad + rimPx).toFixed(1) + "px";
-        rimEl.style.boxShadow = "0 0 0 " + (1.5 * rimK).toFixed(2) + "px rgba(143,145,157," + rimK.toFixed(3) + ")";
+      var rev = renderFly(s, { cx: cx, cym: lo.cym, cyp: lo.cyp, macW: macW, macH: macH, phW: phW, phH: phH });
+      // frames cross-fade (eased) as the glass changes shape; a frame never drops to a hard zero, so its layer stays painted
+      op(frL, Math.max(fl, .001)); op(frP, Math.max(fp, .001)); op(shL, fl); op(shP, fp);
+      shown(screen, mm < .002); shown(pScr, mm > .998);
+      var wGl = mix(macW, phW, mm), hGl = mix(macH, phH, mm), rGl = phW * PRAD * mm, yGl = lo.lift * mm;
+      var rimK = Math.max(0, 1 - Math.max(fl, fp)), rimPx = 7 * rimK;
+      var live = glass > .001, irisOn = !!(rev && rev.rv > 0 && rev.rv < 1.0001 && live);
+      shown(darkEl, live); shown(rimG, live && rimK > .001); shown(rimD, live && rimK > .001);
+      if (live) {
+        var UW = lo.UW, UH = lo.UH, ins = function (e) {
+          var t = UH / 2 + yGl - hGl / 2 - e, bt = UH / 2 - yGl - hGl / 2 - e, lf = (UW - wGl) / 2 - e;
+          return "inset(" + t.toFixed(2) + "px " + lf.toFixed(2) + "px " + bt.toFixed(2) + "px " + lf.toFixed(2) + "px round " + Math.max(0, rGl + e).toFixed(2) + "px)";
+        };
+        darkEl.style.clipPath = ins(0); darkEl.style.opacity = glass.toFixed(3);
+        if (rimK > .001) {
+          rimD.style.clipPath = ins(rimPx); rimD.style.opacity = rimK.toFixed(3);
+          rimG.style.clipPath = ins(rimPx + 1.5); rimG.style.opacity = (rimK * .9).toFixed(3);
+        }
+        // afterglow: a soft light in the middle of the dark glass that shrinks and fades as the display switches off
+        var gl = go ? ease(seg(s, .39, .42)) * (1 - ease(seg(s, .42, .46))) : ease(seg(s, .78, .805)) * (1 - ease(seg(s, .805, .845)));
+        var gs = 1 - .6 * (go ? ease(seg(s, .42, .46)) : ease(seg(s, .805, .845)));
+        dkGlow.style.opacity = (gl * .55).toFixed(3);
+        dkGlow.style.transform = "translate3d(0," + yGl.toFixed(1) + "px,0) scale(" + (wGl / macW * gs).toFixed(4) + "," + (hGl / macH * gs).toFixed(4) + ")";
+        // screen on: the iris opens from the plane's landing point while the picture inside comes up from black
+        shown(dkFill, !irisOn); shown(dkDim, irisOn); shown(dkIris, irisOn);
+        if (irisOn) {
+          var sw = rev.dir === "go" ? phW : macW, sh = rev.dir === "go" ? phH : macH, sy0 = rev.dir === "go" ? lo.lift : 0;
+          var ix = UW / 2 - sw / 2 + rev.x, iy = UH / 2 + sy0 - sh / 2 + rev.y;
+          dkIris.style.transform = "translate3d(" + ix.toFixed(1) + "px," + iy.toFixed(1) + "px,0) scale(" + (Math.max(rev.r, 1) / 74).toFixed(4) + ")";
+          dkDim.style.opacity = (1 - ease(seg(rev.rv, .02, .8))).toFixed(3);
+        }
       }
-      // the laptop photo's bottom margin is deeper than its top: lift the Mac so the whole laptop sits centred in the band
-      cy -= (macH / LSH) * .0225 * (1 - m);
-      var rev = renderFly(s, { cx: cx, cy: cy, macW: macW, macH: macH, phW: phW, phH: phH });
-      if (darkEl) {
-        var m2 = rev && rev.rv > 0 ? "radial-gradient(circle at " + rev.x.toFixed(1) + "px " + rev.y.toFixed(1) + "px, transparent " + rev.r.toFixed(1) + "px, #000 " + (rev.r + 60).toFixed(1) + "px)" : "none";
-        darkEl.style.webkitMaskImage = m2; darkEl.style.maskImage = m2;
-      }
-      dev.style.width = W.toFixed(1) + "px"; dev.style.height = H.toFixed(1) + "px";
-      var dz = 1, dcx = cx, dcy = cy + (1 - come) * 40;
+      var dz = 1, dcx = cx, dcy = cy + (1 - come) * 40, W = macW, H = macH;
       if (push > 0) {
         var ZM = Math.min(2.6, Math.max(2.1, vw / 150));   // full push: the Mac about 2.5x, its corner at the screen's top-right
         var fx = vw - 5 - W * ZM / 2, fy = Math.min(84, vh * .12) + 10 + H * ZM / 2;
@@ -552,8 +613,6 @@
       } else if (devMasked) { dev.style.webkitMaskImage = ""; dev.style.maskImage = ""; devMasked = false; }
       dev.style.transform = "translate3d(" + (dcx - W / 2).toFixed(1) + "px," + (dcy - H / 2).toFixed(1) + "px,0) scale(" + (dz * (.9 + .1 * come)).toFixed(4) + ")";
       dev.style.opacity = come.toFixed(3);
-      screen.style.borderRadius = (rad * .94).toFixed(1) + "px";   // a hair inside the hole: the glass backing fills the sliver
-      op(mac, m < .5 ? 1 : 0); op(phone, m < .5 ? 0 : 1); op(darkEl, dark);
       // beat 1: the call arrives, the badge on Squeak's menu-bar duck pops; beat 4: answered, the badge clears
       var done = seg(s, .88, .905), pop = seg(s, .21, .26);
       var popS = pop < 1 ? Math.sin(pop * Math.PI * .5) * (1 + .35 * Math.sin(pop * Math.PI)) : 1;
@@ -886,12 +945,17 @@
     [-.54, -.58, -.76, -.5, 1], [.08, -.62, .12, -.74, 2.3], [.52, -.56, .72, -.56, 1.4], [.6, .52, .8, .48, 1.05],
     [-.22, .6, -.3, .72, 1.8], [.24, .66, .32, .8, 2.7], [-.6, .5, -.82, .5, 1.25]
   ];
-  // portrait: the same cast, spread up and down around the statement (x stays within about 42% of the width)
-  var CREW_DEPTH_M = [
-    [-.46, -.76, -.62, -.92, 1], [.1, -.86, .16, -1.02, 2.3], [.4, -.6, .66, -.72, 1.4], [.42, .72, .66, .84, 1.05],
-    [-.18, .86, -.26, 1, 1.8], [.14, .76, .22, .92, 2.7], [-.44, .62, -.7, .78, 1.25]
-  ];
-  var CREW_NEAR = 1.35;                            // a character's size at depth 1
+  // portrait: the same cast in two bands, above and below the statement. Per character: depth, and in CREW_BAND_M [above the
+  // statement?, x across the width (-1..1), y within the band (0 = its outer edge, 1 = beside the statement)]; enableCrew turns
+  // these into px so everyone stays between the nav pill and the bottom edge. Index 4 of each row is the depth (1 = near).
+  var CREW_DEPTH_M = [[0, 0, 0, 0, 1], [0, 0, 0, 0, 2.3], [0, 0, 0, 0, 1.4], [0, 0, 0, 0, 1.05], [0, 0, 0, 0, 1.8], [0, 0, 0, 0, 2.7], [0, 0, 0, 0, 1.25]];
+  var CREW_BAND_M = [[1, -.62, .45], [1, .12, .1], [1, .7, .7], [0, .72, .3], [0, -.15, .8], [0, .3, .15], [0, -.7, .4]];
+  // the break and the statement, as track progress: the break, the statement's fade-in, where the words start and how long they take,
+  // the slow spread, and the camera. Desktop (D) is as it always was; phones (M) keep the crew around the statement for the whole
+  // word fill and spread and fly only after the last word is full
+  var CREW_TD = { bk: [.8, .88], pay: [.85, .88], w: .87, ws: .08, sp: [.91, .975], cam: .955 };
+  var CREW_TM = { bk: [.8, .865], pay: [.84, .865], w: .865, ws: .07, sp: [.958, .985], cam: .962 };
+  var CREW_NEAR = 1.35;                           // a character's size at depth 1
   var mix = function (a, b, t) { return a + (b - a) * t; };
   var inOutC = function (t) { return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
   var crewOn = false, crewGeo = null, crewRun = null, crewBeat = null;
@@ -940,15 +1004,32 @@
     if (mob) {
       // portrait: Rasan big in the top, his introduction below him; the circle in the top ~55% with the spotlight at its bottom
       // point and the card a bottom sheet; the break spreads the crew mostly up and down around the statement
-      var nw = crew.nodes[0].offsetWidth, vW = W * 2, vH = H * 2;
-      var rh = Math.min(.32 * vH, .8 * vW), top0 = 88, yb = top0 + rh;   // top0: clear of the nav pill
+      // Every moment is balanced in the stage below the nav pill (NAV px): Rasan and his introduction are one centred group; the
+      // circle assembles in the centre, eases up once the introductions begin (above the bottom sheet) and drifts back for the break.
+      var nw = crew.nodes[0].offsetWidth, vW = W * 2, vH = H * 2, NAV = 70, BOT = 16;
+      var leadH = crew.lead.offsetHeight, gap = 12;
+      var rh = Math.max(96, Math.min(.3 * vH, .78 * vW, vH - NAV - BOT - leadH - gap - 24)), gH = rh + gap + leadH;
+      var yb = NAV + Math.max(0, (vH - NAV - BOT - gH) / 2) + rh;   // the bottom of Rasan; his introduction starts gap below it
       crewGeo.big = rh / (1.05 * nw); crewGeo.land = Math.min(2, vW * .46 / nw); crewGeo.spot = 1.5; crewGeo.near = 1.5;
       crewGeo.a0 = Math.PI / 2; crewGeo.ax = 0;
       crewGeo.ay = yb - H - .21 * nw - .315 * nw * crewGeo.big;
-      crewGeo.cy = top0 - 4 + R + nw * .6 - H;
-      crewGeo.depth = CREW_DEPTH_M;
-      crewScene.style.setProperty("--lt", (yb + 12).toFixed(0) + "px");               // where his introduction starts, under him
-      crewScene.style.setProperty("--sd", (H - crewGeo.cy - R).toFixed(1) + "px");    // from the spotlight point down to the screen's bottom edge
+      // the circle: centred in the stage first; up, clear of the tallest card, while the introductions run
+      var sheet = 0; crew.cards.forEach(function (c) { if (c) sheet = Math.max(sheet, c.offsetHeight); });
+      var ext = R + .8 * nw, sheetTop = vH - BOT + 2 - sheet - 8;
+      crewGeo.cyC = (NAV + vH) / 2 - H;
+      crewGeo.cyUp = Math.min(crewGeo.cyC, Math.max(NAV + 6 + ext, (NAV + sheetTop) / 2) - H);
+      crewGeo.cy = crewGeo.cyC;
+      // the break: the cast placed in px in the bands above and below the statement, which sits a little under the middle
+      var dyS = 28, sh = crew.payoff.offsetHeight / 2;
+      crewGeo.depth = CREW_DEPTH_M.map(function (d, k) {
+        var dp = d[4], hk = .525 * nw * crewGeo.near * .8 / dp, top = CREW_BAND_M[k][0];
+        var a = top ? NAV + 6 : H + dyS + sh + 10, b = top ? H + dyS - sh - 10 : vH - 12;
+        var y = a + hk + CREW_BAND_M[k][2] * Math.max(0, b - a - 2 * hk);
+        var x = CREW_BAND_M[k][1] * Math.max(0, W - hk - 10);
+        return [x / W, (y - H) / H, x * 1.3 / W, (y - H + (top ? -1 : 1) * .2 * vH) / H, dp];
+      });
+      crewScene.style.setProperty("--lt", (yb + gap).toFixed(0) + "px");               // where his introduction starts, under him
+      crewScene.style.setProperty("--sd", (H - crewGeo.cyUp - R).toFixed(1) + "px");   // from the spotlight point (circle up) down to the screen's bottom edge
     }
     for (var i = 0; i < 6; i++) {
       var b = CREW_FROM[i] * Math.PI / 180;
@@ -958,7 +1039,7 @@
     }
     // the crew scene starts a screen early, behind the rising window, so its line is already in place when the window uncovers it;
     // the words fill as they are uncovered
-    if (crew.beat) crewBeat = makeBeat(crew.beat, { fill: [.12, .3], out: .42 });
+    if (crew.beat) crewBeat = makeBeat(crew.beat, { fill: [.12, .3], out: .42, mob: mob });
     // the specialists start off-screen, where lazy images would not load until they fly in; fetch and decode them all now
     crew.imgs.forEach(function (im) { var pre = new Image(); pre.src = im.currentSrc || im.src; if (pre.decode) pre.decode().catch(function () {}); });
     crewOn = true;
@@ -983,6 +1064,9 @@
     crew.lead.style.visibility = lo >= 1 ? "hidden" : "";
     // the circle: moves left once everyone is in, then turns one place per introduction (the right-hand point is the spotlight)
     var ox = g.mob ? 0 : -.4 * g.W * inOutC(seg(p, .35, .41)), oy = g.cy, turn = 0;
+    // phones: assembled in the centre, up before the first card opens, back to the centre after the last one for the break
+    if (g.mob) oy = mix(g.cyC, g.cyUp, inOutC(seg(p, .3, .385))) + (g.cyC - g.cyUp) * inOutC(seg(p, .79, .85));
+    var T = g.mob ? CREW_TM : CREW_TD;
     for (var k = 1; k < 6; k++) turn += inOutC(seg(p, CREW_TURN + k * CREW_STEP, CREW_TURN + k * CREW_STEP + CREW_SWING));
     var th = -turn * Math.PI / 3;
     crew.orbit.style.opacity = (seg(p, .2, .3) * .9 * (1 - seg(p, .8, .84))).toFixed(3);
@@ -990,9 +1074,9 @@
     // the break: from .80 each character leaves the circle for its place in depth around the statement, one shortly after another
     // the camera: a slow spread out to the edges while the words fill, then a fast flight through the crew to the end of the track
     // they hold close around the statement while it is written, and only then drift out, gathering speed into the flight
-    var spread = Math.pow(seg(p, .91, .975), 2), cam = 2.4 * Math.pow(seg(p, .955, 1), 1.6);
+    var spread = Math.pow(seg(p, T.sp[0], T.sp[1]), 2), cam = 2.4 * Math.pow(seg(p, T.cam, 1), 1.6);
     var place = function (node, img, k, x, y, s, r, o) {
-      var d = g.depth[k], b = inOutC(seg(p, .8 + k * .006, .88 + k * .006));
+      var d = g.depth[k], b = inOutC(seg(p, T.bk[0] + k * .006, T.bk[1] + k * .006));
       if (b > 0) {
         var z = Math.max(.2, d[4] - cam), f = d[4] / z;
         x = mix(x, mix(d[0], d[2], spread) * g.W * f, b); y = mix(y, mix(d[1], d[3], spread) * g.H * f, b);
@@ -1024,10 +1108,10 @@
       }
     }
     // the statement: in with the break, then each word fills from faint to full, left to right, as the crew spread out
-    crew.payoff.style.opacity = seg(p, .85, .88).toFixed(3);
+    crew.payoff.style.opacity = seg(p, T.pay[0], T.pay[1]).toFixed(3);
     var N = crew.words.length;
     crew.words.forEach(function (w, j) {
-      var t = seg(p, .87 + j * .08 / N, .885 + j * .08 / N);
+      var t = seg(p, T.w + j * T.ws / N, T.w + .015 + j * T.ws / N);
       w.style.opacity = (.16 + .84 * t).toFixed(3);
     });
     if (open < 1) crewOpening(open);

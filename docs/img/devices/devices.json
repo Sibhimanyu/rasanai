@@ -1,16 +1,22 @@
 {
- "laptop": {
-  "image": "laptop.webp",
+ "macbook": {
+  "image": "macbook.webp",
   "width": 2400,
-  "height": 1416,
+  "height": 1420,
   "screen": {
-   "x": 10.735,
-   "y": 7.4,
-   "w": 78.549,
-   "h": 80.691
+   "x": 10.343,
+   "y": 5.222,
+   "w": 79.304,
+   "h": 81.367
   },
-  "screenAspect": 1.6498,
-  "cornerRadiusPctOfScreenWidth": 0,
+  "screenAspect": 1.6474,
+  "cornerRadiusPctOfScreenWidth": 1.02,
+  "notch": {
+   "x": 44.143,
+   "w": 11.726,
+   "h": 2.94,
+   "unit": "percent of screen"
+  },
   "unit": "percent of image"
  },
  "iphone": {
