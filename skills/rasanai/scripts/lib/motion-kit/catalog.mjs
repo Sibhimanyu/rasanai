@@ -44,7 +44,7 @@ export function validateCatalog(data) {
     if (!Array.isArray(it.supports) || !it.supports.length || it.supports.some((s) => !SUPPORTS.includes(s))) err(id, "supports must be a non-empty list of dom-gsap|stage3d");
     for (const k of ["brand_inputs", "motion_inputs", "requires_assets"]) if (!Array.isArray(it[k])) err(id, `${k} must be an array`);
     if (it.seek_safe !== true) err(id, "seek_safe must be true");
-    if (it.implementation && !/^[\w./-]+\.js:\w+$/.test(it.implementation)) err(id, "implementation must look like path.js:fnName");
+    if (it.implementation && !/^[\w./-]+\.js:[\w.]+$/.test(it.implementation)) err(id, "implementation must look like path.js:fnName");
     if (!it.params || typeof it.params !== "object") err(id, "params must be an object");
     else for (const [pn, pd] of Object.entries(it.params)) {
       if (!pd || !PTYPES.includes(pd.type)) { err(id, `param ${pn}: bad type`); continue; }
