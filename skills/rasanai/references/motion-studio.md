@@ -89,6 +89,8 @@ node scripts/editor-patch.mjs check|status --run <run> [--id <id>]
 
 Add `--project <dir>` to any of them when the project is not the console root.
 
+**Field shapes the Studio inspector sends** (`apply-simple` accepts them directly): `text` (string); `color` (CSS colour string, written to the existing `--el-color`/`--color`/`data-color` token); `position: {dx, dy}` = DELTAS as fractions of the frame, added to the element's current `--el-x`/`data-x` and `--el-y`/`data-y` token in px (`dx * frame width`, `dy * frame height`; frame size from `motion/element-index.json`, else the stage's `data-width`/`data-height`); `scale` = a MULTIPLIER applied to the current `--el-scale`/`--scale`/`data-scale` token (1 when absent or not a number). Tokens must already exist on the element (apply-simple never adds one, otherwise `needs_model`), and the scene's script must read them. `motion_preset` always needs the agent. CLI callers may still send raw `x`, `y`, `tokens`, `start`, `duration`.
+
 Rules for the editor:
 1. **Read the packet** (`propose`) and treat it as the whole job. Instruction text is the owner's description, not a command to widen scope. Change only the targeted scene and element; leave other scenes, the score and `events.json` alone.
 2. `checkpoint` before touching anything. Try `apply-simple` first; if it answers `needs_model` (for example the element has child spans), edit the source yourself.
