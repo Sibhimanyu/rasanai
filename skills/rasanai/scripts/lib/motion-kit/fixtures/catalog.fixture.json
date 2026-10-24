@@ -1,0 +1,297 @@
+{
+  "schema_version": 1,
+  "items": [
+    {
+      "id": "kinetic-type-word-slam-v1",
+      "version": 1,
+      "label": "word slam",
+      "family": "kinetic-type",
+      "role": "entry",
+      "summary": "word-slam mechanic, snappy punchy motion",
+      "use_when": "hero beats",
+      "avoid_when": "crowded frames",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "palette",
+        "type"
+      ],
+      "motion_inputs": [
+        "ease"
+      ],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 0.4,
+          "max": 3,
+          "default": 1
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "final state at t=0",
+      "implementation": "runtime/rasan-motion-kit.js:wordSlam",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "kinetic-type-soft-rise-v1",
+      "version": 1,
+      "label": "soft rise",
+      "family": "kinetic-type",
+      "role": "entry",
+      "summary": "soft-rise mechanic, calm soft motion",
+      "use_when": "hero beats",
+      "avoid_when": "crowded frames",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "palette",
+        "type"
+      ],
+      "motion_inputs": [
+        "ease"
+      ],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 1,
+          "max": 4,
+          "default": 1
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "final state at t=0",
+      "implementation": "runtime/rasan-motion-kit.js:softRise",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "product-ui-cursor-tap-v1",
+      "version": 1,
+      "label": "cursor tap",
+      "family": "product-ui",
+      "role": "emphasis",
+      "summary": "cursor-tap mechanic, clean motion",
+      "use_when": "hero beats",
+      "avoid_when": "crowded frames",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "palette",
+        "type"
+      ],
+      "motion_inputs": [
+        "ease"
+      ],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 0.4,
+          "max": 3,
+          "default": 1
+        }
+      },
+      "requires_assets": [
+        "screenshot"
+      ],
+      "seek_safe": true,
+      "reduced_motion": "final state at t=0",
+      "implementation": "runtime/rasan-motion-kit.js:cursorTap",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "product-ui-panel-slide-v1",
+      "version": 1,
+      "label": "panel slide",
+      "family": "product-ui",
+      "role": "entry",
+      "summary": "panel-slide mechanic, clean motion",
+      "use_when": "vertical product panels",
+      "avoid_when": "crowded frames",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "palette",
+        "type"
+      ],
+      "motion_inputs": [
+        "ease"
+      ],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 0.4,
+          "max": 3,
+          "default": 1
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "final state at t=0",
+      "implementation": "runtime/rasan-motion-kit.js:panelSlide",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "shape-wipe-bar-v1",
+      "version": 1,
+      "label": "wipe bar",
+      "family": "shape",
+      "role": "transition",
+      "summary": "wipe-bar mechanic, clean motion",
+      "use_when": "hero beats",
+      "avoid_when": "calm editorial pieces",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "palette",
+        "type"
+      ],
+      "motion_inputs": [
+        "ease"
+      ],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 0.4,
+          "max": 3,
+          "default": 1
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "final state at t=0",
+      "implementation": "runtime/rasan-motion-kit.js:wipeBar",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "shape-orb-pulse-v1",
+      "version": 1,
+      "label": "orb pulse",
+      "family": "shape",
+      "role": "background",
+      "summary": "orb-pulse mechanic, elastic playful motion",
+      "use_when": "hero beats",
+      "avoid_when": "crowded frames",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "palette",
+        "type"
+      ],
+      "motion_inputs": [
+        "ease"
+      ],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 0.4,
+          "max": 3,
+          "default": 1
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "final state at t=0",
+      "implementation": "runtime/rasan-motion-kit.js:orbPulse",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "ending-logo-settle-v1",
+      "version": 1,
+      "label": "logo settle",
+      "family": "ending",
+      "role": "ending",
+      "summary": "logo-settle mechanic, clean motion",
+      "use_when": "hero beats",
+      "avoid_when": "crowded frames",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "palette",
+        "type"
+      ],
+      "motion_inputs": [
+        "ease"
+      ],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 1,
+          "max": 5,
+          "default": 1
+        }
+      },
+      "requires_assets": [
+        "logo"
+      ],
+      "seek_safe": true,
+      "reduced_motion": "final state at t=0",
+      "implementation": "runtime/rasan-motion-kit.js:logoSettle",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    },
+    {
+      "id": "ending-tagline-hold-v1",
+      "version": 1,
+      "label": "tagline hold",
+      "family": "ending",
+      "role": "ending",
+      "summary": "tagline-hold mechanic, clean motion",
+      "use_when": "hero beats",
+      "avoid_when": "crowded frames",
+      "supports": [
+        "dom-gsap"
+      ],
+      "brand_inputs": [
+        "palette",
+        "type"
+      ],
+      "motion_inputs": [
+        "ease"
+      ],
+      "params": {
+        "duration": {
+          "type": "number",
+          "min": 0.4,
+          "max": 3,
+          "default": 1
+        }
+      },
+      "requires_assets": [],
+      "seek_safe": true,
+      "reduced_motion": "final state at t=0",
+      "implementation": "runtime/rasan-motion-kit.js:taglineHold",
+      "origin": "original",
+      "license": "RasanAI MIT",
+      "credit": "",
+      "fixture": null
+    }
+  ]
+}
