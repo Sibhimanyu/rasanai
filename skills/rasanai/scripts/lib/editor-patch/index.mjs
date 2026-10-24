@@ -11,6 +11,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { withLock } from "../runlock.mjs";
 import { locate, innerOf, setText, setToken, getAttr, sceneRoot, visibleText } from "./html.mjs";
+import * as typed from "./typed.mjs";
 
 export const STATUSES = ["requested", "accepted", "applied", "rendered", "failed", "reverted"];
 const OPS = ["modify", "retime", "reorder", "replace", "remove"];
@@ -102,6 +103,7 @@ export function record(run, edit, { project } = {}) {
   const F = files(run);
   const existing = latest(run, id);
   if (existing) return { ok: true, duplicate: true, id, status: existing.status, note: "already recorded; no change" };
+  if (typed.isTyped(edit)) return recordTyped(run, proj, edit, id);
   if (!OPS.includes(edit.operation)) throw fail(`operation must be one of ${OPS.join("|")}`);
   if (typeof edit.time_s !== "number" || !(edit.time_s >= 0)) throw fail("time_s must be a number >= 0");
   if (typeof edit.scene_id !== "string" || !edit.scene_id) throw fail("scene_id is required");
@@ -148,6 +150,49 @@ export function record(run, edit, { project } = {}) {
     return { ok: true, id, status: "requested", downgraded: downgraded ? true : undefined, note };
   });
 }
+
+// New typed operations (C6): stale film_version/build_digest/element digest -> {ok:false, conflict:true, current}, nothing appended.
+function recordTyped(run, proj, edit, id) {
+  const F = files(run);
+  if (typeof edit.time_s !== "number" || !(edit.time_s >= 0)) throw fail("time_s must be a number >= 0");
+  if (typeof edit.scene_id !== "string" || !edit.scene_id) throw fail("scene_id is required");
+  typed.validateTyped(edit);
+  const stale = typed.staleCheck(run, proj, edit, readIndex(proj));
+  if (stale) return { ok: false, conflict: true, id, error: stale.reason, current: stale.current };
+  const line = {
+    schema_version: 1, id, film_version: edit.film_version ?? null, time_s: edit.time_s, scene_id: edit.scene_id, element_id: edit.element_id,
+    region_norm: edit.region_norm ?? null, operation: edit.operation, fields: edit.fields, instruction: edit.instruction || `${edit.fields.kind} ${edit.element_id}`,
+    source: SOURCES.includes(edit.source) ? edit.source : "cli", status: "requested", status_at: now(), note: typeof edit.note === "string" ? edit.note : "", patch: null,
+    original: edit.original ?? null, proposed: edit.proposed,
+  };
+  for (const k of ["build_digest", "element_digest", "asset_id", "track_id", "layer_id", "preview_digest"]) if (edit[k] != null) line[k] = edit[k];
+  return withLock(F.lock, () => {
+    const again = latest(run, id);
+    if (again) return { ok: true, duplicate: true, id, status: again.status, note: "already recorded; no change" };
+    append(run, line);
+    return { ok: true, id, status: "requested" };
+  });
+}
+// record + checkpoint + apply in one call (no model). conflict -> exit 1, nothing appended.
+export function typedEdit(run, edit, { project } = {}) {
+  const proj = resolveProject(run, project);
+  const r = record(run, edit, { project: proj });
+  if (!r.ok || r.duplicate) return r;
+  checkpoint(run, edit.id, { project: proj });
+  return applySimple(run, edit.id, { project: proj });
+}
+export function simpleToken(run, text, { project, id, time_s, film_version, build_digest } = {}) {
+  const proj = resolveProject(run, project);
+  const edit = typed.parseSimple(text, proj, run);
+  edit.id = id || `simple-${Date.now().toString(36)}`;
+  edit.time_s = Number.isFinite(Number(time_s)) ? Number(time_s) : 0;
+  edit.source = "cli";
+  if (film_version != null) edit.film_version = film_version;
+  if (build_digest != null) edit.build_digest = build_digest;
+  return typedEdit(run, edit, { project: proj });
+}
+export const redo = (run, id, { project } = {}) => typed.redoTyped(run, resolveProject(run, project), id);
+export const describeElement = (run, element, scene, { project } = {}) => typed.describe(run, resolveProject(run, project), element, scene);
 
 // ---------------------------------------------------------------- locating the source
 function listHtml(dir, out = [], depth = 0) {
@@ -326,6 +371,7 @@ export function applySimple(run, id, { project } = {}) {
   const proj = resolveProject(run, project);
   const edit = need(run, id);
   const F = files(run);
+  if (typed.isTyped(edit)) return typed.applyTyped(run, proj, id);
   if (["applied", "rendered", "reverted"].includes(edit.status)) throw fail(`edit ${id} is already ${edit.status}`);
   const f = { ...(edit.fields || {}) };
   const swiftPos = f.position && typeof f.position === "object" ? f.position : null, swiftScale = f.scale != null && typeof f.scale === "number" ? f.scale : null;
@@ -421,6 +467,7 @@ export function mark(run, id, status, { note, preview, project } = {}) {
 export function undo(run, id, { project } = {}) {
   const proj = resolveProject(run, project);
   const edit = need(run, id);
+  if (typed.isTyped(edit)) return typed.undoTyped(run, proj, id);
   const man = readManifest(run, id);
   if (!man) throw fail("refused: no checkpoint to restore from");
   const dir = path.join(files(run).checkpoints, id, "files");
@@ -456,7 +503,8 @@ export function check(run, id, { project } = {}) {
     }
     if (!edit.patch || !edit.patch.files || !edit.patch.files.length) problems.push("no patch.files recorded");
   }
-  if (edit.element_id && edit.status !== "reverted") {
+  if (typed.isTyped(edit)) typed.checkTyped(run, proj, edit, problems);
+  if (edit.element_id && edit.status !== "reverted" && !typed.isTyped(edit)) {
     try {
       const src = sourceFileFor(run, proj, edit);
       if (src) locate(fs.readFileSync(src.abs, "utf8"), edit.element_id);
@@ -481,3 +529,7 @@ export function handleMotionEditAction(action, ctx) {
     return { ok: false, error: e.message };
   }
 }
+
+// internals shared with ./typed.mjs (call-time only; the two modules import each other)
+export { appendStatus, need, digestOf, readIndex, frameSize };
+export const appendLine = (run, line) => withLock(files(run).lock, () => append(run, line));
