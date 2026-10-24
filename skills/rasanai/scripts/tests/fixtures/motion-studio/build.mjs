@@ -2,7 +2,7 @@
 // Builds the synthetic "Lumen Ledger" Motion Studio fixture project (invented product, system fonts, no real brands). Never ship it.
 //
 //   node build.mjs --out <dir> [--variant landscape|vertical] [--no-reference] [--no-events]
-//     <dir>/index.html, motion/score.json, motion/events.json (derived with events.mjs export), assets/vendor/gsap.min.js (copied),
+//     <dir>/index.html, motion/score.json, motion/events.json (derived with events.mjs export), assets/vendor/gsap.min.js (copied), assets/rasan-motion-kit/ (via video.mjs inject),
 //     assets/beat.wav (ffmpeg lavfi: a soft pad, a click every 0.5 s, a louder click on the 11.0 s picture hit),
 //     reference.mp4 (13 s synthetic reference: five hard cuts in flat colours, a beep on each cut), edits.jsonl (sample, contract D).
 //   Generated media is never committed. Prints JSON {ok, out, variant, files}. Exit 0 ok, 1 failed, 2 usage.
@@ -29,6 +29,15 @@ export function build({ out, variant = "landscape", reference = true, events = t
   fs.writeFileSync(path.join(out, "index.html"), html); files.push("index.html");
   fs.copyFileSync(path.join(HERE, "project/motion/score.json"), path.join(out, "motion/score.json")); files.push("motion/score.json");
   fs.copyFileSync(path.join(SCRIPTS, "vendor/gsap.min.js"), path.join(out, "assets/vendor/gsap.min.js")); files.push("assets/vendor/gsap.min.js");
+  // the motion kit is installed the real way: video.mjs inject copies runtime/rasan-motion-kit.js + catalog.json into assets/rasan-motion-kit/
+  // (it needs a motion.md and a frame packet, so throwaway stubs stand in for the workflow's and are removed again).
+  fs.mkdirSync(path.join(out, ".hyperframes/frame-packets"), { recursive: true });
+  fs.writeFileSync(path.join(out, "motion.md"), "---\nname: lumen-ledger-fixture\n---\n# fixture motion\n");
+  fs.writeFileSync(path.join(out, ".hyperframes/frame-packets/scene-1.md"), "# stub packet\n");
+  const inj = spawnSync(process.execPath, [path.join(SCRIPTS, "video.mjs"), "inject", "--project-dir", out], { encoding: "utf8" });
+  fs.rmSync(path.join(out, ".hyperframes"), { recursive: true, force: true }); fs.rmSync(path.join(out, "motion.md"), { force: true });
+  if (inj.status !== 0) throw new Error("video.mjs inject failed: " + (inj.stderr || inj.stdout || "").slice(0, 300));
+  files.push("assets/rasan-motion-kit/rasan-motion-kit.js");
   fs.copyFileSync(path.join(HERE, "edits.sample.jsonl"), path.join(out, "edits.jsonl")); files.push("edits.jsonl");
 
   // audio: pad + click every 0.5 s; the click at 11.0 s (the picture hit) is louder and higher
