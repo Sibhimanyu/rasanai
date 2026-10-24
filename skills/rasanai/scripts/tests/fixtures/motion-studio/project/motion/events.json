@@ -1,0 +1,212 @@
+{
+  "schema_version": 1,
+  "derived": "DERIVED by events.mjs export from motion/score.json (the authored truth); a hand edit is overwritten on the next export. Edit the score and regenerate.",
+  "source": {
+    "score": "motion/score.json",
+    "sha256": "7ca9e510718e23b82036f123b8ee7a46e2c0055d3f5d862939f5bbd90bd68a13",
+    "audio_meta": {
+      "path": null,
+      "sha256": null,
+      "status": "missing"
+    },
+    "sfx_plan": {
+      "path": null,
+      "sha256": null,
+      "status": "missing"
+    }
+  },
+  "duration_s": 18,
+  "fps": 30,
+  "scenes": [
+    {
+      "id": "hook",
+      "n": 1,
+      "start_s": 0,
+      "end_s": 5
+    },
+    {
+      "id": "ui",
+      "n": 2,
+      "start_s": 5,
+      "end_s": 10
+    },
+    {
+      "id": "hit",
+      "n": 3,
+      "start_s": 10,
+      "end_s": 14.5
+    },
+    {
+      "id": "end",
+      "n": 4,
+      "start_s": 14.5,
+      "end_s": 18
+    }
+  ],
+  "events": [
+    {
+      "id": "scene-hook-start",
+      "at_s": 0,
+      "frame": 0,
+      "kind": "scene_start",
+      "scene": "hook",
+      "beat": "hook",
+      "source_ref": "scenes[0]"
+    },
+    {
+      "id": "scene-ui-start",
+      "at_s": 5,
+      "frame": 150,
+      "kind": "scene_start",
+      "scene": "ui",
+      "beat": "ui",
+      "source_ref": "scenes[1]"
+    },
+    {
+      "id": "seam-hook-ui",
+      "at_s": 5,
+      "frame": 150,
+      "kind": "seam",
+      "scene": "ui",
+      "beat": "ui",
+      "from": "hook",
+      "attrs": {
+        "cue_kind": "cut"
+      },
+      "source_ref": "seams[0]"
+    },
+    {
+      "id": "music-intro",
+      "at_s": 5,
+      "frame": 150,
+      "kind": "music_cue",
+      "cue": "intro_until",
+      "source_ref": "music_arc.intro_until"
+    },
+    {
+      "id": "hit-ui-1",
+      "at_s": 7.4,
+      "frame": 222,
+      "kind": "visual_hit",
+      "scene": "ui",
+      "beat": "ui",
+      "scene_t_s": 2.4,
+      "attrs": {
+        "what": "synthetic saved chip pops",
+        "sound": "pop"
+      },
+      "source_ref": "scenes[1].events[0]"
+    },
+    {
+      "id": "foley-hit-ui-1",
+      "at_s": 7.4,
+      "frame": 222,
+      "kind": "foley_hit",
+      "scene": "ui",
+      "beat": "ui",
+      "origin": "score",
+      "of": "hit-ui-1",
+      "attrs": {
+        "sound": "pop"
+      },
+      "source_ref": "scenes[1].events[0]"
+    },
+    {
+      "id": "scene-hit-start",
+      "at_s": 10,
+      "frame": 300,
+      "kind": "scene_start",
+      "scene": "hit",
+      "beat": "hit",
+      "source_ref": "scenes[2]"
+    },
+    {
+      "id": "seam-ui-hit",
+      "at_s": 10,
+      "frame": 300,
+      "kind": "seam",
+      "scene": "hit",
+      "beat": "hit",
+      "from": "ui",
+      "attrs": {
+        "cue_kind": "cut"
+      },
+      "source_ref": "seams[1]"
+    },
+    {
+      "id": "music-drop",
+      "at_s": 11,
+      "frame": 330,
+      "kind": "music_cue",
+      "cue": "drop_at",
+      "source_ref": "music_arc.drop_at"
+    },
+    {
+      "id": "music-payoff",
+      "at_s": 11,
+      "frame": 330,
+      "kind": "music_cue",
+      "cue": "payoff_at",
+      "source_ref": "music_arc.payoff_at"
+    },
+    {
+      "id": "e-beat-hit",
+      "at_s": 11,
+      "frame": 330,
+      "kind": "visual_hit",
+      "scene": "hit",
+      "beat": "hit",
+      "scene_t_s": 1,
+      "attrs": {
+        "what": "synthetic picture hit on the beat",
+        "sound": "click"
+      },
+      "source_ref": "scenes[2].events[0]"
+    },
+    {
+      "id": "foley-e-beat-hit",
+      "at_s": 11,
+      "frame": 330,
+      "kind": "foley_hit",
+      "scene": "hit",
+      "beat": "hit",
+      "origin": "score",
+      "of": "e-beat-hit",
+      "attrs": {
+        "sound": "click"
+      },
+      "source_ref": "scenes[2].events[0]"
+    },
+    {
+      "id": "scene-end-start",
+      "at_s": 14.5,
+      "frame": 435,
+      "kind": "scene_start",
+      "scene": "end",
+      "beat": "end",
+      "source_ref": "scenes[3]"
+    },
+    {
+      "id": "seam-hit-end",
+      "at_s": 14.5,
+      "frame": 435,
+      "kind": "seam",
+      "scene": "end",
+      "beat": "end",
+      "from": "hit",
+      "attrs": {
+        "cue_kind": "cut"
+      },
+      "source_ref": "seams[2]"
+    },
+    {
+      "id": "music-button",
+      "at_s": 18,
+      "frame": 540,
+      "kind": "music_cue",
+      "cue": "button_at",
+      "source_ref": "music_arc.button_at"
+    }
+  ],
+  "sync": []
+}
