@@ -160,7 +160,7 @@ function derive(run, project, src, id, extra) {
   core.checkpoint(run, id, { project });
   return line;
 }
-export function undoTyped(run, project, id) {
+export function undoTyped(run, project, id, newId = null) {
   const edit = core.need(run, id);
   if (!isTyped(edit)) throw fail("not a typed edit");
   if (!["accepted", "applied", "rendered"].includes(edit.status)) throw fail(`refused: edit ${id} is ${edit.status}, nothing to undo`);
@@ -169,7 +169,7 @@ export function undoTyped(run, project, id) {
   const cur = readElement(run, project, edit);
   if (!cur) throw fail("element not found in a unique scene file");
   for (const k of Object.keys(edit.proposed)) if (!same(cur.values[k], edit.proposed[k])) return { ok: false, conflict: true, id, error: `refused: ${k} changed since this edit; undo the later edits first`, current: { element_digest: cur.digest, values: cur.values } };
-  const invId = `${id}.undo${chain(run, id).filter((x) => x.includes(".undo")).length + 1}`;
+  const invId = newId || `${id}.undo${chain(run, id).filter((x) => x.includes(".undo")).length + 1}`;
     derive(run, project, edit, invId, { instruction: `undo ${id}`, note: `inverse of ${id}`, original: edit.proposed, proposed: edit.original, link: { inverse_of: id } });
   const w = writeValues(run, project, edit, kind, edit.original);
   core.appendStatus(run, invId, { patch: { files: [w.file], digest: w.digest }, status: "accepted" });
@@ -189,6 +189,18 @@ export function redoTyped(run, project, id) {
   const w = writeValues(run, project, edit, kind, edit.proposed);
   core.appendStatus(run, newId, { patch: { files: [w.file], digest: w.digest }, status: "accepted" });
   return { ok: true, id: newId, redo_of: id, status: "accepted", file: w.file, digest: w.digest, element_digest: readElement(run, project, edit).digest };
+}
+
+// A client (Studio) may send undo/redo as a NEW record carrying fields.revert_of:<id>. It is an undo of that id under the same conflict
+// rules: the target's own original/proposed are used (the record's values are ignored), a changed element returns {ok:false, conflict:true}
+// and appends nothing. The new record takes the client's id. Redo = revert_of the undo record.
+export const isRevert = (edit) => !!edit && isTyped(edit) && !!edit.fields && typeof edit.fields.revert_of === "string" && edit.fields.revert_of !== "";
+export function revertTyped(run, project, edit) {
+  const target = core.latest(run, edit.fields.revert_of);
+  if (!target) throw fail(`refused: no edit ${edit.fields.revert_of} to revert`);
+  if (target.id === edit.id) throw fail("refused: an edit cannot revert itself");
+  const r = undoTyped(run, project, target.id, edit.id);
+  return r.ok ? { ...r, id: edit.id, reverted: target.id } : r;
 }
 
 // ---------------------------------------------------------------- check (recorded state equals disk)

@@ -53,7 +53,7 @@ export function corruptCache(dir) {
     if (extra) extra(d);
   };
   const good = Buffer.from("synthetic-artifact-bytes-0123456789");
-  const meta = (b, o = {}) => ({ key: "", expected_frames: 30, sample_rate: null, color_space: "bt709", alpha: "none", time_base: "1/30", sha256: sha256(b), size_bytes: b.length, created_at: "2000-01-01T00:00:00Z", tool_version: "fixture", ...o });
+  const meta = (b, o = {}) => ({ key: "", file: "out.mp4", expected_frames: 30, sample_rate: null, color_space: "bt709", alpha: "none", time_base: "1/30", sha256: sha256(b), size_bytes: b.length, created_at: "2000-01-01T00:00:00Z", tool_version: "fixture", ...o });
   const keys = {
     good: sha256("good"), truncated: sha256("truncated"), noMeta: sha256("no-meta"), badSum: sha256("bad-sum"),
     tempOnly: sha256("temp-only"), badFrames: sha256("bad-frames"),
@@ -160,6 +160,8 @@ export function staleEdit(dir) {
   const film_version = "fv-0002";
   writeJ(path.join(dir, "motion", "score.json"), baseScore());
   writeJ(path.join(dir, "motion", "film-version.json"), { film_version });
-  const edit = { id: "stale-1", operation: "transform", status: "requested", scene_id: "reveal", layer_id: "reveal.phone", film_version: "fv-0001", original: { x: 0.4 }, proposed: { x: 0.5 } };
+  writeJ(path.join(dir, "motion", "element-index.json"), { schema_version: 1, film_version, build_digest: "bd-2", frame_size: { w: 1920, h: 1080 }, items: [{ element_id: "reveal.phone", scene_id: "reveal" }] });
+  // a real typed op (C6) written against the older film_version
+  const edit = { id: "stale-1", operation: "transform", fields: { kind: "move" }, time_s: 1, scene_id: "reveal", element_id: "reveal.phone", film_version: "fv-0001", original: { x: 0.4, y: 0.5 }, proposed: { x: 0.5, y: 0.5 } };
   return { current: film_version, edit };
 }

@@ -20,15 +20,26 @@ const run = (script, args) => {
   return { code: r.status, json, out: r.stdout, err: r.stderr };
 };
 const ADAPTERS = {
-  graph: (film) => run("hybrid-graph.mjs", ["build", "--film", film]),                    // writes <film>/hybrid/edit-graph.json
-  cacheStatus: (film) => run("hybrid-graph.mjs", ["cache-status", "--film", film]),       // {hits:[key], misses:[key]}
-  record: (runDir, edit) => run("editor-patch.mjs", ["record", "--run", runDir, "--json", JSON.stringify(edit)]),
+  graph: (film) => run("hybrid-graph.mjs", ["compile", "--run", film, "--film", film]),         // writes <film>/hybrid/edit-graph.json
+  // `cache verify` lists every invalid key as a problem; a key is a hit when it is a cache dir and not in that list
+  cacheStatus: (film, keys) => {
+    const r = run("hybrid-graph.mjs", ["cache", "verify", "--film", film]);
+    const bad = new Set(((r.json && r.json.problems) || []).map((p) => String(p).split(":")[0]));
+    return { ...r, json: r.json && { hits: keys.filter((k) => !bad.has(k)), misses: keys.filter((k) => bad.has(k)) } };
+  },
+  record: (runDir, edit) => run("editor-patch.mjs", ["record", "--run", runDir, "--project", runDir, "--json", JSON.stringify(edit)]),
 };
+// hybrid-render.mjs needs a HyperFrames project and ffmpeg to render a scene, so the concurrent-writer contract is exercised on the cache
+// every renderer publishes through (lib/render-cache produce): N processes, one key, a slow producer that logs each call.
+const WRITER = `import { openCache } from ${JSON.stringify(path.join(SCRIPTS, "lib", "render-cache", "index.mjs"))};
+import fs from "node:fs"; import path from "node:path";
+const [dir, key, log] = process.argv.slice(1);
+const r = await openCache(dir).produce(key, async (tmp) => { fs.appendFileSync(log, "p\\n"); await new Promise((s) => setTimeout(s, 700)); fs.writeFileSync(path.join(tmp, "clip.mp4"), "synthetic-clip-bytes"); return { file: "clip.mp4", meta: { expected_frames: null, color_space: "bt709", alpha: "none", time_base: "1/30", tool_version: "fixture" } }; });
+process.exit(r.hit ? 0 : 3);`;
 
 const PEND = (why) => ({ status: "pending", note: why });
 const PASS = (note = "") => ({ status: "pass", note });
 const FAIL = (note) => ({ status: "fail", note });
-const usageish = (r) => r.code === 2 || r.code === null;
 const readJ = (f) => JSON.parse(fs.readFileSync(f, "utf8"));
 const mkdir = (tmp, n) => { const d = path.join(tmp, n); fs.mkdirSync(d, { recursive: true }); return d; };
 
@@ -42,8 +53,7 @@ const cases = [
     const f = G.makeFilm(mkdir(tmp, "film1")), s = readJ(path.join(f, "motion", "score.json"));
     if (s.scenes.length !== 3 || s.scenes.reduce((a, c) => a + c.duration, 0) !== 30) return FAIL("fixture is not 3 scenes / 30 s");
     if (!has("hybrid-graph.mjs")) return PEND("hybrid-graph.mjs missing (fixture ok)");
-    const a = ADAPTERS.graph(f); if (usageish(a)) return PEND("hybrid-graph CLI shape differs from ADAPTERS");
-    if (a.code !== 0) return FAIL("graph build exit " + a.code);
+    const a = ADAPTERS.graph(f); if (a.code !== 0) return FAIL("graph build exit " + a.code);
     const b1 = fs.readFileSync(path.join(f, "hybrid", "edit-graph.json"));
     ADAPTERS.graph(f);
     return Buffer.compare(b1, fs.readFileSync(path.join(f, "hybrid", "edit-graph.json"))) === 0 ? PASS("deterministic") : FAIL("graph not byte-identical across runs");
@@ -51,8 +61,7 @@ const cases = [
   ["2 copy-edit-scene-2-only", (tmp) => {
     if (!has("hybrid-graph.mjs")) return PEND("hybrid-graph.mjs missing");
     const f = G.makeFilm(mkdir(tmp, "film2"));
-    const a = ADAPTERS.graph(f); if (usageish(a)) return PEND("hybrid-graph CLI shape differs from ADAPTERS");
-    if (a.code !== 0) return FAIL("graph build exit " + a.code);
+    const a = ADAPTERS.graph(f); if (a.code !== 0) return FAIL("graph build exit " + a.code);
     const before = graphKeys(f); G.copyEditScene2(f);
     if (ADAPTERS.graph(f).code !== 0) return FAIL("graph rebuild failed");
     const after = graphKeys(f), changed = [...after].filter(([id, v]) => before.get(id)?.key !== v.key);
@@ -64,26 +73,27 @@ const cases = [
   ["3 kill-and-rerun-cache", (tmp) => {
     const f = mkdir(tmp, "film3"), c = G.corruptCache(f);
     if (!has("hybrid-graph.mjs")) return PEND("hybrid-graph.mjs / render-cache missing (corrupt states generated)");
-    const r = ADAPTERS.cacheStatus(f); if (usageish(r) || !r.json) return PEND("cache-status CLI shape differs from ADAPTERS");
+    const r = ADAPTERS.cacheStatus(f, Object.values(c.keys)); if (!r.json) return FAIL("cache verify gave no JSON (exit " + r.code + ")");
     const hits = new Set(r.json.hits || []);
     const wrong = [...c.expectMiss.filter((k) => hits.has(k)), ...c.expectHit.filter((k) => !hits.has(k))];
-    return wrong.length ? FAIL("wrong verdict for " + wrong.length + " key(s)") : PASS("1 hit, " + c.expectMiss.length + " misses");
+    return wrong.length ? FAIL("wrong verdict for " + wrong.length + " key(s)") : PASS("1 hit, " + c.expectMiss.length + " misses (real cache verify)");
   }],
   ["4 concurrent-same-key", (tmp) => {
-    if (!has("hybrid-render.mjs")) return PEND("hybrid-render.mjs missing");
-    const f = G.makeFilm(mkdir(tmp, "film4"));
-    // two processes asked for the same key; spawnSync is sequential, so use async spawn for real overlap
+    if (!has("lib/render-cache/index.mjs")) return PEND("render-cache missing");
+    const dir = path.join(mkdir(tmp, "film4"), "hybrid", "cache"), log = path.join(tmp, "producer4.log");
+    const key = G.sha256("concurrent-key");
     return new Promise((resolve) => {
       import("node:child_process").then(({ spawn }) => {
         const codes = []; let done = 0;
-        for (let i = 0; i < 2; i++) {
-          const p = spawn(process.execPath, [path.join(SCRIPTS, "hybrid-render.mjs"), "render", "--film", f, "--scene", "reveal"], { stdio: "ignore" });
-          p.on("close", (code) => { codes.push(code); if (++done === 2) {
-            if (codes.includes(2)) return resolve(PEND("hybrid-render CLI shape differs from ADAPTERS"));
+        for (let i = 0; i < 3; i++) {
+          const p = spawn(process.execPath, ["--input-type=module", "-e", WRITER, dir, key, log], { stdio: "ignore" });
+          p.on("close", (code) => { codes.push(code); if (++done === 3) {
             if (codes.some((c) => c !== 0)) return resolve(FAIL("exit codes " + codes));
-            const dirs = fs.existsSync(path.join(f, "hybrid", "cache")) ? fs.readdirSync(path.join(f, "hybrid", "cache")).filter((d) => d !== "index.json") : [];
-            const stray = dirs.flatMap((d) => fs.readdirSync(path.join(f, "hybrid", "cache", d)).filter((n) => n.endsWith(".tmp") || n.startsWith(".")));
-            resolve(stray.length ? FAIL("stray temp files " + stray.join(",")) : PASS("two writers, one consistent key dir"));
+            const calls = fs.existsSync(log) ? fs.readFileSync(log, "utf8").trim().split("\n").length : 0;
+            const names = fs.readdirSync(path.join(dir, key));
+            const stray = names.filter((n) => n.endsWith(".tmp") || n.startsWith(".tmp-") || n.startsWith(".work-") || n === ".lock");
+            if (calls !== 1) return resolve(FAIL("producer ran " + calls + " times, want 1"));
+            resolve(stray.length ? FAIL("stray files " + stray.join(",")) : PASS("3 writers, 1 producer call, one consistent key dir"));
           } });
         }
       });
@@ -106,11 +116,7 @@ const cases = [
   }],
   ["7 stale-edit-conflict", (tmp) => {
     const run = mkdir(tmp, "run7"), { edit } = G.staleEdit(run);
-    const lib = path.join(SCRIPTS, "lib", "editor-patch");
-    const src = fs.existsSync(lib) ? fs.readdirSync(lib).map((n) => fs.readFileSync(path.join(lib, n), "utf8")).join("\n") : "";
-    if (!/conflict/.test(src) || !/replace-plate|correct-track/.test(src)) return PEND("editor-patch conflict result for new ops not landed (fixture ok)");
     const r = ADAPTERS.record(run, edit);
-    if (usageish(r)) return PEND("editor-patch CLI shape differs from ADAPTERS");
     const log = path.join(run, "motion", "edits.jsonl");
     if (r.code !== 1 || !r.json || r.json.conflict !== true || r.json.ok !== false) return FAIL("stale new-op edit not refused with conflict (exit " + r.code + ")");
     return fs.existsSync(log) && fs.readFileSync(log, "utf8").trim() ? FAIL("conflict appended a line") : PASS("conflict, nothing appended");

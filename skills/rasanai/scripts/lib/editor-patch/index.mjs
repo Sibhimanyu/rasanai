@@ -103,6 +103,7 @@ export function record(run, edit, { project } = {}) {
   const F = files(run);
   const existing = latest(run, id);
   if (existing) return { ok: true, duplicate: true, id, status: existing.status, note: "already recorded; no change" };
+  if (typed.isRevert(edit)) return typed.revertTyped(run, proj, edit);
   if (typed.isTyped(edit)) return recordTyped(run, proj, edit, id);
   if (!OPS.includes(edit.operation)) throw fail(`operation must be one of ${OPS.join("|")}`);
   if (typeof edit.time_s !== "number" || !(edit.time_s >= 0)) throw fail("time_s must be a number >= 0");
@@ -177,7 +178,7 @@ function recordTyped(run, proj, edit, id) {
 export function typedEdit(run, edit, { project } = {}) {
   const proj = resolveProject(run, project);
   const r = record(run, edit, { project: proj });
-  if (!r.ok || r.duplicate) return r;
+  if (!r.ok || r.duplicate || r.reverted) return r;
   checkpoint(run, edit.id, { project: proj });
   return applySimple(run, edit.id, { project: proj });
 }
