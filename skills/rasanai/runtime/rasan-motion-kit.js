@@ -229,7 +229,7 @@
     for (i = 0; i < n; i++) {
       var e = els[i], slot = mk(e.parentNode, "div", { overflow: "hidden", paddingBottom: "0.14em", marginBottom: "-0.14em" });
       if (e.parentNode.insertBefore) e.parentNode.insertBefore(slot, e); slot.appendChild(e);
-      css(e, { color: c.d.fg, fontFamily: c.d.fontD, willChange: "transform" });
+      css(e, { color: c.d.fg, fontFamily: c.d.fontD });
       slots.push(e);
     }
     var t0 = c.q(c.cues.length ? c.cues[0] : c.at), ts = [], hits = [], sign = P.direction === "up" ? 1 : -1;
