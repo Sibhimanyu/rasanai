@@ -6,6 +6,19 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.20.0 beta 1</title>
+      <pubDate>Sat, 24 Oct 2026 15:13:09 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **Reference chip.** A film with a linked reference video shows a reference chip and, on Look, a Motion inspiration summary (cuts, rhythm, uncertainties) with a way to send the director a note on how much it should influence the film. Shown only when the film has `reference-motion.json`.
+- **Motion library on Look.** A collapsed Motion library lists the motion kit catalog; asking for an item sends a note to the director with the item, its annotation and parameters. Shown only when a catalog exists.
+- **Final element inspector.** When the film has an element index, clicking the video also resolves the element under the point, and a change request is sent to the director as a `motion-edit` action with an edit status chip (requested, accepted, applied, rendered, failed). Studio never edits scene files itself.
+- These screens are new and have not yet been opened in a window for review.]]></description>
+      <sparkle:version>48</sparkle:version>
+      <sparkle:shortVersionString>0.20.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.20.0-beta.1/RasanAI-Studio-0.20.0.dmg" sparkle:edSignature="1M56hbe0k8+FWBQqAKmfv7P6gepTI6Izb9B0TbpvPC1Nh4cgDemjwxZg6wLOLuH05f+KanAM6d6qsnpfRmkUBQ==" length="82592278" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.19.9 beta 1</title>
       <pubDate>Fri, 23 Oct 2026 12:06:57 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **Help opens the new How it works page**, which follows one film through the app, the crew, the engine and the files on your disk.]]></description>
