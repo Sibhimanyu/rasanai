@@ -147,6 +147,17 @@
       // every letter its own throw: speed, lift and spin vary a lot, a few go the "wrong" way, and each has a depth: some fly at
       // the reader and grow, some fall back and shrink, so the burst has front and back instead of travelling in clumps
       var wild = hash(k + 13) < .18 ? -1 : 1, depth = hash(k + 17);
+      if (at.mob) {
+        // phones: the throw is sized to the screen. The hover (about .34 of the travel) lands 30-45% of the width and height out from
+        // the impact, so the slow drift is seen on screen; the later gathering of speed and the fall still carry the letters away
+        var pw = window.innerWidth, ph = viewH(), hov = .34;
+        return {
+          vx: sx * wild * pw * (.28 + .17 * hash(k + 19)) / hov * (.85 + .3 * near),
+          vy: (hash(k + 31) < .62 ? -ph * (.22 + .15 * hash(k + 3)) : ph * (.26 + .18 * hash(k + 3))) / hov + dy * 1.2,
+          spin: (hash(k + 5) - .5) * 700, at: nx * .05 + hash(k + 7) * .04, grow: depth < .35 ? .5 + depth : 1 + (depth - .35) * 1.2,
+          g: (1100 + hash(k + 23) * 1000) * ph / 900
+        };
+      }
       return {
         vx: sx * wild * (260 + 900 * near * hash(k + 19) + hash(k) * 520), vy: -(140 + 900 * hash(k + 3) * (.4 + near)) + dy * 2.5,
         spin: (hash(k + 5) - .5) * 900, at: nx * .05 + hash(k + 7) * .04, grow: depth < .35 ? .35 + depth : 1 + (depth - .35) * 2.6,
@@ -886,12 +897,17 @@
     [-.54, -.58, -.76, -.5, 1], [.08, -.62, .12, -.74, 2.3], [.52, -.56, .72, -.56, 1.4], [.6, .52, .8, .48, 1.05],
     [-.22, .6, -.3, .72, 1.8], [.24, .66, .32, .8, 2.7], [-.6, .5, -.82, .5, 1.25]
   ];
-  // portrait: the same cast, spread up and down around the statement (x stays within about 42% of the width)
-  var CREW_DEPTH_M = [
-    [-.46, -.76, -.62, -.92, 1], [.1, -.86, .16, -1.02, 2.3], [.4, -.6, .66, -.72, 1.4], [.42, .72, .66, .84, 1.05],
-    [-.18, .86, -.26, 1, 1.8], [.14, .76, .22, .92, 2.7], [-.44, .62, -.7, .78, 1.25]
-  ];
-  var CREW_NEAR = 1.35;                            // a character's size at depth 1
+  // portrait: the same cast in two bands, above and below the statement. Per character: depth, and in CREW_BAND_M [above the
+  // statement?, x across the width (-1..1), y within the band (0 = its outer edge, 1 = beside the statement)]; enableCrew turns
+  // these into px so everyone stays between the nav pill and the bottom edge. Index 4 of each row is the depth (1 = near).
+  var CREW_DEPTH_M = [[0, 0, 0, 0, 1], [0, 0, 0, 0, 2.3], [0, 0, 0, 0, 1.4], [0, 0, 0, 0, 1.05], [0, 0, 0, 0, 1.8], [0, 0, 0, 0, 2.7], [0, 0, 0, 0, 1.25]];
+  var CREW_BAND_M = [[1, -.62, .45], [1, .12, .1], [1, .7, .7], [0, .72, .3], [0, -.15, .8], [0, .3, .15], [0, -.7, .4]];
+  // the break and the statement, as track progress: the break, the statement's fade-in, where the words start and how long they take,
+  // the slow spread, and the camera. Desktop (D) is as it always was; phones (M) keep the crew around the statement for the whole
+  // word fill and spread and fly only after the last word is full
+  var CREW_TD = { bk: [.8, .88], pay: [.85, .88], w: .87, ws: .08, sp: [.91, .975], cam: .955 };
+  var CREW_TM = { bk: [.8, .865], pay: [.84, .865], w: .865, ws: .07, sp: [.958, .985], cam: .962 };
+  var CREW_NEAR = 1.35;                           // a character's size at depth 1
   var mix = function (a, b, t) { return a + (b - a) * t; };
   var inOutC = function (t) { return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
   var crewOn = false, crewGeo = null, crewRun = null, crewBeat = null;
@@ -940,15 +956,32 @@
     if (mob) {
       // portrait: Rasan big in the top, his introduction below him; the circle in the top ~55% with the spotlight at its bottom
       // point and the card a bottom sheet; the break spreads the crew mostly up and down around the statement
-      var nw = crew.nodes[0].offsetWidth, vW = W * 2, vH = H * 2;
-      var rh = Math.min(.32 * vH, .8 * vW), top0 = 88, yb = top0 + rh;   // top0: clear of the nav pill
+      // Every moment is balanced in the stage below the nav pill (NAV px): Rasan and his introduction are one centred group; the
+      // circle assembles in the centre, eases up once the introductions begin (above the bottom sheet) and drifts back for the break.
+      var nw = crew.nodes[0].offsetWidth, vW = W * 2, vH = H * 2, NAV = 70, BOT = 16;
+      var leadH = crew.lead.offsetHeight, gap = 12;
+      var rh = Math.max(96, Math.min(.3 * vH, .78 * vW, vH - NAV - BOT - leadH - gap - 24)), gH = rh + gap + leadH;
+      var yb = NAV + Math.max(0, (vH - NAV - BOT - gH) / 2) + rh;   // the bottom of Rasan; his introduction starts gap below it
       crewGeo.big = rh / (1.05 * nw); crewGeo.land = Math.min(2, vW * .46 / nw); crewGeo.spot = 1.5; crewGeo.near = 1.5;
       crewGeo.a0 = Math.PI / 2; crewGeo.ax = 0;
       crewGeo.ay = yb - H - .21 * nw - .315 * nw * crewGeo.big;
-      crewGeo.cy = top0 - 4 + R + nw * .6 - H;
-      crewGeo.depth = CREW_DEPTH_M;
-      crewScene.style.setProperty("--lt", (yb + 12).toFixed(0) + "px");               // where his introduction starts, under him
-      crewScene.style.setProperty("--sd", (H - crewGeo.cy - R).toFixed(1) + "px");    // from the spotlight point down to the screen's bottom edge
+      // the circle: centred in the stage first; up, clear of the tallest card, while the introductions run
+      var sheet = 0; crew.cards.forEach(function (c) { if (c) sheet = Math.max(sheet, c.offsetHeight); });
+      var ext = R + .8 * nw, sheetTop = vH - BOT + 2 - sheet - 8;
+      crewGeo.cyC = (NAV + vH) / 2 - H;
+      crewGeo.cyUp = Math.min(crewGeo.cyC, Math.max(NAV + 6 + ext, (NAV + sheetTop) / 2) - H);
+      crewGeo.cy = crewGeo.cyC;
+      // the break: the cast placed in px in the bands above and below the statement, which sits a little under the middle
+      var dyS = 28, sh = crew.payoff.offsetHeight / 2;
+      crewGeo.depth = CREW_DEPTH_M.map(function (d, k) {
+        var dp = d[4], hk = .525 * nw * crewGeo.near * .8 / dp, top = CREW_BAND_M[k][0];
+        var a = top ? NAV + 6 : H + dyS + sh + 10, b = top ? H + dyS - sh - 10 : vH - 12;
+        var y = a + hk + CREW_BAND_M[k][2] * Math.max(0, b - a - 2 * hk);
+        var x = CREW_BAND_M[k][1] * Math.max(0, W - hk - 10);
+        return [x / W, (y - H) / H, x * 1.3 / W, (y - H + (top ? -1 : 1) * .2 * vH) / H, dp];
+      });
+      crewScene.style.setProperty("--lt", (yb + gap).toFixed(0) + "px");               // where his introduction starts, under him
+      crewScene.style.setProperty("--sd", (H - crewGeo.cyUp - R).toFixed(1) + "px");   // from the spotlight point (circle up) down to the screen's bottom edge
     }
     for (var i = 0; i < 6; i++) {
       var b = CREW_FROM[i] * Math.PI / 180;
@@ -958,7 +991,7 @@
     }
     // the crew scene starts a screen early, behind the rising window, so its line is already in place when the window uncovers it;
     // the words fill as they are uncovered
-    if (crew.beat) crewBeat = makeBeat(crew.beat, { fill: [.12, .3], out: .42 });
+    if (crew.beat) crewBeat = makeBeat(crew.beat, { fill: [.12, .3], out: .42, mob: mob });
     // the specialists start off-screen, where lazy images would not load until they fly in; fetch and decode them all now
     crew.imgs.forEach(function (im) { var pre = new Image(); pre.src = im.currentSrc || im.src; if (pre.decode) pre.decode().catch(function () {}); });
     crewOn = true;
@@ -983,6 +1016,9 @@
     crew.lead.style.visibility = lo >= 1 ? "hidden" : "";
     // the circle: moves left once everyone is in, then turns one place per introduction (the right-hand point is the spotlight)
     var ox = g.mob ? 0 : -.4 * g.W * inOutC(seg(p, .35, .41)), oy = g.cy, turn = 0;
+    // phones: assembled in the centre, up before the first card opens, back to the centre after the last one for the break
+    if (g.mob) oy = mix(g.cyC, g.cyUp, inOutC(seg(p, .3, .385))) + (g.cyC - g.cyUp) * inOutC(seg(p, .79, .85));
+    var T = g.mob ? CREW_TM : CREW_TD;
     for (var k = 1; k < 6; k++) turn += inOutC(seg(p, CREW_TURN + k * CREW_STEP, CREW_TURN + k * CREW_STEP + CREW_SWING));
     var th = -turn * Math.PI / 3;
     crew.orbit.style.opacity = (seg(p, .2, .3) * .9 * (1 - seg(p, .8, .84))).toFixed(3);
@@ -990,9 +1026,9 @@
     // the break: from .80 each character leaves the circle for its place in depth around the statement, one shortly after another
     // the camera: a slow spread out to the edges while the words fill, then a fast flight through the crew to the end of the track
     // they hold close around the statement while it is written, and only then drift out, gathering speed into the flight
-    var spread = Math.pow(seg(p, .91, .975), 2), cam = 2.4 * Math.pow(seg(p, .955, 1), 1.6);
+    var spread = Math.pow(seg(p, T.sp[0], T.sp[1]), 2), cam = 2.4 * Math.pow(seg(p, T.cam, 1), 1.6);
     var place = function (node, img, k, x, y, s, r, o) {
-      var d = g.depth[k], b = inOutC(seg(p, .8 + k * .006, .88 + k * .006));
+      var d = g.depth[k], b = inOutC(seg(p, T.bk[0] + k * .006, T.bk[1] + k * .006));
       if (b > 0) {
         var z = Math.max(.2, d[4] - cam), f = d[4] / z;
         x = mix(x, mix(d[0], d[2], spread) * g.W * f, b); y = mix(y, mix(d[1], d[3], spread) * g.H * f, b);
@@ -1024,10 +1060,10 @@
       }
     }
     // the statement: in with the break, then each word fills from faint to full, left to right, as the crew spread out
-    crew.payoff.style.opacity = seg(p, .85, .88).toFixed(3);
+    crew.payoff.style.opacity = seg(p, T.pay[0], T.pay[1]).toFixed(3);
     var N = crew.words.length;
     crew.words.forEach(function (w, j) {
-      var t = seg(p, .87 + j * .08 / N, .885 + j * .08 / N);
+      var t = seg(p, T.w + j * T.ws / N, T.w + .015 + j * T.ws / N);
       w.style.opacity = (.16 + .84 * t).toFixed(3);
     });
     if (open < 1) crewOpening(open);
