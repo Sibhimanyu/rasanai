@@ -196,6 +196,32 @@ final class FilmSessionModel {
         }
     }
 
+    /// Motion Studio: the run folder (edits.jsonl, reference-motion.json) and the project folder (motion/element-index.json). Nil without a run.
+    var motionRun: URL? { resolver?.run }
+    var motionProject: URL? { resolver?.workspace }
+
+    /// Queues a Motion Studio edit through the same transport as every other call. Returns true when it was written.
+    @discardableResult
+    func sendMotionEdit(_ edit: MotionEditRequest, step: String = "final") async -> Bool {
+        if isFixture {
+            if let a = try? MotionEditEnvelope.action(edit, step: step) { fixtureLog.append(a); sendCount += 1; return true }
+            return false
+        }
+        guard let transport else { lastError = StudioError.noConnection.localizedDescription; return false }
+        do {
+            let queued = try await Task.detached { try MotionEditEnvelope.send(edit, via: transport, step: step) }.value
+            sentIDs.insert(queued.id)
+            lastError = nil
+            lastSent = "\(step)|\(MotionEditEnvelope.type)"; sendCount += 1
+            await reload()
+            onSent?(step, MotionEditEnvelope.type)
+            return true
+        } catch {
+            lastError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            return false
+        }
+    }
+
     func dismissError() { lastError = nil }
 
     /// "You decide this step": Claude makes this call.
