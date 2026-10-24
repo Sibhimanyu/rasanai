@@ -1,0 +1,358 @@
+{
+  "schema_version": 1,
+  "reference_id": "ref-fast-hook-reel",
+  "source": {
+    "kind": "manual-notes",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000001",
+    "rights": "inspiration-only",
+    "basename": "hook-reel.mp4"
+  },
+  "analysis": {
+    "duration_s": 9.6,
+    "fps_observed": 30,
+    "aspect": "9:16",
+    "width": 1080,
+    "height": 1920,
+    "has_audio": true,
+    "cuts_s": [
+      0.6,
+      1.2,
+      1.7,
+      2.3,
+      2.9,
+      3.4,
+      4,
+      5.9,
+      6.5,
+      7.1,
+      7.6,
+      8.2
+    ],
+    "shots": [
+      {
+        "start_s": 0,
+        "end_s": 0.6,
+        "framing": "close",
+        "motion_role": "snap zoom",
+        "observations": [
+          "huge word fills frame"
+        ],
+        "confidence": "high"
+      },
+      {
+        "start_s": 0.6,
+        "end_s": 1.2,
+        "framing": "close",
+        "motion_role": "match cut",
+        "observations": [
+          "shape carries over"
+        ],
+        "confidence": "high"
+      },
+      {
+        "start_s": 1.2,
+        "end_s": 1.7,
+        "framing": "medium",
+        "motion_role": "tap",
+        "observations": [
+          "thumb taps button"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "start_s": 1.7,
+        "end_s": 2.3,
+        "framing": "close",
+        "motion_role": "scatter",
+        "observations": [
+          "letters burst"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "start_s": 2.3,
+        "end_s": 2.9,
+        "framing": "close",
+        "motion_role": "snap zoom",
+        "observations": [],
+        "confidence": "high"
+      },
+      {
+        "start_s": 2.9,
+        "end_s": 3.4,
+        "framing": "medium",
+        "motion_role": "counter",
+        "observations": [
+          "number ticks up"
+        ],
+        "confidence": "high"
+      },
+      {
+        "start_s": 3.4,
+        "end_s": 4,
+        "framing": "close",
+        "motion_role": "match cut",
+        "observations": [],
+        "confidence": "medium"
+      },
+      {
+        "start_s": 4,
+        "end_s": 5.9,
+        "framing": "wide",
+        "motion_role": "hold",
+        "observations": [
+          "still frame, pause before the payoff"
+        ],
+        "confidence": "high"
+      },
+      {
+        "start_s": 5.9,
+        "end_s": 6.5,
+        "framing": "close",
+        "motion_role": "snap zoom",
+        "observations": [],
+        "confidence": "high"
+      },
+      {
+        "start_s": 6.5,
+        "end_s": 7.1,
+        "framing": "close",
+        "motion_role": "scatter",
+        "observations": [],
+        "confidence": "medium"
+      },
+      {
+        "start_s": 7.1,
+        "end_s": 7.6,
+        "framing": "medium",
+        "motion_role": "tap",
+        "observations": [],
+        "confidence": "high"
+      },
+      {
+        "start_s": 7.6,
+        "end_s": 8.2,
+        "framing": "close",
+        "motion_role": "match cut",
+        "observations": [],
+        "confidence": "high"
+      },
+      {
+        "start_s": 8.2,
+        "end_s": 9.6,
+        "framing": "wide",
+        "motion_role": "hold",
+        "observations": [
+          "end card"
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "palette_observed": [
+      "#FF3B30",
+      "#0B0B0F",
+      "#FFFFFF"
+    ],
+    "type_treatment": [
+      "oversized word-by-word kinetic type, full-frame"
+    ],
+    "motion_patterns": [
+      "snap zoom into the next word",
+      "match cut on a circle shape",
+      "letters scatter and reassemble",
+      "counter ticks up to a stat"
+    ],
+    "sound_hits_s": [
+      0.6,
+      1.2,
+      1.7,
+      2.3,
+      2.9,
+      3.4,
+      4,
+      5.9,
+      6.5,
+      7.1
+    ],
+    "energy_arc": [
+      0.9,
+      0.9,
+      0.8,
+      0.8,
+      0.8,
+      0.7,
+      0.7,
+      0.3,
+      0.9,
+      0.9,
+      0.8,
+      0.8,
+      0.4
+    ],
+    "uncertainties": []
+  },
+  "recipe": [
+    {
+      "observation": "13 shots, mean 0.74 s, shortest 0.5 s, longest 1.9 s (rapid cadence)",
+      "viewer_effect": "Reads as urgent and dense; the eye never settles, so each beat must be legible in under a second.",
+      "transferable_mechanic": "One idea per cut, every shot built around a single readable element; the cut itself is the rhythm.",
+      "candidate_move": "rule-and-break",
+      "not_transferable": [
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "measured",
+      "tentative": false
+    },
+    {
+      "observation": "Shot 8 holds 1.9 s against a median of 0.6 s",
+      "viewer_effect": "A held shot among quick ones lands as the payoff; the pause makes the next cut hit harder.",
+      "transferable_mechanic": "Establish the cut rhythm, hold one beat noticeably longer, then cut.",
+      "candidate_move": "hold-then-cut",
+      "not_transferable": [
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "measured",
+      "tentative": false
+    },
+    {
+      "observation": "10 of 12 cuts land within 0.1 s of a sound hit",
+      "viewer_effect": "Picture and sound hit together, which makes the edit feel tight and intentional.",
+      "transferable_mechanic": "Place cuts and key motion on the score's hits; the hit is the cue, the audio itself is not reused.",
+      "candidate_move": "match-cut-carrier",
+      "not_transferable": [
+        "the reference's audio itself",
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "measured",
+      "tentative": false
+    },
+    {
+      "observation": "Energy arc front-loads its energy then settles (peak at shot 1 of 13, 0.9)",
+      "viewer_effect": "A strong opening hooks, then calmer shots let the message land.",
+      "transferable_mechanic": "Open on the boldest move, then reduce density.",
+      "candidate_move": "hold-then-cut",
+      "not_transferable": [
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "interpretation",
+      "tentative": false
+    },
+    {
+      "observation": "Motion pattern: snap zoom into the next word",
+      "viewer_effect": "Scale change reads as travelling into the thing, with no cut felt.",
+      "transferable_mechanic": "An element grows until it becomes the next ground.",
+      "candidate_move": "scale-through",
+      "not_transferable": [
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "interpretation",
+      "tentative": false
+    },
+    {
+      "observation": "Motion pattern: match cut on a circle shape",
+      "viewer_effect": "Continuity of shape or velocity makes two beats feel like one.",
+      "transferable_mechanic": "One carrier keeps its position or velocity across the cut.",
+      "candidate_move": "match-cut-carrier",
+      "not_transferable": [
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "interpretation",
+      "tentative": false
+    },
+    {
+      "observation": "Motion pattern: letters scatter and reassemble",
+      "viewer_effect": "Parts arriving or leaving with visible physics feels energetic and crafted.",
+      "transferable_mechanic": "Pieces fly in with a visible cause and assemble into the hero.",
+      "candidate_move": "scatter-and-assembly",
+      "not_transferable": [
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "interpretation",
+      "tentative": false
+    },
+    {
+      "observation": "Motion pattern: counter ticks up to a stat",
+      "viewer_effect": "A changing number gives the beat a measurable payoff.",
+      "transferable_mechanic": "The figure is shown as the thing it counts, or counts to a landing value on the beat.",
+      "candidate_move": "number-becomes-object",
+      "not_transferable": [
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "interpretation",
+      "tentative": false
+    },
+    {
+      "observation": "Type: oversized word-by-word kinetic type, full-frame",
+      "viewer_effect": "Words arriving one at a time pace the reading to the cut.",
+      "transferable_mechanic": "Each word enters on its own beat, in reading order.",
+      "candidate_move": "kinetic-semantics",
+      "not_transferable": [
+        "the reference's typeface and wording",
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "interpretation",
+      "tentative": false
+    },
+    {
+      "observation": "A palette was observed in the reference",
+      "viewer_effect": "Colour carries the reference's identity, not a mechanic.",
+      "transferable_mechanic": "None: only the contrast idea (how much the hero separates from its ground) may inform the film; the film uses its own brand colours.",
+      "candidate_move": "none",
+      "not_transferable": [
+        "the observed colours, in any form",
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "measured",
+      "tentative": false
+    }
+  ],
+  "use": {
+    "transfer": "rhythm-and-mechanics-only",
+    "never_reuse": [
+      "logos",
+      "footage",
+      "unlicensed_audio",
+      "verbatim_copy"
+    ]
+  }
+}
