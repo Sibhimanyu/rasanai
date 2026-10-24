@@ -51,6 +51,7 @@ import { acquire, release, withLock } from "./lib/runlock.mjs";
 import { briefFormat } from "./lib/formats.mjs";
 import { noteDowngrade, readDowngrades } from "./lib/downgrade.mjs";
 import { LAYERS, NOTE_LAYERS, snapshot, drift, relock } from "./lib/locks.mjs";
+import { handleMotionEditAction } from "./lib/editor-patch/index.mjs";
 
 // this copy's version: a console started by an older copy is replaced, not reused
 const VERSION = (() => {
@@ -210,7 +211,7 @@ function applyAction(s, action) {
   const step = action.step;
   tasteFrom(action);
   if (step === "*") s.decide_rest = { ts: action.ts };
-  else if (Object.prototype.hasOwnProperty.call(s.steps, step) && !["comment", "knob", "cut-edit"].includes(action.type)) s.steps[step].sent = { type: action.type, value: action.value, note: action.note, ts: action.ts, source: cleanSource(action.source), ...(SOURCES[action.source] ? { via: SOURCES[action.source] } : {}) };
+  else if (Object.prototype.hasOwnProperty.call(s.steps, step) && !["comment", "knob", "cut-edit", "motion-edit"].includes(action.type)) s.steps[step].sent = { type: action.type, value: action.value, note: action.note, ts: action.ts, source: cleanSource(action.source), ...(SOURCES[action.source] ? { via: SOURCES[action.source] } : {}) };
   const you = youOf(action);
   // an answer to an `ask` card: record it on the question and clear it from the page
   if (action.type === "answer" && s.ask && !s.ask.answered) {
@@ -230,6 +231,17 @@ function applyAction(s, action) {
     const v = action.value || {};
     s.comments = (s.comments || []).concat({ id: action.id, step, scene: v.scene ?? null, t: typeof v.t === "number" ? v.t : null, x: typeof v.x === "number" ? v.x : null, y: typeof v.y === "number" ? v.y : null, w: typeof v.w === "number" ? v.w : null, h: typeof v.h === "number" ? v.h : null, scope: v.scope || "scene", quick: v.quick || null, word_id: typeof v.word_id === "string" ? v.word_id : null, clip: typeof v.clip === "string" ? v.clip : null, text: action.note || v.quick || "", state: "open", ts: action.ts }).slice(-200);
     activity(s, `${you} left a note${v.t != null ? " at " + Math.floor(v.t / 60) + ":" + String(Math.floor(v.t % 60)).padStart(2, "0") : ""}: ${action.note || v.quick}`, "you", null);
+    return;
+  }
+  // Motion Studio: a pinned edit from the final (value {kind:"motion-edit", edit}); editor-patch records it under its own lock,
+  // the status line goes to the feed and to session.motion_edits (latest per id)
+  if (action.type === "motion-edit") {
+    let r;
+    try { r = handleMotionEditAction({ kind: "motion-edit", edit: action.value && action.value.edit }, { run: RUN }); } catch (e) { r = { ok: false, error: e && e.message }; }
+    const eid = (r && r.id) || (action.value && action.value.edit && action.value.edit.id) || action.id;
+    const st = r && r.ok ? r.status || "requested" : "failed";
+    s.motion_edits = (s.motion_edits || []).filter((m) => m.id !== eid).concat({ id: String(eid), status: st, note: String((r && (r.note || r.error)) || "").slice(0, 300), ts: action.ts }).slice(-50);
+    activity(s, `${you} asked for a motion edit (${eid}): ${st}`, r && r.ok ? "you" : "warn", null);
     return;
   }
   // a transcript edit in the Cut stage (Studio): a feed line only; it must not mark the reel step as answered

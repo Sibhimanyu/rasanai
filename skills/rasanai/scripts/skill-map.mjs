@@ -8,6 +8,8 @@
 //           names: any route in library/formats.json (product-launch-video, music-to-video, reel, presenter, motion-graphics, ...),
 //                  revision, or an alias: product, direct (product-launch-video, direct), long, deep (same, deep path),
 //                  footage (reel), lyrics, song (music-to-video), single-unit, cartoon, evidence
+//        --run <dir> [--project <dir>]: also opens references/motion-studio.md where it applies (story: reference-motion.json or a linked
+//           reference; animatic/final: scenes with data-motion-kit or data-el; revision: a requested line in motion/edits.jsonl); never on caption-only routes
 //   node skill-map.mjs check                                       -> every referenced file exists, every relative link in SKILL.md and the guides resolves,
 //                                                                    every route in scripts/lib/formats.mjs ROUTES is mapped
 // Exit 0 ok, 2 invalid (unknown route, a missing file, a broken link), 1 unable to run (no skill folder, bad usage).
@@ -39,6 +41,9 @@ export const GUIDES = {
   "operations/failure-and-recovery": W + "operations/failure-and-recovery.md",
   "operations/source-and-license-safety": W + "operations/source-and-license-safety.md",
 };
+// Motion Studio guide: not part of any route's static read list; opened only when a run/project condition holds (see conditionalReads)
+export const MOTION_STUDIO = "references/motion-studio.md";
+const CAPTION_ONLY = new Set(["embedded-captions", "talking-head-recut"]);
 export const PHASES = ["brief", "story", "look", "styleframes", "animatic", "final"];
 export const MANDATORY = ["shared-contract", "setup-and-console"];
 // guides any run may need when something specific happens (never part of a route's first read)
@@ -144,7 +149,44 @@ export const ALIASES = {
 const uniq = (a) => [...new Set(a)];
 const gpath = (id) => GUIDES[id] || id;
 
-export function resolveRoute(name, { variant = null } = {}) {
+const readJ = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } };
+// Motion Studio conditions, checked against a run dir (and its project) only when the caller passes them; no context = static map
+function motionStudioPhases(route, { run = null, project = null } = {}) {
+  if (!run || CAPTION_ONLY.has(route)) return [];
+  const on = [];
+  const has = (f) => fs.existsSync(path.join(run, f));
+  if (route === "revision") {
+    const latest = new Map();
+    try { for (const l of fs.readFileSync(path.join(run, "motion", "edits.jsonl"), "utf8").split("\n")) { const o = l.trim() ? readJ_(l) : null; if (o && o.id) latest.set(o.id, o.status); } } catch { /* none */ }
+    if ([...latest.values()].includes("requested")) on.push("final");
+    return on;
+  }
+  const brief = readJ(path.join(run, "brief.json")) || {};
+  const linked = Object.entries(brief).some(([k, v]) => /^(reference|references|reference_video|reference_url|reference_clip|linked_reference)/i.test(k) && v && (typeof v !== "object" || Object.keys(v).length)) || has("research/reference-moves.json");
+  if (has("reference-motion.json") || linked) on.push("story");
+  let proj = project;
+  if (!proj) { const c = readJ(path.join(run, "console.json")); if (c && c.root) proj = c.root; }
+  if (proj && sceneUsesKit(proj)) on.push("animatic", "final");
+  return on;
+}
+const readJ_ = (s) => { try { return JSON.parse(s); } catch { return null; } };
+function sceneUsesKit(project) {
+  let hit = false;
+  (function walk(d, depth) {
+    if (hit || depth > 3) return;
+    let es = [];
+    try { es = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+    for (const e of es) {
+      if (e.name.startsWith(".") || e.name === "node_modules" || e.name === "assets") continue;
+      const f = path.join(d, e.name);
+      if (e.isDirectory()) walk(f, depth + 1);
+      else if (/\.html?$/i.test(e.name)) { try { if (/\bdata-(motion-kit|el)=/.test(fs.readFileSync(f, "utf8"))) { hit = true; return; } } catch { /* unreadable */ } }
+    }
+  })(project, 0);
+  return hit;
+}
+
+export function resolveRoute(name, { variant = null, run = null, project = null } = {}) {
   const key = String(name || "").trim();
   const al = ALIASES[key];
   const route = al ? al.route : key;
@@ -161,6 +203,8 @@ export function resolveRoute(name, { variant = null } = {}) {
     if (def.kind !== "scene") deeper = deeper.filter((r) => r !== "references/styleframes.md");
     phases[ph] = { guides: def.phases[ph].map((g) => gpath(g)), deeper };
   }
+  // Motion Studio: the guide joins a phase's deeper reads only when its condition holds (never on caption-only routes)
+  for (const ph of motionStudioPhases(route, { run, project })) if (phases[ph]) phases[ph].deeper = uniq([...phases[ph].deeper, MOTION_STUDIO]);
   const initial = uniq([
     ...MANDATORY.map(gpath),
     ...(def.skipBrief ? [] : [gpath("brief-and-research")]),
@@ -206,6 +250,7 @@ export function checkMap(skillDir = SKILL_DIR) {
   const E = (m) => errors.push(m);
   for (const [id, p] of Object.entries(GUIDES)) if (!fs.existsSync(path.join(skillDir, p))) E(`guide ${id}: ${p} is missing`);
   if (!fs.existsSync(path.join(skillDir, "SKILL.md"))) E("SKILL.md is missing");
+  if (!fs.existsSync(path.join(skillDir, MOTION_STUDIO))) E(`${MOTION_STUDIO} is missing`);
   for (const name of Object.keys(ROUTES)) {
     const r = resolveRoute(name);
     for (const f of r.read) if (!fs.existsSync(path.join(skillDir, f))) E(`route ${name}: ${f} is missing`);
@@ -234,7 +279,7 @@ function main() {
     if (!name) { out({ ok: false, error: "route needs a name" }); process.exit(1); }
     const v = flag("variant");
     if (v && !["direct", "deep"].includes(v)) { out({ ok: false, error: "--variant is direct or deep" }); process.exit(1); }
-    const r = resolveRoute(name, { variant: v });
+    const r = resolveRoute(name, { variant: v, run: flag("run") ? path.resolve(flag("run")) : null, project: flag("project") ? path.resolve(flag("project")) : null });
     if (!r) { out({ ok: false, error: `unknown route "${name}"`, routes: [...Object.keys(ROUTES), ...Object.keys(ALIASES)] }); process.exit(2); }
     const ph = flag("phase");
     if (ph) {
@@ -245,6 +290,6 @@ function main() {
     const r = checkMap();
     out(r);
     process.exit(r.ok ? 0 : 2);
-  } else { out({ ok: false, error: "usage: skill-map.mjs list | route <name> [--variant direct|deep] [--phase p] | check" }); process.exit(1); }
+  } else { out({ ok: false, error: "usage: skill-map.mjs list | route <name> [--variant direct|deep] [--phase p] [--run <dir> [--project <dir>]] | check" }); process.exit(1); }
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

@@ -18,6 +18,9 @@ struct FinalStage: View {
     @State private var confirmRender = false
     /// The version the person picked in the menu, until they confirm bringing it back.
     @State private var restore: JSONValue?
+    /// Motion Studio: what is under a click, loaded from motion/element-index.json (absent for films without one).
+    @State private var motionSel = MotionSelectionModel()
+    @State private var motionEdits = MotionEditStatus()
     @Environment(NoteSkips.self) private var skips: NoteSkips?
     @Environment(\.agentName) private var agent
 
@@ -42,7 +45,8 @@ struct FinalStage: View {
         let context = notRendered ? "Make a quick preview first, or render the full-quality final."
             : "Leave a note where something should change, or export when it feels right."
         let player = ReviewPlayerPanel(model: model, step: step, playback: playback, scenes: scenes, notes: allNotes,
-                                       aspect: model.snapshot.aspectRatio, canNote: canAct && playback.isReady, pinWindow: 2.5, showStrip: false) {
+                                       aspect: model.snapshot.aspectRatio, canNote: canAct && playback.isReady, pinWindow: 2.5, showStrip: false,
+                                       motionSel: motionSel.index != nil ? motionSel : nil) {
             FinalFrame(playback: playback, posterPath: posterPath, hasVideo: videoURL != nil, notRendered: notRendered)
         }
 
@@ -72,14 +76,14 @@ struct FinalStage: View {
                         }
                     }
                 } player: {
-                    player
+                    withMotionInspector(player)
                 }
             } else {
                 VStack(spacing: Workspace.gap) {
                     StageHeader(question: question, context: context, step: "final")
                         .padding(.bottom, 4)
-                    player
-                        .environment(\.reviewFrameHeight, max(200, stageHeight - 96 - 146 - (scenes.isEmpty ? 56 : 168) - Workspace.gap))
+                    withMotionInspector(player
+                        .environment(\.reviewFrameHeight, max(200, stageHeight - 96 - 146 - (scenes.isEmpty ? 56 : 168) - Workspace.gap)))
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 10) {
                             Text(scenes.isEmpty ? (isRender && !done ? "Ready to render" : "Your film") : "Scenes").font(.system(size: 13, weight: .semibold))
@@ -120,6 +124,7 @@ struct FinalStage: View {
         .environment(model)
         .task(id: "\(videoURL?.path ?? "")") { playback.load(url: videoURL, fallbackDuration: duration) }
         .task(id: model.snapshot.raw["updated"].string) { checks = await model.loadChecks() }
+        .task(id: model.motionProject?.path) { await watchMotion() }
         .onDisappear { playback.shutdown() }
         .confirmationDialog("Render without your \(open.count) note\(open.count == 1 ? "" : "s")?", isPresented: $confirmRender, titleVisibility: .visible) {
             Button("Render Without Notes") { Task { await model.send(step: step, type: "choose", value: .string("render")) } }
@@ -130,6 +135,52 @@ struct FinalStage: View {
                 restore = nil
             }
         } message: { Text("\(agent) brings this version back. The other versions are kept.") }
+    }
+
+    // MARK: Motion Studio
+
+    /// Reads the element index and the edit log; polls lightly while the film is on screen. Does nothing for a film without them.
+    private func watchMotion() async {
+        guard let project = model.motionProject, let run = model.motionRun else { return }
+        while !Task.isCancelled {
+            let loaded = await Task.detached(priority: .utility) {
+                (MotionStudioStore.load(projectRoot: project).elementIndex, MotionStudioStore.loadEdits(run: run))
+            }.value
+            if loaded.0 != motionSel.index { motionSel.update(index: loaded.0, currentDigest: nil) }
+            if loaded.1 != motionEdits { motionEdits = loaded.1 }
+            try? await Task.sleep(for: .seconds(4))
+        }
+    }
+
+    /// The player with a narrow inspector beside it, only when the film has an element index. Old films are unchanged.
+    @ViewBuilder
+    private func withMotionInspector<V: View>(_ player: V) -> some View {
+        if motionSel.index == nil {
+            player
+        } else {
+            HStack(alignment: .top, spacing: Workspace.gap) {
+                player
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        MotionEditStatusChip(status: motionEdits)
+                        if motionSel.state == .none {
+                            Text("Click an element in the film to change it.").font(.system(size: 12)).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        MotionInspectorPanel(selection: motionSel, filmVersion: motionSel.index?.filmVersion,
+                                             existingEditIDs: motionEdits.lines.map(\.id),
+                                             onAsk: { req in Task { await model.sendMotionEdit(req, step: "final") } },
+                                             onNote: { text in
+                                                 Task { if !(await model.sendPendingMark(text: text)) { _ = await model.tell(text, step: step) } }
+                                             })
+                    }
+                    .padding(10)
+                }
+                .frame(width: 280).frame(maxHeight: .infinity, alignment: .top)
+                .workspacePanel()
+                .accessibilityLabel("Film element inspector")
+            }
+        }
     }
 
     private var renderWithoutButton: some View {
@@ -258,4 +309,33 @@ struct NativeFilmPlayer: NSViewRepresentable {
         return view
     }
     func updateNSView(_ view: AVPlayerView, context: Context) { view.player = player }
+}
+
+/// The latest Motion Studio edit's state (requested, applied, rendered, failed), nothing when there are none.
+private struct MotionEditStatusChip: View {
+    let status: MotionEditStatus
+    var body: some View {
+        if let line = status.lines.last, let state = line.status {
+            Label(title(state, count: status.lines.count), systemImage: symbol(state))
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(state == .failed ? Color(nsColor: .systemOrange) : state == .rendered ? Color.rasan : Color.secondary)
+                .padding(.horizontal, 9).padding(.vertical, 4)
+                .background(Color(nsColor: .quaternaryLabelColor).opacity(0.22), in: Capsule())
+                .help(line.note ?? line.instruction ?? "")
+                .accessibilityLabel("Latest edit: \(state.rawValue)")
+        }
+    }
+    private func title(_ s: MotionEditState, count: Int) -> String {
+        let word = s.rawValue.prefix(1).uppercased() + s.rawValue.dropFirst()
+        return count > 1 ? "\(word) (\(count) edits)" : word
+    }
+    private func symbol(_ s: MotionEditState) -> String {
+        switch s {
+        case .requested, .accepted, .unknown: "clock"
+        case .applied: "checkmark"
+        case .rendered: "checkmark.circle.fill"
+        case .failed: "exclamationmark.triangle"
+        case .reverted: "arrow.uturn.backward"
+        }
+    }
 }

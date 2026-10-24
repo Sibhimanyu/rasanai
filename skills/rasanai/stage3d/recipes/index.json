@@ -1,0 +1,570 @@
+{
+  "schema_version": 1,
+  "recipes": [
+    {
+      "id": "character-handoff",
+      "label": "Character pose and emotion handoff",
+      "summary": "A crew character walks to its mark and hands the beat from look to an emotion; refuses, loudly, anything that cannot be rigged.",
+      "params": {
+        "durationS": {
+          "type": "number",
+          "min": 2,
+          "max": 10,
+          "default": 4
+        },
+        "fromX": {
+          "type": "number",
+          "min": -3,
+          "max": 3,
+          "default": -0.8
+        },
+        "toX": {
+          "type": "number",
+          "min": -3,
+          "max": 3,
+          "default": 0.4
+        },
+        "walkS": {
+          "type": "number",
+          "min": 0.4,
+          "max": 4,
+          "default": 1.6
+        },
+        "handoffAt": {
+          "type": "number",
+          "min": 0.5,
+          "max": 9,
+          "default": 2.2
+        },
+        "emotion": {
+          "type": "enum",
+          "enum": [
+            "surprised",
+            "joyful",
+            "worried",
+            "proud",
+            "sad",
+            "curious"
+          ],
+          "default": "joyful"
+        },
+        "then": {
+          "type": "enum",
+          "enum": [
+            "none",
+            "point",
+            "hop",
+            "look"
+          ],
+          "default": "none"
+        },
+        "emotionS": {
+          "type": "number",
+          "min": 0.4,
+          "max": 4,
+          "default": 1.4
+        },
+        "fps": {
+          "type": "number",
+          "min": 24,
+          "max": 60,
+          "default": 30
+        }
+      },
+      "requires": [
+        "identity (identity.json of a 3d-rig, rig.kind code)",
+        "character-rig.js loaded"
+      ],
+      "seek_safe": true,
+      "file": "character-handoff.js"
+    },
+    {
+      "id": "focus-pull",
+      "label": "Frame-correct focus pull",
+      "summary": "A rack focus that is in focus on exactly the supplied event frame.",
+      "params": {
+        "eventS": {
+          "type": "number",
+          "min": 0.2,
+          "max": 60,
+          "default": 2
+        },
+        "pullS": {
+          "type": "number",
+          "min": 0.1,
+          "max": 3,
+          "default": 0.7
+        },
+        "fromDistance": {
+          "type": "number",
+          "min": 0.2,
+          "max": 100,
+          "default": 4
+        },
+        "toDistance": {
+          "type": "number",
+          "min": 0.2,
+          "max": 100,
+          "default": 9
+        },
+        "fstop": {
+          "type": "number",
+          "min": 1.2,
+          "max": 8,
+          "default": 2
+        },
+        "fps": {
+          "type": "number",
+          "min": 24,
+          "max": 60,
+          "default": 30
+        }
+      },
+      "requires": [],
+      "seek_safe": true,
+      "file": "focus-pull.js"
+    },
+    {
+      "id": "hero-turntable",
+      "label": "Hero object turntable",
+      "summary": "Turns the hero object, eases to rest on its hero yaw and settles the camera on-axis; materials kept, budget enforced.",
+      "params": {
+        "durationS": {
+          "type": "number",
+          "min": 2,
+          "max": 12,
+          "default": 6
+        },
+        "holdS": {
+          "type": "number",
+          "min": 0.4,
+          "max": 3,
+          "default": 1.2
+        },
+        "turns": {
+          "type": "number",
+          "min": 0.25,
+          "max": 3,
+          "default": 1
+        },
+        "heroYawDeg": {
+          "type": "number",
+          "min": -45,
+          "max": 45,
+          "default": 0
+        },
+        "startPitchDeg": {
+          "type": "number",
+          "min": 0,
+          "max": 30,
+          "default": 12
+        },
+        "endPitchDeg": {
+          "type": "number",
+          "min": -10,
+          "max": 30,
+          "default": 0
+        },
+        "lensMm": {
+          "type": "number",
+          "min": 35,
+          "max": 135,
+          "default": 70
+        },
+        "fill": {
+          "type": "number",
+          "min": 0.3,
+          "max": 0.8,
+          "default": 0.55
+        },
+        "objectSize": {
+          "type": "number",
+          "min": 0.2,
+          "max": 3,
+          "default": 1
+        },
+        "materialKind": {
+          "type": "enum",
+          "enum": [
+            "keep",
+            "glass",
+            "frosted-glass",
+            "chrome",
+            "brushed-metal",
+            "clay",
+            "ceramic",
+            "gummy",
+            "plastic",
+            "concrete",
+            "paper",
+            "matte"
+          ],
+          "default": "keep"
+        },
+        "budgetTriangles": {
+          "type": "number",
+          "min": 1000,
+          "max": 2000000,
+          "default": 300000
+        },
+        "budgetMaterials": {
+          "type": "number",
+          "min": 1,
+          "max": 32,
+          "default": 8
+        },
+        "budgetMode": {
+          "type": "enum",
+          "enum": [
+            "throw",
+            "warn"
+          ],
+          "default": "throw"
+        },
+        "fps": {
+          "type": "number",
+          "min": 24,
+          "max": 60,
+          "default": 30
+        },
+        "model": {
+          "type": "string",
+          "local_asset": true,
+          "default": ""
+        }
+      },
+      "requires": [
+        "object or model (.glb)"
+      ],
+      "seek_safe": true,
+      "file": "hero-turntable.js"
+    },
+    {
+      "id": "icon-portal-through",
+      "label": "Camera through an icon",
+      "summary": "The camera dollies through an extruded icon's opening; the next scene's first frame fills the frame exactly at the hold.",
+      "params": {
+        "durationS": {
+          "type": "number",
+          "min": 1,
+          "max": 5,
+          "default": 2.4
+        },
+        "holdFrames": {
+          "type": "number",
+          "min": 2,
+          "max": 12,
+          "default": 3
+        },
+        "iconWidth": {
+          "type": "number",
+          "min": 0.5,
+          "max": 5,
+          "default": 2.4
+        },
+        "holeFraction": {
+          "type": "number",
+          "min": 0.2,
+          "max": 0.9,
+          "default": 0.5
+        },
+        "startDistance": {
+          "type": "number",
+          "min": 2,
+          "max": 30,
+          "default": 8
+        },
+        "planeWidth": {
+          "type": "number",
+          "min": 1,
+          "max": 8,
+          "default": 3.2
+        },
+        "lensMm": {
+          "type": "number",
+          "min": 14,
+          "max": 50,
+          "default": 24
+        },
+        "width": {
+          "type": "number",
+          "min": 320,
+          "max": 7680,
+          "default": 1920
+        },
+        "height": {
+          "type": "number",
+          "min": 240,
+          "max": 4320,
+          "default": 1080
+        },
+        "fps": {
+          "type": "number",
+          "min": 24,
+          "max": 60,
+          "default": 30
+        },
+        "iconSvg": {
+          "type": "string",
+          "local_asset": true,
+          "default": ""
+        },
+        "nextFrame": {
+          "type": "string",
+          "local_asset": true,
+          "default": ""
+        },
+        "nextColor": {
+          "type": "string",
+          "default": "#0b0b0d"
+        }
+      },
+      "requires": [
+        "iconSvg",
+        "nextFrame (image of the next scene's first frame)"
+      ],
+      "seek_safe": true,
+      "file": "icon-portal-through.js"
+    },
+    {
+      "id": "product-slab-evidence",
+      "label": "Product slab to evidence",
+      "summary": "A slab carrying the real screenshot turns face-on and the camera settles on one region, on-axis and legible.",
+      "params": {
+        "durationS": {
+          "type": "number",
+          "min": 2,
+          "max": 8,
+          "default": 3.2
+        },
+        "holdS": {
+          "type": "number",
+          "min": 0.3,
+          "max": 2,
+          "default": 0.6
+        },
+        "startYawDeg": {
+          "type": "number",
+          "min": -60,
+          "max": 60,
+          "default": -32
+        },
+        "startPitchDeg": {
+          "type": "number",
+          "min": -30,
+          "max": 30,
+          "default": 10
+        },
+        "regionX": {
+          "type": "number",
+          "min": 0,
+          "max": 0.9,
+          "default": 0.1
+        },
+        "regionY": {
+          "type": "number",
+          "min": 0,
+          "max": 0.9,
+          "default": 0.1
+        },
+        "regionW": {
+          "type": "number",
+          "min": 0.1,
+          "max": 1,
+          "default": 0.8
+        },
+        "regionH": {
+          "type": "number",
+          "min": 0.1,
+          "max": 1,
+          "default": 0.8
+        },
+        "fill": {
+          "type": "number",
+          "min": 0.5,
+          "max": 0.95,
+          "default": 0.8
+        },
+        "lensMm": {
+          "type": "number",
+          "min": 24,
+          "max": 85,
+          "default": 50
+        },
+        "slabWidth": {
+          "type": "number",
+          "min": 0.5,
+          "max": 6,
+          "default": 3.2
+        },
+        "aspect": {
+          "type": "number",
+          "min": 0.5,
+          "max": 3,
+          "default": 1.6667
+        },
+        "imageWidthPx": {
+          "type": "number",
+          "min": 320,
+          "max": 8192,
+          "default": 1920
+        },
+        "width": {
+          "type": "number",
+          "min": 320,
+          "max": 7680,
+          "default": 1920
+        },
+        "height": {
+          "type": "number",
+          "min": 240,
+          "max": 4320,
+          "default": 1080
+        },
+        "fps": {
+          "type": "number",
+          "min": 24,
+          "max": 60,
+          "default": 30
+        },
+        "screenshot": {
+          "type": "string",
+          "local_asset": true,
+          "default": ""
+        }
+      },
+      "requires": [
+        "screenshot"
+      ],
+      "seek_safe": true,
+      "file": "product-slab-evidence.js"
+    },
+    {
+      "id": "title-extrude-lockup",
+      "label": "Title to extruded brand lockup",
+      "summary": "The 2D title lifts into extruded brand type and lands beside the real, extruded logo.",
+      "params": {
+        "durationS": {
+          "type": "number",
+          "min": 1.5,
+          "max": 6,
+          "default": 3
+        },
+        "holdS": {
+          "type": "number",
+          "min": 0.1,
+          "max": 1,
+          "default": 0.3
+        },
+        "fromX": {
+          "type": "number",
+          "min": 0,
+          "max": 7680,
+          "default": 160
+        },
+        "fromY": {
+          "type": "number",
+          "min": 0,
+          "max": 4320,
+          "default": 168
+        },
+        "fromW": {
+          "type": "number",
+          "min": 40,
+          "max": 7680,
+          "default": 900
+        },
+        "fromH": {
+          "type": "number",
+          "min": 10,
+          "max": 2000,
+          "default": 96
+        },
+        "sizeUnits": {
+          "type": "number",
+          "min": 0.2,
+          "max": 3,
+          "default": 0.8
+        },
+        "depth": {
+          "type": "number",
+          "min": 0.02,
+          "max": 0.4,
+          "default": 0.12
+        },
+        "gap": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.3
+        },
+        "logoWidth": {
+          "type": "number",
+          "min": 0.3,
+          "max": 4,
+          "default": 1
+        },
+        "tiltDeg": {
+          "type": "number",
+          "min": 0,
+          "max": 40,
+          "default": 16
+        },
+        "layoutDistance": {
+          "type": "number",
+          "min": 4,
+          "max": 30,
+          "default": 12
+        },
+        "fill": {
+          "type": "number",
+          "min": 0.3,
+          "max": 0.9,
+          "default": 0.6
+        },
+        "width": {
+          "type": "number",
+          "min": 320,
+          "max": 7680,
+          "default": 1920
+        },
+        "height": {
+          "type": "number",
+          "min": 240,
+          "max": 4320,
+          "default": 1080
+        },
+        "fps": {
+          "type": "number",
+          "min": 24,
+          "max": 60,
+          "default": 30
+        },
+        "text": {
+          "type": "string",
+          "default": ""
+        },
+        "titleColor": {
+          "type": "string",
+          "default": "#f2f2f2"
+        },
+        "font": {
+          "type": "string",
+          "local_asset": true,
+          "default": ""
+        },
+        "logoSvg": {
+          "type": "string",
+          "local_asset": true,
+          "default": ""
+        }
+      },
+      "requires": [
+        "logoSvg",
+        "font (static TTF/OTF, optional)"
+      ],
+      "seek_safe": true,
+      "file": "title-extrude-lockup.js"
+    }
+  ]
+}

@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "reference_id": "ref-slow-product-walk",
+  "source": {
+    "kind": "manual-notes",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000002",
+    "rights": "inspiration-only",
+    "basename": "product-walk.mp4"
+  },
+  "analysis": {
+    "duration_s": 24,
+    "fps_observed": 24,
+    "aspect": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "has_audio": true,
+    "cuts_s": [
+      7.5,
+      15
+    ],
+    "shots": [
+      {
+        "start_s": 0,
+        "end_s": 7.5,
+        "framing": "wide",
+        "motion_role": "slow dolly across dashboard",
+        "observations": [
+          "steady camera drifts over the UI"
+        ],
+        "confidence": "high"
+      },
+      {
+        "start_s": 7.5,
+        "end_s": 15,
+        "framing": "medium",
+        "motion_role": "cursor click opens a panel",
+        "observations": [
+          "panel expands to fill the screen"
+        ],
+        "confidence": "low"
+      },
+      {
+        "start_s": 15,
+        "end_s": 24,
+        "framing": "wide",
+        "motion_role": "parallax settle",
+        "observations": [
+          "soft end hold"
+        ],
+        "confidence": "low"
+      }
+    ],
+    "palette_observed": [
+      "#F4F1EA",
+      "#1F3A5F"
+    ],
+    "type_treatment": [
+      "small typewriter captions with caret"
+    ],
+    "motion_patterns": [
+      "slow dolly through the product",
+      "cursor hover then click",
+      "panel expand to become the next screen"
+    ],
+    "sound_hits_s": [],
+    "energy_arc": [
+      0.2,
+      0.5,
+      0.3
+    ],
+    "uncertainties": [
+      "Second shot too soft to judge easing",
+      "Audio could not be analysed"
+    ]
+  },
+  "recipe": [
+    {
+      "observation": "3 shots, mean 8 s, shortest 7.5 s, longest 9 s (slow cadence)",
+      "viewer_effect": "Reads as unhurried and premium; attention is held on one continuous surface.",
+      "transferable_mechanic": "Long takes that travel through the product instead of cutting away.",
+      "candidate_move": "oner-camera-path",
+      "not_transferable": [
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "measured",
+      "tentative": false
+    },
+    {
+      "observation": "Energy arc peaks mid-film (peak at shot 2 of 3, 0.5)",
+      "viewer_effect": "A mid peak gives a clear climax and a graceful resolve.",
+      "transferable_mechanic": "Place the boldest move in the middle and resolve with a calm hold.",
+      "candidate_move": "hold-then-cut",
+      "not_transferable": [
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "interpretation",
+      "tentative": true
+    },
+    {
+      "observation": "Motion pattern: slow dolly through the product",
+      "viewer_effect": "Continuous camera travel hides the joins and feels premium.",
+      "transferable_mechanic": "One camera path carries the viewer through consecutive states.",
+      "candidate_move": "oner-camera-path",
+      "not_transferable": [
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "interpretation",
+      "tentative": true
+    },
+    {
+      "observation": "Motion pattern: cursor hover then click",
+      "viewer_effect": "A visible pointer gives the screen a cause and a protagonist.",
+      "transferable_mechanic": "The cursor hesitates, hunts and clicks, and the UI responds to it.",
+      "candidate_move": "cursor-as-character",
+      "not_transferable": [
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "interpretation",
+      "tentative": true
+    },
+    {
+      "observation": "Motion pattern: panel expand to become the next screen",
+      "viewer_effect": "A real component growing into the screen makes the product feel spatial.",
+      "transferable_mechanic": "A UI component expands to become the next environment.",
+      "candidate_move": "ui-element-becomes-stage",
+      "not_transferable": [
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "interpretation",
+      "tentative": true
+    },
+    {
+      "observation": "Type: small typewriter captions with caret",
+      "viewer_effect": "Typing on reads as live, with the caret as a pacing device.",
+      "transferable_mechanic": "Text types on at product speed with a visible caret.",
+      "candidate_move": "cursor-as-character",
+      "not_transferable": [
+        "the reference's typeface and wording",
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "interpretation",
+      "tentative": true
+    },
+    {
+      "observation": "A palette was observed in the reference",
+      "viewer_effect": "Colour carries the reference's identity, not a mechanic.",
+      "transferable_mechanic": "None: only the contrast idea (how much the hero separates from its ground) may inform the film; the film uses its own brand colours.",
+      "candidate_move": "none",
+      "not_transferable": [
+        "the observed colours, in any form",
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "measured",
+      "tentative": false
+    },
+    {
+      "observation": "Analysis uncertainty: Second shot too soft to judge easing (+1 more)",
+      "viewer_effect": "Unknown; do not build on this.",
+      "transferable_mechanic": "Verify against the reference before using any mechanic that depends on it.",
+      "candidate_move": "none",
+      "not_transferable": [
+        "logos and brand marks",
+        "footage and stills",
+        "unlicensed audio",
+        "verbatim copy",
+        "the brand palette"
+      ],
+      "basis": "interpretation",
+      "tentative": true
+    }
+  ],
+  "use": {
+    "transfer": "rhythm-and-mechanics-only",
+    "never_reuse": [
+      "logos",
+      "footage",
+      "unlicensed_audio",
+      "verbatim_copy"
+    ]
+  }
+}

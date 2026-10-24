@@ -160,11 +160,24 @@ if (cmd === "init") {
     if (!fs.existsSync(of) || !fs.readFileSync(of).equals(body)) fs.writeFileSync(of, body);
     orbs = { dir: od, script: "assets/rasan-orbs/rasan-orbs.js" };
   }
+  // Motion Studio: the motion kit (assets/rasan-motion-kit/: runtime + catalog.json) only when a composition carries data-motion-kit=
+  let motionKit = null;
+  if (shp.collect(dir).some((f) => !/[/\\]rasan-motion-kit[/\\]/.test(f) && /\bdata-motion-kit=/.test(fs.readFileSync(f, "utf8")))) {
+    const kd = path.join(dir, "assets", "rasan-motion-kit");
+    fs.mkdirSync(kd, { recursive: true });
+    for (const [from, to] of [["runtime/rasan-motion-kit.js", "rasan-motion-kit.js"], ["motion-kit/catalog.json", "catalog.json"]]) {
+      const src = path.join(HERE, "..", from), dst = path.join(kd, to);
+      if (!fs.existsSync(src)) continue;
+      const body = fs.readFileSync(src);
+      if (!fs.existsSync(dst) || !fs.readFileSync(dst).equals(body)) fs.writeFileSync(dst, body);
+    }
+    motionKit = { dir: kd, script: "assets/rasan-motion-kit/rasan-motion-kit.js" };
+  }
   // painted 2D characters (assets/rasan2d/) when a composition, the storyboard or a cartoon score names Rasan2D
   const s2d = await import("./lib/stage2d.mjs");
   const twoD = args.runtime || /Rasan2D|space: 2d-character/.test(sb) || s2d.projectUsesRasan2d(dir) ? s2d.install(dir) : null;
   const tagged = cam.tagCompositions(dir, { camera: !!camera, plugins: !!plugins });
-  console.log(JSON.stringify({ ok: true, injected: done, direction: !!dirSection, ...(shape ? { shape: { runtime: path.relative(process.cwd(), shape.dir), scripts: shape.scripts } } : {}), ...(camera ? { camera: { runtime: path.relative(process.cwd(), camera.dir), script: camera.script } } : {}), ...(plugins ? { gsap_plugins: { file: path.relative(process.cwd(), plugins.file), script: plugins.script, registers: plugins.registers } } : {}), ...(motion ? { motion: { runtime: path.relative(process.cwd(), motion.dir), scripts: motion.scripts } } : {}), ...(ui ? { ui: { runtime: path.relative(process.cwd(), ui.dir), script: ui.script } } : {}), ...(sim ? { sim: { runtime: path.relative(process.cwd(), sim.dir), script: sim.script } } : {}), ...(orbs ? { orbs: { runtime: path.relative(process.cwd(), orbs.dir), script: orbs.script } } : {}), ...(tagged.length ? { tagged } : {}), ...(twoD ? { rasan2d: { runtime: path.relative(process.cwd(), twoD.dir), scripts: twoD.scripts } } : {}), ...(three ? { three: { runtime: path.relative(process.cwd(), three.dir), script: three.script } } : {}) }, null, 2));
+  console.log(JSON.stringify({ ok: true, injected: done, direction: !!dirSection, ...(shape ? { shape: { runtime: path.relative(process.cwd(), shape.dir), scripts: shape.scripts } } : {}), ...(camera ? { camera: { runtime: path.relative(process.cwd(), camera.dir), script: camera.script } } : {}), ...(plugins ? { gsap_plugins: { file: path.relative(process.cwd(), plugins.file), script: plugins.script, registers: plugins.registers } } : {}), ...(motion ? { motion: { runtime: path.relative(process.cwd(), motion.dir), scripts: motion.scripts } } : {}), ...(ui ? { ui: { runtime: path.relative(process.cwd(), ui.dir), script: ui.script } } : {}), ...(sim ? { sim: { runtime: path.relative(process.cwd(), sim.dir), script: sim.script } } : {}), ...(motionKit ? { motion_kit: { runtime: path.relative(process.cwd(), motionKit.dir), script: motionKit.script } } : {}), ...(orbs ? { orbs: { runtime: path.relative(process.cwd(), orbs.dir), script: orbs.script } } : {}), ...(tagged.length ? { tagged } : {}), ...(twoD ? { rasan2d: { runtime: path.relative(process.cwd(), twoD.dir), scripts: twoD.scripts } } : {}), ...(three ? { three: { runtime: path.relative(process.cwd(), three.dir), script: three.script } } : {}) }, null, 2));
 } else if (cmd === "audio-lock") {
   const dir = projectDir();
   if (!args.music) die("--music <file> required");
