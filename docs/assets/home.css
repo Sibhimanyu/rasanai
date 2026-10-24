@@ -79,12 +79,12 @@
   .wshot-band { padding-top: 0; }
 }
 @media (min-width: 900px) and (max-width: 1250px) { .fc { --k: .78; } }
-.pin .hero { height: 410vh; position: relative; z-index: 1; }   /* above the crew scene, which starts a screen early behind the window (z 2) */
+.pin .hero { height: 455vh; position: relative; z-index: 1; }   /* above the crew scene, which starts a screen early behind the window (z 2) */
 .pin .hero .sticky { position: sticky; top: 0; }
 /* the screenshot rises under the pinned hero while the cards fly onto it */
 /* the window's own pinned stretch: it rises into place over 150vh of scroll while the hero (pinned until the same moment)
    holds still, so the crew assemble slowly; then the band lets go and the window scrolls up off the crew scene beneath */
-.pin .shot-band { position: relative; z-index: 2; margin-top: -250vh; height: 250vh; padding-bottom: 0; }
+.pin .shot-band { position: relative; z-index: 2; margin-top: -295vh; height: 295vh; padding-bottom: 0; }
 .pin .shot-band > .wrap { position: sticky; top: 0; height: 100vh; display: grid; align-content: center; }
 @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
 .fi { animation: bob var(--b, 4s) ease-in-out infinite; }
@@ -123,9 +123,11 @@
 .crew-what { margin-top: 6px; font: 400 .92rem/1.45 var(--body); color: var(--ink-2); }
 .crew-statement { margin: 18px 0 0; max-width: 34rem; font: 500 clamp(1.08rem, 1.45vw, 1.25rem)/1.55 var(--body); color: var(--ink-2); }
 
-/* ---- pinned scene (wide, motion allowed, controller ready) ---- */
+/* ---- pinned scene (wide, motion allowed, controller ready) ----
+   Track lengths (this block, the hero and window above, the Squeak and end-card hosts, and the phone ones below) go together with
+   the MAPS knots in home.js: each is the scroll its scene's timeline was budgeted, so change one and re-measure the other. */
 @media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
-  .pin .flow.crew-ready { height: 3260vh; margin-top: -100vh; }   /* starts behind the rising window (.shot-band is above it), so the opening line is uncovered in place */
+  .pin .flow.crew-ready { height: 3620vh; margin-top: -100vh; }   /* starts behind the rising window (.shot-band is above it), so the opening line is uncovered in place */
   .pin .flow.crew-ready > .crew-sticky { position: sticky; top: 0; height: 100vh; height: 100svh; max-width: none; margin: 0; padding: 0; overflow: hidden; display: block; background: var(--rice); }
   /* Rasan's introduction holds the right half while he stands on the left */
   .pin .crew-ready .crew-lead { position: absolute; left: 52%; top: 50%; z-index: 2; width: min(34rem, 40vw); translate: 0 -50%; will-change: transform, opacity; }
@@ -171,6 +173,8 @@
 .beat-char { display: inline-block; position: relative; }
 @media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
   .pin .beat-host.host-ready { height: 520vh; padding: 0; overflow: clip; }   /* clip, not hidden: hidden would stop the stage from sticking */
+  .pin .projects.host-ready { height: 520vh; }
+  .pin .endcard.host-ready { height: 670vh; }
   .pin .host-ready > .host-pin { position: sticky; top: 0; height: 100vh; height: 100svh; box-sizing: border-box; display: grid; align-content: center; overflow: hidden; }
   .pin :is(.host-ready, .crew-ready) .beat { position: absolute; inset: 0; z-index: 8; min-height: 0; padding: 0 var(--pad); background: none; pointer-events: none; }
   .pin :is(.host-ready, .crew-ready) .beat-layer { display: block; position: absolute; inset: 0; background: var(--beat-bg); transform-origin: 50% 0; }
@@ -409,7 +413,7 @@
   .pin .host-ready .g-sparks i { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px; border-radius: 50%; background: var(--rasanai-blue); opacity: 0; }
   .pin .host-ready .g-sparks i:nth-child(3n) { background: #ffc812; width: 14px; height: 14px; margin: -7px; }
   .pin .host-ready .g-sparks i:nth-child(3n+1) { background: #ff972e; border-radius: 3px; }
-  .pin .squeak-scene.host-ready { height: 2540vh; }
+  .pin .squeak-scene.host-ready { height: 2010vh; }
   .pin .squeak-scene.host-ready > .host-pin { padding: 0; display: block; }
   .pin .host-ready .sq-stage { position: absolute; inset: 0; max-width: none; margin: 0; display: block; }
   .pin .host-ready .sq-copy { position: absolute; left: max(var(--pad), calc(50vw - 610px)); top: 50%; width: min(30rem, 33vw); height: 70vh; translate: 0 -50%; display: block; }
@@ -575,7 +579,7 @@
 }
 
 /* ---- hero: one 100svh stage, the crew loosely above, the words below; the window rises over the second half ---- */
-.mpin .hero { height: 290vh; height: 290svh; position: relative; z-index: 1; }
+.mpin .hero { height: 320vh; height: 320svh; position: relative; z-index: 1; }
 .mpin .hero .sticky { position: sticky; top: 0; height: 100vh; height: 100svh; padding-top: 0; overflow: hidden; display: flex; flex-direction: column; }
 .mpin .fcs { position: relative; flex: 1 1 0; min-height: 0; margin: 84px 0 0; max-width: none; height: auto; container-type: size; }
 .mpin .fc, .mpin .fc[style*="--mx"] { display: block; left: calc(var(--px) * 1%); top: calc(var(--py) * 1%); width: calc(var(--mw) * min(.36cqw, .44cqh)); will-change: transform; }
@@ -601,7 +605,7 @@
 html.mpin { overflow-x: clip; }
 /* the window rises under the pinned hero and pushes in on the prompt box while the crew fly onto it (home.js drives both) */
 .mpin .shot-band { overflow-x: clip; overflow-y: visible;   /* clip only sideways (the zoomed window), so its shadow fades out freely below */
-  position: relative; z-index: 2; margin-top: -190vh; margin-top: -190svh; height: 190vh; height: 190svh; padding: 0; }
+  position: relative; z-index: 2; margin-top: -215vh; margin-top: -215svh; height: 215vh; height: 215svh; padding: 0; }
 .mpin .shot-band > .wrap { position: sticky; top: 0; height: 100vh; height: 100svh; display: grid; align-content: center; }
 .mpin .rise { will-change: transform; }
 
@@ -627,7 +631,7 @@ html.mpin { overflow-x: clip; }
 .mpin .projects.host-ready { --mh: auto; padding: 0; }
 .mpin .projects.host-ready > .host-pin { position: static; height: auto; display: block; overflow: visible; }
 .mpin .projects.host-ready :is(.wrap, .proj-grid, .proj-copy) { display: contents; }
-.mpin .projects.host-ready .m-stage { position: relative; height: calc(100vh * 2.5); height: calc(100svh * 2.5); }
+.mpin .projects.host-ready .m-stage { position: relative; height: calc(100vh * 3.2); height: calc(100svh * 3.2); }
 .mpin .projects.host-ready .m-stage > .beat { position: sticky; inset: auto; top: 0; height: 100vh; height: 100svh; margin-bottom: -100vh; margin-bottom: -100svh; }
 .mpin .projects.host-ready .proj-head { position: sticky; top: 0; z-index: 1; height: 100vh; height: 100svh; box-sizing: border-box; padding: max(96px, 14svh) var(--pad) 0; }
 .mpin .projects.host-ready .points { margin: -46vh var(--pad) 0; margin: -46svh var(--pad) 0; }
@@ -643,7 +647,10 @@ html.mpin { overflow-x: clip; }
    Same five steps and timeline as the desktop scene; home.js (host.extra, renderGrand, renderFly) places the device and the
    plane's arc for phones. --mh on the section is the track length.
    ==================================================================================================================== */
-.mpin .squeak-scene { --mh: 960svh; }
+.mpin .squeak-scene { --mh: 1490svh; }
+.mpin .endcard { --mh: 470svh; }
+.mpin .endcard { --mh: 430svh; }
+.mpin .endcard { --mh: 435svh; }
 .mpin .squeak-scene.host-ready > .host-pin { padding: 0; display: block; }
 .mpin .host-ready .sq-stage { position: absolute; inset: 0; max-width: none; margin: 0; display: block; }
 .mpin .host-ready .sq-copy { position: absolute; left: var(--pad); right: var(--pad); top: auto; height: clamp(168px, 22vh, 204px); height: clamp(168px, 22svh, 204px); bottom: max(18px, env(safe-area-inset-bottom)); display: block; }
@@ -691,7 +698,7 @@ html.mpin { overflow-x: clip; }
    point, the card a bottom sheet; the crew then break into depth around the statement. home.js sets --lt (where his
    introduction starts) and --sd (spotlight point to the screen's bottom edge) on #flow, and drives every transform.
    ====================================================================================================================== */
-.mpin .flow.crew-ready { height: 1800vh; height: 1800svh; margin-top: -100vh; margin-top: -100svh; }
+.mpin .flow.crew-ready { height: 2355vh; height: 2355svh; margin-top: -100vh; margin-top: -100svh; }
 .mpin .flow.crew-ready > .crew-sticky { position: sticky; top: 0; height: 100vh; height: 100svh; max-width: none; margin: 0; padding: 0; overflow: hidden; display: block; background: var(--rice); }
 .mpin .crew-ready .crew-lead { position: absolute; left: var(--pad); right: var(--pad); top: var(--lt, 44svh); z-index: 2; width: auto; will-change: transform, opacity; }
 .mpin .crew-ready .crew-lead .eyebrow { margin: 0 0 8px; }
