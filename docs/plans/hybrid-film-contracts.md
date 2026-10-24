@@ -113,8 +113,8 @@ Skill: `scripts/{hybrid-graph,hybrid-render,video-generation,character-performan
 | W1 | Graph + cache | `skills/rasanai/scripts/hybrid-graph.mjs`, `skills/rasanai/scripts/lib/hybrid-graph/**`, `skills/rasanai/scripts/lib/render-cache/**` | C2, C3 |
 | W2 | Fragment render | `skills/rasanai/scripts/hybrid-render.mjs`, `skills/rasanai/scripts/lib/hybrid-render/**` | C2/C3 consumer |
 | W3 | Video generation (ComfyUI, fake provider) | `skills/rasanai/scripts/video-generation.mjs`, `skills/rasanai/scripts/lib/video-generation/**` | C4 |
-| W4 | Compositor | `skills/rasanai/scripts/lib/hybrid-compositor/**` | C1, C5 consumer |
-| W5 | Tracking (native Vision) | `apps/macos/Sources/StudioCore/Tracking/**`, `apps/macos/Sources/RasanAIStudio/Tracking*.swift` | C5 |
+| W4 | Compositor | `skills/rasanai/scripts/lib/hybrid-compositor/**`, `skills/rasanai/scripts/composite.mjs` | C1, C5 consumer |
+| W5 | Tracking (native Vision) | `apps/macos/Sources/StudioCore/Tracking/**`, `apps/macos/Sources/RasanAIStudio/Tracking*.swift`, `skills/rasanai/scripts/track.mjs`, `skills/rasanai/scripts/vision/track.swift` | C5 |
 | W6 | Optional SAM sidecar | `skills/rasanai/tools/segmentation/**` | C5 mask tracks |
 | W7 | Editor-patch ops | `skills/rasanai/scripts/editor-patch.mjs`, `skills/rasanai/scripts/lib/editor-patch/**` | C6 |
 | W8 | Native direct editing | `apps/macos/Sources/RasanAIStudio/Direct*.swift`, `apps/macos/Sources/StudioCore/EditGeometry.swift` | C6 client |
