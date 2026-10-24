@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **Reference motion.** `scripts/reference-motion.mjs` (`ingest`, `analyze --fast`, `summarize --for crew`, `check`) turns a video the owner likes into `reference-motion.json` (cuts, shots, palette, energy arc, uncertainties; rights are required, the file's path stays private) and a short crew packet. A recipe step (`scripts/lib/reference-recipe`) lists transferable mechanics and what is not transferable. Inspiration for rhythm and mechanics only; never its logos, footage, audio or copy.
+- **Motion kit.** `motion-kit/catalog.json` registers 32 named mechanics (4 in each of 8 families); 12 are implemented in `runtime/rasan-motion-kit.js`, the other 20 are catalogued and report `implemented: false`. `scripts/motion-kit.mjs` (`list`, `suggest`, `inspect`, `scaffold`, `check`) gives a deterministic shortlist, not a decision; scenes carry `data-motion-kit="motion-kit:<id>@<ver>"`. Not the older `motionkit.mjs` (RasanMotion verbs), which is unchanged.
+- **Element index.** Scenes can mark elements with `data-el="scene-N.name"`; `scripts/element-index.mjs` (`build`, `check`, `lookup`) derives `motion/element-index.json` (bounds over time, editable fields, stale when the sources change).
+- **Edits as a transaction.** `scripts/editor-patch.mjs` (`record`, `propose`, `checkpoint`, `apply-simple`, `mark`, `undo`, `status`) keeps an append-only `motion/edits.jsonl`; text, colour, position, scale and retime edits apply deterministically when the element already has the token, anything else goes to the agent as a packet. A `motion-edit` console action records an edit sent by an app. An edit is `applied` only after the source changed and `rendered` only with a preview.
+- **Rasan3D recipes.** `stage3d/recipes/` adds six 3D recipes (hero turntable, focus pull, title extrude lockup, product slab evidence, icon portal through, character handoff) with an index and a checker.
+- **Renderer adapters.** `scripts/renderer-adapters.mjs doctor` reports which renderers are available; HyperFrames is the only one enabled. Remotion, OpenFilm and Rive are placeholders, off unless `RASANAI_ADAPTER_<ID>=1`.
+- **Routing.** `references/motion-studio.md` (reference, kit, element index, edits) is opened by `skill-map.mjs` only when a run has a reference, `data-motion-kit`, an edit request or `data-el` ids; caption-only runs and quick films never load it.
+- **Licence ledger.** `docs/plans/motion-studio-licenses.md` records what was inspected for each outside source (ideas only, nothing copied) and the vendored GSAP terms; status in `docs/plans/motion-studio-status.md`.
+- Known: 20 of 32 kit mechanics are not implemented; 5 of 6 3D recipes are not browser-gated; no full selftest or delivery-quality render was run for this work.
+
 ## 1.25.0 (2026-10-22): Video-production upgrade: modular skill, checks, characters, styles, score, evidence, quick preview, benchmarks
 
 - **A much smaller entrypoint.** `SKILL.md` is a 12 KB router (was 148 KB); each phase and route loads its own guide from `references/workflows/` (`scripts/skill-map.mjs` lists what a route reads; `scripts/tests/skill-routing.mjs` checks every link, heading and command survived). The Studio launch prompt follows the routing.

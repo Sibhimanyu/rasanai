@@ -2,6 +2,13 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **Reference chip.** A film with a linked reference video shows a reference chip and, on Look, a Motion inspiration summary (cuts, rhythm, uncertainties) with a way to send the director a note on how much it should influence the film. Shown only when the film has `reference-motion.json`.
+- **Motion library on Look.** A collapsed Motion library lists the motion kit catalog; asking for an item sends a note to the director with the item, its annotation and parameters. Shown only when a catalog exists.
+- **Final element inspector.** When the film has an element index, clicking the video also resolves the element under the point, and a change request is sent to the director as a `motion-edit` action with an edit status chip (requested, accepted, applied, rendered, failed). Studio never edits scene files itself.
+- These screens are new and have not yet been opened in a window for review.
+
 ## 0.19.9 (build 47) — 2026-10-23
 
 - **Help opens the new How it works page**, which follows one film through the app, the crew, the engine and the files on your disk.
