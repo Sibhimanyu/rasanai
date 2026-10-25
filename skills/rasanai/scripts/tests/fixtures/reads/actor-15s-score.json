@@ -1,0 +1,38 @@
+{
+  "_fixture": "SYNTHETIC test fixture: invented scene, no product claim",
+  "duration": 15,
+  "scenes": [
+    {
+      "n": 1,
+      "id": "actor",
+      "start": 0,
+      "duration": 15,
+      "reads": [
+        {
+          "id": "notice",
+          "t0": 0,
+          "t1": 3,
+          "kind": "notice",
+          "subject": "actor looks up at a falling ball",
+          "visual_cue": "head turns up"
+        },
+        {
+          "id": "action",
+          "t0": 3,
+          "t1": 8,
+          "kind": "action",
+          "subject": "actor reaches out",
+          "visual_cue": "arm swings out to the right"
+        },
+        {
+          "id": "reaction",
+          "t0": 8,
+          "t1": 12,
+          "kind": "reaction",
+          "subject": "actor grows and holds the ball",
+          "visual_cue": "body scales up, ball in hand"
+        }
+      ]
+    }
+  ]
+}

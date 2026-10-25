@@ -4,7 +4,7 @@ import StudioCore
 
 /// The two tabs of the film page's right inspector.
 enum InspectorTab: String, CaseIterable, Identifiable {
-    case notes = "Notes", decisions = "Decisions"
+    case chat = "Chat", decisions = "Decisions"
     var id: String { rawValue }
 }
 
@@ -48,9 +48,16 @@ final class FilmSessionModel {
     var tellStep: String?
     /// The unsent note in the inspector composer. The status bar's actions send it along with the call.
     var tellText = ""
+    /// A mark on the picture waiting in the chat composer; sending the message sends it as a timed note.
+    var pendingMark: FilmMark?
+    /// Marks that went out with a note, by `markKey`, so the chat can draw them on the note's chip (this session only).
+    var sentMarks: [String: FilmMark] = [:]
+    /// The note whose pin is lit on the player, and the note the chat should scroll to.
+    var focusedNoteID: String?
+    var scrollToNoteID: String?
     /// The right inspector (Notes and Decisions) is open.
     var decisionsPresented = false
-    var inspectorTab: InspectorTab = .notes
+    var inspectorTab: InspectorTab = .chat
     /// A note card in the inspector asks the player on the stage to jump to its moment (the stage watches `seekTick`).
     private(set) var seekTime: Double = 0
     private(set) var seekTick = 0
@@ -74,6 +81,8 @@ final class FilmSessionModel {
     private var seenRevisions: Set<String> = []
     private var revisionsBaselined = false
     private var awaitingRevisions: [(step: String, text: String)] = []
+    /// A call was written for the director (`step`, `type`). Not called for fixtures.
+    var onSent: ((String, String) -> Void)?
 
     private var resolver: AssetResolver?
     private let transport: RunTransport?
@@ -194,6 +203,33 @@ final class FilmSessionModel {
             lastError = nil
             lastSent = "\(step)|\(type)"; sendCount += 1
             await reload()
+            onSent?(step, type)
+            return true
+        } catch {
+            lastError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            return false
+        }
+    }
+
+    /// Motion Studio: the run folder (edits.jsonl, reference-motion.json) and the project folder (motion/element-index.json). Nil without a run.
+    var motionRun: URL? { resolver?.run }
+    var motionProject: URL? { resolver?.workspace }
+
+    /// Queues a Motion Studio edit through the same transport as every other call. Returns true when it was written.
+    @discardableResult
+    func sendMotionEdit(_ edit: MotionEditRequest, step: String = "final") async -> Bool {
+        if isFixture {
+            if let a = try? MotionEditEnvelope.action(edit, step: step) { fixtureLog.append(a); sendCount += 1; return true }
+            return false
+        }
+        guard let transport else { lastError = StudioError.noConnection.localizedDescription; return false }
+        do {
+            let queued = try await Task.detached { try MotionEditEnvelope.send(edit, via: transport, step: step) }.value
+            sentIDs.insert(queued.id)
+            lastError = nil
+            lastSent = "\(step)|\(MotionEditEnvelope.type)"; sendCount += 1
+            await reload()
+            onSent?(step, MotionEditEnvelope.type)
             return true
         } catch {
             lastError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -285,11 +321,11 @@ final class FilmSessionModel {
         return ChatContext(step: snapshot.currentStep, progress: progressProvider(), runState: rs["state"].string, runLabel: rs["label"].string, runReason: rs["reason"].string,
                            isDone: isDone, isWaitingOnUser: isWaitingOnUser, workingMessage: workingMessage, isConnected: isFixture || isConnected, pendingSince: pendingSince)
     }
-    /// Opens the inspector on Notes for a step and focuses the composer, optionally with text already in it.
+    /// Opens the inspector on the chat with Rasan for a step and focuses the composer, optionally with text already in it.
     func beginTell(step: String? = nil, prefill: String = "") {
         tellStep = step ?? shownStep
         if !prefill.isEmpty || tellText.isEmpty { tellText = prefill }
-        inspectorTab = .notes
+        inspectorTab = .chat
         decisionsPresented = true
         tellPresented = true
     }

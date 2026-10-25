@@ -16,7 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { SCHEMA_VERSION, canonicalDigest } from "./contracts.mjs";
 import { numberDrift } from "./provenance.mjs";
-import { checkProtected } from "./evidence.mjs";
+import { checkProtected } from "./evidence-records.mjs";
 import { atomicWrite } from "./recovery.mjs";
 
 const isObj = (x) => x !== null && typeof x === "object" && !Array.isArray(x);

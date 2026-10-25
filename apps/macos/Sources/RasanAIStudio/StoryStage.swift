@@ -26,46 +26,94 @@ struct StoryStage: View {
         return all.first?.id
     }
 
+    /// Windows at least this wide put the script panel up top beside the crew header and the choices.
+    private static let wideThreshold: CGFloat = 1000
+
     var body: some View {
         let all = scripts
-        StageScaffold(model: model, step: step,
-                      question: payload["question"].string ?? "Choose the story.",
-                      context: payload["context"].string,
-                      maxWidth: 1240) {
-            VStack(alignment: .leading, spacing: 26) {
-                if all.isEmpty {
-                    StoryEmpty()
-                } else {
-                    StudioAdaptiveColumns(railWidth: 260, railFirst: true, breakpoint: 760, gap: 24, stackSpacing: 20) {
-                        if let current {
-                            StoryDetail(script: current, isRecommended: current.id == recommendedID)
-                                .id(current.id)
-                        } else {
-                            Color.clear.frame(height: 0)
-                        }
-                        storyList(all)
+        GeometryReader { outer in
+            let wide = outer.size.width >= Self.wideThreshold && !all.isEmpty && current != nil
+            ReviewStageWorkspace(model: model, step: step,
+                                 question: question,
+                                 context: payload["context"].string,
+                                 showsHeader: !wide) {
+                Group {
+                    if all.isEmpty {
+                        StoryEmpty().frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    } else if let current {
+                        storyWorkspace(all, current: current, width: outer.size.width)
                     }
                 }
-            }
-            .focusable()
-            .focusEffectDisabled()
-            .focused($keysFocused)
-            .onKeyPress(characters: CharacterSet(charactersIn: "123"), phases: .down) { press in
-                guard model.canAct(on: step), let n = Int(press.characters), n >= 1, n <= all.count else { return .ignored }
-                selectedID = all[n - 1].id
-                return .handled
-            }
-            // Keys only when nothing is being typed: a step arriving while the person writes must not steal them.
-            .onAppear { if !(NSApp.keyWindow?.firstResponder is NSTextView) { keysFocused = true } }
-        } actions: {
-            CallActions(model: model, step: step,
-                        primaryTitle: all.isEmpty ? nil : "Use this story",
-                        primarySymbol: "checkmark",
-                        primaryEnabled: current != nil) { note in
-                guard let current else { return }
-                Task { await model.send(step: step, type: "choose", value: .string(current.id), note: note) }
+                .focusable()
+                .focusEffectDisabled()
+                .focused($keysFocused)
+                .onKeyPress(characters: CharacterSet(charactersIn: "123"), phases: .down) { press in
+                    guard model.canAct(on: step), let n = Int(press.characters), n >= 1, n <= all.count else { return .ignored }
+                    selectedID = all[n - 1].id
+                    return .handled
+                }
+                // Keys only when nothing is being typed: a step arriving while the person writes must not steal them.
+                .onAppear { if !(NSApp.keyWindow?.firstResponder is NSTextView) { keysFocused = true } }
+            } actions: {
+                CallActions(model: model, step: step,
+                            primaryTitle: all.isEmpty ? nil : "Use this story",
+                            primarySymbol: "checkmark",
+                            primaryEnabled: current != nil) { note in
+                    guard let current else { return }
+                    Task { await model.send(step: step, type: "choose", value: .string(current.id), note: note) }
+                }
             }
         }
+    }
+
+    private var question: String { payload["question"].string ?? "Choose the story." }
+
+    @ViewBuilder private func storyWorkspace(_ all: [StoryScript], current: StoryScript, width: CGFloat) -> some View {
+        // Wide: the crew header and the choices share the left column; the script panel
+        // takes the full height on the right with "Why this one" folded in.  Narrower
+        // windows keep the header on top, then two columns, then one scroll.
+        if width >= Self.wideThreshold {
+            let left = Workspace.leftColumn(for: width)
+            HStack(alignment: .top, spacing: Workspace.columnGap) {
+                VStack(alignment: .leading, spacing: 0) {
+                    StageHeader(question: question, context: payload["context"].string, step: step)
+                        .padding(.bottom, 12)
+                    choiceRail(all)
+                }
+                .frame(width: left, alignment: .leading)
+                detailScroll(current, showRationale: true).frame(maxWidth: .infinity)
+            }
+        } else if width >= 860 {
+            HStack(alignment: .top, spacing: Workspace.columnGap) {
+                choiceRail(all).frame(width: 250)
+                detailScroll(current, showRationale: true).frame(maxWidth: .infinity)
+            }
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    storyList(all)
+                    StoryDetail(script: current, isRecommended: current.id == recommendedID, showRationale: true)
+                        .id(current.id)
+                        .workspacePanel()
+                }
+            }
+        }
+    }
+
+    private func choiceRail(_ all: [StoryScript]) -> some View {
+        ScrollView {
+            storyList(all).padding(.trailing, 2)
+        }
+        .workspacePanel(padding: Workspace.panelPadding)
+    }
+
+    private func detailScroll(_ current: StoryScript, showRationale: Bool) -> some View {
+        ScrollView {
+            StoryDetail(script: current, isRecommended: current.id == recommendedID, showRationale: showRationale)
+                .id(current.id)
+        }
+        // The panel holds still; only the script scrolls inside it.
+        .workspacePanel()
     }
 
     // MARK: List
@@ -155,6 +203,7 @@ private struct StoryListRow: View {
 private struct StoryDetail: View {
     let script: StoryScript
     let isRecommended: Bool
+    var showRationale = true
     @State private var showBeats = false
 
     var body: some View {
@@ -163,7 +212,7 @@ private struct StoryDetail: View {
             if let aim = script.aim { facts(aim) }
             if !script.moves.isEmpty { StoryMoves(script: script) }
             if !script.beats.isEmpty { timeline }
-            howItGetsThere
+            if showRationale { StoryRationale(script: script) }
             if !script.beats.isEmpty {
                 DisclosureGroup("The full storyline, beat by beat (\(script.beats.count))", isExpanded: $showBeats) {
                     StoryLine(script: script).padding(.top, 12)
@@ -172,9 +221,8 @@ private struct StoryDetail: View {
             }
             if !script.lastLine.isEmpty { StoryLastLine(text: script.lastLine) }
         }
-        .padding(24)
+        .padding(Workspace.panelPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .workspacePanel()
     }
 
     private var header: some View {
@@ -225,7 +273,14 @@ private struct StoryDetail: View {
         }
     }
 
-    @ViewBuilder private var howItGetsThere: some View {
+}
+
+/// The argument for a choice stays visible beside the script on wide windows.
+/// In the two-column and narrow layouts it rejoins the central detail scroll.
+private struct StoryRationale: View {
+    let script: StoryScript
+
+    @ViewBuilder var body: some View {
         let how = script.approach.isEmpty ? script.why : script.approach
         if !how.isEmpty || !script.device.isEmpty || script.tempoLine != nil {
             VStack(alignment: .leading, spacing: 8) {
@@ -244,10 +299,15 @@ private struct StoryDetail: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
+        } else {
+            ContentUnavailableView("Story details", systemImage: "text.quote")
+                .font(.system(size: 12))
         }
     }
+}
 
-    private func fact(_ title: String, _ text: String) -> some View {
+private extension StoryDetail {
+    func fact(_ title: String, _ text: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title.uppercased()).font(.system(size: 10, weight: .semibold)).tracking(0.7).foregroundStyle(.secondary)
             Text(text).font(.system(size: 13)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)

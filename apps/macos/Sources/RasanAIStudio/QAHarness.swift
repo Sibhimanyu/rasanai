@@ -6,6 +6,8 @@ import StudioCore
 /// one can click (a locked screen): drop `<qa-dir>/req/NN.json` and the app answers with `<qa-dir>/out/NN.json`.
 ///   {"shot": "name"}                     renders the real window to <qa-dir>/shots/name.png (offscreen, works locked)
 ///   {"size": [w, h], "dark": true}       resizes the window and sets the appearance
+///   {"hover": [x, y]}                    moves the pointer there (top-left origin) for hover states
+///   {"sample": true}                    opens the sample film
 ///   {"send": {"step","type","value","note"}}  sends through the model exactly like a tapped button (and is logged)
 /// Not compiled into release builds.
 @MainActor enum QAHarness {
@@ -27,6 +29,7 @@ import StudioCore
                     if let dark = object["dark"] as? Bool, let window = mainWindow() {
                         window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua); NSApp.appearance = window.appearance
                     }
+                    if object["sample"] != nil { store.exploreSample() }
                     if let send = object["send"] as? [String: Any], let model = store.film {
                         let value = (try? JSONSerialization.data(withJSONObject: send["value"] ?? NSNull(), options: [.fragmentsAllowed]))
                             .flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) } ?? .null
@@ -43,6 +46,9 @@ import StudioCore
                     if let key = object["key"] as? String { result["key"] = post(key: key, mods: object["mods"] as? [String] ?? []) }
                     if let text = object["type"] as? String { for ch in text { _ = post(key: String(ch), mods: []) }; result["typed"] = text.count }
                     if let point = object["click"] as? [Double], point.count == 2 { result["click"] = click(x: point[0], y: point[1], count: object["count"] as? Int ?? 1) }
+                    if let peek = object["peek"] as? [String: Any] { TimelineHover.latest?.qaPeek(pin: peek["pin"] as? Int, x: peek["x"] as? Double) }
+                    if let point = object["hover"] as? [Double], point.count == 2 { result["hover"] = hover(x: point[0], y: point[1]) }
+                    if let window = mainWindow() { result["window"] = window.windowNumber }
                     if object["dump"] != nil, let root = mainWindow()?.contentView {
                         var rows: [String] = []
                         @MainActor func walk(_ v: NSView) {
@@ -53,7 +59,7 @@ import StudioCore
                     }
                     if let shot = object["shot"] as? String {
                         try? await Task.sleep(for: .milliseconds(900))
-                        result["shot"] = capture(to: dir.appendingPathComponent("shots/\(shot).png"))
+                        result["shot"] = capture(to: dir.appendingPathComponent("shots/\(shot).png"), window: object["front"] != nil ? FilmTheater.shared.qaWindow : nil)
                     }
                     if let model = store.film {
                         result["currentStep"] = model.currentStep; result["route"] = "\(model.route)"; result["connected"] = model.isConnected
@@ -99,10 +105,22 @@ import StudioCore
         return true
     }
 
+    /// A pointer move to a point in the window (top-left origin), for hover states.
+    static func hover(x: Double, y: Double) -> Bool {
+        guard let window = mainWindow(), let content = window.contentView else { return false }
+        window.acceptsMouseMovedEvents = true
+        let point = NSPoint(x: x, y: content.frame.height - y)
+        guard let move = NSEvent.mouseEvent(with: .mouseMoved, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                            windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 0, pressure: 0) else { return false }
+        window.sendEvent(move)
+        return true
+    }
+
     static func mainWindow() -> NSWindow? { NSApp.windows.first { $0.contentView != nil && $0.isVisible && $0.frame.width > 400 && $0.title != "" || ($0.contentView != nil && $0.frame.width > 700) } }
 
-    static func capture(to url: URL) -> Bool {
-        guard let window = mainWindow(), let frame = window.contentView?.superview else { return false }
+    /// `window`: another window to capture (`"front": true` takes Studio's full-screen window).
+    static func capture(to url: URL, window other: NSWindow? = nil) -> Bool {
+        guard let window = other ?? mainWindow(), let frame = window.contentView?.superview else { return false }
         window.contentView?.layoutSubtreeIfNeeded()
         guard let rep = frame.bitmapImageRepForCachingDisplay(in: frame.bounds) else { return false }
         frame.cacheDisplay(in: frame.bounds, to: rep)

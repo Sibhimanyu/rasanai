@@ -80,6 +80,10 @@ Raw GSAP is fine where the kit has no verb (UI state changes, counters, morphs w
 - `crew/builder/<key>.md`: what you built in 5 to 10 lines; `## Carriers` (each object that crosses a cut, the seam, how it keeps moving); `## Events`, one line per causal event and per transition as `t=<film seconds> <what>` (the sound plan mounts SFX from these); `## Showing off` (the moments that would make your reel and what earned them); deviations from the plan or the boards, and why
 - the strips above
 
+## Reads
+
+Build to the score's `reads[]` when a scene has them: every dramatic shot has **one focal change** and a planned order in which the audience reads it. Ask for anticipation, action, reaction and payoff only where the content has them (a product demo may need only an action and its result). Format and checks: `references/reads.md`. Put the focal change at each read's `t0`, keep the `visual_cue` visible for the read's whole span, never let a text read share the frame with an unrelated hero move unless the read says `parallel_with`, and let the final pose or result hold at least 0.6 s. When a scene is done, look at it: `node "$SKILL_DIR/scripts/reads.mjs" sheet --run "$RUN" --scene <id> --file <scene composition>` writes `review/reads/<id>-sheet.png` (entry, action, reaction, hold) and a strip around the key transition; open them and fix what you see before you hand the scene back.
+
 ## Coded-film gotchas
 
 - Every canvas helper saves and restores `globalAlpha` and the transform (`save()` / `restore()`), so one helper never leaks state into the next.

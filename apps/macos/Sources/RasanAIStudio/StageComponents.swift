@@ -53,7 +53,7 @@ enum CrewCredit {
         case "brief": "Tara read your product and wrote this brief."
         case "story": "Kavi wrote three scripts from what Tara found."
         case "look", "films", "direction": "Chitra designed three looks for this story."
-        case "animatic": "Laya timed this first cut to the music."
+        case "animatic": "Laya laid out the storyboard, timed to the music."
         case "build": "Laya is building the film, scene by scene."
         case "final", "render": "Rasika checked every scene. The last call is yours."
         case "footage", "reel": "Mala logged your clips and picked the selects."
@@ -82,8 +82,8 @@ struct CrewByline: View {
 }
 
 extension CGFloat {
-    /// The one horizontal inset the film page's status text, stage heading and filmstrip header share.
-    static let filmInset: CGFloat = 16
+    /// Inset of a bar or banner's own content (not a page gutter; that is `Workspace.pageInset`).
+    static let filmInset: CGFloat = Workspace.panelPadding
 }
 
 extension View {
@@ -111,7 +111,7 @@ struct StageScaffold<Content: View, Actions: View>: View {
                 StageHeader(question: question, context: context, recommended: recommended, step: step)
                 content
             }
-            .padding(.horizontal, 24).padding(.top, 26).padding(.bottom, 32)
+            .padding(.bottom, 32)   // the film page owns the outer gutter; this only lets the scroll clear the status bar
             .frame(maxWidth: maxWidth, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
@@ -145,12 +145,13 @@ struct StageHeader: View {
         HStack(alignment: .top, spacing: 16) {
             if let character {
                 // The crew member asks it herself: the question is her speech bubble, so it is not repeated as a heading.
-                CrewStage(character: character, mode: .ask, unit: 150)
-                VStack(alignment: .leading, spacing: 6) {
-                    CrewSpeechBubble(text: question, tailY: 28).frame(maxWidth: 560, alignment: .leading)
-                    if let contextText { contextLine(contextText).padding(.leading, 11) }
-                }
-                .padding(.top, 150 * 0.3 - 28)
+                CrewStage(character: character, mode: .ask, unit: Self.askUnit(character))
+                // The bubble gets its room first, so a wide character never squeezes it into a tall column.
+                CrewSpeechBubble(text: question, subtitle: contextText, tint: character.color)
+                    .frame(minWidth: 240, alignment: .leading)
+                    .layoutPriority(1)
+                    // Drop the bubble so its tail meets the character at mouth height (about 45% down the figure).
+                    .padding(.top, max(0, 0.45 * CrewStage.height(mode: .ask, unit: Self.askUnit(character)) - SpeechShape.tailY))
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(question)
@@ -164,6 +165,12 @@ struct StageHeader: View {
             trailing
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// 150pt tall, but a wide figure (Rasika) shrinks so it stays about 170pt wide and leaves the bubble its room.
+    @MainActor static func askUnit(_ character: CrewCharacter) -> CGFloat {
+        guard let pose = CrewStageArt.pose(character, .ask), pose.height > 0 else { return 150 }
+        return min(150, 170 * pose.height / pose.width)
     }
 
     private func contextLine(_ text: String) -> some View {

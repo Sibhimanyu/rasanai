@@ -157,7 +157,7 @@ struct DirectorMonitorPanel: View {
                 .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             HStack {
                 Button("Pause") { monitor.actions.pause(); dismiss() }
-                Button("Message \(agent)…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
+                Button("Chat with Rasan…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
                 Button("Retry step") { monitor.actions.retry(); dismiss() }.help("Tells Rasan to try the current step again, without repeating the same call.")
                 Button("Restart Rasan") { monitor.actions.restart(); dismiss() }.help("Stops this director and starts a fresh one from the saved film. Your files are kept.")
                 Spacer()
@@ -185,7 +185,7 @@ struct DirectorMonitorPanel: View {
             HStack {
                 Button("Retry step") { monitor.actions.retry(); dismiss() }
                 Button("Restart Rasan") { monitor.actions.restart(); dismiss() }
-                Button("Message \(agent)…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
+                Button("Chat with Rasan…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
                 Spacer()
             }
         }
@@ -201,7 +201,7 @@ struct DirectorMonitorPanel: View {
             HStack {
                 Button("Retry step") { monitor.actions.retry(); dismiss() }
                 Button("Restart Rasan") { monitor.actions.restart(); dismiss() }
-                Button("Message \(agent)…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
+                Button("Chat with Rasan…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
                 Spacer()
             }
         }
@@ -357,7 +357,7 @@ struct MonitorBudgetBanner: View {
                    title: "Paused: the director looked stuck",
                    detail: paused.reason + " Nothing is lost. Resume to let it carry on, or tell it what to do.") {
                 Button("Show log") { store.sheet = .log }
-                Button("Message \(monitor.agentTitle)…") { store.film?.beginTell() }
+                Button("Chat with Rasan…") { store.film?.beginTell() }
                 Button("Restart Rasan") { monitor.actions.restart() }
                 Button("Resume") { store.resumeDirector() }.keyboardShortcut(.defaultAction)
             }
@@ -371,13 +371,13 @@ struct MonitorBudgetBanner: View {
                 }
                 Button("Retry step") { monitor.actions.retry() }
                 Button("Restart Rasan") { monitor.actions.restart() }
-                Button("Message \(monitor.agentTitle)…") { store.film?.beginTell() }
+                Button("Chat with Rasan…") { store.film?.beginTell() }
             }
         } else if monitor.run == store.runURL, let health = monitor.health, store.runtime.isRunning, health.stalled {
             banner(symbol: "moon.zzz.fill", tint: .systemOrange, title: "Rasan looks stuck", detail: health.detail) {
                 Button("Retry step") { monitor.actions.retry() }
                 Button("Restart Rasan") { monitor.actions.restart() }
-                Button("Message \(monitor.agentTitle)…") { store.film?.beginTell() }
+                Button("Chat with Rasan…") { store.film?.beginTell() }
             }
         } else if let limit = monitor.budgetLimit, monitor.run == store.runURL {
             let spent = "About \(UsageFormat.dollars(monitor.telemetry.cost.usd)) so far\(monitor.telemetry.cost.isEstimated ? " (est.)" : "")."
@@ -407,9 +407,10 @@ struct MonitorBudgetBanner: View {
             Spacer()
             buttons()
         }
-        .padding(.horizontal, 16).padding(.vertical, 10)
+        .padding(.horizontal, Workspace.panelPadding).padding(.vertical, 10)
         .background(Color(nsColor: tint).opacity(0.12))
         .overlay(alignment: .bottom) { Divider() }
+        .padding(.bottom, Workspace.gap)   // the stage's gap below the banner, only when a banner is shown
         .transition(.move(edge: .top).combined(with: .opacity))
     }
 }

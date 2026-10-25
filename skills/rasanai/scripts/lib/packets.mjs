@@ -11,7 +11,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { canonicalDigest } from "./contracts.mjs";
 import { shortlist } from "./recipe-index.mjs";
-import { protectedTokens, dataBlock, INSTRUCTION_FIELDS } from "./evidence.mjs";
+import { protectedTokens, dataBlock, INSTRUCTION_FIELDS } from "./evidence-records.mjs";
 
 export const PACKET_VERSION = 1;
 export const RESULT_FIELDS = ["status", "artifacts", "input_digest", "findings", "deferred_checks", "usage", "needs_decision"];

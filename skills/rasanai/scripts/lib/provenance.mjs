@@ -14,7 +14,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { canonicalDigest } from "./contracts.mjs";
-import { checkProtected, freshness, FRESHNESS_DAYS } from "./evidence.mjs";
+import { checkProtected, freshness, FRESHNESS_DAYS } from "./evidence-records.mjs";
 import { appendJsonl, readJsonl } from "./recovery.mjs";
 
 const arr = (x) => (Array.isArray(x) ? x : []);

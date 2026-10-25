@@ -337,7 +337,7 @@ function applyAction(s, action) {
   const typoReply = typographyNoteHook(s, action);
   if (jobControlHook(s, action)) return;
   if (step === "*") s.decide_rest = { ts: action.ts };
-  else if (Object.prototype.hasOwnProperty.call(s.steps, step) && !["comment", "knob", "cut-edit"].includes(action.type)) s.steps[step].sent = { type: action.type, value: action.value, note: action.note, ts: action.ts, source: cleanSource(action.source), ...(SOURCES[action.source] ? { via: SOURCES[action.source] } : {}) };
+  else if (Object.prototype.hasOwnProperty.call(s.steps, step) && !["comment", "knob", "cut-edit", "motion-edit"].includes(action.type)) s.steps[step].sent = { type: action.type, value: action.value, note: action.note, ts: action.ts, source: cleanSource(action.source), ...(SOURCES[action.source] ? { via: SOURCES[action.source] } : {}) };
   const you = youOf(action);
   // an answer to an `ask` card: record it on the question and clear it from the page
   if (action.type === "answer" && s.ask && !s.ask.answered) {
@@ -370,6 +370,17 @@ function applyAction(s, action) {
       } catch {}
     }
     activity(s, `${you} left a note${v.t != null ? " at " + Math.floor(v.t / 60) + ":" + String(Math.floor(v.t % 60)).padStart(2, "0") : ""}: ${action.note || v.quick}`, "you", null);
+    return;
+  }
+  // Motion Studio: a pinned edit from the final (value {kind:"motion-edit", edit}); editor-patch records it under its own lock,
+  // the status line goes to the feed and to session.motion_edits (latest per id)
+  if (action.type === "motion-edit") {
+    let r;
+    try { r = handleMotionEditAction({ kind: "motion-edit", edit: action.value && action.value.edit }, { run: RUN }); } catch (e) { r = { ok: false, error: e && e.message }; }
+    const eid = (r && r.id) || (action.value && action.value.edit && action.value.edit.id) || action.id;
+    const st = r && r.ok ? r.status || "requested" : "failed";
+    s.motion_edits = (s.motion_edits || []).filter((m) => m.id !== eid).concat({ id: String(eid), status: st, note: String((r && (r.note || r.error)) || "").slice(0, 300), ts: action.ts }).slice(-50);
+    activity(s, `${you} asked for a motion edit (${eid}): ${st}`, r && r.ok ? "you" : "warn", null);
     return;
   }
   // a transcript edit in the Cut stage (Studio): a feed line only; it must not mark the reel step as answered

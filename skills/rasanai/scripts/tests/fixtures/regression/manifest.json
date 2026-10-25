@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "note": "SYNTHETIC test fixtures (shapes and the word RASAN); no product claim, number or brand asset in them.",
+  "width": 320,
+  "height": 180,
+  "scenes": [
+    { "id": "shape-timing", "file": "good/shape-timing.html", "times": [0.5, 1.5, 2.6], "threshold": 0.04, "expect_text": "RASAN" },
+    { "id": "gsap-shape", "file": "good/gsap-shape.html", "times": [0.6, 1.2, 2.2], "threshold": 0.04 },
+    { "id": "transition", "file": "good/transition.html", "times": [0.5, 1.5, 2.5], "threshold": 0.04, "expect_text": "First", "strip": [0.9, 1.25, 1.5, 1.75, 2.1] },
+    { "id": "stage3d-lite", "file": "good/stage3d-lite.html", "times": [0.4, 1.0, 2.8], "threshold": 0.05 }
+  ]
+}

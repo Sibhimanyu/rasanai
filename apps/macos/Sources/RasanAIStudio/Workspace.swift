@@ -24,6 +24,15 @@ enum Workspace {
     /// The corners of the window's floating glass sidebar; the glass chrome on the film page matches them.
     static let glassRadius: CGFloat = 18
     static let gap: CGFloat = 12
+    /// The one outer gutter of the film page: left, right, top and bottom of everything on the canvas. The film page applies
+    /// it once around the stage, the inspector and the status bar, so no stage page adds outer padding of its own.
+    /// The space between the window's sidebar and the stage, between the stage and the inspector (`columnGap`) and between
+    /// the inspector and the window edge are all this one value.
+    static let pageInset: CGFloat = 20
+    /// Between a page's left and right columns, and between the stage and the open inspector. Equal to `pageInset`.
+    static let columnGap: CGFloat = pageInset
+    /// Inside a workspace panel (a card of content) that holds a page's main content.
+    static let panelPadding: CGFloat = 16
 }
 
 struct WorkspacePanel: ViewModifier {
@@ -48,6 +57,13 @@ struct GlassPanel<S: Shape>: ViewModifier {
             content.background(.regularMaterial, in: shape).clipShape(shape).overlay { shape.stroke(Workspace.hairline, lineWidth: 1) }
         }
     }
+}
+
+extension Workspace {
+    /// The left column of the two-column stages (crew header over a panel). At least 440 wide, so the widest character
+    /// (Rasika, about 182) plus the speech bubble's minimum (240) always fits; an overflow there used to be centred and
+    /// pushed the whole column into the left gutter.
+    static func leftColumn(for width: CGFloat) -> CGFloat { min(480, max(440, width * 0.36)) }
 }
 
 extension View {

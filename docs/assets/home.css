@@ -79,12 +79,12 @@
   .wshot-band { padding-top: 0; }
 }
 @media (min-width: 900px) and (max-width: 1250px) { .fc { --k: .78; } }
-.pin .hero { height: 410vh; position: relative; z-index: 1; }   /* above the crew scene, which starts a screen early behind the window (z 2) */
+.pin .hero { height: 455vh; position: relative; z-index: 1; }   /* above the crew scene, which starts a screen early behind the window (z 2) */
 .pin .hero .sticky { position: sticky; top: 0; }
 /* the screenshot rises under the pinned hero while the cards fly onto it */
 /* the window's own pinned stretch: it rises into place over 150vh of scroll while the hero (pinned until the same moment)
    holds still, so the crew assemble slowly; then the band lets go and the window scrolls up off the crew scene beneath */
-.pin .shot-band { position: relative; z-index: 2; margin-top: -250vh; height: 250vh; padding-bottom: 0; }
+.pin .shot-band { position: relative; z-index: 2; margin-top: -295vh; height: 295vh; padding-bottom: 0; }
 .pin .shot-band > .wrap { position: sticky; top: 0; height: 100vh; display: grid; align-content: center; }
 @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
 .fi { animation: bob var(--b, 4s) ease-in-out infinite; }
@@ -123,9 +123,11 @@
 .crew-what { margin-top: 6px; font: 400 .92rem/1.45 var(--body); color: var(--ink-2); }
 .crew-statement { margin: 18px 0 0; max-width: 34rem; font: 500 clamp(1.08rem, 1.45vw, 1.25rem)/1.55 var(--body); color: var(--ink-2); }
 
-/* ---- pinned scene (wide, motion allowed, controller ready) ---- */
+/* ---- pinned scene (wide, motion allowed, controller ready) ----
+   Track lengths (this block, the hero and window above, the Squeak and end-card hosts, and the phone ones below) go together with
+   the MAPS knots in home.js: each is the scroll its scene's timeline was budgeted, so change one and re-measure the other. */
 @media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
-  .pin .flow.crew-ready { height: 3260vh; margin-top: -100vh; }   /* starts behind the rising window (.shot-band is above it), so the opening line is uncovered in place */
+  .pin .flow.crew-ready { height: 3620vh; margin-top: -100vh; }   /* starts behind the rising window (.shot-band is above it), so the opening line is uncovered in place */
   .pin .flow.crew-ready > .crew-sticky { position: sticky; top: 0; height: 100vh; height: 100svh; max-width: none; margin: 0; padding: 0; overflow: hidden; display: block; background: var(--rice); }
   /* Rasan's introduction holds the right half while he stands on the left */
   .pin .crew-ready .crew-lead { position: absolute; left: 52%; top: 50%; z-index: 2; width: min(34rem, 40vw); translate: 0 -50%; will-change: transform, opacity; }
@@ -171,6 +173,8 @@
 .beat-char { display: inline-block; position: relative; }
 @media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
   .pin .beat-host.host-ready { height: 520vh; padding: 0; overflow: clip; }   /* clip, not hidden: hidden would stop the stage from sticking */
+  .pin .projects.host-ready { height: 520vh; }
+  .pin .endcard.host-ready { height: 670vh; }
   .pin .host-ready > .host-pin { position: sticky; top: 0; height: 100vh; height: 100svh; box-sizing: border-box; display: grid; align-content: center; overflow: hidden; }
   .pin :is(.host-ready, .crew-ready) .beat { position: absolute; inset: 0; z-index: 8; min-height: 0; padding: 0 var(--pad); background: none; pointer-events: none; }
   .pin :is(.host-ready, .crew-ready) .beat-layer { display: block; position: absolute; inset: 0; background: var(--beat-bg); transform-origin: 50% 0; }
@@ -219,23 +223,36 @@
 .sq-partners img + span + img { height: 34px; }
 .sq-partners span { font: 400 1.4rem/1 var(--display); color: var(--ink-2); }
 /* the device: black glass bezel inside a thin anodised rim, which reads as both the MacBook's lid and the iPhone's frame */
-.sq-device { position: relative; aspect-ratio: 16 / 10; padding: 10px; border-radius: 16px; background: #0a0b10; box-shadow: 0 0 0 1.5px #c9cbd3, 0 0 0 3px #8f919d, 0 1px 0 3px rgba(255, 255, 255, .5), 0 40px 70px -10px rgba(17, 22, 63, .38), 0 18px 30px -12px rgba(17, 22, 63, .3); box-sizing: border-box; }
-.sq-screen { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 8px; container-type: size; background: #000; }
-.sq-mac { position: absolute; inset: 0; font-size: calc(100cqw / 80); overflow: hidden; }
-.sq-phone { display: none; }
+.sq-device { position: relative; aspect-ratio: 1.6474 / 1; width: 79.304%; margin: 3.1% auto 8%; -webkit-mask-size: 500% 500%; mask-size: 500% 500%; -webkit-mask-position: 50% 50%; mask-position: 50% 50%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-clip: no-clip; mask-clip: no-clip; }
+/* the device is its SCREEN box: the generated laptop and phone photos (img/devices, measured in devices.json) sit over it, their
+   transparent holes exactly on it. Frame sizes are locked to the screen box; home.js fades them across the Mac <-> iPhone morph. */
+.sq-rim, .sq-ph, .sq-dark { display: none; }
+.sq-frame { position: absolute; z-index: 3; will-change: opacity; max-width: none; height: auto; pointer-events: none; user-select: none; }
+.sq-frame-l { width: 126.092%; left: -13.042%; top: -6.418%; }
+.sq-frame-p { width: 117.648%; left: -8.885%; top: -3.577%; opacity: 0; }
+/* soft, wide contact shadows: their own blurred elements, not a box-shadow on a clipped box */
+.sq-shadow { position: absolute; z-index: -1; pointer-events: none; border-radius: 50%; background: rgba(17, 22, 63, .5); filter: blur(16px); }
+.sq-shadow-l { left: -4%; right: -4%; top: calc(100% + 12.5%); height: 4.5%; }
+.sq-shadow-l::after { content: ""; position: absolute; left: 6%; right: 6%; top: -30%; height: 160%; border-radius: 50%; background: rgba(17, 22, 63, .35); filter: blur(34px); }
+.sq-shadow-p { left: 4%; right: 4%; top: calc(100% + 1.2%); height: 4%; opacity: 0; }
+.sq-shadow-p::after { content: ""; position: absolute; left: 8%; right: 8%; top: -40%; height: 190%; border-radius: 50%; background: rgba(17, 22, 63, .3); filter: blur(30px); }
+.sq-screen { position: relative; z-index: 1; width: 100%; height: 100%; overflow: hidden; container-type: size; }
+.sq-mac { position: absolute; inset: 0; font-size: calc(100cqw / 80); overflow: hidden; background: #000; }
 .home .sq-mac img, .home .sq-phone img { height: auto; }
 
 /* the Mac */
 /* the desktop: an original macOS-style wallpaper (generated for this page; not Apple's artwork), over its own colours while it loads */
 .home .sq-mac .sq-wall { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: linear-gradient(165deg, #141846, #2c2a78 40%, #6b3d93 70%, #d46a7a); }
-.sq-menubar { position: absolute; left: 0; right: 0; top: 0; height: 1.75em; display: flex; align-items: center; gap: 1.4em; padding: 0 1.2em; box-sizing: border-box; background: rgba(255, 255, 255, .62); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); font: 500 .95em/1 var(--body); color: #17171c; }
+/* the menu bar is exactly as tall as the camera notch (2.94% of the screen = 1.43em of the Mac, 1.833em of its own .78em text); the app menus sit left of the notch, the status items right of it, nothing under it */
+.sq-menubar { position: absolute; left: 0; right: 0; top: 0; height: 1.833em; display: flex; align-items: center; box-sizing: border-box; padding: 0 1em; background: rgba(255, 255, 255, .62); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); font: 500 .78em/1 var(--body); color: #17171c; }
+.sq-menubar .mb-l, .sq-menubar .mb-r { flex: 1 1 0; min-width: 0; display: flex; align-items: center; white-space: nowrap; }
+.sq-menubar .mb-l { gap: 1.5em; }
+.sq-menubar .mb-r { gap: 1.3em; justify-content: flex-end; }
+.sq-menubar .mb-notch { flex: none; width: 12.02em; }   /* 11.726% of the screen: the notch, in menu-bar em */
 .sq-menubar b { font-weight: 700; }
-.sq-menu-duck { position: relative; margin-left: auto; width: 1.5em; font-style: normal; }
+.sq-menu-duck { position: relative; flex: none; width: 1.3em; font-style: normal; }
 .home .sq-menu-duck img { display: block; width: 100%; }
 .sq-clock { font-weight: 500; }
-/* the notch is as tall as the menu bar and about 7% of the screen wide, as on a MacBook Pro */
-.sq-notch { position: absolute; z-index: 3; left: 50%; top: 0; width: 5.6em; height: 1.75em; translate: -50% 0; border-radius: 0 0 .55em .55em; background: #050508; }
-.sq-notch b { position: absolute; left: 50%; top: 45%; width: .42em; height: .42em; translate: -50% -50%; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #3b4a6b, #0b0f1c 60%); box-shadow: 0 0 0 .12em #15171f; }
 /* a faint reflection across the glass */
 .sq-glare { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: linear-gradient(115deg, rgba(255, 255, 255, .09) 0%, rgba(255, 255, 255, 0) 32%, rgba(255, 255, 255, 0) 70%, rgba(255, 255, 255, .04) 100%); }
 /* Studio itself, large: the real Look call, then the next step once the answer lands */
@@ -277,7 +294,7 @@
 .sq-mini[data-done] .mw-steps i.next { border-color: var(--rasanai-blue); box-shadow: inset 0 0 0 .2em #fff, inset 0 0 0 1em var(--rasanai-blue); }
 .mw-btn { position: absolute; right: 0; top: 0; width: 8.5em; height: 2.4em; border-radius: .6em; background: var(--rasanai-blue); opacity: .25; }
 /* the notification Squeak posts, in the corner under the menu bar */
-.sq-note { position: absolute; z-index: 2; right: 1.4em; top: 3.2em; width: 23em; display: flex; align-items: center; gap: .9em; padding: .9em 1.1em; border-radius: 1.2em; background: rgba(246, 246, 248, .86); -webkit-backdrop-filter: blur(1.4em); backdrop-filter: blur(1.4em); box-shadow: 0 1em 2.4em rgba(0, 0, 0, .28); color: #17171c; opacity: 0; }
+.sq-note { position: absolute; z-index: 2; right: 1.4em; top: 2.5em; width: 23em; display: flex; align-items: center; gap: .9em; padding: .9em 1.1em; border-radius: 1.2em; background: rgba(246, 246, 248, .86); -webkit-backdrop-filter: blur(1.4em); backdrop-filter: blur(1.4em); box-shadow: 0 1em 2.4em rgba(0, 0, 0, .28); color: #17171c; opacity: 0; }
 .home .sq-note img { width: 2.8em; height: auto; flex: none; }
 .sq-note div { display: grid; gap: .25em; min-width: 0; }
 .sq-note small { font-size: .72em; color: #6a6a74; }
@@ -285,14 +302,6 @@
 .sq-note span { font-size: .82em; color: #3d3d46; }
 .sq-row u { display: block; width: 78%; height: .55em; border-radius: .3em; background: rgba(255, 255, 255, .2); }
 .sq-row u.short { width: 46%; }
-/* the MacBook's base under the screen (faded out as the screen becomes the iPhone) */
-.sq-device { --bz: 10px; }
-/* the MacBook Pro's base, seen from the front: a solid aluminium slab as wide as the lid, a dark hinge above it, the wide
-   opening indent in its front lip, and two feet (faded out as the screen becomes the iPhone) */
-.sq-device { --bz: 10px; }
-.sq-base { position: absolute; left: -1.2%; right: -1.2%; top: calc(100% + 2px); height: 7.6%; min-height: 18px; border-radius: 3px 3px 14px 14px / 3px 3px 12px 12px; background: linear-gradient(180deg, #1c1d22 0 9%, #f1f2f5 9% 16%, #dcdee4 30%, #c9cbd3 62%, #aeb0ba 88%, #8c8e99 100%); box-shadow: 0 26px 40px -10px rgba(17, 22, 63, .34), inset 0 -2px 3px rgba(0, 0, 0, .12), inset 1px 0 0 rgba(255, 255, 255, .6), inset -1px 0 0 rgba(0, 0, 0, .08); }
-.sq-base::before { content: ""; position: absolute; left: 50%; top: 9%; width: 20%; height: 34%; translate: -50% 0; border-radius: 0 0 22px 22px / 0 0 14px 14px; background: linear-gradient(#b9bbc5, #d7d9e0); box-shadow: inset 0 2px 3px rgba(0, 0, 0, .16); }
-.sq-base::after { content: ""; position: absolute; left: 6%; right: 6%; bottom: -5px; height: 6px; border-radius: 0 0 4px 4px; background: linear-gradient(90deg, #3a3b42 0 5%, transparent 5% 95%, #3a3b42 95%); opacity: .55; }
 /* the line on the left: each heading's words rise out of a mask (home.js drives the inner spans) */
 .sq-step .w { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .14em; margin-bottom: -.14em; }
 .sq-step .w > span { display: inline-block; }
@@ -316,14 +325,13 @@
 .sq-duck .sq-badge { font-size: 1.5em; top: .1em; right: .1em; }
 
 /* the iPhone */
-.sq-phone { position: absolute; left: 50%; top: 0; height: 100%; width: 24.375em; translate: -50% 0; font-size: calc(100cqh / 52.75); padding: 0 1.4em; box-sizing: border-box; background: #f2f2f7; color: #111; font-family: var(--body); }
+.sq-phone { position: absolute; left: 50%; top: 0; height: 100%; width: 24.375em; translate: -50% 0; font-size: calc(100cqw / 24.375); padding: 0 1.4em; box-sizing: border-box; background: #f2f2f7; color: #111; font-family: var(--body); }
 .sq-status { position: relative; height: 3.6em; display: flex; align-items: center; justify-content: space-between; padding: 0 .8em; font-size: 1em; }
 .sq-status b { font-weight: 600; }
 .sq-status b { font: 600 1.06em/1 var(--body); letter-spacing: -.01em; padding-left: .9em; }
 .sq-icons { display: flex; align-items: center; gap: .32em; padding-right: .4em; color: #111; }
 .sq-icons svg { display: block; height: .74em; width: auto; fill: currentColor; }
 .sq-icons svg.batt { height: .84em; }
-.sq-island { position: absolute; left: 50%; top: .7em; width: 7.9em; height: 2.3em; translate: -50% 0; border-radius: 2em; background: #000; }
 .sq-nav { display: flex; justify-content: space-between; align-items: center; margin: .5em 0 1.2em; }
 .sq-back { width: 2.4em; height: 2.4em; border-radius: 50%; background: #fff; display: grid; place-items: center; font-size: 1.3em; line-height: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, .1); }
 .home .sq-nav img { width: 2.2em; }
@@ -358,9 +366,24 @@
 .sq-grand { display: none; }
 /* the hand-off: the call lifts out of one screen as a card, the screen goes dark while the device changes shape, and the card
    dives into the other screen (pinned scene only) */
-.sq-fly, .sq-dark, .sq-trail { display: none; }
+.sq-fly, .sq-trail { display: none; }
+/* the device is built once at fixed layout sizes (home.js sets them on resize, never per frame): the Mac screen is the device box, the
+   iPhone screen its own centred box, and the shape change is one piece of dark glass (.sq-dark) drawn with clip-path and transform
+   on top of both. The screen goes off by dimming to black with a faint afterglow, and comes on from black through an iris that opens
+   where the plane lands (a scaled disc inside the glass: no layout and no mask is rewritten while it plays). */
+.pin .host-ready .sq-ph, .pin .host-ready .sq-dark, .pin .host-ready .sq-rim, .mpin .host-ready .sq-ph, .mpin .host-ready .sq-dark, .mpin .host-ready .sq-rim { display: block; }
+.sq-ph { position: absolute; left: 50%; top: 50%; }
+.sq-pscreen { position: absolute; inset: 0; overflow: hidden; container-type: size; background: #f2f2f7; visibility: hidden; }
+.sq-rim { position: absolute; z-index: 1; left: 50%; top: 50%; pointer-events: none; opacity: 0; visibility: hidden; }
+.sq-rim-g { background: rgb(143, 145, 157); }
+.sq-rim-d { background: #07080f; }
+.sq-dark { position: absolute; z-index: 2; left: 50%; top: 50%; overflow: hidden; pointer-events: none; opacity: 0; visibility: hidden; will-change: opacity; }
+.sq-dark > i { position: absolute; display: block; }
+.sq-dark-fill, .sq-dark-dim { inset: 0; background: #07080f; }
+.sq-dark-dim { opacity: 0; }
+.sq-dark-glow { left: 50%; top: 50%; width: 76%; height: 62%; margin: -31% 0 0 -38%; border-radius: 50%; opacity: 0; background: radial-gradient(closest-side, rgba(214, 222, 255, .55), rgba(190, 202, 255, .16) 46%, rgba(190, 202, 255, 0) 100%); will-change: transform, opacity; }
+.sq-dark-iris { left: 0; top: 0; width: 200px; height: 200px; margin: -100px 0 0 -100px; visibility: hidden; background: radial-gradient(closest-side, transparent 0, transparent 74%, #07080f 100%); box-shadow: 0 0 0 200000px #07080f; will-change: transform; }
 @media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
-  .pin .host-ready .sq-dark { display: block; position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: 0; background: radial-gradient(120% 70% at 30% 0%, rgba(255, 255, 255, .1), transparent 55%), #07080f; }
   .pin .host-ready .sq-fly { display: block; position: absolute; left: 0; top: 0; z-index: 7; width: 320px; height: 76px; margin: -38px 0 0 -160px; opacity: 0; pointer-events: none; will-change: transform, opacity; }
   /* the paper plane the card folds into (a generated render, nose up and to the right at about 40 degrees) */
   .home .sq-fly .f-plane { position: absolute; left: 50%; top: 50%; width: 92px; height: 92px; margin: -46px 0 0 -46px; opacity: 0; filter: drop-shadow(0 14px 14px rgba(17, 22, 63, .3)); will-change: transform, opacity; }
@@ -390,13 +413,12 @@
   .pin .host-ready .g-sparks i { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px; border-radius: 50%; background: var(--rasanai-blue); opacity: 0; }
   .pin .host-ready .g-sparks i:nth-child(3n) { background: #ffc812; width: 14px; height: 14px; margin: -7px; }
   .pin .host-ready .g-sparks i:nth-child(3n+1) { background: #ff972e; border-radius: 3px; }
-  .pin .squeak-scene.host-ready { height: 2540vh; }
+  .pin .squeak-scene.host-ready { height: 2010vh; }
   .pin .squeak-scene.host-ready > .host-pin { padding: 0; display: block; }
   .pin .host-ready .sq-stage { position: absolute; inset: 0; max-width: none; margin: 0; display: block; }
   .pin .host-ready .sq-copy { position: absolute; left: max(var(--pad), calc(50vw - 610px)); top: 50%; width: min(30rem, 33vw); height: 70vh; translate: 0 -50%; display: block; }
   .pin .host-ready .sq-step { position: absolute; left: 0; right: 0; top: 50%; translate: 0 -50%; opacity: 0; will-change: transform, opacity; }
-  .pin .host-ready .sq-device { position: absolute; left: 0; top: 0; aspect-ratio: auto; will-change: transform; }
-  .pin .host-ready .sq-phone { display: block; opacity: 0; }
+  .pin .host-ready .sq-device { position: absolute; left: 0; top: 0; margin: 0; aspect-ratio: auto; will-change: transform, opacity; }
 }
 .proj-grid { display: grid; gap: 44px; max-width: 1240px; margin: 0 auto; align-items: center; }
 .proj-copy .lede { margin-bottom: 8px; }
@@ -557,7 +579,7 @@
 }
 
 /* ---- hero: one 100svh stage, the crew loosely above, the words below; the window rises over the second half ---- */
-.mpin .hero { height: 290vh; height: 290svh; position: relative; z-index: 1; }
+.mpin .hero { height: 320vh; height: 320svh; position: relative; z-index: 1; }
 .mpin .hero .sticky { position: sticky; top: 0; height: 100vh; height: 100svh; padding-top: 0; overflow: hidden; display: flex; flex-direction: column; }
 .mpin .fcs { position: relative; flex: 1 1 0; min-height: 0; margin: 84px 0 0; max-width: none; height: auto; container-type: size; }
 .mpin .fc, .mpin .fc[style*="--mx"] { display: block; left: calc(var(--px) * 1%); top: calc(var(--py) * 1%); width: calc(var(--mw) * min(.36cqw, .44cqh)); will-change: transform; }
@@ -582,7 +604,8 @@
 }
 html.mpin { overflow-x: clip; }
 /* the window rises under the pinned hero and pushes in on the prompt box while the crew fly onto it (home.js drives both) */
-.mpin .shot-band { overflow: clip; position: relative; z-index: 2; margin-top: -190vh; margin-top: -190svh; height: 190vh; height: 190svh; padding: 0; }
+.mpin .shot-band { overflow-x: clip; overflow-y: visible;   /* clip only sideways (the zoomed window), so its shadow fades out freely below */
+  position: relative; z-index: 2; margin-top: -215vh; margin-top: -215svh; height: 215vh; height: 215svh; padding: 0; }
 .mpin .shot-band > .wrap { position: sticky; top: 0; height: 100vh; height: 100svh; display: grid; align-content: center; }
 .mpin .rise { will-change: transform; }
 
@@ -608,7 +631,7 @@ html.mpin { overflow-x: clip; }
 .mpin .projects.host-ready { --mh: auto; padding: 0; }
 .mpin .projects.host-ready > .host-pin { position: static; height: auto; display: block; overflow: visible; }
 .mpin .projects.host-ready :is(.wrap, .proj-grid, .proj-copy) { display: contents; }
-.mpin .projects.host-ready .m-stage { position: relative; height: calc(100vh * 2.5); height: calc(100svh * 2.5); }
+.mpin .projects.host-ready .m-stage { position: relative; height: calc(100vh * 3.2); height: calc(100svh * 3.2); }
 .mpin .projects.host-ready .m-stage > .beat { position: sticky; inset: auto; top: 0; height: 100vh; height: 100svh; margin-bottom: -100vh; margin-bottom: -100svh; }
 .mpin .projects.host-ready .proj-head { position: sticky; top: 0; z-index: 1; height: 100vh; height: 100svh; box-sizing: border-box; padding: max(96px, 14svh) var(--pad) 0; }
 .mpin .projects.host-ready .points { margin: -46vh var(--pad) 0; margin: -46svh var(--pad) 0; }
@@ -624,7 +647,10 @@ html.mpin { overflow-x: clip; }
    Same five steps and timeline as the desktop scene; home.js (host.extra, renderGrand, renderFly) places the device and the
    plane's arc for phones. --mh on the section is the track length.
    ==================================================================================================================== */
-.mpin .squeak-scene { --mh: 960svh; }
+.mpin .squeak-scene { --mh: 1490svh; }
+.mpin .endcard { --mh: 470svh; }
+.mpin .endcard { --mh: 430svh; }
+.mpin .endcard { --mh: 435svh; }
 .mpin .squeak-scene.host-ready > .host-pin { padding: 0; display: block; }
 .mpin .host-ready .sq-stage { position: absolute; inset: 0; max-width: none; margin: 0; display: block; }
 .mpin .host-ready .sq-copy { position: absolute; left: var(--pad); right: var(--pad); top: auto; height: clamp(168px, 22vh, 204px); height: clamp(168px, 22svh, 204px); bottom: max(18px, env(safe-area-inset-bottom)); display: block; }
@@ -636,9 +662,7 @@ html.mpin { overflow-x: clip; }
 .mpin .host-ready .sq-partners img { height: 26px; }
 .mpin .host-ready .sq-partners img + span + img { height: 29px; }
 .mpin .host-ready .sq-partners span { font-size: 1.2rem; }
-.mpin .host-ready .sq-device { position: absolute; left: 0; top: 0; aspect-ratio: auto; will-change: transform; }
-.mpin .host-ready .sq-phone { display: block; opacity: 0; }
-.mpin .host-ready .sq-dark { display: block; position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: 0; background: radial-gradient(120% 70% at 30% 0%, rgba(255, 255, 255, .1), transparent 55%), #07080f; }
+.mpin .host-ready .sq-device { position: absolute; left: 0; top: 0; margin: 0; aspect-ratio: auto; will-change: transform, opacity; }
 /* the hand-off: the paper plane, smaller, and its dotted trail */
 .mpin .host-ready .sq-fly { display: block; position: absolute; left: 0; top: 0; z-index: 7; width: 200px; height: 60px; margin: -30px 0 0 -100px; opacity: 0; pointer-events: none; will-change: transform, opacity; }
 .mpin .sq-fly .f-plane { position: absolute; left: 50%; top: 50%; width: 66px; height: 66px; margin: -33px 0 0 -33px; opacity: 0; filter: drop-shadow(0 10px 10px rgba(17, 22, 63, .3)); will-change: transform, opacity; }
@@ -674,13 +698,13 @@ html.mpin { overflow-x: clip; }
    point, the card a bottom sheet; the crew then break into depth around the statement. home.js sets --lt (where his
    introduction starts) and --sd (spotlight point to the screen's bottom edge) on #flow, and drives every transform.
    ====================================================================================================================== */
-.mpin .flow.crew-ready { height: 1500vh; height: 1500svh; margin-top: -100vh; margin-top: -100svh; }
+.mpin .flow.crew-ready { height: 2355vh; height: 2355svh; margin-top: -100vh; margin-top: -100svh; }
 .mpin .flow.crew-ready > .crew-sticky { position: sticky; top: 0; height: 100vh; height: 100svh; max-width: none; margin: 0; padding: 0; overflow: hidden; display: block; background: var(--rice); }
 .mpin .crew-ready .crew-lead { position: absolute; left: var(--pad); right: var(--pad); top: var(--lt, 44svh); z-index: 2; width: auto; will-change: transform, opacity; }
 .mpin .crew-ready .crew-lead .eyebrow { margin: 0 0 8px; }
 .mpin .crew-ready .crew-lead h2 { max-width: none; font-size: clamp(1.9rem, 8.4vw, 2.5rem); line-height: 1.02; }
 .mpin .crew-ready .crew-lead .lede { margin: 12px 0 0; max-width: none; font-size: clamp(.95rem, 4.1vw, 1.08rem); line-height: 1.48; color: var(--ink-2); }
-.mpin .crew-ready .crew-payoff { position: absolute; left: 50%; top: 50%; z-index: 2; width: calc(100vw - 2 * var(--pad)); translate: -50% -50%; text-align: center; opacity: 0; pointer-events: none; will-change: opacity; }
+.mpin .crew-ready .crew-payoff { position: absolute; left: 50%; top: calc(50% + 28px); z-index: 2; width: calc(100vw - 2 * var(--pad)); translate: -50% -50%; text-align: center; opacity: 0; pointer-events: none; will-change: opacity; }
 .mpin .crew-ready .crew-payoff h2 { display: none; }
 .mpin .crew-ready .crew-statement { max-width: none; margin: 0; font: 600 clamp(1.6rem, 7vw, 2.2rem)/1.16 var(--display); letter-spacing: -.018em; color: var(--indigo); text-wrap: balance; }
 .mpin .crew-ready .statement-word { opacity: .16; }

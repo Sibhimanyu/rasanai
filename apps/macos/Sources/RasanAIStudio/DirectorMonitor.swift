@@ -55,6 +55,7 @@ final class DirectorMonitor {
     private var loopSince: Date?
     /// Set on Resume: the repeat that triggered a pause is still in the history, so only events after this count.
     private var resumedAt: Date?
+    private var lastBeat = Date.distantPast
     private var awaitingUser = false
     private var lastConsoleUpdate: Date?
     private var task: Task<Void, Never>?
@@ -156,6 +157,7 @@ final class DirectorMonitor {
         health = DirectorHealth.evaluate(telemetry, context: context)
         if autoPaused != nil, !runtime.isFrozen { autoPaused = nil }
         updateKeepAwake(running: running, store: store)
+        if running, let live = runtime.runURL, now.timeIntervalSince(lastBeat) > 5 { lastBeat = now; Self.beat(run: live) }
         store.thawIfSentWhileFrozen()
         updateLedger()
         checkBudget(store: store)
@@ -176,6 +178,12 @@ final class DirectorMonitor {
 
     /// Time asleep is not silence: remember the wake so health measures from it, then let the store re-check any pending automatic resume.
     /// A frozen director was just thawed: the time it sat frozen is not silence, so health measures from now.
+    /// Tells the director's driver this app is watching, even when another launch started it: the driver then leaves a paused
+    /// director paused and leaves loop checks to the app.
+    nonisolated static func beat(run: URL) {
+        _ = FileManager.default.createFile(atPath: run.appendingPathComponent("director-watch").path, contents: Data())
+    }
+
     func noteResumed() { lastWake = Date(); resumedAt = lastWake; autoPaused = nil; loopSince = nil }
     /// The person saw the refusal, fixed its cause or restarted the director: it no longer holds the film's state.
     func acknowledgeBlock() { scanner.acknowledge(); notifiedBlock = nil }

@@ -1,0 +1,7 @@
+<!doctype html><meta charset=utf-8><title>regression: BAD, unseeded random animation</title><style>html,body{margin:0;width:320px;height:180px;overflow:hidden;background:#101820;font-family:sans-serif}#stage{position:absolute;inset:0}</style>
+<div id=stage data-composition-id=random><div id=box style="position:absolute;left:20px;top:60px;width:60px;height:60px;background:#e8a33d"></div></div>
+<script src="../../../../vendor/gsap.min.js"></script><script>
+var tl=gsap.timeline({paused:true});
+tl.to("#box",{x:200,duration:2,onUpdate:function(){document.getElementById("box").style.top=(40+Math.random()*80)+"px"}},0);
+window.__timelines={"random":tl};tl.seek(0);
+</script>

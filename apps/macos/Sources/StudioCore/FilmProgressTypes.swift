@@ -19,7 +19,7 @@ public enum ProgressPhase: String, CaseIterable, Codable, Sendable, Identifiable
         case .script: "Story"
         case .look: "Look"
         case .plan: "Plan"
-        case .animatic: "Animatic"
+        case .animatic: "Storyboard"
         case .build: "Build"
         case .check: "Check"
         case .render: "Render"

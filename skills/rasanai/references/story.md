@@ -16,7 +16,7 @@ The engine is `scripts/story.mjs` over the catalog `taxonomy/devices.json` (70 d
 4b. **Moves** → a move-inventor per passing pitch invents its carrier and hero moves (`references/moves.md`); a juror gates them; a sketcher roughs each script's top move.
 5. **Edit** → the script editor (always; no route skips it) runs the meaning tests: blind retell, cover-the-logo and competitor swap, muted hook, turn, payoff, plus plan conformance and coverage.
 5b. **Revise** → any pitch the editor marks `rewrite` or `replace` goes back to its writer once, with that label's notes from `story/edit-notes.json` (`story.mjs revise --notes story/edit-notes.json` lists them). Then `story.mjs check` re-runs on the set. A second editor pass does not run.
-6. **Show** → the three scripts in the console (SKILL.md "2 · Story"), with each one's proposition and turn line above its beats.
+6. **Show** → the three scripts in the console (references/workflows/story-and-moves.md, "2 · Story"), with each one's proposition and turn line above its beats.
 7. **After the choice** → the concept critic, then one rough thumbnail per beat on one sheet and the **structure critic** (`agents/structure-critic.md`), who may cut, merge or move beats, move the peak, demand a rest or rewrite a buys. Only then are durations set, from each beat's read and importance.
 
 The writing itself (lines, the show column, structures by length, worked examples) is `references/script.md`.

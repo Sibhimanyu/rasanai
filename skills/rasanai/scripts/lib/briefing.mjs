@@ -4,7 +4,7 @@
 import { canonicalDigest, defaultFilmBrief, SCHEMA_VERSION, validateFilmBrief } from "./contracts.mjs";
 import { impact } from "./impact.mjs";
 import { classify, inferPromiseScope, kindProfile, normalizeMustShow } from "./communication.mjs";
-import { evidenceRefs, freshness } from "./evidence.mjs";
+import { evidenceRefs, freshness } from "./evidence-records.mjs";
 import { destinationProfile } from "./destination.mjs";
 
 const isObj = (x) => x !== null && typeof x === "object" && !Array.isArray(x);

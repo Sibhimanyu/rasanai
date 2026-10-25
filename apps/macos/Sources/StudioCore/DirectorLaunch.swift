@@ -26,7 +26,7 @@ public struct DirectorLaunch: Sendable {
         guard !request.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw LaunchError.emptyRequest }
         self.executable = executable
         let common = """
-        You are the RasanAI director in a native macOS app. Read \(engine.appendingPathComponent("SKILL.md").path) completely and follow its workflow and references.
+        You are the RasanAI director in a native macOS app. Read \(engine.appendingPathComponent("SKILL.md").path), then follow its routing: it names the workflow guides under references/workflows/ to load for each phase; read those guides before acting on the phase.
         APP BOOTSTRAP: workspace = \(project.path); SKILL_DIR = \(engine.path); RUN = \(run.path).
         RasanAI Studio reads this exact RUN's files directly and runs no console server: RASANAI_CONSOLE_HEADLESS=1 is set, so every console.mjs command (push, ask, activity, log, reply, resolve, record, wait) works on the run's files. Never run console.mjs serve or url, never start a server or open a browser. Do not create another run, run setup --new, update/install RasanAI, or modify the signed application bundle. Use this engine copy and this run.
         \(briefSeeded ? Self.seededBriefParagraph : Self.missingBriefParagraph)

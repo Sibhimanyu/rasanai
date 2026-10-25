@@ -1,0 +1,7 @@
+{
+  "changes": {
+    "pacing.tempo": 0.8,
+    "motion.intensity": 1.2,
+    "shape_density": "airy"
+  }
+}

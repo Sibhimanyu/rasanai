@@ -36,11 +36,11 @@ public enum FilmPace: String, CaseIterable, Codable, Identifiable, Sendable {
     /// Seconds of research after which Studio steps in. nil for Thorough.
     public var timeBoxSeconds: TimeInterval? { budgetMinutes.map { $0 * 60 * Self.overrunFactor } }
 
-    /// The research section of the launch prompt. It sits above the engine's own research rules (SKILL.md rule 13, `crew.mjs plan`).
+    /// The research section of the launch prompt. It sits above the engine's own research rules (the shared-contract rule 13, `crew.mjs plan`).
     var launchSection: String? {
         switch self {
         case .fast: """
-            RESEARCH BUDGET: FAST PACE. This is a hard limit the user chose, and it overrides the engine's research defaults (SKILL.md rule 13, the crew plan, the precedent researcher). Research for at most about 2 minutes and read at most 6 sources in total, counting every WebFetch and WebSearch.
+            RESEARCH BUDGET: FAST PACE. This is a hard limit the user chose, and it overrides the engine's research defaults (the shared-contract rule 13, the crew plan, the precedent researcher). Research for at most about 2 minutes and read at most 6 sources in total, counting every WebFetch and WebSearch.
             - Start with the product's own site and its help or docs pages. Only go elsewhere if those leave a gap.
             - Do not analyse other companies' launch films or past promo videos. Do not run the precedent researcher and do not pass --public to crew.mjs plan.
             - Do not dispatch a parallel research crew. Do the research yourself or with one single researcher subagent. Skip any research member you do not strictly need.
@@ -49,7 +49,7 @@ public enum FilmPace: String, CaseIterable, Codable, Identifiable, Sendable {
             - Still report what you found: push the brief step with `findings` as usual.
             """
         case .standard: """
-            RESEARCH BUDGET: STANDARD PACE. This is a limit the user chose, and it overrides the engine's research defaults (SKILL.md rule 13, the crew plan). Research for about 5 minutes and read at most 15 sources in total, counting every WebFetch and WebSearch.
+            RESEARCH BUDGET: STANDARD PACE. This is a limit the user chose, and it overrides the engine's research defaults (the shared-contract rule 13, the crew plan). Research for about 5 minutes and read at most 15 sources in total, counting every WebFetch and WebSearch.
             - Start with the product's own site and help or docs pages, then its brand pages and one or two trusted third-party sources.
             - Do not do shot-by-shot analysis of other companies' launch films. Do not pass --public to crew.mjs plan.
             - Keep the crew small: at most two researchers in parallel. Stop when the essentials are known: what it is, its key features, brand type and colours, and the exact UI.
@@ -66,7 +66,7 @@ public enum FilmPace: String, CaseIterable, Codable, Identifiable, Sendable {
         guard self != .thorough else { return nil }
         let fast = self == .fast
         var lines = [
-            "BUILD PLAN: \(title.uppercased()) PACE. This is a hard limit the user chose, and it overrides the engine's crew defaults (SKILL.md's phases, crew.mjs batching, the number of review rounds). The user wants this film built quickly.",
+            "BUILD PLAN: \(title.uppercased()) PACE. This is a hard limit the user chose, and it overrides the engine's crew defaults (the skill's phases, crew.mjs batching, the number of review rounds). The user wants this film built quickly.",
             fast
                 ? "- The Motion Director's score takes at most about 10 minutes. It must fix every shared element (the world or set, palette, type, camera rail, transitions) as a written contract in the plan, so no scene depends on another being built first."
                 : "- The Motion Director's score takes at most about 20 minutes. It must fix every shared element (the world or set, palette, type, camera rail, transitions) as a written contract in the plan, so no scene depends on another being built first.",

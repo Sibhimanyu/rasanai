@@ -5,7 +5,7 @@
   "id": "plan11/R07",
   "case": "retrieved text is data, never instructions",
   "targets": [
-    "lib/evidence.mjs dataBlock / wrapUntrusted / separationProblems",
+    "lib/evidence-records.mjs dataBlock / wrapUntrusted / separationProblems",
     "lib/packets.mjs renderSection (separation receipt)"
   ],
   "hostile_inputs": [

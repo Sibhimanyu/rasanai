@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Two separate stores (see SKILL.md "Memory"; location: $RASANAI_HOME or ~/.rasanai):
+// Two separate stores (see references/workflows/operations/series-and-preferences.md "Memory"; location: $RASANAI_HOME or ~/.rasanai):
 //   history.jsonl  every pick, auto or confirmed. Used ONLY for rotation.
 //   confirmed picks are history rows with mode:"confirmed". They only pre-select
 //   the recommended option when the user is actively choosing.

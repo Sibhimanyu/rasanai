@@ -19,6 +19,9 @@ struct LookStage: View {
     @State private var mixLook = ""
     @State private var mixStory = ""
     @FocusState private var keysFocused: Bool
+    /// Motion Studio: the reference summary and the kit catalog, each shown only when its file exists.
+    @State private var motionStore = MotionStudioStore.empty
+    @State private var showMotionLibrary = false
 
     private var payload: JSONValue { model.payload(step) }
     private var items: [LookItem] { LookItem.parse(payload) }
@@ -30,31 +33,22 @@ struct LookStage: View {
     private var aspect: CGFloat { LookItem.aspect(model.payload("brief")["fields"]["aspect"].string) }
     private var canAct: Bool { model.canAct(on: step) }
 
+    /// Windows at least this wide put the crew header, tiles and inspector on the left and the preview on the right.
+    private static let wideThreshold: CGFloat = 1000
+    private var question: String { payload["question"].string ?? (isFilms ? "Which film do you want?" : "Find the right feeling.") }
+    private var context: String? { payload["context"].string ?? payload["sub"].string }
+
     var body: some View {
-        StageScaffold(model: model, step: step,
-                      question: payload["question"].string ?? (isFilms ? "Which film do you want?" : "Find the right feeling."),
-                      context: payload["context"].string ?? payload["sub"].string,
-                      maxWidth: 1240) {
+        GeometryReader { outer in
+            let wide = outer.size.width >= Self.wideThreshold && outer.size.height >= 500 && current != nil
+            stage(wide: wide)
+        }
+    }
+
+    private func stage(wide: Bool) -> some View {
+        ReviewStageWorkspace(model: model, step: step, question: question, context: context, showsHeader: !wide) {
             if let current {
-                StudioAdaptiveColumns(railWidth: 250, railFirst: false, breakpoint: 820, gap: 24, stackSpacing: 24) {
-                    VStack(alignment: .leading, spacing: 18) {
-                        LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook)
-                        LookTiles(items: items, selectedID: current.id, recommendedID: recommendedID, aspect: aspect,
-                                  hook: payload["hook"].string) { selection = $0 }
-                        if isFilms && !current.frames.isEmpty { LookFrames(item: current, aspect: aspect) }
-                    }
-                    rail(current)
-                }
-                .focusable()
-                .focusEffectDisabled()
-                .focused($keysFocused)
-                .onKeyPress(characters: CharacterSet(charactersIn: "123"), phases: .down) { press in
-                    guard canAct, let n = Int(press.characters), n >= 1, n <= items.count else { return .ignored }
-                    selection = items[n - 1].id
-                    return .handled
-                }
-                // Keys only when nothing is being typed: a step arriving while the person writes must not steal them.
-                .onAppear { if !(NSApp.keyWindow?.firstResponder is NSTextView) { keysFocused = true } }
+                reviewWorkspace(current)
             } else {
                 Text("\(agent) is still drawing the looks.").foregroundStyle(.secondary)
             }
@@ -67,6 +61,105 @@ struct LookStage: View {
         }
         .onChange(of: items.map(\.id)) { _, ids in
             if let selection, !ids.contains(selection) { self.selection = nil }
+        }
+    }
+
+    /// The compact choices stay in view above the chosen look.  The inspector owns its
+    /// own scroll area so a long recipe cannot push the decision surface or footer away.
+    @ViewBuilder private func reviewWorkspace(_ current: LookItem) -> some View {
+        GeometryReader { proxy in
+            let tinyWindow = proxy.size.width < 820 || proxy.size.height < 500
+            if tinyWindow {
+                // A real scroll view remains usable with large type, Split View, and very small windows.
+                ScrollView {
+                    fallbackWorkspace(current)
+                }
+            } else if proxy.size.width >= Self.wideThreshold {
+                wideWorkspace(current, available: proxy.size)
+            } else {
+                boundedWorkspace(current, available: proxy.size)
+            }
+        }
+        .focusable()
+        .focusEffectDisabled()
+        .focused($keysFocused)
+        .onKeyPress(characters: CharacterSet(charactersIn: "123"), phases: .down) { press in
+            guard canAct, let n = Int(press.characters), n >= 1, n <= items.count else { return .ignored }
+            selection = items[n - 1].id
+            return .handled
+        }
+        // Keys only when nothing is being typed: a step arriving while the person writes must not steal them.
+        .onAppear { if !(NSApp.keyWindow?.firstResponder is NSTextView) { keysFocused = true } }
+    }
+
+    /// Wide windows: the crew header, compact tiles and the selected look's inspector share the left column;
+    /// the preview runs from the top of the page on the right.  Everything stays inside the safe area, above the bottom bar.
+    private func wideWorkspace(_ current: LookItem, available: CGSize) -> some View {
+        let left = Workspace.leftColumn(for: available.width)
+        return HStack(alignment: .top, spacing: Workspace.columnGap) {
+            VStack(alignment: .leading, spacing: 0) {
+                StageHeader(question: question, context: context, step: step)
+                    .padding(.bottom, 12)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        rail(current)
+                        if isFilms && !current.frames.isEmpty { LookFrames(item: current, aspect: aspect) }
+                    }
+                    .padding(.bottom, 4)
+                }
+                // The panel holds still; only the details scroll inside it.
+                .workspacePanel()
+                .accessibilityLabel("Selected look details")
+            }
+            .frame(width: left, alignment: .leading)
+            .frame(maxHeight: .infinity, alignment: .top)
+
+            // The options sit above the preview, so the selected look's details get the whole left column.
+            VStack(alignment: .leading, spacing: 16) {
+                LookTiles(items: items, selectedID: current.id, recommendedID: recommendedID, aspect: aspect,
+                          hook: payload["hook"].string, compact: true) { selection = $0 }
+                LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+        .frame(width: available.width, height: available.height, alignment: .topLeading)
+    }
+
+    private func boundedWorkspace(_ current: LookItem, available: CGSize) -> some View {
+        let inspectorWidth = min(320, max(250, available.width * 0.27))
+        let heroHeight = min(560, max(250, available.height - 170))
+
+        return HStack(alignment: .top, spacing: Workspace.columnGap) {
+            VStack(alignment: .leading, spacing: 16) {
+                LookTiles(items: items, selectedID: current.id, recommendedID: recommendedID, aspect: aspect,
+                          hook: payload["hook"].string) { selection = $0 }
+                    .frame(maxHeight: 142, alignment: .top)
+                LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook)
+                    .frame(maxHeight: heroHeight, alignment: .top)
+                if isFilms && !current.frames.isEmpty {
+                    LookFrames(item: current, aspect: aspect)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+            ScrollView {
+                rail(current)
+            }
+            .workspacePanel()
+            .frame(width: inspectorWidth, height: available.height, alignment: .top)
+            .accessibilityLabel("Selected look details")
+        }
+        .frame(width: available.width, height: available.height, alignment: .topLeading)
+    }
+
+    private func fallbackWorkspace(_ current: LookItem) -> some View {
+        VStack(alignment: .leading, spacing: 20) {
+            LookTiles(items: items, selectedID: current.id, recommendedID: recommendedID, aspect: aspect,
+                      hook: payload["hook"].string) { selection = $0 }
+            LookHero(item: current, aspect: aspect, hook: payload["hook"].string ?? current.hook)
+            if isFilms && !current.frames.isEmpty { LookFrames(item: current, aspect: aspect) }
+            rail(current).workspacePanel()
         }
     }
 
@@ -88,10 +181,47 @@ struct LookStage: View {
                 DisclosureGroup("Motion and sound", isExpanded: $showMotion) { motionAndSound(current).padding(.top, 10) }
                     .font(.system(size: 13, weight: .medium))
             }
+            motionExtras
         }
-        .padding(18)
+        .padding(Workspace.panelPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .workspacePanel()
+        .task(id: model.motionRun?.path) { await loadMotionStore() }
+    }
+
+    // MARK: Motion Studio (only when its files exist; both collapsed, neither blocks the call)
+
+    private func loadMotionStore() async {
+        guard let run = model.motionRun else { return }
+        let project = model.motionProject
+        motionStore = await Task.detached(priority: .utility) {
+            var store = MotionStudioStore.load(projectRoot: run)
+            if store.kitCatalog == nil, let project, project != run { store.kitCatalog = MotionStudioStore.load(projectRoot: project).kitCatalog }
+            return store
+        }.value
+    }
+
+    @ViewBuilder private var motionExtras: some View {
+        if let reference = motionStore.reference {
+            Rectangle().fill(Workspace.hairline).frame(height: 1)
+            MotionInspirationSummary(summary: reference, onChangeInfluence: canAct ? { text in
+                Task { await model.send(step: step, type: "note", value: .object(["kind": .string("motion-influence")]), note: text) }
+            } : nil)
+        }
+        if let catalog = motionStore.kitCatalog, !catalog.allItems.isEmpty {
+            DisclosureGroup("Motion library", isExpanded: $showMotionLibrary) {
+                MotionLibraryView(catalog: catalog, projectRoot: model.motionProject ?? model.motionRun) { req in
+                    guard canAct else { return }
+                    Task {
+                        await model.send(step: step, type: "note",
+                                         value: .object(["kind": .string("motion-kit"), "item": .string(req.itemID), "annotation": .string(req.annotation),
+                                                         "params": .object(req.params)]),
+                                         note: req.instruction)
+                    }
+                }
+                .frame(height: 420).padding(.top, 10)
+            }
+            .font(.system(size: 13, weight: .medium))
+        }
     }
 
     @ViewBuilder private func motionAndSound(_ current: LookItem) -> some View {
@@ -383,11 +513,12 @@ private struct LookHero: View {
     let item: LookItem
     let aspect: CGFloat
     var hook: String?
+    var maxHeight: CGFloat = 560
 
     var body: some View {
         LookMedia(item: item, hook: hook)
             .aspectRatio(aspect, contentMode: .fit)
-            .frame(maxHeight: 560)
+            .frame(maxHeight: maxHeight)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Workspace.hairline, lineWidth: 1) }
             .frame(maxWidth: .infinity)
@@ -489,13 +620,14 @@ private struct LookTiles: View {
     let recommendedID: String?
     let aspect: CGFloat
     var hook: String?
+    var compact = false
     let pick: (String) -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
+        HStack(alignment: .top, spacing: compact ? 8 : 14) {
             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                 LookTile(item: item, index: index, selected: item.id == selectedID, recommended: item.id == recommendedID,
-                         aspect: min(aspect, 1.8), hook: hook) { pick(item.id) }
+                         aspect: min(aspect, 1.8), hook: hook, compact: compact) { pick(item.id) }
             }
         }
     }
@@ -508,12 +640,13 @@ private struct LookTile: View {
     let recommended: Bool
     let aspect: CGFloat
     var hook: String?
+    var compact = false
     let action: () -> Void
     @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: compact ? 5 : 8) {
                 LookMedia(item: item, hook: hook, playVideo: false, compact: true)
                     .aspectRatio(aspect, contentMode: .fit)
                     .frame(maxWidth: .infinity)
@@ -522,10 +655,17 @@ private struct LookTile: View {
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .strokeBorder(selected ? Color.rasan : (hovering ? Color.primary.opacity(0.25) : Workspace.hairline), lineWidth: selected ? 2 : 1)
                     }
-                HStack(spacing: 6) {
-                    Text(item.name).font(.system(size: 13, weight: selected ? .semibold : .regular)).lineLimit(1)
-                    if recommended { RecommendedBadge(text: "Recommended") }
-                    Spacer(minLength: 0)
+                if compact {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(item.name).font(.system(size: 12, weight: selected ? .semibold : .regular)).lineLimit(1)
+                        if recommended { RecommendedBadge(text: "Recommended") }
+                    }
+                } else {
+                    HStack(spacing: 6) {
+                        Text(item.name).font(.system(size: 13, weight: selected ? .semibold : .regular)).lineLimit(1)
+                        if recommended { RecommendedBadge(text: "Recommended") }
+                        Spacer(minLength: 0)
+                    }
                 }
             }
             .contentShape(Rectangle())

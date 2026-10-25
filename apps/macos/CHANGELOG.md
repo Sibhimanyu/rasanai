@@ -4,10 +4,77 @@ Desktop releases are separate from RasanAI skill releases.
 
 ## Unreleased
 
+- **Ask Rasan how long it will take.** In the chat, "how long will it take?" and "what is happening?" are answered on the spot from the film's real progress, without interrupting the work.
+- **Notes become real change requests.** A message like "don't use this font" is read as a revision request the engine acts on and answers (an unclear one asks you to confirm first), and the answer shows in the chat.
+- **Edit elements on the final film.** Click an element in the final picture to move or resize it; the engine applies the edit and says if it could not. Early foundation, not tested end to end.
+- **Delivery details are collapsed** in the export sheet until you open them.
+- **Behind the scenes:** the groundwork for undo and revisions, and for safer recovery when a step fails, is in. Not yet tested end to end.
+
+## 0.20.1 (build 49) — 2026-10-25
+
+- **The film status says what Rasan is doing.** After you send something, the bar shows what Rasan is working on, how long it has been, and a time estimate when there is one. If nothing has happened after two minutes it says so and offers Show log.
+- **Decisions newest first.** The Decisions panel lists the newest decision first and shows the current step while Rasan works or waits for you.
+- **Installs are explained.** When Rasan needs a tool installed, Studio asks you directly, installs it for you without a password or Homebrew, and shows what is happening. If a command is blocked, or Rasan goes quiet for five minutes, you see exactly what happened, with Retry step and Restart Rasan.
+- **Bundles RasanAI 1.26.0.**
+
+## 0.20.0 (build 48) — 2026-10-24
+
+- **Reference chip.** A film with a linked reference video shows a reference chip and, on Look, a Motion inspiration summary (cuts, rhythm, uncertainties) with a way to send the director a note on how much it should influence the film. Shown only when the film has `reference-motion.json`.
+- **Motion library on Look.** A collapsed Motion library lists the motion kit catalog; asking for an item sends a note to the director with the item, its annotation and parameters. Shown only when a catalog exists.
+- **Final element inspector.** When the film has an element index, clicking the video also resolves the element under the point, and a change request is sent to the director as a `motion-edit` action with an edit status chip (requested, accepted, applied, rendered, failed). Studio never edits scene files itself.
+- These screens are new and have not yet been opened in a window for review.
+- **Bundles RasanAI 1.26.0.**
+
+## 0.19.9 (build 47) — 2026-10-23
+
+- **Help opens the new How it works page**, which follows one film through the app, the crew, the engine and the files on your disk.
+- **Bundles RasanAI 1.25.0.**
+
+## 0.19.8 (build 46) — 2026-10-23
+
+- **Hover a note on the timeline and see that note.** Each pin answered for the whole timeline, so one note's card showed wherever the pointer was; each pin now shows its own. The card and the time under the pointer sit just above the timeline, where the video no longer covers them.
+- **A smoother timeline.** Only the playhead follows the clock now, so the video and the scene thumbnails stop redrawing thirty times a second, and dragging the playhead seeks to the nearest frame it can reach quickly, then lands exactly when you let go.
+- **Studio's own full screen.** Full screen (F) shows the film edge to edge with its pins and captions, and the timeline, notes and controls in a bar that fades while it plays. Esc or F comes back; C or a pin takes you to the chat with that moment.
+- **Your call wakes the director.** A call made on a film whose director had stopped used to sit unread, and the page never moved. Studio now starts the director to apply it, so the crew member comes to the centre and gets to work. Pin notes still wait for Apply, and a plan-limit wait keeps its own resume.
+- **Rasika has both eyebrows when she asks.** Her asking pose (Final, and checks) drew only the right brow; the left one is back.
+- **The sample film shows the crew at work.** Make a call in the sample and the crew member for the next step comes to the centre with the work in bubbles around them, then steps aside to ask before the sample returns.
+- **Bundles RasanAI 1.25.0.**
+
+## 0.19.7 (build 45) — 2026-10-23
+
+- **Chat with Rasan.** The right sidebar is a chat with Rasan, the director: tell him what you want or what to avoid, with suggestions to start from. Open it with ⌥⌘B (⌥⌘I and ⌘K work too).
+- **Point at the film.** Click the video to mark a spot, drag a box, or circle an area: the chat opens with that frame, your mark and the time attached.
+- **A real player on Final.** Speed, loop, volume, full screen, ±5 s and frame steps, J/K/L, and a filmstrip timeline with your notes pinned on it.
+- **Preview is now Storyboard.** It was always key frames timed to the music, so it now looks like a storyboard: numbered panels with time, line and voice, and Play with music.
+- **Describe and Setup are one step.** The stepper reads Describe · Brief · Story · Look · Storyboard · Final.
+- **Calmer, even layout.** Equal 20 pt gutters on every page, panels that stay put while their content scrolls, a slimmer bottom bar with Pause and an honest "the director is stopped" with Resume, look options above the preview, and Preview and Final laid out like Look.
+- **The crew, drawn better.** A new speech bubble tinted per character that hugs its words and points at the speaker's mouth, readable highlight colours, Kavi's papers no longer see-through, and Rasan never cropped into a circle.
+- **Clearer buttons.** "Apply notes" is now "Revise with N notes"; "Preview again" is gone.
+- **Bundles RasanAI 1.25.0.**
+
+## 0.19.6 (build 44) — 2026-10-22
+
+- **The crew asks, properly.** Every stage opens with the crew member at full size asking the question in a new speech bubble: one smooth outline with a curved tail toward the speaker, sized to the words, soft depth, and a small pop as it appears.
+- **Story and Look use the whole window.** On wide windows the character, question and your choices sit on the left; the script, or the look preview, runs top to bottom on the right. The selected look's details now sit beside the tiles instead of under the preview.
+- **One floating bar at the bottom.** The status and actions live in a full-width glass bar that content scrolls under, like the sidebar. Looking back at a step keeps "Back to now" and "Change this…" there; the separate green "Decided" strip is gone, since the stepper and the highlighted choice already show it.
+- **Bundles RasanAI 1.25.0.**
+
+## 0.19.5 (build 43) — 2026-10-22
+
+- **Story and Look stay in view.** The review workspace keeps your choices and key context visible while detailed scripts and look guidance scroll in their own panels. The existing action bar remains available, including when looking back at an earlier decision.
+- **Bundles RasanAI 1.25.0.**
+
+## 0.19.4 (build 42) — 2026-10-21
+
+- **Pause holds after a relaunch.** Pausing a film that Studio picked back up after a restart (by you, or by its own stuck or budget check) now really pauses it; before, the director was stopped and had to start over from its saved state.
+- **Bundles RasanAI 1.24.0.**
+
+## 0.19.3 (build 41) — 2026-10-21
+
 - **A stuck director pauses itself.** When Claude repeats the same step, or burns tokens without showing you anything new, for two minutes, Studio pauses it so a loop stops spending tokens. A red banner says why, with Resume, Message Claude and Show log; nothing is lost and Resume carries on mid-step. Turn it off in Settings → "Pause the director when it looks stuck".
 - **Your budget is a limit, not just a warning.** When a film passes your spend per film, the director pauses. Keep going resumes it; Raise by $10 lifts the limit.
 - **Loops are caught even with Studio closed.** If Studio crashes or is force-quit mid-film, the director's supervisor stops it after the same call five times in a row instead of letting it run on unwatched.
-- **Help opens the new How it works page**, which follows one film through the app, the crew, the engine and the files on your disk.
+- **Bundles RasanAI 1.24.0.**
 
 ## 0.19.2 (build 40) — 2026-10-21
 

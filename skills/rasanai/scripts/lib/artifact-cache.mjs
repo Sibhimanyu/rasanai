@@ -12,7 +12,7 @@
 // the same policy/recipe/model configuration; a still-current approval. Reusing an artifact is never a creative approval. A provider
 // submission is never replayed (see JOB_TYPES): only its immutable OUTPUT can be reused.
 import { canonicalDigest } from "./contracts.mjs";
-import { freshness } from "./evidence.mjs";
+import { freshness } from "./evidence-records.mjs";
 
 export const CACHE_SCHEMA = 1;
 // what kind of thing is cached decides whether a hit is even possible

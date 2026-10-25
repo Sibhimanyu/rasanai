@@ -18,6 +18,9 @@ struct FinalStage: View {
     @State private var confirmRender = false
     /// The version the person picked in the menu, until they confirm bringing it back.
     @State private var restore: JSONValue?
+    /// Motion Studio: what is under a click, loaded from motion/element-index.json (absent for films without one).
+    @State private var motionSel = MotionSelectionModel()
+    @State private var motionEdits = MotionEditStatus()
     @Environment(NoteSkips.self) private var skips: NoteSkips?
     @Environment(\.agentName) private var agent
 
@@ -38,48 +41,73 @@ struct FinalStage: View {
         // Nothing to watch yet: the first call is a quick preview, and notes open once it exists.
         let notRendered = isRender && !done && videoURL == nil
 
-        // The same editor layout as the animatic: the player fills the space, the scenes run as a filmstrip under it,
-        // notes live in the inspector, and the call's action sits in the bar at the bottom.
-        VStack(spacing: Workspace.gap) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
-                    CrewByline(step: "final").padding(.bottom, 4)
-                    Text(notRendered ? "Ready to render." : "Watch the final cut.").font(.system(size: 30, weight: .semibold)).tracking(-0.3)
-                    Text(notRendered ? "Make a quick preview first, or render the full-quality final."
-                         : "Leave a note where something should change, or export when it feels right.")
-                        .font(.system(size: 15)).foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 12)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, .filmInset).padding(.top, 10).padding(.bottom, 4)
-            .accessibilityElement(children: .combine).accessibilityAddTraits(.isHeader)
-            ReviewPlayerPanel(model: model, step: step, playback: playback, scenes: scenes, notes: allNotes,
-                              aspect: model.snapshot.aspectRatio, canNote: canAct && playback.isReady, pinWindow: 2.5, showStrip: false) {
-                FinalFrame(playback: playback, posterPath: posterPath, hasVideo: videoURL != nil, notRendered: notRendered, model: model)
-            }
-            .environment(\.reviewFrameHeight, max(200, stageHeight - 96 - 84 - (scenes.isEmpty ? 56 : 168) - Workspace.gap))
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 10) {
-                    Text(scenes.isEmpty ? (isRender && !done ? "Ready to render" : "Your film") : "Scenes").font(.system(size: 13, weight: .semibold))
-                    if !scenes.isEmpty { Text("\(scenes.count)").font(.system(size: 12)).foregroundStyle(.secondary) }
-                    Spacer(minLength: 8)
-                    if !open.isEmpty && canAct && isRender {
-                        Button("Render without these notes…") { confirmRender = true }
-                            .buttonStyle(.link).font(.system(size: 12))
+        let question = notRendered ? "Ready to render." : "Watch the final cut."
+        let context = notRendered ? "Make a quick preview first, or render the full-quality final."
+            : "Leave a note where something should change, or export when it feels right."
+        let player = ReviewPlayerPanel(model: model, step: step, playback: playback, scenes: scenes, notes: allNotes,
+                                       aspect: model.snapshot.aspectRatio, canNote: canAct && playback.isReady, pinWindow: 2.5, showStrip: false,
+                                       motionSel: motionSel.index != nil ? motionSel : nil) {
+            FinalFrame(playback: playback, posterPath: posterPath, hasVideo: videoURL != nil, notRendered: notRendered, model: model)
+        }
+
+        GeometryReader { outer in
+            let wide = outer.size.width >= reviewSplitThreshold && outer.size.height >= 500
+            if wide {
+                // The Look page's arrangement: the crew header and the film's details on the left, the final on the right.
+                ReviewSplit(size: outer.size, question: question, context: context, step: step) {
+                    VStack(spacing: 0) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 8) {
+                                Text(scenes.isEmpty ? (isRender && !done ? "Ready to render" : "Your film") : "Scenes").font(.system(size: 13, weight: .semibold))
+                                if !scenes.isEmpty { Text("\(scenes.count)").font(.system(size: 12)).foregroundStyle(.secondary) }
+                                Spacer(minLength: 8)
+                                if !open.isEmpty && canAct && isRender { renderWithoutButton }
+                            }
+                            FlowLayout(spacing: 8) {
+                                changes(payload)
+                                runChecks()
+                            }
+                            controls(payload, isRender: isRender, done: done, canAct: canAct, firstPass: notRendered, wrap: true)
+                        }
+                        .padding(.horizontal, Workspace.panelPadding).padding(.vertical, 12)
+                        if !scenes.isEmpty {
+                            Rectangle().fill(Workspace.hairline).frame(height: 1)
+                            SceneList(playback: playback, scenes: scenes, open: open, aspect: model.snapshot.aspectRatio)
+                        }
                     }
-                    changes(payload)
-                    runChecks()
-                    controls(payload, isRender: isRender, done: done, canAct: canAct, firstPass: notRendered)
+                } player: {
+                    withMotionInspector(player)
                 }
-                .padding(.horizontal, .filmInset).padding(.top, 10).padding(.bottom, scenes.isEmpty ? 10 : 0)
-                if !scenes.isEmpty { SceneFilmstrip(playback: playback, scenes: scenes, open: open) }
+            } else {
+                VStack(spacing: Workspace.gap) {
+                    StageHeader(question: question, context: context, step: "final")
+                        .padding(.bottom, 4)
+                    withMotionInspector(player
+                        .environment(\.reviewFrameHeight, max(200, stageHeight - 96 - 146 - (scenes.isEmpty ? 56 : 168) - Workspace.gap)))
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 10) {
+                            Text(scenes.isEmpty ? (isRender && !done ? "Ready to render" : "Your film") : "Scenes").font(.system(size: 13, weight: .semibold))
+                            if !scenes.isEmpty { Text("\(scenes.count)").font(.system(size: 12)).foregroundStyle(.secondary) }
+                            Spacer(minLength: 8)
+                            if !open.isEmpty && canAct && isRender { renderWithoutButton }
+                            changes(payload)
+                            runChecks()
+                            controls(payload, isRender: isRender, done: done, canAct: canAct, firstPass: notRendered)
+                        }
+                        .padding(.horizontal, Workspace.panelPadding).padding(.top, 10).padding(.bottom, scenes.isEmpty ? 10 : 0)
+                        if !scenes.isEmpty { SceneFilmstrip(playback: playback, scenes: scenes, open: open) }
+                    }
+                    .frame(height: scenes.isEmpty ? 56 : 168, alignment: .top)
+                    .workspacePanel()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
-            .frame(height: scenes.isEmpty ? 56 : 168, alignment: .top)
-            .workspacePanel()
+        }
+        .background {
             ReviewActionBar(model: model, step: step,
                             title: applying.isEmpty ? (notRendered ? "Preview first" : isRender ? "Render the final" : "Export MP4")
-                                : applying.count < open.count ? "Apply \(applying.count) of \(open.count) notes"
-                                : "Apply \(open.count) note\(open.count == 1 ? "" : "s")",
+                                : applying.count < open.count ? "Revise with \(applying.count) of \(open.count) notes"
+                                : "Revise with \(open.count) note\(open.count == 1 ? "" : "s")",
                             symbol: applying.isEmpty ? (notRendered ? "eye" : isRender ? "film.fill" : "square.and.arrow.down.fill") : "checkmark.bubble.fill",
                             signature: applying.map(\.id).joined(separator: ",")) {
                 Task {
@@ -96,6 +124,7 @@ struct FinalStage: View {
         .environment(model)
         .task(id: "\(videoURL?.path ?? "")") { playback.load(url: videoURL, fallbackDuration: duration) }
         .task(id: model.snapshot.raw["updated"].string) { checks = await model.loadChecks() }
+        .task(id: model.motionProject?.path) { await watchMotion() }
         .onDisappear { playback.shutdown() }
         .confirmationDialog("Render without your \(open.count) note\(open.count == 1 ? "" : "s")?", isPresented: $confirmRender, titleVisibility: .visible) {
             Button("Render Without Notes") { Task { await model.send(step: step, type: "choose", value: .string("render")) } }
@@ -108,13 +137,65 @@ struct FinalStage: View {
         } message: { Text("\(agent) brings this version back. The other versions are kept.") }
     }
 
+    // MARK: Motion Studio
+
+    /// Reads the element index and the edit log; polls lightly while the film is on screen. Does nothing for a film without them.
+    private func watchMotion() async {
+        guard let project = model.motionProject, let run = model.motionRun else { return }
+        while !Task.isCancelled {
+            let loaded = await Task.detached(priority: .utility) {
+                (MotionStudioStore.load(projectRoot: project).elementIndex, MotionStudioStore.loadEdits(run: run))
+            }.value
+            if loaded.0 != motionSel.index { motionSel.update(index: loaded.0, currentDigest: nil) }
+            if loaded.1 != motionEdits { motionEdits = loaded.1 }
+            try? await Task.sleep(for: .seconds(4))
+        }
+    }
+
+    /// The player with a narrow inspector beside it, only when the film has an element index. Old films are unchanged.
+    @ViewBuilder
+    private func withMotionInspector<V: View>(_ player: V) -> some View {
+        if motionSel.index == nil {
+            player
+        } else {
+            HStack(alignment: .top, spacing: Workspace.gap) {
+                player
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        MotionEditStatusChip(status: motionEdits)
+                        if motionSel.state == .none {
+                            Text("Click an element in the film to change it.").font(.system(size: 12)).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        MotionInspectorPanel(selection: motionSel, filmVersion: motionSel.index?.filmVersion,
+                                             existingEditIDs: motionEdits.lines.map(\.id),
+                                             onAsk: { req in Task { await model.sendMotionEdit(req, step: "final") } },
+                                             onNote: { text in
+                                                 Task { if !(await model.sendPendingMark(text: text)) { _ = await model.tell(text, step: step) } }
+                                             })
+                    }
+                    .padding(10)
+                }
+                .frame(width: 280).frame(maxHeight: .infinity, alignment: .top)
+                .workspacePanel()
+                .accessibilityLabel("Film element inspector")
+            }
+        }
+    }
+
+    private var renderWithoutButton: some View {
+        Button("Render without these notes…") { confirmRender = true }
+            .buttonStyle(.link).font(.system(size: 12))
+    }
+
     // MARK: Controls under the player
 
     @ViewBuilder
-    private func controls(_ payload: JSONValue, isRender: Bool, done: Bool, canAct: Bool, firstPass: Bool) -> some View {
+    private func controls(_ payload: JSONValue, isRender: Bool, done: Bool, canAct: Bool, firstPass: Bool, wrap: Bool = false) -> some View {
         let versions = payload["versions"].array
         let current = payload["version"].identifier
-        HStack(spacing: 8) {
+        let layout = wrap ? AnyLayout(FlowLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
+        layout {
             if versions.count > 1 {
                 ReviewChip(symbol: "clock.arrow.circlepath", title: "Version", value: current.map { "v\($0)" } ?? "Latest", enabled: canAct) {
                     ForEach(versions.reversed().indices, id: \.self) { index in
@@ -128,15 +209,17 @@ struct FinalStage: View {
                     }
                 }
             }
-            if isRender && !done {
-                Button { Task { await model.send(step: step, type: "choose", value: .string(firstPass ? "render" : "preview")) } } label: {
-                    Label(firstPass ? "Render the final now" : "Preview again", systemImage: firstPass ? "film.fill" : "eye").font(.system(size: 12))
+            // Only the first pass offers skipping straight to the final. "Preview again" (another draft of the same film) is gone:
+            // it spent a full draft render without changing anything.
+            if isRender && !done && firstPass {
+                Button { Task { await model.send(step: step, type: "choose", value: .string("render")) } } label: {
+                    Label("Render the final now", systemImage: "film.fill").font(.system(size: 12))
                         .padding(.horizontal, 11).padding(.vertical, 6)
                         .background(Color(nsColor: .quaternaryLabelColor).opacity(0.22), in: Capsule())
                         .overlay { Capsule().strokeBorder(Color(nsColor: .separatorColor).opacity(0.6), lineWidth: 0.5) }
                 }
                 .buttonStyle(.plain).disabled(!canAct)
-                .help(firstPass ? "Skip the preview and render the full-quality final." : "Make another quick, lower-quality preview before the full render.")
+                .help("Skip the preview and render the full-quality final.")
             }
             if let studio = payload["studio"].string, let url = URL(string: studio), ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
                 Button { SafeOpen.open(url) } label: {
@@ -228,4 +311,33 @@ struct NativeFilmPlayer: NSViewRepresentable {
         return view
     }
     func updateNSView(_ view: AVPlayerView, context: Context) { view.player = player }
+}
+
+/// The latest Motion Studio edit's state (requested, applied, rendered, failed), nothing when there are none.
+private struct MotionEditStatusChip: View {
+    let status: MotionEditStatus
+    var body: some View {
+        if let line = status.lines.last, let state = line.status {
+            Label(title(state, count: status.lines.count), systemImage: symbol(state))
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(state == .failed ? Color(nsColor: .systemOrange) : state == .rendered ? Color.rasan : Color.secondary)
+                .padding(.horizontal, 9).padding(.vertical, 4)
+                .background(Color(nsColor: .quaternaryLabelColor).opacity(0.22), in: Capsule())
+                .help(line.note ?? line.instruction ?? "")
+                .accessibilityLabel("Latest edit: \(state.rawValue)")
+        }
+    }
+    private func title(_ s: MotionEditState, count: Int) -> String {
+        let word = s.rawValue.prefix(1).uppercased() + s.rawValue.dropFirst()
+        return count > 1 ? "\(word) (\(count) edits)" : word
+    }
+    private func symbol(_ s: MotionEditState) -> String {
+        switch s {
+        case .requested, .accepted, .unknown: "clock"
+        case .applied: "checkmark"
+        case .rendered: "checkmark.circle.fill"
+        case .failed: "exclamationmark.triangle"
+        case .reverted: "arrow.uturn.backward"
+        }
+    }
 }

@@ -96,7 +96,7 @@ struct FilmProgressView: View {
                 ProgressPreviewPane(snapshot: s, aspect: model.snapshot.aspectRatio)
                 nextRow(s)
             }
-            .padding(.horizontal, 28).padding(.top, 14).padding(.bottom, 28)
+            .padding(.bottom, 28)
             .frame(maxWidth: 860, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
@@ -290,7 +290,7 @@ struct FilmProgressView: View {
     }
 
     nonisolated static func basisHelp(_ e: PhaseEstimate) -> String {
-        let calls = " It leaves out the time you spend on your calls (picking a script or look, reviewing the animatic)."
+        let calls = " It leaves out the time you spend on your calls (picking a script or look, reviewing the storyboard)."
         switch e.basis {
         case .measured: return "Worked out from what has been built or rendered so far." + calls
         case .learned: return "Worked out from how long your earlier films took, scaled to this one. A range means there is not enough history to be sure." + calls
@@ -333,7 +333,7 @@ extension ProgressPhase {
         switch self {
         case .script: "pick a story"
         case .look: "pick a look"
-        case .animatic: "notes on the animatic"
+        case .animatic: "notes on the storyboard"
         case .render: "review the final"
         default: nil
         }
