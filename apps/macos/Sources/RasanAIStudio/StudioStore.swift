@@ -797,6 +797,7 @@ final class StudioStore {
         workspaceURL = workspace
         let model = FilmSessionModel(snapshot: snapshot, run: runURL, workspace: workspace)
         model.startedAt = runtime.startedAt
+        model.progressProvider = { [weak self] in self?.progress?.snapshot }
         model.onSnapshot = { [weak self, weak model] next in
             guard let self, let model, self.film === model else { return }
             self.ingest(next)
@@ -845,7 +846,7 @@ final class StudioStore {
         researchTimeBoxing.observe(store: self)
         playhead = min(playhead, duration)
         refreshDockBadge()
-        statusMessage = next.workingMessage ?? (awaitingAgent ? "Sent to the director · waiting for an update" : "Connected to the local director")
+        statusMessage = next.workingMessage ?? (awaitingAgent ? "Waiting for the director to pick this up" : "Connected to the local director")
         film?.startedAt = runtime.startedAt
         configureMedia()
     }

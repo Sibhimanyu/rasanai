@@ -273,46 +273,88 @@ struct CrewBubbleView: View {
 
 // MARK: Speech bubble (asking)
 
-/// The asking character's one speech bubble: a rounded rectangle with a tail toward the head (not a cloud).
+/// The asking character's one speech bubble: a rounded body with one continuous outline that flows into a tapered tail.
 struct CrewSpeechBubble: View {
     let text: String
     var tailY: CGFloat?
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
 
     var body: some View {
         let dark = scheme == .dark
+        let shape = SpeechShape(tailY: tailY)
+        let lilac = Color(red: 60 / 255, green: 50 / 255, blue: 110 / 255)
         Text(text)
-            .font(.system(size: 17, weight: .medium))
+            .font(.system(size: 19, weight: .semibold, design: .rounded))
+            .lineSpacing(2)
             .foregroundStyle(dark ? Color(red: 0xF2 / 255, green: 0xF2 / 255, blue: 0xF5 / 255) : StageColors.ink)
             .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 20).padding(.vertical, 14)
+            .frame(maxWidth: 520, alignment: .leading)
+            .padding(.horizontal, 22).padding(.vertical, 15)
             .background {
-                SpeechShape(tailY: tailY)
-                    .fill(dark ? Color(red: 44 / 255, green: 44 / 255, blue: 52 / 255) : .white)
-                    .overlay { SpeechShape(tailY: tailY).stroke(dark ? .white.opacity(0.12) : .clear, lineWidth: 1) }
-                    .shadow(color: dark ? .black.opacity(0.45) : Color(red: 60 / 255, green: 50 / 255, blue: 110 / 255).opacity(0.14), radius: dark ? 10 : 9, y: 4)
+                shape
+                    .fill(dark
+                          ? LinearGradient(colors: [Color(red: 0x34 / 255, green: 0x34 / 255, blue: 0x3E / 255), Color(red: 0x2A / 255, green: 0x2A / 255, blue: 0x33 / 255)], startPoint: .top, endPoint: .bottom)
+                          : LinearGradient(colors: [.white, .white], startPoint: .top, endPoint: .bottom))
+                    .overlay { shape.stroke(dark ? .white.opacity(0.07) : lilac.opacity(0.06), lineWidth: 1) }
+                    .overlay {
+                        if dark {
+                            shape.stroke(LinearGradient(stops: [.init(color: .white.opacity(0.10), location: 0), .init(color: .white.opacity(0), location: 0.5)], startPoint: .top, endPoint: .bottom), lineWidth: 1)
+                                .padding(0.5)
+                        }
+                    }
+                    .shadow(color: dark ? .black.opacity(0.35) : lilac.opacity(0.08), radius: 1.5, y: 1)
+                    .shadow(color: dark ? .black.opacity(0.28) : lilac.opacity(0.14), radius: 18, y: 8)
             }
-            .padding(.leading, 11)
+            .padding(.leading, SpeechShape.tailOut)
+            .scaleEffect(reduceMotion ? 1 : (shown ? 1 : 0.9), anchor: UnitPoint(x: 0, y: 0.3))
+            .opacity(shown ? 1 : 0)
+            .onAppear { pop() }
+            .onChange(of: text) { shown = false; pop() }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(text)
             .accessibilityAddTraits(.isHeader)
     }
+
+    private func pop() {
+        DispatchQueue.main.async {
+            if reduceMotion { withAnimation(.easeOut(duration: 0.2)) { shown = true } }
+            else { withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { shown = true } }
+        }
+    }
 }
 
-/// A rounded rectangle whose left edge carries a small triangular tail at `tailY`, pointing left.
+/// One continuous outline: a continuous-corner body whose left edge bulges out into a tapered, slightly curved tail.
 struct SpeechShape: Shape {
+    static let tailOut: CGFloat = 13
     /// Nil puts the tail at the middle of the edge.
     var tailY: CGFloat?
     func path(in rect: CGRect) -> Path {
-        let body = CGRect(x: rect.minX + 11, y: rect.minY, width: rect.width - 11, height: rect.height)
-        var path = Path(roundedRect: body, cornerRadius: 18, style: .continuous)
-        let y = min(max(tailY ?? rect.height / 2, 26), max(26, rect.height - 26))
-        var tail = Path()
-        tail.move(to: CGPoint(x: body.minX + 1, y: y - 11))
-        tail.addQuadCurve(to: CGPoint(x: rect.minX, y: y + 3), control: CGPoint(x: body.minX - 3, y: y - 2))
-        tail.addQuadCurve(to: CGPoint(x: body.minX + 1, y: y + 11), control: CGPoint(x: body.minX - 4, y: y + 8))
-        tail.closeSubpath()
-        path.addPath(tail)
-        return path
+        let half: CGFloat = 10   // tail base is 20 wide
+        // A one-line bubble is short: shrink the corners so the left edge keeps a straight run for the tail.
+        let r = max(8, min(20, (rect.height - 2 * half - 4) / 2))
+        let out = Self.tailOut
+        let l = rect.minX + out, rt = rect.maxX, t = rect.minY, b = rect.maxY
+        let cy = min(max(tailY ?? rect.height / 2, r + half + 2), max(r + half + 2, rect.height - r - half - 2))
+        let k: CGFloat = 0.5523 * r
+        var p = Path()
+        p.move(to: CGPoint(x: l + r, y: t))
+        p.addLine(to: CGPoint(x: rt - r, y: t))
+        p.addCurve(to: CGPoint(x: rt, y: t + r), control1: CGPoint(x: rt - r + k, y: t), control2: CGPoint(x: rt, y: t + r - k))
+        p.addLine(to: CGPoint(x: rt, y: b - r))
+        p.addCurve(to: CGPoint(x: rt - r, y: b), control1: CGPoint(x: rt, y: b - r + k), control2: CGPoint(x: rt - r + k, y: b))
+        p.addLine(to: CGPoint(x: l + r, y: b))
+        p.addCurve(to: CGPoint(x: l, y: b - r), control1: CGPoint(x: l + r - k, y: b), control2: CGPoint(x: l, y: b - r + k))
+        // Up the left edge into the tail: sweeps out to a tip that curls slightly downward, then back in.
+        p.addLine(to: CGPoint(x: l, y: cy + half))
+        p.addCurve(to: CGPoint(x: rect.minX, y: cy + 5),
+                   control1: CGPoint(x: l - 1, y: cy + half - 3), control2: CGPoint(x: rect.minX + 4, y: cy + 8))
+        p.addCurve(to: CGPoint(x: l, y: cy - half),
+                   control1: CGPoint(x: rect.minX + 5, y: cy + 1), control2: CGPoint(x: l - 1, y: cy - 4))
+        p.addLine(to: CGPoint(x: l, y: t + r))
+        p.addCurve(to: CGPoint(x: l + r, y: t), control1: CGPoint(x: l, y: t + r - k), control2: CGPoint(x: l + r - k, y: t))
+        p.closeSubpath()
+        return p
     }
 }

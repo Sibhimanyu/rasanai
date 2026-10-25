@@ -88,10 +88,13 @@ struct AnimaticStage: View {
 
     /// The step's one clear heading. The picture below is key frames at their real timing, not rendered video, so it says so.
     private var heading: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            CrewByline(step: step).padding(.bottom, 4)
-            Text("Watch the first cut.").font(.system(size: 30, weight: .semibold)).tracking(-0.3)
-            Text("Review the pacing, story and sound before the final build.").font(.system(size: 15)).foregroundStyle(.secondary)
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                CrewByline(step: step).padding(.bottom, 4)
+                Text("Watch the first cut.").font(.system(size: 30, weight: .semibold)).tracking(-0.3)
+                Text("Review the pacing, story and sound before the final build.").font(.system(size: 15)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 12)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, .filmInset).padding(.bottom, 4)

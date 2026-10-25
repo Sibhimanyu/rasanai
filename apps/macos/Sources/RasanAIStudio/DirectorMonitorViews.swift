@@ -104,6 +104,8 @@ struct DirectorMonitorPanel: View {
             Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    if let block = health?.blocked { blockedCard(block) }
+                    if let health, health.stalled, health.blocked == nil { stalledCard(health) }
                     if let health, health.state == .possiblyLooping { loopWarning(health) }
                     if let limit = monitor.budgetLimit { budgetCard(limit) }
                     usage(t)
@@ -139,7 +141,7 @@ struct DirectorMonitorPanel: View {
     private func detailText(_ health: DirectorHealth?, now: Date) -> String {
         guard let health else { return "The director is getting ready." }
         if health.state == .possiblyLooping { return "It looks like it is repeating itself. Details below." }
-        if health.state == .quiet, monitor.telemetry.toolInFlight == nil, let last = monitor.telemetry.lastEventAt {
+        if health.state == .quiet, !health.stalled, health.blocked == nil, monitor.telemetry.toolInFlight == nil, let last = monitor.telemetry.lastEventAt {
             let what = monitor.telemetry.lastToolSummary.map { " Last: \($0)." } ?? ""
             return "No activity for \(UsageFormat.span(max(0, now.timeIntervalSince(last)))).\(what)"
         }
@@ -156,12 +158,55 @@ struct DirectorMonitorPanel: View {
             HStack {
                 Button("Pause") { monitor.actions.pause(); dismiss() }
                 Button("Message \(agent)…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
+                Button("Retry step") { monitor.actions.retry(); dismiss() }.help("Tells Rasan to try the current step again, without repeating the same call.")
+                Button("Restart Rasan") { monitor.actions.restart(); dismiss() }.help("Stops this director and starts a fresh one from the saved film. Your files are kept.")
                 Spacer()
             }.controlSize(.regular)
         }
         .padding(12)
         .background(Color(nsColor: .systemRed).opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(nsColor: .systemRed).opacity(0.35), lineWidth: 0.5))
+    }
+
+    /// A command the director was refused: named exactly, with the way forward. Never silent.
+    private func blockedCard(_ block: DirectorBlock) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Blocked", systemImage: "hand.raised.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(nsColor: .systemOrange))
+            Text(block.message).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+            if let note = block.repeatNote { Text(note).font(.system(size: 11)).foregroundStyle(.secondary) }
+            if block.isInstall {
+                Text("Studio never lets the director install software by itself. Studio can install it for you instead.")
+                    .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if let tool = block.suggestedTool { ToolNeedCard(need: ToolNeed(tool: tool, why: "Rasan tried to install it with `\(block.command)`."), model: nil) }
+            } else {
+                Text("This command is outside what the director is allowed to run. Turn on Settings → Director → Allow unrestricted tools if you trust this film, or tell Rasan another way to do it.")
+                    .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            HStack {
+                Button("Retry step") { monitor.actions.retry(); dismiss() }
+                Button("Restart Rasan") { monitor.actions.restart(); dismiss() }
+                Button("Message \(agent)…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
+                Spacer()
+            }
+        }
+        .padding(12)
+        .background(Color(nsColor: .systemOrange).opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(nsColor: .systemOrange).opacity(0.4), lineWidth: 0.5))
+    }
+
+    private func stalledCard(_ health: DirectorHealth) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Rasan looks stuck", systemImage: "moon.zzz.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(nsColor: .systemOrange))
+            Text(health.detail).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Button("Retry step") { monitor.actions.retry(); dismiss() }
+                Button("Restart Rasan") { monitor.actions.restart(); dismiss() }
+                Button("Message \(agent)…") { dismiss(); DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { monitor.actions.tell() } }
+                Spacer()
+            }
+        }
+        .padding(12)
+        .background(Color(nsColor: .systemOrange).opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private func budgetCard(_ limit: Double) -> some View {
@@ -288,6 +333,10 @@ struct DirectorMonitorPanel: View {
         HStack {
             Button { monitor.actions.showLog(); dismiss() } label: { Label("Show log", systemImage: "text.alignleft") }
             Spacer()
+            if monitor.isLive {
+                Button { monitor.actions.restart(); dismiss() } label: { Label("Restart Rasan", systemImage: "arrow.clockwise") }
+                    .help("Stops this director and starts a fresh one from the saved film.")
+            }
             if monitor.isLive, monitor.canPause {
                 Button { monitor.actions.pause(); dismiss() } label: { Label("Pause", systemImage: "pause.fill") }
                     .help("Pause freezes it in place. Resume carries on exactly where it was.")
@@ -309,7 +358,26 @@ struct MonitorBudgetBanner: View {
                    detail: paused.reason + " Nothing is lost. Resume to let it carry on, or tell it what to do.") {
                 Button("Show log") { store.sheet = .log }
                 Button("Message \(monitor.agentTitle)…") { store.film?.beginTell() }
+                Button("Restart Rasan") { monitor.actions.restart() }
                 Button("Resume") { store.resumeDirector() }.keyboardShortcut(.defaultAction)
+            }
+        } else if monitor.run == store.runURL, let health = monitor.health, store.runtime.isRunning, let block = health.blocked, health.state != .paused {
+            banner(symbol: "hand.raised.fill", tint: .systemOrange, title: "Blocked: Rasan can't carry on yet",
+                   detail: ToolNeedCoordinator.shared.isBusy ? (store.toolSetup.message.isEmpty ? "Installing…" : store.toolSetup.message)
+                       : block.message + (block.suggestedTool != nil ? " Studio can install it for you." : "")) {
+                if let tool = block.suggestedTool, ToolNeed(tool: tool, why: "").managedKey != nil {
+                    Button("Install for me") { ToolNeedCoordinator.shared.installForMe(ToolNeed(tool: tool, why: "Rasan tried to install it with `\(block.command)`."), ask: nil, model: store.film) }
+                        .disabled(ToolNeedCoordinator.shared.isBusy)
+                }
+                Button("Retry step") { monitor.actions.retry() }
+                Button("Restart Rasan") { monitor.actions.restart() }
+                Button("Message \(monitor.agentTitle)…") { store.film?.beginTell() }
+            }
+        } else if monitor.run == store.runURL, let health = monitor.health, store.runtime.isRunning, health.stalled {
+            banner(symbol: "moon.zzz.fill", tint: .systemOrange, title: "Rasan looks stuck", detail: health.detail) {
+                Button("Retry step") { monitor.actions.retry() }
+                Button("Restart Rasan") { monitor.actions.restart() }
+                Button("Message \(monitor.agentTitle)…") { store.film?.beginTell() }
             }
         } else if let limit = monitor.budgetLimit, monitor.run == store.runURL {
             let spent = "About \(UsageFormat.dollars(monitor.telemetry.cost.usd)) so far\(monitor.telemetry.cost.isEstimated ? " (est.)" : "")."

@@ -79,10 +79,11 @@ struct NotesInspector: View {
                     InspectorReviewNotes(model: model, step: step)
                     StageSectionTitle(StepCatalog.label(step))
                     if messages.isEmpty && !replying {
-                        Text("Your messages about this step, and \(agent)'s replies, appear here. \(agent) reads them before it moves on.")
+                        Text("Ask how long it will take or what is happening, and \(agent) answers here. Tell \(agent) what to change (a font, a line, the music) and it goes to the engine as a change request.")
                             .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                     ForEach(messages) { message in ThreadBubble(message: message) }
+                    if let confirm = model.pendingConfirm, confirm.step == step { RevisionConfirmCard(model: model, confirm: confirm) }
                     if replying {
                         HStack(spacing: 6) { ProgressView().controlSize(.small); Text("\(agent) is replying…").font(.system(size: 12)).foregroundStyle(.secondary) }
                     }
@@ -103,7 +104,7 @@ struct NotesInspector: View {
                     .padding(.horizontal, 5).padding(.vertical, 6).frame(height: 76)
                     .accessibilityLabel("Message for \(agent)")
                 if model.tellText.isEmpty {
-                    Text("Message \(agent) about this step").font(.system(size: 13)).foregroundStyle(.tertiary)
+                    Text("Ask how it's going, or tell \(agent) what to change").font(.system(size: 13)).foregroundStyle(.tertiary)
                         .padding(.horizontal, 10).padding(.vertical, 6).allowsHitTesting(false)
                 }
             }
@@ -115,7 +116,7 @@ struct NotesInspector: View {
                 Button("Send") { send() }
                     .buttonStyle(.rasanSecondary).controlSize(.small)
                     .keyboardShortcut(.return, modifiers: .command)
-                    .help("Send this message to \(agent) (⌘↩)")
+                    .help("Ask a question, or send a change to \(agent) (⌘↩)")
                     .disabled(trimmed.isEmpty || model.isSending)
             }
         }
@@ -125,6 +126,23 @@ struct NotesInspector: View {
     private func send() {
         let text = trimmed
         Task { if await model.tell(text, step: step) { model.tellText = "" } }
+    }
+}
+
+/// The engine's one reading of an ambiguous request, with Confirm or Change (Change puts the words back in the composer).
+struct RevisionConfirmCard: View {
+    let model: FilmSessionModel
+    let confirm: FilmSessionModel.PendingConfirm
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Nothing changes until you confirm.").font(.system(size: 11)).foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Button("Confirm") { Task { await model.resolveConfirm(accept: true) } }.buttonStyle(.rasanSecondary).controlSize(.small)
+                Button("Change") { Task { await model.resolveConfirm(accept: false) } }.buttonStyle(.rasanSecondary).controlSize(.small)
+            }
+        }
+        .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .quaternaryLabelColor).opacity(0.25), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -143,6 +161,14 @@ struct ThreadBubble: View {
                 .accessibilityLabel((message.fromUser ? "You: " : "\(agent): ") + message.text)
             if !message.fromUser { Spacer(minLength: 28) }
         }
+    }
+}
+
+extension FilmSessionModel {
+    /// The toolbar's Inspector/Decisions control: opening it lands on Decisions (⌘K opens Notes instead); closing just closes.
+    func toggleInspectorOnDecisions() {
+        if !decisionsPresented { inspectorTab = .decisions }
+        decisionsPresented.toggle()
     }
 }
 

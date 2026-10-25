@@ -118,7 +118,7 @@ struct StudioView: View {
             case .preflight: PreflightView(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
             case .projectTransfer: ProjectTransferView(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
             case .export:
-                if let source = store.exportSource { MovieExportSheet(source: source, captions: store.exportCaptions).tint(.rasan).buttonStyle(.rasanSecondary) }
+                if let source = store.exportSource { MovieExportSheet(source: source, captions: store.exportCaptions, delivery: DeliveryPlan.read(run: store.runURL)).tint(.rasan).buttonStyle(.rasanSecondary) }
             }
         }
         .onAppear { introduceFeedback() }

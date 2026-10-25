@@ -14,8 +14,11 @@ struct FilmStatusBar<Usage: View>: View {
     @ViewBuilder var usage: Usage
     /// The monitor sees a tool or model call still running (a render can go most of an hour), so silence is not "no activity".
     var stillWorking = false
+    /// The film progress snapshot's overall estimate; nil when there is none yet.
+    var remaining: PhaseEstimate?
     @Environment(\.agentName) private var agent
     @State private var lastActivityAt = Date()
+    @State private var sentSeenAt = Date()
 
     private var step: String { model.shownStep }
     private var sent: Bool { model.hasSent(step) && model.status(step) != "done" }
@@ -38,10 +41,11 @@ struct FilmStatusBar<Usage: View>: View {
                 else if needsResume { resumeSlot }
             }
         }
-        .padding(.horizontal, .filmInset).padding(.vertical, model.lastError == nil ? 0 : 8)
-        .frame(maxWidth: .infinity, minHeight: 60)
-        // A calm footer on the canvas: one hairline above it, no panel of its own.
-        .overlay(alignment: .top) { Rectangle().fill(Workspace.hairline).frame(height: 1) }
+        .padding(.horizontal, 22).padding(.vertical, model.lastError == nil ? 0 : 9)
+        .frame(maxWidth: .infinity, minHeight: 52)
+        // A floating full-width pill of the same glass as the sidebar; content scrolls underneath it.
+        .glassPanel(radius: 26)
+        .padding(.horizontal, Workspace.gap).padding(.bottom, 10)
         .onChange(of: turn) { lastActivityAt = Date() }
     }
 
@@ -57,22 +61,53 @@ struct FilmStatusBar<Usage: View>: View {
 
     @ViewBuilder private var status: some View {
         if model.isViewingPast {
-            HStack(spacing: 8) {
-                Image(systemName: "clock.arrow.circlepath").foregroundStyle(.secondary)
-                Text("Looking back at \(StepCatalog.label(model.shownStep))").font(.system(size: 12, weight: .medium)).lineLimit(1)
-                Button("Back to now") { model.returnToLive() }.buttonStyle(.rasanSecondary).controlSize(.small)
-                Button("Change this…") { model.beginTell(step: model.shownStep, prefill: "Change the \(StepCatalog.label(model.shownStep).lowercased()): ") }
-                    .buttonStyle(.rasanSecondary).controlSize(.small)
-                    .help("Write to \(agent) about this step")
-            }
-        } else if sent {
-            HStack(spacing: 8) {
-                ProgressView().controlSize(.small)
-                Text("Sent to \(agent). Waiting for the next update.").font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
-            }
+            LookingBackControls(model: model)
+        } else if sent, !isStoppedTurn {
+            sentStatus
         } else if let turn {
             turnStatus(turn)
         }
+    }
+
+    /// Paused or stuck outranks "sent": the hint and Resume must stay reachable.
+    private var isStoppedTurn: Bool {
+        switch turn { case .paused?, .attention?: return true; default: return false }
+    }
+
+    /// When the action went out: the engine's timestamp on the step's `sent`, else when this bar first saw it.
+    private var sentAt: Date {
+        guard let ts = model.snapshot.step(step)["sent"]["ts"].string else { return sentSeenAt }
+        let plain = ISO8601DateFormatter()
+        let fractional = ISO8601DateFormatter(); fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return fractional.date(from: ts) ?? plain.date(from: ts) ?? sentSeenAt
+    }
+
+    /// An action is queued: say whether the engine has picked it up, how long it has been, and the ETA when one exists.
+    private var sentStatus: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let elapsed = max(0, context.date.timeIntervalSince(sentAt))
+            let label = StepCatalog.label(step)
+            let quiet = stillWorking ? false : elapsed > 120
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                if stillWorking {
+                    Text("\(agent) is working · \(label)").font(.system(size: 12, weight: .medium)).lineLimit(1)
+                    if let remaining {
+                        Text(FilmProgressView.estimateText(remaining)).font(.system(size: 12)).foregroundStyle(Color.rasan).lineLimit(1).layoutPriority(-1)
+                    } else {
+                        Text("No estimate yet").font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1).layoutPriority(-1)
+                    }
+                } else {
+                    Text("Waiting for \(agent) to pick this up").font(.system(size: 12, weight: .medium)).lineLimit(1)
+                    Text(quiet ? "Nothing yet after two minutes" : "\(label) sent").font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1).layoutPriority(-1)
+                }
+                Text(clockText(elapsed)).font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
+                if let onDetails { Button(quiet ? "Show log" : "Details", action: onDetails).buttonStyle(.borderless).controlSize(.small) }
+                if quiet, let onResume { Button("Resume", action: onResume).buttonStyle(.borderless).controlSize(.small) }
+            }
+        }
+        .onAppear { sentSeenAt = Date() }
+        .onChange(of: step) { sentSeenAt = Date() }
     }
 
     @ViewBuilder private func turnStatus(_ turn: TurnState) -> some View {
@@ -174,6 +209,7 @@ struct FilmStatusBarHost<Content: View, Usage: View>: View {
     var visible = true
     var turn: TurnState?
     var stillWorking = false
+    var remaining: PhaseEstimate?
     var onDetails: (() -> Void)?
     var onPause: (() -> Void)?
     var onResume: (() -> Void)?
@@ -182,12 +218,13 @@ struct FilmStatusBarHost<Content: View, Usage: View>: View {
     @State private var actions: FilmActions?
 
     var body: some View {
-        VStack(spacing: Workspace.gap) {
-            content.onPreferenceChange(FilmActionsKey.self) { actions = $0 }
-            if visible {
-                FilmStatusBar(model: model, turn: turn, actions: actions, onDetails: onDetails, onPause: onPause, onResume: onResume, usage: { usage }, stillWorking: stillWorking)
+        content.onPreferenceChange(FilmActionsKey.self) { actions = $0 }
+            // A floating glass pill over the page: content scrolls underneath and can still scroll clear of it.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if visible {
+                    FilmStatusBar(model: model, turn: turn, actions: actions, onDetails: onDetails, onPause: onPause, onResume: onResume, usage: { usage }, stillWorking: stillWorking, remaining: remaining)
+                }
             }
-        }
         // A note goes out with whatever was accepted (the note itself, or the call it rode along with).
         .onChange(of: model.sendCount) { model.tellText = "" }
     }

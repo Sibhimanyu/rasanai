@@ -95,6 +95,7 @@ struct FilmPage: View {
             if let film = store.film {
                 FilmStatusBarHost(model: film, visible: showsNativeFilm, turn: statusTurn,
                                   stillWorking: [.working, .thinking].contains(store.monitor.health?.state),
+                                  remaining: store.progress?.snapshot.remaining,
                                   onDetails: store.runtime.logURL != nil ? { store.sheet = .log } : nil,
                                   onPause: store.canPause ? { store.pauseDirector() } : nil,
                                   onResume: store.canResume ? { store.resumeDirector() } : nil,
@@ -131,7 +132,7 @@ struct FilmPage: View {
         }
         ToolbarItemGroup(placement: .primaryAction) {
             if let film = store.film {
-                Button { film.decisionsPresented.toggle() } label: { Label("Inspector", systemImage: "sidebar.trailing") }
+                Button { film.toggleInspectorOnDecisions() } label: { Label("Inspector", systemImage: "sidebar.trailing") }
                     .keyboardShortcut("i", modifiers: [.command, .option])
                     .help("Show or hide notes and decisions (⌥⌘I)")
             }

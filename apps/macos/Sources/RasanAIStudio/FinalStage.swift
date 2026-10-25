@@ -41,18 +41,21 @@ struct FinalStage: View {
         // The same editor layout as the animatic: the player fills the space, the scenes run as a filmstrip under it,
         // notes live in the inspector, and the call's action sits in the bar at the bottom.
         VStack(spacing: Workspace.gap) {
-            VStack(alignment: .leading, spacing: 6) {
-                CrewByline(step: "final").padding(.bottom, 4)
-                Text(notRendered ? "Ready to render." : "Watch the final cut.").font(.system(size: 30, weight: .semibold)).tracking(-0.3)
-                Text(notRendered ? "Make a quick preview first, or render the full-quality final."
-                     : "Leave a note where something should change, or export when it feels right.")
-                    .font(.system(size: 15)).foregroundStyle(.secondary)
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    CrewByline(step: "final").padding(.bottom, 4)
+                    Text(notRendered ? "Ready to render." : "Watch the final cut.").font(.system(size: 30, weight: .semibold)).tracking(-0.3)
+                    Text(notRendered ? "Make a quick preview first, or render the full-quality final."
+                         : "Leave a note where something should change, or export when it feels right.")
+                        .font(.system(size: 15)).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 12)
             }
             .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, .filmInset).padding(.top, 10).padding(.bottom, 4)
             .accessibilityElement(children: .combine).accessibilityAddTraits(.isHeader)
             ReviewPlayerPanel(model: model, step: step, playback: playback, scenes: scenes, notes: allNotes,
                               aspect: model.snapshot.aspectRatio, canNote: canAct && playback.isReady, pinWindow: 2.5, showStrip: false) {
-                FinalFrame(playback: playback, posterPath: posterPath, hasVideo: videoURL != nil, notRendered: notRendered)
+                FinalFrame(playback: playback, posterPath: posterPath, hasVideo: videoURL != nil, notRendered: notRendered, model: model)
             }
             .environment(\.reviewFrameHeight, max(200, stageHeight - 96 - 84 - (scenes.isEmpty ? 56 : 168) - Workspace.gap))
             VStack(alignment: .leading, spacing: 4) {
@@ -195,10 +198,12 @@ private struct FinalFrame: View {
     let posterPath: String?
     let hasVideo: Bool
     var notRendered = false
+    var model: FilmSessionModel?
     var body: some View {
         ZStack {
             Color.black
             if hasVideo { NativeFilmPlayer(player: playback.player) }
+            if hasVideo, let model { ElementDirectOverlay(model: model, playback: playback) }   // Plan 10 U4: edit elements through the engine (off until "Edit elements")
             if !hasVideo || !playback.hasStarted {
                 if posterPath != nil { PayloadImage(path: posterPath, contentMode: .fit, maxPixels: 1800).transition(.opacity) }
                 if !hasVideo {

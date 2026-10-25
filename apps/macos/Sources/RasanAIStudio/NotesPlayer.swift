@@ -72,12 +72,15 @@ func reviewTime(_ seconds: Double, tenths: Bool = false) -> String {
     var isPlaying: Bool { get }
     var isMuted: Bool { get set }
     var isReady: Bool { get }
+    /// Pixel size of the picture when known (a rendered file); nil for the animatic. Used to map the pointer through the real picture rectangle.
+    var videoSize: CGSize? { get }
     func play()
     func pause()
     func seek(to seconds: Double)
 }
 
 extension FilmPlayback {
+    var videoSize: CGSize? { nil }
     func toggle() { isPlaying ? pause() : play() }
 }
 
@@ -173,6 +176,8 @@ final class VideoPlayback: FilmPlayback {
     private(set) var isPlaying = false
     private(set) var hasStarted = false
     private(set) var isReady = false
+    /// The pixel size of the picture in the loaded file (Plan 10 U4/U8: pointer mapping and "is this the render the element index describes"). nil until read.
+    private(set) var videoSize: CGSize?
     var isMuted = false { didSet { player.isMuted = isMuted } }
     @ObservationIgnored let player = AVPlayer()
     @ObservationIgnored private var url: URL?
@@ -193,7 +198,7 @@ final class VideoPlayback: FilmPlayback {
         self.fallbackDuration = fallbackDuration
         guard next != url else { if duration == 0 { duration = fallbackDuration }; return }
         pause()
-        url = next; time = 0; hasStarted = false; isReady = false
+        url = next; time = 0; hasStarted = false; isReady = false; videoSize = nil
         duration = fallbackDuration
         if let endObserver { NotificationCenter.default.removeObserver(endObserver); self.endObserver = nil }
         guard let next else { player.replaceCurrentItem(with: nil); return }
@@ -205,9 +210,15 @@ final class VideoPlayback: FilmPlayback {
         Task { [weak self] in
             let loaded = try? await item.asset.load(.duration).seconds
             let playable = (try? await item.asset.load(.isPlayable)) ?? false
+            var picture: CGSize?
+            if let track = try? await item.asset.loadTracks(withMediaType: .video).first, let (natural, transform) = try? await track.load(.naturalSize, .preferredTransform) {
+                let box = CGRect(origin: .zero, size: natural).applying(transform)
+                picture = CGSize(width: abs(box.width), height: abs(box.height))
+            }
             await MainActor.run {
                 guard let self, self.url == next else { return }
                 if let loaded, loaded.isFinite, loaded > 0 { self.duration = loaded }
+                self.videoSize = picture
                 self.isReady = playable
             }
         }
@@ -349,6 +360,11 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
             draft = new
             startDraft?.wrappedValue = nil
         }
+        .onChange(of: playback.time) { _, t in
+            let index = FilmTiming.sceneIndex(at: t, in: scenes)
+            model.playhead = .init(time: t, shotID: index.map { scenes[$0].id })
+        }
+        .onDisappear { model.playhead = nil }
         .onKeyPress(.space) { playback.toggle(); return .handled }
         .onKeyPress(.leftArrow) { jump(forward: false) }
         .onKeyPress(.rightArrow) { jump(forward: true) }
@@ -392,7 +408,11 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
                     // A click on the picture plays or pauses, as in every player; a note needs a second click (or C).
                     if playback.isPlaying { playback.pause(); return }
                     guard canNote, size.width > 0, size.height > 0 else { playback.toggle(); return }
-                    beginNote(at: CGPoint(x: min(1, max(0, tap.location.x / size.width)), y: min(1, max(0, tap.location.y / size.height))))
+                    // Plan 10 U4: through the real picture rectangle (letterbox, scale, backing pixels), not the view box: a click on a bar is not a note on the film.
+                    let geometry = VideoViewGeometry(viewSize: size, frameSize: playback.videoSize ?? CGSize(width: 1000 * min(max(aspect, 0.3), 3), height: 1000), fit: .fit, backingScale: NSScreen.main?.backingScaleFactor ?? 2)
+                    guard let mapped = VideoPointerMap.map(tap.location, in: geometry) else { playback.toggle(); return }
+                    guard mapped.onPicture else { playback.toggle(); return }
+                    beginNote(at: mapped.frameNorm)
                 })
                 .hoverCursor(.crosshair, enabled: canNote)
                 .position(x: box.size.width / 2, y: box.size.height / 2)
