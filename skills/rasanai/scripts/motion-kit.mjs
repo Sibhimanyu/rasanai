@@ -3,7 +3,7 @@
 // (Not scripts/motionkit.mjs, which is the older RasanMotion verbs tool.)
 //
 // usage (JSON on stdout; exit 0 ok, 1 failed check, 2 usage error):
-//   node motion-kit.mjs list [--family f] [--role r]
+//   node motion-kit.mjs list [--family f] [--role r] [--implemented]      (every row says whether the code behind it exists: `implemented`)
 //   node motion-kit.mjs inspect <id>
 //   node motion-kit.mjs suggest --scene <file.json> | --role r --family f --duration s --mood m --aspect 9:16
 //        [--assets a,b] [--brand <DESIGN.md|motion.md>] [--prev <id>] [--seed n] [--limit 3-5]
@@ -12,10 +12,11 @@
 //   node motion-kit.mjs check --project <dir>
 //   node motion-kit.mjs scaffold <id> [--out <file>]
 //   node motion-kit.mjs validate-catalog
+//   (suggest only offers implemented rows; --include-unimplemented lists the rest, marked. scaffold refuses an unimplemented row.)
 //   (any) --catalog <path>   default: skills/rasanai/motion-kit/catalog.json
 import fs from "node:fs";
 import path from "node:path";
-import { loadCatalog, findItem, validateCatalog } from "./lib/motion-kit/catalog.mjs";
+import { loadCatalog, findItem, validateCatalog, annotate } from "./lib/motion-kit/catalog.mjs";
 import { suggest, brandMotion } from "./lib/motion-kit/suggest.mjs";
 import { checkProject } from "./lib/motion-kit/check.mjs";
 import { scaffold } from "./lib/motion-kit/scaffold.mjs";
@@ -43,14 +44,15 @@ const flag = (k) => (args[k] === true ? usage(`--${k} needs a value`) : args[k])
 
 let cat;
 try { cat = loadCatalog(flag("catalog")); } catch (e) { out({ ok: false, error: e.message }, e.code === "NOCATALOG" ? 2 : 1); }
-const { items } = cat;
-const brief = (i) => ({ id: i.id, version: i.version, label: i.label, family: i.family, role: i.role, summary: i.summary, supports: i.supports });
+const { items: allItems } = cat;
+const items = annotate(allItems); // Plan 06 V2: a row is not a capability; `implemented` is checked against the code it names
+const brief = (i) => ({ id: i.id, version: i.version, label: i.label, family: i.family, role: i.role, summary: i.summary, supports: i.supports, implemented: i.implemented, ...(i.implemented ? {} : { unavailable_reason: i.implemented_reason }) });
 
 switch (cmd) {
   case "list": {
     const f = flag("family"), r = flag("role");
-    const sel = items.filter((i) => (!f || i.family === f) && (!r || i.role === r));
-    out({ ok: true, catalog: cat.file, count: sel.length, items: sel.map(brief) });
+    const sel = items.filter((i) => (!f || i.family === f) && (!r || i.role === r) && (!args.implemented || i.implemented));
+    out({ ok: true, catalog: cat.file, count: sel.length, implemented: sel.filter((i) => i.implemented).length, items: sel.map(brief) });
     break;
   }
   case "inspect": {
@@ -83,7 +85,7 @@ switch (cmd) {
     for (const s of scenes) {
       const scene = { role: s.role, family: s.family, duration_s: s.duration_s ?? s.duration, mood: s.mood, aspect: s.aspect || flag("aspect"),
         assets: s.assets || [], prev: s.prev || prevPick };
-      const sug = suggest(items, scene, { brand, seed, limit });
+      const sug = suggest(args["include-unimplemented"] ? items : items.filter((i) => i.implemented), scene, { brand, seed, limit }).map((x) => ({ ...x, implemented: (items.find((i) => i.id === x.id) || {}).implemented === true }));
       prevPick = sug[0] ? sug[0].id : null;
       results.push({ scene: { ...scene, assets: [...scene.assets] }, suggestions: sug });
     }
@@ -102,6 +104,7 @@ switch (cmd) {
     if (!args._[1]) usage("scaffold needs an id");
     const it = findItem(items, args._[1]);
     if (!it) out({ ok: false, error: `unknown id ${args._[1]}` }, 1);
+    if (!it.implemented) out({ ok: false, error: `${it.id} is catalogued but not implemented: ${it.implemented_reason}` }, 1);
     const html = scaffold(it);
     if (flag("out")) {
       const p = path.resolve(flag("out"));

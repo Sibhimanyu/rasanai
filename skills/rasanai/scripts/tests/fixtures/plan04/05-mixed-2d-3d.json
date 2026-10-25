@@ -1,0 +1,113 @@
+{
+  "case": "mixed 2D and 3D treatment",
+  "synthetic": true,
+  "covers": [
+    "L03",
+    "L07"
+  ],
+  "inputs": {
+    "look": {
+      "label": "Bold",
+      "recipe": {
+        "three": {
+          "base": "object-on-plate"
+        }
+      },
+      "finish_policy": "chosen",
+      "treatments": [
+        {
+          "kind": "3d",
+          "serves": "the invitation object turns to show both sides",
+          "scope": "beat-writing"
+        },
+        {
+          "kind": "vignette",
+          "serves": ""
+        }
+      ]
+    },
+    "continuity": {
+      "shared_components": [
+        {
+          "id": "invite-card",
+          "kind": "object",
+          "owner": "film-builder",
+          "version": 1
+        },
+        {
+          "id": "composer-ui",
+          "kind": "interface",
+          "owner": "film-builder",
+          "version": 1
+        }
+      ],
+      "links": [
+        {
+          "id": "l1",
+          "from": "beat-writing",
+          "to": "beat-send",
+          "type": "same_object",
+          "object_id": "invite-card",
+          "transition": {
+            "kind": "carry"
+          }
+        },
+        {
+          "id": "l2",
+          "from": "beat-open",
+          "to": "beat-writing",
+          "type": "deliberate_discontinuity",
+          "transition": {
+            "kind": "cut"
+          }
+        },
+        {
+          "id": "l3",
+          "from": "beat-send",
+          "to": "beat-open",
+          "type": "causal_handoff",
+          "transition": {
+            "kind": "handoff"
+          }
+        }
+      ],
+      "scenes": {
+        "beat-writing": {
+          "uses": [
+            "invite-card",
+            "composer-ui"
+          ]
+        },
+        "beat-send": {
+          "uses": [
+            "invite-card"
+          ]
+        }
+      }
+    }
+  },
+  "expect": {
+    "bible": {
+      "conventions.dimensionality": "mixed",
+      "seam_rule": "a 2D to 3D cut is a cut unless a continuity link carries the object",
+      "validation_problems": [
+        "treatment vignette: name what it communicates (serves)"
+      ]
+    },
+    "continuity": {
+      "ok": false,
+      "problems": [
+        "link l3: causal_handoff needs cause_ref"
+      ]
+    },
+    "projection": {
+      "beat-send": {
+        "components": [
+          "invite-card"
+        ],
+        "read_only": true
+      }
+    },
+    "human_review": "does the 2D-to-3D seam read as one film (L07, in plan 14)"
+  }
+}

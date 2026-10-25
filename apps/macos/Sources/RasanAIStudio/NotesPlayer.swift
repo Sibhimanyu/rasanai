@@ -72,6 +72,8 @@ func reviewTime(_ seconds: Double, tenths: Bool = false) -> String {
     var isPlaying: Bool { get }
     var isMuted: Bool { get set }
     var isReady: Bool { get }
+    /// Pixel size of the picture when known (a rendered file); nil for the animatic. Used to map the pointer through the real picture rectangle.
+    var videoSize: CGSize? { get }
     var volume: Double { get set }
     var rate: Double { get set }
     var loops: Bool { get set }
@@ -86,6 +88,7 @@ func reviewTime(_ seconds: Double, tenths: Bool = false) -> String {
 }
 
 extension FilmPlayback {
+    var videoSize: CGSize? { nil }
     func toggle() { isPlaying ? pause() : play() }
     func scrub(to seconds: Double) { seek(to: seconds) }
     var avPlayer: AVPlayer? { nil }
@@ -190,6 +193,8 @@ final class VideoPlayback: FilmPlayback {
     private(set) var isPlaying = false
     private(set) var hasStarted = false
     private(set) var isReady = false
+    /// The pixel size of the picture in the loaded file (Plan 10 U4/U8: pointer mapping and "is this the render the element index describes"). nil until read.
+    private(set) var videoSize: CGSize?
     var isMuted = false { didSet { player.isMuted = isMuted } }
     var volume = 1.0 { didSet { player.volume = Float(volume) } }
     /// 0.5...2; applied as the player's default rate so play keeps it, pitch preserved.
@@ -230,7 +235,7 @@ final class VideoPlayback: FilmPlayback {
         self.fallbackDuration = fallbackDuration
         guard next != url else { if duration == 0 { duration = fallbackDuration }; return }
         pause()
-        url = next; time = 0; hasStarted = false; isReady = false
+        url = next; time = 0; hasStarted = false; isReady = false; videoSize = nil
         duration = fallbackDuration
         if let endObserver { NotificationCenter.default.removeObserver(endObserver); self.endObserver = nil }
         guard let next else { player.replaceCurrentItem(with: nil); return }
@@ -243,9 +248,15 @@ final class VideoPlayback: FilmPlayback {
         Task { [weak self] in
             let loaded = try? await item.asset.load(.duration).seconds
             let playable = (try? await item.asset.load(.isPlayable)) ?? false
+            var picture: CGSize?
+            if let track = try? await item.asset.loadTracks(withMediaType: .video).first, let (natural, transform) = try? await track.load(.naturalSize, .preferredTransform) {
+                let box = CGRect(origin: .zero, size: natural).applying(transform)
+                picture = CGSize(width: abs(box.width), height: abs(box.height))
+            }
             await MainActor.run {
                 guard let self, self.url == next else { return }
                 if let loaded, loaded.isFinite, loaded > 0 { self.duration = loaded }
+                self.videoSize = picture
                 self.isReady = playable
             }
         }
@@ -395,6 +406,11 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
         // Take the keys only when nothing is being typed: a step that arrives while the person writes in the inspector must not steal them.
         .onAppear { if !(NSApp.keyWindow?.firstResponder is NSTextView) { focused = true } }
         .onKeyPress(phases: [.down, .repeat]) { handle($0) }
+        .onChange(of: playback.time) { _, t in
+            let index = FilmTiming.sceneIndex(at: t, in: scenes)
+            model.playhead = .init(time: t, shotID: index.map { scenes[$0].id })
+        }
+        .onDisappear { model.playhead = nil }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Film player. Space plays or pauses, arrow keys move one second, J K L shuttle, F full screen, M mute, C leaves a note at the playhead.")
     }

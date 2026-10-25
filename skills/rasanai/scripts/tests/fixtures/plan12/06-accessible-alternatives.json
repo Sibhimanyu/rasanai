@@ -1,0 +1,109 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan12/D06",
+  "case": "transcripts, descriptive transcript, reduced-motion film variant, contrast, flash hook, no 'accessible' claim",
+  "targets": [
+    "lib/a11y.mjs",
+    "lib/captions.mjs transcriptText / descriptiveTranscript"
+  ],
+  "checks": [
+    {
+      "name": "silent explanation",
+      "setup": {
+        "film": {
+          "silent_visual_explanation": true,
+          "visual_meaning_beats": 4
+        }
+      },
+      "expect": "descriptive_transcript required with the reason 'a silent visual explanation still needs a textual description'"
+    },
+    {
+      "name": "descriptions are authored",
+      "setup": "beats with no description",
+      "expect": "status needs_authoring; missing lists each beat; no description is generated from pixels"
+    },
+    {
+      "name": "audio description track",
+      "setup": {
+        "brief.accessibility.audio_description": true
+      },
+      "expect": "audio_description_track required; capability delivery.audio_description_track is unavailable with its reason"
+    },
+    {
+      "name": "contrast",
+      "setup": [
+        {
+          "id": "a",
+          "fg": "#767676",
+          "bg": "#ffffff"
+        },
+        {
+          "id": "b",
+          "fg": "#ffffff",
+          "bg": null,
+          "over_media": true
+        }
+      ],
+      "expect": "a ratio 4.54 met; b not_measured with a reason; thresholds come from configurable defaults with needs_validation true"
+    },
+    {
+      "name": "colour only",
+      "setup": {
+        "groups": [
+          {
+            "id": "chart",
+            "items": [
+              {
+                "id": "s1",
+                "channels": [
+                  "colour"
+                ]
+              },
+              {
+                "id": "s2",
+                "channels": [
+                  "colour"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "expect": "problem: told apart by colour alone"
+    },
+    {
+      "name": "reduced motion film",
+      "setup": [
+        {
+          "id": "m1",
+          "kind": "parallax",
+          "amount": 0.8
+        },
+        {
+          "id": "m2",
+          "kind": "flash"
+        },
+        {
+          "id": "m3",
+          "kind": "fade"
+        }
+      ],
+      "expect": "m1 and m2 replaced with named substitutes, m3 kept; story_changed false; distinct_from Studio's reduce-animation setting; needs a render and a flash screening"
+    },
+    {
+      "name": "flash hook",
+      "setup": "no series / a synthetic series alternating 0.1 and 0.9 every frame at 30 fps",
+      "expect": "no series: not_measured; alternating series: status risk with the worst second"
+    },
+    {
+      "name": "acceptance wording",
+      "expect": "acceptance() never returns an accessible claim; lists met, not_met, not_measured; needs_human_review true"
+    },
+    {
+      "name": "native controls",
+      "expect": "Plan 14 with the owner's approval: VoiceOver reads the delivery panel labels; every control reachable by keyboard (not run)"
+    }
+  ]
+}

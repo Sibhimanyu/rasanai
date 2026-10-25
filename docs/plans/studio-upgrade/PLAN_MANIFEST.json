@@ -1,0 +1,446 @@
+{
+  "schema_version": 1,
+  "title": "RasanAI Sequenced Studio Upgrade",
+  "prepared_on": "2026-10-25",
+  "repository": "Sibhimanyu/rasanai",
+  "inspected_public_commit": "20ea14748daaee007cb4eaf5ba8aee91c09b1c4a",
+  "local_checkout_takes_precedence": true,
+  "entrypoint": "00_EXECUTE_IN_ORDER.md",
+  "implementation_sequence": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+  ],
+  "testing_stage": 14,
+  "testing_policy": "Implement 01-13; author tests but do not execute them. Stop and wait for explicit user testing approval. Only the approved scope of Plan 14 may then run. Compilation-only static work must not trigger tests or workflows.",
+  "implementation_status": "plans_authored_only",
+  "pipeline_testing_performed_by_this_package_author": false,
+  "submitted_to_heresay": false,
+  "repository_modified": false,
+  "plans": [
+    {
+      "id": 1,
+      "file": "01_FOUNDATIONS_CONTRACTS_AND_COMPATIBILITY.md",
+      "title": "Shared contracts, approval boundaries and compatibility",
+      "depends_on": [],
+      "touchpoints": [
+        "skills/rasanai/scripts/crew.mjs",
+        "skills/rasanai/scripts/console.mjs",
+        "skills/rasanai/references/film-events.md",
+        "apps/macos/Sources/StudioCore"
+      ],
+      "status": "not_started",
+      "test_execution_requires_explicit_user_approval": true
+    },
+    {
+      "id": 2,
+      "file": "02_BRIEF_EVIDENCE_BRAND_AND_AUDIENCE.md",
+      "title": "Brief, facts, brand and audience routing",
+      "depends_on": [
+        1
+      ],
+      "touchpoints": [
+        "skills/rasanai/scripts/formats.mjs",
+        "skills/rasanai/scripts/research.mjs",
+        "skills/rasanai/scripts/brand.mjs",
+        "skills/rasanai/agents/research-lead.md"
+      ],
+      "status": "not_started",
+      "test_execution_requires_explicit_user_approval": true
+    },
+    {
+      "id": 3,
+      "file": "03_FORMAT_AWARE_STORY_AND_COPY.md",
+      "title": "Format-aware story generation and audience-facing copy",
+      "depends_on": [
+        2
+      ],
+      "touchpoints": [
+        "skills/rasanai/agents/script-writer.md",
+        "skills/rasanai/agents/script-editor.md",
+        "skills/rasanai/agents/story-planner.md",
+        "skills/rasanai/scripts/story.mjs",
+        "skills/rasanai/references/story.md"
+      ],
+      "status": "not_started",
+      "test_execution_requires_explicit_user_approval": true
+    },
+    {
+      "id": 4,
+      "file": "04_LOOK_ART_DIRECTION_AND_CONTINUITY.md",
+      "title": "Look development and film-wide creative direction",
+      "depends_on": [
+        3
+      ],
+      "touchpoints": [
+        "skills/rasanai/scripts/design.mjs",
+        "skills/rasanai/references/design-desk.md",
+        "skills/rasanai/agents/design-system-designer.md",
+        "skills/rasanai/agents/art-director.md"
+      ],
+      "status": "not_started",
+      "test_execution_requires_explicit_user_approval": true
+    },
+    {
+      "id": 5,
+      "file": "05_STORYBOARD_ANIMATIC_AND_EDITORIAL.md",
+      "title": "Storyboard, timed animatic and editorial intelligence",
+      "depends_on": [
+        4
+      ],
+      "touchpoints": [
+        "skills/rasanai/scripts/frames.mjs",
+        "skills/rasanai/scripts/crew.mjs",
+        "skills/rasanai/references/score.md",
+        "skills/rasanai/references/styleframes.md",
+        "skills/rasanai/agents/motion-director.md"
+      ],
+      "status": "not_started",
+      "test_execution_requires_explicit_user_approval": true
+    },
+    {
+      "id": 6,
+      "file": "06_VISUAL_PRODUCTION_AND_HYBRID_MEDIA.md",
+      "title": "Visual production, hybrid footage and recurring characters",
+      "depends_on": [
+        5
+      ],
+      "touchpoints": [
+        "skills/rasanai/runtime",
+        "skills/rasanai/stage3d",
+        "skills/rasanai/scripts/video.mjs",
+        "skills/rasanai/scripts/reel.mjs",
+        "skills/rasanai/scripts/renderer-adapters.mjs"
+      ],
+      "status": "not_started",
+      "test_execution_requires_explicit_user_approval": true
+    },
+    {
+      "id": 7,
+      "file": "07_SOUND_MUSIC_AND_VOICE_DIRECTION.md",
+      "title": "Sound, music and voice as part of the film",
+      "depends_on": [
+        6
+      ],
+      "touchpoints": [
+        "skills/rasanai/scripts/sound.mjs",
+        "skills/rasanai/scripts/music.mjs",
+        "skills/rasanai/scripts/voice.mjs",
+        "skills/rasanai/references/sound.md",
+        "skills/rasanai/scripts/events.mjs"
+      ],
+      "status": "not_started",
+      "test_execution_requires_explicit_user_approval": true
+    },
+    {
+      "id": 8,
+      "file": "08_TOKEN_EFFICIENCY_AND_SKILL_ROUTING.md",
+      "title": "Token-efficient production and selective skill routing",
+      "depends_on": [
+        7
+      ],
+      "touchpoints": [
+        "skills/rasanai/scripts/crew.mjs",
+        "skills/rasanai/scripts/skill-map.mjs",
+        "skills/rasanai/agents/",
+        "skills/rasanai/references/workflows/",
+        "skills/rasanai/scripts/lib/models.mjs"
+      ],
+      "status": "not_started",
+      "test_execution_requires_explicit_user_approval": true
+    },
+    {
+      "id": 9,
+      "file": "09_PARALLEL_SCHEDULING_AND_INCREMENTAL_RENDERING.md",
+      "title": "Parallel production scheduling and incremental rendering",
+      "depends_on": [
+        8
+      ],
+      "touchpoints": [
+        "skills/rasanai/scripts/crew.mjs",
+        "skills/rasanai/scripts/lib/slot.mjs",
+        "skills/rasanai/scripts/finish.mjs",
+        "skills/rasanai/scripts/video.mjs",
+        "skills/rasanai/scripts/reel.mjs",
+        "skills/rasanai/references/film-events.md"
+      ],
+      "status": "not_started",
+      "test_execution_requires_explicit_user_approval": true
+    },
+    {
+      "id": 10,
+      "file": "10_NATIVE_DIRECTING_AND_REVISION_UX.md",
+      "title": "Native directing, meaningful approvals and precise revisions",
+      "depends_on": [
+        9
+      ],
+      "touchpoints": [
+        "apps/macos/Sources/RasanAIStudio/",
+        "apps/macos/Sources/StudioCore/",
+        "skills/rasanai/console/index.html",
+        "skills/rasanai/scripts/console.mjs",
+        "skills/rasanai/scripts/editor-patch.mjs",
+        "skills/rasanai/scripts/element-index.mjs"
+      ],
+      "status": "not_started",
+      "test_execution_requires_explicit_user_approval": true
+    },
+    {
+      "id": 11,
+      "file": "11_RELIABILITY_SECURITY_AND_PROVENANCE.md",
+      "title": "Recoverable production, security and trustworthy provenance",
+      "depends_on": [
+        10
+      ],
+      "touchpoints": [
+        "skills/rasanai/scripts/console.mjs",
+        "skills/rasanai/scripts/lib/slot.mjs",
+        "skills/rasanai/scripts/editor-patch.mjs",
+        "skills/rasanai/third_party/",
+        "apps/macos/Sources/StudioCore/",
+        "apps/macos/Sources/RasanAIStudio/"
+      ],
+      "status": "not_started",
+      "test_execution_requires_explicit_user_approval": true
+    },
+    {
+      "id": 12,
+      "file": "12_ADAPTATION_ACCESSIBILITY_AND_DELIVERY.md",
+      "title": "Audience adaptation, accessibility and professional delivery",
+      "depends_on": [
+        11
+      ],
+      "touchpoints": [
+        "skills/rasanai/scripts/video.mjs",
+        "skills/rasanai/scripts/reel.mjs",
+        "skills/rasanai/scripts/voice.mjs",
+        "skills/rasanai/scripts/finish.mjs",
+        "apps/macos/Sources/RasanAIStudio/",
+        "skills/rasanai/references/deliver.md"
+      ],
+      "status": "not_started",
+      "test_execution_requires_explicit_user_approval": true
+    },
+    {
+      "id": 13,
+      "file": "13_CREATIVE_EVALUATION_AND_LEARNING.md",
+      "title": "Creative evaluation, measurable efficiency and bounded learning",
+      "depends_on": [
+        12
+      ],
+      "touchpoints": [
+        "skills/rasanai/scripts/benchmark.mjs",
+        "skills/rasanai/scripts/regression.mjs",
+        "skills/rasanai/scripts/crew.mjs",
+        "skills/rasanai/scripts/slop.mjs",
+        "skills/rasanai/scripts/lessons.mjs",
+        "skills/rasanai/scripts/tests/"
+      ],
+      "status": "not_started",
+      "test_execution_requires_explicit_user_approval": true
+    },
+    {
+      "id": 14,
+      "file": "14_FINAL_INTEGRATION_TESTING_AND_ACCEPTANCE.md",
+      "title": "Final integration, pipeline testing, repairs and acceptance",
+      "depends_on": [
+        13
+      ],
+      "touchpoints": [
+        "skills/rasanai/scripts/tests/",
+        "skills/rasanai/scripts/selftest.mjs",
+        "skills/rasanai/scripts/benchmark.mjs",
+        "skills/rasanai/scripts/regression.mjs",
+        "apps/macos/Tests/",
+        "apps/macos/Package.swift"
+      ],
+      "status": "not_started",
+      "test_execution_requires_explicit_user_approval": true,
+      "automatic_start": false,
+      "gate": "explicit_user_testing_approval",
+      "authorization_status": "not_granted"
+    }
+  ],
+  "deferred_case_count": 139,
+  "files": [
+    {
+      "name": "00_EXECUTE_IN_ORDER.md",
+      "bytes": 18484,
+      "sha256": "b7a7aa04c9b38acabe879366d28bfb9e80a61466caf7be5a27ad1d860797a6f9"
+    },
+    {
+      "name": "01_FOUNDATIONS_CONTRACTS_AND_COMPATIBILITY.md",
+      "bytes": 12669,
+      "sha256": "f1c06f428507db84797786e89ec71975bfafa83757fa52637ff508dca9a26504"
+    },
+    {
+      "name": "02_BRIEF_EVIDENCE_BRAND_AND_AUDIENCE.md",
+      "bytes": 11182,
+      "sha256": "a2299398c81f1ecff6151911482cd9bad4fd758eb17fb46f9d42e8581ae33c05"
+    },
+    {
+      "name": "03_FORMAT_AWARE_STORY_AND_COPY.md",
+      "bytes": 14357,
+      "sha256": "274720ffaebf01a41bf9d4b82d7013bf81c33fd1d8f31639c1fe8d316af87e8b"
+    },
+    {
+      "name": "04_LOOK_ART_DIRECTION_AND_CONTINUITY.md",
+      "bytes": 10912,
+      "sha256": "201709237219ca2be323bd95d8e18521c53f2c820dfae61dec6c41c59fb1a9df"
+    },
+    {
+      "name": "05_STORYBOARD_ANIMATIC_AND_EDITORIAL.md",
+      "bytes": 11611,
+      "sha256": "1d12a2834c40d705391c3300129e75ea69746fa13fc70dcbc3fa595bcc957fed"
+    },
+    {
+      "name": "06_VISUAL_PRODUCTION_AND_HYBRID_MEDIA.md",
+      "bytes": 12471,
+      "sha256": "26a2d96d3afa4f857390df6d1789a756c8f3c42479d6648a109efdb35d9c180f"
+    },
+    {
+      "name": "07_SOUND_MUSIC_AND_VOICE_DIRECTION.md",
+      "bytes": 10019,
+      "sha256": "0573c9e02b6f13a67660f4e782791256038deecf79a7730220cf8d73ace7b9ec"
+    },
+    {
+      "name": "08_TOKEN_EFFICIENCY_AND_SKILL_ROUTING.md",
+      "bytes": 15058,
+      "sha256": "098155fbdf5b2f30066507c68feee6e71319d8445ab06fbb2013759987be7bf6"
+    },
+    {
+      "name": "09_PARALLEL_SCHEDULING_AND_INCREMENTAL_RENDERING.md",
+      "bytes": 15380,
+      "sha256": "9ba33a95c20b95e16f230e0f2abe3bf1de137d8518b65d7ec6de4e84f8b30d25"
+    },
+    {
+      "name": "10_NATIVE_DIRECTING_AND_REVISION_UX.md",
+      "bytes": 13778,
+      "sha256": "2d5d694bb7be748a56ddb9f7976ca02495462b0640246637778a0f7fd8c5e900"
+    },
+    {
+      "name": "11_RELIABILITY_SECURITY_AND_PROVENANCE.md",
+      "bytes": 14200,
+      "sha256": "c596a2df3d691482580dffad341ddb1598abbcd7fbd1111d350a861a6841038c"
+    },
+    {
+      "name": "12_ADAPTATION_ACCESSIBILITY_AND_DELIVERY.md",
+      "bytes": 13012,
+      "sha256": "15265f39a714a0d22acc1975a47aa6c19f71b607207a387c3aa3f77ab53b1693"
+    },
+    {
+      "name": "13_CREATIVE_EVALUATION_AND_LEARNING.md",
+      "bytes": 13310,
+      "sha256": "a64b67880c6a0198eb841fd40b6ee5c2bc18dfb0555d4cc39bed7c69add06362"
+    },
+    {
+      "name": "14_FINAL_INTEGRATION_TESTING_AND_ACCEPTANCE.md",
+      "bytes": 20025,
+      "sha256": "29b06613939a0ab588df49c241d9aabea24d90bbb32eb32de932f93b77d9e821"
+    },
+    {
+      "name": "AUDIT_AND_ENHANCEMENTS.md",
+      "bytes": 5082,
+      "sha256": "75681b0c0952b30c74be9a8f0610df0b57a2519035e5d4401b6f919e78e42adb"
+    },
+    {
+      "name": "COVERAGE_AND_SUPERSESSION.md",
+      "bytes": 6420,
+      "sha256": "2a5e8979387e43e5eeae8e28da191856d6286b7869a134aa4b1a2a0120491eeb"
+    },
+    {
+      "name": "DEFERRED_TEST_MATRIX.md",
+      "bytes": 20263,
+      "sha256": "41329335b2a9e44e5586ef65d0db0e88e9695c701d89e7adf86fbbe34ad9de26"
+    },
+    {
+      "name": "INTEGRATION_CLOSURE_MATRIX.md",
+      "bytes": 3813,
+      "sha256": "66200ea286e801d407299119942f828799909b8851597f0d55da3fde9cd69193"
+    },
+    {
+      "name": "PACKAGE_CHECKS.md",
+      "bytes": 1175,
+      "sha256": "28d428f57c67c176134cdd96fabc41301b99fbdce4438c696cf90c2dfeb67215"
+    },
+    {
+      "name": "README.md",
+      "bytes": 2947,
+      "sha256": "35476d61939075afff63ea80987f96710aa3dc7dc9c70370afbf7f3588b64d64"
+    },
+    {
+      "name": "REFERENCE_REUSE_MATRIX.md",
+      "bytes": 10113,
+      "sha256": "f38d9c46200233aca8c5cd084d8ba159b5d9e80a8b3dc8d868d63d1a91075222"
+    },
+    {
+      "name": "REPOSITORY_MAP.md",
+      "bytes": 7068,
+      "sha256": "78ebeddc1432c685e3609d748388a8453ffd87123d729f5e726b5deb2bf72641"
+    },
+    {
+      "name": "RESEARCH_SOURCES.md",
+      "bytes": 19410,
+      "sha256": "5ae0c182f42a1831a1d2a57a2e424d967b8841dc4fd53f5d553d98b92d2c5161"
+    },
+    {
+      "name": "RULE_MIGRATION_MAP.md",
+      "bytes": 3774,
+      "sha256": "5176993d31c150786195e7839997961382a27e9a936d82f69d350b52795f1093"
+    },
+    {
+      "name": "TESTING_APPROVAL_GATE.md",
+      "bytes": 4094,
+      "sha256": "94d9482528d49cfe90f0e6c936ea5b7725a4cb14a1650a9d3c059ba18e9b2fe6"
+    },
+    {
+      "name": "TEST_APPROVAL_REQUEST_TEMPLATE.md",
+      "bytes": 1456,
+      "sha256": "dc827b6c5493306ddd18ef28641c66164dacbaf0451bbeefb8c066c254984ebf"
+    },
+    {
+      "name": "WORKER_HANDOFF_TEMPLATE.md",
+      "bytes": 2384,
+      "sha256": "76d248be9f6c6daf32429bc0c8e5f3d129e9b8ead5bfab870bc6fbd1f36de7ea"
+    }
+  ],
+  "package_revision": "v2-audited-explicit-user-testing-approval",
+  "approval_gated_sequence": [
+    {
+      "after_plan": 13,
+      "state": "awaiting_test_approval",
+      "user_action": "Explicit approval of testing scope",
+      "unlocks_plan": 14
+    }
+  ],
+  "test_approval": {
+    "required": true,
+    "granted": false,
+    "approval_reference": null,
+    "approved_scope": null,
+    "candidate_revision": null,
+    "uncommitted_diff_digest": null
+  },
+  "audit_case_count_added": 33,
+  "reference_decision_rows": 44,
+  "testing_gate_document": "TESTING_APPROVAL_GATE.md",
+  "test_request_template": "TEST_APPROVAL_REQUEST_TEMPLATE.md",
+  "audit_report": "AUDIT_AND_ENHANCEMENTS.md",
+  "review_scope": {
+    "all_numbered_plans": true,
+    "prior_plans_scope_reconciled": true,
+    "upstream_full_repository_audit": false,
+    "targeted_source_review": true,
+    "pipeline_execution": false
+  }
+}

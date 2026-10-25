@@ -10,9 +10,17 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { withLock } from "../runlock.mjs";
+import { appendJsonl } from "../recovery.mjs";
 import { locate, innerOf, setText, setToken, getAttr, sceneRoot, visibleText } from "./html.mjs";
+import * as typed from "./typed.mjs";
+import { withSourceTxn, payloadDigest } from "./txn.mjs";
+import { checkRenderReceipt } from "../revision-bind.mjs";
+import { emitRevision, latestRevisions, readRevisions } from "../revision-events.mjs";
+import { impact } from "../impact.mjs";
+import { buildDigest as indexSourceDigest } from "../element-index/core.mjs";
 
-export const STATUSES = ["requested", "accepted", "applied", "rendered", "failed", "reverted"];
+// preview_ready, stale and conflicted are compatible additions (Plan 10 U5): old lines keep reading as before.
+export const STATUSES = ["requested", "accepted", "applied", "preview_ready", "rendered", "failed", "reverted", "stale", "conflicted"];
 const OPS = ["modify", "retime", "reorder", "replace", "remove"];
 const SOURCES = ["studio-final", "cli"];
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
@@ -69,7 +77,7 @@ export function latestAll(run) {
 function append(run, line) {
   const F = files(run);
   fs.mkdirSync(path.dirname(F.edits), { recursive: true });
-  fs.appendFileSync(F.edits, JSON.stringify(line) + "\n");
+  appendJsonl(F.edits, line); // Plan 11 R1: an append after a torn final line starts a fresh line instead of gluing onto the fragment
 }
 function appendStatus(run, id, patchFields) {
   const F = files(run);
@@ -95,13 +103,36 @@ function regionFromBounds(item, t, fw, fh) {
 const validRegion = (r) => r && ["x", "y", "w", "h"].every((k) => typeof r[k] === "number" && r[k] >= 0 && r[k] <= 1) && r.w > 0 && r.h > 0;
 
 // ---------------------------------------------------------------- record
+// Plan 10 U7: the same action id with the same payload is a RETRY (no change); the same id with a different payload is a CONFLICT, never "deduplicated".
+// A line written before payload digests existed cannot be compared: it is treated as the old behaviour (a retry), and says so.
+function duplicateOrConflict(existing, pd, id) {
+  if (existing.payload_digest && pd && existing.payload_digest !== pd) {
+    return { ok: false, conflict: true, id, status: existing.status, error: "this action id was already used with different content: nothing was changed. Send it again with a new id if you mean a different edit." };
+  }
+  return { ok: true, duplicate: true, id, status: existing.status, ...(existing.payload_digest ? {} : { legacy_unverified: true }), note: "already recorded; no change" };
+}
+// what a change to this element makes stale, from the one impact preview (lib/impact.mjs); a PREVIEW, not an action
+function dependenciesOf(scene_id, element_id, edit, file = null) {
+  const im = impact("build", [scene_id, element_id].filter(Boolean), {});
+  return { scene_id: scene_id ?? null, element_id: element_id ?? null, file, film_version: edit.film_version ?? null, build_digest: edit.build_digest ?? null, downstream_stale: im.stale, keeps: im.keep };
+}
+// an element index older than the scene sources: its bounds describe another picture
+function indexIsStale(proj, index) {
+  try { return !!(index && index.build_digest && indexSourceDigest(proj) !== index.build_digest); } catch { return false; }
+}
 export function record(run, edit, { project } = {}) {
   const proj = resolveProject(run, project);
   if (!edit || typeof edit !== "object") throw fail("edit must be a JSON object");
   const id = safeId(edit.id);
   const F = files(run);
+  const pd = payloadDigest(edit);
   const existing = latest(run, id);
-  if (existing) return { ok: true, duplicate: true, id, status: existing.status, note: "already recorded; no change" };
+  if (existing) return duplicateOrConflict(existing, pd, id);
+  if (typed.isRevert(edit)) {
+    const t0 = latest(run, edit.fields.revert_of);
+    return withSourceTxn(run, proj, { id, kind: "undo", files: relsOf(run, proj, t0) }, () => typed.revertTyped(run, proj, edit, pd));
+  }
+  if (typed.isTyped(edit)) return recordTyped(run, proj, edit, id);
   if (!OPS.includes(edit.operation)) throw fail(`operation must be one of ${OPS.join("|")}`);
   if (typeof edit.time_s !== "number" || !(edit.time_s >= 0)) throw fail("time_s must be a number >= 0");
   if (typeof edit.scene_id !== "string" || !edit.scene_id) throw fail("scene_id is required");
@@ -117,7 +148,7 @@ export function record(run, edit, { project } = {}) {
   const source = SOURCES.includes(edit.source) ? edit.source : "cli";
 
   let element_id = edit.element_id ?? null, region_norm = edit.region_norm ?? null, note = typeof edit.note === "string" ? edit.note : "";
-  let downgraded = null;
+  let downgraded = null, staleBinding = null;
   const index = readIndex(proj);
   if (index && element_id) {
     const item = (index.items || []).find((i) => i.element_id === element_id);
@@ -128,11 +159,20 @@ export function record(run, edit, { project } = {}) {
     else if (staleVersion) downgraded = "film_version is stale";
     else if (staleDigest) downgraded = "build digest is stale";
     if (item && item.source_file) safeProjectPath(proj, item.source_file);
+    // Plan 10 U4/U8: a direct manipulation (it carries the element digest it was made against) is never quietly turned into a region note: it is a conflict the person sees
+    if (downgraded && (edit.element_digest != null || edit.source === "studio-final")) return { ok: false, conflict: true, needs_reselect: true, id, error: `${downgraded}: pick the element again`, current: { film_version: index.film_version ?? null, build_digest: index.build_digest ?? null } };
+    if (!downgraded && edit.element_digest != null && item) {
+      const cur = typed.readElement(run, proj, { element_id, scene_id: edit.scene_id });
+      if (cur && cur.digest !== edit.element_digest) return { ok: false, conflict: true, needs_reselect: false, id, error: "element changed since it was read", current: { element_digest: cur.digest, values: cur.values } };
+    }
     if (downgraded) {
-      if (!region_norm) region_norm = regionFromBounds(item, edit.time_s, index.frame_size && index.frame_size.w, index.frame_size && index.frame_size.h);
-      if (!region_norm) throw fail(`${downgraded} and no region_norm to fall back on: re-select the element`);
+      // Plan 10 U8: bounds from an index older than the scene sources belong to another picture; they are never used as the user's region
+      const indexStale = indexIsStale(proj, index);
+      if (!region_norm && !indexStale) region_norm = regionFromBounds(item, edit.time_s, index.frame_size && index.frame_size.w, index.frame_size && index.frame_size.h);
+      if (!region_norm) throw fail(`${downgraded}${indexStale ? " and the element index is older than the scene sources" : ""} and no region_norm to fall back on: re-select the element`);
       element_id = null;
-      note = `${note ? note + "; " : ""}downgraded to a region edit: ${downgraded}`;
+      note = `${note ? note + "; " : ""}downgraded to a region edit (not applied to an object): ${downgraded}`;
+      staleBinding = { reason: downgraded, index_stale: indexStale, render_revision_id: edit.render_revision_id ?? null, frame_ref: edit.frame_ref ?? null, original_element_id: edit.element_id };
     }
   }
   const line = {
@@ -141,13 +181,77 @@ export function record(run, edit, { project } = {}) {
     status: "requested", status_at: now(), note, patch: null,
   };
   if (edit.build_digest != null) line.build_digest = edit.build_digest;
+  line.payload_digest = pd;
+  line.affected_properties = Object.keys(fields).filter((k) => !["file", "source_file", "path"].includes(k));
+  line.dependencies = dependenciesOf(edit.scene_id, element_id, edit);
+  if (staleBinding) line.stale_binding = staleBinding;
   return withLock(F.lock, () => {
     const again = latest(run, id); // another writer may have won the race
-    if (again) return { ok: true, duplicate: true, id, status: again.status, note: "already recorded; no change" };
+    if (again) return duplicateOrConflict(again, pd, id);
     append(run, line);
-    return { ok: true, id, status: "requested", downgraded: downgraded ? true : undefined, note };
+    return { ok: true, id, status: "requested", downgraded: downgraded ? true : undefined, needs_reselect: staleBinding ? true : undefined, stale_binding: staleBinding || undefined, note };
   });
 }
+
+// New typed operations (C6): stale film_version/build_digest/element digest -> {ok:false, conflict:true, current}, nothing appended.
+function recordTyped(run, proj, edit, id) {
+  const F = files(run);
+  if (typeof edit.time_s !== "number" || !(edit.time_s >= 0)) throw fail("time_s must be a number >= 0");
+  if (typeof edit.scene_id !== "string" || !edit.scene_id) throw fail("scene_id is required");
+  typed.validateTyped(edit);
+  const stale = typed.staleCheck(run, proj, edit, readIndex(proj));
+  if (stale) return { ok: false, conflict: true, id, error: stale.reason, current: stale.current };
+  const line = {
+    schema_version: 1, id, film_version: edit.film_version ?? null, time_s: edit.time_s, scene_id: edit.scene_id, element_id: edit.element_id,
+    region_norm: edit.region_norm ?? null, operation: edit.operation, fields: edit.fields, instruction: edit.instruction || `${edit.fields.kind} ${edit.element_id}`,
+    source: SOURCES.includes(edit.source) ? edit.source : "cli", status: "requested", status_at: now(), note: typeof edit.note === "string" ? edit.note : "", patch: null,
+    original: edit.original ?? null, proposed: edit.proposed,
+  };
+  for (const k of ["build_digest", "element_digest", "asset_id", "track_id", "layer_id", "preview_digest", "render_revision_id", "frame_ref"]) if (edit[k] != null) line[k] = edit[k];
+  // Plan 10 U7: what this edit started from, what it touches, what it depends on, and a digest of the request itself
+  const cur0 = typed.readElement(run, proj, edit);
+  const pd = payloadDigest(edit);
+  line.payload_digest = pd;
+  line.affected_properties = Object.keys(edit.proposed || {});
+  line.base_state = { element_digest: cur0 ? cur0.digest : null, values: cur0 ? Object.fromEntries(line.affected_properties.filter((k) => k in cur0.values).map((k) => [k, cur0.values[k]])) : null, file: cur0 ? cur0.file : null };
+  line.dependencies = dependenciesOf(edit.scene_id, edit.element_id, edit, cur0 && cur0.file);
+  return withLock(F.lock, () => {
+    const again = latest(run, id);
+    if (again) return duplicateOrConflict(again, pd, id);
+    append(run, line);
+    return { ok: true, id, status: "requested" };
+  });
+}
+// record + checkpoint + apply in one call (no model). conflict -> exit 1, nothing appended.
+export function typedEdit(run, edit, { project } = {}) {
+  const proj = resolveProject(run, project);
+  // one transaction: the compare in record/apply, the patch and the log line cannot interleave with another writer (Plan 10 U7)
+  let rels = [];
+  try { const src = edit && edit.element_id ? sourceFileFor(run, proj, edit) : null; if (src) rels = [src.rel]; } catch {}
+  return withSourceTxn(run, proj, { id: edit && edit.id, kind: "apply", files: rels }, () => {
+    const r = record(run, edit, { project: proj });
+    if (!r.ok || r.duplicate || r.reverted) return r;
+    checkpoint(run, edit.id, { project: proj });
+    return applySimple(run, edit.id, { project: proj });
+  });
+}
+export function simpleToken(run, text, { project, id, time_s, film_version, build_digest } = {}) {
+  const proj = resolveProject(run, project);
+  const edit = typed.parseSimple(text, proj, run);
+  edit.id = id || `simple-${Date.now().toString(36)}`;
+  edit.time_s = Number.isFinite(Number(time_s)) ? Number(time_s) : 0;
+  edit.source = "cli";
+  if (film_version != null) edit.film_version = film_version;
+  if (build_digest != null) edit.build_digest = build_digest;
+  return typedEdit(run, edit, { project: proj });
+}
+export const redo = (run, id, { project } = {}) => {
+  const proj = resolveProject(run, project);
+  const e = latest(run, id); let rels = [];
+  try { const src = e && e.element_id ? sourceFileFor(run, proj, e) : null; if (src) rels = [src.rel]; } catch {}
+  return withSourceTxn(run, proj, { id, kind: "redo", files: rels }, () => typed.redoTyped(run, proj, id));
+};
+export const describeElement = (run, element, scene, { project } = {}) => typed.describe(run, resolveProject(run, project), element, scene);
 
 // ---------------------------------------------------------------- locating the source
 function listHtml(dir, out = [], depth = 0) {
@@ -248,7 +352,7 @@ export function propose(run, id, { project } = {}) {
     snippet ? "```html\n" + snippet + "\n```" : `(no source file located for this edit; find the region by time and scene)`,
     ``,
     `## When done`,
-    `Run \`node scripts/editor-patch.mjs mark --run <run> --id ${id} --status applied\` after the checkpoint exists and the source changed, then render a preview and \`mark --status rendered --preview <file>\`.`,
+    `Run \`node scripts/editor-patch.mjs mark --run <run> --id ${id} --status applied\` after the checkpoint exists and the source changed, then render with \`hybrid-render.mjs preview|delivery --edit-id ${id}\` and run \`mark --status preview_ready|rendered\` (it finds the matching receipt; a merely existing MP4/PNG is refused).`,
     ``,
   ].filter((x) => x !== null).join("\n");
   fs.mkdirSync(files(run).packets, { recursive: true });
@@ -322,11 +426,31 @@ function tokenNumber(src, elId, key) {
   return null;
 }
 const r2 = (n) => Math.round(n * 100) / 100;
+const relsOf = (run, proj, e) => { try { const src = e && e.element_id ? sourceFileFor(run, proj, e) : null; return src ? [src.rel] : []; } catch { return []; } };
+// Plan 10 U7: compare, patch and publication (source write + log line) run under ONE strict source lock with a recovery journal.
 export function applySimple(run, id, { project } = {}) {
+  const proj = resolveProject(run, project);
+  const e0 = need(run, id);
+  return withSourceTxn(run, proj, { id, kind: "apply", files: relsOf(run, proj, e0) }, () => {
+    const r = applySimpleInner(run, id, { project: proj });
+    if (r && r.ok && r.digest) announce(run, proj, id, r.digest, "applied to the source");
+    return r;
+  });
+}
+// the engine's one statement that a source changed and nothing has rendered yet (Plan 09 revision events; rendered/preview states come only from receipts)
+function announce(run, proj, id, digest, note) {
+  try {
+    const e = latest(run, id) || {};
+    emitRevision(run, { revision_id: `rev-edit-${id}`.slice(0, 80), stage: "source_changed", film: proj, source: { score_revision: null, source_digest: digest, edit_id: id, action_id: e.action_id ?? null }, scope: { scenes: e.scene_id ? [e.scene_id] : [], time_range: null },
+      work: { reused: [], rebuilt: [], pending: e.scene_id ? [e.scene_id] : [], invalidation_causes: [`edit ${id}`], basis: "plan" }, queue: null, note });
+  } catch {}
+}
+function applySimpleInner(run, id, { project } = {}) {
   const proj = resolveProject(run, project);
   const edit = need(run, id);
   const F = files(run);
-  if (["applied", "rendered", "reverted"].includes(edit.status)) throw fail(`edit ${id} is already ${edit.status}`);
+  if (typed.isTyped(edit)) { const r = typed.applyTyped(run, proj, id); return r; }
+  if (["applied", "preview_ready", "rendered", "reverted"].includes(edit.status)) throw fail(`edit ${id} is already ${edit.status}`);
   const f = { ...(edit.fields || {}) };
   const swiftPos = f.position && typeof f.position === "object" ? f.position : null, swiftScale = f.scale != null && typeof f.scale === "number" ? f.scale : null;
   if (swiftPos) {
@@ -351,6 +475,8 @@ export function applySimple(run, id, { project } = {}) {
   if (!srcFile) return flag("source file for the element is not unique or not found");
   if (!fs.existsSync(checkpointPath(run, id))) throw fail(`checkpoint first: run \`checkpoint --id ${id}\` before apply-simple`);
   const before = fs.readFileSync(srcFile.abs, "utf8");
+  const preDigest = digestOf(proj, [srcFile.rel]);
+  const preEl = typed.readElement(run, proj, edit);
   let code = before;
   try {
     if (f.text != null) code = setText(code, edit.element_id, f.text);
@@ -389,14 +515,40 @@ export function applySimple(run, id, { project } = {}) {
   fs.writeFileSync(tmp, code);
   fs.renameSync(tmp, srcFile.abs);
   const digest = digestOf(proj, [srcFile.rel]);
-  const line = appendStatus(run, id, { patch: { files: [srcFile.rel], digest }, status: edit.status === "requested" ? "accepted" : edit.status, note: "apply-simple changed the source; mark applied next" });
+  // Plan 10 U7: base state, resulting state, and the affected properties with their inverse (so an undo can be a semantic patch, not a whole-file restore)
+  const postEl = typed.readElement(run, proj, edit);
+  const keys = preEl && postEl ? [...new Set([...Object.keys(preEl.values), ...Object.keys(postEl.values)])].filter((k) => preEl.values[k] !== postEl.values[k]) : [];
+  const pick = (o, ks) => (o ? Object.fromEntries(ks.filter((k) => k in o).map((k) => [k, o[k]])) : null);
+  const line = appendStatus(run, id, {
+    patch: { files: [srcFile.rel], digest }, status: edit.status === "requested" ? "accepted" : edit.status, note: "apply-simple changed the source; mark applied next",
+    base_state: { file_digest: preDigest, element_digest: preEl ? preEl.digest : null, values: pick(preEl && preEl.values, keys) },
+    result_state: { file_digest: digest, element_digest: postEl ? postEl.digest : null, values: pick(postEl && postEl.values, keys) },
+    affected_properties: keys.length ? keys : edit.affected_properties, inverse: keys.length ? { element_id: edit.element_id, values: pick(preEl && preEl.values, keys) } : null,
+  });
   void F;
   return { ok: true, simple: true, id, file: srcFile.rel, digest, status: line.status, bytes_before: before.length, bytes_after: code.length };
 }
 const checkpointPath = (run, id) => path.join(files(run).checkpoints, id, "manifest.json");
 
+
 // ---------------------------------------------------------------- mark / undo / check / status
-export function mark(run, id, status, { note, preview, project } = {}) {
+const isObj = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
+// a receipt may be given as an object, a JSON file (a bare receipt or a whole revision event) or a revision id in crew/revision-latest.json; with none, the newest
+// revision event naming this edit and the wanted stage is used. -> { receipt, event } (either may be null)
+function loadReceipt(run, id, given, wantStage) {
+  let obj = null;
+  if (isObj(given)) obj = given;
+  else if (typeof given === "string" && given) {
+    const f = path.resolve(given);
+    if (fs.existsSync(f) && fs.statSync(f).isFile()) obj = readJSON(f);
+    else obj = latestRevisions(run)[given] || null;
+  } else {
+    obj = readRevisions(run).filter((e) => e.source && e.source.edit_id === id && e.stage === wantStage && e.receipt).pop() || null;
+  }
+  if (!obj) return { receipt: null, event: null };
+  return obj.receipt ? { receipt: obj.receipt, event: obj } : { receipt: obj, event: null };
+}
+export function mark(run, id, status, { note, preview, receipt: given, project } = {}) {
   const proj = resolveProject(run, project);
   const edit = need(run, id);
   if (!STATUSES.includes(status) || status === "requested") throw fail(`status must be one of ${STATUSES.slice(1).join("|")}`);
@@ -408,44 +560,148 @@ export function mark(run, id, status, { note, preview, project } = {}) {
     if (now_ === man.digest_before) throw fail("refused: source digest is unchanged since the checkpoint");
     extra.patch = { files: man.files.map((x) => x.path), digest: now_ };
   }
-  if (status === "rendered") {
-    if (edit.status !== "applied") throw fail("refused: only an applied edit can be rendered");
-    if (!preview) throw fail("refused: --preview <file> is required");
-    const p = path.resolve(String(preview));
-    if (!fs.existsSync(p) || !fs.statSync(p).isFile() || fs.statSync(p).size === 0) throw fail(`refused: preview file not found: ${preview}`);
-    extra.note = `${extra.note ? extra.note + "; " : ""}preview ${path.relative(proj, p).startsWith("..") ? p : path.relative(proj, p)}`;
+  if (status === "preview_ready" || status === "rendered") {
+    // Plan 10 U8: only a receipt that names THIS edit and whose output hashes to its checksum moves an edit here. A nonempty old MP4/PNG is not evidence.
+    if (edit.status !== "applied" && !(status === "rendered" && edit.status === "preview_ready")) throw fail(`refused: only an applied edit can be ${status} (this one is ${edit.status})`);
+    const kind = status === "rendered" ? "final" : "preview";
+    const { receipt, event } = loadReceipt(run, id, given, kind === "final" ? "final_ready" : "preview_ready");
+    const stale = Object.values(latestRevisions(run)).filter((e) => e && e.stage === "stale").map((e) => e.revision_id);
+    const man = readManifest(run, id);
+    const problems = [];
+    // the source must still be the one this edit produced; otherwise the render belongs to another source
+    if (man && edit.patch && edit.patch.digest) { try { if (digestOf(proj, man.files.map((x) => x.path)) !== edit.patch.digest) problems.push("the source changed after this edit was applied: a render of it is not a render of this edit"); } catch (e) { problems.push(e.message); } }
+    const chk = checkRenderReceipt({ receipt, event, edit, kind, run, outputFile: typeof preview === "string" ? path.resolve(preview) : null, accepted: edit.accepted_digests || null, staleRevisionIds: stale });
+    problems.push(...chk.problems);
+    if (problems.length) { const e = fail(`refused: no matching render receipt for ${id}: ${problems.join("; ")}`); e.problems = problems; throw e; }
+    extra.receipt = { ...receipt, verified: { output_sha: chk.evidence.output_sha, file: chk.evidence.file ? path.relative(run, chk.evidence.file) : null }, unavailable: chk.unavailable };
+    extra.note = `${extra.note ? extra.note + "; " : ""}${status} by receipt (output ${String(receipt.output_checksum).slice(0, 12)})`;
   }
+  if (status === "conflicted") extra.conflict = { reason: extra.note || "marked conflicted", at: now() };
+  else extra.conflict = null;
   const line = appendStatus(run, id, { status, ...extra });
-  return { ok: true, id, status: line.status };
+  return { ok: true, id, status: line.status, ...(extra.receipt ? { receipt: extra.receipt } : {}) };
 }
-export function undo(run, id, { project } = {}) {
+
+// Undo (Plan 10 U7). Never erases later unrelated changes:
+//   1. typed edits: an inverse SEMANTIC patch of just the edit's properties (typed.undoTyped), refused with a conflict when a later edit changed those same properties;
+//   2. other edits: the whole-file checkpoint is restored ONLY when the file still equals the edit's recorded resulting state; otherwise the edit's own affected
+//      properties are reverted semantically when the element still holds the edit's values; otherwise a conflict is reported with the explicit
+//      "restore as a new version" option (restoreAsNewVersion), which keeps the current state as a checkpoint first.
+function conflict(run, id, why, extra = {}) {
+  try { appendStatus(run, id, { conflict: { reason: why, at: now(), ...extra } }); } catch {}
+  return { ok: false, conflict: true, id, error: why, options: ["restore_as_new_version"], ...extra };
+}
+export function undo(run, id, { project, asNewVersion = false } = {}) {
   const proj = resolveProject(run, project);
   const edit = need(run, id);
+  const man0 = readManifest(run, id);
+  const rels = typed.isTyped(edit) ? relsOf(run, proj, edit) : man0 ? man0.files.map((x) => x.path) : relsOf(run, proj, edit);
+  return withSourceTxn(run, proj, { id, kind: "undo", files: rels }, () => {
+    const r = undoInner(run, proj, id, edit);
+    if (!r.ok && r.conflict && asNewVersion) return restoreAsNewVersionInner(run, proj, id);
+    if (r.ok) announce(run, proj, r.inverse_id || id, r.digest || digestOf(proj, rels), `undo of ${id}: ${r.method}`);
+    return r;
+  });
+}
+function undoInner(run, proj, id, edit) {
+  if (typed.isTyped(edit)) {
+    const r = typed.undoTyped(run, proj, id);
+    if (r.ok) return { ...r, method: "inverse_patch" };
+    if (r.conflict) { r.options = ["restore_as_new_version", "undo_later_edits_first"]; try { appendStatus(run, id, { conflict: { reason: r.error, at: now() } }); } catch {} }
+    return r;
+  }
+  if (edit.status === "reverted") return { ok: true, id, status: "reverted", duplicate: true, note: "already reverted" };
   const man = readManifest(run, id);
   if (!man) throw fail("refused: no checkpoint to restore from");
+  const paths = man.files.map((x) => x.path);
+  const current = digestOf(proj, paths);
+  const post = edit.patch && edit.patch.digest;
   const dir = path.join(files(run).checkpoints, id, "files");
-  const restored = [];
-  for (const f of man.files) {
-    const { abs } = safeProjectPath(proj, f.path);
-    if (!f.existed) { fs.rmSync(abs, { force: true }); restored.push(f.path); continue; }
-    const buf = fs.readFileSync(path.join(dir, f.path));
-    if (sha(buf) !== f.sha256) throw fail(`checkpoint copy of ${f.path} is corrupt; not restoring`);
-    const tmp = `${abs}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, buf);
-    fs.renameSync(tmp, abs);
-    restored.push(f.path);
+  if (!post) {
+    // nothing recorded as applied: the file may only be touched if it is still exactly what the checkpoint saw
+    if (current === man.digest_before) { const line = appendStatus(run, id, { status: "reverted", conflict: null, note: "nothing had been applied; the source was already as it was before the edit" }); return { ok: true, id, status: line.status, restored: [], method: "no_change", digest: current }; }
+    return conflict(run, id, "the source differs from before this edit, and the edit never recorded the state it produced, so an undo could erase other changes", { expected_digest: man.digest_before, current_digest: current, model_generated: true });
   }
-  const line = appendStatus(run, id, { status: "reverted", note: `restored ${restored.join(", ")}` });
-  void edit;
-  return { ok: true, id, status: line.status, restored, digest: digestOf(proj, man.files.map((x) => x.path)) };
+  if (current === post) {
+    const restored = [];
+    for (const f of man.files) { // verify every checkpoint copy before the first write
+      if (f.existed && sha(fs.readFileSync(path.join(dir, f.path))) !== f.sha256) throw fail(`checkpoint copy of ${f.path} is corrupt; not restoring`);
+    }
+    for (const f of man.files) {
+      const { abs } = safeProjectPath(proj, f.path);
+      if (!f.existed) { fs.rmSync(abs, { force: true }); restored.push(f.path); continue; }
+      const buf = fs.readFileSync(path.join(dir, f.path));
+      const tmp = `${abs}.${process.pid}.tmp`;
+      fs.writeFileSync(tmp, buf);
+      fs.renameSync(tmp, abs);
+      restored.push(f.path);
+    }
+    const line = appendStatus(run, id, { status: "reverted", conflict: null, note: `restored ${restored.join(", ")}` });
+    return { ok: true, id, status: line.status, restored, method: "checkpoint_restore", digest: digestOf(proj, paths) };
+  }
+  // later changes exist. Prefer the inverse semantic patch of this edit's own properties.
+  if (edit.inverse && edit.inverse.values && edit.result_state && edit.result_state.values && edit.element_id) {
+    const cur = typed.readElement(run, proj, edit);
+    const mine = Object.keys(edit.inverse.values);
+    const intact = cur && mine.every((k) => typed.same(cur.values[k], edit.result_state.values[k]));
+    if (intact) {
+      const w = typed.writeKeys(run, proj, edit, edit.inverse.values);
+      const line = appendStatus(run, id, { status: "reverted", conflict: null, note: `reverted ${mine.join(", ")} on ${edit.element_id}; later unrelated changes kept` });
+      return { ok: true, id, status: line.status, restored: [w.file], method: "inverse_patch", digest: w.digest };
+    }
+    return conflict(run, id, "a later change touched the same properties of this element, so reverting them could erase it", { expected_digest: post, current_digest: current, affected_properties: mine });
+  }
+  return conflict(run, id, "the source changed after this edit (or the edit was made by a model and cannot be inverted safely): a whole-file restore would erase later changes", { expected_digest: post, current_digest: current, model_generated: !edit.inverse });
+}
+
+// Restore the state from before edit <id> as a NEW version: the current state is checkpointed first (nothing is lost), the old state is written, and the result is a new
+// edit line <id>.restoreN. Explicit by the person; never automatic.
+export function restoreAsNewVersion(run, id, { project } = {}) {
+  const proj = resolveProject(run, project);
+  const edit = need(run, id);
+  const man0 = readManifest(run, id);
+  const rels = man0 ? man0.files.map((x) => x.path) : relsOf(run, proj, edit);
+  return withSourceTxn(run, proj, { id, kind: "restore", files: rels }, () => restoreAsNewVersionInner(run, proj, id));
+}
+function restoreAsNewVersionInner(run, proj, id) {
+  const edit = need(run, id);
+  const man = readManifest(run, id);
+  const typedVals = typed.isTyped(edit) && edit.original ? edit.original : edit.inverse && edit.inverse.values ? edit.inverse.values : null;
+  if (!man && !typedVals) throw fail("refused: nothing to restore from (no checkpoint and no recorded original values)");
+  const n = readLines(run).filter((l) => l.restore_of === id).length + 1;
+  const newId = `${id}.restore${n}`;
+  const paths = man ? man.files.map((x) => x.path) : relsOf(run, proj, edit);
+  appendLine(run, { schema_version: 1, id: newId, film_version: edit.film_version ?? null, time_s: edit.time_s, scene_id: edit.scene_id, element_id: edit.element_id ?? null, region_norm: edit.region_norm ?? null, operation: "replace",
+    fields: { restore_of: id }, instruction: `restore the state from before ${id} as a new version`, source: "cli", status: "requested", status_at: now(), note: `safety copy of the current state, then restore of ${id}`, patch: { files: paths }, restore_of: id });
+  const safety = checkpoint(run, newId, { project: proj }); // the current (later) state is kept
+  let restored;
+  if (typedVals && edit.element_id && (typed.isTyped(edit) || !man)) { const w = typed.writeKeys(run, proj, edit, typedVals); restored = [w.file]; }
+  else {
+    const dir = path.join(files(run).checkpoints, id, "files");
+    for (const f of man.files) if (f.existed && sha(fs.readFileSync(path.join(dir, f.path))) !== f.sha256) throw fail(`checkpoint copy of ${f.path} is corrupt; not restoring`);
+    restored = [];
+    for (const f of man.files) {
+      const { abs } = safeProjectPath(proj, f.path);
+      if (!f.existed) { fs.rmSync(abs, { force: true }); restored.push(f.path); continue; }
+      const tmp = `${abs}.${process.pid}.tmp`;
+      fs.writeFileSync(tmp, fs.readFileSync(path.join(dir, f.path)));
+      fs.renameSync(tmp, abs);
+      restored.push(f.path);
+    }
+  }
+  const digest = digestOf(proj, paths);
+  appendStatus(run, newId, { status: "applied", patch: { files: paths, digest }, result_state: { file_digest: digest }, note: `restored the state from before ${id}; the earlier state is checkpointed under ${newId}` });
+  appendStatus(run, id, { status: "reverted", conflict: null, note: `restored as new version ${newId}` });
+  announce(run, proj, newId, digest, `restore of ${id} as a new version`);
+  return { ok: true, id, status: "reverted", restored_as: newId, restored, safety_checkpoint: safety.checkpoint, digest, method: "restore_as_new_version" };
 }
 export function check(run, id, { project } = {}) {
   const proj = resolveProject(run, project);
   const edit = need(run, id);
-  const problems = [];
+  const problems = [], warnings = [];
   const man = readManifest(run, id);
   if (!STATUSES.includes(edit.status)) problems.push(`unknown status ${edit.status}`);
-  if (["applied", "rendered"].includes(edit.status)) {
+  if (["applied", "preview_ready", "rendered"].includes(edit.status)) {
     if (!man) problems.push("applied/rendered without a checkpoint");
     else {
       try {
@@ -456,14 +712,24 @@ export function check(run, id, { project } = {}) {
     }
     if (!edit.patch || !edit.patch.files || !edit.patch.files.length) problems.push("no patch.files recorded");
   }
-  if (edit.element_id && edit.status !== "reverted") {
+  if (["preview_ready", "rendered"].includes(edit.status)) {
+    if (!edit.receipt) warnings.push("legacy_unverified_render: no receipt was recorded for this render (an older run); it is not proof of this edit");
+    else {
+      const f = edit.receipt.verified && edit.receipt.verified.file ? path.resolve(run, edit.receipt.verified.file) : null;
+      if (!f || !fs.existsSync(f)) problems.push("the receipt's output file is gone");
+      else if (edit.receipt.output_checksum && sha(fs.readFileSync(f)) !== String(edit.receipt.output_checksum).toLowerCase()) problems.push("the receipt's output file no longer hashes to its checksum");
+    }
+  }
+  if (edit.conflict) warnings.push(`conflicted: ${edit.conflict.reason}`);
+  if (typed.isTyped(edit)) typed.checkTyped(run, proj, edit, problems);
+  if (edit.element_id && edit.status !== "reverted" && !typed.isTyped(edit)) {
     try {
       const src = sourceFileFor(run, proj, edit);
       if (src) locate(fs.readFileSync(src.abs, "utf8"), edit.element_id);
       else problems.push(`no unique source file for ${edit.element_id}`);
     } catch (e) { problems.push(e.message); }
   }
-  return { ok: problems.length === 0, id, status: edit.status, problems };
+  return { ok: problems.length === 0, id, status: edit.conflict ? "conflicted" : edit.status, problems, warnings };
 }
 export function status(run, id) {
   if (id) { const e = latest(run, safeId(id)); if (!e) throw fail(`no edit ${id}`); return { ok: true, edits: [e] }; }
@@ -476,8 +742,22 @@ export function handleMotionEditAction(action, ctx) {
   try {
     if (!action || action.kind !== "motion-edit") return { ok: false, error: "not a motion-edit action" };
     if (!ctx || !ctx.run) return { ok: false, error: "ctx.run is required" };
-    return record(path.resolve(String(ctx.run)), action.edit, { project: ctx.project });
+    // Plan 10 U4: a typed edit (move/resize/recolor/text/nudge) is validated, checkpointed and applied deterministically in one owned transaction; anything else is recorded
+    // for a scoped model packet (propose). A stale element, digest or original is {ok:false, conflict:true, current} and nothing is appended.
+    const run = path.resolve(String(ctx.run));
+    const e = action.edit;
+    if (e && (typed.isTyped(e) || (e.element_id && ["modify", "retime"].includes(e.operation) && e.fields && typeof e.fields === "object"))) {
+      const r = typedEdit(run, e, { project: ctx.project });
+      // anything the deterministic patch cannot do (animation, structure) goes to a scoped model packet, never a broad rewrite
+      if (r && r.ok === false && r.step === "needs_model" && e.id) { try { const pk = propose(run, e.id, { project: ctx.project }); return { ...r, packet: path.relative(run, pk.packet) }; } catch { return r; } }
+      return r;
+    }
+    return record(run, e, { project: ctx.project });
   } catch (e) {
     return { ok: false, error: e.message };
   }
 }
+
+// internals shared with ./typed.mjs (call-time only; the two modules import each other)
+export { appendStatus, need, digestOf, readIndex, frameSize };
+export const appendLine = (run, line) => withLock(files(run).lock, () => append(run, line));

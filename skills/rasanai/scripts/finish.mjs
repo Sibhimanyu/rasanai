@@ -44,6 +44,7 @@ import { parseArgs, die, readFrontmatterDoc } from "./lib/common.mjs";
 import { sharpRanges as sharpRangesOf, graphWithSharp } from "./lib/sharp.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
 import { acquireSlotSync } from "./lib/slot.mjs";
+import { renderProcessEnv } from "./lib/containment.mjs"; // Plan 11 R8: a render process does not inherit the director's provider keys
 import { readBudget } from "./lib/budget.mjs";
 
 const args = parseArgs();
@@ -214,7 +215,7 @@ function renderOversampled({ project, composition, fps, N, quality, workers, out
   if (quality === "draft") argv.push("--quality", "draft");
   else argv.push("--quality", "delivery");
   const t0 = Date.now();
-  const r = sh("npx", argv, { cwd: project });
+  const r = sh("npx", argv, { cwd: project, env: renderProcessEnv() });
   const secs = (Date.now() - t0) / 1000;
   if (r.status !== 0 || !fs.existsSync(outFile)) die(`hyperframes render failed at ${fps * N} fps: ${(r.stderr || r.stdout || "").trim().split("\n").slice(-6).join(" | ")}`);
   return secs;
@@ -578,7 +579,10 @@ function blurRender(tmpDir) {
     if (DRAFT || args["shutter-over-smear"]) notes.push(`WARNING: ${msg}${args["shutter-over-smear"] ? " (--shutter-over-smear: going ahead)" : " (a draft: not refused)"}`);
     else die(`${msg}. Run \`finish.mjs grade\` on the plain render instead, change blur_grammar to "shutter" in the score if the shutter is the film's blur, or pass --shutter-over-smear.`);
   }
-  const slot = args["no-slot"] ? null : acquireSlotSync({ label: `finish ${path.basename(project)}` });
+  // Plan 09 P9: --managed (or RASANAI_MANAGED=1, which the job supervisor sets) makes admission FAIL CLOSED: queued / resource_blocked is reported and nothing renders without a slot.
+  // Without it the legacy behaviour is unchanged (a wait timeout or an unwritable slot folder still goes on, with a note).
+  const slot = args["no-slot"] ? null : acquireSlotSync({ label: `finish ${path.basename(project)}`, managed: args.managed ? true : undefined });
+  if (slot && slot.blocked) { console.log(JSON.stringify({ ok: false, state: slot.state, reason_code: slot.reason_code, notes: slot.notes })); process.exit(75); }
   if (slot && slot.notes.length) notes.push(...slot.notes);
   if (slot && slot.waited_s > 1) notes.push(`waited ${slot.waited_s} s for a render slot`);
   let N, motion = null, preSeconds = 0;
@@ -587,7 +591,7 @@ function blurRender(tmpDir) {
     const t0 = Date.now();
     const argv = ["--yes", "hyperframes", "render", project, "-o", pre, "--fps", String(fps), "--quiet", "--quality", "draft"];
     if (args.composition) argv.push("-c", String(args.composition));
-    const r = sh("npx", argv, { cwd: project });
+    const r = sh("npx", argv, { cwd: project, env: renderProcessEnv() });
     preSeconds = (Date.now() - t0) / 1000;
     if (r.status === 0 && fs.existsSync(pre)) {
       motion = measureMotion(pre);

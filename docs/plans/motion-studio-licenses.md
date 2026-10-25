@@ -45,3 +45,5 @@ Scope = what was inspected (licence file, README, root tree; no source files wer
 - Rive editor ToS and non-web runtimes: not fetched.
 - Per-file asset licences in charlie947, cinetic, openfilm `skills/`, Remocn `reference-corpus` and `public`: not inspected.
 - Where three.js is vendored here: not searched.
+
+Plan 11 (2026-10-25): the machine-readable register is `skills/rasanai/third_party/license-register.json` (checked by `skills/rasanai/scripts/lib/license-register.mjs`). Row 13 above stays the open project-wide GSAP distribution blocker there (`gsap-standard-license-no-code-visual-animation-builder`); the runtime was not removed and no flag resolves it.

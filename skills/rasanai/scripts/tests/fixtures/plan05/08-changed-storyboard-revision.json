@@ -1,0 +1,274 @@
+{
+  "case": "E08",
+  "title": "which changes reopen the approved Storyboard and which do not",
+  "calls": [
+    "classifySnapshotChange",
+    "snapshotCurrent",
+    "audioReplacementImpact",
+    "panelSetCurrent"
+  ],
+  "approved": {
+    "shots": [
+      "s1",
+      "s2"
+    ],
+    "demo_shots": [
+      "s2"
+    ],
+    "panels": [
+      {
+        "shot_id": "s1",
+        "panel_id": "p1",
+        "source_digest": "A1",
+        "image_digest": "I1"
+      },
+      {
+        "shot_id": "s2",
+        "panel_id": "p1",
+        "source_digest": "B1",
+        "image_digest": "J1"
+      }
+    ],
+    "copy": [
+      {
+        "id": "c1",
+        "digest": "C1"
+      }
+    ],
+    "look": {
+      "revision": 2,
+      "digest": "L2"
+    },
+    "audio": {
+      "kind": "scratch",
+      "scratch": true,
+      "digest": "V0"
+    },
+    "timing": {
+      "revision": "t1",
+      "status": "approved"
+    }
+  },
+  "variants": {
+    "lost_thumbnail_regenerated_identical": {
+      "snapshot": {
+        "shots": [
+          "s1",
+          "s2"
+        ],
+        "demo_shots": [
+          "s2"
+        ],
+        "panels": [
+          {
+            "shot_id": "s1",
+            "panel_id": "p1",
+            "source_digest": "A1",
+            "image_digest": "I1-new"
+          },
+          {
+            "shot_id": "s2",
+            "panel_id": "p1",
+            "source_digest": "B1",
+            "image_digest": "J1"
+          }
+        ],
+        "copy": [
+          {
+            "id": "c1",
+            "digest": "C1"
+          }
+        ],
+        "look": {
+          "revision": 2,
+          "digest": "L2"
+        },
+        "audio": {
+          "kind": "scratch",
+          "scratch": true,
+          "digest": "V0"
+        },
+        "timing": {
+          "revision": "t1",
+          "status": "approved"
+        }
+      },
+      "expect": {
+        "reopen": false,
+        "kinds": [
+          "panel_regenerated_identical_source"
+        ]
+      }
+    },
+    "new_shot_changing_a_product_demo": {
+      "snapshot": {
+        "shots": [
+          "s1",
+          "s2",
+          "s3"
+        ],
+        "demo_shots": [
+          "s2",
+          "s3"
+        ],
+        "panels": [
+          {
+            "shot_id": "s1",
+            "panel_id": "p1",
+            "source_digest": "A1",
+            "image_digest": "I1"
+          },
+          {
+            "shot_id": "s2",
+            "panel_id": "p1",
+            "source_digest": "B1",
+            "image_digest": "J1"
+          }
+        ],
+        "copy": [
+          {
+            "id": "c1",
+            "digest": "C1"
+          }
+        ],
+        "look": {
+          "revision": 2,
+          "digest": "L2"
+        },
+        "audio": {
+          "kind": "scratch",
+          "scratch": true,
+          "digest": "V0"
+        },
+        "timing": {
+          "revision": "t1",
+          "status": "approved"
+        }
+      },
+      "expect": {
+        "reopen": true,
+        "kinds": [
+          "demo_shot_changed"
+        ]
+      }
+    },
+    "scratch_voice_replaced_by_real_voice": {
+      "snapshot": {
+        "shots": [
+          "s1",
+          "s2"
+        ],
+        "demo_shots": [
+          "s2"
+        ],
+        "panels": [
+          {
+            "shot_id": "s1",
+            "panel_id": "p1",
+            "source_digest": "A1",
+            "image_digest": "I1"
+          },
+          {
+            "shot_id": "s2",
+            "panel_id": "p1",
+            "source_digest": "B1",
+            "image_digest": "J1"
+          }
+        ],
+        "copy": [
+          {
+            "id": "c1",
+            "digest": "C1"
+          }
+        ],
+        "look": {
+          "revision": 2,
+          "digest": "L2"
+        },
+        "audio": {
+          "kind": "selected",
+          "scratch": false,
+          "digest": "V1"
+        },
+        "timing": {
+          "revision": "t2",
+          "status": "approved"
+        }
+      },
+      "expect": {
+        "reopen": true,
+        "kinds": [
+          "audio_kind_changed",
+          "timing_revision_changed"
+        ],
+        "route": "timing",
+        "propose_in": "same Storyboard surface before the final build"
+      }
+    },
+    "copy_edit": {
+      "snapshot": {
+        "shots": [
+          "s1",
+          "s2"
+        ],
+        "demo_shots": [
+          "s2"
+        ],
+        "panels": [
+          {
+            "shot_id": "s1",
+            "panel_id": "p1",
+            "source_digest": "A1",
+            "image_digest": "I1"
+          },
+          {
+            "shot_id": "s2",
+            "panel_id": "p1",
+            "source_digest": "B1",
+            "image_digest": "J1"
+          }
+        ],
+        "copy": [
+          {
+            "id": "c1",
+            "digest": "C2"
+          }
+        ],
+        "look": {
+          "revision": 2,
+          "digest": "L2"
+        },
+        "audio": {
+          "kind": "scratch",
+          "scratch": true,
+          "digest": "V0"
+        },
+        "timing": {
+          "revision": "t1",
+          "status": "approved"
+        }
+      },
+      "expect": {
+        "reopen": true,
+        "kinds": [
+          "copy_changed"
+        ]
+      }
+    },
+    "look_revised_upstream_while_panels_render": {
+      "panel_set_pin": {
+        "look": "L2"
+      },
+      "current_look": "L3",
+      "expect": {
+        "panel_set_current": false,
+        "label": "old",
+        "rejected_as_current_output": true,
+        "old_preview_kept_labelled": true
+      }
+    }
+  },
+  "expect": {
+    "scratch_approval": "final_voice_approved is false and final_audio_pending is true when the snapshot pinned scratch audio"
+  }
+}

@@ -1,0 +1,2 @@
+{"plan":2,"note":"Index for the deferred case(s) authored later than the original topic-named fixtures. Authored, not run. SYNTHETIC. The other planplan02 cases are still mapped by lib/case-registry.mjs INFERRED (from file names).",
+"cases":[{"id":"plan02/B05","file":"B05-reference-boundary.json","fixtures":["B05-reference-boundary.json"],"title":"Reference boundary","status":"authored_not_run"}]}

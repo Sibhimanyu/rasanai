@@ -1,0 +1,13 @@
+{"case":"B05","status":"authored_not_run","_label":"SYNTHETIC EXAMPLE. Invented reference; not a real product, recording or rights claim. Authored, not run.",
+"title":"reference boundary: measured observations vs interpretation vs desired transfer; rights; non-transferable elements",
+"calls":["referencePacket","validateReferencePacket","filterReferences"],
+"input":{"packets":[
+{"id":"ref-good","source":"synthetic reference film A","communication_kind":"feature-demo","audience":"developers","beat_purpose":"open",
+ "observations":[{"metric":"avg_shot_length","value":2.4,"unit":"s","source":"measured on frames"},{"metric":"first_text_at","value":0.8,"unit":"s","source":"measured"}],
+ "interpretations":[{"about":"pace","reading":"feels confident and brisk"}],
+ "desired_transfers":[{"element":"hard cut on the first text","beat_purpose":"open","how":"cut to the title within 1s"}],
+ "rights":{"owner":"synthetic","license":"reference-only","reuse_allowed":true}},
+{"id":"ref-logo","source":"synthetic reference film B","observations":[],"desired_transfers":[{"element":"logo","how":"reuse their logo"}],"rights":{"reuse_allowed":true}},
+{"id":"ref-norights","source":"synthetic reference film C","desired_transfers":[{"element":"palette rhythm","how":"two-colour alternation"}],"rights":{}},
+{"id":"ref-opinion-as-fact","source":"synthetic D","observations":[{"metric":"vibe","value":"premium"}]}]},
+"expect":{"ref-good":"valid; observations hold only numbers; the opinion stays under interpretations with basis 'interpretation'","ref-logo":"invalid: logo is in non_transferable","ref-norights":"invalid: rights unknown (license 'unknown'), transfers are style notes only, no assets","ref-opinion-as-fact":"'premium' dropped from observations (not numeric, not measured)","non_transferable_always_includes":["logo","brand name","characters","footage","music","exact copy","distinctive composition"],"filter_order":"communication kind, audience and beat purpose first; visual similarity only orders the rest"}}

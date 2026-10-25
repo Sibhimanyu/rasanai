@@ -67,6 +67,7 @@ The canonical homes of the detail this guide points at (read the one the current
 
 | Need | Read |
 |---|---|
+| the production policy, the compiled input packet per member, recipe retrieval by kind and runtime, usage records, the artifact-cache key | `references/crew.md` "Token-efficient dispatch", `scripts/lib/rules.mjs`, `lib/packets.mjs`, `lib/recipe-index.mjs`, `lib/usage.mjs`, `lib/artifact-cache.mjs` |
 | the craft Claude decides without asking: timing, motion, transitions, composition, camera, lighting, sound, story, anti-slop, quality gates | `references/craft.md` |
 | the working vocabulary: film, lens, lighting, grade, editing, animation and sound terms, each with an HTML/CSS/GSAP recipe | `references/vocabulary.md` |
 | reference moments: real motion by role and mechanic, the take rule, credits and licensing; offline precedent hints (`moments.mjs precedent`) | `scripts/moments.mjs`, `third_party/motionmaxxing/`, `references/craft.md` (the take rule) |

@@ -1,0 +1,119 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan12/D02",
+  "case": "16:9 to 9:16 and 1:1 by recomposition, not centre-crop; placement intent decides what changes",
+  "targets": [
+    "lib/variants.mjs reflowPlan / cropCheck",
+    "lib/destination-profiles.mjs variantNeeds"
+  ],
+  "checks": [
+    {
+      "name": "wide interface to vertical",
+      "setup": {
+        "parent_aspect": "16:9",
+        "target_aspect": "9:16",
+        "elements": [
+          {
+            "id": "ui",
+            "kind": "screenshot",
+            "role": "focal",
+            "real": true,
+            "box": {
+              "x": 0.1,
+              "y": 0.2,
+              "w": 0.8,
+              "h": 0.6
+            }
+          },
+          {
+            "id": "result",
+            "kind": "ui",
+            "role": "result",
+            "box": {
+              "x": 0.62,
+              "y": 0.4,
+              "w": 0.25,
+              "h": 0.15
+            }
+          },
+          {
+            "id": "qual",
+            "kind": "text",
+            "role": "qualifier",
+            "box": {
+              "x": 0.62,
+              "y": 0.56,
+              "w": 0.25,
+              "h": 0.04
+            }
+          }
+        ]
+      },
+      "expect": "strategy recompose_via_design_system; the screenshot step is labelled crop; regenerates_assets false and regenerates_story false"
+    },
+    {
+      "name": "centre crop drops the result",
+      "setup": {
+        "crop": {
+          "x": 0.3,
+          "y": 0,
+          "w": 0.3,
+          "h": 1
+        },
+        "elements": "as above"
+      },
+      "expect": "cropCheck ok false; the result and the qualifier are named; a crop that shows the result without its qualifier is rejected"
+    },
+    {
+      "name": "no focal element marked",
+      "setup": "elements with no role focal",
+      "expect": "reflowPlan ok false: it cannot promise to preserve the focal subject"
+    },
+    {
+      "name": "conference film is not forced into a short ad",
+      "setup": {
+        "brief": {
+          "communication_kind": "launch"
+        },
+        "profile": "event-16x9",
+        "parent": {
+          "duration_s": 90,
+          "aspect": "16:9"
+        }
+      },
+      "expect": "needs is empty or reflow only; forced_short_ad_opening false"
+    },
+    {
+      "name": "feed variant of a long launch",
+      "setup": {
+        "profile": "vertical-9x16",
+        "parent": {
+          "duration_s": 90,
+          "aspect": "16:9"
+        }
+      },
+      "expect": "needs include reflow, shorter_demo, clearer_opening, muted_safe, each with a reason"
+    },
+    {
+      "name": "identity film on a feed",
+      "setup": {
+        "communication_kind": "identity_film",
+        "profile": "vertical-9x16"
+      },
+      "expect": "clearer_opening is NOT added"
+    },
+    {
+      "name": "aspect change keeps valid work",
+      "steps": [
+        "invalidate(variants, {kind:'aspect'})"
+      ],
+      "expect": "regenerates_valid_assets, regenerates_research, regenerates_story all false; only layout (build, final) stale"
+    },
+    {
+      "name": "visual check later",
+      "expect": "Plan 14: look at vertical, square and wide outputs for readable proof at phone size (not run)"
+    }
+  ]
+}

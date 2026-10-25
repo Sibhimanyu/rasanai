@@ -1,0 +1,78 @@
+{
+  "case": "plan10/U11",
+  "note": "synthetic scene: one title element, tokens --el-x and --el-color",
+  "scene": {
+    "element": "scene-1.title",
+    "x": 100,
+    "color": "#111111"
+  },
+  "steps": [
+    {
+      "id": "A",
+      "op": "typed move",
+      "x": [
+        100,
+        150
+      ]
+    },
+    {
+      "id": "B",
+      "op": "typed recolor",
+      "color": [
+        "#111111",
+        "#ff0000"
+      ]
+    },
+    {
+      "op": "undo A"
+    }
+  ],
+  "expect": {
+    "x": 100,
+    "color": "#ff0000",
+    "A": "reverted",
+    "B": "unchanged",
+    "later_unrelated_change_erased": false
+  },
+  "variant_same_property": {
+    "steps": [
+      {
+        "id": "A",
+        "x": [
+          100,
+          150
+        ]
+      },
+      {
+        "id": "C",
+        "x": [
+          150,
+          200
+        ]
+      },
+      {
+        "op": "undo A"
+      }
+    ],
+    "expect": {
+      "ok": false,
+      "conflict": true,
+      "x": 200,
+      "options": [
+        "restore_as_new_version",
+        "undo_later_edits_first"
+      ]
+    },
+    "then": {
+      "op": "restore A as new version",
+      "expect": {
+        "restored_as": "A.restore1",
+        "safety_checkpoint": "current state kept under motion/checkpoints/A.restore1",
+        "x": 100
+      }
+    }
+  },
+  "variant_model_generated": {
+    "expect": "conflict + restore_as_new_version; never a silent whole-file restore"
+  }
+}

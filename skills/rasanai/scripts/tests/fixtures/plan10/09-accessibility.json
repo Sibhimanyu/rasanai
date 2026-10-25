@@ -1,0 +1,17 @@
+{
+  "case": "plan10/U09",
+  "note": "recorded for Plan 14 (no UI was opened)",
+  "keyboard": [
+    "Tab reaches Edit elements, Done editing, inspector fields and nudge buttons",
+    "Cmd-Option-E toggles Edit elements",
+    "existing shortcuts kept: Space plays, arrows step scenes, C leaves a note"
+  ],
+  "labels": [
+    "every icon-only button has an accessibility label",
+    "the call line reads as one element",
+    "revision strip is a labelled container"
+  ],
+  "non_colour_status": "every state has a word and an SF symbol (EditLifecycle, RunActivityState, RevisionEvent.token)",
+  "reduced_motion": "app chrome animations respect Reduce Motion; the authored film is never altered",
+  "focus": "focus ring visible on all new controls; the player keeps keyboard focus rules"
+}

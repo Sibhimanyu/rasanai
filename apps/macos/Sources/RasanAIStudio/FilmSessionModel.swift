@@ -68,6 +68,19 @@ final class FilmSessionModel {
     /// Called after every snapshot, so the store can keep its own phase and badge in step.
     var onSnapshot: ((SessionSnapshot) -> Void)?
     var onConnection: ((Connection) -> Void)?
+    /// The film's progress snapshot (remaining time, current phase), for answering "how long will it take?". Set by the store.
+    var progressProvider: () -> FilmProgressSnapshot? = { nil }
+    /// Where the stage's player is (set by the review player while it is on screen), so feedback can carry a moment and a scene.
+    struct Playhead: Equatable { var time: Double; var shotID: String? }
+    var playhead: Playhead?
+    /// Messages made on this Mac that never go to the engine: local answers and the engine's interpretation of a request.
+    private(set) var localThreads: [String: [ThreadMessage]] = [:]
+    /// An ambiguous request the engine wants confirmed (one interpretation, then Confirm or Change).
+    struct PendingConfirm: Equatable { var key: String, step: String, text: String, interpretation: String }
+    private(set) var pendingConfirm: PendingConfirm?
+    private var seenRevisions: Set<String> = []
+    private var revisionsBaselined = false
+    private var awaitingRevisions: [(step: String, text: String)] = []
     /// A call was written for the director (`step`, `type`). Not called for fixtures.
     var onSent: ((String, String) -> Void)?
 
@@ -89,6 +102,7 @@ final class FilmSessionModel {
         self.snapshot = snapshot
         self.resolver = AssetResolver(run: run, workspace: workspace)
         self.transport = RunTransport(run: run)
+        self.workspaceDirectory = workspace
         self.isFixture = false
     }
 
@@ -160,6 +174,7 @@ final class FilmSessionModel {
         if let incoming = next.raw["updated"].string, let current = snapshot.raw["updated"].string, incoming < current { return }
         let previous = snapshot.currentStep
         snapshot = next
+        absorbRevisionReplies(next)
         // The director moved on: a pinned past stage is no longer the thing to look at.
         if viewingStep != nil, previous != next.currentStep { viewingStep = nil }
         onSnapshot?(next)
@@ -232,11 +247,79 @@ final class FilmSessionModel {
     func answer(_ ask: DirectorAsk, choice: String?, text: String) async -> Bool {
         await send(step: ask.step, type: "answer", value: .object(["ask": .string(ask.id), "choice": choice.map(JSONValue.string) ?? .null, "text": .string(text)]), note: text)
     }
-    /// Sends a message to the director on a step (the chat with Rasan).
+    /// The composer's send. A question about the film's progress is answered here from real data and never reaches the director; anything else
+    /// is feedback: a `revision-request` (the engine reads the intent and scope) plus the plain note, so the chat keeps the person's words.
     func tell(_ text: String, step: String? = nil) async -> Bool {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return false }
-        return await send(step: step ?? shownStep, type: "note", note: text)
+        let step = step ?? shownStep
+        if ChatAnswerer.classify(text) == .statusQuestion {
+            addLocal(step, fromUser: true, text)
+            addLocal(step, fromUser: false, ChatAnswerer.answer(text, chatContext()), after: 0.01)
+            return true
+        }
+        if !isFixture && !isConnected {
+            lastError = "Not sent: this film's folder can't be read right now."
+            return false
+        }
+        let value = ChatAnswerer.revisionValue(text: text, step: step, film: snapshot.title.isEmpty ? nil : snapshot.title, playhead: playhead?.time, shotID: playhead?.shotID)
+        guard await send(step: step, type: "revision-request", value: value, note: text) else { return false }
+        awaitingRevisions.append((step, text))
+        await send(step: step, type: "note", note: text)   // keeps the words in the step's thread; a failure here does not undo the request
+        if !isFixture { addLocal(step, fromUser: false, transportLine(), after: 0.01) }
+        return true
+    }
+
+    /// What is true about the request just queued: it is on the director's queue, and whether anything is running to read it.
+    private func transportLine() -> String {
+        let state = snapshot.raw["run_status"]["state"].string
+        switch state {
+        case "paused": return "Queued, not applied yet: the run is paused, so nothing reads this until you resume."
+        case "failed": return "Queued, not applied yet: a step failed, so nothing reads this until it is retried."
+        case "stopped": return "Queued, not applied yet: the director isn't running. It reads this when the film continues."
+        default: return "Queued for the director. I'll say how I read it once it's picked up."
+        }
+    }
+
+    /// The engine's reading of a request arrives in `session.revision_requests`; show it once, and ask to confirm an ambiguous one.
+    private func absorbRevisionReplies(_ next: SessionSnapshot) {
+        let revisions = EngineRevision.read(next.raw)
+        guard revisionsBaselined else { seenRevisions = Set(revisions.map(\.signature)); revisionsBaselined = true; return }
+        for r in revisions where !seenRevisions.contains(r.signature) {
+            seenRevisions.insert(r.signature)
+            if let p = pendingConfirm, p.key == r.key, r.status != "requested" { pendingConfirm = nil; continue }
+            guard !awaitingRevisions.isEmpty else { continue }
+            let origin = awaitingRevisions.removeFirst()
+            addLocal(origin.step, fromUser: false, r.message)
+            if r.needsConfirmation && r.status == "requested" { pendingConfirm = PendingConfirm(key: r.key, step: origin.step, text: origin.text, interpretation: r.interpretation) }
+        }
+    }
+
+    /// Confirm the engine's reading of an ambiguous request, or decline it and put the words back in the composer to change them.
+    func resolveConfirm(accept: Bool) async {
+        guard let p = pendingConfirm else { return }
+        pendingConfirm = nil
+        addLocal(p.step, fromUser: true, accept ? "Yes, that's right." : "No, not quite.")
+        await send(step: p.step, type: "revision-confirm", value: ChatAnswerer.confirmValue(key: p.key, accept: accept))
+        if !accept { beginTell(step: p.step, prefill: p.text) }
+    }
+
+    private func addLocal(_ step: String, fromUser: Bool, _ text: String, after: TimeInterval = 0) {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        localThreads[step, default: []].append(.local(step: step, fromUser: fromUser, text: text, time: f.string(from: Date().addingTimeInterval(after))))
+    }
+
+    /// What the answerer knows now: the progress snapshot, the run's own state, and how long the person's last message has waited.
+    func chatContext() -> ChatContext {
+        let rs = snapshot.raw["run_status"]
+        var pendingSince: Date?
+        if isReplyPending(for: shownStep), let t = snapshot.thread(for: shownStep).last?.time {
+            let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            pendingSince = f.date(from: t) ?? ISO8601DateFormatter().date(from: t)
+        }
+        return ChatContext(step: snapshot.currentStep, progress: progressProvider(), runState: rs["state"].string, runLabel: rs["label"].string, runReason: rs["reason"].string,
+                           isDone: isDone, isWaitingOnUser: isWaitingOnUser, workingMessage: workingMessage, isConnected: isFixture || isConnected, pendingSince: pendingSince)
     }
     /// Opens the inspector on the chat with Rasan for a step and focuses the composer, optionally with text already in it.
     func beginTell(step: String? = nil, prefill: String = "") {
@@ -251,6 +334,12 @@ final class FilmSessionModel {
 
     /// A payload path (workspace-relative or absolute) as a local file, or nil when it isn't one of this film's files.
     func fileURL(_ path: String?) -> URL? { resolver?.resolve(path) }
+    /// The project folder (where motion/element-index.json and the scenes live).
+    private(set) var workspaceDirectory: URL?
+    /// The run folder this film's engine writes (Plan 10: revision events, jobs and edits are read from here). nil for a fixture without one.
+    var runDirectory: URL? { transport?.run }
+    /// The engine's answers to the edits Studio sent (session.edit_results): a rejected one restores the committed picture and explains why.
+    var editOutcomes: [EditOutcome] { EditOutcome.read(snapshot.raw) }
     /// The run's A/B verdicts and gate numbers, read from its crew/ and frames/ files (nil for a fixture with no run folder).
     func loadChecks() async -> RunChecks? {
         guard let run = resolver?.run else { return nil }
@@ -274,7 +363,12 @@ final class FilmSessionModel {
     var workingMessage: String? { snapshot.workingMessage }
     var ask: DirectorAsk? { snapshot.ask }
     var decisions: [DecisionRow] { snapshot.decisions }
-    func thread(for step: String) -> [ThreadMessage] { snapshot.thread(for: step) }
+    /// The saved discussion plus this Mac's local messages, oldest first.
+    func thread(for step: String) -> [ThreadMessage] {
+        let saved = snapshot.thread(for: step), local = localThreads[step] ?? []
+        guard !local.isEmpty else { return saved }
+        return (saved + local).enumerated().sorted { ($0.element.time, $0.offset) < ($1.element.time, $1.offset) }.map(\.element)
+    }
     var conversation: [ThreadMessage] { snapshot.conversation }
     /// Open (unapplied) notes, optionally for one step.
     func comments(step: String? = nil) -> [ReviewNote] { snapshot.openNotes(step: step) }

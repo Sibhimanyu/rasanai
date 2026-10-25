@@ -1,0 +1,85 @@
+{
+  "case": "E04",
+  "title": "a hard cut between separate contexts is clearer than a morph",
+  "calls": [
+    "evaluateSeam",
+    "deliberateSeam"
+  ],
+  "a": {
+    "shot_id": "shot-inbox-01",
+    "beat_id": "beat-inbox",
+    "purpose": "",
+    "panels": [
+      {
+        "id": "p1",
+        "state": "inbox",
+        "image_ref": "x"
+      }
+    ],
+    "copy_refs": [],
+    "focal_read": "the inbox",
+    "timing": {
+      "status": "provisional",
+      "duration_s": 5
+    },
+    "transition_out": {
+      "relation": "example",
+      "kind": "cut",
+      "carrier": null
+    },
+    "sound_intent": {
+      "role": "supportive",
+      "cue_refs": []
+    }
+  },
+  "b": {
+    "shot_id": "shot-calendar-01",
+    "beat_id": "beat-calendar",
+    "purpose": "",
+    "panels": [
+      {
+        "id": "p1",
+        "state": "calendar",
+        "image_ref": "y"
+      }
+    ],
+    "copy_refs": [],
+    "focal_read": "the calendar",
+    "timing": {
+      "status": "provisional",
+      "duration_s": 5
+    },
+    "transition_out": {
+      "relation": "example",
+      "kind": "cut",
+      "carrier": null
+    },
+    "sound_intent": {
+      "role": "supportive",
+      "cue_refs": []
+    }
+  },
+  "seam": {
+    "relation": "separation",
+    "kind": "cut",
+    "carrier": null,
+    "editorial": {
+      "hard_cut": true,
+      "reason": "two separate products; a morph would claim they are one thing"
+    }
+  },
+  "bad_seam": {
+    "relation": "separation",
+    "kind": "morph",
+    "carrier": "the card"
+  },
+  "expect": {
+    "seam_findings": [],
+    "bad_seam_finding": "false-continuity",
+    "deliberate": {
+      "hard_cut": true,
+      "hold": false
+    },
+    "legacy_gates": "checkScore no-overlap, seam-unsounded; motion-gate seam, carry and carriers skip this seam"
+  }
+}

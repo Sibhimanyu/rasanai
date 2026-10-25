@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+All of this is foundation work that landed together and was only syntax-checked, not validated end to end.
+
+- **Format-aware story, no mandatory twist.** The story step proposes three compact treatments suited to the film's format and no longer forces a twist; a structured review checks them.
+- **One representative look frame.** The Look call shows each of the three looks on the same approved story beat, with a short card of how they really differ, instead of three hero frames each.
+- **Storyboard timing and animatic.** Shots, panels and editorial checks, with timed playback labelled as what it is (timed panels, scratch or chosen audio).
+- **Hybrid media capabilities.** A capability map and graph for mixing generated, captured and rendered media.
+- **Audio contract.** An audio direction file with effect roles, silence windows and cue checks against the score, plus fit guards for music that is too short or repeats.
+- **Token-efficient briefs.** A production policy, compiled input packets per crew member, recipe retrieval and an artifact cache.
+- **Scheduler and incremental render foundations.** Jobs, job control and incremental render planning, so a change re-renders only what it touches.
+- **Recovery and security helpers.** Durable writes, containment, a license register and recovery utilities for run files.
+- **Delivery and accessibility.** A delivery manifest, destination profiles, captions and accessibility checks.
+- **Evaluation gate.** A blind-review and metrics gate for judging films. Fixtures and plans live under `docs/plans/studio-upgrade`.
+
 ## 1.26.0 (2026-10-24): Motion Studio: reference motion, motion kit, click-to-revise elements
 
 - **Reference motion.** `scripts/reference-motion.mjs` (`ingest`, `analyze --fast`, `summarize --for crew`, `check`) turns a video the owner likes into `reference-motion.json` (cuts, shots, palette, energy arc, uncertainties; rights are required, the file's path stays private) and a short crew packet. A recipe step (`scripts/lib/reference-recipe`) lists transferable mechanics and what is not transferable. Inspiration for rhythm and mechanics only; never its logos, footage, audio or copy.

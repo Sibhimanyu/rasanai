@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "order": ["brief", "story", "look", "storyboard", "build", "final"],
+  "stages": {
+    "brief": { "depends_on": [], "legacy": ["brief", "research", "brand", "route", "footage"] },
+    "story": { "depends_on": ["brief"], "legacy": ["story", "direction", "films", "concept", "scenes"] },
+    "look": { "depends_on": ["story"], "legacy": ["look", "motion", "styleframes"] },
+    "storyboard": { "depends_on": ["story", "look"], "legacy": ["storyboard", "animatic", "reel", "transitions", "voice", "music", "keyframes", "plan"] },
+    "build": { "depends_on": ["storyboard"], "legacy": ["build"] },
+    "final": { "depends_on": ["build"], "legacy": ["final", "render"] }
+  },
+  "transport_aliases": { "preview": "storyboard", "animatic": "storyboard" }
+}

@@ -1,0 +1,6 @@
+{ "_label": "SYNTHETIC EXAMPLE. Invented to exercise the evidence code. NOT a certification of any product's current capabilities, plans or pricing. Never use as a claim source.",
+  "_note": "authored, not run. Tests fixture-vs-live separation (B08).",
+  "evidence": [
+    { "id": "syn1", "source": { "file": "fixtures/synthetic-chatgpt-style.txt" }, "retrieved_at": "2026-01-01T00:00:00Z", "assertion": "An assistant app can summarise a pasted document", "availability": { "plan": "synthetic-free", "version": "synthetic-1" }, "type": "synthetic_example", "permitted_use": "visual", "fact_kind": "new_feature" },
+    { "id": "syn2", "source": { "file": "fixtures/synthetic-chatgpt-style.txt" }, "assertion": "Voice mode is available on the synthetic Plus plan", "availability": { "plan": "synthetic-plus", "version": "synthetic-1" }, "type": "synthetic_example", "permitted_use": "claim", "fact_kind": "availability" } ],
+  "expected": { "syn1": "valid as a visual example only; counts_as_proof false", "syn2": "validateEvidence fails: a synthetic example can never support a claim", "classify": "no real release from synthetic evidence, so a launch request stays whole-product-introduction" } }

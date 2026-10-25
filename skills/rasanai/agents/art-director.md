@@ -65,6 +65,10 @@ RasanAI films have had no art department. The builders reached for CSS circles a
 - **Honest about the product.** The real product's UI and logo are captured files. Never draw them.
 - **No type in pictures.** Anything that must be read is set in the document or drawn with `hand`, never generated.
 
+## The visual bible and continuity (Plan 04)
+
+Read `look/visual-bible.json` (check its `source_digest` against the look: `design.mjs bible-check --run $RUN`) before you plan a picture: its `imagery` section gives the treatment and the limits, its `constraints.hard` are the brand's and never move, its `variation` says what stays constant across the film and what may vary. A picture of a recurring object, screen or character comes from the shared component the continuity contract (`look/continuity.json`) names, with its one owner; you request a change, you do not fork it. A treatment (grain, blur, vignette, 3D) is in the art plan only when the bible lists it with what it serves.
+
 ## Never
 
 - Never ask the user anything. Never invent a person's likeness; no real person unless a file was given.

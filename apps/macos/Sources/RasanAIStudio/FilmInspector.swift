@@ -165,6 +165,7 @@ struct NotesInspector: View {
                             .id("note-\(note.id)")
                         }
                     }
+                    if let confirm = model.pendingConfirm, confirm.step == step { RevisionConfirmCard(model: model, confirm: confirm) }
                     if replying {
                         HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Rasan is thinking…").font(.system(size: 12)).foregroundStyle(.secondary) }
                             .padding(.top, 4)
@@ -297,6 +298,23 @@ private struct SuggestionChip: View {
     }
 }
 
+/// The engine's one reading of an ambiguous request, with Confirm or Change (Change puts the words back in the composer).
+struct RevisionConfirmCard: View {
+    let model: FilmSessionModel
+    let confirm: FilmSessionModel.PendingConfirm
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Nothing changes until you confirm.").font(.system(size: 11)).foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Button("Confirm") { Task { await model.resolveConfirm(accept: true) } }.buttonStyle(.rasanSecondary).controlSize(.small)
+                Button("Change") { Task { await model.resolveConfirm(accept: false) } }.buttonStyle(.rasanSecondary).controlSize(.small)
+            }
+        }
+        .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .quaternaryLabelColor).opacity(0.25), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
 /// A small centered "STORY" marker, with a hairline either side, where the conversation moves to another step.
 private struct StepDivider: View {
     let label: String
@@ -332,6 +350,14 @@ struct ThreadBubble: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: message.fromUser ? .trailing : .leading)
+    }
+}
+
+extension FilmSessionModel {
+    /// The toolbar's Inspector/Decisions control: opening it lands on Decisions (⌘K opens Notes instead); closing just closes.
+    func toggleInspectorOnDecisions() {
+        if !decisionsPresented { inspectorTab = .decisions }
+        decisionsPresented.toggle()
     }
 }
 

@@ -1,0 +1,28 @@
+{
+  "plan": "14",
+  "status": "implemented_unvalidated",
+  "note": "authored, not run. These are the gate's own cases; they run only after the user approves them.",
+  "cases": [
+    {
+      "id": "plan14/G01",
+      "name": "Missing or agent-created testing permission",
+      "fixtures": [
+        "G01-missing-or-agent-created-permission.json"
+      ]
+    },
+    {
+      "id": "plan14/G02",
+      "name": "Narrow approval and revision lineage",
+      "fixtures": [
+        "G02-narrow-approval-and-revision-lineage.json"
+      ]
+    },
+    {
+      "id": "plan14/G03",
+      "name": "Indirect testing and revocation",
+      "fixtures": [
+        "G03-indirect-testing-and-revocation.json"
+      ]
+    }
+  ]
+}

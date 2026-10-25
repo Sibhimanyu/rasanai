@@ -1,0 +1,108 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan13/Q09",
+  "case": "the grader does not reward animation density by default; human preference is separate",
+  "targets": [
+    "lib/rubrics.mjs densityBias",
+    "corpus.json h03-heldout-calm, h02-heldout-unusual-brand"
+  ],
+  "scenarios": [
+    {
+      "name": "a grader that follows density while the person prefers the calm films is flagged",
+      "call": "densityBias",
+      "input": {
+        "pairs": [
+          {
+            "density": 0.9,
+            "model_score": 0.9,
+            "human_score": 0.4
+          },
+          {
+            "density": 0.7,
+            "model_score": 0.8,
+            "human_score": 0.5
+          },
+          {
+            "density": 0.2,
+            "model_score": 0.3,
+            "human_score": 0.9
+          },
+          {
+            "density": 0.1,
+            "model_score": 0.2,
+            "human_score": 0.8
+          }
+        ]
+      },
+      "expect": {
+        "status": "grader_biased_to_density",
+        "action": "~fix the rubric"
+      }
+    },
+    {
+      "name": "a grader that tracks the person is not flagged",
+      "call": "densityBias",
+      "input": {
+        "pairs": [
+          {
+            "density": 0.9,
+            "model_score": 0.4,
+            "human_score": 0.4
+          },
+          {
+            "density": 0.7,
+            "model_score": 0.5,
+            "human_score": 0.5
+          },
+          {
+            "density": 0.2,
+            "model_score": 0.9,
+            "human_score": 0.9
+          },
+          {
+            "density": 0.1,
+            "model_score": 0.8,
+            "human_score": 0.8
+          }
+        ]
+      },
+      "expect": {
+        "status": "no_density_bias_observed"
+      }
+    },
+    {
+      "name": "fewer than three films conclude nothing",
+      "call": "densityBias",
+      "input": {
+        "pairs": [
+          {
+            "density": 0.1,
+            "model_score": 0.9,
+            "human_score": 0.9
+          }
+        ]
+      },
+      "expect": {
+        "status": "not_run"
+      }
+    },
+    {
+      "name": "the held-out calm film is in the corpus and marked valid restrained",
+      "call": "validateCorpus",
+      "input": {
+        "corpus": "$corpus"
+      },
+      "expect": {
+        "ok": true
+      }
+    }
+  ],
+  "manual_steps_after_approval": [
+    "render the held-out calm film (h03) and one dense film with the same message",
+    "grade both with the model judge in an independent context",
+    "a person grades the same pair blind; the two records stay separate (pending_human_review until then)",
+    "if the model prefers the dense film, fix the rubric, do not add motion to the generator"
+  ]
+}

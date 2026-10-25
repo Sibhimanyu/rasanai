@@ -1,0 +1,183 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan11/R06",
+  "case": "escaping symlinks, traversal, archives, media by content",
+  "targets": [
+    "lib/containment.mjs resolveInRoots / vetArchiveEntries / parseZipListing / extractSafe / validateMedia / svgActiveContent",
+    "lib/brand-assets.mjs fetchRef"
+  ],
+  "paths": {
+    "roots": [
+      "<tmp>/brand",
+      "<tmp>/film"
+    ],
+    "setup": [
+      "create <tmp>/outside/secret.png",
+      "symlink <tmp>/brand/logo.png -> <tmp>/outside/secret.png",
+      "symlink dir <tmp>/film/assets -> <tmp>/outside"
+    ],
+    "cases": [
+      {
+        "path": "logo.png",
+        "expect": {
+          "ok": false,
+          "reason": "symlink_escape"
+        }
+      },
+      {
+        "path": "../outside/secret.png",
+        "expect": {
+          "ok": false
+        }
+      },
+      {
+        "path": "/etc/hosts",
+        "expect": {
+          "ok": false,
+          "reason": "outside_roots"
+        }
+      },
+      {
+        "path": "a\u0000b.png",
+        "expect": {
+          "ok": false,
+          "reason": "invalid"
+        }
+      },
+      {
+        "path": "sub/new.png",
+        "expect": {
+          "ok": true
+        }
+      }
+    ]
+  },
+  "archives": [
+    {
+      "name": "zip slip",
+      "entries": [
+        {
+          "name": "../../.ssh/authorized_keys",
+          "type": "file",
+          "size": 10
+        }
+      ],
+      "expect": "path_traversal"
+    },
+    {
+      "name": "absolute",
+      "entries": [
+        {
+          "name": "/Users/x/.zshrc",
+          "type": "file",
+          "size": 10
+        }
+      ],
+      "expect": "absolute_path"
+    },
+    {
+      "name": "symlink entry",
+      "entries": [
+        {
+          "name": "link",
+          "type": "symlink",
+          "size": 0
+        }
+      ],
+      "expect": "link_or_special_entry"
+    },
+    {
+      "name": "bomb",
+      "entries": [
+        {
+          "name": "big.bin",
+          "type": "file",
+          "size": 5368709120,
+          "compressed_size": 10000
+        }
+      ],
+      "expect": [
+        "file_too_large",
+        "decompression_ratio",
+        "total_too_large"
+      ]
+    },
+    {
+      "name": "many files",
+      "entries": "2001 entries named f0..f2000",
+      "expect": "too_many_entries"
+    },
+    {
+      "name": "case collision",
+      "entries": [
+        {
+          "name": "A.png",
+          "type": "file",
+          "size": 1
+        },
+        {
+          "name": "a.png",
+          "type": "file",
+          "size": 1
+        }
+      ],
+      "expect": "duplicate_or_case_collision"
+    },
+    {
+      "name": "setuid",
+      "entries": [
+        {
+          "name": "run",
+          "type": "file",
+          "size": 1,
+          "mode": 2048
+        }
+      ],
+      "expect": "setuid_or_setgid"
+    }
+  ],
+  "media": [
+    {
+      "file": "photo.png",
+      "bytes": "PNG signature",
+      "expect": {
+        "ok": true,
+        "kind": "png"
+      }
+    },
+    {
+      "file": "clip.mp4",
+      "bytes": "PNG signature",
+      "expect": {
+        "ok": false,
+        "reason": "extension_mismatch"
+      }
+    },
+    {
+      "file": "x.png",
+      "bytes": "MZ executable header",
+      "expect": {
+        "ok": false,
+        "reason": "unrecognised_content"
+      }
+    },
+    {
+      "file": "logo.svg",
+      "bytes": "<svg><script>alert(1)</script></svg>",
+      "expect": {
+        "ok": false,
+        "reason": "active_content"
+      }
+    },
+    {
+      "file": "logo2.svg",
+      "bytes": "<svg><image href='https://tracker.invalid/p.png'/></svg>",
+      "expect": {
+        "ok": false,
+        "reason": "active_content"
+      }
+    }
+  ]
+}

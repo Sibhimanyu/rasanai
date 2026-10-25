@@ -1,0 +1,194 @@
+{
+  "case": "V04",
+  "title": "A timeout is unknown_outcome; the same job is queried; consent for hosted inputs; cancel is local to the job",
+  "calls": [
+    "classifySubmitError",
+    "findByClient",
+    "clientIdFor",
+    "consentPolicy",
+    "checkProvider"
+  ],
+  "submit_errors": {
+    "timeout": {
+      "name": "TimeoutError"
+    },
+    "reset": {
+      "cause": {
+        "code": "ECONNRESET"
+      }
+    },
+    "refused": {
+      "cause": {
+        "code": "ECONNREFUSED"
+      }
+    },
+    "http_400": {
+      "rejected": true
+    },
+    "empty_answer": {
+      "name": "Error",
+      "message": "answered 200 without a prompt id"
+    }
+  },
+  "expect_outcome": {
+    "timeout": "unknown",
+    "reset": "unknown",
+    "refused": "not_submitted",
+    "http_400": "rejected",
+    "empty_answer": "unknown"
+  },
+  "cli_expect": {
+    "submit_timeout": {
+      "state": "unknown_outcome",
+      "exit": 1
+    },
+    "second_submit_same_key": {
+      "idempotent": true,
+      "state": "unknown_outcome",
+      "note_contains": "no second job is started"
+    },
+    "status_found": {
+      "state": "queued",
+      "provider_job_id_set": true
+    },
+    "status_not_found": {
+      "state": "unknown_outcome",
+      "note_contains": "not proof it was never queued"
+    },
+    "status_confirm_not_submitted": {
+      "state": "failed",
+      "then": "--retry allowed"
+    }
+  },
+  "queue_snapshot": {
+    "queue_running": [
+      [
+        1,
+        "pid-A",
+        {},
+        {
+          "client_id": "rasanai-OTHERUSER00000"
+        },
+        []
+      ]
+    ],
+    "queue_pending": [
+      [
+        2,
+        "pid-B",
+        {},
+        {
+          "client_id": "rasanai-0123456789abcdef"
+        },
+        []
+      ]
+    ],
+    "history": {}
+  },
+  "client_id": "rasanai-0123456789abcdef",
+  "expect_find": {
+    "found": true,
+    "provider_job_id": "pid-B",
+    "state": "queued"
+  },
+  "history_only": {
+    "history": {
+      "pid-C": {
+        "prompt": [
+          3,
+          "pid-C",
+          {},
+          {
+            "client_id": "rasanai-0123456789abcdef"
+          },
+          []
+        ],
+        "status": {
+          "status_str": "success"
+        }
+      }
+    }
+  },
+  "expect_history_find": {
+    "found": true,
+    "provider_job_id": "pid-C"
+  },
+  "cancel": {
+    "must_post": {
+      "delete": [
+        "pid-B"
+      ]
+    },
+    "must_never_post": [
+      "{\"clear\":true}"
+    ],
+    "interrupt_only_if_running_is": "pid-B",
+    "other_users_pid-A": "untouched"
+  },
+  "consent": {
+    "hosted_with_refs_without_share": {
+      "provider": {
+        "id": "remote",
+        "ep": {
+          "loopback": false
+        }
+      },
+      "spec": {
+        "refs": [
+          {
+            "sha256": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+            "rights": "owned"
+          }
+        ]
+      },
+      "flags": {
+        "consent": true
+      },
+      "expect": {
+        "ok": false,
+        "missing": [
+          "consent to send your inputs to a hosted provider (--consent-share-inputs)"
+        ]
+      }
+    },
+    "local_with_refs": {
+      "provider": {
+        "id": "comfyui",
+        "ep": {
+          "loopback": true
+        }
+      },
+      "flags": {
+        "consent": true
+      },
+      "expect": {
+        "ok": true
+      }
+    }
+  },
+  "missing_local_model": {
+    "discoverComfy": {
+      "object_info": {
+        "CheckpointLoaderSimple": {
+          "input": {
+            "required": {
+              "ckpt_name": [
+                []
+              ]
+            }
+          }
+        }
+      },
+      "expect": {
+        "reachable": true,
+        "workflows": [
+          {
+            "runnable": false,
+            "reason": "no checkpoint installed; RasanAI never downloads one"
+          }
+        ]
+      }
+    }
+  },
+  "deferred_to": "plan 14: real ComfyUI (or a faithful fake HTTP server) with an induced timeout after the job was queued"
+}

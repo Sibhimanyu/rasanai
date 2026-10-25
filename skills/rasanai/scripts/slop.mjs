@@ -147,7 +147,7 @@ if (scenes && scenes.length >= 3) {
 // Glow, blur-in and particles are allowed a few times per film on the hero, with a reason in the score's `budget`
 // (lib/budget.mjs; references/craft.md "Finish and budgets"). The same effect on more elements than the budget allows,
 // or on every line, is the AI tell and stays an error. The finish layer itself (grain, soft shadows, a lit ground) is
-// expected on every film unless the brand film measured none (brandfilm.mjs measure: finish.layerOff).
+// the default unless the brand film measured none (brandfilm.mjs measure: finish.layerOff) or the look's visual bible chose none with a rationale (Plan 04 L3).
 {
   const runDir = args.run && args.run !== true ? path.resolve(String(args.run)) : null;
   const scoreFile = args.score ? path.resolve(String(args.score)) : null;
@@ -174,6 +174,8 @@ if (scenes && scenes.length >= 3) {
   // the default finish layer: grain, a soft shadow and a lit or tinted ground, unless the brand film measured none
   let layerOff = false;
   if (runDir) { try { const g = JSON.parse(fs.readFileSync(path.join(runDir, "brand-film", "grammar.json"), "utf8")); layerOff = !!(g.measured && g.measured.finish && g.measured.finish.layerOff); } catch {} }
+  // Plan 04 L3: a look may choose no finish layer on purpose; the visual bible records it with its rationale (look/visual-bible.json imagery.finish_policy "none"). No bible: unchanged.
+  if (runDir && !layerOff) { try { const vb = JSON.parse(fs.readFileSync(path.join(runDir, "look", "visual-bible.json"), "utf8")); const im = vb.imagery || {}; layerOff = im.finish_policy === "none" && String(im.finish_rationale || "").trim().length > 0; } catch {} }
   const hasCamera = /RasanCamera|rasan-camera/.test(allCode);
   const grain = hasCamera || /feTurbulence|grain|noise\.(png|svg|webp)/i.test(own);
   const softShadow = hasCamera || /box-shadow\s*:[^;"}]*\d+px\s+\d{2,}px/i.test(own) || /drop-shadow\(/i.test(own);

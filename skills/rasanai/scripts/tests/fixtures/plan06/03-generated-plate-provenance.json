@@ -1,0 +1,75 @@
+{
+  "case": "V03",
+  "title": "An accepted generated plate is an immutable asset with full provenance",
+  "calls": [
+    "provenanceOf",
+    "validateProvenance",
+    "writeOnce",
+    "modelLicense"
+  ],
+  "job": {
+    "provider": "comfyui",
+    "model_id": "ltx-video-2b-distilled.safetensors",
+    "model_revision": null,
+    "workflow_id": "ltx-video-t2v",
+    "workflow_digest": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+    "graph_digest": "gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg",
+    "prompt": "slow dolly across a desk, soft daylight",
+    "params": {
+      "negative_prompt": "text, watermark"
+    },
+    "reference_inputs": [
+      {
+        "sha256": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+        "rights": "owned"
+      }
+    ],
+    "config": {
+      "seed": 42,
+      "aspect": "16:9",
+      "duration_s": 2,
+      "width": 768,
+      "height": 432,
+      "fps_num": 24,
+      "fps_den": 1
+    },
+    "cost_estimate": {
+      "kind": "local",
+      "usd": 0
+    },
+    "provider_job_id": "pid-1"
+  },
+  "output": {
+    "outputSha": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+    "outputPath": "hybrid/generated/gen-abc/plate.mp4",
+    "frames": 48
+  },
+  "expect_valid": true,
+  "expect_fields": [
+    "provider",
+    "model_id",
+    "workflow_digest",
+    "prompt",
+    "input_hashes",
+    "config",
+    "rights",
+    "output",
+    "duration_s",
+    "cost",
+    "immutable"
+  ],
+  "expect_cost_actual": null,
+  "expect_license": "unreviewed (no hybrid/model-licenses.json record)",
+  "invalid_missing_immutable": {
+    "drop": "immutable",
+    "expect_problem": "a generated plate is immutable (immutable: true)"
+  },
+  "writeOnce_second_different_output": {
+    "expect": {
+      "ok": false,
+      "error": "asset.json already exists with a different output: accepted plates are immutable; regenerate as a new job"
+    }
+  },
+  "leak_check": "a record containing /Users/ or Bearer fails validateProvenance",
+  "deferred_to": "plan 14: one real opt-in generation on a configured ComfyUI; the fake provider never counts as a real generation"
+}

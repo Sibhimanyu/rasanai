@@ -47,7 +47,7 @@ struct FinalStage: View {
         let player = ReviewPlayerPanel(model: model, step: step, playback: playback, scenes: scenes, notes: allNotes,
                                        aspect: model.snapshot.aspectRatio, canNote: canAct && playback.isReady, pinWindow: 2.5, showStrip: false,
                                        motionSel: motionSel.index != nil ? motionSel : nil) {
-            FinalFrame(playback: playback, posterPath: posterPath, hasVideo: videoURL != nil, notRendered: notRendered)
+            FinalFrame(playback: playback, posterPath: posterPath, hasVideo: videoURL != nil, notRendered: notRendered, model: model)
         }
 
         GeometryReader { outer in
@@ -281,10 +281,12 @@ private struct FinalFrame: View {
     let posterPath: String?
     let hasVideo: Bool
     var notRendered = false
+    var model: FilmSessionModel?
     var body: some View {
         ZStack {
             Color.black
             if hasVideo { NativeFilmPlayer(player: playback.player) }
+            if hasVideo, let model { ElementDirectOverlay(model: model, playback: playback) }   // Plan 10 U4: edit elements through the engine (off until "Edit elements")
             if !hasVideo || !playback.hasStarted {
                 if posterPath != nil { PayloadImage(path: posterPath, contentMode: .fit, maxPixels: 1800).transition(.opacity) }
                 if !hasVideo {

@@ -1,0 +1,63 @@
+{
+  "case": "look revision",
+  "synthetic": true,
+  "covers": [
+    "L06"
+  ],
+  "inputs": {
+    "instruction": "same typography, less glossy",
+    "ids": [
+      "look-bold"
+    ],
+    "brand": {
+      "locked": false
+    },
+    "downstream_started": true,
+    "also": [
+      {
+        "instruction": "make it warmer",
+        "brand": {
+          "locked": true
+        }
+      },
+      {
+        "instruction": "keep the colours but change the colours"
+      }
+    ]
+  },
+  "expect": {
+    "changes": [
+      "material"
+    ],
+    "fixed_include": [
+      "typography",
+      "story",
+      "palette",
+      "logo",
+      "copy"
+    ],
+    "story_preserved": true,
+    "impact": {
+      "stale": [
+        "storyboard",
+        "build",
+        "final"
+      ],
+      "keep_include": [
+        "brief",
+        "story",
+        "look"
+      ],
+      "bounded": true
+    },
+    "brand_locked_warmer": {
+      "blocked_by_brand": "brand.palette",
+      "route": "local approved exception"
+    },
+    "conflict": "error: keeps and changes palette",
+    "before_storyboard_started": {
+      "stale": []
+    },
+    "idempotent": "same instruction and ids produce the same idempotency_key"
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "case": "E01",
+  "title": "one beat explained by three panels, another by one",
+  "calls": [
+    "validateStoryboardDoc",
+    "toContractShape"
+  ],
+  "storyboard": {
+    "kind": "full",
+    "shots": [
+      {
+        "shot_id": "shot-writing-01",
+        "beat_id": "beat-writing",
+        "purpose": "show rough notes becoming a useful invitation",
+        "panels": [
+          {
+            "id": "p1",
+            "state": "source notes visible",
+            "image_ref": "frames/p1.png"
+          },
+          {
+            "id": "p2",
+            "state": "request and result relationship established",
+            "image_ref": "frames/p2.png"
+          },
+          {
+            "id": "p3",
+            "state": "result readable",
+            "image_ref": "frames/p3.png"
+          }
+        ],
+        "copy_refs": [],
+        "focal_read": "the useful invitation",
+        "timing": {
+          "status": "provisional",
+          "duration_s": 6
+        },
+        "transition_out": {
+          "relation": "example",
+          "kind": "cut",
+          "carrier": null
+        },
+        "sound_intent": {
+          "role": "supportive",
+          "cue_refs": []
+        }
+      },
+      {
+        "shot_id": "shot-end-01",
+        "beat_id": "beat-end",
+        "purpose": "resolve the promise",
+        "panels": [
+          {
+            "id": "p1",
+            "state": "one static end card",
+            "image_ref": "frames/p4.png"
+          }
+        ],
+        "copy_refs": [],
+        "focal_read": "the invitation sent",
+        "timing": {
+          "status": "provisional",
+          "duration_s": 3
+        },
+        "transition_out": {
+          "relation": "example",
+          "kind": "cut",
+          "carrier": null
+        },
+        "sound_intent": {
+          "role": "supportive",
+          "cue_refs": []
+        }
+      }
+    ]
+  },
+  "expect": {
+    "validate_ok": true,
+    "beat_writing_shots": 1,
+    "beat_writing_panels": 3,
+    "beat_end_panels": 1,
+    "note": "no mechanical three: one panel is valid for a static beat; panel ids are unique per shot and namespaced film-wide for the contract validator"
+  }
+}

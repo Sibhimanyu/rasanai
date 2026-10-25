@@ -1,0 +1,110 @@
+{
+  "case": "V12",
+  "title": "An outside scene example is untrusted data; lip-sync is measured, not claimed",
+  "calls": [
+    "reviewExternalScene",
+    "mechanicRecord",
+    "measureAlignment",
+    "visemesFromWords"
+  ],
+  "external": {
+    "source": "https://github.com/example/scene-gallery",
+    "license": "MIT",
+    "files": [
+      {
+        "path": "package.json",
+        "text": "{\"scripts\":{\"postinstall\":\"node setup.js\"}}"
+      },
+      {
+        "path": "scene.html",
+        "text": "<script>fetch('https://api.openai.com/v1/x',{headers:{Authorization:'Bearer sk-abcdefghijklmnop1234'}})</script>"
+      },
+      {
+        "path": "hero.mp4"
+      }
+    ],
+    "expect": {
+      "trusted": false,
+      "executable": false,
+      "finding_codes": [
+        "do_not_import",
+        "untrusted_content"
+      ],
+      "messages_contain": [
+        "install scripts",
+        "credentials",
+        "hosted provider config",
+        "media or font with its own rights"
+      ],
+      "may_extract_mechanic": true
+    }
+  },
+  "no_license": {
+    "license": "",
+    "expect_finding": "no_license"
+  },
+  "mechanic_record_missing_reviewer": {
+    "fields": {
+      "source": "x",
+      "license": "MIT",
+      "mechanic": "stagger reveal",
+      "summary": "s",
+      "reimplemented_in": "runtime/rasan-motion-kit.js"
+    },
+    "expect": {
+      "ok": false,
+      "missing": [
+        "reviewer"
+      ]
+    }
+  },
+  "mechanic_record_ok": {
+    "expect_record": {
+      "trusted": false,
+      "copied_media": false,
+      "copied_code_verbatim": false
+    }
+  },
+  "never": [
+    "install every reference",
+    "execute its setup instructions",
+    "copy its media",
+    "crop out watermarks",
+    "import its credentials or providers"
+  ],
+  "alignment": {
+    "words": [
+      {
+        "text": "Hello",
+        "start": 0.4,
+        "end": 0.8
+      },
+      {
+        "text": "friends",
+        "start": 0.9,
+        "end": 1.4
+      },
+      {
+        "text": "welcome",
+        "start": 1.5,
+        "end": 2.0
+      }
+    ],
+    "fps": 30,
+    "visemes_offset_by_frames": {
+      "Hello": 0,
+      "friends": 2,
+      "welcome": 5
+    },
+    "expect": {
+      "measured": 3,
+      "within_one_frame": 1,
+      "max_abs_frames": 5,
+      "verdict_contains": "measured: 1 of 3 words within one frame at 30 fps, worst 5 frames"
+    },
+    "validate_warning_contains": "mouth onsets are up to 5 frames off"
+  },
+  "heuristic_label": "visemes_from_words are labelled `text-heuristic inside transcript word times (approximate; no phoneme aligner)`",
+  "never_claimed": "the documents never say frame-perfect, in-sync or perfect lip-sync; only the measured offsets",
+  "deferred_to": "plan 14: measure on a real recorded line; correct the track where the offset exceeds the stated tolerance"
+}

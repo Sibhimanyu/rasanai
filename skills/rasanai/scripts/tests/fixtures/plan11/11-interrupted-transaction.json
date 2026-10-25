@@ -1,0 +1,61 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan11/R11",
+  "case": "crash between prepared, committed and published",
+  "targets": [
+    "lib/publish-txn.mjs prepare / commit / recover / publishDeliveredPointer",
+    "lib/editor-patch/txn.mjs recoverJournal (phases, post digests)",
+    "lib/hybrid-render/index.mjs (pointer after receipt)"
+  ],
+  "scenarios": [
+    {
+      "name": "die after prepare, nothing landed",
+      "expect": {
+        "plan": "roll_back",
+        "staged": "files kept",
+        "intent": "closed rolled_back"
+      }
+    },
+    {
+      "name": "die after the first of 3 renames",
+      "expect": {
+        "plan": "finish_forward when staged files are intact",
+        "otherwise": "restore_prior from hard links; landed files with no prior copy are kept and reported (conflict)"
+      }
+    },
+    {
+      "name": "die after all renames, before the log line",
+      "expect": {
+        "phase": "committed",
+        "plan": "finish_forward",
+        "log": "record appended exactly once (txn_id), then published"
+      }
+    },
+    {
+      "name": "a newer revision changed a target after prepare",
+      "expect": {
+        "plan": "conflict_newer",
+        "overwritten": "nothing",
+        "commit": "refuses target_changed_since_prepare or superseded_by_newer_revision"
+      }
+    },
+    {
+      "name": "source-edit journal: post digests recorded, then a newer manual edit before recovery",
+      "expect": "recoverJournal returns conflict.kind newer_revision; no status is logged on the edit's behalf"
+    },
+    {
+      "name": "source-edit journal: died mid-write",
+      "expect": "edit marked conflicted with a restore-checkpoint note"
+    },
+    {
+      "name": "final delivery: file present, receipt checksum differs",
+      "expect": "publishDeliveredPointer ok false; delivered.json unchanged; no final_ready event"
+    },
+    {
+      "name": "final delivery: render fails after the previous final existed",
+      "expect": "previous deliverable and pointer intact"
+    }
+  ]
+}

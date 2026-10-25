@@ -1,0 +1,75 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan11/R04",
+  "case": "spend limit, rate limit and repeated failure",
+  "targets": [
+    "lib/jobs.mjs fail(category) / hold / requeue",
+    "lib/recovery.mjs classifyFailure / nextStep / repeatedFailure / rateLimitReport",
+    "lib/resource-pools.mjs recordThrottle / throttleState"
+  ],
+  "classify": [
+    {
+      "error": "402 payment required: credit balance too low",
+      "category": "budget"
+    },
+    {
+      "error": "429 Too Many Requests, retry-after: 30",
+      "category": "rate_limit"
+    },
+    {
+      "error": "EACCES: permission denied, open '/x'",
+      "category": "permission",
+      "next": "stop_and_ask; never grant unrestricted tools or flags"
+    },
+    {
+      "error": "ENOENT: no such file: plate-3.mp4",
+      "category": "invalid_input",
+      "next": "restore_or_regenerate_that_asset_only"
+    },
+    {
+      "error": "ECONNRESET",
+      "category": "transient"
+    },
+    {
+      "error": "something unexpected",
+      "category": "permanent"
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "budget failure",
+      "expect": {
+        "job": "retry_wait with hold.reason spend_limit; retries.count unchanged",
+        "run": "paused (crew/pause.json by spend_limit)",
+        "assets": "nothing deleted",
+        "claim": "refused: held until requeue by the person"
+      }
+    },
+    {
+      "name": "rate limit without a retry-after",
+      "expect": {
+        "throttle.reset_known": false,
+        "throttle.source": "default_backoff",
+        "status text": "no reset time given; backing off on our own schedule",
+        "never": "an invented provider reset time"
+      }
+    },
+    {
+      "name": "rate limit with retry-after 30",
+      "expect": {
+        "reset_known": true,
+        "source": "provider_retry_after"
+      }
+    },
+    {
+      "name": "same transient error 3 times, checkpoint unchanged",
+      "expect": "repeatedFailure.repeated true"
+    },
+    {
+      "name": "slow legitimate work: 4 timeouts each after the checkpoint advanced",
+      "expect": "repeatedFailure.repeated false"
+    }
+  ]
+}

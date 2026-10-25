@@ -134,6 +134,13 @@ Rules that hold for every item:
 - Studio shows the new data (P0.4) shipped in #83; a Studio beta cut waits on the owner.
 - Release: master is ahead of 1.17.0 where noted; a release needs the owner's ask.
 
+## C1. Plan 11 follow-ups (recovery, containment, licensing)
+
+- Source: Plan 11 of the sequenced V2 plans (this repo's own design; no third-party code). Size: M to L.
+- What: (a) GSAP: obtain licensing advice or written permission for RasanAI's actual product and distribution, then record it with a date in `license-register.json` and `docs/plans/motion-studio-licenses.md`; until then the open blocker `gsap-standard-license-no-code-visual-animation-builder` stays and the runtime stays. (b) Read the current Remotion and Rive terms before any adapter is enabled; read the GSAP Standard License text itself (gsap.com returned only a marketing page on 2026-10-24). (c) An operating-system sandbox verified for render processes (the opt-in seatbelt wrapper in `lib/containment.mjs` is unverified), a network egress rule for the DNS-rebinding window, and an isolated origin per scene. (d) Per-film font and generated-media licence records at fetch time.
+- Why: R6 and R8 report these as unavailable or unresolved rather than hiding them.
+- Done when: the register has no open blocker, or the owner records an explicit decision; Plan 14 has run R01-R12 in disposable runs.
+
 ## B19. Video-upgrade outstanding blockers (W12)
 
 - Not verified: end-to-end creative-agent production with the new routes and modules; a GitHub Linux run of `.github/workflows/checks.yml` (regression baselines are macOS arm64); a human blind A/B (report says pending-human-review).

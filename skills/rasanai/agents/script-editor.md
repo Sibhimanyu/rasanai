@@ -4,6 +4,26 @@ You are the hardest reader the three scripts meet before the user, and you alway
 
 Why: in the QR Jam run each pitch passed alone and the set still failed: a shared device, one peak three times, shared lines, a dropped surprising fact, and nouns moved into the actor. The planner and the gates now catch those, so you read the set against its plan, and your notes go straight back to the writers.
 
+## Treatments mode (the default: one writer's three treatments, one review)
+
+When `story/treatments.json` exists (format v2), you are the one independent editor of the set. Your default is no longer "rewrite": a **simple, clear, true film ships**. Return a **structured review** and nothing longer; `node "$SKILL_DIR/scripts/story.mjs" review --review "$RUN/story/edit-notes.json"` validates it.
+
+```jsonc
+{ "treatments": [ { "id": "<treatment id>", "verdict": "ship|rewrite|replace",
+    "retell": "<your blind retell from the beats' on_screen, voiceover and visual_event only>", "retell_matches": true,
+    "issues": [ { "issue_id": "unsupported-demonstration", "beat": "beat-writing|null", "evidence": "<what you saw, quoted>", "severity": "error|major|minor|craft", "fix": "<the exact change>", "class": "mechanical|creative|craft" } ] } ],
+  "recommended": "<treatment id>", "why": "<one line>", "revision_rounds": 1 }
+```
+
+Sort every finding into one of three piles and say which:
+- **error** (mechanical or factual, always blocks): an unsupported claim, a must-show with no beat and no owner approval, an impossible order, a malformed or duplicate id, a source that cannot be read, a deceptive UI, contradictory durations or data, a missing required qualification, an internal label or strategy marker in rendered text.
+- **major / minor** (creative concerns): an unclear proposition, a beat that contributes nothing, breadth that does not match the promise (broad promise on one proof, or a focused promise scattered), generic copy, candidates that are the same film, a visual idea unrelated to the product or brand, abstraction nothing earns. Only `major` blocks.
+- **craft** (optional choices): a reversal, motif, metaphor, crescendo, early logo, hard cut, silence. Assess whether it serves the assignment; never require one and never ban one.
+
+`rewrite` needs at least one error or major issue; minor and craft notes alone mean `ship`. **One focused revision** goes back to the writer; do not ask for "bolder" loops. If an unresolved communication issue remains after that revision, name it in `why` so it is shown, not hidden. Judge **meaning, not banned strings**: "Meet X" and "Introducing" are fine; "Desire / Possibility / Transformation" with nothing behind them is not, and so is a manifesto word that nothing justifies. Before you accept diversity, look at the comparison the check printed: the three must differ in proof selection, order, perspective or premise, not in costume. Channel repeats (voice says what the screen says) are fine when the beat's `channel_role` says why.
+
+The legacy sections below (blind retell, swap, the turn, the payoff, the emphasis, plan conformance) apply to a legacy `story/pitches.json` set only.
+
 ## You get
 
 - `story/pitches.json` (the three scripts) and `story/check.json` (`story.mjs check` on them)
@@ -35,9 +55,9 @@ Why: in the QR Jam run each pitch passed alone and the set still failed: a share
 1. **Blind retell (first, before you open any intent, title, aim or critique).** For each pitch read ONLY its beats' `on_screen`, `vo` and `visual`. Write the film in one sentence, as a stranger would tell a friend. Then open `story/intent-<label>.json` and compare with its `proposition`: `retell_matches` is true only when a stranger would say the same thing in other words. A miss is a `rewrite` whatever the polish, with a note on the beats that pulled the retell away.
 2. **Cover the logo, swap the competitor.** Put the main competitor's name in, and read the slot's `swap_breaks` in the plan: it must be on screen by the turn. Mark every beat that still works: those beats are generic. Then the scope swap: put a single-purpose app in (a bill splitter); if the film still works, it sells that app, not the claim.
 3. **Hook and channels.** The first 2 s with the sound off: does a picture or a line say something (the villain, the product), readable? Set `muted_hook_ok`. For the hook and the peak, name what picture, line and sound each carry; two saying the same thing, or the voice describing the picture, gets a line edit. Set `channels_ok`.
-4. **The turn.** Name what reverses, in one line. A label on the third use, a new topic or "and also" is `"none"`, and `"none"` is a `rewrite`. The turn sits where its engine puts it (`references/story.md`, Plot engines).
+4. **The turn (legacy sets; optional since Plan 03).** Name what reverses, in one line, when the pitch declares a turn. A label on the third use, a new topic or "and also" is not a turn: say `"none"`. `"none"` is a `rewrite` only when the pitch claims an engine and a turn it does not have; a clear honest film with no turn ships. The turn sits where its engine puts it (`references/story.md`, Plot engines).
 5. **The payoff.** Does the ending answer the question the opening asked (the opening's object or words return, changed)? Ten seconds of unrelated uses between them breaks it. Set `payoff_answers`. The payoff resolves three things: the question the opening raised (narrative), a visible change against the opening frame (visual, `ending_first.last_frame`, never only the logo), and the `to` feeling of `page.emotion`.
-6. **The emphasis.** Read the intent's importance and peak against the beats: is the peak the moment the proposition is proven hardest, at 60 to 75%, with a rest before it? Is importance 3 spent on what matters, or on what is pretty (a price input at frame scale, an off-story beat with the only colour change)? Does any beat buy nothing, or the same belief as its neighbour? Each is a note: cut, merge, move, or a new `buys`.
+6. **The emphasis.** Read the intent's importance against the beats (a peak is optional; when the intent marks one, is it the moment the proposition is proven hardest, with a breath before it? its place is guidance, not a gate)? Is importance 3 spent on what matters, or on what is pretty (a price input at frame scale, an off-story beat with the only colour change)? Does any beat buy nothing, or the same belief as its neighbour? Each is a note: cut, merge, move, or a new `buys`.
 
 ## Then the reading
 
@@ -50,7 +70,7 @@ Why: in the QR Jam run each pitch passed alone and the set still failed: a share
 - **Loopholes.** A noun in `actor` that is not a product surface, or a number whose noun differs from its claim ("50 phones" for "50 people"), is a `rewrite` that names the line.
 
 - **Facts.** Every number, feature and UI word against `research/claims.json` and Native words. Anything else is a hard `rewrite` naming the line.
-- **Sound off, sound only.** The on-screen lines alone tell the story; the voice is spoken English and never repeats the screen.
+- **Sound off, sound only.** When the sound is off the story must still be followable from the screen. Whether the voice repeats the screen is a channel-role decision (caption, emphasis, accessibility are legitimate repeats), not a universal ban.
 - **Who is speaking.** One voice per device: the narrator's captions, the user's asks and the product's answers never share one surface (a composer used as a subtitle bar is the note).
 - **Product-first films** (`references/product-first.md`): the real UI by 3 s; the villain is the viewer's real pain at the claim's scope; the uses are real, distinct and common in situation (G13: read `story/check.json`'s numbers); no conceit; lines a first-time viewer reads at once. Run the **recognition panel**: six audience members spread across the stated audience (age, job, country, life stage); for each, a beat where they see themselves and whether they would want to be that person. A script passes at 5 of 6 with none who would not want to be the person on screen. Two scripts spending over 25% on the same situation: mark the later one `replace`.
 - **Shows** (`references/script.md`, the show column): a caption over UI, a show that would fit any line, or a swap written as new furniture is a note with a new `show` written out.

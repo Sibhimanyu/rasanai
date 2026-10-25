@@ -1,0 +1,41 @@
+{
+  "id": "plan09/P01",
+  "title": "Dependency readiness: only ready nodes run; user waits are real barriers; storyboard needs chosen Story+Look; scene builds need the approved storyboard",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised, the input and the expected outcome; authored, not run. No number here is a measurement of real rendering, latency, memory or cost.",
+  "calls": [
+    {
+      "fn": "graph.compileGraph",
+      "case": "plan with research, story, design-system, boards, score, storyboard-record, build, animate, seams phases, look_gate true, nothing approved"
+    },
+    {
+      "fn": "graph.schedule",
+      "case": "Story chosen, Look not chosen: boards and storyboard-record nodes"
+    },
+    {
+      "fn": "graph.schedule",
+      "case": "Story and Look chosen, storyboard not approved: scene_group and render_fragment nodes"
+    },
+    {
+      "fn": "graph.schedule",
+      "case": "storyboard approved then the Look digest changes (committedStages reports storyboard stale)"
+    },
+    {
+      "fn": "graph.schedule",
+      "case": "plan written before look_gate (no look_gate field)"
+    },
+    {
+      "fn": "graph.schedule",
+      "case": "a Director-only phase with no dispatch members (look-auto) that never gets a ledger row"
+    }
+  ],
+  "expect": [
+    "research, design-research and brand-film start together (no prerequisites on each other); a later phase in the same stage waits for the previous phase's members",
+    "with nothing approved, every node that needs Story or Look is waiting_on_approval with barrier story or look and user_waits lists it; none is in dispatch_now; no approval is fabricated",
+    "boards and storyboard-record are waiting_on_approval (barrier look); scene_group/render_fragment/composite/finish are waiting_on_approval (barrier storyboard)",
+    "a storyboard whose snapshot no longer matches is not committed: its reason says it must be approved again",
+    "without look_gate the nodes are ready or waiting on prerequisites and carry legacy_unenforced true: old plans keep running",
+    "a Director-only phase is listed as director_step and never gates a later node (no deadlock)",
+    "graph.problems is empty (acyclic, prerequisites exist); the graph is derived: compiling twice gives the same digest"
+  ]
+}

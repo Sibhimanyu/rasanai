@@ -1,0 +1,66 @@
+{
+  "plan": 5,
+  "note": "Authored fixtures, not run. Each file lists the functions it exercises (calls) and the expected result. Synthetic: they never certify current capabilities. JSON correctness does not establish that a timed sequence is comprehensible: review a real one in Plan 14.",
+  "cases": [
+    {
+      "id": "plan05/E01",
+      "file": "01-one-to-many-beat-panel.json",
+      "title": "One beat to many panels, one panel for a static beat",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan05/E02",
+      "file": "02-insufficient-reading-time.json",
+      "title": "Insufficient reading time at size and locale",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan05/E03",
+      "file": "03-diagram-mechanism.json",
+      "title": "Diagram mechanism clarity; 'hard to understand' is an editorial revision",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan05/E04",
+      "file": "04-legitimate-hard-cut.json",
+      "title": "A legitimate hard cut; false continuity rejected",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan05/E05",
+      "file": "05-continuous-camera-handoff.json",
+      "title": "Continuous-camera handoff only when true",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan05/E06",
+      "file": "06-narration-retiming.json",
+      "title": "Narration retiming through the score; rational rate; retime mapping",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan05/E07",
+      "file": "07-silent-preview.json",
+      "title": "Silent preview, honest fidelity",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan05/E08",
+      "file": "08-changed-storyboard-revision.json",
+      "title": "Changed storyboard revision: meaningful vs harmless; scratch is not final",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan05/E09",
+      "file": "09-old-animatic-action-mapping.json",
+      "title": "Old animatic actions and records map to Storyboard",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan05/E10",
+      "file": "10-restart-at-storyboard.json",
+      "title": "Restart at Storyboard",
+      "status": "authored_not_run"
+    }
+  ]
+}

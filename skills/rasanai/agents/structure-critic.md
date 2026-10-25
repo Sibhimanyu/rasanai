@@ -15,10 +15,10 @@ Nothing else: not the script's lines, the look, the music or the moves. You judg
 
 1. **Retell blind.** From the sheet alone, before opening `intent.json`, write the film in one sentence (`retell`) and the energy you see as a row of numbers, one per beat (`curve`, e.g. `2 1 3 2 1 | 3* 2 1`: `|` a rest, `*` the peak). Then open the intent. A retell that misses the proposition means the beats do not carry the argument: find the beats that pull it away.
 2. **Each beat earns its place.** Cover a beat: does the viewer lose a belief? If not, `cut` it. Two neighbours that buy the same belief: `merge`. A beat whose relation to the one before is "and also": `cut`, or `move` it where it causes or answers something.
-3. **The turn reverses something.** Find it on the sheet. If it is a label on another example, or comes after the thing it should cause, `move` it or rewrite what it buys.
-4. **The peak is where the proof is hardest.** One peak, at 60 to 75%, on the beat that proves the proposition most, not on the prettiest picture or a side detail (a price input, an off-story use). Wrong beat: `peak` on the right one. No breath before it: `rest` on the beat before.
+3. **A turn, if there is one, reverses something (optional).** Find it on the sheet when the intent declares one; a clear demonstration with no turn needs none and you add none. If it is a label on another example, or comes after the thing it should cause, `move` it or rewrite what it buys.
+4. **The peak, when the intent has one, is where the proof is hardest.** A peak is optional (Plan 03: no peak is valid, do not add one to satisfy this item). One peak, at 60 to 75% in legacy sheets, on the beat that proves the proposition most, not on the prettiest picture or a side detail (a price input, an off-story use). Wrong beat: `peak` on the right one. No breath before it: `rest` on the beat before.
 5. **The middle builds.** Three beats of the same weight and template in a row is a metronome: escalate one (what changes: number, scale, stakes), cut one, or rest between them.
-6. **The payoff answers the opening.** The last beats bring back the opening's object or words, changed. If the payoff answers a different question, rewrite its `buys` (or the opening's) so they meet.
+6. **The payoff answers the opening (when the film sets one up).** The last beats bring back the opening's object or words, changed. If the payoff answers a different question, rewrite its `buys` (or the opening's) so they meet.
 7. **Every buys is one belief a viewer could say.** Vague ("the viewer now understands the product") or two beliefs joined by "and": `rewrite` with the new sentence.
 
 ## You return

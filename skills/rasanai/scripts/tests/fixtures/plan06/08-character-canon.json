@@ -1,0 +1,110 @@
+{
+  "case": "V08",
+  "title": "A recurring actor keeps identity, proportions, materials and rig across scenes; honest actor labels",
+  "calls": [
+    "makePerformance",
+    "validatePerformance",
+    "checkContinuity",
+    "actorLabel",
+    "poseAt",
+    "toRigActions"
+  ],
+  "identity_3d": "skills/rasanai/stage3d/templates/original-actor-3d.json",
+  "identity_2d": "skills/rasanai/stage2d/fixtures/original-actor.json",
+  "scene_a": {
+    "character_id": "pomo-3d",
+    "scene_id": "scene-1",
+    "medium": "3d-rig",
+    "canon_digest": "$CANON_DIGEST:identity_3d",
+    "rig_hash": "$RIG_HASH:identity_3d",
+    "duration_s": 4,
+    "audio": {
+      "source": "audio/vo-1.wav",
+      "sha256": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+      "words": [
+        {
+          "text": "Hello",
+          "start": 0.4,
+          "end": 0.8
+        },
+        {
+          "text": "friends",
+          "start": 0.9,
+          "end": 1.4
+        }
+      ]
+    },
+    "expressions": [
+      {
+        "t_s": 0.2,
+        "dur_s": 1.5,
+        "name": "joyful"
+      }
+    ],
+    "gestures": [
+      {
+        "t_s": 1.6,
+        "dur_s": 0.8,
+        "kind": "look",
+        "target": [
+          1,
+          1,
+          2
+        ]
+      }
+    ],
+    "continuity": {
+      "out": {
+        "yaw": 0
+      }
+    }
+  },
+  "scene_b": {
+    "same_canon": true,
+    "continuity": {
+      "in": {
+        "yaw": 0
+      }
+    },
+    "expect": {
+      "ok": true
+    }
+  },
+  "scene_b_proportions_changed": {
+    "mutate_identity": {
+      "proportions.head_w": 13
+    },
+    "expect_errors_contain": [
+      "canon_digest differs",
+      "rig_hash differs"
+    ]
+  },
+  "scene_b_2d_fallback": {
+    "medium": "painted-2d",
+    "expect_errors_contain": [
+      "medium changes"
+    ],
+    "note": "a 2D fallback next to a 3D actor is a different look, not continuity"
+  },
+  "expect_actor_label_3d_contains": "code-built 3D actor",
+  "expect_actor_label_2d_contains": "painted 2D actor",
+  "unknown_emotion_3d": {
+    "expression": "smug",
+    "expect_error_contains": "is not an emotion the 3d-rig rig draws"
+  },
+  "expect_actions_3d": {
+    "limits_contain": "the 3D rig has no viseme channel",
+    "react_for_joyful": true
+  },
+  "expect_actions_2d": {
+    "emote_with_mouth_override": true,
+    "mouth_shapes_subset_of": [
+      "open",
+      "o",
+      "flat"
+    ]
+  },
+  "pose_purity": "poseAt(doc, 1.0) is identical before and after poseAt(doc, 3.0) and poseAt(doc, 0.2) (A-B-A)",
+  "user_art": "a supplied still image is reference art, not a rigged model; a performance for it must use the 2D painted fallback and say so",
+  "deferred_to": "plan 14: two real scenes, rig hash equal, frames compared against the model sheet; frame-juror review"
+}

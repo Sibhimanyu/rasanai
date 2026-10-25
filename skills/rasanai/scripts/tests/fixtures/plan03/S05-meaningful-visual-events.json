@@ -1,0 +1,10 @@
+{"case":"S05","status":"authored_not_run","_label":"SYNTHETIC EXAMPLE. Invented to exercise the treatment validator. Not a recording or a claim source. Authored, not run.",
+"title":"meaningful visual events: before / change / after, not unrelated nouns over decoration",
+"calls":["normalizeTreatment","validateTreatment","coverageLedger"],
+"input":{"beats":[
+{"id":"b1","visual_event":{"before":"empty inbox with 40 unread rows","change":"rows collapse into one summary card","after":"single card listing three actions"},"evidence_refs":["syn-w"]},
+{"id":"b2","visual_event":{"before":"","change":"glowing particles drift over a gradient","after":""}},
+{"id":"b3","visual_event":{"before":"Transformation","change":"Possibility","after":"Desire"}},
+{"id":"b4","visual_event":{"before":"cursor over blank doc","change":"","after":"doc full of text"}},
+{"id":"b5","visual_event":{"before":"calm","change":"calm","after":"calm"}}]},
+"expect":{"b1":"valid: concrete before and after differ, change names what happens, evidence backs it","b2":"flagged: decoration, before and after empty (concrete event missing)","b3":"flagged: three abstract nouns, no concrete event; rewrite for meaning, not because the words are banned","b4":"error visual-event-missing: change is empty","b5":"flagged: before equals after, nothing changes","rewrite_class":"creative (meaning), mechanical only for the empty change field"}}

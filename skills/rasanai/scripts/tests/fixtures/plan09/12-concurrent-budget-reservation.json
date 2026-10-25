@@ -1,0 +1,40 @@
+{
+  "id": "plan09/P12",
+  "title": "Concurrent budget reservation: one remaining allowance, idempotent, unknown stays unknown",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised, the input and the expected outcome; authored, not run. No number here is a measurement of real rendering, latency, memory or cost.",
+  "calls": [
+    {
+      "fn": "jobs.reserveBudget",
+      "case": "limit 100k tokens, usage known, spent 20k; three parallel jobs of 30k each (headroom 25%) from separate processes"
+    },
+    {
+      "fn": "jobs.reserveBudget",
+      "case": "the same op_id requested again after a transient failure"
+    },
+    {
+      "fn": "jobs.reconcileBudget",
+      "case": "actual 22k; the same call twice; failed with no usage"
+    },
+    {
+      "fn": "jobs.reserveBudget",
+      "case": "usage unreported with a limit set; three jobs"
+    },
+    {
+      "fn": "jobs.reserveBudget",
+      "case": "no limit set and usage unreported"
+    },
+    {
+      "fn": "jobs.reconcileBudget",
+      "case": "finished with actual null"
+    }
+  ],
+  "expect": [
+    "the first two fit (37.5k each against 80k remaining is 75k), the third is refused budget_unavailable with the remaining amount: reservations never overlap because they run under one lock",
+    "the retry returns the same reservation (idempotent true), never a second one",
+    "reconcile releases the unused part once; the second call is idempotent; a failure with no usage releases it and a retry reopens the same record",
+    "unreported usage allows at most 2 concurrent reservations (conservative) and says so",
+    "no limit: reservations are recorded as unknown with null amounts, concurrency conservative, no dollar precision invented",
+    "an unreported actual keeps the amount counted as an estimate against the allowance"
+  ]
+}

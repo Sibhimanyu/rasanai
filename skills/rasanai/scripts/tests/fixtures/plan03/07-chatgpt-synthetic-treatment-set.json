@@ -1,0 +1,460 @@
+{
+  "_label": "SYNTHETIC EXAMPLE. Invented to exercise the story code. NOT a recording, a certification of any product's capabilities, or a claim source. Never reuse as a captured result in a real film. The ChatGPT-style example is a communication-quality target with frozen invented evidence and no claim of a new release; it is not a certification of current capabilities.",
+  "_note": "authored, not run. Three materially different candidates (capability sequence; one project start to finish; refinement as the idea). Expected: the set is distinct on at least two of proof selection, order, perspective, premise per pair, every candidate ships, and a generator may choose different demonstrations from real evidence: the exact words are not required.",
+  "context": {
+    "kind": "whole-product-introduction",
+    "duration_s": 30,
+    "evidence_file": "evidence-synthetic.json",
+    "must_show": [
+      {
+        "id": "ms1",
+        "claim_ref": "syn-w"
+      }
+    ],
+    "choices": 3
+  },
+  "treatments": [
+    {
+      "story_format": "v2",
+      "id": "t-capabilities",
+      "tag": "Sure",
+      "treatment_title": "Five small jobs, one assistant",
+      "premise": "a capability sequence: three different real jobs side by side",
+      "logline": "Notes, a list and a document each become something useful.",
+      "communication_kind": "whole-product-introduction",
+      "proposition": "One assistant takes on very different small jobs.",
+      "viewer_takeaway": "I can hand it many kinds of job.",
+      "perspective": "a person with a mixed to-do list",
+      "takeaways": [
+        {
+          "id": "t1",
+          "text": "it drafts from rough notes",
+          "required": true
+        },
+        {
+          "id": "t2",
+          "text": "it organises a messy list",
+          "required": true
+        }
+      ],
+      "optional_tools": [],
+      "beats": [
+        {
+          "id": "a-intro",
+          "internal_beat_label": "Opening",
+          "grammar_role": "proposition",
+          "viewer_takeaway": "An assistant that handles very different small jobs.",
+          "on_screen": "Many small jobs. One place.",
+          "voiceover": null,
+          "visual_event": {
+            "before": "an empty input box",
+            "change": "the first request is typed",
+            "after": "a request ready to run"
+          },
+          "evidence_refs": [],
+          "relation_to_previous": "open",
+          "duration_provisional_s": 4,
+          "channel_role": {
+            "mode": "screen-only",
+            "reason": ""
+          }
+        },
+        {
+          "id": "a-notes",
+          "internal_beat_label": "Notes",
+          "grammar_role": "demonstration",
+          "viewer_takeaway": "It drafts an invitation from rough notes.",
+          "on_screen": "Notes in, invitation out.",
+          "voiceover": null,
+          "visual_event": {
+            "before": "three rough event notes",
+            "change": "the request produces an invitation draft",
+            "after": "a short invitation"
+          },
+          "evidence_refs": [
+            "syn-w"
+          ],
+          "relation_to_previous": "example",
+          "duration_provisional_s": 8,
+          "channel_role": {
+            "mode": "screen-only",
+            "reason": ""
+          }
+        },
+        {
+          "id": "a-list",
+          "internal_beat_label": "List",
+          "grammar_role": "demonstration",
+          "viewer_takeaway": "It lays out a week from a messy list.",
+          "on_screen": "A list becomes a week.",
+          "voiceover": null,
+          "visual_event": {
+            "before": "a messy task list",
+            "change": "the tasks are sorted into days",
+            "after": "a week with tasks placed"
+          },
+          "evidence_refs": [
+            "syn-p"
+          ],
+          "relation_to_previous": "example",
+          "duration_provisional_s": 8,
+          "channel_role": {
+            "mode": "screen-only",
+            "reason": ""
+          }
+        },
+        {
+          "id": "a-doc",
+          "internal_beat_label": "Document",
+          "grammar_role": "demonstration",
+          "viewer_takeaway": "It summarises a pasted document in five lines.",
+          "on_screen": "Long in, five lines out.",
+          "voiceover": null,
+          "visual_event": {
+            "before": "a long pasted document",
+            "change": "the request returns five lines",
+            "after": "five readable lines"
+          },
+          "evidence_refs": [
+            "syn-s"
+          ],
+          "relation_to_previous": "example",
+          "duration_provisional_s": 6,
+          "channel_role": {
+            "mode": "screen-only",
+            "reason": ""
+          }
+        },
+        {
+          "id": "a-end",
+          "internal_beat_label": "Invitation",
+          "grammar_role": "invitation",
+          "viewer_takeaway": "You can start with any small job.",
+          "on_screen": "Start with one.",
+          "voiceover": null,
+          "visual_event": {
+            "before": "three finished results",
+            "change": "the input box returns empty",
+            "after": "an empty input box"
+          },
+          "evidence_refs": [],
+          "relation_to_previous": "so",
+          "duration_provisional_s": 4,
+          "channel_role": {
+            "mode": "screen-only",
+            "reason": ""
+          }
+        }
+      ],
+      "coverage": {
+        "ledger": [
+          {
+            "takeaway_id": "t1",
+            "beat_id": "a-notes"
+          },
+          {
+            "takeaway_id": "t2",
+            "beat_id": "a-list"
+          }
+        ],
+        "excluded": []
+      }
+    },
+    {
+      "story_format": "v2",
+      "id": "t-one-party",
+      "tag": "Bold",
+      "treatment_title": "One party, planned start to finish",
+      "premise": "one coherent project from rough material to a result",
+      "logline": "A host plans one event and the assistant does each step.",
+      "communication_kind": "whole-product-introduction",
+      "proposition": "One event can be planned entirely in one conversation.",
+      "viewer_takeaway": "I can plan a whole event with it.",
+      "perspective": "a host planning one event",
+      "takeaways": [
+        {
+          "id": "t1",
+          "text": "it turns rough event notes into an invitation",
+          "required": true
+        },
+        {
+          "id": "t2",
+          "text": "it plans the tasks before the event",
+          "required": true
+        }
+      ],
+      "optional_tools": [],
+      "beats": [
+        {
+          "id": "b-open",
+          "internal_beat_label": "The host",
+          "grammar_role": "proposition",
+          "viewer_takeaway": "A host has rough notes and a date.",
+          "on_screen": "Saturday. Twelve guests.",
+          "voiceover": null,
+          "visual_event": {
+            "before": "a phone with three rough notes",
+            "change": "the notes are pasted into the assistant",
+            "after": "the notes in the input box"
+          },
+          "evidence_refs": [],
+          "relation_to_previous": "open",
+          "duration_provisional_s": 4,
+          "channel_role": {
+            "mode": "screen-only",
+            "reason": ""
+          }
+        },
+        {
+          "id": "b-invite",
+          "internal_beat_label": "The invitation",
+          "grammar_role": "demonstration",
+          "viewer_takeaway": "The rough notes become an invitation.",
+          "on_screen": "Invitation, drafted.",
+          "voiceover": null,
+          "visual_event": {
+            "before": "three rough event notes",
+            "change": "the request produces an invitation draft",
+            "after": "a short invitation"
+          },
+          "evidence_refs": [
+            "syn-w"
+          ],
+          "relation_to_previous": "so",
+          "duration_provisional_s": 8,
+          "channel_role": {
+            "mode": "screen-only",
+            "reason": ""
+          }
+        },
+        {
+          "id": "b-tasks",
+          "internal_beat_label": "The week",
+          "grammar_role": "demonstration",
+          "viewer_takeaway": "The same event becomes a week of tasks.",
+          "on_screen": "The week, planned.",
+          "voiceover": null,
+          "visual_event": {
+            "before": "the invitation and a messy to-do list",
+            "change": "the tasks are sorted into the days before the party",
+            "after": "a week of tasks ending on the party"
+          },
+          "evidence_refs": [
+            "syn-p"
+          ],
+          "relation_to_previous": "so",
+          "duration_provisional_s": 8,
+          "channel_role": {
+            "mode": "screen-only",
+            "reason": ""
+          }
+        },
+        {
+          "id": "b-build",
+          "internal_beat_label": "Everything in one place",
+          "grammar_role": "accumulation",
+          "viewer_takeaway": "The invitation and the plan now sit together.",
+          "on_screen": "One event, one thread.",
+          "voiceover": null,
+          "visual_event": {
+            "before": "the invitation and the week as separate results",
+            "change": "they are gathered into one conversation",
+            "after": "one thread holding the whole event"
+          },
+          "evidence_refs": [],
+          "relation_to_previous": "so",
+          "duration_provisional_s": 6,
+          "channel_role": {
+            "mode": "screen-only",
+            "reason": ""
+          }
+        },
+        {
+          "id": "b-end",
+          "internal_beat_label": "Invitation",
+          "grammar_role": "invitation",
+          "viewer_takeaway": "You can plan your next event the same way.",
+          "on_screen": "Plan the next one.",
+          "voiceover": null,
+          "visual_event": {
+            "before": "the finished thread",
+            "change": "the input box clears for a new event",
+            "after": "an empty input box"
+          },
+          "evidence_refs": [],
+          "relation_to_previous": "so",
+          "duration_provisional_s": 4,
+          "channel_role": {
+            "mode": "screen-only",
+            "reason": ""
+          }
+        }
+      ],
+      "coverage": {
+        "ledger": [
+          {
+            "takeaway_id": "t1",
+            "beat_id": "b-invite"
+          },
+          {
+            "takeaway_id": "t2",
+            "beat_id": "b-tasks"
+          }
+        ],
+        "excluded": []
+      }
+    },
+    {
+      "story_format": "v2",
+      "id": "t-refine",
+      "tag": "Wild",
+      "treatment_title": "Fix it with one more sentence",
+      "premise": "follow-up refinement as the central idea",
+      "logline": "A draft is changed again and again by plain follow-up sentences.",
+      "communication_kind": "whole-product-introduction",
+      "proposition": "You get to the draft you want by talking to it.",
+      "viewer_takeaway": "I can keep refining until it is right.",
+      "perspective": "an editor refining a draft",
+      "takeaways": [
+        {
+          "id": "t1",
+          "text": "a follow-up sentence changes the tone of a draft",
+          "required": true
+        },
+        {
+          "id": "t2",
+          "text": "it drafts from rough notes first",
+          "required": true
+        }
+      ],
+      "optional_tools": [],
+      "beats": [
+        {
+          "id": "c-open",
+          "internal_beat_label": "The first draft",
+          "grammar_role": "proposition",
+          "viewer_takeaway": "A first draft is rarely the right one.",
+          "on_screen": "First draft.",
+          "voiceover": null,
+          "visual_event": {
+            "before": "a blank page",
+            "change": "a rough draft appears",
+            "after": "a rough invitation draft"
+          },
+          "evidence_refs": [],
+          "relation_to_previous": "open",
+          "duration_provisional_s": 5,
+          "channel_role": {
+            "mode": "screen-only",
+            "reason": ""
+          }
+        },
+        {
+          "id": "c-start",
+          "internal_beat_label": "From notes",
+          "grammar_role": "demonstration",
+          "viewer_takeaway": "It drafts from rough notes to begin.",
+          "on_screen": "Start from notes.",
+          "voiceover": null,
+          "visual_event": {
+            "before": "three rough event notes",
+            "change": "the request produces an invitation draft",
+            "after": "a short invitation draft"
+          },
+          "evidence_refs": [
+            "syn-w"
+          ],
+          "relation_to_previous": "so",
+          "duration_provisional_s": 7,
+          "channel_role": {
+            "mode": "screen-only",
+            "reason": ""
+          }
+        },
+        {
+          "id": "c-tone",
+          "internal_beat_label": "Warmer",
+          "grammar_role": "demonstration",
+          "viewer_takeaway": "One follow-up sentence makes the draft warmer.",
+          "on_screen": "Make it warmer.",
+          "voiceover": null,
+          "visual_event": {
+            "before": "the formal invitation draft",
+            "change": "the follow-up sentence is typed and the wording softens",
+            "after": "the same invitation, warmer"
+          },
+          "evidence_refs": [
+            "syn-r"
+          ],
+          "relation_to_previous": "so",
+          "duration_provisional_s": 8,
+          "channel_role": {
+            "mode": "screen-only",
+            "reason": ""
+          }
+        },
+        {
+          "id": "c-again",
+          "internal_beat_label": "Shorter",
+          "grammar_role": "demonstration",
+          "viewer_takeaway": "Another sentence makes it shorter.",
+          "on_screen": "Now shorter.",
+          "voiceover": null,
+          "visual_event": {
+            "before": "the warm invitation",
+            "change": "a second sentence trims it to two lines",
+            "after": "a two-line invitation"
+          },
+          "evidence_refs": [
+            "syn-r"
+          ],
+          "relation_to_previous": "escalation",
+          "duration_provisional_s": 6,
+          "channel_role": {
+            "mode": "screen-only",
+            "reason": ""
+          }
+        },
+        {
+          "id": "c-end",
+          "internal_beat_label": "Invitation",
+          "grammar_role": "invitation",
+          "viewer_takeaway": "You can keep going until it is right.",
+          "on_screen": "Keep going.",
+          "voiceover": null,
+          "visual_event": {
+            "before": "the final invitation",
+            "change": "the input box returns empty",
+            "after": "an empty input box ready for the next sentence"
+          },
+          "evidence_refs": [],
+          "relation_to_previous": "so",
+          "duration_provisional_s": 4,
+          "channel_role": {
+            "mode": "screen-only",
+            "reason": ""
+          }
+        }
+      ],
+      "coverage": {
+        "ledger": [
+          {
+            "takeaway_id": "t1",
+            "beat_id": "c-tone"
+          },
+          {
+            "takeaway_id": "t2",
+            "beat_id": "c-start"
+          }
+        ],
+        "excluded": []
+      }
+    }
+  ],
+  "expected": {
+    "set_ok": true,
+    "comparison_distinct": true,
+    "escalation_needed": false,
+    "classify_note": "a request for a ChatGPT launch video with only synthetic evidence stays whole-product-introduction (Plan 02)"
+  }
+}

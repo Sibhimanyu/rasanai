@@ -1,0 +1,20 @@
+{
+  "id": "plan08/K02",
+  "title": "Packet compiler: qualifiers, approved copy and privacy are never shortened; pressure is reported",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised and the expected outcome; no token count, price or latency here is a measurement.",
+  "setup": "run with research/claims.json containing a claim with qualifier 'in the US only' and a protected number; brief.must_show with approved copy; plan.local non-empty; per_packet_start.build set tiny via productionPolicy packet_budget",
+  "calls": [
+    {
+      "fn": "packets.compilePacket",
+      "role": "scene-animator",
+      "key": "2"
+    }
+  ],
+  "expect": [
+    "the mandatory section contains the qualifier text, the protected tokens, the approved copy and the privacy line verbatim",
+    "receipt.pressure.pressure is true with over_by > 0 and the action says nothing was truncated",
+    "optional slices (story-beats, storyboard-shots) move to omitted_optional with a ref; mandatory sections are still included",
+    "estimate_note says bytes/4 estimates, not tokenizer counts; no network call is made"
+  ]
+}

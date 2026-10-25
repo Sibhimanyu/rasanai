@@ -1,0 +1,40 @@
+{
+  "id": "plan09/P09",
+  "title": "Fallback truth: slower paths are visible, never disguised; no instant success from an overlay",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised, the input and the expected outcome; authored, not run. No number here is a measurement of real rendering, latency, memory or cost.",
+  "calls": [
+    {
+      "fn": "incremental-render.capabilityBoundary",
+      "case": "no hybrid/render-capabilities.json; then one recording a range render for another hyperframes version; then one for the installed version"
+    },
+    {
+      "fn": "hybrid-render.renderFilm",
+      "case": "a change that needs group_host on a film with composited scenes"
+    },
+    {
+      "fn": "hybrid-render.renderFilm --dry-run",
+      "case": "a changed shared root script"
+    },
+    {
+      "fn": "revision-events.validateEvent",
+      "case": "preview_ready with a receipt for another source digest; with no checksum; with preview.kind overlay; source_changed carrying a ready preview"
+    },
+    {
+      "fn": "revision-events.emitRevision",
+      "case": "preview_pending, then a failed render, then a retry that succeeds"
+    },
+    {
+      "fn": "revision-events.previousDelivered",
+      "case": "a revision builds while delivered.json names an existing file"
+    }
+  ],
+  "expect": [
+    "verified_fragment is supported only when the record names the installed version; otherwise the plan says why not and PROBE.md is the source",
+    "the render refuses with unable and the reason (a multi-scene host cannot carry composited scenes) and renders nothing",
+    "the dry run reports every unit's path, reasons and fallbacks and which scenes would be reused",
+    "each invalid event is refused with its reason; an overlay can never be preview_ready",
+    "a failed render emits failed (or blocked with reason_code) and the previously delivered file is untouched; the retry emits ready only after the new file and receipt exist",
+    "previous_delivered stays named until final_ready; delivered_kept is null only then"
+  ]
+}

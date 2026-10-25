@@ -1,0 +1,66 @@
+{
+  "plan": 8,
+  "note": "Authored fixtures, not run. Synthetic. Real packet-size comparison, injected-context inspection, stale/private cache rejection and total usage including failed workers wait for Plan 14 and the user's explicit testing approval.",
+  "cases": [
+    {
+      "id": "plan08/K01",
+      "file": "01-one-policy-separate-axes.json",
+      "title": "One production policy: pace and budget never change alternatives, story type or the Story/Look distinction",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan08/K02",
+      "file": "02-packet-keeps-mandatory-facts.json",
+      "title": "Packet compiler: qualifiers, approved copy and privacy are never shortened; pressure is reported",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan08/K03",
+      "file": "03-retrieval-order-and-exclusions.json",
+      "title": "Recipe retrieval: contract, kind guide, recipe, failure only on request; unimplemented excluded",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan08/K04",
+      "file": "04-concise-worker-result.json",
+      "title": "Worker result schema: concise fields, detail in files, digest matches the packet",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan08/K05",
+      "file": "05-artifact-cache-validation.json",
+      "title": "Cache hit accepted only after validation; never replays a provider submission; reuse is not approval",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan08/K06",
+      "file": "06-model-allocation.json",
+      "title": "Model allocation by task: no silent downgrade, no max effort for bookkeeping, focused repair then bounded escalation",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan08/K07",
+      "file": "07-usage-null-not-zero.json",
+      "title": "Usage: unknown is null, reasoning not double counted, estimate separate from billed",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan08/K08",
+      "file": "08-intake-and-speculation.json",
+      "title": "Source intake record, rule budget, and no speculation on unselected alternatives",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan08/K09",
+      "file": "09-legacy-readers-and-pace-mapping.json",
+      "title": "Legacy readers: Swift pace, researchDepth, --lean, older plans keep their meaning",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan08/K10",
+      "file": "10-resume-or-fresh-and-startup-injection.json",
+      "title": "Resume vs fresh worker; no skill attached at worker startup; packet receipt records input digests",
+      "status": "authored_not_run"
+    }
+  ]
+}

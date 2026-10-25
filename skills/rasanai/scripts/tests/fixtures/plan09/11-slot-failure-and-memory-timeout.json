@@ -1,0 +1,40 @@
+{
+  "id": "plan09/P11",
+  "title": "Slot failure and memory timeout: fail closed in the managed path, legacy behaviour unchanged elsewhere",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised, the input and the expected outcome; authored, not run. No number here is a measurement of real rendering, latency, memory or cost.",
+  "calls": [
+    {
+      "fn": "slot.acquireSlotSync",
+      "case": "managed, RASANAI_SLOT_DIR unwritable"
+    },
+    {
+      "fn": "slot.acquireSlotSync",
+      "case": "managed, timeoutMs 1 s with all slots held by a live process"
+    },
+    {
+      "fn": "slot.acquireManaged",
+      "case": "managed, free memory under the floor for longer than mem_wait_ms"
+    },
+    {
+      "fn": "slot.acquireManaged",
+      "case": "managed, shouldCancel returns true while queued"
+    },
+    {
+      "fn": "slot.acquireSlotSync",
+      "case": "legacy call (no managed flag, no env) with the same unwritable folder"
+    },
+    {
+      "fn": "slot.acquireSlotSync",
+      "case": "managed with RASANAI_RENDER_SLOTS=0"
+    }
+  ],
+  "expect": [
+    "blocked true, state resource_blocked, reason_code slot_dir_unwritable; the caller does not render (finish.mjs exits 75, reel.mjs stops)",
+    "state queued, reason_code wait_timeout, timed_out true: the job stays queued, the cap is not ignored",
+    "no slot is held while waiting for memory; after the window the result is resource_blocked, memory_pressure_timeout",
+    "state cancelled, cancelled_while_queued, ticket removed",
+    "legacy behaviour unchanged: proceeds without the limiter and says so in notes",
+    "the person's explicit zero is honoured and reported on the handle (limiter_off), never hidden"
+  ]
+}

@@ -1,0 +1,5 @@
+{ "_note": "authored, not run. Volatile availability claim retrieved long ago.",
+  "now": "2026-10-25T00:00:00Z",
+  "evidence": [ { "id": "e1", "source": { "url": "https://example.com/pricing" }, "retrieved_at": "2026-08-01T00:00:00Z", "assertion": "Pro plan is 12 USD per month", "fact_kind": "pricing", "type": "public", "permitted_use": "claim" },
+                { "id": "e2", "source": { "url": "https://example.com/about" }, "retrieved_at": "2025-01-01T00:00:00Z", "assertion": "Founded in 2019", "fact_kind": "stable", "type": "public", "permitted_use": "claim" } ],
+  "expected": { "e1": "recheck (pricing is volatile)", "e2": "reuse (stable)", "stale_evidence": ["e1"] } }

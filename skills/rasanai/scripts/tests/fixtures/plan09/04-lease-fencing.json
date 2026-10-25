@@ -1,0 +1,50 @@
+{
+  "id": "plan09/P04",
+  "title": "Lease fencing: only the current generation commits; a late stale worker is rejected and its log kept",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised, the input and the expected outcome; authored, not run. No number here is a measurement of real rendering, latency, memory or cost.",
+  "calls": [
+    {
+      "fn": "jobs.createJob",
+      "case": "same node, input digest and approval twice"
+    },
+    {
+      "fn": "jobs.claim",
+      "case": "worker A claims (generation 1); worker B claims while A's process is alive"
+    },
+    {
+      "fn": "jobs.supersede",
+      "case": "an upstream revision lands while A runs; B claims (generation 3)"
+    },
+    {
+      "fn": "jobs.commit",
+      "case": "A wakes up and commits its staged output with generation 1"
+    },
+    {
+      "fn": "jobs.commit",
+      "case": "B commits with generation 3 but current_input_digest differs from the job's"
+    },
+    {
+      "fn": "jobs.commit",
+      "case": "B commits with the right generation and digest"
+    },
+    {
+      "fn": "jobs.accept",
+      "case": "agent job accepted by crew.mjs check with a stale token"
+    },
+    {
+      "fn": "jobs.claim",
+      "case": "a lease whose owner pid is dead; and one whose pid was reused by another process"
+    }
+  ],
+  "expect": [
+    "the second create returns created false and the same job (idempotent by node + input + approval)",
+    "B's claim is refused lease_held while A's owner identity is alive, however old A's heartbeat is",
+    "supersede bumps the generation and returns stop_pid for the live local owner; B's claim becomes generation 3",
+    "A's commit is rejected stale_generation; its staged directory is moved to crew/jobs/rejected/ and attempts/<job>-a1.log records the rejection; nothing is published",
+    "an upstream input change rejects the commit with input_changed and keeps the staged output",
+    "a valid commit renames the staged files into the run atomically and records the output manifest (path, digest, size); the lock was held only for checks and renames",
+    "accept with a stale token is refused and logged; crew.mjs check turns it into a problem and does not record ok",
+    "a dead owner (or a changed pid start time) allows the claim and logs the reclaim; a live owner never does"
+  ]
+}

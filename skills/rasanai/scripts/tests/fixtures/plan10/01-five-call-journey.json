@@ -1,0 +1,116 @@
+{
+  "case": "plan10/U01",
+  "note": "synthetic; authored, not run",
+  "calls": [
+    {
+      "call": "brief",
+      "number": 1,
+      "approve_means": "These are the inputs and the outcome you want.",
+      "legacy_steps": [
+        "brief"
+      ]
+    },
+    {
+      "call": "story",
+      "number": 2,
+      "approve_means": "This idea and the order of the communication are approved.",
+      "legacy_steps": [
+        "story",
+        "concept"
+      ]
+    },
+    {
+      "call": "look",
+      "number": 3,
+      "approve_means": "This visual system is approved. Individual shots are not yet.",
+      "legacy_steps": [
+        "look",
+        "films",
+        "direction"
+      ],
+      "media_label": "Styleframe"
+    },
+    {
+      "call": "storyboard",
+      "number": 4,
+      "approve_means": "The detailed shots and timing are approved. The film gets built from this.",
+      "legacy_steps": [
+        "animatic"
+      ],
+      "media_label": "Animatic (or Slideshow when no timed video exists)"
+    },
+    {
+      "call": "final",
+      "number": 5,
+      "approve_means": "This film is accepted, or you list the changes you want.",
+      "legacy_steps": [
+        "render",
+        "final"
+      ],
+      "media_label": "Final only for a delivery render; Proxy otherwise"
+    }
+  ],
+  "between_storyboard_and_final": {
+    "route": "build",
+    "caption": "Building your film. This is progress, not a call: nothing here needs your approval.",
+    "is_a_call": false
+  },
+  "inherited": [
+    {
+      "session": {
+        "decide_rest": {
+          "ts": "t"
+        },
+        "steps": {
+          "brief": {
+            "status": "done",
+            "sent": {
+              "type": "approve"
+            }
+          },
+          "story": {
+            "status": "awaiting"
+          }
+        }
+      },
+      "expect": {
+        "brief": "you",
+        "look": "decideRest",
+        "storyboard": "decideRest",
+        "final": null
+      },
+      "series_defaults_changed": false
+    },
+    {
+      "session": {
+        "series": {
+          "name": "Weekly update"
+        },
+        "steps": {
+          "look": {
+            "status": "done",
+            "inherited": {
+              "from": "series"
+            }
+          }
+        }
+      },
+      "expect": {
+        "look": "series(Weekly update)"
+      },
+      "series_defaults_changed": false
+    }
+  ],
+  "titles": [
+    {
+      "title": "Story 2",
+      "logline": "A shoebox of receipts becomes a calm tax day.",
+      "expect": "A shoebox of receipts becomes a"
+    },
+    {
+      "title": "Twelve small victories",
+      "expect": "Twelve small victories"
+    }
+  ],
+  "verify": "five visibly different captions; build is not numbered; inherited stages show their source; internal labels never become film headings; a slideshow is never called an animated preview and a proxy is never delivery"
+}

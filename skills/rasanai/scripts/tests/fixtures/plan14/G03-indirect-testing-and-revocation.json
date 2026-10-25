@@ -1,0 +1,103 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan14/G03",
+  "case": "hooks, build and CI cannot start tests before consent; withdrawal stops new dispatch",
+  "targets": [
+    "lib/test-approval.mjs authorize / agentContext / requireApproval (selftest.mjs and eval.mjs call it first)"
+  ],
+  "scenarios": [
+    {
+      "name": "a withdrawn approval refuses new work",
+      "call": "gate",
+      "input": {
+        "approval": {
+          "consent": {
+            "wording": "Yes, run the plan13 unit checks only",
+            "approved_at": "2026-10-26T10:00:00Z"
+          },
+          "candidate": {
+            "commit": "c0ffee",
+            "digest": "digest-one"
+          },
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ],
+          "commands": []
+        },
+        "request": {
+          "kinds": [
+            "unit"
+          ],
+          "cases": [
+            "plan13/Q01"
+          ]
+        },
+        "current_candidate": {
+          "commit": "c0ffee",
+          "digest": "digest-one"
+        },
+        "withdrawn": true
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "~withdrawn"
+      }
+    },
+    {
+      "name": "Claude Code context is detected",
+      "call": "agentContext",
+      "input": {
+        "env": {
+          "CLAUDECODE": "1"
+        }
+      },
+      "expect": {
+        "agent": "$present"
+      }
+    },
+    {
+      "name": "a CI run is detected",
+      "call": "agentContext",
+      "input": {
+        "env": {
+          "CI": "true"
+        }
+      },
+      "expect": {
+        "agent": "$present"
+      }
+    },
+    {
+      "name": "a Conductor workspace is detected",
+      "call": "agentContext",
+      "input": {
+        "env": {
+          "CONDUCTOR_WORKSPACE_NAME": "x"
+        }
+      },
+      "expect": {
+        "agent": "$present"
+      }
+    },
+    {
+      "name": "a plain terminal is not an agent context",
+      "call": "agentContext",
+      "input": {
+        "env": {}
+      },
+      "expect": {
+        "agent": "$absent"
+      }
+    }
+  ],
+  "manual_steps_after_approval": [
+    "with no approval record, start node skills/rasanai/scripts/selftest.mjs: it must exit 3 with refused:true before running anything",
+    "with a valid record, run eval.mjs approval withdraw, then start the same command: it must refuse again",
+    "confirm .github/workflows/ci.yml cannot dispatch the suite without a record (it will refuse): decide separately whether CI should carry an approval"
+  ]
+}

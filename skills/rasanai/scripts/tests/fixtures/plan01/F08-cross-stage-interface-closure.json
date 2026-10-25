@@ -1,0 +1,4 @@
+{"case":"F08","status":"authored_not_run","_label":"SYNTHETIC EXAMPLE. Invented data to describe expected behaviour. Authored, not run; certifies nothing about current capabilities.","title":"timing, render and task interfaces have real callers and consumers; no fake-success stubs",
+"calls":["STAGE_TABLE","dependsOn","missingPrerequisites","validateStoryboard","validateWorkerPacket"],
+"input":{"interfaces":[{"name":"storyboard timing","producer":"storyboard stage","consumer":"audio/animatic reader"},{"name":"render request","producer":"final stage","consumer":"renderer"},{"name":"worker task packet","producer":"crew plan","consumer":"worker role"}]},
+"expect":{"each_interface":"has at least one real caller in code and one real consumer reading the produced field","stub_that_returns_ok_without_work":"fails the closure check","dangling_producer":"reported","dangling_consumer":"reported","missing_prerequisite_stage":"reported by missingPrerequisites, not skipped"}}

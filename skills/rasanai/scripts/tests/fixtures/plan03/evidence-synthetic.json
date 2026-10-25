@@ -1,0 +1,71 @@
+{
+  "_label": "SYNTHETIC EXAMPLE. Invented to exercise the story code. NOT a recording, a certification of any product's capabilities, or a claim source. Never reuse as a captured result in a real film.",
+  "_note": "authored, not run. Shared by the plan03 fixtures; ids are invented. A real film cites live, dated evidence from research/claims.json instead.",
+  "evidence": [
+    {
+      "id": "syn-f1",
+      "type": "synthetic_example",
+      "permitted_use": "visual",
+      "assertion": "A synthetic notes app turns raw notes into a short email draft with one button",
+      "protected": {
+        "required_qualifiers": []
+      }
+    },
+    {
+      "id": "syn-f2",
+      "type": "synthetic_example",
+      "permitted_use": "visual",
+      "assertion": "The synthetic Summarize button is on the synthetic Plus plan",
+      "protected": {
+        "required_qualifiers": [
+          "synthetic Plus plan"
+        ]
+      }
+    },
+    {
+      "id": "syn-w",
+      "type": "synthetic_example",
+      "permitted_use": "visual",
+      "assertion": "An assistant drafts an invitation from three rough event notes",
+      "protected": {
+        "required_qualifiers": []
+      }
+    },
+    {
+      "id": "syn-p",
+      "type": "synthetic_example",
+      "permitted_use": "visual",
+      "assertion": "An assistant lays out a week of tasks from a messy list",
+      "protected": {
+        "required_qualifiers": []
+      }
+    },
+    {
+      "id": "syn-s",
+      "type": "synthetic_example",
+      "permitted_use": "visual",
+      "assertion": "An assistant summarises a pasted document into five lines",
+      "protected": {
+        "required_qualifiers": []
+      }
+    },
+    {
+      "id": "syn-r",
+      "type": "synthetic_example",
+      "permitted_use": "visual",
+      "assertion": "A follow-up sentence changes the tone of an existing draft",
+      "protected": {
+        "required_qualifiers": []
+      }
+    },
+    {
+      "id": "syn-id1",
+      "type": "synthetic_example",
+      "permitted_use": "visual",
+      "assertion": "A synthetic identity: one circle, one colour, one typeface",
+      "protected": {
+        "required_qualifiers": []
+      }
+    }
+  ]
+}

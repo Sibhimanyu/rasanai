@@ -32,6 +32,10 @@
 //      just after an onset snaps back to it (within 0.15 s), ends likewise. TTS word timings and whisper timings both run early or late by 50-200 ms; text that must
 //      land 0-2 frames before its word needs the real onset. No --words: the clip is transcribed first (whisper-cli). {words, changes, speech_spans}.
 //
+//   Plan 07: speak reuses a line from <run>/audio/voice-cache.json when its key (text, voice id/provider/model/version, locale, speed, confirmed glossary) is unchanged and its file exists
+//   (--no-cache to speak everything again), applies only user-CONFIRMED pronunciations (--glossary <glossary.json>: {entries:[{term, spoken, confirmed_by:"user"}]}), records each take's sample rate,
+//   channels, duration and approximate lead/trail silence, and never clones a voice unless --voice-kind cloned --authorized-by <who> --authorization-ref <where> are given. A local wording
+//   change regenerates only that line: soundplan.mjs voice plans it, and the shot's timing goes through commitTiming.
 //   node voice.mjs speak --run <run> --script <lines.json|lines.txt> [--voice <id>] [--engine auto|heygen|kokoro|edge] [--lang en] [--speed 1] [--retakes 3] [--match 0.92]
 //        [--respell '{"Brand":"bray-nd"}'] [--out <dir>] [--names "Brand,Product"]
 //   -> narration by take, transcribe, retake: each line is spoken, trimmed, transcribed back (verify's alignment) and kept when 92% of its words match, no 3 words are
@@ -51,6 +55,7 @@ import { track } from "./lib/report.mjs";
 import { noteDowngrade } from "./lib/downgrade.mjs";
 import { loadManifest } from "./lib/film-events.mjs";
 import { decideLanguage, hasWhisperCli, whisperTranscribe } from "./lib/lang.mjs";
+import { applyGlossary, glossaryDigest, lineKey, segmentRecord, voiceAuthorization } from "./lib/voice-cache.mjs"; // Plan 07 A4/A7: confirmed pronunciations, the per-line cache, voice authorization
 
 const args = parseArgs();
 function main() {
@@ -451,16 +456,32 @@ function speak() {
   const dir = path.resolve(args.out && args.out !== true ? String(args.out) : path.join(String(args.run || "."), "voice", "narration"));
   fs.mkdirSync(dir, { recursive: true });
   const nn = (i) => String(i + 1).padStart(2, "0");
+  // Plan 07 A4: only USER-CONFIRMED glossary entries change what is spoken (--glossary <glossary.json>); a voice is never cloned by default (--voice-kind cloned needs --authorized-by and --authorization-ref)
+  const glossary = args.glossary && args.glossary !== true ? JSON.parse(fs.readFileSync(String(args.glossary), "utf8")) : null;
+  const auth = voiceAuthorization({ kind: args["voice-kind"] && args["voice-kind"] !== true ? String(args["voice-kind"]) : "stock", authorization: { by: args["authorized-by"] && args["authorized-by"] !== true ? String(args["authorized-by"]) : "", ref: args["authorization-ref"] && args["authorization-ref"] !== true ? String(args["authorization-ref"]) : "" } });
+  if (!auth.ok) cannot(auth.error);
+  const gl = (t) => applyGlossary(t, glossary, lang).text;
+  // the per-line cache: <run>/audio/voice-cache.json, keyed by text, voice (id, provider, model, version), locale, settings and glossary. A hit is reused only when its file still exists; --no-cache speaks every line again
+  const cacheFile = runOf() ? path.resolve(String(runOf()), "audio", "voice-cache.json") : path.join(dir, "voice-cache.json");
+  let cache = { segments: [] };
+  try { cache = JSON.parse(fs.readFileSync(cacheFile, "utf8")); } catch {}
+  const voiceOf = (e) => ({ id: args.voice && args.voice !== true ? String(args.voice) : "default", provider: e, model: "", version: "unreported", kind: "stock" }); // engines do not report a model version: recorded as unreported, never guessed
+  const gd = glossaryDigest(glossary), newSegs = [];
+  const probeFmt = (f) => { try { const j = JSON.parse(sh("ffprobe", ["-v", "error", "-select_streams", "a:0", "-show_entries", "stream=sample_rate,channels,channel_layout", "-of", "json", f]).stdout); const st = (j.streams || [])[0] || {}; return { sample_rate: Number(st.sample_rate) || null, channels: Number(st.channels) || null, channel_layout: st.channel_layout || null }; } catch { return {}; } };
   const apply = (text, k) => (k < 2 ? text : Object.entries(respell).reduce((t, [a, b]) => t.split(a).join(b), text));
   let eng = pool[0];
   const rows = [], findings = [];
   lines.forEach((text, i) => {
+    const segId = `line-${nn(i)}`, settingsOf = { speed: rates[i] || Number(args.speed) || 1 };
+    const key0 = lineKey({ text, spoken_text: gl(text), voice: voiceOf(eng.id), locale: lang, settings: settingsOf, glossary_digest: gd });
+    const hit = !args["no-cache"] && (cache.segments || []).find((x) => x.segment_id === segId && x.key === key0 && x.file && fs.existsSync(x.file));
+    if (hit) { const fin = path.join(dir, `line-${nn(i)}.wav`); if (path.resolve(hit.file) !== path.resolve(fin)) fs.copyFileSync(hit.file, fin); rows.push({ n: i + 1, text, file: fin, kept_take: hit.kept_take ?? null, ok: true, cached: true, wer: hit.wer ?? 0, takes: [] }); newSegs.push(hit); return; }
     const takes = [];
     for (let k = 1; k <= 1 + retakes; k++) {
       const f = path.join(dir, `line-${nn(i)}-take${k}.wav`);
       const speed = (rates[i] || Number(args.speed) || 1) * (k > 1 && eng.id !== "heygen" ? 1 + (k % 2 ? -0.03 : 0.03) : 1);
       let spoke = false;
-      for (const e of [eng, ...pool.filter((p) => p !== eng)]) { try { synth(e, apply(text, k), f, { voice: args.voice && args.voice !== true ? String(args.voice) : undefined, lang, speed }); eng = e; spoke = true; break; } catch (err) { takes.push({ take: k, engine: e.id, error: String(err.stderr || err.message).split("\n").filter(Boolean).pop().slice(0, 140) }); } }
+      for (const e of [eng, ...pool.filter((p) => p !== eng)]) { try { synth(e, apply(gl(text), k), f, { voice: args.voice && args.voice !== true ? String(args.voice) : undefined, lang, speed }); eng = e; spoke = true; break; } catch (err) { takes.push({ take: k, engine: e.id, error: String(err.stderr || err.message).split("\n").filter(Boolean).pop().slice(0, 140) }); } }
       if (!spoke) continue;
       const h = listen(f, L), A = align([text], h.words), p = A.per[0], wer = p.N ? p.err / p.N : 0;
       const bad = h.tags.length > 0 || A.maxDrop >= 3 || A.maxAdd >= 3;
@@ -479,9 +500,13 @@ function speak() {
     } else fs.copyFileSync(best.file, final);
     if (!best.ok) findings.push({ severity: "warning", check: "line-match", line: i + 1, message: `line ${i + 1} "${text.slice(0, 60)}": the best of ${good.length} take(s) matches ${Math.round((1 - best.wer) * 100)}% (needs ${Math.round(match * 100)}%)${best.tags.length ? `, heard a non-speech tag ${best.tags.join(" ")}` : ""}${best.dropped_run >= 3 || best.added_run >= 3 ? `, a run of ${Math.max(best.dropped_run, best.added_run)} words dropped or added` : ""}; heard "${best.heard}"`, fix: "respell the hard words (--respell), another voice, or rewrite the line" });
     for (const nm of names) if (norm(text).join(" ").includes(norm(nm).join(" ")) && !norm(best.heard).join(" ").includes(norm(nm).join(" "))) findings.push({ severity: "warning", check: "name-misheard", line: i + 1, message: `"${nm}" in line ${i + 1} was heard as "${best.heard}"`, fix: "respell it phonetically for the retake (--respell)" });
+    { const fm = probeFmt(final), dur = probeDur(final), w = best.word, lead = w && Number.isFinite(w.start) ? w.start : null, trail = w && Number.isFinite(w.end) ? Math.max(0, dur - w.end) : null;
+      const rec = segmentRecord({ segment_id: segId, text, spoken_text: gl(text), locale: lang, voice: voiceOf(best.engine), settings: settingsOf, glossary_digest: gd, file: final, format: { ...fm, duration_s: dur }, silence: { lead_s: lead, trail_s: trail }, handles: { head_s: lead, tail_s: trail } });
+      rec.silence.basis = "transcript word times (approximate): not a measured silence"; rec.wer = best.wer; rec.kept_take = best.take; newSegs.push(rec); } // Plan 07 A7: format, lead/trail silence and handles are kept so a later replacement can reconcile pauses
     rows.push({ n: i + 1, text, file: final, kept_take: best.take, ok: best.ok, wer: best.wer, takes: takes.map(({ word, ...t }) => t) });
   });
-  const res = { ok: true, engine: eng.id, model: path.basename(L.model), dir, match, lines: rows, findings };
+  try { const keep = (cache.segments || []).filter((x) => !newSegs.some((n) => n.segment_id === x.segment_id)); fs.mkdirSync(path.dirname(cacheFile), { recursive: true }); fs.writeFileSync(cacheFile, JSON.stringify({ schema_version: 1, segments: [...keep, ...newSegs] }, null, 2) + "\n"); } catch {}
+  const res = { ok: true, cache: path.relative(process.cwd(), cacheFile), cached_lines: rows.filter((r) => r.cached).length, engine: eng.id, model: path.basename(L.model), dir, match, lines: rows, findings };
   fs.writeFileSync(path.join(dir, "speak.json"), JSON.stringify(res, null, 2) + "\n");
   if (eng.id !== "heygen") noteDowngrade({ run: runOf(), what: "the planned narration voice", instead: `${eng.id} (${eng.id === "kokoro" ? "offline, Apache-2.0 weights" : "Microsoft online voices, no key"})`, why: "the HeyGen voice was not available", impact: "the voice differs from the one the options offered" });
   console.log(JSON.stringify(res, null, 2));

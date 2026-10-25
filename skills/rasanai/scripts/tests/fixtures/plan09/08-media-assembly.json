@@ -1,0 +1,40 @@
+{
+  "id": "plan09/P08",
+  "title": "Media assembly: one time base, verified frame counts, no blind concat, audio continuity, finish once",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised, the input and the expected outcome; authored, not run. No number here is a measurement of real rendering, latency, memory or cost.",
+  "calls": [
+    {
+      "fn": "incremental-render.assemblyCheck",
+      "case": "three clips, same codec/pix_fmt/size/fps/colour, frames 60+60+60, total_frames 180"
+    },
+    {
+      "fn": "incremental-render.assemblyCheck",
+      "case": "one clip at 30000/1001 among 30/1 clips; one clip bt601; one with different pix_fmt"
+    },
+    {
+      "fn": "incremental-render.assemblyCheck",
+      "case": "clips total 179 frames against 180"
+    },
+    {
+      "fn": "incremental-render.assemblyCheck",
+      "case": "expect_alpha premultiplied with a yuv420p clip"
+    },
+    {
+      "fn": "incremental-render.audioPlan",
+      "case": "visual-only edit with a mix receipt whose digests match; the same with timing_changed null; the same with a changed score digest"
+    },
+    {
+      "fn": "incremental-render.finishPlan",
+      "case": "a scene-render node that already carries a finish"
+    }
+  ],
+  "expect": [
+    "the matching set is ok",
+    "each mismatch is a named problem and the concat is refused (re-encode to one intermediate spec is not implemented, and the message says so)",
+    "a frame total mismatch is refused",
+    "an intermediate without alpha is refused when premultiplied or straight alpha is the convention",
+    "audio is reused only when mix-receipt reuseDecision says reuse true; unknown timing is never treated as visual-only; a changed score digest remaps and re-verifies",
+    "the film-wide finish is applied once over the assembled picture; a fragment that was already finished is reported in double_apply_risk and per-fragment finishing is refused"
+  ]
+}

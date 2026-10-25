@@ -1,0 +1,173 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan13/Q05",
+  "case": "a model grade never populates the human field",
+  "targets": [
+    "lib/blind-review.mjs recordModelReview / recordHumanReview"
+  ],
+  "scenarios": [
+    {
+      "name": "after a model review the human field is still pending",
+      "call": "reviewFlow",
+      "input": {
+        "steps": [
+          {
+            "do": "model",
+            "input": {
+              "reviewer": {
+                "id": "judge-1",
+                "model": "m"
+              },
+              "chose": "X"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "human_pending": true,
+        "rec": {
+          "model_review": {
+            "reviewer": {
+              "type": "model"
+            },
+            "independent_context": true
+          },
+          "human_review": {
+            "status": "pending_human_review"
+          }
+        }
+      }
+    },
+    {
+      "name": "a judge sharing the creator's scratchpad is refused",
+      "call": "reviewFlow",
+      "input": {
+        "steps": [
+          {
+            "do": "model",
+            "input": {
+              "reviewer": {
+                "id": "judge-1"
+              },
+              "chose": "X",
+              "context": {
+                "shares_creator_scratchpad": true
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "steps": [
+          {
+            "ok": false,
+            "error": "~independent review context"
+          }
+        ],
+        "human_pending": true
+      }
+    },
+    {
+      "name": "a model cannot sign as the human",
+      "call": "reviewFlow",
+      "input": {
+        "steps": [
+          {
+            "do": "human",
+            "input": {
+              "reviewer": {
+                "type": "model",
+                "name": "judge-1"
+              },
+              "chose": "X"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "steps": [
+          {
+            "ok": false,
+            "error": "~named person"
+          }
+        ],
+        "human_pending": true
+      }
+    },
+    {
+      "name": "an agent context cannot record a human review",
+      "call": "reviewFlow",
+      "input": {
+        "steps": [
+          {
+            "do": "human",
+            "input": {
+              "reviewer": {
+                "type": "person",
+                "name": "A. Owner"
+              },
+              "chose": "Y"
+            },
+            "env": {
+              "CLAUDECODE": "1"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "steps": [
+          {
+            "ok": false,
+            "error": "~agent or CI"
+          }
+        ],
+        "human_pending": true
+      }
+    },
+    {
+      "name": "a person's assessment is stored and disagreement kept",
+      "call": "reviewFlow",
+      "input": {
+        "steps": [
+          {
+            "do": "model",
+            "input": {
+              "reviewer": {
+                "id": "judge-1"
+              },
+              "chose": "X"
+            }
+          },
+          {
+            "do": "human",
+            "input": {
+              "reviewer": {
+                "type": "person",
+                "name": "A. Owner"
+              },
+              "chose": "Y"
+            },
+            "env": {}
+          }
+        ]
+      },
+      "expect": {
+        "human_pending": false,
+        "rec": {
+          "human_review": {
+            "status": "assessed",
+            "reviewer": {
+              "type": "person"
+            }
+          },
+          "disagreement": {
+            "model_chose": "X",
+            "human_chose": "Y"
+          }
+        }
+      }
+    }
+  ]
+}

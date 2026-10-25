@@ -1,0 +1,45 @@
+{
+  "id": "plan09/P06",
+  "title": "Atomic cache: private temp + commit marker, pins, in-use entries and disk limits",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised, the input and the expected outcome; authored, not run. No number here is a measurement of real rendering, latency, memory or cost.",
+  "calls": [
+    {
+      "fn": "artifact-store.put",
+      "case": "kill the process between writing output and entry.json"
+    },
+    {
+      "fn": "artifact-store.put",
+      "case": "fence() returns false after staging"
+    },
+    {
+      "fn": "artifact-store.purge",
+      "case": "maxBytes below the total with one pinned entry and one entry with a live .use lease"
+    },
+    {
+      "fn": "artifact-store.put",
+      "case": "over maxBytes and everything left is pinned or in use"
+    },
+    {
+      "fn": "artifact-store.get",
+      "case": "a store opened for project B asks for a key stored by project A; and an entry whose output bytes were altered"
+    },
+    {
+      "fn": "render-cache.publish / produce",
+      "case": "two processes ask for the same key"
+    },
+    {
+      "fn": "artifact-store.rebuildIndex",
+      "case": "delete index.json"
+    }
+  ],
+  "expect": [
+    "no entry.json means a miss and the torn directory is dropped by purge; nothing half-written is ever returned",
+    "a writer that lost its lease publishes nothing (published false, reason lease_lost)",
+    "purge evicts least recently stored first but keeps the pinned and the in-use entry and says why",
+    "put fails with disk_limit true instead of deleting data in use",
+    "namespace folders differ per project/user; project B cannot see A's entry; an entry with altered bytes is a miss (checksum), not a hit",
+    "one producer per key (lock file); the late caller gets the producer's entry",
+    "the index is rebuildable from verified entries and was never consulted for a hit"
+  ]
+}

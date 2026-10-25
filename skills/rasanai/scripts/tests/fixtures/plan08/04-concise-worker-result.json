@@ -1,0 +1,44 @@
+{
+  "id": "plan08/K04",
+  "title": "Worker result schema: concise fields, detail in files, digest matches the packet",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised and the expected outcome; no token count, price or latency here is a measurement.",
+  "calls": [
+    {
+      "fn": "packets.validateResult",
+      "args": {
+        "status": "ok",
+        "artifacts": [
+          "a.html"
+        ],
+        "input_digest": "abc123abc123",
+        "findings": [],
+        "deferred_checks": [],
+        "usage": null,
+        "needs_decision": null
+      }
+    },
+    {
+      "fn": "packets.validateResult",
+      "args": {
+        "status": "ok",
+        "artifacts": [
+          "a.html"
+        ],
+        "input_digest": "zzz",
+        "findings": [],
+        "deferred_checks": [],
+        "usage": null,
+        "needs_decision": "which crop?"
+      },
+      "opts": {
+        "input_digest": "abc123abc123"
+      }
+    }
+  ],
+  "expect": [
+    "first result ok",
+    "second result fails: digest mismatch (stale inputs) and needs_decision with status ok",
+    "a result over 6000 bytes fails with 'write detail to a file'"
+  ]
+}

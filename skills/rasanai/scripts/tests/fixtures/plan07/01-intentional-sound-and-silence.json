@@ -1,0 +1,137 @@
+{
+  "case": "A01",
+  "title": "intentional sound and intentional silence; a silent deliverable is not a generation failure",
+  "calls": [
+    "directionFor",
+    "validateDirection",
+    "silenceWindows",
+    "sfxExpectation",
+    "deliverableState",
+    "deriveCues",
+    "dropInSilence",
+    "transitionStacking"
+  ],
+  "score": {
+    "frame_rate": 30,
+    "scenes": [
+      {
+        "n": 1,
+        "id": "s1",
+        "beat": 1,
+        "duration": 4,
+        "events": [
+          {
+            "id": "e-open",
+            "t": 0.5,
+            "sound": "soft-tap",
+            "what": "title appears"
+          },
+          {
+            "id": "e-quiet",
+            "t": 3.4,
+            "what": "the pause before the turn"
+          }
+        ]
+      },
+      {
+        "n": 2,
+        "id": "s2",
+        "beat": 2,
+        "duration": 5,
+        "events": [
+          {
+            "id": "e-land",
+            "t": 1,
+            "sound": "hit",
+            "what": "the card lands"
+          },
+          {
+            "id": "e-word",
+            "t": 2,
+            "word": "invitation",
+            "what": "the word is spoken and highlighted"
+          }
+        ]
+      }
+    ],
+    "seams": [
+      {
+        "from": 1,
+        "to": 2,
+        "kind": "push",
+        "sound": "whoosh"
+      }
+    ],
+    "audio_cues": [
+      {
+        "id": "cue-open",
+        "event": "e-open",
+        "role": "ui",
+        "source": {
+          "sample": "soft-tap"
+        },
+        "gain_db": -6
+      },
+      {
+        "id": "cue-land-in-silence",
+        "event": "e-quiet",
+        "role": "accent",
+        "source": {
+          "sample": "tick"
+        }
+      },
+      {
+        "id": "cue-deliberate",
+        "event": "e-quiet",
+        "role": "impact",
+        "source": {
+          "sample": "low-thud"
+        },
+        "breaks_silence": true,
+        "break_reason": "the turn lands on the one sound"
+      }
+    ]
+  },
+  "direction": {
+    "narrated": false,
+    "music_led": false,
+    "palette": [
+      "soft glass taps",
+      "low pad"
+    ],
+    "motif": {
+      "id": "tap",
+      "description": "a soft glass tap returns on each reveal",
+      "recurs_at": [
+        "e-open",
+        "e-land"
+      ]
+    },
+    "silence_windows": [
+      {
+        "id": "pre-turn",
+        "kind": "pre_payoff",
+        "around_event": "e-quiet",
+        "before_s": 0.4,
+        "after_s": 0.4,
+        "why": "let the room go quiet before the turn"
+      }
+    ]
+  },
+  "expect": {
+    "direction": "validateDirection ok; sfx role causal (default, in defaults_applied); every_visual_hit false; palette 2 ingredients",
+    "silence_window": "around e-quiet (film 3.4 s): [3.0, 3.8)",
+    "cue_in_silence": "cue-land-in-silence warns cue-in-silence; cue-deliberate does not (breaks_silence with a reason); cue-open is outside the window",
+    "autofill": "dropInSilence on candidate {id:'x', t:3.5} drops it with why 'inside the protected pre_payoff silence window'",
+    "no_universal_cue": "e-land has no authored cue and the seam sound is legacy: nothing is added to 'cover' every visual hit",
+    "silent_deliverable": {
+      "direction": {
+        "silent": true,
+        "silent_reason": "a quiet launch loop on a lobby screen"
+      },
+      "deliverableState": "silent_by_choice, complete true",
+      "failure_variant": "direction with_audio, audio_files [], generation {attempted:true, errors:['tts timeout']} -> generation_failed, complete false"
+    },
+    "no_sfx_check": "sfxExpectation(role none) -> required false with silent_by_choice, so sound.mjs check does not raise no-sfx"
+  }
+}

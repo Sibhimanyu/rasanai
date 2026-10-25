@@ -1,0 +1,93 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan13/Q06",
+  "case": "actual prior behaviour is the baseline, never a degraded candidate labelled old",
+  "targets": [
+    "lib/blind-review.mjs checkBaseline"
+  ],
+  "scenarios": [
+    {
+      "name": "a real earlier version with a digest is accepted",
+      "call": "checkBaseline",
+      "input": {
+        "kind": "earlier_version",
+        "commit": "abc1234",
+        "artifact_digest": "sha256:feed"
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "name": "a degraded candidate is refused",
+      "call": "checkBaseline",
+      "input": {
+        "kind": "earlier_version",
+        "commit": "abc1234",
+        "artifact_digest": "sha256:feed",
+        "degraded": true
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~degraded"
+      }
+    },
+    {
+      "name": "a candidate with features switched off labelled old is refused",
+      "call": "checkBaseline",
+      "input": {
+        "kind": "isolated_checkout",
+        "commit": "abc1234",
+        "worktree_path": "/tmp/wt",
+        "approval_ref": "msg-1",
+        "how_produced": "candidate with the new cache disabled"
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~degraded"
+      }
+    },
+    {
+      "name": "an isolated checkout baseline needs the user's approval reference",
+      "call": "checkBaseline",
+      "input": {
+        "kind": "isolated_checkout",
+        "commit": "abc1234",
+        "worktree_path": "/tmp/wt"
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~approval"
+      }
+    },
+    {
+      "name": "a cheap derived operation is not compared with a full generation",
+      "call": "checkBaseline",
+      "input": {
+        "kind": "earlier_version",
+        "commit": "abc1234",
+        "artifact_digest": "sha256:feed",
+        "runtime_class": "full_generation",
+        "compared_runtime_class": "derived_revision"
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~like for like"
+      }
+    },
+    {
+      "name": "no commit, no baseline",
+      "call": "checkBaseline",
+      "input": {
+        "kind": "earlier_version",
+        "artifact_digest": "sha256:feed"
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~commit"
+      }
+    }
+  ]
+}

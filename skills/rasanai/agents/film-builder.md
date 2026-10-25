@@ -65,7 +65,7 @@ Raw GSAP is fine where the kit has no verb (UI state changes, counters, morphs w
 - **Seams:** the outgoing beat is still moving when the cut lands and the incoming one arrives moving, same axis, direction and roughly speed; carry an object across at least two seams (`compositions/carriers/<name>.html`, timed in film seconds, mounted with `video.mjs carriers`). Cut on action, 1 to 2 frames before a strong beat.
 - **Holds:** a hold is composed, not dead: the camera keeps its push, the ground breathes, a secondary settles late. No dead frame over 0.8 s outside the end card; the end card lands, then holds at most 1.4 s still.
 - **Speed:** fast moves soften with speed (the kit does it; `blurTrail` in RasanCamera for a directional smear); the delivery finish adds true motion blur.
-- **Finish and budgets:** the finish layer is on (a tinted living ground, soft shadows, a key light, glass on the hero, grain, vignette: RasanCamera) unless the brand film card's measured `Finish:` line says Route: graphic, and then the film wins on giant type and photography. The brand locks palette, type, logo, UI and tone, never craft: 3D takes the brand palette (matte or unlit) and keeps depth of field and motion blur. A hero effect (glow, blur-in, scale-pop, a big overshoot, particles, a light comet) goes only where `score.budget` names its scene and target; the same effect on every element is the tell (obey and slop fail it).
+- **Finish and budgets:** the finish layer is the default (a tinted living ground, soft shadows, a key light, glass on the hero, grain, vignette: RasanCamera) unless the brand film card's measured `Finish:` line says Route: graphic or `look/visual-bible.json` `imagery.finish_policy` is `none` (a recorded choice; read the bible's `texture_finish` for the treatments this look keeps and what each serves: add none the bible does not list), and then the film wins on giant type and photography. The brand locks palette, type, logo, UI and tone, never craft: 3D takes the brand palette (matte or unlit) and keeps depth of field and motion blur. A hero effect (glow, blur-in, scale-pop, a big overshoot, particles, a light comet) goes only where `score.budget` names its scene and target; the same effect on every element is the tell (obey and slop fail it).
 - **The brand** is revealed once, in `brandReveal`; every logo element is tagged `data-brand-mark` and is the downloaded file, never drawn.
 
 ## Look at it
@@ -99,6 +99,14 @@ Build to the score's `reads[]` when a scene has them: every dramatic shot has **
 - Never one ease or one duration for most moves, a constant stagger, or a cascade of identical tweens at even spacing (obey fails them).
 - Never idle loops on content (breathing, pulsing, endless float); a finite camera push, a ground drift or an ambient on a background layer is the living frame.
 - Never invent UI words, numbers or features, never a placeholder result, never author `<audio>`, never change the plan's lines, beat order or beat times (timing inside a beat is yours), never `Math.random` or the wall clock (the kits are seeded).
+
+## Visual production (Plan 06)
+
+`references/visual-production.md` is the rule set for kit moves, generated plates, tracking and recurring characters. Use `capabilities` from your packet (`production.mjs capabilities`); do not use an `unavailable` move, and say when an optional engine is absent. Keep `data-el` ids stable across rebuilds and run `regeneration_guard` before replacing a scene that has edits: carried edits are re-applied, a missing id is a conflict, never a pixel guess. Pinned fonts, runtime and accepted plates (`motion/pins.json`) do not change under you; an update is a recorded migration.
+
+## Parallel builders and the render path (Plan 09)
+
+You own the shared components, the timing authority (`motion/score.json`) and the integrated film. When scene animators run in parallel, write the boundary contracts `crew.mjs schedule` reports as `needs_contract` into `look/continuity.json` (link `boundary`: semantic objects, positions and units, camera/crop, scale, colour, start/end time, velocity when continuity requires it) before they start. A change to a scene is re-rendered by the safest path (`hybrid-render.mjs` reports it): scene host, group host, continuity group, or the full film with the reason; do not assume a frame-range render exists. The film-wide finish is applied once over the assembled picture, never per scene.
 
 ## Done when
 

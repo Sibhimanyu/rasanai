@@ -1,0 +1,4 @@
+{"case":"F01","status":"authored_not_run","_label":"SYNTHETIC EXAMPLE. Invented data to describe expected behaviour. Authored, not run; certifies nothing about current capabilities.","title":"old animatic/preview runs map to the intended logical stage, no decision lost",
+"calls":["logicalStage","legacyKeys","readLegacy"],
+"input":{"legacy_run":{"steps":["brief","pitch","look","animatic","preview","final"],"decisions":[{"step":"animatic","type":"approve"},{"step":"preview","type":"comment","value":{"t":4.2}},{"step":"look","type":"approve"}]}},
+"expect":{"logical":{"brief":"brief","pitch":"story","look":"look","animatic":"storyboard","preview":"storyboard","final":"final"},"decisions_kept":3,"decisions_dropped":0,"transport_key_unchanged":true,"unknown_legacy_key":"reported as unmapped, never silently dropped or guessed"}}

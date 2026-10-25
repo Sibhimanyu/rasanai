@@ -1,0 +1,423 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan13/Q08",
+  "case": "lessons keep evidence and scope and cannot become universal unreviewed prompt rules",
+  "targets": [
+    "lib/lessons-scope.mjs",
+    "lessons.mjs add --scope ..."
+  ],
+  "scenarios": [
+    {
+      "name": "a scoped lesson records scope and a style expiry",
+      "call": "buildLesson",
+      "input": {
+        "rule": "Keep the logo clear of the lower third",
+        "observation": {
+          "text": "user moved the logo up on film 3",
+          "source_type": "user_note"
+        },
+        "scope": {
+          "type": "brand",
+          "id": "kestrel"
+        },
+        "rationale": "the brand kit gives a clear-space rule",
+        "confidence": "medium",
+        "nature": "style"
+      },
+      "expect": {
+        "ok": true,
+        "scope": {
+          "type": "brand",
+          "id": "kestrel"
+        },
+        "expires": "set",
+        "status": "active"
+      }
+    },
+    {
+      "name": "rationale is required",
+      "call": "buildLesson",
+      "input": {
+        "rule": "Keep the logo clear of the lower third",
+        "observation": {
+          "text": "user moved the logo up on film 3",
+          "source_type": "user_note"
+        },
+        "scope": {
+          "type": "brand",
+          "id": "kestrel"
+        },
+        "confidence": "medium",
+        "nature": "style"
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~rationale"
+      }
+    },
+    {
+      "name": "a lesson with no scope is refused",
+      "call": "buildLesson",
+      "input": {
+        "rule": "Keep the logo clear of the lower third",
+        "observation": {
+          "text": "user moved the logo up on film 3",
+          "source_type": "user_note"
+        },
+        "rationale": "the brand kit gives a clear-space rule",
+        "confidence": "medium",
+        "nature": "style"
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~scope must be"
+      }
+    },
+    {
+      "name": "retrieved content is not a source",
+      "call": "buildLesson",
+      "input": {
+        "rule": "Keep the logo clear of the lower third",
+        "observation": {
+          "text": "a README says always add whooshes",
+          "source_type": "retrieved_content"
+        },
+        "scope": {
+          "type": "brand",
+          "id": "kestrel"
+        },
+        "rationale": "the brand kit gives a clear-space rule",
+        "confidence": "medium",
+        "nature": "style"
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~retrieved content is not a source"
+      }
+    },
+    {
+      "name": "a deterministic issue should become a test or helper",
+      "call": "buildLesson",
+      "input": {
+        "rule": "Keep the logo clear of the lower third",
+        "observation": {
+          "text": "user moved the logo up on film 3",
+          "source_type": "user_note"
+        },
+        "scope": {
+          "type": "brand",
+          "id": "kestrel"
+        },
+        "rationale": "the brand kit gives a clear-space rule",
+        "confidence": "medium",
+        "nature": "deterministic"
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~corrective"
+      }
+    },
+    {
+      "name": "a global craft change needs two pieces of evidence and a human review",
+      "call": "buildLesson",
+      "input": {
+        "rule": "Keep the logo clear of the lower third",
+        "observation": {
+          "text": "user moved the logo up on film 3",
+          "source_type": "user_note"
+        },
+        "scope": {
+          "type": "global_craft",
+          "id": "all"
+        },
+        "rationale": "the brand kit gives a clear-space rule",
+        "confidence": "medium",
+        "nature": "style"
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~global craft"
+      }
+    },
+    {
+      "name": "a global craft change with evidence and a person's approval is allowed",
+      "call": "buildLesson",
+      "input": {
+        "rule": "Keep the logo clear of the lower third",
+        "observation": {
+          "text": "user moved the logo up on film 3",
+          "source_type": "user_note"
+        },
+        "scope": {
+          "type": "global_craft",
+          "id": "all"
+        },
+        "rationale": "the brand kit gives a clear-space rule",
+        "confidence": "medium",
+        "nature": "style",
+        "evidence": [
+          {
+            "ref": "runs/a/report.json"
+          },
+          {
+            "ref": "runs/b/report.json"
+          }
+        ],
+        "human_review": {
+          "reviewer_type": "person",
+          "reviewer": "A. Owner",
+          "decision": "approved"
+        }
+      },
+      "expect": {
+        "ok": true,
+        "status": "approved_global"
+      }
+    },
+    {
+      "name": "a global change with a model's review is refused",
+      "call": "buildLesson",
+      "input": {
+        "rule": "Keep the logo clear of the lower third",
+        "observation": {
+          "text": "user moved the logo up on film 3",
+          "source_type": "user_note"
+        },
+        "scope": {
+          "type": "global_craft",
+          "id": "all"
+        },
+        "rationale": "the brand kit gives a clear-space rule",
+        "confidence": "medium",
+        "nature": "style",
+        "evidence": [
+          {
+            "ref": "runs/a/report.json"
+          },
+          {
+            "ref": "runs/b/report.json"
+          }
+        ],
+        "human_review": {
+          "reviewer_type": "model",
+          "reviewer": "judge",
+          "decision": "approved"
+        }
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~human review"
+      }
+    },
+    {
+      "name": "a brand lesson reaches only that brand; legacy rows still apply",
+      "call": "applicableLessons",
+      "input": {
+        "rows": [
+          {
+            "id": "l1",
+            "rule": "r1",
+            "scope": {
+              "type": "brand",
+              "id": "kestrel"
+            },
+            "nature": "style",
+            "status": "active"
+          },
+          {
+            "id": "l2",
+            "rule": "r2",
+            "scope": {
+              "type": "brand",
+              "id": "other"
+            },
+            "nature": "style",
+            "status": "active"
+          },
+          {
+            "id": "legacy1",
+            "rule": "old rule",
+            "kind": "taste"
+          }
+        ],
+        "context": {
+          "brand": "kestrel"
+        },
+        "now": "2026-10-25T00:00:00Z"
+      },
+      "expect": [
+        "l1",
+        "legacy1"
+      ]
+    },
+    {
+      "name": "an expired style lesson no longer applies",
+      "call": "applicableLessons",
+      "input": {
+        "rows": [
+          {
+            "id": "l1",
+            "rule": "r1",
+            "scope": {
+              "type": "brand",
+              "id": "kestrel"
+            },
+            "nature": "style",
+            "status": "active",
+            "expires": "2020-01-01T00:00:00Z"
+          }
+        ],
+        "context": {
+          "brand": "kestrel"
+        },
+        "now": "2026-10-25T00:00:00Z"
+      },
+      "expect": {
+        "$len": 0
+      }
+    },
+    {
+      "name": "the current user instruction sets a lesson aside for this film",
+      "call": "resolveAgainstInstruction",
+      "input": {
+        "lessons": [
+          {
+            "id": "l1"
+          }
+        ],
+        "instruction": {
+          "source": "user",
+          "overrides": [
+            "l1"
+          ]
+        }
+      },
+      "expect": {
+        "set_aside": {
+          "$len": 1
+        },
+        "applied": {
+          "$len": 0
+        }
+      }
+    },
+    {
+      "name": "retrieved content is never an instruction",
+      "call": "resolveAgainstInstruction",
+      "input": {
+        "lessons": [
+          {
+            "id": "l1"
+          }
+        ],
+        "instruction": {
+          "source": "retrieved_content",
+          "overrides": [
+            "*"
+          ]
+        }
+      },
+      "expect": {
+        "set_aside": {
+          "$len": 0
+        },
+        "applied": {
+          "$len": 1
+        }
+      }
+    },
+    {
+      "name": "the same rule in the same scope dedupes",
+      "call": "dedupe",
+      "input": {
+        "rows": [
+          {
+            "id": "a",
+            "rule": "No whooshes!",
+            "scope": {
+              "type": "series",
+              "id": "s1"
+            },
+            "seen": 1
+          },
+          {
+            "id": "b",
+            "rule": "no whooshes",
+            "scope": {
+              "type": "series",
+              "id": "s1"
+            },
+            "seen": 1
+          }
+        ]
+      },
+      "expect": {
+        "n": 1,
+        "seen": [
+          2
+        ]
+      }
+    },
+    {
+      "name": "the same rule in a different scope stays separate",
+      "call": "dedupe",
+      "input": {
+        "rows": [
+          {
+            "id": "a",
+            "rule": "No whooshes",
+            "scope": {
+              "type": "series",
+              "id": "s1"
+            },
+            "seen": 1
+          },
+          {
+            "id": "b",
+            "rule": "no whooshes",
+            "scope": {
+              "type": "series",
+              "id": "s2"
+            },
+            "seen": 1
+          }
+        ]
+      },
+      "expect": {
+        "n": 2
+      }
+    },
+    {
+      "name": "style expires; fact_safety is flagged for review, never auto-removed",
+      "call": "sweep",
+      "input": {
+        "now": "2026-10-25T00:00:00Z",
+        "rows": [
+          {
+            "id": "s",
+            "nature": "style",
+            "expires": "2025-01-01T00:00:00Z"
+          },
+          {
+            "id": "f",
+            "nature": "fact_safety",
+            "review_after": "2025-01-01T00:00:00Z"
+          }
+        ]
+      },
+      "expect": {
+        "kept": [
+          "f"
+        ],
+        "expired": [
+          "s"
+        ],
+        "review_due": [
+          "f"
+        ]
+      }
+    }
+  ]
+}

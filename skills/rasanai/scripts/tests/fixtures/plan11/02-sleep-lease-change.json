@@ -1,0 +1,50 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan11/R02",
+  "case": "sleep / resume and PID or lease replacement",
+  "targets": [
+    "lib/jobs.mjs leaseOwnerAlive / claim / heartbeat / commit"
+  ],
+  "scenarios": [
+    {
+      "name": "mac sleeps 3 h, heartbeat is old, owner alive",
+      "lease": {
+        "pid": "live process",
+        "pid_start": "matches ps lstart",
+        "heartbeat_at": "3 h ago"
+      },
+      "expect": "claim returns lease_held; the lead supersedes explicitly; no silent takeover"
+    },
+    {
+      "name": "pid reused by another process",
+      "lease": {
+        "pid": "a different live process",
+        "pid_start": "differs from the recorded lstart"
+      },
+      "expect": "leaseOwnerAlive false; job is interrupted; claim reclaims and bumps the generation"
+    },
+    {
+      "name": "lease replaced while the old worker is paused",
+      "steps": [
+        "worker-1 holds generation 1",
+        "lead supersedes (generation 2) and worker-2 claims (generation 3)",
+        "worker-1 wakes and calls commit / heartbeat / fail"
+      ],
+      "expect": "all three refused with stale_generation; staged output kept under crew/jobs/rejected; no publication"
+    },
+    {
+      "name": "input digest changed during the sleep",
+      "expect": "commit refuses with input_changed; recovery state becomes stale; the schedule decides what to redo"
+    },
+    {
+      "name": "approval superseded during the sleep",
+      "expect": "commit refuses with approval_superseded; recovery state waiting-for-approval; the earlier approval record is untouched"
+    }
+  ],
+  "never": [
+    "two directors for one run (diagnose shows drivers > 1 as a problem)",
+    "a heartbeat treated as permission to publish"
+  ]
+}

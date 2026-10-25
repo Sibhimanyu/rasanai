@@ -117,6 +117,7 @@ import { textFit, cuesOf, seeAndSay, captionDupes } from "./lib/textfit.mjs";
 import { analyse as fluencyOf, scoreFluency, scanFrames, findPops, loopSeam, LOOP } from "./lib/fluency.mjs";
 import { measureCarry } from "./lib/carry.mjs";
 import { gateValue, gateNotes } from "./lib/gate-lessons.mjs";
+import { deliberateSeam } from "./lib/editorial.mjs"; // Plan 05 E4: a deliberate hard cut or stated hold is not owed motion, a carried object or an effect
 import { noteDowngrade } from "./lib/downgrade.mjs";
 import { measureEcho, ECHO } from "./lib/echo.mjs";
 import { loadIntent, emphasisReport } from "./lib/emphasis.mjs";
@@ -641,7 +642,9 @@ export async function gate({ events = null, vo = null, video = null, project = n
           for (let i = c - w; i <= c - 2; i++) if (i > 0 && i < D.length) before.push(moving[i]);
           for (let i = c + 2; i <= c + w; i++) if (i > 0 && i < D.length) after.push(moving[i]);
           const okB = before.some(Boolean), okA = after.some(Boolean);
-          seamRows.push({ seam: `${beats[k].id}>${beats[k + 1].id}`, t: r2(t), before: okB, after: okA });
+          const planned = (P.seams || []).find((q) => q && String(q.from) === String(beats[k].n ?? beats[k].id) && String(q.to) === String(beats[k + 1].n ?? beats[k + 1].id)), dl = deliberateSeam(planned);
+          seamRows.push({ seam: `${beats[k].id}>${beats[k + 1].id}`, t: r2(t), before: okB, after: okA, ...(dl.hard_cut || dl.hold ? { deliberate: dl.hard_cut ? "hard cut" : "hold", reason: dl.reason } : {}) });
+          if ((!okB || !okA) && (dl.hard_cut || dl.hold)) { skipped.push(`seam ${beats[k].id}>${beats[k + 1].id} at ${r2(t)} s is a deliberate ${dl.hard_cut ? "hard cut" : "hold"} (${dl.reason}): motion on both sides is not required`); return; }
           if (!okB || !okA) add({ check: "seam", severity: "error", at: r2(t), region: `seam ${beats[k].id}>${beats[k + 1].id}`, message: `the cut at ${r2(t)} s (${beats[k].id} to ${beats[k + 1].id}) has ${!okB && !okA ? "both sides" : !okB ? "the outgoing side" : "the incoming side"} at rest within ${GATE.seam_window_s} s`, fix: "the outgoing beat is still moving when the cut lands and the incoming beat arrives already moving, same axis, same direction, same speed (cut the curve, or carry an object across)" });
         });
         measured.seams = seamRows;
@@ -702,7 +705,9 @@ export async function gate({ events = null, vo = null, video = null, project = n
   if (video && carry && fs.existsSync(path.resolve(video))) {
     try {
       const c = await measureCarry(path.resolve(video), { seams: seamTimes });
-      const rows = c.seams.map((x) => ({ t: x.t, score: x.score, carried: (x.score ?? 0) >= GATE.carry_seam }));
+      // Plan 05 E4: a seam the editor made a hard cut on purpose (separate contexts) is not counted against the carry share
+      const cutAt = (P.seams || []).filter((q) => deliberateSeam(q).hard_cut).map((q) => { const b = beats.find((x) => String(x.n) === String(q.to) || String(x.id) === String(q.to)); return b && b.start > 0 ? b.start : null; }).filter((x) => x != null);
+      const rows = c.seams.filter((x) => !cutAt.some((t0) => Math.abs(x.t - t0) < 0.06)).map((x) => ({ t: x.t, score: x.score, carried: (x.score ?? 0) >= GATE.carry_seam }));
       const total = rows.length, got = rows.filter((x) => x.carried).length, share = total ? got / total : null;
       measured.carry = { source: seamTimes.length ? "plan" : "hard cuts", seams: rows, carried_share: share == null ? null : r2(share), need: carryShare };
       // declared continuity seams (WARNINGS, uncalibrated): each is checked even when the film-wide share passes
@@ -838,7 +843,8 @@ export async function gate({ events = null, vo = null, video = null, project = n
   // ---- the plan and the code
   if (beats.length) {
     // carriers
-    const need = Math.min(GATE.carried_seams, seamTimes.length);
+    const cuts = (P.seams || []).filter((q) => deliberateSeam(q).hard_cut).length; // Plan 05 E4: deliberate hard cuts are not owed a carrier
+    const need = Math.max(0, Math.min(GATE.carried_seams, seamTimes.length - cuts));
     const declared = beats.slice(0, -1).filter((b) => b.exit === "carrier" && String(b.carrier || "").trim()).length || (P.seams || []).filter((s) => ["carried-object", "shared-element"].includes(s.kind) && s.element).length;
     let carried = null;
     if (project) {

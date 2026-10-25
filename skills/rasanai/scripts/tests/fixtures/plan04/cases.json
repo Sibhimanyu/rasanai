@@ -1,0 +1,111 @@
+{
+  "plan": "04",
+  "status": "implemented_unvalidated",
+  "note": "authored, not run; execution waits for explicitly approved Plan 14. All fixtures are synthetic and certify no capability.",
+  "cases": [
+    {
+      "id": "plan04/L01",
+      "name": "representative comparison beat",
+      "verify": "each look shows the same approved beat content (equal content_digest); one frame per look; a second only with a stated uncertainty",
+      "fixtures": [
+        "01-supplied-brand.json",
+        "02-no-brand.json",
+        "03-saved-series.json",
+        "04-missing-font.json",
+        "05-mixed-2d-3d.json",
+        "06-look-revision.json"
+      ]
+    },
+    {
+      "id": "plan04/L02",
+      "name": "chosen brand survives",
+      "verify": "logo, factual UI, approved colours and brand type unchanged in every look and in the bible hard constraints; no Wild outside the brand",
+      "fixtures": [
+        "01-supplied-brand.json",
+        "02-no-brand.json",
+        "03-saved-series.json",
+        "04-missing-font.json",
+        "05-mixed-2d-3d.json",
+        "06-look-revision.json"
+      ]
+    },
+    {
+      "id": "plan04/L03",
+      "name": "rejected looks trigger no production build",
+      "verify": "no shot list, board, art, score or scene worker dispatched before the Look is committed (productionGate); choosing one look never builds the other two",
+      "fixtures": [
+        "01-supplied-brand.json",
+        "02-no-brand.json",
+        "03-saved-series.json",
+        "04-missing-font.json",
+        "05-mixed-2d-3d.json",
+        "06-look-revision.json"
+      ]
+    },
+    {
+      "id": "plan04/L04",
+      "name": "missing assets are explicit",
+      "verify": "a missing font or screen is listed in the card and LIMITS.md before the commit; nothing invented later",
+      "fixtures": [
+        "01-supplied-brand.json",
+        "02-no-brand.json",
+        "03-saved-series.json",
+        "04-missing-font.json",
+        "05-mixed-2d-3d.json",
+        "06-look-revision.json"
+      ]
+    },
+    {
+      "id": "plan04/L05",
+      "name": "localized text fits",
+      "verify": "the locale fallback stack applies and display lines fit the safe regions at the real aspect (checked with real rendering in 14)",
+      "fixtures": [
+        "01-supplied-brand.json",
+        "02-no-brand.json",
+        "03-saved-series.json",
+        "04-missing-font.json",
+        "05-mixed-2d-3d.json",
+        "06-look-revision.json"
+      ]
+    },
+    {
+      "id": "plan04/L06",
+      "name": "a look revision preserves the story",
+      "verify": "bounded revision lists what stays fixed; story and brief stay current; only dependent frames/build outputs go stale",
+      "fixtures": [
+        "01-supplied-brand.json",
+        "02-no-brand.json",
+        "03-saved-series.json",
+        "04-missing-font.json",
+        "05-mixed-2d-3d.json",
+        "06-look-revision.json"
+      ]
+    },
+    {
+      "id": "plan04/L07",
+      "name": "combined scene outputs read as one film",
+      "verify": "looks differ in hierarchy/density/material/framing/motion (not colour); continuity links honest; human creative review of coherence",
+      "fixtures": [
+        "01-supplied-brand.json",
+        "02-no-brand.json",
+        "03-saved-series.json",
+        "04-missing-font.json",
+        "05-mixed-2d-3d.json",
+        "06-look-revision.json"
+      ]
+    },
+    {
+      "id": "plan04/L08",
+      "name": "reference translation and series provenance",
+      "verify": "principles carry evidence/transfer/do_not_copy; 60 fps frame counts become seconds or an explicit frame lock; px values carry reference dimensions; saved-series defaults carry provenance",
+      "fixtures": [
+        "01-supplied-brand.json",
+        "02-no-brand.json",
+        "03-saved-series.json",
+        "04-missing-font.json",
+        "05-mixed-2d-3d.json",
+        "06-look-revision.json"
+      ]
+    }
+  ]
+}

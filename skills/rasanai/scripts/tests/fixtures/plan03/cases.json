@@ -1,0 +1,2 @@
+{"plan":3,"note":"Index for the deferred case(s) authored later than the original topic-named fixtures. Authored, not run. SYNTHETIC. The other planplan03 cases are still mapped by lib/case-registry.mjs INFERRED (from file names).",
+"cases":[{"id":"plan03/S05","file":"S05-meaningful-visual-events.json","fixtures":["S05-meaningful-visual-events.json"],"title":"Meaningful visual events","status":"authored_not_run"}]}

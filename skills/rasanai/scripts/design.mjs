@@ -20,6 +20,11 @@
 //        -> the console's Look payload {styles:[{id,name,blend,why,style:{recipe,three?}}], recommended, hook}: exactly the three bespoke systems
 //   node design.mjs choose-system --run <run> --label Sure|Bold|Wild --decisions <decisions.json> [--mode light|dark] [--preset <id>]
 //        -> (--preset: a lyric video's technical frame.md, the gate wants a preset verbatim)  design/<label>/DESIGN.md becomes the film's look: <run>/look/{DESIGN.md,frame.md,grammar.json}, decisions.look + picks + design_system
+//   (Plan 04) node design.mjs compare-plan --run <run> [--beat <id>] [--expected 3] [--lean]   -> design/comparison-plan.json: ONE approved story beat drawn in every look, one styleframe per look (a justified second only for a real uncertainty)
+//   (Plan 04) node design.mjs bible --run <run> | bible-check --run <run> | bible-for --run <run> --scene <id> [--relations cause,contrast] [--continuity <file>]
+//        -> look/visual-bible.json (a projection of DESIGN.md + the motion contract with a source digest; choose-system writes it too), its stale/valid check, the subset one scene worker gets
+//   (Plan 04) node design.mjs look-revise --run <run> --instruction "same typography, less glossy" [--ids a,b]   -> a bounded look revision: what changes, what stays fixed, the impact (Story kept)
+//   (Plan 04) node design.mjs continuity-check --file <continuity.json>   -> shared components (one owner each) and seam types (same object, analogy, causal handoff, temporal, discontinuity)
 //   node design.mjs pick --looks <dir>/looks.json --id B --decisions <decisions.json>
 //        -> merges the look's terms (visual style, typography) into decisions.json and prints its frame.md
 import fs from "node:fs";
@@ -28,7 +33,10 @@ import { parseArgs, die, readJSON, writeFile, esc, normalizeAspect, chromeScreen
 import { generateLooks, lookAsBrand } from "./lib/looks.mjs";
 import { readDesignMd, toFrameMd, contrast } from "./lib/design-md.mjs";
 import { track } from "./lib/report.mjs";
-import { checkSystem, checkSystemFull, checkSystems, firstLine, lookPayload, chooseSystem, runFilm, LABELS } from "./lib/system.mjs";
+import { checkSystem, checkSystemFull, checkSystems, firstLine, lookPayload, chooseSystem, runFilm, writeVisualBible, visualBibleInputs, LABELS } from "./lib/system.mjs";
+import { validateVisualBible, bibleCurrent, projectForWorker } from "./lib/visual-bible.mjs";
+import { comparisonPlan, validateComparisonPlan, reviseLook } from "./lib/look.mjs";
+import { validateContinuity, projectForScene } from "./lib/continuity.mjs";
 import { libraryIds } from "./library.mjs";
 
 // The brand lock: when the run's decisions carry a brand (and use_brand is not false), every system must stay inside it
@@ -267,4 +275,61 @@ if (cmd === "looks") {
   const label = LABELS.find((l) => l.toLowerCase() === String(args.label).toLowerCase());
   if (!label) die("--label must be Sure, Bold or Wild");
   try { console.log(JSON.stringify(chooseSystem(path.resolve(String(args.run)), label, String(args.decisions), { mode: args.mode }), null, 2)); } catch (e) { die(e.message); }
-} else die("usage: design.mjs looks|pick|stills|check-system|check-systems|look-payload|choose-system (see the header)");
+} else if (cmd === "compare-plan") {
+  if (!args.run) die("--run <run dir> required");
+  const run = path.resolve(String(args.run));
+  const rj = (...f) => { try { return JSON.parse(fs.readFileSync(path.join(run, ...f), "utf8")); } catch { return null; } };
+  const treatment = rj("story", "chosen-treatment.json") || rj("story", "chosen.json");
+  if (!treatment) die("no approved story yet (story/chosen-treatment.json or story/chosen.json): the comparison beat comes from the approved Story");
+  const dec = rj("decisions.json") || {};
+  const looks = LABELS.filter((l) => fs.existsSync(path.join(run, "design", l))).map((label) => { const b = rj("design", label, "blend.json") || {}; return { label, axes: b.axes || null }; });
+  const series = dec.series_look ? { name: dec.series_name || "", look: dec.series_look, provenance: "saved_series_default" } : null;
+  const r = comparisonPlan({ treatment, beat_id: args.beat && args.beat !== true ? String(args.beat) : null, looks, brand: { locked: !!(dec.brand && dec.use_brand !== false) }, series, expected: Number(args.expected) || 3, lean: !!args.lean });
+  if (!r.ok) die(r.error);
+  const v = validateComparisonPlan(r.plan);
+  writeFile(path.join(run, "design", "comparison-plan.json"), JSON.stringify({ ...r.plan, validation: v }, null, 2) + "\n");
+  console.log(JSON.stringify({ ok: v.ok, problems: v.problems, plan: r.plan }, null, 2));
+  process.exit(v.ok ? 0 : 2);
+} else if (cmd === "bible") {
+  if (!args.run) die("--run <run dir> required");
+  const r = writeVisualBible(path.resolve(String(args.run)), {});
+  console.log(JSON.stringify({ ok: !r.problems.length, file: path.join(String(args.run), "look", "visual-bible.json"), problems: r.problems, source_digest: r.source_digest }, null, 2));
+  process.exit(r.problems.length ? 2 : 0);
+} else if (cmd === "bible-check") {
+  if (!args.run) die("--run <run dir> required");
+  const run = path.resolve(String(args.run));
+  let b = null;
+  try { b = JSON.parse(fs.readFileSync(path.join(run, "look", "visual-bible.json"), "utf8")); } catch { die("look/visual-bible.json is missing: design.mjs bible --run <run> (choose-system writes it)"); }
+  const v = validateVisualBible(b);
+  const cur = bibleCurrent(b, visualBibleInputs(run, {}));
+  console.log(JSON.stringify({ ok: v.ok && cur.current, valid: v, stale: !cur.current, ...cur }, null, 2));
+  process.exit(v.ok && cur.current ? 0 : 2);
+} else if (cmd === "bible-for") {
+  if (!args.run || !args.scene) die("--run <run dir> --scene <id> required");
+  const run = path.resolve(String(args.run));
+  let b = null;
+  try { b = JSON.parse(fs.readFileSync(path.join(run, "look", "visual-bible.json"), "utf8")); } catch { die("look/visual-bible.json is missing"); }
+  const cf = args.continuity && args.continuity !== true ? path.resolve(String(args.continuity)) : path.join(run, "look", "continuity.json");
+  let cont = null;
+  try { cont = JSON.parse(fs.readFileSync(cf, "utf8")); } catch { /* none yet */ }
+  const sc = String(args.scene);
+  const uses = cont && cont.scenes && cont.scenes[sc] ? cont.scenes[sc].uses || [] : [];
+  console.log(JSON.stringify({ bible: projectForWorker(b, { scene_id: sc, relations: args.relations && args.relations !== true ? String(args.relations).split(",") : [], anchors: { objects: uses, screens: uses, characters: uses, sound_motifs: uses } }), continuity: cont ? projectForScene(cont, sc) : null }, null, 2));
+} else if (cmd === "look-revise") {
+  if (!args.run || !args.instruction || args.instruction === true) die("--run <run dir> --instruction \"...\" required");
+  const run = path.resolve(String(args.run));
+  let dec = {};
+  try { dec = JSON.parse(fs.readFileSync(path.join(run, "decisions.json"), "utf8")); } catch { /* none */ }
+  const started = ["storyboard", "frames", "motion", "build"].some((d) => fs.existsSync(path.join(run, d)));
+  const r = reviseLook({ instruction: String(args.instruction), ids: args.ids && args.ids !== true ? String(args.ids).split(",") : [], brand: { locked: !!(dec.brand && dec.use_brand !== false) }, downstream_started: started });
+  if (r.ok && r.request) writeFile(path.join(run, "look", "revisions", `${r.request.idempotency_key.slice(0, 12)}.json`), JSON.stringify(r, null, 2) + "\n");
+  console.log(JSON.stringify(r, null, 2));
+  process.exit(r.ok ? 0 : 2);
+} else if (cmd === "continuity-check") {
+  if (!args.file || args.file === true) die("--file <continuity.json> required");
+  let c = null;
+  try { c = JSON.parse(fs.readFileSync(path.resolve(String(args.file)), "utf8")); } catch (e) { die(`cannot read ${args.file}: ${e.message}`); }
+  const r = validateContinuity(c, {});
+  console.log(JSON.stringify(r, null, 2));
+  process.exit(r.ok ? 0 : 2);
+} else die("usage: design.mjs looks|pick|stills|check-system|check-systems|look-payload|choose-system|compare-plan|bible|bible-check|bible-for|look-revise|continuity-check (see the header)");

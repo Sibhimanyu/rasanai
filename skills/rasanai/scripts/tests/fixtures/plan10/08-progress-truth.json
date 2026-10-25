@@ -1,0 +1,105 @@
+{
+  "case": "plan10/U08",
+  "note": "synthetic",
+  "events": [
+    {
+      "stage": "source_changed",
+      "expect_label": "Source changed",
+      "not_rendered": true
+    },
+    {
+      "stage": "preview_pending",
+      "queue": {
+        "state": "queued",
+        "reason_code": "pool_full"
+      },
+      "expect_detail_contains": "other renders are using the machine"
+    },
+    {
+      "stage": "preview_ready",
+      "receipt": "matching",
+      "expect_label": "Preview ready"
+    },
+    {
+      "stage": "preview_ready",
+      "receipt": "missing",
+      "expect_label": "Preview not confirmed"
+    },
+    {
+      "stage": "preview_ready",
+      "preview": {
+        "kind": "overlay"
+      },
+      "expect_label": "Preview not confirmed"
+    },
+    {
+      "stage": "final_ready",
+      "receipt": "source_digest differs",
+      "expect_label": "Final not confirmed",
+      "replaces_delivered": false
+    },
+    {
+      "stage": "stale",
+      "expect_label": "Out of date"
+    },
+    {
+      "stage": "from_the_future",
+      "expect_label": "Unknown state"
+    }
+  ],
+  "delivered": "previous_delivered stays available until a confirmed final_ready",
+  "work": {
+    "basis": "plan",
+    "shown_as": "Expected to rebuild: ..."
+  },
+  "run_state": [
+    {
+      "jobs": [
+        {
+          "state": "running"
+        }
+      ],
+      "expect": "Working"
+    },
+    {
+      "jobs": [
+        {
+          "state": "running"
+        }
+      ],
+      "pause": true,
+      "expect": "Paused"
+    },
+    {
+      "jobs": [],
+      "throttle_until": "future",
+      "expect": "Rate-limited"
+    },
+    {
+      "jobs": [
+        {
+          "state": "failed"
+        }
+      ],
+      "expect": "Failed"
+    },
+    {
+      "jobs": [],
+      "schedule": {
+        "user_waits": [
+          "story"
+        ]
+      },
+      "expect": "Waiting for you"
+    },
+    {
+      "jobs": [],
+      "expect": "Stopped"
+    }
+  ],
+  "usage": {
+    "measured": "shown as measured",
+    "estimated": "About N tokens (estimated)",
+    "none": "Usage unavailable (never zero)"
+  }
+}

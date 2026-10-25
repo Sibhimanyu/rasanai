@@ -6,7 +6,7 @@ Source quality note: Apple, OpenAI/Studio Dumbar and the Apple HIG are primary. 
 
 ## 1. Structure templates
 
-Rule for all lengths: the product (real UI or the real mark) is on screen by 3 s. Hook = the villain or the product in the real product's world, readable muted by 2 s, never a problem montage of stock pain. Every template is an argument (`references/intent.md`): a turn where the product visibly reverses the villain, a peak at 60 to 75% (the hardest proof, the biggest picture) with a rest right before it, and a payoff that answers the opening. Beats are sized by share of runtime so they scale; inside the ranges, durations come from each beat's read and importance.
+Rule for the legacy launch shapes (product-demonstrating kinds; The villain, the turn, the 3 s deadline and the peak window are tools for that grammar, not requirements for every film: a manifesto, identity reveal, teaser, event opener, character short, music or footage film is judged by its own grammar (`story.mjs grammar --kind <kind>`).): the product (real UI or the real mark) is on screen by 3 s. Hook = the villain or the product in the real product's world, readable muted by 2 s, never a problem montage of stock pain. Every template is an argument (`references/intent.md`): a turn where the product visibly reverses the villain, a peak at 60 to 75% (the hardest proof, the biggest picture) with a rest right before it, and a payoff that answers the opening (each an optional tool in the format-aware workflow; the beat sheets below are legacy starting shapes, not checks for every film). Beats are sized by share of runtime so they scale; inside the ranges, durations come from each beat's read and importance.
 
 **Ladder, pas or scenario.** A launch of a product or brand is a **ladder** or a **pas** (the viewer-first shape: "pas templates" after the ladder templates; `story.mjs pick --format launch` offers both) (`references/story.md`, Story shapes): the tables below are then filled as rungs (one refrain verb, a title card per rung, a different real use each, escalating to done-for-you), see "Ladder templates" after the tables. A single-task spot (the truth sheet's `Claim scope` is single-task) uses the tables as they are: one hero demo and its uses. A breadth feature is a ladder even when it is the only feature (G13).
 
@@ -84,7 +84,7 @@ Rung counts follow the length: 35 s or less 3 to 4, 36 to 60 s 4 to 6, over 60 s
 
 ### Pas templates (the viewer-first launch)
 
-Pain, meet, benefits, proof, cta (`references/script.md`, the pas). The reveal (`meet`) is the turn: the product visibly reverses the pain, starting at 20 to 30% of the film, never before 20%. The benefits escalate to the peak at 60 to 75% (the furthest benefit, the biggest picture), with a rest before it. Benefits each carry one UI behaviour. One on-screen line every 1.5 to 2.5 s (`film_seconds / lines` at most 3.0). G12 holds all of it.
+Pain, meet, benefits, proof, cta (`references/script.md`, the pas). The reveal (`meet`) is the turn: the product visibly reverses the pain, starting at 20 to 30% of the film; reveal timing is a craft choice (an earlier product reveal is a warning note in `story.mjs check`, no longer a gate). The benefits escalate to the peak at 60 to 75% (the furthest benefit, the biggest picture), with a rest before it. Benefits each carry one UI behaviour. One on-screen line every 1.5 to 2.5 s (`film_seconds / lines` at most 3.0). G12 holds all of it.
 
 | Length | hook | agitate | meet | benefits | proof | cta and end card |
 |---|---|---|---|---|---|---|

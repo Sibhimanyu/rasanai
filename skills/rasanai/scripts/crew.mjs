@@ -5,7 +5,7 @@
 //
 //   node crew.mjs plan --run <run> --route <route> --subject "<name>" [--mode product|topic] [--url <url>] [--public]
 //        [--local "<dir>,<dir>"] [--may-run] [--scenes N] [--length s] [--project videos/<name>] [--lean] [--model <id>]
-//        [--budget lean|standard|full]   (the token budget, default standard: lean = ONE script, ONE look (no Look picker), the film builder draws its own boards, 1 fix round, the film-lens critic + 1 A/B;
+//        [--budget lean|standard|full]   (the token budget, default standard: lean = the film builder draws its own boards, 1 fix round, the film-lens critic + 1 A/B (Plan 08: the level never cuts Story/Look alternatives; plans made before it keep ONE script, ONE look);
 //                                         standard = every desk, 2 fix rounds, no precedent researcher, the film lens joins the review; full = every desk and every pass, up to 3 fix rounds. --lean = --budget lean.
 //                                         plan prints the estimate per phase and in total (TOKENS below, editable) and writes crew/budget.json for the console's Brief call)
 //        [--spike <scene>]   (a long film: the ONE hero scene built, drafted and gated before the other animators are dispatched; default: the peak beat's scene)
@@ -24,10 +24,21 @@
 //        the film builder (direct) or the scene animators (long) get the hero cards and roughs as their motion target)
 //        -> <run>/crew/plan.json: every phase, who's dispatched in it (role, key, model tier, description)
 //   node crew.mjs brief --run <run> --role <role> [--key <k>] [--project <dir>] [--set k=v,...] [--model <id>]
+//   node crew.mjs schedule --run <run> [--enqueue]   (Plan 09: the dependency graph's READY members, user waits as real barriers, how many build workers to start and why,
+//        resource demand per pool; --enqueue creates a fenced job + a budget reservation for each member that may start now. Derived every time: crew/schedule.json is a snapshot, not a plan)
+//   node crew.mjs job create|claim|heartbeat|accept|fail|supersede|cancel-obsolete|reconcile|status --run <run> [--job <id>] [--generation n --token t] ...   (fenced leases; accept is compare-and-swap)
+//   node crew.mjs budget reserve|reconcile|snapshot --run <run> --op <id> [--tokens n] [--actual n]   (concurrent reservations from one remaining allowance; idempotent per operation)
+//   node crew.mjs pool status|pause|resume|throttle --run <run> [--pool model_job] [--retry-after s]   (admission control: pause, provider throttle, queue states)
+//   node crew.mjs revision emit|latest|list --run <run> ...   (truthful revision events: source_changed, preview_pending, preview_ready, final_rendering, final_ready)
+//   node crew.mjs perf record|throughput|summary --run <run> ...         (evidence hooks: critical path, queue wait, cache hits, cold vs warm; no speedup is claimed)
+//   node crew.mjs eval registry|inventory|approval|fixtures check|corpus check   (Plan 13: forwards to eval.mjs; the case registry, the proposed test inventory and the testing-approval gate; nothing runs without the user's approval record)
+//   node crew.mjs recover --run <run> [--apply] [--migrate]              (Plan 11: restart reconciliation; report only unless --apply; scripts/diagnose.mjs is the read-only twin; never resets to Brief)
+//   node crew.mjs delivery <profiles|target|variant|localize|captions|a11y|package|interchange|choices|plan|capabilities> ...   (Plan 12: delegates to scripts/delivery.mjs, same arguments; nothing encodes or installs)
 //   node crew.mjs model [--model <id>] [--kv]   -> the model and harness, its profile, strengths and pitfalls (--kv: MODEL= / HARNESS= lines)
 //        -> <run>/crew/prompts/<role>[-<key>].md, the whole prompt (dispatch it as "Read <file> and do the job")
 //   node crew.mjs check --run <run> --role <role> [--key <k>] [--project <dir>]
 //        -> exit 0 accepted · 2 problems (listed) · 1 could not check
+//        (Plan 07: the score role also checks score.audio_cues against the score's own events (cue-event-missing is an error; offsets are judged against each cue's intended offset; a cue inside a protected silence window warns), and seam-unsounded is skipped when audio/direction.json gives effects no role; soundplan.mjs is the sound entry point)
 //        (the score role also warns: music-arc-missing / music-arc-order (score.music_arc), seam-unsounded, mechanics-thin (a one-trick film: 2 or fewer mechanics over 4+ lines),
 //         flat-type (score.type_scale { small_px, large_px }), no-punctuation (a hard cut on the pain-to-meet or payoff seam); flat-3d-style honours the card's `Depth blur:` line)
 //        layers-thin (a showcase-grammar film whose median shots[].layers is under 4); the film-builder role warns no-pose-board / hero-not-stripped (hero moves in score.moves);
@@ -48,10 +59,19 @@
 //        actual --tokens N a check recorded) against the plan's estimate
 //   node crew.mjs marks --run <run> [--file <draft.mp4>] [--t <s>]   -> crew/marks/<id>.png + marks/index.json: one MARKED CROP per open note that points at a place (console notes with scene, t, x, y[, w, h],
 //        fractions of the frame) and per critic finding with a `region` {x,y,w,h} (fractions) at a time: the frame with the region boxed in red beside the same region cut out at 2x. The fix briefs list them first
+//   (Plan 08) plan --pace fast|standard|thorough maps to --budget lean|standard|full when no --budget/--lean is given; plan writes crew/policy.json (lib/rules.mjs productionPolicy: creative / exploration / resources / render
+//        as separate axes; pace and budget never change the number of Story/Look alternatives: --alternatives N does; --spend-tokens N, --render rough|preview|delivery). `brief` also compiles the role's input packet
+//        (lib/packets.mjs; receipt crew/packets/<role>[-key].json; --no-packet skips it); `check` takes --usage <json> or --tokens-in/--tokens-out/--cache-read/--cache-write/--turns/--retries/--purpose
+//        (selected|rejected_alternative|repeated_research|repair|retry|bookkeeping); unreported counters stay null.
+//   node crew.mjs usage --run <run> [--prices <json>]   -> usage by what the harness reported (null = unreported), rejected-alternative and repeated-research work apart, an API-equivalent estimate only with a price table
 //   node crew.mjs pitches --run <run>         -> merges story/pitch-*.json into story/pitches.json (Sure, Bold, Wild)
 //   node crew.mjs storyboard --run <run> --project <dir> [--score <score.json>]
 //        -> writes the Motion Director's score into the project's STORYBOARD.md as the workflow's visual design
 //           (## Video direction, per frame: shot sequence, blueprint, focal, roles, sfx, handoffs, transition_in)
+//        (Plan 05: also regenerates motion/events.json from the score; the Storyboard stage itself is scripts/storyboard.mjs: boundary, adopt, check, timing, animatic, note, snapshot)
+//   node crew.mjs timing --run <run> --deltas <deltas.json> [--commit] [--reason "<why>"]
+//        -> commits a reconciled timing change (a list of {scene, duration_s}) to motion/score.json, the ONE timing authority (+ scenes.json durations, derived motion/events.json,
+//           motion/retime.json with the recorded old-to-new film-time mapping); without --commit it only reports. Then run `crew.mjs storyboard` to project the score
 //   node crew.mjs strip (--file <composition.html | video.mp4> | --project <dir>) (--at t1,t2 | --from a --to b --fps n)
 //        --out <sheet.png> [--cols 6] [--phone] [--crop x,y,w,h]
 //        (--crop: the third zoom, after the sheet and the strip: every frame cut to that region (pixels, or fractions of the frame when all four are 1 or less) and shown large, so a hand, a seam or a contact point can be read)
@@ -74,7 +94,10 @@ import { readDesignMd } from "./lib/design-md.mjs";
 import { findSkill } from "./lib/hyperframes.mjs";
 import { upsertMarked } from "./lib/install.mjs";
 import { track } from "./lib/report.mjs";
-import { detectModel, profileFor, adapt, tierFor, dispatchFor } from "./lib/models.mjs";
+import { detectModel, profileFor, adapt, tierFor, dispatchFor, allocate } from "./lib/models.mjs";
+import { productionPolicy, PACE_TO_BUDGET, collapsesAlternatives } from "./lib/rules.mjs"; // Plan 08 K1: one production policy for Studio and the crew
+import { compilePacket } from "./lib/packets.mjs"; // Plan 08 K2: the role-specific input packet compiled at `brief`
+import { usageRecord, summarize as summarizeUsage, readUsageFile } from "./lib/usage.mjs"; // Plan 08 K7: honest usage fields
 import { libraryIds } from "./library.mjs";
 import { readLogos } from "./lib/logos.mjs";
 import { readSources, isFootageLed, desksFor } from "./lib/sources.mjs";
@@ -84,6 +107,20 @@ import { readRunGrammar, hasGrammarLibrary, checkScoreGrammar, techniquesNamed }
 import { pitchShape, validateMoves, validateVerdict, validateSet, isLabelOnly, MOVE_LABELS } from "./lib/moves-lib.mjs";
 import { readShots, checkShots, boardFiles, checkVerdict, collectRefs, boardFor, heroesAgree } from "./lib/frames-lib.mjs";
 import { loadIntent, validateIntent, applyEdits, applyToScript, readSeconds } from "./lib/intent.mjs";
+import { validateReview } from "./lib/treatment.mjs";
+import { productionGate, annotatePhases } from "./lib/look.mjs"; // Plan 04: no storyboard or production work before the Look is committed
+import { deliberateSeam } from "./lib/editorial.mjs"; // Plan 05 E4: deliberate hard cuts and holds are exempt from the every-seam rules
+import { boundary as storyboardBoundary } from "./lib/storyboard.mjs"; // Plan 05 E1: a full storyboard needs current Story and Look digests
+import { commitTiming, writeEvents, scoreRevision, eventsFromScore } from "./lib/timing.mjs"; // Plan 05 E3: the score is the one timing authority; events.json is derived
+import { readDirection, sfxExpectation, silenceWindows } from "./lib/audio-direction.mjs"; // Plan 07: the audio direction (roles, intentional silence, a silent deliverable)
+import { deriveCues } from "./lib/cues.mjs"; // Plan 07 A2: cues reference stable event ids; their film time is derived from the score
+import { schedule as scheduleGraph, inputDigestFor } from "./lib/graph.mjs"; // Plan 09 P1/P2: the dependency graph and which members are READY (derived, never a second plan)
+import * as Jobs from "./lib/jobs.mjs"; // Plan 09 P4/P9: fenced, resumable jobs and budget reservations
+import * as Pools from "./lib/resource-pools.mjs"; // Plan 09 P3: separate resource pools, pause, throttle, fail-closed admission
+import * as Rev from "./lib/revision-events.mjs"; // Plan 09 P7: truthful progressive revision events
+import * as Perf from "./lib/perf-evidence.mjs"; // Plan 09 P8: performance evidence hooks
+import * as Rec from "./lib/recovery.mjs"; // Plan 11 R1/R2/R7: recovery view, failure classes, torn-tail and temp repair, migrations (extends the Plan 09 job state; no second watchdog)
+import * as Txn from "./lib/publish-txn.mjs"; // Plan 11 R8: prepared / committed / published intents
 import { budgetChecks, intentBeats } from "./lib/emphasis.mjs";
 import { cameraKind } from "./lib/camera-moves.mjs";
 import { buildRecipe, renderCrewPacket } from "./lib/reference-recipe/index.mjs";
@@ -144,7 +181,7 @@ const ROLES = {
   "design-researcher": { desk: "design", tier: "inherit", desc: (p) => `Researching ${p.subject || "the subject"}'s visual world and the library references that fit` },
   "design-system-designer": { desk: "design", tier: "inherit", desc: (p, k) => `Designing the ${k || ""} design system for this story`.replace("  ", " ") },
   "research-lead": { desk: "research", tier: "inherit", desc: () => "Merging the research into one truth sheet" },
-  "script-writer": { desk: "story", tier: "inherit", desc: (p, k) => `Writing the ${k || ""} script`.replace("  ", " ") },
+  "script-writer": { desk: "story", tier: "inherit", desc: (p, k) => (k === "Set" ? "Writing three treatments in one pass" : `Writing the ${k || ""} script`.replace("  ", " ")) },
   "treatment-writer": { desk: "story", tier: "inherit", desc: (p, k) => `Writing the ${k || ""} treatment for the song`.replace("  ", " ") },
   "visual-writer": { desk: "story", tier: "inherit", desc: (p, k) => (p.prefs && p.prefs.pictures ? `Writing the ${k || ""} variation of the ${p.prefs.pictures} pictures`.replace("  ", " ") : `Writing the ${k || ""} visual treatment of the talk`.replace("  ", " ")) },
   "move-inventor": { desk: "story", tier: "inherit", desc: (p, k) => `Inventing the hero moves for the ${k || ""} script`.replace("  ", " ") },
@@ -157,7 +194,7 @@ const ROLES = {
   "art-director": { desk: "art", tier: "inherit", desc: () => "Making the film's pictures: one consistent world of illustrations, icons, cut-outs, line art and handwriting" },
   "character-designer": { desk: "art", tier: "inherit", desc: () => "Designing the film's one recurring actor: an original identity, its model sheet and its emotion sheets" },
   "frame-designer": { desk: "art", tier: "inherit", desc: (p, k) => `Designing the boards ${k || ""}, bound to the hero styleframes`.replace("  ", " ") },
-  "styleframe-designer": { desk: "art", tier: "inherit", desc: (p, k) => (String(k || "").startsWith("heroes-") ? `Drawing the ${String(k).slice(7)} look's three hero styleframes on this story` : k === "heroes" ? "Designing the shot list and the three hero styleframes" : "Designing the film as pictures: a shot list, three hero styleframes and a board per beat") },
+  "styleframe-designer": { desk: "art", tier: "inherit", desc: (p, k) => (String(k || "").startsWith("heroes-") ? `Drawing the ${String(k).slice(7)} look on ONE representative beat of this story (one styleframe)` : k === "heroes" ? "Designing the shot list and the three hero styleframes" : "Designing the film as pictures: a shot list, three hero styleframes and a board per beat") },
   "ab-juror": { desk: "review", tier: "inherit", desc: (p, k) => `Judging two films blind (X or Y) and picking the one to show${k ? ` (A/B ${k})` : ""}` },
   retrospective: { desk: "review", tier: "inherit", desc: () => "Reading how the film was made and keeping at most two craft rules for the next one" },
   "frame-juror": { desk: "review", tier: "inherit", desc: () => "Judging every styleframe next to reference stills of the same kind" },
@@ -188,7 +225,7 @@ export const TOKENS = {
 const TOKEN_KEYS = { "film-builder:lead": 120000, "motion-director:seams": 60000 }; // a key that costs differently from its role
 const FIX_ROUND = 60000; // the builder's fix pass per round (its critic pass and the A/B are counted separately)
 export const BUDGETS = {
-  lean: { fix_rounds: 1, label: "Lean", summary: "one script, one look, the film builder draws its own boards, one fix round, the film critic and one blind A/B" },
+  lean: { fix_rounds: 1, label: "Lean", summary: "the same story and look choices, kept compact; the film builder draws its own boards, one fix round, the film critic and one blind A/B" },
   standard: { fix_rounds: 2, label: "Standard", summary: "every desk, two fix rounds, the film lens joins the review, a blind A/B on each round" },
   full: { fix_rounds: 3, label: "Full", summary: "every desk and every pass, up to three fix rounds, the precedent study and a separate film review" },
 };
@@ -238,7 +275,7 @@ function directFilm(p, prev = {}, run = null) {
 }
 
 // Who researches, by what the film is made FROM (references/sources.md), not by route. Local scouts are dispatched per approved folder (p.local), never here.
-function sourceResearch(p, d, lean) {
+function sourceResearch(p, d, lean, full) {
   const src = p.sources;
   const out = [];
   const kinds = new Set((src.sources || []).map((s) => s.kind));
@@ -257,6 +294,9 @@ function planCrew(p) {
   const phases = [];
   const budget = p.budget || "standard";
   const lean = budget === "lean";
+  // Plan 08 K1: `lean` is an execution level (fix rounds, who draws the boards, which critics). It no longer collapses the Story and Look calls to ONE script and ONE look
+  // by itself: only an explicit one-alternative policy does (a series, or the person's choice). A plan written before the policy existed keeps the old meaning.
+  const leanCreative = lean && (!p.policy || collapsesAlternatives(p.policy));
   const FR = BUDGETS[budget].fix_rounds, FRT = `${FR} fix round${FR > 1 ? "s" : ""}`;
   const full = budget === "full";
   const N = p.scenes || null;
@@ -265,7 +305,7 @@ function planCrew(p) {
   const LABELS3 = p.series ? ["Sure"] : ["Sure", "Bold", "Wild"];
   const research = [];
   const footageSp = !!(p.sources && isFootageLed(p.sources));
-  if (p.sources) research.push(...sourceResearch(p, d, lean));
+  if (p.sources) research.push(...sourceResearch(p, d, lean, full));
   else if (["product-launch-video", "general-video", "motion-graphics"].includes(p.route) && p.mode !== "topic") {
     // a direct film (45 s or less, a single-feature launch) researches only the product (and its one feature's real
     // screens) and the brand, plus the brand's own film when it has one: nothing a one-builder film doesn't use
@@ -325,7 +365,14 @@ function planCrew(p) {
     // a film cut from footage: the writers are editors. Three paper edits (Sure, Bold, Wild) from the same selects; no Moves pass (a lighter "joins" idea lives in the builders' briefs)
     phases.push({ phase: "story", when: "after the research lead and the selects are accepted", dispatch: LABELS3.map((k) => d("footage-writer", k)), then: "footage.mjs check-paper on each (crew.mjs check --role footage-writer), then render each radio edit if you can and push story from the three paper edits" });
     phases.push({ phase: "story-edit", when: "after the three paper edits pass check-paper", dispatch: [d("script-editor")], then: "the editor reads each paper edit with a footage lens (does this bite really say that? is this the strongest hook in the material?); one round back to the writers, then push story" });
-  } else if (STORY_ROUTES.has(p.route) && !lean) {
+  } else if (STORY_ROUTES.has(p.route) && !leanCreative && !p.series && p.route !== "reel" && (p.story_mode || "balanced") === "balanced") {
+    // Plan 03 S3, the default balanced workflow: ONE scoped writer proposes three compact treatments that differ in proof selection, order, perspective or premise (no choreography, no boards, no Moves pass: the chosen one is developed later);
+    // ONE independent editor reviews the set with a structured review; one focused revision; an extra independent writer only when diversity, clarity or evidence is insufficient.
+    phases.push({ phase: "story", when: "after the research lead's truth sheet and claims (and the briefing's communication kind): the writer reads node story.mjs grammar --kind <kind> and node story.mjs refs --kind <kind>", dispatch: [d("script-writer", "Set", { mode: "treatments" })], director_steps: ["node story.mjs treatments --set story/treatments.json --split [--brief <briefing>] [--evidence research/claims.json]   (exit 2: the writer fixes exactly what it names)", "crew.mjs pitches   (merges the projected story/pitch-<label>.json for the Story card)"], then: "crew.mjs check --role script-writer --key Set, then the editor" });
+    phases.push({ phase: "story-edit", when: "after the treatment set passes story.mjs treatments", dispatch: [d("script-editor")], then: "story.mjs review --review story/edit-notes.json (structured: issue_id, beat, evidence, severity, fix); the story-revise phase sends the writer ONE focused revision; then push story with the three treatment cards (titled by premise; Sure / Bold / Wild is a secondary tag)" });
+    phases.push({ phase: "story-revise", when: "after the editor's review is accepted: only when a treatment is marked rewrite or replace on an error or major issue", dispatch: [d("script-writer", "Set", { conditional: true, only_if: "story/edit-notes.json marks a treatment rewrite or replace", mode: "revise" })], then: "re-run story.mjs treatments on the set; one focused revision, no second editor pass" });
+    phases.push({ phase: "story-escalate", when: "only when story.mjs treatments reports escalation.needed (diversity, clarity or evidence still insufficient after the one revision)", dispatch: [d("script-writer", "Extra", { conditional: true, only_if: "story.mjs treatments escalation.needed is true after the revision", mode: "treatments" })], then: "an independent extra writer adds the missing kind of candidate (the user is still offered three); unresolved communication issues are shown to the user, not hidden" });
+  } else if (STORY_ROUTES.has(p.route) && !leanCreative) {
     // the story plan (agents/story-planner.md): one agent assigns each slot the decisions that must not collide (angle, villain picture, turn kind, peak kind, device, claims), so the writers fill slots instead of choosing them; a series episode has one script and no plan
     if (!p.series) phases.push({ phase: "story-plan", when: "after story.mjs pick, before the three script writers", dispatch: [d("story-planner")], then: "crew.mjs check --role story-planner (runs story.mjs plan on story/plan.json); then the writers, each reading its slot" });
     phases.push({ phase: "story", when: p.series ? "after story.mjs pick" : "after the story plan is accepted (story/plan.json)", dispatch: LABELS3.map((k) => d("script-writer", k)), then: p.series ? "story.mjs check on the one script, then the editor; auto-choose it and push story --status done with the decision \"From your series: <name>\"" : "crew.mjs pitches, story.mjs check, then the editor" });
@@ -341,7 +388,7 @@ function planCrew(p) {
   }
   // The script editor is never skipped: a lean film has no writers to dispatch (the Director writes the three scripts), but its scripts are still read by the editor.
   const scripted = STORY_ROUTES.has(p.route) && !["reel", "music-to-video"].includes(p.route) && !footageSp;
-  if (scripted && lean) {
+  if (scripted && leanCreative) {
     phases.push({ phase: "story", when: "after story.mjs pick: the Director writes ONE script (lean: no script writers, no three-way pick), with story/intent-Sure.json", dispatch: [], director_steps: ["write story/pitch-Sure.json and story/intent-Sure.json yourself, in the shape and device story.mjs pick recommended (agents/script-writer.md, references/intent.md)", "crew.mjs pitches, story.mjs check, story.mjs intent --intent story/intent-Sure.json"], then: "then the script editor: it is never skipped; the Story call shows the one script as a confirm (recommended), not a pick of three" });
     phases.push({ phase: "story-edit", when: "after the pitch passes story.mjs check: the script editor runs on every scripted route, lean or not", dispatch: [d("script-editor")], then: "route its notes back (one round), then push story" });
   }
@@ -352,12 +399,13 @@ function planCrew(p) {
     phases.push({ phase: "look-series", when: "after the story is chosen: the series' look is locked, so there is no three-system desk and no Look call", dispatch: [], director_steps: [`copy ${p.series_look} to <run>/look/DESIGN.md (the series' DESIGN.md IS the look; never edit the series copy)`, "push look --status done with the decision \"From your series: <name>\" (console.mjs push --step look --status done --data '{\"decision\":\"From your series: <name>\"}'): the call is decided and shown as From your series; the user can still open it", "motion-md.mjs write from the look's motion, direction.mjs compile, and video-decisions look = {design_md, mode: \"series\"}"], then: "the concept gate (a presenter film: plates and the animatic)" });
   } else if (brandLook) {
     phases.push({ phase: "look-auto", when: "after the story is chosen: a direct film with a brand has no three-system desk", dispatch: [], director_steps: ["the look is the brand's own: research/brand/DESIGN.md (or the workspace DESIGN.md)" + (bf ? " and brand-film/FILM-STYLE.md" : ""), "push look --status done with the reason (\"The brand's own look: <type, colours>; the motion comes from the picked moments\"): the Look call is decided, like any craft call", "motion-md.mjs write from the brand's motion, direction.mjs compile, and video-decisions look = {design_md, mode: \"brand\"}", "the user can still ask for looks (\"show me looks\"): re-plan with --deep"], then: "the concept gate" });
-  } else if (lean) {
+  } else if (leanCreative) {
     phases.push({ phase: "design-system", when: "after the story is chosen (story/chosen.json)" + (bf ? " and the brand film card (brand-film/FILM-STYLE.md) is accepted" : " and design-research is accepted") + ": lean has ONE look, not three", dispatch: [d("design-system-designer", "Sure")], then: "design.mjs check-system, design.mjs choose-system Sure; the Look call is a confirm of the one look (design.mjs look-payload with one style), never a pick of three, and there are no look hero frames" });
   } else {
     phases.push({ phase: "design-systems", when: p.route === "reel" || ["talking-head-recut", "embedded-captions"].includes(p.route) ? "after the story is chosen (a reel is Story -> Look -> Cut: the cards, overlays and captions are drawn before the cut is built) or after the brief (talking-head-recut, embedded-captions): three card / overlay / caption identities" : (bf ? "after the story is chosen (story/chosen.json) and the brand film card (brand-film/FILM-STYLE.md) is accepted" : "after the story is chosen (story/chosen.json) and design-research is accepted"), dispatch: ["Sure", "Bold", "Wild"].map((k) => d("design-system-designer", k)), then: "design.mjs check-systems (each valid and the three distinct" + (bf ? "; a branded look cites FILM-STYLE.md, uses the card's palette and type, and carries no outside references" : "") + "), then design.mjs look-payload and push the Look" });
     // picture-first (references/styleframes.md): on a scene route each system is shown by its 3 hero styleframes of this story
-    if (DIRECT_ROUTES.has(p.route)) phases.push({ phase: "look-heroes", when: "after the three systems pass design.mjs check-systems, BEFORE the Look push: the user picks a look from its open, peak and end frames, not only from the specimen", dispatch: lean ? [] : ["Sure", "Bold", "Wild"].map((k) => d("styleframe-designer", `heroes-${k}`)), ...(lean ? { director_steps: ["draw the story's open, peak and end frames in each system yourself (agents/styleframe-designer.md, key heroes-<Label>): design/<Label>/frames/{open,peak,end}.html, design.mjs stills --dir design/<Label>/frames"] } : {}), then: "design.mjs look-payload (each style carries frames: its three hero PNGs), push the Look" });
+    // Plan 04 L1: the comparison is ONE approved story beat drawn the same way in every look (one styleframe per look; a justified second only for a real uncertainty): never open/peak/end for every rejected look
+    if (DIRECT_ROUTES.has(p.route)) phases.push({ phase: "look-heroes", when: "after the three systems pass design.mjs check-systems, BEFORE the Look push: the user compares the looks on the SAME approved story beat (design.mjs compare-plan picks it), one styleframe per look, not only the specimen. No full storyboard and no production scene exists before the Look is committed", dispatch: lean ? [] : ["Sure", "Bold", "Wild"].map((k) => d("styleframe-designer", `heroes-${k}`)), ...(lean ? { director_steps: ["node scripts/design.mjs compare-plan --run <run>   (the one representative beat and its content digest)", "draw that beat in each system yourself (agents/styleframe-designer.md, key heroes-<Label>): design/<Label>/frames/representative.{html,png}, same content in every look; design.mjs stills --dir design/<Label>/frames"] } : { director_steps: ["node scripts/design.mjs compare-plan --run <run>   (before the dispatch: the designers read design/comparison-plan.json)"] }), then: "design.mjs look-payload (each style carries frames: its representative PNG, and a card of the consequential differences), push the Look; impossible treatments (a missing font, no real screen) are said in the card before the commit" });
   }
   if (p.route === "presenter") {
     phases.push({ phase: "animate-graphics", when: "after presenter.mjs build wrote the project and briefs/graphics/*.md (the plates are generated and approved)", dispatch: [d("scene-animator", "<beat>-<n>")], then: "one scene-animator per graphic brief (key b3-1 = beat b3, graphic 1) and per designed plate (key plate-p2), in parallel; then obey, slop and a draft render" });
@@ -412,6 +460,11 @@ function planCrew(p) {
       then: "the Motion Director scores with the moments' takes (moment, take per beat); name each placement and its creator in the motion decision (\"Your 'Cursor clicks' move opens beat 1: its click-to-zoom builds the first ask\")",
     });
     phases.push({ phase: "score", when: p.route === "music-to-video" ? "after treatment.mjs scenes wrote scenes.json (plates against the real track; durations are the plate windows)" : "after the boards are approved and the music is fitted (scenes.json has final durations): the score animates between the boards", dispatch: [d("motion-director", "score")], then: p.direct ? "crew.mjs check (the plan, each beat bound to its board), then video.mjs write, crew.mjs storyboard and the film builder" : "crew.mjs check (each beat bound to its board), then video.mjs write, crew.mjs storyboard, the lead builder and the scene animators" });
+    // Plan 05: the Storyboard stage records (shots and panels, editorial, one timing authority, timed playback, approval snapshot); no extra approval, no per-shot approval
+    // Plan 07: sound is part of the film. The Director compiles the audio direction, derives the cues from the score, and records the audio contract BEFORE the Storyboard timing is reconciled; no per-cue approval.
+    phases.push({ phase: "audio-direction", stage: "storyboard", requires_committed: ["story", "look"], when: "after the score is accepted and before the Storyboard timing is reconciled (the real selected audio is used when it exists; scratch audio is labelled)", director_steps: ["node scripts/soundplan.mjs direction --run <run> --compile <opts.json>   (roles of voice / music / effects / ambience / silence, a limited palette, a recurring motif, silence windows; --set <file> for a hand-written one; a silent film is a recorded choice)", "node scripts/soundplan.mjs cues --run <run> --write   (derives motion/cues.json from the score; offsets are judged against each cue's own target)", "node scripts/soundplan.mjs music-fit --analysis <analysis.json> --plan <fit-plan.json> [--music-led] [--trim-authorized]   (tempo is labelled detected / uncertain / undetected; a too-short track is refused, never looped)", "node scripts/soundplan.mjs voice --run <run> --lines <lines.json> --voice <voice.json> [--glossary <g.json>]   (approved copy, user-confirmed pronunciations, which segments regenerate)", "node scripts/soundplan.mjs contract --run <run> --build <opts.json>   (audio/contract.json: the one audio contract; stems and digests)", "node scripts/soundplan.mjs mix --receipt --run <run> --kind preview   (names the exact score, stem and automation digests; a cached mix is reused only when they all match)"], then: "continue with storyboard-record" });
+    phases.push({ phase: "storyboard-record", stage: "storyboard", requires_committed: ["story", "look"], when: "after the boards are approved and the score is accepted (before the animatic is pushed): the Storyboard is ONE review of panels plus timed playback", dispatch: [],
+      director_steps: ["node scripts/storyboard.mjs boundary --run <run> --pin   (a full storyboard needs the approved or explicitly inherited Story and Look; --mode sketch is an exploratory sketch, never scheduled for build)", "node scripts/storyboard.mjs adopt --run <run>   (frames/shots.json -> storyboard/storyboard.json: shot_id, beat_id, panels[1..n], copy_refs, focal_read, timing, transition_out, sound_intent)", "node scripts/storyboard.mjs check --run <run>   (editorial: new value, one focal read, reading time, what each cut means, no false continuity; hard cuts and long holds are allowed)", "node scripts/storyboard.mjs timing --run <run> --audio audio/contract.json   (Plan 07: soundplan.mjs contract --build writes it; the old storyboard/audio.json still reads; reconcile voice, music and boards BEFORE approval: real selected audio when it exists, scratch labelled; a music-led track is authoritative); commit with crew.mjs timing --deltas <f> --commit, then crew.mjs storyboard (the score is the one timing authority, motion/events.json is derived)", "node scripts/storyboard.mjs animatic --run <run> --push   (the timed playback plan and the console push data; honest fidelity label; --render only for a real animatic mp4)", "a note on it is anchored to shot, panel, time and revision (console.mjs does it); node scripts/storyboard.mjs note --run <run> --text '<note>' reads it: 'hard to understand' is an editorial revision, not more animation", "on approval the console pins storyboard/approvals.json (storyboard.mjs snapshot); a scratch-voice approval is not final-voice approval; 'Just make it' decides this stage and records storyboard/decision.json"], then: "push the animatic (the Storyboard call)" });
     // a lyric video keeps its key frames after the score (its plates are fixed by the treatment; scene routes drew boards before the score)
     if (!DIRECT_ROUTES.has(p.route) && !p.direct) {
       phases.push({ phase: "keyframes", when: "after the score is accepted", dispatch: boardGroups().map((g) => d("frame-designer", g)), then: lean ? "push the animatic" : "the frames critic, then push the animatic" });
@@ -450,7 +503,7 @@ function planCrew(p) {
   if (SCENE_ROUTES.has(p.route) || p.route === "motion-graphics") phases.push({ phase: "stage3d-font", when: "before a beat sets BRAND TYPE in 3D (extruded text): only then", dispatch: [], director_steps: ["node scripts/stage3d.mjs font --project <dir> --family \"<Brand Font>\" --weight 700 (prints the staged font path)", "k.extrudeText(text, { font: \"<printed path>\" }) in the scene"], then: "the 3D type is the brand's own face, never a stand-in" });
   phases.push({ phase: "ab-review", when: lean ? "the fix round (lean: one), before it is accepted" : "every fix round after the first draft (" + FRT + " at most), before the round is accepted", dispatch: [], director_steps: ["node scripts/fixcheck.mjs --before <the previous render> --after <this round's render> --touched <the notes' windows> (read regression_runs and diff_pngs: a leak into frames the round did not touch is fixed or explained)", "crew.mjs ab --run <run> --a <the previous render> --b <this round's render> --plan motion/score.json (the juror's brief carries the critics' strengths[]: a round that loses one is a regression)", "crew.mjs brief --role ab-juror --key <k> (dispatch it; it sees X and Y, never which is newer)", "crew.mjs check --role ab-juror --key <k> prints keep or revert; revert = back to the previous version's project state (git, or the .superseded copy), keep only fixes that do not lose, and log the lost round with --because"], then: "a lost round is reverted, never accepted" });
   phases.push({ phase: "retrospective", when: "at delivery, after the Final", dispatch: [d("retrospective")], then: "crew.mjs check --role retrospective prints the lessons.mjs add --source self lines (at most 2); run them" });
-  return phases;
+  return annotatePhases(phases); // Plan 04: tags every storyboard/production phase with the stages that must be committed first
 }
 
 // The critics' strengths-to-keep: crew/critic-<lens>-<round>.json `strengths` (strings, or {what, scene?, t?}); the latest round of each lens. The fix brief carries them and the A/B juror is told to flag a regression.
@@ -500,7 +553,7 @@ function spikeScene(run, N) {
 // ---------------------------------------------------------------- ledger
 function ledger(run, row) {
   fs.mkdirSync(R(run, "crew"), { recursive: true });
-  fs.appendFileSync(R(run, "crew", "ledger.jsonl"), JSON.stringify({ t: new Date().toISOString(), ...row }) + "\n");
+  Rec.appendJsonl(R(run, "crew", "ledger.jsonl"), { t: new Date().toISOString(), ...row }); // Plan 11 R1: torn-tail-safe append
 }
 function readLedger(run) {
   const f = R(run, "crew", "ledger.jsonl");
@@ -631,6 +684,8 @@ const imagegenState = () => {
     return "unknown";
   }
 };
+// Plan 03: a v2 story (format-aware treatment) has no mandatory turn; the concept critic asks the v2 questions instead. Legacy intents keep turn_reverses / payoff_answers_setup.
+const conceptV2 = (run) => { const it = jsonMaybe(R(run, "story", "intent.json")); return !!(it && it.story_format === "v2"); };
 const chosenTreatment = (run) => jsonMaybe(R(run, "story", "chosen-treatment.json"));
 const scenesOf = (run) => {
   const s = jsonMaybe(R(run, "scenes.json"));
@@ -659,6 +714,31 @@ function contextFor(run, role, key, plan) {
   const research = (f) => R(run, "research", f);
   const capture = pj ? path.join(pj, "capture") : null;
   const B = brief(run);
+  { // Plan 04 L1: storyboard/production roles wait for a committed Look (heroes-<Label> is the Look comparison itself and is exempt)
+    const g = productionGate(run, role, key, P);
+    if (!g.ok) die(g.message);
+    // Plan 05 E1: once a full storyboard was scheduled (storyboard/inputs.json pins the Story and Look digests), a worker is not briefed on inputs that have since moved
+    if (P && P.look_gate && ["scene-animator", "film-builder", "motion-director", "frame-designer", "art-director", "frame-juror"].includes(role) && exists(R(run, "storyboard", "inputs.json"))) {
+      const sb = storyboardBoundary(run, { mode: "full" });
+      if (!sb.ok && sb.stale && sb.stale.length) die(`stale storyboard inputs: ${sb.problems[0]} (storyboard.mjs boundary --run ${rel(run)}, then storyboard.mjs adopt: the old panel set is labelled old)`);
+    }
+    // Plan 04 L2/L5: the compact visual bible and the continuity contract travel with every worker that draws or animates
+    if (["scene-animator", "film-builder", "motion-director", "frame-designer", "styleframe-designer", "art-director", "frame-juror"].includes(role) && !(role === "styleframe-designer" && String(key || "").startsWith("heroes-"))) {
+      I("visual bible (machine-readable projection of the look: role palette, exact fonts and locale fallback, safe regions, motion and transition vocabulary by semantic relation, treatments each tied to what it communicates, hard brand constraints vs creative defaults; check source_digest against the look)", R(run, "look", "visual-bible.json"));
+      I("continuity contract (shared components each with ONE owner, seam types: same object, analogy, causal handoff, temporal, discontinuity; you may request a change, never redefine a shared component)", R(run, "look", "continuity.json"));
+      ctx.visual_bible_for = `node "${path.join(SKILL_DIR, "scripts", "design.mjs")}" bible-for --run ${rel(run)} --scene ${key || "<scene>"}   (your projected subset)`;
+    }
+    // Plan 06 V7/V8: what the machine can honestly do, and the guard before a scene is rebuilt over the person's edits
+    if (["scene-animator", "film-builder", "motion-director", "art-director"].includes(role)) {
+      ctx.capabilities = `node "${path.join(SKILL_DIR, "scripts", "production.mjs")}" capabilities --only kit.   (a catalog row is NOT a capability: use only moves whose ui_state is ready or experimental; never offer an unavailable one; generated plates, trackers and masks are optional and say why they are blocked; the GSAP licence review is an open distribution blocker)`;
+      ctx.regeneration_guard = `before replacing a scene file that has edits: node "${path.join(SKILL_DIR, "scripts", "production.mjs")}" overrides --run ${rel(run)} --scene ${key || "<scene>"}   (carried edits are re-applied after the rebuild; a missing element id is a conflict to resolve, never a nearest-pixel guess; keep every data-el id stable)`;
+    }
+  }
+  // Plan 07 A1/A2: sound is planned with the picture. The direction (roles, palette, motif, silence windows) and the cue contract travel with the roles that author timing or build scenes.
+  if (["motion-director", "film-builder", "scene-animator", "frame-designer", "art-director"].includes(role)) {
+    I("audio direction (the role of voice, music, effects, ambience and intentional silence; a few sonic ingredients and a motif; protected silence windows; a silent film is a valid deliverable: read it, do not add an effect to every hit)", R(run, "audio", "direction.json"));
+    ctx.sound_cues = `author score.audio_cues[] ({id, event, role, source, intent: on_picture|anticipate|trail|synchronous, offset_s, gain_db, pan, confidence}) against STABLE event ids; an intentional lead or lag is recorded, not corrected; hold only synchronous cues, spoken-word highlights and lip movement to a hard sync; leave the silence windows empty; no riser plus impact before every change. Check: node "${path.join(SKILL_DIR, "scripts", "soundplan.mjs")}" cues --run ${rel(run)}`;
+  }
   const kitFile = pj && userBrand(pj) ? path.join(pj, "assets", "brand", "brand-assets.json") : null;
   if (kitFile) {
     seedUserBrand(run, pj);
@@ -771,12 +851,29 @@ function contextFor(run, role, key, plan) {
       O(R(run, "story", "truth.md")); O(research("claims.json")); O(research("assets.json")); O(research("BRIEFING.md"));
       break;
     case "script-writer": {
+      if (key === "Set" || key === "Extra") {
+        // Plan 03: the balanced workflow's one scoped writer (three compact treatments) or the escalation writer; revise mode reads the editor's structured review
+        const pb = jsonMaybe(R(run, "research", "briefing.json")) || jsonMaybe(R(run, "brief.json")) || {};
+        const kindId = String((pb.brief || pb).communication_kind || B.communication_kind || "");
+        Object.assign(ctx, {
+          label: key, brief: B, communication_kind: kindId || "(unset: classify from the brief; say your assumption)",
+          grammar_cmd: `node "${path.join(SKILL_DIR, "scripts", "story.mjs")}" grammar --kind <communication_kind>`, refs_cmd: `node "${path.join(SKILL_DIR, "scripts", "story.mjs")}" refs --kind <communication_kind> [--role <beat role>]`,
+          check_cmd: `node "${path.join(SKILL_DIR, "scripts", "story.mjs")}" treatments --set ${rel(R(run, "story", "treatments.json"))} --split`,
+          set_rule: "ONE file, story/treatments.json: { communication_kind, treatments: [three compact treatments] } in the v2 format (references/story.md, Format-aware treatments). The three must differ in proof selection, information order, perspective or premise (a different decorative device does not count). Title each by what the film IS (treatment_title); Sure / Bold / Wild is only a secondary tag. No boards, no camera plans, no choreography. Every required takeaway maps to a beat with evidence or a visual event (coverage.ledger); say what you leave out and why (coverage.excluded). A villain, twist, peak or reveal deadline is an OPTIONAL tool: use one only when it serves the assignment and list it in optional_tools with its purpose.",
+          ...(key === "Extra" ? { escalation_rule: "You are the independent extra writer: add ONE candidate of the kind the set lacks (see escalation.reasons in the last story.mjs treatments output); do not rewrite the others." } : {}),
+        });
+        const enotes = jsonMaybe(R(run, "story", "edit-notes.json"));
+        if (enotes && Array.isArray(enotes.treatments || enotes.pitches)) { ctx.revise = "REVISE MODE (one focused revision): apply each error and major issue's exact fix from the editor's review below; leave minor and craft notes unless trivially fixed; then re-run the check. No second editor pass."; I("the editor's structured review (issue_id, beat, evidence, severity, fix)", R(run, "story", "edit-notes.json")); }
+        for (const [l, pth] of [["truth", R(run, "story", "truth.md")], ["claims (the only facts you may state)", research("claims.json")], ["briefing", research("BRIEFING.md")], ["screens", research("screens.md")], ["treatment format and the story grammars", path.join(SKILL_DIR, "references", "story.md")], ["writer's brief", path.join(SKILL_DIR, "references", "script.md")]]) I(l, pth);
+        O(R(run, "story", "treatments.json"));
+        break;
+      }
       const picks = jsonMaybe(R(run, "story", "picks.json"));
       const list = picks ? picks.picks || picks.devices || picks : [];
       const dev = Array.isArray(list) ? list.find((x) => String(x.label || x.angle || "").toLowerCase() === String(key).toLowerCase()) : null;
       // the story plan (story/plan.json, the story-planner's): this label's slot is GIVEN (device, turn_kind, peak_kind, owned claims, angle, villain picture), not chosen
       const planJ = jsonMaybe(R(run, "story", "plan.json")), slot = planJ && Array.isArray(planJ.slots) ? planJ.slots.find((x) => String(x.label).toLowerCase() === String(key).toLowerCase()) : null;
-      if (slot) Object.assign(ctx, { plan_slot: slot, plan_rule: "YOUR SLOT in story/plan.json is given, not chosen: use its device (when not null), engine, turn_kind and peak_kind (declare turn_kind and peak_kind on the pitch), argue its angle, show its villain_picture, and put every owned_claims id on a beat (pitch.coverage rows { claim, beat }). story.mjs check holds you to it (G14 Plan). The plan's coverage also assigns the other must-show features to slots: cover yours (G15 Coverage)", plan_coverage: planJ.coverage || [] });
+      if (slot) Object.assign(ctx, { plan_slot: slot, plan_rule: "YOUR SLOT in story/plan.json is given, not chosen: use its device (when not null) and engine, and its turn_kind and peak_kind when the slot declares them (a turn, a peak and a villain are OPTIONAL tools: a slot may declare none), argue its angle, show its villain_picture when it has one, and put every owned_claims id on a beat (pitch.coverage rows { claim, beat }). story.mjs check holds you to it (G14 Plan). The plan's coverage also assigns the other must-show features to slots: cover yours (G15 Coverage)", plan_coverage: planJ.coverage || [] });
       else if (!planJ) ctx.plan_rule = "no story/plan.json (a single-script or series film): choose from the menu as before; pitch.coverage still lists every must-show feature and surprising fact (G15)";
       // the beat sheet for this film's length and the rewrite ledger
       const lenS = Number(B.length_s) || Number(P.length) || 0;
@@ -786,7 +883,7 @@ function contextFor(run, role, key, plan) {
       const enotes = jsonMaybe(R(run, "story", "edit-notes.json")), mine = enotes && Array.isArray(enotes.pitches) ? enotes.pitches.find((x) => String(x.label || x.id).toLowerCase() === String(key).toLowerCase() && ["rewrite", "replace"].includes(x.verdict)) : null;
       if (mine) { Object.assign(ctx, { revise: "REVISE MODE: the script editor marked your script " + mine.verdict + ". Apply EVERY note's exact fix below, keep your plan slot, then re-run story.mjs check and crew.mjs check --role script-writer (the ledger gives you +2 runs). One round only: no second editor pass", edit_notes: mine.notes || [], editor_verdict: mine.verdict }); I("the editor's notes (your pitch's entry in story/edit-notes.json)", R(run, "story", "edit-notes.json")); }
       I("the story plan (your slot, and the coverage of every must-show feature)", R(run, "story", "plan.json"));
-      Object.assign(ctx, { label: key, device: dev || "(see story/picks.json for this label)", device_menu: "story/picks.json `menu`: CHOOSE one device from it with a one-line reason (pitch.device_reason); no seeded draw chose for you. Your slot's `engine` and the turn_rule say what your script's turn must do (pitch.turn { line, reverses, payoff })", brief: B });
+      Object.assign(ctx, { label: key, device: dev || "(see story/picks.json for this label)", device_menu: "story/picks.json `menu`: CHOOSE one device from it with a one-line reason (pitch.device_reason); no seeded draw chose for you. Your slot's `engine` and the turn_rule say what your script's turn must do when you use one (pitch.turn { line, reverses, payoff }); a turn is optional", brief: B });
       for (const [l, p] of [["intent sheet format (story/intent-" + key + ".json: the argument, written first)", path.join(SKILL_DIR, "references", "intent.md")], ["truth", R(run, "story", "truth.md")], ["claims", research("claims.json")], ["briefing", research("BRIEFING.md")], ["screens", research("screens.md")], ["precedent", research("precedent.md")], ["picks", R(run, "story", "picks.json")], ["writer's brief", path.join(SKILL_DIR, "references", "script.md")], ["pitch format", path.join(SKILL_DIR, "references", "story.md")]]) I(l, p);
       for (const [l, p] of showcaseInputs(run, P, B)) I(l, p);
       O(R(run, "story", `pitch-${key}.json`)); O(R(run, "story", `intent-${key}.json`));
@@ -922,7 +1019,8 @@ function contextFor(run, role, key, plan) {
       if (look && !MOVE_LABELS.includes(look)) die("styleframe-designer key heroes-<Sure|Bold|Wild>");
       const dir = look ? R(run, "design", look, "frames") : R(run, "frames");
       const fjs = path.join(SKILL_DIR, "scripts", "frames.mjs");
-      Object.assign(ctx, { pass: look ? `the ${look} look's 3 hero styleframes (open, peak, end) of the chosen story, in design/${look}/frames/` : k === "heroes" ? "the shot list and the 3 hero styleframes (frame designers draw the other boards, bound to yours)" : "the whole set: the shot list, the 3 hero styleframes and one board per beat", aspect: B.aspect, length_s: B.length_s, frames_dir: rel(dir) });
+      Object.assign(ctx, { pass: look ? `the ${look} look drawn on ONE representative beat of the approved story (design/comparison-plan.json: the beat, its on-screen copy and evidence are identical in every look), ONE styleframe: design/${look}/frames/representative.{html,png}. A second frame (second.{html,png}) only for a real uncertainty you state in FRAMES (an interface with a dimensional object, a locale that may not fit). The brand's logo, factual UI and colours never change; vary hierarchy, density, material, framing, motion character. If a requested treatment is impossible with the assets in hand (a missing font, no real screen), say so in frames/LIMITS.md instead of inventing proof` : k === "heroes" ? "the shot list and the 3 hero styleframes (frame designers draw the other boards, bound to yours)" : "the whole set: the shot list, the 3 hero styleframes and one board per beat", aspect: B.aspect, length_s: B.length_s, frames_dir: rel(dir) });
+      if (look) ctx.comparison_plan = rel(R(run, "design", "comparison-plan.json"));
       ctx.init_cmd = `node "${fjs}" init --run ${rel(run)}${look ? ` --dir ${rel(dir)} --heroes` : ""}`;
       ctx.refs_cmd = `node "${fjs}" refs --run ${rel(run)} --sheet`;
       ctx.shots_check = `node "${fjs}" shots-check --run ${rel(run)}${look ? ` --dir ${rel(dir)}` : ""}`;
@@ -1202,9 +1300,9 @@ const DARES = {
   "move-sketcher": "The rough must make the idea legible in one loop. Timing is the idea: follow the card's move exactly, in its seconds and eases. Grey-box, no styling, one accent for the carrier. If the idea only works with a trick the rough cannot show, build the simplest version that keeps it and say so.",
   "footage-writer": "Show off. Two other editors are cutting the same material against you, and the user will pick one. First list five candidate hooks from the selects (rated 4+ bites and gold moments) and choose the one that makes a stranger stay by feeling, not by information. Then cut the radio edit so it works as audio alone, and let picture and sound cross at different times at least twice (a J-cut that lands the next face as its first word arrives, an L-cut that lets a line finish over the next shot). Cover every join with a shot that adds meaning. Write the paper edit an editor would be proud to hand over: the film a viewer feels, not a tidy transcript. If it is only correct, it is not done.",
   "selects-producer": "Show off. Find what the Director would have missed: the line a viewer would repeat to a friend, the two seconds nobody planned, the shot where the light or a face does the telling. Rate on the feeling first. Overgenerate: pull at least twice as many candidates as you keep, then drop the ones that only inform. A selects list of competent bites is the failure: the film is in the five you would fight for.",
-  "script-writer": "Show off with the argument, not the adjectives. Two other writers pitch against you. Do the method at the end of your role in full: the three obvious films first, banned; eight turns and five endings; pick by the retell and the swap; then rewrite it bolder and write down what changed. A script that is only correct loses the room.",
+  "script-writer": "Show off with the argument, not the adjectives. Three treatments that differ in what they prove, in what order, and from whose side, each titled by what the film is. Say the true thing the viewer needs to understand first; then find the most specific picture of it. Optional tools (a villain, a twist, a peak) only when they serve this assignment. A treatment that is only correct, or only abstract, loses the room.",
   "script-editor": "Be the hardest reader in the room. Retell blind first; a script whose retell misses its proposition is a rewrite whatever its polish. Recommend the clearest true argument, not the safest script.",
-  "concept-critic": "Be the last cheap chance. A script with no reversing turn, or a payoff that doesn't answer its opening, fails now, before hours are spent on it.",
+  "concept-critic": "Be the last cheap chance. A script whose proof does not match its promise, a payoff that does not answer its opening (when it sets one up), or copy that leaks internal labels fails now, before hours are spent on it. A turn is optional; a clear honest film without one passes.",
   "structure-critic": "Be the editor with scissors. You are the only critic allowed to cut a beat: use it. A film with every beat kept and the peak where the writer put it needs a reason in the summary.",
   "design-researcher": "Show off. The generic version of this job returns the category's own look and a list of famous styles. Return the subject's visual world as only someone who went looking would know it: the real materials, places, eras and printed things around this product or topic, the clichés a lazy design pass would reach for (named, so the desk avoids them), and a shortlist of library references chosen because they are surprising and right for THIS subject, not because they are famous. If two of your references would make an obvious blend, replace one.",
   "design-system-designer": "Show off. This is the pitch: the user sees three systems for their story, and yours is drawn live on their own first line. Don't hand in the tasteful default (a neutral ground, one accent, a grotesk, a rounded card): build the system a top studio would present, one a motion designer could animate for a year and never repeat. Blend 2 to 4 references so the result is something no single reference is, put the subject's own visual world in it (its materials, its places, its printed things), choose a display face with a point of view, and write the motion and camera language as precisely as a director's note (durations, holds, eases by name, the camera's lens and moves). The gate rejects a generic or near-duplicate system; the user rejects a forgettable one.",
@@ -1517,7 +1615,9 @@ function checkScore(run) {
   if (entr.length >= 6 && entr.filter((e) => e === "cut-in").length / entr.length < 0.15) W.push("under 15% of elements are simply there on the cut (aim for 30%)");
   if (N >= 4) {
     const en = S.map((s) => Number(s.energy));
-    if (!en.some((e) => e >= 5)) T("no-peak", "no peak: one scene at energy 5");
+    // Plan 03: a peak is an optional tool. The one-scene-at-energy-5 rule binds only when the story's intent marks a peak beat (every legacy film does); a v2 story with no peak may stay level
+    const intentPeak = (() => { const it = jsonMaybe(R(run, "story", "intent.json")); return !it || !Array.isArray(it.beats) || it.beats.some((b) => b && b.peak === true); })();
+    if (!en.some((e) => e >= 5)) { if (intentPeak) T("no-peak", "no peak: one scene at energy 5"); else W.push("no-peak (optional): the story marks no peak beat, so no scene has to reach energy 5"); }
     if (!en.some((e) => e <= 2)) T("no-calm", "no calm stretch: one scene at energy 2 or less");
   }
   const lay = S.map((s) => String(s.layout || "").toLowerCase().split(/[,;(]/)[0].trim());
@@ -1615,9 +1715,15 @@ function checkScore(run) {
       const A = S[i], B = S[i + 1];
       return hit(A, (Number(A && A.duration) || 0) - 0.5, (Number(A && A.duration) || 0) + 0.05) || hit(B, -0.05, 0.5);
     };
-    const moving = seams.map((sm, i) => ({ sm, i })).filter(({ sm }) => sm.kind !== "cut");
+    const moving = seams.map((sm, i) => ({ sm, i })).filter(({ sm }) => sm.kind !== "cut" && !deliberateSeam(sm).hard_cut && !deliberateSeam(sm).hold && !(sm.editorial && sm.editorial.silent === true)); // Plan 05 E4: a hard cut, a hold or an intentionally silent seam is not owed a sound
     const quiet = moving.filter(({ sm, i }) => !sounded(sm, i));
-    if (moving.length && quiet.length / moving.length > 0.5) W.push(`seam-unsounded: ${quiet.length} of ${moving.length} seams with motion have no sound event (seam.sound, or an event with a sound at the seam: whoosh on a move through space, hit on a landing, impact on the reveal): ${quiet.slice(0, 4).map(({ sm }) => `${sm.from}>${sm.to}`).join(", ")}`);
+    // Plan 07 A1/A2: when audio/direction.json gives effects no role (or the film is silent by choice) no seam is owed a sound; audio_cues are checked against the score's own events (an unknown event id is an error, an offset drift is judged against the cue's intended offset, a cue in a protected silence window warns)
+    const dirDoc = readDirection(run).direction, sfxNone = !!dirDoc && sfxExpectation(dirDoc).required === false;
+    if (Array.isArray(score.audio_cues) && score.audio_cues.length) {
+      const dc = deriveCues(score, { silence: dirDoc ? silenceWindows(dirDoc, eventsFromScore(score).events).windows : [] });
+      for (const it of dc.issues) (it.severity === "error" ? P : W).push(`${it.check}: ${it.message}`);
+    }
+    if (!sfxNone && moving.length && quiet.length / moving.length > 0.5) W.push(`seam-unsounded: ${quiet.length} of ${moving.length} seams with motion have no sound event (seam.sound, or an event with a sound at the seam: whoosh on a move through space, hit on a landing, impact on the reveal): ${quiet.slice(0, 4).map(({ sm }) => `${sm.from}>${sm.to}`).join(", ")}`);
     // the derived film-event manifest (events.mjs export), only when the run has one: a stale or invalid one, and a picture hit / foley / spoken word that are not within a frame, warn
     if (fs.existsSync(eventsPath(path.resolve(run)))) {
       try {
@@ -1702,8 +1808,10 @@ function checkScore(run) {
     const launch = brandFilm(run) || productFirst(run, plan);
     // breaths: each at most 1 s, at most 2
     if (Array.isArray(score.breaths)) {
-      const bad = score.breaths.filter((b) => !(Array.isArray(b) && b.length === 2 && Number(b[1]) > Number(b[0]) && Number(b[1]) - Number(b[0]) <= 1.0 + 1e-6));
-      if (bad.length || score.breaths.length > 2) W.push(`breaths-invalid: score.breaths is [[t0, t1]], each 1 s at most and two at most (${bad.length ? `${bad.length} invalid` : `${score.breaths.length} declared`}): a breath is a held beat at the emotional turn, not a gap`);
+      // Plan 05 E4: a breath or long hold WITH a stated reason ([t0, t1, "why"], 8+ characters) has no length or count cap; only the plain two-element breaths keep the old 1 s / two limit
+      const reasoned = (b) => Array.isArray(b) && b.length === 3 && String(b[2] || "").trim().length >= 8;
+      const bad = score.breaths.filter((b) => !(Array.isArray(b) && (b.length === 2 || reasoned(b)) && Number(b[1]) > Number(b[0]) && (reasoned(b) || Number(b[1]) - Number(b[0]) <= 1.0 + 1e-6)));
+      if (bad.length || score.breaths.filter((b) => !reasoned(b)).length > 2) W.push(`breaths-invalid: score.breaths is [[t0, t1]] (each 1 s at most, two at most) or [t0, t1, "why this hold"] (a stated pause or long explanatory hold has no cap) (${bad.length ? `${bad.length} invalid` : `${score.breaths.length} declared`}): a breath is a held beat at the emotional turn, not a gap`);
     }
     // no-overlap: a seam whose incoming element starts after the outgoing one has fully left
     const OVERLAP = /overlap|before (?:the |it |that )?\w*\s*(?:leaves|exits|has left|is gone|clears)|while (?:the |it |that )?[\w\s]{0,24}(?:leaves|exits|leaving|exiting)|as (?:the |it |that )?[\w\s]{0,24}(?:leaves|exits|leaving|exiting)|still (?:on screen|moving out|leaving)|already (?:arriving|entering|in)/;
@@ -1711,6 +1819,7 @@ function checkScore(run) {
     seams.forEach((sm) => {
       const A = S[Number(sm.from) - 1], B = S[Number(sm.to) - 1];
       if (!A || !B) return;
+      if (deliberateSeam(sm).hard_cut || deliberateSeam(sm).hold || ["cut", "smash-cut"].includes(sm.kind)) return; // Plan 05 E4: a hard cut or a stated hold needs no overlap; an effect is not owed at every seam
       const o = sm.out && typeof sm.out === "object" ? sm.out : {}, i2 = sm.in && typeof sm.in === "object" ? sm.in : {};
       const left = Number(sm.out_leaves ?? o.leaves_at ?? o.t1 ?? o.t), arrive = Number(sm.in_arrives ?? i2.arrives_at ?? i2.t0 ?? i2.t);
       if (sm.overlap_s != null && sm.overlap_s !== "") { if (!(Number(sm.overlap_s) > 0)) lonely.push(`${sm.from}>${sm.to}`); return; }
@@ -2006,6 +2115,26 @@ async function checkRole(run, role, key) {
       break;
     }
     case "script-writer": {
+      if (key === "Set" || key === "Extra") {
+        // Plan 03: the one writer's set of three v2 treatments. Mechanical and factual errors block; creative concerns that block are the validator's "major" issues; minor and craft notes are warnings.
+        const f = R(run, "story", "treatments.json");
+        const t = jsonMaybe(f);
+        if (t === null) { P.push("story/treatments.json is missing"); break; }
+        if (t === undefined) { P.push("story/treatments.json is not valid JSON"); break; }
+        const Bq = brief(run);
+        const ca = ["treatments", "--set", f];
+        if (exists(research("claims.json"))) ca.push("--evidence", research("claims.json"));
+        if (Bq.length_s) ca.push("--length", String(Bq.length_s));
+        const r = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "story.mjs"), ...ca], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" } });
+        let j = null; try { j = JSON.parse(r.stdout); } catch {}
+        if (r.status === 2 && j) {
+          P.push(...(j.problems || []));
+          for (const x of j.results || []) for (const i of x.issues || []) if (i.severity === "error" || i.severity === "major") P.push(`${x.id}: ${i.issue_id}${i.beat ? " @" + i.beat : ""}: ${i.evidence} -> ${i.fix}`); else if (i.severity === "minor") W.push(`${x.id}: ${i.issue_id}: ${i.evidence}`);
+          if (j.escalation && j.escalation.needed) W.push(`escalation: ${(j.escalation.reasons || []).map((x) => x.reason).join(", ")} (one focused revision first; then an independent extra writer only if still insufficient)`);
+        } else if (r.status !== 0 || !j) P.push(`story.mjs treatments could not read the set: ${(r.stderr || r.stdout || "").trim().split("\n")[0]}`);
+        else { spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "story.mjs"), ...ca, "--split"], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" } }); }
+        break;
+      }
       const f = R(run, "story", `pitch-${key}.json`);
       const p = jsonMaybe(f);
       if (p === null) { P.push(`story/pitch-${key}.json is missing`); break; }
@@ -2131,7 +2260,15 @@ async function checkRole(run, role, key) {
     }
     case "script-editor": {
       const n = jsonMaybe(R(run, "story", "edit-notes.json"));
-      if (!n || !Array.isArray(n.pitches)) { P.push("story/edit-notes.json is missing or has no pitches[]"); break; }
+      // Plan 03: a structured review of v2 treatments ({ treatments: [{ id, verdict, issues: [{ issue_id, beat, evidence, severity, fix }] }] }), validated by lib/treatment.mjs; the legacy pitches[] notes below keep working for saved films
+      if (n && Array.isArray(n.treatments) && !Array.isArray(n.pitches)) {
+        const rv = validateReview(n);
+        P.push(...rv.problems);
+        if (!n.recommended) P.push("no recommended treatment");
+        for (const tr of n.treatments) if (tr.verdict === "ship" && (Array.isArray(tr.issues) ? tr.issues : []).some((x) => x && x.severity === "error")) P.push(`${tr.id}: ship with an unresolved error issue (mechanical or factual errors are never shipped)`);
+        break;
+      }
+      if (!n || !Array.isArray(n.pitches)) { P.push("story/edit-notes.json is missing or has no pitches[] (or treatments[] for a v2 review)"); break; }
       for (const p of n.pitches) {
         if (!["ship", "rewrite", "replace"].includes(p.verdict)) P.push(`${p.id || p.label}: verdict must be ship, rewrite or replace`);
         if (p.verdict !== "ship" && !(p.notes || []).length) P.push(`${p.id || p.label}: a ${p.verdict} verdict needs line notes with fixes`);
@@ -2139,10 +2276,11 @@ async function checkRole(run, role, key) {
       }
       // the meaning tests (warnings first): a blind retell from the beat list, the muted hook, the turn, the payoff (agents/script-editor.md)
       for (const p of n.pitches) {
-        const miss = ["retell", "retell_matches", "muted_hook_ok", "turn", "payoff_answers"].filter((k) => p[k] == null || p[k] === "");
-        if (miss.length) W.push(`${p.id || p.label}: edit notes lack ${miss.join(", ")} (the blind retell, the muted hook, the turn, the payoff)`);
+        const miss = ["retell", "retell_matches", "muted_hook_ok", "payoff_answers"].filter((k) => p[k] == null || p[k] === ""); // turn is optional (Plan 03)
+        if (miss.length) W.push(`${p.id || p.label}: edit notes lack ${miss.join(", ")} (the blind retell, the muted hook, the payoff)`);
         if (p.verdict === "ship" && p.retell_matches === false) P.push(`${p.id || p.label}: ship, but the blind retell does not match the proposition: that is a rewrite`);
-        if (p.verdict === "ship" && /^none\b/i.test(String(p.turn || "").trim())) P.push(`${p.id || p.label}: ship, but the script has no turn (turn: "none"): nothing reverses, so it is a list`);
+        // Plan 03: a turn is an optional tool. "none" is fine when the beats still build a clear argument (the blind retell below still has to match the proposition)
+        if (p.verdict === "ship" && /^none\b/i.test(String(p.turn || "").trim()) && p.retell_matches !== true) W.push(`${p.id || p.label}: ship with no turn: say in the notes why the beats still build (a turn is optional; an unclear argument is not)`);
         if (p.verdict === "ship" && p.payoff_answers === false) W.push(`${p.id || p.label}: ship, but its payoff does not answer the setup`);
       }
       if (!n.recommended) P.push("no recommended pitch");
@@ -2263,9 +2401,12 @@ async function checkRole(run, role, key) {
       const doc = readShots(path.join(dir, "shots.json"));
       if (doc === null) { P.push(`${rel(path.join(dir, "shots.json"))} is missing (frames.mjs init writes a skeleton)`); break; }
       if (doc === undefined) { P.push(`${rel(path.join(dir, "shots.json"))} is not valid JSON`); break; }
-      const want = look ? ["open", "peak", "end"] : null;
+      // Plan 04 L1: one representative frame per look is the default; a legacy look still comes as open, peak, end
+      const legacyHeroes = ["open", "peak", "end"].every((n) => exists(path.join(dir, `${n}.png`)));
+      const want = look ? (legacyHeroes ? ["open", "peak", "end"] : ["representative"]) : null;
       if (look) {
         for (const n of want) for (const ext of ["html", "png"]) if (!exists(path.join(dir, `${n}.${ext}`))) P.push(`design/${look}/frames/${n}.${ext} is missing`);
+        if (exists(path.join(dir, "second.png")) && !/second|uncertain/i.test(readMaybe(path.join(dir, "FRAMES.md")) || "")) W.push(`design/${look}/frames/second.png: a second frame needs the real uncertainty it resolves (say it in frames/FRAMES.md)`);
         const sc = checkShots(doc, { duration: Number(brief(run).length_s) || null });
         // three heroes only: the film-level rules (sizes across the film, heroes list) are for the full set
         for (const e of sc.errors) if (/^(shot-fields|shot-size|light|hero-small|size-repeat|text-heavy)/.test(e)) P.push(e);
@@ -2547,7 +2688,9 @@ async function checkRole(run, role, key) {
       const c = jsonMaybe(f);
       if (!c) { P.push(`${rel(f)} is ${c === undefined ? "not valid JSON" : "missing"}`); break; }
       if (!["pass", "fix"].includes(c.verdict)) P.push('verdict must be "pass" or "fix"');
-      const Q = ["product_on_screen_by_3s", "hero_moment", "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear", ...(exists(R(run, "story", "intent.json")) ? ["turn_reverses", "payoff_answers_setup"] : []), ...(productFirst(run, jsonMaybe(R(run, "crew", "plan.json")) || {}) ? ["one_feature_one_scenario", "scope_matches_claim"] : [])];
+      const ck = String((jsonMaybe(R(run, "story", "intent.json")) || {}).communication_kind || brief(run).communication_kind || ""); // Plan 03: the product-by-3s and hero-moment questions belong to product-demonstrating kinds (or no stated kind), not to a manifesto or identity film
+      const prodKind = !ck || ["whole-product-introduction", "single-feature-announcement", "workflow-demo", "performance-ad"].includes(ck);
+      const Q = [...(prodKind ? ["product_on_screen_by_3s", "hero_moment"] : []), "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear", ...(exists(R(run, "story", "intent.json")) ? (conceptV2(run) ? ["proof_matches_promise", "copy_is_audience_facing"] : ["turn_reverses", "payoff_answers_setup"]) : []), ...(productFirst(run, jsonMaybe(R(run, "crew", "plan.json")) || {}) ? ["one_feature_one_scenario", "scope_matches_claim"] : [])];
       { const sm = c.answers && c.answers.scope_matches_claim; if (sm && typeof sm.ok === "boolean" && !/\d/.test(String(sm.evidence || ""))) P.push("answers.scope_matches_claim must carry the numbers (S_max with its beats, D, the 8-word retell), never a judgement without them"); }
       for (const q of Q) {
         const a = c.answers && c.answers[q];
@@ -2779,7 +2922,7 @@ export function renderBuildMd(score, { direct = true, gateCmd = "", carriersCmd 
     "- The boards (`$RUN/frames/<NN>.png`, `frames/shots.json`) are the picture: at each beat's peak the frame matches its board.",
     "- Move like a person animated it: a curve per role (launch, glide, settle, exit, drift; none on more than 40% of moves), durations from travel and size (0.7 to 1.2 s past 10% of the frame), the next gesture at 55 to 75% of the last, secondaries 2 to 4 frames behind, travels on arcs, about 1 landing in 8 settling. `RasanMotion` (`motionkit.mjs install`) writes all of it; `motion.md` has the numbers.",
     "- A living frame: a camera push or drift per shot, composed holds. No dead stretch of 0.8 s outside the end card; the end card lands in sequence, then holds at most " + (score.end_hold_s || 1.4) + " s still.",
-    "- Every seam: the outgoing beat still moving when the cut lands, the incoming beat arriving already moving, same axis, direction and roughly speed. Never settle and then cut.",
+    "- Every continuity seam: the outgoing beat still moving when the cut lands, the incoming beat arriving already moving, same axis, direction and roughly speed. A seam the score marks as a deliberate hard cut or a stated hold (seam.editorial) is built as written: no motion, carrier or overlap is owed there.",
     "- Cursors travel on arcs and rest before they click; many similar things move as one ordered rig, on irregular offsets.",
     ...(score.stillness === true || score.motion_style === "stillness" ? ["- The plan declares a stillness style: long composed holds are the style; the shape of each move is still checked."] : []),
     "",
@@ -3015,18 +3158,35 @@ if (cmd === "plan") {
   p.character = !!args.character || !!prev.character || scoreHasCharacter(run);
   p.character3d = p.character && (!!args["character-3d"] || castHas3d(run) || !!prev.character3d);
   p.direct = directFilm(p, prev, run);
+  // Plan 03 S3: how the story is generated. balanced (default) = ONE scoped writer proposes three compact, materially different treatments and one independent editor reviews them;
+  // multi = the three-writer room (story planner, Sure/Bold/Wild writers); deep = multi plus the Moves pass before the user reads the stories. --deep keeps meaning "deep".
+  { const sm = str(args["story-mode"]).toLowerCase(); p.story_mode = ["balanced", "multi", "deep"].includes(sm) ? sm : args.deep ? "deep" : ["balanced", "multi", "deep"].includes(prev.story_mode) ? prev.story_mode : "balanced"; }
   p.branded = !!(p.brand || brandLocked(run));
   // the token budget: --budget, --lean (= lean), else the previous plan's, else standard
-  const bq = args.budget && args.budget !== true ? String(args.budget).toLowerCase() : args.lean ? "lean" : prev.budget || (prev.lean ? "lean" : "standard");
+  // Plan 08 K1: --budget wins, then --lean, then --pace (fast -> lean, standard -> standard, thorough -> full: how the Studio app's pace reaches the crew), else the previous plan's, else standard
+  const paceArg = args.pace && args.pace !== true ? String(args.pace).toLowerCase() : null;
+  if (paceArg && !PACE_TO_BUDGET[paceArg]) die(`--pace must be one of ${Object.keys(PACE_TO_BUDGET).join(", ")}`);
+  const bq = args.budget && args.budget !== true ? String(args.budget).toLowerCase() : args.lean ? "lean" : paceArg ? PACE_TO_BUDGET[paceArg] : prev.budget || (prev.lean ? "lean" : "standard");
   if (!BUDGETS[bq]) die(`--budget must be one of ${Object.keys(BUDGETS).join(", ")}`);
   p.budget = bq;
   p.lean = bq === "lean"; // kept for readers of older plans
+  // the ONE production policy (lib/rules.mjs): creative choices, exploration depth, execution resources and render quality are separate axes.
+  // A re-plan keeps the earlier explicit alternatives/spend/model choices; --alternatives N / --spend-tokens N / --render rough|preview|delivery are the explicit overrides.
+  {
+    const pp = prev.policy || {};
+    const altN = args.alternatives && args.alternatives !== true ? Number(args.alternatives) : p.series ? 1 : pp.creative && pp.creative.source === "user" ? pp.creative.alternatives : null;
+    const spend = args["spend-tokens"] && args["spend-tokens"] !== true ? { tokens: Math.round(Number(args["spend-tokens"])) } : pp.resources && pp.resources.spend_limit || null;
+    const rq = args.render && args.render !== true ? String(args.render) : pp.render && pp.render.tier || null;
+    p.policy = productionPolicy({ pace: p.pace || undefined, budget: bq, direct: p.direct, deep: !!args.deep || !!(pp.exploration && pp.exploration.deep && !args.direct), alternatives: altN, render: rq, spend_limit: spend, model_choice: args.model && args.model !== true ? String(args.model) : pp.resources && pp.resources.model && pp.resources.model.choice || null });
+  }
   // the spike scene of a long film (the animators' fan-out waits for it): --spike, the previous plan's, else the peak beat's scene
   if (!p.direct && SCENE_ROUTES.has(p.route)) p.spike = Number(args.spike) || prev.spike || spikeScene(run, p.scenes) || null;
+  p.look_gate = true; // Plan 04 L1: contextFor/promptFor refuse storyboard and production roles until the Look is committed (plans written before this keep running)
   p.phases = planCrew(p);
   p.estimate = estimateFor(p, p.phases);
   for (const ph of p.phases) ph.est_tokens = ph.dispatch.reduce((a, x) => a + tokensFor(x.role, x.key), 0);
   writeFile(R(run, "crew", "plan.json"), JSON.stringify(p, null, 2));
+  writeFile(R(run, "crew", "policy.json"), JSON.stringify(p.policy, null, 2)); // the same object Studio reads back (pace, budget, alternatives, resources, render)
   // the console's Brief call shows what each level would cost (console.mjs push --step brief picks crew/budget.json up)
   const levels = Object.keys(BUDGETS).map((k) => { const q = { ...p, budget: k, lean: k === "lean" }; return { level: k, label: BUDGETS[k].label, summary: BUDGETS[k].summary, fix_rounds: BUDGETS[k].fix_rounds, total: estimateFor(q, planCrew(q)).total }; });
   levels.forEach((l) => (l.total_label = "~" + kTok(l.total)));
@@ -3041,19 +3201,53 @@ if (cmd === "plan") {
   const key = args.key && args.key !== true ? String(args.key) : null;
   const plan = jsonMaybe(R(run, "crew", "plan.json")) || {};
   if (role === "concept-critic") { const why = editorGate(run, plan); if (why) die(why); }
-  const { text, ctx, inputs, outputs } = promptFor(run, role, key, plan);
+  const prompt0 = promptFor(run, role, key, plan);
+  const { ctx, inputs, outputs } = prompt0;
+  let text = prompt0.text;
+  const prof = modelOf(plan), T = tierFor(role, prof);
+  // Plan 08 K2: compile the role's input packet (deterministic; --no-packet keeps the older brief unchanged). The receipt lists sections, recipe ids, input digests and what was left by reference.
+  let packet = null;
+  if (!args["no-packet"]) {
+    const rf = R(run, "crew", "packets", `${role}${key ? "-" + key : ""}.json`);
+    const policy = plan.policy || productionPolicy({ budget: plan.budget, direct: plan.direct });
+    const cp = compilePacket({ run, R, rel, role, key, plan, promptText: text, inputs: inputs.map((i) => ({ label: i.label, path: i.path })), outputs, ctx, desc: ROLES[role].desc(plan, key), checkCmd: `crew.mjs check --run ${ctx.RUN} --role ${role}${key ? " --key " + key : ""}`, brief: jsonMaybe(R(run, "brief.json")) || {}, policy, profile: prof, SKILL_DIR, receiptPath: rf });
+    text = text.replace(/\n*$/, "\n") + "\n" + cp.markdown + "\n";
+    writeFile(rf, JSON.stringify(cp.receipt, null, 2));
+    packet = { receipt: rel(rf), digest: cp.receipt.packet_digest.slice(0, 12), included: cp.receipt.included_sections.map((x) => x.id), recipes: cp.receipt.recipe_ids, omitted_optional: cp.receipt.omitted_optional.map((x) => x.id), pressure: cp.receipt.pressure.pressure ? cp.receipt.pressure : false, estimate_note: cp.receipt.estimate_note };
+  }
   const f = R(run, "crew", "prompts", `${role}${key ? "-" + key : ""}.md`);
   writeFile(f, text);
   fs.mkdirSync(path.resolve(WS, ctx.scratch), { recursive: true });
-  ledger(run, { event: "brief", role, key });
-  const prof = modelOf(plan), T = tierFor(role, prof);
+  // a re-brief of a member that already failed is a focused repair (K6): record it, and escalate only inside the policy (never over a model the person pinned)
+  const prior = readLedger(run).filter((r) => r.role === role && (r.key || null) === key);
+  const lastFail = prior.length && prior[prior.length - 1].event === "fail" ? prior[prior.length - 1] : null;
+  const alloc = allocate({ role, profile: prof, policy: plan.policy || null, attempt: prior.filter((r) => r.event === "brief").length + 1, failed: lastFail ? { reason: (lastFail.problems || [])[0] || "the check failed" } : null });
+  ledger(run, { event: "brief", role, key, ...(packet ? { packet: packet.digest } : {}), ...(alloc.escalation ? { escalation: alloc.escalation } : {}) });
+  // Plan 09 P1: where this member sits in the dependency graph (advisory; RASANAI_STRICT_SCHEDULE=1 refuses a member that is not ready). A revision round may legitimately re-brief a finished member.
+  let sched = null;
+  try {
+    const sc = scheduleFor(run, plan).sched, nd = sc.nodes.find((x) => x.role === role && String(x.key || "") === String(key || ""));
+    if (nd) sched = { node: nd.id, state: nd.state, why: nd.why, barrier: nd.barrier, workers: nd.kind === "scene_group" ? sc.workers : undefined };
+  } catch { sched = null; }
+  if (sched && process.env.RASANAI_STRICT_SCHEDULE === "1" && ["waiting", "waiting_on_approval", "blocked"].includes(sched.state)) die(`${role}${key ? ":" + key : ""} is not ready: ${sched.why}`);
   out({
     ok: true, role, key, prompt: rel(f), bytes: Buffer.byteLength(text),
-    description: ROLES[role].desc(plan, key), model: T.fast && T.model ? `a faster model is fine (${T.model})` : "the session's model (don't downgrade)", profile: prof.key, tier_ok: T.ok,
+    ...(sched ? { schedule: sched, ...(["waiting", "waiting_on_approval", "blocked"].includes(sched.state) ? { schedule_warning: `the dependency graph says this member is ${sched.state}: ${sched.why}` } : {}) } : {}),
+    description: ROLES[role].desc(plan, key), model: !alloc.fast && alloc.escalation ? "the session's model (escalated after a failed check: " + alloc.escalation.reason + ")" : T.fast && T.model ? `a faster model is fine (${T.model})` : "the session's model (don't downgrade)", profile: prof.key, tier_ok: T.ok,
+    allocation: { reasoning: alloc.reasoning, effort: alloc.effort, repair: alloc.repair, escalation: alloc.escalation, notes: alloc.notes },
+    ...(packet ? { packet } : {}),
     ...(T.ok ? {} : { warning: T.note }),
     missing_inputs: inputs.filter((i) => i.path && !i.exists).map((i) => i.label), outputs,
     dispatch: dispatchFor(prof, { desc: ROLES[role].desc(plan, key), file: rel(f), role }),
   });
+} else if (cmd === "usage") {
+  // Plan 08 K7: usage by what was reported. null = not reported; rejected-alternative and repeated-research work is listed apart. An API-equivalent figure appears only with --prices <json> and is labelled an estimate.
+  const run = runDir();
+  const rows = readLedger(run).filter((r) => r.usage).map((r) => r.usage);
+  const legacy = readLedger(run).filter((r) => !r.usage && r.tokens && (r.event === "ok" || r.event === "fail")).map((r) => usageRecord({ role: r.role, key: r.key, tokens: r.tokens, outcome: r.event === "ok" ? "ok" : "failed" }));
+  const sum = summarizeUsage([...rows, ...legacy]);
+  const prices = args.prices && args.prices !== true ? readUsageFile(path.resolve(String(args.prices))) : null;
+  out({ ok: true, usage: sum, api_equivalent: prices ? { estimate: true, note: "from the supplied price table; not billed cost or subscription usage" } : null, planned_estimate: (jsonMaybe(R(run, "crew", "plan.json")) || {}).estimate ? { total: jsonMaybe(R(run, "crew", "plan.json")).estimate.total_label, basis: "planned estimate (crew.mjs TOKENS), not a measurement" } : null });
 } else if (cmd === "model") {
   const d = detectModel(), prof = modelOf(null);
   if (args.kv) { console.log(`MODEL=${prof.id}\nHARNESS=${prof.harness}`); process.exit(0); }
@@ -3064,7 +3258,23 @@ if (cmd === "plan") {
   if (!ROLES[role]) die(`--role must be one of ${Object.keys(ROLES).join(", ")}`);
   const key = args.key && args.key !== true ? String(args.key) : null;
   const { P, W } = await checkRole(run, role, key);
-  ledger(run, { event: P.length ? "fail" : "ok", role, key, tokens: Number(args.tokens) > 0 ? Math.round(Number(args.tokens)) : undefined, problems: P.length ? P.slice(0, 20) : undefined, ...(CHECK_EXTRA && CHECK_EXTRA.result ? { result: CHECK_EXTRA.result } : {}) });
+  // Plan 08 K7: counters the harness showed (--usage <json file>, or --tokens-in/--tokens-out/--cache-read/--cache-write/--turns); anything not given stays null, never 0
+  const usageIn = args.usage && args.usage !== true ? readUsageFile(path.resolve(String(args.usage))) : null;
+  const flagged = ["tokens-in", "tokens-out", "cache-read", "cache-write", "turns", "retries"].some((k) => args[k] !== undefined && args[k] !== true);
+  const usage = usageIn || flagged || args.purpose ? usageRecord({ ...(usageIn || {}), role, key, outcome: P.length ? "failed" : "ok", purpose: args.purpose && args.purpose !== true ? String(args.purpose) : undefined, counters: usageIn ? undefined : { input_tokens: args["tokens-in"], output_tokens: args["tokens-out"], cache_read_input_tokens: args["cache-read"], cache_creation_input_tokens: args["cache-write"] }, turns: usageIn ? usageIn.turns : args.turns, retries: usageIn ? usageIn.retries : args.retries, tokens: args.tokens, reasoning_included_in_output: args["reasoning-in-output"] === undefined ? undefined : String(args["reasoning-in-output"]) !== "false" }) : null;
+  // Plan 09 P4/P9: acceptance is compare-and-swap against the job lease, and the budget reservation for this member is settled (idempotent). A superseded or input-stale attempt is refused here.
+  try {
+    const mine = Jobs.listJobs(run).filter((j) => j.role === role && (j.key || null) === key && Jobs.ACTIVE.has(j.state));
+    for (const j of mine) {
+      const lease = { generation: Number(args.generation), token: str(args.token) };
+      if (!P.length) {
+        if (!lease.token || !Number.isFinite(lease.generation)) W.push(`job ${j.job_id} holds a lease but --generation/--token were not passed: this acceptance is not fenced against a replaced attempt`);
+        else { const r = Jobs.accept(run, j.job_id, lease, { current_input_digest: inputDigestFor(run, { id: j.node_id, kind: j.kind, approvals: j.approvals || [] }) }); if (!r.ok) P.push(`stale attempt refused (${r.reason}): the job was superseded, cancelled or its inputs moved; this attempt's files are not accepted (its log is kept in crew/jobs/attempts/)`); }
+      }
+    }
+    for (const j of Jobs.listJobs(run).filter((x) => x.role === role && (x.key || null) === key)) { const u = usage ? usage.total_reported ?? (usage.output !== null && usage.output !== undefined ? (usage.input_uncached || 0) + usage.output : null) : null; Jobs.reconcileBudget(run, j.job_id, { actual: u, failed: P.length > 0 }); }
+  } catch (e) { W.push(`job bookkeeping skipped: ${e.message}`); }
+  ledger(run, { event: P.length ? "fail" : "ok", role, key, tokens: Number(args.tokens) > 0 ? Math.round(Number(args.tokens)) : undefined, ...(usage ? { usage } : {}), problems: P.length ? P.slice(0, 20) : undefined, ...(CHECK_EXTRA && CHECK_EXTRA.result ? { result: CHECK_EXTRA.result } : {}) });
   out({ ok: !P.length, role, key, problems: P, warnings: W, ...(CHECK_EXTRA || {}) }, P.length ? 2 : 0);
 } else if (cmd === "status") {
   const run = runDir();
@@ -3156,8 +3366,10 @@ if (cmd === "plan") {
   if (exists(briefF)) fs.writeFileSync(briefF, upsertMarked(fs.readFileSync(briefF, "utf8"), bm, `${bm}\n## Visual design (done)\n\n- **The visual-design step is done.** RasanAI's Motion Director scored the whole film: STORYBOARD.md carries every frame's time-coded shot sequence, blueprint, focal, roles, sfx, handoffs and \`transition_in\`, under one \`## Video direction\`. Do not rewrite them; run \`stage-assets.mjs\` and continue with the frames. MOTION-SCORE.md is the score in words.\n`));
   const dispF = path.join(pj, "DISPATCH.md");
   if (exists(dispF)) fs.writeFileSync(dispF, upsertMarked(fs.readFileSync(dispF, "utf8"), bm, `${bm}\n## The motion score\n\nYour frame block in the packet holds your part of the Motion Director's score (shots, primary movers, camera, handoffs); MOTION-SCORE.md is the whole film. Seams are contracts: start and end continuing elements at the exact handoff numbers.\n`));
+  // Plan 05 E3: motion/events.json is DERIVED from the score this writer just projected (never hand-edited); the board's playback timing follows the score's revision
+  const evOut = scoreFile === R(run, "motion", "score.json") ? writeEvents(run) : null;
   const logos = stageLogos(run, pj);
-  out({ ok: true, storyboard: rel(sbf), frames: (score.scenes || []).length, parsed: !!parsed, logos: logos || undefined, score_md: rel(path.join(pj, "MOTION-SCORE.md")), build_md: rel(path.join(pj, "BUILD.md")), dispatch: direct ? "reduced to a pointer to the plan (direct film)" : "kept", next: "The workflow's visual-design step is done: stage assets, then frame-packets.mjs, video.mjs inject, and " + (direct ? "dispatch the ONE film builder (crew.mjs brief --role film-builder --key film)." : "dispatch the lead builder, then the scene animators (crew.mjs brief --role scene-animator --key <n>).") });
+  out({ ok: true, events: evOut || undefined, score_revision: scoreRevision(score), storyboard: rel(sbf), frames: (score.scenes || []).length, parsed: !!parsed, logos: logos || undefined, score_md: rel(path.join(pj, "MOTION-SCORE.md")), build_md: rel(path.join(pj, "BUILD.md")), dispatch: direct ? "reduced to a pointer to the plan (direct film)" : "kept", next: "The workflow's visual-design step is done: stage assets, then frame-packets.mjs, video.mjs inject, and " + (direct ? "dispatch the ONE film builder (crew.mjs brief --role film-builder --key film)." : "dispatch the lead builder, then the scene animators (crew.mjs brief --role scene-animator --key <n>).") });
 } else if (cmd === "ab") {
   const run = runDir();
   const need = (k) => (args[k] && args[k] !== true ? path.resolve(String(args[k])) : die(`--${k} <video> required (--a the previous version's render, --b the new one)`));
@@ -3354,9 +3566,122 @@ if (cmd === "plan") {
   if (!exists(outPng)) die("the thumbnail sheet did not render");
   writeFile(path.join(thumbDir, "thumbs.json"), JSON.stringify({ sheet: rel(outPng), proposition: it.proposition, ending_first: it.ending_first, total_s: v.timing && v.timing.total_s, planned_timing: v.timing && v.timing.planned, errors: v.errors, warnings: v.warnings, beats: rows }, null, 2) + "\n");
   out({ ok: v.ok, sheet: rel(outPng), beats: rows.length, sources: rows.reduce((a, r) => ((a[r.source] = (a[r.source] || 0) + 1), a), {}), intent_errors: v.errors, intent_warnings: v.warnings, next: "brief the structure-critic (crew.mjs brief --role structure-critic --key structure-1), then crew.mjs check --role structure-critic --key structure-1" }, v.ok ? 0 : 2);
+} else if (cmd === "timing") {
+  // Plan 05 E3/E5: a reconciled timing change (voice, music, readability) is committed to the ONE canonical schedule, motion/score.json (plus the
+  // approved durations in scenes.json and the derived motion/events.json); the storyboard's playback is derived from its revision. Without --commit it only reports.
+  const run = runDir();
+  const df = args.deltas && args.deltas !== true ? path.resolve(String(args.deltas)) : null;
+  const deltas = df ? jsonMaybe(df) : null;
+  if (!Array.isArray(deltas)) die("--deltas <file.json> required: a list of {scene, duration_s} (storyboard.mjs timing --audio <audio.json> proposes them)");
+  const res = commitTiming(run, deltas, { dry: !args.commit, reason: str(args.reason) });
+  out(res, res.ok ? 0 : 1);
+} else if (cmd === "schedule") {
+  // Plan 09 P1/P2/P3: the dependency graph, derived from the plan, the approvals, the score and the ledger every time. The Director dispatches exactly `dispatch_now`.
+  const run = runDir();
+  const plan = jsonMaybe(R(run, "crew", "plan.json"));
+  if (!plan) die("no crew/plan.json: run crew.mjs plan first");
+  // P4: work whose inputs moved (a new Story/Look/Storyboard approval, a changed score) is obsolete NOW: cancel the local attempts and fence them (a provider job on a shared queue is only marked)
+  const staleDigests = Jobs.listJobs(run).filter((j) => j.digest_basis === "graph" && !["completed", "failed", "cancelled"].includes(j.state) && j.input_digest !== inputDigestFor(run, { id: j.node_id, kind: j.kind, approvals: j.approvals || [] })).map((j) => j.input_digest);
+  const obsolete = staleDigests.length ? Jobs.cancelObsolete(run, { stale_inputs: staleDigests, reason: "an upstream approval or the score changed after this work was scheduled" }) : null;
+  const { sched, usage, usageKnown, model, paused } = scheduleFor(run, plan);
+  let dispatch = sched.dispatch_now.map((id) => sched.nodes.find((n) => n.id === id)), held = [], admission = { state: "admitted", reason_code: "admitted" };
+  if (paused.paused) { held = dispatch.map((n) => ({ node: n.id, state: "paused", reason_code: "user_paused" })); dispatch = []; admission = { state: "paused", reason_code: "user_paused", detail: ADMIT_TEXT("user_paused") }; }
+  else if (model.throttled) { held = dispatch.filter((n) => n.resource_class === "model_job").map((n) => ({ node: n.id, state: "queued", reason_code: "provider_throttled", retry_after_s: model.retry_after_s })); dispatch = dispatch.filter((n) => n.resource_class !== "model_job"); admission = { state: "queued", reason_code: "provider_throttled", detail: model.reason }; }
+  const jobsOut = [];
+  if (args.enqueue) {
+    const policy = plan.policy || null, limit = policy && policy.resources && policy.resources.spend_limit && Number.isFinite(Number(policy.resources.spend_limit.tokens)) ? Number(policy.resources.spend_limit.tokens) : null;
+    const spent = usageKnown ? (usage.total_reported ?? ((usage.input_uncached || 0) + (usage.output || 0))) : null;
+    const keep = [];
+    for (const n of dispatch) {
+      const input_digest = inputDigestFor(run, n);
+      const { job } = Jobs.createJob(run, { node_id: n.id, kind: n.kind, role: n.role, key: n.key, job_type: n.cache_policy && n.cache_policy.job_type !== "tool_side_effect" ? n.cache_policy.job_type : "tool_side_effect", approvals: n.approvals, digest_basis: "graph", input_digest, resource_class: n.resource_class, est: n.est, local: true });
+      let reservation = null;
+      if (n.resource_class === "model_job" && n.est && n.est.tokens) {
+        const r = Jobs.reserveBudget(run, { op_id: job.job_id, tokens: n.est.tokens, limit_tokens: limit, spent_tokens: spent, usage_known: usageKnown });
+        if (!r.ok) { held.push({ node: n.id, state: r.state, reason_code: r.reason_code, detail: r.detail }); continue; }
+        reservation = { reason_code: r.reason_code || "admitted", idempotent: !!r.idempotent, conservative: !!(r.reservation && r.reservation.conservative), amount: r.reservation ? r.reservation.amount : null };
+      }
+      keep.push(n);
+      jobsOut.push({ node: n.id, job_id: job.job_id, state: job.state, input_digest: input_digest.slice(0, 12), reservation, next: `crew.mjs job claim --run <run> --job ${job.job_id} --owner <worker>   then pass --generation/--token to crew.mjs check` });
+    }
+    dispatch = keep;
+  }
+  const snap = { schema_version: 1, derived: true, note: "a snapshot of what could start at that moment; recomputed by every `schedule`, never edited", at: new Date().toISOString(), graph_digest: sched.graph_digest, admission, dispatch_now: dispatch.map((n) => n.id), held, workers: sched.workers, barriers: sched.barriers, summary: sched.summary };
+  writeFile(R(run, "crew", "schedule.json"), JSON.stringify(snap, null, 2));
+  out({ ok: true, ...snap, ...(obsolete && (obsolete.cancelled.length || obsolete.provider_marked.length) ? { obsolete_cancelled: obsolete, stop_these_local_processes: obsolete.cancelled.map((c) => c.stop_pid).filter(Boolean) } : {}), look_gate: sched.look_gate, committed: sched.committed, user_waits: sched.user_waits, dispatch: dispatch.map((n) => ({ node: n.id, kind: n.kind, role: n.role, key: n.key, resource_class: n.resource_class, owner: n.owner, cache_policy: n.cache_policy.job_type, est: n.est })), jobs: jobsOut, ready: sched.ready, held_for_workers: sched.held_for_workers, groups: sched.groups, boundaries: sched.boundaries, resource_demand: sched.resource_demand, problems: sched.problems, usage_known: usageKnown });
+} else if (cmd === "job") {
+  const run = runDir(), sub = str(args._[1]);
+  const lease = () => ({ generation: Number(args.generation), token: str(args.token) });
+  const id = str(args.job);
+  const done = (r, bad = !r.ok) => out(r, bad ? 2 : 0);
+  if (sub === "create") done(Jobs.createJob(run, { node_id: str(args.node), kind: str(args.kind) || null, role: str(args.role) || null, key: str(args.key) || null, job_type: str(args["job-type"]) || "tool_side_effect", input_digest: str(args["input-digest"]), approval_digest: str(args["approval-digest"]) || null, resource_class: str(args.pool) || null }), false);
+  else if (sub === "claim") done(Jobs.claim(run, id, { owner: str(args.owner) || undefined }));
+  else if (sub === "heartbeat") done(Jobs.heartbeat(run, id, lease(), { checkpoint: args.checkpoint !== undefined && args.checkpoint !== true ? str(args.checkpoint) : undefined }));
+  else if (sub === "accept") done(Jobs.accept(run, id, lease(), { current_input_digest: args["input-digest"] ? str(args["input-digest"]) : undefined, outputs: str(args.outputs).split(",").map((x) => x.trim()).filter(Boolean) }));
+  else if (sub === "fail") done(Rec.failWithClass(run, id, lease(), str(args.error), { provider_in_flight: !!args["provider-in-flight"], force_category: args.permanent ? "permanent" : (str(args.category) || null) }), false); // Plan 11 R2: classified (transient / rate_limit / permission / invalid_input / budget / permanent); only transient and rate_limit retry
+  else if (sub === "supersede") done(Jobs.supersede(run, id, str(args.reason) || "superseded"));
+  else if (sub === "cancel-obsolete") done(Jobs.cancelObsolete(run, { node_ids: str(args.nodes).split(",").map((x) => x.trim()).filter(Boolean), stale_inputs: str(args["stale-inputs"]).split(",").map((x) => x.trim()).filter(Boolean), reason: str(args.reason) || undefined }), false);
+  else if (sub === "reconcile") done(Jobs.reconcileProvider(run, id, args["found-id"] ? { id: str(args["found-id"]), status: str(args.status) || "found" } : null, { searched: str(args.searched).split(",").filter(Boolean) }));
+  else if (sub === "status") out({ ok: true, ...(id ? { job: Jobs.readJob(run, id) } : { summary: Jobs.jobsSummary(run), jobs: Jobs.listJobs(run).map((j) => ({ job_id: j.job_id, node: j.node_id, state: j.state, attempt: j.attempt, generation: j.generation })) }) });
+  else die("usage: crew.mjs job create|claim|heartbeat|accept|fail|supersede|cancel-obsolete|reconcile|status --run <run> [--job <id>] [--generation n --token t]");
+} else if (cmd === "budget") {
+  const run = runDir(), sub = str(args._[1]), op = str(args.op);
+  const plan = jsonMaybe(R(run, "crew", "plan.json")) || {};
+  const lim = plan.policy && plan.policy.resources && plan.policy.resources.spend_limit && Number.isFinite(Number(plan.policy.resources.spend_limit.tokens)) ? Number(plan.policy.resources.spend_limit.tokens) : null;
+  if (sub === "reserve") { const { usage, usageKnown } = scheduleFor(run, plan); const r = Jobs.reserveBudget(run, { op_id: op, tokens: Number(args.tokens) || 0, limit_tokens: lim, spent_tokens: usageKnown ? (usage.total_reported ?? ((usage.input_uncached || 0) + (usage.output || 0))) : null, usage_known: usageKnown }); out(r, r.ok ? 0 : 2); }
+  else if (sub === "reconcile") { const r = Jobs.reconcileBudget(run, op, { actual: args.actual !== undefined && args.actual !== true ? Number(args.actual) : null, failed: !!args.failed }); out(r, r.ok ? 0 : 2); }
+  else if (sub === "snapshot") out({ ok: true, ...Jobs.budgetSnapshot(run, { limit_tokens: lim }) });
+  else die("usage: crew.mjs budget reserve|reconcile|snapshot --run <run> --op <operation id> [--tokens n] [--actual n]");
+} else if (cmd === "pool") {
+  const run = runDir(), sub = str(args._[1]) || "status";
+  if (sub === "pause") out({ ok: true, ...Pools.setPause(run, true, str(args.by) || "user"), note: "nothing new starts; running work finishes" });
+  else if (sub === "resume") out({ ok: true, ...Pools.setPause(run, false, str(args.by) || "user") });
+  else if (sub === "throttle") { if (!Pools.POOLS[str(args.pool)]) die(`--pool must be one of ${Object.keys(Pools.POOLS).join(", ")}`); out({ ok: true, throttle: Pools.recordThrottle(run, str(args.pool), Number(args["retry-after"]) || null, str(args.reason) || "provider rate limit") }); }
+  else out({ ok: true, pause: Pools.pauseState(run), throttle: Object.fromEntries(Object.keys(Pools.POOLS).map((p) => [p, Pools.throttleState(run, p)])), ...Pools.queueSnapshot(), admission_codes: Pools.ADMIT, queue_states: Pools.QUEUE_STATES });
+} else if (cmd === "revision") {
+  const run = runDir(), sub = str(args._[1]) || "latest";
+  if (sub === "emit") { const ev = jsonMaybe(path.resolve(str(args.event))); if (!ev) die("--event <file.json> required (see docs/plans/PLAN09_REVISION_EVENTS.md)"); const r = Rev.emitRevision(run, ev); out(r, r.ok ? 0 : 2); }
+  else if (sub === "list") out({ ok: true, events: Rev.readRevisions(run, { revision_id: str(args.revision) || null }) });
+  else out({ ok: true, revisions: Rev.latestRevisions(run) });
+} else if (cmd === "perf") {
+  const run = runDir(), sub = str(args._[1]) || "summary";
+  if (sub === "record") { const row = jsonMaybe(path.resolve(str(args.row))); if (!row) die("--row <file.json> required"); out({ ok: true, row: Perf.recordPerf(run, row) }); }
+  else if (sub === "throughput") { const r = Perf.recordThroughput(run, { workers: args.workers, items: args.items, window_s: args["window-s"], queue_wait_s: args["queue-wait-s"] }); out(r, r.ok ? 0 : 2); }
+  else { const plan = jsonMaybe(R(run, "crew", "plan.json")); let g = null; try { g = plan ? scheduleFor(run, plan).sched : null; } catch {} out({ ok: true, ...Perf.summarize(Perf.readPerf(run), g) }); }
+} else if (cmd === "recover") {
+  // Plan 11 R1/R7: restart reconciliation. Without --apply it only REPORTS (the same read-only view as scripts/diagnose.mjs). --apply: mark interrupted jobs, finish or roll back an unfinished
+  // publication, trim a torn JSONL tail (a copy is kept), remove abandoned temp files, finish or roll back transaction intents. --migrate --apply runs the idempotent migrations.
+  const run = runDir(), apply = !!args.apply;
+  const rec = Rec.reconcileRun(run, { apply });
+  const dirs = [run, R(run, "crew"), R(run, "crew", "jobs"), R(run, "crew", "txn"), R(run, "motion"), R(run, "hybrid", "renders")].filter((d) => fs.existsSync(d));
+  const torn = ["motion/edits.jsonl", "crew/ledger.jsonl", "crew/revisions.jsonl", "director-events.jsonl"].filter((rel) => Rec.readJsonl(R(run, rel)).torn_tail);
+  const repaired = apply ? torn.map((rel) => ({ file: rel, ...Rec.repairJsonlTail(R(run, rel)) })) : torn.map((rel) => ({ file: rel, repaired: false }));
+  const temps = Rec.sweepTemps(dirs, { apply });
+  const txns = Txn.recover(run, { apply });
+  const mig = args.migrate ? Rec.migrate(run, { apply }) : Rec.migrationPlan(run);
+  out({ ok: true, applied: apply, reset_to_brief: false, jobs: rec.jobs, actions: rec.actions, resume: rec.resume, torn_logs: repaired, temp_files: temps, transactions: txns, directors: Rec.directorOwnership(run), migrations: mig, note: apply ? "done; nothing was deleted except abandoned temp files, and every trimmed log kept a copy" : "report only: pass --apply to repair" });
+} else if (cmd === "delivery") {
+  // Plan 12: audience adaptation, accessibility and professional delivery live in delivery.mjs; this only forwards, so there is one implementation.
+  const r = spawnSync(process.execPath, [path.join(path.dirname(new URL(import.meta.url).pathname), "delivery.mjs"), ...process.argv.slice(3)], { stdio: "inherit" });
+  process.exit(r.status ?? 1);
+} else if (cmd === "eval") {
+  // Plan 13: evaluation harness (case registry, proposed test inventory, testing-approval gate, fixture check) lives in eval.mjs; this only forwards. Gated subcommands refuse without a user approval record.
+  const r = spawnSync(process.execPath, [path.join(path.dirname(new URL(import.meta.url).pathname), "eval.mjs"), ...process.argv.slice(3)], { stdio: "inherit" });
+  process.exit(r.status ?? 1);
 } else {
-  die("usage: crew.mjs plan|brief|check|ab|status|pitches|thumbs|storyboard|strip … (see the header)");
+  die("usage: crew.mjs plan|brief|check|ab|status|pitches|thumbs|storyboard|timing|strip|schedule|job|budget|pool|revision|perf|recover|delivery|eval … (see the header)");
 }
+
+// Plan 09: the schedule over this run, with what the ledger, the jobs and the usage counters say right now
+function scheduleFor(run, plan) {
+  const rows = readLedger(run);
+  const usage = summarizeUsage(rows.filter((r) => r.usage).map((r) => r.usage));
+  const usageKnown = usage.output !== null || usage.input_uncached !== null || usage.total_reported !== null; // unknown stays unknown: conservative concurrency
+  const model = Pools.throttleState(run, "model_job"), paused = Pools.pauseState(run);
+  const sched = scheduleGraph({ run, plan, ledger: rows, jobs: Jobs.listJobs(run), estimate: tokensFor, usage_known: usageKnown, throttled: model.throttled });
+  return { sched, usage, usageKnown, model, paused };
+}
+function ADMIT_TEXT(c) { return Pools.ADMIT[c] || c; }
 
 // The script editor cannot be skipped on a scripted route: the concept critic is never briefed (or accepted) until the editor
 // has passed (S3 niche diagnosis 5d: run6 went straight from the juror to the concept critic with no editor).

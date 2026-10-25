@@ -1,0 +1,64 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan11/R10",
+  "case": "licence register against the actual files and versions",
+  "targets": [
+    "lib/license-register.mjs loadRegister / inventory / unresolved / distributionGate / exportNotices",
+    "third_party/license-register.json"
+  ],
+  "checks": [
+    {
+      "name": "register loads",
+      "expect": "ok with one record for each of the 8 kinds"
+    },
+    {
+      "name": "GSAP",
+      "expect": "gsap-core and gsap-plugins are unresolved; distribution_blockers contains gsap-standard-license-no-code-visual-animation-builder (open); distributionGate.ok is false"
+    },
+    {
+      "name": "flag cannot clear it",
+      "steps": [
+        "set any environment variable or adapter flag",
+        "add 'AI generated' labels"
+      ],
+      "expect": "distributionGate unchanged: only a dated register edit with recorded advice or permission clears it; the runtime is NOT removed"
+    },
+    {
+      "name": "version drift",
+      "setup": "in a COPY of the skill folder change the header of vendor/gsap.min.js to 3.15.0",
+      "expect": "inventory reports 'says version 3.15.0, the register records 3.14.2: recheck'"
+    },
+    {
+      "name": "unrecorded vendored file",
+      "setup": "in a COPY add scripts/vendor/newlib.min.js",
+      "expect": "inventory lists it as uncovered (unresolved), not permitted"
+    },
+    {
+      "name": "missing licence file",
+      "setup": "in a COPY remove third_party/animate/LICENSE",
+      "expect": "inventory: licence file missing"
+    },
+    {
+      "name": "export package",
+      "input": [
+        "three-js",
+        "gsap-core",
+        "model-weights",
+        "fonts-fetched",
+        "sfx-library",
+        "unknown-thing"
+      ],
+      "expect": "notices for three-js and sfx-library only; the others listed as external requirements, not embedded"
+    },
+    {
+      "name": "ideas-only",
+      "expect": "reference-material is ideas_only; no copied code or text is attributed to it"
+    },
+    {
+      "name": "no purchase",
+      "expect": "no code path buys or activates a licence or paid access"
+    }
+  ]
+}

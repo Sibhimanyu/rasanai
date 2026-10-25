@@ -138,7 +138,9 @@
         } else if (a.kind === "emote" || ((a.kind === "react" || a.kind === "take") && a.emotion)) {
           var name = a.emotion || "calm", prev = A_.emo[A_.emo.length - 1];
           var et0 = a.kind === "emote" ? t0 : t0 + (a.emoteAt != null ? a.emoteAt : 0.04), et1 = a.kind === "emote" ? t1 : et0 + (a.emoteBlend != null ? a.emoteBlend : 0.18);
-          A_.emo.push({ t0: et0, t1: et1, vec: EMO(name), name: name, pop: a.kind !== "emote" });
+          var evec = EMO(name); // Plan 06 V6: an emote may carry a mouth override (a viseme): open 0..1, w (width factor), shape (a mouth shape the face already draws). The expression stays; only the mouth changes.
+          if (a.mouth && typeof a.mouth === "object") { if (typeof a.mouth.open === "number") evec.mouthOpen = Math.max(0, Math.min(1, a.mouth.open)); if (typeof a.mouth.w === "number") evec.mouthW = Math.max(0.2, Math.min(1.6, a.mouth.w)); if (typeof a.mouth.shape === "string") evec.mouthShape = a.mouth.shape; }
+          A_.emo.push({ t0: et0, t1: et1, vec: evec, name: name, pop: a.kind !== "emote" });
         } else if (a.kind === "look" || a.kind === "gaze") {
           A_.gaze.push({ t0: t0, t1: t1, tgt: a.target != null ? { pt: a.target.length === 2 ? [a.target[0] * Wd, a.target[1] * Ht] : null, prop: a.prop } : a.prop ? { prop: a.prop } : { dir: a.dir || [0, 0] }, head: a.head != null ? a.head : 1 });
           if (a.target == null && a.prop == null && !a.dir) A_.gaze[A_.gaze.length - 1].tgt = { dir: [0, 0] };

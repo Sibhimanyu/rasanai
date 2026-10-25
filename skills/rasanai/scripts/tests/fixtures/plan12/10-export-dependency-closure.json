@@ -1,0 +1,52 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan12/D10",
+  "case": "closure, editability labels, notices, variant manifests, profile update vs accepted export",
+  "targets": [
+    "lib/delivery-manifest.mjs closure / editability / buildManifest",
+    "lib/license-register.mjs exportNotices"
+  ],
+  "checks": [
+    {
+      "name": "labels",
+      "setup": [
+        "master mp4",
+        "gsap scene proxy",
+        "three.js rendered shot",
+        "scene html source",
+        "caption srt",
+        "voice stem",
+        "brand font (not redistributable)",
+        "rig"
+      ],
+      "expect": "baked, baked, baked, source-editable, property-editable, clip-editable, unavailable, unavailable; a rendered 3D shot is never called an editable rig"
+    },
+    {
+      "name": "notices",
+      "setup": "licence ids for an MIT component and an unresolved one",
+      "expect": "notice for the first; the second under external_requirements with its status; GSAP blocker appears in distribution_gate and is not hidden"
+    },
+    {
+      "name": "variant manifest",
+      "expect": "manifest.variant links parent creative revision digests and records approved copy / timing changes"
+    },
+    {
+      "name": "shared asset update",
+      "steps": [
+        "change a shared asset",
+        "invalidate variants"
+      ],
+      "expect": "only dependent variants stale; delivered exports keep their manifests and files"
+    },
+    {
+      "name": "profile update",
+      "expect": "an accepted export's manifest still names the profile id, version and digest it was built with; a registry change never edits it"
+    },
+    {
+      "name": "no private research",
+      "expect": "manifest.not_included states the exclusion; research and provider logs absent from the folder"
+    }
+  ]
+}

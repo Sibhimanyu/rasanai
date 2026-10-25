@@ -1,0 +1,111 @@
+{
+  "case": "A09",
+  "title": "a mix is reused only when every score, cue, direction, contract, stem and automation digest matches",
+  "calls": [
+    "mixInputs",
+    "mixDigests",
+    "receipt",
+    "receiptMatches",
+    "cachedMixName",
+    "reuseDecision"
+  ],
+  "inputs_then": {
+    "score_revision": "rev-aaaa",
+    "cues_digest": "cues-1",
+    "direction_digest": "dir-1",
+    "contract_digest": "con-1",
+    "stems": {
+      "vo": {
+        "digest": "vo-111"
+      },
+      "music": {
+        "digest": "mu-111"
+      }
+    },
+    "automation": {
+      "duck": [
+        [
+          0,
+          0
+        ],
+        [
+          2,
+          -5
+        ],
+        [
+          6,
+          -5
+        ],
+        [
+          7,
+          0
+        ]
+      ]
+    },
+    "profile": "rasanai-house"
+  },
+  "inputs_now": {
+    "same": {},
+    "voice_replaced": {
+      "stems": {
+        "vo": {
+          "digest": "vo-222"
+        },
+        "music": {
+          "digest": "mu-111"
+        }
+      }
+    },
+    "score_retimed": {
+      "score_revision": "rev-bbbb"
+    },
+    "automation_changed": {
+      "automation": {
+        "duck": [
+          [
+            0,
+            0
+          ],
+          [
+            2,
+            -8
+          ],
+          [
+            6,
+            -8
+          ],
+          [
+            7,
+            0
+          ]
+        ]
+      }
+    },
+    "profile_changed": {
+      "profile": "ebu-r128"
+    },
+    "stem_unreadable": {
+      "stems": {
+        "vo": {
+          "digest": null
+        },
+        "music": {
+          "digest": "mu-111"
+        }
+      }
+    }
+  },
+  "output": {
+    "file": "audio/mix.rev.wav"
+  },
+  "expect": {
+    "same": "receiptMatches reusable true, stale []; reuseDecision reuse true when the file is the one the receipt recorded",
+    "voice_replaced": "reusable false, stale ['stem:vo']: the exported film must not silently use the old voice track because its cached filename is unchanged; reuseDecision reuse false",
+    "score_retimed": "stale ['score']",
+    "automation_changed": "stale ['automation']",
+    "profile_changed": "stale ['profile']",
+    "stem_unreadable": "stale ['stem:vo'] (an unreadable stem has no digest and never matches)",
+    "filename": "cachedMixName('mix','wav',digests) differs for every changed input, so a changed mix never reuses an old name; an unchanged FILENAME alone is never a reason to reuse (reuseDecision wants the receipt to match AND to have recorded that file)",
+    "no_receipt": "receiptMatches(null, ...) -> reusable false, reason 'no receipt'"
+  }
+}

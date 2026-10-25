@@ -1,0 +1,75 @@
+{
+  "case": "V09",
+  "title": "With nothing optional installed, every optional capability is visibly unavailable and none is drawn as ready",
+  "calls": [
+    "probeHost",
+    "buildRegistry",
+    "surface",
+    "uiState",
+    "cardFor"
+  ],
+  "host": {
+    "platform": "linux",
+    "ffmpeg": false,
+    "ffprobe": false,
+    "chrome": false,
+    "swiftc": false,
+    "comfyui_flag": false,
+    "sam_flag": false,
+    "sam_sidecar": null
+  },
+  "expect": {
+    "generation.comfyui": {
+      "ui_state": "unavailable",
+      "blocked_by": {
+        "axis": "available_on_host"
+      }
+    },
+    "generation.fake": {
+      "ui_state": "test_only",
+      "verification_status": "fixture_only"
+    },
+    "tracking.quad.apple_vision": {
+      "ui_state": "unavailable",
+      "blocked_by": {
+        "reason_contains": "macOS"
+      }
+    },
+    "tracking.bbox": {
+      "ui_state": "unavailable",
+      "blocked_by": {
+        "axis": "implemented"
+      }
+    },
+    "mask.person.apple_vision": {
+      "ui_state": "unavailable"
+    },
+    "mask.segmentation.sam": {
+      "ui_state": "unavailable"
+    },
+    "depth.estimate": {
+      "ui_state": "unavailable"
+    },
+    "kit.kinetic-type-editorial-stagger-cut-v1": {
+      "ui_state": "unavailable",
+      "blocked_by": {
+        "axis": "implemented",
+        "reason_contains": "not implemented"
+      }
+    },
+    "no_capability_is_ready_without_verification": true,
+    "distribution_blockers_contains": "gsap-license"
+  },
+  "gsap": {
+    "every_dom-gsap_kit_row": {
+      "license_status": "unreviewed",
+      "never": "cleared",
+      "depends_on": [
+        "gsap-license"
+      ]
+    }
+  },
+  "ordinary_film": "a film with none of these still renders: the hybrid layer is invisible when hybrid/ is absent; no Python, no model download, no cloud account is required",
+  "ui": "a card for an unavailable move shows blocked_by.reason and no 'use' button; synthetic providers are labelled test_only",
+  "deferred_to": "plan 14: the same listing on a Mac with and without Chrome, swiftc and a ComfyUI endpoint"
+}

@@ -34,6 +34,7 @@
 })(typeof self !== "undefined" ? self : this, function (root) {
   "use strict";
   var VERSION = 1;
+  var KIND_OF = { "kinetic-type": "text", "product-ui": "ui", "shape": "shape", "camera-space": "shape", "sound-hit": "shape", "data-evidence": "ui", "texture": "shape", "ending": "shape" };
   var LIB_VERSION = "1.0.0";
 
   // ---------------------------------------------------------------- mapping table: id -> family / name / function
@@ -431,12 +432,20 @@
     var W = P.width || target.clientWidth || target.offsetWidth || 1920, H = P.height || target.clientHeight || target.offsetHeight || 1080;
     var host = mk(target, "div", { position: "absolute", left: "0px", top: "0px", width: "100%", height: "100%", pointerEvents: "none" });
     host.setAttribute("data-motion-kit-host", spec.id);
+    // Plan 06 V2: a semantic identity for the element index. A mechanic is ONE editable element (timing, motion preset); its children are generated and
+    // are not individually addressable (a composite's child identity cannot be guessed from its pixels). Bounds are the host's, read by the browser probe.
+    var elId = typeof spec.elId === "string" ? str(spec.elId, 80, "spec.elId") : (target.getAttribute && target.getAttribute("data-el") ? target.getAttribute("data-el") + ".kit" : "");
+    if (elId) {
+      need(/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(elId), "spec.elId must be a stable id like scene-2.hero-title");
+      host.setAttribute("data-el", elId); host.setAttribute("data-el-label", info.name); host.setAttribute("data-el-kind", KIND_OF[info.family] || "shape");
+      host.setAttribute("data-el-editable", "timing,motion_preset"); host.setAttribute("data-motion-kit", "motion-kit:" + spec.id + "@" + VERSION);
+    }
     var ctx = { host: host, target: target, d: design, P: P, at: q(P.at), cues: cues, fps: fps, seed: seed, W: W, H: H, q: q };
     var m = M[info.fn](ctx);
     clock(tl, m.start, m.end, m.render);
     var hits = m.hits.map(r6);
     need(isFinite(m.end - m.start), "internal: non-finite duration");
-    return { id: spec.id, version: VERSION, duration: r6(m.end - m.start), start: r6(m.start), end: r6(m.end), hits: hits, warnings: warnings };
+    return { id: spec.id, version: VERSION, duration: r6(m.end - m.start), start: r6(m.start), end: r6(m.end), hits: hits, warnings: warnings, element_id: elId || null, editable: elId ? ["timing", "motion_preset"] : [], bounds: { w: r3(W), h: r3(H) } };
   }
 
   function list() {

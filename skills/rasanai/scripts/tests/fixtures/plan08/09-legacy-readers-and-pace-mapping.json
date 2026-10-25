@@ -1,0 +1,45 @@
+{
+  "id": "plan08/K09",
+  "title": "Legacy readers: Swift pace, researchDepth, --lean, older plans keep their meaning",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised and the expected outcome; no token count, price or latency here is a measurement.",
+  "calls": [
+    {
+      "fn": "rules.fromLegacy",
+      "args": {
+        "pace": "fast"
+      }
+    },
+    {
+      "fn": "rules.fromLegacy",
+      "args": {
+        "researchDepth": "deep"
+      }
+    },
+    {
+      "fn": "rules.fromLegacy",
+      "args": {
+        "lean": true
+      }
+    },
+    {
+      "fn": "rules.fromLegacy",
+      "args": {
+        "budget": "full",
+        "direct": true
+      }
+    },
+    {
+      "fn": "rules.fromLegacy",
+      "args": "a policy object already at revision 2"
+    }
+  ],
+  "expect": [
+    "fast -> budget lean; deep researchDepth -> pace thorough, budget full; lean:true -> budget lean",
+    "direct is the build shape, alternatives unchanged",
+    "a revision 2 policy is returned as is",
+    "crew.mjs plan --pace fast with no --budget writes budget lean and crew/policy.json",
+    "an older plan.json without policy: planCrew keeps leanCreative = lean (one script, one look) so old films read and replan as before",
+    "a plan with policy and lean budget keeps three Story alternatives and the Look picker"
+  ]
+}

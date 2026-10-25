@@ -797,6 +797,7 @@ final class StudioStore {
         workspaceURL = workspace
         let model = FilmSessionModel(snapshot: snapshot, run: runURL, workspace: workspace)
         model.startedAt = runtime.startedAt
+        model.progressProvider = { [weak self] in self?.progress?.snapshot }
         model.onSnapshot = { [weak self, weak model] next in
             guard let self, let model, self.film === model else { return }
             self.ingest(next)

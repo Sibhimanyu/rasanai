@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "gate": "awaiting_test_approval",
+  "candidate": {
+    "base_commit": "68a5609b25990dc9244ce84fcc24121fa1020486",
+    "branch": "Sibhimanyu/site-nav-jumps",
+    "uncommitted_changes": true,
+    "note": "The candidate is this commit plus uncommitted work of Plans 01-13 in the worktree. The uncommitted-diff digest is computed at approval time (see AWAITING_TEST_APPROVAL.md), not recorded here."
+  },
+  "test_approval": {
+    "granted": false,
+    "record": null
+  },
+  "tests_ever_run": false,
+  "verification_so_far": "node --check, JSON parse and compile-only swift build for some plans; nothing executed",
+  "plans": {
+    "plan01": {
+      "status": "implemented_unvalidated",
+      "summary": "stage contracts and approval invalidation",
+      "validated": false,
+      "tests_run": false
+    },
+    "plan02": {
+      "status": "implemented_unvalidated",
+      "summary": "briefing, evidence and brand authority",
+      "validated": false,
+      "tests_run": false
+    },
+    "plan03": {
+      "status": "implemented_unvalidated",
+      "summary": "story grammars and treatments",
+      "validated": false,
+      "tests_run": false
+    },
+    "plan04": {
+      "status": "implemented_unvalidated",
+      "summary": "comparable looks and visual bible",
+      "validated": false,
+      "tests_run": false
+    },
+    "plan05": {
+      "status": "implemented_unvalidated",
+      "summary": "storyboard, timing authority and animatic",
+      "validated": false,
+      "tests_run": false
+    },
+    "plan06": {
+      "status": "implemented_unvalidated",
+      "summary": "motion primitives, readiness, tracking, optional providers",
+      "validated": false,
+      "tests_run": false
+    },
+    "plan07": {
+      "status": "implemented_unvalidated",
+      "summary": "audio direction, mix receipts, voice checks",
+      "validated": false,
+      "tests_run": false
+    },
+    "plan08": {
+      "status": "implemented_unvalidated",
+      "summary": "production policy, packets, honest usage",
+      "validated": false,
+      "tests_run": false
+    },
+    "plan09": {
+      "status": "implemented_unvalidated",
+      "summary": "jobs, leases, resource pools, caches, schedule",
+      "validated": false,
+      "tests_run": false
+    },
+    "plan10": {
+      "status": "implemented_unvalidated",
+      "summary": "native directing (Studio)",
+      "validated": false,
+      "tests_run": false
+    },
+    "plan11": {
+      "status": "implemented_unvalidated",
+      "summary": "recovery, containment, privacy, provenance, licence register",
+      "validated": false,
+      "tests_run": false
+    },
+    "plan12": {
+      "status": "implemented_unvalidated",
+      "summary": "destination profiles, variants, captions, accessibility, delivery packages",
+      "validated": false,
+      "tests_run": false
+    },
+    "plan13": {
+      "status": "implemented_unvalidated",
+      "summary": "evaluation machinery, case registry, scoped lessons, testing approval gate",
+      "validated": false,
+      "tests_run": false
+    },
+    "plan14": {
+      "status": "blocked_awaiting_user_approval",
+      "summary": "validation and calibration; not started",
+      "validated": false,
+      "tests_run": false
+    }
+  },
+  "open_blockers": [
+    "gsap-license: GSAP Standard License restriction on competing visual animation builders unresolved for distribution (distribution_blockers.gsap-license, open)",
+    "Remotion framework terms, Rive terms and generation-model licences not read or verified",
+    "No OS sandbox for render processes, no isolated scene origin, no network block for generated scene code, DNS rebinding window between URL check and fetch, console session token printed in a URL",
+    "OTIO editor round trips need DaVinci Resolve, Final Cut Pro, Premiere Pro, Avid and the OTIO viewer installed; unavailable stays not_run",
+    "Approval seal stops accidental dispatch and agent shortcuts, not a hostile process in the same account",
+    "139 deferred cases pending_implementation_and_user_approved_validation; fixture_pending: plan01/F01-F09, plan02/B05, plan03/S05"
+  ]
+}

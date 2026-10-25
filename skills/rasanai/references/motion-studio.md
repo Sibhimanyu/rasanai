@@ -39,6 +39,8 @@ node scripts/motion-kit.mjs scaffold <id> [--out <file>]          # scene HTML s
 node scripts/motion-kit.mjs check --project <dir>                 # needs <dir>/compositions/; verifies annotated ids, versions and params
 ```
 
+**A catalog row is not a capability** (Plan 06): `list` and `inspect` say `implemented` per row (checked against the code the row names; today 21 of 32), `suggest` offers implemented rows only, `scaffold` refuses the rest, and `node scripts/production.mjs capabilities --only kit.` is the full surface (implemented / available_on_host / enabled / permission / licence / verification). See `references/visual-production.md`.
+
 `suggest` is deterministic and model-free; it is a **shortlist, not a decision**. Annotate the clip root of any scene that uses an item: `data-motion-kit="motion-kit:<id>@<ver>"` (the `annotation` field of each suggestion is exactly this string). Bind it only to the scene's paused GSAP timeline via `window.RasanMotionKit.apply({id, timeline, target, design, motion, fps, seed, cues, props})`; its `hits` are picture hits for `events.mjs`.
 
 **Reject a suggestion, and say why, when** any answer below is no. Then invent a move (`references/moves.md`); an invented move with a named carrier beats a mismatched kit item. Write the reason in the scene card (`kit_rejected: "<id>: <why>"`).
@@ -59,7 +61,7 @@ The 8 technique-selection questions:
 node scripts/renderer-adapters.mjs doctor      # hyperframes is the only default; remotion, openfilm, rive are off unless RASANAI_ADAPTER_<ID>=1 plus a licence note
 ```
 
-**3D recipes:** `stage3d/recipes/README.md` is planned and not present in this tree yet; until it lands, use `references/3d.md` and the existing `stage3d/templates`.
+**3D recipes:** `stage3d/recipes/README.md` lists them (experimental; most are not browser-gated, see `docs/plans/motion-studio-status.md`); `references/3d.md` and `stage3d/templates` remain the base.
 
 ## 3. Element index
 
@@ -82,7 +84,7 @@ node scripts/editor-patch.mjs record      --run <run> --file <edit.json>      # 
 node scripts/editor-patch.mjs propose     --run <run> --id <id>               # writes <run>/motion/packets/<id>.md
 node scripts/editor-patch.mjs checkpoint  --run <run> --id <id> [--file <project-relative>]...
 node scripts/editor-patch.mjs apply-simple --run <run> --id <id>              # deterministic text/color/position/scale/retime
-node scripts/editor-patch.mjs mark        --run <run> --id <id> --status accepted|applied|rendered|failed|reverted [--note ..] [--preview <file>]
+node scripts/editor-patch.mjs mark        --run <run> --id <id> --status accepted|applied|preview_ready|rendered|failed|reverted|stale|conflicted [--note ..] [--receipt <file|revision id>] [--preview <rendered file>]
 node scripts/editor-patch.mjs undo        --run <run> --id <id>               # restore the checkpoint
 node scripts/editor-patch.mjs check|status --run <run> [--id <id>]
 ```
@@ -97,7 +99,7 @@ Rules for the editor:
 3. Keep semantic ids: if you split or rename an element, keep `data-el` on the element the owner pointed at and update the index (`element-index.mjs build`).
 4. **Retime or reorder** moves picture hits and seams: after editing the score, run `node scripts/events.mjs export --run <run>` then `check`. Text, colour and position edits need no export.
 5. Keep facts: numbers and names listed under "Immutable factual claims" in the packet survive unless the request changes them.
-6. **`mark applied` only after the source changed** (the script refuses an unchanged digest). Render a preview, then `mark --status rendered --preview <file>` (refuses a missing or empty file). On failure, `mark failed --note "<reason>"` and `undo`.
+6. **`mark applied` only after the source changed** (the script refuses an unchanged digest). Render with `hybrid-render.mjs preview|delivery --edit-id <id>`, then `mark --status preview_ready|rendered` (it finds the render receipt for this edit; a nonempty file with no matching receipt is refused). `undo` compares the file with the edit's recorded result and never erases later changes; on a conflict use `undo --as-new-version` or `restore`. On failure, `mark failed --note "<reason>"` and `undo`.
 
 ## 5. Worked examples
 
@@ -110,7 +112,7 @@ Rules for the editor:
 3. `checkpoint --id edit-001` -> `files:["index.html"]`, `digest_before`.
 4. `apply-simple --id edit-001`. If `ok:true`, skip to 6. If `step:"needs_model"`, run `propose --id edit-001`, open the packet, edit only the `data-el="scene-1.hero-title"` text in the named source file.
 5. `element-index.mjs build --project P` (the id stays `scene-1.hero-title`).
-6. `mark --status applied`, render one preview frame at 1.6s through the normal preview path, then `mark --status rendered --preview <png> --note "headline now: Every coin has a story."`.
+6. `mark --status applied`, render one preview frame at 1.6s through the normal preview path, then `mark --status preview_ready --receipt <receipt> --preview <png> --note "headline now: Every coin has a story."`.
 7. Done when `status --id edit-001` shows `rendered`. Tell the owner what changed in one line.
 
 **A reference to a move.** Packet says: `3 shots in 2.1s, hard cuts on a 0.7s beat, big white type enters from a clip edge` (measured), and the owner's note "feels confident" (interpretation). Brief: product is a coin-savings app, brand motion is calm and tactile.

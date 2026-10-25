@@ -1,0 +1,40 @@
+{
+  "case": "E10",
+  "title": "restart at Storyboard keeps Story and Look, archives the panel set as old",
+  "calls": [
+    "restartAtStoryboard",
+    "boundary",
+    "writeStoryboard",
+    "impact"
+  ],
+  "run_state": {
+    "story": "approved digest S1",
+    "look": "approved digest L2",
+    "storyboard": {
+      "revision": 4,
+      "shots": [
+        "shot-a",
+        "shot-b"
+      ]
+    }
+  },
+  "expect": {
+    "keeps": [
+      "brief",
+      "story",
+      "look"
+    ],
+    "restarts": "storyboard",
+    "archived": "storyboard/revisions/rev-4.json labelled old",
+    "next_revision": 5,
+    "impact_stale": [
+      "build",
+      "final"
+    ],
+    "story_look_approvals_unchanged": true,
+    "boundary_still_ok": true,
+    "stale_input_case": {
+      "look_changed_after_pin": "boundary refuses with stale look; the panel set is labelled old"
+    }
+  }
+}

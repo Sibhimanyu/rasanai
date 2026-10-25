@@ -1,0 +1,166 @@
+{
+  "_label": "LEGACY SAMPLE. An original illustration of the pre-Plan-03 pitch and intent shapes (villain, turn, peak, ending_first). Not a real film.",
+  "_note": "authored, not run. Saved films must keep parsing: readTreatment(legacy_pitch) adapts it (legacy:true, no mutation); validateIntent(legacy_intent) keeps its old behaviour; story.mjs check runs the legacy rubric on a pitch without story_format 'v2'.",
+  "legacy_pitch": {
+    "label": "Bold",
+    "title": "The buried Thursday",
+    "logline": "A thread of replies buries one time slot until one link ends it.",
+    "angle": "Bold",
+    "engine": "reversal",
+    "device": "rewind",
+    "turn": {
+      "line": "Send one link instead.",
+      "reverses": "asking for a time was a thread; now it is one link they click",
+      "payoff": "Thursday, the buried cell, comes back clean"
+    },
+    "turn_kind": "object-flips",
+    "peak_kind": "scale-reveal",
+    "beats": [
+      {
+        "name": "Hook",
+        "duration_s": 3,
+        "on_screen": "Does 3 work?",
+        "vo": "",
+        "visual": "bubbles pile onto Thursday's cell",
+        "buys": "The viewer now feels the thread burying the answer"
+      },
+      {
+        "name": "Turn",
+        "turn": true,
+        "duration_s": 4,
+        "on_screen": "Send one link instead.",
+        "vo": "",
+        "visual": "the bubbles fold into one link chip",
+        "buys": "The viewer now believes one link replaces the thread"
+      },
+      {
+        "name": "Proof",
+        "duration_s": 5,
+        "on_screen": "One click books it.",
+        "vo": "",
+        "visual": "a guest clicks the link and the slot turns green",
+        "buys": "The viewer now sees a booking happen"
+      },
+      {
+        "name": "Peak",
+        "duration_s": 6,
+        "on_screen": "A whole week, booked.",
+        "vo": "",
+        "visual": "seven links resolve into a full calendar",
+        "buys": "The viewer now sees it scale to a week",
+        "peak": true
+      },
+      {
+        "name": "End",
+        "duration_s": 3,
+        "on_screen": "Thursday, clean.",
+        "vo": "",
+        "visual": "the buried cell returns, clean",
+        "buys": "The viewer now trusts the product to clear the thread"
+      }
+    ]
+  },
+  "legacy_intent": {
+    "label": "Bold",
+    "length_s": 21,
+    "proposition": "One link books the meeting, not fourteen replies",
+    "page": {
+      "problem": "scheduling by reply thread",
+      "audience": "people who book meetings",
+      "goal": "try the link",
+      "emotion": "from buried to clear"
+    },
+    "villain": {
+      "what": "the reply thread",
+      "picture": "'Does 3 work?' bubbles pile into Thursday's cell until it is buried"
+    },
+    "felt_numbers": [
+      {
+        "value": "14 replies",
+        "source": "prop"
+      }
+    ],
+    "ending_first": {
+      "line": "Thursday, clean.",
+      "last_frame": "the buried cell, clear and booked",
+      "echo": "Thursday's buried cell returns clean",
+      "echoes_beat": 1
+    },
+    "muted_hook": "bubbles bury Thursday's cell",
+    "beats": [
+      {
+        "name": "Hook",
+        "buys": "The viewer now feels the thread burying the answer",
+        "viewer_before": "expects scheduling to be easy",
+        "viewer_after": "sees it buried",
+        "relation": "open",
+        "importance": 2,
+        "read": {
+          "text": "Does 3 work?",
+          "s": 1.5
+        }
+      },
+      {
+        "name": "Turn",
+        "buys": "The viewer now believes one link replaces the thread",
+        "viewer_before": "sees the thread",
+        "viewer_after": "sees one link",
+        "relation": "but",
+        "importance": 2,
+        "read": {
+          "text": "Send one link instead.",
+          "s": 2
+        }
+      },
+      {
+        "name": "Proof",
+        "buys": "The viewer now sees a booking happen",
+        "viewer_before": "sees one link",
+        "viewer_after": "sees it booked",
+        "relation": "so",
+        "importance": 1,
+        "read": {
+          "text": "One click books it.",
+          "s": 2
+        },
+        "rest_after": true
+      },
+      {
+        "name": "Peak",
+        "buys": "The viewer now sees it scale to a week",
+        "viewer_before": "sees one booking",
+        "viewer_after": "sees a week",
+        "relation": "escalation",
+        "importance": 3,
+        "peak": true,
+        "read": {
+          "text": "A whole week, booked.",
+          "s": 2
+        }
+      },
+      {
+        "name": "End",
+        "buys": "The viewer now trusts the product to clear the thread",
+        "viewer_before": "sees a week",
+        "viewer_after": "trusts it",
+        "relation": "answer",
+        "importance": 2,
+        "read": {
+          "text": "Thursday, clean.",
+          "s": 1.5
+        }
+      }
+    ]
+  },
+  "expected": {
+    "readTreatment": {
+      "ok": true,
+      "legacy": true,
+      "source": "legacy-pitch"
+    },
+    "validateIntent": {
+      "ok": true
+    },
+    "mutation": "none"
+  }
+}

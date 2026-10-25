@@ -1,0 +1,275 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan13/Q07",
+  "case": "costs, retries, failures, hardware, versions and cold/warm are reported",
+  "targets": [
+    "lib/eval-metrics.mjs validateMeasurement / totalUsage / describeSample / dimensionReport (reuses lib/usage.mjs and lib/perf-evidence.mjs)"
+  ],
+  "scenarios": [
+    {
+      "name": "a complete measurement is valid",
+      "call": "validateMeasurement",
+      "input": {
+        "task_hash": "h1",
+        "asset_hashes": [
+          "a1"
+        ],
+        "dimensions": "1920x1080",
+        "fps": 30,
+        "quality": "draft",
+        "cache_state": "cold",
+        "environment": {
+          "os": "darwin 25",
+          "node": "v22",
+          "hardware": {
+            "model": "synthetic"
+          }
+        },
+        "candidate_commit": "abc1234",
+        "failures": [],
+        "time": {
+          "user_wait_s": null,
+          "active_compute_s": 12
+        },
+        "phases": {
+          "time_to_treatment_s": 3
+        },
+        "label": "measurement"
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "name": "user wait and active compute must be kept apart",
+      "call": "validateMeasurement",
+      "input": {
+        "task_hash": "h1",
+        "asset_hashes": [
+          "a1"
+        ],
+        "dimensions": "1920x1080",
+        "fps": 30,
+        "quality": "draft",
+        "cache_state": "cold",
+        "environment": {
+          "os": "darwin 25",
+          "node": "v22",
+          "hardware": {
+            "model": "synthetic"
+          }
+        },
+        "candidate_commit": "abc1234",
+        "failures": [],
+        "phases": {
+          "time_to_treatment_s": 3
+        },
+        "label": "measurement"
+      },
+      "expect": {
+        "ok": false,
+        "missing": "~user_wait_s"
+      }
+    },
+    {
+      "name": "hardware and runtime are required",
+      "call": "validateMeasurement",
+      "input": {
+        "task_hash": "h1",
+        "asset_hashes": [
+          "a1"
+        ],
+        "dimensions": "1920x1080",
+        "fps": 30,
+        "quality": "draft",
+        "cache_state": "cold",
+        "environment": {
+          "os": "darwin 25"
+        },
+        "candidate_commit": "abc1234",
+        "failures": [],
+        "time": {
+          "user_wait_s": null,
+          "active_compute_s": 12
+        },
+        "phases": {
+          "time_to_treatment_s": 3
+        },
+        "label": "measurement"
+      },
+      "expect": {
+        "ok": false,
+        "missing": "~environment.hardware"
+      }
+    },
+    {
+      "name": "provider counters and billing must be separate records",
+      "call": "validateMeasurement",
+      "input": {
+        "task_hash": "h1",
+        "asset_hashes": [
+          "a1"
+        ],
+        "dimensions": "1920x1080",
+        "fps": 30,
+        "quality": "draft",
+        "cache_state": "cold",
+        "environment": {
+          "os": "darwin 25",
+          "node": "v22",
+          "hardware": {
+            "model": "synthetic"
+          }
+        },
+        "candidate_commit": "abc1234",
+        "failures": [],
+        "time": {
+          "user_wait_s": null,
+          "active_compute_s": 12
+        },
+        "phases": {
+          "time_to_treatment_s": 3
+        },
+        "label": "measurement",
+        "provider_counters": "same",
+        "billing_estimate": "same"
+      },
+      "expect": {
+        "ok": false,
+        "invalid": "~separate"
+      }
+    },
+    {
+      "name": "retries and rejected work are in the total; unreported stays null",
+      "call": "totalUsage",
+      "input": {
+        "rows": [
+          {
+            "outcome": "ok",
+            "purpose": "selected",
+            "counters": {
+              "output": 100
+            }
+          },
+          {
+            "outcome": "failed",
+            "purpose": "retry",
+            "counters": {
+              "output": 50
+            }
+          },
+          {
+            "outcome": "ok",
+            "purpose": "rejected_alternative",
+            "counters": {
+              "output": 150
+            }
+          }
+        ]
+      },
+      "expect": {
+        "provider_counters": {
+          "n": 3,
+          "failed": 1,
+          "output": 300,
+          "input_uncached": null
+        },
+        "retries_included": true
+      }
+    },
+    {
+      "name": "one run is a measurement",
+      "call": "describeSample",
+      "input": {
+        "values": [
+          12
+        ]
+      },
+      "expect": {
+        "n": 1,
+        "label": "measurement",
+        "general_claim_allowed": false
+      }
+    },
+    {
+      "name": "four runs are a sample with variability",
+      "call": "describeSample",
+      "input": {
+        "values": [
+          10,
+          11,
+          12,
+          13
+        ]
+      },
+      "expect": {
+        "n": 4,
+        "label": "sample",
+        "general_claim_allowed": true,
+        "stdev": "$present"
+      }
+    },
+    {
+      "name": "no runs is not_run",
+      "call": "describeSample",
+      "input": {
+        "values": []
+      },
+      "expect": {
+        "n": 0,
+        "label": "not_run"
+      }
+    },
+    {
+      "name": "a merged score is refused",
+      "call": "dimensionReport",
+      "input": {
+        "overall": 0.8
+      },
+      "expect": {
+        "throws": "no merged score"
+      }
+    },
+    {
+      "name": "a pass without evidence is refused",
+      "call": "dimensionReport",
+      "input": {
+        "technical_correctness": {
+          "status": "pass"
+        }
+      },
+      "expect": {
+        "throws": "retained evidence"
+      }
+    },
+    {
+      "name": "three dimensions stay separate and unevaluated ones are not_run",
+      "call": "dimensionReport",
+      "input": {
+        "technical_correctness": {
+          "status": "pass",
+          "evidence": [
+            "report/tech.json"
+          ]
+        },
+        "communication_and_craft": {
+          "status": "pending_human_review",
+          "evidence": []
+        }
+      },
+      "expect": {
+        "technical_correctness": {
+          "status": "pass"
+        },
+        "communication_and_craft": {
+          "status": "pending_human_review"
+        },
+        "efficiency": {
+          "status": "not_run"
+        }
+      }
+    }
+  ]
+}

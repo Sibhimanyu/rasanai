@@ -18,6 +18,27 @@ export function loadCatalog(file) {
   return { file: p, data, items: Array.isArray(data.items) ? data.items : [] };
 }
 
+// Plan 06 V2: a catalog row is a description, not a capability. A row is `implemented` only when the code its `implementation` field names exists:
+// rasan-motion-kit.js rows must be in that runtime's own id table (its IDS map, id -> fn); other rows (reused RasanShape/RasanUI/RasanCamera verbs)
+// must define the named function in that file. Static text check only: it never loads or runs the runtime.
+const SKILL_ROOT = path.resolve(HERE, "../../..");
+const fileCache = new Map();
+const readOnce = (f) => { if (!fileCache.has(f)) fileCache.set(f, fs.existsSync(f) ? fs.readFileSync(f, "utf8") : null); return fileCache.get(f); };
+export function implementationState(item, skillRoot = SKILL_ROOT) {
+  const m = String(item && item.implementation || "").match(/^([\w./-]+\.js):([\w.]+)$/);
+  if (!m) return { implemented: false, reason: "no implementation target named" };
+  const src = readOnce(path.join(skillRoot, m[1]));
+  if (src == null) return { implemented: false, reason: `${m[1]} is not in this skill` };
+  const fn = m[2].split(".").pop();
+  if (m[1].endsWith("rasan-motion-kit.js")) {
+    const row = new RegExp(`"${String(item.id).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"\\s*:\\s*\\{[^}]*fn:\\s*"${fn}"`).test(src);
+    return row && new RegExp(`M\\.${fn}\\s*=`).test(src) ? { implemented: true, reason: "" } : { implemented: false, reason: `catalogued but ${fn} is not implemented in rasan-motion-kit.js` };
+  }
+  const defined = new RegExp(`(function\\s+${fn}\\b|\\b${fn}\\s*[:=]\\s*function|\\b${fn}\\s*:|\\.${fn}\\s*=)`).test(src);
+  return defined ? { implemented: true, reason: "" } : { implemented: false, reason: `${fn} is not defined in ${m[1]}` };
+}
+export const annotate = (items, skillRoot) => items.map((it) => ({ ...it, ...(({ implemented, reason }) => ({ implemented, implemented_reason: reason }))(implementationState(it, skillRoot)) }));
+
 export function findItem(items, id, version) {
   return items.find((i) => i.id === id && (version == null || Number(i.version) === Number(version))) || null;
 }

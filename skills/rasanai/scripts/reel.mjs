@@ -29,6 +29,7 @@ import { installLook, installDirection, upsertMarked, DIRECTION_MARK } from "./l
 import { contractText } from "./lib/contract.mjs";
 import { track } from "./lib/report.mjs";
 import { acquireSlotSync } from "./lib/slot.mjs";
+import { renderProcessEnv } from "./lib/containment.mjs"; // Plan 11 R8: render processes get a scrubbed environment
 import { loadPrefs } from "./lib/prefs.mjs";
 import { headsDuring, overlapShare } from "./lib/heads.mjs";
 import { destinationOf, zonesFor, boxInZones } from "./lib/safezones.mjs";
@@ -1091,9 +1092,10 @@ ${MARK}
     fs.mkdirSync(path.dirname(outFile), { recursive: true });
     const q = String(args.quality || "looks");
     // one render at a time (and one the machine's memory can carry): take a render slot around the hyperframes render (lib/slot.mjs)
-    const slot = acquireSlotSync({ label: `reel ${path.basename(dir)}` });
+    const slot = acquireSlotSync({ label: `reel ${path.basename(dir)}`, managed: args.managed ? true : undefined }); // Plan 09 P9: --managed / RASANAI_MANAGED=1 = fail closed
+    if (slot.blocked) die(`render not started: ${slot.state} (${slot.reason_code}); queued work stays queued, nothing renders past the cap`);
     let rr;
-    try { rr = spawnSync("npx", ["--yes", "hyperframes", "render", dir, "-o", outFile, "--fps", String(FPS), "--quality", q, "--skill=general-video"], { encoding: "utf8", timeout: 3600000, maxBuffer: 64 * 1024 * 1024 }); }
+    try { rr = spawnSync("npx", ["--yes", "hyperframes", "render", dir, "-o", outFile, "--fps", String(FPS), "--quality", q, "--skill=general-video"], { encoding: "utf8", timeout: 3600000, maxBuffer: 64 * 1024 * 1024, env: renderProcessEnv() }); }
     finally { slot.release(); }
     if (rr.status !== 0 || !fs.existsSync(outFile)) die(`render failed:\n${(rr.stdout + rr.stderr).trim().split("\n").slice(-25).join("\n")}`);
     const info = probe(outFile);
