@@ -2,6 +2,12 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **The film status says what Rasan is doing.** After you send something, the bar shows what Rasan is working on, how long it has been, and a time estimate when there is one. If nothing has happened after two minutes it says so and offers Show log.
+- **Decisions newest first.** The Decisions panel lists the newest decision first and shows the current step while Rasan works or waits for you.
+- **Installs are explained.** When Rasan needs a tool installed, Studio asks you directly, installs it for you without a password or Homebrew, and shows what is happening. If a command is blocked, or Rasan goes quiet for five minutes, you see exactly what happened, with Retry step and Restart Rasan.
+
 ## 0.20.0 (build 48) — 2026-10-24
 
 - **Reference chip.** A film with a linked reference video shows a reference chip and, on Look, a Motion inspiration summary (cuts, rhythm, uncertainties) with a way to send the director a note on how much it should influence the film. Shown only when the film has `reference-motion.json`.

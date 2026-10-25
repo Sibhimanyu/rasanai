@@ -24,6 +24,8 @@ public struct HealthThresholds: Equatable, Sendable {
     public var burnNoPushAfter: TimeInterval = 600
     /// While waiting on the person, an event this fresh (or a tool or model call in flight) means the director is still working in the background.
     public var backgroundActiveWithin: TimeInterval = 20
+    /// No events at all for this long, with no tool running and nothing waiting on the person, is a stall: say so plainly and offer a restart.
+    public var stalledAfter: TimeInterval = 300
     public init() {}
 }
 
@@ -43,9 +45,12 @@ public struct HealthContext: Sendable {
     public var lastWake: Date?
     /// The director is frozen in place: it is alive but nothing runs and no tokens are used.
     public var paused: Bool
+    /// A command the director was refused and has not got past (see `DirectorBlockScanner.open`).
+    public var blocked: DirectorBlock?
     public init(now: Date = Date(), processRunning: Bool, hasStarted: Bool = true, exitCode: Int32? = nil, stopRequested: Bool = false,
-                awaitingUser: Bool = false, lastConsoleUpdate: Date? = nil, endedEarlyReason: String? = nil, lastWake: Date? = nil, paused: Bool = false) {
-        self.paused = paused
+                awaitingUser: Bool = false, lastConsoleUpdate: Date? = nil, endedEarlyReason: String? = nil, lastWake: Date? = nil, paused: Bool = false,
+                blocked: DirectorBlock? = nil) {
+        self.paused = paused; self.blocked = blocked
         self.lastWake = lastWake
         self.endedEarlyReason = endedEarlyReason
         self.now = now; self.processRunning = processRunning; self.hasStarted = hasStarted; self.exitCode = exitCode
@@ -68,14 +73,19 @@ public struct DirectorHealth: Equatable, Sendable {
     public var loopReason: String?
     /// Set only with `.waitingForYou`: what the director is doing meanwhile (research runs in parallel with the person's call).
     public var background: String?
+    /// The refusal behind this state, when there is one: shown as a specific "Blocked" notice with its own buttons.
+    public var blocked: DirectorBlock?
+    /// Quiet for `stalledAfter` with nothing running and nobody to wait for: the director needs a restart or a nudge.
+    public var stalled = false
     public var isAlarming: Bool { state == .possiblyLooping || state == .failed }
 
     public static func evaluate(_ t: DirectorTelemetry, context c: HealthContext, thresholds th: HealthThresholds = HealthThresholds()) -> DirectorHealth {
         let last = (t.lastEventAt ?? t.sessionStartedAt).map { c.since($0) }
         let quiet = last.map { max(0, c.now.timeIntervalSince($0)) } ?? 0
-        func make(_ state: DirectorHealthState, _ label: String, _ detail: String, loop: String? = nil, background: String? = nil) -> DirectorHealth {
-            DirectorHealth(state: state, label: label, detail: detail, quietFor: quiet, loopReason: loop, background: background)
+        func make(_ state: DirectorHealthState, _ label: String, _ detail: String, loop: String? = nil, background: String? = nil, stalled: Bool = false) -> DirectorHealth {
+            DirectorHealth(state: state, label: label, detail: detail, quietFor: quiet, loopReason: loop, background: background, blocked: c.blocked, stalled: stalled)
         }
+        let blockNote = c.blocked.map { " " + $0.message + ($0.repeatNote.map { " " + $0 } ?? "") } ?? ""
         if !c.processRunning {
             if c.hasStarted == false { return make(.starting, "Starting", "The director is getting ready.") }
             if c.stopRequested { return make(.stopped, "Stopped", "You stopped the director. Your files are kept; resume when ready.") }
@@ -89,13 +99,22 @@ public struct DirectorHealth: Equatable, Sendable {
         if c.paused { return make(.paused, "Paused", "Paused. Nothing runs and no tokens are used until you resume.") }
         if !t.hasData { return make(.starting, "Starting", "The director is starting up. This usually takes under a minute.") }
         if c.awaitingUser {
+            if c.blocked != nil {
+                return make(.waitingForYou, "Waiting for you", "Waiting for your answer." + blockNote)
+            }
             if let work = backgroundWork(t, quiet: quiet, now: c.now, wake: c.lastWake, thresholds: th) {
                 return make(.waitingForYou, "Waiting for you", "Waiting for your call. Claude keeps working in the background meanwhile.", background: work)
             }
             return make(.waitingForYou, "Waiting for you", "The director is paused until you answer. It is not using tokens while it waits.")
         }
+        if let blocked = c.blocked, !t.consoleWaitInFlight {
+            // A refusal nobody can see is how a film sits stuck: name the command and hand the next move to the person.
+            let nothingRunning = t.toolInFlight == nil
+            let tail = nothingRunning ? " Rasan cannot carry on until you decide." : " Rasan is still running something else."
+            return make(.waitingForYou, "Blocked", blocked.message + (blocked.repeatNote.map { " " + $0 } ?? "") + tail)
+        }
         if let reason = loopReason(t, context: c, thresholds: th) {
-            return make(.possiblyLooping, "Possibly looping", reason, loop: reason)
+            return make(.possiblyLooping, "Possibly looping", reason + blockNote, loop: reason)
         }
         if t.consoleWaitInFlight && !c.awaitingUser {
             return make(.working, "Working", "The director is waiting for your reply.")
@@ -116,9 +135,13 @@ public struct DirectorHealth: Equatable, Sendable {
             return quiet < 6 ? make(.working, "Working", "The director is working.")
                 : make(.thinking, "Thinking", "Waiting on the model for \(UsageFormat.span(quiet)). Long thinking is normal on big steps.")
         }
+        if quiet >= th.stalledAfter, t.toolInFlight == nil, !t.consoleWaitInFlight {
+            let what = t.lastToolSummary.map { " Last thing it did: \($0)." } ?? ""
+            return make(.quiet, "Stalled", "Rasan has done nothing for \(UsageFormat.span(quiet)) and no step is running, so it is probably stuck.\(what)\(blockNote) Try Retry step; if that does not help, Restart Rasan. Your files are kept.", stalled: true)
+        }
         if quiet >= th.quietAfter {
             let what = t.lastToolSummary.map { " Last: \($0)." } ?? ""
-            return make(.quiet, "Quiet", "No activity for \(UsageFormat.span(quiet)).\(what)")
+            return make(.quiet, "Quiet", "No activity for \(UsageFormat.span(quiet)).\(what)\(blockNote)")
         }
         return make(.working, "Working", t.lastToolSummary ?? "The director is working.")
     }

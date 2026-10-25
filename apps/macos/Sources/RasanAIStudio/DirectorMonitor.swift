@@ -11,6 +11,10 @@ final class DirectorMonitor {
         var pause: () -> Void = {}
         var showLog: () -> Void = {}
         var tell: () -> Void = {}
+        /// Stops the director and starts it again from the run's saved state (never two directors for one run).
+        var restart: () -> Void = {}
+        /// Nudges the step again: a note when Rasan is alive, a restart when it is not.
+        var retry: () -> Void = {}
     }
 
     /// The film the director is working on (the runtime's run), with its totals.
@@ -28,6 +32,10 @@ final class DirectorMonitor {
     /// Why RasanAI paused the director by itself (a loop or the budget), while it stays paused.
     struct AutoPause: Equatable { enum Kind { case loop, budget }; var kind: Kind; var reason: String; var at: Date }
     private(set) var autoPaused: AutoPause?
+    /// Commands the director was refused, read live from its output; `openBlock` is the one it has not got past.
+    private(set) var scanner = DirectorBlockScanner()
+    var openBlock: DirectorBlock? { scanner.open }
+    private var notifiedBlock: String?
     /// How long the director must keep looking stuck before it is paused: long enough to ride out a retry that recovers.
     static let loopGrace: TimeInterval = 120
     var actions = Actions()
@@ -65,7 +73,10 @@ final class DirectorMonitor {
         self.store = store
         actions = Actions(pause: { [weak store] in store?.pauseDirector() },
                           showLog: { [weak store] in store?.sheet = .log },
-                          tell: { [weak store] in store?.film?.beginTell() })
+                          tell: { [weak store] in store?.film?.beginTell() },
+                          restart: { [weak store] in store?.restartRasan() },
+                          retry: { [weak store] in store?.retryStep() })
+        ToolNeedCoordinator.shared.attach(store)
         let center = NSWorkspace.shared.notificationCenter
         wakeObservers = [center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.macDidWake() }
@@ -121,6 +132,7 @@ final class DirectorMonitor {
         var billing: Billing?
         var awaitingUser = false
         var lastConsoleUpdate: Date?
+        var scanner = DirectorBlockScanner()
     }
 
     private func tick() async {
@@ -141,7 +153,7 @@ final class DirectorMonitor {
                                     exitCode: runtime.lastExitCode, stopRequested: runtime.stopRequested, awaitingUser: running && awaitingUser,
                                     lastConsoleUpdate: lastConsoleUpdate,
                                     endedEarlyReason: runtime.recovery.map { [$0.title, runtime.recoveryDetail].filter { !$0.isEmpty }.joined(separator: ". ") },
-                                    lastWake: lastWake, paused: runtime.isFrozen)
+                                    lastWake: lastWake, paused: runtime.isFrozen, blocked: scanner.open)
         health = DirectorHealth.evaluate(telemetry, context: context)
         if autoPaused != nil, !runtime.isFrozen { autoPaused = nil }
         updateKeepAwake(running: running, store: store)
@@ -150,6 +162,7 @@ final class DirectorMonitor {
         updateLedger()
         checkBudget(store: store)
         checkLoop(store: store)
+        checkBlock(store: store)
         if dirty, now.timeIntervalSince(lastSave) > 8 || !running { save() }
     }
 
@@ -172,6 +185,8 @@ final class DirectorMonitor {
     }
 
     func noteResumed() { lastWake = Date(); resumedAt = lastWake; autoPaused = nil; loopSince = nil }
+    /// The person saw the refusal, fixed its cause or restarted the director: it no longer holds the film's state.
+    func acknowledgeBlock() { scanner.acknowledge(); notifiedBlock = nil }
 
     private func macDidWake() {
         lastWake = Date()
@@ -182,11 +197,13 @@ final class DirectorMonitor {
         var input = Advance(telemetry: telemetry, logOffset: logOffset, rolloutPath: rolloutPath, rolloutOffset: rolloutOffset,
                             billing: billingResolved ? nil : (telemetry.agent == "codex" ? CodexBilling.detect() : (telemetry.agent == "claude" ? .metered : nil)))
         input.awaitingUser = awaitingUser
+        input.scanner = scanner
         let result = await Task.detached { Self.advance(input, run: run, log: log, final: final) }.value
         if result.telemetry != telemetry || result.logOffset != logOffset || result.telemetry.updatedAt != telemetry.updatedAt { dirty = true }
         telemetry = result.telemetry
         logOffset = result.logOffset; rolloutPath = result.rolloutPath; rolloutOffset = result.rolloutOffset
         awaitingUser = result.awaitingUser; lastConsoleUpdate = result.lastConsoleUpdate
+        scanner = result.scanner
         if result.billing != nil { billingResolved = true }
         if final { save() }
     }
@@ -196,7 +213,7 @@ final class DirectorMonitor {
         let file = log ?? run.appendingPathComponent("director.log")
         let read = DirectorUsageStore.readLines(file: file, from: state.logOffset)
         state.logOffset = read.offset
-        if !read.lines.isEmpty { state.telemetry.ingest(lines: read.lines, now: Date()) }
+        if !read.lines.isEmpty { state.telemetry.ingest(lines: read.lines, now: Date()); state.scanner.ingest(lines: read.lines, now: Date()) }
         if let billing = state.billing { state.telemetry.billing = billing }
         // Codex only reports final usage on the exec stream; its rollout file carries the live counters.
         if state.telemetry.agent == "codex", let thread = state.telemetry.sessionID {
@@ -229,6 +246,7 @@ final class DirectorMonitor {
         logOffset = 0; rolloutPath = nil; rolloutOffset = 0; billingResolved = false; wasRunning = false
         awaitingUser = false; lastConsoleUpdate = nil; loopAlerted = false; budgetLimit = nil; dirty = false
         loopSince = nil; resumedAt = nil; autoPaused = nil
+        scanner = DirectorBlockScanner(); notifiedBlock = nil
         guard let target else { return }
         if let stored = await Task.detached(operation: { DirectorUsageStore.load(run: target) }).value {
             telemetry = stored.telemetry
@@ -295,6 +313,14 @@ final class DirectorMonitor {
             let soon = store.settings.pauseWhenStuck ? " RasanAI pauses it in two minutes if it stays stuck." : ""
             notify(store, title: "The director may be stuck", body: reason + soon)
         }
+    }
+
+    /// Tells the person once, even from another app or window, that the director was refused a command and is waiting on them.
+    private func checkBlock(store: StudioStore) {
+        guard let block = scanner.open, store.runtime.isRunning else { if scanner.open == nil { notifiedBlock = nil }; return }
+        guard notifiedBlock != block.id else { return }
+        notifiedBlock = block.id
+        notify(store, title: "Rasan was blocked", body: block.message + " Open RasanAI Studio to decide.")
     }
 
     /// Freezes the director on RasanAI's own call. Returns false when there was nothing to pause.

@@ -849,7 +849,7 @@ final class StudioStore {
         researchTimeBoxing.observe(store: self)
         playhead = min(playhead, duration)
         refreshDockBadge()
-        statusMessage = next.workingMessage ?? (awaitingAgent ? "Sent to the director · waiting for an update" : "Connected to the local director")
+        statusMessage = next.workingMessage ?? (awaitingAgent ? "Waiting for the director to pick this up" : "Connected to the local director")
         film?.startedAt = runtime.startedAt
         configureMedia()
     }
