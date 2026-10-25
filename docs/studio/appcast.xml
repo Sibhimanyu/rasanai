@@ -6,6 +6,18 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.20.1 beta 1</title>
+      <pubDate>Sun, 25 Oct 2026 14:36:35 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **The film status says what Rasan is doing.** After you send something, the bar shows what Rasan is working on, how long it has been, and a time estimate when there is one. If nothing has happened after two minutes it says so and offers Show log.
+- **Decisions newest first.** The Decisions panel lists the newest decision first and shows the current step while Rasan works or waits for you.
+- **Installs are explained.** When Rasan needs a tool installed, Studio asks you directly, installs it for you without a password or Homebrew, and shows what is happening. If a command is blocked, or Rasan goes quiet for five minutes, you see exactly what happened, with Retry step and Restart Rasan.]]></description>
+      <sparkle:version>49</sparkle:version>
+      <sparkle:shortVersionString>0.20.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.20.1-beta.1/RasanAI-Studio-0.20.1.dmg" sparkle:edSignature="MFfnEBHAxAUmfHS4/BwgJqB+CXwIynAXzbDdI5DQ/mnSWaAswHx63DgCSQWjmknINh0ghMGXaWOa1baMhAy6Aw==" length="82745825" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.20.0 beta 1</title>
       <pubDate>Sat, 24 Oct 2026 15:13:09 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **Reference chip.** A film with a linked reference video shows a reference chip and, on Look, a Motion inspiration summary (cuts, rhythm, uncertainties) with a way to send the director a note on how much it should influence the film. Shown only when the film has `reference-motion.json`.
