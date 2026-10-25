@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.27.0 (2026-10-25): Stories that fit what the film says, one look frame per option, and a safer engine underneath
 
 All of this is foundation work that landed together and was only syntax-checked, not validated end to end.
 
