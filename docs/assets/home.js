@@ -4,6 +4,21 @@
   var reduceQ = window.matchMedia("(prefers-reduced-motion: reduce)");
   var wideQ = window.matchMedia("(min-width: 900px)");
   function pinned() { return root.classList.contains("pin"); }
+  /* MOBILE FOUNDATION. `mpin` on <html> (set by the head script) = narrow screen with motion allowed: the mirror of `pin`.
+     pinned() stays desktop-only; mpinned() is the phone/tablet mode. A scene opts in with `mpin: true` in addScene (hosts opt in
+     with a data-mpin attribute on the section). viewH() is the height every pinned stage is built from: on phones 100svh (the
+     small viewport, which does not move when the address bar collapses), on desktop window.innerHeight exactly as before. */
+  function mpinned() { return root.classList.contains("mpin"); }
+  var svhProbe = null;
+  function svhPx() {
+    if (!svhProbe) {
+      svhProbe = document.createElement("div"); svhProbe.setAttribute("aria-hidden", "true");
+      svhProbe.style.cssText = "position:fixed;left:0;top:0;width:0;height:100vh;height:100svh;visibility:hidden;pointer-events:none";
+      document.body.appendChild(svhProbe);
+    }
+    return svhProbe.offsetHeight || window.innerHeight;
+  }
+  function viewH() { return mpinned() ? svhPx() : window.innerHeight; }
   function calm() { return reduceQ.matches; }
   var clamp = function (v, a, b) { return Math.min(b, Math.max(a, v)); };
   var seg = function (v, a, b) { return clamp((v - a) / (b - a), 0, 1); };
@@ -54,6 +69,7 @@
 
   /* ---------- scenes: the hero, the rising screenshot with its crew flight, and any [data-rise] window ---------- */
   var scenes = [];
+  var MBEAT_TRACK = 1.5;   // phones: how many screens of scroll a chapter’s narrator line takes when the chapter is not pinned around it
   function addScene(sc) { scenes.push(sc); return sc; }
   var pinnedMode = { motion: false };
 
@@ -62,7 +78,7 @@
   var copy = heroEl && $("[data-hero-copy]", heroEl);
   if (heroEl) {
     addScene({
-      el: heroEl, pin: true,
+      el: heroEl, pin: true, mpin: true,
       progress: function (r, vh) { return clamp(-r.top / Math.max(1, r.height - vh), 0, 1); },
       render: function (p) {
         if (!copy) return;
@@ -148,9 +164,16 @@
       if (fx === "slam") {
         // the shockwave reaches the letters nearest the impact first; each is thrown outward and up, then falls, spinning
         chars.forEach(function (ch, k) {
-          var f = blast[k], t = seg(r, f.at, f.at + .5 + hash(k + 29) * .25);
-          ch.style.transform = t ? "translate3d(" + (f.vx * t).toFixed(1) + "px," + (f.vy * t + f.g * t * t).toFixed(1) + "px,0) rotate(" + (f.spin * t).toFixed(1) + "deg) scale(" + (1 + (f.grow - 1) * t).toFixed(3) + ")" : "";
-          ch.style.opacity = (1 - seg(t, f.grow < 1 ? .35 : .55, 1)).toFixed(3);
+          var f = blast[k], t = seg(r, f.at, f.at + .62 + hash(k + 29) * .2);
+          // the speed curve: a hard burst (a third of the travel in the first fifth, easing out), then a slow hover with a
+          // little bob, then gathering speed away, falling as it goes
+          var u = t < .2 ? .3 * (1 - Math.pow(1 - t / .2, 4))
+            : t < .68 ? .3 + .08 * ((t - .2) / .48)
+            : .38 + 1.2 * Math.pow((t - .68) / .32, 2);
+          var bob = t > .2 && t < .68 ? Math.sin((t - .2) / .48 * Math.PI * 2 + k) * 6 * Math.sin((t - .2) / .48 * Math.PI) : 0;
+          var fall = f.g * .55 * Math.pow(Math.max(0, t - .62) / .38, 2);
+          ch.style.transform = t ? "translate3d(" + (f.vx * u).toFixed(1) + "px," + (f.vy * u + bob + fall).toFixed(1) + "px,0) rotate(" + (f.spin * (u * .8 + .2 * t)).toFixed(1) + "deg) scale(" + (1 + (f.grow - 1) * Math.min(1, u * 1.3)).toFixed(3) + ")" : "";
+          ch.style.opacity = (1 - seg(t, .72, 1)).toFixed(3);
           ch.style.zIndex = f.grow > 1 ? "2" : "";
         });
         layer.style.opacity = (1 - seg(r, .05, .45)).toFixed(3);
@@ -196,23 +219,42 @@
     if (!el) return null;
     // span: how much of the pin the beat takes (the rest holds the chapter, or plays its own scene: h.extra)
     var h = { host: host, el: el, beat: null, span: host.classList.contains("squeak-scene") ? .15 : .7 };
+    // phones: a host plays pinned only if its section says data-mpin (projects, end card; B and C add #control)
+    h.mobile = host.hasAttribute("data-mpin");
+    // projects on a phone: the beat pins over its own stretch of scroll (MBEAT_TRACK x the view), then the chapter scrolls on plainly
+    h.mtrack = host.classList.contains("projects") ? MBEAT_TRACK : 0;
     h.on = function () {
-      if (h.beat || !wideQ.matches || !pinned() || calm()) return;
+      if (h.beat || calm() || !((wideQ.matches && pinned()) || (mpinned() && h.mobile))) return;
       host.classList.add("host-ready");
+      // phones, projects: the line and the chapter’s heading share one sticky stage (.m-stage) of their own, so they release
+      // together when it ends (a sticky child is held by its whole grid, not by a row of it); off() puts both back
+      if (h.mtrack && mpinned()) {
+        var head = $(".proj-head", host), copyEl = head && head.parentNode;
+        if (head) {
+          h.mstage = document.createElement("div"); h.mstage.className = "m-stage";
+          pin.insertBefore(h.mstage, pin.firstChild);
+          h.mstage.appendChild(el); h.mstage.appendChild(head);
+          h.mhead = head; h.mcopy = copyEl; h.mpin = pin;
+        }
+      }
       h.beat = makeBeat(el);
     };
     h.off = function () {
       if (!h.beat) return;
       h.beat.reset(); h.beat = null;
+      if (h.mstage) { h.mpin.insertBefore(el, h.mstage); h.mcopy.insertBefore(h.mhead, h.mcopy.firstChild); h.mstage.remove(); h.mstage = null; }
       if (h.clear) h.clear();
       host.classList.remove("host-ready");
     };
     h.scene = addScene({
-      el: host, pin: true, glide: host.classList.contains("squeak-scene") ? 170 : 120,   // the device scene glides a touch softer
-      progress: function (r, view) { return clamp(-r.top / Math.max(1, r.height - view), 0, 1); },
+      el: host, pin: true, mpin: h.mobile, glide: host.classList.contains("squeak-scene") ? 170 : 120,   // the device scene glides a touch softer
+      progress: function (r, view) {
+        if (h.mtrack && mpinned()) return clamp(-r.top / (h.mtrack * view), 0, 1);
+        return clamp(-r.top / Math.max(1, r.height - view), 0, 1);
+      },
       render: function (p) {
         if (!h.beat) return;
-        h.beat.render(seg(p, 0, h.span));
+        h.beat.render(seg(p, 0, h.mtrack && mpinned() ? 1 : h.span));
         if (h.extra) h.extra(p);
       },
       reset: h.off
@@ -302,7 +344,10 @@
         var pr = G.small.getBoundingClientRect(), pn = G.root.getBoundingClientRect();
         k2 = pr.width / g.row.w; tx = (pr.left + pr.width / 2 - pn.left) - g.row.rx; ty = (pr.top + pr.height / 2 - pn.top) - g.row.ry;
       }
-      G.row.style.transform = "translate3d(" + (tx * f + shake).toFixed(1) + "px," + (ty * f + shake * .4).toFixed(1) + "px,0) scale(" + mix(1, k2, f).toFixed(4) + ")";
+      // phones: the whole row is built small enough to hold the words (it lands in the small lockup at that size), so the
+      // marks collide at twice that size and the row shrinks back as the words unfold
+      var big = mpinned() ? 1 + 1.15 * (1 - u) : 1;
+      G.row.style.transform = "translate3d(" + (tx * f + shake).toFixed(1) + "px," + (ty * f + shake * .4).toFixed(1) + "px,0) scale(" + (mix(1, k2, f) * big).toFixed(4) + ")";
       // it lands, the small lockup takes over in place, and only then do the line and the Mac come in
       G.root.style.opacity = (1 - seg(gp, .92, .97)).toFixed(3);
       if (G.small) G.small.style.opacity = seg(gp, .92, .97).toFixed(3);
@@ -319,6 +364,7 @@
     // the word spans stay in the stacked page too (they read as plain text); only their inline styles are cleared
     var trailSvg = q(".sq-trail"), planeEl = q(".f-plane"), trailSegs = [];
     if (trailSvg) { trailSvg.innerHTML = ""; for (var ti = 0; ti < 12; ti++) trailSegs.push(trailSvg.appendChild(document.createElementNS("http://www.w3.org/2000/svg", "path"))); }
+    var copyEl = q(".sq-copy"), mBandKey = "", mBandBot = 0, devMasked = false;
     var darkEl = q(".sq-dark"), fly = q(".sq-fly"), callRow = q(".sq-note"), macFoot = q(".sq-land"), cta = q(".sq-cta");
     // where the flight starts and lands, as fractions of the device box, measured while each screen is at rest
     var spots = { row: null, foot: null, cta: null };
@@ -363,7 +409,8 @@
         T = [.78, .795, .865, .88, .905]; scr = { W: g.macW, H: g.macH };
       }
       var lt = seg(s, T[0], T[1]), ft = inOutC(seg(s, T[1], T[2])), dv = seg(s, T[2], T[3]), rv = seg(s, T[3], T[4]);
-      var low = function (y) { return Math.max(130 - stage.top, y); };
+      var mob = mpinned();
+      var low = function (y) { return Math.max((mob ? 92 : 130) - stage.top, y); };   // never up under the nav
       var P0 = { x: a.x, y: a.y - 40 }, P1 = z, r = Math.min(vh * .12, 110);
       var H = { x: Math.max(r + 40, g.cx - g.macW / 2 - vw * .08) - stage.left, y: low(vh * .7 - stage.top) };
       var E = { x: H.x, y: H.y + r };
@@ -372,6 +419,11 @@
       var bez = function (C, u) { var v = 1 - u; return { x: v * v * v * C[0].x + 3 * v * v * u * C[1].x + 3 * v * u * u * C[2].x + u * u * u * C[3].x, y: v * v * v * C[0].y + 3 * v * v * u * C[1].y + 3 * v * u * u * C[2].y + u * u * u * C[3].y }; };
       var hoop = function (u) { var th = Math.PI / 2 - u * Math.PI * 2; return { x: H.x + r * Math.cos(th), y: H.y + r * Math.sin(th) }; };
       var raw = function (t) { return t < .38 ? bez(A, t / .38) : t < .7 ? hoop((t - .38) / .32) : bez(B, (t - .7) / .3); };
+      if (mob) {
+        // phones: one arc up and over the device, no loop. Out to the side it is leaving, high over the top, down into the other screen
+        var sgn = dir === "go" ? 1 : -1, top = low(0), M = [P0, { x: P0.x + sgn * vw * .5, y: top }, { x: P1.x - sgn * vw * .42, y: top - 8 }, P1];
+        raw = function (t) { return bez(M, t); };
+      }
       // even speed along the whole route: the three pieces differ in length, so progress is mapped by distance travelled
       var N = 120, cum = [0], prev = raw(0);
       for (var q = 1; q <= N; q++) { var pt = raw(q / N); cum.push(cum[q - 1] + Math.hypot(pt.x - prev.x, pt.y - prev.y)); prev = pt; }
@@ -404,6 +456,13 @@
       var sx = (P1.x + stage.left) - (g.cx - scr.W / 2), sy = (P1.y + stage.top) - (g.cy - scr.H / 2);
       return { x: sx, y: sy, r: ease(rv) * Math.hypot(scr.W, scr.H), dir: dir, rv: rv };
     }
+    // the beats' timeline (s) against scroll: the paper-plane flights (.38-.565 and .78-.905) take three times the scroll
+    var SQ_K = [[0, 0], [.38, .38], [.565, .935], [.78, 1.15], [.905, 1.525], [1, 1.62]];
+    function warpSq(x) {
+      var v = x * 1.62;
+      for (var k = 1; k < SQ_K.length; k++) if (v <= SQ_K[k][1]) { var a = SQ_K[k - 1], b = SQ_K[k]; return a[0] + (b[0] - a[0]) * (v - a[1]) / (b[1] - a[1]); }
+      return 1;
+    }
     var touched = [].concat.apply([], stepRest).concat([].concat.apply([], stepWords)).concat([dev, screen, mac, phone]).concat(steps, parts.badges, [darkEl, fly, planeEl, parts.next, parts.note, parts.base, parts.ledger, parts.cta, parts.use, parts.sent]).concat(G.root ? [G.root, G.row, G.r, G.s, G.rm, G.sm, G.rw, G.sw, G.x, G.glow, G.small].concat(G.rings, G.sparks, G.words) : []).filter(Boolean);
     var op = function (el, v) { if (el) el.style.opacity = (+v).toFixed(3); };
     window.addEventListener("resize", function () { spots = { row: null, foot: null, cta: null }; stageBox = null; gGeo = null; }, { passive: true });
@@ -413,9 +472,9 @@
     };
     host.extra = function (p) {
       if (fly) stageBox = fly.parentElement.getBoundingClientRect();   // read before any write this frame
-      var s0 = seg(p, host.span, 1), vw = window.innerWidth, vh = window.innerHeight;
+      var s0 = seg(p, host.span, 1), vw = window.innerWidth, vh = viewH(), push = 0;
       // the first part of the chapter is the partnership; the five beats share the rest
-      var come = renderGrand(seg(s0, 0, .22)), s = seg(s0, .22, 1);
+      var come = renderGrand(seg(s0, 0, .22)), s = warpSq(seg(s0, .22, 1));
       // the line: each beat's line rises in and the last one rises out
       steps.forEach(function (el, i) {
         var a = STEP[i][0], b = STEP[i][1], tin = i ? seg(s, a - .015, a + .04) : come, tout = seg(s, b - .045, b + .005);
@@ -442,6 +501,20 @@
       var right = vw - Math.max(24, (vw - 1220) / 2), left = vw * .42, cx = (left + right) / 2, cy = vh / 2 + 16;
       var macW = Math.min(right - left, (vh * .78) * 1.6, 1100), macH = macW / 1.6;
       var phH = Math.min(vh * .84, 780), phW = phH * 390 / 844;
+      if (mpinned()) {
+        // phones: the device sits in the top ~60% (under the nav), the line in the rest. The Mac is as wide as the screen
+        // allows; the iPhone as tall as the band allows. Both share one centre, so the plane's route is the same for both.
+        vh = viewH();
+        var mkey = vw + "x" + vh;
+        if (mkey !== mBandKey) { mBandKey = mkey; mBandBot = Math.max(vh * .45, copyEl.offsetTop - 6); }
+        var dTop = Math.min(84, vh * .12), dBot = mBandBot, band = dBot - dTop;
+        cx = vw / 2; cy = dTop + band / 2 - 2;
+        macW = Math.min(vw * .96, (band - 14) * 1.6, 680); macH = macW / 1.6;
+        phH = Math.min(band, vh * .68, 620); phW = phH * 390 / 844;
+        // beat 1 ("Squeak tells you first"): the camera pushes in on the Mac's top-right corner so the notification and the
+        // menu-bar duck read, then eases back out before the plane launches (.38)
+        push = inOutC(seg(s, .185, .235)) * (1 - inOutC(seg(s, .3, .37)));
+      }
       var W = mix(macW, phW, m), H = mix(macH, phH, m), pad = mix(8, 11, m), rad = mix(14, phW * .16, m);
       op(parts.base, 1 - seg(m, 0, .3));
       var rev = renderFly(s, { cx: cx, cy: cy, macW: macW, macH: macH, phW: phW, phH: phH });
@@ -451,7 +524,17 @@
       }
       dev.style.width = W.toFixed(1) + "px"; dev.style.height = H.toFixed(1) + "px";
       dev.style.padding = pad.toFixed(1) + "px"; dev.style.borderRadius = rad.toFixed(1) + "px";
-      dev.style.transform = "translate3d(" + (cx - W / 2).toFixed(1) + "px," + (cy - H / 2 + (1 - come) * 40).toFixed(1) + "px,0) scale(" + (.9 + .1 * come).toFixed(4) + ")";
+      var dz = 1, dcx = cx, dcy = cy + (1 - come) * 40;
+      if (push > 0) {
+        var ZM = Math.min(2.6, Math.max(2.1, vw / 150));   // full push: the Mac about 2.5x, its corner at the screen's top-right
+        var fx = vw - 5 - W * ZM / 2, fy = Math.min(84, vh * .12) + 10 + H * ZM / 2;
+        dz = 1 + (ZM - 1) * push; dcx = mix(cx, fx, push); dcy = mix(dcy, fy, push);
+        // the part of the Mac below the picture's band fades out instead of running into the words
+        var cut = (mBandBot - (dcy - H * dz / 2)) / dz;
+        var mk = "linear-gradient(to bottom,#000 " + Math.max(0, cut - 36 / dz).toFixed(1) + "px,transparent " + Math.max(1, cut).toFixed(1) + "px)";
+        dev.style.webkitMaskImage = mk; dev.style.maskImage = mk; devMasked = true;
+      } else if (devMasked) { dev.style.webkitMaskImage = ""; dev.style.maskImage = ""; devMasked = false; }
+      dev.style.transform = "translate3d(" + (dcx - W / 2).toFixed(1) + "px," + (dcy - H / 2).toFixed(1) + "px,0) scale(" + (dz * (.9 + .1 * come)).toFixed(4) + ")";
       dev.style.opacity = come.toFixed(3);
       screen.style.borderRadius = Math.max(4, rad - pad).toFixed(1) + "px";
       op(mac, m < .5 ? 1 : 0); op(phone, m < .5 ? 0 : 1); op(darkEl, dark);
@@ -490,12 +573,12 @@
   // crew flight: the hero cards assemble and land on the crew standing on the Home screenshot, then hand off to it
   var homeWin = $(".shot-band .window[data-rise]"), homeImg = homeWin && $("img", homeWin);
   if (heroEl && homeImg) {
-    // percentages of the dark Studio home capture (3024x1768): each box is the full character, measured against the painted-out version
-    var BOX = { tara: [39.649, 43.326, 4.299, 6.165], kavi: [44.048, 37.387, 4.332, 12.104], chitra: [48.479, 36.482, 4.861, 13.009], ra: [53.34, 35.973, 7.374, 13.518], laya: [60.714, 36.312, 4.034, 12.161], rasika: [64.749, 43.891, 5.556, 5.6], mala: [70.337, 40.554, 5.225, 8.937] };
+    // percentages of the Studio home capture (light, sidebar collapsed, 3024x1768): each box is the full character, measured against the painted-out version
+    var BOX = { tara: [32.077, 43.269, 4.233, 6.222], kavi: [36.442, 37.5, 4.398, 11.991], chitra: [40.906, 36.652, 5.06, 12.839], ra: [45.966, 35.86, 7.11, 13.631], laya: [53.142, 36.256, 4.332, 12.217], rasika: [57.474, 44.005, 5.225, 5.486], mala: [62.765, 40.554, 5.225, 8.937] };
     var RIM = 49.5, STAG = .06;   // the prompt box's top edge
     // while the crew fly in, the screenshot shows its prompt with the crew painted out, so no one lands on top of themselves
     var emptyImg = new Image(); emptyImg.className = "shot-empty"; emptyImg.alt = ""; emptyImg.setAttribute("aria-hidden", "true"); emptyImg.decoding = "async";
-    emptyImg.srcset = "img/studio/home-dark-1x-empty.webp 1000w, img/studio/home-dark-2x-empty.webp 2000w"; emptyImg.sizes = homeImg.getAttribute("sizes") || "100vw"; emptyImg.src = "img/studio/home-dark-1x-empty.webp";
+    emptyImg.srcset = "img/studio/home-light-1x-empty.webp 1000w, img/studio/home-light-2x-empty.webp 2000w"; emptyImg.sizes = homeImg.getAttribute("sizes") || "100vw"; emptyImg.src = "img/studio/home-light-1x-empty.webp";
     homeWin.appendChild(emptyImg);
     var setEmpty = function (on) { homeWin.classList.toggle("is-empty", on); };
     var layer = document.createElement("div");
@@ -507,7 +590,7 @@
       var d = parseFloat(c.style.getPropertyValue("--d")) || 1;
       var box = document.createElement("div"); box.className = "cf";
       var card = new Image(); card.className = "cf-card"; card.alt = ""; card.decoding = "async"; card.src = im.getAttribute("src");
-      var cut = new Image(); cut.className = "cf-cut"; cut.alt = ""; cut.decoding = "async"; cut.src = "assets/crew/land/" + m[1] + ".webp?v=3";   // v3: from the dark Studio home
+      var cut = new Image(); cut.className = "cf-cut"; cut.alt = ""; cut.decoding = "async"; cut.src = "assets/crew/land/" + m[1] + ".webp?v=4";   // v4: from the light Studio home
       card.style.opacity = (.6 + d * .4).toFixed(2);
       box.appendChild(card); box.appendChild(cut); layer.appendChild(box);
       fl.push({ c: c, fi: $(".fi", c), box: box, card: card, cut: cut, b: BOX[m[1]], base: .6 + d * .4, sw: 0, tw: 0 });
@@ -548,15 +631,25 @@
       if (on === away) return; away = on;
       fl.forEach(function (f) { f.c.style.visibility = on ? "hidden" : ""; });
     };
+    var shotBand = homeWin.closest(".shot-band");
     var flight = addScene({
-      el: homeWin, pin: true,
+      el: shotBand, pin: true, mpin: true,
       // 0..1 while the screenshot rises into its resting place; at 1 every cut-out sits exactly on its painted-out spot,
       // so the flyers give way to the screenshot's own crew in one frame
-      progress: function (r, vh) { return clamp((vh - r.top) / (vh * .75), 0, 1); },
+      // 0..1 through the band's pinned stretch: the window rises over the first 85% of it and rests for the rest
+      progress: function (r, vh) { return clamp(-r.top / Math.max(1, r.height - vh), 0, 1); },
       render: function (q) {
-        var vq = q, re = ease(vq);
+        var vq = Math.min(1, q / .85), re = ease(vq);
         // the window's rise and the flight share one progress value, so the crew and the screenshot never drift apart
-        homeWin.style.transform = "translate3d(0," + ((1 - re) * 64).toFixed(1) + "px,0) scale(" + (.93 + .07 * re).toFixed(3) + ")";
+        // phones: the window is only as wide as the screen, so it also pushes in on the prompt box (the crew land on a picture
+        // as big as they are on a desktop); the flight reads the window’s live rect, so the crew follow the zoom
+        var mob = mpinned(), zoom = 1;
+        if (mob) {
+          var W0 = homeImg.offsetWidth || 1, groupW = .36 * W0;   // the seven stand in the middle 36% of the picture
+          zoom = 1 + (clamp(window.innerWidth * .76 / groupW, 1, 3.4) - 1) * inOut(seg(vq, .22, .95));
+          homeWin.style.transformOrigin = "50% 44%";
+        }
+        homeWin.style.transform = "translate3d(0," + ((1 - re) * viewH() * .8).toFixed(1) + "px,0) scale(" + ((.93 + .07 * re) * zoom).toFixed(3) + ")";
         // Keep the original artwork until every flight asset and the screenshot are ready.
         if (!layer.hasAttribute("data-images-ready") || !homeImg.hasAttribute("data-image-ready") || !emptyImg.complete || !emptyImg.naturalWidth) {
           setShown(false); setEmpty(false); setAway(false); setRest(false); return;
@@ -594,7 +687,7 @@
           f.card.style.clipPath = over > .01 ? "inset(0 0 " + (over / ks).toFixed(2) + "px 0)" : "none";
         });
       },
-      reset: function () { setShown(false); setEmpty(false); setAway(false); setRest(false); homeWin.style.transform = ""; }
+      reset: function () { setShown(false); setEmpty(false); setAway(false); setRest(false); homeWin.style.transform = ""; homeWin.style.transformOrigin = ""; }
     });
 
   }
@@ -623,9 +716,13 @@
   }
   function stopGlide() { if (spring) { cancelAnimationFrame(spring); spring = 0; } }
   ["wheel", "touchstart", "keydown", "mousedown"].forEach(function (t) { window.addEventListener(t, stopGlide, { passive: true }); });
+  // phones: a resting point is only chosen once the finger is up (touchend starts the same quiet timer a scroll does)
+  var touching = false;
+  window.addEventListener("touchstart", function () { touching = true; }, { passive: true });
+  ["touchend", "touchcancel"].forEach(function (t) { window.addEventListener(t, function () { touching = false; clearTimeout(restTimer); restTimer = setTimeout(settle, 160); }, { passive: true }); });
   function settle() {
-    if (!pinned() || calm() || spring || noRest || !crewOn) return;
-    var r = crewScene.getBoundingClientRect(), span = Math.max(1, r.height - window.innerHeight), top = window.scrollY + r.top, y = window.scrollY;
+    if (!(pinned() || mpinned()) || calm() || spring || noRest || !crewOn || touching) return;
+    var r = crewScene.getBoundingClientRect(), span = Math.max(1, r.height - viewH()), top = window.scrollY + r.top, y = window.scrollY;
     var rests = crewRests().map(function (p) { return top + p * span; });
     if (y < rests[0] - 2 || y > rests[rests.length - 1] + 2) return;
     // where the reader's own momentum would carry the page (a flick decays over about a third of a second), and the introduction
@@ -652,17 +749,22 @@
      reading (Rasan beside his introduction, the Squeak chapter's first line, the projects revealed), not the top of the track.
      Stacked, the plain anchors do the job. */
   function jumpTarget(name) {
-    if (!pinned() || calm()) return null;
-    var at = function (el, p) { var r = el.getBoundingClientRect(); return window.scrollY + r.top + p * Math.max(0, r.height - window.innerHeight); };
+    if (!(pinned() || mpinned()) || calm()) return null;
+    var at = function (el, p) { var r = el.getBoundingClientRect(); return window.scrollY + r.top + p * Math.max(0, r.height - viewH()); };
     if (name === "crew" && crewOn) return at(crewScene, CREW_OPEN + .03 * (1 - CREW_OPEN));
     var host = hosts.filter(function (h) { return h.beat && h.host.id === (name === "squeak" ? "control" : name); })[0];
     if (!host) return null;
+    // phones, projects: the line has just finished and the chapter’s first screen is up
+    if (host.mtrack && mpinned()) return window.scrollY + host.host.getBoundingClientRect().top + host.mtrack * viewH();
     // Squeak: past the partnership, its first line fully in; projects: revealed
     return at(host.host, name === "squeak" ? host.span + (1 - host.span) * (.22 + .78 * .1) : .86);
   }
   $$("[data-jump]").forEach(function (a) {
     a.addEventListener("click", function (e) {
       var y = jumpTarget(a.getAttribute("data-jump"));
+      // phones: scenes that are still plain stacks (until their agent pins them) are reached by the same veil jump, so a
+      // native smooth scroll never plays the hero and the beats on the way down
+      if (y === null && mpinned() && !calm()) { var dest = document.getElementById((a.getAttribute("href") || "").slice(1)); if (dest) y = window.scrollY + dest.getBoundingClientRect().top; }
       if (y === null) return;   // the anchor does it
       e.preventDefault();
       history.replaceState(null, "", a.getAttribute("href"));
@@ -678,7 +780,7 @@
   });
 
   /* ---------- the loop: rAF only while something is moving ---------- */
-  var raf = 0, vh = window.innerHeight, lastT = 0;
+  var raf = 0, vh = viewH(), lastT = 0;
   function tick(now) {
     raf = 0;
     // frame time, so a glide feels the same at 60 and 120 Hz; a long gap (a background tab) counts as one frame
@@ -687,7 +789,7 @@
     var rects = scenes.map(function (s) { return s.el.getBoundingClientRect(); });
     var more = false;
     scenes.forEach(function (s, i) {
-      if (s.pin && !pinned()) return;   // pinned scenes only run in the sticky desktop layout
+      if (s.pin && !pinned() && !(s.mpin && mpinned())) return;   // pinned scenes run in the sticky layouts: desktop, or phones for scenes that opt in
       var r = rects[i], near = r.bottom > -vh * .5 && r.top < vh * 1.5;
       var target = s.progress(r, vh);
       // direct scenes follow the scroll position exactly, so reversing scroll retraces the same frames
@@ -719,17 +821,26 @@
   }
   function request() { if (!raf) raf = requestAnimationFrame(tick); }
   window.addEventListener("scroll", request, { passive: true });
-  window.addEventListener("resize", function () { vh = window.innerHeight; clearCrew(); hostsOff(); enableCrew(); hostsOn(); request(); }, { passive: true });
+  // iOS fires resize every time the address bar slides away: on phones only a change of width (rotation, split view) rebuilds the
+  // scenes; a height-only resize just refreshes the view height. Desktop keeps rebuilding on every resize, exactly as before.
+  var lastW = window.innerWidth;
+  window.addEventListener("resize", function () {
+    vh = viewH();
+    if (mpinned() && window.innerWidth === lastW) { request(); return; }
+    lastW = window.innerWidth;
+    clearCrew(); hostsOff(); enableCrew(); hostsOn(); request();
+  }, { passive: true });
 
   /* ---------- calm mode and the layout switch: rest in the finished state, or let the scroll drive it ---------- */
   function apply() {
-    var calmNow = calm(), pin = pinned();
+    var calmNow = calm(), pin = pinned(), mp = mpinned();
+    vh = viewH(); lastW = window.innerWidth;
     pinnedMode.motion = !calmNow;
-    scenes.forEach(function (s) { s.cur = undefined; s.last = undefined; if (s.reset && (!s.pin || !pin)) s.reset(); });
+    scenes.forEach(function (s) { s.cur = undefined; s.last = undefined; if (s.reset && (!s.pin || !(pin || (s.mpin && mp)))) s.reset(); });
     clearCrew();
-    if (calmNow || !pin) hostsOff();
+    hostsOff();
     if (calmNow) return;
-    if (pin) { enableCrew(); hostsOn(); }
+    if (pin || mp) { enableCrew(); hostsOn(); }
     request();
   }
   reduceQ.addEventListener("change", function () { setTimeout(apply, 0); });
@@ -756,11 +867,16 @@
     [-.54, -.58, -.76, -.5, 1], [.08, -.62, .12, -.74, 2.3], [.52, -.56, .72, -.56, 1.4], [.6, .52, .8, .48, 1.05],
     [-.22, .6, -.3, .72, 1.8], [.24, .66, .32, .8, 2.7], [-.6, .5, -.82, .5, 1.25]
   ];
+  // portrait: the same cast, spread up and down around the statement (x stays within about 42% of the width)
+  var CREW_DEPTH_M = [
+    [-.46, -.76, -.62, -.92, 1], [.1, -.86, .16, -1.02, 2.3], [.4, -.6, .66, -.72, 1.4], [.42, .72, .66, .84, 1.05],
+    [-.18, .86, -.26, 1, 1.8], [.14, .76, .22, .92, 2.7], [-.44, .62, -.7, .78, 1.25]
+  ];
   var CREW_NEAR = 1.35;                            // a character's size at depth 1
   var mix = function (a, b, t) { return a + (b - a) * t; };
   var inOutC = function (t) { return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
   var crewOn = false, crewGeo = null, crewRun = null, crewBeat = null;
-  var CREW_OPEN = .15;   // the first part of the track is the opening line ("Behind that box, a whole crew."), which scatters off Rasan
+  var CREW_OPEN = .26;   // the first part of the track is the opening line ("Behind that box, a whole crew."), which scatters off Rasan
 
   // the markup contract: anything missing or out of order turns the scene off, and the page stays a plain stack
   function crewSpec() {
@@ -774,7 +890,7 @@
     var ordered = nodes.length === CREW.length && nodes.every(function (el, i) { return el.getAttribute("data-crew") === CREW[i]; });
     if (!ordered || !s.stage || !s.orbit || !s.lead || !s.payoff || s.imgs.some(function (im) { return !im; })) return null;
     // every element the scene may touch, with its own inline style as the page wrote it, so clearing restores it exactly
-    s.all = nodes.concat(s.imgs, s.cards.filter(Boolean), [s.orbit, s.lead, s.payoff], s.words);
+    s.all = nodes.concat(s.imgs, s.cards.filter(Boolean), [crewScene, s.orbit, s.lead, s.payoff], s.words);
     s.style = s.all.map(function (el) { return el.getAttribute("style"); });
     return s;
   }
@@ -794,22 +910,36 @@
 
   // wide desktop with motion allowed (the page sets .pin for exactly that): measure once, then the scene drives itself
   function enableCrew() {
-    if (!crew || crewOn || !wideQ.matches || !pinned() || calm()) return;
+    if (!crew || crewOn || calm() || !((wideQ.matches && pinned()) || mpinned())) return;
+    var mob = mpinned();
     crewScene.classList.add("crew-ready");
     var W = crew.stage.offsetWidth / 2, H = crew.stage.offsetHeight / 2;
     if (!W || !H) { clearCrew(); return; }   // no size yet: stay a plain stack
     // the orbit's own diameter sets the circle, so the drawn line and the seven positions agree
     var R = crew.orbit.offsetWidth / 2 || Math.min(W, H) * .6, far = Math.hypot(W, H) + crew.nodes[0].offsetWidth * 1.5;
-    crewGeo = { W: W, H: H, R: R, from: [] };
+    crewGeo = { W: W, H: H, R: R, from: [], mob: mob, a0: 0, ax: -.46 * W, ay: 0, cy: 0, big: CREW_BIG, land: 1.6, spot: CREW_SPOT, near: CREW_NEAR, depth: CREW_DEPTH };
+    if (mob) {
+      // portrait: Rasan big in the top, his introduction below him; the circle in the top ~55% with the spotlight at its bottom
+      // point and the card a bottom sheet; the break spreads the crew mostly up and down around the statement
+      var nw = crew.nodes[0].offsetWidth, vW = W * 2, vH = H * 2;
+      var rh = Math.min(.32 * vH, .8 * vW), top0 = 88, yb = top0 + rh;   // top0: clear of the nav pill
+      crewGeo.big = rh / (1.05 * nw); crewGeo.land = Math.min(2, vW * .46 / nw); crewGeo.spot = 1.5; crewGeo.near = 1.5;
+      crewGeo.a0 = Math.PI / 2; crewGeo.ax = 0;
+      crewGeo.ay = yb - H - .21 * nw - .315 * nw * crewGeo.big;
+      crewGeo.cy = top0 - 4 + R + nw * .6 - H;
+      crewGeo.depth = CREW_DEPTH_M;
+      crewScene.style.setProperty("--lt", (yb + 12).toFixed(0) + "px");               // where his introduction starts, under him
+      crewScene.style.setProperty("--sd", (H - crewGeo.cy - R).toFixed(1) + "px");    // from the spotlight point down to the screen's bottom edge
+    }
     for (var i = 0; i < 6; i++) {
       var b = CREW_FROM[i] * Math.PI / 180;
       crewGeo.from.push([far * Math.cos(b), far * Math.sin(b)]);
       // every card opens into the empty space on the right of the circle
-      crew.nodes[i + 1].setAttribute("data-side", "r");
+      crew.nodes[i + 1].setAttribute("data-side", mob ? "b" : "r");
     }
     // the crew scene starts a screen early, behind the rising window, so its line is already in place when the window uncovers it;
     // the words fill as they are uncovered
-    if (crew.beat) crewBeat = makeBeat(crew.beat, { fill: [.22, .5], out: .64 });
+    if (crew.beat) crewBeat = makeBeat(crew.beat, { fill: [.12, .3], out: .42 });
     // the specialists start off-screen, where lazy images would not load until they fly in; fetch and decode them all now
     crew.imgs.forEach(function (im) { var pre = new Image(); pre.src = im.currentSrc || im.src; if (pre.decode) pre.decode().catch(function () {}); });
     crewOn = true;
@@ -833,21 +963,21 @@
     crew.lead.style.transform = "translate3d(0," + (-36 * ease(lo)).toFixed(1) + "px,0)";
     crew.lead.style.visibility = lo >= 1 ? "hidden" : "";
     // the circle: moves left once everyone is in, then turns one place per introduction (the right-hand point is the spotlight)
-    var ox = -.4 * g.W * inOutC(seg(p, .35, .41)), turn = 0;
+    var ox = g.mob ? 0 : -.4 * g.W * inOutC(seg(p, .35, .41)), oy = g.cy, turn = 0;
     for (var k = 1; k < 6; k++) turn += inOutC(seg(p, CREW_TURN + k * CREW_STEP, CREW_TURN + k * CREW_STEP + CREW_SWING));
     var th = -turn * Math.PI / 3;
     crew.orbit.style.opacity = (seg(p, .2, .3) * .9 * (1 - seg(p, .8, .84))).toFixed(3);
-    crew.orbit.style.transform = "translate3d(" + ox.toFixed(2) + "px,0,0) rotate(" + (th * 180 / Math.PI).toFixed(2) + "deg)";
+    crew.orbit.style.transform = "translate3d(" + ox.toFixed(2) + "px," + oy.toFixed(2) + "px,0) rotate(" + (th * 180 / Math.PI).toFixed(2) + "deg)";
     // the break: from .80 each character leaves the circle for its place in depth around the statement, one shortly after another
     // the camera: a slow spread out to the edges while the words fill, then a fast flight through the crew to the end of the track
     // they hold close around the statement while it is written, and only then drift out, gathering speed into the flight
     var spread = Math.pow(seg(p, .91, .975), 2), cam = 2.4 * Math.pow(seg(p, .955, 1), 1.6);
     var place = function (node, img, k, x, y, s, r, o) {
-      var d = CREW_DEPTH[k], b = inOutC(seg(p, .8 + k * .006, .88 + k * .006));
+      var d = g.depth[k], b = inOutC(seg(p, .8 + k * .006, .88 + k * .006));
       if (b > 0) {
         var z = Math.max(.2, d[4] - cam), f = d[4] / z;
         x = mix(x, mix(d[0], d[2], spread) * g.W * f, b); y = mix(y, mix(d[1], d[3], spread) * g.H * f, b);
-        s = mix(s, CREW_NEAR * mix(.8, 1, spread) / z, b); r = mix(r, 0, b);
+        s = mix(s, g.near * mix(.8, 1, spread) / z, b); r = mix(r, 0, b);
         // far characters fade into the paper; anyone the camera passes fades as it goes by
         o *= mix(1, 1 - clamp((d[4] - 1.1) / 2.2, 0, .6), b) * seg(z, .2, .55);
       }
@@ -857,21 +987,21 @@
     };
     // Rasan: big beside his introduction, then to the centre of the circle (and with it), dimmed while the others are introduced
     var m = inOutC(seg(p, .1, .22));
-    place(ra, crew.imgs[0], 0, mix(-.46 * g.W, ox, m), 0, mix(CREW_BIG, 1.2, m), 0, 1 - .3 * seg(p, .19, .24) + .3 * seg(p, .78, .81));
+    place(ra, crew.imgs[0], 0, mix(g.ax, ox, m), mix(g.ay, oy, m), mix(g.big, 1.2, m), 0, 1 - .3 * seg(p, .19, .24) + .3 * seg(p, .78, .81));
     var tagsOut = 1 - seg(p, .8, .83);
     ra.style.setProperty("--l", (seg(p, .3, .34) * tagsOut).toFixed(3));
     for (var i = 0; i < 6; i++) {
       var kk = i + 1, node = crew.nodes[kk], card = crew.cards[kk], s0 = CREW_ARRIVE + i * CREW_GAP, fr = g.from[i];
       // place on the circle: specialist i starts at i * 60 degrees from the right-hand point, and the whole circle turns
-      var ang = i * Math.PI / 3 + th, cx = ox + g.R * Math.cos(ang), cy = g.R * Math.sin(ang);
+      var ang = i * Math.PI / 3 + th + g.a0, cx = ox + g.R * Math.cos(ang), cy = oy + g.R * Math.sin(ang);
       var e = ease(seg(p, s0, s0 + CREW_FLY)), spot = crewSpot(p, i), se = inOutC(spot);
-      place(node, crew.imgs[kk], kk, mix(fr[0], cx, e), mix(fr[1], cy, e), mix(.8, 1, e) * mix(1, CREW_SPOT, se), CREW_TILT[i] * (1 - e), p < s0 ? 0 : 1);
+      place(node, crew.imgs[kk], kk, mix(fr[0], cx, e), mix(fr[1], cy, e), mix(.8, 1, e) * mix(1, g.spot, se), CREW_TILT[i] * (1 - e), p < s0 ? 0 : 1);
       node.style.zIndex = spot > 0 ? "3" : "";
       // the name tag shows once landed, and gives way to the card while introduced
       node.style.setProperty("--l", (seg(p, s0 + CREW_FLY * .8, s0 + CREW_FLY) * (1 - spot) * tagsOut).toFixed(3));
       if (card) {
         card.style.opacity = spot.toFixed(3);
-        card.style.transform = "translate3d(" + ((1 - ease(spot)) * -16).toFixed(1) + "px,-50%,0)";
+        card.style.transform = g.mob ? "translate3d(0," + ((1 - ease(spot)) * 34).toFixed(1) + "px,0)" : "translate3d(" + ((1 - ease(spot)) * -16).toFixed(1) + "px,-50%,0)";
       }
     }
     // the statement: in with the break, then each word fills from faint to full, left to right, as the crew spread out
@@ -890,21 +1020,22 @@
   // arrives on the right. At the end of it everything is exactly where the scene proper begins.
   function crewOpening(o) {
     var g = crewGeo, ra = crew.nodes[0], img = crew.imgs[0];
-    var fall = seg(o, .5, .64), land = seg(o, .64, .78), step = inOutC(seg(o, .74, 1));
+    // Rasan lands as the shatter starts, stands in the hovering letters, and steps aside once they have gone
+    var fall = seg(o, .32, .42), land = seg(o, .42, .52), step = inOutC(seg(o, .82, 1));
     var y = fall < 1 ? -(g.H + 260) * (1 - fall * fall) : 0;             // gravity: slow to start, fastest at the moment of impact
     // squash on impact, then a small rebound; stretched a little while falling
     var sq = land > 0 ? Math.sin(Math.PI * land) * Math.exp(-2.2 * land) : 0;
     var sx = fall < 1 ? 1 - .06 * fall : 1 + .22 * sq, sy = fall < 1 ? 1 + .08 * fall : 1 - .24 * sq;
-    var s = mix(1.6, CREW_BIG, step);
-    ra.style.transform = "translate3d(" + mix(0, -.46 * g.W, step).toFixed(2) + "px," + (y * (1 - step)).toFixed(2) + "px,0)";
-    ra.style.opacity = o < .5 ? "0" : "1";
+    var s = mix(g.land, g.big, step);
+    ra.style.transform = "translate3d(" + mix(0, g.ax, step).toFixed(2) + "px," + (y * (1 - step) + g.ay * step).toFixed(2) + "px,0)";
+    ra.style.opacity = o < .32 ? "0" : "1";
     ra.style.zIndex = "9";
     img.style.transform = "scale(" + (s * sx).toFixed(4) + "," + (s * sy).toFixed(4) + ")";
     // his introduction comes in from the right as he steps aside
-    var li = seg(o, .82, 1);
+    var li = seg(o, .88, 1);
     crew.lead.style.opacity = li.toFixed(3);
     crew.lead.style.visibility = li > 0 ? "" : "hidden";
-    crew.lead.style.transform = "translate3d(" + ((1 - ease(li)) * 40).toFixed(1) + "px,0,0)";
+    crew.lead.style.transform = g.mob ? "translate3d(0," + ((1 - ease(li)) * 48).toFixed(1) + "px,0)" : "translate3d(" + ((1 - ease(li)) * 40).toFixed(1) + "px,0,0)";
   }
 
   // the orbit's resting points, as track progress (0..1): each specialist fully introduced
@@ -918,7 +1049,7 @@
   }
 
   crewRun = crew && addScene({
-    el: crewScene, pin: true, glide: 140,
+    el: crewScene, pin: true, mpin: true, glide: 140,
     progress: function (r, view) { return clamp(-r.top / Math.max(1, r.height - view), 0, 1); },
     render: renderCrew,
     reset: clearCrew
