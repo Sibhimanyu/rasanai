@@ -2,13 +2,14 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.21.0 (build 50) — 2026-10-25
 
 - **Ask Rasan how long it will take.** In the chat, "how long will it take?" and "what is happening?" are answered on the spot from the film's real progress, without interrupting the work.
 - **Notes become real change requests.** A message like "don't use this font" is read as a revision request the engine acts on and answers (an unclear one asks you to confirm first), and the answer shows in the chat.
 - **Edit elements on the final film.** Click an element in the final picture to move or resize it; the engine applies the edit and says if it could not. Early foundation, not tested end to end.
 - **Delivery details are collapsed** in the export sheet until you open them.
 - **Behind the scenes:** the groundwork for undo and revisions, and for safer recovery when a step fails, is in. Not yet tested end to end.
+- **Bundles RasanAI 1.27.0.**
 
 ## 0.20.1 (build 49) — 2026-10-25
 
