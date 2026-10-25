@@ -1,0 +1,404 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "note": "Evaluation corpus manifest. All inputs are synthetic and invented; expected outputs state meaning and constraints, never an exact script. Held-out fixtures are never given to generators as examples; heldout_marker strings let eval.mjs corpus check scan the agent briefs, references and library for leakage.",
+  "generator_examples": [
+    "c01-general-launch",
+    "c02-single-feature"
+  ],
+  "taught_writer": [
+    "c01-general-launch",
+    "c02-single-feature"
+  ],
+  "fixtures": [
+    {
+      "id": "c01-general-launch",
+      "family": "general_launch",
+      "label": "Lumen Notes (invented note-taking app): general introduction",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Lumen Notes",
+      "expected": {
+        "meaning": "A stranger can say what Lumen Notes is and who it is for, from more than one real use.",
+        "constraints": [
+          "representative breadth, not a feature parade",
+          "no invented release or capability",
+          "claims only from the synthetic evidence file"
+        ]
+      },
+      "used_to_teach_writer": true
+    },
+    {
+      "id": "c02-single-feature",
+      "family": "single_feature",
+      "label": "Lumen Notes: one feature, Quick Capture",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Lumen Notes",
+      "expected": {
+        "meaning": "The viewer knows what Quick Capture does and how to start it.",
+        "constraints": [
+          "every beat serves Quick Capture",
+          "no unrelated capability tour",
+          "one task shown end to end"
+        ]
+      },
+      "used_to_teach_writer": true
+    },
+    {
+      "id": "c03-tutorial",
+      "family": "tutorial",
+      "label": "Lumen Notes: tutorial, share a notebook",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Lumen Notes",
+      "expected": {
+        "meaning": "The viewer can share a notebook after watching.",
+        "constraints": [
+          "steps in true order",
+          "interface states match the synthetic UI spec",
+          "any reconstruction labelled"
+        ]
+      }
+    },
+    {
+      "id": "c04-technical-explainer",
+      "family": "technical_explainer",
+      "label": "Lumen Notes: how sync resolves a conflict",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Lumen Notes",
+      "expected": {
+        "meaning": "The viewer can explain the mechanism in their own words.",
+        "constraints": [
+          "mental model builds in order",
+          "terms defined before use",
+          "a calm pace is acceptable"
+        ]
+      }
+    },
+    {
+      "id": "c05-identity-brand",
+      "family": "identity_brand",
+      "label": "Lumen Notes: identity film",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Lumen Notes",
+      "expected": {
+        "meaning": "The brand's belief about unhurried thinking is felt and the mark is recognised.",
+        "constraints": [
+          "visual system carries the belief",
+          "no forced product demo",
+          "abstraction allowed"
+        ]
+      }
+    },
+    {
+      "id": "c06-brand-sting",
+      "family": "brand_sting",
+      "label": "Lumen Notes: 4 second sting with existing brand",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Lumen Notes",
+      "expected": {
+        "meaning": "The mark and name register in a few seconds.",
+        "constraints": [
+          "uses the existing brand kit unchanged",
+          "lightweight crew path"
+        ]
+      }
+    },
+    {
+      "id": "c07-character-short",
+      "family": "character_short",
+      "label": "Pip, an invented courier mascot: short",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Pip the Courier",
+      "expected": {
+        "meaning": "The viewer feels a small arc of a character who loses and finds a letter.",
+        "constraints": [
+          "identity stable across shots",
+          "performance carries meaning",
+          "no real-world claims"
+        ]
+      }
+    },
+    {
+      "id": "c08-music-lyric",
+      "family": "music_lyric",
+      "label": "Synthetic 20 second jingle with invented lyrics",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Synthetic jingle",
+      "expected": {
+        "meaning": "The pictures give the song its meaning phrase by phrase.",
+        "constraints": [
+          "timing follows the track",
+          "no product-launch grammar"
+        ]
+      }
+    },
+    {
+      "id": "c09-footage-presenter",
+      "family": "footage_reel_presenter",
+      "label": "Synthetic presenter clip with transcript",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Synthetic talk",
+      "expected": {
+        "meaning": "The speaker's meaning survives the cut and the captions.",
+        "constraints": [
+          "respect the actual material",
+          "captions match the transcript"
+        ]
+      }
+    },
+    {
+      "id": "c10-hybrid-phone-ad",
+      "family": "hybrid_phone_ad",
+      "label": "Lumen Notes: phone advertisement over synthetic handheld footage",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Lumen Notes",
+      "expected": {
+        "meaning": "A screen replacement and an overlay both read as intended.",
+        "constraints": [
+          "quad tracking and masking are distinct capabilities",
+          "editable overlay kept apart from baked footage"
+        ]
+      }
+    },
+    {
+      "id": "c11-revision-copy",
+      "family": "revision_local_copy",
+      "label": "Lumen Notes: revision, change one line of copy",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Lumen Notes",
+      "expected": {
+        "meaning": "Only the dependent timing and captions change.",
+        "constraints": [
+          "unrelated valid assets are reused",
+          "previous final stays available"
+        ]
+      }
+    },
+    {
+      "id": "c12-revision-reorder",
+      "family": "revision_structural_reorder",
+      "label": "Lumen Notes: revision, swap beats 2 and 3",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Lumen Notes",
+      "expected": {
+        "meaning": "Claims and timings follow the new order.",
+        "constraints": [
+          "dependent approvals invalidated, others kept"
+        ]
+      }
+    },
+    {
+      "id": "c13-revision-look",
+      "family": "revision_look_swap",
+      "label": "Lumen Notes: revision, choose another look",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Lumen Notes",
+      "expected": {
+        "meaning": "Story meaning is unchanged under the new look.",
+        "constraints": [
+          "story artifacts untouched",
+          "visual work re-derived"
+        ]
+      }
+    },
+    {
+      "id": "c14-revision-audio",
+      "family": "revision_audio_edit",
+      "label": "Lumen Notes: revision, replace one voice line",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Lumen Notes",
+      "expected": {
+        "meaning": "Neighbouring speech and pauses keep their continuity.",
+        "constraints": [
+          "only affected voice segments regenerate"
+        ]
+      }
+    },
+    {
+      "id": "c15-legacy-project",
+      "family": "legacy_old_project",
+      "label": "Project saved by an older version",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Lumen Notes",
+      "expected": {
+        "meaning": "It opens, resumes and finishes through the preserved paths.",
+        "constraints": [
+          "no decision lost",
+          "unsupported schema fails loudly"
+        ]
+      }
+    },
+    {
+      "id": "c16-missing-assets",
+      "family": "adverse_missing_assets",
+      "label": "Project whose linked logo is missing",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Lumen Notes",
+      "expected": {
+        "meaning": "A clear, actionable error; no silent placeholder.",
+        "constraints": [
+          "nothing regenerated automatically"
+        ]
+      }
+    },
+    {
+      "id": "c17-provider-unavailable",
+      "family": "adverse_provider_unavailable",
+      "label": "Optional provider is down",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Lumen Notes",
+      "expected": {
+        "meaning": "Ordinary code-rendered path still works.",
+        "constraints": [
+          "the missing capability explains itself"
+        ]
+      }
+    },
+    {
+      "id": "c18-restart",
+      "family": "adverse_restart",
+      "label": "App restarted mid-build",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Lumen Notes",
+      "expected": {
+        "meaning": "Resume from saved approvals and artifacts, not from Brief.",
+        "constraints": [
+          "smallest unfinished job resumes"
+        ]
+      }
+    },
+    {
+      "id": "c19-stale-actions",
+      "family": "adverse_stale_actions",
+      "label": "Action sent against an old build digest",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "example",
+      "product": "Lumen Notes",
+      "expected": {
+        "meaning": "The stale action is rejected, never applied to a different object.",
+        "constraints": [
+          "conflict is visible to the person"
+        ]
+      }
+    },
+    {
+      "id": "h01-heldout-product",
+      "family": "general_launch",
+      "label": "Tidewell (invented pump maintenance service): general introduction",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "heldout",
+      "product": "Tidewell",
+      "expected": {
+        "meaning": "The viewer understands what Tidewell does and for whom.",
+        "constraints": [
+          "facts only from its own synthetic evidence",
+          "representative breadth"
+        ]
+      },
+      "traits": [
+        "held_out_product"
+      ],
+      "heldout_marker": "HELDOUT-MARKER-tw7q"
+    },
+    {
+      "id": "h02-heldout-unusual-brand",
+      "family": "identity_brand",
+      "label": "Kestrel & Co (invented): brand with unusual constraints",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "heldout",
+      "product": "Kestrel & Co",
+      "expected": {
+        "meaning": "The brand's restraint reads as intentional.",
+        "constraints": [
+          "brand forbids motion blur and eases",
+          "hard cuts only",
+          "one typeface, two sizes"
+        ]
+      },
+      "traits": [
+        "unusual_brand"
+      ],
+      "heldout_marker": "HELDOUT-MARKER-ks3m"
+    },
+    {
+      "id": "h03-heldout-calm",
+      "family": "brand_sting",
+      "label": "Orchard Hour (invented): valid restrained film",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "heldout",
+      "product": "Orchard Hour",
+      "expected": {
+        "meaning": "A calm, nearly still film communicates fully; low motion is correct here.",
+        "constraints": [
+          "few events per second is intended",
+          "do not add motion to look expensive"
+        ]
+      },
+      "traits": [
+        "valid_restrained"
+      ],
+      "heldout_marker": "HELDOUT-MARKER-oh9z"
+    },
+    {
+      "id": "h04-heldout-hard-revision",
+      "family": "revision_structural_reorder",
+      "label": "Tidewell: revision history of five dependent edits",
+      "source": "synthetic",
+      "permission_note": "Synthetic, written for RasanAI evaluation; no real brand, person or third-party material; free to keep in the repository.",
+      "split": "heldout",
+      "product": "Tidewell",
+      "expected": {
+        "meaning": "Each edit leaves earlier accepted work intact and claims stay sourced.",
+        "constraints": [
+          "reorder after a copy change after a look swap",
+          "undo of an earlier edit conflicts rather than overwriting"
+        ]
+      },
+      "traits": [
+        "hard_revision_history"
+      ],
+      "heldout_marker": "HELDOUT-MARKER-tr5k"
+    }
+  ]
+}

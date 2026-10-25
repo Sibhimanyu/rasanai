@@ -8,7 +8,10 @@ The brief (its literal sentence and fields), `story/chosen.json` (the beats: on_
 
 ## The questions
 
-Answer each from the beats and the look, citing the beat or line in `evidence`:
+Answer each from the beats and the look, citing the beat or line in `evidence`. **Which questions apply depends on the story's format (Plan 03):** for a legacy story (`story/intent.json` without `story_format: "v2"`) ask 1 and 2; for a format-aware story (`story_format: "v2"`) ask `proof_matches_promise` and `copy_is_audience_facing` instead (below) because a turn and an opening/closing echo are optional tools there. Questions 3 and 4 (the product on screen by 3 s, the hero moment) apply to product-demonstrating kinds (whole-product introduction, single-feature announcement, workflow demo, performance ad) and to any film with no stated kind; they do not apply to a manifesto, identity reveal, teaser, event opener, character short, music or footage film, where the position and the proof requirement come from the story's grammar.
+
+- **proof_matches_promise** (v2): from `story/chosen.json` and `intent.json`, does each beat that claims something carry evidence or a visual event that actually shows it (not only a claim id beside a vague title)? A broad promise needs representative breadth; a focused one needs the one thing shown. Fix: the exact beat and the proof it should show.
+- **copy_is_audience_facing** (v2): read every `on_screen` and `vo` line as a viewer: no internal label, beat name, slot, strategy word or placeholder. Fix: the exact line rewritten for the viewer.
 
 1. **turn_reverses**: name what the turn reverses, in one line, from the beats (not from the pitch's own claim about it). Something visibly flips: a belief, a situation, an object. A label on the third use, a new topic or a beat that only adds another example fails. Fix: the exact turn beat (its line and what flips on screen).
 2. **payoff_answers_setup**: does the ending answer the question the opening asked? The opening's object or words return, changed (`intent.ending_first.echo`). A payoff for a different setup, or one buried behind unrelated beats, fails. Fix: the exact payoff beat, or the setup rewritten to the payoff's question.

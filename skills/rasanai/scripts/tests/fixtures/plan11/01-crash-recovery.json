@@ -1,0 +1,48 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan11/R01",
+  "case": "crash recovery and resume of the smallest unfinished job",
+  "targets": [
+    "lib/recovery.mjs reconcileRun / resumePlan / completionEvidence",
+    "lib/jobs.mjs markInterrupted / recoverPublication / claim",
+    "lib/editor-patch/txn.mjs recoverJournal"
+  ],
+  "setup": {
+    "disposable_run": true,
+    "steps": [
+      "createJob A (node=story) and claim it as worker-1 (pid P1); kill -9 P1 with no heartbeat after the checkpoint 'drafted'",
+      "createJob B (node=render:scene-2) and let it commit to completion with a real staged file",
+      "createJob C with TWO staged outputs: kill the process after the first rename in commit() (fault hook set by the Plan 14 harness only)",
+      "write an approval record for the story stage, then delete the director's conversational context (no director-events exit line)"
+    ]
+  },
+  "expect": {
+    "A": {
+      "recovery_state": "interrupted",
+      "after_claim": "generation bumped; worker-1 commit and heartbeat both return stale_generation",
+      "checkpoint_preserved": "drafted"
+    },
+    "B": {
+      "recovery_state": "completed",
+      "completion_basis": "output_manifest",
+      "verified": "files exist with recorded size and digest"
+    },
+    "C": {
+      "recovery_state": "interrupted",
+      "claim": "refused with publication_unreconciled",
+      "recoverPublication": "partial or finish_forward by what landed; never marked completed while an output is missing; a replaced prior file is restored from its hard link when rolling back"
+    },
+    "resume": {
+      "reset_to_brief": false,
+      "next": "the oldest interrupted job only",
+      "approvals_kept": true
+    },
+    "never": [
+      "a job reported completed because a process exited 0",
+      "film state reset to Brief",
+      "a stale worker writing after the claim"
+    ]
+  }
+}

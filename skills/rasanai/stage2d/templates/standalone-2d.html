@@ -1,0 +1,33 @@
+<!doctype html>
+<!--
+  {{FRAME_ID}}: Rasan2D standalone preview. Offline, for stills, model sheets, tests and the 15-second test film only;
+  a film's scenes are HyperFrames compositions (scene-2d.html) and HyperFrames stays the final renderer.
+  Everything below is a pure function of t: window.__r2seek(t) paints the frame at t.
+  Reference: references/2d-character.md.
+-->
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>{{FRAME_ID}} (Rasan2D standalone)</title>
+  <style>
+    html, body { margin: 0; background: {{CANVAS}}; }
+    #stage { display: block; width: {{W}}px; height: {{H}}px; }
+  </style>
+</head>
+<body>
+  <canvas id="stage" width="{{W}}" height="{{H}}"></canvas>
+  <script src="assets/rasan2d/brush.js"></script>
+  <script src="assets/rasan2d/character.js"></script>
+  <script src="assets/rasan2d/gestures.js"></script>
+  <script src="assets/rasan2d/rasan2d.js"></script>
+  <script>
+    const SEQUENCE = {{SEQUENCE}};
+    const R = Rasan2D.mount("#stage", { width: {{W}}, height: {{H}}, seed: {{SEED}}, look: SEQUENCE.look || {} });
+    R.load(SEQUENCE);
+    window.__r2 = R;
+    window.__r2seek = function (t) { R.renderAt(t); return true; };
+    window.__r2ready = function () { R.timeline(); return { problems: R.debug.problems() }; };
+    R.renderAt(Number(new URLSearchParams(location.search).get("t") || 0));
+  </script>
+</body>
+</html>

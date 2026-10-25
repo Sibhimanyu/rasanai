@@ -1,0 +1,126 @@
+{
+  "case": "V11",
+  "title": "Readiness needs evidence; pins hold an approved film steady; an update is a migration with an impact",
+  "calls": [
+    "evaluateReadiness",
+    "buildPins",
+    "pinDrift",
+    "migrationImpact",
+    "recordMigration",
+    "install(motionkit)"
+  ],
+  "pins": {
+    "schema_version": 1,
+    "fonts": [
+      {
+        "family": "Inter",
+        "file": "assets/fonts/Inter-Regular.woff2",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    ],
+    "runtimes": {
+      "rasan-motion": {
+        "version": "1.0.0",
+        "source_sha256": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm"
+      }
+    },
+    "neural_media": [
+      {
+        "id": "gen-abc",
+        "output_path": "hybrid/generated/gen-abc/plate.mp4",
+        "sha256": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"
+      }
+    ]
+  },
+  "evidence_ready": {
+    "fonts": [
+      {
+        "family": "Inter",
+        "loaded": true
+      }
+    ],
+    "models": [
+      {
+        "id": "gen-abc",
+        "sha256": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"
+      }
+    ],
+    "video": [
+      {
+        "asset_id": "clip-1",
+        "decoded_frames": 48,
+        "expected_frames": 48
+      }
+    ],
+    "textures": [
+      {
+        "id": "logo",
+        "decoded": true
+      }
+    ]
+  },
+  "expect_ready": {
+    "ready": true
+  },
+  "evidence_video_partial": {
+    "video": [
+      {
+        "asset_id": "clip-1",
+        "decoded_frames": 12,
+        "expected_frames": 48
+      }
+    ],
+    "expect": {
+      "items_contains": {
+        "kind": "video",
+        "status": "missing",
+        "reason": "decoded 12 of 48 frames"
+      }
+    }
+  },
+  "evidence_plate_swapped": {
+    "models": [
+      {
+        "id": "gen-abc",
+        "sha256": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+      }
+    ],
+    "expect": {
+      "items_contains": {
+        "kind": "neural_media",
+        "status": "mismatch"
+      }
+    }
+  },
+  "drift": {
+    "font_bytes_changed": {
+      "kind": "font",
+      "from": "1111111111111111111111111111111111111111111111111111111111111111",
+      "to": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    "runtime_source_changed": {
+      "kind": "runtime",
+      "id": "rasan-motion"
+    }
+  },
+  "expect_impact": {
+    "invalidates_scenes_contains": [
+      "scene-2"
+    ],
+    "unaffected_scenes_nonempty": true,
+    "requires_contains": "re-approval of the Final"
+  },
+  "install_pinned": {
+    "given": "motion/pins.json pins rasan-motion at source_sha256 X, the skill's runtime now differs, assets/rasan-motion/rasan-motion.js exists",
+    "expect": {
+      "updated": false,
+      "pinned": true,
+      "migration_needed": {
+        "pinned_version": "1.0.0"
+      },
+      "contract_block_refreshed": true
+    }
+  },
+  "no_auto_update": "a build in progress never receives a newer font file, runtime or plate; `production.mjs migrate --reason` records mig-<id> in motion/migrations.jsonl and re-pins",
+  "deferred_to": "plan 14: pin a real film, update the runtime in the skill, confirm the film is unchanged until migrate"
+}

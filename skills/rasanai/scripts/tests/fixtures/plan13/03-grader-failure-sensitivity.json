@@ -1,0 +1,114 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan13/Q03",
+  "case": "a deliberately broken synthetic case fails for the right reason",
+  "targets": [
+    "lib/rubrics.mjs sensitivityCheck"
+  ],
+  "scenarios": [
+    {
+      "name": "a grader that passes the broken case is a grader failure",
+      "call": "sensitivityCheck",
+      "input": {
+        "expected_category": "claims",
+        "expected_reason": "47%",
+        "findings": [
+          {
+            "category": "claims",
+            "verdict": "pass",
+            "severity": "note",
+            "evidence": []
+          }
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "class": "grader_failure"
+      }
+    },
+    {
+      "name": "failing for the wrong reason is still a grader failure",
+      "call": "sensitivityCheck",
+      "input": {
+        "expected_category": "claims",
+        "expected_reason": "47%",
+        "findings": [
+          {
+            "category": "taste",
+            "verdict": "fail",
+            "severity": "major",
+            "evidence": [
+              "dull colours"
+            ],
+            "proposed_repair": "brighten"
+          }
+        ]
+      },
+      "expect": {
+        "ok": false,
+        "class": "grader_failure",
+        "why": "~not for the planted reason"
+      }
+    },
+    {
+      "name": "failing the planted number mismatch is the right reason",
+      "call": "sensitivityCheck",
+      "input": {
+        "expected_category": "claims",
+        "expected_reason": "47%",
+        "findings": [
+          {
+            "category": "claims",
+            "verdict": "fail",
+            "severity": "blocker",
+            "evidence": [
+              "end card says 47% but the evidence file says 41%"
+            ],
+            "proposed_repair": "use the sourced 41%"
+          }
+        ]
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "name": "failing the planted private path is the right reason",
+      "call": "sensitivityCheck",
+      "input": {
+        "expected_category": "privacy",
+        "expected_reason": "/Users/",
+        "findings": [
+          {
+            "category": "privacy",
+            "verdict": "fail",
+            "severity": "blocker",
+            "evidence": [
+              "subtitle track names /Users/example/Desktop/source.mov"
+            ],
+            "proposed_repair": "strip the path"
+          }
+        ]
+      },
+      "expect": {
+        "ok": true
+      }
+    }
+  ],
+  "broken_synthetic_case": {
+    "description": "Synthetic film spec with two planted defects: the end card shows 47% where the synthetic evidence says 41%, and a subtitle track leaks the fake path /Users/example/Desktop/source.mov.",
+    "planted": [
+      {
+        "category": "claims",
+        "reason": "47%"
+      },
+      {
+        "category": "privacy",
+        "reason": "/Users/"
+      }
+    ],
+    "note": "Plan 14 runs the real grader on this and must see it fail twice for these reasons. A permanently green grader is a defect."
+  }
+}

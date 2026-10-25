@@ -1,0 +1,69 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan12/D01",
+  "case": "versioned destination profiles: source, date, kind, no invented compliance, no silent migration",
+  "targets": [
+    "lib/destination-profiles.mjs profileRecord / profileStatus / complianceNote / checkOutput / pinTarget / migrationOffer / acceptMigration",
+    "delivery.mjs profiles|target"
+  ],
+  "checks": [
+    {
+      "name": "official without a source",
+      "setup": {
+        "kind": "official_requirement",
+        "aspect": "9:16",
+        "verified_at": "2026-10-01"
+      },
+      "expect": "recorded kind is assumed_default, downgraded_from is official_requirement, status needs_validation, complianceNote is null"
+    },
+    {
+      "name": "official with source and date",
+      "setup": {
+        "kind": "official_requirement",
+        "source": {
+          "title": "synthetic platform spec v1",
+          "url": "https://example.invalid/spec"
+        },
+        "verified_at": "2026-10-20"
+      },
+      "expect": "state verified; complianceNote names the record and says it is not a platform approval; no field is a 'compliant' badge"
+    },
+    {
+      "name": "outdated",
+      "setup": "same profile checked with now = verified_at + max_age_days + 1",
+      "expect": "state outdated with a warning; checkOutput still returns warnings only and export stays configurable"
+    },
+    {
+      "name": "house preference stays a preference",
+      "setup": {
+        "kind": "house_preference",
+        "aspect": "1:1"
+      },
+      "expect": "state house, no needs_validation, never described as a platform rule"
+    },
+    {
+      "name": "global update does not move a project",
+      "steps": [
+        "pinTarget(run, profile v1)",
+        "saveProfile(registry, same id with a changed duration max_s)",
+        "readTarget(run)"
+      ],
+      "expect": "the pinned target still holds v1 and its digest; migrationOffer lists duration with stage impact (storyboard, build, final stale) and says accepted exports are untouched"
+    },
+    {
+      "name": "accepting is explicit",
+      "steps": [
+        "delivery.mjs target migrate (no --accept)",
+        "delivery.mjs target migrate --accept"
+      ],
+      "expect": "first call changes nothing; second re-pins and records previous profile id, version and digest"
+    },
+    {
+      "name": "unknown destination",
+      "setup": "placement 'somewhere new'",
+      "expect": "profile is custom-unknown / assumed with needs_validation true and a warning; no compliance text"
+    }
+  ]
+}

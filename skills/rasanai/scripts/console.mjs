@@ -47,10 +47,18 @@ import { spawn, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die, SKILL_DIR, STATE_DIR, GSAP_PATH } from "./lib/common.mjs";
 import { recordTaste } from "./memory.mjs";
+import { addLesson } from "./lessons.mjs"; // Plan 10: a "don't use this font" note is kept as a scoped user preference (never a universal rule)
 import { acquire, release, withLock } from "./lib/runlock.mjs";
 import { briefFormat } from "./lib/formats.mjs";
 import { noteDowngrade, readDowngrades } from "./lib/downgrade.mjs";
 import { LAYERS, NOTE_LAYERS, snapshot, drift, relock } from "./lib/locks.mjs";
+import { noteToRevision } from "./lib/editorial.mjs"; // Plan 05 E6: a viewer note on the animatic is anchored and read as an editorial request
+import { soundNoteRevision, setMuteSolo } from "./lib/sound-controls.mjs"; // Plan 07 A6: a Studio sound note becomes a versioned targeted revision (no per-cue approval)
+import { handleMotionEditAction, restoreAsNewVersion } from "./lib/editor-patch/index.mjs"; // Plan 06 V8: Studio element edits go through the one edit authority (motion/edits.jsonl)
+import { atomicWrite, appendJsonl } from "./lib/recovery.mjs"; // Plan 11 R1: durable replace and torn-tail-safe appends for the console files
+import { handleJobControl, runStatus, redact } from "./lib/job-control.mjs"; // Plan 10 U6: Pause/Resume, cancel an owned job, logs, retry; never a global provider interrupt
+import { handleRevisionAction, classifyFeedback, latestRequests } from "./lib/revision-intent.mjs"; // Plan 10 U3: feedback becomes ONE scoped revision request, the same payload for Studio and this console
+import { snapshotRun, autoDecision, recordAutoDecision, boundary as storyboardBoundary, legacyAction } from "./lib/storyboard.mjs"; // Plan 05 E1/E7: one Storyboard stage; its approval snapshot and "Just make it" decision
 
 // this copy's version: a console started by an older copy is replaced, not reused
 const VERSION = (() => {
@@ -106,9 +114,7 @@ const readJSON = (p, d) => {
 };
 // atomic write so the UI never reads half a file
 const writeJSON = (p, v) => {
-  const tmp = `${p}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(v, null, 2));
-  fs.renameSync(tmp, p);
+  atomicWrite(p, JSON.stringify(v, null, 2)); // Plan 11 R1: fsync of file and folder, the temp file is removed on failure
 };
 // headless: no console server in this run (RasanAI Studio reads the files). Set by env, then remembered in console.json.
 const HEADLESS = (() => {
@@ -175,7 +181,7 @@ function parseData() {
 // always under actions.lock: another app may be appending to the same file (references/remote.md)
 function appendAction(a) {
   const action = { id: crypto.randomBytes(5).toString("hex"), ts: now(), ...a };
-  withLock(F.actionsLock, () => fs.appendFileSync(F.actions, JSON.stringify(action) + "\n"));
+  withLock(F.actionsLock, () => appendJsonl(F.actions, action)); // Plan 11 R1: an append after a torn final line starts a new line
   return action;
 }
 
@@ -203,12 +209,133 @@ function tasteFrom(action) {
   recordTaste({ kind, film: path.basename(RUN), stage, note: text, scene: v.scene, t: typeof v.t === "number" ? v.t : undefined, ts: action.ts, action: action.id });
 }
 
+// Plan 05 E7 / E1: the legacy `animatic` step IS the Storyboard stage (one review, no sixth approval). Approving it pins a snapshot (panels, copy, look
+// revision, audio or declared scratch, timing revision) when the run has storyboard records; "Just make it" (decide on this step, or decide-rest) records
+// the auto-decision with the Final retained. Best effort: a run without storyboard/ records behaves exactly as before.
+function storyboardHooks(s, action) {
+  try {
+    if (legacyAction(action).stage !== "storyboard" && action.step !== "*") return;
+    if (action.type === "approve" && action.step === "animatic" && fs.existsSync(path.join(RUN, "storyboard", "storyboard.json"))) {
+      const r = snapshotRun(RUN, { approved_by: "user", source_action_id: action.id });
+      if (r.ok && r.record) { if (s.steps.animatic) s.steps.animatic.snapshot = { revision: r.record.revision, artifact_digest: r.record.artifact_digest, scratch_audio: !!r.record.scratch_audio, final_voice_approved: r.record.final_voice_approved }; }
+      else if (!r.ok) activity(s, `Storyboard snapshot not pinned: ${r.error}`, "warn", null);
+    } else if ((action.type === "decide" && action.step === "animatic") || (action.type === "decide-rest" && fs.existsSync(path.join(RUN, "storyboard")))) {
+      recordAutoDecision(RUN, autoDecision({ boundary: storyboardBoundary(RUN, { mode: "full" }), approval_mode: action.type === "decide-rest" ? "autonomous" : "key_stages" }));
+    }
+  } catch {}
+}
+
+// Plan 06 V8: a Studio element edit (an actions.jsonl line with kind "motion-edit" and the contract-D object under `edit`) is recorded by lib/editor-patch in
+// motion/edits.jsonl, keyed to a stable element id. It never rewrites a scene here; a regeneration must carry or reconcile it (production.mjs overrides). Best effort:
+// an edit that cannot be recorded is shown in the feed, not thrown.
+function motionEditHook(s, action) {
+  // Plan 10 U4: Studio's queue lines carry {step,type,value,note}, so the contract-D object may also arrive as value.edit (the same shape, one commit per drag)
+  const edit = action && (action.edit || (action.value && typeof action.value === "object" && action.value.edit));
+  // Plan 10 U7: "restore as a new version" after an undo conflict (value: { restore_of: <edit id> }): the current state is checkpointed first, then the earlier state is written as a new edit
+  if (action && (action.kind === "motion-edit" || action.type === "motion-edit") && action.value && typeof action.value === "object" && action.value.restore_of) {
+    try {
+      const r = restoreAsNewVersion(RUN, String(action.value.restore_of));
+      activity(s, r.ok ? `Restored as a new version (${r.restored_as}); the later state is kept as a checkpoint` : `Not restored: ${r.error || "unknown"}`, r.ok ? "you" : "warn", null);
+    } catch (e) { activity(s, `Not restored: ${redact(e.message)}`, "warn", null); }
+    return true;
+  }
+  if (!action || !edit || (action.kind !== "motion-edit" && action.type !== "motion-edit")) return false;
+  try {
+    const r = handleMotionEditAction({ ...action, edit, kind: "motion-edit" }, { run: RUN });
+    // the person's view restores the committed state and explains a rejection from this (Studio reads session.edit_results)
+    s.edit_results = [...(s.edit_results || []).filter((q) => q.id !== edit.id), { id: edit.id, ok: !!r.ok, status: r.status || null, conflict: !!r.conflict, duplicate: !!r.duplicate, error: r.ok ? null : String(r.error || r.reason || "refused").replace(/\/(?:Users|home|private|var)\/[^\s"']*/g, "a file in this film"), current: r.current || null, needs_reselect: !!r.needs_reselect, at: now() }].slice(-30);
+    activity(s, r.ok ? `Edit recorded${r.duplicate ? " (already had it)" : ""}: ${action.edit.element_id || "a region"} (${r.status || "requested"})${r.downgraded ? ", kept as a region note" : ""}` : `Edit not recorded: ${r.error || "unknown"}${r.conflict ? " (the scene changed; refresh and retry)" : ""}`, r.ok ? "you" : "warn", null);
+  } catch (e) { activity(s, `Edit not recorded: ${e.message}`, "warn", null); }
+  return true; // handled: it is not a step answer, so the generic "You: ..." line and the step's `sent` are skipped
+}
+
+// Plan 07 A6: a Studio sound action. `sound-note` ({note|text, value: {kind?, shot_id?, cue_id?, stem?, t?}}) is recorded as a versioned targeted revision in audio/revisions/rev-N.json
+// with its timing effect; `sound-control` ({value: {stem, muted?, solo?}}) sets AUDITION state only. Neither applies, retimes or regenerates anything here, and neither asks for a cue
+// approval. Best effort: a failure is shown in the feed, not thrown.
+function soundHook(s, action) {
+  if (!action || (action.kind !== "sound-note" && action.type !== "sound-note" && action.kind !== "sound-control" && action.type !== "sound-control")) return false;
+  try {
+    const v = action.value && typeof action.value === "object" ? action.value : {};
+    if (action.kind === "sound-control" || action.type === "sound-control") {
+      const r = setMuteSolo(RUN, { stem: v.stem, muted: v.muted, solo: v.solo });
+      activity(s, r.ok ? `Audition: ${v.stem} ${v.solo ? "solo" : v.muted ? "muted" : "on"}` : `Audition not changed: ${r.error}`, r.ok ? "info" : "warn", null);
+    } else {
+      const r = soundNoteRevision(RUN, { text: action.note || v.text || "", kind: v.kind || null, shot_id: v.shot_id || null, cue_id: v.cue_id || null, stem: v.stem || null, t: typeof v.t === "number" ? v.t : null, source: "studio" });
+      activity(s, r.ok ? `Sound note recorded as revision ${r.revision}: ${r.record.effect.summary}` : `Sound note not recorded: ${r.error}`, r.ok ? "info" : "warn", null);
+    }
+  } catch (e) { activity(s, `Sound action not recorded: ${e.message}`, "warn", null); }
+  return true;
+}
+
+// Plan 10 U3/U6: `revision-request` (the person's words + where they pointed + the revision they were watching) is read once by lib/revision-intent.mjs into a scoped, pinned
+// request in <run>/revisions/requests.jsonl; an ambiguous one shows ONE interpretation and waits for `revision-confirm` ({idempotency_key, accept}). The current approval stays valid
+// meanwhile. Studio and the browser console send the same payload (docs/plans/PLAN10_NATIVE_DIRECTING.md). Best effort: a failure is shown in the feed, not thrown.
+function revisionHook(s, action) {
+  if (!action || (action.kind !== "revision-request" && action.type !== "revision-request" && action.kind !== "revision-confirm" && action.type !== "revision-confirm")) return false;
+  try {
+    const r = handleRevisionAction({ ...action, kind: action.kind || action.type }, { run: RUN });
+    if (r.ok && (action.kind || action.type) === "revision-confirm" && r.request && r.request.status === "accepted") { const full = latestRequests(RUN).find((q) => q.idempotency_key === r.request.idempotency_key); if (full) keepFontAvoid(s, full); }
+    activity(s, r.ok ? (r.needs_confirmation ? `Revision understood (confirm first): ${r.interpretation}` : `Revision ${r.request ? r.request.status : "recorded"}${r.duplicate ? " (already had it)" : ""}: ${r.request ? r.request.interpretation : ""}`) : `Revision not recorded: ${r.error || "unknown"}`, r.ok ? "you" : "warn", null);
+    if (r.ok && r.request) s.revision_requests = [...(s.revision_requests || []).filter((q) => q.idempotency_key !== r.request.idempotency_key), { idempotency_key: r.request.idempotency_key, status: r.request.status, interpretation: r.request.interpretation, scope: r.request.intent_category, needs_confirmation: !!r.needs_confirmation }].slice(-50);
+  } catch (e) { activity(s, `Revision not recorded: ${e.message}`, "warn", null); }
+  return true;
+}
+
+// Plan 10: the person's "don't use this font" is a scoped, sourced user preference (scope user, style, confidence by how sure the font is), never a global craft rule.
+// Only a named family is stored as a lesson (the visual-bible font_avoid check needs a family); a descriptor pointed at an element is a revision only.
+function keepFontAvoid(s, request) {
+  const av = request && request.avoid;
+  if (!av || av.kind !== "font" || !av.family || request.status === "requested") return;
+  try {
+    addLesson({ rule: `Avoid the font "${av.family}"`, quote: av.source_text, kind: "taste", area: "type", source: "user", run: path.basename(RUN), scope: "user", "scope-id": "local_user", rationale: "the person said not to use this font in a film's feedback", confidence: "high", nature: "style" });
+  } catch (e) { activity(s, `Font preference not kept: ${e.message}`, "warn", null); }
+}
+
+// Plan 10: a bare `note` at the animatic, render or final that classifyFeedback reads as typography (or a direct property edit) ALSO goes through the revision pipeline: one request keyed by the
+// action id (a replay never makes two), recorded in revisions/requests.jsonl. The note keeps its legacy path (taste.jsonl, feed, thread). Anything else returns null and behaves exactly as before.
+// Returns the reply text (scope, what stays, honest timing) or null.
+function typographyNoteHook(s, action) {
+  if (!action || action.type !== "note" || !["animatic", "render", "final"].includes(action.step) || !action.note) return null;
+  try {
+    const v = action.value && typeof action.value === "object" ? action.value : {};
+    const c = classifyFeedback(action.note, v.anchor || {});
+    if (!c.ok || !(c.category === "typography" || (c.category === "property_edit" && c.deterministic))) return null;
+    const r = handleRevisionAction({ kind: "revision-request", note: action.note, value: { anchor: v.anchor || {}, pinned: v.pinned || {}, idempotency_seed: action.id || null } }, { run: RUN });
+    if (!r.ok) { activity(s, `Revision not recorded: ${r.error || "unknown"}`, "warn", null); return null; }
+    keepFontAvoid(s, r.request);
+    s.revision_requests = [...(s.revision_requests || []).filter((q) => q.idempotency_key !== r.request.idempotency_key), { idempotency_key: r.request.idempotency_key, status: r.request.status, interpretation: r.request.interpretation, scope: r.request.intent_category, needs_confirmation: !!r.needs_confirmation }].slice(-50);
+    activity(s, r.needs_confirmation ? `Revision understood (confirm first): ${r.interpretation}` : `Revision ${r.request.status}${r.duplicate ? " (already had it)" : ""}: ${r.interpretation}`, "you", null);
+    const rev = r.request;
+    return r.needs_confirmation ? `${rev.interpretation} (Nothing is queued until you confirm.)`
+      : `${rev.interpretation} This revision is queued (scope: ${rev.target_ids.length ? rev.target_ids.join(", ") : "the whole film"}); there is no time estimate yet, and the current final stays as delivered until a new one is rendered.`;
+  } catch (e) { activity(s, `Revision not recorded: ${e.message}`, "warn", null); return null; }
+}
+
+// Plan 10 U6: `job-control` ({value:{op: pause|resume|cancel|retry|logs|capabilities, job_id?}}) acts on THIS run's jobs through lib/job-control.mjs (the Plan 09 job and pool state).
+// The answer is kept in session.job_control (redacted: no credentials or private paths) for Studio to show; session.run_status is the truthful Working/Waiting/Paused/... state.
+function jobControlHook(s, action) {
+  if (!action || (action.kind !== "job-control" && action.type !== "job-control")) return false;
+  try {
+    const r = handleJobControl(action, { run: RUN });
+    s.job_control = { op: r.op || (action.value && action.value.op) || null, ok: !!r.ok, note: redact(r.note || r.error || ""), job_id: r.job_id || null, lines: r.lines || undefined, at: now() };
+    s.run_status = runStatus(RUN);
+    activity(s, r.ok ? `Run control: ${s.job_control.op}${r.job_id ? " " + r.job_id : ""}` : `Run control refused: ${s.job_control.note}`, r.ok ? "you" : "warn", null);
+  } catch (e) { activity(s, `Run control failed: ${redact(e.message)}`, "warn", null); }
+  return true;
+}
+
 // What an action does to the session, besides being queued: the "sent" banner, the "You: ..." feed line, the note and
 // thread entries, an ask's answer. The server runs it on POST; headless `wait` runs it when it consumes the action, so
 // the session ends up the same either way. Mutates `s`; the caller saves it.
 function applyAction(s, action) {
   const step = action.step;
   tasteFrom(action);
+  storyboardHooks(s, action);
+  if (motionEditHook(s, action)) return;
+  if (soundHook(s, action)) return;
+  if (revisionHook(s, action)) return;
+  const typoReply = typographyNoteHook(s, action);
+  if (jobControlHook(s, action)) return;
   if (step === "*") s.decide_rest = { ts: action.ts };
   else if (Object.prototype.hasOwnProperty.call(s.steps, step) && !["comment", "knob", "cut-edit"].includes(action.type)) s.steps[step].sent = { type: action.type, value: action.value, note: action.note, ts: action.ts, source: cleanSource(action.source), ...(SOURCES[action.source] ? { via: SOURCES[action.source] } : {}) };
   const you = youOf(action);
@@ -229,6 +356,19 @@ function applyAction(s, action) {
   if (action.type === "comment") {
     const v = action.value || {};
     s.comments = (s.comments || []).concat({ id: action.id, step, scene: v.scene ?? null, t: typeof v.t === "number" ? v.t : null, x: typeof v.x === "number" ? v.x : null, y: typeof v.y === "number" ? v.y : null, w: typeof v.w === "number" ? v.w : null, h: typeof v.h === "number" ? v.h : null, scope: v.scope || "scene", quick: v.quick || null, word_id: typeof v.word_id === "string" ? v.word_id : null, clip: typeof v.clip === "string" ? v.clip : null, text: action.note || v.quick || "", state: "open", ts: action.ts }).slice(-200);
+    if (step === "animatic") { // Plan 05 E6: anchor to shot / panel / time / the storyboard revision watched; "hard to understand" is an editorial request, not more animation
+      try {
+        const last = s.comments[s.comments.length - 1], rev = ((s.steps && s.steps.animatic) || {}).storyboard_revision ?? null;
+        const nr = noteToRevision(last.text, { shot_id: v.shot_id ?? null, panel_id: v.panel_id ?? null, t: last.t, revision: v.revision ?? rev }, { revision: rev });
+        if (nr.ok) Object.assign(last, { shot_id: v.shot_id ?? null, panel_id: v.panel_id ?? null, anchor_revision: nr.anchor.revision, note_kind: nr.note_kind, editorial: nr.editorial || undefined, stale_anchor: nr.stale_anchor, revision_request: { stage: nr.request.stage, idempotency_key: nr.request.idempotency_key, ask: nr.ask } });
+      } catch {}
+    }
+    if (step !== "animatic") { // Plan 10 U3: a note on any other step (the Final, a Story card...) is read the same way, so the browser and Studio agree on what it asks for
+      try {
+        const last = s.comments[s.comments.length - 1], c = classifyFeedback(last.text, { shot_id: v.shot_id ?? null, element_id: v.element_id ?? null, t: last.t });
+        if (c.ok) Object.assign(last, { intent_category: c.category, interpretation: c.interpretation, needs_confirmation: c.needs_confirmation || undefined });
+      } catch {}
+    }
     activity(s, `${you} left a note${v.t != null ? " at " + Math.floor(v.t / 60) + ":" + String(Math.floor(v.t % 60)).padStart(2, "0") : ""}: ${action.note || v.quick}`, "you", null);
     return;
   }
@@ -242,6 +382,7 @@ function applyAction(s, action) {
   // anything the user writes becomes part of that step's discussion
   const said2 = action.note || (action.type === "redo" && action.value && action.value.note ? String(action.value.note).slice(0, 4000) : "");
   if (said2 && s.steps[step]) s.steps[step].thread = (s.steps[step].thread || []).concat({ who: "you", text: said2, t: action.ts }).slice(-50);
+  if (typoReply && s.steps[step]) s.steps[step].thread = (s.steps[step].thread || []).concat({ who: "claude", text: typoReply.slice(0, 4000), t: now() }).slice(-50);
   activity(s, `${you}: ${said}`, "you", "Claude is reading your answer…");
 }
 

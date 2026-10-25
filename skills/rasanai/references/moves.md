@@ -133,7 +133,7 @@ The ledger has one row per beat; the **chain** is finer: every transformation of
            { "t": 1.1, "change": "the dot drops and grows into the composer's send button" } ]
 ```
 
-Density is enforced: at least `ceil(film_seconds / 1.5)` entries (`chain-sparse`), and no gap over 3.0 s between consecutive entries, from 0 to the first, or from the last to the film's end (`chain-gap`). Film length is the sum of the pitch's beat `duration_s`. The house bar is a new idea about every 1.2 s.
+Density is enforced: at least `ceil(film_seconds / 1.5)` entries (`chain-sparse`), and no gap over 3.0 s between consecutive entries, from 0 to the first, or from the last to the film's end (`chain-gap`). Film length is the sum of the pitch's beat `duration_s`. The house bar is a new idea about every 1.2 s. **Plan 05:** that density is one style's rhythm, not a law: a pitch that declares `rhythm_waiver` (12+ characters saying why this film holds or breathes) turns `chain-sparse`/`chain-gap` into warnings, and a gap inside a declared hold (`holds: [{t0, t1, why}]`) is not a gap. Without either, the legacy errors stand.
 
 ### Worked example: the Tiago ledger
 

@@ -1,0 +1,4 @@
+{ "_note": "authored, not run. Two sources disagree on the same subject; flagged, not resolved here.",
+  "evidence": [ { "id": "c1", "subject": "free_tier_limit", "source": { "url": "https://example.com/docs" }, "assertion": "Free plan: 3 projects", "type": "public" },
+                { "id": "c2", "subject": "free_tier_limit", "source": { "url": "https://example.com/blog" }, "assertion": "Free plan: 5 projects", "type": "public" } ],
+  "expected": { "conflicts": [ { "subject": "free_tier_limit", "ids": ["c1", "c2"] } ], "film_may_state": "neither until the research lead resolves it" } }

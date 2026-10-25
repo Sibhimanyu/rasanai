@@ -1,0 +1,60 @@
+{
+  "plan": 7,
+  "note": "Authored fixtures, not run. Each file lists the functions it exercises (calls) and the expected result. Synthetic: they never certify current capabilities or any real audio. Numbers are not loudness or sync measurements of real files. Listening to the core reference films, and mono/phone checks, wait for Plan 14.",
+  "cases": [
+    {
+      "id": "plan07/A01",
+      "file": "01-intentional-sound-and-silence.json",
+      "title": "Intentional sound and silence; silent deliverable vs generation failure",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan07/A02",
+      "file": "02-shared-event-timing.json",
+      "title": "One cue source: shared event timing, retime moves cues, legacy readable",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan07/A03",
+      "file": "03-offsets-and-tails.json",
+      "title": "Intended offsets, hard sync only when designated, tails preserved",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan07/A04",
+      "file": "04-voice-fidelity.json",
+      "title": "Approved copy, confirmed pronunciations, transcript uncertainty, no default cloning",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan07/A05",
+      "file": "05-local-regeneration.json",
+      "title": "A local wording change regenerates only the impacted line",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan07/A06",
+      "file": "06-mix-integrity.json",
+      "title": "Profiles, honest measurement, ducking without pumping",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan07/A07",
+      "file": "07-stem-and-silence-delivery.json",
+      "title": "Stems, silence-only handling, mono/phone deferred",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan07/A08",
+      "file": "08-local-voice-edit-continuity.json",
+      "title": "Replaced line keeps pauses and music automation",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan07/A09",
+      "file": "09-mix-receipt-vs-current-inputs.json",
+      "title": "Mix receipt vs current inputs",
+      "status": "authored_not_run"
+    }
+  ]
+}

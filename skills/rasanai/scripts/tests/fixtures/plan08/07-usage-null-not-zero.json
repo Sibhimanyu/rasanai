@@ -1,0 +1,39 @@
+{
+  "id": "plan08/K07",
+  "title": "Usage: unknown is null, reasoning not double counted, estimate separate from billed",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised and the expected outcome; no token count, price or latency here is a measurement.",
+  "calls": [
+    {
+      "fn": "usage.usageRecord",
+      "args": {
+        "role": "critic",
+        "counters": {
+          "output_tokens": 900
+        }
+      }
+    },
+    {
+      "fn": "usage.usageRecord",
+      "args": {
+        "tokens": 120000
+      }
+    },
+    {
+      "fn": "usage.summarize",
+      "rows": "three records: one with output 900, one with output null, one failed rejected_alternative"
+    },
+    {
+      "fn": "usage.apiEquivalent",
+      "case": "counters with cache_read null and a price table"
+    }
+  ],
+  "expect": [
+    "first record: input_uncached/cache_creation/cache_read/reasoning are null (not 0), source provider",
+    "second record: source reported_total, all counters null",
+    "summarize: output 900 with partial listing output, failed 1, by_purpose.rejected_alternative visible",
+    "apiEquivalent lists cache_read in missing, estimate true, and billed/subscription stay separate and null",
+    "time keys active_s, approval_wait_s, rate_limit_wait_s, render_s are independent and null when unknown",
+    "redact removes a bearer token and a home path from note"
+  ]
+}

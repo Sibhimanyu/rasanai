@@ -10,6 +10,7 @@ import crypto from "node:crypto";
 import os from "node:os";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { guardedFetch, resolveInRoots } from "./containment.mjs";
 import { readDesignMd } from "./design-md.mjs";
 import { HF_AUTO_FONTS } from "./fonts.mjs";
 import { svgProblem, pngLongSide } from "./logos.mjs";
@@ -174,7 +175,7 @@ const BARE = () => new RegExp(`[^\\s"'\`()<>\\[\\]{}|,;*]+?\\.(?:${ALL_EXT.join(
 
 // ---------------------------------------------------------------- fetching one reference
 async function download(url) {
-  const r = await fetch(url, { headers: { "user-agent": "Mozilla/5.0 RasanAI" }, signal: AbortSignal.timeout(15000), redirect: "follow" });
+  const r = await guardedFetch(url, { headers: { "user-agent": "Mozilla/5.0 RasanAI" }, timeoutMs: 15000 }); // Plan 11 R4: URL ingestion policy
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   if (Number(r.headers.get("content-length")) > MAX_BYTES) throw new Error("larger than 25 MB");
   const chunks = []; let n = 0;
@@ -190,8 +191,14 @@ async function fetchRef(ref, { offline, baseDirs }) {
   if (/^file:\/\//i.test(ref)) { try { p = fileURLToPath(ref); } catch { return { why: "bad file:// URL" }; } }
   p = cleanPath(p); try { p = decodeURIComponent(p); } catch {}
   const cands = path.isAbsolute(p) ? [p, ...baseDirs.map((b) => path.join(b, p))] : baseDirs.map((b) => path.resolve(b, p));
-  for (const c of cands) if (fs.existsSync(c) && fs.statSync(c).isFile()) return { buf: fs.readFileSync(c), name: sanitizeName(c), src: c, abs: c };
-  return { why: "file not found" };
+  // Plan 11 R3: a reference named in a brand document is data. It is read only from the brand's own folders (real path: no symlink or ../ escape)
+  let refused = false;
+  for (const c of cands) {
+    const inRoot = resolveInRoots(baseDirs, c);
+    if (!inRoot.ok) { if (fs.existsSync(c)) refused = true; continue; }
+    if (fs.existsSync(inRoot.path) && fs.statSync(inRoot.path).isFile()) return { buf: fs.readFileSync(inRoot.path), name: sanitizeName(inRoot.path), src: inRoot.path, abs: inRoot.path };
+  }
+  return { why: refused ? "outside the brand's folders: copy the file next to the brand document to use it" : "file not found" };
 }
 
 // ---------------------------------------------------------------- adding entries

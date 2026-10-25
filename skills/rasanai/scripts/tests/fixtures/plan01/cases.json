@@ -1,0 +1,12 @@
+{"plan":1,"note":"Authored fixtures, not run. SYNTHETIC: invented scenarios that describe expected behaviour; they never certify current capabilities. Each lists the calls it exercises and the expected result.",
+"cases":[
+{"id":"plan01/F01","file":"F01-legacy-stage-mapping.json","fixtures":["F01-legacy-stage-mapping.json"],"title":"Legacy stage mapping","status":"authored_not_run"},
+{"id":"plan01/F02","file":"F02-approval-invalidation.json","fixtures":["F02-approval-invalidation.json"],"title":"Approval invalidation","status":"authored_not_run"},
+{"id":"plan01/F03","file":"F03-single-session-writer.json","fixtures":["F03-single-session-writer.json"],"title":"Single session writer","status":"authored_not_run"},
+{"id":"plan01/F04","file":"F04-schema-migration.json","fixtures":["F04-schema-migration.json"],"title":"Schema migration","status":"authored_not_run"},
+{"id":"plan01/F05","file":"F05-artifact-version-binding.json","fixtures":["F05-artifact-version-binding.json"],"title":"Artifact version binding","status":"authored_not_run"},
+{"id":"plan01/F06","file":"F06-reversible-adoption.json","fixtures":["F06-reversible-adoption.json"],"title":"Reversible adoption","status":"authored_not_run"},
+{"id":"plan01/F07","file":"F07-conflicting-rule-scopes.json","fixtures":["F07-conflicting-rule-scopes.json"],"title":"Conflicting rule scopes","status":"authored_not_run"},
+{"id":"plan01/F08","file":"F08-cross-stage-interface-closure.json","fixtures":["F08-cross-stage-interface-closure.json"],"title":"Cross-stage interface closure","status":"authored_not_run"},
+{"id":"plan01/F09","file":"F09-public-source-non-direct-policy.json","fixtures":["F09-public-source-non-direct-policy.json"],"title":"Public-source non-direct policy branch","status":"authored_not_run"}
+]}

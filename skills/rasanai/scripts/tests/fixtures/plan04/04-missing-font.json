@@ -1,0 +1,103 @@
+{
+  "case": "missing font",
+  "synthetic": true,
+  "covers": [
+    "L04",
+    "L05"
+  ],
+  "inputs": {
+    "treatment": {
+      "story_format": "v2",
+      "id": "invite-writer",
+      "treatment_title": "Rough notes become the invitation",
+      "premise": "a few typed lines become a finished, sendable invitation",
+      "communication_kind": "single-feature-announcement",
+      "proposition": "The writing assistant turns rough notes into a usable invitation in one step.",
+      "viewer_takeaway": "I can go from notes to a sendable invite without rewriting.",
+      "beats": [
+        {
+          "id": "beat-open",
+          "viewer_takeaway": "notes are messy",
+          "on_screen": "Notes, half a sentence",
+          "visual_event": {
+            "before": "empty page",
+            "change": "rough notes appear",
+            "after": "notes visible"
+          },
+          "evidence_refs": []
+        },
+        {
+          "id": "beat-writing",
+          "viewer_takeaway": "the invitation is written",
+          "on_screen": "Dinner Friday at 7, bring a dish",
+          "visual_event": {
+            "before": "rough notes in the product UI",
+            "change": "the product screen rewrites them",
+            "after": "a readable invitation"
+          },
+          "evidence_refs": [
+            "ev-ui-1"
+          ]
+        },
+        {
+          "id": "beat-send",
+          "viewer_takeaway": "send it",
+          "on_screen": "Send",
+          "visual_event": {
+            "before": "invitation",
+            "change": "sent",
+            "after": "confirmation"
+          },
+          "evidence_refs": []
+        }
+      ]
+    },
+    "requests": [
+      {
+        "id": "r1",
+        "need": "font",
+        "name": "Brand Display",
+        "text": "set the headline in Brand Display"
+      },
+      {
+        "id": "r2",
+        "need": "screen",
+        "name": "billing-dashboard",
+        "text": "show the billing dashboard"
+      }
+    ],
+    "resources": {
+      "fonts": {
+        "Brand Display": "missing",
+        "Inter": "available"
+      },
+      "assets": [],
+      "screens": [
+        "invite-composer"
+      ]
+    },
+    "locale": "hi"
+  },
+  "expect": {
+    "impossible": {
+      "blocking": true,
+      "limitations": [
+        "Brand Display",
+        "billing-dashboard"
+      ],
+      "said_before_commit": true
+    },
+    "bible": {
+      "type.missing_assets": [
+        "Brand Display"
+      ],
+      "validation_ok": false,
+      "locale_script": "devanagari",
+      "locale_fallback": [
+        "Noto Sans Devanagari",
+        "Mukta"
+      ]
+    },
+    "negative": "no frame invents the missing screen or silently substitutes the font"
+  }
+}

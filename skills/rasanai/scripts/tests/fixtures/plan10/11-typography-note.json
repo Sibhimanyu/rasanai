@@ -1,0 +1,26 @@
+{
+  "case": "plan10/typography-note",
+  "note": "authored, not run; expectations come from lib/revision-intent.mjs classifyFeedback and console.mjs typographyNoteHook (read, not run)",
+  "examples": [
+    {
+      "action": { "step": "final", "type": "note", "note": "Don't use this type of font", "id": "act-1", "value": { "anchor": { "element_id": "el-title-3", "shot_id": "s2" } } },
+      "expect": { "category": "typography", "route": "typography_look_revision", "stage": "look", "scope": "element", "ambiguous": false, "avoid": { "kind": "font", "family": null, "scope": "film", "anchored_to": "el-title-3" }, "preserve": ["story", "claims", "palette", "layout", "copy"], "stale_includes": ["storyboard", "build", "final"], "story_kept": true, "lesson_persisted": false, "reply_includes": ["queued", "no time estimate"] }
+    },
+    {
+      "action": { "step": "final", "type": "note", "note": "Don't use this font", "id": "act-2", "value": {} },
+      "expect": { "category": "typography", "route": "typography_confirm", "ambiguous": true, "needs_confirmation": true, "reply_includes": ["Which font do you mean"], "request_status": "requested", "lesson_persisted": false }
+    },
+    {
+      "action": { "step": "final", "type": "note", "note": "Don't use the Comic Sans font", "id": "act-3", "value": {} },
+      "expect": { "category": "typography", "route": "typography_look_revision", "scope": "film", "ambiguous": false, "avoid": { "family": "Comic Sans" }, "request_status": "accepted", "lesson_persisted": { "scope": "user", "nature": "style", "confidence": "high" }, "font_avoid_violation_when_used": true }
+    },
+    {
+      "action": { "step": "final", "type": "note", "note": "make the text bigger", "id": "act-4", "value": {} },
+      "expect": { "category": "typography", "scope": "film", "note": "no element anchor: typography, not property_edit" }
+    },
+    {
+      "action": { "step": "final", "type": "note", "note": "the ending feels abrupt", "id": "act-5", "value": {} },
+      "expect": { "typography_hook": "not routed", "note": "legacy path only: taste.jsonl, feed, thread" }
+    }
+  ]
+}

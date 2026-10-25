@@ -1,0 +1,4 @@
+{"case":"F03","status":"authored_not_run","_label":"SYNTHETIC EXAMPLE. Invented data to describe expected behaviour. Authored, not run; certifies nothing about current capabilities.","title":"native actions go through the one locked session writer queue",
+"calls":["session writer (lock + queue) used by console actions and native Studio actions"],
+"input":{"concurrent_writers":[{"who":"console","action":"approve story"},{"who":"native","action":"comment on storyboard"},{"who":"native","action":"redo look"}],"state":"one session directory"},
+"expect":{"serialization":"all three apply one at a time under the lock in arrival order","lost_updates":0,"torn_files":0,"direct_write_bypassing_queue":"does not exist; any such path is a failing finding","second_writer_while_locked":"waits or reports busy, never overwrites","stale_lock":"recovered explicitly with a recorded reason"}}

@@ -1,0 +1,103 @@
+{
+  "case": "E03",
+  "title": "a diagram whose mechanism needs several panels and a cause-first order",
+  "calls": [
+    "evaluateFilm",
+    "noteToRevision"
+  ],
+  "storyboard": [
+    {
+      "shot_id": "shot-diagram-01",
+      "beat_id": "beat-how",
+      "purpose": "show how the system turns notes into a draft",
+      "panels": [
+        {
+          "id": "p1",
+          "state": "input arrives",
+          "image_ref": "frames/d1.png"
+        },
+        {
+          "id": "p2",
+          "state": "the step that transforms it highlighted",
+          "image_ref": "frames/d2.png"
+        },
+        {
+          "id": "p3",
+          "state": "result and the arrow back to the input",
+          "image_ref": "frames/d3.png"
+        }
+      ],
+      "copy_refs": [],
+      "focal_read": "the transforming step",
+      "timing": {
+        "status": "provisional",
+        "duration_s": 9
+      },
+      "transition_out": {
+        "relation": "cause",
+        "kind": "cut",
+        "carrier": null
+      },
+      "sound_intent": {
+        "role": "supportive",
+        "cue_refs": []
+      },
+      "editorial": {
+        "new_value": "how it works, not only that it works",
+        "ends_by": ""
+      }
+    },
+    {
+      "shot_id": "shot-result-01",
+      "beat_id": "beat-result",
+      "purpose": "the result the viewer wanted",
+      "panels": [
+        {
+          "id": "p1",
+          "state": "final result",
+          "image_ref": "frames/d4.png"
+        }
+      ],
+      "copy_refs": [],
+      "focal_read": "the finished draft",
+      "timing": {
+        "status": "provisional",
+        "duration_s": 4
+      },
+      "transition_out": {
+        "relation": "example",
+        "kind": "cut",
+        "carrier": null
+      },
+      "sound_intent": {
+        "role": "supportive",
+        "cue_refs": []
+      },
+      "editorial": {
+        "new_value": "the proof the mechanism worked",
+        "ends_by": "the viewer sees the promise (a ready draft) delivered"
+      }
+    }
+  ],
+  "note": {
+    "text": "I can't follow how the second step works",
+    "anchor": {
+      "shot_id": "shot-diagram-01",
+      "panel_id": "p2",
+      "t": 4.2,
+      "revision": 3
+    }
+  },
+  "expect": {
+    "film_ok": true,
+    "note_kind": "understanding",
+    "editorial": true,
+    "not_more_animation": true,
+    "options_include": "add or reorder a panel so the cause comes first",
+    "story_preserved": true,
+    "impact_stale": [
+      "build",
+      "final"
+    ]
+  }
+}

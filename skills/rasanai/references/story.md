@@ -1,6 +1,6 @@
 # Story: the playbook
 
-Left alone, every AI launch video tells the same story: hook stat → problem montage → "Introducing X" → three features → CTA. That is a sales deck built outward from the feature list, and it has no turn. RasanAI's stories start from **one argument** instead: a proposition a viewer could say back, a villain they know, a turn that reverses something, a peak where the proof is hardest, and a payoff that answers the opening (`references/intent.md`). The features show up inside that argument as evidence.
+Left alone, every AI launch video tells the same story: hook stat → problem montage → "Introducing X" → three features → CTA. That is a sales deck built outward from the feature list, and it has no argument. RasanAI's stories start from **one argument** instead: a proposition a viewer could say back and the proof that carries it. A villain they know, a turn that reverses something, a peak where the proof is hardest and a payoff that answers the opening are **optional tools** (Plan 03): the grammar for the film's communication kind (`story.mjs grammar --kind <kind>`, `lib/story-grammars.mjs`) says which tend to help; none is required and none is banned (`references/intent.md`). The features show up inside that argument as evidence.
 
 Why: three films in a row (FILM-D, E, F) reused one story assembled from a seeded device draw, a template with no turn slot and a launch template's payoff line. Its "turn" was a third, unrelated use; its payoff answered a question asked ten seconds earlier; its biggest type went to a price input. Every check passed, because the checks counted form. Judgment now comes from one owner (the writer) holding one written argument, checked by meaning tests.
 
@@ -21,6 +21,37 @@ The engine is `scripts/story.mjs` over the catalog `taxonomy/devices.json` (70 d
 
 The writing itself (lines, the show column, structures by length, worked examples) is `references/script.md`.
 
+
+## 0. Format-aware treatments (the default, Plan 03)
+
+**Workflow.** `crew.mjs plan --story-mode balanced` (the default): ONE scoped script writer proposes **three compact treatments** in `story/treatments.json`; ONE independent editor reviews the set; ONE focused revision; an independent extra writer only when `story.mjs treatments` reports `escalation.needed` (diversity, clarity or evidence insufficient). `--story-mode multi` is the three-writer room (planner, Sure/Bold/Wild writers, engines) and `deep` adds the Moves pass; a series keeps its one-script path. The user is offered three choices unless a series, "you decide" or a budget choice authorizes fewer. No polished boards, camera plans or rendered hero moves exist before Look; one selected treatment is developed afterwards. Cards are titled by the treatment's premise (`treatment_title`); Sure / Bold / Wild is a secondary tag.
+
+**Grammars.** `story.mjs grammar --kind <communication_kind>` prints the starting narrative logic and the evidence a kind needs (whole-product introduction, single-feature announcement, workflow demo, instructional explainer, brand manifesto, identity reveal, performance ad, teaser, event opener, evidence case study, character short, music/lyric film, footage-led story). They are starting points. Optional craft tools (villain, twist, peak, reveal timing, "Introducing / Meet X", early logo, metaphor, crescendo, motif, hard cut, silence) are used when they serve the assignment and listed in `optional_tools` with their purpose; no checker requires or bans one.
+
+**The v2 treatment** (`lib/treatment.mjs`; `story_format: "v2"`):
+
+```jsonc
+{ "story_format": "v2", "id": "t-project", "tag": "Sure",              // tag = secondary card label
+  "treatment_title": "One invitation, from notes to sent", "premise": "...", "logline": "...",
+  "communication_kind": "whole-product-introduction", "proposition": "...", "viewer_takeaway": "...", "perspective": "the person with rough notes",
+  "takeaways": [ { "id": "t1", "text": "you can start from rough notes", "required": true } ],
+  "optional_tools": [ { "tool": "motif", "purpose": "the same notes card returns" } ],
+  "abstraction": { "justification": "(only for kinds where abstraction is the point)" },
+  "beats": [ { "id": "beat-writing", "internal_beat_label": "Writing demonstration", "grammar_role": "demonstration",
+      "viewer_takeaway": "I can start with rough notes rather than polished copy.", "on_screen": "Turn these notes into an invitation.", "voiceover": null,
+      "visual_event": { "before": "three rough event notes", "change": "the request produces an invitation draft", "after": "a short, usable invitation" },
+      "evidence_refs": ["c3"], "relation_to_previous": "open", "duration_provisional_s": 6, "channel_role": { "mode": "screen-only", "reason": "" } } ],
+  "coverage": { "ledger": [ { "takeaway_id": "t1", "beat_id": "beat-writing" } ], "excluded": [ { "item": "c9", "why": "not true on every plan" } ] } }
+```
+
+Fields are separate and ids are stable: `treatment_title` helps a person choose; `internal_beat_label` never reaches rendered text (a leak is an error); `on_screen` may be empty; `voiceover` may be null; `visual_event` states before, change and after (not "a gradient animates behind Desire"); `evidence_refs` are ids from the claims/briefing; `duration_provisional_s` is provisional (final timing stays in the score). **Channel roles** (`split`, `caption`, `emphasis`, `accessibility`, `screen-only`, `voice-only`, `silent`) replace the old "the voice never repeats the screen": a repeat is fine when the role says why.
+
+**Review** (`story.mjs treatments`, then the editor's `story.mjs review`): every finding is `{ issue_id, beat, evidence, severity, fix }`. `error` = mechanical or factual (unsupported claim, must-show missing without approval, bad or duplicate id, unreadable source, deceptive UI, contradictory duration, missing qualifier, leaked label) and always blocks; `major` = a creative concern that blocks (a beat that names no behavior and has no proof or change, a promise with no shown behavior, a takeaway the mapped beat never says); `minor` = a creative note; `craft` = an optional choice assessed for purpose. Provenance and factual checks are unchanged. The **coverage ledger** maps each required takeaway to a beat and its evidence or visual event and records what was left out and why; an id beside a vague title is not coverage. Candidates are compared by proof selection, information order, perspective and premise, never by decoration.
+
+**Legacy.** A saved pitch, intent or chosen story (villain, turn, engine, peak) still reads: `lib/treatment.mjs readTreatment` adapts it without rewriting it, and `story.mjs check` runs the legacy rubric on any pitch without `story_format: "v2"`.
+
+**References.** `story.mjs refs --kind <kind> [--role <role>]` returns at most three house examples with a provenance record (`lib/story-refs.mjs`); the summaries are original, nothing is copied, and none is a universal template.
+
 ## 1. The truth sheet (before any argument)
 
 Specificity comes from here, and this is the step that gets skipped most: **specific in detail** (the real label, the exact prompt, the number), **common in situation** (a moment most of the audience has had this month). Fill every section from the capture, the brief, the screenshots and the user's words:
@@ -38,7 +69,7 @@ Specificity comes from here, and this is the step that gets skipped most: **spec
 
 ## 2. Plot engines: every story has a turn
 
-Three engines. Each pick slot names one; every script states its turn in one line (`pitch.turn: {line, reverses, payoff}`), and the editor and the concept critic fail a turn that reverses nothing or a payoff that answers a different question than the opening asked.
+Three engines (the legacy multi-writer room; the default balanced workflow uses grammars and treatments instead, section 0). Each pick slot names one; a script that uses an engine states its turn in one line (`pitch.turn: {line, reverses, payoff}`), and the editor and the concept critic fail a turn you declare that reverses nothing or a payoff that answers a different question than the opening asked. Declaring no turn is allowed.
 
 | Engine | Shapes | The turn | The peak (60-75%) | The payoff |
 |---|---|---|---|---|
@@ -106,7 +137,7 @@ node $SKILL_DIR/scripts/story.mjs pick --truth "$RUN/story/truth.md" --recent "$
 
 ## 6. Write the argument, then the pitch
 
-The argument first (`references/intent.md`): proposition, PAGE, villain and felt numbers, the ending first, then per beat what it buys, its relation word, importance and the one read, one peak at 60 to 75% with a rest before it. Then fuse the device (if any) with the product's own material and write the pitch:
+The argument first (`references/intent.md`): proposition, PAGE, villain and felt numbers, the ending first, then per beat what it buys, its relation word, importance and the one read, an optional peak (when you use one: 60 to 75% is guidance, with a rest before it). Then fuse the device (if any) with the product's own material and write the pitch:
 
 - **Title**: 2 to 5 words a person would use to refer to the story.
 - **Logline**: 12 words at most; the party retell ("It's the one where…") without those words.
@@ -196,21 +227,21 @@ The device menu already drops recent devices; the Motion Director's score then n
 ## Principles
 
 1. **One argument, one sentence.** The proposition has no "and". Every beat carries, proves or pays it off; a beat that does none is cut.
-2. **Ending first.** Write the last frame and line before the middle (Pixar's rule 7). The payoff answers the opening; it never introduces a new idea.
-3. **A turn reverses something.** Before and after the turn, the viewer believes different things. A list with a label on its third item is not a turn.
-4. **Emphasis is spent, not spread.** Most beats are calm. Importance 3 on a quarter at most; one peak at 60 to 75%, a breath before it. When everything is big, nothing is.
+2. **Ending first (a method for argument films).** Where the film sets up a question, write the last frame and line before the middle (Pixar's rule 7); the payoff answers the opening and never introduces a new idea. A demonstration or a manifesto may have no such setup.
+3. **A turn, if you declare one, reverses something (optional).** Before and after the turn, the viewer believes different things. A list with a label on its third item is not a turn. A clear demonstration with no turn is a valid film.
+4. **Emphasis is spent, not spread.** Most beats are calm. Importance 3 on a quarter at most; a peak, when the film has one, gets a breath before it (60 to 75% is where the legacy sheets put it, not a rule for every format). When everything is big, nothing is.
 5. **One read per beat.** One thing to read or see, held long enough to read. Two things at once and the viewer gets neither.
 6. **Cause and effect, not "and also".** Each beat relates to the one before: because, but, so, example, escalation, answer.
 7. **Build from the product's own material**: its UI, data, output, name and sounds. Google told a love story with nothing but its search box.
 8. **The swap test.** Put a competitor's name in: if the film still works, it fails. Count the breaks on the product's own surfaces, not one demo's labels. The scope swap: put a single-purpose app in; if the film still works, it sells that app.
 9. **Specific inside each beat, common in situation.** The exact prompt and the real label inside a beat; on a universal claim, no persona and no situation that recurs across beats.
-10. **The villain is an object.** One concrete thing doing one wrong thing (an unread badge climbing, a 14-reply thread), with numbers the viewer feels. Never a competitor, never an abstraction.
+10. **When you use a villain, it is an object (a villain is optional).** One concrete thing doing one wrong thing (an unread badge climbing, a 14-reply thread), with numbers the viewer feels. Never a competitor, never an abstraction.
 11. **Grounding.** Never invent claims, numbers or UI labels. A demo that lies is worse than none.
 12. **Check the second reading.** Drop an image whose other meaning hurts the brand.
 
 ## Avoid
 
-**LLM-overused devices** (penalised unless the pitch names a twist that *is* the idea): a day in the life at 100x, before/after with no visible cause (and chaos → calm), the cosmos-to-cursor zoom, the product as a friendly-blob mascot, the fake iMessage thread, the "In a world…" trailer, and, for AI products, a prompt typing itself into a glowing input box.
+**LLM-overused devices** (say why it serves the proposition; a twist is one optional way to earn it): a day in the life at 100x, before/after with no visible cause (and chaos → calm), the cosmos-to-cursor zoom, the product as a friendly-blob mascot, the fake iMessage thread, the "In a world…" trailer, and, for AI products, a prompt typing itself into a glowing input box.
 
 **Visual clichés** (-1 fit each; two fail G1): glowing orbs or brains, particle networks, blue-purple gradients, the sparkles icon, holographic UI panels, isometric floating cards, "the future is here" copy, stock handshakes and smiling teams, three feature cards sliding in, a dashboard floating in a void at a 30° tilt, confetti CTAs, the glowing globe, lens flares and bokeh.
 

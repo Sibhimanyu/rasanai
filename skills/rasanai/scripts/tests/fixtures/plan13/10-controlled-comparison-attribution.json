@@ -1,0 +1,401 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan13/Q10",
+  "case": "matched cases separate policy, context, concurrency and cache changes, and include failure and repair cost",
+  "targets": [
+    "lib/eval-metrics.mjs preregister / attributable / checkReport / classifyOutcome / failureRepairCost"
+  ],
+  "scenarios": [
+    {
+      "name": "one change is attributable",
+      "call": "attributable",
+      "input": {
+        "changes": [
+          "concurrency"
+        ]
+      },
+      "expect": {
+        "status": "attributable",
+        "factor": "concurrency"
+      }
+    },
+    {
+      "name": "four changes cannot be credited to parallelism alone",
+      "call": "attributable",
+      "input": {
+        "changes": [
+          "story_policy",
+          "context_packaging",
+          "concurrency",
+          "caching"
+        ]
+      },
+      "expect": {
+        "status": "not_attributable"
+      }
+    },
+    {
+      "name": "an unknown factor is invalid",
+      "call": "attributable",
+      "input": {
+        "changes": [
+          "vibes"
+        ]
+      },
+      "expect": {
+        "status": "invalid"
+      }
+    },
+    {
+      "name": "a valid pre-registration gets a digest",
+      "call": "preregister",
+      "input": {
+        "id": "pr1",
+        "cases": [
+          "c01-general-launch",
+          "c02-single-feature"
+        ],
+        "comparisons": [
+          {
+            "id": "cmp1",
+            "changes": [
+              "caching"
+            ]
+          }
+        ],
+        "criteria": {
+          "quality": "blind human review of matched sheets"
+        },
+        "budget": {
+          "max_runs": 8
+        }
+      },
+      "expect": {
+        "ok": true,
+        "has_digest": true
+      }
+    },
+    {
+      "name": "a comparison that changes two factors is refused",
+      "call": "preregister",
+      "input": {
+        "id": "pr1",
+        "cases": [
+          "c01-general-launch",
+          "c02-single-feature"
+        ],
+        "comparisons": [
+          {
+            "id": "cmp1",
+            "changes": [
+              "caching",
+              "concurrency"
+            ]
+          }
+        ],
+        "criteria": {
+          "quality": "blind human review of matched sheets"
+        },
+        "budget": {
+          "max_runs": 8
+        }
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~more than one factor"
+      }
+    },
+    {
+      "name": "runs beyond the approved budget are refused (no silent factorial)",
+      "call": "preregister",
+      "input": {
+        "id": "pr1",
+        "cases": [
+          "c01-general-launch",
+          "c02-single-feature"
+        ],
+        "comparisons": [
+          {
+            "id": "cmp1",
+            "changes": [
+              "caching"
+            ]
+          }
+        ],
+        "criteria": {
+          "quality": "blind human review of matched sheets"
+        },
+        "budget": {
+          "max_runs": 2
+        }
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~exceeds"
+      }
+    },
+    {
+      "name": "a percentage target needs an actual baseline",
+      "call": "preregister",
+      "input": {
+        "id": "pr1",
+        "cases": [
+          "c01-general-launch",
+          "c02-single-feature"
+        ],
+        "comparisons": [
+          {
+            "id": "cmp1",
+            "changes": [
+              "caching"
+            ]
+          }
+        ],
+        "criteria": {
+          "quality": "x",
+          "target": "30% faster"
+        },
+        "budget": {
+          "max_runs": 8
+        }
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~numerical target"
+      }
+    },
+    {
+      "name": "criteria must be declared before running",
+      "call": "preregister",
+      "input": {
+        "id": "pr1",
+        "cases": [
+          "c01-general-launch",
+          "c02-single-feature"
+        ],
+        "comparisons": [
+          {
+            "id": "cmp1",
+            "changes": [
+              "caching"
+            ]
+          }
+        ],
+        "criteria": {},
+        "budget": {
+          "max_runs": 8
+        }
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~criteria"
+      }
+    },
+    {
+      "name": "a report that silently drops a planned comparison is refused",
+      "call": "checkReport",
+      "input": {
+        "prereg": {
+          "digest": "d",
+          "comparisons": [
+            {
+              "id": "cmp1"
+            },
+            {
+              "id": "cmp2"
+            }
+          ]
+        },
+        "report": {
+          "prereg_digest": "d",
+          "results": [
+            {
+              "comparison": "cmp1"
+            }
+          ],
+          "not_run": []
+        }
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~neither reported nor listed"
+      }
+    },
+    {
+      "name": "listing it as not_run is honest",
+      "call": "checkReport",
+      "input": {
+        "prereg": {
+          "digest": "d",
+          "comparisons": [
+            {
+              "id": "cmp1"
+            },
+            {
+              "id": "cmp2"
+            }
+          ]
+        },
+        "report": {
+          "prereg_digest": "d",
+          "results": [
+            {
+              "comparison": "cmp1"
+            }
+          ],
+          "not_run": [
+            "cmp2"
+          ]
+        }
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "name": "an unplanned comparison is refused",
+      "call": "checkReport",
+      "input": {
+        "prereg": {
+          "digest": "d",
+          "comparisons": [
+            {
+              "id": "cmp1"
+            }
+          ]
+        },
+        "report": {
+          "prereg_digest": "d",
+          "results": [
+            {
+              "comparison": "cmp1"
+            },
+            {
+              "comparison": "cmp9"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~unplanned"
+      }
+    },
+    {
+      "name": "a percentage without a baseline is refused",
+      "call": "checkReport",
+      "input": {
+        "prereg": {
+          "digest": "d",
+          "comparisons": [
+            {
+              "id": "cmp1"
+            }
+          ]
+        },
+        "report": {
+          "prereg_digest": "d",
+          "results": [
+            {
+              "comparison": "cmp1"
+            }
+          ],
+          "summary": "40% faster"
+        }
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~percentage"
+      }
+    },
+    {
+      "name": "not run",
+      "call": "classifyOutcome",
+      "input": {
+        "ran": false
+      },
+      "expect": {
+        "class": "not_run"
+      }
+    },
+    {
+      "name": "invalid evidence",
+      "call": "classifyOutcome",
+      "input": {
+        "ran": true,
+        "evidence_valid": false
+      },
+      "expect": {
+        "class": "invalid_evidence"
+      }
+    },
+    {
+      "name": "grader failure is not a production failure",
+      "call": "classifyOutcome",
+      "input": {
+        "ran": true,
+        "grader_ok": false
+      },
+      "expect": {
+        "class": "grader_failure"
+      }
+    },
+    {
+      "name": "production failure",
+      "call": "classifyOutcome",
+      "input": {
+        "ran": true,
+        "produced": false
+      },
+      "expect": {
+        "class": "production_failure"
+      }
+    },
+    {
+      "name": "failure and repair cost are counted",
+      "call": "failureRepairCost",
+      "input": {
+        "rows": [
+          {
+            "outcome": "ok",
+            "purpose": "selected",
+            "counters": {
+              "output": 100
+            }
+          },
+          {
+            "outcome": "failed",
+            "purpose": "retry",
+            "counters": {
+              "output": 40
+            }
+          },
+          {
+            "outcome": "ok",
+            "purpose": "repair",
+            "counters": {
+              "output": 60
+            }
+          }
+        ],
+        "repairs": [
+          {
+            "elapsed_s": 30
+          },
+          {
+            "elapsed_s": 45
+          }
+        ]
+      },
+      "expect": {
+        "n": 2,
+        "failed": 1,
+        "output": 100,
+        "repair_time_s": 75,
+        "repairs": 2
+      }
+    }
+  ]
+}

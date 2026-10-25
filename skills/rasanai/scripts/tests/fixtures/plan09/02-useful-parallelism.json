@@ -1,0 +1,50 @@
+{
+  "id": "plan09/P02",
+  "title": "Useful parallelism: continuity groups, boundary contracts, a sting is one builder, workers grow only with evidence",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised, the input and the expected outcome; authored, not run. No number here is a measurement of real rendering, latency, memory or cost.",
+  "calls": [
+    {
+      "fn": "graph.partitionScenes",
+      "case": "5 scenes: s1-s2 joined by a morph seam, s3 independent behind a hard cut, s4-s5 share a character component across a hard cut"
+    },
+    {
+      "fn": "graph.partitionScenes",
+      "case": "a link of type deliberate_discontinuity between s2 and s3"
+    },
+    {
+      "fn": "graph.partitionScenes",
+      "case": "a boundary between groups with a link of type same_object and no boundary contract"
+    },
+    {
+      "fn": "graph.chooseWorkers",
+      "case": "policy build_workers.start 3, 6 ready independent scene groups, usage known, no observations"
+    },
+    {
+      "fn": "graph.chooseWorkers",
+      "case": "the same with observations: tput(3)=2.0/min, tput(2)=1.5/min, queue wait 20 s"
+    },
+    {
+      "fn": "graph.chooseWorkers",
+      "case": "the same but queue wait 300 s"
+    },
+    {
+      "fn": "graph.chooseWorkers",
+      "case": "a 12 s film with 2 scenes; and a direct film"
+    },
+    {
+      "fn": "graph.chooseWorkers",
+      "case": "usage unreported (usage_known false) and provider throttled"
+    }
+  ],
+  "expect": [
+    "groups are [s1,s2], [s3], [s4,s5] with reasons naming the morph seam and the persistent character; the hard cut between s2 and s3 is a low-coupling boundary needing only start_end_time",
+    "a deliberate discontinuity never joins scenes",
+    "the cross-group boundary reports status needs_contract and missing lists the fields the lead (shared components owner) must write: semantic_objects, positions_units, camera_crop, scale, color_treatment, velocity_transform",
+    "without observations workers = min(start, ready) = 3, never 6 or 8-12",
+    "with a >=15% throughput gain and a short queue wait the count grows by one; with no gain it stays put",
+    "a long heavy-resource queue wait shrinks the count by one",
+    "a sting or a direct film is one builder with the reason stated",
+    "unknown usage caps at 2 and a throttled provider drops one more; every decision lists reasons and basis proposed"
+  ]
+}

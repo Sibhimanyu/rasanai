@@ -23,6 +23,9 @@ import { launch } from "./cdp.mjs";
 import { decodePng, colourShares, layoutSimilarity } from "./png.mjs";
 import crypto from "node:crypto";
 import { hasGrammarLibrary, validateGrammar } from "./grammar-lib.mjs";
+import { lookCard, lookDifferences, LOOK_AXES } from "./look.mjs";
+import { compileVisualBible, validateVisualBible } from "./visual-bible.mjs";
+import { validatePrinciple } from "./ref-principles.mjs";
 
 export const LABELS = ["Sure", "Bold", "Wild"];
 const readJ = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) { return e && e.name === "SyntaxError" ? undefined : null; } };
@@ -290,6 +293,10 @@ export function checkSystem(dir, opts = {}) {
     if (!String(r.why || "").trim()) P.push(`blend reference "${r.id}" needs a why (why it belongs in this system)`);
   }
   if (!Array.isArray(bl.subject_world) || !bl.subject_world.length) P.push("blend.json needs subject_world: what from the subject's own visual world is in the system");
+  // Plan 04 L7/L4: how this look differs (axes) and what each reference taught (principles). Both optional: a legacy blend still passes.
+  if (bl.axes && typeof bl.axes === "object") { info.axes = bl.axes; for (const k of LOOK_AXES) if (!String(bl.axes[k] || "").trim()) W.push(`blend.axes.${k} is empty: say how this look differs in ${k.replace("_", " ")}`); }
+  else W.push(`blend.json has no "axes" { ${LOOK_AXES.join(", ")} }: a look is told apart by hierarchy, density, material, framing and motion character, not by colour alone`);
+  for (const pr of Array.isArray(bl.principles) ? bl.principles : []) { const v = validatePrinciple(pr); for (const m of v.problems) W.push(`blend principle ${(pr && pr.id) || "?"}: ${m}`); }
   // taxonomy picks, so DIRECTION.md compiles from this system
   const stack = bl.stack || {};
   if (!stack["visual-style"] || !stack["motion-language"]) P.push('blend.json needs stack: { "visual-style": [<term id>], "motion-language": "<term id>" } (taxonomy ids: taxonomy.mjs show visual-style / motion-language)');
@@ -502,6 +509,9 @@ export async function checkSystems(dirs, opts = {}) {
   // three looks, three different motion grammars
   const gids = dirs.map((d) => { const r = readJ(path.join(d, "grammar.json")); return r && r.id ? String(r.id) : null; });
   for (let i = 0; i < gids.length; i++) for (let j = i + 1; j < gids.length; j++) if (gids[i] && gids[i] === gids[j]) P.push(`grammar-repeat: ${path.basename(dirs[i])} and ${path.basename(dirs[j])} both use the grammar "${gids[i]}": the three looks use three different grammars`);
+  // Plan 04 L7: three looks that differ only in colour are not three art directions (checked only when the looks state their axes)
+  const lx = lookDifferences(rows.filter((r) => r.info && r.info.axes).map((r) => ({ label: r.info.label, axes: r.info.axes })));
+  for (const [a, b] of lx.color_swap_pairs) P.push(`look-axes-repeat: ${a} and ${b} differ on fewer than 3 of hierarchy, density, material, framing and motion character: that is a recolour, not a second art direction`);
   // each system pitches itself: the one line and the why the console shows must be its own
   const pitch = dirs.map((d) => { const b = loadSystem(d).blend || {}; return ["one_line", "why_for_story"].map((k) => String(b[k] || "").trim().toLowerCase()).filter(Boolean); });
   for (let i = 0; i < pitch.length; i++) for (let j = i + 1; j < pitch.length; j++) {
@@ -536,10 +546,42 @@ export function lookPayload(run, { labels = LABELS, recommended, hook, sub, bran
       // the system drawn by its own page (a sandboxed iframe in the console, specimen.png as its poster); the recipe is the fallback
       ...(exists(path.join(dir, "specimen.html")) ? { specimen: path.relative(process.cwd(), path.join(dir, "specimen.html")), ...(exists(path.join(dir, "specimen.png")) ? { poster: path.relative(process.cwd(), path.join(dir, "specimen.png")) } : {}) } : {}),
       // the system shown by its 3 hero styleframes of this story (references/styleframes.md: the styleframe designer, key heroes-<Label>)
-      ...(() => { const fr = ["open", "peak", "end"].map((k) => ({ id: k, image: path.join(dir, "frames", `${k}.png`) })).filter((f) => exists(f.image)).map((f) => ({ id: f.id, image: path.relative(process.cwd(), f.image) })); return fr.length ? { frames: fr } : {}; })(),
+      ...(() => { const fr = ["representative", "second", "open", "peak", "end"].map((k) => ({ id: k, image: path.join(dir, "frames", `${k}.png`) })).filter((f) => exists(f.image)).map((f) => ({ id: f.id, role: f.id === "representative" || f.id === "second" ? f.id : "legacy", image: path.relative(process.cwd(), f.image) })); return fr.length ? { frames: fr } : {}; })(),
     });
   }
+  // Plan 04 L6: each style carries a short native card (consequential differences up front, detail collapsed)
+  const axesOf = (label) => { const b = (loadSystem(path.join(run, "design", label)).blend) || {}; return b.axes && typeof b.axes === "object" ? b.axes : null; };
+  for (const st of styles) {
+    const others = styles.filter((o) => o !== st).map((o) => axesOf(o.label)).filter(Boolean);
+    st.axes = axesOf(st.label) || undefined;
+    st.card = lookCard({ style: st, axes: st.axes, others, brand: brand && brand.locked ? brand : null });
+  }
   return { styles, recommended: recommended ? String(recommended).toLowerCase() : styles[0] && styles[0].id, hook: hook || "", sub: sub || "", brand: brand || undefined };
+}
+
+// Plan 04 L2: compile <run>/look/visual-bible.json from the chosen look (and the brand, locale, destination the run knows). Never throws on a legacy look.
+export function visualBibleInputs(run, { label, dir, blend, recipe, decisions, mode } = {}) {
+  const D = decisions || readJ(path.join(run, "decisions.json")) || {};
+  const out = path.join(run, "look");
+  const sys = dir || path.join(run, "design", label || (D.look && D.look.system) || "");
+  const brandMd = D.use_brand === false || !D.brand ? null : path.resolve(String(D.brand));
+  const brief = readJ(path.join(run, "brief.json")) || {};
+  const assets = brandMd ? readJ(path.join(path.dirname(brandMd), "assets", "brand-assets.json")) || readJ(path.join(run, "research", "brand", "assets", "brand-assets.json")) : null;
+  return {
+    designMdFile: path.join(out, "DESIGN.md"), blend: blend || readJ(path.join(sys, "blend.json")) || {}, recipe: recipe || readJ(path.join(sys, "recipe.json")) || {},
+    grammar: readJ(path.join(out, "grammar.json")) || null, brandMdFile: brandMd && exists(brandMd) ? brandMd : null, brandAssets: assets, brandLock: !!brandMd,
+    destination: brief.destination || D.destination || null, aspect: brief.aspect || D.aspect || null, locale: brief.locale || brief.language || D.locale || null, label: label || (D.look && D.look.system) || null, mode,
+    series: D.series_look ? { name: D.series_name || "", defaults: { look: D.series_look } } : null,
+  };
+}
+export function writeVisualBible(run, opts = {}) {
+  const out = path.join(run, "look");
+  const bible = compileVisualBible(visualBibleInputs(run, opts));
+  const v = validateVisualBible(bible);
+  bible.validation = { ok: v.ok, problems: v.problems, warnings: v.warnings };
+  fs.mkdirSync(out, { recursive: true });
+  fs.writeFileSync(path.join(out, "visual-bible.json"), JSON.stringify(bible, null, 2) + "\n");
+  return { problems: v.problems, source_digest: bible.source.source_digest, bible };
 }
 
 // ---------------------------------------------------------------- choose: the system becomes the film's look
@@ -569,7 +611,10 @@ export function chooseSystem(run, label, decisionsFile, { mode, preset } = {}) {
   if (preset) D.look.preset = String(preset);
   delete D.style_preset;
   fs.writeFileSync(dp, JSON.stringify(D, null, 2) + "\n");
-  return { ok: true, system: D.look.name, label, frame: D.look.frame, design_md: D.look.design_md, picks: D.picks, motion_contract: D.design_system.motion_contract };
+  // Plan 04 L2: the compact visual bible (a projection of DESIGN.md + the motion contract, with a source digest) travels with the look
+  let bible = null;
+  try { bible = writeVisualBible(run, { label, dir, blend: S.blend, recipe: S.recipe, decisions: D, mode }); } catch (e) { bible = { error: e.message }; }
+  return { ok: true, visual_bible: bible && !bible.error ? { file: rel(path.join(out, "visual-bible.json")), problems: bible.problems, source_digest: bible.source_digest } : bible, system: D.look.name, label, frame: D.look.frame, design_md: D.look.design_md, picks: D.picks, motion_contract: D.design_system.motion_contract };
 }
 
 // the bespoke system's own words for DIRECTION.md (compiled after the picks)

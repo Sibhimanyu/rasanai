@@ -1,0 +1,5 @@
+{"case":"F02","status":"authored_not_run","_label":"SYNTHETIC EXAMPLE. Invented data to describe expected behaviour. Authored, not run; certifies nothing about current capabilities.","title":"changing an approved Story or Look version invalidates only genuinely dependent approvals",
+"calls":["impact","dependsOn","descendants","approvalRecord","approvalCurrent"],
+"input":{"approvals":[{"stage":"brief","v":1},{"stage":"story","v":2},{"stage":"look","v":1},{"stage":"storyboard","v":1,"built_on":{"story":2,"look":1}},{"stage":"final","v":1}],
+"changes":[{"stage":"story","new_version":3},{"stage":"look","new_version":2},{"stage":"story","edit":"wording-only metadata not in any digest"}]},
+"expect":{"story_v3":{"invalidated":["storyboard","final"],"kept":["brief","look"]},"look_v2":{"invalidated":["storyboard","final"],"kept":["brief","story"]},"unrelated_edit":{"invalidated":[],"note":"digest unchanged, nothing invalidated"},"never_invalidated":"approvals upstream of or independent from the change"}}

@@ -1,0 +1,83 @@
+{
+  "case": "A04",
+  "title": "narration bound to approved copy, confirmed pronunciations, transcript check with uncertainty, no default cloning",
+  "calls": [
+    "bindToCopy",
+    "validateGlossary",
+    "applyGlossary",
+    "transcriptCheck",
+    "voiceAuthorization"
+  ],
+  "approved_copy": [
+    {
+      "id": "c1",
+      "text": "Meet Rasan AI."
+    },
+    {
+      "id": "c2",
+      "text": "Make a whole film from one sentence."
+    }
+  ],
+  "lines": [
+    {
+      "n": 1,
+      "text": "Meet Rasan AI.",
+      "copy_ref": "c1"
+    },
+    {
+      "n": 2,
+      "text": "Make an entire film from one sentence.",
+      "copy_ref": "c2"
+    },
+    {
+      "n": 3,
+      "text": "Brand new line nobody approved."
+    }
+  ],
+  "glossary": {
+    "entries": [
+      {
+        "term": "Rasan",
+        "spoken": "Rah-sahn",
+        "confirmed_by": "user",
+        "locale": "en"
+      },
+      {
+        "term": "AI",
+        "spoken": "A. I.",
+        "confirmed_by": "suggestion"
+      }
+    ]
+  },
+  "heard": [
+    "Meet Raisin AI.",
+    "Make an entire film from one sentence.",
+    "Brand new line nobody approved."
+  ],
+  "voices": {
+    "stock": {
+      "id": "v1",
+      "kind": "stock"
+    },
+    "cloned_unauthorized": {
+      "id": "mine",
+      "kind": "cloned"
+    },
+    "cloned_authorized": {
+      "id": "mine",
+      "kind": "cloned",
+      "authorization": {
+        "by": "Sibhi",
+        "ref": "consent-2026-10-02",
+        "scope": "RasanAI films"
+      }
+    }
+  },
+  "expect": {
+    "binding": "line 1 bound; line 2 diverged (message names the approved text); line 3 not_approved_copy; ok false",
+    "glossary": "'Rasan' is applied only because the user confirmed it ('Meet Rah-sahn AI.'); 'AI' is returned in proposed_unconfirmed and NOT applied",
+    "transcript": "status checked, uncertain true; the basis names the transcriber and says its own errors look like narration errors; line 1 reports 'Rasan' may have been heard as 'Raisin' and names[Rasan].status not_heard_as_written (a prompt to listen, not a verdict)",
+    "no_transcript": "transcriptCheck with heard [] -> status unchecked (not a pass)",
+    "cloning": "cloned_unauthorized -> ok false with an error; cloned_authorized -> ok true; stock -> ok true"
+  }
+}

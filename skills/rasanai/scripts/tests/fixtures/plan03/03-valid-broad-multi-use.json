@@ -1,0 +1,173 @@
+{
+  "_label": "SYNTHETIC EXAMPLE. Invented to exercise the story code. NOT a recording, a certification of any product's capabilities, or a claim source. Never reuse as a captured result in a real film.",
+  "_note": "authored, not run. A broad product introduction with several different uses and a plain 'Meet X' opening; a benefit a competitor could share is fine. Must ship.",
+  "context": {
+    "kind": "whole-product-introduction",
+    "duration_s": 30,
+    "evidence_file": "evidence-synthetic.json"
+  },
+  "treatment": {
+    "story_format": "v2",
+    "id": "t-broad",
+    "tag": "Sure",
+    "treatment_title": "Four everyday jobs, one assistant",
+    "premise": "representative breadth: several different real uses build one promise",
+    "logline": "Notes become an invitation, a messy list becomes a week, a document becomes five lines.",
+    "communication_kind": "whole-product-introduction",
+    "proposition": "One assistant helps with the small jobs that fill a day.",
+    "viewer_takeaway": "I can hand it many kinds of small job.",
+    "perspective": "a person with a mixed to-do list",
+    "takeaways": [
+      {
+        "id": "t1",
+        "text": "it drafts from rough notes",
+        "required": true
+      },
+      {
+        "id": "t2",
+        "text": "it organises a messy list",
+        "required": true
+      },
+      {
+        "id": "t3",
+        "text": "it summarises long text",
+        "required": true
+      }
+    ],
+    "optional_tools": [
+      {
+        "tool": "introducing_opening",
+        "purpose": "the viewer needs the name before the uses"
+      }
+    ],
+    "beats": [
+      {
+        "id": "beat-intro",
+        "internal_beat_label": "Introducing",
+        "grammar_role": "proposition",
+        "viewer_takeaway": "Meet the assistant that handles small jobs.",
+        "on_screen": "Meet the assistant.",
+        "voiceover": null,
+        "visual_event": {
+          "before": "a plain screen with a cursor",
+          "change": "the assistant's input box opens",
+          "after": "an empty input box ready for a request"
+        },
+        "evidence_refs": [],
+        "relation_to_previous": "open",
+        "duration_provisional_s": 4,
+        "channel_role": {
+          "mode": "screen-only",
+          "reason": ""
+        }
+      },
+      {
+        "id": "beat-draft",
+        "internal_beat_label": "Draft use",
+        "grammar_role": "demonstration",
+        "viewer_takeaway": "It drafts an invitation from rough notes.",
+        "on_screen": "Turn these notes into an invitation.",
+        "voiceover": null,
+        "visual_event": {
+          "before": "three rough event notes",
+          "change": "the request produces an invitation draft",
+          "after": "a short, usable invitation"
+        },
+        "evidence_refs": [
+          "syn-w"
+        ],
+        "relation_to_previous": "example",
+        "duration_provisional_s": 7,
+        "channel_role": {
+          "mode": "screen-only",
+          "reason": ""
+        }
+      },
+      {
+        "id": "beat-plan",
+        "internal_beat_label": "Plan use",
+        "grammar_role": "demonstration",
+        "viewer_takeaway": "It lays out a week from a messy list.",
+        "on_screen": "Make this list a week.",
+        "voiceover": null,
+        "visual_event": {
+          "before": "a messy list of tasks",
+          "change": "the request sorts the tasks into days",
+          "after": "a week with each task on a day"
+        },
+        "evidence_refs": [
+          "syn-p"
+        ],
+        "relation_to_previous": "example",
+        "duration_provisional_s": 7,
+        "channel_role": {
+          "mode": "screen-only",
+          "reason": ""
+        }
+      },
+      {
+        "id": "beat-sum",
+        "internal_beat_label": "Summary use",
+        "grammar_role": "demonstration",
+        "viewer_takeaway": "It summarises a pasted document in five lines.",
+        "on_screen": "Five lines, please.",
+        "voiceover": null,
+        "visual_event": {
+          "before": "a long pasted document",
+          "change": "the request returns five lines",
+          "after": "five readable lines"
+        },
+        "evidence_refs": [
+          "syn-s"
+        ],
+        "relation_to_previous": "example",
+        "duration_provisional_s": 7,
+        "channel_role": {
+          "mode": "screen-only",
+          "reason": ""
+        }
+      },
+      {
+        "id": "beat-invite",
+        "internal_beat_label": "Invitation",
+        "grammar_role": "invitation",
+        "viewer_takeaway": "You can start with any small job today.",
+        "on_screen": "Start with a small job.",
+        "voiceover": null,
+        "visual_event": {
+          "before": "the three finished results side by side",
+          "change": "the input box returns, empty",
+          "after": "an empty input box inviting the next request"
+        },
+        "evidence_refs": [],
+        "relation_to_previous": "so",
+        "duration_provisional_s": 5,
+        "channel_role": {
+          "mode": "screen-only",
+          "reason": ""
+        }
+      }
+    ],
+    "coverage": {
+      "ledger": [
+        {
+          "takeaway_id": "t1",
+          "beat_id": "beat-draft"
+        },
+        {
+          "takeaway_id": "t2",
+          "beat_id": "beat-plan"
+        },
+        {
+          "takeaway_id": "t3",
+          "beat_id": "beat-sum"
+        }
+      ],
+      "excluded": []
+    }
+  },
+  "expected": {
+    "verdict": "ship",
+    "notes": "three distinct pieces of evidence satisfy a broad promise"
+  }
+}

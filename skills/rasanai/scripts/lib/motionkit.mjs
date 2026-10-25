@@ -3,6 +3,7 @@
 // compositions that call it.
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { SKILL_DIR, readFrontmatterDoc } from "./common.mjs";
 
 export const RUNTIME_FILE = path.join(SKILL_DIR, "runtime", "rasan-motion.js");
@@ -20,8 +21,25 @@ export function contractOf(project) {
   } catch { return null; }
 }
 
+// Plan 06 V8: a film with motion/pins.json is pinned to the runtime it was approved on. A newer skill runtime does not silently replace the installed copy mid-build:
+// the install keeps what is there and says a migration is needed (production.mjs pins check / migrate records it with its impact).
+function pinnedRuntime(root) {
+  try {
+    const pins = JSON.parse(fs.readFileSync(path.join(root, "motion", "pins.json"), "utf8")), pin = pins.runtimes && pins.runtimes["rasan-motion"];
+    if (!pin || !pin.source_sha256) return null;
+    const cur = crypto.createHash("sha256").update(fs.readFileSync(RUNTIME_FILE, "utf8")).digest("hex");
+    return cur === pin.source_sha256 ? null : { pinned_version: pin.version, available_version: runtimeVersion() };
+  } catch { return null; }
+}
 export function install(root) {
   const dst = path.join(root, "assets", "rasan-motion");
+  const held = fs.existsSync(path.join(dst, "rasan-motion.js")) ? pinnedRuntime(root) : null;
+  if (held) { // keep the pinned runtime bytes; only the project's own motion.md contract block is refreshed
+    const f = path.join(dst, "rasan-motion.js"), cur = fs.readFileSync(f, "utf8"), marker = "\n/* the project's motion.md, installed by motionkit.mjs */\n", i = cur.indexOf(marker), c = contractOf(root);
+    const body = (i >= 0 ? cur.slice(0, i) : cur) + (c ? `${marker}RasanMotion.contract(${JSON.stringify(c)});\n` : "");
+    const updated = body !== cur; if (updated) fs.writeFileSync(f, body);
+    return { dir: dst, version: held.pinned_version, updated, pinned: true, migration_needed: held, contract: !!c, scripts: ["assets/rasan-motion/rasan-motion.js"] };
+  }
   fs.mkdirSync(dst, { recursive: true });
   const c = contractOf(root);
   const body = fs.readFileSync(RUNTIME_FILE, "utf8") + (c ? `\n/* the project's motion.md, installed by motionkit.mjs */\nRasanMotion.contract(${JSON.stringify(c)});\n` : "");

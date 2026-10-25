@@ -1,0 +1,84 @@
+{
+  "plan": "12",
+  "status": "implemented_unvalidated",
+  "note": "authored, not run; execution waits for explicitly approved Plan 14. All fixtures are synthetic (fake keys, paths and names). No encode, localization trial, editor import or OTIO install is part of authoring. Editors needing a manual round trip are listed in 09-editor-compatibility.json.",
+  "cases": [
+    {
+      "id": "plan12/D01",
+      "name": "profile provenance and no silent profile migration",
+      "fixtures": [
+        "01-profile-provenance.json"
+      ]
+    },
+    {
+      "id": "plan12/D02",
+      "name": "aspect adaptation without centre-crop; placement intent",
+      "fixtures": [
+        "02-aspect-adaptation.json"
+      ]
+    },
+    {
+      "id": "plan12/D03",
+      "name": "variant semantics, approvals and invalidation",
+      "fixtures": [
+        "03-variant-semantics.json"
+      ]
+    },
+    {
+      "id": "plan12/D04",
+      "name": "locale layout, shaping, fonts, mirroring, voice timings",
+      "fixtures": [
+        "04-locale-layout.json"
+      ]
+    },
+    {
+      "id": "plan12/D05",
+      "name": "caption timing, escaping and retiming",
+      "fixtures": [
+        "05-caption-timing.json"
+      ]
+    },
+    {
+      "id": "plan12/D06",
+      "name": "accessible alternatives and checks",
+      "fixtures": [
+        "06-accessible-alternatives.json"
+      ]
+    },
+    {
+      "id": "plan12/D07",
+      "name": "safe atomic export package",
+      "fixtures": [
+        "07-safe-export-package.json"
+      ]
+    },
+    {
+      "id": "plan12/D08",
+      "name": "OTIO relinking and handles",
+      "fixtures": [
+        "08-otio-relinking.json"
+      ]
+    },
+    {
+      "id": "plan12/D09",
+      "name": "editor compatibility and capability states",
+      "fixtures": [
+        "09-editor-compatibility.json"
+      ]
+    },
+    {
+      "id": "plan12/D10",
+      "name": "export dependency closure and editability labels",
+      "fixtures": [
+        "10-export-dependency-closure.json"
+      ]
+    },
+    {
+      "id": "plan12/D11",
+      "name": "interchange loss report",
+      "fixtures": [
+        "11-interchange-loss-report.json"
+      ]
+    }
+  ]
+}

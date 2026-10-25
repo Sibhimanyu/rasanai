@@ -58,7 +58,12 @@ import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { requireApproval, commandOf } from "./lib/test-approval.mjs";
+
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+// Plan 13 testing approval gate: refuse at the very start, before any temp folder, server, render or model, unless the user has approved exactly this command for this candidate
+// (docs/plans/AWAITING_TEST_APPROVAL.md). Runs the whole suite, so it needs unit + integration + render kinds approved.
+requireApproval({ kinds: ["unit", "integration", "render"], command: commandOf(import.meta.url) });
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "rasa-selftest-"));
 // no grammar library by default (back-compat: looks and scores ask nothing of a grammar); section 22 and the design desk's grammar block point at fixtures
 const env = { ...process.env, RASANAI_HOME: path.join(TMP, "home"), RASANAI_MODEL: "claude-opus-5-5", RASANAI_GRAMMAR_LIBRARY: path.join(TMP, "no-grammars") };

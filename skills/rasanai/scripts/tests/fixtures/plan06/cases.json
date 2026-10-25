@@ -1,0 +1,78 @@
+{
+  "plan": 6,
+  "note": "Authored fixtures, not run. Each file lists the functions it exercises (calls), inputs and the expected result. Synthetic: they never certify current capabilities, and the fake provider never counts as a real generation. Tokens like $CANON_DIGEST:<key> are resolved by the future runner from the named identity file. Plan 14 runs the real clips, scenes and (when approved) a configured provider.",
+  "cases": [
+    {
+      "id": "plan06/V01",
+      "file": "01-seek-order.json",
+      "title": "Seek order and cold start give the same frames; wall clock and unseeded random are errors",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan06/V02",
+      "file": "02-offline-render.json",
+      "title": "A render needs no network; fonts and assets are awaited; remote assets are errors",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan06/V03",
+      "file": "03-generated-plate-provenance.json",
+      "title": "An accepted generated plate is an immutable asset with full provenance",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan06/V04",
+      "file": "04-provider-uncertainty.json",
+      "title": "A timeout is unknown_outcome; the same job is queried; consent for hosted inputs; cancel is local to the job",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan06/V05",
+      "file": "05-bbox-vs-quad-vs-mask.json",
+      "title": "A bounding box is not a perspective track and not a silhouette",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan06/V06",
+      "file": "06-screen-replacement.json",
+      "title": "Planar quad track bound to its source, correction keyframes, swapped corners rejected",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan06/V07",
+      "file": "07-occlusion-and-lost-track.json",
+      "title": "Low-confidence spans, a lost track and a scene cut are exposed with fallbacks; text behind a person needs a mask",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan06/V08",
+      "file": "08-character-canon.json",
+      "title": "A recurring actor keeps identity, proportions, materials and rig across scenes; honest actor labels",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan06/V09",
+      "file": "09-optional-capability-absent.json",
+      "title": "With nothing optional installed, every optional capability is visibly unavailable and none is drawn as ready",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan06/V10",
+      "file": "10-regeneration-preserves-edits.json",
+      "title": "User edits survive a rebuild through stable ids; a missing id is a conflict",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan06/V11",
+      "file": "11-readiness-and-pinned-dependencies.json",
+      "title": "Readiness needs evidence; pins hold an approved film steady; an update is a migration with an impact",
+      "status": "authored_not_run"
+    },
+    {
+      "id": "plan06/V12",
+      "file": "12-untrusted-examples-and-lip-sync.json",
+      "title": "An outside scene example is untrusted data; lip-sync is measured, not claimed",
+      "status": "authored_not_run"
+    }
+  ]
+}

@@ -169,3 +169,30 @@ export function dispatchFor(profile, { desc, file, role, tier }) {
   }
   return `Run a fresh agent session with the prompt: "${msg}"  (${desc}); if you can't, do it yourself in sequence (--lean)`;
 }
+
+// ---------------------------------------------------------------- allocation by task (Plan 08 K6)
+// Builds on tierFor: it never names a model id of its own (the session's profile and FAST_ALIAS are the only sources), respects the person's
+// choice (policy.resources.model.choice or RASANAI_MODEL/--model), and never lowers story or visual-direction work below its `min`.
+// A failed bounded task gets a FOCUSED REPAIR packet first; escalation (a fast model -> the session's model) happens only when the person has not
+// pinned a model, and its reason is returned for the ledger so Plan 14 can see whether it helped.
+const BOOKKEEPING = new Set(["footage-logger", "retrospective", "ab-juror", "move-sketcher", "brand-kit-builder"]);
+const DIRECTION = new Set(["treatment-writer", "script-writer", "visual-writer", "footage-writer", "film-builder", "motion-director", "scene-animator", "design-system-designer", "styleframe-designer", "frame-designer", "art-director", "move-inventor", "critic"]);
+export function allocate({ role, profile, policy = null, attempt = 1, failed = null } = {}) {
+  const p = profile || profileFor("unknown");
+  const T = tierFor(role, p);
+  const pinned = !!(policy && policy.resources && policy.resources.model && policy.resources.model.choice);
+  const out = {
+    role, profile: p.key || p.id || null, tier: p.tier, model: T.model, fast: T.fast, effort: T.effort,
+    reasoning: BOOKKEEPING.has(role) ? "minimal" : DIRECTION.has(role) ? "full" : "standard",
+    silent_downgrade: false, pinned_by_user: pinned, escalation: null, repair: null, notes: [],
+  };
+  if (BOOKKEEPING.has(role) && out.effort) out.effort = "low"; // no maximum effort for deterministic bookkeeping
+  if (!T.ok) out.notes.push(T.note); // the session's model is below this role's floor: say so, never pretend
+  if (DIRECTION.has(role) && (T.fast || p.tier === "fast")) { out.fast = false; out.model = null; out.notes.push("story and visual-direction work is not given to a fast model to hit a cost target"); }
+  if (failed && attempt > 1) {
+    out.repair = { packet: "focused", scope: "the failing findings only", rerun_full_crew: false };
+    if (!pinned && T.fast) { out.fast = false; out.model = null; out.escalation = { from: "fast", to: "session model", reason: String(failed.reason || failed).slice(0, 200), attempt, record: "ledger event escalate: compare the repaired result with the first attempt in Plan 14" }; }
+    else if (pinned) out.notes.push("the person pinned a model: repair is retried on it, not escalated");
+  }
+  return out;
+}

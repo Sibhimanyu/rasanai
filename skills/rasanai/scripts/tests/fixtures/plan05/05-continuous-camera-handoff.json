@@ -1,0 +1,78 @@
+{
+  "case": "E05",
+  "title": "one object carried across a cut: a handoff is allowed only when it is true",
+  "calls": [
+    "evaluateSeam"
+  ],
+  "a": {
+    "shot_id": "shot-card-01",
+    "beat_id": "beat-card",
+    "purpose": "",
+    "panels": [
+      {
+        "id": "p1",
+        "state": "card at left",
+        "image_ref": "x"
+      }
+    ],
+    "copy_refs": [],
+    "focal_read": "the card",
+    "timing": {
+      "status": "provisional",
+      "duration_s": 4
+    },
+    "transition_out": {
+      "relation": "example",
+      "kind": "cut",
+      "carrier": null
+    },
+    "sound_intent": {
+      "role": "supportive",
+      "cue_refs": []
+    }
+  },
+  "b": {
+    "shot_id": "shot-card-02",
+    "beat_id": "beat-card-detail",
+    "purpose": "",
+    "panels": [
+      {
+        "id": "p1",
+        "state": "same card, closer",
+        "image_ref": "y"
+      }
+    ],
+    "copy_refs": [],
+    "focal_read": "the card's total",
+    "timing": {
+      "status": "provisional",
+      "duration_s": 4
+    },
+    "transition_out": {
+      "relation": "example",
+      "kind": "cut",
+      "carrier": null
+    },
+    "sound_intent": {
+      "role": "supportive",
+      "cue_refs": []
+    }
+  },
+  "good": {
+    "relation": "scale",
+    "kind": "continuous-camera",
+    "carrier": "the card",
+    "continuity_ref": "look/continuity.json#same_object:card"
+  },
+  "causal_without_cause": {
+    "relation": "cause",
+    "kind": "carry",
+    "carrier": "the receipt"
+  },
+  "expect": {
+    "good_findings": [],
+    "causal_without_cause_finding": "causal-claim",
+    "route": "story",
+    "note": "a travelling object must not imply product causality or synchronization that the evidence does not support"
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan12/D05",
+  "case": "caption phrase grouping, holds, SRT/VTT escaping, non-speech, retiming with the cut",
+  "targets": [
+    "lib/captions.mjs buildCues / addNonSpeech / srtText / vttText / retime / syncCheck / burnInDecision / writeSidecars"
+  ],
+  "checks": [
+    {
+      "name": "phrase grouping",
+      "setup": "words with a 0.9 s pause and a sentence end",
+      "expect": "cue breaks at the pause and the sentence end; lines balanced; units counted in graphemes"
+    },
+    {
+      "name": "no English reading-speed law",
+      "setup": "default policy",
+      "expect": "policy.reading_rate_cps null, source configured_default, needs_validation true; hold is speech span plus padding, never a chars-per-second formula unless the owner configured one"
+    },
+    {
+      "name": "configured rate",
+      "setup": {
+        "reading_rate_cps": 17
+      },
+      "expect": "holds lengthen to fit the configured rate and syncCheck warns above it; the value is recorded as configured"
+    },
+    {
+      "name": "SRT escaping",
+      "setup": "cue text 'a --> b', '<i>x</i> & y', a blank line inside",
+      "expect": "no blank line inside a cue; arrow replaced; < escaped; timestamps use comma, ms never 1000"
+    },
+    {
+      "name": "VTT escaping",
+      "expect": "WEBVTT header, dot timestamps, & < > escaped, cue identifiers have no spaces or arrows"
+    },
+    {
+      "name": "timestamp edge",
+      "setup": "t = 59.9996 and 3599.9996",
+      "expect": "00:01:00,000 and 01:00:00,000 (carry is correct)"
+    },
+    {
+      "name": "non-speech",
+      "setup": "cues.json cue with caption_text 'door slams'; another meaningful without text",
+      "expect": "[door slams] added and trimmed before the next speech cue; the other is listed unlabelled and not guessed"
+    },
+    {
+      "name": "variant cut",
+      "setup": "retime with entries from a 30 s to 18 s cut",
+      "expect": "cues move with the edit; cues in the removed span are dropped and reported; syncCheck flags any cue past the new duration"
+    },
+    {
+      "name": "overlap and gaps",
+      "expect": "syncCheck reports overlapping speech cues and a cue after the film ends"
+    },
+    {
+      "name": "burn-in",
+      "setup": [
+        {
+          "footage_has_captions": true
+        },
+        {
+          "profile.captions.policy": "burned_in_required"
+        },
+        {
+          "none": true
+        }
+      ],
+      "expect": "no burn-in when the footage already shows captions (sidecar still written); burn-in follows the profile when required; otherwise optional"
+    },
+    {
+      "name": "atomic sidecars",
+      "expect": "writeSidecars writes srt and vtt via atomicWrite; a failure leaves no half file"
+    }
+  ]
+}

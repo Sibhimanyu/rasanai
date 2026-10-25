@@ -1,0 +1,132 @@
+{
+  "case": "E06",
+  "title": "real narration is longer than the board's provisional timing for two shots",
+  "calls": [
+    "reconcile",
+    "applyTimingDeltas",
+    "commitTiming(dry)",
+    "mapOldToNew",
+    "projectBoardTiming"
+  ],
+  "score": {
+    "frame_rate": "30000/1001",
+    "scenes": [
+      {
+        "n": 1,
+        "duration": 4,
+        "beat": 1,
+        "shots": [
+          {
+            "t0": 0,
+            "t1": 4
+          }
+        ],
+        "events": [
+          {
+            "t": 3.9,
+            "sound": "hit"
+          }
+        ]
+      },
+      {
+        "n": 2,
+        "duration": 5,
+        "beat": 2,
+        "shots": [
+          {
+            "t0": 0,
+            "t1": 2.5
+          },
+          {
+            "t0": 2.5,
+            "t1": 5
+          }
+        ],
+        "events": []
+      },
+      {
+        "n": 3,
+        "duration": 3,
+        "beat": 3,
+        "shots": [
+          {
+            "t0": 0,
+            "t1": 3
+          }
+        ],
+        "events": []
+      }
+    ],
+    "seams": [
+      {
+        "from": 1,
+        "to": 2,
+        "kind": "cut"
+      },
+      {
+        "from": 2,
+        "to": 3,
+        "kind": "cut"
+      }
+    ]
+  },
+  "audio": {
+    "kind": "selected",
+    "music_led": false,
+    "vo": [
+      {
+        "shot_id": "shot-a",
+        "start_s": 0,
+        "end_s": 4.6
+      },
+      {
+        "shot_id": "shot-b",
+        "start_s": 4.6,
+        "end_s": 9.6
+      }
+    ]
+  },
+  "shots": [
+    {
+      "shot_id": "shot-a",
+      "scene_n": 1,
+      "timing": {
+        "status": "provisional",
+        "duration_s": 4
+      }
+    },
+    {
+      "shot_id": "shot-b",
+      "scene_n": 2,
+      "timing": {
+        "status": "provisional",
+        "duration_s": 5
+      }
+    }
+  ],
+  "expect": {
+    "reconcile_point": "before Storyboard approval",
+    "authority": "voice",
+    "deltas": [
+      {
+        "shot_id": "shot-a",
+        "to_s": 5.3
+      },
+      {
+        "shot_id": "shot-b",
+        "to_s": 5.7
+      }
+    ],
+    "note": "lead 0.3 + tail 0.4 s around each spoken segment",
+    "commit": {
+      "written_only_to": "motion/score.json (+ scenes.json durations, derived motion/events.json, motion/retime.json)",
+      "events_regenerated": true,
+      "scene_local_times_scaled_proportionally": true
+    },
+    "frames": "derived from rational 30000/1001 and integer microsecond ticks; adjacent intervals tile with no gap or overlap",
+    "mapOldToNew_example": {
+      "old_t": 4.0,
+      "new_t": 5.3
+    }
+  }
+}

@@ -1,0 +1,148 @@
+{
+  "case": "A05",
+  "title": "a local wording change regenerates only that line and its genuine timing dependents; a voice or model change invalidates the rest",
+  "calls": [
+    "segmentRecord",
+    "lineKey",
+    "planRegeneration"
+  ],
+  "note": "cache segments are authored with segmentRecord (the key is computed, not stored here)",
+  "cache_segments": [
+    {
+      "segment_id": "line-01",
+      "shot_id": "shot-1",
+      "text": "Meet Rasan AI.",
+      "spoken_text": "Meet Rasan AI.",
+      "locale": "en",
+      "voice": {
+        "id": "v1",
+        "provider": "heygen",
+        "model": "m",
+        "version": "1",
+        "kind": "stock"
+      },
+      "settings": {
+        "speed": 1
+      },
+      "glossary_digest": "",
+      "file": "voice/line-01.wav",
+      "format": {
+        "sample_rate": 24000,
+        "channels": 1,
+        "duration_s": 2
+      },
+      "silence": {
+        "lead_s": 0.05,
+        "trail_s": 0.08
+      },
+      "handles": {
+        "head_s": 0.05,
+        "tail_s": 0.08
+      },
+      "context": {},
+      "words": []
+    },
+    {
+      "segment_id": "line-02",
+      "shot_id": "shot-2",
+      "text": "Make a whole film from one sentence.",
+      "spoken_text": "Make a whole film from one sentence.",
+      "locale": "en",
+      "voice": {
+        "id": "v1",
+        "provider": "heygen",
+        "model": "m",
+        "version": "1",
+        "kind": "stock"
+      },
+      "settings": {
+        "speed": 1
+      },
+      "glossary_digest": "",
+      "file": "voice/line-02.wav",
+      "format": {
+        "sample_rate": 24000,
+        "channels": 1,
+        "duration_s": 2
+      },
+      "silence": {
+        "lead_s": 0.05,
+        "trail_s": 0.08
+      },
+      "handles": {
+        "head_s": 0.05,
+        "tail_s": 0.08
+      },
+      "context": {},
+      "words": []
+    },
+    {
+      "segment_id": "line-03",
+      "shot_id": "shot-3",
+      "text": "Then change one line.",
+      "spoken_text": "Then change one line.",
+      "locale": "en",
+      "voice": {
+        "id": "v1",
+        "provider": "heygen",
+        "model": "m",
+        "version": "1",
+        "kind": "stock"
+      },
+      "settings": {
+        "speed": 1
+      },
+      "glossary_digest": "",
+      "file": "voice/line-03.wav",
+      "format": {
+        "sample_rate": 24000,
+        "channels": 1,
+        "duration_s": 2
+      },
+      "silence": {
+        "lead_s": 0.05,
+        "trail_s": 0.08
+      },
+      "handles": {
+        "head_s": 0.05,
+        "tail_s": 0.08
+      },
+      "context": {},
+      "words": []
+    }
+  ],
+  "voice": {
+    "id": "v1",
+    "provider": "heygen",
+    "model": "m",
+    "version": "1"
+  },
+  "locale": "en",
+  "settings": {
+    "speed": 1
+  },
+  "lines_edit": [
+    {
+      "segment_id": "line-01",
+      "shot_id": "shot-1",
+      "text": "Meet Rasan AI."
+    },
+    {
+      "segment_id": "line-02",
+      "shot_id": "shot-2",
+      "text": "Make an entire film from one sentence."
+    },
+    {
+      "segment_id": "line-03",
+      "shot_id": "shot-3",
+      "text": "Then change one line."
+    }
+  ],
+  "expect": {
+    "edit": "regenerate [line-02] (reasons ['text']); reuse [line-01, line-03]; timing_dependents ['shot-2'] only (its duration may move; later shots shift through commitTiming, not here); neighbours line-01 and line-03 get recheck ['pause_to_neighbour','music_duck'] with regenerate false",
+    "model_version_bump": "the same voice id with version '2': every line regenerates (reasons include 'model'); a display name never makes two versions identical",
+    "voice_swap_one_line": "a single regenerated line with a different voice: mixed_voices message set and neighbour recheck adds level_match and pace",
+    "glossary_change": "confirming a new pronunciation changes only the lines containing the term (reason 'pronunciation')",
+    "locale": "changing locale regenerates all lines (reason 'locale')"
+  }
+}

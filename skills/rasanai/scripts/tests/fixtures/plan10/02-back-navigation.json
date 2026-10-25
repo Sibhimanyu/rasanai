@@ -1,0 +1,32 @@
+{
+  "case": "plan10/U02",
+  "note": "synthetic; authored, not run",
+  "scenario": "finished film at Final; the person opens Story from the step rail, then Look, then returns to live",
+  "expect": [
+    "route for a pinned past step is read-only (StageRouter viewing:)",
+    "CallMeaningBar says 'You are looking back at this call.' and shows the same inherited source line",
+    "returning to live restores the director's current call; no stage is reset and no answered question (ask.answered != null) is shown again",
+    "saved series defaults are byte-identical before and after"
+  ],
+  "reconnect": {
+    "session_before": {
+      "current": "render",
+      "ask": {
+        "id": "a1",
+        "answered": {
+          "choice": "2"
+        }
+      }
+    },
+    "session_after_reconnect": {
+      "current": "render",
+      "ask": {
+        "id": "a1",
+        "answered": {
+          "choice": "2"
+        }
+      }
+    },
+    "expect_pending_ask": null
+  }
+}

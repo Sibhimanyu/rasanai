@@ -1,0 +1,127 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan11/R08",
+  "case": "redaction, cache scope and URL ingestion policy",
+  "targets": [
+    "lib/redact.mjs",
+    "lib/containment.mjs checkUrl / checkRedirect / forwardHeaders / resolveAndCheck / guardedFetch"
+  ],
+  "redaction": {
+    "input": [
+      "Authorization: Bearer sk-test-FAKE000000000000000000",
+      "api_key=AIzaFAKEFAKEFAKEFAKEFAKE1",
+      "https://user:pass@example.invalid/x",
+      "https://cdn.example.invalid/a.mp4?token=abcdef0123456789",
+      "/Users/someone/Clients/Acme/footage/day1.mov",
+      "token budget: 12000 tokens (must NOT be redacted)"
+    ],
+    "expect": "each secret and personal path replaced; the last line unchanged; exportSafe leaks_after is 0; a value marked sensitive:true is replaced by its digest"
+  },
+  "cache": {
+    "cases": [
+      "same prompt in project A and project B",
+      "same prompt, user scope vs shared scope"
+    ],
+    "expect": "scopedCacheKey differs; no key or summary contains a project name or path"
+  },
+  "urls": [
+    {
+      "url": "http://169.254.169.254/latest/meta-data/",
+      "ok": false
+    },
+    {
+      "url": "http://[fd00:ec2::254]/",
+      "ok": false
+    },
+    {
+      "url": "http://metadata.google.internal/",
+      "ok": false
+    },
+    {
+      "url": "http://127.0.0.1:8080/",
+      "ok": false
+    },
+    {
+      "url": "http://localhost:3000/",
+      "ok": false
+    },
+    {
+      "url": "http://0x7f.1/",
+      "ok": false
+    },
+    {
+      "url": "http://2130706433/",
+      "ok": false
+    },
+    {
+      "url": "http://10.0.0.5/",
+      "ok": false
+    },
+    {
+      "url": "http://192.168.1.10/",
+      "ok": false
+    },
+    {
+      "url": "http://[::ffff:7f00:1]/",
+      "ok": false
+    },
+    {
+      "url": "http://printer.local/",
+      "ok": false
+    },
+    {
+      "url": "file:///etc/passwd",
+      "ok": false
+    },
+    {
+      "url": "ftp://example.com/x",
+      "ok": false
+    },
+    {
+      "url": "https://user:pw@example.com/",
+      "ok": false
+    },
+    {
+      "url": "https://example.com/logo.svg",
+      "ok": true,
+      "note": "a name; resolveAndCheck must also reject it if DNS returns a blocked address (inject lookup)"
+    },
+    {
+      "url": "http://127.0.0.1:8188/",
+      "allowLocal": [
+        "http://127.0.0.1:8188"
+      ],
+      "ok": true,
+      "exception": "configured_local_endpoint"
+    },
+    {
+      "url": "http://127.0.0.1:9999/",
+      "allowLocal": [
+        "http://127.0.0.1:8188"
+      ],
+      "ok": false,
+      "note": "a different port is a different origin"
+    }
+  ],
+  "redirects": [
+    {
+      "from": "https://example.com/a",
+      "to": "http://example.com/b",
+      "ok": false,
+      "why": "https to http"
+    },
+    {
+      "from": "https://example.com/a",
+      "to": "http://169.254.169.254/",
+      "ok": false
+    },
+    {
+      "from": "https://example.com/a",
+      "to": "https://cdn.example.org/b",
+      "ok": true,
+      "headers_forwarded": "authorization and cookie dropped (cross origin)"
+    }
+  ]
+}

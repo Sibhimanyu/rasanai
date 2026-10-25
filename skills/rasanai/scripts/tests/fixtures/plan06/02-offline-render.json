@@ -1,0 +1,56 @@
+{
+  "case": "V02",
+  "title": "A render needs no network; fonts and assets are awaited; remote assets are errors",
+  "calls": [
+    "lintDeterminism",
+    "createSceneAdapter.prepare",
+    "evaluateReadiness"
+  ],
+  "scene_remote": "<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Inter\"><img src=\"https://cdn.example/x.png\"><script>fetch('/api/data').then(r=>r.json())</script>",
+  "expect_lint": {
+    "ok": false,
+    "errors": [
+      "render-time-network",
+      "remote-asset"
+    ]
+  },
+  "expect_adapter_prepare": "throws: not renderable deterministically (render-time-network, remote-asset); no browser launched",
+  "fonts_pinned": [
+    {
+      "family": "Inter",
+      "file": "assets/fonts/Inter-Regular.woff2",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  ],
+  "evidence_font_exists_but_not_loaded": {
+    "fonts": [
+      {
+        "family": "Inter",
+        "loaded": false
+      }
+    ]
+  },
+  "expect_readiness": {
+    "ready": false,
+    "items": [
+      {
+        "kind": "font",
+        "status": "missing"
+      }
+    ]
+  },
+  "evidence_no_evidence": {
+    "fonts": []
+  },
+  "expect_no_evidence": {
+    "ready": false,
+    "items": [
+      {
+        "kind": "font",
+        "status": "unverified",
+        "reason": "the file existing does not count"
+      }
+    ]
+  },
+  "deferred_to": "plan 14: render with the network disabled and compare with the networked render"
+}

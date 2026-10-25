@@ -1,0 +1,82 @@
+{
+  "case": "V01",
+  "title": "Seek order and cold start give the same frames; wall clock and unseeded random are errors",
+  "calls": [
+    "seekOrderPlan",
+    "compareSeekOrder",
+    "lintDeterminism",
+    "precomputed"
+  ],
+  "plan": {
+    "times": [
+      0,
+      0.5,
+      1.0,
+      1.5,
+      2.0,
+      2.5
+    ],
+    "seed": 7
+  },
+  "forward": {
+    "0": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "0.5": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "1": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "1.5": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "2": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "2.5": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  "shuffled_ok": {
+    "0": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "0.5": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "1": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "1.5": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "2": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "2.5": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  "shuffled_bad": {
+    "0": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "0.5": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "1": "9999999999999999999999999999999999999999999999999999999999999999",
+    "1.5": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "2": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "2.5": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  "expect": {
+    "shuffled_ok": {
+      "ok": true,
+      "differing": []
+    },
+    "shuffled_bad": {
+      "ok": false,
+      "differing_times": [
+        1
+      ]
+    }
+  },
+  "scene_bad": "<script>var t0 = Date.now(); function tick(){ el.x = Math.random() * 40; requestAnimationFrame(tick); } tick();</script>",
+  "expect_lint_bad": {
+    "ok": false,
+    "errors": [
+      "wall-clock",
+      "unseeded-random",
+      "free-running-loop"
+    ]
+  },
+  "scene_good": "<script>const r = mulberry32(7); const tl = gsap.timeline({paused:true}); window.__timelines = {main: tl};</script>",
+  "expect_lint_good": {
+    "ok": true
+  },
+  "physics": {
+    "inputs": {
+      "gravity": 9.8,
+      "bounce": 0.6
+    },
+    "seed": 3,
+    "dt": 0.008333,
+    "duration": 4,
+    "every": 60,
+    "note": "stateAt(3.2) computed after stateAt(0.4), after stateAt(3.9), after a fresh process: identical; changing `inputs` changes `key`"
+  },
+  "deferred_to": "plan 14: run the real scene forward, shuffled and cold-started and compare frame hashes on the same machine; pixel equality across platforms is not claimed"
+}

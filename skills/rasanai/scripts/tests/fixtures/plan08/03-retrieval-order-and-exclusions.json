@@ -1,0 +1,39 @@
+{
+  "id": "plan08/K03",
+  "title": "Recipe retrieval: contract, kind guide, recipe, failure only on request; unimplemented excluded",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised and the expected outcome; no token count, price or latency here is a measurement.",
+  "calls": [
+    {
+      "fn": "recipe-index.shortlist",
+      "args": {
+        "kind": "single-feature-announcement",
+        "runtime": "dom-gsap",
+        "want": [
+          "kinetic",
+          "type"
+        ]
+      }
+    },
+    {
+      "fn": "recipe-index.shortlist",
+      "args": {
+        "kind": "single-feature-announcement",
+        "failure": true
+      }
+    },
+    {
+      "fn": "recipe-index.shortlist",
+      "args": {
+        "kind": "music-lyric-film",
+        "have_assets": []
+      }
+    }
+  ],
+  "expect": [
+    "layers appear in the order contract, kind_guide, recipe; failure_recovery only in the second call",
+    "a motion-kit row whose implementation target is absent is in excluded with its implemented_reason, never in shortlist (unless include_unimplemented)",
+    "the lyric guide needing audio and lyrics assets is excluded with 'needs assets not present'",
+    "shortlist length is bounded (at most 2 contract + 2 guide + limit recipes); no external SKILL.md is read"
+  ]
+}

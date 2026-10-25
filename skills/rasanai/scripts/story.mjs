@@ -49,6 +49,15 @@
 //        -> { revise: [labels the editor marked rewrite | replace], notes: { label: [...] } }: what goes back to the writers (once)
 //   node story.mjs validate
 //        -> checks devices.json against its schema (vocabularies, ids, counts)
+//   FORMAT-AWARE STORIES (Plan 03; the default balanced workflow, references/story.md "Format-aware treatments"):
+//   node story.mjs grammar [--kind <communication kind>]       -> the starting narrative logic + required evidence for a kind (lib/story-grammars.mjs); no kind = the list. Villain, twist, peak and a reveal deadline are OPTIONAL tools.
+//   node story.mjs treatments --set <story/treatments.json> [--evidence <research/evidence.json>] [--brief <brief.json>] [--choices <n>] [--split]
+//        -> validates ONE writer's three compact treatments (lib/treatment.mjs): mechanical errors, creative concerns, optional craft, the coverage ledger, and the set's diversity by proof / order / perspective / premise.
+//           --split writes story/pitch-<Label>.json (the legacy projection plus the full `treatment`) and intent-<Label>.json so crew.mjs pitches, the Story card and the structure critic keep working. Exit 0 ship, 2 rewrite.
+//   node story.mjs treatment --treatment <file> [--evidence ...] [--brief ...]   -> the same for one treatment or ANY saved pitch/intent (a legacy film is read, not judged by v2 rules)
+//   node story.mjs review --review <story/edit-notes.json>     -> validates the editor's structured review { issue_id, beat, evidence, severity, fix } (one focused revision by default)
+//   node story.mjs refs --kind <communication kind> [--role <beat role>] [--limit n]   -> a few house examples with provenance for that kind and beat role (lib/story-refs.mjs)
+//   `check` routes any pitch with story_format "v2" to the treatment validator instead of the legacy rubric; legacy pitches keep the rubric.
 // Pitch format: references/story.md. Catalog schema: taxonomy/devices-SCHEMA.md.
 import fs from "node:fs";
 import path from "node:path";
@@ -59,6 +68,9 @@ import { readSources, isFootageLed, productFirstApplies } from "./lib/sources.mj
 import { formatShapesForRun } from "./lib/formats.mjs";
 import { readTime } from "./lib/reading.mjs";
 import { loadIntent, validateIntent } from "./lib/intent.mjs";
+import { STORY_GRAMMARS, grammarBrief, grammarKinds, OPTIONAL_TOOLS } from "./lib/story-grammars.mjs";
+import { normalizeTreatment, readTreatment, validateTreatment, validateTreatmentSet, validateReview, toLegacyPitch, toIntent, compareCandidates } from "./lib/treatment.mjs";
+import { retrieveReferences } from "./lib/story-refs.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -86,6 +98,22 @@ function findDevice(key) {
   return DEVICES.find((d) => d.id === k || norm(d.code) === k || norm(d.name) === k) || null;
 }
 
+
+// Plan 03: context for treatment validation from --evidence (array or { evidence: [] }) and --brief (a FilmBrief or a briefing package { brief })
+const TAGS_ORDER = ["Sure", "Bold", "Wild"];
+function treatmentCtx(a) {
+  const ctx = {};
+  const rd = (f) => { try { return readJSON(path.resolve(String(f))); } catch (e) { die(`${f}: ${e.message}`); } };
+  if (a.evidence && a.evidence !== true) { const e = rd(a.evidence); ctx.evidence = (Array.isArray(e) ? e : Array.isArray(e && e.evidence) ? e.evidence : Array.isArray(e && e.claims) ? e.claims : []).map((x, i) => (x && typeof x === "object" ? { ...x, id: String(x.id || `c${i + 1}`) } : { id: `c${i + 1}` })); }
+  if (a.brief && a.brief !== true) {
+    const j = rd(a.brief), b = j && j.brief ? j.brief : j || {};
+    ctx.kind = b.communication_kind || undefined; ctx.must_show = Array.isArray(b.must_show) ? b.must_show : []; ctx.duration_s = Number(b.duration) || 0; ctx.scope = b.scope || undefined;
+    if (!ctx.evidence && Array.isArray(b.evidence_refs)) ctx.evidence = b.evidence_refs;
+  }
+  if (a.length && a.length !== true && !ctx.duration_s) ctx.duration_s = Number(a.length) || 0;
+  if (a.kind && a.kind !== true) ctx.kind = String(a.kind);
+  return ctx;
+}
 // --- the truth sheet -----------------------------------------------------------
 // Each section: its heading, the key it parses to, whether it's a list, and the hint Claude sees.
 const TRUTH = [
@@ -450,7 +478,7 @@ const ENGINES = {
   reversal: "Problem, turn, proof ladder, payoff: the setup names a problem the viewer has, the turn is the product REVERSING it (something visibly flips), the proof is a short ladder of real uses, the payoff answers the setup (the setup's object or words return, changed).",
   "before-after": "Before / after with the cause visible: the old way, then the new way, and the one thing that makes the difference (the cause) is on screen at the turn, so the viewer sees WHY it changed, not only that it did.",
 };
-const TURN_RULE = "Every script states its engine and its turn in the pitch: engine (refrain-break | reversal | before-after) and turn { line, reverses, payoff }: line = the one beat's words (that beat is marked turn: true and its intent relation is \"but\"), reverses = what flips (a belief, a situation, an object), payoff = what answers the setup (the \"answer\" beat). A turn that reverses nothing, or a payoff that does not answer the setup, is a rewrite.";
+const TURN_RULE = "When your slot's engine has a turn (a turn is an OPTIONAL tool since Plan 03: a clear feature demonstration or a manifesto may have none), state it in the pitch: engine (refrain-break | reversal | before-after) and turn { line, reverses, payoff }: line = the one beat's words (that beat is marked turn: true and its intent relation is \"but\"), reverses = what flips (a belief, a situation, an object), payoff = what answers the setup (the \"answer\" beat). A turn you declare must reverse something and the payoff must answer the setup; no turn declared is fine.";
 const SHAPES_BY_TYPE = {
   launch: LAUNCH_SHAPES,
   promo: LAUNCH_SHAPES,
@@ -631,8 +659,9 @@ function planProblems(plan, picks, truth, claims) {
     }
     if (s.device != null && !menu.has(s.device)) problems.push(`plan-device: ${s.label}: device "${s.device}" is not on the picks menu`);
     if (s.device != null && !String(s.device_reason || "").trim()) warnings.push(`${s.label}: device_reason missing`);
-    if (!TURN_KINDS.includes(s.turn_kind)) problems.push(`plan-turn-kind: ${s.label}: "${s.turn_kind}" is not one of ${TURN_KINDS.join(" | ")}`);
-    if (!PEAK_KINDS.includes(s.peak_kind)) problems.push(`plan-peak-kind: ${s.label}: "${s.peak_kind}" is not one of ${PEAK_KINDS.join(" | ")}`);
+    // Plan 03: a turn and a peak are OPTIONAL tools: a slot may declare none; a declared kind must still be a known one
+    if (s.turn_kind && !TURN_KINDS.includes(s.turn_kind)) problems.push(`plan-turn-kind: ${s.label}: "${s.turn_kind}" is not one of ${TURN_KINDS.join(" | ")}`);
+    if (s.peak_kind && !PEAK_KINDS.includes(s.peak_kind)) problems.push(`plan-peak-kind: ${s.label}: "${s.peak_kind}" is not one of ${PEAK_KINDS.join(" | ")}`);
     if (!s.hook_kind) warnings.push(`plan-hook-kind: ${s.label}: no hook_kind (one of ${HOOK_KINDS.join(" | ")})`);
     else if (!HOOK_KINDS.includes(s.hook_kind)) warnings.push(`plan-hook-kind: ${s.label}: "${s.hook_kind}" is not one of ${HOOK_KINDS.join(" | ")}`);
     const aw = wordsN(s.angle);
@@ -642,7 +671,7 @@ function planProblems(plan, picks, truth, claims) {
     if (!sw) problems.push(`plan-swap: ${s.label}: no swap_breaks (what in this angle the main competitor cannot claim, 5+ words naming a Native word or a claim)`);
     else if (wordsN(sw) < 5) problems.push(`plan-swap: ${s.label}: swap_breaks "${sw}" is ${wordsN(sw)} words (5 at least)`);
     else if (truth && !swapAnchored(sw, truth, claims)) problems.push(`plan-swap: ${s.label}: swap_breaks "${sw}" names no Native word and no claim id or claim text of the truth sheet: say what only this product has`);
-    for (const k of ["villain_picture", "turn", "peak"]) if (!String(s[k] || "").trim()) warnings.push(`${s.label}: ${k} missing`);
+    // villain_picture, turn and peak are optional tools (Plan 03): no warning when a slot leaves them out
     if (claims) for (const c of s.owned_claims || []) if (!claims.some((x) => x.id === String(c))) problems.push(`plan-claims: ${s.label}: owned claim "${c}" is not in the claims`);
   }
   for (let i = 0; i < slots.length; i++) for (let j = i + 1; j < slots.length; j++) {
@@ -859,12 +888,13 @@ if (cmd === "truth") {
   const pitches = Array.isArray(raw) ? raw : Array.isArray(raw.pitches) ? raw.pitches : [raw];
   // THE LEDGER: a check on ONE pitch file counts a run in story/check-ledger.json beside it; 3 runs (the first and two rewrites), +2 after the editor's rewrite / replace; a set never records
   const single = !Array.isArray(raw) && !Array.isArray(raw.pitches) && !!raw.label;
+  const v2One = single && raw.story_format === "v2"; // Plan 03: a v2 treatment gets one focused revision (two runs), +1 after the editor's rewrite
   if (single && !args["no-ledger"]) {
     const lf = path.join(path.dirname(pf), "check-ledger.json"), lab = String(raw.label);
     let led = {}; try { led = readJSON(lf) || {}; } catch {}
     let notes = null; try { notes = readJSON(path.join(path.dirname(pf), "edit-notes.json")); } catch {}
     const marked = !!(notes && Array.isArray(notes.pitches) && notes.pitches.some((x) => x && x.label === lab && ["rewrite", "replace"].includes(x.verdict)));
-    const limit = 3 + (marked ? 2 : 0), runs = Number(led[lab] && led[lab].runs) || 0;
+    const limit = v2One ? 2 + (marked ? 1 : 0) : 3 + (marked ? 2 : 0), runs = Number(led[lab] && led[lab].runs) || 0;
     if (runs >= limit) { out({ ok: false, verdict: "escalate", reason: "rewrite limit: hand back to the Director", label: lab, runs, limit }); process.exit(3); }
     led[lab] = { runs: runs + 1, last: new Date().toISOString() };
     try { writeFile(lf, JSON.stringify(led, null, 2) + "\n"); } catch {}
@@ -881,6 +911,7 @@ if (cmd === "truth") {
   opts.claims = loadClaims(args.claims, args.truth);
   opts.plan = plan; opts.truth = truth;
   const intentFor = (p) => {
+    if (p.story_format === "v2") return { sheet: null, errors: [], warnings: [] }; // a v2 pitch carries its own treatment; no intent sheet is required
     const dir = path.dirname(pf), lab = p.label || null;
     const cands = [args.intent && args.intent !== true ? path.resolve(String(args.intent)) : null, lab ? path.join(dir, `intent-${lab}.json`) : null, path.join(dir, "intent.json")].filter(Boolean);
     const f = cands.find((x) => fs.existsSync(x));
@@ -888,7 +919,8 @@ if (cmd === "truth") {
     try { const data = loadIntent(f); const v = validateIntent(data, { lengthS: opts.length, durations: (p.beats || []).map((b) => Number(b.duration_s)) }); return { sheet: f, data, errors: v.errors, warnings: v.warnings }; } catch (e) { return { sheet: f, errors: [e.message], warnings: [] }; }
   };
   const intents = pitches.map(intentFor);
-  const results = pitches.map((p, i) => checkPitch(p, i, truth, footage, { ...opts, intent: intents[i] }));
+  const tctx = { ...(opts.claims ? { evidence: (Array.isArray(opts.claims) ? opts.claims : []).map((c) => ({ id: c.id, permitted_use: "claim" })) } : {}), duration_s: opts.length, kind: null };
+  const results = pitches.map((p, i) => (p.story_format === "v2" ? checkV2(p, i, { ...tctx, ...treatmentCtx(args) }) : checkPitch(p, i, truth, footage, { ...opts, intent: intents[i] })));
   // the blind retell reads ONLY the beat list: story/beats-<label>.md = per beat on_screen, vo, visual (no aim, title, approach, intent, critique)
   pitches.forEach((p, i) => {
     if (!p.label || !Array.isArray(p.beats)) return;
@@ -898,7 +930,8 @@ if (cmd === "truth") {
     const it = intents[i];
     if (it && it.sheet && it.data) { try { const v = validateIntent(it.data, { lengthS: opts.length, durations: p.beats.map((b) => Number(b.duration_s)) }); if (v.curve.length && JSON.stringify(it.data.emphasis_curve) !== JSON.stringify(v.curve)) writeFile(it.sheet, JSON.stringify({ ...it.data, emphasis_curve: v.curve }, null, 2) + "\n"); } catch {} }
   });
-  const portfolio = pitches.length > 1 ? checkPortfolio(pitches, results, opts) : null;
+  const allV2 = pitches.every((p) => p.story_format === "v2");
+  const portfolio = pitches.length > 1 ? (allV2 ? checkV2Portfolio(pitches) : checkPortfolio(pitches.filter((p) => p.story_format !== "v2"), results.filter((r, i) => pitches[i].story_format !== "v2"), opts)) : null;
   const ship = results.every((r) => r.verdict === "ship") && (!portfolio || portfolio.pass);
   out(pitches.length === 1 && !portfolio ? results[0] : { ok: ship, verdict: ship ? "ship" : "rewrite", pitches: results, portfolio });
   process.exitCode = results.some((r) => r.verdict === "invalid") ? 1 : ship ? 0 : 2; // exitCode, not exit(): a large report on a pipe must flush
@@ -931,6 +964,48 @@ if (cmd === "truth") {
   let n; try { n = readJSON(path.resolve(String(args.notes))); } catch (e) { die(`--notes is not readable JSON: ${e.message}`); }
   const back = (n.pitches || []).filter((x) => x && ["rewrite", "replace"].includes(x.verdict));
   out({ revise: back.map((x) => x.label || x.id), notes: Object.fromEntries(back.map((x) => [x.label || x.id, x.notes || []])), verdicts: Object.fromEntries(back.map((x) => [x.label || x.id, x.verdict])), next: back.length ? "dispatch script-writer once per label (crew.mjs brief --role script-writer --key <label>: revise mode), then story.mjs check on the set; no second editor pass" : "nothing goes back" });
+} else if (cmd === "grammar") {
+  // Plan 03 S1: the starting narrative logic for a communication kind; no --kind lists them
+  if (!args.kind || args.kind === true) out({ kinds: grammarKinds(), optional_tools: Object.keys(OPTIONAL_TOOLS), note: "grammars are starting logic, not formulas; optional tools are never required and never banned" });
+  else { const g = grammarBrief(String(args.kind)); if (!g) die(`unknown communication kind "${args.kind}" (${grammarKinds().join(", ")})`); out(g); }
+} else if (cmd === "refs") {
+  if (!args.kind || args.kind === true) die("--kind <communication kind> required");
+  out({ kind: String(args.kind), role: args.role && args.role !== true ? String(args.role) : null, references: retrieveReferences({ kind: String(args.kind), role: args.role && args.role !== true ? String(args.role) : null, limit: args.limit }) });
+} else if (cmd === "review") {
+  if (!args.review || args.review === true) die("--review <story/edit-notes.json> required");
+  let rv; try { rv = readJSON(path.resolve(String(args.review))); } catch (e) { die(`review is not valid JSON: ${e.message}`); }
+  const v = validateReview(rv);
+  out(v); process.exitCode = v.ok ? 0 : 2;
+} else if (cmd === "treatment" || cmd === "treatments") {
+  // Plan 03 S2/S3/S4/S7: validate one treatment (or any saved pitch / intent through the legacy reader) or ONE writer's set of three
+  const ctx = treatmentCtx(args);
+  if (cmd === "treatment") {
+    if (!args.treatment || args.treatment === true) die("--treatment <file> required");
+    let raw; try { raw = readJSON(path.resolve(String(args.treatment))); } catch (e) { die(`not valid JSON: ${e.message}`); }
+    const r = readTreatment(raw.treatment && typeof raw.treatment === "object" ? raw.treatment : raw);
+    if (!r.ok) die(r.error);
+    if (r.legacy) { out({ ok: true, legacy: true, source: r.source, note: "a saved film: read through the legacy reader, judged by its own rubric (story.mjs check / intent), not by v2 rules", treatment: r.treatment }); }
+    else { const v = validateTreatment(r.treatment, ctx); out(v); process.exitCode = v.ok ? 0 : 2; }
+  } else {
+    if (!args.set || args.set === true) die("--set <story/treatments.json> required");
+    const sf = path.resolve(String(args.set));
+    let raw; try { raw = readJSON(sf); } catch (e) { die(`not valid JSON: ${e.message}`); }
+    const list = (Array.isArray(raw) ? raw : Array.isArray(raw.treatments) ? raw.treatments : []).map((t) => normalizeTreatment({ communication_kind: raw.communication_kind, ...t }));
+    if (!list.length) die("the set has no treatments[]");
+    const v = validateTreatmentSet(list, { ...ctx, choices: args.choices && args.choices !== true ? Number(args.choices) : ctx.choices });
+    // the tag falls back to the slot order only for the card's secondary label; the treatment_title is what a person chooses by
+    if (args.split) {
+      const dir = path.dirname(sf);
+      list.forEach((t, i) => {
+        const label = t.tag || TAGS_ORDER[i] || `T${i + 1}`;
+        const full = { ...t, tag: t.tag || TAGS_ORDER[i] || null };
+        writeFile(path.join(dir, `pitch-${label}.json`), JSON.stringify({ ...toLegacyPitch(full, { label }), treatment: full }, null, 2));
+        writeFile(path.join(dir, `intent-${label}.json`), JSON.stringify(toIntent(full, {}), null, 2));
+      });
+      v.split = list.map((t, i) => `pitch-${t.tag || TAGS_ORDER[i] || `T${i + 1}`}.json`);
+    }
+    out(v); process.exitCode = v.ok ? 0 : 2;
+  }
 } else if (cmd === "validate") {
   const problems = [];
   const ids = new Set();
@@ -961,6 +1036,28 @@ if (cmd === "truth") {
 }
 
 // --- check -------------------------------------------------------------------------
+
+// Plan 03: a v2 pitch (written by the format-aware writer, projected by `treatments --split`) is judged on meaning by lib/treatment.mjs; the legacy
+// rubric (cliche arc, engine/turn, peak window, stock openers, G1-G15) does not apply to it. Provenance and factual checks are NOT weakened:
+// unknown evidence, an unsupported demonstration, a missing qualifier and an uncovered must-show are errors there.
+function checkV2(p, idx, ctx = {}) {
+  const t = p.treatment && typeof p.treatment === "object" ? p.treatment : p;
+  const v = validateTreatment(t, { ...ctx, kind: ctx.kind || t.communication_kind });
+  const gates = [{ id: "V2", gate: "Format-aware treatment (mechanical and factual errors, then creative concerns)", pass: v.ok, reasons: [...v.errors, ...v.concerns.filter((c) => c.severity === "major")].map((x) => `${x.issue_id}${x.beat ? ` @${x.beat}` : ""}: ${x.evidence} -> ${x.fix}`) }];
+  return { pitch: p.id || p.title || `pitch ${idx + 1}`, label: p.label || null, ok: v.ok, verdict: v.verdict, reasons: gates[0].reasons, gates, issues: v.issues, ledger: v.ledger, total_s: v.total_s,
+    warnings: v.concerns.filter((c) => c.severity === "minor").map((c) => `${c.issue_id}${c.beat ? ` @${c.beat}` : ""}: ${c.evidence} -> ${c.fix}`), craft: v.craft.map((c) => `${c.issue_id}: ${c.evidence}`), story_format: "v2" };
+}
+function checkV2Portfolio(pitches) {
+  const list = pitches.map((p) => (p.treatment && typeof p.treatment === "object" ? p.treatment : p));
+  const cmp = compareCandidates(list), reasons = [];
+  for (const [a, b] of cmp.insufficient) reasons.push(`too-alike: ${a} and ${b} differ on fewer than two of proof selection, information order, perspective and premise (a different decorative device does not count)`);
+  const lineSet = (t) => new Set(normalizeTreatment(t).beats.flatMap((b) => [b.on_screen, b.voiceover || ""]).map(nz8).filter((l) => l.split(" ").filter(Boolean).length >= 2));
+  const ls = list.map(lineSet);
+  for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) for (const l of [...ls[i]].filter((x) => ls[j].has(x))) reasons.push(`shared-line: "${l}" is in two treatments: every treatment says its own lines`);
+  const titles = list.map((t) => nz8(t.treatment_title || t.title));
+  if (new Set(titles).size !== titles.length) reasons.push("shared-title: two treatments have the same title");
+  return { pass: !reasons.length, reasons, comparison: cmp };
+}
 function checkPitch(p, idx, truth, footage, opts = {}) {
   const name = p.id || p.title || `pitch ${idx + 1}`;
   const errors = [];
@@ -1017,7 +1114,8 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
   if (featureRun >= 3) g1.push(`${featureRun} feature beats in a row: features must live inside the device, not in a list`);
   const opener = [p.logline, beats[0]?.on_screen, p.title].filter(Boolean).map((s) => norm(s).trim());
   const stock = CL.stock_openers.find((re) => opener.some((o) => new RegExp(re, "i").test(o)));
-  if (stock) g1.push(`stock opener: matches /${stock}/ ("Meet X", "Introducing X", "What if...?", "Tired of...?")`);
+  // Plan 03: "Meet X" / "Introducing X" are allowed when they serve the assignment; a stock opener is a note about specificity, not a gate
+  if (stock) warnings.push(`stock opener (craft note): matches /${stock}/; fine when the viewer needs the name first, but the opening should also say something specific`);
   const vis = visualCliches([...beats.map((b) => `${b.visual || ""} ${b.on_screen || ""}`), ...(p.visual_motifs || []), p.signature_image || ""]);
   if (vis.length >= 2) g1.push(`${vis.length} visual cliches: ${vis.join(", ")}`);
   if (/\blogo\b/i.test(`${beats[0]?.visual || ""} ${beats[0]?.name || ""}`) && !/no logo/i.test(beats[0]?.visual || "")) g1.push("opens on the logo: the first 1.5-2 s must be the most striking image or line");
@@ -1658,7 +1756,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     const earlyText = [...early.map(({ b }) => String(b.on_screen || "")), ...rows.filter((r) => starts[r.i] < 0.25 * lengthS).map((r) => r.text)];
     if (!earlyText.some((t) => VIEWER_RE.test(t))) g12.push("not-viewer-first: no on-screen line in the first 25% of the film addresses the viewer (you, your, you're, or a first-person viewer line like \"I ...\"): open on the viewer's own day, not on the product");
     const meet = roles12.indexOf("meet");
-    if (shape12 === "pas" && meet >= 0 && starts[meet] / lengthS < 0.2 - 1e-9) g12.push(`reveal-too-early: the meet beat starts at ${Math.round((starts[meet] / lengthS) * 100)}% of the film (20% at least: let the viewer's pain land first)`);
+    if (shape12 === "pas" && meet >= 0 && starts[meet] / lengthS < 0.2 - 1e-9) warnings.push(`reveal-early (craft note, not a gate since Plan 03): the meet beat starts at ${Math.round((starts[meet] / lengthS) * 100)}% of the film; fine when the early product serves the claim, otherwise let the viewer's pain land first`);
     const bnf = beats.map((b, i) => ({ b, i })).filter(({ i }) => roles12[i] === "benefit" || roles12[i] === "rung");
     for (const { b, i } of bnf) {
       const t = String(b.benefit || "").trim();
@@ -1718,8 +1816,8 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
       const sh = norm(p.shape).trim() || shapeOf(p, beats), en = String(p.engine || ENGINE_OF_SHAPE[shapeOf(p, beats)] || "");
       if (slot.shape && sh !== slot.shape) g14.push(`plan-shape: the pitch's shape is "${sh}", the plan gives "${slot.shape}"`);
       if (slot.engine && en !== slot.engine) g14.push(`plan-engine: the pitch's engine is "${en}", the plan gives "${slot.engine}"`);
-      if (p.turn_kind !== slot.turn_kind) g14.push(`plan-turn-kind: the pitch declares ${p.turn_kind ? `"${p.turn_kind}"` : "no turn_kind"}, the plan gives "${slot.turn_kind}"`);
-      if (p.peak_kind !== slot.peak_kind) g14.push(`plan-peak-kind: the pitch declares ${p.peak_kind ? `"${p.peak_kind}"` : "no peak_kind"}, the plan gives "${slot.peak_kind}"`);
+      if (slot.turn_kind && p.turn_kind !== slot.turn_kind) g14.push(`plan-turn-kind: the pitch declares ${p.turn_kind ? `"${p.turn_kind}"` : "no turn_kind"}, the plan gives "${slot.turn_kind}"`);
+      if (slot.peak_kind && p.peak_kind !== slot.peak_kind) g14.push(`plan-peak-kind: the pitch declares ${p.peak_kind ? `"${p.peak_kind}"` : "no peak_kind"}, the plan gives "${slot.peak_kind}"`);
       if (slot.hook_kind && p.hook_kind !== slot.hook_kind) warnings.push(`plan-hook-kind: the pitch declares ${p.hook_kind ? `"${p.hook_kind}"` : "no hook_kind"}, the plan gives "${slot.hook_kind}"`);
       const rows = Array.isArray(p.coverage) ? p.coverage : [];
       for (const c of slot.owned_claims || []) if (!rows.some((r) => r && r.cut == null && Number(r.beat) >= 1 && String(r.claim).toLowerCase() === String(c).toLowerCase())) g14.push(`plan-claims: the plan gives this script the claim ${c}: it needs a coverage row { claim: "${c}", beat: N } on a beat (a cut is not allowed)`);
@@ -1747,12 +1845,13 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
   const adjustments = [];
   const bump = (k, v, why) => { adj[k] += v; adjustments.push(`${v > 0 ? "+" : ""}${v} ${k}: ${why}`); };
   if (devices.some((d) => d && d.overused)) {
-    if (!String(p.twist || "").trim()) bump("originality", -2, `${devices.find((d) => d.overused).name} is LLM-overused and the pitch names no twist`);
+    // Plan 03: a twist is an optional tool, not a requirement; an overused device is a warning to justify, not a penalty
+    if (!String(p.twist || "").trim()) warnings.push(`${devices.find((d) => d.overused).name} is an often-used device: say in device_reason why it serves this proposition (a twist is one optional way)`);
     else warnings.push(`overused device with a twist ("${p.twist}"): make sure the twist is the idea, not decoration`);
   }
   if (p.form_proves_claim === true) bump("originality", +1, "the form itself proves the claim");
   if (vis.length) bump("fit", -vis.length, `visual cliche${vis.length > 1 ? "s" : ""}: ${vis.join(", ")}`);
-  if (turnIdx < 0) bump("memorability", -1, "no named turn");
+  if (turnIdx < 0 && (p.turn || p.engine)) bump("memorability", -1, "the pitch declares a turn or an engine but no beat is marked turn: true"); // a turn is optional (Plan 03); a declared one must be findable
   const featCap = Math.min(5, dev.build.score + 1);
   if (adj.feasibility > featCap) bump("feasibility", featCap - adj.feasibility, `${dev.name} is buildability ${dev.build.score}/5; self-score capped at ${featCap}`);
   if (order >= 3 && adj.originality > 3) bump("originality", 3 - adj.originality, `${order} default beats in order: originality capped at 3`);
@@ -1776,7 +1875,7 @@ function checkPitch(p, idx, truth, footage, opts = {}) {
     if (engine === "problem-turn") warnings.push('engine "problem-turn": the engine is named "reversal"');
     else if (engine && !ENGINES[engine]) warnings.push(`engine "${engine}": use ${Object.keys(ENGINES).join(" | ")}`);
     if (p.engine && ENGINE_OF_SHAPE[shapeOf(p, beats)] && ENGINE_OF_SHAPE[shapeOf(p, beats)] !== (engine === "problem-turn" ? "reversal" : engine)) warnings.push(`engine ${engine} does not match the shape "${shapeOf(p, beats)}" (its engine is ${ENGINE_OF_SHAPE[shapeOf(p, beats)]}): change one`);
-    if (!t) warnings.push(`turn: missing pitch.turn { line, reverses, payoff }${engine ? ` (the ${engine} engine has a turn)` : ""}: one line naming what flips and what answers the setup`);
+    if (!t && p.engine) warnings.push(`turn: missing pitch.turn { line, reverses, payoff }${engine ? ` (the ${engine} engine has a turn)` : ""}: one line naming what flips and what answers the setup`);
     else {
       if (!String(t.line || "").trim()) warnings.push("turn.line: missing (the one line where the story turns)");
       if (!String(t.reverses || "").trim()) warnings.push("turn.reverses: missing (what flips: a belief, a situation, an object); a turn that reverses nothing is not a turn");

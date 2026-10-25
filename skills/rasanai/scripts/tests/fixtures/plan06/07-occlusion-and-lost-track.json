@@ -1,0 +1,245 @@
+{
+  "case": "V07",
+  "title": "Low-confidence spans, a lost track and a scene cut are exposed with fallbacks; text behind a person needs a mask",
+  "calls": [
+    "healthOf",
+    "quadAt",
+    "planTreatment"
+  ],
+  "track": {
+    "schema_version": 1,
+    "id": "t1",
+    "asset_id": "clip-phone",
+    "track_type": "planar-quad",
+    "source_digest": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+    "timebase": "source_pts_seconds",
+    "source": {
+      "rotation_deg": 90,
+      "display_width": 1080,
+      "display_height": 1920,
+      "time_base": "source_pts_seconds",
+      "duration_s": 2.0
+    },
+    "frames": [
+      {
+        "t_s": 0,
+        "quad_norm": [
+          [
+            0.3,
+            0.2
+          ],
+          [
+            0.6,
+            0.2
+          ],
+          [
+            0.6,
+            0.7
+          ],
+          [
+            0.3,
+            0.7
+          ]
+        ],
+        "confidence": 0.9,
+        "origin": "vision"
+      },
+      {
+        "t_s": 0.5,
+        "quad_norm": [
+          [
+            0.3,
+            0.2
+          ],
+          [
+            0.6,
+            0.2
+          ],
+          [
+            0.6,
+            0.7
+          ],
+          [
+            0.3,
+            0.7
+          ]
+        ],
+        "confidence": 0.3,
+        "origin": "vision"
+      },
+      {
+        "t_s": 0.75,
+        "quad_norm": [
+          [
+            0.3,
+            0.2
+          ],
+          [
+            0.6,
+            0.2
+          ],
+          [
+            0.6,
+            0.7
+          ],
+          [
+            0.3,
+            0.7
+          ]
+        ],
+        "confidence": 0.9,
+        "origin": "vision"
+      },
+      {
+        "t_s": 1.0,
+        "quad_norm": [
+          [
+            0.3,
+            0.2
+          ],
+          [
+            0.6,
+            0.2
+          ],
+          [
+            0.6,
+            0.7
+          ],
+          [
+            0.3,
+            0.7
+          ]
+        ],
+        "confidence": 0,
+        "origin": "interpolated",
+        "lost": true
+      },
+      {
+        "t_s": 1.5,
+        "quad_norm": [
+          [
+            0.7,
+            0.4
+          ],
+          [
+            0.8999999999999999,
+            0.4
+          ],
+          [
+            0.8999999999999999,
+            0.8
+          ],
+          [
+            0.7,
+            0.8
+          ]
+        ],
+        "confidence": 0.9,
+        "origin": "vision"
+      },
+      {
+        "t_s": 2.0,
+        "quad_norm": [
+          [
+            0.7,
+            0.4
+          ],
+          [
+            0.8999999999999999,
+            0.4
+          ],
+          [
+            0.8999999999999999,
+            0.8
+          ],
+          [
+            0.7,
+            0.8
+          ]
+        ],
+        "confidence": 0.9,
+        "origin": "vision"
+      },
+      {
+        "t_s": 2.5,
+        "quad_norm": [
+          [
+            0.1,
+            0.1
+          ],
+          [
+            0.30000000000000004,
+            0.1
+          ],
+          [
+            0.30000000000000004,
+            0.5
+          ],
+          [
+            0.1,
+            0.5
+          ]
+        ],
+        "confidence": 0.9,
+        "origin": "vision"
+      }
+    ],
+    "corrections": [],
+    "status": "tracked"
+  },
+  "cuts_s": [
+    1.25
+  ],
+  "expect_health": {
+    "spans": [
+      {
+        "kind": "low_confidence",
+        "t0": 0.5,
+        "t1": 0.75
+      },
+      {
+        "kind": "lost",
+        "t0": 1.0,
+        "t1": 1.5
+      },
+      {
+        "kind": "scene_cut",
+        "t0": 1.25
+      },
+      {
+        "kind": "quad_jump",
+        "t0": 2.0,
+        "t1": 2.5
+      }
+    ],
+    "each_has_fallbacks": [
+      "keep_source",
+      "manual_correction"
+    ],
+    "scene_cut_has_simpler_treatment": false,
+    "needs_attention": true
+  },
+  "expect_quadAt_1.2": null,
+  "expect_quadAt_note": "inside the lost span there is no invented quad: the compositor keeps the source (never a black frame)",
+  "text_behind_person": {
+    "no_mask": {
+      "mode": "limited_fallback",
+      "label_contains": "limited"
+    },
+    "with_mask": {
+      "mode": "exact"
+    },
+    "rule": "a rectangular crop is never presented as person segmentation"
+  },
+  "hand_over_replaced_screen": {
+    "quad_only": {
+      "occlusion": "none",
+      "note": "a hand is not occluded"
+    },
+    "quad_plus_matte": {
+      "label_contains": "foreground matte in front"
+    }
+  },
+  "alpha_edges": "premultiplied vs straight alpha, colour conversion, letterboxing and foreground edge treatment are checked in plan 14 on real frames (not by this fixture)",
+  "deferred_to": "plan 14: recover from a lost span on a real clip with a hand crossing a screen; keep-source, manual correction and simpler treatment each exercised"
+}

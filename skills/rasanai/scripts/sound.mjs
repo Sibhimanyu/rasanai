@@ -10,6 +10,8 @@
 //       -> an edit plan that never loops audibly: shape (backtimed | head+tail | own-fade | button |
 //          fade | repeat), segments, joins, the film-time bar grid, the reveal/logo moved onto the
 //          music, and scene starts snapped to bars. needs_longer: true when the track is too short.
+//       Plan 07: analyze adds `estimates` (tempo detected | uncertain | undetected, never a made-up BPM); fit adds `estimates` and `guard` (track too short, an undeclared repeat,
+//       a music-led trim [--music-led, --trim-authorized], --user-track, --loop-declared); a failed guard exits 2 unless --allow-guard
 //   node sound.mjs render --plan plan.json --out bed.wav [--lufs -14]
 //       -> renders the edited bed (atrim/acrossfade/afade), -14 LUFS, true peak <= -1.5 dBTP
 //   node sound.mjs render --plan plan.json --out bed.wav --loop [--loop-xfade 0.35]      (idea from awesome-opus5-5-videos; our code)
@@ -60,6 +62,10 @@
 //   node sound.mjs master (--video <mp4> | --audio <file>) --out <file> [--lufs -14]
 //       -> the post-render fix for check's loudness/peak problems: static gain + true-peak limiter
 //          (-1.5 dBTP, -2 for AAC/MP3), picture copied untouched
+//   Plan 07 (all optional; a run without audio/direction.json behaves as before): --direction <file> (else <run>/audio/direction.json) gives sfx-plan the film's
+//   silence windows (auto-fill never lands in one) and lets a film with sfx role "none" or a silent deliverable pass check without no-sfx; an event may carry
+//   offset_s (the intended lead or lag of its accent, default +0.010 s); --profile <rasanai-house|ebu-r128|atsc-a85> sets the loudness target and true-peak limit
+//   (lib/mix-receipt.mjs PROFILES; --lufs still wins; the house profile is the old -14 LUFS / -1.5 dBTP). The records live in soundplan.mjs (references/sound.md "Sound direction").
 //   node sound.mjs probe <sfx files...>        -> sync point, lead silence, audible end, harshness
 import fs from "node:fs";
 import path from "node:path";
@@ -76,10 +82,27 @@ import {
   analyzeTrack, publicAnalysis, summarize, fitTrack, renderPlan, masterFile, probeSfx, loudness, loudnessOver,
   decode, findRepeats, onsetProfile, onsetTimes, cutOnsetShare, lowShare, windowDb, audioFingerprint, compareFingerprint, renderTexture, SFX_BUDGET, sfxMode, sfxLimit, sfxOver, momentaryDb, designedBreaks, speechPhrases, phrasesFromWords, splitEdits, hasAudioStream, probeDuration, requireTools, r1, r3, SR,
 } from "./lib/audio.mjs";
+// Plan 07: the audio direction (intentional silence, a silent deliverable), cue offsets and destination profiles. All optional: a run without audio/direction.json behaves as before.
+import { readDirection, sfxExpectation, silenceWindows } from "./lib/audio-direction.mjs";
+import { dropInSilence } from "./lib/cues.mjs";
+import { resolveProfile } from "./lib/mix-receipt.mjs";
+import { fitGuard, labelEstimates } from "./lib/music-fit.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
 const out = (o) => console.log(JSON.stringify(o, null, 2));
+// the audio direction: --direction <file>, else <run>/audio/direction.json; null for a legacy run
+function audioDirection() {
+  try {
+    if (args.direction && args.direction !== true) return JSON.parse(fs.readFileSync(path.resolve(String(args.direction)), "utf8"));
+    if (args.run && args.run !== true) return readDirection(String(args.run)).direction;
+  } catch {}
+  return null;
+}
+// --lufs wins; else --profile <id> (lib/mix-receipt.mjs PROFILES; "rasanai-house" = the old -14 LUFS / -1.5 dBTP default); else the house default
+const profileOf = () => resolveProfile(args.profile && args.profile !== true ? String(args.profile) : "rasanai-house");
+const targetLufs = () => (args.lufs != null ? Number(args.lufs) : profileOf().integrated_lufs);
+const limitTp = () => profileOf().true_peak_limit_db;
 const need = (k, hint) => {
   if (args[k] == null || args[k] === true) die(`--${k} ${hint} required`);
   return String(args[k]);
@@ -304,6 +327,16 @@ function sfxPlan() {
   // whooshes only on signature transitions
   for (const e of cand) if (e.kind === "whoosh" && !e.signature) { skipped.push({ event: e.id, t: e.t, why: "whoosh on an ordinary transition: only signature spatial moves get one" }); e._drop = true; }
   cand = cand.filter((e) => !e._drop);
+  // Plan 07 A1/A2: the audio direction can give effects no role (or choose a silent film) and can protect silence windows from auto-fill
+  const direction = audioDirection();
+  if (direction) {
+    const expect = sfxExpectation(direction);
+    if (expect.required === false) { for (const e of cand) skipped.push({ event: e.id, t: e.t, why: `audio direction: ${expect.why}` }); cand = []; }
+    else {
+      const win = silenceWindows(direction, events.map((e) => ({ id: e.id, t: e.t }))).windows;
+      if (win.length) { const d = dropInSilence(cand, win); for (const x of d.dropped) skipped.push({ event: x.id, t: x.t, why: x.why }); cand = d.kept; }
+    }
+  }
 
   const bed = args.bed ? onsetProfile(exists(path.resolve(String(args.bed)), "bed")) : null;
   const words = [], wordSpans = [];
@@ -419,11 +452,12 @@ function sfxPlan() {
     lastUse[sample] = { t: e.t, v };
     const rate = (k.rate || 1) * (k.cls === "hero" || k.cls === "riser" ? 1 : v.rate);
     const sync = p ? p.sync_point / rate : 0;
-    const start = Math.max(0, e.t - sync + 0.01); // never lead the picture; 10 ms late reads as natural
+    const off = Number.isFinite(Number(e.offset_s)) ? Number(e.offset_s) : 0.01; // the default: 10 ms after the picture reads as simultaneous. A cue event may carry its own intended offset (lib/cues.mjs): an intentional lead or lag is recorded, not corrected
+    const start = Math.max(0, e.t - sync + off);
     const volume = r3(k.vol * Math.pow(10, (e.gain + (k.cls === "hero" ? 0 : v.gain_db)) / 20));
     const scene = sc.scenes.find((s) => s.n === e.scene) || sc.scenes[0];
     const dur = p ? (p.audible_end - (p.lead_silence > 0.05 ? 0 : 0)) / rate : 1;
-    const cue = { event: e.id, kind: e.kind, class: k.cls, t: r3(e.t), start: r3(start), scene: e.scene, sample, file: rl ? rl.abs : lib.files[sample] || null, source: rl ? "rasan-sfx" : "media-use", pack: rl ? rl.pack : null, rate: r3(rate), volume, duration_s: r3(dur), sync_point: p ? r3(sync) : null, estimated: !!e.estimated, notes: e.notes };
+    const cue = { event: e.id, kind: e.kind, class: k.cls, t: r3(e.t), intended_offset_s: r3(off), start: r3(start), scene: e.scene, sample, file: rl ? rl.abs : lib.files[sample] || null, source: rl ? "rasan-sfx" : "media-use", pack: rl ? rl.pack : null, rate: r3(rate), volume, duration_s: r3(dur), sync_point: p ? r3(sync) : null, estimated: !!e.estimated, notes: e.notes };
     if (p && p.warnings.some((w) => /harsh|piercing/.test(w))) cue.notes.push("harsh sample: lowpass 9 kHz applied when rendered");
     if (e.t - sync < 0) cue.notes.push("crest would fall before the film starts: trimmed");
     cue._scene_start = scene.start;
@@ -458,7 +492,7 @@ function sfxPlan() {
       const af = [`atrim=start=${lead.toFixed(3)}:end=${p.audible_end.toFixed(3)}`, "asetpts=PTS-STARTPTS", c.rate !== 1 ? `asetrate=48000*${c.rate},aresample=48000` : null, lp ? `lowpass=f=${lp}` : null, c.class === "hero" || c.class === "riser" ? null : "highpass=f=100", "afade=t=out:st=0:d=0.001", `areverse,afade=t=in:d=0.02,areverse`, pan == null ? null : (() => { const a = ((pan + 1) * Math.PI) / 4; return `aformat=channel_layouts=mono,pan=stereo|c0=${(Math.SQRT2 * Math.cos(a)).toFixed(3)}*c0|c1=${(Math.SQRT2 * Math.sin(a)).toFixed(3)}*c0`; })()].filter(Boolean).join(",");
       if (!fs.existsSync(dest)) execFileSync("ffmpeg", ["-y", "-v", "error", "-i", c.file, "-ar", "48000", "-af", af, "-c:a", "pcm_s16le", dest]);
       c.sync_point = r3(Math.max(0, p.sync_point - lead) / c.rate);
-      c.start = r3(Math.max(0, c.t - c.sync_point + 0.01));
+      c.start = r3(Math.max(0, c.t - c.sync_point + (c.intended_offset_s ?? 0.01)));
       c.duration_s = r3((p.audible_end - lead) / c.rate);
       c.file = path.relative(project, dest).split(path.sep).join("/");
     }
@@ -550,11 +584,15 @@ function check() {
   const src = args.video || args.audio;
   if (!src) die("--video <mp4> or --audio <file> required");
   const file = exists(path.resolve(String(src)), "input");
+  const directionX = audioDirection(), expectX = sfxExpectation(directionX);
   if (!hasAudioStream(file)) {
+    // Plan 07 A1/A5: a silent deliverable chosen in the audio direction is complete; an audio failure is not
+    if (directionX && directionX.deliverable && directionX.deliverable.state === "silent_by_choice") { out({ ok: true, silent_by_choice: directionX.deliverable.reason || "silent deliverable", note: "the audio direction chose a silent film; loudness targets do not apply" }); process.exit(0); }
     out({ ok: false, problems: [{ what: "no audio track", fix: "the render has no sound: check that audio_meta.json has the bed and the index mounts it" }] });
     process.exit(2);
   }
-  const target = args.lufs != null ? Number(args.lufs) : -14;
+  const target = targetLufs();
+  if (expectX.required === false && !(args["silent-by-choice"] && args["silent-by-choice"] !== true)) args["silent-by-choice"] = expectX.silent_by_choice; // the direction gave effects no role: zero cues is intended
   const problems = [], warnings = [];
   const P = (what, measured, target, fix) => problems.push({ what, measured, target, fix });
   const L = loudness(file);
@@ -878,6 +916,7 @@ if (cmd === "analyze") {
   const A = analyzeTrack(f);
   const o = publicAnalysis(A, { full: !!args.full });
   o.summary = summarize(A);
+  o.estimates = labelEstimates(A); // Plan 07 A3: tempo detected | uncertain | undetected (bpm null when detection failed), meter assumed, sections estimated
   out(o);
 } else if (cmd === "fit") {
   track("Fitting the music to the film on bar lines", "Music edit planned");
@@ -894,6 +933,9 @@ if (cmd === "analyze") {
   const A = analyzeTrack(f, { quick: true });
   const plan = fitTrack(A, { film, reveal, logo, scenes: sc ? sc.scenes : null, flex: args.flex, softStart: !!args["soft-start"], xfade: args.xfade, preroll: args.preroll });
   plan.track_summary = summarize(A);
+  // Plan 07 A3: label what is estimated, and refuse what is not a fit: a track too short for the film (no endless loop), a repeat nobody declared, and a trim of a music-led film nobody authorized
+  plan.estimates = labelEstimates(A);
+  plan.guard = fitGuard(plan, A, { music_led: !!args["music-led"], trim_authorized: !!args["trim-authorized"], loop_declared: !!args.loop || plan.loop === true, film_s: film, user_track: !!args["user-track"] });
   if (args.out) {
     writeFile(path.resolve(String(args.out)), JSON.stringify(plan, null, 2) + "\n");
     plan.render = `node ${path.relative(process.cwd(), process.argv[1])} render --plan ${args.out} --out <bed.wav>`;
@@ -911,10 +953,11 @@ if (cmd === "analyze") {
   }
   out(plan);
   if (plan.needs_longer && !plan.segments.length) process.exit(2);
+  if (!plan.guard.ok && !args["allow-guard"]) process.exit(2); // --allow-guard: the person saw the guard and wants the plan anyway
 } else if (cmd === "render") {
   track("Cutting the music bed", "Music bed rendered");
   const plan = readJSON(exists(path.resolve(need("plan", "<plan.json>")), "plan"));
-  const o = renderPlan(plan, String(need("out", "<bed.wav>")), { lufs: args.lufs != null ? Number(args.lufs) : -14 });
+  const o = renderPlan(plan, String(need("out", "<bed.wav>")), { lufs: targetLufs(), tp: limitTp() });
   o.shape = plan.shape;
   o.film_duration = plan.film_duration;
   if (args.loop || plan.loop === true) o.loop = loopBed(plan, path.resolve(String(args.out)), path.resolve(String(args.out)), args["loop-xfade"] != null ? Number(args["loop-xfade"]) : NaN);
@@ -931,7 +974,7 @@ if (cmd === "analyze") {
 } else if (cmd === "master") {
   track("Mastering the sound to -14 LUFS", "Sound mastered");
   const src = exists(path.resolve(String(args.video || args.audio || need("audio", "<file> (or --video <mp4>)"))), "input");
-  out(masterFile(src, String(need("out", "<file>")), { lufs: args.lufs != null ? Number(args.lufs) : -14 }));
+  out(masterFile(src, String(need("out", "<file>")), { lufs: targetLufs(), tp: limitTp() }));
 } else if (cmd === "probe") {
   const files = args._.slice(1);
   if (!files.length) die("usage: sound.mjs probe <sfx files...>");

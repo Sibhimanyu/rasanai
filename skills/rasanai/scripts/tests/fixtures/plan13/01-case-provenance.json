@@ -1,0 +1,163 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan13/Q01",
+  "case": "fixtures are safe, labelled and separated from examples and holdouts",
+  "targets": [
+    "lib/eval-corpus.mjs validateCorpus / generalizationEvidence / scanLeakage"
+  ],
+  "scenarios": [
+    {
+      "name": "shipped corpus is valid",
+      "call": "validateCorpus",
+      "input": {
+        "corpus": "$corpus"
+      },
+      "expect": {
+        "ok": true,
+        "fixtures": 23,
+        "heldout": 4,
+        "families_covered": 19
+      }
+    },
+    {
+      "name": "third party reel refused",
+      "call": "validateCorpus",
+      "input": {
+        "corpus": {
+          "fixtures": [
+            {
+              "id": "x",
+              "family": "general_launch",
+              "source": "third_party_reel",
+              "label": "l",
+              "permission_note": "invented for tests",
+              "split": "example",
+              "expected": {
+                "meaning": "m",
+                "constraints": [
+                  "c"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~source must be"
+      }
+    },
+    {
+      "name": "missing permission note refused",
+      "call": "validateCorpus",
+      "input": {
+        "corpus": {
+          "fixtures": [
+            {
+              "id": "x",
+              "family": "general_launch",
+              "source": "synthetic",
+              "label": "l",
+              "permission_note": "",
+              "split": "example",
+              "expected": {
+                "meaning": "m",
+                "constraints": [
+                  "c"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~permission note"
+      }
+    },
+    {
+      "name": "exact script as expected output refused",
+      "call": "validateCorpus",
+      "input": {
+        "corpus": {
+          "fixtures": [
+            {
+              "id": "x",
+              "family": "general_launch",
+              "source": "synthetic",
+              "label": "l",
+              "permission_note": "invented for tests",
+              "split": "example",
+              "expected": {
+                "meaning": "m",
+                "constraints": [
+                  "c"
+                ],
+                "script": "Start with what you have."
+              }
+            }
+          ]
+        }
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~exact script"
+      }
+    },
+    {
+      "name": "held-out fixture listed as generator example refused",
+      "call": "validateCorpus",
+      "input": {
+        "corpus": "$corpus",
+        "options": {
+          "generatorExamples": [
+            "h01-heldout-product"
+          ]
+        }
+      },
+      "expect": {
+        "ok": false,
+        "errors": "~held-out fixture is listed"
+      }
+    },
+    {
+      "name": "fixtures that taught the writer are not generalization evidence",
+      "call": "generalizationEvidence",
+      "input": {
+        "items": [
+          {
+            "id": "h1",
+            "split": "heldout"
+          },
+          {
+            "id": "h2",
+            "split": "heldout"
+          }
+        ],
+        "taught": [
+          "h1",
+          "h2"
+        ]
+      },
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "name": "held-out cases not taught are",
+      "call": "generalizationEvidence",
+      "input": {
+        "items": "$corpus",
+        "taught": [
+          "c01-general-launch",
+          "c02-single-feature"
+        ]
+      },
+      "expect": {
+        "ok": true
+      }
+    }
+  ]
+}

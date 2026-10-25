@@ -1,0 +1,130 @@
+{
+  "_label": "SYNTHETIC EXAMPLE. Invented to exercise the story code. NOT a recording, a certification of any product's capabilities, or a claim source. Never reuse as a captured result in a real film.",
+  "_note": "authored, not run. 'Meet X' as the first line is allowed when it serves the assignment. The legacy G1 stock-opener gate is a warning now and the v2 route never applies it. Must ship. (Breadth note: two beats cite the same evidence, so a minor breadth-depth-mismatch note is acceptable; it must not block.)",
+  "context": {
+    "kind": "whole-product-introduction",
+    "duration_s": 25,
+    "evidence_file": "evidence-synthetic.json"
+  },
+  "treatment": {
+    "story_format": "v2",
+    "id": "t-simple",
+    "tag": "Sure",
+    "treatment_title": "Meet Notely",
+    "premise": "a plain introduction: the name, what it does, one proof, how to start",
+    "logline": "Notely cleans up what you type; here is one example.",
+    "communication_kind": "whole-product-introduction",
+    "proposition": "Notely cleans up what you type.",
+    "viewer_takeaway": "I know what Notely is and how to try it.",
+    "perspective": "someone who has never heard of it",
+    "takeaways": [
+      {
+        "id": "t1",
+        "text": "Notely cleans up messy typing",
+        "required": true
+      }
+    ],
+    "optional_tools": [],
+    "beats": [
+      {
+        "id": "beat-open",
+        "internal_beat_label": "Opening",
+        "grammar_role": "proposition",
+        "viewer_takeaway": "Notely is a notes app that cleans up what you type.",
+        "on_screen": "Meet Notely.",
+        "voiceover": "Meet Notely. It cleans up what you type.",
+        "visual_event": {
+          "before": "a blank page",
+          "change": "the name and a typed sentence appear together",
+          "after": "a page with the name and one line of typing"
+        },
+        "evidence_refs": [],
+        "relation_to_previous": "open",
+        "duration_provisional_s": 5,
+        "channel_role": {
+          "mode": "split",
+          "reason": ""
+        }
+      },
+      {
+        "id": "beat-clean",
+        "internal_beat_label": "Proof",
+        "grammar_role": "demonstration",
+        "viewer_takeaway": "A messy sentence becomes a clean one as you type.",
+        "on_screen": "Messy in, clean out.",
+        "voiceover": null,
+        "visual_event": {
+          "before": "a sentence full of typos",
+          "change": "Notely fixes the typos in place",
+          "after": "the same sentence, clean"
+        },
+        "evidence_refs": [
+          "syn-f1"
+        ],
+        "relation_to_previous": "so",
+        "duration_provisional_s": 8,
+        "channel_role": {
+          "mode": "screen-only",
+          "reason": ""
+        }
+      },
+      {
+        "id": "beat-more",
+        "internal_beat_label": "Second proof",
+        "grammar_role": "demonstration",
+        "viewer_takeaway": "It also tidies a list of notes into bullets.",
+        "on_screen": "Lists tidy themselves.",
+        "voiceover": null,
+        "visual_event": {
+          "before": "a run-on list of notes",
+          "change": "the notes split into bullets",
+          "after": "three clean bullets"
+        },
+        "evidence_refs": [
+          "syn-f1"
+        ],
+        "relation_to_previous": "example",
+        "duration_provisional_s": 7,
+        "channel_role": {
+          "mode": "screen-only",
+          "reason": ""
+        }
+      },
+      {
+        "id": "beat-try",
+        "internal_beat_label": "Try it",
+        "grammar_role": "invitation",
+        "viewer_takeaway": "You can try it today with a blank page.",
+        "on_screen": "Try Notely.",
+        "voiceover": null,
+        "visual_event": {
+          "before": "the clean bullets",
+          "change": "the page clears to a blank one",
+          "after": "a blank page with a cursor"
+        },
+        "evidence_refs": [],
+        "relation_to_previous": "so",
+        "duration_provisional_s": 5,
+        "channel_role": {
+          "mode": "screen-only",
+          "reason": ""
+        }
+      }
+    ],
+    "coverage": {
+      "ledger": [
+        {
+          "takeaway_id": "t1",
+          "beat_id": "beat-clean"
+        }
+      ],
+      "excluded": []
+    }
+  },
+  "expected": {
+    "verdict": "ship",
+    "allowed_minor": [
+      "breadth-depth-mismatch"
+    ]
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "id": "plan09/P05",
+  "title": "Transitive keys: shared font and component changes reach every consumer; time changes reach neighbours; unknown dynamic dependencies are conservative",
+  "status": "authored_not_run",
+  "note": "Synthetic. Lists the function exercised, the input and the expected outcome; authored, not run. No number here is a measurement of real rendering, latency, memory or cost.",
+  "calls": [
+    {
+      "fn": "render-keys.sceneDeps",
+      "case": "project with index.html hosting s1,s2,s3 from compositions/*.html; s1 and s2 include components/card.js and fonts/Inter.woff2; s3 includes neither"
+    },
+    {
+      "fn": "render-keys.consumersOf",
+      "case": "fonts/Inter.woff2 changes; then components/card.js changes"
+    },
+    {
+      "fn": "render-keys.boundaryTime",
+      "case": "s2 changes duration: neighbours via a crossfade seam vs via a hard cut"
+    },
+    {
+      "fn": "render-keys.sceneDeps",
+      "case": "s3 calls fetch(), or references an https URL, or is inline in index.html"
+    },
+    {
+      "fn": "render-keys.renderKey",
+      "case": "key bodies differing only in: rational fps, a font digest, a seed, local vs global time origin, alpha convention, codec, dimensions"
+    },
+    {
+      "fn": "render-keys.renderKey",
+      "case": "bodies that differ only in a secret-named key, a created_at stamp, a temp path"
+    },
+    {
+      "fn": "render-keys.renderKeyBody",
+      "case": "fps given as 29.97"
+    }
+  ],
+  "expect": [
+    "consumersOf(Inter.woff2) = [s1,s2]; card.js = [s1,s2]; s3 is untouched unless it is conservative",
+    "a crossfade neighbour is listed in time.neighbours and moves the key; a hard-cut neighbour is not (low-coupling)",
+    "s3 with fetch(), a remote URL or an inline scene is conservative: its key carries the whole-project digest, so any file change rebuilds it; it is never reported as a hit by filename",
+    "each listed difference changes the key; invalidationCauses names the part (fonts, fps, seed, time, color, codec, dimensions)",
+    "secrets, wall-clock stamps and temp paths never change a key",
+    "a float fps is refused (problems: fps must be rational)",
+    "hybrid-graph node keys now include the scene's code bytes, so editing a scene file with the same name changes its content_key"
+  ]
+}

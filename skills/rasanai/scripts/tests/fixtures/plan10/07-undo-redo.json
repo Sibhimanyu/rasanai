@@ -1,0 +1,47 @@
+{
+  "case": "plan10/U07",
+  "note": "engine behaviours of lib/editor-patch (read, not run)",
+  "cases": [
+    {
+      "name": "typed undo",
+      "steps": [
+        "typed move title x 100->150",
+        "undo"
+      ],
+      "expect": {
+        "x_on_disk": 100,
+        "status": "reverted",
+        "method": "inverse_patch",
+        "inverse_record": "<id>.undo1"
+      }
+    },
+    {
+      "name": "redo",
+      "steps": [
+        "undo",
+        "redo"
+      ],
+      "expect": {
+        "new_id": "<id>.redo1",
+        "x_on_disk": 150,
+        "refused_when": "the element or its original value changed since the undo"
+      }
+    },
+    {
+      "name": "checkpoint restore only on exact post-state",
+      "steps": [
+        "agent edit applied (patch.digest recorded)",
+        "undo"
+      ],
+      "expect": {
+        "when_file_digest_equals_patch_digest": "checkpoint_restore",
+        "otherwise": "inverse_patch if the edit recorded an inverse and the element still holds its values, else conflict + restore_as_new_version"
+      }
+    },
+    {
+      "name": "downstream",
+      "expect": "undo announces source_changed (crew/revisions.jsonl); it is never shown as rendered"
+    }
+  ],
+  "concurrency": "apply, undo, redo and typedEdit run inside one strict source lock (motion/source.lock) with a recovery journal (motion/journal.json)"
+}

@@ -1,0 +1,148 @@
+{
+  "_label": "SYNTHETIC EXAMPLE. Invented to exercise the story code. NOT a recording, a certification of any product's capabilities, or a claim source. Never reuse as a captured result in a real film.",
+  "_note": "authored, not run. An abstract opening is justified by a stated position (abstraction.justification) in a kind where abstraction is the point. Must ship, with a craft note (abstraction-justified), not a major issue.",
+  "context": {
+    "kind": "identity-reveal",
+    "duration_s": 25,
+    "evidence_file": "evidence-synthetic.json"
+  },
+  "treatment": {
+    "story_format": "v2",
+    "id": "t-identity",
+    "tag": "Bold",
+    "treatment_title": "One circle, built into a system",
+    "premise": "explain the identity by building it from a single shape",
+    "logline": "A circle is drawn, coloured, lettered and then used.",
+    "communication_kind": "identity-reveal",
+    "proposition": "The new identity is one circle that behaves the same way everywhere.",
+    "viewer_takeaway": "I can recognise the identity from the circle alone.",
+    "perspective": "someone seeing the new identity for the first time",
+    "takeaways": [
+      {
+        "id": "t1",
+        "text": "the identity is built from one circle",
+        "required": true
+      },
+      {
+        "id": "t2",
+        "text": "the circle is used the same way in applications",
+        "required": true
+      }
+    ],
+    "optional_tools": [
+      {
+        "tool": "motif",
+        "purpose": "the circle returns in every beat and develops"
+      }
+    ],
+    "abstraction": {
+      "justification": "the film's position is that one simple shape is enough; the abstract opening states that position and the next beats show it applied"
+    },
+    "beats": [
+      {
+        "id": "beat-circle",
+        "internal_beat_label": "Opening shape",
+        "grammar_role": "element",
+        "viewer_takeaway": "Possibility becomes form.",
+        "on_screen": "Possibility.",
+        "voiceover": null,
+        "visual_event": {
+          "before": "",
+          "change": "the circle appears",
+          "after": ""
+        },
+        "evidence_refs": [],
+        "relation_to_previous": "open",
+        "duration_provisional_s": 5,
+        "channel_role": {
+          "mode": "screen-only",
+          "reason": ""
+        }
+      },
+      {
+        "id": "beat-system",
+        "internal_beat_label": "System behaviour",
+        "grammar_role": "system_behavior",
+        "viewer_takeaway": "The circle takes one colour and one typeface and nothing else changes.",
+        "on_screen": "One colour. One typeface.",
+        "voiceover": null,
+        "visual_event": {
+          "before": "an empty white frame with the plain circle",
+          "change": "colour fills the circle and the wordmark sets beside it",
+          "after": "the circle, the colour and the wordmark locked together"
+        },
+        "evidence_refs": [],
+        "relation_to_previous": "so",
+        "duration_provisional_s": 7,
+        "channel_role": {
+          "mode": "screen-only",
+          "reason": ""
+        }
+      },
+      {
+        "id": "beat-use",
+        "internal_beat_label": "Applications",
+        "grammar_role": "application",
+        "viewer_takeaway": "The same circle works on a poster, an app icon and a badge.",
+        "on_screen": "Same circle, everywhere.",
+        "voiceover": null,
+        "visual_event": {
+          "before": "the locked circle and wordmark",
+          "change": "the circle is placed on a poster, an app icon and a badge",
+          "after": "three applications that read as one identity"
+        },
+        "evidence_refs": [
+          "syn-id1"
+        ],
+        "relation_to_previous": "example",
+        "duration_provisional_s": 8,
+        "channel_role": {
+          "mode": "screen-only",
+          "reason": ""
+        }
+      },
+      {
+        "id": "beat-end",
+        "internal_beat_label": "Resolution",
+        "grammar_role": "resolution",
+        "viewer_takeaway": "The identity is recognisable from the circle alone.",
+        "on_screen": "The circle.",
+        "voiceover": null,
+        "visual_event": {
+          "before": "the three applications side by side",
+          "change": "the applications recede until only the circle is left",
+          "after": "the circle alone on the brand colour"
+        },
+        "evidence_refs": [
+          "syn-id1"
+        ],
+        "relation_to_previous": "answer",
+        "duration_provisional_s": 5,
+        "channel_role": {
+          "mode": "screen-only",
+          "reason": ""
+        }
+      }
+    ],
+    "coverage": {
+      "ledger": [
+        {
+          "takeaway_id": "t1",
+          "beat_id": "beat-system"
+        },
+        {
+          "takeaway_id": "t2",
+          "beat_id": "beat-use"
+        }
+      ],
+      "excluded": []
+    }
+  },
+  "expected": {
+    "verdict": "ship",
+    "craft": [
+      "abstraction-justified",
+      "craft-motif"
+    ]
+  }
+}

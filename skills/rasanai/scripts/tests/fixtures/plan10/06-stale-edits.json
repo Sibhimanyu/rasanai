@@ -1,0 +1,75 @@
+{
+  "case": "plan10/U06",
+  "note": "engine behaviours of lib/editor-patch (read, not run)",
+  "cases": [
+    {
+      "name": "studio drag against an older element index",
+      "edit": {
+        "operation": "modify",
+        "fields": {
+          "position": {
+            "dx": 0.1,
+            "dy": 0
+          }
+        },
+        "source": "studio-final",
+        "build_digest": "OLD"
+      },
+      "expect": {
+        "ok": false,
+        "conflict": true,
+        "needs_reselect": true,
+        "appended": false
+      }
+    },
+    {
+      "name": "element changed since it was read",
+      "edit": {
+        "element_digest": "OLD"
+      },
+      "expect": {
+        "ok": false,
+        "conflict": true,
+        "error": "element changed since it was read"
+      }
+    },
+    {
+      "name": "typed edit with a wrong original",
+      "expect": {
+        "ok": false,
+        "conflict": true,
+        "current_returned": true
+      }
+    },
+    {
+      "name": "cli legacy edit with a stale index",
+      "expect": {
+        "ok": true,
+        "downgraded": true,
+        "needs_reselect": true,
+        "element_id": null,
+        "stale_binding_recorded": true,
+        "region_from_stale_bounds": "never used when the index is older than the scene sources"
+      }
+    },
+    {
+      "name": "unsupported structure",
+      "edit": {
+        "operation": "modify",
+        "fields": {
+          "animation": "swing"
+        }
+      },
+      "expect": {
+        "ok": false,
+        "step": "needs_model",
+        "packet": "motion/packets/<id>.md (scoped, not a broad rewrite)"
+      }
+    },
+    {
+      "name": "raster footage",
+      "expect": "directEdits is timing only; pointing at a depicted object is not an editable layer"
+    }
+  ],
+  "rejection_in_ui": "session.edit_results[id] ok:false -> overlay dropped, picture stays as saved, explanation shown, no paths or credentials"
+}

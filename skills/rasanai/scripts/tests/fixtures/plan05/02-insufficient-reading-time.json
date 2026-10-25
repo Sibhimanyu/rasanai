@@ -1,0 +1,56 @@
+{
+  "case": "E02",
+  "title": "a 22-word line held 2 s at 2.5% type on a phone",
+  "calls": [
+    "checkReading",
+    "evaluateBeat"
+  ],
+  "shot": {
+    "shot_id": "shot-claim-01",
+    "beat_id": "beat-claim",
+    "purpose": "",
+    "panels": [
+      {
+        "id": "p1",
+        "state": "claim card",
+        "image_ref": "frames/c.png"
+      }
+    ],
+    "copy_refs": [
+      "c1"
+    ],
+    "focal_read": "the claim",
+    "timing": {
+      "status": "provisional",
+      "duration_s": 2
+    },
+    "transition_out": {
+      "relation": "example",
+      "kind": "cut",
+      "carrier": null
+    },
+    "sound_intent": {
+      "role": "supportive",
+      "cue_refs": []
+    },
+    "copy": [
+      {
+        "id": "c1",
+        "text": "Every invitation you write now starts from your own rough notes and ends as something you would actually send today",
+        "size_pct": 2.5
+      }
+    ]
+  },
+  "context": {
+    "locale": "en",
+    "display": "phone"
+  },
+  "expect": {
+    "reading_ok": false,
+    "finding": "reading-time",
+    "severity": "major",
+    "needed_s_at_least": 8,
+    "fix": "hold longer, split the copy across shots, cut words not meaning, or record editorial.reading_waiver (the line was already read)",
+    "not_expected": "no change to the claim"
+  }
+}

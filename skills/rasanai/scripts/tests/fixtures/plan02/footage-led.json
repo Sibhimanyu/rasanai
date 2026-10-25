@@ -1,0 +1,3 @@
+{ "_note": "authored, not run. Footage-led input; product-first rules do not apply.",
+  "inputs": { "text": "cut a reel from my raw footage folder, talking head plus b-roll" },
+  "expected": { "communication_kind": "footage-led-story", "must_show.visual_source": "owner_footage", "generated_background_counts_as_proof": false } }

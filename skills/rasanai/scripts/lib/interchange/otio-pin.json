@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "package": "OpenTimelineIO",
+  "min_version": "0.17",
+  "max_version_exclusive": "1.0",
+  "exact_version": null,
+  "verified_at": null,
+  "source": null,
+  "needs_validation": true,
+  "note": "A compatible range RasanAI intends to use, NOT a verified pin: nobody has installed or imported this library for RasanAI yet. Plan 14 (after the owner approves testing) records the exact version that wrote and re-read a timeline, then sets exact_version, verified_at and source. RasanAI never installs it; the sidecar only reports what is already importable.",
+  "install_note": "optional, isolated: use a virtual environment of your own and set RASANAI_OTIO_PYTHON to its python3. Ordinary video production does not need it."
+}

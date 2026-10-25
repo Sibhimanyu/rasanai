@@ -1,0 +1,183 @@
+{
+  "case": "V06",
+  "title": "Planar quad track bound to its source, correction keyframes, swapped corners rejected",
+  "calls": [
+    "validateTrack",
+    "effectiveKeyframes",
+    "quadAt",
+    "trackDigest",
+    "homography(compositor)"
+  ],
+  "track_json": {
+    "schema_version": 1,
+    "id": "t1",
+    "asset_id": "clip-phone",
+    "track_type": "planar-quad",
+    "source_digest": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+    "timebase": "source_pts_seconds",
+    "source": {
+      "rotation_deg": 90,
+      "display_width": 1080,
+      "display_height": 1920,
+      "time_base": "source_pts_seconds",
+      "duration_s": 2.0
+    },
+    "frames": [
+      {
+        "t_s": 0,
+        "quad_norm": [
+          [
+            0.3,
+            0.2
+          ],
+          [
+            0.6,
+            0.2
+          ],
+          [
+            0.6,
+            0.7
+          ],
+          [
+            0.3,
+            0.7
+          ]
+        ],
+        "confidence": 0.9,
+        "origin": "vision"
+      },
+      {
+        "t_s": 1,
+        "quad_norm": [
+          [
+            0.4,
+            0.2
+          ],
+          [
+            0.7,
+            0.2
+          ],
+          [
+            0.7,
+            0.7
+          ],
+          [
+            0.4,
+            0.7
+          ]
+        ],
+        "confidence": 0.4,
+        "origin": "vision"
+      },
+      {
+        "t_s": 2,
+        "quad_norm": [
+          [
+            0.5,
+            0.2
+          ],
+          [
+            0.8,
+            0.2
+          ],
+          [
+            0.8,
+            0.7
+          ],
+          [
+            0.5,
+            0.7
+          ]
+        ],
+        "confidence": 0.9,
+        "origin": "vision"
+      }
+    ],
+    "corrections": [
+      {
+        "t_s": 1,
+        "quad_norm": [
+          [
+            0.42,
+            0.22
+          ],
+          [
+            0.72,
+            0.22
+          ],
+          [
+            0.72,
+            0.72
+          ],
+          [
+            0.42,
+            0.72
+          ]
+        ],
+        "note": "manual anchor"
+      }
+    ],
+    "status": "needs-correction"
+  },
+  "expect_quadAt_1.0": [
+    [
+      0.42,
+      0.22
+    ],
+    [
+      0.72,
+      0.22
+    ],
+    [
+      0.72,
+      0.72
+    ],
+    [
+      0.42,
+      0.72
+    ]
+  ],
+  "expect_quadAt_0.5": "midpoint of the t=0 sample and the corrected t=1 quad (the correction anchors the path)",
+  "stale_source": {
+    "source": {
+      "sha256": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    "expect_error_contains": "source_digest is stale"
+  },
+  "display_size_mismatch": {
+    "source": {
+      "width": 1920,
+      "height": 1080
+    },
+    "expect_error_contains": "differs from the media"
+  },
+  "swapped_corner": {
+    "frame": {
+      "t_s": 0,
+      "quad_norm": [
+        [
+          0.3,
+          0.2
+        ],
+        [
+          0.3,
+          0.7
+        ],
+        [
+          0.6,
+          0.7
+        ],
+        [
+          0.6,
+          0.2
+        ]
+      ]
+    },
+    "expect_error_contains": "TL,TR,BR,BL order"
+  },
+  "bad_rotation": {
+    "source_rotation_deg": 45,
+    "expect_error_contains": "rotation_deg must be 0, 90, 180 or 270"
+  },
+  "deferred_to": "plan 14: composite.mjs with the corrected track over a real clip; corner reprojection error measured, no black frames"
+}

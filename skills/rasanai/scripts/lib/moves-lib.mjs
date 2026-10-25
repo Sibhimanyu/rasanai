@@ -300,7 +300,12 @@ export function validateMoves(obj, opts = {}) {
   if (filmSeconds > 0) {
     const chain = arr(obj.chain).filter((e) => e && typeof e === "object");
     const need = Math.ceil(filmSeconds / 1.5);
-    if (chain.length < need) E(`chain-sparse: chain has ${chain.length} entries for a ${Math.round(filmSeconds * 10) / 10} s film (${need} at least: one transformation about every 1.5 s)`);
+    // Plan 05 E4: "a new idea every N seconds" is a STYLE rhythm, not a law. A pitch that declares rhythm_waiver (12+ characters: why this film holds or breathes) turns
+    // the density errors into warnings, and a gap inside a declared hold ([{t0, t1, why}]) is not a gap. Without either, the legacy errors stand.
+    const rw = obj.rhythm_waiver, waiver = str(rw && typeof rw === "object" ? rw.reason : rw);
+    const waived = waiver.length >= 12, DE = waived ? (m) => W(`${m} [waived: ${waiver}]`) : E;
+    const holds = arr(obj.holds).filter((h) => h && Number(h.t1) > Number(h.t0) && str(h.why).length >= 8);
+    if (chain.length < need) DE(`chain-sparse: chain has ${chain.length} entries for a ${Math.round(filmSeconds * 10) / 10} s film (${need} at least: one transformation about every 1.5 s)`);
     const ts = chain.map((e) => Number(e.t));
     if (chain.some((e, i) => !Number.isFinite(ts[i]) || !str(e.change))) E("chain: every entry needs {t (seconds from film start), change}");
     else if (chain.length) {
@@ -308,9 +313,10 @@ export function validateMoves(obj, opts = {}) {
       const edges = [0, ...sorted, filmSeconds];
       for (let i = 1; i < edges.length; i++) {
         const gap = edges[i] - edges[i - 1];
-        if (gap > MAX_CHAIN_GAP_S + 1e-9) { E(`chain-gap: ${Math.round(gap * 10) / 10} s with no transformation between ${Math.round(edges[i - 1] * 10) / 10} s and ${Math.round(edges[i] * 10) / 10} s (${MAX_CHAIN_GAP_S} s at most)`); break; }
+        const held = holds.some((h) => Number(h.t0) <= edges[i - 1] + 1e-9 && Number(h.t1) >= edges[i] - 1e-9);
+        if (gap > MAX_CHAIN_GAP_S + 1e-9 && !held) { DE(`chain-gap: ${Math.round(gap * 10) / 10} s with no transformation between ${Math.round(edges[i - 1] * 10) / 10} s and ${Math.round(edges[i] * 10) / 10} s (${MAX_CHAIN_GAP_S} s at most)`); break; }
       }
-    } else E(`chain-gap: no chain at all over a ${Math.round(filmSeconds * 10) / 10} s film (${MAX_CHAIN_GAP_S} s at most between transformations)`);
+    } else DE(`chain-gap: no chain at all over a ${Math.round(filmSeconds * 10) / 10} s film (${MAX_CHAIN_GAP_S} s at most between transformations)`);
   }
 
   // the chain ledger: one row per beat

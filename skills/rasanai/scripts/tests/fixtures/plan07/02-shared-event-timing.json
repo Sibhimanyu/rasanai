@@ -1,0 +1,98 @@
+{
+  "case": "A02",
+  "title": "one cue and timing source: cues point at event ids, film time is derived from the score",
+  "calls": [
+    "eventsFromScore",
+    "cuesFromScore",
+    "resolveCue",
+    "deriveCues",
+    "applyTimingDeltas",
+    "readAudioContract"
+  ],
+  "score": {
+    "frame_rate": 30,
+    "scenes": [
+      {
+        "n": 1,
+        "id": "s1",
+        "beat": 1,
+        "duration": 4,
+        "events": [
+          {
+            "id": "e-open",
+            "t": 0.5,
+            "sound": "soft-tap",
+            "what": "title appears"
+          },
+          {
+            "id": "e-quiet",
+            "t": 3.4,
+            "what": "the pause before the turn"
+          }
+        ]
+      },
+      {
+        "n": 2,
+        "id": "s2",
+        "beat": 2,
+        "duration": 5,
+        "events": [
+          {
+            "id": "e-land",
+            "t": 1,
+            "sound": "hit",
+            "what": "the card lands"
+          },
+          {
+            "id": "e-word",
+            "t": 2,
+            "word": "invitation",
+            "what": "the word is spoken and highlighted"
+          }
+        ]
+      }
+    ],
+    "seams": [
+      {
+        "from": 1,
+        "to": 2,
+        "kind": "push",
+        "sound": "whoosh"
+      }
+    ],
+    "audio_cues": [
+      {
+        "id": "cue-land",
+        "event": "e-land",
+        "role": "impact",
+        "source": {
+          "sample": "hit"
+        }
+      },
+      {
+        "id": "cue-ghost",
+        "event": "e-renamed",
+        "role": "accent",
+        "source": {
+          "sample": "tick"
+        }
+      }
+    ]
+  },
+  "retime": {
+    "deltas": [
+      {
+        "scene": 1,
+        "duration_s": 6
+      }
+    ]
+  },
+  "expect": {
+    "before": "e-land film time 5.0 s (scene 2 starts at 4.0 + local 1.0); cue-land picture_onset_s 5.0",
+    "after_retime": "scene 1 lengthened to 6 s: e-land film time 7.0 s; cue-land picture_onset_s 7.0 with NO edit to the cue; motion/cues.json score_revision changes",
+    "missing_event": "cue-ghost -> cue-event-missing (error): a renamed event is a conflict, never a nearest-time guess",
+    "legacy": "the seam sound 'whoosh' and e-open 'soft-tap' read as legacy cues (legacy true) and an authored cue for the same event wins",
+    "single_source": "motion/cues.json is derived: derived true, note says edit the score",
+    "legacy_audio_json": "a run with only storyboard/audio.json {kind:'selected', file:'music/bed.wav', music_led:true} -> readAudioContract returns legacy true with the same flat fields; audio/contract.json wins when both exist"
+  }
+}

@@ -1815,7 +1815,7 @@
     if (d.angles !== false) chips.appendChild(h("button", { class: "chip2", onclick: function () { send(step, "more", { what: "angle" }); toast("Asked Claude for another story angle."); }, text: "Try another angle" }));
     body.appendChild(chips);
     var notes = openComments(step);
-    if (notes.length) body.appendChild(h("div", { class: "notes" }, notes.map(function (c) { return h("div", { class: "note" }, [h("span", { class: "t", text: c.t != null ? fmtT(c.t) : "film" }), h("span", { text: c.text })]); })));
+    if (notes.length) body.appendChild(h("div", { class: "notes" }, notes.map(function (c) { return h("div", { class: "note" }, [h("span", { class: "t", text: c.t != null ? fmtT(c.t) : "film" }), h("span", { text: c.text }), c.interpretation ? h("span", { class: "sub", text: " (" + (c.needs_confirmation ? "Is this what you mean? " : "Read as: ") + c.interpretation + ")" }) : null]); })));
     return {
       body: body, q: d.question || "Here's the whole film, rough",
       primary: notes.length ? { label: "Apply " + notes.length + " note" + (notes.length > 1 ? "s" : ""), run: function () { send(step, "apply", { ids: notes.map(function (c) { return c.id; }) }); } } : { label: "Looks right, build it", run: function () { send(step, "approve", null); } },
@@ -1858,7 +1858,7 @@
     if ((d.changes || []).length) body.appendChild(h("div", { class: "changes" }, [h("b", { text: "Changed in v" + (d.version || "") + ": " }), d.changes.join(" · ")]));
     if ((d.versions || []).length > 1) body.appendChild(h("div", { class: "versions" }, ["Versions:"].concat(d.versions.map(function (x) { return h("button", { class: "chip2", onclick: function () { send(step, "version", { restore: x.v }); }, text: "v" + x.v + (x.when ? " · " + x.when : "") }); }))));
     var notes = openComments(step);
-    if (notes.length) body.appendChild(h("div", { class: "notes" }, notes.map(function (c) { return h("div", { class: "note" }, [h("span", { class: "t", text: c.t != null ? fmtT(c.t) : "film" }), h("span", { text: c.text })]); })));
+    if (notes.length) body.appendChild(h("div", { class: "notes" }, notes.map(function (c) { return h("div", { class: "note" }, [h("span", { class: "t", text: c.t != null ? fmtT(c.t) : "film" }), h("span", { text: c.text }), c.interpretation ? h("span", { class: "sub", text: " (" + (c.needs_confirmation ? "Is this what you mean? " : "Read as: ") + c.interpretation + ")" }) : null]); })));
     var done = d.status === "done";
     return {
       body: body, q: d.question || (done ? "Your film" : "Here's your film"),

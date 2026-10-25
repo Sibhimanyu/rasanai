@@ -1,0 +1,77 @@
+{
+  "synthetic": true,
+  "status": "implemented_unvalidated",
+  "authored_not_run": true,
+  "id": "plan12/D07",
+  "case": "atomic, redacted, closure-only export; failed export leaves the previous deliverable intact",
+  "targets": [
+    "lib/delivery-manifest.mjs planPackage / buildPackage / verifyPackage",
+    "lib/redact.mjs exportSafe",
+    "lib/containment.mjs resolveInRoots"
+  ],
+  "checks": [
+    {
+      "name": "closure only",
+      "setup": "a run folder with research/, crew/ logs, an unrelated doc and an accepted final that depends on 3 elements",
+      "expect": "the package holds exactly those elements plus manifest and notices; none of the other files or names appear"
+    },
+    {
+      "name": "unaccepted dependency",
+      "setup": "final depends on an artifact with accepted false",
+      "expect": "plan.ok false with not_accepted; nothing staged"
+    },
+    {
+      "name": "withdrawn rights",
+      "setup": "rights.jsonl withdrawn for a footage element",
+      "expect": "decision blocked with remediation; build refuses; nothing deleted"
+    },
+    {
+      "name": "non-redistributable font",
+      "setup": {
+        "kind": "font",
+        "redistributable": false
+      },
+      "expect": "decision external_requirement; not copied; listed in manifest.external_requirements"
+    },
+    {
+      "name": "linked external file",
+      "setup": {
+        "external": true
+      },
+      "expect": "referenced, never copied"
+    },
+    {
+      "name": "path escape",
+      "setup": "element path '../secret.txt' and a symlink leaving the root",
+      "expect": "blocked by resolveInRoots; not copied"
+    },
+    {
+      "name": "secrets in a log line",
+      "setup": "manifest warning containing a fake sk- key and /Users/example/ path",
+      "expect": "exportSafe removes them; verifyPackage finds no leak; absolute paths never appear"
+    },
+    {
+      "name": "copy corruption",
+      "setup": "hooks.afterCopy flips a byte",
+      "expect": "copy_mismatch; staging removed; failure record under delivery/failures/; exports/latest.json unchanged"
+    },
+    {
+      "name": "crash before publish",
+      "setup": "hooks.beforePublish throws",
+      "expect": "no <export-id> folder exists; previous export and latest.json intact; stale .staging-* swept by sweepTemps"
+    },
+    {
+      "name": "never overwrite",
+      "setup": "build twice with one export_id",
+      "expect": "second call export_exists; the first folder is byte-identical"
+    },
+    {
+      "name": "originals preserved",
+      "expect": "source media is copied, never moved, and keeps its hash"
+    },
+    {
+      "name": "separate roles",
+      "expect": "masters/, previews/, captions/, audio/stems/, source/, licences/, interchange/ hold their own roles; baked previews are not placed in source/"
+    }
+  ]
+}

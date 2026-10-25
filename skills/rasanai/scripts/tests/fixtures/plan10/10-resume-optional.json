@@ -1,0 +1,36 @@
+{
+  "case": "plan10/U10",
+  "note": "synthetic",
+  "resume": [
+    "reconnect after the app restarts reads session.json, crew/revision-latest.json and motion/edits.jsonl; the visible call does not reset; an answered ask is not asked again"
+  ],
+  "old_runs": [
+    "no crew/ folder -> no revision strip",
+    "no motion/ folder -> no edits, no overlay",
+    "edits.jsonl lines without payload_digest/receipt -> read as before, shown 'older run: not verified'"
+  ],
+  "optional_states": [
+    {
+      "adapter": "model not installed",
+      "expect": "unavailable, plain reason, alternative 'the built-in code-rendered path can make this film without it'"
+    },
+    {
+      "adapter": "license blocked",
+      "expect": "unavailable, reason shown, not offered as ready"
+    },
+    {
+      "adapter": "synthetic test provider",
+      "expect": "test_only, never offered for a real film"
+    },
+    {
+      "adapter": "usable and verified",
+      "expect": "ready"
+    }
+  ],
+  "recovery": [
+    "Pause new work / Resume",
+    "Cancel an owned job (shared-queue job only marked)",
+    "Logs redacted",
+    "Retry failed step; unknown_outcome needs explicit duplicate approval"
+  ]
+}
