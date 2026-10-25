@@ -39,7 +39,12 @@ function run(executable, args, message, timeout = 900_000) {
   checkCancellation();
   status(message);
   return new Promise((resolve, reject) => {
-    const child = spawn(executable, args, { cwd: stage || root, detached: true, stdio: ['ignore', 'inherit', 'inherit'] });
+    const child = spawn(executable, args, { cwd: stage || root, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    // Everything still goes to the setup log; the last lines also travel with the error so Studio's card can say why it failed.
+    let tail = '';
+    const tee = (stream, out) => stream.on('data', d => { out.write(d); tail = (tail + d.toString()).slice(-800); });
+    tee(child.stdout, process.stdout); tee(child.stderr, process.stderr);
+    const why = () => { const lines = tail.split('\n').map(l => l.trim()).filter(Boolean).slice(-3).join(' | '); return lines ? ` Reason from the tool: ${lines.slice(0, 280)}` : ''; };
     let timedOut = false;
     let grace;
     const signal = s => { if (child.pid) { try { process.kill(-child.pid, s); } catch {} } };
@@ -58,7 +63,7 @@ function run(executable, args, message, timeout = 900_000) {
       stopChild = undefined;
       if (stopping) reject(new Error('Setup cancelled. Completed installations are kept.'));
       else if (timedOut) reject(new Error('This setup step timed out. Check your connection and retry.'));
-      else if (code !== 0) reject(new Error(`${message.replace(/…$/, '')} failed (exit ${code}). Open the setup log for details, then retry.`));
+      else if (code !== 0) reject(new Error(`${message.replace(/…$/, '')} failed (exit ${code}). Open the setup log for details, then retry.${why()}`));
       else resolve();
     });
   });
@@ -112,9 +117,14 @@ try {
     const moved = p => path.join(installed, path.relative(oldStage, p));
     if (ffmpeg && ffprobe) {
       publishLink('ffmpeg', moved(ffmpeg)); publishLink('ffprobe', moved(ffprobe));
+      // Proof it lands where the director looks: the managed bin folder is first on its PATH, so run the published links themselves.
+      await run(path.join(bin, 'ffmpeg'), ['-version'], 'Checking the director will find FFmpeg…', 20_000);
+      await run(path.join(bin, 'ffprobe'), ['-version'], 'Checking the director will find ffprobe…', 20_000);
       completed.push('ffmpeg');
     }
-    if (needsRenderer) { renderer = moved(rendererEntry); publishLink('hyperframes', renderer); completed.push('renderer'); }
+    if (needsRenderer) { renderer = moved(rendererEntry); publishLink('hyperframes', renderer);
+      await run(path.join(bin, 'hyperframes'), ['--version'], 'Checking the director will find HyperFrames…', 20_000);
+      completed.push('renderer'); }
   }
   if (job.tools.includes('browser')) {
     await run(renderer, ['browser', 'ensure'], 'Preparing the render browser…');

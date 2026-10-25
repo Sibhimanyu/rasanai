@@ -14,8 +14,11 @@ struct FilmStatusBar<Usage: View>: View {
     @ViewBuilder var usage: Usage
     /// The monitor sees a tool or model call still running (a render can go most of an hour), so silence is not "no activity".
     var stillWorking = false
+    /// The film progress snapshot's overall estimate; nil when there is none yet.
+    var remaining: PhaseEstimate?
     @Environment(\.agentName) private var agent
     @State private var lastActivityAt = Date()
+    @State private var sentSeenAt = Date()
 
     private var step: String { model.shownStep }
     private var sent: Bool { model.hasSent(step) && model.status(step) != "done" }
@@ -67,18 +70,50 @@ struct FilmStatusBar<Usage: View>: View {
                     .help("Start the director again. It picks up your message where it left off.")
             }
         } else if sent {
+            sentStatus
+        } else if let turn {
+            turnStatus(turn)
+        }
+    }
+
+    /// When the action went out: the engine's timestamp on the step's `sent`, else when this bar first saw it.
+    private var sentAt: Date {
+        guard let ts = model.snapshot.step(step)["sent"]["ts"].string else { return sentSeenAt }
+        let plain = ISO8601DateFormatter()
+        let fractional = ISO8601DateFormatter(); fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return fractional.date(from: ts) ?? plain.date(from: ts) ?? sentSeenAt
+    }
+
+    /// An action is queued: say whether the engine has picked it up, how long it has been, and the ETA when one exists.
+    private var sentStatus: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let elapsed = max(0, context.date.timeIntervalSince(sentAt))
+            let label = StepCatalog.label(step)
+            let quiet = stillWorking ? false : elapsed > 120
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
-                Text("Sent to Rasan. Waiting for the next update.").font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
+                if stillWorking {
+                    Text("\(agent) is working · \(label)").font(.system(size: 12, weight: .medium)).lineLimit(1)
+                    if let remaining {
+                        Text(FilmProgressView.estimateText(remaining)).font(.system(size: 12)).foregroundStyle(Color.rasan).lineLimit(1).layoutPriority(-1)
+                    } else {
+                        Text("No estimate yet").font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1).layoutPriority(-1)
+                    }
+                } else {
+                    Text("Waiting for \(agent) to pick this up").font(.system(size: 12, weight: .medium)).lineLimit(1)
+                    Text(quiet ? "Nothing yet after two minutes" : "\(label) sent").font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1).layoutPriority(-1)
+                }
+                Text(clockText(elapsed)).font(.system(size: 11)).foregroundStyle(.secondary).monospacedDigit()
+                if let onDetails { Button(quiet ? "Show log" : "Details", action: onDetails).buttonStyle(.borderless).controlSize(.small) }
                 // The director is running here too, so the way to stop it stays in reach (⌘.).
                 if let onPause {
                     Button("Pause", action: onPause).buttonStyle(.borderless).controlSize(.small)
                         .help("Pause the director. Your files are kept; Resume carries on (⌘.)")
                 }
             }
-        } else if let turn {
-            turnStatus(turn)
         }
+        .onAppear { sentSeenAt = Date() }
+        .onChange(of: step) { sentSeenAt = Date() }
     }
 
     @ViewBuilder private func turnStatus(_ turn: TurnState) -> some View {
@@ -180,6 +215,7 @@ struct FilmStatusBarHost<Content: View, Usage: View>: View {
     var visible = true
     var turn: TurnState?
     var stillWorking = false
+    var remaining: PhaseEstimate?
     var onDetails: (() -> Void)?
     var onPause: (() -> Void)?
     var onResume: (() -> Void)?
@@ -193,7 +229,7 @@ struct FilmStatusBarHost<Content: View, Usage: View>: View {
             // A clear gap above the bar so the panels never butt against it.
             .safeAreaInset(edge: .bottom, spacing: Workspace.gap) {
                 if visible {
-                    FilmStatusBar(model: model, turn: turn, actions: actions, onDetails: onDetails, onPause: onPause, onResume: onResume, usage: { usage }, stillWorking: stillWorking)
+                    FilmStatusBar(model: model, turn: turn, actions: actions, onDetails: onDetails, onPause: onPause, onResume: onResume, usage: { usage }, stillWorking: stillWorking, remaining: remaining)
                 }
             }
         // A note goes out with whatever was accepted (the note itself, or the call it rode along with).

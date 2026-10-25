@@ -34,7 +34,9 @@ public enum DirectorRecovery: String, Sendable {
         let denied = permissionDenials(in: log)
         if !denied.isEmpty {
             let list = denied.prefix(3).map { "• " + $0 }.joined(separator: "\n")
-            return (.toolPermissions, "Blocked: \n\(list)")
+            let install = DirectorBlockScanner.blocks(in: log).first { $0.isInstall }
+            let hint = install.map { "\nIt tried to install software (`\($0.command)`). Studio never lets the director do that itself: choose Install for me when Studio offers it, or install it yourself and check again." } ?? ""
+            return (.toolPermissions, "Blocked: Rasan tried to run a command that macOS/Studio did not allow:\n\(list)\(hint)")
         }
         if exitCode != 0 {
             let known = classify(log: log)
@@ -65,6 +67,8 @@ public enum DirectorRecovery: String, Sendable {
                 }
             }
         }
+        // Refusals that only show up as a tool result (no final `permission_denials` list: the director was killed or is still running).
+        for block in DirectorBlockScanner.blocks(in: log) { add("\(block.tool) \(block.command)".trimmingCharacters(in: .whitespaces)) }
         if found.isEmpty, log.contains("haven't granted it yet") || log.contains("requires approval") { add("a tool call needed approval") }
         return found
     }
@@ -92,7 +96,7 @@ public enum DirectorRecovery: String, Sendable {
         switch self {
         case .signIn: "Sign in again, recheck your director, then resume. Your completed work is saved."
         case .usageLimit: "Check your provider's limit or wait for it to reset, then resume. Your completed work is saved."
-        case .toolPermissions: "Your director was blocked from running a command or reading a file it needs, so it stopped. Update RasanAI, or turn on Settings → Director → Allow unrestricted tools, then resume. Your completed work is saved."
+        case .toolPermissions: "Rasan was blocked from running a command or reading a file it needs, so it stopped. The command is named above. If it was an install, Studio can install the tool for you (no password) from the director panel; otherwise update RasanAI, or turn on Settings → Director → Allow unrestricted tools, then use Restart Rasan. Your completed work is saved."
         case .stoppedEarly: "Open the log to see why it stopped, then resume. Your completed work is saved."
         case .permissions: "Check the affected file in the log and its access permissions, then resume. Your completed work is saved."
         case .missingTools: "The log names the missing tool. Set it up, then resume. Your completed work is saved."

@@ -34,7 +34,7 @@ public struct DirectorPermissions: Sendable, Equatable {
     public static let denied = [
         "rm -r*", "rm -R*", "rm -fr*", "rm -fR*", "rm -vr*", "rm --*", "rm * -r*", "rm * -R*", "rm * -fr*", "rm * -fR*", "rm * --recursive*", "rmdir", "sudo", "su", "doas",
         "chmod -R", "chown", "dd", "mkfs", "diskutil", "launchctl", "osascript", "open", "kill", "killall", "pkill",
-        "npm install", "npm i", "npm uninstall", "npm exec", "npx -g", "pip", "pip3", "python3 -m pip", "brew", "gem", "cargo install", "go install",
+        "npm install", "npm i", "npm uninstall", "npm exec", "npx -g", "pip", "pip3", "pipx", "conda", "python3 -m pip", "brew", "gem", "cargo install", "go install",
         "curl * | *", "curl *|*", "wget", "git push", "git reset --hard", "git clean", "git checkout", "git commit",
         "find * -delete*", "find * -exec rm*", "find * -exec sh*", "find * -exec bash*", "xargs rm*", "* | sh", "* | bash", "* | zsh", "* | sudo*",
         "eval", "defaults write", "security", "codesign", "xattr", "spctl", "tccutil"
