@@ -12,7 +12,7 @@
     "input": [
       "Authorization: Bearer sk-test-FAKE000000000000000000",
       "api_key=AIzaFAKEFAKEFAKEFAKEFAKE1",
-      "https://user:pass@example.invalid/x",
+      "https://<user>:<password>@example.invalid/x",
       "https://cdn.example.invalid/a.mp4?token=abcdef0123456789",
       "/Users/someone/Clients/Acme/footage/day1.mov",
       "token budget: 12000 tokens (must NOT be redacted)"
@@ -80,7 +80,7 @@
       "ok": false
     },
     {
-      "url": "https://user:pw@example.com/",
+      "url": "https://<user>:<password>@example.com/",
       "ok": false
     },
     {
