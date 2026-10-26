@@ -205,7 +205,7 @@ final class VideoPlayback: FilmPlayback {
         }
     }
     var loops = false
-    @ObservationIgnored let player = AVPlayer()
+    @ObservationIgnored let player: AVPlayer
     var avPlayer: AVPlayer? { player }
     @ObservationIgnored private var rateObserver: NSKeyValueObservation?
     @ObservationIgnored private var url: URL?
@@ -215,7 +215,9 @@ final class VideoPlayback: FilmPlayback {
     @ObservationIgnored private var seeking = false
     @ObservationIgnored private var pending: (time: Double, exact: Bool)?
 
-    init() {
+    /// Pass a player that is already loaded to put this transport on it (the cut's draft, the final film) instead of a fresh one.
+    init(player: AVPlayer = AVPlayer()) {
+        self.player = player
         observer = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 30), queue: .main) { [weak self] value in
             let seconds = value.seconds
             MainActor.assumeIsolated { self?.tick(seconds) }
@@ -242,6 +244,29 @@ final class VideoPlayback: FilmPlayback {
         let item = AVPlayerItem(url: next)
         item.audioTimePitchAlgorithm = .timeDomain
         player.replaceCurrentItem(with: item)
+        watch(item, url: next)
+    }
+
+    /// Follows the item the player already has, without replacing it.
+    func adopt(fallbackDuration: Double) {
+        self.fallbackDuration = fallbackDuration
+        guard let item = player.currentItem, let asset = item.asset as? AVURLAsset, asset.url != url else { return }
+        let now = player.currentTime().seconds
+        url = asset.url; time = now.isFinite ? now : 0
+        hasStarted = time > 0; isReady = false; videoSize = nil; duration = fallbackDuration
+        isPlaying = player.rate != 0
+        if let endObserver { NotificationCenter.default.removeObserver(endObserver); self.endObserver = nil }
+        watch(item, url: asset.url)
+    }
+
+    /// Stops following a player this object does not own.
+    func detach() {
+        if let observer { player.removeTimeObserver(observer); self.observer = nil }
+        if let endObserver { NotificationCenter.default.removeObserver(endObserver); self.endObserver = nil }
+        rateObserver = nil
+    }
+
+    private func watch(_ item: AVPlayerItem, url next: URL) {
         endObserver = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.finished() }
         }
@@ -377,6 +402,9 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
     @Environment(\.reviewFrameHeight) private var frameHeight
     @Environment(NoteSkips.self) private var skips: NoteSkips?
 
+    /// Why Note is off, shown as its tooltip.
+    private var noteHint: String? { canNote ? nil : (model.noteBlockReason(on: step) ?? "Wait for the film to load, then you can leave a note.") }
+
     private var open: [ReviewNote] { notes.filter(\.isOpen).sorted { $0.time < $1.time } }
 
     var body: some View {
@@ -387,7 +415,7 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
                                onPin: { model.openChat(at: $0) },
                                onBegin: { wasPlaying = playback.isPlaying; playback.pause() },
                                onEnd: { if wasPlaying { playback.play() } })
-                ReviewTransport(playback: playback, scenes: scenes, canNote: canNote, onNote: { markFrame() },
+                ReviewTransport(playback: playback, scenes: scenes, canNote: canNote, noteHint: noteHint, onNote: { markFrame() },
                                 onFullScreen: toggleFullScreen)
                 if showStrip && !scenes.isEmpty {
                     SceneStrip(playback: playback, scenes: scenes, open: open)
@@ -731,8 +759,18 @@ final class FilmTheater: NSObject, NSWindowDelegate {
         window.delegate = self
         window.center()
         self.window = window
+        NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
-        window.toggleFullScreen(nil)
+        // When Studio's own window already sits on a full-screen Space, a toggle in the same turn as the window's first
+        // ordering is dropped; let the window appear first, and fill the screen by hand if the Space change still refuses.
+        DispatchQueue.main.async { [weak self, weak window] in
+            guard let window else { return }
+            window.toggleFullScreen(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                guard self?.window === window, !window.styleMask.contains(.fullScreen), let screen = window.screen ?? NSScreen.main else { return }
+                window.setFrame(screen.frame, display: true, animate: true)
+            }
+        }
     }
 
     func close() {
@@ -761,6 +799,8 @@ struct FilmTheaterView<P: FilmPlayback>: View {
     var canNote: Bool
     var pinWindow: Double?
     var caption: (Int?) -> String?
+
+    private var noteHint: String? { canNote ? nil : (model.noteBlockReason(on: step) ?? "Wait for the film to load, then you can leave a note.") }
 
     @State private var hover = TimelineHover()
     @State private var chrome = true
@@ -818,7 +858,7 @@ struct FilmTheaterView<P: FilmPlayback>: View {
                            onPin: { note in FilmTheater.shared.close(); model.openChat(at: note) },
                            onBegin: { wasPlaying = playback.isPlaying; playback.pause() },
                            onEnd: { if wasPlaying { playback.play() } })
-            ReviewTransport(playback: playback, scenes: scenes, canNote: canNote, onNote: note,
+            ReviewTransport(playback: playback, scenes: scenes, canNote: canNote, noteHint: noteHint, onNote: note,
                             onFullScreen: { FilmTheater.shared.close() }, isFullScreen: true)
         }
         .padding(.horizontal, 40).padding(.top, 70).padding(.bottom, 26)
@@ -1285,8 +1325,12 @@ struct ReviewTransport<P: FilmPlayback>: View {
     let playback: P
     let scenes: [FilmScene]
     var canNote: Bool
+    /// Plain-words reason Note is off; shown on hover and read out.
+    var noteHint: String? = nil
     var onNote: () -> Void
     var onFullScreen: () -> Void = {}
+    /// False for a plain video preview that has no notes.
+    var showNote = true
     /// In Studio's full screen the button leaves it.
     var isFullScreen = false
     @State private var showRemaining = false
@@ -1352,15 +1396,23 @@ struct ReviewTransport<P: FilmPlayback>: View {
                 PlayerIconButton(symbol: isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
                                  help: isFullScreen ? "Exit full screen (F, Esc)" : "Full screen (F)", action: onFullScreen)
             }
+            if showNote {
             Button(action: onNote) {
-                Label("Note", systemImage: "plus.bubble.fill").font(.system(size: 12, weight: .semibold))
+                Label("Note", systemImage: canNote ? "plus.bubble.fill" : "plus.bubble").font(.system(size: 12, weight: .semibold))
                     .padding(.horizontal, 10).frame(height: 28)
-                    .background(Color.white.opacity(canNote ? 0.16 : 0.06), in: Capsule())
-                    .foregroundStyle(.white)
+                    .background(Color.white.opacity(canNote ? 0.16 : 0.04), in: Capsule())
+                    .overlay(Capsule().strokeBorder(.white.opacity(canNote ? 0 : 0.3), style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
+                    .foregroundStyle(.white.opacity(canNote ? 1 : 0.5))
             }
-            .buttonStyle(.plain).padding(.leading, 6)
+            .buttonStyle(.plain)
             .disabled(!canNote)
-            .help("Tell Rasan about this moment (C)").accessibilityLabel("Tell Rasan about the playhead")
+            .accessibilityLabel("Tell Rasan about the playhead")
+            .accessibilityHint(canNote ? "" : (noteHint ?? "Not available right now"))
+            // The tooltip sits on a wrapper so it still shows while the button is disabled.
+            .contentShape(Rectangle())
+            .padding(.leading, 6)
+            .background(HoverHelp(text: canNote ? "Tell Rasan about this moment (C)" : "Note is off: " + (noteHint ?? "not available right now")))
+            }
         }
         .font(.system(size: 13))
     }
@@ -1495,4 +1547,11 @@ struct ReviewChip<MenuContent: View>: View {
         .disabled(!enabled)
         .accessibilityLabel("\(title): \(value)")
     }
+}
+
+/// A tooltip that works behind a disabled control (SwiftUI's `.help` is skipped on disabled buttons).
+private struct HoverHelp: NSViewRepresentable {
+    let text: String
+    func makeNSView(context: Context) -> NSView { let v = NSView(); v.toolTip = text; return v }
+    func updateNSView(_ view: NSView, context: Context) { view.toolTip = text }
 }

@@ -2,6 +2,21 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **One player everywhere.** Every video preview now has the same controls (play, skip 5 seconds, speed, loop, volume, full screen), including the final film page, source files, drafts, the library and progress cards. Full screen now also works when the app is already full screen.
+- **New "Ask Rasan" bar** at the bottom of every film screen, with a one-time hint, so the chat with Rasan is easy to find. The toolbar button is now labelled Ask Rasan.
+- **The Note button works on finished films** and says why when it is off.
+- **History button on the film page.** Watch or restore any earlier version from the review screen, with dates and what changed.
+- **The ? button opens a menu** with help and Report a Problem; Heresay can be opened from it.
+- **Plainer words.** Proxy is now Preview, Styleframe is Still, Animatic is Rough cut; the ... menu has icons and friendlier names.
+- **The character in the Final header** is centred between top and bottom.
+- **The stepper works on the Final page.** From the finished film, click Brief, Story, Look or Storyboard to go back to that step, and Final to come back.
+- **Redesigned Settings page.** Side navigation, cards, a Rasan section, show tips again, open the guide and send feedback.
+- **Ask Rasan panel shortcut.** The right-hand Ask Rasan panel opens with ⌥⌘I (Apple's inspector key) and is in the View menu.
+- **The film page ... menu** has icons and friendlier names.
+- **Source-file preview** uses the same player from the first frame.
+
 ## 0.21.0 (build 50) — 2026-10-25
 
 - **Ask Rasan how long it will take.** In the chat, "how long will it take?" and "what is happening?" are answered on the spot from the film's real progress, without interrupting the work.

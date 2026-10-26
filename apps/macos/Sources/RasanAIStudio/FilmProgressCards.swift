@@ -60,7 +60,7 @@ struct VideoTile: View {
             ZStack {
                 Color.black
                 if let player {
-                    VideoPlayer(player: player)
+                    StudioVideoPlayer(player: player)
                 } else {
                     if let posterImage { Image(nsImage: posterImage).resizable().scaledToFit() }
                     Button(action: play) {

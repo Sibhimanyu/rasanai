@@ -387,6 +387,22 @@ final class FilmSessionModel {
         return status(step) == "awaiting" || (["render", "final"].contains(step) && status(step) == "done")
     }
 
+    /// Why a note can't be left on this step right now, in plain words; nil when it can. A delivered film takes notes even after the
+    /// director has moved on, so only a gone folder, a pinned past step or an unfinished send blocks it there.
+    func noteBlockReason(on step: String) -> String? {
+        if isViewingPast { return "You're looking at an earlier step. Go back to the live step to leave a note." }
+        if !isFixture && !isConnected { return "Rasan can't reach this film's folder right now, so notes can't be sent." }
+        if isSending { return "Finish or wait for your last message to send first." }
+        if ["render", "final"].contains(step) && isDone { return nil }
+        if hasSent(step) { return "Rasan is still working on your last answer. Notes open again when it's done." }
+        if snapshot.currentStep != step { return "This isn't the step Rasan is on, so notes can't be sent here." }
+        if !(status(step) == "awaiting" || (["render", "final"].contains(step) && status(step) == "done")) {
+            return "Rasan is still making this step. Notes open when it's ready."
+        }
+        return nil
+    }
+    func canNote(on step: String) -> Bool { noteBlockReason(on: step) == nil }
+
     /// The bottom action bar shows only when it is the person's move on this step, while looking back, or just after sending.
     func showsActions(for step: String) -> Bool {
         isViewingPast || isSending || canAct(on: step) || (hasSent(step) && status(step) != "done")

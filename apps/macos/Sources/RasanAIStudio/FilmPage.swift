@@ -19,7 +19,7 @@ struct FilmPage: View {
 
     private var ready: Bool { store.loadedFilm == url }
     private var phase: FilmPhase { store.phase }
-    private var showsFinished: Bool { if case .finished = phase { return !store.showChanges } else { return false } }
+    private var showsFinished: Bool { if case .finished = phase { return !store.showChanges && store.film?.isViewingPast != true } else { return false } }
     private var isFinished: Bool { if case .finished = phase { true } else { false } }
     private var showsConsole: Bool { store.film != nil && (store.isConnected || store.runtime.isRunning || store.runtime.isPreparing) }
 
@@ -134,15 +134,20 @@ struct FilmPage: View {
         }
         ToolbarItemGroup(placement: .primaryAction) {
             if let film = store.film {
-                // ⌘B is the left sidebar, so the right one is ⌥⌘B (as in VS Code); ⌥⌘I, Apple's inspector key, also works.
-                Button { film.decisionsPresented.toggle() } label: { Label("Chat with Rasan", systemImage: "sidebar.trailing") }
-                    .keyboardShortcut("b", modifiers: [.command, .option])
-                    .help("Chat with Rasan and decisions (⌥⌘B)")
+                // ⌥⌘I (Apple's inspector key) is in the View menu; ⌥⌘B, the VS Code key, also works.
+                Button { film.decisionsPresented.toggle() } label: { Label("Ask Rasan", systemImage: "sidebar.trailing") }
+                    .help("Ask Rasan (⌥⌘I)")
                     .background {
-                        Button("Toggle Inspector") { film.decisionsPresented.toggle() }
-                            .keyboardShortcut("i", modifiers: [.command, .option])
+                        Button("Toggle Ask Rasan Panel") { film.decisionsPresented.toggle() }
+                            .keyboardShortcut("b", modifiers: [.command, .option])
                             .opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
                     }
+            }
+            if showsFinished, store.snapshot.filmVersions.count > 1 {
+                Button { NotificationCenter.default.post(name: .rasanScrollToFilmHistory, object: nil) } label: {
+                    Label("History", systemImage: "clock.arrow.circlepath")
+                }
+                .help("See and watch earlier versions")
             }
             headerTools
         }
@@ -153,7 +158,11 @@ struct FilmPage: View {
                            viewing: store.film?.viewingStage.map { StudioFlowStep($0) },
                            finished: isFinished,
                            canSelect: { step in step.reviewStage.map { store.film?.canView($0) ?? false } ?? false },
-                           onSelect: { step in if let stage = step.reviewStage { store.film?.view(stage) } })
+                           onSelect: { step in
+                               guard let stage = step.reviewStage else { return }
+                               if stage == .final { store.showChanges = false }
+                               store.film?.view(stage)
+                           })
     }
 
     @ViewBuilder private var headerTools: some View {
@@ -168,17 +177,21 @@ struct FilmPage: View {
                     }
                 }
                 Menu {
+                    // What Rasan is doing, then the film's files, then housekeeping. Icons first, plain words.
                     if let film = store.film, showsNativeFilm, !film.isDone, !film.isDecideRest, film.route != .working {
-                        Button("Let \(agent) Make the Rest…") { confirmJustMakeIt = true }.disabled(!film.isConnected || film.isSending)
+                        Button { confirmJustMakeIt = true } label: { Label("Let \(agent) finish it", systemImage: "wand.and.stars") }
+                            .disabled(!film.isConnected || film.isSending)
                     }
-                    if store.canPause { Button("Pause") { store.pauseDirector() }.keyboardShortcut(".", modifiers: .command) }
-                    else if store.canResume { Button("Resume") { store.resumeDirector() } }
-                    if store.runtime.logURL != nil { Button("Show Log") { store.sheet = .log } }
-                    if store.selectedProjectURL != nil { Button("Source Files…") { store.reloadSources(); store.sheet = .files } }
-                    Button("Check Readiness…") { store.showPreflight(project: store.selectedProjectURL) }
-                    if let project = store.selectedProjectURL { Button("Export Project…") { store.exportProject(project) } }
-                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([store.selectedProjectURL ?? store.runURL ?? url]) }
-                    if store.runURL != nil { Button("Reload Film") { store.reloadFilm() } }
+                    if store.canPause { Button { store.pauseDirector() } label: { Label("Pause", systemImage: "pause.circle") }.keyboardShortcut(".", modifiers: .command) }
+                    else if store.canResume { Button { store.resumeDirector() } label: { Label("Keep going", systemImage: "play.circle") } }
+                    Divider()
+                    if store.selectedProjectURL != nil { Button { store.reloadSources(); store.sheet = .files } label: { Label("Your files", systemImage: "photo.on.rectangle") } }
+                    Button { store.showPreflight(project: store.selectedProjectURL) } label: { Label("Is everything ready?", systemImage: "checkmark.seal") }
+                    if let project = store.selectedProjectURL { Button { store.exportProject(project) } label: { Label("Save a copy of this project…", systemImage: "square.and.arrow.down") } }
+                    Button { NSWorkspace.shared.activateFileViewerSelecting([store.selectedProjectURL ?? store.runURL ?? url]) } label: { Label("Show in Finder", systemImage: "folder") }
+                    Divider()
+                    if store.runtime.logURL != nil { Button { store.sheet = .log } label: { Label("What happened", systemImage: "list.bullet.rectangle") } }
+                    if store.runURL != nil { Button { store.reloadFilm() } label: { Label("Refresh", systemImage: "arrow.clockwise") } }
                 } label: { Label("More", systemImage: "ellipsis") }
                 .menuIndicator(.hidden).tint(.primary).help("More")   // a toolbar tool, white like its neighbours, not the brand tint
                 HelpButton(title: "This film", lines: helpLines)
@@ -453,9 +466,10 @@ struct DraftView: View {
     }
 }
 
+extension Notification.Name { static let rasanScrollToFilmHistory = Notification.Name("rasanScrollToFilmHistory") }
+
 struct FinishedView: View {
     @Bindable var store: StudioStore
-    @State private var playing = false
     @State private var previewVersion: FilmVersion?
     @State private var previewPlayer: AVPlayer?
     @State private var restoreVersion: FilmVersion?
@@ -474,6 +488,7 @@ struct FinishedView: View {
     private var portrait: Bool { store.snapshot.aspectRatio < 1 }
 
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 heading
@@ -490,11 +505,15 @@ struct FinishedView: View {
                 }
                 VStack(alignment: .leading, spacing: 22) {
                     changesSection
-                    FilmHistoryView(snapshot: store.snapshot, resolver: store.resolver, onPreview: { watch($0) }, onRestore: { restoreVersion = $0 })
+                    FilmHistoryView(snapshot: store.snapshot, resolver: store.resolver, onPreview: { watch($0) }, onRestore: { restoreVersion = $0 }).id("film-history")
                 }
             }
             .padding(.bottom, 32)
             .frame(maxWidth: 1240, alignment: .leading).frame(maxWidth: .infinity)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .rasanScrollToFilmHistory)) { _ in
+            withAnimation(.smooth) { proxy.scrollTo("film-history", anchor: .top) }
+        }
         }
         .confirmationDialog("Restore v\(restoreVersion?.id ?? "")?", isPresented: Binding(get: { restoreVersion != nil }, set: { if !$0 { restoreVersion = nil } }), titleVisibility: .visible) {
             Button("Restore v\(restoreVersion?.id ?? "")") { if let version = restoreVersion { store.restoreFilmVersion(version); restoreVersion = nil } }
@@ -520,7 +539,7 @@ struct FinishedView: View {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Color(nsColor: .systemGreen))
                 Text("\(store.currentFilmTitle) · Final film").font(.system(size: 15)).foregroundStyle(.secondary).lineLimit(1)
                 if let previewVersion {
-                    Text("Watching v\(previewVersion.id)").font(.system(size: 12, weight: .medium)).foregroundStyle(Color.rasan)
+                    Text("Watching version \(previewVersion.id)").font(.system(size: 12, weight: .medium)).foregroundStyle(Color.rasan)
                     Button("Watch latest") { watch(nil) }.buttonStyle(.link).font(.system(size: 12))
                 }
             }
@@ -529,28 +548,18 @@ struct FinishedView: View {
 
     private var playerColumn: some View {
         VStack(alignment: .leading, spacing: 14) {
-            ZStack {
-                Color.black
-                if let player = previewPlayer ?? store.finalPlayer { VideoPlayer(player: player) }
-                else if poster == nil {
-                    Label("No video file for this film", systemImage: "film").font(.system(size: 12)).foregroundStyle(.white.opacity(0.6))
-                }
-                if !playing {
-                    if previewVersion == nil, let poster { PosterImage(url: poster, maxPixels: 1600).aspectRatio(contentMode: .fill) }
-                    if activePlayer != nil {
-                        Button {
-                            playing = true
-                            let player = previewPlayer ?? store.finalPlayer
-                            player?.seek(to: .zero); player?.play()
-                        } label: {
-                            Image(systemName: "play.fill").font(.system(size: 26)).foregroundStyle(.white)
-                                .frame(width: 72, height: 72).background(Circle().fill(.black.opacity(0.28))).background(.ultraThinMaterial, in: Circle())
-                                .shadow(color: .black.opacity(0.25), radius: 8, y: 2)
-                        }.buttonStyle(PressableStyle()).accessibilityLabel("Play film")
+            Group {
+                if let player = previewPlayer ?? store.finalPlayer {
+                    StudioVideoPlayer(player: player, aspect: store.snapshot.aspectRatio)
+                } else {
+                    ZStack {
+                        Color.black
+                        if let poster, previewVersion == nil { PosterImage(url: poster, maxPixels: 1600).aspectRatio(contentMode: .fill) }
+                        else if poster == nil { Label("No video file for this film", systemImage: "film").font(.system(size: 12)).foregroundStyle(.white.opacity(0.6)) }
                     }
+                    .aspectRatio(store.snapshot.aspectRatio, contentMode: .fit)
                 }
             }
-            .aspectRatio(store.snapshot.aspectRatio, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Workspace.hairline, lineWidth: 1) }
             .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
@@ -715,7 +724,7 @@ struct FinishedView: View {
     }
 
     private func watch(_ version: FilmVersion?) {
-        store.finalPlayer?.pause(); previewPlayer?.pause(); playing = false
+        store.finalPlayer?.pause(); previewPlayer?.pause()
         previewVersion = version
         previewPlayer = store.asset(version?.video).map(AVPlayer.init(url:))
         store.previewFilm = store.loadedFilm; store.previewVideo = store.asset(version?.video)

@@ -145,7 +145,9 @@ struct StageHeader: View {
         HStack(alignment: .top, spacing: 16) {
             if let character {
                 // The crew member asks it herself: the question is her speech bubble, so it is not repeated as a heading.
+                // Centred in the header's height, so the room above and below her is equal when the bubble is the taller one.
                 CrewStage(character: character, mode: .ask, unit: Self.askUnit(character))
+                    .frame(maxHeight: .infinity, alignment: .center)
                 // The bubble gets its room first, so a wide character never squeezes it into a tall column.
                 CrewSpeechBubble(text: question, subtitle: contextText, tint: character.color)
                     .frame(minWidth: 240, alignment: .leading)

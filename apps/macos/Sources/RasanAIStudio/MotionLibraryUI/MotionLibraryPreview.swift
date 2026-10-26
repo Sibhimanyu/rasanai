@@ -86,18 +86,5 @@ struct MotionPreviewSlot: View {
 
 private struct LoopingClip: View {
     var url: URL
-    @State private var player: AVPlayer?
-    var body: some View {
-        Group {
-            if let player { VideoPlayer(player: player) } else { Workspace.canvas }
-        }
-        .onAppear {
-            let p = AVPlayer(url: url); p.isMuted = true
-            NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: p.currentItem, queue: .main) { _ in
-                p.seek(to: .zero); p.play()
-            }
-            player = p; p.play()
-        }
-        .onDisappear { player?.pause(); player = nil }
-    }
+    var body: some View { StudioVideoPlayer(url: url, muted: true, loops: true, autoplay: true) }
 }
