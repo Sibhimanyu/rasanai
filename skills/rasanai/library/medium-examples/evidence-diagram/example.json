@@ -1,0 +1,66 @@
+{
+  "$comment": "creative-example@1 rows wrapping this directory's original examples (Part 2 integration; the lane's own metadata uses other shapes). Not rendered, previewed or run: evidence original-unreviewed, state implemented_unvalidated. Guidance only; no authority over a user's task.",
+  "examples": [
+    {
+      "format": "creative-example@1",
+      "id": "evidence-diagram-overlap-sets",
+      "profile_ids": [
+        "dataviz",
+        "evidence-diagram"
+      ],
+      "problem": "an ambiguous condition shown as exact set membership with two computed readings",
+      "native_action": "group / compare / reveal-relation",
+      "kind": "positive",
+      "source_ref": "library/medium-examples/evidence-diagram/positive-overlap-sets.js",
+      "preview_ref": null,
+      "evidence_status": "original-unreviewed",
+      "rights_basis": "original code and synthetic/invented data written for this repository; no third-party asset, font, sprite, melody or footage",
+      "source_role": "original-code",
+      "runtime_ref": "runtime/medium-graphic.js",
+      "learn": [
+        "membership is computed, and a count line proves no member is lost",
+        "the overlap explains the ambiguity without a heading"
+      ],
+      "do_not_copy": [
+        "the synthetic people and wording"
+      ],
+      "not_for": [
+        "numeric claims without a source"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "evidence-case-study"
+      ]
+    },
+    {
+      "format": "creative-example@1",
+      "id": "evidence-diagram-bars-need-source",
+      "profile_ids": [
+        "dataviz",
+        "evidence-diagram"
+      ],
+      "problem": "bars need a labelled value, unit, true baseline and a declared source",
+      "native_action": "compare",
+      "kind": "boundary",
+      "source_ref": "library/medium-examples/evidence-diagram/boundary-bars-need-source.js",
+      "preview_ref": null,
+      "evidence_status": "original-unreviewed",
+      "rights_basis": "original code and synthetic/invented data written for this repository; no third-party asset, font, sprite, melody or footage",
+      "source_role": "original-code",
+      "runtime_ref": "runtime/medium-graphic.js",
+      "learn": [
+        "bars grow from the true baseline",
+        "no source declared means the factory refuses to draw a decorative chart"
+      ],
+      "do_not_copy": [
+        "the synthetic values"
+      ],
+      "not_for": [
+        "an implied rise in any unmeasured quantity"
+      ],
+      "comm_kinds": [
+        "evidence-case-study"
+      ]
+    }
+  ]
+}

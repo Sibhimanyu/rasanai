@@ -120,7 +120,10 @@ export function prepareReferences(run, { skillDir, stage = "research", force = f
   const story = rj(P(run, "story", "chosen-treatment.json")) || rj(P(run, "story", "intent.json")) || rj(P(run, "story", "chosen.json")) || null;
   const style = lookStyleOf(run);
   const kind = kindOf(run);
-  const assignment = { communication_kind: kind, format: String(fl.format || fl.tile || ""), tags: [style, String(fl.kind || "")].filter(Boolean), references: fl.references === false || fl.no_references === true ? false : undefined };
+  // Part 2: the chosen Look's medium (look/medium.json), when there is one, lets that medium's own original examples be considered; before a Look there is none and nothing changes
+  const chosenMedium = rj(P(run, "look", "medium.json"));
+  const mediumIds = chosenMedium && chosenMedium.format === "medium-contract@1" ? [chosenMedium.profile_id, chosenMedium.execution_id].filter(Boolean) : [];
+  const assignment = { communication_kind: kind, format: String(fl.format || fl.tile || ""), tags: [style, String(fl.kind || "")].filter(Boolean), references: fl.references === false || fl.no_references === true ? false : undefined, ...(mediumIds.length ? { medium_ids: mediumIds } : {}) };
   const userRefs = Object.entries(fl).filter(([k, v]) => /^(reference|references|reference_video|reference_url|reference_clip|linked_reference)$/i.test(k) && v && typeof v === "string").map(([, v]) => v);
   const look = style ? { tags: [style] } : null;
   let selection;

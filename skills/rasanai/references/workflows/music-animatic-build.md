@@ -86,3 +86,4 @@ The canonical homes of the detail this guide points at (read the one the current
 | the shape kit: path morph, draw-on, motion paths, split, scatter, ink, dissolve, squash, smear, stepped; recipes for the reference clips' signature moves | `references/shape.md`, `scripts/shape.mjs`, `runtime/rasan-shape.js` |
 | the score: every field, the format, the seam pass, the shape vocabulary, lyric-video scoring; the argument it copies | `references/score.md`, `references/intent.md`, `agents/structure-critic.md` |
 | motion.md fields, tween classes, rules, banned patterns, waivers | `references/motion-md-contract.md` |
+| the selected medium's contract and bindings (the contract owns behaviour, the score owns time); conditional, a run with a selected medium only | `references/medium-direction.md`, `references/medium-examples.md` |

@@ -458,6 +458,553 @@
         "its exact grid and words"
       ],
       "evidence_level": "local-breakdown"
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "medium",
+      "id": "ex-flat-vector-three-into-one",
+      "local_ref": "library/medium-examples/flat-vector-native/positive-three-into-one.js",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "single-feature-announcement",
+        "whole-product-introduction",
+        "workflow-demo"
+      ],
+      "shot_tags": [
+        "split-recombine"
+      ],
+      "look_tags": [
+        "graphic",
+        "geometric"
+      ],
+      "principle": "each object keeps its identity from start to lock; the geometry is the explanation; a heading can be hidden",
+      "avoid_copying": [
+        "the exact shapes and colours",
+        "as proof of any product behaviour"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "flat-vector",
+        "flat-vector-native"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "medium",
+      "id": "ex-flat-vector-ornamental-swarm",
+      "local_ref": "library/medium-examples/flat-vector-native/boundary-ornamental-swarm.js",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "single-feature-announcement",
+        "whole-product-introduction"
+      ],
+      "shot_tags": [
+        "shape-build"
+      ],
+      "look_tags": [
+        "graphic",
+        "geometric"
+      ],
+      "principle": "ornament is atmosphere, never proof or a diagram; unequal point counts crossfade and say so",
+      "avoid_copying": [
+        "the swarm as a way to look busy"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "flat-vector",
+        "flat-vector-native"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "medium",
+      "id": "ex-line-drawing-line-reveals-relation",
+      "local_ref": "library/medium-examples/line-drawing-native/positive-line-reveals-relation.js",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "single-feature-announcement",
+        "whole-product-introduction",
+        "workflow-demo"
+      ],
+      "shot_tags": [
+        "path-reveal"
+      ],
+      "look_tags": [
+        "graphic",
+        "line"
+      ],
+      "principle": "the label follows the line, not the reverse; construction lines stay faint until the real stroke completes",
+      "avoid_copying": [
+        "the path data and wording"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "line-art",
+        "line-drawing-native"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "medium",
+      "id": "ex-line-drawing-unsupported-connector",
+      "local_ref": "library/medium-examples/line-drawing-native/boundary-unsupported-connector.js",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "single-feature-announcement",
+        "whole-product-introduction"
+      ],
+      "shot_tags": [
+        "path-reveal"
+      ],
+      "look_tags": [
+        "graphic",
+        "line"
+      ],
+      "principle": "a connector declares supported or illustrative; illustrative draws dashed; dense diagrams disclose progressively",
+      "avoid_copying": [
+        "the connector as an integration claim"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "line-art",
+        "line-drawing-native"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "medium",
+      "id": "ex-paper-collage-two-strips",
+      "local_ref": "library/medium-examples/paper-collage-native/positive-two-strips.js",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "evidence-case-study"
+      ],
+      "shot_tags": [
+        "layer-reveal"
+      ],
+      "look_tags": [
+        "tactile",
+        "collage"
+      ],
+      "principle": "masked reveal, a real fold and a hinged tag are physical actions; every card stays visible in both readings; words are crisp SVG text above the paper",
+      "avoid_copying": [
+        "the strip layout and copy"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "collage",
+        "paper-collage-native"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "medium",
+      "id": "ex-paper-collage-texture-sticker",
+      "local_ref": "library/medium-examples/paper-collage-native/boundary-texture-sticker.js",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer"
+      ],
+      "shot_tags": [
+        "layer-reveal"
+      ],
+      "look_tags": [
+        "tactile",
+        "collage"
+      ],
+      "principle": "a texture alone does nothing physical; a photo piece fails loudly with no approved asset",
+      "avoid_copying": [
+        "the texture-sticker look"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "collage",
+        "paper-collage-native"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "medium",
+      "id": "ex-evidence-diagram-overlap-sets",
+      "local_ref": "library/medium-examples/evidence-diagram/positive-overlap-sets.js",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "evidence-case-study"
+      ],
+      "shot_tags": [
+        "group"
+      ],
+      "look_tags": [
+        "graphic",
+        "diagram"
+      ],
+      "principle": "membership is computed, and a count line proves no member is lost; the overlap explains the ambiguity without a heading",
+      "avoid_copying": [
+        "the synthetic people and wording"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "dataviz",
+        "evidence-diagram"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "medium",
+      "id": "ex-evidence-diagram-bars-need-source",
+      "local_ref": "library/medium-examples/evidence-diagram/boundary-bars-need-source.js",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "evidence-case-study"
+      ],
+      "shot_tags": [
+        "compare"
+      ],
+      "look_tags": [
+        "graphic",
+        "diagram"
+      ],
+      "principle": "bars grow from the true baseline; no source declared means the factory refuses to draw a decorative chart",
+      "avoid_copying": [
+        "the synthetic values"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "dataviz",
+        "evidence-diagram"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "canvas",
+      "complexity": "medium",
+      "id": "ex-pixel-native-path-of-choices",
+      "local_ref": "library/medium-examples/pixel-native/path-of-choices/example.html",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "whole-product-introduction",
+        "character-short"
+      ],
+      "shot_tags": [
+        "tile-assemble"
+      ],
+      "look_tags": [
+        "pixel",
+        "retro"
+      ],
+      "principle": "tile assembly and a sprite acting on a step grid; integer scale fit; never a smoothed upscale",
+      "avoid_copying": [
+        "the invented brand, sprite and palette"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "pixel",
+        "pixel-native"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "canvas",
+      "complexity": "medium",
+      "id": "ex-pixel-native-long-text-locale",
+      "local_ref": "library/medium-examples/pixel-native/long-text-locale/example.html",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer"
+      ],
+      "shot_tags": [
+        "palette-reveal"
+      ],
+      "look_tags": [
+        "pixel",
+        "retro"
+      ],
+      "principle": "measureText reports missing glyphs; those strings go to a sharp text layer, never pixelated; reserve the reading region",
+      "avoid_copying": [
+        "the strings"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "pixel",
+        "pixel-native"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "canvas",
+      "complexity": "medium",
+      "id": "ex-pixel-companion-saved-correction",
+      "local_ref": "library/medium-examples/pixel-companion/saved-correction/example.html",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "workflow-demo",
+        "single-feature-announcement",
+        "whole-product-introduction"
+      ],
+      "shot_tags": [
+        "anchor-follow"
+      ],
+      "look_tags": [
+        "pixel",
+        "product-ui"
+      ],
+      "principle": "the sharp proof layer owns every label; the sprite sits on its own grid beside it; the companion reacts to a real event the score carries",
+      "avoid_copying": [
+        "the sprite, copy and layout"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "living-screencast",
+        "pixel-companion"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "canvas",
+      "complexity": "medium",
+      "id": "ex-pixel-companion-transformed-anchor",
+      "local_ref": "library/medium-examples/pixel-companion/transformed-anchor/example.html",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "workflow-demo"
+      ],
+      "shot_tags": [
+        "anchor-follow"
+      ],
+      "look_tags": [
+        "pixel",
+        "product-ui"
+      ],
+      "principle": "bounds measured once in world coordinates, converted through the one camera transform each frame; no screen-space deltas, no hard-coded button position",
+      "avoid_copying": [
+        "the layout"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "living-screencast",
+        "pixel-companion"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "dom-gsap",
+      "complexity": "medium",
+      "id": "ex-cel-performance-catch-and-react",
+      "local_ref": "library/medium-examples/cel-performance/positive-catch-and-react.example.json",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "character-short",
+        "whole-product-introduction"
+      ],
+      "shot_tags": [
+        "anticipate"
+      ],
+      "look_tags": [
+        "character",
+        "illustrated"
+      ],
+      "principle": "the reaction starts after the result lands; one identity, line-only boil",
+      "avoid_copying": [
+        "the character fixture and pear gag"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "cel-boil",
+        "cel-performance"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "dom-gsap",
+      "complexity": "medium",
+      "id": "ex-cel-performance-idle-beside-headline",
+      "local_ref": "library/medium-examples/cel-performance/boundary-idle-beside-headline.example.json",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "character-short"
+      ],
+      "shot_tags": [
+        "anticipate"
+      ],
+      "look_tags": [
+        "character",
+        "illustrated"
+      ],
+      "principle": "no event worth acting out means a plain typographic Look or another medium",
+      "avoid_copying": [
+        "the idle loop"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "cel-boil",
+        "cel-performance"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "canvas",
+      "complexity": "medium",
+      "id": "ex-isometric-system-inputs-to-result",
+      "local_ref": "library/medium-examples/isometric-system/positive-inputs-to-result.example.json",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "whole-product-introduction"
+      ],
+      "shot_tags": [
+        "assemble"
+      ],
+      "look_tags": [
+        "graphic",
+        "isometric"
+      ],
+      "principle": "one declared projection for every object; depth order from world boxes; the only route is labelled illustrative and disclosed in frame",
+      "avoid_copying": [
+        "the blocks, labels and colours"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "iso-infographic",
+        "isometric-system"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "canvas",
+      "complexity": "medium",
+      "id": "ex-isometric-system-unsourced-factual-route",
+      "local_ref": "library/medium-examples/isometric-system/boundary-unsourced-factual-route.example.json",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer"
+      ],
+      "shot_tags": [
+        "route"
+      ],
+      "look_tags": [
+        "graphic",
+        "isometric"
+      ],
+      "principle": "a route cites a factual source or is labelled illustrative; otherwise it is refused",
+      "avoid_copying": [
+        "the buildings"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "iso-infographic",
+        "isometric-system"
+      ]
     }
   ]
 }

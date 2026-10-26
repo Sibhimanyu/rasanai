@@ -7,8 +7,8 @@
 //   node video.mjs capture --project-dir <dir> (--url <https://...> | --no-capture --title "..." --text-file <brief.txt>)
 //   node video.mjs write   --project-dir <dir> --decisions <video-decisions.json> [--revise]
 //        (a font that cannot be staged falls back to Inter, and every such fallback is logged to downgrades.jsonl and printed in `downgrades`)
-//   node video.mjs inject  --project-dir <dir> [--runtime]  (after the workflow's frame-packets.mjs, before dispatching frame workers;
-//        installs RasanShape / RasanCamera when referenced and the GSAP plugins bundle; --runtime installs all)
+//   node video.mjs inject  --project-dir <dir> [--runtime] [--run <run> | --medium <medium.json>]  (after the workflow's frame-packets.mjs, before dispatching frame workers;
+//        installs RasanShape / RasanCamera when referenced and the GSAP plugins bundle; --runtime installs all; a medium Look's contract (--run) also installs assets/rasan-medium/)
 //   node video.mjs audio-lock --project-dir <dir> --music <file>   (after audio.mjs fetch-sfx, before assemble-index)
 //   node video.mjs carriers --project-dir <dir>   (after assemble-index: mounts compositions/carriers/*.html, the objects
 //        that cross a cut, as their own tracks in index.html; idempotent)
@@ -176,8 +176,28 @@ if (cmd === "init") {
   // painted 2D characters (assets/rasan2d/) when a composition, the storyboard or a cartoon score names Rasan2D
   const s2d = await import("./lib/stage2d.mjs");
   const twoD = args.runtime || /Rasan2D|space: 2d-character/.test(sb) || s2d.projectUsesRasan2d(dir) ? s2d.install(dir) : null;
+  // Part 2 (medium-native films only): the chosen Look's medium contract (--run <run>: look/medium.json, else the chosen label's candidate; or --medium <medium.json>)
+  // names the runtime files the scenes call; they land in assets/rasan-medium/ with only that execution's examples (and assets/rasan2d/ for a cel contract). No contract: nothing is copied.
+  let mediumRt = null;
+  if ((args.medium && args.medium !== true) || (args.run && args.run !== true)) {
+    let MW = null, mc = null;
+    try {
+      MW = await import("./lib/medium-wiring.mjs");
+      if (args.medium && args.medium !== true) mc = JSON.parse(fs.readFileSync(path.resolve(String(args.medium)), "utf8"));
+      else if (args.run && args.run !== true) mc = MW.mediumContractFor(path.resolve(String(args.run)));
+    } catch { mc = null; }
+    if (MW && MW.isMediumContract(mc) && MW.RUNTIME_FILES[mc.execution_id]) {
+      const sk = path.join(HERE, ".."), md = path.join(dir, "assets", "rasan-medium"), copied = [], missing = [];
+      const put = (src, dst) => { if (!fs.existsSync(src)) { missing.push(path.relative(sk, src)); return; } const body = fs.readFileSync(src); fs.mkdirSync(path.dirname(dst), { recursive: true }); if (!fs.existsSync(dst) || !fs.readFileSync(dst).equals(body)) fs.writeFileSync(dst, body); copied.push(path.relative(dir, dst)); };
+      for (const f of MW.RUNTIME_FILES[mc.execution_id]) put(path.join(sk, "runtime", f), path.join(md, f));
+      const exDir = path.join(sk, "library", "medium-examples", mc.execution_id);
+      if (fs.existsSync(exDir)) { const walk = (d, rel = "") => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (e.isDirectory()) walk(path.join(d, e.name), path.join(rel, e.name)); else put(path.join(d, e.name), path.join(md, "examples", rel, e.name)); } }; walk(exDir); }
+      const r2 = MW.needsRasan2d(mc) && !twoD ? s2d.install(dir) : null; // a cel contract needs Rasan2D even when no composition names it yet
+      mediumRt = { execution_id: mc.execution_id, dir: "assets/rasan-medium/", copied, ...(missing.length ? { missing } : {}), ...(r2 ? { rasan2d: r2.scripts } : {}) };
+    }
+  }
   const tagged = cam.tagCompositions(dir, { camera: !!camera, plugins: !!plugins });
-  console.log(JSON.stringify({ ok: true, injected: done, direction: !!dirSection, ...(shape ? { shape: { runtime: path.relative(process.cwd(), shape.dir), scripts: shape.scripts } } : {}), ...(camera ? { camera: { runtime: path.relative(process.cwd(), camera.dir), script: camera.script } } : {}), ...(plugins ? { gsap_plugins: { file: path.relative(process.cwd(), plugins.file), script: plugins.script, registers: plugins.registers } } : {}), ...(motion ? { motion: { runtime: path.relative(process.cwd(), motion.dir), scripts: motion.scripts } } : {}), ...(ui ? { ui: { runtime: path.relative(process.cwd(), ui.dir), script: ui.script } } : {}), ...(sim ? { sim: { runtime: path.relative(process.cwd(), sim.dir), script: sim.script } } : {}), ...(motionKit ? { motion_kit: { runtime: path.relative(process.cwd(), motionKit.dir), script: motionKit.script } } : {}), ...(orbs ? { orbs: { runtime: path.relative(process.cwd(), orbs.dir), script: orbs.script } } : {}), ...(tagged.length ? { tagged } : {}), ...(twoD ? { rasan2d: { runtime: path.relative(process.cwd(), twoD.dir), scripts: twoD.scripts } } : {}), ...(three ? { three: { runtime: path.relative(process.cwd(), three.dir), script: three.script } } : {}) }, null, 2));
+  console.log(JSON.stringify({ ok: true, injected: done, ...(mediumRt ? { medium: mediumRt } : {}), direction: !!dirSection, ...(shape ? { shape: { runtime: path.relative(process.cwd(), shape.dir), scripts: shape.scripts } } : {}), ...(camera ? { camera: { runtime: path.relative(process.cwd(), camera.dir), script: camera.script } } : {}), ...(plugins ? { gsap_plugins: { file: path.relative(process.cwd(), plugins.file), script: plugins.script, registers: plugins.registers } } : {}), ...(motion ? { motion: { runtime: path.relative(process.cwd(), motion.dir), scripts: motion.scripts } } : {}), ...(ui ? { ui: { runtime: path.relative(process.cwd(), ui.dir), script: ui.script } } : {}), ...(sim ? { sim: { runtime: path.relative(process.cwd(), sim.dir), script: sim.script } } : {}), ...(motionKit ? { motion_kit: { runtime: path.relative(process.cwd(), motionKit.dir), script: motionKit.script } } : {}), ...(orbs ? { orbs: { runtime: path.relative(process.cwd(), orbs.dir), script: orbs.script } } : {}), ...(tagged.length ? { tagged } : {}), ...(twoD ? { rasan2d: { runtime: path.relative(process.cwd(), twoD.dir), scripts: twoD.scripts } } : {}), ...(three ? { three: { runtime: path.relative(process.cwd(), three.dir), script: three.script } } : {}) }, null, 2));
 } else if (cmd === "audio-lock") {
   const dir = projectDir();
   if (!args.music) die("--music <file> required");

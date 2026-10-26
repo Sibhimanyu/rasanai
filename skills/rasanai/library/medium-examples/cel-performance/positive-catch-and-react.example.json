@@ -1,0 +1,45 @@
+{
+  "format": "medium-example@1",
+  "id": "cel-performance/positive-catch-and-react",
+  "kind": "positive",
+  "profile_id": "cel-boil",
+  "execution_id": "cel-performance",
+  "module": "runtime/medium-cel.js",
+  "state": "authored_unexecuted",
+  "verified": false,
+  "provenance": "Original source written for this library; no third-party character, frames or assets. The actor identity is the repository's own synthetic fixture stage2d/fixtures/original-actor.json.",
+  "describes": "Six-second nonverbal beat: the character looks up (anticipation), catches a falling pear (action), and responds after the catch lands, holding the pose (reaction).",
+  "headings_hidden_ok": true,
+  "main_event_without_text": "A pear falls into the character's mitt and the character visibly reacts to having caught it.",
+  "needs": { "engine": "Rasan2D (assets/rasan2d/: brush.js, character.js, gestures.js, rasan2d.js)", "assets": { "canons": { "hero-01": "stage2d/fixtures/original-actor.json" } }, "network": false },
+  "score_links": "Beat times come from the existing score: `event: ev-pear-drop` is resolved through eventBindings. This file adds no second timeline.",
+  "eventBindings_example": { "ev-pear-drop": 1.0 },
+  "invariants": ["one identity (hero-01) in every scene", "the reaction starts after the catch result", "pear stays attached to the hand once caught", "boil is line-only; no text or whole-frame wobble"],
+  "limitations": ["no lip sync", "no rigging beyond Rasan2D's five views", "unvalidated: pear fall path and hand coordinates need a frame check once testing is approved"],
+  "editability": ["emotion", "actor position and scale", "beat timing via score events"],
+  "createMediumScene_args": {
+    "width": 1920, "height": 1080, "seed": 7,
+    "design": { "ink": "#302921" },
+    "content": {
+      "duration": 6,
+      "boil": { "enabled": true, "hz": 12, "amp": 1 },
+      "look": { "paper": { "tint": "#f1e7d2", "grain": 0.5, "fibres": 1 } },
+      "actors": [ { "id": "hero-01", "canonRef": "hero-01", "position": { "x": 0.5, "y": 0.78 }, "scale": 1, "yaw": "front", "emotion": "calm" } ],
+      "props": [
+        { "id": "pear", "kind": "pear", "size": 66, "x": 1020, "y": 120,
+          "motion": [ { "kind": "fall", "at": 1.2, "arrive": 1.9, "to": [1020, 700] } ],
+          "attach": { "actor": "hero-01", "hand": "R", "from": 2.4, "to": 6 } }
+      ],
+      "beats": [
+        {
+          "id": "catch", "event": "ev-pear-drop", "offset": 0.2, "serves": "the pear falling is the cause; the response follows its landing",
+          "anticipate": { "at": 0, "actions": [ { "actor": "hero-01", "kind": "look", "dt": 0, "duration": 0.5, "target": [0.53, 0.2] }, { "actor": "hero-01", "kind": "emote", "dt": 0.2, "duration": 0.4, "emotion": "curious" } ] },
+          "act": { "at": 0.7, "resultAt": 1.2, "actions": [ { "actor": "hero-01", "kind": "catch", "dt": 0, "duration": 0.5, "track": "pear" } ] },
+          "react": { "at": 1.2, "actions": [ { "actor": "hero-01", "kind": "react", "dt": 0, "duration": 0.5, "style": "take" }, { "actor": "hero-01", "kind": "emote", "dt": 0.1, "duration": 0.6, "emotion": "delighted" } ] },
+          "hold": 0.8,
+          "fx": { "kind": "burst", "at": [0.53, 0.64], "start": 1.2, "duration": 0.4, "rays": 8, "radius": 0.04 }
+        }
+      ]
+    }
+  }
+}

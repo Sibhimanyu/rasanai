@@ -27,6 +27,10 @@ Everything in this section applies when the Look is the dimensional product styl
 
 What hurt in x1: tilts past 35 degrees or on three axes (the type shears and reads italic); a recession to a vanishing point (washed out, unreadable); a duplicate ghost object; grey hint text that reads as a placeholder; abstract stand-ins for the product (a dot sphere for "1.2 billion people"). What mattered less than expected: exact grain, exact vignette. What it still lacked against Google: light with colour. Try a faint rim light in the **product's own** functional colours (the green dot, the focus blue) on the hero moment only.
 
+## The selected medium (when `look/medium.json` exists)
+
+Read the projected medium (`look/visual-bible.json` `medium`, `references/medium-direction.md`) with the Look. Draw in the medium's own terms: for each meaningful beat state the native action (what visibly changes in this medium and what the viewer understands because of it), and let that action, not a restyled card, be the picture. Keep proof, exact UI and protected text on the evidence layer at full resolution; an editorial layer is never presented as the product. A texture or pixel font on an ordinary card does not count as the medium. Type is one option among actions. Where the medium cannot honour a proof need, write it in `frames/LIMITS.md` and keep the proof; never replace it. Finish is per layer: blur, depth of field, grain and glow go only where the contract's `finish_policy.by_layer` allows, and a sharp, pixel or flat layer is never softened to meet a depth rule (the plane and tilt craft below is then review evidence, `shots-check` and `gate` read the contract). The craft sections here apply only when the Look chose them.
+
 ## 1. The shot list (`frames/shots.json`)
 
 Run `node "$SKILL_DIR/scripts/frames.mjs" init --run "$RUN"` first: it writes the frame kit and a skeleton from the chosen script. One shot per beat (split a long beat into two if it has two pictures):

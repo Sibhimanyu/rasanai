@@ -100,6 +100,8 @@ function wants(assignment, story, look) {
     runtimes: tagsOf([...arr(a.runtime_families), ...arr(l.runtime_families)]),
     // no references wanted at all: a real choice by the user, honoured, not an error
     none: a.references === false || a.no_references === true,
+    // Part 2: the medium(s) of the chosen Look (profile / execution ids). A row that names medium_ids is retrievable only for a film whose Look selected that medium.
+    mediums: tagsOf(a.medium_ids),
   };
 }
 
@@ -153,6 +155,8 @@ export function selectCreativeReferences({ index, assignment, story = null, look
   const ranked = [];
   for (const row of rows) {
     if (taken.has(row.id)) continue;
+    const needMedium = tagsOf(row.medium_ids);
+    if (needMedium.length && !needMedium.some((m) => w.mediums.includes(m))) continue; // a medium example is never ordinary filler for another medium's film
     const banned = tagsOf(row.not_for_kinds);
     if (w.kind && banned.includes(w.kind)) { unavailable.push({ id: row.id, reason: `not proof for a ${w.kind} film` }); continue; }
     const clash = [...tagsOf(row.format_tags), ...tagsOf(row.shot_tags), ...tagsOf(row.look_tags)].filter((t) => w.avoid.includes(t));

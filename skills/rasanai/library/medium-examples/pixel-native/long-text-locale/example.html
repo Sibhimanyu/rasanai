@@ -1,0 +1,33 @@
+<!doctype html>
+<!-- ORIGINAL source example (invented brand "Tallybook"), profile pixel / pixel-native. Boundary case: long text and non-ASCII locales.
+     original-unreviewed; NOT rendered, previewed or run. Guidance only.
+     Rule shown: RasanPixel.measureText() reports missing glyphs; those strings are NOT pixelated. They go to a sharp DOM layer on top.
+     Portrait 1080x1920 here: base 180x320 at 6x. -->
+<html lang="de"><head><meta charset="utf-8"><title>long text and locale (pixel-native)</title>
+<style>
+html,body{margin:0;background:#14121f;color:#f2e9d8}
+#stage{position:relative;width:1080px;height:1920px;overflow:hidden;background:#14121f}
+#px{position:absolute}
+#sharp{position:absolute;left:96px;right:96px;top:1080px;font:600 54px/1.25 system-ui,"Noto Sans","Hiragino Sans",sans-serif}
+#sharp small{display:block;margin-top:28px;font-weight:500;font-size:40px;color:#b9b2c9}
+</style></head><body><div id="stage"><canvas id="px"></canvas>
+<div id="sharp" lang="de"><!-- real, exact copy: stays full-resolution text; reading region reserved for it -->
+Die Rechnungsfreigabeprüfung ist abgeschlossen.<small lang="ja">承認が完了しました。確認が必要な項目はありません。</small></div></div>
+<script src="../../../../runtime/medium-pixel.js"></script>
+<script>
+var PX = window.RasanPixel;
+var fit = PX.fit(1080, 1920, { base: [180, 320] });
+var S = PX.surface(document.getElementById("px"), { fit: fit, palette: ["#14121f", "#f2e9d8", "#d9534f", "#4aa3a0"] });
+var CAPTION = "ALL CHECKS DONE. NEXT STEP IS YOURS."; // ASCII decoration only, wrapped to the grid (maxW 140 base px)
+var probe = PX.measureText("Rechnungsfreigabeprüfung", { maxW: 140 });
+// probe.ok === false and probe.missing === ["ü"]: the pixel font must not substitute "U"; the real string already lives in #sharp.
+function draw(T, s) {
+  s.clear(0);
+  s.rect(16, 24, 148, 120, 3);                                              // a pixel plate behind the sharp text region: sits ABOVE the text in y, never under it
+  var m = s.text(CAPTION, 20, 30, 0, { maxW: 140 });                         // wraps; a long word is split, never overflowed past maxW
+  if (!m.ok) { /* route to a sharp layer; never draw a lookalike glyph */ }
+  s.sprite(PX.SCOUT, 90, 120, { anim: "idle", frame: PX.step(T, { fps: 6, count: 2, id: "scout", seed: 3 }) });
+}
+// reserved reading region (stage px): { x: 96, y: 1080, w: 888, h: 420 }; the pixel plate ends at y = 144 base px = 864 stage px.
+// PX.bind(tl, S, draw, { at: 0, duration: 5 });
+</script></body></html>

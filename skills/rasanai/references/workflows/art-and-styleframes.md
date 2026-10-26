@@ -55,3 +55,4 @@ The canonical homes of the detail this guide points at (read the one the current
 | the frame gate: measure the picture (text load, giant moments, boldness, type scale, ground tint, soft content, colour, flat swatch grounds) on boards and drafts | `scripts/frame-gate.mjs`, `references/craft.md` (Frame metrics) |
 | generated images in any route: when, prompt craft, the anchor, review, the slop list | `references/imagery.md`, `scripts/imagegen.mjs` |
 | thinking orbs (RasanOrbs): nine "AI is working" states, 64/20/hero, brand colour | `references/orbs.md`, `runtime/rasan-orbs.js` |
+| the selected medium's native actions and worked mechanisms (conditional, scene routes with a selected medium only; examples only for a stated communication problem, and never copy a whole example) | `references/medium-direction.md`, `references/medium-examples.md` |

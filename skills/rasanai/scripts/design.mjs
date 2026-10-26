@@ -25,6 +25,9 @@
 //         creative/references.json: what each look must develop a DIFFERENT strategy for. Additive; the plan's own fields and the card and image payloads are unchanged)
 //   (Plan 04) node design.mjs bible --run <run> | bible-check --run <run> | bible-for --run <run> --scene <id> [--relations cause,contrast] [--continuity <file>]
 //        -> look/visual-bible.json (a projection of DESIGN.md + the motion contract with a source digest; choose-system writes it too), its stale/valid check, the subset one scene worker gets
+//   (Part 2) bible-for also takes [--role <worker role>] [--shots a,b] [--events id,id]: the projection then carries the chosen medium contract's role section (look/medium.json), omitted when the look has none
+//   (Part 2) node design.mjs medium-wire --run <run> [--scene <n>]   -> what a medium scene needs and the project never guesses: the contract, eventBindings (scene-local seconds from motion/events.json), assets.canons (cast/<id>/identity.json), the runtime files, the treatment line
+//   (Part 2) check-system also gates design/<label>/medium.json for a medium Look: missing or invalid is "needs-you", never a pass
 //   (Plan 04) node design.mjs look-revise --run <run> --instruction "same typography, less glossy" [--ids a,b]   -> a bounded look revision: what changes, what stays fixed, the impact (Story kept)
 //   (Plan 04) node design.mjs continuity-check --file <continuity.json>   -> shared components (one owner each) and seam types (same object, analogy, causal handoff, temporal, discontinuity)
 //   node design.mjs pick --looks <dir>/looks.json --id B --decisions <decisions.json>
@@ -40,7 +43,8 @@ import { validateVisualBible, bibleCurrent, projectForWorker } from "./lib/visua
 import { comparisonPlan, validateComparisonPlan, reviseLook } from "./lib/look.mjs";
 import { validateContinuity, projectForScene } from "./lib/continuity.mjs";
 import { libraryIds } from "./library.mjs";
-import { runCreativeOn } from "./lib/creative-run.mjs"; // Creative Recovery: only a plan with creative_policy_revision 1 changes anything below
+import { runCreativeOn } from "./lib/creative-run.mjs";
+import { checkMediumLook, labelAssignments, loadMedium, readSelection, mediumContractFor, eventBindingsFor, canonsFor, treatmentLines, RUNTIME_FILES, needsRasan2d } from "./lib/medium-wiring.mjs"; // Part 2: only a creative run or a look with design/<label>/medium.json reads any of it // Creative Recovery: only a plan with creative_policy_revision 1 changes anything below
 
 const lockBrandOf = (run) => { try { return runBrand(path.resolve(String(run))); } catch { return null; } };
 // The brand lock: when the run's decisions carry a brand (and use_brand is not false), every system must stay inside it
@@ -248,7 +252,14 @@ if (cmd === "looks") {
   let md = "";
   try { md = fs.readFileSync(path.join(dirAbs, "DESIGN.md"), "utf8"); } catch {}
   r.P.push(...imageryProblems(dirAbs, md));
-  console.log(JSON.stringify({ ok: !r.P.length, problems: r.P, warnings: r.W, system: r.info }, null, 2));
+  // Part 2: a medium Look (an assigned candidate, a medium.json, or blend.medium_policy_revision) needs its contract; a legacy look is untouched
+  const runAbs = path.resolve(dirAbs, "..", ".."), mlabel = path.basename(dirAbs);
+  let medium = null;
+  if (fs.existsSync(path.join(dirAbs, "medium.json")) || runCreativeOn(runAbs)) {
+    medium = checkMediumLook(runAbs, mlabel, { creative: runCreativeOn(runAbs) });
+    if (medium.applicable) { r.P.push(...medium.problems); r.W.push(...medium.warnings); }
+  }
+  console.log(JSON.stringify({ ok: !r.P.length, problems: r.P, warnings: r.W, system: r.info, ...(medium && medium.applicable ? { medium: { state: medium.state, limitations: medium.limitations, contract_digest: medium.contract_digest || null } } : {}) }, null, 2));
   process.exit(r.P.length ? 2 : 0);
 } else if (cmd === "check-systems") {
   if (!args.run) die("--run <run dir> required");
@@ -268,6 +279,24 @@ if (cmd === "looks") {
     const unnamed = ls.filter(([, v]) => !v).map(([l]) => l);
     if (unnamed.length) console.error(`creative policy: design/${unnamed.join(", design/")}/blend.json names no look_style (dimensional | flat-graphic | editorial | photographic | character | ...): the frame checks then treat the look as not the depth craft; the designer says which class the look is`);
     else if (new Set(ls.map(([, v]) => String(v).toLowerCase())).size === 1 && !lockBrandOf(args.run)) console.error(`creative policy: all three looks are look_style "${ls[0][1]}": check they are different visual strategies for the Story, not one look recoloured`);
+  }
+  // Part 2: every medium Look carries its contract before the user is asked (needs-you, not a pass); the fit and trade-off ride the card's existing limitations rows
+  if (runCreativeOn(path.resolve(String(args.run)))) {
+    const runAbs = path.resolve(String(args.run)), M = loadMedium();
+    const bad = LABELS.map((l) => [l, checkMediumLook(runAbs, l, { med: M })]).filter(([, c]) => c.applicable && c.state !== "ok");
+    if (bad.length) die(`needs-you: a medium Look has no valid contract, so the Look cannot be pushed (fix each, then design.mjs check-system): ${bad.map(([l, c]) => `${l}: ${c.problems[0]}`).join(" | ")}`);
+  }
+  // Part 2: the selected medium shortlist (creative/medium-selection.json, a recommendation) is projected into the Look's EXISTING name / blend (description) / why (rationale) fields, and only where the
+  // designer left one empty; nothing is added to the payload shape, the Look count stays three, and nothing here approves or picks a Look.
+  if (runCreativeOn(path.resolve(String(args.run))) && readSelection(path.resolve(String(args.run)))) {
+    const la = labelAssignments(path.resolve(String(args.run)));
+    for (const st of pl.styles) {
+      const a = la[st.label], m = a && a.profile;
+      if (!m) continue;
+      if (!String(st.name || "").trim()) st.name = m.id;
+      if (!String(st.blend || "").trim() && m.summary) st.blend = m.summary;
+      if (!String(st.why || "").trim()) st.why = `${m.summary || m.id}${m.risks && m.risks.length ? ` Trade-off: ${m.risks[0]}` : ""} (a recommendation from the medium shortlist, not yet rendered)`.trim();
+    }
   }
   // the brand lock: never show (or recommend) an off-brand look
   const lockBrand = runBrand(path.resolve(String(args.run)));
@@ -304,7 +333,14 @@ if (cmd === "looks") {
     const cb = rj("creative", "brief.json"), cr = rj("creative", "references.json");
     if (cb && cb.status !== "skeleton") creative_intent = { brief_revision: cb.revision ?? null, promise: cb.promise ?? null, premise: cb.premise ?? null, visual_strategy: cb.visual_strategy ?? null, signature_events: (Array.isArray(cb.signature_events) ? cb.signature_events : []).map((e) => ({ id: e.id, beat_ids: e.beat_ids, before: e.before, change: e.change, after: e.after, must_preserve: e.must_preserve, why_motion: e.why_motion })), repetition_intent: cb.repetition_intent || [], do_not_substitute: cb.do_not_substitute || [], references: ((cr && cr.selected) || []).map((x) => ({ id: x.id, principle: (x.transferable || [])[0] || "", avoid: x.notTransferable || [] })), reference_evidence: (cr && cr.evidenceLevel) || "none", rule: "each look develops a different visual STRATEGY for this one idea (not a recolour); the real words, source behaviour and brand fixed things stay identical in every look; a look the brand excludes is excluded, never forced to fill a slot" };
   }
-  writeFile(path.join(run, "design", "comparison-plan.json"), JSON.stringify({ ...r.plan, validation: v, ...(creative_intent ? { creative_intent } : { }) }, null, 2) + "\n");
+  // Part 2: "different medium, same evidence and story": the selected medium candidates are listed per Look label next to the ONE representative beat and its content digest (every candidate
+  // develops this same beat; medium.json pins.comparison_content_digest must equal it). Additive: absent with no selection.
+  let medium_assignments = null;
+  if (runCreativeOn(run) && readSelection(run)) {
+    const la = labelAssignments(run);
+    medium_assignments = { content_digest: r.plan.representative && r.plan.representative.content_digest, by_label: Object.fromEntries(Object.entries(la).map(([k, x]) => [k, { candidate_id: x.candidate_id, profile_id: x.profile && x.profile.id, family_id: x.profile && x.profile.family_id, execution_id: x.profile && x.profile.execution_id, state: x.profile && x.profile.state, adaptation: x.adaptation ? x.adaptation.adaptation_id : null }])), note: "the shortlist is a recommendation (creative/medium-selection.json), not an approval; a label with no entry is developed as an ordinary (legacy) Look" };
+  }
+  writeFile(path.join(run, "design", "comparison-plan.json"), JSON.stringify({ ...r.plan, validation: v, ...(creative_intent ? { creative_intent } : { }), ...(medium_assignments ? { medium_assignments } : {}) }, null, 2) + "\n");
   console.log(JSON.stringify({ ok: v.ok, problems: v.problems, plan: r.plan }, null, 2));
   process.exit(v.ok ? 0 : 2);
 } else if (cmd === "bible") {
@@ -331,7 +367,19 @@ if (cmd === "looks") {
   try { cont = JSON.parse(fs.readFileSync(cf, "utf8")); } catch { /* none yet */ }
   const sc = String(args.scene);
   const uses = cont && cont.scenes && cont.scenes[sc] ? cont.scenes[sc].uses || [] : [];
-  console.log(JSON.stringify({ bible: projectForWorker(b, { scene_id: sc, relations: args.relations && args.relations !== true ? String(args.relations).split(",") : [], anchors: { objects: uses, screens: uses, characters: uses, sound_motifs: uses } }), continuity: cont ? projectForScene(cont, sc) : null }, null, 2));
+  // Part 2: role + shot ids select the medium contract's section a worker needs (projectForWorker -> projectMediumForWorker); no contract in the bible = the same output as before
+  const csv = (v) => (v && v !== true ? String(v).split(",").map((x) => x.trim()).filter(Boolean) : []);
+  console.log(JSON.stringify({ bible: projectForWorker(b, { scene_id: sc, relations: args.relations && args.relations !== true ? String(args.relations).split(",") : [], anchors: { objects: uses, screens: uses, characters: uses, sound_motifs: uses }, role: args.role && args.role !== true ? String(args.role) : undefined, beat_ids: csv(args.beats), shot_ids: csv(args.shots), events: csv(args.events) }), continuity: cont ? projectForScene(cont, sc) : null }, null, 2));
+} else if (cmd === "medium-wire") {
+  // what a medium scene needs and must not guess (eventBindings in scene-local seconds from the derived motion/events.json, assets.canons from cast/<id>/identity.json, the runtime files, the treatment line)
+  if (!args.run) die("--run <run dir> required");
+  const run = path.resolve(String(args.run));
+  const contract = mediumContractFor(run);
+  if (!contract) die("needs-you: this run has no chosen medium contract (look/medium.json): a legacy look needs none, and no medium scene is wired");
+  const scene = args.scene && args.scene !== true ? String(args.scene) : null;
+  const eb = eventBindingsFor(run, scene);
+  console.log(JSON.stringify({ ok: eb.ok, execution_id: contract.execution_id, profile_id: contract.profile_id, state: "implemented_unvalidated", runtime: { dir: "assets/rasan-medium/", files: RUNTIME_FILES[contract.execution_id] || [], with_rasan2d: needsRasan2d(contract) }, eventBindings: eb.bindings, ...(eb.ok ? {} : { note: eb.note }), assets: { canons: canonsFor(run) }, scene_clock: "setTime(t) takes SCENE-LOCAL seconds; film time stays in motion/score.json", treatment_lines: treatmentLines(contract), after_ui_finish: contract.execution_id === "pixel-companion" ? "call C.bind(tl, {...}) AFTER RasanUI's U.finish(): one clock, one camera" : null }, null, 2));
+  process.exit(eb.ok ? 0 : 2);
 } else if (cmd === "look-revise") {
   if (!args.run || !args.instruction || args.instruction === true) die("--run <run dir> --instruction \"...\" required");
   const run = path.resolve(String(args.run));
@@ -349,4 +397,4 @@ if (cmd === "looks") {
   const r = validateContinuity(c, {});
   console.log(JSON.stringify(r, null, 2));
   process.exit(r.ok ? 0 : 2);
-} else die("usage: design.mjs looks|pick|stills|check-system|check-systems|look-payload|choose-system|compare-plan|bible|bible-check|bible-for|look-revise|continuity-check (see the header)");
+} else die("usage: design.mjs looks|pick|stills|check-system|check-systems|look-payload|choose-system|compare-plan|bible|bible-check|bible-for|look-revise|continuity-check|medium-wire (see the header)");

@@ -122,10 +122,16 @@ import { creativeSlice } from "./lib/creative-contract.mjs";
 import { referencePacket } from "./lib/creative-references.mjs";
 import { validateProofContract, validateProofReview } from "./lib/proof-integrity.mjs";
 import { validateCreativeHandoff } from "./lib/creative-handoff.mjs";
+// Style Intelligence Part 2 (medium-native films): everything below is gated on the creative policy or on a medium contract (design/<label>/medium.json, medium-contract@1); a legacy run never reads it
+import { loadMedium, prepareMediumSelection, labelAssignments, readSelection, readMediumContract, mediumContractFor, isMediumContract, checkMediumLook, scopedSkips, eventBindingsFor, canonsFor, treatmentLines, RUNTIME_FILES, needsRasan2d, buildAssignment, LABELS as MEDIUM_LABELS } from "./lib/medium-wiring.mjs";
+import { mediumContractDigest, projectMediumForWorker } from "./lib/medium-contract.mjs";
+import { retrieveExamples, buildExampleIndex } from "./lib/medium-examples.mjs";
+import { selectMediumLessons } from "./lib/medium-learning.mjs";
+import { canonicalDigest as mediumCanonicalDigest } from "./lib/contracts.mjs";
 import { commitTiming, writeEvents, scoreRevision, eventsFromScore } from "./lib/timing.mjs"; // Plan 05 E3: the score is the one timing authority; events.json is derived
 import { readDirection, sfxExpectation, silenceWindows } from "./lib/audio-direction.mjs"; // Plan 07: the audio direction (roles, intentional silence, a silent deliverable)
 import { deriveCues } from "./lib/cues.mjs"; // Plan 07 A2: cues reference stable event ids; their film time is derived from the score
-import { schedule as scheduleGraph, inputDigestFor } from "./lib/graph.mjs"; // Plan 09 P1/P2: the dependency graph and which members are READY (derived, never a second plan)
+import { schedule as scheduleGraph, inputDigestFor, mediumDigestFor } from "./lib/graph.mjs"; // Plan 09 P1/P2: the dependency graph and which members are READY (derived, never a second plan)
 import * as Jobs from "./lib/jobs.mjs"; // Plan 09 P4/P9: fenced, resumable jobs and budget reservations
 import * as Pools from "./lib/resource-pools.mjs"; // Plan 09 P3: separate resource pools, pause, throttle, fail-closed admission
 import * as Rev from "./lib/revision-events.mjs"; // Plan 09 P7: truthful progressive revision events
@@ -773,6 +779,81 @@ function proofState(run) {
   }
   return { contracts: list, mechanical, reviewInputs };
 }
+// ---------------------------------------------------------------- Style Intelligence Part 2: the medium thread (all gated: creative policy or a medium contract; a legacy run reads none of it)
+const MEDIUM_WORKERS = new Set(["styleframe-designer", "frame-designer", "frame-juror", "motion-director", "film-builder", "scene-animator"]);
+const MEDIUM_GUIDE = path.join(SKILL_DIR, "references", "medium-direction.md");
+let MEDIUM_CACHE = null;
+const mediumLib = () => (MEDIUM_CACHE ||= loadMedium()); // one index build per process (pure read of the style records, metadata and capability registry)
+// the chosen Look's contract: look/medium.json, else the chosen label's candidate file (an unchosen Look has none)
+const chosenMedium = (run) => { try { const c = mediumContractFor(run); return isMediumContract(c) ? c : null; } catch { return null; } };
+// what the build job's input digest also covers: the Look's visual-bible medium section and the contract digest (a changed medium re-keys only the work that reads it; none = "")
+const jobInputDigest = (run, n) => inputDigestFor(run, n);
+// the file of the chosen contract (look/medium.json, else the chosen label's candidate): the --medium argument of motion-gate.mjs and finish.mjs; null = not a medium film
+function mediumFileFor(run) {
+  if (!chosenMedium(run)) return null;
+  const f = R(run, "look", "medium.json");
+  if (exists(f)) return f;
+  const dec = jsonMaybe(R(run, "decisions.json")) || {}, label = (dec.design_system && dec.design_system.label) || (dec.look && dec.look.system) || null;
+  return label && exists(R(run, "design", label, "medium.json")) ? R(run, "design", label, "medium.json") : null;
+}
+const mediumFlag = (run) => { const f = mediumFileFor(run); return f ? ` --medium ${rel(f)}` : ""; };
+// the score's shot ids for a scene key ("lead"/absent = every scene)
+function sceneShotIds(run, key) {
+  const sc = jsonMaybe(R(run, "motion", "score.json")), S = sc && Array.isArray(sc.scenes) ? sc.scenes : [];
+  const n = Number(key), pick = Number.isInteger(n) && n >= 1 ? [S[n - 1]].filter(Boolean) : S;
+  return { beatIds: pick.map((s) => s && (s.id || s.n)).filter((x) => x != null).map(String), shotIds: pick.flatMap((s) => (s && Array.isArray(s.shots) ? s.shots : []).map((h) => h && h.id).filter(Boolean).map(String)) };
+}
+function mediumContext(run, role, key, P, ctx, I, O) {
+  const guide = ["design-researcher", "design-system-designer", ...MEDIUM_WORKERS].includes(role);
+  if (guide) I("medium direction (how a medium-native Look is chosen, cut and checked; read the part for your role only)", MEDIUM_GUIDE);
+  if (role === "design-researcher") {
+    if (!creativeOn(P)) return;
+    ctx.medium_hints = "new creative policy: research/design.md also carries a short `## Medium hints` section (at most 5 lines: which visual materials or media this subject can be told in, what each does well for THIS subject, one honest risk). It supplies vocabulary only: you choose no medium and no Look. crew.mjs check refuses a design.md without it.";
+    return;
+  }
+  if (role === "design-system-designer") {
+    let asg = null, err = null;
+    try { asg = labelAssignments(run, mediumLib())[key] || null; } catch (e) { err = e.message; }
+    const sel = readSelection(run);
+    if (err) ctx.medium = { state: "needs-you", problem: `the medium index could not be loaded (${err}): this Look cannot be cut as a medium Look; say so, do not fall back to animated type silently` };
+    else if (asg) {
+      I("the medium selection (the Director's shortlist; recommendation only, the Look approval decides)", R(run, "creative", "medium-selection.json"));
+      I("the comparison plan (every Look candidate is cut from the SAME beat and content digest)", R(run, "design", "comparison-plan.json"));
+      O(R(run, "design", key, "medium.json"));
+      ctx.medium = { state: "assigned", candidate_id: asg.candidate_id, profile: asg.profile, adaptation: asg.adaptation, eligibility: asg.assessment && asg.assessment.eligibility ? { state: asg.assessment.eligibility.state, reasons: asg.assessment.eligibility.reasons || undefined } : null,
+        rule: `this Look develops the medium candidate ${asg.candidate_id}: write design/${key}/medium.json (format medium-contract@1: layers with proof boundaries, native_actions, text/motion/finish policies, pins.profile_digest, pins.story_digest, pins.comparison_content_digest, a short rationale) next to DESIGN.md. The Look count is unchanged and the user still chooses the Look; a different medium is a new selection, never a quiet substitution. crew.mjs check validates the contract and treats a missing or invalid one as needs-you, never a pass.` };
+    } else if (sel) ctx.medium = { state: "not_assigned", note: `creative/medium-selection.json selected ${(sel.selected || []).length} candidate(s) for the first Look labels in order (${MEDIUM_LABELS.join(", ")}); ${key} was not assigned one, so it is an ordinary (non-medium) Look and needs no medium.json` };
+    return;
+  }
+  if (!MEDIUM_WORKERS.has(role)) return;
+  const c = chosenMedium(run);
+  if (!c) return; // no chosen medium contract: the worker gets exactly what it got before
+  const ids = sceneShotIds(run, key);
+  const ev = eventBindingsFor(run, Number(key) >= 1 ? key : null);
+  const pr = projectMediumForWorker(c, { role, beatIds: ids.beatIds, shotIds: ids.shotIds, events: ev.ok ? ev.bindings.map((b) => b.id) : [] });
+  const dec = jsonMaybe(R(run, "decisions.json")) || {}, st = jsonMaybe(R(run, "story", "chosen-treatment.json")) || jsonMaybe(R(run, "story", "intent.json")) || {};
+  const kind = String(st.communication_kind || (jsonMaybe(R(run, "brief.json")) || {}).communication_kind || "").trim() || undefined;
+  const problem = [c.visual_premise, ...(Array.isArray(c.native_actions) ? c.native_actions.slice(0, 4).map((a) => a && (a.serves || a.id)) : [])].filter(Boolean).join(" ");
+  const block = { digest: pr.mandatory ? pr.mandatory.digest : mediumContractDigest(c), profile_id: c.profile_id, execution_id: c.execution_id, projection: pr.mandatory, visual_refs: pr.visual_refs, technique_refs: pr.technique_refs, omitted_optional: pr.omitted_optional, blockers: pr.blockers, status: "implemented_unvalidated: nothing of this medium has been rendered or reviewed yet" };
+  try { const ex = retrieveExamples({ medium: c.profile_id, problem, kind, limit: 2 }, buildExampleIndex()); block.examples = { selected: ex.selected, read_order: ex.read_order, note: "up to 2, by medium AND this film's problem; mechanics only, never the composition or wording; preview_ref null = nothing rendered" }; } catch (e) { block.examples = { selected: [], note: `examples unavailable (${String(e.message).slice(0, 80)})` }; }
+  try { const rl = selectMediumLessons({ records: readLessons(), assignment: { problem, communication_kind: kind, film_id: path.basename(run), brand: dec.brand ? path.basename(String(dec.brand)) : null }, selectedProfile: c.profile_id }); block.lessons = { selected: rl.selected, note: "advisory, scoped to this medium and problem; an ordinary lesson still arrives through the existing lessons block" }; } catch { /* lessons are optional */ }
+  ctx.medium = block;
+  if (role === "scene-animator" || role === "film-builder") {
+    const files = RUNTIME_FILES[c.execution_id] || [];
+    const mf = mediumFileFor(run);
+    if (mf) ctx.medium_checks = { motion_gate: `motion-gate.mjs ... --medium ${rel(mf)}`, finish: `finish.mjs ... --medium ${rel(mf)} (a sharp or nearest-neighbor layer makes the film-wide blur, grain and glow unavailable)`, note: "named per-layer craft exceptions only; hard checks are unchanged" };
+    ctx.medium_runtime = { dir: "assets/rasan-medium/", files, ...(needsRasan2d(c) ? { rasan2d: "assets/rasan2d/" } : {}), note: "video.mjs inject --project-dir <dir> --run <run> copies exactly these (plus only this execution's examples into assets/rasan-medium/examples/); a scene calls the registered factory of the runtime, never a hand-drawn imitation" };
+    ctx.event_bindings = ev.ok ? { bindings: ev.bindings, note: "scene-local seconds from motion/events.json (derived from the score, which owns timing)" } : { bindings: [], note: ev.note };
+    if (c.execution_id === "cel-performance") ctx.canons = { ids: Object.keys(canonsFor(run)), from: "cast/<id>/identity.json (assets.canons: the identity inline, sealed)" };
+    const tl = treatmentLines(c); if (tl.length) ctx.treatment_disclosure = tl;
+  }
+}
+// the job-key mixin is graph.mjs mediumDigestFor (via inputDigestFor, jobInputDigest above); the score checks' per-layer exceptions use mediumSkips
+function mediumSkips(run, ruleIds, scene = null) {
+  const c = chosenMedium(run);
+  if (!c) return { skip: new Set(), exceptions: [], kept: ruleIds.slice() };
+  return scopedSkips(c, ruleIds, { sceneId: scene });
+}
 function creativeContext(run, role, key, P, ctx, I, O) {
   const briefF = R(run, "creative", "brief.json"), refsF = R(run, "creative", "references.json");
   if (CREATIVE_ROLES.has(role)) {
@@ -839,7 +920,7 @@ function contextFor(run, role, key, plan) {
     if (["scene-animator", "film-builder", "motion-director", "frame-designer", "styleframe-designer", "art-director", "frame-juror"].includes(role) && !(role === "styleframe-designer" && String(key || "").startsWith("heroes-"))) {
       I("visual bible (machine-readable projection of the look: role palette, exact fonts and locale fallback, safe regions, motion and transition vocabulary by semantic relation, treatments each tied to what it communicates, hard brand constraints vs creative defaults; check source_digest against the look)", R(run, "look", "visual-bible.json"));
       I("continuity contract (shared components each with ONE owner, seam types: same object, analogy, causal handoff, temporal, discontinuity; you may request a change, never redefine a shared component)", R(run, "look", "continuity.json"));
-      ctx.visual_bible_for = `node "${path.join(SKILL_DIR, "scripts", "design.mjs")}" bible-for --run ${rel(run)} --scene ${key || "<scene>"}   (your projected subset)`;
+      ctx.visual_bible_for = `node "${path.join(SKILL_DIR, "scripts", "design.mjs")}" bible-for --run ${rel(run)} --scene ${key || "<scene>"} --role ${role}${chosenMedium(run) ? ` --shots ${sceneShotIds(run, key).shotIds.join(",") || "<shot ids>"}` : ""}   (your projected subset${chosenMedium(run) ? "; with the chosen medium's role section" : ""})`;
     }
     // Plan 06 V7/V8: what the machine can honestly do, and the guard before a scene is rebuilt over the person's edits
     if (["scene-animator", "film-builder", "motion-director", "art-director"].includes(role)) {
@@ -1107,7 +1188,7 @@ function contextFor(run, role, key, plan) {
       Object.assign(ctx, { pass: key === "seams" ? "seams" : "score", length_s: B.length_s, aspect: B.aspect });
       for (const [l, p] of [["THE INTENT (read first: story/intent.json. Per beat: what it buys, its relation to the beat before, its importance 1-3, the one thing to read; the peak. Choose each beat's hero, verb and transition FROM it, and spend your big moments on the importance-3 beats and the peak)", R(run, "story", "intent.json")], ["the score's fields, format, seam pass and shape vocabulary", path.join(SKILL_DIR, "references", "score.md")], ["script", R(run, "story", "chosen.json")], ["scenes", R(run, "scenes.json")], ["frame.md", lookFrame(run)], ["design system (its Motion and camera section binds the motion)", R(run, "look", "DESIGN.md")], ["direction", R(run, "direction", "DIRECTION.md")], ["motion.md", R(run, "motion.md")], ["music plan", R(run, "music", "plan.json")], ["screens", research("screens.md")], ["assets", research("assets.json")], ["brand", research("brand.md")], ["precedent", research("precedent.md")], ["reference moments (read-only: dense.md and code/REMIX.md per moment; one mechanic each, written as the beat's take)", R(run, "references", "moments")], ["craft", path.join(SKILL_DIR, "references", "craft.md")], ["vocabulary", path.join(SKILL_DIR, "references", "vocabulary.md")], ["3d playbook", path.join(SKILL_DIR, "references", "3d.md")]]) I(l, p);
       if (readRunGrammar(run) !== null) {
-        ctx.grammar = "yes: the film's ONE motion grammar is look/grammar.json. Set score.grammar to its id; every beat (scene) names the technique of it that expresses the beat's verb and a frame_device (what the grammar's frame device does in that beat). A refrain may repeat a technique; the check refuses grammar-missing, technique-unknown and frame-device-missing, and warns technique-thin when the whole film spends 2 or fewer.";
+        ctx.grammar = "yes: the film's ONE motion grammar is look/grammar.json. Set score.grammar to its id; every beat (scene) names the technique of it that expresses the beat's verb and a frame_device (what the grammar's frame device does in that beat). A refrain may repeat a technique; the check refuses grammar-missing, technique-unknown and frame-device-missing, and warns technique-thin when the whole film spends 2 or fewer. A look made under the medium policy (grammar_format \"medium-grammar@2\"): a scene names `native_action` (an id of the grammar's native_actions; the legacy `technique` key is still read) and, when the grammar declares layers, the `layer` that action belongs to; one native action, a hold or a single shot is complete, and word-choreo, ground motion, transitions and a change cadence are required only where the Look declares them.";
         I("motion grammar (THE film's one motion language: frame device, type and image behaviour, techniques with build routes)", R(run, "look", "grammar.json"));
       }
       if (LYR(run, P)) {
@@ -1206,7 +1287,7 @@ function contextFor(run, role, key, plan) {
       if (readRunGrammar(run) !== null) I("motion grammar (the film's ONE grammar: every beat spends the technique the plan names, in the frame device the plan names)", R(run, "look", "grammar.json"));
       for (const [l, p] of [["the plan (motion/score.json): THE contract", R(run, "motion", "score.json")], ["the plan in words", R(run, "motion", "score.md")], ["build brief (short: what to build, the momentum rules, the gate)", path.join(pj, "BUILD.md")], ["technical role (the workflow's frame-worker contract)", path.join(pj, ".hyperframes", "frame-packets", "_role.md")], ["frame packets (one per beat: the file each beat goes in)", path.join(pj, ".hyperframes", "frame-packets")], ["DISPATCH.md", path.join(pj, "DISPATCH.md")], ["frame.md (the look: fonts, colours)", path.join(pj, "frame.md")], ["motion.md", path.join(pj, "motion.md")], ["reference moments (read-only: one mechanic per beat, never copied)", R(run, "references", "moments")], ["the chosen moves (the Moves pass: the carrier you build and the hero cards with their roughs: your motion target; each is a move to beat, the reference moments are mechanics to execute it with)", R(run, "story", "moves.json")], ["the move roughs (grey-box loops of the hero moves)", R(run, "story", "moves")], ["ui kit", research("screens.md")], ["real screens", research("screens.json")], ["logo files (the only logo you may place: the staged copy is in the project at assets/brand/; if logos.json says none, set the name in type, no symbol)", research("brand", "assets")], ["assets", research("assets.json")]]) I(l, p);
       if (LYR(run, P)) { ctx.lyric_video = true; for (const [l, p] of [["lyrics (word timings)", R(run, "music", "lyrics.json")], ["audio (beats, onsets)", R(run, "music", "audio.json")], ["lyrics and the music runtime", path.join(SKILL_DIR, "references", "lyrics.md")]]) I(l, p); }
-      ctx.gate = `node "${path.join(SKILL_DIR, "scripts", "motion-gate.mjs")}" --project ${rel(pj)} --plan ${rel(R(run, "motion", "score.json"))}`;
+      ctx.gate = `node "${path.join(SKILL_DIR, "scripts", "motion-gate.mjs")}" --project ${rel(pj)} --plan ${rel(R(run, "motion", "score.json"))}${mediumFlag(run)}`;
       if (lead) O(`${rel(path.join(pj, "index.html"))} (the root: ground and carrier tracks)`), O(`${rel(path.join(pj, "compositions", "carriers"))}/*.html`);
       else O(`${rel(path.join(pj, "compositions", "frames"))}/NN-*.html (every beat, the file its packet names)`), O(`${rel(path.join(pj, "compositions", "carriers"))}/*.html (every object that crosses a cut)`);
       O(R(run, "crew", "builder", `${key || "film"}.md`)); O(R(run, "crew", "builder", `${key || "film"}-overview.png`)); O(R(run, "crew", "builder", `${key || "film"}-seams.png`));
@@ -1358,6 +1439,7 @@ function contextFor(run, role, key, plan) {
     ctx.own_boards = "lean budget: no designer drew the boards. FIRST, before any animation, draw them yourself: frames/shots.json (one shot per beat: size, hero, light, ground, type sizes), then frames/<id>.html and its .png per beat (node scripts/frames.mjs init --run <run>, then node scripts/design.mjs stills --dir frames), LOOK at them against the score, and animate between them. Keep it to the beats' peak frames: one picture per beat, no variants";
   }
   if (creativeOn(P)) creativeContext(run, role, key, P, ctx, I, O);
+  if (creativeOn(P) || chosenMedium(run)) mediumContext(run, role, key, P, ctx, I, O);
   for (const kv of str(args.set).split(",").filter(Boolean)) {
     const i = kv.indexOf("=");
     if (i > 0 && !kv.startsWith("path=")) ctx[kv.slice(0, i)] = kv.slice(i + 1);
@@ -1388,8 +1470,9 @@ function vocabularyFor(terms) {
 function grammarBlock(run, scenes) {
   const g = readRunGrammar(run);
   if (!g || typeof g !== "object") return "";
-  const named = techniquesNamed(g, scenes.map((s) => s && s.technique));
-  const beats = scenes.filter((s) => s && (s.technique || s.frame_device)).map((s) => ({ scene: s.n, technique: s.technique, frame_device: s.frame_device }));
+  // Part 2: a medium-grammar@2 scene names `native_action` (and optionally `layer`); the legacy `technique` key is still read
+  const named = techniquesNamed(g, scenes.map((s) => s && (s.native_action || s.technique)));
+  const beats = scenes.filter((s) => s && (s.native_action || s.technique || s.frame_device)).map((s) => ({ scene: s.n, ...(s.native_action ? { native_action: s.native_action } : { technique: s.technique }), ...(s.layer ? { layer: s.layer } : {}), frame_device: s.frame_device }));
   const core = { id: g.id, name: g.name, frame_device: g.frame_device, type: g.type, image: g.image, transitions: g.transitions, signature: g.signature, density: g.density, palette: g.palette, do: g.do, dont: g.dont };
   return `\n\n## The film's motion grammar (look/grammar.json): ONE grammar, each beat's technique from what it means\n\n\`\`\`json\n${JSON.stringify(core, null, 2)}\n\`\`\`\n\n${beats.length ? `The score's beats:\n\n\`\`\`json\n${JSON.stringify(beats, null, 2)}\n\`\`\`\n\n` : ""}${named.length ? `### The techniques the score names (build each by its route)\n\n\`\`\`json\n${JSON.stringify(named, null, 2)}\n\`\`\`` : ""}`;
 }
@@ -2045,6 +2128,22 @@ function checkScore(run) {
   if (seams.length && plain / seams.length < 0.5) T("seam-mix", `only ${Math.round((plain / seams.length) * 100)}% of seams are cuts or scene-born continuity (at least 50%)`);
   { const sc = sceneContractChecks(score, { intent: jsonMaybe(R(run, "story", "intent.json")) || null, run }); W.push(...sc.W); }
   { const rd = readsChecks(score, { run }); P.push(...rd.P); W.push(...rd.W); } // W4: optional timed reads[] (references/reads.md); every named finding is a warning
+  // Part 2: a chosen medium contract may qualify NAMED craft checks per layer and scene (medium-rules resolveMediumRules); a film-level check holds only when EVERY layer qualifies. Hard checks are never listed here.
+  if (chosenMedium(run)) {
+    const MAP = { "flat-type": "type-scale-quota", "layers-thin": "multi-plane-depth", "depth-not-in-reel": "multi-plane-depth", "no-living-ground": "ground-motion", "linear-drift": "ground-motion", "crash-zooms": "camera-motion", "camera-on-minor": "camera-motion" };
+    const ruleOf = (m) => { const k = Object.keys(MAP).find((x) => String(m).startsWith(x)); return k ? MAP[k] : null; };
+    const ids = [...new Set([...P, ...W].map(ruleOf).filter(Boolean))];
+    if (ids.length) {
+      const ms = mediumSkips(run, ids);
+      if (ms.skip.size) {
+        const noted = [];
+        const keep = (list) => list.filter((m) => { const r = ruleOf(m); if (r && ms.skip.has(r)) { noted.push(`${String(m).split(":")[0]} (${r})`); return false; } return true; });
+        const p2 = keep(P), w2 = keep(W);
+        P.length = 0; P.push(...p2); W.length = 0; W.push(...w2);
+        for (const x of ms.exceptions) W.push(`medium exception: ${x.rule_id} is qualified for every layer (${x.layers.join(", ")}) by the medium contract (${x.policy}: ${x.reason}); hard checks (proof, readability, safe area, time, source refs, brand, permission) are unchanged`);
+      }
+    }
+  }
   return { P, W };
 }
 
@@ -2238,6 +2337,7 @@ async function checkRole(run, role, key) {
       if (!md) { P.push("research/design.md is missing"); break; }
       P.push(...sections(md, ["The subject's visual world", "Clichés to avoid", "Audience", "Materials, places, eras", "Library references", "Sources"]));
       const urls = new Set(md.match(URL_RE) || []);
+      if (CP && !/^##\s+Medium hints\b/mi.test(md)) P.push('research/design.md has no "## Medium hints" section (new creative policy: at most 5 lines on which visual materials or media this subject can be told in, what each does well for it, one honest risk; vocabulary only, no Look is chosen here)');
       if (urls.size < 3) P.push(`only ${urls.size} source URLs in design.md (at least 3: the subject's own visual culture, not the library)`);
       const rf = jsonMaybe(research("design-refs.json"));
       if (rf === null) { P.push("research/design-refs.json is missing"); break; }
@@ -2266,6 +2366,8 @@ async function checkRole(run, role, key) {
       const brandPath = dec.use_brand !== false && dec.brand && exists(path.resolve(String(dec.brand))) ? path.resolve(String(dec.brand)) : null;
       const r = await checkSystemFull(dir, { hook: firstLine(run), libraryIds: libraryIds(), brand: brandPath, label: key, offline: !!process.env.RASANAI_OFFLINE });
       P.push(...r.P); W.push(...r.W);
+      // Part 2: a medium Look (an assigned candidate, a medium.json or blend.medium_policy_revision) carries a valid contract; missing or invalid is needs-you, never a pass
+      if (CP || exists(R(run, "design", key, "medium.json"))) { try { const mk = checkMediumLook(run, key, { creative: CP }); if (mk.applicable) { P.push(...mk.problems); W.push(...mk.warnings); } } catch (e) { P.push(`needs-you: the medium contract could not be checked (${String(e.message).slice(0, 120)}): this Look is not accepted until it can`); } }
       if (isPresenter(run)) {
         const md = readMaybe(R(run, "design", key, "DESIGN.md"));
         const im = (md.match(/^##\s+Imagery[^\n]*\n([\s\S]*?)(?=\n##\s|(?![\s\S]))/mi) || [])[1];
@@ -2423,7 +2525,7 @@ async function checkRole(run, role, key) {
       const pitch = jsonMaybe(R(run, "story", `pitch-${key}.json`));
       if (!pitch) { P.push(`story/pitch-${key}.json is ${pitch === undefined ? "not valid JSON" : "missing"}: the moves are checked against its beats`); break; }
       const pf = productFirst(run, jsonMaybe(R(run, "crew", "plan.json")) || {});
-      const r = validateMoves(m, { beats: pitch.beats, productFirst: pf, shape: pitchShape(pitch), uiLabels: pitch.ui_labels, productName: pitch.product || pitch.product_name, pack: jsonMaybe(R(run, "story", `moves-pack-${key}.json`)) || null, ...(CP ? { creativePolicy: 1, profiles: (() => { const cb = jsonMaybe(R(run, "creative", "brief.json")); return cb && Array.isArray(cb.profiles) ? cb.profiles.map(String) : []; })() } : {}) }); // creative policy: the universal craft quotas are profiles (errors only when the brief or the file selects the profile)
+      const r = validateMoves(m, { beats: pitch.beats, productFirst: pf, shape: pitchShape(pitch), uiLabels: pitch.ui_labels, productName: pitch.product || pitch.product_name, pack: jsonMaybe(R(run, "story", `moves-pack-${key}.json`)) || null, ...(() => { const ms = mediumSkips(run, ["handoff-continuity"]); return ms.skip.size ? { mediumSkip: [...ms.skip] } : {}; })(), ...(CP ? { creativePolicy: 1, profiles: (() => { const cb = jsonMaybe(R(run, "creative", "brief.json")); return cb && Array.isArray(cb.profiles) ? cb.profiles.map(String) : []; })() } : {}) }); // creative policy: the universal craft quotas are profiles (errors only when the brief or the file selects the profile)
       P.push(...r.errors); W.push(...r.warnings);
       break;
     }
@@ -2876,7 +2978,7 @@ async function checkRole(run, role, key) {
       }
       const gateScript = path.join(SKILL_DIR, "scripts", "motion-gate.mjs");
       if (exists(gateScript) && exists(R(run, "motion", "score.json"))) {
-        const g = spawnSync(process.execPath, [gateScript, "--project", pj, "--plan", R(run, "motion", "score.json"), "--json"], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" }, timeout: 300000 });
+        const g = spawnSync(process.execPath, [gateScript, "--project", pj, "--plan", R(run, "motion", "score.json"), "--json", ...(mediumFileFor(run) ? ["--medium", mediumFileFor(run)] : [])], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" }, timeout: 300000 });
         let gj = null;
         try { gj = JSON.parse(g.stdout); } catch {}
         if (!gj) W.push("motion-gate.mjs could not run on the project");
@@ -2937,7 +3039,7 @@ async function checkRole(run, role, key) {
       // the motion and film critics never judge without a render AND the motion gate's report on it
       if (["motion", "film"].includes(lens)) {
         const gr = jsonMaybe(R(run, "crew", "motion-gate.json"));
-        if (!gr) P.push(`no motion gate report (crew/motion-gate.json): the ${lens} critic judges a draft render with the gate's numbers, never stills alone. The Director runs motion-gate.mjs --video <draft.mp4> --plan <run>/motion/score.json --project <dir> --json > <run>/crew/motion-gate.json first`);
+        if (!gr) P.push(`no motion gate report (crew/motion-gate.json): the ${lens} critic judges a draft render with the gate's numbers, never stills alone. The Director runs motion-gate.mjs --video <draft.mp4> --plan <run>/motion/score.json --project <dir> --json${mediumFlag(run)} > <run>/crew/motion-gate.json first`);
         else if (gr.verdict === "fail" && c.verdict === "ship") P.push(`ship while the motion gate fails (${(gr.findings || []).filter((x) => x.severity === "error").length} finding(s)): fix those first`);
       }
       // strengths-to-keep: what the critic would protect, so a fix does not buy a green gate with it (the fix brief carries them; the A/B juror flags a regression)
@@ -3325,6 +3427,17 @@ const visionOf = (prof) => !(prof && (prof.vision === false || prof.harness === 
 const CREATIVE_PREP_ROLES = new Set(["research-lead", "design-researcher", ...CREATIVE_ROLES]);
 const CREATIVE_NEEDS_BRIEF = new Set(["script-writer", "treatment-writer", "visual-writer", "design-system-designer", "styleframe-designer", "frame-designer", "motion-director", "film-builder", "scene-animator"]);
 const CREATIVE_NEEDS_STORY_MODE = new Set(["design-system-designer", "styleframe-designer", "frame-designer", "motion-director", "film-builder", "scene-animator"]);
+// Part 2: write creative/medium-selection.json (pins: the confirmed Brief and Story digests; registry_digest = the medium index source_digest) from the run's own evidence and the Director's optional
+// creative/medium-judgments.json. Needs the user's confirmed Story (a pin); without it nothing is written. Never approves anything.
+function mediumSelect(run, { judgmentsFile = null, requestedCount = null } = {}) {
+  const pins = approvalPins(run);
+  if (!pins.story) return { ok: false, summary: { state: "waiting", reason: "the Story is not confirmed yet (no consumed Story choice): the medium shortlist is cut from the approved Story, so nothing was written" } };
+  const dec = jsonMaybe(R(run, "decisions.json")) || {};
+  try {
+    const r = prepareMediumSelection(run, { pins, judgmentsFile, requestedCount, strictBrand: !!(dec.strict_brand_film || dec.film_style_strict), med: mediumLib() });
+    return { ok: r.ok, summary: { state: r.ok ? "written" : "invalid", file: rel(r.file), selected: r.selection && r.selection.selected, considered: r.considered, errors: r.ok ? undefined : (r.validation && r.validation.errors || []).slice(0, 5), limitations: r.selection && r.selection.limitations } };
+  } catch (e) { return { ok: false, summary: { state: "needs-you", reason: `the medium selection could not be prepared (${String(e.message).slice(0, 160)}): the Looks proceed as ordinary Looks` } }; }
+}
 function creativePrepare(run, plan, role, key) {
   if (!CREATIVE_PREP_ROLES.has(role)) return null;
   const out = {};
@@ -3333,6 +3446,7 @@ function creativePrepare(run, plan, role, key) {
     out.references = { file: rel(rf.file), created: rf.created, evidence: (rf.selection || {}).evidenceLevel || null, selected: ((rf.selection || {}).selected || []).map((x) => x.id) };
     out.brief = { file: rel(pb.file), created: pb.created };
   } catch (e) { out.error = `creative preparation skipped: ${e.message}`; }
+  if (role === "design-system-designer" && !exists(R(run, "creative", "medium-selection.json"))) { const ms = mediumSelect(run); out.medium_selection = ms.summary; } // idempotent: a selection that exists is never rewritten here (re-run `creative medium-select` after the Director's judgments)
   if (CREATIVE_NEEDS_BRIEF.has(role)) {
     const cb = checkBrief(run, { stage: "proposal" });
     if (cb.state === "skeleton" || cb.state === "missing") die(`${role}${key ? ":" + key : ""} waits for the creative brief (new creative policy): ${cb.errors[0].message}. The Director fills creative/brief.json from the research (references/creative-quality.md), then crew.mjs creative check --run ${rel(run)}`);
@@ -3370,6 +3484,10 @@ function creativeCommand(run, sub) {
     const stage = str(args.stage) || "proposal";
     const r = checkBrief(run, { stage, expectPins: stage !== "proposal" });
     out({ ok: r.ok, stage, state: r.state, errors: r.errors, warnings: r.warnings, missing: r.missing, note: "form only: a valid brief is not a good one and grants no approval" }, r.ok ? 0 : 2);
+  } else if (sub === "medium-select") {
+    // Part 2: the Director's recommendation for the Look jobs (creative/medium-selection.json). It approves nothing, adds no stage or action, and leaves the Look count as planned.
+    const r = mediumSelect(run, { judgmentsFile: args.judgments && args.judgments !== true ? path.resolve(String(args.judgments)) : null, requestedCount: Number(args.count) || null });
+    out({ ok: r.ok, ...r.summary, ...(r.ok ? { note: "a recommendation only: the shortlist feeds the existing Look design jobs (labels in order); the user still chooses the Look" } : {}) }, r.ok ? 0 : 2);
   } else if (sub === "revise") {
     const r = reviseCreative(run, { skillDir: SKILL_DIR, mode: str(args.mode) || "story" });
     out(r, r.ok ? 0 : 2);
@@ -3382,7 +3500,7 @@ function creativeCommand(run, sub) {
   } else if (sub === "status") {
     const b = jsonMaybe(R(run, "creative", "brief.json")), refs = jsonMaybe(R(run, "creative", "references.json"));
     out({ ok: true, brief: b ? { revision: b.revision, mode: b.mode, skeleton: briefIsSkeleton(b), events: eventIds(b), pins: Object.keys(b.pins || {}).filter((k) => b.pins[k]) } : null, references: refs ? { evidence: refs.evidenceLevel, selected: (refs.selected || []).map((x) => x.id) } : null, pins_now: Object.keys(approvalPins(run)), reviews: ["storyboard", "final"].map((st) => { const r = latestReview(run, st); return r ? { stage: st, round: r.n, file: rel(r.file) } : { stage: st, round: null }; }) });
-  } else die("usage: crew.mjs creative init|check|revise|gate|status --run <run> [--stage proposal|story|look|build|storyboard|final] [--mode story|look|build] [--waiver-action <consumed action id> --waiver-digest <reviewed artifact sha256>]");
+  } else die("usage: crew.mjs creative init|check|revise|medium-select|gate|status --run <run> [--stage proposal|story|look|build|storyboard|final] [--mode story|look|build] [--waiver-action <consumed action id> --waiver-digest <reviewed artifact sha256>]");
 }
 
 // ---------------------------------------------------------------- commands
@@ -3575,7 +3693,7 @@ if (cmd === "plan") {
       const lease = { generation: Number(args.generation), token: str(args.token) };
       if (!P.length) {
         if (!lease.token || !Number.isFinite(lease.generation)) W.push(`job ${j.job_id} holds a lease but --generation/--token were not passed: this acceptance is not fenced against a replaced attempt`);
-        else { const r = Jobs.accept(run, j.job_id, lease, { current_input_digest: inputDigestFor(run, { id: j.node_id, kind: j.kind, approvals: j.approvals || [] }) }); if (!r.ok) P.push(`stale attempt refused (${r.reason}): the job was superseded, cancelled or its inputs moved; this attempt's files are not accepted (its log is kept in crew/jobs/attempts/)`); }
+        else { const r = Jobs.accept(run, j.job_id, lease, { current_input_digest: jobInputDigest(run, { id: j.node_id, kind: j.kind, approvals: j.approvals || [] }) }); if (!r.ok) P.push(`stale attempt refused (${r.reason}): the job was superseded, cancelled or its inputs moved; this attempt's files are not accepted (its log is kept in crew/jobs/attempts/)`); }
       }
     }
     for (const j of Jobs.listJobs(run).filter((x) => x.role === role && (x.key || null) === key)) { const u = usage ? usage.total_reported ?? (usage.output !== null && usage.output !== undefined ? (usage.input_uncached || 0) + usage.output : null) : null; Jobs.reconcileBudget(run, j.job_id, { actual: u, failed: P.length > 0 }); }
@@ -3654,7 +3772,7 @@ if (cmd === "plan") {
   writeFile(path.join(pj, "MOTION-SCORE.md"), scoreMd);
   const planInfo = jsonMaybe(R(run, "crew", "plan.json")) || {};
   const direct = !!planInfo.direct;
-  writeFile(path.join(pj, "BUILD.md"), renderBuildMd(score, { direct, gateCmd: `node "${path.join(SKILL_DIR, "scripts", "motion-gate.mjs")}" --project ${rel(pj)} --plan ${rel(scoreFile)}`, carriersCmd: `node "${path.join(SKILL_DIR, "scripts", "video.mjs")}" carriers --project-dir ${rel(pj)}` }));
+  writeFile(path.join(pj, "BUILD.md"), renderBuildMd(score, { direct, gateCmd: `node "${path.join(SKILL_DIR, "scripts", "motion-gate.mjs")}" --project ${rel(pj)} --plan ${rel(scoreFile)}${mediumFlag(run)}`, carriersCmd: `node "${path.join(SKILL_DIR, "scripts", "video.mjs")}" carriers --project-dir ${rel(pj)}` }));
   // the other project files point at the plan instead of restating it: DIRECTION.md and STORYBOARD.md lose any say over
   // timing, holds and seams; a direct film's DISPATCH.md drops the craft rules it duplicated (the look's contract stays in frame.md)
   const pm = "<!-- rasanai:plan-wins -->";
@@ -3887,7 +4005,7 @@ if (cmd === "plan") {
   const plan = jsonMaybe(R(run, "crew", "plan.json"));
   if (!plan) die("no crew/plan.json: run crew.mjs plan first");
   // P4: work whose inputs moved (a new Story/Look/Storyboard approval, a changed score) is obsolete NOW: cancel the local attempts and fence them (a provider job on a shared queue is only marked)
-  const staleDigests = Jobs.listJobs(run).filter((j) => j.digest_basis === "graph" && !["completed", "failed", "cancelled"].includes(j.state) && j.input_digest !== inputDigestFor(run, { id: j.node_id, kind: j.kind, approvals: j.approvals || [] })).map((j) => j.input_digest);
+  const staleDigests = Jobs.listJobs(run).filter((j) => j.digest_basis === "graph" && !["completed", "failed", "cancelled"].includes(j.state) && j.input_digest !== jobInputDigest(run, { id: j.node_id, kind: j.kind, approvals: j.approvals || [] })).map((j) => j.input_digest);
   const obsolete = staleDigests.length ? Jobs.cancelObsolete(run, { stale_inputs: staleDigests, reason: "an upstream approval or the score changed after this work was scheduled" }) : null;
   const { sched, usage, usageKnown, model, paused } = scheduleFor(run, plan);
   let dispatch = sched.dispatch_now.map((id) => sched.nodes.find((n) => n.id === id)), held = [], admission = { state: "admitted", reason_code: "admitted" };
@@ -3899,7 +4017,7 @@ if (cmd === "plan") {
     const spent = usageKnown ? (usage.total_reported ?? ((usage.input_uncached || 0) + (usage.output || 0))) : null;
     const keep = [];
     for (const n of dispatch) {
-      const input_digest = inputDigestFor(run, n);
+      const input_digest = jobInputDigest(run, n); // Part 2: + the chosen medium contract digest and bible.source.medium (a changed medium re-keys only the work that reads it)
       const { job } = Jobs.createJob(run, { node_id: n.id, kind: n.kind, role: n.role, key: n.key, job_type: n.cache_policy && n.cache_policy.job_type !== "tool_side_effect" ? n.cache_policy.job_type : "tool_side_effect", approvals: n.approvals, digest_basis: "graph", input_digest, resource_class: n.resource_class, est: n.est, local: true });
       let reservation = null;
       if (n.resource_class === "model_job" && n.est && n.est.tokens) {

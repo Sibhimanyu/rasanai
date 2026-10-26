@@ -1,0 +1,79 @@
+{
+  "$comment": "creative-example@1 rows wrapping this directory's original examples (Part 2 integration; the lane's own metadata uses other shapes). Not rendered, previewed or run: evidence original-unreviewed, state implemented_unvalidated. Guidance only; no authority over a user's task.",
+  "examples": [
+    {
+      "format": "creative-example@1",
+      "id": "cel-performance-catch-and-react",
+      "profile_ids": [
+        "cel-boil",
+        "cel-performance"
+      ],
+      "problem": "a nonverbal cause and reaction: anticipate, act, react, hold",
+      "native_action": "anticipate / act / react / pose-hold",
+      "kind": "positive",
+      "source_ref": "library/medium-examples/cel-performance/positive-catch-and-react.example.json",
+      "preview_ref": null,
+      "evidence_status": "original-unreviewed",
+      "rights_basis": "original code and synthetic/invented data written for this repository; no third-party asset, font, sprite, melody or footage",
+      "source_role": "original-code",
+      "runtime_ref": "runtime/medium-cel.js",
+      "learn": [
+        "the reaction starts after the result lands",
+        "one identity, line-only boil"
+      ],
+      "do_not_copy": [
+        "the character fixture and pear gag"
+      ],
+      "not_for": [
+        "lip sync",
+        "rigging beyond the five views",
+        "a headline that is boiled"
+      ],
+      "comm_kinds": [
+        "character-short",
+        "whole-product-introduction"
+      ],
+      "assets": [
+        {
+          "path": "stage2d/fixtures/original-actor.json",
+          "rights_basis": "original synthetic fixture authored in this repository"
+        }
+      ]
+    },
+    {
+      "format": "creative-example@1",
+      "id": "cel-performance-idle-beside-headline",
+      "profile_ids": [
+        "cel-boil",
+        "cel-performance"
+      ],
+      "problem": "an idle mascot beside a headline is decoration, not acting",
+      "native_action": "anticipate",
+      "kind": "boundary",
+      "source_ref": "library/medium-examples/cel-performance/boundary-idle-beside-headline.example.json",
+      "preview_ref": null,
+      "evidence_status": "original-unreviewed",
+      "rights_basis": "original code and synthetic/invented data written for this repository; no third-party asset, font, sprite, melody or footage",
+      "source_role": "original-code",
+      "runtime_ref": "runtime/medium-cel.js",
+      "learn": [
+        "no event worth acting out means a plain typographic Look or another medium"
+      ],
+      "do_not_copy": [
+        "the idle loop"
+      ],
+      "not_for": [
+        "storytelling"
+      ],
+      "comm_kinds": [
+        "character-short"
+      ],
+      "assets": [
+        {
+          "path": "stage2d/fixtures/original-actor.json",
+          "rights_basis": "original synthetic fixture authored in this repository"
+        }
+      ]
+    }
+  ]
+}

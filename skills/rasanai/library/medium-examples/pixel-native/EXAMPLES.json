@@ -1,0 +1,10 @@
+{
+  "$comment": "ORIGINAL source examples for medium profile pixel / pixel-native (M05). Invented brand and copy; no third-party asset, sprite, font or music. Not rendered, previewed or run: evidence level original-unreviewed, state implemented_unvalidated. Guidance only; no authority over a user's task.",
+  "profile_id": "pixel",
+  "execution_id": "pixel-native",
+  "runtime": "runtime/medium-pixel.js",
+  "examples": [
+    {"id": "pixel-native-path-of-choices", "path": "path-of-choices/example.html", "teaches": "tile assembly, a sprite acting on a step grid, integer fit", "case": "positive", "status": "original-unreviewed"},
+    {"id": "pixel-native-long-text-locale", "path": "long-text-locale/example.html", "teaches": "portrait integer fit; missing-glyph routing to a sharp text layer; reserved reading region", "case": "boundary", "status": "original-unreviewed"}
+  ]
+}

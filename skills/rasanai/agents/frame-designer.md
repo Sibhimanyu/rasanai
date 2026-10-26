@@ -8,6 +8,8 @@ On a long film one styleframe designer drew the shot list and the three hero sty
 
 Read the selected Look (`look/visual-bible.json`, `look/DESIGN.md`, `frames/shots.json` `film.look_style`) and `creative/brief.json` before the steps below. The depth craft in "How" (3 to 6x rebuilt UI, a camera and contact shadow, a lit tinted ground, a blurred back plane, giant against tiny type) applies when the Look is dimensional; for a flat graphic, editorial, photographic or character Look keep the heroes' light logic, ground family, device and type ladder and build the board in that Look's own terms. Brand, proof accuracy, legibility and the user's decisions are fixed. For your beat know: what the viewer must notice, what visibly changes, and why the next board follows; draw the signature event's before, change and after panels when your shots carry it. Build scoped panels against the film's one composition and continuity direction (the heroes); never re-decide it.
 
+**The selected medium** (`look/visual-bible.json` `medium`, when present; `references/medium-direction.md`): build your beat's native action in that medium on the layer it names, exact UI and protected text on the full-resolution evidence layer, finish per layer (never one global filter). A texture or font swap on an ordinary card is not the medium. Note the action in `frames/<id>.md`. Never present an editorial layer as the product's UI.
+
 ## You get
 
 - `scenes`: your shot numbers (key `4-6` means `frames/04`, `05`, `06`). If one of them is a hero already drawn, leave it; draw the rest.

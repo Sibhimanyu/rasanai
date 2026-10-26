@@ -152,6 +152,24 @@ const EASE_RE = /\b(?:power[1-4]|expo|sine|circ|back|elastic|bounce|quad|cubic|q
 const TIME_RE = /\b\d{2,4}\s?ms\b|\b\d(?:\.\d+)?\s?s\b/gi;
 const CAMERA_RE = /\bcamera\b|\blens\b|\bdolly\b|\bpush\b|\btruck\b|\borbit\b|\bpan\b|\blocked\b|\bparallax\b/i;
 
+// ---------------------------------------------------------------- medium policy (medium-grammar@2 / medium-contract@1)
+// A look made under the medium policy carries design/<label>/medium.json (format medium-contract@1), or blend.json says
+// medium_policy_revision >= 1. Everything else is a legacy look and keeps every rule below exactly as it was.
+export function mediumPolicyOf(dir, S) {
+  try {
+    const m = readJ(path.join(dir, "medium.json"));
+    if (m && m.format === "medium-contract@1") return true;
+    const bl = (S && S.blend) || readJ(path.join(dir, "blend.json"));
+    return !!(bl && Number(bl.medium_policy_revision) >= 1);
+  } catch { return false; }
+}
+// strict brand-film matching is the user's explicit request (decisions.json), never inferred from a known brand or launch kind
+export function strictBrandFilm(run, opts = {}) {
+  if (opts.strictFilm !== undefined) return !!opts.strictFilm;
+  const dec = readJ(path.join(run, "decisions.json")) || {};
+  return dec.strict_brand_film === true || dec.film_style_strict === true;
+}
+
 // ---------------------------------------------------------------- the gate for one system
 // opts: { libraryIds:Set, brand: <DESIGN.md>|null, label, offline }
 export function checkSystem(dir, opts = {}) {
@@ -230,24 +248,29 @@ export function checkSystem(dir, opts = {}) {
       }
     } catch (e) { W.push(`couldn't read the brand DESIGN.md to compare: ${e.message}`); }
   }
+  // medium policy: a new look is held to the brand's real constraints (palette, type, logo, declared motion limits; the brand lock
+  // above), not to an outside brand film's measured style, unless the user asked for strict brand-film matching. Legacy: unchanged.
+  const MEDIUM = opts.mediumPolicy !== undefined ? !!opts.mediumPolicy : mediumPolicyOf(dir, S);
+  const STRICT = !MEDIUM || strictBrandFilm(path.resolve(dir, "..", ".."), opts);
+  const PS = (m) => (STRICT ? P : W).push(m); // inferred style preferences: blocking when strict or legacy, advice otherwise
   // BRAND FILM GRAMMAR: a branded launch / promo / brand film is the brand's own film style (FILM-STYLE card), never a blend of
   // outside references; palette and type must match the card, the motion must stay inside its vocabulary
   const FILM = opts.brand ? (opts.film !== undefined ? opts.film : runFilm(path.resolve(dir, "..", ".."))) : null;
   if (FILM) {
     const card = FILM.card ? readFilmCard(FILM.card) : null;
     if (!card) {
-      if (FILM.required) P.push(`${label}: film style: a branded launch film needs the brand's film grammar card (${path.relative(process.cwd(), FILM.expected)}): run brandfilm.mjs find/fetch/frames/measure/card and have the brand film analyst fill FILM-STYLE.md (references/launch-film.md section 3)`);
+      if (FILM.required) PS(`${label}: film style: a branded launch film needs the brand's film grammar card (${path.relative(process.cwd(), FILM.expected)}): run brandfilm.mjs find/fetch/frames/measure/card and have the brand film analyst fill FILM-STYLE.md (references/launch-film.md section 3)`);
     } else {
-      if (!card.filled) P.push(`${label}: film style: FILM-STYLE.json is not filled (typefaces, motif, motion vocabulary, layout...): the brand film analyst fills the slots from the contact sheets first`);
+      if (!card.filled) PS(`${label}: film style: FILM-STYLE.json is not filled (typefaces, motif, motion vocabulary, layout...): the brand film analyst fills the slots from the contact sheets first`);
       const fsCite = String((S.blend && (S.blend.film_style || S.blend.film_style_card)) || "");
-      if (!/FILM-STYLE/.test(fsCite)) P.push(`${label}: film style: blend.json must cite the card: film_style: "<path to FILM-STYLE.md>" (a branded look is the brand film's grammar, not a blend of outside references)`);
+      if (!/FILM-STYLE/.test(fsCite)) PS(`${label}: film style: blend.json must cite the card: film_style: "<path to FILM-STYLE.md>" (a branded look is the brand film's grammar, not a blend of outside references)`);
       const takes = Array.isArray(S.blend && S.blend.film_style_takes) ? S.blend.film_style_takes.filter((x) => String(x || "").trim()) : [];
-      if (takes.length < 3) P.push(`${label}: film style: blend.json film_style_takes needs at least 3 entries, what was taken from the card (palette, type, motif, motion vocabulary, layout, end card)`);
+      if (takes.length < 3) PS(`${label}: film style: blend.json film_style_takes needs at least 3 entries, what was taken from the card (palette, type, motif, motion vocabulary, layout, end card)`);
       if (card.colours.length) {
         const near = (hx, tol) => card.colours.some((c) => deltaE(hx, c) <= tol);
-        for (const [k, tol] of [["canvas", 15], ["ink", 15], ["accent", 28]]) if (R[k] && /^#[0-9a-f]{6}$/i.test(R[k]) && !near(R[k], tol)) P.push(`${label}: film style: ${k} ${R[k]} is not a colour of the brand film's card (nearest ΔE ${Math.round(Math.min(...card.colours.map((c) => deltaE(R[k], c))))}, the card has ${card.colours.slice(0, 8).join(" ")}): use the card's palette exactly`);
+        for (const [k, tol] of [["canvas", 15], ["ink", 15], ["accent", 28]]) if (R[k] && /^#[0-9a-f]{6}$/i.test(R[k]) && !near(R[k], tol)) PS(`${label}: film style: ${k} ${R[k]} is not a colour of the brand film's card (nearest ΔE ${Math.round(Math.min(...card.colours.map((c) => deltaE(R[k], c))))}, the card has ${card.colours.slice(0, 8).join(" ")}): use the card's palette exactly`);
       }
-      if (card.type && info.display && !card.type.toLowerCase().includes(String(info.display).toLowerCase())) P.push(`${label}: film style: the display face ${info.display} is not in the card's typefaces ("${card.type.slice(0, 120)}"): use the brand film's face (for a proprietary one, the card names a loadable "Substitute: <family>")`);
+      if (card.type && info.display && !card.type.toLowerCase().includes(String(info.display).toLowerCase())) PS(`${label}: film style: the display face ${info.display} is not in the card's typefaces ("${card.type.slice(0, 120)}"): use the brand film's face (for a proprietary one, the card names a loadable "Substitute: <family>")`);
       // brand lock is palette, type, logo, UI and tone: a flat card never refuses finish, depth or camera (a dolly, motion
       // blur, grain, depth of field). Hero effects are budgets; the tell is the same effect on everything (lib/budget.mjs).
       const moS = motionSection(S.md) || "";
@@ -275,7 +298,7 @@ export function checkSystem(dir, opts = {}) {
   if (bl.style_refs !== undefined) {
     const sr = Array.isArray(bl.style_refs) ? bl.style_refs : [];
     if (!Array.isArray(bl.style_refs)) P.push("blend.style_refs must be an array of library/styles slugs");
-    else if (FILM && sr.length) P.push(`${label}: film style: blend.style_refs must be empty on a branded film (it cites ${sr.map((r) => (r && r.id) || r).join(", ")}): the look is the brand film's own grammar`);
+    else if (FILM && STRICT && sr.length) P.push(`${label}: film style: blend.style_refs must be empty on a branded film (it cites ${sr.map((r) => (r && r.id) || r).join(", ")}): the look is the brand film's own grammar`);
     else for (const r of sr) {
       const id = typeof r === "string" ? r : r && r.id;
       if (!id || !exists(path.join(SKILL_DIR, "library", "styles", `${id}.md`))) P.push(`blend.style_refs cites "${id}", which is not in library/styles/ (library/styles/README.md lists the slugs)`);
@@ -283,7 +306,11 @@ export function checkSystem(dir, opts = {}) {
   }
   const refs = Array.isArray(bl.references) ? bl.references : [];
   const ids = [...new Set(refs.map((r) => r && r.id).filter(Boolean))];
-  if (FILM) { if (ids.length) P.push(`${label}: film style: blend.references must be empty on a branded film (it cites ${ids.join(", ")}): outside designers, directors and library references are for unbranded films only; the look is the brand film's own grammar`); }
+  if (FILM && STRICT) { if (ids.length) P.push(`${label}: film style: blend.references must be empty on a branded film (it cites ${ids.join(", ")}): outside designers, directors and library references are for unbranded films only; the look is the brand film's own grammar`); }
+  else if (MEDIUM) {
+    // a coherent single medium is valid: no reference-count quota, but the originality must be explainable
+    if (ids.length < 2 && !(String(bl.originality || "").trim().length >= 20 || (Array.isArray(bl.style_refs) && bl.style_refs.length))) P.push(`blend.json cites ${ids.length} library references and has no "originality" (20+ characters: what makes this single-medium treatment this film's own) or style_refs: say what the look is made from`);
+  }
   else if (ids.length < 2) P.push(`blend.json cites ${ids.length} library references (blend at least 2, ideally 2 to 4)`);
   if (ids.length > 4) W.push(`blend.json cites ${ids.length} references: past 4 it stops being a blend and becomes a mood board`);
   for (const r of refs) {
@@ -339,7 +366,7 @@ export function checkSystem(dir, opts = {}) {
       for (const m of v.warnings) W.push(`grammar: ${m}`);
       info.grammar = g && g.id ? String(g.id) : null;
       const card = FILM && FILM.card ? readFilmCard(FILM.card) : null;
-      if (card && graphicFinish(card) && g && g.flat_ok === false) P.push(`grammar-not-flat: ${label}: the brand film measured no finish (graphic route: it wins on type scale and photography) but grammar "${g.id}" is flat_ok: false (its look is glow or blur on every element): pick a flat_ok grammar (grammar.mjs pick --flat)`);
+      if (card && graphicFinish(card) && g && g.flat_ok === false) PS(`grammar-not-flat: ${label}: the brand film measured no finish (graphic route: it wins on type scale and photography) but grammar "${g.id}" is flat_ok: false (its look is glow or blur on every element): pick a flat_ok grammar (grammar.mjs pick --flat)`);
     }
   }
   return { P, W, info };
@@ -508,7 +535,8 @@ export async function checkSystems(dirs, opts = {}) {
   }
   // three looks, three different motion grammars
   const gids = dirs.map((d) => { const r = readJ(path.join(d, "grammar.json")); return r && r.id ? String(r.id) : null; });
-  for (let i = 0; i < gids.length; i++) for (let j = i + 1; j < gids.length; j++) if (gids[i] && gids[i] === gids[j]) P.push(`grammar-repeat: ${path.basename(dirs[i])} and ${path.basename(dirs[j])} both use the grammar "${gids[i]}": the three looks use three different grammars`);
+  const pol = dirs.map((d) => mediumPolicyOf(d));
+  for (let i = 0; i < gids.length; i++) for (let j = i + 1; j < gids.length; j++) if (gids[i] && gids[i] === gids[j]) (pol[i] && pol[j] ? W : P).push(`grammar-repeat: ${path.basename(dirs[i])} and ${path.basename(dirs[j])} both use the grammar "${gids[i]}": the three looks use three different grammars`);
   // Plan 04 L7: three looks that differ only in colour are not three art directions (checked only when the looks state their axes)
   const lx = lookDifferences(rows.filter((r) => r.info && r.info.axes).map((r) => ({ label: r.info.label, axes: r.info.axes })));
   for (const [a, b] of lx.color_swap_pairs) P.push(`look-axes-repeat: ${a} and ${b} differ on fewer than 3 of hierarchy, density, material, framing and motion character: that is a recolour, not a second art direction`);
@@ -522,7 +550,7 @@ export async function checkSystems(dirs, opts = {}) {
   const cites = dirs.map((d) => new Set((((loadSystem(d).blend) || {}).references || []).map((x) => x && x.id).filter(Boolean)));
   for (let i = 0; i < cites.length; i++) for (let j = i + 1; j < cites.length; j++) {
     const same = [...cites[i]].filter((x) => cites[j].has(x)).length;
-    if (cites[i].size >= 2 && same === cites[i].size && same === cites[j].size) P.push(`${path.basename(dirs[i])} and ${path.basename(dirs[j])} blend exactly the same references`);
+    if (cites[i].size >= 2 && same === cites[i].size && same === cites[j].size) (pol[i] && pol[j] ? W : P).push(`${path.basename(dirs[i])} and ${path.basename(dirs[j])} blend exactly the same references`);
   }
   return { P, W, pairs, systems: rows.map((r) => r.info) };
 }
@@ -554,7 +582,10 @@ export function lookPayload(run, { labels = LABELS, recommended, hook, sub, bran
   for (const st of styles) {
     const others = styles.filter((o) => o !== st).map((o) => axesOf(o.label)).filter(Boolean);
     st.axes = axesOf(st.label) || undefined;
-    st.card = lookCard({ style: st, axes: st.axes, others, brand: brand && brand.locked ? brand : null });
+    // Part 2: a medium Look says its trade-off through the card's existing `limitations` rows ({name, why}); no new field, no new control
+    const med = readJ(path.join(run, "design", st.label, "medium.json"));
+    const medLim = med && med.format === "medium-contract@1" ? [{ name: `Medium: ${med.profile_id}`, why: String(med.visual_premise || "").slice(0, 140) }, ...(Array.isArray(med.limitations) ? med.limitations.slice(0, 2) : []).map((l) => ({ name: "Medium limit", why: String(l).slice(0, 140) })), { name: "Medium status", why: "Not yet rendered or checked (unvalidated): the representative frame is its first picture." }] : [];
+    st.card = lookCard({ style: st, axes: st.axes, others, limitations: medLim, brand: brand && brand.locked ? brand : null });
   }
   return { styles, recommended: recommended ? String(recommended).toLowerCase() : styles[0] && styles[0].id, hook: hook || "", sub: sub || "", brand: brand || undefined };
 }
@@ -568,6 +599,8 @@ export function visualBibleInputs(run, { label, dir, blend, recipe, decisions, m
   const brief = readJ(path.join(run, "brief.json")) || {};
   const assets = brandMd ? readJ(path.join(path.dirname(brandMd), "assets", "brand-assets.json")) || readJ(path.join(run, "research", "brand", "assets", "brand-assets.json")) : null;
   return {
+    // Part 2: the chosen Look's medium contract (design/<label>/medium.json, copied to look/medium.json by choose-system) joins the source digest; absent file = every legacy bible unchanged
+    mediumFile: exists(path.join(sys, "medium.json")) ? path.join(sys, "medium.json") : exists(path.join(out, "medium.json")) ? path.join(out, "medium.json") : null,
     designMdFile: path.join(out, "DESIGN.md"), blend: blend || readJ(path.join(sys, "blend.json")) || {}, recipe: recipe || readJ(path.join(sys, "recipe.json")) || {},
     grammar: readJ(path.join(out, "grammar.json")) || null, brandMdFile: brandMd && exists(brandMd) ? brandMd : null, brandAssets: assets, brandLock: !!brandMd,
     destination: brief.destination || D.destination || null, aspect: brief.aspect || D.aspect || null, locale: brief.locale || brief.language || D.locale || null, label: label || (D.look && D.look.system) || null, mode,
@@ -598,6 +631,9 @@ export function chooseSystem(run, label, decisionsFile, { mode, preset } = {}) {
   // the look's motion grammar travels with it: the score is checked against look/grammar.json
   if (exists(path.join(dir, "grammar.json"))) fs.copyFileSync(path.join(dir, "grammar.json"), path.join(out, "grammar.json"));
   else if (exists(path.join(out, "grammar.json"))) fs.rmSync(path.join(out, "grammar.json"));
+  // Part 2: the chosen candidate's medium contract travels with DESIGN / blend / grammar (this is the established chosen-Look operation, run only after the user's real choice); none = a stale one is removed
+  if (exists(path.join(dir, "medium.json"))) fs.copyFileSync(path.join(dir, "medium.json"), path.join(out, "medium.json"));
+  else if (exists(path.join(out, "medium.json"))) fs.rmSync(path.join(out, "medium.json"));
   const dp = path.resolve(decisionsFile);
   const D = exists(dp) ? JSON.parse(fs.readFileSync(dp, "utf8")) : { picks: {} };
   D.picks = { ...(D.picks || {}) };

@@ -1,0 +1,22 @@
+{
+  "format": "medium-profile@1",
+  "id": "cel-boil",
+  "family_id": "illustrated-cel",
+  "execution_id": "cel-performance",
+  "style_refs": ["cel-boil"],
+  "summary": "Hand-drawn character acting with held poses and reactions",
+  "visual_material": ["ink line","paper ground","character poses"],
+  "native_actions": ["anticipate","act","react","pose-hold"],
+  "story_affordances": ["acting","emotional reaction"],
+  "risks": ["Identity and prop attachment are preserved; no unsupported lip-sync claim."],
+  "proof_policy": {"exact_ui": "separate-full-resolution-layer", "protected_text": "readable-or-separate-layer", "claim_mutation": "forbidden"},
+  "runtime_refs": ["runtime/medium-cel.js", "stage2d/runtime/rasan2d.js"],
+  "example_refs": ["library/medium-examples/cel-performance/positive-catch-and-react.example.json", "library/medium-examples/cel-performance/boundary-idle-beside-headline.example.json"],
+  "asset_needs": [{"id": "character-canon", "kind": "character-canon", "required": true, "original_alternative": true}],
+  "capability_ref": "style.cel-performance",
+  "preferred_assignments": [],
+  "hard_exclusions": [],
+  "evidence": {"basis": "authored-unvalidated", "receipt_refs": []},
+  "provenance_refs": ["third_party/mg-styles-15"],
+  "owner_lane": "M06"
+}

@@ -74,13 +74,16 @@ export function craftProfile(creativePolicy) {
 // With a creativePolicy the depth-craft rules move behind the look's predicate: for a dimensional look they stay what they
 // were; for any other look their findings go to `review` (evidence for the creative review, never proof of quality), and
 // only structure stays an error. `review` is returned only in policy mode.
-export function checkShots(doc, { duration = null, creativePolicy = null, lookProfile = null } = {}) {
+// Part 2 (new path only): `mediumSkip` = rule ids a medium contract qualified for every layer of this look (the caller's resolveMediumRules / scopedSkips result). "multi-plane-depth" (the
+// 3+ planes / tilt / lit-ground / UI-scale craft) moves behind review like a non-dimensional look's, and the exception is returned as `medium_scoped`; hard findings (structure, text, proof) never move.
+export function checkShots(doc, { duration = null, creativePolicy = null, lookProfile = null, mediumSkip = null } = {}) {
   const E = [], W = [];
   if (!doc || !Array.isArray(doc.shots)) return { errors: ["frames/shots.json is missing or has no shots[]"], warnings: W, stats: {} };
   // an explicit policy wins; else the list's own film.look_style (written by the designer) classifies it; else the old rules
   const pol = craftProfile(creativePolicy != null ? creativePolicy : lookProfile != null ? lookProfile : (doc.film && doc.film.look_style ? { style: doc.film.look_style } : null));
   const R = [];
-  const dim = !pol || pol.dimensional;
+  const mediumFlat = Array.isArray(mediumSkip) && mediumSkip.map(String).includes("multi-plane-depth");
+  const dim = (!pol || pol.dimensional) && !mediumFlat;
   const CE = dim ? E : R, CW = dim ? W : R; // where a craft finding goes
   const S = doc.shots, film = doc.film || {};
   const dur = Number(film.duration) || Number(duration) || null;
@@ -151,7 +154,7 @@ export function checkShots(doc, { duration = null, creativePolicy = null, lookPr
   if (heroes.length !== 3) (pol ? W : E).push(`heroes: film.heroes names ${heroes.length} frame id(s); name 3 (open, peak, end), the hero styleframes`);
   if (pol || heroes.length === 3) for (const h of heroes) if (!ids.includes(h)) E.push(`heroes: "${h}" is not a shot id`);
   if (pol) structuralPolicyChecks(S, ids, dur, pol, E, R);
-  return { errors: E, warnings: W, ...(pol ? { review: R } : {}), stats: { shots: S.length, sizes: [...sizes], ws, biggest_pct: biggestAny, giant_share: Math.round(giantShare * 100) / 100, ...(pol ? { creative: { style: pol.style, dimensional: pol.dimensional } } : {}) } };
+  return { errors: E, warnings: W, ...(pol || mediumFlat ? { review: R } : {}), ...(mediumFlat ? { medium_scoped: ["multi-plane-depth"] } : {}), stats: { shots: S.length, sizes: [...sizes], ws, biggest_pct: biggestAny, giant_share: Math.round(giantShare * 100) / 100, ...(pol ? { creative: { style: pol.style, dimensional: pol.dimensional } } : {}) } };
 }
 
 // The structural errors of a creative-policy run: they hold for every look. Missing shot IDs, wrong refs, invalid timings,

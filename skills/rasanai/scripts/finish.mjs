@@ -30,6 +30,9 @@
 //   (nearest n / fps) before every timeline seek, so all sub-frames of one frame show the same digits and the blur never smears a counter.
 //   Loops: --loop (or score.json `loop: true`, or motion.md `loop: true`) means the film repeats; blur/all then drop a final frame that
 //   repeats frame 0 (the exported range is [0, dur)) and say so in the report's "loop" entry.
+//   Medium contract (new path only): --medium <medium.json>, else <run>/look/medium.json or <project>/look/medium.json. A contract whose finish_policy.by_layer holds a sharp / nearest-neighbor /
+//   none / flat layer makes the FILM-WIDE blur, halation, bloom, grain and focus effects unavailable (they would hit that layer): blur refuses (a draft warns), grade leaves them off and says so.
+//   No contract: nothing changes.
 //   node finish.mjs patch-test [grade options]     (brand-colour drift of the grade on flat patches)
 // Blur details (references/finish.md): the shutter averages in LINEAR light (--blur-space gamma for the old gamma average); a frame whose
 // shutter window would straddle a hard cut is laid from its own centre sub-frame (nothing of the other shot leaks in; --no-cut-aware turns
@@ -49,6 +52,20 @@ import { readBudget } from "./lib/budget.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
+// Part 2 (new path only): the look's medium contract, when it has one. Film-wide effects cannot honour a per-layer sharp finish, so with such a layer they are unavailable (never a global filter).
+const MED = await (async () => {
+  try {
+    const cands = [args.medium !== undefined && args.medium !== true ? args.medium : null, args.run && args.run !== true ? path.join(String(args.run), "look", "medium.json") : null, args.project && args.project !== true ? path.join(String(args.project), "look", "medium.json") : null].filter(Boolean).map((x) => path.resolve(String(x)));
+    const f = cands.find((x) => fs.existsSync(x));
+    if (!f) return null;
+    const contract = JSON.parse(fs.readFileSync(f, "utf8"));
+    if (!contract || contract.format !== "medium-contract@1") return null;
+    const { sharpFinishLayers, scopedSkips } = await import("./lib/medium-wiring.mjs");
+    const sharp = sharpFinishLayers(contract);
+    const skips = scopedSkips(contract, ["blur-finish", "grain-glow", "depth-of-field"]);
+    return sharp.length ? { file: f, profile: contract.profile_id, layers: sharp, exceptions: skips.exceptions, note: `medium ${contract.profile_id}: layer(s) ${sharp.join(", ")} keep a sharp finish, so the film-wide blur, halation, bloom, grain and focus effects are unavailable (a per-layer finish is not available here, and a global filter would hit them)` } : null;
+  } catch { return null; }
+})();
 const MAX_RENDER_FPS = 240; // hyperframes render accepts 1..240
 const MAX_PASSES = 4; // phase-shifted passes: up to 4 x 240 sub-frames per second
 
@@ -493,6 +510,12 @@ function gradeOpts() {
     notes: [],
   };
   const sc = scoreDoc();
+  if (MED) {
+    const was = { grain: g.grain, halation: g.halation, bloom: g.bloom, focus: args["focus-follow"] || (args.focus && args.focus !== true) };
+    g.grain = 0; g.halation = 0; g.bloom = 0; args["focus-follow"] = undefined; args.focus = undefined;
+    g.notes.push(`${MED.note}${was.grain || was.halation || was.bloom || was.focus ? "" : " (none was requested)"}: grain, halation, bloom and focus left off`);
+    g.medium_exceptions = MED.exceptions;
+  }
   // chromatic aberration is the budgeted "chromatic-split" hero effect: with no windows it takes the scenes of the score's budget entries;
   // with neither it runs film-wide, which is the uniform tell, and says so
   if (g.ca > 0 && !g.caAt.length) {
@@ -572,6 +595,10 @@ function blurRender(tmpDir) {
   if (!args.project || !fs.existsSync(path.join(project, "index.html"))) die("--project <dir with index.html> is required");
   const { fps, shutter, quality, cap } = resolveBlurSettings();
   const notes = [];
+  if (MED) {
+    if (DRAFT) notes.push(`WARNING: ${MED.note} (a draft: not refused)`);
+    else die(`${MED.note}. Run \`finish.mjs grade\` on the plain render (it leaves those effects off) instead.`);
+  }
   // one blur grammar per film: a shutter over a smear / stepped / crisp-steps look doubles the blur (or turns each step into a dissolve)
   const gram = declaredGrammar(project);
   if (gram && /smear|stepp|crisp|steps|twos/.test(gram.value)) {

@@ -1,0 +1,67 @@
+{
+  "$comment": "creative-example@1 rows wrapping this directory's original examples (Part 2 integration; the lane's own metadata uses other shapes). Not rendered, previewed or run: evidence original-unreviewed, state implemented_unvalidated. Guidance only; no authority over a user's task.",
+  "examples": [
+    {
+      "format": "creative-example@1",
+      "id": "paper-collage-two-strips",
+      "profile_ids": [
+        "collage",
+        "paper-collage-native"
+      ],
+      "problem": "two alternative readings of one rule laid out as physical paper strips",
+      "native_action": "layer-reveal / hinge-turn / strip-regroup",
+      "kind": "positive",
+      "source_ref": "library/medium-examples/paper-collage-native/positive-two-strips.js",
+      "preview_ref": null,
+      "evidence_status": "original-unreviewed",
+      "rights_basis": "original code and synthetic/invented data written for this repository; no third-party asset, font, sprite, melody or footage",
+      "source_role": "original-code",
+      "runtime_ref": "runtime/medium-paper.js",
+      "learn": [
+        "masked reveal, a real fold and a hinged tag are physical actions",
+        "every card stays visible in both readings; words are crisp SVG text above the paper"
+      ],
+      "do_not_copy": [
+        "the strip layout and copy"
+      ],
+      "not_for": [
+        "stop-motion photography",
+        "a photo-based collage without licensed images"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "evidence-case-study"
+      ]
+    },
+    {
+      "format": "creative-example@1",
+      "id": "paper-collage-texture-sticker",
+      "profile_ids": [
+        "collage",
+        "paper-collage-native"
+      ],
+      "problem": "a paper texture behind unchanged text is not a paper mechanism",
+      "native_action": "layer-reveal",
+      "kind": "boundary",
+      "source_ref": "library/medium-examples/paper-collage-native/boundary-texture-sticker.js",
+      "preview_ref": null,
+      "evidence_status": "original-unreviewed",
+      "rights_basis": "original code and synthetic/invented data written for this repository; no third-party asset, font, sprite, melody or footage",
+      "source_role": "original-code",
+      "runtime_ref": "runtime/medium-paper.js",
+      "learn": [
+        "a texture alone does nothing physical",
+        "a photo piece fails loudly with no approved asset"
+      ],
+      "do_not_copy": [
+        "the texture-sticker look"
+      ],
+      "not_for": [
+        "paper animation"
+      ],
+      "comm_kinds": [
+        "instructional-explainer"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "format": "medium-profile@1",
+  "id": "dataviz",
+  "family_id": "diagram-data",
+  "execution_id": "evidence-diagram",
+  "style_refs": ["dataviz","blueprint","manim-math"],
+  "summary": "Quantities and relationships drawn from the real data",
+  "visual_material": ["marks from data","annotation","axes"],
+  "native_actions": ["group","compare","reveal-relation"],
+  "story_affordances": ["comparison","evidence"],
+  "risks": ["Preserve actual quantities, units, scope and qualifiers."],
+  "proof_policy": {"exact_ui": "not-applicable","quantities": "exact-source-values", "protected_text": "readable-or-separate-layer", "claim_mutation": "forbidden"},
+  "runtime_refs": ["runtime/medium-surface.js", "runtime/medium-graphic.js"],
+  "example_refs": ["library/medium-examples/evidence-diagram/positive-overlap-sets.js", "library/medium-examples/evidence-diagram/boundary-bars-need-source.js"],
+  "asset_needs": [],
+  "capability_ref": "style.evidence-diagram",
+  "preferred_assignments": [],
+  "hard_exclusions": [],
+  "evidence": {"basis": "authored-unvalidated", "receipt_refs": []},
+  "provenance_refs": ["third_party/lemo-opuscar","third_party/animate"],
+  "owner_lane": "M04"
+}

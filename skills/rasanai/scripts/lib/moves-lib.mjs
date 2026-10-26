@@ -156,7 +156,11 @@ export function validateMoves(obj, opts = {}) {
   // they stay errors only when the file selects the profile (opts.profiles or obj.profiles: "dense-chain", "full-frame-hero", "bridged", "atom-mining"); otherwise they warn. Legacy files are untouched.
   const cp = !!(opts.creativePolicy || obj.creative_policy_revision);
   const profiles = arr(opts.profiles).concat(arr(obj.profiles)).map(str);
-  const U = (id, m) => (cp && !profiles.includes(id) ? W(`${m} [universal rule: an error only under the profile "${id}"; judge by the viewer effect, not the count]`) : E(m));
+  // Part 2 (new path only): opts.mediumSkip = rule ids a medium contract qualified for this film (resolveMediumRules scopedExceptions, e.g. "handoff-continuity" for a cut-based / still medium).
+  // The bridge-per-boundary quota is that handoff check: it then warns and names the exception. No mediumSkip: unchanged.
+  const mediumSkip = arr(opts.mediumSkip).map(str), scoped = [];
+  const MEDIUM_RULE = { bridged: "handoff-continuity" };
+  const U = (id, m) => (MEDIUM_RULE[id] && mediumSkip.includes(MEDIUM_RULE[id]) ? (scoped.includes(id) || scoped.push(id), W(`${m} [scoped medium exception ${MEDIUM_RULE[id]}: the contract qualifies this check for this look; a warning, not an error]`)) : cp && !profiles.includes(id) ? W(`${m} [universal rule: an error only under the profile "${id}"; judge by the viewer effect, not the count]`) : E(m));
   const filmSeconds = beats.reduce((a, b) => a + (Number(b && b.duration_s) || 0), 0);
   if (!N) E("the pitch has no beats to check the moves against (pass --pitch with a pitch that has beats[])");
 
@@ -356,7 +360,7 @@ export function validateMoves(obj, opts = {}) {
   const puns = bridges.filter((b) => b && /pun/i.test(str(b.shared))).length;
   const budget = Math.max(1, Math.floor(filmSeconds / 10));
   if (puns > budget) W(`puns: ${puns} pun bridges in a ${Math.round(filmSeconds)} s film (${budget} at most: one per 10 s)`);
-  return { errors, warnings };
+  return { errors, warnings, ...(scoped.length ? { medium_scoped: scoped } : {}) };
 }
 
 // ---------------------------------------------------------------- the three moves files together

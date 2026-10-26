@@ -97,6 +97,10 @@ After every scene is built, check every cut on strips across it, then build the 
 
 `look/visual-bible.json` is the projection of the look and the motion contract; the contract stays the authority for timing and eases. Choose each seam's transition from the bible's `transitions.by_relation` and the continuity contract's link type (same object, visual analogy, causal handoff, temporal continuation, deliberate discontinuity): a smoothly travelling object across a seam the contract calls a discontinuity, or a causal handoff with no `cause_ref`, is false continuity. A hard cut between separate contexts is valid and often clearer. Do not add a treatment the bible does not list.
 
+## A selected medium (when `look/visual-bible.json` has a `medium`)
+
+Read the projection and `references/medium-direction.md`. The medium contract owns visual behaviour and bindings, never timing: you author the times in the score and bind each native action to a stable event, shot or beat id (the contract's `event_binding` stays an id; you write the score). Choose each beat's verb from the medium's native actions, not from a text move: a sprite finding a route, paper regrouping, a line revealing a cause. Cadence, camera, holds, a locked frame, hard cuts, silence and ground motion follow the Look's `motion_policy`; the universal numbers above apply to a medium Look only where it selects them, and each choice names the viewer effect it serves. Seek safety, proof integrity, brand and approved copy never relax. If the profile cannot be built as chosen, record it in `score.deviations` with the cheapest meaning-preserving build; never silently fall back to animated type. Do not append the whole contract to scene briefs: hand each scene only its projection.
+
 ## Never
 
 - Never change the script's words, the beat order or the durations. Timing inside a beat is yours; structure is the structure critic's.

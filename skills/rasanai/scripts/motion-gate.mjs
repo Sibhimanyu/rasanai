@@ -7,7 +7,7 @@
 //   node motion-gate.mjs [--video <draft.mp4>] [--project <videos/name>] [--plan <run>/motion/score.json]
 //        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--vo <audio_meta.json|words.json>] [--no-text-fit] [--no-fluency] [--no-carry] [--no-echo] [--no-camera] [--no-emphasis] [--no-guards] [--no-pop] [--no-energy] [--loop]
 //        [--events <events.json>] (the derived film-event manifest, events.mjs export; also found as events.json beside --plan; stale ones are refused)
-//        [--stillness] [--json]
+//        [--stillness] [--medium <medium.json>] [--json]   (--medium, or look/medium.json beside the project: a medium contract may qualify the named craft checks for its own scenes, recorded as medium_exceptions)
 //   node motion-gate.mjs fluency --video <film.mp4> [--stillness] [--json]     the fluency measurement alone
 //   -> exit 0 pass · 2 findings (listed, each with a time and a fix) · 1 could not run (never "clean")
 //
@@ -147,6 +147,30 @@ export const GATE = {
 const W = 192, H = 108; // analysis size: area-averaged, so encoding noise falls under the pixel threshold
 const PIX_T = 6, MOVE_SHARE = 0.0008; // a frame moves when >= 0.08% of pixels change by more than 6 levels
 
+// the craft checks a medium contract may qualify, by the rule id medium-rules knows (finding check -> rule id; a scene-scoped rule needs the beat the finding sits in)
+const MEDIUM_CHECKS = { "camera-monotone": "camera-motion", "always-moving": "continuous-motion", "one-curve": "curve-mix", "seam-continuity-missing": "handoff-continuity", carry: "handoff-continuity", freeze: "intentional-hold" };
+async function applyMediumScopes(findings, beats, { medium = null, project = null } = {}) {
+  let contract = null;
+  try {
+    const cands = [medium, project && path.join(path.resolve(project), "look", "medium.json"), project && path.join(path.resolve(project), "..", "look", "medium.json")].filter(Boolean);
+    const f = cands.find((x) => fs.existsSync(path.resolve(x)));
+    if (f) contract = JSON.parse(fs.readFileSync(path.resolve(f), "utf8"));
+  } catch { contract = null; }
+  if (!contract || contract.format !== "medium-contract@1") return [];
+  const { scopedSkips } = await import("./lib/medium-wiring.mjs");
+  const out = [];
+  for (const f of findings) {
+    if (f.severity === "review") continue;
+    const rule = f.check === "creep" && /camera drift/.test(String(f.region || "")) ? "camera-drift" : MEDIUM_CHECKS[f.check];
+    if (!rule) continue;
+    const beat = typeof f.at === "number" ? beats.find((b) => b.start != null && b.end != null && f.at >= b.start && f.at < b.end) : (f.region && /^beat /.test(f.region) ? beats.find((b) => `beat ${b.id}` === f.region) : null);
+    const sceneId = beat ? String(beat.id) : null;
+    const r = scopedSkips(contract, [rule], { sceneId });
+    if (r.skip.has(rule)) { out.push(...r.exceptions.map((e) => ({ ...e, check: f.check, at: f.at ?? null }))); f.scoped_exception = r.exceptions[0]; f.severity = "review"; }
+  }
+  return out;
+}
+
 async function main() {
   const args = parseArgs();
   if (!args.json) track("Measuring the film frame by frame: freezes, creep, seams, echo, camera", "Motion gate done");
@@ -161,7 +185,7 @@ async function main() {
     }
     process.exit(g.pass === false ? 2 : 0);
   }
-  const res = await gate({ events: str(args.events), vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], pop: !args["no-pop"], energy: !args["no-energy"], loop: args.loop ? true : null, stillness: args.stillness ? true : null });
+  const res = await gate({ events: str(args.events), vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], pop: !args["no-pop"], energy: !args["no-energy"], loop: args.loop ? true : null, stillness: args.stillness ? true : null, medium: str(args.medium) || null });
   for (const c of res.could_not_run) noteDowngrade({ run: args.run, what: "the motion gate", instead: "no motion check", why: String(c).slice(0, 200), impact: "this film's motion was not measured" });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else {
@@ -465,7 +489,7 @@ function codeChecks(file, html) {
 }
 
 // ---------------------------------------------------------------- the gate
-export async function gate({ events = null, vo = null, video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, pop = true, energy = true, loop = null, stillness = null } = {}) {
+export async function gate({ events = null, vo = null, video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, pop = true, energy = true, loop = null, stillness = null, medium = null } = {}) {
   const findings = [], skipped = [], could = [], measured = {};
   const SKILL_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
   const add = (f) => {
@@ -951,9 +975,13 @@ export async function gate({ events = null, vo = null, video = null, project = n
     }
   }
 
+  // Part 2 (new path only): a look with a medium contract (--medium <medium.json>, else look/medium.json beside the project) may qualify one named craft check for a scene it declares,
+  // through medium-rules resolveMediumRules (every contract layer must qualify; hard checks never). The finding stays listed as "review" with the exception recorded. No contract: nothing changes.
+  const mediumExceptions = await applyMediumScopes(findings, beats, { medium, project });
+  if (mediumExceptions.length) measured.medium_scoped_exceptions = mediumExceptions;
   const errors = findings.filter((f) => f.severity === "error");
   const ok = !errors.length && !could.length;
-  return { ok, verdict: errors.length ? "fail" : could.length ? "could not run" : "pass", measured, findings, notes, skipped, could_not_run: could };
+  return { ok, verdict: errors.length ? "fail" : could.length ? "could not run" : "pass", measured, findings, notes, skipped, could_not_run: could, ...(mediumExceptions.length ? { medium_exceptions: mediumExceptions } : {}) };
 }
 
 if (process.argv[1] && fs.realpathSync(path.resolve(process.argv[1])) === fs.realpathSync(fileURLToPath(import.meta.url))) await main();

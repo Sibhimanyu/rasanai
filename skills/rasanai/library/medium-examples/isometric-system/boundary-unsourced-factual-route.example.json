@@ -1,0 +1,32 @@
+{
+  "format": "medium-example@1",
+  "id": "isometric-system/boundary-unsourced-factual-route",
+  "kind": "boundary",
+  "profile_id": "isometric",
+  "execution_id": "isometric-system",
+  "module": "runtime/medium-isometric.js",
+  "state": "authored_unexecuted",
+  "verified": false,
+  "provenance": "Original source; generic names only.",
+  "describes": "Two buildings joined by a route that claims to be a real link but cites no source. Routing between buildings can falsely suggest infrastructure, location or data flow.",
+  "expected_compile": "rejected",
+  "expected_reason": "route r1: a factual route must cite `sourceRef`",
+  "fix_options": ["cite the real fact in `sourceRef`", "or set status to 'illustrative' (the line is dashed and a disclosure is drawn in frame)", "or drop the route"],
+  "why_this_matters": "Isometric systems look authoritative. The module never invents a network: a link needs a factual source or an honest illustrative label.",
+  "needs": { "engine": "none (Canvas 2D)", "assets": {}, "network": false },
+  "eventBindings_example": { "ev-a": 0.3, "ev-b": 0.8, "ev-r": 1.6 },
+  "limitations": ["ordinary CSS-skewed cards are not a 3D product model and are not handled here"],
+  "createMediumScene_args": {
+    "width": 1920, "height": 1080, "seed": 3,
+    "content": {
+      "duration": 5, "projection": "iso2to1", "unit": 60,
+      "objects": [
+        { "id": "bldg-a", "x": 0, "y": 0, "z": 0, "w": 2, "d": 2, "h": 2, "color": "#a9c4f2", "assemble": { "event": "ev-a" } },
+        { "id": "bldg-b", "x": 5, "y": 4, "z": 0, "w": 2, "d": 2, "h": 3, "color": "#f6c7a4", "assemble": { "event": "ev-b" } }
+      ],
+      "routes": [
+        { "id": "r1", "from": "bldg-a", "to": "bldg-b", "status": "factual", "via": [ [3, 1, 2] ], "event": "ev-r" }
+      ]
+    }
+  }
+}

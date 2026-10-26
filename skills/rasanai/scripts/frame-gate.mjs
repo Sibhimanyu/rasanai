@@ -621,10 +621,21 @@ async function main() {
   const args = parseArgs();
   const str = (v) => (v == null || v === true ? null : String(v));
   if (!args.stills && !args.video) {
-    process.stderr.write("usage: node frame-gate.mjs (--stills <dir|a.png,b.png> [--html <boards dir>] | --video <film.mp4>) [--project <dir>] [--brand-film <grammar.json|film.mp4>] [--write-brand <grammar.json>] [--kind launch] [--density] [--plan <score.json>] [--stillness] [--look-style <style>] [--json]\n");
+    process.stderr.write("usage: node frame-gate.mjs (--stills <dir|a.png,b.png> [--html <boards dir>] | --video <film.mp4>) [--project <dir>] [--brand-film <grammar.json|film.mp4>] [--write-brand <grammar.json>] [--kind launch] [--density] [--plan <score.json>] [--stillness] [--look-style <style>] [--medium <medium.json>] [--json]\n");
     process.exit(1);
   }
-  const res = await measureFrames({ stills: str(args.stills), video: str(args.video), html: args.html, project: str(args.project), brandFilm: str(args["brand-film"]), fps: Number(args.fps) || 4, kind: str(args.kind), density: !!args.density, plan: str(args.plan), stillness: args.stillness ? true : null, footage: !!args.footage, destination: str(args.destination), creativePolicy: str(args["look-style"]) });
+  // Part 2 (new path only): --medium <medium.json> is the same input as frames.mjs gives (--look-style medium-flat) when the contract qualifies multi-plane-depth for EVERY layer; an explicit --look-style wins; any other contract changes nothing
+  let lookStyle = str(args["look-style"]);
+  if (!lookStyle && str(args.medium)) {
+    try {
+      const mc = readJ(path.resolve(String(args.medium)));
+      if (mc && mc.format === "medium-contract@1") {
+        const { scopedSkips } = await import("./lib/medium-wiring.mjs");
+        if (scopedSkips(mc, ["multi-plane-depth"]).skip.has("multi-plane-depth")) lookStyle = "medium-flat";
+      }
+    } catch { /* an unreadable contract leaves the gate as it was */ }
+  }
+  const res = await measureFrames({ stills: str(args.stills), video: str(args.video), html: args.html, project: str(args.project), brandFilm: str(args["brand-film"]), fps: Number(args.fps) || 4, kind: str(args.kind), density: !!args.density, plan: str(args.plan), stillness: args.stillness ? true : null, footage: !!args.footage, destination: str(args.destination), creativePolicy: lookStyle });
   if (args["write-brand"] && res.film) {
     const p = path.resolve(String(args["write-brand"])), g = readJ(p) || {};
     g.frameMetrics = { groundChroma: res.film.groundChroma, groundRange: res.film.groundRange, softP90: res.film.softP90, colourfulP90: res.film.colourfulP90, charsMedian: res.film.charsMedian ?? null, measuredFrom: str(args.video) || str(args.stills) };

@@ -113,6 +113,10 @@ Your scene's `reads[]` in the score (if any) is the order the audience reads it:
 - Let a retreating flood finish before the next scene starts, or it reads as a hard cut.
 - Fast whips need more blur subframes (8, not 4).
 
+## A selected medium (when your packet carries a medium projection)
+
+Build the native actions bound to your scene's beats, shots and events, in the medium and layer the projection names, through the existing adapters only (no second renderer, clock or timeline). Hard invariants and evidence-layer proof are mandatory; shared characters and continuous camera belong to the lead builder. Finish is per layer. Set `data-finish-blur="off"` where the Look's cadence is stepped. A texture or font swap on an ordinary card is not the medium. If an action cannot be built as specified, write the blocker and the cheapest meaning-preserving build under `## Deviations`; never replace it with animated type quietly.
+
 ## Your slice of the look (Plan 04)
 
 Your packet names a projected subset of the visual bible and the continuity contract (`visual_bible_for`: `design.mjs bible-for --run $RUN --scene <your key>`): role palette, the exact font identities (and the locale fallback), safe regions, motion scale and eases, the transitions for your seams, the shared components you use, and the hard brand constraints. Shared components (the product interface, a character, a camera convention, a motif) are read-only for you: build with them as given and, if one must change, write the request to the owner (`continuity.mjs` `requestChange`) instead of redefining it in your scene. Check `source_digest` against `look/visual-bible.json`: if it differs, stop and say so.

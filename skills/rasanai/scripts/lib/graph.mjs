@@ -20,6 +20,7 @@ import { lookCommitted } from "./look.mjs";
 import { storyDigest, lookDigest, snapshotRun } from "./storyboard.mjs";
 import { TRAVELING_KINDS } from "./continuity.mjs";
 import { scoreRevision } from "./timing.mjs";
+import { mediumContractDigest } from "./medium-contract.mjs"; // Part 2: leaf module (imports contracts.mjs only)
 
 export const GRAPH_SCHEMA = 1;
 export const NODE_KINDS = Object.freeze(["research", "capture", "treatment", "look_specimen", "storyboard_group", "asset_prep", "voice", "music", "scene_group", "render_fragment", "composite", "mix", "finish", "delivery", "review"]);
@@ -278,8 +279,23 @@ export function schedule(o = {}) {
   };
 }
 // the digest of what a node was built from NOW (job input digest): the approved Story/Look/Storyboard digests, the score revision and the node identity
+// Part 2: the chosen medium contract's digest (look/medium.json, else the chosen label's candidate file) plus the visual bible's source.medium, or "" when the run has no contract.
+// The ONE place this is computed: crew.mjs jobInputDigest delegates here, so a stored job digest and a current one always agree. A legacy run returns "" and its digests are unchanged.
+export function mediumDigestFor(run) {
+  const R = path.resolve(String(run));
+  let c = rj(path.join(R, "look", "medium.json"));
+  if (!c) {
+    const dec = rj(path.join(R, "decisions.json")) || {}, label = (dec.design_system && dec.design_system.label) || (dec.look && dec.look.system) || null;
+    c = label ? rj(path.join(R, "design", label, "medium.json")) : null;
+  }
+  if (!c || c.format !== "medium-contract@1") return "";
+  const bible = rj(path.join(R, "look", "visual-bible.json"));
+  return canonicalDigest({ contract: mediumContractDigest(c), bible_medium: (bible && bible.source && bible.source.medium) || null });
+}
 export function inputDigestFor(run, node, committed = null) {
   const c = committed || committedStages(run);
   const score = rj(path.join(path.resolve(String(run)), "motion", "score.json"));
-  return canonicalDigest({ node: node.id, story: node.approvals.includes("story") ? c.digests.story : null, look: node.approvals.includes("look") ? c.digests.look : null, storyboard: node.approvals.includes("storyboard") ? c.digests.storyboard : null, score: node.kind === "scene_group" || node.kind === "render_fragment" || node.kind === "composite" || node.kind === "mix" || node.kind === "finish" ? (score ? scoreRevision(score) : null) : null });
+  // only the work that reads the Look or what is cut from it is re-keyed by a changed medium
+  const med = node.approvals.includes("look") || node.approvals.includes("storyboard") || ["scene_group", "render_fragment", "composite", "mix", "finish"].includes(node.kind) ? mediumDigestFor(run) : "";
+  return canonicalDigest({ ...(med ? { medium: med } : {}), node: node.id, story: node.approvals.includes("story") ? c.digests.story : null, look: node.approvals.includes("look") ? c.digests.look : null, storyboard: node.approvals.includes("storyboard") ? c.digests.storyboard : null, score: node.kind === "scene_group" || node.kind === "render_fragment" || node.kind === "composite" || node.kind === "mix" || node.kind === "finish" ? (score ? scoreRevision(score) : null) : null });
 }

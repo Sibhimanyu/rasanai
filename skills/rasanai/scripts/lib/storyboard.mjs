@@ -22,6 +22,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { approvalRecord, canonicalDigest, nextRevision, validateStoryboard, SCHEMA_VERSION } from "./contracts.mjs";
 import { impact } from "./impact.mjs";
+import { mediumContractDigest } from "./medium-contract.mjs"; // Part 2: the Look pin includes the chosen medium contract (see lookDigest)
 import { contractForStoryboard, readAudioContract } from "./audio-direction.mjs";
 import { logicalStage, missingPrerequisites } from "./stages.mjs";
 import { lookCommitted, resolveStageConsent } from "./look.mjs";
@@ -81,10 +82,15 @@ export function storyDigest(run) {
 export function lookDigest(run) {
   const r = path.resolve(String(run));
   const bible = rjson(path.join(r, "look", "visual-bible.json"));
-  if (bible && bible.source && bible.source.source_digest) return { digest: bible.source.source_digest, via: "look/visual-bible.json", revision: num(bible.revision) };
-  for (const f of ["look/DESIGN.md", "look/frame.md"]) { const d = fileDigest(path.join(r, f)); if (d) return { digest: d, via: f }; }
+  // Part 2: the chosen Look's medium contract (look/medium.json, copied by choose-system) is part of the Look's identity: its FULL content digest joins the pin, so a contract edited after the bible was
+  // compiled still moves every job / artifact key. A legacy look has no such file and returns exactly what it did. `medium` is the digest the bible recorded (receipt only).
+  const mf = rjson(path.join(r, "look", "medium.json"));
+  const mdig = mf && mf.format === "medium-contract@1" ? mediumContractDigest(mf) : null;
+  const wrap = (o) => (mdig ? { ...o, digest: canonicalDigest({ look: o.digest, medium_contract: mdig }), medium_contract: mdig } : o);
+  if (bible && bible.source && bible.source.source_digest) return wrap({ digest: bible.source.source_digest, via: "look/visual-bible.json", revision: num(bible.revision), ...(bible.source.medium ? { medium: bible.source.medium } : {}) });
+  for (const f of ["look/DESIGN.md", "look/frame.md"]) { const d = fileDigest(path.join(r, f)); if (d) return wrap({ digest: d, via: f }); }
   const d = rjson(path.join(r, "decisions.json")) || {};
-  if (d.look && typeof d.look === "object") return { digest: canonicalDigest(d.look), via: "decisions.look" };
+  if (d.look && typeof d.look === "object") return wrap({ digest: canonicalDigest(d.look), via: "decisions.look" });
   return null;
 }
 

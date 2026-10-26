@@ -1,0 +1,72 @@
+{
+  "$comment": "creative-example@1 rows wrapping this directory's original examples (Part 2 integration; the lane's own metadata uses other shapes). Not rendered, previewed or run: evidence original-unreviewed, state implemented_unvalidated. Guidance only; no authority over a user's task.",
+  "examples": [
+    {
+      "format": "creative-example@1",
+      "id": "flat-vector-three-into-one",
+      "profile_ids": [
+        "flat-vector",
+        "flat-vector-native"
+      ],
+      "problem": "parts become one structure (several objects hand off and lock together)",
+      "native_action": "split-recombine / route-handoff",
+      "kind": "positive",
+      "source_ref": "library/medium-examples/flat-vector-native/positive-three-into-one.js",
+      "preview_ref": null,
+      "evidence_status": "original-unreviewed",
+      "rights_basis": "original code and synthetic/invented data written for this repository; no third-party asset, font, sprite, melody or footage",
+      "source_role": "original-code",
+      "runtime_ref": "runtime/medium-graphic.js",
+      "learn": [
+        "each object keeps its identity from start to lock",
+        "the geometry is the explanation; a heading can be hidden"
+      ],
+      "do_not_copy": [
+        "the exact shapes and colours",
+        "as proof of any product behaviour"
+      ],
+      "not_for": [
+        "a claim that needs a real measurement",
+        "arbitrary topology morphing"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "single-feature-announcement",
+        "whole-product-introduction",
+        "workflow-demo"
+      ]
+    },
+    {
+      "format": "creative-example@1",
+      "id": "flat-vector-ornamental-swarm",
+      "profile_ids": [
+        "flat-vector",
+        "flat-vector-native"
+      ],
+      "problem": "ornament that establishes no relationship, and a disclosed crossfade where a morph is unsupported",
+      "native_action": "shape-build",
+      "kind": "boundary",
+      "source_ref": "library/medium-examples/flat-vector-native/boundary-ornamental-swarm.js",
+      "preview_ref": null,
+      "evidence_status": "original-unreviewed",
+      "rights_basis": "original code and synthetic/invented data written for this repository; no third-party asset, font, sprite, melody or footage",
+      "source_role": "original-code",
+      "runtime_ref": "runtime/medium-graphic.js",
+      "learn": [
+        "ornament is atmosphere, never proof or a diagram",
+        "unequal point counts crossfade and say so"
+      ],
+      "do_not_copy": [
+        "the swarm as a way to look busy"
+      ],
+      "not_for": [
+        "any relationship or evidence claim"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "single-feature-announcement",
+        "whole-product-introduction"
+      ]
+    }
+  ]
+}

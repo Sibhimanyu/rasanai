@@ -6,6 +6,8 @@
 //   imagery (treatment, limits, finishing treatments each tied to what it communicates) | variation (constant vs varies, few film-wide commitments)
 //   continuity_anchors | constraints {hard (brand, authorization), defaults (creative)} | exceptions (local, rationale, approval)
 // A deliberate exception to a HARD constraint is local (scene or beat ids), needs a rationale and an approval, and never becomes a global rule.
+// Medium (additive): inputs.medium / inputs.mediumFile (design/<label>/medium.json, medium-contract@1) adds a `medium` section and its digest to the source hash;
+// a look with no medium contract hashes and compiles exactly as before. The contract is an approved-Look extension, never a timing or approval source.
 // Old looks (no blend, no grammar) still compile: every missing input is an empty section, never an error.
 //   compileVisualBible(inputs) -> bible        validateVisualBible(b) -> { ok, problems, warnings }
 //   sourceDigest(inputs) / bibleCurrent(b, inputs) -> stale check      projectForWorker(b, need) -> the subset a scene worker gets
@@ -15,6 +17,7 @@ import path from "node:path";
 import { canonicalDigest, SCHEMA_VERSION } from "./contracts.mjs";
 import { contrast, readDesignMd } from "./design-md.mjs";
 import { destinationOf, zonesFor } from "./safezones.mjs";
+import { mediumContractDigest, projectMediumForWorker } from "./medium-contract.mjs";
 
 const isObj = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
 const arr = (x) => (Array.isArray(x) ? x : []);
@@ -50,7 +53,9 @@ const sha = (v) => (v == null ? null : canonicalDigest(v));
 const textDigest = (t) => (t == null ? null : canonicalDigest({ text: t }));
 
 // the digest of everything the bible is projected from; a changed DESIGN.md, contract, grammar or brand file makes the bible stale
+const mediumOf = (inputs) => (isObj(inputs && inputs.medium) ? inputs.medium : readJ(inputs && inputs.mediumFile));
 export function sourceDigest(inputs = {}) {
+  const med = mediumOf(inputs);
   const src = {
     design_md: textDigest(readT(inputs.designMdFile)),
     motion_contract: sha(inputs.blend && inputs.blend.motion_contract ? inputs.blend.motion_contract : null),
@@ -58,6 +63,8 @@ export function sourceDigest(inputs = {}) {
     brand: textDigest(readT(inputs.brandMdFile)),
     brand_assets: sha(inputs.brandAssets || null),
     locale: T(inputs.locale) || null, destination: T(inputs.destination) || null, aspect: T(inputs.aspect) || null,
+    // only present with a contract, so every legacy bible keeps its digest
+    ...(isObj(med) ? { medium: mediumContractDigest(med) } : {}),
   };
   return { parts: src, digest: canonicalDigest(src) };
 }
@@ -164,13 +171,14 @@ export function compileVisualBible(inputs = {}) {
   if (motion.scale_ms.length) defaults.push({ id: "look.motion.scale_ms", value: motion.scale_ms, source: "motion contract" });
   if (inputs.series && inputs.series.defaults) for (const [k, v] of Object.entries(inputs.series.defaults)) defaults.push({ id: `series.${k}`, value: v, source: `saved series ${T(inputs.series.name) || ""}`.trim(), provenance: "saved_series_default" });
 
+  const medium = mediumOf(inputs);
   const sd = sourceDigest(inputs);
   const bible = {
     schema_version: SCHEMA_VERSION, bible_format: BIBLE_FORMAT, look: { label: T(inputs.label) || T(blend.label) || null, name: (B && B.name) || T(blend.name) || null },
     source: { design_md: inputs.designMdFile ? path.basename(path.dirname(path.resolve(inputs.designMdFile))) + "/" + path.basename(inputs.designMdFile) : null, ...sd.parts, source_digest: sd.digest },
     palette: pal, type: { roles: typeRoles, locale: { script, fallback: fb }, missing_assets }, layout, conventions, motion,
     transitions: { by_relation: { ...DEFAULT_TRANSITIONS, ...(isObj(inputs.transitions) ? inputs.transitions : {}) }, note: "chosen from the relationship between beats; a hard cut between separate contexts is always valid" },
-    imagery, variation, continuity_anchors, constraints: { hard, defaults, ...(normFontAvoid(inputs.fontAvoid).length ? { font_avoid: normFontAvoid(inputs.fontAvoid) } : {}) }, exceptions: arr(inputs.exceptions),
+    imagery, variation, continuity_anchors, ...(isObj(medium) ? { medium: { digest: mediumContractDigest(medium), contract: medium } } : {}), constraints: { hard, defaults, ...(normFontAvoid(inputs.fontAvoid).length ? { font_avoid: normFontAvoid(inputs.fontAvoid) } : {}) }, exceptions: arr(inputs.exceptions),
     warnings,
   };
   bible.digest = canonicalDigest({ ...bible, digest: undefined });
@@ -204,6 +212,7 @@ export function validateVisualBible(b) {
   // L3: finishing treatments are chosen for what they communicate, never because the renderer supports them
   if (b.imagery && b.imagery.finish_policy === "none" && !T(b.imagery.finish_rationale)) problems.push("finish_policy none needs finish_rationale: turning the finish layer off is a choice tied to what the film communicates");
   for (const t of arr(b.imagery && b.imagery.texture_finish)) if (!T(t.serves)) problems.push(`treatment ${t.kind}: name what it communicates (serves); grain, blur, vignette, chromatic aberration, camera drift and 3D are neither default nor banned`);
+  if (b.medium && (!isObj(b.medium.contract) || b.medium.digest !== mediumContractDigest(b.medium.contract))) problems.push("medium: the stored digest does not match its contract (recompile the bible from design/<label>/medium.json)");
   const commitments = arr(b.variation && b.variation.commitments);
   if (commitments.length > MAX_COMMITMENTS) problems.push(`${commitments.length} film-wide commitments: keep a few (at most ${MAX_COMMITMENTS}) that matter, not dozens`);
   if (!arr(b.variation && b.variation.constant).length || !arr(b.variation && b.variation.varies).length) warnings.push("variation should say both what stays constant and what may vary");
@@ -244,6 +253,7 @@ export function projectForWorker(bible, need = {}) {
     treatments: arr(bible.imagery && bible.imagery.texture_finish), constraints: { hard: arr(bible.constraints && bible.constraints.hard) },
     exceptions: arr(bible.exceptions).filter((e) => !sceneIds.size ? false : arr(e.scope && e.scope.scene_ids).some((s) => sceneIds.has(s)) || arr(e.scope && e.scope.beat_ids).some((s) => sceneIds.has(s))),
     anchors: { objects: pick(bible.continuity_anchors && bible.continuity_anchors.objects, arr(a.objects)), screens: pick(bible.continuity_anchors && bible.continuity_anchors.screens, arr(a.screens)), characters: pick(bible.continuity_anchors && bible.continuity_anchors.characters, arr(a.characters)), sound_motifs: pick(bible.continuity_anchors && bible.continuity_anchors.sound_motifs, arr(a.sound_motifs)) },
+    ...(bible.medium ? { medium: projectMediumForWorker(bible.medium.contract, { role: need.role, beatIds: need.beat_ids, shotIds: need.shot_ids, events: need.events, budget: need.medium_budget }) } : {}),
     may_request_change: true, may_redefine_shared: false,
   };
 }
