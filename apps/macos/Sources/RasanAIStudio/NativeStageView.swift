@@ -47,11 +47,9 @@ struct NativeStageView: View {
             .animation(.smooth, value: progressShown ? StageRoute.working : route)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !model.decisionsPresented && VideoStageOverlay.shared.playback == nil { AskRasanBar(model: model) }
-        }
         .environment(model)
         .environment(\.crewCharacter, CrewCharacter(key: CrewRoles.character(forRoute: route)))
+        .onReceive(NotificationCenter.default.publisher(for: .studioCloseSheets)) { _ in askBinding.wrappedValue = nil }
         .sheet(item: askBinding) { ask in AskSheet(model: model, ask: ask).tint(.rasan) }
     }
 

@@ -17,6 +17,7 @@ struct StudioView: View {
 
     var body: some View {
         content.environment(\.momentStore, store)
+            .heresayCoordinated(store: store)
             .modifier(LaunchFocus(ready: !store.isLoadingProjects, agent: store.settings.agent.title))
     }
 

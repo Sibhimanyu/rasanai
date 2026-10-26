@@ -78,6 +78,7 @@ struct BrandsView: View {
         .pageHeader("Brands") {
             Button { showNew = true } label: { Label("New brand", systemImage: "plus") }.help("New brand")
         }
+        .onReceive(NotificationCenter.default.publisher(for: .studioCloseSheets)) { _ in showNew = false }
         .sheet(isPresented: $showNew) {
             NewBrandSheet(root: root) { brand, kit, name in
                 reloadGeneration += 1
@@ -326,6 +327,7 @@ struct BrandPage: View {
             }
         }
         .task(id: "\(brand.path):\(reloadGeneration)") { await reload() }
+        .onReceive(NotificationCenter.default.publisher(for: .studioCloseSheets)) { _ in showEditor = false }
         .sheet(isPresented: $showEditor) {
             if let model {
                 BrandEditorSheet(brand: model, design: text) {

@@ -60,6 +60,7 @@ struct FilmProgressView: View {
         .sheet(isPresented: $showActivity) {
             ProgressActivitySheet(snapshot: snapshot, onShowLog: onShowLog).tint(.rasan)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .studioCloseSheets)) { _ in showActivity = false }
         .accessibilityElement(children: .contain)
     }
 
