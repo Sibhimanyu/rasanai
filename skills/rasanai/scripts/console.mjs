@@ -15,6 +15,8 @@
 //        (any question outside the steps: missing material, a thin capture, an ambiguity; shown on the page, answered there)
 //   node console.mjs resolve --run <dir> --ids a,b [--note "what changed"]   (notes left on the animatic/final are done)
 //        a push of animatic/render with a higher version is refused (exit 2) while an applied note has no --note; --force "<reason>" overrides
+//        closing story or look (--status done) without the person's choice (their choose action, or "Just make it") records it by: "director", unconfirmed: true
+//        (Studio asks them to review it); [--auto series|prefs|brand] names a standing choice: series and prefs are not flagged, brand stays unconfirmed until the styleframes call
 //        --layers <story,look,timing,motion,sound,production> (default motion,timing): the layers the notes were about; a locked file outside them that changed is a warning (lock_breaks)
 //   node console.mjs locks  --run <dir>   (what Story, Look and the Animatic locked, what drifted since, lock_breaks, relocks; JSON)
 //   node console.mjs relock --run <dir> --layer <story|look|timing|motion> --because "<why, 8+ characters>"   (a meant change to a locked layer)
@@ -656,6 +658,28 @@ if (cmd === "push") {
     // ... and where they made it from, when that was another app ("You · iPhone" in the drawer)
     if (prev.sent.via) { next.by_source = cleanSource(prev.sent.source); next.by_via = String(prev.sent.via).slice(0, 40); }
     else { delete next.by_source; delete next.by_via; }
+  }
+  // Story and Look are the person's calls: never decided for them. Closing one without a recorded user choice (their `choose`,
+  // or "Just make it" / decide-the-rest) is recorded as Claude's, unconfirmed, so Studio can show "Rasan chose ... without asking you".
+  // Series defaults (decision "From your series: ...", or --auto series) and answered preferences (--auto prefs) are the owner's own
+  // standing choices, so they are not flagged; --auto brand (a branded direct film's own look) stays unconfirmed until the person
+  // approves the styleframes call, which is that film's Look call.
+  if (["story", "look"].includes(args.step) && next.status === "done") {
+    const decidedForYou = !!s.decide_rest || (prev.sent && ["decide", "decide-rest"].includes(prev.sent.type));
+    const autoKind = args.auto && args.auto !== true ? String(args.auto).trim().toLowerCase() : (data.series || /^from your series/i.test(String(next.decision || "")) ? "series" : "");
+    if (next.by === "user") { delete next.unconfirmed; delete next.auto_reason; }
+    else {
+      next.by = data.by || "director";
+      if (decidedForYou) { next.decided_for_you = true; delete next.unconfirmed; delete next.auto_reason; }
+      else if (["series", "prefs"].includes(autoKind)) { next.auto = autoKind; delete next.unconfirmed; }
+      else {
+        next.unconfirmed = true;
+        if (autoKind) next.auto_reason = autoKind; // not `auto`: Studio reads `auto` as an inherited (series) call
+        const what = args.step === "look" ? "Look" : "Story";
+        console.error(`warning: the ${what} is the person's call and they did not make it (no choose action, no "Just make it"). It is recorded as yours, unconfirmed, and Studio will ask them to review it. Push ${args.step} --status awaiting and wait for their choice instead (console.mjs wait --step ${args.step}).`);
+        activity(s, `Rasan closed the ${what} without your choice: please review it`, "warn", null);
+      }
+    }
   }
   // the step's discussion survives a re-push (Claude revising the options is the answer to it)
   if (prev.thread && !data.thread) next.thread = prev.thread;

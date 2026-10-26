@@ -2,6 +2,11 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- Rasan no longer skips your Look call when the film planner has trouble: it always asks you, even at Fast pace.
+- If a look or story was ever chosen without you, Studio tells you and lets you review it.
+
 ## 0.24.0 (build 62) — 2026-10-26
 
 - Quitting while a film is working now offers a third choice, "Keep the film running": Studio closes and the director carries on, and the next Studio picks it up (also when a phone resumed it while Studio was closed). Stop and Quit stays the default.
