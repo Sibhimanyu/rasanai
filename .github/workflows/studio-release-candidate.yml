@@ -27,6 +27,15 @@ jobs:
         run: |
           test "$(uname -m)" = arm64
           swift --version
+          echo "SWIFT_ID=$(swift --version 2>&1 | shasum -a 256 | cut -c1-16)" >> "$GITHUB_ENV"
+      # Reuse the SwiftPM checkouts, Sparkle artifact, Node download and compiled dependencies from the last run, so a
+      # release only recompiles what changed. Keyed on the toolchain and Package.resolved; each run saves a fresh copy.
+      - uses: actions/cache@v4
+        with:
+          path: apps/macos/.build
+          key: studio-build-${{ env.SWIFT_ID }}-${{ hashFiles('apps/macos/Package.resolved') }}-${{ github.run_id }}
+          restore-keys: |
+            studio-build-${{ env.SWIFT_ID }}-${{ hashFiles('apps/macos/Package.resolved') }}-
       - name: Build unnotarized Apple Silicon candidate
         env:
           STUDIO_VERSION: ${{ inputs.version }}
