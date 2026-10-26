@@ -15,7 +15,7 @@ final class DirectorBlocksTests: XCTestCase {
         XCTAssertEqual(scanner.blocks.count, 1)
         XCTAssertEqual(scanner.blocks.first?.count, 2)
         XCTAssertEqual(scanner.open?.suggestedTool, "ffmpeg")
-        XCTAssertTrue(scanner.open?.message.hasPrefix("Blocked: Rasan tried to run `brew install ffmpeg`") == true)
+        XCTAssertTrue(scanner.open?.message.contains("asked to run `brew install ffmpeg`") == true)
     }
 
     func testToolNeedReadsTheAskOption() {

@@ -155,13 +155,13 @@ struct NotesInspector: View {
                 Button { model.sendDraft() } label: {
                     Image(systemName: "arrow.up").font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
                         .frame(width: 26, height: 26)
-                        .background(Circle().fill(trimmed.isEmpty || model.isSending ? Color.secondary.opacity(0.35) : Color.rasan))
+                        .background(Circle().fill(trimmed.isEmpty || model.isSending || model.isDuplicatePending(trimmed) ? Color.secondary.opacity(0.35) : Color.rasan))
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .keyboardShortcut(.return, modifiers: .command)
-                .disabled(trimmed.isEmpty || model.isSending)
-                .help("Send to Rasan (↩)")
+                .disabled(trimmed.isEmpty || model.isSending || model.isDuplicatePending(trimmed))
+                .help(model.isDuplicatePending(trimmed) ? "Already sent. Waiting for Rasan's answer." : "Send to Rasan (↩)")
                 .accessibilityLabel("Send")
                 .padding(.trailing, 6).padding(.bottom, 6)
             }
@@ -232,8 +232,13 @@ struct ConversationList<Empty: View>: View {
                     let previous = index > 0 ? group.messages[index - 1] : nil
                     let startsRun = previous == nil || previous?.fromUser != message.fromUser
                     let label: String? = !startsRun ? nil : message.fromUser ? (previous != nil ? "You" : nil) : "Rasan"
-                    ThreadBubble(message: message, label: label)
-                        .padding(.top, previous != nil && startsRun ? 6 : 0)
+                    if message.isStudioInstruction {
+                        // Studio's own instruction to Rasan: a short line, never the raw text as if the person wrote it.
+                        StudioSystemLine(text: model.studioLine(for: message)).padding(.vertical, 4)
+                    } else {
+                        ThreadBubble(message: message, label: label, onAction: model.quickActionHandler)
+                            .padding(.top, previous != nil && startsRun ? 6 : 0)
+                    }
                 }
                 let scenes = model.snapshot.scenes(for: ReviewStage.consoleStep(group.step))
                 ForEach(group.notes) { note in
@@ -248,11 +253,7 @@ struct ConversationList<Empty: View>: View {
                 }
             }
             if let confirm = model.pendingConfirm, confirm.step == model.draftStep { RevisionConfirmCard(model: model, confirm: confirm) }
-            if replying {
-                HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Rasan is thinking…").font(.system(size: 12)).foregroundStyle(.secondary) }
-                    .padding(.top, 4)
-                    .accessibilityElement(children: .combine)
-            }
+            if model.lastUnanswered != nil { ThinkingRow(model: model).padding(.top, 4) }
             Color.clear.frame(height: 1).id("end")
         }
     }
@@ -285,11 +286,6 @@ struct PendingMarkChip: View {
 extension FilmSessionModel {
     /// The step the draft goes with: a pending mark's, else the one the chat was opened for, else the one on screen.
     var draftStep: String { pendingMark?.step ?? tellStep ?? shownStep }
-    /// Rasan owes a reply to the latest message.
-    var isReplying: Bool {
-        guard let last = conversation.last else { return false }
-        return isReplyPending(for: last.step)
-    }
     /// Changes whenever a row is added to the conversation (or Rasan starts or stops thinking), for scrolling to the end.
     var conversationSignature: String { "\(conversation.count)|\(snapshot.notes.count)|\(isReplying)" }
 
@@ -297,6 +293,7 @@ extension FilmSessionModel {
     func sendDraft() {
         let text = tellText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isSending else { return }
+        // The same words are already with Rasan: a gentle note instead of a second copy (tell says so), and the draft clears.
         if pendingMark != nil {
             Task { if await sendPendingMark(text: text) { tellText = "" } }
         } else {
@@ -361,9 +358,16 @@ private struct StepDivider: View {
 struct ThreadBubble: View {
     let message: ThreadMessage
     var label: String?
+    /// Runs a quick status's action buttons.
+    var onAction: ((ChatQuickAction) -> Void)?
     var body: some View {
         VStack(alignment: message.fromUser ? .trailing : .leading, spacing: 3) {
             if let label { Text(label).font(.system(size: 11)).foregroundStyle(.secondary).padding(.horizontal, 4) }
+            if message.isQuickStatus {
+                Label("Quick status from Studio", systemImage: "bolt.fill").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
+                    .padding(.horizontal, 4)
+                    .help("Studio answered this from what it already knows. Rasan was not interrupted.")
+            }
             HStack(spacing: 0) {
                 if message.fromUser { Spacer(minLength: 36) }
                 Text(message.text).font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
@@ -374,8 +378,88 @@ struct ThreadBubble: View {
                     .accessibilityLabel((message.fromUser ? "You: " : "Rasan: ") + message.text)
                 if !message.fromUser { Spacer(minLength: 36) }
             }
+            if let actions = message.quickActions, !actions.isEmpty, let onAction {
+                FlowLayout(spacing: 6) {
+                    ForEach(Array(actions.enumerated()), id: \.element) { index, action in
+                        Button(action.title) { onAction(action) }
+                            .buttonStyle(.rasanSecondary).controlSize(.small)
+                            .fontWeight(index == 0 && action != .viewActivity ? .semibold : .regular)
+                    }
+                }
+                .padding(.top, 2)
+            }
         }
         .frame(maxWidth: .infinity, alignment: message.fromUser ? .trailing : .leading)
+    }
+}
+
+/// "Rasan is thinking… 12 s". Never forever: after a while (or at once when Rasan is stopped) an honest line with what to do.
+struct ThinkingRow: View {
+    let model: FilmSessionModel
+    static let slowAfter: TimeInterval = 45
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            switch model.replyState(now: context.date) {
+            case .none: EmptyView()
+            case .unanswered(let why): unanswered(why)
+            case .thinking(let since): thinking(since: since, now: context.date)
+            }
+        }
+    }
+
+    /// Rasan can't answer (stopped, paused, blocked, moved on, or silent for minutes): said plainly, with what to do.
+    private func unanswered(_ why: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Not answered", systemImage: "exclamationmark.bubble").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+            Text(why).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+            FlowLayout(spacing: 6) {
+                Button("Ask again") { model.askAgain() }
+                Button("Ask for a short answer") { model.answerPendingLocally() }
+                    .help("Studio answers now from what it can see, without interrupting Rasan.")
+                Button("Stop waiting") { model.stopWaiting() }
+            }
+            .buttonStyle(.rasanSecondary).controlSize(.small)
+        }
+    }
+
+    private func thinking(since: Date?, now: Date) -> some View {
+            let seconds = since.map { max(0, Int(now.timeIntervalSince($0))) }
+            let stopped = ChatAnswerer.needsLocalAnswer(model.chatContext())
+            return VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("Rasan is thinking…").font(.system(size: 12)).foregroundStyle(.secondary)
+                    if let seconds { Text(ChatAnswerer.elapsedShort(seconds)).font(.system(size: 11)).monospacedDigit().foregroundStyle(.tertiary) }
+                }
+                .accessibilityElement(children: .combine)
+                if stopped || (seconds ?? 0) >= Int(Self.slowAfter) {
+                    Text(stopped ? "Rasan is stopped right now, so it can't answer yet. Studio can tell you what it knows."
+                                 : "Rasan is taking a while. Rasan may be busy with the step.")
+                        .font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+                    FlowLayout(spacing: 6) {
+                        Button("Ask for a short answer") { model.answerPendingLocally() }
+                            .help("Studio answers now from what it can see, without interrupting Rasan.")
+                        Button("View activity") { model.quickActionHandler(.viewActivity) }
+                        Button("Stop waiting") { model.stopWaiting() }
+                    }
+                    .buttonStyle(.rasanSecondary).controlSize(.small)
+                }
+            }
+    }
+}
+
+/// A short centered line for something Studio did (not the person's words): "You pressed Fix it. Rasan is trying another way."
+struct StudioSystemLine: View {
+    let text: String
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "gearshape").font(.system(size: 10))
+            Text(text).font(.system(size: 11)).fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .accessibilityElement(children: .combine)
     }
 }
 

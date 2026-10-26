@@ -6,12 +6,32 @@ import Foundation
 
 extension ThreadMessage {
     /// A message made locally (a local answer, or the engine's interpretation), shown in the step's thread beside the saved ones.
-    public static func local(step: String, fromUser: Bool, text: String, time: String) -> ThreadMessage {
-        ThreadMessage(step: step, fromUser: fromUser, text: text, time: time)
+    public static func local(step: String, fromUser: Bool, text: String, time: String, quickActions: [ChatQuickAction]? = nil) -> ThreadMessage {
+        ThreadMessage(step: step, fromUser: fromUser, text: text, time: time, quickActions: quickActions)
     }
 }
 
 public enum ChatIntent: Equatable, Sendable { case statusQuestion, feedback }
+
+/// The one-tap actions a quick status offers: the same ones as the "Rasan needs permission" banner.
+public enum ChatQuickAction: String, Equatable, Sendable, CaseIterable {
+    case fixIt, retryStep, restartRasan, viewActivity, copyDetails
+    public var title: String {
+        switch self {
+        case .fixIt: "Fix it"
+        case .retryStep: "Retry step"
+        case .restartRasan: "Restart Rasan"
+        case .viewActivity: "View activity"
+        case .copyDetails: "Copy details"
+        }
+    }
+}
+
+/// A status Studio answers itself, without waking the director: the words and the actions to offer.
+public struct QuickStatus: Equatable, Sendable {
+    public var text: String
+    public var actions: [ChatQuickAction]
+}
 
 /// What the answerer may say. Every field is optional or defaulted: a missing one is stated as unknown, never invented.
 public struct ChatContext: Sendable {
@@ -28,6 +48,20 @@ public struct ChatContext: Sendable {
     /// When the person last sent something Rasan has not answered yet (nil: nothing pending).
     public var pendingSince: Date?
     public var now = Date()
+    /// The refusal the director has not got past (nil: not blocked), and whether it came back after Fix it.
+    public var blocked: DirectorBlock?
+    public var blockRepeated = false
+    /// The director went quiet with nothing running and nobody to wait for.
+    public var stalled = false
+    /// Whether the director process for this film is running (nil: unknown, e.g. a sample film).
+    public var directorRunning: Bool?
+    /// The monitor's one calm sentence about the director's health, and its last error line.
+    public var healthDetail: String?
+    public var lastError: String?
+    /// The latest things that happened (activity titles), newest last. Only what the app already has.
+    public var recentEvents: [String] = []
+    /// What the person is looking at: the step on screen and, when it is not the live one, that it is an earlier step.
+    public var lookingAt: String?
     public init(step: String, progress: FilmProgressSnapshot? = nil, runState: String? = nil, runLabel: String? = nil, runReason: String? = nil,
                 isDone: Bool = false, isWaitingOnUser: Bool = false, workingMessage: String? = nil, isConnected: Bool = true, pendingSince: Date? = nil, now: Date = Date()) {
         self.step = step; self.progress = progress; self.runState = runState; self.runLabel = runLabel; self.runReason = runReason
@@ -42,6 +76,8 @@ public enum ChatAnswerer {
     private static let imperativeStart = try! NSRegularExpression(pattern: #"^\s*(please\s+)?(don'?t|do not|never|stop|change|make|use|remove|replace|swap|add|fix|move|increase|decrease|reduce|drop|keep|avoid|try|set|cut|shorten|lengthen|rename|i (want|need|would like|'d like|don'?t)|can you (change|make|use|remove|replace|add|fix|move)|could you (change|make|use|remove|replace|add|fix|move))\b"#, options: [.caseInsensitive])
     private static let strongStatus = try! NSRegularExpression(pattern: #"\b(how long|how much (longer|more time)|how far|how'?s it going|how is it going|eta\b|time (left|remaining)|(is it|are you|is (rasan|the film|this)) (done|finished|ready|stuck|working|running|frozen|still)|done yet|finished yet|ready yet|what('?s| is| are) (happening|going on|the (status|progress)|rasan doing|you doing|it doing|the crew doing)|what are you (doing|up to)|status\b|progress\b|still working|any (update|progress))"#, options: [.caseInsensitive])
     private static let weakStatus = try! NSRegularExpression(pattern: #"^\s*(when|how soon|how many (more )?(minutes|steps)|what('?s| is) next|what happens next)\b"#, options: [.caseInsensitive])
+    /// "what happened", "what happend", "what just hapened", "what went wrong", "why did it stop", "is it stuck", "what's the error".
+    private static let troubleQuestion = try! NSRegularExpression(pattern: #"\b(wh?at|wht)\s*('?s|\s+is|\s+has|\s+just|\s+did|\s+was)?\s*(just\s+)?(ha+p+e*n+(e?d|ing|in|s)?\b|hap+ned|went wrong|wrong\b|the (problem|issue|error|matter|holdup|hold-up)|the (block|banner)|this (block|banner|error)|does (this|that|it) mean)|\bwhy\b.{0,40}\b(stop|stopped|block|blocked|fail|failed|stuck|error|waiting|slow|taking so long|not (moving|working|doing)|isn'?t|didn'?t|can'?t|won'?t)|\b(is|are) (it|rasan|this|the film|you|he) (stuck|broken|frozen|dead|hung|blocked|okay|ok|alive)|\bwhat now\b|\bwhat do i do\b|\bwhat should i do\b"#, options: [.caseInsensitive])
     private static let feedbackWords = try! NSRegularExpression(pattern: #"\b(font|typeface|colou?r|music|voice|scene|shot|title|logo|caption|too (big|small|fast|slow|long|short|loud|quiet|busy|dark|bright)|instead|replace|change|remove|louder|quieter|bigger|smaller|faster|slower)\b"#, options: [.caseInsensitive])
 
     private static func matches(_ r: NSRegularExpression, _ s: String) -> Bool { r.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) != nil }
@@ -51,6 +87,7 @@ public enum ChatAnswerer {
         guard !t.isEmpty else { return .feedback }
         if matches(imperativeStart, t) { return .feedback }
         if matches(strongStatus, t) { return .statusQuestion }
+        if matches(troubleQuestion, t), !matches(feedbackWords, t) { return .statusQuestion }
         if t.hasSuffix("?"), matches(weakStatus, t), !matches(feedbackWords, t) { return .statusQuestion }
         return .feedback
     }
@@ -78,6 +115,67 @@ public enum ChatAnswerer {
         parts.append(pendingLine(c))
         var seen = Set<String>()
         return parts.compactMap { $0 }.filter { seen.insert($0).inserted }.joined(separator: " ")
+    }
+
+    // MARK: Quick status (answered by Studio, Rasan is not asked)
+
+    /// Studio should answer from what it knows instead of waiting on the director: it is blocked, stalled, failed or not running.
+    public static func needsLocalAnswer(_ c: ChatContext) -> Bool {
+        if c.isDone || !c.isConnected { return false }
+        if c.blocked != nil || c.stalled || c.runState == "failed" { return true }
+        return c.directorRunning == false && !c.isWaitingOnUser
+    }
+
+    /// The reply to "what happened?" and friends: what is wrong (if anything), the last few things that happened, and "What I'd do"
+    /// with the same one-tap actions as the banner. Only facts the app already has; when it has none, it says so.
+    public static func quickStatus(_ question: String, _ c: ChatContext) -> QuickStatus {
+        var lines: [String] = []
+        var actions: [ChatQuickAction] = []
+        var advice: String?
+        if let b = c.blocked {
+            lines.append(c.blockRepeated
+                ? "Rasan is stopped again: it asked to \(b.action), which isn't allowed here, and Fix it didn't get past it."
+                : "Rasan is stopped, waiting for permission: it asked to \(b.action), which isn't allowed here, so Studio stopped that step.")
+            if let r = b.repeatNote, !c.blockRepeated { lines.append(r) }
+            lines.append("Your film so far is saved.")
+            if c.blockRepeated {
+                advice = "restart Rasan. It starts fresh from your saved film."
+                actions = [.restartRasan, .viewActivity, .copyDetails]
+            } else {
+                advice = "press Fix it. Rasan retries the step a safer way."
+                actions = [.fixIt, .restartRasan, .viewActivity, .copyDetails]
+            }
+        } else if c.stalled {
+            lines.append("Rasan has gone quiet: nothing is running and it isn't waiting for you." + (c.healthDetail.map { " \($0)" } ?? ""))
+            advice = "restart Rasan. It carries on from your saved film."
+            actions = [.restartRasan, .retryStep, .viewActivity]
+        } else if c.runState == "failed" {
+            lines.append(doingLine(c) ?? "A step failed, so the film is not moving.")
+            advice = "retry the step."
+            actions = [.retryStep, .restartRasan, .viewActivity]
+        } else if c.directorRunning == false && !c.isDone && !c.isWaitingOnUser {
+            lines.append("Rasan isn't running on this film right now, so nothing is moving.")
+            advice = "restart Rasan. It carries on from your saved film."
+            actions = [.restartRasan, .viewActivity]
+        } else {
+            lines.append(answer(question, c))
+            actions = [.viewActivity]
+        }
+        if c.blocked == nil, let e = c.lastError?.trimmingCharacters(in: .whitespacesAndNewlines), !e.isEmpty {
+            lines.append("Last error: \(clip(e, 140))")
+        }
+        let recent = c.recentEvents.suffix(3).map { clip($0, 80) }.filter { !$0.isEmpty }
+        if !recent.isEmpty { lines.append("Last things that happened: " + recent.joined(separator: "; ") + ".") }
+        if c.blocked == nil && !c.stalled && recent.isEmpty && c.lastError == nil && c.progress == nil && c.workingMessage == nil {
+            lines.append("I don't have more detail yet. View activity shows everything.")
+        }
+        if let advice { lines.append("What I'd do: \(advice)") }
+        return QuickStatus(text: lines.joined(separator: " "), actions: actions)
+    }
+
+    static func clip(_ s: String, _ n: Int) -> String {
+        let flat = s.split(whereSeparator: \.isNewline).joined(separator: " ")
+        return flat.count > n ? String(flat.prefix(n)) + "…" : flat
     }
 
     private static func phaseTitle(_ c: ChatContext) -> String? { c.progress.map { $0.currentPhase.title } }
@@ -130,6 +228,14 @@ public enum ChatAnswerer {
         let s = Int(c.now.timeIntervalSince(since))
         guard s >= 20 else { return nil }
         return "Your last message went in \(elapsed(s)) ago and hasn't been answered yet."
+    }
+
+    /// "8 s", "1 min 05 s", "1 h 12 min": the thinking row's clock.
+    public static func elapsedShort(_ seconds: Int) -> String {
+        let s = max(0, seconds)
+        if s < 60 { return "\(s) s" }
+        if s < 3600 { return "\(s / 60) min \(String(format: "%02d", s % 60)) s" }
+        return "\(s / 3600) h \(s % 3600 / 60) min"
     }
 
     static func elapsed(_ seconds: Int) -> String {

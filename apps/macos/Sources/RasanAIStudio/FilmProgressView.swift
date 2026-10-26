@@ -61,6 +61,7 @@ struct FilmProgressView: View {
             ProgressActivitySheet(snapshot: snapshot, onShowLog: onShowLog).tint(.rasan)
         }
         .onReceive(NotificationCenter.default.publisher(for: .studioCloseSheets)) { _ in showActivity = false }
+        .onChange(of: model.activityRequest) { showActivity = true }   // "View activity" from the chat or the blocked banner
         .accessibilityElement(children: .contain)
     }
 

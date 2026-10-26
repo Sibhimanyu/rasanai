@@ -179,7 +179,7 @@ After `apply`, edit, then `console.mjs resolve --run <run> --ids <ids> --note "<
 | `decide` | any | null: "you decide" for that step |
 | `decide-rest` | `*` | null: "Just make it" (Claude decides every remaining call and stops only at the Final) |
 | `answer` | the step an `ask` was raised on | `{ask: id, choice: option id or null, text}` (the free text is also in `note`) |
-| `note` | any | null; the text is in `note`. It's also added to that step's discussion thread; answer with `reply`. |
+| `note` | any | null; the text is in `note`. It's also added to that step's discussion thread; answer with `reply`. From RasanAI Studio's chat, `value` is `{chat: {rules, max_sentences, max_tool_calls, context: {step, looking_at, blocked?, last_error?, recent_events}}}`: follow `chat.rules` (a short reply, at most `max_tool_calls` tool calls to find it, never a recap of the film), use `context` to see why they ask, then go back to your step. |
 
 A `note` can come with any action type too (e.g. `choose` + "but a bit slower").
 
