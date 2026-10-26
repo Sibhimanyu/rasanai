@@ -2,10 +2,11 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.22.8 (build 59) — 2026-10-26
 
 - Updating restarts RasanAI by itself: the app now closes and reopens in the new version without you pressing anything, and if it ever needs a hand, the window says what it is waiting for.
 - The update window now says it can take up to a minute on Macs with security software, and keeps counting so you can see it is not stuck.
+- **Bundles RasanAI 1.27.0.**
 
 ## 0.22.7 (build 58) — 2026-10-26
 
