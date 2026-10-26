@@ -9,6 +9,8 @@
 //   node console.mjs push  --run <dir> --step <id> (--data '<json>' | --file f.json) [--status awaiting|working|done|skipped] [--current]
 //        a decision that replaces a different earlier one on a done step needs --because "<why the old call lost>" (else exit 2); the old call is kept in decisions_history
 //   node console.mjs downgrade --run <dir> --what "<what the plan asked>" --instead "<what is used>" --why "<reason>" [--impact "<what the film loses>"]   (a fallback, told to the user in the drawer)
+//        [--severity info|notice|needs-you|error]   (default info: a quiet line in Studio; only needs-you / error get a visible card)
+//        [--kind <fast-pace|...>]   (a routine, documented adjustment: told as "Adjusted (<kind>)", not listed under "Working without")
 //        (the brief push carries `budget`: the token budget crew.mjs plan wrote to <run>/crew/budget.json, added automatically when the push has none; see cleanBudget)
 //   node console.mjs activity --run <dir> --message "Reading your DESIGN.md" [--level info|ok|warn]   (what Claude is doing now)
 //   node console.mjs ask   --run <dir> --question "..." [--context "..."] [--options '[{"id","label","detail"}]'] [--recommended <id>] [--placeholder "..."]
@@ -52,7 +54,7 @@ import { recordTaste } from "./memory.mjs";
 import { addLesson } from "./lessons.mjs"; // Plan 10: a "don't use this font" note is kept as a scoped user preference (never a universal rule)
 import { acquire, release, withLock } from "./lib/runlock.mjs";
 import { briefFormat, loadFormats, SCOPES as FORMAT_SCOPES } from "./lib/formats.mjs";
-import { noteDowngrade, readDowngrades } from "./lib/downgrade.mjs";
+import { noteDowngrade, readDowngrades, downgradeFeed, SEVERITIES } from "./lib/downgrade.mjs";
 import { LAYERS, NOTE_LAYERS, snapshot, drift, relock } from "./lib/locks.mjs";
 import { noteToRevision } from "./lib/editorial.mjs"; // Plan 05 E6: a viewer note on the animatic is anchored and read as an editorial request
 import { soundNoteRevision, setMuteSolo } from "./lib/sound-controls.mjs"; // Plan 07 A6: a Studio sound note becomes a versioned targeted revision (no per-cue approval)
@@ -168,7 +170,8 @@ function mergeDowngrades(s) {
   for (const d of readDowngrades(RUN)) {
     if (have.has(`${d.t}|${d.what}|${d.instead}`)) continue;
     s.downgrades = (s.downgrades || []).concat(d).slice(-100);
-    activity(s, `Working without ${d.what}: using ${d.instead}${d.why ? " because " + d.why : ""}`, "warn", s.working && s.working.msg);
+    const feed = downgradeFeed(d);
+    activity(s, feed.msg, feed.level, s.working && s.working.msg);
   }
 }
 function parseData() {
@@ -790,7 +793,8 @@ if (cmd === "push") {
 } else if (cmd === "downgrade") {
   // a fallback the director made by hand: always told to the user, never silent
   if (!args.what || !args.instead || !args.why) die('--what "<what the plan asked>", --instead "<what is used>" and --why "<reason>" are required');
-  noteDowngrade({ run: RUN, what: String(args.what), instead: String(args.instead), why: String(args.why), impact: args.impact ? String(args.impact) : undefined });
+  if (args.severity && !SEVERITIES.includes(String(args.severity))) die(`--severity must be one of ${SEVERITIES.join(", ")}`);
+  noteDowngrade({ run: RUN, what: String(args.what), instead: String(args.instead), why: String(args.why), impact: args.impact ? String(args.impact) : undefined, severity: args.severity ? String(args.severity) : undefined, kind: args.kind ? String(args.kind) : undefined });
   const s = session();
   mergeDowngrades(s);
   saveSession(s);

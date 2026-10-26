@@ -1904,7 +1904,7 @@
       (d.decisions_history || []).slice().reverse().forEach(function (o) { kids.push(h("div", { class: "dd-old" }, [h("s", { text: o.decision }), " · " + (o.because || "")])); });
       p.appendChild(h("div", { class: "dd-row" }, kids));
     });
-    var dg = S.downgrades || [];
+    var dg = (S.downgrades || []).filter(function (g) { return !g.kind; }); // a row with a kind is a routine adjustment, not a downgrade
     if (dg.length) {
       p.appendChild(h("h4", { text: "Working without" }));
       dg.forEach(function (g) { p.appendChild(h("div", { class: "dd-row" }, [h("span", { class: "k", text: g.what }), h("span", null, ["Using " + g.instead + (g.why ? " because " + g.why : "") + (g.impact ? ". " + g.impact : "")]), h("span")])); });

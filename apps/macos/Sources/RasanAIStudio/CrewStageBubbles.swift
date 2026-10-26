@@ -37,7 +37,7 @@ enum CrewThoughts {
         let skipped: Set<ProgressActivity.Kind> = [.warning, .ask, .answer]
         var seen = Set<String>()
         let items = (s.activity + s.recentTools)
-            .filter { $0.phase == phase && !skipped.contains($0.kind) && !$0.title.isEmpty }
+            .filter { $0.phase == phase && !skipped.contains($0.kind) && $0.severity == nil && !$0.title.isEmpty }
             .sorted { $0.time > $1.time }
             .filter { seen.insert($0.title).inserted }
         return items.prefix(maxOnScreen).map { CrewThought(id: $0.id, kind: .say, time: $0.time, text: $0.title, revising: $0.kind == .critic) }

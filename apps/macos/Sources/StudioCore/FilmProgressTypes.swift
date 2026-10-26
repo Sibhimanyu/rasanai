@@ -333,8 +333,13 @@ public struct ProgressActivity: Identifiable, Codable, Equatable, Sendable {
     public var kind: Kind
     public var title: String
     public var detail: String?
+    /// Set on lines that were a warning or a fallback (ActivityNotes): how much they ask of the person. `title` is then the plain sentence.
+    public var severity: ActivitySeverity? = nil
+    /// The message exactly as the director logged it (and a fallback's fields), for "Show original message".
+    public var original: String? = nil
     public var symbolName: String {
-        switch kind {
+        if let severity, !severity.isAlerting { return "info.circle" }
+        return switch kind {
         case .milestone: "flag.fill"
         case .source: "globe"
         case .crew: "person.2"

@@ -39,10 +39,11 @@ extension SessionSnapshot {
             return DecisionHistoryEntry(id: index, decision: old, because: entry["because"].string ?? "", replacedBy: entry["replaced_by"].string ?? "")
         }
     }
-    /// Fallbacks recorded in `session.downgrades`, newest first.
+    /// Fallbacks recorded in `session.downgrades`, newest first. A row with a `kind` (a routine adjustment such as a Fast pace
+    /// shortcut) is not a downgrade: it shows only as a quiet adjustment on the working screen.
     var downgrades: [DowngradeRow] {
         raw["downgrades"].array.enumerated().compactMap { index, entry in
-            guard let what = entry["what"].string, let instead = entry["instead"].string else { return nil }
+            guard let what = entry["what"].string, let instead = entry["instead"].string, (entry["kind"].string ?? "").isEmpty else { return nil }
             return DowngradeRow(id: index, what: what, instead: instead, why: entry["why"].string ?? "", impact: entry["impact"].string ?? "")
         }.reversed()
     }
