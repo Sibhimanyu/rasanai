@@ -2,6 +2,11 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- Updates now show what changed: a native update screen with a "What's new" list while it downloads and installs, plus a one-time "You're now on X" card after you restart.
+- Fixed a flat colour strip behind the floating sidebar in full screen.
+
 ## 0.22.0 (build 51) — 2026-10-26
 
 - **One player everywhere.** Every video preview now has the same controls (play, skip 5 seconds, speed, loop, volume, full screen), including the final film page, source files, drafts, the library and progress cards. Full screen now also works when the app is already full screen.

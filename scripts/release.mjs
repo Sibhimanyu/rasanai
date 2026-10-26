@@ -151,6 +151,20 @@ function sectionBody(text, headRe) {
   while (j < lines.length && !/^## /.test(lines[j])) j++;
   return lines.slice(i + 1, j).join("\n").trim();
 }
+/** CHANGELOG bullets (markdown) as a plain <ul><li> list for the appcast: text escaped, **x** -> <b>, `x` -> <code>. */
+function bulletsToHtml(md) {
+  const inline = (t) =>
+    t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>");
+  const items = [];
+  for (const line of String(md || "").split("\n")) {
+    const m = line.match(/^\s*[-*]\s+(.*\S)\s*$/);
+    if (m) items.push(m[1]);
+    else if (items.length && line.trim()) items[items.length - 1] += " " + line.trim();
+  }
+  const html = `<ul>${items.map((i) => `<li>${inline(i)}</li>`).join("")}</ul>`;
+  return html.replace(/]]>/g, "]]]]><![CDATA[>");
+}
 function replaceHeading(text, headRe, newHeading) {
   const lines = text.split("\n");
   const i = lines.findIndex((l) => headRe.test(l));
@@ -701,7 +715,7 @@ async function releaseStudio(version) {
           "    <item>",
           `      <title>RasanAI Studio ${version} beta ${beta}</title>`,
           `      <pubDate>${pub}</pubDate>`,
-          `      <description sparkle:format="markdown"><![CDATA[${STATE.bullets}]]></description>`,
+          `      <description><![CDATA[${bulletsToHtml(STATE.bullets)}]]></description>`,
           `      <sparkle:version>${build}</sparkle:version>`,
           `      <sparkle:shortVersionString>${version}</sparkle:shortVersionString>`,
           `      <sparkle:minimumSystemVersion>${prev.minOS}</sparkle:minimumSystemVersion>`,

@@ -6,6 +6,7 @@ import Heresay
 /// The window's root: a NavigationStack with Home at the bottom. No sidebars, no inspectors.
 struct StudioView: View {
     @Bindable var store: StudioStore
+    @ObservedObject private var updater = StudioUpdater.shared
 
     init(store: StudioStore) {
         self.store = store
@@ -17,6 +18,11 @@ struct StudioView: View {
     var body: some View {
         content.environment(\.momentStore, store)
             .modifier(LaunchFocus(ready: !store.isLoadingProjects, agent: store.settings.agent.title))
+    }
+
+    /// After an update, the one-time "here's what changed" card, once nothing else is open.
+    private func showWhatsNewIfNeeded() {
+        if updater.whatsNew != nil, store.sheet == nil, !store.settings.showWelcome { store.sheet = .whatsNew }
     }
 
     @AppStorage("studio.sidebarHidden") private var sidebarHidden = false
@@ -41,7 +47,11 @@ struct StudioView: View {
                 if showsStatusBar { AppStatusBar(store: store, sidebarHidden: columns == .detailOnly) }
             }
             .background(Color.appBackground)
+            .modifier(ExtendUnderSidebar())
         }
+        // The same background sits behind the whole split view, so the column behind the floating sidebar glass is never a
+        // different flat colour (full screen especially).
+        .background(Color.appBackground.ignoresSafeArea())
         // Keep floating toolbar controls in ordinary windows. In full screen, let AppKit choose the toolbar background
         // so the native split view and fullscreen chrome can compose together.
         .modifier(NoToolbarBand(fullScreen: isFullScreen))
@@ -116,13 +126,17 @@ struct StudioView: View {
             case .welcome: WelcomeView(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
             case .log: DirectorLogSheet(runtime: store.runtime).tint(.rasan).buttonStyle(.rasanSecondary)
             case .files: FilesSheet(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
+            case .update: StudioUpdateView(updater: updater).tint(.rasan).buttonStyle(.rasanSecondary)
+            case .whatsNew: WhatsNewCard(updater: updater).tint(.rasan).buttonStyle(.rasanSecondary)
             case .preflight: PreflightView(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
             case .projectTransfer: ProjectTransferView(store: store).tint(.rasan).buttonStyle(.rasanSecondary)
             case .export:
                 if let source = store.exportSource { MovieExportSheet(source: source, captions: store.exportCaptions, delivery: DeliveryPlan.read(run: store.runURL)).tint(.rasan).buttonStyle(.rasanSecondary) }
             }
         }
-        .onAppear { introduceFeedback() }
+        .onAppear { introduceFeedback(); showWhatsNewIfNeeded() }
+        .onChange(of: updater.presentRequest) { store.sheet = .update }
+        .onChange(of: store.sheet) { showWhatsNewIfNeeded() }
         .onChange(of: store.settings.showWelcome) {
             if store.settings.showWelcome { store.sheet = .welcome }
             else if store.sheet == .welcome { store.sheet = nil }
@@ -352,5 +366,13 @@ private struct NoToolbarBand: ViewModifier {
     func body(content: Content) -> some View {
         if #available(macOS 15, *) { content.toolbarBackgroundVisibility(fullScreen ? .automatic : .hidden, for: .windowToolbar) }
         else { content.toolbarBackground(fullScreen ? .automatic : .hidden, for: .windowToolbar) }
+    }
+}
+
+/// On macOS 26 the detail's background is mirrored and blurred under the floating sidebar, so the glass floats over one
+/// continuous background instead of a separate strip.
+private struct ExtendUnderSidebar: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26, *) { content.backgroundExtensionEffect() } else { content }
     }
 }
