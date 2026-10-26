@@ -4,8 +4,8 @@ Status: **implemented_unvalidated / awaiting_test_approval**. This file is a req
 
 ## Implementation candidate
 
-- Actual branch/commit: Sibhimanyu/preview-screen-controls-fix @ 4692f6e996681c0499e3df3be7106846d9ffd0ea (HEAD at 2026-10-26, lane D snapshot; other lanes were still editing, so the lead must re-run the digest at handoff)
-- Uncommitted diff digest: `git diff HEAD -- . ':!apps/macos' | shasum` = afc5a216b0bcd9488850a9e1bcf3302da6e008cd at the lane D snapshot (tracked changes only; 294 porcelain entries including untracked; stale as soon as any lane writes). Protected user changes: (untracked Rasan 3D blender frames and `.blend1` files in the worktree are the owner's and must not be touched)
+- Actual branch/commit: Sibhimanyu/preview-screen-controls-fix @ 0482e3bb5ec4d7bc2a90582c5275d37647f57be7 (all lanes committed; working tree clean for skills/ and docs/ apart from the owner's untracked Rasan 3D files)
+- Candidate diff: commit 0482e3bb5ec4d7bc2a90582c5275d37647f57be7; earlier lane-time digest superseded. No approval is claimed.
 - Previous Creative Recovery dependency state: implemented, unvalidated (docs/plans/creative-recovery/TEST_APPROVAL_REQUEST.md still awaiting approval)
 - Engine source/version the approved run would load: to be filled by the lead
 - Implemented profile/module/entrypoint list: to be filled by the lead from the lane receipts (M01-M08)
