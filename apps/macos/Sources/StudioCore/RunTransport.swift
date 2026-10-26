@@ -256,6 +256,13 @@ final class RunWatcher: @unchecked Sendable {
 /// ones (a moment before it lists the action as consumed) the two agree.
 public enum SessionOverlay {
     public static let readingMessage = "Claude is reading your answer…"
+    /// Actions the engine reads without a thread line, a `sent` banner or a "reading" status.
+    static let sideChannel: Set<String> = ["revision-request", "revision-confirm"]
+    /// The same words within a few seconds are one message.
+    static func close(_ a: String?, _ b: String) -> Bool {
+        guard let a, let x = ActivityItem.parse(a), let y = ActivityItem.parse(b) else { return false }
+        return abs(x.timeIntervalSince(y)) < 5
+    }
 
     public static func apply(_ queued: [QueuedAction], to snapshot: SessionSnapshot) -> SessionSnapshot {
         guard !queued.isEmpty else { return snapshot }
@@ -266,13 +273,17 @@ public enum SessionOverlay {
                 if root["decide_rest"] == nil || root["decide_rest"] == .null { root["decide_rest"] = .object(["ts": .string(action.ts)]) }
                 continue
             }
+            // A revision request travels next to a `note` with the same words: the engine shows only the note, so the overlay must too
+            // (else every chat message showed twice while it waited, and the step looked answered).
+            if Self.sideChannel.contains(action.type) { continue }
             if var step = steps[action.step]?.object {
                 if !["comment", "knob"].contains(action.type) {
                     step["sent"] = .object(["type": .string(action.type), "value": action.value, "note": .string(action.note), "ts": .string(action.ts)])
                 }
                 if action.type != "comment", !action.note.isEmpty {
                     var thread = step["thread"]?.array ?? []
-                    if !thread.contains(where: { $0["who"].string == "you" && $0["t"].string == action.ts && $0["text"].string == action.note }) {
+                    if !thread.contains(where: { $0["who"].string == "you" && $0["text"].string == action.note
+                        && ($0["t"].string == action.ts || Self.close($0["t"].string, action.ts)) }) {
                         thread.append(.object(["who": .string("you"), "text": .string(action.note), "t": .string(action.ts)]))
                     }
                     step["thread"] = .array(thread)

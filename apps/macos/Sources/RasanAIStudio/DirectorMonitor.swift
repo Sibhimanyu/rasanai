@@ -188,6 +188,14 @@ final class DirectorMonitor {
     /// The person saw the refusal, fixed its cause or restarted the director: it no longer holds the film's state.
     func acknowledgeBlock() { scanner.acknowledge(); notifiedBlock = nil }
 
+    /// When the person last pressed Fix it, per block: a block seen again after that is a repeat, and Fix it becomes Restart Rasan.
+    private(set) var fixAttempts: [String: Date] = [:]
+    func noteFixAttempt(_ block: DirectorBlock) { fixAttempts[block.id] = Date() }
+    func blockRepeatedAfterFix(_ block: DirectorBlock) -> Bool {
+        guard let tried = fixAttempts[block.id] else { return false }
+        return block.at > tried
+    }
+
     private func macDidWake() {
         lastWake = Date()
         store?.handleWake()

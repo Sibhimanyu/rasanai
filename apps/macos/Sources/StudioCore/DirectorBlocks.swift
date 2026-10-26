@@ -10,12 +10,36 @@ public struct DirectorBlock: Identifiable, Equatable, Sendable {
     public var command: String
     public var at: Date
     public var count: Int
+    /// Refused inside one of Rasan's helpers (a sub-agent), not the director itself: kept for the record, but it does not stop the director.
+    public var byHelper = false
 
-    /// What the person reads. Specific and never silent.
+    /// What Rasan asked to do, in plain words ("run `npm test`", "run a command", "change a file"). Never empty backticks.
+    public var action: String {
+        let c = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch tool {
+        case "Bash": return c.isEmpty ? "run a command" : "run `\(c)`"
+        case "Edit", "Write", "MultiEdit", "NotebookEdit": return c.isEmpty ? "change a file" : "change `\(c)`"
+        case "Read", "Glob", "Grep": return c.isEmpty ? "read a file" : "read `\(c)`"
+        case "WebFetch", "WebSearch": return c.isEmpty ? "go on the web" : "open `\(c)`"
+        case "", "Tool": return c.isEmpty ? "run a command" : "run `\(c)`"
+        default: return c.isEmpty ? "use a tool (\(tool))" : "use \(tool) on `\(c)`"
+        }
+    }
+    /// What the person reads: what happened, in plain words. Specific and never silent.
     public var message: String {
-        tool == "Bash"
-            ? "Blocked: Rasan tried to run `\(command)` and macOS/Studio did not allow it."
-            : "Blocked: Rasan tried to use \(tool)\(command.isEmpty ? "" : " on `\(command)`") and macOS/Studio did not allow it."
+        "Studio stopped a step because Rasan asked to \(action), which isn't allowed here."
+    }
+    /// What to do about it, one sentence.
+    public var whatToDo: String {
+        isInstall ? "Studio can install the tool for you, or you can install it yourself."
+            : "Press Fix it and Rasan will try a safer way."
+    }
+    /// The technical reason, for the small print and for support: the tool, the exact command, how often.
+    public var technical: String {
+        let c = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        let who = byHelper ? "One of Rasan's helpers" : "The director"
+        let what = c.isEmpty ? "(the command was not recorded in the log)" : c
+        return "\(who) was refused permission for \(tool.isEmpty || tool == "Tool" ? "a tool call" : tool): \(what)." + (repeatNote.map { " " + $0 } ?? "")
     }
     /// True for brew, pip, npm install and the like: Studio never lets the director install software by itself.
     public var isInstall: Bool { ToolNeed.isInstallCommand(command) }
@@ -42,7 +66,7 @@ public struct DirectorBlockScanner: Equatable, Sendable {
 
     /// The refusal the director has not got past: nothing but console calls since it, or two refusals in a row.
     public var open: DirectorBlock? {
-        guard let last = blocks.max(by: { $0.at < $1.at }) else { return nil }
+        guard let last = blocks.filter({ !$0.byHelper }).max(by: { $0.at < $1.at }) else { return nil }
         return callsSinceBlock == 0 || deniedStreak >= 2 ? last : nil
     }
 
@@ -68,8 +92,9 @@ public struct DirectorBlockScanner: Equatable, Sendable {
         let time = (object["timestamp"] as? String).flatMap(DirectorTelemetry.parseDate) ?? now
         switch object["type"] as? String {
         case "assistant":
-            guard object["parent_tool_use_id"] == nil || object["parent_tool_use_id"] is NSNull,
-                  let blocks = (object["message"] as? [String: Any])?["content"] as? [[String: Any]] else { return }
+            // A helper's (sub-agent's) calls are remembered too, so a refusal inside a helper is named, never shown as an empty command.
+            let helper = Self.isHelper(object)
+            guard let blocks = (object["message"] as? [String: Any])?["content"] as? [[String: Any]] else { return }
             for block in blocks where block["type"] as? String == "tool_use" {
                 let name = block["name"] as? String ?? "Tool"
                 let input = block["input"] as? [String: Any] ?? [:]
@@ -78,16 +103,17 @@ public struct DirectorBlockScanner: Equatable, Sendable {
                     uses[id] = (name, what); useOrder.append(id)
                     if useOrder.count > 200 { for old in useOrder.prefix(100) { uses[old] = nil }; useOrder.removeFirst(100) }
                 }
-                if !(name == "Bash" && what.contains("console.mjs")) && name != "ScheduleWakeup" { callsSinceBlock += 1 }
+                if !helper && !(name == "Bash" && what.contains("console.mjs")) && name != "ScheduleWakeup" { callsSinceBlock += 1 }
             }
         case "user":
+            let helper = Self.isHelper(object)
             guard let blocks = (object["message"] as? [String: Any])?["content"] as? [[String: Any]] else { return }
             for block in blocks where block["type"] as? String == "tool_result" {
                 let use = (block["tool_use_id"] as? String).flatMap { uses[$0] }
                 let isError = block["is_error"] as? Bool == true
                 if isError, Self.isDenialText(Self.text(of: block["content"])) {
-                    record(tool: use?.tool ?? "Bash", command: use?.command ?? "", at: time)
-                } else if !(use?.tool == "Bash" && use?.command.contains("console.mjs") == true) { deniedStreak = 0 }
+                    record(tool: use?.tool ?? "Tool", command: use?.command ?? "", at: time, helper: helper)
+                } else if !helper && !(use?.tool == "Bash" && use?.command.contains("console.mjs") == true) { deniedStreak = 0 }
             }
         case "result":
             for denial in object["permission_denials"] as? [[String: Any]] ?? [] {
@@ -101,12 +127,22 @@ public struct DirectorBlockScanner: Equatable, Sendable {
         }
     }
 
-    private mutating func record(tool: String, command: String, at time: Date) {
+    private mutating func record(tool: String, command: String, at time: Date, helper: Bool = false) {
         let key = Self.key(tool, command)
         let shown = Self.tidy(command)
-        if let index = blocks.firstIndex(where: { $0.id == key }) { blocks[index].count += 1; blocks[index].at = time }
-        else { blocks.append(DirectorBlock(id: key, tool: tool, command: shown, at: time, count: 1)); if blocks.count > 20 { blocks.removeFirst() } }
-        callsSinceBlock = 0; deniedStreak += 1
+        if let index = blocks.firstIndex(where: { $0.id == key }) {
+            blocks[index].count += 1; blocks[index].at = time; blocks[index].byHelper = blocks[index].byHelper && helper
+        } else {
+            blocks.append(DirectorBlock(id: key, tool: tool, command: shown, at: time, count: 1, byHelper: helper)); if blocks.count > 20 { blocks.removeFirst() }
+        }
+        // A helper's refusal does not stop the director: it is waiting on the helper, which reports back and carries on another way.
+        if !helper { callsSinceBlock = 0; deniedStreak += 1 }
+    }
+
+    /// Stream-json lines from a sub-agent carry the id of the director's tool call that started it.
+    static func isHelper(_ object: [String: Any]) -> Bool {
+        guard let parent = object["parent_tool_use_id"] else { return false }
+        return !(parent is NSNull)
     }
 
     static func tidy(_ command: String) -> String {

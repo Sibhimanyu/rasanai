@@ -326,7 +326,8 @@ struct DeveloperToolsSetup: View {
         if let ask, let model {
             guard await model.answer(ask, choice: need.readyChoice, text: words) else { phase = .failed(model.lastError ?? "Studio could not send the answer. Try again."); return }
         } else if let model, store.runtime.isRunning {
-            _ = await model.tell("Studio: " + words + " The command that was blocked is not needed any more.")
+            _ = await model.tell("Studio: " + words + " The command that was blocked is not needed any more.", fromStudio: true,
+                                 key: "tool-ready|\(need.tool)", friendly: "\(need.title) is installed. Rasan carries on.")
         }
         phase = .ready
         store.monitor.acknowledgeBlock()
@@ -358,12 +359,31 @@ extension StudioStore {
     }
 
     /// "Retry step": a note to a live director to try its current step again (and not to repeat a refused command); a restart if it is gone.
-    func retryStep() {
+    func retryStep(friendly: String = "You pressed Retry step. Rasan is trying the step again.") {
         guard let film, runURL != nil else { return }
         guard runtime.isRunning, !runtime.isFrozen else { restartRasan(); return }
-        let blocked = monitor.openBlock.map { " The command `\($0.command)` was refused: do not run it again. If a program is missing, stop and ask with console.mjs ask using an install-tool:<tool> option." } ?? ""
+        let block = monitor.openBlock ?? monitor.health?.blocked
+        // Never empty backticks: the refused request in plain words ("run a command" when the command is not known).
+        let blocked = block.map { " Your request to \($0.action) was refused: do not run it again. Do the step a different, allowed way instead (the console scripts and the file tools work). If a program is missing, stop and ask with console.mjs ask using an install-tool:<tool> option." } ?? ""
         monitor.acknowledgeBlock()
-        Task { _ = await film.tell("Studio: please retry the step you are on.\(blocked)") }
+        // One logical retry per step and block: Fix it, Retry step, the pill and the panel all share this key.
+        let key = "retry|\(block?.id ?? "none")"
+        Task { _ = await film.tell("Studio: please retry the step you are on.\(blocked)", fromStudio: true, key: key, friendly: friendly) }
+    }
+
+    /// "Fix it" on the blocked banner: what Studio recommends. Retry the step the safe way; restart Rasan when the director is gone,
+    /// frozen, or the same block came back after an earlier Fix it.
+    func fixBlock() {
+        if fixRestarts { restartRasan(); return }
+        if let block = monitor.openBlock ?? monitor.health?.blocked { monitor.noteFixAttempt(block) }
+        retryStep(friendly: "You pressed Fix it. Rasan is trying another way.")
+    }
+
+    /// Fix it means Restart Rasan right now.
+    var fixRestarts: Bool {
+        guard runtime.isRunning, !runtime.isFrozen else { return true }
+        guard let block = monitor.openBlock ?? monitor.health?.blocked else { return false }
+        return monitor.blockRepeatedAfterFix(block)
     }
 }
 

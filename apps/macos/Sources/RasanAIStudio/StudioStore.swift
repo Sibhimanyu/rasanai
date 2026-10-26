@@ -798,6 +798,9 @@ final class StudioStore {
         let model = FilmSessionModel(snapshot: snapshot, run: runURL, workspace: workspace)
         model.startedAt = runtime.startedAt
         model.progressProvider = { [weak self] in self?.progress?.snapshot }
+        model.contextExtras = { [weak self] context in self?.fillChatContext(&context) }
+        model.quickActionHandler = { [weak self] action in self?.performQuickAction(action) }
+        model.livenessProvider = { [weak self] in self?.chatLiveness() }
         model.onSnapshot = { [weak self, weak model] next in
             guard let self, let model, self.film === model else { return }
             self.ingest(next)

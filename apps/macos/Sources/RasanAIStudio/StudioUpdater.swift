@@ -50,6 +50,10 @@ final class StudioUpdater: ObservableObject {
     /// Counts up each time something wants the update window opened; the main window listens.
     @Published private(set) var presentRequest = 0
     @Published private(set) var isSheetOpen = false
+    /// Counts up when the update sheet must close (so no modal blocks the app from quitting); the main window listens.
+    @Published private(set) var dismissRequest = 0
+    private var quitSequenceID = 0
+    private var quitSequenceRunning = false
     /// Set once on the first launch after an update, so the main window can show "here's what changed".
     @Published var whatsNew: PendingWhatsNew?
     /// While installing: nothing wrong yet, the app is slow to close, or nothing has happened for too long.
@@ -199,12 +203,15 @@ final class StudioUpdater: ObservableObject {
         installStall = .none
         stallTasks = [
             Task { [weak self] in
-                try? await Task.sleep(for: .seconds(10))
+                // Real stall only: 8 s after the quit attempts (which take about 1 s) have had their chance.
+                try? await Task.sleep(for: .seconds(9))
                 guard !Task.isCancelled, let self, self.state == .installing, self.installStall == .none else { return }
                 self.installStall = .waitingToClose(reason: StudioAppDelegate.current?.blockingReason ?? "")
+                self.present()   // the sheet was closed to unblock quitting; bring the explanation back
             },
             Task { [weak self] in
-                try? await Task.sleep(for: .seconds(60))
+                // The swap can take a minute on managed Macs (security software scans the new app).
+                try? await Task.sleep(for: .seconds(120))
                 guard !Task.isCancelled, let self, self.state == .installing else { return }
                 self.installStall = .timedOut
             },
@@ -215,10 +222,32 @@ final class StudioUpdater: ObservableObject {
         stallTasks = []
         installStall = .none
     }
-    /// "Restart now" on the waiting screen: ask Sparkle to quit the app again, and quit ourselves if that does nothing.
-    func restartNow() {
+    /// "Restart now" on the waiting screen: the full quit sequence again.
+    func restartNow() { beginQuitSequence() }
+
+    /// Gets the app to quit so Sparkle can swap it: ask Sparkle to resend its quit event, close the update sheet
+    /// so nothing modal is in the way, quit through the normal path after ~1 s, and as a last resort exit after ~6 s.
+    /// Never skips the director protections: with something running and no confirmation it only retries and waits.
+    fileprivate func beginQuitSequence() {
+        quitSequenceID += 1
+        let id = quitSequenceID
         retryTerminating?()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
+        dismissRequest += 1
+        func safeToQuit() -> Bool {
+            StudioAppDelegate.current?.blockingReason == nil || StudioAppDelegate.current?.quitPreconfirmed == true
+        }
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard let self, self.quitSequenceID == id, self.state == .installing, safeToQuit() else { return }
+            NSApp.terminate(nil)
+            try? await Task.sleep(for: .seconds(5))
+            guard self.quitSequenceID == id, self.state == .installing, safeToQuit() else { return }
+            // Still here: Sparkle's helper is waiting on us. Close every window and leave.
+            for window in NSApp.windows { window.close() }
+            NSApp.terminate(nil)
+            try? await Task.sleep(for: .seconds(1))
+            if self.quitSequenceID == id, self.state == .installing { exit(0) }
+        }
     }
     /// "Finish quitting anyway": stops whatever is running without asking again, then quits.
     func quitAnyway() {
@@ -229,7 +258,7 @@ final class StudioUpdater: ObservableObject {
     func tryInstallAgain() {
         installStartedAt = Date()
         startStallTimers()
-        retryTerminating?()
+        beginQuitSequence()
     }
     func downloadManually() { NSWorkspace.shared.open(Self.releasesURL) }
     func tryAgain() {
@@ -256,11 +285,17 @@ final class StudioUpdater: ObservableObject {
         retryTerminating = retry
         state = .installing
         if installStartedAt == nil { installStartedAt = Date() }
-        if applicationTerminated { stopStallTimers() } else if stallTasks.isEmpty { startStallTimers() }
+        if applicationTerminated { stopStallTimers(); quitSequenceID += 1 }
+        else {
+            if stallTasks.isEmpty { startStallTimers() }
+            // Sparkle sends one quit event and then only waits. Quit by ourselves, once per install.
+            if !quitSequenceRunning { quitSequenceRunning = true; beginQuitSequence() }
+        }
     }
     fileprivate func sessionEnded() {
         // Nothing is left half done: timers, the quit request and the "skip the quit prompt" flag all go away.
         stopStallTimers()
+        quitSequenceID += 1; quitSequenceRunning = false
         installStartedAt = nil; retryTerminating = nil; restartBlocker = nil; downloadRate = 0
         StudioAppDelegate.current?.quitPreconfirmed = false
         cancelCheck = nil; chooseUpdate = nil; acknowledge = nil; cancelDownload = nil
