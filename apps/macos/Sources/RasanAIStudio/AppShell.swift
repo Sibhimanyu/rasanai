@@ -129,15 +129,6 @@ struct AppSidebar: View {
             .focused($focused, equals: .settings)
             .padding(.horizontal, 10).padding(.vertical, 8)
         }
-        // The system glass behind the sidebar samples whatever lies under it; a mostly opaque wash on top keeps any shape of
-        // the film's cards from showing through, leaving only a soft tint.
-        .background {
-            ZStack {
-                Color.appBackground.opacity(0.88)
-                LinearGradient(colors: [Color.rasan.opacity(0.10), .clear], startPoint: .topLeading, endPoint: .bottomTrailing)
-            }
-            .ignoresSafeArea()
-        }
         .navigationSplitViewColumnWidth(min: 180, ideal: 205, max: 280)
     }
 

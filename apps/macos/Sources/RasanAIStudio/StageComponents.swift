@@ -142,18 +142,18 @@ struct StageHeader: View {
     private var contextText: String? { (context?.isEmpty ?? true) ? nil : context }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
+        HStack(alignment: .center, spacing: 16) {
             if let character {
                 // The crew member asks it herself: the question is her speech bubble, so it is not repeated as a heading.
-                // Centred in the header's height, so the room above and below her is equal when the bubble is the taller one.
+                // Both are centred in the row, so the room above and below is equal and the row is only as tall as the taller one.
+                let stageHeight = CrewStage.height(mode: .ask, unit: Self.askUnit(character))
                 CrewStage(character: character, mode: .ask, unit: Self.askUnit(character))
-                    .frame(maxHeight: .infinity, alignment: .center)
                 // The bubble gets its room first, so a wide character never squeezes it into a tall column.
-                CrewSpeechBubble(text: question, subtitle: contextText, tint: character.color)
+                // Its tail meets the figure at mouth height (about 45% down), a little above the shared centre line.
+                CrewSpeechBubble(text: question, subtitle: contextText, tint: character.color,
+                                 tailFromCenter: (0.45 - 0.5) * stageHeight)
                     .frame(minWidth: 240, alignment: .leading)
                     .layoutPriority(1)
-                    // Drop the bubble so its tail meets the character at mouth height (about 45% down the figure).
-                    .padding(.top, max(0, 0.45 * CrewStage.height(mode: .ask, unit: Self.askUnit(character)) - SpeechShape.tailY))
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(question)
@@ -167,6 +167,7 @@ struct StageHeader: View {
             trailing
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     /// 150pt tall, but a wide figure (Rasika) shrinks so it stays about 170pt wide and leaves the bubble its room.

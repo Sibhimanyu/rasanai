@@ -19,6 +19,7 @@ struct FilmStatusBar<Usage: View>: View {
     @Environment(\.agentName) private var agent
     @State private var lastActivityAt = Date()
     @State private var sentSeenAt = Date()
+    @State private var askCompact = false
 
     private var step: String { model.shownStep }
     private var sent: Bool { model.hasSent(step) && model.status(step) != "done" }
@@ -39,12 +40,17 @@ struct FilmStatusBar<Usage: View>: View {
                 usage.fixedSize().padding(.trailing, 4)
                 if let actions, !model.isViewingPast, !sent, model.showsActions(for: actions.step) { buttons(actions) }
                 else if needsResume { resumeSlot }
-                AskRasanField(model: model)
-                    // The open card is the one place to type: the bar's field steps aside (keeping its room) so there are never two.
-                    .opacity(model.askCardPresented && !model.decisionsPresented ? 0 : 1)
-                    .allowsHitTesting(!(model.askCardPresented && !model.decisionsPresented))
+                // The one place to type to Rasan; focusing it grows the conversation up out of the pill.
+                AskRasanField(model: model, compact: $askCompact)
+            }
+            // Too narrow for the field: the icon opens the chat and the pill grows a full-width row to type in.
+            if askCompact && AskRasanFloatingChat.visible(model) {
+                AskRasanField(model: model, mode: .row, compact: .constant(true))
+                    .padding(.bottom, 2)
+                    .transition(.opacity)
             }
         }
+        .animation(.snappy(duration: 0.2), value: askCompact && AskRasanFloatingChat.visible(model))
         .padding(.leading, 16).padding(.trailing, 7).padding(.vertical, model.lastError == nil ? 7 : 9)
         .frame(maxWidth: .infinity, minHeight: 44)
         // A floating full-width pill of the same glass as the sidebar; content scrolls underneath it.
@@ -227,20 +233,36 @@ struct FilmStatusBarHost<Content: View, Usage: View>: View {
     @ViewBuilder var content: Content
     @State private var actions: FilmActions?
     @State private var stageHeight: CGFloat = 800
+    @State private var stageWidth: CGFloat = 1000
+    @State private var askFieldWidth: CGFloat = 300
+    @State private var askZones = AskClickZones()
+
+    /// The conversation is as wide as the field row it grows from: at least 380pt, at most 560pt, never wider than the page.
+    private var askWidth: CGFloat { min(max(askFieldWidth, 380), 560, max(240, stageWidth - 32)) }
 
     var body: some View {
         content.onPreferenceChange(FilmActionsKey.self) { actions = $0 }
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { stageHeight = $0 }
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { stageHeight = $0.height; stageWidth = $0.width }
             // A floating glass pill over the page: content scrolls underneath and can still scroll clear of it.
             // A clear gap above the bar so the panels never butt against it.
             .safeAreaInset(edge: .bottom, spacing: Workspace.gap) {
                 if visible {
                     FilmStatusBar(model: model, turn: turn, actions: actions, onDetails: onDetails, onPause: onPause, onResume: onResume, usage: { usage }, stillWorking: stillWorking, remaining: remaining)
-                        // The chat card grows up out of the pill, anchored at its right end, floating over the page.
+                        .onPreferenceChange(AskFieldWidthKey.self) { askFieldWidth = $0 }
+                        .background { AskClickZone(zones: askZones, watches: true) }
+                        // The conversation grows up out of the pill above its field, floating over the page.
                         .overlay(alignment: .topTrailing) {
-                            AskRasanChatCard(model: model, maxHeight: stageHeight * 0.6)
-                                .alignmentGuide(.top) { $0[.bottom] + 8 }
+                            AskRasanFloatingChat(model: model, width: askWidth, maxHeight: stageHeight * 0.55, zones: askZones)
+                                .alignmentGuide(.top) { $0[.bottom] + 10 }
                                 .padding(.trailing, 7)
+                        }
+                        .onAppear {
+                            // A click anywhere else tucks the chat away, unless a draft is being typed.
+                            askZones.onOutside = { [model] in
+                                guard AskRasanFloatingChat.visible(model) else { return }
+                                let typing = model.askFieldFocused && !model.tellText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                if !typing { model.askCardPresented = false }
+                            }
                         }
                 }
             }

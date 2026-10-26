@@ -59,22 +59,17 @@ struct FilmInspector: View {
 
 /// The chat with Rasan, the director: one continuous conversation across the whole film, a header, a composer at the bottom.
 /// Return sends, Shift-Return makes a new line, ⌘↩ sends. An unsent message also goes with the status bar's primary or
-/// "Let <agent> decide" (`model.tellText`).
+/// "Let <agent> decide" (`model.tellText`). The pill's Ask Rasan field types into the same draft and conversation.
 struct NotesInspector: View {
     @Bindable var model: FilmSessionModel
-    /// The floating Ask Rasan card draws its own header, so it reuses the conversation and composer without this one.
-    var showsHeader = true
     @FocusState private var focused: Bool
-    @Environment(NoteSkips.self) private var skips: NoteSkips?
-    private var step: String { model.pendingMark?.step ?? model.tellStep ?? model.shownStep }
+    private var step: String { model.draftStep }
     private var trimmed: String { model.tellText.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
         VStack(spacing: 0) {
-            if showsHeader {
-                header
-                Rectangle().fill(Workspace.hairline).frame(height: 1)
-            }
+            header
+            Rectangle().fill(Workspace.hairline).frame(height: 1)
             thread
             composer
         }
@@ -85,11 +80,6 @@ struct NotesInspector: View {
 
     private func focus() { Task { @MainActor in focused = true; model.tellPresented = false } }
 
-    private var replying: Bool {
-        guard let last = model.conversation.last else { return false }
-        return model.isReplyPending(for: last.step)
-    }
-
     /// The one Rasan in the panel.
     private var header: some View {
         HStack(spacing: 10) {
@@ -99,10 +89,10 @@ struct NotesInspector: View {
                 Text("Director").font(.system(size: 11)).foregroundStyle(.secondary)
             }
             Spacer(minLength: 4)
-            if replying || model.isConnected {
+            if model.isReplying || model.isConnected {
                 HStack(spacing: 5) {
-                    Circle().fill(replying ? Color.orange : Color.green).frame(width: 6, height: 6)
-                    Text(replying ? "Thinking…" : "Listening").font(.system(size: 11)).foregroundStyle(.secondary)
+                    Circle().fill(model.isReplying ? Color.orange : Color.green).frame(width: 6, height: 6)
+                    Text(model.isReplying ? "Thinking…" : "Listening").font(.system(size: 11)).foregroundStyle(.secondary)
                 }
                 .accessibilityElement(children: .combine)
             }
@@ -110,75 +100,13 @@ struct NotesInspector: View {
         .padding(.horizontal, 14).padding(.vertical, 8)
     }
 
-    /// One run of the conversation on a step: Rasan's and the person's messages, then the timed notes left on that step's film.
-    private struct Group: Identifiable {
-        let step: String
-        var messages: [ThreadMessage]
-        var notes: [ReviewNote] = []
-        var id: String { "\(step)|\(messages.first?.id ?? "notes")" }
-    }
-
-    private var groups: [Group] {
-        var result: [Group] = []
-        for message in model.conversation {
-            if result.last?.step == message.step { result[result.count - 1].messages.append(message) }
-            else { result.append(Group(step: message.step, messages: [message])) }
-        }
-        let notes = model.snapshot.notes.sorted { $0.time < $1.time }
-        for name in StepCatalog.order where notes.contains(where: { $0.step == name }) {
-            let mine = notes.filter { $0.step == name }
-            if let index = result.lastIndex(where: { $0.step == name }) { result[index].notes = mine }
-            else { result.append(Group(step: name, messages: [], notes: mine)) }
-        }
-        return result
-    }
-
-    /// The scene thumbnail for a note's time, only when the file is really there.
-    private func thumbnail(for note: ReviewNote, in scenes: [FilmScene]) -> String? {
-        guard let path = FilmTiming.sceneIndex(of: note, in: scenes).flatMap({ scenes[$0].thumbnail }),
-              let url = model.fileURL(path), FileManager.default.fileExists(atPath: url.path) else { return nil }
-        return path
-    }
-
     private var thread: some View {
-        let groups = groups
-        let count = groups.reduce(0) { $0 + $1.messages.count + $1.notes.count }
-        let replying = replying
-        return ScrollViewReader { proxy in
+        ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 6) {
-                    if count == 0 && !replying { emptyState }
-                    ForEach(groups) { group in
-                        StepDivider(label: StepCatalog.label(group.step))
-                        ForEach(Array(group.messages.enumerated()), id: \.element.id) { index, message in
-                            let previous = index > 0 ? group.messages[index - 1] : nil
-                            let startsRun = previous == nil || previous?.fromUser != message.fromUser
-                            let label: String? = !startsRun ? nil : message.fromUser ? (previous != nil ? "You" : nil) : "Rasan"
-                            ThreadBubble(message: message, label: label)
-                                .padding(.top, previous != nil && startsRun ? 6 : 0)
-                        }
-                        let scenes = model.snapshot.scenes(for: ReviewStage.consoleStep(group.step))
-                        ForEach(group.notes) { note in
-                            let mark = model.mark(for: note)
-                            ThreadNote(note: note, mark: mark, thumbnailPath: thumbnail(for: note, in: scenes),
-                                       lit: model.focusedNoteID == note.id,
-                                       skipped: skips?.ids.contains(note.id) == true,
-                                       onToggleSkip: note.isOpen ? skips.map { s in { s.toggle(note.id) } } : nil) {
-                                model.jump(to: note)
-                            }
-                            .id("note-\(note.id)")
-                        }
-                    }
-                    if let confirm = model.pendingConfirm, confirm.step == step { RevisionConfirmCard(model: model, confirm: confirm) }
-                    if replying {
-                        HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Rasan is thinking…").font(.system(size: 12)).foregroundStyle(.secondary) }
-                            .padding(.top, 4)
-                    }
-                    Color.clear.frame(height: 1).id("end")
-                }
-                .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                ConversationList(model: model) { emptyState }
+                    .padding(14).frame(maxWidth: .infinity, alignment: .leading)
             }
-            .onChange(of: count) { withAnimation(.smooth) { proxy.scrollTo("end") } }
+            .onChange(of: model.conversationSignature) { withAnimation(.smooth) { proxy.scrollTo("end") } }
             .onChange(of: model.scrollToNoteID) { _, id in scroll(to: id, proxy) }
             .onAppear {
                 proxy.scrollTo("end")
@@ -211,20 +139,20 @@ struct NotesInspector: View {
 
     private var composer: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if let mark = model.pendingMark { markChip(mark) }
+            if let mark = model.pendingMark { PendingMarkChip(model: model, mark: mark) }
             ZStack(alignment: .bottomTrailing) {
                 TextField(model.pendingMark == nil ? "Tell Rasan what to change or avoid…" : "What should change here?", text: $model.tellText, axis: .vertical)
                     .textFieldStyle(.plain).font(.system(size: 13)).lineLimit(1...5)
                     .focused($focused)
                     .onKeyPress(.return, phases: .down) { press in
                         guard press.modifiers.isEmpty else { return .ignored }   // Shift-Return: a new line; ⌘↩: the send button
-                        if !trimmed.isEmpty && !model.isSending { send() }
+                        model.sendDraft()
                         return .handled
                     }
                     .accessibilityLabel("Message for Rasan")
                     .padding(.leading, 12).padding(.trailing, 44).padding(.vertical, 10)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                Button { send() } label: {
+                Button { model.sendDraft() } label: {
                     Image(systemName: "arrow.up").font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
                         .frame(width: 26, height: 26)
                         .background(Circle().fill(trimmed.isEmpty || model.isSending ? Color.secondary.opacity(0.35) : Color.rasan))
@@ -253,9 +181,88 @@ struct NotesInspector: View {
         }
         .padding(12)
     }
+}
 
-    /// The attachment above the field: the frame with the mark on it, when and what, and an × that drops it.
-    private func markChip(_ mark: FilmMark) -> some View {
+/// One run of the conversation on a step: Rasan's and the person's messages, then the timed notes left on that step's film.
+private struct ConversationGroup: Identifiable {
+    let step: String
+    var messages: [ThreadMessage]
+    var notes: [ReviewNote] = []
+    var id: String { "\(step)|\(messages.first?.id ?? "notes")" }
+}
+
+/// The conversation rows, shared by the side panel and the chat that grows out of the pill: step dividers, Rasan's and
+/// the person's messages, timed notes with their frames, the confirm card, "Rasan is thinking…", and an "end" anchor.
+/// The host owns the scroll view. `empty` shows when there is nothing yet.
+struct ConversationList<Empty: View>: View {
+    @Bindable var model: FilmSessionModel
+    @ViewBuilder var empty: Empty
+    @Environment(NoteSkips.self) private var skips: NoteSkips?
+
+    private var groups: [ConversationGroup] {
+        var result: [ConversationGroup] = []
+        for message in model.conversation {
+            if result.last?.step == message.step { result[result.count - 1].messages.append(message) }
+            else { result.append(ConversationGroup(step: message.step, messages: [message])) }
+        }
+        let notes = model.snapshot.notes.sorted { $0.time < $1.time }
+        for name in StepCatalog.order where notes.contains(where: { $0.step == name }) {
+            let mine = notes.filter { $0.step == name }
+            if let index = result.lastIndex(where: { $0.step == name }) { result[index].notes = mine }
+            else { result.append(ConversationGroup(step: name, messages: [], notes: mine)) }
+        }
+        return result
+    }
+
+    /// The scene thumbnail for a note's time, only when the file is really there.
+    private func thumbnail(for note: ReviewNote, in scenes: [FilmScene]) -> String? {
+        guard let path = FilmTiming.sceneIndex(of: note, in: scenes).flatMap({ scenes[$0].thumbnail }),
+              let url = model.fileURL(path), FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return path
+    }
+
+    var body: some View {
+        let groups = groups
+        let replying = model.isReplying
+        VStack(alignment: .leading, spacing: 6) {
+            if groups.isEmpty && !replying { empty }
+            ForEach(groups) { group in
+                StepDivider(label: StepCatalog.label(group.step))
+                ForEach(Array(group.messages.enumerated()), id: \.element.id) { index, message in
+                    let previous = index > 0 ? group.messages[index - 1] : nil
+                    let startsRun = previous == nil || previous?.fromUser != message.fromUser
+                    let label: String? = !startsRun ? nil : message.fromUser ? (previous != nil ? "You" : nil) : "Rasan"
+                    ThreadBubble(message: message, label: label)
+                        .padding(.top, previous != nil && startsRun ? 6 : 0)
+                }
+                let scenes = model.snapshot.scenes(for: ReviewStage.consoleStep(group.step))
+                ForEach(group.notes) { note in
+                    let mark = model.mark(for: note)
+                    ThreadNote(note: note, mark: mark, thumbnailPath: thumbnail(for: note, in: scenes),
+                               lit: model.focusedNoteID == note.id,
+                               skipped: skips?.ids.contains(note.id) == true,
+                               onToggleSkip: note.isOpen ? skips.map { s in { s.toggle(note.id) } } : nil) {
+                        model.jump(to: note)
+                    }
+                    .id("note-\(note.id)")
+                }
+            }
+            if let confirm = model.pendingConfirm, confirm.step == model.draftStep { RevisionConfirmCard(model: model, confirm: confirm) }
+            if replying {
+                HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Rasan is thinking…").font(.system(size: 12)).foregroundStyle(.secondary) }
+                    .padding(.top, 4)
+                    .accessibilityElement(children: .combine)
+            }
+            Color.clear.frame(height: 1).id("end")
+        }
+    }
+}
+
+/// The attachment waiting to go with the next message: the frame with the mark on it, when and what, and an × that drops it.
+struct PendingMarkChip: View {
+    let model: FilmSessionModel
+    let mark: FilmMark
+    var body: some View {
         HStack(spacing: 10) {
             MarkThumb(image: mark.snapshot, kind: mark.kind, rect: mark.rect, path: mark.path)
             Text(mark.caption).font(.system(size: 12, weight: .medium)).monospacedDigit().foregroundStyle(.secondary)
@@ -273,13 +280,28 @@ struct NotesInspector: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Marked \(mark.caption)")
     }
+}
 
-    private func send() {
-        let text = trimmed
-        if model.pendingMark != nil {
-            Task { if await model.sendPendingMark(text: text) { model.tellText = "" } }
+extension FilmSessionModel {
+    /// The step the draft goes with: a pending mark's, else the one the chat was opened for, else the one on screen.
+    var draftStep: String { pendingMark?.step ?? tellStep ?? shownStep }
+    /// Rasan owes a reply to the latest message.
+    var isReplying: Bool {
+        guard let last = conversation.last else { return false }
+        return isReplyPending(for: last.step)
+    }
+    /// Changes whenever a row is added to the conversation (or Rasan starts or stops thinking), for scrolling to the end.
+    var conversationSignature: String { "\(conversation.count)|\(snapshot.notes.count)|\(isReplying)" }
+
+    /// Sends the draft (`tellText`): as a timed note when a mark is waiting, else as a message on `draftStep`. Clears it once sent.
+    func sendDraft() {
+        let text = tellText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, !isSending else { return }
+        if pendingMark != nil {
+            Task { if await sendPendingMark(text: text) { tellText = "" } }
         } else {
-            Task { if await model.tell(text, step: step) { model.tellText = "" } }
+            let step = draftStep
+            Task { if await tell(text, step: step) { tellText = "" } }
         }
     }
 }
@@ -366,7 +388,7 @@ extension FilmSessionModel {
 }
 
 /// Lays the inspector panel beside the stage panel. Closed by default at any width; it remembers the person's last
-/// explicit choice. ⌘K opens it on the Rasan chat with the composer focused.
+/// explicit choice. ⌘K focuses the Ask Rasan field in the bottom pill (or the panel's composer when the panel is open).
 struct DecisionsHost<Page: View>: View {
     @Bindable var model: FilmSessionModel
     let page: Page
@@ -397,7 +419,7 @@ struct DecisionsHost<Page: View>: View {
             stored = open ? 1 : 2
         }
         .background {
-            Button("Chat with Rasan") { model.beginTell() }.keyboardShortcut("k", modifiers: .command)
+            Button("Chat with Rasan") { model.askRasan() }.keyboardShortcut("k", modifiers: .command)
                 .opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
         }
     }
