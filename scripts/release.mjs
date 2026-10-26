@@ -325,8 +325,14 @@ function deleteBranchStep(keys) {
   };
 }
 
+const secs = (ms) => `${Math.round(ms / 1000)}s`;
+
+// Prints how long each step took, and a summary at the end, so slow releases show where the time went.
 async function runSteps(steps) {
+  const times = [];
+  const t0 = Date.now();
   for (const s of steps) {
+    const ts = Date.now();
     step(s.name);
     let d;
     try {
@@ -345,6 +351,12 @@ async function runSteps(steps) {
     }
     await s.run();
     save();
+    times.push([s.name, Date.now() - ts]);
+    log(`   took ${secs(Date.now() - ts)}`);
+  }
+  if (times.length) {
+    log(`\n== timings (total ${secs(Date.now() - t0)})`);
+    for (const [name, ms] of times) log(`   ${secs(ms).padStart(5)}  ${name}`);
   }
 }
 
