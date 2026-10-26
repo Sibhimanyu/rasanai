@@ -6,6 +6,20 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.21.0 beta 1</title>
+      <pubDate>Mon, 26 Oct 2026 00:43:20 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **Ask Rasan how long it will take.** In the chat, "how long will it take?" and "what is happening?" are answered on the spot from the film's real progress, without interrupting the work.
+- **Notes become real change requests.** A message like "don't use this font" is read as a revision request the engine acts on and answers (an unclear one asks you to confirm first), and the answer shows in the chat.
+- **Edit elements on the final film.** Click an element in the final picture to move or resize it; the engine applies the edit and says if it could not. Early foundation, not tested end to end.
+- **Delivery details are collapsed** in the export sheet until you open them.
+- **Behind the scenes:** the groundwork for undo and revisions, and for safer recovery when a step fails, is in. Not yet tested end to end.]]></description>
+      <sparkle:version>50</sparkle:version>
+      <sparkle:shortVersionString>0.21.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.21.0-beta.1/RasanAI-Studio-0.21.0.dmg" sparkle:edSignature="tqJTtWGG06Q1xSI5awAVpSUiPT+RuC0PvHkVJnMPcBwjuTcCz3wQG9Y/NSYkkoj96hwlQLMEZbDp55TzSHShDA==" length="84087316" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.20.1 beta 1</title>
       <pubDate>Sun, 25 Oct 2026 14:36:35 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **The film status says what Rasan is doing.** After you send something, the bar shows what Rasan is working on, how long it has been, and a time estimate when there is one. If nothing has happened after two minutes it says so and offers Show log.
