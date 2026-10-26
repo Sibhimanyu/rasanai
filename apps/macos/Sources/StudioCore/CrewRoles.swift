@@ -25,7 +25,11 @@ public enum CrewRoles {
 
     public static func character(forRole role: String?) -> String? {
         guard let role else { return nil }
-        return roleCharacters[role.lowercased()]
+        let name = role.lowercased()
+        if let exact = roleCharacters[name] { return exact }
+        // A keyed role ("critic-film-1", "script-writer-sure") belongs to its base role's character.
+        if let base = rolesByLength.first(where: { name.hasPrefix($0 + "-") }) { return roleCharacters[base] }
+        return nil
     }
 
     /// The role a prompt names with its `crew/prompts/<role>[-<key>].md` path, e.g. "script-writer" from
