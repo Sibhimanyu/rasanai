@@ -2,6 +2,11 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- Quitting while a film is working now offers a third choice, "Keep the film running": Studio closes and the director carries on, and the next Studio picks it up (also when a phone resumed it while Studio was closed). Stop and Quit stays the default.
+- A director started from outside Studio (`director.mjs resume`) is found by a relaunched Studio from the process list.
+
 ## 0.23.0 (build 61) — 2026-10-26
 
 - The Brief page is tidier: two columns that line up at the top and stay a comfortable width on big screens, a smaller header, an idea sentence that wraps instead of being cut off, and a quieter Details panel that no longer hides behind the bottom bar.

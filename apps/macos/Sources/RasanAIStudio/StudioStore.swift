@@ -404,7 +404,8 @@ final class StudioStore {
     /// The film this app was directing when it last closed: a director that is still working is adopted, one that stopped is read
     /// from the run's files (a plan limit still resumes by itself). Never starts a second director on the run.
     private func reattachDirector(interrupted: [UUID]) {
-        guard let path = UserDefaults.standard.string(forKey: DirectorRuntime.activeRunKey) else { return }
+        // A director started from outside Studio (a phone resumed the film while Studio was closed) left no `activeDirectorRun`: look for a live driver.
+        guard let path = UserDefaults.standard.string(forKey: DirectorRuntime.activeRunKey) ?? DirectorRuntime.liveDriverRuns().first?.path else { return }
         let run = URL(fileURLWithPath: path)
         guard run.deletingLastPathComponent().lastPathComponent == ".rasanai",
               FileManager.default.fileExists(atPath: run.appendingPathComponent("session.json").path) else { return }

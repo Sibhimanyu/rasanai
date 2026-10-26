@@ -49,7 +49,7 @@ import { parseArgs, die, SKILL_DIR, STATE_DIR, GSAP_PATH } from "./lib/common.mj
 import { recordTaste } from "./memory.mjs";
 import { addLesson } from "./lessons.mjs"; // Plan 10: a "don't use this font" note is kept as a scoped user preference (never a universal rule)
 import { acquire, release, withLock } from "./lib/runlock.mjs";
-import { briefFormat } from "./lib/formats.mjs";
+import { briefFormat, loadFormats, SCOPES as FORMAT_SCOPES } from "./lib/formats.mjs";
 import { noteDowngrade, readDowngrades } from "./lib/downgrade.mjs";
 import { LAYERS, NOTE_LAYERS, snapshot, drift, relock } from "./lib/locks.mjs";
 import { noteToRevision } from "./lib/editorial.mjs"; // Plan 05 E6: a viewer note on the animatic is anchored and read as an editorial request
@@ -89,7 +89,9 @@ const F = {
 // the published contract (references/remote.md): bump only for a change an outside reader would misread
 export const SESSION_SCHEMA = 1;
 // console.json: `wait` validates and applies actions another process appended to actions.jsonl, in both modes
-export const EXTERNAL_ACTIONS = 1;
+// 1: answer a call (choose, more, approve, comment, apply, note, answer, decide-rest). 2: a strict superset of 1, adds what a phone needs to run a film
+// (brief submit, decide, styleframes approve/comment/redo, a chat note in Studio's shape, tool-ready answers) and checks them on `wait` (checkExternal)
+export const EXTERNAL_ACTIONS = 2;
 // who answered: the console page, chat `record`, RasanAI Studio, or an app that speaks remote.md. The label is what the feed
 // and the decisions drawer say after "You" ("You (iPhone): picked the story: …"); a source not listed here is "console".
 export const SOURCES = { console: "", chat: "", studio: "", squeak: "Squeak", "squeak-phone": "iPhone" };
@@ -186,12 +188,123 @@ function appendAction(a) {
 }
 
 // What an action is allowed to be (the server's check on POST, and headless `wait`'s on every line it reads).
-// Returns the normalized action fields, or { error }.
-function validateAction(a) {
+// Returns the normalized action fields, or { error }. `getSession` (lazy) lets a line from another app (squeak, squeak-phone) be checked
+// against session.json as it is NOW (checkExternal); RasanAI Studio's own lines and the page's keep today's looser check.
+function validateAction(a, getSession = null) {
   if (!a || typeof a !== "object" || Array.isArray(a)) return { error: "expected an object" };
   const step = String(a.step || "");
   if (![...STEPS, "*"].includes(step) || !/^[a-z-]{2,20}$/.test(String(a.type || ""))) return { error: "unknown step or type" };
-  return { step, type: String(a.type), value: a.value ?? null, note: String(a.note || "").slice(0, 4000) };
+  const v = { step, type: String(a.type), value: a.value ?? null, note: String(a.note || "").slice(0, 4000) };
+  if (getSession && EXTERNAL_SOURCES.has(cleanSource(a.source))) {
+    const e = checkExternal(v, getSession());
+    if (e) return { error: e };
+  }
+  return v;
+}
+
+// references/remote.md, "Contract v2": what another app may send, checked against the session as it is now. Mutates `v` only to normalize
+// the shapes an app may use for the same thing (a nested brief {fields, format}, a frame comment's {frame, text}) into Studio's.
+const EXTERNAL_SOURCES = new Set(["squeak", "squeak-phone"]);
+const BRIEF_FIELD_TYPES = { length_s: "number", kind: "string", subject: "string", aspect: "string", destination: "string", narration: "text", brand_name: "string", use_brand: "boolean" };
+const ASPECTS = ["16:9", "9:16", "1:1"];
+const isObj = (x) => x && typeof x === "object" && !Array.isArray(x);
+const isText = (x, max = 4000) => typeof x === "string" && x.length <= max;
+const safeKey = (k) => (/^[A-Za-z0-9_-]{1,30}$/.test(k) ? `: ${k}` : "");
+function checkExternal(v, s) {
+  const steps = isObj(s && s.steps) ? s.steps : {};
+  const step = isObj(steps[v.step]) ? steps[v.step] : null;
+  const waiting = !!step && step.status === "awaiting";
+  const val = v.value;
+  if (v.type === "decide-rest") return v.step === "*" && val === null ? null : "decide-rest is for step * with no value";
+  if (v.step === "*") return "step * is only for decide-rest";
+  if (v.type === "decide") return !waiting ? "that step is not waiting" : val !== null ? "decide takes no value" : null;
+  if (v.type === "submit" && v.step === "brief") {
+    if (!waiting) return "the brief is not waiting";
+    if (!isObj(val)) return "the brief answer must be an object";
+    // {fields, format} is accepted and flattened into the shape Studio sends (the fields at the top, `format` beside them)
+    let flat = val;
+    if (isObj(val.fields)) {
+      const extra = Object.keys(val).filter((k) => !["fields", "format"].includes(k));
+      if (extra.length) return `unknown brief field${safeKey(extra[0])}`;
+      flat = { ...val.fields, ...(val.format !== undefined ? { format: val.format } : {}) };
+    }
+    const own = isObj(step.fields) ? step.fields : {};
+    for (const [k, x] of Object.entries(flat)) {
+      if (k === "format" || k === "source") continue;
+      if (!Object.hasOwn(BRIEF_FIELD_TYPES, k) && !Object.hasOwn(own, k)) return `unknown brief field${safeKey(k)}`;
+      if (x === null) continue;
+      const have = own[k];
+      const want = have !== null && have !== undefined && ["string", "number", "boolean"].includes(typeof have) ? typeof have : BRIEF_FIELD_TYPES[k] === "text" ? null : BRIEF_FIELD_TYPES[k] || "string";
+      if (want ? typeof x !== want : !["string", "boolean"].includes(typeof x)) return `brief field has the wrong type${safeKey(k)}`;
+      if (typeof x === "string" && x.length > 4000) return `brief field is too long${safeKey(k)}`;
+      if (k === "length_s" && !(Number.isFinite(x) && x >= 5 && x <= 600)) return "length_s must be 5 to 600";
+      if (k === "aspect" && !ASPECTS.includes(x)) return "aspect must be 16:9, 9:16 or 1:1";
+    }
+    if (flat.source !== undefined && !isText(flat.source)) return "source must be text";
+    if (flat.format !== undefined && flat.format !== null) {
+      const f = flat.format;
+      if (!isObj(f) || typeof f.tile !== "string" || typeof f.option !== "string") return "format must be {tile, option}";
+      if (f.scope !== undefined && f.scope !== null && !FORMAT_SCOPES.includes(f.scope)) return "format scope is not one of universal, category, single-task";
+      let opt = null;
+      try { opt = loadFormats().options.find((o) => o.id === f.option && o.tile === f.tile); } catch { return "the format catalog could not be read"; }
+      if (!opt) return "that format is not in the catalog";
+      if (opt.status === "soon") return "that format is not available yet";
+      v.value = { ...flat, format: { tile: opt.tile, option: opt.id, ...(f.scope ? { scope: f.scope } : {}) }, kind: typeof flat.kind === "string" && flat.kind ? flat.kind : opt.kind };
+    } else v.value = { ...flat };
+    return null;
+  }
+  if (v.step === "styleframes" && ["approve", "comment", "redo"].includes(v.type)) {
+    if (!waiting) return "the style frames are not waiting";
+    const ids = new Set((Array.isArray(step.frames) ? step.frames : []).filter(isObj).map((f) => f.id));
+    if (v.type === "approve") return val === null ? null : "approve takes no value";
+    if (v.type === "comment") {
+      if (!isObj(val)) return "a frame comment must be {frame, text}";
+      const frame = val.frame ?? val.scene, text = v.note || val.text || "";
+      if (typeof frame !== "string" || !ids.has(frame)) return "that frame is not on this step";
+      if (!isText(text) || !text.trim()) return "a frame comment needs text";
+      v.value = { scene: frame, t: null, x: null, y: null, scope: "scene" };
+      v.note = String(text).slice(0, 4000);
+      return null;
+    }
+    if (!isObj(val) || !Array.isArray(val.ids) || !val.ids.length || val.ids.length > 50 || !val.ids.every((i) => typeof i === "string" && ids.has(i))) return "redo needs the ids of frames on this step";
+    const note = v.note || val.note || "";
+    if (!isText(note)) return "the redo note is not text";
+    v.value = { ids: [...new Set(val.ids)], note: String(note).slice(0, 4000) };
+    v.note = String(note).slice(0, 4000);
+    return null;
+  }
+  if (v.type === "answer") {
+    const ask = s && s.ask;
+    if (!isObj(ask) || ask.answered) return "there is no open question";
+    if (v.step !== ask.step) return "that question belongs to another step";
+    if (!isObj(val) || val.ask !== ask.id) return "that is not the open question";
+    const options = (Array.isArray(ask.options) ? ask.options : []).filter(isObj).map((o) => o.id);
+    const choice = val.choice ?? null;
+    // Studio's "Install for me" answers `tool-ready:<tool>` for an ask that offered `install-tool:<tool>`
+    const ready = typeof choice === "string" && /^tool-ready:([A-Za-z0-9._+-]{1,40})$/.exec(choice);
+    if (choice !== null && !(typeof choice === "string" && (options.includes(choice) || (ready && options.includes(`install-tool:${ready[1]}`))))) return "that is not one of the question's options";
+    if (val.text !== undefined && !isText(val.text)) return "the answer text is not text";
+    if (choice === null && !String(val.text || "").trim()) return "an answer needs a choice or text";
+    return null;
+  }
+  if (v.type === "note") {
+    if (val === null) return null;
+    // Studio's chat: {chat: {rules, max_sentences, max_tool_calls, context: {step, looking_at?, blocked?, last_error?, recent_events?}}}
+    if (!isObj(val) || Object.keys(val).length !== 1 || !isObj(val.chat)) return "a note carries no value, or {chat}";
+    const c = val.chat;
+    if (Object.keys(c).some((k) => !["rules", "max_sentences", "max_tool_calls", "context"].includes(k))) return "unknown chat field";
+    if (!isText(c.rules, 2000) || !c.rules.trim()) return "chat rules must be text";
+    for (const k of ["max_sentences", "max_tool_calls"]) if (!Number.isInteger(c[k]) || c[k] < 0 || c[k] > 10) return `chat ${k} must be 0 to 10`;
+    const x = c.context;
+    if (!isObj(x) || Object.keys(x).some((k) => !["step", "looking_at", "blocked", "last_error", "recent_events"].includes(k))) return "unknown chat context field";
+    if (typeof x.step !== "string" || !STEPS.includes(x.step)) return "chat context step is not a step";
+    for (const k of ["looking_at", "blocked", "last_error"]) if (x[k] !== undefined && !isText(x[k], 600)) return `chat context ${k} must be short text`;
+    if (x.recent_events !== undefined && !(Array.isArray(x.recent_events) && x.recent_events.length <= 5 && x.recent_events.every((e) => isText(e, 400)))) return "chat context recent_events must be up to 5 short lines";
+    if (!v.note.trim()) return "a chat message needs text";
+    if (!s || v.step !== s.current) return "a chat message goes on the current step";
+    return null;
+  }
+  return null;
 }
 
 // The user's notes on the animatic and the final also go to their local evidence ledger (taste.jsonl; the crew reads the one digest,
@@ -420,7 +533,7 @@ function nextAction(step) {
       const goodId = raw && typeof raw === "object" && typeof raw.id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(raw.id);
       const rid = goodId ? raw.id : "bad-" + crypto.createHash("sha1").update(line).digest("hex").slice(0, 10);
       if (done.has(rid)) continue;
-      const v = line.length > 1e6 ? { error: "action too large" } : raw === null ? { error: "not valid JSON" } : validateAction(raw);
+      const v = line.length > 1e6 ? { error: "action too large" } : raw === null ? { error: "not valid JSON" } : validateAction(raw, () => session());
       if (!v.error && !goodId) v.error = "missing or invalid id";
       if (v.error) {
         done.add(rid); consumed.push(rid); rejected.push({ id: rid, error: v.error, ts: now() });
