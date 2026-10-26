@@ -54,7 +54,7 @@ struct StudioFlowProgress: View {
                 if canSelect(step) || (step == current && viewing != nil), let onSelect {
                     Button { onSelect(step) } label: { marker(step) }.buttonStyle(.plain)
                         .help("Review \(step.title.lowercased())")
-                } else { marker(step) }
+                } else { marker(step).help(step == .describe ? "Your first description. It has no page to open." : step.rawValue > current.rawValue ? "\(step.title) is not ready yet." : "Nothing to show for \(step.title.lowercased()).") }
             }
         }
         .fixedSize().accessibilityElement(children: .contain)

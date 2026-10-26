@@ -19,7 +19,7 @@ struct FilmPage: View {
 
     private var ready: Bool { store.loadedFilm == url }
     private var phase: FilmPhase { store.phase }
-    private var showsFinished: Bool { if case .finished = phase { return !store.showChanges } else { return false } }
+    private var showsFinished: Bool { if case .finished = phase { return !store.showChanges && store.film?.isViewingPast != true } else { return false } }
     private var isFinished: Bool { if case .finished = phase { true } else { false } }
     private var showsConsole: Bool { store.film != nil && (store.isConnected || store.runtime.isRunning || store.runtime.isPreparing) }
 
@@ -134,13 +134,12 @@ struct FilmPage: View {
         }
         ToolbarItemGroup(placement: .primaryAction) {
             if let film = store.film {
-                // ⌘B is the left sidebar, so the right one is ⌥⌘B (as in VS Code); ⌥⌘I, Apple's inspector key, also works.
+                // ⌥⌘I (Apple's inspector key) is in the View menu; ⌥⌘B, the VS Code key, also works.
                 Button { film.decisionsPresented.toggle() } label: { Label("Ask Rasan", systemImage: "sidebar.trailing") }
-                    .keyboardShortcut("b", modifiers: [.command, .option])
-                    .help("Ask Rasan (⌥⌘B)")
+                    .help("Ask Rasan (⌥⌘I)")
                     .background {
-                        Button("Toggle Inspector") { film.decisionsPresented.toggle() }
-                            .keyboardShortcut("i", modifiers: [.command, .option])
+                        Button("Toggle Ask Rasan Panel") { film.decisionsPresented.toggle() }
+                            .keyboardShortcut("b", modifiers: [.command, .option])
                             .opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
                     }
             }
@@ -159,7 +158,11 @@ struct FilmPage: View {
                            viewing: store.film?.viewingStage.map { StudioFlowStep($0) },
                            finished: isFinished,
                            canSelect: { step in step.reviewStage.map { store.film?.canView($0) ?? false } ?? false },
-                           onSelect: { step in if let stage = step.reviewStage { store.film?.view(stage) } })
+                           onSelect: { step in
+                               guard let stage = step.reviewStage else { return }
+                               if stage == .final { store.showChanges = false }
+                               store.film?.view(stage)
+                           })
     }
 
     @ViewBuilder private var headerTools: some View {

@@ -59,6 +59,12 @@ struct RasanAIStudioApp: App {
                     NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)
                 }
                 .keyboardShortcut("b", modifiers: .command)
+                // The right-hand panel is Apple's inspector: ⌥⌘I, shown here in the View menu like Pages, Keynote and Xcode.
+                Button(store.film?.decisionsPresented == true ? "Hide Ask Rasan Panel" : "Show Ask Rasan Panel", systemImage: "sidebar.trailing") {
+                    store.film?.decisionsPresented.toggle()
+                }
+                .keyboardShortcut("i", modifiers: [.command, .option])
+                .disabled(!onFilmPage || store.film == nil)
             }
             // Settings is a page in the main window, so ⌘, brings that window forward and goes there.
             CommandGroup(replacing: .appSettings) {

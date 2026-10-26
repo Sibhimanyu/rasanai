@@ -11,6 +11,11 @@ Desktop releases are separate from RasanAI skill releases.
 - **The ? button opens a menu** with help and Report a Problem; Heresay can be opened from it.
 - **Plainer words.** Proxy is now Preview, Styleframe is Still, Animatic is Rough cut; the ... menu has icons and friendlier names.
 - **The character in the Final header** is centred between top and bottom.
+- **The stepper works on the Final page.** From the finished film, click Brief, Story, Look or Storyboard to go back to that step, and Final to come back.
+- **Redesigned Settings page.** Side navigation, cards, a Rasan section, show tips again, open the guide and send feedback.
+- **Ask Rasan panel shortcut.** The right-hand Ask Rasan panel opens with ⌥⌘I (Apple's inspector key) and is in the View menu.
+- **The film page ... menu** has icons and friendlier names.
+- **Source-file preview** uses the same player from the first frame.
 
 ## 0.21.0 (build 50) — 2026-10-25
 
