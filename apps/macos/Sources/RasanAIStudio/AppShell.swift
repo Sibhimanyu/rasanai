@@ -129,6 +129,15 @@ struct AppSidebar: View {
             .focused($focused, equals: .settings)
             .padding(.horizontal, 10).padding(.vertical, 8)
         }
+        // The system glass behind the sidebar samples whatever lies under it; a mostly opaque wash on top keeps any shape of
+        // the film's cards from showing through, leaving only a soft tint.
+        .background {
+            ZStack {
+                Color.appBackground.opacity(0.88)
+                LinearGradient(colors: [Color.rasan.opacity(0.10), .clear], startPoint: .topLeading, endPoint: .bottomTrailing)
+            }
+            .ignoresSafeArea()
+        }
         .navigationSplitViewColumnWidth(min: 180, ideal: 205, max: 280)
     }
 
@@ -522,8 +531,7 @@ struct AppStatusBar: View {
 
 extension View {
     /// Liquid Glass on macOS 26 and later; a frosted material before it.
-    @ViewBuilder func liquidGlass(in shape: some Shape, interactive: Bool = true) -> some View {
-        if #available(macOS 26, *) { self.glassEffect(interactive ? .regular.interactive() : .regular, in: shape) }
-        else { self.background(.regularMaterial, in: shape).overlay { shape.stroke(Color.primary.opacity(0.10), lineWidth: 1) } }
+    @ViewBuilder func liquidGlass(in shape: some InsettableShape, interactive: Bool = true) -> some View {
+        self.softGlass(in: shape)
     }
 }

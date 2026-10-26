@@ -148,7 +148,7 @@ struct BuildStage: View {
                 if let building { Text("· building \(building.title)").font(.system(size: 11)).opacity(0.8) }
             }
             .padding(.horizontal, 11).padding(.vertical, 6)
-            .background(.ultraThinMaterial, in: Capsule())
+            .softGlass(in: Capsule(), opacity: 0.9)
             .padding(14)
         }
         .aspectRatio(aspect, contentMode: .fit)

@@ -34,7 +34,7 @@ struct AskRasanChatCard: View {
         .frame(width: 380, height: collapsed ? 44 : cardHeight)
         .background {
             shape.fill(Color.black.opacity(0.55))
-                .background(.ultraThinMaterial, in: shape)
+                .background(.ultraThickMaterial, in: shape)
                 .overlay(alignment: .top) {
                     LinearGradient(colors: [Color.rasan.opacity(0.22), Color.rasan.opacity(0)], startPoint: .top, endPoint: .bottom)
                         .frame(height: 120).clipShape(shape)
