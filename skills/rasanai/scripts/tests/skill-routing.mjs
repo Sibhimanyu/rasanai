@@ -106,7 +106,7 @@ export default async function ({ ok, node, tmp }) {
     ];
     const miss2 = contract.filter(([re]) => !re.test(sc)).map(([, n]) => n);
     ok("skill-routing: shared-contract.md carries the canonical five calls and all hard-rule language", !miss2.length, "missing: " + miss2.join(", "));
-    ok("skill-routing: the 19 hard rules are all in shared-contract.md", Array.from({ length: 19 }, (_, i) => i + 1).every((n) => new RegExp(`^${n}\\. \\*\\*`, "m").test(sc)), "a numbered rule is missing");
+    ok("skill-routing: the 20 hard rules are all in shared-contract.md", Array.from({ length: 20 }, (_, i) => i + 1).every((n) => new RegExp(`^${n}\\. \\*\\*`, "m").test(sc)), "a numbered rule is missing");
     const dup = ["Five calls, and only five.", "The Final is never skipped.", "Never end a turn while your own background work is running."].filter((s) => allNew.split(s).length - 1 > 1);
     ok("skill-routing: a hard rule is not kept in two editable places (canonical text appears once)", !dup.length, dup.join(" | "));
   }

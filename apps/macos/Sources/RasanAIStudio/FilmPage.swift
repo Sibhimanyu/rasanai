@@ -68,6 +68,9 @@ struct FilmPage: View {
         if ready && store.runURL != nil {
             VStack(spacing: 0) {
                 MonitorBudgetBanner(store: store)
+                if !showsFinished, let call = store.film?.snapshot.unconfirmedCall {
+                    UnconfirmedCallBanner(store: store, call: call)
+                }
                 if !showsFinished {
                     if let notice = store.runtime.autoResume, showsAutoResume {
                         AutoResumeBanner(store: store, notice: notice)
