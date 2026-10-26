@@ -222,7 +222,7 @@ struct NewFilmView: View {
                     "One question at a time. Skip any of them: what you leave, RasanAI decides.",
                     "Add footage, images or documents on the material screen, or drop them anywhere on the page. Copies go into the film; originals stay put.",
                     "Drop an edit you like and RasanAI studies it, so the questions about captions, writing and layout are answered for you.",
-                    "Review shows every answer and where it came from. More settings holds pace, models, motion design, brand and Inspiration moves.",
+                    "Review shows every answer and where it came from. Click a row or a chip to open Set up your film, where every setting is on one page.",
                     "Save as series… keeps the answers, brand and end card so the next episode asks less."])
             }
     }
@@ -237,25 +237,71 @@ struct NewFilmView: View {
         FlowHost(addFiles: { add($0) }, chooseFiles: { choose() }, removeSource: { url in sources.removeAll { $0 == url } },
                  pickOption: { option in if let catalog { choose(option, in: catalog) } }, undoAutoPick: { undoAutoPick() },
                  settleFormat: { await settleFormat() }, briefPlaceholder: briefPlaceholder,
-                 moreSettings: AnyView(moreSettings), runButton: AnyView(runButton), footerActions: AnyView(reviewFooterActions))
+                 howItWorks: AnyView(howItWorks), footageWell: AnyView(footageWell), referenceWell: AnyView(referenceWell),
+                 settingChips: settingChips, director: AnyView(directorLine), runButton: AnyView(runButton), footerActions: AnyView(reviewFooterActions))
     }
 
-    /// Everything that used to sit on the prompt box's chips and in the wells, behind "More settings" on Review.
-    private var moreSettings: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            FlowLayout(spacing: ComposerLayout.gap) {
-                paceChip
-                if agent == .claude { modelsChip }
-                motionChip
-                brandChip
-            }
-            HStack(spacing: 4) {
-                Text(directorReady ? "Directed by \(agent.title) ·" : "No director set up yet ·")
-                Button(directorReady ? "Change" : "Set up…") { if directorReady { store.openSettingsPage() } else { store.settings.showWelcome = true } }
-                    .buttonStyle(.link)
-            }.font(.system(size: 12)).foregroundStyle(.secondary)
-            linkedWells
+    /// The picks that run the film, as text for the chips under the review list.
+    private var settingChips: [(icon: String, text: String)] {
+        var chips: [(icon: String, text: String)] = [("gauge.with.dots.needle.33percent", draft.pace.chipTitle)]
+        if agent == .claude { chips.append(("sparkles", draft.modelPlan.chipTitle)) }
+        chips.append(("wand.and.sparkles", motionShort))
+        chips.append(("paintpalette", brandShort))
+        return chips
+    }
+
+    private var directorLine: some View {
+        HStack(spacing: 4) {
+            Text(directorReady ? "Directed by \(agent.title) ·" : "No director set up yet ·")
+            Button(directorReady ? "Change" : "Set up…") { if directorReady { store.openSettingsPage() } else { store.settings.showWelcome = true } }
+                .buttonStyle(.link)
+        }.font(.system(size: 12)).foregroundStyle(.secondary)
+    }
+
+    private func settingField<Control: View>(_ title: String, _ note: String, @ViewBuilder control: () -> Control) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.system(size: 13, weight: .semibold))
+            control()
+            Text(note).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    /// The "How RasanAI works" section of Set up your film: every pick on show, the same bindings the chips used.
+    private var howItWorks: some View {
+        VStack(alignment: .leading, spacing: 26) {
+            settingField("Speed", draft.pace.summary) {
+                Picker("Speed", selection: $draft.pace) { ForEach(FilmPace.allCases) { Text($0.title).tag($0) } }
+                    .pickerStyle(.segmented).labelsHidden()
+            }
+            if agent == .claude {
+                settingField("Quality", draft.modelPlan.summary) {
+                    Picker("Quality", selection: $draft.modelPlan) { ForEach(ModelPlan.allCases) { Text($0.title).tag($0) } }
+                        .pickerStyle(.segmented).labelsHidden()
+                }
+            }
+            settingField("Motion", MotionLevel.summary(draft.motionLevel)) {
+                Picker("Motion", selection: $draft.motionLevel) { ForEach(MotionLevel.all, id: \.id) { Text($0.title).tag($0.id) } }
+                    .pickerStyle(.segmented).labelsHidden()
+            }
+            settingField("Brand", draft.brand == nil ? "No brand: RasanAI designs the look from your brief." : "Colours, type and logo come from this brand.") {
+                HStack(spacing: 10) {
+                    Picker("Brand", selection: Binding(get: { draft.brand ?? "" }, set: { draft.brand = $0.isEmpty ? nil : $0 })) {
+                        Text("No brand").tag("")
+                        ForEach(brands) { Text($0.name).tag($0.name) }
+                    }.labelsHidden().fixedSize()
+                    Button("New brand…") { store.openBrands() }.buttonStyle(.rasanSecondary).controlSize(.small)
+                }
+            }
+            settingField("Director", "The assistant on your Mac that makes the film.") { directorLine }
+        }
+    }
+
+    private var footageWell: some View {
+        LinkedSourceWell(kind: .footage, sources: $draft.linked, disabled: working, prompt: pickedOption.flatMap { catalog?.folderPrompt(for: $0) }, screen: screenForBrandKits)
+    }
+    private var referenceWell: some View {
+        LinkedSourceWell(kind: .reference, sources: $draft.linked, disabled: working,
+                         moves: AnyView(momentThumbs), movesCount: draft.moments.count, onPickMoves: { showGallery = true })
     }
 
     /// Beside the run button on Review: discard, the note that the draft is kept, and Save to Library.
@@ -546,15 +592,6 @@ struct NewFilmView: View {
             .buttonStyle(.plain).help("Which Claude models make this film: \(draft.modelPlan.summary)")
             .accessibilityLabel("Models: \(draft.modelPlan.chipTitle)")
             .popover(isPresented: $showModels, arrowEdge: .bottom) { modelPicker }
-    }
-
-    /// Footage folders and a reference video, used where they are. Separate wells: footage is cut, a reference is only studied.
-    private var linkedWells: some View {
-        HStack(alignment: .top, spacing: 14) {
-            LinkedSourceWell(kind: .footage, sources: $draft.linked, disabled: working, prompt: pickedOption.flatMap { catalog?.folderPrompt(for: $0) }, screen: screenForBrandKits)
-            LinkedSourceWell(kind: .reference, sources: $draft.linked, disabled: working,
-                             moves: AnyView(momentThumbs), movesCount: draft.moments.count, onPickMoves: { showGallery = true })
-        }
     }
 
     private var chipFill: Color { Color.primary.opacity(0.07) }

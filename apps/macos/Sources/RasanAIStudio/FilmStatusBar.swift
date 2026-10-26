@@ -40,6 +40,9 @@ struct FilmStatusBar<Usage: View>: View {
                 if let actions, !model.isViewingPast, !sent, model.showsActions(for: actions.step) { buttons(actions) }
                 else if needsResume { resumeSlot }
                 AskRasanField(model: model)
+                    // The open card is the one place to type: the bar's field steps aside (keeping its room) so there are never two.
+                    .opacity(model.askCardPresented && !model.decisionsPresented ? 0 : 1)
+                    .allowsHitTesting(!(model.askCardPresented && !model.decisionsPresented))
             }
         }
         .padding(.leading, 16).padding(.trailing, 7).padding(.vertical, model.lastError == nil ? 7 : 9)
