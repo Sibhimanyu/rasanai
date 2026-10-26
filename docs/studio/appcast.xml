@@ -6,6 +6,27 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.22.0 beta 1</title>
+      <pubDate>Mon, 26 Oct 2026 01:20:29 GMT</pubDate>
+      <description sparkle:format="markdown"><![CDATA[- **One player everywhere.** Every video preview now has the same controls (play, skip 5 seconds, speed, loop, volume, full screen), including the final film page, source files, drafts, the library and progress cards. Full screen now also works when the app is already full screen.
+- **New "Ask Rasan" bar** at the bottom of every film screen, with a one-time hint, so the chat with Rasan is easy to find. The toolbar button is now labelled Ask Rasan.
+- **The Note button works on finished films** and says why when it is off.
+- **History button on the film page.** Watch or restore any earlier version from the review screen, with dates and what changed.
+- **The ? button opens a menu** with help and Report a Problem; Heresay can be opened from it.
+- **Plainer words.** Proxy is now Preview, Styleframe is Still, Animatic is Rough cut; the ... menu has icons and friendlier names.
+- **The character in the Final header** is centred between top and bottom.
+- **The stepper works on the Final page.** From the finished film, click Brief, Story, Look or Storyboard to go back to that step, and Final to come back.
+- **Redesigned Settings page.** Side navigation, cards, a Rasan section, show tips again, open the guide and send feedback.
+- **Ask Rasan panel shortcut.** The right-hand Ask Rasan panel opens with ⌥⌘I (Apple's inspector key) and is in the View menu.
+- **The film page ... menu** has icons and friendlier names.
+- **Source-file preview** uses the same player from the first frame.]]></description>
+      <sparkle:version>51</sparkle:version>
+      <sparkle:shortVersionString>0.22.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.22.0-beta.1/RasanAI-Studio-0.22.0.dmg" sparkle:edSignature="771X2xEHb2X2rXrwUbmFK4KEJLiHj3vLcxfAZ6q/+dKFc5BFgCtvDIIJFs831xAnhxWr+9ZiTY9aq4Txt0V8Bw==" length="84301120" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.21.0 beta 1</title>
       <pubDate>Mon, 26 Oct 2026 00:43:20 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **Ask Rasan how long it will take.** In the chat, "how long will it take?" and "what is happening?" are answered on the spot from the film's real progress, without interrupting the work.

@@ -6,6 +6,10 @@ Desktop releases are separate from RasanAI skill releases.
 
 - Updates now show what changed: a native update screen with a "What's new" list while it downloads and installs, plus a one-time "You're now on X" card after you restart.
 - Fixed a flat colour strip behind the floating sidebar in full screen.
+
+## 0.22.0 (build 51) — 2026-10-26
+
+@@MOVE@@
 - **One player everywhere.** Every video preview now has the same controls (play, skip 5 seconds, speed, loop, volume, full screen), including the final film page, source files, drafts, the library and progress cards. Full screen now also works when the app is already full screen.
 - **New "Ask Rasan" bar** at the bottom of every film screen, with a one-time hint, so the chat with Rasan is easy to find. The toolbar button is now labelled Ask Rasan.
 - **The Note button works on finished films** and says why when it is off.
@@ -18,6 +22,7 @@ Desktop releases are separate from RasanAI skill releases.
 - **Ask Rasan panel shortcut.** The right-hand Ask Rasan panel opens with ⌥⌘I (Apple's inspector key) and is in the View menu.
 - **The film page ... menu** has icons and friendlier names.
 - **Source-file preview** uses the same player from the first frame.
+- **Bundles RasanAI 1.27.0.**
 
 ## 0.21.0 (build 50) — 2026-10-25
 
