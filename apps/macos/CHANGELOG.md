@@ -7,6 +7,8 @@ Desktop releases are separate from RasanAI skill releases.
 - Ask Rasan now lives in the bottom bar. Click it to open a floating chat that you can collapse, or open the full side panel with ⌥⌘I.
 - Report a Problem (Heresay) now opens reliably, even when another window or sheet is open.
 - The sidebar no longer shows a reflection of the page behind it.
+- Fixed the "You're now on…" card that came back after pressing Got it.
+- The update screen always shows where it is: four steps, a progress bar, and a time estimate. If installing stalls it tells you why and offers Restart now, Try again or a manual download.
 
 ## 0.22.1 (build 52) — 2026-10-26
 

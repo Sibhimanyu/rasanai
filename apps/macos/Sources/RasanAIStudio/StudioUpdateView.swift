@@ -73,11 +73,84 @@ private struct UpdateHeader: View {
     }
 }
 
+/// "1 Download · 2 Check · 3 Install · 4 Restart", with the current step highlighted.
+private struct UpdateSteps: View {
+    let current: Int
+    private let names = ["Download", "Check", "Install", "Restart"]
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(Array(names.enumerated()), id: \.offset) { index, name in
+                let n = index + 1
+                HStack(spacing: 5) {
+                    Image(systemName: n < current ? "checkmark.circle.fill" : "\(n).circle.fill")
+                        .foregroundStyle(n < current ? Color.green : n == current ? Color.rasan : Color.secondary.opacity(0.4))
+                    Text(name).fontWeight(n == current ? .semibold : .regular)
+                        .foregroundStyle(n == current ? Color.primary : Color.secondary)
+                }
+                if n < names.count { Text("\u{00B7}").foregroundStyle(.tertiary) }
+            }
+            Spacer(minLength: 0)
+        }
+        .font(.system(size: 12))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Step \(current) of 4: \(names[min(max(current, 1), 4) - 1])")
+    }
+}
+
 struct StudioUpdateView: View {
     @ObservedObject var updater: StudioUpdater
     @Environment(\.dismiss) private var dismiss
 
     private func megabytes(_ n: UInt64) -> String { ByteCountFormatter.string(fromByteCount: Int64(n), countStyle: .file) }
+
+    private func timeLeft(received: UInt64, total: UInt64) -> String {
+        guard total > 0, updater.downloadRate > 1 else { return "Estimating time left…" }
+        let seconds = Double(total - min(received, total)) / updater.downloadRate
+        if seconds < 45 { return "less than a minute left" }
+        let minutes = Int((seconds / 60).rounded())
+        return "about \(max(minutes, 1)) min left"
+    }
+
+    /// The Restart screen: elapsed time that ticks, an estimate, and a way out when it stalls.
+    @ViewBuilder private var installingView: some View {
+        UpdateHeader(symbol: "shippingbox.fill", tint: .rasan, title: "Installing and restarting…",
+                     subtitle: "RasanAI closes, swaps in the new version and opens again.")
+        UpdateSteps(current: 4)
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let elapsed = max(0, Int(context.date.timeIntervalSince(updater.installStartedAt ?? context.date)))
+            VStack(alignment: .leading, spacing: 6) {
+                ProgressView(value: min(Double(elapsed) / 30, 0.95))
+                Text("\(elapsed) s · usually under 30 seconds (estimate)")
+                    .font(.system(size: 12)).monospacedDigit().foregroundStyle(.secondary)
+            }
+        }
+        switch updater.installStall {
+        case .none:
+            EmptyView()
+        case .waitingToClose(let reason):
+            VStack(alignment: .leading, spacing: 4) {
+                Text("RasanAI is waiting to close").font(.system(size: 13, weight: .semibold))
+                Text(reason.isEmpty ? "A window or question may still be open. Close it, or press Restart now." : reason)
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            buttons {
+                Button("Hide") { dismiss() }.keyboardShortcut(.cancelAction)
+                if !reason.isEmpty { Button("Finish quitting anyway") { updater.quitAnyway() } }
+                Button("Restart now") { updater.restartNow() }.buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction)
+            }
+        case .timedOut:
+            VStack(alignment: .leading, spacing: 4) {
+                Text("This is taking longer than expected").font(.system(size: 13, weight: .semibold))
+                Text("Your films are safe and your current version still works. Try again, or download the new version yourself.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            buttons {
+                Button("Hide") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Download it manually") { updater.downloadManually() }
+                Button("Try again") { updater.tryInstallAgain() }.buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction)
+            }
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -100,9 +173,10 @@ struct StudioUpdateView: View {
                 }
             case .downloading(let info, let received, let total):
                 UpdateHeader(symbol: "arrow.down.circle.fill", tint: .rasan, title: "Downloading RasanAI \(info.version)", subtitle: "You can keep working while this finishes.")
+                UpdateSteps(current: 1)
                 VStack(alignment: .leading, spacing: 6) {
                     if total > 0 { ProgressView(value: Double(min(received, total)), total: Double(total)) } else { ProgressView() }
-                    Text(total > 0 ? "\(megabytes(received)) of \(megabytes(total))" : megabytes(received))
+                    Text((total > 0 ? "\(megabytes(received)) of \(megabytes(total))" : megabytes(received)) + " · " + timeLeft(received: received, total: total))
                         .font(.system(size: 12)).monospacedDigit().foregroundStyle(.secondary)
                 }
                 UpdateNotesList(title: "What's new in \(info.version)", notes: info.notes)
@@ -111,20 +185,37 @@ struct StudioUpdateView: View {
                     Button("Hide") { dismiss() }.keyboardShortcut(.cancelAction)
                 }
             case .extracting(let info, let progress):
-                UpdateHeader(symbol: "shippingbox.fill", tint: .rasan, title: "Installing…", subtitle: "Getting RasanAI \(info.version) ready.")
-                ProgressView(value: min(max(progress, 0), 1))
+                UpdateHeader(symbol: "shippingbox.fill", tint: .rasan, title: "Checking the download…", subtitle: "Getting RasanAI \(info.version) ready.")
+                UpdateSteps(current: 2)
+                VStack(alignment: .leading, spacing: 6) {
+                    ProgressView(value: min(max(progress, 0), 1))
+                    Text("\(Int((min(max(progress, 0), 1) * 100).rounded()))% · usually under a minute")
+                        .font(.system(size: 12)).monospacedDigit().foregroundStyle(.secondary)
+                }
                 UpdateNotesList(title: "What's new in \(info.version)", notes: info.notes)
                 buttons { Button("Hide") { dismiss() }.keyboardShortcut(.cancelAction) }
             case .ready(let info):
                 UpdateHeader(symbol: "checkmark.circle.fill", tint: .green, title: "Restart to finish", subtitle: "RasanAI \(info.version) is ready. Your films are saved.")
-                UpdateNotesList(title: "What's new in \(info.version)", notes: info.notes)
-                buttons {
-                    Button("Later") { dismiss() }.keyboardShortcut(.cancelAction)
-                    Button("Restart now") { updater.restartToFinish() }.buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction)
+                UpdateSteps(current: 3)
+                if let blocker = updater.restartBlocker {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Something is still running").font(.system(size: 13, weight: .semibold))
+                        Text(blocker).font(.system(size: 12)).foregroundStyle(.secondary)
+                    }
+                    buttons {
+                        Button("Wait") { updater.cancelRestartBlocker() }.keyboardShortcut(.cancelAction)
+                        Button("Stop it and restart") { updater.restartToFinish(force: true) }.buttonStyle(.rasanPrimary)
+                    }
+                } else {
+                    Text("Restarting usually takes under 30 seconds.").font(.system(size: 12)).foregroundStyle(.secondary)
+                    UpdateNotesList(title: "What's new in \(info.version)", notes: info.notes)
+                    buttons {
+                        Button("Later") { dismiss() }.keyboardShortcut(.cancelAction)
+                        Button("Restart now") { updater.restartToFinish() }.buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction)
+                    }
                 }
             case .installing:
-                UpdateHeader(symbol: "shippingbox.fill", tint: .rasan, title: "Installing…", subtitle: "RasanAI will restart in a moment.")
-                ProgressView().controlSize(.small)
+                installingView
             case .error(let message, let detail):
                 UpdateHeader(symbol: "exclamationmark.triangle.fill", tint: .orange, title: "Couldn't update", subtitle: message)
                 Text(detail).font(.system(size: 11)).foregroundStyle(.tertiary).textSelection(.enabled).lineLimit(3)
@@ -157,7 +248,7 @@ struct WhatsNewCard: View {
             VStack(alignment: .leading, spacing: 18) {
                 UpdateHeader(symbol: "sparkles", tint: .rasan, title: "You're now on \(whatsNew.version)", subtitle: "Here's what changed.")
                 UpdateNotesList(title: "What's new in \(whatsNew.version)", notes: whatsNew.notes, maxHeight: 320)
-                HStack { Spacer(); Button("Got it") { dismiss() }.buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction) }
+                HStack { Spacer(); Button("Got it") { updater.dismissWhatsNew(); dismiss() }.buttonStyle(.rasanPrimary).keyboardShortcut(.defaultAction) }
             }
             .padding(24).frame(width: 520).background(Color.appBackground)
             .onDisappear { updater.dismissWhatsNew() }

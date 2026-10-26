@@ -52,6 +52,18 @@ final class StudioUpdater: ObservableObject {
     @Published private(set) var isSheetOpen = false
     /// Set once on the first launch after an update, so the main window can show "here's what changed".
     @Published var whatsNew: PendingWhatsNew?
+    /// While installing: nothing wrong yet, the app is slow to close, or nothing has happened for too long.
+    enum InstallStall: Equatable { case none, waitingToClose(reason: String), timedOut }
+    @Published fileprivate(set) var installStall: InstallStall = .none
+    /// When "Restart now" was pressed, so the window can show a ticking elapsed time.
+    @Published fileprivate(set) var installStartedAt: Date?
+    /// Smoothed download speed in bytes per second (0 until known).
+    @Published fileprivate(set) var downloadRate: Double = 0
+    /// Set when a film (or other work) would be stopped by restarting; the window asks before going on.
+    @Published fileprivate(set) var restartBlocker: String?
+    private var stallTasks: [Task<Void, Never>] = []
+    fileprivate var retryTerminating: (() -> Void)?
+    static let releasesURL = URL(string: "https://github.com/Sibhimanyu/rasanai/releases")!
     private var observation: AnyCancellable?
     private var updater: SPUUpdater?
     private var systemCanCheck = false
@@ -169,11 +181,57 @@ final class StudioUpdater: ObservableObject {
     }
     func remindLater() { choose(.dismiss) }
     func skipThisVersion() { choose(.skip) }
-    func restartToFinish() {
+    /// "Restart now". If a film is being made the window asks first; `force` is the answer "stop it and restart".
+    func restartToFinish(force: Bool = false) {
         guard case .ready = state else { return }
+        if !force, let reason = StudioAppDelegate.current?.blockingReason { restartBlocker = reason; return }
+        restartBlocker = nil
+        if force { StudioAppDelegate.current?.quitPreconfirmed = true }
         state = .installing
+        installStartedAt = Date()
+        startStallTimers()
         choose(.install)
     }
+    func cancelRestartBlocker() { restartBlocker = nil }
+
+    private func startStallTimers() {
+        stallTasks.forEach { $0.cancel() }
+        installStall = .none
+        stallTasks = [
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(10))
+                guard !Task.isCancelled, let self, self.state == .installing, self.installStall == .none else { return }
+                self.installStall = .waitingToClose(reason: StudioAppDelegate.current?.blockingReason ?? "")
+            },
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(60))
+                guard !Task.isCancelled, let self, self.state == .installing else { return }
+                self.installStall = .timedOut
+            },
+        ]
+    }
+    private func stopStallTimers() {
+        stallTasks.forEach { $0.cancel() }
+        stallTasks = []
+        installStall = .none
+    }
+    /// "Restart now" on the waiting screen: ask Sparkle to quit the app again, and quit ourselves if that does nothing.
+    func restartNow() {
+        retryTerminating?()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
+    }
+    /// "Finish quitting anyway": stops whatever is running without asking again, then quits.
+    func quitAnyway() {
+        StudioAppDelegate.current?.quitPreconfirmed = true
+        restartNow()
+    }
+    /// After the 60 second timeout: start the wait over and send the quit request again.
+    func tryInstallAgain() {
+        installStartedAt = Date()
+        startStallTimers()
+        retryTerminating?()
+    }
+    func downloadManually() { NSWorkspace.shared.open(Self.releasesURL) }
     func tryAgain() {
         retryAfterDismiss = true
         finishAcknowledge()
@@ -194,7 +252,17 @@ final class StudioUpdater: ObservableObject {
         ack?()
     }
     fileprivate func setState(_ new: UpdateState) { state = new }
+    fileprivate func installing(applicationTerminated: Bool, retry: @escaping () -> Void) {
+        retryTerminating = retry
+        state = .installing
+        if installStartedAt == nil { installStartedAt = Date() }
+        if applicationTerminated { stopStallTimers() } else if stallTasks.isEmpty { startStallTimers() }
+    }
     fileprivate func sessionEnded() {
+        // Nothing is left half done: timers, the quit request and the "skip the quit prompt" flag all go away.
+        stopStallTimers()
+        installStartedAt = nil; retryTerminating = nil; restartBlocker = nil; downloadRate = 0
+        StudioAppDelegate.current?.quitPreconfirmed = false
         cancelCheck = nil; chooseUpdate = nil; acknowledge = nil; cancelDownload = nil
         state = .idle
         lastChecked = updater?.lastUpdateCheckDate
@@ -211,6 +279,9 @@ final class StudioUpdateDriver: NSObject, SPUUserDriver {
     private var info: UpdateInfo?
     private var received: UInt64 = 0
     private var expected: UInt64 = 0
+    private var sampleTime = Date()
+    private var sampleBytes: UInt64 = 0
+    private var smoothedRate: Double = 0
     init(owner: StudioUpdater) { self.owner = owner }
 
     func show(_ request: SPUUpdatePermissionRequest, reply: @escaping (SUUpdatePermissionResponse) -> Void) {
@@ -246,6 +317,7 @@ final class StudioUpdateDriver: NSObject, SPUUserDriver {
     func showDownloadInitiated(cancellation: @escaping () -> Void) {
         owner.cancelDownload = cancellation
         received = 0; expected = 0
+        sampleTime = Date(); sampleBytes = 0; smoothedRate = 0; owner.downloadRate = 0
         if let info { owner.setState(.downloading(info, received: 0, total: info.size)) }
     }
     func showDownloadDidReceiveExpectedContentLength(_ expectedContentLength: UInt64) {
@@ -254,6 +326,13 @@ final class StudioUpdateDriver: NSObject, SPUUserDriver {
     }
     func showDownloadDidReceiveData(ofLength length: UInt64) {
         received += length
+        let now = Date(), dt = now.timeIntervalSince(sampleTime)
+        if dt >= 0.5 {
+            let instant = Double(received - sampleBytes) / dt
+            smoothedRate = smoothedRate == 0 ? instant : smoothedRate * 0.8 + instant * 0.2
+            sampleTime = now; sampleBytes = received
+            owner.downloadRate = smoothedRate
+        }
         publishDownload()
     }
     private func publishDownload() {
@@ -272,7 +351,7 @@ final class StudioUpdateDriver: NSObject, SPUUserDriver {
         owner.present()
     }
     func showInstallingUpdate(withApplicationTerminated applicationTerminated: Bool, retryTerminatingApplication: @escaping () -> Void) {
-        owner.setState(.installing)
+        owner.installing(applicationTerminated: applicationTerminated, retry: retryTerminatingApplication)
     }
     func showUpdateInstalledAndRelaunched(_ relaunched: Bool, acknowledgement: @escaping () -> Void) { acknowledgement() }
     func showUpdateInFocus() { owner.present() }
