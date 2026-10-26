@@ -167,6 +167,18 @@ struct DirectorLogSheet: View {
     weak var store: StudioStore?
     private var pendingPackage: URL?
     private var watchingActivation = false
+    /// The running delegate, so the update window can ask what would be stopped by quitting.
+    static weak var current: StudioAppDelegate?
+    /// Set by the update window after the person chose "stop it and restart": quit without the second question.
+    var quitPreconfirmed = false
+    override init() { super.init(); Self.current = self }
+    /// Plain-words reason quitting would interrupt something, or nil when it is safe to quit.
+    var blockingReason: String? {
+        if runtime?.isRunning == true { return "A film is still being made. Restarting stops it; you can resume it afterwards." }
+        if store?.isTransferringProject == true { return "A project is still being copied." }
+        if store?.toolSetup.isRunning == true { return "Tool setup is still running." }
+        return nil
+    }
     func applicationDidFinishLaunching(_ notification: Notification) { DebugSnapshot.install() }
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let package = urls.first(where: { $0.pathExtension.lowercased() == PortableProject.fileExtension }) else { return }
@@ -199,7 +211,7 @@ struct DirectorLogSheet: View {
             ? "The incomplete transfer will be removed and your original files kept. Any running director will also stop."
             : "Your project files are preserved. The active agent and its child processes will be stopped. You can resume the run later."
         alert.addButton(withTitle: running ? "Stop and Quit" : installing ? "Cancel Setup and Quit" : "Cancel Transfer and Quit"); alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
+        guard quitPreconfirmed || alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
         store?.pauseQueue()
         store?.transferTask?.cancel()
         store?.toolSetup.cancel()
