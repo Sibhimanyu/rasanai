@@ -18,7 +18,7 @@ struct LibraryFilmPage: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
                         if let player, let session = archive.session {
-                            VideoPlayer(player: player).aspectRatio(session.aspectRatio, contentMode: .fit)
+                            StudioVideoPlayer(player: player, aspect: session.aspectRatio)
                                 .frame(maxWidth: session.aspectRatio < 1 ? 360 : 820)
                                 .clipShape(RoundedRectangle(cornerRadius: 14))
                             HStack {
@@ -89,6 +89,27 @@ struct LibraryFilmPage: View {
     }
 }
 
+/// Plain version wording shared by the history list and the Version menu: "Version 3 · Today 3:20 PM · Shorter intro".
+enum FilmVersionText {
+    static func date(_ when: String?) -> String? {
+        guard let when, !when.isEmpty else { return nil }
+        let plain = ISO8601DateFormatter()
+        let fractional = ISO8601DateFormatter(); fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = plain.date(from: when) ?? fractional.date(from: when) else { return when }
+        let time = date.formatted(date: .omitted, time: .shortened)
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) { return "Today \(time)" }
+        if calendar.isDateInYesterday(date) { return "Yesterday \(time)" }
+        return date.formatted(.dateTime.month(.abbreviated).day()) + " " + time
+    }
+    static func line(number: String, when: String?, summary: String?) -> String {
+        var parts = ["Version \(number)"]
+        if let day = date(when) { parts.append(day) }
+        if let summary, !summary.isEmpty { parts.append(summary) }
+        return parts.joined(separator: " · ")
+    }
+}
+
 struct FilmHistoryView: View {
     let snapshot: SessionSnapshot
     let resolver: AssetResolver?
@@ -107,12 +128,12 @@ struct FilmHistoryView: View {
                 ForEach(snapshot.filmVersions.reversed()) { version in
                     HStack(alignment: .top, spacing: 12) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("v\(version.id)\(version.id == snapshot.final["version"].identifier ? " · Current" : "")").font(.system(size: 13, weight: .medium))
-                            if let when = version.when { Text(when).font(.system(size: 11)).foregroundStyle(.secondary) }
-                            if !version.changes.isEmpty { Text(version.changes.joined(separator: " · ")).font(.system(size: 12)).foregroundStyle(.secondary) }
+                            Text("Version \(version.id)\(version.id == snapshot.final["version"].identifier ? " · Current" : "")").font(.system(size: 13, weight: .medium))
+                            if let day = FilmVersionText.date(version.when) { Text(day).font(.system(size: 11)).foregroundStyle(.secondary) }
+                            if let first = version.changes.first { Text(first).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1) }
                         }
                         Spacer()
-                        if let onPreview, resolver?.resolve(version.video) != nil { Button("Preview") { onPreview(version) } }
+                        if let onPreview, resolver?.resolve(version.video) != nil { Button("Watch") { onPreview(version) } }
                         if let onRestore, version.id != snapshot.final["version"].identifier { Button("Restore…") { onRestore(version) } }
                     }.padding(12).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
                 }

@@ -18,6 +18,8 @@ struct FinalStage: View {
     @State private var confirmRender = false
     /// The version the person picked in the menu, until they confirm bringing it back.
     @State private var restore: JSONValue?
+    /// An earlier version being watched in the player; the film itself is unchanged.
+    @State private var watching: JSONValue?
     /// Motion Studio: what is under a click, loaded from motion/element-index.json (absent for films without one).
     @State private var motionSel = MotionSelectionModel()
     @State private var motionEdits = MotionEditStatus()
@@ -34,6 +36,7 @@ struct FinalStage: View {
         let videos = payload["videos"].array.compactMap(\.string)
         let videoPath = videos.last ?? payload["video"].string
         let videoURL = model.fileURL(videoPath)
+        let shownURL = watching.flatMap { model.fileURL($0["video"].string) } ?? videoURL
         let posterPath = payload["poster"].string ?? scenes.first?.thumbnail
         let duration = payload["duration"].number ?? model.snapshot.duration(for: .final)
         let isRender = step == "render"
@@ -45,7 +48,7 @@ struct FinalStage: View {
         let context = notRendered ? "Make a quick preview first, or render the full-quality final."
             : "Leave a note where something should change, or export when it feels right."
         let player = ReviewPlayerPanel(model: model, step: step, playback: playback, scenes: scenes, notes: allNotes,
-                                       aspect: model.snapshot.aspectRatio, canNote: canAct && playback.isReady, pinWindow: 2.5, showStrip: false,
+                                       aspect: model.snapshot.aspectRatio, canNote: model.canNote(on: step) && playback.isReady, pinWindow: 2.5, showStrip: false,
                                        motionSel: motionSel.index != nil ? motionSel : nil) {
             FinalFrame(playback: playback, posterPath: posterPath, hasVideo: videoURL != nil, notRendered: notRendered, model: model)
         }
@@ -122,15 +125,15 @@ struct FinalStage: View {
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { stageHeight = $0 }
         .onChange(of: model.seekTick) { playback.seek(to: model.seekTime) }
         .environment(model)
-        .task(id: "\(videoURL?.path ?? "")") { playback.load(url: videoURL, fallbackDuration: duration) }
+        .task(id: "\(shownURL?.path ?? "")") { playback.load(url: shownURL, fallbackDuration: duration) }
         .task(id: model.snapshot.raw["updated"].string) { checks = await model.loadChecks() }
         .task(id: model.motionProject?.path) { await watchMotion() }
         .onDisappear { playback.shutdown() }
         .confirmationDialog("Render without your \(open.count) note\(open.count == 1 ? "" : "s")?", isPresented: $confirmRender, titleVisibility: .visible) {
             Button("Render Without Notes") { Task { await model.send(step: step, type: "choose", value: .string("render")) } }
         } message: { Text("Your notes stay on the film but are not applied.") }
-        .confirmationDialog("Restore v\(restore?.identifier ?? "")?", isPresented: Binding(get: { restore != nil }, set: { if !$0 { restore = nil } }), titleVisibility: .visible) {
-            Button("Restore v\(restore?.identifier ?? "")") {
+        .confirmationDialog("Restore version \(restore?.identifier ?? "")?", isPresented: Binding(get: { restore != nil }, set: { if !$0 { restore = nil } }), titleVisibility: .visible) {
+            Button("Restore version \(restore?.identifier ?? "")") {
                 if let version = restore { Task { await model.send(step: step, type: "version", value: .object(["restore": version])) } }
                 restore = nil
             }
@@ -197,16 +200,25 @@ struct FinalStage: View {
         let layout = wrap ? AnyLayout(FlowLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
         layout {
             if versions.count > 1 {
-                ReviewChip(symbol: "clock.arrow.circlepath", title: "Version", value: current.map { "v\($0)" } ?? "Latest", enabled: canAct) {
+                ReviewChip(symbol: "clock.arrow.circlepath", title: "Version", value: current.map { "Version \($0)" } ?? "Latest", enabled: true) {
                     ForEach(versions.reversed().indices, id: \.self) { index in
                         let item = versions.reversed()[index]
                         let id = item["v"].identifier ?? ""
-                        Button {
-                            if id != current { restore = item["v"] }
+                        Menu {
+                            Button("Watch") { watching = id == current ? nil : item }
+                                .disabled(id != current && model.fileURL(item["video"].string) == nil)
+                            Button("Restore…") { restore = item["v"] }
+                                .disabled(!canAct || id == current)
                         } label: {
                             if id == current { Label(versionTitle(item), systemImage: "checkmark") } else { Text(versionTitle(item)) }
                         }
                     }
+                }
+            }
+            if let watching {
+                HStack(spacing: 6) {
+                    Text("Watching an earlier version (Version \(watching["v"].identifier ?? "?"))").font(.system(size: 12, weight: .medium)).foregroundStyle(Color.rasan)
+                    Button("Back to latest") { self.watching = nil }.buttonStyle(.link).font(.system(size: 12))
                 }
             }
             // Only the first pass offers skipping straight to the final. "Preview again" (another draft of the same film) is gone:
@@ -233,12 +245,8 @@ struct FinalStage: View {
     }
 
     private func versionTitle(_ item: JSONValue) -> String {
-        let number = "v" + (item["v"].identifier ?? "?")
-        guard let when = item["when"].string, !when.isEmpty else { return number }
-        if let date = ISO8601DateFormatter().date(from: when) {
-            return number + " · " + date.formatted(.relative(presentation: .named))
-        }
-        return number + " · " + when
+        FilmVersionText.line(number: item["v"].identifier ?? "?", when: item["when"].string,
+                             summary: item["changes"].array.compactMap(\.string).first ?? item["summary"].string ?? item["note"].string)
     }
 
     /// The blind A/B verdicts and the gate numbers, one quiet button beside "What changed"; absent when the run holds neither.

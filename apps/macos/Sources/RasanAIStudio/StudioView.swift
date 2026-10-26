@@ -45,6 +45,7 @@ struct StudioView: View {
         // Keep floating toolbar controls in ordinary windows. In full screen, let AppKit choose the toolbar background
         // so the native split view and fullscreen chrome can compose together.
         .modifier(NoToolbarBand(fullScreen: isFullScreen))
+        .overlay { VideoStageOverlayHost() }
         .background(FullScreenState(isFullScreen: $isFullScreen))
         .onChange(of: columns) { _, visibility in sidebarHidden = visibility == .detailOnly }
     }

@@ -121,19 +121,19 @@ public enum MediaKind: String, Sendable, Equatable {
     /// The label that must sit next to the picture.
     public var label: String {
         switch self {
-        case .styleframe: "Styleframe: a still showing the look, not the film."
-        case .animatic: "Animatic: timed stills with the music, to judge rhythm. Not finished animation."
-        case .slideshow: "Slideshow of stills. It is not an animated preview."
-        case .proxy: "Low-resolution proxy for review. Not the delivered film."
+        case .styleframe: "A still picture of the look. Not the film yet."
+        case .animatic: "A rough cut: stills timed to the music, to judge the pacing. Not animated yet."
+        case .slideshow: "A slideshow of stills. Not animated yet."
+        case .proxy: "A quick preview to check the film. The full-quality final comes next."
         case .final: "Final film."
         }
     }
     public var shortLabel: String {
         switch self {
-        case .styleframe: "Styleframe"
-        case .animatic: "Animatic"
+        case .styleframe: "Still"
+        case .animatic: "Rough cut"
         case .slideshow: "Slideshow"
-        case .proxy: "Proxy"
+        case .proxy: "Preview"
         case .final: "Final"
         }
     }
