@@ -6,6 +6,76 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.24.2 beta 1</title>
+      <pubDate>Mon, 26 Oct 2026 09:41:59 GMT</pubDate>
+      <description><![CDATA[<ul><li>Small adjustments Rasan makes along the way no longer show up as orange warnings. They sit quietly in one line you can expand, with the original message one tap away.</li><li>Fast pace no longer logs routine shortcuts as problems.</li><li>Anything that does need you, or a step that failed, is said in plain words, with "Show original message" for the exact text and a Copy button.</li><li>While the film is being checked, the critic (Rasika) now appears on the crew stage instead of Rasan.</li></ul>]]></description>
+      <sparkle:version>64</sparkle:version>
+      <sparkle:shortVersionString>0.24.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.24.2-beta.1/RasanAI-Studio-0.24.2.dmg" sparkle:edSignature="wu45xNrFVw1JAwEAIL2N9nVt1cPt/ghpJs0IHUFT6ufO3iaUzXye34YuyVVmb0AbjjpSKAaj1Rkqmy8FK+dvBw==" length="85103583" type="application/octet-stream" />
+    </item>
+    <item>
+      <title>RasanAI Studio 0.24.1 beta 1</title>
+      <pubDate>Mon, 26 Oct 2026 09:27:24 GMT</pubDate>
+      <description><![CDATA[<ul><li>Rasan no longer skips your Look call when the film planner has trouble: it always asks you, even at Fast pace.</li><li>If a look or story was ever chosen without you, Studio tells you and lets you review it.</li></ul>]]></description>
+      <sparkle:version>63</sparkle:version>
+      <sparkle:shortVersionString>0.24.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.24.1-beta.1/RasanAI-Studio-0.24.1.dmg" sparkle:edSignature="O4lQLH3CiexKPhMgj9YYlQfFNMtdWp3qOAHMMLb7XldQItA2vc5TeAvh68qqOGusbS0x8NTAuRO3+8wbBTaqBA==" length="85065691" type="application/octet-stream" />
+    </item>
+    <item>
+      <title>RasanAI Studio 0.24.0 beta 1</title>
+      <pubDate>Mon, 26 Oct 2026 08:58:13 GMT</pubDate>
+      <description><![CDATA[<ul><li>Quitting while a film is working now offers a third choice, "Keep the film running": Studio closes and the director carries on, and the next Studio picks it up (also when a phone resumed it while Studio was closed). Stop and Quit stays the default.</li><li>A director started from outside Studio (<code>director.mjs resume</code>) is found by a relaunched Studio from the process list.</li></ul>]]></description>
+      <sparkle:version>62</sparkle:version>
+      <sparkle:shortVersionString>0.24.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.24.0-beta.1/RasanAI-Studio-0.24.0.dmg" sparkle:edSignature="ZR+Gx0oZ+R7IJxwpRgk+Ep0Go8CDIrs7+WDobBx43CDziVeUMwwW9wrxDf9a/svoDa/ZtRVtx/QaSUCoLGWrBQ==" length="85048810" type="application/octet-stream" />
+    </item>
+    <item>
+      <title>RasanAI Studio 0.23.0 beta 1</title>
+      <pubDate>Mon, 26 Oct 2026 08:35:08 GMT</pubDate>
+      <description><![CDATA[<ul><li>The Brief page is tidier: two columns that line up at the top and stay a comfortable width on big screens, a smaller header, an idea sentence that wraps instead of being cut off, and a quieter Details panel that no longer hides behind the bottom bar.</li><li>The crew talks in speech cards near their head instead of cloud thought bubbles: the newest one, plus one faded older one.</li><li>Decisions is now a timeline grouped by stage, with headers that stay in view and fold away, marks for what you decided, what Rasan decided and what is still open, a filter and search, Show more, and Jump to now.</li><li>The working screen fits its window: the character and their speech cards shrink to fit a smaller window instead of making you scroll, and the latest picture sizes itself to match.</li></ul>]]></description>
+      <sparkle:version>61</sparkle:version>
+      <sparkle:shortVersionString>0.23.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.23.0-beta.1/RasanAI-Studio-0.23.0.dmg" sparkle:edSignature="ihVwImgB9DfIbIrYawsBOJK7/1mNRqPjGS1g8cX5NwiyLSsubwCntE+dme6W/A3njwkBamUGRXuRFVae5I26CA==" length="85000874" type="application/octet-stream" />
+    </item>
+    <item>
+      <title>RasanAI Studio 0.22.9 beta 1</title>
+      <pubDate>Mon, 26 Oct 2026 08:04:41 GMT</pubDate>
+      <description><![CDATA[<ul><li>When Rasan is blocked, the banner now says what happened and what to do, with one main button: Fix it. Ask Rasan why, Retry step, Restart Rasan, View activity, Copy details and Report a problem are under More.</li><li>Ask "what happened?" and Studio answers right away from what it already knows (why Rasan stopped, the current step, the last error, the last few events), without waiting for Rasan.</li><li>Messages to Rasan are sent once, not twice, and Studio's own instructions show as a short line like "You pressed Fix it" instead of a long message.</li><li>"Rasan is thinking" can no longer get stuck: if Rasan is stopped, blocked or silent for 3 minutes it says "Not answered" and offers Ask again, Ask for a short answer, or Stop waiting.</li></ul>]]></description>
+      <sparkle:version>60</sparkle:version>
+      <sparkle:shortVersionString>0.22.9</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.22.9-beta.1/RasanAI-Studio-0.22.9.dmg" sparkle:edSignature="JpNWIIwhq/NWRdE071/1P+vhYgwACr7ajFzYDdtagpHpJR82kbelZVOFjutq/TpwTqnqIQnHosX/OcbSlGYaAQ==" length="84879098" type="application/octet-stream" />
+    </item>
+    <item>
+      <title>RasanAI Studio 0.22.8 beta 1</title>
+      <pubDate>Mon, 26 Oct 2026 07:29:28 GMT</pubDate>
+      <description><![CDATA[<ul><li>Updating restarts RasanAI by itself: the app now closes and reopens in the new version without you pressing anything, and if it ever needs a hand, the window says what it is waiting for.</li><li>The update window now says it can take up to a minute on Macs with security software, and keeps counting so you can see it is not stuck.</li></ul>]]></description>
+      <sparkle:version>59</sparkle:version>
+      <sparkle:shortVersionString>0.22.8</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.22.8-beta.1/RasanAI-Studio-0.22.8.dmg" sparkle:edSignature="TPANdIyhHU4VkOh7k7fqF0PmsG2jxY+smsU6NUELWLv+xeMCn72Ged/IHukjNqMXYTouUNNadSekH9B+/L2GDQ==" length="84741187" type="application/octet-stream" />
+    </item>
+    <item>
+      <title>RasanAI Studio 0.22.7 beta 1</title>
+      <pubDate>Mon, 26 Oct 2026 07:09:46 GMT</pubDate>
+      <description><![CDATA[<ul><li>The strip above each step ('Call 5 of 5 · Final…') is gone. What it said now lives in the bottom bar: a small Preview/Final tag, and hovering the main button tells you what it will do. The page gets that row of space back.</li></ul>]]></description>
+      <sparkle:version>58</sparkle:version>
+      <sparkle:shortVersionString>0.22.7</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.22.7-beta.1/RasanAI-Studio-0.22.7.dmg" sparkle:edSignature="BCAzh1q1SKzKiL7Sf/73FE3OZFCT5x1p+Sj0KF6NvDlpD09V+zgk1hNTzmaLIraFQ7hEZFcuBtaYtFV6P+VxAw==" length="84729963" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.22.6 beta 1</title>
       <pubDate>Mon, 26 Oct 2026 06:48:14 GMT</pubDate>
       <description><![CDATA[<ul><li>A fresh last step for setting up a film: one calm page with everything visible and editable in place, instead of a pop-up. Speed, quality, motion, Brand, footage and a reference video all live on it.</li><li>Ask Rasan: type right in the bottom bar. The chat opens above it and older messages fade away as you look up. Scroll up, or open the side panel, to see more.</li><li>The sidebar no longer has a coloured block behind it, and the character header at the top of each step takes less space.</li></ul>]]></description>

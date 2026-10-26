@@ -37,7 +37,7 @@ enum CrewThoughts {
         let skipped: Set<ProgressActivity.Kind> = [.warning, .ask, .answer]
         var seen = Set<String>()
         let items = (s.activity + s.recentTools)
-            .filter { $0.phase == phase && !skipped.contains($0.kind) && !$0.title.isEmpty }
+            .filter { $0.phase == phase && !skipped.contains($0.kind) && $0.severity == nil && !$0.title.isEmpty }
             .sorted { $0.time > $1.time }
             .filter { seen.insert($0.title).inserted }
         return items.prefix(maxOnScreen).map { CrewThought(id: $0.id, kind: .say, time: $0.time, text: $0.title, revising: $0.kind == .critic) }
@@ -141,8 +141,6 @@ struct CloudShape: Shape {
 /// A continuous rounded card with a small rounded tail under its bottom-left, pointing at the speaker's head.
 struct SpeechCardShape: InsettableShape {
     var tail = true
-    /// True for a card on the head's left: the tail sits at the bottom-right instead.
-    var flip = false
     var inset: CGFloat = 0
     func inset(by amount: CGFloat) -> SpeechCardShape { var s = self; s.inset += amount; return s }
     func path(in rect: CGRect) -> Path {
@@ -151,14 +149,12 @@ struct SpeechCardShape: InsettableShape {
         let card = CGRect(x: r.minX, y: r.minY, width: r.width, height: r.height - th)
         var p = Path(roundedRect: card, cornerRadius: 14, style: .continuous)
         if tail {
-            let cx = flip ? r.maxX - BubbleMetrics.tailX : r.minX + BubbleMetrics.tailX, y = card.maxY
+            let cx = r.minX + BubbleMetrics.tailX, y = card.maxY
             var t = Path()
-            let m: CGFloat = flip ? -1 : 1
-            func pt(_ dx: CGFloat, _ dy: CGFloat) -> CGPoint { CGPoint(x: cx + m * dx, y: y + dy) }
-            t.move(to: pt(-8, -1))
-            t.addQuadCurve(to: pt(-3, th - 1), control: pt(-4, 1))
-            t.addQuadCurve(to: pt(4, th * 0.55), control: pt(-1, th + 1))
-            t.addQuadCurve(to: pt(8, -1), control: pt(5, 2))
+            t.move(to: CGPoint(x: cx - 8, y: y - 1))
+            t.addQuadCurve(to: CGPoint(x: cx - 3, y: y + th - 1), control: CGPoint(x: cx - 4, y: y + 1))
+            t.addQuadCurve(to: CGPoint(x: cx + 4, y: y + th * 0.55), control: CGPoint(x: cx - 1, y: y + th + 1))
+            t.addQuadCurve(to: CGPoint(x: cx + 8, y: y - 1), control: CGPoint(x: cx + 5, y: y + 2))
             t.closeSubpath()
             p.addPath(t)
         }
@@ -195,8 +191,6 @@ struct CrewBubbleView: View {
     let ago: String
     let dark: Bool
     let motion: Bool
-    /// Which side of the head the card sits (1 = right: tail at its bottom-left, -1 = left: mirrored).
-    var side: CGFloat = 1
 
     var body: some View {
         Group {
@@ -259,10 +253,10 @@ struct CrewBubbleView: View {
     /// The clean speech card: the app's glass in a continuous rounded shape, a hairline edge, a soft shadow, and a small tail
     /// (only on the live one) toward the speaker's head.
     private func speechCard<C: View>(@ViewBuilder _ content: () -> C) -> some View {
-        let shape = SpeechCardShape(tail: true, flip: side < 0)
+        let shape = SpeechCardShape(tail: live)
         return content()
-            .padding(.bottom, BubbleMetrics.tailHeight)
-            .frame(width: size.width, height: size.height)
+            .padding(.bottom, live ? BubbleMetrics.tailHeight : 0)
+            .frame(width: size.width, height: size.height - (live ? 0 : BubbleMetrics.tailHeight))
             .glassPanel(in: shape)
             .overlay { shape.strokeBorder(Color.white.opacity(dark ? 0.08 : 0.5), lineWidth: 0.5) }
             .shadow(color: .black.opacity(dark ? 0.35 : 0.12), radius: 10, y: 4)

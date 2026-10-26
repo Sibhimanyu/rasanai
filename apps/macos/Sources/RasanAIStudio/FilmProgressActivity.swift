@@ -67,6 +67,7 @@ private struct ActivityRow: View {
                 if let detail = item.detail, !detail.isEmpty {
                     Text(detail).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(3).fixedSize(horizontal: false, vertical: true)
                 }
+                if let original = item.original { OriginalMessageDisclosure(text: original) }
             }
             Spacer(minLength: 10)
             VStack(alignment: .trailing, spacing: 1) {
@@ -76,7 +77,7 @@ private struct ActivityRow: View {
             .font(.system(size: 11)).foregroundStyle(.tertiary)
         }
         .padding(.vertical, 8)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("\(item.kind == .warning ? "Warning. " : "")\(item.phase.title). \(item.title). \(item.detail ?? "")")
     }
 }
@@ -100,6 +101,7 @@ struct ProgressActivityDetail: View {
                 Text("\(item.phase.title) · \(item.time.formatted(date: .abbreviated, time: .standard))").font(.system(size: 11)).foregroundStyle(.secondary)
             }
             Text(item.title).font(.system(size: 13, weight: .medium)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            if let original = item.original { OriginalMessageDisclosure(text: original) }
             if let detail = item.detail, !detail.isEmpty {
                 ScrollView {
                     Text(detail).font(.system(size: 11, design: .monospaced)).textSelection(.enabled)
@@ -130,7 +132,8 @@ struct ProgressActivityDetail: View {
 
 extension ProgressActivity {
     var activityTint: Color {
-        switch kind {
+        if let severity, !severity.isAlerting { return Color.secondary }
+        return switch kind {
         case .milestone, .answer: Color(nsColor: .systemGreen)
         case .ask, .note: Color.rasan
         case .warning: .orange

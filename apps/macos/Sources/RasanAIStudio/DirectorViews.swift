@@ -205,19 +205,30 @@ struct DirectorLogSheet: View {
         let transferring = store?.isTransferringProject == true
         let installing = store?.toolSetup.isRunning == true
         guard running || transferring || installing else { store?.pauseQueue(); return .terminateNow }
+        // A film that is working can be left working: the driver carries on without Studio, and the next Studio adopts it. Not offered
+        // for a paused one (the driver ends a paused director nobody watches after 30 s), or when the update window already chose.
+        let canKeep = running && runtime?.isFrozen != true && !quitPreconfirmed
         let alert = NSAlert()
         alert.messageText = installing ? "Cancel tool setup and quit?" : transferring ? "Cancel the project transfer and quit?" : "Stop the director and quit?"
         alert.informativeText = installing ? "Setup will stop and completed installations will be kept. Any project transfer and running director will also stop." : transferring
             ? "The incomplete transfer will be removed and your original files kept. Any running director will also stop."
-            : "Your project files are preserved. The active agent and its child processes will be stopped. You can resume the run later."
-        alert.addButton(withTitle: running ? "Stop and Quit" : installing ? "Cancel Setup and Quit" : "Cancel Transfer and Quit"); alert.addButton(withTitle: "Cancel")
-        guard quitPreconfirmed || alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
+            : "Your project files are preserved. The active agent and its child processes will be stopped. You can resume the run later." + (canKeep ? " Or keep the film running: it carries on without Studio, and Studio picks it up the next time you open it." : "")
+        alert.addButton(withTitle: running ? "Stop and Quit" : installing ? "Cancel Setup and Quit" : "Cancel Transfer and Quit")
+        if canKeep { alert.addButton(withTitle: "Keep the film running") }
+        alert.addButton(withTitle: "Cancel")
+        var keepRunning = false
+        if !quitPreconfirmed {
+            let answer = alert.runModal()
+            if canKeep, answer == .alertSecondButtonReturn { keepRunning = true }
+            else if answer != .alertFirstButtonReturn { return .terminateCancel }
+        }
         store?.pauseQueue()
         store?.transferTask?.cancel()
         store?.toolSetup.cancel()
-        runtime?.stop()
+        if !keepRunning { runtime?.stop() }
         Task {
-            while runtime?.isRunning == true || store?.isTransferringProject == true || store?.toolSetup.isRunning == true { try? await Task.sleep(for: .milliseconds(100)) }
+            // A kept film is left running on purpose: only the stop, the transfer and the setup are waited for.
+            while (!keepRunning && runtime?.isRunning == true) || store?.isTransferringProject == true || store?.toolSetup.isRunning == true { try? await Task.sleep(for: .milliseconds(100)) }
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater

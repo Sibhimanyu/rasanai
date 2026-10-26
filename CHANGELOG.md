@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Fast pace no longer logs routine shortcuts as problems: the director rules now say a downgrade is only for something expected that did not happen, and a score written as one contract (`motion/CONTRACT.md`) is the documented Fast pace path. `motion-gate.mjs` reads the beats from `scenes.json` when `score.json` is missing, quietly.
+- Downgrade rows (`downgrades.jsonl`, `console.mjs downgrade`) take an optional `severity` (`info` by default, `notice`, `needs-you`, `error`) and `kind` (a routine adjustment such as `fast-pace`, told as "Adjusted" and left out of "Working without"). A gate that could not run is a `notice`.
+- The crew planner (`crew.mjs plan`) no longer crashes on films with a Storyboard audio-direction phase: every phase now has a dispatch list, so the director never falls back to a plan made by hand.
+- Story and Look are never decided for you: a Story or Look closed without your choice is recorded as unconfirmed (`console.mjs push`), and the director rules now say a planner failure or Fast pace never removes a call.
+
+## 1.28.0 (2026-10-26): Drive a whole film from your phone: remote contract v2 and director.mjs
+
+- **Remote contract v2 (`external_actions: 2`).** A strict superset of v1 so a phone can run a whole film: the brief's `submit` (fields keep their types, unknown keys and formats not in the catalog are refused), `decide`, style-frame `approve` / `comment {frame, text}` / `redo {ids, note}`, an ask answered with `tool-ready:<tool>`, and Studio's chat note (`value.chat`). Lines from `squeak` and `squeak-phone` are checked against the session as it is when `wait` reads them; a refusal is listed in `rejected.json` with a fixed reason. `references/remote.md` documents it, where replies land (`steps.<step>.thread`) and how to read the director's liveness.
+- **`scripts/director.mjs`** (`status`, `resume`, `stop`, `install-tool`): one JSON line per command. `resume` restarts the director on the same run exactly as Studio's Resume does, with a Node port of Studio's launch prompt (`lib/director-launch.mjs`, generated text in `lib/director-prompt-data.json`, golden-tested against Swift) and a lock so two resumes cannot start two directors.
+
 ## 1.27.0 (2026-10-25): Stories that fit what the film says, one look frame per option, and a safer engine underneath
 
 All of this is foundation work that landed together and was only syntax-checked, not validated end to end.

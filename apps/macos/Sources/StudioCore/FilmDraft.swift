@@ -236,7 +236,7 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         }
         return lines.isEmpty ? "" : "\n\n" + lines.joined(separator: "\n")
     }
-    private static let levelText = [
+    static let levelText = [
         "maximal": """
         The user chose Maximal, so go all out on motion. Maximal is about ambition, and it has two dials: density (how many designed elements are on screen) and complexity (how intricate each movement is). Turn up whichever makes each scene strongest, often both, and never read Maximal as "more things moving".
         Complexity is choreography: multi-stage moves (anticipation, action, overshoot, settle), overlapping and follow-through action, staggered and offset timing, secondary motion, elements that hand off or morph into one another, masks and reveals, match cuts, a motivated camera (push, parallax, rack), and type that is built, broken and rebuilt. One word or one product shot with intricate, perfectly timed choreography is as Maximal as a screen full of layers.
@@ -250,7 +250,7 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         The user chose Minimal. Deliver a clean, confident cut: tight pacing, simple legible captions, and a few well-made titles with simple, precise moves. Skip decorative overlays, framed shots, heavy effects and elaborate choreography. This is a deliberate restraint chosen by the user, so execute it with precision and polish.
         """,
     ]
-    private static let footageText = [
+    static let footageText = [
         "maximal": """
         Raw footage is not a reason to hold back. Treat the clips as material for a motion-designed reel, not as a slideshow with subtitles.
         Every segment carries graphics. Use all of these across the reel:
@@ -273,7 +273,7 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         Cut the footage clean: strong clip selection, tight trims, simple legible captions and a few well-made titles. No framed shots, split screens or decorative overlays, because the user chose a minimal level. Use reel.mjs for scanning, transcripts and staging.
         """,
     ]
-    private static let presenterText = [
+    static let presenterText = [
         "maximal": """
         If the footage is a talking head shot on a green or blue screen, or the brief asks to put the speaker into other worlds, use the presenter route (RasanAI's Presenter films): key the speaker out, generate image plates for the right moments of what they say, move the camera on every plate, and add motion graphics (kinetic titles, callouts, stats) throughout. Vary the layouts, land at least one cutaway, and let the speaker interact with the world once. Ask nothing in chat.
         """,

@@ -1,9 +1,6 @@
 import AppKit
-import os
 import StudioCore
 import SwiftUI
-
-private let renderLog = Logger(subsystem: "com.rasanai.studio", category: "render")
 
 /// Where the character stands on the stage: the piece's top-left, and view points per piece pixel.
 struct StageLayout {
@@ -73,10 +70,6 @@ final class CrewStageEngine {
     private var seen: [String: Double] = [:]
     private var seq: [String: Int] = [:]
     private var nextSeq = 0
-    struct Slot { var origin: CGPoint; var side: CGFloat }
-    /// Where each visible card sits (it stays put while that spot is free), and the cards retired to make room.
-    private var slots: [String: Slot] = [:]
-    private var retired = Set<String>()
     private var started = false
     private var lastT: Double = 0
     private var lastNew: Double = 0
@@ -127,89 +120,34 @@ final class CrewStageEngine {
         }
 
         // Nothing new for 20 s: only a three-dot bubble stays.
-        retired.formIntersection(Set(input.thoughts.map(\.id)))
-        var list = Array(input.thoughts.prefix(CrewThoughts.maxOnScreen)).filter { !retired.contains($0.id) }
+        // The newest, plus at most one older line above it.
+        var list = Array(input.thoughts.prefix(2))
         if live, input.mode == .work, t - lastNew > 20, !list.isEmpty {
             if idleSince == nil { idleSince = t }
             list = [CrewThought(id: "idle-dots", kind: .dots, time: Date(), text: "")]
             if seen["idle-dots"] == nil { seen["idle-dots"] = t; seq["idle-dots"] = nextSeq; nextSeq += 1 }
         } else { idleSince = nil; seen["idle-dots"] = nil }
         if input.mode == .ask || input.thoughts.isEmpty { list = [] }
-        let listIDs = Set(list.map(\.id))
-        slots = slots.filter { listIDs.contains($0.key) }
 
         let layout = input.layout, pose = input.pose
         let eyeXs = pose.eyes.map(\.cx), eyeMean = eyeXs.isEmpty ? pose.width / 2 : eyeXs.reduce(0, +) / CGFloat(eyeXs.count)
         let hx = layout.origin.x + eyeMean * layout.s
         let hy = layout.origin.y + ((pose.eyes.map { $0.cy - $0.ry }.min() ?? pose.height * 0.3) - 30) * layout.s
         var seenNow = Set<String>()
-
-        // Where cards may go: inside the stage, clear of the face, and never within 10 pt of another card.
-        let W = layout.size.width, H = layout.size.height
-        let eyeBottom = pose.eyes.map { $0.cy + $0.ry }.max() ?? pose.head.y
-        let faceTop = layout.origin.y + pose.head.top * layout.s
-        let faceBottom = layout.origin.y + (max(pose.head.y, eyeBottom) + 24) * layout.s
-        let face = CGRect(x: layout.origin.x + pose.head.l * layout.s, y: faceTop, width: (pose.head.r - pose.head.l) * layout.s, height: max(1, faceBottom - faceTop))
-            .insetBy(dx: -10, dy: -10)
-        func clampX(_ x: CGFloat, _ w: CGFloat) -> CGFloat { min(max(x, 12), max(12, W - w - 12)) }
-        func fits(_ o: CGPoint, _ size: CGSize, _ others: [CGRect]) -> Bool {
-            let r = CGRect(origin: o, size: size)
-            if r.minY < 8 || r.maxY > H - 10 || r.minX < 11.5 || r.maxX > W - 11.5 { return false }
-            if r.intersects(face) { return false }
-            let padded = r.insetBy(dx: -10, dy: -10)
-            return !others.contains { padded.intersects($0) }
-        }
-        func rects(_ k: [(thought: CrewThought, size: CGSize, slot: Slot)]) -> [CGRect] { k.map { CGRect(origin: $0.slot.origin, size: $0.size) } }
-        var keep: [(thought: CrewThought, size: CGSize, slot: Slot)] = []
-        // Cards already placed keep their spot while it stays free; the rest are chosen fresh.
-        for thought in list {
-            guard var slot = slots[thought.id] else { continue }
-            let size = BubbleMetrics.size(thought)
-            slot.origin.x = clampX(slot.origin.x, size.width)
-            if fits(slot.origin, size, rects(keep)) { slots[thought.id] = slot; keep.append((thought, size, slot)) } else { slots[thought.id] = nil }
-        }
-        for thought in list where slots[thought.id] == nil {
-            let size = BubbleMetrics.size(thought)
-            let n = seq[thought.id] ?? 0
-            let first: CGFloat = n % 2 == 0 ? 1 : -1
-            let jitter: CGFloat = [0, -22, 18, -10, 30][n % 5]
-            let gap = layout.pw * 0.32 + 40 + CGFloat(n % 3) * 26
-            let h = size.height, w = size.width
-            while true {
-                var cands: [Slot] = []
-                for sd in [first, -first] {
-                    for dy in [jitter, jitter - (h + 12), 40, -(h + 12), 70, -(2 * h + 24)] {
-                        cands.append(Slot(origin: CGPoint(x: hx + sd * gap - (sd > 0 ? 0 : w), y: hy - h - 10 + dy), side: sd))
-                    }
-                }
-                for sd in [first, -first] {
-                    for dy in [CGFloat(0), -(h + 12)] {
-                        cands.append(Slot(origin: CGPoint(x: sd > 0 ? hx - BubbleMetrics.tailX : hx - w + BubbleMetrics.tailX, y: faceTop - h - 14 + dy), side: sd))
-                    }
-                }
-                let others = rects(keep)
-                if let hit = cands.map({ c -> Slot in var c = c; c.origin.x = clampX(c.origin.x, w); return c }).first(where: { fits($0.origin, size, others) }) {
-                    slots[thought.id] = hit
-                    keep.append((thought, size, hit))
-                    break
-                }
-                // Nowhere free: the oldest card retires first; a stage too short for even one card shows none.
-                let order = { (id: String) in list.firstIndex { $0.id == id } ?? 0 }
-                guard let oldest = keep.max(by: { order($0.thought.id) < order($1.thought.id) }), order(oldest.thought.id) > order(thought.id) else { break }
-                keep.removeAll { $0.thought.id == oldest.thought.id }
-                slots[oldest.thought.id] = nil
-                retired.insert(oldest.thought.id)
-            }
-        }
-        let rank = Dictionary(uniqueKeysWithValues: list.enumerated().map { ($1.id, $0) })
-        keep.sort { (rank[$0.thought.id] ?? 0) < (rank[$1.thought.id] ?? 0) }
-        for (i, item) in keep.enumerated() {
-            let thought = item.thought, size = item.size
-            let side = item.slot.side
-            let x = item.slot.origin.x, y = item.slot.origin.y
+        for (i, thought) in list.enumerated() {
             seenNow.insert(thought.id)
-            let op: CGFloat = live ? (i == 0 ? 1 : max(0, 0.92 - CGFloat(i) * 0.2)) : 0
-            let k = 1 - CGFloat(i) * 0.1
+            let size = BubbleMetrics.size(thought)
+            // One consistent place: the newest sits just above-right of the head with its tail toward it; the older one stacks on top.
+            let side: CGFloat = 1
+            var x = hx + layout.pw * 0.04 - BubbleMetrics.tailX + 26
+            var y = hy - size.height - 2
+            if i > 0, let newest = list.first {
+                let nh = BubbleMetrics.size(newest).height
+                y -= nh - BubbleMetrics.tailHeight + 8
+            }
+            x = min(max(x, 12), max(12, layout.size.width - size.width - 12)); y = max(8, y)
+            let op: CGFloat = live ? (i == 0 ? 1 : 0.45) : 0
+            let k: CGFloat = i == 0 ? 1 : 0.94
             if var v = vis[thought.id] {
                 v.thought = thought; v.size = size; v.index = i; v.side = side; v.leaving = false
                 step(&v, tx: x, ty: y, tk: k, to: op, dt: dt, motion: motion && !(v.born < -1e5 && t - startT < 0.8))
@@ -291,9 +229,8 @@ final class CrewStageEngine {
         let a = Self.ease(dt, 7)
         v.x += (tx - v.x) * a
         // A bubble that leaves fades while it floats up.
-        // It clears out fast, so it never sits under the card taking its place.
-        if v.leaving { v.y -= CGFloat(dt) * 90 } else { v.y += (ty - v.y) * a }
-        v.op += (to - v.op) * Self.ease(dt, v.leaving ? 16 : 6)
+        if v.leaving { v.y -= CGFloat(dt) * 45 } else { v.y += (ty - v.y) * a }
+        v.op += (to - v.op) * Self.ease(dt, 6)
         // A softly under-damped spring for the scale, so a new bubble pops in with a small overshoot.
         let acc = (tk - v.k) * 160 - v.kv * 18
         v.kv += acc * CGFloat(dt); v.k += v.kv * CGFloat(dt)
@@ -604,9 +541,6 @@ struct CrewStage: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var engine = CrewStageEngine()
     @State private var pictureImage: NSImage?
-    /// False while every Studio window is covered, minimised or on a sleeping display: the 60 fps Canvas then stops drawing
-    /// instead of queueing frames the render server drops ("RBLayer: full image queue", which blanked the window).
-    @State private var windowVisible = true
 
     /// The stage's height: room above the head for bubbles when working, just the figure when asking.
     static func height(mode: CrewStageArt.Mode, unit: CGFloat) -> CGFloat { mode == .ask ? unit + 8 : unit + 150 }
@@ -622,17 +556,8 @@ struct CrewStage: View {
                 }
             }
             .task(id: picture) { pictureImage = await loadPicture(picture) }
-            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didChangeOcclusionStateNotification)) { _ in refreshVisibility() }
-            .onChange(of: scenePhase) { _, phase in renderLog.notice("crew stage scenePhase \(String(describing: phase), privacy: .public)") }
             .accessibilityHidden(true)
         }
-    }
-
-    private func refreshVisibility() {
-        let visible = NSApp.windows.contains { $0.isVisible && !$0.isMiniaturized && $0.occlusionState.contains(.visible) && $0.canBecomeMain }
-        guard visible != windowVisible else { return }
-        windowVisible = visible
-        renderLog.notice("crew stage window visible=\(visible, privacy: .public)")
     }
 
     /// An ask pose stands `unit` tall, but never wider than 220 pt (Rasika's is a wide piece).
@@ -643,7 +568,7 @@ struct CrewStage: View {
         let layout = StageLayout.make(pose: pose, character: character, mode: mode, size: size, unit: mode == .ask ? askUnit(pose) : unit)
         let motion = !reduceMotion
         let dark = scheme == .dark
-        TimelineView(.animation(minimumInterval: 1 / 60, paused: reduceMotion || scenePhase != .active || !windowVisible)) { timeline in
+        TimelineView(.animation(minimumInterval: 1 / 60, paused: reduceMotion || scenePhase != .active)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
             let _ = engine.advance(t: t, .init(layout: layout, pose: pose, character: character, mode: mode, thoughts: thoughts, asleep: asleep,
                                               motion: motion, lines: lines, picture: picture))
@@ -661,8 +586,8 @@ struct CrewStage: View {
                     .frame(width: size.width, height: size.height)
                 ForEach(bubbles) { b in
                     CrewBubbleView(thought: b.thought, size: b.size, live: b.index == 0 && !b.leaving, age: t - b.born, clock: t,
-                                   ago: Self.ago(b.thought, index: b.index, now: Date()), dark: dark, motion: motion, side: b.side)
-                        .scaleEffect(max(0.01, b.k), anchor: UnitPoint(x: b.side < 0 ? 1 - BubbleMetrics.tailX / max(1, b.size.width) : BubbleMetrics.tailX / max(1, b.size.width), y: 1))
+                                   ago: Self.ago(b.thought, index: b.index, now: Date()), dark: dark, motion: motion)
+                        .scaleEffect(max(0.01, b.k), anchor: UnitPoint(x: BubbleMetrics.tailX / max(1, b.size.width), y: 1))
                         .opacity(Double(max(0, min(1, b.op))))
                         .zIndex(Double(-b.index))
                         .position(x: b.x + b.size.width / 2, y: b.y + b.size.height / 2 + (motion && !asleep ? CGFloat(sin(t * 1.6 + b.phase)) * 3 : 0))

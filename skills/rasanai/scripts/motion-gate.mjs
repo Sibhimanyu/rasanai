@@ -189,8 +189,15 @@ async function main() {
     }
     process.exit(g.pass === false ? 2 : 0);
   }
-  const res = await gate({ events: str(args.events), vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: str(args.scenes), endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], pop: !args["no-pop"], energy: !args["no-energy"], loop: args.loop ? true : null, stillness: args.stillness ? true : null, medium: str(args.medium) || null });
-  for (const c of res.could_not_run) noteDowngrade({ run: args.run, what: "the motion gate", instead: "no motion check", why: String(c).slice(0, 200), impact: "this film's motion was not measured" });
+  // A Fast pace film may carry its score as one written contract (motion/CONTRACT.md) and no score.json: then the beats come
+  // from the run's scenes.json beside it, quietly. The checks that need the score's own fields are skipped, not failed.
+  let scenesArg = str(args.scenes);
+  if (!scenesArg && str(args.plan) && !fs.existsSync(path.resolve(str(args.plan)))) {
+    const beside = path.join(path.dirname(path.dirname(path.resolve(str(args.plan)))), "scenes.json");
+    if (fs.existsSync(beside)) scenesArg = beside;
+  }
+  const res = await gate({ events: str(args.events), vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: scenesArg, endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], pop: !args["no-pop"], energy: !args["no-energy"], loop: args.loop ? true : null, stillness: args.stillness ? true : null, medium: str(args.medium) || null });
+  for (const c of res.could_not_run) noteDowngrade({ run: args.run, what: "the motion gate", instead: "no motion check", why: String(c).slice(0, 200), impact: "this film's motion was not measured", severity: "notice" });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else {
     console.log(`motion gate: ${res.verdict}${res.measured.coverage != null ? ` · ${Math.round(res.measured.coverage * 100)}% of frames move` : ""}`);

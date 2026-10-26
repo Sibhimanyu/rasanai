@@ -2,9 +2,52 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.24.2 (build 64) — 2026-10-26
+
+- Small adjustments Rasan makes along the way no longer show up as orange warnings. They sit quietly in one line you can expand, with the original message one tap away.
+- Fast pace no longer logs routine shortcuts as problems.
+- Anything that does need you, or a step that failed, is said in plain words, with "Show original message" for the exact text and a Copy button.
+- While the film is being checked, the critic (Rasika) now appears on the crew stage instead of Rasan.
+- **Bundles RasanAI 1.28.0.**
+
+## 0.24.1 (build 63) — 2026-10-26
+
+- Rasan no longer skips your Look call when the film planner has trouble: it always asks you, even at Fast pace.
+- If a look or story was ever chosen without you, Studio tells you and lets you review it.
+- **Bundles RasanAI 1.28.0.**
+
+## 0.24.0 (build 62) — 2026-10-26
+
+- Quitting while a film is working now offers a third choice, "Keep the film running": Studio closes and the director carries on, and the next Studio picks it up (also when a phone resumed it while Studio was closed). Stop and Quit stays the default.
+- A director started from outside Studio (`director.mjs resume`) is found by a relaunched Studio from the process list.
+- **Bundles RasanAI 1.28.0.**
+
+## 0.23.0 (build 61) — 2026-10-26
+
+- The Brief page is tidier: two columns that line up at the top and stay a comfortable width on big screens, a smaller header, an idea sentence that wraps instead of being cut off, and a quieter Details panel that no longer hides behind the bottom bar.
+- The crew talks in speech cards near their head instead of cloud thought bubbles: the newest one, plus one faded older one.
+- Decisions is now a timeline grouped by stage, with headers that stay in view and fold away, marks for what you decided, what Rasan decided and what is still open, a filter and search, Show more, and Jump to now.
+- The working screen fits its window: the character and their speech cards shrink to fit a smaller window instead of making you scroll, and the latest picture sizes itself to match.
+- **Bundles RasanAI 1.27.0.**
+
+## 0.22.9 (build 60) — 2026-10-26
+
+- When Rasan is blocked, the banner now says what happened and what to do, with one main button: Fix it. Ask Rasan why, Retry step, Restart Rasan, View activity, Copy details and Report a problem are under More.
+- Ask "what happened?" and Studio answers right away from what it already knows (why Rasan stopped, the current step, the last error, the last few events), without waiting for Rasan.
+- Messages to Rasan are sent once, not twice, and Studio's own instructions show as a short line like "You pressed Fix it" instead of a long message.
+- "Rasan is thinking" can no longer get stuck: if Rasan is stopped, blocked or silent for 3 minutes it says "Not answered" and offers Ask again, Ask for a short answer, or Stop waiting.
+- **Bundles RasanAI 1.27.0.**
+
+## 0.22.8 (build 59) — 2026-10-26
+
+- Updating restarts RasanAI by itself: the app now closes and reopens in the new version without you pressing anything, and if it ever needs a hand, the window says what it is waiting for.
+- The update window now says it can take up to a minute on Macs with security software, and keeps counting so you can see it is not stuck.
+- **Bundles RasanAI 1.27.0.**
+
+## 0.22.7 (build 58) — 2026-10-26
 
 - The strip above each step ('Call 5 of 5 · Final…') is gone. What it said now lives in the bottom bar: a small Preview/Final tag, and hovering the main button tells you what it will do. The page gets that row of space back.
+- **Bundles RasanAI 1.27.0.**
 
 ## 0.22.6 (build 57) — 2026-10-26
 
