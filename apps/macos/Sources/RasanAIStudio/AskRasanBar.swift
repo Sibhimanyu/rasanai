@@ -90,12 +90,12 @@ struct AskRasanField: View {
                 Button(action: send) {
                     Image(systemName: "arrow.up").font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
                         .frame(width: 20, height: 20)
-                        .background(Circle().fill(model.isSending ? Color.secondary.opacity(0.35) : Color.rasan))
+                        .background(Circle().fill(model.isSending || model.isDuplicatePending(trimmed) ? Color.secondary.opacity(0.35) : Color.rasan))
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .disabled(model.isSending)
-                .help("Send to Rasan (↩)")
+                .disabled(model.isSending || model.isDuplicatePending(trimmed))
+                .help(model.isDuplicatePending(trimmed) ? "Already sent. Waiting for Rasan's answer." : "Send to Rasan (↩)")
                 .accessibilityLabel("Send to Rasan")
                 .transition(.scale(scale: 0.6).combined(with: .opacity))
             }

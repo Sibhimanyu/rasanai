@@ -2,6 +2,13 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- When Rasan is blocked, the banner now says what happened and what to do, with one main button: Fix it. Ask Rasan why, Retry step, Restart Rasan, View activity, Copy details and Report a problem are under More.
+- Ask "what happened?" and Studio answers right away from what it already knows (why Rasan stopped, the current step, the last error, the last few events), without waiting for Rasan.
+- Messages to Rasan are sent once, not twice, and Studio's own instructions show as a short line like "You pressed Fix it" instead of a long message.
+- "Rasan is thinking" can no longer get stuck: if Rasan is stopped, blocked or silent for 3 minutes it says "Not answered" and offers Ask again, Ask for a short answer, or Stop waiting.
+
 ## 0.22.8 (build 59) — 2026-10-26
 
 - Updating restarts RasanAI by itself: the app now closes and reopens in the new version without you pressing anything, and if it ever needs a hand, the window says what it is waiting for.

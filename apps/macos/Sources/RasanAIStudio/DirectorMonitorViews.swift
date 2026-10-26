@@ -362,17 +362,7 @@ struct MonitorBudgetBanner: View {
                 Button("Resume") { store.resumeDirector() }.keyboardShortcut(.defaultAction)
             }
         } else if monitor.run == store.runURL, let health = monitor.health, store.runtime.isRunning, let block = health.blocked, health.state != .paused {
-            banner(symbol: "hand.raised.fill", tint: .systemOrange, title: "Blocked: Rasan can't carry on yet",
-                   detail: ToolNeedCoordinator.shared.isBusy ? (store.toolSetup.message.isEmpty ? "Installing…" : store.toolSetup.message)
-                       : block.message + (block.suggestedTool != nil ? " Studio can install it for you." : "")) {
-                if let tool = block.suggestedTool, ToolNeed(tool: tool, why: "").managedKey != nil {
-                    Button("Install for me") { ToolNeedCoordinator.shared.installForMe(ToolNeed(tool: tool, why: "Rasan tried to install it with `\(block.command)`."), ask: nil, model: store.film) }
-                        .disabled(ToolNeedCoordinator.shared.isBusy)
-                }
-                Button("Retry step") { monitor.actions.retry() }
-                Button("Restart Rasan") { monitor.actions.restart() }
-                Button("Chat with Rasan…") { store.film?.beginTell() }
-            }
+            BlockedBanner(store: store, block: block)
         } else if monitor.run == store.runURL, let health = monitor.health, store.runtime.isRunning, health.stalled {
             banner(symbol: "moon.zzz.fill", tint: .systemOrange, title: "Rasan looks stuck", detail: health.detail) {
                 Button("Retry step") { monitor.actions.retry() }
