@@ -14,8 +14,14 @@ struct FlowHost {
     /// Runs the automatic format match now (the page debounces it while typing), so the first screen already knows.
     var settleFormat: () async -> Void
     var briefPlaceholder: String
-    /// Pace, models, motion design, brand, director, footage folders and the moves from Inspiration.
-    var moreSettings: AnyView
+    /// Pace, models, motion design, brand and the director, as visible controls (the "How RasanAI works" section).
+    var howItWorks: AnyView = AnyView(EmptyView())
+    /// The footage folder card and the "Make it like this" card: on the page, and inside the sheet.
+    var footageWell: AnyView = AnyView(EmptyView())
+    var referenceWell: AnyView = AnyView(EmptyView())
+    /// The picks that run the film (speed, quality, motion, brand) as chip text, and the "Directed by" line.
+    var settingChips: [(icon: String, text: String)] = []
+    var director: AnyView = AnyView(EmptyView())
     /// Start film, Add to queue or Save changes: the page's own button, with its checks and its ⌘↩.
     var runButton: AnyView
     /// Discard, the "kept if you leave" note, and Save to Library.
@@ -135,6 +141,8 @@ struct NewFilmFlow: View {
     @State private var showSaveSeries = false
     @State private var seriesTitle = ""
     @State private var customLength = false
+    @State private var sheet: SetupSection?
+    @State private var sheetBriefFocused = false
     @FocusState private var tilesFocused: Bool
 
     private static let lengths = [15, 30, 45, 60, 90, 120]
@@ -217,6 +225,10 @@ struct NewFilmFlow: View {
             if state == .done, let result = model.learner.result { model.absorb(result, questions: questions, draft: &draft) }
         }
         .onDisappear { model.learner.cancel() }
+        .sheet(isPresented: Binding(get: { sheet != nil }, set: { if !$0 { sheet = nil } })) {
+            SetupSheet(section: Binding(get: { sheet ?? .film }, set: { sheet = $0 }),
+                       film: AnyView(filmSection), how: host.howItWorks, material: AnyView(materialSection), reference: host.referenceWell)
+        }
         .alert("Save as series", isPresented: $showSaveSeries) {
             TextField("Series name", text: $seriesTitle)
             Button("Cancel", role: .cancel) { }
@@ -662,7 +674,9 @@ struct NewFilmFlow: View {
                 let all = rows
                 ForEach(Array(all.enumerated()), id: \.element.id) { index, row in
                     if index > 0 { Divider().padding(.leading, 14) }
-                    ReviewRow(label: row.label, value: row.value, detail: row.detail, source: row.source) { jump(row.step) }
+                    ReviewRow(label: row.label, value: row.value, detail: row.detail, source: row.source) {
+                        if let section = Self.section(for: row.step) { sheet = section } else { jump(row.step) }
+                    }
                 }
             }
             .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -670,13 +684,165 @@ struct NewFilmFlow: View {
             if model.learner.isRunning {
                 HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Still studying your example. Its answers will appear here.").font(.system(size: 12.5)).foregroundStyle(.secondary) }
             }
-            DisclosureGroup {
-                host.moreSettings.padding(.top, 10)
-            } label: {
-                Text("More settings").font(.system(size: 13, weight: .semibold))
+            FlowLayout(spacing: 8) {
+                ForEach(Array(host.settingChips.enumerated()), id: \.offset) { _, chip in
+                    Button { sheet = .how } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: chip.icon).font(.system(size: 12))
+                            Text(chip.text).font(.system(size: 13, weight: .medium)).lineLimit(1)
+                        }
+                        .foregroundStyle(Color.primary)
+                        .padding(.horizontal, 12).frame(height: 30)
+                        .background(Color.primary.opacity(0.07), in: Capsule())
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain).hoverCursor(.pointingHand)
+                    .accessibilityLabel("\(chip.text). Opens How RasanAI works")
+                }
             }
-            .accessibilityLabel("More settings: pace, models, motion design, brand, director and inspiration moments")
+            host.director
+            HStack(alignment: .top, spacing: 14) {
+                host.footageWell
+                host.referenceWell
+            }
         }
+    }
+
+    // MARK: Set up your film (the sheet)
+
+    /// Rows that live in the sheet open it on their section; the rest (series, taste questions) keep their own page.
+    private static func section(for step: FlowStep) -> SetupSection? {
+        switch step {
+        case .kind, .shape: .film
+        case .material, .brief: .material
+        case .example: .reference
+        default: nil
+        }
+    }
+
+    private func fieldHeader(_ title: String, source: AnswerSource?, reset: (() -> Void)? = nil) -> some View {
+        HStack(spacing: 10) {
+            Text(title).font(.system(size: 13, weight: .semibold))
+            if let source {
+                Text(source.tag).font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(source == .auto ? Color.secondary : source == .you ? Color.primary : Color.rasan)
+                    .padding(.horizontal, 8).padding(.vertical, 2)
+                    .background(Color.primary.opacity(0.08), in: Capsule())
+            }
+            Spacer(minLength: 8)
+            if let reset {
+                Button("Let RasanAI decide", action: reset).buttonStyle(.link).font(.system(size: 12))
+                    .disabled(source == .auto).accessibilityLabel("Let RasanAI decide \(title)")
+            }
+        }
+    }
+
+    private var formatSource: AnswerSource {
+        guard option != nil else { return .auto }
+        return model.provenance["format"] ?? (draft.format?.why != nil ? .auto : .you)
+    }
+    private var lengthSource: AnswerSource { readsClip && model.clipFacts != nil ? .clip : model.provenance["length"] ?? .auto }
+    private var shapeSource: AnswerSource { readsClip && model.clipFacts != nil ? .clip : model.provenance["shape"] ?? .auto }
+    private var briefSource: AnswerSource { model.provenance["brief"] == .series ? .series : trimmedBrief.isEmpty ? .auto : .you }
+
+    private var filmSection: some View {
+        VStack(alignment: .leading, spacing: 26) {
+            VStack(alignment: .leading, spacing: 10) {
+                fieldHeader("Making", source: formatSource, reset: draft.format == nil ? nil : { model.provenance["format"] = nil; host.undoAutoPick() })
+                if let why = draft.format?.why, !why.isEmpty, let option {
+                    Text("\(option.title): \(why.hasSuffix(".") ? why : why + ".")").font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                if let catalog {
+                    FormatPickerView(catalog: catalog, pick: draft.format, canAct: !working,
+                                     onPick: { host.pickOption($0) },
+                                     onScope: { draft.format?.scope = $0 }, changing: .constant(true), showsChip: false, alwaysGrid: true, showsHeading: false)
+                    if option?.status == .soon {
+                        Text("This format is coming soon. Choose another above.").font(.system(size: 12)).foregroundStyle(Color(nsColor: .systemOrange))
+                    }
+                } else {
+                    Text("The list of formats is not available. RasanAI will choose from your words.").font(.system(size: 12.5)).foregroundStyle(.secondary)
+                }
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                fieldHeader("How long", source: lengthSource, reset: { model.provenance["length"] = nil })
+                FlowLayout(spacing: 10) {
+                    ForEach(Self.lengths, id: \.self) { seconds in
+                        lengthChip(ComposerLayout.shortLength(seconds), selected: !customLength && draft.duration == seconds) {
+                            customLength = false; draft.duration = seconds; model.provenance["length"] = .you
+                        }
+                    }
+                    lengthChip("Custom", selected: customLength) { customLength = true; model.provenance["length"] = .you }
+                    if customLength {
+                        Stepper(value: Binding(get: { draft.duration }, set: { draft.duration = $0; model.provenance["length"] = .you }), in: 5...600, step: 5) {
+                            Text("\(draft.duration) s").monospacedDigit().font(.system(size: 13))
+                        }.fixedSize()
+                    }
+                }
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                fieldHeader("What shape", source: shapeSource, reset: { model.provenance["shape"] = nil })
+                FlowLayout(spacing: 10) {
+                    ForEach(Self.shapes, id: \.id) { shape in
+                        Button { draft.aspect = shape.id; model.provenance["shape"] = .you } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: shape.symbol).font(.system(size: 12))
+                                Text(shape.title).font(.system(size: 14, weight: .medium))
+                            }
+                            .foregroundStyle(.primary).padding(.horizontal, 16).frame(height: 36)
+                            .background(draft.aspect == shape.id ? Color.primary.opacity(0.14) : Color.primary.opacity(0.06), in: Capsule())
+                            .overlay { if draft.aspect == shape.id { Capsule().strokeBorder(Color.primary.opacity(0.3), lineWidth: 0.8) } }
+                        }
+                        .buttonStyle(.plain).help(shape.detail)
+                        .accessibilityAddTraits(draft.aspect == shape.id ? .isSelected : [])
+                    }
+                }
+            }
+            if model.clipFacts != nil { Text("Length and shape were read from your clip. Change them only if you want something different.").font(.system(size: 12)).foregroundStyle(.secondary) }
+        }
+    }
+
+    private var materialSection: some View {
+        VStack(alignment: .leading, spacing: 26) {
+            VStack(alignment: .leading, spacing: 10) {
+                fieldHeader("Brief", source: briefSource)
+                ComposerTextView(text: $draft.brief, placeholder: host.briefPlaceholder, minLines: 5, maxLines: 12, focused: $sheetBriefFocused, focusRequest: 0)
+                    .frame(maxWidth: .infinity).padding(14)
+                    .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(sheetBriefFocused ? Color.rasan.opacity(0.7) : Color(nsColor: .separatorColor), lineWidth: sheetBriefFocused ? 1.5 : 0.5))
+                HStack {
+                    Button { addLink() } label: { Label("Add a link", systemImage: "link") }.buttonStyle(.rasanSecondary).controlSize(.small)
+                        .help("Adds the link on your clipboard, or a blank one to fill in")
+                    if model.series != nil, model.source("brief") == .series {
+                        Text("This is the standing brief from your series.").font(.system(size: 12)).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .onChange(of: draft.brief) { if model.provenance["brief"] == .series, trimmedBrief != model.series?.brief { model.provenance["brief"] = nil } }
+            VStack(alignment: .leading, spacing: 10) {
+                fieldHeader("Footage folder", source: nil)
+                host.footageWell
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Files").font(.system(size: 13, weight: .semibold))
+                    Spacer()
+                    Button("Add files…") { host.chooseFiles() }.buttonStyle(.rasanSecondary).controlSize(.small).disabled(working)
+                }
+                if existingSources.isEmpty && newSources.isEmpty {
+                    Text("No files. That's fine: RasanAI can start from your words.").font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                ForEach(existingSources, id: \.self) { FlowFileChip(url: $0) }
+                ForEach(newSources, id: \.self) { url in FlowFileChip(url: url) { host.removeSource(url) } }
+            }
+        }
+    }
+
+    private func addLink() {
+        let clip = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let link = clip.flatMap { URL(string: $0) }.flatMap { ["http", "https"].contains($0.scheme?.lowercased() ?? "") ? $0.absoluteString : nil } ?? "https://"
+        draft.brief += (trimmedBrief.isEmpty ? "" : "\n") + link
+        sheetBriefFocused = true
     }
 
     // MARK: Footer

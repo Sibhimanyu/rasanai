@@ -84,20 +84,19 @@ struct AskRasanField: View {
 }
 
 extension FilmSessionModel {
-    /// Opens the floating chat card with the words (if any) in its composer. Nothing is sent. Expands it if it was collapsed.
+    /// Opens the floating chat card with the words (if any) in its composer. Nothing is sent.
     func openAskCard(prefill: String = "") {
         let words = prefill.trimmingCharacters(in: .whitespacesAndNewlines)
         tellStep = shownStep
         if !words.isEmpty || tellText.isEmpty { tellText = words }
         inspectorTab = .chat
-        UserDefaults.standard.set(false, forKey: "askRasanCardCollapsed")
         askCardPresented = true
         tellPresented = true
     }
 
     /// The pill's icon: opens the card, or closes it when it is already open.
     func toggleAskCard() {
-        if askCardPresented && !decisionsPresented && !UserDefaults.standard.bool(forKey: "askRasanCardCollapsed") { askCardPresented = false }
+        if askCardPresented && !decisionsPresented { askCardPresented = false }
         else { openAskCard() }
     }
 }
