@@ -2,10 +2,11 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.24.1 (build 63) — 2026-10-26
 
 - Rasan no longer skips your Look call when the film planner has trouble: it always asks you, even at Fast pace.
 - If a look or story was ever chosen without you, Studio tells you and lets you review it.
+- **Bundles RasanAI 1.28.0.**
 
 ## 0.24.0 (build 62) — 2026-10-26
 
