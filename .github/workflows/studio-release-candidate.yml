@@ -36,8 +36,15 @@ jobs:
           key: studio-build-${{ env.SWIFT_ID }}-${{ hashFiles('apps/macos/Package.resolved') }}-${{ github.run_id }}
           restore-keys: |
             studio-build-${{ env.SWIFT_ID }}-${{ hashFiles('apps/macos/Package.resolved') }}-
+      # The compiled binary from studio-prebuild.yml (every master push) or an earlier candidate, when the Swift sources,
+      # packages and toolchain are identical. A release then only stamps the version, bundles, signs and packages.
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/studio-prebuilt
+          key: studio-bin-${{ env.SWIFT_ID }}-${{ hashFiles('apps/macos/Sources/**', 'apps/macos/Package.swift', 'apps/macos/Package.resolved') }}
       - name: Build unnotarized Apple Silicon candidate
         env:
+          STUDIO_PREBUILT_DIR: ${{ runner.temp }}/studio-prebuilt
           STUDIO_VERSION: ${{ inputs.version }}
           STUDIO_BUILD: ${{ inputs.build }}
           STUDIO_ENABLE_UPDATES: ${{ inputs.enable_updates && '1' || '0' }}
