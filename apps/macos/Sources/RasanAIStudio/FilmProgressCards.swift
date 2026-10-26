@@ -34,7 +34,11 @@ extension CrewMember {
 enum NowCrewAvatar {
     static func lead(for snapshot: FilmProgressSnapshot) -> CrewCharacter {
         var seen = Set<CrewCharacter>()
-        let running = snapshot.crew.filter { $0.state == .running }.map(\.character).filter { seen.insert($0).inserted }
+        // A helper whose role the cast does not know shows as Rasan (the default); it must not hide the phase's owner
+        // (the critic during Check), so only helpers with a known character take the stage.
+        let running = snapshot.crew.filter { $0.state == .running }
+            .filter { CrewRoles.character(forRole: $0.role) != nil || CrewRoles.character(forDescription: $0.name) != nil }
+            .map(\.character).filter { seen.insert($0).inserted }
         return running.first ?? CrewCharacter(key: CrewRoles.character(forPhase: snapshot.now.phase)) ?? .ra
     }
 }
