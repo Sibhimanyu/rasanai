@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.23.0 beta 1</title>
+      <pubDate>Mon, 26 Oct 2026 08:35:08 GMT</pubDate>
+      <description><![CDATA[<ul><li>The Brief page is tidier: two columns that line up at the top and stay a comfortable width on big screens, a smaller header, an idea sentence that wraps instead of being cut off, and a quieter Details panel that no longer hides behind the bottom bar.</li><li>The crew talks in speech cards near their head instead of cloud thought bubbles: the newest one, plus one faded older one.</li><li>Decisions is now a timeline grouped by stage, with headers that stay in view and fold away, marks for what you decided, what Rasan decided and what is still open, a filter and search, Show more, and Jump to now.</li><li>The working screen fits its window: the character and their speech cards shrink to fit a smaller window instead of making you scroll, and the latest picture sizes itself to match.</li></ul>]]></description>
+      <sparkle:version>61</sparkle:version>
+      <sparkle:shortVersionString>0.23.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.23.0-beta.1/RasanAI-Studio-0.23.0.dmg" sparkle:edSignature="ihVwImgB9DfIbIrYawsBOJK7/1mNRqPjGS1g8cX5NwiyLSsubwCntE+dme6W/A3njwkBamUGRXuRFVae5I26CA==" length="85000874" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.22.9 beta 1</title>
       <pubDate>Mon, 26 Oct 2026 08:04:41 GMT</pubDate>
       <description><![CDATA[<ul><li>When Rasan is blocked, the banner now says what happened and what to do, with one main button: Fix it. Ask Rasan why, Retry step, Restart Rasan, View activity, Copy details and Report a problem are under More.</li><li>Ask "what happened?" and Studio answers right away from what it already knows (why Rasan stopped, the current step, the last error, the last few events), without waiting for Rasan.</li><li>Messages to Rasan are sent once, not twice, and Studio's own instructions show as a short line like "You pressed Fix it" instead of a long message.</li><li>"Rasan is thinking" can no longer get stuck: if Rasan is stopped, blocked or silent for 3 minutes it says "Not answered" and offers Ask again, Ask for a short answer, or Stop waiting.</li></ul>]]></description>
