@@ -115,7 +115,7 @@ struct FilmSummary: Equatable, Sendable {
 @MainActor @Observable
 final class StudioStore {
     enum Sheet: String, Identifiable {
-        case welcome, log, files, export, preflight, projectTransfer
+        case welcome, log, files, export, preflight, projectTransfer, update, whatsNew
         var id: String { rawValue }
     }
     var preflightReport: PreflightReport?
