@@ -2,9 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.22.7 (build 58) — 2026-10-26
 
 - The strip above each step ('Call 5 of 5 · Final…') is gone. What it said now lives in the bottom bar: a small Preview/Final tag, and hovering the main button tells you what it will do. The page gets that row of space back.
+- **Bundles RasanAI 1.27.0.**
 
 ## 0.22.6 (build 57) — 2026-10-26
 
