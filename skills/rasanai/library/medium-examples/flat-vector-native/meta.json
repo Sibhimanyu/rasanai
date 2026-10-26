@@ -1,0 +1,11 @@
+{
+  "profile": "flat-vector", "family": "flat-vector-geometric", "owner": "M04", "status": "implemented_unvalidated",
+  "module": "runtime/medium-graphic.js#createFlatVectorScene", "verified": false,
+  "examples": [
+    { "file": "positive-three-into-one.js", "role": "positive", "mechanism": "route handoff + split/recombine; parts become one structure", "worksWithoutHeading": true },
+    { "file": "boundary-ornamental-swarm.js", "role": "boundary", "mechanism": "ornamental swarm and disclosed crossfade (no topology morph)", "worksWithoutHeading": false }
+  ],
+  "requiredAssets": [], "editability": "semantic SVG groups with data-id/data-role (obj-*, body-*, half-*)",
+  "limitations": ["matched-point morph only; unequal point counts crossfade, disclosed", "polygon/path shapes; no arbitrary SVG topology morph", "alpha: opaque flat fills, opacity only"],
+  "rendered": false, "receipts": []
+}

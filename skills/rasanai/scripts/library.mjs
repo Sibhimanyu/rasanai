@@ -7,6 +7,10 @@
 //                                              -> ranked entries {id, type, name, kind, space, tags, good_for, path, score, why}
 //   node library.mjs show <id> [--full]        -> the entry's frontmatter (tokens), its sections, its path (--full: the whole body)
 //   node library.mjs ids                       -> every id (the design-system gate checks citations against it)
+//   node library.mjs medium [list|show <id>|ids] [--family <id>] [--state <state>]
+//                                              -> (Part 2) the DERIVED medium index (medium-index@1): families and execution profiles over library/styles/meta + the style
+//                                                 references, the real runtime files and the capability registry. Read-only: it never writes library/index.json, never probes a
+//                                                 host beyond the registry's file-system lookups, and never marks anything verified.
 // Zero dependencies; output is JSON.
 import fs from "node:fs";
 import path from "node:path";
@@ -191,8 +195,25 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     out({ ok: true, ...r });
   } else if (cmd === "ids") {
     out({ ok: true, ids: [...libraryIds()].sort() });
+  } else if (cmd === "medium") {
+    // the request: buildMediumIndex({styleRecords: readStyleRecords(), metadata: readMediumMetadata(), recipeIndex: buildIndex(), capabilities: buildRegistry()}) (lib/medium-wiring.mjs loadMedium)
+    const sub = argv[1] && !argv[1].startsWith("--") ? argv[1] : "list";
+    const { loadMedium } = await import("./lib/medium-wiring.mjs");
+    const { resolveMediumProfile, mediumSummary } = await import("./lib/medium-index.mjs");
+    const M = loadMedium();
+    const fam = flag("family") === true ? "" : flag("family") || "", st = flag("state") === true ? "" : flag("state") || "";
+    if (sub === "show") {
+      const r = resolveMediumProfile(M.index, argv[2]);
+      if (!r.ok) out({ ok: false, error: r.message, code: r.code, missing: r.missing }, 1);
+      out({ ok: true, canonical_id: r.canonical_id, aliases: r.aliases, profile: r.profile });
+    } else if (sub === "ids") {
+      out({ ok: true, ids: M.index.records.map((r) => r.id).sort(), families: M.index.families.map((f) => f.id).sort() });
+    } else if (sub === "list") {
+      const rows = M.index.records.filter((r) => (!fam || r.family_id === fam) && (!st || r.state === st)).map(mediumSummary);
+      out({ ok: true, source_digest: M.index.source_digest, families: M.index.families.map((f) => ({ id: f.id, name: f.name, profile_ids: f.profile_ids, buildable: f.buildable, verified: f.verified })), profiles: rows, excluded: M.index.excluded, metadata_errors: M.metadata_errors, note: "described and implemented_unvalidated are not verified; a family with no buildable profile is inspiration only" });
+    } else out({ ok: false, error: "usage: library.mjs medium [list|show <id>|ids] [--family <id>] [--state <state>]" }, 1);
   } else {
-    console.error("usage: library.mjs index | search --q <words> [--space 3d] [--kind k] [--type systems|motion] | show <id> [--full] | ids");
+    console.error("usage: library.mjs index | search --q <words> [--space 3d] [--kind k] [--type systems|motion] | show <id> [--full] | ids | medium [list|show <id>|ids]");
     process.exit(1);
   }
 }

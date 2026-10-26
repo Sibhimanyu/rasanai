@@ -36,6 +36,18 @@ export const DISTRIBUTION_BLOCKERS = [
     cleared_by: "a recorded licence review (docs/plans/motion-studio-licenses.md) or a replacement of the timeline engine; never by an environment variable" },
 ];
 
+// medium execution profiles: [execution id, label, runtime files, extra files the profile needs]
+const MEDIUM_EXECUTIONS = [
+  ["flat-vector-native", "flat vector and geometric scenes (original SVG)", ["runtime/medium-surface.js", "runtime/medium-graphic.js"]],
+  ["line-drawing-native", "line drawing scenes (original SVG)", ["runtime/medium-surface.js", "runtime/medium-graphic.js"]],
+  ["evidence-diagram", "evidence diagram scenes (original SVG)", ["runtime/medium-surface.js", "runtime/medium-graphic.js"]],
+  ["paper-collage-native", "vector-cut paper collage scenes (original SVG)", ["runtime/medium-surface.js", "runtime/medium-paper.js"]],
+  ["pixel-native", "native pixel-grid scenes (original canvas)", ["runtime/medium-pixel.js"]],
+  ["pixel-companion", "pixel companion beside a sharp proof layer", ["runtime/medium-pixel.js", "runtime/medium-pixel-companion.js"], ["runtime/rasan-ui.js"]],
+  ["cel-performance", "cel character performance over Rasan2D", ["runtime/medium-cel.js"], ["stage2d/runtime/rasan2d.js"]],
+  ["isometric-system", "isometric diorama scenes (original canvas)", ["runtime/medium-isometric.js"]],
+];
+
 export const now = () => new Date().toISOString();
 const str = (x, d = "") => (typeof x === "string" ? x : d);
 
@@ -162,6 +174,18 @@ export function buildRegistry({ host = probeHost(), skillRoot = SKILL_ROOT, cata
   rows.push(makeCapability("character.rasan3d_actor", { kind: "character", label: "code-built 3D actor (Rasan3D rig)", implemented: [exists("stage3d/character-rig.js")], available: [host.chrome, "needs Chrome (WebGL, software GL ok)"], enabled: [true], permission: ["not_required"], license: ["not_applicable", "original rig; a user's character art is reference only"], verification: V("character.rasan3d_actor") }));
   rows.push(makeCapability("character.rasan2d_actor", { kind: "character", label: "painted 2D actor (Rasan2D)", implemented: [exists("stage2d/runtime/rasan2d.js")], available: [host.chrome, "needs Chrome"], enabled: [true], permission: ["not_required"], license: ["not_applicable"], verification: V("character.rasan2d_actor") }));
   rows.push(makeCapability("character.performance", { kind: "character", label: "viseme / expression / gesture tracks linked to dialogue timing", implemented: [exists("scripts/lib/character-performance.mjs")], available: [true], enabled: [true], permission: ["not_required"], license: ["not_applicable"], verification: V("character.performance") }));
+  // Style Intelligence Part 2: medium execution profiles (original code in runtime/medium-*.js; ids are the profiles' capability_ref). Code present is NOT availability or
+  // verification: each needs Chrome, stays unverified (no render has run) and is a described capability, never a claim that a film in that medium has been made.
+  for (const [id, label, files, extra] of MEDIUM_EXECUTIONS) {
+    const ok = files.every(exists) && (!extra || extra.every(exists));
+    const cap = makeCapability(`style.${id}`, { kind: "medium_style", label, implemented: [ok, `missing: ${[...files, ...(extra || [])].filter((f) => !exists(f)).join(", ") || "n/a"}`], available: [host.chrome, "needs Chrome"], enabled: [true], permission: ["not_required"], license: ["not_applicable", "original code"], verification: V(`style.${id}`) });
+    if (id === "cel-performance" && ok) {
+      // file text only (nothing is executed): the cel runtime needs Rasan2D's createRenderer and boil; presence of the file alone is not availability
+      let txt = ""; try { txt = fs.readFileSync(path.join(skillRoot, "stage2d/runtime/rasan2d.js"), "utf8"); } catch {}
+      if (!(txt.includes("createRenderer") && txt.includes("boil"))) { cap.state = "implemented_unvalidated"; cap.api_note = "Rasan2D API unconfirmed"; cap.available = { value: false, reason: "Rasan2D API unconfirmed" }; }
+    }
+    rows.push(cap);
+  }
   // Plan 12 D6/D8: timeline interchange. The official OpenTimelineIO library runs only in an OPTIONAL Python sidecar; ordinary video production never needs it.
   // A valid .otio file is not proof any editor imports it, so verification stays unverified until Plan 14 records a real round trip.
   rows.push(makeCapability("interchange.otio", { kind: "interchange", label: "OpenTimelineIO timeline (.otio) with relative relinking (optional sidecar)", implemented: [exists("scripts/lib/interchange.mjs") && exists("scripts/lib/interchange/otio_sidecar.py")], available: [!!host.python3, "needs a Python 3 with the pinned OpenTimelineIO installed; RasanAI never installs it for you (`delivery.mjs interchange doctor` checks)"], enabled: [host.otio_flag, "off by default (RASANAI_HYBRID_OTIO=1)"], permission: ["not_required"], license: ["unreviewed", "OpenTimelineIO's licence was not read in this repo: the register records it as unreviewed until someone does"], verification: V("interchange.otio") }));

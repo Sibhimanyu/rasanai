@@ -107,7 +107,7 @@ Everything a frame worker must honour is written **inside** its `## Frame N — 
 ## Build-time commands
 
 ```bash
-node $SKILL_DIR/scripts/video.mjs inject --project-dir videos/<name>                                  # after frame-packets.mjs
+node $SKILL_DIR/scripts/video.mjs inject --project-dir videos/<name> --run "$RUN"                  # after frame-packets.mjs
 node $SKILL_DIR/scripts/video.mjs audio-lock --project-dir videos/<name> --music videos/<name>/assets/music-bed.<ext>   # after fetch-sfx
 node $SKILL_DIR/scripts/obey.mjs --project videos/<name>                                              # after verify, before render
 node $SKILL_DIR/scripts/finish.mjs all --project videos/<name> --out <final.mp4>                      # the delivery render only: film-wide motion blur + one grade (references/finish.md); drafts use the workflow's render

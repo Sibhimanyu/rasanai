@@ -7,12 +7,13 @@
 //   impossibleTreatments(requests, resources) -> { limitations, blocking }               said BEFORE the look is committed
 //   lookCard(o)                               -> the native Look card payload (short differences up front, detail collapsed)
 //   reviseLook(o)                             -> a bounded look revision: what changes, what stays fixed, the impact (Story always preserved)
-//   lookCommitted(run) / productionGate(run, role, key) / annotatePhases(phases)   the stage gate on storyboard work
+//   lookCommitted(run, {requireConsent, context}) / productionGate(run, role, key, plan, {strict, contexts}) / annotatePhases(phases)   the stage gate on storyboard work
+//   resolveStageConsent({...})   pure: is this stage's artifact backed by a consumed human choice or an explicit delegation (strict mode, creative_policy_revision 1)
 import fs from "node:fs";
 import path from "node:path";
 import { canonicalDigest, revisionKey, SCHEMA_VERSION } from "./contracts.mjs";
 import { impact } from "./impact.mjs";
-import { missingPrerequisites, ancestors } from "./stages.mjs";
+import { missingPrerequisites, ancestors, logicalStage } from "./stages.mjs";
 import { readTreatment } from "./treatment.mjs";
 import { fontAvoidViolations } from "./visual-bible.mjs";
 
@@ -202,24 +203,91 @@ const PRODUCTION_ROLES = new Set(["frame-designer", "scene-animator", "film-buil
 const rj = (p) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return null; } };
 const has = (p) => { try { return fs.existsSync(p); } catch { return false; } };
 
+// ---- strict mode: prepared content is not approval ----------------------------------------------------------------------------------------
+// resolveStageConsent is pure (no reads, no writes, no consuming). The coordinator passes parsed read-only state (storyboard.mjs stageConsentContext loads it):
+//   session           parsed session.json (steps.<step>.status / by / unconfirmed); the Storyboard stage is the legacy `animatic` step
+//   appliedActions    actions.jsonl lines the transport CONSUMED and did not reject: [{ id, step, type, value, ts }]  (a raw or unconsumed line is not approval)
+//   approvals         approval records ({ stage, artifact_digest, revision, source_action_id, approved_by }) or { records }
+//   explicitDelegations  [{ source_action_id, stage? }] from a consumed decide / decide-rest action; an agent-written inherit.reason is not one
+//   expectedDigest    digest of the artifact as it is now; selectedId the id of the chosen option (both optional); isCurrent false marks a moved snapshot
+// -> { confirmed, sourceActionId, basis: "approval-record"|"session-action"|"delegation"|null, reason, stale }
+const STEP_OF = { story: "story", look: "look", storyboard: "animatic" };
+const HUMAN_CHOICES = new Set(["choose", "approve", "submit"]);
+export function resolveStageConsent({ stage, expectedDigest = null, selectedId = null, isCurrent = null, session = null, appliedActions = [], approvals = [], explicitDelegations = [] } = {}) {
+  const st = logicalStage(stage);
+  const no = (reason, stale = false) => ({ confirmed: false, sourceActionId: null, basis: null, reason, stale });
+  if (!st || !STEP_OF[st]) return no(`unknown stage ${JSON.stringify(stage)}`);
+  const step = STEP_OF[st];
+  const applied = new Map(arr(appliedActions).filter((a) => a && typeof a.id === "string").map((a) => [a.id, a]));
+  const rec = arr(Array.isArray(approvals) ? approvals : approvals && approvals.records).filter((q) => q && logicalStage(q.stage) === st).sort((a, b) => (b.revision || 0) - (a.revision || 0))[0];
+  const sess = session && session.steps && session.steps[step];
+  if (sess && (sess.unconfirmed || sess.confirmed === false || sess.status === "unconfirmed")) return no(`the ${st} step is marked unconfirmed: a done step the user never answered is not approval`);
+  if (isCurrent === false) return no(`the approved ${st} no longer matches what is on disk`, true);
+  // 1. an approval record: tied to a consumed action and to the digest now
+  if (rec && rec.source_action_id && applied.has(rec.source_action_id)) {
+    if (expectedDigest && rec.artifact_digest !== expectedDigest) return no(`the ${st} changed since it was approved (approved ${String(rec.artifact_digest).slice(0, 10)}, now ${String(expectedDigest).slice(0, 10)})`, true);
+    const a = applied.get(rec.source_action_id);
+    if (a.step === step || a.step === "*") return { confirmed: true, sourceActionId: rec.source_action_id, basis: "approval-record", reason: "", stale: false };
+  }
+  // 2. an explicit delegation (Claude decides this step / the rest) from a consumed action, never from an inherit note
+  for (const d of arr(explicitDelegations)) {
+    const a = d && applied.get(d.source_action_id);
+    if (!a || !["decide", "decide-rest"].includes(a.type) || ![step, "*"].includes(a.step)) continue;
+    if (d.stage && logicalStage(d.stage) !== st) continue;
+    return { confirmed: true, sourceActionId: a.id, basis: "delegation", reason: "", stale: false };
+  }
+  // 3. a consumed human choice / approval on the step, which the session shows closed by the user
+  if (!sess) return no(`no session record of the ${st} step`);
+  if (sess.status !== "done" || sess.by !== "user") return no(`the ${st} step is not closed by a user answer (status ${JSON.stringify(sess.status || null)}, by ${JSON.stringify(sess.by || null)})`);
+  const acts = [...applied.values()].filter((a) => a.step === step && HUMAN_CHOICES.has(a.type)).sort((a, b) => String(b.ts || "").localeCompare(String(a.ts || "")));
+  if (!acts.length) return no(`no consumed choose / approve action for the ${st} step`);
+  const a = acts[0], val = a.value && typeof a.value === "object" ? a.value.id : a.value;
+  // selectedId is one id or a list of names the chosen file could carry; an index-style value (a number) is not compared (the pick's real value shape is not fixed)
+  const sel = (Array.isArray(selectedId) ? selectedId : selectedId != null ? [selectedId] : []).map(String);
+  if (sel.length && val != null && typeof val !== "object" && !/^\d+$/.test(String(val)) && !sel.some((x) => x.toLowerCase() === String(val).toLowerCase())) return no(`the user chose ${JSON.stringify(String(val))}, not the selected ${sel.map((x) => JSON.stringify(x)).join(" / ")}`, true);
+  if (rec && expectedDigest && rec.artifact_digest !== expectedDigest) return no(`the ${st} changed since it was approved`, true);
+  return { confirmed: true, sourceActionId: a.id, basis: "session-action", reason: "", stale: false };
+}
+
 // the Look is committed when a look was chosen into the run (any route: a chosen system, the series' look, the brand's own look)
-export function lookCommitted(run) {
+// Default (legacy): prepared files or decision fields count, as before. { requireConsent: true, context } (creative_policy_revision 1): prepared content is NOT approval;
+// committed needs resolveStageConsent for "look" (context = its inputs, see storyboard.stageConsentContext). A brand-derived look/DESIGN.md stays prepared until the user confirms it.
+export function lookCommitted(run, { requireConsent = false, context = null } = {}) {
   const r = path.resolve(String(run));
-  if (has(path.join(r, "look", "DESIGN.md")) || has(path.join(r, "look", "frame.md"))) return { committed: true, via: "look/" };
-  const d = rj(path.join(r, "decisions.json")) || {};
-  if (d.look && (d.look.design_md || d.look.frame || d.look.name)) return { committed: true, via: "decisions.look" };
-  if (d.design_system && d.design_system.picked) return { committed: true, via: "decisions.design_system" };
-  return { committed: false, via: null };
+  let base = { committed: false, via: null };
+  if (has(path.join(r, "look", "DESIGN.md")) || has(path.join(r, "look", "frame.md"))) base = { committed: true, via: "look/" };
+  else {
+    const d = rj(path.join(r, "decisions.json")) || {};
+    if (d.look && (d.look.design_md || d.look.frame || d.look.name)) base = { committed: true, via: "decisions.look" };
+    else if (d.design_system && d.design_system.picked) base = { committed: true, via: "decisions.design_system" };
+  }
+  if (!requireConsent) return base;
+  if (!context) return { committed: false, prepared: base.committed, via: base.via, consent: null, reason: "strict mode needs the consent context (storyboard.stageConsentContext)" };
+  const consent = resolveStageConsent({ ...context, stage: "look" });
+  return { committed: consent.confirmed, prepared: base.committed, via: base.via, consent, ...(consent.confirmed ? {} : { reason: consent.reason }) };
 }
 const storyCommitted = (run) => has(path.join(path.resolve(String(run)), "story", "chosen.json")) || has(path.join(path.resolve(String(run)), "story", "intent.json"));
 
 // -> { ok:true } | { ok:false, missing:[stages], message }.  Only a run planned with look_gate (crew/plan.json) is held; older plans keep running.
-export function productionGate(run, role, key, plan = null) {
+// Strict ({ strict: true, contexts: { story, look, storyboard } } = per-stage inputs of resolveStageConsent) tells three tiers apart:
+//   "look-heroes"  styleframe-designer heroes-<Label> (the Look comparison itself): needs the Story consent only
+//   "storyboard"   per-beat boards, frame, art and motion roles: need Story and Look consent
+//   "build"        scene-animator, film-builder: also need the current Storyboard approval (Look approval alone never starts a build)
+const BUILD_ROLES = new Set(["scene-animator", "film-builder"]);
+export function productionGate(run, role, key, plan = null, { strict = false, contexts = null } = {}) {
   const heroes = role === "styleframe-designer" && String(key || "").startsWith("heroes-"); // the Look comparison itself
   const prod = PRODUCTION_ROLES.has(role) || (role === "styleframe-designer" && !heroes);
-  if (!prod) return { ok: true };
+  if (!prod && !(strict && heroes)) return { ok: true };
   const p = plan || rj(path.join(path.resolve(String(run)), "crew", "plan.json")) || {};
-  if (!p.look_gate) return { ok: true, legacy: true };
+  if (!p.look_gate && !strict) return { ok: true, legacy: true };
+  if (strict) {
+    const tier = heroes ? "look-heroes" : BUILD_ROLES.has(role) ? "build" : "storyboard";
+    const need = tier === "look-heroes" ? ["story"] : tier === "storyboard" ? ["story", "look"] : ["story", "look", "storyboard"];
+    const c = contexts || {};
+    const reasons = {};
+    const missing = need.filter((s) => { const x = resolveStageConsent({ ...(c[s] || {}), stage: s }); if (!x.confirmed) reasons[s] = x.reason; return !x.confirmed; });
+    return missing.length ? { ok: false, strict: true, tier, missing, reasons, message: `${role}${key ? ":" + key : ""} (${tier}) waits for the user's ${missing.join(" and ")} (${missing.map((s) => reasons[s]).join("; ")}). Prepared files are not approval: ask through the existing ${missing[0]} review` } : { ok: true, strict: true, tier };
+  }
   const committed = ["brief", ...(storyCommitted(run) ? ["story"] : []), ...(lookCommitted(run).committed ? ["look"] : [])];
   const missing = missingPrerequisites("storyboard", committed).filter((s) => s !== "brief");
   return missing.length ? { ok: false, missing, message: `${role}${key ? ":" + key : ""} is storyboard/production work and waits for a committed ${missing.join(" and ")} (stages: ${ancestors("storyboard").join(" -> ")} -> storyboard). Choose the Look first: design.mjs choose-system` } : { ok: true };

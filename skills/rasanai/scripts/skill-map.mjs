@@ -8,6 +8,9 @@
 //           names: any route in library/formats.json (product-launch-video, music-to-video, reel, presenter, motion-graphics, ...),
 //                  revision, or an alias: product, direct (product-launch-video, direct), long, deep (same, deep path),
 //                  footage (reel), lyrics, song (music-to-video), single-unit, cartoon, evidence
+//        scene routes also list references/creative-quality.md (story, look, styleframes, animatic) and references/creative-examples-teaching.md (story) for a plan with creative_policy_revision 1
+//        medium guides (scene routes only, and only with --run <dir> whose creative/medium-selection.json or design/<label>/medium.json exists, i.e. a medium was shortlisted or selected):
+//           look -> references/medium-direction.md; styleframes + animatic -> medium-direction.md and references/medium-examples.md (examples: only for a stated communication problem). Never in the static map, never for footage/lyric/presenter/caption routes.
 //        --run <dir> [--project <dir>]: also opens references/motion-studio.md where it applies (story: reference-motion.json or a linked
 //           reference; animatic/final: scenes with data-motion-kit or data-el; revision: a requested line in motion/edits.jsonl); never on caption-only routes
 //   node skill-map.mjs check                                       -> every referenced file exists, every relative link in SKILL.md and the guides resolves,
@@ -63,6 +66,28 @@ const BASE_DEEPER = {
   animatic: ["references/craft.md", "references/sound.md", "references/video.md"],
   final: ["references/finish.md", "references/deliver.md"],
 };
+
+// New creative policy (a plan with creative_policy_revision 1): ONE short guide for the phases that make or judge the creative idea, on scene routes only. Never preloaded for footage, lyric,
+// presenter, single-unit or caption routes, and never in the brief phase. Roles are briefed with it by crew.mjs (CREATIVE_ROLES), not by this static map.
+export const CREATIVE_DEEPER = {
+  story: ["references/creative-quality.md", "references/creative-examples-teaching.md"],
+  look: ["references/creative-quality.md"],
+  styleframes: ["references/creative-quality.md"],
+  animatic: ["references/creative-quality.md"],
+};
+
+// Medium guides (Style Intelligence Part 2): conditional, per phase, only for a run that has a shortlisted/selected medium. crew.mjs briefs roles with the same condition; the roles that do not make or judge the medium never read them.
+export const MEDIUM_DIRECTION = "references/medium-direction.md";
+export const MEDIUM_EXAMPLES = "references/medium-examples.md";
+export const MEDIUM_DEEPER = { look: [MEDIUM_DIRECTION], styleframes: [MEDIUM_DIRECTION, MEDIUM_EXAMPLES], animatic: [MEDIUM_DIRECTION, MEDIUM_EXAMPLES] };
+function mediumInRun(run) {
+  if (!run) return false;
+  try {
+    if (fs.existsSync(path.join(run, "creative", "medium-selection.json"))) return true;
+    const d = path.join(run, "design");
+    return fs.readdirSync(d, { withFileTypes: true }).some((e) => e.isDirectory() && fs.existsSync(path.join(d, e.name, "medium.json")));
+  } catch { return false; }
+}
 
 const scene = (over = {}) => ({
   kind: "scene",
@@ -201,10 +226,13 @@ export function resolveRoute(name, { variant = null, run = null, project = null 
     if (v === "direct" && def.kind === "scene" && ph === "look") deeper = deeper.filter((r) => r !== "references/design-desk.md");
     // the picture, 3D and imagery references are opened on demand by the guide, not preloaded; only a route that owns them lists them
     if (def.kind !== "scene") deeper = deeper.filter((r) => r !== "references/styleframes.md");
+    if (def.kind === "scene") deeper = uniq([...deeper, ...(CREATIVE_DEEPER[ph] || [])]); // creative policy: one short quality guide per relevant phase
     phases[ph] = { guides: def.phases[ph].map((g) => gpath(g)), deeper };
   }
   // Motion Studio: the guide joins a phase's deeper reads only when its condition holds (never on caption-only routes)
   for (const ph of motionStudioPhases(route, { run, project })) if (phases[ph]) phases[ph].deeper = uniq([...phases[ph].deeper, MOTION_STUDIO]);
+  // medium guides: scene routes with a shortlisted/selected medium in this run only (never the static map)
+  if (def.kind === "scene" && mediumInRun(run)) for (const [ph, refs] of Object.entries(MEDIUM_DEEPER)) if (phases[ph]) phases[ph].deeper = uniq([...phases[ph].deeper, ...refs]);
   const initial = uniq([
     ...MANDATORY.map(gpath),
     ...(def.skipBrief ? [] : [gpath("brief-and-research")]),
@@ -250,6 +278,7 @@ export function checkMap(skillDir = SKILL_DIR) {
   const E = (m) => errors.push(m);
   for (const [id, p] of Object.entries(GUIDES)) if (!fs.existsSync(path.join(skillDir, p))) E(`guide ${id}: ${p} is missing`);
   if (!fs.existsSync(path.join(skillDir, "SKILL.md"))) E("SKILL.md is missing");
+  for (const f of [MEDIUM_DIRECTION, MEDIUM_EXAMPLES]) if (!fs.existsSync(path.join(skillDir, f))) E(`${f} is missing`);
   if (!fs.existsSync(path.join(skillDir, MOTION_STUDIO))) E(`${MOTION_STUDIO} is missing`);
   for (const name of Object.keys(ROUTES)) {
     const r = resolveRoute(name);

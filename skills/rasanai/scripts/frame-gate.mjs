@@ -63,6 +63,7 @@ import { decodeStill, decodeVideo, frameMetrics, boldFrame, cutsAndCompositions,
 import { noteDowngrade } from "./lib/downgrade.mjs";
 import { zonesFor, destinationOf, phonePt, PHONE_MIN_PT } from "./lib/safezones.mjs";
 import { loadIntent, intentBeats } from "./lib/emphasis.mjs";
+import { craftProfile } from "./lib/frames-lib.mjs";
 
 export const GATE = {
   ground_chroma: 1.5, ground_range: 4, // R10
@@ -475,7 +476,13 @@ export async function measureFrames(opts = {}) {
 
   // findings
   const F = res.findings;
-  const add = (severity, check, message, fix, extra = {}) => F.push({ severity, check, message, fix, ...extra });
+  // Creative policy (opts.creativePolicy | opts.lookProfile, --look-style): the depth/ground/scale craft belongs to a dimensional
+  // look. For any other look those findings are `review` (measured evidence for the creative review), never errors or warnings.
+  // Legibility (text-load, phone-small-text) and structure stay as they are. No policy: every check as before.
+  const policy = craftProfile(opts.creativePolicy != null ? opts.creativePolicy : opts.lookProfile);
+  const STYLE_CRAFT = new Set(["ground-chroma", "ground-range", "flat-swatch-grounds", "soft-content", "colourfulness", "cut-rhythm", "boldness", "boldness-placement", "competing-heroes", "scale-contrast", "giant-moment", "no-peak-moment"]);
+  if (policy) res.creative = { style: policy.style, dimensional: policy.dimensional };
+  const add = (severity, check, message, fix, extra = {}) => F.push({ severity: policy && !policy.dimensional && STYLE_CRAFT.has(check) ? "review" : severity, check, message, fix, ...extra });
   const dur = res.dur;
   const typeSev = L.flat ? "error" : "warning"; // a flat ground puts the whole load on type and object scale
   const seeCraft = "references/craft.md Frame metrics";
@@ -573,7 +580,7 @@ export async function measureFrames(opts = {}) {
     }
   }
 
-  const errors = F.filter((f) => f.severity === "error").length, warns = F.length - errors;
+  const errors = F.filter((f) => f.severity === "error").length, warns = F.filter((f) => f.severity === "warning").length;
   res.ok = errors === 0;
   res.verdict = errors ? `${errors} error${errors === 1 ? "" : "s"}${warns ? `, ${warns} warning${warns === 1 ? "" : "s"}` : ""}` : warns ? `clean, ${warns} warning${warns === 1 ? "" : "s"}` : "clean";
   if (res.could_not_run.length && !errors) res.ok = false;
@@ -590,7 +597,7 @@ function printable(res) {
   if (res.kind === "video") out.push("  cuts    " + [row("hard cuts", f.hardCuts), row("ASL", f.aslS, " s"), row("compositions/10 s", f.compositionsPer10s)].filter(Boolean).join(" · "));
   if (f.charsMedian != null) out.push("  text    " + [row("competing heroes", f.competingShare == null ? null : Math.round(f.competingShare * 100), "% of frames"), row("chars", f.charsMedian), row("lines", f.linesMedian), row("biggest p90", f.biggestP90, "% H"), row("p90/p10", f.biggestRatio), row("max", f.biggestMax, "% H"), row("frames >= 20% H", Math.round(f.share20 * 100), "%"), row("object p90/p10", f.objectRatio)].filter(Boolean).join(" · "));
   if (res.limits.notes.length) for (const n of res.limits.notes) out.push(`  note    ${n}`);
-  for (const x of res.findings) out.push(`  ${x.severity === "error" ? "FAIL" : "warn"} ${x.check}: ${x.message}\n       fix: ${x.fix}`);
+  for (const x of res.findings) out.push(`  ${x.severity === "error" ? "FAIL" : x.severity === "review" ? "note" : "warn"} ${x.check}: ${x.message}\n       fix: ${x.fix}`);
   for (const s of res.skipped) out.push(`  skip ${s}`);
   for (const c of res.could_not_run) out.push(`  could not run: ${c}`);
   return out.join("\n");
@@ -614,10 +621,21 @@ async function main() {
   const args = parseArgs();
   const str = (v) => (v == null || v === true ? null : String(v));
   if (!args.stills && !args.video) {
-    process.stderr.write("usage: node frame-gate.mjs (--stills <dir|a.png,b.png> [--html <boards dir>] | --video <film.mp4>) [--project <dir>] [--brand-film <grammar.json|film.mp4>] [--write-brand <grammar.json>] [--kind launch] [--density] [--plan <score.json>] [--stillness] [--json]\n");
+    process.stderr.write("usage: node frame-gate.mjs (--stills <dir|a.png,b.png> [--html <boards dir>] | --video <film.mp4>) [--project <dir>] [--brand-film <grammar.json|film.mp4>] [--write-brand <grammar.json>] [--kind launch] [--density] [--plan <score.json>] [--stillness] [--look-style <style>] [--medium <medium.json>] [--json]\n");
     process.exit(1);
   }
-  const res = await measureFrames({ stills: str(args.stills), video: str(args.video), html: args.html, project: str(args.project), brandFilm: str(args["brand-film"]), fps: Number(args.fps) || 4, kind: str(args.kind), density: !!args.density, plan: str(args.plan), stillness: args.stillness ? true : null, footage: !!args.footage, destination: str(args.destination) });
+  // Part 2 (new path only): --medium <medium.json> is the same input as frames.mjs gives (--look-style medium-flat) when the contract qualifies multi-plane-depth for EVERY layer; an explicit --look-style wins; any other contract changes nothing
+  let lookStyle = str(args["look-style"]);
+  if (!lookStyle && str(args.medium)) {
+    try {
+      const mc = readJ(path.resolve(String(args.medium)));
+      if (mc && mc.format === "medium-contract@1") {
+        const { scopedSkips } = await import("./lib/medium-wiring.mjs");
+        if (scopedSkips(mc, ["multi-plane-depth"]).skip.has("multi-plane-depth")) lookStyle = "medium-flat";
+      }
+    } catch { /* an unreadable contract leaves the gate as it was */ }
+  }
+  const res = await measureFrames({ stills: str(args.stills), video: str(args.video), html: args.html, project: str(args.project), brandFilm: str(args["brand-film"]), fps: Number(args.fps) || 4, kind: str(args.kind), density: !!args.density, plan: str(args.plan), stillness: args.stillness ? true : null, footage: !!args.footage, destination: str(args.destination), creativePolicy: lookStyle });
   if (args["write-brand"] && res.film) {
     const p = path.resolve(String(args["write-brand"])), g = readJ(p) || {};
     g.frameMetrics = { groundChroma: res.film.groundChroma, groundRange: res.film.groundRange, softP90: res.film.softP90, colourfulP90: res.film.colourfulP90, charsMedian: res.film.charsMedian ?? null, measuredFrom: str(args.video) || str(args.stills) };

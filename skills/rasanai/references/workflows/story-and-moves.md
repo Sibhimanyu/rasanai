@@ -56,6 +56,11 @@ Answers:
 - `choose <story id>` → write that pitch to `$RUN/story/chosen.json` (the Motion Director scores from it), run `node $SKILL_DIR/scripts/moves.mjs choose --run "$RUN" --label <its angle>` (writes `story/moves.json`: the chosen script's carrier, cards, ledger, the juror's ranking and heroes) then `moves.mjs record --run "$RUN"` (the heroes join the cross-run ledger), record `memory.mjs record --step concept --value <device id> --mode confirmed`, close `story` with "<title> (<angle>): <logline>", and go to the Look.
 - A `note` ("make the hook shorter", "lose the voiceover in beat 3", "the museum one, but warmer") → rewrite those lines, re-run `check`, `reply` with what changed, re-push. `more {near, exclude}` → three new scripts from the next devices (`pick --exclude <shown>`); re-push.
 
+### New creative policy (plan has `creative_policy_revision: 1`)
+
+- The writers read `creative/brief.json` and the selected references; each treatment carries one conceptual visual idea (what changes on screen that carries the claim), not shot coordinates. A beat that shows a changed sentence, a calculation or a rule gets a proof contract in `story/proof-contracts.json` (`scripts/lib/proof-integrity.mjs`); the script editor's meaning review is `story/proof-review.json`. `crew.mjs check` validates both: mechanical errors block, meaning is the editor's judgment (a token match never proves it). The concept critic also answers `demonstrations_preserve_meaning` and `visual_idea_carries_claim`.
+- Nothing here changes the Story call. After the user's Story choice (a consumed choose or approve action) run `node $SKILL_DIR/scripts/crew.mjs creative revise --run "$RUN" --mode story`: a new revision of the brief with the confirmed pin and the references re-picked. It refuses a story that is only prepared.
+
 ## Deeper references for this guide
 
 The canonical homes of the detail this guide points at (read the one the current step needs):

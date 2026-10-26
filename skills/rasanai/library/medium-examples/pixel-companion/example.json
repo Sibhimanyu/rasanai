@@ -1,0 +1,68 @@
+{
+  "$comment": "creative-example@1 rows wrapping this directory's original examples (Part 2 integration; the lane's own metadata uses other shapes). Not rendered, previewed or run: evidence original-unreviewed, state implemented_unvalidated. Guidance only; no authority over a user's task.",
+  "examples": [
+    {
+      "format": "creative-example@1",
+      "id": "pixel-companion-saved-correction",
+      "profile_ids": [
+        "living-screencast",
+        "pixel-companion"
+      ],
+      "problem": "directing attention to a real saved correction without covering it or its qualifier",
+      "native_action": "anchor-follow / point-attend / sprite-react",
+      "kind": "positive",
+      "source_ref": "library/medium-examples/pixel-companion/saved-correction/example.html",
+      "preview_ref": null,
+      "evidence_status": "original-unreviewed",
+      "rights_basis": "original code and synthetic/invented data written for this repository; no third-party asset, font, sprite, melody or footage",
+      "source_role": "original-code",
+      "runtime_ref": "runtime/medium-pixel-companion.js",
+      "learn": [
+        "the sharp proof layer owns every label; the sprite sits on its own grid beside it",
+        "the companion reacts to a real event the score carries"
+      ],
+      "do_not_copy": [
+        "the sprite, copy and layout"
+      ],
+      "not_for": [
+        "implying the companion is a product feature",
+        "a success or error state the product never showed"
+      ],
+      "comm_kinds": [
+        "workflow-demo",
+        "single-feature-announcement",
+        "whole-product-introduction"
+      ]
+    },
+    {
+      "format": "creative-example@1",
+      "id": "pixel-companion-transformed-anchor",
+      "profile_ids": [
+        "living-screencast",
+        "pixel-companion"
+      ],
+      "problem": "an anchor that moves with a world camera and a near-edge target",
+      "native_action": "anchor-follow",
+      "kind": "boundary",
+      "source_ref": "library/medium-examples/pixel-companion/transformed-anchor/example.html",
+      "preview_ref": null,
+      "evidence_status": "original-unreviewed",
+      "rights_basis": "original code and synthetic/invented data written for this repository; no third-party asset, font, sprite, melody or footage",
+      "source_role": "original-code",
+      "runtime_ref": "runtime/medium-pixel-companion.js",
+      "learn": [
+        "bounds measured once in world coordinates, converted through the one camera transform each frame",
+        "no screen-space deltas, no hard-coded button position"
+      ],
+      "do_not_copy": [
+        "the layout"
+      ],
+      "not_for": [
+        "non-DOM or cross-origin targets"
+      ],
+      "comm_kinds": [
+        "workflow-demo"
+      ]
+    }
+  ]
+}

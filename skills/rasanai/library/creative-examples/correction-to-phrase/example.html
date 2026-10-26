@@ -1,0 +1,22 @@
+<!doctype html>
+<!-- ORIGINAL teaching scene (invented brand "Pennant"): a correction becomes a later, unassisted phrase. original-unreviewed; not rendered. -->
+<html lang="en"><head><meta charset="utf-8"><title>correction to phrase</title>
+<style>
+:root{--ink:#17181c;--paper:#f6f3ec;--accent:#d8452b}
+html,body{margin:0;background:var(--paper);color:var(--ink);font:500 64px/1.15 Georgia,serif}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden}
+.line{position:absolute;left:240px;white-space:nowrap}
+#a{top:330px}#b{top:700px;opacity:0}
+.cut{display:inline-block;color:var(--accent);animation:out 1.2s 2s forwards}
+.note{position:absolute;left:520px;top:440px;font:400 30px/1.3 system-ui,sans-serif;width:560px;opacity:0;animation:in .8s 3s forwards}
+.rule{position:absolute;left:520px;top:424px;height:3px;width:0;background:var(--accent);animation:w .8s 2.8s forwards}
+#b{animation:in .9s 7s forwards}
+.tag{position:absolute;left:240px;top:120px;font:600 22px/1 system-ui,sans-serif;letter-spacing:.2em;text-transform:uppercase;opacity:.5}
+@keyframes out{to{opacity:0;max-width:0;margin:0}}@keyframes in{to{opacity:1}}@keyframes w{to{width:420px}}
+</style></head><body><div id="stage">
+<div class="tag">Pennant / writing help</div>
+<div class="line" id="a">We discuss <span class="cut">about </span>the plan.</div>
+<div class="rule"></div>
+<div class="note">"Discuss" already takes its object. The extra word can go.</div>
+<div class="line" id="b" style="font-size:56px">Later, typed alone: "Let's discuss the budget."</div>
+</div></body></html>

@@ -1,0 +1,1010 @@
+{
+  "schema_version": 1,
+  "$comment": "Creative reference index for scripts/lib/creative-references.mjs. Data, not runtime instructions. media[] is empty everywhere: no row has lawful visual media yet (a URL is not a licence), so every row counts as a description or an unreviewed original, never as a visual reference, until a media entry with a full sha256, a specific rights_basis and scope reference-only is added. Professional rows are summaries of studio descriptions; no frame measurement was done. Technique rows are craft ideas, not quality proof. Optional fields: comm_kinds (communication kinds the row fits), not_for_kinds (kinds it is no proof for), look_tags, local_ref (a path inside the skill when there is no external URL). See references/creative-reference-intake.md.",
+  "entries": [
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "n/a",
+      "complexity": "medium",
+      "id": "ref-ordinaryfolk-webflow-ecommerce",
+      "source_url": "https://www.ordinaryfolk.co/project/webflow-ecommerce",
+      "kind": "professional-case",
+      "format_tags": [
+        "launch",
+        "ad",
+        "product-launch"
+      ],
+      "comm_kinds": [
+        "whole-product-introduction",
+        "single-feature-announcement"
+      ],
+      "shot_tags": [
+        "premise-to-design",
+        "ui-demo",
+        "opening"
+      ],
+      "look_tags": [
+        "editorial",
+        "product-ui"
+      ],
+      "principle": "A product's two-sided promise can organise the whole visual concept while the real product UI stays central and legible; the idea sets the design, the UI proves it.",
+      "avoid_copying": [
+        "its scenes and compositions",
+        "its logo and photography",
+        "its music"
+      ],
+      "evidence_level": "source-description"
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "n/a",
+      "complexity": "medium",
+      "id": "ref-animade-figma-cursors",
+      "source_url": "https://animade.tv/work/figma-social-campaign",
+      "kind": "professional-case",
+      "format_tags": [
+        "launch",
+        "short",
+        "ad",
+        "social"
+      ],
+      "comm_kinds": [
+        "single-feature-announcement",
+        "performance-ad",
+        "workflow-demo"
+      ],
+      "shot_tags": [
+        "ui-demo",
+        "character-acting",
+        "product-native-material"
+      ],
+      "look_tags": [
+        "graphic",
+        "product-ui"
+      ],
+      "principle": "Product-native material can carry the idea: native UI cursors given personality express collaboration without leaving the product's own visual language.",
+      "avoid_copying": [
+        "the cursor characters and their names",
+        "its colour palette and layouts"
+      ],
+      "evidence_level": "source-description"
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "n/a",
+      "complexity": "high",
+      "id": "ref-studiodumbar-openai-identity",
+      "source_url": "https://studiodumbar.com/work/openai-brand-film",
+      "kind": "professional-case",
+      "format_tags": [
+        "brand",
+        "short"
+      ],
+      "comm_kinds": [
+        "identity-reveal",
+        "brand-manifesto"
+      ],
+      "not_for_kinds": [
+        "whole-product-introduction",
+        "single-feature-announcement",
+        "workflow-demo",
+        "instructional-explainer",
+        "evidence-case-study"
+      ],
+      "shot_tags": [
+        "identity-development",
+        "sound-build",
+        "transition"
+      ],
+      "look_tags": [
+        "identity",
+        "typographic"
+      ],
+      "principle": "Identity elements and sound can build up into one coherent brand piece, each element earning its place before the next arrives.",
+      "avoid_copying": [
+        "the OpenAI marks and glyphs",
+        "its sound design",
+        "the sequence of identity elements"
+      ],
+      "evidence_level": "source-description"
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "n/a",
+      "complexity": "low",
+      "id": "ref-brag-project-angle",
+      "source_url": "https://github.com/latent-spaces/brag/blob/main/skills/brag/references/step-2-plan.md",
+      "kind": "technique",
+      "format_tags": [
+        "launch",
+        "short",
+        "ad",
+        "screen"
+      ],
+      "comm_kinds": [
+        "whole-product-introduction",
+        "single-feature-announcement",
+        "workflow-demo"
+      ],
+      "shot_tags": [
+        "opening",
+        "ui-demo"
+      ],
+      "principle": "Plan a compact film around one project-specific angle: a clear hook, one real interaction, a few strong moments.",
+      "avoid_copying": [
+        "its model auto-switch",
+        "fixed length",
+        "one-shot flow that skips the user's approvals",
+        "tone presets as a universal style"
+      ],
+      "evidence_level": "technique-data"
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "medium",
+      "id": "ref-claudeanimationbase-reads",
+      "source_url": "https://github.com/JohnHeibel/ClaudeAnimationBase",
+      "kind": "technique",
+      "format_tags": [
+        "short",
+        "people",
+        "explainer"
+      ],
+      "comm_kinds": [
+        "character-short",
+        "instructional-explainer"
+      ],
+      "shot_tags": [
+        "character-acting",
+        "staged-read"
+      ],
+      "look_tags": [
+        "character",
+        "flat"
+      ],
+      "principle": "Stage the viewer's reads in order, one idea per read, and let a character's acting carry the beat; reusable source and runtime keep it cheap.",
+      "avoid_copying": [
+        "its no-text, always-moving, flat rules outside that look",
+        "its characters and media"
+      ],
+      "evidence_level": "technique-data"
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "dom-gsap",
+      "complexity": "high",
+      "id": "ref-pdoom-chapter-guide",
+      "source_url": "https://github.com/JohnHeibel/PDoomVideo",
+      "kind": "technique",
+      "format_tags": [
+        "music",
+        "short",
+        "explainer"
+      ],
+      "comm_kinds": [
+        "music-lyric-film",
+        "brand-manifesto"
+      ],
+      "not_for_kinds": [
+        "whole-product-introduction",
+        "single-feature-announcement",
+        "workflow-demo"
+      ],
+      "shot_tags": [
+        "chapter-structure",
+        "transition"
+      ],
+      "principle": "One shared direction guide plus separately implementable chapters lets many hands build one film that still reads as one.",
+      "avoid_copying": [
+        "the song, characters and media",
+        "assuming supplied lyrics solve a product story"
+      ],
+      "evidence_level": "technique-data"
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "dom-gsap",
+      "complexity": "low",
+      "id": "ref-opus-video-skills-scoped-runtime",
+      "source_url": "https://github.com/tuzhechen2005/opus-video-skills",
+      "kind": "technique",
+      "format_tags": [
+        "launch",
+        "short",
+        "explainer",
+        "brand"
+      ],
+      "comm_kinds": [],
+      "shot_tags": [
+        "scoped-style",
+        "output-review"
+      ],
+      "principle": "Style instructions belong to the chosen style, and deterministic source plus a look at the actual output beat a long universal prompt.",
+      "avoid_copying": [
+        "every style's mandates applied to every film",
+        "its prompts wholesale"
+      ],
+      "evidence_level": "technique-data"
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "react",
+      "complexity": "low",
+      "id": "ref-remocn-reusable-primitives",
+      "source_url": "https://github.com/Remocn/remocn",
+      "kind": "technique",
+      "format_tags": [
+        "launch",
+        "explainer",
+        "screen"
+      ],
+      "comm_kinds": [],
+      "shot_tags": [
+        "reusable-primitive",
+        "ui-demo"
+      ],
+      "principle": "Tested reusable mechanics should cut the coding, not decide the film: build the primitive once, then let the idea pick how it is used.",
+      "avoid_copying": [
+        "a Remotion rewrite",
+        "a film made only of stock components"
+      ],
+      "evidence_level": "technique-data"
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "dom-gsap",
+      "complexity": "low",
+      "id": "ref-original-correction-to-phrase",
+      "local_ref": "library/creative-examples/correction-to-phrase/example.html",
+      "kind": "original-example",
+      "format_tags": [
+        "launch",
+        "explainer",
+        "ad"
+      ],
+      "comm_kinds": [
+        "whole-product-introduction",
+        "single-feature-announcement",
+        "instructional-explainer"
+      ],
+      "shot_tags": [
+        "semantic-typography",
+        "cause-and-effect",
+        "payoff"
+      ],
+      "look_tags": [
+        "editorial",
+        "typographic"
+      ],
+      "principle": "Let one phrase persist as the subject: the error leaves, the reason attaches to the changed part, and the phrase returns later with less help. Shows a causal handoff, not a feature list.",
+      "avoid_copying": [
+        "its invented brand and wording as a template"
+      ],
+      "evidence_level": "original-unreviewed"
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "low",
+      "id": "ref-original-two-readings",
+      "local_ref": "library/creative-examples/two-readings/example.html",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "single-feature-announcement"
+      ],
+      "shot_tags": [
+        "semantic-typography",
+        "mechanism-explanation",
+        "diagram"
+      ],
+      "look_tags": [
+        "graphic",
+        "typographic"
+      ],
+      "principle": "Show a sentence splitting into its two real readings, and keep the source's true ambiguity intact; choosing one reading resolves the structure.",
+      "avoid_copying": [
+        "its invented brand and sentence"
+      ],
+      "evidence_level": "original-unreviewed"
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "dom-gsap",
+      "complexity": "medium",
+      "id": "ref-original-interaction-at-scale",
+      "local_ref": "library/creative-examples/interaction-at-scale/example.html",
+      "kind": "original-example",
+      "format_tags": [
+        "launch",
+        "screen",
+        "ad",
+        "short"
+      ],
+      "comm_kinds": [
+        "workflow-demo",
+        "single-feature-announcement",
+        "performance-ad"
+      ],
+      "shot_tags": [
+        "ui-demo",
+        "product-in-use",
+        "product-native-material"
+      ],
+      "look_tags": [
+        "tactile",
+        "product-ui"
+      ],
+      "principle": "Show one product interaction at a scale where its result can be read: the product fragment fills the frame, the cursor does one thing, and the state change is the focal event.",
+      "avoid_copying": [
+        "its invented product and controls",
+        "claiming behaviour a real product lacks"
+      ],
+      "evidence_level": "original-unreviewed"
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "dom-gsap",
+      "complexity": "low",
+      "id": "ref-original-single-change-calm",
+      "local_ref": "library/creative-examples/single-change-calm/example.html",
+      "kind": "original-example",
+      "format_tags": [
+        "brand",
+        "short",
+        "launch",
+        "explainer"
+      ],
+      "comm_kinds": [
+        "brand-manifesto",
+        "teaser",
+        "single-feature-announcement"
+      ],
+      "shot_tags": [
+        "restraint",
+        "payoff",
+        "opening"
+      ],
+      "look_tags": [
+        "calm",
+        "minimal"
+      ],
+      "principle": "A deliberate calm composition where exactly one thing changes; stillness around it is what makes the change land.",
+      "avoid_copying": [
+        "its invented brand",
+        "calm as a default for every film"
+      ],
+      "evidence_level": "original-unreviewed"
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "dom-gsap",
+      "complexity": "medium",
+      "id": "ref-showcase-kinso-launch",
+      "local_ref": "library/showcases/kinso-launch.json",
+      "kind": "local-breakdown",
+      "format_tags": [
+        "launch",
+        "ad"
+      ],
+      "comm_kinds": [
+        "whole-product-introduction",
+        "single-feature-announcement",
+        "performance-ad"
+      ],
+      "shot_tags": [
+        "ui-demo",
+        "product-in-use",
+        "word-object-collision"
+      ],
+      "look_tags": [
+        "product-ui"
+      ],
+      "principle": "The UI window grows out of the caption and the words touch the real objects, so the product is the scenery and the line captions its state.",
+      "avoid_copying": [
+        "Kinso's orb, layouts and copy"
+      ],
+      "evidence_level": "local-breakdown"
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "dom-gsap",
+      "complexity": "low",
+      "id": "ref-showcase-red-editorial-grid",
+      "local_ref": "library/showcases/red-editorial-grid.json",
+      "kind": "local-breakdown",
+      "format_tags": [
+        "brand",
+        "short"
+      ],
+      "comm_kinds": [
+        "brand-manifesto",
+        "identity-reveal",
+        "teaser"
+      ],
+      "shot_tags": [
+        "restraint",
+        "semantic-typography",
+        "grid"
+      ],
+      "look_tags": [
+        "editorial",
+        "typographic",
+        "minimal"
+      ],
+      "principle": "One hairline grid and single-word steps: restraint where the type and one accent spend the whole budget.",
+      "avoid_copying": [
+        "its photographs",
+        "its exact grid and words"
+      ],
+      "evidence_level": "local-breakdown"
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "medium",
+      "id": "ex-flat-vector-three-into-one",
+      "local_ref": "library/medium-examples/flat-vector-native/positive-three-into-one.js",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "single-feature-announcement",
+        "whole-product-introduction",
+        "workflow-demo"
+      ],
+      "shot_tags": [
+        "split-recombine"
+      ],
+      "look_tags": [
+        "graphic",
+        "geometric"
+      ],
+      "principle": "each object keeps its identity from start to lock; the geometry is the explanation; a heading can be hidden",
+      "avoid_copying": [
+        "the exact shapes and colours",
+        "as proof of any product behaviour"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "flat-vector",
+        "flat-vector-native"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "medium",
+      "id": "ex-flat-vector-ornamental-swarm",
+      "local_ref": "library/medium-examples/flat-vector-native/boundary-ornamental-swarm.js",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "single-feature-announcement",
+        "whole-product-introduction"
+      ],
+      "shot_tags": [
+        "shape-build"
+      ],
+      "look_tags": [
+        "graphic",
+        "geometric"
+      ],
+      "principle": "ornament is atmosphere, never proof or a diagram; unequal point counts crossfade and say so",
+      "avoid_copying": [
+        "the swarm as a way to look busy"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "flat-vector",
+        "flat-vector-native"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "medium",
+      "id": "ex-line-drawing-line-reveals-relation",
+      "local_ref": "library/medium-examples/line-drawing-native/positive-line-reveals-relation.js",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "single-feature-announcement",
+        "whole-product-introduction",
+        "workflow-demo"
+      ],
+      "shot_tags": [
+        "path-reveal"
+      ],
+      "look_tags": [
+        "graphic",
+        "line"
+      ],
+      "principle": "the label follows the line, not the reverse; construction lines stay faint until the real stroke completes",
+      "avoid_copying": [
+        "the path data and wording"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "line-art",
+        "line-drawing-native"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "medium",
+      "id": "ex-line-drawing-unsupported-connector",
+      "local_ref": "library/medium-examples/line-drawing-native/boundary-unsupported-connector.js",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "single-feature-announcement",
+        "whole-product-introduction"
+      ],
+      "shot_tags": [
+        "path-reveal"
+      ],
+      "look_tags": [
+        "graphic",
+        "line"
+      ],
+      "principle": "a connector declares supported or illustrative; illustrative draws dashed; dense diagrams disclose progressively",
+      "avoid_copying": [
+        "the connector as an integration claim"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "line-art",
+        "line-drawing-native"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "medium",
+      "id": "ex-paper-collage-two-strips",
+      "local_ref": "library/medium-examples/paper-collage-native/positive-two-strips.js",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "evidence-case-study"
+      ],
+      "shot_tags": [
+        "layer-reveal"
+      ],
+      "look_tags": [
+        "tactile",
+        "collage"
+      ],
+      "principle": "masked reveal, a real fold and a hinged tag are physical actions; every card stays visible in both readings; words are crisp SVG text above the paper",
+      "avoid_copying": [
+        "the strip layout and copy"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "collage",
+        "paper-collage-native"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "medium",
+      "id": "ex-paper-collage-texture-sticker",
+      "local_ref": "library/medium-examples/paper-collage-native/boundary-texture-sticker.js",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer"
+      ],
+      "shot_tags": [
+        "layer-reveal"
+      ],
+      "look_tags": [
+        "tactile",
+        "collage"
+      ],
+      "principle": "a texture alone does nothing physical; a photo piece fails loudly with no approved asset",
+      "avoid_copying": [
+        "the texture-sticker look"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "collage",
+        "paper-collage-native"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "medium",
+      "id": "ex-evidence-diagram-overlap-sets",
+      "local_ref": "library/medium-examples/evidence-diagram/positive-overlap-sets.js",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "evidence-case-study"
+      ],
+      "shot_tags": [
+        "group"
+      ],
+      "look_tags": [
+        "graphic",
+        "diagram"
+      ],
+      "principle": "membership is computed, and a count line proves no member is lost; the overlap explains the ambiguity without a heading",
+      "avoid_copying": [
+        "the synthetic people and wording"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "dataviz",
+        "evidence-diagram"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "svg",
+      "complexity": "medium",
+      "id": "ex-evidence-diagram-bars-need-source",
+      "local_ref": "library/medium-examples/evidence-diagram/boundary-bars-need-source.js",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "evidence-case-study"
+      ],
+      "shot_tags": [
+        "compare"
+      ],
+      "look_tags": [
+        "graphic",
+        "diagram"
+      ],
+      "principle": "bars grow from the true baseline; no source declared means the factory refuses to draw a decorative chart",
+      "avoid_copying": [
+        "the synthetic values"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "dataviz",
+        "evidence-diagram"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "canvas",
+      "complexity": "medium",
+      "id": "ex-pixel-native-path-of-choices",
+      "local_ref": "library/medium-examples/pixel-native/path-of-choices/example.html",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "whole-product-introduction",
+        "character-short"
+      ],
+      "shot_tags": [
+        "tile-assemble"
+      ],
+      "look_tags": [
+        "pixel",
+        "retro"
+      ],
+      "principle": "tile assembly and a sprite acting on a step grid; integer scale fit; never a smoothed upscale",
+      "avoid_copying": [
+        "the invented brand, sprite and palette"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "pixel",
+        "pixel-native"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "canvas",
+      "complexity": "medium",
+      "id": "ex-pixel-native-long-text-locale",
+      "local_ref": "library/medium-examples/pixel-native/long-text-locale/example.html",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer"
+      ],
+      "shot_tags": [
+        "palette-reveal"
+      ],
+      "look_tags": [
+        "pixel",
+        "retro"
+      ],
+      "principle": "measureText reports missing glyphs; those strings go to a sharp text layer, never pixelated; reserve the reading region",
+      "avoid_copying": [
+        "the strings"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "pixel",
+        "pixel-native"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "canvas",
+      "complexity": "medium",
+      "id": "ex-pixel-companion-saved-correction",
+      "local_ref": "library/medium-examples/pixel-companion/saved-correction/example.html",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "workflow-demo",
+        "single-feature-announcement",
+        "whole-product-introduction"
+      ],
+      "shot_tags": [
+        "anchor-follow"
+      ],
+      "look_tags": [
+        "pixel",
+        "product-ui"
+      ],
+      "principle": "the sharp proof layer owns every label; the sprite sits on its own grid beside it; the companion reacts to a real event the score carries",
+      "avoid_copying": [
+        "the sprite, copy and layout"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "living-screencast",
+        "pixel-companion"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "canvas",
+      "complexity": "medium",
+      "id": "ex-pixel-companion-transformed-anchor",
+      "local_ref": "library/medium-examples/pixel-companion/transformed-anchor/example.html",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "workflow-demo"
+      ],
+      "shot_tags": [
+        "anchor-follow"
+      ],
+      "look_tags": [
+        "pixel",
+        "product-ui"
+      ],
+      "principle": "bounds measured once in world coordinates, converted through the one camera transform each frame; no screen-space deltas, no hard-coded button position",
+      "avoid_copying": [
+        "the layout"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "living-screencast",
+        "pixel-companion"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "dom-gsap",
+      "complexity": "medium",
+      "id": "ex-cel-performance-catch-and-react",
+      "local_ref": "library/medium-examples/cel-performance/positive-catch-and-react.example.json",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "character-short",
+        "whole-product-introduction"
+      ],
+      "shot_tags": [
+        "anticipate"
+      ],
+      "look_tags": [
+        "character",
+        "illustrated"
+      ],
+      "principle": "the reaction starts after the result lands; one identity, line-only boil",
+      "avoid_copying": [
+        "the character fixture and pear gag"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "cel-boil",
+        "cel-performance"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "dom-gsap",
+      "complexity": "medium",
+      "id": "ex-cel-performance-idle-beside-headline",
+      "local_ref": "library/medium-examples/cel-performance/boundary-idle-beside-headline.example.json",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "character-short"
+      ],
+      "shot_tags": [
+        "anticipate"
+      ],
+      "look_tags": [
+        "character",
+        "illustrated"
+      ],
+      "principle": "no event worth acting out means a plain typographic Look or another medium",
+      "avoid_copying": [
+        "the idle loop"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "cel-boil",
+        "cel-performance"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "canvas",
+      "complexity": "medium",
+      "id": "ex-isometric-system-inputs-to-result",
+      "local_ref": "library/medium-examples/isometric-system/positive-inputs-to-result.example.json",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "whole-product-introduction"
+      ],
+      "shot_tags": [
+        "assemble"
+      ],
+      "look_tags": [
+        "graphic",
+        "isometric"
+      ],
+      "principle": "one declared projection for every object; depth order from world boxes; the only route is labelled illustrative and disclosed in frame",
+      "avoid_copying": [
+        "the blocks, labels and colours"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "iso-infographic",
+        "isometric-system"
+      ]
+    },
+    {
+      "media": [],
+      "verified_at": "2026-10-26",
+      "runtime_family": "canvas",
+      "complexity": "medium",
+      "id": "ex-isometric-system-unsourced-factual-route",
+      "local_ref": "library/medium-examples/isometric-system/boundary-unsourced-factual-route.example.json",
+      "kind": "original-example",
+      "format_tags": [
+        "explainer",
+        "launch",
+        "short"
+      ],
+      "comm_kinds": [
+        "instructional-explainer"
+      ],
+      "shot_tags": [
+        "route"
+      ],
+      "look_tags": [
+        "graphic",
+        "isometric"
+      ],
+      "principle": "a route cites a factual source or is labelled illustrative; otherwise it is refused",
+      "avoid_copying": [
+        "the buildings"
+      ],
+      "evidence_level": "original-unreviewed",
+      "medium_ids": [
+        "iso-infographic",
+        "isometric-system"
+      ]
+    }
+  ]
+}

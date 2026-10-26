@@ -1,0 +1,68 @@
+{
+  "$comment": "creative-example@1 rows wrapping this directory's original examples (Part 2 integration; the lane's own metadata uses other shapes). Not rendered, previewed or run: evidence original-unreviewed, state implemented_unvalidated. Guidance only; no authority over a user's task.",
+  "examples": [
+    {
+      "format": "creative-example@1",
+      "id": "pixel-native-path-of-choices",
+      "profile_ids": [
+        "pixel",
+        "pixel-native"
+      ],
+      "problem": "a progression shown as a path built tile by tile",
+      "native_action": "tile-assemble / sprite-act",
+      "kind": "positive",
+      "source_ref": "library/medium-examples/pixel-native/path-of-choices/example.html",
+      "preview_ref": null,
+      "evidence_status": "original-unreviewed",
+      "rights_basis": "original code and synthetic/invented data written for this repository; no third-party asset, font, sprite, melody or footage",
+      "source_role": "original-code",
+      "runtime_ref": "runtime/medium-pixel.js",
+      "learn": [
+        "tile assembly and a sprite acting on a step grid",
+        "integer scale fit; never a smoothed upscale"
+      ],
+      "do_not_copy": [
+        "the invented brand, sprite and palette"
+      ],
+      "not_for": [
+        "small exact UI or protected text",
+        "a game mechanic implying a product feature"
+      ],
+      "comm_kinds": [
+        "instructional-explainer",
+        "whole-product-introduction",
+        "character-short"
+      ]
+    },
+    {
+      "format": "creative-example@1",
+      "id": "pixel-native-long-text-locale",
+      "profile_ids": [
+        "pixel",
+        "pixel-native"
+      ],
+      "problem": "long text and non-ASCII locales in a portrait pixel frame",
+      "native_action": "palette-reveal",
+      "kind": "boundary",
+      "source_ref": "library/medium-examples/pixel-native/long-text-locale/example.html",
+      "preview_ref": null,
+      "evidence_status": "original-unreviewed",
+      "rights_basis": "original code and synthetic/invented data written for this repository; no third-party asset, font, sprite, melody or footage",
+      "source_role": "original-code",
+      "runtime_ref": "runtime/medium-pixel.js",
+      "learn": [
+        "measureText reports missing glyphs; those strings go to a sharp text layer, never pixelated",
+        "reserve the reading region"
+      ],
+      "do_not_copy": [
+        "the strings"
+      ],
+      "not_for": [
+        "native pixel text for any script the font lacks"
+      ],
+      "comm_kinds": [
+        "instructional-explainer"
+      ]
+    }
+  ]
+}

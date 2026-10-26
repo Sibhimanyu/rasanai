@@ -1,0 +1,11 @@
+{
+  "profile": "dataviz", "alsoCovers": ["blueprint", "manim-math (no Manim dependency)"], "family": "diagram-data", "owner": "M04", "status": "implemented_unvalidated",
+  "module": "runtime/medium-graphic.js#createEvidenceDiagramScene", "verified": false,
+  "examples": [
+    { "file": "positive-overlap-sets.js", "role": "positive", "mechanism": "exact set membership, computed interpretations, none-lost count", "worksWithoutHeading": true },
+    { "file": "boundary-bars-need-source.js", "role": "boundary", "mechanism": "bars from labeled values, true baseline, units retained, synthetic disclosed", "worksWithoutHeading": false }
+  ],
+  "requiredAssets": [], "editability": "bar-*, member-*, set-*, interp-* groups; all text is exact SVG text with role evidence",
+  "limitations": ["sets mode draws exactly two sets", "bars: one series pair (value, value2) per item, single axis", "no grouping hull or relation graph yet beyond sets/bars", "alpha: opaque marks"],
+  "rendered": false, "receipts": []
+}

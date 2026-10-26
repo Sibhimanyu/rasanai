@@ -7,7 +7,7 @@
 //   node motion-gate.mjs [--video <draft.mp4>] [--project <videos/name>] [--plan <run>/motion/score.json]
 //        [--scenes <run>/scenes.json] [--end-hold 1.5] [--fps 15] [--vo <audio_meta.json|words.json>] [--no-text-fit] [--no-fluency] [--no-carry] [--no-echo] [--no-camera] [--no-emphasis] [--no-guards] [--no-pop] [--no-energy] [--loop]
 //        [--events <events.json>] (the derived film-event manifest, events.mjs export; also found as events.json beside --plan; stale ones are refused)
-//        [--stillness] [--json]
+//        [--stillness] [--medium <medium.json>] [--json]   (--medium, or look/medium.json beside the project: a medium contract may qualify the named craft checks for its own scenes, recorded as medium_exceptions)
 //   node motion-gate.mjs fluency --video <film.mp4> [--stillness] [--json]     the fluency measurement alone
 //   -> exit 0 pass · 2 findings (listed, each with a time and a fix) · 1 could not run (never "clean")
 //
@@ -147,6 +147,34 @@ export const GATE = {
 const W = 192, H = 108; // analysis size: area-averaged, so encoding noise falls under the pixel threshold
 const PIX_T = 6, MOVE_SHARE = 0.0008; // a frame moves when >= 0.08% of pixels change by more than 6 levels
 
+// the craft checks a medium contract may qualify, by the rule id medium-rules knows (finding check -> rule id; a scene-scoped rule needs the beat the finding sits in)
+const MEDIUM_CHECKS = { "camera-monotone": "camera-motion", "always-moving": "continuous-motion", "one-curve": "curve-mix", "seam-continuity-missing": "handoff-continuity", carry: "handoff-continuity", freeze: "intentional-hold", fluency: "stepped-motion" };
+function readMediumContract({ medium = null, project = null } = {}) {
+  let contract = null;
+  try {
+    const cands = [medium, project && path.join(path.resolve(project), "look", "medium.json"), project && path.join(path.resolve(project), "..", "look", "medium.json")].filter(Boolean);
+    const f = cands.find((x) => fs.existsSync(path.resolve(x)));
+    if (f) contract = JSON.parse(fs.readFileSync(path.resolve(f), "utf8"));
+  } catch { contract = null; }
+  return contract && contract.format === "medium-contract@1" ? contract : null;
+}
+async function applyMediumScopes(findings, beats, { medium = null, project = null } = {}) {
+  const contract = readMediumContract({ medium, project });
+  if (!contract) return [];
+  const { scopedSkips } = await import("./lib/medium-wiring.mjs");
+  const out = [];
+  for (const f of findings) {
+    if (f.severity === "review") continue;
+    const rule = f.check === "creep" ? (f.region === "scale" ? null : "camera-drift") : MEDIUM_CHECKS[f.check];
+    if (!rule) continue;
+    const beat = typeof f.at === "number" ? beats.find((b) => b.start != null && b.end != null && f.at >= b.start && f.at < b.end) : (f.region && /^beat /.test(f.region) ? beats.find((b) => `beat ${b.id}` === f.region) : null);
+    const sceneId = beat ? String(beat.id) : null;
+    const r = scopedSkips(contract, [rule], { sceneId });
+    if (r.skip.has(rule)) { out.push(...r.exceptions.map((e) => ({ ...e, check: f.check, at: f.at ?? null }))); f.scoped_exception = r.exceptions[0]; f.severity = "review"; }
+  }
+  return out;
+}
+
 async function main() {
   const args = parseArgs();
   if (!args.json) track("Measuring the film frame by frame: freezes, creep, seams, echo, camera", "Motion gate done");
@@ -168,7 +196,7 @@ async function main() {
     const beside = path.join(path.dirname(path.dirname(path.resolve(str(args.plan)))), "scenes.json");
     if (fs.existsSync(beside)) scenesArg = beside;
   }
-  const res = await gate({ events: str(args.events), vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: scenesArg, endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], pop: !args["no-pop"], energy: !args["no-energy"], loop: args.loop ? true : null, stillness: args.stillness ? true : null });
+  const res = await gate({ events: str(args.events), vo: str(args.vo), video: str(args.video), project: str(args.project), plan: str(args.plan), scenes: scenesArg, endHold: Number(args["end-hold"]) || null, fps: Number(args.fps) || 15, textFit: !args["no-text-fit"], fluency: !args["no-fluency"], carry: !args["no-carry"], echo: !args["no-echo"], camera: !args["no-camera"], emphasis: !args["no-emphasis"], guards: !args["no-guards"], pop: !args["no-pop"], energy: !args["no-energy"], loop: args.loop ? true : null, stillness: args.stillness ? true : null, medium: str(args.medium) || null });
   for (const c of res.could_not_run) noteDowngrade({ run: args.run, what: "the motion gate", instead: "no motion check", why: String(c).slice(0, 200), impact: "this film's motion was not measured", severity: "notice" });
   if (args.json) console.log(JSON.stringify(res, null, 2));
   else {
@@ -472,7 +500,7 @@ function codeChecks(file, html) {
 }
 
 // ---------------------------------------------------------------- the gate
-export async function gate({ events = null, vo = null, video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, pop = true, energy = true, loop = null, stillness = null } = {}) {
+export async function gate({ events = null, vo = null, video = null, project = null, plan = null, scenes = null, endHold = null, fps = 15, textFit: doTextFit = true, fluency = true, carry = true, echo = true, camera = true, emphasis = true, guards = true, pop = true, energy = true, loop = null, stillness = null, medium = null } = {}) {
   const findings = [], skipped = [], could = [], measured = {};
   const SKILL_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
   const add = (f) => {
@@ -487,6 +515,8 @@ export async function gate({ events = null, vo = null, video = null, project = n
     const md = project ? readText(path.join(path.resolve(project), "motion.md")) : "";
     stillness = !!(P.plan && (P.plan.stillness === true || P.plan.motion_style === "stillness")) || /^stillness:\s*true\b/m.test(md);
   }
+  // a medium contract whose temporal mode is stepped / cut-based / still declares the stillness style (the whole-film fluency and dead-frame checks then run as warnings, and a qualified fluency finding is further listed as review)
+  if (!stillness) { const mc = readMediumContract({ medium, project }); const tm = mc && mc.motion_policy && mc.motion_policy.temporal_mode; if (["stepped", "cut-based", "still"].includes(tm)) stillness = true; }
   measured.stillness = stillness;
   // a declared loop: the flag, the plan (loop: true), or motion.md
   if (loop == null) {
@@ -495,6 +525,13 @@ export async function gate({ events = null, vo = null, video = null, project = n
   }
   measured.loop = !!loop;
   const still = stillness ? "warning" : "error";
+  // Creative recovery (W06): the new creative policy (score.creative.policy_revision, or creative_policy_revision) makes the universal seam quotas PROFILES: a score selects
+  // "carried-seams" (score.creative.profiles) to keep the two-carrier rule an error. Unselected it is a warning; a legacy score (no marker) is unchanged.
+  const cr = P.plan && P.plan.creative && typeof P.plan.creative === "object" ? P.plan.creative : {};
+  const creativePolicy = !!(P.plan && (P.plan.creative_policy_revision || cr.policy_revision));
+  const creativeProfiles = [].concat(cr.profiles || [], P.plan && P.plan.profiles || []).map(String);
+  const profileSeverity = (id) => (creativePolicy && !creativeProfiles.includes(id) ? "warning" : "error");
+  measured.creative_policy = creativePolicy ? { profiles: creativeProfiles } : null;
   const beats = P.beats || [];
   const holdMax = gateValue("motion.end_hold_s", endHold || P.endHold || GATE.end_hold_s);
   const holdMin = gateValue("motion.end_hold_min_s", GATE.end_hold_min_s), holdMinTaught = gateNotes(["motion.end_hold_min_s"]).length > 0;
@@ -862,7 +899,7 @@ export async function gate({ events = null, vo = null, video = null, project = n
     }
     measured.declared_carried_seams = declared;
     const have = carried != null ? carried : declared;
-    if (need && have < need) add({ check: "carriers", severity: "error", at: null, region: "seams", message: carried != null ? `${carried} seam(s) carried by an object present on both sides in the built film (the plan declares ${declared}); ${need} at least` : `the plan declares ${declared} carried seam(s); ${need} at least`, fix: "carry at least two seams with one object that crosses the cut and becomes part of the next beat (compositions/carriers/<name>.html on its own track, spanning both beats; video.mjs carriers mounts it)" });
+    if (need && have < need) add({ check: "carriers", severity: profileSeverity("carried-seams"), at: null, region: "seams", message: carried != null ? `${carried} seam(s) carried by an object present on both sides in the built film (the plan declares ${declared}); ${need} at least` : `the plan declares ${declared} carried seam(s); ${need} at least`, fix: "carry at least two seams with one object that crosses the cut and becomes part of the next beat (compositions/carriers/<name>.html on its own track, spanning both beats; video.mjs carriers mounts it)" });
     if (carried == null && need) skipped.push("carriers: measured from the plan only (give --project to measure the carrier tracks)");
     // one brand reveal
     const br = P.brandReveal;
@@ -882,6 +919,26 @@ export async function gate({ events = null, vo = null, video = null, project = n
         if (n && h.carrier && h.start < rb.start - 0.1) add({ check: "reveal", severity: "error", at: r2(h.start), element: h.src, message: `the carrier ${h.src} holds a brand mark from ${r2(h.start)} s, before the reveal beat "${br}"`, fix: "start the mark's carrier at the reveal" });
       }
       if (!marks) skipped.push("reveal: no element is tagged data-brand-mark, so the code can't show where the mark appears (tag every logo)");
+    }
+    // Creative recovery (W06): the optional output trace (<run>/creative/execution-map.json, beside motion/) is read for traceability only: it owns no timing, and metadata
+    // that matches proves a link, never that the event was delivered. Warnings, never errors; a missing file is simply not checked.
+    if (plan) {
+      const mf = path.join(path.dirname(path.dirname(path.resolve(plan))), "creative", "execution-map.json");
+      const em = fs.existsSync(mf) ? (() => { try { return JSON.parse(fs.readFileSync(mf, "utf8")); } catch { return undefined; } })() : null;
+      if (em === undefined) add({ check: "execution-map", severity: "warning", at: null, region: "creative", basis: "measured", message: `${mf} is not valid JSON`, fix: "rewrite creative/execution-map.json (the Motion Director owns it)" });
+      else if (em) {
+        const rows = Array.isArray(em.events) ? em.events : Array.isArray(em.mappings) ? em.mappings : [];
+        const total = P.duration || (beats.length ? beats[beats.length - 1].end : null);
+        for (const m of rows) {
+          const id = String(m && (m.event_id || m.id) || "?");
+          const shots = Array.isArray(m && m.shot_ids) ? m.shot_ids : [];
+          const dev = Array.isArray(m && m.declared_deviations) ? m.declared_deviations : [];
+          if (!shots.length) add({ check: "execution-map", severity: "warning", at: null, region: `event ${id}`, basis: "measured", message: `signature event ${id} maps to no shot id`, fix: "name the shot ids that carry the event, or declare the deviation" });
+          else if (!(Array.isArray(m.produced_artifact_refs) && m.produced_artifact_refs.length) && !dev.length) add({ check: "execution-map", severity: "warning", at: null, region: `event ${id}`, basis: "measured", message: `signature event ${id} lists no produced artifact and no declared deviation`, fix: "list the composition file that builds it, or say why it is not built" });
+          for (const t of Array.isArray(m && m.sample_times_s) ? m.sample_times_s : []) if (total && Number(t) > total + 0.05) add({ check: "execution-map", severity: "warning", at: null, region: `event ${id}`, basis: "measured", message: `event ${id} samples ${t} s, past the film's ${r2(total)} s`, fix: "sample times use the score's film seconds" });
+        }
+        measured.execution_map = { events: rows.length };
+      }
     }
   } else skipped.push("plan checks: no plan (carriers, the one brand reveal and the seams need --plan <run>/motion/score.json)");
 
@@ -931,9 +988,13 @@ export async function gate({ events = null, vo = null, video = null, project = n
     }
   }
 
+  // Part 2 (new path only): a look with a medium contract (--medium <medium.json>, else look/medium.json beside the project) may qualify one named craft check for a scene it declares,
+  // through medium-rules resolveMediumRules (every contract layer must qualify; hard checks never). The finding stays listed as "review" with the exception recorded. No contract: nothing changes.
+  const mediumExceptions = await applyMediumScopes(findings, beats, { medium, project });
+  if (mediumExceptions.length) measured.medium_scoped_exceptions = mediumExceptions;
   const errors = findings.filter((f) => f.severity === "error");
   const ok = !errors.length && !could.length;
-  return { ok, verdict: errors.length ? "fail" : could.length ? "could not run" : "pass", measured, findings, notes, skipped, could_not_run: could };
+  return { ok, verdict: errors.length ? "fail" : could.length ? "could not run" : "pass", measured, findings, notes, skipped, could_not_run: could, ...(mediumExceptions.length ? { medium_exceptions: mediumExceptions } : {}) };
 }
 
 if (process.argv[1] && fs.realpathSync(path.resolve(process.argv[1])) === fs.realpathSync(fileURLToPath(import.meta.url))) await main();

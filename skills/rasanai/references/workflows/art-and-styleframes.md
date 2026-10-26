@@ -36,6 +36,13 @@ node $SKILL_DIR/scripts/frames.mjs payload --run "$RUN"                         
 
 The music, the score and the build come after the boards: the Motion Director scores the motion **between** them (each beat's `board`, `size`, `hero`, `peak_t`; a departure needs a `deviations` entry), and the builders build toward them.
 
+### New creative policy (plan has `creative_policy_revision: 1`)
+
+- A lean or direct new-policy film still gets the post-Look styleframe designer (a compact set; the film builder never draws its own boards) and ONE independent frame-juror pass; a second pass only for an unresolved major finding and inside the budget. If the juror cannot run (no model slot, no vision-capable role), say so as a needs-you note through the existing review controls: do not call the boards ready.
+- `frames.mjs init` writes `film.look_style`; `shots-check` and `gate` hold only a look that selects the depth craft to it (the other measurements are severity `review`: evidence for the juror, not failures). `frames.mjs refs` adds the selected references' lawful images (origin `creative-reference`); with none, the references are descriptions and the verdict says so.
+- The juror also writes `creative/reviews/storyboard-r<N>.json` (the images it really opened, per-shot judgments with exact repairs, set-level progression / repetition / signature, a `result`); `crew.mjs check --role frame-juror` validates it. A valid file is not a good verdict.
+- A branded direct film no longer treats the styleframes call as the Look call: the Look is confirmed first at the Look step; the boards are shown (`styleframes-show`) and the Storyboard review is the next human decision.
+
 ## Deeper references for this guide
 
 The canonical homes of the detail this guide points at (read the one the current step needs):
@@ -48,3 +55,4 @@ The canonical homes of the detail this guide points at (read the one the current
 | the frame gate: measure the picture (text load, giant moments, boldness, type scale, ground tint, soft content, colour, flat swatch grounds) on boards and drafts | `scripts/frame-gate.mjs`, `references/craft.md` (Frame metrics) |
 | generated images in any route: when, prompt craft, the anchor, review, the slop list | `references/imagery.md`, `scripts/imagegen.mjs` |
 | thinking orbs (RasanOrbs): nine "AI is working" states, 64/20/hero, brand colour | `references/orbs.md`, `runtime/rasan-orbs.js` |
+| the selected medium's native actions and worked mechanisms (conditional, scene routes with a selected medium only; examples only for a stated communication problem, and never copy a whole example) | `references/medium-direction.md`, `references/medium-examples.md` |

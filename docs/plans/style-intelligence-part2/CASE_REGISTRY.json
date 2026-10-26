@@ -1,0 +1,1826 @@
+{
+ "format": "medium-cases@1",
+ "count": 64,
+ "status": "implemented_unvalidated / awaiting_test_approval",
+ "testing_authorized": false,
+ "approval": {
+  "granted": false,
+  "ref": null
+ },
+ "lanes": {
+  "pure": {
+   "file": "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs",
+   "approved_scope": null,
+   "latch": "STYLE_PART2_APPROVED=pure"
+  },
+  "scene": {
+   "file": "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs",
+   "approved_scope": null,
+   "latch": "STYLE_PART2_APPROVED=scene"
+  },
+  "journey": {
+   "file": "skills/rasanai/scripts/tests/style-intelligence-part2/journey.side-effects.test.mjs",
+   "approved_scope": null,
+   "latch": "STYLE_PART2_APPROVED=journey"
+  },
+  "static": {
+   "file": "skills/rasanai/scripts/tests/style-intelligence-part2/governance.static.test.mjs",
+   "approved_scope": null,
+   "latch": "STYLE_PART2_APPROVED=static"
+  }
+ },
+ "cases": [
+  {
+   "id": "MS-01",
+   "owner": "M01",
+   "family": "Registry and capability",
+   "case": "Canonical style IDs stay stable",
+   "input": "Existing pixel/collage IDs plus new metadata",
+   "expected": "One derived record per canonical profile; no duplicate style catalog.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-01b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "buildMediumIndex/validateMediumProfile input envelopes, alias field, context fs-existence injection (M01 not landed)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-02",
+   "owner": "M01",
+   "family": "Registry and capability",
+   "case": "No implementation from prose alone",
+   "input": "A STYLE.md with no module or recipe",
+   "expected": "Reference-only, never executable or verified.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-02b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "buildMediumIndex/validateMediumProfile input envelopes, alias field, context fs-existence injection (M01 not landed)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-03",
+   "owner": "M01",
+   "family": "Registry and capability",
+   "case": "Missing module is explicit",
+   "input": "Registered profile points to a missing runtime file",
+   "expected": "Candidate cannot silently build as text; missing dependency is reported.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-03b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "buildMediumIndex/validateMediumProfile input envelopes, alias field, context fs-existence injection (M01 not landed)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-04",
+   "owner": "M01",
+   "family": "Registry and capability",
+   "case": "Unknown and custom profile IDs",
+   "input": "Unknown slug, alias and a validated custom profile",
+   "expected": "Unknown fails clearly; aliases canonicalize; custom stays within permitted runtimes.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-04b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "buildMediumIndex/validateMediumProfile input envelopes, alias field, context fs-existence injection (M01 not landed)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-05",
+   "owner": "M01",
+   "family": "Registry and capability",
+   "case": "Authoritative source pins",
+   "input": "Profile source changes after the Look is approved",
+   "expected": "Pinned film stays on its original inputs or enters controlled revision.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-05b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "buildMediumIndex/validateMediumProfile input envelopes, alias field, context fs-existence injection (M01 not landed)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-06",
+   "owner": "M01",
+   "family": "Registry and capability",
+   "case": "No import side effects",
+   "input": "Import new leaf modules in an isolated future harness",
+   "expected": "No network, render, spawn, clock-driven work or filesystem mutation.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-06b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "buildMediumIndex/validateMediumProfile input envelopes, alias field, context fs-existence injection (M01 not landed)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-07",
+   "owner": "M02",
+   "family": "Contextual suitability",
+   "case": "Same product, different objective",
+   "input": "English-learning exact tutorial versus playful awareness",
+   "expected": "Different fit rationales; pixel not globally allowed or banned.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-07b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "assessment/shortlist result field names beyond 01_CONTRACTS (reasons/unresolved/selected inner shapes)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-08",
+   "owner": "M02",
+   "family": "Contextual suitability",
+   "case": "Evidence readability beats novelty",
+   "input": "Dense exact correction at small viewing size",
+   "expected": "Full pixel treatment is conditional/weak; proposed sharp-layer adaptation is explicit.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-08b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "assessment/shortlist result field names beyond 01_CONTRACTS (reasons/unresolved/selected inner shapes)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-09",
+   "owner": "M02",
+   "family": "Contextual suitability",
+   "case": "Known brand is not a style ban",
+   "input": "Supplied palette/type with no motion restriction",
+   "expected": "Compatible medium mechanisms may be explored without importing another identity.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-09b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "assessment/shortlist result field names beyond 01_CONTRACTS (reasons/unresolved/selected inner shapes)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-10",
+   "owner": "M02",
+   "family": "Contextual suitability",
+   "case": "Actual strict brand request binds",
+   "input": "Explicit exact brand-film matching or no characters",
+   "expected": "Selector respects constraint and records its actual source.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-10b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "assessment/shortlist result field names beyond 01_CONTRACTS (reasons/unresolved/selected inner shapes)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-11",
+   "owner": "M02",
+   "family": "Contextual suitability",
+   "case": "User requested an awkward medium",
+   "input": "Explicit full-pixel walkthrough with exact fine text",
+   "expected": "Retain request; explain conflict; do not silently substitute a different look.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-11b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "assessment/shortlist result field names beyond 01_CONTRACTS (reasons/unresolved/selected inner shapes)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-12",
+   "owner": "M02",
+   "family": "Contextual suitability",
+   "case": "Missing assets do not become facts",
+   "input": "No product CAD or no actual UI capture",
+   "expected": "No invented internals or UI. Candidate limitation or honest alternative is visible.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-12b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "assessment/shortlist result field names beyond 01_CONTRACTS (reasons/unresolved/selected inner shapes)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-13",
+   "owner": "M02",
+   "family": "Contextual suitability",
+   "case": "Uncertainty is not a decision",
+   "input": "Unknown font/rights/capability status",
+   "expected": "Unknown retained; no automatic permission or unearned hard rejection.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-13b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "assessment/shortlist result field names beyond 01_CONTRACTS (reasons/unresolved/selected inner shapes)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-14",
+   "owner": "M02",
+   "family": "Contextual suitability",
+   "case": "Meaningful option diversity",
+   "input": "Three distinct adjectives on the same card treatment",
+   "expected": "Insufficient actual difference; repair within budget, not pretend diversity.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-14b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "assessment/shortlist result field names beyond 01_CONTRACTS (reasons/unresolved/selected inner shapes)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-15",
+   "owner": "M02",
+   "family": "Contextual suitability",
+   "case": "Constrained valid alternatives",
+   "input": "Only one family fits strict requirements",
+   "expected": "Distinct treatments within family permitted; no forced incompatible option.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-15b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "assessment/shortlist result field names beyond 01_CONTRACTS (reasons/unresolved/selected inner shapes)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-16",
+   "owner": "M02",
+   "family": "Contextual suitability",
+   "case": "Count and no-inspiration handling",
+   "input": "No reference, offline, current policy asks for three options",
+   "expected": "Use permitted local material; preserve count or explicit conflict path, never fake references.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-16b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "assessment/shortlist result field names beyond 01_CONTRACTS (reasons/unresolved/selected inner shapes)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-17",
+   "owner": "M03",
+   "family": "Grammar and compatibility",
+   "case": "Non-text medium grammar",
+   "input": "New medium grammar with text_role none",
+   "expected": "No mandatory word-choreo; hard source/runtime checks remain.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-17b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "validateGrammar/checkScoreGrammar argument and result envelopes; resolveMediumRules scopedExceptions item shape"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-18",
+   "owner": "M03",
+   "family": "Grammar and compatibility",
+   "case": "Intentional still reading hold",
+   "input": "Diagram holds while labels are read",
+   "expected": "Not rejected solely by constant-motion quota; missing frames still fail.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-18b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "validateGrammar/checkScoreGrammar argument and result envelopes; resolveMediumRules scopedExceptions item shape"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-19",
+   "owner": "M03",
+   "family": "Grammar and compatibility",
+   "case": "Pixel cadence not global FPS",
+   "input": "Sprite poses step while score/output FPS stays fixed",
+   "expected": "Temporal styling distinguished from frame loss and audio drift.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-19b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "validateGrammar/checkScoreGrammar argument and result envelopes; resolveMediumRules scopedExceptions item shape"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-20",
+   "owner": "M03",
+   "family": "Grammar and compatibility",
+   "case": "Single mechanism is sufficient",
+   "input": "Short one-shot line reveal with no seam inventory",
+   "expected": "Not forced to add six techniques or three transitions.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-20b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "validateGrammar/checkScoreGrammar argument and result envelopes; resolveMediumRules scopedExceptions item shape"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-21",
+   "owner": "M03",
+   "family": "Grammar and compatibility",
+   "case": "Legacy grammar unaffected",
+   "input": "Saved old grammar and old run",
+   "expected": "Old data remains readable and unchanged; new rules require their discriminator.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-21b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "validateGrammar/checkScoreGrammar argument and result envelopes; resolveMediumRules scopedExceptions item shape"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-22",
+   "owner": "M03",
+   "family": "Grammar and compatibility",
+   "case": "Exact proof cannot be waived",
+   "input": "Medium annotation asks to hide a necessary qualifier",
+   "expected": "Factual requirement remains blocking.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-22b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "validateGrammar/checkScoreGrammar argument and result envelopes; resolveMediumRules scopedExceptions item shape"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-23",
+   "owner": "M03",
+   "family": "Grammar and compatibility",
+   "case": "Scoped finish rules",
+   "input": "Flat/pixel look asks for no blur and no depth",
+   "expected": "Global finish does not override the actual selected treatment.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-23b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "validateGrammar/checkScoreGrammar argument and result envelopes; resolveMediumRules scopedExceptions item shape"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-24",
+   "owner": "M03",
+   "family": "Grammar and compatibility",
+   "case": "Explicit repetition is legitimate",
+   "input": "Repeated composition carries a deliberate refrain",
+   "expected": "No blanket novelty failure; reviewer assesses whether meaning progresses.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-24b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "validateGrammar/checkScoreGrammar argument and result envelopes; resolveMediumRules scopedExceptions item shape"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-25",
+   "owner": "M04",
+   "family": "Graphic and paper execution",
+   "case": "Vector event without a headline",
+   "input": "Positive shape construction with decorative labels hidden",
+   "expected": "The visual relationship remains understandable.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-25b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-26",
+   "owner": "M04",
+   "family": "Graphic and paper execution",
+   "case": "Line reveal out of order",
+   "input": "Seek later, earlier, then middle on the same path",
+   "expected": "Same source time gives the same intended state.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-26b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-27",
+   "owner": "M04",
+   "family": "Graphic and paper execution",
+   "case": "Paper is a material behavior",
+   "input": "Layer/hinge/reveal source example",
+   "expected": "Not only a texture behind moving text; meaningful spatial/masking action occurs.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-27b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-28",
+   "owner": "M04",
+   "family": "Graphic and paper execution",
+   "case": "Source text stays intact",
+   "input": "Paper grouping with exact correction and qualifier",
+   "expected": "Required content and meaning are unchanged and legible.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-28b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-29",
+   "owner": "M04",
+   "family": "Graphic and paper execution",
+   "case": "Data source governs geometry",
+   "input": "Known synthetic values, units and baseline",
+   "expected": "Bars/relations are faithful; no invented adaptation metric.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-29b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-30",
+   "owner": "M04",
+   "family": "Graphic and paper execution",
+   "case": "Topology limitation is honest",
+   "input": "Unmatched arbitrary shape topology",
+   "expected": "Clear unsupported/adapted mechanism, no false claim of true morphing.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-30b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-31",
+   "owner": "M05",
+   "family": "Pixel and hybrid execution",
+   "case": "Crisp native pixel grid",
+   "input": "Landscape and portrait integer-fit examples",
+   "expected": "Nearest-neighbor and logical-grid rules hold at actual output size.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-31b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-32",
+   "owner": "M05",
+   "family": "Pixel and hybrid execution",
+   "case": "Noninteger canvas fit",
+   "input": "Output dimensions not divisible by base grid",
+   "expected": "Declared crop/fit policy; no unannounced stretching or DPR error.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-32b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-33",
+   "owner": "M05",
+   "family": "Pixel and hybrid execution",
+   "case": "Pixel stepping deterministic",
+   "input": "Random-time seek order with two sprites",
+   "expected": "Stable poses and seeds; inserting another object does not change existing motion.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-33b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-34",
+   "owner": "M05",
+   "family": "Pixel and hybrid execution",
+   "case": "Hybrid proof stays sharp",
+   "input": "Pixel companion over captured/rebuilt exact UI",
+   "expected": "UI stays full resolution; sprite alone uses the pixel treatment.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-34b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-35",
+   "owner": "M05",
+   "family": "Pixel and hybrid execution",
+   "case": "Anchor respects transforms",
+   "input": "Resize/zoom/move a target element",
+   "expected": "Companion tracks the transformed target without drift or reading overlap.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-35b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-36",
+   "owner": "M05",
+   "family": "Pixel and hybrid execution",
+   "case": "Locale glyph/shaping limits",
+   "input": "Tamil/English exact text with absent pixel glyphs",
+   "expected": "No boxes/transliteration/silent fallback; explicit crisp-text adaptation or limitation.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-36b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-37",
+   "owner": "M05",
+   "family": "Pixel and hybrid execution",
+   "case": "Editorial mascot is not product behavior",
+   "input": "Character responds to a real UI event",
+   "expected": "No invented app feature or unsupported causal claim.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-37b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-38",
+   "owner": "M05",
+   "family": "Pixel and hybrid execution",
+   "case": "No hazardous style-default flashing",
+   "input": "Pixel reveal and state change without source blink presets",
+   "expected": "No unnecessary rapid flashing; use existing accessibility guard in authorized checks.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-38b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)",
+    "authoritative flash guard is existing lib/a11y.mjs; use it in the authorized check"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-39",
+   "owner": "M06",
+   "family": "Characters and isometric worlds",
+   "case": "Acting not idle decoration",
+   "input": "Original nonverbal character action",
+   "expected": "Anticipation, action and subsequent reaction communicate the event.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-39b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-40",
+   "owner": "M06",
+   "family": "Characters and isometric worlds",
+   "case": "Canon/props persist",
+   "input": "Same actor carries a prop through poses",
+   "expected": "Identity preserved; attachments do not float or jump.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-40b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-41",
+   "owner": "M06",
+   "family": "Characters and isometric worlds",
+   "case": "Local drawing variation",
+   "input": "Boil active on character linework only",
+   "expected": "Evidence text and unrelated layers remain stable.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-41b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-42",
+   "owner": "M06",
+   "family": "Characters and isometric worlds",
+   "case": "Projection is coherent",
+   "input": "Isometric assembly and camera reframe",
+   "expected": "One declared projection/depth ordering; no unrelated perspective jumps.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-42b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-43",
+   "owner": "M06",
+   "family": "Characters and isometric worlds",
+   "case": "Routes do not invent infrastructure",
+   "input": "Illustrative route versus asserted real data flow",
+   "expected": "The distinction is retained and unsupported links are rejected.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-43b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-44",
+   "owner": "M06",
+   "family": "Characters and isometric worlds",
+   "case": "Unsupported performance is labeled",
+   "input": "Missing rig or lip-sync capability",
+   "expected": "No claimed performance that source/runtime cannot deliver.",
+   "lane": "scene",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=scene node --test --test-name-pattern=\"^MS-44b? \" skills/rasanai/scripts/tests/style-intelligence-part2/scene.synthetic.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node; if lane scene code needs a browser/seek harness: UNKNOWN, would need separate approval",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "synthetic deterministic scene",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M04/M05/M06 module names, build/stateAt/phases exports and state shapes (fixtures.API map empty by design)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-45",
+   "owner": "M07",
+   "family": "UI, approval and handoff",
+   "case": "Same content across Looks",
+   "input": "One selected story beat in three media candidates",
+   "expected": "Content/claim digest matches; only visual interpretation changes.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-45b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "medium-contract pins/digest semantics beyond 01_CONTRACTS"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-46",
+   "owner": "M07",
+   "family": "UI, approval and handoff",
+   "case": "Look choice is still human",
+   "input": "Prepared medium files but no consumed approved action",
+   "expected": "No full boards/build released; no implicit approval.",
+   "lane": "journey",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/journey.side-effects.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=journey node --test --test-name-pattern=\"^MS-46b? \" skills/rasanai/scripts/tests/style-intelligence-part2/journey.side-effects.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node + git read + os tmpdir; no app launch",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "os tmpdir (removed), git read",
+   "unknowns": [
+    "existing gate symbols (look.lookCommitted, storyboard boundary) and signatures"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-47",
+   "owner": "M07",
+   "family": "UI, approval and handoff",
+   "case": "No native or transport mutation",
+   "input": "Integrated candidate diff and existing payload projection",
+   "expected": "Frozen UI/console/stage files unchanged; current fields/actions retained.",
+   "lane": "journey",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/journey.side-effects.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=journey node --test --test-name-pattern=\"^MS-47b? \" skills/rasanai/scripts/tests/style-intelligence-part2/journey.side-effects.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node + git read + os tmpdir; no app launch",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "os tmpdir (removed), git read",
+   "unknowns": [
+    "baseline payload projection capture needs a base run; frozen-file list is from 00_GUARDRAILS only"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-48",
+   "owner": "M07",
+   "family": "UI, approval and handoff",
+   "case": "Actual selected medium reaches workers",
+   "input": "Chosen contract with distinct runtime and constraints",
+   "expected": "Packet contains correct profile and mandatory proof/invariants, not DOM default guesses.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-48b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "medium-contract pins/digest semantics beyond 01_CONTRACTS"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-49",
+   "owner": "M07",
+   "family": "UI, approval and handoff",
+   "case": "Material change invalidates correctly",
+   "input": "Look/profile changes after jobs are dispatched",
+   "expected": "Obsolete jobs rejected; previous version remains recoverable.",
+   "lane": "pure+journey",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs",
+    "skills/rasanai/scripts/tests/style-intelligence-part2/journey.side-effects.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-49b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs",
+    "STYLE_PART2_APPROVED=journey node --test --test-name-pattern=\"^MS-49b? \" skills/rasanai/scripts/tests/style-intelligence-part2/journey.side-effects.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "os tmpdir (removed), git read",
+   "unknowns": [
+    "medium-contract pins/digest semantics beyond 01_CONTRACTS",
+    "existing jobs/needs-you API symbols"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-50",
+   "owner": "M07",
+   "family": "UI, approval and handoff",
+   "case": "Examples are delivered honestly",
+   "input": "Example source exists but no preview",
+   "expected": "No claim that pixels or rendered examples were reviewed.",
+   "lane": "journey",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/journey.side-effects.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=journey node --test --test-name-pattern=\"^MS-50b? \" skills/rasanai/scripts/tests/style-intelligence-part2/journey.side-effects.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node + git read + os tmpdir; no app launch",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "os tmpdir (removed), git read",
+   "unknowns": [
+    "examples directory location"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-51",
+   "owner": "M07",
+   "family": "UI, approval and handoff",
+   "case": "Storyboard waits for Look",
+   "input": "Candidate exploration before selected current Look",
+   "expected": "Only representative Look content allowed; full boards follow approval.",
+   "lane": "journey",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/journey.side-effects.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=journey node --test --test-name-pattern=\"^MS-51b? \" skills/rasanai/scripts/tests/style-intelligence-part2/journey.side-effects.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node + git read + os tmpdir; no app launch",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "os tmpdir (removed), git read",
+   "unknowns": [
+    "existing gate symbols (look.lookCommitted, storyboard boundary) and signatures"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-52",
+   "owner": "M07",
+   "family": "UI, approval and handoff",
+   "case": "Bounded creative repair",
+   "input": "Persistent weak fit after budgeted repair",
+   "expected": "Existing needs-you path, not infinite loop or silent card fallback.",
+   "lane": "journey",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/journey.side-effects.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=journey node --test --test-name-pattern=\"^MS-52b? \" skills/rasanai/scripts/tests/style-intelligence-part2/journey.side-effects.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node + git read + os tmpdir; no app launch",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "os tmpdir (removed), git read",
+   "unknowns": [
+    "existing jobs/needs-you API symbols"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-53",
+   "owner": "M08",
+   "family": "Examples and scoped learning",
+   "case": "Original example provenance",
+   "input": "Positive source files from each runtime owner",
+   "expected": "Derived example index resolves exact paths and rights without fake preview.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-53b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M08 API (example index, copy reviewer, lesson store)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-54",
+   "owner": "M08",
+   "family": "Examples and scoped learning",
+   "case": "No whole-film copying",
+   "input": "Treatment closely imitates a source demo",
+   "expected": "Reviewer flags distinctive scene copying; mechanics can be adapted originally.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-54b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M08 API (example index, copy reviewer, lesson store)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-55",
+   "owner": "M08",
+   "family": "Examples and scoped learning",
+   "case": "Human lesson requires human evidence",
+   "input": "Agent declares its own revision successful",
+   "expected": "No human-preference success recorded without real feedback/approval source.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-55b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M08 API (example index, copy reviewer, lesson store)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-56",
+   "owner": "M08",
+   "family": "Examples and scoped learning",
+   "case": "Lesson scope stays narrow",
+   "input": "One user rejected pixel text in one tutorial",
+   "expected": "No global ban on pixels or software categories.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-56b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M08 API (example index, copy reviewer, lesson store)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-57",
+   "owner": "M08",
+   "family": "Examples and scoped learning",
+   "case": "Private source not leaked",
+   "input": "Private brand assets/feedback in another project context",
+   "expected": "Scope isolation; no broad external query or shared learning leak.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-57b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M08 API (example index, copy reviewer, lesson store)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-58",
+   "owner": "M08",
+   "family": "Examples and scoped learning",
+   "case": "Retrieval is problem-aware",
+   "input": "Same medium with different communication objectives",
+   "expected": "Relevant mechanism examples chosen; full library not injected.",
+   "lane": "pure",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=pure node --test --test-name-pattern=\"^MS-58b? \" skills/rasanai/scripts/tests/style-intelligence-part2/pure.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "none (Node only)",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "whole M08 API (example index, copy reviewer, lesson store)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-59",
+   "owner": "Lead/M09",
+   "family": "Authorization, integration and outcome",
+   "case": "No testing through another name",
+   "input": "Demo, preview, selftest, hooks, CI or background trial before approval",
+   "expected": "Blocked; preparing cases is not permission to execute.",
+   "lane": "static",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/governance.static.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=static node --test --test-name-pattern=\"^MS-59b? \" skills/rasanai/scripts/tests/style-intelligence-part2/governance.static.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node, read-only fs",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-60",
+   "owner": "Lead/M09",
+   "family": "Authorization, integration and outcome",
+   "case": "Approval is scope/candidate bound",
+   "input": "Permission for pure units only",
+   "expected": "No renders, provider calls or widened trial batch.",
+   "lane": "static",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/governance.static.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=static node --test --test-name-pattern=\"^MS-60b? \" skills/rasanai/scripts/tests/style-intelligence-part2/governance.static.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node, read-only fs",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-61",
+   "owner": "Lead/M09",
+   "family": "Authorization, integration and outcome",
+   "case": "No fake capability promotion",
+   "input": "Code compiles and examples exist without execution",
+   "expected": "State remains implemented_unvalidated, verification empty.",
+   "lane": "static",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/governance.static.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=static node --test --test-name-pattern=\"^MS-61b? \" skills/rasanai/scripts/tests/style-intelligence-part2/governance.static.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node, read-only fs",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "final profile metadata location (library/styles/meta assumed)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-62",
+   "owner": "Lead/M09",
+   "family": "Authorization, integration and outcome",
+   "case": "Every live edge is wired",
+   "input": "Profile selected through to actual scene registration",
+   "expected": "No unused helper-only completion; exact producer/caller receipts.",
+   "lane": "static",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/governance.static.test.mjs"
+   ],
+   "status": "not_run",
+   "commands": [
+    "STYLE_PART2_APPROVED=static node --test --test-name-pattern=\"^MS-62b? \" skills/rasanai/scripts/tests/style-intelligence-part2/governance.static.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node, read-only fs",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "units",
+   "side_effects": "none",
+   "unknowns": [
+    "final profile metadata location (library/styles/meta assumed)"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-63",
+   "owner": "Lead/M09",
+   "family": "Authorization, integration and outcome",
+   "case": "Quality measured beyond effects",
+   "input": "Authorized blind comparison includes quiet and high-energy briefs",
+   "expected": "Judge meaning/craft/suitability, not effect count or inflated self-score.",
+   "lane": "static",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/governance.static.test.mjs"
+   ],
+   "status": "blocked_until_separate_approval",
+   "commands": [
+    "STYLE_PART2_APPROVED=static node --test --test-name-pattern=\"^MS-63b? \" skills/rasanai/scripts/tests/style-intelligence-part2/governance.static.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node, read-only fs",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "separately authorized comparison",
+   "side_effects": "none",
+   "unknowns": [
+    "real evidence needs separately authorized comparison runs"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  },
+  {
+   "id": "MS-64",
+   "owner": "Lead/M09",
+   "family": "Authorization, integration and outcome",
+   "case": "Cost/speed are measured separately",
+   "input": "Authorized matched baseline/new cold/warm runs",
+   "expected": "Actual usage and waiting/render time recorded; no invented savings or subscription charges.",
+   "lane": "static",
+   "files": [
+    "skills/rasanai/scripts/tests/style-intelligence-part2/governance.static.test.mjs"
+   ],
+   "status": "blocked_until_separate_approval",
+   "commands": [
+    "STYLE_PART2_APPROVED=static node --test --test-name-pattern=\"^MS-64b? \" skills/rasanai/scripts/tests/style-intelligence-part2/governance.static.test.mjs"
+   ],
+   "command_basis": "proposed from source inspection of the creative-recovery runner style; not executed",
+   "host": "Node, read-only fs",
+   "data": "synthetic only (fixtures.mjs)",
+   "provider": "none",
+   "scope": "separately authorized comparison",
+   "side_effects": "none",
+   "unknowns": [
+    "real evidence needs separately authorized comparison runs"
+   ],
+   "observed": null,
+   "evidence": [],
+   "approval_ref": null
+  }
+ ]
+}

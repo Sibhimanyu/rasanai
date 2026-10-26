@@ -102,6 +102,11 @@ if (fams.size > 3) add("too-many-typefaces", "warn", [...fams].join(", "), "More
 const idle = (allCode.match(/repeat\s*:\s*-1[^}]*yoyo\s*:\s*true|yoyo\s*:\s*true[^}]*repeat\s*:\s*-1/g) || []).length;
 if (idle) add("idle-breathing", "error", `${idle} infinite yoyo loop(s)`, "Idle breathing/floating loops are 'lazy motion' (and break seek-safety).", "Replace with staged reveals, motivated camera or UI life; a hold is reading time and still carries secondary motion (a line's carry, the next element arriving).");
 const spin = /rotation\s*:\s*360|rotate\(360deg\)/.test(allCode) && /logo/i.test(allCode);
+// a medium contract (look/medium.json, medium-contract@1) of the run: it may relax the GSAP-shaped entrance heuristics and the finish checks for its own layers; none: unchanged
+const mediumContract = (() => { try { const r = args.run && args.run !== true ? path.resolve(String(args.run)) : null; if (!r) return null; const c = JSON.parse(fs.readFileSync(path.join(r, "look", "medium.json"), "utf8")); return c && c.format === "medium-contract@1" ? c : null; } catch { return null; } })();
+const mediumSteppedOrCut = !!(mediumContract && ["stepped", "cut-based", "still"].includes((mediumContract.motion_policy || {}).temporal_mode));
+const noGsapEntrances = !!mediumContract && (mediumSteppedOrCut || !/\bgsap\s*\.\s*(from|fromTo)\s*\(|\btl\s*\.\s*(from|fromTo)\s*\(/.test(allCode));
+const mediumSharpAll = (() => { const f = (mediumContract && mediumContract.finish_policy && mediumContract.finish_policy.by_layer) || {}; const k = Object.keys(f); return k.length > 0 && k.every((x) => ["sharp", "nearest-neighbor", "none", "flat"].includes(f[x])); })();
 // entrances: every gsap.from / fromTo classified by what it animates; one kind everywhere is "everything fades up"
 const KEYS = ["opacity", "autoAlpha", "x", "y", "xPercent", "yPercent", "scale", "scaleX", "scaleY", "rotation", "rotationX", "rotationY", "clipPath", "filter", "skewX", "skewY", "width", "height", "drawSVG", "strokeDashoffset"];
 const entrances = [...allCode.matchAll(/\.(?:from|fromTo)\(\s*[^,]+,\s*\{([^}]*)\}/g)].map((m) => [...new Set([...m[1].matchAll(/([A-Za-z]+)\s*:/g)].map((k) => (k[1] === "autoAlpha" ? "opacity" : k[1])).filter((k) => KEYS.includes(k)))].sort().join("+")).filter(Boolean);
@@ -109,11 +114,11 @@ if (entrances.length >= 8) {
   const byKind = entrances.reduce((a, k) => ((a[k] = (a[k] || 0) + 1), a), {});
   const [top, n] = Object.entries(byKind).sort((a, b) => b[1] - a[1])[0];
   const share = n / entrances.length;
-  if (share > 0.5) add("uniform-entrances", /^opacity\+(y|yPercent)$/.test(top) ? "error" : "warn", `${n} of ${entrances.length} entrances are ${top}`, "When every element arrives the same way (usually fading up), the film reads as a template.", "No entrance kind on more than ~30% of entrances: mix masks and wipes, scale from an anchor, a cut-in, a shared-element move, type that builds, and elements that are simply there (craft.md, Motion).");
+  if (share > 0.5) add("uniform-entrances", noGsapEntrances ? "info" : /^opacity\+(y|yPercent)$/.test(top) ? "error" : "warn", `${n} of ${entrances.length} entrances are ${top}`, "When every element arrives the same way (usually fading up), the film reads as a template.", "No entrance kind on more than ~30% of entrances: mix masks and wipes, scale from an anchor, a cut-in, a shared-element move, type that builds, and elements that are simply there (craft.md, Motion).");
 }
 {
   const fadeOnly = entrances.filter((k) => k === "opacity").length;
-  if (entrances.length >= 8 && fadeOnly / entrances.length > 0.2) add("fade-heavy", "warn", `${fadeOnly} of ${entrances.length} entrances are a pure fade`, "In measured work almost nothing arrives by opacity alone (3,392 entries moved or scaled, 584 faded): a fade is a 6 f helper for a move.", "Arrive by transform (a slide, a scale from oversize, a mask) and keep opacity as the 4-12 f helper.");
+  if (entrances.length >= 8 && fadeOnly / entrances.length > 0.2) add("fade-heavy", noGsapEntrances ? "info" : "warn", `${fadeOnly} of ${entrances.length} entrances are a pure fade`, "In measured work almost nothing arrives by opacity alone (3,392 entries moved or scaled, 584 faded): a fade is a 6 f helper for a move.", "Arrive by transform (a slide, a scale from oversize, a mask) and keep opacity as the 4-12 f helper.");
 }
 if (spin) add("spinning-logo", "warn", "a 360° logo rotation", "Spinning logos are a template tell.", "Land the logo with the film's motion language: a mask, a snap into the grid, a match cut.");
 
@@ -159,6 +164,7 @@ if (scenes && scenes.length >= 3) {
   // the finish runtimes (rasan-camera, rasan-motion, vendored GSAP) are not the film's own choices
   const own = Object.entries(src).filter(([f]) => !/(^|\/)(rasan-[a-z0-9-]+|gsap[^/]*|vendor\/[^/]+)\.(m?js|css)$/i.test(f)).map(([, t]) => t).join("\n");
   const spend = (effect, n, what, why, fix) => {
+    if (mediumSharpAll) return; // the contract's by_layer finish policy is sharp / none for every layer: no glow, blur-in or particle budget applies
     const planned = budgetFor(budget, effect).length;
     if (n > lim) add(`${effect}-uniform`, "error", `${n} ${what} (budget: ${lim} per film, hero only)`, why, fix);
     else if (n && !planned) add(`${effect}-unbudgeted`, "warn", `${n} ${what}`, `${effect} is allowed on the hero, at most ${lim} times, with a reason; this film has no budget entry for it${hasScore ? "" : " (no score found: pass --run or --score)"}.`, `Name each use in the score's budget: {"effect": "${effect}", "scene": <n>, "target": "<the hero>", "reason": "<why this moment>"}; or remove it.`);
@@ -170,12 +176,14 @@ if (scenes && scenes.length >= 3) {
   const blurIn = [...own.matchAll(/\.(?:from|fromTo)\(\s*[^,]+,\s*\{([^}]*)\}/g)].filter((m) => /filter\s*:\s*["'`]?blur\(\s*[1-9]/.test(m[1])).length;
   spend("blur-in", blurIn, "blur-in entrances", "Every word blurring in is the uniform AI entrance; one blur-in on the hero line is a choice (Sovra's words).", "Keep blur-in for the budgeted hero line(s); give the rest entrances by their nature (mask, cut-in, build).");
   const particleWords = /particle|bokeh|sparkle|starfield|galaxy|floating-?dots/i.test(own), dots = (own.match(/border-radius\s*:\s*50%/g) || []).length > 40;
-  if ((particleWords || dots) && !/space|orbital|point-cloud|star/.test(style) && !budgetFor(budget, "particles").length) add("particles-unbudgeted", "warn", "particles / bokeh / sparkles", "Ambient particles everywhere are filler viewers read as AI video; a dot field or burst that IS the story's carrier, once, is a technique.", `Budget it on the hero moment with a reason ({"effect": "particles", ...}, at most ${lim}), or replace with one motivated element from the story.`);
+  if ((particleWords || dots) && !/space|orbital|point-cloud|star/.test(style) && !budgetFor(budget, "particles").length && !mediumSharpAll) add("particles-unbudgeted", "warn", "particles / bokeh / sparkles", "Ambient particles everywhere are filler viewers read as AI video; a dot field or burst that IS the story's carrier, once, is a technique.", `Budget it on the hero moment with a reason ({"effect": "particles", ...}, at most ${lim}), or replace with one motivated element from the story.`);
   // the default finish layer: grain, a soft shadow and a lit or tinted ground, unless the brand film measured none
   let layerOff = false;
   if (runDir) { try { const g = JSON.parse(fs.readFileSync(path.join(runDir, "brand-film", "grammar.json"), "utf8")); layerOff = !!(g.measured && g.measured.finish && g.measured.finish.layerOff); } catch {} }
   // Plan 04 L3: a look may choose no finish layer on purpose; the visual bible records it with its rationale (look/visual-bible.json imagery.finish_policy "none"). No bible: unchanged.
   if (runDir && !layerOff) { try { const vb = JSON.parse(fs.readFileSync(path.join(runDir, "look", "visual-bible.json"), "utf8")); const im = vb.imagery || {}; layerOff = im.finish_policy === "none" && String(im.finish_rationale || "").trim().length > 0; } catch {} }
+  // Part 2: the medium contract's finish_policy.by_layer says every layer is sharp / nearest-neighbour / none / flat: the same "no finish layer on purpose" as the visual bible's none
+  if (!layerOff && mediumSharpAll) layerOff = true;
   const hasCamera = /RasanCamera|rasan-camera/.test(allCode);
   const grain = hasCamera || /feTurbulence|grain|noise\.(png|svg|webp)/i.test(own);
   const softShadow = hasCamera || /box-shadow\s*:[^;"}]*\d+px\s+\d{2,}px/i.test(own) || /drop-shadow\(/i.test(own);

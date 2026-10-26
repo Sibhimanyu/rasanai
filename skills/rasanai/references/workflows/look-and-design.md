@@ -51,6 +51,12 @@ A board or `story/thumbs/NN.png` replaces a grey box on the sheet. The check app
 
 Every film's look is a complete design system: the chosen `design/<label>/DESIGN.md` (colours by role, typography, radii, shadows, components, motion and camera, do's and don'ts) that any agent or tool can build from; it is copied to `$RUN/look/DESIGN.md`. When the user wants their film's look for the rest of their product, hand them that file. (`design-system.mjs export --id <preset>` still writes a raw-material preset as a DESIGN.md.) `library/styles`: 26 style references (lemo-opuscar, mg-styles-15; MIT) the design desk pulls 1 to 3 of per look; every DESIGN.md also carries `## Signature features`, 3 to 6 traits the frame juror and the critic hold the film to.
 
+### New creative policy (plan has `creative_policy_revision: 1`)
+
+- A look is a craft class the story supports: each `design/<Label>/blend.json` names `look_style` (dimensional, flat-graphic, editorial, photographic, character, ...), and the three looks develop different visual strategies for the one idea (`design.mjs compare-plan` adds the Story's `creative_intent` to `design/comparison-plan.json`). Depth, tilt, a lit ground and 3 to 6x UI are the dimensional craft: one option, never the default.
+- Only the representative beat is drawn before the Look is chosen. **Prepared is not approved:** a brand-derived or series look is staged as a confirm (`console.mjs push --step look --status awaiting`), never closed `--status done` by you; on a new-policy plan the production gate refuses storyboard work until the user's consumed Look choice exists (`design.mjs choose-system` writes files and grants nothing). After the choice run `crew.mjs creative revise --run "$RUN" --mode look`.
+- Known gap: `design.mjs look-payload` shows exactly three systems, so a one-look confirm (brand, series, lean) is pushed by hand with the fields the old flow used and status `awaiting`; how the native Look card shows that is unverified.
+
 ## Deeper references for this guide
 
 The canonical homes of the detail this guide points at (read the one the current step needs):
@@ -63,3 +69,4 @@ The canonical homes of the detail this guide points at (read the one the current
 | a project's DESIGN.md as the look: shapes read, roles, fonts, frame.md conversion | `references/brand.md` |
 | data-viz honesty, the scale dive and RasanSim, one style rule per film, the end-clip handoff, metaphors for explainers only (conflicts with product-first) | `references/dataviz.md`, `references/scale-dive.md`, `references/style-rule.md`, `references/end-clip-handoff.md`, `references/metaphor-bank.md`, `runtime/rasan-sim.js` (RasanSim: cursor-driven physics, pre-simulated and seek-safe; `video.mjs inject` installs `assets/rasan-sim/`) |
 | the motion-language terms and their contracts | `taxonomy/dimensions/motion-language.json`, `references/personalities.md` |
+| a visual medium (pixel, paper, line, vector, cel, isometric...) shortlisted or selected for this film: the concept, the medium contract, what stays literal evidence. Conditional: read only when the run has `creative/medium-selection.json` or `design/<label>/medium.json`; `skill-map.mjs route <route> --phase look --run <dir>` lists it | `references/medium-direction.md` |

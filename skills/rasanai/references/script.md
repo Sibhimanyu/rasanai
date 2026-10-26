@@ -217,6 +217,8 @@ Never open with "Introducing…", "Meet…" (as a first line), "What if…?", "T
 
 ## The turn, the peak and the end
 
+Legacy multi-writer and pas/ladder scripts: these are tools, not requirements. A treatment-mode film (`references/story.md` section 0) uses a reversal, a peak or a payoff only when it serves its proposition; a clear honest demonstration with none of them is valid.
+
 - **The turn** reverses something the viewer can see: the pile becomes one link, the refrain stops and the product finishes the sentence, the cause lands on screen. Write what the viewer believed just before and just after; if the two sentences match, there is no turn. It sits where its engine puts it.
 - **The peak** is the hardest proof of the proposition, at 60 to 75%: the furthest use, the break, the after at full. It gets the biggest picture and the longest hold. Before it, a **rest**: a slower or stiller beat (one slow mover for 0.3 to 1.0 s, never a frozen frame) so the peak lands.
 - **The payoff** answers the opening: its object or words return, changed. It never introduces a new idea.
@@ -228,7 +230,8 @@ Never open with "Introducing…", "Meet…" (as a first line), "What if…?", "T
 
 - [ ] The intent is written first: proposition (12 words, no "and"), every beat's buys, relation, importance, read; villain and ending first when the film uses them (optional).
 - [ ] Blind retell: from the on-screen lines and visuals alone, a stranger would say the proposition.
-- [ ] The turn reverses something visible; the peak is at 60 to 75% with a rest before it; the payoff answers the opening.
+- [ ] If the film declares a turn, peak or payoff: the turn reverses something visible; the peak (legacy guidance 60 to 75%, a rest before it) is the hardest proof; the payoff answers the opening. A film that declares none is not failed for it.
+- [ ] Every demonstrated change (a corrected sentence, a calculation, a rule) keeps the source's people, numbers and conditions, and the demonstrations support the claim (`lib/proof-integrity.mjs`).
 - [ ] Importance 3 on a quarter of the beats at most; the biggest picture sits on the peak.
 - [ ] The first 2 s say something with the sound off.
 - [ ] Every on-screen line has a `shows` row; the pitch names its `actor`; no row is a caption over UI.
@@ -236,7 +239,7 @@ Never open with "Introducing…", "Meet…" (as a first line), "What if…?", "T
 - [ ] Every number and UI word is on the truth sheet, and a number's noun is the claim's noun ("50 people", not "50 phones").
 - [ ] Coverage: every Must-show feature and every Surprising fact is a row in `coverage` with a `beat`, or a `cut` with a reason of four words or more.
 - [ ] The plan: your slot's device, `turn_kind`, `peak_kind` and owned claims are in the pitch, and no word was moved into `actor` to pass the scope count.
-- [ ] The peak is the longest beat and the end line is held long enough for its length; `tempo.ideas` is the intent's count of distinct beliefs.
+- [ ] When the film has a peak, it is the longest beat; the end line is held long enough for its length; `tempo.ideas` is the intent's count of distinct beliefs.
 - [ ] Product-first: UI within 3 s, a hero moment, real uses, lines of 6 words or fewer, the end line the largest type, nothing is a museum, allegory, invented world or metaphor.
 - [ ] The three scripts are three arguments or engines, not one takeaway in three costumes.
 

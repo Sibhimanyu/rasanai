@@ -39,7 +39,10 @@ const rj = (p) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch
 const run = () => { if (!args.run || args.run === true) die("--run <run dir> required"); const d = path.resolve(String(args.run)); if (!fs.existsSync(d)) die(`run dir not found: ${d}`); return d; };
 const S = (r, ...p) => path.join(r, "storyboard", ...p);
 const str = (k) => (args[k] && args[k] !== true ? String(args[k]) : "");
-const inheritOf = () => ({ ...(str("inherit-story") ? { story: { reason: str("inherit-story"), source: "inherited" } } : {}), ...(str("inherit-look") ? { look: { reason: str("inherit-look"), source: "inherited" } } : {}) });
+// New creative policy (crew/plan.json creative_policy_revision 1): a prepared story or look is not approval. boundary/pinInputs then need a consumed user choice, an approval record or
+// a consumed delegation; an inherit note counts only with --source-action <id of a consumed action>. Legacy plans: unchanged.
+const strict = () => { const p = rj(path.join(run(), "crew", "plan.json")); return !!(p && p.creative_policy_revision === 1); };
+const inheritOf = () => ({ ...(str("inherit-story") ? { story: { reason: str("inherit-story"), source: "inherited", ...(str("source-action") ? { source_action_id: str("source-action") } : {}) } } : {}), ...(str("inherit-look") ? { look: { reason: str("inherit-look"), source: "inherited", ...(str("source-action") ? { source_action_id: str("source-action") } : {}) } } : {}) });
 const beatIdsOf = (r) => {
   for (const f of ["story/chosen-treatment.json", "story/intent.json", "story/chosen.json"]) {
     const j = rj(path.join(r, f));
@@ -54,13 +57,13 @@ const audioOf = (r) => { const c = readAudioContract(r); return c.source === "au
 
 if (cmd === "boundary") {
   const r = run();
-  const b = boundary(r, { mode: str("mode") || "full", inherit: inheritOf() });
-  if (args.pin && b.ok && b.mode === "full") b.pinned = pinInputs(r, { inherit: inheritOf() }).ok;
+  const b = boundary(r, { mode: str("mode") || "full", inherit: inheritOf(), requireConsent: strict() });
+  if (args.pin && b.ok && b.mode === "full") b.pinned = pinInputs(r, { inherit: inheritOf(), requireConsent: strict() }).ok;
   out(b, b.ok ? 0 : 2);
 } else if (cmd === "adopt") {
   const r = run();
   const kind = str("kind") === "sketch" ? "sketch" : "full";
-  const b = boundary(r, { mode: kind, inherit: inheritOf() });
+  const b = boundary(r, { mode: kind, inherit: inheritOf(), requireConsent: strict() });
   if (!b.ok) out({ ok: false, problems: b.problems, hint: "a full storyboard waits for the approved Story and Look (storyboard.mjs boundary); use --kind sketch for an exploratory sketch" }, 2);
   const score = rj(path.join(r, "motion", "score.json"));
   const from = str("from") || (fs.existsSync(path.join(r, "frames", "shots.json")) ? "frames" : "animatic");
@@ -75,7 +78,7 @@ if (cmd === "boundary") {
     if (!doc.shots.length) die("no animatic step with scenes found in the session");
   }
   if (kind === "sketch") { doc.label = b.label; doc.schedulable = false; }
-  else { const pin = pinInputs(r, { inherit: inheritOf() }); doc.inputs = pin.ok ? { story: pin.pinned.story, look: pin.pinned.look } : undefined; }
+  else { const pin = pinInputs(r, { inherit: inheritOf(), requireConsent: strict() }); doc.inputs = pin.ok ? { story: pin.pinned.story, look: pin.pinned.look } : undefined; }
   if (score) { const p = projectBoardTiming(doc, score, beatIdsOf(r)); if (p.shots.every((s) => s.timing.status === "approved")) { doc.shots = p.shots; doc.timing_revision = p.timing_revision; doc.timing_authority = p.timing_authority; } }
   const v = validateStoryboardDoc(doc, { beat_ids: [] });
   if (!v.ok) out({ ok: false, problems: v.problems, warnings: v.warnings }, 2);
@@ -135,7 +138,7 @@ if (cmd === "boundary") {
   out(res.ok && res.record ? { ok: true, revision: res.record.revision, artifact_digest: res.record.artifact_digest, scratch_audio: res.record.scratch_audio || false, final_voice_approved: res.record.final_voice_approved, file: res.file } : res, res.ok && res.current !== false ? 0 : res.ok ? 2 : 1);
 } else if (cmd === "auto-decide") {
   const r = run();
-  const b = boundary(r, { mode: "full", inherit: inheritOf() });
+  const b = boundary(r, { mode: "full", inherit: inheritOf(), requireConsent: strict() });
   const rec = autoDecision({ boundary: b, approval_mode: str("policy") || "autonomous" });
   out({ ok: true, boundary_ok: b.ok, problems: b.ok ? undefined : b.problems, ...recordAutoDecision(r, rec) });
 } else if (cmd === "restart") {

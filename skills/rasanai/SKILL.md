@@ -73,6 +73,10 @@ Films of 45 s or less and every single-feature launch or promo take the **direct
 | fit music and voice, score, push the animatic, build, draft-render | [music-animatic-build](references/workflows/music-animatic-build.md) | `references/craft.md`, `references/sound.md`, `references/video.md` (add `references/3d.md` only for a film with 3D scenes) |
 | gate, finish, deliver, learn from the film | [final-and-delivery](references/workflows/final-and-delivery.md) | `references/finish.md`, `references/deliver.md` |
 
+**New creative policy.** A run whose `crew/plan.json` has `creative_policy_revision: 1` (set by `crew.mjs plan` for a new scene-production plan; the five calls and the console do not change) also reads [creative-quality](references/creative-quality.md) at the Story, Look, styleframes and animatic steps, and the Story step also the short [teaching examples](references/creative-examples-teaching.md). `crew.mjs brief` hands them only to the roles that make or judge the idea, so do not preload them for other routes or phases. A prepared file is never an approval: storyboard and build work wait for the user's own choice.
+
+**Medium guidance (conditional).** When a film's run has a shortlisted or selected visual medium (`creative/medium-selection.json` or `design/<label>/medium.json`), the Look, styleframes and animatic steps also read [medium-direction](references/medium-direction.md), and [medium-examples](references/medium-examples.md) only for a stated communication problem. `skill-map.mjs route <route> --phase <phase> --run <dir>` adds them; `crew.mjs brief` hands them only to the roles that make or judge the medium. They are never preloaded, never read on footage, lyric, presenter or caption routes, and a medium never changes the five calls or overrides proof, brand or the user's approval. Everything about the medium is implemented-but-unvalidated until a receipt says otherwise (`docs/plans/style-intelligence-part2/CAPABILITY_STATUS.md`).
+
 ## Routes
 
 The route table itself (which HyperFrames workflow builds which video) is in the Brief guide. A route's own guide only exists where the route changes the phases:

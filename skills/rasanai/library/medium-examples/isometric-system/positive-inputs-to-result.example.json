@@ -1,0 +1,44 @@
+{
+  "format": "medium-example@1",
+  "id": "isometric-system/positive-inputs-to-result",
+  "kind": "positive",
+  "profile_id": "iso-infographic",
+  "execution_id": "isometric-system",
+  "module": "runtime/medium-isometric.js",
+  "state": "authored_unexecuted",
+  "verified": false,
+  "provenance": "Original source and an invented abstract system with generic labels; no third-party art or product internals.",
+  "describes": "A small abstract system assembles block by block: three inputs, one combiner, one result. One carrier then travels along an explicitly illustrative route from an input to the result via the combiner.",
+  "headings_hidden_ok": true,
+  "main_event_without_text": "Blocks rise onto a board; a dashed line leads and a small cube follows it from an input through the middle block to the result.",
+  "needs": { "engine": "none (Canvas 2D)", "assets": {}, "network": false },
+  "score_links": "Assembly, routes and camera keys use score event ids through eventBindings.",
+  "eventBindings_example": { "ev-in-a": 0.4, "ev-in-b": 0.9, "ev-in-c": 1.4, "ev-mid": 2.0, "ev-out": 2.6, "ev-route": 3.4, "ev-pull": 6.0 },
+  "invariants": ["one declared projection (iso30) for every layer", "depth order computed from world boxes", "camera is pan and zoom only", "the only route is labelled illustrative and disclosed in frame"],
+  "limitations": ["boxes only, no arbitrary geometry", "the link is conceptual, not a real data flow", "unvalidated: label placement and unit scale need a frame check once testing is approved"],
+  "editability": ["colours", "labels", "grid positions and sizes", "timing via score events"],
+  "createMediumScene_args": {
+    "width": 1920, "height": 1080, "seed": 3,
+    "design": { "ink": "#2b2f4a", "ground": "#f3f1fb", "fontFamily": "sans-serif", "labelSize": 24 },
+    "content": {
+      "duration": 8, "projection": "iso30", "unit": 56,
+      "board": { "x": -1, "y": -1, "w": 11, "d": 8, "thick": 0.5, "color": "#e7e4f4" },
+      "objects": [
+        { "id": "in-a", "x": 0, "y": 0, "z": 0, "w": 2, "d": 2, "h": 1.2, "color": "#9fd8c4", "label": "Input A", "assemble": { "event": "ev-in-a", "duration": 0.6 } },
+        { "id": "in-b", "x": 0, "y": 3, "z": 0, "w": 2, "d": 2, "h": 1.6, "color": "#f6c7a4", "label": "Input B", "assemble": { "event": "ev-in-b", "duration": 0.6 } },
+        { "id": "in-c", "x": 0, "y": 6, "z": 0, "w": 2, "d": 1.5, "h": 0.9, "color": "#a9c4f2", "label": "Input C", "assemble": { "event": "ev-in-c", "duration": 0.6 } },
+        { "id": "mid", "x": 4, "y": 2.5, "z": 0, "w": 2.5, "d": 2.5, "h": 2.2, "color": "#c9b6ee", "label": "Combine", "assemble": { "event": "ev-mid", "duration": 0.8 } },
+        { "id": "out", "x": 8, "y": 2.5, "z": 0, "w": 2, "d": 2.5, "h": 1.4, "color": "#ff9d8a", "label": "Result", "assemble": { "event": "ev-out", "duration": 0.7 } }
+      ],
+      "routes": [
+        { "id": "route-a-result", "from": "in-a", "to": "out", "status": "illustrative", "label": "illustrative path", "via": [ [3, 1, 1.2], [3, 3.75, 2.4], [7, 3.75, 2.4] ], "event": "ev-route", "lead": 0.5, "duration": 1.6, "carrier": { "kind": "cube", "color": "#ff7a59", "size": 0.35 } }
+      ],
+      "camera": [
+        { "id": "wide", "at": 0, "cx": 5, "cy": 3.5, "zoom": 1 },
+        { "id": "follow", "event": "ev-route", "cx": 6, "cy": 3, "zoom": 1.35 },
+        { "id": "pull-out", "event": "ev-pull", "cx": 5, "cy": 3.5, "zoom": 1 }
+      ],
+      "disclosureText": "Illustrative system, not a real network"
+    }
+  }
+}

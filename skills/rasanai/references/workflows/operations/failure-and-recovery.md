@@ -8,3 +8,4 @@
 - The console won't start → `serve` again; still failing → show the error (a port in use: `--port 0`). Only if it cannot run at all (no browser on a remote machine), ask in chat, one question per message, in plain text.
 - Offline: previews and the motion check use the vendored GSAP; fonts, capture, voice samples, music and the workflows' TTS need the network. No music source reachable → `ask` for the user's track or go without music (say so).
 - A preview script exits 1 with "did not render" → the page hit a script error; open it in a browser and report the console error.
+- A creative review cannot run (no render, no vision-capable role, the juror out of budget) → the state is `not_reviewed` or `needs_user`, said in the stage's own review controls; never "passed", never a silent model change. `crew.mjs creative gate --run "$RUN" --stage <storyboard|build|final>` reports it. Mechanical, factual and permission failures still block.

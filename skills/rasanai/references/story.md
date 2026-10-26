@@ -52,6 +52,13 @@ Fields are separate and ids are stable: `treatment_title` helps a person choose;
 
 **References.** `story.mjs refs --kind <kind> [--role <role>]` returns at most three house examples with a provenance record (`lib/story-refs.mjs`); the summaries are original, nothing is copied, and none is a universal template.
 
+### Original premises and proof (treatments mode)
+
+- **Premise first.** Before the three treatments the writer states, in its existing rationale text: the assignment, the product-specific promise, the strongest available proof and what a stranger would remember. (The compact /brag principle: a specific promise, then the strongest real proof. Not its fixed duration, not its skip-the-user workflow.)
+- **Three treatments differ in proof organization, point of view or central premise.** Costume changes ('safe / bigger text / more particles') are not diversity. A capability sequence is valid when breadth is the proposition; a single workflow is valid when it proves the specific promise. Each treatment has an original conceptual visual idea (what changes on screen that carries the claim); camera and choreography stay provisional until Look, and one Story can legitimately support several looks. No storyboard is made here.
+- **Demonstrations keep meaning.** A changed sentence, correction, calculation or rule must keep the source's people, numbers and conditions. Record a proof contract (`lib/proof-integrity.mjs`: source, intended claim, protected entities/quantities/conditions, supported outputs, `illustrative`). Structural checks find missing evidence or qualifiers; the independent script editor decides whether meaning is equivalent, in its existing pass (batched). 'Very tired' to 'exhausted' proves a writing change, not learning or retention; rising bars do not prove that exercises adapt; a clearly labeled fictional example is allowed, a fabricated capability or testimonial is not.
+- **After the user chooses a Story**, a recommendation for a different one goes back through the existing revision mechanism. A selected Story is never rewritten because a critic prefers a flashier one.
+
 ## 1. The truth sheet (before any argument)
 
 Specificity comes from here, and this is the step that gets skipped most: **specific in detail** (the real label, the exact prompt, the number), **common in situation** (a moment most of the audience has had this month). Fill every section from the capture, the brief, the screenshots and the user's words:
@@ -67,7 +74,7 @@ Specificity comes from here, and this is the step that gets skipped most: **spec
 
 `pick` refuses an empty sheet and lists the gaps of a thin one (`truth_gaps`); fill them rather than pitching around them.
 
-## 2. Plot engines: every story has a turn
+## 2. Plot engines: a legacy turn (optional)
 
 Three engines (the legacy multi-writer room; the default balanced workflow uses grammars and treatments instead, section 0). Each pick slot names one; a script that uses an engine states its turn in one line (`pitch.turn: {line, reverses, payoff}`), and the editor and the concept critic fail a turn you declare that reverses nothing or a payoff that answers a different question than the opening asked. Declaring no turn is allowed.
 
@@ -245,7 +252,7 @@ The device menu already drops recent devices; the Motion Director's score then n
 
 **Visual clichés** (-1 fit each; two fail G1): glowing orbs or brains, particle networks, blue-purple gradients, the sparkles icon, holographic UI panels, isometric floating cards, "the future is here" copy, stock handshakes and smiling teams, three feature cards sliding in, a dashboard floating in a void at a 30° tilt, confetti CTAs, the glowing globe, lens flares and bokeh.
 
-**Stock openers**: "Meet X", "Introducing X", "What if…?", "Tired of…?", "Imagine…", "The future of ___ is here", "Say goodbye to…", "Did you know…".
+**Stock openers** (weak when they are the only thing the opening says; "Meet X", early product identity, simple cuts and abstraction are fine when they serve the assignment): "Meet X", "Introducing X", "What if…?", "Tired of…?", "Imagine…", "The future of ___ is here", "Say goodbye to…", "Did you know…".
 
 ## Taking feedback
 

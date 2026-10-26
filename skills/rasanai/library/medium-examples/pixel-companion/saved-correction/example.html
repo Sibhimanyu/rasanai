@@ -1,0 +1,32 @@
+<!doctype html>
+<!-- ORIGINAL source example (invented brand "Tallybook"), profile living-screencast / pixel-companion. Positive case: the companion directs attention to a real
+     saved correction without covering it. original-unreviewed; NOT rendered, previewed or run. Guidance only.
+     The proof layer is built by the EXISTING rasan-ui.js path (here a plain stand-in div); this file does not reconstruct UI.
+     Editorial: the sprite is not a product feature. Wording like "saved" is illustrative copy, not a claim about any real product. -->
+<html lang="en"><head><meta charset="utf-8"><title>saved correction (pixel-companion)</title>
+<style>
+html,body{margin:0;background:#101319;color:#eef1f6;font:500 40px/1.3 system-ui,sans-serif}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden}
+#world{position:absolute;left:0;top:0;width:1920px;height:1080px}
+#row{position:absolute;left:520px;top:420px;width:880px;padding:28px 36px;background:#1b212c;border:2px solid #2d3748;border-radius:16px}
+#row b{color:#7fd1ae}#q{display:block;margin-top:14px;font-size:30px;color:#f0b95e}
+#cap{position:absolute;left:0;right:0;bottom:0;height:200px}
+</style></head><body><div id="stage"><div id="world">
+<div id="row"><span id="saved">Correction saved: <b>"their" not "there"</b></span><span id="q">Applies to this document only.</span></div></div>
+<div id="cap"></div></div>
+<script src="../../../../runtime/medium-pixel.js"></script>
+<script src="../../../../runtime/medium-pixel-companion.js"></script>
+<script>
+var PX = window.RasanPixel, PC = window.RasanPixelCompanion;
+var stage = document.getElementById("stage");
+var fit = PX.fit(1920, 1080, { base: [320, 180] });
+var C = PC.mount(stage, { fit: fit, W: 1920, H: 1080, palette: ["#14121f", "#f2e9d8", "#d9534f", "#4aa3a0"], seed: "tallybook/02" });
+C.anchor("saved", document.getElementById("saved"));                       // measured, cached by digest
+C.reserve("proof", ["#row", "#q"]);                                        // the qualifier line is reading region too
+C.reserveScreen({ x: 0, y: 880, w: 1920, h: 200 });                        // captions zone
+// the score owns these times; they bind to a REAL UI event (the save), they do not create one
+C.script([{ id: "notice", t: 3.0, kind: "point", anchor: "saved", hold: 1.6 }, { id: "after", t: 5.0, kind: "react", anchor: "saved", hold: 0.8 }]);
+// placement: "left" of #row is free (x 520 - gap - 72px sprite); "right" is also free; neither may cover "Applies to this document only."
+// U.finish(); C.bind(tl, { at: 0, duration: 7 });   // after RasanUI's clock, so cursor and sprite read the same T
+// treatment note: PC.disclosure() -> the character is editorial, not a product feature.
+</script></body></html>

@@ -34,6 +34,10 @@ The bar: a senior motion designer's shot that a viewer would take for the produc
 - your composition, at the path your packet names (`compositions/frames/NN-*.html`), nothing else in the project
 - `crew/animators/<n>.md`: what you built in 5 to 10 lines; any deviation from the score and why; `## Showing off` (the moment you're proudest of, and why it works); `## Events`, one line per causal on-screen event as `t=<s> <what>` (the sound plan uses these); and for a 3D or hybrid scene `## 3D` (the lens and why, the light and why, what each object is made of, how the seams match, the frame cost `stage3d.mjs check` measured)
 
+## Building the approved idea (new creative policy)
+
+When your scene hosts a signature event (your packet's creative slice and your row in `creative/execution-map.json`), build that specific event on your shots: its `before`, `change` and `after` visible, its `must_preserve` kept, its `do_not_substitute` avoided ("the two readings separate by their conditions" is not a heading over two unexamined pills). Use the kits for common mechanics; where none expresses the action, write small deterministic GSAP, DOM, SVG or Three code in your scene's own timeline (seeded, no network, no second renderer); a missing preset is not a reason to make a card. Before you simplify a material part of it, write the blocker, the cheapest meaning-preserving build and what would visibly be lost, under `## Deviations`; ask only if the approved outcome would change. Add the composition file and `data-el` ids to the event's `produced_artifact_refs` in your note, never edit another scene's or the score's timing. Shared objects and continuous camera belong to the lead builder: build to the fixed boundary states. Universal craft quotas (constant drift, glass or grade, a carried object at every cut) are applied only when the look or `score.creative.profiles` selects them.
+
 ## How to animate
 
 0. **Honour the tempo.** The score's `tempo` says how often the story moves on and how long a hold may run. A hold is composed, never dead: the camera keeps its push, the ground breathes, a secondary settles late. A long beat is a few gestures that overlap, not one slow move and not constant drift.
@@ -108,6 +112,10 @@ Your scene's `reads[]` in the score (if any) is the order the audience reads it:
 - Seeded hash, never `Math.random`.
 - Let a retreating flood finish before the next scene starts, or it reads as a hard cut.
 - Fast whips need more blur subframes (8, not 4).
+
+## A selected medium (when your packet carries a medium projection)
+
+Build the native actions bound to your scene's beats, shots and events, in the medium and layer the projection names, through the existing adapters only (no second renderer, clock or timeline). Hard invariants and evidence-layer proof are mandatory; shared characters and continuous camera belong to the lead builder. Finish is per layer. Set `data-finish-blur="off"` where the Look's cadence is stepped. A texture or font swap on an ordinary card is not the medium. If an action cannot be built as specified, write the blocker and the cheapest meaning-preserving build under `## Deviations`; never replace it with animated type quietly.
 
 ## Your slice of the look (Plan 04)
 

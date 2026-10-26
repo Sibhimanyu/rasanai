@@ -1,0 +1,10 @@
+{
+  "$comment": "ORIGINAL source examples for medium profile living-screencast / pixel-companion (M05). Invented brand and copy; the sprite is the original RasanPixel.SCOUT. Not rendered, previewed or run: evidence level original-unreviewed, state implemented_unvalidated. The proof layer in each file is a stand-in for the existing rasan-ui.js path. The companion is editorial, not a product feature.",
+  "profile_id": "living-screencast",
+  "execution_id": "pixel-companion",
+  "runtime": "runtime/medium-pixel-companion.js",
+  "examples": [
+    {"id": "pixel-companion-saved-correction", "path": "saved-correction/example.html", "teaches": "pointing at a real saved correction without covering it or its qualifier", "case": "positive", "status": "original-unreviewed"},
+    {"id": "pixel-companion-transformed-anchor", "path": "transformed-anchor/example.html", "teaches": "anchor through one world camera transform; near-edge placement; stale-layout refresh", "case": "boundary", "status": "original-unreviewed"}
+  ]
+}
