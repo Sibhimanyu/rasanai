@@ -92,7 +92,7 @@ struct SourcePreviewSheet: View {
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
                 Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
             }
-            if let player { StudioVideoPlayer(player: player).frame(maxWidth: .infinity, maxHeight: .infinity) }
+            if let player { StudioVideoPlayer(player: player, takesKeys: true).frame(maxWidth: .infinity, maxHeight: .infinity) }
             else { NativeSourcePreview(url: url).frame(maxWidth: .infinity, maxHeight: .infinity) }
         }.padding(20).frame(width: 760, height: 520)
             .task(id: url) {

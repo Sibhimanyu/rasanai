@@ -50,6 +50,10 @@ struct AppSidebar: View {
         return Array(store.activeProjects.sorted { stamp($0) > stamp($1) }.prefix(8))
     }
 
+    private var currentFilm: URL? {
+        if case .film(let folder)? = store.path.last { folder } else { nil }
+    }
+
     @FocusState private var focused: StudioPlace?
 
     /// Every destination in on-screen order, so Up and Down walk the menu and then the recent films.
@@ -86,18 +90,7 @@ struct AppSidebar: View {
                     navRow("Series", symbol: StudioPlace.seriesSymbol, place: .series)
                     navRow("Inspiration", symbol: StudioPlace.inspireSymbol, place: .inspire)
                     navRow("Queue", symbol: StudioPlace.queueSymbol, place: .queue, count: store.queuedCount)
-                    if !recentFilms.isEmpty {
-                        Text("Recent")
-                            .font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
-                            .padding(.horizontal, 6).padding(.top, 18).padding(.bottom, 6)
-                            .accessibilityAddTraits(.isHeader)
-                        ForEach(recentFilms, id: \.0.id) { project, folder in
-                            let phase = store.summary(for: folder).phase
-                            navRow(project.name, symbol: SidebarFilmRow.mark(for: phase).0, place: .film(folder),
-                                   tint: SidebarFilmRow.mark(for: phase).1)
-                                .help(project.name)
-                        }
-                    }
+                    SidebarRecentSection(store: store, currentFilm: currentFilm, focused: $focused, go: go)
                 }
                 .padding(.horizontal, 10)
                 .padding(.bottom, 8)
@@ -235,19 +228,147 @@ private struct SidebarNavLabel: View {
     }
 }
 
-/// The status mark of a film in the sidebar's Recent list: a symbol and colour for where it says something (waiting on you,
-/// working, finished); drafts and quiet films show a plain film icon.
-private enum SidebarFilmRow {
-    static func mark(for phase: FilmPhase) -> (String, Color) {
+/// The one status a Recent row can show, with its symbol, colour and plain words. Every film phase collapses into one of these.
+enum RecentFilmStatus: Equatable {
+    case working, needsYou, paused, failed, done, queued, draft
+
+    init(_ phase: FilmPhase) {
         switch phase {
-        case .yourTurn: ("eye.fill", Color(nsColor: .systemOrange))
-        case .needsAttention: ("exclamationmark.triangle.fill", Color(nsColor: .systemRed))
-        case .working, .starting: ("sparkles", Color(nsColor: .systemPurple))
-        case .finished: ("checkmark.circle.fill", Color(nsColor: .systemGreen))
-        case .queued: ("list.number", .secondary)
-        case .paused: ("pause.circle", .secondary)
-        case .draft, .inProgress, .offline: ("film", .secondary)
+        case .working, .starting: self = .working
+        case .yourTurn: self = .needsYou
+        case .paused: self = .paused
+        case .needsAttention: self = .failed
+        case .finished: self = .done
+        case .queued: self = .queued
+        case .draft, .inProgress, .offline: self = .draft
         }
+    }
+
+    var symbol: String {
+        switch self {
+        case .working: "circle.dotted"
+        case .needsYou: "circle.fill"
+        case .paused: "pause.circle"
+        case .failed: "exclamationmark.circle.fill"
+        case .done: "checkmark.circle.fill"
+        case .queued, .draft: "circle.dashed"
+        }
+    }
+    var color: Color {
+        switch self {
+        case .working: .accentColor
+        case .needsYou: Color(nsColor: .systemOrange)
+        case .paused: Color(nsColor: .secondaryLabelColor)
+        case .failed: Color(nsColor: .systemRed)
+        case .done: Color(nsColor: .systemGreen).opacity(0.55)
+        case .queued, .draft: Color(nsColor: .tertiaryLabelColor)
+        }
+    }
+    var label: String {
+        switch self {
+        case .working: "Director working"
+        case .needsYou: "Waiting for you"
+        case .paused: "Paused"
+        case .failed: "Needs attention"
+        case .done: "Finished"
+        case .queued: "Queued"
+        case .draft: "Draft, not started"
+        }
+    }
+}
+
+/// The Recent list. It is its own view so the churn of the open film's live state (snapshot, run ticks) re-evaluates only
+/// this small body, and each row is Equatable so only a row whose title, status or selection changed redraws.
+private struct SidebarRecentSection: View {
+    let store: StudioStore
+    let currentFilm: URL?
+    var focused: FocusState<StudioPlace?>.Binding
+    let go: (StudioPlace) -> Void
+
+    private struct Item: Identifiable {
+        let id: UUID
+        let name: String
+        let folder: URL
+        let status: RecentFilmStatus
+    }
+
+    private var items: [Item] {
+        let stamped = store.activeProjects.map { ($0, store.summary(for: $0.1)) }
+        let top = stamped.sorted {
+            ($0.1.updatedAt ?? $0.0.0.lastOpenedAt ?? $0.0.0.createdAt) > ($1.1.updatedAt ?? $1.0.0.lastOpenedAt ?? $1.0.0.createdAt)
+        }.prefix(8)
+        return top.map { Item(id: $0.0.0.id, name: $0.0.0.name, folder: $0.0.1, status: RecentFilmStatus($0.1.phase)) }
+    }
+
+    var body: some View {
+        let items = items
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Recent")
+                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+                    .padding(.horizontal, 6).padding(.top, 18).padding(.bottom, 6)
+                    .accessibilityAddTraits(.isHeader)
+                ForEach(items) { item in
+                    RecentFilmRow(title: item.name, folder: item.folder, status: item.status,
+                                  selected: currentFilm == item.folder, focused: focused, go: go)
+                        .equatable()
+                }
+            }
+            .transaction { $0.animation = nil }
+        }
+    }
+}
+
+private struct RecentFilmRow: View, Equatable {
+    let title: String
+    let folder: URL
+    let status: RecentFilmStatus
+    let selected: Bool
+    var focused: FocusState<StudioPlace?>.Binding
+    let go: (StudioPlace) -> Void
+
+    nonisolated static func == (a: Self, b: Self) -> Bool {
+        a.title == b.title && a.folder == b.folder && a.status == b.status && a.selected == b.selected
+    }
+
+    var body: some View {
+        SidebarRowButton(selected: selected, action: { go(.film(folder)) }) {
+            HStack(spacing: 12) {
+                RecentStatusIcon(status: status)
+                Text(title)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(selected ? Color.primary : Color.secondary)
+                    .lineLimit(1).truncationMode(.tail)
+                Spacer(minLength: 4)
+            }
+            .frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
+            .padding(.horizontal, 6)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(title), \(status.label)")
+        }
+        .focused(focused, equals: .film(folder))
+        .id(StudioPlace.film(folder))
+        .help("\(title) · \(status.label)")
+    }
+}
+
+/// One 16pt status mark for every state: same symbol family, weight and size; only a running film moves.
+private struct RecentStatusIcon: View {
+    let status: RecentFilmStatus
+    var body: some View {
+        Group {
+            if status == .working {
+                ProgressView().controlSize(.small).scaleEffect(0.7)
+            } else {
+                Image(systemName: status.symbol)
+                    .font(.system(size: 14, weight: .regular))
+                    .symbolRenderingMode(.monochrome)
+            }
+        }
+        .foregroundStyle(status.color)
+        .frame(width: 16, height: 16)
+        .frame(width: 24)
+        .help(status.label)
     }
 }
 
@@ -475,11 +596,9 @@ struct AppStatusBar: View {
         }
         .buttonStyle(.accessoryBarAction).font(.system(size: 11.5)).lineLimit(1)
         .animation(.default, value: store.notice)
-        .padding(.horizontal, 16).frame(minHeight: 36)
-        // A floating bar of the system's own untinted glass, like the sidebar's: it samples what is behind it, with no
-        // gradient, solid fill or highlight line of ours on top. The bar itself is not interactive; its buttons are.
-        .liquidGlass(in: Capsule(), interactive: false)
-        .padding(.horizontal, Workspace.gap).padding(.top, 4).padding(.bottom, 10)
+        // The same chrome as the film page's bar, so the bar looks like one bar whose contents change.
+        .studioBottomBar(trailing: 16)
+        .padding(.horizontal, Workspace.barInset).padding(.bottom, Workspace.barInset)
     }
 
     /// Working: the film, what it is doing and the next call, and a click goes to it. Idle: ready, with the director and

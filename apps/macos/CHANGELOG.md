@@ -2,6 +2,10 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- The strip above each step ('Call 5 of 5 · Final…') is gone. What it said now lives in the bottom bar: a small Preview/Final tag, and hovering the main button tells you what it will do. The page gets that row of space back.
+
 ## 0.22.6 (build 57) — 2026-10-26
 
 - A fresh last step for setting up a film: one calm page with everything visible and editable in place, instead of a pop-up. Speed, quality, motion, Brand, footage and a reference video all live on it.

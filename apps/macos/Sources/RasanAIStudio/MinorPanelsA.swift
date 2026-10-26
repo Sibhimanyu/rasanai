@@ -621,7 +621,7 @@ struct ReelPanel: View {
     private func draft(_ player: AVPlayer) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             StageSectionTitle("Draft render")
-            StudioVideoPlayer(player: player, aspect: model.snapshot.aspectRatio)
+            StudioVideoPlayer(player: player, takesKeys: true, aspect: model.snapshot.aspectRatio)
                 .frame(maxWidth: 560)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .shadow(color: .black.opacity(0.2), radius: 14, y: 6)

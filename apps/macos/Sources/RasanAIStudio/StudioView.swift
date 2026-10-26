@@ -31,10 +31,9 @@ struct StudioView: View {
     /// dropped the animation's transaction and made the sidebar snap; the setting is only written back afterwards.
     @State private var columns: NavigationSplitViewVisibility = .all
     @State private var isFullScreen = false
-    /// A film (or the sample, or the film editor) brings its own bottom bar, so the studio's status bar steps aside there.
-    private var showsStatusBar: Bool {
-        switch store.path.last { case .film?, .sample?, .newFilm?: false; default: true }
-    }
+    /// The shell's bar shows whenever the page on screen does not draw its own (published by `FilmStatusBarHost`).
+    @State private var pageOwnsBottomBar = false
+    private var showsStatusBar: Bool { !pageOwnsBottomBar }
 
     /// The native split view: on macOS Tahoe the system draws the floating glass sidebar with the window buttons inside it,
     /// its toggle, and the toggle's move into the toolbar when the sidebar hides, with the system's own animation.
@@ -43,9 +42,13 @@ struct StudioView: View {
             AppSidebar(store: store)
         } detail: {
             stack
-            .safeAreaPadding(.bottom, showsStatusBar && !store.path.isEmpty ? 50 : 0)
+            .onPreferenceChange(PageOwnsBottomBarKey.self) { owns in
+                var tx = Transaction(); tx.disablesAnimations = true
+                withTransaction(tx) { pageOwnsBottomBar = owns }
+            }
+            .safeAreaPadding(.bottom, showsStatusBar && !store.path.isEmpty ? Workspace.barReserve - Workspace.barInset : 0)
             .overlay(alignment: .bottom) {
-                if showsStatusBar { AppStatusBar(store: store, sidebarHidden: columns == .detailOnly) }
+                if showsStatusBar { AppStatusBar(store: store, sidebarHidden: columns == .detailOnly).transition(.identity).transaction { $0.animation = nil } }
             }
             .background(Color.appBackground.ignoresSafeArea())
             .clipped()
@@ -56,7 +59,6 @@ struct StudioView: View {
         // Keep floating toolbar controls in ordinary windows. In full screen, let AppKit choose the toolbar background
         // so the native split view and fullscreen chrome can compose together.
         .modifier(NoToolbarBand(fullScreen: isFullScreen))
-        .overlay { VideoStageOverlayHost() }
         .background(FullScreenState(isFullScreen: $isFullScreen))
         .onChange(of: columns) { _, visibility in sidebarHidden = visibility == .detailOnly }
     }
