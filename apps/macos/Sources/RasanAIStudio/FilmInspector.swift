@@ -62,6 +62,8 @@ struct FilmInspector: View {
 /// "Let <agent> decide" (`model.tellText`).
 struct NotesInspector: View {
     @Bindable var model: FilmSessionModel
+    /// The floating Ask Rasan card draws its own header, so it reuses the conversation and composer without this one.
+    var showsHeader = true
     @FocusState private var focused: Bool
     @Environment(NoteSkips.self) private var skips: NoteSkips?
     private var step: String { model.pendingMark?.step ?? model.tellStep ?? model.shownStep }
@@ -69,8 +71,10 @@ struct NotesInspector: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Rectangle().fill(Workspace.hairline).frame(height: 1)
+            if showsHeader {
+                header
+                Rectangle().fill(Workspace.hairline).frame(height: 1)
+            }
             thread
             composer
         }

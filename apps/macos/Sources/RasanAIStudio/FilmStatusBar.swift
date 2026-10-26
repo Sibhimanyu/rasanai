@@ -39,6 +39,7 @@ struct FilmStatusBar<Usage: View>: View {
                 usage.fixedSize().padding(.trailing, 4)
                 if let actions, !model.isViewingPast, !sent, model.showsActions(for: actions.step) { buttons(actions) }
                 else if needsResume { resumeSlot }
+                AskRasanField(model: model)
             }
         }
         .padding(.leading, 16).padding(.trailing, 7).padding(.vertical, model.lastError == nil ? 7 : 9)
@@ -222,14 +223,22 @@ struct FilmStatusBarHost<Content: View, Usage: View>: View {
     @ViewBuilder var usage: Usage
     @ViewBuilder var content: Content
     @State private var actions: FilmActions?
+    @State private var stageHeight: CGFloat = 800
 
     var body: some View {
         content.onPreferenceChange(FilmActionsKey.self) { actions = $0 }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { stageHeight = $0 }
             // A floating glass pill over the page: content scrolls underneath and can still scroll clear of it.
             // A clear gap above the bar so the panels never butt against it.
             .safeAreaInset(edge: .bottom, spacing: Workspace.gap) {
                 if visible {
                     FilmStatusBar(model: model, turn: turn, actions: actions, onDetails: onDetails, onPause: onPause, onResume: onResume, usage: { usage }, stillWorking: stillWorking, remaining: remaining)
+                        // The chat card grows up out of the pill, anchored at its right end, floating over the page.
+                        .overlay(alignment: .topTrailing) {
+                            AskRasanChatCard(model: model, maxHeight: stageHeight * 0.6)
+                                .alignmentGuide(.top) { $0[.bottom] + 8 }
+                                .padding(.trailing, 7)
+                        }
                 }
             }
         // A note goes out with whatever was accepted (the note itself, or the call it rode along with).

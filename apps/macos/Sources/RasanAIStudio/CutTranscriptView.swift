@@ -49,6 +49,7 @@ struct CutTranscriptView: View {
         .onAppear { observe() }
         .onChange(of: player.map(ObjectIdentifier.init)) { observe() }
         .onDisappear { observer.stop() }
+        .onReceive(NotificationCenter.default.publisher(for: .studioCloseSheets)) { _ in fix = nil }
         .sheet(item: $fix) { target in
             FixSpellingSheet(word: target.text) { text in
                 send(["clip": .string(target.clip), "op": .string("correct"), "ids": .array([.string(target.word)]), "text": .string(text)])

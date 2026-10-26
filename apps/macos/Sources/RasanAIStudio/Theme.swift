@@ -268,7 +268,7 @@ struct HelpButton: View {
             }
             Divider()
             Link(destination: guideURL) { Label("Open the guide", systemImage: "arrow.up.right.square") }
-            Button { Heresay.present() } label: { Label("Report a Problem…", systemImage: "exclamationmark.bubble") }
+            Button { StudioFeedback.present() } label: { Label("Report a Problem…", systemImage: "exclamationmark.bubble") }
         } label: { Label("Help", systemImage: "questionmark.circle") }
         .menuIndicator(.hidden)
         .help("Help for this screen")

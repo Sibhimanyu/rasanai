@@ -6,6 +6,9 @@ Desktop releases are separate from RasanAI skill releases.
 
 - Updates now show what changed: a native update screen with a "What's new" list while it downloads and installs, plus a one-time "You're now on X" card after you restart.
 - Fixed a flat colour strip behind the floating sidebar in full screen.
+- Ask Rasan now lives in the bottom bar. Click it to open a floating chat that you can collapse, or open the full side panel with ⌥⌘I.
+- Report a Problem (Heresay) now opens reliably, even when another window or sheet is open.
+- The sidebar no longer shows a reflection of the page behind it.
 
 ## 0.22.0 (build 51) — 2026-10-26
 

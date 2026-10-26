@@ -484,7 +484,7 @@ struct StudioSettingsView: View {
             SettingsCard(symbol: "questionmark.bubble", tint: .blue, title: "Help", detail: "Learn how it works, or tell us what to fix.") {
                 VStack(spacing: 2) {
                     SettingsActionRow(symbol: "book", title: "Open the guide", detail: "How RasanAI makes a film") { NSWorkspace.shared.open(guideURL) }
-                    SettingsActionRow(symbol: "exclamationmark.bubble", title: "Send feedback or report a problem", detail: "Tell the team what is broken or could be better") { Heresay.present() }
+                    SettingsActionRow(symbol: "exclamationmark.bubble", title: "Send feedback or report a problem", detail: "Tell the team what is broken or could be better") { StudioFeedback.present() }
                 }
             }
         }
@@ -558,7 +558,7 @@ struct StudioSettingsView: View {
             SettingsCard(symbol: "questionmark.bubble", tint: .blue, title: "Help", detail: "Learn how it works, or tell us what to fix.") {
                 VStack(spacing: 2) {
                     SettingsActionRow(symbol: "book", title: "Open the guide", detail: "How RasanAI makes a film") { NSWorkspace.shared.open(guideURL) }
-                    SettingsActionRow(symbol: "exclamationmark.bubble", title: "Send feedback or report a problem", detail: "Tell the team what is broken or could be better") { Heresay.present() }
+                    SettingsActionRow(symbol: "exclamationmark.bubble", title: "Send feedback or report a problem", detail: "Tell the team what is broken or could be better") { StudioFeedback.present() }
                 }
             }
         }
