@@ -2,11 +2,12 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.22.2 (build 53) — 2026-10-26
 
 - Ask Rasan now lives in the bottom bar. Click it to open a floating chat that you can collapse, or open the full side panel with ⌥⌘I.
 - Report a Problem (Heresay) now opens reliably, even when another window or sheet is open.
 - The sidebar no longer shows a reflection of the page behind it.
+- **Bundles RasanAI 1.27.0.**
 
 ## 0.22.1 (build 52) — 2026-10-26
 
