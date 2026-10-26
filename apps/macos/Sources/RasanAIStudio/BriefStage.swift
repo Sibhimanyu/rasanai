@@ -38,21 +38,27 @@ struct BriefStage: View {
     private var subjectPlaceholder: String { formatOption.flatMap { catalog?.subjectPrompt(for: $0) } ?? "what it's about, a link or a topic" }
     private var canAct: Bool { model.canAct(on: step) && !(model.hasSent(step) && model.status(step) != "done") }
 
+    @Environment(\.crewCharacter) private var character
+
     var body: some View {
-        StageScaffold(model: model, step: step,
-                      question: "Here's the film we'll make.",
-                      context: payload["context"].string,
-                      maxWidth: 1080) {
-            let findings = payload["findings"].array
-            let captures = payload["captures"].array
-            StudioAdaptiveColumns(railWidth: 340, railFirst: false, breakpoint: 780, gap: 40, stackSpacing: 32) {
-                agreement
-                evidencePanel(captures: captures, findings: findings)
+        let findings = payload["findings"].array
+        let captures = payload["captures"].array
+        ScrollView {
+            VStack(alignment: .leading, spacing: 32) {
+                header
+                StudioAdaptiveColumns(railWidth: 348, railFirst: false, breakpoint: 1000, gap: 32, stackSpacing: 32) {
+                    agreement
+                    evidencePanel(captures: captures, findings: findings)
+                }
+                .onAppear {
+                    if needsSource && model.canAct(on: step) { editingSubject = true; subjectFocused = true }
+                }
             }
-            .onAppear {
-                if needsSource && model.canAct(on: step) { editingSubject = true; subjectFocused = true }
-            }
-        } actions: {
+            .padding(.bottom, Workspace.barReserve)   // clears the floating bottom bar
+            .frame(maxWidth: 1180, alignment: .leading)
+            .frame(maxWidth: .infinity)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             BriefActions(model: model, step: step, canAct: canAct,
                          start: { submit(thenDecideRest: false) },
                          justMakeIt: { submit(thenDecideRest: true) },
@@ -60,23 +66,47 @@ struct BriefStage: View {
         }
     }
 
+    /// A compact title row: a small crew member and the title as plain large text, left-aligned with the content below.
+    private var header: some View {
+        HStack(alignment: .center, spacing: 16) {
+            if let character {
+                CrewStage(character: character, mode: .ask, unit: 56)
+                    .accessibilityHidden(true)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Here's the film we'll make.")
+                    .font(.system(size: 28, weight: .semibold)).tracking(-0.5)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
+                if let context = payload["context"].string, !context.isEmpty {
+                    Text(context).font(.system(size: 13)).foregroundStyle(.secondary).lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     // MARK: Creative agreement
 
     private var agreement: some View {
-        VStack(alignment: .leading, spacing: 28) {
+        VStack(alignment: .leading, spacing: 32) {
             sentenceBlock
-            Rectangle().fill(Workspace.hairline).frame(height: 1)
-            detailsGrid
-            if usesFormatPicker, let catalog { formatSection(catalog) }
+            VStack(alignment: .leading, spacing: 16) {
+                StageSectionTitle("Details")
+                detailsGrid.padding(Workspace.panelPadding).frame(maxWidth: .infinity, alignment: .leading).workspacePanel()
+                if usesFormatPicker, let catalog { formatSection(catalog) }
+            }
         }
     }
 
     private var sentenceBlock: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             StageSectionTitle("The idea")
             BriefFlow(spacing: 0, lineSpacing: 8) { sentenceTokens }
-                .font(.system(size: 24, weight: .regular))
-                .lineSpacing(5)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .font(.system(size: 22, weight: .regular))
                 .accessibilityElement(children: .contain)
             if canAct {
                 Text(needsSource ? "Say what the film is about, then confirm." : "Highlighted words can be changed.")
@@ -88,7 +118,7 @@ struct BriefStage: View {
 
     /// The same brief fields as the sentence, named, so each one can be changed without reading for the highlighted word.
     private var detailsGrid: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 16, alignment: .top)], alignment: .leading, spacing: 18) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 16, alignment: .top)], alignment: .leading, spacing: 16) {
             if usesFormatPicker { formatField } else { fieldMenu("Format", key: "kind", fallback: .string("launch film"), options: kindOptions, display: { Self.soften($0.string ?? "launch film") }) }
             fieldMenu("Length", key: "length_s", fallback: .number(45), options: lengthOptions, display: { "\(Int($0.number ?? 45))-second" })
             fieldMenu("Shape", key: "aspect", fallback: .string("16:9"), options: shapeOptions, display: { Self.aspectLabel($0.string ?? "16:9") })
@@ -113,7 +143,7 @@ struct BriefStage: View {
     }
 
     private func formatSection(_ catalog: FormatCatalog) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 16) {
             if format == nil && !formatRequested {
                 Button { formatRequested = true } label: { Label("Choose a format", systemImage: "square.grid.2x2") }
                     .controlSize(.regular).disabled(!canAct)
@@ -199,10 +229,11 @@ struct BriefStage: View {
     private var formatToken: some View {
         let text = Self.soften(formatOption?.kind ?? fields["kind"]?.string ?? "film")
         return Button { if format == nil { formatRequested = true } else { changingFormat.toggle() } } label: {
-            Text(text).foregroundStyle(Color.rasan).padding(.horizontal, 7).padding(.vertical, 1)
-                .background(Color.rasan.opacity(canAct ? 0.11 : 0), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay(alignment: .bottom) { Rectangle().fill(Color.rasan.opacity(canAct ? 0.5 : 0)).frame(height: 1.5).padding(.horizontal, 7) }
+            Text(text).lineLimit(1).truncationMode(.tail).foregroundStyle(Color.rasan).padding(.horizontal, 8).padding(.vertical, 1)
+                .frame(maxWidth: 280, alignment: .leading)
+                .background(Color.rasan.opacity(canAct ? 0.10 : 0), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
+        .help(text)
         .buttonStyle(.plain).fixedSize().disabled(!canAct)
         .accessibilityLabel("Kind: \(text)").accessibilityHint("Opens the list of formats")
     }
@@ -254,7 +285,7 @@ struct BriefStage: View {
                     Text(piece + (index < pieces.count - 1 ? " " : ""))
                         .foregroundStyle(subject.isEmpty ? Color.secondary : Color.rasan)
                         .padding(.vertical, 2)
-                        .background(alignment: .bottom) { Rectangle().fill(Color.rasan.opacity(canAct ? 0.45 : 0)).frame(height: 1.5).offset(y: 1) }
+                        .background(alignment: .bottom) { Rectangle().fill(Color.rasan.opacity(canAct ? 0.3 : 0)).frame(height: 1).offset(y: 1) }
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain).disabled(!canAct).focusable(index == 0)
@@ -311,6 +342,7 @@ struct BriefStage: View {
             }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
             .disabled(!canAct)
+            .help(r.text)
             .accessibilityLabel("\(title): \(r.text)")
             .accessibilityHint("Opens a menu to change it")
         }
@@ -348,34 +380,41 @@ struct BriefStage: View {
         let index = min(max(0, selectedCapture), captures.count - 1)
         let shown = captures[index]
         let caption = shown["caption"].string ?? ""
-        return VStack(alignment: .leading, spacing: 10) {
-            PayloadImage(path: shown["image"].string ?? shown.string, contentMode: .fill, maxPixels: 1200)
-                .aspectRatio(4.0 / 3.0, contentMode: .fit)
-                .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Workspace.hairline, lineWidth: 1) }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(caption.isEmpty ? "Capture \(index + 1) of \(captures.count)" : "Capture: \(caption)")
+        return VStack(alignment: .leading, spacing: 16) {
+            ZStack {
+                Rectangle().fill(Workspace.raised)
+                PayloadImage(path: shown["image"].string ?? shown.string, contentMode: .fit, maxPixels: 1200)
+            }
+            .aspectRatio(16.0 / 10.0, contentMode: .fit)
+            .frame(maxWidth: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay { RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Workspace.hairline, lineWidth: 1) }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(caption.isEmpty ? "Capture \(index + 1) of \(captures.count)" : "Capture: \(caption)")
             if !caption.isEmpty {
                 Text(caption).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
             }
             if captures.count > 1 {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 56, maximum: 80), spacing: 8)], alignment: .leading, spacing: 8) {
-                    ForEach(Array(captures.enumerated()), id: \.offset) { offset, capture in
-                        Button { selectedCapture = offset } label: {
-                            PayloadImage(path: capture["image"].string ?? capture.string, contentMode: .fill, maxPixels: 300)
-                                .aspectRatio(1, contentMode: .fit)
-                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .strokeBorder(offset == index ? Color.rasan : Workspace.hairline, lineWidth: offset == index ? 2 : 1)
-                                }
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        ForEach(Array(captures.enumerated()), id: \.offset) { offset, capture in
+                            Button { selectedCapture = offset } label: {
+                                PayloadImage(path: capture["image"].string ?? capture.string, contentMode: .fill, maxPixels: 300)
+                                    .frame(width: 56, height: 56)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .strokeBorder(offset == index ? Color.rasan : Workspace.hairline, lineWidth: offset == index ? 2 : 1)
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(capture["caption"].string.map { "Show capture: \($0)" } ?? "Show capture \(offset + 1)")
+                            .accessibilityAddTraits(offset == index ? [.isButton, .isSelected] : .isButton)
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(capture["caption"].string.map { "Show capture: \($0)" } ?? "Show capture \(offset + 1)")
-                        .accessibilityAddTraits(offset == index ? [.isButton, .isSelected] : .isButton)
                     }
+                    .padding(2)
                 }
+                .scrollIndicators(.hidden)
             }
         }
     }
@@ -467,11 +506,13 @@ private struct BriefMenuToken: View {
             .pickerStyle(.inline).labelsHidden()
         } label: {
             Text(text)
+                .lineLimit(1).truncationMode(.tail)
                 .foregroundStyle(Color.rasan)
-                .padding(.horizontal, 7).padding(.vertical, 1)
-                .background(Color.rasan.opacity(hovering && enabled ? 0.20 : (enabled ? 0.11 : 0)), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay(alignment: .bottom) { Rectangle().fill(Color.rasan.opacity(enabled ? 0.5 : 0)).frame(height: 1.5).padding(.horizontal, 7).offset(y: 0) }
+                .padding(.horizontal, 8).padding(.vertical, 1)
+                .frame(maxWidth: 280, alignment: .leading)
+                .background(Color.rasan.opacity(hovering && enabled ? 0.18 : (enabled ? 0.10 : 0)), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
+        .help(text)
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
         .fixedSize()
         .disabled(!enabled)
@@ -488,7 +529,7 @@ private struct BriefFieldFrame<Content: View>: View {
     let label: String
     @ViewBuilder var content: Content
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(label).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
             content
         }
@@ -502,12 +543,13 @@ private struct BriefFieldValue: View {
     let enabled: Bool
     var body: some View {
         HStack(spacing: 8) {
-            Text(text).font(.system(size: 14)).foregroundStyle(.primary).lineLimit(2).multilineTextAlignment(.leading)
+            Text(text).font(.system(size: 14)).foregroundStyle(.primary).lineLimit(1).truncationMode(.tail)
             Spacer(minLength: 4)
             if enabled { Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary) }
         }
-        .padding(.horizontal, 12).padding(.vertical, 10)
-        .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 36)
         .background(Workspace.raised, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay { RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Workspace.hairline, lineWidth: 1) }
         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
