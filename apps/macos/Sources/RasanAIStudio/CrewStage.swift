@@ -120,7 +120,8 @@ final class CrewStageEngine {
         }
 
         // Nothing new for 20 s: only a three-dot bubble stays.
-        var list = Array(input.thoughts.prefix(CrewThoughts.maxOnScreen))
+        // The newest, plus at most one older line above it.
+        var list = Array(input.thoughts.prefix(2))
         if live, input.mode == .work, t - lastNew > 20, !list.isEmpty {
             if idleSince == nil { idleSince = t }
             list = [CrewThought(id: "idle-dots", kind: .dots, time: Date(), text: "")]
@@ -132,20 +133,21 @@ final class CrewStageEngine {
         let eyeXs = pose.eyes.map(\.cx), eyeMean = eyeXs.isEmpty ? pose.width / 2 : eyeXs.reduce(0, +) / CGFloat(eyeXs.count)
         let hx = layout.origin.x + eyeMean * layout.s
         let hy = layout.origin.y + ((pose.eyes.map { $0.cy - $0.ry }.min() ?? pose.height * 0.3) - 30) * layout.s
-        let tallest = list.map { BubbleMetrics.size($0).height }.max() ?? 0
         var seenNow = Set<String>()
         for (i, thought) in list.enumerated() {
             seenNow.insert(thought.id)
             let size = BubbleMetrics.size(thought)
-            let side: CGFloat = (seq[thought.id] ?? 0) % 2 == 0 ? 1 : -1
-            let gap = layout.pw * 0.32 + 40 + CGFloat(i) * 26
-            // The newest sits beside the head; older ones step up and outward (one row up at most, so a compact stage holds them).
-            let row = CGFloat(i / 2)
-            var x = hx + side * gap - (side > 0 ? 0 : size.width)
-            var y = hy - size.height - 10 - row * (tallest + 12) - (i % 2 == 1 ? 16 : 0)
+            // One consistent place: the newest sits just above-right of the head with its tail toward it; the older one stacks on top.
+            let side: CGFloat = 1
+            var x = hx + layout.pw * 0.04 - BubbleMetrics.tailX + 26
+            var y = hy - size.height - 2
+            if i > 0, let newest = list.first {
+                let nh = BubbleMetrics.size(newest).height
+                y -= nh - BubbleMetrics.tailHeight + 8
+            }
             x = min(max(x, 12), max(12, layout.size.width - size.width - 12)); y = max(8, y)
-            let op: CGFloat = live ? (i == 0 ? 1 : max(0, 0.92 - CGFloat(i) * 0.2)) : 0
-            let k = 1 - CGFloat(i) * 0.1
+            let op: CGFloat = live ? (i == 0 ? 1 : 0.45) : 0
+            let k: CGFloat = i == 0 ? 1 : 0.94
             if var v = vis[thought.id] {
                 v.thought = thought; v.size = size; v.index = i; v.side = side; v.leaving = false
                 step(&v, tx: x, ty: y, tk: k, to: op, dt: dt, motion: motion && !(v.born < -1e5 && t - startT < 0.8))
@@ -154,7 +156,7 @@ final class CrewStageEngine {
                 let born = seen[thought.id] ?? t
                 // Bubbles already there when the screen opens are simply in place; new ones pop in.
                 let pops = motion && born > -1e5
-                var v = Vis(id: thought.id, thought: thought, size: size, x: x, y: y, k: pops ? 0.3 : k, op: pops ? 0 : op, born: born, phase: Double(i) * 1.9 + Double(seq[thought.id] ?? 0), side: side, index: i)
+                var v = Vis(id: thought.id, thought: thought, size: size, x: x, y: y, k: pops ? 0.92 : k, op: pops ? 0 : op, born: born, phase: Double(i) * 1.9 + Double(seq[thought.id] ?? 0), side: side, index: i)
                 step(&v, tx: x, ty: y, tk: k, to: op, dt: dt, motion: motion && !(v.born < -1e5 && t - startT < 0.8))
                 vis[thought.id] = v
             }
@@ -531,6 +533,8 @@ struct CrewStage: View {
     var picture: URL?
     /// Points the tallest character stands (work) or the ask pose stands (ask).
     var unit: CGFloat = 320
+    /// The stage's own height when the screen sizes it (the character and the bubble room scale to fit); nil keeps the design height.
+    var stageHeight: CGFloat?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
@@ -543,7 +547,7 @@ struct CrewStage: View {
 
     var body: some View {
         if let pose = CrewStageArt.pose(character, mode) {
-            let height = Self.height(mode: mode, unit: unit)
+            let height = mode == .ask ? Self.height(mode: mode, unit: unit) : (stageHeight ?? Self.height(mode: mode, unit: unit))
             Group {
                 if mode == .ask {
                     stage(pose: pose, size: CGSize(width: askWidth(pose), height: height)).frame(width: askWidth(pose), height: height)
@@ -576,16 +580,14 @@ struct CrewStage: View {
                                    look: engine.look, lid: engine.lid, focus: engine.focus, browLift: engine.browLift, browKnit: engine.browKnit,
                                    lineBorn: engine.lineBorn, picture: pictureImage,
                                    pictureAlpha: motion ? CGFloat(min(1, max(0, (t - engine.pictureSince) / 1.2))) : 1,
-                                   trails: bubbles.filter { $0.index < 2 && !$0.leaving && $0.thought.kind == .say }.map {
-                                       (CGPoint(x: $0.side > 0 ? $0.x + $0.size.width * 0.2 : $0.x + $0.size.width * 0.8, y: $0.y + $0.size.height + 8), $0.side, $0.index, $0.op)
-                                   })
+                                   trails: [])
             ZStack(alignment: .topLeading) {
                 Canvas { context, _ in frame.draw(&context, body: body, overlay: overlay) }
                     .frame(width: size.width, height: size.height)
                 ForEach(bubbles) { b in
                     CrewBubbleView(thought: b.thought, size: b.size, live: b.index == 0 && !b.leaving, age: t - b.born, clock: t,
                                    ago: Self.ago(b.thought, index: b.index, now: Date()), dark: dark, motion: motion)
-                        .scaleEffect(max(0.01, b.k), anchor: .bottom)
+                        .scaleEffect(max(0.01, b.k), anchor: UnitPoint(x: BubbleMetrics.tailX / max(1, b.size.width), y: 1))
                         .opacity(Double(max(0, min(1, b.op))))
                         .zIndex(Double(-b.index))
                         .position(x: b.x + b.size.width / 2, y: b.y + b.size.height / 2 + (motion && !asleep ? CGFloat(sin(t * 1.6 + b.phase)) * 3 : 0))

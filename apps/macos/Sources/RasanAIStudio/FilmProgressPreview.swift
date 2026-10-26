@@ -29,6 +29,8 @@ enum ProgressPreviewItem: Equatable {
 struct ProgressPreviewPane: View {
     let snapshot: FilmProgressSnapshot
     let aspect: Double
+    /// The tallest the picture may stand, so the working screen fits its window (aspect-fit).
+    var maxMediaHeight: CGFloat = 300
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -37,18 +39,18 @@ struct ProgressPreviewPane: View {
                 switch item {
                 case .video(let url, let title, let poster):
                     GeometryReader { proxy in
-                        let width = min(460, max(1, proxy.size.width), 300 * max(aspect, 0.1))
+                        let width = min(460, max(1, proxy.size.width), maxMediaHeight * max(aspect, 0.1))
                         VideoTile(url: url, title: title, subtitle: nil, aspect: aspect, width: width, poster: poster)
                             .id(url)   // a new file gets a new player, never the old draft under the new title
                             .frame(maxWidth: .infinity)
                     }
-                    .frame(height: min(300, 460 / max(aspect, 0.1)) + 30)
+                    .frame(height: min(maxMediaHeight, 460 / max(aspect, 0.1)) + 30)
                 case .image(let url, let title):
                     VStack(alignment: .leading, spacing: 6) {
                         Button { NSWorkspace.shared.open(url) } label: {
                             ZStack { Color(nsColor: .underPageBackgroundColor); PosterImage(url: url, maxPixels: 900) }
                                 .aspectRatio(aspect, contentMode: .fit)
-                                .frame(maxWidth: 520, maxHeight: 300)
+                                .frame(maxWidth: 520, maxHeight: maxMediaHeight)
                                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                                 .overlay { RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5) }
                         }
@@ -62,7 +64,7 @@ struct ProgressPreviewPane: View {
                     Text("Nothing to show yet. The first picture appears here as soon as one is made.")
                         .font(.system(size: 13)).foregroundStyle(.secondary)
                 }
-                .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color(nsColor: .quaternaryLabelColor).opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }

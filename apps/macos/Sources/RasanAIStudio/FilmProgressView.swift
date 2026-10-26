@@ -26,6 +26,9 @@ struct FilmProgressView: View {
     @Environment(\.agentName) private var agent
     @State private var wrapSent = false
     @State private var wrapFailed = false
+    /// Measured: the whole column and its crew stage, so the rows that need their natural height are known (column minus stage).
+    @State private var columnHeight: CGFloat = 0
+    @State private var stageHeight: CGFloat = 0
 
     /// The film is unfinished, nothing runs, and the person did not pause it: the director stopped and waits for Resume.
     private var stalled: Bool { progress.snapshot.directorIdle && !paused && autoResume == nil && !progress.isReplay }
@@ -75,38 +78,63 @@ struct FilmProgressView: View {
 
     private func focused(now: Date, visibleHeight: CGFloat) -> some View {
         let s = snapshot
-        return ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack(spacing: 6) {
-                    Image(systemName: s.now.phase.symbolName).font(.system(size: 11, weight: .semibold))
-                    Text(s.now.phase.title.uppercased()).font(.system(size: 11, weight: .semibold)).tracking(0.6)
-                    if let pace {
-                        Text("\(pace.title) pace").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
-                            .padding(.horizontal, 7).padding(.vertical, 2).background(Color(nsColor: .quaternaryLabelColor).opacity(0.3), in: Capsule())
-                    }
-                    Spacer()
-                    activityToggle
-                    if let onPause { Button("Pause", action: onPause).controlSize(.small).help("Pause (⌘.). Your work is kept, and you can resume.") }
+        // The screen is laid out to the height it has: the crew stage takes what the fixed rows leave. Only a really short
+        // window falls back to scrolling.
+        // Scrolling only when the measured fixed rows plus the stage's 180pt minimum no longer fit.
+        let fixedRows = max(0, columnHeight - stageHeight) + 8
+        let flexible = fixedRows + 180 <= visibleHeight
+        let previewMax = min(300, max(80, visibleHeight * 0.2))
+        return Group {
+            if flexible {
+                column(s, now: now, flexible: true, previewMax: previewMax)
+                    .padding(.bottom, 8)
+                    .frame(maxWidth: 860, alignment: .leading)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            } else {
+                ScrollView {
+                    column(s, now: now, flexible: false, previewMax: previewMax)
+                        .padding(.bottom, 24)
+                        .frame(maxWidth: 860, alignment: .leading)
+                        .frame(maxWidth: .infinity)
                 }
-                .foregroundStyle(s.isWaitingForYou ? Color.orange : Color.rasan)
-                if let notice = autoResume { resumeBanner(notice, now: now) }
-                if stalled { stalledBanner }
-                crewStage(s, now: now, visibleHeight: visibleHeight)
-                researchNotice(s, now: now)
-                activityWarning(s)
-                ProgressRenderStrip(render: s.render, now: now)
-                ProgressPreviewPane(snapshot: s, aspect: model.snapshot.aspectRatio)
-                nextRow(s)
             }
-            .padding(.bottom, 28)
-            .frame(maxWidth: 860, alignment: .leading)
-            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private func column(_ s: FilmProgressSnapshot, now: Date, flexible: Bool, previewMax: CGFloat) -> some View {
+        column2(s, now: now, flexible: flexible, previewMax: previewMax)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { columnHeight = $0 }
+    }
+
+    private func column2(_ s: FilmProgressSnapshot, now: Date, flexible: Bool, previewMax: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 6) {
+                Image(systemName: s.now.phase.symbolName).font(.system(size: 11, weight: .semibold))
+                Text(s.now.phase.title.uppercased()).font(.system(size: 11, weight: .semibold)).tracking(0.6)
+                if let pace {
+                    Text("\(pace.title) pace").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
+                        .padding(.horizontal, 7).padding(.vertical, 2).background(Color(nsColor: .quaternaryLabelColor).opacity(0.3), in: Capsule())
+                }
+                Spacer()
+                activityToggle
+                if let onPause { Button("Pause", action: onPause).controlSize(.small).help("Pause (⌘.). Your work is kept, and you can resume.") }
+            }
+            .foregroundStyle(s.isWaitingForYou ? Color.orange : Color.rasan)
+            if let notice = autoResume { resumeBanner(notice, now: now) }
+            if stalled { stalledBanner }
+            crewStage(s, now: now, flexible: flexible)
+            researchNotice(s, now: now)
+            activityWarning(s)
+            ProgressRenderStrip(render: s.render, now: now)
+            ProgressPreviewPane(snapshot: s, aspect: model.snapshot.aspectRatio, maxMediaHeight: previewMax)
+            nextRow(s)
         }
     }
 
     /// The crew member on stage with the real work around them, and under it the one line of what is happening. While a decision
-    /// waits, the same character stands to the side and asks it in one speech bubble.
-    @ViewBuilder private func crewStage(_ s: FilmProgressSnapshot, now: Date, visibleHeight: CGFloat) -> some View {
+    /// waits, the same character stands to the side and asks it in one speech bubble. The stage is the flexible part: it takes the
+    /// height the other rows leave and the character and bubbles scale to it.
+    @ViewBuilder private func crewStage(_ s: FilmProgressSnapshot, now: Date, flexible: Bool) -> some View {
         let lead = NowCrewAvatar.lead(for: s)
         let asleep = paused || stalled || autoResume?.isLimit == true
         let timing = HStack(spacing: 14) {
@@ -116,32 +144,48 @@ struct FilmProgressView: View {
             estimate(s)
         }
         if s.isWaitingForYou {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 CrewAskRow(character: lead, text: s.now.text)
                     .contentTransition(.opacity).animation(reduceMotion ? nil : .smooth, value: s.now.text)
                 timing
             }
+            .onAppear { stageHeight = 0 }
         } else {
-            let unit = min(320, max(200, visibleHeight * 0.45))
             VStack(spacing: 8) {
-                CrewStage(character: lead, thoughts: CrewThoughts.make(s, lead: lead), asleep: asleep,
-                          lines: lead == .kavi ? CrewThoughts.finishedSteps(s) : 0,
-                          picture: lead == .chitra || lead == .rasika ? CrewThoughts.newestPicture(s) : nil, unit: unit)
-                    .id(lead)
-                    .frame(maxWidth: .infinity)
-                    .help("\(lead.displayName), \(lead.roleTitle)")
-                VStack(spacing: 6) {
-                    Text(Self.crewLine(lead, s)).font(.system(size: 13)).foregroundStyle(.secondary).lineLimit(2).multilineTextAlignment(.center)
+                if flexible {
+                    GeometryReader { geo in stageArt(s, lead: lead, asleep: asleep, height: geo.size.height).frame(width: geo.size.width, height: geo.size.height, alignment: .bottom) }
+                        .frame(minHeight: 180, maxHeight: .infinity)
+                        .layoutPriority(-1)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { stageHeight = $0 }
+                } else {
+                    stageArt(s, lead: lead, asleep: asleep, height: 300)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { stageHeight = $0 }
+                }
+                VStack(spacing: 4) {
+                    Text(Self.crewLine(lead, s)).font(.system(size: 13)).foregroundStyle(.secondary).lineLimit(1).multilineTextAlignment(.center)
                     Text(s.now.text)
                         .font(.system(size: 26, weight: .semibold)).tracking(-0.3)
-                        .lineLimit(3).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(2).minimumScaleFactor(0.8).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                         .contentTransition(.opacity).animation(reduceMotion ? nil : .smooth, value: s.now.text)
                         .accessibilityAddTraits(.isHeader)
-                    timing.padding(.top, 2)
+                    timing
                 }
                 .frame(maxWidth: .infinity)
             }
         }
+    }
+
+    /// The character and bubbles at `height`: bubble room above the head shrinks with the stage, the character keeps its design size at most.
+    private func stageArt(_ s: FilmProgressSnapshot, lead: CrewCharacter, asleep: Bool, height h: CGFloat) -> some View {
+        let headroom = min(150, h * 0.32)
+        let unit = max(40, min(320, h - headroom))
+        return CrewStage(character: lead, thoughts: CrewThoughts.make(s, lead: lead), asleep: asleep,
+                         lines: lead == .kavi ? CrewThoughts.finishedSteps(s) : 0,
+                         picture: lead == .chitra || lead == .rasika ? CrewThoughts.newestPicture(s) : nil, unit: unit,
+                         stageHeight: min(h, unit + headroom))
+            .id(lead)
+            .frame(maxWidth: .infinity)
+            .help("\(lead.displayName), \(lead.roleTitle)")
     }
 
     /// "Kavi · 3 writers drafting": the character, then what the crew is doing as the model words it, else their role.

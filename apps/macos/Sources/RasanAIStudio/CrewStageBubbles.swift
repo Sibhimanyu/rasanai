@@ -65,6 +65,12 @@ enum BubbleMetrics {
     static var extraLeading: CGFloat { max(0, lineHeight - NSLayoutManager().defaultLineHeight(for: font)) }
     static let labelHeight: CGFloat = 14
     static let favicon: CGFloat = 34
+    /// The speech card: its tail's height, the widest it grows, and its side padding.
+    static let tailHeight: CGFloat = 8
+    static let sayMaxWidth: CGFloat = 300
+    static let sayPadX: CGFloat = 14
+    /// Where the tail's centre sits, from the card's left edge.
+    static let tailX: CGFloat = 28
 
     static func measure(_ text: String, width: CGFloat, font: NSFont = BubbleMetrics.font, lines: Int = 3) -> CGSize {
         guard !text.isEmpty else { return .zero }
@@ -76,10 +82,12 @@ enum BubbleMetrics {
 
     static func size(_ thought: CrewThought) -> CGSize {
         switch thought.kind {
-        case .dots: return CGSize(width: 110, height: 52)
+        case .dots: return CGSize(width: 76, height: 40 + tailHeight)
         case .say:
-            let text = measure(thought.text, width: 250)
-            return CGSize(width: min(290, max(110, text.width + 44)), height: 28 + labelHeight + text.height)
+            let font = NSFont.systemFont(ofSize: 14, weight: .medium)
+            let text = measure(thought.text, width: 1000, font: font, lines: 1).width
+            let caption = measure("59m ago", width: 200, font: .systemFont(ofSize: 11), lines: 1).width
+            return CGSize(width: min(sayMaxWidth, max(text, caption) + 2 * sayPadX + 2), height: 12 + 14 + 3 + 19 + 12 + tailHeight)
         case .find:
             let full = thought.text.isEmpty ? thought.source : thought.source + ": " + thought.text
             // Measured in the semibold weight (the host is bold), which is the wider of the two.
@@ -130,6 +138,30 @@ struct CloudShape: Shape {
     }
 }
 
+/// A continuous rounded card with a small rounded tail under its bottom-left, pointing at the speaker's head.
+struct SpeechCardShape: InsettableShape {
+    var tail = true
+    var inset: CGFloat = 0
+    func inset(by amount: CGFloat) -> SpeechCardShape { var s = self; s.inset += amount; return s }
+    func path(in rect: CGRect) -> Path {
+        let r = rect.insetBy(dx: inset, dy: inset)
+        let th = tail ? BubbleMetrics.tailHeight : 0
+        let card = CGRect(x: r.minX, y: r.minY, width: r.width, height: r.height - th)
+        var p = Path(roundedRect: card, cornerRadius: 14, style: .continuous)
+        if tail {
+            let cx = r.minX + BubbleMetrics.tailX, y = card.maxY
+            var t = Path()
+            t.move(to: CGPoint(x: cx - 8, y: y - 1))
+            t.addQuadCurve(to: CGPoint(x: cx - 3, y: y + th - 1), control: CGPoint(x: cx - 4, y: y + 1))
+            t.addQuadCurve(to: CGPoint(x: cx + 4, y: y + th * 0.55), control: CGPoint(x: cx - 1, y: y + th + 1))
+            t.addQuadCurve(to: CGPoint(x: cx + 8, y: y - 1), control: CGPoint(x: cx + 5, y: y + 2))
+            t.closeSubpath()
+            p.addPath(t)
+        }
+        return p
+    }
+}
+
 enum StageColors {
     static let accent = Color(red: 0x4B / 255, green: 0x4A / 255, blue: 0xCF / 255)
     static let accentDark = Color(red: 0xA9 / 255, green: 0xA8 / 255, blue: 1)
@@ -163,8 +195,8 @@ struct CrewBubbleView: View {
     var body: some View {
         Group {
             switch thought.kind {
-            case .dots: cloud { dots }
-            case .say: cloud { sayContent }
+            case .dots: speechCard { dots }
+            case .say: speechCard { sayContent }
             case .find: card
             }
         }
@@ -197,13 +229,13 @@ struct CrewBubbleView: View {
     }
 
     private var sayContent: some View {
-        let t = typed(thought.text, after: 0.55)
-        return VStack(spacing: 3) {
-            label
-            if motion, live, age < 0.55 { dots }
-            else { (Text(t.text) + caret(t.done)).font(.system(size: 16)).lineSpacing(BubbleMetrics.extraLeading).lineLimit(3).multilineTextAlignment(.center).foregroundStyle(inkColor) }
+        VStack(alignment: .leading, spacing: 3) {
+            Text(ago).font(.system(size: 11)).foregroundStyle(StageColors.quiet).lineLimit(1)
+            Text(thought.text).font(.system(size: 14, weight: .medium)).foregroundStyle(inkColor)
+                .lineLimit(1).truncationMode(.tail)
         }
-        .frame(width: size.width - 40)
+        .padding(.horizontal, BubbleMetrics.sayPadX)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var dots: some View {
@@ -218,18 +250,17 @@ struct CrewBubbleView: View {
         .padding(.vertical, 4)
     }
 
-    private func cloud<C: View>(@ViewBuilder _ content: () -> C) -> some View {
-        content()
-            .frame(width: size.width, height: size.height)
-            .background {
-                let shape = CloudShape()
-                let edge: Color = dark ? (live ? Color(red: 130 / 255, green: 128 / 255, blue: 1).opacity(0.6) : .white.opacity(0.14)) : .clear
-                shape.fill(dark ? StageColors.darkGlass.opacity(0.82) : .white)
-                    .overlay { shape.stroke(edge, lineWidth: 1) }
-                    .frame(width: size.width + 4, height: size.height - 4)
-                    .shadow(color: dark ? (live ? Color(red: 110 / 255, green: 108 / 255, blue: 1).opacity(0.45) : .black.opacity(0.45)) : Color(red: 60 / 255, green: 50 / 255, blue: 110 / 255).opacity(0.14),
-                            radius: dark ? (live ? 12 : 10) : 9, y: dark && live ? 0 : 5)
-            }
+    /// The clean speech card: the app's glass in a continuous rounded shape, a hairline edge, a soft shadow, and a small tail
+    /// (only on the live one) toward the speaker's head.
+    private func speechCard<C: View>(@ViewBuilder _ content: () -> C) -> some View {
+        let shape = SpeechCardShape(tail: live)
+        return content()
+            .padding(.bottom, live ? BubbleMetrics.tailHeight : 0)
+            .frame(width: size.width, height: size.height - (live ? 0 : BubbleMetrics.tailHeight))
+            .glassPanel(in: shape)
+            .overlay { shape.strokeBorder(Color.white.opacity(dark ? 0.08 : 0.5), lineWidth: 0.5) }
+            .shadow(color: .black.opacity(dark ? 0.35 : 0.12), radius: 10, y: 4)
+            .frame(width: size.width, height: size.height, alignment: .top)
     }
 
     private var card: some View {
