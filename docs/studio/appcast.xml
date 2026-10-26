@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.22.5 beta 1</title>
+      <pubDate>Mon, 26 Oct 2026 05:55:08 GMT</pubDate>
+      <description><![CDATA[<ul><li>Setting up a film is one screen: click any answer to open a single set-up sheet with every option in view. Speed, quality, motion and Brand are no longer hidden under More settings.</li><li>The Ask Rasan chat tucks back into the bar when you close it, so there is never a second Ask Rasan box on screen.</li></ul>]]></description>
+      <sparkle:version>56</sparkle:version>
+      <sparkle:shortVersionString>0.22.5</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.22.5-beta.1/RasanAI-Studio-0.22.5.dmg" sparkle:edSignature="Z63QrPSda0QHbvSmvwWlW/mJLHxrVRcl4+cy+BWN11zbYmhk5xyjLDFD7/G6c9b3KnD9VGjB45LRsgsOeMMhDg==" length="84512439" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.22.4 beta 1</title>
       <pubDate>Mon, 26 Oct 2026 05:30:16 GMT</pubDate>
       <description><![CDATA[<ul><li>The sidebar and floating panels no longer show a ghostly reflection of what is behind them; they just pick up a soft tint, like glare.</li><li>Fixed the "You're now on…" card that came back after pressing Got it.</li><li>The update screen always shows where it is: four steps, a progress bar, and a time estimate. If installing stalls it tells you why and offers Restart now, Try again or a manual download.</li></ul>]]></description>
