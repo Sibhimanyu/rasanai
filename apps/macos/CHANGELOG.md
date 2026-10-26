@@ -2,6 +2,11 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- Updating restarts RasanAI by itself: the app now closes and reopens in the new version without you pressing anything, and if it ever needs a hand, the window says what it is waiting for.
+- The update window now says it can take up to a minute on Macs with security software, and keeps counting so you can see it is not stuck.
+
 ## 0.22.7 (build 58) — 2026-10-26
 
 - The strip above each step ('Call 5 of 5 · Final…') is gone. What it said now lives in the bottom bar: a small Preview/Final tag, and hovering the main button tells you what it will do. The page gets that row of space back.

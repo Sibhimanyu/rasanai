@@ -119,9 +119,13 @@ struct StudioUpdateView: View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let elapsed = max(0, Int(context.date.timeIntervalSince(updater.installStartedAt ?? context.date)))
             VStack(alignment: .leading, spacing: 6) {
-                ProgressView(value: min(Double(elapsed) / 30, 0.95))
-                Text("\(elapsed) s · usually under 30 seconds (estimate)")
+                ProgressView(value: min(Double(elapsed) / 60, 0.95))
+                Text("\(elapsed) s · usually under a minute (estimate)")
                     .font(.system(size: 12)).monospacedDigit().foregroundStyle(.secondary)
+                if elapsed >= 8 {
+                    Text("Swapping in the new version can take up to a minute on managed Macs, because security software scans the new app first.")
+                        .font(.system(size: 11)).foregroundStyle(.tertiary)
+                }
             }
         }
         switch updater.installStall {
@@ -130,7 +134,7 @@ struct StudioUpdateView: View {
         case .waitingToClose(let reason):
             VStack(alignment: .leading, spacing: 4) {
                 Text("RasanAI is waiting to close").font(.system(size: 13, weight: .semibold))
-                Text(reason.isEmpty ? "A window or question may still be open. Close it, or press Restart now." : reason)
+                Text(reason.isEmpty ? "RasanAI is finishing up. If this doesn't move, press Restart now." : reason)
                     .font(.system(size: 12)).foregroundStyle(.secondary)
             }
             buttons {
