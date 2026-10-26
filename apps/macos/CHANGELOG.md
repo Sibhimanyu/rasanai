@@ -2,7 +2,7 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
-## Unreleased
+## 0.24.3 (build 65) — 2026-10-26
 
 - **Bundles RasanAI 1.29.0:** creative briefs and automatic references, proof checks, strict approval checks for new films, and the medium-aware Look options and checks.
 - The earlier installed Studio carried an older engine; this build brings it level with the skill.
