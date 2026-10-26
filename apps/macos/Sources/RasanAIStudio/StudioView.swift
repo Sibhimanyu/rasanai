@@ -139,6 +139,7 @@ struct StudioView: View {
         }
         .onAppear { introduceFeedback(); showWhatsNewIfNeeded() }
         .onChange(of: updater.presentRequest) { store.sheet = .update }
+        .onChange(of: updater.dismissRequest) { if store.sheet == .update { store.sheet = nil } }
         .onChange(of: store.sheet) { showWhatsNewIfNeeded() }
         .onChange(of: store.settings.showWelcome) {
             if store.settings.showWelcome { store.sheet = .welcome }
