@@ -6,9 +6,13 @@ Desktop releases are separate from RasanAI skill releases.
 
 - Setting up a film is one screen: click any answer to open a single set-up sheet with every option in view. Speed, quality, motion and Brand are no longer hidden under More settings.
 - The Ask Rasan chat tucks back into the bar when you close it, so there is never a second Ask Rasan box on screen.
+
+## 0.22.4 (build 55) — 2026-10-26
+
 - The sidebar and floating panels no longer show a ghostly reflection of what is behind them; they just pick up a soft tint, like glare.
 - Fixed the "You're now on…" card that came back after pressing Got it.
 - The update screen always shows where it is: four steps, a progress bar, and a time estimate. If installing stalls it tells you why and offers Restart now, Try again or a manual download.
+- **Bundles RasanAI 1.27.0.**
 
 ## 0.22.3 (build 54) — 2026-10-26
 
