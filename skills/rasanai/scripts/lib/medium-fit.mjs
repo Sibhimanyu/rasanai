@@ -36,7 +36,7 @@ function constraintBlocks(c, p) {
 
 // Proof policy values per need kind (profile.proof_policy keys use underscores: exact_ui, protected_text, ...).
 const POLICY_KEY = { "exact-ui": "exact_ui", "protected-text": "protected_text", "exact-copy": "protected_text", "claim": "claim_mutation", "data": "data_precision" };
-const NEEDS_LAYER = new Set(["readable-or-separate-layer", "separate-layer", "proof-layer"]);
+const NEEDS_LAYER = new Set(["readable-or-separate-layer", "separate-layer", "proof-layer", "separate-full-resolution-layer"]);
 const ASSESS = new Set(["assess-legibility", "assess"]);
 const UNSUPPORTED = new Set(["unsupported", "blocked", "forbidden-native"]);
 
@@ -71,14 +71,17 @@ export function assessMediumEligibility(profile, assignment, resources = {}) {
   const state = low(p.state);
   if (["planned", "reference_only", "reference-only"].includes(state) && !p.capability_ref)
     reasons.push(reason("not_buildable", p.id ?? null, "reference or planned only: no registered implementation, so it cannot be advertised as buildable", "hard"));
+  else if (["disabled", "unavailable_here", "not_permitted"].includes(state) && !p.capability_ref)
+    reasons.push(reason(state, p.id ?? null, `profile state is ${state} and no capability record resolves it`, "hard"));
   const caps = arr(r.capabilities).concat(arr(a.capabilities));
   const cap = p.capability_ref ? caps.find((c) => isObj(c) && (c.id === p.capability_ref || c.ref === p.capability_ref)) : null;
   if (p.capability_ref && !cap) reasons.push(reason("capability_unknown", p.capability_ref, "no capability record supplied; not probing", "unknown"));
   if (cap) {
     if (cap.permitted === false) reasons.push(reason("not_permitted", cap.id || p.capability_ref, str(cap.reason, "not permitted by the current workflow"), "hard"));
     if (cap.enabled === false) reasons.push(reason("disabled", cap.id || p.capability_ref, str(cap.reason, "disabled"), "hard"));
-    if (cap.implemented === false || cap.available === false) reasons.push(reason("unavailable_here", cap.id || p.capability_ref, str(cap.reason, "not implemented or not available on this host"), "hard"));
+    if (cap.implemented === false || (cap.available === false && !(low(cap.state) === "implemented_unvalidated" && cap.api_note))) reasons.push(reason("unavailable_here", cap.id || p.capability_ref, str(cap.reason, "not implemented or not available on this host"), "hard"));
     for (const k of ["implemented", "available", "enabled", "permitted"]) if (cap[k] === undefined) reasons.push(reason("capability_unknown", `${cap.id || p.capability_ref}.${k}`, `${k} not recorded`, "unknown"));
+    if (low(cap.state) === "implemented_unvalidated" && str(cap.api_note || cap.reason)) reasons.push(reason("runtime_api_unconfirmed", cap.id || p.capability_ref, str(cap.api_note || cap.reason), "condition"));
     if (cap.verified !== true) reasons.push(reason("unverified", cap.id || p.capability_ref, "not verified for this scope; usable only as unvalidated", "info"));
   }
   const pol = isObj(r.policy) ? r.policy : {};
@@ -191,7 +194,7 @@ export function selectMediumShortlist({ candidates, assessments, requestedCount,
     let best = null, bestScore = null;
     for (const x of remaining) {
       const gain = picked.length ? Math.min(...picked.map((y) => (sameFamily(x.c, y.c) ? 0 : 2) + diffCount(x.c, y.c) + (low(x.c.treatment_id) !== low(y.c.treatment_id) ? 1 : 0))) : 0;
-      const adequate = x.rank[0] >= 0 ? 1 : 0; // adequate proof/fit before novelty
+      const adequate = (x.rank[0] > 0 || x.c.user_requested) ? 1 : 0; // adequate proof/fit before novelty
       const score = [Number(!!x.c.user_requested), adequate, strictBrand ? 0 : gain, x.e.state === "eligible" ? 1 : 0, -Number(x.recentHit)];
       const lex = !best ? 1 : (score.map((v, i) => v - bestScore[i]).find((dv) => dv !== 0) || 0);
       if (lex > 0) { best = x; bestScore = score; }

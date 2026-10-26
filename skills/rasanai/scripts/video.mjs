@@ -179,12 +179,18 @@ if (cmd === "init") {
   // Part 2 (medium-native films only): the chosen Look's medium contract (--run <run>: look/medium.json, else the chosen label's candidate; or --medium <medium.json>)
   // names the runtime files the scenes call; they land in assets/rasan-medium/ with only that execution's examples (and assets/rasan2d/ for a cel contract). No contract: nothing is copied.
   let mediumRt = null;
-  if ((args.medium && args.medium !== true) || (args.run && args.run !== true)) {
+  // no --run / --medium, but the project sits under <run>/videos/ and that run has look/medium.json: the run is the project's run
+  let runArg = args.run && args.run !== true ? String(args.run) : null;
+  if (!runArg && !(args.medium && args.medium !== true)) {
+    const parent = path.dirname(dir), cand = path.dirname(parent);
+    if (path.basename(parent) === "videos" && fs.existsSync(path.join(cand, "look", "medium.json"))) runArg = cand;
+  }
+  if ((args.medium && args.medium !== true) || runArg) {
     let MW = null, mc = null;
     try {
       MW = await import("./lib/medium-wiring.mjs");
       if (args.medium && args.medium !== true) mc = JSON.parse(fs.readFileSync(path.resolve(String(args.medium)), "utf8"));
-      else if (args.run && args.run !== true) mc = MW.mediumContractFor(path.resolve(String(args.run)));
+      else if (runArg) mc = MW.mediumContractFor(path.resolve(runArg));
     } catch { mc = null; }
     if (MW && MW.isMediumContract(mc) && MW.RUNTIME_FILES[mc.execution_id]) {
       const sk = path.join(HERE, ".."), md = path.join(dir, "assets", "rasan-medium"), copied = [], missing = [];

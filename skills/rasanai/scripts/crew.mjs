@@ -322,7 +322,7 @@ function creativePhasePass(phases, { brandLook = false, seriesLook = false } = {
   const ad = by("animatic-draft");
   if (ad) ad.when += " (new creative policy: the Storyboard review was approved BEFORE the build, so this push shows the built draft for notes and the Final; it is not the build's approval)";
   // after the user's Story choice, then after the Look choice: a NEW brief revision (the previous one kept), references re-picked, pins only for what the user really confirmed
-  before(["design-systems", "design-system", "look-series", "look-auto"], { phase: "creative-revise-story", stage: "look", when: "after the user's Story choice and BEFORE the design desk: update the creative brief as a new revision (never a silent rewrite of approved intent)", dispatch: [], director_steps: ["node scripts/crew.mjs creative revise --run <run> --mode story   (refuses until a consumed Story choice exists: a prepared story/chosen.json is not approval)"], then: "the design desk reads creative/brief.json" });
+  before(["design-systems", "design-system", "look-series", "look-auto"], { phase: "creative-revise-story", stage: "look", when: "after the user's Story choice and BEFORE the design desk: update the creative brief as a new revision (never a silent rewrite of approved intent)", dispatch: [], director_steps: ["node scripts/crew.mjs creative revise --run <run> --mode story   (refuses until a consumed Story choice exists: a prepared story/chosen.json is not approval)", "write creative/medium-judgments.json (shape in references/medium-direction.md), then run: node scripts/crew.mjs creative medium-select --run <run> --judgments creative/medium-judgments.json   (without it the Looks are ordinary Looks)", "if the user named or excluded a medium, record it in decisions.medium_direction through the existing decisions edit, citing the real action id of their answer"], then: "the design desk reads creative/brief.json" });
   before(["concept-gate", "thumbs", "art", "character-design", "styleframes"], { phase: "creative-revise-look", stage: "storyboard", when: "after the user's Look choice, before the concept gate and the full boards", dispatch: [], director_steps: ["node scripts/crew.mjs creative revise --run <run> --mode look   (pins the confirmed Story and Look; re-picks references with both known)", "bind each signature event to the selected look strategy, to beats and, once the boards exist, to shot ids (creative/brief.json); node scripts/crew.mjs creative check --run <run> --stage look"], then: "the concept gate, then the post-Look styleframe designer draws the selected boards" });
   // a Look the Director prepared itself (brand or series) is NOT approval: the user confirms it through the existing Look call
   const lk = by("look-auto") || by("look-series");
@@ -522,14 +522,14 @@ function planCrew(p) {
     if (p.direct) {
       // ONE author for a short film (45 s or less, or a single-feature launch): the film builder writes the root and every
       // beat in one pass, so objects carry across beats by construction. No parallel animators, no seam pass.
-      phases.push({ phase: "build", when: "after the workflow's frame-packets.mjs and video.mjs inject (the plan is accepted)", dispatch: [d("film-builder", "film")], then: "motion-gate.mjs on the project, the draft render, motion-gate.mjs on the draft, then the animatic call on the draft" });
+      phases.push({ phase: "build", when: "after the workflow's frame-packets.mjs and video.mjs inject --run \"$RUN\" (the plan is accepted)", dispatch: [d("film-builder", "film")], then: "motion-gate.mjs on the project, the draft render, motion-gate.mjs on the draft, then the animatic call on the draft" });
       phases.push({ phase: "animatic-draft", when: "after the first draft render passes the motion gate: the Animatic call shows the built film (the boards were approved before the score)", dispatch: [], director_steps: ["stills of the draft at each beat's midpoint (crew.mjs strip --file <draft.mp4> --at <midpoints>) as the scenes' thumbs", "push animatic with scenes [{id, title, line, visual, duration, thumb}], audio = the draft's own mix (or music.file = the bed) and video = <draft.mp4>", "notes come back by beat: route them to the film builder, re-render, re-run the gate; approve -> the critics and the Final"], then: "the critics on the approved draft" });
       const review = lean ? [d("critic", "film-1")] : full ? [d("critic", "motion-1"), d("critic", "grounding-1")] : [d("critic", "motion-1"), d("critic", "film-1")];
       phases.push({ phase: "review", when: "after the build and the draft render; motion-gate.mjs has run on the draft (a critic never judges without a render and the gate's report)", dispatch: review, then: "route each finding back to the film builder (" + FRT + " at most; carry each critic's strengths[] into the fix brief as what to keep)" + (full ? "; film critic on the draft" : "") });
     } else {
       // a longer film keeps parallel animators, but every object that crosses a seam belongs to the lead builder (one object
       // on one tween in the root), and the seam contract hands over a moving state (velocity, direction), never a pose at rest
-      phases.push({ phase: "lead", when: "after the workflow's frame-packets.mjs and video.mjs inject, before the scene animators: the root, the ground and every carrier (an object that crosses a cut; story/moves.json's `carrier` is the one it builds first) on its own track", dispatch: [d("film-builder", "lead")], then: "the scene animators, who build around the carriers' landing rects" });
+      phases.push({ phase: "lead", when: "after the workflow's frame-packets.mjs and video.mjs inject --run \"$RUN\", before the scene animators: the root, the ground and every carrier (an object that crosses a cut; story/moves.json's `carrier` is the one it builds first) on its own track", dispatch: [d("film-builder", "lead")], then: "the scene animators, who build around the carriers' landing rects" });
       // spike before fan-out: ONE hero scene is animated, drafted and gated first; what it teaches goes into every other animator's brief
       const spike = p.spike ? String(p.spike) : null;
       phases.push({ phase: "spike", when: "after the lead builder's carriers are in, BEFORE the other animators: one hero scene (" + (spike ? "scene " + spike : "the peak beat's scene: the intent's peak, else the first used hero move") + ") is built, rendered as a draft and gated", dispatch: [d("scene-animator", spike || "<hero scene>")], director_steps: ["crew.mjs brief --role scene-animator --key <hero scene> (its brief says it is the spike), dispatch it, crew.mjs check", "assemble the index with that one scene, render a DRAFT of it (the project's draft render), run motion-gate.mjs on the draft and crew.mjs strip --file <draft.mp4> around its primary move and its seams; look at it", "the spike must pass the gate and be a scene you would show; one fix round on the same animator if not. The rest of the fan-out waits for this: a wrong approach found here costs one scene, not all of them"], then: "animate: the other scene animators get the spike's composition as a worked example of the finish and the rhythm (crew.mjs brief adds it)" });
@@ -812,6 +812,7 @@ function mediumContext(run, role, key, P, ctx, I, O) {
     return;
   }
   if (role === "design-system-designer") {
+    ctx.medium_direction_note = "a medium the user named or excluded is recorded by the Director in decisions.medium_direction (existing decisions edit, citing a real action id); honour it, never override it";
     let asg = null, err = null;
     try { asg = labelAssignments(run, mediumLib())[key] || null; } catch (e) { err = e.message; }
     const sel = readSelection(run);
@@ -887,6 +888,7 @@ function creativeContext(run, role, key, P, ctx, I, O) {
     if (ps) ctx.proof_review_inputs = ps.reviewInputs.map((x) => ({ contract_id: x.contract_id, beat_id: x.beat_id }));
   }
   if (role === "motion-director" && key !== "seams") { O(R(run, "creative", "execution-map.json")); ctx.execution_map = "write creative/execution-map.json ({events:[{event_id, beat_id, shot_ids, board_refs, source_files, sample_times_s, produced_artifact_refs, input_digest, declared_deviations}]}) for every signature event of the brief: shot ids from THIS score, the board it grows from, sample times in film seconds from the score; traceability only (it owns no timing); crew.mjs check verifies it"; }
+  if ((role === "film-builder" || role === "scene-animator") && !(role === "film-builder" && key === "lead")) { I("execution map (the Motion Director's event rows)", R(run, "creative", "execution-map.json")); O(R(run, "creative", "execution-map.json")); ctx.execution_map_rule = "creative/execution-map.json is shared: edit ONLY your own event rows (the events whose shot_ids are your scene's) and fill their produced_artifact_refs; never rewrite or drop another builder's rows (parallel animators write the same file); a difference from the plan goes in that row's declared_deviations"; }
   if (role === "frame-juror") {
     const rn = Number(String(key || "frames-1").split("-").pop()) || 1;
     O(R(run, "creative", "reviews", `storyboard-r${rn}.json`));
@@ -1627,6 +1629,7 @@ function promptFor(run, role, key, plan) {
   let dare = DARES[role === "motion-director" && key === "seams" ? "seams" : role];
   if (role === "visual-writer" && plan && plan.prefs && plan.prefs.pictures) dare = `Do the owner's chosen style (${plan.prefs.pictures}) better than the other two writers, inside it. Showing off here is the choice of what to show, the framing and the timing, never a different style: ${plan.prefs.pictures === "literal" ? "no world, no metaphor, no second meaning; the thing itself, the real thing wherever one exists (a real book, a real product, a real place), well chosen and well framed" : plan.prefs.pictures === "world" ? "one running world, kept, and changed as the argument changes" : "pictures that add a second meaning"}.`;
   if (dare && ctx.product_first) dare += " On this product-first film, showing off is craft only (motion, UI choreography, rhythm, the real product moving like nothing else): a letter or shape transformation that lands on the real product (its UI, its mark) is craft and is wanted, full frame and fast; never a conceit, a metaphor, an invented world or a prop standing in for the product. A show-off idea that never resolves to the product fails.";
+  if (dare && ["scene-animator", "film-builder", "styleframe-designer", "frame-designer"].includes(role) && chosenMedium(run)) dare += " Show off inside the selected medium's native actions and layers only; where the contract's text, motion or finish policies are locked or sharp, ignore camera drift, depth of field, motion blur, grain, glow and word-choreography advice above.";
   const base = `${shared}\n\n---\n\n${roleText}\n\n---\n\n${lines.join("\n")}${extra}\n`;
   // the prompt adapts to the model that runs the member (same goal and bar; different wording and scaffolding)
   return { text: adapt({ role, text: base, dare, profile: modelOf(plan) }), ctx, inputs, outputs };
@@ -2172,6 +2175,15 @@ function creativePolicyFor(run, doc, label = null) {
 }
 const eventIds = (b) => (Array.isArray(b && b.signature_events) ? b.signature_events : []).filter((e) => e && e.id).map((e) => String(e.id));
 // the Motion Director writes creative/execution-map.json; builders complete produced_artifact_refs. Metadata proves traceability, never that the event works (validateCreativeHandoff says so too).
+// a chosen medium contract must be CALLED by the scene: its runtime dir exists in the project and a composition references it (the dir or the contract's factory global); gated on a chosen medium, so legacy runs are untouched
+const MEDIUM_FACTORY_GLOBALS = ["RasanMediumSurface", "RasanMediumGraphic", "RasanMediumPaper", "RasanPixel", "RasanPixelCompanion", "MediumCel", "MediumIsometric"];
+function mediumRuntimeProblems(run, pj, P) {
+  if (!pj || !chosenMedium(run)) return;
+  let called = false;
+  const walk = (d, depth) => { if (called || depth > 4 || !exists(d)) return; for (const f of fs.readdirSync(d, { withFileTypes: true })) { if (called) return; const fp = path.join(d, f.name); if (f.isDirectory()) { if (f.name !== "assets" && f.name !== "node_modules") walk(fp, depth + 1); } else if (f.name.endsWith(".html")) { const t = readMaybe(fp) || ""; if (t.includes("rasan-medium/") || MEDIUM_FACTORY_GLOBALS.some((g) => t.includes(g))) called = true; } } };
+  walk(pj, 0);
+  if (!exists(path.join(pj, "assets", "rasan-medium")) || !called) P.push("medium contract chosen but the scene does not call its runtime (assets/rasan-medium/ is missing, or no composition references rasan-medium/ or the contract's factory global): run video.mjs inject --project-dir <dir> --run <run> and call the registered factory, never a hand-drawn imitation");
+}
 function creativeTraceProblems(run, role, key, P, W) {
   if (!["motion-director", "film-builder", "scene-animator"].includes(role)) return;
   if ((role === "motion-director" && key === "seams") || (role === "film-builder" && key === "lead")) return;
@@ -2200,6 +2212,7 @@ function creativeTraceProblems(run, role, key, P, W) {
     if (!(Array.isArray(r.shot_ids) && r.shot_ids.length)) P.push(`execution-map ${e.id}: no shot_ids (name the score shots that carry it)`);
     else if (sceneShots.size) for (const sid of r.shot_ids) if (!sceneShots.has(String(sid))) P.push(`execution-map ${e.id}: shot ${sid} is not a shot of the current score (a stale map)`);
     for (const t of Array.isArray(r.sample_times_s) ? r.sample_times_s : []) if (dur && Number(t) > dur + 0.05) P.push(`execution-map ${e.id}: sample time ${t} s is past the film (${dur} s): times are film seconds from the score`);
+    if (Array.isArray(r.declared_deviations) && r.declared_deviations.some((x) => x && (typeof x !== "string" || x.trim()))) W.push(`execution-map ${e.id}: declared deviation(s) from the plan: ${r.declared_deviations.map((x) => typeof x === "string" ? x : JSON.stringify(x)).join("; ").slice(0, 200)} (a warning, not a block: the critic and the user judge whether it holds)`);
     if (role !== "motion-director" && !(Array.isArray(r.produced_artifact_refs) && r.produced_artifact_refs.length) && !(Array.isArray(r.declared_deviations) && r.declared_deviations.length)) P.push(`execution-map ${e.id}: the builder lists no produced artifact and no declared deviation: "done" is not a result (add produced_artifact_refs, or declare what differs and why)`);
   }
   // the helper's own contract checks (fields, stale pins, unmapped events, missing artifacts); no render observation is supplied here, so any visual question stays "not assessable"
@@ -2216,6 +2229,7 @@ function creativeTraceProblems(run, role, key, P, W) {
 // the script editor's meaning check: mechanical proof errors block; the semantic review must exist, be independent, current and complete (validateProofReview never judges correctness)
 function creativeEditorProblems(run, P, W) {
   const ps = proofState(run);
+  if (!ps && exists(R(run, "creative", "brief.json"))) { const br = jsonMaybe(R(run, "creative", "brief.json")) || {}; if ((Array.isArray(br.signature_events) ? br.signature_events : []).some((e) => e && /proof|demonstrat|calculat|transform/i.test(`${e.kind || ""} ${e.type || ""}`))) P.push("story/proof-contracts.json is missing but the brief has a demonstration (proof) signature event: record a proof contract for every beat that shows a changed sentence, a calculation or a rule"); }
   if (!ps || !ps.contracts.length) return;
   for (const e of ps.mechanical) P.push(`proof ${e.contract || "?"}: ${e.code}: ${e.message}`);
   if (!ps.reviewInputs.length) return;
@@ -2669,6 +2683,7 @@ async function checkRole(run, role, key) {
     }
     case "motion-director": {
       if (CP) creativeTraceProblems(run, role, key, P, W);
+      if (CP && key !== "seams") { const sc0 = jsonMaybe(R(run, "motion", "score.json")); if (sc0 && !(sc0.creative_policy_revision || (sc0.creative && sc0.creative.policy_revision))) P.push('motion/score.json has no creative_policy_revision (set "creative_policy_revision": 1, or "creative": {"policy_revision": 1}): without it motion-gate and obey fall back to the legacy severities'); }
       if (key !== "seams" && brandFilm(run)) {
         const sj = readMaybe(R(run, "motion", "score.json")) || "";
         if (!/FILM-STYLE|film_style/i.test(sj)) P.push('score.json must cite the brand film card: set "film_style": "brand-film/FILM-STYLE.md" and keep every scene inside its motion vocabulary');
@@ -2834,6 +2849,7 @@ async function checkRole(run, role, key) {
     case "scene-animator": {
       if (!pj) { P.push("--project <videos/name> required"); break; }
       if (CP) creativeTraceProblems(run, role, key, P, W);
+      mediumRuntimeProblems(run, pj, P);
       if (PRES_KEY.test(String(key))) {
         const pl = key.startsWith("plate-"), sub = pl ? "plates" : "graphics", nm = pl ? key.slice(6) : key;
         const gf = path.join(pj, "compositions", sub, `${nm}.html`);
@@ -2902,6 +2918,7 @@ async function checkRole(run, role, key) {
       if (!pj) { P.push("--project <videos/name> required"); break; }
       const k = key || "film", lead = k === "lead";
       if (CP) creativeTraceProblems(run, role, k, P, W);
+      if (!lead) mediumRuntimeProblems(run, pj, P);
       {
         // a project that draws a recurring character in Rasan2D is held to stage2d.mjs check
         const { projectUsesRasan2d } = await import("./lib/stage2d.mjs");
@@ -3430,6 +3447,8 @@ const CREATIVE_NEEDS_STORY_MODE = new Set(["design-system-designer", "styleframe
 // Part 2: write creative/medium-selection.json (pins: the confirmed Brief and Story digests; registry_digest = the medium index source_digest) from the run's own evidence and the Director's optional
 // creative/medium-judgments.json. Needs the user's confirmed Story (a pin); without it nothing is written. Never approves anything.
 function mediumSelect(run, { judgmentsFile = null, requestedCount = null } = {}) {
+  requestedCount = Math.max(3, Number(requestedCount) || 3);
+  if (!judgmentsFile && !exists(R(run, "creative", "medium-judgments.json"))) return { ok: false, summary: { state: "waiting", reason: "creative/medium-judgments.json is missing: the Director judges the medium candidates first (references/medium-direction.md), then runs crew.mjs creative medium-select --judgments; until then the Looks proceed as ordinary Looks (no judgment-free picks)" } };
   const pins = approvalPins(run);
   if (!pins.story) return { ok: false, summary: { state: "waiting", reason: "the Story is not confirmed yet (no consumed Story choice): the medium shortlist is cut from the approved Story, so nothing was written" } };
   const dec = jsonMaybe(R(run, "decisions.json")) || {};
@@ -3486,7 +3505,7 @@ function creativeCommand(run, sub) {
     out({ ok: r.ok, stage, state: r.state, errors: r.errors, warnings: r.warnings, missing: r.missing, note: "form only: a valid brief is not a good one and grants no approval" }, r.ok ? 0 : 2);
   } else if (sub === "medium-select") {
     // Part 2: the Director's recommendation for the Look jobs (creative/medium-selection.json). It approves nothing, adds no stage or action, and leaves the Look count as planned.
-    const r = mediumSelect(run, { judgmentsFile: args.judgments && args.judgments !== true ? path.resolve(String(args.judgments)) : null, requestedCount: Number(args.count) || null });
+    const r = mediumSelect(run, { judgmentsFile: args.judgments && args.judgments !== true ? path.resolve(String(args.judgments)) : null, requestedCount: Math.max(3, Number(args.count) || 3) });
     out({ ok: r.ok, ...r.summary, ...(r.ok ? { note: "a recommendation only: the shortlist feeds the existing Look design jobs (labels in order); the user still chooses the Look" } : {}) }, r.ok ? 0 : 2);
   } else if (sub === "revise") {
     const r = reviseCreative(run, { skillDir: SKILL_DIR, mode: str(args.mode) || "story" });

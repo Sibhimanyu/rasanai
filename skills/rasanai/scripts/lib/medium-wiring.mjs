@@ -25,6 +25,7 @@ import { assessMediumEligibility, assessMediumFit, selectMediumShortlist, buildM
 import { validateMediumContract, mediumContractDigest, mediumContractCurrent, MEDIUM_FORMAT } from "./medium-contract.mjs";
 import { resolveMediumRules } from "./medium-rules.mjs";
 import { storyDigest } from "./storyboard.mjs";
+import { approvalPins } from "./creative-run.mjs";
 
 const arr = (x) => (Array.isArray(x) ? x : []);
 const isObj = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
@@ -49,7 +50,7 @@ export function flatCapabilities(registry) {
   return rows.filter((c) => c && c.id).map((c) => {
     const v = (k) => (isObj(c[k]) && "value" in c[k] ? !!c[k].value : typeof c[k] === "boolean" ? c[k] : undefined);
     const why = ["implemented", "available", "enabled", "permitted"].map((k) => (isObj(c[k]) && c[k].value === false ? c[k].reason : "")).filter(Boolean)[0] || "";
-    return { id: c.id, implemented: v("implemented"), available: v("available"), enabled: v("enabled"), permitted: v("permitted"), verified: v("verified"), reason: why };
+    return { id: c.id, implemented: v("implemented"), available: v("available"), enabled: v("enabled"), permitted: v("permitted"), verified: v("verified"), reason: why, ...(c.state ? { state: c.state } : {}), ...(c.api_note ? { api_note: c.api_note } : {}) };
   });
 }
 // the same rows keyed by capability id AND execution id (medium-contract capOf reads either)
@@ -64,6 +65,8 @@ export const profileDigest = (rec) => canonicalDigest({ id: rec.id, family_id: r
 // ---------------------------------------------------------------------------------------------------- the assignment (transient)
 const briefFields = (run) => { const b = rj(P(run, "brief.json")) || {}; return b.fields && isObj(b.fields) ? { ...b, ...b.fields } : b; };
 const storyDoc = (run) => rj(P(run, "story", "chosen-treatment.json")) || rj(P(run, "story", "intent.json")) || rj(P(run, "story", "chosen.json")) || null;
+const LOCALE_SCRIPT = { ta: "tamil", hi: "devanagari", mr: "devanagari", ar: "arabic", he: "hebrew", zh: "cjk", ja: "cjk", ko: "cjk", fa: "arabic", ur: "arabic" };
+const scriptFromLocale = (loc) => LOCALE_SCRIPT[T(loc).toLowerCase().split(/[-_]/)[0]] || null;
 export function buildAssignment(run, { caps = [], pins = {} } = {}) {
   const f = briefFields(run), story = storyDoc(run) || {}, dec = rj(P(run, "decisions.json")) || {}, brief2 = rj(P(run, "brief.json")) || {};
   const briefing = rj(P(run, "research", "briefing.json")) || {};
@@ -78,7 +81,7 @@ export function buildAssignment(run, { caps = [], pins = {} } = {}) {
   const brandLocked = !!(dec.brand && dec.use_brand !== false);
   const brandC = isObj(dec.brand_constraints) ? dec.brand_constraints : {};
   const ud = isObj(dec.medium_direction) ? dec.medium_direction : {}; // written only by an explicit user request; no current writer produces it (KNOWN_LIMITS)
-  const destination = { aspect: T(brief2.aspect || f.aspect || dec.aspect) || null, viewing_size: T(brief2.destination || f.destination || dec.destination) || null, sound: T(f.sound) || null, script: T(f.script || f.locale_script) || null, locale: T(brief2.locale || brief2.language || f.locale) || null };
+  const destination = { aspect: T(brief2.aspect || f.aspect || dec.aspect) || null, viewing_size: T(brief2.destination || f.destination || dec.destination) || null, sound: T(f.sound) || null, script: T(f.script || f.locale_script || brief2.script || brief2.locale_script) || scriptFromLocale(T(brief2.locale || brief2.language || f.locale || f.language)) || null, locale: T(brief2.locale || brief2.language || f.locale) || null };
   const base = {
     brief_pin: pins.brief ? { digest: pins.brief.artifact_digest, revision: pins.brief.revision ?? 1 } : null,
     story_pin: pins.story ? { digest: pins.story.artifact_digest, revision: pins.story.revision ?? 1 } : null,
@@ -146,9 +149,19 @@ export function prepareMediumSelection(run, { pins = {}, judgmentsFile = null, r
 }
 export const readSelection = (run) => rj(P(run, "creative", "medium-selection.json"));
 // the selected candidates take the Look labels in order; a label beyond the selection is a legacy (non-medium) look. Returns {} when no selection exists.
+// why the stored selection no longer matches the run (story pin digest or constraints_revision changed), else null
+export function selectionStale(run, sel = readSelection(run)) {
+  if (!sel || !isObj(sel.pins)) return null;
+  const dg = (x) => (isObj(x) ? x.digest : x), spins = dg(sel.pins.story_pin) || null;
+  let cur = null; try { cur = (approvalPins(run) || {}).story || null; } catch { cur = null; }
+  if (spins && cur && cur.artifact_digest && spins !== cur.artifact_digest) return "story pin changed";
+  if (sel.pins.constraints_revision && sel.pins.constraints_revision !== buildAssignment(run, { caps: [], pins: {} }).constraints_revision) return "constraints_revision changed";
+  return null;
+}
 export function labelAssignments(run, med = null) {
   const sel = readSelection(run);
   if (!sel || !Array.isArray(sel.selected)) return {};
+  if (selectionStale(run, sel)) return {}; // a stale shortlist is never kept silently
   const idx = (med || loadMedium()).index;
   const out = {};
   sel.selected.forEach((cid, i) => {
@@ -186,6 +199,7 @@ export function checkMediumLook(run, label, { med = null, creative = true } = {}
   const assigned = creative && M ? labelAssignments(run, M)[label] : null;
   const blend = rj(P(run, "design", label, "blend.json")) || {};
   const applicable = !!(assigned || doc || Number(blend.medium_policy_revision) >= 1);
+  if (creative && !assigned) { const st = selectionStale(run); if (st) warnings.push(`creative/medium-selection.json is stale (${st}): re-run medium-select before any label takes a medium candidate`); }
   if (!applicable) return { applicable: false, state: "not_applicable", problems, warnings, limitations: [] };
   const why = (m) => problems.push(`needs-you: ${m}`);
   if (!doc) { if (has(file)) why(`design/${label}/medium.json is not valid JSON: the contract cannot be read, so this Look is not accepted (the designer rewrites it; nothing falls back to a typographic Look)`); else why(`design/${label}/medium.json is missing: this Look develops the medium candidate ${assigned ? assigned.candidate_id : "(declared by blend.json medium_policy_revision)"}; without the contract the Look cannot be accepted (references/medium-direction.md)`); return { applicable: true, state: "needs_you", problems, warnings, limitations: [] }; }

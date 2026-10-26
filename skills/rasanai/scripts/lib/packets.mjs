@@ -143,7 +143,7 @@ export function compilePacket(o) {
   let recipes = { shortlist: [], excluded: [], counts: null };
   if (cls !== "gather") {
     const kind = o.kind || brief.communication_kind || (brief.fields && brief.fields.communication_kind) || null;
-    recipes = shortlist({ kind, runtime: o.runtime || "dom-gsap", have_assets: o.have_assets || [], want: [role, key || "", brief.kind || ""], limit: cls === "write" ? 2 : 4, max_resource_class: o.max_resource_class });
+    recipes = shortlist({ kind, runtime: o.runtime || "dom-gsap", have_assets: o.have_assets || [], want: [role, key || "", brief.kind || ""], limit: cls === "write" ? 2 : 4, max_resource_class: o.max_resource_class, ...(o.ctx && o.ctx.medium && o.ctx.medium.profile_id ? { medium: o.ctx.medium.profile_id } : {}) });
     add("technique-shortlist", false, recipes.shortlist.map((r) => ({ id: r.id, layer: r.layer, path: r.path, limits: r.limits || undefined })));
   } else omitted.push({ id: "technique-shortlist", reason: "not applicable to a gathering task" });
 
@@ -169,6 +169,8 @@ export function compilePacket(o) {
     sections: sections.map((s) => s.id),
     // creative payload CONTENT and the full hashes of its visual inputs, so a changed board or event moves the packet; absent for a legacy run (its digest is unchanged)
     ...(creative && creative.creative ? { creative_digest: canonicalDigest({ sections: creative.mandatorySections.map((s) => [s.id, s.content]), visual: creative.requiredVisualInputs.map((v) => [v.path, v.sha256, v.target_shot, v.target_event]) }) } : {}),
+    // the medium projection (when the caller supplies one) moves the packet digest; absent for a legacy packet (its digest is unchanged)
+    ...(o.ctx && o.ctx.medium && typeof o.ctx.medium === "object" ? { medium_digest: canonicalDigest(o.ctx.medium) } : {}),
   };
   const packet_digest = canonicalDigest(body);
   const receipt = {

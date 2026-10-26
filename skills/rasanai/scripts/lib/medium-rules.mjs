@@ -37,7 +37,8 @@ export const CRAFT_QUALIFIERS = Object.freeze({
   "depth-of-field": { policy: "finish_policy.by_layer", test: (c, l) => sharpFinish(c, l) },
   "lighting-shadow": { policy: "finish_policy.by_layer", test: (c, l) => sharpFinish(c, l) },
   "grain-glow": { policy: "finish_policy.by_layer", test: (c, l) => sharpFinish(c, l) },
-  "multi-plane-depth": { policy: "layers[].medium", test: (c, l) => !!l && ["pixel", "sharp-ui", "flat", "line", "paper-flat"].includes(l.medium) },
+  "multi-plane-depth": { policy: "layers[].medium", test: (c, l) => !!l && (["pixel", "sharp-ui", "flat", "line", "paper-flat", "vector-flat", "isometric", "evidence-diagram", "diagram"].includes(l.medium) || (c.execution_id === "cel-performance" && ["cel", "painted-2d"].includes(l.medium)) || (["isometric-system", "evidence-diagram"].includes(c.execution_id) && l.medium === "vector-flat")) },
+  "dimensional-craft": { policy: "layers[].medium", test: (c, l) => !!l && (["pixel", "sharp-ui", "flat", "line", "paper-flat", "vector-flat", "isometric", "evidence-diagram", "diagram"].includes(l.medium) || (c.execution_id === "cel-performance" && ["cel", "painted-2d"].includes(l.medium))) },
 });
 
 const motionPolicy = (c) => (c && c.motion_policy && typeof c.motion_policy === "object" ? c.motion_policy : {});

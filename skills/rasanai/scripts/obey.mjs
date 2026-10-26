@@ -213,7 +213,10 @@ const BUDGETS = SCORE ? readBudget(SCORE) : [];
 // Creative recovery (W06): on the new creative policy (score.creative.policy_revision or creative_policy_revision) a curve-family COUNT is a profile, not a law: a restrained or
 // stepped film may sit on three families if no single curve dominates (dominant-ease and duration-grid still fail the machine tell). A legacy score is unchanged.
 const SC_CREATIVE = SCORE && SCORE.creative && typeof SCORE.creative === "object" ? SCORE.creative : {};
-const NEW_POLICY = !!(SCORE && (SCORE.creative_policy_revision || SC_CREATIVE.policy_revision));
+// the crew plan also carries the revision (crew/plan.json creative_policy_revision) when the run is known
+let PLAN_REV = null;
+try { if (args.run && args.run !== true) PLAN_REV = JSON.parse(fs.readFileSync(path.join(path.resolve(String(args.run)), "crew", "plan.json"), "utf8")).creative_policy_revision || null; } catch { PLAN_REV = null; }
+const NEW_POLICY = !!((SCORE && (SCORE.creative_policy_revision || SC_CREATIVE.policy_revision)) || PLAN_REV);
 const PROFILES = [].concat(SC_CREATIVE.profiles || [], SCORE && SCORE.profiles || []).map(String);
 const LIMIT = budgetLimit(SCORE && SCORE.duration);
 const budgetUsed = {};
@@ -469,6 +472,19 @@ else {
       if (shown++ < 6) add({ severity: "warning", rule: "twinning", file: a.g.rel, timeline: a.g.tl, target: twins.map((x) => x.g.target).join(" + "), at: `${a.g.start.toFixed(2)}s`, dur_ms: Math.round(a.g.dur * 1000), ease: easeLabel(a.g), message: `${twins.length} elements make the same move (${Object.keys(a.d).join(", ")}) together: same start (within a frame), length and curve; twins read as a template, not as two things with their own weight`, fix: "offset one by 2-4 frames, give it a different duration or curve (the lighter or smaller one lands first and settles less), or change what it does (one slides, the other scales)" });
     }
   }
+}
+
+// Part 2 medium consumer (optional, a warning): a run whose chosen Look carries a medium contract (look/medium.json) and whose compositions never reference assets/rasan-medium/ or a medium runtime global
+// is probably a moving-text fallback of the approved medium. No run or no contract: nothing is checked.
+if (args.run && args.run !== true && files.length) {
+  try {
+    const MW = await import("./lib/medium-wiring.mjs");
+    const mc = MW.mediumContractFor(path.resolve(String(args.run)));
+    if (mc && MW.isMediumContract(mc) && MW.RUNTIME_FILES[mc.execution_id]) {
+      const used = files.some((f) => /assets\/rasan-medium\/|RasanMedium(?:Surface|Graphic|Paper)|RasanPixel/.test(fs.readFileSync(f, "utf8")));
+      if (!used) add({ severity: "warning", rule: "medium-not-referenced", file: project, message: `the chosen Look has a medium contract (${mc.execution_id}) but no composition references assets/rasan-medium/ or its runtime global`, fix: "build the medium's objects with the registered runtime (run video.mjs inject --run <run>, then load assets/rasan-medium/) or tell the owner the film falls back to moving text" });
+    }
+  } catch { /* advisory */ }
 }
 
 if (!report.tweens && !couldNotRun.length) couldNotRun.push("no GSAP tweens found in any composition: nothing was checked (run obey after the build writes compositions/index.html)");

@@ -73,6 +73,8 @@ Read `references/medium-direction.md`. Work from a compact concept (premise and 
 - Never leave the brand when `brand_lock` is set: not a different accent "for contrast", not a display serif for "warmth". An off-brand look is never offered.
 - Never invent a claim about the subject: the visual world comes from `research/design.md` and its sources.
 
+When the Look names a medium, write short per-candidate fit judgments to `creative/medium-judgments.json` and respect any `decisions.medium_direction` (named / excluded media); the shape is in `references/medium-direction.md`.
+
 ## Done when
 
 `node "$SKILL_DIR/scripts/crew.mjs" check --run "$RUN" --role design-system-designer --key <label>` exits 0 (it runs the system gate and compares you with the siblings that already exist).

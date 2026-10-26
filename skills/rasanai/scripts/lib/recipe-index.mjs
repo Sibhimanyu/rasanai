@@ -134,7 +134,7 @@ export function shortlist(query = {}, index = buildIndex()) {
   const pool = index.records.filter(ok);
   const take = (layer, n) => pool.filter((r) => r.layer === layer).map((r) => ({ r, s: score(r) })).sort((a, b) => b.s - a.s || a.r.id.localeCompare(b.r.id)).slice(0, n).map((x) => x.r);
   const mediumPick = pool.filter((r) => r.layer === "recipe" && r.runtime === "medium");
-  const pick = [...take("contract", 2), ...take("kind_guide", 2), ...mediumPick, ...take("recipe", limit).filter((r) => r.runtime !== "medium"), ...(q.failure ? take("failure_recovery", 1) : [])];
+  const pick = [...take("contract", 2), ...take("kind_guide", 2), ...mediumPick, ...(medium ? [] : take("recipe", limit).filter((r) => r.runtime !== "medium")), ...(q.failure ? take("failure_recovery", 1) : [])];
   const why = { contract: "universal contract", kind_guide: `guide for ${q.kind || "any kind"}`, recipe: `recipe for ${medium ? "the selected medium " + medium + " / " : ""}${runtime}${want.size ? " matching " + [...want].slice(0, 4).join(" ") : ""}`, failure_recovery: "failure recovery requested" };
   return {
     index_version: index.index_version, query: { kind: q.kind || null, runtime, medium, have_assets: [...have], want: [...want], failure: !!q.failure, limit },

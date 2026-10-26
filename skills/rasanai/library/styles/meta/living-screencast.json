@@ -10,6 +10,7 @@
   "story_affordances": ["guided attention","walkthrough"],
   "risks": ["Sharp UI stays separate; the character is editorial unless it is a real feature."],
   "proof_policy": {"exact_ui": "separate-full-resolution-layer", "protected_text": "readable-or-separate-layer", "claim_mutation": "forbidden"},
+  "text_constraints": {"unsupported_scripts": ["tamil","devanagari","arabic","hebrew","cjk","rtl"], "scope": "pixel layer only: the sharp proof layer routes text"},
   "runtime_refs": ["runtime/medium-pixel.js", "runtime/medium-pixel-companion.js", "runtime/rasan-ui.js"],
   "example_refs": ["library/medium-examples/pixel-companion/saved-correction/example.html", "library/medium-examples/pixel-companion/transformed-anchor/example.html"],
   "asset_needs": [{"id": "proof-ui", "kind": "product-ui", "required": true, "evidence": true}],

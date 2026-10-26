@@ -148,20 +148,24 @@ const W = 192, H = 108; // analysis size: area-averaged, so encoding noise falls
 const PIX_T = 6, MOVE_SHARE = 0.0008; // a frame moves when >= 0.08% of pixels change by more than 6 levels
 
 // the craft checks a medium contract may qualify, by the rule id medium-rules knows (finding check -> rule id; a scene-scoped rule needs the beat the finding sits in)
-const MEDIUM_CHECKS = { "camera-monotone": "camera-motion", "always-moving": "continuous-motion", "one-curve": "curve-mix", "seam-continuity-missing": "handoff-continuity", carry: "handoff-continuity", freeze: "intentional-hold" };
-async function applyMediumScopes(findings, beats, { medium = null, project = null } = {}) {
+const MEDIUM_CHECKS = { "camera-monotone": "camera-motion", "always-moving": "continuous-motion", "one-curve": "curve-mix", "seam-continuity-missing": "handoff-continuity", carry: "handoff-continuity", freeze: "intentional-hold", fluency: "stepped-motion" };
+function readMediumContract({ medium = null, project = null } = {}) {
   let contract = null;
   try {
     const cands = [medium, project && path.join(path.resolve(project), "look", "medium.json"), project && path.join(path.resolve(project), "..", "look", "medium.json")].filter(Boolean);
     const f = cands.find((x) => fs.existsSync(path.resolve(x)));
     if (f) contract = JSON.parse(fs.readFileSync(path.resolve(f), "utf8"));
   } catch { contract = null; }
-  if (!contract || contract.format !== "medium-contract@1") return [];
+  return contract && contract.format === "medium-contract@1" ? contract : null;
+}
+async function applyMediumScopes(findings, beats, { medium = null, project = null } = {}) {
+  const contract = readMediumContract({ medium, project });
+  if (!contract) return [];
   const { scopedSkips } = await import("./lib/medium-wiring.mjs");
   const out = [];
   for (const f of findings) {
     if (f.severity === "review") continue;
-    const rule = f.check === "creep" && /camera drift/.test(String(f.region || "")) ? "camera-drift" : MEDIUM_CHECKS[f.check];
+    const rule = f.check === "creep" ? (f.region === "scale" ? null : "camera-drift") : MEDIUM_CHECKS[f.check];
     if (!rule) continue;
     const beat = typeof f.at === "number" ? beats.find((b) => b.start != null && b.end != null && f.at >= b.start && f.at < b.end) : (f.region && /^beat /.test(f.region) ? beats.find((b) => `beat ${b.id}` === f.region) : null);
     const sceneId = beat ? String(beat.id) : null;
@@ -504,6 +508,8 @@ export async function gate({ events = null, vo = null, video = null, project = n
     const md = project ? readText(path.join(path.resolve(project), "motion.md")) : "";
     stillness = !!(P.plan && (P.plan.stillness === true || P.plan.motion_style === "stillness")) || /^stillness:\s*true\b/m.test(md);
   }
+  // a medium contract whose temporal mode is stepped / cut-based / still declares the stillness style (the whole-film fluency and dead-frame checks then run as warnings, and a qualified fluency finding is further listed as review)
+  if (!stillness) { const mc = readMediumContract({ medium, project }); const tm = mc && mc.motion_policy && mc.motion_policy.temporal_mode; if (["stepped", "cut-based", "still"].includes(tm)) stillness = true; }
   measured.stillness = stillness;
   // a declared loop: the flag, the plan (loop: true), or motion.md
   if (loop == null) {

@@ -10,6 +10,7 @@
   "story_affordances": ["progression","spatial exploration","discrete states"],
   "risks": ["Exact small UI and multilingual text require explicit legibility handling."],
   "proof_policy": {"exact_ui": "separate-full-resolution-layer", "protected_text": "readable-or-separate-layer", "claim_mutation": "forbidden"},
+  "text_constraints": {"unsupported_scripts": ["tamil","devanagari","arabic","hebrew","cjk","rtl"]},
   "runtime_refs": ["runtime/medium-pixel.js"],
   "example_refs": ["library/medium-examples/pixel-native/path-of-choices/example.html", "library/medium-examples/pixel-native/long-text-locale/example.html"],
   "asset_needs": [],

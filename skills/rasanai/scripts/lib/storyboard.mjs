@@ -119,7 +119,7 @@ export function boundary(run, { mode = "full", inherit = {}, requireConsent = fa
     if (requireConsent) {
       const c = cons[st], ih = inh[st];
       const ctx = (consent && consent[st]) || stageConsentContext(r, st);
-      const inheritedOk = ih && ih.source_action_id && arr(ctx.appliedActions).some((a) => a && a.id === ih.source_action_id);
+      const inheritedOk = ih && ih.source_action_id && arr(ctx.appliedActions).some((a) => a && a.id === ih.source_action_id && ["choose", "approve", "submit", "decide", "decide-rest"].includes(a.type) && [st, st === "story" || st === "look" ? st : "animatic", "*"].includes(a.step));
       if (ih && !inheritedOk) problems.push(`inherit.${st} is not evidence of the user's decision: it needs the source_action_id of a consumed action (a note written by an agent is not delegation)`);
       else if (!ih && !c.confirmed) { if (c.stale) stale.push(st); problems.push(`the ${st} is prepared but not approved: ${c.reason}`); }
     }
@@ -158,7 +158,21 @@ export function stageConsentContext(run, stage) {
     ctx.expectedDigest = d ? d.digest : null;
     const ch = stage === "story" ? rjson(path.join(r, "story", "chosen.json")) : null;
     // the chosen file is written by the Director and has no fixed id field: every name the pick could carry is a candidate (id, story_id, label, key, name)
-    if (isObj(ch)) { const c = [ch.id, ch.story_id, ch.label, ch.key, ch.name].filter((x) => x != null && x !== "").map(String); if (c.length) ctx.selectedId = c; }
+    if (isObj(ch)) {
+      const ids = (o) => [o.id, o.story_id, o.label, o.key, o.name].filter((x) => x != null && x !== "").map(String);
+      const c = ids(ch);
+      // the pitch the chosen file came from may carry the id the user picked under another spelling (prefix / case): add that one entry's ids only
+      const pj = rjson(path.join(r, "story", "pitches.json"));
+      const pool = Array.isArray(pj) ? pj : isObj(pj) ? arr(pj.pitches || pj.stories || pj.options) : [];
+      const low = c.map((x) => x.toLowerCase());
+      for (const p of pool) if (isObj(p) && ids(p).some((x) => low.includes(x.toLowerCase()))) c.push(...ids(p));
+      if (c.length) ctx.selectedId = [...new Set(c)];
+    }
+    if (stage === "look") {
+      // the Look the user confirmed is the system label in decisions (choose-system writes look/ afterwards, so no mtimes); a series / direct pick is an object without an id and is skipped, not stale
+      const dec = rjson(path.join(r, "decisions.json")), c = isObj(dec) ? [dec.design_system && dec.design_system.label, dec.look && dec.look.system].filter((x) => typeof x === "string" && x).map(String) : [];
+      if (c.length) ctx.selectedId = [...new Set(c)];
+    }
   } else {
     const c = snapshotRun(r, { check: true });
     if (c.ok) ctx.isCurrent = c.current;

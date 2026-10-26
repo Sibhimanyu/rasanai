@@ -244,7 +244,7 @@ export function resolveStageConsent({ stage, expectedDigest = null, selectedId =
   const a = acts[0], val = a.value && typeof a.value === "object" ? a.value.id : a.value;
   // selectedId is one id or a list of names the chosen file could carry; an index-style value (a number) is not compared (the pick's real value shape is not fixed)
   const sel = (Array.isArray(selectedId) ? selectedId : selectedId != null ? [selectedId] : []).map(String);
-  if (sel.length && val != null && !/^\d+$/.test(String(val)) && !sel.includes(String(val))) return no(`the user chose ${JSON.stringify(String(val))}, not the selected ${sel.map((x) => JSON.stringify(x)).join(" / ")}`, true);
+  if (sel.length && val != null && typeof val !== "object" && !/^\d+$/.test(String(val)) && !sel.some((x) => x.toLowerCase() === String(val).toLowerCase())) return no(`the user chose ${JSON.stringify(String(val))}, not the selected ${sel.map((x) => JSON.stringify(x)).join(" / ")}`, true);
   if (rec && expectedDigest && rec.artifact_digest !== expectedDigest) return no(`the ${st} changed since it was approved`, true);
   return { confirmed: true, sourceActionId: a.id, basis: "session-action", reason: "", stale: false };
 }

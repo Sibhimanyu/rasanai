@@ -178,7 +178,13 @@ export function buildRegistry({ host = probeHost(), skillRoot = SKILL_ROOT, cata
   // verification: each needs Chrome, stays unverified (no render has run) and is a described capability, never a claim that a film in that medium has been made.
   for (const [id, label, files, extra] of MEDIUM_EXECUTIONS) {
     const ok = files.every(exists) && (!extra || extra.every(exists));
-    rows.push(makeCapability(`style.${id}`, { kind: "medium_style", label, implemented: [ok, `missing: ${[...files, ...(extra || [])].filter((f) => !exists(f)).join(", ") || "n/a"}`], available: [host.chrome, "needs Chrome"], enabled: [true], permission: ["not_required"], license: ["not_applicable", "original code"], verification: V(`style.${id}`) }));
+    const cap = makeCapability(`style.${id}`, { kind: "medium_style", label, implemented: [ok, `missing: ${[...files, ...(extra || [])].filter((f) => !exists(f)).join(", ") || "n/a"}`], available: [host.chrome, "needs Chrome"], enabled: [true], permission: ["not_required"], license: ["not_applicable", "original code"], verification: V(`style.${id}`) });
+    if (id === "cel-performance" && ok) {
+      // file text only (nothing is executed): the cel runtime needs Rasan2D's createRenderer and boil; presence of the file alone is not availability
+      let txt = ""; try { txt = fs.readFileSync(path.join(skillRoot, "stage2d/runtime/rasan2d.js"), "utf8"); } catch {}
+      if (!(txt.includes("createRenderer") && txt.includes("boil"))) { cap.state = "implemented_unvalidated"; cap.api_note = "Rasan2D API unconfirmed"; cap.available = { value: false, reason: "Rasan2D API unconfirmed" }; }
+    }
+    rows.push(cap);
   }
   // Plan 12 D6/D8: timeline interchange. The official OpenTimelineIO library runs only in an OPTIONAL Python sidecar; ordinary video production never needs it.
   // A valid .otio file is not proof any editor imports it, so verification stays unverified until Plan 14 records a real round trip.

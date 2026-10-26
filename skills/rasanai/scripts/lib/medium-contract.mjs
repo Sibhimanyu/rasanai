@@ -84,6 +84,19 @@ export function validateMediumContract(doc, { assignment, profiles, capabilities
   const fin = isObj(doc.finish_policy) && isObj(doc.finish_policy.by_layer) ? doc.finish_policy.by_layer : null;
   if (!isObj(doc.finish_policy)) err(errors, "finish-policy", "finish_policy", "finish_policy.by_layer is required: finish is resolved per layer, never one global filter");
   else if (fin) for (const id of Object.keys(fin)) if (!layerIds.has(id)) err(errors, "finish-layer", "finish_policy.by_layer", `unknown layer ${id}`);
+  // a sharp layer must be named per layer: a missing entry would fall back to a film-wide finish that blurs or grains the proof
+  if (fin) {
+    const hasSharp = Object.values(fin).includes("sharp");
+    if (hasSharp) for (const id of layerIds) if (!(id in fin)) err(errors, "finish-uncovered", "finish_policy.by_layer", `layer ${id} has no finish_policy.by_layer entry although the contract declares a sharp layer: a missing entry is an error, never a fallback to a film-wide finish`);
+  }
+  if (doc.profile_id === "pixel-companion" || doc.execution_id === "pixel-companion" || doc.profile_id === "living-screencast") {
+    const ev = layers.filter((l) => isObj(l) && l.role === "evidence" && T(l.id));
+    if (!ev.length) err(errors, "companion-no-evidence", "layers", "a pixel-companion contract needs a layer with role evidence (the sharp proof layer)");
+    const sharpIds = fin ? Object.keys(fin).filter((k) => fin[k] === "sharp") : [];
+    if (!sharpIds.length) err(errors, "companion-no-sharp", "finish_policy.by_layer", "a pixel-companion contract needs a sharp entry in finish_policy.by_layer");
+    const fr = new Set(arr(tp && tp.full_resolution_layers));
+    if (sharpIds.length && !sharpIds.some((id) => fr.has(id))) err(errors, "companion-sharp-text", "text_policy.full_resolution_layers", "the sharp layer must be listed in text_policy.full_resolution_layers");
+  }
   if (!isObj(doc.motion_policy)) err(errors, "motion-policy", "motion_policy", "motion_policy is required");
   const eb = isObj(doc.evidence_boundaries) ? doc.evidence_boundaries : null;
   if (!eb) err(errors, "evidence-boundaries", "evidence_boundaries", "evidence_boundaries is required");

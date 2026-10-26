@@ -22,6 +22,19 @@ Exact proof, product UI, numbers, qualifiers, brand constraints, rights and the 
 
 Judge medium fidelity, communication, action legibility, set-level coherence and execution of the approved idea, each against what the Look chose. A flat vector frame is not marked down for missing depth of field; a deliberate stepped cadence is not a dropped frame; a locked camera is not a failure. A profile flag does not excuse unreadable text, a freeze nobody chose or a picture that has nothing to do with the idea. Name what stills cannot show (motion, cadence, timing, sound) as `not_assessable`. Hard proof and permission defects are separate from taste. Taste gets one targeted repair inside the budget, then an honest limitation; no open-ended polish loop.
 
+## Fit judgments and the user's named media
+
+`creative/medium-judgments.json` is the Director's own short judgment per candidate; nothing is inferred if it is missing (every dimension reads `unknown`). Shape (`prepareMediumSelection`, `assessMediumFit`):
+
+```json
+{ "candidates": [{ "id": "pixel-native", "treatment_id": null, "differences": { "visual_material": "...", "narrative_action": "...", "composition": "...", "motion": "...", "sound": "..." } }],
+  "judgments": { "pixel-native": { "dimensions": { "proof_clarity": { "level": "mixed", "reason": "one short line", "ref": "story beat 2 / brief.json audience" } }, "useful_native_actions": ["<ids on that profile>"] } } }
+```
+
+Dimensions: `proof_clarity`, `premise_relation`, `tone`, `audience_understanding`, `brand_compatibility`, `native_actions`, `distinctiveness`, `production_tradeoffs`. Level is `strong`, `mixed`, `weak` or `unknown` (no numbers). A level other than `unknown` needs a short reason and an evidence ref (brief, story or source); without them it is recorded as unknown. Unknowns are allowed and honest. No approval keys and no timing keys (`validateFitDecision` rejects both): the selection is a recommendation, the user's Look choice approves, the score owns timing.
+
+`decisions.medium_direction` is `{ "named_media": [...], "excluded_media": [...], "source_action_id": "<the real user action>" }`, written only from an explicit user request and citing that action's id. A named medium survives the shortlist unless it is blocked or rejected with a stated reason. An excluded medium is never selected. If a requested medium conflicts with a proof need, say so through the existing Look card and `frames/LIMITS.md` notes (offer a hybrid); never replace it silently.
+
 ## Short strings for the existing Look card
 
 Prepare these as plain text for the fields the card already shows (no new field): `one_line` (the medium and what it does for this story), `why_for_story` (one line), and the trade-off in `frames/LIMITS.md` when proof or a font is limited ("exact screen stays full-resolution; the pixel layer carries the guide").
