@@ -60,3 +60,17 @@ import StudioCore
         UserDefaults.standard.removeObject(forKey: DirectorRuntime.activeRunKey)
     }
 }
+
+@MainActor final class DriverProcessListTests: XCTestCase {
+    func testRunsAreReadFromDriverCommandLines() {
+        let list = """
+        /usr/bin/node /x/Runtime/director-driver.mjs /Users/a/Documents/RasanAI/Film One/.rasanai/run-1/director-job.json
+        node /x/Runtime/tool-setup.mjs /Users/a/job.json
+        /usr/bin/node /x/Runtime/director-driver.mjs /Users/a/Films/B/.rasanai/run-2/director-job.json
+        /usr/bin/node /x/Runtime/director-driver.mjs /tmp/not-a-run/director-job.json
+        /usr/bin/node /x/Runtime/director-driver.mjs /Users/a/Documents/RasanAI/Film One/.rasanai/run-1/director-job.json
+        """
+        let runs = DirectorRuntime.runs(inProcessList: list)
+        XCTAssertEqual(runs.map(\.path), ["/Users/a/Documents/RasanAI/Film One/.rasanai/run-1", "/Users/a/Films/B/.rasanai/run-2"])
+    }
+}

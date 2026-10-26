@@ -250,6 +250,36 @@ final class DirectorRuntime {
         }
         return nil
     }
+    /// The run of every live director driver on this Mac, found from the process list: a director started from outside Studio (a phone's
+    /// resume through `director.mjs`) leaves no `activeDirectorRun` behind, so a relaunch looks here as well. Newest first is not known; callers take the first.
+    nonisolated static func liveDriverRuns() -> [URL] {
+        let ps = Process()
+        ps.executableURL = URL(fileURLWithPath: "/bin/ps")
+        ps.arguments = ["-axww", "-o", "command="]
+        let pipe = Pipe()
+        ps.standardOutput = pipe; ps.standardError = FileHandle.nullDevice; ps.standardInput = FileHandle.nullDevice
+        let done = DispatchSemaphore(value: 0)
+        ps.terminationHandler = { _ in done.signal() }
+        guard (try? ps.run()) != nil else { return [] }
+        var data = Data()
+        let read = DispatchSemaphore(value: 0)
+        DispatchQueue(label: "liveDriverRuns.read").async { data = pipe.fileHandleForReading.readDataToEndOfFile(); read.signal() }
+        if done.wait(timeout: .now() + 2) == .timedOut { ps.terminate(); _ = done.wait(timeout: .now() + 1); return [] }
+        guard read.wait(timeout: .now() + 1) == .success else { return [] }
+        return runs(inProcessList: String(decoding: data, as: UTF8.self))
+    }
+    /// The runs named by `director-driver.mjs <run>/director-job.json` lines of a `ps -o command=` listing.
+    nonisolated static func runs(inProcessList text: String) -> [URL] {
+        var out: [URL] = []
+        for line in text.split(whereSeparator: \.isNewline) {
+            guard let driver = line.range(of: "director-driver.mjs ") else { continue }
+            let rest = line[driver.upperBound...].trimmingCharacters(in: .whitespaces)
+            guard rest.hasSuffix("/director-job.json") else { continue }
+            let run = URL(fileURLWithPath: String(rest.dropLast("/director-job.json".count)))
+            if run.deletingLastPathComponent().lastPathComponent == ".rasanai", !out.contains(run) { out.append(run) }
+        }
+        return out
+    }
     /// Takes over a director a previous Studio left running (a quit or an update does not stop it): shows it as running and handles its exit.
     /// Returns false when no live driver belongs to the run.
     @discardableResult func adopt(run: URL, project: URL) -> Bool {
