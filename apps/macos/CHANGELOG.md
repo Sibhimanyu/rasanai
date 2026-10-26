@@ -2,11 +2,18 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- The sidebar and floating panels no longer show a ghostly reflection of what is behind them; they just pick up a soft tint, like glare.
+- Fixed the "You're now on…" card that came back after pressing Got it.
+- The update screen always shows where it is: four steps, a progress bar, and a time estimate. If installing stalls it tells you why and offers Restart now, Try again or a manual download.
+
 ## 0.22.3 (build 54) — 2026-10-26
 
 - Fixed the "You're now on…" card that came back after pressing Got it.
 - The update screen always shows where it is: four steps, a progress bar, and a time estimate. If installing stalls it tells you why and offers Restart now, Try again or a manual download.
 - **Bundles RasanAI 1.27.0.**
+
 
 ## 0.22.2 (build 53) — 2026-10-26
 

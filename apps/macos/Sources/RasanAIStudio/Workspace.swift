@@ -47,15 +47,11 @@ struct WorkspacePanel: ViewModifier {
     }
 }
 
-/// The sidebar, inspector and action chrome use the native untinted glass material.
-struct GlassPanel<S: Shape>: ViewModifier {
+/// The sidebar, inspector and action chrome use the shared soft glass (SoftGlass.swift).
+struct GlassPanel<S: InsettableShape>: ViewModifier {
     let shape: S
     func body(content: Content) -> some View {
-        if #available(macOS 26, *) {
-            content.clipShape(shape).glassEffect(.regular, in: shape)
-        } else {
-            content.background(.regularMaterial, in: shape).clipShape(shape).overlay { shape.stroke(Workspace.hairline, lineWidth: 1) }
-        }
+        content.softGlass(in: shape).clipShape(shape)
     }
 }
 
@@ -68,7 +64,7 @@ extension Workspace {
 
 extension View {
     func glassPanel(radius: CGFloat = Workspace.glassRadius) -> some View { modifier(GlassPanel(shape: RoundedRectangle(cornerRadius: radius, style: .continuous))) }
-    func glassPanel(in shape: some Shape) -> some View { modifier(GlassPanel(shape: shape)) }
+    func glassPanel(in shape: some InsettableShape) -> some View { modifier(GlassPanel(shape: shape)) }
     func workspacePanel(padding: CGFloat = 0) -> some View { modifier(WorkspacePanel(padding: padding)) }
 }
 

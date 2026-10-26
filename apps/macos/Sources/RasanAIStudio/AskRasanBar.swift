@@ -70,7 +70,7 @@ struct AskRasanField: View {
             Button("Got it") { hintSeen = true }.buttonStyle(.borderless).foregroundStyle(Color.rasanInk).fontWeight(.semibold)
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .softGlass(in: RoundedRectangle(cornerRadius: 10, style: .continuous), opacity: 0.92)
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.12)))
     }
 
