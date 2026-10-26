@@ -4,6 +4,11 @@ Desktop releases are separate from RasanAI skill releases.
 
 ## Unreleased
 
+- The crew stage speech cards are back to appearing at varied spots around the character and drifting away, now as clean glass cards that never overlap each other or cover the face.
+- The crew stage stops animating while the Studio window is hidden or covered, which should stop the window from briefly going blank.
+
+## 0.24.3 (build 65) — 2026-10-26
+
 - **Bundles RasanAI 1.29.0:** creative briefs and automatic references, proof checks, strict approval checks for new films, and the medium-aware Look options and checks.
 - The earlier installed Studio carried an older engine; this build brings it level with the skill.
 
