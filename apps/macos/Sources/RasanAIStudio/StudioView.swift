@@ -48,6 +48,7 @@ struct StudioView: View {
                 if showsStatusBar { AppStatusBar(store: store, sidebarHidden: columns == .detailOnly) }
             }
             .background(Color.appBackground)
+            .modifier(ExtendUnderSidebar())
         }
         // The same background sits behind the whole split view, so the column behind the floating sidebar glass is never a
         // different flat colour (full screen especially).
@@ -366,5 +367,13 @@ private struct NoToolbarBand: ViewModifier {
     func body(content: Content) -> some View {
         if #available(macOS 15, *) { content.toolbarBackgroundVisibility(fullScreen ? .automatic : .hidden, for: .windowToolbar) }
         else { content.toolbarBackground(fullScreen ? .automatic : .hidden, for: .windowToolbar) }
+    }
+}
+
+/// On macOS 26 the detail's background is mirrored and blurred under the floating sidebar, so the glass floats over one
+/// continuous background instead of a separate strip.
+private struct ExtendUnderSidebar: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26, *) { content.backgroundExtensionEffect() } else { content }
     }
 }
