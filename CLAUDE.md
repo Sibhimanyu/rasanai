@@ -36,6 +36,8 @@ Third-party sources: `skills/rasanai/third_party/SOURCES.md`; adding a new one: 
 ## Releasing
 
 Releases MUST go through `scripts/release.mjs` (see RELEASING.md): `node scripts/release.mjs skill|studio <x.y.z>`. Never tag, publish, or edit the appcast by hand.
+Run every release through the `release-runner` agent (Haiku, `.claude/agents/release-runner.md`) in the background, once
+the changes are merged and the `## Unreleased` notes are written; keep working while it runs and relay its report.
 
 ## gstack (REQUIRED — global install)
 
