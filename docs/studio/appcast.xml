@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.24.3 beta 1</title>
+      <pubDate>Mon, 26 Oct 2026 12:17:43 GMT</pubDate>
+      <description><![CDATA[<ul><li>The earlier installed Studio carried an older engine; this build brings it level with the skill.</li></ul>]]></description>
+      <sparkle:version>65</sparkle:version>
+      <sparkle:shortVersionString>0.24.3</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.24.3-beta.1/RasanAI-Studio-0.24.3.dmg" sparkle:edSignature="6LIV1tlITdh7WXo6NT/7K/lX/+V3WhI6RyqyGTlXoVOI+dZ590wSUxEJFQd7A+/6kU9naWKDpIQEKg/meDisAg==" length="85452381" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.24.2 beta 1</title>
       <pubDate>Mon, 26 Oct 2026 09:41:59 GMT</pubDate>
       <description><![CDATA[<ul><li>Small adjustments Rasan makes along the way no longer show up as orange warnings. They sit quietly in one line you can expand, with the original message one tap away.</li><li>Fast pace no longer logs routine shortcuts as problems.</li><li>Anything that does need you, or a step that failed, is said in plain words, with "Show original message" for the exact text and a Copy button.</li><li>While the film is being checked, the critic (Rasika) now appears on the crew stage instead of Rasan.</li></ul>]]></description>
