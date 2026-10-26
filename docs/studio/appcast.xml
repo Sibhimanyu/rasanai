@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.24.2 beta 1</title>
+      <pubDate>Mon, 26 Oct 2026 09:41:59 GMT</pubDate>
+      <description><![CDATA[<ul><li>Small adjustments Rasan makes along the way no longer show up as orange warnings. They sit quietly in one line you can expand, with the original message one tap away.</li><li>Fast pace no longer logs routine shortcuts as problems.</li><li>Anything that does need you, or a step that failed, is said in plain words, with "Show original message" for the exact text and a Copy button.</li><li>While the film is being checked, the critic (Rasika) now appears on the crew stage instead of Rasan.</li></ul>]]></description>
+      <sparkle:version>64</sparkle:version>
+      <sparkle:shortVersionString>0.24.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.24.2-beta.1/RasanAI-Studio-0.24.2.dmg" sparkle:edSignature="wu45xNrFVw1JAwEAIL2N9nVt1cPt/ghpJs0IHUFT6ufO3iaUzXye34YuyVVmb0AbjjpSKAaj1Rkqmy8FK+dvBw==" length="85103583" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.24.1 beta 1</title>
       <pubDate>Mon, 26 Oct 2026 09:27:24 GMT</pubDate>
       <description><![CDATA[<ul><li>Rasan no longer skips your Look call when the film planner has trouble: it always asks you, even at Fast pace.</li><li>If a look or story was ever chosen without you, Studio tells you and lets you review it.</li></ul>]]></description>
