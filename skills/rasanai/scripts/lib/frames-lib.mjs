@@ -43,10 +43,45 @@ function angleOf(a) {
 }
 const filled = (v) => v != null && (typeof v === "object" ? Object.values(v).some((x) => String(x ?? "").trim()) : String(v).trim() !== "");
 
+// ---------------------------------------------------------------- the creative policy (the selected Look decides which craft applies)
+// A run made under the creative policy passes `creativePolicy` (alias `lookProfile`): a style string, or an object
+// {style, dimensional?, shotIds?, beatIds?, signatureEvents?, approvedTargets?, protectedText?, repetitionIntent?}. The depth
+// craft of references/styleframes.md (a shot size every frame, 3+ planes, tilt, lit ground, 3-6x UI, giant/tiny type contrast)
+// belongs to ONE look, the dimensional product style, and is opt-in: a flat graphic, editorial, photographic or character look
+// is not failed for lacking it. No policy (a historical run, an old caller) means the old rules, unchanged.
+const DIMENSIONAL = /dimensional|tactile|3d|depth|glass|material|product-render|object/i;
+const pick = (o, ...k) => { for (const x of k) if (o[x] != null) return o[x]; return undefined; };
+export function craftProfile(creativePolicy) {
+  if (creativePolicy == null || creativePolicy === false) return null;
+  const p = typeof creativePolicy === "string" ? { style: creativePolicy } : (typeof creativePolicy === "object" ? creativePolicy : {});
+  const L = p.lookProfile && typeof p.lookProfile === "object" ? { ...p, ...p.lookProfile } : p;
+  const style = String(pick(L, "style", "look_style", "craft") || "").trim().toLowerCase();
+  const explicit = pick(L, "dimensional", "depth_craft");
+  const arr = (v) => (Array.isArray(v) ? v : []);
+  return {
+    style: style || null,
+    dimensional: explicit != null ? !!explicit : DIMENSIONAL.test(style),
+    shotIds: arr(pick(L, "shotIds", "shot_ids")).map(String),
+    beatIds: arr(pick(L, "beatIds", "beat_ids")).map(String),
+    signatureEvents: arr(pick(L, "signatureEvents", "signature_events")),
+    approvedTargets: arr(pick(L, "approvedTargets", "approved_targets")),
+    protectedText: arr(pick(L, "protectedText", "protected_text")),
+    repetitionIntent: pick(L, "repetitionIntent", "repetition_intent") || null,
+  };
+}
+
 // The rules of references/styleframes.md (from R1 §4: R3, R4, R5, R8, R11, R20). Returns {errors, warnings, stats}.
-export function checkShots(doc, { duration = null } = {}) {
+// With a creativePolicy the depth-craft rules move behind the look's predicate: for a dimensional look they stay what they
+// were; for any other look their findings go to `review` (evidence for the creative review, never proof of quality), and
+// only structure stays an error. `review` is returned only in policy mode.
+export function checkShots(doc, { duration = null, creativePolicy = null, lookProfile = null } = {}) {
   const E = [], W = [];
   if (!doc || !Array.isArray(doc.shots)) return { errors: ["frames/shots.json is missing or has no shots[]"], warnings: W, stats: {} };
+  // an explicit policy wins; else the list's own film.look_style (written by the designer) classifies it; else the old rules
+  const pol = craftProfile(creativePolicy != null ? creativePolicy : lookProfile != null ? lookProfile : (doc.film && doc.film.look_style ? { style: doc.film.look_style } : null));
+  const R = [];
+  const dim = !pol || pol.dimensional;
+  const CE = dim ? E : R, CW = dim ? W : R; // where a craft finding goes
   const S = doc.shots, film = doc.film || {};
   const dur = Number(film.duration) || Number(duration) || null;
   if (S.length < 3) E.push(`shot-count: ${S.length} shots (one per beat; at least 3: open, peak, end)`);
@@ -54,13 +89,13 @@ export function checkShots(doc, { duration = null } = {}) {
   if (new Set(ids).size !== ids.length) E.push("shot-ids: every shot needs a unique id (01, 02, ...)");
   S.forEach((s, i) => {
     const id = s.id || frameId(i);
-    const miss = ["beat", "size", "hero", "angle", "focus", "light", "ground", "crop", "device"].filter((k) => !filled(s[k]));
+    const miss = (dim ? ["beat", "size", "hero", "angle", "focus", "light", "ground", "crop", "device"] : ["beat", "hero"]).filter((k) => !filled(s[k]));
     if (!Array.isArray(s.type)) miss.push("type");
     if (miss.length) E.push(`shot-fields: ${id} is missing ${miss.join(", ")}`);
     if (s.size && !SIZES.includes(String(s.size).toUpperCase())) E.push(`shot-size: ${id} size "${s.size}" (one of ${SIZES.join(", ")})`);
     if (s.kind && !KINDS.includes(s.kind)) W.push(`shot-kind: ${id} kind "${s.kind}" (one of ${KINDS.join(", ")}: the juror matches reference stills by kind)`);
     const L = s.light && typeof s.light === "object" ? s.light : null;
-    if (filled(s.light) && !(L ? String(L.key || L.side || "").trim() && String(L.color || L.colour || "").trim() : /(left|right|top|above|below|behind|front|back)/i.test(String(s.light)) && /(#[0-9a-f]{3,8}|warm|cool|white|neutral|[a-z]+ ?light)/i.test(String(s.light)))) E.push(`light: ${id} names its key's side and colour ({key: "upper-left", color: "#fff4e6"})`);
+    if (filled(s.light) && !(L ? String(L.key || L.side || "").trim() && String(L.color || L.colour || "").trim() : /(left|right|top|above|below|behind|front|back)/i.test(String(s.light)) && /(#[0-9a-f]{3,8}|warm|cool|white|neutral|[a-z]+ ?light)/i.test(String(s.light)))) CE.push(`light: ${id} names its key's side and colour ({key: "upper-left", color: "#fff4e6"})`);
     const a = angleOf(s.angle);
     if (a && a.kind === "tilt") {
       const big = ["rx", "ry", "rz"].filter((k) => Math.abs(a[k]) > 0.5);
@@ -69,53 +104,95 @@ export function checkShots(doc, { duration = null } = {}) {
     const hp = Number(s.hero_pct);
     const sz = String(s.size || "").toUpperCase();
     const ts = typeStats(s);
-    if (s.kind === "end") { if (ts.biggest && ts.biggest < 8) W.push(`end-small: ${id} (end card) sets its line at ${ts.biggest}% H: the end line is large (8% H or more)`); }
-    else if (sz === "TYPE") { if (Math.max(ts.biggest, hp || 0) < 12) E.push(`hero-small: ${id} is a TYPE shot whose biggest line is ${Math.max(ts.biggest, hp || 0)}% H (a type shot is statement size: 12% H or more)`); }
-    else if (!(hp >= 25)) E.push(`hero-small: ${id} hero_pct ${Number.isFinite(hp) ? hp : "missing"} (the hero takes at least 25% of the frame height; set hero_pct)`);
+    if (s.kind === "end") { if (ts.biggest && ts.biggest < 8) CW.push(`end-small: ${id} (end card) sets its line at ${ts.biggest}% H: the end line is large (8% H or more)`); }
+    else if (sz === "TYPE") { if (Math.max(ts.biggest, hp || 0) < 12) CE.push(`hero-small: ${id} is a TYPE shot whose biggest line is ${Math.max(ts.biggest, hp || 0)}% H (a type shot is statement size: 12% H or more)`); }
+    else if (!(hp >= 25) && (dim || Number.isFinite(hp))) CE.push(`hero-small: ${id} hero_pct ${Number.isFinite(hp) ? hp : "missing"} (the hero takes at least 25% of the frame height; set hero_pct)`);
   });
   // no two consecutive shots share size AND hero
   for (let i = 1; i < S.length; i++) {
     const a = S[i - 1], b = S[i];
-    if (String(a.size).toUpperCase() === String(b.size).toUpperCase() && norm(a.hero) && norm(a.hero) === norm(b.hero)) E.push(`size-repeat: ${a.id} and ${b.id} share size ${String(b.size).toUpperCase()} and hero "${b.hero}": change the size, or the hero, between neighbours`);
+    if (String(a.size).toUpperCase() === String(b.size).toUpperCase() && norm(a.hero) && norm(a.hero) === norm(b.hero)) CE.push(`size-repeat: ${a.id} and ${b.id} share size ${String(b.size).toUpperCase()} and hero "${b.hero}": change the size, or the hero, between neighbours`);
   }
   const sizes = new Set(S.map((s) => String(s.size || "").toUpperCase()).filter((x) => SIZES.includes(x)));
-  if ((dur == null || dur >= 20) && S.length >= 3 && sizes.size < 3) E.push(`sizes-few: ${sizes.size} shot size(s) (${[...sizes].join(", ")}); a film of 20 s or more uses at least 3`);
+  if ((dur == null || dur >= 20) && S.length >= 3 && sizes.size < 3) CE.push(`sizes-few: ${sizes.size} shot size(s) (${[...sizes].join(", ")}); a film of 20 s or more uses at least 3`);
   const ws = S.filter((s) => String(s.size).toUpperCase() === "WS").length, wsMax = Math.max(1, Math.round((dur || 30) / 30));
-  if (ws > wsMax) E.push(`ws-many: ${ws} wide shots (at most ${wsMax}: one per 30 s; a wide shot is the whole app, and the whole app is a screenshot)`);
+  if (ws > wsMax) CE.push(`ws-many: ${ws} wide shots (at most ${wsMax}: one per 30 s; a wide shot is the whole app, and the whole app is a screenshot)`);
   // text load outside one declared density shot
   const dens = S.filter((s) => s.density === true || (film.density_shot && String(film.density_shot) === String(s.id)));
   if (dens.length > 1) E.push(`density-many: ${dens.length} density shots (at most 1 per film)`);
   for (const s of S) {
     if (dens.includes(s)) continue;
     const t = typeStats(s);
-    if (t.lines > 2 || t.chars > 30) E.push(`text-heavy: ${s.id} shows ${t.lines} readable line(s), ${t.chars} characters (2 lines and about 30 characters at most, UI labels included; mark soft or cropped text "readable": false, or declare this the one density shot)`);
+    if (t.lines > 2 || t.chars > 30) CE.push(`text-heavy: ${s.id} shows ${t.lines} readable line(s), ${t.chars} characters (2 lines and about 30 characters at most, UI labels included; mark soft or cropped text "readable": false, or declare this the one density shot)`);
   }
   // giant moments and type contrast
   const big = S.map((s) => Math.max(typeStats(s).biggest, String(s.size).toUpperCase() === "TYPE" ? Number(s.hero_pct) || 0 : 0));
   const biggestAny = Math.max(0, ...S.map((s, i) => Math.max(big[i], Number(s.hero_pct) || 0)));
-  if (biggestAny < 35) E.push(`no-giant: no moment of 35% H or more (the biggest is ${biggestAny}% H): one line or object fills the frame somewhere`);
+  if (biggestAny < 35) CE.push(`no-giant: no moment of 35% H or more (the biggest is ${biggestAny}% H): one line or object fills the frame somewhere`);
   const giantShare = big.filter((x) => x >= 20).length / Math.max(1, S.length);
-  if (giantShare < 0.1) W.push(`giant-rare: ${Math.round(giantShare * 100)}% of shots have a line of 20% H or more (refs 12 to 53%)`);
+  if (giantShare < 0.1) CW.push(`giant-rare: ${Math.round(giantShare * 100)}% of shots have a line of 20% H or more (refs 12 to 53%)`);
   const bl = big.filter((x) => x > 0).sort((a, b) => a - b);
   if (bl.length >= 3) {
     const q = (p) => bl[Math.min(bl.length - 1, Math.max(0, Math.round((p / 100) * (bl.length - 1))))];
     const r = q(90) / Math.max(0.01, q(10));
-    if (r < 5) W.push(`scale-flat: the biggest line's p90/p10 across the shots is ${Math.round(r * 10) / 10}x (refs 6 to 23x): go giant somewhere and tiny somewhere else, or carry the contrast in object scale`);
+    if (r < 5) CW.push(`scale-flat: the biggest line's p90/p10 across the shots is ${Math.round(r * 10) / 10}x (refs 6 to 23x): go giant somewhere and tiny somewhere else, or carry the contrast in object scale`);
   }
   // anchor monotony
   if (S.length >= 4) {
     const count = {};
     for (const s of S) if (norm(s.anchor) && s.transforms !== true) count[norm(s.anchor)] = (count[norm(s.anchor)] || 0) + 1;
-    for (const [k, c] of Object.entries(count)) if (c / S.length > 0.5) E.push(`anchor-monotony: "${k}" anchors ${c} of ${S.length} shots (50% at most unless it transforms: mark the appearances where it becomes something else "transforms": true)`);
+    for (const [k, c] of Object.entries(count)) if (c / S.length > 0.5) CE.push(`anchor-monotony: "${k}" anchors ${c} of ${S.length} shots (50% at most unless it transforms: mark the appearances where it becomes something else "transforms": true)`);
   }
   // the device recurs
   const dev = norm(film.device);
-  if (!dev) W.push("device-missing: film.device names the recurring graphic device (the carrier, a frame chrome, an accent dot, a light comet)");
+  if (!dev && dim) W.push("device-missing: film.device names the recurring graphic device (the carrier, a frame chrome, an accent dot, a light comet)");
   // heroes: open, peak, end
   const heroes = Array.isArray(film.heroes) ? film.heroes.map(String) : [];
-  if (heroes.length !== 3) E.push(`heroes: film.heroes names ${heroes.length} frame id(s); name 3 (open, peak, end), the hero styleframes`);
-  else for (const h of heroes) if (!ids.includes(h)) E.push(`heroes: "${h}" is not a shot id`);
-  return { errors: E, warnings: W, stats: { shots: S.length, sizes: [...sizes], ws, biggest_pct: biggestAny, giant_share: Math.round(giantShare * 100) / 100 } };
+  if (heroes.length !== 3) (pol ? W : E).push(`heroes: film.heroes names ${heroes.length} frame id(s); name 3 (open, peak, end), the hero styleframes`);
+  if (pol || heroes.length === 3) for (const h of heroes) if (!ids.includes(h)) E.push(`heroes: "${h}" is not a shot id`);
+  if (pol) structuralPolicyChecks(S, ids, dur, pol, E, R);
+  return { errors: E, warnings: W, ...(pol ? { review: R } : {}), stats: { shots: S.length, sizes: [...sizes], ws, biggest_pct: biggestAny, giant_share: Math.round(giantShare * 100) / 100, ...(pol ? { creative: { style: pol.style, dimensional: pol.dimensional } } : {}) } };
+}
+
+// The structural errors of a creative-policy run: they hold for every look. Missing shot IDs, wrong refs, invalid timings,
+// essential text clipped or missing, protected (proof) text that is not on the board, a contradicted approved target.
+// A repeated arrangement is only a review note, and a declared repetition intent says so.
+function structuralPolicyChecks(S, ids, dur, pol, E, R) {
+  for (const id of pol.shotIds) if (!ids.includes(id)) E.push(`shot-ids: the approved plan names shot ${id} but shots.json has none`);
+  const beats = new Set(pol.beatIds);
+  if (beats.size) for (const s of S) {
+    const b = s.beat_id != null ? String(s.beat_id) : null;
+    if (b && !beats.has(b)) E.push(`beat-ref: ${s.id} names beat ${b}, which is not a beat of the approved story`);
+  }
+  for (const ev of pol.signatureEvents) {
+    if (!ev) continue;
+    for (const sid of Array.isArray(ev.shot_ids) ? ev.shot_ids : []) if (!ids.includes(String(sid))) E.push(`signature-ref: signature event ${ev.id || "?"} points at shot ${sid}, which does not exist`);
+    for (const b of Array.isArray(ev.beat_ids) ? ev.beat_ids : []) if (beats.size && !beats.has(String(b))) E.push(`signature-ref: signature event ${ev.id || "?"} points at beat ${b}, which is not a beat of the approved story`);
+  }
+  let prev = null;
+  for (const s of S) {
+    if (s.t != null && s.t !== "") {
+      const t = Number(s.t);
+      if (!Number.isFinite(t) || t < 0 || (dur && t > dur + 0.5)) E.push(`shot-timing: ${s.id} t ${JSON.stringify(s.t)} is not a time inside the film${dur ? ` (0 to ${dur} s)` : ""}`);
+      else { if (prev != null && t < prev) E.push(`shot-timing: ${s.id} t ${t} is earlier than the shot before it (${prev})`); prev = t; }
+    }
+    const tm = s.timing && typeof s.timing === "object" ? Number(s.timing.duration_s) : null;
+    if (tm != null && !(tm > 0)) E.push(`shot-timing: ${s.id} timing.duration_s ${s.timing.duration_s} (a shot lasts longer than 0 s)`);
+    for (const t of Array.isArray(s.type) ? s.type : []) if (t && typeof t === "object" && t.essential === true && (t.readable === false || t.clipped === true || !String(t.text || "").trim())) E.push(`essential-text: ${s.id} essential text ${JSON.stringify(String(t.text || "").slice(0, 40))} is ${!String(t.text || "").trim() ? "missing" : "clipped or unreadable"}: essential text is always read`);
+  }
+  for (const p of pol.protectedText) {
+    if (!p || !p.text) continue;
+    const s = S.find((x) => String(x.id) === String(p.shot_id));
+    if (!s) { E.push(`proof-text: protected text "${String(p.text).slice(0, 40)}" is bound to shot ${p.shot_id}, which does not exist`); continue; }
+    const on = (Array.isArray(s.type) ? s.type : []).map((t) => norm(t && t.text)).join(" ");
+    if (!on.includes(norm(p.text))) E.push(`proof-text: ${s.id} does not carry the protected text "${String(p.text).slice(0, 60)}" exactly (a name, number or qualifier of the proof is changed or missing)`);
+  }
+  for (const a of pol.approvedTargets) {
+    if (!a || a.value == null || !a.field) continue;
+    const s = S.find((x) => String(x.id) === String(a.shot_id));
+    if (s && s[a.field] != null && norm(JSON.stringify(s[a.field])) !== norm(JSON.stringify(a.value))) E.push(`approved-target: ${s.id} ${a.field} contradicts the approved target ${JSON.stringify(a.value).slice(0, 60)}`);
+  }
+  if (pol.repetitionIntent && R.length) R.push(`repetition-intent: the Look declares a deliberate repeated arrangement (${typeof pol.repetitionIntent === "string" ? pol.repetitionIntent.slice(0, 80) : "see the creative brief"}): read the repetition findings above as intended`);
 }
 
 export function boardFiles(dir, doc) {
@@ -127,9 +204,62 @@ export function boardFiles(dir, doc) {
 }
 
 // ---------------------------------------------------------------- the juror's verdict
-export function checkVerdict(v, doc, { refsAvailable = 0 } = {}) {
+export const REVIEW_RESULTS = ["ready", "revise", "blocked", "needs_user", "not_reviewed"];
+const POSITIVE = /^(strong|good|ok|holds?|pass(es|ed)?|at-par|fine|clear)$/i;
+
+// The creative sidecar (<run>/creative/reviews/<stage>-r<N>.json, 01_CONTRACTS C): validates form and currency, never
+// aesthetics. A complete sidecar is not a good verdict: `result` is the reviewer's, and `ready` needs observed images.
+// current: {inputDigest?, artifacts?: [{path, sha256}], observedAvailable?: [paths the juror could actually open]}
+export function checkCreativeReview(rv, doc, { stage = "storyboard", current = {} } = {}) {
+  const E = [], W = [];
+  if (!rv || typeof rv !== "object") return { errors: ["creative-review: the review sidecar is missing or not valid JSON"], warnings: W, result: "not_reviewed", state: "not_reviewed" };
+  const ids = (doc && doc.shots ? doc.shots : []).map((s, i) => String(s.id || frameId(i)));
+  if (rv.stage && stage && rv.stage !== stage) E.push(`creative-review: the review is for stage "${rv.stage}", not "${stage}"`);
+  if (!REVIEW_RESULTS.includes(rv.result)) E.push(`creative-review: result must be one of ${REVIEW_RESULTS.join(", ")}`);
+  if (current.inputDigest && rv.input_digest !== current.inputDigest) E.push("creative-review: stale, input_digest is not the current input (the boards or approvals changed after the review)");
+  const have = new Map((Array.isArray(rv.artifact_digests) ? rv.artifact_digests : []).map((a) => [String(a && a.path), a && a.sha256]));
+  for (const a of Array.isArray(current.artifacts) ? current.artifacts : []) {
+    if (!have.has(String(a.path))) W.push(`creative-review: no digest for ${a.path} (the review does not say which version it saw)`);
+    else if (a.sha256 && have.get(String(a.path)) !== a.sha256) E.push(`creative-review: stale, ${a.path} changed after the review`);
+  }
+  const rev = rv.reviewer || {};
+  if (!String(rev.role || "").trim()) E.push("creative-review: reviewer.role is missing");
+  if (rev.independent_of_builder !== true) (rv.result === "ready" ? E : W).push("creative-review: the reviewer is not marked independent of the builder");
+  const ev = rv.evidence || {};
+  const seen = Array.isArray(ev.observed_refs) ? ev.observed_refs.map(String) : [];
+  if (ev.kind === "images" && !seen.length) E.push("creative-review: evidence.kind is images but no image was named in observed_refs (a path in the prompt is not evidence that it was seen)");
+  if (rv.result === "ready" && ev.kind !== "images") E.push("creative-review: a ready result needs images the reviewer actually observed; text or tool logs prove delivery, not that the picture was judged");
+  if (Array.isArray(current.observedAvailable)) for (const o of seen) if (!current.observedAvailable.map(String).includes(o)) W.push(`creative-review: observed ref ${o} is not one of the images the reviewer was given`);
+  const J = Array.isArray(rv.judgments) ? rv.judgments : [];
+  if (!J.length) W.push("creative-review: no judgments (a review states what was observed, per criterion)");
+  J.forEach((j, i) => {
+    const at = j && j.criterion ? j.criterion : `#${i + 1}`;
+    if (!j || !String(j.criterion || "").trim()) { E.push(`creative-review: judgment ${at} has no criterion`); return; }
+    const sid = j.location && j.location.shot_id != null ? String(j.location.shot_id) : null;
+    if (sid && !ids.includes(sid)) E.push(`creative-review: judgment ${at} points at shot ${sid}, which does not exist`);
+    if (String(j.observed || "").trim().length < 20) E.push(`creative-review: judgment ${at} observed nothing concrete (name what is visible, where attention goes, 20+ characters)`);
+    if (!POSITIVE.test(String(j.verdict || "")) && String(j.repair || "").trim().length < 20) E.push(`creative-review: judgment ${at} is "${j.verdict}" with no exact repair (what changes, where, by how much; 20+ characters)`);
+    if (!sid && !(j.location && j.location.time_s != null) && !(j.scope === "set")) W.push(`creative-review: judgment ${at} has no shot ID or time`);
+  });
+  const sl = rv.set_level;
+  if (!sl || typeof sl !== "object") E.push("creative-review: set_level is missing (film-wide progression, repetition, signature event)");
+  else {
+    for (const k of ["progression", "repetition", "signature"]) if (!String(sl[k] || "").trim()) W.push(`creative-review: set_level.${k} is empty`);
+    if (rv.result === "ready" && (/unjustified/i.test(String(sl.repetition || "")) || /^(missing|absent|none)$/i.test(String(sl.signature || "").trim()))) E.push(`creative-review: result ready but set_level says repetition "${sl.repetition}", signature "${sl.signature}"`);
+  }
+  if (!(Array.isArray(rv.limitations) && rv.limitations.length)) W.push("creative-review: limitations is empty (stills cannot establish timing or sound; say what was not assessable)");
+  const state = E.length ? "invalid" : REVIEW_RESULTS.includes(rv.result) ? rv.result : "not_reviewed";
+  return { errors: E, warnings: W, result: REVIEW_RESULTS.includes(rv.result) ? rv.result : "not_reviewed", state };
+}
+
+// The legacy verdict (at-par | close | below) stays what it was. Additive options: `creativePolicy` (a creative-policy run:
+// reference stills help but their absence is a limitation, not an error; the verdict states what it saw), and `creativeReview`
+// (the sidecar above, with `creativeCurrent` and `creativeStage`). Without them nothing changes. Schema completeness is
+// reported as `aesthetic: "not_reviewed"` until a sidecar says otherwise: a valid file is not a good film.
+export function checkVerdict(v, doc, { refsAvailable = 0, creativePolicy = null, creativeReview = null, creativeCurrent = {}, creativeStage = "storyboard" } = {}) {
   const E = [], W = [];
   if (!v || typeof v !== "object") return { errors: ["frames/verdict.json is missing or not valid JSON"], warnings: W };
+  const pol = creativePolicy != null || creativeReview != null;
   const F = Array.isArray(v.frames) ? v.frames : [];
   const ids = (doc && doc.shots ? doc.shots : []).map((s, i) => String(s.id || frameId(i)));
   for (const id of ids) if (!F.some((f) => f && String(f.id) === id)) E.push(`verdict: frame ${id} has no verdict`);
@@ -138,13 +268,26 @@ export function checkVerdict(v, doc, { refsAvailable = 0 } = {}) {
     if (!f || !VERDICTS.includes(f.verdict)) { E.push(`verdict: frame ${id} verdict must be at-par, close or below`); return; }
     const fixes = (Array.isArray(f.fixes) ? f.fixes : []).filter((x) => String(x || "").trim().length >= 20);
     if (f.verdict !== "at-par" && !fixes.length) E.push(`verdict: frame ${id} is ${f.verdict} with no specific fix (a fix names what to change and by how much: "drop the card 120 px so the tick sits on the focus band", 20+ characters)`);
-    if (refsAvailable && !(f.ref && String(f.ref.image || "").trim())) E.push(`verdict: frame ${id} names no reference still (the run has ${refsAvailable}): judge it next to a still of the same kind`);
+    if (refsAvailable && !(f.ref && String(f.ref.image || "").trim())) (pol ? W : E).push(`verdict: frame ${id} names no reference still (the run has ${refsAvailable}): judge it next to a still of the same kind${pol ? " when one is permitted and fits; say so when none does" : ""}`);
     else if (!refsAvailable && !(f.ref && (String(f.ref.image || "").trim() || String(f.ref.source || "").trim()))) W.push(`verdict: frame ${id} names no reference (no stills in the run: cite a showcase line instead, ref.source)`);
     if (f.ref && String(f.ref.image || "").trim() && !String(f.ref.why || "").trim()) W.push(`verdict: frame ${id}'s reference has no why (why this still is the same kind of frame)`);
+    if (pol && !String(f.sees || "").trim()) W.push(`verdict: frame ${id} has no "sees" (one plain sentence of what is on the board; a frame you cannot describe was not looked at)`);
   });
   const below = F.filter((f) => f && f.verdict === "below").length;
   if (!String(v.summary || "").trim()) W.push("verdict: no summary (one line: how the set stands against the references)");
-  return { errors: E, warnings: W, below, at_par: F.filter((f) => f && f.verdict === "at-par").length };
+  const out = { errors: E, warnings: W, below, at_par: F.filter((f) => f && f.verdict === "at-par").length };
+  if (pol) {
+    if (!Array.isArray(v.not_assessable) || !v.not_assessable.length) W.push("verdict: not_assessable is empty (list what stills cannot show: timing, sound, motion; and any image the juror could not open)");
+    out.aesthetic = "not_reviewed";
+    if (creativeReview != null) {
+      const r = checkCreativeReview(creativeReview, doc, { stage: creativeStage, current: creativeCurrent || {} });
+      for (const e of r.errors) E.push(e);
+      for (const w of r.warnings) W.push(w);
+      out.aesthetic = r.state;
+      out.creative = { result: r.result, state: r.state };
+    }
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------- reference stills

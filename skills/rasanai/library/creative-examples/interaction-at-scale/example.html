@@ -1,0 +1,19 @@
+<!doctype html>
+<!-- ORIGINAL teaching scene (invented product "Parcel"): one interaction shown at a scale where the result reads. original-unreviewed; not rendered. -->
+<html lang="en"><head><meta charset="utf-8"><title>interaction at scale</title>
+<style>
+html,body{margin:0;background:#e9ecef;font:500 40px/1.2 system-ui,sans-serif;color:#1d2330}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden}
+.panel{position:absolute;left:360px;top:290px;width:1200px;height:500px;background:#fff;border-radius:28px;box-shadow:0 30px 80px #1d233033;padding:60px;box-sizing:border-box}
+.row{display:flex;justify-content:space-between;align-items:center}
+.sw{width:200px;height:104px;border-radius:52px;background:#c4cad4;position:relative;animation:bg .5s 3s forwards}
+.sw::after{content:"";position:absolute;left:8px;top:8px;width:88px;height:88px;border-radius:50%;background:#fff;animation:kn .5s 3s forwards}
+.lab{position:absolute;left:60px;top:260px;font-size:34px;opacity:0;animation:in .6s 3.6s forwards}
+.cur{position:absolute;left:300px;top:700px;width:30px;height:30px;border-left:4px solid #1d2330;border-top:4px solid #1d2330;transform:rotate(-20deg);animation:mv 2.2s .4s forwards}
+@keyframes bg{to{background:#2f9e6e}}@keyframes kn{to{left:96px}}@keyframes in{to{opacity:1}}
+@keyframes mv{to{left:1280px;top:350px}}
+</style></head><body><div id="stage">
+<div class="panel"><div class="row"><span style="font-size:56px">Notify me when it ships</span><div class="sw"></div></div>
+<div class="lab">Tracking alerts on for parcel PK-2041.</div></div>
+<div class="cur"></div>
+</div></body></html>

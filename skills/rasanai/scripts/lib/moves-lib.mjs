@@ -14,6 +14,8 @@
 //                            chain[] has fewer than ceil(film_seconds / 1.5) entries), chain-gap (a gap over 3.0 s in the
 //                            chain, from 0 or to the film's end). Warnings: a detail hero, more than half the cards detail.
 //                            carrier.family is required (carrier-family: missing, unknown, or not the family the pack assigned).
+//                            New creative policy (opts.creativePolicy or creative_policy_revision in the file): atoms/mining, one bridge per boundary, a full-frame hero and the
+//                            chain density are PROFILES (opts.profiles / obj.profiles: atom-mining, bridged, full-frame-hero, dense-chain); unselected they warn. Legacy: errors.
 //                            Warning show-uncarded: a beat whose lines carry show rows (beats[].shows) has no card (card.beat or a seam touching it).
 //                            Ladder films (opts.shape "ladder", see pitchShape): no-join-hero (error) when no hero card's seam "A>B" crosses
 //                            a rung boundary (a beat with role "rung" on either side): the heroes are the joins between rungs.
@@ -150,6 +152,11 @@ export function validateMoves(obj, opts = {}) {
   const beats = arr(opts.beats);
   const N = beats.length;
   const pf = !!opts.productFirst;
+  // Creative recovery (W06): on the new creative policy (opts.creativePolicy, or the file's creative_policy_revision) the universal craft quotas below are PROFILES, not laws:
+  // they stay errors only when the file selects the profile (opts.profiles or obj.profiles: "dense-chain", "full-frame-hero", "bridged", "atom-mining"); otherwise they warn. Legacy files are untouched.
+  const cp = !!(opts.creativePolicy || obj.creative_policy_revision);
+  const profiles = arr(opts.profiles).concat(arr(obj.profiles)).map(str);
+  const U = (id, m) => (cp && !profiles.includes(id) ? W(`${m} [universal rule: an error only under the profile "${id}"; judge by the viewer effect, not the count]`) : E(m));
   const filmSeconds = beats.reduce((a, b) => a + (Number(b && b.duration_s) || 0), 0);
   if (!N) E("the pitch has no beats to check the moves against (pass --pitch with a pitch that has beats[])");
 
@@ -157,18 +164,18 @@ export function validateMoves(obj, opts = {}) {
   if (!str(obj.one_image)) E("one_image is missing (the single image the film is about)");
 
   const atoms = arr(obj.atoms).filter((a) => a && str(a.atom));
-  if (atoms.length < 8) E(`atoms: ${atoms.length} (8 at least: the glyphs, nouns, verbs, numbers, names, UI parts and shapes the script is made of)`);
+  if (atoms.length < 8) U("atom-mining", `atoms: ${atoms.length} (8 at least: the glyphs, nouns, verbs, numbers, names, UI parts and shapes the script is made of)`);
   const mining = arr(obj.mining).filter((m) => m && str(m.atom));
-  if (mining.length < 5) E(`mining: ${mining.length} atoms mined (5 at least: what each looks like, has parts of, does, means, is the opposite of, scales to)`);
+  if (mining.length < 5) U("atom-mining", `mining: ${mining.length} atoms mined (5 at least: what each looks like, has parts of, does, means, is the opposite of, scales to)`);
 
   // bridges: one per boundary between beats
   const bridges = arr(obj.bridges);
   if (N > 1) {
-    if (bridges.length < N - 1) E(`bridges: ${bridges.length} (need one per boundary: ${N - 1})`);
+    if (bridges.length < N - 1) U("bridged", `bridges: ${bridges.length} (need one per boundary: ${N - 1})`);
     for (let i = 1; i < N; i++) {
       const b = bridges.find((x) => x && Number(x.from) === i && Number(x.to) === i + 1);
-      if (!b) E(`bridges: the boundary ${i}>${i + 1} has no bridge`);
-      else if (!str(b.what)) E(`bridges: the ${i}>${i + 1} bridge says nothing in "what"`);
+      if (!b) U("bridged", `bridges: the boundary ${i}>${i + 1} has no bridge`);
+      else if (!str(b.what)) U("bridged", `bridges: the ${i}>${i + 1} bridge says nothing in "what"`);
     }
   }
   const car = obj.carrier;
@@ -284,7 +291,7 @@ export function validateMoves(obj, opts = {}) {
 
   // scale: a film needs at least one full-frame type/shape hero; detail heroes and detail-heavy sets are warned
   const heroCards = heroes.map((h) => cards.find((x) => x && x.id === h)).filter(Boolean);
-  if (heroCards.length && !heroCards.some((c) => str(c.scale) === "full-frame" && TYPE_SHAPE_GENERATORS.includes(str(c.generator).toUpperCase()))) E(`no-full-frame-hero: no hero card is scale "full-frame" with a type or shape generator (${TYPE_SHAPE_GENERATORS.join(", ")}): the type or the shape must be the stage, not a detail inside a screenshot`);
+  if (heroCards.length && !heroCards.some((c) => str(c.scale) === "full-frame" && TYPE_SHAPE_GENERATORS.includes(str(c.generator).toUpperCase()))) U("full-frame-hero", `no-full-frame-hero: no hero card is scale "full-frame" with a type or shape generator (${TYPE_SHAPE_GENERATORS.join(", ")}): the type or the shape must be the stage, not a detail inside a screenshot`);
   for (const c of heroCards) if (str(c.scale) === "detail") W(`hero ${c.id}: scale is "detail" (a hero is usually large or full-frame)`);
   const nDetail = cards.filter((c) => c && str(c.scale) === "detail").length;
   if (cards.length && nDetail * 2 > cards.length) W(`${nDetail} of ${cards.length} cards are scale "detail" (more than half: the set is mostly small moves inside the UI)`);
@@ -303,7 +310,7 @@ export function validateMoves(obj, opts = {}) {
     // Plan 05 E4: "a new idea every N seconds" is a STYLE rhythm, not a law. A pitch that declares rhythm_waiver (12+ characters: why this film holds or breathes) turns
     // the density errors into warnings, and a gap inside a declared hold ([{t0, t1, why}]) is not a gap. Without either, the legacy errors stand.
     const rw = obj.rhythm_waiver, waiver = str(rw && typeof rw === "object" ? rw.reason : rw);
-    const waived = waiver.length >= 12, DE = waived ? (m) => W(`${m} [waived: ${waiver}]`) : E;
+    const waived = waiver.length >= 12, DE = waived ? (m) => W(`${m} [waived: ${waiver}]`) : (m) => U("dense-chain", m);
     const holds = arr(obj.holds).filter((h) => h && Number(h.t1) > Number(h.t0) && str(h.why).length >= 8);
     if (chain.length < need) DE(`chain-sparse: chain has ${chain.length} entries for a ${Math.round(filmSeconds * 10) / 10} s film (${need} at least: one transformation about every 1.5 s)`);
     const ts = chain.map((e) => Number(e.t));

@@ -72,6 +72,8 @@ Films of 45 s or less and every single-feature launch or promo take the **direct
 | fit music and voice, score, push the animatic, build, draft-render | [music-animatic-build](references/workflows/music-animatic-build.md) | `references/craft.md`, `references/sound.md`, `references/video.md` (add `references/3d.md` only for a film with 3D scenes) |
 | gate, finish, deliver, learn from the film | [final-and-delivery](references/workflows/final-and-delivery.md) | `references/finish.md`, `references/deliver.md` |
 
+**New creative policy.** A run whose `crew/plan.json` has `creative_policy_revision: 1` (set by `crew.mjs plan` for a new scene-production plan; the five calls and the console do not change) also reads [creative-quality](references/creative-quality.md) at the Story, Look, styleframes and animatic steps, and the Story step also the short [teaching examples](references/creative-examples-teaching.md). `crew.mjs brief` hands them only to the roles that make or judge the idea, so do not preload them for other routes or phases. A prepared file is never an approval: storyboard and build work wait for the user's own choice.
+
 ## Routes
 
 The route table itself (which HyperFrames workflow builds which video) is in the Brief guide. A route's own guide only exists where the route changes the phases:

@@ -63,6 +63,11 @@
 //        as separate axes; pace and budget never change the number of Story/Look alternatives: --alternatives N does; --spend-tokens N, --render rough|preview|delivery). `brief` also compiles the role's input packet
 //        (lib/packets.mjs; receipt crew/packets/<role>[-key].json; --no-packet skips it); `check` takes --usage <json> or --tokens-in/--tokens-out/--cache-read/--cache-write/--turns/--retries/--purpose
 //        (selected|rejected_alternative|repeated_research|repair|retry|bookkeeping); unreported counters stay null.
+//   (Creative Recovery) plan [--creative-policy 1|off]: a NEW scene-production plan on a DIRECT_ROUTES route sets creative_policy_revision 1 (additive; a saved plan keeps what it had; no UI setting). On such a plan: productionGate and the
+//        storyboard boundary need the user's CONSUMED choice (a prepared file is never approval), the lean fast path no longer lets the film builder draw its own boards (a post-Look styleframe designer and ONE independent frame-juror
+//        pass stay), and the checks below apply. node crew.mjs creative init|check|revise|gate|status --run <run> [--stage ...] [--mode story|look|build]: the references (creative/references.json, automatic, local index) and the one
+//        small creative brief (creative/brief.json: intent only, no timing, no approval; a new revision after the Story and Look choices, the old kept in creative/revisions/), and the honest readiness at a boundary
+//        (`gate --stage final` says not_reviewed, never passed, when the review evidence is absent). check also takes --observed-reads a.png,b.png (the supervisor's record of image reads on the packet receipt).
 //   node crew.mjs usage --run <run> [--prices <json>]   -> usage by what the harness reported (null = unreported), rejected-alternative and repeated-research work apart, an API-equivalent estimate only with a price table
 //   node crew.mjs pitches --run <run>         -> merges story/pitch-*.json into story/pitches.json (Sure, Bold, Wild)
 //   node crew.mjs storyboard --run <run> --project <dir> [--score <score.json>]
@@ -105,12 +110,18 @@ import { checkLog, checkSelects, checkPaper } from "./lib/footage-lib.mjs";
 import { checkSystemFull, checkSystems, firstLine } from "./lib/system.mjs";
 import { readRunGrammar, hasGrammarLibrary, checkScoreGrammar, techniquesNamed } from "./lib/grammar-lib.mjs";
 import { pitchShape, validateMoves, validateVerdict, validateSet, isLabelOnly, MOVE_LABELS } from "./lib/moves-lib.mjs";
-import { readShots, checkShots, boardFiles, checkVerdict, collectRefs, boardFor, heroesAgree } from "./lib/frames-lib.mjs";
+import { readShots, checkShots, boardFiles, checkVerdict, checkCreativeReview, collectRefs, boardFor, heroesAgree } from "./lib/frames-lib.mjs";
 import { loadIntent, validateIntent, applyEdits, applyToScript, readSeconds } from "./lib/intent.mjs";
 import { validateReview } from "./lib/treatment.mjs";
 import { productionGate, annotatePhases } from "./lib/look.mjs"; // Plan 04: no storyboard or production work before the Look is committed
 import { deliberateSeam } from "./lib/editorial.mjs"; // Plan 05 E4: deliberate hard cuts and holds are exempt from the every-seam rules
 import { boundary as storyboardBoundary } from "./lib/storyboard.mjs"; // Plan 05 E1: a full storyboard needs current Story and Look digests
+// Creative Recovery (plan 02): all of it is gated on crew/plan.json creative_policy_revision === 1, set additively for NEW scene-production plans on DIRECT_ROUTES; a legacy plan never has it and keeps its behaviour
+import { creativeOn, consentContexts, approvalPins, lookStyleOf, creativeLookProfile, prepareReferences, provisionalBrief, briefIsSkeleton, checkBrief, reviseCreative, latestReview, normalizeReviewPaths, boardDigests, creativeGate, referencesDigest } from "./lib/creative-run.mjs";
+import { creativeSlice } from "./lib/creative-contract.mjs";
+import { referencePacket } from "./lib/creative-references.mjs";
+import { validateProofContract, validateProofReview } from "./lib/proof-integrity.mjs";
+import { validateCreativeHandoff } from "./lib/creative-handoff.mjs";
 import { commitTiming, writeEvents, scoreRevision, eventsFromScore } from "./lib/timing.mjs"; // Plan 05 E3: the score is the one timing authority; events.json is derived
 import { readDirection, sfxExpectation, silenceWindows } from "./lib/audio-direction.mjs"; // Plan 07: the audio direction (roles, intentional silence, a silent deliverable)
 import { deriveCues } from "./lib/cues.mjs"; // Plan 07 A2: cues reference stable event ids; their film time is derived from the score
@@ -289,6 +300,33 @@ function sourceResearch(p, d, lean, full) {
   return out;
 }
 
+// Creative Recovery: the additive edits to a NEW-policy plan's phases (same stages, same user calls: backend content only). Called at the end of planCrew.
+function creativePhasePass(phases, { brandLook = false, seriesLook = false } = {}) {
+  const by = (n) => phases.find((x) => x.phase === n);
+  const add = (n, t) => { const ph = by(n); if (ph) ph.then = (ph.then ? ph.then + "; " : "") + t; };
+  const before = (names, ph) => { const i = phases.findIndex((x) => names.includes(x.phase)); if (i >= 0) phases.splice(i, 0, ph); else phases.push(ph); };
+  add("story-edit", "creative: the script editor also reads creative/brief.json and judges distinctness, proof and comprehensibility; for every demonstration (a changed sentence, a calculation, an eligibility rule) it writes story/proof-review.json against story/proof-contracts.json (crew.mjs check validates both)");
+  add("concept-gate", "creative: the concept critic also answers demonstrations_preserve_meaning and visual_idea_carries_claim");
+  add("design-systems", "creative: each look declares look_style in blend.json and develops a different visual STRATEGY for this story (not a recolour); a depth look is one option, never the default");
+  add("design-system", "creative: the look declares look_style in blend.json");
+  add("look-heroes", "creative: the representative beat only (no per-beat storyboard, no production before the Look is confirmed); the Director's design.mjs compare-plan attaches the Story's creative intent");
+  add("score", "creative: the Motion Director binds each signature event to score shot ids and its approved board in creative/execution-map.json (traceability only: motion/score.json stays the one timing authority); crew.mjs check verifies the map");
+  for (const n of ["build", "lead", "animate"]) add(n, "creative: the builder returns the packet's creative mappings (event_id, shot_ids, produced artifacts, declared deviations) and lists missing or deviated events; crew.mjs check validates them (a mapping proves traceability, not that the event works)");
+  for (const n of ["review", "review-film"]) add(n, "creative: the film critic judges the signature events from the render and writes creative/reviews/final-r<N>.json; `crew.mjs creative gate --stage final` reports not_reviewed (never a pass) when that evidence is absent");
+  const ad = by("animatic-draft");
+  if (ad) ad.when += " (new creative policy: the Storyboard review was approved BEFORE the build, so this push shows the built draft for notes and the Final; it is not the build's approval)";
+  // after the user's Story choice, then after the Look choice: a NEW brief revision (the previous one kept), references re-picked, pins only for what the user really confirmed
+  before(["design-systems", "design-system", "look-series", "look-auto"], { phase: "creative-revise-story", stage: "look", when: "after the user's Story choice and BEFORE the design desk: update the creative brief as a new revision (never a silent rewrite of approved intent)", dispatch: [], director_steps: ["node scripts/crew.mjs creative revise --run <run> --mode story   (refuses until a consumed Story choice exists: a prepared story/chosen.json is not approval)"], then: "the design desk reads creative/brief.json" });
+  before(["concept-gate", "thumbs", "art", "character-design", "styleframes"], { phase: "creative-revise-look", stage: "storyboard", when: "after the user's Look choice, before the concept gate and the full boards", dispatch: [], director_steps: ["node scripts/crew.mjs creative revise --run <run> --mode look   (pins the confirmed Story and Look; re-picks references with both known)", "bind each signature event to the selected look strategy, to beats and, once the boards exist, to shot ids (creative/brief.json); node scripts/crew.mjs creative check --run <run> --stage look"], then: "the concept gate, then the post-Look styleframe designer draws the selected boards" });
+  // a Look the Director prepared itself (brand or series) is NOT approval: the user confirms it through the existing Look call
+  const lk = by("look-auto") || by("look-series");
+  if (lk && Array.isArray(lk.director_steps)) {
+    lk.director_steps = lk.director_steps.map((x) => String(x).replace("push look --status done with", "PREPARE the look files, then push look --status awaiting (a confirm, recommended) with").replace(/console\.mjs push --step look --status done/g, "console.mjs push --step look --status awaiting"));
+    lk.director_steps.push("wait for the user's answer on the Look call (a consumed choose / approve action on the look step); closing the step yourself with --status done is NOT approval and the production gate refuses storyboard work until the user has confirmed (the existing Look review; a series look inherited without a consumed action is shown as a confirm too)");
+    lk.when += " (new creative policy: prepared, not decided)";
+  }
+}
+
 function planCrew(p) {
   const d = (role, key = null, extra = {}) => ({ role, key, tier: ROLES[role].tier, background: true, description: ROLES[role].desc(p, key), ...extra });
   const phases = [];
@@ -299,6 +337,7 @@ function planCrew(p) {
   const leanCreative = lean && (!p.policy || collapsesAlternatives(p.policy));
   const FR = BUDGETS[budget].fix_rounds, FRT = `${FR} fix round${FR > 1 ? "s" : ""}`;
   const full = budget === "full";
+  const creative = creativeOn(p); // Creative Recovery: a NEW scene-production plan (plan sets creative_policy_revision 1); a legacy plan keeps every branch below as it was
   const N = p.scenes || null;
   // a film in a series: its look is locked (no Look desk), and one writer writes one story within the series rules, auto-chosen
   const seriesLook = !!(p.series && p.series_look);
@@ -348,6 +387,9 @@ function planCrew(p) {
   }
   if (research.length) phases.push({ phase: "research", when: "right after the brief is pushed, while the user reads it", dispatch: research, then: footageSp ? "research-lead once every member above and the selects are accepted" : "research-lead once every member above is accepted" });
   if (research.length || footageSp) phases.push({ phase: "research-lead", when: footageSp ? "after the research desk and the selects" : "after the research desk", dispatch: [d("research-lead")], then: footageSp ? "the footage writers (a Material section in the truth sheet: gold moments, the strongest bites, the people, the gaps)" : "story.mjs pick on the truth sheet" });
+  if (creative) phases.push({ phase: "creative-brief", stage: "brief", when: "after the research desk (or right after the brief when there is none), BEFORE the story writers: the Director owns the one small creative brief and the automatic references (no new stage, no question to the user)", dispatch: [],
+    director_steps: ["node scripts/crew.mjs creative init --run <run>   (creative/references.json: up to four relevant references picked from the local index, text-only limits stated; and the provisional creative/brief.json skeleton, mode proposal, no approvals)", "fill creative/brief.json from the truth sheet, claims and screens (references/creative-quality.md): an evidence-backed promise, the one premise, the product's native material, the opening and payoff, the visual strategy, do_not_substitute; signature events stay conceptual here (no shot coordinates)", "node scripts/crew.mjs creative check --run <run>   (form only: it never turns a long premise into a good one)"],
+    then: "the story writers read creative/brief.json; the user's Story call is unchanged" });
   if (bf) {
     phases.push({
       phase: "brand-film", when: "right after the brief is pushed, in parallel with the research desk (a branded launch / promo / brand film: references/launch-film.md section 3). The Director first runs brandfilm.mjs: find (the brand's official films; the user's attached video is the PRIMARY source and skips find), fetch (at most 2 films, 720p), frames, measure, card, all into <run>/brand-film/; no film found: fall back to the brand's website and product screenshots as the frames and say so. At most ~3 minutes on Fast pace",
@@ -441,17 +483,17 @@ function planCrew(p) {
   if (DIRECT_ROUTES.has(p.route)) {
     const sfWhen = lean ? "after the concept gate, BEFORE the music and the score" : "after the art department, BEFORE the music and the score (the score animates between the boards)";
     const sfSteps = ["node scripts/frames.mjs init --run <run>   (the frame kit, RasanCamera when the skill has it, a shots.json skeleton from the chosen script)", "node scripts/frames.mjs refs --run <run> --sheet   (the reference stills the run has)", "node scripts/frames.mjs shots-check --run <run>", "node scripts/design.mjs stills --dir <run>/frames --aspect <aspect>"];
-    if (lean && p.direct) phases.push({ phase: "styleframes", when: sfWhen, dispatch: [], director_steps: sfSteps.slice(0, 1), then: "no designer and no separate board pass: the film builder draws each beat's board (frames/shots.json, frames/<id>.html + .png via design.mjs stills) as the first step of its build and looks at them before it animates; crew.mjs check --role film-builder --key film then holds the film to them" });
-    else if (lean) phases.push({ phase: "styleframes", when: sfWhen, dispatch: [], director_steps: ["you design the styleframes yourself, the same files and checks (agents/styleframe-designer.md): frames/shots.json, 3 hero frames, a board per beat, frames/FRAMES.md", ...sfSteps, "frames.mjs sheet --ours <run>/frames --refs <stills of the same kind> --out <run>/frames/sheet.png: look at it and revise the weakest frame once"], then: "crew.mjs check --role styleframe-designer --key frames, then the music and the score" });
-    else if (p.direct) phases.push({ phase: "styleframes", when: sfWhen, dispatch: [d("styleframe-designer", "frames")], director_steps: sfSteps.slice(0, 1), then: "crew.mjs check --role styleframe-designer --key frames, then the frame juror" });
+    if (lean && p.direct && !creative) phases.push({ phase: "styleframes", when: sfWhen, dispatch: [], director_steps: sfSteps.slice(0, 1), then: "no designer and no separate board pass: the film builder draws each beat's board (frames/shots.json, frames/<id>.html + .png via design.mjs stills) as the first step of its build and looks at them before it animates; crew.mjs check --role film-builder --key film then holds the film to them" });
+    else if (lean && !creative) phases.push({ phase: "styleframes", when: sfWhen, dispatch: [], director_steps: ["you design the styleframes yourself, the same files and checks (agents/styleframe-designer.md): frames/shots.json, 3 hero frames, a board per beat, frames/FRAMES.md", ...sfSteps, "frames.mjs sheet --ours <run>/frames --refs <stills of the same kind> --out <run>/frames/sheet.png: look at it and revise the weakest frame once"], then: "crew.mjs check --role styleframe-designer --key frames, then the music and the score" });
+    else if (p.direct) phases.push({ phase: "styleframes", when: sfWhen + (creative && lean ? " (new creative policy, lean: compact alternatives and a smaller board set, but the selected boards are drawn by the post-Look styleframe designer, never by the film builder during its build)" : ""), dispatch: [d("styleframe-designer", "frames")], director_steps: sfSteps.slice(0, 1), then: "crew.mjs check --role styleframe-designer --key frames, then the frame juror" });
     else {
       phases.push({ phase: "styleframes", when: sfWhen, dispatch: [d("styleframe-designer", "heroes")], director_steps: sfSteps.slice(0, 1), then: "crew.mjs check --role styleframe-designer --key heroes, then the boards" });
       phases.push({ phase: "boards", when: "after the shot list and the 3 hero styleframes are accepted: one board per beat, bound to the heroes", dispatch: boardGroups().map((g) => d("frame-designer", g)), then: "crew.mjs check each, then the frame juror" });
     }
     if (bf) phases.push({ phase: "style-match-boards", when: "after every board is rendered, BEFORE the frame juror and before any animation", dispatch: [], gate: "node scripts/brandfilm.mjs compare --ref <run>/brand-film/grammar.json --ours <run>/frames", then: "on FAIL fix the boards (re-dispatch the designer with the failed checks) and re-run; record the numbers in decisions (decisions.style_match.keyframes) and push a short note" });
-    if (!lean) phases.push({ phase: "frames-jury", when: "after every board is rendered" + (bf ? " and the style-match gate passed" : ""), dispatch: [d("frame-juror", "frames-1")], then: "crew.mjs check --role frame-juror --key frames-1; below frames go back to their designer with the fixes once (frame-juror frames-2 judges them again; twice at most)" });
-    if (brandLook) phases.push({ phase: "styleframes-call", when: "after the jury: on a branded direct film the Look call IS the styleframes call", dispatch: [], director_steps: ["node scripts/frames.mjs payload --run <run>", "console.mjs push --step styleframes --file <run>/styleframes.json, then wait", "approve -> close the step and go on; comment -> collect (scene = the frame id); redo {ids, note} -> the designer redoes those frames, the juror judges them again, re-push"], then: "the music, then the score from the approved boards" });
-    else phases.push({ phase: "styleframes-show", when: "while the boards are designed and judged (not a call: the user watches them land)", dispatch: [], director_steps: ["node scripts/frames.mjs payload --run <run> after each board lands; console.mjs push --step styleframes --status working --file <run>/styleframes.json", "after the jury: push it --status done with the decision (how many at par, what was redone)"], then: "the music, then the score from the boards" });
+    if (!lean || creative) phases.push({ phase: "frames-jury", when: "after every board is rendered" + (bf ? " and the style-match gate passed" : ""), dispatch: [d("frame-juror", "frames-1")], then: "crew.mjs check --role frame-juror --key frames-1" + (creative ? " (it also reads creative/reviews/storyboard-r1.json: an independent pass on the selected boards, kept even when lean). Fix only weak or unsupported shots once; a second pass (frames-2) only for an unresolved major finding and only inside the production budget. If the juror cannot run (no model slot, no vision-capable role), say so as a needs-you note through the existing review controls and do not call the boards ready" : "; below frames go back to their designer with the fixes once (frame-juror frames-2 judges them again; twice at most)") });
+    if (brandLook && !creative) phases.push({ phase: "styleframes-call", when: "after the jury: on a branded direct film the Look call IS the styleframes call", dispatch: [], director_steps: ["node scripts/frames.mjs payload --run <run>", "console.mjs push --step styleframes --file <run>/styleframes.json, then wait", "approve -> close the step and go on; comment -> collect (scene = the frame id); redo {ids, note} -> the designer redoes those frames, the juror judges them again, re-push"], then: "the music, then the score from the approved boards" });
+    else phases.push({ phase: "styleframes-show", when: "while the boards are designed and judged (not a call: the user watches them land" + (creative && brandLook ? "; on the new creative policy the brand-derived Look was confirmed by the user at the Look step first, and the Storyboard review that follows is the next human decision" : "") + ")", dispatch: [], director_steps: ["node scripts/frames.mjs payload --run <run> after each board lands; console.mjs push --step styleframes --status working --file <run>/styleframes.json", "after the jury: push it --status done with the decision (how many at par, what was redone)"], then: "the music, then the score from the boards" });
   }
   if (SCENE_ROUTES.has(p.route) || p.route === "motion-graphics") {
     if (DIRECT_ROUTES.has(p.route)) phases.push({
@@ -503,6 +545,7 @@ function planCrew(p) {
   if (SCENE_ROUTES.has(p.route) || p.route === "motion-graphics") phases.push({ phase: "stage3d-font", when: "before a beat sets BRAND TYPE in 3D (extruded text): only then", dispatch: [], director_steps: ["node scripts/stage3d.mjs font --project <dir> --family \"<Brand Font>\" --weight 700 (prints the staged font path)", "k.extrudeText(text, { font: \"<printed path>\" }) in the scene"], then: "the 3D type is the brand's own face, never a stand-in" });
   phases.push({ phase: "ab-review", when: lean ? "the fix round (lean: one), before it is accepted" : "every fix round after the first draft (" + FRT + " at most), before the round is accepted", dispatch: [], director_steps: ["node scripts/fixcheck.mjs --before <the previous render> --after <this round's render> --touched <the notes' windows> (read regression_runs and diff_pngs: a leak into frames the round did not touch is fixed or explained)", "crew.mjs ab --run <run> --a <the previous render> --b <this round's render> --plan motion/score.json (the juror's brief carries the critics' strengths[]: a round that loses one is a regression)", "crew.mjs brief --role ab-juror --key <k> (dispatch it; it sees X and Y, never which is newer)", "crew.mjs check --role ab-juror --key <k> prints keep or revert; revert = back to the previous version's project state (git, or the .superseded copy), keep only fixes that do not lose, and log the lost round with --because"], then: "a lost round is reverted, never accepted" });
   phases.push({ phase: "retrospective", when: "at delivery, after the Final", dispatch: [d("retrospective")], then: "crew.mjs check --role retrospective prints the lessons.mjs add --source self lines (at most 2); run them" });
+  if (creative) creativePhasePass(phases, { brandLook, seriesLook });
   return annotatePhases(phases); // Plan 04: tags every storyboard/production phase with the stages that must be committed first
 }
 
@@ -703,6 +746,76 @@ function showcaseInputs(run, P, B) {
     : ["sovra-fm-launch", "google-ask-search-anything"];
   return [["showcases: ten reference films line by line, with the ten principles (read first: every on-screen line needs a motion that means it)", path.join(dir, "README.md")], ...pick.map((id, i) => [`showcase ${i + 1} (a reference film, line by line)`, path.join(dir, `${id}.json`)])];
 }
+// ---------------------------------------------------------------- Creative Recovery: what a role is handed on a new-policy plan
+// Roles that read the one small creative brief and the selected references, and the few that also read the teaching examples. The brief holds intent and references only (never timing, never approval).
+const CREATIVE_ROLES = new Set(["script-writer", "treatment-writer", "visual-writer", "script-editor", "concept-critic", "design-system-designer", "styleframe-designer", "frame-designer", "frame-juror", "motion-director", "film-builder", "scene-animator", "critic"]);
+const CREATIVE_TEACH_ROLES = new Set(["script-writer", "treatment-writer", "script-editor", "concept-critic", "design-system-designer", "styleframe-designer", "frame-juror", "motion-director", "critic"]);
+// every id the run knows that a proof contract's source_refs may name (claims, screens, assets)
+function knownEvidenceIds(run) {
+  const ids = new Set();
+  for (const f of ["claims.json", "screens.json", "assets.json"]) {
+    const j = jsonMaybe(R(run, "research", f));
+    for (const x of Array.isArray(j) ? j : j && (j.claims || j.screens || j.assets) || []) if (x && typeof x === "object") for (const k of ["id", "path"]) if (x[k] != null) ids.add(String(x[k]));
+  }
+  return ids;
+}
+function proofContractsOf(run) { const j = jsonMaybe(R(run, "story", "proof-contracts.json")); return Array.isArray(j) ? j : Array.isArray(j && j.contracts) ? j.contracts : j === null ? null : []; }
+// -> { contracts, mechanical:[{contract, ...error}], reviewInputs:[...] } (validateProofContract is the mechanical half; meaning is the editor's job)
+function proofState(run) {
+  const list = proofContractsOf(run);
+  if (list === null) return null;
+  const known = knownEvidenceIds(run), mechanical = [], reviewInputs = [];
+  for (const c of list) {
+    // the evidence a contract can carry itself: labeled_illustrative (the beat visibly says "example") and capability_refs (evidence ids that show the product really does the claimed behaviour)
+    const r = validateProofContract(c, { ...(known.size ? { known_ids: [...known] } : {}), labeled_illustrative: !!(c && c.labeled_illustrative === true), capability_refs: Array.isArray(c && c.capability_refs) ? c.capability_refs : [] });
+    for (const e of r.mechanicalErrors) mechanical.push({ contract: c && c.id, ...e });
+    reviewInputs.push(...r.requiredReviewInputs);
+  }
+  return { contracts: list, mechanical, reviewInputs };
+}
+function creativeContext(run, role, key, P, ctx, I, O) {
+  const briefF = R(run, "creative", "brief.json"), refsF = R(run, "creative", "references.json");
+  if (CREATIVE_ROLES.has(role)) {
+    I("creative quality (the new creative policy in one short guide: the idea, the handoff and the review; read it, do not re-derive it)", path.join(SKILL_DIR, "references", "creative-quality.md"));
+    if (CREATIVE_TEACH_ROLES.has(role)) I("original creative examples (teach decisions; never copy a style, never a claim about the user's product)", path.join(SKILL_DIR, "references", "creative-examples-teaching.md"));
+    I("creative brief (the one small premise, signature events, repetition intent and do_not_substitute; intent only: timing is motion/score.json, approval is the user's stage decisions)", briefF);
+    I("selected references (principles first; no image counts as a visual comparison unless one is listed as permitted)", refsF);
+    const b = jsonMaybe(briefF);
+    if (b && !briefIsSkeleton(b)) {
+      const sl = creativeSlice(b, { role });
+      ctx.creative = { brief: "creative/brief.json", revision: sl.references.revision, brief_digest: sl.references.brief_digest, references_digest: sl.references.references_digest, history: sl.references.history, omitted_optional: sl.omittedOptional, mandatory_content: "the compiled input packet (the section after this brief) carries the creative intent, the event invariants and the approval pins whole; this record names which revision they come from" };
+    } else ctx.creative = { brief: "creative/brief.json", status: b ? "skeleton: the Director fills it first" : "missing: crew.mjs creative init --run <run>" };
+    const sel = jsonMaybe(refsF);
+    if (sel) {
+      const rp = referencePacket(sel, { role });
+      ctx.references = { principles: rp.principles, limitations: rp.limitations, source_ids: rp.sourceIds };
+      for (const v of rp.visualInputs) if (v && v.path) I(`reference image ${v.source_id} (reference-only, lawful: learn the principle, never copy the scene, logo or media)`, path.resolve(SKILL_DIR, v.path));
+    }
+  }
+  if (role === "script-writer" && (key === "Set" || key === "Extra")) { O(R(run, "story", "proof-contracts.json")); ctx.proof_contracts = "wherever a beat shows a transformation (a corrected sentence, a calculation, an eligibility rule) also write story/proof-contracts.json ([{id, beat_id, source_refs, source_text, intended_claim, transformation_kind, protected_entities, protected_quantities, protected_conditions, supported_outputs, illustrative, review_status, optional: labeled_illustrative (the beat visibly says 'example'), claimed_capability with capability_refs (evidence ids that show the product really does it), shot_ids}]; shape in scripts/lib/proof-integrity.mjs); a labelled fiction is fine, a fabricated product capability is not"; }
+  if (role === "script-editor") {
+    const ps = proofState(run);
+    I("proof contracts (every demonstration the scripts show: source text, intended claim, protected people, numbers and conditions)", R(run, "story", "proof-contracts.json"));
+    O(R(run, "story", "proof-review.json"));
+    ctx.proof_review = ps && ps.reviewInputs.length ? { required: ps.reviewInputs, mechanical_errors_found: ps.mechanical.length, how: "compare each contract's source_text, intended reading and shown outputs; write story/proof-review.json {reviewer:{role:'script-editor', job_id, independent_of_builder:true}, input_digest, reviews:[{contract_id, verdict: equivalent|not-equivalent|needs-clarification, source_text_seen (quote it), outputs_checked:[ids], protected_checked:true, rationale (6+ words), input_digest}], limitations:[]}; not-equivalent or needs-clarification goes back through the existing editor notes (the user still chooses the Story)" } : "no demonstration needs a semantic review (no story/proof-contracts.json rows that change meaning)";
+  }
+  if (role === "concept-critic") {
+    const ps = proofState(run);
+    I("proof contracts and the editor's proof review", R(run, "story", "proof-review.json"));
+    ctx.concept_keys = "new creative policy: a v2 story also answers demonstrations_preserve_meaning and visual_idea_carries_claim, each {ok: true|false, evidence, fix when not ok}";
+    if (ps) ctx.proof_review_inputs = ps.reviewInputs.map((x) => ({ contract_id: x.contract_id, beat_id: x.beat_id }));
+  }
+  if (role === "motion-director" && key !== "seams") { O(R(run, "creative", "execution-map.json")); ctx.execution_map = "write creative/execution-map.json ({events:[{event_id, beat_id, shot_ids, board_refs, source_files, sample_times_s, produced_artifact_refs, input_digest, declared_deviations}]}) for every signature event of the brief: shot ids from THIS score, the board it grows from, sample times in film seconds from the score; traceability only (it owns no timing); crew.mjs check verifies it"; }
+  if (role === "frame-juror") {
+    const rn = Number(String(key || "frames-1").split("-").pop()) || 1;
+    O(R(run, "creative", "reviews", `storyboard-r${rn}.json`));
+    ctx.creative_review = `also write creative/reviews/storyboard-r${rn}.json (the review envelope: stage, input_digest, artifact_digests [{path (run-relative, e.g. frames/01.png), sha256}], reviewer {role:'frame-juror', job_id, independent_of_builder:true}, evidence {kind:'images', observed_refs: the images you really opened, basis}, judgments [{criterion, verdict, observed (specific, 20+ chars), location {shot_id}, repair}], set_level {progression, repetition, signature}, result: ready|revise|blocked|needs_user, limitations). 'ready' needs images you really observed; stills cannot establish timing or sound`;
+  }
+  if (role === "critic") {
+    const [lens, round] = String(key || "film-1").split("-");
+    if (lens === "film") { const rn = Number(round) || 1; O(R(run, "creative", "reviews", `final-r${rn}.json`)); ctx.creative_review = `new creative policy: judge each signature event from the render (the event's before, change and after; must_preserve; do_not_substitute) and also write creative/reviews/final-r${rn}.json in the review envelope (evidence.observed_refs = the strips or stills you really opened; result ready|revise|blocked|needs_user; limitations: what stills or a missing render could not show). A ship verdict needs result ready; with no render or no image read the honest result is not_reviewed or needs_user, never a pass`; }
+  }
+}
 function contextFor(run, role, key, plan) {
   const pj = projectDir(run);
   const P = plan || {};
@@ -715,11 +828,11 @@ function contextFor(run, role, key, plan) {
   const capture = pj ? path.join(pj, "capture") : null;
   const B = brief(run);
   { // Plan 04 L1: storyboard/production roles wait for a committed Look (heroes-<Label> is the Look comparison itself and is exempt)
-    const g = productionGate(run, role, key, P);
+    const g = creativeOn(P) ? productionGate(run, role, key, P, { strict: true, contexts: consentContexts(run) }) : productionGate(run, role, key, P); // creative policy: prepared files are not approval (a consumed user choice, approval record or delegation is)
     if (!g.ok) die(g.message);
     // Plan 05 E1: once a full storyboard was scheduled (storyboard/inputs.json pins the Story and Look digests), a worker is not briefed on inputs that have since moved
     if (P && P.look_gate && ["scene-animator", "film-builder", "motion-director", "frame-designer", "art-director", "frame-juror"].includes(role) && exists(R(run, "storyboard", "inputs.json"))) {
-      const sb = storyboardBoundary(run, { mode: "full" });
+      const sb = storyboardBoundary(run, { mode: "full", ...(creativeOn(P) ? { requireConsent: true } : {}) });
       if (!sb.ok && sb.stale && sb.stale.length) die(`stale storyboard inputs: ${sb.problems[0]} (storyboard.mjs boundary --run ${rel(run)}, then storyboard.mjs adopt: the old panel set is labelled old)`);
     }
     // Plan 04 L2/L5: the compact visual bible and the continuity contract travel with every worker that draws or animates
@@ -1241,9 +1354,10 @@ function contextFor(run, role, key, plan) {
       }
     }
   }
-  if (role === "film-builder" && P.budget === "lean" && P.direct && key !== "lead") {
+  if (role === "film-builder" && P.budget === "lean" && P.direct && key !== "lead" && !creativeOn(P)) {
     ctx.own_boards = "lean budget: no designer drew the boards. FIRST, before any animation, draw them yourself: frames/shots.json (one shot per beat: size, hero, light, ground, type sizes), then frames/<id>.html and its .png per beat (node scripts/frames.mjs init --run <run>, then node scripts/design.mjs stills --dir frames), LOOK at them against the score, and animate between them. Keep it to the beats' peak frames: one picture per beat, no variants";
   }
+  if (creativeOn(P)) creativeContext(run, role, key, P, ctx, I, O);
   for (const kv of str(args.set).split(",").filter(Boolean)) {
     const i = kv.indexOf("=");
     if (i > 0 && !kv.startsWith("path=")) ctx[kv.slice(0, i)] = kv.slice(i + 1);
@@ -1948,8 +2062,89 @@ function abLatest(run) {
   const ns = exists(d) ? fs.readdirSync(d).map((x) => (x.match(/^ab-(\d+)\.json$/) || [])[1]).filter(Boolean).map(Number) : [];
   return ns.length ? Math.max(...ns) : 0;
 }
+// ---------------------------------------------------------------- Creative Recovery: acceptance checks (all gated on creativeOn(plan))
+// the argument checkShots / frame-gate take: the selected Look's craft class plus the run's real bindings. label: a Look comparison key (heroes-<Label>) uses that system's own look_style.
+function creativePolicyFor(run, doc, label = null) {
+  if (!creativeOn(jsonMaybe(R(run, "crew", "plan.json")) || {})) return null;
+  const pr = creativeLookProfile(run, doc);
+  const bj = label ? jsonMaybe(R(run, "design", label, "blend.json")) : null;
+  if (bj && typeof bj.look_style === "string" && bj.look_style.trim()) pr.style = bj.look_style.trim();
+  return pr;
+}
+const eventIds = (b) => (Array.isArray(b && b.signature_events) ? b.signature_events : []).filter((e) => e && e.id).map((e) => String(e.id));
+// the Motion Director writes creative/execution-map.json; builders complete produced_artifact_refs. Metadata proves traceability, never that the event works (validateCreativeHandoff says so too).
+function creativeTraceProblems(run, role, key, P, W) {
+  if (!["motion-director", "film-builder", "scene-animator"].includes(role)) return;
+  if ((role === "motion-director" && key === "seams") || (role === "film-builder" && key === "lead")) return;
+  const brief = jsonMaybe(R(run, "creative", "brief.json"));
+  if (!brief || briefIsSkeleton(brief)) return;
+  const events = (Array.isArray(brief.signature_events) ? brief.signature_events : []).filter((e) => e && e.id);
+  if (!events.length) return; // a brief may carry none (with a reason): nothing to trace
+  const map = jsonMaybe(R(run, "creative", "execution-map.json"));
+  if (map === null) { P.push("creative/execution-map.json is missing: the Motion Director maps every signature event to score shot ids and its board (agents/motion-director.md, Executing the approved creative idea)"); return; }
+  if (map === undefined) { P.push("creative/execution-map.json is not valid JSON"); return; }
+  const rows = Array.isArray(map.events) ? map.events.filter((x) => x && x.event_id) : [];
+  const score = jsonMaybe(R(run, "motion", "score.json")) || {}, doc = readShots(R(run, "frames", "shots.json"));
+  const scenes = Array.isArray(score.scenes) ? score.scenes : [];
+  const shotIdOf = (sc, i) => { const sh = doc ? boardFor(sc, i, doc) : null; return sh ? String(sh.id) : null; };
+  const sceneShots = new Set(scenes.map((sc, i) => shotIdOf(sc, i)).filter(Boolean));
+  const mine = (() => {
+    if (role !== "scene-animator") return events;
+    const i = scenes.findIndex((x) => Number(x.n) === Number(key));
+    const sid = i >= 0 ? shotIdOf(scenes[i], i) : null;
+    return sid ? events.filter((e) => rows.some((r) => r.event_id === e.id && (r.shot_ids || []).map(String).includes(sid))) : [];
+  })();
+  const dur = Number(score.duration) || null;
+  for (const e of mine) {
+    const r = rows.find((x) => String(x.event_id) === String(e.id));
+    if (!r) { P.push(`creative/execution-map.json has no row for signature event ${e.id}: map it (or declare the deviation) before the work is accepted`); continue; }
+    if (!(Array.isArray(r.shot_ids) && r.shot_ids.length)) P.push(`execution-map ${e.id}: no shot_ids (name the score shots that carry it)`);
+    else if (sceneShots.size) for (const sid of r.shot_ids) if (!sceneShots.has(String(sid))) P.push(`execution-map ${e.id}: shot ${sid} is not a shot of the current score (a stale map)`);
+    for (const t of Array.isArray(r.sample_times_s) ? r.sample_times_s : []) if (dur && Number(t) > dur + 0.05) P.push(`execution-map ${e.id}: sample time ${t} s is past the film (${dur} s): times are film seconds from the score`);
+    if (role !== "motion-director" && !(Array.isArray(r.produced_artifact_refs) && r.produced_artifact_refs.length) && !(Array.isArray(r.declared_deviations) && r.declared_deviations.length)) P.push(`execution-map ${e.id}: the builder lists no produced artifact and no declared deviation: "done" is not a result (add produced_artifact_refs, or declare what differs and why)`);
+  }
+  // the helper's own contract checks (fields, stale pins, unmapped events, missing artifacts); no render observation is supplied here, so any visual question stays "not assessable"
+  const rcpt = jsonMaybe(R(run, "crew", "packets", `${role}${key ? "-" + key : ""}.json`));
+  const result = { status: "ok", input_digest: role === "motion-director" && rcpt ? rcpt.input_digest : undefined, creative: { mappings: rows.filter((r) => mine.some((e) => String(e.id) === String(r.event_id))), implemented_events: mine.map((e) => e.id), missing_events: Array.isArray(map.missing_events) ? map.missing_events : [], deviated_events: Array.isArray(map.deviated_events) ? map.deviated_events : [] }, usage: {} };
+  // a produced artifact is a project file (videos/<name>/...) or a run file: resolve it against the run, the workspace and the project before calling it missing
+  const pjd = projectDir(run), files = {};
+  for (const r of rows) for (const pth of [...(Array.isArray(r.source_files) ? r.source_files : []), ...(Array.isArray(r.produced_artifact_refs) ? r.produced_artifact_refs : [])]) files[pth] = [path.resolve(run, String(pth)), path.resolve(WS, String(pth)), pjd ? path.resolve(pjd, String(pth)) : null].filter(Boolean).some(exists);
+  const v = validateCreativeHandoff({ packetReceipt: role === "motion-director" ? rcpt : null, result, expectedPins: approvalPins(run), expectedEvents: mine.map((e) => e.id), evidence: { run, files } });
+  for (const e of v.errors) P.push(`creative handoff: ${e.message}`);
+  for (const w of v.warnings) if (w.code !== "usage_missing" && w.code !== "pin_not_echoed") W.push(`creative handoff: ${w.message}`);
+  CHECK_EXTRA = { ...(CHECK_EXTRA || {}), creative_trace: { events: mine.map((e) => e.id), visual: v.visual, note: "a matching map proves traceability, not that the event is visible: the critic judges the render" } };
+}
+// the script editor's meaning check: mechanical proof errors block; the semantic review must exist, be independent, current and complete (validateProofReview never judges correctness)
+function creativeEditorProblems(run, P, W) {
+  const ps = proofState(run);
+  if (!ps || !ps.contracts.length) return;
+  for (const e of ps.mechanical) P.push(`proof ${e.contract || "?"}: ${e.code}: ${e.message}`);
+  if (!ps.reviewInputs.length) return;
+  const rv = jsonMaybe(R(run, "story", "proof-review.json"));
+  if (rv === null) { P.push("story/proof-review.json is missing: every demonstration that changes a sentence, a number or a rule needs the editor's meaning review (source, intended reading, shown output; people, numbers and conditions kept)"); return; }
+  if (rv === undefined) { P.push("story/proof-review.json is not valid JSON"); return; }
+  const expected = { contractIds: ps.reviewInputs.map((x) => x.contract_id), digests: Object.fromEntries(ps.reviewInputs.map((x) => [x.contract_id, x.input_digest])), outputs: Object.fromEntries(ps.reviewInputs.map((x) => [x.contract_id, x.outputs.map((o) => o.id)])), reviewerRole: "script-editor" };
+  const r = validateProofReview(rv, expected);
+  for (const e of r.errors) P.push(`proof review: ${e.code}: ${e.message}`);
+  for (const u of r.unresolved) W.push(`proof ${u.contract_id}: ${u.verdict}: ${u.rationale} (route it through the editor's notes as an error issue; the user still chooses the Story)`);
+}
+// the Final's creative evidence: the film critic's envelope. Absent or invalid evidence is "not reviewed", never a pass; a ship verdict needs a ready result.
+function creativeFinalReviewProblems(run, round, c, P, W) {
+  const f = R(run, "creative", "reviews", `final-r${round}.json`), rv = jsonMaybe(f), ship = c.verdict === "ship";
+  const sink = ship ? P : W;
+  if (rv === null) { sink.push(`creative/reviews/final-r${round}.json is missing: ${ship ? "a ship verdict with no creative review is not a pass (write the envelope from the render, or give a fix verdict and say the creative review could not run)" : "no creative review evidence yet (the Final will report it as not reviewed)"}`); return; }
+  if (rv === undefined) { sink.push(`creative/reviews/final-r${round}.json is not valid JSON`); return; }
+  const doc = readShots(R(run, "frames", "shots.json"));
+  const r = checkCreativeReview(normalizeReviewPaths(rv, run), doc, { stage: "final", current: {} });
+  for (const e of r.errors) sink.push(e);
+  for (const w of r.warnings) W.push(w);
+  if (ship && r.result !== "ready") P.push(`ship, but the creative review result is "${r.result}": only a ready result from observed images supports a ship (revise, needs_user or not_reviewed go to the existing review notes and the Final, honestly labelled)`);
+  CHECK_EXTRA = { ...(CHECK_EXTRA || {}), creative_review: { stage: "final", result: r.result, state: r.state } };
+}
+
 async function checkRole(run, role, key) {
   const P = [], W = [];
+  const CP = creativeOn(jsonMaybe(R(run, "crew", "plan.json")) || {}); // the new creative policy (a legacy plan: every creative check below is skipped)
   const research = (f) => R(run, "research", f);
   const pj = projectDir(run);
   seedUserBrand(run, pj);
@@ -2133,6 +2328,7 @@ async function checkRole(run, role, key) {
           if (j.escalation && j.escalation.needed) W.push(`escalation: ${(j.escalation.reasons || []).map((x) => x.reason).join(", ")} (one focused revision first; then an independent extra writer only if still insufficient)`);
         } else if (r.status !== 0 || !j) P.push(`story.mjs treatments could not read the set: ${(r.stderr || r.stdout || "").trim().split("\n")[0]}`);
         else { spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "story.mjs"), ...ca, "--split"], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" } }); }
+        if (CP) { const ps = proofState(run); if (ps) for (const e of ps.mechanical) P.push(`story/proof-contracts.json ${e.contract || "?"}: ${e.code}: ${e.message}`); else W.push("story/proof-contracts.json is missing: record a proof contract for every beat that shows a changed sentence, a calculation or a rule (none is fine when no beat does)"); }
         break;
       }
       const f = R(run, "story", `pitch-${key}.json`);
@@ -2227,7 +2423,7 @@ async function checkRole(run, role, key) {
       const pitch = jsonMaybe(R(run, "story", `pitch-${key}.json`));
       if (!pitch) { P.push(`story/pitch-${key}.json is ${pitch === undefined ? "not valid JSON" : "missing"}: the moves are checked against its beats`); break; }
       const pf = productFirst(run, jsonMaybe(R(run, "crew", "plan.json")) || {});
-      const r = validateMoves(m, { beats: pitch.beats, productFirst: pf, shape: pitchShape(pitch), uiLabels: pitch.ui_labels, productName: pitch.product || pitch.product_name, pack: jsonMaybe(R(run, "story", `moves-pack-${key}.json`)) || null });
+      const r = validateMoves(m, { beats: pitch.beats, productFirst: pf, shape: pitchShape(pitch), uiLabels: pitch.ui_labels, productName: pitch.product || pitch.product_name, pack: jsonMaybe(R(run, "story", `moves-pack-${key}.json`)) || null, ...(CP ? { creativePolicy: 1, profiles: (() => { const cb = jsonMaybe(R(run, "creative", "brief.json")); return cb && Array.isArray(cb.profiles) ? cb.profiles.map(String) : []; })() } : {}) }); // creative policy: the universal craft quotas are profiles (errors only when the brief or the file selects the profile)
       P.push(...r.errors); W.push(...r.warnings);
       break;
     }
@@ -2259,6 +2455,7 @@ async function checkRole(run, role, key) {
       break;
     }
     case "script-editor": {
+      if (CP) creativeEditorProblems(run, P, W);
       const n = jsonMaybe(R(run, "story", "edit-notes.json"));
       // Plan 03: a structured review of v2 treatments ({ treatments: [{ id, verdict, issues: [{ issue_id, beat, evidence, severity, fix }] }] }), validated by lib/treatment.mjs; the legacy pitches[] notes below keep working for saved films
       if (n && Array.isArray(n.treatments) && !Array.isArray(n.pitches)) {
@@ -2369,6 +2566,7 @@ async function checkRole(run, role, key) {
       break;
     }
     case "motion-director": {
+      if (CP) creativeTraceProblems(run, role, key, P, W);
       if (key !== "seams" && brandFilm(run)) {
         const sj = readMaybe(R(run, "motion", "score.json")) || "";
         if (!/FILM-STYLE|film_style/i.test(sj)) P.push('score.json must cite the brand film card: set "film_style": "brand-film/FILM-STYLE.md" and keep every scene inside its motion vocabulary');
@@ -2407,13 +2605,15 @@ async function checkRole(run, role, key) {
       if (look) {
         for (const n of want) for (const ext of ["html", "png"]) if (!exists(path.join(dir, `${n}.${ext}`))) P.push(`design/${look}/frames/${n}.${ext} is missing`);
         if (exists(path.join(dir, "second.png")) && !/second|uncertain/i.test(readMaybe(path.join(dir, "FRAMES.md")) || "")) W.push(`design/${look}/frames/second.png: a second frame needs the real uncertainty it resolves (say it in frames/FRAMES.md)`);
-        const sc = checkShots(doc, { duration: Number(brief(run).length_s) || null });
+        const sc = checkShots(doc, { duration: Number(brief(run).length_s) || null, creativePolicy: creativePolicyFor(run, doc, look) });
         // three heroes only: the film-level rules (sizes across the film, heroes list) are for the full set
         for (const e of sc.errors) if (/^(shot-fields|shot-size|light|hero-small|size-repeat|text-heavy)/.test(e)) P.push(e);
         W.push(...sc.warnings.filter((w) => /tilt-steep/.test(w)));
+        if (sc.review && sc.review.length) W.push(...sc.review.filter((x) => /^(shot-fields|light|hero-small|size-repeat|text-heavy)/.test(x)).map((x) => `craft review (this look does not select the depth craft): ${x}`));
       } else {
-        const sc = checkShots(doc, { duration: Number(brief(run).length_s) || Number((jsonMaybe(R(run, "motion", "score.json")) || {}).duration) || null });
+        const sc = checkShots(doc, { duration: Number(brief(run).length_s) || Number((jsonMaybe(R(run, "motion", "score.json")) || {}).duration) || null, creativePolicy: creativePolicyFor(run, doc) });
         P.push(...sc.errors); W.push(...sc.warnings);
+        if (sc.review && sc.review.length) W.push(...sc.review.map((x) => `craft review (evidence for the creative review, not a failure for this look): ${x}`));
         const heroes = Array.isArray(doc.film.heroes) ? doc.film.heroes.map(String) : [];
         const need = k === "heroes" ? heroes : doc.shots.map((s) => String(s.id));
         for (const b of boardFiles(dir, doc)) if (need.includes(b.id)) { if (!b.has_html) P.push(`frames/${b.id}.html is missing`); if (!b.has_png) P.push(`frames/${b.id}.png is missing (render it: design.mjs stills --dir ${rel(dir)})`); }
@@ -2429,10 +2629,16 @@ async function checkRole(run, role, key) {
           const a = [fg, "--stills", dir, "--json"];
           if (fs.readdirSync(dir).some((x) => /^\d+\.html$/.test(x))) a.push("--html", dir);
           if (exists(R(run, "brand-film", "grammar.json"))) a.push("--brand-film", R(run, "brand-film", "grammar.json"));
+          { const pol = creativePolicyFor(run, doc, look); if (pol) a.push("--look-style", pol.style || "unspecified"); } // the look decides which measured craft is a requirement (no named style = not the dimensional craft)
           const g = spawnSync(process.execPath, a, { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" }, timeout: 300000, maxBuffer: 1 << 26 });
           let gj = null;
           try { gj = JSON.parse(g.stdout); } catch { /* none */ }
-          if (gj) { writeFile(path.join(dir, "gate.json"), JSON.stringify(gj, null, 2)); for (const f of (gj.findings || []).slice(0, 8)) W.push(`frame-gate ${f.severity} ${f.check}: ${f.message}${f.fix ? ` (fix: ${f.fix})` : ""}`); }
+          if (gj) {
+            writeFile(path.join(dir, "gate.json"), JSON.stringify(gj, null, 2));
+            const fnd = gj.findings || [], rev = fnd.filter((f) => f.severity === "review"); // severity "review": a measurement for the juror of a look that did not select that craft, never an error or warning
+            for (const f of fnd.filter((x) => x.severity !== "review").slice(0, 8)) W.push(`frame-gate ${f.severity} ${f.check}: ${f.message}${f.fix ? ` (fix: ${f.fix})` : ""}`);
+            if (rev.length) W.push(`frame-gate: ${rev.length} measurement(s) are review evidence for this look (${[...new Set(rev.map((f) => f.check))].slice(0, 6).join(", ")}): the juror reads them, they are not failures`);
+          }
           else W.push("frame-gate.mjs could not run on the boards");
         }
       }
@@ -2450,8 +2656,23 @@ async function checkRole(run, role, key) {
       const refsDoc = jsonMaybe(R(run, "frames", "refs.json"));
       const nRefs = refsDoc && Array.isArray(refsDoc.stills) ? refsDoc.stills.length : collectRefs(run, { extract: false }).stills.length;
       if (!refsDoc) W.push("frames/refs.json is missing: run frames.mjs refs --run <run> --sheet and judge against what it lists");
-      const r = checkVerdict(v === undefined ? null : v, doc, { refsAvailable: nRefs });
+      const jr = Number(String(key || "frames-1").split("-").pop()) || 1;
+      let creativeOpts = {};
+      if (CP) {
+        // the independent creative review: a sidecar envelope beside the legacy verdict (stale when a board changed after it; images must really have been observed for ready)
+        const sf = R(run, "creative", "reviews", `storyboard-r${jr}.json`), srv = jsonMaybe(sf);
+        if (srv === null) P.push(`creative/reviews/storyboard-r${jr}.json is missing: the independent creative review of the selected boards (agents/frame-juror.md); a valid verdict.json alone is schema completeness, not a review`);
+        else if (srv === undefined) P.push(`creative/reviews/storyboard-r${jr}.json is not valid JSON`);
+        else creativeOpts = { creativeReview: normalizeReviewPaths(srv, run), creativeCurrent: { artifacts: boardDigests(run) }, creativeStage: "storyboard" };
+        creativeOpts.creativePolicy = creativePolicyFor(run, doc);
+      }
+      const r = checkVerdict(v === undefined ? null : v, doc, { refsAvailable: nRefs, ...creativeOpts });
       P.push(...r.errors); W.push(...r.warnings);
+      if (CP) {
+        if (r.creative) CHECK_EXTRA = { ...(CHECK_EXTRA || {}), creative_review: { stage: "storyboard", result: r.creative.result, state: r.creative.state, note: "revise / needs_user routes through the existing review notes; ready needs observed images; a clean schema is not aesthetic acceptance" } };
+        else CHECK_EXTRA = { ...(CHECK_EXTRA || {}), creative_review: { stage: "storyboard", result: "not_reviewed", state: "not_reviewed" } };
+        if (r.creative && r.creative.result === "ready" && r.below > 0) W.push(`the creative review says ready but verdict.json has ${r.below} below frame(s): the Director reads the disagreement before the boards go on`);
+      }
       const sheets = R(run, "frames", "sheets");
       const drawn = exists(sheets) ? fs.readdirSync(sheets).filter((f) => /\.png$/.test(f)).length : 0;
       if (!drawn && !exists(R(run, "frames", "sheet.png"))) P.push("no side-by-side sheet (frames/sheets/<id>.png or frames/sheet.png): judge the boards next to the references, never from the code");
@@ -2470,7 +2691,7 @@ async function checkRole(run, role, key) {
         if (html && /lorem ipsum|john doe|acme/i.test(html)) P.push(`frames/${id}.html has placeholder content`);
       }
       const doc = readShots(R(run, "frames", "shots.json"));
-      if (doc) { const sc = checkShots(doc, { duration: Number(brief(run).length_s) || null }); for (const e of sc.errors) if (new RegExp(`\\b(${Array.from({ length: b - a + 1 }, (_, i) => String(a + i).padStart(2, "0")).join("|")})\\b`).test(e)) P.push(e); }
+      if (doc) { const sc = checkShots(doc, { duration: Number(brief(run).length_s) || null, creativePolicy: creativePolicyFor(run, doc) }); for (const e of sc.errors) if (new RegExp(`\\b(${Array.from({ length: b - a + 1 }, (_, i) => String(a + i).padStart(2, "0")).join("|")})\\b`).test(e)) P.push(e); }
       break;
     }
     case "character-designer": {
@@ -2510,6 +2731,7 @@ async function checkRole(run, role, key) {
     }
     case "scene-animator": {
       if (!pj) { P.push("--project <videos/name> required"); break; }
+      if (CP) creativeTraceProblems(run, role, key, P, W);
       if (PRES_KEY.test(String(key))) {
         const pl = key.startsWith("plate-"), sub = pl ? "plates" : "graphics", nm = pl ? key.slice(6) : key;
         const gf = path.join(pj, "compositions", sub, `${nm}.html`);
@@ -2577,6 +2799,7 @@ async function checkRole(run, role, key) {
     case "film-builder": {
       if (!pj) { P.push("--project <videos/name> required"); break; }
       const k = key || "film", lead = k === "lead";
+      if (CP) creativeTraceProblems(run, role, k, P, W);
       {
         // a project that draws a recurring character in Rasan2D is held to stage2d.mjs check
         const { projectUsesRasan2d } = await import("./lib/stage2d.mjs");
@@ -2690,7 +2913,7 @@ async function checkRole(run, role, key) {
       if (!["pass", "fix"].includes(c.verdict)) P.push('verdict must be "pass" or "fix"');
       const ck = String((jsonMaybe(R(run, "story", "intent.json")) || {}).communication_kind || brief(run).communication_kind || ""); // Plan 03: the product-by-3s and hero-moment questions belong to product-demonstrating kinds (or no stated kind), not to a manifesto or identity film
       const prodKind = !ck || ["whole-product-introduction", "single-feature-announcement", "workflow-demo", "performance-ad"].includes(ck);
-      const Q = [...(prodKind ? ["product_on_screen_by_3s", "hero_moment"] : []), "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear", ...(exists(R(run, "story", "intent.json")) ? (conceptV2(run) ? ["proof_matches_promise", "copy_is_audience_facing"] : ["turn_reverses", "payoff_answers_setup"]) : []), ...(productFirst(run, jsonMaybe(R(run, "crew", "plan.json")) || {}) ? ["one_feature_one_scenario", "scope_matches_claim"] : [])];
+      const Q = [...(prodKind ? ["product_on_screen_by_3s", "hero_moment"] : []), "tone_matches_brief", "end_line_large", "on_brand", "first_watch_clear", ...(exists(R(run, "story", "intent.json")) ? (conceptV2(run) ? ["proof_matches_promise", ...(CP ? ["demonstrations_preserve_meaning", "visual_idea_carries_claim"] : []), "copy_is_audience_facing"] : ["turn_reverses", "payoff_answers_setup"]) : []), ...(productFirst(run, jsonMaybe(R(run, "crew", "plan.json")) || {}) ? ["one_feature_one_scenario", "scope_matches_claim"] : [])];
       { const sm = c.answers && c.answers.scope_matches_claim; if (sm && typeof sm.ok === "boolean" && !/\d/.test(String(sm.evidence || ""))) P.push("answers.scope_matches_claim must carry the numbers (S_max with its beats, D, the 8-word retell), never a judgement without them"); }
       for (const q of Q) {
         const a = c.answers && c.answers[q];
@@ -2756,6 +2979,7 @@ async function checkRole(run, role, key) {
       }
       const low = Object.entries(c.scores || {}).filter(([, v]) => Number(v) < 8);
       if (c.verdict === "ship" && (low.length || fs_.some((x) => x.severity === "high"))) P.push("ship needs every score ≥ 8 and no high finding");
+      if (CP && lens === "film") creativeFinalReviewProblems(run, Number(round) || 1, c, P, W);
       break;
     }
     case "footage-logger": {
@@ -3095,6 +3319,72 @@ function sheet(files, W, H, outPng, cols, tw = 420) {
   }
 }
 
+// ---------------------------------------------------------------- Creative Recovery: dispatch-time preparation and the `creative` command
+// the harness profile has no `vision` field today: no declared image reads (harness "other") means a required picture is unavailable, never silently "seen"
+const visionOf = (prof) => !(prof && (prof.vision === false || prof.harness === "other"));
+const CREATIVE_PREP_ROLES = new Set(["research-lead", "design-researcher", ...CREATIVE_ROLES]);
+const CREATIVE_NEEDS_BRIEF = new Set(["script-writer", "treatment-writer", "visual-writer", "design-system-designer", "styleframe-designer", "frame-designer", "motion-director", "film-builder", "scene-animator"]);
+const CREATIVE_NEEDS_STORY_MODE = new Set(["design-system-designer", "styleframe-designer", "frame-designer", "motion-director", "film-builder", "scene-animator"]);
+function creativePrepare(run, plan, role, key) {
+  if (!CREATIVE_PREP_ROLES.has(role)) return null;
+  const out = {};
+  try {
+    const rf = prepareReferences(run, { skillDir: SKILL_DIR }), pb = provisionalBrief(run, { plan });
+    out.references = { file: rel(rf.file), created: rf.created, evidence: (rf.selection || {}).evidenceLevel || null, selected: ((rf.selection || {}).selected || []).map((x) => x.id) };
+    out.brief = { file: rel(pb.file), created: pb.created };
+  } catch (e) { out.error = `creative preparation skipped: ${e.message}`; }
+  if (CREATIVE_NEEDS_BRIEF.has(role)) {
+    const cb = checkBrief(run, { stage: "proposal" });
+    if (cb.state === "skeleton" || cb.state === "missing") die(`${role}${key ? ":" + key : ""} waits for the creative brief (new creative policy): ${cb.errors[0].message}. The Director fills creative/brief.json from the research (references/creative-quality.md), then crew.mjs creative check --run ${rel(run)}`);
+    const warn = cb.ok ? [] : cb.errors.slice(0, 6).map((e) => `${e.path}: ${e.message}`);
+    const b = jsonMaybe(R(run, "creative", "brief.json"));
+    if (b && CREATIVE_NEEDS_STORY_MODE.has(role) && b.mode === "proposal") warn.push("the brief is still a proposal: after the user's Story and Look choices run crew.mjs creative revise (a new revision with the confirmed pins)");
+    if (warn.length) out.brief_warnings = warn;
+  }
+  return out;
+}
+// the packet records what was SENT; the supervisor (this check) records what the harness log shows was OPENED (--observed-reads a.png,b.png). Neither proves the worker understood a picture.
+function creativeReadsNote(run, role, key, W) {
+  const rf = R(run, "crew", "packets", `${role}${key ? "-" + key : ""}.json`), rc = jsonMaybe(rf);
+  if (!rc || !rc.delivery) return;
+  const list = args["observed-reads"] && args["observed-reads"] !== true ? String(args["observed-reads"]).split(",").map((x) => x.trim()).filter(Boolean) : [];
+  if (list.length) {
+    const have = new Set((rc.delivery.observed_tool_reads || []).map((x) => x && x.path));
+    const add = list.filter((x) => !have.has(x)).map((x) => ({ path: x, observed_by: "supervisor", source: "the harness's tool log", note: "an image-open event; it does not prove the worker understood the image" }));
+    rc.delivery.observed_tool_reads = [...(rc.delivery.observed_tool_reads || []), ...add];
+    writeFile(rf, JSON.stringify(rc, null, 2));
+    CHECK_EXTRA = { ...(CHECK_EXTRA || {}), observed_reads_recorded: add.length };
+  }
+  const need = ((rc.creative && rc.creative.required_visual_inputs) || []).filter((v) => v && v.availability === "available");
+  const seen = new Set((rc.delivery.observed_tool_reads || []).map((x) => x && x.path));
+  const unread = need.filter((v) => !seen.has(v.path));
+  if (unread.length) W.push(`${unread.length} required visual input(s) have no observed read on the receipt (${unread.slice(0, 3).map((v) => v.path).join(", ")}${unread.length > 3 ? ", ..." : ""}): a path in the prompt is not evidence the worker saw the pixels; record the harness's image reads with --observed-reads, or say the visual judgment was not assessable`);
+}
+function creativeCommand(run, sub) {
+  const plan = jsonMaybe(R(run, "crew", "plan.json")) || {};
+  if (!creativeOn(plan)) die("this run's plan has no creative_policy_revision (a legacy run keeps its behaviour). Re-plan with crew.mjs plan --creative-policy 1 only when the user asks for a new or revised production");
+  if (sub === "init") {
+    const rf = prepareReferences(run, { skillDir: SKILL_DIR }), pb = provisionalBrief(run, { plan });
+    out({ ok: true, references: { file: rel(rf.file), created: rf.created, evidence: (rf.selection || {}).evidenceLevel, selected: ((rf.selection || {}).selected || []).map((x) => ({ id: x.id, kind: x.kind, evidence_level: x.evidence_level, media: (x.mediaRefs || []).length })), note: "no visual reference counts unless an entry lists a lawful media file; text-only descriptions teach a principle and never certify visual parity" }, brief: { file: rel(pb.file), created: pb.created, next: "fill promise, premise, native_material, opening, payoff, visual_strategy and do_not_substitute (references/creative-quality.md), remove status, then crew.mjs creative check" } });
+  } else if (sub === "check") {
+    const stage = str(args.stage) || "proposal";
+    const r = checkBrief(run, { stage, expectPins: stage !== "proposal" });
+    out({ ok: r.ok, stage, state: r.state, errors: r.errors, warnings: r.warnings, missing: r.missing, note: "form only: a valid brief is not a good one and grants no approval" }, r.ok ? 0 : 2);
+  } else if (sub === "revise") {
+    const r = reviseCreative(run, { skillDir: SKILL_DIR, mode: str(args.mode) || "story" });
+    out(r, r.ok ? 0 : 2);
+  } else if (sub === "gate" || sub === "review") {
+    const stage = str(args.stage) || "final";
+    if (!["storyboard", "build", "final"].includes(stage)) die("--stage storyboard|build|final");
+    const waiver = str(args["waiver-action"]) && str(args["waiver-digest"]) ? { kind: "aesthetic", source_action_id: str(args["waiver-action"]), artifact_digest: str(args["waiver-digest"]) } : null;
+    const g = creativeGate(run, { stage, waiver });
+    out({ ok: g.state === "ready", stage, ...g, honest_label: g.state === "ready" ? "a current independent creative review exists for this stage" : "creative review " + g.state + ": say so at the stage (never 'checks passed'); the existing review notes and the Final stay with the user. Factual, permission and mechanical failures are never waived", ...(g.state === "needs_user" ? { next: "surface the evidence through the existing review controls" } : {}) }, g.state === "ready" ? 0 : 2);
+  } else if (sub === "status") {
+    const b = jsonMaybe(R(run, "creative", "brief.json")), refs = jsonMaybe(R(run, "creative", "references.json"));
+    out({ ok: true, brief: b ? { revision: b.revision, mode: b.mode, skeleton: briefIsSkeleton(b), events: eventIds(b), pins: Object.keys(b.pins || {}).filter((k) => b.pins[k]) } : null, references: refs ? { evidence: refs.evidenceLevel, selected: (refs.selected || []).map((x) => x.id) } : null, pins_now: Object.keys(approvalPins(run)), reviews: ["storyboard", "final"].map((st) => { const r = latestReview(run, st); return r ? { stage: st, round: r.n, file: rel(r.file) } : { stage: st, round: null }; }) });
+  } else die("usage: crew.mjs creative init|check|revise|gate|status --run <run> [--stage proposal|story|look|build|storyboard|final] [--mode story|look|build] [--waiver-action <consumed action id> --waiver-digest <reviewed artifact sha256>]");
+}
+
 // ---------------------------------------------------------------- commands
 if (cmd === "plan") {
   const run = runDir();
@@ -3182,6 +3472,17 @@ if (cmd === "plan") {
   // the spike scene of a long film (the animators' fan-out waits for it): --spike, the previous plan's, else the peak beat's scene
   if (!p.direct && SCENE_ROUTES.has(p.route)) p.spike = Number(args.spike) || prev.spike || spikeScene(run, p.scenes) || null;
   p.look_gate = true; // Plan 04 L1: contextFor/promptFor refuse storyboard and production roles until the Look is committed (plans written before this keep running)
+  // Creative Recovery (plan 02 section 1): an additive, opt-in-for-NEW-runs marker. A NEW scene-production plan on a DIRECT_ROUTES route with a script, a look and a storyboard gets it; a re-plan keeps whatever the
+  // saved plan had (a legacy run never gains it by accident); --creative-policy 1 / off is the explicit choice. Footage-led, caption-only, lyric, presenter and single-unit routes are not in scope.
+  {
+    const cpArg = args["creative-policy"] !== undefined && args["creative-policy"] !== true ? String(args["creative-policy"]).toLowerCase() : null;
+    const eligible = DIRECT_ROUTES.has(p.route) && !(p.sources && isFootageLed(p.sources));
+    const isNew = !prev.route; // no earlier plan for this run
+    if (cpArg === "off" || cpArg === "0" || cpArg === "legacy") delete p.creative_policy_revision;
+    else if (cpArg === "1") { if (eligible) p.creative_policy_revision = 1; else die(`--creative-policy 1: route ${p.route} is not a scene-production route with a script, a look and a storyboard`); }
+    else if (prev.creative_policy_revision === 1) p.creative_policy_revision = 1;
+    else if (isNew && eligible) p.creative_policy_revision = 1;
+  }
   p.phases = planCrew(p);
   p.estimate = estimateFor(p, p.phases);
   for (const ph of p.phases) ph.est_tokens = ph.dispatch.reduce((a, x) => a + tokensFor(x.role, x.key), 0);
@@ -3201,6 +3502,7 @@ if (cmd === "plan") {
   const key = args.key && args.key !== true ? String(args.key) : null;
   const plan = jsonMaybe(R(run, "crew", "plan.json")) || {};
   if (role === "concept-critic") { const why = editorGate(run, plan); if (why) die(why); }
+  const creativePrep = creativeOn(plan) ? creativePrepare(run, plan, role, key) : null; // references + provisional brief (idempotent); a skeleton brief holds the story and production roles back
   const prompt0 = promptFor(run, role, key, plan);
   const { ctx, inputs, outputs } = prompt0;
   let text = prompt0.text;
@@ -3210,7 +3512,7 @@ if (cmd === "plan") {
   if (!args["no-packet"]) {
     const rf = R(run, "crew", "packets", `${role}${key ? "-" + key : ""}.json`);
     const policy = plan.policy || productionPolicy({ budget: plan.budget, direct: plan.direct });
-    const cp = compilePacket({ run, R, rel, role, key, plan, promptText: text, inputs: inputs.map((i) => ({ label: i.label, path: i.path })), outputs, ctx, desc: ROLES[role].desc(plan, key), checkCmd: `crew.mjs check --run ${ctx.RUN} --role ${role}${key ? " --key " + key : ""}`, brief: jsonMaybe(R(run, "brief.json")) || {}, policy, profile: prof, SKILL_DIR, receiptPath: rf });
+    const cp = compilePacket({ run, R, rel, role, key, plan, promptText: text, inputs: inputs.map((i) => ({ label: i.label, path: i.path })), outputs, ctx, desc: ROLES[role].desc(plan, key), checkCmd: `crew.mjs check --run ${ctx.RUN} --role ${role}${key ? " --key " + key : ""}`, brief: jsonMaybe(R(run, "brief.json")) || {}, policy, profile: creativeOn(plan) ? { ...prof, vision: visionOf(prof) } : prof, ...(creativeOn(plan) ? { approvalPins: approvalPins(run) } : {}), SKILL_DIR, receiptPath: rf });
     text = text.replace(/\n*$/, "\n") + "\n" + cp.markdown + "\n";
     writeFile(rf, JSON.stringify(cp.receipt, null, 2));
     packet = { receipt: rel(rf), digest: cp.receipt.packet_digest.slice(0, 12), included: cp.receipt.included_sections.map((x) => x.id), recipes: cp.receipt.recipe_ids, omitted_optional: cp.receipt.omitted_optional.map((x) => x.id), pressure: cp.receipt.pressure.pressure ? cp.receipt.pressure : false, estimate_note: cp.receipt.estimate_note };
@@ -3236,10 +3538,13 @@ if (cmd === "plan") {
     description: ROLES[role].desc(plan, key), model: !alloc.fast && alloc.escalation ? "the session's model (escalated after a failed check: " + alloc.escalation.reason + ")" : T.fast && T.model ? `a faster model is fine (${T.model})` : "the session's model (don't downgrade)", profile: prof.key, tier_ok: T.ok,
     allocation: { reasoning: alloc.reasoning, effort: alloc.effort, repair: alloc.repair, escalation: alloc.escalation, notes: alloc.notes },
     ...(packet ? { packet } : {}),
+    ...(creativePrep ? { creative: creativePrep } : {}),
     ...(T.ok ? {} : { warning: T.note }),
     missing_inputs: inputs.filter((i) => i.path && !i.exists).map((i) => i.label), outputs,
     dispatch: dispatchFor(prof, { desc: ROLES[role].desc(plan, key), file: rel(f), role }),
   });
+} else if (cmd === "creative") {
+  creativeCommand(runDir(), String(args._[1] || ""));
 } else if (cmd === "usage") {
   // Plan 08 K7: usage by what was reported. null = not reported; rejected-alternative and repeated-research work is listed apart. An API-equivalent figure appears only with --prices <json> and is labelled an estimate.
   const run = runDir();
@@ -3258,6 +3563,7 @@ if (cmd === "plan") {
   if (!ROLES[role]) die(`--role must be one of ${Object.keys(ROLES).join(", ")}`);
   const key = args.key && args.key !== true ? String(args.key) : null;
   const { P, W } = await checkRole(run, role, key);
+  if (creativeOn(jsonMaybe(R(run, "crew", "plan.json")) || {})) creativeReadsNote(run, role, key, W); // the supervisor's own record of image reads (never the worker's claim)
   // Plan 08 K7: counters the harness showed (--usage <json file>, or --tokens-in/--tokens-out/--cache-read/--cache-write/--turns); anything not given stays null, never 0
   const usageIn = args.usage && args.usage !== true ? readUsageFile(path.resolve(String(args.usage))) : null;
   const flagged = ["tokens-in", "tokens-out", "cache-read", "cache-write", "turns", "retries"].some((k) => args[k] !== undefined && args[k] !== true);

@@ -20,6 +20,10 @@ Push `render` with `video` (the draft), `poster`, `scenes: [{id, title, start, t
 - **The film teaches the next one.** Dispatch the `retrospective` role (`crew.mjs brief --run "$RUN" --role retrospective`; `agents/retrospective.md`): it reads the gate history, the critic rounds, the A/B verdicts and the user's notes and proposes at most two one-line craft rules (often none). `crew.mjs check --run "$RUN" --role retrospective` prints the `lessons.mjs add --source self ...` lines: run them. They are Claude's own notes, not the user's (see Memory).
 - Record the film so the next one differs from it: `node $SKILL_DIR/scripts/memory.mjs record-film --run "$RUN"` (stores the score's `shape`, the title and the date; the Motion Director's brief lists the last 3 shapes and `crew.mjs check` refuses a score within 3 aspects of any of them).
 
+### New creative policy (plan has `creative_policy_revision: 1`)
+
+Before you push the Final run `node $SKILL_DIR/scripts/crew.mjs creative gate --run "$RUN" --stage final`. `ready` means a current independent review of the render exists. Anything else (`not_reviewed`, `revise`, `needs_user`, `blocked`) is said plainly in the Final's `context` ("creative review: not assessed"), never as "checks passed". The film critic writes `creative/reviews/final-r<N>.json`; a ship verdict needs a ready result from images it opened. Factual, permission and mechanical failures are never waived; an aesthetic waiver needs the user's own consumed action and the reviewed artifact digest. The user's Final choice and the previous final are unchanged.
+
 ## Deeper references for this guide
 
 The canonical homes of the detail this guide points at (read the one the current step needs):

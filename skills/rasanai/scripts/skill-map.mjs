@@ -8,6 +8,7 @@
 //           names: any route in library/formats.json (product-launch-video, music-to-video, reel, presenter, motion-graphics, ...),
 //                  revision, or an alias: product, direct (product-launch-video, direct), long, deep (same, deep path),
 //                  footage (reel), lyrics, song (music-to-video), single-unit, cartoon, evidence
+//        scene routes also list references/creative-quality.md (story, look, styleframes, animatic) and references/creative-examples-teaching.md (story) for a plan with creative_policy_revision 1
 //        --run <dir> [--project <dir>]: also opens references/motion-studio.md where it applies (story: reference-motion.json or a linked
 //           reference; animatic/final: scenes with data-motion-kit or data-el; revision: a requested line in motion/edits.jsonl); never on caption-only routes
 //   node skill-map.mjs check                                       -> every referenced file exists, every relative link in SKILL.md and the guides resolves,
@@ -62,6 +63,15 @@ const BASE_DEEPER = {
   styleframes: ["references/styleframes.md", "references/imagery.md"],
   animatic: ["references/craft.md", "references/sound.md", "references/video.md"],
   final: ["references/finish.md", "references/deliver.md"],
+};
+
+// New creative policy (a plan with creative_policy_revision 1): ONE short guide for the phases that make or judge the creative idea, on scene routes only. Never preloaded for footage, lyric,
+// presenter, single-unit or caption routes, and never in the brief phase. Roles are briefed with it by crew.mjs (CREATIVE_ROLES), not by this static map.
+export const CREATIVE_DEEPER = {
+  story: ["references/creative-quality.md", "references/creative-examples-teaching.md"],
+  look: ["references/creative-quality.md"],
+  styleframes: ["references/creative-quality.md"],
+  animatic: ["references/creative-quality.md"],
 };
 
 const scene = (over = {}) => ({
@@ -201,6 +211,7 @@ export function resolveRoute(name, { variant = null, run = null, project = null 
     if (v === "direct" && def.kind === "scene" && ph === "look") deeper = deeper.filter((r) => r !== "references/design-desk.md");
     // the picture, 3D and imagery references are opened on demand by the guide, not preloaded; only a route that owns them lists them
     if (def.kind !== "scene") deeper = deeper.filter((r) => r !== "references/styleframes.md");
+    if (def.kind === "scene") deeper = uniq([...deeper, ...(CREATIVE_DEEPER[ph] || [])]); // creative policy: one short quality guide per relevant phase
     phases[ph] = { guides: def.phases[ph].map((g) => gpath(g)), deeper };
   }
   // Motion Studio: the guide joins a phase's deeper reads only when its condition holds (never on caption-only routes)

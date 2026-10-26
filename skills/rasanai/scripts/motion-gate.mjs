@@ -488,6 +488,13 @@ export async function gate({ events = null, vo = null, video = null, project = n
   }
   measured.loop = !!loop;
   const still = stillness ? "warning" : "error";
+  // Creative recovery (W06): the new creative policy (score.creative.policy_revision, or creative_policy_revision) makes the universal seam quotas PROFILES: a score selects
+  // "carried-seams" (score.creative.profiles) to keep the two-carrier rule an error. Unselected it is a warning; a legacy score (no marker) is unchanged.
+  const cr = P.plan && P.plan.creative && typeof P.plan.creative === "object" ? P.plan.creative : {};
+  const creativePolicy = !!(P.plan && (P.plan.creative_policy_revision || cr.policy_revision));
+  const creativeProfiles = [].concat(cr.profiles || [], P.plan && P.plan.profiles || []).map(String);
+  const profileSeverity = (id) => (creativePolicy && !creativeProfiles.includes(id) ? "warning" : "error");
+  measured.creative_policy = creativePolicy ? { profiles: creativeProfiles } : null;
   const beats = P.beats || [];
   const holdMax = gateValue("motion.end_hold_s", endHold || P.endHold || GATE.end_hold_s);
   const holdMin = gateValue("motion.end_hold_min_s", GATE.end_hold_min_s), holdMinTaught = gateNotes(["motion.end_hold_min_s"]).length > 0;
@@ -855,7 +862,7 @@ export async function gate({ events = null, vo = null, video = null, project = n
     }
     measured.declared_carried_seams = declared;
     const have = carried != null ? carried : declared;
-    if (need && have < need) add({ check: "carriers", severity: "error", at: null, region: "seams", message: carried != null ? `${carried} seam(s) carried by an object present on both sides in the built film (the plan declares ${declared}); ${need} at least` : `the plan declares ${declared} carried seam(s); ${need} at least`, fix: "carry at least two seams with one object that crosses the cut and becomes part of the next beat (compositions/carriers/<name>.html on its own track, spanning both beats; video.mjs carriers mounts it)" });
+    if (need && have < need) add({ check: "carriers", severity: profileSeverity("carried-seams"), at: null, region: "seams", message: carried != null ? `${carried} seam(s) carried by an object present on both sides in the built film (the plan declares ${declared}); ${need} at least` : `the plan declares ${declared} carried seam(s); ${need} at least`, fix: "carry at least two seams with one object that crosses the cut and becomes part of the next beat (compositions/carriers/<name>.html on its own track, spanning both beats; video.mjs carriers mounts it)" });
     if (carried == null && need) skipped.push("carriers: measured from the plan only (give --project to measure the carrier tracks)");
     // one brand reveal
     const br = P.brandReveal;
@@ -875,6 +882,26 @@ export async function gate({ events = null, vo = null, video = null, project = n
         if (n && h.carrier && h.start < rb.start - 0.1) add({ check: "reveal", severity: "error", at: r2(h.start), element: h.src, message: `the carrier ${h.src} holds a brand mark from ${r2(h.start)} s, before the reveal beat "${br}"`, fix: "start the mark's carrier at the reveal" });
       }
       if (!marks) skipped.push("reveal: no element is tagged data-brand-mark, so the code can't show where the mark appears (tag every logo)");
+    }
+    // Creative recovery (W06): the optional output trace (<run>/creative/execution-map.json, beside motion/) is read for traceability only: it owns no timing, and metadata
+    // that matches proves a link, never that the event was delivered. Warnings, never errors; a missing file is simply not checked.
+    if (plan) {
+      const mf = path.join(path.dirname(path.dirname(path.resolve(plan))), "creative", "execution-map.json");
+      const em = fs.existsSync(mf) ? (() => { try { return JSON.parse(fs.readFileSync(mf, "utf8")); } catch { return undefined; } })() : null;
+      if (em === undefined) add({ check: "execution-map", severity: "warning", at: null, region: "creative", basis: "measured", message: `${mf} is not valid JSON`, fix: "rewrite creative/execution-map.json (the Motion Director owns it)" });
+      else if (em) {
+        const rows = Array.isArray(em.events) ? em.events : Array.isArray(em.mappings) ? em.mappings : [];
+        const total = P.duration || (beats.length ? beats[beats.length - 1].end : null);
+        for (const m of rows) {
+          const id = String(m && (m.event_id || m.id) || "?");
+          const shots = Array.isArray(m && m.shot_ids) ? m.shot_ids : [];
+          const dev = Array.isArray(m && m.declared_deviations) ? m.declared_deviations : [];
+          if (!shots.length) add({ check: "execution-map", severity: "warning", at: null, region: `event ${id}`, basis: "measured", message: `signature event ${id} maps to no shot id`, fix: "name the shot ids that carry the event, or declare the deviation" });
+          else if (!(Array.isArray(m.produced_artifact_refs) && m.produced_artifact_refs.length) && !dev.length) add({ check: "execution-map", severity: "warning", at: null, region: `event ${id}`, basis: "measured", message: `signature event ${id} lists no produced artifact and no declared deviation`, fix: "list the composition file that builds it, or say why it is not built" });
+          for (const t of Array.isArray(m && m.sample_times_s) ? m.sample_times_s : []) if (total && Number(t) > total + 0.05) add({ check: "execution-map", severity: "warning", at: null, region: `event ${id}`, basis: "measured", message: `event ${id} samples ${t} s, past the film's ${r2(total)} s`, fix: "sample times use the score's film seconds" });
+        }
+        measured.execution_map = { events: rows.length };
+      }
     }
   } else skipped.push("plan checks: no plan (carriers, the one brand reveal and the seams need --plan <run>/motion/score.json)");
 

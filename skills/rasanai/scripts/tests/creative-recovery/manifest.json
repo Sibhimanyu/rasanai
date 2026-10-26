@@ -1,0 +1,720 @@
+{
+ "generated_for": "W09",
+ "status": "authored, not run: awaiting_test_approval",
+ "gate": "Each file skips unless CREATIVE_RECOVERY_APPROVED=<pure|film|all>; that variable is a latch, not approval.",
+ "files": {
+  "pure": "pure.test.mjs",
+  "film": "film.side-effects.test.mjs",
+  "fixtures": "fixtures.mjs"
+ },
+ "unknowns": [
+  "Shapes of creative-references/creative-contract/proof-integrity/creative-handoff outputs beyond 01_CONTRACTS",
+  "reference index envelope",
+  "look.resolveStageConsent delegation/pending-action shapes",
+  "gate entry point signatures (lookCommitted, productionGate, storyboard.boundary)",
+  "engine version sources (C35)",
+  "console payload baseline (C22)",
+  "No later creative comparison (W09 'Later creative comparison') is authored: needs user-supplied assets and approval"
+ ],
+ "cases": [
+  {
+   "id": "C01",
+   "purpose": "No user inspiration, permitted local references",
+   "expected": "Relevant shortlist and visual inputs, no extra user question",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-references.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C01 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C02",
+   "purpose": "Reference metadata only",
+   "expected": "Explicit text-only limitation; no professional visual-parity claim",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-references.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C02 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C03",
+   "purpose": "Offline, no third-party media",
+   "expected": "Original/example fallback; no hidden network or copied media",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-references.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C03 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C04",
+   "purpose": "Explicit user/brand constraints",
+   "expected": "They outrank auto-selection and mismatched reference styles",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-references.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C04 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C05",
+   "purpose": "Untreated source instructions in reference data",
+   "expected": "Cannot authorize tools, uploads or change user approvals",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-references.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C05 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C06",
+   "purpose": "Three treatments are recolored versions of one premise",
+   "expected": "Editor flags weak diversity without choosing for the user",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-contract.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C06 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run",
+   "notes": "pure: envelope/readiness only; the detection itself is an editor-model judgment -> later model-review fixture (provider UNKNOWN)"
+  },
+  {
+   "id": "C07",
+   "purpose": "Valid focused feature tour",
+   "expected": "Not rejected solely for being a feature demonstration",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-contract.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C07 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C08",
+   "purpose": "Abstract heading replaces a product proposition",
+   "expected": "Major communication finding with beat/evidence, not word blacklist",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-contract.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C08 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run",
+   "notes": "pure: finding shape; detection is a model/editor judgment"
+  },
+  {
+   "id": "C09",
+   "purpose": "Bonus eligibility interpretations",
+   "expected": "Dropped category/condition detected by stated proof checks/review",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "proof-integrity.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C09 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C10",
+   "purpose": "Valid grammar deletion",
+   "expected": "Meaning-preserving removal is allowed",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "proof-integrity.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C10 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C11",
+   "purpose": "Graph presented as adaptation proof",
+   "expected": "Unsupported inference flagged; require real behavior or narrower copy",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "proof-integrity.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C11 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C12",
+   "purpose": "Creative brief pins changed",
+   "expected": "Old packet/result rejected; previous accepted artifact preserved",
+   "file": [
+    "pure.test.mjs",
+    "film.side-effects.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-contract.mjs, creative-handoff.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C12 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs",
+    "CREATIVE_RECOVERY_APPROVED=film node --test --test-name-pattern=\"^C12b\" skills/rasanai/scripts/tests/creative-recovery/film.side-effects.test.mjs"
+   ],
+   "provider_host": "Node; temp dir under os.tmpdir()",
+   "side_effects": "temp dir created and removed",
+   "scope": "film-lane file-system/host",
+   "result": "not run",
+   "notes": "C12 (pure) rejects stale; C12b (film file, temp dir) checks preserved artifact"
+  },
+  {
+   "id": "C13",
+   "purpose": "File exists but no Look choice",
+   "expected": "Full boards/build remain blocked",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "look.mjs resolveStageConsent",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C13 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C14",
+   "purpose": "Unconfirmed done/brand record",
+   "expected": "Does not count as human consent",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "look.mjs resolveStageConsent",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C14 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C15",
+   "purpose": "Raw unconsumed choose action",
+   "expected": "Does not release stage",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "look.mjs resolveStageConsent",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C15 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C16",
+   "purpose": "Confirmed choice current, then artifact changed",
+   "expected": "Requires existing review of changed revision",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "look.mjs resolveStageConsent",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C16 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C17",
+   "purpose": "Representative Look frame before Look choice",
+   "expected": "Allowed after Story; full storyboard not allowed",
+   "file": [
+    "film.side-effects.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "look.mjs lookCommitted + W05 API (UNKNOWN)",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=film node --test --test-name-pattern=\"^C17\" skills/rasanai/scripts/tests/creative-recovery/film.side-effects.test.mjs"
+   ],
+   "provider_host": "Node; temp dir under os.tmpdir()",
+   "side_effects": "temp dir created and removed",
+   "scope": "film-lane file-system/host",
+   "result": "not run"
+  },
+  {
+   "id": "C18",
+   "purpose": "Current Look but no Storyboard approval",
+   "expected": "Build waits; no fake final gate",
+   "file": [
+    "film.side-effects.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "productionGate / storyboard.boundary (UNKNOWN module)",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=film node --test --test-name-pattern=\"^C18\" skills/rasanai/scripts/tests/creative-recovery/film.side-effects.test.mjs"
+   ],
+   "provider_host": "Node; temp dir under os.tmpdir()",
+   "side_effects": "temp dir created and removed",
+   "scope": "film-lane file-system/host",
+   "result": "not run"
+  },
+  {
+   "id": "C19",
+   "purpose": "Explicit Just-make-it / series scope",
+   "expected": "Only its authorized stages inherit; Final remains visible",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "look.mjs resolveStageConsent",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C19 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run",
+   "notes": "delegation record shape UNKNOWN"
+  },
+  {
+   "id": "C20",
+   "purpose": "Fast/lean/direct scheduling",
+   "expected": "Choices preserved; selected boards plus independent review remain",
+   "file": [
+    "film.side-effects.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "budget.mjs productionPolicy (UNKNOWN path/shape)",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=film node --test --test-name-pattern=\"^C20\" skills/rasanai/scripts/tests/creative-recovery/film.side-effects.test.mjs"
+   ],
+   "provider_host": "Node; temp dir under os.tmpdir()",
+   "side_effects": "temp dir created and removed",
+   "scope": "film-lane file-system/host",
+   "result": "not run"
+  },
+  {
+   "id": "C21",
+   "purpose": "Legacy saved session with no new marker",
+   "expected": "Opens/readable; no silent migration of approvals",
+   "file": [
+    "film.side-effects.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "look.mjs resolveStageConsent",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=film node --test --test-name-pattern=\"^C21\" skills/rasanai/scripts/tests/creative-recovery/film.side-effects.test.mjs"
+   ],
+   "provider_host": "Node; temp dir under os.tmpdir()",
+   "side_effects": "temp dir created and removed",
+   "scope": "film-lane file-system/host",
+   "result": "not run",
+   "notes": "fs no-rewrite check in temp dir; native 'opens' part needs the app: host UNKNOWN"
+  },
+  {
+   "id": "C22",
+   "purpose": "Native/browser payload compatibility",
+   "expected": "Existing keys/actions decode unchanged; no new screen required",
+   "file": [
+    "film.side-effects.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "console.mjs headless",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=film node --test --test-name-pattern=\"^C22\" skills/rasanai/scripts/tests/creative-recovery/film.side-effects.test.mjs"
+   ],
+   "provider_host": "Node; temp dir under os.tmpdir(); Studio/console host UNKNOWN",
+   "side_effects": "temp dir created and removed",
+   "scope": "film-lane file-system/host",
+   "result": "not run",
+   "notes": "BLOCKED: needs a pre-change baseline payload key list (baselines/console-payload-keys.json) that does not exist; native decode needs Studio host (read-only GUI, visible window)"
+  },
+  {
+   "id": "C23",
+   "purpose": "Monochrome/flat/calm approved look",
+   "expected": "No failure merely for absent blur, tilt, grain, depth or continual motion",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-contract.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C23 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C24",
+   "purpose": "Repeated generic card layout with renamed nouns",
+   "expected": "Set-level review sees repetition in actual evidence",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-contract.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C24 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run",
+   "notes": "pure: set_level mapping; seeing it in images is a model review (provider UNKNOWN)"
+  },
+  {
+   "id": "C25",
+   "purpose": "Deliberate repeated before/after composition",
+   "expected": "Allowed when it clarifies the proof",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-contract.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C25 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C26",
+   "purpose": "Signature motion replaced by title card",
+   "expected": "Drift finding names missing event; schema-valid output not enough",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-handoff.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C26 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C27",
+   "purpose": "Matching board but broken moving transition",
+   "expected": "Motion/video review catches what still review cannot",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-handoff.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C27 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run",
+   "notes": "pure: stills-only => not assessable; real catch needs a render + video review (side effects: ffmpeg/render, provider UNKNOWN) - not authored as automatic"
+  },
+  {
+   "id": "C28",
+   "purpose": "Visual input unavailable to a worker",
+   "expected": "No 'observed' claim; route/limit honestly without silent model switch",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-contract.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C28 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C29",
+   "purpose": "Optional packet budget pressure",
+   "expected": "Mandatory creative/proof invariants survive; no full-library dump",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-contract.mjs creativeSlice",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C29 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C30",
+   "purpose": "Board image changes but name/size does not",
+   "expected": "Full evidence hash invalidates packet/result",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-contract.mjs, creative-handoff.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C30 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C31",
+   "purpose": "Source claimed done but no output evidence",
+   "expected": "Trace may exist; visual readiness does not",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-handoff.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C31 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run"
+  },
+  {
+   "id": "C32",
+   "purpose": "Reviewer is also designer",
+   "expected": "Independent review requirement not falsely satisfied",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-contract.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C32 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run",
+   "notes": "how builder identity reaches creativeReadiness UNKNOWN"
+  },
+  {
+   "id": "C33",
+   "purpose": "Repair budget exhausted",
+   "expected": "Existing needs-you/deviation path; no endless loop or auto-pass",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-contract.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C33 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run",
+   "notes": "round counter field UNKNOWN"
+  },
+  {
+   "id": "C34",
+   "purpose": "Optional recipe missing",
+   "expected": "Custom supported implementation or explicit material deviation, not generic silent downgrade",
+   "file": [
+    "pure.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "creative-handoff.mjs",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=pure node --test --test-name-pattern=\"^C34 \" skills/rasanai/scripts/tests/creative-recovery/pure.test.mjs"
+   ],
+   "provider_host": "none (Node only)",
+   "side_effects": "none",
+   "scope": "units",
+   "result": "not run",
+   "notes": "missing-recipe field UNKNOWN"
+  },
+  {
+   "id": "C35",
+   "purpose": "Installed bundled engine is older",
+   "expected": "Report exact source/version mismatch; do not attribute it to taste",
+   "file": [
+    "film.side-effects.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "none yet",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=film node --test --test-name-pattern=\"^C35\" skills/rasanai/scripts/tests/creative-recovery/film.side-effects.test.mjs"
+   ],
+   "provider_host": "Node; temp dir under os.tmpdir(); Studio/console host UNKNOWN",
+   "side_effects": "temp dir created and removed",
+   "scope": "film-lane file-system/host",
+   "result": "not run",
+   "notes": "BLOCKED/UNKNOWN: version sources unidentified; test currently fails by design until the lead names them; manual compare of repo vs installed Studio bundle (read-only; never reinstall)"
+  },
+  {
+   "id": "C36",
+   "purpose": "Unauthorized test/build/hook invocation",
+   "expected": "Implementation handoff stops; test permission not inferred",
+   "file": [
+    "film.side-effects.test.mjs"
+   ],
+   "input_files": [
+    "fixtures.mjs (synthetic, invented brand 'Lumio Notes', no real media)"
+   ],
+   "apis": "static file scan",
+   "commands": [
+    "CREATIVE_RECOVERY_APPROVED=film node --test --test-name-pattern=\"^C36\" skills/rasanai/scripts/tests/creative-recovery/film.side-effects.test.mjs"
+   ],
+   "provider_host": "Node; temp dir under os.tmpdir()",
+   "side_effects": "temp dir created and removed (none; read-only scan)",
+   "scope": "film-lane file-system/host",
+   "result": "not run",
+   "notes": "reads docs/plans/creative-recovery/TEST_APPROVAL_REQUEST.md, package.json, .github/workflows, .husky"
+  }
+ ]
+}

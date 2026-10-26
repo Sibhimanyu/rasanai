@@ -21,6 +21,8 @@
 //   node design.mjs choose-system --run <run> --label Sure|Bold|Wild --decisions <decisions.json> [--mode light|dark] [--preset <id>]
 //        -> (--preset: a lyric video's technical frame.md, the gate wants a preset verbatim)  design/<label>/DESIGN.md becomes the film's look: <run>/look/{DESIGN.md,frame.md,grammar.json}, decisions.look + picks + design_system
 //   (Plan 04) node design.mjs compare-plan --run <run> [--beat <id>] [--expected 3] [--lean]   -> design/comparison-plan.json: ONE approved story beat drawn in every look, one styleframe per look (a justified second only for a real uncertainty)
+//        (new creative policy: the plan file also carries `creative_intent`, the chosen Story's premise, promise, signature events, repetition intent and the selected references' principles, from creative/brief.json and
+//         creative/references.json: what each look must develop a DIFFERENT strategy for. Additive; the plan's own fields and the card and image payloads are unchanged)
 //   (Plan 04) node design.mjs bible --run <run> | bible-check --run <run> | bible-for --run <run> --scene <id> [--relations cause,contrast] [--continuity <file>]
 //        -> look/visual-bible.json (a projection of DESIGN.md + the motion contract with a source digest; choose-system writes it too), its stale/valid check, the subset one scene worker gets
 //   (Plan 04) node design.mjs look-revise --run <run> --instruction "same typography, less glossy" [--ids a,b]   -> a bounded look revision: what changes, what stays fixed, the impact (Story kept)
@@ -38,7 +40,9 @@ import { validateVisualBible, bibleCurrent, projectForWorker } from "./lib/visua
 import { comparisonPlan, validateComparisonPlan, reviseLook } from "./lib/look.mjs";
 import { validateContinuity, projectForScene } from "./lib/continuity.mjs";
 import { libraryIds } from "./library.mjs";
+import { runCreativeOn } from "./lib/creative-run.mjs"; // Creative Recovery: only a plan with creative_policy_revision 1 changes anything below
 
+const lockBrandOf = (run) => { try { return runBrand(path.resolve(String(run))); } catch { return null; } };
 // The brand lock: when the run's decisions carry a brand (and use_brand is not false), every system must stay inside it
 function runBrand(run) {
   try {
@@ -258,6 +262,13 @@ if (cmd === "looks") {
   if (!args.run) die("--run <run dir> required");
   const pl = lookPayload(path.resolve(String(args.run)), { recommended: args.recommended, hook: args.hook && args.hook !== true ? String(args.hook) : "", sub: args.sub && args.sub !== true ? String(args.sub) : "" });
   if (pl.styles.length !== 3) die(`the Look step shows exactly the three bespoke systems; ${pl.styles.length} are ready in ${args.run}/design`);
+  // new creative policy: the Look is a craft class the Story supports. A look that names none is read as "not the dimensional craft" by the frame checks; say it before the user is asked (stderr: the payload is unchanged)
+  if (runCreativeOn(path.resolve(String(args.run)))) {
+    const ls = LABELS.map((l) => { try { return [l, (JSON.parse(fs.readFileSync(path.join(path.resolve(String(args.run)), "design", l, "blend.json"), "utf8")) || {}).look_style || null]; } catch { return [l, null]; } });
+    const unnamed = ls.filter(([, v]) => !v).map(([l]) => l);
+    if (unnamed.length) console.error(`creative policy: design/${unnamed.join(", design/")}/blend.json names no look_style (dimensional | flat-graphic | editorial | photographic | character | ...): the frame checks then treat the look as not the depth craft; the designer says which class the look is`);
+    else if (new Set(ls.map(([, v]) => String(v).toLowerCase())).size === 1 && !lockBrandOf(args.run)) console.error(`creative policy: all three looks are look_style "${ls[0][1]}": check they are different visual strategies for the Story, not one look recoloured`);
+  }
   // the brand lock: never show (or recommend) an off-brand look
   const lockBrand = runBrand(path.resolve(String(args.run)));
   if (lockBrand) {
@@ -287,7 +298,13 @@ if (cmd === "looks") {
   const r = comparisonPlan({ treatment, beat_id: args.beat && args.beat !== true ? String(args.beat) : null, looks, brand: { locked: !!(dec.brand && dec.use_brand !== false) }, series, expected: Number(args.expected) || 3, lean: !!args.lean });
   if (!r.ok) die(r.error);
   const v = validateComparisonPlan(r.plan);
-  writeFile(path.join(run, "design", "comparison-plan.json"), JSON.stringify({ ...r.plan, validation: v }, null, 2) + "\n");
+  // new creative policy: hand the Story's creative intent to the design jobs (they read this file); the brief is intent only: it grants no approval and owns no timing
+  let creative_intent = null;
+  if (runCreativeOn(run)) {
+    const cb = rj("creative", "brief.json"), cr = rj("creative", "references.json");
+    if (cb && cb.status !== "skeleton") creative_intent = { brief_revision: cb.revision ?? null, promise: cb.promise ?? null, premise: cb.premise ?? null, visual_strategy: cb.visual_strategy ?? null, signature_events: (Array.isArray(cb.signature_events) ? cb.signature_events : []).map((e) => ({ id: e.id, beat_ids: e.beat_ids, before: e.before, change: e.change, after: e.after, must_preserve: e.must_preserve, why_motion: e.why_motion })), repetition_intent: cb.repetition_intent || [], do_not_substitute: cb.do_not_substitute || [], references: ((cr && cr.selected) || []).map((x) => ({ id: x.id, principle: (x.transferable || [])[0] || "", avoid: x.notTransferable || [] })), reference_evidence: (cr && cr.evidenceLevel) || "none", rule: "each look develops a different visual STRATEGY for this one idea (not a recolour); the real words, source behaviour and brand fixed things stay identical in every look; a look the brand excludes is excluded, never forced to fill a slot" };
+  }
+  writeFile(path.join(run, "design", "comparison-plan.json"), JSON.stringify({ ...r.plan, validation: v, ...(creative_intent ? { creative_intent } : { }) }, null, 2) + "\n");
   console.log(JSON.stringify({ ok: v.ok, problems: v.problems, plan: r.plan }, null, 2));
   process.exit(v.ok ? 0 : 2);
 } else if (cmd === "bible") {

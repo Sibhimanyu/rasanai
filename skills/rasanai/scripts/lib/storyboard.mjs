@@ -24,7 +24,7 @@ import { approvalRecord, canonicalDigest, nextRevision, validateStoryboard, SCHE
 import { impact } from "./impact.mjs";
 import { contractForStoryboard, readAudioContract } from "./audio-direction.mjs";
 import { logicalStage, missingPrerequisites } from "./stages.mjs";
-import { lookCommitted } from "./look.mjs";
+import { lookCommitted, resolveStageConsent } from "./look.mjs";
 import { CUT_RELATIONS, checkReading } from "./editorial.mjs";
 import { layout, rate, reconcile, scoreRevision, toTicks, fromTicks } from "./timing.mjs";
 
@@ -90,12 +90,16 @@ export function lookDigest(run) {
 
 // mode "sketch": exploratory, cheap, labelled, needs only a committed Story. mode "full": needs the Story AND the Look, approved or EXPLICITLY inherited
 // (o.inherit = { story?: {reason, source}, look?: {reason, source} }, e.g. a saved series' look), and rejects inputs that moved since they were pinned.
-export function boundary(run, { mode = "full", inherit = {} } = {}) {
+export function boundary(run, { mode = "full", inherit = {}, requireConsent = false, consent = null } = {}) {
   const r = path.resolve(String(run));
   const problems = [], stale = [];
   const story = storyDigest(r), look = lookDigest(r);
   const inh = isObj(inherit) ? inherit : {};
-  const committed = [...(story ? ["story"] : []), ...(look && lookCommitted(r).committed ? ["look"] : [])];
+  // strict (requireConsent, creative_policy_revision 1): a prepared story or look is not a decision; each needs a consumed user choice, an approval record or a consumed
+  // delegation (resolveStageConsent), and an inherit note counts only with the source_action_id of a consumed action. consent = { story, look } contexts, else read from the run.
+  const cons = {};
+  if (requireConsent && mode !== "sketch") for (const st of ["story", "look"]) cons[st] = resolveStageConsent({ ...(consent && consent[st] || stageConsentContext(r, st)), stage: st });
+  const committed = requireConsent ? ["story", "look"].filter((st) => (st === "story" ? story : look) && cons[st] && cons[st].confirmed) : [...(story ? ["story"] : []), ...(look && lookCommitted(r).committed ? ["look"] : [])];
   const approvals = rjson(path.join(r, "approvals.json"));
   const recs = arr(Array.isArray(approvals) ? approvals : approvals && approvals.records);
   const approvedDigest = (st) => { const x = recs.filter((q) => q && q.stage === st).sort((a, b) => (b.revision || 0) - (a.revision || 0))[0]; return x ? x.artifact_digest : null; };
@@ -106,6 +110,13 @@ export function boundary(run, { mode = "full", inherit = {} } = {}) {
   for (const st of ["story", "look"]) {
     const now = st === "story" ? story : look;
     if (!now) { if (!inh[st]) problems.push(`the ${st} is not committed: a full storyboard waits for the approved ${st} (or an explicit inherit.${st} with a reason)`); continue; }
+    if (requireConsent) {
+      const c = cons[st], ih = inh[st];
+      const ctx = (consent && consent[st]) || stageConsentContext(r, st);
+      const inheritedOk = ih && ih.source_action_id && arr(ctx.appliedActions).some((a) => a && a.id === ih.source_action_id);
+      if (ih && !inheritedOk) problems.push(`inherit.${st} is not evidence of the user's decision: it needs the source_action_id of a consumed action (a note written by an agent is not delegation)`);
+      else if (!ih && !c.confirmed) { if (c.stale) stale.push(st); problems.push(`the ${st} is prepared but not approved: ${c.reason}`); }
+    }
     const ap = approvedDigest(st);
     if (ap && ap !== now.digest && !inh[st]) { stale.push(st); problems.push(`the ${st} changed since it was approved (approved digest ${String(ap).slice(0, 10)}, now ${String(now.digest).slice(0, 10)}): approve the current ${st} or inherit it explicitly`); }
     if (inh[st] && !T(inh[st].reason)) problems.push(`inherit.${st} needs a reason (where it comes from and why it still holds)`);
@@ -115,12 +126,41 @@ export function boundary(run, { mode = "full", inherit = {} } = {}) {
     const now = st === "story" ? story : look;
     if (now && pinned[st] && pinned[st].digest !== now.digest) { if (!stale.includes(st)) stale.push(st); problems.push(`stale input: the ${st} the storyboard was scheduled from (${String(pinned[st].digest).slice(0, 10)}) is not the current ${st} (${String(now.digest).slice(0, 10)}); the old panel set is labelled old, not current`); }
   }
-  const missing = missingPrerequisites("storyboard", ["brief", ...committed, ...Object.keys(inh).filter((k) => inh[k])]).filter((s) => s !== "brief");
+  const inheritedStages = Object.keys(inh).filter((k) => inh[k] && (!requireConsent || problems.every((p) => !p.startsWith(`inherit.${k}`))));
+  const missing = missingPrerequisites("storyboard", ["brief", ...committed, ...inheritedStages]).filter((s) => s !== "brief");
   if (missing.length && !problems.length) problems.push(`not committed: ${missing.join(", ")}`);
   return { ok: !problems.length, mode: "full", kind: "full", schedulable: !problems.length, problems, stale, inputs: { story, look }, inherited: Object.fromEntries(Object.entries(inh).filter(([, v]) => v)) };
 }
-export function pinInputs(run, { inherit = {} } = {}) {
-  const b = boundary(run, { mode: "full", inherit });
+// Strict-mode inputs for resolveStageConsent, read-only from the run: session.json, the actions the transport consumed (consumed.json minus rejected.json, so a raw or
+// unprocessed line is excluded), approval records, the delegations among those actions. Writes nothing and consumes nothing. stage: "story" | "look" | "storyboard".
+export function stageConsentContext(run, stage) {
+  const r = path.resolve(String(run));
+  const done = new Set(arr(rjson(path.join(r, "consumed.json")))), bad = new Set(arr(rjson(path.join(r, "rejected.json"))).map((x) => x && x.id));
+  let lines = [];
+  try { lines = fs.readFileSync(path.join(r, "actions.jsonl"), "utf8").split("\n"); } catch {}
+  const appliedActions = [];
+  for (const l of lines) {
+    let a = null; try { a = l.trim() ? JSON.parse(l) : null; } catch {}
+    if (a && typeof a.id === "string" && done.has(a.id) && !bad.has(a.id)) appliedActions.push({ id: a.id, step: a.step, type: a.type, value: a.value ?? null, ts: a.ts || null, source: a.source || null });
+  }
+  const recs = (f) => { const j = rjson(f); return arr(Array.isArray(j) ? j : j && j.records); };
+  const approvals = [...recs(path.join(r, "approvals.json")), ...recs(SB(r, "approvals.json"))];
+  const explicitDelegations = appliedActions.filter((a) => ["decide", "decide-rest"].includes(a.type)).map((a) => ({ source_action_id: a.id }));
+  const ctx = { session: rjson(path.join(r, "session.json")), appliedActions, approvals, explicitDelegations, expectedDigest: null, selectedId: null, isCurrent: null };
+  if (stage === "story" || stage === "look") {
+    const d = stage === "story" ? storyDigest(r) : lookDigest(r);
+    ctx.expectedDigest = d ? d.digest : null;
+    const ch = stage === "story" ? rjson(path.join(r, "story", "chosen.json")) : null;
+    // the chosen file is written by the Director and has no fixed id field: every name the pick could carry is a candidate (id, story_id, label, key, name)
+    if (isObj(ch)) { const c = [ch.id, ch.story_id, ch.label, ch.key, ch.name].filter((x) => x != null && x !== "").map(String); if (c.length) ctx.selectedId = c; }
+  } else {
+    const c = snapshotRun(r, { check: true });
+    if (c.ok) ctx.isCurrent = c.current;
+  }
+  return ctx;
+}
+export function pinInputs(run, { inherit = {}, requireConsent = false, consent = null } = {}) {
+  const b = boundary(run, { mode: "full", inherit, requireConsent, consent });
   if (!b.ok) return { ok: false, ...b };
   const rec = { schema_version: SCHEMA_VERSION, story: b.inputs.story, look: b.inputs.look, inherited: b.inherited };
   writeJson(SB(run, "inputs.json"), rec);

@@ -210,6 +210,11 @@ const ENTER_MAX_S = Math.max(1.2, ((M.durations && Number(M.durations.max_ms)) |
 let SCORE = null;
 try { SCORE = args.score && args.score !== true ? JSON.parse(fs.readFileSync(path.resolve(String(args.score)), "utf8")) : args.run && args.run !== true ? JSON.parse(fs.readFileSync(path.join(path.resolve(String(args.run)), "motion", "score.json"), "utf8")) : null; } catch { SCORE = null; }
 const BUDGETS = SCORE ? readBudget(SCORE) : [];
+// Creative recovery (W06): on the new creative policy (score.creative.policy_revision or creative_policy_revision) a curve-family COUNT is a profile, not a law: a restrained or
+// stepped film may sit on three families if no single curve dominates (dominant-ease and duration-grid still fail the machine tell). A legacy score is unchanged.
+const SC_CREATIVE = SCORE && SCORE.creative && typeof SCORE.creative === "object" ? SCORE.creative : {};
+const NEW_POLICY = !!(SCORE && (SCORE.creative_policy_revision || SC_CREATIVE.policy_revision));
+const PROFILES = [].concat(SC_CREATIVE.profiles || [], SCORE && SCORE.profiles || []).map(String);
 const LIMIT = budgetLimit(SCORE && SCORE.duration);
 const budgetUsed = {};
 // true when this banned hit is a budgeted hero use (and counts it); past the limit it is the uniform tell again
@@ -374,7 +379,7 @@ else {
   const names = [...new Set(top.map((g) => easeLabel(g)))].slice(0, 3).join(", ");
   if (shaped.length && top.length / shaped.length > MIX.max_share) add({ severity: "error", rule: "dominant-ease", file: top[0].rel, message: `one curve (${names}) moves ${top.length} of ${shaped.length} gestures (${Math.round((top.length / shaped.length) * 100)}%; ${Math.round(MIX.max_share * 100)}% at most): every move has the same shape, the strongest machine tell`, fix: `give each kind of move its own curve: launch for entrances, glide or expressive for repositions, settle for hero landings, exit for leaves, drift for the camera (motion.md curves; RasanMotion picks them by role)` });
   const fams = Object.keys(byFam).length;
-  if (fams < MIX.min_families) add({ severity: "error", rule: "few-curves", file: gestures[0].rel, message: `${fams} curve families in the film (${Object.entries(byFam).map(([k, v]) => `${k} ${v}`).join(", ")}); ${MIX.min_families} at least`, fix: "add the missing roles: a long-tailed launch, a soft-start glide, a settle on a hero landing, an accelerating exit, a sine drift on the camera" });
+  if (fams < MIX.min_families) add({ severity: NEW_POLICY && !PROFILES.includes("curve-families") ? "warning" : "error", rule: "few-curves", file: gestures[0].rel, message: `${fams} curve families in the film (${Object.entries(byFam).map(([k, v]) => `${k} ${v}`).join(", ")}); ${MIX.min_families} at least`, fix: "add the missing roles: a long-tailed launch, a soft-start glide, a settle on a hero landing, an accelerating exit, a sine drift on the camera" });
   // role curves (motionmaxxing: about 58% of landings are ease-out, ease-in is the commonest exit): an entrance that accelerates in or an exit that decelerates out
   const ENTER_BAD = new Set(["accelerate", "linear"]), EXIT_BAD = new Set(["snap", "decelerate", "glide"]);
   for (const [cls, bad, rule, msg, fix] of [
