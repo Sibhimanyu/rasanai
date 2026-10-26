@@ -39,7 +39,7 @@ setInterval(() => {}, 1000);
     fs.mkdirSync(runDir, { recursive: true });
     fs.writeFileSync(path.join(project, ".rasanai", "current"), "run-1");
     fs.writeFileSync(path.join(runDir, "session.json"), JSON.stringify({ schema: 1, current: "brief", steps: { brief: { status: "awaiting", fields: { subject } } } }));
-    fs.writeFileSync(path.join(runDir, "console.json"), JSON.stringify({ headless: true, skill: SKILL, external_actions: 1 }));
+    fs.writeFileSync(path.join(runDir, "console.json"), JSON.stringify({ headless: true, skill: SKILL, external_actions: 2 }));
     if (draft) fs.writeFileSync(path.join(project, "rasanai-brief.json"), JSON.stringify(draft));
     const job = { executable: fake, arguments: ["--print", "--output-format", "stream-json", "--verbose", "--permission-mode", "acceptEdits", "--settings", '{"permissions":{"allow":["Read"]}}', "--model", "claude-opus-5-5", "OLD PROMPT"], cwd: project };
     return { project: fs.realpathSync(project), runDir: fs.realpathSync(runDir), job, writeJob: () => fs.writeFileSync(path.join(runDir, "director-job.json"), JSON.stringify(job), { mode: 0o600 }) };
