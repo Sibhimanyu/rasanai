@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.22.1 beta 1</title>
+      <pubDate>Mon, 26 Oct 2026 03:52:30 GMT</pubDate>
+      <description><![CDATA[<ul><li>Updates now show what changed: a native update screen with a "What's new" list while it downloads and installs, plus a one-time "You're now on X" card after you restart.</li><li>Fixed a flat colour strip behind the floating sidebar in full screen.</li></ul>]]></description>
+      <sparkle:version>52</sparkle:version>
+      <sparkle:shortVersionString>0.22.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.22.1-beta.1/RasanAI-Studio-0.22.1.dmg" sparkle:edSignature="jBO8WsLHzFGJPTp5TsWUg2yKMEBHgJTvaSZVFSd828dGGlMDJeRMTQni1C98B8i1ZDbwQMe/MrXZURbExMIJCQ==" length="84387496" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.22.0 beta 1</title>
       <pubDate>Mon, 26 Oct 2026 01:20:29 GMT</pubDate>
       <description sparkle:format="markdown"><![CDATA[- **One player everywhere.** Every video preview now has the same controls (play, skip 5 seconds, speed, loop, volume, full screen), including the final film page, source files, drafts, the library and progress cards. Full screen now also works when the app is already full screen.
