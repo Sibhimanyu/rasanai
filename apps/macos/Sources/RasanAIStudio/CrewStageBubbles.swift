@@ -280,6 +280,8 @@ struct CrewSpeechBubble: View {
     var subtitle: String?
     /// The speaker's colour; nil falls back to the brand violet.
     var tint: Color?
+    /// Where the tail meets the bubble, from its vertical centre; nil keeps the tail near the top.
+    var tailFromCenter: CGFloat?
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown = false
@@ -293,7 +295,7 @@ struct CrewSpeechBubble: View {
 
     var body: some View {
         let dark = scheme == .dark
-        let shape = SpeechShape()
+        let shape = SpeechShape(tailFromCenter: tailFromCenter)
         let ring = LinearGradient(colors: [display, .rasan], startPoint: .leading, endPoint: .trailing)
         HugWidthLayout(cap: 520 - 48 - SpeechShape.tailOut) {
             VStack(alignment: .leading, spacing: 5) {
@@ -381,13 +383,15 @@ struct SpeechShape: Shape {
     static let tailOut: CGFloat = 14
     /// Where the tail meets the left edge, from the top: level with the speaker's mouth, not down at the feet.
     static let tailY: CGFloat = 38
+    /// When set, the tail meets the left edge this far from the bubble's vertical centre (negative = above), instead of `tailY` from the top.
+    var tailFromCenter: CGFloat?
     func path(in rect: CGRect) -> Path {
         let l = rect.minX + Self.tailOut, rt = rect.maxX, t = rect.minY, b = rect.maxY
         let r = max(10, min(28, (b - t) / 2))
         let k: CGFloat = 0.5523 * r
         let half: CGFloat = 9
         // Keep the tail on the straight run of the left edge, clear of both corners.
-        let cy = min(max(t + Self.tailY, t + r + half), max(t + r + half, b - r - half))
+        let cy = min(max(tailFromCenter.map { (t + b) / 2 + $0 } ?? t + Self.tailY, t + r + half), max(t + r + half, b - r - half))
         var p = Path()
         p.move(to: CGPoint(x: l + r, y: t))
         p.addLine(to: CGPoint(x: rt - r, y: t))

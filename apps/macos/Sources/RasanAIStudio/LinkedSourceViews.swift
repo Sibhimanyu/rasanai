@@ -9,6 +9,8 @@ struct LinkedSourceWell: View {
     let kind: LinkedSource.Kind
     @Binding var sources: [LinkedSource]
     var disabled = false
+    /// Inside a card that already names it: no heading of its own, a quieter drop area.
+    var bare = false
     /// The picked format's own words for what it wants here (a footage well only); nil keeps the default hint.
     var prompt: String?
     /// The reference well also holds the moves picked from Inspiration: their thumbnails, and the button that opens the
@@ -40,16 +42,23 @@ struct LinkedSourceWell: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+            if !bare { HStack(spacing: 8) {
                 Image(systemName: symbol).font(.system(size: 14, weight: .medium)).foregroundStyle(empty ? Color.secondary : kind == .footage ? Color.rasan : Color.primary.opacity(0.7))
                 Text(title).font(.system(size: 13, weight: .semibold))
                 // Footage is cut into the film; a reference is only studied. Say which, on the well itself.
                 Text(kind == .footage ? "Used in your film" : "Studied, never cut in")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
                 Spacer(minLength: 0)
-            }
+            } }
             if empty {
-                Text(hint).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .top, spacing: 10) {
+                    if bare {
+                        Image(systemName: targeted ? "arrow.down.circle.fill" : kind == .footage ? "folder.badge.plus" : "arrow.down.circle")
+                            .font(.system(size: 18, weight: .light)).foregroundStyle(targeted ? Color.rasan : Color.secondary)
+                            .accessibilityHidden(true)
+                    }
+                    Text(hint).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
             } else {
                 ForEach(mine) { source in
                     LinkedSourceRow(source: source) { sources.removeAll { $0 == source } }
@@ -67,9 +76,9 @@ struct LinkedSourceWell: View {
             }
             .buttonStyle(.rasanSecondary).controlSize(.small).disabled(disabled)
         }
-        .padding(16)
+        .padding(bare ? 14 : 16)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(targeted ? Color.rasan.opacity(0.10) : Workspace.panel, in: RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous))
+        .background(targeted ? Color.rasan.opacity(0.10) : bare ? Color.primary.opacity(0.03) : Workspace.panel, in: RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: Workspace.radius, style: .continuous)
                 .strokeBorder(targeted ? Color.rasan : Workspace.hairline, style: StrokeStyle(lineWidth: targeted ? 1.5 : 1, dash: empty && !targeted ? [5, 4] : []))

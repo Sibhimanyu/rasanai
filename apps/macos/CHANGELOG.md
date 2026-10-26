@@ -2,6 +2,12 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- A fresh last step for setting up a film: one calm page with everything visible and editable in place, instead of a pop-up. Speed, quality, motion, Brand, footage and a reference video all live on it.
+- Ask Rasan: type right in the bottom bar. The chat opens above it and older messages fade away as you look up. Scroll up, or open the side panel, to see more.
+- The sidebar no longer has a coloured block behind it, and the character header at the top of each step takes less space.
+
 ## 0.22.5 (build 56) — 2026-10-26
 
 - Setting up a film is one screen: click any answer to open a single set-up sheet with every option in view. Speed, quality, motion and Brand are no longer hidden under More settings.
