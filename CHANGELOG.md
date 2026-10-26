@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.29.0 (2026-10-26): Creative Recovery and Style Intelligence
 
 - **Creative Recovery.** New films carry one small creative brief owned by the Director (`creative/brief.json`, `crew.mjs creative init|check|revise|gate|status`), automatic references that need no inspiration from you, proof contracts so a demonstration cannot change what the source says, creative evidence in every worker packet, and a check that the built film calls the approved idea instead of a card. Brief, Story, Look, Storyboard and Final stay your calls: new films check a real consumed choice (or an explicit Just make it) before boards and build, and a prepared file, brand, Fast pace or recommendation never counts. Saved films are unchanged.
 - **Style Intelligence.** Twelve medium families and eight production profiles (flat vector, line art, paper and collage, pixel, pixel companion beside sharp UI, cel acting, isometric, evidence diagrams) with eligibility, fit and a diverse shortlist for the Look options, a medium contract per Look, and medium-aware motion, finish and frame checks (word choreography, blur, depth and camera drift apply only where the medium wants them). All eight profiles are written but not yet verified by a render.
