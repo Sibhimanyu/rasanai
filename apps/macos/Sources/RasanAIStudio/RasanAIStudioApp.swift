@@ -10,7 +10,7 @@ struct RasanAIStudioApp: App {
     @Environment(\.openWindow) private var openWindow
 
     init() {
-        Heresay.configure(key: "pk_qieWNOYhIPtsSCFjfOYOLqSW", url: URL(string: "https://heresay-sibhi-42b1.web.app")!)
+        Heresay.configure(key: "pk_qieWNOYhIPtsSCFjfOYOLqSW", url: URL(string: "https://heresay-sibhi.web.app")!)
         _store = State(initialValue: StudioStore())
     }
 
