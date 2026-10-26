@@ -2,6 +2,13 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- The Brief page is tidier: two columns that line up at the top and stay a comfortable width on big screens, a smaller header, an idea sentence that wraps instead of being cut off, and a quieter Details panel that no longer hides behind the bottom bar.
+- The crew talks in speech cards near their head instead of cloud thought bubbles: the newest one, plus one faded older one.
+- Decisions is now a timeline grouped by stage, with headers that stay in view and fold away, marks for what you decided, what Rasan decided and what is still open, a filter and search, Show more, and Jump to now.
+- The working screen fits its window: the character and their speech cards shrink to fit a smaller window instead of making you scroll, and the latest picture sizes itself to match.
+
 ## 0.22.9 (build 60) — 2026-10-26
 
 - When Rasan is blocked, the banner now says what happened and what to do, with one main button: Fix it. Ask Rasan why, Retry step, Restart Rasan, View activity, Copy details and Report a problem are under More.

@@ -533,6 +533,8 @@ struct CrewStage: View {
     var picture: URL?
     /// Points the tallest character stands (work) or the ask pose stands (ask).
     var unit: CGFloat = 320
+    /// The stage's own height when the screen sizes it (the character and the bubble room scale to fit); nil keeps the design height.
+    var stageHeight: CGFloat?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var scheme
@@ -545,7 +547,7 @@ struct CrewStage: View {
 
     var body: some View {
         if let pose = CrewStageArt.pose(character, mode) {
-            let height = Self.height(mode: mode, unit: unit)
+            let height = mode == .ask ? Self.height(mode: mode, unit: unit) : (stageHeight ?? Self.height(mode: mode, unit: unit))
             Group {
                 if mode == .ask {
                     stage(pose: pose, size: CGSize(width: askWidth(pose), height: height)).frame(width: askWidth(pose), height: height)
