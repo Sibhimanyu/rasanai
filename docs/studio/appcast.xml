@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.24.1 beta 1</title>
+      <pubDate>Mon, 26 Oct 2026 09:27:24 GMT</pubDate>
+      <description><![CDATA[<ul><li>Rasan no longer skips your Look call when the film planner has trouble: it always asks you, even at Fast pace.</li><li>If a look or story was ever chosen without you, Studio tells you and lets you review it.</li></ul>]]></description>
+      <sparkle:version>63</sparkle:version>
+      <sparkle:shortVersionString>0.24.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.24.1-beta.1/RasanAI-Studio-0.24.1.dmg" sparkle:edSignature="O4lQLH3CiexKPhMgj9YYlQfFNMtdWp3qOAHMMLb7XldQItA2vc5TeAvh68qqOGusbS0x8NTAuRO3+8wbBTaqBA==" length="85065691" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.24.0 beta 1</title>
       <pubDate>Mon, 26 Oct 2026 08:58:13 GMT</pubDate>
       <description><![CDATA[<ul><li>Quitting while a film is working now offers a third choice, "Keep the film running": Studio closes and the director carries on, and the next Studio picks it up (also when a phone resumed it while Studio was closed). Stop and Quit stays the default.</li><li>A director started from outside Studio (<code>director.mjs resume</code>) is found by a relaunched Studio from the process list.</li></ul>]]></description>
