@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.28.0 (2026-10-26): Drive a whole film from your phone: remote contract v2 and director.mjs
 
 - **Remote contract v2 (`external_actions: 2`).** A strict superset of v1 so a phone can run a whole film: the brief's `submit` (fields keep their types, unknown keys and formats not in the catalog are refused), `decide`, style-frame `approve` / `comment {frame, text}` / `redo {ids, note}`, an ask answered with `tool-ready:<tool>`, and Studio's chat note (`value.chat`). Lines from `squeak` and `squeak-phone` are checked against the session as it is when `wait` reads them; a refusal is listed in `rejected.json` with a fixed reason. `references/remote.md` documents it, where replies land (`steps.<step>.thread`) and how to read the director's liveness.
 - **`scripts/director.mjs`** (`status`, `resume`, `stop`, `install-tool`): one JSON line per command. `resume` restarts the director on the same run exactly as Studio's Resume does, with a Node port of Studio's launch prompt (`lib/director-launch.mjs`, generated text in `lib/director-prompt-data.json`, golden-tested against Swift) and a lock so two resumes cannot start two directors.
