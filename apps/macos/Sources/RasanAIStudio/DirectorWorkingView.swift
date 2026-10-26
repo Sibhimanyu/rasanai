@@ -109,6 +109,9 @@ struct DirectorWorkingView: View {
 
     @ViewBuilder private func icon(for item: ActivityItem, current: Bool) -> some View {
         switch item.level {
+        // A recorded fallback or routine adjustment is not a warning (ActivityNotes): a quiet info mark, never orange.
+        case "warn" where DowngradeRecord.isFeedLine(item.message), "adjust", "notice":
+            Image(systemName: "info.circle").foregroundStyle(.secondary).font(.system(size: 11))
         case "warn": Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).font(.system(size: 11))
         case "error": Image(systemName: "xmark.octagon.fill").foregroundStyle(.red).font(.system(size: 11))
         case "you": Image(systemName: "person.fill").foregroundStyle(Color.rasan).font(.system(size: 11))

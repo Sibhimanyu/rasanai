@@ -80,6 +80,8 @@ public struct FilmProgressEngine: Sendable {
 
     var title = ""
     var sessionLines: [SessionLine] = []
+    /// `session.downgrades`: the fallbacks the director recorded, verbatim, so a "Working without" line can show its full fields.
+    var downgradeRecords: [DowngradeRecord] = []
     var steps: [String: StepFact] = [:]
     var sessionEvidence: [Evidence] = []
     var currentStep = "brief"
@@ -432,6 +434,11 @@ public struct FilmProgressEngine: Sendable {
             }
         }
         sessionLines = lines
+        downgradeRecords = session.raw["downgrades"].array.compactMap { row in
+            guard let what = row["what"].string, let instead = row["instead"].string else { return nil }
+            return DowngradeRecord(time: row["t"].string.flatMap(DirectorTelemetry.parseDate), what: what, instead: instead,
+                                   why: row["why"].string ?? "", impact: row["impact"].string ?? "", severity: row["severity"].string, kind: row["kind"].string)
+        }
         sessionEvidence = evidence
         if let first = lines.first?.time { firstEventAt = min(firstEventAt ?? first, first) }
 

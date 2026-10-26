@@ -287,11 +287,21 @@ extension FilmProgressEngine {
     func activityItems(line: Timeline) -> [ProgressActivity] {
         var items: [ProgressActivity] = []
         for (index, entry) in sessionLines.enumerated() {
+            let record = DowngradeRecord.isFeedLine(entry.message) ? downgradeRecords.first { $0.matches(entry.message) } : nil
+            // Warnings and fallbacks are classified once (ActivityNotes): only what the person must act on, or a failed step, stays a warning.
+            if let severity = ActivityNotes.severity(level: entry.level, message: entry.message, record: record) {
+                var item = ProgressActivity(id: "session-\(index)", time: entry.time, phase: line.phase(at: entry.time), kind: severity.isAlerting ? .warning : .note,
+                                            title: ActivityNotes.title(severity: severity, message: entry.message, record: record))
+                item.severity = severity
+                let logged = "logged: \(ISO8601DateFormatter().string(from: entry.time))"
+                item.original = [entry.message, record?.original ?? logged].joined(separator: "\n\n")
+                items.append(item)
+                continue
+            }
             let kind: ProgressActivity.Kind = switch entry.level {
             case "ask": .ask
             case "you": .answer
             case "ok": .milestone
-            case "warn", "error": .warning
             default: .note
             }
             items.append(ProgressActivity(id: "session-\(index)", time: entry.time, phase: line.phase(at: entry.time), kind: kind, title: entry.message))

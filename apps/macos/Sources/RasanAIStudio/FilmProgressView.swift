@@ -19,9 +19,8 @@ struct FilmProgressView: View {
     /// The director is stopped by the person: the crew on stage snooze (as they do while a usage limit is waited out).
     var paused = false
 
-    /// "View activity" opens the list of what has happened as a sheet; a warning's "View details" opens that one event.
+    /// "View activity" opens the list of what has happened as a sheet; a card's "View details" opens that one event.
     @State private var showActivity = false
-    @State private var detailItem: ProgressActivity?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.agentName) private var agent
     @State private var wrapSent = false
@@ -209,30 +208,20 @@ struct FilmProgressView: View {
         }
     }
 
-    /// The latest warning logged in the current phase, as the log words it. It is a note, not a claim that anything is still
-    /// blocked. The automatic-resume line has its own banner, so it is left out here.
+    /// What the director logged beyond the plan, by how much it asks of the person (ActivityNotes decides). Small adjustments
+    /// (info) are one quiet grey line for the whole film; the latest notice, or the latest line that needs the person or failed,
+    /// in the current phase gets a card in plain words. Every one keeps its original message behind "Show original message".
+    /// The automatic-resume line has its own banner, so it is left out here.
     @ViewBuilder private func activityWarning(_ s: FilmProgressSnapshot) -> some View {
+        let adjustments = s.activity.filter { $0.severity == .info }
         let latest = s.activity
-            .filter { $0.kind == .warning && $0.phase == s.currentPhase && !$0.id.hasPrefix("auto-resume-") }
-            .max { $0.time < $1.time }
+            .filter { ($0.severity.map { $0 >= .notice } ?? ($0.kind == .warning)) && $0.phase == s.currentPhase && !$0.id.hasPrefix("auto-resume-") }
+            .max { ($0.severity ?? .error, $0.time) < ($1.severity ?? .error, $1.time) }
         if let latest {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Label("Activity warning", systemImage: "exclamationmark.triangle.fill").font(.system(size: 12, weight: .semibold))
-                    Text(latest.time.formatted(date: .omitted, time: .shortened)).font(.system(size: 11)).foregroundStyle(.secondary)
-                }
-                Text(latest.title).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
-                Button("View details") { detailItem = latest }
-                    .controlSize(.small)
-                    .popover(item: $detailItem, arrowEdge: .bottom) { item in
-                        ProgressActivityDetail(item: item, snapshot: snapshot, onShowLog: onShowLog)
-                    }
-            }
-            .foregroundStyle(.orange)
-            .padding(.horizontal, 12).padding(.vertical, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-            .accessibilityElement(children: .combine)
+            ActivityNoticeCard(item: latest, snapshot: snapshot, onShowLog: onShowLog)
+        }
+        if !adjustments.isEmpty {
+            QuietAdjustmentsRow(items: adjustments)
         }
     }
 

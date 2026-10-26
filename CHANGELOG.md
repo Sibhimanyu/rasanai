@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fast pace no longer logs routine shortcuts as problems: the director rules now say a downgrade is only for something expected that did not happen, and a score written as one contract (`motion/CONTRACT.md`) is the documented Fast pace path. `motion-gate.mjs` reads the beats from `scenes.json` when `score.json` is missing, quietly.
+- Downgrade rows (`downgrades.jsonl`, `console.mjs downgrade`) take an optional `severity` (`info` by default, `notice`, `needs-you`, `error`) and `kind` (a routine adjustment such as `fast-pace`, told as "Adjusted" and left out of "Working without"). A gate that could not run is a `notice`.
 - The crew planner (`crew.mjs plan`) no longer crashes on films with a Storyboard audio-direction phase: every phase now has a dispatch list, so the director never falls back to a plan made by hand.
 - Story and Look are never decided for you: a Story or Look closed without your choice is recorded as unconfirmed (`console.mjs push`), and the director rules now say a planner failure or Fast pace never removes a call.
 
