@@ -33,6 +33,14 @@ enum Workspace {
     static let columnGap: CGFloat = pageInset
     /// Inside a workspace panel (a card of content) that holds a page's main content.
     static let panelPadding: CGFloat = 16
+    /// The one bottom bar (the shell's status bar and the film page's bar): the same minimum height, corner radius and
+    /// outer inset on every page, so swapping pages changes only what is inside it.
+    static let barHeight: CGFloat = 44
+    static let barRadius: CGFloat = 20
+    /// Distance from the bar to the left, right and bottom edges of the page (the film page's gutter).
+    static let barInset: CGFloat = pageInset
+    /// Room a page reserves below its content for a floating bar: the bar, its inset and the gap above it.
+    static let barReserve: CGFloat = barHeight + barInset + gap
 }
 
 struct WorkspacePanel: ViewModifier {
@@ -66,6 +74,12 @@ extension View {
     func glassPanel(radius: CGFloat = Workspace.glassRadius) -> some View { modifier(GlassPanel(shape: RoundedRectangle(cornerRadius: radius, style: .continuous))) }
     func glassPanel(in shape: some InsettableShape) -> some View { modifier(GlassPanel(shape: shape)) }
     func workspacePanel(padding: CGFloat = 0) -> some View { modifier(WorkspacePanel(padding: padding)) }
+    /// The shared chrome of the bottom bar: full width, same minimum height, same glass and corners, same inner left edge.
+    func studioBottomBar(trailing: CGFloat = 7) -> some View {
+        padding(.leading, 16).padding(.trailing, trailing).padding(.vertical, 7)
+            .frame(maxWidth: .infinity, minHeight: Workspace.barHeight)
+            .glassPanel(radius: Workspace.barRadius)
+    }
 }
 
 // MARK: Filmstrip
@@ -142,4 +156,10 @@ private struct FilmstripCell: View {
         .accessibilityLabel("Scene \(number), \(scene.title), starts at \(reviewTime(scene.start))")
         .accessibilityAddTraits(current ? [.isSelected] : [])
     }
+}
+
+/// True while the page on screen draws its own bottom bar; the shell's status bar steps aside only then.
+struct PageOwnsBottomBarKey: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
 }

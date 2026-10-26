@@ -35,6 +35,7 @@ struct FilmStatusBar<Usage: View>: View {
             // An error sits above the status instead of replacing it, so whose turn it is (and Pause) stay visible.
             if let error = model.lastError { errorRow(error) }
             HStack(spacing: 12) {
+                callChips
                 status
                 Spacer(minLength: 8)
                 usage.fixedSize().padding(.trailing, 4)
@@ -51,11 +52,43 @@ struct FilmStatusBar<Usage: View>: View {
             }
         }
         .animation(.snappy(duration: 0.2), value: askCompact && AskRasanFloatingChat.visible(model))
-        .padding(.leading, 16).padding(.trailing, 7).padding(.vertical, model.lastError == nil ? 7 : 9)
-        .frame(maxWidth: .infinity, minHeight: 44)
         // A floating full-width pill of the same glass as the sidebar; content scrolls underneath it.
-        .glassPanel(radius: 20)
+        .studioBottomBar()
         .onChange(of: turn) { lastActivityAt = Date() }
+    }
+
+    // MARK: Call chips
+
+    /// What used to be the strip above the stage: the kind of media on screen, the "decided for you" mark, and build progress.
+    @ViewBuilder private var callChips: some View {
+        let route = model.route
+        if let call = CreativeCall(route: route) {
+            let kind = model.mediaKind(for: call)
+            let inherited = CallJourney.states(model.snapshot).first { $0.call == call }?.source.flatMap { $0.isInherited ? $0 : nil }
+            if kind != nil || inherited != nil {
+                HStack(spacing: 6) {
+                    if let kind {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 6) {
+                                MediaKindBadge(kind: kind)
+                                if kind == .proxy { Text("The full-quality film comes next.").font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1) }
+                            }
+                            MediaKindBadge(kind: kind)
+                            MediaKindBadge(kind: kind, iconOnly: true)
+                        }
+                    }
+                    if let inherited {
+                        Image(systemName: "arrow.triangle.branch").font(.system(size: 11)).foregroundStyle(.secondary)
+                            .help("\(inherited.label). \(CallInheritedNote.help)").accessibilityLabel("\(inherited.label). \(CallInheritedNote.help)")
+                    }
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(-1)
+            }
+        } else if CallJourney.isBuildProgress(route) && !model.isViewingPast {
+            Image(systemName: "hammer").font(.system(size: 12)).foregroundStyle(.secondary)
+                .help(CallJourney.buildCaption).accessibilityLabel(CallJourney.buildCaption)
+        }
     }
 
     // MARK: Status
@@ -183,6 +216,17 @@ struct FilmStatusBar<Usage: View>: View {
         }
     }
 
+    /// The sentence for pressing the primary: what the call means, with the shortcut.
+    private func primaryHelp(_ title: String) -> String {
+        guard let call = CreativeCall(route: model.route) else { return "\(title) (⇧⌘↩)" }
+        return "\(call.approvalMeaning) (⇧⌘↩)"
+    }
+
+    private var primaryHint: String {
+        guard let call = CreativeCall(route: model.route) else { return "" }
+        return "Call \(call.number) of \(CreativeCall.allCases.count), \(call.title). \(call.approvalMeaning)"
+    }
+
     @ViewBuilder private func buttons(_ actions: FilmActions) -> some View {
         let canAct = model.canAct(on: actions.step)
         let note = model.tellText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -210,7 +254,8 @@ struct FilmStatusBar<Usage: View>: View {
                 // ⇧⌘↩, not plain Return: Return while typing a message must never approve a call by accident.
                 .buttonStyle(.rasanPrimary).controlSize(.regular)
                 .keyboardShortcut(.return, modifiers: [.command, .shift])
-                .help("\(title) (⇧⌘↩)")
+                .help(primaryHelp(title))
+                .accessibilityHint(primaryHint)
                 .disabled(!canAct || !actions.primaryEnabled)
             }
         }
@@ -242,6 +287,7 @@ struct FilmStatusBarHost<Content: View, Usage: View>: View {
 
     var body: some View {
         content.onPreferenceChange(FilmActionsKey.self) { actions = $0 }
+            .preference(key: PageOwnsBottomBarKey.self, value: visible)
             .onGeometryChange(for: CGSize.self) { $0.size } action: { stageHeight = $0.height; stageWidth = $0.width }
             // A floating glass pill over the page: content scrolls underneath and can still scroll clear of it.
             // A clear gap above the bar so the panels never butt against it.

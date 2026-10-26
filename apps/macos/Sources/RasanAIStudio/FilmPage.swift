@@ -550,7 +550,7 @@ struct FinishedView: View {
         VStack(alignment: .leading, spacing: 14) {
             Group {
                 if let player = previewPlayer ?? store.finalPlayer {
-                    StudioVideoPlayer(player: player, aspect: store.snapshot.aspectRatio)
+                    StudioVideoPlayer(player: player, takesKeys: true, aspect: store.snapshot.aspectRatio)
                 } else {
                     ZStack {
                         Color.black

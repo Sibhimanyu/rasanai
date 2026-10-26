@@ -38,7 +38,6 @@ struct NativeStageView: View {
         VStack(spacing: 0) {
             StudioUpdateBanner()
             UpdateNotice(model: model)
-            CallMeaningBar(model: model)   // Plan 10 U1: which of the five calls this is and what its button means (a quiet line; the stepper is untouched)
             RevisionStrip(model: model)    // Plan 10 U5/U6: revision progress, run state and recovery controls, only while there is something to say
             if let ask = model.ask, model.dismissedAsks.contains(ask.id) { AskCard(model: model, ask: ask) }
             ZStack {

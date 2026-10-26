@@ -428,12 +428,10 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay { RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(ReviewTheme.hairline, lineWidth: 1) }
         .shadow(color: .black.opacity(0.18), radius: 14, y: 6)
-        .focusable()
-        .focused($focused)
-        .focusEffectDisabled()
+        .playerKeys(playback: playback, scenes: scenes, focus: $focused, onFullScreen: toggleFullScreen,
+                    onNote: canNote ? { markFrame() } : nil)
         // Take the keys only when nothing is being typed: a step that arrives while the person writes in the inspector must not steal them.
-        .onAppear { if !(NSApp.keyWindow?.firstResponder is NSTextView) { focused = true } }
-        .onKeyPress(phases: [.down, .repeat]) { handle($0) }
+        .onAppear { if PlayerKeys.canTakeFocus { focused = true } }
         .onChange(of: playback.time) { _, t in
             let index = FilmTiming.sceneIndex(at: t, in: scenes)
             model.playhead = .init(time: t, shotID: index.map { scenes[$0].id })
@@ -453,45 +451,6 @@ struct ReviewPlayerPanel<P: FilmPlayback, Frame: View>: View {
                 .environment(model)
                 .environment(skips)
         }
-    }
-
-    /// Space, J/K/L, ←/→ (Shift: 5 s, Option: scenes), , and . (a frame), Home/End, F, M, C. Nothing with ⌘ or ⌃.
-    private func handle(_ press: KeyPress) -> KeyPress.Result {
-        guard !press.modifiers.contains(.command), !press.modifiers.contains(.control) else { return .ignored }
-        switch press.key {
-        case .space: playback.toggle(); return .handled
-        case .leftArrow, .rightArrow:
-            let forward = press.key == .rightArrow
-            if press.modifiers.contains(.option) { return jump(forward: forward) }
-            playback.seek(to: playback.time + (forward ? 1 : -1) * (press.modifiers.contains(.shift) ? 5 : 1))
-            return .handled
-        case .home: playback.seek(to: 0); return .handled
-        case .end: playback.seek(to: playback.duration); return .handled
-        default: break
-        }
-        switch press.characters.lowercased() {
-        case "k": playback.pause(); return .handled
-        case "j":
-            guard playback.avPlayer != nil else { return .ignored }
-            playback.rate = PlaybackSpeed.slower(than: playback.rate); if !playback.isPlaying { playback.play() }
-            return .handled
-        case "l":
-            guard playback.avPlayer != nil else { playback.play(); return .handled }
-            if playback.isPlaying { playback.rate = PlaybackSpeed.faster(than: playback.rate) } else { playback.play() }
-            return .handled
-        case ",": guard !playback.isPlaying else { return .ignored }; playback.step(frames: -1); return .handled
-        case ".": guard !playback.isPlaying else { return .ignored }; playback.step(frames: 1); return .handled
-        case "f": guard playback.avPlayer != nil else { return .ignored }; toggleFullScreen(); return .handled
-        case "m": playback.isMuted.toggle(); return .handled
-        case "c": guard canNote else { return .ignored }; markFrame(); return .handled
-        default: return .ignored
-        }
-    }
-
-    private func jump(forward: Bool) -> KeyPress.Result {
-        guard let target = FilmTiming.jump(from: playback.time, forward: forward, in: scenes) else { return .ignored }
-        playback.seek(to: target)
-        return .handled
     }
 
     // MARK: Frame
@@ -744,8 +703,11 @@ final class FilmTheater: NSObject, NSWindowDelegate {
     var qaWindow: NSWindow? { window }
     #endif
 
-    func open<Content: View>(title: String, @ViewBuilder content: () -> Content) {
+    private var onClose: (() -> Void)?
+
+    func open<Content: View>(title: String, onClose: (() -> Void)? = nil, @ViewBuilder content: () -> Content) {
         guard window == nil else { return }
+        self.onClose = onClose
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 760),
                               styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.title = title.isEmpty ? "Film" : title
@@ -785,6 +747,9 @@ final class FilmTheater: NSObject, NSWindowDelegate {
         window?.contentView = nil
         window = nil
         NSCursor.setHiddenUntilMouseMoves(false)
+        let done = onClose
+        onClose = nil
+        done?()
     }
 }
 
@@ -845,11 +810,9 @@ struct FilmTheaterView<P: FilmPlayback>: View {
                 }
             }
         }
-        .focusable()
-        .focused($focused)
-        .focusEffectDisabled()
+        .playerKeys(playback: playback, scenes: scenes, focus: $focused, onFullScreen: { FilmTheater.shared.close() },
+                    onNote: canNote ? { note() } : nil, onEscape: { FilmTheater.shared.close() }, onKey: poke)
         .onAppear { focused = true }
-        .onKeyPress(phases: [.down, .repeat]) { press in poke(); return handle(press) }
     }
 
     private var controls: some View {
@@ -884,36 +847,6 @@ struct FilmTheaterView<P: FilmPlayback>: View {
         let index = FilmTiming.sceneIndex(at: playback.time, in: scenes)
         let thumbnail = index.flatMap { scenes[$0].thumbnail }.flatMap { model.fileURL($0) }
         model.attach(.wholeFrame(step: step, time: playback.time), player: playback.avPlayer, thumbnail: thumbnail)
-    }
-
-    private func handle(_ press: KeyPress) -> KeyPress.Result {
-        guard !press.modifiers.contains(.command), !press.modifiers.contains(.control) else { return .ignored }
-        switch press.key {
-        case .escape: FilmTheater.shared.close(); return .handled
-        case .space: playback.toggle(); return .handled
-        case .leftArrow, .rightArrow:
-            let forward = press.key == .rightArrow
-            if press.modifiers.contains(.option) {
-                guard let target = FilmTiming.jump(from: playback.time, forward: forward, in: scenes) else { return .ignored }
-                playback.seek(to: target); return .handled
-            }
-            playback.seek(to: playback.time + (forward ? 1 : -1) * (press.modifiers.contains(.shift) ? 5 : 1))
-            return .handled
-        case .home: playback.seek(to: 0); return .handled
-        case .end: playback.seek(to: playback.duration); return .handled
-        default: break
-        }
-        switch press.characters.lowercased() {
-        case "f": FilmTheater.shared.close(); return .handled
-        case "k": playback.pause(); return .handled
-        case "j": playback.rate = PlaybackSpeed.slower(than: playback.rate); if !playback.isPlaying { playback.play() }; return .handled
-        case "l": if playback.isPlaying { playback.rate = PlaybackSpeed.faster(than: playback.rate) } else { playback.play() }; return .handled
-        case ",": guard !playback.isPlaying else { return .ignored }; playback.step(frames: -1); return .handled
-        case ".": guard !playback.isPlaying else { return .ignored }; playback.step(frames: 1); return .handled
-        case "m": playback.isMuted.toggle(); return .handled
-        case "c": guard canNote else { return .ignored }; note(); return .handled
-        default: return .ignored
-        }
     }
 }
 

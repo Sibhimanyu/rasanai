@@ -18,7 +18,7 @@ struct LibraryFilmPage: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
                         if let player, let session = archive.session {
-                            StudioVideoPlayer(player: player, aspect: session.aspectRatio)
+                            StudioVideoPlayer(player: player, takesKeys: true, aspect: session.aspectRatio)
                                 .frame(maxWidth: session.aspectRatio < 1 ? 360 : 820)
                                 .clipShape(RoundedRectangle(cornerRadius: 14))
                             HStack {
@@ -54,12 +54,7 @@ struct LibraryFilmPage: View {
                     }.padding(32).frame(maxWidth: 820).frame(maxWidth: .infinity)
                 }
             } else if let error {
-                VStack(spacing: 6) {
-                    CrewAvatar(.ra, style: .full(height: 56), watching: true)
-                    ContentUnavailableView("Couldn't open this film", systemImage: "film", description: Text(error))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                CrewEmptyState(title: "Couldn’t open this film", message: error)
             }
             else { PageLoadingView(title: "film") }
         }
