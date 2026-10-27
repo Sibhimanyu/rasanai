@@ -6,6 +6,16 @@
     <description>Signed community beta updates for RasanAI Studio on Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>RasanAI Studio 0.25.0 beta 1</title>
+      <pubDate>Tue, 27 Oct 2026 06:43:19 GMT</pubDate>
+      <description><![CDATA[<ul><li><b>Director wording updated:</b> "at least one spectacle moment" becomes "a moment people will replay where the story earns one" (Show off and the Maximal default stay), Fast research may use local references and one bounded idea pass, and a model you pin is never swapped for a cheaper one.</li><li>No screens, settings or approvals changed. This is engine and prompt work, checked with syntax and import loads, the skill-routing test, seven script suites and the prompt parity test, but not tried on a real film.</li></ul>]]></description>
+      <sparkle:version>66</sparkle:version>
+      <sparkle:shortVersionString>0.25.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <enclosure url="https://github.com/Sibhimanyu/rasanai/releases/download/studio-v0.25.0-beta.1/RasanAI-Studio-0.25.0.dmg" sparkle:edSignature="EGutjb0khZSz+Av2h0287ov5whkSMQRTOP/Au8pSseLGvokOdCyxw3xPAegV53qj2rGs6WEaAwAdshIELKcHBA==" length="85667732" type="application/octet-stream" />
+    </item>
+    <item>
       <title>RasanAI Studio 0.24.3 beta 1</title>
       <pubDate>Mon, 26 Oct 2026 12:17:43 GMT</pubDate>
       <description><![CDATA[<ul><li>The earlier installed Studio carried an older engine; this build brings it level with the skill.</li></ul>]]></description>
