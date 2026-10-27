@@ -101,7 +101,7 @@ import { upsertMarked } from "./lib/install.mjs";
 import { track } from "./lib/report.mjs";
 import { detectModel, profileFor, adapt, tierFor, dispatchFor, allocate } from "./lib/models.mjs";
 import { productionPolicy, PACE_TO_BUDGET, collapsesAlternatives } from "./lib/rules.mjs"; // Plan 08 K1: one production policy for Studio and the crew
-import { compilePacket } from "./lib/packets.mjs"; // Plan 08 K2: the role-specific input packet compiled at `brief`
+import { compilePacket, writeScenePlans, readScenePlans, hostCostFor, beatPlanNeeds } from "./lib/packets.mjs"; // Plan 08 K2: the role-specific input packet compiled at `brief`
 import { usageRecord, summarize as summarizeUsage, readUsageFile } from "./lib/usage.mjs"; // Plan 08 K7: honest usage fields
 import { libraryIds } from "./library.mjs";
 import { readLogos } from "./lib/logos.mjs";
@@ -116,8 +116,8 @@ import { validateReview } from "./lib/treatment.mjs";
 import { productionGate, annotatePhases } from "./lib/look.mjs"; // Plan 04: no storyboard or production work before the Look is committed
 import { deliberateSeam } from "./lib/editorial.mjs"; // Plan 05 E4: deliberate hard cuts and holds are exempt from the every-seam rules
 import { boundary as storyboardBoundary } from "./lib/storyboard.mjs"; // Plan 05 E1: a full storyboard needs current Story and Look digests
-// Creative Recovery (plan 02): all of it is gated on crew/plan.json creative_policy_revision === 1, set additively for NEW scene-production plans on DIRECT_ROUTES; a legacy plan never has it and keeps its behaviour
-import { creativeOn, consentContexts, approvalPins, lookStyleOf, creativeLookProfile, prepareReferences, provisionalBrief, briefIsSkeleton, checkBrief, reviseCreative, latestReview, normalizeReviewPaths, boardDigests, creativeGate, referencesDigest } from "./lib/creative-run.mjs";
+// Creative Recovery (plan 02) and v3: all of it is gated on crew/plan.json creative_policy_revision 1 (legacy recovery) or 2 (v3, lib/creative-policy.mjs), set additively for NEW scene-production plans on DIRECT_ROUTES; a legacy plan never has it and keeps its behaviour
+import { creativeOn, planRevision, commitmentReport, consentContexts, approvalPins, lookStyleOf, creativeLookProfile, prepareReferences, provisionalBrief, briefIsSkeleton, checkBrief, reviseCreative, latestReview, normalizeReviewPaths, boardDigests, creativeGate, completionFor, referencesDigest } from "./lib/creative-run.mjs";
 import { creativeSlice } from "./lib/creative-contract.mjs";
 import { referencePacket } from "./lib/creative-references.mjs";
 import { validateProofContract, validateProofReview } from "./lib/proof-integrity.mjs";
@@ -125,6 +125,12 @@ import { validateCreativeHandoff } from "./lib/creative-handoff.mjs";
 // Style Intelligence Part 2 (medium-native films): everything below is gated on the creative policy or on a medium contract (design/<label>/medium.json, medium-contract@1); a legacy run never reads it
 import { loadMedium, prepareMediumSelection, labelAssignments, readSelection, readMediumContract, mediumContractFor, isMediumContract, checkMediumLook, scopedSkips, eventBindingsFor, canonsFor, treatmentLines, RUNTIME_FILES, needsRasan2d, buildAssignment, LABELS as MEDIUM_LABELS } from "./lib/medium-wiring.mjs";
 import { mediumContractDigest, projectMediumForWorker } from "./lib/medium-contract.mjs";
+// V3 (INT-ENGINE-A): the pure creative lanes this file wires. Revision 1 plans never reach any of them.
+import { resolveCreativePolicy, effectivePolicyDoc, CREATIVE_ERROR_CODES } from "./lib/creative-policy.mjs"; // W01: one resolver at `plan`
+import { policyCompat } from "./lib/revision-bind.mjs"; // W11: the one reader of the marker (legacy | recovery | v3 | unsupported); dispatch_allowed gates new dispatch
+import { planContinuity, continuityGroupsForOwnership, groupOwnerFor, admissionHandoff } from "./lib/continuity-plan.mjs"; // W06: ownership groups at plan/schedule
+import { performanceFor, lookAlternativesFor, lookIdentityFor, resolveLookMedium, runtimeFilesWith, COMMON_RUNTIME, SPATIAL_RUNTIME } from "./lib/medium-wiring.mjs"; // W03/W08
+import { creativeTelemetry } from "./lib/usage.mjs"; // W10: estimates and observed usage kept apart
 import { retrieveExamples, buildExampleIndex } from "./lib/medium-examples.mjs";
 import { selectMediumLessons } from "./lib/medium-learning.mjs";
 import { canonicalDigest as mediumCanonicalDigest } from "./lib/contracts.mjs";
@@ -347,7 +353,9 @@ function planCrew(p) {
   const N = p.scenes || null;
   // a film in a series: its look is locked (no Look desk), and one writer writes one story within the series rules, auto-chosen
   const seriesLook = !!(p.series && p.series_look);
-  const LABELS3 = p.series ? ["Sure"] : ["Sure", "Bold", "Wild"];
+  // v3 (revision >= 2): the Look count comes from lookAlternativesFor (an explicit user direction may force or delegate one; brand ownership, direct and Fast never collapse it). Revision 1: unchanged.
+  const lookN = creative && planRevision(p) >= 2 && p.look_alternatives && Number.isInteger(p.look_alternatives.count) ? Math.max(1, Math.min(3, p.look_alternatives.count)) : 3;
+  const LABELS3 = p.series ? ["Sure"] : ["Sure", "Bold", "Wild"].slice(0, lookN);
   const research = [];
   const footageSp = !!(p.sources && isFootageLed(p.sources));
   if (p.sources) research.push(...sourceResearch(p, d, lean, full));
@@ -804,6 +812,29 @@ function sceneShotIds(run, key) {
   const n = Number(key), pick = Number.isInteger(n) && n >= 1 ? [S[n - 1]].filter(Boolean) : S;
   return { beatIds: pick.map((s) => s && (s.id || s.n)).filter((x) => x != null).map(String), shotIds: pick.flatMap((s) => (s && Array.isArray(s.shots) ? s.shots : []).map((h) => h && h.id).filter(Boolean).map(String)) };
 }
+// ---------------------------------------------------------------- V3 W06: continuity ownership groups (revision 2 only)
+// Reads creative/brief.json signature_events (the only event collection; requirement/owner/scope/objects live in extensions.creative_thinking), look/continuity.json (links, shared components),
+// the score's shots and crew/jobs, runs the pure planContinuity and writes crew/continuity-plan.json (a derived snapshot, never an approval). Before a brief exists the plan is empty.
+function continuityPlanFor(run, plan, { write = true } = {}) {
+  const brief = jsonMaybe(R(run, "creative", "brief.json"));
+  const events = brief && !briefIsSkeleton(brief) ? (Array.isArray(brief.signature_events) ? brief.signature_events : []).filter((e) => e && e.id).map((e) => { const x = (e.extensions && e.extensions.creative_thinking) || {}; return { ...e, requirement: x.requirement || e.requirement, continuity_owner: x.continuity_owner ?? e.continuity_owner, scope: x.scope ?? e.scope, object_ids: x.object_ids || e.object_ids, depends_on: e.depends_on || x.depends_on }; }) : [];
+  const cont = jsonMaybe(R(run, "look", "continuity.json")) || {};
+  const objects = (Array.isArray(cont.shared_components) ? cont.shared_components : []).filter((c) => c && c.id).map((c) => ({ id: c.id, kind: c.kind || null, owner: c.owner || null, shots: Object.entries(cont.scenes || {}).filter(([, r]) => Array.isArray(r && r.uses) && r.uses.includes(c.id)).map(([sc]) => sceneShotIds(run, sc).shotIds).flat(), temporal: c.temporal === true ? true : undefined }));
+  const jobs = Jobs.listJobs(run).map((j) => { const ids = String(j.key || "").split("+").filter(Boolean).flatMap((k) => sceneShotIds(run, k).shotIds); return { id: j.job_id, job_id: j.job_id, node_id: j.node_id, kind: j.kind, state: j.state, shots: ids, depends_on: j.continuity && j.continuity.depends_on || [] }; });
+  const sc = jsonMaybe(R(run, "motion", "score.json"));
+  const order = sceneShotIds(run, null).shotIds;
+  const cplan = planContinuity({ events, jobs, objects, links: Array.isArray(cont.links) ? cont.links : [], order, score_digest: sc ? mediumCanonicalDigest(sc.scenes || sc) : null });
+  if (write) writeFile(R(run, "crew", "continuity-plan.json"), JSON.stringify({ derived: true, note: "recomputed by plan and schedule; the Director dispatches only ready groups, one owner per continuous action", ...cplan }, null, 2));
+  return cplan;
+}
+// the continuity field a job carries (jobs.mjs continuityField) for a graph node, or null when no group owns its shots
+function continuityForNode(run, cplan, n) {
+  const ids = String(n.key || "").split("+").filter(Boolean).flatMap((k) => sceneShotIds(run, k).shotIds);
+  const g = ids.map((i) => groupOwnerFor(cplan, i)).find(Boolean);
+  if (!g) return null;
+  return { group: g, field: { group_id: g.id, owner: g.owner, identity_digest: g.identity_digest, depends_on: (g.depends_on || []).filter((d) => !d.satisfied).map((d) => d.ref), event_ids: g.event_ids, object_ids: g.object_ids, shots: g.shots } };
+}
+const ENQUEUE_COMMITMENT = { "scene-animator": "production", "film-builder": "production", "design-system-designer": "look_sample" };
 function mediumContext(run, role, key, P, ctx, I, O) {
   const guide = ["design-researcher", "design-system-designer", ...MEDIUM_WORKERS].includes(role);
   if (guide) I("medium direction (how a medium-native Look is chosen, cut and checked; read the part for your role only)", MEDIUM_GUIDE);
@@ -844,7 +875,11 @@ function mediumContext(run, role, key, P, ctx, I, O) {
     const files = RUNTIME_FILES[c.execution_id] || [];
     const mf = mediumFileFor(run);
     if (mf) ctx.medium_checks = { motion_gate: `motion-gate.mjs ... --medium ${rel(mf)}`, finish: `finish.mjs ... --medium ${rel(mf)} (a sharp or nearest-neighbor layer makes the film-wide blur, grain and glow unavailable)`, note: "named per-layer craft exceptions only; hard checks are unchanged" };
-    ctx.medium_runtime = { dir: "assets/rasan-medium/", files, ...(needsRasan2d(c) ? { rasan2d: "assets/rasan2d/" } : {}), note: "video.mjs inject --project-dir <dir> --run <run> copies exactly these (plus only this execution's examples into assets/rasan-medium/examples/); a scene calls the registered factory of the runtime, never a hand-drawn imitation" };
+    // v3 (revision >= 2): the shared helper runtimes join the registered files (text W13, anchors W14; the spatial W15 files only when the score names a spatial/camera op); revision 1 sees exactly `files`
+    const v3 = planRevision(P) >= 2 && creativeOn(P), spatial = v3 && /RasanSim|RasanCamera|instanceField|plateField|flowGround|"space"\s*:\s*"(3d|spatial|camera)"/.test(JSON.stringify(jsonMaybe(R(run, "motion", "score.json")) || {}));
+    const allFiles = v3 ? runtimeFilesWith(c, { common: true, spatial }) : files;
+    if (v3) { try { const pf = performanceFor(run, { commitments: [] }); ctx.medium_performance = { states: pf.summary, note: "defining behaviours are available only when seen working; source-only or executed is uncertain and is disclosed, never relabelled (references/medium-performance.md). Taste diagnostics are scoped to the chosen visual language and listed as review, never deleted.", scoped: pf.scoped && pf.scoped.scoped } } catch { /* advisory */ } }
+    ctx.medium_runtime = { dir: "assets/rasan-medium/", files: allFiles, ...(needsRasan2d(c) ? { rasan2d: "assets/rasan2d/" } : {}), note: "video.mjs inject --project-dir <dir> --run <run> copies exactly these (plus only this execution's examples into assets/rasan-medium/examples/); a scene calls the registered factory of the runtime, never a hand-drawn imitation" };
     ctx.event_bindings = ev.ok ? { bindings: ev.bindings, note: "scene-local seconds from motion/events.json (derived from the score, which owns timing)" } : { bindings: [], note: ev.note };
     if (c.execution_id === "cel-performance") ctx.canons = { ids: Object.keys(canonsFor(run)), from: "cast/<id>/identity.json (assets.canons: the identity inline, sealed)" };
     const tl = treatmentLines(c); if (tl.length) ctx.treatment_disclosure = tl;
@@ -2159,6 +2194,16 @@ function dsnPath(run) {
   } catch { return null; }
 }
 
+// V3 (revision 2): a planner failure is recorded in creative/errors.json (never swallowed, never thrown) and shown by `crew.mjs creative plans`; revision 1 never reaches it.
+function recordCreativeError(run, where, e) {
+  try {
+    const f = R(run, "creative", "errors.json"), cur = jsonMaybe(f), list = Array.isArray(cur && cur.errors) ? cur.errors : [];
+    list.push({ where, message: String((e && e.message) || e).slice(0, 400), at: new Date().toISOString() });
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    fs.writeFileSync(f, JSON.stringify({ errors: list.slice(-20) }, null, 2) + "\n");
+  } catch { /* the record itself failed: the caller still reports degraded */ }
+}
+const readCreativeErrors = (run) => { const d = jsonMaybe(R(run, "creative", "errors.json")); return Array.isArray(d && d.errors) ? d.errors : []; };
 let CHECK_EXTRA = null; // extra fields a role's check hands the Director (the A/B's keep/revert, the retrospective's record lines)
 function abLatest(run) {
   const d = R(run, "crew");
@@ -2188,8 +2233,25 @@ function mediumRuntimeProblems(run, pj, P) {
 function creativeTraceProblems(run, role, key, P, W) {
   if (!["motion-director", "film-builder", "scene-animator"].includes(role)) return;
   if ((role === "motion-director" && key === "seams") || (role === "film-builder" && key === "lead")) return;
+  // v3 (revision 2, non-blocking): beats that need text/anchor/spatial/asset inputs but have no declaration in creative/beat-plans.json (absent or empty) become a needs-you warning. A beat that
+  // needs nothing, or a sidecar that says {"none":true}, is silent: quiet films are never nagged. Revision 1 never reaches this.
+  if (role === "motion-director" && planRevision(jsonMaybe(R(run, "crew", "plan.json")) || {}) >= 2) {
+    try {
+      const bpn = beatPlanNeeds(run, { project: projectDir(run) });
+      if (bpn.missing.length) {
+        W.push(`needs-you: ${bpn.missing.length} beat(s) (${bpn.missing.slice(0, 6).map((n) => `${n.beat}: ${n.needs.join("/")}`).join("; ")}) declare or imply text/anchor/spatial/asset needs but creative/beat-plans.json is ${bpn.sidecar === "absent" ? "absent" : "silent about them"}: write each beat's inputs there, or {"none":true} if they truly need none (agents/motion-director.md item 9). Nothing is blocked.`);
+        CHECK_EXTRA = { ...(CHECK_EXTRA || {}), beat_plan_declarations: { sidecar: bpn.sidecar, undeclared: bpn.missing } };
+      }
+    } catch (e) { recordCreativeError(run, "beatPlanNeeds (check)", e); W.push(`needs-you: the beat-plan declarations could not be read (${String(e.message).slice(0, 100)}); recorded in creative/errors.json`); }
+  }
   const brief = jsonMaybe(R(run, "creative", "brief.json"));
   if (!brief || briefIsSkeleton(brief)) return;
+  // v3 (revision >= 2): every treatment commitment is bound to an event, or intentionally absent through an approved basis; required ones left open block the work (W04 reconcileCommitments)
+  if (planRevision(jsonMaybe(R(run, "crew", "plan.json")) || {}) >= 2) {
+    const cr = commitmentReport(run, { phase: "build", brief });
+    for (const pr of cr.problems || []) { const hard = (cr.details[pr.commitment_id] || {}).requirement === "required"; (hard ? P : W).push(`${pr.code}: ${pr.message}`); }
+    if ((cr.problems || []).length) CHECK_EXTRA = { ...(CHECK_EXTRA || {}), event_commitments: { bound: cr.bound, unresolved: cr.unresolved, intentionally_absent: cr.intentionally_absent, incompatible: cr.incompatible, quiet_film: cr.quiet_film } };
+  }
   const events = (Array.isArray(brief.signature_events) ? brief.signature_events : []).filter((e) => e && e.id);
   if (!events.length) return; // a brief may carry none (with a reason): nothing to trace
   const map = jsonMaybe(R(run, "creative", "execution-map.json"));
@@ -2254,6 +2316,15 @@ function creativeFinalReviewProblems(run, round, c, P, W) {
   for (const w of r.warnings) W.push(w);
   if (ship && r.result !== "ready") P.push(`ship, but the creative review result is "${r.result}": only a ready result from observed images supports a ship (revise, needs_user or not_reviewed go to the existing review notes and the Final, honestly labelled)`);
   CHECK_EXTRA = { ...(CHECK_EXTRA || {}), creative_review: { stage: "final", result: r.result, state: r.state } };
+  // revision 2: a ship verdict also needs assessCompletion to say ready (current output identity, temporal evidence for every required commitment, observation-first retell)
+  if (planRevision(jsonMaybe(R(run, "crew", "plan.json")) || {}) >= 2) {
+    const a = completionFor(run, { outputFile: str(args.output) || null });
+    if (a) {
+      CHECK_EXTRA = { ...CHECK_EXTRA, creative_completion: { state: a.state, allowed_labels: a.allowedLabels, status_line: a.status_line, next_decisions: a.nextDecisions } };
+      if (ship && a.state !== "ready") P.push(`ship, but the completion assessment is "${a.state}" (${a.status_line}): a ship needs state ready; otherwise give a fix verdict and label the film honestly (allowed: ${a.allowedLabels.join(", ") || "none"})`);
+      else if (!ship && a.state !== "ready") W.push(`completion: ${a.status_line}`);
+    }
+  }
 }
 
 async function checkRole(run, role, key) {
@@ -2462,6 +2533,8 @@ async function checkRole(run, role, key) {
       const ca = ["check", "--pitch", f, "--truth", R(run, "story", "truth.md"), "--no-ledger"]; // the writer's own runs are the ledger's count; the Director's acceptance does not spend one (plan.json beside the pitch is read by check itself)
       if (B.length_s) ca.push("--length", String(B.length_s));
       if (B.narrated) ca.push("--narrated");
+      // revision 2: story.mjs reads creative_policy_revision, extensions.creative_thinking.fixed_concept_kinds and .brief_mechanism from the creative brief (its --brief reader); a skeleton or absent brief adds nothing
+      if (planRevision(jsonMaybe(R(run, "crew", "plan.json")) || {}) >= 2) { const cb = jsonMaybe(R(run, "creative", "brief.json")); if (cb && !briefIsSkeleton(cb)) ca.push("--brief", R(run, "creative", "brief.json")); }
       const r = spawnSync(process.execPath, [path.join(SKILL_DIR, "scripts", "story.mjs"), ...ca], { encoding: "utf8", env: { ...process.env, RASANAI_QUIET: "1" } });
       if (r.status === 2) P.push("story.mjs check says rewrite (run it and fix what it names)");
       else if (r.status !== 0) P.push(`story.mjs check could not read the pitch: ${(r.stderr || "").trim().split("\n")[0]}`);
@@ -3458,6 +3531,12 @@ function mediumSelect(run, { judgmentsFile = null, requestedCount = null } = {})
     return { ok: r.ok, summary: { state: r.ok ? "written" : "invalid", file: rel(r.file), selected: r.selection && r.selection.selected, considered: r.considered, errors: r.ok ? undefined : (r.validation && r.validation.errors || []).slice(0, 5), limitations: r.selection && r.selection.limitations } };
   } catch (e) { return { ok: false, summary: { state: "needs-you", reason: `the medium selection could not be prepared (${String(e.message).slice(0, 160)}): the Looks proceed as ordinary Looks` } }; }
 }
+// V3 W10/W07: the events whose problems select reference mechanisms (packets.mjs mechanismSectionsFor). Problem = why_motion | change; the packet adds the chosen medium.
+function mechanismEventsFor(run) {
+  const b = jsonMaybe(R(run, "creative", "brief.json"));
+  if (!b || briefIsSkeleton(b)) return [];
+  return (Array.isArray(b.signature_events) ? b.signature_events : []).filter((e) => e && e.id).map((e) => ({ id: e.id, problem: e.why_motion || e.change || undefined, kind: e.kind || undefined }));
+}
 function creativePrepare(run, plan, role, key) {
   if (!CREATIVE_PREP_ROLES.has(role)) return null;
   const out = {};
@@ -3515,12 +3594,29 @@ function creativeCommand(run, sub) {
     const stage = str(args.stage) || "final";
     if (!["storyboard", "build", "final"].includes(stage)) die("--stage storyboard|build|final");
     const waiver = str(args["waiver-action"]) && str(args["waiver-digest"]) ? { kind: "aesthetic", source_action_id: str(args["waiver-action"]), artifact_digest: str(args["waiver-digest"]) } : null;
-    const g = creativeGate(run, { stage, waiver });
+    const g = creativeGate(run, { stage, waiver, outputFile: str(args.output) || null });
     out({ ok: g.state === "ready", stage, ...g, honest_label: g.state === "ready" ? "a current independent creative review exists for this stage" : "creative review " + g.state + ": say so at the stage (never 'checks passed'); the existing review notes and the Final stay with the user. Factual, permission and mechanical failures are never waived", ...(g.state === "needs_user" ? { next: "surface the evidence through the existing review controls" } : {}) }, g.state === "ready" ? 0 : 2);
+  } else if (sub === "commitments" || sub === "continuity" || sub === "look-identity" || sub === "performance" || sub === "plans") {
+    // V3 (revision 2 only; read-only views over the pure helpers, nothing is approved or written but crew/continuity-plan.json)
+    if (planRevision(plan) < 2) die(`creative ${sub} is for creative_policy_revision 2 plans (this run is revision ${planRevision(plan)}): re-plan with --creative-policy 2 only when the user asks for a new or revised production`);
+    if (sub === "plans") {
+      // view (and, with --write, refresh) creative/plans/*: text ops, anchors, transitions, spatial ops + hostCost, asset compositing; artifacts only, nothing approved
+      const pj = projectDir(run);
+      let ix = null;
+      if (args.write) { try { ix = writeScenePlans(run, { project: pj }); } catch (e) { recordCreativeError(run, "writeScenePlans (creative plans --write)", e); } }
+      const rd = readScenePlans(run, str(args.beat) ? [str(args.beat)] : null);
+      const bpn = (() => { try { return beatPlanNeeds(run, { project: pj }); } catch (e) { recordCreativeError(run, "beatPlanNeeds", e); return null; } })();
+      const planErrors = readCreativeErrors(run);
+      out({ ok: !!rd && !planErrors.length, ...(ix ? { written: true } : {}), ...(planErrors.length ? { plan_errors: planErrors, plan_errors_file: "creative/errors.json" } : {}), ...(bpn ? { beat_plan_declarations: { sidecar: bpn.sidecar, beats_needing_inputs: bpn.needy, undeclared: bpn.missing, ...(bpn.missing.length ? { needs_you: "these beats need text/anchor/spatial/asset inputs but creative/beat-plans.json does not declare them (write them, or an explicit {\"none\":true} when a beat truly needs none)" } : {}) } } : {}), spatial: rd ? !!rd.index.spatial : false, patched_layers: rd ? rd.index.patched_layers : [], beats: rd ? rd.plans.map((r) => ({ id: r.id, file: r.file, digest: r.digest, states: r.states, ...(str(args.beat) && r.plan ? { sections: r.plan.sections } : {}) })) : [], note: rd ? "plans are written at `brief` for a scene packet (or with --write); a beat that declares no creative_plan has none" : "no creative/plans yet: a beat declares creative_plan {text, anchors, transition, spatial, assets}; run with --write" });
+    }
+    else if (sub === "commitments") { const ph = str(args.phase) || "build"; const cr = commitmentReport(run, { phase: ph }); out({ ok: !(cr.problems || []).length, ...cr }, (cr.problems || []).length ? 2 : 0); }
+    else if (sub === "continuity") { const cp = continuityPlanFor(run, plan); out({ ok: !cp.errors.length, groups: cp.groups.length, ready: cp.ready, blocked: cp.blocked, cycles: cp.cycles, errors: cp.errors, warnings: cp.warnings, file: "crew/continuity-plan.json" }, cp.errors.length ? 2 : 0); }
+    else if (sub === "look-identity") { const label = str(args.label) || null; const lm = resolveLookMedium(run, label), id = lookIdentityFor(run, label, { resolution: lm }); out({ ok: true, label, resolution: lm, look_identity_digest: id.digest, medium_contract_digest: id.medium_contract_digest, alternatives: lookAlternativesFor(run, { route: plan.pace === "fast" ? "fast" : plan.direct ? "direct" : "standard" }), note: "design.mjs stamps pins.look_identity_digest when it writes the Look; checkMediumLook reports a stale pin" }); }
+    else { const pf = performanceFor(run, { label: str(args.label) || null, commitments: [] }); out({ ok: true, ...pf, note: "assessable without a model call; a behaviour is available only with a visual demonstration recorded by crew.mjs perf (kind medium)" }); }
   } else if (sub === "status") {
     const b = jsonMaybe(R(run, "creative", "brief.json")), refs = jsonMaybe(R(run, "creative", "references.json"));
     out({ ok: true, brief: b ? { revision: b.revision, mode: b.mode, skeleton: briefIsSkeleton(b), events: eventIds(b), pins: Object.keys(b.pins || {}).filter((k) => b.pins[k]) } : null, references: refs ? { evidence: refs.evidenceLevel, selected: (refs.selected || []).map((x) => x.id) } : null, pins_now: Object.keys(approvalPins(run)), reviews: ["storyboard", "final"].map((st) => { const r = latestReview(run, st); return r ? { stage: st, round: r.n, file: rel(r.file) } : { stage: st, round: null }; }) });
-  } else die("usage: crew.mjs creative init|check|revise|medium-select|gate|status --run <run> [--stage proposal|story|look|build|storyboard|final] [--mode story|look|build] [--waiver-action <consumed action id> --waiver-digest <reviewed artifact sha256>]");
+  } else die("usage: crew.mjs creative init|check|revise|medium-select|gate|commitments|continuity|look-identity|performance|plans|status --run <run> [--stage proposal|story|look|build|storyboard|final] [--mode story|look|build] [--waiver-action <consumed action id> --waiver-digest <reviewed artifact sha256>]");
 }
 
 // ---------------------------------------------------------------- commands
@@ -3616,16 +3712,33 @@ if (cmd === "plan") {
     const cpArg = args["creative-policy"] !== undefined && args["creative-policy"] !== true ? String(args["creative-policy"]).toLowerCase() : null;
     const eligible = DIRECT_ROUTES.has(p.route) && !(p.sources && isFootageLed(p.sources));
     const isNew = !prev.route; // no earlier plan for this run
+    // a saved marker (1, 2 or an unsupported one) is carried forward unchanged: never a silent fall back to legacy, never a jump to 2. An unsupported marker stays readable and stops new dispatch (policyCompat) at brief/schedule.
+    { const c = policyCompat(prev); if (c.mode === "unsupported" && cpArg === null) console.error(`${c.code}: ${c.message}`); }
     if (cpArg === "off" || cpArg === "0" || cpArg === "legacy") delete p.creative_policy_revision;
-    else if (cpArg === "1") { if (eligible) p.creative_policy_revision = 1; else die(`--creative-policy 1: route ${p.route} is not a scene-production route with a script, a look and a storyboard`); }
-    else if (prev.creative_policy_revision === 1) p.creative_policy_revision = 1;
-    else if (isNew && eligible) p.creative_policy_revision = 1;
+    else if (cpArg === "1" || cpArg === "2") { if (eligible) p.creative_policy_revision = Number(cpArg); else die(`--creative-policy ${cpArg}: route ${p.route} is not a scene-production route with a script, a look and a storyboard`); }
+    else if (cpArg !== null) die(`unsupported_policy: --creative-policy ${cpArg} is not supported (1, 2 or off)`);
+    else if (prev.creative_policy_revision != null) p.creative_policy_revision = prev.creative_policy_revision; // a saved plan keeps its marker (W11 carriedRevision)
+    else if (isNew && eligible) p.creative_policy_revision = 2; // NEW eligible plans take v3; --creative-policy 1 keeps the legacy behaviour
+  }
+  // V3 revision 2: ONE resolver call. The legacy production policy is reused as its base; the plan policy becomes the resolved one (adds policy.creative_v3), creative/effective-policy.json is its readable projection.
+  if (planRevision(p) >= 2 && p.creative_policy_revision === 2) {
+    const refsPins = (() => { try { const pins = approvalPins(run); const mc = (() => { try { return mediumContractFor(run); } catch { return null; } })(); return Object.entries(pins).map(([k, v]) => ({ kind: k, ref: v.artifact_ref, digest: v.artifact_digest, fields: k === "look" && isMediumContract(mc) && mc.profile_id ? { "medium.selected": mc.profile_id } : {} })); } catch { return []; } })();
+    const bj = jsonMaybe(R(run, "brief.json")) || {};
+    const cons = Array.isArray(bj.constraints) ? bj.constraints : Array.isArray((bj.fields || {}).constraints) ? bj.fields.constraints : null;
+    const res = resolveCreativePolicy({ settings: { production_policy: p.policy, pace: p.pace || undefined, creative_policy_revision: 2, model_plan: args.model && args.model !== true ? String(args.model) : undefined, level: args.level && args.level !== true ? String(args.level) : undefined, alternatives: p.policy.creative && p.policy.creative.source === "user" ? p.policy.creative.alternatives : undefined }, constraints: cons, communicationKind: p.kind || brief(run).kind || null, approvedRefs: refsPins, capabilities: {} });
+    if (res.status === "conflict") die(`${res.conflicts.length ? res.conflicts[0].code : CREATIVE_ERROR_CODES.policy_conflict}: ${res.reasons.join(" | ")}`);
+    if (res.status === "missing_input") console.error("creative policy: " + res.reasons.join(" | "));
+    p.policy = res.policy;
+    p.policy_digest = res.digest;
+    writeFile(R(run, "creative", "effective-policy.json"), JSON.stringify(effectivePolicyDoc(res), null, 2));
+    try { p.look_alternatives = lookAlternativesFor(run, { route: p.pace === "fast" ? "fast" : p.direct ? "direct" : "standard" }); } catch { /* the Look count stays the default 3 */ }
   }
   p.phases = planCrew(p);
   p.estimate = estimateFor(p, p.phases);
   for (const ph of p.phases) ph.est_tokens = (ph.dispatch || []).reduce((a, x) => a + tokensFor(x.role, x.key), 0);
   writeFile(R(run, "crew", "plan.json"), JSON.stringify(p, null, 2));
   writeFile(R(run, "crew", "policy.json"), JSON.stringify(p.policy, null, 2)); // the same object Studio reads back (pace, budget, alternatives, resources, render)
+  if (p.creative_policy_revision === 2) continuityPlanFor(run, p); // V3 W06: ownership groups from the events/storyboard that exist now (empty before the brief; `schedule` recomputes)
   // the console's Brief call shows what each level would cost (console.mjs push --step brief picks crew/budget.json up)
   const levels = Object.keys(BUDGETS).map((k) => { const q = { ...p, budget: k, lean: k === "lean" }; return { level: k, label: BUDGETS[k].label, summary: BUDGETS[k].summary, fix_rounds: BUDGETS[k].fix_rounds, total: estimateFor(q, planCrew(q)).total }; });
   levels.forEach((l) => (l.total_label = "~" + kTok(l.total)));
@@ -3640,6 +3753,7 @@ if (cmd === "plan") {
   const key = args.key && args.key !== true ? String(args.key) : null;
   const plan = jsonMaybe(R(run, "crew", "plan.json")) || {};
   if (role === "concept-critic") { const why = editorGate(run, plan); if (why) die(why); }
+  { const c = policyCompat(plan); if (!c.dispatch_allowed) die(`${c.code}: ${c.message}`); } // no packet is written for an unsupported revision
   const creativePrep = creativeOn(plan) ? creativePrepare(run, plan, role, key) : null; // references + provisional brief (idempotent); a skeleton brief holds the story and production roles back
   const prompt0 = promptFor(run, role, key, plan);
   const { ctx, inputs, outputs } = prompt0;
@@ -3650,7 +3764,7 @@ if (cmd === "plan") {
   if (!args["no-packet"]) {
     const rf = R(run, "crew", "packets", `${role}${key ? "-" + key : ""}.json`);
     const policy = plan.policy || productionPolicy({ budget: plan.budget, direct: plan.direct });
-    const cp = compilePacket({ run, R, rel, role, key, plan, promptText: text, inputs: inputs.map((i) => ({ label: i.label, path: i.path })), outputs, ctx, desc: ROLES[role].desc(plan, key), checkCmd: `crew.mjs check --run ${ctx.RUN} --role ${role}${key ? " --key " + key : ""}`, brief: jsonMaybe(R(run, "brief.json")) || {}, policy, profile: creativeOn(plan) ? { ...prof, vision: visionOf(prof) } : prof, ...(creativeOn(plan) ? { approvalPins: approvalPins(run) } : {}), SKILL_DIR, receiptPath: rf });
+    const cp = compilePacket({ run, R, rel, role, key, plan, promptText: text, inputs: inputs.map((i) => ({ label: i.label, path: i.path })), outputs, ctx, desc: ROLES[role].desc(plan, key), checkCmd: `crew.mjs check --run ${ctx.RUN} --role ${role}${key ? " --key " + key : ""}`, brief: jsonMaybe(R(run, "brief.json")) || {}, policy, ...(planRevision(plan) >= 2 && creativeOn(plan) ? { mechanismEvents: mechanismEventsFor(run), beatPlans: (() => { try { writeScenePlans(run, { project: projectDir(run) }); return readScenePlans(run); } catch (e) { recordCreativeError(run, `writeScenePlans (scene packet ${role}${key ? " " + key : ""})`, e); return null; } })() } : {}), profile: creativeOn(plan) ? { ...prof, vision: visionOf(prof) } : prof, ...(creativeOn(plan) ? { approvalPins: approvalPins(run) } : {}), SKILL_DIR, receiptPath: rf });
     text = text.replace(/\n*$/, "\n") + "\n" + cp.markdown + "\n";
     writeFile(rf, JSON.stringify(cp.receipt, null, 2));
     packet = { receipt: rel(rf), digest: cp.receipt.packet_digest.slice(0, 12), included: cp.receipt.included_sections.map((x) => x.id), recipes: cp.receipt.recipe_ids, omitted_optional: cp.receipt.omitted_optional.map((x) => x.id), pressure: cp.receipt.pressure.pressure ? cp.receipt.pressure : false, estimate_note: cp.receipt.estimate_note };
@@ -3661,7 +3775,7 @@ if (cmd === "plan") {
   // a re-brief of a member that already failed is a focused repair (K6): record it, and escalate only inside the policy (never over a model the person pinned)
   const prior = readLedger(run).filter((r) => r.role === role && (r.key || null) === key);
   const lastFail = prior.length && prior[prior.length - 1].event === "fail" ? prior[prior.length - 1] : null;
-  const alloc = allocate({ role, profile: prof, policy: plan.policy || null, attempt: prior.filter((r) => r.event === "brief").length + 1, failed: lastFail ? { reason: (lastFail.problems || [])[0] || "the check failed" } : null });
+  const alloc = allocate({ role, profile: prof, policy: plan.policy || null, ...(args["requested-model"] && args["requested-model"] !== true ? { requested: String(args["requested-model"]) } : {}), attempt: prior.filter((r) => r.event === "brief").length + 1, failed: lastFail ? { reason: (lastFail.problems || [])[0] || "the check failed" } : null });
   ledger(run, { event: "brief", role, key, ...(packet ? { packet: packet.digest } : {}), ...(alloc.escalation ? { escalation: alloc.escalation } : {}) });
   // Plan 09 P1: where this member sits in the dependency graph (advisory; RASANAI_STRICT_SCHEDULE=1 refuses a member that is not ready). A revision round may legitimately re-brief a finished member.
   let sched = null;
@@ -3690,7 +3804,7 @@ if (cmd === "plan") {
   const legacy = readLedger(run).filter((r) => !r.usage && r.tokens && (r.event === "ok" || r.event === "fail")).map((r) => usageRecord({ role: r.role, key: r.key, tokens: r.tokens, outcome: r.event === "ok" ? "ok" : "failed" }));
   const sum = summarizeUsage([...rows, ...legacy]);
   const prices = args.prices && args.prices !== true ? readUsageFile(path.resolve(String(args.prices))) : null;
-  out({ ok: true, usage: sum, api_equivalent: prices ? { estimate: true, note: "from the supplied price table; not billed cost or subscription usage" } : null, planned_estimate: (jsonMaybe(R(run, "crew", "plan.json")) || {}).estimate ? { total: jsonMaybe(R(run, "crew", "plan.json")).estimate.total_label, basis: "planned estimate (crew.mjs TOKENS), not a measurement" } : null });
+  out({ ok: true, usage: sum, api_equivalent: prices ? { estimate: true, note: "from the supplied price table; not billed cost or subscription usage" } : null, ...(planRevision(jsonMaybe(R(run, "crew", "plan.json")) || {}) >= 2 ? { telemetry: creativeTelemetry({ events: { requested_model: (jsonMaybe(R(run, "crew", "plan.json")) || {}).model, event_count: ((jsonMaybe(R(run, "creative", "brief.json")) || {}).signature_events || []).length, continuity_groups: (jsonMaybe(R(run, "crew", "continuity-plan.json")) || { groups: [] }).groups.length }, rows: [...rows, ...legacy] }) } : {}), planned_estimate: (jsonMaybe(R(run, "crew", "plan.json")) || {}).estimate ? { total: jsonMaybe(R(run, "crew", "plan.json")).estimate.total_label, basis: "planned estimate (crew.mjs TOKENS), not a measurement" } : null });
 } else if (cmd === "model") {
   const d = detectModel(), prof = modelOf(null);
   if (args.kv) { console.log(`MODEL=${prof.id}\nHARNESS=${prof.harness}`); process.exit(0); }
@@ -3713,7 +3827,8 @@ if (cmd === "plan") {
       const lease = { generation: Number(args.generation), token: str(args.token) };
       if (!P.length) {
         if (!lease.token || !Number.isFinite(lease.generation)) W.push(`job ${j.job_id} holds a lease but --generation/--token were not passed: this acceptance is not fenced against a replaced attempt`);
-        else { const r = Jobs.accept(run, j.job_id, lease, { current_input_digest: jobInputDigest(run, { id: j.node_id, kind: j.kind, approvals: j.approvals || [] }) }); if (!r.ok) P.push(`stale attempt refused (${r.reason}): the job was superseded, cancelled or its inputs moved; this attempt's files are not accepted (its log is kept in crew/jobs/attempts/)`); }
+        else { const cid = j.continuity && j.continuity.identity_digest && creativeOn(jsonMaybe(R(run, "crew", "plan.json")) || {}) ? (() => { const g = continuityPlanFor(run, jsonMaybe(R(run, "crew", "plan.json")) || {}, { write: false }).groups.find((x) => x.id === j.continuity.group_id); return g ? g.identity_digest : "group-missing"; })() : undefined; // W11/W06: the group's object/event/score identity now vs when the job was created
+          const r = Jobs.accept(run, j.job_id, lease, { current_input_digest: jobInputDigest(run, { id: j.node_id, kind: j.kind, approvals: j.approvals || [] }), ...(cid !== undefined ? { current_identity_digest: cid } : {}) }); if (!r.ok) P.push(`stale attempt refused (${r.reason}): the job was superseded, cancelled or its inputs moved; this attempt's files are not accepted (its log is kept in crew/jobs/attempts/)`); }
       }
     }
     for (const j of Jobs.listJobs(run).filter((x) => x.role === role && (x.key || null) === key)) { const u = usage ? usage.total_reported ?? (usage.output !== null && usage.output !== undefined ? (usage.input_uncached || 0) + usage.output : null) : null; Jobs.reconcileBudget(run, j.job_id, { actual: u, failed: P.length > 0 }); }
@@ -4032,13 +4147,32 @@ if (cmd === "plan") {
   if (paused.paused) { held = dispatch.map((n) => ({ node: n.id, state: "paused", reason_code: "user_paused" })); dispatch = []; admission = { state: "paused", reason_code: "user_paused", detail: ADMIT_TEXT("user_paused") }; }
   else if (model.throttled) { held = dispatch.filter((n) => n.resource_class === "model_job").map((n) => ({ node: n.id, state: "queued", reason_code: "provider_throttled", retry_after_s: model.retry_after_s })); dispatch = dispatch.filter((n) => n.resource_class !== "model_job"); admission = { state: "queued", reason_code: "provider_throttled", detail: model.reason }; }
   const jobsOut = [];
+  { const c = policyCompat(plan); if (args.enqueue && !c.dispatch_allowed) die(`${c.code}: ${c.message}`); } // an unsupported marker never starts new jobs
+  const v3 = planRevision(plan) >= 2 && creativeOn(plan);
+  const cplan = v3 ? continuityPlanFor(run, plan) : null; // V3 W06: recomputed every schedule (derived); only groups without a blocking owner/cycle/dependency are dispatched
   if (args.enqueue) {
     const policy = plan.policy || null, limit = policy && policy.resources && policy.resources.spend_limit && Number.isFinite(Number(policy.resources.spend_limit.tokens)) ? Number(policy.resources.spend_limit.tokens) : null;
     const spent = usageKnown ? (usage.total_reported ?? ((usage.input_uncached || 0) + (usage.output || 0))) : null;
     const keep = [];
     for (const n of dispatch) {
+      let cont = null;
+      if (v3) {
+        cont = continuityForNode(run, cplan, n);
+        const blocking = cont ? cont.group.blocked_by.filter((b) => b.code === CREATIVE_ERROR_CODES.owner_missing || b.code === CREATIVE_ERROR_CODES.continuity_cycle || b.reason === "dependency_not_complete") : [];
+        if (blocking.length) { held.push({ node: n.id, state: "blocked", reason_code: blocking[0].code, detail: `continuity group ${cont.group.id} (${cont.group.units.join(", ")}): ${blocking[0].reason}` }); continue; }
+        // W10: commitment gate (progressive approval) and the existing pause/throttle admission, in that order, before any slot or budget is touched
+        const kind = ENQUEUE_COMMITMENT[n.role];
+        // W15: the beats' planned spatial hostCost is admitted here: over its limits it is held (the plan is made smaller or the host is declared), never rendered anyway; within limits it adds the video_render pool to the admission
+        const hc = hostCostFor(run, n.key);
+        if (hc && !hc.ok) { held.push({ node: n.id, state: "resource_blocked", reason_code: CREATIVE_ERROR_CODES.budget_exhausted || "budget_exhausted", detail: `planned spatial cost over the limits (${hc.over.join(", ")}): reduce instances/elements/sim/texture/post passes or declare the host's real limits in the beat's creative_plan.spatial.host` }); continue; }
+        if (kind || hc) {
+          const pins = approvalPins(run);
+          const adm = Pools.creativeAdmission(run, { needs: [{ pool: n.resource_class || "model_job", units: 1 }, ...(hc ? [{ pool: "video_render", units: 1 }] : [])], ...(kind ? { commitment: { request: { kind }, state: { approvals: { story: !!pins.story, look: !!pins.look, storyboard: !!pins.storyboard, build: !!pins.storyboard } } } } : {}) });
+          if (!adm.ok) { held.push({ node: n.id, state: adm.state, reason_code: adm.reason_code, detail: adm.detail }); continue; }
+        }
+      }
       const input_digest = jobInputDigest(run, n); // Part 2: + the chosen medium contract digest and bible.source.medium (a changed medium re-keys only the work that reads it)
-      const { job } = Jobs.createJob(run, { node_id: n.id, kind: n.kind, role: n.role, key: n.key, job_type: n.cache_policy && n.cache_policy.job_type !== "tool_side_effect" ? n.cache_policy.job_type : "tool_side_effect", approvals: n.approvals, digest_basis: "graph", input_digest, resource_class: n.resource_class, est: n.est, local: true });
+      const { job } = Jobs.createJob(run, { node_id: n.id, kind: n.kind, role: n.role, key: n.key, job_type: n.cache_policy && n.cache_policy.job_type !== "tool_side_effect" ? n.cache_policy.job_type : "tool_side_effect", approvals: n.approvals, digest_basis: "graph", input_digest, resource_class: n.resource_class, est: n.est, local: true, ...(cont ? { continuity: cont.field, identity_digest: cont.field.identity_digest } : {}) });
       let reservation = null;
       if (n.resource_class === "model_job" && n.est && n.est.tokens) {
         const r = Jobs.reserveBudget(run, { op_id: job.job_id, tokens: n.est.tokens, limit_tokens: limit, spent_tokens: spent, usage_known: usageKnown });
@@ -4052,7 +4186,7 @@ if (cmd === "plan") {
   }
   const snap = { schema_version: 1, derived: true, note: "a snapshot of what could start at that moment; recomputed by every `schedule`, never edited", at: new Date().toISOString(), graph_digest: sched.graph_digest, admission, dispatch_now: dispatch.map((n) => n.id), held, workers: sched.workers, barriers: sched.barriers, summary: sched.summary };
   writeFile(R(run, "crew", "schedule.json"), JSON.stringify(snap, null, 2));
-  out({ ok: true, ...snap, ...(obsolete && (obsolete.cancelled.length || obsolete.provider_marked.length) ? { obsolete_cancelled: obsolete, stop_these_local_processes: obsolete.cancelled.map((c) => c.stop_pid).filter(Boolean) } : {}), look_gate: sched.look_gate, committed: sched.committed, user_waits: sched.user_waits, dispatch: dispatch.map((n) => ({ node: n.id, kind: n.kind, role: n.role, key: n.key, resource_class: n.resource_class, owner: n.owner, cache_policy: n.cache_policy.job_type, est: n.est })), jobs: jobsOut, ready: sched.ready, held_for_workers: sched.held_for_workers, groups: sched.groups, boundaries: sched.boundaries, resource_demand: sched.resource_demand, problems: sched.problems, usage_known: usageKnown });
+  out({ ok: true, ...snap, ...(cplan ? { continuity: { ready: cplan.ready, blocked: cplan.blocked, cycles: cplan.cycles, errors: cplan.errors, plan: "crew/continuity-plan.json", handoff: admissionHandoff(cplan, { max_concurrent: sched.workers || 2 }) } } : {}), ...(obsolete && (obsolete.cancelled.length || obsolete.provider_marked.length) ? { obsolete_cancelled: obsolete, stop_these_local_processes: obsolete.cancelled.map((c) => c.stop_pid).filter(Boolean) } : {}), look_gate: sched.look_gate, committed: sched.committed, user_waits: sched.user_waits, dispatch: dispatch.map((n) => ({ node: n.id, kind: n.kind, role: n.role, key: n.key, resource_class: n.resource_class, owner: n.owner, cache_policy: n.cache_policy.job_type, est: n.est })), jobs: jobsOut, ready: sched.ready, held_for_workers: sched.held_for_workers, groups: sched.groups, boundaries: sched.boundaries, resource_demand: sched.resource_demand, problems: sched.problems, usage_known: usageKnown });
 } else if (cmd === "job") {
   const run = runDir(), sub = str(args._[1]);
   const lease = () => ({ generation: Number(args.generation), token: str(args.token) });

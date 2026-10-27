@@ -21,6 +21,8 @@
 //        (new medium path: a look with design/<Label>/medium.json (or look/medium.json) that qualifies multi-plane-depth for every layer moves the depth craft to review in shots-check and the gate; reported as medium_exceptions)
 //   node frames.mjs match --run <run> --video <draft.mp4> [--plan <score.json>] [--out <png>]
 //        -> the draft at each board's peak next to the board, SSIM on a 160x90 grey downscale (frames/match.json, frames/match.png)
+//   node frames.mjs notes --run <run> [--dir <frames dir>]
+//        -> (creative policy revision 2 storyboards that carry reads/bindings) writes frames/<shot id>.md: one line per binding phase, read and camera motivation; shots without them get no file
 //   node frames.mjs payload --run <run> [--out <styleframes.json>]
 //        -> the console's styleframes payload from shots.json, the PNGs and verdict.json
 import fs from "node:fs";
@@ -29,6 +31,7 @@ import { spawnSync } from "node:child_process";
 import { parseArgs, die, chromeScreenshot, normalizeAspect, SKILL_DIR } from "./lib/common.mjs";
 import { track } from "./lib/report.mjs";
 import { readShots, checkShots, boardFiles, collectRefs, gridSheet, grey, ssim, boardFor, buildPayload, frameId, KIT_CSS, KIT_JS } from "./lib/frames-lib.mjs";
+import { readStoryboard, temporalNotes } from "./lib/storyboard.mjs";
 import { runCreativeOn, lookStyleOf, creativeLookProfile, referenceStills } from "./lib/creative-run.mjs"; // Creative Recovery: only a plan with creative_policy_revision 1 changes anything below
 
 const args = parseArgs();
@@ -239,6 +242,20 @@ if (cmd === "init") {
   const doc2 = { video: rel(video), frames: res, mean_ssim: vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 1000) / 1000 : null, sheet, note: "SSIM is a number for the record (160x90 grey); the critic judges the match by eye: hero, crop, ground, focus and type sizes as the board" };
   fs.writeFileSync(path.join(dir, "match.json"), JSON.stringify(doc2, null, 2) + "\n");
   out({ ok: true, match: rel(path.join(dir, "match.json")), ...doc2 });
+} else if (cmd === "notes") {
+  const run = runDir(), dir = dirOf(run);
+  const doc = readStoryboard(run);
+  if (!doc) out({ ok: true, written: [], note: "no storyboard/storyboard.json: nothing to project" });
+  fs.mkdirSync(dir, { recursive: true });
+  const written = [];
+  for (const sh of doc.shots || []) {
+    const n = temporalNotes(sh);
+    if (!n.length || !sh.shot_id) continue;
+    const f = path.join(dir, `${String(sh.shot_id).replace(/[^\w.-]/g, "_")}.md`);
+    fs.writeFileSync(f, `# ${sh.shot_id}${sh.purpose ? `: ${sh.purpose}` : ""}\n\n${n.map((x) => `- ${x}`).join("\n")}\n`);
+    written.push(rel(f));
+  }
+  out({ ok: true, written, note: written.length ? "temporal direction projected from the storyboard; edit the storyboard, not these files" : "no shot carries reads or bindings (a revision 1 board): nothing written" });
 } else if (cmd === "payload") {
   const run = runDir();
   let p;
@@ -247,5 +264,5 @@ if (cmd === "init") {
   fs.writeFileSync(f, JSON.stringify(p, null, 2) + "\n");
   out({ ok: true, payload: rel(f), frames: p.frames.length, heroes: p.heroes, recommended: p.recommended, push: `node "${path.join(SKILL_DIR, "scripts", "console.mjs")}" push --run ${rel(run)} --step styleframes --file ${rel(f)}` });
 } else {
-  die("usage: frames.mjs init|shots-check|refs|sheet|gate|match|payload (see the header)");
+  die("usage: frames.mjs init|shots-check|refs|sheet|gate|match|notes|payload (see the header)");
 }

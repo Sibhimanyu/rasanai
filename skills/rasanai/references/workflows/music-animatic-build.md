@@ -66,6 +66,10 @@ It writes `BRIEF.md` (the workflow asks nothing), `frame.md` (the look + the mot
 - Build waits for the user's Storyboard approval (the animatic call: a consumed `approve`, or an authorized "Just make it"); then `crew.mjs creative revise --run "$RUN" --mode build`. The Motion Director writes `creative/execution-map.json` (each signature event to score shot ids, its board and source files); builders add `produced_artifact_refs` and declare deviations; `crew.mjs check` verifies the map. A matching map proves traceability, not that the event is visible: the film critic judges the render.
 - The packet carries the creative intent, the event invariants and the approved boards as mandatory sections. Record the harness's image reads with `crew.mjs check ... --observed-reads <paths>`: what was sent is not what was understood. The universal craft quotas of the Moves pass (an atom list, a bridge per boundary, a full-frame hero, chain density) are profiles on this path: `moves-lib` warns unless the profile is selected.
 
+### Revision 2 (v3)
+
+Scheduling follows continuity ownership groups ([continuity-ownership.md](../continuity-ownership.md)): `crew.mjs schedule` writes `crew/continuity-plan.json`, dispatches independent groups in parallel up to the worker cap and gives a continuous action to its single owner; a missing owner or a dependency cycle blocks exactly its group. Admission (approvals, pause, throttle) is checked before a slot or budget is taken ([budget-context.md](../budget-context.md)). The scene builder's packet carries the selected mechanisms for its events, the shared helper runtimes (`rasan-type.js`, `rasan-layout.js`, and the spatial files only when a spatial op is named) are copied with the medium runtime, and the type, anchor and spatial plans are in [typography-performance.md](../typography-performance.md), [composition-transitions.md](../composition-transitions.md) and [procedural-space.md](../procedural-space.md).
+
 ## Deeper references for this guide
 
 The canonical homes of the detail this guide points at (read the one the current step needs):

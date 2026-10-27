@@ -43,6 +43,10 @@ The music, the score and the build come after the boards: the Motion Director sc
 - The juror also writes `creative/reviews/storyboard-r<N>.json` (the images it really opened, per-shot judgments with exact repairs, set-level progression / repetition / signature, a `result`); `crew.mjs check --role frame-juror` validates it. A valid file is not a good verdict.
 - A branded direct film no longer treats the styleframes call as the Look call: the Look is confirmed first at the Look step; the boards are shown (`styleframes-show`) and the Storyboard review is the next human decision.
 
+### Revision 2 (v3)
+
+Boards are the storyboard's temporal reads: ordered audience reads with intervals on the score's timebase ([temporal-storyboard.md](../temporal-storyboard.md)), with the continuity owner and object identities for each required event ([continuity-ownership.md](../continuity-ownership.md)). Procedural fields, forms and camera space are planned from what the runtime can already do ([procedural-space.md](../procedural-space.md)); a flat card is never presented as a sculptural form. Assets are composited by the existing layers with rights kept in the existing ledger ([asset-compositing.md](../asset-compositing.md)).
+
 ## Deeper references for this guide
 
 The canonical homes of the detail this guide points at (read the one the current step needs):

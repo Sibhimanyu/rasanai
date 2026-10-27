@@ -10,7 +10,9 @@
 // Pure apart from the fs reads in buildExampleIndex; no network, no model, no side effects at import.
 import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { SKILL_DIR } from "./common.mjs";
+import { mechanismEntry, validateMechanismEntry, canonicalDigest } from "./reference-packet.mjs";
 
 export const EXAMPLE_FORMAT = "creative-example@1";
 export const INDEX_VERSION = 1;
@@ -71,6 +73,18 @@ export function validateExample(raw, { skillRoot = SKILL_DIR, sourceFile = null 
     const tp = raw.third_party;
     if (!isObj(tp) || !str(tp.sources_entry).trim() || !str(tp.licence || tp.license).trim()) err("rights.third_party", "third_party", "adapted code names its third_party/SOURCES.md entry and licence; nothing is adapted before that entry exists");
   }
+  if (role === "adapted-code" && isObj(raw.third_party) && /\b(a?gpl|affero)/i.test(str(raw.third_party.licence || raw.third_party.license))) err("rights.ideas_only", "third_party", "AGPL/GPL sources are ideas-only under project policy: use reference-principle or original-code with original wording");
+  let mechanism = null;
+  if (raw.mechanism != null) {
+    if (!isObj(raw.mechanism)) err("mechanism.shape", "mechanism", "mechanism is an object");
+    else {
+      let hash = null;
+      try { const a = insideSkill(skillRoot, raw.source_ref); if (a && fs.existsSync(a)) hash = createHash("sha256").update(fs.readFileSync(a)).digest("hex"); } catch {}
+      const declared = str(raw.mechanism.source_hash).toLowerCase();
+      if (declared && hash && declared !== hash) err("mechanism.hash", "mechanism.source_hash", "declared hash does not match the file: stale mechanism row rejected");
+      mechanism = { ...raw.mechanism, source_hash: hash || null };
+    }
+  }
   if (role === "reference-principle" && str(raw.source_ref).trim() && /\.(m?js|ts|html|css|svg)$/i.test(str(raw.source_ref))) warn("role.principle_has_code", "source_role", "a reference-principle row points at code: say adapted-code or original-code instead");
   // preview and receipts: no preview without a real file; no visual/verified claim without a receipt that names it
   const preview = raw.preview_ref == null ? null : str(raw.preview_ref).trim();
@@ -94,7 +108,7 @@ export function validateExample(raw, { skillRoot = SKILL_DIR, sourceFile = null 
     event_refs: arr(raw.event_refs), assets: arr(raw.assets), rights_basis: str(raw.rights_basis).trim(), source_role: role,
     third_party: role === "adapted-code" ? raw.third_party : null, learn: arr(raw.learn).map(str), do_not_copy: arr(raw.do_not_copy).map(str), not_for: arr(raw.not_for).map(str),
     comm_kinds: arr(raw.comm_kinds).map(str), runtime_ref: raw.runtime_ref == null ? null : raw.runtime_ref, verification_receipts: previewOk ? receipts : [],
-    index_file: sourceFile,
+    index_file: sourceFile, mechanism,
   };
   return { ok: true, errors, warnings, row };
 }
@@ -147,6 +161,7 @@ export function retrieveExamples(query = {}, index = buildExampleIndex()) {
   for (const r of index.records) {
     if (!r.profile_ids.includes(medium) && !(r.index_file || "").includes(`/${medium}/`)) continue; // other medium: silent
     if (skip.has(r.id)) { excluded.push({ id: r.id, reason: "already used on this film" }); continue; }
+    if (r.kind === "template" && !q.template_authorized) { excluded.push({ id: r.id, reason: "finished-composition template: only when the person explicitly requested an authorized template" }); continue; }
     if (r.kind === "boundary" && !q.allow_boundary) { excluded.push({ id: r.id, reason: "boundary/contrast row: only on request" }); continue; }
     if (q.kind && r.comm_kinds.length && !r.comm_kinds.includes(q.kind)) { excluded.push({ id: r.id, reason: `taught for ${r.comm_kinds.join(", ")}, not ${q.kind}` }); continue; }
     if (q.kind && r.not_for.some((n) => words(n).includes(String(q.kind).toLowerCase()))) { excluded.push({ id: r.id, reason: `marked not for ${q.kind}` }); continue; }
@@ -179,6 +194,37 @@ export function evidenceLine(r) {
   if (r.evidence_status === "verified" || r.evidence_status === "visual") return `${r.evidence_status}: only for the exact unchanged scope its receipts cover`;
   if (r.evidence_status === "source-description") return "description only: no frame was measured";
   return "authored source, not run or rendered: a teaching mechanism, not proof it works or looks right here";
+}
+
+// ---------------------------------------------------------------- mechanism packet section (v3 W07)
+// event: { problem | perceptual_job (the event's problem in words), medium (profile id), kind?, exclude?, template_authorized?, references?:[mechanism raw] (reference-only pointers) }
+// opts: { limit (1..MAX_PER_TASK), index }. -> { entries:[mechanismEntry + {example_id}], digest, omitted, notes }. Lookup is by event problem; a finished composition
+// (kind "template") is never selected as the scene idea unless template_authorized. Entries never carry layout, palette, copy or assets. Pure; digest is deterministic.
+// Required event/proof content is never trimmed here: only the number of mechanisms is capped (omitted says how many were dropped). Consumer: W10 packets.mjs.
+function fileHash(ref) { try { const a = insideSkill(SKILL_DIR, ref); return a ? createHash("sha256").update(fs.readFileSync(a)).digest("hex") : null; } catch { return null; } }
+export function mechanismPacketSection(event = {}, { limit, index } = {}) {
+  const ev = isObj(event) ? event : {};
+  const lim = Math.max(1, Math.min(MAX_PER_TASK, Number(limit) || MAX_PER_TASK));
+  const idx = index || buildExampleIndex();
+  const r = retrieveExamples({ medium: ev.medium, problem: ev.problem || ev.perceptual_job, kind: ev.kind, exclude: ev.exclude, template_authorized: ev.template_authorized === true, limit: lim }, idx);
+  const byId = new Map(idx.records.map((x) => [x.id, x]));
+  const entries = r.selected.map((c) => {
+    const row = byId.get(c.id), m = isObj(row.mechanism) ? row.mechanism : {};
+    const e = mechanismEntry({
+      id: row.id, perceptual_job: m.perceptual_job || row.problem, phases: arr(m.phases).length ? m.phases : arr(row.learn).slice(0, 4), runtime: m.runtime || (row.runtime_ref ? "dom-gsap" : "unspecified"),
+      source: { ref: row.source_ref, url: m.url, revision: m.pinned_revision, hash: m.source_hash || fileHash(row.source_ref) }, access: "readable", dependencies: m.dependencies,
+      limitations: [...arr(m.limitations), ...row.not_for.map((n) => `no proof of: ${n}`), evidenceLine(row)], not_inherited: [...row.do_not_copy, ...arr(m.not_inherited)],
+      neighbourhood: m.neighbourhood, method_status: m.method_status, alternative: m.alternative, licence: row.third_party && (row.third_party.licence || row.third_party.license),
+    });
+    if (!arr(m.phases).length) e.limitations.push("phases taken from the row's learn list: no explicit phase timing recorded");
+    return { ...e, example_id: row.id };
+  });
+  // reference-only pointers the caller already holds (unreachable or unpinned sources stay reference-only; never a tested port)
+  for (const raw of arr(ev.references)) { if (entries.length >= lim) break; const e = mechanismEntry({ ...raw, access: raw && raw.access === "readable" ? "readable" : "reference-only" }); if (validateMechanismEntry(e).ok) entries.push({ ...e, example_id: null }); }
+  const dropped = Math.max(0, r.counts.pool ? r.excluded.filter((x) => /beyond the/.test(x.reason)).length : 0);
+  const notes = [];
+  if (!entries.length) notes.push("no mechanism matched this event problem: write an original mechanism from the treatment; nothing is claimed as ported");
+  return { entries, digest: canonicalDigest(entries), omitted: dropped, notes };
 }
 
 // ---------------------------------------------------------------- lead registration (no writes here)

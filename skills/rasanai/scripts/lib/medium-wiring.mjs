@@ -21,9 +21,11 @@ import { canonicalDigest } from "./contracts.mjs";
 import { buildMediumIndex, readStyleRecords, readMediumMetadata, resolveMediumProfile, mediumSummary } from "./medium-index.mjs";
 import { buildIndex as buildRecipeIndex } from "./recipe-index.mjs";
 import { buildRegistry } from "./capabilities.mjs";
-import { assessMediumEligibility, assessMediumFit, selectMediumShortlist, buildMediumSelection, validateFitDecision, proposeMediumAdaptations, DEFAULT_REQUESTED_COUNT } from "./medium-fit.mjs";
-import { validateMediumContract, mediumContractDigest, mediumContractCurrent, MEDIUM_FORMAT } from "./medium-contract.mjs";
-import { resolveMediumRules } from "./medium-rules.mjs";
+import { assessMediumEligibility, assessMediumFit, selectMediumShortlist, buildMediumSelection, validateFitDecision, proposeMediumAdaptations, DEFAULT_REQUESTED_COUNT, resolveMediumResolution, lookAlternativePolicy } from "./medium-fit.mjs";
+import { validateMediumContract, mediumContractDigest, mediumContractCurrent, MEDIUM_FORMAT, toConstraintRecords, splitConstraintRecords, validateMediumResolution, lookIdentityDigest, lookIdentityCurrent } from "./medium-contract.mjs";
+import { resolveMediumRules, resolveMediumPerformance, scopeDiagnostics, MEDIUM_BEHAVIORS } from "./medium-rules.mjs";
+import { mediumExecutionEvidence } from "./capabilities.mjs";
+import { readPerf, summarizeMediumEvidence, evidenceFlags } from "./perf-evidence.mjs";
 import { storyDigest } from "./storyboard.mjs";
 import { approvalPins } from "./creative-run.mjs";
 
@@ -108,6 +110,7 @@ export function prepareMediumSelection(run, { pins = {}, judgmentsFile = null, r
   const { index, caps } = M;
   const assignment = buildAssignment(run, { caps, pins });
   const J = rj(judgmentsFile || P(run, "creative", "medium-judgments.json")) || {};
+  const judgmentsSupplied = isObj(J.judgments) && Object.keys(J.judgments).length > 0; // v3: a missing file is a visible gap (needs-direction), never a quiet default
   const byJ = new Map(arr(J.candidates).filter(isObj).map((c) => [c.id, c]));
   const resources = { capabilities: caps, assets: assignment.assets, policy: {} };
   const candidates = [], assessments = {}, adaptations = [];
@@ -145,7 +148,7 @@ export function prepareMediumSelection(run, { pins = {}, judgmentsFile = null, r
   const validation = validateFitDecision(doc, { assignment, profiles: index.records, expectedPins: { brief_pin: assignment.brief_pin, story_pin: assignment.story_pin, constraints_revision: assignment.constraints_revision, registry_digest: index.source_digest }, requestedCount: want });
   const file = P(run, "creative", "medium-selection.json");
   if (write && validation.ok) writeJson(file, doc);
-  return { ok: validation.ok, file, selection: doc, validation, assignment_digest: canonicalDigest({ ...assignment, capabilities: undefined }), considered: candidates.length };
+  return { ok: validation.ok, file, selection: doc, validation, assignment_digest: canonicalDigest({ ...assignment, capabilities: undefined }), considered: candidates.length, judgments_supplied: judgmentsSupplied, needs_direction: !judgmentsSupplied };
 }
 export const readSelection = (run) => rj(P(run, "creative", "medium-selection.json"));
 // the selected candidates take the Look labels in order; a label beyond the selection is a legacy (non-medium) look. Returns {} when no selection exists.
@@ -224,7 +227,64 @@ export function checkMediumLook(run, label, { med = null, creative = true } = {}
     const cdig = cp && cp.representative && cp.representative.content_digest;
     if (cdig) { const cur = mediumContractCurrent(doc, { comparison_content_digest: cdig }); if (!cur.current) why(`medium.json pins.comparison_content_digest does not match design/comparison-plan.json (${cdig}): every Look candidate is cut from the same beat and content`); }
   } else warnings.push("the medium index could not be loaded: only the file's own form was checked");
-  return { applicable: true, state: problems.length ? "needs_you" : "ok", problems, warnings, limitations, contract_digest: mediumContractDigest(doc) };
+  // v3 (additive): an explicit resolution that is not "selected"/"custom-supported" is a visible needs-you, and a Look identity pin must still match the medium it was cut from
+  let resolution = null;
+  if (isObj(doc.resolution)) {
+    resolution = doc.resolution;
+    for (const e of validateMediumResolution(resolution).errors) why(`medium.json ${e.path}: ${e.message} [${e.code}]`);
+    if (resolution.state === "needs-direction") why(`medium.json resolution is needs-direction: ${T(resolution.reason)}`);
+    if (resolution.state === "capability-blocked") why(`medium.json resolution is capability-blocked: ${T(resolution.reason)} (offer a feasible treatment through the Look/revision path; the label is not kept on a textured card)`);
+  }
+  const pinned = doc.pins && doc.pins.look_identity_digest;
+  if (pinned) {
+    const now = lookIdentityFor(run, label, { med: M, contract: doc });
+    if (now.digest && now.digest !== pinned) why(`medium.json pins.look_identity_digest is stale: the medium, resolution or binding constraints changed after the Look was cut (now ${now.digest}): re-cut the Look board`);
+  }
+  return { applicable: true, state: problems.length ? "needs_you" : "ok", problems, warnings, limitations, contract_digest: mediumContractDigest(doc), ...(resolution ? { resolution } : {}) };
+}
+
+// ---------------------------------------------------------------------------------------------------- v3: constraint split, resolution, Look identity, alternatives
+// The run's brand/user constraints as {id,value,scope,authority,source_ref,required,why} records, split by authority.
+// Consumer (proposed): crew.mjs Look path / design.mjs Look brief, to hand the designer required identity vs observed traits.
+export function brandConstraintRecords(run, { extra = [] } = {}) {
+  const records = toConstraintRecords(buildAssignment(run, { caps: [], pins: {} }).brand, extra);
+  return { records, ...splitConstraintRecords(records) };
+}
+const mediumDirectionOf = (run) => { const d = rj(P(run, "decisions.json")) || {}; return isObj(d.medium_direction) ? d.medium_direction : {}; };
+// Which of the four states this Look is in. label: the Look label (null = the chosen look). A custom direction comes from the contract (custom_direction) or an explicit
+// decisions.medium_direction.custom_direction; supportedPrimitives is the caller's list of primitives the runtime really supports (null = unchecked, recorded as a condition).
+// Consumer (proposed): crew.mjs Look generation/check, design.mjs Look card projection.
+export function resolveLookMedium(run, label = null, { med = null, supportedPrimitives = null } = {}) {
+  const M = med || loadMedium();
+  const doc = label ? readMediumContract(run, label) : mediumContractFor(run);
+  const custom = (isObj(doc) && isObj(doc.custom_direction) ? doc.custom_direction : null) || (isObj(mediumDirectionOf(run).custom_direction) ? mediumDirectionOf(run).custom_direction : null);
+  const sel = readSelection(run), assigned = label ? labelAssignments(run, M)[label] : null;
+  const pid = (isObj(doc) && doc.profile_id) || (assigned && assigned.record && assigned.record.id) || null;
+  const r = pid ? resolveMediumProfile(M.index, pid) : { ok: false };
+  const profile = r.ok ? r.profile : null;
+  let eligibility = null;
+  if (profile) { const asg = buildAssignment(run, { caps: M.caps, pins: {} }); eligibility = assessMediumEligibility(profile, asg, { capabilities: M.caps, assets: asg.assets, policy: {} }); }
+  const cid = (assigned && assigned.candidate_id) || (isObj(doc) ? doc.candidate_id : null) || null;
+  const judgmentsSupplied = !!(sel && cid && isObj(sel.assessments && sel.assessments[cid] && sel.assessments[cid].fit) && Object.values(sel.assessments[cid].fit.dimensions || {}).some((d) => d && d.level !== "unknown"));
+  return resolveMediumResolution({ profile, candidateId: cid, eligibility, selected: !!(assigned || (isObj(doc) && doc.profile_id)), judgmentsSupplied, customDirection: custom, supportedPrimitives });
+}
+// The Look identity digest: includes the selected medium contract digest / custom direction, resolution and required constraints. A board pinned to an older
+// digest is not current. Consumer (proposed): crew.mjs look-board freshness check; design.mjs stamps pins.look_identity_digest on the Look it writes.
+export function lookIdentityFor(run, label = null, { med = null, contract = null, resolution = null } = {}) {
+  const doc = contract || (label ? readMediumContract(run, label) : mediumContractFor(run));
+  let M = med; try { M = M || loadMedium(); } catch { M = null; }
+  const res = resolution || (M ? resolveLookMedium(run, label, { med: M }) : null);
+  const rec = M && isObj(doc) && doc.profile_id ? resolveMediumProfile(M.index, doc.profile_id) : { ok: false };
+  const digest = lookIdentityDigest({ contract: isMediumContract(doc) ? doc : null, resolution: res, customDirection: isObj(doc) && doc.custom_direction ? doc.custom_direction : null, constraints: brandConstraintRecords(run).records, profileDigest: rec.ok ? profileDigest(rec.profile) : null });
+  return { digest, resolution: res, medium_contract_digest: isMediumContract(doc) ? mediumContractDigest(doc) : null };
+}
+export { lookIdentityCurrent };
+// Look alternatives for the run. Reads only explicit user direction (decisions.medium_direction: exact_fidelity / reproduce_existing / authorized_variation / delegated);
+// brand ownership, direct and Fast never collapse the count. Consumer (proposed): crew.mjs Look count (replaces any branded/direct/Fast collapse under revision 2 only).
+export function lookAlternativesFor(run, { route = "standard", requestedCount = null } = {}) {
+  const dec = rj(P(run, "decisions.json")) || {}, md = mediumDirectionOf(run);
+  const userDirection = { exact_fidelity: md.exact_fidelity === true, reproduce_existing: md.reproduce_existing === true, authorized_variation: arr(md.authorized_variation), delegated: md.delegated === true, source_action_id: md.source_action_id ?? null };
+  return lookAlternativePolicy({ requestedCount, route, brandOwned: !!(dec.brand && dec.use_brand !== false), userDirection });
 }
 
 // the short fit / trade-off lines a Look card shows through its existing `limitations` field ([{name, why}])
@@ -272,6 +332,38 @@ export const RUNTIME_FILES = {
   "paper-collage-native": ["medium-surface.js", "medium-paper.js"], "pixel-native": ["medium-pixel.js"], "pixel-companion": ["medium-pixel.js", "medium-pixel-companion.js"],
   "cel-performance": ["medium-cel.js"], "isometric-system": ["medium-isometric.js"],
 };
+// v3: runtime helper names supplied by other lanes (W13 text, W14 anchors, W15 space). INT-ENGINE-A passes them (or appends them to RUNTIME_FILES) in wave 3; this never
+// invents a file. A name is kept only once; the contract's own medium files come first. Consumer (proposed): video.mjs inject.
+export const runtimeFilesFor = (contract, extra = []) => [...new Set([...(RUNTIME_FILES[isObj(contract) ? contract.execution_id : null] || []), ...arr(extra).map(T).filter(Boolean)])];
+// v3 (INT-ENGINE-A): the shared helper runtimes. COMMON_RUNTIME = the text-performance (W13) and anchor/layout (W14) helpers every v3 scene may call; SPATIAL_RUNTIME = the
+// existing runtime files a W15 spatial op needs (the 3D stage installs its own assets/three). runtimeFilesFor adds them only when the caller says the scene uses them
+// (opts.common / opts.spatial), so a legacy call (no opts) returns exactly what it returned before. Consumer: video.mjs inject (INT-ENGINE-B) and crew.mjs mediumContext.
+export const COMMON_RUNTIME = ["rasan-type.js", "rasan-layout.js"];
+export const SPATIAL_RUNTIME = ["rasan-sim.js", "rasan-camera.js", "rasan-shape.js"];
+// true when creative/plans/index.json (written by packets.writeScenePlans at scene-packet compile) holds a planned spatial operation: the spatial runtime files (RasanSim/Camera/Shape) are then injected
+export const spatialPlanned = (run) => { const ix = run ? rj(P(run, "creative", "plans", "index.json")) : null; return !!(ix && ix.spatial === true); };
+export const runtimeFilesWith = (contract, { common = false, spatial = false, extra = [] } = {}) => runtimeFilesFor(contract, [...(common ? COMMON_RUNTIME : []), ...(spatial ? SPATIAL_RUNTIME : []), ...arr(extra)]);
+// the medium's defining-behaviour evidence for the chosen contract (W08): classifyEvidence's input comes from the capability registry (source present, verified gate) plus the
+// medium rows already in crew/perf.jsonl (recorded only by a person or a frame/temporal review). Nothing runs here. Returns { language_id, states, summary, errors, scoped }.
+// commitments: [{id, behavior, event_id?, language?}] (the Look/Storyboard's medium commitments); diagnostics: the checks a consumer would run (ids), scoped by the visual language.
+// Consumer: crew.mjs check (creative_review / look), console/Look card limitations; a revision-1 run never calls it.
+const languageOf = (execId) => Object.keys(MEDIUM_BEHAVIORS).find((k) => MEDIUM_BEHAVIORS[k].execution_ids.includes(execId)) || null;
+export function performanceFor(run, { label = null, commitments = [], diagnostics = [], visualLanguage = null, intentionalStillness = [], registry = null, sceneId = null } = {}) {
+  const contract = label ? readMediumContract(run, label) : mediumContractFor(run);
+  if (!isMediumContract(contract)) return { applicable: false, reason: "no medium contract for this Look: nothing to assess", states: [], summary: { available: 0, uncertain: 0, unavailable: 0 }, errors: [], scoped: { enforce: arr(diagnostics).map((d) => (isObj(d) ? d.id : d)).filter(Boolean), scoped: [], factual: [] } };
+  const reg = registry || (() => { try { return buildRegistry(); } catch { return []; } })();
+  const demonstrated = summarizeMediumEvidence(readPerf(run));
+  const base = mediumExecutionEvidence(reg, contract.execution_id);
+  const languageId = languageOf(contract.execution_id);
+  const evidence = {};
+  for (const b of languageId ? MEDIUM_BEHAVIORS[languageId].behaviors : []) {
+    const seen = demonstrated[`${contract.execution_id}:${b}`];
+    evidence[b] = { ...base, ...(seen ? evidenceFlags(seen.level) : { visually_demonstrated: false }), refs: [...arr(base.refs)] };
+  }
+  const perf = resolveMediumPerformance({ languageId, commitments, evidence });
+  const scoped = scopeDiagnostics(diagnostics, { visualLanguage: visualLanguage || (languageId === "typography" ? "typographic" : null), contract, sceneId, intentionalStillness });
+  return { applicable: true, execution_id: contract.execution_id, profile_id: contract.profile_id, ...perf, scoped };
+}
 export const needsRasan2d = (contract) => isObj(contract) && contract.execution_id === "cel-performance";
 
 // ---------------------------------------------------------------------------------------------------- consumers of the per-layer adapter

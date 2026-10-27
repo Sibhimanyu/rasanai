@@ -102,3 +102,22 @@ export function summarize(rows = []) {
 export function readUsageFile(file) {
   try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return null; }
 }
+
+// ---- creative telemetry (v3 W10) ------------------------------------------------------------------------------------------------------
+// Estimates (context estimates, reservations) and observed provider usage are SEPARATE blocks; a missing counter is null, never 0 and never filled from an estimate.
+// events: { concept_candidates_developed, accepted_before_build, rejected_before_build, event_count, continuity_groups, requested_model, actual_model,
+//           context_estimate_tokens, retries, tool_errors, stale_results, invalidated_work_items } (all optional numbers/strings; no private text is stored)
+// -> { schema_version, estimates:{...}, observed: summarize(rows), counts:{...}, models:{requested,actual,silent_substitution}, note }. Consumer: crew.mjs check/ledger (lead wires).
+const cnt = (x) => (x === null || x === undefined || x === "" || !Number.isFinite(Number(x)) || Number(x) < 0 ? null : Math.floor(Number(x)));
+export function creativeTelemetry({ events = {}, rows = [], reservations = null } = {}) {
+  const e = events && typeof events === "object" ? events : {};
+  const req = e.requested_model ? redact(String(e.requested_model)).slice(0, 80) : null, act = e.actual_model ? redact(String(e.actual_model)).slice(0, 80) : null;
+  return {
+    schema_version: 1,
+    estimates: { basis: "estimate", context_tokens: cnt(e.context_estimate_tokens), reservations: reservations && typeof reservations === "object" ? reservations : null },
+    observed: summarize(rows),
+    counts: Object.fromEntries(["concept_candidates_developed", "accepted_before_build", "rejected_before_build", "event_count", "continuity_groups", "retries", "tool_errors", "stale_results", "invalidated_work_items"].map((k) => [k, cnt(e[k])])),
+    models: { requested: req, actual: act, silent_substitution: !!(req && act && req !== act) },
+    note: "context_tokens and reservations are estimates; observed counters come from the provider interface only. No saving or cost claim is derived here; compare like-for-like runs later with creative outcome alongside spend",
+  };
+}

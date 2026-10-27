@@ -25,6 +25,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs, die } from "./lib/common.mjs";
+import { finalCompletion } from "./lib/final-label.mjs";
 import { scaffold, check, render, promote, briefTemplate, QUICK } from "./lib/quick-film.mjs";
 
 // software GL by default: the same pixels run to run (as regression.mjs and custom-style.mjs)
@@ -57,10 +58,10 @@ try {
   } else if (cmd === "render") {
     const pj = path.resolve(need("project"));
     const r = await render(pj, need("out"), { fps: val("fps") ? Number(val("fps")) : undefined, check: !args["no-check"], engine: val("engine") || "cdp", log: (m) => process.stderr.write(`${m}\n`) });
-    out(r, exitFor(r));
+    out({ ...r, completion_label: "draft" }, exitFor(r)); // a quick preview is a draft, never a reviewed claim
   } else if (cmd === "promote") {
     const r = promote({ run: need("run"), project: need("project"), reason: val("reason"), budget: val("budget") });
-    out(r, exitFor(r));
+    out({ ...r, completion_label: "draft", ...(((c) => (c ? { completion: c } : {}))(finalCompletion(val("run"), null))), completion_note: "promoting a preview carries no reviewed claim; the full film is assessed at its Final" }, exitFor(r));
   } else if (cmd === "bench") {
     const briefFile = path.resolve(need("brief"));
     const dir = val("out") ? path.resolve(val("out")) : fs.mkdtempSync(path.join(os.tmpdir(), "quick-bench-"));

@@ -33,3 +33,15 @@ Retrieval: `retrieveExamples({ medium, problem, kind?, exclude? })` returns one 
 `selectMediumLessons` picks at most three, before anything reaches a packet, and drops: another medium, another problem, another kind, expired, revoked, contradicted or superseded, a different film's film-scoped lesson, anything a stated style or brand constraint contradicts, and anything the person's current instruction overrides. Lessons are leans from this person's own choice, advisory, revocable. Do not turn one rejected film into "never use pixel art for SaaS". One case is a preference for that case; it widens only after several separate films agree and the person's privacy settings allow.
 
 Kept short on purpose: one line of creative focus per lesson (the compact `/brag`-style assignment it served), never a prompt dump, never private prompts or other projects' content.
+
+## Mechanism packet section (v3)
+
+`mechanismPacketSection(event, { limit })` in `scripts/lib/medium-examples.mjs` returns `{ entries, digest, omitted, notes }` for W10's packet compiler. `event` = `{ problem | perceptual_job, medium, kind?, exclude?, template_authorized?, references? }`. Lookup is by the event's problem inside the selected medium, at most `MAX_PER_TASK` (2) entries; the cap trims mechanisms only, never the event or its proof content (`omitted` counts what was dropped).
+
+Each entry: `perceptual_job`, `phases`, `source` (`ref`, `url`, pinned `revision`, `access`), `hash` (sha256 of the local source file), `runtime`, `dependencies` (`available` flag), `limitations`, `not_inherited`, `neighbourhood` (what prepared the event, what carries through, how it is held), `method_status`, `usable`, `state`. Optional `mechanism` object on a `creative-example@1` row feeds it; a row without one still yields an entry with honest "no explicit phases" limits.
+
+- No finished composition is selected as the scene idea. A row with `kind: "template"` is returned only when the person explicitly asked for an authorized template (`template_authorized: true`).
+- A source that cannot be read, has no pinned revision or is not local stays `reference-only`: no tested port is claimed. An unknown method stays `unknown-method`.
+- A missing dependency marks `usable: false` and names the authorized alternative, if any. AGPL/GPL sources are ideas-only: an `adapted-code` row with such a licence is rejected.
+- Every entry's `not_inherited` always includes the demo palette, layout, copy and branded assets; a code licence does not grant a demo's logo, font or photo.
+- Observed tool reads stay distinct from self-reports; an entry sent is not proof the worker understood it or that the event reads.

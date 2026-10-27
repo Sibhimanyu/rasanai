@@ -209,3 +209,23 @@ export function cardFor(registry, id) {
   if (!c) return { id, ui_state: "unavailable", blocked_by: { axis: "implemented", reason: "unknown capability" } };
   return surface(c);
 }
+
+// ---- V3 W08 (additive): medium execution evidence -------------------------------------------------------------------------------------------------
+// What the registry can say about a medium execution's runtime files, as an evidence object for medium-rules classifyEvidence. Reads the rows buildRegistry already made;
+// runs nothing. `visually_demonstrated` is true only when the registry marks it verified (a real run on real media); fixtures never promote it.
+// Which behaviours were seen is NOT in the registry: pass `demonstrated` (from perf-evidence summarizeMediumEvidence) for per-behaviour claims.
+export function mediumExecutionEvidence(registry, executionId, { demonstrated = null } = {}) {
+  const rows = Array.isArray(registry) ? registry : (registry && registry.details) || [];
+  const cap = rows.find((c) => c && (c.id === `medium.${executionId}` || c.id === executionId || (c.id || "").endsWith(`.${executionId}`)));
+  if (!cap) return { declared: false, source_present: false, executed: false, visually_demonstrated: false, blocked: `no capability row for ${executionId}`, refs: [] };
+  const block = blockedBy(cap);
+  const fixtureOrMore = cap.verification && ["fixture_only", "verified"].includes(cap.verification.status);
+  return {
+    declared: true,
+    source_present: !!(cap.implemented && cap.implemented.value),
+    executed: !!fixtureOrMore,
+    visually_demonstrated: !!(demonstrated && demonstrated.visually_demonstrated),
+    blocked: block ? `${block.axis}: ${block.reason}` : false,
+    refs: [`capability:${cap.id}`, `verification:${cap.verification ? cap.verification.status : "unverified"}`],
+  };
+}

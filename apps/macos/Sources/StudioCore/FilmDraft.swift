@@ -34,7 +34,7 @@ public enum ModelPlan: String, CaseIterable, Codable, Identifiable, Sendable {
         case .recommended:
             switch pace {
             case .fast: """
-                MODEL PLAN: RECOMMENDED (FAST PACE). You are the director on Claude Opus 5.5. Keep Opus 5.5 for the roles that decide how the film reads, looks and moves: the script and design desks, the Motion Director's score and the one final fresh-eyes review. Hand everything else to Sonnet 5.5 subagents to keep the film fast and the user's usage low: the gathering roles (product, brand and screens researchers, the local scout), key frames, scene animators, fix agents, gate checks, renders and routine mechanical work. The BUILD PLAN above gives the same split; if any engine crew file says otherwise, this plan and the BUILD PLAN win. Never give Sonnet the script, the design systems or the final review.
+                MODEL PLAN: RECOMMENDED (FAST PACE). You are the director on Claude Opus 5.5. Keep Opus 5.5 for the roles that decide how the film reads, looks and moves: the script and design desks, the Motion Director's score and the one final fresh-eyes review. Hand everything else to Sonnet 5.5 subagents to keep the film fast and the user's usage low: the gathering roles (product, brand and screens researchers, the local scout), key frames, scene animators, fix agents, gate checks, renders and routine mechanical work. The BUILD PLAN above gives the same split; if any engine crew file says otherwise, this plan and the BUILD PLAN win. Never give Sonnet the script, the design systems or the final review. This is a recommendation: no model or provider outside the authorized set is used, and no role is silently moved to a cheaper model to hit a cost target.
                 """
             case .standard: """
                 MODEL PLAN: RECOMMENDED (STANDARD PACE). You are the director on Claude Opus 5.5. Keep Opus 5.5 for the roles that decide how the film reads, looks and moves: the script and design desks, the Motion Director's score, key frames and the critics. Hand the gathering roles (product, brand and screens researchers, the local scout), scene animators, fix agents, gate checks, renders and routine mechanical work to Sonnet 5.5 subagents. The BUILD PLAN above gives the same split; if any engine crew file says otherwise, this plan and the BUILD PLAN win.
@@ -44,10 +44,10 @@ public enum ModelPlan: String, CaseIterable, Codable, Identifiable, Sendable {
                 """
             }
         case .opus: """
-            MODEL PLAN: OPUS EVERYWHERE. The user chose Claude Opus 5.5 for every role. Do not hand any role to a smaller model.
+            MODEL PLAN: OPUS EVERYWHERE. The user chose Claude Opus 5.5 for every role. Do not hand any role, gathering or mechanical work included, to a different model, and do not add another provider.
             """
         case .sonnet: """
-            MODEL PLAN: SONNET EVERYWHERE. The user chose Claude Sonnet 5.5 for every role to keep usage low. Follow the structured steps in the order written, look at renders before accepting them, and still push for ambitious motion.
+            MODEL PLAN: SONNET EVERYWHERE. The user chose Claude Sonnet 5.5 for every role to keep usage low. Follow the structured steps in the order written, look at renders before accepting them, and still push for ambitious motion. Every role stays on it, gathering and the final review included: this plan overrides any recommended split in the engine files. Never switch to a stronger model silently; if a role cannot be done well on it, say so as a limitation.
             """
         case .settings: nil
         }
@@ -241,10 +241,10 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         The user chose Maximal, so go all out on motion. Maximal is about ambition, and it has two dials: density (how many designed elements are on screen) and complexity (how intricate each movement is). Turn up whichever makes each scene strongest, often both, and never read Maximal as "more things moving".
         Complexity is choreography: multi-stage moves (anticipation, action, overshoot, settle), overlapping and follow-through action, staggered and offset timing, secondary motion, elements that hand off or morph into one another, masks and reveals, match cuts, a motivated camera (push, parallax, rack), and type that is built, broken and rebuilt. One word or one product shot with intricate, perfectly timed choreography is as Maximal as a screen full of layers.
         Density is layered kinetic typography, overlays and callouts, caption boxes, framed or windowed shots, animated data, shape and line work, and graphic transitions. Nothing sits as a bare shot or a bare subtitle for long.
-        Build at least one spectacle moment people will replay. This is the full ambition of the house style. Craft over clutter: every element and every move is timed, aligned to a grid, and earns its place.
+        Build the moment people will replay where the story earns it; it may be a quiet, precisely timed beat rather than a loud one. This is the full ambition of the house style. Craft over clutter: every element and every move is timed, aligned to a grid, and earns its place.
         """,
         "balanced": """
-        The user chose Balanced. Put designed graphics on most scenes (titles, callouts, caption plates, a few framed shots) and let the strongest moments breathe with the picture alone. Moves stay fully crafted (eased, staggered, with follow-through), with richer choreography saved for the moments that matter. Keep one spectacle moment. Keep the craft at full strength; only the density and the number of elaborate moves are dialed down.
+        The user chose Balanced. Put designed graphics on most scenes (titles, callouts, caption plates, a few framed shots) and let the strongest moments breathe with the picture alone. Moves stay fully crafted (eased, staggered, with follow-through), with richer choreography saved for the moments that matter. Keep one earned standout moment where the story supports it. Keep the craft at full strength; only the density and the number of elaborate moves are dialed down.
         """,
         "minimal": """
         The user chose Minimal. Deliver a clean, confident cut: tight pacing, simple legible captions, and a few well-made titles with simple, precise moves. Skip decorative overlays, framed shots, heavy effects and elaborate choreography. This is a deliberate restraint chosen by the user, so execute it with precision and polish.

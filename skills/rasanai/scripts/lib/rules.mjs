@@ -115,3 +115,33 @@ export const readPolicy = fromLegacy;
 
 // does this policy ask for ONE story and ONE look? Only an explicit user choice (or a series) does; pace and budget never do.
 export const collapsesAlternatives = (policy) => !!policy && !!policy.creative && Number(policy.creative.alternatives) === 1;
+
+// ---- V3 W08 (additive): authority split and scoped applicability --------------------------------------------------------------------------------
+// resolve() above is unchanged. Binding kinds are FACTUAL authority; craft_preference is TASTE authority. No import of medium-rules (creative-policy imports this file).
+// A taste rule may carry applicability { languages?:[], layers?:[], scenes?:[], intervals?:[{t0_s,t1_s}] }; a fact is never scoped away.
+export const authorityOf = (rule) => (rule && BINDING.includes(rule.kind) ? "factual" : "taste");
+export const splitAuthority = (rules) => {
+  const all = (Array.isArray(rules) ? rules : []).map(makeRule);
+  return { factual: all.filter((r) => authorityOf(r) === "factual"), taste: all.filter((r) => authorityOf(r) === "taste") };
+};
+const listHas = (list, v) => !Array.isArray(list) || list.length === 0 || (v != null && list.includes(v));
+// ctx: { language, layerId, sceneId, t_s } -> true when the rule governs this point. A rule without applicability governs everywhere (legacy).
+export function ruleApplies(rule, ctx = {}) {
+  const r = makeRule(rule || {});
+  if (authorityOf(r) === "factual") return true;
+  const a = r.applicability;
+  if (!a || typeof a !== "object") return true;
+  if (!listHas(a.languages, ctx.language) || !listHas(a.layers, ctx.layerId) || !listHas(a.scenes, ctx.sceneId)) return false;
+  if (Array.isArray(a.intervals) && a.intervals.length) {
+    const t = Number(ctx.t_s);
+    if (!Number.isFinite(t)) return false;
+    return a.intervals.some((i) => t >= Number(i.t0_s) && t < Number(i.t1_s));
+  }
+  return true;
+}
+// resolve() over only the rules that govern ctx; the out-of-scope taste rules are returned as `out_of_scope`, never silently deleted
+export function resolveScoped(rules, ctx = {}) {
+  const all = (Array.isArray(rules) ? rules : []).map(makeRule);
+  const inScope = all.filter((r) => ruleApplies(r, ctx));
+  return { ...resolve(inScope), out_of_scope: all.filter((r) => !inScope.includes(r)) };
+}

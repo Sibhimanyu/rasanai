@@ -34,6 +34,7 @@ import { loadPrefs } from "./lib/prefs.mjs";
 import { headsDuring, overlapShare } from "./lib/heads.mjs";
 import { destinationOf, zonesFor, boxInZones } from "./lib/safezones.mjs";
 import { checkFrames } from "./lib/framecheck.mjs";
+import { finalCompletion } from "./lib/final-label.mjs";
 import { decideLanguage, installedModels, hasWhisperCli, whisperTranscribe, englishLooks } from "./lib/lang.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -1100,6 +1101,8 @@ ${MARK}
     if (rr.status !== 0 || !fs.existsSync(outFile)) die(`render failed:\n${(rr.stdout + rr.stderr).trim().split("\n").slice(-25).join("\n")}`);
     const info = probe(outFile);
     rendered = { file: path.relative(ws, outFile), duration: info.duration, size: `${info.width}x${info.height}`, audio: info.has_audio };
+    const completion = finalCompletion(args.run, outFile); // revision 2 runs only (--run <run>); null otherwise. A reel render is a draft until reviewed
+    if (completion) rendered.completion = completion;
   }
   console.log(JSON.stringify({ ok: true, project_dir: path.relative(ws, dir), total_s: total, clips: segs.filter((s) => s.kind === "clip").length, cards: segs.filter((s) => s.kind === "card").length, overlays: overlaySegs.length, caption_groups: groups.length, music: musicRel, edl: path.relative(ws, path.join(dir, "reel.edl.json")), wrote, warnings, checks, rendered }, null, 2));
 }

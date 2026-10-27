@@ -149,3 +149,28 @@ export function proposeMediumAdaptations(profile, assessment, adaptationCatalog 
   ];
   return { candidates, unresolved_reasons };
 }
+
+// ---- V3 W08 (additive): performance-gap routing --------------------------------------------------------------------------------------------------
+// A medium whose defining behaviour is uncertain/unavailable (medium-rules resolveMediumPerformance state rows) is NOT adapted silently: this returns the decisions the
+// Director must put to the person through the existing Look/Storyboard revision. It never relabels a fallback as the same style and grants no approval or capability.
+// rows: resolveMediumPerformance(...).states -> [{ behavior, language, state, level, disclosure, commitment_id, kind: "disclose-before-promise"|"propose-revision", options:[...] }]
+export function routePerformanceGaps(rows, { profile = null } = {}) {
+  const p = isObj(profile) ? profile : {};
+  return arr(rows).filter((r) => isObj(r) && r.state && r.state !== "available").map((r) => ({
+    commitment_id: r.commitment_id ?? null,
+    language: r.language ?? null,
+    behavior: r.behavior ?? null,
+    state: r.state,
+    level: r.level ?? "none",
+    route: r.state === "unavailable" ? "look-or-storyboard-revision" : "disclose-then-confirm",
+    disclosure: r.disclosure || `${r.behavior || "this behaviour"} is ${r.state}`,
+    options: [
+      "keep the medium and weaken the commitment, stated plainly",
+      "choose a different medium or custom direction through Look revision",
+      ...(r.state === "uncertain" ? ["authorize one bounded native-medium sequence to demonstrate it before relying on it"] : []),
+    ],
+    relabel_as_same_style: false,
+    base_profile_id: p.id ?? null,
+    state_label: "implemented_unvalidated",
+  }));
+}

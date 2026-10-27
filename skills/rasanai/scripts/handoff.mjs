@@ -397,7 +397,11 @@ ${D.category ? `- Category: \`${D.category}\`\n` : ""}- Look: \`frame.md\` at th
 - Concept: ${D.concept ? `${D.concept.title}. ${D.concept.text}` : "(none beyond the message)"}
 - Music: ${musicRel ? (route === "motion-graphics" ? `\`${musicRel}\` is already in the host root as \`#music-bed\` for the full ${lengthS}s. Do not add audio to compositions/index.html.` : `\`${musicRel}\` as one \`<audio id="music-bed">\` clip at t=0 for the full ${lengthS}s, fading in and out.`) : "none (silent piece)"}
 
-${dirInstalled ? `${dirInstalled.section}\n` : ""}${overridesBlock}## Binding motion contract (from motion.md)
+${dirInstalled ? `${dirInstalled.section}\n` : ""}${overridesBlock}## Completion honesty
+
+A render is a draft until a current review of this exact output observed the intended events; do not call a build "final", "ready" or "reviewed" yourself (creative-completion.mjs decides the label).
+
+## Binding motion contract (from motion.md)
 
 - Personality: ${motionLabel}
 - Length: ${lengthS}s, ${W}x${H}. \`shot-plan.json\` uses \`duration_s: ${lengthS}\` and this canvas; the host root mounts the build for exactly this long.

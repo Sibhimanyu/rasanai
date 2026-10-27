@@ -24,6 +24,10 @@ Push `render` with `video` (the draft), `poster`, `scenes: [{id, title, start, t
 
 Before you push the Final run `node $SKILL_DIR/scripts/crew.mjs creative gate --run "$RUN" --stage final`. `ready` means a current independent review of the render exists. Anything else (`not_reviewed`, `revise`, `needs_user`, `blocked`) is said plainly in the Final's `context` ("creative review: not assessed"), never as "checks passed". The film critic writes `creative/reviews/final-r<N>.json`; a ship verdict needs a ready result from images it opened. Factual, permission and mechanical failures are never waived; an aesthetic waiver needs the user's own consumed action and the reviewed artifact digest. The user's Final choice and the previous final are unchanged.
 
+### Revision 2 (v3)
+
+`crew.mjs creative gate` also reconciles the treatment's commitments, the intentional-absence basis and the current artifact digests; a required commitment left open is `blocked`, never a pass. A reviewed-ready claim needs temporal evidence tied to this exact output, as set out in [temporal-review.md](../temporal-review.md) and [event-commitments.md](../event-commitments.md); without it the render stays an honestly labelled draft.
+
 ## Deeper references for this guide
 
 The canonical homes of the detail this guide points at (read the one the current step needs):

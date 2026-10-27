@@ -57,6 +57,10 @@ Every film's look is a complete design system: the chosen `design/<label>/DESIGN
 - Only the representative beat is drawn before the Look is chosen. **Prepared is not approved:** a brand-derived or series look is staged as a confirm (`console.mjs push --step look --status awaiting`), never closed `--status done` by you; on a new-policy plan the production gate refuses storyboard work until the user's consumed Look choice exists (`design.mjs choose-system` writes files and grants nothing). After the choice run `crew.mjs creative revise --run "$RUN" --mode look`.
 - Known gap: `design.mjs look-payload` shows exactly three systems, so a one-look confirm (brand, series, lean) is pushed by hand with the fields the old flow used and status `awaiting`; how the native Look card shows that is unverified.
 
+### Revision 2 (v3)
+
+The Look is cut from the selected medium or a custom direction; its state is selected, custom-supported, needs-direction or capability-blocked, and the alternative count follows only an explicit user direction (brand ownership, the direct path and Fast never collapse it). Read what the Look must deliver in [typography-performance.md](../typography-performance.md) (type as a performer), [composition-transitions.md](../composition-transitions.md) (shared anchors, transitions derived from them) and [medium-performance.md](../medium-performance.md) (the medium's defining behaviour and its evidence; unproven behaviour is disclosed before it becomes a promise). `crew.mjs creative look-identity --label <L>` prints the identity digest a Look board is pinned to; `crew.mjs creative performance --label <L>` the behaviour states.
+
 ## Deeper references for this guide
 
 The canonical homes of the detail this guide points at (read the one the current step needs):

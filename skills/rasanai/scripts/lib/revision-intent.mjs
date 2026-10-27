@@ -11,7 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { withLock } from "./runlock.mjs";
 import { SCHEMA_VERSION, canonicalDigest, revisionKey, validateRevisionRequest } from "./contracts.mjs";
-import { impact } from "./impact.mjs";
+import { impact, changeScopeImpact, affectedClosure, diffIdentity, CHANGE_SCOPES } from "./impact.mjs";
 import { logicalStage } from "./stages.mjs";
 import { noteToRevision } from "./editorial.mjs";
 
@@ -175,6 +175,8 @@ export function buildRevisionRequest({ text, anchor = {}, pinned = {}, ctx = {},
     intent_category: c.category, route: c.route, deterministic: !!c.deterministic, simple_text: c.simple_text ?? null,
     impact: c.impact, preserve: c.preserve, interpretation: c.interpretation, ambiguous: !!c.ambiguous, needs_confirmation: !!c.needs_confirmation,
     status: "requested",
+    // V3 (W11): only a creative_policy_revision >= 2 run records the scoped change; a revision 0/1 request is byte-identical to before
+    ...(Number(ctx && ctx.creative_policy_revision) >= 2 ? v3RequestFields(c.exact_note, a, ctx) : {}),
   };
   // the same note on the same target at the same pinned revision is the same request (a repeat never makes two revisions)
   req.idempotency_key = revisionKey({ stage, target_ids: [...targets, a.element_id].filter(Boolean), instruction: `${c.category}:${c.exact_note}`, base_revision: req.pinned.render_revision_id || req.base_revision });
@@ -250,4 +252,65 @@ export function handleRevisionAction(action, { run, beats = [] } = {}) {
     return t;
   }
   return { ok: false, error: "not a revision action" };
+}
+
+
+// ---- V3 (W11): scoped change classification and the change record --------------------------------------------------------------------------------
+// Additive. classifyFeedback() above is untouched (routes, stages and legacy requests stay as they were); these name WHAT KIND of change a note is so the
+// invalidation can be local (lib/impact.mjs changeScopeImpact / affectedClosure). Consumers: buildRevisionRequest (revision >= 2 only) stores `change_scope` and
+// `change_record` on the request line; the lead's revision flow (crew.mjs / console action) reads them. Deterministic, offline.
+const SCOPE_RULES = [
+  { id: "new_story", re: /\b(different|new|another|rewrite|rework|scrap|start over|redo)\b[^.!?]{0,30}\b(story|idea|concept|premise|angle|treatment)\b/i },
+  { id: "event_substitution", re: /\b(replace|swap|substitute|instead of|change)\b[^.!?]{0,40}\b(moment|event|reveal|payoff|hero shot|signature (?:moment|event)|big hit)\b/i },
+  { id: "copy_spelling", re: /\b(typo|misspell\w*|spelling|spelled|spell)\b|\bchange (?:the )?(?:text|copy|word|headline|title|label|caption)\b[^.!?]{0,30}\bto\b/i },
+  { id: "asset_correction", re: /\b(?:wrong|incorrect|old|outdated|blurry|low[- ]res|stretched|distorted|pixelated)\b[^.!?]{0,30}\b(?:logo|image|photo|screenshot|asset|icon|picture)\b|\b(?:replace|swap|fix|correct|update)\b[^.!?]{0,20}\b(?:the )?(?:logo|image|photo|screenshot|asset|icon)\b/i },
+  { id: "material_change", re: /\b(?:material|matte|glossy|gloss|metal|chrome|glass|clay|plastic|ceramic|texture[ds]?|lighting|camera (?:angle|move|height)|lens|reflect\w*|shadow)\b/i },
+  { id: "timing_adjustment", re: /\b(?:(?:voice|voice-?over|narration|vo)\b[^.!?]{0,25}\b(?:timing|sync|offset|late|early)|out of sync|earlier|later|sooner|faster|slower|longer|shorter|linger|rushed?|speed up|slow down|too quick|too slow|(?:on|with|at|before|after) the (?:beat|drop|hit|downbeat))\b/i },
+];
+const INTENSITY = /\b(punchier|snappier|more (?:punch|energy|impact|dramatic|polish\w*)|livelier|bolder|more exciting|pop more|pops?)\b/i;
+// text, anchor { beat_id, shot_id, element_id, event_id, time_range }, ctx -> { ok, scope|null, scope_hits, ambiguous, needs_confirmation, intensity, guards, impact? }
+export function classifyChangeScope(text, anchor = {}, ctx = {}) {
+  const note = T(text);
+  if (!note) return { ok: false, error: "empty note" };
+  const a = isObj(anchor) ? anchor : {};
+  const hits = SCOPE_RULES.filter((r) => r.re.test(note)).map((r) => r.id);
+  const intensity = INTENSITY.test(note);
+  // an intensifier alone is a request to refine HOW something moves, never to add a premise, spend more or put more on screen
+  const guards = { new_premise: false, provider_spend: false, denser_information: false, ...(intensity ? { reason: "an intensifier (punchier, bolder) refines existing motion; it authorises no new premise, no provider spend and no added information" } : {}) };
+  const ids = [a.event_id, a.beat_id, a.shot_id, a.element_id].filter(Boolean).map(String);
+  // new_story outranks nothing implicitly: if it co-occurs with a narrower scope, ask
+  let scope = hits.length === 1 ? hits[0] : null;
+  if (!scope && !hits.length && intensity) scope = "timing_adjustment";
+  const ambiguous = hits.length > 1;
+  const needs = ambiguous || !scope || !!(scope && CHANGE_SCOPES[scope].needs_confirmation);
+  const out = { ok: true, scope, scope_hits: hits, ambiguous, needs_confirmation: needs, intensity, guards, target_ids: ids,
+    ...(ambiguous ? { interpretation: `This could be ${hits.join(" or ")}. Which one? Nothing changes until you pick.` } : {}), ...(!scope && !ambiguous ? { interpretation: "I could not tell how big this change is; the smallest local reading applies once you confirm." } : {}) };
+  if (scope) out.impact = changeScopeImpact(scope, ids, { downstream_started: ctx.downstream_started !== false });
+  return out;
+}
+
+// What a revision record keeps (spec 14): affected commitments, reason, source action, old / new artifact identities, downstream invalidation. No new store: it is a field on the
+// request line in revisions/requests.jsonl (and may be copied into crew/revisions.jsonl events by lib/revision-events.mjs `invalidation`).
+// o: { scope, request?, affected_commitments:[event ids], reason, source_action:{ action_id|request_key, kind }, old_artifacts:[{ref,digest}], new_artifacts:[{ref,digest}],
+//      identity_before, identity_after (lib/impact identityMap), consumers:[{id,reads,after?}] }
+export function buildChangeRecord(o = {}) {
+  const errors = [];
+  if (!CHANGE_SCOPES[o.scope]) errors.push(`scope must be one of ${Object.keys(CHANGE_SCOPES).join(", ")}`);
+  if (!T(o.reason)) errors.push("reason");
+  if (!isObj(o.source_action) || !(o.source_action.action_id || o.source_action.request_key)) errors.push("source_action (the real consumed action or request key; never invented)");
+  if (errors.length) return { ok: false, errors };
+  const d = diffIdentity(o.identity_before, o.identity_after);
+  const changes = [...d.changed, ...d.added, ...d.removed];
+  const closure = affectedClosure({ consumers: arr(o.consumers), changes });
+  const rec = { format: "change-record@1", scope: o.scope, reason: T(o.reason), source_action: o.source_action,
+    affected_commitments: arr(o.affected_commitments).map(String), old_artifacts: arr(o.old_artifacts), new_artifacts: arr(o.new_artifacts),
+    identity_changes: d, invalidation: { stale: closure.stale, keep: closure.keep, reasons: closure.reasons, full_rebuild: closure.full_rebuild && o.scope === "new_story" ? true : closure.full_rebuild },
+    new_premise_allowed: !!CHANGE_SCOPES[o.scope].new_premise };
+  rec.digest = canonicalDigest(rec);
+  return { ok: true, record: rec };
+}
+function v3RequestFields(note, a, ctx) {
+  const cs = classifyChangeScope(note, a, ctx);
+  if (!cs.ok) return {};
+  return { change_scope: { scope: cs.scope, scope_hits: cs.scope_hits, ambiguous: cs.ambiguous, intensity: cs.intensity, guards: cs.guards, local: cs.impact ? cs.impact.local : null } };
 }

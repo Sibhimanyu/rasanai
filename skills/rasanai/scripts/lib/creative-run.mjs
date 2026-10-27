@@ -3,7 +3,9 @@
 // does nothing at load, and every writer here is called by a command, never by an import. Nothing here approves anything:
 // consent is read through look.resolveStageConsent (a consumed user action, an approval record or a consumed delegation), never from a file's presence.
 //
-//   creativeOn(plan) / readPlan(run) / runCreativeOn(run)        the opt-in marker: crew/plan.json creative_policy_revision === 1 (legacy runs never have it)
+//   creativeOn(plan) / readPlan(run) / runCreativeOn(run)        the opt-in marker: crew/plan.json creative_policy_revision 1 (legacy creative recovery) or 2 (v3); legacy runs never have it
+//   planRevision(plan|run)                                       the revision a creative run stamps on its own records (1 or 2; revision 1 plans stamp 1, unchanged)
+//   commitmentReport(run, o)                                     v3: reconcileCommitments over the brief events, the chosen treatment and the live approval pins (revision >= 2 only)
 //   consentContexts(run) / approvalPins(run)                     read-only approval state; pins only for stages the user really confirmed
 //   lookStyleOf(run) / creativeLookProfile(run, doc)             the selected Look's craft class (blend.json look_style) for checkShots / frame-gate
 //   prepareReferences(run, o) / provisionalBrief(run, o)         creative/references.json (automatic, local index) and the provisional creative/brief.json skeleton
@@ -19,6 +21,10 @@ import { stageConsentContext, storyDigest, lookDigest } from "./storyboard.mjs";
 import { selectCreativeReferences } from "./creative-references.mjs";
 import { validateCreativeBrief, creativeReadiness } from "./creative-contract.mjs";
 import { sha256File } from "./creative-handoff.mjs";
+import { creativePolicyOn, policyRevisionOf } from "./creative-policy.mjs";
+import { reconcileCommitments, creativeExt } from "./creative-contract.mjs";
+import { assessCompletion, completionStatusLine } from "./creative-completion.mjs";
+import crypto from "node:crypto";
 
 export const CREATIVE_POLICY_REVISION = 1;
 const arr = (x) => (Array.isArray(x) ? x : []);
@@ -28,7 +34,10 @@ const has = (p) => { try { return fs.existsSync(p); } catch { return false; } };
 const P = (run, ...p) => path.join(path.resolve(String(run)), ...p);
 const writeJson = (f, o) => { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify(o, null, 2) + "\n"); };
 
-export const creativeOn = (plan) => !!(plan && plan.creative_policy_revision === CREATIVE_POLICY_REVISION);
+// revision 1 (legacy creative recovery) and 2 (v3, opt-in for new plans) both switch the creative branches on; an unsupported revision switches nothing on (crew.mjs plan/brief stop it with unsupported_policy)
+export const creativeOn = (plan) => !!(plan && creativePolicyOn(plan));
+export const planRevision = (x) => { const pl = typeof x === "string" ? readPlan(x) : x; const r = policyRevisionOf(pl); return r >= 1 ? r : CREATIVE_POLICY_REVISION; };
+const v3On = (run) => planRevision(String(run)) >= 2;
 export const readPlan = (run) => rj(P(run, "crew", "plan.json"));
 export const runCreativeOn = (run) => creativeOn(readPlan(run));
 
@@ -129,7 +138,7 @@ export function prepareReferences(run, { skillDir, stage = "research", force = f
   let selection;
   if (!index) selection = { selected: [], unavailable: [], evidenceLevel: "none", note: "library/creative-reference-index.json is missing: work from the brief and the approved Look" };
   else selection = selectCreativeReferences({ index, assignment, story: story && isObj(story) ? { communication_kind: story.communication_kind } : null, look, userReferences: userRefs, availableMedia: availableMedia(index, skillDir), seed: path.basename(path.resolve(String(run))), limit: 4 });
-  const doc = { schema_version: 1, creative_policy_revision: CREATIVE_POLICY_REVISION, stage, assignment, index_sha256: has(indexFile) ? sha256File(indexFile) : null, ...selection };
+  const doc = { schema_version: 1, creative_policy_revision: planRevision(String(run)), stage, assignment, index_sha256: has(indexFile) ? sha256File(indexFile) : null, ...selection };
   writeJson(f, doc);
   return { ok: true, file: f, created: true, selection: doc };
 }
@@ -141,7 +150,7 @@ export function provisionalBrief(run, { plan = {} } = {}) {
   if (has(f)) return { ok: true, file: f, created: false };
   const rounds = { lean: 1, standard: 2, full: 3 }[plan.budget || "standard"] ?? 2;
   const doc = {
-    schema_version: 1, creative_policy_revision: CREATIVE_POLICY_REVISION, revision: 1, mode: "proposal", status: "skeleton",
+    schema_version: 1, creative_policy_revision: creativeOn(plan) ? planRevision(plan) : CREATIVE_POLICY_REVISION, revision: 1, mode: "proposal", status: "skeleton",
     pins: { brief: null, story: null, look: null, storyboard: null },
     communication_kind: kindOf(run), promise: "", premise: "", native_material: [],
     opening: { event: "", why_watch: "" }, signature_events: [], signature_events_reason: "", payoff: { event: "", resolves: "" },
@@ -152,6 +161,11 @@ export function provisionalBrief(run, { plan = {} } = {}) {
     decision_authority: "existing user stage approvals; this record grants none",
     todo: "the Director fills promise, premise, native_material, opening, payoff, visual_strategy and the signature events from the research (references/creative-quality.md), deletes this status, then `crew.mjs creative check --run <run>`",
   };
+  // revision 2: the user's fixed format kinds / mechanism (brief fields) travel in the extension story.mjs check --brief reads (extensions.creative_thinking.fixed_concept_kinds / brief_mechanism)
+  if (creativeOn(plan) && planRevision(plan) >= 2) {
+    const fl = briefFields(run), fk = arr(fl.fixed_concept_kinds).map(String).filter(Boolean), bm = String(fl.brief_mechanism || fl.mechanism || "").trim();
+    if (fk.length || bm) doc.extensions = { creative_thinking: { version: 1, ...(fk.length ? { fixed_concept_kinds: fk } : {}), ...(bm ? { brief_mechanism: bm } : {}) } };
+  }
   writeJson(f, doc);
   return { ok: true, file: f, created: true };
 }
@@ -239,8 +253,32 @@ export function boardDigests(run) {
   return out;
 }
 
+// v3 (revision >= 2 only): what the selected treatment promised, what the brief's events bind, and what the user approved, reconciled by the one W04 helper.
+// -> { applicable, phase, treatment, absences, bound, unresolved, intentionally_absent, incompatible, problems, quiet_film } (commitment ids and problems; no approval is created)
+const chosenTreatment = (run) => rj(P(run, "story", "chosen-treatment.json")) || rj(P(run, "story", "chosen.json")) || null;
+export function commitmentReport(run, { phase = "build", brief = null, treatment = null } = {}) {
+  if (!v3On(run)) return { applicable: false };
+  const b = brief || rj(P(run, "creative", "brief.json"));
+  if (!b || briefIsSkeleton(b)) return { applicable: true, phase, state: "no_brief", bound: [], unresolved: [], intentionally_absent: [], incompatible: [], problems: [], quiet_film: null };
+  const ext = creativeExt(b), basis = ext && isObj(ext.commitment_basis) ? [ext.commitment_basis] : [];
+  const t = treatment || chosenTreatment(run);
+  const rec = reconcileCommitments({ treatment: t, events: arr(b.signature_events), absences: basis, pins: approvalPins(run), phase });
+  return { applicable: true, phase, treatment: t ? String(t.id || t.label || "") || null : null, absences: basis.length, ...rec };
+}
+
 // readiness at a boundary. stage: storyboard | build | final. Absent or stale evidence is "not_reviewed" / "blocked", never a pass.
-export function creativeGate(run, { stage = "final", waiver = null } = {}) {
+// Revision >= 2 adds the treatment, the intentional-absence basis and the current artifact digests to the structure check (event commitments); revision 1 is exactly as before.
+export function creativeGate(run, { stage = "final", waiver = null, outputFile = null } = {}) {
+  const base = creativeGateBase(run, { stage, waiver });
+  // revision 2 Final: `ready` only when assessCompletion agrees (temporal evidence, commitments, output identity); it can only lower the state, never raise it
+  if (stage !== "final" || !v3On(run) || base.state === "not_reviewed" && base.reasons && base.reasons.some((r) => r.code === "no_brief") || base.state === "blocked" && base.reasons && base.reasons.some((r) => r.code === "skeleton")) return base;
+  const a = completionFor(run, { waiver, outputFile });
+  if (!a) return base;
+  const rank = { ready: 0, not_reviewed: 1, revise: 2, needs_user: 3, blocked: 4 };
+  const state = (rank[a.state] ?? 0) > (rank[base.state] ?? 0) ? a.state : base.state;
+  return { ...base, state, reasons: [...(base.reasons || []), ...(a.reasons || []).filter((r) => !(base.reasons || []).some((b) => b.code === r.code && b.message === r.message))], completion: { state: a.state, allowed_labels: a.allowedLabels, next_decisions: a.nextDecisions, status_line: a.status_line, evidence: a.evidence, commitments: a.commitments, limitations: a.limitations, output_file: a.output_file } };
+}
+function creativeGateBase(run, { stage = "final", waiver = null } = {}) {
   const brief = rj(P(run, "creative", "brief.json"));
   if (!brief) return { state: "not_reviewed", reasons: [{ code: "no_brief", message: "no creative/brief.json: this run has no recorded creative intent to review against" }] };
   if (briefIsSkeleton(brief)) return { state: "blocked", reasons: [{ code: "skeleton", message: "the creative brief is still the skeleton" }] };
@@ -249,5 +287,33 @@ export function creativeGate(run, { stage = "final", waiver = null } = {}) {
   const pins = approvalPins(run);
   const expectedPins = Object.fromEntries(Object.entries(pins).map(([k, v]) => [k, v.artifact_digest]));
   const digests = stage === "storyboard" || stage === "build" ? boardDigests(run) : [];
-  return { ...creativeReadiness({ brief, stage, review: review ? { ...review, round: Number.isInteger(review.round) ? review.round : rv.n } : null, expectedPins, expectedArtifactDigests: digests, waiver }), review_file: rv ? path.relative(path.resolve(String(run)), rv.file) : null };
+  const v3 = v3On(run) ? (() => { const ext = creativeExt(brief); return { treatment: chosenTreatment(run), absences: ext && isObj(ext.commitment_basis) ? [ext.commitment_basis] : null, currentDigests: boardDigests(run) }; })() : {};
+  return { ...creativeReadiness({ brief, stage, review: review ? { ...review, round: Number.isInteger(review.round) ? review.round : rv.n } : null, expectedPins, expectedArtifactDigests: digests, waiver, ...v3 }), review_file: rv ? path.relative(path.resolve(String(run)), rv.file) : null };
+}
+
+// v3 (revision >= 2, stage final only): the completion assessment over the real output and the latest Final review. Revision 1 and every other stage return null (creativeGate is unchanged).
+// output file: explicit, else the newest video the console recorded for the render/final step (session.json), else none (-> not_reviewed: nothing to present as a Final).
+const VIDEO = /\.(mp4|mov|m4v|webm)$/i;
+export function finalOutputOf(run, file = null) {
+  const cands = [];
+  if (file) cands.push(path.resolve(String(file)));
+  const ss = rj(P(run, "session.json")) || rj(P(run, "console.json")) || {};
+  for (const step of ["final", "render"]) { const d = ss.steps && ss.steps[step]; const v = d && (typeof d.video === "string" && d.video ? d.video : arr(d.videos).filter((x) => typeof x === "string" && x).at(-1)); if (v) cands.push(path.isAbsolute(v) ? v : path.resolve(P(run), v)); }
+  for (const f of cands) if (VIDEO.test(f) && has(f)) return { file: f, digest: sha256File(f), exists: true, playable: true };
+  return { file: null, digest: null, exists: false };
+}
+export function completionFor(run, { waiver = null, outputFile = null, limits = {} } = {}) {
+  if (!v3On(run)) return null;
+  const brief = rj(P(run, "creative", "brief.json"));
+  const rv = latestReview(run, "final");
+  const review = rv && rv.doc ? normalizeReviewPaths(rv.doc, run) : null;
+  const pins = approvalPins(run), out = finalOutputOf(run, outputFile);
+  const ext = brief && !briefIsSkeleton(brief) ? creativeExt(brief) : null;
+  const a = assessCompletion({
+    approvals: { pins: Object.fromEntries(Object.entries(pins).map(([k, v]) => [k, v.artifact_digest])), ...(waiver ? { waiver } : {}) },
+    contract: { brief, stage: "final", treatment: chosenTreatment(run), absences: ext && isObj(ext.commitment_basis) ? [ext.commitment_basis] : null },
+    output: { digest: out.digest, exists: out.exists, playable: out.exists ? true : undefined },
+    review: review ? { ...review, round: Number.isInteger(review.round) ? review.round : rv.n } : null, limits,
+  });
+  return { ...a, status_line: completionStatusLine(a), output_file: out.file ? path.relative(path.resolve(String(run)), out.file) : null, review_file: rv ? path.relative(path.resolve(String(run)), rv.file) : null };
 }

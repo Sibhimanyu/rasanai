@@ -61,6 +61,16 @@ export function validateEvent(ev) {
   if (ev.stage === "final_ready" && ev.final && ev.final.delivered_kept) P.push("final_ready replaced the delivered file: delivered_kept must be null now");
   if (ev.work && ev.work.basis && !BASES.includes(ev.work.basis)) P.push(`work.basis must be one of ${BASES.join(", ")}`);
   if (ev.work && ev.work.basis === "dependency_results" && !arr(ev.work.reused).length && !arr(ev.work.rebuilt).length && ev.stage !== "source_changed" && ev.stage !== "preview_pending") P.push("work.basis dependency_results with nothing reused or rebuilt");
+  // V3 (W11, additive): optional `identity` (what the revision was made under) and `invalidation` (what it makes stale). Absent on a legacy event: nothing is required.
+  if (ev.identity != null) {
+    if (typeof ev.identity !== "object" || Array.isArray(ev.identity)) P.push("identity must be an object { keys: { \"kind:id\": sha256 }, policy_revision?, policy_digest? }");
+    else if (ev.identity.keys != null && (typeof ev.identity.keys !== "object" || Array.isArray(ev.identity.keys))) P.push("identity.keys must be an object of \"kind:id\" -> digest");
+  }
+  if (ev.invalidation != null) {
+    const iv = ev.invalidation;
+    if (typeof iv !== "object" || Array.isArray(iv)) P.push("invalidation must be an object { stale:[], keep:[], causes:[] }");
+    else for (const k of ["stale", "keep", "causes"]) if (iv[k] != null && !Array.isArray(iv[k])) P.push(`invalidation.${k} must be an array`);
+  }
   return P;
 }
 
@@ -89,4 +99,26 @@ export function markStale(run, revision_id, by_revision_id) {
   const last = readRevisions(run, { revision_id }).pop();
   if (!last || last.stage === "final_ready" || last.stage === "stale") return { ok: false, reason: last ? "already terminal" : "unknown revision" };
   return emitRevision(run, { revision_id, stage: "stale", film: last.film, source: last.source, scope: last.scope, note: `superseded by ${by_revision_id}: its render results are not published`, queue: null });
+}
+
+
+// ---- V3 (W11): late results and identity-based staleness --------------------------------------------------------------------------------------
+// An unfinished revision whose recorded identity (event / object / policy / look / score / font / anchor keys it was made under) no longer matches the CURRENT identity is
+// stale: its render results are kept as old reference, never published as current. identity.keys is lib/impact.mjs identityMap(); `reads` (optional) narrows the comparison
+// to the keys that revision actually read, so an unrelated edit does not stale it. -> { stale:[revision ids marked], kept:[ids still current], skipped:[{revision_id, why}] }
+// Consumer: the lead's resume path / console action (INT-ENGINE-A crew.mjs). Reuses markStale; writes only the existing revisions.jsonl.
+export function staleByIdentityEvents(run, currentKeys = {}) {
+  const stale = [], kept = [], skipped = [];
+  for (const [id, last] of Object.entries(latestRevisions(run))) {
+    if (!last || last.stage === "final_ready" || last.stage === "stale") continue;
+    const rec = last.identity && last.identity.keys;
+    if (!rec) { skipped.push({ revision_id: id, why: "no recorded identity: a legacy event cannot be compared, left as it is" }); continue; }
+    const reads = arr(last.identity.reads).map(String);
+    const relevant = (k) => !reads.length || reads.some((r) => k === r || k.startsWith(r + ":") || r.startsWith(k + ":"));
+    const moved = [...new Set([...Object.keys(rec), ...Object.keys(currentKeys)])].filter((k) => relevant(k) && rec[k] !== currentKeys[k]);
+    if (!moved.length) { kept.push(id); continue; }
+    const r = emitRevision(run, { revision_id: id, stage: "stale", film: last.film, source: last.source, scope: last.scope, identity: last.identity, invalidation: { stale: [id], keep: [], causes: moved }, note: `its inputs changed (${moved.slice(0, 4).join(", ")}${moved.length > 4 ? ", ..." : ""}): its results are kept as old reference and not published`, queue: null });
+    (r.ok ? stale : skipped).push(r.ok ? id : { revision_id: id, why: (r.problems || []).join("; ") });
+  }
+  return { stale, kept, skipped };
 }

@@ -6,7 +6,7 @@
 // whose outcome is unknown without the person's approval. Pause stops new starts (crew/pause.json); running work finishes.
 import fs from "node:fs";
 import path from "node:path";
-import { listJobs, readJob, cancelObsolete, requeue, ACTIVE } from "./jobs.mjs";
+import { listJobs, readJob, cancelObsolete, requeue, ACTIVE, groupProgress, staleByIdentity, dependencyState } from "./jobs.mjs";
 import { pauseState, setPause, throttleState, POOL_ORDER } from "./resource-pools.mjs";
 import { registryReport, uiState, blockedBy } from "./capabilities.mjs";
 import { reconcileRun } from "./recovery.mjs"; // Plan 11 R1
@@ -27,7 +27,8 @@ export function runStatus(run, { userWaits = null, now = Date.now() } = {}) {
   const limited = POOL_ORDER.map((p) => ({ pool: p, ...throttleState(run, p, now) })).filter((t) => t.throttled);
   const schedule = rj(path.join(path.resolve(String(run)), "crew", "schedule.json")) || {};
   const waits = userWaits || arr(schedule.user_waits);
-  const evidence = { active: active.length, failed: failed.map((j) => ({ job_id: j.job_id, node: j.node_id, state: j.state })), paused: pause.paused, rate_limited: limited.map((t) => t.pool), waiting_on: waits.map((w) => w.call || w), jobs: jobs.length };
+  const groups = groupProgress(run); // V3: only present when jobs carry continuity groups; a legacy run's evidence is unchanged
+  const evidence = { ...(groups.length ? { continuity_groups: groups.map((g) => ({ group_id: g.group_id, owner: g.owner, jobs: g.jobs, done: g.done, active: g.active })) } : {}), active: active.length, failed: failed.map((j) => ({ job_id: j.job_id, node: j.node_id, state: j.state })), paused: pause.paused, rate_limited: limited.map((t) => t.pool), waiting_on: waits.map((w) => w.call || w), jobs: jobs.length };
   if (failed.length && !active.length) return { state: "failed", label: "Failed", reason: failed.some((j) => j.state === "unknown_outcome") ? "A request may or may not have reached the provider. Check it before trying again." : "A step failed. You can retry it.", evidence };
   if (pause.paused) return { state: "paused", label: "Paused", reason: "Nothing new starts. Work already running finishes.", evidence };
   if (limited.length) { const t = limited[0]; return { state: "rate_limited", label: "Rate-limited", reason: t.reset_known ? `The provider asked us to wait about ${t.retry_after_s}s.` : "The provider is limiting requests and gave no reset time; we are backing off on our own schedule.", evidence: { ...evidence, retry_after_s: t.retry_after_s, reset_known: !!t.reset_known, source: t.source } }; }
@@ -85,12 +86,16 @@ export function handleJobControl(action, { run } = {}) {
       const r = reconcileRun(run, { apply: v.apply === true });
       return { ok: true, op: "recover", applied: v.apply === true, by_state: r.by_state, resume: r.resume, actions: r.actions.map((a) => ({ job_id: a.job_id, action: a.action, applied: a.applied })), note: r.actions.length ? (v.apply === true ? "Interrupted work was marked and publications were reconciled. Nothing restarted at the Brief." : "Some work was interrupted. Apply recovery to mark it; nothing is re-run without you.") : "Nothing needs recovery." };
     }
+    case "continuity": { // V3: read-only. Which continuity groups are done/active, which jobs went stale on a changed identity ({ identities: { group_id: digest } }), and, for one job, whether its edges are met.
+      const identities = v.identities && typeof v.identities === "object" ? v.identities : {};
+      return { ok: true, op: "continuity", groups: groupProgress(run), stale: staleByIdentity(run, identities), ...(v.job_id ? { dependencies: dependencyState(run, String(v.job_id)) } : {}), note: "Read-only. Stale work is rerun by group; nothing restarts automatically." };
+    }
     case "logs": return { op: "logs", ...jobLog(run, String(v.job_id || ""), { tail: Number(v.tail) || 60 }) };
     case "capabilities": {
       const view = capabilitiesView();
       try { fs.mkdirSync(path.join(path.resolve(String(run)), "crew"), { recursive: true }); fs.writeFileSync(path.join(path.resolve(String(run)), "crew", "capabilities.json"), JSON.stringify(view, null, 2) + "\n"); } catch {}
       return { ok: true, op: "capabilities", ready: view.items.filter((i) => i.ready).length, unavailable: view.items.filter((i) => i.state === "unavailable").length };
     }
-    default: return { ok: false, error: "op must be pause, resume, cancel, retry, recover, logs or capabilities" };
+    default: return { ok: false, error: "op must be pause, resume, cancel, retry, recover, continuity, logs or capabilities" };
   }
 }

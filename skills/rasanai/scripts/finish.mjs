@@ -41,6 +41,7 @@
 // RASANAI_RENDER_SLOTS at once on the machine, a free-memory gate; RASANAI_RENDER_SLOTS=0 or --no-slot turns it off).
 import fs from "node:fs";
 import os from "node:os";
+import crypto from "node:crypto";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { parseArgs, die, readFrontmatterDoc } from "./lib/common.mjs";
@@ -49,6 +50,7 @@ import { noteDowngrade } from "./lib/downgrade.mjs";
 import { acquireSlotSync } from "./lib/slot.mjs";
 import { renderProcessEnv } from "./lib/containment.mjs"; // Plan 11 R8: a render process does not inherit the director's provider keys
 import { readBudget } from "./lib/budget.mjs";
+import { finalCompletion } from "./lib/final-label.mjs";
 
 const args = parseArgs();
 const cmd = args._[0];
@@ -682,6 +684,7 @@ function projectHas(project, re) {
   return hit(project, 0);
 }
 
+const sha256Of = (f) => { try { return crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex"); } catch { return null; } };
 function report(extra) {
   process.stdout.write(JSON.stringify(extra, null, 2) + "\n");
 }
@@ -722,6 +725,7 @@ if (cmd === "blur" || cmd === "all") {
   }
   const mixSeconds = (Date.now() - t0) / 1000;
   const o = probe(out);
+  const completion = DRAFT ? null : finalCompletion(args.run, out); // revision 2 only (null otherwise): what this render truly counts as; draft stays allowed
   report({
     ok: true, command: cmd, draft: DRAFT || undefined, out, fps: b.fps, samples: b.N,
     sharp: b.sharp && b.sharp.length ? b.sharp.map((r) => ({ from_s: r[0], to_s: r[1], why: r[2] })) : undefined,
@@ -729,7 +733,8 @@ if (cmd === "blur" || cmd === "all") {
     frames: { expected: expectFrames, got: o.frames }, loop: loop || undefined, audio: o.hasAudio,
     auto: b.motion ? { motion: b.motion, pre_pass_seconds: b.preSeconds } : undefined,
     seconds: { render_oversampled: b.renderSeconds, mix_and_encode: mixSeconds, pre_pass: b.preSeconds, total: b.renderSeconds + mixSeconds + b.preSeconds },
-    size_kb: fmtSize(out), notes: [...b.notes, ...(result.grade ? result.grade.notes : [])], credits: result.grade && result.grade.print ? [CREDIT_RISO] : undefined, ...result,
+    ...(DRAFT ? {} : { output: { digest: sha256Of(out), duration_s: o.duration, fps: b.fps, kind: "final-render", note: "identity for assessCompletion (output.digest, duration_s, fps); a render is a draft until reviewed" } }),
+    size_kb: fmtSize(out), notes: [...b.notes, ...(result.grade ? result.grade.notes : []), ...(completion ? [completion.status_line || completion.error] : [])], completion: completion || undefined, credits: result.grade && result.grade.print ? [CREDIT_RISO] : undefined, ...result,
   });
   cleanup();
 } else if (cmd === "grade") {

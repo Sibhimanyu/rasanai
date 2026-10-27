@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+Implemented from the v3 creative overhaul handoff (Heresay briefs, 15 parts). Source-level only: checked with syntax and import loads, the skill-routing test, seven script suites and the Studio prompt parity test, but not rendered or tried on a real film, so no film-quality improvement is claimed. The film-pipeline, ffmpeg and Chrome test modules were not run.
+
+- **Creative policy revision 2.** One effective-policy resolver (`creative/effective-policy.json`) now decides pace, research and model limits. New eligible plans use revision 2; revision 1 films behave as before, and re-planning keeps a film's saved revision. Unsupported revisions refuse to dispatch.
+- **Concepts and commitments.** Story candidates carry a concept record and are checked for real divergence. Required creative commitments bind to events or are recorded as intentionally absent, so a quiet or formal film is valid.
+- **Temporal storyboards and continuity.** Shots can carry timed reads, anchors, camera intent and cut functions on the score's clock. A continuous action has one owner, so the crew assigns one agent per continuous action instead of one per scene.
+- **Mechanisms, medium rules and budgets.** Selected mechanism references attach to scene packets. Medium taste rules are scoped to the visual language while facts stay fixed. Spend is disclosed before work starts, and a model you pinned is never swapped for a cheaper one.
+- **Formal direction tools.** Role-aware typography operations, shared composition anchors, procedural form and field planning, and asset compositing plans (crop, mask, depth, rights), with two new runtime files `rasan-type.js` and `rasan-layout.js`. Beats opt in through `creative/beat-plans.json`; the check flags a beat that needs a plan and has none.
+- **Honest completion.** A Final is labelled `ready` only when its commitments have current evidence; anything else stays `draft`, which is always allowed. `ship` needs `ready`.
+- **Revisions.** A change re-runs only the work whose inputs it changed; font, anchor, material and camera changes join the dependency identity.
+- **Prompt wording.** "At least one spectacle moment" is now "a moment people will replay where the story earns one" (Show off and the Maximal default stay). Fast research may use local references and one bounded idea pass. The Swift prompt text, `director-prompt-data.json` and the golden file were regenerated together.
+- Known gaps: nothing yet authors `creative/beat-plans.json` automatically, 62 of the 180 deferred cases have no spec naming their expectation, and the Final label is not yet wired into every delivery path.
+
 ## 1.29.0 (2026-10-26): Creative Recovery and Style Intelligence
 
 - **Creative Recovery.** New films carry one small creative brief owned by the Director (`creative/brief.json`, `crew.mjs creative init|check|revise|gate|status`), automatic references that need no inspiration from you, proof contracts so a demonstration cannot change what the source says, creative evidence in every worker packet, and a check that the built film calls the approved idea instead of a card. Brief, Story, Look, Storyboard and Final stay your calls: new films check a real consumed choice (or an explicit Just make it) before boards and build, and a prepared file, brand, Fast pace or recommendation never counts. Saved films are unchanged.

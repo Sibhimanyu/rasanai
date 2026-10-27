@@ -164,7 +164,26 @@ if (cmd === "profiles") {
   const roots = flat(args.root).map((r) => path.resolve(String(r)));
   if (!roots.length && run) roots.push(run);
   if (sub === "plan") { const p = Pkg.planPackage(spec, { roots, run }); out({ ok: p.ok, ...p, decisions: p.decisions.map(({ abs, ...d }) => d) }, p.ok ? 0 : 2); }
-  else if (sub === "build") { const r = Pkg.buildPackage({ run, spec, roots }); out(r, r.ok ? 0 : 2); }
+  else if (sub === "build") {
+    const r = Pkg.buildPackage({ run, spec, roots });
+    // V3 W09 (policy revision >= 2 only): the export of a master carries the assessment label; a not-ready master is labelled draft. Guarded; revision 1 output is unchanged.
+    if (r && r.ok && run) {
+      try {
+        const CR = await import("./lib/creative-run.mjs");
+        const pl = CR.readPlan(run);
+        if (pl && Number(pl.creative_policy_revision) >= 2) {
+          const CC = await import("./lib/creative-completion.mjs");
+          const brief = jr(path.join(run, "creative", "brief.json"));
+          const rv = CR.latestReview(run, "final");
+          const review = rv && rv.doc ? CR.normalizeReviewPaths(rv.doc, run) : null;
+          const pins = CR.approvalPins(run);
+          const a = CC.assessCompletion({ approvals: { pins: Object.fromEntries(Object.entries(pins || {}).map(([k, v]) => [k, v && v.artifact_digest ? v.artifact_digest : v])) }, contract: { brief, stage: "final" }, output: { exists: false }, review });
+          r.completion = { state: a.state, label: a.state === "ready" ? "ready" : "draft", status_line: CC.completionStatusLine(a), note: "no master digest is passed here yet: the label is draft until the lead wires the master's sha256 (see patch proposals)" };
+        }
+      } catch { /* label is advisory */ }
+    }
+    out(r, r.ok ? 0 : 2);
+  }
   else if (sub === "verify") { const dir = path.resolve(need(args.dir || args.package, "--dir")); out(Pkg.verifyPackage(dir)); }
   else out({ ok: false, error: "package plan|build|verify" }, 1);
 } else if (cmd === "interchange") {

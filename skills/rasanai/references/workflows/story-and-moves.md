@@ -61,6 +61,10 @@ Answers:
 - The writers read `creative/brief.json` and the selected references; each treatment carries one conceptual visual idea (what changes on screen that carries the claim), not shot coordinates. A beat that shows a changed sentence, a calculation or a rule gets a proof contract in `story/proof-contracts.json` (`scripts/lib/proof-integrity.mjs`); the script editor's meaning review is `story/proof-review.json`. `crew.mjs check` validates both: mechanical errors block, meaning is the editor's judgment (a token match never proves it). The concept critic also answers `demonstrations_preserve_meaning` and `visual_idea_carries_claim`.
 - Nothing here changes the Story call. After the user's Story choice (a consumed choose or approve action) run `node $SKILL_DIR/scripts/crew.mjs creative revise --run "$RUN" --mode story`: a new revision of the brief with the confirmed pin and the references re-picked. It refuses a story that is only prepared.
 
+### Revision 2 (v3)
+
+Treatments carry the concept development of [concept-development.md](../concept-development.md): materially different candidates, concept contrast checks and the `commitments` each treatment promises. After the Story choice every required commitment is bound to a signature event or to an approved intentional absence ([event-commitments.md](../event-commitments.md)); `node $SKILL_DIR/scripts/crew.mjs creative commitments --run "$RUN" --phase story` lists what is bound, open or incompatible. A quiet or formal film is valid when its alternative commitments are approved, never when a promise is merely deferred.
+
 ## Deeper references for this guide
 
 The canonical homes of the detail this guide points at (read the one the current step needs):

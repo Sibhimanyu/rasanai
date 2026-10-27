@@ -8,6 +8,10 @@
 //   compareCandidates(list)           -> { pairs, distinct, insufficient }   by proof selection, order, perspective, premise; never by decoration
 //   validateReview(review)            -> { ok, problems }   the editor's structured review file
 //   toLegacyPitch(t) / toIntent(t)    -> the shapes the existing Story card, Moves pass and structure critic read
+//   normalizeCreativeThinking(raw) / conceptRecord(t) / conceptActive(t, ctx)   -> v3 additive concept layer (extensions.creative_thinking, version 1)
+//   validateConceptRecord(t, ctx)     -> { present, issues }   one candidate's concept record: observable occurrence, feasibility, product connection, kind mismatch
+//   validateConceptContrast(set, ctx) -> { ok, applicable, records, pairs, shared_mechanisms, missing_alternatives, problems, notes }   structural checks plus editor hints; semantic judgement stays with the script editor
+//   conceptCard(t)                    -> { title, premise, tag, detail }   additive plain-language card detail; cardLabel is unchanged
 // Severity: error = mechanical or factual (blocks); major = creative concern that blocks acceptance (the editor says rewrite); minor = creative note;
 // craft = an optional choice, assessed for purpose and never required or banned.
 import { canonicalDigest, SCHEMA_VERSION } from "./contracts.mjs";
@@ -63,8 +67,9 @@ export function normalizeTreatment(raw) {
     });
   });
   const take = arr(r.takeaways).map((x, i) => (isObj(x) ? { id: T(x.id) || `t${i + 1}`, text: T(x.text), required: x.required !== false } : { id: `t${i + 1}`, text: T(x), required: true }));
+  const ext = isObj(r.extensions) ? { extensions: { ...r.extensions, ...(isObj(r.extensions.creative_thinking) ? { creative_thinking: normalizeCreativeThinking(r.extensions.creative_thinking) } : {}) } } : {};
   return defaultTreatment({
-    ...r, id: T(r.id) || slug(r.treatment_title || r.title || r.tag), tag: TAGS.includes(r.tag) ? r.tag : TAGS.includes(r.label) ? r.label : null,
+    ...r, ...ext, id: T(r.id) || slug(r.treatment_title || r.title || r.tag), tag: TAGS.includes(r.tag) ? r.tag : TAGS.includes(r.label) ? r.label : null,
     treatment_title: T(r.treatment_title || r.title), premise: T(r.premise), logline: T(r.logline), communication_kind: T(r.communication_kind), proposition: T(r.proposition),
     viewer_takeaway: T(r.viewer_takeaway), perspective: T(r.perspective), takeaways: take, beats,
     coverage: { ledger: arr(r.coverage && r.coverage.ledger), excluded: arr(r.coverage && r.coverage.excluded) }, claims: arr(r.claims), optional_tools: arr(r.optional_tools),
@@ -253,6 +258,9 @@ export function validateTreatment(raw, ctx = {}) {
     else add("craft-" + id, null, why ? `uses ${id}: ${why}` : `uses ${id} with no stated purpose`, "craft", why ? "none" : "state what this serves", "craft");
   }
 
+  // v3 concept layer: only when the treatment carries extensions.creative_thinking or the caller asks (ctx.concept === true); legacy treatments are untouched
+  if (conceptActive(t, ctx)) for (const i of validateConceptRecord(t, { ...ctx, kind }).issues) issues.push(i);
+
   const errors = issues.filter((x) => x.severity === "error"), majors = issues.filter((x) => x.severity === "major");
   const concerns = issues.filter((x) => x.severity === "major" || x.severity === "minor"), craft = issues.filter((x) => x.severity === "craft");
   const verdict = errors.length || majors.length ? "rewrite" : "ship";
@@ -273,7 +281,149 @@ export function validateTreatmentSet(set, ctx = {}) {
   if (!cmp.distinct && list.length > 1) escalate.push({ reason: "diversity", detail: "candidates differ on fewer than two of: proof selection, information order, perspective, premise", pairs: cmp.insufficient });
   if (results.filter((r) => r.errors.some((e) => e.class === "mechanical" && /evidence|unsupported|must-show/.test(e.issue_id))).length >= 2) escalate.push({ reason: "evidence", detail: "two or more candidates lack supported proof" });
   if (results.filter((r) => r.concerns.some((c) => c.severity === "major")).length >= 2) escalate.push({ reason: "clarity", detail: "two or more candidates fail the meaning checks" });
-  return { ok: !problems.length && results.every((r) => r.ok) && cmp.distinct, problems, results, comparison: cmp, escalation: { needed: escalate.length > 0, extra_writer: escalate.length > 0, reasons: escalate }, revision_rounds_default: 1 };
+  const contrast = list.some((t) => conceptActive(t, ctx)) ? validateConceptContrast(list, ctx) : null;
+  if (contrast && !contrast.ok) for (const p of contrast.problems) problems.push(p.why);
+  return { ok: !problems.length && results.every((r) => r.ok) && cmp.distinct, problems, results, comparison: cmp, ...(contrast ? { concept_contrast: contrast } : {}), escalation: { needed: escalate.length > 0, extra_writer: escalate.length > 0, reasons: escalate }, revision_rounds_default: 1 };
+}
+
+// ---- v3 concept layer (additive) ------------------------------------------------------------------
+// extensions.creative_thinking = { version: 1, development, direction, commitments, continuity, review_requirements }. This file owns `development.concept`
+// (one record per treatment); `direction` is the Look lane's, `commitments` the commitments lane's, `continuity` the continuity lane's: all preserved verbatim.
+// Existing treatment fields, card labels and ids never change meaning. A treatment with no extensions.creative_thinking reads and validates exactly as before.
+export const CREATIVE_THINKING_VERSION = 1;
+// open vocabularies: suggestions for the writer, never a closed list or a quota (an unknown value is kept and judged by the editor)
+export const CONCEPT_KINDS = ["product-documentary", "character", "material", "typographic", "formal-system", "editorial-rhythm", "explanatory-model", "testimonial-evidence", "atmospheric", "hybrid"];
+export const VISUAL_REASONING_MODES = ["narrative", "demonstrative", "formal", "editorial", "atmospheric", "hybrid"];
+export const FEASIBILITY_STATES = ["supported", "supported-with-risk", "needs-direction", "capability-blocked", "unknown"];
+export const MECHANISM_STATUSES = ["exploratory", "writer-chosen", "brief-fixed", "user-fixed"];
+const NARROW_KINDS = ["instructional-explainer", "workflow-demo", "single-feature-announcement"];
+const CONCEPT_FIELDS = ["concept_kind", "organizing_idea", "organizing_mechanism", "visual_mechanism", "emotional_arc", "opening_question", "ending_answer", "provisional_medium_options", "product_connection", "evidence_plan", "feasibility", "continuity_scope", "creative_risks", "distinct_from", "visual_reasoning_mode", "explanation_model", "mechanism_status"];
+const list2 = (x) => arr(x).map((v) => (isObj(v) ? v : T(v))).filter((v) => (isObj(v) ? true : v));
+const arc = (a) => (isObj(a) ? { opening: T(a.opening || a.start), development: T(a.development || a.middle), ending: T(a.ending || a.end), movement: T(a.movement) } : { opening: "", development: "", ending: "", movement: T(a) });
+const feas = (f) => { const o = isObj(f) ? f : { state: f }; const st = T(o.state || o.status).toLowerCase(); return { state: FEASIBILITY_STATES.includes(st) ? st : st ? "unknown" : "unknown", stated: !!st, needs: list2(o.needs || o.capabilities), risks: list2(o.risks), supported_alternative: T(o.supported_alternative || o.alternative), basis: T(o.basis || o.evidence) }; };
+const dist = (d) => arr(isObj(d) ? d.from || d.ids : d).map((x) => (isObj(x) ? { id: T(x.id), how: T(x.how || x.difference || x.why), axes: arr(x.axes).map(String) } : { id: T(x), how: "", axes: [] })).filter((x) => x.id);
+
+// the one concept record of a treatment: from extensions.creative_thinking.development.concept, else the same fields at the top level of the treatment
+export function conceptRecord(raw) {
+  const t = isObj(raw) ? raw : {};
+  const ct = isObj(t.extensions) && isObj(t.extensions.creative_thinking) ? t.extensions.creative_thinking : null;
+  const dev = ct && isObj(ct.development) ? ct.development : {};
+  const src = isObj(dev.concept) ? dev.concept : Object.fromEntries(CONCEPT_FIELDS.filter((k) => t[k] !== undefined).map((k) => [k, t[k]]));
+  const mech = T(src.organizing_mechanism || src.organizing_idea);
+  const mode = T(src.visual_reasoning_mode || dev.visual_reasoning_mode).toLowerCase();
+  const dfrom = dist(src.distinct_from);
+  return {
+    present: !!ct || Object.keys(src).length > 0,
+    concept_kind: T(src.concept_kind), organizing_mechanism: mech, organizing_idea: T(src.organizing_idea || src.organizing_mechanism), visual_mechanism: T(src.visual_mechanism),
+    emotional_arc: arc(src.emotional_arc), opening_question: T(src.opening_question), ending_answer: T(src.ending_answer), product_connection: T(src.product_connection),
+    evidence_plan: list2(src.evidence_plan), provisional_medium_options: list2(src.provisional_medium_options), feasibility: feas(src.feasibility), continuity_scope: T(src.continuity_scope),
+    creative_risks: list2(src.creative_risks), visual_reasoning_mode: VISUAL_REASONING_MODES.includes(mode) ? mode : mode ? "hybrid" : "",
+    explanation_model: T(src.explanation_model), mechanism_status: MECHANISM_STATUSES.includes(T(src.mechanism_status)) ? T(src.mechanism_status) : "",
+    distinct_from: dfrom, distinct_from_why: T(isObj(src.distinct_from) && !Array.isArray(src.distinct_from) ? src.distinct_from.why || src.distinct_from.difference : src.distinct_from_why),
+  };
+}
+
+// version-1 envelope; unknown keys and other lanes' sections survive untouched. Never throws, never invents a concept.
+export function normalizeCreativeThinking(raw) {
+  const r = isObj(raw) ? raw : {};
+  const dev = isObj(r.development) ? r.development : {};
+  return {
+    ...r, version: CREATIVE_THINKING_VERSION, development: dev, direction: isObj(r.direction) ? r.direction : {}, commitments: isObj(r.commitments) || Array.isArray(r.commitments) ? r.commitments : {},
+    continuity: isObj(r.continuity) ? r.continuity : {}, review_requirements: isObj(r.review_requirements) || Array.isArray(r.review_requirements) ? r.review_requirements : {},
+  };
+}
+
+// the concept layer runs only when a treatment carries the extension (or the caller opts in): legacy and revision-1 films are never judged by it
+export const conceptActive = (t, ctx = {}) => (isObj(ctx) && ctx.concept === true) || (isObj(t) && isObj(t.extensions) && isObj(t.extensions.creative_thinking));
+
+// an observable occurrence = something a viewer could see happen (a change, an action, an argument developing), not only a mood. Judged by meaning-bearing words, not a ban list.
+const MOOD = new Set("feeling feels vibe mood atmosphere energy emotion emotional inspiring inspirational dynamic powerful beautiful sleek modern premium cinematic bold elegant magical seamless".split(" "));
+const occurrence = (s) => { const c = content(s); const nonMood = c.filter((w) => !MOOD.has(w) && !ABSTRACT.has(w)); return { words: c.length, concrete: nonMood.length, moodShare: c.length ? Math.round((1 - nonMood.length / c.length) * 100) / 100 : 1 }; };
+
+// one candidate: structural completeness and feasibility. Issues use the same shape as validateTreatment so the editor's review reads one vocabulary.
+export function validateConceptRecord(raw, ctx = {}) {
+  const t = normalizeTreatment(raw);
+  const c = conceptRecord(t);
+  const issues = [];
+  const add = mk(issues);
+  if (!c.present) return { present: false, issues };
+  const kind = T(t.communication_kind) || T(ctx.kind);
+  if (!c.organizing_mechanism) add("concept-mechanism-missing", null, "no organizing mechanism or idea", "major", "say in one sentence what organizes this film (the causal mechanism, perspective, temporal structure or picture-to-proof relation)", "creative");
+  const occ = occurrence(c.visual_mechanism || c.organizing_mechanism);
+  if ((c.visual_mechanism || c.organizing_mechanism) && (occ.concrete < 3 || occ.moodShare >= 0.5)) add("concept-no-observable-occurrence", null, `visual mechanism "${c.visual_mechanism || c.organizing_mechanism}" names a mood, not something a viewer sees happen`, "major", "name the observable action, change or developing argument (what appears, what changes, what it becomes), or the formal relationship that develops (scale, repetition, contrast) for a formal film", "creative");
+  const formal = ["formal", "editorial", "atmospheric"].includes(c.visual_reasoning_mode);
+  if (!c.product_connection && !(formal && T(kind) && !["whole-product-introduction", "single-feature-announcement", "workflow-demo", "performance-ad"].includes(kind))) add("concept-product-connection-missing", null, "no product connection", "minor", "say how this idea belongs to this product, audience or brief (an honest 'it is a demonstration' is a valid answer)", "creative");
+  if (!c.emotional_arc.movement && !(c.emotional_arc.opening && c.emotional_arc.ending)) add("concept-arc-missing", null, "no emotional arc (where the viewer starts and where they end)", "minor", "state the movement in one phrase: from what to what", "creative");
+  if (!c.feasibility.stated) add("concept-feasibility-undeclared", null, "feasibility is not stated", "minor", `set feasibility.state to one of ${FEASIBILITY_STATES.join(", ")} (use the capability sources the plan reads; unknown is honest)`, "creative");
+  if (c.feasibility.state === "capability-blocked" && !c.feasibility.supported_alternative) add("concept-infeasible", null, "the idea needs a capability that is blocked and no supported direction is offered", "major", "offer the closest supported direction (feasibility.supported_alternative) or replace the candidate before the user is asked to choose it", "creative");
+  else if (c.feasibility.state === "capability-blocked") add("concept-infeasible-disclosed", null, `blocked as written; supported direction: ${c.feasibility.supported_alternative}`, "minor", "present the supported direction in the card detail, not the blocked one as buildable", "creative");
+  if (c.feasibility.state === "needs-direction" || c.feasibility.state === "supported-with-risk") add("concept-feasibility-tradeoff", null, `feasibility ${c.feasibility.state}: ${[...c.feasibility.risks, ...c.feasibility.needs].map((x) => (isObj(x) ? JSON.stringify(x) : x)).join("; ") || "unstated"}`, "craft", "disclose the tradeoff in the existing card detail", "craft");
+  // a brief that fixes the kind or genre: a candidate of an unrelated concept kind is a mismatch to flag (never a diversity quota)
+  const fixedKinds = arr(ctx.fixed_concept_kinds).map(String);
+  if (fixedKinds.length && c.concept_kind && !fixedKinds.includes(c.concept_kind)) add("concept-kind-mismatch", null, `concept_kind "${c.concept_kind}" is outside what the brief fixes (${fixedKinds.join(", ")})`, "major", "write inside the format the brief fixed, or ask the owner whether the format may change", "creative");
+  return { present: true, record: c, issues };
+}
+
+// The set. Structural checks are deterministic; "do these differ as FILMS" is the editor's judgement in the same bounded pass.
+// ctx: { kind, proposal_mode, brief_mechanism, fixed_concept_kinds, choices }. Similarity numbers (compareCandidates) travel as hints and never decide ok.
+export function validateConceptContrast(set, ctx = {}) {
+  const ts = arr(isObj(set) ? set.treatments : set).map(normalizeTreatment);
+  const records = ts.map((t) => ({ id: t.id, ...conceptRecord(t) }));
+  const applicable = records.some((r) => r.present) || (isObj(ctx) && ctx.concept === true);
+  const problems = [], notes = [];
+  const note = (code, ids, why, severity = "minor") => notes.push({ code, ids, why, severity });
+  const prob = (code, ids, why) => problems.push({ code, ids, why });
+  if (!applicable) return { ok: true, applicable: false, records: [], pairs: [], shared_mechanisms: [], missing_alternatives: [], problems, notes };
+  const kind = T(ctx.kind) || T(ts[0] && ts[0].communication_kind);
+  const narrow = NARROW_KINDS.includes(kind);
+  const idSet = new Set(ts.map((t) => t.id));
+  for (const r of records) {
+    if (!r.present) prob("concept-record-missing", [r.id], `${r.id}: no concept record while its siblings have one`);
+    for (const d of r.distinct_from) if (!idSet.has(d.id)) prob("concept-distinct-unknown-id", [r.id, d.id], `${r.id}: distinct_from cites ${d.id}, which is not a candidate in this set`);
+    if (ts.length > 1 && r.present && !r.distinct_from.length) prob("concept-distinct-missing", [r.id], `${r.id}: distinct_from is empty (cite sibling ids and say how the causal mechanism, perspective, temporal structure, emotional movement or picture-to-proof relation differs)`);
+    if (r.present && r.distinct_from.length && !r.distinct_from_why && r.distinct_from.every((d) => !d.how)) prob("concept-distinct-unexplained", [r.id], `${r.id}: distinct_from names siblings but not how they differ`);
+  }
+  // a shared mechanism is a hint for the editor: identical normalised mechanism text across candidates (never token distance)
+  const byMech = new Map();
+  for (const r of records) { const k = words(r.organizing_mechanism).join(" "); if (k) byMech.set(k, [...(byMech.get(k) || []), r.id]); }
+  const shared = [...byMech.entries()].filter(([, ids]) => ids.length > 1).map(([mechanism, ids]) => ({ mechanism, ids }));
+  for (const s of shared) note("shared-mechanism", s.ids, `${s.ids.join(", ")} state the same organizing mechanism: the editor decides whether they are one film (reordered or re-skinned) and names the substantive alternative that is missing`, "major");
+  // proposal mode: the proposal must not preselect the shared mechanism for every candidate
+  if (ctx.proposal_mode === true || T(ctx.brief_mechanism)) {
+    const bm = words(ctx.brief_mechanism).join(" ");
+    const pre = records.filter((r) => r.present && r.mechanism_status !== "exploratory" && !["brief-fixed", "user-fixed"].includes(r.mechanism_status) && bm && words(r.organizing_mechanism).join(" ") === bm);
+    if (pre.length > 1 && pre.length === records.length) prob("concept-mechanism-preselected", pre.map((r) => r.id), "every candidate adopts the mechanism that the proposal brief already contained; keep it exploratory (mechanism_status: exploratory) in at most one candidate and develop genuinely different mechanisms for the others");
+    else if (pre.length && !bm) { /* no brief mechanism: nothing to preselect */ }
+  }
+  // the brief fixed the format: alternatives differ inside it (explanation model, point of view, evidence structure), never by a genre quota
+  const fixed = arr(ctx.fixed_concept_kinds).length > 0 || narrow;
+  const kinds = new Set(records.map((r) => r.concept_kind).filter(Boolean));
+  if (fixed && kinds.size > 1 && arr(ctx.fixed_concept_kinds).length) for (const r of records) if (r.concept_kind && !arr(ctx.fixed_concept_kinds).includes(r.concept_kind)) note("concept-kind-mismatch", [r.id], `${r.id}: ${r.concept_kind} sits outside the format the brief fixed`, "major");
+  const hints = ts.length > 1 ? compareCandidates(ts) : { pairs: [], distinct: true, insufficient: [] };
+  const pairs = hints.pairs.map((p) => {
+    const A = records.find((r) => r.id === p.a), B = records.find((r) => r.id === p.b);
+    const sameMech = !!A.organizing_mechanism && words(A.organizing_mechanism).join(" ") === words(B.organizing_mechanism).join(" ");
+    const sameModel = narrow && !!A.explanation_model && words(A.explanation_model).join(" ") === words(B.explanation_model).join(" ");
+    const modelDiffers = narrow && !!A.explanation_model && !!B.explanation_model && !sameModel;
+    const kindDiffers = !!A.concept_kind && !!B.concept_kind && A.concept_kind !== B.concept_kind;
+    return { a: p.a, b: p.b, hints: p.similarity, axes_different: p.axes_different, shared_mechanism: sameMech, explanation_model_differs: narrow ? modelDiffers : null, concept_kind_differs: kindDiffers,
+      needs_editor: sameMech || sameModel || p.axes_different < 2 };
+  });
+  for (const p of pairs) if (p.needs_editor && !p.shared_mechanism && !shared.some((s) => s.ids.includes(p.a) && s.ids.includes(p.b))) note("similar-structure", [p.a, p.b], `${p.a} and ${p.b} score close on proof/order/perspective/premise (hint only): confirm they differ in mechanism, perspective, temporal structure, emotional movement or picture-to-proof relation before they ship`, "minor");
+  const missing = shared.map((s) => ({ ids: s.ids, shared: s.mechanism, ask: narrow ? "name a faithful alternative with a different explanation model, point of view or evidence structure" : "name a substantive alternative that differs in causal mechanism, perspective, temporal structure, emotional movement or picture-to-proof relation" }));
+  return { ok: !problems.length, applicable: true, kind, narrow, records: records.map(({ id, present, concept_kind, organizing_mechanism, visual_reasoning_mode, mechanism_status, explanation_model, feasibility, distinct_from }) => ({ id, present, concept_kind, organizing_mechanism, visual_reasoning_mode, mechanism_status, explanation_model, feasibility: feasibility.state, distinct_from: distinct_from.map((d) => d.id) })),
+    pairs, shared_mechanisms: shared, missing_alternatives: missing, problems, notes, editor_judges: "semantic contrast; hints and shared_mechanisms are retrieval aids, not a gate" };
+}
+
+// additive plain-language detail for the existing card summary/detail slots; cardLabel (title/premise/tag) is unchanged
+export function conceptCard(raw) {
+  const t = normalizeTreatment(raw);
+  const c = conceptRecord(t);
+  const bits = [];
+  if (c.visual_mechanism || c.organizing_idea) bits.push(c.visual_mechanism || c.organizing_idea);
+  if (c.emotional_arc.movement || (c.emotional_arc.opening && c.emotional_arc.ending)) bits.push(c.emotional_arc.movement || `from ${c.emotional_arc.opening} to ${c.emotional_arc.ending}`);
+  const tradeoff = c.feasibility.state === "capability-blocked" ? c.feasibility.supported_alternative : [...c.feasibility.risks, ...c.creative_risks].map((x) => (isObj(x) ? T(x.risk || x.text) : x)).filter(Boolean).slice(0, 2).join("; ");
+  return { ...cardLabel(t), detail: bits.join(". "), tradeoff, feasibility: c.feasibility.state, concept_kind: c.concept_kind };
 }
 
 // card label: the actual premise first, Sure / Bold / Wild only as a secondary tag
@@ -310,6 +460,7 @@ export function toLegacyPitch(raw, { label = null } = {}) {
     story_format: STORY_FORMAT, treatment_id: t.id, label: label || t.tag || t.id, angle: t.tag || "", title: t.treatment_title, treatment_title: t.treatment_title, premise: t.premise,
     logline: t.logline, proposition: t.proposition, communication_kind: t.communication_kind, aim: { takeaway: t.viewer_takeaway || t.proposition, feel: "", action: "", audience: "" },
     perspective: t.perspective, coverage_ledger: coverageLedger(t).rows,
+    ...(isObj(t.extensions) && isObj(t.extensions.creative_thinking) ? { extensions: { creative_thinking: t.extensions.creative_thinking }, concept_card: conceptCard(t) } : {}),
     beats: t.beats.map((b) => ({ id: b.id, name: b.internal_beat_label || b.id, on_screen: b.on_screen, vo: b.voiceover == null ? "" : b.voiceover, visual: evText(b.visual_event), picture: b.visual_event.change,
       duration_s: b.duration_provisional_s, buys: b.viewer_takeaway, viewer_takeaway: b.viewer_takeaway, viewer_before: b.visual_event.before, viewer_after: b.visual_event.after,
       relation: b.relation_to_previous, role: b.grammar_role, evidence_refs: b.evidence_refs, channel_role: b.channel_role })),
