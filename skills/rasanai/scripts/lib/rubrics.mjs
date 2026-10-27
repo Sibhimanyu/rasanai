@@ -112,3 +112,28 @@ export function sensitivityCheck({ expected_reason, expected_category, findings 
   const right = fails.some((f) => (!expected_category || f.category === expected_category) && (!expected_reason || text(f).includes(String(expected_reason).toLowerCase())));
   return right ? { ok: true } : { ok: false, class: "grader_failure", why: "it failed the case, but not for the planted reason", got: fails.map((f) => f.category) };
 }
+
+// ---- temporal / formal review questions (V3 W09; references/temporal-review.md). Additive: rubricFor and its output are unchanged. ----------
+// Each is answered from the observed interval of the CURRENT output, with unknown / not_observed always allowed. No question asks for a villain, a peak
+// position, a motion ratio or a shot count; a deliberately quiet film can pass every one of them.
+export const TEMPORAL_QUESTIONS = [
+  { id: "retell", ask: "Without the production explanation, what happened in this interval and what can a first-time viewer infer? Then compare that with the approved commitment." },
+  { id: "cause_action_result", ask: "Is the cause visible before its consequence, and are identity, action and result all legible at final size and speed?" },
+  { id: "audience_reads", ask: "Are the ordered audience reads reachable in the time given, and does attention land where the read needs it?" },
+  { id: "neighbours", ask: "Across the neighbouring shots, do shared objects, composition and (where it matters) sound continue the same event, or break it?" },
+  { id: "reading_vs_texture", ask: "Is the text here reading copy the viewer must read, or visual texture the viewer should feel? Judge each by its own job." },
+];
+export const FORMAL_QUESTIONS = [
+  { id: "hierarchy", ask: "What does the eye meet first, second, last, and is that the intended order?" },
+  { id: "invariant", ask: "What stays constant while other things change?" },
+  { id: "transformation", ask: "What changes, how, and does the change develop rather than repeat?" },
+  { id: "contrast", ask: "Where is the contrast (scale, density, tempo, silence) and does it do work?" },
+  { id: "resolution", ask: "How does the passage resolve, release or hold, and is that earned?" },
+];
+// commitment_kind 'formal' (or a passage the treatment calls formal) uses FORMAL_QUESTIONS instead of a literal narrative retell; text-as-image stays an artistic subject.
+export function temporalRubricFor(kind, { formal = false } = {}) {
+  const base = rubricFor(kind);
+  const r = { kind, version: 1, formal: !!formal, questions: formal ? [...FORMAL_QUESTIONS, TEMPORAL_QUESTIONS[4]] : [...TEMPORAL_QUESTIONS], answers_allowed: VERDICTS, results_allowed: ["fulfilled", "partially_fulfilled", "missing", "materially_changed", "stale", "not_assessable"], focus: base ? base.focus : null, legitimate: base ? base.legitimate : null, not_required: ["villain", "twist", "peak at a set percentage", "shot count", "technique count", "a motion ratio", "removing text to prove the image works"], notes: ["metadata, file extensions and movement metrics never establish intent", "a deliberate quiet film may be judged successful", "a retained character across shots is not automatically repetition"] };
+  assertNoFormula(r);
+  return r;
+}

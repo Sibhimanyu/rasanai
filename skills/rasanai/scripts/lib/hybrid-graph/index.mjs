@@ -9,6 +9,7 @@ import path from "node:path";
 import { cacheKey, canonical, sha256, fileSha256, stable } from "../render-cache/index.mjs";
 // PLAN 09 P5: what is INSIDE a scene (code bytes, includes, fonts, shared components, time neighbours, unknown dynamic dependencies) joins every scene-render key
 import { sceneDeps, sceneKeyInputs, boundaryTime } from "../render-keys.mjs";
+import { compositingFields } from "../hybrid-compositor/index.mjs";
 
 export const STAGES = ["source-decode", "trim", "track", "mask", "perspective-warp", "scene-render", "comp", "color-finish", "sound-mix", "package"];
 const STATUSES = ["stale", "ready", "rendering", "failed"];
@@ -152,7 +153,9 @@ export function compile(inputs) {
       const m = asset.media || {};
       const dec = add("source-decode", `source-decode:${tag}`, sc.id, [], { asset_id: l.asset_id, sha256: (inputs.provenance && inputs.provenance[l.asset_id] ? inputs.provenance[l.asset_id].output_sha256 : null) ?? inputs.assetDigests[l.asset_id] ?? null, media: m, provenance: (inputs.provenance && inputs.provenance[l.asset_id]) || null },
         out("video", { width: m.width ?? w, height: m.height ?? h, fps_num: m.fps_num ?? fps.num, fps_den: m.fps_den ?? fps.den }));
-      const trim = add("trim", `trim:${tag}`, sc.id, [dec.id], { in_s: l.in_s, duration_s: l.duration_s }, out("video", { alpha: l.render_role === "matte" ? "straight" : "none" }), { range: [l.in_s, r6(l.in_s + l.duration_s)] });
+      // W16: crop / region / anchor / mask / plan digest join the key only when the layer carries them (legacy keys stay byte-identical); every layer node depends on trim
+      const cf = compositingFields(l);
+      const trim = add("trim", `trim:${tag}`, sc.id, [dec.id], { in_s: l.in_s, duration_s: l.duration_s, ...(Object.keys(cf).length ? { compositing: cf } : {}) }, out("video", { alpha: l.render_role === "matte" ? "straight" : "none" }), { range: [l.in_s, r6(l.in_s + l.duration_s)] });
       let last = trim;
       const trk = inputs.tracks[l.asset_id];
       if (trk) last = add("track", `track:${tag}`, sc.id, [trim.id], { tracks: trk }, out("data"));

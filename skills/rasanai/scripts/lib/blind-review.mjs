@@ -97,3 +97,17 @@ export function checkBaseline(b = {}) {
   if (b.runtime_class && b.compared_runtime_class && b.runtime_class !== b.compared_runtime_class) errors.push(`not like for like: ${b.runtime_class} vs ${b.compared_runtime_class} (e.g. a cheap derived operation versus a full generation)`);
   return errors.length ? { ok: false, errors } : { ok: true };
 }
+
+// ---- retell-first review (V3 W09; references/temporal-review.md) ------------------------------------------------------------------------
+// The retell packet holds ONLY what a first-time viewer has: the output identity and the intervals to watch. It never carries the approved intent,
+// the commitments' wording, the builder's notes or the production explanation. The comparison packet is built second, after the retell is recorded.
+// Consumers: the film critic dispatch in crew.mjs (proposed patch) and creative-completion.assessCompletion (reads review.retell.before_intent).
+export function retellPacket({ output = {}, intervals = [] } = {}) {
+  const ivs = (Array.isArray(intervals) ? intervals : []).filter((i) => i && Number.isFinite(Number(i.start_s)) && Number.isFinite(Number(i.end_s))).map((i) => ({ id: i.id ?? null, start_s: Number(i.start_s), end_s: Number(i.end_s) }));
+  return { kind: "retell_packet", output: { digest: output.digest || null, duration_s: output.duration_s ?? null, fps: output.fps ?? null }, watch_intervals: ivs, ask: "Describe what happens, in order, and what a first-time viewer could infer. Do not look for anything you were not shown.", withheld: ["approved intent", "commitment wording", "builder notes", "scene types"] };
+}
+// recorded after the reviewer's retell; `text` is the retell, `intent` the approved description it is then compared with
+export function compareRetell({ retell = {}, intent = {}, order = {} } = {}) {
+  const written = order.retell_at != null && order.intent_read_at != null ? Number(order.retell_at) <= Number(order.intent_read_at) : retell.before_intent === true;
+  return { text: String(retell.text || "").trim(), before_intent: written === true, match: ["yes", "partly", "no"].includes(retell.match) ? retell.match : null, compared_with: intent && intent.id ? intent.id : null };
+}

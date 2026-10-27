@@ -697,6 +697,26 @@ if (cmd === "push") {
     if (ph && ph.fresh) next.proxy = ph.proxy;
     else if (ph) spawnProxy(args.step, ph.video);
   }
+  // V3 W09 (policy revision >= 2 only; revision 1 and legacy runs are untouched): the render/final push states what the output truly is. The assessment rides in the existing note slot
+  // and in creative_completion; the approve action, step order and controls are unchanged. Guarded: a missing helper never blocks a push.
+  if (["render", "final"].includes(args.step) && ["awaiting", "done"].includes(next.status)) {
+    try {
+      const CR = await import("./lib/creative-run.mjs");
+      const plan = CR.readPlan(RUN);
+      if (plan && Number(plan.creative_policy_revision) >= 2) {
+        const CC = await import("./lib/creative-completion.mjs");
+        const vf = newestVideo(next) ? payloadFile(newestVideo(next)) : null;
+        const brief = readJSON(path.join(RUN, "creative", "brief.json"), null);
+        const rv = CR.latestReview(RUN, "final");
+        const review = rv && rv.doc ? CR.normalizeReviewPaths(rv.doc, RUN) : null;
+        const pins = CR.approvalPins(RUN);
+        const digest = vf ? crypto.createHash("sha256").update(fs.readFileSync(vf)).digest("hex") : null;
+        const a = CC.assessCompletion({ approvals: { pins: Object.fromEntries(Object.entries(pins || {}).map(([k, v]) => [k, v && v.artifact_digest ? v.artifact_digest : v])) }, contract: { brief, stage: "final" }, output: { digest, exists: !!vf, playable: !!vf, duration_s: Number(next.duration) || undefined }, review: review ? { ...review, round: Number.isInteger(review.round) ? review.round : rv.n } : null });
+        next.creative_completion = { state: a.state, allowed_labels: a.allowedLabels, reasons: (a.reasons || []).slice(0, 4), next_decisions: a.nextDecisions || [] };
+        if (!next.note) next.note = CC.completionStatusLine(a);
+      }
+    } catch (e) { /* completion is advisory at push time; crew.mjs creative gate is the gate */ }
+  }
   s.steps[args.step] = next;
   // closing a call locks what it approved (lib/locks.mjs); an identical re-push keeps the old lock
   if (next.status === "done") for (const [layer, L] of Object.entries(LAYERS)) {

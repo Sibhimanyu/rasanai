@@ -43,9 +43,29 @@ import { validateVisualBible, bibleCurrent, projectForWorker } from "./lib/visua
 import { comparisonPlan, validateComparisonPlan, reviseLook } from "./lib/look.mjs";
 import { validateContinuity, projectForScene } from "./lib/continuity.mjs";
 import { libraryIds } from "./library.mjs";
-import { runCreativeOn } from "./lib/creative-run.mjs";
-import { checkMediumLook, labelAssignments, loadMedium, readSelection, mediumContractFor, eventBindingsFor, canonsFor, treatmentLines, RUNTIME_FILES, needsRasan2d } from "./lib/medium-wiring.mjs"; // Part 2: only a creative run or a look with design/<label>/medium.json reads any of it // Creative Recovery: only a plan with creative_policy_revision 1 changes anything below
+import { runCreativeOn, readPlan } from "./lib/creative-run.mjs";
+import { creativePolicyOn } from "./lib/creative-policy.mjs";
+import { checkMediumLook, labelAssignments, loadMedium, readSelection, mediumContractFor, eventBindingsFor, canonsFor, treatmentLines, RUNTIME_FILES, needsRasan2d, resolveLookMedium, lookIdentityFor, brandConstraintRecords, readMediumContract } from "./lib/medium-wiring.mjs"; // Part 2: only a creative run or a look with design/<label>/medium.json reads any of it // Creative Recovery: only a plan with creative_policy_revision 1 changes anything below
 
+// V3 W03 (policy revision >= 2 only; revision 1 and legacy runs untouched): stamp the explicit medium resolution and pins.look_identity_digest on each Look's medium.json that lacks them.
+// Never overwrites a designer-written resolution or an existing pin (a stale pin must stay visible to checkMediumLook). The digest is taken after the resolution is stamped.
+// NOTE: mediumContractDigest does not strip pins.look_identity_digest (see the patch proposal in the INT-ENGINE-B report), so until lib/medium-contract.mjs DERIVED lists it a freshly stamped pin reads stale.
+function stampLookIdentity(run, labels, med) {
+  const stamped = [];
+  if (!creativePolicyOn(readPlan(run)) || Number(readPlan(run).creative_policy_revision) < 2) return stamped;
+  for (const l of labels) {
+    const f = path.join(run, "design", l, "medium.json");
+    let doc; try { doc = JSON.parse(fs.readFileSync(f, "utf8")); } catch { continue; }
+    if (!doc || typeof doc !== "object" || Array.isArray(doc)) continue;
+    const need = [!doc.resolution && "resolution", !(doc.pins && doc.pins.look_identity_digest) && "pins.look_identity_digest"].filter(Boolean);
+    if (!need.length) continue;
+    if (!doc.resolution) doc.resolution = resolveLookMedium(run, l, { med });
+    if (!(doc.pins && doc.pins.look_identity_digest)) { const li = lookIdentityFor(run, l, { med, contract: doc, resolution: doc.resolution }); if (li.digest) doc.pins = { ...(doc.pins || {}), look_identity_digest: li.digest }; }
+    fs.writeFileSync(f, JSON.stringify(doc, null, 2) + "\n");
+    stamped.push({ label: l, stamped: need });
+  }
+  return stamped;
+}
 const lockBrandOf = (run) => { try { return runBrand(path.resolve(String(run))); } catch { return null; } };
 // The brand lock: when the run's decisions carry a brand (and use_brand is not false), every system must stay inside it
 function runBrand(run) {
@@ -281,8 +301,10 @@ if (cmd === "looks") {
     else if (new Set(ls.map(([, v]) => String(v).toLowerCase())).size === 1 && !lockBrandOf(args.run)) console.error(`creative policy: all three looks are look_style "${ls[0][1]}": check they are different visual strategies for the Story, not one look recoloured`);
   }
   // Part 2: every medium Look carries its contract before the user is asked (needs-you, not a pass); the fit and trade-off ride the card's existing limitations rows
-  if (runCreativeOn(path.resolve(String(args.run)))) {
+  if (runCreativeOn(path.resolve(String(args.run))) || creativePolicyOn(readPlan(path.resolve(String(args.run))))) {
     const runAbs = path.resolve(String(args.run)), M = loadMedium();
+    const stamped = stampLookIdentity(runAbs, LABELS, M);
+    if (stamped.length) console.error(`creative policy 2: stamped ${stamped.map((x) => `${x.label} (${x.stamped.join(", ")})`).join("; ")} on design/<label>/medium.json`);
     const bad = LABELS.map((l) => [l, checkMediumLook(runAbs, l, { med: M })]).filter(([, c]) => c.applicable && c.state !== "ok");
     if (bad.length) die(`needs-you: a medium Look has no valid contract, so the Look cannot be pushed (fix each, then design.mjs check-system): ${bad.map(([l, c]) => `${l}: ${c.problems[0]}`).join(" | ")}`);
   }
@@ -332,6 +354,14 @@ if (cmd === "looks") {
   if (runCreativeOn(run)) {
     const cb = rj("creative", "brief.json"), cr = rj("creative", "references.json");
     if (cb && cb.status !== "skeleton") creative_intent = { brief_revision: cb.revision ?? null, promise: cb.promise ?? null, premise: cb.premise ?? null, visual_strategy: cb.visual_strategy ?? null, signature_events: (Array.isArray(cb.signature_events) ? cb.signature_events : []).map((e) => ({ id: e.id, beat_ids: e.beat_ids, before: e.before, change: e.change, after: e.after, must_preserve: e.must_preserve, why_motion: e.why_motion })), repetition_intent: cb.repetition_intent || [], do_not_substitute: cb.do_not_substitute || [], references: ((cr && cr.selected) || []).map((x) => ({ id: x.id, principle: (x.transferable || [])[0] || "", avoid: x.notTransferable || [] })), reference_evidence: (cr && cr.evidenceLevel) || "none", rule: "each look develops a different visual STRATEGY for this one idea (not a recolour); the real words, source behaviour and brand fixed things stay identical in every look; a look the brand excludes is excluded, never forced to fill a slot" };
+    // V3 W03 (revision >= 2): required identity vs observed brand traits, split by authority (identity binds; observed/proposed traits are information only)
+    if (creative_intent && creativePolicyOn(readPlan(run)) && Number(readPlan(run).creative_policy_revision) >= 2) { try { const bc = brandConstraintRecords(run); creative_intent.brand_constraints = { required_identity: bc.required_identity, factual_product_surfaces: bc.factual_product_surfaces, observed_reference_traits: bc.observed_reference_traits, proposed_treatment: bc.proposed_treatment }; } catch (e) {
+      // recorded, never swallowed or thrown (revision 2 only): the intent file says brand constraints are unavailable and why, the error log keeps it, `crew.mjs creative plans` shows it
+      const msg = String((e && e.message) || e).slice(0, 400);
+      creative_intent.brand_constraints = { error: msg, state: "unavailable", note: "brand constraints could not be derived; treat the brand as unconstrained by this record and say so, not as cleared" };
+      try { const ef = path.join(run, "creative", "errors.json"); let cur = null; try { cur = JSON.parse(fs.readFileSync(ef, "utf8")); } catch {} const list = Array.isArray(cur && cur.errors) ? cur.errors : []; list.push({ where: "brandConstraintRecords (design.mjs brief)", message: msg, at: new Date().toISOString() }); fs.mkdirSync(path.dirname(ef), { recursive: true }); fs.writeFileSync(ef, JSON.stringify({ errors: list.slice(-20) }, null, 2) + "\n"); } catch {}
+      process.stderr.write(`design: brand constraints unavailable (${msg}); recorded in creative/errors.json\n`);
+    } }
   }
   // Part 2: "different medium, same evidence and story": the selected medium candidates are listed per Look label next to the ONE representative beat and its content digest (every candidate
   // develops this same beat; medium.json pins.comparison_content_digest must equal it). Additive: absent with no selection.

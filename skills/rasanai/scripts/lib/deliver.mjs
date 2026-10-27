@@ -12,6 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { SKILL_DIR } from "./common.mjs";
+import { finalCompletion } from "./final-label.mjs";
 import { readDowngrades } from "./downgrade.mjs";
 import { presentManifest, wordsOf, publicManifest, serialize } from "./film-events.mjs";
 import { evidenceCredits, evidenceRecipeLines, publicEvidence } from "./evidence.mjs";
@@ -461,8 +462,10 @@ export function deliver({ run, project, out, rerun = false }) {
   checks.push(...leaks.map((l) => `leak: ${l.kind} in ${l.file}${l.line ? `:${l.line}` : ""} (${l.sample}): remove it before this folder is shared`));
 
   const rr = rerun ? rerunGates({ run, project, mp4: render.p, dur }) : [];
+  const completion = finalCompletion(run, render.p); // revision 2 only (null otherwise); draft stays allowed
+  if (completion) checks.push(completion.status_line || completion.error);
   fs.writeFileSync(path.join(dest, "NOTE.md"), noteMd({ run, project, name, render, posterPick, srt, extra: [], missing, rerun: rr, checks })); files.note = "NOTE.md";
   const noteLeaks = leakScan([path.join(dest, "NOTE.md")]);
   if (noteLeaks.length) { leaks = leaks.concat(noteLeaks); fs.appendFileSync(path.join(dest, "NOTE.md"), "\n" + noteLeaks.map((l) => `- leak: ${l.kind} in NOTE.md:${l.line} (${l.sample}): remove it before this folder is shared`).join("\n") + "\n"); checks.push(...noteLeaks.map((l) => `leak: ${l.kind} in NOTE.md:${l.line}`)); }
-  return { ok: true, out: dest, files, poster: posterPick, render: path.relative(project, render.p), draft: render.draft, missing: [...new Set(missing)], warnings: checks, leaks, spec: spec.facts && { ...spec.facts, tags: undefined } };
+  return { ok: true, out: dest, files, poster: posterPick, render: path.relative(project, render.p), draft: render.draft, completion: completion || undefined, missing: [...new Set(missing)], warnings: checks, leaks, spec: spec.facts && { ...spec.facts, tags: undefined } };
 }

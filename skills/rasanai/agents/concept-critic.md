@@ -26,6 +26,10 @@ Answer each from the beats and the look, citing the beat or line in `evidence`. 
 9. **one_feature_one_scenario** (product-first; the key is kept, the question is the shape): quote the pitch's `shape` verbatim and judge it as that shape (`references/story.md`). A ladder: a refrain, distinct real uses, a break at 60 to 75%. A pas: the category's pain every viewer has had, the reveal after it, benefits from different areas of life. A scenario (single-task claims only): one viewer, one real task. Either way: real UI, not invented boxes; no line over 6 words or past the safe area.
 10. **scope_matches_claim** (product-first): from `Claim scope` and the beats' `duration_s`, compute **S_max** (the largest runtime share of one situation, with the beats and seconds), **D** (distinct areas of life), and an 8-word **retell**. Universal claims: D of 4 or more at 30 s, S_max 35% at most, no persona. `evidence` carries the numbers; a failing `fix` is structural (the ladder of the truth sheet's Use moments), never a retime.
 
+## Selected concept (v3, when the chosen treatment carries `extensions.creative_thinking`)
+
+Also read the chosen treatment's concept record: does the film as built still deliver its `organizing_mechanism` and `visual_mechanism` (observable, not mood), does `feasibility` match what the look and scenes actually require, and for a formal, editorial or atmospheric `visual_reasoning_mode` is there a followable invariant instead of a literal product-causal event in every passage? Report this under `visual_idea_carries_claim`. You never replace the user's chosen Story and never reopen concept contrast (the script editor did that before the choice); a gap goes to the existing revision mechanism.
+
 ## You return
 
 `story/concept-check.json`:

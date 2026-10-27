@@ -51,3 +51,7 @@ Codex has no Agent tool. The crew runs the same way, with the same prompt files 
 ## GPT's creative loop, and the design desk
 
 A real Codex run (gpt-5.6-sol) produced a clean but small, safe, placeholder-filled scene. So GPT profiles get, in the scene-animator and frame-designer prompts, a concrete worked "reel-quality" example (hero at least 50% of the frame height, real content from the research, every hold motivated, one spectacle beat) and must write a self-critique against the critic's rubric before handing back; a green check is not the finish line. The design-system designer and design researcher get their own short sections (`agents/_models/gpt.md`): gate until exit 0, look at the specimen, no placeholder fonts, no single-reference blends, 8 sources before the library. `crew.mjs model [--kv]` prints the model and harness (setup.sh passes them on as MODEL= and HARNESS=).
+
+## The person's model choice wins (v3)
+
+`allocate({ role, profile, policy, requested })` honors `policy.resources.model.choice`: when set, no role is routed to a different model (no smaller-model alias for gathering roles, no escalation on repair) and a `requested` premium model is recorded as `requested_ignored`, never used. Recommended routing is a recommendation among models already authorized for the run; it never adds a model or provider and never silently downgrades a role to hit a cost target. `modelPlanWording({ plan, pace })` returns the Director wording per plan for the Swift prompt to mirror. See `budget-context.md`.

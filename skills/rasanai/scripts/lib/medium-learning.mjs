@@ -4,7 +4,7 @@
 // Rules (spec 03 section 5, guardrails): a human-preference lesson needs a real human feedback reference (a user note or a human review); an agent self-score cannot supply it.
 // An accepted edit is a preference for that case, not causality or a law: no category bans from one rejected film, no cross-project private data, nothing that overrides
 // facts, rights, the user's current instruction or a style's own constraints. A candidate is never approved here: the person confirms through the existing flow.
-import { buildLesson, applicable, resolveAgainstInstruction, STYLE_TTL_DAYS } from "./lessons-scope.mjs";
+import { buildLesson, applicable, resolveAgainstInstruction, STYLE_TTL_DAYS, matchesApplicability, instructionFromNote } from "./lessons-scope.mjs";
 
 export const MEDIUM_LESSON_FORMAT = "medium-lesson@1";
 export const HUMAN_SOURCES = Object.freeze(["user_note", "human_review"]); // lessons-scope SOURCE_TYPES minus the machine ones
@@ -96,7 +96,7 @@ export function toLessonArgs(extracted, { personConfirmed = false } = {}) {
 }
 
 // records: lesson rows as the existing reader returns them, with the optional `medium_meta` the lead keeps beside them: { medium, problem, communication_kind, scope_type, film_id, status, superseded_by, contradicted_by }
-// assignment: { problem, communication_kind?, film_id?, brand?, series?, format?, user?: "*" , style_constraints?:[words] }
+// assignment: { problem, communication_kind?, audience?, project?, instruction_note?, film_id?, brand?, series?, format?, user?: "*" , style_constraints?:[words] }
 // selectedProfile: the chosen medium profile id; instruction: optional { source:"user", overrides:[ids|"*"] }
 // -> { selected (<= limit, default 3), excluded:[{id, reason}] }   No write, no model call. Filters run BEFORE any lesson reaches a packet.
 export function selectMediumLessons({ records = [], assignment = {}, selectedProfile = "", limit = 3, instruction = null, now = new Date() } = {}) {
@@ -115,6 +115,9 @@ export function selectMediumLessons({ records = [], assignment = {}, selectedPro
     if (!live.has(id) && !(meta.scope_type === "film" && meta.film_id && meta.film_id === assignment.film_id)) { excluded.push({ id, reason: "outside its scope or expired for this film" }); continue; }
     if (meta.scope_type === "film" && meta.film_id !== assignment.film_id) { excluded.push({ id, reason: "film-scoped to a different film: never carried across projects" }); continue; }
     if (meta.communication_kind && assignment.communication_kind && meta.communication_kind !== assignment.communication_kind) { excluded.push({ id, reason: `taught for ${meta.communication_kind} films` }); continue; }
+    // V3 (W11): audience / brand / project applicability recorded on the row (absent on older rows: no effect). communication_kind and medium are checked above.
+    const ap = matchesApplicability(r, { audience: assignment.audience, communication_kind: assignment.communication_kind, medium: selectedProfile, brand: assignment.brand, project: assignment.project });
+    if (!ap.ok) { excluded.push({ id, reason: ap.why }); continue; }
     const constraint = arr(assignment.style_constraints).map((w) => String(w).toLowerCase());
     if (constraint.length && keyWords(r.rule).some((w) => constraint.includes(w) && /\b(avoid|never|not|instead)\b/i.test(r.rule))) { excluded.push({ id, reason: "conflicts with a constraint the selected style or brand states: constraints win" }); continue; }
     const hits = keyWords(meta.problem || r.rule).filter((w) => want.has(w)).length;
@@ -124,7 +127,9 @@ export function selectMediumLessons({ records = [], assignment = {}, selectedPro
   pool.sort((a, b) => b.s - a.s || String(b.r.last || "").localeCompare(String(a.r.last || "")) || String(a.r.id).localeCompare(String(b.r.id)));
   const top = pool.slice(0, cap).map((x) => x.r);
   for (const x of pool.slice(cap)) excluded.push({ id: x.r.id, reason: `beyond the ${cap} lesson limit` });
-  const { applied, set_aside } = resolveAgainstInstruction(top, instruction);
+  // V3 (W11): the person's CURRENT words win. assignment.instruction_note (their own sentence this film) sets same-topic leans aside; an explicit `instruction` still takes precedence.
+  const inst = instruction || (assignment.instruction_note ? instructionFromNote(assignment.instruction_note, top) : null);
+  const { applied, set_aside } = resolveAgainstInstruction(top, inst);
   for (const s of set_aside) excluded.push(s);
   return { selected: applied.map((r) => ({ id: r.id, rule: r.rule, scope: r.scope || { type: "user", id: "legacy_unscoped" }, confidence: r.confidence || "low", seen: r.seen || 1, advisory: true, note: "a lean from this person's own earlier choice: follow it when it fits, drop it when the story or the current instruction says otherwise" })), excluded };
 }

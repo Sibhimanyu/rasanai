@@ -24,6 +24,10 @@ For the route `product-launch-video` and any launch, promo, product or app film,
 
 **Branded launch, promo or brand film:** write to the template in `references/launch-film.md` §1 (the product or brand in 1 to 3 s, the reveal, the hero demo, 2 to 4 real feature demos, the payoff line, the end card), each beat inside its timing range; mark each beat's `role` and set `payoff_line`. The brand's own film (`brand-film/FILM-STYLE.md`) gives the opening and its words. The three scripts differ only in emphasis and order, never in concept. On a ladder the order is the rungs' order and the emphasis is which uses and how the refrain is worded.
 
+## Treatments mode: concept before outline
+
+In treatments mode the argument starts one level up: develop a small bounded pool of ideas, pick three that are real alternatives and record each concept (`references/concept-development.md`). Three treatments that reorder the same card walk are one idea in three outlines; differ in the organizing mechanism, perspective, temporal structure, emotional movement or the relation between picture and proof. A brief that fixes the format fixes it for all three. Mood words are not an occurrence: say what a viewer sees happen.
+
 ## Pass 0: the argument
 
 Write `intent-<label>.json` before any line (`references/intent.md`, "How to write it"): the proposition, PAGE, (the villain and its felt numbers, and the ending first, when the film has them: optional since Plan 03), then the beats as beliefs, a peak only where one helps (60 to 75% with a rest before it is the legacy guidance). **Start from the viewer's day, not the product's feature list**: what the viewer is doing when the villain bites, at the claim's scope (for a universal or category claim, a moment most of the audience has had, never one person's evening).

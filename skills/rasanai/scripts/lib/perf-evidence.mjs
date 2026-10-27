@@ -78,3 +78,25 @@ export function recordThroughput(run, { workers, items, window_s, queue_wait_s =
   fs.appendFileSync(f, JSON.stringify(row) + "\n");
   return { ok: true, row };
 }
+
+// ---- V3 W08 (additive): medium behaviour evidence rows -------------------------------------------------------------------------------------------
+// kind "medium": { execution_id, behavior_id, level: declared|source_present|executed|visually_demonstrated, event_id?, interval?, refs? } appended to the same perf.jsonl.
+// summarize() ignores kinds it does not know, so existing summaries are unchanged. Records only; "visually_demonstrated" must come from a person or a frame/temporal review, never from a render finishing.
+export const MEDIUM_EVIDENCE_LEVELS = ["declared", "source_present", "executed", "visually_demonstrated"];
+export function recordMediumEvidence(run, { execution_id, behavior_id, level, event_id = null, interval = null, refs = [] } = {}) {
+  if (!execution_id || !behavior_id || !MEDIUM_EVIDENCE_LEVELS.includes(level)) return { ok: false, reason: "execution_id, behavior_id and a known level are required" };
+  return { ok: true, row: recordPerf(run, { kind: "medium", execution_id, behavior_id, level, event_id, interval, refs: arr(refs).filter((x) => typeof x === "string") }) };
+}
+// -> { [execution_id:behavior_id]: { level, n } } (highest level seen; the shape resolveMediumPerformance reads once mapped to flags)
+export function summarizeMediumEvidence(rows = []) {
+  const out = {};
+  for (const r of rows) {
+    if (r.kind !== "medium") continue;
+    const k = `${r.execution_id}:${r.behavior_id}`, i = MEDIUM_EVIDENCE_LEVELS.indexOf(r.level);
+    if (i < 0) continue;
+    const cur = out[k];
+    out[k] = { level: cur && MEDIUM_EVIDENCE_LEVELS.indexOf(cur.level) > i ? cur.level : r.level, n: (cur ? cur.n : 0) + 1 };
+  }
+  return out;
+}
+export const evidenceFlags = (level) => { const i = MEDIUM_EVIDENCE_LEVELS.indexOf(level); return Object.fromEntries(MEDIUM_EVIDENCE_LEVELS.map((l, j) => [l, i >= 0 && j <= i])); };

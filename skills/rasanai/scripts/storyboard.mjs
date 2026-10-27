@@ -26,6 +26,8 @@ import { parseArgs, die } from "./lib/common.mjs";
 import { readShots } from "./lib/frames-lib.mjs";
 import { contractForStoryboard, readAudioContract } from "./lib/audio-direction.mjs";
 import { evaluateFilm, noteToRevision } from "./lib/editorial.mjs";
+import { creativePolicyOn } from "./lib/creative-policy.mjs";
+import { normalizeReads, staleReads, audioReplacementImpact, temporalNotes } from "./lib/storyboard.mjs";
 import { commitTiming, eventsFresh, projectBoardTiming, reconcile, scoreRevision, timingDrift, writeEvents } from "./lib/timing.mjs";
 import {
   animaticPayload, animaticPlan, autoDecision, boundary, fromLegacyAnimatic, fromLegacyShots, labelOld, panelSetCurrent, pinInputs,
@@ -41,7 +43,7 @@ const S = (r, ...p) => path.join(r, "storyboard", ...p);
 const str = (k) => (args[k] && args[k] !== true ? String(args[k]) : "");
 // New creative policy (crew/plan.json creative_policy_revision 1): a prepared story or look is not approval. boundary/pinInputs then need a consumed user choice, an approval record or
 // a consumed delegation; an inherit note counts only with --source-action <id of a consumed action>. Legacy plans: unchanged.
-const strict = () => { const p = rj(path.join(run(), "crew", "plan.json")); return !!(p && p.creative_policy_revision === 1); };
+const strict = () => { const p = rj(path.join(run(), "crew", "plan.json")); return !!(p && creativePolicyOn(p)); };
 const inheritOf = () => ({ ...(str("inherit-story") ? { story: { reason: str("inherit-story"), source: "inherited", ...(str("source-action") ? { source_action_id: str("source-action") } : {}) } } : {}), ...(str("inherit-look") ? { look: { reason: str("inherit-look"), source: "inherited", ...(str("source-action") ? { source_action_id: str("source-action") } : {}) } } : {}) });
 const beatIdsOf = (r) => {
   for (const f of ["story/chosen-treatment.json", "story/intent.json", "story/chosen.json"]) {
@@ -51,6 +53,10 @@ const beatIdsOf = (r) => {
   }
   return [];
 };
+// V3 W05: temporal reads exist only on shots that carry them (revision 2); a revision 1 board passes no extra ctx and prints nothing extra
+const eventIdsOf = (r) => { const b = rj(path.join(r, "creative", "brief.json")); return b && Array.isArray(b.signature_events) ? b.signature_events.map((e) => e && e.id).filter(Boolean) : []; };
+const hasReads = (doc) => (doc.shots || []).some((s) => Array.isArray(s.reads) && s.reads.length);
+const intervalsOf = (doc, score) => (doc.shots || []).flatMap((s) => normalizeReads(s.reads || [], score).intervals);
 const copyOf = (doc) => (doc.shots || []).flatMap((s) => s.copy || []);
 // Plan 07: audio/contract.json first (soundplan.mjs contract --build), then the old storyboard/audio.json, then the flags
 const audioOf = (r) => { const c = readAudioContract(r); return c.source === "audio/contract.json" ? contractForStoryboard(c) : rj(S(r, "audio.json")) || { kind: str("audio-kind") || "none", file: str("audio-file") || null }; };
@@ -80,7 +86,7 @@ if (cmd === "boundary") {
   if (kind === "sketch") { doc.label = b.label; doc.schedulable = false; }
   else { const pin = pinInputs(r, { inherit: inheritOf(), requireConsent: strict() }); doc.inputs = pin.ok ? { story: pin.pinned.story, look: pin.pinned.look } : undefined; }
   if (score) { const p = projectBoardTiming(doc, score, beatIdsOf(r)); if (p.shots.every((s) => s.timing.status === "approved")) { doc.shots = p.shots; doc.timing_revision = p.timing_revision; doc.timing_authority = p.timing_authority; } }
-  const v = validateStoryboardDoc(doc, { beat_ids: [] });
+  const v = validateStoryboardDoc(doc, { beat_ids: [], ...(hasReads(doc) ? { score, event_ids: eventIdsOf(r) } : {}) });
   if (!v.ok) out({ ok: false, problems: v.problems, warnings: v.warnings }, 2);
   out({ ok: true, ...writeStoryboard(r, doc), kind, shots: doc.shots.length, panels: doc.shots.reduce((a, s) => a + s.panels.length, 0), file: "storyboard/storyboard.json", warnings: v.warnings });
 } else if (cmd === "check") {
@@ -88,19 +94,20 @@ if (cmd === "boundary") {
   const doc = readStoryboard(r);
   if (!doc) die("no storyboard/storyboard.json (storyboard.mjs adopt first)");
   const beatIds = beatIdsOf(r), score = rj(path.join(r, "motion", "score.json"));
-  const v = validateStoryboardDoc(doc, { beat_ids: beatIds });
+  const temporal = hasReads(doc);
+  const v = validateStoryboardDoc(doc, { beat_ids: beatIds, ...(temporal ? { score, event_ids: eventIdsOf(r) } : {}) });
   const continuity = rj(path.join(r, "look", "continuity.json"));
-  const ed = evaluateFilm(doc.shots, { copy: copyOf(doc), links: continuity && continuity.links, locale: str("locale") || "en", display: str("display") || "desktop", styleOptions: (rj(path.join(r, "look", "visual-bible.json")) || {}).editorial_options });
+  const ed = evaluateFilm(doc.shots, { copy: copyOf(doc), links: continuity && continuity.links, locale: str("locale") || "en", display: str("display") || "desktop", styleOptions: (rj(path.join(r, "look", "visual-bible.json")) || {}).editorial_options, ...(temporal ? { intervals: intervalsOf(doc, score) } : {}) });
   const cur = panelSetCurrent(doc, r);
   const drift = score ? timingDrift(doc, score, beatIds) : null;
   // an adopted legacy record may not state its editorial intent yet: its findings are advice, not a failure
   const advice = !!doc.legacy_adopted;
-  out({ ok: v.ok && cur.current && (advice || ed.ok), kind: doc.kind, revision: doc.revision, problems: v.problems, warnings: v.warnings, editorial: { ...ed, advisory: advice || undefined }, current: cur, timing_drift: drift, events: score ? eventsFresh(r) : undefined }, v.ok && cur.current && (advice || ed.ok) ? 0 : 2);
+  out({ ok: v.ok && cur.current && (advice || ed.ok), kind: doc.kind, revision: doc.revision, problems: v.problems, warnings: v.warnings, editorial: { ...ed, advisory: advice || undefined }, current: cur, timing_drift: drift, events: score ? eventsFresh(r) : undefined, ...(temporal ? { stale_reads: staleReads(doc, score) } : {}) }, v.ok && cur.current && (advice || ed.ok) ? 0 : 2);
 } else if (cmd === "timing") {
   const r = run();
   const doc = readStoryboard(r), score = rj(path.join(r, "motion", "score.json"));
   const o = { drift: doc && score ? timingDrift(doc, score, beatIdsOf(r)) : null, score_revision: score ? scoreRevision(score) : null };
-  if (str("audio")) { const a = rj(path.resolve(str("audio"))); if (!a || !doc) die("--audio needs an audio.json and a storyboard"); o.reconciliation = reconcile({ shots: doc.shots, audio: a, copy: copyOf(doc) }); }
+  if (str("audio")) { const a = rj(path.resolve(str("audio"))); if (!a || !doc) die("--audio needs an audio.json and a storyboard"); o.reconciliation = reconcile({ shots: doc.shots, audio: a, copy: copyOf(doc) }); if (hasReads(doc)) { o.stale_reads = staleReads(doc, score); const imp = audioReplacementImpact({ doc, before: audioOf(r), after: a, copy: copyOf(doc) }); if (imp.reads) o.audio_replacement_reads = imp.reads; } }
   if (str("deltas")) {
     const d = rj(path.resolve(str("deltas")));
     if (!Array.isArray(d)) die("--deltas wants a JSON list of {scene, duration_s}");
@@ -123,7 +130,14 @@ if (cmd === "boundary") {
   fs.writeFileSync(S(r, "animatic.json"), JSON.stringify(plan, null, 2) + "\n");
   const res = { ok: true, plan: "storyboard/animatic.json", segments: plan.segments.length, total_s: plan.total_s, fidelity: plan.fidelity.label, timing_status: plan.timing_status, audio: plan.audio.label };
   if (args.render) res.render = renderAnimatic(plan, path.resolve(str("out") || S(r, "animatic.mp4")), { run: r });
-  if (args.push) res.console_push = animaticPayload(plan, doc);
+  if (args.push) {
+    res.console_push = animaticPayload(plan, doc);
+    // V3 W05: the temporal direction rides in the existing scene `visual` text (no new field or control); shots without reads/bindings are untouched
+    if (hasReads(doc) && Array.isArray(res.console_push.scenes)) {
+      const notes = new Map((doc.shots || []).map((sh) => [sh.shot_id, temporalNotes(sh)]));
+      res.console_push.scenes = res.console_push.scenes.map((sc) => { const n = notes.get(sc.id) || []; return n.length ? { ...sc, visual: [sc.visual, n.join(" | ")].filter(Boolean).join(" || ") } : sc; });
+    }
+  }
   out(res, res.render && !res.render.ok ? 1 : 0);
 } else if (cmd === "note") {
   const r = run();

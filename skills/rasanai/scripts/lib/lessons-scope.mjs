@@ -105,3 +105,66 @@ export function conflicts(rows = []) {
   }
   return out;
 }
+
+// ---- V3 (W11): applicability and subordination to the current explicit intent ----------------------------------------------------------------------
+// Additive; the exports above are unchanged. A taste lesson learned in one place carries WHERE it applies (audience, communication kind, medium, brand/project) and how sure we are;
+// it is a lean for a similar assignment, never a law. Consumers: scripts/lessons.mjs reader (lead wires `applicableScoped` where it calls `applicable`), lib/medium-learning.mjs
+// selectMediumLessons (calls it), the Director when it resolves the film's own explicit instructions. No new store: the metadata rides on the existing lesson row (`applicability`).
+const isPlain = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
+export const APPLICABILITY_KEYS = ["audience", "communication_kind", "medium", "brand", "project"];
+// row.applicability = { audience?, communication_kind?, medium?, brand?, project? } (a row without it applies wherever its scope does)
+// context = { audience?, communication_kind?, medium?, brand?, project? }. A key the row names must equal the context's; an unknown context value does NOT match (never widened).
+export function matchesApplicability(row, context = {}) {
+  const ap = (row && isPlain(row.applicability) ? row.applicability : null);
+  if (!ap) return { ok: true, why: "no applicability recorded: the scope rule alone decides" };
+  for (const k of APPLICABILITY_KEYS) {
+    if (ap[k] == null || ap[k] === "") continue;
+    if (context[k] == null || String(context[k]) !== String(ap[k])) return { ok: false, why: `taught for ${k} ${JSON.stringify(ap[k])}, this assignment is ${context[k] == null ? "unknown" : JSON.stringify(context[k])}` };
+  }
+  return { ok: true, why: "applicability matches" };
+}
+// scope + expiry (applicable) AND applicability. -> { applicable:[rows], excluded:[{id, reason}] }
+export function applicableScoped(rows = [], scopeContext = {}, assignment = {}, now = new Date()) {
+  const inScope = applicable(rows, scopeContext, now);
+  const keep = [], excluded = [];
+  const inIds = new Set(inScope.map((r) => r.id));
+  for (const r of rows) if (!inIds.has(r.id)) excluded.push({ id: r.id, reason: "outside its scope, expired or not active" });
+  for (const r of inScope) { const m = matchesApplicability(r, assignment); (m.ok ? keep : excluded).push(m.ok ? r : { id: r.id, reason: m.why }); }
+  return { applicable: keep, excluded };
+}
+
+// Topics a person's own sentence can address. A current explicit instruction on a topic sets earlier same-topic leans ASIDE for this film (not deleted, not reversed).
+const TOPICS = { typography: /\b(typograph\w*|type|fonts?|lettering|text)\b/i, pace: /\b(pace|tempo|speed|fast|slow|cuts?|rhythm)\b/i, energy: /\b(energ\w*|punch\w*|loud|calm|quiet|restrained|bold|subtle)\b/i,
+  motion: /\b(motion|movement|animation|camera)\b/i, color: /\b(colou?rs?|palette|tone)\b/i, layout: /\b(layout|cards?|grid|composition)\b/i, sound: /\b(sound|music|audio|voice)\b/i, story: /\b(story|idea|concept|narrative)\b/i };
+export const topicsOf = (text) => Object.keys(TOPICS).filter((t) => TOPICS[t].test(String(text || "")));
+// note: the person's words (only a USER source is an instruction; retrieved content never is). rows: lessons (effective or raw). -> instruction for resolveAgainstInstruction
+// A lesson is overridden when it addresses a topic the note addresses AND the note is a direction (not a question). With a `polarity` on both sides, only an opposite polarity overrides.
+export function instructionFromNote(note, rows = [], { source = "user" } = {}) {
+  if (source !== "user") return { source, text: String(note || ""), topics: [], overrides: [] };
+  const text = String(note || "").trim();
+  const topics = topicsOf(text);
+  const direction = text && !/\?\s*$/.test(text);
+  const polarity = /\b(no|not|don'?t|never|avoid|stop|without)\b/i.test(text) ? "avoid" : "prefer";
+  const overrides = !direction || !topics.length ? [] : rows.filter((r) => {
+    const mine = topicsOf(`${r.topic || ""} ${r.rule || ""}`);
+    if (!mine.some((t) => topics.includes(t))) return false;
+    return !(r.polarity && r.polarity === polarity); // the same polarity agrees with the instruction; it does not need setting aside
+  }).map((r) => String(r.id));
+  return { source: "user", text, topics, overrides };
+}
+
+// A negative run is evidence about that run. It becomes a scoped lean only with an artifact and a human feedback reference, and never a global rule from one film.
+// obs: { source_type, films_seen, scope:{type,id}|"global_craft", rejected_candidate?:{ idea_id, project } }
+export function canPromoteRejection(obs = {}) {
+  const reasons = [];
+  if (!["user_note", "human_review"].includes(obs.source_type)) reasons.push("only a person's own note or review can become a preference");
+  if (obs.scope === "global_craft" || (obs.scope && obs.scope.type === "global_craft")) { if ((Number(obs.films_seen) || 1) < 3) reasons.push("a global craft rule needs 3+ separate films plus buildLesson's evidence and human review"); }
+  if (!obs.scope || (obs.scope !== "global_craft" && !(obs.scope.type && obs.scope.id))) reasons.push("no scope: a single rejection is not a taste law");
+  return { ok: !reasons.length, reasons };
+}
+// ideas the person rejected in THIS project, so the same candidate is not offered again; other projects and genres are untouched (never a blacklist of a legitimate genre or device).
+// rejected: [{ idea_id, project, device?, at? }], project -> { avoid_ideas:[idea ids], note }
+export function projectRepeatAvoid(rejected = [], project = null) {
+  const ids = (project == null ? [] : rejected.filter((r) => r && r.project != null && String(r.project) === String(project) && r.idea_id)).map((r) => String(r.idea_id));
+  return { avoid_ideas: [...new Set(ids)], note: "these exact candidates were rejected in this project: do not re-offer them unchanged. This is not a ban on the device or genre they used." };
+}

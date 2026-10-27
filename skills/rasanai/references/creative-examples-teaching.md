@@ -89,3 +89,11 @@ The supplied montage shows repeated headline-plus-card frames. The problem is no
 A new shot-size label does not create a new composition. A `signature_event` field does not mean the event occurred. A passing schema does not mean the reviewer watched the motion. A screenshot of a UI does not necessarily prove the shown interaction. A cached title card cannot replace the selected visual idea simply because it renders faster.
 
 Preserve specific meaning and user choice while aiming for a result worth remembering. Novelty that harms comprehension or truth is a regression, not a creative victory.
+
+## 7. Mechanisms: take the mechanic, not the demo
+
+A mechanism packet entry (`mechanismPacketSection`) answers one question: what must the viewer perceive, in which phases, implemented how, with what limits. Example: a spotlight sample teaches one shared camera transform over related layers and explicit phase boundaries with a destination hold. It does not teach its palette, its hero card or its story. Use the mechanic in the film's own composition.
+
+Keep the neighbourhood: what prepared the event, what relationship crosses the boundary, how long the result is held. An isolated effect clip can hide the directing decision that made it work.
+
+If the entry is `reference-only`, `unknown-method` or has an unavailable dependency, say so and build a supported original mechanic; do not claim a port. If the person explicitly asks for an authorized template, reuse it deliberately. A diagram whose nodes all move but whose claimed relationship is not visible fails on meaning, not on amount of motion.

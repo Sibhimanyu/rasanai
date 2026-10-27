@@ -40,9 +40,9 @@ public enum FilmPace: String, CaseIterable, Codable, Identifiable, Sendable {
     var launchSection: String? {
         switch self {
         case .fast: """
-            RESEARCH BUDGET: FAST PACE. This is a hard limit the user chose, and it overrides the engine's research defaults (the shared-contract rule 13, the crew plan, the precedent researcher). Research for at most about 2 minutes and read at most 6 sources in total, counting every WebFetch and WebSearch.
+            RESEARCH BUDGET: FAST PACE. This is a hard limit the user chose, and it overrides the engine's research defaults (the shared-contract rule 13, the crew plan) for time and source count only. Research for at most about 2 minutes and read at most 6 sources in total, counting every WebFetch and WebSearch.
             - Start with the product's own site and its help or docs pages. Only go elsewhere if those leave a gap.
-            - Do not analyse other companies' launch films or past promo videos. Do not run the precedent researcher and do not pass --public to crew.mjs plan.
+            - Use the local indexed creative references and one bounded idea pass for precedent work; they cost no web sources. Web precedent searches count toward the 6-source and 2-minute allowance. Do not do shot-by-shot analysis of other companies' films, and do not pass --public to crew.mjs plan. If the allowance runs out, develop concepts from the material you have and say which references were not reached.
             - Do not dispatch a parallel research crew. Do the research yourself or with one single researcher subagent. Skip any research member you do not strictly need.
             - Stop the moment the essentials are known: what the product is, its one key feature, its brand type and colours, and its exact UI. Do not keep reading for completeness.
             - The files later steps need (research/design.md, research/design-refs.json, the truth sheet) must still exist. Write them short, from what you already read, in the same pass.
@@ -51,7 +51,7 @@ public enum FilmPace: String, CaseIterable, Codable, Identifiable, Sendable {
         case .standard: """
             RESEARCH BUDGET: STANDARD PACE. This is a limit the user chose, and it overrides the engine's research defaults (the shared-contract rule 13, the crew plan). Research for about 5 minutes and read at most 15 sources in total, counting every WebFetch and WebSearch.
             - Start with the product's own site and help or docs pages, then its brand pages and one or two trusted third-party sources.
-            - Do not do shot-by-shot analysis of other companies' launch films. Do not pass --public to crew.mjs plan.
+            - Do not do shot-by-shot analysis of other companies' launch films. Do not pass --public to crew.mjs plan. Local indexed creative references and one bounded idea pass are allowed.
             - Keep the crew small: at most two researchers in parallel. Stop when the essentials are known: what it is, its key features, brand type and colours, and the exact UI.
             - Still report what you found: push the brief step with `findings` as usual.
             """
@@ -70,8 +70,8 @@ public enum FilmPace: String, CaseIterable, Codable, Identifiable, Sendable {
             fast
                 ? "- The Motion Director's score takes at most about 10 minutes. It must fix every shared element (the world or set, palette, type, camera rail, transitions) as a written contract in the plan, so no scene depends on another being built first."
                 : "- The Motion Director's score takes at most about 20 minutes. It must fix every shared element (the world or set, palette, type, camera rail, transitions) as a written contract in the plan, so no scene depends on another being built first.",
-            "- Key frames: one agent per scene, all launched at once in the background (cap 10 at a time; with more scenes launch the rest as soon as one finishes). Never two scenes to one agent and never a sequential batch.",
-            "- Animation: one agent per scene, all launched at once, starting immediately from the contract. No animator waits for a shared-world build. If a shared asset is needed, one extra agent builds it at the same time while the scenes use the contract's placeholders, and it is swapped in afterwards.",
+            "- Key frames: assign one agent per continuous action. Scenes that are independent run as separate agents launched at once in the background (cap 10 at a time; launch the rest as soon as one finishes); shots joined by a carried object, a shared rule/field or a temporal seam stay with one owner, in order. Independent real results may run in parallel. A shared font or logo is not a link. A missing shared asset blocks only its dependents. Never a sequential batch of independent scenes.",
+            "- Animation: independent scenes start at once from the contract; no animator waits for a shared-world build. A continuous action that spans scenes has one owner who builds it across them. If a shared asset is needed, one extra agent builds it at the same time while the scenes use the contract's placeholders, and it is swapped in afterwards.",
         ]
         if fast {
             lines.append("- Exactly one critic round (one fresh-eyes review of the whole film). All its fixes run in parallel. Then one draft render, and push the Final call. No second or third review round and no second draft render unless a quality gate fails.")

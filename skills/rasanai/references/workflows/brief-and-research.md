@@ -72,6 +72,10 @@ node $SKILL_DIR/scripts/lessons.mjs digest                      # ONE digest of 
 
 `crew.mjs plan` sets it for a NEW scene-production plan (`--creative-policy off` keeps the old behaviour; a saved plan keeps what it had). It changes backend content only: the five calls, their order and the console are unchanged. After the research desk run `node $SKILL_DIR/scripts/crew.mjs creative init --run "$RUN"` (the automatic reference selection from the local index, never a question to the user, and the provisional `creative/brief.json` skeleton), fill the skeleton from the truth sheet, claims and screens (`references/creative-quality.md`), then `crew.mjs creative check --run "$RUN"`. The brief is intent only: no timing (that is `motion/score.json`), no approval (that is the user's stage decisions). The story writers are not dispatched while it is still the skeleton.
 
+### Revision 2 (`creative_policy_revision: 2`, v3)
+
+`crew.mjs plan` gives a NEW scene-production plan revision 2 (`--creative-policy 1` keeps the legacy behaviour; a saved plan keeps its revision; an unknown revision stops with `unsupported_policy`). It resolves one effective policy and writes `creative/effective-policy.json` ([creative-policy.md](../creative-policy.md)): the existing pace, budget, model plan and approval order are unchanged, and a single-model choice wins over any role split. The user's native settings and the engine plan agree on one sentence per material field. Every pace may use the local indexed references and one bounded idea pass; web precedent searches count toward the source and time allowance, and an exhausted allowance is reported, never widened. What a run may spend on each phase is in [budget-context.md](../budget-context.md).
+
 ## Deeper references for this guide
 
 The canonical homes of the detail this guide points at (read the one the current step needs):

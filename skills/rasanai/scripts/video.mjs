@@ -195,7 +195,11 @@ if (cmd === "init") {
     if (MW && MW.isMediumContract(mc) && MW.RUNTIME_FILES[mc.execution_id]) {
       const sk = path.join(HERE, ".."), md = path.join(dir, "assets", "rasan-medium"), copied = [], missing = [];
       const put = (src, dst) => { if (!fs.existsSync(src)) { missing.push(path.relative(sk, src)); return; } const body = fs.readFileSync(src); fs.mkdirSync(path.dirname(dst), { recursive: true }); if (!fs.existsSync(dst) || !fs.readFileSync(dst).equals(body)) fs.writeFileSync(dst, body); copied.push(path.relative(dir, dst)); };
-      for (const f of MW.RUNTIME_FILES[mc.execution_id]) put(path.join(sk, "runtime", f), path.join(md, f));
+      // V3: a revision >= 2 run also gets the shared text/anchor helpers (runtimeFilesWith adds them only when asked, so revision 1 copies exactly what it did before)
+      let rev2 = false;
+      try { const pl = runArg ? JSON.parse(fs.readFileSync(path.join(path.resolve(runArg), "crew", "plan.json"), "utf8")) : null; rev2 = !!pl && Number(pl.creative_policy_revision) >= 2; } catch { rev2 = false; }
+      const rtFiles = typeof MW.runtimeFilesWith === "function" ? MW.runtimeFilesWith(mc, { common: rev2, spatial: rev2 && typeof MW.spatialPlanned === "function" && MW.spatialPlanned(path.resolve(runArg)) }) : MW.RUNTIME_FILES[mc.execution_id];
+      for (const f of rtFiles) put(path.join(sk, "runtime", f), path.join(md, f));
       const exDir = path.join(sk, "library", "medium-examples", mc.execution_id);
       if (fs.existsSync(exDir)) { const walk = (d, rel = "") => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (e.isDirectory()) walk(path.join(d, e.name), path.join(rel, e.name)); else put(path.join(d, e.name), path.join(md, "examples", rel, e.name)); } }; walk(exDir); }
       const r2 = MW.needsRasan2d(mc) && !twoD ? s2d.install(dir) : null; // a cel contract needs Rasan2D even when no composition names it yet

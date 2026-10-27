@@ -16,6 +16,10 @@
 //   makeSnapshot(o) / approveStoryboard(o) / classifySnapshotChange(prev, next) / snapshotCurrent(record, nowSnapshot) / audioReplacementImpact(o)
 //   autoDecision(o) / recordAutoDecision(run, rec)
 //   animaticPlan(doc, o) / anchorAt(plan, t) / animaticPayload(plan, doc) / renderAnimatic(plan, out, o)
+//   W05 temporal storyboard (additive; creative_policy_revision 1 boards carry none of these fields and behave exactly as before):
+//   normalizeReads(reads, score) -> { intervals, errors } / staleReads(doc, score) / readsDigest(shot) / temporalNotes(shot)
+//   shot extras (all optional, kept inside the shot record): reads[], bindings{initial,action,consequence}, camera_intent, composition, transition_out.cut_function, sound_intent.relation
+//   see references/temporal-storyboard.md; the judging heuristics (read windows, cause before reaction, sameness) live in editorial.mjs evaluateTemporal
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -27,7 +31,8 @@ import { contractForStoryboard, readAudioContract } from "./audio-direction.mjs"
 import { logicalStage, missingPrerequisites } from "./stages.mjs";
 import { lookCommitted, resolveStageConsent } from "./look.mjs";
 import { CUT_RELATIONS, checkReading } from "./editorial.mjs";
-import { layout, rate, reconcile, scoreRevision, toTicks, fromTicks } from "./timing.mjs";
+import { layout, rate, reconcile, scoreRevision, scoreTiming, toTicks, fromTicks } from "./timing.mjs";
+import { CREATIVE_ERROR_CODES } from "./creative-policy.mjs"; // W05: the real stable error codes (temporal reads reuse stale_input / temporal_evidence_missing)
 
 const isObj = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
 const arr = (x) => (Array.isArray(x) ? x : []);
@@ -202,15 +207,114 @@ export const TIMING_STATUS = ["provisional", "reconciled", "approved"];
 const LEGACY_RELATION = [[/\b(but|however|yet|instead|unlike)\b/i, "contrast"], [/\b(because|so|therefore|which is why|cause)\b/i, "cause"], [/\b(for example|e\.g\.|another|also|example|and)\b/i, "example"], [/\b(meanwhile|elsewhere|separate|new chapter)\b/i, "separation"], [/\b(zoom|scale|closer|wider|out to|in to)\b/i, "scale"], [/\b(then|next|continu\w*|keeps? going|same)\b/i, "continuation"]];
 export const relationOf = (text) => { const t = T(text); if (CUT_RELATIONS.includes(t)) return t; const hit = LEGACY_RELATION.find(([re]) => re.test(t)); return hit ? hit[1] : null; };
 
+// ---- W05: ordered audience reads, mapped onto the ONE score timeline ----------------------------------------------------------------------------
+// A read = { id, event_id, what_to_notice, what_to_understand, source_interval: {start_s,end_s | beat_ref, timebase?, score_revision?}, attention_target,
+// minimum_read_basis, competing_reads[], accessibility_dependency }. Reads are annotations on the existing score, never a second editable timeline:
+// this function only RESOLVES them against `score` (motion/score.json shape: {scenes[{id,beat,duration}], frame_rate, duration?, revision?}) and reports.
+// It is read-only, never changes a duration, never clamps, and keeps the source timebase and beat reference exactly as written.
+// -> { intervals: [{id, event_id, start_s, end_s, start_tick, end_tick, timebase, beat_ref, score_revision, stale, resolved_from, attention_target,
+//                   overlaps:[ids], ...}], errors: [{code, ref, kind, message}] }   (code is a CREATIVE_ERROR_CODES value)
+export const READ_FIELDS = ["id", "event_id", "what_to_notice", "what_to_understand", "source_interval", "attention_target", "minimum_read_basis", "competing_reads", "accessibility_dependency"];
+const rerr = (code, ref, kind, message) => ({ code, ref, kind, message });
+function scoreFacts(score) {
+  if (!isObj(score)) return null;
+  const hasScenes = arr(score.scenes).length > 0;
+  const timing = hasScenes ? scoreTiming(score) : null;
+  const total = timing ? timing.total_s : num(score.duration_s ?? score.duration ?? score.total_s);
+  const revision = score.revision != null ? String(score.revision) : hasScenes ? scoreRevision(score) : null;
+  return { timing, total, revision };
+}
+export function normalizeReads(reads, score = null) {
+  const intervals = [], errors = [];
+  const facts = scoreFacts(score);
+  const seen = new Set();
+  arr(reads).forEach((raw, i) => {
+    const r = isObj(raw) ? raw : {};
+    const id = T(r.id) || `read-${i + 1}`;
+    if (seen.has(id)) { errors.push(rerr(CREATIVE_ERROR_CODES.stale_input, id, "duplicate_id", `${id}: duplicate read id`)); return; }
+    seen.add(id);
+    const si = isObj(r.source_interval) ? r.source_interval : {};
+    const timebase = T(si.timebase) || "score_s";
+    const beatRef = si.beat_ref != null && si.beat_ref !== "" ? String(si.beat_ref) : null;
+    const claimed = si.score_revision ?? r.score_revision ?? null;
+    let start = num(si.start_s ?? si.start), end = num(si.end_s ?? si.end), from = "source_interval";
+    // a beat reference alone resolves to that scene's score interval (read from the score, not invented)
+    if ((start == null || end == null) && beatRef && facts && facts.timing) {
+      const sc = facts.timing.scenes.find((x) => String(x.beat ?? x.id) === beatRef || String(x.id) === beatRef);
+      if (sc) { start = sc.start_s; end = sc.end_s; from = "score.scenes"; }
+    }
+    if (start == null || end == null || timebase !== "score_s" && from === "source_interval") {
+      errors.push(rerr(CREATIVE_ERROR_CODES.temporal_evidence_missing, id, "unresolved", `${id}: the read has no start/end the score can resolve (timebase ${timebase}${beatRef ? `, beat_ref ${beatRef}` : ""}); give score seconds or a beat_ref the score carries; a duration is never invented`));
+      return;
+    }
+    if (end < start) { errors.push(rerr(CREATIVE_ERROR_CODES.temporal_evidence_missing, id, "reversed", `${id}: the read ends (${end}) before it begins (${start})`)); return; }
+    const stale = claimed != null && facts && facts.revision != null && String(claimed) !== String(facts.revision);
+    if (stale) errors.push(rerr(CREATIVE_ERROR_CODES.stale_input, id, "stale", `${id}: the read was mapped on score revision ${claimed}, the score is now ${facts.revision}; its window is kept as written and marked stale, not re-timed`));
+    else if (facts && facts.total != null && (start < 0 || end > facts.total + 1e-6)) errors.push(rerr(CREATIVE_ERROR_CODES.stale_input, id, "out_of_bounds", `${id}: the window [${start}, ${end}) is outside the score (0..${facts.total} s)`));
+    else if (!facts) errors.push(rerr(CREATIVE_ERROR_CODES.temporal_evidence_missing, id, "no_score", `${id}: no score to resolve against yet; the window stays unverified`));
+    intervals.push({
+      id, event_id: T(r.event_id) || null, start_s: fromTicks(toTicks(start)), end_s: fromTicks(toTicks(end)), start_tick: toTicks(start), end_tick: toTicks(end),
+      convention: "start-inclusive, end-exclusive; score time", timebase, beat_ref: beatRef, score_revision: claimed ?? (facts ? facts.revision : null), stale: !!stale, resolved_from: from,
+      attention_target: T(r.attention_target) || null, overlaps: [],
+    });
+  });
+  for (const a of intervals) for (const b of intervals) if (a !== b && a.start_tick < b.end_tick && b.start_tick < a.end_tick) a.overlaps.push(b.id);
+  return { intervals, errors };
+}
+// every read of every shot against the CURRENT score: which are stale (a new score or audio revision moved them). Read-only; -> { stale: [{shot_id, read_id}], errors }
+export function staleReads(doc, score = null) {
+  const stale = [], errors = [];
+  for (const s of arr(doc && doc.shots)) {
+    const r = normalizeReads(arr(s.reads), score);
+    for (const e of r.errors) { errors.push({ ...e, shot_id: s.shot_id }); if (e.kind === "stale") stale.push({ shot_id: s.shot_id, read_id: e.ref }); }
+  }
+  return { stale, errors };
+}
+export const CUT_FUNCTIONS = ["cause", "contrast", "ellipsis", "viewpoint", "evidence", "rhythmic_punctuation", "separation"]; // what a cut does; free-standing from CUT_RELATIONS
+export const BINDING_PHASES = ["initial", "action", "consequence"];
+const normBinding = (b) => {
+  if (!isObj(b)) return null;
+  const x = { ...(T(b.panel_id) ? { panel_id: T(b.panel_id) } : {}), state: T(b.state), ...(T(b.event_id) ? { event_id: T(b.event_id) } : {}) };
+  const s = num(b.start_s), e = num(b.end_s);
+  if (s != null) x.start_s = s;
+  if (e != null) x.end_s = e;
+  if (b.anticipation && isObj(b.anticipation)) x.anticipation = { motivated: b.anticipation.motivated === true, reason: T(b.anticipation.reason) };
+  return x;
+};
+// the per-shot digest of the temporal extension (reads + bindings + camera + composition), or null when the shot has none (a revision 1 shot)
+export function readsDigest(shot) {
+  const s = isObj(shot) ? shot : {};
+  if (!arr(s.reads).length && !s.bindings && !s.camera_intent && !s.composition) return null;
+  return canonicalDigest({ reads: arr(s.reads).map((r) => ({ id: r.id, event_id: r.event_id, si: r.source_interval })), bindings: s.bindings || null, camera: s.camera_intent || null, composition: s.composition || null });
+}
+// one line per phase and read for `frames/<id>.md` or a note on the existing board: the richer direction rides in existing supported text slots (no new UI field)
+export function temporalNotes(shot) {
+  const s = normalizeShot(shot), out = [];
+  if (s.bindings) for (const ph of BINDING_PHASES) if (s.bindings[ph] && s.bindings[ph].state) out.push(`${ph}: ${s.bindings[ph].state}`);
+  for (const r of arr(s.reads)) out.push(`read ${r.id}: notice ${r.what_to_notice || "?"}; understand ${r.what_to_understand || "?"} (${r.source_interval && r.source_interval.start_s != null ? `${r.source_interval.start_s}-${r.source_interval.end_s} s` : r.source_interval && r.source_interval.beat_ref ? `beat ${r.source_interval.beat_ref}` : "unplaced"})`);
+  if (s.camera_intent && s.camera_intent.motivation) out.push(`camera: ${s.camera_intent.motivation}`);
+  return out;
+}
+
 export function normalizeShot(raw = {}) {
   const s = isObj(raw) ? raw : {};
   const panels = arr(s.panels).map((p, i) => {
     const q = isObj(p) ? p : {};
-    return { id: T(q.id || q.panel_id) || `p${i + 1}`, state: T(q.state), image_ref: q.image_ref ?? null, ...(q.weight != null ? { weight: q.weight } : {}), ...(q.source_digest ? { source_digest: q.source_digest } : {}), ...(q.image_digest ? { image_digest: q.image_digest } : {}), status: q.status || "current" };
+    return { id: T(q.id || q.panel_id) || `p${i + 1}`, state: T(q.state), image_ref: q.image_ref ?? null, ...(q.weight != null ? { weight: q.weight } : {}), ...(q.source_digest ? { source_digest: q.source_digest } : {}), ...(q.image_digest ? { image_digest: q.image_digest } : {}),
+      ...(T(q.event_id) ? { event_id: T(q.event_id) } : {}), ...(BINDING_PHASES.includes(T(q.phase)) ? { phase: T(q.phase) } : {}), ...(q.score_revision ? { score_revision: q.score_revision } : {}), status: q.status || "current" };
   });
   const t = isObj(s.timing) ? s.timing : {};
   const tr = isObj(s.transition_out) ? s.transition_out : {};
   const si = isObj(s.sound_intent) ? s.sound_intent : {};
+  // W05 extras are emitted only when the raw shot carries them, so a legacy shot (and every digest over it) is unchanged
+  const ci = isObj(s.camera_intent) ? s.camera_intent : null;
+  const cmp = isObj(s.composition) ? s.composition : null;
+  const bnd = isObj(s.bindings) ? Object.fromEntries(BINDING_PHASES.map((k) => [k, normBinding(s.bindings[k])]).filter(([, v]) => v)) : null;
+  const reads = Array.isArray(s.reads) ? s.reads.map((r, i) => {
+    const q = isObj(r) ? r : {}, sv = isObj(q.source_interval) ? q.source_interval : {};
+    return { id: T(q.id) || `read-${i + 1}`, event_id: T(q.event_id), what_to_notice: T(q.what_to_notice), what_to_understand: T(q.what_to_understand), source_interval: { ...sv }, attention_target: T(q.attention_target),
+      minimum_read_basis: isObj(q.minimum_read_basis) ? q.minimum_read_basis : T(q.minimum_read_basis) || null, competing_reads: arr(q.competing_reads).map((c) => (isObj(c) ? c : { id: T(c) })), accessibility_dependency: T(q.accessibility_dependency) };
+  }) : null;
   return {
     ...s,
     shot_id: T(s.shot_id), beat_id: T(s.beat_id), purpose: T(s.purpose),
@@ -218,12 +322,17 @@ export function normalizeShot(raw = {}) {
     copy_refs: arr(s.copy_refs).map(String),
     focal_read: Array.isArray(s.focal_read) ? s.focal_read : T(s.focal_read),
     timing: { status: TIMING_STATUS.includes(t.status) ? t.status : "provisional", duration_s: num(t.duration_s), ...(t.min_s != null ? { min_s: t.min_s } : {}), ...(t.score_revision ? { score_revision: t.score_revision } : {}), ...(t.start_s != null ? { start_s: t.start_s, end_s: t.end_s } : {}) },
-    transition_out: { relation: tr.relation ?? null, kind: T(tr.kind) || "cut", carrier: tr.carrier ?? null, ...(tr.cause_ref ? { cause_ref: tr.cause_ref } : {}), ...(tr.continuity_ref ? { continuity_ref: tr.continuity_ref } : {}) },
-    sound_intent: { role: T(si.role) || "supportive", cue_refs: arr(si.cue_refs).map(String) },
+    ...(reads ? { reads } : {}), ...(bnd && Object.keys(bnd).length ? { bindings: bnd } : {}),
+    ...(ci ? { camera_intent: { motivation: T(ci.motivation), ...(T(ci.move) ? { move: T(ci.move) } : {}), ...(T(ci.event_id) ? { event_id: T(ci.event_id) } : {}) } } : {}),
+    ...(cmp ? { composition: { focal_subject: T(cmp.focal_subject), scale: T(cmp.scale), framing: T(cmp.framing), ground: T(cmp.ground), density: T(cmp.density), action_register: T(cmp.action_register), adjacent_relation: T(cmp.adjacent_relation),
+      anchor_ids: arr(cmp.anchor_ids).map(String), text_roles: isObj(cmp.text_roles) ? cmp.text_roles : {}, representation_level: T(cmp.representation_level), ...(T(cmp.repeat_reason) ? { repeat_reason: T(cmp.repeat_reason) } : {}) } } : {}),
+    transition_out: { relation: tr.relation ?? null, kind: T(tr.kind) || "cut", carrier: tr.carrier ?? null, ...(CUT_FUNCTIONS.includes(T(tr.cut_function)) ? { cut_function: T(tr.cut_function) } : {}), ...(tr.cause_ref ? { cause_ref: tr.cause_ref } : {}), ...(tr.continuity_ref ? { continuity_ref: tr.continuity_ref } : {}) },
+    sound_intent: { role: T(si.role) || "supportive", cue_refs: arr(si.cue_refs).map(String), ...(T(si.relation) ? { relation: T(si.relation) } : {}) },
   };
 }
 export function validateShot(shot, ctx = {}) {
   const p = [], w = [];
+  const raw = shot;
   const s = normalizeShot(shot);
   if (!s.shot_id) p.push("shot_id is required");
   if (!s.beat_id) p.push(`${s.shot_id || "shot"}: beat_id is required (a shot binds to a story beat)`);
@@ -234,7 +343,30 @@ export function validateShot(shot, ctx = {}) {
   if (s.panels.length > 12) w.push(`${s.shot_id}: ${s.panels.length} panels; a shot with this many probably wants to be several shots`);
   if (s.timing.duration_s != null && !(s.timing.duration_s > 0)) p.push(`${s.shot_id}: timing.duration_s must be positive seconds`);
   if (s.transition_out.relation != null && !CUT_RELATIONS.includes(s.transition_out.relation)) p.push(`${s.shot_id}: transition_out.relation must be one of ${CUT_RELATIONS.join(", ")}`);
-  return { ok: !p.length, problems: p, warnings: w };
+  if (T(raw && raw.transition_out && raw.transition_out.cut_function) && !s.transition_out.cut_function) p.push(`${s.shot_id}: transition_out.cut_function must be one of ${CUT_FUNCTIONS.join(", ")}`);
+  // W05 temporal extension (only checked when the shot carries it). Structural read errors are problems; stale/unverified reads are warnings (re-map them, never re-time them here).
+  const errors = [];
+  if (s.reads) {
+    const rids = s.reads.map((r) => r.id);
+    if (new Set(rids).size !== rids.length) p.push(`${s.shot_id}: read ids must be unique`);
+    for (const r of s.reads) {
+      if (!r.attention_target) w.push(`${s.shot_id}/${r.id}: no attention_target (what the eye is on during this read)`);
+      if (ctx.event_ids && arr(ctx.event_ids).length && r.event_id && !ctx.event_ids.includes(r.event_id)) p.push(`${s.shot_id}/${r.id}: event_id ${r.event_id} is not a signature event of the chosen story`);
+      for (const c of r.competing_reads) if (c.id && !rids.includes(c.id)) w.push(`${s.shot_id}/${r.id}: competing read ${c.id} is not a read of this shot`);
+    }
+    const n = normalizeReads(s.reads, ctx.score || null);
+    for (const e of n.errors) {
+      errors.push({ ...e, shot_id: s.shot_id });
+      if (["reversed", "out_of_bounds", "duplicate_id"].includes(e.kind)) p.push(e.message);
+      else w.push(e.message);
+    }
+  }
+  if (s.bindings) {
+    const ids = new Set(s.panels.map((x) => x.id));
+    for (const ph of BINDING_PHASES) { const b = s.bindings[ph]; if (b && b.panel_id && !ids.has(b.panel_id)) p.push(`${s.shot_id}: bindings.${ph}.panel_id ${b.panel_id} is not a panel of this shot`); }
+    for (const ph of BINDING_PHASES) { const b = s.bindings[ph]; if (b && b.start_s != null && b.end_s != null && b.end_s < b.start_s) p.push(`${s.shot_id}: bindings.${ph} ends before it begins`); }
+  }
+  return { ok: !p.length, problems: p, warnings: w, ...(errors.length ? { errors } : {}) };
 }
 export function toContractShape(doc) {
   const by = new Map();
@@ -336,6 +468,8 @@ export const CHANGE_CLASSES = Object.freeze({
   demo_shot_changed: { class: "meaningful", reopens: true, why: "this changes a product demonstration: the proof the viewer sees" },
   shot_order_changed: { class: "meaningful", reopens: true, why: "the order of shots is the argument" },
   copy_changed: { class: "meaningful", reopens: true, why: "approved copy changed" },
+  reads_changed: { class: "meaningful", reopens: true, why: "what the viewer is asked to notice and understand, or when, changed (reads, bindings, camera or composition direction)" },
+  reads_stale: { class: "meaningful", reopens: true, route: "timing", why: "the score or audio revision the reads were mapped on moved: re-map the windows on this surface (they are kept as written, never silently re-timed)" },
   look_changed: { class: "meaningful", reopens: true, why: "the Look revision the panels were drawn in changed" },
   audio_changed: { class: "meaningful", reopens: true, route: "timing", why: "different audio can change the reading windows, the order or the meaning: propose the affected timing revision on this surface before the final build" },
   audio_kind_changed: { class: "meaningful", reopens: true, route: "timing", why: "scratch audio became real (or the reverse): final-voice timing was never approved by the scratch storyboard" },
@@ -352,6 +486,7 @@ export function makeSnapshot({ doc, score = null, copy = [], look = null, audio 
     demo_shots: shots.filter((s) => s.demonstrates).map((s) => s.shot_id),
     panels: shots.flatMap((s) => arr(s.panels).map((p) => ({ shot_id: s.shot_id, panel_id: p.id, source_digest: p.source_digest || canonicalDigest({ state: p.state, image_ref: p.image_ref }), image_digest: p.image_digest || null }))),
     copy: arr(copy).map((c) => ({ id: c.id, digest: canonicalDigest(T(c.text)) })),
+    ...(shots.some((s) => readsDigest(s)) ? { temporal: shots.filter((s) => readsDigest(s)).map((s) => ({ shot_id: s.shot_id, digest: readsDigest(s), score_revision: (s.timing && s.timing.score_revision) || (doc && doc.timing_revision) || null })) } : {}),
     look: look ? { revision: look.revision ?? null, digest: look.digest || null } : null,
     audio: { kind: ["selected", "scratch", "none"].includes(aud.kind) ? aud.kind : "none", scratch: aud.kind === "scratch", file: aud.file || null, digest: aud.digest || (aud.file ? canonicalDigest(aud.file) : null) },
     timing: { revision: score ? scoreRevision(score) : (doc && doc.timing_revision) || null, status: shots.length && shots.every((s) => s.timing && s.timing.status === "approved") ? "approved" : "provisional" },
@@ -394,6 +529,13 @@ export function classifySnapshotChange(prev, next) {
   const cb = new Map(arr(prev.copy).map((c) => [c.id, c.digest]));
   const copyMoved = arr(next.copy).filter((c) => cb.get(c.id) !== c.digest).map((c) => c.id).concat([...cb.keys()].filter((k) => !arr(next.copy).some((c) => c.id === k)));
   if (copyMoved.length) add("copy_changed", copyMoved);
+  if (prev.temporal || next.temporal) {
+    const tb = new Map(arr(prev.temporal).map((x) => [x.shot_id, x])), tn = new Map(arr(next.temporal).map((x) => [x.shot_id, x]));
+    const moved = [...new Set([...tb.keys(), ...tn.keys()])].filter((k) => !tb.get(k) || !tn.get(k) || tb.get(k).digest !== tn.get(k).digest);
+    if (moved.length) add("reads_changed", moved);
+    const restamped = [...tn.keys()].filter((k) => tb.get(k) && tb.get(k).digest === tn.get(k).digest && tb.get(k).score_revision !== tn.get(k).score_revision);
+    if (restamped.length) add("reads_stale", restamped);
+  }
   if (JSON.stringify(prev.look) !== JSON.stringify(next.look)) add("look_changed");
   if (prev.audio && next.audio) {
     if (prev.audio.kind !== next.audio.kind) add("audio_kind_changed");
@@ -414,7 +556,9 @@ export function audioReplacementImpact({ doc, before = null, after = null, copy 
   const ids = rec.deltas.map((d) => d.shot_id);
   const reading = shots.map((s) => ({ shot_id: s.shot_id, ...checkReading(s, arr(copy).length ? copy : arr(s.copy), { locale, display }) })).filter((x) => x.ok === false);
   const imp = ids.length ? impact("storyboard", ids, { timing: true }) : impact("storyboard", [], {});
-  return { kind: "audio_replacement", from: before && before.kind || null, to: after && after.kind || null, silent_retime: false, deltas: rec.deltas, protected: rec.protected, reading_conflicts: reading, impact: imp, propose_in: "Storyboard (same surface, before the final build)", audio_contract: "audio/contract.json (Plan 07; storyboard/audio.json still reads); no second audio timeline" };
+  // W05: reads mapped on the old score/audio are stale until re-mapped; only present when a shot carries reads (a revision 1 board gets exactly what it got before)
+  const rd = shots.some((s) => arr(s.reads).length) ? { reads_stale: ids.length ? shots.filter((s) => ids.includes(s.shot_id) && arr(s.reads).length).map((s) => ({ shot_id: s.shot_id, read_ids: s.reads.map((r) => r.id) })) : [], note: "reads on a shot whose timing moved are stale: re-map them against the new score (normalizeReads); never silently re-time them" } : null;
+  return { kind: "audio_replacement", from: before && before.kind || null, to: after && after.kind || null, silent_retime: false, deltas: rec.deltas, protected: rec.protected, reading_conflicts: reading, ...(rd ? { reads: rd } : {}), impact: imp, propose_in: "Storyboard (same surface, before the final build)", audio_contract: "audio/contract.json (Plan 07; storyboard/audio.json still reads); no second audio timeline" };
 }
 
 // ---- the snapshot, read from a run (console approve on the animatic step and `storyboard.mjs snapshot` share this) -------------------------------------

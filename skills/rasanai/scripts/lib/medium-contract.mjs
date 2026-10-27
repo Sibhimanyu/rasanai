@@ -6,6 +6,11 @@
 //   mediumContractDigest(doc)                                         -> full canonical digest, derived/status/clock fields excluded
 //   projectMediumForWorker(doc, {role, beatIds, shotIds, events, budget}) -> {mandatory, visual_refs, technique_refs, omitted_optional, blockers}
 //   mediumContractCurrent(doc, expectedPins)                          -> {current, stale, missing}
+// v3 (W03, additive; every legacy export and result shape is unchanged):
+//   toConstraintRecords(brand, extra) / splitConstraintRecords(records) / validateConstraintRecords(records) / isBindingConstraint(c)
+//                                                                     -> identity vs factual surface vs observed trait vs proposed treatment (CONSTRAINT_AUTHORITIES)
+//   validateMediumResolution(res) / lookIdentityDigest(input) / lookIdentityCurrent(stored, input)
+//                                                                     -> resolution record {state: MEDIUM_RESOLUTION_STATES} and the Look identity digest that includes the medium
 import { canonicalDigest } from "./contracts.mjs";
 
 const isObj = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
@@ -17,7 +22,13 @@ export const LAYER_ROLES = ["evidence", "editorial", "environment", "character",
 export const INVARIANT_KINDS = ["hard", "medium", "craft"];
 export const PIN_KEYS = ["story_digest", "comparison_content_digest", "profile_digest"];
 // derived, status or clock fields never enter the digest: a re-stamped file with the same content has the same identity
-const DERIVED = new Set(["digest", "contract_digest", "status", "created_at", "updated_at", "generated_at", "validated_at", "checked_at", "receipt", "receipts"]);
+const DERIVED = new Set(["digest", "contract_digest", "look_identity_digest", "status", "created_at", "updated_at", "generated_at", "validated_at", "checked_at", "receipt", "receipts"]);
+
+export const MEDIUM_RESOLUTION_STATES = ["selected", "custom-supported", "needs-direction", "capability-blocked"];
+// who may bind the film: identity (user request, binding guideline, approved supplied asset) and factual product surfaces are law; observed reference traits
+// (a website layout, a screenshot, an inferred motion) and proposed treatment are information only, until a user or a binding guideline promotes them.
+export const CONSTRAINT_AUTHORITIES = ["identity", "factual-surface", "observed", "proposed"];
+export const CONSTRAINT_BASES = ["stated", "measured", "inferred", "proposed"];
 
 const strip = (v) => {
   if (Array.isArray(v)) return v.map(strip);
@@ -134,6 +145,9 @@ export function validateMediumContract(doc, { assignment, profiles, capabilities
     }
   }
   for (const l of arr(doc.limitations)) limitations.push(T(l));
+  // v3 (additive): present-only checks, so a legacy contract without these fields validates exactly as before
+  if (doc.constraints !== undefined) { const cv = validateConstraintRecords(doc.constraints); errors.push(...cv.errors); warnings.push(...cv.warnings); }
+  if (doc.resolution !== undefined) { const rv = validateMediumResolution(doc.resolution); errors.push(...rv.errors); if (isObj(doc.resolution) && doc.resolution.state === "capability-blocked") err(errors, "resolution-blocked", "resolution.state", "a capability-blocked resolution cannot be a developed contract: offer a feasible treatment through the Look/revision path"); }
   return { ok: !errors.length, errors, warnings, limitations };
 }
 
@@ -195,4 +209,88 @@ export function mediumContractCurrent(doc, expectedPins = {}) {
   }
   if (T(expectedPins.contract_digest) && mediumContractDigest(doc) !== expectedPins.contract_digest) stale.push("contract_digest");
   return { current: !stale.length && !missing.length, stale, missing };
+}
+
+// ---------------------------------------------------------------------------------------------------- v3: constraint authority split
+// A record: {id, value, scope, authority, source_ref, required, why, basis?}. Legacy brand constraints (binding_kind hard|inferred) convert losslessly.
+const MOTIONISH = /motion|camera|transition|layout|rhythm|easing|duration|pacing/i;
+const SCREENISH = /screenshot|screen-?grab|\.(png|jpe?g|webp)(\b|$)|still|thumbnail/i;
+// legacy shape: binding_kind "hard"/"binding" (or absent on hard_constraints) binds; "inferred"/"observed"/"proposed" never block a medium
+export function isBindingConstraint(c) {
+  if (!isObj(c)) return false;
+  const bk = T(c.binding_kind).toLowerCase(), au = T(c.authority).toLowerCase();
+  if (["inferred", "observed", "proposed"].includes(bk) || ["observed", "proposed"].includes(au)) return false;
+  return true;
+}
+const asRecord = (c, i, kind, dflt) => {
+  const bk = T(c.binding_kind).toLowerCase();
+  const authority = CONSTRAINT_AUTHORITIES.includes(c.authority) ? c.authority : (bk === "inferred" || bk === "observed") ? "observed" : bk === "proposed" ? "proposed" : dflt;
+  const basis = CONSTRAINT_BASES.includes(c.basis) ? c.basis : authority === "observed" ? "inferred" : authority === "proposed" ? "proposed" : "stated";
+  return { id: T(c.id) || `${kind}-${i + 1}`, value: c.value ?? c.kind ?? c.detail ?? null, scope: T(c.scope) || "unspecified", authority, source_ref: c.source_ref ?? c.source ?? null, required: authority === "identity" || authority === "factual-surface" ? c.required !== false : false, why: T(c.why || c.reason) || "(no reason recorded)", basis };
+};
+// brand: an assignment.brand ({hard_constraints, motion_constraints, inferred_preferences}); extra: additional records already in the new shape
+export function toConstraintRecords(brand, extra = []) {
+  const b = isObj(brand) ? brand : {};
+  return [
+    ...arr(b.hard_constraints).filter(isObj).map((c, i) => asRecord(c, i, "hard", "identity")),
+    ...arr(b.motion_constraints).filter(isObj).map((c, i) => asRecord(c, i, "motion", "identity")),
+    ...arr(b.inferred_preferences).filter(isObj).map((c, i) => asRecord(c, i, "pref", "observed")),
+    ...arr(extra).filter(isObj).map((c, i) => asRecord(c, i, "extra", "proposed")),
+  ];
+}
+export function splitConstraintRecords(records) {
+  const out = { required_identity: [], factual_product_surfaces: [], observed_reference_traits: [], proposed_treatment: [] };
+  for (const r of arr(records).filter(isObj)) {
+    if (r.authority === "identity") out.required_identity.push(r);
+    else if (r.authority === "factual-surface") out.factual_product_surfaces.push(r);
+    else if (r.authority === "observed") out.observed_reference_traits.push(r);
+    else out.proposed_treatment.push(r);
+  }
+  return out;
+}
+// -> {ok, errors:[{code,path,message}], warnings:[]}. Observed/proposed can never be required; a screenshot cannot establish measured motion.
+export function validateConstraintRecords(records) {
+  const errors = [], warnings = [], ids = new Set();
+  arr(records).forEach((r, i) => {
+    const p = `constraints[${i}]`;
+    if (!isObj(r)) { err(errors, "constraint-shape", p, "a constraint record is an object"); return; }
+    for (const k of ["id", "scope", "authority", "why"]) if (!T(r[k])) err(errors, "constraint-field", `${p}.${k}`, `${k} is required`);
+    if (!("value" in r)) err(errors, "constraint-field", `${p}.value`, "value is required");
+    if (!("source_ref" in r)) err(errors, "constraint-field", `${p}.source_ref`, "source_ref is required (null is allowed for a proposal)");
+    if (typeof r.required !== "boolean") err(errors, "constraint-field", `${p}.required`, "required must be true or false");
+    if (T(r.id)) { if (ids.has(r.id)) err(errors, "constraint-dup", p, `duplicate constraint id ${r.id}`); ids.add(r.id); }
+    if (T(r.authority) && !CONSTRAINT_AUTHORITIES.includes(r.authority)) err(errors, "constraint-authority", `${p}.authority`, `authority must be one of ${CONSTRAINT_AUTHORITIES.join(", ")}`);
+    if ((r.authority === "observed" || r.authority === "proposed") && r.required === true) err(errors, "observed-promoted-to-law", `${p}.required`, "an observed trait or proposed treatment is not law: only a user request or a binding guideline makes it an identity constraint (re-record it with authority identity and its source)");
+    if ((r.authority === "identity" || r.authority === "factual-surface") && r.required === true && !r.source_ref) err(errors, "required-without-source", `${p}.source_ref`, "a required constraint points at the user request, guideline, approved asset or product surface that makes it binding");
+    const sref = typeof r.source_ref === "string" ? r.source_ref : isObj(r.source_ref) ? T(r.source_ref.path || r.source_ref.id || r.source_ref.ref) : "";
+    if (r.basis === "measured" && MOTIONISH.test(T(r.scope) + " " + T(r.value)) && SCREENISH.test(sref)) err(errors, "screenshot-motion-measured", `${p}.basis`, "a screenshot cannot establish a measured transition, camera move or layout rhythm: record it as inferred or proposed");
+  });
+  return { ok: !errors.length, errors, warnings };
+}
+
+// ---------------------------------------------------------------------------------------------------- v3: medium resolution record and Look identity
+// resolution: {state, reason, profile_id?, candidate_id?, conditions?, unsupported?, evidence_refs?}. Explicit; never a silent card fallback.
+export function validateMediumResolution(res) {
+  const errors = [];
+  if (!isObj(res)) { err(errors, "resolution-missing", "resolution", "a new-policy Look carries an explicit medium resolution"); return { ok: false, errors }; }
+  if (!MEDIUM_RESOLUTION_STATES.includes(res.state)) err(errors, "resolution-state", "resolution.state", `state must be one of ${MEDIUM_RESOLUTION_STATES.join(", ")}`);
+  if (!T(res.reason)) err(errors, "resolution-reason", "resolution.reason", "say why (the reason is shown internally, never skipped)");
+  if (res.state === "selected" && !T(res.profile_id)) err(errors, "resolution-profile", "resolution.profile_id", "a selected medium names its profile");
+  if (res.state === "custom-supported" && !arr(res.primitives).length) err(errors, "resolution-primitives", "resolution.primitives", "a custom treatment names the supported primitives it is built from");
+  if (res.state === "capability-blocked" && !arr(res.unsupported).length && !T(res.reason)) err(errors, "resolution-unsupported", "resolution.unsupported", "name what cannot be preserved");
+  return { ok: !errors.length, errors };
+}
+// The Look identity: what a Look board is a picture OF. Includes the selected medium contract digest (or the custom direction), the resolution state and the
+// constraint ids that bind it, so a board cut before the medium or its constraints changed is not current. Derived/status/clock fields are excluded.
+export function lookIdentityDigest({ contract = null, resolution = null, customDirection = null, constraints = [], profileDigest = null } = {}) {
+  const res = isObj(resolution) ? { state: resolution.state ?? null, profile_id: resolution.profile_id ?? null, candidate_id: resolution.candidate_id ?? null, primitives: arr(resolution.primitives).slice().sort() } : null;
+  return canonicalDigest({ v: 1, medium_contract_digest: isObj(contract) ? mediumContractDigest(contract) : null, profile_digest: profileDigest ?? null, resolution: res, custom_direction: isObj(customDirection) ? strip(customDirection) : null,
+    constraints: arr(constraints).filter((c) => isObj(c) && c.required === true).map((c) => ({ id: c.id, authority: c.authority, value: c.value ?? null })).sort((a, b) => (String(a.id) < String(b.id) ? -1 : 1)) });
+}
+// stored: a digest string or {look_identity_digest}. -> {current, stale:[...], missing:[...]}
+export function lookIdentityCurrent(stored, input = {}) {
+  const d = typeof stored === "string" ? stored : isObj(stored) ? T(stored.look_identity_digest || stored.digest) : "";
+  if (!d) return { current: false, stale: [], missing: ["look_identity_digest"] };
+  const now = lookIdentityDigest(input);
+  return now === d ? { current: true, stale: [], missing: [] } : { current: false, stale: ["look_identity_digest"], missing: [] };
 }

@@ -52,3 +52,14 @@ Boxes are normalised 0-1. `measures` holds the raw numbers behind the answers (s
 - `ending` needs a cut before the card (a dissolve into it may be missed) and a speaker in the rest of the film.
 - `marks` with `--clip` assumes the edit keeps the raw frame size and position (a reframed edit reads as "covered").
 - Never put a downloaded or private example in the repo; `<dir>` belongs in the project or the library.
+
+## Scoped lessons and revisions (V3)
+
+Separate from the taste inference above: what the engine carries forward from a run, and what a later edit may change. Implemented in `lib/lessons-scope.mjs`, `lib/medium-learning.mjs`, `lib/revision-intent.mjs`, `lib/impact.mjs`; no new store (`lessons.jsonl` and `revisions/requests.jsonl` stay the only records).
+
+- **A lesson is scoped.** It names the user, brand, series or format that gave it, plus (as `applicability`) the audience, communication kind, medium or project, and keeps the person's original words and a confidence. `applicableScoped` returns only lessons whose scope and applicability match the current assignment; an unknown context value never matches.
+- **Current intent wins.** A direction the person gives this film ("quiet typography") sets same-topic earlier leans aside for this film (`instructionFromNote` -> `resolveAgainstInstruction`); the lesson is not deleted or reversed. Retrieved content is never an instruction.
+- **One negative run is not a law.** A rejection becomes a lean only through a person's own note or review and a scope (`canPromoteRejection`). A global craft rule needs `buildLesson`'s evidence and a human review, and 3+ films. A rejected candidate idea only stops that same candidate repeating inside its own project (`projectRepeatAvoid`); a device or genre is never blacklisted because one film failed with it.
+- **Narrow cause, not category.** "Concept delayed product meaning for this brief" or "same presentation layout repeated without development"; never "no cards".
+- **Privacy.** Lessons stay within the current project/account scope. Nothing here sends a brief, frame or feedback to an outside service, and export happens only when the person asks through the existing controls.
+- **Revisions invalidate locally.** A requested change is classified (`classifyChangeScope`: copy spelling, asset correction, timing adjustment, material change, event substitution, new story); `lib/impact.mjs` `affectedClosure` then names only the outputs that read the changed identity. See `references/revisions-compat.md`.
