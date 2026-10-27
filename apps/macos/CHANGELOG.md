@@ -2,6 +2,12 @@
 
 Desktop releases are separate from RasanAI skill releases.
 
+## Unreleased
+
+- **Bundles RasanAI 1.30.0:** the creative overhaul. Stories are checked for real differences between options, creative commitments are tracked per film (a quiet or formal film is valid), storyboards carry timed reads, and a continuous action has one owner so work is split by action instead of by scene. A Final is only marked ready when its commitments have current evidence; a draft is always allowed.
+- **Director wording updated:** "at least one spectacle moment" becomes "a moment people will replay where the story earns one" (Show off and the Maximal default stay), Fast research may use local references and one bounded idea pass, and a model you pin is never swapped for a cheaper one.
+- No screens, settings or approvals changed. This is engine and prompt work, checked with syntax and import loads, the skill-routing test, seven script suites and the prompt parity test, but not tried on a real film.
+
 ## 0.24.3 (build 65) — 2026-10-26
 
 - **Bundles RasanAI 1.29.0:** creative briefs and automatic references, proof checks, strict approval checks for new films, and the medium-aware Look options and checks.
