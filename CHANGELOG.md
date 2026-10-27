@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.31.0 (2026-10-27): Connected sequences, sound direction, music selection and layered effects
 
 Implemented from the two Heresay addenda to the v3 overhaul (Connected Sequence Craft; Music Direction and Layered Sound). Source-level only: checked with syntax and import loads and the skill-map link check, but not built, rendered or listened to. No film-quality or audio improvement is claimed, and the reported music dropout is not repaired.
 
