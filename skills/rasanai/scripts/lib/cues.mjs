@@ -16,6 +16,9 @@
 //   normalizeCue(raw), legacyCues(score), authoredCues(score), cuesFromScore(score), resolveCue(cue, events, o), checkCue(cue, o)
 //   silenceViolations(cues, windows), dropInSilence(items, windows), transitionStacking(cues, seams, o), seamIntent(seam)
 //   deriveCues(score, o), writeCues(run), cuesFresh(run), toSfxEvents(cues)
+//   Addendum 2 (additive; a cue without these fields normalizes byte-identically): optional `layers`, `purpose`, `family`, `intensity`,
+//   `perceptual_event_id`, `music_reduction` on a cue (layer shape: normalizeLayer); overlapReport(resolvedCues, o) balances overlapping events as a whole.
+//   Planning of the layers lives in lib/sfx-layers.mjs (planCueLayers, effectsPolicy, eventDensity, resourceLayers, coherentFamily).
 import fs from "node:fs";
 import path from "node:path";
 import { canonicalDigest, SCHEMA_VERSION } from "./contracts.mjs";
@@ -34,6 +37,29 @@ export const INTENTS = ["on_picture", "anticipate", "trail", "synchronous"];
 // the existing default, kept as a DEFAULT: the accent lands 10 ms after the picture (sound.mjs sfx-plan), which reads as simultaneous
 export const DEFAULT_OFFSET_S = 0.01;
 const HARD_ROLES = new Set(["vo_highlight", "lip_sync"]);
+// Addendum 2: a layer has ONE job. onset.lead says how it relates to the visible action: before it, with it, or after it
+export const LAYER_ROLES = ["movement", "accent", "texture", "tail", "ui"];
+export const LAYER_LEADS = ["leads", "confirms", "trails"];
+export const CUE_INTENSITIES = ["light", "medium", "prominent"];
+export const leadOf = (offset_s) => (offset_s < -0.02 ? "leads" : offset_s > 0.06 ? "trails" : "confirms");
+// one layer of a cue; onset is relative to the event (basis "event": the event's score-derived time + offset_s, never film time)
+export function normalizeLayer(raw) {
+  const x = isObj(raw) ? raw : {};
+  const on = isObj(x.onset) ? x.onset : {};
+  const off = num(on.offset_s ?? x.offset_s, 0);
+  const lead = LAYER_LEADS.includes(T(on.lead)) ? T(on.lead) : leadOf(off);
+  return {
+    role: LAYER_ROLES.includes(T(x.role)) ? T(x.role) : "accent",
+    asset_ref: T(x.asset_ref || x.asset) || null,
+    gain_db: num(x.gain_db ?? (isObj(x.gain) ? x.gain.db : null), 0),
+    pan: num(x.pan),
+    tonal: isObj(x.tonal) ? x.tonal : null,
+    onset: { basis: "event", offset_s: off, lead },
+    body_s: num(x.body_s), tail_s: num(x.tail_s),
+    ...(T(x.job) ? { job: T(x.job) } : {}),
+    ...(T(x.why) ? { why: T(x.why) } : {}),
+  };
+}
 
 // ---- the cue record -------------------------------------------------------------------------------------------------------------------------
 export function normalizeCue(raw, { legacy = false } = {}) {
@@ -62,6 +88,13 @@ export function normalizeCue(raw, { legacy = false } = {}) {
     spatial: { pan: num(sp.pan ?? x.pan), intent: T(sp.intent) || (num(sp.pan ?? x.pan) != null ? "positional" : "centered") },
     confidence: { value: conf.value == null ? null : Math.max(0, Math.min(1, Number(conf.value))), basis: T(conf.basis) },
     breaks_silence: x.breaks_silence === true ? { reason: T(x.break_reason) || "" } : null,
+    // Addendum 2, optional: present only when the raw cue carries them (legacy cue shape unchanged)
+    ...(Array.isArray(x.layers) && x.layers.length ? { layers: x.layers.map(normalizeLayer) } : {}),
+    ...(T(x.purpose) ? { purpose: T(x.purpose) } : {}),
+    ...(T(x.family) ? { family: T(x.family) } : {}),
+    ...(CUE_INTENSITIES.includes(T(x.intensity)) ? { intensity: T(x.intensity) } : {}),
+    ...(T(x.perceptual_event_id) ? { perceptual_event_id: T(x.perceptual_event_id) } : {}),
+    ...(isObj(x.music_reduction) ? { music_reduction: { depth_db: num(x.music_reduction.depth_db), reason: T(x.music_reduction.reason) } } : {}),
     ...(legacy ? { legacy: true } : {}),
   };
 }
@@ -186,6 +219,41 @@ export function transitionStacking(resolvedCues, seams = [], { window_s = 1.5, s
   return { seams: n, stacked, share: r3(frac), warn, message: warn ? `${stacked.length} of ${n} changes carry a riser and an impact: a formula, not a decision. Let some changes cut clean or take one sound (this is a style default, not a rule)` : null };
 }
 
+// ---- overlapping events are balanced as a whole ------------------------------------------------------------------------------------------
+// Clusters cues whose sounds start within window_s of each other (single-linkage on the sound's onset) and reports each cluster as ONE perceptual
+// group: how many perceptual events (a multi-layer cue is one event), how many actual layers, how many prominent ones, and a riser+impact stack. It reports; the
+// plan decides. perWindow / max_prominent default to the existing SFX_BUDGET numbers (audio.mjs, read-only: pass o.budget to use the real row).
+// Never hides overload: layers are listed next to events, and a cluster is flagged on EITHER count.
+export function overlapReport(resolvedCues, { window_s = 1, budget = null, perWindow = null, max_layers = null, max_prominent = 1 } = {}) {
+  const cap = perWindow ?? (budget && num(budget.perWindow)) ?? 3;
+  const lcap = max_layers ?? cap * 2;
+  const items = arr(resolvedCues).filter((c) => c && c.resolved && c.timing).map((c) => ({ c, t: c.timing.sfx_onset_s })).sort((a, b) => a.t - b.t);
+  const groups = [];
+  for (const it of items) {
+    const g = groups[groups.length - 1];
+    if (g && it.t - g.last <= window_s) { g.items.push(it); g.last = it.t; } else groups.push({ items: [it], first: it.t, last: it.t });
+  }
+  const prominent = (c) => c.intensity === "prominent" || ["impact", "stinger", "riser"].includes(c.role);
+  const out = groups.map((g) => {
+    const cues = g.items.map((x) => x.c);
+    const events = new Set(cues.map((c) => c.perceptual_event_id || c.event_id || c.id)).size;
+    const layers = cues.reduce((n, c) => n + (c.layers ? c.layers.length : 1), 0);
+    const prom = cues.filter(prominent).length;
+    const stack = cues.some((c) => c.role === "riser") && cues.some((c) => c.role === "impact");
+    const flags = [];
+    if (events > cap) flags.push("events_over_window");
+    if (layers > lcap) flags.push("layers_over_window");
+    if (prom > max_prominent) flags.push("prominent_stacked");
+    if (stack) flags.push("riser_impact_stack");
+    return { start_s: r3(g.first), end_s: r3(g.last), cues: cues.map((c) => c.id), events, layers, prominent: prom, flags };
+  }).filter((g) => g.events > 1 || g.layers > 1 || g.flags.length);
+  const flagged = out.filter((g) => g.flags.length);
+  return {
+    window_s, per_window_cap: cap, layer_cap: lcap, groups: out, flagged: flagged.length,
+    message: flagged.length ? `${flagged.length} overlapping group(s) crowd the same moment (${[...new Set(flagged.flatMap((g) => g.flags))].join(", ")}): thin or space them as one event, not one cue at a time` : null,
+  };
+}
+
 // a seam's declared sound intent: hard cut / hold / editorial.silent seams are owed nothing
 export function seamIntent(seam) {
   const e = isObj(seam && seam.editorial) ? seam.editorial : {};
@@ -210,7 +278,7 @@ export function deriveCues(score, { words = [], silence = [] } = {}) {
     note: "derived from motion/score.json (audio_cues, events and seams); edit the score, not this file",
     score_revision: scoreRevision(score), frame_rate: ev.frame_rate, convention: ev.convention,
     cues: cues.map(({ resolved, problem, ...c }) => ({ ...c, resolved, ...(problem ? { problem } : {}) })),
-    issues, digest: canonicalDigest(cues.map((c) => [c.id, c.event_id, c.timing && c.timing.sfx_onset_s, c.source, c.gain, c.spatial])),
+    issues, digest: canonicalDigest(cues.map((c) => [c.id, c.event_id, c.timing && c.timing.sfx_onset_s, c.source, c.gain, c.spatial, ...(c.layers ? [c.layers, c.purpose || null, c.family || null, c.intensity || null] : [])])),
   };
 }
 export function writeCues(run) {
@@ -240,5 +308,6 @@ export function toSfxEvents(resolvedCues) {
   return arr(resolvedCues).filter((c) => c.resolved).map((c) => ({
     id: c.event_id, cue: c.id, t: c.timing.picture_onset_s, kind: c.source.sample || c.role, offset_s: c.intended_offset_s,
     synchronous: c.synchronous || undefined, breaks_silence: c.breaks_silence ? true : undefined,
+    ...(c.layers ? { layers: c.layers, purpose: c.purpose, family: c.family, intensity: c.intensity, perceptual_event_id: c.perceptual_event_id } : {}),
   }));
 }

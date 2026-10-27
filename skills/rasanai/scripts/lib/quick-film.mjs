@@ -25,6 +25,7 @@ import { readDesignMd } from "./design-md.mjs";
 import { noteDowngrade } from "./downgrade.mjs";
 import { GSAP_PATH } from "./common.mjs";
 import { chromeStatus, ffmpegStatus } from "./style-film.mjs";
+import { busPlan, renderBoundary } from "./mix-bus.mjs";
 
 export const QUICK = { MIN_S: 10, MAX_S: 40, FPS: 30, SIZES: [[640, 360], [960, 540], [1280, 720], [1920, 1080]], STEPS: [2, 4], SCHEMA: "rasanai-quick-brief/1" };
 export const COMPOSITION_REL = "compositions/quick/index.html";
@@ -248,12 +249,22 @@ __vt.install(tl);
 `;
 }
 
+// ONE audio plan per quick film (revision 2: quick.json / its audio block says mix_policy_revision 2). hostHtml (HyperFrames route) and audioArgs (ffmpeg route) both read it through
+// renderBoundary, so the two mixers cannot disagree about a level. The legacy declaration (music.volume, sfx volume) is the plan's input: its linear value becomes dB once, and each
+// route converts back at its own boundary. null for a revision-1 / legacy brief: both functions then keep their old output.
+export function quickAudioPlan(b) {
+  const au = (b && b.audio) || {};
+  if (!(Number(b && b.mix_policy_revision) >= 2 || Number(au.mix_policy_revision) >= 2)) return null;
+  const cues = (au.sfx || []).map((x, i) => ({ id: `sfx-${i}`, start_s: Number(x.at) || 0, duration_s: Number(x.duration) || 1.5, volume: x.volume ?? 0.8 }));
+  return busPlan({ cues, music: au.music ? { volume: au.music.volume ?? 0.5, id: "music-bed" } : {}, film_s: b.duration_s, mix_policy_revision: 2 });
+}
 // A HyperFrames host that mounts the quick composition (the normal workflow's index.html); audio is declared here, never in the composition.
 export function hostHtml(b) {
   const W = (b.size || {}).w || 1280, H = (b.size || {}).h || 720, D = b.duration_s, au = b.audio || {};
   const clips = [];
-  if (au.music) clips.push(`<audio id="music-bed" src="${esc(au.music.file)}" data-start="0" data-duration="${D}" data-track-index="10" data-volume="${au.music.volume ?? 0.5}"></audio>`);
-  (au.sfx || []).forEach((s, i) => clips.push(`<audio id="sfx-${i}" src="${esc(s.file)}" data-start="${s.at}" data-duration="${s.duration || 1.5}" data-track-index="${11 + i}" data-volume="${s.volume ?? 0.8}"></audio>`));
+  const QP = quickAudioPlan(b), QB = QP ? renderBoundary(QP, "hyperframes").elements : null; // revision 2: levels from the one plan
+  if (au.music) clips.push(`<audio id="music-bed" src="${esc(au.music.file)}" data-start="0" data-duration="${D}" data-track-index="10" data-volume="${QB ? QB.find((e) => e.role === "music")["data-volume"] : au.music.volume ?? 0.5}"></audio>`);
+  (au.sfx || []).forEach((s, i) => clips.push(`<audio id="sfx-${i}" src="${esc(s.file)}" data-start="${s.at}" data-duration="${s.duration || 1.5}" data-track-index="${11 + i}" data-volume="${QB ? QB.find((e) => e.cue_id === `sfx-${i}`)["data-volume"] : s.volume ?? 0.8}"></audio>`));
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -573,11 +584,13 @@ const probeDur = (f) => { const r = spawnSync("ffprobe", ["-v", "error", "-show_
 
 export function audioArgs(project, b, nextInput) {
   const au = b.audio || {}, D = b.duration_s, inputs = [], parts = [], labels = [];
-  let k = nextInput;
-  if (au.music) { inputs.push("-i", path.join(project, au.music.file)); parts.push(`[${k}:a]atrim=0:${D},asetpts=PTS-STARTPTS,afade=t=in:d=0.4,afade=t=out:st=${Math.max(0, D - 1.2)}:d=1.2,volume=${au.music.volume ?? 0.5}[m${k}]`); labels.push(`[m${k}]`); k++; }
-  for (const s of au.sfx || []) { inputs.push("-i", path.join(project, s.file)); const ms = Math.round(s.at * 1000); parts.push(`[${k}:a]adelay=${ms}|${ms},volume=${s.volume ?? 0.8}[s${k}]`); labels.push(`[s${k}]`); k++; }
+  const QP = quickAudioPlan(b), QB = QP ? renderBoundary(QP, "ffmpeg-quick").elements : null; // revision 2: the same plan hostHtml reads; explicit per-input dB, amix normalize=0, dropout_transition=0
+  const vol = (e, legacy) => (QB ? `${e.volume_db}dB` : legacy);
+  let k = nextInput, si = 0;
+  if (au.music) { inputs.push("-i", path.join(project, au.music.file)); parts.push(`[${k}:a]atrim=0:${D},asetpts=PTS-STARTPTS,afade=t=in:d=0.4,afade=t=out:st=${Math.max(0, D - 1.2)}:d=1.2,volume=${vol(QB && QB.find((e) => e.role === "music"), au.music.volume ?? 0.5)}[m${k}]`); labels.push(`[m${k}]`); k++; }
+  for (const s of au.sfx || []) { inputs.push("-i", path.join(project, s.file)); const ms = Math.round(s.at * 1000); parts.push(`[${k}:a]adelay=${ms}|${ms},volume=${vol(QB && QB.find((e) => e.cue_id === `sfx-${si}`), s.volume ?? 0.8)}[s${k}]`); labels.push(`[s${k}]`); k++; si++; }
   if (!labels.length) return { inputs: [], map: [], filter: null };
-  parts.push(`${labels.join("")}amix=inputs=${labels.length}:duration=longest:normalize=0,atrim=0:${D},aformat=sample_rates=48000:channel_layouts=stereo[a]`);
+  parts.push(`${labels.join("")}amix=inputs=${labels.length}:duration=longest:normalize=0${QB ? ":dropout_transition=0" : ""},atrim=0:${D},aformat=sample_rates=48000:channel_layouts=stereo[a]`);
   return { inputs, filter: parts.join(";"), map: ["-map", "[a]", "-c:a", "aac", "-b:a", "160k"] };
 }
 
@@ -673,6 +686,8 @@ export async function scaffold({ run, project, duration, briefFile, offline = fa
   b = JSON.parse(JSON.stringify(b));
   if (duration != null) b.duration_s = Number(duration);
   b.size = b.size || { w: 1280, h: 720 };
+  // Addendum 2 gate: a run whose plan is creative_policy_revision >= 2 stamps its quick film mix_policy_revision 2 (quickAudioPlan reads it); a run without that plan, or a brief that already states a revision, is left as it was
+  if (b.mix_policy_revision == null) { const pl = rj(path.join(rp, "crew", "plan.json")); if (pl && Number(pl.creative_policy_revision) >= 2) b.mix_policy_revision = 2; }
   // the approved Look wins; a brief look is only for a run that has none
   const approved = fs.existsSync(rp) ? lookFromRun(rp) : null;
   if (approved && approved.canvas && approved.ink && approved.accent && approved.display) {

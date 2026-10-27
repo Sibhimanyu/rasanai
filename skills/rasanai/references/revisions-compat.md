@@ -47,4 +47,17 @@ See `references/learn.md` (V3 section). Lessons carry scope, applicability, sour
 | RUN-08 | Permission/CLI/default/UI code changed in a native-prompt-only task | scope audit (W12) flags it; this lane touches none (only lib/agents/references files) |
 | EDGE-11 | Original mega-plan archive recovered later | original files and IDs untouched; a reconciliation note says this version is not a byte-preserving revision |
 
+## Sequence records and sound identity (Addenda 1 and 2; implemented_unvalidated)
+
+Sequence records (motif, handoff, optics, product, attention; `lib/sequence-contract.mjs`) are active only for plans with `creative_policy_revision >= 2`. `lib/revision-bind.mjs` turns them into identity keys (`motif:<id>`, `handoff:<id>`, `optics:<id>`, `product:<id>`, `attention:<id>`; value = the record's semantic digest) and consumers (a record reads its own key, the event/object/anchor/motif/capture ids it references, and the inputs it was approved against). `sequenceChangeImpact({plan, before, after})` therefore stales only the records that read what changed: a motif edit stales that motif's handoffs, not unrelated beats; an anchor edit stales the records that reference that anchor. A note, key order or pin never moves a digest.
+
+| Case | Setup | Expected observation |
+|---|---|---|
+| CSC-03 | One motif's role changes | `stale` = that motif and the handoffs naming `motif_id`; every other record is in `keep` |
+| CSC-23 | One anchor id changes | only motif roles / product stages / records reading `anchor:<id>` are stale |
+| CSC-24 | Plan revision 0 or 1, or a film with no sequence records | `sequenceChangeImpact` returns `{active:false, legacy:true, stale:[], keep:[]}`; nothing about the film resolves differently |
+| AUD-25 | Project whose `audio/direction.json` has no `mix_policy_revision` | `audioReuseGate` reports `legacy:true`; an old receipt that still matches is reused with the old keys; its intended audio is not changed |
+
+Sound identity (`lib/impact.mjs soundIdentityParts` -> `identityMap`) joins sound choices, music shortlist revision, effects policy, mix plan (buses, reductions, automation, aggregate, cue levels), renderer identity (`renderer`, `version`, `filter_graph_digest`), cue sources, selected music track/section/stems and voice segments to the same dependency identity as the v3 keys. See `sound-revisions.md` for the scope table. Wiring status: the libraries exist; no caller in the engine invokes them yet (ENG-INT-1 resume path, ENG-INT-2 console `soundHook`). See `REVISION_CONSUMER_INVENTORY` and `PROJECTION_GAPS` in `revision-bind.mjs`.
+
 Not validated by any run; case results belong to the deferred test pass.

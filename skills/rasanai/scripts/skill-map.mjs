@@ -82,9 +82,9 @@ export const CREATIVE_DEEPER = {
 export const CREATIVE_V3_DEEPER = {
   brief: ["references/creative-policy.md", "references/budget-context.md"],
   story: ["references/creative-policy.md", "references/concept-development.md", "references/event-commitments.md"],
-  look: ["references/event-commitments.md", "references/typography-performance.md", "references/composition-transitions.md", "references/medium-performance.md"],
-  styleframes: ["references/temporal-storyboard.md", "references/continuity-ownership.md", "references/procedural-space.md", "references/asset-compositing.md"],
-  animatic: ["references/continuity-ownership.md", "references/budget-context.md", "references/typography-performance.md", "references/composition-transitions.md", "references/procedural-space.md", "references/asset-compositing.md", "references/medium-performance.md"],
+  look: ["references/event-commitments.md", "references/typography-performance.md", "references/composition-transitions.md", "references/medium-performance.md", "references/sequence-contracts.md", "references/motif-roles.md", "references/optical-treatments.md", "references/sound-direction.md"],
+  styleframes: ["references/temporal-storyboard.md", "references/continuity-ownership.md", "references/procedural-space.md", "references/asset-compositing.md", "references/sequence-contracts.md", "references/motion-handoffs.md", "references/product-choreography.md"],
+  animatic: ["references/continuity-ownership.md", "references/budget-context.md", "references/typography-performance.md", "references/composition-transitions.md", "references/procedural-space.md", "references/asset-compositing.md", "references/medium-performance.md", "references/sequence-contracts.md", "references/motif-roles.md", "references/motion-handoffs.md", "references/optical-treatments.md", "references/product-choreography.md", "references/sound-direction.md", "references/audio-sources-rights.md", "references/mix-bus.md", "references/music-selection.md", "references/music-arrangement.md", "references/sfx-layering.md", "references/sound-revisions.md"],
   final: ["references/temporal-review.md", "references/event-commitments.md"],
 };
 export const policyRevisionInRun = (run) => { try { const p = JSON.parse(fs.readFileSync(path.join(run, "crew", "plan.json"), "utf8")); const r = Number(p && p.creative_policy_revision); return Number.isFinite(r) ? r : 0; } catch { return 0; } };

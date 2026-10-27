@@ -158,13 +158,16 @@ export function buildPlan(inEvents, identity, opts = {}) {
   const id = identity;
   const seed = id.seed;
   const beat = 60 / id.bpm, step = beat / 4, bar = beat * 4;
-  const sections = sectionsFromEvents(events, dur, id);
+  const hook = normalizeArrangement(opts.arrangement);
+  const sections = applyArrangementEnergy(sectionsFromEvents(events, dur, id), hook);
 
   // the end: the logo / cta picture event, else the arc's button, else 0.9 s before the film's end; music stops there (no music past the CTA)
   const endEv = events.filter(isEnd).sort((a, b) => b.at_s - a.at_s)[0];
   let endT = endEv ? endEv.at_s : cueOf(events, "button_at") ?? dur - 0.9;
   endT = clamp(endT, Math.min(3, dur * 0.5), dur - 0.1);
-  const tail = clamp(Math.min(0.95, dur - endT - 0.03), 0.25, 0.95);
+  // arrangement hook (additive): ring-out / decay may ring longer when the film leaves room; stop / cut keep the short tail. Default: the long-standing 0.95 s.
+  const tailMax = hook && (hook.ending === "ring-out" || hook.ending === "decay") ? 2.4 : hook && (hook.ending === "stop" || hook.ending === "cut") ? 0.4 : 0.95;
+  const tail = clamp(Math.min(tailMax, dur - endT - 0.03), Math.min(0.25, tailMax), tailMax);
   const tailEnd = Math.min(dur - 0.03, endT + tail);
 
   // the hits: ids the identity names, else the visual hit on the drop cue, else the drop cue itself
@@ -281,7 +284,31 @@ export function buildPlan(inEvents, identity, opts = {}) {
     hits, gates, pause: peak ? { ...gates[0], event: peak.id } : null,
     ending: { cue_at_s: r6(endT), tail_end_s: r6(tailEnd), from: endEv ? endEv.id : cueOf(events, "button_at") != null ? "music_arc.button_at" : "duration - 0.9 s" },
     notes, foley: foleyEvents,
+    ...(hook ? { arrangement: hook } : {}),
   };
+}
+
+// ---- arrangement hooks (additive; absent = every output byte-identical) -------------------------------------------------------------------
+// input: lib/music-arrangement.mjs proceduralHooks() = { energy_scale?, section_energy?: {intro|peak|resolve|<name>: 0..1}, ending?: ring-out|decay|stop|cut|resolved_cadence }.
+// It only changes section energy (hence density and velocity) and the closing tail length; seeds, identity, cue times and the hit ids are untouched.
+function normalizeArrangement(a) {
+  if (!a || typeof a !== "object") return null;
+  const h = a.procedural && typeof a.procedural === "object" ? a.procedural : a;
+  const scale = Number(h.energy_scale);
+  const se = h.section_energy && typeof h.section_energy === "object" ? Object.fromEntries(Object.entries(h.section_energy).map(([k, v]) => [k, clamp(Number(v), 0.1, 1)]).filter(([, v]) => Number.isFinite(v))) : null;
+  const ending = ["ring-out", "decay", "stop", "cut", "resolved_cadence"].includes(h.ending) ? h.ending : null;
+  const out = {};
+  if (Number.isFinite(scale) && scale > 0 && scale !== 1) out.energy_scale = clamp(scale, 0.5, 1.3);
+  if (se && Object.keys(se).length) out.section_energy = se;
+  if (ending) out.ending = ending;
+  return Object.keys(out).length ? out : null;
+}
+function applyArrangementEnergy(sections, hook) {
+  if (!hook || (!hook.section_energy && !hook.energy_scale)) return sections;
+  return sections.map((s) => {
+    const base = hook.section_energy && hook.section_energy[s.name] != null ? hook.section_energy[s.name] : s.energy;
+    return { ...s, energy: r6(clamp(base * (hook.energy_scale || 1), 0.1, 1)) };
+  });
 }
 
 // ---------------------------------------------------------------------------------------------------- voices

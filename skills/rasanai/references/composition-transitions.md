@@ -43,3 +43,9 @@ Units: fractions of the frame (x, y from the top-left). Times: seconds on the ex
 ## Limits
 
 Easing is the table in `RasanLayout.EASES`; GSAP-only eases are `uncertain`. Layout is a plan plus a binder; nothing here measures a rendered frame. W05 carries ids in the storyboard, W06 groups continuous boundaries, W13 supplies text groups (`group_id`), W16 supplies crops. Injection of `rasan-layout.js` is proposed, not wired.
+
+## Sequence addendum: anchor relation for handoffs (implemented_unvalidated)
+
+- `deriveTransition` also returns `anchor_relation {space:"frame_fraction", basis:"score", from, to, bridge_region_id, shared_anchors[], plan_digest}` (null without a usable plan). A handoff record references it; there is no second coordinate system.
+- `REGION_KINDS` gains `mask` and `curve` (a masked or curved region large type relates to; name it from a `type_group` region with `relation`).
+- Runtime: `RasanLayout.anchoredRect(plan, anchorId, t, {w,h,dx,dy,pivot})` and `RasanLayout.carriedRectAt(plan, fromId, toId, fromAt, toAt, t, ease)` place a carried element, pure in score time.

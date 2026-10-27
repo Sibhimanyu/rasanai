@@ -20,7 +20,7 @@ import { CREATIVE_ERROR_CODES as E } from "./creative-policy.mjs";
 const layout = createRequire(import.meta.url)("../../runtime/rasan-layout.js");
 
 export const ID_RE = /^[A-Za-z][A-Za-z0-9_.:-]{0,63}$/;
-export const REGION_KINDS = ["rule", "cell", "window", "type_group", "crop", "layer", "focal"];
+export const REGION_KINDS = ["rule", "cell", "window", "type_group", "crop", "layer", "focal", "mask", "curve"];   // mask|curve (additive): a masked or curved region large type relates to (see `relation` on a type_group region)
 export const TRANSITION_MECHANISMS = {
   // mechanism -> { carries: invariant types it can honour, support, mechanics }
   rule_becomes_boundary: { carries: ["spatial_anchor", "shape"], support: "available", mechanics: "RasanLayout.bind: one anchor set drives both layouts; no tween per edge" },
@@ -187,6 +187,16 @@ export function deriveTransition({ from, to, invariants = [] } = {}, { plan = nu
     bounds[to.region_id] = [{ t: to.at, x: round(b.x), y: round(b.y), w: round(b.w), h: round(b.h) }];
   } else if (!plan) notes.push("no anchor plan supplied: no bounds computed");
 
+  // the anchor relation a handoff record references: the ids, the instants and the anchors the two regions share. Same frame-fraction coordinate
+  // system as the plan; no second one. null without a usable plan/region pair.
+  let anchor_relation = null;
+  if (regions.length && plan && plan.ok) {
+    const edgeAnchors = (id) => { const r = arr(plan.regions).find((q) => q.id === id), s = new Set(); for (const v of Object.values((r && r.edges) || {})) { const ref = typeof v === "string" ? v : isObj(v) ? v.anchor : null; if (ref) s.add(ref); } return s; };
+    const ea = edgeAnchors(from.region_id), eb = edgeAnchors(to.region_id);
+    anchor_relation = { space: "frame_fraction", basis: "score", from: { region_id: from.region_id, anchor_id: from.anchor_id || null, at: from.at }, to: { region_id: to.region_id, anchor_id: to.anchor_id || null, at: to.at },
+      bridge_region_id: `tr:${from.region_id}:${to.region_id}`, shared_anchors: [...ea].filter((x) => eb.has(x)).sort(), plan_digest: plan.digest };
+  }
+
   let capabilityState = "available";
   if (errors.length || !mech) capabilityState = "unavailable";
   else if (unresolved.length || (m && m.support === "uncertain") || !regions.length) capabilityState = "uncertain";
@@ -196,5 +206,5 @@ export function deriveTransition({ from, to, invariants = [] } = {}, { plan = nu
   const steps = mech ? [{ mechanism: mech, mechanics: m.mechanics, support: m.support, carries: carried, interval }] : [];
   if (m && m.support === "uncertain") notes.push(`${mech}: ${m.mechanics}`);
   const digest = digestOf({ from: { at: from.at, region_id: from.region_id, anchor_id: from.anchor_id, features: arr(from.features).map((f) => f && f.type) }, to: { at: to.at, region_id: to.region_id, anchor_id: to.anchor_id, features: arr(to.features).map((f) => f && f.type) }, want, mech, plan: plan ? plan.digest : null });
-  return { ok: !errors.length && !!mech, mechanism: mech, interval, regions, bounds, digest, capabilityState, unresolved_invariants: unresolved, steps, errors, notes };
+  return { ok: !errors.length && !!mech, mechanism: mech, interval, regions, bounds, digest, capabilityState, unresolved_invariants: unresolved, steps, errors, notes, anchor_relation };
 }

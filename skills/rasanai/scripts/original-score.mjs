@@ -3,6 +3,7 @@
 // No samples, no network, no key, no model, no Python; ffmpeg only decodes a non-WAV file for `check`. Method: references/procedural-music.md.
 //
 //   node original-score.mjs render --events <events.json> --out <score.wav> [--run <run>] [--identity <identity.json>] [--look "<look words>"] [--story "<story words>"]
+//        [--arrangement <arrangement.json>] (additive: a music-arrangement.mjs planArrangement record or its `procedural` hooks: section energy, a resolved ending)
 //        [--seed <n>] [--sr 44100|48000] [--duration <s>] [--fps <n>] [--narrated] [--with-foley] [--no-stems] [--silent-by-choice "<reason>"]
 //        events.json is the derived manifest of `events.mjs export` (refused when stale) or a plain {events:[{id,t,kind}]} list. Writes the stereo 24-bit WAV (music + ambience;
 //        foley joins with --with-foley), <out>.score.json (the plan, the sections, the hit ids, the licence and provenance, the quality downgrade and the plan sound.mjs
@@ -57,7 +58,11 @@ if (cmd === "render") {
   try {
     identity = resolveIdentity(str(args.identity) ? path.resolve(String(args.identity)) : null, { look: str(args.look), story: str(args.story), seed: str(args.seed), narrated: args.narrated ? true : null });
   } catch (e) { unable(`--identity: ${e.message}`); }
-  const opts = { sr, duration: args.duration != null ? Number(args.duration) : undefined, fps: args.fps != null ? Number(args.fps) : undefined, withFoley: !!args["with-foley"] };
+  let arrangement = null;
+  if (str(args.arrangement)) {
+    try { arrangement = JSON.parse(fs.readFileSync(path.resolve(String(args.arrangement)), "utf8")); } catch (e) { unable(`--arrangement: ${e.message}`); }
+  }
+  const opts = { ...(arrangement ? { arrangement } : {}), sr, duration: args.duration != null ? Number(args.duration) : undefined, fps: args.fps != null ? Number(args.fps) : undefined, withFoley: !!args["with-foley"] };
   let r;
   try { r = renderScore(ev.input, identity, opts); } catch (e) { unable(`render failed: ${e.message}`); }
   const wav = path.resolve(out);
@@ -68,6 +73,7 @@ if (cmd === "render") {
     events: { sha256: ev.sha, manifest: ev.manifest }, sr, channels: 2, bit_depth: 24, duration_s: r.plan.duration_s, fps: r.plan.fps, bpm: r.plan.bpm, key: r.plan.key, seed: r.plan.seed,
     identity: r.plan.identity, sections: r.plan.sections, hits: r.plan.hits, pause: r.plan.pause, gates: r.plan.gates, ending: r.plan.ending, foley: r.plan.foley, with_foley: !!opts.withFoley,
     families: [...new Set(r.plan.notes.map((n) => ({ pluck: "plucked", bell: "plucked", lead: "plucked", stab: "plucked", pad: "sustained pad", bass: "bass and percussion", kick: "bass and percussion", snare: "bass and percussion", hat: "bass and percussion" })[n.voice]).filter(Boolean))],
+    ...(r.plan.arrangement ? { arrangement: r.plan.arrangement } : {}),
     notes: r.plan.notes.length, license: r.provenance, quality_downgrade: r.provenance.quality_downgrade, samples_used: [],
     sound_plan: identityPlan(wav, r.plan),
   };

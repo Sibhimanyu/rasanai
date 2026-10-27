@@ -123,12 +123,15 @@ public struct FilmDraft: Codable, Equatable, Sendable {
     public var series: SeriesRef?
     /// The end card the film closes on when `ending` is `card` (`ending_file`, an absolute path).
     public var endingFile: String?
-    public init(brief: String = "", duration: Int = 45, aspect: String = "16:9", agent: String = "claude", motionLevel: String = "maximal", brand: String? = nil, modelPlan: ModelPlan = .recommended, pace: FilmPace = .defaultForNewFilms, moments: [FilmMoment] = [], linked: [LinkedSource] = [], format: FormatPick? = nil, preferences: [String: String] = [:], series: SeriesRef? = nil, endingFile: String? = nil) {
+    /// The person's sound choices (`sound` in rasanai-brief.json). nil for every draft saved before this existed and for films nobody set it on.
+    public var sound: SoundDirection?
+    public init(brief: String = "", duration: Int = 45, aspect: String = "16:9", agent: String = "claude", motionLevel: String = "maximal", brand: String? = nil, modelPlan: ModelPlan = .recommended, pace: FilmPace = .defaultForNewFilms, moments: [FilmMoment] = [], linked: [LinkedSource] = [], format: FormatPick? = nil, preferences: [String: String] = [:], series: SeriesRef? = nil, endingFile: String? = nil, sound: SoundDirection? = nil) {
+        self.sound = sound
         self.linked = linked; self.format = format; self.preferences = preferences; self.series = series; self.endingFile = endingFile
         self.brief = brief; self.duration = duration; self.aspect = aspect; self.agent = agent; self.motionLevel = motionLevel; self.brand = brand; self.modelPlan = modelPlan; self.pace = pace
         self.moments = Array(moments.prefix(Self.maxMoments))
     }
-    private enum CodingKeys: String, CodingKey { case brief, duration, aspect, agent, motionLevel, brand, modelPlan, pace, moments, format, preferences, series
+    private enum CodingKeys: String, CodingKey { case brief, duration, aspect, agent, motionLevel, brand, modelPlan, pace, moments, format, preferences, series, sound
         case linked = "linkedSources"
         case endingFile = "ending_file"
     }
@@ -152,6 +155,7 @@ public struct FilmDraft: Codable, Equatable, Sendable {
         preferences = (try? c.decodeIfPresent([String: String].self, forKey: .preferences)) ?? nil ?? [:]
         series = (try? c.decodeIfPresent(SeriesRef.self, forKey: .series)) ?? nil
         endingFile = (try? c.decodeIfPresent(String.self, forKey: .endingFile)) ?? nil
+        sound = (try? c.decodeIfPresent(SoundDirection.self, forKey: .sound)) ?? nil
     }
     /// The `--model` value for the director: the chosen plan under Claude Code, otherwise the Settings model.
     public func cliModel(settingsModel: String) -> String {
@@ -213,7 +217,26 @@ public struct FilmDraft: Codable, Equatable, Sendable {
             text += "\n\nPRESENTER FILMS\n" + Self.presenterText[level]!
         }
         text += tasteText()
+        text += soundText
         return text
+    }
+    /// The sound choices, as the director reads them (empty unless `sound` is set, so every film without it reads exactly as before).
+    /// Mirrored in skills/rasanai/scripts/lib/director-launch.mjs (SOUND_TEXT).
+    public var soundText: String {
+        guard let sound else { return "" }
+        func value(_ raw: String, _ key: String, unset: Bool) -> String {
+            "\(unset ? "recommend" : raw) (\(sound.explicit.contains(key) ? "explicit" : "not set by the user"))"
+        }
+        var lines = ["SOUND DIRECTION (the user's sound choices from Studio; independent of the film pace and model plan above):"]
+        lines.append("- voiceover = " + value(sound.voiceover.rawValue, SoundDirection.Key.voiceover, unset: sound.voiceover == .recommend))
+        lines.append("- pace = " + value(sound.pace.rawValue, SoundDirection.Key.pace, unset: sound.pace == .recommend) + " (perceived energy, density and development; not tempo)")
+        let feeling = sound.feeling == .custom ? "custom: \(sound.feelingCustom ?? "")" : sound.feeling.rawValue
+        lines.append("- feeling = " + value(feeling, SoundDirection.Key.feeling, unset: sound.feeling == .unset))
+        lines.append("- effects = " + value(sound.effects.rawValue, SoundDirection.Key.effects, unset: sound.effects == .unset))
+        let source = sound.musicSource == .userTrack ? "user_track" + (sound.userTrackPath.map { ": \($0)" } ?? "") : sound.musicSource.rawValue
+        lines.append("- music_source = " + value(source, SoundDirection.Key.musicSource, unset: false))
+        lines.append("Explicit choices are binding and win over show-off defaults; \"recommend\" means you recommend and show it in the console. A recommendation is never permission to spend, transmit or generate: music generation, voice and every provider call stay under the existing consent and budget rules. Effects mapping: subtle = sparse cues; expressive = causal cues, selected prominent hits allowed; minimal_none = signature_only (none when the film is fully silent). Read audio/sound-choices.json when it exists.")
+        return "\n\n" + lines.joined(separator: "\n")
     }
     /// The owner's taste answers, the end card and the series, as the director reads them (empty when there are none). Part of
     /// the creative direction, so a resumed or revised run keeps obeying them. `questions` names the choices in the owner's words.

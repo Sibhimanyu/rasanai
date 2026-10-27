@@ -75,3 +75,4 @@ The canonical homes of the detail this guide points at (read the one the current
 | writing the script: structures by length, hooks, beats, the turn, voiceover and on-screen lines, the end, the self-check (the writer pass's brief) | `references/script.md` |
 | the story engine: truth sheet, devices, Sure/Bold/Wild, the pitch rubric; format-aware treatments, story grammars, the structured review, house references | `references/story.md` (section 0), `scripts/lib/story-grammars.mjs`, `scripts/lib/treatment.mjs`, `scripts/lib/story-refs.mjs`, `taxonomy/devices-SCHEMA.md` |
 | launch, promo and product films: product-first rules, no conceits, real product fidelity, brand lock, the recommender, the concept gate | `references/product-first.md`, `agents/concept-critic.md`, `story.mjs` (G7) |
+| motif roles: a recurring object, gesture or shape that carries the story across scenes | `references/motif-roles.md`, `references/sequence-contracts.md` |

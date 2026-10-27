@@ -17,7 +17,8 @@
 //   autoDecision(o) / recordAutoDecision(run, rec)
 //   animaticPlan(doc, o) / anchorAt(plan, t) / animaticPayload(plan, doc) / renderAnimatic(plan, out, o)
 //   W05 temporal storyboard (additive; creative_policy_revision 1 boards carry none of these fields and behave exactly as before):
-//   normalizeReads(reads, score) -> { intervals, errors } / staleReads(doc, score) / readsDigest(shot) / temporalNotes(shot)
+//   normalizeReads(reads, score, opts?) -> { intervals, errors } / staleReads(doc, score, opts?) / readsDigest(shot) / temporalNotes(shot)
+//   Addendum 1 attention sequence (additive, on the same reads[]; a read without these fields behaves exactly as before): ATTENTION_FIELDS / hasAttention(read) / protectedReads(shot, intervals) / attentionLimits
 //   shot extras (all optional, kept inside the shot record): reads[], bindings{initial,action,consequence}, camera_intent, composition, transition_out.cut_function, sound_intent.relation
 //   see references/temporal-storyboard.md; the judging heuristics (read windows, cause before reaction, sameness) live in editorial.mjs evaluateTemporal
 import crypto from "node:crypto";
@@ -33,6 +34,7 @@ import { lookCommitted, resolveStageConsent } from "./look.mjs";
 import { CUT_RELATIONS, checkReading } from "./editorial.mjs";
 import { layout, rate, reconcile, scoreRevision, scoreTiming, toTicks, fromTicks } from "./timing.mjs";
 import { CREATIVE_ERROR_CODES } from "./creative-policy.mjs"; // W05: the real stable error codes (temporal reads reuse stale_input / temporal_evidence_missing)
+import { SEQUENCE_ERROR_CODES, READ_TARGET_KINDS } from "./sequence-contract.mjs"; // addendum 1 (attention): attention_order / attention_protected_overlap / sequence_unresolved_ref
 
 const isObj = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
 const arr = (x) => (Array.isArray(x) ? x : []);
@@ -214,7 +216,18 @@ export const relationOf = (text) => { const t = T(text); if (CUT_RELATIONS.inclu
 // It is read-only, never changes a duration, never clamps, and keeps the source timebase and beat reference exactly as written.
 // -> { intervals: [{id, event_id, start_s, end_s, start_tick, end_tick, timebase, beat_ref, score_revision, stale, resolved_from, attention_target,
 //                   overlaps:[ids], ...}], errors: [{code, ref, kind, message}] }   (code is a CREATIVE_ERROR_CODES value)
-export const READ_FIELDS = ["id", "event_id", "what_to_notice", "what_to_understand", "source_interval", "attention_target", "minimum_read_basis", "competing_reads", "accessibility_dependency"];
+// Addendum 1 (ordered attention), ledger 6.1: the same read may also carry an ordered attention record. Reads stay annotations on the score; `interval` is score seconds
+// ({start_s,end_s} | [a,b]) and is used only when the read has no source_interval. transfer_change is the change that moves emphasis on (scale, contrast, focus, position,
+// overlap, motion or stillness, or whatever the direction chose): free text or {kind, note}, never one mandated focal point and never constant movement.
+export const ATTENTION_FIELDS = ["order", "target_ref", "interval", "intended_understanding", "transfer_change", "competing", "protected_read"];
+export const READ_FIELDS = ["id", "event_id", "what_to_notice", "what_to_understand", "source_interval", "attention_target", "minimum_read_basis", "competing_reads", "accessibility_dependency", ...ATTENTION_FIELDS];
+export const hasAttention = (r) => isObj(r) && ATTENTION_FIELDS.some((k) => r[k] !== undefined && r[k] !== null && r[k] !== "");
+export const attentionLimits = "Automated attention checks find conflicting timing, missing targets and stale bindings only. They cannot prove that a viewer understood anything or that the sequence looks good: that needs a later playback assessment (playback_review_required).";
+const targetRef = (x) => { const t = isObj(x) ? x : typeof x === "string" ? { id: x } : {}; return { kind: T(t.kind), id: T(t.id), ...(T(t.digest) ? { digest: T(t.digest) } : {}) }; };
+const intervalPair = (iv) => { const a = Array.isArray(iv) ? iv : isObj(iv) ? (Array.isArray(iv.window_s) ? iv.window_s : [iv.start_s ?? iv.start, iv.end_s ?? iv.end]) : null; return a ? { start_s: num(a[0]), end_s: num(a[1]), ...(isObj(iv) && iv.score_revision != null ? { score_revision: iv.score_revision } : {}) } : {}; };
+const protectedOf = (x) => { const p = isObj(x) ? x : {}; const b = p.min_s_basis; return { required: p.required === true, min_s_basis: isObj(b) ? b : T(b) || null }; };
+const competingOf = (x) => arr(x).map((c) => (isObj(c) ? { ref: T(c.ref || c.id), treatment: T(c.treatment) } : { ref: T(c), treatment: "" })).filter((c) => c.ref);
+const idSet = (x) => (x instanceof Set ? x : Array.isArray(x) ? new Set(x.map((v) => (isObj(v) ? v.id : v)).map(T)) : isObj(x) ? new Set(Object.keys(x)) : null);
 const rerr = (code, ref, kind, message) => ({ code, ref, kind, message });
 function scoreFacts(score) {
   if (!isObj(score)) return null;
@@ -224,8 +237,10 @@ function scoreFacts(score) {
   const revision = score.revision != null ? String(score.revision) : hasScenes ? scoreRevision(score) : null;
   return { timing, total, revision };
 }
-export function normalizeReads(reads, score = null) {
+// opts (optional, attention reads only): { targets: ids|Set|{id:..} the plan actually has (objects, regions, text groups), target_digests: {id: digest} current digests }.
+export function normalizeReads(reads, score = null, opts = {}) {
   const intervals = [], errors = [];
+  const targets = idSet(isObj(opts) ? opts.targets : null), tdig = isObj(opts) && isObj(opts.target_digests) ? opts.target_digests : null;
   const facts = scoreFacts(score);
   const seen = new Set();
   arr(reads).forEach((raw, i) => {
@@ -233,7 +248,18 @@ export function normalizeReads(reads, score = null) {
     const id = T(r.id) || `read-${i + 1}`;
     if (seen.has(id)) { errors.push(rerr(CREATIVE_ERROR_CODES.stale_input, id, "duplicate_id", `${id}: duplicate read id`)); return; }
     seen.add(id);
-    const si = isObj(r.source_interval) ? r.source_interval : {};
+    const att = hasAttention(r);
+    if (att) {
+      const tr = targetRef(r.target_ref);
+      if (!tr.id) errors.push(rerr(SEQUENCE_ERROR_CODES.unresolved_ref, id, "target_missing", `${id}: the attention read names no target_ref (an object, region or text group the eye is on)`));
+      else {
+        if (tr.kind && !READ_TARGET_KINDS.includes(tr.kind)) errors.push(rerr(SEQUENCE_ERROR_CODES.bad_shape, id, "target_kind", `${id}: target_ref.kind ${tr.kind} is not one of ${READ_TARGET_KINDS.join(", ")}`));
+        if (targets && !targets.has(tr.id)) errors.push(rerr(SEQUENCE_ERROR_CODES.unresolved_ref, id, "target_unresolved", `${id}: target_ref ${tr.id} does not exist in the current plan`));
+        else if (tdig && tr.digest && tdig[tr.id] && String(tdig[tr.id]) !== tr.digest) errors.push(rerr(CREATIVE_ERROR_CODES.stale_input, id, "stale_target", `${id}: target ${tr.id} changed since this read was bound to it`));
+      }
+      if (targets) for (const c of competingOf(r.competing)) if (!targets.has(c.ref)) errors.push(rerr(SEQUENCE_ERROR_CODES.unresolved_ref, id, "target_unresolved", `${id}: competing ref ${c.ref} does not exist in the current plan`));
+    }
+    const si = isObj(r.source_interval) && Object.keys(r.source_interval).length ? r.source_interval : att ? intervalPair(r.interval ?? r.window_s) : {};
     const timebase = T(si.timebase) || "score_s";
     const beatRef = si.beat_ref != null && si.beat_ref !== "" ? String(si.beat_ref) : null;
     const claimed = si.score_revision ?? r.score_revision ?? null;
@@ -256,19 +282,36 @@ export function normalizeReads(reads, score = null) {
       id, event_id: T(r.event_id) || null, start_s: fromTicks(toTicks(start)), end_s: fromTicks(toTicks(end)), start_tick: toTicks(start), end_tick: toTicks(end),
       convention: "start-inclusive, end-exclusive; score time", timebase, beat_ref: beatRef, score_revision: claimed ?? (facts ? facts.revision : null), stale: !!stale, resolved_from: from,
       attention_target: T(r.attention_target) || null, overlaps: [],
+      ...(att ? { attention: { order: num(r.order), target_ref: targetRef(r.target_ref), intended_understanding: T(r.intended_understanding), transfer_change: isObj(r.transfer_change) ? r.transfer_change : T(r.transfer_change) || null, competing: competingOf(r.competing), protected_read: protectedOf(r.protected_read) } } : {}),
     });
   });
   for (const a of intervals) for (const b of intervals) if (a !== b && a.start_tick < b.end_tick && b.start_tick < a.end_tick) a.overlaps.push(b.id);
+  // attention sequence: order must be unique and follow score time; a required (protected) read is not competed with by another target unless that is declared
+  const ar = intervals.filter((x) => x.attention);
+  const orders = ar.map((x) => x.attention.order).filter((o) => o != null);
+  if (new Set(orders).size !== orders.length) errors.push(rerr(SEQUENCE_ERROR_CODES.attention_order, ar.map((x) => x.id).join(","), "order_duplicate", "two attention reads share an order number"));
+  const byOrder = ar.filter((x) => x.attention.order != null).sort((a, b) => a.attention.order - b.attention.order);
+  for (let i = 1; i < byOrder.length; i++) if (byOrder[i].start_tick < byOrder[i - 1].start_tick) errors.push(rerr(SEQUENCE_ERROR_CODES.attention_order, byOrder[i].id, "order_time", `${byOrder[i].id} (order ${byOrder[i].attention.order}) starts before ${byOrder[i - 1].id} (order ${byOrder[i - 1].attention.order}) in score time`));
+  for (const a of ar) if (a.attention.protected_read.required) for (const b of ar) {
+    if (a === b || !(a.start_tick < b.end_tick && b.start_tick < a.end_tick) || b.attention.target_ref.id === a.attention.target_ref.id) continue;
+    if (!a.attention.competing.some((c) => c.ref === b.attention.target_ref.id && c.treatment)) errors.push(rerr(SEQUENCE_ERROR_CODES.attention_overlap, b.id, "protected_overlap", `${b.id} (target ${b.attention.target_ref.id}) overlaps the protected read ${a.id} and is not declared in its competing[] with a treatment`));
+  }
   return { intervals, errors };
 }
 // every read of every shot against the CURRENT score: which are stale (a new score or audio revision moved them). Read-only; -> { stale: [{shot_id, read_id}], errors }
-export function staleReads(doc, score = null) {
+export function staleReads(doc, score = null, opts = {}) {
   const stale = [], errors = [];
   for (const s of arr(doc && doc.shots)) {
-    const r = normalizeReads(arr(s.reads), score);
-    for (const e of r.errors) { errors.push({ ...e, shot_id: s.shot_id }); if (e.kind === "stale") stale.push({ shot_id: s.shot_id, read_id: e.ref }); }
+    const r = normalizeReads(arr(s.reads), score, opts);
+    for (const e of r.errors) { errors.push({ ...e, shot_id: s.shot_id }); if (e.kind === "stale" || e.kind === "stale_target") stale.push({ shot_id: s.shot_id, read_id: e.ref }); }
   }
   return { stale, errors };
+}
+// Protected reading intervals of one shot (primary copy, product evidence): the reads marked protected_read.required, in the shape optical-treatments.planOptics takes as
+// `protected_reads` ({id, ref, interval}) so expressive type and optics may crop or distort OUTSIDE them. `intervals` = normalizeReads(shot.reads, score).intervals.
+export function protectedReads(shot, intervals = []) {
+  const by = new Map(arr(intervals).map((x) => [x.id, x]));
+  return arr(shot && shot.reads).filter((r) => isObj(r) && protectedOf(r.protected_read).required).map((r) => { const iv = by.get(T(r.id)); return iv ? { id: T(r.id), ref: targetRef(r.target_ref).id || null, interval: { start_s: iv.start_s, end_s: iv.end_s, start_tick: iv.start_tick, end_tick: iv.end_tick, basis: "score" }, min_s_basis: protectedOf(r.protected_read).min_s_basis } : null; }).filter(Boolean);
 }
 export const CUT_FUNCTIONS = ["cause", "contrast", "ellipsis", "viewpoint", "evidence", "rhythmic_punctuation", "separation"]; // what a cut does; free-standing from CUT_RELATIONS
 export const BINDING_PHASES = ["initial", "action", "consequence"];
@@ -285,13 +328,14 @@ const normBinding = (b) => {
 export function readsDigest(shot) {
   const s = isObj(shot) ? shot : {};
   if (!arr(s.reads).length && !s.bindings && !s.camera_intent && !s.composition) return null;
-  return canonicalDigest({ reads: arr(s.reads).map((r) => ({ id: r.id, event_id: r.event_id, si: r.source_interval })), bindings: s.bindings || null, camera: s.camera_intent || null, composition: s.composition || null });
+  return canonicalDigest({ reads: arr(s.reads).map((r) => ({ id: r.id, event_id: r.event_id, si: r.source_interval, ...(hasAttention(r) ? { att: { o: r.order ?? null, t: r.target_ref ?? null, i: r.interval ?? null, u: r.intended_understanding ?? null, c: r.transfer_change ?? null, k: r.competing ?? null, p: r.protected_read ?? null } } : {}) })), bindings: s.bindings || null, camera: s.camera_intent || null, composition: s.composition || null });
 }
 // one line per phase and read for `frames/<id>.md` or a note on the existing board: the richer direction rides in existing supported text slots (no new UI field)
 export function temporalNotes(shot) {
   const s = normalizeShot(shot), out = [];
   if (s.bindings) for (const ph of BINDING_PHASES) if (s.bindings[ph] && s.bindings[ph].state) out.push(`${ph}: ${s.bindings[ph].state}`);
   for (const r of arr(s.reads)) out.push(`read ${r.id}: notice ${r.what_to_notice || "?"}; understand ${r.what_to_understand || "?"} (${r.source_interval && r.source_interval.start_s != null ? `${r.source_interval.start_s}-${r.source_interval.end_s} s` : r.source_interval && r.source_interval.beat_ref ? `beat ${r.source_interval.beat_ref}` : "unplaced"})`);
+  for (const r of arr(s.reads).filter(hasAttention).sort((a, b) => (a.order ?? 1e9) - (b.order ?? 1e9))) out.push(`attention ${r.order ?? "?"} (${r.id}): eye on ${targetRef(r.target_ref).id || "?"}${T(r.intended_understanding) ? `, understand ${T(r.intended_understanding)}` : ""}${r.transfer_change ? `, then ${isObj(r.transfer_change) ? T(r.transfer_change.kind || r.transfer_change.note) : T(r.transfer_change)}` : ""}${protectedOf(r.protected_read).required ? " [protected read]" : ""}`);
   if (s.camera_intent && s.camera_intent.motivation) out.push(`camera: ${s.camera_intent.motivation}`);
   return out;
 }
@@ -313,7 +357,8 @@ export function normalizeShot(raw = {}) {
   const reads = Array.isArray(s.reads) ? s.reads.map((r, i) => {
     const q = isObj(r) ? r : {}, sv = isObj(q.source_interval) ? q.source_interval : {};
     return { id: T(q.id) || `read-${i + 1}`, event_id: T(q.event_id), what_to_notice: T(q.what_to_notice), what_to_understand: T(q.what_to_understand), source_interval: { ...sv }, attention_target: T(q.attention_target),
-      minimum_read_basis: isObj(q.minimum_read_basis) ? q.minimum_read_basis : T(q.minimum_read_basis) || null, competing_reads: arr(q.competing_reads).map((c) => (isObj(c) ? c : { id: T(c) })), accessibility_dependency: T(q.accessibility_dependency) };
+      minimum_read_basis: isObj(q.minimum_read_basis) ? q.minimum_read_basis : T(q.minimum_read_basis) || null, competing_reads: arr(q.competing_reads).map((c) => (isObj(c) ? c : { id: T(c) })), accessibility_dependency: T(q.accessibility_dependency),
+      ...(hasAttention(q) ? { order: num(q.order), target_ref: targetRef(q.target_ref), ...(q.interval != null ? { interval: Array.isArray(q.interval) ? [...q.interval] : isObj(q.interval) ? { ...q.interval } : q.interval } : {}), intended_understanding: T(q.intended_understanding), transfer_change: isObj(q.transfer_change) ? { ...q.transfer_change } : T(q.transfer_change) || null, competing: competingOf(q.competing), protected_read: protectedOf(q.protected_read) } : {}) };
   }) : null;
   return {
     ...s,
@@ -350,14 +395,14 @@ export function validateShot(shot, ctx = {}) {
     const rids = s.reads.map((r) => r.id);
     if (new Set(rids).size !== rids.length) p.push(`${s.shot_id}: read ids must be unique`);
     for (const r of s.reads) {
-      if (!r.attention_target) w.push(`${s.shot_id}/${r.id}: no attention_target (what the eye is on during this read)`);
+      if (!r.attention_target && !(r.target_ref && r.target_ref.id)) w.push(`${s.shot_id}/${r.id}: no attention_target (what the eye is on during this read)`);
       if (ctx.event_ids && arr(ctx.event_ids).length && r.event_id && !ctx.event_ids.includes(r.event_id)) p.push(`${s.shot_id}/${r.id}: event_id ${r.event_id} is not a signature event of the chosen story`);
       for (const c of r.competing_reads) if (c.id && !rids.includes(c.id)) w.push(`${s.shot_id}/${r.id}: competing read ${c.id} is not a read of this shot`);
     }
-    const n = normalizeReads(s.reads, ctx.score || null);
+    const n = normalizeReads(s.reads, ctx.score || null, { targets: ctx.targets, target_digests: ctx.target_digests });
     for (const e of n.errors) {
       errors.push({ ...e, shot_id: s.shot_id });
-      if (["reversed", "out_of_bounds", "duplicate_id"].includes(e.kind)) p.push(e.message);
+      if (["reversed", "out_of_bounds", "duplicate_id", "target_missing", "target_unresolved", "stale_target"].includes(e.kind)) p.push(e.message);
       else w.push(e.message);
     }
   }

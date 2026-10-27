@@ -100,3 +100,9 @@ export const isTemporalLink = (l) => !!l && TEMPORAL_CONTINUITY_TYPES.includes(l
 export function continuityEdges(c) {
   return arr(c && c.links).map((l) => ({ id: T(l.id) || `${endpoint(l.from)}->${endpoint(l.to)}`, from: endpoint(l.from), to: endpoint(l.to), type: l.type, object_id: T(l.object_id) || null, temporal: isTemporalLink(l) })).filter((e) => e.from && e.to);
 }
+
+// ---- SQ-MOTIF additive: a motif is either ONE continuous identity (one accountable owner through a temporal action) or RECURRING (separate appearances sharing a visual language; never an ownership group) ----
+// planContinuity (continuity-plan.mjs) consumes these. Anything that is not exactly "continuous" is recurring, so a repeated palette, logo, font or shape can never force one owner for the film.
+export const MOTIF_RELATIONS = ["continuous", "recurring"];
+export const motifRelation = (m) => (m && T(m.relation).toLowerCase() === "continuous" ? "continuous" : "recurring");
+export const motifForcesOwner = (m) => motifRelation(m) === "continuous";

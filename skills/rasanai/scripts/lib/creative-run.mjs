@@ -22,7 +22,10 @@ import { selectCreativeReferences } from "./creative-references.mjs";
 import { validateCreativeBrief, creativeReadiness } from "./creative-contract.mjs";
 import { sha256File } from "./creative-handoff.mjs";
 import { creativePolicyOn, policyRevisionOf } from "./creative-policy.mjs";
-import { reconcileCommitments, creativeExt } from "./creative-contract.mjs";
+import { reconcileCommitments, creativeExt, treatmentMotifs } from "./creative-contract.mjs";
+import { checkSequence } from "./sequence-contract.mjs"; // Addendum 1: the record checks behind the creative gate (revision >= 2 only)
+import { opticsCapabilities } from "./optical-treatments.mjs";
+import { capabilityInventory } from "./spatial-fields.mjs";
 import { assessCompletion, completionStatusLine } from "./creative-completion.mjs";
 import crypto from "node:crypto";
 
@@ -177,7 +180,9 @@ export function checkBrief(run, { stage = "proposal", expectPins = false } = {})
   if (briefIsSkeleton(b)) return { ok: false, state: "skeleton", errors: [{ code: "skeleton", path: "status", message: "creative/brief.json is still the skeleton: fill it and remove status" }], warnings: [], missing: [] };
   const ids = stageIds(run);
   const knownIds = { ...(ids.beats.length ? { beats: ids.beats } : {}), ...(ids.shots.length && stage !== "proposal" && stage !== "story" ? { shots: ids.shots } : {}) };
-  const r = validateCreativeBrief(b, { stage, knownIds, ...(expectPins ? { expectedPins: approvalPins(run) } : {}) });
+  // Addendum 1 (revision >= 2 only): the selected treatment and the score let validateCreativeBrief resolve event motif_ids and check treatment motifs (validateMotifBindings); revision 1 passes neither
+  const seq = v3On(run) ? { treatment: chosenTreatment(run), score: rj(P(run, "motion", "score.json")) } : {};
+  const r = validateCreativeBrief(b, { stage, knownIds, ...(expectPins ? { expectedPins: approvalPins(run) } : {}), ...seq });
   return { ...r, state: r.ok ? "valid" : "invalid" };
 }
 
@@ -278,7 +283,53 @@ export function creativeGate(run, { stage = "final", waiver = null, outputFile =
   const state = (rank[a.state] ?? 0) > (rank[base.state] ?? 0) ? a.state : base.state;
   return { ...base, state, reasons: [...(base.reasons || []), ...(a.reasons || []).filter((r) => !(base.reasons || []).some((b) => b.code === r.code && b.message === r.message))], completion: { state: a.state, allowed_labels: a.allowedLabels, next_decisions: a.nextDecisions, status_line: a.status_line, evidence: a.evidence, commitments: a.commitments, limitations: a.limitations, output_file: a.output_file } };
 }
-function creativeGateBase(run, { stage = "final", waiver = null } = {}) {
+// Addendum 1 (revision >= 2): the sequence records of the run's beat plans (creative/plans/<beat>.json, written by packets.writeScenePlans) and the treatment's motifs, checked by sequence-contract.checkSequence.
+// -> null (legacy, no brief, or no motif/record at all: absence is valid) | { ok, errors, warnings, stale, playback_review_required, digest, counts } | { failed } when the check itself threw (recorded to creative/errors.json, never swallowed).
+// Records alone can never say a connected movement reads well: playback_review_required stays listed, and the gate never reads "ready" because of it.
+// {capability id: available|uncertain|unavailable}: the source-inspected spatial inventory plus the optics ids (planOptics reads the same two), the one input checkSequence and planContinuity take as `capabilities`
+export const sequenceCapabilities = () => ({ ...Object.fromEntries(Object.entries(capabilityInventory().ops).map(([k, v]) => [k, v.state])), ...Object.fromEntries(Object.entries(opticsCapabilities({}).ops).map(([k, v]) => [k, v.state])) });
+// the sequence records a run really has: treatment motifs (normalized) + the handoff / optics / product / attention records of creative/plans/<beat>.json (the artifacts packets.writeScenePlans wrote)
+export function sequenceRecordsOf(run) {
+  const score = rj(P(run, "motion", "score.json")), rec = { motifs: treatmentMotifs(chosenTreatment(run), score), handoffs: [], optics: [], product: [], attention: [] };
+  const ix = rj(P(run, "creative", "plans", "index.json"));
+  for (const row of arr(ix && ix.beats)) {
+    const doc = row && row.file ? rj(P(run, row.file)) : null, sec = (doc && doc.sections) || {};
+    if (sec.handoff_plan && isObj(sec.handoff_plan.record)) rec.handoffs.push(sec.handoff_plan.record);
+    if (sec.optics && sec.optics.active && isObj(sec.optics.record)) rec.optics.push(sec.optics.record);
+    if (sec.product && isObj(sec.product.record)) rec.product.push(sec.product.record);
+    if (sec.attention && isObj(sec.attention.record)) rec.attention.push(sec.attention.record);
+  }
+  return rec;
+}
+export const sequenceRecordsFor = (run) => sequenceRecordsOf(run); // the name completionFor / final-label callers use: the same records the gate checks
+export function sequenceGateFor(run) {
+  if (!v3On(run)) return null;
+  const brief = rj(P(run, "creative", "brief.json"));
+  if (!brief || briefIsSkeleton(brief)) return null;
+  try {
+    const score = rj(P(run, "motion", "score.json")), rec = sequenceRecordsOf(run);
+    const n = Object.values(rec).reduce((a, l) => a + l.length, 0);
+    if (!n) return null;
+    const r = checkSequence({ ...rec, events: arr(brief.signature_events), score, capabilities: sequenceCapabilities() });
+    return { ok: r.ok, errors: r.errors, warnings: r.warnings, stale: r.stale, playback_review_required: r.playback_review_required, digest: r.digest, counts: Object.fromEntries(Object.entries(rec).map(([k, l]) => [k, l.length])) };
+  } catch (e) {
+    try { const f = P(run, "creative", "errors.json"), cur = rj(f), list = arr(cur && cur.errors); list.push({ where: "checkSequence (creative gate)", message: String((e && e.message) || e).slice(0, 400), at: new Date().toISOString() }); writeJson(f, { errors: list.slice(-20) }); } catch { /* the gate still reports the failure below */ }
+    return { failed: String((e && e.message) || e).slice(0, 200) };
+  }
+}
+const GATE_RANK = { ready: 0, not_reviewed: 1, revise: 2, needs_user: 3, blocked: 4 };
+// the sequence check can only lower the gate (errors at build/final -> revise; a check that threw -> not_reviewed), never raise it; at storyboard it adds reasons only (intervals are still being bound)
+function creativeGateBase(run, o = {}) {
+  const base = creativeGateCore(run, o), stage = o.stage || "final";
+  if (!v3On(run) || (base.state === "not_reviewed" && base.reasons && base.reasons.some((r) => r.code === "no_brief")) || (base.state === "blocked" && base.reasons && base.reasons.some((r) => r.code === "skeleton"))) return base;
+  const sq = sequenceGateFor(run);
+  if (!sq) return base;
+  if (sq.failed) return { ...base, state: GATE_RANK.not_reviewed > GATE_RANK[base.state] ? "not_reviewed" : base.state, reasons: [...(base.reasons || []), { code: "sequence_check_failed", message: `the sequence records could not be checked (${sq.failed}); recorded in creative/errors.json` }] };
+  const add = [...sq.errors.map((e) => ({ code: e.code, message: `sequence ${e.path}: ${e.message}`, sequence: true })), ...sq.stale.filter((x) => !sq.errors.some((e) => e.code === x.code && e.message === x.message)).map((x) => ({ code: x.code, message: `sequence ${x.record_kind}.${x.record_id}: ${x.message}`, sequence: true }))];
+  const lower = sq.errors.length && (stage === "build" || stage === "final") ? "revise" : base.state;
+  return { ...base, state: GATE_RANK[lower] > GATE_RANK[base.state] ? lower : base.state, reasons: [...(base.reasons || []), ...add], sequence: { ok: sq.ok, counts: sq.counts, digest: sq.digest, warnings: sq.warnings.length, stale: sq.stale.length, playback_review_required: sq.playback_review_required.length, note: "record checks only: nothing here says a connected movement, optic, product action or attention transfer reads well; that needs a temporal playback review" } };
+}
+function creativeGateCore(run, { stage = "final", waiver = null } = {}) {
   const brief = rj(P(run, "creative", "brief.json"));
   if (!brief) return { state: "not_reviewed", reasons: [{ code: "no_brief", message: "no creative/brief.json: this run has no recorded creative intent to review against" }] };
   if (briefIsSkeleton(brief)) return { state: "blocked", reasons: [{ code: "skeleton", message: "the creative brief is still the skeleton" }] };
@@ -309,9 +360,12 @@ export function completionFor(run, { waiver = null, outputFile = null, limits = 
   const review = rv && rv.doc ? normalizeReviewPaths(rv.doc, run) : null;
   const pins = approvalPins(run), out = finalOutputOf(run, outputFile);
   const ext = brief && !briefIsSkeleton(brief) ? creativeExt(brief) : null;
+  // Addendum 1: the sequence records of the run's beat plans, so assessCompletion owes (and checks) the playback observations for them; absent when the run has none (legacy results unchanged)
+  let sequence = null;
+  try { const rec = brief && !briefIsSkeleton(brief) ? sequenceRecordsFor(run) : null; if (rec && Object.values(rec).some((l) => l.length)) sequence = { ...rec, events: arr(brief.signature_events), score: rj(P(run, "motion", "score.json")), capabilities: sequenceCapabilities() }; } catch { sequence = null; }
   const a = assessCompletion({
     approvals: { pins: Object.fromEntries(Object.entries(pins).map(([k, v]) => [k, v.artifact_digest])), ...(waiver ? { waiver } : {}) },
-    contract: { brief, stage: "final", treatment: chosenTreatment(run), absences: ext && isObj(ext.commitment_basis) ? [ext.commitment_basis] : null },
+    contract: { brief, stage: "final", treatment: chosenTreatment(run), absences: ext && isObj(ext.commitment_basis) ? [ext.commitment_basis] : null, ...(sequence ? { sequence } : {}) },
     output: { digest: out.digest, exists: out.exists, playable: out.exists ? true : undefined },
     review: review ? { ...review, round: Number.isInteger(review.round) ? review.round : rv.n } : null, limits,
   });

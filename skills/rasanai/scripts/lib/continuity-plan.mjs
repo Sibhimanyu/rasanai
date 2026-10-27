@@ -3,7 +3,15 @@
 //   planContinuity({events, jobs, objects, assignments, anchors, links?, gates?, order?, score_digest?, continuity?}) -> {groups, dependencies, ready, cycles, ...}
 //   admissionHandoff(plan, {max_concurrent, reserve_integration}) -> {batches, held}      cost/resource hand-off for W10 (data only)
 //   groupOwnerFor(plan, shotOrBeatId) -> group | null                                      the one accountable owner of a shot
-//   continuityGroupsForOwnership(plan) -> [{id, owner, shots, beats, events, objects}]     the shape creative-handoff.resolveOwnership({continuity}) already reads
+//   continuityGroupsForOwnership(plan) -> [{id, owner, shots, beats, events, objects, (incoming_state, owned_interval, outgoing_state, motif_ids)?}]   the shape creative-handoff.resolveOwnership({continuity}) already reads; the motif fields appear only on groups that carry a motif
+//   motifDependents(plan, motif_id) / motif_dependents -> {motif_id, groups, units, owners, jobs}   what a motif revision invalidates (only its dependent groups)
+//
+// Motifs (SQ-MOTIF, additive; input.motifs[] with the sequence-contract shape {id, relation: continuous|recurring, roles[{id, role, interval, shot_ids?, beat_ids?, state_id?}], states[], absent_ok, owner?, requires?[], semantic_digest}):
+//   - relation "continuous": ONE accountable owner through a temporal action across the motif's units (joined like a continuous event)
+//   - relation "recurring" (the default for anything else): separate appearances sharing a visual language. NEVER an ownership group: it is listed in shared_static_assets (creates_temporal_dependency false) and each appearance only receives incoming/outgoing state
+//   - no motif, or a motif the film does not place (absent_ok), is valid: no group, no error. A missing capability (input.capabilities {id: available|uncertain|unavailable}) is a needs_decision entry that blocks exactly the dependent groups; nothing is substituted
+//   - active only for creative_policy_revision >= 2 (input.creative_policy_revision; absent means the caller opted in); without motifs every output is byte-identical to before
+// Consumers (PROPOSED, ENG-INT-1): crew.mjs continuityPlanFor passes treatment.extensions.creative_thinking.motifs + capabilityInventory; packets.mjs hands group.{incoming_state, owned_interval, outgoing_state, motif_refs} to the owner; AUD-REV/ENG-INT-1 call motifDependents on a motif revision.
 //
 // Rules (specs 08_CONTINUITY_AND_SCHEDULING):
 //   - one accountable owner per CONNECTED CONTINUOUS ACTION across scenes; a scene count is never a worker count, and a graph component is not "one worker for the film"
@@ -19,7 +27,7 @@
 // crew/continuity-plan.json; the scheduler dispatches only `ready` groups, creating each group's jobs with createJob(..., {continuity:{group_id, owner, depends_on, identity_digest}});
 // creative-handoff.resolveOwnership({continuity: continuityGroupsForOwnership(plan)}) hands a worker its group; INT-NATIVE replaces the "one agent per scene" prompt text.
 import { canonicalDigest } from "./contracts.mjs";
-import { CONTINUITY_TYPES, seamRelation, isTemporalLink } from "./continuity.mjs";
+import { CONTINUITY_TYPES, seamRelation, isTemporalLink, MOTIF_RELATIONS } from "./continuity.mjs";
 import { CREATIVE_ERROR_CODES as CODES } from "./creative-policy.mjs";
 
 export const CONTINUITY_PLAN_VERSION = 1;
@@ -51,6 +59,27 @@ function normaliseAssignments(a) {
   return [];
 }
 
+// ---- motifs (pure helpers) ----------------------------------------------------------------------------------------------------------------------------
+const num = (x) => (Number.isFinite(Number(x)) && x !== null && x !== "" ? Number(x) : null);
+// interval as [a,b] | {start_s,end_s} | {from,to} | {start,end} -> {start_s,end_s,basis:"score"} | null (score time only; never frames)
+function scoreInterval(v) {
+  let a = null, b = null;
+  if (Array.isArray(v)) { a = num(v[0]); b = num(v[1]); }
+  else if (isObj(v)) { a = num(v.start_s ?? v.from ?? v.start ?? v.t0); b = num(v.end_s ?? v.to ?? v.end ?? v.t1); }
+  return a !== null && b !== null && b >= a ? { start_s: a, end_s: b, basis: "score" } : null;
+}
+const hull = (list) => { const l = list.filter(Boolean); return l.length ? { start_s: Math.min(...l.map((i) => i.start_s)), end_s: Math.max(...l.map((i) => i.end_s)), basis: "score" } : null; };
+const roleUnits = (r) => {
+  const o = isObj(r) ? r : {};
+  return { shots: uniq([...ids(o.shot_ids || o.shots), ...ids(o.shot_id ? [o.shot_id] : [])]), beats: uniq([...ids(o.beat_ids || o.beats), ...ids(o.beat_id ? [o.beat_id] : [])]) };
+};
+function stateFor(m, role) {
+  const states = arr(m.states).filter(isObj), rid = S(role.id), rs = S(role.state_id);
+  const u = [...roleUnits(role).shots, ...roleUnits(role).beats];
+  const hit = states.find((s) => rs && S(s.id) === rs) || states.find((s) => rid && S(s.role_id) === rid) || states.find((s) => { const su = roleUnits(s); return [...su.shots, ...su.beats].some((x) => u.includes(x)); });
+  return hit ? { ...hit } : null;
+}
+
 // ---------------------------------------------------------------------------------------------------------------------------------------------
 export function planContinuity(input = {}) {
   const { events = [], jobs = [], objects = [], assignments = [], anchors = [] } = input || {};
@@ -58,6 +87,7 @@ export function planContinuity(input = {}) {
   const links = arr(input.links || (input.continuity && input.continuity.links)).filter(isObj);
   const gates = asSet(input.gates), asg = normaliseAssignments(assignments);
   const errors = [], warnings = [];
+  const pos0 = (u) => { const i = arr(input.order).map(S).indexOf(u); return i < 0 ? Infinity : i; };
   const E = (code, ref, message, extra = {}) => errors.push({ code, ref, message, ...extra });
   const W = (code, ref, message) => warnings.push({ code, ref, message });
 
@@ -105,6 +135,35 @@ export function planContinuity(input = {}) {
     if (a.continuous !== false) join(u, `anchor/region ${id || "(unnamed)"}${a.kind ? ` (${a.kind})` : ""} crosses these units: typographic, grid or field boundary owned together`, id || null);
   }
 
+  // ---- motifs: continuous identities join units like a continuous event; recurring ones never do -------------------------------------------------
+  const rev = input.creative_policy_revision;
+  const motifsOn = rev === undefined || rev === null || Number(rev) >= 2;
+  const rawMotifs = arr(input.motifs).filter((m) => isObj(m) && S(m.id));
+  if (rawMotifs.length && !motifsOn) W("motifs_ignored", "motifs", "motifs apply only to creative_policy_revision >= 2; ignored for this plan");
+  const caps = isObj(input.capabilities) ? input.capabilities : null;
+  const needs_decision = [];
+  const motifs = [];
+  for (const m of motifsOn ? rawMotifs : []) {
+    const id = S(m.id), relRaw = S(m.relation).toLowerCase();
+    const relation = MOTIF_RELATIONS.includes(relRaw) ? relRaw : "recurring";
+    if (!MOTIF_RELATIONS.includes(relRaw)) W("motif_relation_defaulted", id, `motif ${id} names no valid relation (continuous|recurring); treated as recurring, which never forces one owner`);
+    const roles = arr(m.roles).filter(isObj);
+    const base = roleUnits(m);
+    const apps = roles.map((r, i) => { const ru = roleUnits(r), u = ru.shots.length || ru.beats.length ? ru : base; return { role_id: S(r.id) || `role-${i + 1}`, role: S(r.role) || null, interval: scoreInterval(r.interval), shots: u.shots, beats: u.beats, state: stateFor(m, r) }; });
+    if (!apps.length && (base.shots.length || base.beats.length)) apps.push({ role_id: "appearance", role: null, interval: scoreInterval(m.interval), shots: base.shots, beats: base.beats, state: arr(m.states).filter(isObj)[0] ? { ...arr(m.states).filter(isObj)[0] } : null });
+    const first = (a) => { const u = [...a.shots, ...a.beats].map((x) => pos0(x)); return u.length ? Math.min(...u) : Infinity; };
+    apps.sort((a, b) => (first(a) - first(b)) || ((a.interval ? a.interval.start_s : 0) - (b.interval ? b.interval.start_s : 0)));
+    let prior = m.incoming_state ?? m.prior_state ?? null;
+    for (const a of apps) { a.incoming_state = prior; a.outgoing_state = a.state; if (a.state) prior = a.state; }
+    const units = uniq(apps.flatMap((a) => [...a.shots, ...a.beats]));
+    const rec = { id, relation, absent_ok: m.absent_ok !== false, owner: S(m.continuity_owner ?? m.owner) || null, digest: m.semantic_digest || m.digest || null, requires: ids(m.requires || m.required_capabilities), appearances: apps, units };
+    motifs.push(rec);
+    if (!units.length) continue;
+    apps.forEach((a) => reg(a));
+    if (relation === "continuous") join(units, `motif ${id} is one continuous identity across these units`, id);
+    else staticObjs.set(id, { id, kind: "motif_recurring", consumers: [], creates_temporal_dependency: false, ready: true });
+  }
+
   // ---- jobs -> units ----------------------------------------------------------------------------------------------------------------------
   const jobById = new Map(), producedBy = new Map();
   for (const j of jbs) { const k = jobKey(j); if (!k) continue; jobById.set(k, j); if (j.node_id) jobById.set(S(j.node_id), j); for (const p of ids(j.produces)) producedBy.set(p, k); }
@@ -134,6 +193,7 @@ export function planContinuity(input = {}) {
   }
   groups.sort((a, b) => unitSort(a.units[0], b.units[0]));
   const groupOf = (u) => rootsOrder.get(u) || null;
+  for (const g of groups) g.motif_refs = [];
   const groupOfUnits = (us) => uniq(us.map(groupOf).filter(Boolean));
 
   for (const e of evs) { const gs = groupOfUnits(Object.values(eventUnits(e)).flat()); if (gs[0]) gs[0].events.push(e); }
@@ -141,6 +201,23 @@ export function planContinuity(input = {}) {
   const objectGroups = new Map();
   for (const g of groups) for (const o of g.objects) { const id = S(o.id); if (!objectGroups.has(id)) objectGroups.set(id, new Set()); objectGroups.get(id).add(g.id); }
   for (const [oid, gset] of objectGroups) if (gset.size > 1 && objById.get(oid).temporal !== false) W("object_shared_without_temporal_link", oid, `object ${oid} appears in ${gset.size} separate groups with no temporal event, seam or flag: mark it static (a shared read-only asset) or temporal (one owner), otherwise it stays a shared asset`);
+  for (const m of motifs) {
+    if (!m.units.length) {
+      if (!m.absent_ok) { needs_decision.push({ kind: "motif_unplaced", motif_id: m.id, reason: `motif ${m.id} is required (absent_ok false) but no shot or beat places it`, options: ["place_motif", "mark_absent_ok", "drop_motif"], blocks: [] }); W("motif_unplaced", m.id, `required motif ${m.id} is placed nowhere`); }
+      continue;
+    }
+    for (const a of m.appearances) {
+      const g = groupOf([...a.shots, ...a.beats][0]); if (!g) continue;
+      g.motif_refs.push({ motif_id: m.id, relation: m.relation, owner: m.owner, absent_ok: m.absent_ok, role_id: a.role_id, role: a.role, interval: a.interval, incoming_state: a.incoming_state, outgoing_state: a.outgoing_state, digest: m.digest });
+    }
+    if (m.relation === "recurring" && staticObjs.has(m.id)) for (const a of m.appearances) { const g = groupOf([...a.shots, ...a.beats][0]); if (g && !staticObjs.get(m.id).consumers.includes(g.id)) staticObjs.get(m.id).consumers.push(g.id); }
+    const blocks = uniq(m.appearances.map((a) => groupOf([...a.shots, ...a.beats][0])).filter(Boolean).map((g) => g.id));
+    for (const cap of m.requires) {
+      const st = S(caps && caps[cap]).toLowerCase();
+      if (!caps || st === "available") continue;
+      needs_decision.push({ kind: "capability", motif_id: m.id, capability: cap, capability_state: st || "unavailable", reason: `motif ${m.id} needs capability ${cap}, which is ${st || "unavailable"}; a creative decision is required, nothing is substituted`, options: ["author_alternative_motif", "drop_motif", "approve_named_substitute"], blocks });
+    }
+  }
   const grpIdx = new Map(groups.map((g) => [g.id, g]));
   const statConsumers = (id, g) => { const s = staticObjs.get(id); if (s && !s.consumers.includes(g.id)) s.consumers.push(g.id); };
   for (const o of objs) { const sid = S(o.id); if (staticObjs.has(sid)) for (const g of groupOfUnits(Object.values(unitsOf(o)).flat())) statConsumers(sid, g); }
@@ -163,7 +240,9 @@ export function planContinuity(input = {}) {
     for (const e of g.events) if (S(e.continuity_owner)) decl.push({ owner: S(e.continuity_owner), source: `event ${S(e.id)}` });
     for (const a of asg) if (a.owner && a.units === undefined && [...a.shots, ...a.beats].some((u) => groupOf(u) === g)) decl.push({ owner: a.owner, source: `assignment ${a.key}` });
     for (const o of g.objects) if (S(o.owner)) decl.push({ owner: S(o.owner), source: `object ${S(o.id)}` });
-    const owners = uniq(decl.map((d) => d.owner)), req = g.events.some(isRequired);
+    const cm = g.motif_refs.filter((r) => r.relation === "continuous");
+    for (const r of cm) if (r.owner) decl.push({ owner: r.owner, source: `motif ${r.motif_id}` });
+    const owners = uniq(decl.map((d) => d.owner)), req = g.events.some(isRequired) || cm.some((r) => r.absent_ok === false);
     g.required = req; g.blocked_by = [];
     if (owners.length === 1) { g.owner = owners[0]; g.owner_source = decl[0].source; }
     else if (owners.length > 1) {
@@ -232,7 +311,9 @@ export function planContinuity(input = {}) {
   for (const g of groups) {
     const eventsMin = g.events.map((e) => ({ id: S(e.id), requirement: e.requirement || null, shots: ids(e.shot_ids || e.shots), beats: ids(e.beat_ids || e.beats), objects: ids(e.object_ids), interval_s: e.interval_s || null, digest: e.digest || null }));
     const objectsMin = g.objects.map((o) => ({ id: S(o.id), digest: o.digest || o.identity_digest || null, version: o.version ?? null, source: o.identity_source || null })).sort((a, b) => natural(a.id, b.id));
-    g.identity_digest = canonicalDigest({ units: g.units, owner: g.owner, events: eventsMin.sort((a, b) => natural(a.id, b.id)), objects: objectsMin, score: input.score_digest || null });
+    const mref = g.motif_refs.map((r) => ({ motif_id: r.motif_id, relation: r.relation, role_id: r.role_id, role: r.role, digest: r.digest, interval: r.interval, in: r.incoming_state, out: r.outgoing_state })).sort((a, b) => natural(a.motif_id + a.role_id, b.motif_id + b.role_id));
+    g.identity_digest = canonicalDigest({ units: g.units, owner: g.owner, events: eventsMin.sort((a, b) => natural(a.id, b.id)), objects: objectsMin, score: input.score_digest || null, ...(mref.length ? { motifs: mref } : {}) });
+    if (g.motif_refs.length) { g.incoming_state = g.motif_refs[0].incoming_state; g.outgoing_state = g.motif_refs[g.motif_refs.length - 1].outgoing_state; g.owned_interval = hull(g.motif_refs.map((r) => r.interval)); g.motif_ids = uniq(g.motif_refs.map((r) => r.motif_id)); } else delete g.motif_refs;
     g.event_ids = eventsMin.map((e) => e.id).filter(Boolean);
     g.object_ids = objectsMin.map((o) => o.id);
     g.job_ids = g.jobs.map(jobKey);
@@ -244,6 +325,7 @@ export function planContinuity(input = {}) {
     const unmet = deps.filter((d) => !d.satisfied);
     g.state = !g.jobs.length ? "unscheduled" : groupDone(g) ? "done" : g.jobs.some((j) => j.state === "leased" || j.state === "running") ? "active" : "pending";
     g.blocked_by.push(...unmet.map((d) => ({ code: d.kind === "gate" ? CODES.approval_missing : d.kind === "shared_static" ? CODES.capability_unavailable : CODES.stale_input, ref: d.ref, reason: d.kind === "gate" ? "gate_not_satisfied" : "dependency_not_complete" })));
+    for (const nd of needs_decision) if (nd.blocks.includes(g.id)) g.blocked_by.push({ code: CODES.capability_unavailable, ref: nd.capability || nd.motif_id, reason: "motif_needs_decision" });
     if (cyc.has(g.id)) g.blocked_by.push({ code: CODES.continuity_cycle, reason: "in_cycle" });
     g.priority = (g.required ? 1000 : 0) + g.units.length * 10 + g.events.length; // the highest-risk defining sequence goes first and is reviewed before broad dependents
     const entry = { group_id: g.id, owner: g.owner, shots: g.shots, beats: g.beats, priority: g.priority, required: g.required, reason: g.reasons[0] };
@@ -261,7 +343,11 @@ export function planContinuity(input = {}) {
     unplaced_jobs: unplaced, provider_jobs: providerJobs.map((j) => ({ job_id: jobKey(j), produces: ids(j.produces), state: j.state || null })),
     execution_authorized: false,
   };
-  plan.digest = canonicalDigest({ g: groups.map((g) => [g.id, g.owner, g.identity_digest]), d: dependencies.map((d) => [d.from, d.to, d.kind, d.ref, d.satisfied]), c: cycles.map((c) => c.chain) });
+  if (motifs.length) {
+    plan.motifs = motifs.map((m) => ({ id: m.id, relation: m.relation, absent_ok: m.absent_ok, placed: m.units.length > 0, units: m.units, groups: uniq(m.appearances.map((a) => groupOf([...a.shots, ...a.beats][0])).filter(Boolean).map((g) => g.id)), digest: m.digest }));
+    plan.needs_decision = needs_decision;
+  }
+  plan.digest = canonicalDigest({ g: groups.map((g) => [g.id, g.owner, g.identity_digest]), d: dependencies.map((d) => [d.from, d.to, d.kind, d.ref, d.satisfied]), c: cycles.map((c) => c.chain), ...(motifs.length ? { n: needs_decision.map((n) => [n.kind, n.motif_id, n.capability || null]) } : {}) });
   return plan;
 }
 
@@ -269,7 +355,18 @@ export function planContinuity(input = {}) {
 export const groupOwnerFor = (plan, unit) => arr(plan && plan.groups).find((g) => g.units.includes(S(unit))) || null;
 
 // the shape lib/creative-handoff.mjs resolveOwnership({continuity}) already accepts
-export const continuityGroupsForOwnership = (plan) => arr(plan && plan.groups).map((g) => ({ id: g.id, owner: g.owner, shots: g.shots, beats: g.beats, events: g.event_ids, objects: g.object_ids }));
+// legacy groups keep exactly the old five fields; a group that carries a motif also hands its owner the prior state, the owned score interval and the required outgoing state
+export const continuityGroupsForOwnership = (plan) => arr(plan && plan.groups).map((g) => ({ id: g.id, owner: g.owner, shots: g.shots, beats: g.beats, events: g.event_ids, objects: g.object_ids, ...(g.motif_ids && g.motif_ids.length ? { incoming_state: g.incoming_state ?? null, owned_interval: g.owned_interval ?? null, outgoing_state: g.outgoing_state ?? null, motif_ids: g.motif_ids } : {}) }));
+
+// a motif revision invalidates only these groups: the groups carrying the motif plus groups that temporally depend on their outcome (transitive over temporal edges). Pure; the caller cancels/stales jobs.
+export function motifDependents(plan, motifId) {
+  const id = S(motifId), gs = arr(plan && plan.groups), hit = new Set(gs.filter((g) => arr(g.motif_ids).includes(id)).map((g) => g.id));
+  const deps = arr(plan && plan.dependencies).filter((d) => d.temporal);
+  for (let grew = true; grew;) { grew = false; for (const d of deps) if (hit.has(d.from) && !hit.has(d.to) && gs.some((g) => g.id === d.to)) { hit.add(d.to); grew = true; } }
+  const sel = gs.filter((g) => hit.has(g.id));
+  return { motif_id: id, groups: sel.map((g) => g.id), units: uniq(sel.flatMap((g) => g.units)), owners: uniq(sel.map((g) => g.owner).filter(Boolean)), jobs: uniq(sel.flatMap((g) => arr(g.job_ids))) };
+}
+export const motif_dependents = motifDependents;
 
 // W10 cost/resource admission hand-off: which ready groups may start together. Reserves capacity for integration/review, never splits a group to fill idle slots,
 // and at low concurrency batches independent work in priority order instead of changing quality. `est` per group (tokens/seconds) is passed through for W10's budget reservation.

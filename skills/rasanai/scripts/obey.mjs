@@ -27,6 +27,8 @@ import { classify, SIGNATURES, bannedHits, num } from "./lib/signatures.mjs";
 import { shapeOf } from "./lib/fluent.mjs";
 import { readBudget, budgetLimit, effectOf } from "./lib/budget.mjs";
 import { track } from "./lib/report.mjs";
+import { readOpticsPlans, opticsOwns } from "./lib/optical-treatments.mjs";
+import { scoreRate } from "./lib/timing.mjs";
 
 const args = parseArgs();
 track("Checking the motion against your motion rules", "Motion check done");
@@ -210,6 +212,8 @@ const ENTER_MAX_S = Math.max(1.2, ((M.durations && Number(M.durations.max_ms)) |
 let SCORE = null;
 try { SCORE = args.score && args.score !== true ? JSON.parse(fs.readFileSync(path.resolve(String(args.score)), "utf8")) : args.run && args.run !== true ? JSON.parse(fs.readFileSync(path.join(path.resolve(String(args.run)), "motion", "score.json"), "utf8")) : null; } catch { SCORE = null; }
 const BUDGETS = SCORE ? readBudget(SCORE) : [];
+// the px-per-frame test reads the score's own frame rate (score time, never an assumed 30); no score or no rate = the old 30. The other frame-count bands below keep FPS.
+const PXF_FPS = (() => { try { const f = SCORE ? Number(scoreRate(SCORE).fps) : NaN; return f > 0 ? f : FPS; } catch { return FPS; } })();
 // Creative recovery (W06): on the new creative policy (score.creative.policy_revision or creative_policy_revision) a curve-family COUNT is a profile, not a law: a restrained or
 // stepped film may sit on three families if no single curve dominates (dominant-ease and duration-grid still fail the machine tell). A legacy score is unchanged.
 const SC_CREATIVE = SCORE && SCORE.creative && typeof SCORE.creative === "object" ? SCORE.creative : {};
@@ -217,6 +221,10 @@ const SC_CREATIVE = SCORE && SCORE.creative && typeof SCORE.creative === "object
 let PLAN_REV = null;
 try { if (args.run && args.run !== true) PLAN_REV = JSON.parse(fs.readFileSync(path.join(path.resolve(String(args.run)), "crew", "plan.json"), "utf8")).creative_policy_revision || null; } catch { PLAN_REV = null; }
 const NEW_POLICY = !!((SCORE && (SCORE.creative_policy_revision || SC_CREATIVE.policy_revision)) || PLAN_REV);
+// Optics scoping (Addendum 1 B): a motion_blur operation declared in the run's optics plan (creative/plans/*.json) puts the shutter on its own layers through RasanOptics, so
+// fast-no-shutter does not apply to those targets. Only on the new policy and only with a plan; every legacy run reads an empty list and is unchanged.
+let OPTICS_PLANS = [];
+try { if (NEW_POLICY && args.run && args.run !== true) OPTICS_PLANS = readOpticsPlans(path.resolve(String(args.run))); } catch { OPTICS_PLANS = []; }
 const PROFILES = [].concat(SC_CREATIVE.profiles || [], SCORE && SCORE.profiles || []).map(String);
 const LIMIT = budgetLimit(SCORE && SCORE.duration);
 const budgetUsed = {};
@@ -336,9 +344,9 @@ for (const file of files) {
     {
       const tf = t.from || {}, tt = t.to || {};
       const dist = Math.hypot((num(tt.x) ?? 0) - (num(tf.x) ?? 0), (num(tt.y) ?? 0) - (num(tf.y) ?? 0));
-      const pxf = dist / Math.max(1, t.dur * FPS) * (1920 / (width || 1920));
+      const pxf = dist / Math.max(1, t.dur * PXF_FPS) * (1920 / (width || 1920));
       const grammar = String((SCORE && SCORE.blur_grammar) || (M && M.blur_grammar) || "").toLowerCase();
-      if (pxf > 80 && !/shutter|smear|stepped|crisp/.test(grammar)) add({ severity: "warning", rule: "fast-no-shutter", ...where, message: `moves about ${Math.round(pxf)} px per frame (over 80) in a film whose blur grammar is "${grammar || "undeclared"}": it strobes without a shutter`, fix: 'declare blur_grammar: "shutter" (the delivery finish adds the shutter, finish.mjs all) or "smear" (draw the smear), or slow the move' });
+      if (pxf > 80 && !/shutter|smear|stepped|crisp/.test(grammar) && !(OPTICS_PLANS.length && opticsOwns(OPTICS_PLANS, t.target, ["motion_blur"]))) add({ severity: "warning", rule: "fast-no-shutter", ...where, message: `moves about ${Math.round(pxf)} px per frame (over 80) in a film whose blur grammar is "${grammar || "undeclared"}": it strobes without a shutter`, fix: 'declare blur_grammar: "shutter" (the delivery finish adds the shutter, finish.mjs all) or "smear" (draw the smear), or slow the move' });
     }
     gestures.push({ ...t, rel, where });
     (byTarget[`${t.tl}|${t.target}`] = byTarget[`${t.tl}|${t.target}`] || []).push(t);

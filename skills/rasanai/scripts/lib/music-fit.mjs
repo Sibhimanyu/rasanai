@@ -92,6 +92,9 @@ export function cutBeatReport(cuts, A, labels = labelEstimates(A), { tol_s = 0.0
 
 // ---- the track record ------------------------------------------------------------------------------------------------------------------------
 // o: { id, source: user|catalog|ai|procedural|library, file, file_digest, rights:{licence, attribution, declared_by, url, provenance[]}, edits[], gain_automation[[t,db]], version, analysis_digest, music_led }
+// additive (omitted from the record, and from the digest, when not given): section {t0,t1,label,reason}, evidence_state (metadata_reviewed|auditioned|approved_in_finished_mix: carried
+// as given by catalog-evidence evidenceFor, never raised here), rights_ref (the crew/rights.jsonl asset id), rights_by_use {sync_into_film,bundle_in_app,upload_to_provider,serve_preview}
+// (catalog-evidence rightsByUse), stems {available, verified, files[]} (verified only when a real set was checked), shortlist_revision.
 export function trackRecord(o = {}) {
   const rights = isObj(o.rights) ? o.rights : {};
   const rec = {
@@ -109,8 +112,21 @@ export function trackRecord(o = {}) {
     version: Math.max(1, Math.floor(num(o.version, 1))),
   };
   rec.rights = { ...rec.rights, ...proceduralRights(rec) };
-  rec.digest = canonicalDigest({ f: rec.file_digest || rec.file, e: rec.edits, g: rec.gain_automation, v: rec.version });
+  const extra = selectionFields(o);
+  Object.assign(rec, extra);
+  rec.digest = canonicalDigest({ f: rec.file_digest || rec.file, e: rec.edits, g: rec.gain_automation, v: rec.version, ...(extra.section ? { s: extra.section } : {}) });
   return rec;
+}
+const STATES = ["metadata_reviewed", "auditioned", "approved_in_finished_mix"];
+function selectionFields(o) {
+  const out = {};
+  if (isObj(o.section) && num(o.section.t0) != null && num(o.section.t1) != null) out.section = { t0: num(o.section.t0), t1: num(o.section.t1), label: T(o.section.label) || null, reason: T(o.section.reason) || null };
+  if (o.evidence_state !== undefined) out.evidence_state = STATES.includes(o.evidence_state) ? o.evidence_state : "metadata_reviewed";
+  if (T(o.rights_ref)) out.rights_ref = T(o.rights_ref);
+  if (isObj(o.rights_by_use)) out.rights_by_use = Object.fromEntries(["sync_into_film", "bundle_in_app", "upload_to_provider", "serve_preview"].map((k) => [k, [true, false].includes(o.rights_by_use[k]) ? o.rights_by_use[k] : null]));
+  if (isObj(o.stems)) out.stems = { available: o.stems.available === true, verified: o.stems.available === true && o.stems.verified === true, files: arr(o.stems.files).map(String) };
+  if (o.shortlist_revision !== undefined && num(o.shortlist_revision) != null) out.shortlist_revision = Math.max(1, Math.floor(num(o.shortlist_revision)));
+  return out;
 }
 // Procedural / generated music is not copyright-free by default: its samples, tools and terms still need provenance. -> { status, why }
 export function proceduralRights(rec) {

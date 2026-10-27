@@ -25,6 +25,7 @@ import { parseArgs, die, readJSON, writeFile, normalizeAspect, readFrontmatterDo
 import { resolvePreset, findSkill } from "./lib/hyperframes.mjs";
 import { installLook, installDirection, upsertMarked, DIRECTION_MARK } from "./lib/install.mjs";
 import { fluentRules } from "./lib/contract.mjs";
+import { mixRevisionOf, busPlanForRun, writeBusPlan, renderBoundary } from "./lib/mix-bus.mjs";
 
 const args = parseArgs();
 if (!args.decisions) die("--decisions required");
@@ -337,6 +338,14 @@ put("BRIEF.md", brief);
 const rootPath = path.join(dir, "index.html");
 const rootText = fs.existsSync(rootPath) ? fs.readFileSync(rootPath, "utf8") : "";
 const rootIsBlank = !rootText || /\/\/ Example: tl\.fromTo/.test(rootText) || /data-(rasanai|rasa-motion|motion-director)-host/.test(rootText);
+// the bed's level: legacy wrote data-volume 0.9 AND a lane peaking at 0.9, which the engine multiplies (0.81). With a revision-2 run (--run) the level comes from the bus plan through
+// renderBoundary, applied once: data-volume 1 and the lane carries the absolute value (a fade in and out around it). Legacy: the old numbers, byte for byte.
+let bedLevel = { volume: "0.9", lane: "0.9" };
+if (musicRel && args.run && args.run !== true && mixRevisionOf(path.resolve(String(args.run))) >= 2) {
+  const RR = path.resolve(String(args.run)), plan = busPlanForRun(RR, { music: { volume: 0.9 }, voice_spans: [], cues: [], film_s: lengthS });
+  const bed = renderBoundary(plan, "hyperframes").elements.find((e) => e.role === "music");
+  if (bed && Number.isFinite(bed["data-volume"]) && bed["data-volume"] > 0) { bedLevel = { volume: "1", lane: String(bed["data-volume"]) }; if (!args["dry-run"]) writeBusPlan(RR, plan); }
+}
 let hostWritten = false;
 if (route === "motion-graphics" && rootIsBlank) {
   put(
@@ -356,8 +365,8 @@ if (route === "motion-graphics" && rootIsBlank) {
     <!-- data-rasanai-host: written by rasanai handoff; mounts the Builder's compositions/index.html -->
     <div id="stage" data-rasanai-host data-composition-id="main" data-start="0" data-duration="${lengthS}" data-width="${W}" data-height="${H}">
       <div id="shot" data-composition-id="${D.project}" data-composition-src="compositions/index.html" data-start="0" data-duration="${lengthS}" data-track-index="0" data-width="${W}" data-height="${H}"></div>${musicRel ? `
-      <audio id="music-bed" src="${musicRel.split(path.sep).join("/")}" data-start="0" data-duration="${lengthS}" data-track-index="10" data-volume="0.9"
-        data-automation='{"version":1,"lanes":[{"target":"volume","points":[{"t":0,"v":0},{"t":0.3,"v":0.9},{"t":${Math.max(0.6, lengthS - 0.6).toFixed(2)},"v":0.9},{"t":${lengthS},"v":0}]}]}'></audio>` : ""}
+      <audio id="music-bed" src="${musicRel.split(path.sep).join("/")}" data-start="0" data-duration="${lengthS}" data-track-index="10" data-volume="${bedLevel.volume}"
+        data-automation='{"version":1,"lanes":[{"target":"volume","points":[{"t":0,"v":0},{"t":0.3,"v":${bedLevel.lane}},{"t":${Math.max(0.6, lengthS - 0.6).toFixed(2)},"v":${bedLevel.lane}},{"t":${lengthS},"v":0}]}]}'></audio>` : ""}
     </div>
     <script>
       const tl = gsap.timeline({ paused: true });

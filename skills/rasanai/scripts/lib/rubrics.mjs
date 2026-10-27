@@ -8,7 +8,7 @@ import { KIND_IDS, COMMUNICATION_KINDS } from "./communication.mjs";
 
 export const VERDICTS = ["pass", "concern", "fail", "unknown", "not_observed"];
 export const SEVERITIES = ["blocker", "major", "minor", "note"];
-export const CATEGORIES = ["claims", "privacy", "proof_scope", "beat_purpose", "visual_meaning", "takeaway", "readability", "sound", "taste", "other"];
+export const CATEGORIES = ["claims", "privacy", "proof_scope", "beat_purpose", "visual_meaning", "takeaway", "readability", "sound", "taste", "attention", "other"];
 export const HARD_BLOCKER_CATEGORIES = ["claims", "privacy"];
 export const WAIVABLE_CATEGORIES = ["taste"]; // only via the existing user decision (a decision id from the user's own choice), never by a grader or agent
 
@@ -130,10 +130,29 @@ export const FORMAL_QUESTIONS = [
   { id: "contrast", ask: "Where is the contrast (scale, density, tempo, silence) and does it do work?" },
   { id: "resolution", ask: "How does the passage resolve, release or hold, and is that earned?" },
 ];
+// ---- addendum 1: ordered attention and connected motion (cases CSC-19..21). Answered from PLAYBACK of the current output, with unknown / not_observed allowed. They ask what happened and
+// where the eye went; none asks for a focal point, a motion ratio, a shot count or constant movement, and a still, quiet sequence can pass all of them.
+export const ATTENTION_QUESTIONS = [
+  { id: "attention_order", ask: "Watching in playback, what did the eye meet first, second and last, and is that the order the authored attention reads intend? Answer before comparing with the reads." },
+  { id: "attention_transfer", ask: "At each change of emphasis, what moved the eye (scale, contrast, focus, position, overlap, motion or stillness), and did it feel caused rather than arbitrary?" },
+  { id: "attention_competition", ask: "Did anything compete with the intended read while it mattered, and if so was the competition declared and followable?" },
+  { id: "protected_read_held", ask: "Could the required text or product evidence be read at final size and speed for as long as its content needed, without distortion, cropping or competing movement in that interval?" },
+];
+export const CONNECTED_MOTION_QUESTIONS = [
+  { id: "motion_connected", ask: "Across the neighbouring moments, did shared objects, type, interface or camera feel like one continuing thing (or a deliberate cut), with no snap, double step or restart at the seam?" },
+  { id: "intermediate_states", ask: "Where something changed form, did the in-between states carry meaning, or only decorate?" },
+];
+export const ATTENTION_LIMITS = "Static and automated checks (editorial.evaluateTemporal, storyboard.normalizeReads) cover timing conflicts, missing targets and stale bindings only. Whether the sequence communicates, connects and directs attention is a playback judgement by an independent reviewer or the user; a pass here is never inferred from a clean check.";
 // commitment_kind 'formal' (or a passage the treatment calls formal) uses FORMAL_QUESTIONS instead of a literal narrative retell; text-as-image stays an artistic subject.
-export function temporalRubricFor(kind, { formal = false } = {}) {
+export function temporalRubricFor(kind, { formal = false, attention = false, connected_motion = false } = {}) {
   const base = rubricFor(kind);
   const r = { kind, version: 1, formal: !!formal, questions: formal ? [...FORMAL_QUESTIONS, TEMPORAL_QUESTIONS[4]] : [...TEMPORAL_QUESTIONS], answers_allowed: VERDICTS, results_allowed: ["fulfilled", "partially_fulfilled", "missing", "materially_changed", "stale", "not_assessable"], focus: base ? base.focus : null, legitimate: base ? base.legitimate : null, not_required: ["villain", "twist", "peak at a set percentage", "shot count", "technique count", "a motion ratio", "removing text to prove the image works"], notes: ["metadata, file extensions and movement metrics never establish intent", "a deliberate quiet film may be judged successful", "a retained character across shots is not automatically repetition"] };
+  // addendum 1: ordered attention and connected motion are judged in later playback; a static check cannot answer them. Present only when asked for, so the default output is unchanged.
+  if (attention || connected_motion) {
+    r.questions = [...r.questions, ...(attention ? ATTENTION_QUESTIONS : []), ...(connected_motion ? CONNECTED_MOTION_QUESTIONS : [])];
+    r.playback_review_required = true;
+    r.automated_check_limits = ATTENTION_LIMITS;
+  }
   assertNoFormula(r);
   return r;
 }

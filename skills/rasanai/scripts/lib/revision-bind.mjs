@@ -7,7 +7,8 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { policyRevisionOf, SUPPORTED_POLICY_REVISIONS, CREATIVE_ERROR_CODES } from "./creative-policy.mjs";
-import { diffIdentity } from "./impact.mjs";
+import { diffIdentity, affectedClosure, identityMap, soundChangeImpact } from "./impact.mjs";
+import { SEQUENCE_KINDS, normalizeMotif, normalizeHandoff, normalizeOptics, normalizeProduct, normalizeAttention, recordDigest } from "./sequence-contract.mjs";
 import { canonicalDigest } from "./contracts.mjs";
 
 const isObj = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
@@ -193,6 +194,67 @@ export function buildMigrationReceipt(o = {}) {
   return { ok: true, receipt };
 }
 
+// ---- Addendum 1 (CSC-03, CSC-22..24): dependency-scoped invalidation of the sequence records ---------------------------------------------------------
+// Motif / handoff / optics / product / attention records (lib/sequence-contract.mjs) each carry a semantic digest and the approved input revisions they were made under.
+// These turn a set of records into identity keys ("motif:m1" = that record's meaning) and consumers (a record reads its own key, what it references, and the inputs it was approved
+// against), so an edit invalidates ONLY the records that read it. Gate: revision >= 2 and at least one record; otherwise the result is inactive and a legacy film resolves exactly as before.
+const SEQ_NORM = { motifs: normalizeMotif, handoffs: normalizeHandoff, optics: normalizeOptics, product: normalizeProduct, attention: normalizeAttention };
+const SEQ_KEY = { motifs: "motif", handoffs: "handoff", optics: "optics", product: "product", attention: "attention" };
+function seqNormalized(records, score = null) {
+  const rs = isObj(records) ? records : {};
+  return Object.fromEntries(SEQUENCE_KINDS.map((k) => [k, arr(rs[k]).filter(isObj).map((x) => SEQ_NORM[k](x, score))]));
+}
+// what a normalized record reads besides itself: event / object / anchor / motif ids and the inputs it was approved against (story, look, score, ...)
+function seqReads(kind, r) {
+  const out = new Set([`${SEQ_KEY[kind]}:${r.id}`]);
+  const add = (k, id) => { if (id != null && String(id)) out.add(`${k}:${id}`); };
+  for (const n of Object.keys(isObj(r.approved_input_revisions) ? r.approved_input_revisions : {})) out.add(String(n));
+  if (kind === "motifs") { arr(r.event_ids).forEach((x) => add("event", x)); arr(r.object_ids).forEach((x) => add("object", x)); arr(r.roles).forEach((x) => { arr(x.event_ids).forEach((e) => add("event", e)); arr(x.anchor_ids).forEach((a) => add("anchor", a)); }); }
+  if (kind === "handoffs") { for (const e of [r.from, r.to]) if (isObj(e)) { add("event", e.event_id); add("beat", e.beat_id); add("shot", e.shot_id); } add("motif", r.motif_id); }
+  if (kind === "optics") arr(r.ops).forEach((o) => { arr(o.layers && o.layers.select).forEach((x) => add("layer", x)); arr(o.layers && o.layers.protect).forEach((x) => add("layer", x)); add("layer", o.source_layer_id); add("mask", o.mask_source); arr(o.protected_reads).forEach((p) => add("target", p.ref)); });
+  if (kind === "product") arr(r.stages).forEach((s) => { if (s.source_state_ref) add(s.source_state_ref.kind === "capture" ? "capture" : "demonstration", s.source_state_ref.id); arr(s.anchor_ids).forEach((a) => add("anchor", a)); });
+  if (kind === "attention") { add("shot", r.shot_id); arr(r.reads).forEach((x) => { if (x.target_ref) add("target", x.target_ref.id); arr(x.competing).forEach((c) => add("target", c.ref)); }); }
+  return [...out];
+}
+// records -> identity map { "motif:m1": digest, ... } (meaning only: a note, key order or pin never moves it). extra: other identity parts the caller owns (event, anchor, capture, ...), merged in.
+export function sequenceIdentity(records, { score = null, extra = {} } = {}) {
+  const set = seqNormalized(records, score), parts = {};
+  for (const k of SEQUENCE_KINDS) for (const r of set[k]) parts[`${SEQ_KEY[k]}:${r.id}`] = recordDigest(r);
+  return { ...identityMap(extra), ...identityMap(parts) };
+}
+export function sequenceConsumers(records, { score = null } = {}) {
+  const set = seqNormalized(records, score), out = [];
+  for (const k of SEQUENCE_KINDS) for (const r of set[k]) out.push({ id: `${SEQ_KEY[k]}:${r.id}`, kind: "implementation", reads: seqReads(k, r) });
+  return out;
+}
+// before / after: { plan, records, extra? } for the old and the new state. -> { active, legacy, changes, stale:[record ids], keep:[...], reasons, full_rebuild:false }
+// Inactive (stale/keep empty, legacy:true) when the plan is not revision >= 2 or neither side has any sequence record: a film without sequence records resolves identically.
+export function sequenceChangeImpact({ plan = null, before = {}, after = {}, score = null } = {}) {
+  const hasAny = (r) => SEQUENCE_KINDS.some((k) => arr(isObj(r && r.records) ? r.records[k] : null).length);
+  if (policyRevisionOf(plan) < 2 || (!hasAny(before) && !hasAny(after))) return { active: false, legacy: true, changes: { changed: [], added: [], removed: [] }, stale: [], keep: [], reasons: {}, full_rebuild: false };
+  const b = sequenceIdentity(before.records, { score, extra: before.extra }), a = sequenceIdentity(after.records, { score, extra: after.extra });
+  const d = diffIdentity(b, a), changes = [...d.changed, ...d.added, ...d.removed];
+  // consumers of both sides: a record that was REMOVED still has dependents that read it
+  const seen = new Map();
+  for (const c of [...sequenceConsumers(before.records, { score }), ...sequenceConsumers(after.records, { score })]) if (!seen.has(c.id)) seen.set(c.id, c);
+  const cl = affectedClosure({ consumers: [...seen.values()], changes });
+  return { active: true, legacy: false, changes: d, stale: cl.stale, keep: cl.keep, reasons: cl.reasons, full_rebuild: false, causes: cl.causes };
+}
+
+// ---- Addendum 2: the one question every audio reuse path asks ------------------------------------------------------------------------------------------
+// receipt: mix-receipt.mjs receipt; current: currentInputs(...) (which excludes audio/mix-state.json by construction); reuseDecision: mix-receipt.mjs reuseDecision (passed in, so this file stays free of audio imports).
+// A project whose direction has no `mix_policy_revision` is LEGACY: its receipt is read with the old digest keys and its intended audio is not changed (never a forced remix); a stamped project
+// must also match the extended keys. A filename is never evidence: `file` is only compared AFTER the digests match. -> { reuse, legacy, reason, stale }
+export function audioReuseGate({ receipt = null, current = null, file = "", direction = null, reuseDecision = null } = {}) {
+  const legacy = !(direction && direction.mix_policy_revision != null);
+  if (!receipt || typeof reuseDecision !== "function") return { reuse: false, legacy, reason: "no receipt to compare with: the mix cannot be shown to match its inputs", stale: ["receipt"] };
+  const r = reuseDecision({ receipt, current, file });
+  const hasExtended = !!(receipt.digests && ["source", "stem_identity", "processor", "html_audio"].some((k) => receipt.digests[k] != null));
+  return { ...r, legacy, receipt_extended: hasExtended, ...(legacy && r.reuse ? { note: "legacy mix policy: the old receipt still matches, so the intended audio is kept as it was" } : {}) };
+}
+// sound change -> scoped consequence, re-exported here so callers of revision-bind (console soundHook, crew resume) need one import. before / after: lib/impact.mjs identityMap results.
+export const soundRevisionImpact = (o) => soundChangeImpact(o);
+
 // ---- V3 (W11): the exact-equality / dropped-field inventory (data for the lead and INT-ENGINE-A/B; nothing here changes behavior) ---------------------------------------------
 // Each: file, symbol (line numbers drift: anchor on the symbol), what it does today, the replacement. Derived by inspection at HEAD f72e7d45; unvalidated.
 export const REVISION_CONSUMER_INVENTORY = Object.freeze([
@@ -205,6 +267,8 @@ export const REVISION_CONSUMER_INVENTORY = Object.freeze([
   { file: "skills/rasanai/scripts/crew.mjs", symbol: "check message at ~2687: 'set \"creative_policy_revision\": 1, or \"creative\": {\"policy_revision\": 1}'", effect: "text names revision 1 only; the truthy test itself already passes 2", replace: "say: the plan's revision (policyRevisionOf(plan))" },
   { file: "skills/rasanai/scripts/skill-map.mjs", symbol: "CREATIVE_DEEPER / line ~229 `def.kind === \"scene\"`", effect: "no equality check: the guide list is applied on every scene route regardless of revision (comments only name revision 1)", replace: "no code change required; update comments at ~11 and ~70 to say revision 1 or 2" },
   { file: "skills/rasanai/scripts/motion-gate.mjs", symbol: "`creativePolicy = !!(P.plan && (P.plan.creative_policy_revision || cr.policy_revision))` (~531); obey.mjs `PLAN_REV ... || null` / NEW_POLICY (~216-219); lib/moves-lib.mjs `obj.creative_policy_revision`", effect: "truthy tests: revision 2 passes, but so does an unsupported marker like 3", replace: "optional: use policyCompat(plan).creative_on so only 1 and 2 count; unsupported is stopped upstream in crew.mjs anyway" },
+  { file: "skills/rasanai/scripts/crew.mjs", symbol: "revision/resume path that decides what a sound or sequence edit re-does (ENG-INT-1; no caller exists in source today)", effect: "lib/revision-bind.mjs sequenceChangeImpact / audioReuseGate, lib/impact.mjs soundChangeImpact / audioScopeImpact and lib/incremental-render.mjs audioPlan({sound_scope}) are implemented but UNWIRED: nothing calls them yet, so a sound or sequence edit still invalidates by stage only", replace: "on a sound note or sequence-record edit build identityMap(soundIdentityParts(...)) / sequenceIdentity(records) before and after and pass the diff to soundChangeImpact / sequenceChangeImpact; ask audioReuseGate (not a filename) before reusing a mix" },
+  { file: "skills/rasanai/scripts/console.mjs", symbol: "soundHook (sound-note / sound-control actions)", effect: "the new note kinds (keep_music_audible, softer_effects, less_percussion, calmer_section, remove_voiceover, resolve_ending) flow through soundNoteRevision, but Studio sends no sound-note action and the Look `sound-direction` action has no handler", replace: "ENG-INT-2: route `sound-direction` to lib/sound-choices.mjs writeSoundChoices, then soundChangeImpact over the before/after soundIdentityParts; keep `sound-note` -> soundNoteRevision" },
   { file: "skills/rasanai/scripts/lib/creative-handoff.mjs / packets.mjs / creative-contract.mjs", symbol: "`creative_policy_revision >= 1` / `>= 2` (creative-handoff ~105, 122, 300; packets ~102, 157; creative-contract ~140, 286)", effect: "already ordered comparisons (rev 1 unchanged, rev 2 adds): correct, but they read the BRIEF marker, which depends on the creative-run.mjs brief-writer fix above", replace: "none" },
 ]);
 export const PROJECTION_GAPS = Object.freeze([
@@ -213,5 +277,7 @@ export const PROJECTION_GAPS = Object.freeze([
   { file: "skills/rasanai/scripts/lib/storyboard.mjs", symbol: "lookPin (~90-98) and the inputs.json story/look pin", gap: "the look pin covers the visual bible and medium contract only; font/shaping, anchors and material/camera plans have no pin, so editing them leaves a storyboard `current`", replace: "extend the pin with an optional `extras` digest = consumerIdentity(['font','shaping','anchor','material','camera'], identityMap(parts)), added to the wrap() only when non-null so a legacy pin digest is unchanged" },
   { file: "skills/rasanai/scripts/lib/contracts.mjs", symbol: "validateRevisionRequest / revisionKey", gap: "none dropped: validateRevisionRequest ignores unknown fields; revisionKey uses stage/target/instruction/base only, so `change_scope` and `change_record` on a request line are preserved and do not change idempotency", replace: "none" },
   { file: "skills/rasanai/scripts/lib/hybrid-render.mjs (receipt writer)", symbol: "receipt { edit_id, source_digest, score_digest, look_digest, build_job, attempt, media_settings, output_checksum }", gap: "no identity_digest, so checkRenderReceipt cannot confirm a V3 render was made under the accepted event/object/font/anchor identity", replace: "write `identity_digest` into the receipt (value = the accepted record's identity); checkRenderReceipt already compares it when accepted.identity is given" },
+  { file: "skills/rasanai/scripts/lib/packets.mjs (beatDeclarations / beatPlanNeeds)", symbol: "handoff / optics / product / attention keys of creative/beat-plans.json", gap: "the sequence records' semantic digests are not in any packet or job identity, so editing a motif or handoff leaves a built beat looking current (sequenceChangeImpact only computes the verdict; nothing stores or reads it)", replace: "ENG-INT-1: add `identity_digest` = consumerIdentity(seqReads, sequenceIdentity(records)) to the packet body for revision >= 2 plans only" },
+  { file: "skills/rasanai/scripts/lib/mix-receipt.mjs (currentInputs callers)", symbol: "S/sound.mjs, S/video.mjs, S/soundplan.mjs, S/quick-film.mjs reuse paths", gap: "currentInputs(run) is called with no `source`, `stem_identity` or `processor` unless the caller supplies them; a caller that omits them reuses a mix on the legacy keys only", replace: "ENG-INT-2: pass {source:{id,file_digest,section}, stem_identity, processor} from audio/music-track.json and the renderer, and route the decision through audioReuseGate" },
   { file: "skills/rasanai/scripts/lib/job-control.mjs / jobs.mjs", symbol: "staleByIdentity(run, identities)", gap: "compares per-group digests only", replace: "pass identities computed with the extended spec.identity_digest above; no signature change" },
 ]);

@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { canonicalDigest } from "./contracts.mjs";
-import { reconcileCommitments, creativeExt, COMMITMENT_ERROR_CODES } from "./creative-contract.mjs";
+import { reconcileCommitments, creativeExt, COMMITMENT_ERROR_CODES, treatmentMotifs } from "./creative-contract.mjs";
 
 const arr = (x) => (Array.isArray(x) ? x : []);
 const str = (x) => (x == null ? "" : String(x));
@@ -91,7 +91,7 @@ const eventShots = (ev, shots, owned) => shots.filter((s) => {
 
 // V3 additive event fields, present only when the event carries the creative_thinking extension (revision 1 events travel byte-identical):
 // requirement, state (a claim until evidence), scope, objects, the one continuity owner, ordered audience reads, review plan and limits.
-const EXT_KEYS = ["requirement", "state", "scope", "narrative_purpose", "object_ids", "continuity_owner", "interval_s", "audience_reads", "review_plan", "medium_commitments", "capability_state", "evidence_boundary", "commitment_ids"];
+const EXT_KEYS = ["requirement", "state", "scope", "narrative_purpose", "object_ids", "continuity_owner", "interval_s", "audience_reads", "review_plan", "medium_commitments", "capability_state", "evidence_boundary", "commitment_ids", "motif_ids"]; // motif_ids (sequence addendum): refs to treatment.extensions.creative_thinking.motifs[]; events without it travel byte-identical
 export function commitmentFields(e) {
   const x = creativeExt(e); if (!x) return {};
   return { extensions: { creative_thinking: Object.fromEntries(EXT_KEYS.filter((k) => x[k] !== undefined).map((k) => [k, x[k]])) } };
@@ -129,6 +129,10 @@ export function buildCreativeInputs({ run, role, key = null, plan = {}, creative
     if (reads.length) out.mandatorySections.push({ id: "ordered-reads", content: reads.sort((a, b) => (arr(a.window_s)[0] ?? 0) - (arr(b.window_s)[0] ?? 0)) });
     const owners = myEvents.filter((e) => creativeExt(e) && (arr(creativeExt(e).object_ids).length || creativeExt(e).continuity_owner)).map((e) => ({ event_id: e.id, object_ids: arr(creativeExt(e).object_ids), continuity_owner: creativeExt(e).continuity_owner ?? null, scope: creativeExt(e).scope ?? null }));
     if (owners.length) out.mandatorySections.push({ id: "continuity-ownership", content: owners });
+    // Sequence addendum: the motif records this task's events use travel whole (identity, invariants, authored roles, relation); absent when none apply
+    const wantM = new Set(myEvents.flatMap((e) => arr(creativeExt(e) && creativeExt(e).motif_ids).map(str)));
+    const motifs = treatmentMotifs(treatment).filter((m) => own.whole || wantM.has(m.id) || arr(m.event_ids).some((i) => mineIds.has(i)));
+    if (motifs.length) out.mandatorySections.push({ id: "motifs", content: motifs });
     for (const p of rec.problems) if (own.whole && p.code === COMMITMENT_ERROR_CODES.unbound) out.blockers.push({ code: p.code, commitment_id: p.commitment_id, responsible_phase: p.responsible_phase, message: p.message });
   }
   out.mandatorySections.push({ id: "assigned-shots", content: { whole_film: own.whole, shot_ids: own.shotIds, beat_ids: own.beatIds, basis: own.basis } });
@@ -294,7 +298,7 @@ export function buildReviewPacket({ creativeBrief, shots = [], mappings = [], co
         comparison: cmp ? cmp.filter((f) => f.status && ids.includes(str(f.shot_id))) : [],
         traced: !!m,
         // V3 additive (extension events only): what to observe, where, and the claimed state labelled as a claim
-        ...(creativeExt(e) ? { requirement: creativeExt(e).requirement ?? "required", review_plan: creativeExt(e).review_plan ?? null, audience_reads: arr(creativeExt(e).audience_reads), object_ids: arr(creativeExt(e).object_ids), continuity_owner: creativeExt(e).continuity_owner ?? null, evidence_boundary: creativeExt(e).evidence_boundary ?? null, claimed_state: creativeExt(e).state ?? null, claimed_state_is_claim: true, traceability_only: !!m, semantic: "not_assessable_from_trace" } : {}),
+        ...(creativeExt(e) ? { requirement: creativeExt(e).requirement ?? "required", review_plan: creativeExt(e).review_plan ?? null, audience_reads: arr(creativeExt(e).audience_reads), motif_ids: arr(creativeExt(e).motif_ids), object_ids: arr(creativeExt(e).object_ids), continuity_owner: creativeExt(e).continuity_owner ?? null, evidence_boundary: creativeExt(e).evidence_boundary ?? null, claimed_state: creativeExt(e).state ?? null, claimed_state_is_claim: true, traceability_only: !!m, semantic: "not_assessable_from_trace" } : {}),
       };
     }),
     ...((creativeBrief && creativeBrief.creative_policy_revision >= 2) ? { commitments: (() => { const x = creativeExt(creativeBrief), r = reconcileCommitments({ treatment, events: arr(creativeBrief.signature_events), absences: absences || (x && x.commitment_basis ? [x.commitment_basis] : []), pins: pins || creativeBrief.pins, phase: "build" }); return { bound: r.bound, unresolved: r.unresolved, intentionally_absent: r.intentionally_absent, incompatible: r.incompatible, quiet_film: r.quiet_film, review_basis: x && x.commitment_basis ? { commitments: arr(x.commitment_basis.commitments), reason: x.commitment_basis.reason ?? null } : null }; })() } : {}),

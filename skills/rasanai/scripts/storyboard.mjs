@@ -56,7 +56,20 @@ const beatIdsOf = (r) => {
 // V3 W05: temporal reads exist only on shots that carry them (revision 2); a revision 1 board passes no extra ctx and prints nothing extra
 const eventIdsOf = (r) => { const b = rj(path.join(r, "creative", "brief.json")); return b && Array.isArray(b.signature_events) ? b.signature_events.map((e) => e && e.id).filter(Boolean) : []; };
 const hasReads = (doc) => (doc.shots || []).some((s) => Array.isArray(s.reads) && s.reads.length);
-const intervalsOf = (doc, score) => (doc.shots || []).flatMap((s) => normalizeReads(s.reads || [], score).intervals);
+// Addendum 1 (optional): the ids an attention read may point at, from the beat plans (creative/plans/<beat>.json: anchor regions, text groups, spatial objects) and, where a plan states one,
+// their digests. No plans = no targets passed = no target check (a revision-1 run, or one that planned nothing, behaves as before).
+const targetsOf = (r) => {
+  const ix = rj(path.join(r, "creative", "plans", "index.json")), ids = new Set(), dig = {};
+  for (const row of (ix && Array.isArray(ix.beats) ? ix.beats : [])) {
+    const sec = ((row && row.file ? rj(path.join(r, row.file)) : null) || {}).sections || {};
+    for (const x of [...((sec.anchors && sec.anchors.regions) || []), ...((sec.anchors && sec.anchors.anchors) || [])]) if (x && x.id) { ids.add(String(x.id)); if (x.digest) dig[String(x.id)] = x.digest; }
+    for (const g of (sec.text && sec.text.roles && sec.text.roles.groups) || []) if (g && g.id) { ids.add(String(g.id)); if (g.digest) dig[String(g.id)] = g.digest; }
+    for (const f of (sec.spatial && sec.spatial.plan && Array.isArray(sec.spatial.plan.forms) ? sec.spatial.plan.forms : [])) if (f && f.id) ids.add(String(f.id));
+    for (const x of (sec.assets && sec.assets.plan && Array.isArray(sec.assets.plan.subjects) ? sec.assets.plan.subjects : [])) if (x && x.id) ids.add(String(x.id));
+  }
+  return ids.size ? { targets: ids, ...(Object.keys(dig).length ? { target_digests: dig } : {}) } : {};
+};
+const intervalsOf = (doc, score, ctx = {}) => (doc.shots || []).flatMap((s) => normalizeReads(s.reads || [], score, ctx).intervals);
 const copyOf = (doc) => (doc.shots || []).flatMap((s) => s.copy || []);
 // Plan 07: audio/contract.json first (soundplan.mjs contract --build), then the old storyboard/audio.json, then the flags
 const audioOf = (r) => { const c = readAudioContract(r); return c.source === "audio/contract.json" ? contractForStoryboard(c) : rj(S(r, "audio.json")) || { kind: str("audio-kind") || "none", file: str("audio-file") || null }; };
@@ -97,17 +110,17 @@ if (cmd === "boundary") {
   const temporal = hasReads(doc);
   const v = validateStoryboardDoc(doc, { beat_ids: beatIds, ...(temporal ? { score, event_ids: eventIdsOf(r) } : {}) });
   const continuity = rj(path.join(r, "look", "continuity.json"));
-  const ed = evaluateFilm(doc.shots, { copy: copyOf(doc), links: continuity && continuity.links, locale: str("locale") || "en", display: str("display") || "desktop", styleOptions: (rj(path.join(r, "look", "visual-bible.json")) || {}).editorial_options, ...(temporal ? { intervals: intervalsOf(doc, score) } : {}) });
+  const ed = evaluateFilm(doc.shots, { copy: copyOf(doc), links: continuity && continuity.links, locale: str("locale") || "en", display: str("display") || "desktop", styleOptions: (rj(path.join(r, "look", "visual-bible.json")) || {}).editorial_options, ...(temporal ? { intervals: intervalsOf(doc, score, targetsOf(r)) } : {}) });
   const cur = panelSetCurrent(doc, r);
   const drift = score ? timingDrift(doc, score, beatIds) : null;
   // an adopted legacy record may not state its editorial intent yet: its findings are advice, not a failure
   const advice = !!doc.legacy_adopted;
-  out({ ok: v.ok && cur.current && (advice || ed.ok), kind: doc.kind, revision: doc.revision, problems: v.problems, warnings: v.warnings, editorial: { ...ed, advisory: advice || undefined }, current: cur, timing_drift: drift, events: score ? eventsFresh(r) : undefined, ...(temporal ? { stale_reads: staleReads(doc, score) } : {}) }, v.ok && cur.current && (advice || ed.ok) ? 0 : 2);
+  out({ ok: v.ok && cur.current && (advice || ed.ok), kind: doc.kind, revision: doc.revision, problems: v.problems, warnings: v.warnings, editorial: { ...ed, advisory: advice || undefined }, current: cur, timing_drift: drift, events: score ? eventsFresh(r) : undefined, ...(temporal ? { stale_reads: staleReads(doc, score, targetsOf(r)) } : {}) }, v.ok && cur.current && (advice || ed.ok) ? 0 : 2);
 } else if (cmd === "timing") {
   const r = run();
   const doc = readStoryboard(r), score = rj(path.join(r, "motion", "score.json"));
   const o = { drift: doc && score ? timingDrift(doc, score, beatIdsOf(r)) : null, score_revision: score ? scoreRevision(score) : null };
-  if (str("audio")) { const a = rj(path.resolve(str("audio"))); if (!a || !doc) die("--audio needs an audio.json and a storyboard"); o.reconciliation = reconcile({ shots: doc.shots, audio: a, copy: copyOf(doc) }); if (hasReads(doc)) { o.stale_reads = staleReads(doc, score); const imp = audioReplacementImpact({ doc, before: audioOf(r), after: a, copy: copyOf(doc) }); if (imp.reads) o.audio_replacement_reads = imp.reads; } }
+  if (str("audio")) { const a = rj(path.resolve(str("audio"))); if (!a || !doc) die("--audio needs an audio.json and a storyboard"); o.reconciliation = reconcile({ shots: doc.shots, audio: a, copy: copyOf(doc) }); if (hasReads(doc)) { o.stale_reads = staleReads(doc, score, targetsOf(r)); const imp = audioReplacementImpact({ doc, before: audioOf(r), after: a, copy: copyOf(doc) }); if (imp.reads) o.audio_replacement_reads = imp.reads; } }
   if (str("deltas")) {
     const d = rj(path.resolve(str("deltas")));
     if (!Array.isArray(d)) die("--deltas wants a JSON list of {scene, duration_s}");

@@ -224,7 +224,7 @@
     var H = o.H || parseFloat(stage.getAttribute("data-height")) || stage.clientHeight || 1080;
     var fps = o.fps || 30, F = 1 / fps, seed = seedOf(o.seed);
     var channels = [], endT = 0, finished = false, presses = [], nCursor = 0, heroEl = null, tw = null;
-    var cursors = [], worldRef = null;
+    var cursors = [], worldRef = null, holds = [];
     function fr(t) { return Math.round(t * fps) / fps; }
     function bump(t) { if (t > endT) endT = t; }
     function chan(fn, end) { channels.push(fn); if (end != null) bump(end); }
@@ -428,6 +428,50 @@
       var api = { el: w, pose: pose, map: map, unmap: unmap, at0: ks[0].t };
       worldRef = api;
       return api;
+    }
+
+    // ---------------- staged product state (additive; seek-safe pure functions of T, no clock of their own). Choreography stages:
+    // context -> action (cursor/type/drag) -> result (reveal) -> isolate -> hold. Plan: scripts/lib/product-choreography.mjs, guide: references/product-choreography.md.
+    // reveal: a RESULT arrives (opacity + a short settle on the individual translate/scale properties; do not also scroll() the same element).
+    //   U.reveal(el, { at, dur: 0.5, dy: 16, scale: 0.98, ease: "out" }) -> { start, end, next }
+    function reveal(e, r) {
+      r = r || {}; e = one(e);
+      var t0 = fr(opt(r, "at", 0)), dur = Math.max(F, fr(opt(r, "dur", 0.5))), dy = opt(r, "dy", 16), sc = opt(r, "scale", 0.98), ez = ease(opt(r, "ease", "out"));
+      chan(function (t) {
+        var k = ez(clamp((t - t0) / dur, 0, 1));
+        e.style.opacity = r3(k); e.style.translate = "0px " + r3(dy * (1 - k)) + "px"; e.style.scale = r3(sc + (1 - sc) * k);
+      }, t0 + dur);
+      return { start: t0, end: t0 + dur, next: t0 + dur };
+    }
+    // isolate: the important state stays at full strength while `others` step back by opacity only (never a blur or glow of the frame). The target is marked
+    //   data-ru-isolated from `at`; pair with U.world keys (shared anchor) to magnify it. Restores on seek-back.
+    //   U.isolate(target, { at, dur: 0.6, dim: 0.3, others: [el, ...] }) -> { start, end, next }
+    function isolate(target, i) {
+      i = i || {}; target = one(target);
+      var t0 = fr(opt(i, "at", 0)), dur = Math.max(F, fr(opt(i, "dur", 0.6))), dim = clamp(opt(i, "dim", 0.3), 0, 1), others = [].concat(i.others || []).map(one);
+      chan(function (t) {
+        var k = EASE.glide(clamp((t - t0) / dur, 0, 1)), v = r3(1 - (1 - dim) * k);
+        others.forEach(function (o) { o.style.opacity = v; });
+        if (t >= t0 - 1e-9) target.setAttribute("data-ru-isolated", ""); else target.removeAttribute("data-ru-isolated");
+      }, t0 + dur);
+      return { start: t0, end: t0 + dur, next: t0 + dur };
+    }
+    // follow: an element rides a shared anchor. fn(t) -> [x, y] px (e.g. from RasanLayout / world.map); offset by dx, dy; before `from` it sits at fn(from).
+    //   U.follow(el, (t) => anchorPx(t), { from, to, dx, dy }) -> { start, end, next }
+    function follow(e, fn, f) {
+      f = f || {}; e = one(e); need(typeof fn === "function", "follow: pass fn(t) -> [x, y] in px");
+      var a = fr(opt(f, "from", 0)), b = fr(opt(f, "to", a)), dx = opt(f, "dx", 0), dy = opt(f, "dy", 0);
+      chan(function (t) { var p = fn(clamp(t, a, Math.max(a, b))); e.style.translate = r3(p[0] + dx) + "px " + r3(p[1] + dy) + "px"; }, b);
+      return { start: a, end: b, next: b };
+    }
+    // hold: a protected reading window. Marks the element data-ru-hold between at and at+dur; check() warns when it is shorter than `min` (the planned floor).
+    //   U.hold(el, { at, dur, min }) -> { start, end, next }
+    function hold(e, h) {
+      h = h || {}; e = one(e);
+      var t0 = fr(opt(h, "at", 0)), dur = fr(opt(h, "dur", 1)), min = opt(h, "min", 0);
+      holds.push({ at: t0, dur: dur, min: min, label: (e.textContent || "").trim().slice(0, 30) });
+      chan(function (t) { if (t >= t0 - 1e-9 && t < t0 + dur - 1e-9) e.setAttribute("data-ru-hold", ""); else e.removeAttribute("data-ru-hold"); }, t0 + dur);
+      return { start: t0, end: t0 + dur, next: t0 + dur };
     }
 
     // ---------------- the cursor: its own top layer (outside any camera group), exactly one instance, tip-anchored, arcs, no ripple ring
@@ -782,6 +826,7 @@
       Array.prototype.forEach.call(stage.querySelectorAll('[class*="ripple"],[class*="pulse-ring"],[class*="click-ring"]'), function (e) { warns.push(warnObj("click-ring", "a ripple ring is the stock click icon: the target's squash already says it", e)); });
       Array.prototype.forEach.call(stage.querySelectorAll("[data-ru-typed]"), function (e) { if (!e.closest(".ru-input")) warns.push(warnObj("typing-outside-field", "text is typed outside an input field", e)); });
       Array.prototype.forEach.call(stage.querySelectorAll("[data-ui]"), function (e) { if (e.getAttribute("data-ui") === "captured") stats.captured++; else stats.invented++; });
+      holds.forEach(function (h) { if (h.min && h.dur + 1e-6 < h.min) warns.push(warnObj("hold-too-short", "a reading hold is " + r3(h.dur) + " s, under its planned floor " + r3(h.min) + ' s: "' + h.label + '"', null)); });
       tl.time(t0); render(t0);
       // de-duplicate (the same finding at several sample times keeps its first)
       var seen = {}; warns = warns.filter(function (w) { var key = w.rule + "|" + w.message.replace(/ \(t=[^)]*\)/, ""); if (seen[key]) return false; seen[key] = 1; return true; });
@@ -801,11 +846,11 @@
       render(0);
       return { duration: dur, channels: channels.length };
     }
-    function audit() { return { presses: presses.slice(), channels: channels.length, fps: fps, version: VERSION }; }
+    function audit() { var a = { presses: presses.slice(), channels: channels.length, fps: fps, version: VERSION }; if (holds.length) a.holds = holds.slice(); return a; }
 
     return {
       tokens: T, stage: stage, W: W, H: H, fps: fps, mount: mount, main: main, sidebar: sidebar, header: header, panel: panel, button: button, input: input, toggle: toggle, chip: chip,
-      avatar: avatar, row: row, list: list, table: table, tabs: tabs, notification: notification, message: message, hero: hero, read: read, texture: texture, step: step, world: world,
+      avatar: avatar, row: row, list: list, table: table, tabs: tabs, notification: notification, message: message, hero: hero, read: read, texture: texture, step: step, world: world, reveal: reveal, isolate: isolate, follow: follow, hold: hold,
       cursor: cursor, type: type, drag: drag, scroll: scroll, shimmer: shimmer, terminal: terminal, check: check, finish: finish, audit: audit, render: render,
     };
   }

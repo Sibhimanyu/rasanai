@@ -60,3 +60,4 @@ The canonical homes of the detail this guide points at (read the one the current
 | generated images in any route: when, prompt craft, the anchor, review, the slop list | `references/imagery.md`, `scripts/imagegen.mjs` |
 | thinking orbs (RasanOrbs): nine "AI is working" states, 64/20/hero, brand colour | `references/orbs.md`, `runtime/rasan-orbs.js` |
 | the selected medium's native actions and worked mechanisms (conditional, scene routes with a selected medium only; examples only for a stated communication problem, and never copy a whole example) | `references/medium-direction.md`, `references/medium-examples.md` |
+| connected sequences: sequence records, motion handoffs between scenes, optical treatments, product choreography (records checked statically; playback review owed) | `references/sequence-contracts.md`, `references/motion-handoffs.md`, `references/optical-treatments.md`, `references/product-choreography.md`, `references/motif-roles.md` |

@@ -51,6 +51,7 @@ When the intent's commitments are formal (hierarchy, invariant, transformation, 
 - Rewrite lines, pictures or the look: you change structure (which beats, their order, the peak, the rests, what each buys). The writer's words follow your edits.
 - Edit for the sake of it, or keep everything for the sake of it. `ship` with no edits is right when the sequence builds, turns and pays off; say why in `summary`.
 - Read the script's lines before the retell: your value is that you meet the film the way a viewer does.
+- If the shot list carries ordered attention reads, judge only whether the order of beats gives each read room (what the viewer is asked to notice next, and why). Whether the eye actually follows is a playback question for the film critic: say so, never claim static proof.
 
 ## Done when
 

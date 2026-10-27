@@ -67,7 +67,7 @@ export function projectTextRoles(copy, { roles = {} } = {}) {
     if (role === undefined || role === null) { role = "unassigned"; warnings.push(`${it.id}: no role given; treated as protected`); }
     else if (!TEXT_ROLES.includes(role)) { errors.push(err(E.stale_input, it.id, `unknown role "${role}" (${TEXT_ROLES.join("|")})`)); return; }
     const info = typeRt.scriptInfo(it.text);
-    const reads = arr(it.read).filter((r) => isObj(r) && num(r.start) && num(r.end) && r.end >= r.start).map((r) => ({ start: r.start, end: r.end }));
+    const reads = arr(it.read).filter((r) => isObj(r) && num(r.start) && num(r.end) && r.end >= r.start).map((r) => ({ start: r.start, end: r.end, ...(r.allow === "distort" ? { allow: "distort" } : {}) }));
     groups.push({
       id: it.id, role, protected: PROTECTED.has(role), expendable: role === "texture",
       logical: { text: it.text, lang: it.lang || null, dir: it.dir || (info.rtl ? "rtl" : "ltr"), reading_order: order, script: info },
@@ -94,6 +94,14 @@ export function fontIdentity(font) {
 }
 
 const overlaps = (a, b) => a.start < b.end && b.start < a.end;
+
+// Protected reading intervals as one list for the other lanes (optics protectedReads, attention protected_read, handoff holds).
+// roles = projectTextRoles() result -> [{ id, ref, group_id, role, interval:{start,end}, basis:"score" }]. Only protected groups; ids are stable (`read:<group>:<n>`).
+export function protectedReadsOf(roles) {
+  const out = [];
+  for (const g of arr(roles && roles.groups)) if (g.protected) arr(g.protected_read_intervals).forEach((r, i) => out.push({ id: `read:${g.id}:${i}`, ref: g.id, group_id: g.id, role: g.role, interval: { start: r.start, end: r.end }, basis: "score" }));
+  return out;
+}
 
 // ops = [{ id, op, group_id, granularity?, anchor_id?, region_id?, interval: {start,end}, read?: {start,end}, params? }]
 // roles = the projectTextRoles() result.  anchors = optional planAnchors() result (verifies anchor_id / region_id).  score = { duration } (optional).
@@ -146,6 +154,12 @@ export function planTextOps({ roles, font, ops = [], anchors = null, score = nul
       else if (isObj(iv) && num(iv.start) && reads.some((r) => overlaps(iv, r))) bad(E.material_deviation, `${o.op} overlaps a protected read interval of ${g.id}`);
     }
 
+    // distortion (additive): an op the caller marks `distorts` (crop, warp, scale past legibility) may not run inside a protected read unless that read says allow:"distort"
+    if (g.protected && o.distorts === true && !spec.fragmenting && isObj(iv) && num(iv.start) && num(iv.end)) {
+      const hit = reads.find((r) => overlaps(iv, r) && r.allow !== "distort");
+      if (hit) bad(E.material_deviation, `${o.op} is marked distorting and overlaps a protected read interval of ${g.id}`);
+    }
+
     // font and outline needs
     if (spec.outline) {
       if (fid.rights === "restricted") bad(E.capability_unavailable, "font rights are restricted: glyph outlines may not be extracted");
@@ -162,7 +176,7 @@ export function planTextOps({ roles, font, ops = [], anchors = null, score = nul
       role: g.role, granularity: gran, anchor_id: o.anchor_id || null, region_id: o.region_id || null, interval: isObj(iv) ? { start: iv.start, end: iv.end } : null,
       status: failed ? "unavailable" : state, mechanics: spec.mechanics, params: o.params || null,
       rendered: { kind: spec.outline ? "dom-fragments+svg-path" : "dom-fragments", granularity: gran },
-      logical_text_unchanged: true, final_reading_order: g.logical.reading_order, read_intervals: reads,
+      distorts: o.distorts === true, logical_text_unchanged: true, final_reading_order: g.logical.reading_order, read_intervals: reads,
     });
     (byGroup[g.id] = byGroup[g.id] || []).push(out);
     planned.push(out);

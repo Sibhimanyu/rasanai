@@ -116,6 +116,7 @@ Read `references/temporal-review.md`. Observe first, compare second:
 4. **Quiet is allowed.** A deliberate quiet film can be fulfilled with no raised motion ratio; a retained character across shots is not repetition by itself.
 5. **Say what you cannot do.** No image or playback capability: report it in `limitations` and set `reviewer.vision: false`; the Director routes the review to an authorized reviewer or the user. Never claim machine originality detection.
 6. **Repair scope.** A local execution failure gets a local fix with a `verify` line. If the concept itself is wrong, set `repair_scope: "concept"` and stop polishing; the Director takes it to the existing stage with consent.
+7. **Ordered attention** (shots with `order`/`target_ref` reads): review it in playback, not from stills or from a clean `reads.mjs`/`evaluateTemporal` result, which only flag timing conflicts, missing targets and stale bindings. Use `blind-review.attentionPacket`: say what the eye met first, what moved it on and what you could read, then compare with the authored reads (`compareAttention`). Check the protected reads were readable for as long as their content needed. No playback: `not_assessable`, never a pass.
 
 ## Reads: four scored questions (subjective)
 
